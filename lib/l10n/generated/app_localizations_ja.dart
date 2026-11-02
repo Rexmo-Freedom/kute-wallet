@@ -10157,10 +10157,19 @@ class AppLocalizationsJa extends AppLocalizations {
   String get barNeedWait => 'One moment…';
 
   @override
-  String get searchPredictionsOrAskSal => '予測を検索、またはSalに質問';
+  String get searchPredictionsOrManageAi => '予測を検索、またはAIで管理';
 
   @override
-  String get searchInvestmentsOrAskSal => '投資を検索、またはSalに質問';
+  String get searchInvestmentsOrManageAi => '投資を検索、またはAIで管理';
+
+  @override
+  String get searchOrManageAi => '検索、またはAIで管理';
+
+  @override
+  String get connectOwnAiTitle => '自分のAIを接続';
+
+  @override
+  String get connectOwnAiSubtitle => 'Claude、ChatGPT、Grokにウォレットを管理させましょう';
 
   @override
   String get searchOrAskSalShort => '検索、またはSalに質問';
@@ -10883,9 +10892,6 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get investmentsAdd => '追加';
-
-  @override
   String get activityOnItsWay => '処理中';
 
   @override
@@ -11430,7 +11436,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get sendDollarsCaption => '\$ · stocks · ₿';
 
   @override
-  String get connectAiAction => 'Manage with AI';
+  String get buyDollarsAction => 'ドルを購入';
 
   @override
   String get passkeyPrfUnsupportedTitle =>

@@ -10519,10 +10519,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get barNeedWait => 'One moment…';
 
   @override
-  String get searchPredictionsOrAskSal => 'Search predictions or ask Sal';
+  String get searchPredictionsOrManageAi =>
+      'Search predictions or manage with AI';
 
   @override
-  String get searchInvestmentsOrAskSal => 'Search investments or ask Sal';
+  String get searchInvestmentsOrManageAi =>
+      'Search investments or manage with AI';
+
+  @override
+  String get searchOrManageAi => 'Search or manage with AI';
+
+  @override
+  String get connectOwnAiTitle => 'Connect your own AI';
+
+  @override
+  String get connectOwnAiSubtitle =>
+      'Let Claude, ChatGPT or Grok manage your wallet';
 
   @override
   String get searchOrAskSalShort => 'Search or ask Sal';
@@ -11257,9 +11269,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get investmentsAdd => 'Add';
-
-  @override
   String get activityOnItsWay => 'On its way';
 
   @override
@@ -11808,7 +11817,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sendDollarsCaption => '\$ · stocks · ₿';
 
   @override
-  String get connectAiAction => 'Manage with AI';
+  String get buyDollarsAction => 'Buy dollars';
 
   @override
   String get passkeyPrfUnsupportedTitle =>

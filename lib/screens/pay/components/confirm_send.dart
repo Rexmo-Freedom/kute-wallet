@@ -5333,7 +5333,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
           child: KuteBarContextScope(
             active: _step == _kReviewPage,
             barContext: KuteBarContext(
-              label: context.l10n.searchOrAskSalShort,
+              label: context.l10n.searchOrManageAi,
               source: 'send_review',
               advisorContext: const AdvisorContext(surface: 'send_review'),
             ),

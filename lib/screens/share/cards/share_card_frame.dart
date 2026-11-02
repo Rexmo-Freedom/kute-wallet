@@ -538,7 +538,12 @@ class ShareCardFrame extends StatelessWidget {
         if (graphicFills) ...[
           if (hero != null) ...[
             // Under Sal's band the band itself is the air.
-            SizedBox(height: salBand ? 8 : identity != null ? 16 : 26),
+            SizedBox(
+                height: salBand
+                    ? 8
+                    : identity != null
+                        ? 16
+                        : 26),
             hero,
           ],
           Expanded(

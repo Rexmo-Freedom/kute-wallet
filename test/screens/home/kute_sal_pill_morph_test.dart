@@ -1,6 +1,7 @@
 // The Sal pill changes what it says with the primary button's morph
 // (founder, 1 November 2026; kute_morph_label.dart): on the Dollars tab
-// "Search investments or ask Sal" ↔ "Search predictions or ask Sal". The
+// "Search investments or manage with AI" ↔ "Search predictions or manage
+// with AI". The
 // old words slide up and out over 200 ms while the new ones rise from
 // below on the chip spring, frame for frame as the button's words do; the
 // width heads straight for the new words on the spring (the leaving ones
@@ -20,8 +21,8 @@ import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_morph_label.dart';
 import 'package:kute/theme/app_theme.dart';
 
-const _investing = 'Search investments or ask Sal';
-const _predictions = 'Search predictions or ask Sal';
+const _investing = 'Search investments or manage with AI';
+const _predictions = 'Search predictions or manage with AI';
 // The test font draws every glyph a square, so the width checks use
 // labels that fit the 390 px screen.
 const _short = 'Ask Sal';

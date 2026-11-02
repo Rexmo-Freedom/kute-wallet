@@ -115,7 +115,7 @@ void main() {
 
     await _push(tester, _page(), name: 'settings');
     expect(_up(tester), isTrue);
-    expect(find.text('Search or ask Sal'), findsOneWidget);
+    expect(find.text('Search or manage with AI'), findsOneWidget);
 
     _nav(tester).pop();
     await tester.pumpAndSettle();
@@ -265,7 +265,7 @@ void main() {
         context: _navKey.currentContext!,
         builder: (_) => const SizedBox(height: 300, child: Text('Slip')));
     await tester.pumpAndSettle();
-    expect(find.text('Search or ask Sal'), findsOneWidget);
+    expect(find.text('Search or manage with AI'), findsOneWidget);
     expect(find.text('Share with your friends'), findsNothing);
 
     _nav(tester).pop();
@@ -280,7 +280,7 @@ void main() {
     addTearDown(() => kuteShellMounted.value = false);
     final container = await _pump(tester);
     // On the tab root the one pill is the default.
-    expect(find.text('Search or ask Sal'), findsOneWidget);
+    expect(find.text('Search or manage with AI'), findsOneWidget);
 
     await _push(tester, _page(barContext: _market), name: 'market');
     expect(find.text('Share with your friends'), findsOneWidget);
@@ -291,7 +291,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(container.read(kuteBarContextProvider), isEmpty);
     expect(find.text('Share with your friends'), findsNothing);
-    expect(find.text('Search or ask Sal'), findsOneWidget);
+    expect(find.text('Search or manage with AI'), findsOneWidget);
     expect(find.byType(KuteSalPill), findsOneWidget);
     expect(_up(tester), isTrue);
     // Back at the foot: no lift kept from the popped page.

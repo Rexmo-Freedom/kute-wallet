@@ -319,8 +319,9 @@ void main() {
   });
 
   testWidgets(
-      'the Investments money verbs are one compact row, Add and Send, and '
-      'the dock is search alone; Add opens the Dollars receive screen',
+      'the Investments money verbs are one compact row, Buy dollars, '
+      'Portfolio, Receive and Send, and the dock is search alone; Receive '
+      'opens the Dollars receive screen, Buy dollars the Move sheet',
       (tester) async {
     final events = <(String, Map<String, Object>?)>[];
     TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
@@ -328,6 +329,9 @@ void main() {
     var receiveOpened = 0;
     UsdAccountActionBar.debugReceiveOpener = (_) => receiveOpened++;
     addTearDown(() => UsdAccountActionBar.debugReceiveOpener = null);
+    var buyOpened = 0;
+    UsdAccountActionBar.debugBuyDollarsOpener = (_) => buyOpened++;
+    addTearDown(() => UsdAccountActionBar.debugBuyDollarsOpener = null);
     await _pump(
         tester,
         const Column(mainAxisSize: MainAxisSize.min, children: [
@@ -344,41 +348,52 @@ void main() {
     expect(find.byKey(const ValueKey('dock-search-pill')), findsNothing);
     expect(find.byKey(const ValueKey('dock-bar-room')), findsOneWidget);
     expect(find.byType(KuteDogMagnifier), findsNothing);
-    // The row: money in on the left, the Portfolio in the middle
-    // (founder, 31 October 2026), money out on the right, with the
-    // Bitcoin dock's arrows and action keys; Investments says Add and
-    // Send (dollars can leave as a coin too, so never "To Bitcoin").
+    // The row: Buy dollars first, the Portfolio, then Receive and Send
+    // with the Bitcoin dock's arrows and action keys (founder, 2 November
+    // 2026: "Send and Receive, not Add and Send"; "Buy dollars" in place
+    // of Manage with AI).
     final actions = UsdAccountActionBar.moneyActions(
         tester.element(find.byType(UsdAccountActionRow)));
-    // "Manage with AI" leads the row (founder, 1 November 2026; Soon).
     expect(actions.map((a) => a.label),
-        ['Manage with AI', 'Portfolio', 'Add', 'Send']);
+        ['Buy dollars', 'Portfolio', 'Receive', 'Send']);
     expect(actions.map((a) => a.trackingId),
-        ['manage_with_ai', 'portfolio', 'receive', 'send']);
+        ['buy_dollars', 'portfolio', 'receive', 'send']);
     expect(actions.map((a) => a.icon), [
-      Icons.auto_awesome_rounded,
+      Icons.attach_money_rounded,
       InvestmentsTab.positions.icon,
       Icons.south_west_rounded,
       Icons.north_east_rounded
     ]);
+    expect(actions.map((a) => a.solid), everyElement(isFalse));
     expect(actions.map((a) => a.onTap), everyElement(isNotNull));
-    expect(find.text('Add'), findsOneWidget);
+    expect(find.text('Receive'), findsOneWidget);
     expect(find.text('Send'), findsOneWidget);
-    expect(find.text('Receive'), findsNothing);
+    expect(find.text('Add'), findsNothing);
+    expect(find.text('Manage with AI'), findsNothing);
     expect(find.text('Deposit'), findsNothing);
     expect(find.text('Withdraw'), findsNothing);
 
-    await tester.tap(find.text('Add'));
+    await tester.tap(find.text('Receive'));
     await tester.pump();
     expect(receiveOpened, 1);
     expect(events.where((e) => e.$1 == 'quick_action_tapped').single.$2,
         {'action': 'receive', 'source': 'usd'});
     expect(TrackingService.takeEntrySource('usd_receive'), 'usd_dock');
+
+    // Buy dollars: the Move sheet locked to Dollars (bitcoin into
+    // dollars), its own action key and entry source.
+    events.clear();
+    await tester.tap(find.text('Buy dollars'));
+    await tester.pump();
+    expect(buyOpened, 1);
+    expect(events.where((e) => e.$1 == 'quick_action_tapped').single.$2,
+        {'action': 'buy_dollars', 'source': 'usd'});
+    expect(TrackingService.takeEntrySource('move'), 'usd_buy_dollars');
     expect(tester.takeException(), isNull);
   });
 
   testWidgets(
-      'the Investments row\'s Add opens the Dollars receive as a '
+      'the Investments row\'s Receive opens the Dollars receive as a '
       'bottom sheet over the screen, not a route push', (tester) async {
     ReceiveSheets.debugUsdBody = (_) => const Text('usd receive body');
     addTearDown(() => ReceiveSheets.debugUsdBody = null);
@@ -393,7 +408,7 @@ void main() {
         },
       ),
     ]);
-    await tester.tap(find.text('Add'));
+    await tester.tap(find.text('Receive'));
     await tester.pumpAndSettle();
     expect(pushed, isEmpty);
     expect(find.text('usd receive body'), findsOneWidget);

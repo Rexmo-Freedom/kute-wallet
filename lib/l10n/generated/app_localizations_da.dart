@@ -10558,10 +10558,22 @@ class AppLocalizationsDa extends AppLocalizations {
   String get barNeedWait => 'One moment…';
 
   @override
-  String get searchPredictionsOrAskSal => 'Søg i forudsigelser eller spørg Sal';
+  String get searchPredictionsOrManageAi =>
+      'Søg forudsigelser eller styr med AI';
 
   @override
-  String get searchInvestmentsOrAskSal => 'Søg i investeringer eller spørg Sal';
+  String get searchInvestmentsOrManageAi =>
+      'Søg investeringer eller styr med AI';
+
+  @override
+  String get searchOrManageAi => 'Søg eller styr med AI';
+
+  @override
+  String get connectOwnAiTitle => 'Forbind din egen AI';
+
+  @override
+  String get connectOwnAiSubtitle =>
+      'Lad Claude, ChatGPT eller Grok styre din tegnebog';
 
   @override
   String get searchOrAskSalShort => 'Søg, eller spørg Sal';
@@ -11296,9 +11308,6 @@ class AppLocalizationsDa extends AppLocalizations {
   }
 
   @override
-  String get investmentsAdd => 'Tilføj';
-
-  @override
   String get activityOnItsWay => 'På vej';
 
   @override
@@ -11851,7 +11860,7 @@ class AppLocalizationsDa extends AppLocalizations {
   String get sendDollarsCaption => '\$ · stocks · ₿';
 
   @override
-  String get connectAiAction => 'Manage with AI';
+  String get buyDollarsAction => 'Køb dollars';
 
   @override
   String get passkeyPrfUnsupportedTitle =>

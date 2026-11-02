@@ -905,7 +905,7 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
                 child: KuteBarContextScope(
                   active: _step == _kReviewStep,
                   barContext: KuteBarContext(
-                    label: context.l10n.searchOrAskSalShort,
+                    label: context.l10n.searchOrManageAi,
                     source: 'send_review',
                     advisorContext: const AdvisorContext(surface: 'send_review'),
                   ),

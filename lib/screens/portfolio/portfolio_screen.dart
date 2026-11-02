@@ -123,7 +123,7 @@ class PortfolioScreen extends ConsumerWidget {
                       source: 'portfolio',
                     )
                   : KuteBarContext(
-                      label: context.l10n.searchOrAskSalShort,
+                      label: context.l10n.searchOrManageAi,
                       source: 'portfolio',
                     ),
               // The bar floats over the list (nothing reserves room); each

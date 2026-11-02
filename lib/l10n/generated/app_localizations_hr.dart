@@ -10579,10 +10579,22 @@ class AppLocalizationsHr extends AppLocalizations {
   String get barNeedWait => 'One moment…';
 
   @override
-  String get searchPredictionsOrAskSal => 'Pretraži predviđanja ili pitaj Sala';
+  String get searchPredictionsOrManageAi =>
+      'Pretraži predviđanja ili upravljaj s AI';
 
   @override
-  String get searchInvestmentsOrAskSal => 'Pretraži ulaganja ili pitaj Sala';
+  String get searchInvestmentsOrManageAi =>
+      'Pretraži ulaganja ili upravljaj s AI';
+
+  @override
+  String get searchOrManageAi => 'Pretraži ili upravljaj s AI';
+
+  @override
+  String get connectOwnAiTitle => 'Poveži vlastiti AI';
+
+  @override
+  String get connectOwnAiSubtitle =>
+      'Neka Claude, ChatGPT ili Grok upravljaju tvojim novčanikom';
 
   @override
   String get searchOrAskSalShort => 'Pretraži ili pitaj Sala';
@@ -11323,9 +11335,6 @@ class AppLocalizationsHr extends AppLocalizations {
   }
 
   @override
-  String get investmentsAdd => 'Dodaj';
-
-  @override
   String get activityOnItsWay => 'Na putu';
 
   @override
@@ -11880,7 +11889,7 @@ class AppLocalizationsHr extends AppLocalizations {
   String get sendDollarsCaption => '\$ · stocks · ₿';
 
   @override
-  String get connectAiAction => 'Manage with AI';
+  String get buyDollarsAction => 'Kupi dolare';
 
   @override
   String get passkeyPrfUnsupportedTitle =>

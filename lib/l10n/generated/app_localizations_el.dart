@@ -10632,10 +10632,22 @@ class AppLocalizationsEl extends AppLocalizations {
   String get barNeedWait => 'One moment…';
 
   @override
-  String get searchPredictionsOrAskSal => 'Αναζήτησε προβλέψεις ή ρώτα τον Sal';
+  String get searchPredictionsOrManageAi =>
+      'Βρες προβλέψεις ή διαχειρίσου με AI';
 
   @override
-  String get searchInvestmentsOrAskSal => 'Αναζήτησε επενδύσεις ή ρώτα τον Sal';
+  String get searchInvestmentsOrManageAi =>
+      'Βρες επενδύσεις ή διαχειρίσου με AI';
+
+  @override
+  String get searchOrManageAi => 'Αναζήτησε ή διαχειρίσου με AI';
+
+  @override
+  String get connectOwnAiTitle => 'Σύνδεσε το δικό σου AI';
+
+  @override
+  String get connectOwnAiSubtitle =>
+      'Άφησε το Claude, το ChatGPT ή το Grok να διαχειρίζεται το πορτοφόλι σου';
 
   @override
   String get searchOrAskSalShort => 'Αναζήτησε ή ρώτα τον Sal';
@@ -11373,9 +11385,6 @@ class AppLocalizationsEl extends AppLocalizations {
   }
 
   @override
-  String get investmentsAdd => 'Προσθήκη';
-
-  @override
   String get activityOnItsWay => 'Καθ\' οδόν';
 
   @override
@@ -11934,7 +11943,7 @@ class AppLocalizationsEl extends AppLocalizations {
   String get sendDollarsCaption => '\$ · stocks · ₿';
 
   @override
-  String get connectAiAction => 'Manage with AI';
+  String get buyDollarsAction => 'Αγορά δολαρίων';
 
   @override
   String get passkeyPrfUnsupportedTitle =>

@@ -6861,13 +6861,25 @@
   "@barNeedWait": {
     "description": "Disabled primary button while something it needs is still loading."
   },
-  "searchPredictionsOrAskSal": "Search predictions or ask Sal",
-  "@searchPredictionsOrAskSal": {
-    "description": "The floating bar on the Dollars tab while Predictions is the picked half."
+  "searchPredictionsOrManageAi": "Search predictions or manage with AI",
+  "@searchPredictionsOrManageAi": {
+    "description": "The floating bar on the Dollars tab while Predictions is the picked half. One line on a 375 pt phone."
   },
-  "searchInvestmentsOrAskSal": "Search investments or ask Sal",
-  "@searchInvestmentsOrAskSal": {
-    "description": "The floating bar on the Dollars tab while Investing is the picked half."
+  "searchInvestmentsOrManageAi": "Search investments or manage with AI",
+  "@searchInvestmentsOrManageAi": {
+    "description": "The floating bar on the Dollars tab while Investing is the picked half. One line on a 375 pt phone."
+  },
+  "searchOrManageAi": "Search or manage with AI",
+  "@searchOrManageAi": {
+    "description": "The floating bar's default label (over the tabs, pushed pages, the Portfolio, a send review). One line on a 375 pt phone."
+  },
+  "connectOwnAiTitle": "Connect your own AI",
+  "@connectOwnAiTitle": {
+    "description": "Title of the big card on the search sheet's home: connect the wallet to the person's own AI assistant (not live yet; opens the Unavailable sheet)."
+  },
+  "connectOwnAiSubtitle": "Let Claude, ChatGPT or Grok manage your wallet",
+  "@connectOwnAiSubtitle": {
+    "description": "Line under Connect your own AI on the search sheet's home. Claude, ChatGPT and Grok are product names, never translated."
   },
   "searchOrAskSalShort": "Search or ask Sal",
   "@searchOrAskSalShort": {
@@ -8056,10 +8068,6 @@
       }
     }
   },
-  "investmentsAdd": "Add",
-  "@investmentsAdd": {
-    "description": "Investments, the action row under the balance: moves money into Dollars (from Bitcoin or another wallet). Replaces 'Deposit'."
-  },
   "activityOnItsWay": "On its way",
   "@activityOnItsWay": {
     "description": "Activity row status while money moves between the person's own places (an Orchestra move, a venue cash pull) and has not landed yet. Replaces 'Pending' on those rows."
@@ -8759,9 +8767,9 @@
   "@sendDollarsCaption": {
     "description": "Dollars action row: the quiet line under Send naming what Send does: dollars, a stock pick, or to Bitcoin. Keep it very short (fits under a 52 px square)."
   },
-  "connectAiAction": "Manage with AI",
-  "@connectAiAction": {
-    "description": "Dollars action row: an AI that manages the money for you. Not live yet (shown with Soon)."
+  "buyDollarsAction": "Buy dollars",
+  "@buyDollarsAction": {
+    "description": "The Dollars tab's first action under the balance: converts Bitcoin into Dollars (the Move sheet from the spending bitcoin). Short: it sits under a square button."
   },
   "passkeyPrfUnsupportedTitle": "This password manager can't hold your Kute wallet",
   "@passkeyPrfUnsupportedTitle": {

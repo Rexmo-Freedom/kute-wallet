@@ -10584,12 +10584,22 @@ class AppLocalizationsHu extends AppLocalizations {
   String get barNeedWait => 'One moment…';
 
   @override
-  String get searchPredictionsOrAskSal =>
-      'Keress előrejelzéseket, vagy kérdezd Salt';
+  String get searchPredictionsOrManageAi =>
+      'Keress előrejelzést, vagy kezeld AI-jal';
 
   @override
-  String get searchInvestmentsOrAskSal =>
-      'Keress befektetéseket, vagy kérdezd Salt';
+  String get searchInvestmentsOrManageAi =>
+      'Keress befektetést, vagy kezeld AI-jal';
+
+  @override
+  String get searchOrManageAi => 'Keress, vagy kezeld AI-jal';
+
+  @override
+  String get connectOwnAiTitle => 'Kapcsold be a saját AI-odat';
+
+  @override
+  String get connectOwnAiSubtitle =>
+      'Hagyd, hogy a Claude, a ChatGPT vagy a Grok kezelje a tárcádat';
 
   @override
   String get searchOrAskSalShort => 'Keress, vagy kérdezd Salt';
@@ -11326,9 +11336,6 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
-  String get investmentsAdd => 'Hozzáadás';
-
-  @override
   String get activityOnItsWay => 'Úton';
 
   @override
@@ -11883,7 +11890,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get sendDollarsCaption => '\$ · stocks · ₿';
 
   @override
-  String get connectAiAction => 'Manage with AI';
+  String get buyDollarsAction => 'Dollárvásárlás';
 
   @override
   String get passkeyPrfUnsupportedTitle =>

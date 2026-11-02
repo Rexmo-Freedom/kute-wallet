@@ -10554,10 +10554,22 @@ class AppLocalizationsSv extends AppLocalizations {
   String get barNeedWait => 'One moment…';
 
   @override
-  String get searchPredictionsOrAskSal => 'Sök prognoser eller fråga Sal';
+  String get searchPredictionsOrManageAi =>
+      'Sök prognoser eller hantera med AI';
 
   @override
-  String get searchInvestmentsOrAskSal => 'Sök investeringar eller fråga Sal';
+  String get searchInvestmentsOrManageAi =>
+      'Sök investeringar eller hantera med AI';
+
+  @override
+  String get searchOrManageAi => 'Sök eller hantera med AI';
+
+  @override
+  String get connectOwnAiTitle => 'Anslut din egen AI';
+
+  @override
+  String get connectOwnAiSubtitle =>
+      'Låt Claude, ChatGPT eller Grok hantera din plånbok';
 
   @override
   String get searchOrAskSalShort => 'Sök eller fråga Sal';
@@ -11294,9 +11306,6 @@ class AppLocalizationsSv extends AppLocalizations {
   }
 
   @override
-  String get investmentsAdd => 'Lägg till';
-
-  @override
   String get activityOnItsWay => 'På väg';
 
   @override
@@ -11847,7 +11856,7 @@ class AppLocalizationsSv extends AppLocalizations {
   String get sendDollarsCaption => '\$ · stocks · ₿';
 
   @override
-  String get connectAiAction => 'Manage with AI';
+  String get buyDollarsAction => 'Köp dollar';
 
   @override
   String get passkeyPrfUnsupportedTitle =>

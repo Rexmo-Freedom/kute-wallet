@@ -152,8 +152,8 @@ import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/shared/stale_shimmer.dart';
 import 'package:kute/screens/usd/investments_category_sheet.dart'
     show investmentsCategoryLabel, showInvestmentsCategorySheet;
-import 'package:kute/screens/shared/capability_unavailable_sheet.dart'
-    show showCapabilityUnavailableSheet;
+import 'package:kute/screens/home/components/deposit_sheet.dart'
+    show MoveLockedSide, showDepositSheet;
 import 'package:kute/screens/usd/usd_withdraw_screen.dart'
     show showUsdWithdrawSheet;
 import 'package:kute/services/tracking_service.dart';
@@ -567,8 +567,9 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
 
     final c = context.colors;
     // THE BAR'S LABEL FOLLOWS THE PICKED HALF (founder, 31 October 2026):
-    // "Search predictions or ask Sal" with Predictions, "Search
-    // investments or ask Sal" with Investing, scoped to that venue as the
+    // "Search predictions or manage with AI" with Predictions, "Search
+    // investments or manage with AI" with Investing (founder, 2 November
+    // 2026), scoped to that venue as the
     // sheet already is (searchTarget); the pill morphs on the chip spring
     // as the pill switches. Held only while this branch is on screen (the
     // shell parks the other tab's branch with its tickers off).
@@ -577,9 +578,9 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
       active: TickerMode.of(context),
       barContext: KuteBarContext(
         label: switch (selected) {
-          InvestmentsTab.predictions => l10n.searchPredictionsOrAskSal,
-          InvestmentsTab.investing => l10n.searchInvestmentsOrAskSal,
-          InvestmentsTab.positions => l10n.searchOrAskSalShort,
+          InvestmentsTab.predictions => l10n.searchPredictionsOrManageAi,
+          InvestmentsTab.investing => l10n.searchInvestmentsOrManageAi,
+          InvestmentsTab.positions => l10n.searchOrManageAi,
         },
         category: barTarget.category,
         searchHint: switch (selected) {
@@ -1039,6 +1040,25 @@ class UsdAccountActionBar extends ConsumerWidget {
 
   final ValueChanged<double>? onHeightChanged;
 
+  /// Test seam: what Buy dollars opens. Null opens the Move sheet locked
+  /// to Dollars ([showDepositSheet]).
+  @visibleForTesting
+  static void Function(BuildContext context)? debugBuyDollarsOpener;
+
+  /// Where Buy dollars says it came from (the Move sheet's entry source).
+  static const String buyDollarsSource = 'usd_buy_dollars';
+
+  /// The row's Buy dollars: bitcoin into Dollars, the Move sheet from the
+  /// spending bitcoin locked to Dollars, exactly as the Receive sheet's
+  /// "From your Bitcoin" row opens it.
+  static void buyDollars(BuildContext context) {
+    TrackingService.markEntrySource('move', buyDollarsSource);
+    final open = debugBuyDollarsOpener;
+    if (open != null) return open(context);
+    unawaited(
+        showDepositSheet(context, lockedSide: MoveLockedSide.depositToUsd));
+  }
+
   /// Test seam: what Receive opens. Null opens the Dollars receive sheet
   /// ([showUsdReceiveSheet]); a test swaps in a recorder so the dock can
   /// be driven on its own.
@@ -1107,32 +1127,26 @@ class UsdAccountActionBar extends ConsumerWidget {
     );
   }
 
-  /// The action row under the balance ([UsdAccountActionRow]): the two
-  /// money verbs and the Portfolio, three equal buttons (founder, 31
-  /// October 2026). The action keys stay `receive` and `send` so the
-  /// events read as before; Portfolio sends `portfolio`, the key the Home
-  /// card's Portfolio button already sends. Add is money into Dollars
-  /// (from Bitcoin or another wallet); Send is Dollars out, to Bitcoin or
-  /// sent on as a coin to another wallet, so it is not "To Bitcoin"
-  /// (founder, 31 October 2026). Portfolio pushes the Portfolio screen
-  /// (portfolio_screen.dart) on the section it was last left on.
+  /// The action row under the balance ([UsdAccountActionRow]): Buy
+  /// dollars · Portfolio · Receive · Send (founder, 2 November 2026: "Buy
+  /// dollars" in place of Manage with AI, "Send and Receive, not Add and
+  /// Send"). Buy dollars sends `buy_dollars` and opens the Move sheet from
+  /// the spending bitcoin locked to Dollars; Portfolio sends `portfolio`,
+  /// the key the Home card's Portfolio button already sends, and pushes
+  /// the Portfolio screen on the section it was last left on. Receive and
+  /// Send keep the keys `receive` and `send`, so the events read as
+  /// before: Receive is money into Dollars (from Bitcoin or another
+  /// wallet), Send is Dollars out, to Bitcoin or sent on as a coin to
+  /// another wallet.
   static List<KuteDockAction> moneyActions(BuildContext context) => [
-        // Manage with AI: an AI that runs the money for you. First, in the
-        // same light square as the others with its sparkle (founder, 1
-        // November 2026: solid was too strong). Not live yet: it is
-        // tappable and opens the shared "Unavailable" sheet, no Soon mark.
+        // First, in the same light square as the others (founder, 1
+        // November 2026: solid was too strong).
         KuteDockAction(
-          icon: Icons.auto_awesome_rounded,
-          label: context.l10n.connectAiAction,
-          trackingId: 'manage_with_ai',
-          onTap: () => unawaited(showCapabilityUnavailableSheet(
-            context,
-            message: context.l10n.capabilityUnavailable,
-            surface: 'manage_with_ai',
-          )),
+          icon: Icons.attach_money_rounded,
+          label: context.l10n.buyDollarsAction,
+          trackingId: 'buy_dollars',
+          onTap: () => buyDollars(context),
         ),
-        // Portfolio right after Manage with AI, then Add and Send
-        // (founder, 1 November 2026).
         KuteDockAction(
           icon: InvestmentsTab.positions.icon,
           label: context.l10n.walletPortfolioAction,
@@ -1141,7 +1155,7 @@ class UsdAccountActionBar extends ConsumerWidget {
         ),
         KuteDockAction(
           icon: Icons.south_west_rounded,
-          label: context.l10n.investmentsAdd,
+          label: context.l10n.receive,
           trackingId: 'receive',
           onTap: () => receive(context),
         ),
@@ -1149,9 +1163,9 @@ class UsdAccountActionBar extends ConsumerWidget {
           icon: Icons.north_east_rounded,
           label: context.l10n.send,
           trackingId: 'send',
-          // The Add sheet, turned around (usd_withdraw_screen.dart): "To
-          // your wallet" over the coins; a coin opens the dollar send,
-          // whose `usd_send_opened` fires from its initState.
+          // The Receive sheet, turned around (usd_withdraw_screen.dart):
+          // "To your wallet" over the coins; a coin opens the dollar
+          // send, whose `usd_send_opened` fires from its initState.
           onTap: () => withdraw(context),
         ),
       ];
@@ -1167,8 +1181,8 @@ class UsdAccountActionBar extends ConsumerWidget {
       );
 }
 
-/// The Dollars compact row under the balance: Add · Portfolio · Send, the
-/// Bitcoin tab's squared buttons, each once.
+/// The Dollars compact row under the balance: Buy dollars · Portfolio ·
+/// Receive · Send, the Bitcoin tab's squared buttons, each once.
 class UsdAccountActionRow extends StatelessWidget {
   const UsdAccountActionRow({super.key});
 

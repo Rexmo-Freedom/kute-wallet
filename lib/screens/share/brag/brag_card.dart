@@ -53,7 +53,9 @@ const double kBragCardPixelRatio = kShareCardPixelRatio;
 /// The card's colour by the result's tone: green for a win, red for a
 /// loss, navy when flat.
 ShareCardPalette bragPalette(BragData data) => switch (data.tone) {
-      BragTone.bigWin || BragTone.win || BragTone.smallWin =>
+      BragTone.bigWin ||
+      BragTone.win ||
+      BragTone.smallWin =>
         ShareCardPalette.win,
       BragTone.loss => ShareCardPalette.loss,
       BragTone.flat => ShareCardPalette.flat,

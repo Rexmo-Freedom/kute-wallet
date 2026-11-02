@@ -260,7 +260,7 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
             source: kUsdWithdrawSheetSource,
           )
         : KuteBarContext(
-            label: l10n.searchOrAskSalShort,
+            label: l10n.searchOrManageAi,
             source: kUsdWithdrawSheetSource,
           );
     return KuteBarContextScope(

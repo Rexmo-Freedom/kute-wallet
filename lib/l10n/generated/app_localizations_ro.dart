@@ -10614,12 +10614,22 @@ class AppLocalizationsRo extends AppLocalizations {
   String get barNeedWait => 'One moment…';
 
   @override
-  String get searchPredictionsOrAskSal =>
-      'Caută predicții sau întreabă-l pe Sal';
+  String get searchPredictionsOrManageAi =>
+      'Caută predicții sau gestionează cu AI';
 
   @override
-  String get searchInvestmentsOrAskSal =>
-      'Caută investiții sau întreabă-l pe Sal';
+  String get searchInvestmentsOrManageAi =>
+      'Caută investiții sau gestionează cu AI';
+
+  @override
+  String get searchOrManageAi => 'Caută sau gestionează cu AI';
+
+  @override
+  String get connectOwnAiTitle => 'Conectează-ți propriul AI';
+
+  @override
+  String get connectOwnAiSubtitle =>
+      'Lasă Claude, ChatGPT sau Grok să-ți gestioneze portofelul';
 
   @override
   String get searchOrAskSalShort => 'Caută sau întreabă-l pe Sal';
@@ -11355,9 +11365,6 @@ class AppLocalizationsRo extends AppLocalizations {
   }
 
   @override
-  String get investmentsAdd => 'Adaugă';
-
-  @override
   String get activityOnItsWay => 'Pe drum';
 
   @override
@@ -11914,7 +11921,7 @@ class AppLocalizationsRo extends AppLocalizations {
   String get sendDollarsCaption => '\$ · stocks · ₿';
 
   @override
-  String get connectAiAction => 'Manage with AI';
+  String get buyDollarsAction => 'Cumpără dolari';
 
   @override
   String get passkeyPrfUnsupportedTitle =>

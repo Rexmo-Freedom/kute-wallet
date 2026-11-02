@@ -212,7 +212,7 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
     final KuteBarContext? top = stackTop != null && stackTop.current
         ? stackTop
         : over || kuteShellMounted.value
-            ? KuteBarContext(label: context.l10n.searchOrAskSalShort)
+            ? KuteBarContext(label: context.l10n.searchOrManageAi)
             : null;
     // While the pill has become the Sal sheet's composer the bar holds
     // its place as it was: the sheet's keyboard, the hidden contexts the

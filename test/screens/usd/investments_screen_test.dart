@@ -441,25 +441,26 @@ void main() {
     expect(tester.getTopLeft(row).dy,
         greaterThan(tester.getBottomLeft(find.byType(PoolBalanceHeader)).dy - 1));
     final actions = UsdAccountActionBar.moneyActions(tester.element(row));
-    // "Manage with AI" leads the row (founder, 1 November 2026; Soon).
+    // Buy dollars leads the row, then the Portfolio, Receive and Send
+    // (founder, 2 November 2026).
     expect(actions.map((a) => a.label), [
-      l10n.connectAiAction,
+      l10n.buyDollarsAction,
       l10n.walletPortfolioAction,
-      l10n.investmentsAdd,
+      l10n.receive,
       l10n.send
     ]);
     expect(actions.map((a) => a.trackingId),
-        ['manage_with_ai', 'portfolio', 'receive', 'send']);
+        ['buy_dollars', 'portfolio', 'receive', 'send']);
     expect(actions.map((a) => a.icon), [
-      Icons.auto_awesome_rounded,
+      Icons.attach_money_rounded,
       Icons.pie_chart_rounded,
       Icons.south_west_rounded,
       Icons.north_east_rounded
     ]);
-    expect(find.text(l10n.investmentsAdd), findsOneWidget);
+    expect(find.text(l10n.receive), findsOneWidget);
     expect(find.text(l10n.send), findsOneWidget);
     expect(find.text(l10n.walletPortfolioAction), findsOneWidget);
-    expect(find.text(l10n.receive, skipOffstage: false), findsNothing);
+    expect(find.text(l10n.buyDollarsAction), findsOneWidget);
     expect(tester.getTopLeft(find.byType(KutePillTabs).first).dy,
         greaterThan(tester.getBottomLeft(row).dy));
 
@@ -472,10 +473,10 @@ void main() {
     expect(find.byKey(const ValueKey('dock-search-pill')), findsNothing);
     expect(find.byKey(const ValueKey('dock-bar-room')), findsOneWidget);
 
-    // Add opens the Dollars receive screen, with the Bitcoin dock's
+    // Receive opens the Dollars receive screen, with the Bitcoin dock's
     // quick-action key under this surface and the dock as the receive
     // flow's entry source.
-    await tester.tap(find.text(l10n.investmentsAdd));
+    await tester.tap(find.text(l10n.receive));
     await tester.pump();
     expect(receiveOpened, 1);
     expect(events.where((e) => e.$1 == 'quick_action_tapped').single.$2,
@@ -527,7 +528,7 @@ void main() {
         findsNothing);
     final top = kuteBarTop(container.read(kuteBarContextProvider));
     expect(top, isNotNull);
-    expect(top!.label, l10n.searchOrAskSalShort);
+    expect(top!.label, l10n.searchOrManageAi);
     expect(top.source, 'portfolio');
     await closePortfolio(tester);
     expect(kuteBarTop(container.read(kuteBarContextProvider))?.source,

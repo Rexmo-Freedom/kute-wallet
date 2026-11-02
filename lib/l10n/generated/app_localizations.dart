@@ -18089,17 +18089,35 @@ abstract class AppLocalizations {
   /// **'One moment…'**
   String get barNeedWait;
 
-  /// The floating bar on the Dollars tab while Predictions is the picked half.
+  /// The floating bar on the Dollars tab while Predictions is the picked half. One line on a 375 pt phone.
   ///
   /// In en, this message translates to:
-  /// **'Search predictions or ask Sal'**
-  String get searchPredictionsOrAskSal;
+  /// **'Search predictions or manage with AI'**
+  String get searchPredictionsOrManageAi;
 
-  /// The floating bar on the Dollars tab while Investing is the picked half.
+  /// The floating bar on the Dollars tab while Investing is the picked half. One line on a 375 pt phone.
   ///
   /// In en, this message translates to:
-  /// **'Search investments or ask Sal'**
-  String get searchInvestmentsOrAskSal;
+  /// **'Search investments or manage with AI'**
+  String get searchInvestmentsOrManageAi;
+
+  /// The floating bar's default label (over the tabs, pushed pages, the Portfolio, a send review). One line on a 375 pt phone.
+  ///
+  /// In en, this message translates to:
+  /// **'Search or manage with AI'**
+  String get searchOrManageAi;
+
+  /// Title of the big card on the search sheet's home: connect the wallet to the person's own AI assistant (not live yet; opens the Unavailable sheet).
+  ///
+  /// In en, this message translates to:
+  /// **'Connect your own AI'**
+  String get connectOwnAiTitle;
+
+  /// Line under Connect your own AI on the search sheet's home. Claude, ChatGPT and Grok are product names, never translated.
+  ///
+  /// In en, this message translates to:
+  /// **'Let Claude, ChatGPT or Grok manage your wallet'**
+  String get connectOwnAiSubtitle;
 
   /// Tooltip and screen-reader label of the dock's square button (Sal holding a magnifying glass) when Sal is available, and the placeholder of the search sheet's field it opens. Short: it is the one door to both search and Ask Sal.
   ///
@@ -18980,12 +18998,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'entry {price}'**
   String portfolioRowEntry(String price);
-
-  /// Investments, the action row under the balance: moves money into Dollars (from Bitcoin or another wallet). Replaces 'Deposit'.
-  ///
-  /// In en, this message translates to:
-  /// **'Add'**
-  String get investmentsAdd;
 
   /// Activity row status while money moves between the person's own places (an Orchestra move, a venue cash pull) and has not landed yet. Replaces 'Pending' on those rows.
   ///
@@ -19915,11 +19927,11 @@ abstract class AppLocalizations {
   /// **'\$ · stocks · ₿'**
   String get sendDollarsCaption;
 
-  /// Dollars action row: an AI that manages the money for you. Not live yet (shown with Soon).
+  /// The Dollars tab's first action under the balance: converts Bitcoin into Dollars (the Move sheet from the spending bitcoin). Short: it sits under a square button.
   ///
   /// In en, this message translates to:
-  /// **'Manage with AI'**
-  String get connectAiAction;
+  /// **'Buy dollars'**
+  String get buyDollarsAction;
 
   /// Sheet title when the password manager the user picked for their passkey (e.g. a third-party one) cannot produce the key Kute derives the wallet from.
   ///

@@ -65,8 +65,9 @@ ShareCardPalette shareCardPalette(ShareCardData data) => switch (data) {
 ShareCardPose shareCardPose(ShareCardData data) => switch (data) {
       MoneyCardData() => ShareCardPose.carry,
       PredictionCardData() => ShareCardPose.think,
-      final InvestmentCardData d =>
-        (d.change ?? 0) > _kFlatChange ? ShareCardPose.smug : ShareCardPose.point,
+      final InvestmentCardData d => (d.change ?? 0) > _kFlatChange
+          ? ShareCardPose.smug
+          : ShareCardPose.point,
     };
 
 class ShareCard extends StatelessWidget {
