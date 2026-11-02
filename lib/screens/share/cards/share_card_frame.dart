@@ -146,9 +146,10 @@ class ShareCardPalette {
     salPlate: Color(0xFFD9730B),
   );
 
-  /// Dollars: green, white ink.
+  /// Dollars: the app's one green ([AppColors.marketUp]: receipts, the
+  /// coin, the badges), white ink.
   static const ShareCardPalette dollars = ShareCardPalette(
-    background: Color(0xFF0E8A4C),
+    background: AppColors.marketUp,
     ink: Color(0xFFFFFFFF),
     up: Color(0xFFFFFFFF),
     down: Color(0xFFFFFFFF),
@@ -179,9 +180,9 @@ class ShareCardPalette {
   /// A win to brag about: green, white ink.
   static const ShareCardPalette win = dollars;
 
-  /// A loss owned: red, white ink.
+  /// A loss owned: the app's one red ([AppColors.marketDown]), white ink.
   static const ShareCardPalette loss = ShareCardPalette(
-    background: Color(0xFFC0283A),
+    background: AppColors.marketDown,
     ink: Color(0xFFFFFFFF),
     up: Color(0xFFFFFFFF),
     down: Color(0xFFFFFFFF),
