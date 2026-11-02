@@ -1229,4 +1229,69 @@ void main() {
     expect(service.allows('polymarket.politics'), isFalse,
         reason: 'an unknown country is not advisory for a narrow gate');
   });
+
+  test(
+      'the once-a-minute refetch tells nobody when nothing changed; new '
+      'content, an expired policy or the public route answering anew does',
+      () async {
+    var trade = true;
+    var publicRevision = 1;
+    setup((_) => http.Response(jsonEncode(policy(trade: trade)), 200),
+        public: (_) => http.Response(
+            jsonEncode(publicPolicy(revision: publicRevision)), 200));
+    var notified = 0;
+    service.addListener(() => notified++);
+    expect(await service.refresh(), isTrue);
+    // The first policies (the public one is asked too while no session
+    // policy is on hand).
+    expect(notified, 2);
+    notified = 1;
+
+    // A minute later: the same answer with a later expiry. Every screen
+    // and provider watching the policy would rebuild for nothing (the
+    // Predictions list read itself again and swapped its rows).
+    for (var i = 0; i < 3; i++) {
+      now = now.add(const Duration(minutes: 1));
+      expect(await service.refresh(), isTrue);
+    }
+    expect(notified, 1);
+    expect(service.snapshot!.expiresAt, now.add(const Duration(minutes: 5)),
+        reason: 'the later expiry is still adopted');
+
+    // A decision changes: told.
+    trade = false;
+    now = now.add(const Duration(minutes: 1));
+    expect(await service.refresh(), isTrue);
+    expect(notified, 2);
+    expect(service.allows('hyperliquid.trade'), isFalse);
+
+    // The held policy expired before the refetch (the app was asleep):
+    // the same content answers differently from the grace it fell back
+    // to, so it is told.
+    now = now.add(const Duration(minutes: 10));
+    expect(service.snapshot, isNull);
+    notified = 0;
+    expect(await service.refresh(), isTrue);
+    expect(notified, greaterThan(0));
+
+    // A network change notifies, and its refetch (same content, new
+    // network) notifies again.
+    notified = 0;
+    await service.networkChanged();
+    expect(notified, 2);
+
+    // No session: the public route, silent while unchanged too.
+    session = null;
+    notified = 0;
+    now = now.add(const Duration(minutes: 1));
+    expect(await service.refresh(), isTrue);
+    expect(notified, 1);
+    now = now.add(const Duration(minutes: 1));
+    expect(await service.refresh(), isTrue);
+    expect(notified, 1);
+    publicRevision = 2;
+    now = now.add(const Duration(minutes: 1));
+    expect(await service.refresh(), isTrue);
+    expect(notified, 2);
+  });
 }
