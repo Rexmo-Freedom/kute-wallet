@@ -630,7 +630,12 @@ class _PnlVenues extends StatelessWidget {
             : 'Hyperliquid',
         data: perf,
         now: now,
-        pnlUsd: quiet.contains(v) ? null : pnlSeries(perf, now).values.last,
+        // The line's last point (pnlSeries ends on it), without laying
+        // the line.
+        pnlUsd: quiet.contains(v)
+            ? null
+            : perf.totalPnlUsd ??
+                (perf.points.isEmpty ? 0.0 : perf.points.last.pnlUsd),
         quiet: quiet.contains(v)
             ? _quietText(l10n, v, StatisticsScope.historic)
             : null,
@@ -1445,8 +1450,11 @@ class _StatTiles extends StatelessWidget {
 
 /// The current Predictions figures, rebuilt from the account's positions
 /// with their live prices (see [PortfolioPerformance.withLivePredictions]).
+/// Only the prices of the shares held are watched
+/// ([HeldPredictionPrices]): a tick of another market rebuilds nothing.
 PortfolioPerformance _withLivePredictions(
     WidgetRef ref, PortfolioPerformance data) {
-  final live = ref.watch(livePriceProvider.select((s) => s.prices));
-  return data.withLivePredictions(live);
+  final live = ref.watch(livePriceProvider
+      .select((s) => HeldPredictionPrices.of(data.predictions, s.prices)));
+  return data.withLivePredictions(live.prices);
 }

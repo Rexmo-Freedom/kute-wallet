@@ -575,6 +575,45 @@ BalanceSeries pnlSeries(PortfolioPerformance data, DateTime now) {
   );
 }
 
+/// The live prices [PortfolioPerformance.withLivePredictions] reads out
+/// of [all]: those of the shares [book] still holds (open, not resolved,
+/// above dust), every other market's left out. Equal while each of
+/// those prices is, so a screen that selects it rebuilds on a tick of a
+/// prediction held, never on another market's (the feed ticks for every
+/// market on screen anywhere in the app). The figures are the same as
+/// from the whole map.
+class HeldPredictionPrices {
+  const HeldPredictionPrices._(this.prices);
+
+  factory HeldPredictionPrices.of(
+      PredictionsBook? book, Map<String, double> all) {
+    if (book == null || all.isEmpty) return const HeldPredictionPrices._({});
+    final held = <String, double>{};
+    for (final r in book.records) {
+      if (!r.open || r.redeemable || !(r.size >= _kDustShares)) continue;
+      final price = all[r.tokenId];
+      if (price != null) held[r.tokenId] = price;
+    }
+    return HeldPredictionPrices._(held);
+  }
+
+  final Map<String, double> prices;
+
+  @override
+  bool operator ==(Object other) {
+    if (other is! HeldPredictionPrices) return false;
+    if (other.prices.length != prices.length) return false;
+    for (final e in prices.entries) {
+      if (other.prices[e.key] != e.value) return false;
+    }
+    return true;
+  }
+
+  @override
+  int get hashCode => Object.hashAllUnordered(
+      [for (final e in prices.entries) Object.hash(e.key, e.value)]);
+}
+
 /// How many grids [pnlSeries] has laid (tests count the work a frame
 /// does).
 int debugPnlSeriesGrids = 0;

@@ -1731,7 +1731,6 @@ class _SectionHero extends ConsumerWidget {
     } else {
       final range = ref.watch(pnlChartRangeProvider);
       final now = DateTime.now();
-      final prices = ref.watch(livePriceProvider.select((s) => s.prices));
       final data = <BalancesCategory, PortfolioPerformance?>{};
       for (final (on, venue, category) in [
         (trading, PortfolioPerformanceVenue.trading, BalancesCategory.investing),
@@ -1746,10 +1745,15 @@ class _SectionHero extends ConsumerWidget {
             .watch(portfolioPerformanceDisplayProvider(
                 PortfolioPerformanceRequest(venue: venue)))
             .valueOrNull;
+        // Only the prices of the shares held: another market's tick
+        // rebuilds nothing.
         data[category] = read == null
             ? null
             : venue == PortfolioPerformanceVenue.predictions
-                ? read.withLivePredictions(prices)
+                ? read.withLivePredictions(ref
+                    .watch(livePriceProvider.select((s) =>
+                        HeldPredictionPrices.of(read.predictions, s.prices)))
+                    .prices)
                 : read;
       }
       double? changeOf(PortfolioPerformance? p) => p == null
@@ -1773,16 +1777,12 @@ class _SectionHero extends ConsumerWidget {
           : known.length == 1
               ? changeOf(known.single)
               : changeOf(PortfolioPerformance.combine(known));
-      final scrub = ref.watch(pnlChartScrubProvider);
+      // The point under the finger is the hole's alone
+      // ([_ScrubbedHeroCentre]): a scrub frame rebuilds the hole, never
+      // the ring and its figures.
       final venue = venueFocus;
       focusId = venue;
-      if (scrub != null) {
-        centre = _CentreText(
-          caption: scrub.label,
-          amount: arrowed(scrub.value),
-          amountColor: tone(scrub.value),
-        );
-      } else if (venue != null) {
+      if (venue != null) {
         final v = changes[venue];
         centre = _CentreText(
           caption: label(venue),
@@ -1849,8 +1849,11 @@ class _SectionHero extends ConsumerWidget {
               centre.amount,
               if (centre.sub case final sub?) sub,
             ].join(' · '),
-            center: _HeroCentre(key: const ValueKey('portfolio-all-time'),
-                text: centre),
+            center: mode == BalancesHeroMode.pnl
+                ? _ScrubbedHeroCentre(
+                    rest: centre, arrowed: arrowed, tone: tone)
+                : _HeroCentre(
+                    key: const ValueKey('portfolio-all-time'), text: centre),
           ),
         ),
         SizedBox(height: 10.h),
@@ -1862,6 +1865,34 @@ class _SectionHero extends ConsumerWidget {
           child: Center(child: FittedBox(fit: BoxFit.scaleDown, child: line)),
         ),
       ],
+    );
+  }
+}
+
+/// The P&L hole: [rest] (the range, or the venue picked), or the point
+/// under the finger while the chart is scrubbed ([pnlChartScrubProvider]):
+/// its moment over its P&L since the range's start. Only this rebuilds on
+/// a scrub frame.
+class _ScrubbedHeroCentre extends ConsumerWidget {
+  const _ScrubbedHeroCentre(
+      {required this.rest, required this.arrowed, required this.tone});
+
+  final _CentreText rest;
+  final String Function(double v) arrowed;
+  final Color Function(double? v) tone;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scrub = ref.watch(pnlChartScrubProvider);
+    return _HeroCentre(
+      key: const ValueKey('portfolio-all-time'),
+      text: scrub == null
+          ? rest
+          : _CentreText(
+              caption: scrub.label,
+              amount: arrowed(scrub.value),
+              amountColor: tone(scrub.value),
+            ),
     );
   }
 }
@@ -2036,8 +2067,10 @@ class _AllTimeCentre extends ConsumerWidget {
         break;
       }
       final p = v == PortfolioPerformanceVenue.predictions
-          ? data.withLivePredictions(
-              ref.watch(livePriceProvider.select((s) => s.prices)))
+          ? data.withLivePredictions(ref
+              .watch(livePriceProvider.select(
+                  (s) => HeldPredictionPrices.of(data.predictions, s.prices)))
+              .prices)
           : data;
       // Never published anything: nothing made or lost. A picked venue:
       // its P&L over the chart's range, as the chart's figure reads it.

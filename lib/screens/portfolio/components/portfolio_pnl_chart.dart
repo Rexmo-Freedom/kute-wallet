@@ -234,8 +234,16 @@ class PortfolioPnlChart extends ConsumerStatefulWidget {
 }
 
 class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
-  /// The point under the finger; null at rest.
-  KuteTrendPoint? _scrub;
+  /// The point under the finger; null at rest. A notifier, not state: a
+  /// scrub frame rebuilds the figure and the line under it alone (the
+  /// plot draws its own crosshair), never the section.
+  final _scrub = ValueNotifier<KuteTrendPoint?>(null);
+
+  @override
+  void dispose() {
+    _scrub.dispose();
+    super.dispose();
+  }
 
   String get _venueName => widget.eventVenue ?? widget.venue?.name ?? 'all';
 
@@ -286,8 +294,6 @@ class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
     final shown = kuteTrendWindow(series, span);
     final values = shown.values;
     final times = shown.times;
-    final scrub = _scrub;
-    final scrubbing = scrub != null && scrub.index < values.length;
 
     final locale = kuteChartLocale(context);
     // On daily (or coarser) buckets a point at midnight closes the day
@@ -305,14 +311,6 @@ class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
         ? c.textPrimary
         : pnlResultColor(c, values.last - values.first);
 
-    // The figure: the P&L over the range picked, or since the range's
-    // start to the point under the finger (ALL: the P&L at that point).
-    final headline = pnlRangeChange(values, range,
-            at: scrubbing ? scrub.value : null) ??
-        series.values.last;
-    final headlineColor =
-        !visible ? c.textPrimary : pnlResultColor(c, headline);
-
     final quiet = TextStyle(
       color: c.textSecondary,
       fontSize: 13.sp,
@@ -321,8 +319,10 @@ class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
     );
 
     // The figure leads, scaled down rather than cut on a narrow phone or
-    // under large text.
-    final figure = FittedBox(
+    // under large text. It is the P&L over the range picked, or since the
+    // range's start to the point under the finger (ALL: the P&L at that
+    // point).
+    Widget figure(bool scrubbing, double headline) => FittedBox(
       fit: BoxFit.scaleDown,
       alignment: Alignment.centerLeft,
       child: RollingNumberText(
@@ -331,7 +331,7 @@ class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
         duration: Duration(milliseconds: scrubbing ? 120 : 350),
         dimColor: c.textTertiary,
         style: AppTextStyles.balance(context).copyWith(
-          color: headlineColor,
+          color: !visible ? c.textPrimary : pnlResultColor(c, headline),
           fontSize: 34.sp,
           fontWeight: FontWeight.w700,
           fontFeatures: const [FontFeature.tabularFigures()],
@@ -342,9 +342,9 @@ class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
     // The line under the figure: the range the figure is over ("Past
     // week"), or the moment under the finger, after the figure's percent
     // of a real base (none today).
-    Widget changeLine() {
+    Widget changeLine(KuteTrendPoint? scrub, double headline) {
       if (values.length < 2) return const SizedBox.shrink();
-      final tail = scrubbing
+      final tail = scrub != null
           ? timeOf(scrub.time ?? times.last)
           : kuteTrendPeriodLabel(l10n, range);
       final color = headline > 0
@@ -389,8 +389,24 @@ class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
             // The Portfolio sections' one title style ("Investing · 2").
             style: balancesFlatSectionTitle(context)),
         SizedBox(height: 4.h),
-        figure,
-        changeLine(),
+        ValueListenableBuilder<KuteTrendPoint?>(
+          valueListenable: _scrub,
+          builder: (context, point, _) {
+            final scrub =
+                point != null && point.index < values.length ? point : null;
+            final headline =
+                pnlRangeChange(values, range, at: scrub?.value) ??
+                    series.values.last;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                figure(scrub != null, headline),
+                changeLine(scrub, headline),
+              ],
+            );
+          },
+        ),
       ],
     );
 
@@ -409,7 +425,7 @@ class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
       ],
       height: kPnlChartPlotHeight.h,
       onScrub: (p) {
-        setState(() => _scrub = p);
+        _scrub.value = p;
         // The Portfolio screen's ring follows the finger.
         if (!flat) return;
         final at = p == null || p.index >= values.length ? null : p;
