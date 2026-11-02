@@ -1,9 +1,10 @@
 // The Trending strip (founder, 1 November 2026): the big cards at the top
 // of Investing are the hyped names, stocks and shares and commodities, not
 // the day's obscure crypto movers. Ranked by volume × (1 + |change %| / 10),
-// six at most, at least two commodities when two qualify, one card per
-// underlying (the most traded), none of them repeated in the list under
-// the strip; the old movers when fewer than three qualify.
+// four (two by two, the home's Latest squares; 2 November 2026), at least
+// two commodities when two qualify, one square per underlying (the most
+// traded), none of them repeated in the list under the squares; the old
+// movers when fewer than four qualify.
 
 import 'dart:async';
 
@@ -62,14 +63,12 @@ void main() {
   test('the strip: stocks and shares and commodities by hype, two '
       'commodities at least, one per underlying, never crypto', () {
     final strip = _strip(hlTrendingFixture);
-    // AAPL (1.22e8) would be sixth with one commodity; SILVER takes its
+    // Four: io:ANTH would be fourth with one commodity; SILVER takes its
     // place. Best first.
     expect(_wires(strip), [
       'xyz:TSLA',
       'xyz:NVDA',
       'xyz:GOLD',
-      'io:ANTH',
-      'xyz:SP500',
       'xyz:SILVER',
     ]);
     expect(strip.where((m) => m.category == 'commodities').length, 2);
@@ -84,7 +83,10 @@ void main() {
 
   test('two markets on one underlying: the more traded one, even when the '
       'other moved more', () {
-    final strip = _strip(hlTrendingFixture);
+    // Six deep, so the Anthropics reach the cut.
+    final strip = hlTrendingStrip(
+        hlTrendingFixture, _trendingList(hlTrendingFixture),
+        max: 6);
     // xyz:ANT moved 30% (hype 4e8, above io:ANTH's 2.7e8) on less volume;
     // para:ANTH and the ANT token are Anthropic too.
     expect(_wires(strip), contains('io:ANTH'));
@@ -138,12 +140,10 @@ void main() {
       'xyz:NVDA',
       'xyz:GOLD',
       'io:ANTH',
-      'xyz:SP500',
-      'xyz:AAPL',
     ]);
   });
 
-  test('fewer than three qualify (builder dexes not read): the old movers, '
+  test('fewer than four qualify (builder dexes not read): the old movers, '
       'still one per underlying', () {
     final crypto = [
       hlFixtureMarket('BTC', px: up(1), vlm: 9e9),
@@ -169,7 +169,7 @@ void main() {
     ]..sort((a, b) => b.dayNtlVlm.compareTo(a.dayNtlVlm));
     final trending = _trendingList(crypto);
     final strip = hlTrendingStrip(crypto, trending);
-    expect(_wires(strip), ['XPL', 'LIT', 'NEAR', 'xyz:TSLA', 'ETH']);
+    expect(_wires(strip), ['XPL', 'LIT', 'NEAR', 'xyz:TSLA']);
     expect(_wires(strip), _wires(hlMovingNow(trending)));
     expect(_wires(hlMovingNow(trending, max: 7)),
         ['XPL', 'LIT', 'NEAR', 'xyz:TSLA', 'ETH', 'xyz:GOLD', 'BTC']);
@@ -186,9 +186,8 @@ void main() {
     final rest = hlListUnderStrip(trending, strip)!;
     final keys = {for (final m in strip) hlUnderlyingKey(m)};
     expect(rest.where((m) => keys.contains(hlUnderlyingKey(m))), isEmpty);
-    // The other gold and the other Anthropics are not rows either.
-    expect(_wires(rest),
-        isNot(contains(anyOf('flx:GOLD', 'xyz:ANT', 'para:ANTH'))));
+    // The other gold is not a row either.
+    expect(_wires(rest), isNot(contains('flx:GOLD')));
     expect(_wires(rest), containsAllInOrder(['BTC', 'ETH', 'SOL', 'NEAR']));
     expect(hlListUnderStrip(trending.take(8).toList(), trending.take(6).toList()),
         isNull);
@@ -246,8 +245,6 @@ void main() {
       'xyz:TSLA',
       'xyz:NVDA',
       'xyz:GOLD',
-      'io:ANTH',
-      'xyz:SP500',
       'xyz:SILVER',
     ]);
     final keys = {for (final m in strip.markets) hlUnderlyingKey(m)};

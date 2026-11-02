@@ -1,9 +1,11 @@
 // lib/screens/hyperliquid/components/hl_moving_now_strip.dart
 //
-// The strip of large cards above the Investing browse list (founder,
+// The four big squares above the Investing browse list (founder,
 // November 2026: "big cards of the top ones on top", the way Revolut /
-// Coinbase / Robinhood show the day's names). One horizontal,
-// side-scrolling row of cards with no title over it.
+// Coinbase / Robinhood show the day's names; 2 November 2026: "do it like
+// in the bitcoin screen, show 4 like that"). Two by two, the Bitcoin
+// home's "Latest" squares (all_activity.dart [ActivitySquareGrid]), with
+// no title over them. Still called the strip in the code.
 //
 // What it shows:
 //   * Trending ([hlTrendingStrip]): the hyped names, stocks and shares
@@ -20,23 +22,24 @@
 // to show are never on it. A market on the strip, or one on the same
 // underlying, is not repeated in the list under it ([hlListUnderStrip]).
 //
-// Each card (HlMovingNowCard; founder, 1 November 2026: bigger and
-// calmer): half the screen less the gap and a little more, so two show
-// and the third peeks ([hlMovingNowCardWidth]), about 150 tall, the app's
-// card surface at the grouped card's 20 radius, 14 padding. The logo (36)
-// at the top-left with the market's name (15, semibold) under it, and at
-// the bottom the live price (22 sp, bold, tabular) over the 24h change as
-// the row writes it ("▲ 3.9%", coloured, 13). No sparkline and no ticker
-// line. Plain coloured text, no tinted chip (house rule: solid fills or
-// neutral grey only). The whole card taps through to HlMarketDetailSheet,
-// entry_source 'moving_now', on the app's press spring (KutePressable).
+// Each square (HlMovingNowCard) is drawn as the home's Latest square:
+// half the row less the 10 gap wide, [kActivitySquareHeight] tall at
+// least, the grouped card's ground ([PremiumGroupContainer]), 14 padding.
+// The logo (40, the Latest icon's size) at the top-left with the 24h
+// change on its right as the row writes it ("▲ 3.9%", coloured, 13), and
+// at the bottom the market's name quiet (13, secondary) over the live
+// price (22 sp, bold, tabular), as a Latest square's action over its
+// amount. No sparkline and no ticker line. Plain coloured text, no tinted
+// chip (house rule: solid fills or neutral grey only). The whole square
+// taps through to HlMarketDetailSheet, entry_source 'moving_now', on the
+// app's press spring (KutePressable).
 //
 // Only the default view (Trending, no subcategory) has a strip (founder,
 // 1 November 2026): a category or subcategory the person picks is the
 // full plain list, nothing excluded from it.
 //
-// The strip is only shown when at least [kHlMoverCardMin] markets
-// qualify: a strip of one card reads as a mistake.
+// The squares are only shown when [kHlMoverCardMin] (four) markets
+// qualify: a grid with a hole reads as a mistake.
 
 import 'dart:math' as math;
 
@@ -56,34 +59,27 @@ import 'package:kute/screens/hyperliquid/components/hl_format.dart';
 import 'package:kute/screens/hyperliquid/components/hl_market_card.dart'
     show hlArrowPct;
 import 'package:kute/screens/hyperliquid/market_detail_sheet.dart';
+import 'package:kute/screens/shared/all_activity.dart'
+    show ActivitySquareGrid;
+import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show KutePressable;
 import 'package:kute/screens/shared/rolling_number_text.dart';
+import 'package:kute/screens/shared/transactions_builder.dart'
+    show kActivitySquareHeight;
 import 'package:kute/theme/app_theme.dart';
 
-/// How many cards the strip shows at most.
-const int kHlMoverCardMax = 5;
+/// How many squares the grid shows: two by two.
+const int kHlMoverCardMax = 4;
 
-/// Under this many movers the strip is not shown at all.
-const int kHlMoverCardMin = 3;
+/// Under this many movers the squares are not shown at all (no grid with
+/// a hole).
+const int kHlMoverCardMin = 4;
 
-/// The gap between two cards, and how much less than half the row a card
-/// is, so the third card peeks in, in design units.
-const double kHlMoverCardGap = 10;
-const double kHlMoverCardPeek = 14;
+/// The square's logo: the home's Latest icon size.
+const double kHlMoverCardIcon = 40;
 
-/// A card's least height, in design units.
-const double kHlMoverCardHeight = 150;
-
-/// The card's logo.
-const double kHlMoverCardIcon = 36;
-
-/// The card's inner padding, in design units.
+/// The square's inner padding, in design units (the Latest square's).
 const double _kPad = 14;
-
-/// A strip card's width: half the screen less its 16 margins and the gap,
-/// less [kHlMoverCardPeek] so the third card peeks.
-double hlMovingNowCardWidth() =>
-    (1.sw - 32.w - kHlMoverCardGap.w) / 2 - kHlMoverCardPeek.w;
 
 /// The [HlMarketDetailSheet] entry source a strip card reports.
 const String kHlMovingNowSource = 'moving_now';
@@ -145,8 +141,8 @@ List<HlMarket> hlMovingNow(
   return unique.take(max).toList(growable: false);
 }
 
-/// How many cards the Trending strip shows at most.
-const int kHlHypeCardMax = 6;
+/// How many squares the Trending grid shows at most.
+const int kHlHypeCardMax = kHlMoverCardMax;
 
 /// The commodities the Trending strip carries at least, when that many
 /// qualify.
@@ -268,14 +264,14 @@ List<HlMarket>? hlListUnderStrip(List<HlMarket> markets, List<HlMarket> strip) {
   return rest.length < kHlMoverListKeeps ? null : rest;
 }
 
-/// The card's text: the name, the price and the change, with the line
-/// heights the strip's height is computed from.
+/// The square's text: the change, the name and the price, with the line
+/// heights the square's height is computed from (the Latest square's).
 TextStyle _nameStyle(BuildContext context) => TextStyle(
-      color: context.colors.textPrimary,
-      fontSize: 15.sp,
-      fontWeight: FontWeight.w600,
-      letterSpacing: -0.2,
-      height: 1.2,
+      color: context.colors.textSecondary,
+      fontSize: 13.sp,
+      fontWeight: FontWeight.w500,
+      letterSpacing: -0.1,
+      height: 1.25,
     );
 
 TextStyle _priceStyle(BuildContext context) => TextStyle(
@@ -290,33 +286,31 @@ TextStyle _priceStyle(BuildContext context) => TextStyle(
 TextStyle _changeStyle(BuildContext context) => TextStyle(
       color: context.colors.textSecondary,
       fontSize: 13.sp,
-      fontWeight: FontWeight.w500,
+      fontWeight: FontWeight.w600,
       letterSpacing: -0.1,
       height: 1.2,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
 
-/// The strip's card height: [kHlMoverCardHeight], or its content at the
-/// viewer's text size when that is taller, so no card overflows at an
-/// accessibility size.
+/// A square's height: [kActivitySquareHeight] (the Latest square's), or
+/// its content at the viewer's text size when that is taller, so no
+/// square overflows at an accessibility size.
 double hlMovingNowCardHeight(BuildContext context) {
   final scaler = MediaQuery.textScalerOf(context);
-  double line(double sp) => scaler.scale(sp.sp) * 1.2;
   final content = _kPad.w * 2 +
       kHlMoverCardIcon.w +
-      8.w +
-      line(15) +
-      8.w +
-      line(22) +
-      line(13) +
+      10.w +
+      scaler.scale(13.sp) * 1.25 +
+      4.h +
+      scaler.scale(22.sp) * 1.2 +
       // A pixel of slack for rounding.
       2;
-  final least = kHlMoverCardHeight.w;
+  final least = kActivitySquareHeight.w;
   return content > least ? content : least;
 }
 
-/// "Moving now" and its row of cards, one per market in [markets] (the
-/// strip's own order: [hlMovingNow]).
+/// The four squares, two by two, one per market in [markets] (the strip's
+/// own order: [hlTrendingStrip] / [hlMovingNow]).
 class HlMovingNowStrip extends StatelessWidget {
   final List<HlMarket> markets;
 
@@ -328,41 +322,24 @@ class HlMovingNowStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // No title over the strip (founder, 1 November 2026): the cards
-    // simply open the list.
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(height: 4.h),
-        SizedBox(
-          height: hlMovingNowCardHeight(context),
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            // The cards' soft shadow may spill out of the row; the screen
-            // edge clips the row itself.
-            clipBehavior: Clip.none,
-            physics: const BouncingScrollPhysics(),
-            padding: EdgeInsets.symmetric(horizontal: 16.w),
-            itemCount: markets.length,
-            separatorBuilder: (_, __) => SizedBox(width: kHlMoverCardGap.w),
-            itemBuilder: (context, i) {
-              final m = markets[i];
-              final tap = onTap;
-              return HlMovingNowCard(
-                key: ValueKey('hl-mover-${m.kind.name}-${m.wireCoin}'),
-                market: m,
-                onTap: tap == null ? null : () => tap(m),
-              );
-            },
+    // No title over the squares (founder, 1 November 2026): they simply
+    // open the list.
+    final tap = onTap;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 4.h),
+      child: ActivitySquareGrid(children: [
+        for (final m in markets.take(kHlMoverCardMax))
+          HlMovingNowCard(
+            key: ValueKey('hl-mover-${m.kind.name}-${m.wireCoin}'),
+            market: m,
+            onTap: tap == null ? null : () => tap(m),
           ),
-        ),
-      ],
+      ]),
     );
   }
 }
 
-/// One large card of the strip. Consumer-stateful like the row, so it can
+/// One square of the grid. Consumer-stateful like the row, so it can
 /// watch its coin's live mid and register the coin with the live-prices
 /// watch-set on mount (released wholesale by the screen; never unwatched
 /// here).
@@ -395,7 +372,7 @@ class _HlMovingNowCardState extends ConsumerState<HlMovingNowCard> {
       widget.onTap!();
     } else {
       // hyperliquid_market_viewed fires once, from the sheet, with this
-      // strip as its entry source.
+      // grid as its entry source.
       HlMarketDetailSheet.show(context,
           market: widget.market, source: kHlMovingNowSource);
     }
@@ -418,12 +395,12 @@ class _HlMovingNowCardState extends ConsumerState<HlMovingNowCard> {
 
     final name = hlFriendlyName(m.coin) ?? m.unitAssetName ?? m.coin;
 
-    final radius = BorderRadius.circular(AppRadius.xl);
+    final decoration = PremiumGroupContainer.decorationOf(context);
+    final radius = decoration.borderRadius as BorderRadius?;
     return KutePressable(
       child: Container(
-        width: hlMovingNowCardWidth(),
-        decoration:
-            AppDecorations.card(context).copyWith(borderRadius: radius),
+        height: hlMovingNowCardHeight(context),
+        decoration: decoration,
         child: Material(
           color: Colors.transparent,
           borderRadius: radius,
@@ -435,24 +412,44 @@ class _HlMovingNowCardState extends ConsumerState<HlMovingNowCard> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ClipOval(
-                    child: HlCoinIcon(
-                      coin: m.coin,
-                      wireCoin: m.wireCoin,
-                      category: m.category,
-                      iconUrl: m.iconUrl,
-                      size: kHlMoverCardIcon,
-                    ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ClipOval(
+                        child: HlCoinIcon(
+                          coin: m.coin,
+                          wireCoin: m.wireCoin,
+                          category: m.category,
+                          iconUrl: m.iconUrl,
+                          size: kHlMoverCardIcon,
+                        ),
+                      ),
+                      SizedBox(width: 8.w),
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.topRight,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.topRight,
+                            child: RollingNumberText(
+                              text: change == null ? '—' : hlArrowPct(change),
+                              style: _changeStyle(context)
+                                  .copyWith(color: changeColor),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  SizedBox(height: 8.w),
+                  const Spacer(),
                   Text(
                     name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: _nameStyle(context),
                   ),
-                  const Spacer(),
-                  // A price too wide for the card (BTC's) shrinks rather
+                  SizedBox(height: 4.h),
+                  // A price too wide for the square (BTC's) shrinks rather
                   // than overflow it.
                   FittedBox(
                     fit: BoxFit.scaleDown,
@@ -462,10 +459,6 @@ class _HlMovingNowCardState extends ConsumerState<HlMovingNowCard> {
                           decimalCap: m.pxDecimalCap),
                       style: _priceStyle(context),
                     ),
-                  ),
-                  RollingNumberText(
-                    text: change == null ? '—' : hlArrowPct(change),
-                    style: _changeStyle(context).copyWith(color: changeColor),
                   ),
                 ],
               ),

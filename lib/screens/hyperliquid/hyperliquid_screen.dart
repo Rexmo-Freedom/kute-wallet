@@ -620,13 +620,14 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                           if (awaitingBuilderMarkets)
                             const SliverToBoxAdapter(child: _HlGroupSkeleton())
                           else ...[
-                            // The big cards, on the default view only
-                            // (Trending, no subcategory): the hyped stocks
-                            // and commodities on a side-scrolling strip
-                            // above the list (which keeps its own order,
-                            // less the strip's names). Only with enough
-                            // to make a strip; search is its own screen,
-                            // so the list here is never a search result.
+                            // The big squares, on the default view only
+                            // (Trending, no subcategory): the four hyped
+                            // stocks and commodities two by two, the
+                            // Bitcoin home's Latest squares, above the
+                            // list (which keeps its own order, less the
+                            // squares' names). Only with four to show;
+                            // search is its own screen, so the list here
+                            // is never a search result.
                             if (_moversFor(tab, sub, markets, universe)
                                 .isNotEmpty)
                               SliverToBoxAdapter(
