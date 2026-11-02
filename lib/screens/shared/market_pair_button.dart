@@ -35,6 +35,44 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/theme/app_theme.dart';
 
+/// The pair buttons' solid fill: [color] with a whisper of a top
+/// highlight so the slab reads as pressable, and with [glow] a tight,
+/// quiet coloured shadow (callers pass it for light mode only). Shared by
+/// [MarketPairButton] and the Predictions list's compact Up / Down pills,
+/// so the two read as the same buttons.
+BoxDecoration marketPairDecoration(
+  Color color, {
+  BorderRadiusGeometry borderRadius = AppRadius.buttonBorder,
+  bool glow = false,
+}) =>
+    BoxDecoration(
+      color: color,
+      borderRadius: borderRadius,
+      // Subtle top-highlight so the solid fill reads as a raised,
+      // pressable surface (kept faint enough to preserve the flat
+      // brand look; the label contrast math is unaffected).
+      gradient: LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Color.alphaBlend(Colors.white.withValues(alpha: 0.08), color),
+          color,
+        ],
+        stops: const [0.0, 0.55],
+      ),
+      // Tight, quiet elevation glow. The previous 18-blur/0.22 halo read
+      // as a color smear on white.
+      boxShadow: glow
+          ? [
+              BoxShadow(
+                color: color.withValues(alpha: 0.16),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ]
+          : null,
+    );
+
 class MarketPairButton extends StatefulWidget {
   /// Main label. Sentence case verbs ("Buy", "Long", "Close position");
   /// outcome tokens (YES/NO) stay uppercase per the copy rules.
@@ -186,34 +224,9 @@ class _MarketPairButtonState extends State<MarketPairButton> {
       curve: Curves.easeOutCubic,
       height: widget.compact ? 44.h : 60.h,
       padding: EdgeInsets.symmetric(horizontal: 14.w),
-      decoration: BoxDecoration(
-        color: widget.color,
-        borderRadius: AppRadius.buttonBorder,
-        // Subtle top-highlight so the solid fill reads as a raised,
-        // pressable surface (kept faint enough to preserve the flat
-        // brand look; the label contrast math is unaffected).
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color.alphaBlend(
-                Colors.white.withValues(alpha: 0.08), widget.color),
-            widget.color,
-          ],
-          stops: const [0.0, 0.55],
-        ),
-        // Tight, quiet elevation glow (light mode only, opt-in). The
-        // previous 18-blur/0.22 halo read as a color smear on white.
-        boxShadow: widget.glow && isLight && widget.enabled
-            ? [
-                BoxShadow(
-                  color: widget.color.withValues(alpha: 0.16),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ]
-            : null,
-      ),
+      // The glow: light mode only, opt-in.
+      decoration: marketPairDecoration(widget.color,
+          glow: widget.glow && isLight && widget.enabled),
       child: Row(
         mainAxisAlignment: (twoLine || widget.iconDisc)
             ? MainAxisAlignment.start

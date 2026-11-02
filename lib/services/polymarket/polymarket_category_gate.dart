@@ -59,6 +59,16 @@ bool polymarketEventOffered(
         PolymarketEvent event, RuntimeCapabilitiesService policy) =>
     polymarketCategoryOffered(event.category, event.tags, policy);
 
+/// What the policy says of the two category gates, as one comparable
+/// value: a list filtered by them listens to this (a `select`), so it is
+/// rebuilt when a gate opens or closes and at no other policy change.
+({bool sports, bool politics}) polymarketCategoryGates(
+        RuntimeCapabilitiesService policy) =>
+    (
+      sports: policy.allows(kPolymarketSportsCapability),
+      politics: policy.allows(kPolymarketPoliticsCapability),
+    );
+
 /// [events] minus the ones the policy hides.
 List<PolymarketEvent> polymarketEventsOffered(
     List<PolymarketEvent> events, RuntimeCapabilitiesService policy) {

@@ -1897,9 +1897,8 @@ class CryptoPredictBanner extends ConsumerWidget {
 
 /// The compact crypto round card ([CryptoPredictBanner.compact]): about
 /// 200 px for the same data and actions as the full card, the live
-/// sparkline against the target included, and Up / Down as the quiet
-/// card's soft tinted pills (founder, 2 November 2026: bigger still, and
-/// the previous buttons).
+/// sparkline against the target included, and Up / Down as solid buttons
+/// in the market page's Yes / No colours (founder, 2 November 2026).
 class _CompactCryptoCard extends StatelessWidget {
   const _CompactCryptoCard({
     required this.config,
@@ -1945,6 +1944,24 @@ class _CompactCryptoCard extends StatelessWidget {
   /// The Up / Down pills' height.
   static const double pillHeight = 44;
 
+  /// The price row's height: the live price as [RollingNumberText] draws
+  /// it (every digit a cell of the font's full ascent and descent, its
+  /// line height ignored), measured in the face and at the text size it
+  /// paints in, so the figures fill the line exactly and are never scaled
+  /// to fit it.
+  static double _priceLine(BuildContext context, TextStyle style) =>
+      (TextPainter(
+        text: TextSpan(
+            text: '0', style: DefaultTextStyle.of(context).style.merge(style)),
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+        textHeightBehavior: const TextHeightBehavior(
+          applyHeightToFirstAscent: false,
+          applyHeightToLastDescent: false,
+        ),
+      )..layout())
+          .height;
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
@@ -1963,6 +1980,14 @@ class _CompactCryptoCard extends StatelessWidget {
           );
     final pair = formatPolyChancePair(upFrac);
     final seeded = (history?.length ?? 0) >= 2;
+    final priceStyle = TextStyle(
+      color: c.textPrimary,
+      fontSize: 24.sp,
+      fontWeight: FontWeight.w700,
+      letterSpacing: -0.7,
+      height: 1.0,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
     return Container(
       key: const ValueKey('crypto-round-compact'),
       padding: EdgeInsets.fromLTRB(14.w, 12.h, 14.w, 12.h),
@@ -2041,63 +2066,62 @@ class _CompactCryptoCard extends StatelessWidget {
           ),
           SizedBox(height: 10.h),
           // The live price, its move against the target, the target.
-          if (loading)
-            KuteSkeleton(
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: SkeletonBar(150.w, 24.h, radius: 6.r),
-              ),
-            )
-          else
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                Flexible(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: RollingNumberText(
-                      text: priceText,
-                      style: TextStyle(
-                        color: c.textPrimary,
-                        fontSize: 24.sp,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.7,
-                        height: 1.0,
-                        fontFeatures: const [FontFeature.tabularFigures()],
+          // One fixed line, skeleton or figures: a price scaled down to
+          // fit beside a wider move, or the skeleton giving way to the
+          // digits, never changes the card's height (the list under it
+          // would move with every tick).
+          SizedBox(
+            height: _priceLine(context, priceStyle),
+            child: loading
+                ? KuteSkeleton(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: SkeletonBar(150.w, 24.h, radius: 6.r),
+                    ),
+                  )
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: RollingNumberText(
+                              text: priceText, style: priceStyle),
+                        ),
                       ),
-                    ),
+                      if (diffText != null) ...[
+                        SizedBox(width: 6.w),
+                        Text(
+                          diffText!,
+                          maxLines: 1,
+                          style: TextStyle(
+                            color: diffUp
+                                ? AppColors.marketUp
+                                : AppColors.marketDown,
+                            fontSize: 13.sp,
+                            fontWeight: FontWeight.w700,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      ],
+                      SizedBox(width: 8.w),
+                      const Spacer(),
+                      Text(
+                        targetText,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: c.textSecondary,
+                          fontSize: 13.sp,
+                          fontWeight: FontWeight.w600,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                if (diffText != null) ...[
-                  SizedBox(width: 6.w),
-                  Text(
-                    diffText!,
-                    maxLines: 1,
-                    style: TextStyle(
-                      color: diffUp ? AppColors.marketUp : AppColors.marketDown,
-                      fontSize: 13.sp,
-                      fontWeight: FontWeight.w700,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                ],
-                SizedBox(width: 8.w),
-                const Spacer(),
-                Text(
-                  targetText,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: c.textSecondary,
-                    fontSize: 13.sp,
-                    fontWeight: FontWeight.w600,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-              ],
-            ),
+          ),
           SizedBox(height: 8.h),
           // The sparkline with the dashed target line, no in-chart
           // "Target" badge: the target is printed just above.
@@ -2155,10 +2179,12 @@ class _CompactCryptoCard extends StatelessWidget {
 }
 
 /// One side of the compact card: a 44 px button
-/// ([_CompactCryptoCard.pillHeight]) softly tinted in the market colour
-/// ([fillOpacity]), the side and its odds in that colour, with squared
-/// 14 px corners ([radius]) like the market page's outcome tiles
-/// (founder, 2 November 2026).
+/// ([_CompactCryptoCard.pillHeight]) with squared 14 px corners
+/// ([radius]), the side then its chance on one line, in the market page's
+/// solid Yes / No fill: the market colour with its faint top highlight,
+/// the label in the colour that reads on it (white) and, in light mode,
+/// the same quiet glow ([marketPairDecoration]; founder, 2 November 2026:
+/// "put them back at the darker colours").
 class _CompactSidePill extends StatelessWidget {
   const _CompactSidePill({
     super.key,
@@ -2173,9 +2199,6 @@ class _CompactSidePill extends StatelessWidget {
   final bool up;
   final VoidCallback onTap;
 
-  /// The pill's fill: the side's colour at this opacity.
-  static const double fillOpacity = 0.12;
-
   /// The corner radius: a rounded rectangle, the market page's outcome
   /// tiles' squared shape, not a full pill (founder, 2 November 2026:
   /// "the more squared ones").
@@ -2185,7 +2208,7 @@ class _CompactSidePill extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = up ? AppColors.marketUp : AppColors.marketDown;
     final style = TextStyle(
-      color: color,
+      color: contrastingOnColor(color),
       fontSize: 15.sp,
       fontWeight: FontWeight.w700,
       letterSpacing: -0.1,
@@ -2202,10 +2225,9 @@ class _CompactSidePill extends StatelessWidget {
         },
         child: Container(
           height: _CompactCryptoCard.pillHeight,
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: fillOpacity),
-            borderRadius: BorderRadius.circular(radius.r),
-          ),
+          decoration: marketPairDecoration(color,
+              borderRadius: BorderRadius.circular(radius.r),
+              glow: !context.isDark),
           alignment: Alignment.center,
           padding: EdgeInsets.symmetric(horizontal: 10.w),
           child: FittedBox(

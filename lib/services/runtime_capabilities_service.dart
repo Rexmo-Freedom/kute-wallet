@@ -531,6 +531,17 @@ class RuntimeCapabilitiesService extends ChangeNotifier
   RuntimeCapabilities? _public;
   DateTime? _publicFetchedAt;
 
+  /// What [_snapshot] and [_public] say, minus their timestamps
+  /// ([_contentOf]), to tell a refetch that changed something from the
+  /// once-a-minute one that only moved the expiry.
+  String? _snapshotContent;
+  String? _publicContent;
+
+  /// [body] without `evaluatedAt` and `expiresAt`: two fetches with the
+  /// same content answer every question the same while both are fresh.
+  static String _contentOf(Map<String, dynamic> body) => jsonEncode(
+      {...body}..remove('evaluatedAt')..remove('expiresAt'));
+
   /// Bumped by [networkChanged]. Each policy remembers the epoch its fetch
   /// started in; a region denial from an older network is not trusted
   /// (see [_regionTrusted]). Policies restored from disk carry
@@ -1022,15 +1033,28 @@ class RuntimeCapabilitiesService extends ChangeNotifier
           value.revision < _snapshot!.revision) {
         return false;
       }
+      // The once-a-minute refetch mostly answers what the policy on hand
+      // already says, with a later expiry. Listeners are told only when
+      // an answer can differ: new content, another owner or network, or
+      // a policy on hand that had already expired. Every notification
+      // rebuilds every screen and provider watching the policy (the
+      // Predictions list was read again and swapped its rows each minute).
+      final content = _contentOf(body);
+      final unchanged = _snapshot != null &&
+          _snapshotOwner == owner &&
+          _snapshotEpoch == epoch &&
+          _snapshotContent == content &&
+          now.isBefore(_snapshot!.expiresAt);
       _snapshot = value;
       _snapshotOwner = owner;
       _snapshotFetchedAt = now;
       _snapshotEpoch = epoch;
+      _snapshotContent = content;
       _store.write(RuntimePolicySlot.session,
           StoredRuntimePolicy(owner: owner, fetchedAt: now, policy: body));
       _expiryTimer?.cancel();
       _expiryTimer = _notifyAt(value.expiresAt, now);
-      if (!_disposed) notifyListeners();
+      if (!unchanged && !_disposed) notifyListeners();
       return snapshot != null;
     } catch (_) {
       return false;
@@ -1054,16 +1078,23 @@ class RuntimeCapabilitiesService extends ChangeNotifier
           generation != _fetchGeneration ||
           _disposed) return false;
       if (_public != null && value.revision < _public!.revision) return false;
+      // As for the session policy: an unchanged refetch tells nobody.
+      final content = _contentOf(body);
+      final unchanged = _public != null &&
+          _publicEpoch == epoch &&
+          _publicContent == content &&
+          now.isBefore(_public!.expiresAt);
       _public = value;
       _publicFetchedAt = now;
       _publicEpoch = epoch;
+      _publicContent = content;
       _store.write(
           RuntimePolicySlot.public,
           StoredRuntimePolicy(
               owner: kPublicPolicyOwner, fetchedAt: now, policy: body));
       _publicExpiryTimer?.cancel();
       _publicExpiryTimer = _notifyAt(value.expiresAt, now);
-      if (!_disposed) notifyListeners();
+      if (!unchanged && !_disposed) notifyListeners();
       return publicSnapshot != null;
     } catch (_) {
       return false;
