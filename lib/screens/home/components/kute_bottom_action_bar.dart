@@ -566,6 +566,10 @@ class KuteSalPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.colors;
     final isLight = Theme.of(context).brightness == Brightness.light;
+    // White in both modes (founder, 2 November 2026: on dark the white pill
+    // reads far better than the surface grey), so its ink stays dark too.
+    final labelColor = isLight ? c.textPrimary : const Color(0xFF1D2024);
+    final sublabelColor = isLight ? c.textSecondary : const Color(0xFF6B7280);
     final reduce = kuteReduceMotion(context);
     final height = collapsed
         ? collapsedSize
@@ -582,7 +586,7 @@ class KuteSalPill extends StatelessWidget {
           softWrap: false,
           overflow: TextOverflow.fade,
           style: TextStyle(
-            color: c.textPrimary,
+            color: labelColor,
             fontSize: 15.sp,
             fontWeight: FontWeight.w600,
             letterSpacing: -0.2,
@@ -595,7 +599,7 @@ class KuteSalPill extends StatelessWidget {
             softWrap: false,
             overflow: TextOverflow.fade,
             style: TextStyle(
-              color: c.textSecondary,
+              color: sublabelColor,
               fontSize: 12.sp,
               fontWeight: FontWeight.w500,
               letterSpacing: -0.1,
@@ -615,10 +619,10 @@ class KuteSalPill extends StatelessWidget {
             curve: reduce ? Curves.linear : KuteMotion.chip,
             height: height,
             decoration: BoxDecoration(
-              color: isLight ? Colors.white : c.surface,
+              color: Colors.white,
               borderRadius: BorderRadius.circular(_kDockPillTallHeight / 2),
               border: Border.all(
-                color: isLight ? c.border : c.borderSubtle,
+                color: isLight ? c.border : Colors.white,
                 width: isLight ? 1.0 : 0.5,
               ),
               // ONE shadow in both modes, at the same blur (transparent
