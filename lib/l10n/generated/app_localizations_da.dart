@@ -7687,20 +7687,12 @@ class AppLocalizationsDa extends AppLocalizations {
   String get salStubLiveUnavailable => 'Live-information er ikke tilgængelig.';
 
   @override
-  String searchNoMatchesAskSal(String query) {
-    return 'Ingen resultater for “$query”. Send det for at spørge Sal.';
-  }
-
-  @override
   String searchNoResultsFor(String query) {
     return 'Ingen resultater for “$query”';
   }
 
   @override
   String get searchTypeToSearchMarkets => 'Skriv for at søge i markeder';
-
-  @override
-  String get searchOrAskSal => 'Søg, eller spørg Sal om hvad som helst';
 
   @override
   String get searchMarketsHint => 'Søg i markeder';
@@ -10574,9 +10566,6 @@ class AppLocalizationsDa extends AppLocalizations {
   @override
   String get connectOwnAiSubtitle =>
       'Lad Claude, ChatGPT eller Grok styre din tegnebog';
-
-  @override
-  String get searchOrAskSalShort => 'Søg, eller spørg Sal';
 
   @override
   String get financialHubAndSettings => 'Økonomisk overblik og indstillinger';

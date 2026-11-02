@@ -7715,20 +7715,12 @@ class AppLocalizationsIt extends AppLocalizations {
       'Le informazioni in tempo reale non sono disponibili.';
 
   @override
-  String searchNoMatchesAskSal(String query) {
-    return 'Nessun risultato per “$query”. Invialo per chiedere a Sal.';
-  }
-
-  @override
   String searchNoResultsFor(String query) {
     return 'Nessun risultato per “$query”';
   }
 
   @override
   String get searchTypeToSearchMarkets => 'Scrivi per cercare mercati';
-
-  @override
-  String get searchOrAskSal => 'Cerca o chiedi qualsiasi cosa a Sal';
 
   @override
   String get searchMarketsHint => 'Cerca mercati';
@@ -10620,9 +10612,6 @@ class AppLocalizationsIt extends AppLocalizations {
   @override
   String get connectOwnAiSubtitle =>
       'Lascia che Claude, ChatGPT o Grok gestiscano il tuo wallet';
-
-  @override
-  String get searchOrAskSalShort => 'Cerca o chiedi a Sal';
 
   @override
   String get financialHubAndSettings => 'Hub finanziario e impostazioni';

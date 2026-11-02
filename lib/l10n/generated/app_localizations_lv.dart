@@ -7657,20 +7657,12 @@ class AppLocalizationsLv extends AppLocalizations {
   String get salStubLiveUnavailable => 'Aktuālā informācija nav pieejama.';
 
   @override
-  String searchNoMatchesAskSal(String query) {
-    return 'Nav atbilstību vaicājumam “$query”. Nosūti to, lai jautātu Sal.';
-  }
-
-  @override
   String searchNoResultsFor(String query) {
     return 'Nav rezultātu vaicājumam “$query”';
   }
 
   @override
   String get searchTypeToSearchMarkets => 'Raksti, lai meklētu tirgus';
-
-  @override
-  String get searchOrAskSal => 'Meklē vai jautā Sal jebko';
 
   @override
   String get searchMarketsHint => 'Meklēt tirgus';
@@ -10546,9 +10538,6 @@ class AppLocalizationsLv extends AppLocalizations {
   @override
   String get connectOwnAiSubtitle =>
       'Ļauj Claude, ChatGPT vai Grok pārvaldīt tavu maciņu';
-
-  @override
-  String get searchOrAskSalShort => 'Meklē vai jautā Sal';
 
   @override
   String get financialHubAndSettings => 'Finanšu centrs un iestatījumi';

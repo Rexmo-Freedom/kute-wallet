@@ -282,7 +282,7 @@ Future<void> showKuteSearch(
   final keepBar = travels && !(barContext?.inHeader ?? false);
   if (!keepBar) container.read(kuteBarContextProvider.notifier).push(hiddenBar);
   final composerKey = GlobalKey(debugLabel: 'kute-search-composer');
-  final hint = context.l10n.searchOrAskSalShort;
+  final hint = searchManageAiHint(context, effectiveCategory);
   Rect? restRect;
   if (travels) {
     // The way in: from the pill to where the composer will rest, on the
@@ -350,8 +350,8 @@ Future<void> showKuteSearch(
 
 const _kSearchSheetKey = 'kute_search';
 
-/// True while the search sheet is up. The dock's "Search or ask Sal" pill
-/// shrinks and fades while it is (kute_bottom_action_bar.dart), and
+/// True while the search sheet is up. The dock's "Search or manage with
+/// AI" pill shrinks and fades while it is (kute_bottom_action_bar.dart), and
 /// springs back when it closes.
 final ValueNotifier<bool> kuteSearchSheetOpen = ValueNotifier<bool>(false);
 
@@ -432,6 +432,19 @@ void endKuteSearchSession(ProviderContainer container) {
   container.read(searchWalletScopeProvider.notifier).state = null;
   container.read(searchLedgerWalletIdProvider.notifier).state = null;
   container.read(searchMarketsOnlyProvider.notifier).state = false;
+}
+
+/// The composer's hint with Sal available: the bar's own words, "Search
+/// or manage with AI", narrowed to the venue the sheet opens on
+/// ("Search predictions or manage with AI", "Search investments or
+/// manage with AI"). The pill's travel lands on the same words.
+String searchManageAiHint(BuildContext context, SearchCategory category) {
+  final l10n = context.l10n;
+  return switch (category) {
+    SearchCategory.predictions => l10n.searchPredictionsOrManageAi,
+    SearchCategory.perpetuals => l10n.searchInvestmentsOrManageAi,
+    SearchCategory.all || SearchCategory.transactions => l10n.searchOrManageAi,
+  };
 }
 
 /// The unified search surface itself: category tabs, live results and the
@@ -941,7 +954,7 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
               // With Sal available the field names both jobs, the words the
               // pill wears; search-only keeps the scoped hint.
               hint: aiEnabled
-                  ? context.l10n.searchOrAskSalShort
+                  ? searchManageAiHint(context, widget.initialCategory)
                   : (widget.initialCategory == SearchCategory.perpetuals ||
                           widget.initialCategory == SearchCategory.predictions)
                       ? context.l10n.searchMarketsHint

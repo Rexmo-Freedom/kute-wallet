@@ -7710,20 +7710,12 @@ class AppLocalizationsPl extends AppLocalizations {
   String get salStubLiveUnavailable => 'Informacje na żywo są niedostępne.';
 
   @override
-  String searchNoMatchesAskSal(String query) {
-    return 'Brak wyników dla „$query”. Wyślij, aby zapytać Sala.';
-  }
-
-  @override
   String searchNoResultsFor(String query) {
     return 'Brak wyników dla „$query”';
   }
 
   @override
   String get searchTypeToSearchMarkets => 'Pisz, aby szukać rynków';
-
-  @override
-  String get searchOrAskSal => 'Szukaj lub zapytaj Sala o cokolwiek';
 
   @override
   String get searchMarketsHint => 'Szukaj rynków';
@@ -10611,9 +10603,6 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get connectOwnAiSubtitle =>
       'Pozwól Claude, ChatGPT lub Grokowi zarządzać twoim portfelem';
-
-  @override
-  String get searchOrAskSalShort => 'Szukaj lub zapytaj Sala';
 
   @override
   String get financialHubAndSettings => 'Centrum finansowe i ustawienia';

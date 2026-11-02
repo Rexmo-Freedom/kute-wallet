@@ -7685,20 +7685,12 @@ class AppLocalizationsFi extends AppLocalizations {
   String get salStubLiveUnavailable => 'Ajantasaista tietoa ei ole saatavilla.';
 
   @override
-  String searchNoMatchesAskSal(String query) {
-    return 'Ei osumia haulle ”$query”. Lähetä se kysyäksesi Salilta.';
-  }
-
-  @override
   String searchNoResultsFor(String query) {
     return 'Ei tuloksia haulle ”$query”';
   }
 
   @override
   String get searchTypeToSearchMarkets => 'Hae markkinoita kirjoittamalla';
-
-  @override
-  String get searchOrAskSal => 'Hae tai kysy Salilta mitä vain';
 
   @override
   String get searchMarketsHint => 'Hae markkinoita';
@@ -10585,9 +10577,6 @@ class AppLocalizationsFi extends AppLocalizations {
   @override
   String get connectOwnAiSubtitle =>
       'Anna Clauden, ChatGPT:n tai Grokin hallita lompakkoasi';
-
-  @override
-  String get searchOrAskSalShort => 'Hae tai kysy Salilta';
 
   @override
   String get financialHubAndSettings => 'Raha-asiat ja asetukset';

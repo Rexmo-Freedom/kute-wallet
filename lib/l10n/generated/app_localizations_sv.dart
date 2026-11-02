@@ -7681,20 +7681,12 @@ class AppLocalizationsSv extends AppLocalizations {
   String get salStubLiveUnavailable => 'Live-information är inte tillgänglig.';
 
   @override
-  String searchNoMatchesAskSal(String query) {
-    return 'Inga träffar för ”$query”. Skicka det för att fråga Sal.';
-  }
-
-  @override
   String searchNoResultsFor(String query) {
     return 'Inga resultat för ”$query”';
   }
 
   @override
   String get searchTypeToSearchMarkets => 'Skriv för att söka marknader';
-
-  @override
-  String get searchOrAskSal => 'Sök eller fråga Sal vad som helst';
 
   @override
   String get searchMarketsHint => 'Sök marknader';
@@ -10570,9 +10562,6 @@ class AppLocalizationsSv extends AppLocalizations {
   @override
   String get connectOwnAiSubtitle =>
       'Låt Claude, ChatGPT eller Grok hantera din plånbok';
-
-  @override
-  String get searchOrAskSalShort => 'Sök eller fråga Sal';
 
   @override
   String get financialHubAndSettings => 'Finanscenter och inställningar';

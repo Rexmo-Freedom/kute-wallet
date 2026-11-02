@@ -1,16 +1,15 @@
 // lib/screens/search/components/search_composer.dart
 //
-// THE SAL SHEET'S COMPOSER (founder, 31 October 2026: "it must be and look
-// much better", then flat: no boxed input): one plain LINE pinned at the
-// TOP of the search sheet, under the drag handle. Sal's `search` clip at
-// 28 on the left, the text at 20 sp (the hint "Search or ask Sal" in
-// textTertiary), a thin hairline under the whole line, and the circular
-// send arrow at the right that scales in only once there is text. The
-// sheet's content scrolls under it. [scope] (the "All ⌄" chip while there
-// is a query) sits before the arrow. The floating pill MORPHS into this
-// line (search_morph.dart): its fill and hairline fade to the bare line
-// as it travels, so the two read as one object. With Sal off (the AI kill
-// switch) it is a plain search field with a clear ✕.
+// THE SAL SHEET'S COMPOSER (founder, 31 October 2026: "it must be and look much
+// better", then flat: no boxed input): one plain LINE pinned at the TOP of the
+// search sheet, under the drag handle. Sal's `search` clip at 28 on the left,
+// the text at 20 sp (the hint "Search or manage with AI" in textTertiary), a
+// thin hairline under the whole line, and the circular send arrow at the right
+// that scales in only once there is text. The sheet's content scrolls under it.
+// [scope] (the "All ⌄" chip while there is a query) sits before the arrow. The
+// floating pill MORPHS into this line (search_morph.dart): its fill and
+// hairline fade to the bare line as it travels, so the two read as one object.
+// With Sal off (the AI kill switch) it is a plain search field with a clear ✕.
 //
 // [KuteSearchComposer.decoration] and the sizes here are what the morph
 // draws its end state with; change them in one place.
@@ -42,7 +41,8 @@ class KuteSearchComposer extends StatelessWidget {
   final VoidCallback onSubmit;
   final bool aiEnabled;
 
-  /// Null: "Search or ask Sal" with Sal, the wallet search hint without.
+  /// Null: "Search or manage with AI" with Sal, the wallet search hint
+  /// without.
   final String? hint;
   final String? sendLabel;
 
@@ -125,7 +125,7 @@ class KuteSearchComposer extends StatelessWidget {
                 border: InputBorder.none,
                 hintText: hint ??
                     (aiEnabled
-                        ? context.l10n.searchOrAskSalShort
+                        ? context.l10n.searchOrManageAi
                         : context.l10n.searchYourWallet),
                 hintStyle: hintStyle(context),
                 contentPadding: EdgeInsets.zero,

@@ -7653,20 +7653,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get salStubLiveUnavailable => 'Live information is unavailable.';
 
   @override
-  String searchNoMatchesAskSal(String query) {
-    return 'No matches for “$query”. Send it to ask Sal.';
-  }
-
-  @override
   String searchNoResultsFor(String query) {
     return 'No results for “$query”';
   }
 
   @override
   String get searchTypeToSearchMarkets => 'Type to search markets';
-
-  @override
-  String get searchOrAskSal => 'Search or ask Sal anything';
 
   @override
   String get searchMarketsHint => 'Search markets';
@@ -10535,9 +10527,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get connectOwnAiSubtitle =>
       'Let Claude, ChatGPT or Grok manage your wallet';
-
-  @override
-  String get searchOrAskSalShort => 'Search or ask Sal';
 
   @override
   String get financialHubAndSettings => 'Financial hub and settings';
