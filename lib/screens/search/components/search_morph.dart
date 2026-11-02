@@ -3,11 +3,11 @@
 // THE PILL BECOMES THE COMPOSER (founder, 31 October 2026): tapping the
 // floating Sal pill (kute_shell_bar.dart) does not open a sheet with a
 // field in it; the pill itself travels. Its rect tweens (position, width,
-// corner) to the composer FIELD at the TOP of the sheet, under the drag
+// corner) to the composer LINE at the TOP of the sheet, under the drag
 // handle, on the sheet spring ([KuteMotion.sheetIn], the same curve the
-// sheet rises on behind it); the pill's fill, hairline and shadow settle
-// into the field's fill and border, Sal shrinks from the pill's 38 to the
-// field's 28, the pill's label settles into the hint. Closing runs it
+// sheet rises on behind it); the pill's fill, hairline and shadow fade to
+// the line's bare hairline underneath, Sal shrinks from the pill's 38 to
+// the line's 32, the pill's label settles into the hint. Closing runs it
 // back on the settle easing ([KuteMotion.sheetOut]) as the sheet drops.
 //
 // Built as an OVERLAY RECT TWEEN, not a Hero: a modal bottom sheet is a
@@ -18,7 +18,7 @@
 // ([kuteSearchMorphing]; the bar reads it, the composer reads it), so
 // there is one object on screen at any moment. The composer's rest rect
 // is known before the sheet has laid out ([composerRestRect]: the sheet's
-// top at its 96% (or the status bar), the handle row under it, the field's
+// top at its 96% (or the status bar), the handle row under it, the line's
 // gutters and height), so the travel starts on the same frame as the
 // sheet. Closing measures both ends: the composer where it is and the
 // pill where it rests.
@@ -64,10 +64,10 @@ abstract final class KuteSearchMorph {
   static OverlayEntry? _entry;
   static Completer<void>? _done;
 
-  /// The composer field's rect once the sheet has settled, before it
+  /// The composer line's rect once the sheet has settled, before it
   /// exists: the sheet stands at [kSearchSheetFraction] of the screen (or
   /// under the status bar when that is lower; the sheet opens with
-  /// useSafeArea), the handle row is its first row and the field the
+  /// useSafeArea), the handle row is its first row and the line the
   /// second, inset by the composer's gutters.
   static Rect composerRestRect(BuildContext overlayContext) {
     final box = overlayContext.findRenderObject() as RenderBox?;
@@ -144,9 +144,9 @@ abstract final class KuteSearchMorph {
   static bool get running => _entry != null;
 }
 
-/// The travelling pill: the rect, the surface (the pill's fill and hairline
-/// settling into the field's), Sal's size, the inset before him and the label's
-/// style all read off one curved [AnimationController].
+/// The travelling pill: the rect, the surface (the pill's fill and
+/// hairline fading to the line's), Sal's size, the inset before him and
+/// the label's style all read off one curved [AnimationController].
 class _MorphBox extends StatefulWidget {
   const _MorphBox({
     required this.from,
@@ -213,9 +213,23 @@ class _MorphBoxState extends State<_MorphBox>
     );
     const composerSprite = KuteSearchComposer.spriteSize;
     final composerLead = KuteSearchComposer.leading(context);
-    final hintStyle = KuteSearchComposer.hintStyle(context);
-    // The field's end: its fill, corner and border, no shadow.
-    final fieldDecoration = KuteSearchComposer.decoration(context);
+    // The hint at the size the composer will draw it (shrunk to its line
+    // when it is long), so the travel lands on exactly the composer's words.
+    final composerRect = widget.opening ? widget.to : widget.from;
+    final hintStyle = KuteSearchComposer.fittedHintStyle(
+        context,
+        widget.hint,
+        KuteSearchComposer.hintWidth(context, composerRect.width));
+    // The line's end: no fill, no corner, no shadow, a uniform hairline
+    // gone to nothing (a rounded box cannot wear a one-sided border, so
+    // the line's own hairline underneath is drawn apart and fades in).
+    final lineDecoration = BoxDecoration(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.zero,
+      border: Border.all(color: Colors.transparent, width: 0),
+    );
+    final hairlineColor = c.border;
+    const hairline = KuteSearchComposer.hairline;
     // The pill's surface (kute_bottom_action_bar.dart): white over a
     // hairline with a soft shadow in light, one step up in dark.
     final isLight = Theme.of(context).brightness == Brightness.light;
@@ -254,11 +268,11 @@ class _MorphBoxState extends State<_MorphBox>
             // same lerps serve both directions.
             final k = (opening ? t : 1 - t).clamp(0.0, 1.0);
             final rect = rectTween.evaluate(_t) ?? widget.to;
-            // The pill's surface becomes the field's: the fill, the
-            // corner and the border settle, the shadow goes.
+            // The pill's surface becomes the line's: the fill, the corner
+            // and the shadow go, the hairline settles under the line.
             final decoration =
-                BoxDecoration.lerp(pillDecoration, fieldDecoration, k) ??
-                    fieldDecoration;
+                BoxDecoration.lerp(pillDecoration, lineDecoration, k) ??
+                    lineDecoration;
             // Sal never taller than the box leaves him (a 40 circle holds
             // him at 30), centred in it.
             final sprite = math.min(lerpDouble(pillSprite, composerSprite, k)!,
@@ -278,6 +292,16 @@ class _MorphBoxState extends State<_MorphBox>
                     clipBehavior: Clip.antiAlias,
                     child: Stack(
                       children: [
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          child: Opacity(
+                            opacity: k,
+                            child: Container(
+                                height: hairline, color: hairlineColor),
+                          ),
+                        ),
                         Positioned.fill(
                           child: Padding(
                             padding: EdgeInsets.only(left: lead),
@@ -295,7 +319,9 @@ class _MorphBoxState extends State<_MorphBox>
                                         width: sprite,
                                         height: sprite),
                                   ),
-                                  SizedBox(width: lerpDouble(6.w, 12.w, k)),
+                                  SizedBox(
+                                      width: lerpDouble(6.w,
+                                          KuteSearchComposer.gap(context), k)),
                                   Expanded(
                                     child: Stack(
                                       alignment: Alignment.centerLeft,
@@ -318,14 +344,13 @@ class _MorphBoxState extends State<_MorphBox>
                                               widget.hint,
                                               maxLines: 1,
                                               softWrap: false,
-                                              overflow: TextOverflow.fade,
+                                              overflow: TextOverflow.visible,
                                               style: hintStyle,
                                             ),
                                           ),
                                       ],
                                     ),
                                   ),
-                                  SizedBox(width: 18.w),
                                 ],
                               ),
                             ),

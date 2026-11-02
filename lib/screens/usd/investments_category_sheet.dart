@@ -171,6 +171,27 @@ String investmentsCategoryLabel(
   }
 }
 
+/// The picked pill's shorter context, for a row too narrow for
+/// [investmentsCategoryLabel]: the subcategory alone ("Commodities" for
+/// "Stocks and shares · Commodities"); null when there is nothing shorter.
+String? investmentsCategoryShortLabel(
+    WidgetRef ref, AppLocalizations l10n, InvestmentsTab tab) {
+  switch (tab) {
+    case InvestmentsTab.investing:
+      final sub = ref.watch(hlBrowseSelectionProvider).sub;
+      return sub == HlBrowseSub.all ? null : sub.localizedLabel(l10n);
+    case InvestmentsTab.predictions:
+      final sel = ref.watch(polyBrowseSelectionProvider);
+      final pill = sel.pill;
+      final subKey = sel.subOf(pill);
+      if (subKey == pill.defaultSub) return null;
+      final sub = polySubsFor(ref, pill).where((s) => s.key == subKey);
+      return sub.isEmpty ? null : polySubLabel(l10n, sub.first);
+    case InvestmentsTab.positions:
+      return null;
+  }
+}
+
 String portfolioSectionLabel(AppLocalizations l10n, PortfolioSection s) =>
     switch (s) {
       PortfolioSection.charts => l10n.portfolioSectionPnlCharts,

@@ -10,6 +10,7 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/analytics/components/home_analytics_widget.dart';
+import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/theme/app_theme.dart';
 
 void main() {
@@ -71,6 +72,13 @@ void main() {
     expect(find.text('See all'), findsOneWidget);
     expect(find.text('Activity'), findsNothing);
     expect(find.byIcon(Icons.arrow_forward_rounded), findsOneWidget);
+    // The app's one switch size, the Dollars halves' (founder, 2 November
+    // 2026), on the 16 gutters.
+    final strip = find.byType(KutePillTabs);
+    expect(tester.widget<KutePillTabs>(strip).resolvedSize, kutePillSwitchSize);
+    expect(tester.getRect(strip).left, moreOrLessEquals(16.w, epsilon: 0.5));
+    expect(tester.getSize(find.byKey(kutePillIndicatorKey)).height,
+        moreOrLessEquals(kutePillSwitchSize.height.h, epsilon: 0.5));
 
     await tester.tap(find.text('See all'));
     await tester.pump(const Duration(milliseconds: 500));
