@@ -67,10 +67,11 @@ void main() {
     expect(find.text('ANA, A FRIEND SENT YOU'), findsOneWidget);
     expect(find.text('\$12.50'), findsOneWidget);
     expect(find.text("It's yours. Tap claim."), findsOneWidget);
-    // Restrained: no chip, no code on the recipient's card; Sal's mark.
+    // Restrained: no chip, no code on the recipient's card; Sal at the
+    // top right with his briefcase.
     expect(find.byKey(const ValueKey('share-card-chip')), findsNothing);
     expect(find.byKey(const ValueKey('share-card-code')), findsNothing);
-    expect(find.byKey(const ValueKey('share-card-mark')), findsOneWidget);
+    expect(find.byKey(const ValueKey('share-card-sal')), findsOneWidget);
     expect(find.text('to bet on will it rain in lisbon'), findsOneWidget);
     expect(kuteBarPrimaryWithText('Claim'), findsOneWidget);
     expect(env.fake.callNames, ['read']);
