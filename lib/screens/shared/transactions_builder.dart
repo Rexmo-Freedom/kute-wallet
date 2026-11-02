@@ -1186,12 +1186,13 @@ String activitySheetDate(BuildContext context, DateTime at) {
   }
 }
 
-/// A receipt's Status tile.
+/// A receipt's Status tile. A null [color] is the pending amber, the
+/// same one the row's status word wears.
 ReceiptFact _statusFact(BuildContext context, String text, Color? color) =>
     ReceiptFact(
         label: context.l10n.status,
         value: text,
-        valueColor: color ?? context.colors.accent);
+        valueColor: color ?? context.colors.warning);
 
 /// A receipt's Date tile (where the date is a fact of its own rather than
 /// the hero's quiet line).
@@ -2156,7 +2157,7 @@ void _showNativeUsdcSendDetails(
                     tx.isComplete
                         ? context.l10n.completed
                         : context.l10n.pending,
-                    tx.isComplete ? AppColors.success : c.accent),
+                    tx.isComplete ? AppColors.success : c.warning),
                 _dateFact(context, dateStr),
               ]),
               _NerdDataSection(children: [
@@ -2298,7 +2299,7 @@ Widget _buildOutlogicItem(
       status == 'REJECTED') {
     badge = _RowStatus(text: status.capitalize(), color: AppColors.marketDown);
   } else if (status == 'REFUNDED') {
-    badge = _RowStatus(text: context.l10n.refunded, color: AppColors.info);
+    badge = _RowStatus(text: context.l10n.refunded, color: AppColors.error);
   } else if (status == 'DEPOSIT_CONFIRMED' || status == 'APPROVED') {
     // User's action is done; treat as effectively complete in the UI.
     badge = _RowStatus(
@@ -2357,7 +2358,7 @@ void _showOutlogicTxDetails(
   final dateStr = activitySheetDate(context, tx.timestamp);
 
   String statusText = _outlogicStatusLabel(context, order.status);
-  // Null: the theme accent, resolved in the sheet so it follows the theme.
+  // Null: the pending amber, resolved in the sheet so it follows the theme.
   Color? statusColor;
   if (order.status == 'COMPLETED' ||
       order.status == 'DEPOSIT_CONFIRMED' ||
@@ -2482,7 +2483,7 @@ Widget _buildUnclaimedItem(
     return _TransactionRow(
       onTap: () => _openUnclaimedDeposit(context, ref, tx),
       leading: isRefunding
-          ? buildCircularIcon(Icons.replay_rounded, AppColors.info)
+          ? buildCircularIcon(Icons.replay_rounded, context.colors.warning)
           : _PendingIconWrapper(
               child: _AssetTxIcon(assetCode: 'BTC', isSend: false)),
       title: _RowTitle(isRefunding
@@ -2558,7 +2559,7 @@ void _showPendingUnclaimedSheet(
                     tx.stage == SparkDepositStage.adding
                         ? context.l10n.activityAddingToBalance
                         : context.l10n.activityArriving,
-                    c.accent),
+                    c.warning),
                 _dateFact(context, dateStr),
               ]),
               // Rail and tx ID are nerd data — collapsed.
@@ -2871,7 +2872,7 @@ void _showUsdbTokenTxDetails(
 
 
   String statusText;
-  // Null: the theme accent, resolved in the sheet so it follows the theme.
+  // Null: the pending amber, resolved in the sheet so it follows the theme.
   Color? statusColor;
   switch (payment.status) {
     case breez.PaymentStatus.completed:
@@ -3879,9 +3880,9 @@ List<Widget> _oneTimeReceiveOutcome(
       ),
     'processing' || 'exchanging' || 'settling' || 'review' => (
         text: context.l10n.processing,
-        color: context.colors.accent
+        color: context.colors.warning
       ),
-    _ => (text: context.l10n.pending, color: context.colors.accent),
+    _ => (text: context.l10n.pending, color: context.colors.warning),
   };
 }
 
@@ -4808,7 +4809,7 @@ void _showBitcoinTxDetails(
   final statusText = details != null
       ? confirmationStatus(context, details, ref)
       : (tx.isConfirmed ? context.l10n.confirmed : context.l10n.pending);
-  // Null: the theme accent, resolved in the sheet so it follows the theme.
+  // Null: the pending amber, resolved in the sheet so it follows the theme.
   final Color? statusColor = isPending ? null : AppColors.success;
 
   // Fee — only available with live details. Shown ON the flow graph (Fee
@@ -4980,7 +4981,7 @@ void _showSparkTxDetails(
   final dateStr = activitySheetDate(context, tx.timestamp);
 
   String statusText;
-  // Null: the theme accent, resolved in the sheet so it follows the theme.
+  // Null: the pending amber, resolved in the sheet so it follows the theme.
   Color? statusColor;
   if (payment != null) {
     switch (payment.status) {
@@ -5566,13 +5567,16 @@ class _UnclaimedDepositSheetState
     final waitingForFee = stage == SparkDepositStage.waitingForFee;
     final locked = _claiming || claimElsewhere;
     final (statusText, statusColor) = switch (stage) {
-      _ when claimElsewhere => (context.l10n.activityAddingToBalance, c.accent),
-      SparkDepositStage.refunding => (context.l10n.refunding, AppColors.info),
+      _ when claimElsewhere => (
+          context.l10n.activityAddingToBalance,
+          c.warning
+        ),
+      SparkDepositStage.refunding => (context.l10n.refunding, c.warning),
       SparkDepositStage.waitingForFee => (
           context.l10n.depositStatusWaitingFee,
-          c.accent
+          c.warning
         ),
-      _ => (context.l10n.depositStatusFailed, c.accent),
+      _ => (context.l10n.depositStatusFailed, c.warning),
     };
     return AppBottomSheetContainer(
       maxHeight: 0.85,
@@ -5928,7 +5932,7 @@ class _PendingIconWrapper extends StatelessWidget {
             height: 48.sp,
             child: CircularProgressIndicator(
               strokeWidth: 1.5,
-              color: context.colors.accent,
+              color: context.colors.warning,
             ),
           ),
         ],

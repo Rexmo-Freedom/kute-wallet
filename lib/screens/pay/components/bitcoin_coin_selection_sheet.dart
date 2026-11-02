@@ -545,7 +545,7 @@ class _CoinTile extends ConsumerWidget {
                                 ? context.l10n.confirmed
                                 : context.l10n.unconfirmed,
                             style: TextStyle(
-                              color: confirmed ? c.success : c.accent,
+                              color: confirmed ? c.success : c.warning,
                               fontSize: 12.sp,
                               fontWeight: FontWeight.w600,
                               letterSpacing: -0.1,

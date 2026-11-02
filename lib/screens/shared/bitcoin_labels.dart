@@ -330,7 +330,7 @@ class _CoinDetailsSheet extends ConsumerWidget {
                                     ? context.l10n.confirmed
                                     : context.l10n.unconfirmed,
                                 valueColor:
-                                    confirmed ? c.success : c.accent),
+                                    confirmed ? c.success : c.warning),
                             if (blockTime != null &&
                                 blockTime.confirmationTime != 0)
                               SheetDetailRow(
