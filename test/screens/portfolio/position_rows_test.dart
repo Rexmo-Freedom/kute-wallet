@@ -239,6 +239,37 @@ void main() {
     });
   });
 
+  group('the Portfolio screen\'s squares', () {
+    test('whole rows of two only: two for two or three, four from four, one '
+        'alone for one', () {
+      expect([for (var n = 0; n <= 7; n++) portfolioSquareCount(n)],
+          [0, 1, 2, 2, 4, 4, 4, 4]);
+    });
+
+    test('the Investing row\'s name says a side other than Yes', () {
+      final kane = polyPositionRowNames(
+          question: _kane.marketQuestion,
+          side: 'Yes',
+          marketId: 'kane',
+          tokenId: 'kane-yes',
+          event: _ballonDor);
+      expect(polyPositionListName(kane, 'Yes'), 'Harry Kane');
+      expect(polyPositionListName(kane, 'No'), 'Harry Kane · No');
+      // The title is the side: alone.
+      final named = polyPositionRowNames(
+          question: 'Who will win the Las Vegas Grand Prix?',
+          side: 'Verstappen');
+      expect(polyPositionListName(named, 'Verstappen'), 'Verstappen');
+      // Read before its event: a name cut from the question reads as the
+      // whole short question, its rest having no line to go on.
+      const question = r'Will Bitcoin reach $150,000 in 2026?';
+      final cut = polyPositionRowNames(question: question, side: 'No');
+      expect(cut.title, 'Bitcoin');
+      expect(polyPositionListName(cut, 'No', question: question),
+          r'Bitcoin reach $150,000 in 2026 · No');
+    });
+  });
+
   group('a Predictions row\'s names', () {
     String date(DateTime d) => 'Oct ${d.day}';
 

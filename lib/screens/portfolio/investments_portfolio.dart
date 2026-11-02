@@ -51,9 +51,11 @@
 // section, pinned at the top once it reaches it ([_PortfolioPage]). Both
 // sections speak one language (founder, 1 November 2026: "the vibes are
 // different"): a 13 sp sentence-case section title ("Investing · 2",
-// "Profit and loss") over soft cards of the same rows (position_rows.dart:
+// "Profit and loss") over soft cards of rows (position_rows.dart:
 // logo 32, title 15 w500, sub 13, figure 15 w600 with its change 12 under
-// it).
+// it). Since 2 November 2026 the Portfolio section draws its biggest open
+// positions as squares over the groups and the rest as the Investing
+// list's own row (position_rows.dart, PortfolioRowLayout).
 //
 // Empty, both sections draw ONE empty state at one place under the strip
 // (founder, 1 November 2026; PortfolioSectionEmpty,
@@ -78,7 +80,11 @@ import 'package:kute/providers/portfolio_performance_provider.dart'
 import 'package:kute/screens/portfolio/components/balances_overview.dart'
     show BalancesCategory, BalancesHeroMode;
 import 'package:kute/screens/portfolio/components/position_rows.dart'
-    show PortfolioSlice, PortfolioSliceScope, portfolioPositionFocusProvider;
+    show
+        PortfolioSlice,
+        PortfolioSliceScope,
+        portfolioPositionFocusProvider,
+        portfolioSquareCount;
 import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart'
     show pnlChartVenueProvider;
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
@@ -315,7 +321,8 @@ class _PortfolioPageState extends ConsumerState<_PortfolioPage> {
                   child: KeyedSubtree(
                     key: ValueKey('portfolio-section-${section.key}'),
                     child: switch (section) {
-                      PortfolioSection.balances => const _BalancesBox(),
+                      PortfolioSection.balances =>
+                        _BalancesBox(slices: positions),
                       PortfolioSection.charts => const _ChartsBox(),
                     },
                   ),
@@ -371,11 +378,18 @@ class _StripHeader extends SliverPersistentHeaderDelegate {
 double _portfolioScrollEnd(BuildContext context) =>
     32.h + kuteBarScrollClearance.h + kuteDockScrollClearance(context);
 
-/// The Portfolio section on the Portfolio screen: the venues' positions
+/// The Portfolio section on the Portfolio screen: the biggest open
+/// positions as squares, then the rest under their venues
 /// (PortfolioBalanceBreakdown.venuesOnly, no refresh of its own: the
-/// hero's read already runs), then the bar's clearance.
+/// hero's read already runs; founder, 2 November 2026: "maybe the
+/// biggest investments get the squares and the others just get a normal
+/// line"), then the bar's clearance.
 class _BalancesBox extends ConsumerWidget {
-  const _BalancesBox();
+  const _BalancesBox({required this.slices});
+
+  /// The open positions, biggest first (the ring's slices): the first
+  /// [portfolioSquareCount] are drawn as squares over the groups.
+  final List<PortfolioSlice> slices;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -392,6 +406,11 @@ class _BalancesBox extends ConsumerWidget {
               sharesHeader: true,
               venuesOnly: true,
               refreshOnOpen: false,
+              squareIds: [
+                for (final p
+                    in slices.take(portfolioSquareCount(slices.length)))
+                  p.id,
+              ],
               venues: portfolioVenueLists(context, ref, venues)),
           SizedBox(height: _portfolioScrollEnd(context)),
         ],

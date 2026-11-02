@@ -110,6 +110,18 @@
 //     positions" and the tagline), where P&L Charts and Activity put
 //     theirs.
 //
+// THE BIGGEST POSITIONS AS SQUARES (founder, 2 November 2026: "maybe the
+// biggest investments get the squares and the others just get a normal
+// line"; [BalancesOverview.squareIds]): over the venues' groups, the
+// largest open positions across both venues as squares in two columns
+// (ActivitySquareGrid, the Bitcoin home's Latest squares), full rows
+// only (portfolioSquareCount: two for two or three positions, four from
+// four, one full-width square for one), then [kBalancesGroupGap]; each
+// venue's group lists only what is left ("Investing · 3", its count
+// what it lists), a venue with nothing left out. Those rows are the
+// Investing list's own (PortfolioRowLayout.market, HlListRow: the logo,
+// the name alone, the value over its change, no hairline between them).
+//
 // Nothing shifts under a live price: every figure is tabular, no
 // AnimatedSize wraps a live value.
 //
@@ -136,10 +148,15 @@ import 'package:kute/screens/portfolio/components/position_rows.dart'
     show
         PortfolioCardList,
         PortfolioRowInset,
+        PortfolioRowLayout,
+        PortfolioRowLayoutScope,
         PortfolioSlice,
+        portfolioSquareCount,
         kPortfolioCardInset,
         kPortfolioRowGap,
         kPortfolioRowImage;
+import 'package:kute/screens/shared/all_activity.dart'
+    show ActivitySquareGrid;
 import 'package:kute/screens/shared/market_groups.dart' show marketGroupDivider;
 import 'package:kute/screens/shared/kute_motion.dart'
     show RollingFigure, kuteReduceMotion;
@@ -416,7 +433,15 @@ class BalancesOverview extends StatefulWidget {
     this.heroMode = BalancesHeroMode.allocation,
     this.positionSlices = const [],
     this.positionFocus,
+    this.squareIds = const [],
   });
+
+  /// The [sharesHeader] venues ([venuesOnly]): the open positions drawn
+  /// as squares over the groups, biggest first, by their rows' keys (the
+  /// ring's slice ids: "hl-BTC", "poly-" and its token). Whole rows of two
+  /// only (one alone is full width); a row that is not listed is left
+  /// out. Empty: no squares.
+  final List<String> squareIds;
 
   /// What the [sharesHeader] hero shows (founder, 1 November 2026: "make
   /// it intelligent"): the allocation, the open positions (the Portfolio
@@ -643,9 +668,47 @@ class _BalancesOverviewState extends State<BalancesOverview> {
     // ("INVESTING · 3") over the same grouped card; nothing of the venue's
     // value or P&L (the tiles above have the shares). Only a venue with
     // something open.
-    Widget sharesVenue(BalancesCategory category, BalancesEntry e) {
+    // The squares over the groups (see the file header): the listed rows
+    // whose key is one of [squareIds], in that order, whole rows only.
+    final squareKeys = {for (final id in widget.squareIds) ValueKey(id)};
+    final squareRows = <Widget>[];
+    if (widget.sharesHeader && squareKeys.isNotEmpty) {
+      final byKey = <Key, Widget>{
+        for (final list in widget.venues.values)
+          for (final r in list.rows)
+            if (r.key case final k? when squareKeys.contains(k)) k: r,
+      };
+      final found = [
+        for (final id in widget.squareIds)
+          if (byKey[ValueKey(id)] case final r?) r,
+      ];
+      // A missing row never leaves a hole: whole rows of what is found.
+      squareRows.addAll(found.take(portfolioSquareCount(found.length)));
+    }
+    final squared = {for (final r in squareRows) r.key};
+    // A venue's list less its squares.
+    BalancesVenueList listed(BalancesCategory category) {
       final list = widget.venues[category] ?? BalancesVenueList.empty;
-      final count = e.positionCount > 0 ? e.positionCount : list.rows.length;
+      if (squared.isEmpty) return list;
+      return BalancesVenueList(
+        rows: [
+          for (final r in list.rows)
+            if (!squared.contains(r.key)) r
+        ],
+        settled: list.settled,
+        pnl: list.pnl,
+        loading: list.loading,
+      );
+    }
+
+    Widget sharesVenue(BalancesCategory category, BalancesEntry e) {
+      final list = listed(category);
+      // With squares the count is what the group lists.
+      final count = squared.isNotEmpty
+          ? (list.rows.isNotEmpty ? list.rows.length : list.settled.length)
+          : e.positionCount > 0
+              ? e.positionCount
+              : list.rows.length;
       return Column(
         key: ValueKey('portfolio-balance-venue-${category.name}'),
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -656,14 +719,19 @@ class _BalancesOverviewState extends State<BalancesOverview> {
             title: label(category),
             count: count,
           ),
-          // ONE soft card under the title, the home Activity list's.
+          // ONE soft card under the title, of the Investing list's rows
+          // (founder, 2 November 2026: the same row as Investing).
           Padding(
             key: ValueKey('portfolio-balance-${category.name}-positions'),
             padding: EdgeInsets.only(top: kBalancesTitleGap.h),
-            child: _VenueCard(
-                rows: _shownRows(category, list),
-                loading: list.loading,
-                fold: _foldRow(category, list)),
+            child: PortfolioRowLayoutScope(
+              layout: PortfolioRowLayout.market,
+              child: _VenueCard(
+                  rows: _shownRows(category, list),
+                  loading: list.loading,
+                  hairlines: false,
+                  fold: _foldRow(category, list)),
+            ),
           ),
         ],
       );
@@ -675,6 +743,11 @@ class _BalancesOverviewState extends State<BalancesOverview> {
       final list = widget.venues[category] ?? BalancesVenueList.empty;
       return e.positionCount > 0 || list.any;
     }
+
+    // A venue's group on the Portfolio screen: something open, and, with
+    // squares over the groups, something left to list under it.
+    bool sharesGroupShown(BalancesCategory category, BalancesEntry? e) =>
+        venueOpen(category, e) && (squared.isEmpty || listed(category).any);
 
     final places = balancesBuyingPowerPlaces(entries);
     // A Rebalance note is never folded away.
@@ -940,14 +1013,21 @@ class _BalancesOverviewState extends State<BalancesOverview> {
                   compact: true),
             ),
         ] else if (anyVenue && widget.sharesHeader) ...[
-          // The groups' order: Investing, then Predictions; 24 between.
-          if (venueOpen(BalancesCategory.investing, investing))
-            sharesVenue(BalancesCategory.investing, investing!),
-          if (venueOpen(BalancesCategory.investing, investing) &&
-              venueOpen(BalancesCategory.predictions, predictions))
-            SizedBox(height: kBalancesGroupGap.h),
-          if (venueOpen(BalancesCategory.predictions, predictions))
-            sharesVenue(BalancesCategory.predictions, predictions!),
+          // The biggest positions as squares, then the groups' order:
+          // Investing, then Predictions; 24 between.
+          for (final (i, w) in [
+            if (squareRows.isNotEmpty)
+              _PositionSquares(
+                  key: const ValueKey('portfolio-balance-squares'),
+                  rows: squareRows),
+            if (sharesGroupShown(BalancesCategory.investing, investing))
+              sharesVenue(BalancesCategory.investing, investing!),
+            if (sharesGroupShown(BalancesCategory.predictions, predictions))
+              sharesVenue(BalancesCategory.predictions, predictions!),
+          ].indexed) ...[
+            if (i > 0) SizedBox(height: kBalancesGroupGap.h),
+            w,
+          ],
         ] else if (anyVenue) ...[
           if (predictions != null)
             venue(BalancesCategory.predictions, predictions),
@@ -973,10 +1053,15 @@ class _VenueCard extends StatelessWidget {
       {required this.rows,
       required this.loading,
       this.skeletonRows = 2,
+      this.hairlines = true,
       this.fold});
 
   final List<Widget> rows;
   final bool loading;
+
+  /// The hairline between rows (and before [fold]); none for the
+  /// Investing list's rows.
+  final bool hairlines;
 
   /// "See all" / "Show less" after the rows, past the same hairline.
   final Widget? fold;
@@ -991,6 +1076,7 @@ class _VenueCard extends StatelessWidget {
     return PortfolioCardList(
       rows: rows,
       afterHairline: false,
+      hairlines: hairlines,
       after: !loading && fold == null
           ? null
           : Column(
@@ -1004,7 +1090,7 @@ class _VenueCard extends StatelessWidget {
                           horizontal: inset, vertical: 8.h),
                       rowPadding: EdgeInsets.symmetric(vertical: 10.h)),
                 if (fold != null) ...[
-                  if (rows.isNotEmpty)
+                  if (rows.isNotEmpty && hairlines)
                     marketGroupDivider(
                         context, PortfolioCardList.hairlineIndent()),
                   fold,
@@ -1013,6 +1099,24 @@ class _VenueCard extends StatelessWidget {
             ),
     );
   }
+}
+
+/// The biggest positions as squares (see the file header): two by two
+/// (ActivitySquareGrid), one alone across the whole width; each the
+/// position's own row drawn as a square (PortfolioRowLayout.square), so a
+/// tap opens what the row opens.
+class _PositionSquares extends StatelessWidget {
+  const _PositionSquares({super.key, required this.rows});
+
+  final List<Widget> rows;
+
+  @override
+  Widget build(BuildContext context) => PortfolioRowLayoutScope(
+        layout: PortfolioRowLayout.square,
+        child: rows.length == 1
+            ? rows.single
+            : ActivitySquareGrid(children: rows),
+      );
 }
 
 /// "See all  N ›" at the foot of a venue's card ("Show less" once
