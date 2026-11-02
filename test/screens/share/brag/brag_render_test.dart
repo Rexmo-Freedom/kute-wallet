@@ -1,7 +1,7 @@
 // The brag cards as images, for a look by eye: a big win (with its
 // all-time line, and without it: the top positions' rows), a small win, a
 // loss, flat, and the positions (a winning prediction, a losing Investing
-// position), at 1080 × 1350 with Sal's real face in the footer mark.
+// position), at 1080 × 1350 with Sal's real stills.
 // Every frame lays out without an overflow; the PNGs are written only
 // when asked:
 //

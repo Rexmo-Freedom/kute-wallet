@@ -2,28 +2,31 @@
 //
 // THE SHARE CARD FAMILY, restrained premium (founder, 1 November 2026:
 // the Robinhood / Revolut / Apple Card share cards, then "bigger numbers
-// and such" and an edgy line on the card). One widget, [ShareCard],
-// drawing [ShareCardData] (share_card_data.dart) in the one layout of
-// share_card_frame.dart, 4:5, captured at 1080 × 1350:
+// and such" and an edgy line on the card; 2 November 2026: the earlier
+// cards' colours back, Sal whole and in a mood, the predictions' own
+// speedometer). One widget, [ShareCard], drawing [ShareCardData]
+// (share_card_data.dart) in the one layout of share_card_frame.dart, 4:5,
+// captured at 1080 × 1350, on one solid colour by kind:
 //
-//   * MONEY (near-black): "FOR DANIEL", the amount huge and centred (a
-//     bitcoin send's value in the person's currency, "in bitcoin ·
-//     ₿12,000" under it), the asset's mark as a faint watermark, the edgy
-//     line, "Claim it on Kute" quiet over the footer.
-//   * PREDICTION (white with a hairline): "ANA, A PICK FOR YOU", the
-//     market's picture (36) and question (18), the outcome's chance huge
-//     (80), "Chance of Gen.G", the 10 px odds bar with both sides named
-//     and their percents ("Gen.G 47%" in the bar's blue, "T1 53%" muted)
-//     and the two crests at its ends when both are known, "$10 on Gen.G"
-//     when sent as a pick, the edgy line.
-//   * INVESTMENT (near-black): THE ACTUAL STOCK: its real logo
-//     (HlCoinIcon, 36), name and ticker, the price huge, "+3.4% today" in
-//     the change's colour, the last 30 days' closes as the line filling
-//     the space, "Long · $25" when sent as a pick, the edgy line.
+//   * MONEY (bitcoin orange, dollars green): "FOR DANIEL", the amount
+//     huge and centred (a bitcoin send's value in the person's currency,
+//     "in bitcoin · ₿12,000" under it), the edgy line, "Claim it on Kute"
+//     quiet over the footer; Sal with his briefcase and coin.
+//   * PREDICTION (blue): "ANA, A PICK FOR YOU", the market's picture (36)
+//     and question (18), then the open-position screen's speedometer with
+//     the outcome's chance huge under its hub and "Chance of Gen.G", "$10
+//     on Gen.G" when sent as a pick, the edgy line; Sal looking up, weighing
+//     it.
+//   * INVESTMENT (navy): THE ACTUAL STOCK: its real logo (HlCoinIcon, 36),
+//     name and ticker, the price huge, "+3.4% today" in the change's
+//     colour, the last 30 days' closes as the line filling the space,
+//     "Long · $25" when sent as a pick, the edgy line; Sal smug on a day
+//     up, side-eyeing a day down.
 //
-// Every card ends on Sal's small mark, the wordmark and the sharer's code.
-// The headline sentence leads the share message (share_card_copy.dart,
-// shareCardMessage); the edgy line is on the card only.
+// Sal stands at the top right ([shareCardPose]); the footer is the
+// wordmark and the sharer's code. The headline sentence leads the share
+// message (share_card_copy.dart, shareCardMessage); the edgy line is on
+// the card only.
 //
 // The RECIPIENT's version ([ShareCardAudience.recipient]) is the claim
 // screen's hero: "DANIEL, A FRIEND SENT YOU", "It's yours. Tap claim." on
@@ -38,16 +41,33 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/share/cards/share_card_copy.dart';
 import 'package:kute/screens/share/cards/share_card_data.dart';
 import 'package:kute/screens/share/cards/share_card_frame.dart';
+import 'package:kute/screens/share/cards/share_card_speedometer.dart';
 import 'package:kute/screens/shared/sal_sprite.dart' show SalClip;
 
 /// The logo's side in the identity row.
 const double kShareLogoSize = 36;
 
-/// A crest's side at the odds bar's ends.
-const double kShareCrestSize = ShareCardOddsBar.crestSize;
-
 /// A change this small reads flat (muted, no colour).
 const double _kFlatChange = 0.0005;
+
+/// The card's colour by kind: bitcoin orange, dollars green, predictions
+/// blue, investing navy.
+ShareCardPalette shareCardPalette(ShareCardData data) => switch (data) {
+      final MoneyCardData d =>
+        d.bitcoin ? ShareCardPalette.bitcoin : ShareCardPalette.dollars,
+      PredictionCardData() => ShareCardPalette.prediction,
+      InvestmentCardData() => ShareCardPalette.investment,
+    };
+
+/// Sal's mood on the card: the briefcase on a send, weighing the odds on
+/// a prediction, smug on a stock up, a side-glance on a stock down or
+/// flat.
+ShareCardPose shareCardPose(ShareCardData data) => switch (data) {
+      MoneyCardData() => ShareCardPose.carry,
+      PredictionCardData() => ShareCardPose.think,
+      final InvestmentCardData d =>
+        (d.change ?? 0) > _kFlatChange ? ShareCardPose.smug : ShareCardPose.point,
+    };
 
 class ShareCard extends StatelessWidget {
   const ShareCard(
@@ -71,9 +91,10 @@ class ShareCard extends StatelessWidget {
     final caps = shareCardTopLine(l10n, data);
     final line = shareCardEdge(l10n, data, lineSeed);
     final key = ValueKey('share-card-${data.kind}');
+    final p = shareCardPalette(data);
+    final pose = shareCardPose(data);
     switch (data) {
       case final MoneyCardData d:
-        const p = ShareCardPalette.dark;
         final sub = d.amountSub;
         final bitcoin = d.bitcoin;
         return ShareCardFrame(
@@ -86,42 +107,15 @@ class ShareCard extends StatelessWidget {
           fact:
               bitcoin && sub != null ? l10n.shareCardInBitcoin(d.amount) : null,
           center: true,
-          watermark: bitcoin ? '₿' : r'$',
           line: line,
           quiet: recipient ? l10n.claimCardTapClaim : l10n.shareCardClaimOnKute,
           code: code,
           mark: mark,
+          pose: pose,
         );
       case final PredictionCardData d:
-        const p = ShareCardPalette.light;
         final outcome = shareCardOutcome(l10n, d.outcome);
         final chance = d.chance;
-        final String? other = d.binary
-            ? shareCardOutcome(
-                l10n, d.outcome.trim().toLowerCase() == 'no' ? 'Yes' : 'No')
-            : d.opponent?.trim().isNotEmpty == true
-                ? d.opponent!.trim()
-                : null;
-        final otherChance = d.otherChance;
-        // The crests only when each side has its own picture (a market
-        // whose outcomes all carry the event's picture shows none).
-        final a = d.outcomeImageUrl, b = d.opponentImageUrl;
-        final crests = !d.binary &&
-            a != null &&
-            b != null &&
-            a.isNotEmpty &&
-            b.isNotEmpty &&
-            a != b;
-        Widget? crest(String? url, String label) => !crests || url == null
-            ? null
-            : ShareCardLogo(
-                size: kShareCrestSize,
-                title: label,
-                investing: false,
-                palette: p,
-                imageUrl: url,
-                round: true,
-              );
         return ShareCardFrame(
           key: key,
           palette: p,
@@ -139,35 +133,29 @@ class ShareCard extends StatelessWidget {
             name: d.question,
             nameMaxLines: 2,
           ),
-          number: chance == null ? outcome : shareCardChance(loc, chance),
+          // The chance on the open-position screen's speedometer, huge
+          // under its hub; without a chance, the outcome alone.
+          number: chance == null ? outcome : null,
           numberMax: kShareCardHeroMax,
-          fact: chance == null ? null : l10n.shareCardChanceOf(outcome),
-          factSize: 16,
           graphic: chance == null
               ? null
-              : ShareCardOddsBar(
+              : ShareCardSpeedometer(
                   key: const ValueKey('share-card-odds'),
                   palette: p,
                   fraction: chance / 100,
-                  left: outcome,
-                  leftValue: shareCardChance(loc, chance),
-                  right: other,
-                  rightValue: other == null || otherChance == null
-                      ? null
-                      : shareCardChance(loc, otherChance),
-                  leftImage: crest(d.outcomeImageUrl, outcome),
-                  rightImage:
-                      other == null ? null : crest(d.opponentImageUrl, other),
+                  figure: shareCardChance(loc, chance),
+                  caption: l10n.shareCardChanceOf(outcome),
                 ),
+          graphicFills: chance != null,
           plain: d.picked && d.amount != null
               ? l10n.shareCardAmountOn(d.amount!, outcome)
               : null,
           line: line,
           code: code,
           mark: mark,
+          pose: pose,
         );
       case final InvestmentCardData d:
-        const p = ShareCardPalette.dark;
         final price = d.price;
         final change = d.change;
         final series = d.series;
@@ -226,6 +214,7 @@ class ShareCard extends StatelessWidget {
           line: line,
           code: code,
           mark: mark,
+          pose: pose,
         );
     }
   }

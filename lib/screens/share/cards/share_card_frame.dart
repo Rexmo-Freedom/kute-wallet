@@ -3,46 +3,47 @@
 // THE SHARE CARD FRAME (founder, 1 November 2026: restrained premium, the
 // Robinhood / Revolut / Apple Card share cards; refined the same day:
 // "bigger numbers and such", no band left mostly empty, and one edgy
-// line written on the card). Every 4:5 share image, the brag cards and
-// the claim screen's hero are this one layout, so the family reads as
-// one:
+// line written on the card; 2 November 2026: "don't have the cards just
+// black and white", the earlier colours back, and "Sal should have more
+// expression there"). Every 4:5 share image, the brag cards and the
+// claim screen's hero are this one layout, so the family reads as one:
 //
-//   * ONE solid background, no gradient, no glow: near-black
-//     ([ShareCardPalette.dark]: stocks, sends, brag) or white with a
-//     hairline ([ShareCardPalette.light]: predictions). 4:5 at
-//     [kShareCardSize], captured at [kShareCardPixelRatio] (1080 × 1350),
-//     [kShareCardPadding] all round, the hairline and the preview's clip at
-//     [kShareCardRadius].
+//   * ONE solid background in the card's colour, no gradient, no glow
+//     ([ShareCardPalette]: bitcoin orange, dollars green, predictions
+//     blue, investing navy; a brag card green, red or navy by its tone),
+//     the ink with its contrast on it. 4:5 at [kShareCardSize], captured
+//     at [kShareCardPixelRatio] (1080 × 1350), [kShareCardPadding] all
+//     round, the preview's clip at [kShareCardRadius].
+//   * SAL, whole, at the top right ([ShareCardFrame.pose], a still of the
+//     3D Sal, [kShareCardSalSize]): smug on a win, deadpan on a loss,
+//     with his briefcase on a send, looking up on a prediction. The caps
+//     line and the identity leave him room ([kShareCardSalInset]); a big
+//     number right under them starts below his feet ([kShareCardSalBand]).
 //   * THREE BANDS. TOP: a small caps line (12, letter-spaced 0.12 em,
 //     55%: "ANA, A PICK FOR YOU", "FOR DANIEL", "MY PORTFOLIO"), then the
 //     identity row ([ShareCardIdentity]: the logo 36 as a rounded square,
 //     the name 18 w600, a muted meta "TSLA"). MIDDLE: the hero block, ONE
 //     huge number ([ShareCardHeroNumber]: 64–80 by its length, shrunk to
 //     the width down to 48, w600, −2% tracking, tabular: the price, the
-//     chance, the amount or the P&L) and the fact line under it (18, in
-//     the semantic colour or 60% ink: "+3.4% today", "All time"); it is
-//     centred in the space left, or, on a card whose graphic fills
-//     ([ShareCardFrame.graphicFills]: a chart, the portfolio's rows), it
-//     follows the top band and the graphic takes the rest. BOTTOM: the
-//     one graphic (a 2 px line over a 6% area with an end dot,
-//     [ShareCardSparkline]; the 10 px odds bar with both sides named,
-//     [ShareCardOddsBar]), the plain fact line ("Long · $25", "$10 on
-//     Gen.G"), the EDGY LINE ([ShareCardFrame.line]: 20 w600, 90% ink, at
-//     most two lines, deadpan and PG, share_card_copy.dart /
+//     amount or the P&L) and the fact line under it (18, in the semantic
+//     colour or 60% ink: "+3.4% today", "All time"); it is centred in the
+//     space left, or, on a card whose graphic fills
+//     ([ShareCardFrame.graphicFills]: a chart, the portfolio's rows, the
+//     prediction's speedometer with its own figure under the hub,
+//     share_card_speedometer.dart), it follows the top band and the
+//     graphic takes the rest. BOTTOM: the plain fact line ("Long · $25",
+//     "$10 on Gen.G"), the EDGY LINE ([ShareCardFrame.line]: 20 w600, 90%
+//     ink, at most two lines, deadpan and PG, share_card_copy.dart /
 //     brag_lines.dart), a quiet line ("Claim it on Kute"), then the
 //     footer.
-//   * A money card centres its amount and fills the space with its
-//     asset's mark as a watermark ([ShareCardFrame.watermark]: the ₿ or $
-//     glyph, ~70% of the card's height, 4%, bottom right, clipped).
-//   * FOOTER ([ShareCardFooter]): Sal as a small mark (a 28 px rounded
-//     tile with his 3D face, [ShareCardMark]) and the "kute." wordmark
-//     (20) on the left; "CODE JOAO42" (12, letter-spaced, muted) on the
-//     right.
+//   * FOOTER ([ShareCardFooter]): the "kute." wordmark (20) on the left
+//     (Sal's small face tile before it only on a card without a pose);
+//     "CODE JOAO42" (12, letter-spaced, muted) on the right.
 //
 // No text scaling and the light Material theme inside, whatever the app's
-// mode: the preview is exactly the image. Sal's face is decoded once
-// ([ShareCardSal]) and handed in; the logos are the app's own widgets
-// (HlCoinIcon, PolyCrestImage).
+// mode: the preview is exactly the image. Sal's stills and face are
+// decoded once ([ShareCardSal]) and read synchronously; the logos are the
+// app's own widgets (HlCoinIcon, PolyCrestImage).
 
 import 'dart:math' as math;
 
@@ -88,8 +89,11 @@ TextStyle shareCardText(double size, FontWeight weight, Color color,
       fontFeatures: tabular ? const [FontFeature.tabularFigures()] : null,
     );
 
-/// A card's colours: one background, the ink, the muted ink (55%), the
-/// semantic up / down, the tile behind a logo or Sal, the hairline.
+/// A card's colours: one solid background in the card's own colour (the
+/// earlier cards' palette, founder, 2 November 2026: "yellow for bitcoin,
+/// green for dollars and such"), the ink with its contrast, the muted ink
+/// (55%), the semantic up / down (the ink itself on a card whose colour
+/// already says it), the tile behind a logo, the speedometer's track.
 @immutable
 class ShareCardPalette {
   const ShareCardPalette({
@@ -99,6 +103,7 @@ class ShareCardPalette {
     required this.down,
     required this.tile,
     required this.track,
+    this.dot = AppColors.accent,
     this.hairline,
   });
 
@@ -108,34 +113,74 @@ class ShareCardPalette {
   final Color down;
   final Color tile;
 
-  /// The odds bar's empty part.
+  /// The speedometer's empty track.
   final Color track;
 
-  /// The edge on a white card; null on the dark one.
+  /// The wordmark's dot ("kute."): the app's orange, the ink on the
+  /// bitcoin card (orange on orange would vanish).
+  final Color dot;
+
+  /// The edge on a light card; null on the others.
   final Color? hairline;
 
   Color get muted => ink.withValues(alpha: 0.55);
 
-  /// Near-black: stocks, sends, brag.
-  static const ShareCardPalette dark = ShareCardPalette(
-    background: Color(0xFF0E0F12),
+  /// Bitcoin: the app's bitcoin orange, near-black ink.
+  static const ShareCardPalette bitcoin = ShareCardPalette(
+    background: Color(0xFFF7931A),
+    ink: Color(0xFF16110A),
+    up: Color(0xFF16110A),
+    down: Color(0xFF16110A),
+    tile: Color(0x1F000000),
+    track: Color(0x2E000000),
+    dot: Color(0xFF16110A),
+  );
+
+  /// Dollars: green, white ink.
+  static const ShareCardPalette dollars = ShareCardPalette(
+    background: Color(0xFF0E8A4C),
+    ink: Color(0xFFFFFFFF),
+    up: Color(0xFFFFFFFF),
+    down: Color(0xFFFFFFFF),
+    tile: Color(0x24FFFFFF),
+    track: Color(0x33FFFFFF),
+  );
+
+  /// Predictions: blue, white ink.
+  static const ShareCardPalette prediction = ShareCardPalette(
+    background: Color(0xFF2D5BE3),
+    ink: Color(0xFFFFFFFF),
+    up: Color(0xFFFFFFFF),
+    down: Color(0xFFFFFFFF),
+    tile: Color(0x24FFFFFF),
+    track: Color(0x38FFFFFF),
+  );
+
+  /// Investing: deep navy, white ink, the market's green and red.
+  static const ShareCardPalette investment = ShareCardPalette(
+    background: Color(0xFF141B2E),
     ink: Color(0xFFFFFFFF),
     up: Color(0xFF2BD47F),
     down: Color(0xFFFF5A6A),
-    tile: Color(0xFF1D1F24),
-    track: Color(0x24FFFFFF),
+    tile: Color(0xFF222A40),
+    track: Color(0x29FFFFFF),
   );
 
-  /// White with a hairline: predictions.
-  static const ShareCardPalette light = ShareCardPalette(
-    background: Color(0xFFFFFFFF),
-    ink: Color(0xFF0E0F12),
-    up: Color(0xFF0B9A55),
-    down: Color(0xFFE0334A),
-    tile: Color(0xFFF1F2F4),
-    track: Color(0xFFE9EAED),
-    hairline: Color(0x1A0E0F12),
+  /// A win to brag about: green, white ink.
+  static const ShareCardPalette win = dollars;
+
+  /// A loss owned: red, white ink.
+  static const ShareCardPalette loss = ShareCardPalette(
+    background: Color(0xFFC0283A),
+    ink: Color(0xFFFFFFFF),
+    up: Color(0xFFFFFFFF),
+    down: Color(0xFFFFFFFF),
+    tile: Color(0x24FFFFFF),
+    track: Color(0x38FFFFFF),
   );
+
+  /// Flat: the investing navy.
+  static const ShareCardPalette flat = investment;
 
   /// [value]'s colour: up, down, or muted when within [flat] of zero or
   /// null.
@@ -145,36 +190,77 @@ class ShareCardPalette {
   }
 }
 
-/// The odds bar's fill on a prediction card.
-const Color kShareOddsBlue = Color(0xFF2F6BFF);
+/// Sal's pose on a card (founder, 2 November 2026: "Sal should have more
+/// expression there"): one still of the 3D Sal, whole, at the card's top
+/// right, its mood the card's tone. The stills are single frames of his
+/// body clips (`card_<pose>@2x/@3x.webp` in lib/assets/sal, the manifest's
+/// `card` group).
+enum ShareCardPose {
+  /// Half-closed eyes, chin up (body_cheer): a win, a stock up.
+  smug,
 
-/// Decodes Sal's face once (the `share` clip's first frame, the sheet at
-/// @3x) for a card that never loads anything itself.
+  /// Brows down (body_sad): a loss, owned.
+  deadpan,
+
+  /// Looking up and aside (body_think): a prediction, a flat result.
+  think,
+
+  /// Glasses on, the briefcase with the coin (body_carry): a send.
+  carry,
+
+  /// Wide-eyed side-glance (body_point): a stock down, a small win.
+  point;
+
+  String get clip => 'card_$name';
+}
+
+/// Sal's whole height on a card, his cell's side.
+const double kShareCardSalSize = 128;
+
+/// Decodes Sal for the cards once: his face (the `share` clip's first
+/// frame, the small mark a card without a pose wears) and the pose
+/// stills ([ShareCardPose]), at @3x, for a card that never loads anything
+/// itself.
 abstract final class ShareCardSal {
   static const String clip = 'share';
   static SalClip? _face;
+  static final Map<ShareCardPose, SalClip> _poses = {};
   static Future<SalClip?>? _loading;
 
   /// The decoded face, or null until [load] has finished.
   static SalClip? peek() => _face;
 
-  /// Decodes the face (once); null when it cannot be read.
+  /// The decoded still of [pose], or null until [load] has finished.
+  static SalClip? pose(ShareCardPose pose) => _poses[pose];
+
+  /// Decodes the face and the poses (once); the face, or null when it
+  /// cannot be read (a pose that cannot be read is left out).
   static Future<SalClip?> load() {
     final done = _face;
-    if (done != null) return Future.value(done);
-    return _loading ??= SalSpriteCache.clip(clip, 3).then((c) {
-      _face = c;
+    if (done != null && _poses.length == ShareCardPose.values.length) {
+      return Future.value(done);
+    }
+    return _loading ??= Future.wait([
+      SalSpriteCache.clip(clip, 3),
+      for (final p in ShareCardPose.values) SalSpriteCache.clip(p.clip, 3),
+    ]).then((clips) {
+      _face = clips.first;
+      for (var i = 0; i < ShareCardPose.values.length; i++) {
+        final c = clips[i + 1];
+        if (c != null) _poses[ShareCardPose.values[i]] = c;
+      }
       _loading = null;
-      return c;
+      return _face;
     }, onError: (Object _) {
       _loading = null;
       return null;
     });
   }
 
-  /// Tests: forget the decoded face.
+  /// Tests: forget the decoded face and poses.
   static void debugReset() {
     _face = null;
+    _poses.clear();
     _loading = null;
   }
 }
@@ -282,6 +368,7 @@ class ShareCardFrame extends StatelessWidget {
     this.quiet,
     this.code,
     this.mark,
+    this.pose,
     this.keyPrefix = 'share-card',
   });
 
@@ -333,14 +420,20 @@ class ShareCardFrame extends StatelessWidget {
   /// The sharer's referral code; null: none.
   final String? code;
 
-  /// Sal's decoded face ([ShareCardSal]); null: the tile alone.
+  /// Sal's decoded face ([ShareCardSal]) for the footer's small mark,
+  /// worn only by a card without a [pose]; null: the tile alone.
   final SalClip? mark;
+
+  /// Sal, whole, at the top right in this pose ([ShareCardSal.pose]); the
+  /// footer then has no mark. His place is kept while the still decodes,
+  /// so the layout never moves.
+  final ShareCardPose? pose;
 
   /// The keys' prefix: `{prefix}-bg`, `{prefix}-caps`, `{prefix}-hero`,
   /// `{prefix}-number`, `{prefix}-fact`, `{prefix}-graphic`,
   /// `{prefix}-plain`, `{prefix}-edge`, `{prefix}-quiet`,
   /// `{prefix}-watermark`, `{prefix}-footer`, `{prefix}-mark`,
-  /// `{prefix}-wordmark`, `{prefix}-code`.
+  /// `{prefix}-wordmark`, `{prefix}-code`, `{prefix}-sal`.
   final String keyPrefix;
 
   @override
@@ -403,10 +496,13 @@ class ShareCardFrame extends StatelessWidget {
     final keyedGraphic = graphic == null
         ? null
         : KeyedSubtree(key: ValueKey('$keyPrefix-graphic'), child: graphic!);
-    final body = Column(
+    final sal = pose;
+    // TOP: the caps line and the identity, clear of Sal at the right; a
+    // big number right under them starts below him.
+    Widget top = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        // TOP: the caps line and the identity.
         Text(
           caps.toUpperCase(),
           key: ValueKey('$keyPrefix-caps'),
@@ -419,10 +515,30 @@ class ShareCardFrame extends StatelessWidget {
           const SizedBox(height: 12),
           identity!,
         ],
+      ],
+    );
+    final salBand = sal != null && number != null && !center && graphicFills;
+    if (sal != null) {
+      top = Padding(
+        padding: const EdgeInsetsDirectional.only(end: kShareCardSalInset),
+        child: top,
+      );
+      if (salBand) {
+        top = ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: kShareCardSalBand),
+          child: Align(alignment: Alignment.topLeft, child: top),
+        );
+      }
+    }
+    final body = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        top,
         // MIDDLE: the hero block.
         if (graphicFills) ...[
           if (hero != null) ...[
-            SizedBox(height: identity != null ? 16 : 26),
+            // Under Sal's band the band itself is the air.
+            SizedBox(height: salBand ? 8 : identity != null ? 16 : 26),
             hero,
           ],
           Expanded(
@@ -488,6 +604,7 @@ class ShareCardFrame extends StatelessWidget {
             palette: p,
             code: code,
             mark: mark,
+            showMark: sal == null,
             keyPrefix: keyPrefix),
       ],
     );
@@ -537,6 +654,15 @@ class ShareCardFrame extends StatelessWidget {
                         padding: const EdgeInsets.all(kShareCardPadding),
                         child: body,
                       ),
+                      if (sal != null)
+                        PositionedDirectional(
+                          top: kShareCardSalTop,
+                          end: kShareCardSalEnd,
+                          width: kShareCardSalSize,
+                          height: kShareCardSalSize,
+                          child: ShareCardSalStill(
+                              key: ValueKey('$keyPrefix-sal'), pose: sal),
+                        ),
                     ],
                   ),
                 ),
@@ -547,6 +673,48 @@ class ShareCardFrame extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Sal's cell on the card: its top and end offsets from the card's edge
+/// (his render's own transparent margin sits in the card's padding).
+const double kShareCardSalTop = -6;
+const double kShareCardSalEnd = 0;
+
+/// The room the caps line and the identity leave at their end for Sal.
+const double kShareCardSalInset = 84;
+
+/// The top band's height when a big number follows it at the left, so
+/// the number starts under Sal's feet.
+const double kShareCardSalBand = 80;
+
+/// Sal's still ([ShareCardSal.pose]) filling its box; nothing while it
+/// decodes.
+class ShareCardSalStill extends StatelessWidget {
+  const ShareCardSalStill({super.key, required this.pose});
+
+  final ShareCardPose pose;
+
+  @override
+  Widget build(BuildContext context) {
+    final still = ShareCardSal.pose(pose);
+    if (still == null) return const SizedBox.expand();
+    return CustomPaint(size: Size.infinite, painter: _StillPainter(still));
+  }
+}
+
+class _StillPainter extends CustomPainter {
+  _StillPainter(this.still);
+
+  final SalClip still;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawImageRect(still.image, still.cell(0), Offset.zero & size,
+        Paint()..filterQuality = FilterQuality.high);
+  }
+
+  @override
+  bool shouldRepaint(_StillPainter old) => !identical(old.still, still);
 }
 
 /// The identity row: [logo] (36, a rounded square), [name] (18, w600) and
@@ -676,10 +844,16 @@ class ShareCardLogo extends StatelessWidget {
   }
 }
 
+/// The footer mark's side.
+const double kShareCardMarkSize = 28;
+
 /// Sal as a small mark: a 28 px rounded tile with his 3D face.
 class ShareCardMark extends StatelessWidget {
   const ShareCardMark(
-      {super.key, required this.palette, this.face, this.size = 28});
+      {super.key,
+      required this.palette,
+      this.face,
+      this.size = kShareCardMarkSize});
 
   final ShareCardPalette palette;
   final SalClip? face;
@@ -724,12 +898,16 @@ class ShareCardFooter extends StatelessWidget {
     required this.palette,
     required this.code,
     this.mark,
+    this.showMark = true,
     this.keyPrefix = 'share-card',
   });
 
   final ShareCardPalette palette;
   final String? code;
   final SalClip? mark;
+
+  /// The small mark before the wordmark (off when Sal stands on the card).
+  final bool showMark;
   final String keyPrefix;
 
   @override
@@ -739,14 +917,18 @@ class ShareCardFooter extends StatelessWidget {
     final c = code?.trim() ?? '';
     return Row(
       children: [
-        ShareCardMark(
-            key: ValueKey('$keyPrefix-mark'), palette: palette, face: mark),
-        const SizedBox(width: 9),
+        // The mark's height kept without it, so the bands never move.
+        SizedBox(height: kShareCardMarkSize, width: showMark ? null : 0),
+        if (showMark) ...[
+          ShareCardMark(
+              key: ValueKey('$keyPrefix-mark'), palette: palette, face: mark),
+          const SizedBox(width: 9),
+        ],
         Text.rich(
           key: ValueKey('$keyPrefix-wordmark'),
           TextSpan(children: [
             TextSpan(text: 'kute', style: word),
-            TextSpan(text: '.', style: word.copyWith(color: AppColors.accent)),
+            TextSpan(text: '.', style: word.copyWith(color: palette.dot)),
           ]),
         ),
         const SizedBox(width: 12),
@@ -856,112 +1038,4 @@ class ShareCardLinePainter extends CustomPainter {
   @override
   bool shouldRepaint(ShareCardLinePainter old) =>
       old.points != points || old.color != color;
-}
-
-/// The 10 px odds bar, rounded, [fraction] (0–1) filled in [color], with
-/// both sides named and their percents over it: [left] and [leftValue]
-/// ("Gen.G 47%") in the bar's colour, [right] and [rightValue] ("T1 53%")
-/// muted, a long name shortened before its percent ever is; the two
-/// crests (20, round) at the bar's ends when both are there.
-class ShareCardOddsBar extends StatelessWidget {
-  const ShareCardOddsBar({
-    super.key,
-    required this.palette,
-    required this.fraction,
-    required this.left,
-    this.leftValue,
-    this.right,
-    this.rightValue,
-    this.leftImage,
-    this.rightImage,
-    this.color = kShareOddsBlue,
-  });
-
-  final ShareCardPalette palette;
-  final double fraction;
-  final String left;
-  final String? leftValue;
-  final String? right;
-  final String? rightValue;
-  final Widget? leftImage;
-  final Widget? rightImage;
-  final Color color;
-
-  static const double barHeight = 10;
-  static const double crestSize = 20;
-
-  @override
-  Widget build(BuildContext context) {
-    final f = fraction.clamp(0.0, 1.0);
-    final filled = (f * 1000).round();
-    final crests = leftImage != null && rightImage != null;
-    final bar = SizedBox(
-      key: const ValueKey('share-card-odds-bar'),
-      height: barHeight,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(barHeight / 2),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (filled > 0)
-              Expanded(flex: filled, child: ColoredBox(color: color)),
-            if (filled > 0 && filled < 1000) const SizedBox(width: 3),
-            if (filled < 1000)
-              Expanded(
-                  flex: 1000 - filled, child: ColoredBox(color: palette.track)),
-          ],
-        ),
-      ),
-    );
-    final style =
-        shareCardText(16, FontWeight.w600, color, spacing: -0.2, tabular: true);
-    Widget side(String name, String? value, TextStyle s, Key key) => Row(
-          key: key,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Flexible(
-              child: Text(name,
-                  maxLines: 1, overflow: TextOverflow.ellipsis, style: s),
-            ),
-            if (value != null) Text(' $value', maxLines: 1, style: s),
-          ],
-        );
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          key: const ValueKey('share-card-odds-labels'),
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Flexible(
-                child: side(left, leftValue, style,
-                    const ValueKey('share-card-odds-left'))),
-            if (right != null) ...[
-              const SizedBox(width: 16),
-              Flexible(
-                  child: side(
-                      right!,
-                      rightValue,
-                      style.copyWith(color: palette.muted),
-                      const ValueKey('share-card-odds-right'))),
-            ],
-          ],
-        ),
-        const SizedBox(height: 10),
-        if (crests)
-          Row(
-            children: [
-              SizedBox.square(dimension: crestSize, child: leftImage),
-              const SizedBox(width: 8),
-              Expanded(child: bar),
-              const SizedBox(width: 8),
-              SizedBox.square(dimension: crestSize, child: rightImage),
-            ],
-          )
-        else
-          bar,
-      ],
-    );
-  }
 }

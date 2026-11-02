@@ -1,13 +1,15 @@
 // The brag cards (screens/share/brag/), restrained premium: both
-// variants render from fake data on one near-black background, always
-// with the real amounts (no toggle), ONE huge number (the P&L), the
-// all-time line or the top positions with their REAL logos (HlCoinIcon,
-// PolyCrestImage, never a letter tile), the edgy line built from the
-// result, the footer mark and code, no chip, pill, bubble, ring or Sal
-// pose, and no large empty band. Share hands the OS a PNG and the link
+// variants render from fake data on one solid colour by the result's
+// tone (green, red, navy), always with the real amounts (no toggle), ONE
+// huge number (the P&L), the all-time line, the top positions with their
+// REAL logos (HlCoinIcon, PolyCrestImage, never a letter tile) or, on a
+// prediction, the open-position screen's speedometer, the edgy line built
+// from the result, Sal at the top right in the tone's mood, the code, no
+// chip, pill, bubble or ring, and no large empty band. Share hands the OS a PNG and the link
 // with the referral code (the edgy line is on the card, not repeated),
 // and `brag_shared` says which card.
 
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -19,6 +21,8 @@ import 'package:kute/screens/share/brag/brag_lines.dart';
 import 'package:kute/screens/share/brag/brag_preview_sheet.dart';
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
+import 'package:kute/screens/polymarket/components/position_speedometer.dart'
+    show PolySpeedometerDialPainter, PolySpeedometerNeedlePainter;
 import 'package:kute/screens/share/cards/share_card_frame.dart';
 import 'package:share_plus/share_plus.dart' show XFile;
 
@@ -54,9 +58,9 @@ void main() {
         .widget<DecoratedBox>(find.byKey(const ValueKey('brag-card-bg')))
         .decoration as BoxDecoration;
     expect(box.gradient, isNull);
-    expect(box.color, ShareCardPalette.dark.background);
     expect(find.byKey(const ValueKey('brag-card-number')), findsOneWidget);
-    expect(find.byKey(const ValueKey('brag-card-mark')), findsOneWidget);
+    expect(find.byKey(const ValueKey('brag-card-sal')), findsOneWidget);
+    expect(find.byKey(const ValueKey('brag-card-mark')), findsNothing);
     expect(find.byKey(const ValueKey('brag-card-wordmark')), findsOneWidget);
     expect(find.byKey(const ValueKey('brag-card-code')),
         code ? findsOneWidget : findsNothing);
@@ -66,12 +70,10 @@ void main() {
       'brag-card-side',
       'brag-card-allocation',
       'brag-card-entry-now',
-      'brag-card-sal',
       'brag-card-sal-shades',
     ]) {
       expect(find.byKey(ValueKey(gone)), findsNothing, reason: gone);
     }
-    expect(find.byType(RawImage), findsNothing);
     expect(find.text('Beat me on Kute'), findsNothing);
   }
 
@@ -149,13 +151,22 @@ void main() {
         expectRestrained(tester, code: true);
         expect(tester.takeException(), isNull, reason: '${data.tone}');
       }
+      // The colour and Sal's mood follow the tone.
+      expect(bragPalette(fakeBragPortfolio()), ShareCardPalette.win);
+      expect(bragPalette(fakeBragLosingPortfolio()), ShareCardPalette.loss);
+      expect(bragPalette(fakeBragFlatPortfolio()), ShareCardPalette.flat);
+      expect(bragPose(fakeBragPortfolio()), ShareCardPose.smug);
+      expect(bragPose(fakeBragSmallWinPortfolio()), ShareCardPose.point);
+      expect(bragPose(fakeBragLosingPortfolio()), ShareCardPose.deadpan);
+      expect(bragPose(fakeBragFlatPortfolio()), ShareCardPose.think);
     });
   });
 
   group('position card', () {
     testWidgets(
-        'MY POSITION, the market and the side, the P&L big, since you '
-        'bought with the percent in colour, the line', (tester) async {
+        'a prediction: MY POSITION, the market and the side, the '
+        'speedometer at the chance now with the P&L under its hub, since '
+        'you bought with the percent', (tester) async {
       await pumpShareWidget(tester, env, card(fakeBragPosition()));
       expectRestrained(tester, code: true);
       expect(textAt(tester, 'brag-card-caps').data, 'MY POSITION');
@@ -163,11 +174,28 @@ void main() {
       expect(
           textAt(tester, 'brag-card-fact').data, 'Since you bought · +42.1%');
       expect(textAt(tester, 'brag-card-fact').style!.color,
-          ShareCardPalette.dark.up);
+          ShareCardPalette.win.up);
+      final bg = tester
+          .widget<DecoratedBox>(find.byKey(const ValueKey('brag-card-bg')))
+          .decoration as BoxDecoration;
+      expect(bg.color, ShareCardPalette.win.background);
       expect(find.text('LoL Worlds 2026: Gen.G vs T1'), findsOneWidget);
       expect(textAt(tester, 'brag-card-meta').data, 'Gen.G');
       expect(find.byKey(const ValueKey('brag-card-logo')), findsOneWidget);
-      expect(find.byKey(const ValueKey('brag-card-chart')), findsOneWidget);
+      expect(find.byKey(const ValueKey('brag-card-speedometer')),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('brag-card-chart')), findsNothing);
+      final painters = tester
+          .widgetList<CustomPaint>(find.descendant(
+              of: find.byKey(const ValueKey('brag-card-speedometer')),
+              matching: find.byType(CustomPaint)))
+          .map((w) => w.painter)
+          .toList();
+      expect(
+          painters.whereType<PolySpeedometerNeedlePainter>().single.needle.value,
+          closeTo(0.58, 1e-9));
+      expect(painters.whereType<PolySpeedometerDialPainter>().single.entry,
+          0.41);
       expect(find.text('CODE $kBragTestCode'), findsOneWidget);
       expect(tester.getSize(find.byType(BragCard)), kBragCardSize);
       // Entry and now as the plain fact line.
@@ -190,7 +218,7 @@ void main() {
       expect(resultText(tester), '−\$5.00');
       expect(textAt(tester, 'brag-card-fact').data, 'Since you bought');
       expect(textAt(tester, 'brag-card-fact').style!.color,
-          ShareCardPalette.dark.down);
+          ShareCardPalette.loss.down);
       expect(find.byKey(const ValueKey('brag-card-chart')), findsNothing);
     });
   });
@@ -216,7 +244,7 @@ void main() {
       expect(find.text('+42.1%'), findsOneWidget);
       expect(find.text('+12.5%'), findsOneWidget);
       expect(tester.widget<Text>(find.text('+18.4%')).style!.color,
-          ShareCardPalette.dark.up);
+          ShareCardPalette.win.up);
       expect(tester.widget<Text>(find.text('+18.4%')).style!.fontSize, 17);
       expect(find.byKey(const ValueKey('brag-card-chart')), findsNothing);
     });
@@ -278,7 +306,7 @@ void main() {
       expect(find.byKey(const ValueKey('brag-card-rows')), findsNothing);
       final chart =
           tester.getRect(find.byKey(const ValueKey('brag-card-chart')));
-      expect(chart.height, greaterThan(kBragCardSize.height * 0.3));
+      expect(chart.height, greaterThan(kBragCardSize.height * 0.22));
     });
 
     testWidgets('no band left mostly empty, with or without the line',
@@ -312,10 +340,17 @@ void main() {
                 (o) => o != r && o.contains(r.center) && o.height > r.height))
               r
         ];
+        // Sal at the top right fills the room beside the caps line.
+        final sal =
+            tester.getRect(find.byKey(const ValueKey('brag-card-sal')));
         for (var i = 1; i < rects.length; i++) {
-          final gap = rects[i].top - rects[i - 1].bottom;
-          expect(gap, inInclusiveRange(0, kBragCardSize.height * 0.15),
+          final above = i == 1 ? math.max(rects[0].bottom, sal.bottom - 24)
+              : rects[i - 1].bottom;
+          final gap = rects[i].top - above;
+          expect(gap, lessThanOrEqualTo(kBragCardSize.height * 0.15),
               reason: '${data.kind} ${data.tone}: gap $i');
+          expect(rects[i].top - rects[i - 1].bottom, greaterThanOrEqualTo(0),
+              reason: '${data.kind} ${data.tone}: overlap $i');
         }
       }
     });

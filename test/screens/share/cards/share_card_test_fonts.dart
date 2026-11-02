@@ -1,6 +1,6 @@
 // The share cards' fonts for the tests and the renders: Inter (the card's
 // family), the Material icons and, when this machine has it, Hiragino for
-// the Japanese frames; and Sal's face for the footer mark.
+// the Japanese frames; and Sal's face and pose stills for the cards.
 
 import 'dart:convert';
 import 'dart:io';
@@ -40,7 +40,7 @@ Future<void> loadShareCardFonts() async {
   _loaded = true;
 }
 
-/// Sal's face for the cards' footer mark, decoded from the bundle (the
+/// Sal's face and pose stills for the cards, decoded from the bundle (the
 /// manifest read directly: the sprite cache's own read does not run in a
 /// test).
 Future<void> loadShareCardSal() async {

@@ -162,6 +162,7 @@ class BragPosition extends BragData {
     this.nowText,
     this.series,
     this.entryValue,
+    this.chance,
   });
 
   /// An Investing position (Hyperliquid) rather than a prediction.
@@ -191,6 +192,10 @@ class BragPosition extends BragData {
 
   /// The price paid on [series]' scale.
   final double? entryValue;
+
+  /// Predictions: the held side's chance now, 0 to 1 (its live price),
+  /// the card's speedometer; null on an Investing position.
+  final double? chance;
 
   @override
   BragKind get kind => BragKind.position;
@@ -403,6 +408,7 @@ BragPosition bragPolyPosition(
     nowText: formatPolyCents(currentPrice),
     series: series != null && series.length >= 2 ? series : null,
     entryValue: entry,
+    chance: currentPrice >= 0 && currentPrice <= 1 ? currentPrice : null,
   );
 }
 

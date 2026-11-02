@@ -30,6 +30,7 @@ BragPosition fakeBragPosition({String? code = kBragTestCode}) => BragPosition(
         0.58,
       ],
       entryValue: 0.41,
+      chance: 0.58,
     );
 
 BragPosition fakeBragLosingPosition() => const BragPosition(

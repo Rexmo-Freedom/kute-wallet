@@ -1,5 +1,5 @@
 // The share cards as images, for a look by eye, at 1080 × 1350 with Sal's
-// real face in the footer mark: bitcoin and dollars sends, a prediction
+// real stills: bitcoin and dollars sends, a prediction
 // pick, a prediction market, a stock pick (Tesla), a stock market (Nasdaq
 // 100), oil, German and Japanese, and the claim heroes; then the phone screens
 // that show them: Send to anyone's "Who is it for?" step with the live

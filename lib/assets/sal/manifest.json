@@ -1081,5 +1081,125 @@
     },
     "group": "coin",
     "coin": "coin_anchors.json"
+  },
+  "card_smug": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "card_smug@2x.webp",
+        "cell": 256,
+        "width": 256,
+        "height": 256
+      },
+      "3x": {
+        "file": "card_smug@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "card"
+  },
+  "card_deadpan": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "card_deadpan@2x.webp",
+        "cell": 256,
+        "width": 256,
+        "height": 256
+      },
+      "3x": {
+        "file": "card_deadpan@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "card"
+  },
+  "card_think": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "card_think@2x.webp",
+        "cell": 256,
+        "width": 256,
+        "height": 256
+      },
+      "3x": {
+        "file": "card_think@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "card"
+  },
+  "card_carry": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "card_carry@2x.webp",
+        "cell": 256,
+        "width": 256,
+        "height": 256
+      },
+      "3x": {
+        "file": "card_carry@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "card"
+  },
+  "card_point": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "card_point@2x.webp",
+        "cell": 256,
+        "width": 256,
+        "height": 256
+      },
+      "3x": {
+        "file": "card_point@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "card"
   }
 }
