@@ -10,6 +10,8 @@
 // Japanese, and a pending link's Share again shows the card first and
 // hands the OS the PNG.
 
+import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -290,7 +292,7 @@ void main() {
       expect(textOf(tester, 'share-card-fact'), 'in bitcoin · ₿12,000');
       expect(find.byKey(const ValueKey('share-card-graphic')), findsNothing);
       expect(background(tester), ShareCardPalette.bitcoin.background);
-      expect(shareCardPose(fakeBitcoinCard()), ShareCardPose.carry);
+      expect(shareCardPose(fakeBitcoinCard()), ShareCardPose.send);
       // Each figure once.
       expect(find.textContaining('₿12,000'), findsOneWidget);
       // Centred across the card.
@@ -339,7 +341,7 @@ void main() {
       await pumpIn(tester, fakePredictionPick(), const Locale('en'));
       expectRestrained(tester, code: true);
       expect(background(tester), ShareCardPalette.prediction.background);
-      expect(shareCardPose(fakePredictionPick()), ShareCardPose.think);
+      expect(shareCardPose(fakePredictionPick()), ShareCardPose.predict);
       expect(textOf(tester, 'share-card-caps'), 'ANA, A PICK FOR YOU');
       expect(find.text('LoL Worlds 2026 Final: Gen.G vs T1'), findsOneWidget);
       expect(textOf(tester, 'share-card-number'), '47%');
@@ -374,7 +376,7 @@ void main() {
       await pumpIn(tester, fakeTeslaPick(), const Locale('en'));
       expectRestrained(tester, code: true);
       expect(background(tester), ShareCardPalette.investment.background);
-      expect(shareCardPose(fakeTeslaPick()), ShareCardPose.smug);
+      expect(shareCardPose(fakeTeslaPick()), ShareCardPose.win);
       expect(textOf(tester, 'share-card-caps'), 'ANA, A PICK FOR YOU');
       expect(find.text('Tesla'), findsOneWidget);
       expect(find.text('TSLA'), findsOneWidget);
@@ -447,6 +449,49 @@ void main() {
         }
       });
     }
+  });
+
+  group("Sal's pose", () {
+    test(
+        'by the card: the briefcase on every send, weighing a prediction, '
+        "a stock by today's change", () {
+      expect(shareCardPose(fakeBitcoinCard()), ShareCardPose.send);
+      expect(shareCardPose(fakeDollarsCard()), ShareCardPose.send);
+      expect(shareCardPose(fakePredictionPick()), ShareCardPose.predict);
+      expect(shareCardPose(fakePredictionMarket()), ShareCardPose.predict);
+      InvestmentCardData stock(double? change) => InvestmentCardData(
+            title: 'Tesla',
+            ticker: 'TSLA',
+            coin: 'TSLA',
+            price: 242.1,
+            change: change,
+          );
+      expect(shareCardPose(stock(0.034)), ShareCardPose.win);
+      expect(shareCardPose(stock(kShareCardBigChange)), ShareCardPose.bigWin);
+      expect(shareCardPose(stock(0.25)), ShareCardPose.bigWin);
+      expect(shareCardPose(stock(-0.034)), ShareCardPose.loss);
+      expect(shareCardPose(stock(0.0001)), ShareCardPose.flat);
+      expect(shareCardPose(stock(null)), ShareCardPose.flat);
+    });
+
+    test('every pose is a purpose-made still in the manifest card group',
+        () {
+      final m = jsonDecode(File('lib/assets/sal/manifest.json')
+          .readAsStringSync()) as Map<String, dynamic>;
+      final cards = m.entries
+          .where((e) => (e.value as Map)['group'] == 'card')
+          .map((e) => e.key)
+          .toSet();
+      expect(cards, {for (final p in ShareCardPose.values) p.clip});
+      for (final p in ShareCardPose.values) {
+        final files = (m[p.clip] as Map)['files'] as Map;
+        for (final f in files.values) {
+          expect(File('lib/assets/sal/${(f as Map)['file']}').existsSync(),
+              isTrue,
+              reason: p.clip);
+        }
+      }
+    });
   });
 
   group('layout', () {

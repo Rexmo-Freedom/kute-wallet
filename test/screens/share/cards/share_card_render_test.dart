@@ -13,6 +13,7 @@
 // esports "Worlds" winner market and a politics market, with their
 // pictures and last week's chances). Offline, the fixtures stand in.
 // The Investing figures (Tesla, Nasdaq 100, oil) are made-up samples.
+// SHARE_CARD_OFFLINE=1 writes them without the network (the fixtures).
 
 import 'dart:convert';
 import 'dart:io';
@@ -152,7 +153,7 @@ void main() {
     // Live predictions when asked and reachable (see the file header).
     PredictionCardData pickCard = fakePredictionPick();
     PredictionCardData marketCard = fakePredictionMarket();
-    if (dir != null) {
+    if (dir != null && Platform.environment['SHARE_CARD_OFFLINE'] == null) {
       HttpOverrides.global = null;
       useShareTestArtwork(online: true);
       final live = await tester.runAsync(_loadLive);

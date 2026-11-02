@@ -15,8 +15,8 @@
 //     at [kShareCardPixelRatio] (1080 × 1350), [kShareCardPadding] all
 //     round, the preview's clip at [kShareCardRadius].
 //   * SAL, whole, at the top right ([ShareCardFrame.pose], a still of the
-//     3D Sal, [kShareCardSalSize]): smug on a win, deadpan on a loss,
-//     with his briefcase on a send, looking up on a prediction. The caps
+//     3D Sal, [kShareCardSalSize]): pleased on a win, unbothered on a
+//     loss, with his briefcase on a send, weighing a prediction. The caps
 //     line and the identity leave him room ([kShareCardSalInset]); a big
 //     number right under them starts below his feet ([kShareCardSalBand]).
 //     On the bitcoin orange, his own colour, he stands on a flat disc of
@@ -202,27 +202,38 @@ class ShareCardPalette {
 }
 
 /// Sal's pose on a card (founder, 2 November 2026: "Sal should have more
-/// expression there"): one still of the 3D Sal, whole, at the card's top
-/// right, its mood the card's tone. The stills are single frames of his
-/// body clips (`card_<pose>@2x/@3x.webp` in lib/assets/sal, the manifest's
-/// `card` group).
+/// expression there", then "these Sal here are not good ... why is she so
+/// sad there"): one purpose-made still of the 3D Sal, whole, at the
+/// card's top right, its pose and face the card's meaning. Rendered for
+/// the cards from the v5 rig (Kute Assets, Sal 3D/v5 app,
+/// scripts/render_card_stills.py), `card_<pose>@2x/@3x.webp` in
+/// lib/assets/sal (the manifest's `card` group). He has no mouth: a
+/// pleased face is the lower lids raised (smiling eyes), never a sad
+/// slant of the upper lids.
 enum ShareCardPose {
-  /// Half-closed eyes, chin up (body_cheer): a win, a stock up.
-  smug,
+  /// "Told you so": sitting up proud, chin up, head cocked, a paw out,
+  /// smiling eyes. A win.
+  win,
 
-  /// Brows down (body_sad): a loss, owned.
-  deadpan,
+  /// Mid-hop, both paws up, eyes wide and smiling. A big win.
+  bigWin,
 
-  /// Looking up and aside (body_think): a prediction, a flat result.
-  think,
+  /// Unbothered: flat half lids straight at the viewer, one ear down. A
+  /// loss, owned with a straight face (never sad).
+  loss,
 
-  /// Glasses on, the briefcase with the coin (body_carry): a send.
-  carry,
+  /// A curious head tilt and a side-eye at the number. Flat.
+  flat,
 
-  /// Wide-eyed side-glance (body_point): a stock down, a small win.
-  point;
+  /// The accountant: glasses on, the briefcase with the coin, mid-stride,
+  /// pleased. A send, a gift, a claim.
+  send,
 
-  String get clip => 'card_$name';
+  /// Weighing the odds: sitting, a paw at the chest, eyes up toward the
+  /// card. A prediction.
+  predict;
+
+  String get clip => 'card_${name.toLowerCase()}';
 }
 
 /// Sal's whole height on a card, his cell's side.
