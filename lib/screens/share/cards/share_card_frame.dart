@@ -128,6 +128,7 @@ class ShareCardPalette {
     required this.tile,
     required this.track,
     this.mutedAlpha = 0.75,
+    this.hero,
     this.dot = AppColors.accent,
     this.hairline,
     this.salShadow = const Color(0x2E000000),
@@ -160,6 +161,10 @@ class ShareCardPalette {
   /// 2026: he vanished into it). It replaced the deeper-orange disc.
   final Color salShadow;
 
+  /// The big number's colour when it is not the ink (the bitcoin claim
+  /// hero's orange amount on the app's ink); null: the ink.
+  final Color? hero;
+
   /// The secondary text: the caps line, the fact, the quiet line, the
   /// code's label ([mutedAlpha] of the ink).
   Color get muted => ink.withValues(alpha: mutedAlpha);
@@ -180,6 +185,55 @@ class ShareCardPalette {
     track: Color(0x2E000000),
     dot: Color(0xFF16110A),
     salShadow: Color(0x8C5A2A00),
+  );
+
+  /// The bitcoin CLAIM HERO, the recipient's card (founder, 2 November
+  /// 2026, of "DANIEL, A FRIEND SENT YOU" in black on the orange: "black
+  /// text here does not look good. Find some other card colour", "just
+  /// for this card"). One switch: the chosen option below; the bitcoin
+  /// send card keeps [bitcoin].
+  static const ShareCardPalette bitcoinClaim = bitcoinClaimInk;
+
+  /// Option (a): the app's ink, white text, the amount in the bitcoin
+  /// orange (7.1:1), Sal's orange popping on the dark.
+  static const ShareCardPalette bitcoinClaimInk = ShareCardPalette(
+    background: Color(0xFF1D2024),
+    ink: Color(0xFFFFFFFF),
+    up: Color(0xFFFFFFFF),
+    down: Color(0xFFFFFFFF),
+    tile: Color(0x1FFFFFFF),
+    track: Color(0x29FFFFFF),
+    mutedAlpha: 0.75,
+    hero: AppColors.accent,
+    salShadow: Color(0x80000000),
+  );
+
+  /// Option (b): a deep burnt orange, white text (5.8:1; the muted 85%
+  /// at 4.7:1), still reading bitcoin.
+  static const ShareCardPalette bitcoinClaimBurnt = ShareCardPalette(
+    background: Color(0xFFA84808),
+    ink: Color(0xFFFFFFFF),
+    up: Color(0xFFFFFFFF),
+    down: Color(0xFFFFFFFF),
+    tile: Color(0x24FFFFFF),
+    track: Color(0x33FFFFFF),
+    mutedAlpha: 0.85,
+    dot: Color(0xFFFFFFFF),
+    salShadow: Color(0x664A1A00),
+  );
+
+  /// Option (c): a dark espresso, white text, the amount in the bitcoin
+  /// orange (7.3:1).
+  static const ShareCardPalette bitcoinClaimEspresso = ShareCardPalette(
+    background: Color(0xFF2B1A10),
+    ink: Color(0xFFFFFFFF),
+    up: Color(0xFFFFFFFF),
+    down: Color(0xFFFFFFFF),
+    tile: Color(0x1FFFFFFF),
+    track: Color(0x29FFFFFF),
+    mutedAlpha: 0.75,
+    hero: AppColors.accent,
+    salShadow: Color(0x80000000),
   );
 
   /// Dollars: the app's one green ([AppColors.marketUp]: receipts, the
@@ -271,8 +325,14 @@ enum ShareCardPose {
   flat,
 
   /// "Here, take it": standing with the briefcase and the coin, glasses
-  /// on, a flat look. A send, a gift, a claim.
+  /// on, a flat look. A send, a gift.
   send,
+
+  /// Lounging with the gift, one gold coin, balanced upright on her head,
+  /// a flat heavy-lidded stare: not even handing it over. The bitcoin
+  /// claim hero only (founder, 2 November 2026, of [send] there: "this
+  /// Sal isn't good also"; render_card_claim.py).
+  claim,
 
   /// Sitting, a suspicious squint down at the odds, one lid lower. A
   /// prediction.
@@ -571,7 +631,7 @@ class ShareCardFrame extends StatelessWidget {
                   child: ShareCardHeroNumber(
                     textKey: ValueKey('$keyPrefix-number'),
                     text: number!,
-                    color: p.ink,
+                    color: p.hero ?? p.ink,
                     max: numberMax,
                     base: numberBase,
                     center: center,

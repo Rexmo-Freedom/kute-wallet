@@ -52,10 +52,16 @@ const double kShareLogoSize = 36;
 const double _kFlatChange = 0.0005;
 
 /// The card's colour by kind: bitcoin orange, dollars green, predictions
-/// blue, investing navy.
+/// blue, investing navy; the bitcoin claim hero its own
+/// ([ShareCardPalette.bitcoinClaim]).
 ShareCardPalette shareCardPalette(ShareCardData data) => switch (data) {
-      final MoneyCardData d =>
-        d.bitcoin ? ShareCardPalette.bitcoin : ShareCardPalette.dollars,
+      final MoneyCardData d => !d.bitcoin
+          ? ShareCardPalette.dollars
+          : d.audience == ShareCardAudience.recipient
+              // The claim hero: its own colour (founder: "just for this
+              // card").
+              ? ShareCardPalette.bitcoinClaim
+              : ShareCardPalette.bitcoin,
       PredictionCardData() => ShareCardPalette.prediction,
       InvestmentCardData() => ShareCardPalette.investment,
     };
@@ -63,11 +69,15 @@ ShareCardPalette shareCardPalette(ShareCardData data) => switch (data) {
 /// A stock up this much today (a fraction) gets Sal's big win.
 const double kShareCardBigChange = 0.10;
 
-/// Sal's pose on the card: the briefcase on a send, squinting at the odds
+/// Sal's pose on the card: the briefcase on a send, the coin balanced on
+/// her head on the bitcoin claim hero, squinting at the odds
 /// on a prediction; on a stock, today's change: lounging up, eyes shut at
 /// [kShareCardBigChange] or more, a flop down, a side-eye flat.
 ShareCardPose shareCardPose(ShareCardData data) => switch (data) {
-      MoneyCardData() => ShareCardPose.send,
+      final MoneyCardData d =>
+        d.bitcoin && d.audience == ShareCardAudience.recipient
+            ? ShareCardPose.claim
+            : ShareCardPose.send,
       PredictionCardData() => ShareCardPose.predict,
       final InvestmentCardData d => switch (d.change ?? 0) {
           final c when c >= kShareCardBigChange => ShareCardPose.bigWin,

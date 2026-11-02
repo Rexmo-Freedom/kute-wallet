@@ -413,6 +413,46 @@ void main() {
       expectRestrained(tester, code: false);
       expect(textOf(tester, 'share-card-caps'), 'DANIEL, A FRIEND SENT YOU');
       expect(textOf(tester, 'share-card-quiet'), "It's yours. Tap claim.");
+      // Its own colour (founder: "just for this card"): the app's ink,
+      // white text, the amount in the bitcoin orange; Sal with the coin
+      // balanced on her head.
+      expect(background(tester), ShareCardPalette.bitcoinClaim.background);
+      expect(ShareCardPalette.bitcoinClaim.background,
+          isNot(ShareCardPalette.bitcoin.background));
+      expect(ShareCardPalette.bitcoinClaim.ink, const Color(0xFFFFFFFF));
+      final number = tester
+          .widget<Text>(find.byKey(const ValueKey('share-card-number')));
+      expect(number.style!.color, ShareCardPalette.bitcoinClaim.hero);
+      expect(
+          tester
+              .widget<ShareCardSalStill>(
+                  find.byKey(const ValueKey('share-card-sal')))
+              .pose,
+          ShareCardPose.claim);
+    });
+
+    testWidgets(
+        'the claim colour and pose are the bitcoin claim hero\'s alone: '
+        'the send card, a dollars claim hero and the rest keep theirs',
+        (tester) async {
+      expect(shareCardPalette(fakeBitcoinCard()), ShareCardPalette.bitcoin);
+      expect(shareCardPalette(fakeDollarsCard().asRecipient()),
+          ShareCardPalette.dollars);
+      expect(shareCardPalette(fakePredictionPick().asRecipient()),
+          ShareCardPalette.prediction);
+      expect(shareCardPose(fakeBitcoinCard()), ShareCardPose.send);
+      expect(shareCardPose(fakeDollarsCard().asRecipient()),
+          ShareCardPose.send);
+      expect(shareCardPose(fakeBitcoinCard().asRecipient()),
+          ShareCardPose.claim);
+      // The send card's amount stays in its ink.
+      await pumpIn(tester, fakeBitcoinCard(), const Locale('en'));
+      expect(
+          tester
+              .widget<Text>(find.byKey(const ValueKey('share-card-number')))
+              .style!
+              .color,
+          ShareCardPalette.bitcoin.ink);
     });
 
     testWidgets('missing data is left out', (tester) async {
@@ -451,8 +491,9 @@ void main() {
 
   group("Sal's pose", () {
     test(
-        'by the card: the briefcase on every send, weighing a prediction, '
-        "a stock by today's change", () {
+        'by the card: the briefcase on every send, the coin on her head on '
+        "the bitcoin claim hero, weighing a prediction, a stock by today's "
+        'change', () {
       expect(shareCardPose(fakeBitcoinCard()), ShareCardPose.send);
       expect(shareCardPose(fakeDollarsCard()), ShareCardPose.send);
       expect(shareCardPose(fakePredictionPick()), ShareCardPose.predict);
