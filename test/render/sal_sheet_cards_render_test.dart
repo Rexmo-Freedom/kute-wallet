@@ -1,5 +1,13 @@
 // A look by eye at the Sal sheet's send cards on a market (light and
-// dark), written only when asked: R4_BAR_RENDER=<dir>.
+// dark, English and German), written only when asked: R4_BAR_RENDER=<dir>.
+// The event page (Michigan Senate Election Winner, several outcomes) holds
+// the one full-width "Send the market" card; a single Yes/No market keeps
+// both cards (founder, 2 November 2026). The bars are built as the market
+// page builds them (marketBarContext). One render per run (a second sheet
+// in the same process captures blank), so:
+//   for v in 'event en light' 'single de dark' ...; do R4_BAR_RENDER=<dir> \
+//     flutter test test/render/sal_sheet_cards_render_test.dart \
+//     --plain-name "$v"; done
 
 import 'dart:convert';
 import 'dart:io';
@@ -43,11 +51,37 @@ class _Advisor extends AdvisorSessionNotifier {
           String? locale}) async {}
 }
 
+/// The page's bar: the event ([single] false) or one Yes/No market.
+KuteMarketBarContext _bar(BuildContext context, {required bool single}) =>
+    marketBarContext(
+      context,
+      title: single
+          ? 'Will Abdul El-Sayed win the Michigan Senate election?'
+          : 'Michigan Senate Election Winner',
+      venue: kMarketLinkPredictions,
+      slug: 'michigan-senate-election-winner',
+      chance: single ? 64 : null,
+      outcome: single ? 'Yes' : 'Abdul El-Sayed (D)',
+      outcomeIndex: 0,
+      outcomeChance: 64,
+      side: 'buy',
+      position: false,
+      category: SearchCategory.predictions,
+      searchHint: null,
+      source: 'predictions',
+      sendPick: single,
+    ) as KuteMarketBarContext;
+
 void main() {
-  for (final dark in [false, true]) {
+  for (final (single, locale, dark) in [
+    for (final single in [false, true])
+      for (final locale in ['en', 'de'])
+        for (final dark in [false, true]) (single, locale, dark),
+  ]) {
     final mode = dark ? 'dark' : 'light';
-    testWidgets('render: Sal sheet send cards, $mode', skip: _dir == null,
-        (tester) async {
+    final page = single ? 'single' : 'event';
+    testWidgets('render: Sal sheet send cards, $page $locale $mode',
+        skip: _dir == null, (tester) async {
       await tester.runAsync(() async {
         final inter = FontLoader('Inter')
           ..addFont(rootBundle.load('lib/assets/fonts/Inter-Regular.ttf'))
@@ -87,6 +121,7 @@ void main() {
             debugShowCheckedModeBanner: false,
             theme: base.copyWith(
                 textTheme: base.textTheme.apply(fontFamily: 'Inter')),
+            locale: Locale(locale),
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             builder: (context, child) =>
@@ -97,26 +132,7 @@ void main() {
                   onPressed: () => showKuteSearch(
                     context,
                     source: 'predictions',
-                    barContext: KuteMarketBarContext(
-                      label: 'Send to a friend',
-                      preview: const KuteBarPreview(
-                          title: 'LoL Worlds: Gen.G vs Bilibili Gaming',
-                          line: 'Gen.G · 47%'),
-                      actions: [
-                        KuteMarketBarAction(
-                          label: 'Send the market',
-                          sublabel: 'A link they can open, with your code',
-                          icon: Icons.ios_share_rounded,
-                          onTap: (_) {},
-                        ),
-                        KuteMarketBarAction(
-                          label: 'Send this prediction',
-                          sublabel: 'They get your pick, ready to place',
-                          salClip: 'share',
-                          onTap: (_) {},
-                        ),
-                      ],
-                    ),
+                    barContext: _bar(context, single: single),
                   ),
                   child: const Text('Open search'),
                 ),
@@ -135,7 +151,7 @@ void main() {
             key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
         final image = await boundary.toImage(pixelRatio: 3);
         final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-        File('$_dir/sal-sheet-cards-$mode.png')
+        File('$_dir/sal-sheet-cards-$page-$locale-$mode.png')
             .writeAsBytesSync(bytes!.buffer.asUint8List());
       });
     });
