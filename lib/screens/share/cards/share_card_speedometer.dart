@@ -58,7 +58,7 @@ class ShareCardSpeedometer extends StatelessWidget {
   /// The line under it ("Chance of Gen.G"); null: none.
   final String? caption;
 
-  /// The caption's colour; 60% ink by default.
+  /// The caption's colour; the muted ink by default.
   final Color? captionColor;
 
   /// The price paid, 0 to 1, as a dot on the track; null: none.
@@ -176,7 +176,7 @@ class ShareCardSpeedometer extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,
                     style: shareCardText(_captionSize, FontWeight.w500,
-                        captionColor ?? p.ink.withValues(alpha: 0.6),
+                        captionColor ?? p.muted,
                         spacing: -0.2, tabular: true),
                   ),
                 ],

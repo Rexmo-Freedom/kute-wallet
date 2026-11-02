@@ -9,9 +9,10 @@
 // captured at 1080 × 1350, on one solid colour by kind:
 //
 //   * MONEY (bitcoin orange, dollars green): "FOR DANIEL", the amount
-//     huge and centred (a bitcoin send's value in the person's currency,
-//     "in bitcoin · ₿12,000" under it), the edgy line, "Claim it on Kute"
-//     quiet over the footer; Sal with his briefcase and coin.
+//     huge at the left (a bitcoin send's value in the person's currency,
+//     "in bitcoin · ₿12,000" under it), Sal with his briefcase and coin
+//     standing on the rule beside it, the edgy line, "Claim it on Kute"
+//     quiet over the footer.
 //   * PREDICTION (blue): "ANA, A PICK FOR YOU", the market's picture (36)
 //     and question (18), then the open-position screen's speedometer with
 //     the outcome's chance huge under its hub and "Chance of Gen.G", "$10
@@ -23,8 +24,8 @@
 //     "Long · $25" when sent as a pick, the edgy line; Sal lounging on a
 //     day up (eyes shut at +10%), flopped on a day down.
 //
-// Sal stands at the top right ([shareCardPose]); the footer is the
-// wordmark and the sharer's code. The headline sentence leads the share
+// Sal ([shareCardPose]) sits at the top right over a graphic, else stands
+// on the rule; the footer is the wordmark and the sharer's code. The headline sentence leads the share
 // message (share_card_copy.dart, shareCardMessage); the edgy line is on
 // the card only.
 //
@@ -113,7 +114,7 @@ class ShareCard extends StatelessWidget {
           number: bitcoin && sub != null ? sub : d.amount,
           fact:
               bitcoin && sub != null ? l10n.shareCardInBitcoin(d.amount) : null,
-          center: true,
+          numberBase: kShareCardMoneyHeroMax,
           line: line,
           quiet: recipient ? l10n.claimCardTapClaim : l10n.shareCardClaimOnKute,
           code: code,

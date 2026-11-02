@@ -257,7 +257,8 @@ void main() {
       expect(find.byKey(const ValueKey('share-card-code')),
           code ? findsOneWidget : findsNothing);
       if (code) {
-        expect(find.text('CODE $kShareTestCode'), findsOneWidget);
+        expect(find.text('CODE  $kShareTestCode', findRichText: true),
+            findsOneWidget);
       }
       for (final gone in const [
         'share-card-chip',
@@ -282,8 +283,9 @@ void main() {
     }
 
     testWidgets(
-        'money: bitcoin orange, FOR DANIEL, the value huge and centred, in '
-        'bitcoin under it, Sal carrying, the edgy line, Claim it on Kute',
+        'money: bitcoin orange, FOR DANIEL, the value huge at the left, in '
+        'bitcoin under it, Sal carrying on the rule, the edgy line, Claim '
+        'it on Kute',
         (tester) async {
       await pumpIn(tester, fakeBitcoinCard(), const Locale('en'));
       expectRestrained(tester, code: true);
@@ -295,29 +297,26 @@ void main() {
       expect(shareCardPose(fakeBitcoinCard()), ShareCardPose.send);
       // Each figure once.
       expect(find.textContaining('₿12,000'), findsOneWidget);
-      // Centred across the card.
+      // At the left, the same edge as every line on the card.
       final number =
-          tester.getCenter(find.byKey(const ValueKey('share-card-number')));
-      expect(number.dx, closeTo(kShareCardSize.width / 2, 1));
-      // Sal at the top right, clear of the caps line.
+          tester.getRect(find.byKey(const ValueKey('share-card-number')));
+      expect(number.left, closeTo(kShareCardPadding, 1));
+      // Sal standing on the rule at the right, his feet on it.
       final sal = tester.getRect(find.byKey(const ValueKey('share-card-sal')));
-      expect(sal.right, kShareCardSize.width - kShareCardSalEnd);
-      expect(sal.top, kShareCardSalTop);
-      expect(sal.width, kShareCardSalSize);
-      // On his own orange he stands on a deeper orange disc, under his
-      // body in his cell.
-      final plate =
-          tester.getRect(find.byKey(const ValueKey('share-card-sal-plate')));
-      expect(plate.width, kShareCardSalPlateSize);
-      expect(plate.right, kShareCardSize.width - kShareCardSalPlateEnd);
-      expect(plate.top, kShareCardSalPlateTop);
-      expect(sal.contains(plate.center), isTrue);
-      final plateBox = tester
-          .widget<DecoratedBox>(
-              find.byKey(const ValueKey('share-card-sal-plate')))
-          .decoration as BoxDecoration;
-      expect(plateBox.color, ShareCardPalette.bitcoin.salPlate);
-      expect(plateBox.shape, BoxShape.circle);
+      final rule =
+          tester.getRect(find.byKey(const ValueKey('share-card-rule')));
+      expect(sal.width, kShareCardSalFloorSize);
+      expect(sal.right, kShareCardSize.width - kShareCardSalFloorEnd);
+      expect(sal.bottom, closeTo(rule.top + kShareCardSalFeet, 0.5));
+      // No disc behind him any more: his own soft shadow lifts him off
+      // the orange.
+      expect(find.byKey(const ValueKey('share-card-sal-plate')), findsNothing);
+      expect(
+          tester
+              .widget<ShareCardSalStill>(
+                  find.byKey(const ValueKey('share-card-sal')))
+              .shadow,
+          ShareCardPalette.bitcoin.salShadow);
       expect(textOf(tester, 'share-card-edge'),
           isIn(shareCardEdges(_en, fakeBitcoinCard())));
       expect(textOf(tester, 'share-card-quiet'), 'Claim it on Kute');
@@ -331,7 +330,6 @@ void main() {
       expect(find.byKey(const ValueKey('share-card-fact')), findsNothing);
       expect(find.byKey(const ValueKey('share-card-graphic')), findsNothing);
       expect(background(tester), ShareCardPalette.dollars.background);
-      // Only the bitcoin orange is Sal's own colour.
       expect(find.byKey(const ValueKey('share-card-sal-plate')), findsNothing);
     });
 
@@ -585,7 +583,8 @@ void main() {
       expectBalanced(tester, 'stock');
       final chart =
           tester.getRect(find.byKey(const ValueKey('share-card-chart')));
-      expect(chart.height, greaterThan(60));
+      // A pick: "Long · \$25", the rule and a two-line edgy line under it.
+      expect(chart.height, greaterThan(50));
       expect(tester.takeException(), isNull);
     });
 
@@ -602,14 +601,33 @@ void main() {
       }
     });
 
-    testWidgets('money: the amount centred in the space under Sal',
+    testWidgets(
+        'money: the amount under the caps line, Sal standing on the rule '
+        'filling the room under it, the bottom band on the bottom edge',
         (tester) async {
       for (final data in [fakeBitcoinCard(), fakeDollarsCard()]) {
         await pump(tester, data);
-        final sal = tester.getRect(find.byKey(const ValueKey('share-card-sal')));
+        final caps =
+            tester.getRect(find.byKey(const ValueKey('share-card-caps')));
+        final sal =
+            tester.getRect(find.byKey(const ValueKey('share-card-sal')));
         final hero =
             tester.getRect(find.byKey(const ValueKey('share-card-hero')));
-        expect(hero.top, greaterThan(sal.bottom - 24), reason: data.kind);
+        final rule =
+            tester.getRect(find.byKey(const ValueKey('share-card-rule')));
+        final edge =
+            tester.getRect(find.byKey(const ValueKey('share-card-edge')));
+        expect(hero.top - caps.bottom, lessThanOrEqualTo(32),
+            reason: data.kind);
+        // Sal spans the room between the hero and the rule.
+        expect(sal.top, lessThan(hero.bottom + 40), reason: data.kind);
+        expect(sal.bottom, closeTo(rule.top + kShareCardSalFeet, 0.5),
+            reason: data.kind);
+        expect(edge.top - rule.bottom, kShareCardRuleGap, reason: data.kind);
+        final footer =
+            tester.getRect(find.byKey(const ValueKey('share-card-footer')));
+        expect(footer.bottom,
+            closeTo(kShareCardSize.height - kShareCardPadding, 1));
         expect(tester.takeException(), isNull);
       }
     });
@@ -630,8 +648,11 @@ void main() {
         // The dog inside his cell (the render's transparent margin off).
         final cell =
             tester.getRect(find.byKey(const ValueKey('share-card-sal')));
-        final dog = Rect.fromLTRB(cell.left + cell.width * 0.22,
-            cell.top + 8, cell.right - 8, cell.top + cell.height * 0.86);
+        final dog = Rect.fromLTRB(
+            cell.left + cell.width * 0.22,
+            cell.top + cell.height * kShareCardSalHeadroom,
+            cell.right - 8,
+            cell.top + cell.height * 0.86);
         for (final k in const [
           'share-card-caps',
           'share-card-title',
@@ -694,7 +715,7 @@ void main() {
       expect(shareCardEdge(_en, fakeTeslaPick(), -7), isIn(pool));
     });
 
-    testWidgets('the card draws the seed\'s line, 20 w600, two lines at most',
+    testWidgets('the card draws the seed\'s line, 22 w700, two lines at most',
         (tester) async {
       await tester.runAsync(loadShareCardFonts);
       await pumpShareWidget(
@@ -707,7 +728,8 @@ void main() {
           tester.widget<Text>(find.byKey(const ValueKey('share-card-edge')));
       expect(t.data, "Up 3.4%. You're welcome.");
       expect(t.style!.fontSize, kShareCardLineSize);
-      expect(t.style!.fontWeight, FontWeight.w600);
+      expect(t.style!.fontWeight, FontWeight.w700);
+      expect(t.style!.color, ShareCardPalette.investment.ink);
       expect(t.maxLines, 2);
     });
   });

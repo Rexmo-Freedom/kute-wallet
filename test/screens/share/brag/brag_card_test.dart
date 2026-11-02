@@ -233,7 +233,8 @@ void main() {
           closeTo(0.58, 1e-9));
       expect(painters.whereType<PolySpeedometerDialPainter>().single.entry,
           0.41);
-      expect(find.text('CODE $kBragTestCode'), findsOneWidget);
+      expect(find.text('CODE  $kBragTestCode', findRichText: true),
+          findsOneWidget);
       expect(tester.getSize(find.byType(BragCard)), kBragCardSize);
       // Entry and now as the plain fact line.
       expect(textAt(tester, 'brag-card-plain').data, '41% → 58%');
@@ -377,13 +378,19 @@ void main() {
                 (o) => o != r && o.contains(r.center) && o.height > r.height))
               r
         ];
-        // Sal at the top right fills the room beside the caps line.
+        // Sal fills the room he stands in: beside the caps line at the top
+        // right, or under the hero on the rule; only the part of a gap he
+        // does not span counts.
         final sal =
             tester.getRect(find.byKey(const ValueKey('brag-card-sal')));
         for (var i = 1; i < rects.length; i++) {
           final above = i == 1 ? math.max(rects[0].bottom, sal.bottom - 24)
               : rects[i - 1].bottom;
-          final gap = rects[i].top - above;
+          final covered = math.max(
+              0.0,
+              math.min(rects[i].top, sal.bottom) -
+                  math.max(above, sal.top + 24));
+          final gap = rects[i].top - above - covered;
           expect(gap, lessThanOrEqualTo(kBragCardSize.height * 0.15),
               reason: '${data.kind} ${data.tone}: gap $i');
           expect(rects[i].top - rects[i - 1].bottom, greaterThanOrEqualTo(0),
