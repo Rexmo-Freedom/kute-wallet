@@ -7,7 +7,6 @@ import 'package:kute/screens/share/brag/brag_data.dart' show bragPolyPosition;
 import 'package:kute/screens/share/brag/position_share_card.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/fitted_title.dart';
-import 'package:kute/screens/shared/kute_blur.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show KuteStillWhenCovered;
 import 'package:kute/screens/polymarket/components/live_token_scope.dart';
 import 'package:kute/screens/polymarket/components/market_chart.dart'
@@ -49,7 +48,6 @@ import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/polymarket/components/sell_sheet.dart';
 import 'package:kute/screens/polymarket/market_detail_sheet.dart'
     show MarketDetailSheet;
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/polymarket/components/poly_market_stats.dart'
     show PolyRulesRow;
@@ -97,7 +95,12 @@ const Color _kPolyRed = AppColors.marketDown;
 // it" while open, "Details" (outcome / shares / price paid / invested, on
 // the shared bottom sheet, as on the Investing position), the closing
 // conditions and "View market" (the event's sheet); and the Sell (or, on a
-// resolved losing side, Clear) action.
+// resolved losing side, Clear) action, as the floating bar's primary button
+// (founder, 2 November 2026: "a floating pill like the others";
+// kute_bar_context.dart): Sell in the red its pinned button had
+// (KuteBarPrimaryStyle.destructive), Clear in the app's primary look,
+// thinking while the redeem runs (PolyClaimBarAction). The body scrolls
+// clear of the bar.
 // A won position has no action: it is claimed automatically
 // (claim_auto_fire.dart) and reads "Settled".
 
@@ -452,8 +455,6 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
       outcomeChance: pos.currentPrice * 100,
       side: 'buy',
       imageUrl: headerImage,
-      actionRowHeight:
-          pos.isResolved && pos.won == true ? 0 : 12.h + 56.h + 16.h,
       position: true,
       category: SearchCategory.predictions,
       searchHint: context.l10n.searchPredictionsHint,
@@ -522,8 +523,15 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
               ),
               Expanded(
                 child: SingleChildScrollView(
+                  // The foot scrolls clear of the floating Sell (and of
+                  // the home indicator: the page runs to the screen's foot
+                  // on iOS).
                   padding: EdgeInsets.fromLTRB(
-                        20.w, 0, 20.w, kuteBarScrollClearance.h),
+                      20.w,
+                      0,
+                      20.w,
+                      kuteBarScrollClearance.h +
+                          MediaQuery.paddingOf(context).bottom),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -1010,64 +1018,35 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                   ),
                 ),
               ),
-              // Sticky action footer — Buy More + Sell live outside the
-              // scroll view so they're always visible regardless of how
-              // far down the user scrolls. Rendered for every position
-              // but a won one: a win is claimed automatically
+              // ── Sell (or Clear): the floating bar's button ────────
+              // THE BAR IS THE BUTTON (kute_bar_context.dart). Every
+              // position but a won one: a win is claimed automatically
               // (claim_auto_fire.dart), so there is nothing to tap.
-              //
-              // Wrapped in SafeArea(top:false) and given extra bottom
-              // padding so the buttons clear the iPhone home-indicator
-              // area — earlier they sat right against the gesture bar
-              // and felt unconfirmable.
-              if (!(pos.isResolved && pos.won == true))
-                ClipRect(
-                  child: KuteBlur(
-                    sigmaX: 18,
-                    sigmaY: 18,
-                    child: Container(
-                      color: (context.isDark ? c.surface : c.background)
-                          .withValues(alpha: 0.55),
-                      child: SafeArea(
-                        top: false,
-                        child: Padding(
-                          padding:
-                              EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 16.h),
-                          child: Row(
-                            children: [
-                              // Buy More removed — users go to the market
-                              // via the browse list / search to add to a
-                              // position. Position detail sticks to its
-                              // single job: review + sell.
-                              Expanded(
-                                // Resolved (a lost side): Clear runs right
-                                // here, one tap, and ends on the
-                                // confirmation (position_claim.dart).
-                                child: pos.isResolved
-                                    ? PolyClaimButton(
-                                        position: pos,
-                                        surface: 'position_detail',
-                                        popRoute: true,
-                                        icon: Icons.check_rounded,
-                                      )
-                                    : _PositionActionButton(
-                                        label: context.l10n.sell,
-                                        icon: Icons.remove_rounded,
-                                        color: _kPolyRed,
-                                        // AppButton fires its own haptic.
-                                        onTap: () {
-                                          context.pop();
-                                          SellSheet.show(context,
-                                              position: pos);
-                                        },
-                                      ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
+              if (pos.isResolved && pos.won != true)
+                // Resolved (a lost side): Clear runs right here, one tap,
+                // and ends on the confirmation (position_claim.dart).
+                PolyClaimBarAction(
+                  position: pos,
+                  surface: 'position_detail',
+                  popRoute: true,
+                )
+              else if (!pos.isResolved)
+                KuteBarContextScope(
+                  barContext: KuteBarContext.primary(
+                    label: context.l10n.sell,
+                    // The sell slip, as the pinned button opened it.
+                    onPrimary: () {
+                      context.pop();
+                      SellSheet.show(context, position: pos);
+                    },
+                    // Never off: an open position can always be sold.
+                    disabledLabel: null,
+                    style: KuteBarPrimaryStyle.destructive,
+                    category: SearchCategory.predictions,
+                    searchHint: context.l10n.searchPredictionsHint,
+                    source: 'predictions',
                   ),
+                  child: const SizedBox.shrink(),
                 ),
             ],
           ),
@@ -1082,35 +1061,6 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
   /// `$0.00` when rounded to two decimals — the bug you saw on a
   /// position bought around 0.3¢. Once a share crosses $1 the value
   /// switches to dollar formatting.
-}
-
-/// Filled pill button shared by Buy More + Sell. Same height, shape,
-/// icon size, and font weight — only the accent color differs.
-class _PositionActionButton extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _PositionActionButton({
-    required this.label,
-    required this.icon,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    // Unified AppButton chrome (56.h / 16.r); the fill comes from the
-    // canonical market tokens and the label contrast is auto-picked.
-    return AppButton(
-      text: label,
-      icon: icon,
-      onPressed: onTap,
-      color: color,
-      fontWeight: FontWeight.w800,
-    );
-  }
 }
 
 /// "Closing conditions": one row, as the market sheet's "Rules and
