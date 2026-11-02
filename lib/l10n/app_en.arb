@@ -4337,14 +4337,6 @@
   "salStubStocksPerps": "A stock represents ownership in a company. A perpetual contract is a derivative with no expiry and may involve funding and liquidation risk. A stock-linked perpetual does not give ownership of the company’s shares.",
   "salStubOffline": "Sal cannot retrieve current public information right now. Please try again shortly. You can still ask a general question about order types, leverage or prediction markets.",
   "salStubLiveUnavailable": "Live information is unavailable.",
-  "searchNoMatchesAskSal": "No matches for “{query}”. Send it to ask Sal.",
-  "@searchNoMatchesAskSal": {
-    "placeholders": {
-      "query": {
-        "type": "String"
-      }
-    }
-  },
   "searchNoResultsFor": "No results for “{query}”",
   "@searchNoResultsFor": {
     "placeholders": {
@@ -4354,7 +4346,6 @@
     }
   },
   "searchTypeToSearchMarkets": "Type to search markets",
-  "searchOrAskSal": "Search or ask Sal anything",
   "searchMarketsHint": "Search markets",
   "searchYourWallet": "Search your wallet",
   "searchNoMatchingActivity": "No matching activity",
@@ -6871,7 +6862,7 @@
   },
   "searchOrManageAi": "Search or manage with AI",
   "@searchOrManageAi": {
-    "description": "The floating bar's default label (over the tabs, pushed pages, the Portfolio, a send review). One line on a 375 pt phone."
+    "description": "The floating bar's default label (over the tabs, pushed pages, the Portfolio, a send review), the tooltip and screen-reader label of the dock's square search button, and the placeholder of the search sheet's field. One line on a 375 pt phone."
   },
   "connectOwnAiTitle": "Connect your own AI",
   "@connectOwnAiTitle": {
@@ -6880,10 +6871,6 @@
   "connectOwnAiSubtitle": "Let Claude, ChatGPT or Grok manage your wallet",
   "@connectOwnAiSubtitle": {
     "description": "Line under Connect your own AI on the search sheet's home. Claude, ChatGPT and Grok are product names, never translated."
-  },
-  "searchOrAskSalShort": "Search or ask Sal",
-  "@searchOrAskSalShort": {
-    "description": "Tooltip and screen-reader label of the dock's square button (Sal holding a magnifying glass) when Sal is available, and the placeholder of the search sheet's field it opens. Short: it is the one door to both search and Ask Sal."
   },
   "financialHubAndSettings": "Financial hub and settings",
   "@financialHubAndSettings": {

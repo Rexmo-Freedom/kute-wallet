@@ -7742,20 +7742,12 @@ class AppLocalizationsFr extends AppLocalizations {
       'Les informations en direct sont indisponibles.';
 
   @override
-  String searchNoMatchesAskSal(String query) {
-    return 'Aucun résultat pour « $query ». Envoyez-le pour demander à Sal.';
-  }
-
-  @override
   String searchNoResultsFor(String query) {
     return 'Aucun résultat pour « $query »';
   }
 
   @override
   String get searchTypeToSearchMarkets => 'Tapez pour rechercher des marchés';
-
-  @override
-  String get searchOrAskSal => 'Recherchez ou demandez n\'importe quoi à Sal';
 
   @override
   String get searchMarketsHint => 'Rechercher des marchés';
@@ -10649,9 +10641,6 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get connectOwnAiSubtitle =>
       'Laissez Claude, ChatGPT ou Grok gérer votre portefeuille';
-
-  @override
-  String get searchOrAskSalShort => 'Recherchez ou demandez à Sal';
 
   @override
   String get financialHubAndSettings => 'Centre financier et paramètres';

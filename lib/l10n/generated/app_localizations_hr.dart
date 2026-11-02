@@ -7699,20 +7699,12 @@ class AppLocalizationsHr extends AppLocalizations {
   String get salStubLiveUnavailable => 'Informacije uživo nisu dostupne.';
 
   @override
-  String searchNoMatchesAskSal(String query) {
-    return 'Nema rezultata za „$query”. Pošalji to Salu.';
-  }
-
-  @override
   String searchNoResultsFor(String query) {
     return 'Nema rezultata za „$query”';
   }
 
   @override
   String get searchTypeToSearchMarkets => 'Upiši za pretraživanje tržišta';
-
-  @override
-  String get searchOrAskSal => 'Pretraži ili pitaj Sala bilo što';
 
   @override
   String get searchMarketsHint => 'Pretraži tržišta';
@@ -10595,9 +10587,6 @@ class AppLocalizationsHr extends AppLocalizations {
   @override
   String get connectOwnAiSubtitle =>
       'Neka Claude, ChatGPT ili Grok upravljaju tvojim novčanikom';
-
-  @override
-  String get searchOrAskSalShort => 'Pretraži ili pitaj Sala';
 
   @override
   String get financialHubAndSettings => 'Financijsko središte i postavke';

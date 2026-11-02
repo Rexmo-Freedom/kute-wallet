@@ -29,8 +29,8 @@ class KuteComposer extends StatelessWidget {
   final bool enabled;
   final int? maxLength;
 
-  /// Null shows "Search or ask Sal" with [aiEnabled], and the wallet
-  /// search hint without it, in the app language.
+  /// Null shows "Search or manage with AI" with [aiEnabled], and the
+  /// wallet search hint without it, in the app language.
   final String? hint;
   final String? sendLabel;
   final String? stopLabel;
@@ -97,7 +97,7 @@ class KuteComposer extends StatelessWidget {
                   border: InputBorder.none,
                   hintText: hint ??
                       (aiEnabled
-                          ? context.l10n.searchOrAskSalShort
+                          ? context.l10n.searchOrManageAi
                           : context.l10n.searchYourWallet),
                   hintStyle: TextStyle(
                     color: c.textPrimary.withValues(alpha: 0.65),

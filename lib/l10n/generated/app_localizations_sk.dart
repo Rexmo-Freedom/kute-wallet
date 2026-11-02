@@ -7689,20 +7689,12 @@ class AppLocalizationsSk extends AppLocalizations {
   String get salStubLiveUnavailable => 'Živé informácie nie sú dostupné.';
 
   @override
-  String searchNoMatchesAskSal(String query) {
-    return 'Žiadne výsledky pre „$query“. Odošli to a opýtaj sa Sala.';
-  }
-
-  @override
   String searchNoResultsFor(String query) {
     return 'Žiadne výsledky pre „$query“';
   }
 
   @override
   String get searchTypeToSearchMarkets => 'Píš a hľadaj trhy';
-
-  @override
-  String get searchOrAskSal => 'Hľadaj alebo sa opýtaj Sala na čokoľvek';
 
   @override
   String get searchMarketsHint => 'Hľadať trhy';
@@ -10582,9 +10574,6 @@ class AppLocalizationsSk extends AppLocalizations {
   @override
   String get connectOwnAiSubtitle =>
       'Nechaj Claude, ChatGPT alebo Grok spravovať tvoju peňaženku';
-
-  @override
-  String get searchOrAskSalShort => 'Hľadaj alebo sa opýtaj Sala';
 
   @override
   String get financialHubAndSettings => 'Finančné centrum a nastavenia';

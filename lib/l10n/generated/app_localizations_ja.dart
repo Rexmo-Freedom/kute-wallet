@@ -7353,20 +7353,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get salStubLiveUnavailable => 'リアルタイム情報は利用できません。';
 
   @override
-  String searchNoMatchesAskSal(String query) {
-    return '「$query」に一致する結果はありません。送信してSalに質問できます。';
-  }
-
-  @override
   String searchNoResultsFor(String query) {
     return '「$query」の検索結果はありません';
   }
 
   @override
   String get searchTypeToSearchMarkets => '入力してマーケットを検索';
-
-  @override
-  String get searchOrAskSal => '検索、またはSalに何でも質問';
 
   @override
   String get searchMarketsHint => 'マーケットを検索';
@@ -10170,9 +10162,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get connectOwnAiSubtitle => 'Claude、ChatGPT、Grokにウォレットを管理させましょう';
-
-  @override
-  String get searchOrAskSalShort => '検索、またはSalに質問';
 
   @override
   String get financialHubAndSettings => '資金管理と設定';

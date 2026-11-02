@@ -144,9 +144,13 @@ void main() {
           (tester) async {
         final probe =
             await _openSearch(tester, product: product, aiEnabled: aiEnabled);
-        // With Sal on, the field names both jobs whatever venue opened it,
-        // the dock square's own words; search-only keeps the market hint.
-        final hint = aiEnabled ? 'Search or ask Sal' : 'Search markets';
+        // With Sal on, the field names both jobs in the bar's words,
+        // narrowed to the venue; search-only keeps the market hint.
+        final hint = !aiEnabled
+            ? 'Search markets'
+            : product == InvestmentsProduct.trading
+                ? 'Search investments or manage with AI'
+                : 'Search predictions or manage with AI';
         expect(
             tester
                 .widget<TextField>(find.byType(TextField))

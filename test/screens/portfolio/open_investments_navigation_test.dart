@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart';
@@ -44,6 +45,7 @@ import 'package:kute/screens/portfolio/investments_portfolio.dart'
     show PortfolioSection, portfolioSectionProvider;
 import 'package:kute/screens/portfolio/components/position_rows.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart';
+import 'package:kute/screens/portfolio/portfolio_screen.dart';
 import 'package:kute/providers/usd_rewards_provider.dart';
 import 'package:kute/screens/portfolio/portfolio_activity.dart'
     show PortfolioActivitySliver;
@@ -157,11 +159,27 @@ Future<void> _pump(WidgetTester tester,
     PortfolioVenues venues = kPortfolioBothVenues,
     List<Override> overrides = const [],
     bool settle = true,
+    bool routed = false,
     int balancePrivacy = 0}) async {
   tester.view.physicalSize = const Size(400, 1000);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
+  final theme = ThemeData(
+      splashFactory: NoSplash.splashFactory,
+      fontFamily: 'Inter',
+      extensions: [AppColorsExtension.light()]);
+  // [routed]: [home] at `/` under the app's router, with the Portfolio
+  // screen on its route (the shell pushes it there, app_router.dart).
+  final router = routed
+      ? GoRouter(routes: [
+          GoRoute(path: '/', builder: (_, __) => home),
+          GoRoute(
+              path: PortfolioScreen.route,
+              builder: (_, __) => const PortfolioScreen()),
+        ])
+      : null;
+  if (router != null) addTearDown(router.dispose);
   await tester.pumpWidget(ProviderScope(
       overrides: [
         ...portfolioOverrides(trading: state, placing: placing, venues: venues),
@@ -188,15 +206,21 @@ Future<void> _pump(WidgetTester tester,
       ],
       child: ScreenUtilInit(
         designSize: const Size(430, 932),
-        builder: (_, __) => MaterialApp(
-          theme: ThemeData(
-              splashFactory: NoSplash.splashFactory,
-              fontFamily: 'Inter',
-              extensions: [AppColorsExtension.light()]),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: home,
-        ),
+        builder: (_, __) => routed
+            ? MaterialApp.router(
+                theme: theme,
+                localizationsDelegates:
+                    AppLocalizations.localizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                routerConfig: router!,
+              )
+            : MaterialApp(
+                theme: theme,
+                localizationsDelegates:
+                    AppLocalizations.localizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                home: home,
+              ),
       )));
   if (settle) {
     await tester.pumpAndSettle();
@@ -541,9 +565,11 @@ void main() {
     });
 
     testWidgets(
-        'a placed order\'s "View positions" opens the Portfolio on Balances, '
-        'where the positions are, pushing nothing', (tester) async {
+        'a placed order\'s "View positions" pushes the Portfolio screen on '
+        'Balances, where the positions are; the page\'s pill stays',
+        (tester) async {
       await _pump(tester,
+          routed: true,
           overrides: [
             activeShellTabProvider.overrideWith((_) => ActiveNavTab.usd),
           ],
@@ -557,9 +583,12 @@ void main() {
       expect(container.read(investmentsTabProvider), InvestmentsTab.investing);
       await tester.tap(find.text('View positions'));
       await tester.pumpAndSettle();
-      expect(container.read(investmentsTabProvider), InvestmentsTab.positions);
+      // The Portfolio is its own screen (portfolio_screen.dart, founder,
+      // 31 October 2026), pushed on its route over the page, on Balances.
+      expect(find.byType(PortfolioScreen), findsOneWidget);
       expect(
           container.read(portfolioSectionProvider), PortfolioSection.balances);
+      expect(container.read(investmentsTabProvider), InvestmentsTab.investing);
       expect(find.byType(OpenInvestmentsScreen), findsNothing);
       expect(tester.takeException(), isNull);
     });

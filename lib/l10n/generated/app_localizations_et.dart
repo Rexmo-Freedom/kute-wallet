@@ -7666,20 +7666,12 @@ class AppLocalizationsEt extends AppLocalizations {
   String get salStubLiveUnavailable => 'Reaalajas teave pole saadaval.';
 
   @override
-  String searchNoMatchesAskSal(String query) {
-    return 'Päringule „$query“ vasteid pole. Saada see Salile küsimiseks.';
-  }
-
-  @override
   String searchNoResultsFor(String query) {
     return 'Päringule „$query“ tulemusi pole';
   }
 
   @override
   String get searchTypeToSearchMarkets => 'Turgude otsimiseks hakka kirjutama';
-
-  @override
-  String get searchOrAskSal => 'Otsi või küsi Salilt mida tahes';
 
   @override
   String get searchMarketsHint => 'Otsi turge';
@@ -10562,9 +10554,6 @@ class AppLocalizationsEt extends AppLocalizations {
   @override
   String get connectOwnAiSubtitle =>
       'Lase Claude\'il, ChatGPT-l või Grokil oma rahakotti hallata';
-
-  @override
-  String get searchOrAskSalShort => 'Otsi või küsi Salilt';
 
   @override
   String get financialHubAndSettings => 'Finantskeskus ja seaded';

@@ -7723,20 +7723,12 @@ class AppLocalizationsRo extends AppLocalizations {
   String get salStubLiveUnavailable => 'Informațiile live nu sunt disponibile.';
 
   @override
-  String searchNoMatchesAskSal(String query) {
-    return 'Niciun rezultat pentru „$query”. Trimite-l ca să-l întrebi pe Sal.';
-  }
-
-  @override
   String searchNoResultsFor(String query) {
     return 'Niciun rezultat pentru „$query”';
   }
 
   @override
   String get searchTypeToSearchMarkets => 'Scrie ca să cauți piețe';
-
-  @override
-  String get searchOrAskSal => 'Caută sau întreabă-l pe Sal orice';
 
   @override
   String get searchMarketsHint => 'Caută piețe';
@@ -10630,9 +10622,6 @@ class AppLocalizationsRo extends AppLocalizations {
   @override
   String get connectOwnAiSubtitle =>
       'Lasă Claude, ChatGPT sau Grok să-ți gestioneze portofelul';
-
-  @override
-  String get searchOrAskSalShort => 'Caută sau întreabă-l pe Sal';
 
   @override
   String get financialHubAndSettings => 'Centru financiar și setări';

@@ -7712,20 +7712,12 @@ class AppLocalizationsNl extends AppLocalizations {
   String get salStubLiveUnavailable => 'Live-informatie is niet beschikbaar.';
 
   @override
-  String searchNoMatchesAskSal(String query) {
-    return 'Geen resultaten voor “$query”. Verstuur het om het Sal te vragen.';
-  }
-
-  @override
   String searchNoResultsFor(String query) {
     return 'Geen resultaten voor “$query”';
   }
 
   @override
   String get searchTypeToSearchMarkets => 'Typ om markten te zoeken';
-
-  @override
-  String get searchOrAskSal => 'Zoek of vraag Sal alles';
 
   @override
   String get searchMarketsHint => 'Zoek markten';
@@ -10611,9 +10603,6 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String get connectOwnAiSubtitle =>
       'Laat Claude, ChatGPT of Grok je wallet beheren';
-
-  @override
-  String get searchOrAskSalShort => 'Zoek of vraag het Sal';
 
   @override
   String get financialHubAndSettings => 'Financiële hub en instellingen';

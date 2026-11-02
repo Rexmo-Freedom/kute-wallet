@@ -13290,12 +13290,6 @@ abstract class AppLocalizations {
   /// **'Live information is unavailable.'**
   String get salStubLiveUnavailable;
 
-  /// No description provided for @searchNoMatchesAskSal.
-  ///
-  /// In en, this message translates to:
-  /// **'No matches for “{query}”. Send it to ask Sal.'**
-  String searchNoMatchesAskSal(String query);
-
   /// No description provided for @searchNoResultsFor.
   ///
   /// In en, this message translates to:
@@ -13307,12 +13301,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Type to search markets'**
   String get searchTypeToSearchMarkets;
-
-  /// No description provided for @searchOrAskSal.
-  ///
-  /// In en, this message translates to:
-  /// **'Search or ask Sal anything'**
-  String get searchOrAskSal;
 
   /// No description provided for @searchMarketsHint.
   ///
@@ -18101,7 +18089,7 @@ abstract class AppLocalizations {
   /// **'Search investments or manage with AI'**
   String get searchInvestmentsOrManageAi;
 
-  /// The floating bar's default label (over the tabs, pushed pages, the Portfolio, a send review). One line on a 375 pt phone.
+  /// The floating bar's default label (over the tabs, pushed pages, the Portfolio, a send review), the tooltip and screen-reader label of the dock's square search button, and the placeholder of the search sheet's field. One line on a 375 pt phone.
   ///
   /// In en, this message translates to:
   /// **'Search or manage with AI'**
@@ -18118,12 +18106,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Let Claude, ChatGPT or Grok manage your wallet'**
   String get connectOwnAiSubtitle;
-
-  /// Tooltip and screen-reader label of the dock's square button (Sal holding a magnifying glass) when Sal is available, and the placeholder of the search sheet's field it opens. Short: it is the one door to both search and Ask Sal.
-  ///
-  /// In en, this message translates to:
-  /// **'Search or ask Sal'**
-  String get searchOrAskSalShort;
 
   /// Screen-reader label of the top bar's right-hand button, whose glyph is a settings gear with a + in its centre. It opens the Financial hub: the accounts, Add account, Notifications in its header and a labelled Settings row last.
   ///

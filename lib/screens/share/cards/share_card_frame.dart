@@ -19,6 +19,8 @@
 //     with his briefcase on a send, looking up on a prediction. The caps
 //     line and the identity leave him room ([kShareCardSalInset]); a big
 //     number right under them starts below his feet ([kShareCardSalBand]).
+//     On the bitcoin orange, his own colour, he stands on a flat disc of
+//     a deeper orange ([ShareCardPalette.salPlate]).
 //   * THREE BANDS. TOP: a small caps line (12, letter-spaced 0.12 em,
 //     55%: "ANA, A PICK FOR YOU", "FOR DANIEL", "MY PORTFOLIO"), then the
 //     identity row ([ShareCardIdentity]: the logo 36 as a rounded square,
@@ -105,6 +107,7 @@ class ShareCardPalette {
     required this.track,
     this.dot = AppColors.accent,
     this.hairline,
+    this.salPlate,
   });
 
   final Color background;
@@ -123,6 +126,12 @@ class ShareCardPalette {
   /// The edge on a light card; null on the others.
   final Color? hairline;
 
+  /// A flat disc in a deeper tone of the background behind Sal
+  /// ([kShareCardSalPlateSize]), on a card whose colour is his own (the
+  /// bitcoin orange; founder, 2 November 2026: he vanished into it); null
+  /// on the others.
+  final Color? salPlate;
+
   Color get muted => ink.withValues(alpha: 0.55);
 
   /// Bitcoin: the app's bitcoin orange, near-black ink.
@@ -134,11 +143,13 @@ class ShareCardPalette {
     tile: Color(0x1F000000),
     track: Color(0x2E000000),
     dot: Color(0xFF16110A),
+    salPlate: Color(0xFFD9730B),
   );
 
-  /// Dollars: green, white ink.
+  /// Dollars: the app's one green ([AppColors.marketUp]: receipts, the
+  /// coin, the badges), white ink.
   static const ShareCardPalette dollars = ShareCardPalette(
-    background: Color(0xFF0E8A4C),
+    background: AppColors.marketUp,
     ink: Color(0xFFFFFFFF),
     up: Color(0xFFFFFFFF),
     down: Color(0xFFFFFFFF),
@@ -169,9 +180,9 @@ class ShareCardPalette {
   /// A win to brag about: green, white ink.
   static const ShareCardPalette win = dollars;
 
-  /// A loss owned: red, white ink.
+  /// A loss owned: the app's one red ([AppColors.marketDown]), white ink.
   static const ShareCardPalette loss = ShareCardPalette(
-    background: Color(0xFFC0283A),
+    background: AppColors.marketDown,
     ink: Color(0xFFFFFFFF),
     up: Color(0xFFFFFFFF),
     down: Color(0xFFFFFFFF),
@@ -659,6 +670,18 @@ class ShareCardFrame extends StatelessWidget {
                         padding: const EdgeInsets.all(kShareCardPadding),
                         child: body,
                       ),
+                      if (sal != null && p.salPlate != null)
+                        PositionedDirectional(
+                          top: kShareCardSalPlateTop,
+                          end: kShareCardSalPlateEnd,
+                          width: kShareCardSalPlateSize,
+                          height: kShareCardSalPlateSize,
+                          child: DecoratedBox(
+                            key: ValueKey('$keyPrefix-sal-plate'),
+                            decoration: BoxDecoration(
+                                color: p.salPlate, shape: BoxShape.circle),
+                          ),
+                        ),
                       if (sal != null)
                         PositionedDirectional(
                           top: kShareCardSalTop,
@@ -684,6 +707,13 @@ class ShareCardFrame extends StatelessWidget {
 /// (his render's own transparent margin sits in the card's padding).
 const double kShareCardSalTop = -6;
 const double kShareCardSalEnd = 0;
+
+/// The disc behind Sal on a card of his own colour
+/// ([ShareCardPalette.salPlate]): centred under his body in his cell, his
+/// ears and feet just past its rim.
+const double kShareCardSalPlateSize = 104;
+const double kShareCardSalPlateTop = 10;
+const double kShareCardSalPlateEnd = 12;
 
 /// The room the caps line and the identity leave at their end for Sal.
 const double kShareCardSalInset = 84;

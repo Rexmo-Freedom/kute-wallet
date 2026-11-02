@@ -44,7 +44,6 @@ import 'package:kute/screens/search/unified_search_screen.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart'
     show CapabilityUnavailableSheet;
-import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/services/advisor/advisor_input_guard.dart';
 import 'package:kute/services/hyperliquid/hl_sparkline_cache.dart';
@@ -265,8 +264,9 @@ void main() {
     expect(sheet.bottom, _screen.height);
     expect(sheet.height,
         moreOrLessEquals(_screen.height * kSearchSheetFraction, epsilon: 0.5));
-    // The composer line: under the handle row, in the gutters, 56 tall,
-    // nothing but a hairline under it; the text at 20 sp.
+    // The composer field: under the handle row, in the gutters, 56 tall,
+    // filled and rounded like the app's inputs (surfaceLight, the 1 px
+    // border); the text at 17 sp, the hint in textSecondary.
     final composer = tester.getRect(find.byType(KuteSearchComposer));
     expect(composer.top,
         moreOrLessEquals(sheet.top + kSearchSheetHandleRow, epsilon: 0.5));
@@ -279,14 +279,19 @@ void main() {
             of: find.byType(KuteSearchComposer), matching: find.byType(Container))
         .first);
     final decoration = line.decoration! as BoxDecoration;
-    expect(decoration.color, isNull);
-    expect(decoration.borderRadius, isNull);
+    final light = AppColorsExtension.light();
+    expect(decoration.color, light.surfaceLight);
+    expect(decoration.borderRadius, BorderRadius.circular(16));
     expect(decoration.boxShadow, isNull);
-    expect((decoration.border! as Border).bottom.width, 0.5);
-    expect((decoration.border! as Border).top, BorderSide.none);
+    expect((decoration.border! as Border).top,
+        BorderSide(color: light.border, width: 1));
+    expect((decoration.border! as Border).bottom,
+        BorderSide(color: light.border, width: 1));
     final field = tester.widget<TextField>(find.byType(TextField));
-    expect(field.style?.fontSize, 20);
-    expect(field.decoration?.hintStyle?.fontSize, 20);
+    expect(field.style?.fontSize, 17);
+    expect(field.decoration?.hintStyle?.fontSize, 17);
+    expect(field.decoration?.hintStyle?.color, light.textSecondary);
+    expect(field.decoration?.hintText, 'Search or manage with AI');
     // The send arrow is away without text.
     expect(tester.widget<AnimatedScale>(_sendScale).scale, 0);
     // The content starts under the line and scrolls under it: the line
@@ -453,7 +458,7 @@ void main() {
   });
 
   testWidgets(
-      'Connect your own AI: one big card first under the composer, the '
+      'Connect your own AI: one short band first under the composer, the '
       'three marks, gone once there is a query; a tap opens Unavailable',
       (tester) async {
     final events = <(String, Map<String, Object>?)>[];
@@ -487,8 +492,23 @@ void main() {
             .writeAsBytesSync(png!.buffer.asUint8List());
       });
     }
-    expect(find.descendant(of: card, matching: find.byType(KuteActionCard)),
-        findsOneWidget);
+    // One short band: the title with the marks at its end, the line under
+    // them across the band.
+    final band = tester.getRect(card);
+    final marks =
+        tester.getRect(find.byKey(const ValueKey('search-home-connect-ai-logos')));
+    final title = tester.getRect(find.text('Connect your own AI'));
+    final line = tester
+        .getRect(find.text('Let Claude, ChatGPT or Grok manage your wallet'));
+    expect(marks.height, 28);
+    expect(marks.left, greaterThan(title.right));
+    // 12 padding inside the 1 px hairline.
+    expect(marks.right, moreOrLessEquals(band.right - 13, epsilon: 0.5));
+    expect(line.top, greaterThan(marks.bottom));
+    expect(line.left, moreOrLessEquals(band.left + 13, epsilon: 0.5));
+    // It hugs them: no air at its foot beyond the padding.
+    expect(marks.top, moreOrLessEquals(band.top + 13, epsilon: 0.5));
+    expect(band.bottom - line.bottom, moreOrLessEquals(13, epsilon: 0.5));
     expect(find.text('Connect your own AI'), findsOneWidget);
     expect(find.text('Let Claude, ChatGPT or Grok manage your wallet'),
         findsOneWidget);

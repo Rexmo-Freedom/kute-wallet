@@ -282,7 +282,7 @@ Future<void> showKuteSearch(
   final keepBar = travels && !(barContext?.inHeader ?? false);
   if (!keepBar) container.read(kuteBarContextProvider.notifier).push(hiddenBar);
   final composerKey = GlobalKey(debugLabel: 'kute-search-composer');
-  final hint = context.l10n.searchOrAskSalShort;
+  final hint = searchManageAiHint(context, effectiveCategory);
   Rect? restRect;
   if (travels) {
     // The way in: from the pill to where the composer will rest, on the
@@ -350,8 +350,8 @@ Future<void> showKuteSearch(
 
 const _kSearchSheetKey = 'kute_search';
 
-/// True while the search sheet is up. The dock's "Search or ask Sal" pill
-/// shrinks and fades while it is (kute_bottom_action_bar.dart), and
+/// True while the search sheet is up. The dock's "Search or manage with
+/// AI" pill shrinks and fades while it is (kute_bottom_action_bar.dart), and
 /// springs back when it closes.
 final ValueNotifier<bool> kuteSearchSheetOpen = ValueNotifier<bool>(false);
 
@@ -432,6 +432,19 @@ void endKuteSearchSession(ProviderContainer container) {
   container.read(searchWalletScopeProvider.notifier).state = null;
   container.read(searchLedgerWalletIdProvider.notifier).state = null;
   container.read(searchMarketsOnlyProvider.notifier).state = false;
+}
+
+/// The composer's hint with Sal available: the bar's own words, "Search
+/// or manage with AI", narrowed to the venue the sheet opens on
+/// ("Search predictions or manage with AI", "Search investments or
+/// manage with AI"). The pill's travel lands on the same words.
+String searchManageAiHint(BuildContext context, SearchCategory category) {
+  final l10n = context.l10n;
+  return switch (category) {
+    SearchCategory.predictions => l10n.searchPredictionsOrManageAi,
+    SearchCategory.perpetuals => l10n.searchInvestmentsOrManageAi,
+    SearchCategory.all || SearchCategory.transactions => l10n.searchOrManageAi,
+  };
 }
 
 /// The unified search surface itself: category tabs, live results and the
@@ -941,7 +954,7 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
               // With Sal available the field names both jobs, the words the
               // pill wears; search-only keeps the scoped hint.
               hint: aiEnabled
-                  ? context.l10n.searchOrAskSalShort
+                  ? searchManageAiHint(context, widget.initialCategory)
                   : (widget.initialCategory == SearchCategory.perpetuals ||
                           widget.initialCategory == SearchCategory.predictions)
                       ? context.l10n.searchMarketsHint
@@ -1789,49 +1802,101 @@ const List<String> kConnectOwnAiLogos = [
 
 /// CONNECT YOUR OWN AI (founder, 2 November 2026: "the option to connect
 /// the wallet with your own local AI ... shown as a bigger card ... on the
-/// search sheet"): one full-width action card in the big-squares style
-/// (kute_action_cards.dart), the Claude, ChatGPT and Grok marks in a row
-/// of white discs as its visual, "Connect your own AI" and "Let Claude,
-/// ChatGPT or Grok manage your wallet". Not live yet: a tap opens the
+/// search sheet", then "must be smaller"): one short full-width band in the
+/// big cards' surface (kute_action_cards.dart: surface-1, the 1 px
+/// hairline), radius 16, 12 padding: "Connect your own AI" (15, w600)
+/// with the Claude, ChatGPT and Grok marks in overlapping white discs of
+/// [_disc] at its end, and "Let Claude, ChatGPT or Grok manage your
+/// wallet" (13, textSecondary) across the band's whole width under them,
+/// one line in English (two at most). Not live yet: a tap opens the
 /// shared Unavailable sheet (the Dollars row's old Manage with AI did the
 /// same) and counts as a search tap (`connect_own_ai`).
 class _ConnectOwnAiCard extends ConsumerWidget {
   const _ConnectOwnAiCard();
 
-  static const double _disc = 40;
+  static const double _disc = 28;
+
+  /// How far each disc steps right of the one before it.
+  static const double _step = 20;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
     final l10n = context.l10n;
-    return KuteActionCardGrid(
-      key: const ValueKey('search-home-connect-ai'),
-      cards: [
-        KuteActionCard(
-          visual: Row(
-            key: const ValueKey('search-home-connect-ai-logos'),
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (var i = 0; i < kConnectOwnAiLogos.length; i++) ...[
-                if (i > 0) const SizedBox(width: 8),
-                Container(
-                  width: _disc,
-                  height: _disc,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    // White in both modes: the marks keep their own ink.
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: c.border, width: 1),
-                  ),
-                  child: SvgPicture.asset(kConnectOwnAiLogos[i],
-                      width: 22, height: 22),
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final count = kConnectOwnAiLogos.length;
+    final logos = SizedBox(
+      key: const ValueKey('search-home-connect-ai-logos'),
+      width: _disc + _step * (count - 1),
+      height: _disc,
+      child: Stack(
+        children: [
+          for (var i = 0; i < count; i++)
+            Positioned(
+              left: _step * i,
+              top: 0,
+              child: Container(
+                width: _disc,
+                height: _disc,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  // White in both modes: the marks keep their own ink.
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: c.border, width: 1),
                 ),
-              ],
+                child: SvgPicture.asset(kConnectOwnAiLogos[i],
+                    width: 16, height: 16),
+              ),
+            ),
+        ],
+      ),
+    );
+    final band = Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isLight ? c.surfaceLight : c.surface,
+        borderRadius: BorderRadius.circular(16),
+        border:
+            Border.all(color: isLight ? c.border : c.borderSubtle, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  l10n.connectOwnAiTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style:
+                      KuteActionCard.titleStyle(c).copyWith(fontSize: 15.sp),
+                ),
+              ),
+              const SizedBox(width: 12),
+              logos,
             ],
           ),
-          title: l10n.connectOwnAiTitle,
-          subtitle: l10n.connectOwnAiSubtitle,
+          const SizedBox(height: 2),
+          Text(
+            l10n.connectOwnAiSubtitle,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: KuteActionCard.subtitleStyle(c),
+          ),
+        ],
+      ),
+    );
+    return Semantics(
+      key: const ValueKey('search-home-connect-ai'),
+      button: true,
+      label: '${l10n.connectOwnAiTitle}, ${l10n.connectOwnAiSubtitle}',
+      excludeSemantics: true,
+      child: KutePressable(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
           onTap: () {
             _trackSearchResultTap(ref, 'connect_own_ai');
             unawaited(showCapabilityUnavailableSheet(
@@ -1840,8 +1905,9 @@ class _ConnectOwnAiCard extends ConsumerWidget {
               surface: 'connect_own_ai',
             ));
           },
+          child: band,
         ),
-      ],
+      ),
     );
   }
 }

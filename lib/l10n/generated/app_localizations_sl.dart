@@ -7702,20 +7702,12 @@ class AppLocalizationsSl extends AppLocalizations {
   String get salStubLiveUnavailable => 'Informacije v živo niso na voljo.';
 
   @override
-  String searchNoMatchesAskSal(String query) {
-    return 'Ni zadetkov za »$query«. Pošljite, da vprašate Sala.';
-  }
-
-  @override
   String searchNoResultsFor(String query) {
     return 'Ni rezultatov za »$query«';
   }
 
   @override
   String get searchTypeToSearchMarkets => 'Tipkajte za iskanje trgov';
-
-  @override
-  String get searchOrAskSal => 'Iščite ali vprašajte Sala karkoli';
 
   @override
   String get searchMarketsHint => 'Iskanje trgov';
@@ -10608,9 +10600,6 @@ class AppLocalizationsSl extends AppLocalizations {
   @override
   String get connectOwnAiSubtitle =>
       'Naj vašo denarnico upravljajo Claude, ChatGPT ali Grok';
-
-  @override
-  String get searchOrAskSalShort => 'Iščite ali vprašajte Sala';
 
   @override
   String get financialHubAndSettings => 'Finančno središče in nastavitve';

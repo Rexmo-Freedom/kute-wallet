@@ -7742,20 +7742,12 @@ class AppLocalizationsEl extends AppLocalizations {
       'Οι ζωντανές πληροφορίες δεν είναι διαθέσιμες.';
 
   @override
-  String searchNoMatchesAskSal(String query) {
-    return 'Κανένα αποτέλεσμα για «$query». Στείλ’ το για να ρωτήσεις τον Sal.';
-  }
-
-  @override
   String searchNoResultsFor(String query) {
     return 'Κανένα αποτέλεσμα για «$query»';
   }
 
   @override
   String get searchTypeToSearchMarkets => 'Πληκτρολόγησε για αναζήτηση αγορών';
-
-  @override
-  String get searchOrAskSal => 'Αναζήτησε ή ρώτα τον Sal ό,τι θέλεις';
 
   @override
   String get searchMarketsHint => 'Αναζήτηση αγορών';
@@ -10648,9 +10640,6 @@ class AppLocalizationsEl extends AppLocalizations {
   @override
   String get connectOwnAiSubtitle =>
       'Άφησε το Claude, το ChatGPT ή το Grok να διαχειρίζεται το πορτοφόλι σου';
-
-  @override
-  String get searchOrAskSalShort => 'Αναζήτησε ή ρώτα τον Sal';
 
   @override
   String get financialHubAndSettings => 'Οικονομικό κέντρο και ρυθμίσεις';

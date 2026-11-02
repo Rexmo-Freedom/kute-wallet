@@ -69,8 +69,8 @@ class KuteDockAction {
 /// square. While Sal is available the square's glyph is Sal holding a big
 /// magnifying glass up to his eye ([KuteDogMagnifier]): the glass reads as
 /// search at a glance, and Sal says he answers too.
-/// The one door to search and to Sal, labelled "Search or ask Sal". With AI
-/// off it is the plain magnifier.
+/// The one door to search and to Sal, labelled "Search or manage with AI".
+/// With AI off it is the plain magnifier.
 ///
 /// THE 3D SAL (founder, 31 October 2026): the pill's glyph is the Blender
 /// Sal's `search` clip ([SalSprite], sal_sprite.dart) at the icon size,
@@ -110,7 +110,7 @@ class KuteBottomActionBar extends ConsumerWidget {
     final aiEnabled =
         onSearch != null && (ref.watch(aiEnabledProvider).valueOrNull ?? true);
     final searchLabel = aiEnabled
-        ? context.l10n.searchOrAskSalShort
+        ? context.l10n.searchOrManageAi
         : context.l10n.searchAction;
 
     // Android's navigation bar inset ends right under the dock, where
@@ -522,15 +522,15 @@ class KuteDockActionButton extends StatelessWidget {
 const double _kDockPillHeight = 50;
 const double _kDockPillTallHeight = 56;
 
-/// THE FLOATING SAL PILL, the one chrome of the bar everywhere (the docks
-/// on Home and Dollars, the shell bar over everything else): Sal's clip,
-/// a label and an optional second line, in the pill's own frost. When the
-/// context changes ("Search investments or ask Sal" ↔ "Search predictions
-/// or ask Sal" on the Dollars tab) it morphs EXACTLY as the bar's primary
-/// button does (kute_morph_label.dart): the width springs on the chip
-/// spring ([KuteMorphSize]), the old words slide up and out while the new
-/// ones rise from below ([KuteMorphLabel]), and Sal's clip crossfades
-/// ([KuteMorphFace]). At once under Reduce Motion.
+/// THE FLOATING SAL PILL, the one chrome of the bar everywhere (the docks on
+/// Home and Dollars, the shell bar over everything else): Sal's clip, a label
+/// and an optional second line, in the pill's own frost. When the context
+/// changes ("Search investments or manage with AI" ↔ "Search predictions or
+/// manage with AI" on the Dollars tab) it morphs EXACTLY as the bar's primary
+/// button does (kute_morph_label.dart): the width springs on the chip spring
+/// ([KuteMorphSize]), the old words slide up and out while the new ones rise
+/// from below ([KuteMorphLabel]), and Sal's clip crossfades ([KuteMorphFace]).
+/// At once under Reduce Motion.
 class KuteSalPill extends StatelessWidget {
   const KuteSalPill({
     super.key,

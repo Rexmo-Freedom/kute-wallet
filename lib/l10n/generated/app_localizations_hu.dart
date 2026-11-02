@@ -7703,20 +7703,12 @@ class AppLocalizationsHu extends AppLocalizations {
   String get salStubLiveUnavailable => 'Élő információ nem érhető el.';
 
   @override
-  String searchNoMatchesAskSal(String query) {
-    return 'Nincs találat erre: „$query”. Küldd el, és kérdezd meg Salt.';
-  }
-
-  @override
   String searchNoResultsFor(String query) {
     return 'Nincs találat erre: „$query”';
   }
 
   @override
   String get searchTypeToSearchMarkets => 'Írj a piacok kereséséhez';
-
-  @override
-  String get searchOrAskSal => 'Keress, vagy kérdezz bármit Saltól';
 
   @override
   String get searchMarketsHint => 'Piacok keresése';
@@ -10600,9 +10592,6 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get connectOwnAiSubtitle =>
       'Hagyd, hogy a Claude, a ChatGPT vagy a Grok kezelje a tárcádat';
-
-  @override
-  String get searchOrAskSalShort => 'Keress, vagy kérdezd Salt';
 
   @override
   String get financialHubAndSettings => 'Pénzügyi központ és beállítások';

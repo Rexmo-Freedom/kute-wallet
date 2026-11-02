@@ -302,6 +302,20 @@ void main() {
       expect(sal.right, kShareCardSize.width - kShareCardSalEnd);
       expect(sal.top, kShareCardSalTop);
       expect(sal.width, kShareCardSalSize);
+      // On his own orange he stands on a deeper orange disc, under his
+      // body in his cell.
+      final plate =
+          tester.getRect(find.byKey(const ValueKey('share-card-sal-plate')));
+      expect(plate.width, kShareCardSalPlateSize);
+      expect(plate.right, kShareCardSize.width - kShareCardSalPlateEnd);
+      expect(plate.top, kShareCardSalPlateTop);
+      expect(sal.contains(plate.center), isTrue);
+      final plateBox = tester
+          .widget<DecoratedBox>(
+              find.byKey(const ValueKey('share-card-sal-plate')))
+          .decoration as BoxDecoration;
+      expect(plateBox.color, ShareCardPalette.bitcoin.salPlate);
+      expect(plateBox.shape, BoxShape.circle);
       expect(textOf(tester, 'share-card-edge'),
           isIn(shareCardEdges(_en, fakeBitcoinCard())));
       expect(textOf(tester, 'share-card-quiet'), 'Claim it on Kute');
@@ -315,6 +329,8 @@ void main() {
       expect(find.byKey(const ValueKey('share-card-fact')), findsNothing);
       expect(find.byKey(const ValueKey('share-card-graphic')), findsNothing);
       expect(background(tester), ShareCardPalette.dollars.background);
+      // Only the bitcoin orange is Sal's own colour.
+      expect(find.byKey(const ValueKey('share-card-sal-plate')), findsNothing);
     });
 
     testWidgets(

@@ -3,8 +3,9 @@
 // THE BAR'S MORPH, ONE PIECE (founder, 1 November 2026): the primary
 // button (kute_shell_bar.dart, KuteBarPrimaryButton) and the floating Sal
 // pill (kute_bottom_action_bar.dart, KuteSalPill; "Search investments or
-// ask Sal" ↔ "Search predictions or ask Sal" on the Dollars tab) change
-// what they say with the SAME motion, from these three widgets:
+// manage with AI" ↔ "Search predictions or manage with AI" on the Dollars
+// tab) change what they say with the SAME motion, from these three
+// widgets:
 //
 //   * [KuteMorphLabel]: the words. The old ones slide up and out over
 //     [kMorphWordsOut] on the settle, the new ones rise from below on the

@@ -7698,20 +7698,12 @@ class AppLocalizationsBg extends AppLocalizations {
   String get salStubLiveUnavailable => 'Информацията на живо не е достъпна.';
 
   @override
-  String searchNoMatchesAskSal(String query) {
-    return 'Няма резултати за „$query“. Изпрати го, за да попиташ Sal.';
-  }
-
-  @override
   String searchNoResultsFor(String query) {
     return 'Няма резултати за „$query“';
   }
 
   @override
   String get searchTypeToSearchMarkets => 'Пиши, за да търсиш пазари';
-
-  @override
-  String get searchOrAskSal => 'Търси или питай Sal каквото искаш';
 
   @override
   String get searchMarketsHint => 'Търси пазари';
@@ -10596,9 +10588,6 @@ class AppLocalizationsBg extends AppLocalizations {
   @override
   String get connectOwnAiSubtitle =>
       'Нека Claude, ChatGPT или Grok управляват портфейла ти';
-
-  @override
-  String get searchOrAskSalShort => 'Търси или питай Sal';
 
   @override
   String get financialHubAndSettings => 'Финансов център и настройки';

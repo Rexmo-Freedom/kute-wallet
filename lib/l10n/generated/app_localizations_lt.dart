@@ -7716,20 +7716,12 @@ class AppLocalizationsLt extends AppLocalizations {
   String get salStubLiveUnavailable => 'Tiesioginė informacija negalima.';
 
   @override
-  String searchNoMatchesAskSal(String query) {
-    return 'Nėra atitikmenų pagal „$query“. Išsiųskite tai ir paklauskite Sal.';
-  }
-
-  @override
   String searchNoResultsFor(String query) {
     return 'Nėra rezultatų pagal „$query“';
   }
 
   @override
   String get searchTypeToSearchMarkets => 'Rašykite, kad ieškotumėte rinkų';
-
-  @override
-  String get searchOrAskSal => 'Ieškokite arba klauskite Sal bet ko';
 
   @override
   String get searchMarketsHint => 'Ieškoti rinkų';
@@ -10623,9 +10615,6 @@ class AppLocalizationsLt extends AppLocalizations {
   @override
   String get connectOwnAiSubtitle =>
       'Leiskite Claude, ChatGPT ar Grok valdyti jūsų piniginę';
-
-  @override
-  String get searchOrAskSalShort => 'Ieškokite arba klauskite Sal';
 
   @override
   String get financialHubAndSettings => 'Finansų centras ir nustatymai';
