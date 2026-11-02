@@ -10495,6 +10495,15 @@ class AppLocalizationsHu extends AppLocalizations {
   String get bragBarLabel => 'Oszd meg és dicsekedj';
 
   @override
+  String get bragPortfolioBarLabel => 'Oszd meg a portfóliód';
+
+  @override
+  String get bragPnlBarLabel => 'Oszd meg a P&L-ed';
+
+  @override
+  String get bragMyPnl => 'Az én P&L-em';
+
+  @override
   String bragShareText(String title, String link) {
     return '$title a Kute-ban $link';
   }

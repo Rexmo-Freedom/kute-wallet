@@ -6742,6 +6742,18 @@
   "@bragBarLabel": {
     "description": "Portfolio screen: the floating bar as its primary button, opening the portfolio brag card preview."
   },
+  "bragPortfolioBarLabel": "Share portfolio",
+  "@bragPortfolioBarLabel": {
+    "description": "Portfolio screen, Portfolio section: the floating bar as its primary button, opening the portfolio share card preview."
+  },
+  "bragPnlBarLabel": "Share P&L",
+  "@bragPnlBarLabel": {
+    "description": "Portfolio screen, P&L Charts section: the floating bar as its primary button, and the title of the sheet it opens: the P&L share card for the range picked on the chart. P&L is profit and loss."
+  },
+  "bragMyPnl": "My P&L",
+  "@bragMyPnl": {
+    "description": "P&L share card: its small caps title (drawn uppercase, then the range, e.g. 'MY P&L · 1M'), and the title in the share text. P&L is profit and loss."
+  },
   "bragShareText": "{title} on Kute {link}",
   "@bragShareText": {
     "description": "The text shared with the brag card image. {title} is the market or 'My portfolio', {link} the link with the referral code.",

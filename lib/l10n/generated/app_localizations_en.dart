@@ -10430,6 +10430,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get bragBarLabel => 'Share and brag';
 
   @override
+  String get bragPortfolioBarLabel => 'Share portfolio';
+
+  @override
+  String get bragPnlBarLabel => 'Share P&L';
+
+  @override
+  String get bragMyPnl => 'My P&L';
+
+  @override
   String bragShareText(String title, String link) {
     return '$title on Kute $link';
   }

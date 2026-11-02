@@ -14,13 +14,19 @@
 //   * [showBragPreviewSheet] with the data a position page built
 //     (brag_data.dart: bragHlPosition, bragPolyPosition), from its header
 //     button and its Sal sheet row (kute_share_actions.dart);
-//   * [showBragPortfolioPreviewSheet] from the Portfolio screen's bar: the
-//     card follows the live providers while the sheet is up
-//     (bragPortfolio).
+//   * [showBragPortfolioPreviewSheet] from the Portfolio screen's bar on
+//     its Portfolio section ("Share portfolio"): the card follows the live
+//     providers while the sheet is up (bragPortfolio);
+//   * [showBragPnlPreviewSheet] from the same bar on P&L Charts ("Share
+//     P&L"; founder, 2 November 2026: the two sections share different
+//     cards): the P&L card (pnl_share_card.dart) for the range picked and
+//     the venue picked when the bar was tapped, live as well (bragPnl).
 //
-// Analytics: `brag_shared {kind: position | portfolio}`
-// once the OS share sheet has been opened and not dismissed. No market,
-// no id, no figure.
+// Analytics: `brag_shared {kind: position | portfolio, card: position |
+// portfolio | pnl, range}` once the OS share sheet has been opened and
+// not dismissed: `card` says which card went (the P&L card is a
+// portfolio kind), `range` the P&L card's range as its pill reads ("1W",
+// "1M", "3M", "1Y", "ALL"). No market, no id, no figure.
 
 import 'dart:async';
 import 'dart:math' as math;
@@ -33,10 +39,14 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/models/balance_history.dart' show BalanceRange;
+import 'package:kute/models/portfolio_performance.dart'
+    show PortfolioPerformanceVenue;
 import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
 import 'package:kute/screens/share/brag/brag_card.dart';
 import 'package:kute/screens/share/brag/brag_data.dart';
+import 'package:kute/screens/share/brag/pnl_share_card.dart';
 import 'package:kute/screens/share/cards/share_card_frame.dart'
     show ShareCardSal, kShareCardRadius, kShareCardSize;
 import 'package:kute/screens/share/share_market_sheet.dart'
@@ -65,16 +75,30 @@ Future<void> showBragPortfolioPreviewSheet(BuildContext context) =>
       builder: (_) => const BragPreviewSheet(),
     );
 
+/// Opens the preview for the P&L card over [range] ([venue] alone when
+/// one is picked on the chart), built live.
+Future<void> showBragPnlPreviewSheet(BuildContext context,
+        {required BalanceRange range, PortfolioPerformanceVenue? venue}) =>
+    showAppBottomSheet<void>(
+      context: context,
+      routeSettings: const RouteSettings(name: kBragPreviewRouteName),
+      builder: (_) => BragPreviewSheet(pnl: (range: range, venue: venue)),
+    );
+
 /// The share text: "{title} on Kute {link}?ref={code}".
 String bragShareText(BuildContext context, BragData data) =>
     context.l10n.bragShareText(
         data.title, shareLinkWithReferral(data.link, code: data.referralCode));
 
 class BragPreviewSheet extends ConsumerStatefulWidget {
-  /// [data] null: the portfolio card, from the live providers.
-  const BragPreviewSheet({super.key, this.data});
+  /// [data] null: the portfolio card, from the live providers; with
+  /// [pnl], the P&L card over its range (and venue).
+  const BragPreviewSheet({super.key, this.data, this.pnl});
 
   final BragData? data;
+
+  /// The P&L card's range and venue (null: both venues).
+  final ({BalanceRange range, PortfolioPerformanceVenue? venue})? pnl;
 
   /// Test seam: what Share hands the OS (the PNG and the text). Null opens
   /// the share sheet.
@@ -108,8 +132,16 @@ class _BragPreviewSheetState extends ConsumerState<BragPreviewSheet> {
     }
   }
 
-  BragData _data(BuildContext context) =>
-      widget.data ?? bragPortfolio(ref, title: context.l10n.bragMyPortfolio);
+  BragData _data(BuildContext context) {
+    final pnl = widget.pnl;
+    return widget.data ??
+        (pnl != null
+            ? bragPnl(ref,
+                title: context.l10n.bragMyPnl,
+                range: pnl.range,
+                venue: pnl.venue)
+            : bragPortfolio(ref, title: context.l10n.bragMyPortfolio));
+  }
 
   Future<void> _share(BragData data) async {
     if (_busy) return;
@@ -141,6 +173,8 @@ class _BragPreviewSheetState extends ConsumerState<BragPreviewSheet> {
       if (opened) {
         TrackingService.track('brag_shared', params: {
           'kind': data.kind.name,
+          'card': data is BragPnl ? 'pnl' : data.kind.name,
+          if (data is BragPnl) 'range': data.range.label,
         });
       }
     } catch (_) {
@@ -165,9 +199,11 @@ class _BragPreviewSheetState extends ConsumerState<BragPreviewSheet> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           AppBottomSheetHeader(
-            title: data.kind == BragKind.portfolio
-                ? l10n.bragPortfolioAction
-                : l10n.bragPositionAction,
+            title: data is BragPnl
+                ? l10n.bragPnlBarLabel
+                : data.kind == BragKind.portfolio
+                    ? l10n.bragPortfolioAction
+                    : l10n.bragPositionAction,
             icon: Icons.ios_share_rounded,
           ),
           Center(
@@ -191,10 +227,15 @@ class _BragPreviewSheetState extends ConsumerState<BragPreviewSheet> {
                 child: FittedBox(
                   child: RepaintBoundary(
                     key: _boundary,
-                    child: BragCard(
-                        data: data,
-                        mark: ShareCardSal.peek(),
-                        lineSeed: _lineSeed),
+                    child: data is BragPnl
+                        ? PnlShareCard(
+                            data: data,
+                            mark: ShareCardSal.peek(),
+                            lineSeed: _lineSeed)
+                        : BragCard(
+                            data: data,
+                            mark: ShareCardSal.peek(),
+                            lineSeed: _lineSeed),
                   ),
                 ),
               ),

@@ -436,7 +436,8 @@ void main() {
           '?ref=$kBragTestCode');
       expect(textAt(tester, 'brag-card-edge').data,
           r'+$36.90 while you were scrolling.');
-      expect(env.paramsOf('brag_shared').single, {'kind': 'position'});
+      expect(env.paramsOf('brag_shared').single,
+          {'kind': 'position', 'card': 'position'});
     });
 
     testWidgets('the portfolio card says portfolio', (tester) async {
@@ -445,7 +446,8 @@ void main() {
           tester, env, BragPreviewSheet(data: fakeBragFlatPortfolio()));
       expect(find.text('Show off your portfolio'), findsOneWidget);
       await shareAndWait(tester);
-      expect(env.paramsOf('brag_shared').single, {'kind': 'portfolio'});
+      expect(env.paramsOf('brag_shared').single,
+          {'kind': 'portfolio', 'card': 'portfolio'});
     });
   });
 }

@@ -10518,6 +10518,15 @@ class AppLocalizationsLt extends AppLocalizations {
   String get bragBarLabel => 'Bendrinti ir pasigirti';
 
   @override
+  String get bragPortfolioBarLabel => 'Bendrinti portfelį';
+
+  @override
+  String get bragPnlBarLabel => 'Bendrinti P&L';
+
+  @override
+  String get bragMyPnl => 'Mano P&L';
+
+  @override
   String bragShareText(String title, String link) {
     return '$title – Kute $link';
   }

@@ -10525,6 +10525,15 @@ class AppLocalizationsRo extends AppLocalizations {
   String get bragBarLabel => 'Distribuie și laudă-te';
 
   @override
+  String get bragPortfolioBarLabel => 'Distribuie portofoliul';
+
+  @override
+  String get bragPnlBarLabel => 'Distribuie P&L-ul';
+
+  @override
+  String get bragMyPnl => 'P&L-ul meu';
+
+  @override
   String bragShareText(String title, String link) {
     return '$title în Kute $link';
   }

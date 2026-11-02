@@ -10507,6 +10507,15 @@ class AppLocalizationsPl extends AppLocalizations {
   String get bragBarLabel => 'Udostępnij i pochwal się';
 
   @override
+  String get bragPortfolioBarLabel => 'Udostępnij portfolio';
+
+  @override
+  String get bragPnlBarLabel => 'Udostępnij P&L';
+
+  @override
+  String get bragMyPnl => 'Mój P&L';
+
+  @override
   String bragShareText(String title, String link) {
     return '$title w Kute $link';
   }

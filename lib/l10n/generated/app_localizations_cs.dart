@@ -10463,6 +10463,15 @@ class AppLocalizationsCs extends AppLocalizations {
   String get bragBarLabel => 'Sdílej a chlub se';
 
   @override
+  String get bragPortfolioBarLabel => 'Sdílej portfolio';
+
+  @override
+  String get bragPnlBarLabel => 'Sdílej P&L';
+
+  @override
+  String get bragMyPnl => 'Můj P&L';
+
+  @override
   String bragShareText(String title, String link) {
     return '$title na Kute $link';
   }

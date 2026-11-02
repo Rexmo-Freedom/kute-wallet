@@ -31,16 +31,27 @@
 // filled order's "View positions", a resting order's "View orders" and a
 // trade notification.
 //
+// THE BAR SHARES WHAT THE SECTION SHOWS (founder, 2 November 2026: "On
+// share and brag portfolio we should say share portfolio on the bottom.
+// PnL should say [something else]"): on Portfolio, with a position open
+// or a P&L off zero, "Share portfolio" opens the portfolio card; on P&L
+// Charts, with a P&L drawn, "Share P&L" opens the P&L card for the range
+// (and the venue) picked on the chart (brag_preview_sheet.dart). The
+// label morphs on a switch like every bar label (kute_morph_label.dart).
+// Nothing to share: the default bar.
+//
 // Analytics: the existing `analytics_tab_selected` on a section pill
 // (surface investments, tab positions, sub / from_sub), as the Investments
 // page sent it; the screen itself adds no event (experimental branch).
 
 import 'dart:async';
 
+import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart'
+    show pnlChartRangeProvider, pnlChartVenueProvider;
 import 'package:kute/screens/share/brag/brag_data.dart'
-    show bragPortfolioAvailableProvider;
+    show bragPnlAvailableProvider, bragPortfolioAvailableProvider;
 import 'package:kute/screens/share/brag/brag_preview_sheet.dart'
-    show showBragPortfolioPreviewSheet;
+    show showBragPnlPreviewSheet, showBragPortfolioPreviewSheet;
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -76,9 +87,43 @@ class PortfolioScreen extends ConsumerWidget {
     ref.read(portfolioSectionProvider.notifier).state = next;
   }
 
+  /// The bar over [section] (see the file header).
+  static KuteBarContext barContext(
+      BuildContext context, WidgetRef ref, PortfolioSection section) {
+    final l10n = context.l10n;
+    final share = switch (section) {
+      PortfolioSection.balances =>
+        ref.watch(bragPortfolioAvailableProvider)
+            ? (
+                l10n.bragPortfolioBarLabel,
+                () => unawaited(showBragPortfolioPreviewSheet(context)),
+              )
+            : null,
+      PortfolioSection.charts => ref.watch(bragPnlAvailableProvider)
+          ? (
+              l10n.bragPnlBarLabel,
+              () => unawaited(showBragPnlPreviewSheet(context,
+                  range: ref.read(pnlChartRangeProvider),
+                  venue: ref.read(pnlChartVenueProvider))),
+            )
+          : null,
+    };
+    if (share == null) {
+      return KuteBarContext(label: l10n.searchOrManageAi, source: 'portfolio');
+    }
+    return KuteBarContext.primary(
+      label: share.$1,
+      onPrimary: share.$2,
+      // Never off: the card always opens.
+      disabledLabel: null,
+      source: 'portfolio',
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
+    final section = ref.watch(portfolioSectionProvider);
     return Scaffold(
       backgroundColor: c.background,
       appBar: AppBar(
@@ -108,24 +153,12 @@ class PortfolioScreen extends ConsumerWidget {
             // The bar over this page: the default search and Sal, no row
             // of its own (founder, 31 October 2026: "only auto managed";
             // money moves from the Add and Send flows).
-            // Brag (founder, 1 November 2026): with something to brag
-            // about, the bar is "Share and brag", opening the portfolio
-            // card (screens/share/brag/); the Sal sheet stays a long press
-            // away.
+            // Share (founder, 1 and 2 November 2026): with something to
+            // share, the bar is the section's own share, "Share portfolio"
+            // or "Share P&L" ([barContext]); the Sal sheet stays a long
+            // press away.
             child: KuteBarContextScope(
-              barContext: ref.watch(bragPortfolioAvailableProvider)
-                  ? KuteBarContext.primary(
-                      label: context.l10n.bragBarLabel,
-                      onPrimary: () =>
-                          unawaited(showBragPortfolioPreviewSheet(context)),
-                      // Never off: the brag card always opens.
-                      disabledLabel: null,
-                      source: 'portfolio',
-                    )
-                  : KuteBarContext(
-                      label: context.l10n.searchOrManageAi,
-                      source: 'portfolio',
-                    ),
+              barContext: barContext(context, ref, section),
               // The bar floats over the list (nothing reserves room); each
               // section ends its own scroll with the bar's clearance
               // (kuteBarScrollClearance, investments_portfolio.dart), so

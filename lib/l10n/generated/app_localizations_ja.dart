@@ -10068,6 +10068,15 @@ class AppLocalizationsJa extends AppLocalizations {
   String get bragBarLabel => 'シェアして自慢';
 
   @override
+  String get bragPortfolioBarLabel => 'ポートフォリオをシェア';
+
+  @override
+  String get bragPnlBarLabel => '損益をシェア';
+
+  @override
+  String get bragMyPnl => '私の損益';
+
+  @override
   String bragShareText(String title, String link) {
     return 'Kuteで$title $link';
   }

@@ -10477,6 +10477,15 @@ class AppLocalizationsSk extends AppLocalizations {
   String get bragBarLabel => 'Zdieľaj a chváľ sa';
 
   @override
+  String get bragPortfolioBarLabel => 'Zdieľaj portfólio';
+
+  @override
+  String get bragPnlBarLabel => 'Zdieľaj P&L';
+
+  @override
+  String get bragMyPnl => 'Môj P&L';
+
+  @override
   String bragShareText(String title, String link) {
     return '$title na Kute $link';
   }

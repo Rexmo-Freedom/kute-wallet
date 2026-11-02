@@ -10548,6 +10548,15 @@ class AppLocalizationsDe extends AppLocalizations {
   String get bragBarLabel => 'Teilen und angeben';
 
   @override
+  String get bragPortfolioBarLabel => 'Portfolio teilen';
+
+  @override
+  String get bragPnlBarLabel => 'GuV teilen';
+
+  @override
+  String get bragMyPnl => 'Meine GuV';
+
+  @override
   String bragShareText(String title, String link) {
     return '$title auf Kute $link';
   }

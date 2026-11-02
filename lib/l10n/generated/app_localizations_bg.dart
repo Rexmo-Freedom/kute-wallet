@@ -10491,6 +10491,15 @@ class AppLocalizationsBg extends AppLocalizations {
   String get bragBarLabel => 'Сподели и се похвали';
 
   @override
+  String get bragPortfolioBarLabel => 'Сподели портфолиото';
+
+  @override
+  String get bragPnlBarLabel => 'Сподели P&L';
+
+  @override
+  String get bragMyPnl => 'Моят P&L';
+
+  @override
   String bragShareText(String title, String link) {
     return '$title в Kute $link';
   }

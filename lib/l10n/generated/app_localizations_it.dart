@@ -10515,6 +10515,15 @@ class AppLocalizationsIt extends AppLocalizations {
   String get bragBarLabel => 'Condividi e vantati';
 
   @override
+  String get bragPortfolioBarLabel => 'Condividi il portafoglio';
+
+  @override
+  String get bragPnlBarLabel => 'Condividi il P&L';
+
+  @override
+  String get bragMyPnl => 'Il mio P&L';
+
+  @override
   String bragShareText(String title, String link) {
     return '$title su Kute $link';
   }
