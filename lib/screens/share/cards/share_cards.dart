@@ -51,17 +51,13 @@ const double kShareLogoSize = 36;
 /// A change this small reads flat (muted, no colour).
 const double _kFlatChange = 0.0005;
 
-/// The card's colour by kind: bitcoin orange, dollars green, predictions
-/// blue, investing navy; the bitcoin claim hero its own
-/// ([ShareCardPalette.bitcoinClaim]).
+/// The card's colour by kind: dollars green, predictions blue, investing
+/// navy; every bitcoin send, the sender's card and the claim hero, the
+/// app's ink with the amount in orange ([ShareCardPalette.bitcoinClaim];
+/// founder, 2 November 2026: "this was just to send bitcoin").
 ShareCardPalette shareCardPalette(ShareCardData data) => switch (data) {
-      final MoneyCardData d => !d.bitcoin
-          ? ShareCardPalette.dollars
-          : d.audience == ShareCardAudience.recipient
-              // The claim hero: its own colour (founder: "just for this
-              // card").
-              ? ShareCardPalette.bitcoinClaim
-              : ShareCardPalette.bitcoin,
+      final MoneyCardData d =>
+        d.bitcoin ? ShareCardPalette.bitcoinClaim : ShareCardPalette.dollars,
       PredictionCardData() => ShareCardPalette.prediction,
       InvestmentCardData() => ShareCardPalette.investment,
     };
@@ -69,15 +65,13 @@ ShareCardPalette shareCardPalette(ShareCardData data) => switch (data) {
 /// A stock up this much today (a fraction) gets Sal's big win.
 const double kShareCardBigChange = 0.10;
 
-/// Sal's pose on the card: the briefcase on a send, the coin balanced on
-/// her head on the bitcoin claim hero, squinting at the odds
+/// Sal's pose on the card: the briefcase on a dollars send, the coin
+/// balanced on her head on every bitcoin send, squinting at the odds
 /// on a prediction; on a stock, today's change: lounging up, eyes shut at
 /// [kShareCardBigChange] or more, a flop down, a side-eye flat.
 ShareCardPose shareCardPose(ShareCardData data) => switch (data) {
       final MoneyCardData d =>
-        d.bitcoin && d.audience == ShareCardAudience.recipient
-            ? ShareCardPose.claim
-            : ShareCardPose.send,
+        d.bitcoin ? ShareCardPose.claim : ShareCardPose.send,
       PredictionCardData() => ShareCardPose.predict,
       final InvestmentCardData d => switch (d.change ?? 0) {
           final c when c >= kShareCardBigChange => ShareCardPose.bigWin,
