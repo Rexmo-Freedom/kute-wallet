@@ -1792,9 +1792,10 @@ const List<String> kConnectOwnAiLogos = [
 /// search sheet"): one full-width action card in the big-squares style
 /// (kute_action_cards.dart), the Claude, ChatGPT and Grok marks in a row
 /// of white discs as its visual, "Connect your own AI" and "Let Claude,
-/// ChatGPT or Grok manage your wallet". Not live yet: a tap opens the
-/// shared Unavailable sheet (the Dollars row's old Manage with AI did the
-/// same) and counts as a search tap (`connect_own_ai`).
+/// ChatGPT or Grok manage your wallet", hugging them (no 170 floor; the
+/// founder, 2 November 2026: no empty space at its foot). Not live yet: a
+/// tap opens the shared Unavailable sheet (the Dollars row's old Manage
+/// with AI did the same) and counts as a search tap (`connect_own_ai`).
 class _ConnectOwnAiCard extends ConsumerWidget {
   const _ConnectOwnAiCard();
 
@@ -1832,6 +1833,8 @@ class _ConnectOwnAiCard extends ConsumerWidget {
           ),
           title: l10n.connectOwnAiTitle,
           subtitle: l10n.connectOwnAiSubtitle,
+          // One full-width card: it hugs its logos, title and line.
+          minHeight: 0,
           onTap: () {
             _trackSearchResultTap(ref, 'connect_own_ai');
             unawaited(showCapabilityUnavailableSheet(
