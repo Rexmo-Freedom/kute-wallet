@@ -73,8 +73,7 @@ void main() {
     await loader.load();
   });
 
-  testWidgets('a Yes/No row caps a long question at two lines; its one '
-      'quiet line is whole', (tester) async {
+  testWidgets('a Yes/No card writes a long question whole', (tester) async {
     await _pump(tester, [
       for (final q in _longest)
         MarketCard(
@@ -86,6 +85,7 @@ void main() {
           volume: 2500000,
           category: 'politics',
           endDate: DateTime(2026, 10, 5),
+          dayMove: 0.70,
         ),
     ]);
     expect(tester.takeException(), isNull);
@@ -96,18 +96,18 @@ void main() {
       expect(text.maxLines, 2, reason: q);
       expect(text.overflow, TextOverflow.ellipsis, reason: q);
     }
-    // The one quiet line: who leads, whole. No meta line any more.
-    final lead = find.text('Yes · 95%');
-    expect(lead, findsNWidgets(_longest.length));
-    for (final e in lead.evaluate()) {
+    // The one meta line is whole: when it closes, then the volume.
+    final meta = find.text(r'Closes Oct 2026 · $2.5M');
+    expect(meta, findsNWidgets(_longest.length));
+    for (final e in meta.evaluate()) {
       expect((e.renderObject! as RenderParagraph).didExceedMaxLines, isFalse);
     }
-    expect(find.textContaining('Closes'), findsNothing);
+    // No day move on the row any more: the gauge carries the chance.
     expect(find.textContaining('today'), findsNothing);
   });
 
-  testWidgets('a many-outcomes row caps a long title at two lines, and its '
-      'leader line at one, both with an ellipsis', (tester) async {
+  testWidgets('a many-outcomes card caps a long title at two lines, and an '
+      'outcome name at one, both with an ellipsis', (tester) async {
     const first = 'Luiz Inácio Lula da Silva and Flávio Bolsonaro';
     await _pump(tester, [
       for (final q in _longest)
@@ -128,20 +128,16 @@ void main() {
       expect(text.maxLines, 2, reason: q);
       expect(text.overflow, TextOverflow.ellipsis, reason: q);
     }
-    // "Name leads · 84%" keeps to its one line.
-    final lines = find.text('$first leads · 84%');
-    expect(lines, findsNWidgets(_longest.length));
-    for (final e in lines.evaluate()) {
+    // An outcome row is "Name ▬▬▬ 41%": the name keeps to its one line.
+    for (final e in find.text(first).evaluate()) {
       final text = e.widget as Text;
       expect(text.maxLines, 1);
       expect(text.overflow, TextOverflow.ellipsis);
     }
-    // The other outcomes are on the market page, not the row.
-    expect(find.text('Other'), findsNothing);
   });
 
-  testWidgets('a market row names no other markets of its match and no '
-      'volume', (tester) async {
+  testWidgets('a meta line that cannot hold everything ellipsizes; the '
+      'markets link stays whole', (tester) async {
     await _pump(tester, [
       MarketCard(
         title: 'Arsenal vs Chelsea',
@@ -149,6 +145,8 @@ void main() {
           PolymarketOutcome(name: 'Yes', price: 0.5),
           PolymarketOutcome(name: 'No', price: 0.5),
         ],
+        // Measured in the card's own face, it takes this much to run
+        // out of room at 375 pt.
         volume: 123456789012345,
         category: 'sports',
         startDate: DateTime(2031, 9, 28),
@@ -156,9 +154,16 @@ void main() {
       ),
     ]);
     expect(tester.takeException(), isNull);
-    expect(find.textContaining('markets'), findsNothing);
-    expect(find.textContaining('Starts'), findsNothing);
-    expect(find.text('Yes · 50%'), findsOneWidget);
+    // One line: the volume and "Starts Sep 28, 2031" share it with the
+    // link to the match's other markets; the line gives way, the link
+    // never does.
+    final meta = tester.widget<Text>(find.textContaining('Starts Sep 28'));
+    expect(meta.maxLines, 1);
+    expect(meta.overflow, TextOverflow.ellipsis);
+    final link = find.textContaining('markets');
+    expect(link, findsOneWidget);
+    expect(tester.renderObject<RenderParagraph>(link).didExceedMaxLines,
+        isFalse);
   });
 
   testWidgets('a long team name takes a second line before it is abbreviated',

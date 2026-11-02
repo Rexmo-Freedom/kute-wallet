@@ -1,7 +1,5 @@
-// The Predictions list card: a game (a row per team), and since the
-// declutter (founder, 1 November 2026) a single Yes/No market or an event
-// with many outcomes as ONE row: the image, the question, one quiet line
-// of who leads. No gauge, pills, bars, meta line or "+N more".
+// The Predictions list card in its three shapes: a game, a single Yes/No
+// market, an event with many outcomes.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +7,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/polymarket_model.dart';
+import 'package:kute/services/polymarket/market_buy_quote.dart'
+    show polymarketCentsLabel;
 import 'package:kute/screens/polymarket/components/live_game.dart';
 import 'package:kute/screens/polymarket/components/market_card.dart';
 import 'package:kute/screens/shared/kute_motion.dart';
@@ -148,9 +148,8 @@ void main() {
     expect(find.text('Final · Draw 27%'), findsOneWidget);
   });
 
-  testWidgets('a Yes/No market: one row, the question and who leads',
+  testWidgets('a Yes/No market: the Yes chance and the day\'s move',
       (tester) async {
-    var taps = 0;
     await _pump(
       tester,
       MarketCard(
@@ -162,75 +161,63 @@ void main() {
         volume: 1500,
         category: 'weather',
         endDate: DateTime(2030, 12, 31),
-        onTap: () => taps++,
+        dayMove: 0.06,
       ),
     );
     expect(find.text('Will it rain in Lisbon?'), findsOneWidget);
-    // The likelier side and its chance, one quiet line.
-    final line = find.byKey(const ValueKey('poly-row-leader'));
-    expect(tester.widget<Text>(line).data, 'No · 76%');
+    expect(_rolled('24%'), findsOneWidget);
+    expect(_rolled('76%'), findsNothing);
+    // No day move on the row (the gauge carries the chance): one quiet
+    // meta line, when it closes and then the volume, and the two side
+    // pills.
+    expect(find.textContaining('today'), findsNothing);
+    expect(find.text('Dec 31, 2030'), findsNothing);
+    expect(find.text(r'Closes Dec 2030 · $1.5K'), findsOneWidget);
+    expect(find.text('Yes ${polymarketCentsLabel(0.24)}'), findsOneWidget);
+    expect(find.text('No ${polymarketCentsLabel(0.76)}'), findsOneWidget);
+    // The pills are quiet: the side's market colour as ink on the
+    // neutral surface, no solid green / red block and no tint.
     final c = AppColorsExtension.light();
-    expect(tester.widget<Text>(line).style?.color, c.textSecondary);
-    // Nothing else: no gauge figure, no pills, no meta line.
-    expect(_rolled('24%'), findsNothing);
-    expect(find.textContaining('¢'), findsNothing);
-    expect(find.textContaining('Closes'), findsNothing);
-    expect(find.textContaining(r'$1.5K'), findsNothing);
-    expect(find.byType(CustomPaint, skipOffstage: false).evaluate().where(
-        (e) => (e.widget as CustomPaint).painter != null), isEmpty);
-    // One row, 64 px at least (the test font wraps this question to two
-    // lines).
-    expect(tester.getSize(find.byType(MarketCard)).height,
-        greaterThanOrEqualTo(kPolyRowHeight.w - 0.5));
-    // The whole row taps through.
-    await tester.tap(find.text('Will it rain in Lisbon?'));
-    expect(taps, 1);
+    final yes = tester.widget<Text>(find.text('Yes ${polymarketCentsLabel(0.24)}'));
+    final no = tester.widget<Text>(find.text('No ${polymarketCentsLabel(0.76)}'));
+    expect(yes.style?.color, AppColors.marketUp);
+    expect(no.style?.color, AppColors.marketDown);
+    expect(yes.style?.fontWeight, FontWeight.w600);
+    final yesPill = tester.widget<Container>(find.ancestor(
+        of: find.text('Yes ${polymarketCentsLabel(0.24)}'),
+        matching: find.byType(Container)).first);
+    final noPill = tester.widget<Container>(find.ancestor(
+        of: find.text('No ${polymarketCentsLabel(0.76)}'),
+        matching: find.byType(Container)).first);
+    expect((yesPill.decoration as BoxDecoration).color, c.surfaceLight);
+    expect((noPill.decoration as BoxDecoration).color, c.surfaceLight);
+    expect(tester.getSize(find.byWidget(yesPill)).height,
+        moreOrLessEquals(28.h, epsilon: 0.5));
+    // Both pills sit on one line.
+    expect(tester.getTopLeft(find.byWidget(yesPill)).dy,
+        tester.getTopLeft(find.byWidget(noPill)).dy);
   });
 
-  testWidgets('Yes leads when it is likelier; a longshot reads <1%',
-      (tester) async {
+  testWidgets('a flat or unknown day shows no move', (tester) async {
     await _pump(
       tester,
       const MarketCard(
         title: 'Will it rain in Lisbon?',
         outcomes: [
-          PolymarketOutcome(name: 'Yes', price: 0.99),
-          PolymarketOutcome(name: 'No', price: 0.01),
+          PolymarketOutcome(name: 'Yes', price: 0.003),
+          PolymarketOutcome(name: 'No', price: 0.997),
         ],
         volume: 0,
         category: 'weather',
+        dayMove: 0.001,
       ),
     );
-    expect(find.text('Yes · 99%'), findsOneWidget);
-    expect(
-        polyRowLeaderLine(lookupAppLocalizations(const Locale('en')), const [
-          PolymarketOutcome(name: 'Yes', price: 0.997),
-          PolymarketOutcome(name: 'No', price: 0.003),
-        ]),
-        'Yes · >99%');
+    expect(_rolled('<1%'), findsOneWidget);
+    expect(find.textContaining('today'), findsNothing);
   });
 
-  testWidgets('a long question takes two lines at most', (tester) async {
-    await _pump(
-      tester,
-      const MarketCard(
-        title: 'Will the European Central Bank cut its deposit rate by '
-            'fifty basis points or more at its December meeting this year?',
-        outcomes: [
-          PolymarketOutcome(name: 'Yes', price: 0.3),
-          PolymarketOutcome(name: 'No', price: 0.7),
-        ],
-        volume: 0,
-        category: 'economy',
-      ),
-    );
-    final title = tester.widget<Text>(find.textContaining('European'));
-    expect(title.maxLines, 2);
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('many outcomes: the question and the top outcome leading, '
-      'no bars and no "+N more"', (tester) async {
+  testWidgets('many outcomes: the three most likely, each with its chance '
+      'bar, and how many more', (tester) async {
     await _pump(
       tester,
       const MarketCard(
@@ -246,13 +233,25 @@ void main() {
       ),
     );
     expect(find.text('World Cup winner'), findsOneWidget);
-    expect(find.text('Spain leads · 84%'), findsOneWidget);
-    expect(find.text('Portugal'), findsNothing);
-    expect(find.text('16%'), findsNothing);
-    expect(find.text('+1 more'), findsNothing);
+    expect(find.text('Spain'), findsOneWidget);
+    expect(find.text('84%'), findsOneWidget);
+    expect(find.text('Portugal'), findsOneWidget);
+    expect(find.text('16%'), findsOneWidget);
+    expect(find.text('France'), findsOneWidget);
+    expect(find.text('5%'), findsOneWidget);
+    expect(find.text('Brazil'), findsNothing);
+    expect(find.text('+1 more'), findsOneWidget);
     expect(find.textContaining('outcomes'), findsNothing);
-    expect(tester.getSize(find.byType(MarketCard)).height,
-        moreOrLessEquals(kPolyRowHeight.w, epsilon: 1));
+    // A thin bar per row, filled to the outcome's chance, in order.
+    final bars = tester
+        .widgetList<PolyOutcomeChanceBar>(find.byType(PolyOutcomeChanceBar))
+        .map((b) => b.fraction)
+        .toList();
+    expect(bars, [0.84, 0.16, 0.05]);
+    expect(tester.getSize(find.byType(PolyOutcomeChanceBar).first).height, 4);
+    // The figures end on one edge, so the bars do too.
+    expect(tester.getTopRight(find.text('84%')).dx,
+        tester.getTopRight(find.text('5%')).dx);
   });
 
   testWidgets(
@@ -292,8 +291,7 @@ void main() {
         moreOrLessEquals(polyGroupRowIndent(), epsilon: 0.5));
   });
 
-  test('a market and an event with many outcomes are grouped; a game is '
-      'not', () {
+  test('only a plain Yes/No market is grouped', () {
     const yesNo = [
       PolymarketOutcome(name: 'Yes', price: 0.4),
       PolymarketOutcome(name: 'No', price: 0.6),
@@ -309,7 +307,7 @@ void main() {
           PolymarketOutcome(
               name: 'C', price: 0.2, conditionId: 'c', tokenId: 'c'),
         ]),
-        isTrue);
+        isFalse);
   });
 }
 

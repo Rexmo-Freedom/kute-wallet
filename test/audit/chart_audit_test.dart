@@ -1072,6 +1072,7 @@ void main() {
                     slug: e.slug,
                     gameId: e.gameId,
                     hasLivestream: e.hasLivestream,
+                    dayMove: e.oneDayPriceChange,
                   ),
                 ),
             ]),

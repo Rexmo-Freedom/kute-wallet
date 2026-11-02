@@ -1,11 +1,12 @@
-// The strip of large cards above the Investing browse list (founder,
-// November 2026), on the default view (Trending) only: with no stocks or
-// commodities loaded, the largest 24h moves, up to five, ties by volume,
-// thin markets left out; a card taps through to the market sheet with
-// 'moving_now' as its entry source; no strip under three movers or on an
+// The big squares above the Investing browse list (founder, November
+// 2026; 2 November 2026: four, two by two, as the Bitcoin home's Latest
+// squares), on the default view (Trending) only: with no stocks or
+// commodities loaded, the largest 24h moves, four, ties by volume, thin
+// markets left out; a square taps through to the market sheet with
+// 'moving_now' as its entry source; no squares under four movers or on an
 // empty list, and none on a category the person picks (the full plain
-// list). The list under it keeps its own (volume) order. The cards are
-// calm since the declutter: logo, name, price and change, no sparkline.
+// list). The list under them keeps its own (volume) order. A square: logo
+// and change, then the name over the price, no sparkline.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -88,8 +89,7 @@ final _universe = [
 
 Finder _strip() => find.byType(HlMovingNowStrip);
 
-/// The cards on screen, left to right (the row builds lazily: the ones
-/// past its right edge are not built until it scrolls).
+/// The squares, row by row.
 List<String> _cards(WidgetTester tester) => [
       for (final c in tester.widgetList<HlMovingNowCard>(
           find.byType(HlMovingNowCard)))
@@ -121,19 +121,19 @@ void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
 
   test('the movers: largest absolute change first, ties by volume, thin '
-      'and unknown left out, none under three', () {
+      'and unknown left out, none under four', () {
     expect(hlMovingNow(_universe).map((m) => m.coin),
-        ['ZEC', 'HYPE', 'DOGE', 'NEAR', 'SOL']);
+        ['ZEC', 'HYPE', 'DOGE', 'NEAR']);
     expect(hlMovingNow(_universe, max: 3).map((m) => m.coin),
         ['ZEC', 'HYPE', 'DOGE']);
     // A thin market's change is noise: left out even when it is largest.
     final thin = _market('MU', px: 150, prev: 100, vlm: 100);
     expect(hlMovingNow([..._universe, thin]).map((m) => m.coin),
         isNot(contains('MU')));
-    // Two movers make no strip; three do.
-    expect(hlMovingNow(_universe.take(3).toList()), isEmpty);
-    expect(hlMovingNow(_universe.take(4).toList()).map((m) => m.coin),
-        ['HYPE', 'SOL', 'BTC']);
+    // Three movers make no squares (a grid with a hole); four do.
+    expect(hlMovingNow(_universe.take(4).toList()), isEmpty);
+    expect(hlMovingNow(_universe.take(5).toList()).map((m) => m.coin),
+        ['HYPE', 'SOL', 'XRP', 'BTC']);
     expect(hlMovingNow(const []), isEmpty);
   });
 
@@ -145,23 +145,20 @@ void main() {
     // No title over the strip (founder, 1 November 2026).
     expect(find.text('Moving now'), findsNothing);
     expect(tester.widget<HlMovingNowStrip>(_strip()).markets.map((m) => m.coin),
-        ['ZEC', 'HYPE', 'DOGE', 'NEAR', 'SOL']);
-    // The first cards are on screen, the rest past the right edge.
-    final cards = _cards(tester);
-    expect(cards.length, inInclusiveRange(2, 5));
-    expect(cards, ['ZEC', 'HYPE', 'DOGE', 'NEAR', 'SOL'].take(cards.length));
+        ['ZEC', 'HYPE', 'DOGE', 'NEAR']);
+    expect(_cards(tester), ['ZEC', 'HYPE', 'DOGE', 'NEAR']);
     // The strip sits above the list, and the list does not repeat the
     // strip's markets (founder, 1 November 2026).
     final stripBottom = tester.getBottomLeft(_strip()).dy;
     final rows = tester.widgetList<HlMarketCard>(find.byType(HlMarketCard));
     expect(rows.first.market.coin, 'BTC');
     expect(rows.map((r) => r.market.coin),
-        isNot(contains(anyOf('ZEC', 'HYPE', 'DOGE', 'NEAR', 'SOL'))));
+        isNot(contains(anyOf('ZEC', 'HYPE', 'DOGE', 'NEAR'))));
     expect(tester.getTopLeft(find.byType(HlMarketCard).first).dy,
         greaterThan(stripBottom));
 
-    // The card: logo, name, the short price large and the arrowed change
-    // in the change's colour; no sparkline and no ticker line.
+    // The square: logo, the arrowed change in the change's colour, the
+    // name, the short price large; no sparkline and no ticker line.
     final zec = find.byKey(const ValueKey('hl-mover-perp-ZEC'));
     expect(zec, findsOneWidget);
     expect(find.descendant(of: zec, matching: find.text('ZEC')), findsOneWidget);
@@ -180,36 +177,36 @@ void main() {
         .widgetList<RollingNumberText>(
             find.descendant(of: zec, matching: find.byType(RollingNumberText)))
         .toList();
-    expect(numbers.map((n) => n.text), [r'$112.00', '▲ 12.0%']);
-    expect(numbers[0].style.fontSize, moreOrLessEquals(22 * 390 / 430, epsilon: 0.5));
-    expect(numbers[0].style.fontWeight, FontWeight.w700);
-    expect(numbers[1].style.color, AppColors.marketUp);
+    expect(numbers.map((n) => n.text), ['▲ 12.0%', r'$112.00']);
+    expect(numbers[1].style.fontSize, moreOrLessEquals(22 * 390 / 430, epsilon: 0.5));
+    expect(numbers[1].style.fontWeight, FontWeight.w700);
+    expect(numbers[0].style.color, AppColors.marketUp);
     final hype = find.byKey(const ValueKey('hl-mover-perp-HYPE'));
     expect(
         tester
             .widgetList<RollingNumberText>(find.descendant(
                 of: hype, matching: find.byType(RollingNumberText)))
-            .last
+            .first
             .text,
         '▼ 8.0%');
 
-    // The cards run past the right edge, where the row scrolls.
-    final first = tester.getRect(zec);
-    expect(first.left, moreOrLessEquals(16, epsilon: 2));
-    // Bigger (founder, 1 November 2026): two to a screen, the third
-    // peeking; about 150 tall.
+    // Two by two, as the home's Latest squares: half the row less the
+    // 10 gap each, at least the Latest square's 140 tall.
     const u = 390 / 430;
+    final first = tester.getRect(zec);
+    expect(first.left, moreOrLessEquals(16 * u, epsilon: 2));
     expect(first.width,
-        moreOrLessEquals((390 - 32 * u - 10 * u) / 2 - 14 * u, epsilon: 1));
-    expect(first.height, greaterThanOrEqualTo(150 * u - 1));
+        moreOrLessEquals((390 - 32 * u - 10 * u) / 2, epsilon: 1));
+    expect(first.height, greaterThanOrEqualTo(140 * u - 1));
     final second = tester.getRect(find.byType(HlMovingNowCard).at(1));
-    expect(second.right, lessThan(390));
-    final last = tester.getRect(find.byType(HlMovingNowCard).last);
-    expect(last.right, greaterThan(390));
-    await tester.drag(_strip(), const Offset(-400, 0));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(find.byKey(const ValueKey('hl-mover-perp-SOL')), findsOneWidget);
+    final third = tester.getRect(find.byType(HlMovingNowCard).at(2));
+    final fourth = tester.getRect(find.byType(HlMovingNowCard).at(3));
+    expect(second.top, moreOrLessEquals(first.top, epsilon: 0.5));
+    expect(second.left - first.right, moreOrLessEquals(10 * u, epsilon: 1));
+    expect(second.right, moreOrLessEquals(390 - 16 * u, epsilon: 2));
+    expect(third.left, moreOrLessEquals(first.left, epsilon: 0.5));
+    expect(third.top - first.bottom, moreOrLessEquals(10 * u, epsilon: 1));
+    expect(fourth.top, moreOrLessEquals(third.top, epsilon: 0.5));
     expect(tester.takeException(), isNull);
   });
 
@@ -250,7 +247,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('no strip on an empty list, nor under three movers',
+  testWidgets('no squares on an empty list, nor under four movers',
       (tester) async {
     await _pump(tester, const []);
     expect(_strip(), findsNothing);

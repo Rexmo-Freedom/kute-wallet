@@ -1,10 +1,10 @@
-// The Predictions list's BTC up-or-down card is compact and calm (founder,
-// 1 November 2026: the full card stood ~600 px over the list, then less
-// clutter): one header row (logo, "BTC up or down · 5m", the countdown as
-// quiet text), the price with one word of state ("above target" in
-// green), and the Up / Down soft pills with their odds. No chart, no
-// target line or price, no past rounds. The market page keeps the full
-// card.
+// The Predictions list's BTC up-or-down card is compact (founder, 1
+// November 2026: the full card stood ~600 px over the list): one header
+// row (logo, "BTC up or down · 5m", past rounds as dots, the countdown
+// pill), the price row (price, its move against the target, the target),
+// a 32 px sparkline and the Up / Down pills (34) with their odds, about
+// 160 px in all (founder, 2 November 2026: the sparkline card, a bit
+// smaller). The market page keeps the full card.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,7 +14,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/providers/polymarket_provider.dart';
-import 'package:kute/screens/home/components/btc_predict_chart.dart';
 import 'package:kute/screens/polymarket/polymarket_screen.dart';
 import 'package:kute/services/polymarket/crypto_window_results.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -88,7 +87,7 @@ Widget compactCardApp({bool dark = false}) => ProviderScope(
 void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
 
-  testWidgets('compact: about 145 px, the round in three lines, no chart',
+  testWidgets('compact: about 160 px, every piece of the round on it',
       (tester) async {
     tester.view.physicalSize = const Size(430, 932);
     tester.view.devicePixelRatio = 1;
@@ -101,41 +100,20 @@ void main() {
     final card = find.byKey(const ValueKey('crypto-round-compact'));
     expect(card, findsOneWidget);
     final h = tester.getSize(card).height;
-    expect(h, inInclusiveRange(120, 170));
+    expect(h, inInclusiveRange(135, 175));
     expect(find.text('BTC up or down · 5m'), findsOneWidget);
-    // The countdown: quiet text with a dot, no pill.
-    final countdown = find.byKey(const ValueKey('crypto-round-countdown'));
-    expect(countdown, findsOneWidget);
-    expect(find.text('● 02:34', findRichText: true), findsOneWidget);
-    final c = AppColorsExtension.light();
-    expect(tester.widget<Text>(countdown).style?.color, c.textSecondary);
-    // The price's state in a word, in its colour; no delta, no target.
-    final state = find.byKey(const ValueKey('crypto-round-state'));
-    expect(tester.widget<Text>(state).data, 'above target');
-    expect(tester.widget<Text>(state).style?.color, AppColors.marketUp);
-    expect(find.textContaining('Target'), findsNothing);
-    expect(find.textContaining('▲'), findsNothing);
-    // No chart, no target line, no past rounds.
-    expect(find.byType(BtcPredictChart), findsNothing);
-    expect(find.byKey(const ValueKey('crypto-round-past-dots')), findsNothing);
-    // Up and Down: soft pills, the side's colour at 12% behind its text.
+    expect(find.byKey(const ValueKey('crypto-round-countdown')), findsOneWidget);
+    expect(find.text('02:34'), findsOneWidget);
+    expect(find.byKey(const ValueKey('crypto-round-past-dots')), findsOneWidget);
+    expect(find.text(r'Target $77,775'), findsOneWidget);
+    expect(find.textContaining('▲'), findsOneWidget);
     final up = find.byKey(const ValueKey('crypto-round-up'));
     final down = find.byKey(const ValueKey('crypto-round-down'));
-    expect(tester.getSize(up).height, 40);
-    expect(tester.getSize(down).height, 40);
-    final upText =
-        find.descendant(of: up, matching: find.text('Up'));
-    expect(upText, findsOneWidget);
-    expect(tester.widget<Text>(upText).style?.color, AppColors.marketUp);
+    expect(tester.getSize(up).height, 34);
+    expect(tester.getSize(down).height, 34);
+    expect(find.descendant(of: up, matching: find.text('Up')), findsOneWidget);
     expect(
         find.descendant(of: down, matching: find.text('Down')), findsOneWidget);
-    BoxDecoration fill(Finder pill) => tester
-        .widget<Container>(
-            find.descendant(of: pill, matching: find.byType(Container)).first)
-        .decoration! as BoxDecoration;
-    expect(fill(up).color, AppColors.marketUp.withValues(alpha: 0.12));
-    expect(fill(down).color, AppColors.marketDown.withValues(alpha: 0.12));
-    expect(find.byIcon(Icons.arrow_upward_rounded), findsNothing);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 31));

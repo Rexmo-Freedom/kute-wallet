@@ -132,8 +132,9 @@ void main() {
   });
 
   testWidgets(
-      'the lists carry no titles; every market and event is a row of one '
-      'grouped card; the strip only on Trending', (tester) async {
+      'the lists carry no titles; plain markets share grouped cards that '
+      'an event with many outcomes breaks; the strip only on Trending',
+      (tester) async {
     await pumpInvestments(tester,
         browsePredictions: true,
         size: const Size(390, 2400),
@@ -155,45 +156,64 @@ void main() {
       expect(find.descendant(of: _pill(pill), matching: find.text(pill)),
           findsOneWidget);
 
-      // Trending: the strip's five busy markets are big cards, not rows,
-      // and the list is the other four. A picked category: no strip, and
-      // every market is a row, nothing left out.
-      final cards = _inBrowser(find.byType(MarketCard));
-      expect(cards, findsNWidgets(trending ? 4 : 9));
-      expect(_inBrowser(find.byType(PolyTopMarketCard)),
-          findsNWidgets(trending ? 5 : 0));
-      if (trending) {
+      // A picked category: no strip, the busy five are plain cards of
+      // the first group, the event with many outcomes still its own card.
+      if (!trending) {
+        expect(_inBrowser(find.byType(PolyTopMarketCard)), findsNothing);
+        final busy = find.ancestor(
+            of: find.text('Busy market 1?'), matching: find.byType(MarketCard));
+        expect(tester.widget<MarketCard>(busy).inGroup, isTrue);
+        final trump = find.ancestor(
+            of: find.text('Who will Trump meet?'),
+            matching: find.byType(MarketCard));
+        expect(tester.widget<MarketCard>(trump).inGroup, isFalse);
+      } else {
+        // Plain markets share Home Activity's grouped card; the event with
+        // many outcomes keeps its own card and breaks the group:
+        // group (Fed, BTC) → card (Trump) → group (Rain).
+        final cards = _inBrowser(find.byType(MarketCard));
+        expect(cards, findsNWidgets(4));
+        // The strip's five busy markets are big cards, not rows.
+        expect(_inBrowser(find.byType(PolyTopMarketCard)), findsNWidgets(5));
         for (final card in tester.widgetList<MarketCard>(cards)) {
           expect(card.title, isNot(startsWith('Busy market')));
         }
-      } else {
-        expect(_inBrowser(find.text('Busy market 1?')), findsOneWidget);
+        final groups = _inBrowser(find.byType(DecoratedSliver));
+        expect(groups, findsNWidgets(2));
+        final context = tester.element(cards.first);
+        for (final g in tester.widgetList<DecoratedSliver>(groups)) {
+          expect(g.decoration, PremiumGroupContainer.decorationOf(context));
+        }
+        Finder inGroup(int g, Finder f) =>
+            find.descendant(of: groups.at(g), matching: f);
+        expect(inGroup(0, find.byType(MarketCard)), findsNWidgets(2));
+        expect(inGroup(1, find.byType(MarketCard)), findsOneWidget);
+        expect(inGroup(0, find.byType(Divider)), findsOneWidget);
+        expect(inGroup(1, find.byType(Divider)), findsNothing);
+        expect(tester.widget<Divider>(inGroup(0, find.byType(Divider))).indent,
+            polyGroupRowIndent());
+        final trump = find.ancestor(
+            of: find.text('Who will Trump meet?'),
+            matching: find.byType(MarketCard));
+        expect(tester.widget<MarketCard>(trump).inGroup, isFalse);
+        expect(find.descendant(of: groups, matching: trump), findsNothing);
+        for (final title in [
+          'Fed cuts in December?',
+          'Bitcoin above 150k?',
+          'Rain in London tomorrow?'
+        ]) {
+          final card = find.ancestor(
+              of: find.text(title), matching: find.byType(MarketCard));
+          expect(tester.widget<MarketCard>(card).inGroup, isTrue);
+        }
+        // In order: the first group, the card, the second group.
+        Rect at(String title) => tester.getRect(find.ancestor(
+            of: find.text(title), matching: find.byType(MarketCard)));
+        expect(at('Bitcoin above 150k?').bottom,
+            lessThan(tester.getRect(trump).top));
+        expect(tester.getRect(trump).bottom,
+            lessThan(at('Rain in London tomorrow?').top));
       }
-      // The event with many outcomes is a row like the markets: ONE
-      // grouped card, Home Activity's, holds them all.
-      final groups = _inBrowser(find.byType(DecoratedSliver));
-      expect(groups, findsOneWidget);
-      final context = tester.element(cards.first);
-      expect(tester.widget<DecoratedSliver>(groups).decoration,
-          PremiumGroupContainer.decorationOf(context));
-      expect(find.descendant(of: groups, matching: find.byType(MarketCard)),
-          findsNWidgets(trending ? 4 : 9));
-      final dividers = find.descendant(of: groups, matching: find.byType(Divider));
-      expect(dividers, findsNWidgets(trending ? 3 : 8));
-      expect(tester.widget<Divider>(dividers.first).indent,
-          polyGroupRowIndent());
-      for (final card in tester.widgetList<MarketCard>(cards)) {
-        expect(card.inGroup, isTrue);
-      }
-      // The event reads as its leader, one quiet line.
-      expect(_inBrowser(find.text('Xi leads · 80%')), findsOneWidget);
-      // In the feed's order.
-      Rect at(String title) => tester.getRect(
-          find.ancestor(of: find.text(title), matching: find.byType(MarketCard)));
-      expect(at('Bitcoin above 150k?').bottom,
-          lessThanOrEqualTo(at('Who will Trump meet?').top + 1));
-      expect(at('Who will Trump meet?').bottom,
-          lessThanOrEqualTo(at('Rain in London tomorrow?').top + 1));
       // No title over the 5-minute card either, big or small.
       expect(
           _inBrowser(find.text(AppLocalizations.of(
@@ -234,7 +254,7 @@ void main() {
     await _tap(tester, _pill('New'));
     await _settle(tester);
     expect(_selected(tester, 'New'), isTrue);
-    // No strip: every market is a row, the busy five included, down to
+    // No strip: every market is a card, the busy five included, down to
     // the last.
     expect(_inBrowser(find.byType(PolyTopMarketCard)), findsNothing);
     expect(_inBrowser(find.byType(MarketCard)).evaluate().length,

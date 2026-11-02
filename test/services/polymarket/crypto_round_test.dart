@@ -194,7 +194,7 @@ void main() {
           matches(RegExp(r'^Oct 4, 10:15\sPM – 10:30\sPM$')));
     });
 
-    testWidgets('the row: its asset and window, and the side that leads',
+    testWidgets('the card: leader first, sides adding to 100, the round time',
         (tester) async {
       final now = DateTime.now();
       final start = DateTime(now.year, now.month, now.day, 22, 15);
@@ -215,11 +215,15 @@ void main() {
       );
       expect(tester.takeException(), isNull);
       expect(find.text('Bitcoin · 15 Min'), findsOneWidget);
-      // Down leads at 50.5: one quiet line (the list row since the
-      // declutter); the other side and the round's time are on the page.
-      expect(find.text('Down leads · 50.5%'), findsOneWidget);
-      expect(find.text('49.5%'), findsNothing);
-      expect(find.textContaining(RegExp(r'10:15\sPM')), findsNothing);
+      // Down leads at 50.5; Up is what is left, 49.5 (not its own 49.6).
+      expect(find.text('50.5%'), findsOneWidget);
+      expect(find.text('49.5%'), findsOneWidget);
+      expect(find.text('49.6%'), findsNothing);
+      expect(tester.getTopLeft(find.text('Down')).dy,
+          lessThan(tester.getTopLeft(find.text('Up')).dy));
+      // The meta line starts with the round's time, not a date.
+      expect(find.textContaining(RegExp(r'^10:15\sPM – 10:30\sPM')),
+          findsOneWidget);
     });
   });
 
