@@ -7,7 +7,7 @@
 // surface-1 (the dark surface in dark mode), radius 20, a 1 px hairline,
 // 16 padding, at least 170 tall; a large visual at the top left (a logo,
 // Sal, an icon), the title (16, w600, two lines), up to two lines under
-// it (13, textSecondary) and, optionally, a line at the foot (13, w600);
+// it (13, textSecondary) and, optionally, the foot (13, w600, two lines);
 // the press spring.
 //
 // [KuteActionCardGrid] lays them out:
@@ -66,7 +66,9 @@ class KuteActionCard extends StatelessWidget {
   /// Up to two lines under the title.
   final String? subtitle;
 
-  /// One line at the card's foot: what the action sends, for instance.
+  /// The line at the card's foot, up to two lines: what the action sends,
+  /// for instance a market's whole name (founder, 2 November 2026: a
+  /// market title cut to one line read "Michigan Senate Electio…").
   final String? footer;
   final Key? footerKey;
 
@@ -174,7 +176,7 @@ class KuteActionCard extends StatelessWidget {
             Text(
               foot,
               key: footerKey,
-              maxLines: 1,
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: c.textPrimary,
