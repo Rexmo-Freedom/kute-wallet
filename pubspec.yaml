@@ -279,18 +279,21 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: true
-  # Pixel heritage, A app ink: the pixel Sal bust on the app's ink (#1D2024),
-  # full-bleed 1024 RGB. The 3D Sal stays for the splash and in-app art; the
-  # flat pixel Sal in kute_logo*.png stays for the notification icon.
-  image_path_android: "lib/assets/kute_icon_pixel.png"
-  image_path_ios: "lib/assets/kute_icon_pixel.png"
+  # Sal mark E (vector): the orange Sal head with the red band on white
+  # (#FFFFFF to #F3F5F8), full-bleed 1024 RGB. The 3D Sal stays for the splash
+  # and in-app art; the flat pixel Sal in kute_logo*.png stays for the
+  # notification icon.
+  image_path_android: "lib/assets/kute_icon.png"
+  image_path_ios: "lib/assets/kute_icon.png"
   remove_alpha_ios: true
-  background_color_ios: "#1D2024"
-  adaptive_icon_background: "#1D2024"
-  # the pixel Sal on transparent, already placed inside the 66dp safe circle
+  background_color_ios: "#FFFFFF"
+  adaptive_icon_background: "#FFFFFF"
+  # the Sal head on transparent, already placed inside the 66dp safe circle
   # of the 108dp canvas, so no extra inset
-  adaptive_icon_foreground: "lib/assets/kute_icon_pixel_adaptive_fg.png"
+  adaptive_icon_foreground: "lib/assets/kute_icon_adaptive_fg.png"
   adaptive_icon_foreground_inset: 0
+  # Android 13 themed icon: the same head as a single-colour silhouette
+  adaptive_icon_monochrome: "lib/assets/kute_icon_monochrome.png"
 
 android_notification_icons:
   image_path: "lib/assets/kute_logo.png"
