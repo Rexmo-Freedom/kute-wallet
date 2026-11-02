@@ -361,11 +361,12 @@ class _CompactAction extends StatelessWidget {
                             ]
                           : null,
                     ),
-                    // The bitcoin glyph is a thin letterform next to the
-                    // arrows and the ring, so it reads a size up (founder,
-                    // 1 November 2026).
+                    // The bitcoin and dollar glyphs are thin letterforms
+                    // next to the arrows and the ring, so they read a size
+                    // up (founder, 1 and 2 November 2026).
                     child: Icon(action.icon,
-                        size: action.icon == Icons.currency_bitcoin_rounded
+                        size: action.icon == Icons.currency_bitcoin_rounded ||
+                                action.icon == Icons.attach_money_rounded
                             ? 28
                             : 22,
                         color: foreground),
