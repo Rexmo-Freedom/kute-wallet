@@ -1,7 +1,8 @@
 // The Sal sheet's home variant, flat (founder, 31 October 2026): the sheet
 // at 96% with the keyboard down, the composer line pinned at the top under
-// the handle (Sal at 28, the text at 20 sp, a hairline under it, no box,
-// the send arrow only with text) and the content scrolling under it. No
+// the handle (Sal at 32, the text at 18 sp, the hint in textSecondary and
+// never cut, a hairline in the border colour under it, no box, the send
+// arrow only with text) and the content scrolling under it. No
 // filter row anywhere: the scope chip ("All ⌄") at the line's end only
 // with a query, opening the scope menu. Blocks flat on the sheet: 13 sp
 // w600 titles 12 over 56 px rows 14 apart, 28 between blocks, nothing
@@ -10,10 +11,13 @@
 // in 16 w600; "Recent" rows; no Investing block until there are results,
 // whose Investing rows carry the 48 by 20 sparkline. Over the blocks, the
 // Connect your own AI card (founder, 2 November 2026), gone with a query;
-// the home with it is written as a PNG, in Inter, when asked:
+// the home with it is written as a PNG, in Inter, when asked, and so is
+// the home opened on Investing and on Predictions on a 375 pt phone (the
+// venue hints whole on the line):
 //
 //   SEARCH_FRAMES=<dir> flutter test test/screens/search/search_home_layout_test.dart
 
+import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -45,6 +49,8 @@ import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart'
     show CapabilityUnavailableSheet;
 import 'package:kute/screens/shared/open_once.dart';
+import 'package:kute/screens/shared/sal_sprite.dart'
+    show SalSprite, SalSpriteCache, kSalSpriteDir;
 import 'package:kute/services/advisor/advisor_input_guard.dart';
 import 'package:kute/services/hyperliquid/hl_sparkline_cache.dart';
 import 'package:kute/services/search_recent_store.dart';
@@ -139,8 +145,12 @@ final _navigator = GlobalKey<NavigatorState>();
 /// now" unless [movers] is false, and a sparkline store that answers with
 /// three closes.
 Future<void> _open(WidgetTester tester,
-    {int recent = 2, bool movers = true}) async {
-  tester.view.physicalSize = _screen;
+    {int recent = 2,
+    bool movers = true,
+    Size screen = _screen,
+    SearchCategory category = SearchCategory.all,
+    bool liveSal = false}) async {
+  tester.view.physicalSize = screen;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   SearchRecentStore.entries.value = [
@@ -190,7 +200,8 @@ Future<void> _open(WidgetTester tester,
         home: Scaffold(
           body: Builder(
             builder: (context) => TextButton(
-              onPressed: () => showKuteSearch(context, source: 'home'),
+              onPressed: () => showKuteSearch(context,
+                  source: 'home', initialCategory: category),
               child: const Text('Open search'),
             ),
           ),
@@ -202,7 +213,22 @@ Future<void> _open(WidgetTester tester,
       .read(selectedSearchCategoryProvider.notifier)
       .state = SearchCategory.all;
   await tester.tap(find.text('Open search'));
-  await tester.pumpAndSettle();
+  if (!liveSal) {
+    await tester.pumpAndSettle();
+    return;
+  }
+  // Sal's live clip never settles: the sheet's own travel, then still.
+  for (var i = 0; i < 20; i++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+}
+
+Future<void> _loadInter() async {
+  final inter = FontLoader('Inter');
+  for (final f in ['Regular', 'SemiBold', 'Bold']) {
+    inter.addFont(rootBundle.load('lib/assets/fonts/Inter-$f.ttf'));
+  }
+  await inter.load();
 }
 
 Future<void> _close(WidgetTester tester) async {
@@ -251,6 +277,8 @@ void main() {
       'home variant: the sheet at 96%, keyboard down, the composer line at '
       'the top and pinned while the list scrolls, no filter row',
       (tester) async {
+    // In Inter, so the hint is measured as the app draws it.
+    await tester.runAsync(_loadInter);
     await _open(tester, recent: 6);
     // The keyboard stays down until the field is tapped.
     expect(
@@ -264,9 +292,9 @@ void main() {
     expect(sheet.bottom, _screen.height);
     expect(sheet.height,
         moreOrLessEquals(_screen.height * kSearchSheetFraction, epsilon: 0.5));
-    // The composer field: under the handle row, in the gutters, 56 tall,
-    // filled and rounded like the app's inputs (surfaceLight, the 1 px
-    // border); the text at 17 sp, the hint in textSecondary.
+    // The composer line: under the handle row, in the gutters, 56 tall,
+    // nothing but a hairline in the border colour under it; the text at
+    // 18 sp, the hint in textSecondary at the same size (it fits).
     final composer = tester.getRect(find.byType(KuteSearchComposer));
     expect(composer.top,
         moreOrLessEquals(sheet.top + kSearchSheetHandleRow, epsilon: 0.5));
@@ -280,16 +308,23 @@ void main() {
         .first);
     final decoration = line.decoration! as BoxDecoration;
     final light = AppColorsExtension.light();
-    expect(decoration.color, light.surfaceLight);
-    expect(decoration.borderRadius, BorderRadius.circular(16));
+    expect(decoration.color, isNull);
+    expect(decoration.borderRadius, isNull);
     expect(decoration.boxShadow, isNull);
-    expect((decoration.border! as Border).top,
-        BorderSide(color: light.border, width: 1));
+    expect((decoration.border! as Border).top, BorderSide.none);
     expect((decoration.border! as Border).bottom,
-        BorderSide(color: light.border, width: 1));
+        BorderSide(color: light.border, width: KuteSearchComposer.hairline));
+    // Sal at 32, centred on the line.
+    final sal = tester.getRect(find
+        .descendant(
+            of: find.byType(KuteSearchComposer),
+            matching: find.byType(SalSprite))
+        .first);
+    expect(sal.width, 32);
+    expect(sal.center.dy, moreOrLessEquals(composer.center.dy, epsilon: 0.5));
     final field = tester.widget<TextField>(find.byType(TextField));
-    expect(field.style?.fontSize, 17);
-    expect(field.decoration?.hintStyle?.fontSize, 17);
+    expect(field.style?.fontSize, 18);
+    expect(field.decoration?.hintStyle?.fontSize, 18);
     expect(field.decoration?.hintStyle?.color, light.textSecondary);
     expect(field.decoration?.hintText, 'Search or manage with AI');
     // The send arrow is away without text.
@@ -456,6 +491,70 @@ void main() {
         moreOrLessEquals(28, epsilon: 0.5));
     await _close(tester);
   });
+
+  for (final (category, name, hint) in [
+    (
+      SearchCategory.perpetuals,
+      'investing',
+      'Search investments or manage with AI'
+    ),
+    (
+      SearchCategory.predictions,
+      'predictions',
+      'Search predictions or manage with AI'
+    ),
+  ]) {
+    testWidgets(
+        'on a 375 pt phone opened on $name: the venue hint whole on the '
+        'composer line, the arrow slot closed', (tester) async {
+      final frames = Platform.environment['SEARCH_FRAMES'];
+      await tester.runAsync(() async {
+        await _loadInter();
+        if (frames != null) {
+          // Sal's real 3D face (the bundle's manifest, read directly; the
+          // test config nulls it).
+          SalSpriteCache.debugSetManifest(jsonDecode(await rootBundle
+              .loadString('$kSalSpriteDir/manifest.json')) as Map<String, dynamic>);
+          await SalSpriteCache.clip('search', 2);
+        }
+      });
+      addTearDown(() => SalSpriteCache.debugSetManifest(null));
+      await _open(tester,
+          screen: const Size(375, 812),
+          category: category,
+          liveSal: frames != null);
+      final composer = tester.getRect(find.byType(KuteSearchComposer));
+      final p = tester.renderObject<RenderParagraph>(find.descendant(
+          of: find.byType(KuteSearchComposer), matching: find.text(hint)));
+      final needed = p.getMaxIntrinsicWidth(double.infinity);
+      expect(needed, lessThanOrEqualTo(p.size.width + 0.5),
+          reason: '"$hint" is cut');
+      final shown = tester.getRect(find.descendant(
+          of: find.byType(KuteSearchComposer), matching: find.text(hint)));
+      expect(shown.right, lessThanOrEqualTo(composer.right + 0.5));
+      if (frames != null) {
+        await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 500)));
+        await tester.pump();
+        final view = tester.binding.renderViews.first;
+        final layer = view.debugLayer! as OffsetLayer;
+        await tester.runAsync(() async {
+          final image =
+              await layer.toImage(Offset.zero & view.size, pixelRatio: 3);
+          final png = await image.toByteData(format: ui.ImageByteFormat.png);
+          Directory(frames).createSync(recursive: true);
+          File('$frames/search_home_$name.png')
+              .writeAsBytesSync(png!.buffer.asUint8List());
+        });
+        // Sal's clip never settles: down without pumpAndSettle.
+        _navigator.currentState!.pop();
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump(const Duration(seconds: 6));
+        return;
+      }
+      await _close(tester);
+    });
+  }
 
   testWidgets(
       'Connect your own AI: one short band first under the composer, the '
