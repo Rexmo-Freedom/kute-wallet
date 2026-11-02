@@ -129,7 +129,8 @@ void main() {
         {required FakeSendContactsGateway gateway,
         String query = '',
         String? excludeAddress,
-        List<SendPerson>? recents}) async {
+        List<SendPerson>? recents,
+        bool split = false}) async {
       GoogleFonts.config.allowRuntimeFetching = false;
       tester.view.physicalSize = const Size(390, 1400);
       tester.view.devicePixelRatio = 1;
@@ -147,12 +148,28 @@ void main() {
             home: Scaffold(
               body: Consumer(builder: (context, ref, _) {
                 return CustomScrollView(slivers: [
+                  // The Sends' shape: Frequent on its own above, the
+                  // section without it.
+                  if (split)
+                    SliverToBoxAdapter(
+                      child: SendFrequentSection(
+                        query: query,
+                        excludeAddress: excludeAddress,
+                        recents: recents ?? _recents(),
+                        onPerson: tapped.add,
+                      ),
+                    ),
+                  if (split)
+                    const SliverToBoxAdapter(
+                        child: SizedBox(
+                            key: ValueKey('between'), height: 40)),
                   SendContactsSection(
                     query: query,
                     excludeAddress: excludeAddress,
                     recents: recents ?? _recents(),
                     onPerson: tapped.add,
                     onPhoneLink: (_) {},
+                    showFrequent: !split,
                   ),
                 ]);
               }),
@@ -269,6 +286,44 @@ void main() {
         await tester.pump();
         expect(tester.takeException(), isNull);
       }
+    });
+
+    testWidgets(
+        'split (the Sends): Frequent once, above whatever sits between, '
+        'the section below without it; a circle still pays it',
+        (tester) async {
+      final tapped = await pump(tester,
+          split: true,
+          gateway: FakeSendContactsGateway(
+              permission: SendContactsPermission.granted,
+              contacts: [...fakeContacts(), _kuteContact]));
+      expect(find.byKey(const ValueKey('send-frequent-section')),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('send-frequent-row')), findsOneWidget);
+      double top(Key k) => tester.getTopLeft(find.byKey(k)).dy;
+      expect(top(const ValueKey('send-frequent-row')),
+          lessThan(top(const ValueKey('between'))));
+      expect(top(const ValueKey('between')),
+          lessThan(top(const ValueKey('send-letter-A'))));
+      await tester.tap(
+          find.byKey(const ValueKey('send-frequent-recent:alice@getalby.com')));
+      expect(tapped.single.address, 'alice@getalby.com');
+    });
+
+    testWidgets('split: typing or a chosen recipient hides Frequent',
+        (tester) async {
+      await pump(tester,
+          split: true, gateway: FakeSendContactsGateway(), query: 'ri');
+      expect(find.byKey(const ValueKey('send-frequent-section')),
+          findsNothing);
+      await pump(tester,
+          split: true,
+          gateway: FakeSendContactsGateway(),
+          query: 'alice@getalby.com',
+          excludeAddress: 'alice@getalby.com');
+      expect(find.byKey(const ValueKey('send-frequent-section')),
+          findsNothing);
+      expect(find.byKey(const ValueKey('send-frequent-row')), findsNothing);
     });
 
     testWidgets('typing hides Frequent; the matches are the A–Z rows',

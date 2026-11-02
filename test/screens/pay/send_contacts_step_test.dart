@@ -12,6 +12,7 @@
 
 import 'dart:io';
 
+import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart' show Contact;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -28,6 +29,7 @@ import 'package:kute/services/runtime_capabilities_service.dart'
     show RuntimeCapabilitiesService;
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/providers/spark_contacts_provider.dart';
 import 'package:kute/screens/pay/components/confirm_send.dart';
 import 'package:kute/screens/share/send_to_anyone_sheet.dart';
 import 'package:kute/screens/shared/coin_asset_grid.dart' show CoinAssetTile;
@@ -44,6 +46,7 @@ import 'package:kute/theme/app_theme.dart';
 
 import '../../helpers/kute_bar_test_support.dart';
 import '../../helpers/runtime_policy_fixture.dart';
+import '../../helpers/spark_contacts_fixtures.dart';
 import '../../mocks/fake_send_contacts_gateway.dart';
 import '../../mocks/fake_share_links_api.dart';
 
@@ -101,7 +104,17 @@ class _Routes extends OrchestraSupportedRoutesNotifier {
   Future<bool> refresh() async => false;
 }
 
-Future<void> _pump(WidgetTester tester, {bool catalog = false}) async {
+/// Lightning addresses this wallet paid (the Frequent row).
+class _Paid extends SparkContactsNotifier {
+  @override
+  Future<List<Contact>> build() async => [
+        contact('rita@paykute.com', 300),
+        contact('alice@getalby.com', 200),
+      ];
+}
+
+Future<void> _pump(WidgetTester tester,
+    {bool catalog = false, bool recents = false}) async {
   tester.view.physicalSize = const Size(1125, 2436);
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.reset);
@@ -133,6 +146,7 @@ Future<void> _pump(WidgetTester tester, {bool catalog = false}) async {
       settingsProvider.overrideWith((_) => SettingsModel(_settings())),
       sendContactsGatewayProvider.overrideWithValue(_gateway),
       shareLinksApiProvider.overrideWithValue(_api),
+      if (recents) sparkContactsProvider.overrideWith(_Paid.new),
       if (catalog) ...[
         orchestraSupportedRoutesProvider
             .overrideWith((_) => _Routes(_catalog())),
@@ -235,6 +249,28 @@ void main() {
         lessThan(tester.getTopLeft(find.byKey(ask)).dy));
     // Never a prompt on open.
     expect(_gateway.prompts, 0);
+  });
+
+  testWidgets(
+      'Frequent stays on top: the recents under the field, above the Send '
+      'to card, All contacts below it; typing hides Frequent',
+      (tester) async {
+    await _pump(tester, recents: true);
+    const frequent = ValueKey('send-frequent-section');
+    expect(find.byKey(frequent), findsOneWidget);
+    expect(find.byKey(const ValueKey('send-frequent-recent:rita@paykute.com')),
+        findsOneWidget);
+    double top(Finder f) => tester.getTopLeft(f).dy;
+    final sendTo = find.text(_l10n.sendToLabel);
+    expect(top(find.byKey(const ValueKey('send-recipient-search'))),
+        lessThan(top(find.byKey(frequent))));
+    expect(top(find.byKey(frequent)), lessThan(top(sendTo)));
+    expect(top(sendTo), lessThan(top(find.byKey(ask))));
+    // Once only: the Contacts below never repeat it.
+    expect(find.byKey(const ValueKey('send-frequent-row')), findsOneWidget);
+
+    await type(tester, 'ri');
+    expect(find.byKey(frequent), findsNothing);
   });
 
   testWidgets(
