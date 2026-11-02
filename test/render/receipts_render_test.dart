@@ -1,8 +1,9 @@
 // A look by eye at the redesigned receipts, written only when asked:
 // R4_RECEIPTS_RENDER=<dir> flutter test test/render/receipts_render_test.dart
-// Five receipts (Lightning send, prediction sell, Investing reduce,
-// Dollars deposit, on-chain receive), light and dark, 390 x 844 at 3x,
-// with the real Inter face and the shell bar over the sheet.
+// Six receipts (Lightning send, prediction sell, Investing reduce,
+// Dollars deposit done and pending, on-chain receive) and one activity
+// list (done, pending, in and out rows), light and dark, 390 x 844 at
+// 3x, with the real Inter face and the shell bar over the sheet.
 
 import 'dart:convert';
 import 'dart:io';
@@ -66,6 +67,7 @@ Future<void> _shot(WidgetTester tester, String name,
   final key = GlobalKey();
   late BuildContext opener;
   late WidgetRef openerRef;
+  final list = tx == null && tap == null;
   await tester.pumpWidget(receiptApp(
     home ??
         Consumer(builder: (context, ref, _) {
@@ -81,7 +83,7 @@ Future<void> _shot(WidgetTester tester, String name,
   await tester.pump();
   if (tx != null) {
     await openTransactionDetails(opener, openerRef, tx);
-  } else {
+  } else if (!list) {
     await tester.tap(find.text(tap!));
   }
   for (var i = 0; i < 30; i++) {
@@ -138,6 +140,34 @@ void main() {
       await _assets(tester);
       await _shot(tester, 'receipt-dollars-deposit-$mode',
           dark: dark, tx: receiptDollarsDeposit());
+    });
+    testWidgets('render: Dollars deposit pending, $mode', skip: _dir == null,
+        (tester) async {
+      await _assets(tester);
+      await _shot(tester, 'receipt-dollars-deposit-pending-$mode',
+          dark: dark, tx: receiptDollarsDeposit(pending: true));
+    });
+    testWidgets('render: activity list, $mode', skip: _dir == null,
+        (tester) async {
+      await _assets(tester);
+      final rows = <BaseTransaction>[
+        receiptDollarsDeposit(pending: true),
+        receiptOnChainReceive(confirmed: false),
+        receiptDollarsDeposit(),
+        receiptLightningSend(),
+        receiptPredictionSell(),
+        receiptOnChainReceive(),
+      ];
+      await _shot(tester, 'activity-list-$mode',
+          dark: dark,
+          home: Consumer(
+              builder: (context, ref, _) => ColoredBox(
+                  color: context.colors.background,
+                  child: SafeArea(
+                      child: Column(children: [
+                    for (final tx in rows)
+                      buildUnifiedTransactionItem(tx, context, ref),
+                  ])))));
     });
     testWidgets('render: on-chain receive, $mode', skip: _dir == null,
         (tester) async {

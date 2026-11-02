@@ -66,11 +66,13 @@ SparkTransaction receiptLightningSend() => SparkTransaction(
       ),
     );
 
-/// ₿150,000 received on chain, confirmed (a cached row: no live details).
-BitcoinTransaction receiptOnChainReceive() => BitcoinTransaction.fromCache(
+/// ₿150,000 received on chain, confirmed unless [confirmed] is false (a
+/// cached row: no live details).
+BitcoinTransaction receiptOnChainReceive({bool confirmed = true}) =>
+    BitcoinTransaction.fromCache(
       id: receiptOnChainTxid,
       timestamp: receiptAt,
-      isConfirmed: true,
+      isConfirmed: confirmed,
       receivedSats: 150000,
       sentSats: 0,
     );
@@ -127,12 +129,14 @@ const receiptInvestingReduce = HlFill(
   startPosition: 2,
 );
 
-/// $25.00 deposited into Dollars.
-UsdbTokenTransaction receiptDollarsDeposit() {
+/// $25.00 deposited into Dollars, completed unless [pending].
+UsdbTokenTransaction receiptDollarsDeposit({bool pending = false}) {
   final payment = breez.Payment(
-    id: 'usd-deposit',
+    id: pending ? 'usd-deposit-pending' : 'usd-deposit',
     paymentType: breez.PaymentType.receive,
-    status: breez.PaymentStatus.completed,
+    status: pending
+        ? breez.PaymentStatus.pending
+        : breez.PaymentStatus.completed,
     amount: BigInt.from(25000000),
     fees: BigInt.zero,
     timestamp: BigInt.from(_seconds),
@@ -152,7 +156,10 @@ UsdbTokenTransaction receiptDollarsDeposit() {
     ),
   );
   return UsdbTokenTransaction(
-      id: payment.id, timestamp: receiptAt, details: payment, isConfirmed: true);
+      id: payment.id,
+      timestamp: receiptAt,
+      details: payment,
+      isConfirmed: !pending);
 }
 
 class _Cache extends WalletTransactionCacheNotifier {
