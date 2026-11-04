@@ -1,10 +1,10 @@
 // The pill becoming the Sal sheet's composer (kute_shell_bar.dart,
 // search_morph.dart): tapping the pill starts the travelling copy and
 // draws the pill transparent in place; the copy lands on the composer's
-// rect; closing travels back and the pill is itself again. A context
-// placed in the page's header keeps the pill away and the page's
-// KuteSalHeaderButton (the Share pill) opens the same sheet, travelling too. Reduce
-// Motion: a plain sheet, nothing travels.
+// rect; closing travels back and the pill is itself again. A market
+// page's trade row: its round Sal button opens the market's sheet,
+// travelling too, the row held in place transparent; a header placement
+// keeps the pill away. Reduce Motion: a plain sheet, nothing travels.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -105,22 +105,9 @@ Future<void> _push(WidgetTester tester, Widget page) async {
   await tester.pumpAndSettle();
 }
 
-Widget _page(KuteBarContext ctx, {bool headerButton = false}) =>
-    KuteBarContextScope(
+Widget _page(KuteBarContext ctx) => KuteBarContextScope(
       barContext: ctx,
-      child: Scaffold(
-        body: Column(children: [
-          if (headerButton)
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(children: [
-                const Spacer(),
-                KuteSalHeaderButton(barContext: ctx),
-              ]),
-            ),
-          const Expanded(child: SizedBox.expand()),
-        ]),
-      ),
+      child: const Scaffold(body: SizedBox.expand()),
     );
 
 bool _barUp(WidgetTester tester) {
@@ -205,55 +192,60 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets(
-      'a header placement keeps the pill away; the page\'s KuteSalHeaderButton '
-      'opens the same sheet and travels to the composer', (tester) async {
+  testWidgets('a header placement keeps the pill away', (tester) async {
     await _pump(tester);
-    await _push(tester,
-        _page(_market(placement: KuteBarPlacement.header), headerButton: true));
+    await _push(tester, _page(_market(placement: KuteBarPlacement.header)));
     expect(_barUp(tester), isFalse);
-    final button = find.byKey(const ValueKey('kute-sal-header-button'));
-    expect(button, findsOneWidget);
-    // A compact pill: 32 tall, Sal's face and the words "Send to a friend",
-    // no badge (founder: the circle alone "should say share or send", then
-    // "don't say share, say send to a friend").
-    final rect = tester.getRect(button);
-    expect(rect.height, KuteSalHeaderButton.height);
-    expect(rect.width, greaterThan(KuteSalHeaderButton.height));
-    expect(
-        find.descendant(
-            of: button,
-            matching: find.byKey(const ValueKey('kute-sal-header-label'))),
-        findsOneWidget);
-    expect(
-        find.descendant(of: button, matching: find.text('Send to a friend')),
-        findsOneWidget);
-    expect(find.byIcon(Icons.ios_share_rounded), findsNothing);
+    expect(find.byKey(const ValueKey('kute-sal-header-button')), findsNothing);
+  });
 
-    await tester.tap(button);
+  testWidgets(
+      'a trade row: its round Sal button opens the market\'s sheet and '
+      'travels to the composer, the row held in place transparent, and '
+      'lands back on the button', (tester) async {
+    await _pump(tester);
+    var invested = 0;
+    await _push(
+        tester,
+        _page(KuteBarContext.trade(
+          trades: [
+            KuteBarTrade(
+                id: 'invest',
+                label: 'Invest',
+                fill: AppColors.marketUp,
+                onTap: () => invested++),
+          ],
+          share: KuteBarShare(barContext: _market()),
+        )));
+    expect(_barUp(tester), isTrue);
+    final share = find.byKey(const ValueKey('kute-bar-share'));
+    expect(share, findsOneWidget);
+    // Sal's circle, no words.
+    final rect = tester.getRect(share);
+    expect(rect.width, moreOrLessEquals(KuteSalPill.collapsedSize));
+    expect(rect.height, moreOrLessEquals(KuteSalPill.collapsedSize));
+    expect(find.descendant(of: share, matching: find.byType(Text)),
+        findsNothing);
+
+    await tester.tap(share);
     await tester.pump();
     expect(KuteSearchMorph.running, isTrue);
-    expect(
-        tester
-            .widget<Opacity>(
-                find.ancestor(of: button, matching: find.byType(Opacity)).first)
-            .opacity,
-        0);
+    expect(find.byKey(const ValueKey('kute-bar-morphed')), findsOneWidget);
+    expect(_barUp(tester), isTrue);
     await tester.pumpAndSettle();
     expect(find.byType(UnifiedSearchSurface), findsOneWidget);
     expect(find.text('Share the market'), findsOneWidget);
-    // The bottom pill stayed away throughout.
-    expect(_barUp(tester), isFalse);
+    expect(invested, 0);
 
     _nav().pop();
     await tester.pumpAndSettle();
     expect(KuteSearchMorph.running, isFalse);
-    expect(
-        tester
-            .widget<Opacity>(
-                find.ancestor(of: button, matching: find.byType(Opacity)).first)
-            .opacity,
-        1);
+    expect(find.byKey(const ValueKey('kute-bar-morphed')), findsNothing);
+    expect(tester.getRect(share), rect);
+    expect(_barUp(tester), isTrue);
+    await tester.tap(find.byKey(const ValueKey('kute-bar-trade-invest')));
+    await tester.pumpAndSettle();
+    expect(invested, 1);
     await tester.pump(const Duration(seconds: 6));
     expect(tester.takeException(), isNull);
   });

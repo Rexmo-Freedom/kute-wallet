@@ -33,16 +33,17 @@
 //     loops ([KuteSalPill.salCue]). No nudge on a price tick (founder, 31
 //     October 2026: jitter).
 //
-// IN THE HEADER INSTEAD (founder, 31 October 2026; KuteBarPlacement): on
-// the Hyperliquid and Polymarket market pages, the position pages and the
-// multi-outcome event page the floating pill is away, and the page draws
-// [KuteSalHeaderButton] beside its headline figure: a real button in the
-// primary look, Sal's `share` face and the words "Send to a friend"
-// (founder: it "should say share or send", then "should be more
-// evident", then, 1 November 2026, "don't say share, say send to a
-// friend"), opening
-// the same Sal sheet (the context variant). It travels to the composer
-// the way the pill does.
+// THE TRADE ROW (founder, 4 November 2026: "I do not like the Send to a
+// friend on the top right in Hyperliquid and Predictions. It must be a
+// floating button"; kute_bar_trade_row.dart): on a market page the bar is
+// the page's trade buttons, Invest | Short or Yes | No, as floating pills
+// with the round Sal button at the row's end; the button opens the Send
+// to a friend Sal sheet and travels to its composer the way the pill
+// does. An open position's Close or Sell primary carries the same round
+// button at its right. The row never folds. A page with no trade pair (an
+// event, a game) has the Sal pill, "Send to a friend", which folds into
+// that same circle while the page scrolls (above). No page draws a
+// header button any more.
 //
 // THE PILL BECOMES THE COMPOSER (founder, 31 October 2026;
 // search_morph.dart): a tap hands [showKuteSearch] the pill's rect
@@ -73,6 +74,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/app_router.dart' show AppRouter;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/advisor_provider.dart';
+import 'package:kute/screens/home/components/kute_bar_trade_row.dart';
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart'
     show KuteSalPill;
 import 'package:kute/screens/search/components/search_morph.dart';
@@ -160,9 +162,10 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
   }
 
   /// The page's scroll (see the file header): only a market page folds
-  /// the pill, and never under Reduce Motion.
+  /// the pill (never its trade row), and never under Reduce Motion.
   void _onScroll() {
     if (!mounted || !_market || !_shown || kuteReduceMotion(context)) return;
+    if (_last?.kind != KuteBarKind.search) return;
     switch (kuteBarScroll.last) {
       case KuteBarScroll.down:
         _idle?.cancel();
@@ -188,6 +191,20 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
       openKuteBarSheet(ctx, source: pillContext, travelling: (on) {
         if (mounted && _morphed != on) setState(() => _morphed = on);
       });
+
+  /// The round Sal button at the end of the bar's row (a trade row's, or a
+  /// position's beside Close or Sell): the brag card on an open position
+  /// in profit, else the page's Sal sheet, the button travelling to the
+  /// composer ([shareContext], its own element).
+  void _shareTap(KuteBarShare share, BuildContext shareContext) {
+    final brag = share.brag;
+    if (brag != null) {
+      HapticFeedback.lightImpact();
+      brag();
+      return;
+    }
+    _open(share.barContext, shareContext);
+  }
 
   /// A tap on the primary button acts on the LIVE top context, not the
   /// one drawn: a page that just enabled its action (the last digit typed)
@@ -219,7 +236,8 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
     // sheet pushes and its own context changes do not move it (the pill
     // is transparent; its return lands where it rests).
     // A context placed in the page's header (KuteBarPlacement.header)
-    // keeps the pill away: the page draws KuteSalHeaderButton instead.
+    // keeps the pill away: the Investing position's market context, whose
+    // control is the round Sal button beside Close position.
     final morphed = _morphed;
     final inset = MediaQuery.viewInsetsOf(context).bottom;
     final keyboard = !morphed && inset > 0;
@@ -258,7 +276,8 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
     _market = market;
 
     final aiEnabled = ref.watch(aiEnabledProvider).valueOrNull ?? true;
-    final collapsed = _collapsed && !reduce;
+    // Only the pill folds; a trade row or a button keeps its place.
+    final collapsed = _collapsed && !reduce && ctx.kind == KuteBarKind.search;
     // A primary action busy for 2 s: Sal thinks (sal_reactions.dart; the
     // pill's Sal plays it).
     SalReactions.loading(_KuteShellBarState, show && ctx.isPrimary && ctx.busy);
@@ -272,15 +291,39 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
         alignment: collapsed ? Alignment.centerRight : Alignment.center,
         children: [...previous, if (current != null) current],
       ),
-      child: ctx.isPrimary
-          ? KuteBarPrimaryButton(
-              key: const ValueKey('kute-bar-primary'),
+      child: ctx.isTrade
+          // A market page's trade pills and the round Sal button.
+          ? KuteBarTradeRow(
+              key: const ValueKey('kute-bar-trade-row'),
               barContext: ctx,
-              // The page's own Sal rows (Send to anyone on the Send to
-              // step) stay one long press away.
-              onAsk: () => _open(
-                  kuteBarAskContext(ref.read(kuteBarContextProvider), ctx)),
-              onPrimaryTap: _primaryTap,
+              salCue: _salCue,
+              onShare: (shareContext) => _shareTap(ctx.share!, shareContext),
+            )
+          : ctx.isPrimary
+          // The button, and a position's round Sal button at its right.
+          ? Row(
+              key: const ValueKey('kute-bar-primary'),
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: KuteBarPrimaryButton(
+                    barContext: ctx,
+                    // The page's own Sal rows (Send to anyone on the Send
+                    // to step) stay one long press away.
+                    onAsk: () => _open(kuteBarAskContext(
+                        ref.read(kuteBarContextProvider), ctx)),
+                    onPrimaryTap: _primaryTap,
+                  ),
+                ),
+                KuteBarShareSlot(
+                  share: ctx.share,
+                  salCue: _salCue,
+                  onTap: (shareContext) {
+                    final share = ctx.share;
+                    if (share != null) _shareTap(share, shareContext);
+                  },
+                ),
+              ],
             )
           // The Builder's element is the pill's own box: its rect is
           // where the travel to the composer starts.
@@ -343,10 +386,13 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
                     duration:
                         reduce ? Duration.zero : KuteMotion.sheetInDuration,
                     curve: KuteMotion.sheetIn,
-                    // The pill's air; the primary button takes the
-                    // screen's 16 px gutters.
-                    padding: EdgeInsets.fromLTRB(ctx.isPrimary ? 16.w : 12.w, 0,
-                        ctx.isPrimary ? 16.w : 12.w, 2.h),
+                    // The pill's air; the primary button and the trade
+                    // row take the screen's 16 px gutters.
+                    padding: EdgeInsets.fromLTRB(
+                        ctx.isPrimary || ctx.isTrade ? 16.w : 12.w,
+                        0,
+                        ctx.isPrimary || ctx.isTrade ? 16.w : 12.w,
+                        2.h),
                     // Centred; docked right while folded. Pill to button
                     // and between the button's states the width springs
                     // on the chip spring (KuteMorphSize; the strip's own
@@ -378,8 +424,8 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
 }
 
 /// Opens the Sal sheet with [ctx] over the root navigator. With [source]
-/// (the element of the control that was tapped: the pill, the header
-/// circle) and motion on, the control travels to the sheet's composer and
+/// (the element of the control that was tapped: the pill, the round Sal
+/// button) and motion on, the control travels to the sheet's composer and
 /// back (search_morph.dart); [travelling] is told when the control should
 /// draw itself transparent (true) and when it is itself again (false).
 Future<void> openKuteBarSheet(
