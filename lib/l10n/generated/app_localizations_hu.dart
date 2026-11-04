@@ -11405,7 +11405,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get barShareWithFriends => 'Küldés barátnak';
 
   @override
-  String get barShareMarketSub => 'Küldd el a piacot vagy az előrejelzésedet';
+  String get barShareMarketSub => 'Küldd el a piacot vagy egy előrejelzést';
 
   @override
   String get barSharePositionSub => 'Küldd el a piacot vagy a pozíciódat';
@@ -11414,7 +11414,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get shareTheMarket => 'Piac küldése';
 
   @override
-  String get shareTheMarketSub => 'Egy megnyitható link a kódoddal';
+  String get shareTheMarketSub => 'Kapnak egy linket, hogy megnézzék';
 
   @override
   String get shareThisPosition => 'Pozíció küldése';
@@ -11878,7 +11878,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get sendPickSideTitle => 'Melyik oldal?';
 
   @override
-  String get sendPickSideSub => 'Amit kapnak, leadásra készen';
+  String get sendPickSideSub => 'Válaszd ki, melyik oldalt kapják';
 
   @override
   String get shareSendAgainWhatsApp => 'Újraküldés WhatsAppon';
@@ -12399,4 +12399,24 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get predictBelowTarget => 'below target';
+
+  @override
+  String get sendAPrediction => 'Előrejelzés küldése';
+
+  @override
+  String get sendAnInvestment => 'Befektetés küldése';
+
+  @override
+  String get sendAPredictionSub =>
+      'Megkapják az általad választott előrejelzést';
+
+  @override
+  String get sendAnInvestmentSub =>
+      'Megkapják az általad választott befektetést';
+
+  @override
+  String get sendPickOutcomeSub => 'Válaszd ki, melyik kimenetelt kapják';
+
+  @override
+  String get sendPickAmountSub => 'Mennyit kapnak?';
 }

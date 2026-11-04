@@ -3151,9 +3151,9 @@
   "searchHomeTrendingPredictions": "Популярни прогнози",
   "barPickMarketGroup": "Избери група пазари",
   "barPickMarketGroupSub": "или помоли Sal да намери",
-  "barShareMarketSub": "Изпрати пазара или прогнозата си",
+  "barShareMarketSub": "Изпрати пазара или прогноза",
   "barSharePositionSub": "Изпрати пазара или позицията си",
-  "shareTheMarketSub": "Линк, който могат да отворят, с твоя код",
+  "shareTheMarketSub": "Получават линк, за да го разгледат",
   "shareThisPositionSub": "Пазарът и как се справяш",
   "sendThisPrediction": "Изпрати тази прогноза",
   "sendThisInvestment": "Изпрати тази инвестиция",
@@ -3268,7 +3268,7 @@
   "sendPickMarketSearchHint": "Търси в прогнози и инвестиции",
   "sendPickMarketNoResults": "Няма съвпадения",
   "sendPickSideTitle": "Коя страна?",
-  "sendPickSideSub": "Какво получават, готово за поставяне",
+  "sendPickSideSub": "Избери страната, която получават",
   "shareSendAgainWhatsApp": "Изпрати отново през WhatsApp",
   "shareSendAgainSms": "Изпрати отново чрез SMS",
   "sendToLabel": "Получател",
@@ -3480,5 +3480,11 @@
   "activityEarlier": "Earlier",
   "polyRowLeads": "{leader} leads · {chance}",
   "predictAboveTarget": "above target",
-  "predictBelowTarget": "below target"
+  "predictBelowTarget": "below target",
+  "sendAPrediction": "Изпрати прогноза",
+  "sendAnInvestment": "Изпрати инвестиция",
+  "sendAPredictionSub": "Получават прогнозата, която избереш",
+  "sendAnInvestmentSub": "Получават инвестицията, която избереш",
+  "sendPickOutcomeSub": "Избери изхода, който получават",
+  "sendPickAmountSub": "Колко получават?"
 }

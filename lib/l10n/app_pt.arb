@@ -3424,9 +3424,9 @@
   "searchHomeTrendingPredictions": "Previsões em alta",
   "barPickMarketGroup": "Escolha um grupo de mercados",
   "barPickMarketGroupSub": "ou peça ao Sal para encontrar um",
-  "barShareMarketSub": "Envie o mercado ou a sua previsão",
+  "barShareMarketSub": "Envie o mercado ou uma previsão",
   "barSharePositionSub": "Envie o mercado ou a sua posição",
-  "shareTheMarketSub": "Um link para abrir, com o seu código",
+  "shareTheMarketSub": "Recebem um link para o ver",
   "shareThisPositionSub": "O mercado e como lhe está a correr",
   "sendThisPrediction": "Enviar esta previsão",
   "sendThisInvestment": "Enviar este investimento",
@@ -3541,7 +3541,7 @@
   "sendPickMarketSearchHint": "Pesquisar previsões e investimentos",
   "sendPickMarketNoResults": "Nada corresponde",
   "sendPickSideTitle": "Que lado?",
-  "sendPickSideSub": "O que recebem, pronto a registar",
+  "sendPickSideSub": "Escolha o lado que recebem",
   "shareSendAgainWhatsApp": "Enviar novamente por WhatsApp",
   "shareSendAgainSms": "Enviar novamente por SMS",
   "sendToLabel": "Enviar para",
@@ -3753,5 +3753,11 @@
   "activityEarlier": "Earlier",
   "polyRowLeads": "{leader} leads · {chance}",
   "predictAboveTarget": "above target",
-  "predictBelowTarget": "below target"
+  "predictBelowTarget": "below target",
+  "sendAPrediction": "Enviar uma previsão",
+  "sendAnInvestment": "Enviar um investimento",
+  "sendAPredictionSub": "Recebem a previsão que escolher",
+  "sendAnInvestmentSub": "Recebem o investimento que escolher",
+  "sendPickOutcomeSub": "Escolha o resultado que recebem",
+  "sendPickAmountSub": "Quanto recebem?"
 }

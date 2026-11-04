@@ -11418,7 +11418,7 @@ class AppLocalizationsPl extends AppLocalizations {
   String get barShareWithFriends => 'Wyślij znajomemu';
 
   @override
-  String get barShareMarketSub => 'Wyślij rynek lub swoją prognozę';
+  String get barShareMarketSub => 'Wyślij rynek lub prognozę';
 
   @override
   String get barSharePositionSub => 'Wyślij rynek lub swoją pozycję';
@@ -11427,7 +11427,7 @@ class AppLocalizationsPl extends AppLocalizations {
   String get shareTheMarket => 'Wyślij rynek';
 
   @override
-  String get shareTheMarketSub => 'Link do otwarcia, z twoim kodem';
+  String get shareTheMarketSub => 'Dostają link, żeby go obejrzeć';
 
   @override
   String get shareThisPosition => 'Wyślij tę pozycję';
@@ -11889,7 +11889,7 @@ class AppLocalizationsPl extends AppLocalizations {
   String get sendPickSideTitle => 'Która strona?';
 
   @override
-  String get sendPickSideSub => 'Co dostaną, gotowe do złożenia';
+  String get sendPickSideSub => 'Wybierz stronę, którą dostaną';
 
   @override
   String get shareSendAgainWhatsApp => 'Wyślij ponownie przez WhatsApp';
@@ -12409,4 +12409,22 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get predictBelowTarget => 'below target';
+
+  @override
+  String get sendAPrediction => 'Wyślij prognozę';
+
+  @override
+  String get sendAnInvestment => 'Wyślij inwestycję';
+
+  @override
+  String get sendAPredictionSub => 'Dostają prognozę, którą wybierzesz';
+
+  @override
+  String get sendAnInvestmentSub => 'Dostają inwestycję, którą wybierzesz';
+
+  @override
+  String get sendPickOutcomeSub => 'Wybierz wynik, który dostaną';
+
+  @override
+  String get sendPickAmountSub => 'Ile dostaną?';
 }

@@ -11416,7 +11416,7 @@ class AppLocalizationsSl extends AppLocalizations {
   String get barShareWithFriends => 'Pošlji prijatelju';
 
   @override
-  String get barShareMarketSub => 'Pošljite trg ali svojo napoved';
+  String get barShareMarketSub => 'Pošljite trg ali napoved';
 
   @override
   String get barSharePositionSub => 'Pošljite trg ali svojo pozicijo';
@@ -11425,7 +11425,7 @@ class AppLocalizationsSl extends AppLocalizations {
   String get shareTheMarket => 'Pošlji trg';
 
   @override
-  String get shareTheMarketSub => 'Povezava, ki jo lahko odprejo, z vašo kodo';
+  String get shareTheMarketSub => 'Prejmejo povezavo, da si ga ogledajo';
 
   @override
   String get shareThisPosition => 'Pošlji to pozicijo';
@@ -11887,7 +11887,7 @@ class AppLocalizationsSl extends AppLocalizations {
   String get sendPickSideTitle => 'Katera stran?';
 
   @override
-  String get sendPickSideSub => 'Kar prejmejo, pripravljeno za oddajo';
+  String get sendPickSideSub => 'Izberite stran, ki jo prejmejo';
 
   @override
   String get shareSendAgainWhatsApp => 'Pošlji znova prek WhatsAppa';
@@ -12406,4 +12406,22 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get predictBelowTarget => 'below target';
+
+  @override
+  String get sendAPrediction => 'Pošlji napoved';
+
+  @override
+  String get sendAnInvestment => 'Pošlji naložbo';
+
+  @override
+  String get sendAPredictionSub => 'Prejmejo napoved, ki jo izberete';
+
+  @override
+  String get sendAnInvestmentSub => 'Prejmejo naložbo, ki jo izberete';
+
+  @override
+  String get sendPickOutcomeSub => 'Izberite izid, ki ga prejmejo';
+
+  @override
+  String get sendPickAmountSub => 'Koliko prejmejo?';
 }

@@ -3151,9 +3151,9 @@
   "searchHomeTrendingPredictions": "Populiarios prognozės",
   "barPickMarketGroup": "Pasirinkite rinkų grupę",
   "barPickMarketGroupSub": "arba paprašykite Sal ją rasti",
-  "barShareMarketSub": "Siųskite rinką arba savo prognozę",
+  "barShareMarketSub": "Siųskite rinką arba prognozę",
   "barSharePositionSub": "Siųskite rinką arba savo poziciją",
-  "shareTheMarketSub": "Nuoroda, kurią galima atidaryti, su jūsų kodu",
+  "shareTheMarketSub": "Gavėjas gauna nuorodą jai peržiūrėti",
   "shareThisPositionSub": "Rinka ir kaip jums sekasi",
   "sendThisPrediction": "Siųsti šią prognozę",
   "sendThisInvestment": "Siųsti šią investiciją",
@@ -3268,7 +3268,7 @@
   "sendPickMarketSearchHint": "Ieškoti prognozių ir investicijų",
   "sendPickMarketNoResults": "Nieko nerasta",
   "sendPickSideTitle": "Kuri pusė?",
-  "sendPickSideSub": "Ką gaus gavėjas, paruošta pateikti",
+  "sendPickSideSub": "Pasirinkite pusę, kurią gaus gavėjas",
   "shareSendAgainWhatsApp": "Siųsti dar kartą per WhatsApp",
   "shareSendAgainSms": "Siųsti dar kartą SMS žinute",
   "sendToLabel": "Gavėjas",
@@ -3480,5 +3480,11 @@
   "activityEarlier": "Earlier",
   "polyRowLeads": "{leader} leads · {chance}",
   "predictAboveTarget": "above target",
-  "predictBelowTarget": "below target"
+  "predictBelowTarget": "below target",
+  "sendAPrediction": "Siųsti prognozę",
+  "sendAnInvestment": "Siųsti investiciją",
+  "sendAPredictionSub": "Gavėjas gauna jūsų pasirinktą prognozę",
+  "sendAnInvestmentSub": "Gavėjas gauna jūsų pasirinktą investiciją",
+  "sendPickOutcomeSub": "Pasirinkite baigtį, kurią gaus gavėjas",
+  "sendPickAmountSub": "Kiek gaus gavėjas?"
 }

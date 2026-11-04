@@ -11393,7 +11393,7 @@ class AppLocalizationsSk extends AppLocalizations {
   String get barShareWithFriends => 'Poslať kamarátovi';
 
   @override
-  String get barShareMarketSub => 'Pošli trh alebo svoju predpoveď';
+  String get barShareMarketSub => 'Pošli trh alebo predpoveď';
 
   @override
   String get barSharePositionSub => 'Pošli trh alebo svoju pozíciu';
@@ -11402,7 +11402,7 @@ class AppLocalizationsSk extends AppLocalizations {
   String get shareTheMarket => 'Poslať trh';
 
   @override
-  String get shareTheMarketSub => 'Odkaz na otvorenie, s tvojím kódom';
+  String get shareTheMarketSub => 'Dostanú odkaz, aby si ho pozreli';
 
   @override
   String get shareThisPosition => 'Poslať túto pozíciu';
@@ -11864,7 +11864,7 @@ class AppLocalizationsSk extends AppLocalizations {
   String get sendPickSideTitle => 'Ktorá strana?';
 
   @override
-  String get sendPickSideSub => 'Čo dostanú, pripravené na zadanie';
+  String get sendPickSideSub => 'Vyber stranu, ktorú dostanú';
 
   @override
   String get shareSendAgainWhatsApp => 'Poslať znova cez WhatsApp';
@@ -12384,4 +12384,22 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String get predictBelowTarget => 'below target';
+
+  @override
+  String get sendAPrediction => 'Poslať predpoveď';
+
+  @override
+  String get sendAnInvestment => 'Poslať investíciu';
+
+  @override
+  String get sendAPredictionSub => 'Dostanú predpoveď, ktorú vyberieš';
+
+  @override
+  String get sendAnInvestmentSub => 'Dostanú investíciu, ktorú vyberieš';
+
+  @override
+  String get sendPickOutcomeSub => 'Vyber výsledok, ktorý dostanú';
+
+  @override
+  String get sendPickAmountSub => 'Koľko dostanú?';
 }

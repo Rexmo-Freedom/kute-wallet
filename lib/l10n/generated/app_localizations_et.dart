@@ -11366,7 +11366,7 @@ class AppLocalizationsEt extends AppLocalizations {
   String get barShareWithFriends => 'Saada sõbrale';
 
   @override
-  String get barShareMarketSub => 'Saada turg või oma ennustus';
+  String get barShareMarketSub => 'Saada turg või ennustus';
 
   @override
   String get barSharePositionSub => 'Saada turg või oma positsioon';
@@ -11375,7 +11375,7 @@ class AppLocalizationsEt extends AppLocalizations {
   String get shareTheMarket => 'Saada turg';
 
   @override
-  String get shareTheMarketSub => 'Link, mida saab avada, sinu koodiga';
+  String get shareTheMarketSub => 'Saaja saab lingi, et seda vaadata';
 
   @override
   String get shareThisPosition => 'Saada see positsioon';
@@ -11839,7 +11839,7 @@ class AppLocalizationsEt extends AppLocalizations {
   String get sendPickSideTitle => 'Kumb pool?';
 
   @override
-  String get sendPickSideSub => 'Mida saaja saab, tegemiseks valmis';
+  String get sendPickSideSub => 'Vali pool, mille saaja saab';
 
   @override
   String get shareSendAgainWhatsApp => 'Saada uuesti WhatsAppiga';
@@ -12359,4 +12359,22 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get predictBelowTarget => 'below target';
+
+  @override
+  String get sendAPrediction => 'Saada ennustus';
+
+  @override
+  String get sendAnInvestment => 'Saada investeering';
+
+  @override
+  String get sendAPredictionSub => 'Saaja saab sinu valitud ennustuse';
+
+  @override
+  String get sendAnInvestmentSub => 'Saaja saab sinu valitud investeeringu';
+
+  @override
+  String get sendPickOutcomeSub => 'Vali tulemus, mille saaja saab';
+
+  @override
+  String get sendPickAmountSub => 'Kui palju saaja saab?';
 }

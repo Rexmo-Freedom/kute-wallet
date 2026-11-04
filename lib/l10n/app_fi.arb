@@ -3151,9 +3151,9 @@
   "searchHomeTrendingPredictions": "Suositut ennusteet",
   "barPickMarketGroup": "Valitse markkinaryhmä",
   "barPickMarketGroupSub": "tai pyydä Salia etsimään sellainen",
-  "barShareMarketSub": "Lähetä markkina tai ennusteesi",
+  "barShareMarketSub": "Lähetä markkina tai ennuste",
   "barSharePositionSub": "Lähetä markkina tai positiosi",
-  "shareTheMarketSub": "Linkki, jonka voi avata, koodillasi",
+  "shareTheMarketSub": "He saavat linkin, josta katsoa sitä",
   "shareThisPositionSub": "Markkina ja miten sinulla menee",
   "sendThisPrediction": "Lähetä tämä ennuste",
   "sendThisInvestment": "Lähetä tämä sijoitus",
@@ -3268,7 +3268,7 @@
   "sendPickMarketSearchHint": "Hae ennusteista ja sijoituksista",
   "sendPickMarketNoResults": "Ei osumia",
   "sendPickSideTitle": "Kumpi puoli?",
-  "sendPickSideSub": "Mitä vastaanottaja saa, valmiina tehtäväksi",
+  "sendPickSideSub": "Valitse puoli, jonka he saavat",
   "shareSendAgainWhatsApp": "Lähetä uudelleen WhatsAppilla",
   "shareSendAgainSms": "Lähetä uudelleen tekstiviestillä",
   "sendToLabel": "Vastaanottaja",
@@ -3480,5 +3480,11 @@
   "activityEarlier": "Earlier",
   "polyRowLeads": "{leader} leads · {chance}",
   "predictAboveTarget": "above target",
-  "predictBelowTarget": "below target"
+  "predictBelowTarget": "below target",
+  "sendAPrediction": "Lähetä ennuste",
+  "sendAnInvestment": "Lähetä sijoitus",
+  "sendAPredictionSub": "He saavat valitsemasi ennusteen",
+  "sendAnInvestmentSub": "He saavat valitsemasi sijoituksen",
+  "sendPickOutcomeSub": "Valitse lopputulos, jonka he saavat",
+  "sendPickAmountSub": "Kuinka paljon he saavat?"
 }

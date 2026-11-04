@@ -3151,9 +3151,9 @@
   "searchHomeTrendingPredictions": "Felkapott előrejelzések",
   "barPickMarketGroup": "Válassz piaccsoportot",
   "barPickMarketGroupSub": "vagy kérd meg Salt, hogy keressen egyet",
-  "barShareMarketSub": "Küldd el a piacot vagy az előrejelzésedet",
+  "barShareMarketSub": "Küldd el a piacot vagy egy előrejelzést",
   "barSharePositionSub": "Küldd el a piacot vagy a pozíciódat",
-  "shareTheMarketSub": "Egy megnyitható link a kódoddal",
+  "shareTheMarketSub": "Kapnak egy linket, hogy megnézzék",
   "shareThisPositionSub": "A piac, és hogy hogyan állsz",
   "sendThisPrediction": "Küldd el ezt az előrejelzést",
   "sendThisInvestment": "Küldd el ezt a befektetést",
@@ -3268,7 +3268,7 @@
   "sendPickMarketSearchHint": "Keresés az előrejelzésekben és befektetésekben",
   "sendPickMarketNoResults": "Nincs találat",
   "sendPickSideTitle": "Melyik oldal?",
-  "sendPickSideSub": "Amit kapnak, leadásra készen",
+  "sendPickSideSub": "Válaszd ki, melyik oldalt kapják",
   "shareSendAgainWhatsApp": "Újraküldés WhatsAppon",
   "shareSendAgainSms": "Újraküldés SMS-ben",
   "sendToLabel": "Címzett",
@@ -3480,5 +3480,11 @@
   "activityEarlier": "Earlier",
   "polyRowLeads": "{leader} leads · {chance}",
   "predictAboveTarget": "above target",
-  "predictBelowTarget": "below target"
+  "predictBelowTarget": "below target",
+  "sendAPrediction": "Előrejelzés küldése",
+  "sendAnInvestment": "Befektetés küldése",
+  "sendAPredictionSub": "Megkapják az általad választott előrejelzést",
+  "sendAnInvestmentSub": "Megkapják az általad választott befektetést",
+  "sendPickOutcomeSub": "Válaszd ki, melyik kimenetelt kapják",
+  "sendPickAmountSub": "Mennyit kapnak?"
 }

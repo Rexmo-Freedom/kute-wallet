@@ -3151,9 +3151,9 @@
   "searchHomeTrendingPredictions": "Populaire voorspellingen",
   "barPickMarketGroup": "Kies een marktgroep",
   "barPickMarketGroupSub": "of laat Sal er een vinden",
-  "barShareMarketSub": "Stuur de markt of je voorspelling",
+  "barShareMarketSub": "Stuur de markt of een voorspelling",
   "barSharePositionSub": "Stuur de markt of je positie",
-  "shareTheMarketSub": "Een link die ze kunnen openen, met je code",
+  "shareTheMarketSub": "Ze krijgen een link om hem te bekijken",
   "shareThisPositionSub": "De markt en hoe het je vergaat",
   "sendThisPrediction": "Deze voorspelling versturen",
   "sendThisInvestment": "Deze belegging versturen",
@@ -3268,7 +3268,7 @@
   "sendPickMarketSearchHint": "Zoek in voorspellingen en beleggen",
   "sendPickMarketNoResults": "Niets gevonden",
   "sendPickSideTitle": "Welke kant?",
-  "sendPickSideSub": "Wat ze krijgen, klaar om te plaatsen",
+  "sendPickSideSub": "Kies de kant die ze krijgen",
   "shareSendAgainWhatsApp": "Opnieuw sturen via WhatsApp",
   "shareSendAgainSms": "Opnieuw sturen via sms",
   "sendToLabel": "Versturen naar",
@@ -3480,5 +3480,11 @@
   "activityEarlier": "Earlier",
   "polyRowLeads": "{leader} leads · {chance}",
   "predictAboveTarget": "above target",
-  "predictBelowTarget": "below target"
+  "predictBelowTarget": "below target",
+  "sendAPrediction": "Stuur een voorspelling",
+  "sendAnInvestment": "Stuur een belegging",
+  "sendAPredictionSub": "Ze krijgen de voorspelling die jij kiest",
+  "sendAnInvestmentSub": "Ze krijgen de belegging die jij kiest",
+  "sendPickOutcomeSub": "Kies de uitkomst die ze krijgen",
+  "sendPickAmountSub": "Hoeveel krijgen ze?"
 }

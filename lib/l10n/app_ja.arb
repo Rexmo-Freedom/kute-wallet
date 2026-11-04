@@ -3153,7 +3153,7 @@
   "barPickMarketGroupSub": "またはSalに探してもらう",
   "barShareMarketSub": "マーケットまたは予測を送る",
   "barSharePositionSub": "マーケットまたはポジションを送る",
-  "shareTheMarketSub": "あなたのコード付きで開けるリンク",
+  "shareTheMarketSub": "見るためのリンクが届きます",
   "shareThisPositionSub": "マーケットとあなたの成績",
   "sendThisPrediction": "この予測を送る",
   "sendThisInvestment": "この投資を送る",
@@ -3268,7 +3268,7 @@
   "sendPickMarketSearchHint": "予測と投資を検索",
   "sendPickMarketNoResults": "該当なし",
   "sendPickSideTitle": "どちら側？",
-  "sendPickSideSub": "相手に届く内容（すぐ注文可能）",
+  "sendPickSideSub": "相手に送るサイドを選んでください",
   "shareSendAgainWhatsApp": "WhatsAppで再送",
   "shareSendAgainSms": "SMSで再送",
   "sendToLabel": "送金先",
@@ -3480,5 +3480,11 @@
   "activityEarlier": "Earlier",
   "polyRowLeads": "{leader} leads · {chance}",
   "predictAboveTarget": "above target",
-  "predictBelowTarget": "below target"
+  "predictBelowTarget": "below target",
+  "sendAPrediction": "予測を送る",
+  "sendAnInvestment": "投資を送る",
+  "sendAPredictionSub": "あなたが選んだ予測が届きます",
+  "sendAnInvestmentSub": "あなたが選んだ投資が届きます",
+  "sendPickOutcomeSub": "相手に送る結果を選んでください",
+  "sendPickAmountSub": "いくら送りますか？"
 }

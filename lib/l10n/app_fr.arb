@@ -3151,9 +3151,9 @@
   "searchHomeTrendingPredictions": "Prédictions tendance",
   "barPickMarketGroup": "Choisissez un groupe de marchés",
   "barPickMarketGroupSub": "ou demandez à Sal d'en trouver un",
-  "barShareMarketSub": "Envoyez le marché ou votre prédiction",
+  "barShareMarketSub": "Envoyez le marché ou une prédiction",
   "barSharePositionSub": "Envoyez le marché ou votre position",
-  "shareTheMarketSub": "Un lien à ouvrir, avec votre code",
+  "shareTheMarketSub": "Ils reçoivent un lien pour le voir",
   "shareThisPositionSub": "Le marché et vos résultats",
   "sendThisPrediction": "Envoyer cette prédiction",
   "sendThisInvestment": "Envoyer cet investissement",
@@ -3268,7 +3268,7 @@
   "sendPickMarketSearchHint": "Rechercher dans Prédictions et Investir",
   "sendPickMarketNoResults": "Aucun résultat",
   "sendPickSideTitle": "Quel côté ?",
-  "sendPickSideSub": "Ce qui est reçu, prêt à être placé",
+  "sendPickSideSub": "Choisissez le côté qu'ils reçoivent",
   "shareSendAgainWhatsApp": "Renvoyer via WhatsApp",
   "shareSendAgainSms": "Renvoyer par SMS",
   "sendToLabel": "Envoyer à",
@@ -3480,5 +3480,11 @@
   "activityEarlier": "Earlier",
   "polyRowLeads": "{leader} leads · {chance}",
   "predictAboveTarget": "above target",
-  "predictBelowTarget": "below target"
+  "predictBelowTarget": "below target",
+  "sendAPrediction": "Envoyer une prédiction",
+  "sendAnInvestment": "Envoyer un investissement",
+  "sendAPredictionSub": "Ils reçoivent la prédiction choisie",
+  "sendAnInvestmentSub": "Ils reçoivent l'investissement choisi",
+  "sendPickOutcomeSub": "Choisissez l'issue qu'ils reçoivent",
+  "sendPickAmountSub": "Combien reçoivent-ils ?"
 }

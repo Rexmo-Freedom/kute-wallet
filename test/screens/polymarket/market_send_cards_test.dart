@@ -4,7 +4,13 @@
 // prediction"). An event page (several outcomes, each its own Yes/No
 // market) opens the Sal sheet on one full-width "Send the market" card;
 // a single Yes/No market (an outcome drilled into from an event is one)
-// keeps both cards, "Send the market" and "Send this prediction".
+// keeps both cards, "Send the market" and "Send a prediction".
+//
+// A CARD TAP CLOSES THE SAL SHEET AND OPENS ITS SHEET (founder, 4 November
+// 2026: "Card on search share not working. I click and nothing happens"):
+// the market card opens the market send sheet, the prediction card Send
+// to anyone on its side step, Yes and No equal and nothing chosen, with
+// the Sal sheet gone from under them.
 
 import 'dart:async';
 
@@ -28,7 +34,12 @@ import 'package:kute/providers/polymarket_sports_provider.dart';
 import 'package:kute/providers/polymarket_watchlist_provider.dart';
 import 'package:kute/screens/home/components/kute_shell_bar.dart';
 import 'package:kute/screens/polymarket/market_detail_sheet.dart';
+import 'package:kute/screens/search/unified_search_screen.dart'
+    show UnifiedSearchSurface;
+import 'package:kute/screens/share/send_to_anyone_sheet.dart';
+import 'package:kute/screens/share/share_market_sheet.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/screens/shared/market_pair_button.dart';
 import 'package:kute/screens/shared/kute_share_actions.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -185,7 +196,7 @@ void main() {
   for (final event in [_michigan, _twoCandidates]) {
     testWidgets(
         'an event page ("${event.title}"): the pill opens the Sal sheet on '
-        'one full-width "Send the market" card, no "Send this prediction"',
+        'one full-width "Send the market" card, no "Send a prediction"',
         (tester) async {
       await _loadInter(tester);
       await http.runWithClient(() async {
@@ -201,7 +212,7 @@ void main() {
             find.descendant(
                 of: grid, matching: find.text(l10n.shareTheMarket)),
             findsOneWidget);
-        expect(find.text(l10n.sendThisPrediction), findsNothing);
+        expect(find.text(l10n.sendAPrediction), findsNothing);
         final card = find.byKey(
             ValueKey('context-action-card-${l10n.shareTheMarket}'));
         expect(tester.getRect(card).width,
@@ -215,14 +226,14 @@ void main() {
 
   testWidgets(
       'a single Yes/No market (the page an outcome drills into): both '
-      'cards, "Send the market" and "Send this prediction"', (tester) async {
+      'cards, "Send the market" and "Send a prediction"', (tester) async {
     await _loadInter(tester);
     await http.runWithClient(() async {
       await _pump(tester, _yesNo);
       final l10n = lookupAppLocalizations(const Locale('en'));
       final bar = _bar(tester);
       expect(bar.actions.map((a) => a.label),
-          [l10n.shareTheMarket, l10n.sendThisPrediction]);
+          [l10n.shareTheMarket, l10n.sendAPrediction]);
       expect(bar.sublabel, l10n.barShareMarketSub);
       await _openSheet(tester);
       final grid = find.byKey(const ValueKey('context-actions-card'));
@@ -231,8 +242,82 @@ void main() {
           findsOneWidget);
       expect(
           find.descendant(
-              of: grid, matching: find.text(l10n.sendThisPrediction)),
+              of: grid, matching: find.text(l10n.sendAPrediction)),
           findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 6));
+    }, () => MockClient((_) async => http.Response('{}', 404)));
+  });
+
+  /// A market where No leads: the old default picked "No" here.
+  final noLeads = _event('Will it snow in Lisbon this year?', const [
+    PolymarketOutcome(name: 'Yes', price: 0.12, tokenId: 'y'),
+    PolymarketOutcome(name: 'No', price: 0.88, tokenId: 'n'),
+  ]);
+
+  testWidgets(
+      'tapping "Send the market" closes the Sal sheet and opens the market '
+      'send sheet on top, Share the bar', (tester) async {
+    await _loadInter(tester);
+    await http.runWithClient(() async {
+      await _pump(tester, noLeads);
+      final l10n = lookupAppLocalizations(const Locale('en'));
+      await _openSheet(tester);
+      expect(find.byType(UnifiedSearchSurface), findsOneWidget);
+      await tester.tap(
+          find.byKey(ValueKey('context-action-card-${l10n.shareTheMarket}')));
+      for (var i = 0; i < 12; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      // The Sal sheet is gone, not left under the new sheet.
+      expect(find.byType(UnifiedSearchSurface), findsNothing);
+      expect(find.byType(ShareMarketSheet).hitTestable(), findsOneWidget);
+      final top = kuteBarTop(ProviderScope.containerOf(
+              tester.element(find.byType(MarketDetailSheet)))
+          .read(kuteBarContextProvider))!;
+      expect(top.isPrimary, isTrue);
+      expect(top.label, l10n.share);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 6));
+    }, () => MockClient((_) async => http.Response('{}', 404)));
+  });
+
+  testWidgets(
+      'tapping "Send a prediction" (No leads) closes the Sal sheet and opens '
+      'Send to anyone on the side step: Yes and No, equal, nothing chosen, '
+      'no amount yet', (tester) async {
+    await _loadInter(tester);
+    await http.runWithClient(() async {
+      await _pump(tester, noLeads);
+      final l10n = lookupAppLocalizations(const Locale('en'));
+      final bar = _bar(tester);
+      // The card's foot reads both sides, never the leading one alone.
+      expect(bar.preview.line, 'Yes 12% · No 88%');
+      await _openSheet(tester);
+      await tester.tap(find
+          .byKey(ValueKey('context-action-card-${l10n.sendAPrediction}')));
+      for (var i = 0; i < 12; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.byType(UnifiedSearchSurface), findsNothing);
+      expect(find.byType(SendToAnyoneSheet).hitTestable(), findsOneWidget);
+      expect(find.byKey(const ValueKey('send-pick-side-step')), findsOneWidget);
+      final pair = find.byKey(const ValueKey('send-pick-side-pair'));
+      final buttons = tester
+          .widgetList<MarketPairButton>(
+              find.descendant(of: pair, matching: find.byType(MarketPairButton)))
+          .toList();
+      expect(buttons.map((b) => b.label), [l10n.yes, l10n.betNo]);
+      expect(buttons.map((b) => b.value), ['12%', '88%']);
+      // Equal: the same size, side by side.
+      final a = tester.getSize(find.byKey(const ValueKey('send-pick-side-0')));
+      final b = tester.getSize(find.byKey(const ValueKey('send-pick-side-1')));
+      expect(a, b);
+      // Nothing picked, so no amount and no pick line yet.
+      expect(find.byKey(const ValueKey('share-pick-line')), findsNothing);
+      expect(find.text(l10n.sendPickSideSub), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 6));

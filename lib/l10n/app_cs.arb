@@ -3151,9 +3151,9 @@
   "searchHomeTrendingPredictions": "Populární predikce",
   "barPickMarketGroup": "Vyber skupinu trhů",
   "barPickMarketGroupSub": "nebo nech Sala nějakou najít",
-  "barShareMarketSub": "Pošli trh nebo svou predikci",
+  "barShareMarketSub": "Pošli trh nebo predikci",
   "barSharePositionSub": "Pošli trh nebo svou pozici",
-  "shareTheMarketSub": "Odkaz k otevření, s tvým kódem",
+  "shareTheMarketSub": "Dostanou odkaz, aby si ho prohlédli",
   "shareThisPositionSub": "Trh a jak se ti daří",
   "sendThisPrediction": "Poslat tuto predikci",
   "sendThisInvestment": "Poslat tuto investici",
@@ -3268,7 +3268,7 @@
   "sendPickMarketSearchHint": "Hledat v predikcích a investování",
   "sendPickMarketNoResults": "Nic neodpovídá",
   "sendPickSideTitle": "Která strana?",
-  "sendPickSideSub": "Co dostanou, připravené k zadání",
+  "sendPickSideSub": "Vyber stranu, kterou dostanou",
   "shareSendAgainWhatsApp": "Poslat znovu přes WhatsApp",
   "shareSendAgainSms": "Poslat znovu přes SMS",
   "sendToLabel": "Příjemce",
@@ -3480,5 +3480,11 @@
   "activityEarlier": "Earlier",
   "polyRowLeads": "{leader} leads · {chance}",
   "predictAboveTarget": "above target",
-  "predictBelowTarget": "below target"
+  "predictBelowTarget": "below target",
+  "sendAPrediction": "Poslat predikci",
+  "sendAnInvestment": "Poslat investici",
+  "sendAPredictionSub": "Dostanou predikci, kterou vybereš",
+  "sendAnInvestmentSub": "Dostanou investici, kterou vybereš",
+  "sendPickOutcomeSub": "Vyber výsledek, který dostanou",
+  "sendPickAmountSub": "Kolik dostanou?"
 }

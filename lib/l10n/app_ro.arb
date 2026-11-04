@@ -3151,9 +3151,9 @@
   "searchHomeTrendingPredictions": "Predicții în tendințe",
   "barPickMarketGroup": "Alege un grup de piețe",
   "barPickMarketGroupSub": "sau cere-i lui Sal să găsească unul",
-  "barShareMarketSub": "Trimite piața sau predicția ta",
+  "barShareMarketSub": "Trimite piața sau o predicție",
   "barSharePositionSub": "Trimite piața sau poziția ta",
-  "shareTheMarketSub": "Un link pe care îl pot deschide, cu codul tău",
+  "shareTheMarketSub": "Primesc un link ca să o vadă",
   "shareThisPositionSub": "Piața și cum îți merge",
   "sendThisPrediction": "Trimite această predicție",
   "sendThisInvestment": "Trimite această investiție",
@@ -3268,7 +3268,7 @@
   "sendPickMarketSearchHint": "Caută în predicții și investiții",
   "sendPickMarketNoResults": "Nicio potrivire",
   "sendPickSideTitle": "Ce parte?",
-  "sendPickSideSub": "Ce primesc, gata de plasat",
+  "sendPickSideSub": "Alege partea pe care o primesc",
   "shareSendAgainWhatsApp": "Trimite din nou prin WhatsApp",
   "shareSendAgainSms": "Trimite din nou prin SMS",
   "sendToLabel": "Trimite către",
@@ -3480,5 +3480,11 @@
   "activityEarlier": "Earlier",
   "polyRowLeads": "{leader} leads · {chance}",
   "predictAboveTarget": "above target",
-  "predictBelowTarget": "below target"
+  "predictBelowTarget": "below target",
+  "sendAPrediction": "Trimite o predicție",
+  "sendAnInvestment": "Trimite o investiție",
+  "sendAPredictionSub": "Primesc predicția pe care o alegi",
+  "sendAnInvestmentSub": "Primesc investiția pe care o alegi",
+  "sendPickOutcomeSub": "Alege rezultatul pe care îl primesc",
+  "sendPickAmountSub": "Cât primesc?"
 }

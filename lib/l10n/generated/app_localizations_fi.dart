@@ -11391,7 +11391,7 @@ class AppLocalizationsFi extends AppLocalizations {
   String get barShareWithFriends => 'Lähetä ystävälle';
 
   @override
-  String get barShareMarketSub => 'Lähetä markkina tai ennusteesi';
+  String get barShareMarketSub => 'Lähetä markkina tai ennuste';
 
   @override
   String get barSharePositionSub => 'Lähetä markkina tai positiosi';
@@ -11400,7 +11400,7 @@ class AppLocalizationsFi extends AppLocalizations {
   String get shareTheMarket => 'Lähetä markkina';
 
   @override
-  String get shareTheMarketSub => 'Linkki, jonka voi avata, koodillasi';
+  String get shareTheMarketSub => 'He saavat linkin, josta katsoa sitä';
 
   @override
   String get shareThisPosition => 'Lähetä tämä positio';
@@ -11862,7 +11862,7 @@ class AppLocalizationsFi extends AppLocalizations {
   String get sendPickSideTitle => 'Kumpi puoli?';
 
   @override
-  String get sendPickSideSub => 'Mitä vastaanottaja saa, valmiina tehtäväksi';
+  String get sendPickSideSub => 'Valitse puoli, jonka he saavat';
 
   @override
   String get shareSendAgainWhatsApp => 'Lähetä uudelleen WhatsAppilla';
@@ -12383,4 +12383,22 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get predictBelowTarget => 'below target';
+
+  @override
+  String get sendAPrediction => 'Lähetä ennuste';
+
+  @override
+  String get sendAnInvestment => 'Lähetä sijoitus';
+
+  @override
+  String get sendAPredictionSub => 'He saavat valitsemasi ennusteen';
+
+  @override
+  String get sendAnInvestmentSub => 'He saavat valitsemasi sijoituksen';
+
+  @override
+  String get sendPickOutcomeSub => 'Valitse lopputulos, jonka he saavat';
+
+  @override
+  String get sendPickAmountSub => 'Kuinka paljon he saavat?';
 }

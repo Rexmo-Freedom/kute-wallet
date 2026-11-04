@@ -3151,9 +3151,9 @@
   "searchHomeTrendingPredictions": "Trendande prognoser",
   "barPickMarketGroup": "Välj en marknadsgrupp",
   "barPickMarketGroupSub": "eller be Sal hitta en",
-  "barShareMarketSub": "Skicka marknaden eller din prognos",
+  "barShareMarketSub": "Skicka marknaden eller en prognos",
   "barSharePositionSub": "Skicka marknaden eller din position",
-  "shareTheMarketSub": "En länk de kan öppna, med din kod",
+  "shareTheMarketSub": "De får en länk för att titta på den",
   "shareThisPositionSub": "Marknaden och hur det går för dig",
   "sendThisPrediction": "Skicka den här prognosen",
   "sendThisInvestment": "Skicka den här investeringen",
@@ -3268,7 +3268,7 @@
   "sendPickMarketSearchHint": "Sök prognoser och investeringar",
   "sendPickMarketNoResults": "Inget matchar",
   "sendPickSideTitle": "Vilken sida?",
-  "sendPickSideSub": "Det de får, redo att läggas",
+  "sendPickSideSub": "Välj sidan de får",
   "shareSendAgainWhatsApp": "Skicka igen via WhatsApp",
   "shareSendAgainSms": "Skicka igen via sms",
   "sendToLabel": "Skicka till",
@@ -3480,5 +3480,11 @@
   "activityEarlier": "Earlier",
   "polyRowLeads": "{leader} leads · {chance}",
   "predictAboveTarget": "above target",
-  "predictBelowTarget": "below target"
+  "predictBelowTarget": "below target",
+  "sendAPrediction": "Skicka en prognos",
+  "sendAnInvestment": "Skicka en investering",
+  "sendAPredictionSub": "De får prognosen du väljer",
+  "sendAnInvestmentSub": "De får investeringen du väljer",
+  "sendPickOutcomeSub": "Välj utfallet de får",
+  "sendPickAmountSub": "Hur mycket får de?"
 }

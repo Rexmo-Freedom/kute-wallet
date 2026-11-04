@@ -11349,7 +11349,7 @@ class AppLocalizationsLv extends AppLocalizations {
   String get barShareWithFriends => 'Sūtīt draugam';
 
   @override
-  String get barShareMarketSub => 'Sūti tirgu vai savu prognozi';
+  String get barShareMarketSub => 'Sūti tirgu vai prognozi';
 
   @override
   String get barSharePositionSub => 'Sūti tirgu vai savu pozīciju';
@@ -11358,7 +11358,7 @@ class AppLocalizationsLv extends AppLocalizations {
   String get shareTheMarket => 'Sūtīt tirgu';
 
   @override
-  String get shareTheMarketSub => 'Saite, ko var atvērt, ar tavu kodu';
+  String get shareTheMarketSub => 'Saņēmējs saņem saiti, lai to apskatītu';
 
   @override
   String get shareThisPosition => 'Sūtīt šo pozīciju';
@@ -11818,7 +11818,7 @@ class AppLocalizationsLv extends AppLocalizations {
   String get sendPickSideTitle => 'Kura puse?';
 
   @override
-  String get sendPickSideSub => 'Ko saņēmējs iegūst, gatavu veikšanai';
+  String get sendPickSideSub => 'Izvēlies pusi, ko saņēmējs saņems';
 
   @override
   String get shareSendAgainWhatsApp => 'Sūtīt vēlreiz ar WhatsApp';
@@ -12338,4 +12338,22 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get predictBelowTarget => 'below target';
+
+  @override
+  String get sendAPrediction => 'Sūtīt prognozi';
+
+  @override
+  String get sendAnInvestment => 'Sūtīt investīciju';
+
+  @override
+  String get sendAPredictionSub => 'Saņēmējs saņem tevis izvēlēto prognozi';
+
+  @override
+  String get sendAnInvestmentSub => 'Saņēmējs saņem tevis izvēlēto investīciju';
+
+  @override
+  String get sendPickOutcomeSub => 'Izvēlies iznākumu, ko saņēmējs saņems';
+
+  @override
+  String get sendPickAmountSub => 'Cik saņēmējs saņems?';
 }

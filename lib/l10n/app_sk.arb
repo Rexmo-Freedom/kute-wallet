@@ -3151,9 +3151,9 @@
   "searchHomeTrendingPredictions": "Populárne predpovede",
   "barPickMarketGroup": "Vyber skupinu trhov",
   "barPickMarketGroupSub": "alebo nech Sal nejakú nájde",
-  "barShareMarketSub": "Pošli trh alebo svoju predpoveď",
+  "barShareMarketSub": "Pošli trh alebo predpoveď",
   "barSharePositionSub": "Pošli trh alebo svoju pozíciu",
-  "shareTheMarketSub": "Odkaz na otvorenie, s tvojím kódom",
+  "shareTheMarketSub": "Dostanú odkaz, aby si ho pozreli",
   "shareThisPositionSub": "Trh a ako sa ti darí",
   "sendThisPrediction": "Poslať túto predpoveď",
   "sendThisInvestment": "Poslať túto investíciu",
@@ -3268,7 +3268,7 @@
   "sendPickMarketSearchHint": "Hľadať v predpovediach a investovaní",
   "sendPickMarketNoResults": "Nič nezodpovedá",
   "sendPickSideTitle": "Ktorá strana?",
-  "sendPickSideSub": "Čo dostanú, pripravené na zadanie",
+  "sendPickSideSub": "Vyber stranu, ktorú dostanú",
   "shareSendAgainWhatsApp": "Poslať znova cez WhatsApp",
   "shareSendAgainSms": "Poslať znova cez SMS",
   "sendToLabel": "Príjemca",
@@ -3480,5 +3480,11 @@
   "activityEarlier": "Earlier",
   "polyRowLeads": "{leader} leads · {chance}",
   "predictAboveTarget": "above target",
-  "predictBelowTarget": "below target"
+  "predictBelowTarget": "below target",
+  "sendAPrediction": "Poslať predpoveď",
+  "sendAnInvestment": "Poslať investíciu",
+  "sendAPredictionSub": "Dostanú predpoveď, ktorú vyberieš",
+  "sendAnInvestmentSub": "Dostanú investíciu, ktorú vyberieš",
+  "sendPickOutcomeSub": "Vyber výsledok, ktorý dostanú",
+  "sendPickAmountSub": "Koľko dostanú?"
 }

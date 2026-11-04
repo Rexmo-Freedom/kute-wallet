@@ -3151,9 +3151,9 @@
   "searchHomeTrendingPredictions": "Populāras prognozes",
   "barPickMarketGroup": "Izvēlies tirgu grupu",
   "barPickMarketGroupSub": "vai palūdz Sal to atrast",
-  "barShareMarketSub": "Sūti tirgu vai savu prognozi",
+  "barShareMarketSub": "Sūti tirgu vai prognozi",
   "barSharePositionSub": "Sūti tirgu vai savu pozīciju",
-  "shareTheMarketSub": "Saite, ko var atvērt, ar tavu kodu",
+  "shareTheMarketSub": "Saņēmējs saņem saiti, lai to apskatītu",
   "shareThisPositionSub": "Tirgus un kā tev veicas",
   "sendThisPrediction": "Sūtīt šo prognozi",
   "sendThisInvestment": "Sūtīt šo investīciju",
@@ -3268,7 +3268,7 @@
   "sendPickMarketSearchHint": "Meklēt prognozēs un investēšanā",
   "sendPickMarketNoResults": "Nekas neatbilst",
   "sendPickSideTitle": "Kura puse?",
-  "sendPickSideSub": "Ko saņēmējs iegūst, gatavu veikšanai",
+  "sendPickSideSub": "Izvēlies pusi, ko saņēmējs saņems",
   "shareSendAgainWhatsApp": "Sūtīt vēlreiz ar WhatsApp",
   "shareSendAgainSms": "Sūtīt vēlreiz ar SMS",
   "sendToLabel": "Saņēmējs",
@@ -3480,5 +3480,11 @@
   "activityEarlier": "Earlier",
   "polyRowLeads": "{leader} leads · {chance}",
   "predictAboveTarget": "above target",
-  "predictBelowTarget": "below target"
+  "predictBelowTarget": "below target",
+  "sendAPrediction": "Sūtīt prognozi",
+  "sendAnInvestment": "Sūtīt investīciju",
+  "sendAPredictionSub": "Saņēmējs saņem tevis izvēlēto prognozi",
+  "sendAnInvestmentSub": "Saņēmējs saņem tevis izvēlēto investīciju",
+  "sendPickOutcomeSub": "Izvēlies iznākumu, ko saņēmējs saņems",
+  "sendPickAmountSub": "Cik saņēmējs saņems?"
 }

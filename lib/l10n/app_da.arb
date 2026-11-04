@@ -3151,9 +3151,9 @@
   "searchHomeTrendingPredictions": "Populære forudsigelser",
   "barPickMarketGroup": "Vælg en markedsgruppe",
   "barPickMarketGroupSub": "eller bed Sal om at finde en",
-  "barShareMarketSub": "Send markedet eller din forudsigelse",
+  "barShareMarketSub": "Send markedet eller en forudsigelse",
   "barSharePositionSub": "Send markedet eller din position",
-  "shareTheMarketSub": "Et link, de kan åbne, med din kode",
+  "shareTheMarketSub": "De får et link til at se det",
   "shareThisPositionSub": "Markedet og hvordan det går dig",
   "sendThisPrediction": "Send denne forudsigelse",
   "sendThisInvestment": "Send denne investering",
@@ -3268,7 +3268,7 @@
   "sendPickMarketSearchHint": "Søg i forudsigelser og investering",
   "sendPickMarketNoResults": "Intet matcher",
   "sendPickSideTitle": "Hvilken side?",
-  "sendPickSideSub": "Det, de får, klar til at placere",
+  "sendPickSideSub": "Vælg den side, de får",
   "shareSendAgainWhatsApp": "Send igen via WhatsApp",
   "shareSendAgainSms": "Send igen via sms",
   "sendToLabel": "Send til",
@@ -3480,5 +3480,11 @@
   "activityEarlier": "Earlier",
   "polyRowLeads": "{leader} leads · {chance}",
   "predictAboveTarget": "above target",
-  "predictBelowTarget": "below target"
+  "predictBelowTarget": "below target",
+  "sendAPrediction": "Send en forudsigelse",
+  "sendAnInvestment": "Send en investering",
+  "sendAPredictionSub": "De får den forudsigelse, du vælger",
+  "sendAnInvestmentSub": "De får den investering, du vælger",
+  "sendPickOutcomeSub": "Vælg det udfald, de får",
+  "sendPickAmountSub": "Hvor meget får de?"
 }

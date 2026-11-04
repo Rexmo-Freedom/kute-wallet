@@ -3151,9 +3151,9 @@
   "searchHomeTrendingPredictions": "Predviđanja u trendu",
   "barPickMarketGroup": "Odaberi skupinu tržišta",
   "barPickMarketGroupSub": "ili zamoli Sala da je pronađe",
-  "barShareMarketSub": "Pošalji tržište ili svoje predviđanje",
+  "barShareMarketSub": "Pošalji tržište ili predviđanje",
   "barSharePositionSub": "Pošalji tržište ili svoju poziciju",
-  "shareTheMarketSub": "Poveznica koju mogu otvoriti, s tvojim kodom",
+  "shareTheMarketSub": "Dobivaju poveznicu da ga pogledaju",
   "shareThisPositionSub": "Tržište i kako ti ide",
   "sendThisPrediction": "Pošalji ovo predviđanje",
   "sendThisInvestment": "Pošalji ovo ulaganje",
@@ -3268,7 +3268,7 @@
   "sendPickMarketSearchHint": "Pretraži predviđanja i ulaganja",
   "sendPickMarketNoResults": "Nema rezultata",
   "sendPickSideTitle": "Koja strana?",
-  "sendPickSideSub": "Što dobivaju, spremno za postavljanje",
+  "sendPickSideSub": "Odaberi stranu koju dobivaju",
   "shareSendAgainWhatsApp": "Pošalji ponovno putem WhatsAppa",
   "shareSendAgainSms": "Pošalji ponovno SMS-om",
   "sendToLabel": "Primatelj",
@@ -3480,5 +3480,11 @@
   "activityEarlier": "Earlier",
   "polyRowLeads": "{leader} leads · {chance}",
   "predictAboveTarget": "above target",
-  "predictBelowTarget": "below target"
+  "predictBelowTarget": "below target",
+  "sendAPrediction": "Pošalji predviđanje",
+  "sendAnInvestment": "Pošalji ulaganje",
+  "sendAPredictionSub": "Dobivaju predviđanje koje odabereš",
+  "sendAnInvestmentSub": "Dobivaju ulaganje koje odabereš",
+  "sendPickOutcomeSub": "Odaberi ishod koji dobivaju",
+  "sendPickAmountSub": "Koliko dobivaju?"
 }

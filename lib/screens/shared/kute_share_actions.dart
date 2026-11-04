@@ -15,11 +15,21 @@
 // Claim screen can open the slip ready to place
 // (screens/share/send_to_anyone_sheet.dart, claim_screen.dart).
 //
-// THE PICK is the side the page shows: on a prediction market its leading
-// outcome ([polymarketLeadingPick]: Yes or No by the chance, the top
-// candidate of a multi-outcome event); on a prediction position the
-// position's outcome; on an Investing market Long; on an Investing
-// position its side.
+// THE PICK IS NEVER CHOSEN FOR THE PERSON (founder, 4 November 2026: "it
+// auto-selects No and such. I mean I don't really understand"). On a
+// market page the pick card is "Send a prediction" ("Send an investment"
+// on Investing) and carries the market with every side it can send
+// ([SendPickMarket], screens/share/send_pick.dart): Send to anyone opens
+// on the side step, Yes and No (Long and Short) as the page's own pair,
+// equal, nothing selected; the card's foot reads both sides with their
+// chances ("Yes 64% · No 36%"), and so does the preview line. The leading
+// outcome is no longer a default anywhere. A position page sends "this
+// prediction": the position's own side, the person's pick already.
+//
+// WHAT EACH CARD DOES, PLAINLY: "Send the market", "They get a link to
+// look at it" (the market's name at its foot); "Send a prediction", "You
+// pick the side and the amount. They get the prediction" (both sides at
+// its foot).
 //
 // THE MARKET LINK. The app has no market deep link yet (incoming links are
 // referral codes and `/c/{id}` claims, app_router.dart), so a shared
@@ -78,6 +88,7 @@ import 'package:kute/providers/unified_search_provider.dart'
 import 'package:kute/screens/share/brag/brag_data.dart' show BragData;
 import 'package:kute/screens/share/brag/brag_preview_sheet.dart'
     show showBragPreviewSheet;
+import 'package:kute/screens/share/send_pick.dart';
 import 'package:kute/screens/share/send_to_anyone_sheet.dart';
 import 'package:kute/screens/share/share_market_sheet.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
@@ -107,9 +118,10 @@ String shareVenueFor(String linkVenue) => linkVenue == kMarketLinkInvesting
     ? kShareVenueHyperliquid
     : kShareVenuePolymarket;
 
-/// The leading outcome of a prediction event, the pick a market page
-/// shares by default: Yes or No by which is ahead on a binary market, the
-/// top candidate otherwise. [chance] is that outcome's chance, 0–100.
+/// The leading outcome of a prediction event: Yes or No by which is ahead
+/// on a binary market, the top candidate otherwise. [chance] is that
+/// outcome's chance, 0–100. Never a pick's default (see the file header):
+/// the market page's preview reads it where it has nothing better.
 ({String label, int index, double chance})? polymarketLeadingPick(
     PolymarketEvent event) {
   final outcomes = event.outcomes;
@@ -278,6 +290,10 @@ KuteBarContext marketBarContext(
   // An open position's brag card, built when asked (see the file header).
   BragData Function()? brag,
   bool sendPick = true,
+  // A prediction market page's event: the sides its "Send a prediction"
+  // offers (send_pick.dart). Without it a Yes/No page offers Yes and No
+  // off [chance].
+  PolymarketEvent? predictionEvent,
 }) {
   final l10n = context.l10n;
   final cleanSlug = (slug?.trim().isEmpty ?? true) ? null : slug!.trim();
@@ -285,9 +301,35 @@ KuteBarContext marketBarContext(
   final investing = venue == kMarketLinkInvesting;
   final shareVenue = shareVenueFor(venue);
   final pickSide = side ?? (investing ? 'long' : 'buy');
-  final pickLabel = outcome ?? (investing ? l10n.longLabel : null);
+  // A position's side is the person's pick; a market page has none (see
+  // the file header).
+  final pickLabel = position
+      ? (outcome ?? (investing ? l10n.longLabel : null))
+      : null;
+  final pickMarket = _sendPickMarketFor(
+    l10n,
+    title: title,
+    ticker: ticker,
+    venue: shareVenue,
+    slug: cleanSlug,
+    position: position,
+    outcome: pickLabel,
+    outcomeIndex: outcomeIndex,
+    outcomeChance: outcomeChance,
+    side: pickSide,
+    chance: chance,
+    price: price,
+    imageUrl: imageUrl,
+    wireCoin: wireCoin,
+    coinCategory: coinCategory,
+    coinIconUrl: coinIconUrl,
+    event: predictionEvent,
+  );
   final String? previewLine;
-  if (pickLabel != null && outcomeChance != null) {
+  if (!position && pickMarket != null && pickMarket.isPair && !investing) {
+    // Both sides, equal: "Yes 64% · No 36%".
+    previewLine = sendPickSidesLine(l10n, pickMarket);
+  } else if (pickLabel != null && outcomeChance != null) {
     previewLine = '$pickLabel ${outcomeChance.round()}%';
   } else if (price != null && price.isNotEmpty) {
     previewLine = pickLabel == null ? price : '$pickLabel · $price';
@@ -345,6 +387,7 @@ KuteBarContext marketBarContext(
             outcome: pickLabel,
             outcomeIndex: outcomeIndex,
             side: pickSide,
+            pickMarket: pickMarket,
             // The share card's picture until the providers have the
             // market (screens/share/cards/share_card_sources.dart).
             imageUrl: investing ? null : imageUrl,
@@ -356,21 +399,20 @@ KuteBarContext marketBarContext(
           ));
         }),
       ),
-      if (sendPick)
+      if (sendPick && pickMarket != null)
         KuteMarketBarAction(
-          label: investing ? l10n.sendThisInvestment : l10n.sendThisPrediction,
-          sublabel: l10n.sendThisPickSub,
+          label: position
+              ? (investing ? l10n.sendThisInvestment : l10n.sendThisPrediction)
+              : (investing ? l10n.sendAnInvestment : l10n.sendAPrediction),
+          sublabel: position
+              ? l10n.sendThisPickSub
+              : (investing ? l10n.sendAnInvestmentSub : l10n.sendAPredictionSub),
           salClip: 'share',
           onTap: (_) => _afterSalSheet(context, () {
             unawaited(showSendToAnyoneSheet(
               context,
               kind: ShareLinkKind.dollars,
-              marketSlug: cleanSlug,
-              marketTitle: title,
-              venue: shareVenue,
-              outcome: pickLabel,
-              outcomeIndex: outcomeIndex,
-              side: pickSide,
+              market: pickMarket,
               entrySource: 'market_bar',
             ));
           }),
@@ -383,6 +425,74 @@ KuteBarContext marketBarContext(
           onTap: (_) => _afterSalSheet(context, openBrag),
         ),
     ],
+  );
+}
+
+/// The market a page's pick card sends on (send_pick.dart): a position's
+/// own side, chosen; a market's sides, none chosen. Null when there is
+/// nothing to send a pick on (no slug, no side known).
+SendPickMarket? _sendPickMarketFor(
+  AppLocalizations l10n, {
+  required String title,
+  required String? ticker,
+  required String venue,
+  required String? slug,
+  required bool position,
+  required String? outcome,
+  required int? outcomeIndex,
+  required double? outcomeChance,
+  required String side,
+  required double? chance,
+  required String? price,
+  required String? imageUrl,
+  required String? wireCoin,
+  required String? coinCategory,
+  required String? coinIconUrl,
+  required PolymarketEvent? event,
+}) {
+  if (slug == null) return null;
+  final investing = venue == kShareVenueHyperliquid;
+  List<SendPickSide> sides;
+  SendPickSide? chosen;
+  if (position) {
+    final label = outcome?.trim() ?? '';
+    if (label.isEmpty) return null;
+    chosen = SendPickSide(
+      label: label,
+      side: side,
+      index: outcomeIndex,
+      chance: outcomeChance == null ? null : outcomeChance / 100,
+    );
+    sides = [chosen];
+  } else if (investing) {
+    sides = sendPickInvestingSides(l10n, spot: sendPickWireIsSpot(wireCoin));
+  } else if (event != null) {
+    sides = sendPickPredictionSides(event);
+  } else if (chance != null) {
+    // A Yes/No page that did not hand its event over: Yes and No off the
+    // Yes side's chance; the link names them, the Claim screen finds them.
+    final yes = (chance / 100).clamp(0.0, 1.0);
+    sides = [
+      SendPickSide(label: 'Yes', side: 'buy', chance: yes),
+      SendPickSide(label: 'No', side: 'buy', chance: 1 - yes),
+    ];
+  } else {
+    return null;
+  }
+  if (sides.isEmpty) return null;
+  return SendPickMarket(
+    venue: venue,
+    slug: slug,
+    title: title,
+    subtitle: investing && ticker != null && ticker != title ? ticker : null,
+    imageUrl: investing ? null : imageUrl,
+    coin: investing ? slug : null,
+    wireCoin: investing ? (wireCoin ?? slug) : null,
+    coinCategory: investing ? coinCategory : null,
+    coinIconUrl: investing ? coinIconUrl : null,
+    price: investing ? price : null,
+    sides: sides,
+    chosen: chosen,
   );
 }
 

@@ -768,7 +768,8 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       venue: kMarketLinkPredictions,
       slug: event.slug,
       chance: event.isBinary ? event.yesPrice * 100 : null,
-      // The pick: the leading outcome, the side this page shows.
+      // The leading outcome. Never the pick's default: a market page's
+      // "Send a prediction" asks for the side (kute_share_actions.dart).
       outcome: polymarketLeadingPick(event)?.label,
       outcomeIndex: polymarketLeadingPick(event)?.index,
       outcomeChance: polymarketLeadingPick(event)?.chance,
@@ -784,6 +785,8 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       // one prediction sends the market or the prediction (founder, 2
       // November 2026; kute_share_actions.dart).
       sendPick: _isSinglePrediction,
+      // Its sides for "Send a prediction", none chosen (send_pick.dart).
+      predictionEvent: event,
     );
   }
 
