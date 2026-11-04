@@ -11359,10 +11359,10 @@ class AppLocalizationsDe extends AppLocalizations {
       'Um es zu bewegen, kontaktiere den Support.';
 
   @override
-  String get portfolioSectionPnlCharts => 'GuV-Charts';
+  String get portfolioSectionPnlCharts => 'GuV';
 
   @override
-  String get portfolioSectionBalances => 'Portfolio';
+  String get portfolioSectionBalances => 'Positionen';
 
   @override
   String balanceChangePastWeek(String change) {

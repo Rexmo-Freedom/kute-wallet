@@ -11316,10 +11316,10 @@ class AppLocalizationsNl extends AppLocalizations {
       'Neem contact op met support om het te verplaatsen.';
 
   @override
-  String get portfolioSectionPnlCharts => 'W&V-grafieken';
+  String get portfolioSectionPnlCharts => 'W&V';
 
   @override
-  String get portfolioSectionBalances => 'Portfolio';
+  String get portfolioSectionBalances => 'Posities';
 
   @override
   String balanceChangePastWeek(String change) {

@@ -11276,10 +11276,10 @@ class AppLocalizationsDa extends AppLocalizations {
   String get cctpRefundContactSupport => 'Kontakt support for at flytte dem.';
 
   @override
-  String get portfolioSectionPnlCharts => 'P&L-grafer';
+  String get portfolioSectionPnlCharts => 'P&L';
 
   @override
-  String get portfolioSectionBalances => 'Portefølje';
+  String get portfolioSectionBalances => 'Positioner';
 
   @override
   String balanceChangePastWeek(String change) {

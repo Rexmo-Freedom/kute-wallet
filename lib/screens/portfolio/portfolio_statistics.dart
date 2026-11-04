@@ -210,10 +210,17 @@ class PortfolioStatisticsOverview extends ConsumerStatefulWidget {
     this.footer = const [],
     this.footerEmpty = true,
     this.boxed = false,
+    this.chart = true,
     this.endClearance,
     this.header,
     this.sectionEmpty,
   });
+
+  /// False on the Portfolio screen, whose hero draws the one P&L chart
+  /// (components/portfolio_hero.dart): the section is the venues' P&L and
+  /// the all-time stats without a chart of its own ([PnlBreakdown]), the
+  /// resting orders under them; the venue rows pick nothing.
+  final bool chart;
 
   /// The whole page when the account never traded, in place of the header
   /// and the centred empty state: the Portfolio screen's sections' one
@@ -352,8 +359,11 @@ class _PortfolioStatisticsOverviewState
     // frame and never cards that are not there.
     if (results.values.any((r) => !r.hasValue && !r.hasError)) {
       return _page([
-        const PortfolioPnlSkeleton(
-            key: ValueKey('portfolio-performance-loading')),
+        widget.chart
+            ? const PortfolioPnlSkeleton(
+                key: ValueKey('portfolio-performance-loading'))
+            : const _PnlBreakdownSkeleton(
+                key: ValueKey('portfolio-performance-loading')),
       ]);
     }
     final data = <PortfolioPerformanceVenue, PortfolioPerformance>{};
@@ -387,8 +397,9 @@ class _PortfolioStatisticsOverviewState
           if (data.containsKey(v)) v
       ],
       data: data,
-      charted: _charted,
+      charted: widget.chart ? _charted : null,
       onChart: _chart,
+      chart: widget.chart,
       orders: widget.orders,
       footerEmpty: widget.footerEmpty,
       page: _page,
@@ -403,6 +414,7 @@ class _OverviewBody extends ConsumerWidget {
     required this.data,
     required this.charted,
     required this.onChart,
+    required this.chart,
     required this.orders,
     required this.footerEmpty,
     required this.page,
@@ -417,6 +429,9 @@ class _OverviewBody extends ConsumerWidget {
   final Map<PortfolioPerformanceVenue, PortfolioPerformance> data;
   final PortfolioPerformanceVenue? charted;
   final ValueChanged<PortfolioPerformanceVenue?> onChart;
+
+  /// The chart over the venues ([PortfolioStatisticsOverview.chart]).
+  final bool chart;
   final PortfolioOrdersBook? orders;
   final bool footerEmpty;
   final Widget Function(List<Widget> top) page;
@@ -436,11 +451,11 @@ class _OverviewBody extends ConsumerWidget {
       for (final v in venues)
         if (data[v]!.hasMovement) v
     ];
-    final toggled = moving.length > 1 && moving.contains(charted);
+    final toggled = chart && moving.length > 1 && moving.contains(charted);
     final series = toggled ? charted! : single;
     // A pick the figures no longer allow (one venue moving now) is
     // dropped, so the ring above never shows a venue the chart does not.
-    if (charted != null && !toggled) {
+    if (chart && charted != null && !toggled) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (context.mounted) {
           ref.read(pnlChartVenueProvider.notifier).state = null;
@@ -472,8 +487,12 @@ class _OverviewBody extends ConsumerWidget {
         trading != null &&
         trading.book == null &&
         ref.watch(hyperliquidUserFillsProvider).isLoading) {
-      return page(const [
-        PortfolioPnlSkeleton(key: ValueKey('portfolio-performance-loading')),
+      return page([
+        chart
+            ? const PortfolioPnlSkeleton(
+                key: ValueKey('portfolio-performance-loading'))
+            : const _PnlBreakdownSkeleton(
+                key: ValueKey('portfolio-performance-loading')),
       ]);
     }
     if (!combined.hasMovement && !resting && _Figures.quiet(figures)) {
@@ -521,6 +540,42 @@ class _OverviewBody extends ConsumerWidget {
                 data[PortfolioPerformanceVenue.predictions]?.predictions)
             : null;
 
+    final stats = PnlStatsFigures(
+        realisedUsd: realised, unrealisedUsd: unrealised, winRate: winRate);
+    // Nothing to show for a venue: a P&L that never moved, or no history
+    // in its own books.
+    final quietVenues = {
+      for (final v in listed)
+        if (!data[v]!.hasMovement || _Figures.quiet(byVenue[v])) v
+    };
+    if (!chart) {
+      // The Portfolio screen's P&L: the venues' P&L and the all-time
+      // stats, the hero above drawing the chart; a P&L that never moved:
+      // the sections' one empty state, the orders under it.
+      return page([
+        if (combined.hasMovement)
+          PnlBreakdown(
+            stats: stats,
+            venues: _PnlVenues(
+                listed: listed,
+                data: data,
+                quiet: quietVenues,
+                selected: null,
+                onPick: null),
+          )
+        else
+          Padding(
+            key: const ValueKey('statistics-pnl-section'),
+            padding: EdgeInsets.only(top: (kPortfolioSectionEmptyTop - 4).h),
+            child: PortfolioSectionEmpty(
+                key: const ValueKey('statistics-pnl-no-history'),
+                title: l10n.pnlNoHistoryTitle,
+                tagline: PortfolioSectionTagline.pnl),
+          ),
+        if (resting) _PnlOrders(listed: listed, orders: orders!),
+      ]);
+    }
+
     return page([
       // The flat section: the figure, the chart and its ranges, the stats
       // strip, the venue rows (which pick the series). A P&L that never
@@ -530,17 +585,11 @@ class _OverviewBody extends ConsumerWidget {
         eventVenue: _eventVenue(series),
         data: toggled ? data[charted]! : combined,
         flat: true,
-        stats: PnlStatsFigures(
-            realisedUsd: realised, unrealisedUsd: unrealised, winRate: winRate),
+        stats: stats,
         footer: _PnlVenues(
           listed: listed,
           data: data,
-          // Nothing to show for a venue: a P&L that never moved, or no
-          // history in its own books.
-          quiet: {
-            for (final v in listed)
-              if (!data[v]!.hasMovement || _Figures.quiet(byVenue[v])) v
-          },
+          quiet: quietVenues,
           selected: picked,
           // The rows pick the series only with two venues' P&L moving;
           // the picked row tapped again is All.
@@ -551,6 +600,29 @@ class _OverviewBody extends ConsumerWidget {
       if (resting) _PnlOrders(listed: listed, orders: orders!),
     ]);
   }
+}
+
+/// The Portfolio screen's P&L while a read is on its way
+/// ([PortfolioStatisticsOverview.chart] false): "By venue" over two
+/// shimmer rows in the venue card's shape, at the section's first title.
+class _PnlBreakdownSkeleton extends StatelessWidget {
+  const _PnlBreakdownSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: EdgeInsets.only(top: (kPortfolioSectionEmptyTop - 4).h),
+        child: KuteSkeleton(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SkeletonBar(72.w, 13.sp),
+              SizedBox(height: kBalancesTitleGap.h),
+              SkeletonBar(double.infinity, 136.h, radius: 20.r),
+            ],
+          ),
+        ),
+      );
 }
 
 /// The share of a Predictions account's closed positions that made money,

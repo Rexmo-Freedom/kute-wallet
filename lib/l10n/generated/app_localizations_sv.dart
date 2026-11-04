@@ -11275,10 +11275,10 @@ class AppLocalizationsSv extends AppLocalizations {
       'Kontakta supporten för att flytta dem.';
 
   @override
-  String get portfolioSectionPnlCharts => 'P&L-diagram';
+  String get portfolioSectionPnlCharts => 'P&L';
 
   @override
-  String get portfolioSectionBalances => 'Portfölj';
+  String get portfolioSectionBalances => 'Positioner';
 
   @override
   String balanceChangePastWeek(String change) {

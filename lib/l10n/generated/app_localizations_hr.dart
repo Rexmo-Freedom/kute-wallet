@@ -11298,10 +11298,10 @@ class AppLocalizationsHr extends AppLocalizations {
   String get cctpRefundContactSupport => 'Da ga premjestiš, javi se podršci.';
 
   @override
-  String get portfolioSectionPnlCharts => 'Grafikoni P&L';
+  String get portfolioSectionPnlCharts => 'P&L';
 
   @override
-  String get portfolioSectionBalances => 'Portfelj';
+  String get portfolioSectionBalances => 'Pozicije';
 
   @override
   String balanceChangePastWeek(String change) {

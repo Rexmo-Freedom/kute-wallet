@@ -1,11 +1,14 @@
-// The Portfolio screen's P&L Charts, measured (founder, 2 November 2026:
-// "Portfolio P&L chart is super slow. Make it decent."). Six months of
-// history at both venues (Investing every six hours, Predictions daily
-// with a 200-position book): the time to the first chart, a range
-// switch, a scrub frame and a live price tick, and how many P&L grids
-// ([pnlSeries], up to 20,000 points each) each of them lays. The numbers
-// are printed (`PNL_PERF …`) and held to budgets well above what the
-// screen needs now, so a regression to per-frame recomputation fails.
+// The Portfolio screen's P&L, measured (founder, 2 November 2026:
+// "Portfolio P&L chart is super slow. Make it decent."; since the
+// overhaul of 4 November 2026 the one chart is the hero's and the P&L
+// section lists the venues). Six months of history at both venues
+// (Investing every six hours, Predictions daily with a 200-position
+// book): the time to the first chart (the screen's first frame), the P&L
+// section's first frame, a range switch, a scrub frame and a live price
+// tick, and how many P&L grids ([pnlSeries], up to 20,000 points each)
+// each of them lays. The numbers are printed (`PNL_PERF …`) and held to
+// budgets well above what the screen needs now, so a regression to
+// per-frame recomputation fails.
 
 import 'dart:ui' as ui;
 
@@ -13,6 +16,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kute/providers/currency_conversions_provider.dart'
+    show currentBtcUsdProvider;
 import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/settings_model.dart';
@@ -120,13 +125,18 @@ List<Override> _sixMonths() {
 /// The feed's notifier now (an auto-dispose provider: the latest one made).
 _Prices? _feed;
 
-Future<void> _mount(WidgetTester tester) async {
+/// Mounts the page on Positions; returns the grids the first frames laid
+/// (the hero's chart once its reads land).
+Future<int> _mount(WidgetTester tester) async {
   tester.view.devicePixelRatio = 3;
   tester.view.physicalSize = const Size(390, 1500) * 3;
   addTearDown(tester.view.reset);
+  final before = debugPnlSeriesGrids;
   await tester.pumpWidget(ProviderScope(
     overrides: [
       ...portfolioOverrides(),
+      // The Investments activity reads the price (no rates box here).
+      currentBtcUsdProvider.overrideWithValue(100000),
       hyperliquidLiveMidProvider('BTC').overrideWith((_) => null),
       hyperliquidAccountMarketProvider('BTC').overrideWith((_) => null),
       hyperliquidPerpMarketsProvider.overrideWith((_) async => <HlMarket>[]),
@@ -161,7 +171,6 @@ Future<void> _mount(WidgetTester tester) async {
           body: Material(
             child: Consumer(
               builder: (context, ref, _) => InvestmentsPortfolio(
-                sharesHeader: true,
                 onSection: (s) =>
                     ref.read(portfolioSectionProvider.notifier).state = s,
               ),
@@ -174,6 +183,7 @@ Future<void> _mount(WidgetTester tester) async {
   for (var i = 0; i < 10; i++) {
     await tester.pump(const Duration(milliseconds: 100));
   }
+  return debugPnlSeriesGrids - before;
 }
 
 /// One frame's wall time, the grids it laid and the widgets it rebuilt
@@ -201,29 +211,37 @@ Future<({double ms, int grids, Map<String, int> built})> _frame(
 }
 
 /// The heavy parts of the page: none of them may rebuild on a scrub
-/// frame or on another market's tick.
+/// frame or on another market's tick (a scrub frame rebuilds the hero's
+/// P&L line and the plot alone).
 const _heavy = [
+  'PortfolioHero',
+  'PortfolioHeroChart',
+  '_HeroFigure',
+  '_HeroLine',
   'PortfolioStatisticsOverview',
-  'PortfolioPnlChart',
+  'PnlBreakdown',
   'PnlVenueRow',
   'PnlStatsStrip',
-  '_SectionHero',
   'PortfolioBalanceBreakdown',
+  'PortfolioActivitySection',
 ];
 
 int _heavyBuilt(Map<String, int> built) =>
     _heavy.fold(0, (t, k) => t + (built[k] ?? 0));
 
 void main() {
-  testWidgets('P&L Charts: first chart, range switch, scrub, live tick',
+  testWidgets('P&L: first chart, the section, range switch, scrub, live tick',
       (tester) async {
-    await _mount(tester);
+    final firstGrids = await _mount(tester);
+    // The hero's chart is on screen from the first frames, whatever the
+    // section.
+    expect(find.byKey(const ValueKey('portfolio-hero-chart')), findsOneWidget);
 
-    // Time to the first chart: the pill tapped, one frame.
+    // The P&L section: the pill tapped, one frame (its venue rows).
     await tester
         .tap(find.byKey(const ValueKey('portfolio-section-pill-charts')));
     final first = await _frame(tester, () => tester.pump());
-    expect(find.byKey(const ValueKey('statistics-pnl-chart')), findsOneWidget);
+    expect(find.byKey(const ValueKey('statistics-figures')), findsOneWidget);
     for (var i = 0; i < 10; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
@@ -295,7 +313,8 @@ void main() {
     });
 
     // ignore: avoid_print
-    print('PNL_PERF first=${first.ms.toStringAsFixed(1)}ms/${first.grids} grids '
+    print('PNL_PERF mount=$firstGrids grids '
+        'section=${first.ms.toStringAsFixed(1)}ms/${first.grids} grids '
         'range=${range.ms.toStringAsFixed(1)}ms/${range.grids} grids '
         'idle=${idleMs.toStringAsFixed(2)}ms paint=${paintMs.toStringAsFixed(2)}ms '
         'scrub=${(scrubMs / moves).toStringAsFixed(2)}ms/frame '
@@ -304,19 +323,20 @@ void main() {
         'otherTick=${other.ms.toStringAsFixed(1)}ms/${other.grids} grids');
 
     // The work, held: a scrub frame lays no grid and rebuilds only the
-    // figure, the line under it, the plot and the ring's hole; another
-    // market's tick rebuilds nothing; the first chart and a range switch
-    // lay each series once (both venues, their sum).
+    // hero's P&L line and the plot; another market's tick rebuilds
+    // nothing; the first chart, the section and a range switch lay each
+    // series a bounded number of times (the venues, their sum).
     expect(scrubGrids, 0, reason: 'grids laid while scrubbing');
-    expect(scrubHeavy, 0, reason: 'section or ring rebuilt while scrubbing');
+    expect(scrubHeavy, 0, reason: 'hero or section rebuilt while scrubbing');
+    expect(firstGrids, lessThanOrEqualTo(6));
     expect(other.grids, 0);
     expect(_heavyBuilt(other.built), 0,
         reason: 'another market\'s tick rebuilt the section');
     expect(first.grids, lessThanOrEqualTo(6));
     expect(range.grids, lessThanOrEqualTo(6));
     expect(tick.grids, lessThanOrEqualTo(6));
-    // The scrub's figure follows the finger, and the ring's hole with it.
-    expect(find.byKey(const ValueKey('statistics-pnl-headline')),
+    // The hero's P&L line is there to follow the finger.
+    expect(find.byKey(const ValueKey('portfolio-hero-change')),
         findsOneWidget);
 
     await tester.pumpWidget(const SizedBox());

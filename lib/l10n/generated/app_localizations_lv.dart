@@ -11250,10 +11250,10 @@ class AppLocalizationsLv extends AppLocalizations {
       'Lai to pārvietotu, sazinies ar atbalstu.';
 
   @override
-  String get portfolioSectionPnlCharts => 'P&L grafiki';
+  String get portfolioSectionPnlCharts => 'P&L';
 
   @override
-  String get portfolioSectionBalances => 'Portfelis';
+  String get portfolioSectionBalances => 'Pozīcijas';
 
   @override
   String balanceChangePastWeek(String change) {

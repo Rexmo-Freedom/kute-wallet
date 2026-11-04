@@ -11304,10 +11304,10 @@ class AppLocalizationsHu extends AppLocalizations {
       'Az áthelyezéséhez fordulj az ügyfélszolgálathoz.';
 
   @override
-  String get portfolioSectionPnlCharts => 'P&L grafikonok';
+  String get portfolioSectionPnlCharts => 'P&L';
 
   @override
-  String get portfolioSectionBalances => 'Portfólió';
+  String get portfolioSectionBalances => 'Pozíciók';
 
   @override
   String balanceChangePastWeek(String change) {

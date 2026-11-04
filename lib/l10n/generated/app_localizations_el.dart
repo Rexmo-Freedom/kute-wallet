@@ -11353,10 +11353,10 @@ class AppLocalizationsEl extends AppLocalizations {
       'Για να τα μετακινήσεις, επικοινώνησε με την υποστήριξη.';
 
   @override
-  String get portfolioSectionPnlCharts => 'Γραφήματα P&L';
+  String get portfolioSectionPnlCharts => 'P&L';
 
   @override
-  String get portfolioSectionBalances => 'Χαρτοφυλάκιο';
+  String get portfolioSectionBalances => 'Θέσεις';
 
   @override
   String balanceChangePastWeek(String change) {

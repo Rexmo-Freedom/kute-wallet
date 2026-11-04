@@ -11356,10 +11356,10 @@ class AppLocalizationsFr extends AppLocalizations {
       'Pour le déplacer, contactez l\'assistance.';
 
   @override
-  String get portfolioSectionPnlCharts => 'Graphiques P&L';
+  String get portfolioSectionPnlCharts => 'P&L';
 
   @override
-  String get portfolioSectionBalances => 'Portefeuille';
+  String get portfolioSectionBalances => 'Positions';
 
   @override
   String balanceChangePastWeek(String change) {
