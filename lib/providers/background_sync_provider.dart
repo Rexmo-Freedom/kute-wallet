@@ -246,12 +246,21 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
   static const int _sparkAddressRingMax = 5;
   bool _sparkAddressRingHydrated = false;
 
+  /// Addresses whose last poll showed money on its way (an incoming tx not
+  /// yet past the bridge window). They are never pushed out of the ring by
+  /// newer addresses: losing the one a deposit was sent to made its
+  /// "Receiving" row vanish on the next poll, which read fine and simply
+  /// no longer looked there. The ring may run past [_sparkAddressRingMax]
+  /// by these, up to [_sparkAddressRingHardMax].
+  final Set<String> _sparkAddressesWithPending = <String>{};
+  static const int _sparkAddressRingHardMax = 10;
+
   void _hydrateSparkAddressRingIfNeeded() {
     if (_sparkAddressRingHydrated) return;
     _sparkAddressRingHydrated = true;
     try {
       final box = Hive.box<String>(_sparkAddressRingBox);
-      for (int i = 0; i < _sparkAddressRingMax; i++) {
+      for (int i = 0; i < _sparkAddressRingHardMax; i++) {
         final v = box.get('pos_$i');
         if (v != null && v.isNotEmpty) {
           _sparkAddressRing.add(v);
@@ -263,7 +272,7 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
   void _persistSparkAddressRing() {
     try {
       final box = Hive.box<String>(_sparkAddressRingBox);
-      for (int i = 0; i < _sparkAddressRingMax; i++) {
+      for (int i = 0; i < _sparkAddressRingHardMax; i++) {
         if (i < _sparkAddressRing.length) {
           box.put('pos_$i', _sparkAddressRing[i]);
         } else {
@@ -279,10 +288,10 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
     if (_sparkAddressRing.isNotEmpty && _sparkAddressRing.first == addr) return;
     _sparkAddressRing.remove(addr);
     _sparkAddressRing.insert(0, addr);
-    if (_sparkAddressRing.length > _sparkAddressRingMax) {
-      _sparkAddressRing.removeRange(
-          _sparkAddressRingMax, _sparkAddressRing.length);
-    }
+    trimSparkAddressRing(_sparkAddressRing,
+        keep: _sparkAddressesWithPending,
+        max: _sparkAddressRingMax,
+        hardMax: _sparkAddressRingHardMax);
     _persistSparkAddressRing();
   }
 
@@ -535,7 +544,9 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
         final tipFuture = MempoolAddressService.fetchBlockTipHeight()
             .timeout(const Duration(seconds: 8));
         var addressFailed = false;
-        final addrFutures = _sparkAddressRing
+        // A snapshot: the ring can change while the reads are out.
+        final polled = List<String>.of(_sparkAddressRing);
+        final addrFutures = polled
             .map((a) => MempoolAddressService.fetchAddressTransactions(a)
                     .timeout(const Duration(seconds: 10))
                     .catchError((_) {
@@ -550,7 +561,9 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
 
         final seenTxids = <String>{};
         final pending = <SparkPendingDeposit>[];
-        for (final txs in perAddrTxs) {
+        final withPending = <String>{};
+        for (var a = 0; a < perAddrTxs.length; a++) {
+          final txs = perAddrTxs[a];
           for (final tx in txs) {
             // Only incoming credits to the deposit address. Outbound
             // (balanceChange <= 0) belongs to the withdraw path which
@@ -588,8 +601,14 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
               mempoolTx: tx,
               confirmations: confirmations,
             ));
+            withPending.add(polled[a]);
           }
         }
+        // Read in full (a failed address returned above): these are the
+        // addresses with money on its way now.
+        _sparkAddressesWithPending
+          ..clear()
+          ..addAll(withPending);
         return pending;
       } catch (_) {
         // Network failure / SDK not ready: unknown, not empty. The feed
@@ -2646,3 +2665,17 @@ bool orchestraRowAwaitsDelivery(SwapOrder e,
 /// How long after it was created a done order with no bitcoin figure may
 /// still be settled on its receive.
 const Duration kOwnDeliveryLinkWindow = Duration(hours: 6);
+
+
+/// Trims [ring] (latest first) to [max] addresses, dropping the oldest
+/// first but never the current one (the first) nor one in [keep] (an
+/// address with a deposit on its way); past [hardMax] the oldest go
+/// regardless.
+@visibleForTesting
+void trimSparkAddressRing(List<String> ring,
+    {required Set<String> keep, required int max, required int hardMax}) {
+  for (var i = ring.length - 1; i >= 1 && ring.length > max; i--) {
+    if (!keep.contains(ring[i])) ring.removeAt(i);
+  }
+  if (ring.length > hardMax) ring.removeRange(hardMax, ring.length);
+}
