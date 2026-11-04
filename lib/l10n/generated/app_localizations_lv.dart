@@ -5782,6 +5782,40 @@ class AppLocalizationsLv extends AppLocalizations {
   String get hlAdvancedChart => 'Paplašināts grafiks';
 
   @override
+  String get optionAdvancedChartSub => 'Zīmējumi un indikatori';
+
+  @override
+  String get optionAboutMarketSub => 'Statistika un rīkojumu grāmata';
+
+  @override
+  String get optionAddMarginSub => 'Tālāk no likvidācijas';
+
+  @override
+  String get optionPositionDetailsSub => 'Lielums, ieeja un finansējums';
+
+  @override
+  String optionEndsOn(String date) {
+    return 'Beidzas $date';
+  }
+
+  @override
+  String optionEndedOn(String date) {
+    return 'Beidzās $date';
+  }
+
+  @override
+  String get optionHowItResolves => 'Kā tiek noslēgts';
+
+  @override
+  String get optionViewMarketSub => 'Grafiks un izredzes';
+
+  @override
+  String get optionPredictionDetailsSub => 'Daļas un samaksātā cena';
+
+  @override
+  String get optionProtectSellSub => 'Pārdod par savu cenu';
+
+  @override
   String get chartStyleCandles => 'Sveces';
 
   @override

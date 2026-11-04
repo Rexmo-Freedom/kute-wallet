@@ -5805,6 +5805,40 @@ class AppLocalizationsDa extends AppLocalizations {
   String get hlAdvancedChart => 'Avanceret graf';
 
   @override
+  String get optionAdvancedChartSub => 'Tegninger og indikatorer';
+
+  @override
+  String get optionAboutMarketSub => 'Statistik og ordrebog';
+
+  @override
+  String get optionAddMarginSub => 'Længere fra likvidation';
+
+  @override
+  String get optionPositionDetailsSub => 'Størrelse, indgang og funding';
+
+  @override
+  String optionEndsOn(String date) {
+    return 'Slutter $date';
+  }
+
+  @override
+  String optionEndedOn(String date) {
+    return 'Sluttede $date';
+  }
+
+  @override
+  String get optionHowItResolves => 'Sådan afgøres det';
+
+  @override
+  String get optionViewMarketSub => 'Graf og odds';
+
+  @override
+  String get optionPredictionDetailsSub => 'Andele og betalt pris';
+
+  @override
+  String get optionProtectSellSub => 'Sælg til din pris';
+
+  @override
   String get chartStyleCandles => 'Lys';
 
   @override

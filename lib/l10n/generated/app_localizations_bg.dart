@@ -5810,6 +5810,40 @@ class AppLocalizationsBg extends AppLocalizations {
   String get hlAdvancedChart => 'Разширена графика';
 
   @override
+  String get optionAdvancedChartSub => 'Чертежи и индикатори';
+
+  @override
+  String get optionAboutMarketSub => 'Статистика и книга с поръчки';
+
+  @override
+  String get optionAddMarginSub => 'По-далеч от ликвидация';
+
+  @override
+  String get optionPositionDetailsSub => 'Размер, вход и funding';
+
+  @override
+  String optionEndsOn(String date) {
+    return 'Приключва $date';
+  }
+
+  @override
+  String optionEndedOn(String date) {
+    return 'Приключи $date';
+  }
+
+  @override
+  String get optionHowItResolves => 'Как се определя резултатът';
+
+  @override
+  String get optionViewMarketSub => 'Графика и шансове';
+
+  @override
+  String get optionPredictionDetailsSub => 'Дялове и платена цена';
+
+  @override
+  String get optionProtectSellSub => 'Продай на своята цена';
+
+  @override
   String get chartStyleCandles => 'Свещи';
 
   @override

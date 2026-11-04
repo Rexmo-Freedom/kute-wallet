@@ -5784,6 +5784,40 @@ class AppLocalizationsEt extends AppLocalizations {
   String get hlAdvancedChart => 'Täpsem graafik';
 
   @override
+  String get optionAdvancedChartSub => 'Joonised ja indikaatorid';
+
+  @override
+  String get optionAboutMarketSub => 'Statistika ja tellimusraamat';
+
+  @override
+  String get optionAddMarginSub => 'Likvideerimisest kaugemale';
+
+  @override
+  String get optionPositionDetailsSub => 'Suurus, sisenemine ja rahastamine';
+
+  @override
+  String optionEndsOn(String date) {
+    return 'Lõpeb $date';
+  }
+
+  @override
+  String optionEndedOn(String date) {
+    return 'Lõppes $date';
+  }
+
+  @override
+  String get optionHowItResolves => 'Kuidas see lahendatakse';
+
+  @override
+  String get optionViewMarketSub => 'Graafik ja tõenäosused';
+
+  @override
+  String get optionPredictionDetailsSub => 'Osakud ja makstud hind';
+
+  @override
+  String get optionProtectSellSub => 'Müü oma hinnaga';
+
+  @override
   String get chartStyleCandles => 'Küünlad';
 
   @override

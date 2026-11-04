@@ -35,6 +35,19 @@ import 'package:flutter/material.dart';
 /// beside Inter everywhere else.
 String? kuteChartFontFamily = 'Inter';
 
+/// The plot height of a market screen's chart, in design units (scaled
+/// by height, `.h`): the Investing market's chart and every Predictions
+/// market, event and game chart, so the two venues' charts read the same
+/// size (founder, 4 November 2026: the Predictions charts "occupy way too
+/// much of the screen"; they follow the Investing chart's). Never grown
+/// to fill the screen: what is under the chart (a game's momentum, the
+/// options) keeps its room.
+const double kKuteMarketChartHeight = 260;
+
+/// The line width of a market chart's lines (Investing and Predictions,
+/// one line or many): [kuteStrokePaint]'s default.
+const double kKuteChartLineWidth = 2.0;
+
 /// Fitted y-domain for one paint pass.
 typedef KuteYDomain = ({double minY, double maxY});
 
@@ -176,13 +189,15 @@ Shader kuteFillShader(double w, double h, Color color) {
   );
 }
 
-/// The one stroke spec: 2.0 wide (unless overridden), round caps/joins.
-Paint kuteStrokePaint(Color color, {double width = 2.0}) => Paint()
-  ..color = color
-  ..style = PaintingStyle.stroke
-  ..strokeWidth = width
-  ..strokeCap = StrokeCap.round
-  ..strokeJoin = StrokeJoin.round;
+/// The one stroke spec: [kKuteChartLineWidth] wide (unless overridden),
+/// round caps/joins.
+Paint kuteStrokePaint(Color color, {double width = kKuteChartLineWidth}) =>
+    Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = width
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
 
 /// The endpoint dot spec: a filled dot in the series colour with a small
 /// theme-aware core (a hardcoded white core vanished on light themes).

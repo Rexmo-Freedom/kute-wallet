@@ -5849,6 +5849,40 @@ class AppLocalizationsEl extends AppLocalizations {
   String get hlAdvancedChart => 'Προηγμένο γράφημα';
 
   @override
+  String get optionAdvancedChartSub => 'Σχέδια και δείκτες';
+
+  @override
+  String get optionAboutMarketSub => 'Στατιστικά και βιβλίο εντολών';
+
+  @override
+  String get optionAddMarginSub => 'Πιο μακριά από τη ρευστοποίηση';
+
+  @override
+  String get optionPositionDetailsSub => 'Μέγεθος, είσοδος και funding';
+
+  @override
+  String optionEndsOn(String date) {
+    return 'Λήγει $date';
+  }
+
+  @override
+  String optionEndedOn(String date) {
+    return 'Έληξε $date';
+  }
+
+  @override
+  String get optionHowItResolves => 'Πώς επιλύεται';
+
+  @override
+  String get optionViewMarketSub => 'Γράφημα και πιθανότητες';
+
+  @override
+  String get optionPredictionDetailsSub => 'Μερίδια και τιμή αγοράς';
+
+  @override
+  String get optionProtectSellSub => 'Πώληση στην τιμή σου';
+
+  @override
   String get chartStyleCandles => 'Κεριά';
 
   @override

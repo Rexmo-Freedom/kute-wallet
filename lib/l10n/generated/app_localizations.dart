@@ -10144,11 +10144,71 @@ abstract class AppLocalizations {
   /// **'Chart style'**
   String get chartStyleTitle;
 
-  /// Row under a Hyperliquid chart (market screen, above About; position screen, above Details) that opens the chart in its editing mode: drawing tools and indicators.
+  /// Option card under a Hyperliquid chart (market screen, beside About; position screen, beside Details) that opens the chart in its editing mode: drawing tools and indicators.
   ///
   /// In en, this message translates to:
   /// **'Advanced chart'**
   String get hlAdvancedChart;
+
+  /// Option card under an Investing chart (market and position screens): the line under 'Advanced chart', what that mode has. Short, one line.
+  ///
+  /// In en, this message translates to:
+  /// **'Drawings and indicators'**
+  String get optionAdvancedChartSub;
+
+  /// Option card under an Investing market's chart: the line under 'About Bitcoin', what its sheet holds. Short, one line.
+  ///
+  /// In en, this message translates to:
+  /// **'Stats and order book'**
+  String get optionAboutMarketSub;
+
+  /// Option card on an Investing position screen: the line under 'Add margin'; adding margin moves the liquidation price further away. Short, one line.
+  ///
+  /// In en, this message translates to:
+  /// **'Further from liquidation'**
+  String get optionAddMarginSub;
+
+  /// Option card on an Investing position screen: the line under 'Details', what its sheet holds (position size, entry price, funding). Short, one line.
+  ///
+  /// In en, this message translates to:
+  /// **'Size, entry and funding'**
+  String get optionPositionDetailsSub;
+
+  /// Option card under a Predictions market's chart: the line under 'Rules and resolution' when the market is still open. {date} is a short date, e.g. 'Nov 5'. Short, one line.
+  ///
+  /// In en, this message translates to:
+  /// **'Ends {date}'**
+  String optionEndsOn(String date);
+
+  /// Option card under a Predictions market's chart: the line under 'Rules and resolution' once the market has ended. {date} is a short date, e.g. 'Nov 5'. Short, one line.
+  ///
+  /// In en, this message translates to:
+  /// **'Ended {date}'**
+  String optionEndedOn(String date);
+
+  /// Option card on Predictions screens: the line under 'Rules and resolution' (no end date known) and under 'Closing conditions' on a position. Short, one line.
+  ///
+  /// In en, this message translates to:
+  /// **'How it resolves'**
+  String get optionHowItResolves;
+
+  /// Option card on a Predictions position screen: the line under 'View market' (the market's screen, with its chart and the chances). Short, one line.
+  ///
+  /// In en, this message translates to:
+  /// **'Chart and odds'**
+  String get optionViewMarketSub;
+
+  /// Option card on a Predictions position screen: the line under 'Details', what its sheet holds (shares, the price paid). Short, one line.
+  ///
+  /// In en, this message translates to:
+  /// **'Shares and price paid'**
+  String get optionPredictionDetailsSub;
+
+  /// Option card on a Predictions position screen: the line under 'Protect it', which opens a limit sell at a price the user picks. Short, one line.
+  ///
+  /// In en, this message translates to:
+  /// **'Sell at your price'**
+  String get optionProtectSellSub;
 
   /// No description provided for @chartStyleCandles.
   ///

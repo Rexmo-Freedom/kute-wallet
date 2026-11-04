@@ -5818,6 +5818,40 @@ class AppLocalizationsIt extends AppLocalizations {
   String get hlAdvancedChart => 'Grafico avanzato';
 
   @override
+  String get optionAdvancedChartSub => 'Disegni e indicatori';
+
+  @override
+  String get optionAboutMarketSub => 'Statistiche e book degli ordini';
+
+  @override
+  String get optionAddMarginSub => 'Più lontano dalla liquidazione';
+
+  @override
+  String get optionPositionDetailsSub => 'Dimensione, ingresso e funding';
+
+  @override
+  String optionEndsOn(String date) {
+    return 'Termina il $date';
+  }
+
+  @override
+  String optionEndedOn(String date) {
+    return 'Terminato il $date';
+  }
+
+  @override
+  String get optionHowItResolves => 'Come si risolve';
+
+  @override
+  String get optionViewMarketSub => 'Grafico e probabilità';
+
+  @override
+  String get optionPredictionDetailsSub => 'Quote e prezzo pagato';
+
+  @override
+  String get optionProtectSellSub => 'Vendi al tuo prezzo';
+
+  @override
   String get chartStyleCandles => 'Candele';
 
   @override
