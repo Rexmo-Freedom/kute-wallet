@@ -1013,7 +1013,11 @@ class Transaction {
       // exchange row (background sync's reconciler), and that row was
       // settled with the real sats in the same pass — the feed always
       // keeps the user-meaningful "Trading withdraw" story row.
-      if (tx is SparkTransaction && orchestraDeliveryIds.contains(tx.id)) {
+      // Never an on-chain deposit: one a mistaken match once tagged
+      // shows again.
+      if (tx is SparkTransaction &&
+          tx.sparkType != SparkTransactionType.bitcoin &&
+          orchestraDeliveryIds.contains(tx.id)) {
         return false;
       }
       // Spark-side Polymarket hide DISABLED. The heuristic was

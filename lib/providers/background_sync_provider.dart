@@ -1,7 +1,7 @@
 import 'package:kute/services/polymarket/combos/combo_feed.dart';
 import 'package:kute/services/orchestra/standing_deposit_store.dart';
 import 'package:kute/services/orchestra/own_bitcoin_deliveries.dart'
-    show orchestraBtcFieldToSats, reconcilerDeliveryLegs, tightDeliveryTolerance, kOwnDeliveryArrivalWindow;
+    show isOnChainDeposit, orchestraBtcFieldToSats, reconcilerDeliveryLegs, tightDeliveryTolerance, kOwnDeliveryArrivalWindow;
 import 'package:kute/services/orchestra/standing_deposit_sweep.dart';
 import 'dart:async';
 import 'package:hive_ce/hive.dart';
@@ -1429,6 +1429,9 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
         for (final tx
             in snapshot.allTransactionsSorted.whereType<SparkTransaction>()) {
           if (tx.type != TransactionType.received) continue;
+          // An on-chain deposit is the person's own money arriving, never
+          // a move's delivery: settling a move on it hid the deposit.
+          if (isOnChainDeposit(tx)) continue;
           if (!seenRxIds.add(tx.id)) continue;
           receiveSats[tx.id] = tx.amountSats.abs();
           if (tx.isPending) continue;

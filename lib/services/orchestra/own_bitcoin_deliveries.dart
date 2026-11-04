@@ -106,6 +106,11 @@ const int kMaxDeliveryLegs = 4;
 
 /// The tight match: a delivered amount within two percent of what the row
 /// says (one sat at least). A leg or a set of legs this close is the row's.
+/// Whether [rx] is an on-chain deposit claimed into Spark, which no
+/// Orchestra delivery ever is (they arrive over Spark or Lightning).
+bool isOnChainDeposit(SparkTransaction rx) =>
+    rx.sparkType == SparkTransactionType.bitcoin;
+
 int tightDeliveryTolerance(int sats) => math.max(1, (sats * 0.02).round());
 
 /// The legs among [candidates] that together deliver [target] sats within
@@ -184,9 +189,12 @@ Map<String, String> ownBitcoinDeliveryReceives(
   Map<String, OrchestraDeliveryLink> links = const {},
 }) {
   final claimed = <String, String>{};
+  // An on-chain deposit is never a delivery: Orchestra pays the wallet
+  // over Spark or Lightning. Matching one by amount and time (or a link a
+  // mistaken match left) hid a claimed deposit from Activity entirely.
   final inbound = [
     for (final rx in receives)
-      if (rx.type == TransactionType.received) rx,
+      if (rx.type == TransactionType.received && !isOnChainDeposit(rx)) rx,
   ];
   if (inbound.isEmpty || exchanges.isEmpty) return claimed;
 
@@ -403,6 +411,7 @@ List<SparkTransaction>? reconcilerDeliveryLegs({
   final candidates = [
     for (final rx in receives)
       if (rx.amountSats > 0 &&
+          !isOnChainDeposit(rx) &&
           !rx.timestamp.isBefore(rowAt.subtract(const Duration(minutes: 2))) &&
           !rx.timestamp.isAfter(rowAt.add(kOwnDeliveryArrivalWindow)))
         rx,
