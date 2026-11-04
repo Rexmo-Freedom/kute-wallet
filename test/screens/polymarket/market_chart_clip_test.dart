@@ -3,8 +3,8 @@
 // kuteMonotonePath), the scale leaves room above the top line and under
 // the bottom one for the end dots and the pulse (polyChartEdgeRoom), a
 // one-off live tick from a thin book is not drawn
-// (polyLiveTickIsOutlier, LiveChartNotifier), and an event's chart of
-// three or more outcomes is a little taller (polyChartHeightFor).
+// (polyLiveTickIsOutlier, LiveChartNotifier). (The chart's height, one
+// for every market, is venue_chart_parity_test.dart's.)
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -201,16 +201,6 @@ void main() {
           live: true,
           unpriced: const {'tok'}));
       expect(c.read(polymarketLiveChartProvider(key)).length, 1);
-    });
-  });
-
-  group('the chart\'s height', () {
-    test('three or more outcomes get a fifth more; one or two keep theirs',
-        () {
-      expect(polyChartHeightFor(1), 220);
-      expect(polyChartHeightFor(2), 220);
-      expect(polyChartHeightFor(3), 260);
-      expect(polyChartHeightFor(6), 260);
     });
   });
 }

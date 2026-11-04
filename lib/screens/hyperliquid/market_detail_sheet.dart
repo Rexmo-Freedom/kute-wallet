@@ -7,6 +7,8 @@ import 'package:kute/screens/home/components/kute_shell_bar.dart'
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/shared/position_rows_card.dart' show PositionLinkRow;
+import 'package:kute/screens/shared/charts/kute_chart_core.dart'
+    show kKuteMarketChartHeight;
 import 'package:kute/screens/shared/kute_blur.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show KuteStillWhenCovered;
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
@@ -487,10 +489,12 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
               // ── Body ──────────────────────────────────────────────
               Expanded(
                 child: Builder(builder: (context) {
-                  // The reading chart: a 260 plot (design units;
-                  // HlCandleChart applies .h) starting 12 under the change
-                  // line, its interval row right under it, and the rows
-                  // below. Advanced mode grows it to the whole screen.
+                  // The reading chart: the market chart's plot
+                  // ([kKuteMarketChartHeight], design units; HlCandleChart
+                  // applies .h, as the Predictions charts do) starting 12
+                  // under the change line, its interval row right under
+                  // it, and the rows below. Advanced mode grows it to the
+                  // whole screen.
                   if (_advancedChart) {
                     // Editing: the chart alone, the whole screen
                     // (HlChartEditBody, shared with the position screen).
@@ -513,7 +517,7 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                       ),
                     );
                   }
-                  const chartHeight = 260.0;
+                  const chartHeight = kKuteMarketChartHeight;
                   return SingleChildScrollView(
                     // Drawing on the chart must not scroll the sheet, so
                     // Advanced mode pins the body until it is switched off.
@@ -537,8 +541,9 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // The 260 plot (see chartHeight above); Advanced
-                        // mode expands it (animated inside the chart).
+                        // The market chart's plot (see chartHeight above);
+                        // Advanced mode expands it (animated inside the
+                        // chart).
                         HlCandleChart(
                           key: _chartHostKey,
                           market: m,

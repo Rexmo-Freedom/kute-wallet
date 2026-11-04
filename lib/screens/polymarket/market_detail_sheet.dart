@@ -61,8 +61,7 @@ import 'package:kute/screens/shared/market_pair_button.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart'
-    show SliverConstraints, OverflowBoxFit;
+import 'package:flutter/rendering.dart' show OverflowBoxFit;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -357,41 +356,10 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   /// (search-opened events lose `teams`). Populated in [build].
   List<PolymarketTeam> _fetchedTeams = const [];
 
-  /// Fits one screen above the sticky outcome bar and Buy buttons on a
-  /// standard iPhone. With [_chartFill] added when the screen has room.
-  static const double _chartHeight = 380;
-
-  /// Height added to the chart so a short list (a Yes / No market, two or
-  /// three outcomes) leaves no empty room under it ([polyChartFillExtra]).
-  /// Worked out once, the first time the sheet is laid out with its chart
-  /// at its own height, from the room left in the scroll area; never
-  /// changed again for that height, so nothing moves as prices and the
-  /// chart's history load.
-  double _chartFill = 0;
-
-  /// The scroll area's height [_chartFill] was worked out for.
-  double? _chartFillViewport;
-
-  /// The chart's own height (without [_chartFill]) as last built; null
-  /// when the sheet has no chart.
-  double? _chartBase;
-
-  /// Works out [_chartFill] from [constraints], the constraints of a sliver
-  /// laid out after everything else in the scroll area.
-  void _fitChartToScreen(SliverConstraints constraints) {
-    final base = _chartBase;
-    if (base == null || watchingStream) return;
-    final viewport = constraints.viewportMainAxisExtent;
-    if (_chartFillViewport == viewport) return;
-    _chartFillViewport = viewport;
-    final content = constraints.precedingScrollExtent - _chartFill;
-    final fill = polyChartFillExtra(
-        leftover: viewport - content, base: base, viewport: viewport);
-    if ((fill - _chartFill).abs() < 1) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) setState(() => _chartFill = fill);
-    });
-  }
+  /// The chart's height: the Investing market chart's plot over the time
+  /// axis ([polyMarketChartHeight]), the same for every market, event and
+  /// game, and never grown to fill the screen (founder, 4 November 2026).
+  double get _chartHeight => polyMarketChartHeight();
 
   /// The event as this sheet lists it: [MarketDetailSheet.event], with any
   /// placeholder outcome the user holds listed again
@@ -662,9 +630,6 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
                                 // chart and nothing else.
                                 Consumer(builder: (context, chartRef, _) {
                                   final chartWidget = _buildChartBody(chartRef);
-                                  _chartBase = chartWidget == null
-                                      ? null
-                                      : chartWidget.height - _chartFill;
                                   if (chartWidget == null) {
                                     return const SizedBox.shrink();
                                   }
@@ -729,12 +694,6 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
                         ),
                       ]),
                     ),
-                    // Laid out last, it reads how much room the content
-                    // leaves, for the chart to take ([_fitChartToScreen]).
-                    SliverLayoutBuilder(builder: (context, constraints) {
-                      _fitChartToScreen(constraints);
-                      return const SliverToBoxAdapter(child: SizedBox.shrink());
-                    }),
                     // The last rows (the outcomes, Rules) scroll clear of
                     // the floating bar (kute_bar_context.dart).
                     SliverToBoxAdapter(
@@ -2372,7 +2331,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
         if (tokenId == null || tokenId.isEmpty) return null;
         return MarketChart(
           tokenId: tokenId,
-          height: _chartHeight + _chartFill,
+          height: _chartHeight,
           accentColor: _kPolyGreen,
           bought: _chartBought(ref, [tokenId]),
           shortMarket: _isShortRound,
@@ -2385,7 +2344,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       }
       return MarketChart(
         lines: lines,
-        height: _chartHeight + _chartFill,
+        height: _chartHeight,
         // Match the charted line: green for Yes, red for the No-only
         // fallback.
         accentColor: lines.first.color,
@@ -2415,7 +2374,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
               livePrice: _livePriceFor(ref, line.tokenId, line.price),
             ),
         ],
-        height: _chartHeight + _chartFill,
+        height: _chartHeight,
         accentColor: winner.first.color,
         bought: _chartBought(ref, [for (final l in winner) l.tokenId]),
         shortMarket: _isShortRound,
@@ -2453,7 +2412,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       if (wdlLines.length >= 2) {
         return MarketChart(
           lines: wdlLines,
-          height: _chartHeight + _chartFill,
+          height: _chartHeight,
           accentColor: colors.teamA,
           bought: _chartBought(ref, [for (final l in wdlLines) l.tokenId]),
           shortMarket: _isShortRound,
@@ -2483,7 +2442,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
 
     return MarketChart(
       lines: lines,
-      height: polyChartHeightFor(lines.length) + _chartFill,
+      height: _chartHeight,
       accentColor: lines.first.color,
       bought: _chartBought(ref, [for (final l in lines) l.tokenId]),
       shortMarket: _isShortRound,
