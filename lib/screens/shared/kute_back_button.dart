@@ -39,6 +39,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
@@ -321,24 +322,30 @@ class _KuteNavChassisState extends State<_KuteNavChassis> {
       curve: down ? Curves.easeOut : KuteMotion.press,
       child: face,
     );
-    final hit = math.max(kKuteNavHitSize, d);
-    return Semantics(
-      button: true,
-      enabled: live,
-      label: widget.semanticsLabel,
-      excludeSemantics: widget.semanticsLabel != null,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTapDown: live ? (_) => _set(true) : null,
-        onTapUp: live ? (_) => _set(false) : null,
-        onTapCancel: live ? () => _set(false) : null,
-        onTap: live ? _handle : null,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(minWidth: hit, minHeight: hit),
-          child: Center(
-            widthFactor: 1,
-            heightFactor: 1,
-            child: Opacity(opacity: live ? 1 : 0.4, child: face),
+    // The box it lays out in: the 44 the circles always took, scaled by
+    // width like the rest of the layout (so no header moves); the touch
+    // target reaches at least 44 logical px past it on a narrow phone.
+    final box = math.max(kKuteNavHitSize, widget.size).w;
+    return _MinHitArea(
+      extent: kKuteNavHitSize,
+      child: Semantics(
+        button: true,
+        enabled: live,
+        label: widget.semanticsLabel,
+        excludeSemantics: widget.semanticsLabel != null,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: live ? (_) => _set(true) : null,
+          onTapUp: live ? (_) => _set(false) : null,
+          onTapCancel: live ? () => _set(false) : null,
+          onTap: live ? _handle : null,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minWidth: box, minHeight: box),
+            child: Center(
+              widthFactor: 1,
+              heightFactor: 1,
+              child: Opacity(opacity: live ? 1 : 0.4, child: face),
+            ),
           ),
         ),
       ),
@@ -498,5 +505,48 @@ class KuteCircleBackButton extends StatelessWidget {
       semanticsLabel: _navLabel(context, KuteNavGlyph.back),
       onPressed: onPressed,
     );
+  }
+}
+
+/// A touch target of at least [extent] x [extent] logical px around its
+/// child, centred on it, without changing its layout: a tap just outside
+/// a box the width scale made smaller than [extent] still lands on it.
+class _MinHitArea extends SingleChildRenderObjectWidget {
+  const _MinHitArea({required this.extent, super.child});
+
+  final double extent;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderMinHitArea(extent);
+
+  @override
+  void updateRenderObject(
+          BuildContext context, _RenderMinHitArea renderObject) =>
+      renderObject.extent = extent;
+}
+
+class _RenderMinHitArea extends RenderProxyBox {
+  _RenderMinHitArea(this.extent);
+
+  double extent;
+
+  @override
+  bool hitTest(BoxHitTestResult result, {required Offset position}) {
+    final dx = math.max(0.0, (extent - size.width) / 2);
+    final dy = math.max(0.0, (extent - size.height) / 2);
+    final area = Rect.fromLTRB(
+        -dx, -dy, size.width + dx, size.height + dy);
+    if (!area.contains(position)) return false;
+    // A point in the margin is handed to the child at its nearest edge.
+    final inside = Offset(
+      position.dx.clamp(0.0, math.max(0.0, size.width - 0.001)),
+      position.dy.clamp(0.0, math.max(0.0, size.height - 0.001)),
+    );
+    if (hitTestChildren(result, position: inside)) {
+      result.add(BoxHitTestEntry(this, position));
+      return true;
+    }
+    return false;
   }
 }

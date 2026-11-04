@@ -128,6 +128,35 @@ void main() {
     await tester.pump();
   });
 
+  testWidgets(
+      'on a narrow phone the box keeps its scaled layout, and the touch '
+      'target still reaches 44', (tester) async {
+    var taps = 0;
+    tester.view.physicalSize = const Size(375, 667);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(ScreenUtilInit(
+      designSize: const Size(430, 932),
+      builder: (_, __) => MaterialApp(
+        theme: buildLightTheme(),
+        home: Scaffold(
+            body: Center(child: KuteCloseButton(onPressed: () => taps++))),
+      ),
+    ));
+    final close = find.byType(KuteCloseButton);
+    final rect = tester.getRect(close);
+    // 44 design units at 375 / 430.
+    expect(rect.width, closeTo(44 * 375 / 430, 0.01));
+    // Just outside the laid-out box, inside the 44 logical target.
+    await tester.tapAt(rect.centerLeft - const Offset(2, 0));
+    await tester.pump();
+    expect(taps, 1);
+    // Past the 44 target: nothing.
+    await tester.tapAt(rect.center - const Offset(24, 0));
+    await tester.pump();
+    expect(taps, 1);
+  });
+
   testWidgets('the edge of the 44 target still takes the tap',
       (tester) async {
     var taps = 0;
