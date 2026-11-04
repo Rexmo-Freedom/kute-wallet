@@ -3,7 +3,8 @@ import 'dart:async';
 import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
 import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/screens/shared/kute_share_actions.dart';
-import 'package:kute/screens/share/brag/brag_data.dart' show bragPolyPosition;
+import 'package:kute/screens/share/brag/brag_data.dart'
+    show bragPolyPosition, bragWonPosition, canBragWin;
 import 'package:kute/screens/share/brag/position_share_card.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/fitted_title.dart';
@@ -385,6 +386,13 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
         ' · ${pnlPercent >= 0 ? '+' : ''}${pnlPercent.toStringAsFixed(1)}%';
     // Settled: whether the held side won (the bar's own reading).
     final won = pos.won ?? currentPrice >= 0.5;
+    // A resolved win in profit brags about it (founder, 4 November 2026);
+    // a loss never does.
+    final wonBrag = canBragWin(
+        resolved: pos.isResolved,
+        won: pos.won,
+        costUsd: costBasis,
+        payoutUsd: pos.size);
     final investedText = formatPolyAmount(ref, costBasis);
 
     final eventDetails = pos.eventSlug != null && pos.eventSlug!.isNotEmpty
@@ -460,9 +468,13 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
       searchHint: context.l10n.searchPredictionsHint,
       source: 'predictions',
       placement: KuteBarPlacement.header,
-      // An open position brags (kute_share_actions.dart).
+      // An open position brags (kute_share_actions.dart); a resolved one
+      // only when it won, with its won card (brag_data.dart).
       brag: pos.isResolved
-          ? null
+          ? (wonBrag
+              ? () => bragWonPosition(ref.read,
+                  position: pos, costBasis: costBasis, imageUrl: headerImage)!
+              : null)
           : () => bragPolyPosition(ref.read,
               position: pos,
               costBasis: costBasis,
@@ -838,8 +850,9 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                       // (founder, 1 November 2026: the chart is gone, and
                       // the header pill crowded "You hold No"): one card
                       // in the tiles' style, "Brag about it" on an open
-                      // position in profit (its brag preview), else "Send
-                      // to a friend" (the page's Sal sheet). The journey
+                      // position in profit or a resolved win (its brag
+                      // preview), else "Send to a friend" (the page's Sal
+                      // sheet). The journey
                       // since the buy stays read for the brag card's line.
                       SizedBox(height: 12.h),
                       Consumer(builder: (context, journeyRef, _) {
@@ -851,7 +864,9 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                         }
                         return PositionShareCard(
                           bar: bar,
-                          brag: !pos.isResolved && pnl >= 0.005,
+                          brag: pos.isResolved
+                              ? wonBrag
+                              : pnl >= 0.005,
                         );
                       }),
 

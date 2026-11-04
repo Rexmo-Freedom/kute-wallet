@@ -11,6 +11,9 @@
 //     exactly (KuteSalHeaderButton's look: fully rounded, the textPrimary
 //     fill, Sal's face 26 and the label at w600, 40 tall), in the page's
 //     KuteFigureShareRow. Not in profit, it IS the header button.
+//   * A RESOLVED WIN (founder, 4 November 2026: past wins brag too): the
+//     same card reads "Brag about it" and opens the won card
+//     (brag_data.dart: bragWonPosition); a loss keeps "Send to a friend".
 //   * PREDICTIONS position page: [PositionShareCard], one full-width
 //     BLACK button under the Worth now / If it wins tiles: the textPrimary
 //     fill, the title and the quiet line in the contrast ink, Sal's
@@ -55,26 +58,56 @@ class PositionShareCard extends StatelessWidget {
   });
 
   /// The page's bar context (its Sal sheet, and the brag preview as its
-  /// primaryAction on an open position).
+  /// primaryAction on an open position in profit or a won one).
   final KuteBarContext bar;
 
-  /// The brag variant: an open position in profit.
+  /// The brag variant: an open position in profit, or a resolved win.
   final bool brag;
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
     final l10n = context.l10n;
     final bragAction = _bragAction(bar, brag);
+    return ShareActionCard(
+      key: const ValueKey('position-share-card'),
+      keyPrefix: 'position-share-card',
+      title: bragAction != null ? l10n.bragAboutIt : l10n.shareHeaderLabel,
+      sub: l10n.positionShareCardSub,
+      onTap: bragAction ??
+          () => unawaited(openKuteBarSheet(bar, source: context)),
+    );
+  }
+}
+
+/// The position page's black share button (see the file header), on its
+/// own: Sal's `share` face, [title] over [sub], a chevron; [onTap] opens
+/// what it shares. The won payout's receipt wears it too
+/// (brag_win_entry.dart). Its parts are keyed `{keyPrefix}-title`,
+/// `{keyPrefix}-sub` and `{keyPrefix}-chevron`.
+class ShareActionCard extends StatelessWidget {
+  const ShareActionCard({
+    super.key,
+    required this.title,
+    required this.sub,
+    required this.onTap,
+    required this.keyPrefix,
+  });
+
+  final String title;
+  final String sub;
+  final VoidCallback onTap;
+  final String keyPrefix;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
     final ink = _ink(context);
     return Semantics(
       button: true,
       child: KutePressable(
         child: GestureDetector(
-          key: const ValueKey('position-share-card'),
           behavior: HitTestBehavior.opaque,
-          onTap: bragAction ??
-              () => unawaited(openKuteBarSheet(bar, source: context)),
+          onTap: onTap,
           child: Container(
             padding: EdgeInsets.fromLTRB(12.w, 12.h, 12.w, 12.h),
             decoration: AppDecorations.card(context,
@@ -93,10 +126,8 @@ class PositionShareCard extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        bragAction != null
-                            ? l10n.bragAboutIt
-                            : l10n.shareHeaderLabel,
-                        key: const ValueKey('position-share-card-title'),
+                        title,
+                        key: ValueKey('$keyPrefix-title'),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -108,8 +139,8 @@ class PositionShareCard extends StatelessWidget {
                       ),
                       SizedBox(height: 2.h),
                       Text(
-                        l10n.positionShareCardSub,
-                        key: const ValueKey('position-share-card-sub'),
+                        sub,
+                        key: ValueKey('$keyPrefix-sub'),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -124,7 +155,7 @@ class PositionShareCard extends StatelessWidget {
                 ),
                 SizedBox(width: 8.w),
                 Icon(Icons.chevron_right_rounded,
-                    key: const ValueKey('position-share-card-chevron'),
+                    key: ValueKey('$keyPrefix-chevron'),
                     size: 22,
                     color: ink),
               ],

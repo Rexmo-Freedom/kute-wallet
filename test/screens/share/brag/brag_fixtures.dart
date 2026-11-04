@@ -201,3 +201,22 @@ BragPortfolio fakeBragFlatPortfolio() => const BragPortfolio(
             result: BragResult(usd: 0, text: r'$0.00', percent: 0)),
       ],
     );
+
+/// A won prediction: 30 Yes shares bought at 41¢ ($12.30), resolved Yes
+/// on 3 November 2026, paid out $30.00: +$17.70, +143.9%.
+BragWin fakeBragWin(
+        {String? code = kBragTestCode,
+        String title = 'Fed cuts rates in December?',
+        String side = 'Yes'}) =>
+    BragWin(
+      title: title,
+      link: 'https://backend.kutewallet.com/m/predictions/fed-december',
+      referralCode: code,
+      side: side,
+      result: const BragResult(usd: 17.7, text: r'+$17.70', percent: 143.9),
+      paidText: r'$12.30',
+      payoutText: r'$30.00',
+      entryValue: 0.41,
+      entryText: '41¢',
+      resolvedAt: DateTime.utc(2026, 11, 3, 18),
+    );
