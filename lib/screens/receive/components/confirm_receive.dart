@@ -297,6 +297,13 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
       // full scan held the native slot, the session failed to open,
       // ...) stays cached across screen opens and the QR plate shimmers
       // until restart. Drop the stale error so this open fetches again.
+      // Money arrived on the address shown last time: this open is when
+      // it rotates (SparkDepositAddressRotation), never while a screen
+      // is up.
+      if (SparkDepositAddressRotation.apply()) {
+        ref.invalidate(getSparkBitcoinAddressProvider);
+        ref.invalidate(initialAddressesProvider);
+      }
       final pickedId = _pickedReceiveWalletId;
       if (pickedId != null) {
         var pickedUsesBdk = false;
