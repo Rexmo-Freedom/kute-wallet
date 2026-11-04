@@ -8211,9 +8211,9 @@
   "@barShareWithFriends": {
     "description": "The floating Sal bar on a market or position page (Predictions and Investing): the recommended action. Founder (1 November 2026): say \"Send to a friend\", never \"Share\"."
   },
-  "barShareMarketSub": "Send the market or your prediction",
+  "barShareMarketSub": "Send the market or a prediction",
   "@barShareMarketSub": {
-    "description": "Second line of the floating Sal bar on a market page."
+    "description": "The line under Send to a friend on a single prediction's page."
   },
   "barSharePositionSub": "Send the market or your position",
   "@barSharePositionSub": {
@@ -8223,9 +8223,9 @@
   "@shareTheMarket": {
     "description": "Action row on a market page: sends a link to the market (opens the market send sheet). Founder: never \"Share\" on Predictions or Investing."
   },
-  "shareTheMarketSub": "A link they can open, with your code",
+  "shareTheMarketSub": "They get a link to look at it",
   "@shareTheMarketSub": {
-    "description": "Second line of the Share the market row."
+    "description": "Under Send the market on the Sal sheet's card: what happens."
   },
   "shareThisPosition": "Send this position",
   "@shareThisPosition": {
@@ -8754,14 +8754,6 @@
       }
     }
   },
-  "usdSendPickRow": "A stock or prediction",
-  "@usdSendPickRow": {
-    "description": "Dollars Send, Send to card: send a friend a stock or a prediction on a link."
-  },
-  "usdSendPickRowSub": "They get your pick, ready to place",
-  "@usdSendPickRowSub": {
-    "description": "Under usdSendPickRow."
-  },
   "usdReceiveFromYourBitcoin": "From your Bitcoin",
   "@usdReceiveFromYourBitcoin": {
     "description": "Dollars Add first step: deposit into Dollars from the user's own Bitcoin."
@@ -8811,11 +8803,10 @@
     }
   },
   "sendPickMarket": "Send a prediction or investment",
-  "sendPickMarketSub": "Pick a market, they get it ready to place",
+  "sendPickMarketSub": "Search a market, then pick the side",
   "sendPickMarketSearchHint": "Search predictions and investing",
   "sendPickMarketNoResults": "Nothing matches",
-  "sendPickSideTitle": "Which side?",
-  "sendPickSideSub": "What they get, ready to place",
+  "sendPickSideSub": "Pick the side they get",
   "shareSendAgainWhatsApp": "Send again via WhatsApp",
   "shareSendAgainSms": "Send again via SMS",
   "sendToLabel": "Send to",
@@ -9819,5 +9810,47 @@
   "predictBelowTarget": "below target",
   "@predictBelowTarget": {
     "description": "Compact live crypto round card on the Predictions list: beside the live price when it is below the round's target price (the price to beat). Lower case, a state word."
+  },
+  "sendAPrediction": "Send a prediction",
+  "@sendAPrediction": {
+    "description": "A market page's Sal sheet card, the market share sheet's button and the send sheet's title: send a prediction on this market, the side still to pick."
+  },
+  "sendAnInvestment": "Send an investment",
+  "@sendAnInvestment": {
+    "description": "As sendAPrediction, on an Investing market."
+  },
+  "sendAPredictionSub": "They get the prediction you pick",
+  "@sendAPredictionSub": {
+    "description": "Under Send a prediction on the Sal sheet's card: what happens."
+  },
+  "sendAnInvestmentSub": "They get the investment you pick",
+  "@sendAnInvestmentSub": {
+    "description": "Under Send an investment on the Sal sheet's card: what happens."
+  },
+  "@sendPickSideSub": {
+    "description": "The send sheet's side step subtitle: two sides (Yes / No, Long / Short), none chosen."
+  },
+  "sendPickOutcomeSub": "Pick the outcome they get",
+  "@sendPickOutcomeSub": {
+    "description": "The send sheet's side step subtitle on a market of several outcomes (candidates)."
+  },
+  "sendPickAmountSub": "How much do they get?",
+  "@sendPickAmountSub": {
+    "description": "The send sheet's amount step subtitle when a prediction or investment is sent."
+  },
+  "@sendPickMarketSub": {
+    "description": "Under Send a prediction or investment: the market search sheet's subtitle and the Send row's second line."
+  },
+  "sendToAFriendLabel": "To a friend",
+  "@sendToAFriendLabel": {
+    "description": "Section label over the Send screens' friend card (Send to anyone, Send a prediction or investment)."
+  },
+  "sendToCryptoAddress": "To a crypto address",
+  "@sendToCryptoAddress": {
+    "description": "The Dollars Send's row for the coins dollars can land as (opens the coin sheet); the coins are listed under it."
+  },
+  "sendPickRowSub": "Or an investment. Search a market, pick the side",
+  "@sendPickRowSub": {
+    "description": "Under Send a prediction on the Dollars Send's To a friend card: the row opens the market search (predictions and investing)."
   }
 }

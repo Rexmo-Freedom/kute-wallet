@@ -11411,7 +11411,7 @@ class AppLocalizationsCs extends AppLocalizations {
   String get barShareWithFriends => 'Poslat kamarádovi';
 
   @override
-  String get barShareMarketSub => 'Pošli trh nebo svou predikci';
+  String get barShareMarketSub => 'Pošli trh nebo predikci';
 
   @override
   String get barSharePositionSub => 'Pošli trh nebo svou pozici';
@@ -11420,7 +11420,7 @@ class AppLocalizationsCs extends AppLocalizations {
   String get shareTheMarket => 'Poslat trh';
 
   @override
-  String get shareTheMarketSub => 'Odkaz k otevření, s tvým kódem';
+  String get shareTheMarketSub => 'Dostanou odkaz, aby si ho prohlédli';
 
   @override
   String get shareThisPosition => 'Poslat tuto pozici';
@@ -11830,12 +11830,6 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
-  String get usdSendPickRow => 'A stock or prediction';
-
-  @override
-  String get usdSendPickRowSub => 'They get your pick, ready to place';
-
-  @override
   String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
 
   @override
@@ -11871,7 +11865,7 @@ class AppLocalizationsCs extends AppLocalizations {
   String get sendPickMarket => 'Poslat predikci nebo investici';
 
   @override
-  String get sendPickMarketSub => 'Vyber trh, dostanou ho připravený k zadání';
+  String get sendPickMarketSub => 'Vyhledej trh a pak vyber stranu';
 
   @override
   String get sendPickMarketSearchHint => 'Hledat v predikcích a investování';
@@ -11880,10 +11874,7 @@ class AppLocalizationsCs extends AppLocalizations {
   String get sendPickMarketNoResults => 'Nic neodpovídá';
 
   @override
-  String get sendPickSideTitle => 'Která strana?';
-
-  @override
-  String get sendPickSideSub => 'Co dostanou, připravené k zadání';
+  String get sendPickSideSub => 'Vyber stranu, kterou dostanou';
 
   @override
   String get shareSendAgainWhatsApp => 'Poslat znovu přes WhatsApp';
@@ -12511,4 +12502,31 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get predictBelowTarget => 'below target';
+
+  @override
+  String get sendAPrediction => 'Poslat predikci';
+
+  @override
+  String get sendAnInvestment => 'Poslat investici';
+
+  @override
+  String get sendAPredictionSub => 'Dostanou predikci, kterou vybereš';
+
+  @override
+  String get sendAnInvestmentSub => 'Dostanou investici, kterou vybereš';
+
+  @override
+  String get sendPickOutcomeSub => 'Vyber výsledek, který dostanou';
+
+  @override
+  String get sendPickAmountSub => 'Kolik dostanou?';
+
+  @override
+  String get sendToAFriendLabel => 'Kamarádovi';
+
+  @override
+  String get sendToCryptoAddress => 'Na kryptoadresu';
+
+  @override
+  String get sendPickRowSub => 'Nebo investici. Vyhledej trh, vyber stranu';
 }

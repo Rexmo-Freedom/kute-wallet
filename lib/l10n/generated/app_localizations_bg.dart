@@ -11434,7 +11434,7 @@ class AppLocalizationsBg extends AppLocalizations {
   String get barShareWithFriends => 'Изпрати на приятел';
 
   @override
-  String get barShareMarketSub => 'Изпрати пазара или прогнозата си';
+  String get barShareMarketSub => 'Изпрати пазара или прогноза';
 
   @override
   String get barSharePositionSub => 'Изпрати пазара или позицията си';
@@ -11443,7 +11443,7 @@ class AppLocalizationsBg extends AppLocalizations {
   String get shareTheMarket => 'Изпрати пазара';
 
   @override
-  String get shareTheMarketSub => 'Линк, който могат да отворят, с твоя код';
+  String get shareTheMarketSub => 'Получават линк, за да го разгледат';
 
   @override
   String get shareThisPosition => 'Изпрати тази позиция';
@@ -11851,12 +11851,6 @@ class AppLocalizationsBg extends AppLocalizations {
   }
 
   @override
-  String get usdSendPickRow => 'A stock or prediction';
-
-  @override
-  String get usdSendPickRowSub => 'They get your pick, ready to place';
-
-  @override
   String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
 
   @override
@@ -11892,8 +11886,7 @@ class AppLocalizationsBg extends AppLocalizations {
   String get sendPickMarket => 'Изпрати прогноза или инвестиция';
 
   @override
-  String get sendPickMarketSub =>
-      'Избери пазар, получават го готов за поставяне';
+  String get sendPickMarketSub => 'Потърси пазар, после избери страната';
 
   @override
   String get sendPickMarketSearchHint => 'Търси в прогнози и инвестиции';
@@ -11902,10 +11895,7 @@ class AppLocalizationsBg extends AppLocalizations {
   String get sendPickMarketNoResults => 'Няма съвпадения';
 
   @override
-  String get sendPickSideTitle => 'Коя страна?';
-
-  @override
-  String get sendPickSideSub => 'Какво получават, готово за поставяне';
+  String get sendPickSideSub => 'Избери страната, която получават';
 
   @override
   String get shareSendAgainWhatsApp => 'Изпрати отново през WhatsApp';
@@ -12532,4 +12522,31 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get predictBelowTarget => 'below target';
+
+  @override
+  String get sendAPrediction => 'Изпрати прогноза';
+
+  @override
+  String get sendAnInvestment => 'Изпрати инвестиция';
+
+  @override
+  String get sendAPredictionSub => 'Получават прогнозата, която избереш';
+
+  @override
+  String get sendAnInvestmentSub => 'Получават инвестицията, която избереш';
+
+  @override
+  String get sendPickOutcomeSub => 'Избери изхода, който получават';
+
+  @override
+  String get sendPickAmountSub => 'Колко получават?';
+
+  @override
+  String get sendToAFriendLabel => 'На приятел';
+
+  @override
+  String get sendToCryptoAddress => 'Към крипто адрес';
+
+  @override
+  String get sendPickRowSub => 'Или инвестиция. Потърси пазар, избери страна';
 }

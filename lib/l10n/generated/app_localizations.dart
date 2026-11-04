@@ -19173,10 +19173,10 @@ abstract class AppLocalizations {
   /// **'Send to a friend'**
   String get barShareWithFriends;
 
-  /// Second line of the floating Sal bar on a market page.
+  /// The line under Send to a friend on a single prediction's page.
   ///
   /// In en, this message translates to:
-  /// **'Send the market or your prediction'**
+  /// **'Send the market or a prediction'**
   String get barShareMarketSub;
 
   /// Second line of the floating Sal bar on a position page.
@@ -19191,10 +19191,10 @@ abstract class AppLocalizations {
   /// **'Send the market'**
   String get shareTheMarket;
 
-  /// Second line of the Share the market row.
+  /// Under Send the market on the Sal sheet's card: what happens.
   ///
   /// In en, this message translates to:
-  /// **'A link they can open, with your code'**
+  /// **'They get a link to look at it'**
   String get shareTheMarketSub;
 
   /// Action row on a position page: sends the market and how the position is doing. Founder: never "Share" on Predictions or Investing.
@@ -19873,18 +19873,6 @@ abstract class AppLocalizations {
   /// **'{amount} in Bitcoin'**
   String usdBitcoinBalanceLine(String amount);
 
-  /// Dollars Send, Send to card: send a friend a stock or a prediction on a link.
-  ///
-  /// In en, this message translates to:
-  /// **'A stock or prediction'**
-  String get usdSendPickRow;
-
-  /// Under usdSendPickRow.
-  ///
-  /// In en, this message translates to:
-  /// **'They get your pick, ready to place'**
-  String get usdSendPickRowSub;
-
   /// Dollars Add first step: deposit into Dollars from the user's own Bitcoin.
   ///
   /// In en, this message translates to:
@@ -19939,10 +19927,10 @@ abstract class AppLocalizations {
   /// **'Send a prediction or investment'**
   String get sendPickMarket;
 
-  /// No description provided for @sendPickMarketSub.
+  /// Under Send a prediction or investment: the market search sheet's subtitle and the Send row's second line.
   ///
   /// In en, this message translates to:
-  /// **'Pick a market, they get it ready to place'**
+  /// **'Search a market, then pick the side'**
   String get sendPickMarketSub;
 
   /// No description provided for @sendPickMarketSearchHint.
@@ -19957,16 +19945,10 @@ abstract class AppLocalizations {
   /// **'Nothing matches'**
   String get sendPickMarketNoResults;
 
-  /// No description provided for @sendPickSideTitle.
+  /// The send sheet's side step subtitle: two sides (Yes / No, Long / Short), none chosen.
   ///
   /// In en, this message translates to:
-  /// **'Which side?'**
-  String get sendPickSideTitle;
-
-  /// No description provided for @sendPickSideSub.
-  ///
-  /// In en, this message translates to:
-  /// **'What they get, ready to place'**
+  /// **'Pick the side they get'**
   String get sendPickSideSub;
 
   /// No description provided for @shareSendAgainWhatsApp.
@@ -20961,6 +20943,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'below target'**
   String get predictBelowTarget;
+
+  /// A market page's Sal sheet card, the market share sheet's button and the send sheet's title: send a prediction on this market, the side still to pick.
+  ///
+  /// In en, this message translates to:
+  /// **'Send a prediction'**
+  String get sendAPrediction;
+
+  /// As sendAPrediction, on an Investing market.
+  ///
+  /// In en, this message translates to:
+  /// **'Send an investment'**
+  String get sendAnInvestment;
+
+  /// Under Send a prediction on the Sal sheet's card: what happens.
+  ///
+  /// In en, this message translates to:
+  /// **'They get the prediction you pick'**
+  String get sendAPredictionSub;
+
+  /// Under Send an investment on the Sal sheet's card: what happens.
+  ///
+  /// In en, this message translates to:
+  /// **'They get the investment you pick'**
+  String get sendAnInvestmentSub;
+
+  /// The send sheet's side step subtitle on a market of several outcomes (candidates).
+  ///
+  /// In en, this message translates to:
+  /// **'Pick the outcome they get'**
+  String get sendPickOutcomeSub;
+
+  /// The send sheet's amount step subtitle when a prediction or investment is sent.
+  ///
+  /// In en, this message translates to:
+  /// **'How much do they get?'**
+  String get sendPickAmountSub;
+
+  /// Section label over the Send screens' friend card (Send to anyone, Send a prediction or investment).
+  ///
+  /// In en, this message translates to:
+  /// **'To a friend'**
+  String get sendToAFriendLabel;
+
+  /// The Dollars Send's row for the coins dollars can land as (opens the coin sheet); the coins are listed under it.
+  ///
+  /// In en, this message translates to:
+  /// **'To a crypto address'**
+  String get sendToCryptoAddress;
+
+  /// Under Send a prediction on the Dollars Send's To a friend card: the row opens the market search (predictions and investing).
+  ///
+  /// In en, this message translates to:
+  /// **'Or an investment. Search a market, pick the side'**
+  String get sendPickRowSub;
 }
 
 class _AppLocalizationsDelegate

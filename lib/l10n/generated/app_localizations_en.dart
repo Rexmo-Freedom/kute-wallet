@@ -11372,7 +11372,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get barShareWithFriends => 'Send to a friend';
 
   @override
-  String get barShareMarketSub => 'Send the market or your prediction';
+  String get barShareMarketSub => 'Send the market or a prediction';
 
   @override
   String get barSharePositionSub => 'Send the market or your position';
@@ -11381,7 +11381,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get shareTheMarket => 'Send the market';
 
   @override
-  String get shareTheMarketSub => 'A link they can open, with your code';
+  String get shareTheMarketSub => 'They get a link to look at it';
 
   @override
   String get shareThisPosition => 'Send this position';
@@ -11786,12 +11786,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get usdSendPickRow => 'A stock or prediction';
-
-  @override
-  String get usdSendPickRowSub => 'They get your pick, ready to place';
-
-  @override
   String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
 
   @override
@@ -11827,7 +11821,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sendPickMarket => 'Send a prediction or investment';
 
   @override
-  String get sendPickMarketSub => 'Pick a market, they get it ready to place';
+  String get sendPickMarketSub => 'Search a market, then pick the side';
 
   @override
   String get sendPickMarketSearchHint => 'Search predictions and investing';
@@ -11836,10 +11830,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sendPickMarketNoResults => 'Nothing matches';
 
   @override
-  String get sendPickSideTitle => 'Which side?';
-
-  @override
-  String get sendPickSideSub => 'What they get, ready to place';
+  String get sendPickSideSub => 'Pick the side they get';
 
   @override
   String get shareSendAgainWhatsApp => 'Send again via WhatsApp';
@@ -12467,4 +12458,32 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get predictBelowTarget => 'below target';
+
+  @override
+  String get sendAPrediction => 'Send a prediction';
+
+  @override
+  String get sendAnInvestment => 'Send an investment';
+
+  @override
+  String get sendAPredictionSub => 'They get the prediction you pick';
+
+  @override
+  String get sendAnInvestmentSub => 'They get the investment you pick';
+
+  @override
+  String get sendPickOutcomeSub => 'Pick the outcome they get';
+
+  @override
+  String get sendPickAmountSub => 'How much do they get?';
+
+  @override
+  String get sendToAFriendLabel => 'To a friend';
+
+  @override
+  String get sendToCryptoAddress => 'To a crypto address';
+
+  @override
+  String get sendPickRowSub =>
+      'Or an investment. Search a market, pick the side';
 }

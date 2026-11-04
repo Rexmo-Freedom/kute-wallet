@@ -11439,7 +11439,7 @@ class AppLocalizationsHr extends AppLocalizations {
   String get barShareWithFriends => 'Pošalji prijatelju';
 
   @override
-  String get barShareMarketSub => 'Pošalji tržište ili svoje predviđanje';
+  String get barShareMarketSub => 'Pošalji tržište ili predviđanje';
 
   @override
   String get barSharePositionSub => 'Pošalji tržište ili svoju poziciju';
@@ -11448,8 +11448,7 @@ class AppLocalizationsHr extends AppLocalizations {
   String get shareTheMarket => 'Pošalji tržište';
 
   @override
-  String get shareTheMarketSub =>
-      'Poveznica koju mogu otvoriti, s tvojim kodom';
+  String get shareTheMarketSub => 'Dobivaju poveznicu da ga pogledaju';
 
   @override
   String get shareThisPosition => 'Pošalji ovu poziciju';
@@ -11857,12 +11856,6 @@ class AppLocalizationsHr extends AppLocalizations {
   }
 
   @override
-  String get usdSendPickRow => 'A stock or prediction';
-
-  @override
-  String get usdSendPickRowSub => 'They get your pick, ready to place';
-
-  @override
   String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
 
   @override
@@ -11898,8 +11891,7 @@ class AppLocalizationsHr extends AppLocalizations {
   String get sendPickMarket => 'Pošalji predviđanje ili ulaganje';
 
   @override
-  String get sendPickMarketSub =>
-      'Odaberi tržište, dobivaju ga spremnog za postavljanje';
+  String get sendPickMarketSub => 'Potraži tržište, zatim odaberi stranu';
 
   @override
   String get sendPickMarketSearchHint => 'Pretraži predviđanja i ulaganja';
@@ -11908,10 +11900,7 @@ class AppLocalizationsHr extends AppLocalizations {
   String get sendPickMarketNoResults => 'Nema rezultata';
 
   @override
-  String get sendPickSideTitle => 'Koja strana?';
-
-  @override
-  String get sendPickSideSub => 'Što dobivaju, spremno za postavljanje';
+  String get sendPickSideSub => 'Odaberi stranu koju dobivaju';
 
   @override
   String get shareSendAgainWhatsApp => 'Pošalji ponovno putem WhatsAppa';
@@ -12539,4 +12528,31 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get predictBelowTarget => 'below target';
+
+  @override
+  String get sendAPrediction => 'Pošalji predviđanje';
+
+  @override
+  String get sendAnInvestment => 'Pošalji ulaganje';
+
+  @override
+  String get sendAPredictionSub => 'Dobivaju predviđanje koje odabereš';
+
+  @override
+  String get sendAnInvestmentSub => 'Dobivaju ulaganje koje odabereš';
+
+  @override
+  String get sendPickOutcomeSub => 'Odaberi ishod koji dobivaju';
+
+  @override
+  String get sendPickAmountSub => 'Koliko dobivaju?';
+
+  @override
+  String get sendToAFriendLabel => 'Prijatelju';
+
+  @override
+  String get sendToCryptoAddress => 'Na kripto adresu';
+
+  @override
+  String get sendPickRowSub => 'Ili ulaganje. Potraži tržište, odaberi stranu';
 }

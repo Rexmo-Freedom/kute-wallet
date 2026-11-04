@@ -11411,7 +11411,7 @@ class AppLocalizationsDa extends AppLocalizations {
   String get barShareWithFriends => 'Send til en ven';
 
   @override
-  String get barShareMarketSub => 'Send markedet eller din forudsigelse';
+  String get barShareMarketSub => 'Send markedet eller en forudsigelse';
 
   @override
   String get barSharePositionSub => 'Send markedet eller din position';
@@ -11420,7 +11420,7 @@ class AppLocalizationsDa extends AppLocalizations {
   String get shareTheMarket => 'Send markedet';
 
   @override
-  String get shareTheMarketSub => 'Et link, de kan åbne, med din kode';
+  String get shareTheMarketSub => 'De får et link til at se det';
 
   @override
   String get shareThisPosition => 'Send denne position';
@@ -11828,12 +11828,6 @@ class AppLocalizationsDa extends AppLocalizations {
   }
 
   @override
-  String get usdSendPickRow => 'A stock or prediction';
-
-  @override
-  String get usdSendPickRowSub => 'They get your pick, ready to place';
-
-  @override
   String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
 
   @override
@@ -11869,8 +11863,7 @@ class AppLocalizationsDa extends AppLocalizations {
   String get sendPickMarket => 'Send en forudsigelse eller investering';
 
   @override
-  String get sendPickMarketSub =>
-      'Vælg et marked, de får det klar til at placere';
+  String get sendPickMarketSub => 'Søg et marked, og vælg så siden';
 
   @override
   String get sendPickMarketSearchHint => 'Søg i forudsigelser og investering';
@@ -11879,10 +11872,7 @@ class AppLocalizationsDa extends AppLocalizations {
   String get sendPickMarketNoResults => 'Intet matcher';
 
   @override
-  String get sendPickSideTitle => 'Hvilken side?';
-
-  @override
-  String get sendPickSideSub => 'Det, de får, klar til at placere';
+  String get sendPickSideSub => 'Vælg den side, de får';
 
   @override
   String get shareSendAgainWhatsApp => 'Send igen via WhatsApp';
@@ -12510,4 +12500,31 @@ class AppLocalizationsDa extends AppLocalizations {
 
   @override
   String get predictBelowTarget => 'below target';
+
+  @override
+  String get sendAPrediction => 'Send en forudsigelse';
+
+  @override
+  String get sendAnInvestment => 'Send en investering';
+
+  @override
+  String get sendAPredictionSub => 'De får den forudsigelse, du vælger';
+
+  @override
+  String get sendAnInvestmentSub => 'De får den investering, du vælger';
+
+  @override
+  String get sendPickOutcomeSub => 'Vælg det udfald, de får';
+
+  @override
+  String get sendPickAmountSub => 'Hvor meget får de?';
+
+  @override
+  String get sendToAFriendLabel => 'Til en ven';
+
+  @override
+  String get sendToCryptoAddress => 'Til en kryptoadresse';
+
+  @override
+  String get sendPickRowSub => 'Eller en investering. Søg et marked, vælg side';
 }
