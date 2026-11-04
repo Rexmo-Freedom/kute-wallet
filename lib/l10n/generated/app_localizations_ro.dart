@@ -5973,9 +5973,6 @@ class AppLocalizationsRo extends AppLocalizations {
   String get chartVwapWindow => 'VWAP pe lumânările afișate';
 
   @override
-  String get chartRsiLabel => 'RSI (14)';
-
-  @override
   String get chartIndicators => 'Indicatori';
 
   @override
@@ -12016,104 +12013,89 @@ class AppLocalizationsRo extends AppLocalizations {
   String get sendOtherContacts => 'Other contacts';
 
   @override
-  String get chartSheetTitle => 'Chart';
+  String get chartSheetTitle => 'Grafic';
 
   @override
-  String get chartSheetStyle => 'Style';
+  String get chartIndEmaNote => 'Tendință pe termen scurt, se întoarce repede';
 
   @override
-  String get chartIndEma => 'Moving averages';
+  String get chartIndBb => 'Benzi Bollinger';
 
   @override
-  String get chartIndEmaNote => 'Short and long trend lines';
+  String get chartIndBbNote => 'Cât oscilează de obicei prețul';
 
   @override
-  String get chartIndBb => 'Bollinger bands';
+  String get chartIndRsiNote => 'Dacă cumpărările sau vânzările sunt exagerate';
 
   @override
-  String get chartIndBbNote => 'How far the price usually swings';
+  String get chartIndMacdNote => 'Impulsul se întoarce în sus sau în jos';
 
   @override
-  String get chartIndRsi => 'RSI';
+  String get chartIndVwapNote => 'Prețul mediu plătit, ponderat cu volumul';
 
   @override
-  String get chartIndRsiNote => 'Whether buying or selling is overstretched';
+  String get chartIndVolumeNote => 'Cât s-a tranzacționat în fiecare perioadă';
 
   @override
-  String get chartIndMacd => 'MACD';
-
-  @override
-  String get chartIndMacdNote => 'Momentum turning up or down';
-
-  @override
-  String get chartIndVwap => 'VWAP';
-
-  @override
-  String get chartIndVwapNote => 'Average price weighted by volume';
-
-  @override
-  String get chartIndVolumeNote => 'How much traded each bar';
-
-  @override
-  String get chartReset => 'Reset';
+  String get chartReset => 'Resetează';
 
   @override
   String chartPaneLimit(String name) {
-    return '$name is off: two fit below the chart';
+    return '$name este oprit: sub grafic încap două';
   }
 
   @override
   String get chartToolCursor => 'Cursor';
 
   @override
-  String get chartToolHorizontalLine => 'Horizontal line';
+  String get chartToolHorizontalLine => 'Linie orizontală';
 
   @override
-  String get chartMoreTools => 'More';
+  String get chartMoreTools => 'Mai mult';
 
   @override
-  String get chartColor => 'Color';
+  String get chartColor => 'Culoare';
 
   @override
-  String get chartBlueColor => 'Blue';
+  String get chartBlueColor => 'Albastru';
 
   @override
-  String get chartLineSolid => 'Solid line';
+  String get chartLineSolid => 'Linie continuă';
 
   @override
-  String get chartLineDashed => 'Dashed line';
+  String get chartLineDashed => 'Linie întreruptă';
 
   @override
-  String get chartExtendLine => 'Extend to the right';
+  String get chartExtendLine => 'Prelungește la dreapta';
 
   @override
-  String get chartLock => 'Lock';
+  String get chartLock => 'Blochează';
 
   @override
-  String get chartUnlock => 'Unlock';
+  String get chartUnlock => 'Deblochează';
 
   @override
-  String get chartDuplicate => 'Duplicate';
+  String get chartDuplicate => 'Duplică';
 
   @override
   String chartHintTapFirstPoint(String tool) {
-    return 'Tap the first point: $tool';
+    return 'Atinge primul punct: $tool';
   }
 
   @override
-  String get chartHintTapSecondPoint => 'Now tap the second point.';
+  String get chartHintTapSecondPoint => 'Acum atinge al doilea punct.';
 
   @override
   String chartHintToolKept(String tool) {
-    return '$tool stays on. Tap it to stop.';
+    return '$tool rămâne activ. Atinge-l ca să te oprești.';
   }
 
   @override
-  String get chartHintLocked => 'Locked. Unlock it to move it.';
+  String get chartHintLocked => 'Blocat. Deblochează ca să-l muți.';
 
   @override
   String get chartHintPickToolKeep =>
-      'Pick a tool. Double-tap one to keep it on.';
+      'Alege un instrument. Atinge de două ori ca să rămână activ.';
 
   @override
   String hlAboutTradedOn(String venue, String kind) {
@@ -12482,4 +12464,80 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get sendPickRowSub => 'Sau o investiție. Caută o piață, alege partea';
+
+  @override
+  String get chartSheetChartType => 'Tip de grafic';
+
+  @override
+  String get chartGroupTrend => 'Tendință';
+
+  @override
+  String get chartGroupMomentum => 'Impuls';
+
+  @override
+  String get chartGroupVolatility => 'Volatilitate';
+
+  @override
+  String get chartIndSmaNote => 'Tendință pe termen lung, se întoarce încet';
+
+  @override
+  String get chartIndStNote =>
+      'Un stop mobil care se întoarce odată cu tendința';
+
+  @override
+  String get chartIndSrsiNote =>
+      'Oscilații rapide de supracumpărare și supravânzare';
+
+  @override
+  String get chartIndAtrNote => 'Cât se mișcă de obicei o perioadă';
+
+  @override
+  String get chartIndObvNote => 'Dacă volumul susține mișcarea';
+
+  @override
+  String get chartIndVp => 'Profil de volum';
+
+  @override
+  String get chartIndVpNote =>
+      'Prețurile la care s-a tranzacționat cel mai mult';
+
+  @override
+  String chartPriceLimit(String name) {
+    return '$name este oprit: pe preț încap patru';
+  }
+
+  @override
+  String chartIndSettingsTitle(String name) {
+    return 'Setări $name';
+  }
+
+  @override
+  String get chartParamLength => 'Lungime';
+
+  @override
+  String get chartParamFast => 'Rapidă';
+
+  @override
+  String get chartParamSlow => 'Lentă';
+
+  @override
+  String get chartParamSignal => 'Semnal';
+
+  @override
+  String get chartParamMultiplier => 'Multiplicator';
+
+  @override
+  String get chartParamRsiLength => 'Lungime RSI';
+
+  @override
+  String get chartParamStochLength => 'Lungime stocastic';
+
+  @override
+  String get chartParamSmoothK => 'Netezire %K';
+
+  @override
+  String get chartParamSmoothD => 'Netezire %D';
+
+  @override
+  String get chartParamRows => 'Rânduri';
 }

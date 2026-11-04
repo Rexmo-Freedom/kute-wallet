@@ -5970,9 +5970,6 @@ class AppLocalizationsLt extends AppLocalizations {
   String get chartVwapWindow => 'VWAP per rodomas žvakes';
 
   @override
-  String get chartRsiLabel => 'RSI (14)';
-
-  @override
   String get chartIndicators => 'Indikatoriai';
 
   @override
@@ -12010,104 +12007,90 @@ class AppLocalizationsLt extends AppLocalizations {
   String get sendOtherContacts => 'Other contacts';
 
   @override
-  String get chartSheetTitle => 'Chart';
+  String get chartSheetTitle => 'Grafikas';
 
   @override
-  String get chartSheetStyle => 'Style';
+  String get chartIndEmaNote => 'Trumpalaikė tendencija, greitai apsigręžia';
 
   @override
-  String get chartIndEma => 'Moving averages';
+  String get chartIndBb => 'Bollingerio juostos';
 
   @override
-  String get chartIndEmaNote => 'Short and long trend lines';
+  String get chartIndBbNote => 'Kiek kaina paprastai svyruoja';
 
   @override
-  String get chartIndBb => 'Bollinger bands';
+  String get chartIndRsiNote => 'Ar pirkimas ar pardavimas per didelis';
 
   @override
-  String get chartIndBbNote => 'How far the price usually swings';
+  String get chartIndMacdNote => 'Momentumas sukasi aukštyn ar žemyn';
 
   @override
-  String get chartIndRsi => 'RSI';
+  String get chartIndVwapNote =>
+      'Vidutinė sumokėta kaina, svertinė pagal apimtį';
 
   @override
-  String get chartIndRsiNote => 'Whether buying or selling is overstretched';
+  String get chartIndVolumeNote => 'Kiek prekiauta kiekvienu laikotarpiu';
 
   @override
-  String get chartIndMacd => 'MACD';
-
-  @override
-  String get chartIndMacdNote => 'Momentum turning up or down';
-
-  @override
-  String get chartIndVwap => 'VWAP';
-
-  @override
-  String get chartIndVwapNote => 'Average price weighted by volume';
-
-  @override
-  String get chartIndVolumeNote => 'How much traded each bar';
-
-  @override
-  String get chartReset => 'Reset';
+  String get chartReset => 'Atstatyti';
 
   @override
   String chartPaneLimit(String name) {
-    return '$name is off: two fit below the chart';
+    return '$name išjungta: po grafiku telpa du';
   }
 
   @override
-  String get chartToolCursor => 'Cursor';
+  String get chartToolCursor => 'Žymeklis';
 
   @override
-  String get chartToolHorizontalLine => 'Horizontal line';
+  String get chartToolHorizontalLine => 'Horizontali linija';
 
   @override
-  String get chartMoreTools => 'More';
+  String get chartMoreTools => 'Daugiau';
 
   @override
-  String get chartColor => 'Color';
+  String get chartColor => 'Spalva';
 
   @override
-  String get chartBlueColor => 'Blue';
+  String get chartBlueColor => 'Mėlyna';
 
   @override
-  String get chartLineSolid => 'Solid line';
+  String get chartLineSolid => 'Ištisinė linija';
 
   @override
-  String get chartLineDashed => 'Dashed line';
+  String get chartLineDashed => 'Brūkšninė linija';
 
   @override
-  String get chartExtendLine => 'Extend to the right';
+  String get chartExtendLine => 'Pratęsti į dešinę';
 
   @override
-  String get chartLock => 'Lock';
+  String get chartLock => 'Užrakinti';
 
   @override
-  String get chartUnlock => 'Unlock';
+  String get chartUnlock => 'Atrakinti';
 
   @override
-  String get chartDuplicate => 'Duplicate';
+  String get chartDuplicate => 'Dubliuoti';
 
   @override
   String chartHintTapFirstPoint(String tool) {
-    return 'Tap the first point: $tool';
+    return 'Bakstelėkite pirmą tašką: $tool';
   }
 
   @override
-  String get chartHintTapSecondPoint => 'Now tap the second point.';
+  String get chartHintTapSecondPoint => 'Dabar bakstelėkite antrą tašką.';
 
   @override
   String chartHintToolKept(String tool) {
-    return '$tool stays on. Tap it to stop.';
+    return '$tool lieka įjungtas. Bakstelėkite, kad sustabdytumėte.';
   }
 
   @override
-  String get chartHintLocked => 'Locked. Unlock it to move it.';
+  String get chartHintLocked => 'Užrakinta. Atrakinkite, kad perkeltumėte.';
 
   @override
   String get chartHintPickToolKeep =>
-      'Pick a tool. Double-tap one to keep it on.';
+      'Pasirinkite įrankį. Bakstelėkite dukart, kad liktų įjungtas.';
 
   @override
   String hlAboutTradedOn(String venue, String kind) {
@@ -12476,4 +12459,77 @@ class AppLocalizationsLt extends AppLocalizations {
   @override
   String get sendPickRowSub =>
       'Arba investiciją. Raskite rinką, pasirinkite pusę';
+
+  @override
+  String get chartSheetChartType => 'Grafiko tipas';
+
+  @override
+  String get chartGroupTrend => 'Tendencija';
+
+  @override
+  String get chartGroupMomentum => 'Momentumas';
+
+  @override
+  String get chartGroupVolatility => 'Kintamumas';
+
+  @override
+  String get chartIndSmaNote => 'Ilgalaikė tendencija, lėtai apsigręžia';
+
+  @override
+  String get chartIndStNote => 'Slenkantis stop, apsigręžiantis su tendencija';
+
+  @override
+  String get chartIndSrsiNote => 'Greiti perpirkimo ir perpardavimo svyravimai';
+
+  @override
+  String get chartIndAtrNote => 'Kiek paprastai pajuda vienas laikotarpis';
+
+  @override
+  String get chartIndObvNote => 'Ar apimtis palaiko judėjimą';
+
+  @override
+  String get chartIndVp => 'Apimties profilis';
+
+  @override
+  String get chartIndVpNote => 'Kainos, kuriomis prekiauta daugiausia';
+
+  @override
+  String chartPriceLimit(String name) {
+    return '$name išjungta: ant kainos telpa keturi';
+  }
+
+  @override
+  String chartIndSettingsTitle(String name) {
+    return '$name nustatymai';
+  }
+
+  @override
+  String get chartParamLength => 'Ilgis';
+
+  @override
+  String get chartParamFast => 'Greitoji';
+
+  @override
+  String get chartParamSlow => 'Lėtoji';
+
+  @override
+  String get chartParamSignal => 'Signalas';
+
+  @override
+  String get chartParamMultiplier => 'Daugiklis';
+
+  @override
+  String get chartParamRsiLength => 'RSI ilgis';
+
+  @override
+  String get chartParamStochLength => 'Stochastinio ilgis';
+
+  @override
+  String get chartParamSmoothK => '%K glodinimas';
+
+  @override
+  String get chartParamSmoothD => '%D glodinimas';
+
+  @override
+  String get chartParamRows => 'Eilutės';
 }

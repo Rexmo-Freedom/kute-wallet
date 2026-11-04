@@ -3193,7 +3193,6 @@
   "chartVolume": "Volume",
   "chartLogScale": "Log scale",
   "chartVwapWindow": "VWAP across the displayed candles",
-  "chartRsiLabel": "RSI (14)",
   "chartIndicators": "Indicators",
   "chartInterval": "Interval",
   "chartSelectTool": "Select and edit drawings",
@@ -8898,17 +8897,9 @@
   "@chartSheetTitle": {
     "description": "Title of the chart sheet (style and indicators) on a market chart."
   },
-  "chartSheetStyle": "Style",
-  "@chartSheetStyle": {
-    "description": "Section label above the three chart style cards."
-  },
-  "chartIndEma": "Moving averages",
-  "@chartIndEma": {
-    "description": "Indicator name: the EMA 9/21 trend lines."
-  },
-  "chartIndEmaNote": "Short and long trend lines",
+  "chartIndEmaNote": "Short-term trend, quick to turn",
   "@chartIndEmaNote": {
-    "description": "One-line explanation of the moving averages indicator."
+    "description": "One-line explanation of the EMA indicator (two exponential moving averages)."
   },
   "chartIndBb": "Bollinger bands",
   "@chartIndBb": {
@@ -8918,27 +8909,15 @@
   "@chartIndBbNote": {
     "description": "One-line explanation of Bollinger bands."
   },
-  "chartIndRsi": "RSI",
-  "@chartIndRsi": {
-    "description": "Indicator name (relative strength index)."
-  },
   "chartIndRsiNote": "Whether buying or selling is overstretched",
   "@chartIndRsiNote": {
     "description": "One-line explanation of RSI."
-  },
-  "chartIndMacd": "MACD",
-  "@chartIndMacd": {
-    "description": "Indicator name."
   },
   "chartIndMacdNote": "Momentum turning up or down",
   "@chartIndMacdNote": {
     "description": "One-line explanation of MACD."
   },
-  "chartIndVwap": "VWAP",
-  "@chartIndVwap": {
-    "description": "Indicator name (volume-weighted average price)."
-  },
-  "chartIndVwapNote": "Average price weighted by volume",
+  "chartIndVwapNote": "Average price paid, weighted by volume",
   "@chartIndVwapNote": {
     "description": "One-line explanation of VWAP."
   },
@@ -9654,5 +9633,107 @@
   "sendPickRowSub": "Or an investment. Search a market, pick the side",
   "@sendPickRowSub": {
     "description": "Under Send a prediction on the Dollars Send's To a friend card: the row opens the market search (predictions and investing)."
+  },
+  "chartSheetChartType": "Chart type",
+  "@chartSheetChartType": {
+    "description": "Chart sheet: section label above the chart type cards (Line, Candles, Area, Heikin Ashi)."
+  },
+  "chartGroupTrend": "Trend",
+  "@chartGroupTrend": {
+    "description": "Chart sheet: section label above the trend indicators (EMA, SMA, VWAP, Supertrend)."
+  },
+  "chartGroupMomentum": "Momentum",
+  "@chartGroupMomentum": {
+    "description": "Chart sheet: section label above the momentum indicators (RSI, MACD, Stoch RSI)."
+  },
+  "chartGroupVolatility": "Volatility",
+  "@chartGroupVolatility": {
+    "description": "Chart sheet: section label above the volatility indicators (Bollinger bands, ATR)."
+  },
+  "chartIndSmaNote": "Long-term trend, slow to turn",
+  "@chartIndSmaNote": {
+    "description": "One-line explanation of the SMA indicator (the 50 and 200 simple moving averages by default)."
+  },
+  "chartIndStNote": "A trailing stop that flips with the trend",
+  "@chartIndStNote": {
+    "description": "One-line explanation of the Supertrend indicator."
+  },
+  "chartIndSrsiNote": "Fast overbought and oversold swings",
+  "@chartIndSrsiNote": {
+    "description": "One-line explanation of the Stochastic RSI indicator."
+  },
+  "chartIndAtrNote": "How far a bar usually moves",
+  "@chartIndAtrNote": {
+    "description": "One-line explanation of the ATR (average true range) indicator."
+  },
+  "chartIndObvNote": "Whether volume is backing the move",
+  "@chartIndObvNote": {
+    "description": "One-line explanation of the OBV (on-balance volume) indicator."
+  },
+  "chartIndVp": "Volume profile",
+  "@chartIndVp": {
+    "description": "Indicator name: the volume traded at each price over the bars on screen."
+  },
+  "chartIndVpNote": "Prices where the most was traded",
+  "@chartIndVpNote": {
+    "description": "One-line explanation of the volume profile indicator."
+  },
+  "chartPriceLimit": "{name} is off: four fit on the price",
+  "@chartPriceLimit": {
+    "description": "Toast when a fifth indicator on the price replaces the oldest one.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chartIndSettingsTitle": "{name} settings",
+  "@chartIndSettingsTitle": {
+    "description": "Title of an indicator's settings sheet, e.g. \"RSI settings\".",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chartParamLength": "Length",
+  "@chartParamLength": {
+    "description": "Indicator settings: the name of one setting (a stepper row)."
+  },
+  "chartParamFast": "Fast",
+  "@chartParamFast": {
+    "description": "Indicator settings: the name of one setting (a stepper row)."
+  },
+  "chartParamSlow": "Slow",
+  "@chartParamSlow": {
+    "description": "Indicator settings: the name of one setting (a stepper row)."
+  },
+  "chartParamSignal": "Signal",
+  "@chartParamSignal": {
+    "description": "Indicator settings: the name of one setting (a stepper row)."
+  },
+  "chartParamMultiplier": "Multiplier",
+  "@chartParamMultiplier": {
+    "description": "Indicator settings: the name of one setting (a stepper row)."
+  },
+  "chartParamRsiLength": "RSI length",
+  "@chartParamRsiLength": {
+    "description": "Indicator settings: the name of one setting (a stepper row)."
+  },
+  "chartParamStochLength": "Stochastic length",
+  "@chartParamStochLength": {
+    "description": "Indicator settings: the name of one setting (a stepper row)."
+  },
+  "chartParamSmoothK": "%K smoothing",
+  "@chartParamSmoothK": {
+    "description": "Indicator settings: the name of one setting (a stepper row)."
+  },
+  "chartParamSmoothD": "%D smoothing",
+  "@chartParamSmoothD": {
+    "description": "Indicator settings: the name of one setting (a stepper row)."
+  },
+  "chartParamRows": "Rows",
+  "@chartParamRows": {
+    "description": "Indicator settings: the name of one setting (a stepper row)."
   }
 }

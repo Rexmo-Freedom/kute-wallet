@@ -5926,9 +5926,6 @@ class AppLocalizationsEt extends AppLocalizations {
   String get chartVwapWindow => 'VWAP kuvatud küünalde ulatuses';
 
   @override
-  String get chartRsiLabel => 'RSI (14)';
-
-  @override
   String get chartIndicators => 'Indikaatorid';
 
   @override
@@ -11946,104 +11943,89 @@ class AppLocalizationsEt extends AppLocalizations {
   String get sendOtherContacts => 'Other contacts';
 
   @override
-  String get chartSheetTitle => 'Chart';
+  String get chartSheetTitle => 'Graafik';
 
   @override
-  String get chartSheetStyle => 'Style';
+  String get chartIndEmaNote => 'Lühiajaline trend, pöördub kiiresti';
 
   @override
-  String get chartIndEma => 'Moving averages';
+  String get chartIndBb => 'Bollingeri vööndid';
 
   @override
-  String get chartIndEmaNote => 'Short and long trend lines';
+  String get chartIndBbNote => 'Kui palju hind tavaliselt kõigub';
 
   @override
-  String get chartIndBb => 'Bollinger bands';
+  String get chartIndRsiNote => 'Kas ost või müük on üle pingutatud';
 
   @override
-  String get chartIndBbNote => 'How far the price usually swings';
+  String get chartIndMacdNote => 'Moment pöördub üles või alla';
 
   @override
-  String get chartIndRsi => 'RSI';
+  String get chartIndVwapNote => 'Keskmine makstud hind, kaalutud mahuga';
 
   @override
-  String get chartIndRsiNote => 'Whether buying or selling is overstretched';
+  String get chartIndVolumeNote => 'Kui palju igas perioodis kaubeldi';
 
   @override
-  String get chartIndMacd => 'MACD';
-
-  @override
-  String get chartIndMacdNote => 'Momentum turning up or down';
-
-  @override
-  String get chartIndVwap => 'VWAP';
-
-  @override
-  String get chartIndVwapNote => 'Average price weighted by volume';
-
-  @override
-  String get chartIndVolumeNote => 'How much traded each bar';
-
-  @override
-  String get chartReset => 'Reset';
+  String get chartReset => 'Lähtesta';
 
   @override
   String chartPaneLimit(String name) {
-    return '$name is off: two fit below the chart';
+    return '$name on välja lülitatud: graafiku alla mahub kaks';
   }
 
   @override
-  String get chartToolCursor => 'Cursor';
+  String get chartToolCursor => 'Kursor';
 
   @override
-  String get chartToolHorizontalLine => 'Horizontal line';
+  String get chartToolHorizontalLine => 'Horisontaalne joon';
 
   @override
-  String get chartMoreTools => 'More';
+  String get chartMoreTools => 'Veel';
 
   @override
-  String get chartColor => 'Color';
+  String get chartColor => 'Värv';
 
   @override
-  String get chartBlueColor => 'Blue';
+  String get chartBlueColor => 'Sinine';
 
   @override
-  String get chartLineSolid => 'Solid line';
+  String get chartLineSolid => 'Pidev joon';
 
   @override
-  String get chartLineDashed => 'Dashed line';
+  String get chartLineDashed => 'Katkendjoon';
 
   @override
-  String get chartExtendLine => 'Extend to the right';
+  String get chartExtendLine => 'Pikenda paremale';
 
   @override
-  String get chartLock => 'Lock';
+  String get chartLock => 'Lukusta';
 
   @override
-  String get chartUnlock => 'Unlock';
+  String get chartUnlock => 'Ava lukk';
 
   @override
-  String get chartDuplicate => 'Duplicate';
+  String get chartDuplicate => 'Dubleeri';
 
   @override
   String chartHintTapFirstPoint(String tool) {
-    return 'Tap the first point: $tool';
+    return 'Puuduta esimest punkti: $tool';
   }
 
   @override
-  String get chartHintTapSecondPoint => 'Now tap the second point.';
+  String get chartHintTapSecondPoint => 'Nüüd puuduta teist punkti.';
 
   @override
   String chartHintToolKept(String tool) {
-    return '$tool stays on. Tap it to stop.';
+    return '$tool jääb sisse. Lõpetamiseks puuduta seda.';
   }
 
   @override
-  String get chartHintLocked => 'Locked. Unlock it to move it.';
+  String get chartHintLocked => 'Lukustatud. Liigutamiseks ava lukk.';
 
   @override
   String get chartHintPickToolKeep =>
-      'Pick a tool. Double-tap one to keep it on.';
+      'Vali tööriist. Topeltpuudutus jätab selle sisse.';
 
   @override
   String hlAboutTradedOn(String venue, String kind) {
@@ -12410,4 +12392,77 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get sendPickRowSub => 'Või investeering. Otsi turg, vali pool';
+
+  @override
+  String get chartSheetChartType => 'Graafiku tüüp';
+
+  @override
+  String get chartGroupTrend => 'Trend';
+
+  @override
+  String get chartGroupMomentum => 'Moment';
+
+  @override
+  String get chartGroupVolatility => 'Volatiilsus';
+
+  @override
+  String get chartIndSmaNote => 'Pikaajaline trend, pöördub aeglaselt';
+
+  @override
+  String get chartIndStNote => 'Liikuv stopp, mis pöördub koos trendiga';
+
+  @override
+  String get chartIndSrsiNote => 'Kiired üleostetuse ja ülemüüdud kõikumised';
+
+  @override
+  String get chartIndAtrNote => 'Kui palju üks periood tavaliselt liigub';
+
+  @override
+  String get chartIndObvNote => 'Kas maht toetab liikumist';
+
+  @override
+  String get chartIndVp => 'Mahuprofiil';
+
+  @override
+  String get chartIndVpNote => 'Hinnad, kus kaubeldi kõige rohkem';
+
+  @override
+  String chartPriceLimit(String name) {
+    return '$name on välja lülitatud: hinnale mahub neli';
+  }
+
+  @override
+  String chartIndSettingsTitle(String name) {
+    return '$name seaded';
+  }
+
+  @override
+  String get chartParamLength => 'Pikkus';
+
+  @override
+  String get chartParamFast => 'Kiire';
+
+  @override
+  String get chartParamSlow => 'Aeglane';
+
+  @override
+  String get chartParamSignal => 'Signaal';
+
+  @override
+  String get chartParamMultiplier => 'Kordaja';
+
+  @override
+  String get chartParamRsiLength => 'RSI pikkus';
+
+  @override
+  String get chartParamStochLength => 'Stohhastiku pikkus';
+
+  @override
+  String get chartParamSmoothK => '%K silumine';
+
+  @override
+  String get chartParamSmoothD => '%D silumine';
+
+  @override
+  String get chartParamRows => 'Read';
 }
