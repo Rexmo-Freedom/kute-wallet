@@ -63,6 +63,12 @@
 // once. At rest the chart is drawn exactly as with no motion. Under
 // Reduce Motion everything lands at once and the live pulse stops.
 //
+// Its size and weight are the Investing market chart's (founder, 4
+// November 2026): the market sheet gives it the same plot height
+// ([polyMarketChartHeight], [kKuteMarketChartHeight]) whatever the market,
+// never grown to fill the screen, and every line is drawn at that chart's
+// width ([kKuteChartLineWidth]), one line or many.
+//
 // Multi-outcome markets keep one line per outcome in the host's colours.
 // Each line ends in a value pill in its colour reading its short name and
 // chance ("Sakatsume 72.5%", "Yes 18%"). The pills keep a column of their
@@ -461,30 +467,14 @@ KuteYDomain polyChartEdgeRoom(
   );
 }
 
-/// The height of an event's chart of its most likely outcomes: [base] for
-/// one or two lines, a fifth more for three or more, whose lines and
-/// stacked end tags were cramped (and cut) in the binary chart's height.
-double polyChartHeightFor(int lines, {double base = 220}) =>
-    lines >= 3 ? (base * 1.18).roundToDouble() : base;
-
-/// The most of the market sheet's scroll area a chart grows to fill
-/// ([polyChartFillExtra]).
-const double kPolyChartMaxShare = 0.7;
-
-/// How much taller than its own [base] height the market sheet's chart
-/// grows so the screen has no empty room under a short list (a Yes / No
-/// market, an event of two or three outcomes): the [leftover] room the
-/// sheet's [viewport] (its scroll area's height) has under everything
-/// with the chart at [base], up to [kPolyChartMaxShare] of the viewport
-/// for the chart. Never less than nothing: a long list keeps [base].
-double polyChartFillExtra({
-  required double leftover,
-  required double base,
-  required double viewport,
-}) {
-  final room = math.max(0.0, viewport * kPolyChartMaxShare - base);
-  return leftover.clamp(0.0, room).toDouble();
-}
+/// The market sheet's chart height (the [MarketChart.height] it is
+/// given): the Investing market chart's plot ([kKuteMarketChartHeight],
+/// scaled by height as that chart scales it) over the time axis row. One
+/// height for a Yes / No market, an event of many outcomes and a game,
+/// and never grown to fill the screen (founder, 4 November 2026: the
+/// Predictions charts follow the Investing chart's size).
+double polyMarketChartHeight() =>
+    kKuteMarketChartHeight.h + kKuteTimeAxisHeight;
 
 /// A chance as the chart's own tags write it (the value at the end of a
 /// line, the crosshair's bubbles): one decimal at most, "93.5%", "62%".
@@ -2704,7 +2694,8 @@ class _LinesPainter extends CustomPainter {
         canvas.drawPath(
             fillPath, Paint()..shader = kuteFillShader(chartW, drawH, s.color));
       }
-      canvas.drawPath(path, kuteStrokePaint(s.color, width: single ? 2.0 : 2.5));
+      // The Investing chart's line weight, one line or many.
+      canvas.drawPath(path, kuteStrokePaint(s.color));
       canvas.restore();
 
       // Endpoint dot, only while the newest point

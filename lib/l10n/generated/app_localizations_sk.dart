@@ -5803,6 +5803,40 @@ class AppLocalizationsSk extends AppLocalizations {
   String get hlAdvancedChart => 'Pokročilý graf';
 
   @override
+  String get optionAdvancedChartSub => 'Kreslenie a indikátory';
+
+  @override
+  String get optionAboutMarketSub => 'Štatistiky a kniha príkazov';
+
+  @override
+  String get optionAddMarginSub => 'Ďalej od likvidácie';
+
+  @override
+  String get optionPositionDetailsSub => 'Veľkosť, vstup a funding';
+
+  @override
+  String optionEndsOn(String date) {
+    return 'Končí $date';
+  }
+
+  @override
+  String optionEndedOn(String date) {
+    return 'Skončilo $date';
+  }
+
+  @override
+  String get optionHowItResolves => 'Ako sa vyhodnotí';
+
+  @override
+  String get optionViewMarketSub => 'Graf a šance';
+
+  @override
+  String get optionPredictionDetailsSub => 'Podiely a zaplatená cena';
+
+  @override
+  String get optionProtectSellSub => 'Predaj za svoju cenu';
+
+  @override
   String get chartStyleCandles => 'Sviečky';
 
   @override

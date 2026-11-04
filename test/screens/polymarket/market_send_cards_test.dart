@@ -11,6 +11,13 @@
 // the market card opens the market send sheet, the prediction card Send
 // to anyone on its side step, Yes and No equal and nothing chosen, with
 // the Sal sheet gone from under them.
+//
+// Where it sits (founder, 4 November 2026: "It must be a floating
+// button"): never in the header or beside the headline figure. One Yes/No
+// market's bar is its trade row (Yes | No with the live chances, the round
+// Sal button at the end; taps land on each and open the slip's path); an
+// event's bar is the floating Sal pill, "Send to a friend". The page's
+// last rows scroll clear of either.
 
 import 'dart:async';
 
@@ -33,6 +40,8 @@ import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/providers/polymarket_sports_provider.dart';
 import 'package:kute/providers/polymarket_watchlist_provider.dart';
 import 'package:kute/screens/home/components/kute_shell_bar.dart';
+import 'package:kute/screens/polymarket/components/poly_market_stats.dart'
+    show kPolyRulesCardKey;
 import 'package:kute/screens/polymarket/market_detail_sheet.dart';
 import 'package:kute/screens/search/unified_search_screen.dart'
     show UnifiedSearchSurface;
@@ -42,6 +51,7 @@ import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/market_pair_button.dart';
 import 'package:kute/screens/shared/kute_share_actions.dart';
 import 'package:kute/screens/shared/open_once.dart';
+import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
 class _NoStars extends PolyWatchlistNotifier {
@@ -172,16 +182,45 @@ Future<void> _pump(WidgetTester tester, PolymarketEvent event) async {
   }
 }
 
-KuteMarketBarContext _bar(WidgetTester tester) => kuteBarTop(ProviderScope
-            .containerOf(tester.element(find.byType(MarketDetailSheet)))
-        .read(kuteBarContextProvider))! as KuteMarketBarContext;
+/// What the bar reads on the page now.
+KuteBarContext _top(WidgetTester tester) => kuteBarTop(ProviderScope
+        .containerOf(tester.element(find.byType(MarketDetailSheet)))
+    .read(kuteBarContextProvider))!;
 
-/// Taps the page's "Send to a friend" pill: the Sal sheet opens.
+/// The page's market context: the bar's own, or the one its trade row's
+/// round Sal button opens.
+KuteMarketBarContext _bar(WidgetTester tester) {
+  final top = _top(tester);
+  return (top.isTrade ? top.share!.barContext : top) as KuteMarketBarContext;
+}
+
+final Finder _share = find.byKey(const ValueKey('kute-bar-share'));
+final Finder _pill = find.byKey(const ValueKey('kute-bar-pill'));
+Finder _trade(String id) => find.byKey(ValueKey('kute-bar-trade-$id'));
+
+/// Whether a tap at [finder]'s centre reaches its render box.
+bool _tapLands(WidgetTester tester, Finder finder) {
+  final box = tester.renderObject(finder);
+  final result = tester.hitTestOnBinding(tester.getCenter(finder));
+  return result.path.any((entry) => entry.target == box);
+}
+
+/// Taps the page's Send to a friend (the trade row's round Sal button, or
+/// the Sal pill): the Sal sheet opens.
 Future<void> _openSheet(WidgetTester tester) async {
-  final pill = find.byKey(const ValueKey('kute-sal-header-button'));
-  expect(pill, findsOneWidget);
-  await tester.tap(pill);
+  final control = _share.evaluate().isNotEmpty ? _share : _pill;
+  expect(control, findsOneWidget);
+  await tester.tap(control);
   for (var i = 0; i < 12; i++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+}
+
+/// Scrolls the page to its very end.
+Future<void> _scrollToEnd(WidgetTester tester) async {
+  await tester.drag(
+      find.byType(CustomScrollView).first, const Offset(0, -6000));
+  for (var i = 0; i < 10; i++) {
     await tester.pump(const Duration(milliseconds: 100));
   }
 }
@@ -285,6 +324,46 @@ void main() {
   });
 
   testWidgets(
+      'a single Yes/No market: the bar is Yes | No with the live chances '
+      'and the round Sal button; no share pill in the page; Rules scrolls '
+      'clear of the row', (tester) async {
+    await _loadInter(tester);
+    await http.runWithClient(() async {
+      await _pump(tester, _yesNo);
+      final l10n = lookupAppLocalizations(const Locale('en'));
+      final top = _top(tester);
+      expect(top.isTrade, isTrue);
+      expect(top.trades.map((t) => (t.label, t.value, t.fill)), [
+        (l10n.yes, '64%', AppColors.marketUp),
+        (l10n.betNo, '36%', AppColors.marketDown),
+      ]);
+      expect(_trade('yes'), findsOneWidget);
+      expect(_trade('no'), findsOneWidget);
+      expect(_share, findsOneWidget);
+      expect(_pill, findsNothing);
+      expect(find.bySemanticsLabel('${l10n.yes}, 64%'), findsOneWidget);
+      expect(find.bySemanticsLabel('${l10n.betNo}, 36%'), findsOneWidget);
+      final yes = tester.getRect(_trade('yes'));
+      final no = tester.getRect(_trade('no'));
+      final share = tester.getRect(_share);
+      expect(yes.right, lessThan(no.left));
+      expect(no.right, lessThan(share.left));
+      expect(yes.width, moreOrLessEquals(no.width, epsilon: 1));
+      // Nothing to share in the header or beside the chance.
+      expect(find.byKey(const ValueKey('kute-sal-header-button')),
+          findsNothing);
+      expect(find.text(l10n.shareHeaderLabel), findsNothing);
+      // The last row scrolls clear of the floating row.
+      await _scrollToEnd(tester);
+      expect(tester.getRect(find.byKey(kPolyRulesCardKey)).bottom,
+          lessThan(tester.getRect(_trade('yes')).top));
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 6));
+    }, () => MockClient((_) async => http.Response('{}', 404)));
+  });
+
+  testWidgets(
       'tapping "Send a prediction" (No leads) closes the Sal sheet and opens '
       'Send to anyone on the side step: Yes and No, equal, nothing chosen, '
       'no amount yet', (tester) async {
@@ -318,6 +397,65 @@ void main() {
       // Nothing picked, so no amount and no pick line yet.
       expect(find.byKey(const ValueKey('share-pick-line')), findsNothing);
       expect(find.text(l10n.sendPickSideSub), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 6));
+    }, () => MockClient((_) async => http.Response('{}', 404)));
+  });
+
+  for (final side in ['yes', 'no']) {
+    testWidgets(
+        'a single Yes/No market: a tap lands on $side and opens the slip on '
+        'it (prediction_outcome_tapped, $side)', (tester) async {
+      final events = <(String, Map<String, Object>?)>[];
+      TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+      addTearDown(() => TrackingService.debugTrackObserver = null);
+      await _loadInter(tester);
+      await http.runWithClient(() async {
+        await _pump(tester, _yesNo);
+        expect(_tapLands(tester, _trade(side)), isTrue);
+        expect(_tapLands(tester, _share), isTrue);
+        await tester.tap(_trade(side));
+        final taps = events
+            .where((e) => e.$1 == 'prediction_outcome_tapped')
+            .toList();
+        expect(taps, hasLength(1));
+        expect(taps.single.$2!['outcome_type'], side);
+        // The slip itself is its own tests' (bet_slip_*_test.dart): the
+        // page goes before the slip is built.
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump(const Duration(seconds: 6));
+      }, () => MockClient((_) async => http.Response('{}', 404)));
+    });
+  }
+
+  testWidgets(
+      'an event page: no trade pair, the bar is the floating Sal pill '
+      '"Send to a friend"; nothing beside the leader\'s chance; the last '
+      'rows scroll clear of it', (tester) async {
+    await _loadInter(tester);
+    await http.runWithClient(() async {
+      await _pump(tester, _michigan);
+      final l10n = lookupAppLocalizations(const Locale('en'));
+      final top = _top(tester);
+      expect(top.isTrade, isFalse);
+      expect(top.isPrimary, isFalse);
+      expect(top.inHeader, isFalse);
+      expect(_pill, findsOneWidget);
+      expect(_share, findsNothing);
+      expect(
+          find.descendant(
+              of: _pill, matching: find.text(l10n.barShareWithFriends)),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('kute-sal-header-button')),
+          findsNothing);
+      expect(_tapLands(tester, _pill), isTrue);
+      await _scrollToEnd(tester);
+      // Scrolled down, the pill may be folded into the round button; the
+      // last row stays clear of it either way.
+      final pill = tester.getRect(_pill);
+      expect(tester.getRect(find.byKey(kPolyRulesCardKey)).bottom,
+          lessThan(pill.top));
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 6));

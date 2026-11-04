@@ -1,12 +1,11 @@
 // What a position is made of, as plain rows on the app's card: a quiet
 // label on the left, its figure right-aligned (the position screens'
 // Details sheets). And the position screens' shared language: a figure on
-// its own tile, two side by side ([PositionStatTiles]), and plain rows
-// that open something ([PositionLinkRow]), so the Predictions and
-// Investing positions read as one product.
+// its own tile, two side by side ([PositionStatTiles]), so the Predictions
+// and Investing positions read as one product. What opens something sits
+// under them as option cards (kute_action_cards.dart).
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/screens/shared/slip_form_body.dart' show SlipDensity;
 
@@ -267,94 +266,6 @@ class PositionSidePill extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// A plain row that opens something, under a hairline: the label, an
-/// optional quiet figure ("Sell at", "Stop loss") and a chevron. The
-/// position screens' "Protect it", "Add margin" and "Details", the same
-/// look as the market sheet's "Rules and resolution" row.
-class PositionLinkRow extends StatelessWidget {
-  final String label;
-  final String? value;
-  final VoidCallback onTap;
-
-  /// An optional glyph before the label (the chart screens' "Advanced
-  /// chart" row).
-  final IconData? icon;
-
-  /// No hairline over it (the first row inside a card).
-  final bool divider;
-
-  const PositionLinkRow({
-    super.key,
-    required this.label,
-    this.value,
-    required this.onTap,
-    this.icon,
-    this.divider = true,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    return Semantics(
-      button: true,
-      child: InkWell(
-        onTap: () {
-          HapticFeedback.selectionClick();
-          onTap();
-        },
-        child: Container(
-          padding: EdgeInsets.symmetric(vertical: 14.h),
-          decoration: BoxDecoration(
-            border: divider
-                ? Border(top: BorderSide(color: c.borderSubtle, width: 0.5))
-                : null,
-          ),
-          child: Row(
-            children: [
-              if (icon != null) ...[
-                Icon(icon, color: c.textSecondary, size: 20.sp),
-                SizedBox(width: 10.w),
-              ],
-              Expanded(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.settingsTitle(context),
-                ),
-              ),
-              if (value != null) ...[
-                SizedBox(width: 12.w),
-                // The figure right-aligned by the chevron, never more than
-                // half the line.
-                ConstrainedBox(
-                  constraints: BoxConstraints(
-                      maxWidth: MediaQuery.sizeOf(context).width * 0.45),
-                  child: Text(
-                    value!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.right,
-                    style: TextStyle(
-                      color: c.textSecondary,
-                      fontSize: 15.sp,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: -0.2,
-                    ),
-                  ),
-                ),
-              ],
-              SizedBox(width: 4.w),
-              Icon(Icons.chevron_right_rounded,
-                  color: c.textTertiary, size: 22.sp),
-            ],
-          ),
-        ),
       ),
     );
   }

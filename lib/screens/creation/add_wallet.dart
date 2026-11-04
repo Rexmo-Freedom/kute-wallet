@@ -12,6 +12,7 @@ import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
+import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/helpers/user_error_copy.dart';
@@ -200,6 +201,60 @@ class _AddWalletState extends ConsumerState<AddWallet> {
     }
   }
 
+  /// One option as a big card: its mark, its name and one line under it.
+  /// Disabled while the spending wallet is being created.
+  KuteActionCard _optionCard(
+    WalletDeviceConfig config, {
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    final l10n = context.l10n;
+    final title = config.titleIn(l10n);
+    return KuteActionCard(
+      key: ValueKey('add-wallet-option-${config.id}'),
+      visual: _OptionMark(
+        svgAsset: config.svgAsset,
+        icon: config.icon,
+        color: config.color,
+        venueBadges: config.venueBadges,
+      ),
+      title: title,
+      subtitle: subtitle,
+      // The card reads as one node, so it names the venue logos itself.
+      semanticsLabel: config.venueBadges.isEmpty
+          ? null
+          : [title, subtitle, l10n.ledgerVenueIconsLabel].join(', '),
+      onTap: _isCreating
+          ? null
+          : () {
+              HapticFeedback.lightImpact();
+              onTap();
+            },
+    );
+  }
+
+  /// A preview of what is coming, with the "Soon" pill: a tap counts the
+  /// interest and says it is coming; it never navigates.
+  KuteActionCard _comingSoonCard({
+    required String feature,
+    required String title,
+    required IconData icon,
+    required String message,
+  }) =>
+      KuteActionCard(
+        key: ValueKey('add-wallet-soon-$feature'),
+        visual: _OptionMark(icon: icon),
+        title: title,
+        badge: context.l10n.walletsSoon.toUpperCase(),
+        onTap: () {
+          HapticFeedback.lightImpact();
+          TrackingService.comingSoonViewed(feature: feature);
+          TrackingService.track('add_wallet_coming_soon_tapped',
+              params: {'feature': feature});
+          showMessageSnackBar(context: context, message: message, error: false);
+        },
+      );
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(addWalletProvider);
@@ -212,8 +267,9 @@ class _AddWalletState extends ConsumerState<AddWallet> {
 
     // Every option is drawn whatever the policy says; a withheld one is
     // refused at the tap by [_offered]. See
-    // lib/services/add_wallet_capabilities.dart.
-    final coldWallets = state.coldWallets;
+    // lib/services/add_wallet_capabilities.dart. Hardware shows only the
+    // devices that pair natively over Bluetooth.
+    final hardwareWallets = state.bluetoothWallets;
     final trackingWallets = state.trackingWallets;
 
     return Scaffold(
@@ -274,58 +330,49 @@ class _AddWalletState extends ConsumerState<AddWallet> {
                       // screen; sections start straight away.
                       SizedBox(height: 8.h),
 
-                      // Each section is a grouped card: header above,
-                      // one AppDecorations.card surface with hairline
-                      // dividers between rows — the same floating-card
-                      // chrome as recover_choice and the Investments
-                      // screen.
+                      // Every option is a big card (kute_action_cards.dart),
+                      // two side by side, under its section's header
+                      // (founder, 4 November 2026: every option on Add
+                      // wallet as the square cards, not list rows).
                       if (!hasHotWallet) ...[
                         _SectionHeader(title: context.l10n.walletsSpendingAccountSection),
-                        _GroupedCard(
-                          children: [
-                            for (final wallet in state.hotWallets)
-                              _SelectionCard(
-                                config: wallet,
-                                isDisabled: _isCreating,
-                                onTap: () {
-                                  // The inline create stays on this
-                                  // screen, so the hub keeps owning
-                                  // its abandon.
-                                  if (wallet.id == 'create_spark') {
-                                    TrackingService.walletTypeSelected(
-                                        wallet.id);
-                                  } else {
-                                    _pick(wallet.id);
-                                  }
-                                  notifier.selectWallet(
-                                      wallet.id, wallet.type);
-                                  if (wallet.id == 'create_spark') {
-                                    _createWalletDirectly();
-                                  } else if (wallet.id == 'recover_spark') {
-                                    context.push('/recover_wallet');
-                                  }
-                                },
-                              ),
-                          ],
-                        ),
+                        KuteActionCardGrid(cards: [
+                          for (final wallet in state.hotWallets)
+                            _optionCard(
+                              wallet,
+                              subtitle: wallet.subtitleIn(context.l10n),
+                              onTap: () {
+                                // The inline create stays on this
+                                // screen, so the hub keeps owning
+                                // its abandon.
+                                if (wallet.id == 'create_spark') {
+                                  TrackingService.walletTypeSelected(
+                                      wallet.id);
+                                } else {
+                                  _pick(wallet.id);
+                                }
+                                notifier.selectWallet(wallet.id, wallet.type);
+                                if (wallet.id == 'create_spark') {
+                                  _createWalletDirectly();
+                                } else if (wallet.id == 'recover_spark') {
+                                  context.push('/recover_wallet');
+                                }
+                              },
+                            ),
+                        ]),
                         SizedBox(height: 20.h),
                       ],
 
-                      // Separate sections — distinct user mental
-                      // models. Hardware = "I have a device".
-                      // Watch = "I want read-only
-                      // visibility on a public address". Each header
-                      // gives the section its own meaning rather than
-                      // bundling everything under a generic "connect"
-                      // umbrella.
-                      if (coldWallets.isNotEmpty) ...[
-                      _SectionHeader(title: context.l10n.walletsHardwareWalletsSection),
-                      _GroupedCard(
-                        children: [
-                          for (final option in coldWallets)
-                            _SelectionCard(
-                              config: option,
-                              isDisabled: _isCreating,
+                      // Hardware = "I have a device": only the ones the
+                      // app pairs with natively over Bluetooth (see
+                      // AddWalletState.bluetoothWallets).
+                      if (hardwareWallets.isNotEmpty) ...[
+                        _SectionHeader(title: context.l10n.walletsHardwareWalletsSection),
+                        KuteActionCardGrid(cards: [
+                          for (final option in hardwareWallets)
+                            _optionCard(
+                              option,
+                              subtitle: context.l10n.bluetooth,
                               onTap: () async {
                                 if (!await _offered(option.type)) return;
                                 if (!context.mounted) return;
@@ -334,42 +381,17 @@ class _AddWalletState extends ConsumerState<AddWallet> {
                                 context.pushNamed('importXpub');
                               },
                             ),
-                        ],
-                      ),
-                      ],
-                      if (trackingWallets.isNotEmpty) ...[
+                        ]),
                         SizedBox(height: 20.h),
-                        _SectionHeader(title: context.l10n.walletsWatchAnAddressSection),
-                        _GroupedCard(
-                          children: [
-                            for (final wallet in trackingWallets)
-                              _SelectionCard(
-                                config: wallet,
-                                isDisabled: _isCreating,
-                                onTap: () async {
-                                  if (!await _offered(wallet.type)) return;
-                                  if (!context.mounted) return;
-                                  _pick(wallet.id);
-                                  notifier.selectWallet(
-                                      wallet.id, wallet.type);
-                                  context.pushNamed(
-                                      'importExternalAddress');
-                                },
-                              ),
-                          ],
-                        ),
                       ],
 
-                      SizedBox(height: 20.h),
-                      _SectionHeader(title: context.l10n.walletTypeBitcoin),
-                      _GroupedCard(children: [
-                        _SelectionCard(
-                          config: const WalletDeviceConfig(id: 'bitcoin', type: 'bitcoin',
-                            title: 'Bitcoin wallet', subtitle: 'Create or recover with 12 words',
-                            importTitle: 'Bitcoin wallet',
-                            icon: Icons.currency_bitcoin_rounded, color: Color(0xFFF7931A),
-                            svgAsset: 'lib/assets/bitcoin-icon.svg'),
-                          isDisabled: _isCreating,
+                      // Bitcoin: another 12-word wallet, and one address
+                      // watched (view only), side by side.
+                      _SectionHeader(title: context.l10n.bitcoin),
+                      KuteActionCardGrid(cards: [
+                        _optionCard(
+                          _kBitcoinWalletOption,
+                          subtitle: _kBitcoinWalletOption.subtitleIn(context.l10n),
                           onTap: () async {
                             if (!await _offered('bitcoin')) return;
                             if (!context.mounted) return;
@@ -378,80 +400,48 @@ class _AddWalletState extends ConsumerState<AddWallet> {
                                 builder: (_) => const BitcoinWalletSetup()));
                           },
                         ),
+                        for (final wallet in trackingWallets)
+                          _optionCard(
+                            wallet,
+                            subtitle: wallet.subtitleIn(context.l10n),
+                            onTap: () async {
+                              if (!await _offered(wallet.type)) return;
+                              if (!context.mounted) return;
+                              _pick(wallet.id);
+                              notifier.selectWallet(wallet.id, wallet.type);
+                              context.pushNamed('importExternalAddress');
+                            },
+                          ),
                       ]),
                       SizedBox(height: 20.h),
                       _SectionHeader(title: context.l10n.comingSoon2),
-                      _GroupedCard(
-                        children: [
-                          _ComingSoonRow(
-                            title: context.l10n.walletsBank,
-                            icon: BootstrapIcons.bank2,
-                            onTap: () {
-                              TrackingService.comingSoonViewed(
-                                  feature: 'open_banking');
-                              TrackingService.track(
-                                  'add_wallet_coming_soon_tapped',
-                                  params: {'feature': 'open_banking'});
-                              showMessageSnackBar(
-                                context: context,
-                                message: context.l10n.walletsBankConnectionsComingSoon,
-                                error: false,
-                              );
-                            },
-                          ),
-                          _ComingSoonRow(
-                            title: context.l10n.walletsExchange,
-                            icon: BootstrapIcons.currency_exchange,
-                            onTap: () {
-                              TrackingService.comingSoonViewed(
-                                  feature: 'exchange_import');
-                              TrackingService.track(
-                                  'add_wallet_coming_soon_tapped',
-                                  params: {'feature': 'exchange_import'});
-                              showMessageSnackBar(
-                                context: context,
-                                message: context.l10n.walletsExchangeImportComingSoon,
-                                error: false,
-                              );
-                            },
-                          ),
-                          _ComingSoonRow(
-                            title: context.l10n.walletsWalletConnect,
-                            icon: Icons.wifi_rounded,
-                            onTap: () {
-                              TrackingService.comingSoonViewed(
-                                  feature: 'wallet_connect');
-                              TrackingService.track(
-                                  'add_wallet_coming_soon_tapped',
-                                  params: {'feature': 'wallet_connect'});
-                              showMessageSnackBar(
-                                context: context,
-                                message: context.l10n.walletsWalletConnectComingSoon,
-                                error: false,
-                              );
-                            },
-                          ),
-                          _ComingSoonRow(
-                            title: context.l10n.walletsNostrWalletConnect,
-                            icon: Icons.bolt_rounded,
-                            onTap: () {
-                              TrackingService.comingSoonViewed(
-                                  feature: 'nostr_wallet_connect');
-                              TrackingService.track(
-                                  'add_wallet_coming_soon_tapped',
-                                  params: {
-                                    'feature': 'nostr_wallet_connect'
-                                  });
-                              showMessageSnackBar(
-                                context: context,
-                                message:
-                                    context.l10n.walletsNostrWalletConnectComingSoon,
-                                error: false,
-                              );
-                            },
-                          ),
-                        ],
-                      ),
+                      KuteActionCardGrid(cards: [
+                        _comingSoonCard(
+                          feature: 'open_banking',
+                          title: context.l10n.walletsBank,
+                          icon: BootstrapIcons.bank2,
+                          message: context.l10n.walletsBankConnectionsComingSoon,
+                        ),
+                        _comingSoonCard(
+                          feature: 'exchange_import',
+                          title: context.l10n.walletsExchange,
+                          icon: BootstrapIcons.currency_exchange,
+                          message: context.l10n.walletsExchangeImportComingSoon,
+                        ),
+                        _comingSoonCard(
+                          feature: 'wallet_connect',
+                          title: context.l10n.walletsWalletConnect,
+                          icon: Icons.wifi_rounded,
+                          message: context.l10n.walletsWalletConnectComingSoon,
+                        ),
+                        _comingSoonCard(
+                          feature: 'nostr_wallet_connect',
+                          title: context.l10n.walletsNostrWalletConnect,
+                          icon: Icons.bolt_rounded,
+                          message:
+                              context.l10n.walletsNostrWalletConnectComingSoon,
+                        ),
+                      ]),
                     ],
                   ),
                 ),
@@ -465,31 +455,6 @@ class _AddWalletState extends ConsumerState<AddWallet> {
                 ),
               ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Single rounded card that wraps a list of rows with hairline
-/// dividers between them. Uses the app's card language
-/// (AppDecorations.card): a floating shadow card in light mode,
-/// a hairline-bordered surface in dark — same chrome as the
-/// recover-choice cards and the redesigned Investments screen.
-class _GroupedCard extends StatelessWidget {
-  final List<Widget> children;
-  const _GroupedCard({required this.children});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: AppDecorations.card(context),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        child: Column(
-          // Rows sit flush inside the one card, with no hairline
-          // between them.
-          children: [...children],
         ),
       ),
     );
@@ -520,74 +485,79 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-class _SelectionCard extends StatelessWidget {
-  final WalletDeviceConfig config;
-  final VoidCallback onTap;
-  final bool isDisabled;
+/// The Bitcoin wallet option (another hot BDK wallet from 12 words).
+const _kBitcoinWalletOption = WalletDeviceConfig(
+  id: 'bitcoin',
+  type: 'bitcoin',
+  title: 'Bitcoin wallet',
+  subtitle: 'Create or recover with 12 words',
+  importTitle: 'Bitcoin wallet',
+  icon: Icons.currency_bitcoin_rounded,
+  color: Color(0xFFF7931A),
+  svgAsset: 'lib/assets/bitcoin-icon.svg',
+);
 
-  const _SelectionCard({
-    required this.config,
-    required this.onTap,
-    this.isDisabled = false,
+/// The card's mark at the action cards' 40: a brand SVG in its own
+/// colours (a monochrome one, Ledger's, takes textPrimary so it reads in
+/// both themes), else the icon on a quiet rounded ground, as the deposit
+/// pickers draw theirs, the glyph in its brand colour ([color] null: the
+/// muted glyph of a coming-soon card). The Ledger card carries its venue
+/// logos at the right (Phase 4 P4.2).
+class _OptionMark extends StatelessWidget {
+  final String? svgAsset;
+  final IconData icon;
+  final Color? color;
+  final List<String> venueBadges;
+
+  const _OptionMark({
+    this.svgAsset,
+    required this.icon,
+    this.color,
+    this.venueBadges = const [],
   });
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: isDisabled
-            ? null
-            : () {
-                HapticFeedback.lightImpact();
-                onTap();
-              },
-        child: Opacity(
-          opacity: isDisabled ? 0.4 : 1.0,
-          child: Padding(
-            // Single-line rows: title only, vertically centered
-            // against the 44sp tile — subtitles live in the config
-            // model for the connect screens, but this list reads
-            // cleaner as pure product names. 8.h vertical padding
-            // lands the row at ~60 tall.
-            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                _DeviceTile(
-                  svgAsset: config.svgAsset,
-                  icon: config.icon,
-                  color: config.color,
-                ),
-                SizedBox(width: 14.w),
-                Expanded(
-                  child: Text(config.titleIn(context.l10n),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          color: c.textPrimary,
-                          fontSize: 16.5.sp,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.3)),
-                ),
-                if (config.venueBadges.isNotEmpty) ...[
-                  SizedBox(width: 8.w),
-                  _VenueBadges(assets: config.venueBadges),
-                ],
-                SizedBox(width: 8.w),
-                Icon(Icons.chevron_right_rounded,
-                    color: c.textTertiary, size: 20.sp),
-              ],
+    const size = kKuteActionCardVisualSize;
+    final isMonochrome =
+        color == Colors.white || color == const Color(0xFF333333);
+    final asset = svgAsset;
+    final Widget mark = asset != null
+        ? SvgPicture.asset(
+            asset,
+            width: size,
+            height: size,
+            colorFilter: isMonochrome
+                ? ColorFilter.mode(c.textPrimary, BlendMode.srcIn)
+                : null,
+          )
+        : Container(
+            width: size,
+            height: size,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: c.textPrimary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(size * 11 / 36),
             ),
-          ),
-        ),
-      ),
+            child: Icon(
+              icon,
+              size: size * 20 / 36,
+              color: color == null
+                  ? c.textSecondary
+                  : isMonochrome
+                      ? c.textPrimary
+                      : color,
+            ),
+          );
+    if (venueBadges.isEmpty) return mark;
+    return Row(
+      children: [mark, const Spacer(), _VenueBadges(assets: venueBadges)],
     );
   }
 }
 
-/// Venue logos before the chevron (Ledger row only, Phase 4 P4.2). One
+/// Venue logos at the top right of the Ledger card (Phase 4 P4.2). One
 /// Semantics node names the venues; the images themselves are excluded.
 class _VenueBadges extends StatelessWidget {
   final List<String> assets;
@@ -603,141 +573,9 @@ class _VenueBadges extends StatelessWidget {
         children: [
           for (var i = 0; i < assets.length; i++) ...[
             if (i > 0) SizedBox(width: 4.w),
-            SvgPicture.asset(assets[i], width: 18.sp, height: 18.sp),
+            SvgPicture.asset(assets[i], width: 20.sp, height: 20.sp),
           ],
         ],
-      ),
-    );
-  }
-}
-
-/// Neutral leading tile for the device rows: surfaceLight ground,
-/// hairline border, 12 radius — no pastel/tinted fills. Brand SVGs
-/// render with their own colors on the neutral ground; monochrome
-/// marks (Ledger ships white/near-black) are tinted to textPrimary
-/// so they read in both themes. IconData fallbacks keep the brand
-/// color as the glyph tint only, never as a background.
-class _DeviceTile extends StatelessWidget {
-  final String? svgAsset;
-  final IconData icon;
-  final Color color;
-
-  const _DeviceTile({
-    required this.svgAsset,
-    required this.icon,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    final isMonochrome =
-        color == Colors.white || color == const Color(0xFF333333);
-    final glyphColor = isMonochrome ? c.textPrimary : color;
-
-    // Wide wordmarks (SeedSigner ships a pill wordmark, not a
-    // square emblem) get extra width so they carry the same
-    // optical weight as the square marks at 25sp.
-    final isWide = svgAsset != null && svgAsset!.contains('seedsigner');
-
-    return Container(
-      width: 44.sp,
-      height: 44.sp,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: c.surfaceLight,
-        borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: c.borderSubtle, width: 0.5),
-      ),
-      child: svgAsset != null
-          ? SvgPicture.asset(
-              svgAsset!,
-              width: isWide ? 34.sp : 25.sp,
-              height: 25.sp,
-              colorFilter: isMonochrome
-                  ? ColorFilter.mode(c.textPrimary, BlendMode.srcIn)
-                  : null,
-            )
-          : Icon(icon, color: glyphColor, size: 22.sp),
-    );
-  }
-}
-
-/// Compact "Coming soon" row used at the bottom of the Add Wallet
-/// screen. Visually quieter than `_SelectionCard` (no chevron,
-/// muted text, "Soon" pill) so the user reads it as a preview, not
-/// an active path. Tap fires a `coming_soon_viewed` analytic and a
-/// snack message — never navigates.
-class _ComingSoonRow extends StatelessWidget {
-  final String title;
-  final IconData icon;
-  final VoidCallback onTap;
-
-  const _ComingSoonRow({
-    required this.title,
-    required this.icon,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () {
-          HapticFeedback.lightImpact();
-          onTap();
-        },
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-          child: Row(
-            children: [
-              // Same neutral tile treatment as the active device
-              // rows, with the glyph muted to match the quiet tone.
-              Container(
-                width: 44.sp,
-                height: 44.sp,
-                decoration: BoxDecoration(
-                  color: c.surfaceLight,
-                  borderRadius: BorderRadius.circular(12.r),
-                  border: Border.all(color: c.borderSubtle, width: 0.5),
-                ),
-                alignment: Alignment.center,
-                child: Icon(icon, color: c.textSecondary, size: 20.sp),
-              ),
-              SizedBox(width: 14.w),
-              Expanded(
-                child: Text(title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                        color: c.textSecondary,
-                        fontSize: 16.5.sp,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.3)),
-              ),
-              SizedBox(width: 8.w),
-              Container(
-                padding:
-                    EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-                decoration: BoxDecoration(
-                  color: c.textPrimary.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(8.r),
-                ),
-                child: Text(
-                  context.l10n.walletsSoon,
-                  style: TextStyle(
-                    color: c.textTertiary,
-                    fontSize: 13.sp,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.4,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
