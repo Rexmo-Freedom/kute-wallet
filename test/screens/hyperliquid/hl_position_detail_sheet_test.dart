@@ -899,8 +899,10 @@ void main() {
       hyperliquidExactMarketProvider.overrideWith((ref, key) => moving),
     ];
     final row = find.byKey(const ValueKey('sal-why-moving-row'));
+    // About: the option card beside Advanced chart.
     final aboutRow = find.ancestor(
-        of: find.text('About Bitcoin'), matching: find.byType(InkWell));
+        of: find.text('About Bitcoin'),
+        matching: find.byKey(const ValueKey('hl-about')));
     Finder headerRow() => find
         .ancestor(
             of: find.byType(KuteCircleBackButton), matching: find.byType(Row))
@@ -971,14 +973,17 @@ void main() {
       expect(protect, findsOneWidget);
       expect(find.text('Liquidation'), findsOneWidget);
       expect(find.byKey(const ValueKey('hl-position-risk-line')), findsNothing);
-      // An isolated position on its own market: "Add margin" is a plain
-      // row of its own, over "Protect it" (no chip beside the price).
+      // An isolated position on its own market: "Add margin" is an option
+      // card of its own, beside "Protect it" (no chip beside the price),
+      // the two as tall as each other.
       final add = find.byKey(const ValueKey('hl-add-margin'));
       expect(add, findsOneWidget);
       expect(find.descendant(of: add, matching: find.text('Add margin')),
           findsOneWidget);
-      expect(tester.getRect(add).bottom,
-          lessThanOrEqualTo(tester.getRect(protect).top + 0.5));
+      expect(tester.getRect(add).top, tester.getRect(protect).top);
+      expect(tester.getRect(add).right,
+          lessThan(tester.getRect(protect).left));
+      expect(tester.getRect(add).height, tester.getRect(protect).height);
       expect(find.descendant(of: protect, matching: find.text('Stop loss')),
           findsOneWidget);
       expect(find.byType(KuteDogGlance), findsNothing);
