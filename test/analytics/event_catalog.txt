@@ -138,6 +138,7 @@ crypto_window_changed
 custom_electrum_node_saved
 deep_link_opened
 deposit_claim_waiting_shown
+deposit_early_claim_unavailable
 deposit_quick_claim_failed
 deposit_quick_claim_started
 deposit_quick_claim_succeeded
@@ -641,6 +642,7 @@ settlement_rereview_required
 settlement_route_unavailable
 settlement_submit_attempt
 settlement_terminal
+share_challenge_answered
 share_link_cancelled
 share_link_claimed
 share_link_created
@@ -655,6 +657,7 @@ shell_wallet_tab_selected
 slip_top_up_opened
 slip_top_up_returned
 spark_connect_latency
+spark_deposit_address_sdk_changed
 spark_deposit_auto_claimed
 spark_deposit_claim_failed
 spark_deposit_claim_fee_confirmed
