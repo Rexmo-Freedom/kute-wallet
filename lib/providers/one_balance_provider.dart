@@ -85,6 +85,13 @@ const double kDollarArrivalMatchTolerance = 0.10;
 /// SDK stamps payments to the second).
 const Duration kDollarArrivalClockSkew = Duration(seconds: 10);
 
+/// Whether [row] pays out of dollars (the spending account's, or a
+/// venue's): its deposit figure is then dollars.
+bool _dollarSource(SwapOrder row) {
+  final c = row.coinFrom.toUpperCase();
+  return c == 'USDB' || c == 'USDC' || c == 'USDC.E';
+}
+
 bool _landsInDollars(SwapOrder row) =>
     row.isOrchestra &&
     row.coinTo.toUpperCase() == 'USDB' &&
@@ -150,12 +157,28 @@ Set<String> dollarRowsAlreadyCounted(
 /// its move into the venue), so the header can name the order. A row
 /// whose dollars a receive in [dollarReceives] already shows is not in
 /// flight (see [dollarRowsAlreadyCounted]). Pure for the tests.
+///
+/// NEVER TWICE ONCE THE ORDER IS PLACED (founder, 4 November 2026:
+/// "balance wrong in dollars"). A funded order fires the moment its venue
+/// is credited, whatever Orchestra's status for the move says
+/// (bitcoin_funded_order.dart, the placement wait), so the position (or
+/// the cash its resting order reserves) is in the venue's read, and so in
+/// Invested, while the move's row can still read pending for a while. A
+/// move into a venue that [placedOrderRow] says paid for an order already
+/// placed is that order's money in the venue: it is not in flight too.
+///
+/// A move into a venue counts what left Dollars ([SwapOrder.depositAmount])
+/// when it left Dollars, and what the venue receives
+/// ([SwapOrder.withdrawalAmount]) when it came from elsewhere: a Bitcoin
+/// leg straight into a venue sends bitcoin, and its deposit figure is
+/// bitcoin, never dollars.
 List<InFlightMove> inFlightMovesFrom(
   Iterable<SwapOrder> rows, {
   required String? walletId,
   required int nowMs,
   Iterable<DollarReceive> dollarReceives = const [],
   InFlightOrder? Function(String rowId)? orderOf,
+  bool Function(String rowId)? placedOrderRow,
 }) {
   final counted = dollarRowsAlreadyCounted(rows, dollarReceives,
       walletId: walletId, nowMs: nowMs);
@@ -175,9 +198,15 @@ List<InFlightMove> inFlightMovesFrom(
     final move = pendingVenueMoveOf(row, walletId: walletId, nowMs: nowMs);
     if (move != null) {
       final (venue, kind) = move;
-      // Dollars leaving show what left; dollars coming back show what the
-      // quote said would arrive.
-      final usd = kind == InFlightKind.toVenue
+      // The order this move paid for is placed: its money is in the
+      // venue's read (see above).
+      if (kind == InFlightKind.toVenue &&
+          (placedOrderRow?.call(row.id) ?? false)) {
+        continue;
+      }
+      // Dollars leaving show what left; dollars coming back, or arriving
+      // from Bitcoin, show what the quote said would arrive.
+      final usd = kind == InFlightKind.toVenue && _dollarSource(row)
           ? _parse(row.depositAmount)
           : _parse(row.withdrawalAmount);
       add(kind, venue, row.id, usd);
@@ -325,6 +354,9 @@ final oneBalanceProvider = Provider<OneBalanceState>((ref) {
     // Rows carrying a funded order's money name the order.
     orderOf: (rowId) =>
         FundedOrdersNotifier.liveOwnerOf(funded, rowId)?.toInFlightOrder(),
+    // A move whose order is placed is in the venue's read already.
+    placedOrderRow: (rowId) =>
+        FundedOrdersNotifier.placedOrderOwns(funded, rowId),
   );
   return oneBalanceStateFrom(
     dollarsUsd: dollars,

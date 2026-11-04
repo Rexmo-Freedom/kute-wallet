@@ -239,6 +239,22 @@ class OneBalanceState {
   /// the venues keep ([venueCash]).
   double get availableUsd => dollarsUsd + venueCashUsd;
 
+  /// What the header's in-flight lines carry
+  /// (`InvestmentBalanceHeader.inFlightLines`): the moves that have a line
+  /// ([InFlightMove.hasLine]) and what the sweeper still owes back. Money
+  /// moving between the person's own accounts for no order has no line:
+  /// it stays in Available ([oneBalanceSplit]).
+  double get onLinesUsd {
+    var sum = 0.0;
+    for (final move in inFlight) {
+      if (move.hasLine && move.usd.isFinite && move.usd > 0) sum += move.usd;
+    }
+    for (final usd in waiting.values) {
+      if (usd.isFinite && usd > 0) sum += usd;
+    }
+    return sum;
+  }
+
   /// Total of the in-flight rows, all kinds.
   double get inFlightUsd {
     var sum = 0.0;
@@ -313,4 +329,45 @@ class OneBalanceState {
       'invested: $investedUsd, inFlight: $inFlight, waiting: $waiting, '
       'venueCash: $venueCash, investedByVenue: $investedByVenue, '
       'investingKnown: $investingKnown, predictionsKnown: $predictionsKnown)';
+}
+
+/// The Dollars hero's "Invested $X · Available $Y" for a [total] the hero
+/// prints (founder, 4 November 2026: "it should show invested and
+/// available in a good way at the bottom"), so that what the line says
+/// ADDS UP to the figure over it, to the cent, in the currency on screen:
+///
+///   Invested  = the venues' positions and reserved order cash
+///               ([OneBalanceState.investedUsd]);
+///   Available = the rest of the total, less [onLinesUsd] (the money the
+///               in-flight lines under it name, [OneBalanceState.onLinesUsd]):
+///               Dollars, the cash the venues keep, and money moving
+///               between the person's own accounts for no order.
+///
+/// So Invested + Available + the lines' money is the total, always: no
+/// second definition of Available to drift from the figure (the old
+/// "Available" summed Dollars and venue cash on its own and missed a sweep
+/// on its way home).
+///
+/// Each figure is rounded to the cent in the currency on screen ([rate]
+/// from US dollars, 1 for USD) and Available is what is left of the
+/// total's cents, so the two printed amounts never disagree with the
+/// printed total by a rounding cent. Returned in US dollars, for the
+/// formatter. Pure for the tests.
+({double investedUsd, double availableUsd}) oneBalanceSplit({
+  required double totalUsd,
+  required double investedUsd,
+  double onLinesUsd = 0,
+  double rate = 1,
+}) {
+  double clean(double v) => v.isFinite && v > 0 ? v : 0;
+  final r = rate.isFinite && rate > 0 ? rate : 1.0;
+  int cents(double usd) => (clean(usd) * r * 100).round();
+  final total = cents(totalUsd);
+  final invested = cents(investedUsd).clamp(0, total);
+  final lines = cents(onLinesUsd).clamp(0, total - invested);
+  final available = total - invested - lines;
+  return (
+    investedUsd: invested / 100 / r,
+    availableUsd: available / 100 / r,
+  );
 }

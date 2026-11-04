@@ -709,6 +709,20 @@ class FundedOrdersNotifier extends Notifier<List<FundedOrderRecord>> {
     return null;
   }
 
+  /// Whether [rowId] carried the money of an order that is placed
+  /// ([FundedOrderStage.done] by its own run, not a "Tap to place" note
+  /// closed by a newer try): the venue's read holds that money now, as the
+  /// position or the cash its resting order reserves (one_balance_provider:
+  /// never in flight as well).
+  static bool placedOrderOwns(List<FundedOrderRecord> records, String rowId) {
+    for (final r in records) {
+      if (r.stage == FundedOrderStage.done && !r.cleared && r.ownsRow(rowId)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /// The venue whose Bitcoin leg row [rowId] is, for any record still
   /// kept (a restart's ready record included): a slip counts that row as
   /// its own deposit on its way.
