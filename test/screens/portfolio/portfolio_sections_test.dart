@@ -464,8 +464,9 @@ void main() {
           moreOrLessEquals(tester.getSize(pills[0]).width, epsilon: 0.01));
     }
     expect(find.text('P&L Charts'), findsNothing);
-    // Links: Positions is still `balances`, P&L `charts`; an old
-    // `?tab=activity` is the Bitcoin home's (app_router.dart).
+    // Links: Positions is still `balances`, P&L `charts`; `?tab=activity`
+    // names no Portfolio section: it is the Dollars Activity pill
+    // (app_router.dart).
     expect(PortfolioSection.forLink('positions'), PortfolioSection.balances);
     expect(PortfolioSection.forLink('orders'), PortfolioSection.charts);
     expect(PortfolioSection.forLink('activity'), isNull);
