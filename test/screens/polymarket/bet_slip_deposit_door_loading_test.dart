@@ -619,10 +619,12 @@ void main() {
 
   group('button label colour', () {
     // The order slip letters its button the same way (see
-    // order_slip_funding_test): the slip's one button is the bar, inked
-    // the same for the trade and the funding door (the mode's contrast
-    // label on the textPrimary fill, kute_shell_bar.dart), never in the
-    // side colour (founder decision).
+    // order_slip_funding_test): the slip's one button is the bar in the
+    // slip's own look (PolySlipCta's KuteBarPrimaryStyle: the sheet's ink
+    // as the fill, never the black bar on the tinted slip), and the trade
+    // and the funding door are both lettered in that fill's contrast,
+    // dark on the white button, never in the side colour (founder
+    // decision).
     late RuntimeCapabilitiesService policy;
     setUp(() async {
       AffiliateService.debugSessionToken = 'test-session';
@@ -638,9 +640,6 @@ void main() {
       final mode = dark ? 'dark' : 'light';
       testWidgets('$mode: the door contrasts with its fill, the bet is '
           'lettered the same', (tester) async {
-        // The bar's label ink on its textPrimary fill: white in light
-        // mode, the dark palette's background in dark.
-        final ink = dark ? AppColorsExtension.dark().background : Colors.white;
         expect(await policy.refresh(), isTrue);
         await _pumpSlip(tester,
             Future.value(const PolymarketTradingState(usdcBalance: 0)),
@@ -649,8 +648,11 @@ void main() {
         await _frames(tester);
         expect(_door, findsOneWidget);
         expect(barPrimaryEnabled(tester), isTrue);
+        final style = barPrimaryContext(tester).style!;
         final doorInk = barPrimaryInk(tester);
-        expect(doorInk, ink);
+        expect(doorInk, style.foreground);
+        expect(doorInk, contrastingOnColor(style.fill));
+        expect(doorInk, Colors.black);
         expect(doorInk, isNot(AppColors.marketUp));
         expect(doorInk, isNot(AppColors.marketDown));
         await tester.pumpWidget(const SizedBox.shrink());
@@ -660,7 +662,9 @@ void main() {
             dark: dark);
         await _frames(tester);
         expect(_cta(tester).label, r'Place $10.00 on Yes');
-        // The same ink as the door, never the side colour (founder).
+        // The same look and ink as the door, never the side colour
+        // (founder).
+        expect(barPrimaryContext(tester).style!.fill, style.fill);
         expect(barPrimaryInk(tester), doorInk);
         expect(barPrimaryInk(tester), isNot(AppColors.marketUp));
         await tester.pumpWidget(const SizedBox.shrink());
