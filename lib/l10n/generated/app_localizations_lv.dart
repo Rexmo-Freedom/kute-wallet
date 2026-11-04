@@ -11805,17 +11805,13 @@ class AppLocalizationsLv extends AppLocalizations {
   String get sendPickMarket => 'Sūtīt prognozi vai investīciju';
 
   @override
-  String get sendPickMarketSub =>
-      'Izvēlies tirgu, saņēmējs to iegūs gatavu veikšanai';
+  String get sendPickMarketSub => 'Atrodi tirgu un tad izvēlies pusi';
 
   @override
   String get sendPickMarketSearchHint => 'Meklēt prognozēs un investēšanā';
 
   @override
   String get sendPickMarketNoResults => 'Nekas neatbilst';
-
-  @override
-  String get sendPickSideTitle => 'Kura puse?';
 
   @override
   String get sendPickSideSub => 'Izvēlies pusi, ko saņēmējs saņems';

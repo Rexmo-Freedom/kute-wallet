@@ -19879,10 +19879,10 @@ abstract class AppLocalizations {
   /// **'Send a prediction or investment'**
   String get sendPickMarket;
 
-  /// No description provided for @sendPickMarketSub.
+  /// Under Send a prediction or investment: the market search sheet's subtitle and the Send row's second line.
   ///
   /// In en, this message translates to:
-  /// **'Pick a market, they get it ready to place'**
+  /// **'Search a market, then pick the side'**
   String get sendPickMarketSub;
 
   /// No description provided for @sendPickMarketSearchHint.
@@ -19896,12 +19896,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Nothing matches'**
   String get sendPickMarketNoResults;
-
-  /// No description provided for @sendPickSideTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Which side?'**
-  String get sendPickSideTitle;
 
   /// The send sheet's side step subtitle: two sides (Yes / No, Long / Short), none chosen.
   ///

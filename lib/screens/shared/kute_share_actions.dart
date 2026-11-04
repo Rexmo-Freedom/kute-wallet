@@ -399,7 +399,9 @@ KuteBarContext marketBarContext(
           ));
         }),
       ),
-      if (sendPick && pickMarket != null)
+      // A position whose page knows no outcome still offers its row, as it
+      // always did: the market on the link, no pick.
+      if (sendPick && (pickMarket != null || position))
         KuteMarketBarAction(
           label: position
               ? (investing ? l10n.sendThisInvestment : l10n.sendThisPrediction)
@@ -413,6 +415,10 @@ KuteBarContext marketBarContext(
               context,
               kind: ShareLinkKind.dollars,
               market: pickMarket,
+              marketSlug: pickMarket == null ? cleanSlug : null,
+              marketTitle: pickMarket == null ? title : null,
+              venue: pickMarket == null ? shareVenue : null,
+              side: pickMarket == null ? pickSide : null,
               entrySource: 'market_bar',
             ));
           }),

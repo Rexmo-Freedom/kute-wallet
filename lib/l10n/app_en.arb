@@ -8761,10 +8761,9 @@
     }
   },
   "sendPickMarket": "Send a prediction or investment",
-  "sendPickMarketSub": "Pick a market, they get it ready to place",
+  "sendPickMarketSub": "Search a market, then pick the side",
   "sendPickMarketSearchHint": "Search predictions and investing",
   "sendPickMarketNoResults": "Nothing matches",
-  "sendPickSideTitle": "Which side?",
   "sendPickSideSub": "Pick the side they get",
   "shareSendAgainWhatsApp": "Send again via WhatsApp",
   "shareSendAgainSms": "Send again via SMS",
@@ -9598,5 +9597,8 @@
   "sendPickAmountSub": "How much do they get?",
   "@sendPickAmountSub": {
     "description": "The send sheet's amount step subtitle when a prediction or investment is sent."
+  },
+  "@sendPickMarketSub": {
+    "description": "Under Send a prediction or investment: the market search sheet's subtitle and the Send row's second line."
   }
 }

@@ -11863,17 +11863,13 @@ class AppLocalizationsHr extends AppLocalizations {
   String get sendPickMarket => 'Pošalji predviđanje ili ulaganje';
 
   @override
-  String get sendPickMarketSub =>
-      'Odaberi tržište, dobivaju ga spremnog za postavljanje';
+  String get sendPickMarketSub => 'Potraži tržište, zatim odaberi stranu';
 
   @override
   String get sendPickMarketSearchHint => 'Pretraži predviđanja i ulaganja';
 
   @override
   String get sendPickMarketNoResults => 'Nema rezultata';
-
-  @override
-  String get sendPickSideTitle => 'Koja strana?';
 
   @override
   String get sendPickSideSub => 'Odaberi stranu koju dobivaju';

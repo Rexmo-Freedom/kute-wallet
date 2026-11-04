@@ -11837,16 +11837,13 @@ class AppLocalizationsCs extends AppLocalizations {
   String get sendPickMarket => 'Poslat predikci nebo investici';
 
   @override
-  String get sendPickMarketSub => 'Vyber trh, dostanou ho připravený k zadání';
+  String get sendPickMarketSub => 'Vyhledej trh a pak vyber stranu';
 
   @override
   String get sendPickMarketSearchHint => 'Hledat v predikcích a investování';
 
   @override
   String get sendPickMarketNoResults => 'Nic neodpovídá';
-
-  @override
-  String get sendPickSideTitle => 'Která strana?';
 
   @override
   String get sendPickSideSub => 'Vyber stranu, kterou dostanou';

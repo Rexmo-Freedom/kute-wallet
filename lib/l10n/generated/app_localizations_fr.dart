@@ -11921,8 +11921,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get sendPickMarket => 'Envoyer une prédiction ou un investissement';
 
   @override
-  String get sendPickMarketSub =>
-      'Choisissez un marché, il arrive prêt à être placé';
+  String get sendPickMarketSub => 'Cherchez un marché, puis choisissez le côté';
 
   @override
   String get sendPickMarketSearchHint =>
@@ -11930,9 +11929,6 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get sendPickMarketNoResults => 'Aucun résultat';
-
-  @override
-  String get sendPickSideTitle => 'Quel côté ?';
 
   @override
   String get sendPickSideSub => 'Choisissez le côté qu\'ils reçoivent';

@@ -11883,17 +11883,13 @@ class AppLocalizationsIt extends AppLocalizations {
   String get sendPickMarket => 'Invia una previsione o un investimento';
 
   @override
-  String get sendPickMarketSub =>
-      'Scegli un mercato, lo ricevono pronto da piazzare';
+  String get sendPickMarketSub => 'Cerca un mercato, poi scegli il lato';
 
   @override
   String get sendPickMarketSearchHint => 'Cerca in previsioni e investimenti';
 
   @override
   String get sendPickMarketNoResults => 'Nessun risultato';
-
-  @override
-  String get sendPickSideTitle => 'Quale lato?';
 
   @override
   String get sendPickSideSub => 'Scegli il lato che ricevono';

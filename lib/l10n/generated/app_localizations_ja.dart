@@ -11413,16 +11413,13 @@ class AppLocalizationsJa extends AppLocalizations {
   String get sendPickMarket => '予測または投資を送る';
 
   @override
-  String get sendPickMarketSub => 'マーケットを選ぶと、すぐ注文できる状態で届きます';
+  String get sendPickMarketSub => 'マーケットを検索して、サイドを選びます';
 
   @override
   String get sendPickMarketSearchHint => '予測と投資を検索';
 
   @override
   String get sendPickMarketNoResults => '該当なし';
-
-  @override
-  String get sendPickSideTitle => 'どちら側？';
 
   @override
   String get sendPickSideSub => '相手に送るサイドを選んでください';

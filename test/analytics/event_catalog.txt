@@ -610,6 +610,7 @@ send_flow_started
 send_invoice_fastpath
 send_max_tapped
 send_pick_market_opened
+send_pick_market_picked
 send_pick_side_picked
 send_recipient_picked
 send_review_shown

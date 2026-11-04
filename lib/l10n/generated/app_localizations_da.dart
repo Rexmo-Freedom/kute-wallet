@@ -11835,17 +11835,13 @@ class AppLocalizationsDa extends AppLocalizations {
   String get sendPickMarket => 'Send en forudsigelse eller investering';
 
   @override
-  String get sendPickMarketSub =>
-      'Vælg et marked, de får det klar til at placere';
+  String get sendPickMarketSub => 'Søg et marked, og vælg så siden';
 
   @override
   String get sendPickMarketSearchHint => 'Søg i forudsigelser og investering';
 
   @override
   String get sendPickMarketNoResults => 'Intet matcher';
-
-  @override
-  String get sendPickSideTitle => 'Hvilken side?';
 
   @override
   String get sendPickSideSub => 'Vælg den side, de får';

@@ -11849,17 +11849,13 @@ class AppLocalizationsFi extends AppLocalizations {
   String get sendPickMarket => 'Lähetä ennuste tai sijoitus';
 
   @override
-  String get sendPickMarketSub =>
-      'Valitse markkina, se saapuu valmiina tehtäväksi';
+  String get sendPickMarketSub => 'Hae markkina ja valitse sitten puoli';
 
   @override
   String get sendPickMarketSearchHint => 'Hae ennusteista ja sijoituksista';
 
   @override
   String get sendPickMarketNoResults => 'Ei osumia';
-
-  @override
-  String get sendPickSideTitle => 'Kumpi puoli?';
 
   @override
   String get sendPickSideSub => 'Valitse puoli, jonka he saavat';

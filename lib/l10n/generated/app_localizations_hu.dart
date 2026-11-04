@@ -11865,7 +11865,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get sendPickMarket => 'Előrejelzés vagy befektetés küldése';
 
   @override
-  String get sendPickMarketSub => 'Válassz piacot, leadásra készen kapják meg';
+  String get sendPickMarketSub => 'Keress egy piacot, aztán válassz oldalt';
 
   @override
   String get sendPickMarketSearchHint =>
@@ -11873,9 +11873,6 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get sendPickMarketNoResults => 'Nincs találat';
-
-  @override
-  String get sendPickSideTitle => 'Melyik oldal?';
 
   @override
   String get sendPickSideSub => 'Válaszd ki, melyik oldalt kapják';

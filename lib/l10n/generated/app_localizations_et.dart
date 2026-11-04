@@ -11826,17 +11826,13 @@ class AppLocalizationsEt extends AppLocalizations {
   String get sendPickMarket => 'Saada ennustus või investeering';
 
   @override
-  String get sendPickMarketSub =>
-      'Vali turg, saaja saab selle tegemiseks valmis';
+  String get sendPickMarketSub => 'Otsi turg ja vali siis pool';
 
   @override
   String get sendPickMarketSearchHint => 'Otsi ennustusi ja investeeringuid';
 
   @override
   String get sendPickMarketNoResults => 'Midagi ei leitud';
-
-  @override
-  String get sendPickSideTitle => 'Kumb pool?';
 
   @override
   String get sendPickSideSub => 'Vali pool, mille saaja saab';

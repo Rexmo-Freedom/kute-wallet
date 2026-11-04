@@ -11916,8 +11916,7 @@ class AppLocalizationsEl extends AppLocalizations {
   String get sendPickMarket => 'Στείλε μια πρόβλεψη ή επένδυση';
 
   @override
-  String get sendPickMarketSub =>
-      'Διάλεξε αγορά, τη λαμβάνουν έτοιμη για καταχώριση';
+  String get sendPickMarketSub => 'Αναζήτησε μια αγορά και διάλεξε πλευρά';
 
   @override
   String get sendPickMarketSearchHint =>
@@ -11925,9 +11924,6 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get sendPickMarketNoResults => 'Δεν βρέθηκε τίποτα';
-
-  @override
-  String get sendPickSideTitle => 'Ποια πλευρά;';
 
   @override
   String get sendPickSideSub => 'Διάλεξε την πλευρά που θα λάβουν';

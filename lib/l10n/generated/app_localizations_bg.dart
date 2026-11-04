@@ -11858,17 +11858,13 @@ class AppLocalizationsBg extends AppLocalizations {
   String get sendPickMarket => 'Изпрати прогноза или инвестиция';
 
   @override
-  String get sendPickMarketSub =>
-      'Избери пазар, получават го готов за поставяне';
+  String get sendPickMarketSub => 'Потърси пазар, после избери страната';
 
   @override
   String get sendPickMarketSearchHint => 'Търси в прогнози и инвестиции';
 
   @override
   String get sendPickMarketNoResults => 'Няма съвпадения';
-
-  @override
-  String get sendPickSideTitle => 'Коя страна?';
 
   @override
   String get sendPickSideSub => 'Избери страната, която получават';

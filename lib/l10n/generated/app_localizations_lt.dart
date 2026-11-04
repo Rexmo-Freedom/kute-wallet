@@ -11890,17 +11890,13 @@ class AppLocalizationsLt extends AppLocalizations {
   String get sendPickMarket => 'Siųsti prognozę arba investiciją';
 
   @override
-  String get sendPickMarketSub =>
-      'Pasirinkite rinką, gavėjas gaus ją paruoštą pateikti';
+  String get sendPickMarketSub => 'Raskite rinką, tada pasirinkite pusę';
 
   @override
   String get sendPickMarketSearchHint => 'Ieškoti prognozių ir investicijų';
 
   @override
   String get sendPickMarketNoResults => 'Nieko nerasta';
-
-  @override
-  String get sendPickSideTitle => 'Kuri pusė?';
 
   @override
   String get sendPickSideSub => 'Pasirinkite pusę, kurią gaus gavėjas';

@@ -11832,16 +11832,13 @@ class AppLocalizationsSv extends AppLocalizations {
   String get sendPickMarket => 'Skicka en prognos eller investering';
 
   @override
-  String get sendPickMarketSub => 'Välj en marknad, de får den redo att läggas';
+  String get sendPickMarketSub => 'Sök en marknad och välj sedan sida';
 
   @override
   String get sendPickMarketSearchHint => 'Sök prognoser och investeringar';
 
   @override
   String get sendPickMarketNoResults => 'Inget matchar';
-
-  @override
-  String get sendPickSideTitle => 'Vilken sida?';
 
   @override
   String get sendPickSideSub => 'Välj sidan de får';

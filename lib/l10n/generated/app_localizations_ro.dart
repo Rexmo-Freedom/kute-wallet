@@ -11896,16 +11896,13 @@ class AppLocalizationsRo extends AppLocalizations {
   String get sendPickMarket => 'Trimite o predicție sau o investiție';
 
   @override
-  String get sendPickMarketSub => 'Alege o piață, o primesc gata de plasat';
+  String get sendPickMarketSub => 'Caută o piață, apoi alege partea';
 
   @override
   String get sendPickMarketSearchHint => 'Caută în predicții și investiții';
 
   @override
   String get sendPickMarketNoResults => 'Nicio potrivire';
-
-  @override
-  String get sendPickSideTitle => 'Ce parte?';
 
   @override
   String get sendPickSideSub => 'Alege partea pe care o primesc';

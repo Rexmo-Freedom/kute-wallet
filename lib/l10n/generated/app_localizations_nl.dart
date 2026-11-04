@@ -11874,17 +11874,13 @@ class AppLocalizationsNl extends AppLocalizations {
   String get sendPickMarket => 'Stuur een voorspelling of belegging';
 
   @override
-  String get sendPickMarketSub =>
-      'Kies een markt, ze krijgen hem klaar om te plaatsen';
+  String get sendPickMarketSub => 'Zoek een markt en kies dan de kant';
 
   @override
   String get sendPickMarketSearchHint => 'Zoek in voorspellingen en beleggen';
 
   @override
   String get sendPickMarketNoResults => 'Niets gevonden';
-
-  @override
-  String get sendPickSideTitle => 'Welke kant?';
 
   @override
   String get sendPickSideSub => 'Kies de kant die ze krijgen';

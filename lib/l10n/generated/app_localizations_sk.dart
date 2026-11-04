@@ -11852,16 +11852,13 @@ class AppLocalizationsSk extends AppLocalizations {
   String get sendPickMarket => 'Poslať predpoveď alebo investíciu';
 
   @override
-  String get sendPickMarketSub => 'Vyber trh, dostanú ho pripravený na zadanie';
+  String get sendPickMarketSub => 'Vyhľadaj trh a potom vyber stranu';
 
   @override
   String get sendPickMarketSearchHint => 'Hľadať v predpovediach a investovaní';
 
   @override
   String get sendPickMarketNoResults => 'Nič nezodpovedá';
-
-  @override
-  String get sendPickSideTitle => 'Ktorá strana?';
 
   @override
   String get sendPickSideSub => 'Vyber stranu, ktorú dostanú';
