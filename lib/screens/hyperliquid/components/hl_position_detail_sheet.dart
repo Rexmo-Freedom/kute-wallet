@@ -23,11 +23,13 @@ import 'package:kute/providers/ledger/ledger_identity_provider.dart';
 // what was put in (the margin; the collateral on cross) with its leverage
 // ("2x leverage", "No leverage"), and the liquidation price with how far
 // it is ("12% away", coloured as it closes in: HlLiquidationTile); then
-// plain rows: "Add margin" on an isolated
-// position (the margin sheet, where Remove is a mode), "Protect it" and
-// "Details". The position size (the notional, size x price, with the coin
-// size), entry, leverage, margin mode and funding wait in Details, with
-// one line on what the position size is; closing stays wallet-scoped.
+// the options as cards, two side by side (kute_action_cards.dart; founder,
+// 4 November 2026: "big squares"): "Add margin" on an isolated position
+// (the margin sheet, where Remove is a mode), "Protect it", "Advanced
+// chart" and "Details". The position size (the notional, size x price,
+// with the coin size), entry, leverage, margin mode and funding wait in
+// Details, with one line on what the position size is; closing stays
+// wallet-scoped.
 //
 // Close position is the floating bar's primary button (founder, 2
 // November 2026: "a floating pill like the others"; kute_bar_context.dart),
@@ -66,6 +68,7 @@ import 'package:kute/screens/hyperliquid/market_detail_sheet.dart'
     show HlCandleChart, HlChartEditBody;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
+import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -503,11 +506,8 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                             SizedBox(height: 16.h),
                             // Only what matters on the screen, in plain
                             // words: what was put in (with its leverage) and
-                            // how far the liquidation is, each on
-                            // its own tile; then plain rows to
-                            // add margin (an isolated position the app can
-                            // move margin on), to protect it, and Details
-                            // (what else the position is made of).
+                            // how far the liquidation is, each on its own
+                            // tile; then the option cards.
                             if (current != null) ...[
                               PositionStatTiles(
                                 left: PositionStatTile(
@@ -546,65 +546,82 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                                 ),
                               ),
                               SizedBox(height: 12.h),
-                              if (canAdjustMargin)
-                                PositionLinkRow(
-                                  key: const ValueKey('hl-add-margin'),
-                                  label: context.l10n.hlMarginAdd,
-                                  // Removing is a mode of the same sheet.
-                                  onTap: () => HlAdjustMarginSheet.show(
-                                      context,
-                                      position: pos,
-                                      market: m!,
-                                      add: true,
-                                      source: HlMarginSource.liquidationRow),
-                                ),
-                              // The ticket's own protective orders (stop /
-                              // take profit, the trailing stop), one tap
-                              // away. Needs the market to place them.
-                              if (m != null && !m.isSpot)
-                                PositionLinkRow(
-                                  key: const ValueKey('hl-position-protect'),
-                                  label: context.l10n.positionProtectIt,
-                                  value: ledgerId == null
-                                      ? context.l10n.hlStopLoss
-                                      : context.l10n.investingTrailingStop,
-                                  onTap: () {
-                                    TrackingService.track(
-                                        'position_protect_tapped',
-                                        params: {
-                                          'venue': 'hyperliquid',
-                                          'coin': pos.coin,
-                                          ...VenueAnalytics.hlAssetParams(
-                                              pos.coin),
-                                          'side':
-                                              pos.isLong ? 'long' : 'short',
-                                          'wallet_kind': ledgerId != null
-                                              ? 'ledger'
-                                              : 'hot',
-                                          'target': ledgerId == null
-                                              ? 'stop_loss'
-                                              : 'trailing_stop',
-                                        });
-                                    HlClosePositionSheet.showProtect(
-                                        context, ref,
-                                        position: pos,
-                                        market: m,
-                                        ledgerWalletId: ledgerId);
-                                  },
-                                ),
                             ],
-                            // The chart's editing mode, as on the market
-                            // screen: one row, above Details, with no icon
-                            // like the rows around it.
-                            if (m != null)
-                              PositionLinkRow(
-                                key: const ValueKey('hl-advanced-chart'),
-                                label: context.l10n.hlAdvancedChart,
-                                onTap: () => HlCandleChart.openAdvanced(
-                                    _chartHostKey,
-                                    source: 'position'),
-                              ),
-                            _buildDetailsRow(c, pos),
+                            // The options, as cards two side by side
+                            // (founder, 4 November 2026: "big squares";
+                            // kute_action_cards.dart), as on the market
+                            // screen and the Predictions screens: add margin
+                            // (an isolated position the app can move margin
+                            // on), protect it, the chart's editing mode and
+                            // Details (what else the position is made of).
+                            KuteActionCardGrid(
+                              key: const ValueKey('hl-position-options'),
+                              cards: [
+                                if (current != null && canAdjustMargin)
+                                  KuteActionCard.option(
+                                    key: const ValueKey('hl-add-margin'),
+                                    icon: Icons.add_rounded,
+                                    title: context.l10n.hlMarginAdd,
+                                    subtitle: context.l10n.optionAddMarginSub,
+                                    // Removing is a mode of the same sheet.
+                                    onTap: () => HlAdjustMarginSheet.show(
+                                        context,
+                                        position: pos,
+                                        market: m!,
+                                        add: true,
+                                        source: HlMarginSource.liquidationRow),
+                                  ),
+                                // The ticket's own protective orders (stop /
+                                // take profit, the trailing stop), one tap
+                                // away. Needs the market to place them.
+                                if (current != null && m != null && !m.isSpot)
+                                  KuteActionCard.option(
+                                    key: const ValueKey('hl-position-protect'),
+                                    icon: Icons.shield_outlined,
+                                    title: context.l10n.positionProtectIt,
+                                    subtitle: ledgerId == null
+                                        ? context.l10n.hlStopLoss
+                                        : context.l10n.investingTrailingStop,
+                                    onTap: () {
+                                      TrackingService.track(
+                                          'position_protect_tapped',
+                                          params: {
+                                            'venue': 'hyperliquid',
+                                            'coin': pos.coin,
+                                            ...VenueAnalytics.hlAssetParams(
+                                                pos.coin),
+                                            'side':
+                                                pos.isLong ? 'long' : 'short',
+                                            'wallet_kind': ledgerId != null
+                                                ? 'ledger'
+                                                : 'hot',
+                                            'target': ledgerId == null
+                                                ? 'stop_loss'
+                                                : 'trailing_stop',
+                                          });
+                                      HlClosePositionSheet.showProtect(
+                                          context, ref,
+                                          position: pos,
+                                          market: m,
+                                          ledgerWalletId: ledgerId);
+                                    },
+                                  ),
+                                // The chart's editing mode, as on the market
+                                // screen.
+                                if (m != null)
+                                  KuteActionCard.option(
+                                    key: const ValueKey('hl-advanced-chart'),
+                                    icon: Icons.candlestick_chart_rounded,
+                                    title: context.l10n.hlAdvancedChart,
+                                    subtitle:
+                                        context.l10n.optionAdvancedChartSub,
+                                    onTap: () => HlCandleChart.openAdvanced(
+                                        _chartHostKey,
+                                        source: 'position'),
+                                  ),
+                                _detailsCard(pos),
+                              ],
+                            ),
                           ],
                         ),
                       ),
@@ -665,12 +682,15 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
         onAdvancedChanged: (on) => setState(() => _advancedChart = on),
       );
 
-  /// "Details": one row under the position, opening the shared bottom
-  /// sheet (as the market's "About" row does) with the size, entry,
-  /// leverage, margin mode and funding rows.
-  Widget _buildDetailsRow(AppColorsExtension c, HlPerpPosition pos) {
-    return PositionLinkRow(
-      label: context.l10n.details,
+  /// "Details": the last option card, opening the shared bottom sheet (as
+  /// the market's "About" card does) with the size, entry, leverage,
+  /// margin mode and funding rows.
+  KuteActionCard _detailsCard(HlPerpPosition pos) {
+    return KuteActionCard.option(
+      key: const ValueKey('hl-position-details'),
+      icon: Icons.receipt_long_rounded,
+      title: context.l10n.details,
+      subtitle: context.l10n.optionPositionDetailsSub,
       onTap: () {
         TrackingService.track('investing_position_details_opened',
             params: {'coin': pos.coin});
@@ -689,7 +709,7 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
   }
 }
 
-/// The sheet behind the "Details" row: the position's size, entry,
+/// The sheet behind the "Details" card: the position's size, entry,
 /// leverage, margin mode and funding as plain rows (the side, the margin
 /// and the liquidation price are on the screen's tiles). The live price is in
 /// the screen's header and the return under its value, so neither is

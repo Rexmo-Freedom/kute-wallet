@@ -39,7 +39,7 @@ import 'package:kute/screens/home/components/kute_bottom_action_bar.dart'
 import 'package:kute/screens/home/components/kute_shell_bar.dart';
 import 'package:kute/screens/polymarket/components/poly_watch_star.dart';
 import 'package:kute/screens/polymarket/components/poly_market_stats.dart'
-    show PolyRulesRow;
+    show kPolyRulesCardKey;
 import 'package:kute/screens/polymarket/market_detail_sheet.dart';
 import 'package:kute/screens/shared/kute_back_button.dart'
     show KuteCloseButton;
@@ -270,7 +270,7 @@ void main() {
         expect(tester.widget<KuteSalPill>(find.byType(KuteSalPill)).collapsed,
             isFalse,
             reason: 'the scroll has been still: the full pill again');
-        final rules = find.byType(PolyRulesRow);
+        final rules = find.byKey(kPolyRulesCardKey);
         expect(tester.getRect(rules).bottom,
             lessThan(tester.getRect(_pill).top));
         expect(tester.takeException(), isNull);

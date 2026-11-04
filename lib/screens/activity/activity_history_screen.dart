@@ -7,13 +7,15 @@
 // hold a chart. Once selected the pill reads "See all" and opens this
 // screen.
 //
-// Opened from the Bitcoin home (no wallet, not the Dollars ledger) it
-// literally shows all (founder, 1 November 2026): every row of every
-// account of the spending wallet, bitcoin, Dollars and Investments
-// (Investing fills, Predictions bets, venue moves), in one chronological
-// list with day headers, no filters, no tabs, built a page at a time as it
-// scrolls (AllActivitySliver). The share links this wallet sent and nobody
-// has claimed yet stay at its top.
+// Without a wallet and outside the Dollars ledger it lists the spending
+// wallet's merged activity in one chronological list with day headers, no
+// filters, no tabs, built a page at a time as it scrolls
+// (AllActivitySliver), in a scope (all_activity.dart): opened from the
+// Bitcoin home, the Bitcoin scope (founder, 4 November 2026: bitcoin sends
+// and receives, and money moving into or out of bitcoin; no prediction or
+// Investing fill); from an Investments surface, the Investments scope;
+// otherwise (a money move's own link) everything. The share links this
+// wallet sent and nobody has claimed yet stay at its top.
 //
 // The Dollars tab ([onlyUsdb]) and a hardware or watch-only wallet
 // ([walletIdOverride]) keep their own ledger: the same [TransactionList]
@@ -21,7 +23,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:kute/screens/shared/all_activity.dart' show AllActivitySliver;
+import 'package:kute/screens/shared/all_activity.dart'
+    show ActivityScope, AllActivitySliver;
 import 'package:kute/screens/shared/kute_bar_context.dart'
     show kuteBarScrollClearance;
 
@@ -40,6 +43,7 @@ class ActivityHistoryScreen extends StatefulWidget {
     this.onlyUsdb = false,
     this.title,
     this.investments = false,
+    this.scope,
   });
 
   /// Scopes the list to one wallet's own history, for a hardware or
@@ -53,14 +57,23 @@ class ActivityHistoryScreen extends StatefulWidget {
   /// what these rows are than the generic one.
   final String? title;
 
-  /// Opened from an Investments surface. The Investments activity is part
-  /// of the one list now, so it lists everything like the Bitcoin home's.
+  /// Opened from an Investments surface: the Investments scope, unless
+  /// [scope] says otherwise.
   final bool investments;
+
+  /// What the merged list shows ([ActivityScope]); null: the Investments
+  /// scope when [investments], else everything.
+  final ActivityScope? scope;
 
   static const routeName = 'activity-history';
 
-  /// Whether this screen lists everything (the Bitcoin home's scope).
+  /// Whether this screen lists the spending wallet's merged activity (in
+  /// [listedScope]) rather than one ledger.
   bool get listsAll => walletIdOverride == null && !onlyUsdb;
+
+  /// The scope the merged list is read in.
+  ActivityScope get listedScope =>
+      scope ?? (investments ? ActivityScope.investments : ActivityScope.all);
 
   @override
   State<ActivityHistoryScreen> createState() => _ActivityHistoryScreenState();
@@ -107,7 +120,8 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
                   // Share links this wallet sent and nobody has claimed
                   // or that still wait to be paid: not transactions yet.
                   const SliverToBoxAdapter(child: PendingShareLinksCard()),
-                  AllActivitySliver(controller: _scroll),
+                  AllActivitySliver(
+                      controller: _scroll, scope: widget.listedScope),
                   // The last rows scroll clear of the floating bar.
                   SliverPadding(
                       padding: EdgeInsets.only(
@@ -134,7 +148,9 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
 /// [source] is the categorical surface the "See all" came from; when a
 /// caller leaves it null it is inferred from the scope (Dollars passes
 /// [onlyUsdb], a wallet tab passes [walletIdOverride]). [investments]
-/// marks an Investments surface; it lists everything all the same.
+/// marks an Investments surface (the Investments scope); [scope] names the
+/// merged list's scope outright (the Bitcoin home passes
+/// [ActivityScope.bitcoin]).
 Future<void> showActivityHistory(
   BuildContext context, {
   String? walletIdOverride,
@@ -142,15 +158,25 @@ Future<void> showActivityHistory(
   String? title,
   String? source,
   bool investments = false,
+  ActivityScope? scope,
 }) {
+  final screen = ActivityHistoryScreen(
+    walletIdOverride: walletIdOverride,
+    onlyUsdb: onlyUsdb,
+    title: title,
+    investments: investments,
+    scope: scope,
+  );
   // The pushed route already reports a `$screen`; this adds where it was
   // opened from and which ledger it lists. Fires once per open (the tap),
-  // never on rebuild. No wallet id: `scope` is categorical.
-  final scope = onlyUsdb
+  // never on rebuild. No wallet id: `scope` is categorical ('usd',
+  // 'wallet', or the merged list's scope: 'all', 'bitcoin',
+  // 'investments').
+  final scopeName = onlyUsdb
       ? 'usd'
       : walletIdOverride != null
           ? 'wallet'
-          : 'all';
+          : screen.listedScope.name;
   TrackingService.track('activity_history_opened', params: {
     'entry_source': source ??
         (onlyUsdb
@@ -160,17 +186,12 @@ Future<void> showActivityHistory(
                 : investments
                     ? 'investments'
                     : 'home'),
-    'scope': scope,
+    'scope': scopeName,
   });
   return Navigator.of(context, rootNavigator: true).push<void>(
     KutePageRoute<void>(
       settings: const RouteSettings(name: ActivityHistoryScreen.routeName),
-      builder: (_) => ActivityHistoryScreen(
-        walletIdOverride: walletIdOverride,
-        onlyUsdb: onlyUsdb,
-        title: title,
-        investments: investments,
-      ),
+      builder: (_) => screen,
     ),
   );
 }

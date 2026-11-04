@@ -35,7 +35,7 @@ import 'package:kute/providers/polymarket_sports_provider.dart';
 import 'package:kute/providers/polymarket_watchlist_provider.dart';
 import 'package:kute/screens/home/components/kute_shell_bar.dart';
 import 'package:kute/screens/polymarket/components/poly_market_stats.dart'
-    show PolyRulesRow;
+    show kPolyRulesCardKey;
 import 'package:kute/screens/polymarket/market_detail_sheet.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_share_actions.dart';
@@ -310,7 +310,7 @@ void main() {
       expect(find.text(l10n.shareHeaderLabel), findsNothing);
       // The last row scrolls clear of the floating row.
       await _scrollToEnd(tester);
-      expect(tester.getRect(find.byType(PolyRulesRow)).bottom,
+      expect(tester.getRect(find.byKey(kPolyRulesCardKey)).bottom,
           lessThan(tester.getRect(_trade('yes')).top));
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
@@ -369,7 +369,7 @@ void main() {
       // Scrolled down, the pill may be folded into the round button; the
       // last row stays clear of it either way.
       final pill = tester.getRect(_pill);
-      expect(tester.getRect(find.byType(PolyRulesRow)).bottom,
+      expect(tester.getRect(find.byKey(kPolyRulesCardKey)).bottom,
           lessThan(pill.top));
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());

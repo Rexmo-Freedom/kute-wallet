@@ -5822,6 +5822,40 @@ class AppLocalizationsNl extends AppLocalizations {
   String get hlAdvancedChart => 'Geavanceerde grafiek';
 
   @override
+  String get optionAdvancedChartSub => 'Tekeningen en indicatoren';
+
+  @override
+  String get optionAboutMarketSub => 'Statistieken en orderboek';
+
+  @override
+  String get optionAddMarginSub => 'Verder van liquidatie';
+
+  @override
+  String get optionPositionDetailsSub => 'Omvang, instap en funding';
+
+  @override
+  String optionEndsOn(String date) {
+    return 'Eindigt $date';
+  }
+
+  @override
+  String optionEndedOn(String date) {
+    return 'Afgelopen op $date';
+  }
+
+  @override
+  String get optionHowItResolves => 'Hoe de uitslag wordt bepaald';
+
+  @override
+  String get optionViewMarketSub => 'Grafiek en kansen';
+
+  @override
+  String get optionPredictionDetailsSub => 'Aandelen en betaalde prijs';
+
+  @override
+  String get optionProtectSellSub => 'Verkopen voor je eigen prijs';
+
+  @override
   String get chartStyleCandles => 'Candles';
 
   @override

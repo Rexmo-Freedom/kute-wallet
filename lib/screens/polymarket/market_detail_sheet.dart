@@ -23,6 +23,7 @@ import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart';
 import 'package:kute/screens/polymarket/components/market_chart.dart';
 import 'package:kute/screens/polymarket/components/poly_chart_history.dart';
 import 'package:kute/screens/polymarket/components/poly_market_stats.dart';
+import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/polymarket/components/price_format.dart';
 import 'package:kute/screens/polymarket/components/outcome_leading.dart';
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
@@ -55,7 +56,6 @@ import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show SliverConstraints;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -350,41 +350,10 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   /// (search-opened events lose `teams`). Populated in [build].
   List<PolymarketTeam> _fetchedTeams = const [];
 
-  /// Fits one screen above the sticky outcome bar and Buy buttons on a
-  /// standard iPhone. With [_chartFill] added when the screen has room.
-  static const double _chartHeight = 380;
-
-  /// Height added to the chart so a short list (a Yes / No market, two or
-  /// three outcomes) leaves no empty room under it ([polyChartFillExtra]).
-  /// Worked out once, the first time the sheet is laid out with its chart
-  /// at its own height, from the room left in the scroll area; never
-  /// changed again for that height, so nothing moves as prices and the
-  /// chart's history load.
-  double _chartFill = 0;
-
-  /// The scroll area's height [_chartFill] was worked out for.
-  double? _chartFillViewport;
-
-  /// The chart's own height (without [_chartFill]) as last built; null
-  /// when the sheet has no chart.
-  double? _chartBase;
-
-  /// Works out [_chartFill] from [constraints], the constraints of a sliver
-  /// laid out after everything else in the scroll area.
-  void _fitChartToScreen(SliverConstraints constraints) {
-    final base = _chartBase;
-    if (base == null || watchingStream) return;
-    final viewport = constraints.viewportMainAxisExtent;
-    if (_chartFillViewport == viewport) return;
-    _chartFillViewport = viewport;
-    final content = constraints.precedingScrollExtent - _chartFill;
-    final fill = polyChartFillExtra(
-        leftover: viewport - content, base: base, viewport: viewport);
-    if ((fill - _chartFill).abs() < 1) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) setState(() => _chartFill = fill);
-    });
-  }
+  /// The chart's height: the Investing market chart's plot over the time
+  /// axis ([polyMarketChartHeight]), the same for every market, event and
+  /// game, and never grown to fill the screen (founder, 4 November 2026).
+  double get _chartHeight => polyMarketChartHeight();
 
   /// The event as this sheet lists it: [MarketDetailSheet.event], with any
   /// placeholder outcome the user holds listed again
@@ -655,9 +624,6 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
                                 // chart and nothing else.
                                 Consumer(builder: (context, chartRef, _) {
                                   final chartWidget = _buildChartBody(chartRef);
-                                  _chartBase = chartWidget == null
-                                      ? null
-                                      : chartWidget.height - _chartFill;
                                   if (chartWidget == null) {
                                     return const SizedBox.shrink();
                                   }
@@ -722,12 +688,6 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
                         ),
                       ]),
                     ),
-                    // Laid out last, it reads how much room the content
-                    // leaves, for the chart to take ([_fitChartToScreen]).
-                    SliverLayoutBuilder(builder: (context, constraints) {
-                      _fitChartToScreen(constraints);
-                      return const SliverToBoxAdapter(child: SizedBox.shrink());
-                    }),
                     // The last rows (the outcomes, Rules) scroll clear of
                     // the floating bar (kute_bar_context.dart) and of the
                     // home indicator: nothing is pinned under the list.
@@ -2005,28 +1965,45 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     );
   }
 
-  /// Under the chart and the outcomes: the one row that opens the
-  /// market's rules, how it resolves, its stats and what people wrote
-  /// under it. The stats (24h volume, volume, liquidity) go in with the
-  /// sheet rather than sitting on this screen (owner decision); when the
-  /// market closes is already one of the sheet's own rows, so the end
-  /// date is not among them.
+  /// Under the chart and the outcomes: the market's option card, as the
+  /// Investing screens' (founder, 4 November 2026: "like squares";
+  /// kute_action_cards.dart), saying when the market ends and opening its
+  /// rules, how it resolves, its stats and what people wrote under it.
+  /// The stats (24h volume, volume, liquidity) go in with the sheet
+  /// rather than sitting on this screen (owner decision); when the market
+  /// closes is already one of the sheet's own rows, so the end date is not
+  /// among them.
   Widget _buildRulesRow() => Consumer(
-        builder: (context, statsRef, _) => PolyRulesRow(
-          onTap: () => showPolyRulesSheet(
-            context,
-            event,
-            stats: polyMarketStats(
-              context.l10n,
-              volume24hr: event.volume24hr,
-              volume: event.volume,
-              liquidity: event.liquidity,
-              endDate: null,
-              ended: _isOverFor(statsRef),
-              money: (v) => _formatVolume(statsRef, v),
-            ),
-          ),
-        ),
+        builder: (context, statsRef, _) {
+          final over = _isOverFor(statsRef);
+          return KuteActionCardGrid(
+            key: const ValueKey('poly-market-options'),
+            cards: [
+              polyRulesCard(
+                context,
+                subtitle: polyRulesCardLine(
+                  context.l10n,
+                  endDate: event.endDate,
+                  ended: over,
+                  locale: Localizations.localeOf(context).toString(),
+                ),
+                onTap: () => showPolyRulesSheet(
+                  context,
+                  event,
+                  stats: polyMarketStats(
+                    context.l10n,
+                    volume24hr: event.volume24hr,
+                    volume: event.volume,
+                    liquidity: event.liquidity,
+                    endDate: null,
+                    ended: over,
+                    money: (v) => _formatVolume(statsRef, v),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       );
 
   /// The outcome list of an event with many outcomes, as slivers (its
@@ -2243,7 +2220,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
         if (tokenId == null || tokenId.isEmpty) return null;
         return MarketChart(
           tokenId: tokenId,
-          height: _chartHeight + _chartFill,
+          height: _chartHeight,
           accentColor: _kPolyGreen,
           bought: _chartBought(ref, [tokenId]),
           shortMarket: _isShortRound,
@@ -2256,7 +2233,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       }
       return MarketChart(
         lines: lines,
-        height: _chartHeight + _chartFill,
+        height: _chartHeight,
         // Match the charted line: green for Yes, red for the No-only
         // fallback.
         accentColor: lines.first.color,
@@ -2286,7 +2263,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
               livePrice: _livePriceFor(ref, line.tokenId, line.price),
             ),
         ],
-        height: _chartHeight + _chartFill,
+        height: _chartHeight,
         accentColor: winner.first.color,
         bought: _chartBought(ref, [for (final l in winner) l.tokenId]),
         shortMarket: _isShortRound,
@@ -2324,7 +2301,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       if (wdlLines.length >= 2) {
         return MarketChart(
           lines: wdlLines,
-          height: _chartHeight + _chartFill,
+          height: _chartHeight,
           accentColor: colors.teamA,
           bought: _chartBought(ref, [for (final l in wdlLines) l.tokenId]),
           shortMarket: _isShortRound,
@@ -2354,7 +2331,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
 
     return MarketChart(
       lines: lines,
-      height: polyChartHeightFor(lines.length) + _chartFill,
+      height: _chartHeight,
       accentColor: lines.first.color,
       bought: _chartBought(ref, [for (final l in lines) l.tokenId]),
       shortMarket: _isShortRound,
