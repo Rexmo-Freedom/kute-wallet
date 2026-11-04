@@ -37,7 +37,7 @@ import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/theme/kute_motion.dart';
 import 'package:kute/screens/portfolio/wallet_detail_screen.dart';
 import 'package:kute/screens/portfolio/investments_portfolio.dart'
-    show PortfolioSection, kHomeActivityLocation;
+    show PortfolioSection;
 import 'package:kute/screens/settings/wallets_screen.dart';
 
 import 'package:flutter/material.dart';
