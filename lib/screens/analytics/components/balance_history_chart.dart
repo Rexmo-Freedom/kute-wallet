@@ -21,9 +21,11 @@
 //   * a range row 16 px under the plot (1W 1M 3M 1Y ALL, the small white
 //     pill), 1M to start and remembered per chart for the session;
 //     picking a range morphs the line;
-//   * NO HISTORY (the account never held money): no chart and no range
-//     row, the headline and one quiet caption under it ("Your balance
-//     history starts with your first transaction.");
+//   * NO HISTORY (the account never held money): Activity's empty state
+//     in its place (founder, 31 October 2026: "no balance should also
+//     show Sal"), Sal centred with "No balance history yet" and "It
+//     starts with your first transaction.": no headline, no chart, no
+//     range row;
 //   * with balances hidden the figures are dots, as on the home header.
 //
 // Analytics: `analytics_chart_scrubbed` {chart, view: line}, once per
