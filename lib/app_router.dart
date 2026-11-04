@@ -216,8 +216,11 @@ class AppRouter {
   static String? claimLinkRedirect(Uri uri, {required bool locked}) {
     final id = ShareLinkClaims.claimIdFromLink(uri);
     if (id == null) return null;
-    if (!locked) return ShareLinkClaims.claimRoutePath(id);
-    ShareLinksStore.parkClaim(id);
+    final challenge = ShareLinkClaims.challengeFromLink(uri);
+    if (!locked) {
+      return ShareLinkClaims.claimRoutePath(id, challenge: challenge);
+    }
+    ShareLinksStore.parkClaim(id, challenge: challenge);
     return null;
   }
 
@@ -289,7 +292,10 @@ class AppRouter {
           path: '/claim/:id',
           name: ClaimScreen.routeName,
           pageBuilder: (context, state) => _buildFadeScalePage(
-            child: ClaimScreen(id: state.pathParameters['id'] ?? ''),
+            child: ClaimScreen(
+              id: state.pathParameters['id'] ?? '',
+              challenge: ShareLinkClaims.challengeFromLink(state.uri),
+            ),
             state: state,
           ),
         ),

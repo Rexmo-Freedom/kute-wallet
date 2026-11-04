@@ -26,6 +26,16 @@
 //   * THE CAPS LINE at the top of the card ([shareCardTopLine]): "For
 //     Daniel", "Ana, a pick for you", the recipient's "Daniel, a friend
 //     sent you", or the venue on a market shared without a link.
+//   * A CHALLENGE (founder, 4 November 2026: "I think Bitcoin will win,
+//     wanna fight me?"; PredictionCardData.challenge): the caps line dares
+//     ("Ana, I dare you", the recipient's "Ana, a friend dares you"), the
+//     edgy line is a dare built from the sender's side ([challengeEdges]:
+//     "I'm on Yes. Think I'm wrong? Take the other side.", "I say Gen.G.
+//     Wanna fight me?", "Yes. Prove me wrong.", "I picked Yes. Your
+//     move."), and the two sides ([challengeSides]) are the sender's
+//     outcome and the other one (No for Yes, the strongest rival of a
+//     named outcome), each with the market's chance. Never "bet", never a
+//     promise of a win.
 //   * THE FIGURES: prices, percents and amounts in the locale's own number
 //     format ("41 %", "242,10 $" in German).
 
@@ -36,6 +46,8 @@ import 'package:kute/models/hyperliquid_market.dart' show HlMarket;
 import 'package:kute/screens/hyperliquid/components/hl_format.dart'
     show hlListPriceDecimals;
 import 'package:kute/screens/share/cards/share_card_data.dart';
+import 'package:kute/screens/share/cards/share_card_versus.dart'
+    show ShareCardVersusSide;
 
 /// A headline and the parts of it to emphasise.
 typedef ShareCardHeadlineText = ({String text, List<String> emphasis});
@@ -207,6 +219,8 @@ List<String> shareCardEdges(AppLocalizations l10n, ShareCardData data) {
         l10n.shareEdgeMoneyFlex,
         if (d.bitcoin) l10n.shareEdgeMoneyBitcoin,
       ];
+    case final PredictionCardData d when d.challenge:
+      return challengeEdges(l10n, d);
     case final PredictionCardData d:
       final chance = d.chance?.clamp(0.0, 100.0);
       final outcome = shareCardOutcome(l10n, d.outcome);
@@ -241,6 +255,55 @@ List<String> shareCardEdges(AppLocalizations l10n, ShareCardData data) {
   }
 }
 
+/// The dares on a challenge card (see the file header), built from the
+/// sender's side.
+List<String> challengeEdges(AppLocalizations l10n, PredictionCardData d) {
+  final side = shareCardOutcome(l10n, d.outcome);
+  return [
+    l10n.challengeEdgeWrong(side),
+    l10n.challengeEdgeFight(side),
+    l10n.challengeEdgeProve(side),
+    l10n.challengeEdgeMove(side),
+  ];
+}
+
+/// The two sides of a challenge card (see the file header): the sender's
+/// outcome, marked, and the side the friend is dared to take: the other
+/// of Yes and No, else the market's strongest rival ("?" while the
+/// market has not been read), each with its chance when known.
+({ShareCardVersusSide mine, ShareCardVersusSide theirs}) challengeSides(
+    AppLocalizations l10n, PredictionCardData d) {
+  final loc = l10n.localeName;
+  final recipient = d.audience == ShareCardAudience.recipient;
+  final label = d.outcome.trim().toLowerCase();
+  final yesNo = d.binary && (label == 'yes' || label == 'no');
+  final String other;
+  if (yesNo) {
+    other = shareCardOutcome(l10n, label == 'no' ? 'Yes' : 'No');
+  } else {
+    final rival = d.opponent?.trim() ?? '';
+    other = rival.isEmpty ? '?' : rival;
+  }
+  final mine = d.chance;
+  final theirs = d.otherChance;
+  return (
+    mine: ShareCardVersusSide(
+      tag: recipient ? l10n.challengeFriendSide : l10n.challengeMySide,
+      name: shareCardOutcome(l10n, d.outcome),
+      chance: mine == null ? null : shareCardChance(loc, mine),
+      imageUrl: yesNo ? null : d.outcomeImageUrl,
+    ),
+    theirs: ShareCardVersusSide(
+      tag: l10n.challengeYourSide,
+      name: other,
+      chance: theirs == null || other == '?'
+          ? null
+          : shareCardChance(loc, theirs),
+      imageUrl: yesNo ? null : d.opponentImageUrl,
+    ),
+  );
+}
+
 /// The edgy line for [data] at [seed] (any int: the preview's random pick
 /// on open, so each share may read differently).
 String shareCardEdge(AppLocalizations l10n, ShareCardData data, int seed) {
@@ -267,6 +330,14 @@ String shareCardTopLine(AppLocalizations l10n, ShareCardData data) {
           : l10n.claimCardFromFriendNamed(n);
     }
     return n.isEmpty ? l10n.shareCardForYou : l10n.shareCardForNamed(n);
+  }
+  if (data is PredictionCardData && data.challenge) {
+    if (recipient) {
+      return n.isEmpty
+          ? l10n.challengeCapsRecipient
+          : l10n.challengeCapsRecipientNamed(n);
+    }
+    return n.isEmpty ? l10n.challengeCaps : l10n.challengeCapsNamed(n);
   }
   if (recipient) {
     return n.isEmpty ? l10n.claimCardPick : l10n.claimCardPickNamed(n);

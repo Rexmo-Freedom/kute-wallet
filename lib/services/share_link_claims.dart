@@ -23,6 +23,11 @@
 // link that arrived while the session was locked or before the wallet
 // existed, opened on the Claim screen once the session is unlocked.
 //
+// A CHALLENGE link (models/share_link_model.dart) says so in its URL,
+// `/c/{id}?challenge=1`, or in the OneLink's `deep_link_sub2=challenge`
+// ([challengeFromLink]); the Claim screen's route carries it on as
+// `/claim/{id}?challenge=1` ([claimRoutePath]), parked links too.
+//
 // Passes are serialized and rate-limited (one per 20 s), and silent on
 // every error: a dead link or a missing session simply means no prompt.
 
@@ -120,14 +125,26 @@ abstract final class ShareLinkClaims {
   static bool openParkedClaim(BuildContext? context) {
     final id = ShareLinksStore.parkedClaimId;
     if (id == null || context == null || !context.mounted) return false;
+    final challenge = ShareLinksStore.parkedClaimChallenge;
     ShareLinksStore.takeParkedClaim();
-    unawaited(GoRouter.of(context).push(claimRoutePath(id)));
+    unawaited(
+        GoRouter.of(context).push(claimRoutePath(id, challenge: challenge)));
     return true;
   }
 
-  /// The in-app route for a claim id.
-  static String claimRoutePath(String id) =>
-      '/claim/${Uri.encodeComponent(id)}';
+  /// The in-app route for a claim id; a challenge's carries the flag.
+  static String claimRoutePath(String id, {bool challenge = false}) =>
+      '/claim/${Uri.encodeComponent(id)}'
+      '${challenge ? '?$kShareChallengeQuery=1' : ''}';
+
+  /// Whether the claim link [uri] is a challenge: `?challenge=1` on a
+  /// `/c/{id}` link or the in-app route, or the OneLink's
+  /// `deep_link_sub2=challenge`.
+  static bool challengeFromLink(Uri uri) {
+    final q = uri.queryParameters;
+    return q[kShareChallengeQuery] == '1' ||
+        q['deep_link_sub2'] == kShareChallengeQuery;
+  }
 
   /// The id in a public `/c/{id}` link, or null when [uri] is not one.
   static String? claimIdFromLink(Uri uri) {

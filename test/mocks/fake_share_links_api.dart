@@ -38,6 +38,7 @@ class FakeShareLinksApi implements ShareLinksApi {
     String? outcome,
     int? outcomeIndex,
     String? side,
+    bool challenge = false,
   }) async {
     _record('create', {
       'kind': kind.name,
@@ -49,6 +50,7 @@ class FakeShareLinksApi implements ShareLinksApi {
       if (outcome != null) 'outcome': outcome,
       if (outcomeIndex != null) 'outcomeIndex': outcomeIndex,
       if (side != null) 'side': side,
+      if (challenge) 'challenge': true,
     });
     final id = 'lnk_${++_seq}';
     links[id] = ShareLink(
@@ -64,6 +66,7 @@ class FakeShareLinksApi implements ShareLinksApi {
       status: ShareLinkStatus.open,
       rawStatus: 'open',
       expiresAt: DateTime.now().add(const Duration(days: 7)),
+      challenge: challenge,
     );
     return CreatedShareLink(id: id, url: '$webBase/c/$id');
   }
@@ -103,6 +106,7 @@ class FakeShareLinksApi implements ShareLinksApi {
       status: ShareLinkStatus.claimed,
       rawStatus: 'claimed',
       expiresAt: link.expiresAt,
+      challenge: link.challenge,
     );
     claimDestinations[id] = destination;
     return ShareLinkStatus.claimed;

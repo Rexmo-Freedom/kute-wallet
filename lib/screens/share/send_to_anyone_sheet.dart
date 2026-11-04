@@ -30,6 +30,12 @@
 // above the amount ("Yes on Gemini Carbon"), goes to the backend with the
 // link, and the share text says "I sent you a prediction on Kute: Yes on
 // Gemini Carbon, $12.00". There is no market picker here in phase 1.
+//
+// A PREDICTION pick can go as a DARE (share_challenge.dart): the
+// "Challenge them" switch under the name, off by default, turns the live
+// card into the challenge card (both sides, the sender's marked) and the
+// link into a challenge (`challenge: true` to the backend, `?challenge=1`
+// on the URL kept in the pending row, so every resend carries it).
 
 import 'dart:async';
 
@@ -52,6 +58,7 @@ import 'package:kute/screens/share/cards/share_card_data.dart';
 import 'package:kute/screens/share/cards/share_card_preview.dart';
 import 'package:kute/screens/share/cards/share_card_sources.dart';
 import 'package:kute/screens/share/pending_share_links.dart';
+import 'package:kute/screens/share/share_challenge.dart';
 import 'package:kute/screens/share/share_link_copy.dart';
 import 'package:kute/screens/share/share_link_resend.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart' show AmountKeypad;
@@ -155,6 +162,11 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
       TextEditingController(text: widget.senderLabel?.trim() ?? '');
   bool _creating = false;
   bool _sharing = false;
+
+  /// "Challenge them" (share_challenge.dart), a prediction pick only.
+  bool _challenge = false;
+  bool get _canChallenge =>
+      shareChallengeOffered(hasPick: widget.hasPick, venue: widget.venue);
   String? _error;
   PendingShareLink? _created;
 
@@ -198,6 +210,7 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
     final label = _name.text.trim();
     try {
       final pick = widget.hasPick;
+      final challenge = _challenge && _canChallenge;
       final created = await ref.read(shareLinksApiProvider).create(
             kind: kind,
             amountMinor: amountMinor,
@@ -207,6 +220,7 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
             outcome: pick ? widget.outcome!.trim() : null,
             outcomeIndex: pick ? widget.outcomeIndex : null,
             side: pick ? widget.side : null,
+            challenge: challenge,
           );
       final row = PendingShareLink(
         id: created.id,
@@ -217,7 +231,8 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
         marketTitle: pick ? widget.marketTitle!.trim() : null,
         venue: pick ? widget.venue : null,
         outcome: pick ? widget.outcome!.trim() : null,
-        url: created.url,
+        url: challenge ? shareChallengeUrl(created.url) : created.url,
+        challenge: challenge,
         createdAt: DateTime.now(),
         status: ShareLinkStatus.open,
         recipientPhone: widget.recipientPhone?.trim().isEmpty ?? true
@@ -226,7 +241,9 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
       );
       ShareLinksStore.put(row);
       ShareLinkEvents.created(kind, amountMinor,
-          marketSlug: widget.marketSlug, outcome: row.outcome);
+          marketSlug: widget.marketSlug,
+          outcome: row.outcome,
+          challenge: challenge);
       if (!mounted) return;
       // The card first (founder, 1 November 2026): Share is the bar.
       setState(() {
@@ -244,8 +261,10 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
   }
 
   /// The card for [amountMinor] to [label]: the pick's card when the
-  /// link carries one, else the money card (cards/share_card_sources.dart).
-  ShareCardData _card(int amountMinor, String? label) {
+  /// link carries one (the dare with [challenge]), else the money card
+  /// (cards/share_card_sources.dart).
+  ShareCardData _card(int amountMinor, String? label,
+      {bool challenge = false}) {
     String? btc;
     String? fiat;
     if (!_dollars && amountMinor > 0) {
@@ -272,6 +291,7 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
       bitcoinAmount: btc,
       bitcoinFiat: fiat,
       referralCode: AffiliateService.affiliateCode,
+      challenge: pick && challenge,
     );
   }
 
@@ -288,7 +308,8 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
             url: row.url,
             outcome: row.outcome,
             title: row.marketTitle,
-            venue: row.venue));
+            venue: row.venue,
+            challenge: row.challenge));
     setState(() => _sharing = true);
     final result =
         await shareCardImage(context, _boundary, text: text, name: card.kind);
@@ -444,7 +465,8 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
         // The card, live as the name is typed (see the file header).
         ShareCardPreviewBox(
           key: const ValueKey('share-live-card'),
-          data: _card(_amountMinor(), label.isEmpty ? null : label),
+          data: _card(_amountMinor(), label.isEmpty ? null : label,
+              challenge: _challenge && _canChallenge),
           boundaryKey: _liveBoundary,
           widthFraction: 0.6,
           heightFraction: 0.34,
@@ -466,6 +488,14 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
             if (!_creating) unawaited(_create());
           },
         ),
+        // A prediction can go as a dare (share_challenge.dart).
+        if (_canChallenge) ...[
+          SizedBox(height: 8.h),
+          ShareChallengeToggle(
+            value: _challenge,
+            onChanged: (v) => setState(() => _challenge = v),
+          ),
+        ],
         if (_error != null) ...[
           SizedBox(height: 10.h),
           Text(
@@ -501,7 +531,7 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
     final c = context.colors;
     final row = _created;
     if (row == null) return const SizedBox.shrink();
-    final card = _card(row.amountMinor, row.label);
+    final card = _card(row.amountMinor, row.label, challenge: row.challenge);
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,

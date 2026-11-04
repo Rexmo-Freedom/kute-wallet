@@ -153,6 +153,7 @@ class _PendingShareLinkDetailState
           bitcoinAmount: btc,
           bitcoinFiat: fiat,
           referralCode: AffiliateService.affiliateCode,
+          challenge: row.challenge,
         );
       },
       text: (context) => shareLinkMessage(context,
@@ -161,7 +162,8 @@ class _PendingShareLinkDetailState
           url: row.url,
           outcome: row.outcome,
           title: row.marketTitle,
-          venue: row.venue),
+          venue: row.venue,
+          challenge: row.challenge),
       onShared: (result) => ShareLinkEvents.shared(row.kind, result: result),
     );
   }

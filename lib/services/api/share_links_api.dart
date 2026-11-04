@@ -40,7 +40,9 @@ class ShareLinkApiException implements Exception {
 
 abstract class ShareLinksApi {
   /// `POST /links`. The pick ([venue], [outcome], [outcomeIndex], [side];
-  /// see ShareLink) rides along when the link carries one.
+  /// see ShareLink) rides along when the link carries one, and
+  /// [challenge] on a dare (`challenge: true`, sent only when set; a
+  /// backend that does not store it yet ignores the field).
   Future<CreatedShareLink> create({
     required ShareLinkKind kind,
     required int amountMinor,
@@ -50,6 +52,7 @@ abstract class ShareLinksApi {
     String? outcome,
     int? outcomeIndex,
     String? side,
+    bool challenge = false,
   });
 
   Future<ShareLink> read(String id);
@@ -104,6 +107,7 @@ class BackendShareLinksApi implements ShareLinksApi {
     String? outcome,
     int? outcomeIndex,
     String? side,
+    bool challenge = false,
   }) async {
     final body = await _send('POST', '', body: {
       'kind': kind.name,
@@ -117,6 +121,7 @@ class BackendShareLinksApi implements ShareLinksApi {
         'outcome': outcome.trim(),
       if (outcomeIndex != null) 'outcomeIndex': outcomeIndex,
       if (side != null && side.isNotEmpty) 'side': side,
+      if (challenge) 'challenge': true,
     });
     final created = CreatedShareLink.fromJson(body);
     if (created == null) throw const ShareLinkApiException(200);

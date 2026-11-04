@@ -22,6 +22,12 @@
 //     page's own chart instead (share_card_market_chart.dart): its top
 //     outcomes' real lines filling the card, each labelled "Lula da Silva
 //     41%"; the speedometer until the history is read.
+//   * CHALLENGE (blue, a pick sent as a dare; founder, 4 November 2026):
+//     "ANA, I DARE YOU", the market's picture and question, then BOTH
+//     SIDES (share_card_versus.dart): the sender's marked ("MY SIDE",
+//     "Yes", "62%"), the other open ("YOUR SIDE?", "No", "38%"), "VS"
+//     between; "$10 to play, on me", the dare as the edgy line
+//     (challengeEdges); Sal's side-eye ("and?").
 //   * INVESTMENT (navy): THE ACTUAL STOCK: its real logo (HlCoinIcon, 36),
 //     name and ticker, the price huge, "+3.4% today" in the change's
 //     colour, the last 30 days' closes as the line filling the space,
@@ -48,6 +54,7 @@ import 'package:kute/screens/share/cards/share_card_data.dart';
 import 'package:kute/screens/share/cards/share_card_frame.dart';
 import 'package:kute/screens/share/cards/share_card_market_chart.dart';
 import 'package:kute/screens/share/cards/share_card_speedometer.dart';
+import 'package:kute/screens/share/cards/share_card_versus.dart';
 import 'package:kute/screens/shared/sal_sprite.dart' show SalClip;
 
 /// The logo's side in the identity row.
@@ -72,11 +79,14 @@ const double kShareCardBigChange = 0.10;
 
 /// Sal's pose on the card: the briefcase on a dollars send, the coin
 /// balanced on her head on every bitcoin send, squinting at the odds
-/// on a prediction; on a stock, today's change: lounging up, eyes shut at
+/// on a prediction, the side-eye on a dare; on a stock, today's change:
+/// lounging up, eyes shut at
 /// [kShareCardBigChange] or more, a flop down, a side-eye flat.
 ShareCardPose shareCardPose(ShareCardData data) => switch (data) {
       final MoneyCardData d =>
         d.bitcoin ? ShareCardPose.claim : ShareCardPose.send,
+      // A dare: the slow side-eye, "and?".
+      PredictionCardData(challenge: true) => ShareCardPose.flat,
       PredictionCardData() => ShareCardPose.predict,
       final InvestmentCardData d => switch (d.change ?? 0) {
           final c when c >= kShareCardBigChange => ShareCardPose.bigWin,
@@ -126,6 +136,38 @@ class ShareCard extends StatelessWidget {
           numberBase: kShareCardMoneyHeroMax,
           line: line,
           quiet: recipient ? l10n.claimCardTapClaim : l10n.shareCardClaimOnKute,
+          code: code,
+          mark: mark,
+          pose: pose,
+        );
+      case final PredictionCardData d when d.challenge:
+        final sides = challengeSides(l10n, d);
+        return ShareCardFrame(
+          key: key,
+          palette: p,
+          caps: caps,
+          identity: ShareCardIdentity(
+            palette: p,
+            logo: ShareCardLogo(
+              key: const ValueKey('share-card-logo'),
+              size: kShareLogoSize,
+              title: d.question,
+              investing: false,
+              palette: p,
+              imageUrl: d.imageUrl,
+            ),
+            name: d.question,
+          ),
+          graphic: ShareCardVersus(
+            key: const ValueKey('share-card-odds'),
+            palette: p,
+            mine: sides.mine,
+            theirs: sides.theirs,
+          ),
+          graphicFills: true,
+          graphicBelowSal: true,
+          plain: d.amount == null ? null : l10n.challengeStake(d.amount!),
+          line: line,
           code: code,
           mark: mark,
           pose: pose,
