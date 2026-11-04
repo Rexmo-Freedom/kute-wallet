@@ -6531,6 +6531,10 @@ class AppLocalizationsNl extends AppLocalizations {
   String get walletPortfolioAction => 'Portfolio';
 
   @override
+  String get seeFullPortfolioAndActivity =>
+      'Volledig portfolio en activiteit zien';
+
+  @override
   String get walletActionsWalletChanged =>
       'De wallet is gewijzigd. Open het actiemenu opnieuw om door te gaan.';
 

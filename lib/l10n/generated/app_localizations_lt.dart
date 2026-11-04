@@ -6543,6 +6543,9 @@ class AppLocalizationsLt extends AppLocalizations {
   String get walletPortfolioAction => 'Portfelis';
 
   @override
+  String get seeFullPortfolioAndActivity => 'Rodyti visą portfelį ir veiklą';
+
+  @override
   String get walletActionsWalletChanged =>
       'Piniginė pasikeitė. Atidarykite veiksmų meniu iš naujo, kad tęstumėte.';
 

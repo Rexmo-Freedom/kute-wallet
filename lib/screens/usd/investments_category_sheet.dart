@@ -166,6 +166,7 @@ String investmentsCategoryLabel(
       return sub.isEmpty
           ? polyPillLabel(l10n, pill)
           : '${polyPillLabel(l10n, pill)} · ${polySubLabel(l10n, sub.first)}';
+    case InvestmentsTab.activity:
     case InvestmentsTab.positions:
       return portfolioSectionLabel(l10n, ref.watch(portfolioSectionProvider));
   }
@@ -187,6 +188,7 @@ String? investmentsCategoryShortLabel(
       if (subKey == pill.defaultSub) return null;
       final sub = polySubsFor(ref, pill).where((s) => s.key == subKey);
       return sub.isEmpty ? null : polySubLabel(l10n, sub.first);
+    case InvestmentsTab.activity:
     case InvestmentsTab.positions:
       return null;
   }
@@ -517,7 +519,9 @@ class _InvestmentsCategorySheetState
   String _sectionTitle(AppLocalizations l10n) => switch (widget.tab) {
         InvestmentsTab.investing => l10n.trading,
         InvestmentsTab.predictions => l10n.predictions,
-        InvestmentsTab.positions => l10n.walletPortfolioAction,
+        InvestmentsTab.activity ||
+        InvestmentsTab.positions =>
+          l10n.walletPortfolioAction,
       };
 
   String _groupTitle(AppLocalizations l10n, Object group) => switch (group) {
@@ -544,7 +548,9 @@ class _InvestmentsCategorySheetState
           InvestmentsTab.predictions => group == null
               ? _predictions(context)
               : _predictionsSubs(context, group as PolyPill),
-          InvestmentsTab.positions => _portfolio(context),
+          InvestmentsTab.activity ||
+          InvestmentsTab.positions =>
+            _portfolio(context),
         },
       ),
     );
@@ -1082,7 +1088,9 @@ class _SalCategoryGridState extends ConsumerState<_SalCategoryGrid>
     final tiles = switch (widget.tab) {
       InvestmentsTab.investing => _investing(l10n, c),
       InvestmentsTab.predictions => _predictions(l10n, c),
-      InvestmentsTab.positions => _portfolio(l10n, c),
+      InvestmentsTab.activity ||
+      InvestmentsTab.positions =>
+        _portfolio(l10n, c),
     };
     return GridView.builder(
       key: const ValueKey('sal-category-grid'),

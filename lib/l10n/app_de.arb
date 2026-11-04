@@ -1878,6 +1878,7 @@
   "investingCancellationDetails": "Bereits ausgeführte Beträge bleiben in deinem Konto.",
   "betPreviousOrderChecked": "Vorheriger Auftrag geprüft. Prüfe deine Aufträge und dein Guthaben, bevor du fortfährst.",
   "walletPortfolioAction": "Portfolio",
+  "seeFullPortfolioAndActivity": "Ganzes Portfolio und Aktivität anzeigen",
   "walletActionsWalletChanged": "Das Wallet hat sich geändert. Öffne das Aktionsmenü erneut, um fortzufahren.",
   "ledgerBuilderReviewEach": "Prüfe jede Prognose auf deinem Ledger. Eine Einrichtung oder eine unsichere Übermittlung pausiert das Portfolio.",
   "ledgerBuilderCashUnknown": "Verbinde deinen Ledger, um das verfügbare Guthaben zu prüfen.",

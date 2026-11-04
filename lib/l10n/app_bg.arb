@@ -1878,6 +1878,7 @@
   "investingCancellationDetails": "Вече изпълнените суми остават в акаунта ти.",
   "betPreviousOrderChecked": "Предишната поръчка е проверена. Прегледай поръчките и баланса си, преди да продължиш.",
   "walletPortfolioAction": "Портфолио",
+  "seeFullPortfolioAndActivity": "Виж цялото портфолио и активност",
   "walletActionsWalletChanged": "Портфейлът се смени. Отвори менюто с действия отново, за да продължиш.",
   "ledgerBuilderReviewEach": "Прегледай всяка прогноза на своя Ledger. Настройка или несигурно изпращане поставя портфолиото на пауза.",
   "ledgerBuilderCashUnknown": "Свържи своя Ledger, за да провериш наличните средства.",

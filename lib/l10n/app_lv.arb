@@ -1878,6 +1878,7 @@
   "investingCancellationDetails": "Jau izpildītās summas paliek tavā kontā.",
   "betPreviousOrderChecked": "Iepriekšējais rīkojums pārbaudīts. Pirms turpini, pārskati rīkojumus un atlikumu.",
   "walletPortfolioAction": "Portfelis",
+  "seeFullPortfolioAndActivity": "Skatīt visu portfeli un aktivitāti",
   "walletActionsWalletChanged": "Maciņš mainījās. Atver darbību izvēlni vēlreiz, lai turpinātu.",
   "ledgerBuilderReviewEach": "Pārskati katru prognozi savā Ledger. Iestatīšana vai neskaidra iesniegšana aptur portfeli.",
   "ledgerBuilderCashUnknown": "Savieno Ledger, lai pārbaudītu pieejamos līdzekļus.",

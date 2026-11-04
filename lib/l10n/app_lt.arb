@@ -1878,6 +1878,7 @@
   "investingCancellationDetails": "Jau įvykdytos sumos lieka jūsų paskyroje.",
   "betPreviousOrderChecked": "Ankstesnis pavedimas patikrintas. Prieš tęsdami peržiūrėkite pavedimus ir likutį.",
   "walletPortfolioAction": "Portfelis",
+  "seeFullPortfolioAndActivity": "Rodyti visą portfelį ir veiklą",
   "walletActionsWalletChanged": "Piniginė pasikeitė. Atidarykite veiksmų meniu iš naujo, kad tęstumėte.",
   "ledgerBuilderReviewEach": "Peržiūrėkite kiekvieną prognozę Ledger įrenginyje. Sąranka arba neaiškus pateikimas sustabdo portfelį.",
   "ledgerBuilderCashUnknown": "Prijunkite Ledger, kad patikrintumėte prieinamas lėšas.",

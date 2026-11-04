@@ -6493,6 +6493,10 @@ class AppLocalizationsLv extends AppLocalizations {
   String get walletPortfolioAction => 'Portfelis';
 
   @override
+  String get seeFullPortfolioAndActivity =>
+      'Skatīt visu portfeli un aktivitāti';
+
+  @override
   String get walletActionsWalletChanged =>
       'Maciņš mainījās. Atver darbību izvēlni vēlreiz, lai turpinātu.';
 

@@ -6557,6 +6557,10 @@ class AppLocalizationsFr extends AppLocalizations {
   String get walletPortfolioAction => 'Portefeuille';
 
   @override
+  String get seeFullPortfolioAndActivity =>
+      'Voir tout le portefeuille et l\'activité';
+
+  @override
   String get walletActionsWalletChanged =>
       'Le portefeuille a changé. Rouvrez le menu des actions pour continuer.';
 

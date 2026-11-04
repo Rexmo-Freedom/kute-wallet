@@ -21,6 +21,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:kute/providers/currency_conversions_provider.dart'
+    show currentBtcUsdProvider;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/polymarket_model.dart';
@@ -144,6 +146,9 @@ Future<ProviderContainer> _pump(WidgetTester tester) async {
   await tester.pumpWidget(ProviderScope(
     overrides: [
       ...portfolioOverrides(dollars: 25),
+      // The Activity pill (mounted under the venue pills) values Spark
+      // receives at the bitcoin price: a price, without the rates' box.
+      currentBtcUsdProvider.overrideWithValue(100000),
       settingsProvider.overrideWith((_) => SettingsModel(Settings(
             currency: 'USD',
             language: 'en',

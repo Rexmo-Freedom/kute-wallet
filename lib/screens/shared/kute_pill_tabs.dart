@@ -47,6 +47,14 @@
 // widths moving on the same chip spring as the white pill. Still too long,
 // the picked pill reads its shorter context ([KutePillItem.shortDetail]),
 // and as a last resort its words shrink to fit rather than being clipped.
+//
+// THREE PILLS (the Dollars switch, Activity · Investing · Predictions,
+// founder 4 November 2026) leave the picked one less room: the others
+// always hug their own words (a long name, Greek's "Δραστηριότητα", is
+// never squeezed into an equal third), and a context that would still
+// shrink the picked pill's words below [kutePillMinTextScale] is left off
+// (the name and its chevron alone, "Investing ⌄"): never half-size words.
+// The category sheet the chevron opens names it.
 
 import 'dart:math' as math;
 
@@ -270,6 +278,12 @@ class KutePill extends StatelessWidget {
       ? FittedBox(fit: BoxFit.scaleDown, child: text)
       : text;
 
+  /// The words in the label row: as they are inside the fitted box (which
+  /// lays them out unbounded), or flexible in a natural-width pill so a
+  /// long label still gives way to the chevron.
+  Widget _flexibleUnlessFitted(Widget words) =>
+      fillWidth ? words : Flexible(child: words);
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
@@ -303,35 +317,58 @@ class KutePill extends StatelessWidget {
             leading!,
             SizedBox(width: 6.w),
           ],
+          // The words, and the chevron after them. Sharing a row at a set
+          // width (fillWidth) they shrink together, never past the pill:
+          // a pill that just became the picked one starts its spring at its
+          // old, narrower width with the chevron already on (three pills,
+          // Japanese "予測": the chevron alone was wider than the room).
           Flexible(
             child: _shrinkToFit(
-              AnimatedDefaultTextStyle(
-                duration: duration,
-                // A text-style lerp never rides the spring: past 1 it
-                // extrapolates (a shadow's blur negative); the settle.
-                curve: reduce ? Curves.linear : KuteMotion.textCurve,
-                style: textStyle,
-                child: Text.rich(
-                  TextSpan(children: [
-                    TextSpan(text: label),
-                    // The context after the name, quieter.
-                    if (detail != null)
-                      TextSpan(text: ' · $detail', style: detailStyle),
-                  ]),
-                  semanticsLabel: semanticLabel,
-                  maxLines: 1,
-                  overflow: TextOverflow.clip,
-                  softWrap: false,
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _flexibleUnlessFitted(
+                    AnimatedDefaultTextStyle(
+                      duration: duration,
+                      // A text-style lerp never rides the spring: past 1 it
+                      // extrapolates (a shadow's blur negative); the settle.
+                      curve: reduce ? Curves.linear : KuteMotion.textCurve,
+                      style: textStyle,
+                      child: Text.rich(
+                        TextSpan(children: [
+                          TextSpan(text: label),
+                          // The context after the name, quieter.
+                          if (detail != null)
+                            TextSpan(text: ' · $detail', style: detailStyle),
+                        ]),
+                        semanticsLabel: semanticLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.clip,
+                        softWrap: false,
+                      ),
+                    ),
+                  ),
+                  // A small plain chevron (founder, 31 October 2026: no
+                  // circle). It takes the words' line, never more height:
+                  // a glyph a hair taller than the line would otherwise
+                  // shrink the words with it.
+                  if (menu) ...[
+                    SizedBox(width: 4.w),
+                    SizedBox(
+                      width: size.icon.sp,
+                      height: 0,
+                      child: OverflowBox(
+                        minHeight: 0,
+                        maxHeight: size.icon.sp,
+                        child: Icon(Icons.expand_more_rounded,
+                            size: size.icon.sp, color: c.textSecondary),
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
           ),
-          // A small plain chevron (founder, 31 October 2026: no circle).
-          if (menu) ...[
-            SizedBox(width: 4.w),
-            Icon(Icons.expand_more_rounded,
-                size: size.icon.sp, color: c.textSecondary),
-          ],
         ],
       ),
     );
@@ -596,24 +633,45 @@ class _SwitchLayout {
         KutePill.naturalWidth(context,
             item: item, selected: sel, size: size, detail: d);
     final full = need(picked, true, detail);
-    if (full != null && full > equal) {
-      final others = <double>[
-        for (var i = 0; i < n; i++)
-          if (i == selected)
-            0
-          else
-            math.min(equal, need(items[i], false, items[i].detail) ?? equal),
-      ];
-      final rest = room - others.fold<double>(0, (a, b) => a + b);
+    // The others' own words. Two pills keep the old rule (the other never
+    // wider than its half); three or more never squeeze a long name into
+    // an equal share (see the file header).
+    final hug = <double>[
+      for (var i = 0; i < n; i++)
+        if (i == selected)
+          0
+        else if (n > 2)
+          need(items[i], false, items[i].detail) ?? equal
+        else
+          math.min(equal, need(items[i], false, items[i].detail) ?? equal),
+    ];
+    final othersFit = hug.every((w) => w <= equal);
+    if ((full != null && full > equal) || !othersFit) {
+      final rest = room - hug.fold<double>(0, (a, b) => a + b);
       widths = [
-        for (var i = 0; i < n; i++) i == selected ? rest : others[i],
+        for (var i = 0; i < n; i++) i == selected ? rest : hug[i],
       ];
-      if (full > rest && picked.shortDetail != null) {
+      if (full != null && full > rest && picked.shortDetail != null) {
         detail = picked.shortDetail;
         // The shorter context back in its half: the halves equal again.
         final short = need(picked, true, detail);
-        if (short != null && short <= equal) {
+        if (short != null && short <= equal && othersFit) {
           widths = List<double>.filled(n, equal);
+        }
+      }
+      // Three pills: a context still too long for the room left is left
+      // off rather than shrunk past [kutePillMinTextScale].
+      if (n > 2 && detail != null) {
+        final now = need(picked, true, detail);
+        // The words' own scale: the pill's chrome (padding, border,
+        // chevron) never shrinks.
+        final chrome = need(
+            KutePillItem(label: '', icon: picked.icon, menu: picked.menu),
+            true,
+            null);
+        if (now != null && chrome != null && now > chrome) {
+          final scale = (rest - chrome) / (now - chrome);
+          if (scale < kutePillMinTextScale) detail = null;
         }
       }
     }
@@ -629,6 +687,10 @@ class _SwitchLayout {
 
 /// The sliding white pill's key, for tests.
 const Key kutePillIndicatorKey = ValueKey('kute-pill-indicator');
+
+/// The least a switch's picked pill may shrink its words to fit its room
+/// before its context is left off ([_SwitchLayout]).
+const double kutePillMinTextScale = 0.9;
 
 /// The white pill under a tabs row of three or fewer: the selected chrome
 /// ([KutePill.chrome]) as one card that slides between the tabs. Its

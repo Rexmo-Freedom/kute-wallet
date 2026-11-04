@@ -32,9 +32,18 @@
 //     ALL, [pnlChartRangeProvider], kept for the session and shared with
 //     the P&L section's venue rows and the "Share P&L" card);
 //   * one quiet line: "3 positions · Available $17.64" (the open
-//     positions the Positions section lists; Available as the one balance
-//     counts it: Dollars and the venues' spare cash). Nothing open: the
-//     Available alone.
+//     positions the Positions section lists). Nothing open: the Available
+//     alone.
+//
+// ONE INVESTED AND ONE AVAILABLE ACROSS THE APP (founder, 4 November
+// 2026: "Balance wrong in dollars … show invested and available in a good
+// way"): the figure and the line's Available are the Dollars header's own
+// "Invested $X · Available $Y" (InvestmentBalanceHeader
+// .oneBalanceSplitFigures: the same snapshot, the same display cache and
+// oneBalanceSplit, to the cent in the currency on screen), so the two
+// screens never disagree. Available is Dollars, the venues' spare cash and
+// money coming home between the person's own accounts, never the money the
+// Dollars header names on its in-flight lines.
 //
 // Never traded (a P&L that never left zero): no P&L line, no chart and no
 // range row, the figure and the line under it alone (the sections say it
@@ -80,6 +89,8 @@ import 'package:kute/screens/portfolio/open_investments_screen.dart'
 import 'package:kute/screens/portfolio/portfolio_balance_breakdown.dart'
     show kBreakdownRefreshCap;
 import 'package:kute/screens/portfolio/portfolio_filters.dart';
+import 'package:kute/screens/shared/investment_balance_header.dart'
+    show InvestmentBalanceHeader;
 import 'package:kute/screens/shared/charts/kute_chart_format.dart';
 import 'package:kute/screens/shared/charts/kute_trend_chart.dart';
 import 'package:kute/screens/shared/charts/kute_trend_window.dart';
@@ -194,7 +205,10 @@ class _HeroFigure extends ConsumerWidget {
           ? state.investedUsd
           : null,
     );
-    final usd = display.value;
+    // Read once, ever: the Dollars header's own figure (the same split,
+    // see the file header); never read, a dash.
+    final split = InvestmentBalanceHeader.oneBalanceSplitFigures(ref);
+    final usd = display.value == null ? null : split.investedUsd;
     final text = usd == null
         ? '—'
         : visible
@@ -265,7 +279,10 @@ class _HeroLine extends ConsumerWidget {
           : null,
     );
     final quiet = _quiet(context);
-    final usd = cached.value;
+    // Read once, ever: the Dollars header's own Available (the same split,
+    // see the file header); never read, a dash.
+    final split = InvestmentBalanceHeader.oneBalanceSplitFigures(ref);
+    final usd = cached.value == null ? null : split.availableUsd;
     final available = BalancesFigure(
         usd == null
             ? '—'

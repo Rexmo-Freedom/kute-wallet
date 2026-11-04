@@ -7,6 +7,11 @@
 // then shrinks its words: never in English, a little in the longer
 // languages (Greek's "★ Λίστα παρακολούθησης" the most, to 85%).
 //
+// Three pills (founder, 4 November 2026: Activity · Investing ·
+// Predictions on Dollars): Activity and the other venue keep their words
+// whole at full size, and the picked venue's context is left off (its
+// name and chevron alone) rather than shrunk below kutePillMinTextScale.
+//
 // Every switch row is one size (founder, 2 November 2026): the Bitcoin
 // home's See all | Balance, the Dollars halves and the Portfolio's
 // Portfolio | P&L Charts stand at the same height on the same gutters.
@@ -105,6 +110,17 @@ List<_Case> _predictions(AppLocalizations l10n) {
 List<KutePillItem> _items(AppLocalizations l10n, int selected, _Case c) => [
       for (final (i, name) in [l10n.trading, l10n.predictions].indexed)
         i == selected
+            ? KutePillItem(
+                label: name, detail: c.detail, shortDetail: c.short, menu: true)
+            : KutePillItem(label: name),
+    ];
+
+/// The Dollars switch since 4 November 2026: Activity first, then the two
+/// venues ([selected] 1 or 2 is a venue, carrying its category).
+List<KutePillItem> _items3(AppLocalizations l10n, int selected, _Case c) => [
+      KutePillItem(label: l10n.activity),
+      for (final (i, name) in [l10n.trading, l10n.predictions].indexed)
+        i + 1 == selected
             ? KutePillItem(
                 label: name, detail: c.detail, shortDetail: c.short, menu: true)
             : KutePillItem(label: name),
@@ -215,6 +231,69 @@ void main() {
         }
       }
     }
+  });
+
+  testWidgets(
+      'three pills, Activity · Investing · Predictions: the picked venue '
+      'never cuts its category at 375 pt in every language, Activity and '
+      'the other venue never shrink', (tester) async {
+    await tester.runAsync(_loadInter);
+    tester.view.physicalSize = const Size(375, 812) * 3;
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    final dropped = <String>[];
+    for (final locale in AppLocalizations.supportedLocales) {
+      final l10n = l10nForLanguage(locale.languageCode);
+      for (final (selected, cases) in [
+        (1, _investing(l10n)),
+        (2, _predictions(l10n)),
+      ]) {
+        for (final c in cases) {
+          for (final compact in [false, true]) {
+            await tester.pumpWidget(_app(
+                locale,
+                Center(
+                    child: _strip(_items3(l10n, selected, c), selected,
+                        compact: compact))));
+            await tester.pump(const Duration(seconds: 1));
+            final why = '${locale.languageCode}'
+                '${compact ? ' compact' : ''}';
+            final picked = tester
+                .widgetList<KutePill>(find.byType(KutePill))
+                .elementAt(selected);
+            final name = selected == 1 ? l10n.trading : l10n.predictions;
+            // A context the room cannot hold above the least scale is
+            // left off: the name and its chevron alone.
+            final shownDetail = picked.detail;
+            if (shownDetail == null) dropped.add('$why: ${c.detail}');
+            final scale = _checkWhole(
+                tester,
+                shownDetail == null ? name : '$name · $shownDetail',
+                why);
+            for (final other in [
+              l10n.activity,
+              selected == 1 ? l10n.predictions : l10n.trading,
+            ]) {
+              expect(_checkWhole(tester, other, why), closeTo(1, 0.001),
+                  reason: '$why: "$other" shrank');
+            }
+            // Never below the least scale: past it the context is left
+            // off instead (kute_pill_tabs.dart, three pills).
+            expect(scale, greaterThanOrEqualTo(kutePillMinTextScale - 0.01),
+                reason: '$why: "${picked.detail}" shrank to $scale');
+          }
+        }
+      }
+    }
+    // In English only the three longest contexts are left off; the rest
+    // read whole at full size.
+    expect(dropped.where((d) => d.startsWith('en')).toSet(), {
+      'en: Stocks and shares',
+      'en compact: Stocks and shares',
+      'en: Crypto · Protocol Metrics',
+      'en: Finance · Prediction Markets',
+      'en compact: Finance · Prediction Markets',
+    });
   });
 
   testWidgets('every switch row stands at one size on the same gutters',

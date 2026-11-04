@@ -6508,6 +6508,10 @@ class AppLocalizationsCs extends AppLocalizations {
   String get walletPortfolioAction => 'Portfolio';
 
   @override
+  String get seeFullPortfolioAndActivity =>
+      'Zobrazit celé portfolio a aktivitu';
+
+  @override
   String get walletActionsWalletChanged =>
       'Peněženka se změnila. Pro pokračování znovu otevři nabídku akcí.';
 

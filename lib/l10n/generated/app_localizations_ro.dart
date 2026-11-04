@@ -6544,6 +6544,10 @@ class AppLocalizationsRo extends AppLocalizations {
   String get walletPortfolioAction => 'Portofoliu';
 
   @override
+  String get seeFullPortfolioAndActivity =>
+      'Vezi tot portofoliul și activitatea';
+
+  @override
   String get walletActionsWalletChanged =>
       'Portofelul s-a schimbat. Redeschide meniul de acțiuni pentru a continua.';
 

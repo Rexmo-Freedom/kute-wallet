@@ -37,7 +37,7 @@ import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/theme/kute_motion.dart';
 import 'package:kute/screens/portfolio/wallet_detail_screen.dart';
 import 'package:kute/screens/portfolio/investments_portfolio.dart'
-    show PortfolioSection, kHomeActivityLocation;
+    show PortfolioSection;
 import 'package:kute/screens/settings/wallets_screen.dart';
 
 import 'package:flutter/material.dart';
@@ -648,15 +648,13 @@ class AppRouter {
                 GoRoute(
                   path: '/usd',
                   name: 'usd',
-                  // The activity left the Portfolio for the Bitcoin home
-                  // (founder, 1 November 2026): an old `?tab=activity`
-                  // link lands there.
-                  redirect: (context, state) =>
-                      state.uri.queryParameters['tab'] == 'activity'
-                          ? kHomeActivityLocation
-                          : null,
-                  // `?tab=investing|predictions|positions` (what the venue
-                  // routes redirect to) or `extra: {'tab': …}` picks the
+                  // `?tab=activity` opens the Dollars Activity pill
+                  // (founder, 4 November 2026: Dollars leads with its own
+                  // Activity, as the Bitcoin home does); it went to the
+                  // Bitcoin home's Activity from 1 November.
+                  // `?tab=activity|investing|predictions|positions` (what
+                  // the venue routes redirect to) or `extra: {'tab': …}`
+                  // picks the
                   // Investments pill (an old `earn` link opens the default
                   // pill: Earn is shown nowhere; a Portfolio section's or
                   // an old Portfolio tab's key opens the Portfolio pill on

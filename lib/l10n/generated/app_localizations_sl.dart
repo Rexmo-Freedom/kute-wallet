@@ -6526,6 +6526,10 @@ class AppLocalizationsSl extends AppLocalizations {
   String get walletPortfolioAction => 'Portfelj';
 
   @override
+  String get seeFullPortfolioAndActivity =>
+      'Prikaži celoten portfelj in dejavnost';
+
+  @override
   String get walletActionsWalletChanged =>
       'Denarnica se je spremenila. Za nadaljevanje znova odprite meni dejanj.';
 

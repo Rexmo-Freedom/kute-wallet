@@ -1878,6 +1878,7 @@
   "investingCancellationDetails": "A már teljesült összegek a fiókodban maradnak.",
   "betPreviousOrderChecked": "Az előző megbízás ellenőrizve. A folytatás előtt nézd át a megbízásaidat és az egyenlegedet.",
   "walletPortfolioAction": "Portfólió",
+  "seeFullPortfolioAndActivity": "Teljes portfólió és tevékenység",
   "walletActionsWalletChanged": "A tárca megváltozott. A folytatáshoz nyisd meg újra a műveletek menüt.",
   "ledgerBuilderReviewEach": "Minden előrejelzést nézz át a Ledgeren. Beállítás vagy bizonytalan beküldés esetén a portfólió szünetel.",
   "ledgerBuilderCashUnknown": "Csatlakoztasd a Ledgert az elérhető pénz ellenőrzéséhez.",

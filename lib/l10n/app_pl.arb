@@ -1878,6 +1878,7 @@
   "investingCancellationDetails": "Kwoty już zrealizowane pozostają na koncie.",
   "betPreviousOrderChecked": "Poprzednie zlecenie sprawdzone. Przejrzyj zlecenia i saldo, zanim przejdziesz dalej.",
   "walletPortfolioAction": "Portfolio",
+  "seeFullPortfolioAndActivity": "Zobacz całe portfolio i aktywność",
   "walletActionsWalletChanged": "Portfel się zmienił. Otwórz menu akcji ponownie, aby kontynuować.",
   "ledgerBuilderReviewEach": "Przejrzyj każdą prognozę na Ledgerze. Konfiguracja lub niepewne wysłanie wstrzymuje portfolio.",
   "ledgerBuilderCashUnknown": "Połącz Ledgera, aby zweryfikować dostępne środki.",

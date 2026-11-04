@@ -6523,6 +6523,10 @@ class AppLocalizationsHr extends AppLocalizations {
   String get walletPortfolioAction => 'Portfelj';
 
   @override
+  String get seeFullPortfolioAndActivity =>
+      'Prikaži cijeli portfelj i aktivnost';
+
+  @override
   String get walletActionsWalletChanged =>
       'Novčanik se promijenio. Ponovno otvori izbornik radnji za nastavak.';
 

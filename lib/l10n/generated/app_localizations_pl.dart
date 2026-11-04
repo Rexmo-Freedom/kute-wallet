@@ -6531,6 +6531,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get walletPortfolioAction => 'Portfolio';
 
   @override
+  String get seeFullPortfolioAndActivity => 'Zobacz całe portfolio i aktywność';
+
+  @override
   String get walletActionsWalletChanged =>
       'Portfel się zmienił. Otwórz menu akcji ponownie, aby kontynuować.';
 

@@ -3545,6 +3545,10 @@
   "investingCancellationDetails": "Any amounts already filled remain in your account.",
   "betPreviousOrderChecked": "Previous order checked. Review your orders and balance before continuing.",
   "walletPortfolioAction": "Portfolio",
+  "seeFullPortfolioAndActivity": "See full portfolio and activity",
+  "@seeFullPortfolioAndActivity": {
+    "description": "Dollars tab, Activity pill: the floating bar's primary button, which opens the Portfolio screen with every position and the full activity. One line on a 375 pt phone."
+  },
   "walletActionsWalletChanged": "The wallet changed. Reopen the actions menu to continue.",
   "ledgerBuilderReviewEach": "Review each prediction on your Ledger. Setup or an uncertain submission pauses the portfolio.",
   "ledgerBuilderCashUnknown": "Connect your Ledger to verify available funds.",

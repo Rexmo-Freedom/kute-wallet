@@ -6490,6 +6490,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get walletPortfolioAction => 'Portfolio';
 
   @override
+  String get seeFullPortfolioAndActivity => 'See full portfolio and activity';
+
+  @override
   String get walletActionsWalletChanged =>
       'The wallet changed. Reopen the actions menu to continue.';
 

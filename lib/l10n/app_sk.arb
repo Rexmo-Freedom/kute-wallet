@@ -1878,6 +1878,7 @@
   "investingCancellationDetails": "Už vyplnené sumy zostávajú na tvojom účte.",
   "betPreviousOrderChecked": "Predošlý príkaz overený. Pred pokračovaním skontroluj príkazy a zostatok.",
   "walletPortfolioAction": "Portfólio",
+  "seeFullPortfolioAndActivity": "Zobraziť celé portfólio a aktivitu",
   "walletActionsWalletChanged": "Peňaženka sa zmenila. Znova otvor menu akcií a pokračuj.",
   "ledgerBuilderReviewEach": "Skontroluj každú predpoveď na Ledgeri. Nastavenie alebo neisté odoslanie portfólio pozastaví.",
   "ledgerBuilderCashUnknown": "Pripoj Ledger a over dostupné prostriedky.",

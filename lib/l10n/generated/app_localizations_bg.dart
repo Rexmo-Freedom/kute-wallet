@@ -6521,6 +6521,9 @@ class AppLocalizationsBg extends AppLocalizations {
   String get walletPortfolioAction => 'Портфолио';
 
   @override
+  String get seeFullPortfolioAndActivity => 'Виж цялото портфолио и активност';
+
+  @override
   String get walletActionsWalletChanged =>
       'Портфейлът се смени. Отвори менюто с действия отново, за да продължиш.';
 

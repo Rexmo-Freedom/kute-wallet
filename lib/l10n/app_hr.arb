@@ -1878,6 +1878,7 @@
   "investingCancellationDetails": "Već izvršeni iznosi ostaju na tvom računu.",
   "betPreviousOrderChecked": "Prethodni nalog je provjeren. Pregledaj naloge i saldo prije nastavka.",
   "walletPortfolioAction": "Portfelj",
+  "seeFullPortfolioAndActivity": "Prikaži cijeli portfelj i aktivnost",
   "walletActionsWalletChanged": "Novčanik se promijenio. Ponovno otvori izbornik radnji za nastavak.",
   "ledgerBuilderReviewEach": "Pregledaj svako predviđanje na Ledgeru. Postavljanje ili nesigurno slanje pauzira portfelj.",
   "ledgerBuilderCashUnknown": "Poveži Ledger za provjeru dostupnih sredstava.",
