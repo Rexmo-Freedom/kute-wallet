@@ -3239,7 +3239,7 @@
   "shareSendFailed": "Saatmine ebaõnnestus. Kute küsib uuesti, kui see järgmine kord avatakse.",
   "claimTitle": "{sender} saatis sulle {amount}",
   "claimSomeone": "Keegi",
-  "claimMarketLine": "panustamiseks turul {market}",
+  "claimMarketLine": "ennustuseks turul {market}",
   "claimButton": "Võta kätte",
   "claimClaiming": "Kättesaamine",
   "claimOnItsWay": "Teel",

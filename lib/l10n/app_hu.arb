@@ -3239,7 +3239,7 @@
   "shareSendFailed": "Nem sikerült elküldeni. A Kute a következő megnyitáskor újra rákérdez.",
   "claimTitle": "{sender} küldött neked {amount} összeget",
   "claimSomeone": "Valaki",
-  "claimMarketLine": "fogadásra erre: {market}",
+  "claimMarketLine": "előrejelzésre erre: {market}",
   "claimButton": "Átvétel",
   "claimClaiming": "Átvétel folyamatban",
   "claimOnItsWay": "Úton van",

@@ -3512,7 +3512,7 @@
   "shareSendFailed": "Não foi possível enviar. A Kute volta a perguntar da próxima vez que abrir.",
   "claimTitle": "{sender} enviou-lhe {amount}",
   "claimSomeone": "Alguém",
-  "claimMarketLine": "para apostar em {market}",
+  "claimMarketLine": "para uma previsão em {market}",
   "claimButton": "Resgatar",
   "claimClaiming": "A resgatar",
   "claimOnItsWay": "A caminho",

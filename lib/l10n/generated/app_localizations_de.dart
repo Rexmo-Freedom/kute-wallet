@@ -11815,7 +11815,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String claimMarketLine(String market) {
-    return 'zum Wetten auf $market';
+    return 'für eine Prognose zu $market';
   }
 
   @override

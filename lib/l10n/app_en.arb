@@ -8683,7 +8683,7 @@
   "@claimSomeone": {
     "description": "Stands in for the sender's name when the link carries none."
   },
-  "claimMarketLine": "to bet on {market}",
+  "claimMarketLine": "for a prediction on {market}",
   "@claimMarketLine": {
     "placeholders": {
       "market": {

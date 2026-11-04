@@ -11790,7 +11790,7 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String claimMarketLine(String market) {
-    return 'pentru a paria pe $market';
+    return 'pentru o predicție pe $market';
   }
 
   @override

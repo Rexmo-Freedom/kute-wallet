@@ -11810,7 +11810,7 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String claimMarketLine(String market) {
-    return 'για στοίχημα στο $market';
+    return 'για πρόβλεψη στο $market';
   }
 
   @override

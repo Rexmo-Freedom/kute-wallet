@@ -11745,7 +11745,7 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String claimMarketLine(String market) {
-    return 'panokseksi: $market';
+    return 'ennusteeseen: $market';
   }
 
   @override

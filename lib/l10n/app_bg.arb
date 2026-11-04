@@ -3239,7 +3239,7 @@
   "shareSendFailed": "Изпращането не успя. Kute ще попита отново при следващото отваряне.",
   "claimTitle": "{sender} ти изпрати {amount}",
   "claimSomeone": "Някой",
-  "claimMarketLine": "за залог на {market}",
+  "claimMarketLine": "за прогноза за {market}",
   "claimButton": "Вземи",
   "claimClaiming": "Взимане",
   "claimOnItsWay": "На път е",

@@ -11785,7 +11785,7 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String claimMarketLine(String market) {
-    return 'statymui rinkoje $market';
+    return 'prognozei rinkoje $market';
   }
 
   @override

@@ -11758,7 +11758,7 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String claimMarketLine(String market) {
-    return 'za klađenje na $market';
+    return 'za predviđanje na $market';
   }
 
   @override

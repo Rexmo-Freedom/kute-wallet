@@ -3239,7 +3239,7 @@
   "shareSendFailed": "Lähetys epäonnistui. Kute kysyy uudelleen, kun se avataan seuraavan kerran.",
   "claimTitle": "{sender} lähetti sinulle {amount}",
   "claimSomeone": "Joku",
-  "claimMarketLine": "panokseksi: {market}",
+  "claimMarketLine": "ennusteeseen: {market}",
   "claimButton": "Lunasta",
   "claimClaiming": "Lunastetaan",
   "claimOnItsWay": "Matkalla",

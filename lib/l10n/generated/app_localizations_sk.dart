@@ -11746,7 +11746,7 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String claimMarketLine(String market) {
-    return 'na stávku na $market';
+    return 'na predpoveď: $market';
   }
 
   @override

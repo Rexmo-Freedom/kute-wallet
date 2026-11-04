@@ -72,7 +72,7 @@ void main() {
     expect(find.byKey(const ValueKey('share-card-chip')), findsNothing);
     expect(find.byKey(const ValueKey('share-card-code')), findsNothing);
     expect(find.byKey(const ValueKey('share-card-sal')), findsOneWidget);
-    expect(find.text('to bet on will it rain in lisbon'), findsOneWidget);
+    expect(find.text('for a prediction on will it rain in lisbon'), findsOneWidget);
     expect(kuteBarPrimaryWithText('Claim'), findsOneWidget);
     expect(env.fake.callNames, ['read']);
   });
@@ -135,7 +135,7 @@ void main() {
     expect(find.text('gemini carbon'), findsOneWidget);
     expect(find.text('Yes'), findsOneWidget);
     expect(find.text('\$12.50 on Yes'), findsOneWidget);
-    expect(find.text('to bet on gemini carbon'), findsNothing);
+    expect(find.text('for a prediction on gemini carbon'), findsNothing);
 
     await tester.tap(kuteBarPrimaryWithText('Claim'));
     await settle(tester);

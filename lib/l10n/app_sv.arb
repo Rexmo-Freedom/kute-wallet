@@ -3239,7 +3239,7 @@
   "shareSendFailed": "Kunde inte skicka. Kute frågar igen nästa gång appen öppnas.",
   "claimTitle": "{sender} har skickat {amount} till dig",
   "claimSomeone": "Någon",
-  "claimMarketLine": "att satsa på {market}",
+  "claimMarketLine": "för en förutsägelse på {market}",
   "claimButton": "Hämta",
   "claimClaiming": "Hämtar",
   "claimOnItsWay": "På väg",

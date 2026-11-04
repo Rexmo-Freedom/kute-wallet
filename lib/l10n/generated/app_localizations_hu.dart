@@ -11760,7 +11760,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String claimMarketLine(String market) {
-    return 'fogadásra erre: $market';
+    return 'előrejelzésre erre: $market';
   }
 
   @override

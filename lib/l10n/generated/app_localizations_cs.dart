@@ -11730,7 +11730,7 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String claimMarketLine(String market) {
-    return 'na sázku na $market';
+    return 'na předpověď: $market';
   }
 
   @override

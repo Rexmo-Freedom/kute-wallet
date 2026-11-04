@@ -11770,7 +11770,7 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String claimMarketLine(String market) {
-    return 'om te wedden op $market';
+    return 'voor een voorspelling op $market';
   }
 
   @override

@@ -11720,7 +11720,7 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String claimMarketLine(String market) {
-    return 'panustamiseks turul $market';
+    return 'ennustuseks turul $market';
   }
 
   @override

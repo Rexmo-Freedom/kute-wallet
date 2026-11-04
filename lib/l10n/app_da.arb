@@ -3239,7 +3239,7 @@
   "shareSendFailed": "Kunne ikke sende. Kute spørger igen, næste gang appen åbnes.",
   "claimTitle": "{sender} har sendt dig {amount}",
   "claimSomeone": "Nogen",
-  "claimMarketLine": "til at satse på {market}",
+  "claimMarketLine": "til en forudsigelse på {market}",
   "claimButton": "Indløs",
   "claimClaiming": "Indløser",
   "claimOnItsWay": "På vej",

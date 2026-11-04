@@ -19714,7 +19714,7 @@ abstract class AppLocalizations {
   /// No description provided for @claimMarketLine.
   ///
   /// In en, this message translates to:
-  /// **'to bet on {market}'**
+  /// **'for a prediction on {market}'**
   String claimMarketLine(String market);
 
   /// No description provided for @claimButton.

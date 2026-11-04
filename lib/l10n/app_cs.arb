@@ -3239,7 +3239,7 @@
   "shareSendFailed": "Odeslání se nezdařilo. Kute se zeptá znovu při dalším otevření.",
   "claimTitle": "{sender} ti posílá {amount}",
   "claimSomeone": "Někdo",
-  "claimMarketLine": "na sázku na {market}",
+  "claimMarketLine": "na předpověď: {market}",
   "claimButton": "Vyzvednout",
   "claimClaiming": "Vyzvedává se",
   "claimOnItsWay": "Na cestě",

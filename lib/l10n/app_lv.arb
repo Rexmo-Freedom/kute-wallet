@@ -3239,7 +3239,7 @@
   "shareSendFailed": "Neizdevās nosūtīt. Kute jautās vēlreiz nākamajā atvēršanas reizē.",
   "claimTitle": "{sender} tev atsūtīja {amount}",
   "claimSomeone": "Kāds",
-  "claimMarketLine": "likmei uz {market}",
+  "claimMarketLine": "prognozei par {market}",
   "claimButton": "Saņemt",
   "claimClaiming": "Saņem",
   "claimOnItsWay": "Ceļā",

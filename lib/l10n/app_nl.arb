@@ -3239,7 +3239,7 @@
   "shareSendFailed": "Versturen mislukt. Kute vraagt het opnieuw zodra de app weer opent.",
   "claimTitle": "{sender} heeft je {amount} gestuurd",
   "claimSomeone": "Iemand",
-  "claimMarketLine": "om te wedden op {market}",
+  "claimMarketLine": "voor een voorspelling op {market}",
   "claimButton": "Claimen",
   "claimClaiming": "Bezig met claimen",
   "claimOnItsWay": "Onderweg",

@@ -11753,7 +11753,7 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String claimMarketLine(String market) {
-    return 'за залог на $market';
+    return 'за прогноза за $market';
   }
 
   @override

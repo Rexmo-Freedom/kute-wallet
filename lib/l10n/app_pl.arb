@@ -3239,7 +3239,7 @@
   "shareSendFailed": "Nie udało się wysłać. Kute zapyta ponownie przy następnym otwarciu.",
   "claimTitle": "{sender} wysyła ci {amount}",
   "claimSomeone": "Ktoś",
-  "claimMarketLine": "na zakład: {market}",
+  "claimMarketLine": "na prognozę: {market}",
   "claimButton": "Odbierz",
   "claimClaiming": "Odbieranie",
   "claimOnItsWay": "W drodze",

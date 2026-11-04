@@ -11770,7 +11770,7 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String claimMarketLine(String market) {
-    return 'za stavo na $market';
+    return 'za napoved na $market';
   }
 
   @override

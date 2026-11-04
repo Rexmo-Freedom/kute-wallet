@@ -3239,7 +3239,7 @@
   "shareSendFailed": "Nu s-a putut trimite. Kute te va întreba din nou la următoarea deschidere.",
   "claimTitle": "{sender} ți-a trimis {amount}",
   "claimSomeone": "Cineva",
-  "claimMarketLine": "pentru a paria pe {market}",
+  "claimMarketLine": "pentru o predicție pe {market}",
   "claimButton": "Revendică",
   "claimClaiming": "Se revendică",
   "claimOnItsWay": "Pe drum",

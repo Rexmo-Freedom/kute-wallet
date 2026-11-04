@@ -11771,7 +11771,7 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String claimMarketLine(String market) {
-    return 'na zakład: $market';
+    return 'na prognozę: $market';
   }
 
   @override

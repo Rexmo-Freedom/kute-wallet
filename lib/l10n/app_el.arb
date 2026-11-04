@@ -3239,7 +3239,7 @@
   "shareSendFailed": "Η αποστολή απέτυχε. Το Kute θα ρωτήσει ξανά την επόμενη φορά που θα ανοίξει.",
   "claimTitle": "{sender} σού έστειλε {amount}",
   "claimSomeone": "Κάποιος",
-  "claimMarketLine": "για στοίχημα στο {market}",
+  "claimMarketLine": "για πρόβλεψη στο {market}",
   "claimButton": "Είσπραξη",
   "claimClaiming": "Είσπραξη σε εξέλιξη",
   "claimOnItsWay": "Έρχεται",

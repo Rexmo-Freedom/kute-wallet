@@ -3239,7 +3239,7 @@
   "shareSendFailed": "Nepavyko išsiųsti. Kute paklaus dar kartą, kai kitą kartą bus atidaryta.",
   "claimTitle": "{sender} atsiuntė jums {amount}",
   "claimSomeone": "Kažkas",
-  "claimMarketLine": "statymui rinkoje {market}",
+  "claimMarketLine": "prognozei rinkoje {market}",
   "claimButton": "Atsiimti",
   "claimClaiming": "Atsiimama",
   "claimOnItsWay": "Pakeliui",

@@ -11728,7 +11728,7 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String claimMarketLine(String market) {
-    return 'att satsa på $market';
+    return 'för en förutsägelse på $market';
   }
 
   @override
