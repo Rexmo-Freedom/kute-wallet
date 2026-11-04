@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:kute/services/spark_deposit_actions.dart';
+import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/spark_deposit_auto_claim.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart' show pickSpendingWallet;
 import 'package:kute/models/breez/error_handling.dart';
@@ -689,6 +690,8 @@ class SparkDepositAddressRotation {
   static void _rotated() => _due = false;
 
   static String _issuedKey(String walletId) => 'sparkDepositIssued_$walletId';
+  static String _addressKey(String walletId) =>
+      'sparkDepositAddress_$walletId';
 
   @visibleForTesting
   static void debugReset() {
@@ -705,30 +708,64 @@ final getSparkBitcoinAddressProvider = FutureProvider<String>((ref) async {
     // [SparkDepositAddressRotation] for when each is asked.
     final walletId = pickSpendingWallet(ref.read(settingsProvider))?.id;
     Box? box;
-    var issued = false;
-    try {
-      box = await Hive.openBox('addresses');
-      issued = walletId != null &&
-          box.get(SparkDepositAddressRotation._issuedKey(walletId)) == true;
-    } catch (_) {
-      // No store: behave as a first read and ask for a fresh address.
+    // Unknown is never a reason to rotate: without the wallet's id (early
+    // in a cold start) or a readable store, the current address is kept.
+    // Only a store that says this device never issued one asks for a
+    // first fresh address. A deposit address the wallet already gave out
+    // stays valid, so keeping it is always safe; changing it is not
+    // needed, and a sender holding the old one is confused.
+    var issued = true;
+    if (walletId != null) {
+      try {
+        box = await Hive.openBox('addresses');
+        issued =
+            box.get(SparkDepositAddressRotation._issuedKey(walletId)) == true;
+      } catch (_) {
+        issued = true;
+      }
     }
     final fresh = !issued || SparkDepositAddressRotation._rotateNow;
+    // The address this wallet last gave out on this device. Unless a
+    // rotation is due it is the one shown, whatever a reconnect's SDK
+    // read answers: the wallet's deposit addresses stay valid, so the
+    // only reason to show another is money having arrived on this one.
+    String? pinned;
+    if (!fresh && walletId != null) {
+      try {
+        final v = box?.get(SparkDepositAddressRotation._addressKey(walletId));
+        if (v is String && v.isNotEmpty) pinned = v;
+      } catch (_) {}
+    }
     final req = ReceivePaymentRequest(
       paymentMethod: ReceivePaymentMethod.bitcoinAddress(newAddress: fresh),
     );
-    final sdk = sdkWrapper.instance!;
-    final response =
-        await runSparkQuote(() => sdk.receivePayment(request: req));
-    if (fresh) {
-      SparkDepositAddressRotation._rotated();
-      if (walletId != null) {
-        try {
-          await box?.put(SparkDepositAddressRotation._issuedKey(walletId), true);
-        } catch (_) {}
-      }
+    final String answered;
+    try {
+      final sdk = sdkWrapper.instance!;
+      final response =
+          await runSparkQuote(() => sdk.receivePayment(request: req));
+      answered = response.paymentRequest;
+    } catch (e) {
+      // The SDK could not answer (offline, reconnecting): the pinned
+      // address is still the wallet's, so show it rather than nothing.
+      if (pinned != null) return pinned;
+      rethrow;
     }
-    return response.paymentRequest;
+    if (pinned != null && answered != pinned) {
+      // Not something the app asked for: kept, and counted, so a change
+      // on the SDK's side shows up in analytics rather than on screen.
+      TrackingService.track('spark_deposit_address_sdk_changed');
+      return pinned;
+    }
+    if (fresh) SparkDepositAddressRotation._rotated();
+    if (walletId != null) {
+      try {
+        await box?.put(SparkDepositAddressRotation._issuedKey(walletId), true);
+        await box?.put(
+            SparkDepositAddressRotation._addressKey(walletId), answered);
+      } catch (_) {}
+    }
+    return answered;
   } catch (e) {
     handlePaymentException(e);
   }

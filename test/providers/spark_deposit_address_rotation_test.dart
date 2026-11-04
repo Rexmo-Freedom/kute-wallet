@@ -38,6 +38,9 @@ void main() {
       'receive screen opens', () async {
     final asked = <bool?>[];
     var n = 0;
+    // What the SDK answers a plain (not new) read with, when set.
+    String? sdkDrift;
+    Object? sdkDown;
     final sdk = _Sdk();
     when(() => sdk.receivePayment(request: any(named: 'request')))
         .thenAnswer((call) async {
@@ -45,8 +48,11 @@ void main() {
       final method =
           req.paymentMethod as ReceivePaymentMethod_BitcoinAddress;
       asked.add(method.newAddress);
+      if (sdkDown != null) throw sdkDown!;
       if (method.newAddress == true) n++;
-      return ReceivePaymentResponse(paymentRequest: 'bc1q$n', fee: BigInt.zero);
+      final address =
+          method.newAddress == true ? 'bc1q$n' : (sdkDrift ?? 'bc1q$n');
+      return ReceivePaymentResponse(paymentRequest: address, fee: BigInt.zero);
     });
     final wrapper = _Wrapper();
     when(() => wrapper.instance).thenReturn(sdk);
@@ -88,5 +94,17 @@ void main() {
     c.invalidate(getSparkBitcoinAddressProvider);
     await c.read(getSparkBitcoinAddressProvider.future);
     expect(asked.last, isFalse);
+
+    // A reconnect whose SDK read answers another address: the one the
+    // wallet gave out is still shown (it still receives).
+    sdkDrift = 'bc1qother';
+    c.invalidate(getSparkBitcoinAddressProvider);
+    expect(await c.read(getSparkBitcoinAddressProvider.future), 'bc1q2');
+    sdkDrift = null;
+    // The SDK cannot answer at all: still the same address, not nothing.
+    sdkDown = StateError('offline');
+    c.invalidate(getSparkBitcoinAddressProvider);
+    expect(await c.read(getSparkBitcoinAddressProvider.future), 'bc1q2');
+    sdkDown = null;
   });
 }
