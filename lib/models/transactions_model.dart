@@ -419,12 +419,30 @@ class SparkPendingDeposit extends BaseTransaction {
   final mempool.MempoolTransaction mempoolTx;
   final int confirmations; // 0, 1, or 2
 
+  /// The SDK is already adding it (an instant claim submitted, or a
+  /// deposit payment still settling): the row says "Adding to your
+  /// balance" rather than counting confirmations it no longer waits for,
+  /// and offers no Claim now.
+  final bool claimInProgress;
+
   SparkPendingDeposit({
     required super.id,
     required super.timestamp,
     required this.mempoolTx,
     required this.confirmations,
+    this.claimInProgress = false,
   }) : super(isConfirmed: false);
+
+  SparkPendingDeposit withClaimInProgress(bool value) =>
+      value == claimInProgress
+          ? this
+          : SparkPendingDeposit(
+              id: id,
+              timestamp: timestamp,
+              mempoolTx: mempoolTx,
+              confirmations: confirmations,
+              claimInProgress: value,
+            );
 
   @override
   TransactionType get type => TransactionType.received;

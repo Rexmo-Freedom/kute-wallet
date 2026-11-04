@@ -2741,14 +2741,15 @@ Widget _buildSparkPendingDepositItem(
     // "Arriving · 1 of 3 confirmations": the count is the whole story of
     // this transient row, so it replaces the time. From 3 the SDK is about
     // to add it; the row bridges until the SDK lists the deposit.
-    subtitle: tx.confirmations < 3
+    subtitle: tx.confirmations < 3 && !tx.claimInProgress
         ? context.l10n.activityConfirmationsOfThree('${tx.confirmations}')
         : context.l10n.activityAddingToBalance,
     // From the first confirmation, when the provider offers an early
     // claim, the row says so: the offer used to be found only by opening
     // the sheet.
     status: _RowStatus(
-        text: tx.confirmations >= 1 &&
+        text: !tx.claimInProgress &&
+                tx.confirmations >= 1 &&
                 tx.confirmations < 3 &&
                 ref
                         .watch(depositEarlyClaimOfferProvider((
@@ -2799,7 +2800,7 @@ void _showSparkPendingDepositDetails(
               ReceiptFactTiles(facts: [
                 _statusFact(
                     context,
-                    tx.confirmations < 3
+                    tx.confirmations < 3 && !tx.claimInProgress
                         ? context.l10n
                             .depositStatusConfirming('${tx.confirmations}')
                         : context.l10n.activityAddingToBalance,
@@ -2822,7 +2823,8 @@ void _showSparkPendingDepositDetails(
               // The normal path, said plainly: added automatically after 3
               // confirmations. Claim now is the optional, costlier one, and
               // shows only when the provider quotes an early claim.
-              if (tx.confirmations < 3) ...[
+              // Already being added: nothing to wait for or claim.
+              if (tx.confirmations < 3 && !tx.claimInProgress) ...[
                 DepositSheetNote(context.l10n.depositAutoAfterConfirmations),
                 DepositEarlyClaim(txid: txid, amountSats: amountSats),
               ],

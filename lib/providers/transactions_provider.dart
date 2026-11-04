@@ -1235,9 +1235,28 @@ class TransactionNotifier extends StateNotifier<Transaction> {
                 ?.sparkPendingDeposits ??
             const <SparkPendingDeposit>[])
         : rawData.sparkPendingDeposits;
-    final sparkPendingDeposits = pendingSource
-        .where((d) => d.confirmations < 3 || sdkListsLive)
-        .toList();
+    // Deposits the SDK is already adding: an instant claim submitted (or
+    // done) on its unclaimed entry, or its deposit payment still settling.
+    final claimingTxids = <String>{
+      for (final d in rawData.unclaimedDeposits)
+        if (d.instantClaimStatus is breez.InstantClaimStatus_Submitted ||
+            d.instantClaimStatus is breez.InstantClaimStatus_Claimed)
+          d.txid.toLowerCase(),
+      for (final t in sparkTransactions)
+        if (t.details?.status == breez.PaymentStatus.pending &&
+            t.details?.details is breez.PaymentDetails_Deposit)
+          (t.details!.details as breez.PaymentDetails_Deposit)
+              .txId
+              .toLowerCase(),
+    };
+    final sparkPendingDeposits = [
+      for (final d in pendingSource)
+        if (d.confirmations < 3 || sdkListsLive)
+          d.withClaimInProgress(
+              claimingTxids.contains(d.mempoolTx.txid.toLowerCase()) ||
+                  // An unread list says nothing new: keep what was known.
+                  (rawData.unclaimedDepositsFetchFailed && d.claimInProgress)),
+    ];
 
     // 5. Mempool Transactions (External Address)
     final mempoolTransactions = rawData.mempoolTxs;

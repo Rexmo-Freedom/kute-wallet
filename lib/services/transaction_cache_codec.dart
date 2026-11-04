@@ -469,6 +469,7 @@ class TransactionCacheCodec {
         'timestamp': d.timestamp.millisecondsSinceEpoch,
         'mempoolTx': d.mempoolTx.toJson(),
         'confirmations': d.confirmations,
+        if (d.claimInProgress) 'claimInProgress': true,
       };
 
   static SparkPendingDeposit? _pendingFromJson(Map<String, dynamic> j) {
@@ -480,6 +481,7 @@ class TransactionCacheCodec {
         mempoolTx: MempoolTransaction.fromJson(
             Map<String, dynamic>.from(j['mempoolTx'] as Map)),
         confirmations: (j['confirmations'] as num?)?.toInt() ?? 0,
+        claimInProgress: j['claimInProgress'] == true,
       );
     } catch (_) {
       return null;
