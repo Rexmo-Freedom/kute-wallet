@@ -11,6 +11,11 @@
 // slurs, nothing about other people. The preview picks a seed once when
 // it opens; [bragEdge] maps the seed into the pool. The share message
 // does not repeat it.
+//
+// A WON PREDICTION ([BragWin]) has its own pool, the result settled:
+// "Resolved. Receipts attached.", "In at 41¢. Aged well.", "+$17.70 for
+// being right.", and the pattern line. Never "bet", never a promise of a
+// next one.
 
 import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/screens/share/brag/brag_data.dart';
@@ -18,12 +23,22 @@ import 'package:kute/screens/share/brag/brag_data.dart';
 /// [data]'s result: the position's, or the portfolio's all-time P&L.
 BragResult? _resultOf(BragData data) => switch (data) {
       final BragPosition d => d.result,
+      final BragWin d => d.result,
       final BragPortfolio d => d.allTime,
     };
 
 /// The lines that may go on [data]'s card.
 List<String> bragEdges(AppLocalizations l10n, BragData data) {
   final r = _resultOf(data);
+  if (data is BragWin) {
+    final entry = data.entryText;
+    return [
+      l10n.bragEdgeWonReceipts,
+      if (entry != null) l10n.bragEdgeWonAgedWell(entry),
+      l10n.bragEdgeWonRight(data.result.text),
+      l10n.shareEdgeBragPattern,
+    ];
+  }
   switch (data.tone) {
     case BragTone.bigWin || BragTone.win || BragTone.smallWin:
       return [

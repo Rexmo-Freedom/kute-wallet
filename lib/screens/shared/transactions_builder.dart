@@ -91,6 +91,10 @@ import 'package:kute/providers/polymarket_browse_provider.dart'
     show activityCrestIcon;
 import 'package:kute/helpers/prediction_results.dart'
     show PredictionResult, predictionResults;
+import 'package:kute/screens/share/brag/brag_data.dart'
+    show bragWonPrediction;
+import 'package:kute/screens/share/brag/brag_win_entry.dart'
+    show BragWinEntry;
 import 'package:kute/screens/polymarket/market_detail_sheet.dart'
     show MarketDetailSheet;
 import 'package:kute/screens/portfolio/poly_position_events.dart'
@@ -4607,6 +4611,29 @@ void _showPolymarketTxDetails(
                     _vsBitcoinFact(context, comparison, open: open),
                 ]);
               }),
+              // A won payout brags (founder, 4 November 2026): its won
+              // card, from the payout and the stake the tiles read
+              // (brag_win_entry.dart); nothing on a loss.
+              if (isRedeem && tx.usdcAmount > 0.001)
+                Consumer(
+                  builder: (context, ref, _) => BragWinEntry.maybe(
+                    bragWonPrediction(
+                      ref.watch,
+                      title: activity.title ?? '',
+                      side: activity.outcome ?? '',
+                      resolved: true,
+                      won: true,
+                      costUsd: predictionStakeOnMarket(
+                          _polymarketHistory(ref), activity),
+                      payoutUsd: tx.usdcAmount,
+                      shares: activity.size,
+                      eventSlug: activity.eventSlug,
+                      imageUrl: activityCrestIcon(ref, activity),
+                      resolvedAt: tx.timestamp,
+                    ),
+                    padding: EdgeInsets.only(top: 12.h),
+                  ),
+                ),
               // The market question on its own row, wrapping.
               if (activity.title != null && activity.title!.isNotEmpty)
                 ReceiptLongRow(
@@ -4737,6 +4764,24 @@ void showPredictionResultDetails(BuildContext context, PredictionResult result,
                         pnl >= 0 ? AppColors.marketUp : AppColors.marketDown,
                   ),
                 ]),
+                // A won result brags (founder, 4 November 2026): its won
+                // card from the figures above; nothing on a loss.
+                BragWinEntry.maybe(
+                  bragWonPrediction(
+                    ref.watch,
+                    title: title,
+                    side: activity.outcome ?? '',
+                    resolved: true,
+                    won: result.won,
+                    costUsd: result.stakeUsd,
+                    payoutUsd: result.payoutUsd,
+                    shares: activity.size,
+                    eventSlug: slug,
+                    imageUrl: activityCrestIcon(ref, activity),
+                    resolvedAt: tx.timestamp,
+                  ),
+                  padding: EdgeInsets.only(top: 12.h),
+                ),
                 if (title.isNotEmpty)
                   ReceiptLongRow(label: l.betMarketCategory, value: title),
                 SizedBox(height: 8.h),

@@ -12326,7 +12326,7 @@ class AppLocalizationsEl extends AppLocalizations {
   }
 
   @override
-  String get shareEdgePredictionDare => 'Πόνταρε εναντίον μου. Τόλμησε.';
+  String get shareEdgePredictionDare => 'Πάρε την άλλη πλευρά. Τόλμησε.';
 
   @override
   String get shareEdgePredictionPolitics =>
@@ -12499,6 +12499,114 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get claimCardTapClaim => 'Δικά σου. Πάτα Είσπραξη.';
+
+  @override
+  String get bragWonCaps => 'Το είπα';
+
+  @override
+  String bragWonFrom(String entry) {
+    return 'Νίκη από $entry';
+  }
+
+  @override
+  String bragWonPaidPayout(String paid, String payout) {
+    return 'Πλήρωσα $paid · Πήρα $payout';
+  }
+
+  @override
+  String get bragWonAction => 'Κάνε φιγούρα με αυτή τη νίκη';
+
+  @override
+  String get bragEdgeWonReceipts => 'Κρίθηκε. Οι αποδείξεις συνημμένες.';
+
+  @override
+  String bragEdgeWonAgedWell(String entry) {
+    return 'Μπήκα στα $entry. Βγήκε σωστό.';
+  }
+
+  @override
+  String bragEdgeWonRight(String amount) {
+    return '$amount επειδή είχα δίκιο.';
+  }
+
+  @override
+  String get challengeToggle => 'Προκάλεσέ τους';
+
+  @override
+  String get challengeToggleSub => 'Προκάλεσέ τους να πάρουν την άλλη πλευρά';
+
+  @override
+  String get challengeCaps => 'Σε προκαλώ';
+
+  @override
+  String challengeCapsNamed(String name) {
+    return '$name, σε προκαλώ';
+  }
+
+  @override
+  String get challengeCapsRecipient => 'Ένας φίλος σε προκαλεί';
+
+  @override
+  String challengeCapsRecipientNamed(String name) {
+    return '$name, σε προκαλούν';
+  }
+
+  @override
+  String get challengeMySide => 'Η πλευρά μου';
+
+  @override
+  String get challengeFriendSide => 'Ο φίλος';
+
+  @override
+  String get challengeYourSide => 'Η πλευρά σου;';
+
+  @override
+  String challengeStake(String amount) {
+    return '$amount για να παίξεις, κερνάω εγώ';
+  }
+
+  @override
+  String challengeEdgeWrong(String side) {
+    return 'Είμαι με το $side. Λάθος; Πάρε την άλλη πλευρά.';
+  }
+
+  @override
+  String challengeEdgeFight(String side) {
+    return 'Λέω $side. Θα τα βάλεις μαζί μου;';
+  }
+
+  @override
+  String challengeEdgeProve(String side) {
+    return '$side. Απόδειξε ότι κάνω λάθος.';
+  }
+
+  @override
+  String challengeEdgeMove(String side) {
+    return 'Διάλεξα $side. Σειρά σου.';
+  }
+
+  @override
+  String shareMessageChallengeNamed(
+      String name, String outcome, String title, String amount, String url) {
+    return '$name, η επιλογή μου: $outcome στο $title. Πάρε την άλλη πλευρά ή έλα μαζί μου. $amount κερνάω εγώ: $url';
+  }
+
+  @override
+  String shareMessageChallengeUnnamed(
+      String outcome, String title, String amount, String url) {
+    return 'Η επιλογή μου: $outcome στο $title. Πάρε την άλλη πλευρά ή έλα μαζί μου. $amount κερνάω εγώ: $url';
+  }
+
+  @override
+  String get claimChallengeOtherSide => 'Πάρε την άλλη πλευρά';
+
+  @override
+  String get claimChallengeSameSide => 'Ίδια πλευρά με τον φίλο σου';
+
+  @override
+  String claimChallengeFriendOn(String outcome) {
+    return 'Ο φίλος σου είναι με το $outcome';
+  }
 
   @override
   String get activityLatest => 'Latest';

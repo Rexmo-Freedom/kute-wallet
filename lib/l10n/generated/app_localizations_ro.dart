@@ -12303,7 +12303,7 @@ class AppLocalizationsRo extends AppLocalizations {
   }
 
   @override
-  String get shareEdgePredictionDare => 'Pariază împotriva mea. Te provoc.';
+  String get shareEdgePredictionDare => 'Alege cealaltă parte. Te provoc.';
 
   @override
   String get shareEdgePredictionPolitics =>
@@ -12476,6 +12476,114 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get claimCardTapClaim => 'Sunt ai tăi. Atinge Revendică.';
+
+  @override
+  String get bragWonCaps => 'Am zis eu';
+
+  @override
+  String bragWonFrom(String entry) {
+    return 'Câștigat de la $entry';
+  }
+
+  @override
+  String bragWonPaidPayout(String paid, String payout) {
+    return 'Plătit $paid · Încasat $payout';
+  }
+
+  @override
+  String get bragWonAction => 'Laudă-te cu câștigul ăsta';
+
+  @override
+  String get bragEdgeWonReceipts => 'S-a decis. Dovezile atașate.';
+
+  @override
+  String bragEdgeWonAgedWell(String entry) {
+    return 'Intrat la $entry. A îmbătrânit frumos.';
+  }
+
+  @override
+  String bragEdgeWonRight(String amount) {
+    return '$amount pentru că am avut dreptate.';
+  }
+
+  @override
+  String get challengeToggle => 'Provoacă-i';
+
+  @override
+  String get challengeToggleSub => 'Provoacă-i să aleagă cealaltă parte';
+
+  @override
+  String get challengeCaps => 'Te provoc';
+
+  @override
+  String challengeCapsNamed(String name) {
+    return '$name, te provoc';
+  }
+
+  @override
+  String get challengeCapsRecipient => 'Un prieten te provoacă';
+
+  @override
+  String challengeCapsRecipientNamed(String name) {
+    return '$name, o provocare';
+  }
+
+  @override
+  String get challengeMySide => 'Partea mea';
+
+  @override
+  String get challengeFriendSide => 'Prietenul';
+
+  @override
+  String get challengeYourSide => 'Partea ta?';
+
+  @override
+  String challengeStake(String amount) {
+    return '$amount de jucat, din partea mea';
+  }
+
+  @override
+  String challengeEdgeWrong(String side) {
+    return 'Sunt pe $side. Crezi că greșesc? Alege cealaltă parte.';
+  }
+
+  @override
+  String challengeEdgeFight(String side) {
+    return 'Zic $side. Te bagi?';
+  }
+
+  @override
+  String challengeEdgeProve(String side) {
+    return '$side. Demonstrează că greșesc.';
+  }
+
+  @override
+  String challengeEdgeMove(String side) {
+    return 'Am ales $side. E rândul tău.';
+  }
+
+  @override
+  String shareMessageChallengeNamed(
+      String name, String outcome, String title, String amount, String url) {
+    return '$name, alegerea mea: $outcome la $title. Alege cealaltă parte sau vino cu mine. $amount din partea mea: $url';
+  }
+
+  @override
+  String shareMessageChallengeUnnamed(
+      String outcome, String title, String amount, String url) {
+    return 'Alegerea mea: $outcome la $title. Alege cealaltă parte sau vino cu mine. $amount din partea mea: $url';
+  }
+
+  @override
+  String get claimChallengeOtherSide => 'Alege cealaltă parte';
+
+  @override
+  String get claimChallengeSameSide => 'Aceeași parte ca prietenul tău';
+
+  @override
+  String claimChallengeFriendOn(String outcome) {
+    return 'Prietenul tău e pe $outcome';
+  }
 
   @override
   String get activityLatest => 'Latest';

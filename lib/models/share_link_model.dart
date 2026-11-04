@@ -14,6 +14,16 @@
 // action work offline and the pay-on-open pass knows which links are
 // its own.
 //
+// A CHALLENGE (founder, 4 November 2026: "entice users on sharing
+// predictions to pick the other side") is a prediction link with
+// `challenge: true`: the card reads as a dare and the recipient's Claim
+// screen offers "Take the other side" beside "Same side as your friend".
+// The app sends the flag on create and reads it on the public read, both
+// optional (a backend that does not store it yet ignores it and never
+// returns it); the shared URL carries it too as `?challenge=1`
+// ([kShareChallengeQuery]), which an older build ignores (it reads the
+// id from the path only).
+//
 // Amounts are `amountMinor`: SATOSHIS for bitcoin and CENTS for dollars.
 // The dollar token itself has six decimals on Spark; the conversion to
 // its base units happens once, at payment time
@@ -37,6 +47,22 @@ enum ShareLinkKind {
     }
     return null;
   }
+}
+
+/// The query parameter a challenge link's URL carries (`?challenge=1`),
+/// and the OneLink's `deep_link_sub2` value for one.
+const String kShareChallengeQuery = 'challenge';
+
+/// [url] with the challenge flag (`?challenge=1`) added; [url] as it is
+/// when it cannot be read or is empty (a link created on another device).
+String shareChallengeUrl(String url) {
+  if (url.isEmpty) return url;
+  final uri = Uri.tryParse(url);
+  if (uri == null || !uri.hasScheme) return url;
+  return uri.replace(queryParameters: {
+    ...uri.queryParameters,
+    kShareChallengeQuery: '1',
+  }).toString();
 }
 
 /// A link's life on the backend. `unknown` is any value this build does
@@ -74,12 +100,17 @@ class ShareLink {
     required this.status,
     required this.rawStatus,
     this.expiresAt,
+    this.challenge = false,
   });
 
   final String id;
   final ShareLinkKind kind;
   final int amountMinor;
   final String? marketSlug;
+
+  /// The sender dared the recipient to take the other side (see the file
+  /// header); false when the backend does not say.
+  final bool challenge;
 
   /// THE PICK the sender put on the link (kute_share_actions.dart): the
   /// venue (`polymarket` | `hyperliquid`), the outcome's label ("Yes", a
@@ -128,6 +159,7 @@ class ShareLink {
       status: ShareLinkStatus.parse(json['status']),
       rawStatus: '${json['status'] ?? ''}',
       expiresAt: _date(json['expiresAt']),
+      challenge: json['challenge'] == true,
     );
   }
 }
@@ -219,11 +251,15 @@ class PendingShareLink {
     this.paymentId,
     this.paidReported = false,
     this.recipientPhone,
+    this.challenge = false,
   });
 
   final String id;
   final ShareLinkKind kind;
   final int amountMinor;
+
+  /// A challenge (see the file header): [url] carries the flag already.
+  final bool challenge;
 
   /// The recipient's first name, as the sender typed it (or the contact
   /// picked on the Send screen). Optional.
@@ -277,6 +313,7 @@ class PendingShareLink {
         paymentId: paymentId ?? this.paymentId,
         paidReported: paidReported ?? this.paidReported,
         recipientPhone: recipientPhone,
+        challenge: challenge,
       );
 
   PendingShareLink withStatus(ShareLinkStatus next) => copyWith(status: next);
@@ -297,6 +334,7 @@ class PendingShareLink {
         if (paymentId != null) 'paymentId': paymentId,
         if (paidReported) 'paidReported': true,
         if (recipientPhone != null) 'recipientPhone': recipientPhone,
+        if (challenge) 'challenge': true,
       };
 
   static PendingShareLink? fromJson(Object? json) {
@@ -324,6 +362,7 @@ class PendingShareLink {
       paymentId: _string(json['paymentId']),
       paidReported: json['paidReported'] == true,
       recipientPhone: _string(json['recipientPhone']),
+      challenge: json['challenge'] == true,
     );
   }
 }

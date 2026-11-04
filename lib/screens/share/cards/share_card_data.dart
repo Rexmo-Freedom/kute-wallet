@@ -9,7 +9,9 @@
 //   * [MoneyCardData]: a send-to-anyone link with no pick (bitcoin or
 //     dollars): "{Name}, I sent you" over the amount.
 //   * [PredictionCardData]: a prediction market, with the pick sent on a
-//     link ([PredictionCardData.picked]) or without (sharing the market:
+//     link ([PredictionCardData.picked]), as a dare when the sender
+//     challenges the friend to take the other side
+//     ([PredictionCardData.challenge]), or without (sharing the market:
 //     the leading outcome, and on a market of named outcomes its chart,
 //     [PredictionCardData.lines]: the market page's own lines, real
 //     history).
@@ -122,6 +124,7 @@ class PredictionCardData extends ShareCardData {
     this.opponentImageUrl,
     this.imageUrl,
     this.picked = false,
+    this.challenge = false,
     this.amount,
     this.series,
     this.lines,
@@ -167,6 +170,11 @@ class PredictionCardData extends ShareCardData {
   /// Kute"); false: the market shared ("Make your call on Kute").
   final bool picked;
 
+  /// A pick sent as a DARE (founder, 4 November 2026): the card shows both
+  /// sides, [outcome] marked as the sender's, and dares the friend to take
+  /// the other one ([otherChance], [opponent]). Only with [picked].
+  final bool challenge;
+
   /// What was put on the pick, formatted ("$10"); null: none.
   final String? amount;
 
@@ -198,7 +206,9 @@ class PredictionCardData extends ShareCardData {
   }
 
   @override
-  String get kind => picked ? 'send_prediction' : 'prediction_market';
+  String get kind => picked
+      ? (challenge ? 'send_challenge' : 'send_prediction')
+      : 'prediction_market';
 }
 
 /// An Investing market (see the file header).

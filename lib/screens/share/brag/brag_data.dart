@@ -15,6 +15,16 @@
 //     predictions at the live prices, as the Portfolio ring's hole reads
 //     it), and the three open positions with the best result, each with
 //     its logo;
+//   * a WON PREDICTION ([BragWin], founder, 4 November 2026: "Able to
+//     share past prediction brags also, won ones"): a prediction held to
+//     its resolved market whose side won, from the figures the venue
+//     confirmed (the resolved position: Polymarket's data API, a claimed
+//     payout's redeem, a result read from the resolved market): the side,
+//     what it cost (the average price paid), what it paid out, the profit
+//     and its percent on the cost, and when it resolved. Only
+//     [bragWonPrediction] makes one, and only for a win in profit: a
+//     loss, an open position or a win with no profit (bought at a dollar)
+//     is never a won card ([canBragWin]);
 //   * the P&L ([BragPnl], founder, 2 November 2026: the P&L Charts
 //     section shares its own card, "Share P&L"): what the P&L chart shows
 //     for the range picked, the P&L over the range (its figure,
@@ -72,6 +82,8 @@ import 'package:kute/screens/hyperliquid/components/hl_format.dart'
     show formatHlPrice;
 import 'package:kute/screens/hyperliquid/components/hl_isolated_margin.dart'
     show hlLivePnl, hlPositionMargin;
+import 'package:kute/screens/polymarket/components/market_chart.dart'
+    show formatPolyBoughtCents;
 import 'package:kute/screens/polymarket/components/position_journey.dart'
     show polyPositionJourneyProvider;
 import 'package:kute/screens/polymarket/components/price_format.dart'
@@ -218,6 +230,56 @@ class BragPosition extends BragData {
 
   @override
   bool get up => !result.down;
+
+  @override
+  BragTone get tone => bragTone(result.usd, percent: result.percent);
+}
+
+/// A resolved prediction that won (see the file header). Built only by
+/// [bragWonPrediction].
+class BragWin extends BragData {
+  const BragWin({
+    required super.title,
+    required super.link,
+    super.referralCode,
+    required this.side,
+    required this.result,
+    required this.paidText,
+    required this.payoutText,
+    this.entryValue,
+    this.entryText,
+    this.imageUrl,
+    this.resolvedAt,
+  });
+
+  /// The side that won, as the market names it ("Yes", "Gen.G").
+  final String side;
+
+  /// The profit (what it paid out less what it cost) and its percent on
+  /// the cost.
+  final BragResult result;
+
+  /// What it cost and what it paid out, in the person's currency.
+  final String paidText;
+  final String payoutText;
+
+  /// The average price paid, 0 to 1 (the dot on the dial), and as the
+  /// position page's "since 41¢" writes it; null when the share count is
+  /// unknown.
+  final double? entryValue;
+  final String? entryText;
+
+  /// The market's picture.
+  final String? imageUrl;
+
+  /// When the market resolved (or the payout came in); null: unknown.
+  final DateTime? resolvedAt;
+
+  @override
+  BragKind get kind => BragKind.position;
+
+  @override
+  bool get up => true;
 
   @override
   BragTone get tone => bragTone(result.usd, percent: result.percent);
@@ -454,6 +516,90 @@ BragPosition bragPolyPosition(
     chance: currentPrice >= 0 && currentPrice <= 1 ? currentPrice : null,
   );
 }
+
+/// Whether a prediction is a win to brag about: resolved, its side won,
+/// what it cost known, and a profit of at least a cent. A loss, an open
+/// position, or a win that cost what it paid out never is.
+bool canBragWin({
+  required bool resolved,
+  required bool? won,
+  required double costUsd,
+  required double payoutUsd,
+}) =>
+    resolved &&
+    won == true &&
+    costUsd.isFinite &&
+    costUsd > 0 &&
+    payoutUsd.isFinite &&
+    payoutUsd - costUsd >= kBragCentUsd;
+
+/// The won card of a resolved prediction (see the file header), or null
+/// when it is not one ([canBragWin]). [costUsd] is what the shares cost,
+/// [payoutUsd] what the market paid for them, [shares] how many (the
+/// average price paid is the cost over them), [resolvedAt] when it
+/// resolved. Every figure is the caller's, as its page shows it.
+BragWin? bragWonPrediction(
+  BragWatch watch, {
+  required String title,
+  required String side,
+  required bool resolved,
+  required bool? won,
+  required double costUsd,
+  required double payoutUsd,
+  double? shares,
+  String? eventSlug,
+  String? imageUrl,
+  DateTime? resolvedAt,
+}) {
+  if (!canBragWin(
+      resolved: resolved, won: won, costUsd: costUsd, payoutUsd: payoutUsd)) {
+    return null;
+  }
+  final profit = payoutUsd - costUsd;
+  final n = shares;
+  final avg = n != null && n.isFinite && n > 0 ? costUsd / n : null;
+  final entry = avg != null && avg > 0 && avg < 1 ? avg : null;
+  final image = imageUrl?.trim();
+  return BragWin(
+    title: title,
+    link: marketShareLink(venue: kMarketLinkPredictions, slug: eventSlug),
+    referralCode: _referralCode(),
+    side: side.trim(),
+    result: bragResult(watch, profit, percent: profit / costUsd * 100),
+    paidText: bragMoney(watch, costUsd),
+    payoutText: bragMoney(watch, payoutUsd),
+    entryValue: entry,
+    // The position page's own "since 41¢", apart from the percent.
+    entryText: entry != null ? formatPolyBoughtCents(entry) : null,
+    imageUrl: image == null || image.isEmpty ? null : image,
+    resolvedAt: resolvedAt,
+  );
+}
+
+/// The won card of a resolved [position] as its page reads it: what it
+/// cost ([costBasis], the page's polymarketPositionCostBasis) and what it
+/// pays, a dollar a share (the page's Payout tile). Null for a loss, an
+/// open position or a win with no profit. For the position page and the
+/// Portfolio's past positions.
+BragWin? bragWonPosition(
+  BragWatch watch, {
+  required PolymarketPosition position,
+  required double costBasis,
+  String? imageUrl,
+}) =>
+    bragWonPrediction(
+      watch,
+      title: position.marketQuestion,
+      side: position.outcome,
+      resolved: position.isResolved,
+      won: position.won,
+      costUsd: costBasis,
+      payoutUsd: position.size,
+      shares: position.size,
+      eventSlug: position.eventSlug,
+      imageUrl: imageUrl ?? position.marketImage,
+      resolvedAt: position.resolvedAt,
+    );
 
 // ─── Portfolio ───────────────────────────────────────────────────────
 

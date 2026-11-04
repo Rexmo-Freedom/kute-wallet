@@ -22,11 +22,17 @@
 //     cards): the P&L card (pnl_share_card.dart) for the range picked and
 //     the venue picked when the bar was tapped, live as well (bragPnl).
 //
+// A won prediction's card (brag_data.dart: bragWonPosition,
+// bragWonPrediction) opens through [showBragPreviewSheet] as well, from
+// the resolved position page and a won payout's receipt (BragWinEntry,
+// brag_win_entry.dart); its sheet reads "Show off this win".
+//
 // Analytics: `brag_shared {kind: position | portfolio, card: position |
-// portfolio | pnl, range}` once the OS share sheet has been opened and
-// not dismissed: `card` says which card went (the P&L card is a
-// portfolio kind), `range` the P&L card's range as its pill reads ("1W",
-// "1M", "3M", "1Y", "ALL"). No market, no id, no figure.
+// won | portfolio | pnl, range}` once the OS share sheet has been opened
+// and not dismissed: `card` says which card went (the P&L card is a
+// portfolio kind, a won prediction's a position kind), `range` the P&L
+// card's range as its pill reads ("1W", "1M", "3M", "1Y", "ALL"). No
+// market, no id, no figure.
 
 import 'dart:async';
 import 'dart:math' as math;
@@ -173,7 +179,11 @@ class _BragPreviewSheetState extends ConsumerState<BragPreviewSheet> {
       if (opened) {
         TrackingService.track('brag_shared', params: {
           'kind': data.kind.name,
-          'card': data is BragPnl ? 'pnl' : data.kind.name,
+          'card': data is BragPnl
+              ? 'pnl'
+              : data is BragWin
+                  ? 'won'
+                  : data.kind.name,
           if (data is BragPnl) 'range': data.range.label,
         });
       }
@@ -201,9 +211,11 @@ class _BragPreviewSheetState extends ConsumerState<BragPreviewSheet> {
           AppBottomSheetHeader(
             title: data is BragPnl
                 ? l10n.bragPnlBarLabel
-                : data.kind == BragKind.portfolio
-                    ? l10n.bragPortfolioAction
-                    : l10n.bragPositionAction,
+                : data is BragWin
+                    ? l10n.bragWonAction
+                    : data.kind == BragKind.portfolio
+                        ? l10n.bragPortfolioAction
+                        : l10n.bragPositionAction,
             icon: Icons.ios_share_rounded,
           ),
           Center(

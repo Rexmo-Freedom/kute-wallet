@@ -142,6 +142,43 @@ PredictionCardData fakeBinaryPick(
       referralCode: kShareTestCode,
     );
 
+/// A dare on a yes/no market (founder, 4 November 2026: "I'm on Yes. You
+/// think I'm wrong? Take the other side."): Yes at 62%, $10 for Ana.
+PredictionCardData fakeChallenge(
+        {String? name = 'Ana',
+        String outcome = 'Yes',
+        double chance = 62,
+        String question = 'Will Bitcoin hit \$150k by March 2026?'}) =>
+    PredictionCardData(
+      question: question,
+      outcome: outcome,
+      chance: chance,
+      topic: ShareCardTopic.crypto,
+      picked: true,
+      challenge: true,
+      amount: r'$10',
+      recipient: name,
+      referralCode: kShareTestCode,
+    );
+
+/// A dare on a match: Gen.G at 47%, T1 the other side at 53%.
+PredictionCardData fakeChallengeNamed({String? name = 'Ana'}) =>
+    PredictionCardData(
+      question: 'LoL Worlds 2026 Final: Gen.G vs T1',
+      outcome: 'Gen.G',
+      chance: 47,
+      binary: false,
+      topic: ShareCardTopic.sports,
+      leading: false,
+      opponent: 'T1',
+      opponentChance: 53,
+      picked: true,
+      challenge: true,
+      amount: r'$10',
+      recipient: name,
+      referralCode: kShareTestCode,
+    );
+
 /// "Michigan Senate Election Winner": the party market, Democratic ahead.
 PredictionCardData fakeMichiganMarket({bool chart = true}) =>
     PredictionCardData(
@@ -303,6 +340,7 @@ extension ShareCardRecipientCopy on ShareCardData {
             opponentImageUrl: d.opponentImageUrl,
             imageUrl: d.imageUrl,
             picked: true,
+            challenge: d.challenge,
             amount: d.amount,
             series: d.series,
             recipient: d.recipient,

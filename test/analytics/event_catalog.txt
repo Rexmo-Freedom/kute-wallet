@@ -646,6 +646,7 @@ settlement_rereview_required
 settlement_route_unavailable
 settlement_submit_attempt
 settlement_terminal
+share_challenge_answered
 share_link_cancelled
 share_link_claimed
 share_link_created

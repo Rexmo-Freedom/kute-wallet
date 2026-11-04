@@ -12282,7 +12282,7 @@ class AppLocalizationsNl extends AppLocalizations {
   }
 
   @override
-  String get shareEdgePredictionDare => 'Wed tegen me. Durf het.';
+  String get shareEdgePredictionDare => 'Kies de andere kant. Durf het.';
 
   @override
   String get shareEdgePredictionPolitics =>
@@ -12455,6 +12455,114 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get claimCardTapClaim => 'Het is van jou. Tik op Claimen.';
+
+  @override
+  String get bragWonCaps => 'Zei ik toch';
+
+  @override
+  String bragWonFrom(String entry) {
+    return 'Gewonnen vanaf $entry';
+  }
+
+  @override
+  String bragWonPaidPayout(String paid, String payout) {
+    return 'Betaald $paid · Uitbetaald $payout';
+  }
+
+  @override
+  String get bragWonAction => 'Pronk met deze winst';
+
+  @override
+  String get bragEdgeWonReceipts => 'Beslist. Bewijs bijgevoegd.';
+
+  @override
+  String bragEdgeWonAgedWell(String entry) {
+    return 'Ingestapt op $entry. Goed verouderd.';
+  }
+
+  @override
+  String bragEdgeWonRight(String amount) {
+    return '$amount voor gelijk hebben.';
+  }
+
+  @override
+  String get challengeToggle => 'Daag ze uit';
+
+  @override
+  String get challengeToggleSub => 'Daag ze uit de andere kant te kiezen';
+
+  @override
+  String get challengeCaps => 'Ik daag je uit';
+
+  @override
+  String challengeCapsNamed(String name) {
+    return '$name, ik daag je uit';
+  }
+
+  @override
+  String get challengeCapsRecipient => 'Een vriend daagt je uit';
+
+  @override
+  String challengeCapsRecipientNamed(String name) {
+    return '$name, een uitdaging';
+  }
+
+  @override
+  String get challengeMySide => 'Mijn kant';
+
+  @override
+  String get challengeFriendSide => 'Je vriend';
+
+  @override
+  String get challengeYourSide => 'Jouw kant?';
+
+  @override
+  String challengeStake(String amount) {
+    return '$amount om mee te spelen, van mij';
+  }
+
+  @override
+  String challengeEdgeWrong(String side) {
+    return 'Ik zit op $side. Fout? Kies de andere kant.';
+  }
+
+  @override
+  String challengeEdgeFight(String side) {
+    return 'Ik zeg $side. Durf je?';
+  }
+
+  @override
+  String challengeEdgeProve(String side) {
+    return '$side. Bewijs maar dat ik het mis heb.';
+  }
+
+  @override
+  String challengeEdgeMove(String side) {
+    return 'Ik koos $side. Jouw zet.';
+  }
+
+  @override
+  String shareMessageChallengeNamed(
+      String name, String outcome, String title, String amount, String url) {
+    return '$name, mijn keuze: $outcome op $title. Kies de andere kant of doe mee. $amount van mij: $url';
+  }
+
+  @override
+  String shareMessageChallengeUnnamed(
+      String outcome, String title, String amount, String url) {
+    return 'Mijn keuze: $outcome op $title. Kies de andere kant of doe mee. $amount van mij: $url';
+  }
+
+  @override
+  String get claimChallengeOtherSide => 'Kies de andere kant';
+
+  @override
+  String get claimChallengeSameSide => 'Zelfde kant als je vriend';
+
+  @override
+  String claimChallengeFriendOn(String outcome) {
+    return 'Je vriend zit op $outcome';
+  }
 
   @override
   String get activityLatest => 'Latest';

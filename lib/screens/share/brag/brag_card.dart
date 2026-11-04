@@ -25,6 +25,13 @@
 //     held side's chance now, the dot at the price paid, the P&L huge under
 //     its hub and "Since you bought · +42.1%"; the price paid and now as
 //     the plain fact line ("41¢ → 62¢").
+//   * WON PREDICTION ([BragWin], founder, 4 November 2026: past wins
+//     brag too): "CALLED IT", the market's logo, title and the side that
+//     won with the day it resolved ("Yes · Nov 3, 2026"), then the same
+//     speedometer with the needle at the end (resolved, won) and the dot
+//     at the average price paid, the profit huge under its hub and "Won
+//     from 41¢ · +143.9%"; what it cost and what it paid out as the plain
+//     fact line ("Paid $12.30 · Paid out $30.00"). Green, Sal's win pose.
 //   * Sal at the top right in the tone's pose ([bragPose]: lounging on a
 //     win, eyes shut on a big one, a flop on a loss), the EDGY LINE
 //     (brag_lines.dart) over the footer: the wordmark and the sharer's
@@ -37,10 +44,13 @@
 // at every size, so the preview is exactly the image.
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart' show DateFormat;
 
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/share/brag/brag_data.dart';
 import 'package:kute/screens/share/brag/brag_lines.dart';
+import 'package:kute/screens/share/cards/share_card_copy.dart'
+    show shareCardOutcome;
 import 'package:kute/screens/share/cards/share_card_frame.dart';
 import 'package:kute/screens/share/cards/share_card_speedometer.dart';
 import 'package:kute/screens/shared/sal_sprite.dart' show SalClip;
@@ -77,6 +87,18 @@ Color _signed(ShareCardPalette p, BragResult r) => r.up
     : r.down
         ? p.down
         : p.muted;
+
+/// The day a won prediction resolved, as the locale writes it ("Nov 3,
+/// 2026", "3. Nov. 2026").
+String bragWonDate(AppLocalizations l10n, DateTime at) {
+  final local = at.toLocal();
+  try {
+    return DateFormat.yMMMd(l10n.localeName).format(local);
+  } catch (_) {
+    // Date symbols not loaded for the locale (a test, an early start).
+    return DateFormat.yMMMd('en').format(local);
+  }
+}
 
 /// A row's logo in the portfolio card.
 const double kBragRowLogo = 28;
@@ -188,6 +210,56 @@ class BragCard extends StatelessWidget {
                       },
                     ),
           graphicFills: hasChart || d.top.isNotEmpty,
+          line: line,
+          code: d.referralCode,
+          mark: mark,
+          pose: pose,
+        );
+      case final BragWin d:
+        final r = d.result;
+        final pct = r.percent;
+        final entry = d.entryText?.trim();
+        final caption = [
+          if (entry != null && entry.isNotEmpty) l10n.bragWonFrom(entry),
+          if (pct != null) bragPercent(pct),
+        ].join(' · ');
+        final at = d.resolvedAt;
+        // The side that won and the day it resolved, either when unknown.
+        final meta = [
+          if (d.side.trim().isNotEmpty) shareCardOutcome(l10n, d.side),
+          if (at != null) bragWonDate(l10n, at),
+        ].join(' · ');
+        return ShareCardFrame(
+          palette: p,
+          keyPrefix: 'brag-card',
+          caps: l10n.bragWonCaps,
+          identity: ShareCardIdentity(
+            palette: p,
+            keyPrefix: 'brag-card',
+            logo: ShareCardLogo(
+              key: const ValueKey('brag-card-logo'),
+              size: 36,
+              title: d.title,
+              investing: false,
+              palette: p,
+              imageUrl: d.imageUrl,
+            ),
+            name: d.title,
+            meta: meta.isEmpty ? null : meta,
+          ),
+          // Resolved: the needle at the end, the dot where it was bought.
+          graphic: ShareCardSpeedometer(
+            palette: p,
+            keyPrefix: 'brag-card',
+            fraction: 1,
+            entry: d.entryValue,
+            figure: r.text,
+            figureMax: 72,
+            caption: caption.isEmpty ? null : caption,
+            captionColor: _signed(p, r),
+          ),
+          graphicFills: true,
+          plain: l10n.bragWonPaidPayout(d.paidText, d.payoutText),
           line: line,
           code: d.referralCode,
           mark: mark,

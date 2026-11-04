@@ -10,6 +10,11 @@
 // position's Sal sheet ("Send to a friend": send the market, send this
 // prediction, and for an open position "Show off this position"). No
 // share pill beside the figure and no share card in the page any more.
+//
+// A RESOLVED WIN in profit (founder, 4 November 2026: past wins brag too)
+// has no Sell: its bar is "Brag about it" opening the won card
+// (brag_data.dart: bragWonPosition), with this round Sal button beside it
+// for the Sal sheet. A loss keeps Clear and the Sal sheet.
 
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_share_actions.dart'

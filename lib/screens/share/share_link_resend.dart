@@ -44,7 +44,8 @@ Future<void> resendShareLinkVia(BuildContext context, WidgetRef ref,
       url: row.url,
       outcome: row.outcome,
       title: row.marketTitle,
-      venue: row.venue);
+      venue: row.venue,
+      challenge: row.challenge);
   final uri = shareLinkResendUri(channel, phone, text);
   try {
     final launch = debugShareLinkResendLauncher;

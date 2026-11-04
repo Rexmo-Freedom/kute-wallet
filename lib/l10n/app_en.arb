@@ -9319,7 +9319,7 @@
       }
     }
   },
-  "shareEdgePredictionDare": "Bet against me. I dare you.",
+  "shareEdgePredictionDare": "Take the other side. I dare you.",
   "@shareEdgePredictionDare": {
     "description": "Edgy line on a prediction share card (deadpan, PG)."
   },
@@ -9662,6 +9662,204 @@
   "claimCardTapClaim": "It's yours. Tap claim.",
   "@claimCardTapClaim": {
     "description": "Claim screen hero card: the short line under the amount, before the Claim button."
+  },
+  "bragWonCaps": "Called it",
+  "@bragWonCaps": {
+    "description": "Won prediction brag card: the small caps line at the top (drawn uppercase). Cocky, PG: the person called the result."
+  },
+  "bragWonFrom": "Won from {entry}",
+  "@bragWonFrom": {
+    "description": "Won prediction brag card: the caption under the profit. {entry} is the average price paid per share, e.g. '41¢'. Followed on the card by ' · +143.9%'.",
+    "placeholders": {
+      "entry": {
+        "type": "String"
+      }
+    }
+  },
+  "bragWonPaidPayout": "Paid {paid} · Paid out {payout}",
+  "@bragWonPaidPayout": {
+    "description": "Won prediction brag card: the plain line at the bottom. {paid} is what the prediction cost, {payout} what it paid out, e.g. 'Paid $12.30 · Paid out $30.00'.",
+    "placeholders": {
+      "paid": {
+        "type": "String"
+      },
+      "payout": {
+        "type": "String"
+      }
+    }
+  },
+  "bragWonAction": "Show off this win",
+  "@bragWonAction": {
+    "description": "Title of the brag preview sheet for a won (resolved) prediction."
+  },
+  "bragEdgeWonReceipts": "Resolved. Receipts attached.",
+  "@bragEdgeWonReceipts": {
+    "description": "Edgy line on a won prediction brag card (cocky, deadpan, PG)."
+  },
+  "bragEdgeWonAgedWell": "In at {entry}. Aged well.",
+  "@bragEdgeWonAgedWell": {
+    "description": "Edgy line on a won prediction brag card. {entry} is the average price paid per share, e.g. '41¢'.",
+    "placeholders": {
+      "entry": {
+        "type": "String"
+      }
+    }
+  },
+  "bragEdgeWonRight": "{amount} for being right.",
+  "@bragEdgeWonRight": {
+    "description": "Edgy line on a won prediction brag card. {amount} is the signed profit, e.g. '+$17.70'.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "challengeToggle": "Challenge them",
+  "@challengeToggle": {
+    "description": "Send a prediction to a friend: the switch that turns the card into a dare (the friend is invited to take the other side)."
+  },
+  "challengeToggleSub": "Dare them to take the other side",
+  "@challengeToggleSub": {
+    "description": "Send a prediction to a friend: the quiet line under the Challenge switch."
+  },
+  "challengeCaps": "I dare you",
+  "@challengeCaps": {
+    "description": "Challenge share card: the small caps line at the top without a name (drawn uppercase)."
+  },
+  "challengeCapsNamed": "{name}, I dare you",
+  "@challengeCapsNamed": {
+    "description": "Challenge share card: the small caps line at the top (drawn uppercase). {name} is the friend's first name.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "challengeCapsRecipient": "A friend dares you",
+  "@challengeCapsRecipient": {
+    "description": "Claim screen hero card for a challenge, without a name (drawn uppercase)."
+  },
+  "challengeCapsRecipientNamed": "{name}, a friend dares you",
+  "@challengeCapsRecipientNamed": {
+    "description": "Claim screen hero card for a challenge (drawn uppercase). {name} is the recipient's first name.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "challengeMySide": "My side",
+  "@challengeMySide": {
+    "description": "Challenge share card: the tag over the sender's own side (drawn uppercase)."
+  },
+  "challengeFriendSide": "Friend's side",
+  "@challengeFriendSide": {
+    "description": "Challenge card as the recipient sees it: the tag over the sender's side (drawn uppercase)."
+  },
+  "challengeYourSide": "Your side?",
+  "@challengeYourSide": {
+    "description": "Challenge share card: the tag over the other side, the one the friend is dared to take (drawn uppercase)."
+  },
+  "challengeStake": "{amount} to play, on me",
+  "@challengeStake": {
+    "description": "Challenge share card: the plain line saying what the sender put on the link for the friend to play with, e.g. '$10 to play, on me'.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "challengeEdgeWrong": "I'm on {side}. Think I'm wrong? Take the other side.",
+  "@challengeEdgeWrong": {
+    "description": "Edgy line on a challenge card (a dare, deadpan, PG; never 'bet'). {side} is the sender's outcome, e.g. 'Yes', 'Gen.G'.",
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "challengeEdgeFight": "I say {side}. Wanna fight me?",
+  "@challengeEdgeFight": {
+    "description": "Edgy line on a challenge card (a playful dare, PG). {side} is the sender's outcome.",
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "challengeEdgeProve": "{side}. Prove me wrong.",
+  "@challengeEdgeProve": {
+    "description": "Edgy line on a challenge card (a dare, PG). {side} is the sender's outcome.",
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "challengeEdgeMove": "I picked {side}. Your move.",
+  "@challengeEdgeMove": {
+    "description": "Edgy line on a challenge card (a dare, PG). {side} is the sender's outcome.",
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "shareMessageChallengeNamed": "{name}, my pick: {outcome} on {title}. Take the other side or join me. {amount} on me: {url}",
+  "@shareMessageChallengeNamed": {
+    "description": "The share text of a challenge link: the sender's outcome on the market, the dare and the amount, with the link. Never 'bet'.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "outcome": {
+        "type": "String"
+      },
+      "title": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      },
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "shareMessageChallengeUnnamed": "My pick: {outcome} on {title}. Take the other side or join me. {amount} on me: {url}",
+  "@shareMessageChallengeUnnamed": {
+    "description": "The share text of a challenge link without a name. Never 'bet'.",
+    "placeholders": {
+      "outcome": {
+        "type": "String"
+      },
+      "title": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      },
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "claimChallengeOtherSide": "Take the other side",
+  "@claimChallengeOtherSide": {
+    "description": "Claim screen of a challenge, once the money is in: the button that opens the slip on the side opposite to the sender's."
+  },
+  "claimChallengeSameSide": "Same side as your friend",
+  "@claimChallengeSameSide": {
+    "description": "Claim screen of a challenge, once the money is in: the button that opens the slip on the sender's own side."
+  },
+  "claimChallengeFriendOn": "Your friend is on {outcome}",
+  "@claimChallengeFriendOn": {
+    "description": "Claim screen of a challenge: the line on the pick card naming the sender's outcome, e.g. 'Your friend is on Yes'.",
+    "placeholders": {
+      "outcome": {
+        "type": "String"
+      }
+    }
   },
   "activityLatest": "Latest",
   "@activityLatest": {

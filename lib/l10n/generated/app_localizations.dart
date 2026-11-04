@@ -20578,7 +20578,7 @@ abstract class AppLocalizations {
   /// Edgy line on a prediction share card (deadpan, PG).
   ///
   /// In en, this message translates to:
-  /// **'Bet against me. I dare you.'**
+  /// **'Take the other side. I dare you.'**
   String get shareEdgePredictionDare;
 
   /// Edgy line on a politics prediction share card (deadpan, PG).
@@ -20815,6 +20815,164 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'It\'s yours. Tap claim.'**
   String get claimCardTapClaim;
+
+  /// Won prediction brag card: the small caps line at the top (drawn uppercase). Cocky, PG: the person called the result.
+  ///
+  /// In en, this message translates to:
+  /// **'Called it'**
+  String get bragWonCaps;
+
+  /// Won prediction brag card: the caption under the profit. {entry} is the average price paid per share, e.g. '41¢'. Followed on the card by ' · +143.9%'.
+  ///
+  /// In en, this message translates to:
+  /// **'Won from {entry}'**
+  String bragWonFrom(String entry);
+
+  /// Won prediction brag card: the plain line at the bottom. {paid} is what the prediction cost, {payout} what it paid out, e.g. 'Paid $12.30 · Paid out $30.00'.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid {paid} · Paid out {payout}'**
+  String bragWonPaidPayout(String paid, String payout);
+
+  /// Title of the brag preview sheet for a won (resolved) prediction.
+  ///
+  /// In en, this message translates to:
+  /// **'Show off this win'**
+  String get bragWonAction;
+
+  /// Edgy line on a won prediction brag card (cocky, deadpan, PG).
+  ///
+  /// In en, this message translates to:
+  /// **'Resolved. Receipts attached.'**
+  String get bragEdgeWonReceipts;
+
+  /// Edgy line on a won prediction brag card. {entry} is the average price paid per share, e.g. '41¢'.
+  ///
+  /// In en, this message translates to:
+  /// **'In at {entry}. Aged well.'**
+  String bragEdgeWonAgedWell(String entry);
+
+  /// Edgy line on a won prediction brag card. {amount} is the signed profit, e.g. '+$17.70'.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} for being right.'**
+  String bragEdgeWonRight(String amount);
+
+  /// Send a prediction to a friend: the switch that turns the card into a dare (the friend is invited to take the other side).
+  ///
+  /// In en, this message translates to:
+  /// **'Challenge them'**
+  String get challengeToggle;
+
+  /// Send a prediction to a friend: the quiet line under the Challenge switch.
+  ///
+  /// In en, this message translates to:
+  /// **'Dare them to take the other side'**
+  String get challengeToggleSub;
+
+  /// Challenge share card: the small caps line at the top without a name (drawn uppercase).
+  ///
+  /// In en, this message translates to:
+  /// **'I dare you'**
+  String get challengeCaps;
+
+  /// Challenge share card: the small caps line at the top (drawn uppercase). {name} is the friend's first name.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}, I dare you'**
+  String challengeCapsNamed(String name);
+
+  /// Claim screen hero card for a challenge, without a name (drawn uppercase).
+  ///
+  /// In en, this message translates to:
+  /// **'A friend dares you'**
+  String get challengeCapsRecipient;
+
+  /// Claim screen hero card for a challenge (drawn uppercase). {name} is the recipient's first name.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}, a friend dares you'**
+  String challengeCapsRecipientNamed(String name);
+
+  /// Challenge share card: the tag over the sender's own side (drawn uppercase).
+  ///
+  /// In en, this message translates to:
+  /// **'My side'**
+  String get challengeMySide;
+
+  /// Challenge card as the recipient sees it: the tag over the sender's side (drawn uppercase).
+  ///
+  /// In en, this message translates to:
+  /// **'Friend\'s side'**
+  String get challengeFriendSide;
+
+  /// Challenge share card: the tag over the other side, the one the friend is dared to take (drawn uppercase).
+  ///
+  /// In en, this message translates to:
+  /// **'Your side?'**
+  String get challengeYourSide;
+
+  /// Challenge share card: the plain line saying what the sender put on the link for the friend to play with, e.g. '$10 to play, on me'.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} to play, on me'**
+  String challengeStake(String amount);
+
+  /// Edgy line on a challenge card (a dare, deadpan, PG; never 'bet'). {side} is the sender's outcome, e.g. 'Yes', 'Gen.G'.
+  ///
+  /// In en, this message translates to:
+  /// **'I\'m on {side}. Think I\'m wrong? Take the other side.'**
+  String challengeEdgeWrong(String side);
+
+  /// Edgy line on a challenge card (a playful dare, PG). {side} is the sender's outcome.
+  ///
+  /// In en, this message translates to:
+  /// **'I say {side}. Wanna fight me?'**
+  String challengeEdgeFight(String side);
+
+  /// Edgy line on a challenge card (a dare, PG). {side} is the sender's outcome.
+  ///
+  /// In en, this message translates to:
+  /// **'{side}. Prove me wrong.'**
+  String challengeEdgeProve(String side);
+
+  /// Edgy line on a challenge card (a dare, PG). {side} is the sender's outcome.
+  ///
+  /// In en, this message translates to:
+  /// **'I picked {side}. Your move.'**
+  String challengeEdgeMove(String side);
+
+  /// The share text of a challenge link: the sender's outcome on the market, the dare and the amount, with the link. Never 'bet'.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}, my pick: {outcome} on {title}. Take the other side or join me. {amount} on me: {url}'**
+  String shareMessageChallengeNamed(
+      String name, String outcome, String title, String amount, String url);
+
+  /// The share text of a challenge link without a name. Never 'bet'.
+  ///
+  /// In en, this message translates to:
+  /// **'My pick: {outcome} on {title}. Take the other side or join me. {amount} on me: {url}'**
+  String shareMessageChallengeUnnamed(
+      String outcome, String title, String amount, String url);
+
+  /// Claim screen of a challenge, once the money is in: the button that opens the slip on the side opposite to the sender's.
+  ///
+  /// In en, this message translates to:
+  /// **'Take the other side'**
+  String get claimChallengeOtherSide;
+
+  /// Claim screen of a challenge, once the money is in: the button that opens the slip on the sender's own side.
+  ///
+  /// In en, this message translates to:
+  /// **'Same side as your friend'**
+  String get claimChallengeSameSide;
+
+  /// Claim screen of a challenge: the line on the pick card naming the sender's outcome, e.g. 'Your friend is on Yes'.
+  ///
+  /// In en, this message translates to:
+  /// **'Your friend is on {outcome}'**
+  String claimChallengeFriendOn(String outcome);
 
   /// Bitcoin home Activity: heading over the four newest actions, shown as square tiles.
   ///

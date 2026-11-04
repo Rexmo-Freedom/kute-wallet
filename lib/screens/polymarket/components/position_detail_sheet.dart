@@ -3,7 +3,10 @@ import 'dart:async';
 import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
 import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/screens/shared/kute_share_actions.dart';
-import 'package:kute/screens/share/brag/brag_data.dart' show bragPolyPosition;
+import 'package:kute/screens/share/brag/brag_data.dart'
+    show bragPolyPosition, bragWonPosition, canBragWin;
+import 'package:kute/screens/share/brag/brag_preview_sheet.dart'
+    show showBragPreviewSheet;
 import 'package:kute/screens/share/brag/position_share_card.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/fitted_title.dart';
@@ -102,8 +105,10 @@ const Color _kPolyRed = AppColors.marketDown;
 // share card in the page; position_share_card.dart): "Brag about it" on
 // an open position in profit, else Send to a friend. The body scrolls
 // clear of the bar.
-// A won position has no action: it is claimed automatically
-// (claim_auto_fire.dart) and reads "Settled"; its bar is the page's Sal
+// A won position has no Sell: it is claimed automatically
+// (claim_auto_fire.dart) and reads "Settled". In profit its bar is "Brag
+// about it", opening the won card (founder, 4 November 2026: past wins
+// brag too), the round Sal button beside it; otherwise the page's Sal
 // pill, "Send to a friend".
 
 class PositionDetailSheet extends ConsumerStatefulWidget {
@@ -420,6 +425,13 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
         ' · ${pnlPercent >= 0 ? '+' : ''}${pnlPercent.toStringAsFixed(1)}%';
     // Settled: whether the held side won (the bar's own reading).
     final won = pos.won ?? currentPrice >= 0.5;
+    // A resolved win in profit brags about it (founder, 4 November 2026);
+    // a loss never does.
+    final wonBrag = canBragWin(
+        resolved: pos.isResolved,
+        won: pos.won,
+        costUsd: costBasis,
+        payoutUsd: pos.size);
     final investedText = formatPolyAmount(ref, costBasis);
 
     final eventDetails = pos.eventSlug != null && pos.eventSlug!.isNotEmpty
@@ -495,9 +507,13 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
       category: SearchCategory.predictions,
       searchHint: context.l10n.searchPredictionsHint,
       source: 'predictions',
-      // An open position brags (kute_share_actions.dart).
+      // An open position brags (kute_share_actions.dart); a resolved one
+      // only when it won, with its won card (brag_data.dart).
       brag: pos.isResolved
-          ? null
+          ? (wonBrag
+              ? () => bragWonPosition(ref.read,
+                  position: pos, costBasis: costBasis, imageUrl: headerImage)!
+              : null)
           : () => bragPolyPosition(ref.read,
               position: pos,
               costBasis: costBasis,
@@ -1062,6 +1078,31 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                   surface: 'position_detail',
                   popRoute: true,
                   share: positionBarShare(bar, brag: false),
+                )
+              // A won position in profit: "Brag about it" opens its won
+              // card (founder, 4 November 2026: past wins brag too); the
+              // round Sal button beside it is the page's Sal sheet.
+              else if (wonBrag)
+                KuteBarContextScope(
+                  barContext: KuteBarContext.primary(
+                    label: context.l10n.bragAboutIt,
+                    onPrimary: () {
+                      final win = bragWonPosition(ref.read,
+                          position: pos,
+                          costBasis: costBasis,
+                          imageUrl: headerImage);
+                      if (win != null) {
+                        unawaited(showBragPreviewSheet(context, win));
+                      }
+                    },
+                    disabledLabel: null,
+                    clip: 'share',
+                    category: SearchCategory.predictions,
+                    searchHint: context.l10n.searchPredictionsHint,
+                    source: 'predictions',
+                    share: positionBarShare(bar, brag: false),
+                  ),
+                  child: const SizedBox.shrink(),
                 )
               else if (!pos.isResolved)
                 KuteBarContextScope(

@@ -12233,7 +12233,7 @@ class AppLocalizationsEt extends AppLocalizations {
   }
 
   @override
-  String get shareEdgePredictionDare => 'Panusta minu vastu. Julged?';
+  String get shareEdgePredictionDare => 'Vali teine pool. Julged?';
 
   @override
   String get shareEdgePredictionPolitics =>
@@ -12405,6 +12405,114 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get claimCardTapClaim => 'See on sinu. Puuduta „Võta kätte“.';
+
+  @override
+  String get bragWonCaps => 'Ütlesin ju';
+
+  @override
+  String bragWonFrom(String entry) {
+    return 'Võit hinnalt $entry';
+  }
+
+  @override
+  String bragWonPaidPayout(String paid, String payout) {
+    return 'Makstud $paid · Välja makstud $payout';
+  }
+
+  @override
+  String get bragWonAction => 'Uhkelda selle võiduga';
+
+  @override
+  String get bragEdgeWonReceipts => 'Lahendatud. Tõendid lisatud.';
+
+  @override
+  String bragEdgeWonAgedWell(String entry) {
+    return 'Sisse $entry juures. Vananes hästi.';
+  }
+
+  @override
+  String bragEdgeWonRight(String amount) {
+    return '$amount õige ennustuse eest.';
+  }
+
+  @override
+  String get challengeToggle => 'Kutsu võistlema';
+
+  @override
+  String get challengeToggleSub => 'Kutsu teda valima teist poolt';
+
+  @override
+  String get challengeCaps => 'Kutsun sind välja';
+
+  @override
+  String challengeCapsNamed(String name) {
+    return '$name, kutsun sind välja';
+  }
+
+  @override
+  String get challengeCapsRecipient => 'Sõber kutsub sind välja';
+
+  @override
+  String challengeCapsRecipientNamed(String name) {
+    return '$name, väljakutse';
+  }
+
+  @override
+  String get challengeMySide => 'Minu pool';
+
+  @override
+  String get challengeFriendSide => 'Sõbra pool';
+
+  @override
+  String get challengeYourSide => 'Sinu pool?';
+
+  @override
+  String challengeStake(String amount) {
+    return '$amount mängimiseks, minu kulul';
+  }
+
+  @override
+  String challengeEdgeWrong(String side) {
+    return 'Olen $side poolt. Arvad, et eksin? Vali teine pool.';
+  }
+
+  @override
+  String challengeEdgeFight(String side) {
+    return 'Ütlen $side. Julged vastu hakata?';
+  }
+
+  @override
+  String challengeEdgeProve(String side) {
+    return '$side. Tõesta, et eksin.';
+  }
+
+  @override
+  String challengeEdgeMove(String side) {
+    return 'Valisin $side. Sinu käik.';
+  }
+
+  @override
+  String shareMessageChallengeNamed(
+      String name, String outcome, String title, String amount, String url) {
+    return '$name, minu valik: $outcome turul $title. Vali teine pool või ühine minuga. $amount minu kulul: $url';
+  }
+
+  @override
+  String shareMessageChallengeUnnamed(
+      String outcome, String title, String amount, String url) {
+    return 'Minu valik: $outcome turul $title. Vali teine pool või ühine minuga. $amount minu kulul: $url';
+  }
+
+  @override
+  String get claimChallengeOtherSide => 'Vali teine pool';
+
+  @override
+  String get claimChallengeSameSide => 'Sama pool kui sõbral';
+
+  @override
+  String claimChallengeFriendOn(String outcome) {
+    return 'Sinu sõber on $outcome poolt';
+  }
 
   @override
   String get activityLatest => 'Latest';
