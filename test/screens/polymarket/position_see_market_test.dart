@@ -22,8 +22,6 @@ import 'package:kute/providers/polymarket_sats_pnl_provider.dart'
 import 'package:kute/providers/polymarket_sports_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/polymarket_watchlist_provider.dart';
-import 'package:kute/screens/polymarket/components/poly_market_stats.dart'
-    show PolyRulesRow;
 import 'package:kute/screens/polymarket/components/position_detail_sheet.dart';
 import 'package:kute/screens/polymarket/market_detail_sheet.dart';
 import 'package:kute/screens/shared/open_once.dart';
@@ -186,8 +184,8 @@ void main() {
   });
   tearDown(OpenOnce.reset);
 
-  testWidgets('"View market" is the first row, above Protect it and '
-      'Closing Conditions, with no leading glyph', (tester) async {
+  testWidgets('"View market" is the first option card, before Protect it, '
+      'Details and Closing Conditions, with its chart glyph', (tester) async {
     await http.runWithClient(() async {
       await _pump(tester, const PositionDetailSheet(position: _position),
           event: _election);
@@ -195,19 +193,24 @@ void main() {
       expect(
           find.descendant(of: _row, matching: find.text('View market')),
           findsOneWidget);
-      // No leading glyph: the label alone, like the rows under it.
+      expect(find.descendant(of: _row, matching: find.text('Chart and odds')),
+          findsOneWidget);
+      // The option cards' look: an icon at the top left.
       expect(
           find.descendant(
               of: _row, matching: find.byIcon(Icons.show_chart_rounded)),
-          findsNothing);
-      final rules = find.byType(PolyRulesRow);
+          findsOneWidget);
+      // Reading order: first at the top left, the others after it.
+      final first = tester.getRect(_row);
+      final rules = find.byKey(PositionDetailSheet.closingConditionsKey);
       expect(rules, findsOneWidget);
-      expect(tester.getTopLeft(_row).dy,
-          lessThan(tester.getTopLeft(rules).dy));
+      expect(first.top, lessThan(tester.getRect(rules).top));
+      final details = find.byKey(PositionDetailSheet.detailsRowKey);
+      expect(first.top, lessThan(tester.getRect(details).top));
       final protect = find.byKey(const ValueKey('poly-position-protect'));
       if (protect.evaluate().isNotEmpty) {
-        expect(tester.getTopLeft(_row).dy,
-            lessThan(tester.getTopLeft(protect).dy));
+        expect(first.top, tester.getRect(protect).top);
+        expect(first.right, lessThan(tester.getRect(protect).left));
       }
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());

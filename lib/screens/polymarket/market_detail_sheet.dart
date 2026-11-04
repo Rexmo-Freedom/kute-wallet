@@ -28,6 +28,7 @@ import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart';
 import 'package:kute/screens/polymarket/components/market_chart.dart';
 import 'package:kute/screens/polymarket/components/poly_chart_history.dart';
 import 'package:kute/screens/polymarket/components/poly_market_stats.dart';
+import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/polymarket/components/price_format.dart';
 import 'package:kute/screens/polymarket/components/outcome_leading.dart';
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
@@ -2093,28 +2094,45 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     );
   }
 
-  /// Under the chart and the outcomes: the one row that opens the
-  /// market's rules, how it resolves, its stats and what people wrote
-  /// under it. The stats (24h volume, volume, liquidity) go in with the
-  /// sheet rather than sitting on this screen (owner decision); when the
-  /// market closes is already one of the sheet's own rows, so the end
-  /// date is not among them.
+  /// Under the chart and the outcomes: the market's option card, as the
+  /// Investing screens' (founder, 4 November 2026: "like squares";
+  /// kute_action_cards.dart), saying when the market ends and opening its
+  /// rules, how it resolves, its stats and what people wrote under it.
+  /// The stats (24h volume, volume, liquidity) go in with the sheet
+  /// rather than sitting on this screen (owner decision); when the market
+  /// closes is already one of the sheet's own rows, so the end date is not
+  /// among them.
   Widget _buildRulesRow() => Consumer(
-        builder: (context, statsRef, _) => PolyRulesRow(
-          onTap: () => showPolyRulesSheet(
-            context,
-            event,
-            stats: polyMarketStats(
-              context.l10n,
-              volume24hr: event.volume24hr,
-              volume: event.volume,
-              liquidity: event.liquidity,
-              endDate: null,
-              ended: _isOverFor(statsRef),
-              money: (v) => _formatVolume(statsRef, v),
-            ),
-          ),
-        ),
+        builder: (context, statsRef, _) {
+          final over = _isOverFor(statsRef);
+          return KuteActionCardGrid(
+            key: const ValueKey('poly-market-options'),
+            cards: [
+              polyRulesCard(
+                context,
+                subtitle: polyRulesCardLine(
+                  context.l10n,
+                  endDate: event.endDate,
+                  ended: over,
+                  locale: Localizations.localeOf(context).toString(),
+                ),
+                onTap: () => showPolyRulesSheet(
+                  context,
+                  event,
+                  stats: polyMarketStats(
+                    context.l10n,
+                    volume24hr: event.volume24hr,
+                    volume: event.volume,
+                    liquidity: event.liquidity,
+                    endDate: null,
+                    ended: over,
+                    money: (v) => _formatVolume(statsRef, v),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       );
 
   /// The outcome list of an event with many outcomes, as slivers (its
