@@ -24,10 +24,29 @@ import 'package:kute/constants/feature_flags.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/services/funding/ledger_polymarket_funding_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
+
+/// THE BAR IS THE BUTTON (founder, 31 October 2026; kute_bar_context
+/// .dart): the sheet's primary is the floating Sal bar's primary action;
+/// Cancel / Close is a text button above it, over the bar's clearance.
+Widget _bar(String label, VoidCallback? onPrimary,
+        {bool busy = false,
+        String? disabledLabel, String source = 'ledger_pm_explainer'}) =>
+    KuteBarContextScope(
+      barContext: KuteBarContext.primary(
+        label: label,
+        onPrimary: onPrimary,
+        enabled: onPrimary != null && !busy,
+        busy: busy,
+        source: source,
+        disabledLabel: disabledLabel,
+      ),
+      child: SizedBox(height: kuteBarScrollClearance.h),
+    );
 
 /// What the user chose in the explainer.
 class LedgerPmFundingExplainerDecision {
@@ -220,24 +239,14 @@ class _LedgerPolymarketFundingExplainerSheetState
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 20.w),
             child: _reverseUnavailable
-                ? AppButton(
-                    text: l10n.close,
-                    variant: AppButtonVariant.secondary,
-                    onPressed: _cancel,
-                  )
+                ? _bar(l10n.close, _cancel)
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      AppButton(
-                        text: l10n.ledgerPmExplainerContinue,
-                        onPressed: _canContinue ? _continue : null,
-                      ),
-                      SizedBox(height: 10.h),
-                      AppButton(
-                        text: l10n.cancel,
-                        variant: AppButtonVariant.secondary,
-                        onPressed: _cancel,
-                      ),
+                      AppTextButton(text: l10n.cancel, onPressed: _cancel),
+                      _bar(l10n.ledgerPmExplainerContinue,
+                          _canContinue ? _continue : null,
+                          disabledLabel: l10n.barNeedTick),
                     ],
                   ),
           ),

@@ -49,7 +49,6 @@ import 'package:kute/providers/usd_account_provider.dart'
 import 'package:kute/screens/home/components/deposit_sheet.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart'
     show BigAmountDisplay;
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/money_movement_sheet.dart';
 import 'package:kute/services/funding/hot_settlement.dart';
 import 'package:kute/services/funding/settlement_funding_outcome.dart'
@@ -58,6 +57,8 @@ import 'package:kute/services/funding/settlement_runner.dart';
 import 'package:kute/services/funding/settlement_store.dart';
 import 'package:kute/services/funding/spark_hypercore_funding_service.dart';
 import 'package:kute/services/http/shared_http_client.dart';
+import 'package:kute/services/polymarket_onboarding_service.dart'
+    show PolymarketReadException;
 import 'package:kute/services/hyperliquid/cctp_withdrawal.dart';
 import 'package:kute/services/hyperliquid/hypercore_activation_fee.dart'
     show HypercoreBalanceShortfall;
@@ -77,6 +78,7 @@ import 'package:kute/theme/app_theme.dart';
 import 'package:money2/money2.dart' show Fixed;
 
 import '../../helpers/runtime_policy_fixture.dart';
+import '../../helpers/kute_bar_test_support.dart';
 
 const _usdPerBtc = 100000.0;
 const _ownSpark =
@@ -162,16 +164,51 @@ class _Trading extends PolymarketTradingNotifier {
       _deposit?.future ?? Future.value(_pmWallet);
 
   @override
-  Future<BigInt> spendableMicroUsdc() async =>
-      BigInt.from((_predictions * 1e6).round());
+  Future<BigInt> spendableMicroUsdc() async {
+    final failure = _readFailure;
+    if (failure != null) throw failure;
+    return BigInt.from((_predictions * 1e6).round());
+  }
 
   @override
-  Future<BigInt> payableMicroUsdc(double amount) async =>
-      BigInt.from((amount * 1e6).round());
+  Future<BigInt> payableMicroUsdc(double amount) async {
+    final failure = _readFailure;
+    if (failure != null) throw failure;
+    return BigInt.from((amount * 1e6).round());
+  }
+
+  /// The watch that converts a delivered deposit: started by every rail
+  /// into Predictions.
+  @override
+  void wrapIncomingUsdcEToPusd({
+    Duration timeout = const Duration(minutes: 8),
+    Duration interval = const Duration(seconds: 4),
+    Duration lateInterval = const Duration(seconds: 15),
+  }) {
+    _arrivalWatches++;
+  }
+
+  /// The account's one-time setup, asked for before a move leaves
+  /// Predictions. Done, unless [_setupFailure] says it cannot finish.
+  @override
+  Future<void> enableTrading({
+    void Function(String status)? onProgress,
+    bool force = false,
+  }) async {
+    _setupAsked++;
+    final failure = _setupFailure;
+    if (failure != null) throw failure;
+  }
 }
 
 bool _proxyKnown = true;
 Completer<String?>? _deposit;
+Object? _setupFailure;
+int _setupAsked = 0;
+
+/// What the live balance read throws, when it cannot be read.
+Object? _readFailure;
+int _arrivalWatches = 0;
 double _predictions = 20;
 double _dollars = 20;
 
@@ -414,7 +451,9 @@ int get _railCalls =>
 // ─── harness ────────────────────────────────────────────────────────
 
 Future<ProviderContainer> _open(WidgetTester tester, MoneyMovementRoute route,
-    {Completer<String?>? hlAddress, OrchestraRoutesCatalog? catalog}) async {
+    {Completer<String?>? hlAddress,
+    OrchestraRoutesCatalog? catalog,
+    bool pinned = false}) async {
   tester.view.physicalSize = const Size(430, 932);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -453,6 +492,9 @@ Future<ProviderContainer> _open(WidgetTester tester, MoneyMovementRoute route,
       child: ScreenUtilInit(
         designSize: const Size(430, 932),
         builder: (_, __) => MaterialApp(
+          // The shell bar over the page, as app_widget.dart mounts it: the
+          // sheet's button is the bar (kute_bar_test_support.dart).
+          builder: withKuteShellBar,
           theme:
               buildLightTheme().copyWith(splashFactory: NoSplash.splashFactory),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -465,7 +507,9 @@ Future<ProviderContainer> _open(WidgetTester tester, MoneyMovementRoute route,
     _orchestra,
   );
   unawaited(showMoneyMovementSheet(_nav.currentContext!,
-      initialSource: route.from, initialDestination: route.to));
+      initialSource: route.from,
+      initialDestination: route.to,
+      pinned: pinned));
   await _frames(tester, 12);
   container.read(sparkHypercoreFundingServiceProvider);
   return container;
@@ -489,8 +533,9 @@ Future<void> _type(WidgetTester tester, String amount) async {
   await _frames(tester, 4);
 }
 
-Finder get _cta => find.byType(AppButton).last;
-AppButton _button(WidgetTester tester) => tester.widget<AppButton>(_cta);
+Finder get _cta => kuteBarPrimary;
+KuteBarPrimaryProbe _button(WidgetTester tester) =>
+    kuteBarPrimaryProbe(tester);
 
 Future<void> _confirm(WidgetTester tester) async {
   await tester.tap(_cta);
@@ -527,6 +572,10 @@ void main() {
     _events.clear();
     TrackingService.debugTrackObserver = (e, p) => _events.add((e, p));
     _proxyKnown = true;
+    _setupFailure = null;
+    _setupAsked = 0;
+    _readFailure = null;
+    _arrivalWatches = 0;
     _deposit = null;
     _predictions = 20;
     _dollars = 20;
@@ -577,8 +626,27 @@ void main() {
     await _close(tester, c);
   });
 
+  testWidgets(
+      'the withdrawal door pins the route: Investments to Bitcoin, no '
+      'pickers, no flip, and the move still runs', (tester) async {
+    final c = await _open(tester, const MoneyMovementRoute(_d, _b),
+        pinned: true);
+    expect(find.text('Investments'), findsOneWidget);
+    expect(find.text('Bitcoin'), findsOneWidget);
+    expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsNothing);
+    expect(find.byIcon(Icons.swap_vert_rounded), findsNothing);
+    // Tapping an end picks nothing.
+    await tester.tap(find.text('Investments').first);
+    await _frames(tester);
+    expect(find.text('Move from'), findsNothing);
+    await _type(tester, '5');
+    await _confirm(tester);
+    expect(_railCalls, 1);
+    await _close(tester, c);
+  });
+
   group('every pair runs on its own rail, from the selected account only', () {
-    for (final route in MoneyMovementRoute.all) {
+    for (final route in MoneyMovementRoute.offered) {
       testWidgets('$route', (tester) async {
         final c = await _open(tester, route);
         await _type(tester, '5');
@@ -766,7 +834,7 @@ void main() {
   testWidgets(
       'a wallet switch while the approval is up revokes it: nothing is '
       'funded', (tester) async {
-    final c = await _open(tester, const MoneyMovementRoute(_p, _d));
+    final c = await _open(tester, const MoneyMovementRoute(_p, _b));
     await _type(tester, '5');
     final settings = c.read(settingsProvider.notifier);
     _approvals.whileUp =
@@ -815,9 +883,55 @@ void main() {
   });
 
   testWidgets(
+      'a Predictions move asks for the account setup first; a setup that '
+      'cannot read Polygon stops it before any quote, named, with Retry',
+      (tester) async {
+    final c = await _open(tester, const MoneyMovementRoute(_p, _b));
+    await _type(tester, '5');
+    _setupFailure =
+        const PolymarketReadException('eth_getCode: no Polygon RPC answered');
+    await _confirm(tester);
+    expect(_setupAsked, 1);
+    expect(_runner.plans, isEmpty, reason: 'nothing was quoted or sent');
+    expect(
+        find.text("Predictions couldn't be reached right now. Nothing was "
+            'sent. Check your connection and try again.'),
+        findsOneWidget);
+    expect(_button(tester).text, 'Retry');
+    expect(_last('move_failed')['reason'], 'not_sent');
+    // The read works again: the same tap goes through.
+    _setupFailure = null;
+    await _confirm(tester);
+    expect(_setupAsked, 2);
+    expect(_runner.plans, hasLength(1));
+    await _close(tester, c);
+  });
+
+  testWidgets(
+      'a live balance that cannot be read stops a Predictions move before '
+      'the quote, as unreachable, never as insufficient', (tester) async {
+    final c = await _open(tester, const MoneyMovementRoute(_p, _b));
+    await _type(tester, '5');
+    _readFailure =
+        const PolymarketReadException('eth_call: no Polygon RPC answered');
+    await _confirm(tester);
+    expect(_runner.plans, isEmpty, reason: 'nothing was quoted or sent');
+    expect(
+        find.text("Predictions couldn't be reached right now. Nothing was "
+            'sent. Check your connection and try again.'),
+        findsOneWidget);
+    expect(find.text('Insufficient balance'), findsNothing);
+    expect(_button(tester).text, 'Retry');
+    _readFailure = null;
+    await _confirm(tester);
+    expect(_runner.plans, hasLength(1));
+    await _close(tester, c);
+  });
+
+  testWidgets(
       'an unknown outcome locks the move: no second send, no edits, and the '
       'button opens Activity', (tester) async {
-    final c = await _open(tester, const MoneyMovementRoute(_p, _i));
+    final c = await _open(tester, const MoneyMovementRoute(_p, _b));
     await _type(tester, '5');
     _runner.afterApproval =
         (_) async => throw const SettlementFundingUnknown('op', 'timeout');
@@ -900,6 +1014,8 @@ void main() {
         InvestingWithdrawalDestination.predictions);
     expect(_cctp.moves.single.usd, 5);
     expect(_approvals.intents, hasLength(1));
+    // The CCTP arrival converts to pUSD like any other deposit.
+    expect(_arrivalWatches, 1);
     expect(find.byKey(const ValueKey('money-movement-sheet')), findsNothing);
     final completed = _last('move_completed');
     expect(completed['route'], 'cctp');
@@ -1049,19 +1165,51 @@ void main() {
     });
 
     testWidgets(
-        'Predictions → Investing asks for its own route, to the own '
-        'Investing account', (tester) async {
+        'out of Predictions only Bitcoin is offered: asked for Investing, '
+        'the sheet opens on Bitcoin, prices that route and the picker '
+        'lists no other door', (tester) async {
       final c = await _open(tester, const MoneyMovementRoute(_p, _i));
       await _type(tester, '5');
       await _frames(tester, 12);
+      expect(
+          _estimates.where((q) =>
+              q['sourceChain'] == 'polygon' && q['destinationChain'] == 'hypercore'),
+          isEmpty);
       final asked = _estimates.where((q) =>
           q['sourceChain'] == 'polygon' &&
           q['sourceAsset'] == 'USDC.e' &&
-          q['destinationChain'] == 'hypercore' &&
-          q['destinationAsset'] == 'USDC');
+          q['destinationChain'] == 'spark' &&
+          q['destinationAsset'] == 'BTC');
       expect(asked, isNotEmpty);
       expect(asked.last['amount'], '5000000');
+      // The destination picker: Bitcoin, already selected, and nothing else.
+      await tester.tap(find.text('Bitcoin').first);
+      await _frames(tester);
+      expect(find.text('Move to'), findsOneWidget);
+      expect(find.byKey(const ValueKey('movement-account-bitcoin')),
+          findsOneWidget);
+      expect(find.text('SELECTED'), findsOneWidget);
+      expect(find.byKey(const ValueKey('movement-account-dollars')),
+          findsNothing);
+      expect(find.byKey(const ValueKey('movement-account-investing')),
+          findsNothing);
+      expect(find.byKey(const ValueKey('movement-account-predictions')),
+          findsNothing);
+      await tester.tap(find.byKey(const ValueKey('movement-account-bitcoin')),
+          warnIfMissed: false);
+      await _frames(tester);
+      // Picking Predictions as the source while Dollars is the destination
+      // brings its one door along: the route becomes Predictions → Bitcoin.
       await _close(tester, c);
+      final c2 = await _open(tester, const MoneyMovementRoute(_i, _d));
+      await tester.tap(find.text('Investing').first);
+      await _frames(tester);
+      await tester
+          .tap(find.byKey(const ValueKey('movement-account-predictions')));
+      await _frames(tester);
+      expect(_last('move_direction_changed')['from'], 'predictions');
+      expect(_last('move_direction_changed')['to'], 'bitcoin');
+      await _close(tester, c2);
     });
 
     testWidgets('Bitcoin → Predictions prices sats on its own route',
@@ -1081,7 +1229,7 @@ void main() {
 
   testWidgets('Max and the quick chips are tracked with the surface',
       (tester) async {
-    final c = await _open(tester, const MoneyMovementRoute(_p, _d));
+    final c = await _open(tester, const MoneyMovementRoute(_p, _b));
     await tester.tap(find.text('Max').last);
     await _frames(tester);
     final tap = _last('move_amount_percent_tapped');

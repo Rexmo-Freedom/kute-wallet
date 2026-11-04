@@ -1,3 +1,4 @@
+import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
 import 'dart:async';
 
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart';
@@ -36,6 +37,7 @@ import 'package:kute/screens/receive/receive_sheet.dart'
     show showOtherCoinsReceiveSheet;
 import 'package:kute/screens/shared/coin_asset_grid.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/jade_device_picker.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
@@ -295,6 +297,13 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
       // full scan held the native slot, the session failed to open,
       // ...) stays cached across screen opens and the QR plate shimmers
       // until restart. Drop the stale error so this open fetches again.
+      // Money arrived on the address shown last time: this open is when
+      // it rotates (SparkDepositAddressRotation), never while a screen
+      // is up.
+      if (SparkDepositAddressRotation.apply()) {
+        ref.invalidate(getSparkBitcoinAddressProvider);
+        ref.invalidate(initialAddressesProvider);
+      }
       final pickedId = _pickedReceiveWalletId;
       if (pickedId != null) {
         var pickedUsesBdk = false;
@@ -1502,7 +1511,7 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
   // ─── Username edit modal (ported verbatim from old widget) ────
 
   void _showEditUsernameModal(String currentUsername) {
-    showModalBottomSheet(
+    showKuteModalSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -1968,12 +1977,22 @@ class _EditUsernameModalSheetState
                       ),
                     ),
                   SizedBox(height: 24.h),
-                  AppButton(
-                    onPressed: _isLoading ? null : _submitEditUsername,
-                    text: context.l10n.saveChanges,
-                    isLoading: _isLoading,
+                  // THE BAR IS THE BUTTON (founder, 31 October 2026;
+                  // kute_bar_context.dart, KuteBarContext.primary): Save
+                  // changes is the shell bar, riding above the keyboard
+                  // while the handle is typed, busy while the save runs;
+                  // the box keeps the field and its error clear of it.
+                  KuteBarContextScope(
+                    barContext: KuteBarContext.primary(
+                      label: context.l10n.saveChanges,
+                      onPrimary: _submitEditUsername,
+                      enabled: !_isLoading,
+                      busy: _isLoading,
+                      source: 'edit_lightning_address',
+                      disabledLabel: null,
+                    ),
+                    child: SizedBox(height: kuteBarScrollClearance.h),
                   ),
-                  SizedBox(height: 16.h),
                 ],
               ),
             ),

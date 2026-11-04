@@ -1,4 +1,5 @@
 import 'package:kute/screens/shared/orchestra_swap_refund_action.dart';
+import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/screens/shared/multi_source_move_activity.dart';
 import 'package:kute/screens/shared/cctp_refund_outcome.dart'
     show CctpRefundOutcome;
@@ -31,6 +32,7 @@ import 'package:kute/helpers/swap_activity.dart';
 import 'package:kute/providers/bitcoin_labels_provider.dart';
 import 'package:kute/screens/shared/bitcoin_labels.dart';
 import 'package:kute/screens/shared/bitcoin_performance_comparison.dart';
+import 'package:kute/screens/shared/fee_copy.dart';
 import 'package:kute/providers/cash_app_payment_window_provider.dart';
 import 'package:kute/helpers/cash_app_purchase_session.dart';
 import 'package:kute/helpers/cash_app_destination.dart';
@@ -56,6 +58,7 @@ import 'package:kute/helpers/common_operation_methods.dart';
 import 'package:kute/helpers/extension.dart';
 import 'package:kute/helpers/kute_dog_asset.dart';
 import 'package:kute/services/onramp_visibility.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart'
     show showBuyUnavailableSheet;
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -104,7 +107,6 @@ import 'package:kute/providers/transactions_provider.dart';
 import 'package:kute/services/polymarket_optimistic_activity_service.dart';
 import 'package:kute/services/polymarket_spark_txs_service.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
-import 'package:kute/screens/shared/ask_sal_chip.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/deposit_quick_claim.dart';
 import 'package:kute/models/breez/deposit_update.dart' show sparkOutpointKey;
@@ -116,6 +118,7 @@ import 'package:kute/services/support_service.dart' show openSupportChat;
 import 'package:kute/screens/shared/custom_alert_dialog.dart';
 import 'package:kute/screens/shared/btc_amount_text.dart';
 import 'package:kute/screens/shared/message_display.dart';
+import 'package:kute/screens/shared/components/receipt_parts.dart';
 import 'package:kute/screens/shared/components/sheet_detail_row.dart';
 import 'package:kute/screens/shared/components/tx_flow_graph.dart';
 import 'package:kute/screens/shared/components/transaction_row_content.dart';
@@ -137,8 +140,6 @@ import 'package:kute/screens/shared/animations/fade_in_slide.dart';
 import 'package:kute/screens/shared/animations/bouncy_touch.dart';
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/services/orchestra/bitcoin_receive_marks.dart';
-
-const Color _kPolyRedTx = Color(0xFFEF4444);
 
 
 /// Rows an activity preview shows before "See all" (Home, Dollars, the
@@ -577,6 +578,7 @@ class _AmountText extends StatelessWidget {
   final bool isBtc;
   final double fontSize;
   final double letterSpacing;
+  final FontWeight fontWeight;
 
   const _AmountText({
     required this.amount,
@@ -585,6 +587,7 @@ class _AmountText extends StatelessWidget {
     required this.isBtc,
     this.fontSize = 18,
     this.letterSpacing = -0.6,
+    this.fontWeight = FontWeight.w800,
   });
 
   @override
@@ -592,7 +595,7 @@ class _AmountText extends StatelessWidget {
     final style = TextStyle(
       color: brightColor,
       fontSize: fontSize.sp,
-      fontWeight: FontWeight.w800,
+      fontWeight: fontWeight,
       letterSpacing: letterSpacing,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
@@ -683,6 +686,68 @@ Widget buildWalletActivityRow({
 /// One-line activity row title ("Deposit", "Sold · G2", "Long BTC").
 Widget activityRowTitle(String text) => _RowTitle(text);
 
+/// How dense an Activity list draws its rows. Home's list is compact: one
+/// line of context and one figure per row; the second figure, the fee and
+/// the rail wait in the row's detail sheet. Every other list keeps both
+/// figures.
+class ActivityRowStyle extends InheritedWidget {
+  const ActivityRowStyle(
+      {super.key, required this.compact, required super.child});
+
+  final bool compact;
+
+  static bool compactOf(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<ActivityRowStyle>()
+          ?.compact ??
+      false;
+
+  @override
+  bool updateShouldNotify(ActivityRowStyle old) => old.compact != compact;
+}
+
+/// A quiet note that leads a row's context line ("Paid from Bitcoin ·
+/// 14:21"): the home Activity folds the funding moves an action paid
+/// with into the action's row and says where the money came from here
+/// (all_activity.dart). Rows without one read as before.
+class ActivityRowNote extends InheritedWidget {
+  const ActivityRowNote({super.key, required this.note, required super.child});
+
+  final String note;
+
+  static String? of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<ActivityRowNote>()?.note;
+
+  @override
+  bool updateShouldNotify(ActivityRowNote old) => old.note != note;
+}
+
+/// How the home draws an Activity row (founder, 1 November 2026: less
+/// clutter, each row one or two things): the list row every other list
+/// keeps; a square tile for the home's "Latest" grid (the row's icon at
+/// the top, then the action and the amount large); a plain one-line row
+/// for its "Earlier" card (icon, action, amount). Neither home shape has
+/// a context line or a second figure: those are on the receipt, which a
+/// tap opens exactly as from the row.
+enum ActivityRowShape { row, square, plain }
+
+class ActivityRowLayout extends InheritedWidget {
+  const ActivityRowLayout(
+      {super.key, required this.shape, required super.child});
+
+  final ActivityRowShape shape;
+
+  static ActivityRowShape of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<ActivityRowLayout>()?.shape ??
+      ActivityRowShape.row;
+
+  @override
+  bool updateShouldNotify(ActivityRowLayout old) => old.shape != shape;
+}
+
+/// A home square's least height (the grid sets its width).
+const double kActivitySquareHeight = 140;
+
 class _TransactionRow extends ConsumerWidget {
   final Widget leading;
   final Widget title;
@@ -754,10 +819,17 @@ class _TransactionRow extends ConsumerWidget {
     final valuesVisible = !maskValues ||
         ref.watch(settingsProvider.select((s) => s.transactionValuesVisible));
     final shownAmount = valuesVisible ? _signed(amount) : '••••';
-    final shownFiat = valuesVisible ? fiatAmount : '';
+    final shape = ActivityRowLayout.of(context);
+    if (shape != ActivityRowShape.row) {
+      return _homeShape(context, shape, shownAmount, valuesVisible);
+    }
+    final compact = ActivityRowStyle.compactOf(context);
+    final shownFiat = valuesVisible && !compact ? fiatAmount : '';
+    final note = ActivityRowNote.of(context);
     final row = Container(
       color: Colors.transparent,
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+      padding: EdgeInsets.symmetric(
+          horizontal: 16.w, vertical: compact ? 13.h : 14.h),
       child: TransactionRowContent(
         leading: _RowIconTile(child: leading),
         title: title,
@@ -770,7 +842,12 @@ class _TransactionRow extends ConsumerWidget {
                       color: status!.color, fontWeight: FontWeight.w600)),
               if (subtitle.isNotEmpty) const TextSpan(text: ' · '),
             ],
-            TextSpan(text: subtitle),
+            TextSpan(
+                text: note == null
+                    ? subtitle
+                    : subtitle.isEmpty
+                        ? note
+                        : '$note · $subtitle'),
           ]),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -806,6 +883,112 @@ class _TransactionRow extends ConsumerWidget {
     );
     if (onTap == null) return row;
     return BouncyTouch(onTap: onTap!, child: row);
+  }
+
+  /// The home's square tile or plain row ([ActivityRowShape]). The amount
+  /// is green for money in or a profit, the primary colour otherwise; a
+  /// status (while something is unfinished) leads the action.
+  Widget _homeShape(BuildContext context, ActivityRowShape shape,
+      String shownAmount, bool valuesVisible) {
+    final c = context.colors;
+    final square = shape == ActivityRowShape.square;
+    // A close or a sale in profit says so in its second figure's colour.
+    final up = valuesVisible &&
+        (flow == ActivityFlow.moneyIn ||
+            amountColor == AppColors.marketUp ||
+            secondaryColor == AppColors.marketUp);
+    final amountText = _AmountText(
+      amount: shownAmount,
+      brightColor: up ? AppColors.marketUp : c.textPrimary,
+      isBtc: amountIsBtc && valuesVisible,
+      dimColor: c.textTertiary,
+      fontSize: square ? 22 : 16,
+      letterSpacing: square ? -0.6 : -0.3,
+      fontWeight: FontWeight.w700,
+    );
+    final statusText = status == null
+        ? null
+        : Text(status!.text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+                color: status!.color,
+                fontSize: 13.sp,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.1,
+                height: 1.25));
+    final Widget body;
+    if (square) {
+      final scaler = MediaQuery.textScalerOf(context);
+      final content = 14.w * 2 +
+          _kRowIcon +
+          10.w +
+          (statusText == null ? 0 : scaler.scale(13.sp) * 1.25) +
+          scaler.scale(13.sp) * 1.25 +
+          4.h +
+          scaler.scale(22.sp) * 1.2 +
+          2;
+      final height = content > kActivitySquareHeight.w
+          ? content
+          : kActivitySquareHeight.w;
+      body = Container(
+        height: height,
+        padding: EdgeInsets.all(14.w),
+        decoration: PremiumGroupContainer.decorationOf(context),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _RowIconTile(child: leading),
+            const Spacer(),
+            if (statusText != null) statusText,
+            title,
+            SizedBox(height: 4.h),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: amountText,
+            ),
+          ],
+        ),
+      );
+    } else {
+      body = Container(
+        color: Colors.transparent,
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+        child: LayoutBuilder(builder: (context, box) {
+          return Row(
+            children: [
+              _RowIconTile(size: 36, child: leading),
+              SizedBox(width: 12.w),
+              Expanded(
+                child: Row(
+                  children: [
+                    if (statusText != null) ...[
+                      Flexible(child: statusText),
+                      Text(' · ',
+                          style: TextStyle(
+                              color: c.textSecondary, fontSize: 13.sp)),
+                    ],
+                    Flexible(flex: 2, child: title),
+                  ],
+                ),
+              ),
+              SizedBox(width: 12.w),
+              ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: box.maxWidth * 0.45),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: amountText,
+                ),
+              ),
+            ],
+          );
+        }),
+      );
+    }
+    if (onTap == null) return body;
+    return BouncyTouch(onTap: onTap!, child: body);
   }
 }
 
@@ -906,13 +1089,15 @@ class _RowTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // On a home square the action is the quiet line over the amount.
+    final square = ActivityRowLayout.of(context) == ActivityRowShape.square;
     return Text(
       text,
       style: TextStyle(
-        color: context.colors.textPrimary,
-        fontSize: 16.sp,
-        fontWeight: FontWeight.w600,
-        letterSpacing: -0.3,
+        color: square ? context.colors.textSecondary : context.colors.textPrimary,
+        fontSize: square ? 13.sp : 16.sp,
+        fontWeight: square ? FontWeight.w500 : FontWeight.w600,
+        letterSpacing: square ? -0.1 : -0.3,
         height: 1.25,
       ),
       maxLines: 1,
@@ -942,102 +1127,50 @@ String _withTime(String context, DateTime at) {
   return context.isEmpty ? time : '$context · $time';
 }
 
-/// The top of every activity detail sheet: the row the person tapped,
-/// opened up. Same chrome as the app's other sheets (drag handle, the
-/// close X on the right, the Ask Sal chip on the left where the sheet
-/// offers one), then the row's own icon tile, its title, its signed
-/// amount and its one secondary figure, so the sheet reads as the row it
-/// came from. [row] is the activity row the list draws for this
-/// transaction (`_build*Item`, `buildWalletActivityRow`). [note] adds one
-/// quiet line of context the row leaves out (a conversion's two legs).
+/// The top of every activity detail sheet, the receipt's hero
+/// ([ReceiptHero], receipt_parts.dart): the row the person tapped, opened
+/// up. The drag handle and the circled close at the top-right, then the
+/// row's own icon tile (56), its title, its signed amount large and its
+/// one secondary figure (a result in its colour, else the fiat value),
+/// then [date] as a quiet line. [row] is the activity row the list draws
+/// for this transaction (`_build*Item`, `buildWalletActivityRow`). [note]
+/// adds one quiet line of context the row leaves out (a conversion's two
+/// legs). No Sal circle: a long press on the bar asks Sal about the
+/// receipt.
 class TransactionDetailHeader extends StatelessWidget {
   final Widget row;
   final String? note;
 
-  /// Names the kind of detail this sheet shows (for example
-  /// `btc_tx_detail`). When set, an Ask Sal chip sits on the sheet's
-  /// top row so Sal can explain what a pending or confirmed transaction
-  /// means. Only the surface name ever leaves the device — never an
-  /// address, id, label, counterparty or amount.
-  final String? advisorSurface;
+  /// The receipt's date, under the amount ("1 Nov 2026, 20:32").
+  final String? date;
 
   const TransactionDetailHeader({
     super.key,
     required this.row,
     this.note,
-    this.advisorSurface,
+    this.date,
   });
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final face = row as _TransactionRow;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Padding(
-          padding: EdgeInsets.only(top: 12.h),
-          child: AppDecorations.dragHandle(context),
-        ),
-        SizedBox(height: 8.h),
-        Row(
-          children: [
-            if (advisorSurface != null)
-              AskSalChip(
-                advisorContext: AdvisorContext(surface: advisorSurface!),
-              ),
-            const Spacer(),
-            IconButton(
-              tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-              onPressed: () => Navigator.of(context).maybePop(),
-              icon: const Icon(Icons.close_rounded),
-            ),
-          ],
-        ),
-        _RowIconTile(size: 56, child: face.leading),
-        SizedBox(height: 14.h),
-        DefaultTextStyle.merge(
-          textAlign: TextAlign.center,
-          child: face.title,
-        ),
-        SizedBox(height: 6.h),
-        _AmountText(
-          amount: face._signed(face.amount),
-          brightColor: c.textPrimary,
-          isBtc: face.amountIsBtc,
-          dimColor: c.textTertiary,
-          fontSize: 34,
-          letterSpacing: -0.8,
-        ),
-        if (face.fiatAmount.isNotEmpty) ...[
-          SizedBox(height: 4.h),
-          Text(
-            face.fiatAmount,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: face.secondaryColor ?? c.textTertiary,
-              fontSize: 15.sp,
-              fontWeight: FontWeight.w500,
-              letterSpacing: -0.1,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-          ),
-        ],
-        if (note != null && note!.isNotEmpty) ...[
-          SizedBox(height: 4.h),
-          Text(
-            note!,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: c.textSecondary,
-              fontSize: 14.sp,
-              fontWeight: FontWeight.w500,
-              letterSpacing: -0.2,
-            ),
-          ),
-        ],
-        SizedBox(height: 20.h),
-      ],
+    return ReceiptHero(
+      leading: _RowIconTile(size: 56, child: face.leading),
+      title: face.title,
+      amount: _AmountText(
+        amount: face._signed(face.amount),
+        brightColor: c.textPrimary,
+        isBtc: face.amountIsBtc,
+        dimColor: c.textTertiary,
+        fontSize: 40,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -1.0,
+      ),
+      result: face.fiatAmount,
+      resultColor: face.secondaryColor,
+      note: note,
+      date: date,
     );
   }
 }
@@ -1051,6 +1184,29 @@ String activitySheetDate(BuildContext context, DateTime at) {
     // Date symbols not loaded for this locale (tests, early start).
     return activitySheetDate(context, at);
   }
+}
+
+/// A receipt's Status tile. A null [color] is the pending amber, the
+/// same one the row's status word wears.
+ReceiptFact _statusFact(BuildContext context, String text, Color? color) =>
+    ReceiptFact(
+        label: context.l10n.status,
+        value: text,
+        valueColor: color ?? context.colors.warning);
+
+/// A receipt's Date tile (where the date is a fact of its own rather than
+/// the hero's quiet line).
+ReceiptFact _dateFact(BuildContext context, String date) =>
+    ReceiptFact(label: context.l10n.date, value: date);
+
+/// Opens a block explorer the way every receipt does: the in-app browser,
+/// else the external one.
+Future<void> _openExplorer(Uri uri) async {
+  try {
+    if (!await launchUrl(uri, mode: LaunchMode.inAppBrowserView)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  } catch (_) {/* No browser available: nothing else to do. */}
 }
 
 /// Addresses that settle into the user's own wallet — used by the
@@ -1329,11 +1485,18 @@ bool dollarSendDeliveredKnown(SwapOrder order) {
 /// [deliveryLinks] are the delivery reconciler's receive → row links
 /// (default: the stored ones): a linked receive folds into its row
 /// (own_bitcoin_deliveries.dart).
+///
+/// [allAccounts] is the Bitcoin home's whole Activity (all_activity.dart):
+/// neither ledger's filter runs, so the bitcoin rows, the dollar ledger and
+/// every venue move are listed together, and the leg collapse that follows
+/// still folds each conversion's dollar transfer and bitcoin receive into
+/// its one row. [onlyUsdb] is ignored then.
 List<BaseTransaction> assembleActivityRows(
   List<BaseTransaction> sorted, {
   required Set<String> ownAddresses,
   required bool isHardwareOrWatchOnly,
   required bool onlyUsdb,
+  bool allAccounts = false,
   bool keepVenueMoves = false,
   SwapActivityKind Function(SwapOrder order) classify = swapActivityFor,
   List<MultiSourceMove> moves = const [],
@@ -1367,7 +1530,10 @@ List<BaseTransaction> assembleActivityRows(
         .toList();
   }
 
-  if (onlyUsdb) {
+  if (allAccounts) {
+    // Every account at once: no ledger filter. The collapse below hides
+    // the legs behind the rows still listed.
+  } else if (onlyUsdb) {
     // USD tab: the dollar ledger only. Every conversion with a dollar leg
     // spends or fills this balance too, so it belongs here, including a
     // venue funded from or paid out to dollars (owner decision).
@@ -1474,7 +1640,8 @@ List<BaseTransaction> assembleActivityRows(
   // its legs fold into it (multi_source_move_activity.dart).
   if (moves.isEmpty || isHardwareOrWatchOnly) return collapsed;
   return collapseMultiSourceMoves(collapsed, moves,
-      onlyUsdb: onlyUsdb,
+      // Every account lists every move, as the dollar ledger does.
+      onlyUsdb: onlyUsdb || allAccounts,
       walletId: walletId,
       everyRow: sorted,
       dissolved: dissolved);
@@ -1902,12 +2069,13 @@ void _showPolymarketUsdcReceiveDetails(
               Consumer(
                 builder: (context, ref, _) => TransactionDetailHeader(
                   row: _buildPolymarketUsdcReceiveItem(tx, context, ref),
-                  advisorSurface: 'polymarket_deposit_tx_detail',
                 ),
               ),
-              _sheetDetailRow(c, context.l10n.date, dateStr),
-              _sheetDetailRow(c, context.l10n.status, context.l10n.completed,
-                  valueColor: AppColors.success),
+              ReceiptFactTiles(facts: [
+                _statusFact(
+                    context, context.l10n.completed, AppColors.success),
+                _dateFact(context, dateStr),
+              ]),
               // Network-free deposit flow: sender → Predictions balance.
               // Amount lives ON the graph (no duplicate text row).
               SizedBox(height: 6.h),
@@ -1934,28 +2102,12 @@ void _showPolymarketUsdcReceiveDetails(
                 _sheetDetailRow(c, context.l10n.activityTxHash, hash,
                     copiable: true, isAddress: true, ctx: ctx),
               ]),
-              SizedBox(height: 16.h),
-              SizedBox(
-                width: double.infinity,
-                height: 48.h,
-                child: OutlinedButton.icon(
-                  onPressed: () =>
-                      launchUrl(Uri.parse('https://polygonscan.com/tx/$hash')),
-                  icon: Icon(Icons.open_in_new_rounded, size: 18.sp),
-                  label: Text(
-                    context.l10n.activityViewOnBlockchain,
-                    style:
-                        TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: c.textPrimary,
-                    side: BorderSide(color: c.border),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: AppRadius.buttonBorder),
-                  ),
-                ),
+              // The explorer is the bar's primary button.
+              ReceiptBarAction(
+                label: context.l10n.activityViewOnBlockchain,
+                onPrimary: () =>
+                    _openExplorer(Uri.parse('https://polygonscan.com/tx/$hash')),
               ),
-              SizedBox(height: 10.h),
             ],
           ),
         ),
@@ -1997,43 +2149,28 @@ void _showNativeUsdcSendDetails(
               Consumer(
                 builder: (context, ref, _) => TransactionDetailHeader(
                   row: _buildNativeUsdcSendRow(tx, context, ref),
-                  advisorSurface: 'polymarket_withdrawal_tx_detail',
                 ),
               ),
-              _sheetDetailRow(c, context.l10n.date, dateStr),
-              _sheetDetailRow(c, context.l10n.status,
-                  tx.isComplete ? context.l10n.completed : context.l10n.pending,
-                  valueColor: tx.isComplete
-                      ? AppColors.success
-                      : c.accent),
+              ReceiptFactTiles(facts: [
+                _statusFact(
+                    context,
+                    tx.isComplete
+                        ? context.l10n.completed
+                        : context.l10n.pending,
+                    tx.isComplete ? AppColors.success : c.warning),
+                _dateFact(context, dateStr),
+              ]),
               _NerdDataSection(children: [
                 _sheetDetailRow(c, context.l10n.network,
                     orchestraChainDisplayName('POLYGON')),
                 _sheetDetailRow(c, context.l10n.to, details.withdrawalAddress,
                     copiable: true, isAddress: true, ctx: ctx),
               ]),
-              SizedBox(height: 16.h),
-              SizedBox(
-                width: double.infinity,
-                height: 48.h,
-                child: OutlinedButton.icon(
-                  onPressed: () => launchUrl(Uri.parse(
-                      'https://polygonscan.com/address/${details.withdrawalAddress}')),
-                  icon: Icon(Icons.open_in_new_rounded, size: 18.sp),
-                  label: Text(
-                    context.l10n.activityViewOnBlockchain,
-                    style:
-                        TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: c.textPrimary,
-                    side: BorderSide(color: c.border),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: AppRadius.buttonBorder),
-                  ),
-                ),
+              ReceiptBarAction(
+                label: context.l10n.activityViewOnBlockchain,
+                onPrimary: () => _openExplorer(Uri.parse(
+                    'https://polygonscan.com/address/${details.withdrawalAddress}')),
               ),
-              SizedBox(height: 10.h),
             ],
           ),
         ),
@@ -2162,7 +2299,7 @@ Widget _buildOutlogicItem(
       status == 'REJECTED') {
     badge = _RowStatus(text: status.capitalize(), color: AppColors.marketDown);
   } else if (status == 'REFUNDED') {
-    badge = _RowStatus(text: context.l10n.refunded, color: AppColors.info);
+    badge = _RowStatus(text: context.l10n.refunded, color: AppColors.error);
   } else if (status == 'DEPOSIT_CONFIRMED' || status == 'APPROVED') {
     // User's action is done; treat as effectively complete in the UI.
     badge = _RowStatus(
@@ -2221,7 +2358,7 @@ void _showOutlogicTxDetails(
   final dateStr = activitySheetDate(context, tx.timestamp);
 
   String statusText = _outlogicStatusLabel(context, order.status);
-  // Null: the theme accent, resolved in the sheet so it follows the theme.
+  // Null: the pending amber, resolved in the sheet so it follows the theme.
   Color? statusColor;
   if (order.status == 'COMPLETED' ||
       order.status == 'DEPOSIT_CONFIRMED' ||
@@ -2253,34 +2390,40 @@ void _showOutlogicTxDetails(
                 Consumer(
                   builder: (context, ref, _) => TransactionDetailHeader(
                     row: _buildOutlogicItem(tx, context, ref),
-                    advisorSurface: 'outlogic_tx_detail',
+                    date: dateStr,
                   ),
                 ),
-                _sheetDetailRow(c, context.l10n.date, dateStr),
-                _sheetDetailRow(c, context.l10n.status, statusText,
-                    valueColor: statusColor ?? c.accent),
-                ..._fiatSnapshotRows(context, ref, c, order.id),
-                if (order.trade != null)
-                  _sheetDetailRow(c, context.l10n.youReceive,
-                      '${order.trade!.toAmount} ${order.trade!.toAsset}'),
+                ReceiptFactTiles(facts: [
+                  _statusFact(context, statusText, statusColor),
+                  ..._fiatSnapshotFacts(context, ref, order.id),
+                  if (order.trade != null)
+                    ReceiptFact(
+                        label: context.l10n.youReceive,
+                        value:
+                            '${order.trade!.toAmount} ${order.trade!.toAsset}'),
+                ]),
                 // SEPA bank details stay VISIBLE for buy orders — these
                 // are what the user has to copy/paste into their bank
                 // to complete the transfer. Hiding them defeats the
-                // purpose of the sheet.
+                // purpose of the sheet. Each on its own full-width row.
                 if (isBuy && order.depositSepaAddress != null)
-                  _sheetDetailRow(c, 'IBAN', order.depositSepaAddress!,
-                      copiable: true, ctx: ctx),
+                  ReceiptLongRow(
+                      label: 'IBAN',
+                      value: order.depositSepaAddress!,
+                      copiable: true),
                 if (isBuy && order.depositSepaBic != null)
-                  _sheetDetailRow(c, 'BIC', order.depositSepaBic!,
-                      copiable: true, ctx: ctx),
+                  ReceiptLongRow(
+                      label: 'BIC', value: order.depositSepaBic!, copiable: true),
                 if (isBuy && order.depositSepaBeneficiary != null)
-                  _sheetDetailRow(c, context.l10n.receiveBeneficiary,
-                      order.depositSepaBeneficiary!,
-                      copiable: true, ctx: ctx),
+                  ReceiptLongRow(
+                      label: context.l10n.receiveBeneficiary,
+                      value: order.depositSepaBeneficiary!,
+                      copiable: true),
                 if (isBuy && order.transferCode != null)
-                  _sheetDetailRow(
-                      c, context.l10n.activityReference, order.transferCode!,
-                      copiable: true, ctx: ctx),
+                  ReceiptLongRow(
+                      label: context.l10n.activityReference,
+                      value: order.transferCode!,
+                      copiable: true),
                 _NerdDataSection(children: [
                   _sheetDetailRow(c, context.l10n.provider, 'Outlogic'),
                   // Trade mechanics, with the unit the value is quoted in.
@@ -2297,6 +2440,7 @@ void _showOutlogicTxDetails(
                   _sheetDetailRow(c, context.l10n.orderId, order.id,
                       copiable: true, ctx: ctx),
                 ]),
+                const ReceiptBarAction.none(),
               ],
             ),
           )),
@@ -2339,7 +2483,7 @@ Widget _buildUnclaimedItem(
     return _TransactionRow(
       onTap: () => _openUnclaimedDeposit(context, ref, tx),
       leading: isRefunding
-          ? buildCircularIcon(Icons.replay_rounded, AppColors.info)
+          ? buildCircularIcon(Icons.replay_rounded, context.colors.warning)
           : _PendingIconWrapper(
               child: _AssetTxIcon(assetCode: 'BTC', isSend: false)),
       title: _RowTitle(isRefunding
@@ -2407,17 +2551,17 @@ void _showPendingUnclaimedSheet(
               Consumer(
                 builder: (context, ref, _) => TransactionDetailHeader(
                   row: _buildUnclaimedItem(tx, context, ref),
-                  advisorSurface: 'deposit_tx_detail',
                 ),
               ),
-              _sheetDetailRow(c, context.l10n.date, dateStr),
-              _sheetDetailRow(
-                  c,
-                  context.l10n.status,
-                  tx.stage == SparkDepositStage.adding
-                      ? context.l10n.activityAddingToBalance
-                      : context.l10n.activityArriving,
-                  valueColor: c.accent),
+              ReceiptFactTiles(facts: [
+                _statusFact(
+                    context,
+                    tx.stage == SparkDepositStage.adding
+                        ? context.l10n.activityAddingToBalance
+                        : context.l10n.activityArriving,
+                    c.warning),
+                _dateFact(context, dateStr),
+              ]),
               // Rail and tx ID are nerd data — collapsed.
               _NerdDataSection(children: [
                 _sheetDetailRow(
@@ -2434,37 +2578,17 @@ void _showPendingUnclaimedSheet(
                     vout: tx.vout,
                     amountSats: tx.amount.toInt()),
               ],
-              SizedBox(height: 20.h),
+              SizedBox(height: 8.h),
               if (txid.isNotEmpty)
-                SizedBox(
-                  width: double.infinity,
-                  height: 48.h,
-                  child: OutlinedButton.icon(
-                    onPressed: () async {
-                      ctx.pop();
-                      final uri = Uri.parse('https://mempool.space/tx/$txid');
-                      // Match the polygonscan/sparkscan affordance —
-                      // SFSafariViewController on iOS, Chrome Custom
-                      // Tabs on Android. Falls back to the external
-                      // browser if the in-app surface isn't available.
-                      if (!await launchUrl(uri,
-                          mode: LaunchMode.inAppBrowserView)) {
-                        await launchUrl(uri,
-                            mode: LaunchMode.externalApplication);
-                      }
-                    },
-                    icon: Icon(Icons.open_in_new_rounded, size: 18.sp),
-                    label: Text(context.l10n.activityViewOnBlockchain,
-                        style: TextStyle(
-                            fontSize: 16.sp, fontWeight: FontWeight.w600)),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: c.textPrimary,
-                      side: BorderSide(color: c.border),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: AppRadius.buttonBorder),
-                    ),
-                  ),
-                ),
+                ReceiptBarAction(
+                  label: context.l10n.activityViewOnBlockchain,
+                  onPrimary: () {
+                    ctx.pop();
+                    _openExplorer(Uri.parse('https://mempool.space/tx/$txid'));
+                  },
+                )
+              else
+                const ReceiptBarAction.none(),
             ],
           ),
         ),
@@ -2541,20 +2665,21 @@ void _showTrackedBitcoinTxDetails(BuildContext context, WidgetRef ref,
                       Consumer(
                         builder: (context, ref, _) => TransactionDetailHeader(
                           row: _buildMempoolItem(tx, context, ref),
-                          advisorSurface: 'btc_tx_detail',
+                          date: activitySheetDate(context, tx.timestamp),
                         ),
                       ),
+                      ReceiptFactTiles(facts: [
+                        _statusFact(
+                            context,
+                            tx.isConfirmed
+                                ? context.l10n.confirmed
+                                : context.l10n.pending,
+                            tx.isConfirmed ? AppColors.success : null),
+                        ..._fiatSnapshotFacts(context, ref, tx.details.txid),
+                      ]),
                       if (owner != null)
                         BitcoinTransactionLabel(
                             txid: tx.details.txid, walletId: owner),
-                      _sheetDetailRow(c, context.l10n.date,
-                          activitySheetDate(context, tx.timestamp)),
-                      _sheetDetailRow(
-                          c,
-                          context.l10n.status,
-                          tx.isConfirmed
-                              ? context.l10n.confirmed
-                              : context.l10n.pending),
                       // Tx-flow graph (UTXO braid) built entirely from
                       // mempool.space inputs/outputs (values + addresses) with
                       // the fee node on top. Compact skeleton while loading,
@@ -2585,18 +2710,17 @@ void _showTrackedBitcoinTxDetails(BuildContext context, WidgetRef ref,
                         _sheetDetailRow(c, context.l10n.txId, tx.details.txid,
                             copiable: true, isAddress: true, ctx: ctx),
                       ]),
-                      SizedBox(height: 8.h),
-                      TextButton.icon(
-                          onPressed: () {
-                            ref.read(transactionSearchProvider.notifier).state =
-                                TransactionSearchModel(
-                                    isLiquid: false, txid: tx.details.txid);
-                            final router = GoRouter.of(ctx);
-                            Navigator.of(ctx).pop();
-                            router.push('/search_modal');
-                          },
-                          icon: const Icon(Icons.open_in_new_rounded),
-                          label: Text(context.l10n.activityViewOnBlockchain)),
+                      ReceiptBarAction(
+                        label: context.l10n.activityViewOnBlockchain,
+                        onPrimary: () {
+                          ref.read(transactionSearchProvider.notifier).state =
+                              TransactionSearchModel(
+                                  isLiquid: false, txid: tx.details.txid);
+                          final router = GoRouter.of(ctx);
+                          Navigator.of(ctx).pop();
+                          router.push('/search_modal');
+                        },
+                      ),
                     ])),
               ));
       },
@@ -2617,11 +2741,27 @@ Widget _buildSparkPendingDepositItem(
     // "Arriving · 1 of 3 confirmations": the count is the whole story of
     // this transient row, so it replaces the time. From 3 the SDK is about
     // to add it; the row bridges until the SDK lists the deposit.
-    subtitle: tx.confirmations < 3
+    subtitle: tx.confirmations < 3 && !tx.claimInProgress
         ? context.l10n.activityConfirmationsOfThree('${tx.confirmations}')
         : context.l10n.activityAddingToBalance,
+    // From the first confirmation, when the provider offers an early
+    // claim, the row says so: the offer used to be found only by opening
+    // the sheet.
     status: _RowStatus(
-        text: context.l10n.activityArriving, color: context.colors.warning),
+        text: !tx.claimInProgress &&
+                tx.confirmations >= 1 &&
+                tx.confirmations < 3 &&
+                ref
+                        .watch(depositEarlyClaimOfferProvider((
+                          txid: tx.mempoolTx.txid,
+                          confirmations: tx.confirmations,
+                          amountSats: amountSats,
+                        )))
+                        .valueOrNull !=
+                    null
+            ? context.l10n.activityClaimNowAvailable
+            : context.l10n.activityArriving,
+        color: context.colors.warning),
     amount: ref.watch(conversionProvider(amountSats)),
     flow: ActivityFlow.moneyIn,
     amountIsBtc: true,
@@ -2655,17 +2795,18 @@ void _showSparkPendingDepositDetails(
               Consumer(
                 builder: (context, ref, _) => TransactionDetailHeader(
                   row: _buildSparkPendingDepositItem(tx, context, ref),
-                  advisorSurface: 'deposit_tx_detail',
                 ),
               ),
-              _sheetDetailRow(c, context.l10n.date, dateStr),
-              _sheetDetailRow(
-                  c,
-                  context.l10n.status,
-                  tx.confirmations < 3
-                      ? context.l10n
-                          .depositStatusConfirming('${tx.confirmations}')
-                      : context.l10n.activityAddingToBalance),
+              ReceiptFactTiles(facts: [
+                _statusFact(
+                    context,
+                    tx.confirmations < 3 && !tx.claimInProgress
+                        ? context.l10n
+                            .depositStatusConfirming('${tx.confirmations}')
+                        : context.l10n.activityAddingToBalance,
+                    null),
+                _dateFact(context, dateStr),
+              ]),
               // The real incoming transaction from mempool.space, as on the
               // bitcoin sheet: the output worth exactly the incoming amount
               // is the wallet's own.
@@ -2682,35 +2823,17 @@ void _showSparkPendingDepositDetails(
               // The normal path, said plainly: added automatically after 3
               // confirmations. Claim now is the optional, costlier one, and
               // shows only when the provider quotes an early claim.
-              if (tx.confirmations < 3) ...[
+              // Already being added: nothing to wait for or claim.
+              if (tx.confirmations < 3 && !tx.claimInProgress) ...[
                 DepositSheetNote(context.l10n.depositAutoAfterConfirmations),
                 DepositEarlyClaim(txid: txid, amountSats: amountSats),
               ],
-              SizedBox(height: 20.h),
-              SizedBox(
-                width: double.infinity,
-                height: 48.h,
-                child: OutlinedButton.icon(
-                  onPressed: () async {
-                    context.pop();
-                    final uri = Uri.parse('https://mempool.space/tx/$txid');
-                    if (!await launchUrl(uri,
-                        mode: LaunchMode.inAppBrowserView)) {
-                      await launchUrl(uri,
-                          mode: LaunchMode.externalApplication);
-                    }
-                  },
-                  icon: Icon(Icons.open_in_new_rounded, size: 18.sp),
-                  label: Text(context.l10n.activityViewOnBlockchain,
-                      style: TextStyle(
-                          fontSize: 16.sp, fontWeight: FontWeight.w600)),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: c.textPrimary,
-                    side: BorderSide(color: c.border),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: AppRadius.buttonBorder),
-                  ),
-                ),
+              ReceiptBarAction(
+                label: context.l10n.activityViewOnBlockchain,
+                onPrimary: () {
+                  context.pop();
+                  _openExplorer(Uri.parse('https://mempool.space/tx/$txid'));
+                },
               ),
             ],
           ),
@@ -2766,7 +2889,7 @@ void _showUsdbTokenTxDetails(
 
 
   String statusText;
-  // Null: the theme accent, resolved in the sheet so it follows the theme.
+  // Null: the pending amber, resolved in the sheet so it follows the theme.
   Color? statusColor;
   switch (payment.status) {
     case breez.PaymentStatus.completed:
@@ -2815,17 +2938,18 @@ void _showUsdbTokenTxDetails(
               Consumer(
                 builder: (context, ref, _) => TransactionDetailHeader(
                   row: _buildUsdbTokenItem(tx, context, ref),
-                  advisorSurface: 'usdb_tx_detail',
                 ),
               ),
-              _sheetDetailRow(c, context.l10n.date, dateStr),
-              _sheetDetailRow(c, context.l10n.status, statusText,
-                  valueColor: statusColor ?? c.accent),
-              // Through the shared formatter so the fee follows the sats or
-              // BTC setting like every other amount.
-              if (showFee)
-                _sheetDetailRow(
-                    c, context.l10n.fee, ref.read(conversionProvider(feeSat))),
+              ReceiptFactTiles(facts: [
+                _statusFact(context, statusText, statusColor),
+                _dateFact(context, dateStr),
+                // Through the shared formatter so the fee follows the sats
+                // or BTC setting like every other amount.
+                if (showFee)
+                  ReceiptFact(
+                      label: context.l10n.fee,
+                      value: ref.read(conversionProvider(feeSat))),
+              ]),
               _NerdDataSection(children: [
                 // The rail this settles on is never named on screen for
                 // the dollar account (user decision): the person holds
@@ -2843,32 +2967,17 @@ void _showUsdbTokenTxDetails(
                     isAddress: true,
                     ctx: ctx),
               ]),
-              SizedBox(height: 16.h),
-              // SparkScan stays visible — primary explorer affordance.
-              SizedBox(
-                width: double.infinity,
-                height: 48.h,
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    final cleanId = sparkPaymentId.contains(':')
-                        ? sparkPaymentId.split(':').first
-                        : sparkPaymentId;
-                    launchUrl(Uri.parse(
-                        'https://sparkscan.io/tx/$cleanId?network=mainnet'));
-                  },
-                  icon: Icon(Icons.open_in_new_rounded, size: 18.sp),
-                  label: Text(context.l10n.activityViewOnBlockchain,
-                      style: TextStyle(
-                          fontSize: 16.sp, fontWeight: FontWeight.w600)),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: c.textPrimary,
-                    side: BorderSide(color: c.border),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: AppRadius.buttonBorder),
-                  ),
-                ),
+              // SparkScan is the bar's primary button.
+              ReceiptBarAction(
+                label: context.l10n.activityViewOnBlockchain,
+                onPrimary: () {
+                  final cleanId = sparkPaymentId.contains(':')
+                      ? sparkPaymentId.split(':').first
+                      : sparkPaymentId;
+                  _openExplorer(Uri.parse(
+                      'https://sparkscan.io/tx/$cleanId?network=mainnet'));
+                },
               ),
-              SizedBox(height: 10.h),
             ],
           ),
         ),
@@ -3041,7 +3150,9 @@ Widget _buildSwapOrderItem(
     statusLabel = context.l10n.expired;
     statusColor = AppColors.marketDown;
   } else if (awaitingCredit) {
-    statusLabel = context.l10n.pending;
+    // Money between the person's own places, not yet landed: "On its
+    // way", a row that moves, never a wall.
+    statusLabel = context.l10n.activityOnItsWay;
   } else {
     switch (details.status) {
       case 'success':
@@ -3075,7 +3186,7 @@ Widget _buildSwapOrderItem(
         statusLabel = context.l10n.activityReturnRequested;
         break;
       default:
-        statusLabel = context.l10n.pending;
+        statusLabel = context.l10n.activityOnItsWay;
     }
   }
 
@@ -3527,7 +3638,7 @@ class _SwapOrderDetailSheetState extends ConsumerState<_SwapOrderDetailSheet> {
                 Consumer(
                   builder: (context, ref, _) => TransactionDetailHeader(
                     row: _buildSwapOrderItem(widget.tx, context, ref),
-                    advisorSurface: 'swap_tx_detail',
+                    date: activitySheetDate(context, widget.tx.timestamp),
                     // A conversion's row names only where it went; the
                     // sheet keeps both legs ("Dollar → Bitcoin").
                     note: activity == SwapActivityKind.swap &&
@@ -3540,16 +3651,21 @@ class _SwapOrderDetailSheetState extends ConsumerState<_SwapOrderDetailSheet> {
                         : null,
                   ),
                 ),
-                _sheetDetailRow(
-                  c,
-                  context.l10n.date,
-                  activitySheetDate(context, widget.tx.timestamp),
-                ),
-                _sheetDetailRow(
-                    c,
-                    context.l10n.status,
-                    statusText,
-                    valueColor: statusColor),
+                ReceiptFactTiles(facts: [
+                  _statusFact(context, statusText, statusColor),
+                  // Only a stuck deposit, which converted into nothing and
+                  // so has no figure under its amount, names what was sent.
+                  if (details.isStuckStandingDeposit)
+                    ReceiptFact(
+                        label: context.l10n.deposit,
+                        value: _formatShiftAmount(
+                            details.depositAmount, details.coinFrom)),
+                  if (activity.isExternal)
+                    ReceiptFact(
+                        label: context.l10n.network,
+                        value:
+                            '${orchestraChainDisplayName(details.networkFrom)} → ${orchestraChainDisplayName(details.networkTo)}'),
+                ]),
                 // A move between the person's own balances (Add to
                 // Investments from Bitcoin, a purchase paid by Dollars, a
                 // venue's cash going home): its steps, live, then the
@@ -3559,19 +3675,8 @@ class _SwapOrderDetailSheetState extends ConsumerState<_SwapOrderDetailSheet> {
                 CctpRefundOutcome(row: details),
                 // What moved is the header: the row's amount (what arrived)
                 // and the figure under it (what was paid, "from ₿3,964").
-                // Only a stuck deposit, which converted into nothing and so
-                // has no figure under its amount, names what was sent here.
                 // The provider, the chains and the rate are routing detail
                 // under Nerd data.
-                if (details.isStuckStandingDeposit)
-                  _sheetDetailRow(
-                      c,
-                      context.l10n.deposit,
-                      _formatShiftAmount(
-                          details.depositAmount, details.coinFrom)),
-                if (activity.isExternal)
-                  _sheetDetailRow(c, context.l10n.network,
-                      '${orchestraChainDisplayName(details.networkFrom)} → ${orchestraChainDisplayName(details.networkTo)}'),
                 // Network-free deposit/swap flow: from-leg → to-leg. Derived
                 // entirely from local fields (no network). For Polymarket-tagged
                 // Orchestra rows the legs read "Your wallet → Predictions" (deposit)
@@ -3708,7 +3813,8 @@ class _SwapOrderDetailSheetState extends ConsumerState<_SwapOrderDetailSheet> {
 
                 if (isOrchestra) OrchestraSwapRefundAction(order: details),
 
-                ..._orchestraTrackExchange(context, c, details),
+                // Track this exchange is the bar's primary button.
+                ..._orchestraTrackExchange(context, c, details, bar: true),
               ],
             ),
           ),
@@ -3791,9 +3897,9 @@ List<Widget> _oneTimeReceiveOutcome(
       ),
     'processing' || 'exchanging' || 'settling' || 'review' => (
         text: context.l10n.processing,
-        color: context.colors.accent
+        color: context.colors.warning
       ),
-    _ => (text: context.l10n.pending, color: context.colors.accent),
+    _ => (text: context.l10n.pending, color: context.colors.warning),
   };
 }
 
@@ -3907,20 +4013,28 @@ Future<Result<OrchestraOrder>> Function(String quoteId)?
 @visibleForTesting
 void Function(Uri uri)? debugOrchestraTrackLaunch;
 
+///
+/// [bar]: the receipt's own action, so the button is the floating bar's
+/// primary ([ReceiptBarAction]); with no order to track, the default bar
+/// and the room under the content. Otherwise (a leg's own Nerd data) the
+/// outlined button in place.
 List<Widget> _orchestraTrackExchange(
-    BuildContext context, AppColorsExtension c, SwapOrder details) {
+    BuildContext context, AppColorsExtension c, SwapOrder details,
+    {bool bar = false}) {
+  final none = bar ? const [ReceiptBarAction.none()] : const <Widget>[];
   if (details.id.isEmpty ||
       details.isStuckStandingDeposit ||
       !details.isOrchestra) {
-    return const [];
+    return none;
   }
   final cctp = details.id.startsWith('cctp-');
   if (cctp) {
-    if (!_evmAddress.hasMatch(details.depositAddress)) return const [];
+    if (!_evmAddress.hasMatch(details.depositAddress)) return none;
   } else if (orchestraExplorerOrderId(details.id) == null &&
       !orchestraTrackResolvable(details)) {
-    return const [];
+    return none;
   }
+  if (bar) return [_OrchestraTrackExchangeButton(order: details, bar: true)];
   return [
     SizedBox(height: 20.h),
     _OrchestraTrackExchangeButton(order: details),
@@ -3929,9 +4043,12 @@ List<Widget> _orchestraTrackExchange(
 }
 
 class _OrchestraTrackExchangeButton extends ConsumerStatefulWidget {
-  const _OrchestraTrackExchangeButton({required this.order});
+  const _OrchestraTrackExchangeButton({required this.order, this.bar = false});
 
   final SwapOrder order;
+
+  /// The receipt's action: the bar's primary button, not one in place.
+  final bool bar;
 
   @override
   ConsumerState<_OrchestraTrackExchangeButton> createState() =>
@@ -4030,6 +4147,13 @@ class _OrchestraTrackExchangeButtonState
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    if (widget.bar) {
+      return ReceiptBarAction(
+        label: context.l10n.activityTrackExchange,
+        onPrimary: _open,
+        busy: _resolving,
+      );
+    }
     return SizedBox(
       width: double.infinity,
       height: 48.h,
@@ -4254,6 +4378,16 @@ void _showPolymarketTxDetails(
     } catch (_) {/* fall through — provider not ready */}
     realizedPnl ??= _realizedPnlForPolymarketSell(tx, ref);
   }
+  // The Result tile: a sale's realised profit or loss (the venue's figure
+  // first), a payout's against what the market cost.
+  final double? resultPnl = isSell
+      ? realizedPnl
+      : isRedeem
+          ? predictionRowFigures(activity, _polymarketHistory(ref),
+                  flow: predictionRowCopy(context.l10n, activity, time: '')
+                      .flow)
+              .pnl
+          : null;
 
 
 
@@ -4264,8 +4398,6 @@ void _showPolymarketTxDetails(
     // the time the sheet builds, so MediaQuery.of(context) walked a
     // dead element → "Null check operator used on a null value".
     builder: (ctx) {
-      // The sheet's own palette, per build: a live theme switch recolours it.
-      final c = ctx.colors;
       return AppBottomSheetContainer(
       maxHeight: 0.9,
       child: Padding(
@@ -4277,47 +4409,73 @@ void _showPolymarketTxDetails(
               Consumer(
                 builder: (context, ref, _) => TransactionDetailHeader(
                   row: _buildPolymarketItem(tx, context, ref),
-                  advisorSurface: isRedeem
-                      ? 'polymarket_claim_tx_detail'
-                      : 'polymarket_tx_detail',
+                  date: dateStr,
                 ),
               ),
-              if (type == ActivityType.trade || isRedeem)
-                PolymarketBitcoinComparison(transaction: tx),
-              // No fee row: the activity feed does not report the trading
+              // The facts as tiles. A trade: its shares and price, a sale's
+              // result, and how it did against holding Bitcoin (once that
+              // has an answer). A payout: the shares, what it paid and the
+              // result. Money in or out of the balance: status and date.
+              // No fee tile: the activity feed does not report the trading
               // fee, and a permanent placeholder read as a missing number.
-              _sheetDetailRow(c, context.l10n.date, dateStr),
-              // Trade-flow row — explicit "what for what" so a buy reads
-              // as "$X USDC → Y NO shares" rather than just an isolated
-              // dollar amount. Helps a user who's not fluent in CLOB
-              // mechanics see exactly what changed hands.
-              if (type == ActivityType.trade &&
-                  activity.outcome != null &&
-                  activity.outcome!.isNotEmpty &&
-                  activity.size > 0) ...[
-                _sheetDetailRow(
-                  c,
-                  context.l10n.activityTrade,
-                  isSell
-                      ? '${activity.size.toStringAsFixed(2)} ${activity.outcome} → $usdcStr'
-                      : '$usdcStr → ${activity.size.toStringAsFixed(2)} ${activity.outcome}',
-                ),
-              ] else if (isRedeem && tx.usdcAmount > 0) ...[
-                // Won redemption — show the cash payout as the
-                // primary outcome alongside the share count we held.
-                if (activity.size > 0)
-                  _sheetDetailRow(
-                    c,
-                    context.l10n.payout,
-                    '${activity.size.toStringAsFixed(2)} ${activity.outcome ?? context.l10n.activitySharesLowercase} → ${fmtFiat(tx.usdcAmount, prefix: '+')}',
-                    valueColor: const Color(0xFF15803D),
-                  ),
-              ] else ...[
-                _sheetDetailRow(c, context.l10n.amount, usdcStr),
-              ],
+              Consumer(builder: (context, ref, _) {
+                final comparison = type == ActivityType.trade || isRedeem
+                    ? ref
+                        .watch(polymarketBitcoinComparisonProvider(tx))
+                        .valueOrNull
+                    : null;
+                final open = type == ActivityType.trade && !isSell;
+                return ReceiptFactTiles(facts: [
+                  if (type == ActivityType.trade) ...[
+                    if (activity.size > 0)
+                      ReceiptFact(
+                          label: context.l10n.betShares,
+                          value: activity.size.toStringAsFixed(2)),
+                    if (activity.price != null)
+                      ReceiptFact(
+                          label: context.l10n.price2,
+                          value:
+                              '${(activity.price! * 100).toStringAsFixed(1)}¢'),
+                  ] else if (isRedeem) ...[
+                    if (activity.size > 0)
+                      ReceiptFact(
+                          label: context.l10n.betShares,
+                          value: activity.size.toStringAsFixed(2)),
+                    if (tx.usdcAmount > 0)
+                      ReceiptFact(
+                          label: context.l10n.payout,
+                          value: fmtFiat(tx.usdcAmount, prefix: '+'),
+                          valueColor: AppColors.marketUp),
+                  ] else if (type == ActivityType.deposit ||
+                      type == ActivityType.withdraw) ...[
+                    _statusFact(
+                        context, context.l10n.completed, AppColors.success),
+                  ] else
+                    ReceiptFact(label: context.l10n.amount, value: usdcStr),
+                  if (resultPnl != null)
+                    ReceiptFact(
+                      label: context.l10n.receiptResult,
+                      value: fmtFiat(resultPnl.abs(),
+                          prefix: resultPnl >= 0 ? '+' : '−'),
+                      valueColor: resultPnl >= 0
+                          ? AppColors.marketUp
+                          : AppColors.marketDown,
+                      sub: resultPnl >= 0
+                          ? context.l10n.activityProfit
+                          : context.l10n.activityLoss,
+                    ),
+                  if (comparison != null && comparison.isFinite)
+                    _vsBitcoinFact(context, comparison, open: open),
+                ]);
+              }),
+              // The market question on its own row, wrapping.
+              if (activity.title != null && activity.title!.isNotEmpty)
+                ReceiptLongRow(
+                    label: context.l10n.betMarketCategory,
+                    value: activity.title!),
               // Network-free flow graph for deposits / withdrawals (money in or
-              // out of the Predictions balance). Trades/redeems already express
-              // "$X → Y shares" in their own rows, so the braid is skipped there.
+              // out of the Predictions balance). Trades/redeems already say
+              // what changed hands in their tiles, so the braid is skipped.
               if (type == ActivityType.deposit ||
                   type == ActivityType.withdraw) ...[
                 // Amount lives ON the graph (no duplicate text row).
@@ -4344,85 +4502,43 @@ void _showPolymarketTxDetails(
                 ),
                 SizedBox(height: 6.h),
               ],
-              // Realized profit / loss line. Sells use the
-              // SDK-derived `realizedPnl`; won redeems compute
-              // `payout − stake` (netRedeem) from local trade
-              // history. Skipped when stake is unknown — we'd have
-              // nothing meaningful to subtract from.
-              // The header already shows the row's realised profit or loss;
-              // a separate line only when the venue's figure differs.
-              if (!isRedeem &&
-                  realizedPnl != null &&
-                  (realizedPnl - (_realizedPnlForPolymarketSell(tx, ref) ?? 0))
-                          .abs() >
-                      0.005)
-                _sheetDetailRow(
-                  c,
-                  realizedPnl >= 0
-                      ? context.l10n.activityProfit
-                      : context.l10n.activityLoss,
-                  fmtFiat(realizedPnl.abs(),
-                      prefix: realizedPnl >= 0 ? '+' : '−'),
-                  valueColor:
-                      realizedPnl >= 0 ? const Color(0xFF15803D) : _kPolyRedTx,
-                ),
-              if (activity.title != null && activity.title!.isNotEmpty)
-                _sheetDetailRow(
-                    c, context.l10n.betMarketCategory, activity.title!),
-              if (activity.outcome != null && activity.outcome!.isNotEmpty)
-                _sheetDetailRow(
-                  c,
-                  isRedeem
-                      ? context.l10n.activityBacked
-                      : context.l10n.activityOutcome,
-                  activity.outcome!,
-                ),
-              // Price per share and the share count are order-book detail:
-              // the Trade row above already says what changed hands.
-              _NerdDataSection(children: [
-                if (activity.price != null && type == ActivityType.trade)
-                  _sheetDetailRow(c, context.l10n.price2,
-                      '${(activity.price! * 100).toStringAsFixed(1)}¢'),
-                if (activity.size > 0 && type == ActivityType.trade)
-                  _sheetDetailRow(c, context.l10n.betShares,
-                      activity.size.toStringAsFixed(2)),
-                // The transaction hash is deliberately not shown on a
-                // trade (owner decision); the explorer button below still
-                // opens it.
-              ]),
-              SizedBox(height: 16.h),
-              // Explorer button stays visible — block explorers are a
-              // primary debugging affordance, not nerd data. A just-placed
-              // row keyed by its CLOB trade id has no chain hash yet.
+              // The transaction hash is deliberately not shown on a trade
+              // (owner decision); the explorer, the bar's primary button,
+              // still opens it. A just-placed row keyed by its CLOB trade
+              // id has no chain hash yet, and keeps the default bar.
+              SizedBox(height: 8.h),
               if (PolymarketOptimisticActivityService.isChainTxHash(
                   activity.transactionHash))
-                SizedBox(
-                  width: double.infinity,
-                  height: 48.h,
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      launchUrl(Uri.parse(
-                          'https://polygonscan.com/tx/${activity.transactionHash}'));
-                    },
-                    icon: Icon(Icons.open_in_new_rounded, size: 18.sp),
-                    label: Text(context.l10n.activityViewOnBlockchain,
-                        style: TextStyle(
-                            fontSize: 16.sp, fontWeight: FontWeight.w600)),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: c.textPrimary,
-                      side: BorderSide(color: c.border),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: AppRadius.buttonBorder),
-                    ),
-                  ),
-                ),
-              SizedBox(height: 10.h),
+                ReceiptBarAction(
+                  label: context.l10n.activityViewOnBlockchain,
+                  onPrimary: () => _openExplorer(Uri.parse(
+                      'https://polygonscan.com/tx/${activity.transactionHash}')),
+                )
+              else
+                const ReceiptBarAction.none(),
             ],
           ),
         ),
       ),
     );
     },
+  );
+}
+
+/// The receipt tile of how a prediction or a trade did against holding
+/// Bitcoin over the same time ([polymarketBitcoinComparisonProvider]):
+/// the percentage in its colour, and ahead or behind under it. [open]: a
+/// position still held, measured at today's prices.
+ReceiptFact _vsBitcoinFact(BuildContext context, double percent,
+    {bool open = false}) {
+  final up = percent >= 0;
+  return ReceiptFact(
+    label: feeCopy(
+        context, open ? 'Position vs holding Bitcoin' : 'vs holding Bitcoin'),
+    value: '${up ? '+' : '−'}${percent.abs().toStringAsFixed(1)}%',
+    valueColor: up ? AppColors.marketUp : AppColors.marketDown,
+    sub: feeCopy(
+        context, up ? 'Ahead of holding Bitcoin.' : 'Behind holding Bitcoin.'),
   );
 }
 
@@ -4443,7 +4559,6 @@ void showPredictionResultDetails(BuildContext context, PredictionResult result,
   final activity = result.activity;
   final slug = (activity.eventSlug ?? '').trim();
   final title = (activity.title ?? '').trim();
-  final outcome = (activity.outcome ?? '').trim();
   showAppBottomSheet(
     context: context,
     builder: (ctx) => AppBottomSheetContainer(
@@ -4452,7 +4567,6 @@ void showPredictionResultDetails(BuildContext context, PredictionResult result,
         padding: EdgeInsets.symmetric(horizontal: 24.w),
         child: SheetScrollView(
           child: Consumer(builder: (context, ref, _) {
-            final c = context.colors;
             final l = context.l10n;
             String money(double usd, {String prefix = ''}) =>
                 '$prefix${formatPolyAmount(ref, usd)}';
@@ -4462,49 +4576,43 @@ void showPredictionResultDetails(BuildContext context, PredictionResult result,
             return Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // The title names what was predicted ("Lost · Up"); the
+                // quiet line under the amount says when the market
+                // resolved.
                 TransactionDetailHeader(
                   row: _buildPolymarketItem(tx, context, ref),
-                  advisorSurface: 'polymarket_claim_tx_detail',
+                  date:
+                      '${l.resolved} · ${activitySheetDate(context, tx.timestamp)}',
                 ),
-                _sheetDetailRow(
-                    c, l.resolved, activitySheetDate(context, tx.timestamp)),
-                if (title.isNotEmpty)
-                  _sheetDetailRow(c, l.betMarketCategory, title),
-                if (outcome.isNotEmpty)
-                  _sheetDetailRow(c, l.activityBacked, outcome),
-                _sheetDetailRow(
-                    c, l.betShares, activity.size.toStringAsFixed(2)),
-                _sheetDetailRow(c, l.betReceiptCost, money(result.stakeUsd)),
-                _sheetDetailRow(c, l.payout, money(result.payoutUsd)),
-                _sheetDetailRow(
-                  c,
-                  l.portfolioStatRealized,
-                  money(pnl.abs(), prefix: pnl >= 0 ? '+' : '−'),
-                  valueColor: pnl >= 0 ? const Color(0xFF15803D) : _kPolyRedTx,
-                ),
-                SizedBox(height: 16.h),
-                if (event != null) ...[
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48.h,
-                    child: OutlinedButton(
-                      onPressed: () => MarketDetailSheet.show(context,
-                          event: event,
-                          ledgerWalletId: ledgerWalletId,
-                          source: 'activity'),
-                      child: Text(l.salViewMarket,
-                          style: TextStyle(
-                              fontSize: 16.sp, fontWeight: FontWeight.w600)),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: c.textPrimary,
-                        side: BorderSide(color: c.border),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: AppRadius.buttonBorder),
-                      ),
-                    ),
+                ReceiptFactTiles(facts: [
+                  ReceiptFact(
+                      label: l.betShares,
+                      value: activity.size.toStringAsFixed(2)),
+                  ReceiptFact(
+                      label: l.betReceiptCost, value: money(result.stakeUsd)),
+                  ReceiptFact(label: l.payout, value: money(result.payoutUsd)),
+                  ReceiptFact(
+                    label: l.portfolioStatRealized,
+                    value: money(pnl.abs(), prefix: pnl >= 0 ? '+' : '−'),
+                    valueColor:
+                        pnl >= 0 ? AppColors.marketUp : AppColors.marketDown,
                   ),
-                  SizedBox(height: 10.h),
-                ],
+                ]),
+                if (title.isNotEmpty)
+                  ReceiptLongRow(label: l.betMarketCategory, value: title),
+                SizedBox(height: 8.h),
+                // The market is the bar's primary button once its event is
+                // known.
+                if (event != null)
+                  ReceiptBarAction(
+                    label: l.salViewMarket,
+                    onPrimary: () => MarketDetailSheet.show(context,
+                        event: event,
+                        ledgerWalletId: ledgerWalletId,
+                        source: 'activity'),
+                  )
+                else
+                  const ReceiptBarAction.none(),
               ],
             );
           }),
@@ -4651,11 +4759,11 @@ Widget _sheetDetailRow(AppColorsExtension c, String label, String value,
   );
 }
 
-/// Detail rows showing what a tx was worth in USD when it first appeared and
-/// how much that value is up/down vs now (from `TxFiatSnapshotService`).
+/// The receipt tiles of what a tx was worth in USD when it first appeared
+/// and how much that value is up/down vs now (from `TxFiatSnapshotService`).
 /// Empty if no snapshot exists (e.g. pre-feature txs we chose not to backfill).
-List<Widget> _fiatSnapshotRows(
-    BuildContext context, WidgetRef ref, AppColorsExtension c, String txid) {
+List<ReceiptFact> _fiatSnapshotFacts(
+    BuildContext context, WidgetRef ref, String txid) {
   final snap = TxFiatSnapshotService.snapshot(txid);
   if (snap == null || snap.usd <= 0) {
     return const [];
@@ -4663,16 +4771,15 @@ List<Widget> _fiatSnapshotRows(
   final valueThen = '\$${snap.usd.toStringAsFixed(2)}';
   final btcUsd = ref.read(currentBtcUsdProvider);
   if (btcUsd <= 0 || snap.sats <= 0) {
-    return [_sheetDetailRow(c, context.l10n.activityValueThen, valueThen)];
+    return [ReceiptFact(label: context.l10n.activityValueThen, value: valueThen)];
   }
   final pct = snap.changePct(btcUsd);
   final up = pct >= 0;
   return [
-    _sheetDetailRow(c, context.l10n.activityValueThen, valueThen),
-    _sheetDetailRow(
-      c,
-      context.l10n.activityChangeSince,
-      '${up ? '▲' : '▼'} ${pct.abs().toStringAsFixed(1)}%',
+    ReceiptFact(label: context.l10n.activityValueThen, value: valueThen),
+    ReceiptFact(
+      label: context.l10n.activityChangeSince,
+      value: '${up ? '▲' : '▼'} ${pct.abs().toStringAsFixed(1)}%',
       valueColor: up ? AppColors.success : AppColors.error,
     ),
   ];
@@ -4719,7 +4826,7 @@ void _showBitcoinTxDetails(
   final statusText = details != null
       ? confirmationStatus(context, details, ref)
       : (tx.isConfirmed ? context.l10n.confirmed : context.l10n.pending);
-  // Null: the theme accent, resolved in the sheet so it follows the theme.
+  // Null: the pending amber, resolved in the sheet so it follows the theme.
   final Color? statusColor = isPending ? null : AppColors.success;
 
   // Fee — only available with live details. Shown ON the flow graph (Fee
@@ -4801,18 +4908,24 @@ void _showBitcoinTxDetails(
                       Consumer(
                         builder: (context, ref, _) => TransactionDetailHeader(
                           row: _buildBitcoinItem(tx, context, ref),
-                          advisorSurface: 'btc_tx_detail',
+                          date: dateStr,
                         ),
                       ),
+                      // Status, what it was worth then and since, and on a
+                      // send the network fee it paid (also on the graph's
+                      // Fee node below).
+                      ReceiptFactTiles(facts: [
+                        _statusFact(context, statusText, statusColor),
+                        ..._fiatSnapshotFacts(context, ref, txid),
+                        if (!isReceive && feeSats > 0)
+                          ReceiptFact(
+                              label: context.l10n.fee,
+                              value: ref.watch(conversionProvider(feeSats)),
+                              sub: feeRate),
+                      ]),
                       if (labelWalletId != null)
                         BitcoinTransactionLabel(
                             txid: tx.id, walletId: labelWalletId),
-                      _sheetDetailRow(c, context.l10n.date, dateStr),
-                      _sheetDetailRow(c, context.l10n.status, statusText,
-                          valueColor: statusColor ?? c.accent),
-                      ..._fiatSnapshotRows(context, ref, c, txid),
-                      // Network fee lives ON the flow graph below (the "Fee" node), not
-                      // in a duplicate text row.
                       // Tx-flow graph (UTXO braid) renders ALWAYS in the main body —
                       // not behind Nerd Data, live details or not. Input values and
                       // addresses resolve from mempool.space; if offline / the fetch
@@ -4838,37 +4951,18 @@ void _showBitcoinTxDetails(
                         _sheetDetailRow(c, context.l10n.txId, txid,
                             copiable: true, isAddress: true, ctx: ctx),
                       ]),
-                      SizedBox(height: 16.h),
+                      SizedBox(height: 8.h),
                       // A Ledger funding transaction whose settlement is pending keeps
                       // its Ledger account one tap away (Phase 5 plan B13).
                       _LedgerSettlementLink(txid: txid),
-                      // Mempool explorer stays visible — primary affordance.
-                      SizedBox(
-                        width: double.infinity,
-                        height: 48.h,
-                        child: OutlinedButton.icon(
-                          onPressed: () async {
-                            ctx.pop();
-                            final uri =
-                                Uri.parse('https://mempool.space/tx/$txid');
-                            if (!await launchUrl(uri,
-                                mode: LaunchMode.inAppBrowserView)) {
-                              await launchUrl(uri,
-                                  mode: LaunchMode.externalApplication);
-                            }
-                          },
-                          icon: Icon(Icons.open_in_new_rounded, size: 18.sp),
-                          label: Text(context.l10n.activityViewOnBlockchain,
-                              style: TextStyle(
-                                  fontSize: 16.sp,
-                                  fontWeight: FontWeight.w600)),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: c.textPrimary,
-                            side: BorderSide(color: c.border),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: AppRadius.buttonBorder),
-                          ),
-                        ),
+                      // The mempool explorer is the bar's primary button.
+                      ReceiptBarAction(
+                        label: context.l10n.activityViewOnBlockchain,
+                        onPrimary: () {
+                          ctx.pop();
+                          _openExplorer(
+                              Uri.parse('https://mempool.space/tx/$txid'));
+                        },
                       ),
                     ],
                   ),
@@ -4904,7 +4998,7 @@ void _showSparkTxDetails(
   final dateStr = activitySheetDate(context, tx.timestamp);
 
   String statusText;
-  // Null: the theme accent, resolved in the sheet so it follows the theme.
+  // Null: the pending amber, resolved in the sheet so it follows the theme.
   Color? statusColor;
   if (payment != null) {
     switch (payment.status) {
@@ -5003,22 +5097,26 @@ void _showSparkTxDetails(
                       Consumer(
                         builder: (context, ref, _) => TransactionDetailHeader(
                           row: _buildSparkItem(tx, context, ref),
-                          advisorSurface:
-                              tx.sparkType == SparkTransactionType.lightning
-                                  ? 'lightning_tx_detail'
-                                  : tx.sparkType == SparkTransactionType.bitcoin
-                                      ? 'btc_tx_detail'
-                                      : 'spark_tx_detail',
+                          date: dateStr,
                         ),
                       ),
-                      _sheetDetailRow(c, context.l10n.date, dateStr),
-                      _sheetDetailRow(c, context.l10n.status, statusText,
-                          valueColor: statusColor ?? c.accent),
-                      ..._fiatSnapshotRows(context, ref, c, tx.id),
-                      // On chain the graph carries the miner fee of the transaction,
-                      // not the fee the wallet paid, so that one keeps a plain row.
-                      if (onChainTxId != null && showFee)
-                        _sheetDetailRow(c, context.l10n.fee, '₿$feeStr'),
+                      // Status, what it was worth then and since, and on a
+                      // send the fee the wallet paid (also on the graph).
+                      ReceiptFactTiles(facts: [
+                        _statusFact(context, statusText, statusColor),
+                        ..._fiatSnapshotFacts(context, ref, tx.id),
+                        if (payment != null && isSend)
+                          ReceiptFact(
+                              label: context.l10n.fee, value: '₿$feeStr'),
+                      ]),
+                      // Long human text on its own rows, wrapping.
+                      if (description != null && description.isNotEmpty)
+                        ReceiptLongRow(
+                            label: context.l10n.description,
+                            value: description),
+                      if (comment != null && comment.isNotEmpty)
+                        ReceiptLongRow(
+                            label: context.l10n.comment, value: comment),
                       SizedBox(height: 6.h),
                       if (onChainTxId != null)
                         // The real chain transaction from mempool.space: skeleton
@@ -5065,11 +5163,6 @@ void _showSparkTxDetails(
                           ],
                         ),
                       SizedBox(height: 6.h),
-                      if (description != null && description.isNotEmpty)
-                        _sheetDetailRow(
-                            c, context.l10n.description, description),
-                      if (comment != null && comment.isNotEmpty)
-                        _sheetDetailRow(c, context.l10n.comment, comment),
                       // The rail and the technical refs (txid, payment hash, invoice
                       // blob, preimage, payment id) are nerd data. Collapsed by
                       // default so the default sheet stays human-readable.
@@ -5098,33 +5191,17 @@ void _showSparkTxDetails(
                             isAddress: true,
                             ctx: ctx),
                       ]),
-                      SizedBox(height: 16.h),
-                      // Explorer button is a primary affordance — kept visible.
-                      SizedBox(
-                        width: double.infinity,
-                        height: 48.h,
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            final cleanId = sparkPaymentId.contains(':')
-                                ? sparkPaymentId.split(':').first
-                                : sparkPaymentId;
-                            launchUrl(Uri.parse(
-                                'https://sparkscan.io/tx/$cleanId?network=mainnet'));
-                          },
-                          icon: Icon(Icons.open_in_new_rounded, size: 18.sp),
-                          label: Text(context.l10n.activityViewOnBlockchain,
-                              style: TextStyle(
-                                  fontSize: 16.sp,
-                                  fontWeight: FontWeight.w600)),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: c.textPrimary,
-                            side: BorderSide(color: c.border),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: AppRadius.buttonBorder),
-                          ),
-                        ),
+                      // The explorer is the bar's primary button.
+                      ReceiptBarAction(
+                        label: context.l10n.activityViewOnBlockchain,
+                        onPrimary: () {
+                          final cleanId = sparkPaymentId.contains(':')
+                              ? sparkPaymentId.split(':').first
+                              : sparkPaymentId;
+                          _openExplorer(Uri.parse(
+                              'https://sparkscan.io/tx/$cleanId?network=mainnet'));
+                        },
                       ),
-                      SizedBox(height: 10.h),
                     ],
                   ),
                 ),
@@ -5507,13 +5584,16 @@ class _UnclaimedDepositSheetState
     final waitingForFee = stage == SparkDepositStage.waitingForFee;
     final locked = _claiming || claimElsewhere;
     final (statusText, statusColor) = switch (stage) {
-      _ when claimElsewhere => (context.l10n.activityAddingToBalance, c.accent),
-      SparkDepositStage.refunding => (context.l10n.refunding, AppColors.info),
+      _ when claimElsewhere => (
+          context.l10n.activityAddingToBalance,
+          c.warning
+        ),
+      SparkDepositStage.refunding => (context.l10n.refunding, c.warning),
       SparkDepositStage.waitingForFee => (
           context.l10n.depositStatusWaitingFee,
-          c.accent
+          c.warning
         ),
-      _ => (context.l10n.depositStatusFailed, c.accent),
+      _ => (context.l10n.depositStatusFailed, c.warning),
     };
     return AppBottomSheetContainer(
       maxHeight: 0.85,
@@ -5525,10 +5605,12 @@ class _UnclaimedDepositSheetState
             children: [
               TransactionDetailHeader(
                 row: _buildUnclaimedItem(widget.tx, context, ref),
-                advisorSurface: 'deposit_tx_detail',
               ),
-              _sheetDetailRow(c, context.l10n.status, statusText,
-                  valueColor: statusColor),
+              ReceiptFactTiles(facts: [
+                _statusFact(context, statusText, statusColor),
+                _dateFact(
+                    context, activitySheetDate(context, widget.tx.timestamp)),
+              ]),
               if (!_isRefunding) ...[
                 if (quote != null) DepositFeeRow(feeSats: quote),
                 // The ceiling is an Advanced control: the recommended one
@@ -5564,19 +5646,8 @@ class _UnclaimedDepositSheetState
                     ? context.l10n.depositReasonFeeHigh
                     : context.l10n.depositReasonFailed),
                 SizedBox(height: 16.h),
-                // One primary action; waiting is quiet.
-                AppButton(
-                  text: quote == null
-                      ? context.l10n.activityAddToWallet
-                      : context.l10n.depositClaimNowFee(
-                          ref.watch(conversionProvider(quote))),
-                  onPressed: locked ? null : _handleClaim,
-                  isLoading: _claiming || claimElsewhere,
-                  // The variant's own contrast: white text on the dark
-                  // fill in light mode, dark text on the light one in dark.
-                  compact: true,
-                ),
-                SizedBox(height: 6.h),
+                // One primary action; waiting is quiet: the text button
+                // stays on the sheet, above the bar.
                 if (waitingForFee)
                   AppBottomSheetTextButton(
                     text: context.l10n.depositWaitForLowerFee,
@@ -5584,7 +5655,26 @@ class _UnclaimedDepositSheetState
                   ),
                 // No "Send it back" here (founder, 2026-10-26): claim now or
                 // wait; the deposit is always added in the end.
-                SizedBox(height: 4.h),
+                // THE BAR IS THE BUTTON (founder, 31 October 2026;
+                // kute_bar_context.dart): "Add to wallet" / "Claim now ·
+                // fee" is the floating Sal bar's primary action, with the
+                // handler the drawn button had, held and busy while a
+                // claim runs here or elsewhere; the sheet keeps the room
+                // under its text button for the bar.
+                KuteBarContextScope(
+                  barContext: KuteBarContext.primary(
+                    label: quote == null
+                        ? context.l10n.activityAddToWallet
+                        : context.l10n.depositClaimNowFee(
+                            ref.watch(conversionProvider(quote))),
+                    onPrimary: _handleClaim,
+                    enabled: !locked,
+                    busy: _claiming || claimElsewhere,
+                    source: 'unclaimed_deposit',
+                    disabledLabel: null,
+                  ),
+                  child: SizedBox(height: kuteBarScrollClearance.h),
+                ),
               ],
             ],
           ),
@@ -5859,7 +5949,7 @@ class _PendingIconWrapper extends StatelessWidget {
             height: 48.sp,
             child: CircularProgressIndicator(
               strokeWidth: 1.5,
-              color: context.colors.accent,
+              color: context.colors.warning,
             ),
           ),
         ],
@@ -5895,10 +5985,14 @@ Widget buildNoTransactionsFound([BuildContext? context]) {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SvgPicture.asset(
-            context != null ? kuteDogAsset(context) : kuteDogLightAsset,
-            width: 48.sp,
-            height: 48.sp,
+          SalSprite(
+            clip: 'idle',
+            size: 48.sp,
+            fallback: SvgPicture.asset(
+              context != null ? kuteDogAsset(context) : kuteDogLightAsset,
+              width: 48.sp,
+              height: 48.sp,
+            ),
           ),
           SizedBox(height: 12.h),
           Text(
@@ -6370,7 +6464,7 @@ class _MultiSourceMoveDetailSheetState
         ? (text: l10n.activityNeedsAttention, color: AppColors.marketDown)
         : tx.complete
             ? (text: l10n.completed, color: AppColors.success)
-            : (text: l10n.pending, color: c.warning);
+            : (text: l10n.activityOnItsWay, color: c.warning);
     // The Dollars balance by its own name, as the Portfolio breakdown
     // names it: "Investing → Dollars", never "Investing → Investments".
     final dollarsName = l10n.portfolioBalanceDollars;
@@ -6438,26 +6532,30 @@ class _MultiSourceMoveDetailSheetState
                     '${l10n.activityRowFrom(l10n.assetDollars)} ${l10n.activityRowTo(destination)}',
                   _ => l10n.activityRowFrom(l10n.assetDollars),
                 },
+                date: activitySheetDate(context, tx.timestamp),
               ),
-              // Once for the whole move.
-              _sheetDetailRow(
-                  c, l10n.date, activitySheetDate(context, tx.timestamp)),
-              _sheetDetailRow(c, l10n.status, status.text,
-                  valueColor: status.color),
-              if (!single) ...[
-                if (totals.anyReceived)
-                  _sheetDetailRow(c, l10n.received,
-                      both(totals.receivedUsd, totals.receivedBtc)),
-                if (totals.anyArriving)
-                  _sheetDetailRow(c, l10n.activityArriving,
-                      both(totals.arrivingUsd, totals.arrivingBtc)),
-                if (totals.feesUsd >= 0.01)
-                  _sheetDetailRow(
-                      c, l10n.fees, formatPolyAmount(ref, totals.feesUsd)),
-                if (totals.showSent && totals.sentUsd >= 0.01)
-                  _sheetDetailRow(
-                      c, l10n.sent, formatPolyAmount(ref, totals.sentUsd)),
-              ],
+              // Once for the whole move, as tiles.
+              ReceiptFactTiles(facts: [
+                _statusFact(context, status.text, status.color),
+                if (!single) ...[
+                  if (totals.anyReceived)
+                    ReceiptFact(
+                        label: l10n.received,
+                        value: both(totals.receivedUsd, totals.receivedBtc)),
+                  if (totals.anyArriving)
+                    ReceiptFact(
+                        label: l10n.activityArriving,
+                        value: both(totals.arrivingUsd, totals.arrivingBtc)),
+                  if (totals.feesUsd >= 0.01)
+                    ReceiptFact(
+                        label: l10n.fees,
+                        value: formatPolyAmount(ref, totals.feesUsd)),
+                  if (totals.showSent && totals.sentUsd >= 0.01)
+                    ReceiptFact(
+                        label: l10n.sent,
+                        value: formatPolyAmount(ref, totals.sentUsd)),
+                ],
+              ]),
               // The move's steps, one compact line each (each leg, its own
               // step: the purchase and the arrival, the send, Dollars going
               // on into the venue), live, then the record once done.
@@ -6592,9 +6690,13 @@ class _MultiSourceMoveDetailSheetState
                   ),
                 ),
               ],
+              // One order to track: Track this exchange is the bar's
+              // primary button. Otherwise the default bar.
               if (trackBelow)
-                ..._orchestraTrackExchange(context, c, orders.single),
-              SizedBox(height: 10.h),
+                ..._orchestraTrackExchange(context, c, orders.single,
+                    bar: true)
+              else
+                const ReceiptBarAction.none(),
             ],
           ),
         ),

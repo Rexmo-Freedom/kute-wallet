@@ -1,3 +1,4 @@
+import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
 import 'package:kute/screens/shared/side_tint_palette.dart';
 import 'package:kute/screens/polymarket/components/outcome_leading.dart'
     show polyOutcomeFill;
@@ -38,6 +39,9 @@ import 'package:kute/screens/portfolio/open_investments_screen.dart'
 import 'package:kute/screens/ledger/ledger_portfolio_screen.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart'
     show PolymarketPosition;
+import 'package:kute/providers/unified_search_provider.dart'
+    show SearchCategory;
+import 'package:kute/screens/shared/kute_bar_context.dart';
 
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/helpers/formatters/polymarket_side_labels.dart';
@@ -67,7 +71,6 @@ import 'package:kute/screens/usd/usd_account_screen.dart'
     show openInvestmentsOrders;
 import 'package:kute/services/polymarket/sell_settlement.dart'
     show pmLiveOrderDelaySeconds;
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/sticky_action_bar.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 
@@ -575,7 +578,7 @@ class BetSlipSheet extends ConsumerStatefulWidget {
     // (a long-standing Flutter gap) — that let a user swipe the sheet
     // away mid-placement. Dismissal is via tap-outside (isDismissible),
     // which DOES go through PopScope, so the placing-state lock holds.
-    showModalBottomSheet(
+    showKuteModalSheet(
       context: context,
       useRootNavigator: true,
       isScrollControlled: true,
@@ -2465,6 +2468,11 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                 context.l10n.betRetryAtPrice(polymarketCentsLabel(retry)),
               null => context.l10n.ledgerBetReviewTitle,
             },
+      disabledLabel: buyingPower.isLoading
+          ? null
+          : (!_amount.isFinite || _amount <= 0)
+              ? context.l10n.barNeedAmount
+              : context.l10n.barNeedRaiseAmount,
     );
   }
 
@@ -6554,16 +6562,17 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                   ),
                 ),
               ),
-              Padding(
-                padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 24.h),
-                // Dark primary tier (AppButton fires the light haptic
-                // itself and picks the label contrast per mode).
-                child: AppButton(
-                  text: hasSpending
+              // THE BAR IS THE BUTTON (kute_bar_context.dart,
+              // KuteBarContext.primary): Switch wallet / Create spending
+              // wallet is the floating Sal bar's primary action (the bar
+              // fires the light haptic and picks the label contrast per
+              // mode); the wall keeps its foot clear of it.
+              KuteBarContextScope(
+                barContext: KuteBarContext.primary(
+                  label: hasSpending
                       ? context.l10n.betSwitchWallet
                       : context.l10n.betCreateSpendingWallet,
-                  fontWeight: FontWeight.w800,
-                  onPressed: () async {
+                  onPrimary: () async {
                     if (hasSpending && spendingId != null) {
                       await ref
                           .read(settingsProvider.notifier)
@@ -6578,7 +6587,11 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                       }
                     }
                   },
+                  category: SearchCategory.predictions,
+                  source: 'slip_wallet_wall',
+                  disabledLabel: null,
                 ),
+                child: SizedBox(height: kuteBarScrollClearance.h),
               ),
             ],
           ),

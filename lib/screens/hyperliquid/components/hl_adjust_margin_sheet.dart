@@ -49,6 +49,7 @@
 // reports through the slips' `order_funding_*` journey. No ids or
 // addresses.
 
+import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -159,7 +160,7 @@ class HlAdjustMarginSheet extends ConsumerStatefulWidget {
     required String source,
   }) {
     // One margin ticket at a time.
-    return OpenOnce.run(routeName, () => showModalBottomSheet<void>(
+    return OpenOnce.run(routeName, () => showKuteModalSheet<void>(
       context: context,
       useRootNavigator: true,
       isScrollControlled: true,
@@ -1372,6 +1373,7 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
                                   ? l10n.feeUiCalculating
                                   : l10n.loading,
                               color: _side,
+                              disabledLabel: canConfirm ? null : l10n.barNeedAmount,
                             ),
                           StepsReveal(
                             child: runSteps != null && runStep != null

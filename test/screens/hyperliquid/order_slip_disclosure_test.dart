@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kute/screens/shared/ask_sal_chip.dart' show AskSalChip;
 import 'package:kute/screens/shared/kute_dog_scenes.dart' show KuteDogGlance;
 import 'package:google_fonts/google_fonts.dart';
-import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/currency_conversions.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/settings_model.dart';
@@ -29,6 +26,7 @@ import 'package:kute/theme/app_theme.dart';
 import 'package:money2/money2.dart';
 
 import '../../helpers/fake_swap_orders.dart';
+import '../../helpers/shell_bar_harness.dart';
 
 class _LivePrices extends HlLivePricesNotifier {
   static int acquired = 0;
@@ -140,6 +138,7 @@ Future<void> _pumpSlip(WidgetTester tester,
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
+  installShellBar();
   await tester.pumpWidget(ProviderScope(
     overrides: [
       settingsProvider.overrideWith((_) => SettingsModel(Settings(
@@ -168,27 +167,36 @@ Future<void> _pumpSlip(WidgetTester tester,
       if (positions != null)
         hyperliquidPerpPositionsProvider.overrideWith((_) => positions),
     ],
-    child: ScreenUtilInit(
-      designSize: const Size(430, 932),
-      builder: (_, __) => MaterialApp(
-        theme: ThemeData(
-          splashFactory: NoSplash.splashFactory,
-          fontFamily: 'Inter',
-          extensions: [AppColorsExtension.light()],
-        ),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: Scaffold(
-          body: Align(
-            alignment: Alignment.bottomCenter,
-            child: HlOrderSlipSheet(market: market, initialIsLong: isLong),
-          ),
+    // The bar over the slip is the slip's button (shell_bar_harness.dart).
+    child: shellBarApp(
+      home: Scaffold(
+        body: Align(
+          alignment: Alignment.bottomCenter,
+          child: HlOrderSlipSheet(market: market, initialIsLong: isLong),
         ),
       ),
     ),
   ));
   await _settle(tester);
 }
+
+/// What the ticket on screen declares for the bar, read through its own
+/// [KuteBarContextScope] where the bar cannot speak for it:
+///
+///   * under a sheet pushed over the slip (the gate's "Investing
+///     unavailable") the bar follows the topmost route, by design
+///     (kute_bar_context.dart), so the slip's button is not painted;
+///   * on the Advanced page the covered slip's band drops its translation
+///     wrapper once its ticker stops (rubber_band_progress.dart,
+///     `if (_halted) return widget.child`), which remounts the slip's
+///     scope and re-pushes its context ABOVE the page's, so the bar shows
+///     the default pill there instead of the page's button (a lib bug,
+///     31 October 2026; the two geometry tests below read the bar and
+///     catch it).
+///
+/// The on-stage scope is the one ticket in view: the slip, or the
+/// Advanced page over it (the slip is offstage under a fullscreen route).
+/// (Read through the harness: [scopeContext], [scopeLabel], [scopeEnabled].)
 
 /// Settles everything but the "Deposit incoming" working sign, which spins
 /// for as long as a deposit is on its way (pumpAndSettle would never end).
@@ -247,6 +255,7 @@ void _expectAdvancedBesideMax(WidgetTester tester) {
 }
 
 void main() {
+
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
     _LivePrices.acquired = 0;
@@ -259,7 +268,6 @@ void main() {
     // The title, and the empty ticket's button.
     expect(find.text('Long BTC'), findsOneWidget);
     expect(find.text(_emptyOrder), findsOneWidget);
-    expect(find.byType(AskSalChip), findsNothing);
     expect(find.byType(KuteDogGlance), findsNothing);
     expect(find.bySemanticsLabel('Ask Sal'), findsNothing);
     expect(find.byType(KuteCloseButton), findsOneWidget);
@@ -302,7 +310,7 @@ void main() {
     await tester.ensureVisible(reduceOnly);
     await tester.tap(reduceOnly);
     await tester.pumpAndSettle();
-    expect(tester.widget<AppButton>(find.byType(AppButton)).text,
+    expect(scopeLabel(tester),
         'Place Long BTC limit');
     await tester.tap(find.byType(KuteBackButton));
     await tester.pumpAndSettle();
@@ -311,7 +319,7 @@ void main() {
     // limit price and reduce-only set on Advanced are gone, the side and
     // the amount stay.
     expect(find.textContaining('Limit order'), findsNothing);
-    expect(tester.widget<AppButton>(find.byType(AppButton)).text,
+    expect(barPrimaryLabel(tester),
         _emptyOrder);
     expect(find.text('Size'), findsNothing);
     expect(find.text('Est. liquidation'), findsNothing);
@@ -334,9 +342,8 @@ void main() {
           swaps: FakeSwapOrders([
             poolDepositRow(id: 'ord_1', network: 'HYPERCORE', usd: 25),
           ]));
-      final button = tester.widget<AppButton>(find.byType(AppButton));
-      expect(button.text, r'Deposit incoming · $25.00');
-      expect(button.onPressed, isNull);
+      expect(barPrimaryLabel(tester), r'Deposit incoming · $25.00');
+      expect(barPrimaryEnabled(tester), isFalse);
       expect(
           find.text(
               'Your money is on its way. This button unlocks when it lands.'),
@@ -356,7 +363,7 @@ void main() {
           swaps: FakeSwapOrders([
             poolDepositRow(id: 'ord_1', network: 'HYPERCORE', usd: 2),
           ]));
-      expect(tester.widget<AppButton>(find.byType(AppButton)).text,
+      expect(barPrimaryLabel(tester),
           r'Deposit incoming · $2.00');
       // Nothing typed asks for nothing more; an order the deposit falls
       // short of does.
@@ -375,7 +382,7 @@ void main() {
           swaps: FakeSwapOrders([
             poolDepositRow(id: 'ord_1', network: 'POLYGON', usd: 25),
           ]));
-      expect(tester.widget<AppButton>(find.byType(AppButton)).text,
+      expect(barPrimaryLabel(tester),
           _emptyOrder);
       await tester.pumpWidget(const SizedBox.shrink());
     });
@@ -391,9 +398,8 @@ void main() {
             id: 'ord_1', network: 'HYPERCORE', usd: 25, status: 'refunded'),
       ]);
       await _settle(tester);
-      final button = tester.widget<AppButton>(find.byType(AppButton));
-      expect(button.text, _emptyOrder);
-      expect(button.onPressed, isNotNull);
+      expect(barPrimaryLabel(tester), _emptyOrder);
+      expect(barPrimaryEnabled(tester), isTrue);
       expect(find.text("Your deposit didn't go through. You can deposit again."),
           findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());
@@ -479,9 +485,8 @@ void main() {
       // the same figure the line does, and does something.
       expect(find.textContaining('Minimum is'), findsNothing);
       final minimum = minimumSpan(tester).text!;
-      final button = tester.widget<AppButton>(find.byType(AppButton));
-      expect(button.text, minimum);
-      expect(button.onPressed, isNotNull);
+      expect(barPrimaryLabel(tester), minimum);
+      expect(barPrimaryEnabled(tester), isTrue);
 
       await typeOnKeypad(tester, '50');
       // Over the minimum: just the figure, no minimum line.
@@ -490,8 +495,7 @@ void main() {
               .widget<BigAmountDisplay>(find.byType(BigAmountDisplay))
               .minimumLabel,
           isNull);
-      expect(tester.widget<AppButton>(find.byType(AppButton)).onPressed,
-          isNotNull);
+      expect(barPrimaryEnabled(tester), isTrue);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     });
@@ -505,16 +509,12 @@ void main() {
       final gate = _StopAtConfirm();
       RuntimeCapabilitiesService.debugInstance = gate;
       addTearDown(() => RuntimeCapabilitiesService.debugInstance = null);
-      AppButton button() => tester.widget<AppButton>(find.descendant(
-          of: find.byType(HlOrderSlipSheet),
-          matching: find.byType(AppButton)));
       await _pumpSlip(tester);
       await typeOnKeypad(tester, '1');
       final minimum = minimumSpan(tester).text!;
-      expect(button().text, minimum);
+      expect(barPrimaryLabel(tester), minimum);
       expect(gate.checks, 0);
-      await tester.tap(find.byType(AppButton));
-      await tester.pumpAndSettle();
+      await tapBarPrimary(tester);
       // The minimum went into the figure and on into the normal confirm,
       // once, whose gate stopped it with its sheet.
       expect('Minimum \$${typed(tester)}', minimum);
@@ -526,7 +526,7 @@ void main() {
           isNull);
       expect(gate.checks, 1);
       expect(find.text('Investing unavailable'), findsOneWidget);
-      expect(button().text, 'Long \$${typed(tester)}');
+      expect(scopeLabel(tester), 'Long \$${typed(tester)}');
       await tester.pumpWidget(const SizedBox.shrink());
       final abandoned =
           events.lastWhere((e) => e.$1 == 'hyperliquid_order_slip_abandoned');
@@ -537,9 +537,8 @@ void main() {
         (tester) async {
       await _pumpSlip(tester);
       await typeOnKeypad(tester, '0');
-      final button = tester.widget<AppButton>(find.byType(AppButton));
-      expect(button.text, _emptyOrder);
-      expect(button.onPressed, isNotNull);
+      expect(barPrimaryLabel(tester), _emptyOrder);
+      expect(barPrimaryEnabled(tester), isTrue);
       await tester.pumpWidget(const SizedBox.shrink());
     });
 
@@ -576,13 +575,12 @@ void main() {
             szDecimals: 0,
             isSpot: false));
         expect(size * wire, greaterThanOrEqualTo(10));
-        final button = tester.widget<AppButton>(find.byType(AppButton));
         // Nothing typed: the minimum order; a tap places the figure.
-        expect(button.text, '${isLong ? 'Long' : 'Short'} minimum on SPCX');
-        expect(button.onPressed, isNotNull);
+        expect(barPrimaryLabel(tester), '${isLong ? 'Long' : 'Short'} minimum on SPCX');
+        expect(barPrimaryEnabled(tester), isTrue);
         // The old figure is now under the minimum: the button offers it.
         await typeOnKeypad(tester, '10.08');
-        expect(tester.widget<AppButton>(find.byType(AppButton)).text,
+        expect(barPrimaryLabel(tester),
             minimumSpan(tester).text);
         await tester.pumpWidget(const SizedBox.shrink());
       });
@@ -592,7 +590,7 @@ void main() {
         (tester) async {
       await _pumpSlip(tester, available: 0);
       expect(find.byType(AmountMaxChip), findsNothing);
-      expect(tester.widget<AppButton>(find.byType(AppButton)).text,
+      expect(barPrimaryLabel(tester),
           _emptyOrder);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
@@ -610,9 +608,8 @@ void main() {
       await tester.pump();
     }
     await tester.pumpAndSettle();
-    final button = tester.widget<AppButton>(find.byType(AppButton));
-    expect(button.text, _emptyOrder);
-    expect(button.onPressed, isNotNull);
+    expect(barPrimaryLabel(tester), _emptyOrder);
+    expect(barPrimaryEnabled(tester), isTrue);
     // No fee to speak of yet: the fee figure reads zero, never a dash.
     expect(
         find.descendant(
@@ -631,13 +628,11 @@ void main() {
       await _pumpSlip(tester,
           available: available, blocked: {'hyperliquid.deposit'});
       if (available > 0) await _typeOnKeypad(tester, '20');
-      final button = tester.widget<AppButton>(find.byType(AppButton));
-      expect(button.text, 'Add money to Investments');
-      expect(button.onPressed, isNull);
+      expect(barPrimaryLabel(tester), 'Add money to Dollars');
+      expect(barPrimaryEnabled(tester), isFalse);
       expect(find.text(_AllowedCapabilities.blockedMessage), findsOneWidget);
       // A tap on the shut door opens nothing.
-      await tester.tap(find.byType(AppButton));
-      await tester.pumpAndSettle();
+      await tapBarPrimary(tester);
       expect(find.byType(HlOrderSlipSheet), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
@@ -647,9 +642,8 @@ void main() {
   testWidgets('a funded order is untouched by the deposit switch',
       (tester) async {
     await _pumpSlip(tester, blocked: {'hyperliquid.deposit'});
-    final button = tester.widget<AppButton>(find.byType(AppButton));
-    expect(button.text, _emptyOrder);
-    expect(button.onPressed, isNotNull);
+    expect(barPrimaryLabel(tester), _emptyOrder);
+    expect(barPrimaryEnabled(tester), isTrue);
     expect(find.text(_AllowedCapabilities.blockedMessage), findsNothing);
     await tester.pumpWidget(const SizedBox.shrink());
   });
@@ -660,9 +654,8 @@ void main() {
     await _pumpSlip(tester, blocked: {'hyperliquid.trade'});
     // The market and the ticket stay readable.
     expect(find.text('Position size').hitTestable(), findsOneWidget);
-    final button = tester.widget<AppButton>(find.byType(AppButton));
-    expect(button.text, _emptyOrder);
-    expect(button.onPressed, isNull);
+    expect(barPrimaryLabel(tester), _emptyOrder);
+    expect(barPrimaryEnabled(tester), isFalse);
     final note = find.byType(CapabilityBlockNote);
     expect(note, findsOneWidget);
     expect(
@@ -678,9 +671,8 @@ void main() {
       'reason is said once', (tester) async {
     await _pumpSlip(tester,
         available: 0, blocked: {'hyperliquid.trade', 'hyperliquid.deposit'});
-    final button = tester.widget<AppButton>(find.byType(AppButton));
-    expect(button.text, 'Add money to Investments');
-    expect(button.onPressed, isNull);
+    expect(barPrimaryLabel(tester), 'Add money to Dollars');
+    expect(barPrimaryEnabled(tester), isFalse);
     expect(find.byType(CapabilityBlockNote), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
@@ -698,7 +690,7 @@ void main() {
     await tester.pumpAndSettle();
     // The title, and the empty ticket's button.
     expect(find.text('Short BTC'), findsOneWidget);
-    expect(tester.widget<AppButton>(find.byType(AppButton)).text,
+    expect(barPrimaryLabel(tester),
         'Short minimum on BTC');
     // Even at 1x a short can be liquidated. The plain ticket keeps just
     // its two figures; the estimate is on the Advanced page.
@@ -736,11 +728,10 @@ void main() {
     await tester.enterText(find.byType(TextField).at(1), '2');
     await tester.pumpAndSettle();
 
-    final button = tester.widget<AppButton>(find.byType(AppButton));
     // Nothing typed on a Pro ticket: no order to size a Dollars move on,
     // so the plain door (it opens the Dollar deposit too).
-    expect(button.text, 'Add money to Investments');
-    expect(button.onPressed, isNotNull);
+    expect(scopeLabel(tester), 'Add money to Dollars');
+    expect(scopeEnabled(tester), isTrue);
     expect(find.text('Duration must be between 5 minutes and 7 days.'),
         findsOneWidget);
 
@@ -749,7 +740,7 @@ void main() {
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.textContaining('TWAP'), findsNothing);
-    expect(tester.widget<AppButton>(find.byType(AppButton)).text,
+    expect(barPrimaryLabel(tester),
         _emptyOrder);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
@@ -766,21 +757,18 @@ void main() {
     await tester.enterText(find.byType(TextField).at(1), '2');
     await tester.pumpAndSettle();
 
-    var button = tester.widget<AppButton>(find.byType(AppButton));
-    expect(button.text, _dollarDoor);
-    expect(button.onPressed, isNotNull);
+    expect(scopeLabel(tester), _dollarDoor);
+    expect(scopeEnabled(tester), isTrue);
 
     await tester.enterText(find.byType(TextField).first, '100');
     await tester.pumpAndSettle();
-    button = tester.widget<AppButton>(find.byType(AppButton));
-    expect(button.text, 'Start TWAP · 2m');
-    expect(button.onPressed, isNull);
+    expect(scopeLabel(tester), 'Start TWAP · 2m');
+    expect(scopeEnabled(tester), isFalse);
 
     await tester.enterText(find.byType(TextField).at(1), '30');
     await tester.pumpAndSettle();
-    button = tester.widget<AppButton>(find.byType(AppButton));
-    expect(button.text, 'Start TWAP · 30m');
-    expect(button.onPressed, isNotNull);
+    expect(scopeLabel(tester), 'Start TWAP · 30m');
+    expect(scopeEnabled(tester), isTrue);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
@@ -800,15 +788,13 @@ void main() {
 
     container.read(_availableFunds.notifier).state = 0;
     await tester.pumpAndSettle();
-    var button = tester.widget<AppButton>(find.byType(AppButton));
-    expect(button.text, _emptyOrder);
-    expect(button.onPressed, isNotNull);
+    expect(scopeLabel(tester), _emptyOrder);
+    expect(scopeEnabled(tester), isTrue);
     expect(_LivePrices.acquired, 1);
 
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
-    button = tester.widget<AppButton>(find.byType(AppButton));
-    expect(button.text, _emptyOrder);
+    expect(barPrimaryLabel(tester), _emptyOrder);
     expect(find.text('Est. liquidation'), findsNothing);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
@@ -826,23 +812,34 @@ void main() {
       addTearDown(tester.view.resetViewInsets);
       await tester.pumpAndSettle();
       final scroll = find.byKey(const ValueKey('hl-advanced-form-scroll'));
-      // The empty ticket's one action (it tops up, then places).
-      final action = find.text(_emptyOrder);
       final position = tester
           .state<ScrollableState>(find
               .descendant(of: scroll, matching: find.byType(Scrollable))
               .first)
           .position;
-      // The long form scrolls; the action is pinned as a bottom bar
-      // outside it (3d8c274c), reachable without scrolling and never
-      // covered by the form.
       expect(position.maxScrollExtent, greaterThan(0));
-      expect(find.ancestor(of: action, matching: scroll), findsNothing);
       expect(position.pixels, 0);
+      if (keyboard > 0) {
+        // As the page's primary button the bar RIDES ABOVE the keyboard
+        // (founder, 31 October 2026; kute_shell_bar.dart): up, its
+        // bottom above the keys, and down again when they go.
+        expect(barIsUp(tester), isTrue);
+        expect(tester.getRect(barPrimaryText(_emptyOrder)).bottom,
+            lessThanOrEqualTo(700 - keyboard));
+        tester.view.viewInsets = FakeViewPadding.zero;
+        await tester.pumpAndSettle();
+      }
+      expect(barIsUp(tester), isTrue);
+      // The empty ticket's one action (it tops up, then places). FAILS
+      // until the lib bug under [scopeContext] is fixed: the bar shows
+      // the default pill on Advanced.
+      final action = barPrimaryText(_emptyOrder);
+      // The long form scrolls; the action is the bar, outside it
+      // (kute_shell_bar.dart), reachable without scrolling. The bar floats
+      // over the form, which pads its own end clear of it.
+      expect(find.ancestor(of: action, matching: scroll), findsNothing);
       expect(action.hitTestable(), findsOneWidget);
-      expect(tester.getRect(action).bottom, lessThanOrEqualTo(700 - keyboard));
-      expect(tester.getRect(scroll).bottom,
-          lessThanOrEqualTo(tester.getRect(action).top));
+      expect(tester.getRect(action).bottom, lessThanOrEqualTo(700));
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     });
@@ -863,9 +860,12 @@ void main() {
             .first)
         .position;
     expect(position.maxScrollExtent, 0);
-    final action = find.byType(AppButton);
-    expect(
-        tester.getRect(action).bottom, closeTo(height - 16 * height / 932, 1));
+    // The action is the bar, resting at the foot (its 2.h of air). FAILS
+    // until the lib bug under [scopeContext] is fixed: the bar shows the
+    // default pill on Advanced.
+    expect(barPrimaryText(_emptyOrder), findsOneWidget);
+    expect(tester.getRect(findBarPrimary()).bottom,
+        closeTo(height - 2 * height / 932, 1));
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
@@ -877,11 +877,10 @@ void main() {
     expect(find.byKey(const ValueKey('slip-advanced-button')), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('capability-unavailable-got-it')),
-        findsOneWidget);
+    // The sheet's "Got it" is the bar (kute_bar_context.dart).
+    expect(barPrimaryText('Got it'), findsOneWidget);
     expect(find.text('Long BTC · Advanced'), findsNothing);
-    await tester
-        .tap(find.byKey(const ValueKey('capability-unavailable-got-it')));
+    await tester.tap(findBarPrimary());
     await tester.pumpAndSettle();
     expect(find.text('Long BTC · Advanced'), findsNothing);
     expect(find.byKey(const ValueKey('slip-advanced-button')), findsOneWidget);
@@ -919,8 +918,6 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    AppButton button(WidgetTester tester) =>
-        tester.widget<AppButton>(find.byType(AppButton));
     String? note(WidgetTester tester) =>
         tester.widget<BigAmountDisplay>(find.byType(BigAmountDisplay)).noteLabel;
     String? minimum(WidgetTester tester) => tester
@@ -929,7 +926,7 @@ void main() {
 
     testWidgets('no position: the plain order, no line', (tester) async {
       await _pumpSlip(tester, positions: const []);
-      expect(button(tester).text, _emptyOrder);
+      expect(barPrimaryLabel(tester), _emptyOrder);
       expect(note(tester), isNull);
       expect(find.byKey(const ValueKey('slip-position-pill')), findsNothing);
       await tester.pumpWidget(const SizedBox.shrink());
@@ -943,7 +940,7 @@ void main() {
       testWidgets('same side adds to the $side', (tester) async {
         await _pumpSlip(tester, isLong: long, positions: [held(szi)]);
         await typeOnKeypad(tester, '50');
-        expect(button(tester).text, 'Add to $side · \$50.00');
+        expect(barPrimaryLabel(tester), 'Add to $side · \$50.00');
         // Adding to it is a small pill under the amount, not a line.
         expect(note(tester), isNull);
         final pill = find.byKey(const ValueKey('slip-position-pill'));
@@ -954,7 +951,7 @@ void main() {
                 matching: find.text(
                     '${long ? '▲' : '▼'} Adds to your ${long ? 'Long' : 'Short'}')),
             findsOneWidget);
-        expect(button(tester).onPressed, isNotNull);
+        expect(barPrimaryEnabled(tester), isTrue);
         await tester.pumpWidget(const SizedBox.shrink());
       });
 
@@ -962,14 +959,14 @@ void main() {
           (tester) async {
         await _pumpSlip(tester, isLong: !long, positions: [held(szi)]);
         await typeOnKeypad(tester, '300');
-        expect(button(tester).text, 'Reduce $side · \$300.00');
+        expect(barPrimaryLabel(tester), 'Reduce $side · \$300.00');
         expect(note(tester),
             'You hold a $side of 0.01 BTC — this reduces it to 0.005 BTC');
         // No venue minimum on an exit.
         expect(minimum(tester), isNull);
         await typeOnKeypad(tester, '3');
-        expect(button(tester).text, 'Reduce $side · \$3.00');
-        expect(button(tester).onPressed, isNotNull);
+        expect(barPrimaryLabel(tester), 'Reduce $side · \$3.00');
+        expect(barPrimaryEnabled(tester), isTrue);
         await tester.pumpWidget(const SizedBox.shrink());
       });
 
@@ -978,21 +975,21 @@ void main() {
         await _pumpSlip(tester,
             isLong: !long, available: 5, positions: [held(szi)]);
         await typeOnKeypad(tester, '600');
-        expect(button(tester).text, 'Close $side');
+        expect(barPrimaryLabel(tester), 'Close $side');
         expect(note(tester), 'You hold a $side of 0.01 BTC — this closes it');
-        expect(button(tester).onPressed, isNotNull);
+        expect(barPrimaryEnabled(tester), isTrue);
         await tester.pumpWidget(const SizedBox.shrink());
       });
 
       testWidgets('a larger opposite order flips to $other', (tester) async {
         await _pumpSlip(tester, isLong: !long, positions: [held(szi)]);
         await typeOnKeypad(tester, '660');
-        expect(button(tester).text, 'Flip to $other · \$660.00');
+        expect(barPrimaryLabel(tester), 'Flip to $other · \$660.00');
         expect(
             note(tester),
             'You hold a $side of 0.01 BTC — this closes it and opens a '
             '$other of 0.001 BTC');
-        expect(button(tester).onPressed, isNotNull);
+        expect(barPrimaryEnabled(tester), isTrue);
         await tester.pumpWidget(const SizedBox.shrink());
       });
 
@@ -1002,23 +999,19 @@ void main() {
         await typeOnKeypad(tester, '605');
         // 0.00008 BTC past the position is about \$5: under the minimum.
         final min = minimum(tester)!;
-        expect(button(tester).text, min);
+        expect(barPrimaryLabel(tester), min);
         final amount = double.parse(min.replaceFirst(r'Minimum $', ''));
         expect(amount, greaterThan(610));
-        await tester.tap(find.byType(AppButton));
-        await tester.pumpAndSettle();
-        expect(button(tester).text, startsWith('Flip to $other'));
+        await tapBarPrimary(tester);
+        expect(barPrimaryLabel(tester), startsWith('Flip to $other'));
         await tester.pumpWidget(const SizedBox.shrink());
       });
     }
   });
 
   group('an empty ticket', () {
-    // The ticket's own button (a sheet over it may carry another).
-    AppButton button(WidgetTester tester) => tester.widget<AppButton>(
-        find.descendant(
-            of: find.byType(HlOrderSlipSheet),
-            matching: find.byType(AppButton)));
+    // The ticket's one action is the bar (a sheet over it may carry
+    // another button of its own, never the bar's).
     String typed(WidgetTester tester) => tester
         .widget<BigAmountDisplay>(find.byType(BigAmountDisplay))
         .amountText;
@@ -1040,8 +1033,8 @@ void main() {
       }
       await tester.pumpAndSettle();
       expect(typed(tester), '25');
-      expect(button(tester).text, r'Long $25.00');
-      expect(button(tester).onPressed, isNotNull);
+      expect(barPrimaryLabel(tester), r'Long $25.00');
+      expect(barPrimaryEnabled(tester), isTrue);
       await tester.pumpWidget(const SizedBox.shrink());
     });
 
@@ -1056,16 +1049,15 @@ void main() {
       await _pumpSlip(tester);
       final min = minimum(tester);
       expect(min, '10.26');
-      expect(button(tester).text, _emptyOrder);
-      expect(button(tester).onPressed, isNotNull);
-      await tester.tap(find.byType(AppButton));
-      await tester.pumpAndSettle();
+      expect(barPrimaryLabel(tester), _emptyOrder);
+      expect(barPrimaryEnabled(tester), isTrue);
+      await tapBarPrimary(tester);
       // The minimum went into the figure and on into the normal confirm,
       // whose gate stopped it with its sheet.
       expect(typed(tester), min);
       expect(gate.checks, 1);
       expect(find.text('Investing unavailable'), findsOneWidget);
-      expect(button(tester).text, 'Long \$$min');
+      expect(scopeLabel(tester), 'Long \$$min');
       await tester.pumpWidget(const SizedBox.shrink());
       final abandoned =
           events.lastWhere((e) => e.$1 == 'hyperliquid_order_slip_abandoned');
@@ -1077,12 +1069,12 @@ void main() {
       await _pumpSlip(tester);
       final min = minimum(tester);
       await _typeOnKeypad(tester, '1');
-      expect(button(tester).text, 'Minimum \$$min');
+      expect(barPrimaryLabel(tester), 'Minimum \$$min');
       await _typeOnKeypad(tester, '20');
-      expect(button(tester).text, r'Long $20.00');
-      expect(button(tester).onPressed, isNotNull);
+      expect(barPrimaryLabel(tester), r'Long $20.00');
+      expect(barPrimaryEnabled(tester), isTrue);
       await _typeOnKeypad(tester, '600');
-      expect(button(tester).text, r'Long $600.00');
+      expect(barPrimaryLabel(tester), r'Long $600.00');
       await tester.pumpWidget(const SizedBox.shrink());
     });
 
@@ -1092,14 +1084,15 @@ void main() {
       await _pumpSlip(tester, available: 5);
       expect(typed(tester), '');
       // Nothing typed: the order's short name; the tap tops up first.
-      expect(button(tester).text, _emptyOrder);
-      expect(button(tester).onPressed, isNotNull);
-      // One action: no second Add or Deposit beside it.
+      expect(barPrimaryLabel(tester), _emptyOrder);
+      expect(barPrimaryEnabled(tester), isTrue);
+      // One action, the bar: no Add or Deposit button drawn on the ticket.
       expect(
           find.descendant(
               of: find.byType(HlOrderSlipSheet),
               matching: find.byType(AppButton)),
-          findsOneWidget);
+          findsNothing);
+      expect(findBarPrimary(), findsOneWidget);
       expect(find.textContaining(RegExp(r'^Add \$')), findsNothing);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
@@ -1109,11 +1102,10 @@ void main() {
         'less than the minimum with the deposit withheld: the shut door '
         'still says where the money goes', (tester) async {
       await _pumpSlip(tester, available: 5, blocked: {'hyperliquid.deposit'});
-      expect(button(tester).text, 'Add money to Investments');
-      expect(button(tester).onPressed, isNull);
+      expect(barPrimaryLabel(tester), 'Add money to Dollars');
+      expect(barPrimaryEnabled(tester), isFalse);
       // The door is shut here, so nothing opens over the ticket.
-      await tester.tap(find.byType(AppButton), warnIfMissed: false);
-      await tester.pumpAndSettle();
+      await tapBarPrimary(tester);
       expect(find.byType(HlOrderSlipSheet), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());

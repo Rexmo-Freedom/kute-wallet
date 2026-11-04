@@ -1,3 +1,7 @@
+import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
+import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_action_cards.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/side_tint_palette.dart';
 import 'package:kute/screens/shared/fee_copy.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -51,7 +55,6 @@ import 'package:flutter/material.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
 import 'package:kute/screens/shared/capability_block_note.dart';
 import 'package:kute/services/region_freshness.dart';
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:flutter/services.dart';
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/models/breez/shared_sync.dart';
@@ -482,7 +485,15 @@ Future<void> showDepositSheet(
   Navigator.of(context, rootNavigator: true).push(
     MaterialPageRoute(
       fullscreenDialog: true,
-      builder: (_) => DepositSheet(
+      // The bar reads "Move money" over "ask Sal where it should go"
+      // while this is up (kute_bar_context.dart).
+      builder: (sheetContext) => KuteBarContextScope(
+        barContext: KuteBarContext(
+          label: sheetContext.l10n.barMoveMoney,
+          sublabel: sheetContext.l10n.barMoveMoneySub,
+          source: 'move',
+        ),
+        child: DepositSheet(
         initialSourceAsset: initialSourceAsset,
         lockedSide: side,
         fiatDepositWalletId: fiatDepositWalletId,
@@ -491,6 +502,7 @@ Future<void> showDepositSheet(
         initialTargetUsd: initialTargetUsd,
         cashAppSource: cashAppSource,
         onCompleted: onCompleted,
+        ),
       ),
     ),
   );
@@ -551,6 +563,10 @@ class DepositSheet extends ConsumerStatefulWidget {
 
   /// Explicit movement of one selected cash balance, with both ends editable.
   final MoneyMovementRoute? movementRoute;
+
+  /// [movementRoute] fixed: no account pickers, no flip; the source reads
+  /// as the Investments balance (showMoneyMovementSheet's `pinned`).
+  final bool movementPinned;
   final String? fiatDepositWalletId;
   final String? venueWalletId;
   final String? ledgerWalletId;
@@ -571,6 +587,7 @@ class DepositSheet extends ConsumerStatefulWidget {
     this.initialSourceAsset,
     required this.lockedSide,
     this.movementRoute,
+    this.movementPinned = false,
     this.fiatDepositWalletId,
     this.venueWalletId,
     this.ledgerWalletId,
@@ -838,6 +855,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   void _changeMovementRoute(MoneyMovementRoute route, {bool reversed = false}) {
     if (_processing || _movementSendLocked || !route.valid) return;
     if (kMoneyMovementDisabledRoutes.containsKey(route)) return;
+    if (!route.isOffered) return;
     HapticFeedback.selectionClick();
     setState(() {
       _installMovementRoute(route);
@@ -903,7 +921,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       hint: (_) => '',
       rows: (sheetCtx, _) => [
         for (final account in MoneyMovementAccount.values)
-          if (account != (source ? route.to : route.from))
+          // The other end is never offered; nor is a destination the
+          // source has no door to (out of Predictions, only Bitcoin).
+          if (account != (source ? route.to : route.from) &&
+              (source || MoneyMovementRoute(route.from, account).isOffered))
             MovePickerRow(
               key: ValueKey('movement-account-${account.name}'),
               asset: _movementAsset(account),
@@ -922,16 +943,27 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     );
     if (selected == null || selected == current || !mounted) return;
     if (_processing || _movementSendLocked) return;
+    // A source whose door to the chosen destination is not offered
+    // (Predictions picked while Dollars or Investing is the destination)
+    // takes its one offered destination along.
     _changeMovementRoute(MoneyMovementRoute(
-        source ? selected : route.from, source ? route.to : selected));
+            source ? selected : route.from, source ? route.to : selected)
+        .offeredOrNearest);
   }
 
   Widget _movementRouteCard({required String? available, String? detail}) {
     final route = _movementRoute!;
     final editable = !_processing && !_movementSendLocked;
+    // A pinned route (the withdrawal door) picks nothing: the ends show
+    // no chevron and there is no flip, as on the Purchase Bitcoin sheet.
+    final pickable = editable && !widget.movementPinned;
     MoveRouteEndpoint endpoint(MoneyMovementAccount account, bool source) =>
         MoveRouteEndpoint(
-          name: _movementName(account),
+          name: widget.movementPinned &&
+                  source &&
+                  account == MoneyMovementAccount.dollars
+              ? context.l10n.moveSourceInvestments
+              : _movementName(account),
           asset: _movementAsset(account),
           available: source ? available : null,
           detail: source ? detail : null,
@@ -939,13 +971,15 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           onAvailableTap: source && editable && _sourceBalanceState == null
               ? () => _applyAmountPercent(1)
               : null,
-          onTap: editable ? () => _pickMovementAccount(source: source) : null,
+          onTap: pickable ? () => _pickMovementAccount(source: source) : null,
         );
     return MoveRouteCard(
       key: const ValueKey('money-movement-route'),
       from: endpoint(route.from, true),
       to: endpoint(route.to, false),
-      onSwap: editable &&
+      hideSwap: widget.movementPinned,
+      onSwap: pickable &&
+              route.reversed.isOffered &&
               !kMoneyMovementDisabledRoutes.containsKey(route.reversed)
           ? () => _changeMovementRoute(route.reversed, reversed: true)
           : null,
@@ -957,6 +991,13 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// Retry; otherwise Move money locks: no second send and no edits, the
   /// outcome copy shows and the button opens Activity. Outside Move money
   /// it only resets the sheet with [message], as every door always did.
+  /// A setup failure that is the network's, not the account's: a timed-out
+  /// or refused connection, as `TrackingService.errorCategory` reads it.
+  static bool _isOfflineLike(Object e) {
+    final category = TrackingService.errorCategory(e);
+    return category == 'network' || category == 'timeout';
+  }
+
   void _endStoppedMove(Object e, {String? message}) {
     if (!mounted) return;
     final l10n = context.l10n;
@@ -2450,7 +2491,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     _lockedSide = widget.lockedSide;
     if (_isMoneyMovement) {
       _movementWalletId = pickSpendingWallet(ref.read(settingsProvider))?.id;
-      _installMovementRoute(widget.movementRoute!);
+      _installMovementRoute(widget.movementRoute!.offeredOrNearest);
       unawaited(_resolveMovementGate());
       // A refusal worked out on one network is asked again after a
       // network change or resume ([RegionFreshness]).
@@ -3351,6 +3392,22 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         throw copy.homeNavPredictionsWalletNotReadyYet;
       }
       final pm = ref.read(polymarketTradingProvider.notifier);
+      // The deposit wallet must be set up (deployed, its approvals in
+      // place) before a batch can leave it. Setup is shared and instant
+      // once done; one that cannot finish ends the move here, before a
+      // quote or a send, with the reason, instead of as a relayer refusal
+      // nobody can act on.
+      try {
+        await pm.enableTrading();
+      } on PolymarketReadException {
+        throw copy.predictionsUnreachableNothingSent;
+      } on PolymarketEvmFormatPendingException {
+        throw copy.homeNavPredictionsWalletNotReadyYet;
+      } catch (e) {
+        if (_isOfflineLike(e)) throw copy.predictionsUnreachableNothingSent;
+        throw copy.homeNavPredictionsWalletNotReadyYet;
+      }
+      _ensureMovementPinned();
       final BigInt microUsdc;
       if (drain) {
         microUsdc = await pm.spendableMicroUsdc();
@@ -3433,24 +3490,24 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           // Last check before the money is handed over; past here nothing
           // is checked that could stop a send already on its way.
           _ensureMovementPinned(grant.walletId);
-          usdcSent = true;
-          _movementFundingStarted = true;
-          try {
-            final txHash =
-                await ref.read(polymarketTradingProvider.notifier).withdrawUsdc(
-                      toAddress: verifiedQuote.depositAddress,
-                      amount: usd,
-                      bridged: true,
-                      exactMicroUsdc: verifiedQuote.amountIn,
-                      grant: grant,
-                    );
-            return SettlementFundingProof.relayer(txHash);
-          } on SettlementFundingNotStarted {
-            // The withdrawal said it never submitted.
-            usdcSent = false;
-            _movementFundingStarted = false;
-            rethrow;
-          }
+          final txHash =
+              await ref.read(polymarketTradingProvider.notifier).withdrawUsdc(
+                    toAddress: verifiedQuote.depositAddress,
+                    amount: usd,
+                    bridged: true,
+                    exactMicroUsdc: verifiedQuote.amountIn,
+                    grant: grant,
+                    // Told the instant the signed batch goes to the
+                    // relayer. A throw before that (a balance read that
+                    // failed, a grant that drifted) sent nothing, and the
+                    // withdrawal says so by refusing, so no flag is set
+                    // here ahead of the send.
+                    onSubmitting: () {
+                      usdcSent = true;
+                      _movementFundingStarted = true;
+                    },
+                  );
+          return SettlementFundingProof.relayer(txHash);
         },
         // The relayer withdrawal is on disk once this returns; the
         // deposit is registered behind the overlay.
@@ -3665,6 +3722,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         provider: 'orchestra',
         reason: _moveFailReason(e),
         stage: usdcSent ? 'post_send' : 'pre_send',
+        cause: e,
       );
       _trackMoveFailed(e);
       _endStoppedMove(e);
@@ -5482,12 +5540,14 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                 );
         sentUsd = result.sentUsd;
       }
-      // The direct route delivers USDC.e to the deposit wallet: the
-      // arrival watch converts it to pUSD the moment it lands, as for a
-      // deposit from Bitcoin or Dollars.
-      if (route == 'direct') {
-        ref.read(polymarketTradingProvider.notifier).wrapIncomingUsdcEToPusd();
-      }
+      // Both routes deliver USDC.e to the deposit wallet: the arrival
+      // watch converts it to pUSD the moment it lands, as for a deposit
+      // from Bitcoin or Dollars. CCTP takes longer than the watch's first
+      // window; the watch keeps going while the move's row is on its way,
+      // and the row's delivery (the status poll, or the wallet's own
+      // receive) converts it too. Before this only the direct route
+      // started the watch, so a CCTP arrival sat as raw USDC.e.
+      ref.read(polymarketTradingProvider.notifier).wrapIncomingUsdcEToPusd();
       // Handed to the runner (or the CCTP watcher); the reconciler reports
       // the outcome.
       TrackingService.hyperliquidWithdrawSubmitted(
@@ -5749,7 +5809,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     // review flagged this picker as silently untracked.
     TrackingService.buyCurrencyPickerOpened();
     final c = context.colors;
-    showModalBottomSheet(
+    showKuteModalSheet(
       context: context,
       backgroundColor: _untintedColors(context).surface,
       shape: RoundedRectangleBorder(
@@ -5868,6 +5928,26 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// is blocked in that state — the old behavior silently clamped to
   /// Max and converted the whole balance (user report: typed \$5,555
   /// with \$6 available and it drained the wallet).
+  /// What Move money's disabled button says: the amount step to take,
+  /// or the wait for the rate; null where the button's own label already
+  /// says it (coming soon, a changed wallet, Activity).
+  String? _moveNeedLabel(BuildContext context) {
+    final l10n = context.l10n;
+    if (_sourceCashApp) {
+      return _cashAppAmountValid ? null : l10n.barNeedAmount;
+    }
+    if (_isFiatMode || !_isSupportedSwap) return null;
+    if (_insufficientTyped) return l10n.barNeedLowerAmount;
+    if (_loadingRate) return l10n.barNeedWait;
+    final picked = _fromBtc ? _selectedSats > 0 : _selectedSourceUsd > 0;
+    final enough = _fromBtc
+        ? _selectedSats >= _kMinSats
+        : _selectedSourceUsd >= _kMinUsdc;
+    if (!picked) return l10n.barNeedAmount;
+    if (!enough) return l10n.barNeedRaiseAmount;
+    return null;
+  }
+
   bool get _insufficientTyped =>
       !_isFiatMode &&
       _isSupportedSwap &&
@@ -6722,18 +6802,28 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                     // landing, so keep checking until the session rules it out.
                     if (_cashAppSession.canOfferNewPurchase) ...[
                       SizedBox(height: 12.h),
-                      CustomButton(
-                        text: l10n.cashAppCreateNewPurchase,
-                        primaryColor: _kCashAppGreen,
-                        textColor: Colors.white,
-                        onPressed: _prepareNewCashAppPurchase,
-                      ),
-                      SizedBox(height: 8.h),
                       Text(
                         l10n.cashAppPreviousPurchaseTracked,
                         textAlign: TextAlign.center,
                         style:
                             TextStyle(color: c.textSecondary, fontSize: 12.sp),
+                      ),
+                      // THE BAR IS THE BUTTON (kute_bar_context.dart):
+                      // Create new purchase is the floating Sal bar's
+                      // primary action, in Cash App's green as the button
+                      // was; the note sits above it.
+                      KuteBarContextScope(
+                        barContext: KuteBarContext.primary(
+                          label: l10n.cashAppCreateNewPurchase,
+                          onPrimary: _prepareNewCashAppPurchase,
+                          style: const KuteBarPrimaryStyle(
+                            fill: _kCashAppGreen,
+                            foreground: Colors.white,
+                          ),
+                          source: 'cash_app_waiting',
+                          disabledLabel: null,
+                        ),
+                        child: SizedBox(height: kuteBarScrollClearance.h),
                       ),
                     ],
                   ],
@@ -7066,6 +7156,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   Future<void> _dispatchMovement() async {
     final route = _movementRoute!;
     if (kMoneyMovementDisabledRoutes.containsKey(route)) return;
+    if (!route.isOffered) return;
     _movementDispatchRoute = route;
     _movementRetried = _movementRetry;
     _movementRetry = false;
@@ -8160,6 +8251,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                                             _kMinUsdc;
                                       }())),
                   processing: _processing,
+                  // The step to take while the button is off (founder, 1
+                  // November 2026): an amount, less of it, or more.
+                  disabledLabel: _moveNeedLabel(context),
                   // Fiat mode keeps the familiar 'Continue' label in its
                   // permanently disabled state; the quiet line above the
                   // keypad explains why.
@@ -8244,11 +8338,20 @@ class _VenuePull {
   final bool queued;
 }
 
+/// The sheet's primary action. THE BAR IS THE BUTTON (founder, 31 October
+/// 2026; kute_bar_context.dart): the sheet draws no button of its own but
+/// declares the action (its label, enabled and busy states exactly as the
+/// drawn button had them) as the floating Sal bar's primary, and keeps
+/// the keypad clear of the bar. This scope mounts inside the route's
+/// "Move money" scope, so it is the one the bar reads.
 class _ConvertButton extends StatelessWidget {
   final bool enabled;
   final bool processing;
   final String label;
   final VoidCallback onTap;
+
+  /// What the disabled button says: the step to take ("Enter an amount").
+  final String? disabledLabel;
 
   const _ConvertButton({
     super.key,
@@ -8256,14 +8359,21 @@ class _ConvertButton extends StatelessWidget {
     required this.processing,
     required this.label,
     required this.onTap,
+    this.disabledLabel,
   });
 
   @override
   Widget build(BuildContext context) {
-    return AppButton(
-      text: label,
-      onPressed: enabled ? onTap : null,
-      isLoading: processing,
+    return KuteBarContextScope(
+      barContext: KuteBarContext.primary(
+        label: label,
+        onPrimary: onTap,
+        enabled: enabled && !processing,
+        busy: processing,
+        source: 'move_amount',
+        disabledLabel: disabledLabel,
+      ),
+      child: SizedBox(height: kuteBarScrollClearance.h),
     );
   }
 }
@@ -8876,20 +8986,40 @@ class MovePickerRow extends StatelessWidget {
   }) : assert((asset == null) != (icon == null),
             'A picker row wears one mark: an SVG asset or a glyph');
 
+  /// The row's mark at [size]: the brand SVG, or the glyph on its tile.
+  Widget _mark(AppColorsExtension c, double size) => icon != null
+      ? Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: c.textPrimary.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(size * 11 / 36),
+          ),
+          child: Icon(icon, color: c.textPrimary, size: size * 20 / 36),
+        )
+      : SvgPicture.asset(asset!, width: size, height: size);
+
+  /// The same choice as a big card (kute_action_cards.dart), for a picker
+  /// of four entries or fewer: the mark at 40, the title over the
+  /// subtitle, the badge at the top right while [disabled]. The row's key
+  /// rides on the card.
+  KuteActionCard toCard() => KuteActionCard(
+        key: key,
+        // Built under the card, so the mark reads the picker's untinted
+        // palette, never the tinted sheet that opened it.
+        visual: Builder(
+            builder: (context) =>
+                _mark(context.colors, kKuteActionCardVisualSize)),
+        title: title,
+        subtitle: subtitle,
+        badge: disabled ? disabledLabel : null,
+        onTap: disabled ? null : onTap,
+      );
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final mark = icon != null
-        ? Container(
-            width: 36.sp,
-            height: 36.sp,
-            decoration: BoxDecoration(
-              color: c.textPrimary.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(11.r),
-            ),
-            child: Icon(icon, color: c.textPrimary, size: 20.sp),
-          )
-        : SvgPicture.asset(asset!, width: 36.sp, height: 36.sp);
+    final mark = _mark(c, 36.sp);
     // Custom Row instead of ListTile to control the exact left
     // padding. ListTile applied an implicit `_minLeadingWidth`
     // gap that left a visible empty band between the screen edge
@@ -8956,6 +9086,26 @@ class MovePickerRow extends StatelessWidget {
   }
 }
 
+/// A picker's entries: four or fewer choices as the big cards
+/// (founder, 1 November 2026: "instead of a list, big squares"), inset by
+/// the sheet's 20; a longer list keeps its rows.
+List<Widget> _movePickerBody(List<Widget> rows) {
+  if (rows.isEmpty ||
+      rows.length > 4 ||
+      rows.any((r) => r is! MovePickerRow)) {
+    return rows;
+  }
+  return [
+    Padding(
+      padding: EdgeInsets.symmetric(horizontal: 20.w),
+      child: KuteActionCardGrid(
+        key: const ValueKey('move-picker-cards'),
+        cards: [for (final r in rows.cast<MovePickerRow>()) r.toCard()],
+      ),
+    ),
+  ];
+}
+
 /// The chrome every picker in this sheet wears: the untinted surface,
 /// the handle, a [title] with its [hint], then [rows]. Shared so a
 /// picker with two entries reads exactly like the one with ten.
@@ -8967,7 +9117,7 @@ Future<T?> _showMovePickerSheet<T>(
           BuildContext sheetCtx, RuntimeCapabilitiesService policy)
       rows,
 }) {
-  return showModalBottomSheet<T>(
+  return showKuteModalSheet<T>(
     context: context,
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
@@ -9035,7 +9185,7 @@ Future<T?> _showMovePickerSheet<T>(
                   ),
                 ),
                 SizedBox(height: 16.h),
-                ...rows(sheetCtx, policy),
+                ..._movePickerBody(rows(sheetCtx, policy)),
                 SizedBox(height: 8.h),
               ],
             ),

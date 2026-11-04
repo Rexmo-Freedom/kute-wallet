@@ -20,9 +20,9 @@ import 'package:kute/providers/usd_account_provider.dart';
 import 'package:kute/providers/viewed_wallet_provider.dart';
 import 'package:kute/screens/analytics/components/balance_history_chart.dart';
 import 'package:kute/screens/analytics/components/home_analytics_widget.dart';
-import 'package:kute/screens/shared/charts/kute_chart_crosshair.dart';
-import 'package:kute/screens/shared/charts/kute_chart_range_pills.dart';
 import 'package:kute/screens/shared/charts/kute_line_chart.dart';
+import 'package:kute/screens/shared/charts/kute_trend_chart.dart';
+import 'package:kute/screens/shared/charts/kute_trend_window.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/screens/usd/components/usd_balance_chart.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -249,19 +249,30 @@ void main() {
         .textSpan!
         .toPlainText();
 
-    KuteLineChart chartOf(WidgetTester tester) =>
-        tester.widget<KuteLineChart>(find.byType(KuteLineChart));
+    String headline(WidgetTester tester) => tester
+        .widget<RollingNumberText>(
+            find.byKey(const ValueKey('balance-chart-headline')))
+        .text;
+
+    KuteTrendChart chartOf(WidgetTester tester) =>
+        tester.widget<KuteTrendChart>(find.byType(KuteTrendChart));
+
+    Finder plot() => find.byKey(const ValueKey('trend-chart-plot'));
+
+    /// A long press, then a slide: the scrub.
+    Future<TestGesture> scrub(WidgetTester tester, Offset at) async {
+      final touch = await tester.startGesture(at);
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump(const Duration(milliseconds: 150));
+      return touch;
+    }
 
     /// A bare Balance chart over [history], in dollars, ending [now].
-    Widget bare(BalanceHistory history) => SizedBox(
-          height: 360,
-          child: BalanceHistoryChart(
-            history: history,
-            format: (v) => '\$${v.toStringAsFixed(2)}',
-            emptyMessage: 'Nothing held yet',
-            trackingChart: 'valuation',
-            now: now,
-          ),
+    Widget bare(BalanceHistory history) => BalanceHistoryChart(
+          history: history,
+          format: (v) => '\$${v.toStringAsFixed(2)}',
+          trackingChart: 'valuation',
+          now: now,
         );
 
     /// 100 for months, 150 since three days ago.
@@ -292,47 +303,48 @@ void main() {
       ];
     }
 
-    testWidgets('Dollars: the range row (1M), no scale, the neutral line, '
-        'a dotted baseline, the change from zero without a percent',
-        (tester) async {
+    testWidgets(
+        'Dollars: the headline, the range row (1M) under the plot, the '
+        'change from zero without a percent', (tester) async {
       await pump(tester, const UsdBalanceChart(), dollars());
-      expect(find.byType(KuteRangePills), findsOneWidget);
+      expect(find.byType(KuteChartRangeRow), findsOneWidget);
       for (final r in ['1W', '1M', '3M', '1Y', 'ALL']) {
         expect(find.text(r), findsOneWidget, reason: r);
       }
-      final pills = tester.widget<KuteRangePills>(find.byType(KuteRangePills));
-      expect(pills.selectedIndex, BalanceRange.month.index);
       final chart = chartOf(tester);
-      expect(chart.showScale, isFalse);
-      expect(chart.scaleLabel, isNull);
-      expect(chart.stepped, isFalse);
-      expect(chart.startBaseline, isTrue);
-      expect(chart.buckets, isNotNull);
-      // Neither green nor red: the app's neutral chart colour.
-      expect(chart.lineColor, AppColorsExtension.light().accent);
+      expect(chart.selectedRange, BalanceRange.month.index);
       expect(chart.values.last, 5.02);
-      expect(header(tester), r'+$5.02 past month');
+      // Up over the month: the result colour.
+      expect(kuteTrendResultColor(AppColorsExtension.light(),
+          chart.values.first, chart.values.last), AppColors.marketUp);
+      expect(headline(tester), r'$5.02');
+      expect(header(tester), '▲ \$5.02 · Past month');
       expect(find.textContaining('%'), findsNothing);
+      // The range row 16 px under the plot.
+      expect(tester.getTopLeft(find.byType(KuteChartRangeRow)).dy,
+          closeTo(tester.getBottomLeft(plot()).dy + 16 * 393 / 430, 1));
       await settle(tester);
     });
 
-    testWidgets('a range tapped sets the window and the change line',
+    testWidgets('a range tapped sets the points drawn and the change line',
         (tester) async {
       final s = balanceSeries(rising, now);
       await pump(tester, bare(rising), plain());
-      expect(chartOf(tester).defaultSpan, s.spanFor(BalanceRange.month));
-      expect(header(tester), r'+$50.00 past month (+50.0%)');
+      expect(chartOf(tester).values,
+          kuteTrendWindow(s, s.spanFor(BalanceRange.month)).values);
+      expect(header(tester), '▲ \$50.00 (+50.0%) · Past month');
 
       await tester.tap(find.text('1W'));
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(chartOf(tester).defaultSpan, s.spanFor(BalanceRange.week));
-      expect(header(tester), r'+$50.00 past week (+50.0%)');
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(chartOf(tester).values,
+          kuteTrendWindow(s, s.spanFor(BalanceRange.week)).values);
+      expect(header(tester), '▲ \$50.00 (+50.0%) · Past week');
 
       await tester.tap(find.text('ALL'));
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(chartOf(tester).defaultSpan, s.extent);
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(chartOf(tester).values.first, 0);
       // From the lead-in's nothing: no percent.
-      expect(header(tester), r'+$150.00 all time');
+      expect(header(tester), '▲ \$150.00 · All time');
       await settle(tester);
     });
 
@@ -349,15 +361,14 @@ void main() {
           container: container,
           child: app(KeyedSubtree(key: key, child: bare(rising))),
         ));
-        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pump(const Duration(milliseconds: 700));
       }
 
       await show(const ValueKey('a'));
       await tester.tap(find.text('3M'));
-      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 400));
       await show(const ValueKey('b'));
-      final pills = tester.widget<KuteRangePills>(find.byType(KuteRangePills));
-      expect(pills.selectedIndex, BalanceRange.threeMonths.index);
+      expect(chartOf(tester).selectedRange, BalanceRange.threeMonths.index);
       // The Dollars chart keeps its own choice.
       expect(container.read(balanceChartRangeProvider('dollars')),
           BalanceRange.month);
@@ -374,69 +385,60 @@ void main() {
             current: end,
           );
       await pump(tester, bare(to(200, 150)), plain());
-      expect(header(tester), '−\$50.00 past month (−25.0%)');
+      expect(header(tester), '▼ \$50.00 (−25.0%) · Past month');
+      expect(chartOf(tester).lineColor, isNull);
       await pump(tester, bare(to(100, 0)), plain());
       // An account emptied: the amount, never "-100.0%".
-      expect(header(tester), '−\$100.00 past month');
+      expect(header(tester), '▼ \$100.00 · Past month');
       expect(find.textContaining('100.0%'), findsNothing);
       await pump(tester, bare(to(100, 100)), plain());
-      expect(header(tester), 'No change in the past month');
+      expect(header(tester), 'No change · Past month');
       await settle(tester);
     });
 
-    testWidgets('a scrub writes the balance and its moment in the header, '
-        'with no card', (tester) async {
+    testWidgets(
+        'a scrub writes the balance under the finger in the headline and '
+        'its change and moment in the change line; release puts now back',
+        (tester) async {
       await pump(tester, bare(rising), plain());
-      final rect = tester.getRect(find.byType(KuteLineChart));
-      final touch =
-          await tester.startGesture(rect.centerRight.translate(-4, 0));
-      await tester.pump(const Duration(milliseconds: 600));
-      await tester.pump(const Duration(milliseconds: 150));
-      expect(header(tester), startsWith(r'$150.00 · '));
-      expect(find.byType(KuteScrubCard), findsNothing);
+      final rect = tester.getRect(plot());
+      final touch = await scrub(tester, rect.centerRight.translate(-8, 0));
+      expect(headline(tester), r'$150.00');
+      expect(header(tester), startsWith('▲ \$50.00 (+50.0%) · '));
       // Back to the left: the older balance and its own day.
-      await touch.moveTo(rect.centerLeft.translate(40, 0));
+      await touch.moveTo(rect.centerLeft.translate(2, 0));
       await tester.pump(const Duration(milliseconds: 150));
-      expect(header(tester), startsWith(r'$100.00 · Sep '));
+      expect(headline(tester), r'$100.00');
+      expect(header(tester), startsWith('No change · Sep '));
       await touch.up();
       await tester.pump(const Duration(milliseconds: 150));
-      expect(header(tester), r'+$50.00 past month (+50.0%)');
+      expect(headline(tester), r'$150.00');
+      expect(header(tester), '▲ \$50.00 (+50.0%) · Past month');
       await settle(tester);
     });
 
-    testWidgets('the dotted baseline sits at the first value on screen',
-        (tester) async {
-      await pump(tester, bare(rising), plain());
-      final painters = [
-        for (final cp in tester.widgetList<CustomPaint>(find.descendant(
-            of: find.byType(KuteLineChart),
-            matching: find.byType(CustomPaint))))
-          if (cp.painter.runtimeType.toString() == '_KuteLinePainter')
-            cp.painter
-      ];
-      expect(painters, hasLength(1));
-      final painter = painters.single as dynamic;
-      expect(painter.baseline, 100);
-      // No scale, so no gridlines.
-      expect(painter.showScale, isFalse);
-      await settle(tester);
-    });
-
-    testWidgets('nothing held in the range: a flat line and one sentence',
-        (tester) async {
+    testWidgets(
+        'no history: the headline and one quiet caption, no chart, no '
+        'range row', (tester) async {
       const history = BalanceHistory(opening: 0, changes: [], current: 0);
       await pump(tester, bare(history), plain());
-      expect(find.text('Nothing held yet'), findsOneWidget);
-      expect(chartOf(tester).showFill, isFalse);
-      expect(header(tester).trim(), isEmpty);
-      expect(find.textContaining(r'$0'), findsNothing);
+      final caption = tester
+          .widget<Text>(find.byKey(const ValueKey('balance-chart-empty')));
+      expect(caption.data,
+          'Your balance history starts with your first transaction.');
+      expect(caption.style!.color, AppColorsExtension.light().textSecondary);
+      expect(headline(tester), r'$0.00');
+      expect(plot(), findsNothing);
+      expect(find.byType(KuteChartRangeRow), findsNothing);
+      expect(find.byKey(const ValueKey('balance-chart-header')), findsNothing);
       await settle(tester);
     });
 
     testWidgets('balances hidden: dots for every figure, no percent',
         (tester) async {
       await pump(tester, bare(rising), plain(privacy: 1));
-      expect(header(tester), '•••••• past month');
+      expect(headline(tester), '••••••');
+      expect(header(tester), '•••••• · Past month');
       expect(find.textContaining(r'$'), findsNothing);
       await settle(tester);
     });
@@ -475,23 +477,29 @@ void main() {
       ];
     }
 
-    testWidgets('Bitcoin home: ₿ amounts, its own range row; Price keeps '
-        'its row and LIVE', (tester) async {
+    testWidgets(
+        'Bitcoin home: the ₿ headline with its worth under it, its own '
+        'range row, a scrub reads the line; Price keeps its row and LIVE',
+        (tester) async {
       await pump(tester, const HomeAnalyticsWidget(surface: 'home'), bitcoin());
       // Balance is the landing tab here (no activity list passed).
       expect(find.text('LIVE'), findsNothing);
-      expect(find.byType(KuteRangePills), findsOneWidget);
-      expect(header(tester), '+₿17,520 past month');
-      final chart = chartOf(tester);
-      expect(chart.showScale, isFalse);
-      expect(chart.values.last, 17520);
-      expect(find.byType(RollingNumberText), findsNothing);
-      final rect = tester.getRect(find.byType(KuteLineChart));
-      final touch =
-          await tester.startGesture(rect.centerRight.translate(-4, 0));
-      await tester.pump(const Duration(milliseconds: 600));
-      await tester.pump(const Duration(milliseconds: 150));
-      expect(header(tester), startsWith('₿17,520 · '));
+      expect(find.byType(KuteChartRangeRow), findsOneWidget);
+      expect(headline(tester), '₿17,520');
+      expect(
+          tester
+              .widget<RollingNumberText>(
+                  find.byKey(const ValueKey('balance-chart-secondary')))
+              .text,
+          // 17,520 sats at $70,000.
+          r'$12.26');
+      expect(header(tester), '▲ ₿17,520 · Past month');
+      expect(chartOf(tester).values.last, 17520);
+      final rect = tester.getRect(plot());
+      final touch = await scrub(tester, rect.centerRight.translate(-8, 0));
+      expect(headline(tester), '₿17,520');
+      expect(header(tester), startsWith('▲ ₿17,520 · '));
+      expect(header(tester), isNot(contains('Past month')));
       await touch.up();
       for (var i = 0; i < 10; i++) {
         await tester.pump(const Duration(milliseconds: 100));
@@ -506,18 +514,20 @@ void main() {
       await settle(tester);
     });
 
-    testWidgets('Bitcoin home with nothing held: the bitcoin sentence',
+    testWidgets('Bitcoin home with nothing held: the caption, no chart',
         (tester) async {
       await pump(tester, const HomeAnalyticsWidget(surface: 'home'),
           bitcoin(current: 0));
       expect(
-          find.text('Your balance over time shows here once you hold bitcoin'),
+          find.text(
+              'Your balance history starts with your first transaction.'),
           findsOneWidget);
-      expect(find.textContaining('sats'), findsNothing);
+      expect(plot(), findsNothing);
+      expect(find.byType(KuteChartRangeRow), findsNothing);
       await settle(tester);
     });
 
-    testWidgets('Dollars with nothing held: the dollars sentence',
+    testWidgets('Dollars with nothing held: the caption, no chart',
         (tester) async {
       await pump(tester, const UsdBalanceChart(), [
         ...plain(),
@@ -526,8 +536,10 @@ void main() {
             const BalanceHistory(opening: 0, changes: [], current: 0)),
       ]);
       expect(
-          find.text('Your balance over time shows here once you hold dollars'),
+          find.text(
+              'Your balance history starts with your first transaction.'),
           findsOneWidget);
+      expect(plot(), findsNothing);
       await settle(tester);
     });
 
@@ -538,14 +550,11 @@ void main() {
           const HomeAnalyticsWidget(
               surface: 'wallet_detail', showBalanceHeadline: false),
           bitcoin());
-      expect(find.byType(KuteLineChart), findsOneWidget);
-      expect(find.byType(RollingNumberText), findsNothing);
-      final rect = tester.getRect(find.byType(KuteLineChart));
-      final touch =
-          await tester.startGesture(rect.centerRight.translate(-4, 0));
-      await tester.pump(const Duration(milliseconds: 600));
-      await tester.pump(const Duration(milliseconds: 150));
-      expect(header(tester), startsWith('₿17,520 · '));
+      expect(find.byType(KuteTrendChart), findsOneWidget);
+      final rect = tester.getRect(plot());
+      final touch = await scrub(tester, rect.centerRight.translate(-8, 0));
+      expect(headline(tester), '₿17,520');
+      expect(header(tester), startsWith('▲ ₿17,520 · '));
       await touch.up();
       await settle(tester);
     });

@@ -67,7 +67,10 @@ import 'package:kute/services/one_balance/funding_fees.dart'
     show bitcoinSpreadFrom;
 import 'package:kute/services/one_balance/hyperliquid_venue_funder.dart'
     show hyperliquidVenueFunderProvider;
+import 'package:kute/services/one_balance/money_movement_route.dart'
+    show MoneyMovementAccount;
 import 'package:kute/services/one_balance/money_steps.dart';
+import 'package:kute/services/one_balance/move_settled_refresh.dart';
 import 'package:kute/services/one_balance/investments_spendable.dart'
     show VenueCashSnapshot, venueCashSnapshotProvider;
 import 'package:kute/services/one_balance/venue_readiness.dart'
@@ -432,6 +435,15 @@ void announceLegEnded(T Function<T>(ProviderListenable<T> provider) read,
       read(pendingHlOrderAutoFireProvider).creditLanded();
     } catch (_) {}
   }
+  if (into != null) {
+    // The leg landed on the venue: its figure reads again now.
+    MoveSettledRefresh.settled({
+      switch (into) {
+        OneBalanceVenue.investing => MoneyMovementAccount.investing,
+        OneBalanceVenue.predictions => MoneyMovementAccount.predictions,
+      },
+    }, source: 'funded_leg');
+  }
 }
 
 /// The wallet's own deposit on [venue], as the venue's own Dollars move
@@ -602,6 +614,7 @@ class BitcoinFundedOrderRequest {
     this.otherVenueUsed = false,
     this.bindAttempt,
     this.isCurrentAttempt,
+    this.orderInFlight,
   });
 
   final OneBalanceVenue venue;
@@ -643,6 +656,11 @@ class BitcoinFundedOrderRequest {
   /// any funding starts. False means that attempt was replaced meanwhile.
   final bool Function(String runId)? bindAttempt;
   final bool Function()? isCurrentAttempt;
+
+  /// Whether the venue's queued order is already being placed (or was):
+  /// a leg failing then no longer ends the run, the order's own answer
+  /// does. Null reads the venue's queued order (Investing's autofire).
+  final bool Function()? orderInFlight;
 }
 
 /// A run the slip follows: its record and its end.
@@ -1968,6 +1986,20 @@ class _FundedChain {
       String? message}) {
     final already = _end;
     if (already != null) return already;
+    // The order already went to the venue (it fires the moment the venue
+    // can take it, whatever leg is still landing): a leg that fails now
+    // (its quote expired, it was refunded, its watch ran out) does not
+    // end the run. Stopping here used to drop the order and revoke its
+    // approval mid-placement: the slip said "This price expired" or "Your
+    // queued order expired" for an order that then landed. The leg's own
+    // line keeps its failure; the order's answer ends the run ([_go]).
+    if (_orderInFlight()) {
+      _legFailedInFlight = reason;
+      // What waits on the failed leg ends with it; the order goes on.
+      if (!_covered.isCompleted) _covered.complete(false);
+      if (!_viaLanded.isCompleted) _viaLanded.complete(false);
+      return end;
+    }
     _end = end;
     orders.stop(id,
         stage: stage, reason: reason, moneyAt: moneyAt, message: message);
@@ -1980,6 +2012,25 @@ class _FundedChain {
     if (!_viaLanded.isCompleted) _viaLanded.complete(false);
     if (!_ended.isCompleted) _ended.complete(end);
     return end;
+  }
+
+  /// The reason of a leg that failed while the order was in flight
+  /// ([_stop]), for the run's analytics.
+  String? _legFailedInFlight;
+
+  /// Whether the venue's queued order is being placed or was placed.
+  bool _orderInFlight() {
+    try {
+      final own = r.orderInFlight;
+      if (own != null) return own();
+      if (venue != OneBalanceVenue.investing) return false;
+      final queued = _ref.read(pendingHyperliquidOrderProvider);
+      return queued != null &&
+          (queued.status == PendingHlOrderStatus.placing ||
+              queued.status == PendingHlOrderStatus.done);
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<BitcoinFundedEnd> _go() async {
@@ -2086,7 +2137,20 @@ class _FundedChain {
     settled ??= steps.graph;
     final stopped = _end;
     if (stopped != null) return stopped;
-    if (settled.byId(FundedStepId.place)?.status == MoneyStepStatus.done) {
+    var placed =
+        settled.byId(FundedStepId.place)?.status == MoneyStepStatus.done;
+    // A leg failed while the order was in flight: its answer decides,
+    // never the leg ([_stop]).
+    if (!placed && (_legFailedInFlight != null || _orderInFlight())) {
+      placed = await _placement;
+      final late = _end;
+      if (late != null) return late;
+    }
+    if (placed) {
+      if (_legFailedInFlight case final leg?) {
+        TrackingService.track('order_funding_leg_failed_order_placed',
+            params: {'venue': venue.name, 'leg_reason': leg});
+      }
       orders.setStage(id, FundedOrderStage.done);
       return BitcoinFundedEnd.placed;
     }

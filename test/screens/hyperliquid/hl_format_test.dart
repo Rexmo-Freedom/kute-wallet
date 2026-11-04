@@ -43,6 +43,27 @@ void main() {
     expect(hlPriceDecimals(999.99), 2);
   });
 
+  test('the list price: four figures, two decimals at least, the cap held',
+      () {
+    expect(formatHlListPrice(47.912), r'$47.91');
+    expect(formatHlListPrice(4128.4), r'$4,128.40');
+    expect(formatHlListPrice(110234), r'$110,234.00');
+    expect(formatHlListPrice(12.345), r'$12.35');
+    expect(formatHlListPrice(2.6312), r'$2.631');
+    expect(formatHlListPrice(1.7493), r'$1.749');
+    expect(formatHlListPrice(0.2051), r'$0.2051');
+    expect(formatHlListPrice(0.37621), r'$0.3762');
+    expect(formatHlListPrice(0.012345, decimalCap: 6), r'$0.01235');
+    expect(formatHlListPrice(0.012345, decimalCap: 3), r'$0.012');
+    expect(formatHlListPrice(12.3), r'$12.30');
+    expect(formatHlListPrice(2.6), r'$2.60');
+    expect(formatHlListPrice(1000), r'$1,000.00');
+    expect(formatHlListPrice(0), '—');
+    expect(formatHlListPrice(double.nan), '—');
+    // The charts keep the venue's tick.
+    expect(formatHlPrice(4128.4), r'$4,128.4');
+  });
+
   test('nothing to show', () {
     expect(formatHlPrice(0), '—');
     expect(formatHlPrice(-1), '—');

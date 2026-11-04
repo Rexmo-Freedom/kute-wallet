@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
 import 'package:kute/services/polymarket_backend_service.dart';
 import 'package:kute/screens/shared/kute_blur.dart';
@@ -31,6 +32,7 @@ import 'package:kute/screens/shared/market_groups.dart';
 import 'package:kute/screens/polymarket/components/poly_category_icons.dart';
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/screens/polymarket/components/poly_feed_utils.dart';
+import 'package:kute/screens/polymarket/components/top_markets_strip.dart';
 import 'package:kute/screens/polymarket/group_landing_screen.dart';
 import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart';
 import 'package:kute/screens/polymarket/components/price_format.dart';
@@ -540,10 +542,16 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     final isLiveList = pill == PolyPill.live ||
         (pill == PolyPill.sports && selection.sub == 'live');
 
+    // The default view (Trending at its default list) is a curated slice:
+    // the strip and [kPolyTrendingListRows] markets, nothing after them
+    // and no further pages (the floating bar searches everything). Any
+    // other category is listed in full.
+    final curated =
+        pill == PolyPill.trending && selection.sub == pill.defaultSub;
     final feed = canBrowse && !fiveMinOnly
         ? ref.watch(polyBrowseFeedProvider(query))
         : const PolyFeedState(done: true);
-    _feedQuery = canBrowse && !fiveMinOnly ? query : null;
+    _feedQuery = canBrowse && !fiveMinOnly && !curated ? query : null;
     // Once the list on screen lands, the lists next to it are read too
     // (one at a time), so opening one of them paints at once.
     if (canBrowse && !fiveMinOnly) {
@@ -630,6 +638,9 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
                       // under the balance. A category with subcategories
                       // drills in: the row becomes "‹ Category" and its
                       // subcategories. Both filter the list below in place.
+                      // Inside Investments the page's own pill carries
+                      // the category (investments_category_sheet.dart).
+                      if (!embedded)
                       SliverToBoxAdapter(
                         child: Padding(
                           padding: EdgeInsets.only(top: 4.h),
@@ -683,6 +694,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
                               query: query,
                               isLiveList: isLiveList,
                               liveLeague: liveLeague,
+                              curated: curated,
                             ),
                         ],
                       ),
@@ -829,6 +841,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
             child: CryptoPredictBanner(
               config: kCryptoPredictAssets.first,
               showLiveIndicator: true,
+              compact: true,
               onDeposit: () {
                 _openPredictionsDeposit(context, ref);
               },
@@ -845,6 +858,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     required PolyFeedQuery query,
     required bool isLiveList,
     String? liveLeague,
+    bool curated = false,
   }) {
     if (feed.events.isEmpty) {
       if (feed.loading) {
@@ -882,12 +896,36 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
       final open = feed.events.where((e) => !e.ended).toList(growable: false);
       final events = collapseByGameId(open);
       final siblings = siblingsByGameId(open);
+      // The markets with the most volume in the day as big cards in a
+      // side-scrolling strip, first in the feed, on the default view only
+      // (founder, 1 November 2026): a category or subcategory the person
+      // picks is the full plain list, nothing excluded from it.
+      var top = curated ? polyTopMarkets(open) : const <PolymarketEvent>[];
+      // A market on the strip is not repeated in the list under it
+      // (founder, 1 November 2026); and the strip never empties the
+      // list: with fewer than [kPolyTopMarketsListKeeps] left, no strip.
+      final topIds = {for (final e in top) e.id};
+      var listed = topIds.isEmpty
+          ? events
+          : events.where((e) => !topIds.contains(e.id)).toList(growable: false);
+      if (top.isNotEmpty && listed.length < kPolyTopMarketsListKeeps) {
+        top = const <PolymarketEvent>[];
+        listed = events;
+      }
+      listed = polyBrowseRowsShown(curated, listed);
       // Plain Yes/No markets share one grouped card like Home's
       // Activity; an event with many outcomes or a game keeps its own
       // card and breaks the group (founder, October 2026).
       body = [
+        // No title over the strip (founder, 1 November 2026): the big
+        // cards simply open the feed.
+        if (top.isNotEmpty) ...[
+          SliverToBoxAdapter(child: SizedBox(height: 8.h)),
+          SliverToBoxAdapter(child: _topMarketsStrip(top)),
+          SliverToBoxAdapter(child: SizedBox(height: 8.h)),
+        ],
         SliverToBoxAdapter(child: SizedBox(height: 8.h)),
-        ..._groupedSlivers(events, (market) => (
+        ..._groupedSlivers(listed, (market) => (
               isSportsCategory: market.category == 'sports',
               siblings: market.gameId != null
                   ? (siblings[market.gameId!] ?? const <PolymarketEvent>[])
@@ -898,7 +936,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     }
     return [
       ...body,
-      if (feed.loadingMore)
+      if (feed.loadingMore && !curated)
         SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.symmetric(vertical: 16.h),
@@ -912,6 +950,25 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
         ),
     ];
   }
+
+  /// The Top markets strip: a card opens the market page as a list card
+  /// does, marked as from the strip.
+  Widget _topMarketsStrip(List<PolymarketEvent> top) => PolyTopMarketsStrip(
+        markets: top,
+        // The chart's history starts reading as the finger comes down.
+        onOpenDown: MarketDetailSheet.prefetch,
+        onOpen: (market) {
+          HapticFeedback.mediumImpact();
+          MarketDetailSheet.show(
+            context,
+            event: market,
+            onDeposit: () async {
+              if (context.mounted) _openPredictionsDeposit(context, ref);
+            },
+            source: 'top_markets',
+          );
+        },
+      );
 
   /// The games in play by league, the league with the most games first.
   /// Games of a league Polymarket's league list does not name share one
@@ -977,6 +1034,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
         items: events,
         groups: (e) => polyCardGroups(e.title, e.outcomes),
         dividerIndent: polyGroupRowIndent(),
+        divider: polyGroupRowDivider,
         build: (market, inGroup) {
           final row = rowOf(market);
           return _PolyFeedCard(
@@ -1119,7 +1177,7 @@ class _PolyFeedCard extends ConsumerWidget {
                           'category': market.category.toLowerCase(),
                       });
                   Navigator.of(context, rootNavigator: true).push(
-                    MaterialPageRoute(
+                    KutePageRoute(
                       builder: (_) => GroupLandingScreen.events(
                         title: market.title,
                         events: matchSiblings,
@@ -1144,6 +1202,17 @@ class _PolyFeedCard extends ConsumerWidget {
               source: 'feed_card',
             );
           },
+          // A Yes / No pill opens the slip straight on that side, the
+          // way the market page's own pair does.
+          onPickSide: (side) => polyCardOpenSlip(
+            context,
+            event: market,
+            side: side,
+            onDeposit: () async {
+              if (context.mounted) _openPredictionsDeposit(context, ref);
+            },
+            source: 'feed_card',
+          ),
         ),
       ),
     );
@@ -1177,7 +1246,10 @@ class _CryptoCardOnScreenState extends ConsumerState<_CryptoCardOnScreen> {
   void _count(bool on) {
     if (on == _counted) return;
     _counted = on;
-    Future.microtask(() => _cards.state += on ? 1 : -1);
+    // The whole scope may be gone by then (the app torn down).
+    Future.microtask(() {
+      if (_cards.mounted) _cards.state += on ? 1 : -1;
+    });
   }
 
   @override
@@ -1212,6 +1284,15 @@ class CryptoPredictBanner extends ConsumerWidget {
   /// by default to keep the banner cleaner.
   final bool showLiveIndicator;
 
+  /// The Predictions browse's card (founder, 1 November 2026: the full
+  /// card stood ~600 px tall over the list): about 180 px, the same data
+  /// and actions in one header row (logo, title, past rounds as dots, the
+  /// countdown pill), one price row (live price, its move against the
+  /// target, the target), a 40 px sparkline with the dashed target line,
+  /// and the Up / Down pills with their odds ([_CompactCryptoCard]). The
+  /// market page keeps the full card.
+  final bool compact;
+
   const CryptoPredictBanner({
     super.key,
     required this.config,
@@ -1219,6 +1300,7 @@ class CryptoPredictBanner extends ConsumerWidget {
     this.ledgerWalletId,
     this.targetWindowEpoch,
     this.showLiveIndicator = false,
+    this.compact = false,
   });
 
   List<PolymarketOutcome> _eventOutcomes(Btc5MinEvent? event) {
@@ -1412,6 +1494,61 @@ class CryptoPredictBanner extends ConsumerWidget {
     // slug-derived window start + 5 min when Gamma omitted endDate.
     final DateTime? marketEndAt = event?.endDate ??
         event?.windowStartTime?.add(Duration(minutes: minutes));
+
+    // One slip door for both layouts.
+    void openSide(String side) {
+      final outcomes = _eventOutcomes(event);
+      final idx = outcomes.indexWhere((o) => o.name.toLowerCase() == side);
+      BetSlipSheet.show(context,
+          marketQuestion: event?.title ??
+              context.l10n.predictUpOrDown(config.asset, minutes),
+          marketSlug: event?.slug,
+          marketImage: event?.image,
+          outcomes: outcomes,
+          initialOutcomeIndex: idx >= 0 ? idx : 0,
+          // Required for the 5-minute USDC-only funding gate
+          // (isShortMarket): without it the slip offers a BTC swap
+          // that can't land before the window resolves.
+          marketEndAt: marketEndAt,
+          marketCategory: 'crypto',
+          onDeposit: onDeposit,
+          ledgerWalletId: ledgerWalletId,
+          source: 'crypto_banner');
+    }
+
+    if (compact) {
+      return _CryptoCardOnScreen(
+          child: LiveTokenScope(
+        tokens: [
+          if (upTokenId != null && upTokenId.isNotEmpty) upTokenId,
+          if (downTokenId != null && downTokenId.isNotEmpty) downTokenId,
+        ],
+        child: CryptoOddsScope(
+          token: upTokenId,
+          child: _CompactCryptoCard(
+            config: config,
+            title: context.l10n
+                .predictUpOrDownCompact(config.asset, minutes),
+            countdown: countdown,
+            pastResults: pastResults,
+            loading: isInitialLoading,
+            priceText: priceStr,
+            diffText: diffToBeat == null
+                ? null
+                : '${diffToBeat >= 0 ? '▲' : '▼'} '
+                    '${_formatDiff(diffToBeat.abs())}',
+            diffUp: (diffToBeat ?? 0) >= 0,
+            targetText: context.l10n.predictTargetPrice(priceToBeatStr),
+            history: predictState?.priceHistory,
+            priceToBeat: priceToBeat,
+            roundStart: event?.windowStartTime,
+            upFrac: livePctUpClamped,
+            onUp: () => openSide('up'),
+            onDown: () => openSide('down'),
+          ),
+        ),
+      ));
+    }
 
     // Counts this banner as on screen while its tickers run, so the
     // shared Chainlink feed also streams when it is shown outside the
@@ -1755,6 +1892,399 @@ class CryptoPredictBanner extends ConsumerWidget {
         ),
       ),
     )));
+  }
+}
+
+/// The compact crypto round card ([CryptoPredictBanner.compact]): about
+/// 200 px for the same data and actions as the full card, the live
+/// sparkline against the target included, and Up / Down as solid buttons
+/// in the market page's Yes / No colours (founder, 2 November 2026).
+class _CompactCryptoCard extends StatelessWidget {
+  const _CompactCryptoCard({
+    required this.config,
+    required this.title,
+    required this.countdown,
+    required this.pastResults,
+    required this.loading,
+    required this.priceText,
+    required this.diffText,
+    required this.diffUp,
+    required this.targetText,
+    required this.history,
+    required this.priceToBeat,
+    required this.roundStart,
+    required this.upFrac,
+    required this.onUp,
+    required this.onDown,
+  });
+
+  final CryptoAssetConfig config;
+  final String title;
+  final String countdown;
+  final List<CryptoWindowResult> pastResults;
+  final bool loading;
+  final String priceText;
+  final String? diffText;
+  final bool diffUp;
+  final String targetText;
+  final List<BtcPriceSnapshot>? history;
+  final double? priceToBeat;
+  final DateTime? roundStart;
+  final double upFrac;
+  final VoidCallback onUp;
+  final VoidCallback onDown;
+
+  /// The sparkline's plot height; the chart's own bottom margin (18 px,
+  /// time labels off) is clipped away beneath it.
+  static const double _sparkHeight = 54;
+
+  /// The header's logo.
+  static const double _logo = 32;
+
+  /// The Up / Down pills' height.
+  static const double pillHeight = 44;
+
+  /// The price row's height: the live price as [RollingNumberText] draws
+  /// it (every digit a cell of the font's full ascent and descent, its
+  /// line height ignored), measured in the face and at the text size it
+  /// paints in, so the figures fill the line exactly and are never scaled
+  /// to fit it.
+  static double _priceLine(BuildContext context, TextStyle style) =>
+      (TextPainter(
+        text: TextSpan(
+            text: '0', style: DefaultTextStyle.of(context).style.merge(style)),
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+        textHeightBehavior: const TextHeightBehavior(
+          applyHeightToFirstAscent: false,
+          applyHeightToLastDescent: false,
+        ),
+      )..layout())
+          .height;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final logo = config.isSvg
+        ? SvgPicture.asset(config.logoPath,
+            width: _logo.sp, height: _logo.sp, fit: BoxFit.contain)
+        : Container(
+            width: _logo.sp,
+            height: _logo.sp,
+            decoration: BoxDecoration(
+              color: config.brandColor,
+              borderRadius: BorderRadius.circular(8.r),
+            ),
+            alignment: Alignment.center,
+            child: Image.asset(config.logoPath, width: 22.sp, height: 22.sp),
+          );
+    final pair = formatPolyChancePair(upFrac);
+    final seeded = (history?.length ?? 0) >= 2;
+    final priceStyle = TextStyle(
+      color: c.textPrimary,
+      fontSize: 24.sp,
+      fontWeight: FontWeight.w700,
+      letterSpacing: -0.7,
+      height: 1.0,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    return Container(
+      key: const ValueKey('crypto-round-compact'),
+      padding: EdgeInsets.fromLTRB(14.w, 12.h, 14.w, 12.h),
+      decoration: BoxDecoration(
+        color: c.surface,
+        borderRadius: BorderRadius.circular(18.r),
+        border: Border.all(color: c.borderSubtle, width: 0.5),
+        boxShadow: context.isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Logo, title, past rounds as dots, the countdown pill.
+          Row(
+            children: [
+              SizedBox(width: _logo.sp, height: _logo.sp, child: logo),
+              SizedBox(width: 10.w),
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: c.textPrimary,
+                    fontSize: 15.sp,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+              ),
+              if (pastResults.isNotEmpty) ...[
+                _PastRoundDots(results: pastResults),
+                SizedBox(width: 8.w),
+              ],
+              Container(
+                key: const ValueKey('crypto-round-countdown'),
+                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                decoration: BoxDecoration(
+                  color: c.surfaceLight,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6.w,
+                      height: 6.w,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFFF4444),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    SizedBox(width: 5.w),
+                    Text(
+                      countdown,
+                      style: TextStyle(
+                        color: c.textPrimary,
+                        fontSize: 12.sp,
+                        fontWeight: FontWeight.w600,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 10.h),
+          // The live price, its move against the target, the target.
+          // One fixed line, skeleton or figures: a price scaled down to
+          // fit beside a wider move, or the skeleton giving way to the
+          // digits, never changes the card's height (the list under it
+          // would move with every tick).
+          SizedBox(
+            height: _priceLine(context, priceStyle),
+            child: loading
+                ? KuteSkeleton(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: SkeletonBar(150.w, 24.h, radius: 6.r),
+                    ),
+                  )
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: RollingNumberText(
+                              text: priceText, style: priceStyle),
+                        ),
+                      ),
+                      if (diffText != null) ...[
+                        SizedBox(width: 6.w),
+                        Text(
+                          diffText!,
+                          maxLines: 1,
+                          style: TextStyle(
+                            color: diffUp
+                                ? AppColors.marketUp
+                                : AppColors.marketDown,
+                            fontSize: 13.sp,
+                            fontWeight: FontWeight.w700,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      ],
+                      SizedBox(width: 8.w),
+                      const Spacer(),
+                      Text(
+                        targetText,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: c.textSecondary,
+                          fontSize: 13.sp,
+                          fontWeight: FontWeight.w600,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+          SizedBox(height: 8.h),
+          // The sparkline with the dashed target line, no in-chart
+          // "Target" badge: the target is printed just above.
+          SizedBox(
+            height: _sparkHeight,
+            child: !seeded
+                ? const SkeletonLineChart(
+                    height: _sparkHeight, padding: EdgeInsets.zero)
+                : ClipRect(
+                    child: OverflowBox(
+                      alignment: Alignment.topCenter,
+                      minHeight: 0,
+                      maxHeight: _sparkHeight + 18,
+                      child: BtcPredictChart(
+                        height: _sparkHeight + 18,
+                        externalHistory: history,
+                        externalPriceToBeat: priceToBeat,
+                        roundStart: roundStart,
+                        showLiveIndicator: false,
+                        showHeader: false,
+                        showTargetBadge: false,
+                      ),
+                    ),
+                  ),
+          ),
+          SizedBox(height: 10.h),
+          // Up and Down with their odds, one row of two pills.
+          Row(
+            children: [
+              Expanded(
+                child: _CompactSidePill(
+                  key: const ValueKey('crypto-round-up'),
+                  label: context.l10n.upLabel,
+                  odds: pair.first,
+                  up: true,
+                  onTap: onUp,
+                ),
+              ),
+              SizedBox(width: 8.w),
+              Expanded(
+                child: _CompactSidePill(
+                  key: const ValueKey('crypto-round-down'),
+                  label: context.l10n.downLabel,
+                  odds: pair.second,
+                  up: false,
+                  onTap: onDown,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One side of the compact card: a 44 px button
+/// ([_CompactCryptoCard.pillHeight]) with squared 14 px corners
+/// ([radius]), the side then its chance on one line, in the market page's
+/// solid Yes / No fill: the market colour with its faint top highlight,
+/// the label in the colour that reads on it (white) and, in light mode,
+/// the same quiet glow ([marketPairDecoration]; founder, 2 November 2026:
+/// "put them back at the darker colours").
+class _CompactSidePill extends StatelessWidget {
+  const _CompactSidePill({
+    super.key,
+    required this.label,
+    required this.odds,
+    required this.up,
+    required this.onTap,
+  });
+
+  final String label;
+  final String odds;
+  final bool up;
+  final VoidCallback onTap;
+
+  /// The corner radius: a rounded rectangle, the market page's outcome
+  /// tiles' squared shape, not a full pill (founder, 2 November 2026:
+  /// "the more squared ones").
+  static const double radius = 14;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = up ? AppColors.marketUp : AppColors.marketDown;
+    final style = TextStyle(
+      color: contrastingOnColor(color),
+      fontSize: 15.sp,
+      fontWeight: FontWeight.w700,
+      letterSpacing: -0.1,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    return Semantics(
+      button: true,
+      label: '$label $odds',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          HapticFeedback.lightImpact();
+          onTap();
+        },
+        child: Container(
+          height: _CompactCryptoCard.pillHeight,
+          decoration: marketPairDecoration(color,
+              borderRadius: BorderRadius.circular(radius.r),
+              glow: !context.isDark),
+          alignment: Alignment.center,
+          padding: EdgeInsets.symmetric(horizontal: 10.w),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(label, style: style),
+                SizedBox(width: 6.w),
+                RollingNumberText(text: odds, style: style),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The last few windows as tiny dots, oldest first: up and down in the
+/// market colours, a hairline ring while one is still settling.
+class _PastRoundDots extends StatelessWidget {
+  const _PastRoundDots({required this.results});
+
+  final List<CryptoWindowResult> results;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final size = 7.sp;
+    return Semantics(
+      label: context.l10n.predictPastRounds,
+      child: Row(
+        key: const ValueKey('crypto-round-past-dots'),
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var i = 0; i < results.length; i++) ...[
+            if (i > 0) SizedBox(width: 3.w),
+            Container(
+              width: size,
+              height: size,
+              decoration: BoxDecoration(
+                color: results[i].up == null
+                    ? null
+                    : results[i].up!
+                        ? AppColors.marketUp
+                        : AppColors.marketDown,
+                shape: BoxShape.circle,
+                border: results[i].up == null
+                    ? Border.all(color: c.borderSubtle, width: 1)
+                    : null,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 }
 

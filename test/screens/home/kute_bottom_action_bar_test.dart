@@ -1,9 +1,9 @@
-// The dock's square button is search on every surface (owner decision:
-// each job has one home; accounts open from the wallet's name at the top).
-// While Sal is available the glyph is a magnifying glass whose lens is
-// Sal's face, his ears over the rim ("Search or ask Sal"); with AI off it is the plain magnifier at the same
-// visual size. Never a plus, and a tap opens the unified search sheet
-// scoped to the host.
+// The dock's square button is search on every surface (owner decision: each job
+// has one home; accounts open from the wallet's name at the top). While Sal is
+// available the glyph is a magnifying glass whose lens is Sal's face, his ears
+// over the rim ("Search or Manage with AI"); with AI off it is the plain
+// magnifier at the same visual size. Never a plus, and a tap opens the unified
+// search sheet scoped to the host.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,6 +14,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/advisor_provider.dart';
+import 'package:kute/models/hyperliquid_market.dart' show HlMarket;
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/polymarket_sports_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
@@ -25,8 +26,8 @@ import 'package:kute/screens/portfolio/open_investments_screen.dart'
     show InvestmentsProduct;
 import 'package:kute/screens/receive/receive_sheet.dart' show ReceiveSheets;
 import 'package:kute/screens/search/unified_search_screen.dart';
-import 'package:kute/screens/shared/ask_sal_sheet.dart'
-    show SalSuggestionButton;
+import 'package:kute/screens/shared/bitcoin_wallet_actions.dart'
+    show bitcoinWalletDockActions;
 import 'package:kute/screens/shared/kute_dog_scenes.dart';
 import 'package:kute/screens/shared/investment_action_bar.dart';
 import 'package:kute/screens/shared/open_once.dart';
@@ -75,6 +76,14 @@ Future<ProviderContainer> _pump(WidgetTester tester, Widget dock,
     globalHyperliquidResultsProvider
         .overrideWith((_) => const AsyncValue.data([])),
     hyperliquidAllMarketsProvider.overrideWith((_) => []),
+    // The Sal sheet's venue surfaces read the perp markets; the real
+    // provider's reference fetch retries on a timer that would outlive
+    // the test ("timers pending"). Nothing to list here.
+    hyperliquidPerpMarketsProvider.overrideWith((_) async => <HlMarket>[]),
+    hyperliquidPerpCoreMarketsProvider
+        .overrideWith((_) async => <HlMarket>[]),
+    // Spot markets refresh on a periodic timer: the same, nothing to list.
+    hyperliquidSpotMarketsProvider.overrideWith((_) async => <HlMarket>[]),
   ]);
   addTearDown(container.dispose);
   final theme = ThemeData(
@@ -147,8 +156,8 @@ void main() {
     expect(find.byType(KuteDogMagnifier), findsOneWidget);
     expect(find.byIcon(Icons.search_rounded), findsNothing);
     expect(find.byIcon(Icons.add_rounded), findsNothing);
-    expect(find.byTooltip('Search or ask Sal'), findsOneWidget);
-    expect(find.bySemanticsLabel('Search or ask Sal'), findsOneWidget);
+    expect(find.byTooltip('Search or Manage with AI'), findsOneWidget);
+    expect(find.bySemanticsLabel('Search or Manage with AI'), findsOneWidget);
     // The glyph's square fills most of the 54 button, inside it with a
     // small margin, the glass in the theme's foreground like the other
     // dock icons.
@@ -200,7 +209,7 @@ void main() {
     // The same visual size as Sal's glass (its lens about 18 across).
     expect(tester.widget<Icon>(find.byIcon(Icons.search_rounded)).size, 34);
     expect(find.byTooltip('Search'), findsOneWidget);
-    expect(find.byTooltip('Search or ask Sal'), findsNothing);
+    expect(find.byTooltip('Search or Manage with AI'), findsNothing);
     expect(find.bySemanticsLabel('Search'), findsOneWidget);
     await tester.tap(find.byIcon(Icons.search_rounded));
     expect(opened, 1);
@@ -310,46 +319,88 @@ void main() {
   });
 
   testWidgets(
-      'the Investments dock is Deposit, Withdraw and search; Deposit opens '
-      'the Dollars receive screen from the dock', (tester) async {
+      'the Investments money verbs are one compact row, Buy dollars, '
+      'Portfolio, Receive and Send, and the dock is search alone; Receive '
+      'opens the Dollars receive screen, Buy dollars the Move sheet',
+      (tester) async {
     final events = <(String, Map<String, Object>?)>[];
     TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
     addTearDown(() => TrackingService.debugTrackObserver = null);
     var receiveOpened = 0;
     UsdAccountActionBar.debugReceiveOpener = (_) => receiveOpened++;
     addTearDown(() => UsdAccountActionBar.debugReceiveOpener = null);
-    await _pump(tester, const UsdAccountActionBar());
+    var buyOpened = 0;
+    UsdAccountActionBar.debugBuyDollarsOpener = (_) => buyOpened++;
+    addTearDown(() => UsdAccountActionBar.debugBuyDollarsOpener = null);
+    await _pump(
+        tester,
+        const Column(mainAxisSize: MainAxisSize.min, children: [
+          UsdAccountActionRow(),
+          UsdAccountActionBar(),
+        ]));
     final bar =
         tester.widget<KuteBottomActionBar>(find.byType(KuteBottomActionBar));
-    // Money in on the left, money out on the right, with the Bitcoin
-    // dock's arrows and action keys; Investments says Deposit and
-    // Withdraw, never Receive and Send.
-    expect(bar.actions.map((a) => a.label), ['Deposit', 'Withdraw']);
-    expect(bar.actions.map((a) => a.trackingId), ['receive', 'send']);
-    expect(bar.actions.map((a) => a.icon),
-        [Icons.south_west_rounded, Icons.north_east_rounded]);
-    expect(bar.actions.map((a) => a.onTap), everyElement(isNotNull));
+    // The dock carries no money verb and no pill of its own: the ONE
+    // pill is the shell bar (kute_shell_bar.dart); the dock keeps the
+    // pill's room so the lists clear it.
+    expect(bar.actions, isEmpty);
     expect(bar.source, 'usd');
-    expect(find.text('Receive'), findsNothing);
-    expect(find.text('Send'), findsNothing);
-    expect(find.byType(KuteDogMagnifier), findsOneWidget);
+    expect(find.byKey(const ValueKey('dock-search-pill')), findsNothing);
+    expect(find.byKey(const ValueKey('dock-bar-room')), findsOneWidget);
+    expect(find.byType(KuteDogMagnifier), findsNothing);
+    // The row: Buy dollars first, the Portfolio, then Receive and Send
+    // with the Bitcoin dock's arrows and action keys (founder, 2 November
+    // 2026: "Send and Receive, not Add and Send"; "Buy dollars" in place
+    // of Manage with AI).
+    final actions = UsdAccountActionBar.moneyActions(
+        tester.element(find.byType(UsdAccountActionRow)));
+    expect(actions.map((a) => a.label),
+        ['Buy dollars', 'Portfolio', 'Receive', 'Send']);
+    expect(actions.map((a) => a.trackingId),
+        ['buy_dollars', 'portfolio', 'receive', 'send']);
+    expect(actions.map((a) => a.icon), [
+      Icons.attach_money_rounded,
+      InvestmentsTab.positions.icon,
+      Icons.south_west_rounded,
+      Icons.north_east_rounded
+    ]);
+    // Buy dollars first and solid (founder, 2 November 2026), the rest
+    // outlined.
+    expect(actions.map((a) => a.solid), [true, false, false, false]);
+    expect(actions.map((a) => a.onTap), everyElement(isNotNull));
+    expect(find.text('Receive'), findsOneWidget);
+    expect(find.text('Send'), findsOneWidget);
+    expect(find.text('Add'), findsNothing);
+    expect(find.text('Manage with AI'), findsNothing);
+    expect(find.text('Deposit'), findsNothing);
+    expect(find.text('Withdraw'), findsNothing);
 
-    await tester.tap(find.text('Deposit'));
+    await tester.tap(find.text('Receive'));
     await tester.pump();
     expect(receiveOpened, 1);
     expect(events.where((e) => e.$1 == 'quick_action_tapped').single.$2,
         {'action': 'receive', 'source': 'usd'});
     expect(TrackingService.takeEntrySource('usd_receive'), 'usd_dock');
+
+    // Buy dollars: the Move sheet locked to Dollars (bitcoin into
+    // dollars), its own action key and entry source.
+    events.clear();
+    await tester.tap(find.text('Buy dollars'));
+    await tester.pump();
+    expect(buyOpened, 1);
+    expect(events.where((e) => e.$1 == 'quick_action_tapped').single.$2,
+        {'action': 'buy_dollars', 'source': 'usd'});
+    expect(TrackingService.takeEntrySource('move'), 'usd_buy_dollars');
     expect(tester.takeException(), isNull);
   });
 
   testWidgets(
-      'the Investments dock\'s Deposit opens the Dollars receive as a '
+      'the Investments row\'s Receive opens the Dollars receive as a '
       'bottom sheet over the screen, not a route push', (tester) async {
     ReceiveSheets.debugUsdBody = (_) => const Text('usd receive body');
     addTearDown(() => ReceiveSheets.debugUsdBody = null);
     final pushed = <Uri>[];
-    await _pump(tester, const UsdAccountActionBar(), routes: [
+    await _pump(tester, const UsdAccountActionRow(), routes: [
       GoRoute(
         path: '/receive_dollars',
         name: 'receiveDollars',
@@ -359,25 +410,31 @@ void main() {
         },
       ),
     ]);
-    await tester.tap(find.text('Deposit'));
+    await tester.tap(find.text('Receive'));
     await tester.pumpAndSettle();
     expect(pushed, isEmpty);
     expect(find.text('usd receive body'), findsOneWidget);
     final route = ModalRoute.of(tester.element(find.text('usd receive body')));
     expect(route, isA<ModalBottomSheetRoute<void>>());
     expect(route!.settings.name, 'receiveDollars');
-    // The dock is still underneath.
-    expect(find.byType(KuteBottomActionBar), findsOneWidget);
+    // The row is still underneath.
+    expect(find.byType(UsdAccountActionRow), findsOneWidget);
     expect(TrackingService.takeEntrySource('usd_receive'), 'usd_dock');
   });
 
   testWidgets(
-      'the Bitcoin dock\'s Receive opens the Bitcoin receive as a bottom '
+      'the Bitcoin row\'s Receive opens the Bitcoin receive as a bottom '
       'sheet over the screen, not a route push', (tester) async {
     ReceiveSheets.debugBitcoinBody = (_) => const Text('btc receive body');
     addTearDown(() => ReceiveSheets.debugBitcoinBody = null);
     final pushed = <Uri>[];
-    await _pump(tester, const HomeDock(), routes: [
+    // Home's row: the dock's own Receive and Send, under the balance.
+    final row = Consumer(
+        builder: (context, ref, _) => KuteActionRow(
+            source: 'home',
+            actions: bitcoinWalletDockActions(
+                context, ref, _settings().wallets.single)));
+    await _pump(tester, row, routes: [
       GoRoute(
         path: '/receive',
         name: 'receive',
@@ -394,26 +451,21 @@ void main() {
     final route = ModalRoute.of(tester.element(find.text('btc receive body')));
     expect(route, isA<ModalBottomSheetRoute<void>>());
     expect(route!.settings.name, 'receive');
-    expect(find.byType(KuteBottomActionBar), findsOneWidget);
+    expect(find.byType(KuteActionRow), findsOneWidget);
   });
 
-  testWidgets('the Portfolio pill\'s dock opens search on All',
+  testWidgets('the Portfolio pill\'s dock draws no pill: the shell bar is the one',
       (tester) async {
     final container =
         await _pump(tester, const UsdAccountActionBar());
-    // The Portfolio pill's square opens the whole search on All, never
-    // the spending wallet's history alone (founder, 27 October 2026); a
-    // venue pill's searches that venue's markets.
+    // Search and Sal are the shell bar's (kute_shell_bar_test.dart); the
+    // dock only keeps the room under the lists.
     container.read(investmentsTabProvider.notifier).state =
         InvestmentsTab.positions;
-    expect(find.byType(KuteDogMagnifier), findsOneWidget);
+    await tester.pump();
+    expect(find.byType(KuteDogMagnifier), findsNothing);
     expect(find.byIcon(Icons.add_rounded), findsNothing);
-    await tester.tap(find.byType(KuteDogMagnifier));
-    await tester.pumpAndSettle();
-    expect(find.byType(UnifiedSearchSurface), findsOneWidget);
-    expect(container.read(searchWalletScopeProvider), isNull);
-    expect(container.read(selectedSearchCategoryProvider),
-        SearchCategory.all);
+    expect(find.byKey(const ValueKey('dock-bar-room')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -504,28 +556,14 @@ void main() {
     }
   });
 
-  testWidgets('home and Investing dock searches open the same sheet',
+  testWidgets(
+      'the Home dock draws no pill; a venue dock with verbs keeps its '
+      'search square, opening the results-first sheet on its venue',
       (tester) async {
-    // Owner report: Home's search square opened a different screen (the
-    // Sal intro) from the venue's. Every dock opens the one results-first
-    // search sheet; only the category differs.
-    UnifiedSearchSurface opened(WidgetTester tester) {
-      final surface = tester
-          .widget<UnifiedSearchSurface>(find.byType(UnifiedSearchSurface));
-      expect(find.byType(SalSuggestionButton), findsNothing);
-      return surface;
-    }
-
+    // The Home pill is the shell bar's (kute_shell_bar_test.dart).
     await _pump(tester, const HomeDock());
-    await tester.tap(find.byType(KuteDogMagnifier));
-    await tester.pumpAndSettle();
-    final home = opened(tester);
-    expect(find.text('Search transactions, Predictions and Investing'),
-        findsOneWidget);
-    // The field names both jobs, the square's own words.
-    expect(
-        tester.widget<TextField>(find.byType(TextField)).decoration!.hintText,
-        'Search or ask Sal');
+    expect(find.byType(KuteDogMagnifier), findsNothing);
+    expect(find.byKey(const ValueKey('dock-bar-room')), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
     OpenOnce.reset();
 
@@ -533,15 +571,13 @@ void main() {
         const InvestmentActionBar(product: InvestmentsProduct.trading));
     await tester.tap(find.byType(KuteDogMagnifier));
     await tester.pumpAndSettle();
-    final investing = opened(tester);
-
-    expect(home.runtimeType, investing.runtimeType);
-    expect(home.searchFirst, isTrue);
+    final investing = tester
+        .widget<UnifiedSearchSurface>(find.byType(UnifiedSearchSurface));
     expect(investing.searchFirst, isTrue);
-    expect(home.lockCategory, investing.lockCategory);
-    expect(home.walletId, investing.walletId);
-    expect(home.initialCategory, SearchCategory.all);
     expect(investing.initialCategory, SearchCategory.perpetuals);
+    expect(
+        tester.widget<TextField>(find.byType(TextField)).decoration!.hintText,
+        'Search investments or Manage with AI');
     expect(tester.takeException(), isNull);
   });
 }

@@ -14,6 +14,7 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/components/sheet_detail_row.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -191,15 +192,21 @@ class _CoinSelectionSheetState extends ConsumerState<_CoinSelectionSheet> {
               },
             ),
           ),
-          Padding(
-            padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 0),
-            child: AppButton(
-              text: l10n.done,
-              onPressed: owner == _owner
-                  ? () =>
-                      Navigator.of(context).pop(List<OutPoint>.from(_draft))
-                  : null,
+          // THE BAR IS THE BUTTON (founder, 31 October 2026;
+          // kute_bar_context.dart, KuteBarContext.primary): Done is the
+          // shell bar, with the enabled rule the sheet's own button had
+          // (the wallet the draft was taken from is still the one shown);
+          // the box keeps the last coins clear of it.
+          KuteBarContextScope(
+            barContext: KuteBarContext.primary(
+              label: l10n.done,
+              onPrimary: () =>
+                  Navigator.of(context).pop(List<OutPoint>.from(_draft)),
+              enabled: owner == _owner,
+              source: 'coin_selection',
+              disabledLabel: l10n.barNeedWait,
             ),
+            child: SizedBox(height: kuteBarScrollClearance.h),
           ),
         ],
       ),
@@ -538,7 +545,7 @@ class _CoinTile extends ConsumerWidget {
                                 ? context.l10n.confirmed
                                 : context.l10n.unconfirmed,
                             style: TextStyle(
-                              color: confirmed ? c.success : c.accent,
+                              color: confirmed ? c.success : c.warning,
                               fontSize: 12.sp,
                               fontWeight: FontWeight.w600,
                               letterSpacing: -0.1,

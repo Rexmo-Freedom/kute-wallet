@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/recovery/restore_secrets_screen.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/services/secure/storage_bootstrap.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -107,19 +108,11 @@ class _StorageUnavailableScreenState extends State<StorageUnavailableScreen> {
                   ),
                 ),
                 const Spacer(),
-                AppButton(
-                  key: const ValueKey('storage-retry'),
-                  text: _cooldown > 0
-                      ? '${l10n.storageUnavailableRetry} (${_cooldown}s)'
-                      : l10n.storageUnavailableRetry,
-                  onPressed: _cooldown > 0 ? null : _retry,
-                ),
-                if (widget.result.offerRestore) ...[
-                  SizedBox(height: 10.h),
-                  AppButton(
+                if (widget.result.offerRestore)
+                  // Restore: a text button above the bar.
+                  AppTextButton(
                     key: const ValueKey('storage-restore'),
                     text: l10n.restoreWalletsAction,
-                    variant: AppButtonVariant.secondary,
                     onPressed: () {
                       TrackingService.track(
                           'storage_unavailable_restore_tapped');
@@ -129,7 +122,20 @@ class _StorageUnavailableScreenState extends State<StorageUnavailableScreen> {
                       );
                     },
                   ),
-                ],
+                // THE BAR IS THE BUTTON (kute_bar_context.dart): Retry is the
+                // floating Sal bar's primary action, off during the cooldown.
+                KuteBarContextScope(
+                  barContext: KuteBarContext.primary(
+                    label: _cooldown > 0
+                        ? '${l10n.storageUnavailableRetry} (${_cooldown}s)'
+                        : l10n.storageUnavailableRetry,
+                    onPrimary: _retry,
+                    enabled: _cooldown <= 0,
+                    source: 'storage_unavailable',
+                    disabledLabel: '${l10n.storageUnavailableRetry} (${_cooldown}s)',
+                  ),
+                  child: SizedBox(height: kuteBarScrollClearance.h),
+                ),
               ],
             ),
           ),

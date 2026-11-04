@@ -302,9 +302,16 @@ Future<List<PolymarketEvent>> readPolyLiveStreams() async {
 /// (`polymarket.sports`, `polymarket.politics`); watched so the feed
 /// re-evaluates when the policy changes. Held positions never come through
 /// these feeds and keep their own providers.
+///
+/// Listens to the two category gates only ([polymarketCategoryGates]), not
+/// to the whole policy: anything else the policy says changing (or a
+/// notification that changed nothing) must not rebuild a list, which reads
+/// it again and swaps the rows on screen.
 List<PolymarketEvent> _offeredUnderPolicy(
-        Ref ref, List<PolymarketEvent> events) =>
-    polymarketEventsOffered(events, ref.watch(runtimeCapabilitiesProvider));
+    Ref ref, List<PolymarketEvent> events) {
+  ref.watch(runtimeCapabilitiesProvider.select(polymarketCategoryGates));
+  return polymarketEventsOffered(events, ref.read(runtimeCapabilitiesProvider));
+}
 
 /// The liquidity floor of the hot lists (Trending, the home mix; Breaking
 /// keeps its lighter 100 USD with a never-empty fallback). polymarket.com
@@ -624,7 +631,8 @@ const String _kParentTagsKey = 'parent_tags';
 /// withdraws (Sports, Politics, Elections and every league), so a hidden
 /// category has no empty pill left behind.
 List<Tag> _tagsOfferedUnderPolicy(Ref ref, List<Tag> tags) {
-  final policy = ref.watch(runtimeCapabilitiesProvider);
+  ref.watch(runtimeCapabilitiesProvider.select(polymarketCategoryGates));
+  final policy = ref.read(runtimeCapabilitiesProvider);
   return [
     for (final t in tags)
       if (polymarketTagOffered(t.slug ?? '', policy)) t
@@ -1212,7 +1220,7 @@ final polymarketResolvedPositionsProvider =
   final results = <PolymarketPosition>[];
 
   results.addAll(state.openPositions
-      .where((p) => p.redeemable)
+      .where((p) => p.redeemable && p.size >= kPolyDustShares)
       .map((p) => PolymarketPosition(
             marketId: p.conditionId,
             marketQuestion: p.title,
@@ -2199,7 +2207,9 @@ class PolyFeedNotifier
       if (identical(prev?.events, next.events)) return;
       unawaited(PolyCrestImage.prefetch(polyFeedArtworkUrls(next.events)));
     });
-    ref.watch(runtimeCapabilitiesProvider);
+    // The category gates the rows are filtered by, and nothing else of
+    // the policy (see [_offeredUnderPolicy]).
+    ref.watch(runtimeCapabilitiesProvider.select(polymarketCategoryGates));
     _spec = _specFor(arg);
     // The watchlist reads again whenever a star changes.
     if (_spec.kind == _FeedKind.watchlist) ref.watch(polyWatchlistProvider);
@@ -2464,7 +2474,9 @@ final polyTopicSubsProvider = StreamProvider.autoDispose
     return;
   }
   final key = 'related_${pill.key}';
-  final policy = ref.watch(runtimeCapabilitiesProvider);
+  // The category gates only: another policy change reads nothing again.
+  ref.watch(runtimeCapabilitiesProvider.select(polymarketCategoryGates));
+  final policy = ref.read(runtimeCapabilitiesProvider);
   final cached = PolymarketFeedCache.instance.readTagRows(key);
   if (cached != null) yield polyTopicSubsFromRows(cached, policy);
   try {

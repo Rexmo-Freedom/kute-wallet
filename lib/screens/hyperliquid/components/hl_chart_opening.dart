@@ -8,9 +8,10 @@
 //     carry-forward line with one or two prints at the right edge. On
 //     open, a LOW LIQUIDITY market (HlMarket.isLowLiquidity, the rule
 //     behind its label) whose tape has too few traded bars in the opening
-//     view steps up the ladder 1m → 5m → 15m → 1h → 4h → 1D until enough bars traded,
-//     for that sheet only: the saved layout is not changed, and an
-//     interval picked in the sheet is never stepped.
+//     view steps up the ladder 1m → 5m → 1h → 1D (the picker's own
+//     intervals, so the pill row always shows the one on screen) until
+//     enough bars traded, for that sheet only: the saved layout is not
+//     changed, and an interval picked in the sheet is never stepped.
 //   * the autoscale RANGE when one or two bars stand far outside the rest
 //     of the visible tape: the scale fits the body of the tape instead of
 //     squashing it into a line under a single spike. A tape without such
@@ -31,8 +32,9 @@ const double kHlThinTradedShare = 0.30;
 /// … or fewer than this many of them did.
 const int kHlThinTradedBars = 20;
 
-/// The ladder the opening interval climbs. 1W is never stepped to.
-const List<String> kHlOpeningLadder = ['1m', '5m', '15m', '1h', '4h', '1d'];
+/// The ladder the opening interval climbs: the picker's intervals
+/// (kHlCandleIntervals) short of 1W, which is never stepped to.
+const List<String> kHlOpeningLadder = ['1m', '5m', '1h', '1d'];
 
 /// Bars in the opening view of [candles] (its newest [viewBars]) and how
 /// many of them had a trade.

@@ -1,7 +1,6 @@
-// How results sit on the search sheet: the tabs' own market cards, the
-// named market first, three per group under All with a "See all" that
-// switches the filter, and skeletons holding a group's place while its
-// markets load.
+// How results sit on the search sheet: flat rows, the named market first,
+// three per group under All with a "See all" that switches the scope, and
+// skeleton rows holding a group's place while its markets load.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,7 +14,7 @@ import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/hyperliquid_search_provider.dart';
 import 'package:kute/providers/polymarket_sports_provider.dart';
 import 'package:kute/providers/unified_search_provider.dart';
-import 'package:kute/screens/hyperliquid/components/hl_market_card.dart';
+import 'package:kute/screens/search/components/search_rows.dart';
 import 'package:kute/screens/search/unified_search_screen.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/shared/open_once.dart';
@@ -116,9 +115,10 @@ void main() {
   testWidgets('the named market leads, three per group with See all',
       (tester) async {
     final container = await _open(tester, hl: AsyncValue.data(_hits));
-    final cards = tester.widgetList<HlMarketCard>(find.byType(HlMarketCard));
+    final cards = tester
+        .widgetList<SearchInvestingRow>(find.byType(SearchInvestingRow));
     // Investing's own card, the exact ticker first, three under All.
-    expect([for (final c in cards) c.market.coin],
+    expect([for (final c in cards) c.result.coin],
         ['BTC', 'BTCDOM', 'WBTC']);
     expect(find.byKey(const ValueKey('header-investing')), findsOneWidget);
     expect(find.text('See all'), findsOneWidget);
@@ -129,7 +129,7 @@ void main() {
     }
     expect(container.read(selectedSearchCategoryProvider),
         SearchCategory.perpetuals);
-    expect(find.byType(HlMarketCard), findsNWidgets(6));
+    expect(find.byType(SearchInvestingRow), findsNWidgets(6));
     expect(find.text('See all'), findsNothing);
     await _close(tester);
   });
@@ -137,10 +137,11 @@ void main() {
   testWidgets('a loading group holds its place with skeletons, no spinner',
       (tester) async {
     await _open(tester, hl: const AsyncValue.loading());
-    expect(find.byType(SkeletonCard), findsWidgets);
+    expect(find.byType(KuteSkeleton), findsWidgets);
+    expect(find.byType(SkeletonBar), findsWidgets);
     expect(find.byType(CircularProgressIndicator), findsNothing);
     expect(find.text('Searching markets…'), findsNothing);
-    expect(find.byType(HlMarketCard), findsNothing);
+    expect(find.byType(SearchInvestingRow), findsNothing);
     await _close(tester);
   });
 }

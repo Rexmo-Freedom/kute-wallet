@@ -25,6 +25,12 @@ class AppTextField extends StatelessWidget {
   final int? maxLength;
   final String? errorText;
 
+  /// The keyboard's action key and what it does. A field whose primary
+  /// button is the floating Sal bar (hidden under the keyboard) gives
+  /// the key the same action (kute_bar_context.dart).
+  final TextInputAction? textInputAction;
+  final ValueChanged<String>? onSubmitted;
+
   const AppTextField({
     super.key,
     this.controller,
@@ -45,6 +51,8 @@ class AppTextField extends StatelessWidget {
     this.onTap,
     this.maxLength,
     this.errorText,
+    this.textInputAction,
+    this.onSubmitted,
   });
 
   @override
@@ -62,6 +70,8 @@ class AppTextField extends StatelessWidget {
       maxLength: maxLength,
       onChanged: onChanged,
       onTap: onTap,
+      textInputAction: textInputAction,
+      onSubmitted: onSubmitted,
       cursorColor: context.colors.accent,
       style: style ?? TextStyle(
         color: context.colors.textPrimary,

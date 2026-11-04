@@ -13,7 +13,6 @@ import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/transactions_provider.dart';
 import 'package:kute/helpers/auth_grant.dart';
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/deposit_quick_claim.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/spark_transaction_details.dart';
@@ -23,6 +22,8 @@ import 'package:kute/theme/app_theme.dart';
 import 'package:kute/models/breez/deposit_update.dart' show sparkOutpointKey;
 import 'package:kute/models/currency_conversions.dart';
 import 'package:money2/money2.dart';
+
+import '../helpers/kute_bar_test_support.dart';
 
 class _Settings extends StateNotifier<Settings> implements SettingsModel {
   _Settings()
@@ -233,6 +234,10 @@ void main() {
       child: ScreenUtilInit(
         designSize: const Size(430, 932),
         builder: (_, __) => MaterialApp.router(
+          // The shell bar over the page, as app_widget.dart mounts it: the
+          // unclaimed sheet's Add to wallet / Claim now is the bar
+          // (kute_bar_test_support.dart).
+          builder: withKuteShellBar,
           routerConfig: router,
           theme: buildLightTheme(),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -416,7 +421,8 @@ void main() {
     await open(tester, rowFor(info(claimError: failed)));
     await tapText(tester, l10n.activityAddToWallet);
     await tester.enterText(find.byType(TextField), '300');
-    await tester.pump();
+    // The bar follows the sheet a frame later: "Pick a fee" to Confirm.
+    await settle(tester);
     await tapText(tester, l10n.confirmClaim);
     expect(actions.calls, ['live', 'claim 300']);
     expect(cachedRows(), hasLength(1));
@@ -435,7 +441,8 @@ void main() {
     await open(tester, rowFor(info(claimError: failed)));
     await tapText(tester, l10n.activityAddToWallet);
     await tester.enterText(find.byType(TextField), '300');
-    await tester.pump();
+    // The bar follows the sheet a frame later: "Pick a fee" to Confirm.
+    await settle(tester);
     await tapText(tester, l10n.confirmClaim);
     expect(find.byType(KuteConfirmation), findsOneWidget);
     expect(find.text(l10n.depositClaimFailedTitle), findsOneWidget);
@@ -490,9 +497,11 @@ void main() {
     await settle(tester);
     expect(find.text(l10n.activityAddingToBalance), findsWidgets);
     expectNoSendBack();
-    final claimNow = tester.widget<AppButton>(find.byWidgetPredicate(
-        (w) => w is AppButton && w.text.startsWith('Claim now')));
+    // The bar is the sheet's button: held, busy, under the same label.
+    final claimNow = kuteBarPrimaryProbe(tester);
+    expect(claimNow.text, startsWith('Claim now'));
     expect(claimNow.onPressed, isNull);
+    expect(claimNow.isLoading, isTrue);
     expect(actions.calls, isEmpty);
     actions.busyOutpoints.value = const {};
     await settle(tester);

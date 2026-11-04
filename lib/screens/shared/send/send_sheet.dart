@@ -28,10 +28,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import 'package:kute/screens/shared/receive_surface.dart'
+    show kReceiveSheetMaxHeight;
 import 'package:kute/theme/app_theme.dart';
 
-/// Share of the screen the sheet takes on its first step.
-const double kSendSheetMediumFraction = 0.64;
+/// Share of the screen the sheet takes on its first step: as tall as the
+/// Dollars Send (kReceiveSheetMaxHeight, receive_surface.dart; founder,
+/// 1 November 2026: the Bitcoin Send opens as tall as the Dollars one).
+const double kSendSheetMediumFraction = kReceiveSheetMaxHeight;
 
 /// What the sheet shows and allows, as the flow inside reports it.
 class SendSheetController extends ChangeNotifier {

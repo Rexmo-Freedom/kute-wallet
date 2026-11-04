@@ -42,7 +42,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/models/transactions_model.dart';
 import 'package:kute/models/breez/deposit_update.dart';
 import 'package:kute/models/breez/shared_sync.dart';
-import 'package:kute/providers/address_provider.dart';
 import 'package:kute/providers/balance_provider.dart';
 import 'package:kute/providers/breez_config_provider.dart';
 import 'package:kute/providers/breez_provider.dart';
@@ -738,10 +737,11 @@ class PushPipeline implements SyncPipeline {
               .catchError((_) {}));
         }
       }
-      // Refresh on every settled batch, including when other deposits remain.
+      // Money arrived on the current address: it rotates when the next
+      // receive screen opens, never under one that is showing it (the
+      // address used to change on screen the moment a deposit landed).
       if (update.hasSettledClaims) {
-        container.invalidate(getSparkBitcoinAddressProvider);
-        container.invalidate(initialAddressesProvider);
+        SparkDepositAddressRotation.request();
       }
     } catch (_) {}
   }

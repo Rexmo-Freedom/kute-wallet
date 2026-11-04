@@ -1,7 +1,4 @@
-import 'dart:ui' as ui;
-
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,26 +8,23 @@ import 'package:kute/models/portfolio_performance.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart';
-import 'package:kute/screens/shared/charts/kute_chart_core.dart'
-    show kuteMonotonePath;
-import 'package:kute/screens/shared/charts/kute_chart_crosshair.dart';
-import 'package:kute/screens/shared/charts/kute_chart_range_pills.dart';
-import 'package:kute/screens/shared/charts/kute_chart_time_axis.dart';
 import 'package:kute/screens/shared/charts/kute_chart_viewport.dart';
 import 'package:kute/screens/shared/charts/kute_line_chart.dart';
+import 'package:kute/screens/shared/charts/kute_trend_chart.dart';
+import 'package:kute/screens/shared/charts/kute_trend_window.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
-/// The P&L chart leading the Portfolio ("P&L charts"), restyled as the
-/// Balance charts were: a range row under the plot (1M to start,
-/// remembered for the session), the closing P&L per bucket ending on the
-/// P&L now drawn as straight segments, no scale or gridlines, a solid
-/// hairline at zero, the line, its one soft fade and its solid end dot in
-/// the range's result colour, a quiet change line (never a percent), the
-/// scrubbed P&L written there, a calm empty state, the Balance charts'
-/// pinch, and the spending account's one block (the ring row, the rows,
-/// the plot).
+/// The P&L chart leading the Portfolio ("P&L charts") on the modern line
+/// chart: the range row 16 px under the plot (1M to start, remembered for
+/// the session), the closing P&L per bucket ending on the P&L now as one
+/// line in the range's result colour, the headline (the P&L over the range
+/// picked, ALL the all-time P&L) over the line naming the range ("Past
+/// month", never a percent without a base) that follow a scrubbing
+/// finger, no chart at all before the first position, and the spending
+/// account's one block (the realised figure, the plot, the ranges, the
+/// venue lines).
 void main() {
   // Inter loaded before any layout here (see loadAppFonts): its figures
   // change colour alone, which a font landing mid-test turns into
@@ -190,7 +184,8 @@ void main() {
               settingsProvider.overrideWith(
                   (_) => SettingsModel(settings(privacy: privacy))),
             ], child: child));
-      await tester.pump(const Duration(milliseconds: 400));
+      // Past the draw-in.
+      await tester.pump(const Duration(milliseconds: 700));
     }
 
     Future<void> settle(WidgetTester tester) async {
@@ -203,80 +198,64 @@ void main() {
         .textSpan!
         .toPlainText();
 
-    /// The coloured part of the header (the amount).
-    TextSpan amountSpan(WidgetTester tester) {
-      final root = tester
-          .widget<Text>(find.byKey(const ValueKey('statistics-pnl-header')))
-          .textSpan! as TextSpan;
-      return root.children!
-          .cast<TextSpan>()
-          .firstWhere((s) => s.style?.fontWeight == FontWeight.w700);
-    }
-
     String headline(WidgetTester tester) => tester
         .widget<RollingNumberText>(
             find.byKey(const ValueKey('statistics-pnl-headline')))
         .text;
 
-    KuteLineChart chart(WidgetTester tester) =>
-        tester.widget<KuteLineChart>(find.byType(KuteLineChart));
+    Color? headlineColor(WidgetTester tester) => tester
+        .widget<RollingNumberText>(
+            find.byKey(const ValueKey('statistics-pnl-headline')))
+        .style
+        .color;
 
-    dynamic painter(WidgetTester tester) => [
-          for (final cp in tester.widgetList<CustomPaint>(find.descendant(
-              of: find.byType(KuteLineChart),
-              matching: find.byType(CustomPaint))))
-            if (cp.painter.runtimeType.toString() == '_KuteLinePainter')
-              cp.painter
-        ].single;
+    KuteTrendChart chart(WidgetTester tester) =>
+        tester.widget<KuteTrendChart>(find.byType(KuteTrendChart));
 
-    KuteIndexWindow window(WidgetTester tester) =>
-        painter(tester).window as KuteIndexWindow;
+    Finder plot() => find.byKey(const ValueKey('trend-chart-plot'));
 
-    Future<void> pinch(WidgetTester tester,
-        {double from = 60, double to = 180, int pointer = 10}) async {
-      final rect = tester.getRect(find.byType(KuteLineChart));
-      final c = rect.center;
-      final a =
-          await tester.startGesture(c - Offset(from / 2, 0), pointer: pointer);
-      final b = await tester.startGesture(c + Offset(from / 2, 0),
-          pointer: pointer + 1);
-      await tester.pump();
-      const steps = 8;
-      final d = (to - from) / 2 / steps;
-      for (var i = 0; i < steps; i++) {
-        await a.moveBy(Offset(-d, 0));
-        await b.moveBy(Offset(d, 0));
-        await tester.pump();
-      }
-      await a.up();
-      await b.up();
-      await tester.pump(const Duration(milliseconds: 100));
+    /// The points the month draws out of [data].
+    List<double> monthValues(PortfolioPerformance data) {
+      final s = pnlSeries(data, now);
+      return kuteTrendWindow(s, s.spanFor(BalanceRange.month)).values;
+    }
+
+    /// A long press, then a slide: the scrub.
+    Future<TestGesture> scrub(WidgetTester tester, Offset at) async {
+      final touch = await tester.startGesture(at);
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump(const Duration(milliseconds: 150));
+      return touch;
     }
 
     testWidgets(
-        'the range row: 1W to ALL under the plot, 1M to start, a '
-        'tap sets the window and the change line', (tester) async {
-      final s = pnlSeries(upMonth(), now);
+        'the range row: 1W to ALL 16 px under the plot, 1M to start, a '
+        'tap sets the points drawn, the figure (the P&L over the range; '
+        'ALL the all-time P&L) and the line naming the range',
+        (tester) async {
       await pump(tester, upMonth());
-      final pills = tester.widget<KuteRangePills>(find.byType(KuteRangePills));
-      expect(pills.labels, ['1W', '1M', '3M', '1Y', 'ALL']);
-      expect(pills.selectedIndex, BalanceRange.month.index);
-      // Under the plot.
-      expect(tester.getTopLeft(find.byType(KuteRangePills)).dy,
-          greaterThan(tester.getBottomLeft(find.byType(KuteLineChart)).dy));
-      expect(chart(tester).defaultSpan, s.spanFor(BalanceRange.month));
-      expect(header(tester), r'+$12.40 past month');
+      final row = tester
+          .widget<KuteChartRangeRow>(find.byType(KuteChartRangeRow));
+      expect(row.labels, ['1W', '1M', '3M', '1Y', 'ALL']);
+      expect(row.selectedIndex, BalanceRange.month.index);
+      expect(tester.getTopLeft(find.byType(KuteChartRangeRow)).dy,
+          closeTo(tester.getBottomLeft(plot()).dy + 16 * 390 / 430, 1));
+      expect(chart(tester).values, monthValues(upMonth()));
+      expect(headline(tester), '+\$12.40');
+      expect(header(tester), 'Past month');
 
       await tester.tap(find.text('1W'));
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(chart(tester).defaultSpan, s.spanFor(BalanceRange.week));
-      expect(header(tester), r'+$12.40 past week');
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(chart(tester).selectedRange, BalanceRange.week.index);
+      expect(headline(tester), '+\$12.40');
+      expect(header(tester), 'Past week');
 
       await tester.tap(find.text('ALL'));
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(chart(tester).defaultSpan, s.extent);
-      // From the lead-in's zero.
-      expect(header(tester), r'+$112.40 all time');
+      await tester.pump(const Duration(milliseconds: 400));
+      // From the lead-in's zero: the whole P&L, the all-time figure.
+      expect(chart(tester).values.first, 0);
+      expect(headline(tester), '+\$112.40');
+      expect(header(tester), 'All time');
       await settle(tester);
     });
 
@@ -287,13 +266,11 @@ void main() {
       addTearDown(container.dispose);
       await pump(tester, upMonth(), container: container);
       await tester.tap(find.text('3M'));
-      await tester.pump(const Duration(milliseconds: 300));
-      // Built afresh (the screen left and opened again, another series).
-      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 400));
       await pump(tester, upThenDown(), container: container);
       expect(
           tester
-              .widget<KuteRangePills>(find.byType(KuteRangePills))
+              .widget<KuteChartRangeRow>(find.byType(KuteChartRangeRow))
               .selectedIndex,
           BalanceRange.threeMonths.index);
       expect(container.read(pnlChartRangeProvider), BalanceRange.threeMonths);
@@ -301,113 +278,17 @@ void main() {
     });
 
     testWidgets(
-        'the look: straight segments in the result colour, one soft fade '
-        'under the line, a solid hairline at zero kept on the scale, a '
-        'solid end dot, no scale', (tester) async {
-      await pump(tester, upMonth());
-      final c = chart(tester);
-      // Up over the month: the up colour, never the neutral chart colour.
-      expect(c.lineColor, AppColors.marketUp);
-      expect(c.straight, isTrue);
-      expect(c.stepped, isFalse);
-      expect(c.filledEndpoint, isTrue);
-      expect(c.showScale, isFalse);
-      expect(c.scaleLabel, isNull);
-      expect(c.startBaseline, isFalse);
-      expect(c.baselineAt, 0);
-      expect(c.solidBaseline, isTrue);
-      expect(c.showFill, isTrue);
-      // One fade in the line's colour, not a two-colour fill.
-      expect(c.fillAboveColor, isNull);
-      expect(c.fillBelowColor, isNull);
-      final p = painter(tester);
-      expect(p.straight, isTrue);
-      expect(p.solidBaseline, isTrue);
-      expect(p.filledEndpoint, isTrue);
-      expect(p.lineColor, AppColors.marketUp);
-      expect(p.fillAbove, isNull);
-      expect(p.fillBelow, isNull);
-      expect(p.baseline, 0);
-      expect(p.includeBaseline, isTrue);
-      expect(p.showScale, isFalse);
-      // The P&L sits at +100..+112 in the month: zero is still on the
-      // scale, so the baseline spans the plot.
-      final d = kuteLineDomain(c.values, window(tester),
-          indices: p.indices as List<int>, include: 0);
-      expect(d.minY, lessThanOrEqualTo(0));
-      expect(d.maxY, greaterThanOrEqualTo(112.4));
-      await settle(tester);
-    });
-
-    test('straight segments: through the points and nothing else', () {
-      // A flat stretch, a jump, a flat stretch: a curve through these
-      // would swing above the top and below the bottom.
-      const pts = [
-        Offset(0, 80),
-        Offset(40, 80),
-        Offset(50, 10),
-        Offset(90, 10),
-        Offset(100, 60),
-      ];
-      final path = kuteStraightPath(pts);
-      // Never past the box the points span: no high or low invented.
-      final b = path.getBounds();
-      expect(b.top, 10);
-      expect(b.bottom, 80);
-      expect(b.left, 0);
-      expect(b.right, 100);
-      // Its length is the straight segments' and nothing more.
-      var expected = 0.0;
-      for (var i = 1; i < pts.length; i++) {
-        expected += (pts[i] - pts[i - 1]).distance;
-      }
-      final length = path
-          .computeMetrics()
-          .fold<double>(0, (sum, m) => sum + m.length);
-      expect(length, closeTo(expected, 0.01));
-      // The monotone curve the chart drew before is longer: it bends.
-      final curve = kuteMonotonePath(pts)
-          .computeMetrics()
-          .fold<double>(0, (sum, m) => sum + m.length);
-      expect(curve, greaterThan(expected + 0.5));
-    });
-
-    testWidgets(
         'the result colour: red when the range fell, green when it rose, '
-        'the neutral grey when flat; the fade under the line in it',
+        'the text colour when flat; no axes, no scale, the one plot',
         (tester) async {
       // Down over the month (30 to −6.38).
       await pump(tester, upThenDown());
       expect(chart(tester).lineColor, AppColors.marketDown);
-      final p = painter(tester);
-      final values = chart(tester).values;
-      final w = window(tester);
-      final indices = p.indices as List<int>;
-      final boundary = tester.renderObject<RenderRepaintBoundary>(find
-          .descendant(
-              of: find.byType(KuteLineChart),
-              matching: find.byType(RepaintBoundary))
-          .first);
-      final size = boundary.size;
-      final d = kuteLineDomain(values, w, indices: indices, include: 0);
-      final bytes = (await tester.runAsync(() async {
-        final image = await boundary.toImage();
-        final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
-        image.dispose();
-        return data!;
-      }))!;
-      final width = size.width.round();
-      // Under the line, half way to the bottom of the plot, where the line
-      // is above zero: the fade is red there too (one colour, not green
-      // above zero).
-      final i = indices.firstWhere(
-          (i) => i >= w.start && i <= w.end && values[i] > 10);
-      final x = w.xOf(i.toDouble(), size.width);
-      final yLine = kuteLineY(values[i], size.height, d);
-      final o = (((yLine + size.height) / 2).round() * width + x.round()) * 4;
-      expect(bytes.getUint8(o + 3), greaterThan(0), reason: 'faded');
-      expect(bytes.getUint8(o), greaterThan(bytes.getUint8(o + 1)),
-          reason: 'red under the line');
+      expect(chart(tester).lines, isEmpty);
+      expect(plot(), findsOneWidget);
+      expect(tester.getSize(plot()).height, closeTo(220 * 844 / 932, 1));
+      // The P&L fill: up above zero, down below.
+      expect(chart(tester).zeroSplit, isTrue);
       await settle(tester);
 
       // Up over the month.
@@ -422,20 +303,18 @@ void main() {
             (const Duration(days: 120), 5),
             (const Duration(days: 60), 8),
           ]));
-      expect(chart(tester).lineColor, AppColorsExtension.light().textTertiary);
+      expect(chart(tester).lineColor, AppColorsExtension.light().textPrimary);
       expect(pnlResultColor(AppColorsExtension.light(), 0),
-          AppColorsExtension.light().textTertiary);
+          AppColorsExtension.light().textPrimary);
       expect(pnlResultColor(AppColorsExtension.light(), -0.01),
           AppColors.marketDown);
-      expect(pnlResultColor(AppColorsExtension.light(), 0.01),
-          AppColors.marketUp);
+      expect(
+          pnlResultColor(AppColorsExtension.light(), 0.01), AppColors.marketUp);
       await settle(tester);
     });
 
-    testWidgets(
-        'the one block: the ring, then the caption, figure and change line '
-        'beside it, the pair at the end, the rows between, then the plot',
-        (tester) async {
+    Future<void> pumpSection(WidgetTester tester,
+        {PnlStatsFigures? stats, double? percentBase}) async {
       tester.view.physicalSize = const Size(390, 1200);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
@@ -456,74 +335,193 @@ void main() {
                   venue: null,
                   data: upThenDown(),
                   now: now,
-                  leading: const SizedBox(
-                      key: ValueKey('ring'), width: 50, height: 50),
-                  trailing: const SizedBox(
-                      key: ValueKey('pair'), width: 100, height: 30),
-                  middle: const SizedBox(
-                      key: ValueKey('rows'), width: 10, height: 120),
+                  flat: true,
+                  percentBaseUsd: percentBase,
+                  stats: stats ??
+                      const PnlStatsFigures(
+                          realisedUsd: -6.39, unrealisedUsd: 0.01),
+                  footer: const SizedBox(
+                      key: ValueKey('lines'), width: 10, height: 60),
                 ),
               ]),
             ),
           ),
         ),
       ));
-      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 700));
+    }
+
+    testWidgets(
+        'the flat section (founder, 1 November 2026): no card; the caption, '
+        'the P&L now 34 w700 in the result colour, the change line, the '
+        'plot full width at 220, the ranges centred, the stats strip, "By '
+        'venue" and the rows; a scrub writes the point and when, release '
+        'puts the P&L now back', (tester) async {
+      await pumpSection(tester);
       Rect at(String key) => tester.getRect(find.byKey(ValueKey(key)));
-      final ring = at('ring');
-      final pair = at('pair');
-      final rows = at('rows');
+      expect(find.byKey(const ValueKey('statistics-pnl-card')), findsNothing);
+      expect(find.byKey(const ValueKey('statistics-pnl-section')),
+          findsOneWidget);
+      final caption = at('statistics-pnl-caption');
       final figure = at('statistics-pnl-headline');
-      final line = at('statistics-pnl-header');
-      final plot = tester.getRect(find.byType(KuteLineChart));
-      // One row: the ring, the figure and its change line, the pair.
-      expect(figure.left, greaterThan(ring.right));
-      expect(line.left, greaterThan(ring.right));
-      expect(line.top, greaterThan(figure.bottom - 1));
-      expect(pair.left, greaterThan(figure.right));
+      final change = at('statistics-pnl-header');
+      final plotRect = tester.getRect(plot());
+      final ranges = tester.getRect(find.byType(KuteChartRangeRow));
+      final stats = at('statistics-pnl-stats');
+      final byVenue = at('statistics-pnl-by-venue');
+      final lines = at('lines');
       expect(find.text('Profit and loss'), findsOneWidget);
-      // The rows under it, the plot under them, the ranges under that.
-      expect(rows.top, greaterThan(line.bottom));
-      final plotTop = tester
-          .getRect(find
-              .descendant(
-                  of: find.byType(KuteLineChart),
-                  matching: find.byType(RepaintBoundary))
-              .first)
-          .top;
-      expect(plotTop, greaterThan(rows.bottom));
-      expect(tester.getTopLeft(find.byType(KuteRangePills)).dy,
-          greaterThan(plot.bottom - 1));
-      // The plot keeps its height under the rows.
-      expect(plot.bottom - plotTop, greaterThan(150));
+      expect(find.text('By venue'), findsOneWidget);
+      final captionStyle = tester
+          .widget<Text>(find.byKey(const ValueKey('statistics-pnl-caption')))
+          .style!;
+      expect(captionStyle.fontSize, closeTo(13 * 390 / 430, 0.01));
+      expect(captionStyle.color, AppColorsExtension.light().textSecondary);
+      // The P&L over the month (+30 to −6.38), in the result colour, 34
+      // w700 tabular.
+      expect(headline(tester), '−\$36.38');
+      final style = tester
+          .widget<RollingNumberText>(
+              find.byKey(const ValueKey('statistics-pnl-headline')))
+          .style;
+      expect(style.color, AppColors.marketDown);
+      expect(style.fontWeight, FontWeight.w700);
+      expect(style.fontSize, closeTo(34 * 390 / 430, 0.01));
+      expect(style.fontFeatures, contains(const FontFeature.tabularFigures()));
+      // No base given: no percent; the line names the range.
+      expect(header(tester), 'Past month');
+      // Top down.
+      expect(figure.top, greaterThan(caption.bottom - 1));
+      expect(change.top, greaterThan(figure.bottom - 1));
+      expect(plotRect.top, greaterThan(change.bottom - 1));
+      expect(ranges.top, closeTo(plotRect.bottom + 16 * 1200 / 932, 1));
+      expect(stats.top, greaterThan(ranges.bottom));
+      expect(byVenue.top, greaterThan(stats.bottom));
+      expect(lines.top, greaterThan(byVenue.bottom));
+      // Full width (the host's gutters), 220 tall; the ranges centred.
+      expect(plotRect.width, 390);
+      expect(plotRect.height, closeTo(220 * 1200 / 932, 1));
+      expect(ranges.center.dx, closeTo(195, 0.5));
+      expect(ranges.width, lessThan(390));
+      // The stats strip in its soft card; no hairline in a one-row card.
+      expect(find.byKey(const ValueKey('statistics-pnl-stats-card')),
+          findsOneWidget);
+      expect(find.byType(Divider), findsNothing);
+
+      // A scrub: the P&L under the finger since the range's start, and
+      // when.
+      final touch = await scrub(tester, plotRect.centerRight.translate(-8, 0));
+      expect(headline(tester), '−\$36.38');
+      expect(header(tester), contains('Oct 25'));
+      expect(find.text('Profit and loss'), findsOneWidget);
+      await touch.moveTo(plotRect.centerLeft.translate(2, 0));
+      await tester.pump(const Duration(milliseconds: 150));
+      // The range's start: nothing made or lost since.
+      expect(headline(tester), '\$0.00');
+      expect(headlineColor(tester), AppColorsExtension.light().textPrimary);
+      await touch.up();
+      await tester.pump(const Duration(milliseconds: 150));
+      expect(headline(tester), '−\$36.38');
+      expect(header(tester), 'Past month');
       await settle(tester);
     });
 
-    testWidgets('the change line: up, down, no change, never a percent',
+    testWidgets('the change line carries a percent only of a real base',
+        (tester) async {
+      await pumpSection(tester, percentBase: 100);
+      expect(header(tester), '−36.4% · Past month');
+      await settle(tester);
+      await pumpSection(tester, percentBase: 0);
+      expect(header(tester), 'Past month');
+      await settle(tester);
+    });
+
+    testWidgets(
+        'the stats strip: All time realised, All time unrealised (totals, '
+        'never the range\'s), Win rate in equal thirds, '
+        '12 sp labels over 15 w600 figures; a figure not given leaves its '
+        'column out; none at all, no strip', (tester) async {
+      Finder stat(String id) =>
+          find.byKey(ValueKey('statistics-pnl-stat-$id'));
+      await pumpSection(tester,
+          stats: const PnlStatsFigures(
+              realisedUsd: 12.5, unrealisedUsd: -3.25, winRate: 0.625));
+      expect(stat('realised'), findsOneWidget);
+      expect(stat('unrealised'), findsOneWidget);
+      expect(stat('win-rate'), findsOneWidget);
+      expect(
+          find.descendant(
+              of: stat('realised'), matching: find.text('All time realised')),
+          findsOneWidget);
+      final realised = tester.widget<Text>(find.descendant(
+          of: stat('realised'), matching: find.text('+\$12.50')));
+      expect(realised.style!.color, AppColors.marketUp);
+      expect(realised.style!.fontWeight, FontWeight.w600);
+      expect(realised.style!.fontSize, closeTo(15 * 390 / 430, 0.01));
+      final label = tester.widget<Text>(find.text('All time unrealised'));
+      expect(label.style!.fontSize, closeTo(12 * 390 / 430, 0.01));
+      expect(label.style!.color, AppColorsExtension.light().textSecondary);
+      expect(
+          tester
+              .widget<Text>(find.descendant(
+                  of: stat('unrealised'), matching: find.text('−\$3.25')))
+              .style!
+              .color,
+          AppColors.marketDown);
+      expect(find.descendant(of: stat('win-rate'), matching: find.text('63%')),
+          findsOneWidget);
+      // Equal thirds of the soft card's inside (16 inset each side).
+      const inside = 390 - 2 * 16 * 390 / 430;
+      final w = tester.getSize(stat('realised')).width;
+      expect(tester.getSize(stat('win-rate')).width, closeTo(w, 0.5));
+      expect(w, closeTo(inside / 3, 0.5));
+      await settle(tester);
+
+      // No closed-trade counts: no Win rate column, the others keep their
+      // thirds.
+      await pumpSection(tester,
+          stats: const PnlStatsFigures(realisedUsd: 12.5, unrealisedUsd: 0));
+      expect(stat('win-rate'), findsNothing);
+      expect(find.text('Win rate'), findsNothing);
+      expect(stat('unrealised'), findsOneWidget);
+      expect(tester.getSize(stat('realised')).width, closeTo(inside / 3, 0.5));
+      await settle(tester);
+
+      // The open P&L not read: its column out too.
+      await pumpSection(tester,
+          stats: const PnlStatsFigures(realisedUsd: 12.5));
+      expect(stat('realised'), findsOneWidget);
+      expect(stat('unrealised'), findsNothing);
+      expect(stat('win-rate'), findsNothing);
+      await settle(tester);
+
+      // Nothing given: no strip.
+      await pumpSection(tester, stats: const PnlStatsFigures());
+      expect(find.byKey(const ValueKey('statistics-pnl-stats')), findsNothing);
+      expect(find.text('All time realised'), findsNothing);
+      await settle(tester);
+    });
+
+    testWidgets(
+        'the figure over the range: up, down, nothing, never a percent',
         (tester) async {
       await pump(tester, upThenDown());
       await tester.tap(find.text('1W'));
-      await tester.pump(const Duration(milliseconds: 300));
-      // −25 a week ago to −6.38 now: +18.62.
-      expect(header(tester), r'+$18.62 past week');
-      expect(amountSpan(tester).style!.color, AppColors.marketUp);
+      await tester.pump(const Duration(milliseconds: 400));
+      // −25 a week ago to −6.38 now: +18.62 over the week, in the up
+      // colour, though the P&L now is below zero.
+      expect(headline(tester), '+\$18.62');
+      expect(headlineColor(tester), AppColors.marketUp);
+      expect(header(tester), 'Past week');
 
       // A month: +30 to −6.38.
       await tester.tap(find.text('1M'));
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(header(tester), '−\$36.38 past month');
-      expect(amountSpan(tester).style!.color, AppColors.marketDown);
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(headline(tester), '−\$36.38');
+      expect(headlineColor(tester), AppColors.marketDown);
+      expect(header(tester), 'Past month');
       // The P&L went from +30 to below zero: never "−121.3%".
       expect(find.textContaining('%'), findsNothing);
-      // The hero is the P&L now, in the down colour.
-      expect(headline(tester), '−\$6.38');
-      expect(
-          tester
-              .widget<RollingNumberText>(
-                  find.byKey(const ValueKey('statistics-pnl-headline')))
-              .style
-              .color,
-          AppColors.marketDown);
 
       await pump(
           tester,
@@ -531,141 +529,110 @@ void main() {
             (const Duration(days: 90), 25),
             (const Duration(days: 60), 40),
           ]));
-      expect(header(tester), 'No change in the past month');
+      expect(headline(tester), '\$0.00');
+      expect(headlineColor(tester), AppColorsExtension.light().textPrimary);
+      expect(header(tester), 'Past month');
       expect(find.textContaining('%'), findsNothing);
 
       // Up from a base: still no percent.
       await pump(tester, upMonth());
-      expect(header(tester), r'+$12.40 past month');
+      expect(headline(tester), '+\$12.40');
+      expect(header(tester), 'Past month');
       expect(find.textContaining('%'), findsNothing);
       await settle(tester);
     });
 
     testWidgets(
-        'a scrub writes the P&L under the finger and its moment in '
-        'the header, with no card; release puts the change back',
-        (tester) async {
+        'a scrub writes the P&L under the finger since the range\'s start '
+        'in the headline and its moment in the line under it; release puts '
+        'the range\'s P&L back', (tester) async {
       final events = <(String, Map<String, Object>?)>[];
       TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
       addTearDown(() => TrackingService.debugTrackObserver = null);
       await pump(tester, upThenDown());
-      final rect = tester.getRect(find.byType(KuteLineChart));
-      final touch =
-          await tester.startGesture(rect.centerRight.translate(-2, 0));
-      await tester.pump(const Duration(milliseconds: 600));
-      await tester.pump(const Duration(milliseconds: 150));
-      expect(header(tester), startsWith('−\$6.38 · '));
+      final rect = tester.getRect(plot());
+      final touch = await scrub(tester, rect.centerRight.translate(-8, 0));
+      // The newest point: down $36.38 from the month's +30.
+      expect(headline(tester), '−\$36.38');
+      expect(headlineColor(tester), AppColors.marketDown);
       expect(header(tester), contains('Oct 25'));
-      expect(amountSpan(tester).style!.color, AppColors.marketDown);
-      expect(find.byType(KuteScrubCard), findsNothing);
-      // The hero stays the P&L now.
-      expect(headline(tester), '−\$6.38');
 
-      await touch.moveTo(rect.centerLeft.translate(4, 0));
+      await touch.moveTo(rect.centerLeft.translate(2, 0));
       await tester.pump(const Duration(milliseconds: 150));
-      // A month back: +30, in the up colour.
-      expect(header(tester), startsWith(r'+$30.00 · Sep '));
-      expect(amountSpan(tester).style!.color, AppColors.marketUp);
+      // A month back, where the range starts: nothing yet.
+      expect(headline(tester), '\$0.00');
+      expect(header(tester), startsWith('Sep '));
       await touch.up();
       await tester.pump(const Duration(milliseconds: 150));
-      expect(header(tester), '−\$36.38 past month');
+      expect(headline(tester), '−\$36.38');
+      expect(header(tester), 'Past month');
       expect(
           events.where((e) => e.$1 == 'portfolio_performance_chart_scrubbed'),
           hasLength(1));
       await settle(tester);
     });
 
-    testWidgets('nothing traded: a calm flat line at zero and one sentence',
-        (tester) async {
+    testWidgets(
+        'nothing traded: Sal with "No P&L yet" and the caption, no chart, '
+        'no range row, no headline', (tester) async {
+      // Founder, 31 October 2026: no history shows Sal, the same empty
+      // state as Activity, instead of a headline over an empty plot.
       for (final data in [
         perf(const []),
         perf([(const Duration(days: 9), 0), (Duration.zero, 0)]),
       ]) {
         await pump(tester, data);
-        expect(
-            find.text(
-                'Your profit and loss shows here once you trade or predict'),
+        final sal = find.byKey(const ValueKey('statistics-pnl-no-history'));
+        expect(sal, findsOneWidget);
+        expect(find.descendant(of: sal, matching: find.text('No P&L yet')),
             findsOneWidget);
-        expect(chart(tester).showFill, isFalse);
-        expect(chart(tester).values.every((v) => v == 0), isTrue);
-        expect(chart(tester).baselineAt, 0);
-        expect(header(tester).trim(), isEmpty);
-        expect(find.byType(KuteRangePills), findsOneWidget);
+        expect(
+            find.descendant(
+                of: sal,
+                matching: find
+                    .text('Your P&L shows up after your first position.')),
+            findsOneWidget);
+        expect(find.byKey(const ValueKey('statistics-pnl-empty')),
+            findsNothing);
+        expect(find.byKey(const ValueKey('statistics-pnl-headline')),
+            findsNothing);
+        expect(find.text('Profit and loss'), findsNothing);
+        expect(plot(), findsNothing);
+        expect(find.byType(KuteChartRangeRow), findsNothing);
+        expect(find.byKey(const ValueKey('statistics-pnl-header')),
+            findsNothing);
       }
       await settle(tester);
     });
 
     testWidgets('balances hidden: dots for every figure', (tester) async {
       await pump(tester, upThenDown(), privacy: 1);
-      expect(header(tester), '•••••• past month');
+      expect(header(tester), 'Past month');
       expect(headline(tester), '••••••');
-      expect(find.textContaining(r'$'), findsNothing);
+      expect(find.textContaining('\$'), findsNothing);
       await settle(tester);
     });
 
-    testWidgets(
-        'the Balance charts\' pinch: around the fingers, clamped, '
-        're-bucketed; a range tap puts the view back', (tester) async {
-      final s = pnlSeries(upThenDown(), now);
-      await pump(tester, upThenDown());
-      final c = chart(tester);
-      expect(c.zoomAroundFingers, isTrue);
-      expect(c.minSpan, s.minSpan);
-      expect(c.buckets, isNotNull);
-      expect(c.resetViewOnLengthChange, isFalse);
-      expect(c.animateChanges, isFalse);
-      expect(c.timeAxis, isNotNull);
-      final before = window(tester);
-      final stride = s.strideFor(before.span);
-
-      // Fingers ten times as far apart: three days of the month, hourly.
-      await pinch(tester, from: 20, to: 200);
-      final zoomed = window(tester);
-      expect(zoomed.span, closeTo(before.span / 10, before.span * 0.02));
-      // Finer buckets for the narrower window.
-      expect(s.strideFor(zoomed.span), lessThan(stride));
-      // Around the fingers in the middle: no longer ending now.
-      expect(zoomed.end, lessThan(before.end));
-      expect(header(tester), contains(' – '));
-
-      // Pinched all the way in: never under four hours.
-      for (var i = 0; i < 6; i++) {
-        await pinch(tester, from: 20, to: 300, pointer: 20 + 2 * i);
-      }
-      expect(window(tester).span, closeTo(s.minSpan, 1e-6));
-
-      // The range tapped again: back on the month, ending now.
-      await tester.tap(find.text('1M'));
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(window(tester), before);
-      expect(header(tester), '−\$36.38 past month');
-      expect(tester.widget<KuteTimeAxis>(find.byType(KuteTimeAxis)).end, 'Now');
-      await settle(tester);
-    });
-
-    testWidgets('another series (a venue row picked) opens afresh on the range',
+    testWidgets('another series (a venue row picked) keeps the range',
         (tester) async {
       await pump(tester, upThenDown(), eventVenue: 'all');
-      final before = window(tester);
-      await pinch(tester);
-      expect(window(tester).span, lessThan(before.span));
-      await pump(tester, upThenDown(), eventVenue: 'hyperliquid');
-      expect(window(tester), before);
+      await tester.tap(find.text('1W'));
+      await tester.pump(const Duration(milliseconds: 400));
+      await pump(tester, upMonth(), eventVenue: 'hyperliquid');
+      expect(chart(tester).selectedRange, BalanceRange.week.index);
+      expect(headline(tester), '+\$12.40');
+      expect(header(tester), 'Past week');
       await settle(tester);
     });
 
     testWidgets(
-        'large text and a narrow phone: no overflow at rest, zoomed '
-        'or scrubbing', (tester) async {
+        'large text and a narrow phone: no overflow at rest or scrubbing',
+        (tester) async {
       await pump(tester, upThenDown(),
           textScale: 1.3, size: const Size(375, 812));
       expect(tester.takeException(), isNull);
-      await pinch(tester);
-      expect(tester.takeException(), isNull);
-      final rect = tester.getRect(find.byType(KuteLineChart));
-      final touch = await tester.startGesture(rect.center);
-      await tester.pump(const Duration(milliseconds: 600));
-      await tester.pump(const Duration(milliseconds: 150));
+      final rect = tester.getRect(plot());
+      final touch = await scrub(tester, rect.center);
       expect(tester.takeException(), isNull);
       await touch.up();
       await pump(tester, upThenDown(), textScale: 2);

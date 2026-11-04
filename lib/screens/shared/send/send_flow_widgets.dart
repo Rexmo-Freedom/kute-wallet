@@ -25,7 +25,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart'
     show groupTypedAmount;
-import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -41,6 +41,7 @@ class SendStepperFrame extends StatefulWidget {
     required this.pages,
     required this.cta,
     this.onPageChanged,
+    this.bleedPages = const {},
   });
 
   /// The step progress bar (or an empty box for a one-step flow).
@@ -52,6 +53,16 @@ class SendStepperFrame extends StatefulWidget {
   /// shows one.
   final Widget cta;
   final ValueChanged<int>? onPageChanged;
+
+  /// Pages that run to the sheet's bottom edge, as the Dollars Send does
+  /// (founder, 1 November 2026: "things get cut"): while one of them is
+  /// settled on screen, nothing is reserved under the pages (no bottom
+  /// inset, no room for the Continue) and the shared [cta] takes no
+  /// height, so the page's one scroll view flows under the floating bar
+  /// and pads its own end by the bar's clearance (kuteBarScrollClearance)
+  /// plus the home-indicator inset. While pages slide, the frame keeps
+  /// its usual reserve, so the next page lays out at its final size.
+  final Set<int> bleedPages;
 
   @override
   State<SendStepperFrame> createState() => _SendStepperFrameState();
@@ -65,17 +76,51 @@ class _SendStepperFrameState extends State<SendStepperFrame> {
   /// amount step's keypad has no room to give.
   bool _textFocus = false;
 
+  /// A [SendStepperFrame.bleedPages] page is settled on screen.
+  bool _bleeding = false;
+
   @override
   void initState() {
     super.initState();
     FocusManager.instance.addListener(_onFocus);
     _textFocus = _hasTextFocus();
+    widget.controller.addListener(_onPage);
+    _bleeding = _settledOnBleedPage();
+  }
+
+  @override
+  void didUpdateWidget(SendStepperFrame oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_onPage);
+      widget.controller.addListener(_onPage);
+    }
+    _bleeding = _settledOnBleedPage();
   }
 
   @override
   void dispose() {
     FocusManager.instance.removeListener(_onFocus);
+    widget.controller.removeListener(_onPage);
     super.dispose();
+  }
+
+  /// Settled exactly on a bleed page: false the moment a slide starts
+  /// (the page leaving shrinks unseen, the next one is laid out at its
+  /// final size), true again only once a slide back has finished.
+  bool _settledOnBleedPage() {
+    if (widget.bleedPages.isEmpty) return false;
+    final ctrl = widget.controller;
+    final page = ctrl.hasClients && ctrl.position.haveDimensions
+        ? ctrl.page
+        : ctrl.initialPage.toDouble();
+    if (page == null || page != page.roundToDouble()) return false;
+    return widget.bleedPages.contains(page.round());
+  }
+
+  void _onPage() {
+    final next = _settledOnBleedPage();
+    if (next != _bleeding && mounted) setState(() => _bleeding = next);
   }
 
   static bool _hasTextFocus() =>
@@ -98,11 +143,13 @@ class _SendStepperFrameState extends State<SendStepperFrame> {
     // With the keyboard up the home indicator is under it, so the CTA
     // rests a short, even gap above the keys (pinned there, frame for
     // frame with the platform's keyboard animation).
-    final bottomPad = viewInsets > 0
-        ? 12.h
-        : Platform.isAndroid
-            ? 28.h + MediaQuery.of(context).padding.bottom
-            : 44.h;
+    final bottomPad = _bleeding
+        ? 0.0
+        : viewInsets > 0
+            ? 12.h
+            : Platform.isAndroid
+                ? 28.h + MediaQuery.of(context).padding.bottom
+                : 44.h;
     return Container(
       decoration: AppDecorations.screenGradient(context),
       child: SafeArea(
@@ -127,7 +174,14 @@ class _SendStepperFrameState extends State<SendStepperFrame> {
                   children: widget.pages,
                 ),
               ),
-              widget.cta,
+              // A bleed page reserves nothing: the Continue (the bar's
+              // scope) stays mounted, at no height. One widget type in
+              // both states, so the bar's scope is never remounted.
+              Align(
+                alignment: Alignment.bottomCenter,
+                heightFactor: _bleeding ? 0 : 1,
+                child: widget.cta,
+              ),
             ],
           ),
         ),
@@ -140,8 +194,8 @@ class _SendStepperFrameState extends State<SendStepperFrame> {
 /// 14 October 2026): the sheet's own header (close or back, the wallet
 /// pill) is all the chrome a step gets, and its content starts right
 /// under the progress bar. The step's name is still announced to screen
-/// readers as a header. [trailing] (Review's Ask Sal chip) sits on its
-/// own short row, right-aligned, above the content.
+/// readers as a header. [trailing], when given, sits on its own short
+/// row, right-aligned, above the content (Sal is the bar, never here).
 class SendStepPage extends StatelessWidget {
   const SendStepPage({
     super.key,
@@ -1164,7 +1218,12 @@ class SendReviewFullAddress extends StatelessWidget {
   }
 }
 
-/// The Review step's one primary action and the footnote under it.
+/// The Review step's one primary action and the footnote over it.
+///
+/// THE BAR IS THE BUTTON (founder, 31 October 2026; kute_bar_context
+/// .dart): Send / Continue is the floating Sal bar's primary action, with
+/// the label, the enabled state and the spinner the drawn button had;
+/// the footnote stays on the page, above the bar's clearance.
 class SendReviewAction extends StatelessWidget {
   const SendReviewAction({
     super.key,
@@ -1172,12 +1231,21 @@ class SendReviewAction extends StatelessWidget {
     required this.onPressed,
     required this.footnote,
     this.loading = false,
+    this.source = 'send_review',
+    this.disabledLabel,
   });
 
   final String label;
   final VoidCallback? onPressed;
+
+  /// What the bar says while [onPressed] is null (KuteBarContext
+  /// .disabledLabel).
+  final String? disabledLabel;
   final String footnote;
   final bool loading;
+
+  /// The `search_opened` source of the bar's long press.
+  final String source;
 
   @override
   Widget build(BuildContext context) {
@@ -1186,8 +1254,17 @@ class SendReviewAction extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        AppButton(text: label, isLoading: loading, onPressed: onPressed),
-        SizedBox(height: 8.h),
+        KuteBarContextScope(
+          barContext: KuteBarContext.primary(
+            label: label,
+            onPrimary: onPressed,
+            enabled: onPressed != null && !loading,
+            busy: loading,
+            source: source,
+            disabledLabel: disabledLabel,
+          ),
+          child: const SizedBox.shrink(),
+        ),
         Center(
           child: Text(
             footnote,
@@ -1199,6 +1276,8 @@ class SendReviewAction extends StatelessWidget {
             ),
           ),
         ),
+        // Clear of the bar (the frame's own bottom padding is under this).
+        SizedBox(height: kuteBarScrollClearance.h - 16.h),
       ],
     );
   }

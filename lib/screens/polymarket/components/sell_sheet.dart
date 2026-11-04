@@ -1,3 +1,4 @@
+import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/screens/shared/capability_block_note.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
@@ -125,7 +126,7 @@ class SellSheet extends ConsumerStatefulWidget {
     // AND another inside the build's `Container(padding: ...)` — double
     // keyboard inset, which is what overflowed the sheet by 233 px when
     // the numpad opened. The build container alone handles the inset.
-    showModalBottomSheet(
+    showKuteModalSheet(
       context: context,
       useRootNavigator: true,
       isScrollControlled: true,
@@ -1162,7 +1163,11 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     // second order against the now-zero balance (see `_handleSell`). A
     // limit sell that is still partly for sale keeps its shares held.
     if (!partialLimit) notifier.markTokenSold(tokenId);
-    notifier.markSoldOptimistically(tokenId: tokenId, sharesSold: sold);
+    notifier.markSoldOptimistically(
+        tokenId: tokenId,
+        sharesSold: sold,
+        heldShares: pos.size,
+        proceedsUsd: proceeds);
     notifier.refreshAfterSale();
     if (limit) ref.invalidate(polymarketOpenOrdersProvider);
 
@@ -1627,7 +1632,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     // Nothing inside the tinted subtree opens a sheet of its own. The
     // step-up PIN gate, the geoblock wall and the error snackbars are all
     // raised from `State.context`, which sits ABOVE this wrapper, so the
-    // theme `showModalBottomSheet` captures for them is the app's real
+    // theme `showKuteModalSheet` captures for them is the app's real
     // palette rather than translucent ink meant for a red surface.
     const sideColor = AppColors.marketDown;
     final tc = sideTintPalette(c, sideColor);
@@ -1871,6 +1876,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
                               : (canSell
                                   ? '${context.l10n.sell} · ${formatPolyAmount(ref, _amountUsdc)}'
                                   : context.l10n.sell),
+                      disabledLabel: canSell ? null : context.l10n.barNeedAmount,
                     ),
                   ),
                 ],
@@ -2529,6 +2535,7 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
                           : (_canSell
                               ? '${l10n.sellNow} · $amountStr'
                               : l10n.sell),
+                      disabledLabel: _canSell ? null : l10n.barNeedAmount,
                     ),
                   ]),
                 ),

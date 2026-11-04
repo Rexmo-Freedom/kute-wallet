@@ -431,6 +431,91 @@ void main() {
     expect(c.read(fundedOrdersProvider).single.reason, 'refunded');
   });
 
+  // The order fires the moment the venue can take it, whatever leg is
+  // still landing. A leg failing after that (its quote expired, it was
+  // refunded) used to stop the run: the slip said the price expired (or
+  // the queued order did) and the approval was revoked mid-placement, for
+  // an order that then landed. Now the order's own answer ends the run.
+  for (final placed in [true, false]) {
+    test(
+        'a leg failing while the order is already being placed: the '
+        'order\'s answer ends the run (placed=$placed)', () async {
+      final env = _Env(landing: const DollarsLegFailed('refunded'));
+      final c = containerFor(env);
+      final calls = <String>[];
+      final answer = Completer<bool>();
+      final run = c.read(bitcoinFundedOrderRunnerProvider).start(
+            BitcoinFundedOrderRequest(
+              venue: OneBalanceVenue.investing,
+              grant: _grant(),
+              plan: _plan,
+              label: _label,
+              fundUsd: 5.3,
+              readyUsd: 0,
+              entrySource: 'market',
+              fundVenue: (controller, legs) async {
+                calls.add('fund');
+                return const OrderFundingNotNeeded();
+              },
+              dropOrder: () => calls.add('drop'),
+              // Placing already (from cash the venue held), answering later.
+              orderInFlight: () => true,
+              awaitPlacement: ({required onCredited}) {
+                onCredited();
+                return answer.future;
+              },
+            ),
+          );
+      // The leg is refunded first; the run waits for the order.
+      var ended = false;
+      unawaited(run.ended.then((_) => ended = true));
+      await pumpEventQueue();
+      expect(ended, isFalse);
+      expect(calls, isNot(contains('drop')));
+      answer.complete(placed);
+      final end = await run.ended;
+      final record = c.read(fundedOrdersProvider).single;
+      if (placed) {
+        expect(end, BitcoinFundedEnd.placed);
+        expect(record.stage, FundedOrderStage.done);
+        expect(
+            events.where(
+                (e) => e.$1 == 'order_funding_leg_failed_order_placed'),
+            hasLength(1));
+      } else {
+        // The venue refused it: its own failure (the pending listener's
+        // words), never the leg's.
+        expect(end, BitcoinFundedEnd.placementFailed);
+        expect(record.stage, FundedOrderStage.failed);
+      }
+      expect(calls, isNot(contains('drop')));
+    });
+  }
+
+  test('a leg failing before any order is in flight still stops the run',
+      () async {
+    final env = _Env(landing: const DollarsLegFailed('refunded'));
+    final c = containerFor(env);
+    final r = request(_grant());
+    final base = r.request;
+    final run = c.read(bitcoinFundedOrderRunnerProvider).start(
+          BitcoinFundedOrderRequest(
+            venue: base.venue,
+            grant: base.grant,
+            plan: base.plan,
+            label: base.label,
+            fundUsd: base.fundUsd,
+            readyUsd: base.readyUsd,
+            fundVenue: base.fundVenue,
+            dropOrder: base.dropOrder,
+            awaitPlacement: base.awaitPlacement,
+            orderInFlight: () => false,
+          ),
+        );
+    expect(await run.ended, BitcoinFundedEnd.refunded);
+    expect(r.calls, ['drop']);
+  });
+
   test(
       'a delivered Bitcoin leg short of the onward move stops with Dollars held',
       () async {

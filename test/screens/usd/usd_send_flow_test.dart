@@ -31,20 +31,21 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/spark_address_provider.dart';
 import 'package:kute/providers/usd_account_provider.dart';
 import 'package:kute/screens/scanner/scanner_sheet.dart' show ScannerSheet;
-import 'package:kute/screens/shared/account_switcher_pill.dart';
 import 'package:kute/screens/shared/coin_asset_grid.dart'
     show CoinAssetPickerSheet;
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show SendAmountUnitPill;
+import 'package:kute/screens/shared/send/send_recipient_step.dart'
+    show SendSalShareGlyph;
+import 'package:kute/screens/shared/sal_sprite.dart' show SalSpriteCache;
 import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart'
-    show UsdAccountActionBar;
+    show UsdAccountActionRow;
 import 'package:kute/screens/usd/usd_send_screen.dart';
 import 'package:kute/screens/usd/usd_withdraw_screen.dart'
     show UsdWithdrawScreen, kUsdWithdrawRouteName;
 import 'package:kute/screens/shared/kute_back_button.dart'
-    show KuteBareCloseButton;
+    show KuteCloseButton;
 import 'package:kute/services/continuous_haptics.dart';
 import 'package:kute/services/kute_haptics.dart';
 import 'package:kute/services/orchestra_usd_send_routes.dart';
@@ -60,6 +61,7 @@ import 'package:kute/theme/app_theme.dart';
 
 import '../../helpers/fake_scanner_camera.dart';
 import '../../helpers/runtime_policy_fixture.dart';
+import '../../helpers/kute_bar_test_support.dart';
 
 const _spark =
     'sp1pgssy7d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9ucez8h3s';
@@ -251,6 +253,9 @@ Future<void> _pump(WidgetTester tester,
     child: ScreenUtilInit(
       designSize: const Size(430, 932),
       builder: (_, __) => MaterialApp(
+        // The shell bar over the page (kute_bar_test_support.dart): every
+        // step's primary is the bar.
+        builder: withKuteShellBar,
         theme: theme,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
@@ -261,8 +266,14 @@ Future<void> _pump(WidgetTester tester,
   await tester.pumpAndSettle();
 }
 
-AppButton _cta(WidgetTester tester, String label) => tester.widget<AppButton>(
-    find.ancestor(of: find.text(label), matching: find.byType(AppButton)));
+/// The step's primary button, the bar (kute_bar_test_support.dart),
+/// reading [label] (the page's declared label: the bar draws it a frame
+/// after the page).
+KuteBarPrimaryProbe _cta(WidgetTester tester, String label) {
+  final probe = kuteBarPrimaryProbe(tester);
+  expect(probe.text, label);
+  return probe;
+}
 
 bool _continueEnabled(WidgetTester tester) =>
     _cta(tester, _l10n.continueLabel).onPressed != null;
@@ -324,6 +335,10 @@ Future<void> _type(WidgetTester tester, String digits) async {
     await tester.tap(find.text(d).last);
     await tester.pump();
   }
+  // The bar redraws a frame after the page, its words sliding from the
+  // step to take to Continue (kute_shell_bar.dart).
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 400));
 }
 
 Future<void> _paste(WidgetTester tester, String value) async {
@@ -394,6 +409,9 @@ void main() {
 
   setUp(() async {
     GoogleFonts.config.allowRuntimeFetching = false;
+    // No sprite sheets: a decoded loop would tick for ever under
+    // pumpAndSettle; the glyphs fall back to their icons.
+    SalSpriteCache.debugSetManifest(null);
     AffiliateService.debugSessionToken = 'test-session';
     final policy = runtimePolicyFixture();
     RuntimeCapabilitiesService.debugInstance = policy;
@@ -406,6 +424,7 @@ void main() {
 
   tearDown(() {
     RuntimeCapabilitiesService.debugInstance = null;
+    SalSpriteCache.debugReset();
     AffiliateService.debugSessionToken = null;
   });
 
@@ -433,7 +452,11 @@ void main() {
 
     expect(_step(_l10n.sendTo), findsOneWidget);
     expect(_grid, findsOneWidget);
-    expect(find.text(_l10n.usdFlowStepCoin), findsOneWidget);
+    expect(
+        find.descendant(
+            of: find.byType(UsdSendScreen),
+            matching: find.text(_l10n.usdFlowStepCoin)),
+        findsOneWidget);
     expect(find.byType(TextField), findsNothing);
     expect(find.byTooltip(_l10n.paste), findsNothing);
     expect(find.byTooltip(_l10n.scan), findsNothing);
@@ -442,8 +465,51 @@ void main() {
     expect(find.text(_l10n.sendClipboardAddressFound), findsNothing);
     expect(_continueEnabled(tester), isFalse);
     // No visible step heading; the step is announced by name only.
-    expect(find.text(_l10n.sendTo), findsNothing);
     expect(find.text(_l10n.sendWhereShouldItLand), findsNothing);
+    // A link needs no coin: the Send to card sits under the grid.
+    expect(find.byKey(const ValueKey('send-pick-market-row')), findsOneWidget);
+    expect(find.byKey(const ValueKey('send-to-friend-row')), findsOneWidget);
+  });
+
+  testWidgets(
+      'the coin step\'s Send to card: one "Send dollars to a friend" row with Sal\'s '
+      'share face and the prediction row; no Send to anyone, no Contacts',
+      (tester) async {
+    await _pump(tester);
+    final friend = find.byKey(const ValueKey('send-to-friend-row'));
+    expect(friend, findsOneWidget);
+    expect(find.text(_l10n.sendDollarsToAFriend), findsOneWidget);
+    expect(find.text(_l10n.sendToAFriendSub), findsOneWidget);
+    expect(find.descendant(of: friend, matching: find.byType(SendSalShareGlyph)),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('send-pick-market-row')), findsOneWidget);
+    expect(find.byKey(const ValueKey('send-to-anyone-row')), findsNothing);
+    expect(find.text(_l10n.shareSendToAnyone), findsNothing);
+    expect(find.text(_l10n.sendContacts), findsNothing);
+    expect(find.byKey(const ValueKey('send-contacts-ask')), findsNothing);
+  });
+
+  testWidgets(
+      'the address step is addresses only: the chip, the field and Paste '
+      'and Scan, none of the friend, prediction or contact rows',
+      (tester) async {
+    await _pump(tester);
+    await _pickCoin(tester, 'arbitrum', 'USDC');
+    expect(_chip, findsOneWidget);
+    expect(find.byType(TextField), findsOneWidget);
+    expect(find.byTooltip(_l10n.paste), findsOneWidget);
+    expect(find.byTooltip(_l10n.scan), findsOneWidget);
+    expect(find.byKey(const ValueKey('send-to-friend-row')), findsNothing);
+    expect(find.byKey(const ValueKey('send-pick-market-row')), findsNothing);
+    expect(find.byKey(const ValueKey('send-to-anyone-row')), findsNothing);
+    expect(find.text(_l10n.sendToLabel), findsNothing);
+    expect(find.text(_l10n.sendContacts), findsNothing);
+    expect(find.byKey(const ValueKey('send-contact-matches')), findsNothing);
+    // A typed name is a search of the recents only: no contact rows.
+    await tester.enterText(find.byType(TextField), 'mar');
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('send-contact-matches')), findsNothing);
+    expect(find.byKey(const ValueKey('send-to-friend-row')), findsNothing);
   });
 
   testWidgets(
@@ -502,14 +568,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(_step(_l10n.sendReview), findsOneWidget);
     expect(find.text(_l10n.sendReview), findsNothing);
-    // "Investments" twice: the sheet's title (the balance the dollars
-    // leave from, never the spending wallet) and Review's From line.
-    expect(find.text(_l10n.assetDollars), findsNWidgets(2));
-    expect(
-        find.descendant(
-            of: find.byType(AccountSwitcherPill),
-            matching: find.text(_l10n.assetDollars)),
-        findsOneWidget);
+    // "Investments" on Review's From line (the balance the dollars leave
+    // from, never the spending wallet); the title says "Send USDC".
+    expect(find.text(_l10n.assetDollars), findsOneWidget);
+    expect(find.text(_l10n.sendCoinTitle('USDC')), findsOneWidget);
     expect(_chipLabel(tester), label('arbitrum', 'USDC'));
     // Route params name the coin and its network; never the address.
     final step = events.lastWhere((e) => e.$1 == 'usd_send_step').$2!;
@@ -574,7 +636,7 @@ void main() {
     await _paste(tester, 'ethereum:$_evm@8453');
     expect(_field(tester), _evm);
     expect(
-        find.text(_l10n.usdSendAddressWrongNetwork(
+        find.text(_l10n.usdSendNotNetworkAddress(
             _dest('arbitrum', 'USDC').chainDisplayName)),
         findsOneWidget);
     expect(_chipLabel(tester), label('arbitrum', 'USDC'));
@@ -584,7 +646,7 @@ void main() {
     await tester.pumpAndSettle();
     await _paste(tester, _tron);
     expect(
-        find.text(_l10n.usdSendAddressWrongNetwork(
+        find.text(_l10n.usdSendNotNetworkAddress(
             _dest('arbitrum', 'USDC').chainDisplayName)),
         findsOneWidget);
     expect(_chipLabel(tester), label('arbitrum', 'USDC'));
@@ -830,7 +892,7 @@ void main() {
   // ─── The send sheet ───────────────────────────────────────────────
 
   testWidgets(
-      'the Investments dock\'s Withdraw opens the Deposit\'s sheet turned '
+      'the Investments row\'s Send opens the Add sheet turned '
       'around; a coin on it opens the send sheet at medium height on Send '
       'to, the coin picked, and closing it comes back', (tester) async {
     final events = <(String, Map<String, Object>?)>[];
@@ -841,27 +903,32 @@ void main() {
     await _pump(tester,
         home: const Scaffold(
             body: SizedBox.expand(),
-            bottomNavigationBar: UsdAccountActionBar()));
+            bottomNavigationBar: UsdAccountActionRow()));
 
-    await tester.tap(find.text(_l10n.withdraw));
+    await tester.tap(find.text(_l10n.send));
     await tester.pumpAndSettle();
 
-    // The Withdraw sheet: the Deposit's bottom sheet, "To your wallet"
-    // over the Bitcoin card, then the coins. No send yet.
+    // The Dollars Send sheet (the Bitcoin send's layout): "Send dollars",
+    // the search field, the Send to card with To your Bitcoin, A stock or
+    // prediction and Also sends to. No send yet.
     final withdraw = find.byType(UsdWithdrawScreen);
     expect(withdraw, findsOneWidget);
     final route = ModalRoute.of(tester.element(withdraw));
     expect(route, isA<ModalBottomSheetRoute<void>>());
     expect(route!.settings.name, kUsdWithdrawRouteName);
-    expect(find.text(_l10n.usdWithdrawToYourWallet), findsOneWidget);
+    expect(find.text(_l10n.sendDollarsTitle), findsOneWidget);
     expect(
         find.byKey(const ValueKey('usd-withdraw-to-bitcoin')), findsOneWidget);
-    expect(find.text(_l10n.usdWithdrawToAnotherWallet), findsOneWidget);
+    expect(find.byKey(const ValueKey('usd-withdraw-pick')), findsOneWidget);
+    final also = find.byKey(const ValueKey('send-also-sends-to-row'));
+    expect(also, findsOneWidget);
     expect(find.byType(UsdSendScreen), findsNothing);
 
-    // USDC is on several networks: its networks, then the send.
-    await _tapCoin(tester, find.byKey(const ValueKey('usd-withdraw-coin-grid')),
-        'arbitrum', 'USDC');
+    // Also sends to opens the coin sheet; USDC is on several networks:
+    // its networks, then the send.
+    await tester.tap(also);
+    await tester.pumpAndSettle();
+    await _tapCoin(tester, find.byType(CoinAssetPickerSheet), 'arbitrum', 'USDC');
 
     expect(find.byType(UsdSendScreen), findsOneWidget);
     expect(_step(_l10n.sendTo), findsOneWidget);
@@ -869,16 +936,19 @@ void main() {
     // The coin is picked: its chip over the field, no grid.
     expect(_chipLabel(tester), label('arbitrum', 'USDC'));
     expect(_grid, findsNothing);
-    expect(find.byType(TextField), findsOneWidget);
+    expect(
+        find.descendant(
+            of: find.byType(UsdSendScreen), matching: find.byType(TextField)),
+        findsOneWidget);
     // The screen it came from stays behind the scrim.
-    expect(find.byType(UsdAccountActionBar), findsOneWidget);
+    expect(find.byType(UsdAccountActionRow), findsOneWidget);
     final opened = events.where((e) => e.$1 == 'usd_send_opened').single.$2;
     expect(opened, containsPair('presentation', 'sheet'));
     expect(events.where((e) => e.$1 == 'usd_send_coin_selected').single.$2,
         containsPair('preselected', true));
 
     // Closing the send comes back to the Withdraw sheet as it was.
-    await tester.tap(find.byType(KuteBareCloseButton));
+    await tester.tap(find.byType(KuteCloseButton).last);
     await tester.pumpAndSettle();
     expect(find.byType(UsdSendScreen), findsNothing);
     expect(withdraw, findsOneWidget);
@@ -1048,23 +1118,23 @@ void main() {
     final field = tester.getRect(find.byType(TextField));
     expect(field.top, greaterThanOrEqualTo(tester.getTopLeft(_sheet).dy));
     expect(field.bottom, lessThanOrEqualTo(keyboardTop));
-    final cta = find.ancestor(
-        of: find.text(_l10n.continueLabel), matching: find.byType(AppButton));
-    expect(tester.getRect(cta).bottom, lessThanOrEqualTo(keyboardTop));
+    // Continue is the bar, which slides away under the keyboard
+    // (kute_bar_context.dart) and is back once it goes; it is on.
     expect(_continueEnabled(tester), isTrue);
 
     // Outside the field: keyboard away, sheet kept.
-    await tester.tap(find.text(_l10n.sendDetectedEthereumStyleAddress));
+    await tester.tap(find.text(_l10n.sendCoinTitle('USDC')));
     await tester.pump();
     expect(FocusManager.instance.primaryFocus?.context?.widget,
         isNot(isA<EditableText>()));
     expect(find.byType(UsdSendScreen), findsOneWidget);
 
-    await tester.tap(cta);
-    await tester.pumpAndSettle();
-    expect(_step(_l10n.amount), findsOneWidget);
+    // The keyboard gone, the bar is back: Continue.
     tester.view.resetViewInsets();
     await tester.pumpAndSettle();
+    await tester.tap(kuteBarPrimaryWithText(_l10n.continueLabel));
+    await tester.pumpAndSettle();
+    expect(_step(_l10n.amount), findsOneWidget);
     expect(tester.takeException(), isNull);
     // The keypad's 1 is on screen and tappable at this size.
     await _type(tester, '5');

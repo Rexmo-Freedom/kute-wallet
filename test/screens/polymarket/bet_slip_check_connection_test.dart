@@ -7,12 +7,10 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/models/currency_conversions.dart';
 import 'package:kute/models/polymarket_model.dart';
@@ -37,10 +35,10 @@ import 'package:kute/services/polymarket/polymarket_fee_terms.dart';
 import 'package:kute/services/region_freshness.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/runtime_policy_snapshot_store.dart';
-import 'package:kute/theme/app_theme.dart';
 import 'package:money2/money2.dart';
 
 import '../../helpers/fake_swap_orders.dart';
+import '../../helpers/shell_bar_harness.dart';
 
 class _Prices extends LivePriceNotifier {
   @override
@@ -170,6 +168,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
+    installShellBar();
     await tester.pumpWidget(ProviderScope(
       overrides: [
         settingsProvider.overrideWith((ref) => SettingsModel(Settings(
@@ -193,24 +192,16 @@ void main() {
         polymarketFeeTermsProvider
             .overrideWith((ref, _) async => PolymarketFeeTerms.worstCase),
       ],
-      child: ScreenUtilInit(
-        designSize: const Size(430, 932),
-        builder: (_, __) => MaterialApp(
-          theme: ThemeData(
-              splashFactory: NoSplash.splashFactory,
-              fontFamily: 'Inter',
-              extensions: [AppColorsExtension.light()]),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: const Scaffold(
-            resizeToAvoidBottomInset: false,
-            body: Align(
-              alignment: Alignment.bottomCenter,
-              child: BetSlipSheet(
-                  marketQuestion: 'Will it rain?',
-                  outcomes: _outcomes,
-                  initialAmountUsd: 10),
-            ),
+      // The bar over the slip is the slip's button (shell_bar_harness.dart).
+      child: shellBarApp(
+        home: const Scaffold(
+          resizeToAvoidBottomInset: false,
+          body: Align(
+            alignment: Alignment.bottomCenter,
+            child: BetSlipSheet(
+                marketQuestion: 'Will it rain?',
+                outcomes: _outcomes,
+                initialAmountUsd: 10),
           ),
         ),
       ),
@@ -226,8 +217,13 @@ void main() {
     policy.dispose();
   }
 
+  /// "Check connection" is the bar (the slip declares it through the
+  /// keyed PolySlipCta): the tap lands on the bar's button.
   Future<void> tapCheck(WidgetTester tester) async {
-    await tester.tap(find.byKey(const ValueKey('bet-slip-check-connection')));
+    expect(find.byKey(const ValueKey('bet-slip-check-connection')),
+        findsOneWidget);
+    expect(barPrimaryLabel(tester), 'Check connection');
+    await tapBarPrimary(tester, settle: false);
     await frames(tester, 20);
   }
 
@@ -241,6 +237,9 @@ void main() {
         findsOneWidget);
     expect(cta(tester).label, 'Check connection');
     expect(cta(tester).enabled, isTrue);
+    // The bar is that button, live.
+    expect(barPrimaryLabel(tester), 'Check connection');
+    expect(barPrimaryEnabled(tester), isTrue);
     await release(tester);
   });
 
@@ -258,6 +257,8 @@ void main() {
     expect(find.byType(CapabilityBlockNote), findsNothing);
     expect(cta(tester).label, r'Place $10.00 on Yes');
     expect(cta(tester).enabled, isTrue);
+    expect(barPrimaryLabel(tester), r'Place $10.00 on Yes');
+    expect(barPrimaryEnabled(tester), isTrue);
     expect(policy.allows('polymarket.trade'), isTrue);
     // Both venues asked live, reported as a manual check.
     expect(triggers, containsAll(['polymarket:manual', 'hyperliquid:manual']));

@@ -23,11 +23,10 @@
 //     Balances and Activity are the Portfolio pill's sections now): the
 //     app bar with its back over one scrolling page — the balance
 //     breakdown with its Rebalance (portfolio_balance_breakdown.dart:
-//     Dollars, Investing and Predictions cash), the one P&L chart with its
-//     All · Investing · Predictions toggle, then the Balances frame
-//     around the figures: the ring, Open P&L with the Active | Historic
-//     pair, each venue's row with its figures and its resting orders
-//     under it (PortfolioStatisticsOverview, the orders from
+//     Dollars, Investing and Predictions cash), the P&L charts' one card
+//     (the realised P&L, the chart and its ranges, one line per venue
+//     that picks the series) with the resting orders under it
+//     (PortfolioStatisticsOverview, the orders from
 //     PortfolioOrdersBook), then Positions (the Positions pill's rows,
 //     when anything is held), then
 //     the Activity, the one merged list (portfolio_activity.dart), its
@@ -53,6 +52,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart';
@@ -85,7 +85,7 @@ import 'package:kute/screens/portfolio/components/balances_overview.dart'
     show BalancesCategory, BalancesPnlText, BalancesVenueList;
 import 'package:kute/screens/portfolio/components/position_rows.dart';
 import 'package:kute/screens/portfolio/poly_position_events.dart'
-    show polyPortfolioEventsPrefetchProvider;
+    show polyPortfolioEventsPrefetchProvider, polyPositionEventProvider;
 import 'package:kute/screens/portfolio/portfolio_activity.dart';
 import 'package:kute/screens/portfolio/portfolio_balance_breakdown.dart';
 import 'package:kute/screens/portfolio/portfolio_empty_state.dart';
@@ -118,7 +118,7 @@ class OpenInvestmentsScreen extends ConsumerStatefulWidget {
   /// Pushes the Portfolio full screen, over the shell's nav bar and dock,
   /// with the app's standard back.
   static Future<void> show(BuildContext context, {required String source}) =>
-      Navigator.of(context, rootNavigator: true).push(MaterialPageRoute<void>(
+      Navigator.of(context, rootNavigator: true).push(KutePageRoute<void>(
           builder: (_) => OpenInvestmentsScreen(source: source)));
 
   @override
@@ -381,10 +381,12 @@ List<Widget> portfolioPositionsSlivers(
 /// (founder decision 27 October 2026: the Positions pill is gone, its rows
 /// live under their venue): under Predictions the bets on their way, the
 /// open positions and combos largest first, then the settled ones in their
-/// own row style; under Investing the perps and spot holdings largest
-/// first. Each with the venue's P&L beside its value and shimmer rows
-/// while it is still read with nothing listed. The rows, taps and sheets
-/// are the Positions list's own.
+/// own row style ([BalancesVenueList.settled]: the card lists them only
+/// once its "See all" opens it, founder 28 October 2026); under Investing
+/// the perps and spot holdings largest first. Each with the venue's P&L
+/// beside its value and shimmer rows while it is still read with nothing
+/// listed. The rows, taps and sheets are the Positions list's own; the
+/// card shows the first three (components/balances_overview.dart).
 Map<BalancesCategory, BalancesVenueList> portfolioVenueLists(
     BuildContext context, WidgetRef ref, PortfolioVenues venues) {
   List<Widget> ranked(List<(double, Widget)> cards) {
@@ -407,6 +409,9 @@ Map<BalancesCategory, BalancesVenueList> portfolioVenueLists(
             for (final p in book.placing)
               PlacingBetRow(key: ValueKey('placing-${p.placementId}'), bet: p),
             ...ranked(book.openCards()),
+          ],
+          // Settled: listed once the venue's "See all" opens its card.
+          settled: [
             for (final p in book.claimable)
               PolyPositionRow(
                   key: ValueKey('poly-r-${p.tokenId}'), position: p),
@@ -437,6 +442,107 @@ Map<BalancesCategory, BalancesVenueList> portfolioVenueLists(
         );
       }(),
   };
+}
+
+/// The Portfolio screen's ring slices (founder, 1 November 2026: "make it
+/// intelligent"): one per OPEN position, the same ones the rows list, by
+/// what it is worth now at the live price as its row reads it (a perp
+/// what closing it gives back, a holding at the mid, a prediction its
+/// shares at the live price, a combo its estimate), largest first, each
+/// coloured from the chart palette in that order (the palette's "other"
+/// grey is Available's). Settled positions and bets on their way have no
+/// slice. Each slice's id is its row's key ([PortfolioPositionRow.sliceId]).
+List<PortfolioSlice> portfolioOpenSlices(
+    BuildContext context, WidgetRef ref, PortfolioVenues venues) {
+  final l10n = context.l10n;
+  final raw = <(String, String, double, double?, double?)>[];
+  if (venues.trading) {
+    final state = ref.watch(hyperliquidDisplayTradingProvider).valueOrNull;
+    for (final p in state?.positions ?? const <HlPerpPosition>[]) {
+      final mid = ref.watch(hyperliquidLiveMidProvider(p.coin));
+      final descriptor = ref.watch(hyperliquidAccountMarketProvider(p.coin));
+      final coin = descriptor?.coin ?? p.coin;
+      final pnl = hlLivePnl(p, liveMid: mid);
+      final margin = hlPositionMargin(p);
+      final roe = margin > 0 ? pnl / margin : p.returnOnEquity;
+      raw.add((
+        'hl-${p.coin}',
+        hlFriendlyName(p.coin) ??
+            hlFriendlyName(coin) ??
+            descriptor?.unitAssetName ??
+            coin,
+        hlCloseValue(p, liveMid: mid),
+        pnl,
+        roe * 100,
+      ));
+    }
+    final spot = (state?.spotBalances ?? const <HlSpotBalance>[])
+        .where((b) => b.coin != 'USDC' && b.total > 0)
+        .toList();
+    if (spot.isNotEmpty) {
+      final markets = ref.watch(hyperliquidSpotMarketsProvider).valueOrNull ??
+          const <HlMarket>[];
+      for (final b in spot) {
+        final market = markets.where((m) => m.coin == b.coin).firstOrNull;
+        if (market == null || market.midPx <= 0) continue;
+        final value = b.total * market.midPx;
+        final cost = b.costBasis;
+        final pnl = cost == null ? null : value - cost;
+        raw.add((
+          'hl-spot-${b.coin}',
+          hlFriendlyName(b.coin) ?? market.unitAssetName ?? b.coin,
+          value,
+          pnl,
+          pnl != null && cost != null && cost > 0 ? pnl / cost * 100 : null,
+        ));
+      }
+    }
+  }
+  if (venues.predictions) {
+    final book = _PolyBook.watch(ref);
+    for (final p in book.open) {
+      final live = ref.watch(livePriceProvider
+          .select((s) => s.live ? s.prices[p.tokenId] : null));
+      final price = live ?? p.currentPrice;
+      final slug = p.eventSlug;
+      final event = slug == null || slug.isEmpty
+          ? null
+          : ref.watch(polyPositionEventProvider(slug));
+      final pnl = (price - p.avgPrice) * p.size;
+      raw.add((
+        'poly-${p.tokenId}',
+        polyPositionRowTitle(context, p, event),
+        p.size * price,
+        pnl,
+        p.avgPrice > 0 ? (price / p.avgPrice - 1) * 100 : null,
+      ));
+    }
+    for (final p in book.openCombos) {
+      raw.add((
+        'combo-${p.conditionId}',
+        l10n.comboLegsLabel(p.legsTotal),
+        p.estimatedValueUsd,
+        null,
+        null,
+      ));
+    }
+  }
+  final shown = raw.where((r) => r.$3.isFinite && r.$3 >= 0.005).toList()
+    ..sort((a, b) => b.$3.compareTo(a.$3));
+  final palette = context.colors.chartCategorical;
+  // The palette's last colour is its "other" grey: Available's.
+  final colours = palette.sublist(0, palette.length - 1);
+  return [
+    for (var i = 0; i < shown.length; i++)
+      PortfolioSlice(
+        id: shown[i].$1,
+        name: shown[i].$2,
+        valueUsd: shown[i].$3,
+        pnlUsd: shown[i].$4,
+        pnlPercent: shown[i].$5,
+        color: colours[i % colours.length],
+      ),
+  ];
 }
 
 /// The open predictions' P&L at the live price, as their rows read it.

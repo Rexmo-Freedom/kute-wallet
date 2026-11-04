@@ -15,6 +15,7 @@ import 'package:kute/screens/polymarket/components/poly_browse_bar.dart'
     show PolyDrillRow;
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/screens/polymarket/components/market_card.dart';
+import 'package:kute/screens/polymarket/components/top_markets_strip.dart';
 import 'package:kute/screens/polymarket/polymarket_screen.dart';
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
@@ -63,12 +64,14 @@ void main() {
     TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
     addTearDown(() => TrackingService.debugTrackObserver = null);
 
-    await pumpInvestments(tester, browsePredictions: true, overrides: [
-      polyBrowseFeedProvider.overrideWith(_EmptyFeed.new),
-    ]);
-    final l10n =
-        AppLocalizations.of(tester.element(find.byType(KutePillTabs).first));
-    await tapAndPump(tester, investmentsPill(l10n.predictions));
+    // The drill row is the venue screen's own (a Ledger's Predictions
+    // tab); inside Investments the page's pill carries the category.
+    await pumpInvestments(tester,
+        browsePredictions: true,
+        child: const Scaffold(body: PolymarketScreen()),
+        overrides: [
+          polyBrowseFeedProvider.overrideWith(_EmptyFeed.new),
+        ]);
     final container = ProviderScope.containerOf(
         tester.element(find.byType(PolymarketScreen)));
 
@@ -130,90 +133,156 @@ void main() {
 
   testWidgets(
       'the lists carry no titles; plain markets share grouped cards that '
-      'an event with many outcomes breaks',
+      'an event with many outcomes breaks; the strip only on Trending',
       (tester) async {
     await pumpInvestments(tester,
         browsePredictions: true,
         size: const Size(390, 2400),
+        child: const Scaffold(body: PolymarketScreen()),
         overrides: [
           polyBrowseFeedProvider.overrideWith(_ThreeMarkets.new),
           ...offlineVenueOverrides,
         ]);
-    final l10n =
-        AppLocalizations.of(tester.element(find.byType(KutePillTabs).first));
-    await tapAndPump(tester, investmentsPill(l10n.predictions));
 
     for (final pill in ['Trending', 'New']) {
       if (pill != 'Trending') {
         await _tap(tester, _pill(pill));
         await _settle(tester);
       }
+      final trending = pill == 'Trending';
       expect(_selected(tester, pill), isTrue);
       // The pill names the list: its label is written once, on the pill.
       expect(_inBrowser(find.text(pill)), findsOneWidget);
       expect(find.descendant(of: _pill(pill), matching: find.text(pill)),
           findsOneWidget);
 
-      // Plain markets share Home Activity's grouped card; the event with
-      // many outcomes keeps its own card and breaks the group:
-      // group (Fed, BTC) → card (Trump) → group (Rain).
-      final cards = _inBrowser(find.byType(MarketCard));
-      expect(cards, findsNWidgets(4));
-      final groups = _inBrowser(find.byType(DecoratedSliver));
-      expect(groups, findsNWidgets(2));
-      final context = tester.element(cards.first);
-      for (final g in tester.widgetList<DecoratedSliver>(groups)) {
-        expect(g.decoration, PremiumGroupContainer.decorationOf(context));
+      // A picked category: no strip, the busy five are plain cards of
+      // the first group, the event with many outcomes still its own card.
+      if (!trending) {
+        expect(_inBrowser(find.byType(PolyTopMarketCard)), findsNothing);
+        final busy = find.ancestor(
+            of: find.text('Busy market 1?'), matching: find.byType(MarketCard));
+        expect(tester.widget<MarketCard>(busy).inGroup, isTrue);
+        final trump = find.ancestor(
+            of: find.text('Who will Trump meet?'),
+            matching: find.byType(MarketCard));
+        expect(tester.widget<MarketCard>(trump).inGroup, isFalse);
+      } else {
+        // Plain markets share Home Activity's grouped card; the event with
+        // many outcomes keeps its own card and breaks the group:
+        // group (Fed, BTC) → card (Trump) → group (Rain).
+        final cards = _inBrowser(find.byType(MarketCard));
+        expect(cards, findsNWidgets(4));
+        // The strip's five busy markets are big cards, not rows.
+        expect(_inBrowser(find.byType(PolyTopMarketCard)), findsNWidgets(5));
+        for (final card in tester.widgetList<MarketCard>(cards)) {
+          expect(card.title, isNot(startsWith('Busy market')));
+        }
+        final groups = _inBrowser(find.byType(DecoratedSliver));
+        expect(groups, findsNWidgets(2));
+        final context = tester.element(cards.first);
+        for (final g in tester.widgetList<DecoratedSliver>(groups)) {
+          expect(g.decoration, PremiumGroupContainer.decorationOf(context));
+        }
+        Finder inGroup(int g, Finder f) =>
+            find.descendant(of: groups.at(g), matching: f);
+        expect(inGroup(0, find.byType(MarketCard)), findsNWidgets(2));
+        expect(inGroup(1, find.byType(MarketCard)), findsOneWidget);
+        expect(inGroup(0, find.byType(Divider)), findsOneWidget);
+        expect(inGroup(1, find.byType(Divider)), findsNothing);
+        expect(tester.widget<Divider>(inGroup(0, find.byType(Divider))).indent,
+            polyGroupRowIndent());
+        final trump = find.ancestor(
+            of: find.text('Who will Trump meet?'),
+            matching: find.byType(MarketCard));
+        expect(tester.widget<MarketCard>(trump).inGroup, isFalse);
+        expect(find.descendant(of: groups, matching: trump), findsNothing);
+        for (final title in [
+          'Fed cuts in December?',
+          'Bitcoin above 150k?',
+          'Rain in London tomorrow?'
+        ]) {
+          final card = find.ancestor(
+              of: find.text(title), matching: find.byType(MarketCard));
+          expect(tester.widget<MarketCard>(card).inGroup, isTrue);
+        }
+        // In order: the first group, the card, the second group.
+        Rect at(String title) => tester.getRect(find.ancestor(
+            of: find.text(title), matching: find.byType(MarketCard)));
+        expect(at('Bitcoin above 150k?').bottom,
+            lessThan(tester.getRect(trump).top));
+        expect(tester.getRect(trump).bottom,
+            lessThan(at('Rain in London tomorrow?').top));
       }
-      Finder inGroup(int g, Finder f) =>
-          find.descendant(of: groups.at(g), matching: f);
-      expect(inGroup(0, find.byType(MarketCard)), findsNWidgets(2));
-      expect(inGroup(1, find.byType(MarketCard)), findsOneWidget);
-      expect(inGroup(0, find.byType(Divider)), findsOneWidget);
-      expect(inGroup(1, find.byType(Divider)), findsNothing);
-      expect(tester.widget<Divider>(inGroup(0, find.byType(Divider))).indent,
-          polyGroupRowIndent());
-      final trump = find.ancestor(
-          of: find.text('Who will Trump meet?'),
-          matching: find.byType(MarketCard));
-      expect(tester.widget<MarketCard>(trump).inGroup, isFalse);
-      expect(find.descendant(of: groups, matching: trump), findsNothing);
-      for (final title in [
-        'Fed cuts in December?',
-        'Bitcoin above 150k?',
-        'Rain in London tomorrow?'
-      ]) {
-        final card = find.ancestor(
-            of: find.text(title), matching: find.byType(MarketCard));
-        expect(tester.widget<MarketCard>(card).inGroup, isTrue);
-      }
-      // In order: the first group, the card, the second group.
-      Rect at(String title) => tester.getRect(
-          find.ancestor(of: find.text(title), matching: find.byType(MarketCard)));
-      expect(at('Bitcoin above 150k?').bottom,
-          lessThan(tester.getRect(trump).top));
-      expect(tester.getRect(trump).bottom,
-          lessThan(at('Rain in London tomorrow?').top));
       // No title over the 5-minute card either, big or small.
-      expect(_inBrowser(find.text(l10n.predictionsCryptoMarkets)),
+      expect(
+          _inBrowser(find.text(AppLocalizations.of(
+                  tester.element(find.byType(PolymarketScreen)))
+              .predictionsCryptoMarkets)),
           findsNothing);
     }
 
     await unmountInvestments(tester);
     await tester.pump(const Duration(seconds: 31));
   });
+
+  test('the default view keeps six markets; any other list is whole', () {
+    final rows = List.generate(20, (i) => i);
+    expect(kPolyTrendingListRows, 6);
+    expect(polyBrowseRowsShown(true, rows), [0, 1, 2, 3, 4, 5]);
+    expect(polyBrowseRowsShown(false, rows), rows);
+  });
+
+  testWidgets(
+      'Trending: the strip, six markets and nothing after; a picked '
+      'category has no strip and lists every market', (tester) async {
+    await pumpInvestments(tester,
+        browsePredictions: true,
+        size: const Size(390, 5000),
+        child: const Scaffold(body: PolymarketScreen()),
+        overrides: [
+          polyBrowseFeedProvider.overrideWith(_ManyMarkets.new),
+          ...offlineVenueOverrides,
+        ]);
+    expect(_selected(tester, 'Trending'), isTrue);
+    expect(_inBrowser(find.byType(PolyTopMarketCard)), findsNWidgets(5));
+    expect(_inBrowser(find.byType(MarketCard)), findsNWidgets(6));
+    for (final card
+        in tester.widgetList<MarketCard>(_inBrowser(find.byType(MarketCard)))) {
+      expect(card.title, isNot(startsWith('Busy market')));
+    }
+    await _tap(tester, _pill('New'));
+    await _settle(tester);
+    expect(_selected(tester, 'New'), isTrue);
+    // No strip: every market is a card, the busy five included, down to
+    // the last.
+    expect(_inBrowser(find.byType(PolyTopMarketCard)), findsNothing);
+    expect(_inBrowser(find.byType(MarketCard)).evaluate().length,
+        greaterThan(6));
+    expect(_inBrowser(find.text('Busy market 1?')), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Plain market 20?'), 400,
+        scrollable: _inBrowser(find.byType(Scrollable)).first);
+    expect(find.text('Plain market 20?'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await unmountInvestments(tester);
+    await tester.pump(const Duration(seconds: 31));
+  });
 }
 
-/// Two plain Yes/No markets, an event with many outcomes, another plain
-/// one: in every list.
+/// Five busy Yes/No markets the strip takes, then two plain Yes/No
+/// markets, an event with many outcomes, another plain one: in every
+/// list. On Trending the strip's five never repeat in the list (founder,
+/// 1 November 2026), so the list under it is the four; any other list has
+/// no strip and lists all nine.
 class _ThreeMarkets extends PolyFeedNotifier {
   @override
   PolyFeedState build(PolyFeedQuery arg) {
-    PolymarketEvent yesNo(String id, String title) => PolymarketEvent(
+    PolymarketEvent yesNo(String id, String title, {double volume = 1e6}) =>
+        PolymarketEvent(
           id: id,
           slug: id,
           title: title,
-          volume: 1e6,
+          volume: volume,
           liquidity: 1e5,
           category: 'finance',
           conditionId: id,
@@ -223,6 +292,8 @@ class _ThreeMarkets extends PolyFeedNotifier {
           ],
         );
     return PolyFeedState(done: true, events: [
+      for (var i = 1; i <= 5; i++)
+        yesNo('top$i', 'Busy market $i?', volume: 9e6 - i),
       yesNo('fed', 'Fed cuts in December?'),
       yesNo('btc', 'Bitcoin above 150k?'),
       PolymarketEvent(
@@ -245,6 +316,34 @@ class _ThreeMarkets extends PolyFeedNotifier {
         ],
       ),
       yesNo('rain', 'Rain in London tomorrow?'),
+    ]);
+  }
+}
+
+
+/// Five busy markets for the strip, then twenty plain ones: in every list.
+class _ManyMarkets extends PolyFeedNotifier {
+  @override
+  PolyFeedState build(PolyFeedQuery arg) {
+    PolymarketEvent yesNo(String id, String title, {double volume = 1e6}) =>
+        PolymarketEvent(
+          id: id,
+          slug: id,
+          title: title,
+          volume: volume,
+          liquidity: 1e5,
+          category: 'finance',
+          conditionId: id,
+          outcomes: const [
+            PolymarketOutcome(name: 'Yes', price: 0.4),
+            PolymarketOutcome(name: 'No', price: 0.6),
+          ],
+        );
+    return PolyFeedState(done: true, events: [
+      for (var i = 1; i <= 5; i++)
+        yesNo('top$i', 'Busy market $i?', volume: 9e6 - i),
+      for (var i = 1; i <= 20; i++)
+        yesNo('m$i', 'Plain market $i?', volume: 1e6 - i),
     ]);
   }
 }

@@ -4374,6 +4374,7 @@ class TrackingService {
     required String reason,
     String? errorCode,
     String? stage, // pre_send | post_send
+    Object? cause,
   }) {
     track('polymarket_withdraw_failed', params: {
       'amount_bucket': _usdBucket(amountUsd),
@@ -4383,6 +4384,7 @@ class TrackingService {
       if (stage != null) 'stage': stage,
       'error_category': errorCategory(reason),
       'reason': _safeReason(reason) ?? '',
+      if (cause != null) 'cause_reason': errorReason(cause),
       if (errorCode != null) 'error_code': errorCode,
     });
   }
@@ -6285,8 +6287,14 @@ class TrackingService {
             flow: flow, attempts: attempts, outcome: outcome));
   }
 
-  static void settlementFundingUnknown(String flow) {
-    track('settlement_funding_unknown', params: {'flow': flow});
+  /// [cause] is what the funding call threw: its text-free
+  /// [errorReason] rides along as `cause_reason`, so an unknown outcome
+  /// says what made it unknown instead of only that it is.
+  static void settlementFundingUnknown(String flow, {Object? cause}) {
+    track('settlement_funding_unknown', params: {
+      'flow': flow,
+      if (cause != null) 'cause_reason': errorReason(cause),
+    });
   }
 
   static void settlementFundingResolved({

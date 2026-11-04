@@ -14,9 +14,12 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:kute/screens/home/components/kute_shell_bar.dart' show KuteBarPrimaryButton;
+import 'package:kute/providers/unified_search_provider.dart'
+    show SearchCategory;
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:loading_animation_widget/loading_animation_widget.dart';
 
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
@@ -24,7 +27,6 @@ import 'package:kute/screens/shared/amount_keypad_panel.dart'
     show AmountActionChip;
 import 'package:kute/screens/shared/animated_balance.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
-import 'package:kute/screens/shared/kute_motion.dart';
 import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/screens/shared/side_tint_palette.dart';
 import 'package:kute/screens/shared/slip_form_body.dart';
@@ -325,10 +327,16 @@ class PolySlipCta extends StatelessWidget {
     this.bandOutcome,
     this.bandProgress,
     this.bandExpected = const Duration(seconds: 4),
+    this.disabledLabel,
   });
 
   final Color color;
   final bool isBusy;
+
+  /// What the slip's button says while [enabled] is false: the step to
+  /// take ("Enter an amount"; KuteBarContext.disabledLabel). Null where
+  /// the disabled [label] already says it (loading, a deposit on its way).
+  final String? disabledLabel;
 
   /// The placement's rubber band ([RubberBandBusy]): while [isBusy] the
   /// button is drawn up with growing tension, and lets go when it ends.
@@ -365,131 +373,45 @@ class PolySlipCta extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = context.isDark;
-    // Reduce-motion: the enabled/colour fill tween is decorative.
-    final reduceMotion = MediaQuery.of(context).disableAnimations;
+    // THE BAR IS THE BUTTON (founder, 31 October 2026; kute_shell_bar.dart,
+    // KuteBarContext.primary): the ticket declares its one action here,
+    // with the same label, handler, enabled and busy state its button
+    // had, and draws no button of its own. What stays is the room the
+    // bar needs over the keypad. The tint, the band and the colours of
+    // the old button are the bar's own now.
+    // THE SLIP'S OWN BUTTON LOOK (founder: never black on the tinted
+    // slip): the sheet's ink as the fill, the trade lettered in its side
+    // colour, a neutral action in the contrast; off the tint, the side
+    // colour itself. The slip's 16 radius and w800.
     final tint = SheetTint.maybeOf(context);
-    final bg = tint == null ? color : tint.on;
-    // Label contrast follows the fill (the deposit branch runs the dark
-    // primary fill, which is WHITE in dark mode — white text there was
-    // the old invisible-label bug class). On the tint, the order slip's
-    // rule: the trade wears its side colour, a neutral action contrasts.
+    final fill = tint == null ? color : tint.on;
     final fg = tint == null
         ? contrastingOnColor(color)
         : slipCtaLabelColor(fill: tint.on, side: tint.side, neutral: neutral);
-    // Disabled the way `AppButton` is: the whole button, fill and label
-    // together, fades to 0.35. A busy button stays at full strength.
-    final faded = !enabled && !isBusy;
-    final button = SizedBox(
-      width: double.infinity,
-      height: 56.h,
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(16.r),
-        child: InkWell(
-          onTap: enabled ? onTap : null,
-          borderRadius: BorderRadius.circular(16.r),
-          child: AnimatedContainer(
-            duration: reduceMotion
-                ? Duration.zero
-                : const Duration(milliseconds: 140),
-            decoration: BoxDecoration(
-              color: bg,
-              borderRadius: BorderRadius.circular(16.r),
-              // The inverted CTA is the brightest thing on a saturated
-              // sheet, so it gets a soft cast shadow instead of the
-              // coloured glow — that lifts it off green/red the way the
-              // glow lifts it off a white sheet. Neutral sheets keep the
-              // original behaviour.
-              boxShadow: !enabled
-                  ? null
-                  : tint != null
-                      ? [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.22),
-                            blurRadius: 16,
-                            offset: const Offset(0, 6),
-                          ),
-                        ]
-                      : isDark
-                          ? null
-                          : [
-                              BoxShadow(
-                                color: color.withValues(alpha: 0.30),
-                                blurRadius: 14,
-                                offset: const Offset(0, 6),
-                              ),
-                            ],
-            ),
-            alignment: Alignment.center,
-            // Going busy (or back) cross-fades the label and the spinner;
-            // a label that only changes its amount updates in place.
-            child: ArrivalSwitcher(
-              state: isBusy,
-              alignment: Alignment.center,
-              animateSize: false,
-              child: isBusy && busyLabelInSteps
-                  ? Semantics(
-                      key: const ValueKey('poly-slip-cta-busy-quiet'),
-                      label: busyLabel ?? context.l10n.betPlacingOrderEllipsis,
-                      liveRegion: true,
-                      child: LoadingAnimationWidget.staggeredDotsWave(
-                        color: fg,
-                        size: 22.sp,
-                      ),
-                    )
-                  : isBusy
-                  ? Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        LoadingAnimationWidget.staggeredDotsWave(
-                          color: fg,
-                          size: 22.sp,
-                        ),
-                        SizedBox(width: 10.w),
-                        Flexible(
-                          child: Text(
-                            busyLabel ?? context.l10n.betPlacingOrderEllipsis,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: fg,
-                              fontSize: 17.sp,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.2,
-                            ),
-                          ),
-                        ),
-                      ],
-                    )
-                  : Text(
-                      label,
-                      style: TextStyle(
-                        color: fg,
-                        fontSize: 17.sp,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.2,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-            ),
-          ),
-        ),
-      ),
-    );
-    return AnimatedOpacity(
-      opacity: faded ? 0.35 : 1,
-      duration:
-          reduceMotion ? Duration.zero : const Duration(milliseconds: 140),
-      child: RubberBandBusy(
-        enabled: band,
+    return KuteBarContextScope(
+      barContext: KuteBarContext.primary(
+        label: label,
+        onPrimary: onTap,
+        enabled: enabled,
         busy: isBusy,
-        outcome: bandOutcome,
-        progress: bandProgress,
-        expected: bandExpected,
-        child: button,
+        busyLabel: isBusy
+            ? (busyLabel ?? context.l10n.betPlacingOrderEllipsis)
+            : null,
+        style: KuteBarPrimaryStyle(
+          fill: fill,
+          foreground: fg,
+          // The bar's own pill shape (kute_shell_bar.dart): the slip's
+          // button is the same pill in the slip's colour.
+          radius: KuteBarPrimaryButton.radius,
+          fontWeight: FontWeight.w800,
+        ),
+        category: SearchCategory.predictions,
+        source: 'slip',
+        disabledLabel: disabledLabel,
       ),
+      child: SizedBox(
+          key: const ValueKey('poly-slip-cta-room'),
+          height: kuteBarScrollClearance.h),
     );
   }
 }

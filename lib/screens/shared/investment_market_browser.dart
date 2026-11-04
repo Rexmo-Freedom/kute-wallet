@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/providers/polymarket_sports_provider.dart'
@@ -78,6 +79,7 @@ class InvestmentMarketBrowser<T> extends StatelessWidget {
     required this.onOpenMarket,
     required this.groups,
     required this.groupRowIndent,
+    this.groupDivider = marketGroupDivider,
     this.leading,
   });
 
@@ -96,6 +98,9 @@ class InvestmentMarketBrowser<T> extends StatelessWidget {
   /// Where a grouped row's text starts, for the group's hairline.
   final double Function() groupRowIndent;
 
+  /// What sits between two rows of a group (the market's own list's).
+  final MarketGroupDivider groupDivider;
+
   /// Shown between the category pills and the first section, like Home's
   /// 5 Minute Markets block.
   final Widget? leading;
@@ -108,11 +113,12 @@ class InvestmentMarketBrowser<T> extends StatelessWidget {
     TrackingService.track('investment_category_opened',
         params: {'product': product, 'source': 'account'});
     Navigator.of(context, rootNavigator: true).push(
-      MaterialPageRoute<void>(
+      KutePageRoute<void>(
         builder: (_) => _CategoryPage<T>(
           title: section.label,
           groups: groups,
           groupRowIndent: groupRowIndent,
+          groupDivider: groupDivider,
           markets: section.markets,
           cardBuilder: cardBuilder,
           onOpenMarket: onOpenMarket,
@@ -143,6 +149,7 @@ class InvestmentMarketBrowser<T> extends StatelessWidget {
             items: section.markets.take(6).toList(),
             groups: groups,
             dividerIndent: groupRowIndent(),
+            divider: groupDivider,
             build: (market, inGroup) =>
                 cardBuilder(market, () => onOpenMarket(market), inGroup),
           ),
@@ -162,10 +169,15 @@ class PredictionBrowseCard extends ConsumerWidget {
     this.onTap,
     this.followLiveGame = false,
     this.inGroup = false,
+    this.onPickSide,
   });
 
   final PolymarketEvent event;
   final VoidCallback? onTap;
+
+  /// A Yes / No pill of the row was tapped ([MarketCard.onPickSide]);
+  /// null leaves the pills as part of the row's tap.
+  final ValueChanged<String>? onPickSide;
 
   /// A row of a grouped list card ([MarketCard.inGroup]).
   final bool inGroup;
@@ -225,6 +237,7 @@ class PredictionBrowseCard extends ConsumerWidget {
         livePrices: livePrices,
         priceDirections: directions,
         onTap: onTap,
+        onPickSide: onPickSide,
       ),
     );
   }
@@ -238,6 +251,7 @@ class _CategoryPage<T> extends StatelessWidget {
     required this.title,
     required this.groups,
     required this.groupRowIndent,
+    required this.groupDivider,
     required this.markets,
     required this.cardBuilder,
     required this.onOpenMarket,
@@ -250,6 +264,7 @@ class _CategoryPage<T> extends StatelessWidget {
   final void Function(T market) onOpenMarket;
   final bool Function(T market) groups;
   final double Function() groupRowIndent;
+  final MarketGroupDivider groupDivider;
 
   @override
   Widget build(BuildContext context) {
@@ -288,6 +303,7 @@ class _CategoryPage<T> extends StatelessWidget {
                   items: markets,
                   groups: groups,
                   dividerIndent: groupRowIndent(),
+                  divider: groupDivider,
                   build: (market, inGroup) => cardBuilder(
                       market, () => onOpenMarket(market), inGroup),
                 ),

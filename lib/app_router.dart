@@ -1,4 +1,3 @@
-import 'package:kute/models/transactions_model.dart';
 import 'package:kute/screens/bank/bank_screen.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart';
 import 'package:kute/screens/creation/add_wallet.dart';
@@ -9,9 +8,11 @@ import 'package:kute/screens/pay/components/watch_only_screen.dart';
 import 'package:kute/screens/creation/passkey_choice.dart';
 import 'package:kute/screens/creation/confirm_pin.dart';
 import 'package:kute/screens/pay/components/confirm_send.dart';
-import 'package:kute/screens/shared/bitcoin_transactions_details_screen.dart';
 import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/screens/spash/splash.dart';
+import 'package:kute/screens/share/claim_screen.dart';
+import 'package:kute/services/share_link_claims.dart';
+import 'package:kute/services/share_links_store.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kute/screens/home/main_screen.dart';
 import 'package:kute/screens/creation/start.dart';
@@ -29,9 +30,14 @@ import 'package:kute/screens/home/components/search_modal.dart';
 import 'package:kute/screens/settings/components/backup_wallet.dart';
 import 'package:kute/screens/ledger/ledger_investing_setup_screen.dart';
 import 'package:kute/screens/home/shell_venue_tabs.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart'
+    show KuteBarRouteObserver;
+import 'package:kute/screens/portfolio/portfolio_screen.dart';
+import 'package:kute/screens/shared/kute_page_route.dart';
+import 'package:kute/theme/kute_motion.dart';
 import 'package:kute/screens/portfolio/wallet_detail_screen.dart';
 import 'package:kute/screens/portfolio/investments_portfolio.dart'
-    show PortfolioSection;
+    show PortfolioSection, kHomeActivityLocation;
 import 'package:kute/screens/settings/wallets_screen.dart';
 
 import 'package:flutter/material.dart';
@@ -40,13 +46,17 @@ import 'package:posthog_flutter/posthog_flutter.dart';
 
 import 'screens/creation/xpub_import_screen.dart';
 import 'screens/creation/external_address_import_screen.dart';
-import 'screens/shared/spark_transaction_details.dart';
 import 'screens/shared/coming_soon_screen.dart';
 import 'screens/scanner/scanner_sheet.dart';
 import 'screens/settings/affiliate_screen.dart';
 import 'screens/app_shell.dart';
 import 'services/appsflyer_service.dart';
 import 'services/tracking_service.dart';
+
+/// The Bitcoin home with its Activity tab selected: where the old Dollars
+/// `?tab=activity` link and a trade receipt's "see in list" go now that the
+/// home's Activity lists everything (all_activity.dart).
+const String kHomeActivityLocation = '/home?tab=activity';
 
 class AppRouter {
   // The ROOT navigator. The persistent nav shell (KuteTopNavBar) is painted
@@ -59,6 +69,11 @@ class AppRouter {
   // /hyperliquid, /polymarket) stay inside the shell.
   static final GlobalKey<NavigatorState> _rootNavigatorKey =
       GlobalKey<NavigatorState>(debugLabel: 'root');
+
+  /// The root navigator's key, for a layer drawn outside it (the shell bar)
+  /// and for services that show a sheet with no widget of their own (the
+  /// share-link pay prompt on resume).
+  static GlobalKey<NavigatorState> get rootNavigatorKey => _rootNavigatorKey;
 
   // Per-branch navigator keys for the persistent nav shell. Each tab
   // (Home / Bank / USD / Trading / Predictions) owns its own Navigator so a
@@ -76,10 +91,16 @@ class AppRouter {
   static final GlobalKey<NavigatorState> _predictionsBranchKey =
       GlobalKey<NavigatorState>(debugLabel: 'predictionsBranch');
 
+  /// A pushed screen's transition (founder, 31 October 2026, after
+  /// Orchestra): in on the settle easing with a subtle 0.97 → 1 scale and
+  /// a fade, back on the sheets' close easing, the platform back swipe
+  /// kept; a plain line under Reduce Motion. One transition for every
+  /// pushed page in the app (kute_page_route.dart; the numbers in
+  /// lib/theme/kute_motion.dart).
   static CustomTransitionPage<void> _buildFadeScalePage({
     required Widget child,
     required GoRouterState state,
-    Duration duration = const Duration(milliseconds: 200),
+    Duration duration = KuteMotion.settleDuration,
   }) {
     return CustomTransitionPage<void>(
       key: state.pageKey,
@@ -91,32 +112,8 @@ class AppRouter {
       child: child,
       transitionDuration: duration,
       reverseTransitionDuration: duration,
-      transitionsBuilder: (context, animation, secondaryAnimation, child) {
-        final isPush = animation.status == AnimationStatus.forward;
-
-        final curve = isPush ? Curves.easeOutCubic : Curves.easeInCubic;
-
-        final fadeAnimation = CurvedAnimation(
-          parent: animation,
-          curve: curve,
-        );
-
-        final scaleAnimation = Tween<double>(begin: 0.95, end: 1.0).animate(
-          CurvedAnimation(
-            parent: animation,
-            curve: curve,
-          ),
-        );
-
-        return FadeTransition(
-          opacity: fadeAnimation,
-          child: ScaleTransition(
-            scale: scaleAnimation,
-            alignment: Alignment.center,
-            child: child,
-          ),
-        );
-      },
+      transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+          kutePageTransition(context, animation, child),
     );
   }
 
@@ -168,11 +165,15 @@ class AppRouter {
   @visibleForTesting
   static void handleIncomingLink(Uri uri) {
     _trackDeepLink(uri);
-    AppsFlyerService.ingestReferrerFromDeepLink(
-      uri.queryParameters['deep_link_value'] ??
-          uri.queryParameters['af_sub1'] ??
-          uri.queryParameters['c'],
-    );
+    // A claim link (`/c/{id}`, or `deep_link_value=claim`) carries no
+    // referral code: `claim` must never be bound as one.
+    if (ShareLinkClaims.claimIdFromLink(uri) == null) {
+      AppsFlyerService.ingestReferrerFromDeepLink(
+        uri.queryParameters['deep_link_value'] ??
+            uri.queryParameters['af_sub1'] ??
+            uri.queryParameters['c'],
+      );
+    }
     // Website → app identity link (never a referral code).
     AppsFlyerService.ingestWebVisitorFromDeepLink(
         uri.queryParameters['af_sub2']);
@@ -205,6 +206,21 @@ class AppRouter {
     return lockedAllowlist.contains(Uri.parse(location).path) ? null : '/splash';
   }
 
+  /// Where an incoming share-link claim (`https://<web>/c/{id}`, or a
+  /// OneLink with `deep_link_value=claim&deep_link_sub1={id}`) goes: the
+  /// Claim screen when the session is unlocked; while [locked] (a cold
+  /// start, a fresh install still onboarding) the id is parked
+  /// (ShareLinksStore) and the Claim screen opens once the session is
+  /// unlocked (app_widget.dart). Null for every other URI.
+  @visibleForTesting
+  static String? claimLinkRedirect(Uri uri, {required bool locked}) {
+    final id = ShareLinkClaims.claimIdFromLink(uri);
+    if (id == null) return null;
+    if (!locked) return ShareLinkClaims.claimRoutePath(id);
+    ShareLinksStore.parkClaim(id);
+    return null;
+  }
+
   /// The top-level redirect. [sessionLocked] reads the session (null
   /// `sessionAuthProvider`); [initialRoute] seeds the last good location.
   ///
@@ -231,7 +247,8 @@ class AppRouter {
       final uri = state.uri;
       if (uri.hasScheme) {
         handleIncomingLink(uri);
-        return lockRedirect(locked: sessionLocked(), location: lastGood) ??
+        return claimLinkRedirect(uri, locked: sessionLocked()) ??
+            lockRedirect(locked: sessionLocked(), location: lastGood) ??
             lastGood;
       }
       final guard = lockRedirect(
@@ -254,7 +271,9 @@ class AppRouter {
       // PostHog's `PosthogObserver` is wired in `app_widget.dart` via
       // `extraObservers`. Firebase Analytics' routeObserver is gone;
       // legacy `TrackingService.routeObserver` is now a no-op.
-      observers: [...extraObservers],
+      // The bar's count of what is over the tabs (kute_bar_context.dart):
+      // one observer here, one on each tab's navigator below.
+      observers: [...extraObservers, KuteBarRouteObserver()],
       redirect:
           redirectFor(sessionLocked: sessionLocked, initialRoute: initialRoute),
       routes: [
@@ -267,34 +286,20 @@ class AppRouter {
           ),
         ),
         GoRoute(
+          path: '/claim/:id',
+          name: ClaimScreen.routeName,
+          pageBuilder: (context, state) => _buildFadeScalePage(
+            child: ClaimScreen(id: state.pathParameters['id'] ?? ''),
+            state: state,
+          ),
+        ),
+        GoRoute(
           path: '/start',
           name: 'start',
           pageBuilder: (context, state) => _buildFadeScalePage(
             child: const Start(),
             state: state,
           ),
-        ),
-        GoRoute(
-          path: '/transaction-details',
-          name: 'transactionDetails',
-          pageBuilder: (context, state) {
-            final transaction = state.extra as BitcoinTransaction;
-            return _buildFadeScalePage(
-              child: BitcoinTransactionDetailsScreen(transaction: transaction),
-              state: state,
-            );
-          },
-        ),
-
-        GoRoute(
-          path: '/spark-transaction-details',
-          name: 'sparkTransactionDetails',
-          pageBuilder: (context, state) {
-            return _buildFadeScalePage(
-              child: SparkTransactionDetails(),
-              state: state,
-            );
-          },
         ),
         GoRoute(
           path: '/seed_words',
@@ -417,6 +422,7 @@ class AppRouter {
           branches: [
             // ── Branch 0: Home (+ its full sub-route tree) ──
             StatefulShellBranch(
+              observers: [KuteBarRouteObserver()],
               navigatorKey: _homeBranchKey,
               routes: [
                 GoRoute(
@@ -614,6 +620,7 @@ class AppRouter {
             ),
             // ── Branch 1: Bank (coming soon placeholder page) ──
             StatefulShellBranch(
+              observers: [KuteBarRouteObserver()],
               navigatorKey: _bankBranchKey,
               routes: [
                 GoRoute(
@@ -629,11 +636,19 @@ class AppRouter {
             // ── Branch 2: USD (the spending account's dollars) ──
             // Occupies the strip slot the hidden Bank tab used to hold.
             StatefulShellBranch(
+              observers: [KuteBarRouteObserver()],
               navigatorKey: _usdBranchKey,
               routes: [
                 GoRoute(
                   path: '/usd',
                   name: 'usd',
+                  // The activity left the Portfolio for the Bitcoin home
+                  // (founder, 1 November 2026): an old `?tab=activity`
+                  // link lands there.
+                  redirect: (context, state) =>
+                      state.uri.queryParameters['tab'] == 'activity'
+                          ? kHomeActivityLocation
+                          : null,
                   // `?tab=investing|predictions|positions` (what the venue
                   // routes redirect to) or `extra: {'tab': …}` picks the
                   // Investments pill (an old `earn` link opens the default
@@ -658,6 +673,7 @@ class AppRouter {
             ),
             // ── Branch 3: Trading (Hyperliquid) ──
             StatefulShellBranch(
+              observers: [KuteBarRouteObserver()],
               navigatorKey: _tradingBranchKey,
               routes: [
                 GoRoute(
@@ -681,6 +697,7 @@ class AppRouter {
             ),
             // ── Branch 4: Predictions (Polymarket) ──
             StatefulShellBranch(
+              observers: [KuteBarRouteObserver()],
               navigatorKey: _predictionsBranchKey,
               routes: [
                 GoRoute(
@@ -726,6 +743,18 @@ class AppRouter {
           path: '/affiliate',
           pageBuilder: (context, state) => _buildFadeScalePage(
             child: const AffiliateScreen(),
+            state: state,
+          ),
+        ),
+        // The Portfolio, its own screen over the shell (founder, 31 October
+        // 2026): the Dollars action row's third button, and where every
+        // old `/usd?tab=portfolio|positions|orders|activity…` link lands
+        // (portfolio_screen.dart).
+        GoRoute(
+          path: PortfolioScreen.route,
+          name: 'portfolio',
+          pageBuilder: (context, state) => _buildFadeScalePage(
+            child: const PortfolioScreen(),
             state: state,
           ),
         ),

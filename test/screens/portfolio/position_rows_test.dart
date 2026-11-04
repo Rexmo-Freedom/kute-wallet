@@ -136,11 +136,14 @@ final _nvdaMarket = HlMarket(
     dex: 'xyz',
     isHip3: true);
 
-Future<void> _pump(WidgetTester tester, Widget row) async {
-  tester.view.physicalSize = const Size(390, 400);
+Future<void> _pump(WidgetTester tester, Widget row,
+    {double width = 390, double textScale = 1}) async {
+  tester.view.physicalSize = Size(width, 400);
   tester.view.devicePixelRatio = 1;
+  tester.platformDispatcher.textScaleFactorTestValue = textScale;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
+  addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
   await tester.pumpWidget(ProviderScope(
     overrides: [
       ...portfolioOverrides(),
@@ -233,6 +236,37 @@ void main() {
       expect(
           portfolioPnlPill(0.02, percent: 0.01)!.tone, PortfolioPnlTone.flat);
       expect(portfolioPnlPill(-0.42), isNull);
+    });
+  });
+
+  group('the Portfolio screen\'s squares', () {
+    test('whole rows of two only: two for two or three, four from four, one '
+        'alone for one', () {
+      expect([for (var n = 0; n <= 7; n++) portfolioSquareCount(n)],
+          [0, 1, 2, 2, 4, 4, 4, 4]);
+    });
+
+    test('the Investing row\'s name says a side other than Yes', () {
+      final kane = polyPositionRowNames(
+          question: _kane.marketQuestion,
+          side: 'Yes',
+          marketId: 'kane',
+          tokenId: 'kane-yes',
+          event: _ballonDor);
+      expect(polyPositionListName(kane, 'Yes'), 'Harry Kane');
+      expect(polyPositionListName(kane, 'No'), 'Harry Kane · No');
+      // The title is the side: alone.
+      final named = polyPositionRowNames(
+          question: 'Who will win the Las Vegas Grand Prix?',
+          side: 'Verstappen');
+      expect(polyPositionListName(named, 'Verstappen'), 'Verstappen');
+      // Read before its event: a name cut from the question reads as the
+      // whole short question, its rest having no line to go on.
+      const question = r'Will Bitcoin reach $150,000 in 2026?';
+      final cut = polyPositionRowNames(question: question, side: 'No');
+      expect(cut.title, 'Bitcoin');
+      expect(polyPositionListName(cut, 'No', question: question),
+          r'Bitcoin reach $150,000 in 2026 · No');
     });
   });
 
@@ -438,6 +472,89 @@ void main() {
         _figure(tester, 'portfolio-row-pnl').style.color, AppColors.marketDown);
     expect(_pillColor(tester), AppColors.marketDown);
   });
+
+  for (final scale in [1.0, 1.3]) {
+    testWidgets(
+        'in the soft card at 375 pt and ${(scale * 100).round()} % text: '
+        'no overflow, the figures whole inside the card\'s 16 inset, a '
+        'long title cut with an ellipsis, a wide figure scaled down',
+        (tester) async {
+      await _pump(
+          tester,
+          width: 375,
+          textScale: scale,
+          const PortfolioCardList(rows: [
+            PortfolioPositionRow(
+                leading: SizedBox(),
+                title: 'Democratic Presidential Nominee 2028 and some more '
+                    'words that never fit',
+                subtitle: 'Democratic Presidential Nominee 2028 · No',
+                value: r'$10,812.37',
+                chance: 0.51,
+                entry: 0.5,
+                pnl: (text: '+0.4%', tone: PortfolioPnlTone.up)),
+            PortfolioPositionRow(
+                leading: SizedBox(),
+                title: 'Bitcoin',
+                subtitle: 'Long · 0.1 BTC',
+                value: r'$1,234,567,890.12',
+                pnl: (text: '−12345.6%', tone: PortfolioPnlTone.down)),
+          ]));
+      expect(tester.takeException(), isNull);
+      final card = tester.getRect(find.byType(PortfolioCardList));
+      final inset = 16 * 375 / 430;
+      expect(find.descendant(
+              of: find.byType(PortfolioCardList),
+              matching: find.byType(Divider)),
+          findsOneWidget);
+      final rows = find.byType(PortfolioPositionRow);
+      for (var i = 0; i < 2; i++) {
+        Rect inRow(String key) => tester.getRect(find
+            .descendant(of: rows.at(i), matching: find.byKey(ValueKey(key)))
+            .first);
+        final title = inRow('portfolio-row-title');
+        final figures = inRow('portfolio-row-figures');
+        for (final key in ['portfolio-row-value', 'portfolio-row-pnl-pill']) {
+          final r = inRow(key);
+          expect(r.right, lessThanOrEqualTo(card.right - inset + 0.5),
+              reason: 'row $i $key past the card\'s inset');
+          expect(r.left, greaterThanOrEqualTo(figures.left - 0.5));
+          expect(r.right, moreOrLessEquals(card.right - inset, epsilon: 0.5));
+        }
+        expect(title.right, lessThanOrEqualTo(figures.left));
+        // The figures never take more than 45% of the row.
+        expect(figures.width,
+            lessThanOrEqualTo((card.width - 2 * inset) * 0.45 + 0.5));
+      }
+      final longTitle = tester.widget<Text>(find
+          .descendant(
+              of: rows.first,
+              matching: find.byKey(const ValueKey('portfolio-row-title')))
+          .first);
+      expect(longTitle.overflow, TextOverflow.ellipsis);
+      // The chance bar under the title, from where it starts, before the
+      // figures.
+      final bar = tester.getRect(
+          find.byKey(const ValueKey('portfolio-row-chance')));
+      final firstTitle = tester.getRect(find
+          .descendant(
+              of: rows.first,
+              matching: find.byKey(const ValueKey('portfolio-row-title')))
+          .first);
+      expect(bar.left, moreOrLessEquals(firstTitle.left, epsilon: 0.5));
+      expect(
+          bar.right,
+          lessThanOrEqualTo(tester
+              .getRect(find
+                  .descendant(
+                      of: rows.first,
+                      matching:
+                          find.byKey(const ValueKey('portfolio-row-figures')))
+                  .first)
+              .left));
+      expect(bar.bottom, lessThanOrEqualTo(tester.getRect(rows.first).bottom));
+    });
+  }
 
   testWidgets('a tap opens what the card opened, with the same event',
       (tester) async {

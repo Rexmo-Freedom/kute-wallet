@@ -53,6 +53,7 @@ import 'package:hive_ce/hive.dart';
 
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/venue_intents.dart';
+import 'package:kute/constants/hyperliquid_constants.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/auth_provider.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart';
@@ -67,6 +68,7 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/services/hyperliquid/hl_failure_analytics.dart';
+import 'package:kute/services/hyperliquid/hl_sent_order_trace.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart';
 import 'package:kute/services/hyperliquid/hot_twap_guard.dart';
 import 'package:kute/services/hyperliquid/hypercore_cash.dart';
@@ -1087,8 +1089,13 @@ class HyperliquidTradingNotifier
       await exchange.moveOwnUsdc(
           sourceDex: 'spot', destinationDex: market.dex, amount: fromSpot);
     }
+    // The money is in the dex; only its read lags. Nothing moves during
+    // the wait, so it is long enough for a slow builder dex: the first
+    // order on OPENAI used to give up after 8 s (and the second attempt,
+    // finding the cash there, went through).
     await waitForOwnDexCash(
       requiredUsd: requiredUsd,
+      maxWait: kOwnDexCreditWait,
       availableUsd: () async =>
           (await model.getDexClearinghouse(address, market.dex)).withdrawable,
     );
@@ -1444,10 +1451,17 @@ class HyperliquidTradingNotifier
         allowed: _hlOrderActions,
       );
       // Full closes send the exact exchange-reported size (already a
-      // multiple of the lot size); partials floor to szDecimals.
-      final size = clamped >= 0.999
-          ? pos.szi.abs()
-          : flooredSize(pos.szi.abs() * clamped, market.szDecimals);
+      // multiple of the lot size). A partial is sized the way the venue
+      // checks it ([hlPartialCloseSize]): one asked at the minimum or more
+      // goes out at the first step that clears it at the IOC's price, so
+      // a typed $10 close on a coarse-stepped market is not refused.
+      final refPx = _referencePx(market);
+      final size = hlMarketCloseSize(
+          position: pos,
+          fraction: clamped,
+          market: market,
+          referencePx: refPx,
+          slippagePct: slippagePct);
 
       _closeBaselines[coin] = (absSzi: pos.szi.abs(), at: DateTime.now());
       _setData(state0.copyWith(
@@ -1456,17 +1470,28 @@ class HyperliquidTradingNotifier
       marked = true;
 
       final builder = await _builderFee();
-      final refPx = _referencePx(market);
-      final result = await ex.placeMarketOrder(
-        market: market,
-        isBuy: !pos.isLong,
-        size: size,
-        referencePx: refPx,
-        slippage: slippagePct / 100,
-        reduceOnly: true,
-        cloid: newHlCloid(),
-        builder: builder,
-      );
+      final cloid = newHlCloid();
+      HlOrderResult result;
+      try {
+        result = await ex.placeMarketOrder(
+          market: market,
+          isBuy: !pos.isLong,
+          size: size,
+          referencePx: refPx,
+          slippage: slippagePct / 100,
+          reduceOnly: true,
+          cloid: cloid,
+          builder: builder,
+        );
+      } catch (e) {
+        // No answer from the venue (a slow builder dex can take the
+        // close past the POST's budget): it may well have gone through.
+        // Found on the account, the close is done as it stands; else the
+        // failure says the result is unconfirmed. Never sent again.
+        final found = await _sentOrderIfUnknown(e, cloid, market);
+        if (found == null) rethrow;
+        result = found;
+      }
 
       TrackingService.hyperliquidPositionClosed(
         coin: coin,
@@ -1516,6 +1541,22 @@ class HyperliquidTradingNotifier
           notionalUsd: pos == null ? null : pos.positionValue.abs() * clamped,
           leverage: pos?.leverageValue);
       rethrow;
+    }
+  }
+
+  /// The order sent as [cloid] on [market], when [e] left it unknown
+  /// whether the venue took it ([hlOrderOutcomeUnknown]) and the account
+  /// shows it filled or resting; null when [e] is a verdict, the order is
+  /// nowhere, or the account could not be read. Never throws.
+  Future<HlOrderResult?> _sentOrderIfUnknown(
+      Object e, String cloid, HlMarket market) async {
+    if (!hlOrderOutcomeUnknown(e)) return null;
+    try {
+      final trace = await hlTraceSentOrder(
+          ref.read(hlSentOrderTraceProvider), [cloid], market);
+      return trace.found;
+    } catch (_) {
+      return null;
     }
   }
 
@@ -2769,6 +2810,43 @@ class HyperliquidTradingNotifier
 
 /// Actions accepted by the order, close and leverage executors.
 const Set<SensitiveAction> _hlOrderActions = {SensitiveAction.hlOrder};
+
+/// The size a market close of [fraction] of [position] goes out with on
+/// [market]: the whole position exactly at (nearly) 100%, else
+/// [hlPartialCloseSize] at [referencePx] and the IOC's own price. A
+/// partial that still cannot clear the venue minimum (asked below it)
+/// throws [HyperliquidMinNotionalException] before anything is signed:
+/// the venue would refuse it with the same words.
+double hlMarketCloseSize({
+  required HlPerpPosition position,
+  required double fraction,
+  required HlMarket market,
+  required double referencePx,
+  double slippagePct = 1.0,
+}) {
+  final whole = position.szi.abs();
+  if (fraction >= 0.999) return whole;
+  final checkPx = hlMinCheckPx(
+      referencePx: referencePx,
+      isBuy: !position.isLong,
+      slippage: slippagePct / 100,
+      szDecimals: market.szDecimals,
+      isSpot: false);
+  final size = hlPartialCloseSize(
+      requestedSz: whole * fraction,
+      positionSz: whole,
+      referencePx: referencePx,
+      checkPx: checkPx,
+      szDecimals: market.szDecimals);
+  if (size < whole && !meetsMinNotional(px: checkPx, sz: size)) {
+    throw HyperliquidMinNotionalException(
+        'close notional \$${(size * checkPx).toStringAsFixed(2)} is below '
+        'the \$${HyperliquidConstants.minOrderNotionalUsd.toStringAsFixed(0)} '
+        'minimum',
+        minimumUsd: HyperliquidConstants.minOrderNotionalUsd);
+  }
+  return size;
+}
 
 final hyperliquidTradingProvider = AsyncNotifierProvider.autoDispose<
     HyperliquidTradingNotifier, HyperliquidTradingState>(

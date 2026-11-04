@@ -2,7 +2,7 @@
 // value, not only the labels, takes the new theme's colours. The sheets
 // used to read the palette from the row that opened them, once, at tap
 // time, so after dark -> light the Date, Value then and Description values
-// and the "View on the blockchain" button stayed white on the light sheet.
+// stayed white on the light sheet.
 
 import 'dart:io';
 
@@ -19,6 +19,8 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/shared/transactions_builder.dart';
 import 'package:kute/services/tx_fiat_snapshot_service.dart';
 import 'package:kute/theme/app_theme.dart';
+
+import '../../helpers/kute_bar_test_support.dart';
 
 final _at = DateTime(2026, 10, 20, 17, 1);
 const _description = 'Wallet of Satoshi: coffee';
@@ -65,8 +67,7 @@ void main() {
   });
 
   testWidgets(
-      'a Lightning send sheet open across dark -> light recolours its values '
-      'and the explorer button', (tester) async {
+      'a Lightning send sheet open across dark -> light recolours its values', (tester) async {
     tester.view.physicalSize = const Size(1290, 2796);
     tester.view.devicePixelRatio = 3;
     tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
@@ -129,34 +130,27 @@ void main() {
         .style
         ?.color;
     Color? textColor(String s) => colorOf(find.text(s));
-    Color? buttonLabel() => colorOf(find.text(l10n.activityViewOnBlockchain));
-    Color? buttonIcon() => colorOf(find.byIcon(Icons.open_in_new_rounded));
 
     final dark = buildDarkTheme().extension<AppColorsExtension>()!;
     final light = buildLightTheme().extension<AppColorsExtension>()!;
     expect(light.textPrimary, isNot(dark.textPrimary));
 
-    expect(textColor(date), dark.textPrimary);
+    // The date is the hero's quiet line; Value then a tile; the
+    // description its own full-width row; the explorer the bar's primary
+    // button (no button drawn on the sheet).
+    expect(textColor(date), dark.textTertiary);
     expect(textColor(r'$0.01'), dark.textPrimary);
     expect(textColor(_description), dark.textPrimary);
-    expect(buttonLabel(), dark.textPrimary);
-    expect(buttonIcon(), dark.textPrimary);
+    expect(kuteBarPrimaryContext(tester).label, l10n.activityViewOnBlockchain);
+    expect(find.byType(OutlinedButton), findsNothing);
 
     // The appearance flips while the sheet stays open.
     tester.platformDispatcher.platformBrightnessTestValue = Brightness.light;
     await settle();
 
-    expect(textColor(date), light.textPrimary, reason: 'Date value');
+    expect(textColor(date), light.textTertiary, reason: 'Date line');
     expect(textColor(r'$0.01'), light.textPrimary, reason: 'Value then');
     expect(textColor(_description), light.textPrimary,
         reason: 'Description value');
-    expect(buttonLabel(), light.textPrimary, reason: 'explorer label');
-    expect(buttonIcon(), light.textPrimary, reason: 'explorer icon');
-    final border = tester
-        .widget<OutlinedButton>(find.byType(OutlinedButton))
-        .style!
-        .side!
-        .resolve({});
-    expect(border?.color, light.border, reason: 'explorer border');
   });
 }

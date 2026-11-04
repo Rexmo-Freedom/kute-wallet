@@ -77,6 +77,51 @@ List<KuteDockAction> bitcoinWalletDockActions(
   ];
 }
 
+/// Purchase as one action of the compact row (the primary one, solid):
+/// the same door the big Purchase Bitcoin button opens, with the same gate
+/// for a savings wallet that has no onramp on offer.
+KuteDockAction bitcoinPurchaseDockAction(
+    BuildContext context, WidgetRef ref, WalletConfig wallet,
+    {required String source}) {
+  return KuteDockAction(
+    icon: Icons.currency_bitcoin_rounded,
+    label: context.l10n.purchaseShort,
+    trackingId: 'purchase',
+    solid: true,
+    onTap: () async {
+      if (!wallet.isSparkWallet &&
+          !await confirmAnyOnrampVisible(
+              ref.read(runtimeCapabilitiesProvider))) {
+        if (context.mounted) showBuyUnavailableSheet(context);
+        return;
+      }
+      if (!context.mounted) return;
+      if (!_pinBitcoinWallet(context, ref, wallet)) return;
+      showDepositSheet(
+        context,
+        lockedSide: MoveLockedSide.depositFromFiat,
+        fiatDepositWalletId: wallet.isSparkWallet ? null : wallet.id,
+      );
+    },
+  );
+}
+
+/// The scanner as one action of the compact row: the camera, as a sheet
+/// over the screen, the same as the square beside Purchase opens.
+KuteDockAction bitcoinScanDockAction(
+    BuildContext context, WidgetRef ref, WalletConfig wallet) {
+  return KuteDockAction(
+    icon: Icons.qr_code_scanner_rounded,
+    label: context.l10n.scan,
+    trackingId: 'scan',
+    onTap: () {
+      if (!_pinBitcoinWallet(context, ref, wallet)) return;
+      ref.read(sendTxProvider.notifier).resetToDefault();
+      showRoutingScannerSheet(context);
+    },
+  );
+}
+
 /// Same purchase and camera controls for Home and the displayed cold wallet.
 class BitcoinWalletPrimaryActions extends ConsumerWidget {
   const BitcoinWalletPrimaryActions(

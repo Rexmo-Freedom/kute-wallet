@@ -18,6 +18,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/require_fresh_auth.dart';
 import 'package:kute/helpers/venue_intents.dart';
@@ -27,6 +28,8 @@ import 'package:kute/providers/polymarket_browse_provider.dart'
     show PolyPriceHistoryCache;
 import 'package:kute/providers/polymarket_combos_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
+import 'package:kute/providers/unified_search_provider.dart'
+    show SearchCategory;
 import 'package:kute/screens/hyperliquid/components/hl_format.dart';
 import 'package:kute/screens/polymarket/components/combo_copy.dart';
 import 'package:kute/screens/polymarket/components/combo_position_card.dart'
@@ -34,7 +37,7 @@ import 'package:kute/screens/polymarket/components/combo_position_card.dart'
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/screens/polymarket/components/price_format.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
-import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/services/polymarket/combos/combo_analytics.dart';
 import 'package:kute/services/polymarket/combos/combo_math.dart';
@@ -78,8 +81,7 @@ class ComboDetailSheet extends ConsumerWidget {
   static void show(BuildContext context, {required String conditionId}) {
     TrackingService.screenView('combo_detail');
     // ignore: discarded_futures
-    Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
-      fullscreenDialog: true,
+    Navigator.of(context, rootNavigator: true).push(KuteSheetPageRoute(
       builder: (_) => ComboDetailSheet(conditionId: conditionId),
     ));
   }
@@ -412,9 +414,18 @@ class _Actions extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = position;
     if (!p.isOpen) return const SizedBox.shrink();
-    return AppButton(
-      text: context.l10n.comboClose,
-      onPressed: () => _CloseComboSheet.show(context, p),
+    // THE BAR IS THE BUTTON (kute_bar_context.dart): Close combo is the
+    // floating Sal bar's primary action. The close sheet it opens is a
+    // short sheet whose own confirm is the bar too (its primary context
+    // beats the short sheet's hidden one, kuteBarTop).
+    return KuteBarContextScope(
+      barContext: KuteBarContext.primary(
+        label: context.l10n.comboClose,
+        onPrimary: () => _CloseComboSheet.show(context, p),
+        source: 'combo_detail',
+        disabledLabel: null,
+      ),
+      child: SizedBox(height: kuteBarScrollClearance.h),
     );
   }
 }
@@ -641,19 +652,33 @@ class _CloseComboSheetState extends ConsumerState<_CloseComboSheet> {
                   style: TextStyle(color: c.textSecondary, fontSize: 13.sp)),
             ],
             SizedBox(height: 16.h),
-            q == null && !_loading
-                ? AppButton(
-                    text: l10n.comboGetNewPrice,
-                    onPressed: () {
-                      _auto = 0;
-                      _requestQuote();
-                    },
-                  )
-                : AppButton(
-                    text: l10n.comboClose,
-                    isLoading: _loading || _placing,
-                    onPressed: q != null && !_placing ? _confirm : null,
-                  ),
+            // THE BAR IS THE BUTTON (kute_bar_context.dart): the sheet's
+            // one action, Get a new price when the quote failed, else
+            // Close combo (busy while the quote loads or the close runs),
+            // is the floating Sal bar; the sheet keeps clear of it.
+            KuteBarContextScope(
+              barContext: q == null && !_loading
+                  ? KuteBarContext.primary(
+                      label: l10n.comboGetNewPrice,
+                      onPrimary: () {
+                        _auto = 0;
+                        _requestQuote();
+                      },
+                      category: SearchCategory.predictions,
+                      source: 'combo_close',
+                      disabledLabel: null,
+                    )
+                  : KuteBarContext.primary(
+                      label: l10n.comboClose,
+                      onPrimary: _confirm,
+                      enabled: q != null && !_placing,
+                      busy: _loading || _placing,
+                      category: SearchCategory.predictions,
+                      source: 'combo_close',
+                      disabledLabel: q == null ? l10n.barNeedPrice : null,
+                    ),
+              child: SizedBox(height: kuteBarScrollClearance.h),
+            ),
           ],
         ),
       ),

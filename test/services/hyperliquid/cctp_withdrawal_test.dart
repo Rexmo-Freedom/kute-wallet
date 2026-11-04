@@ -46,7 +46,11 @@ import 'package:kute/services/hyperliquid/cctp_withdrawal.dart';
 import 'package:kute/services/hyperliquid/hypercore_activation_fee.dart'
     show HypercoreBalanceShortfall;
 import 'package:kute/services/one_balance/money_movement_route.dart'
-    show moneyMovementFailureReason, moneyMovementProvesNothingSent;
+    show
+        MoneyMovementAccount,
+        moneyMovementFailureReason,
+        moneyMovementProvesNothingSent;
+import 'package:kute/services/one_balance/move_settled_refresh.dart';
 import 'package:kute/services/orchestra/orchestra_capability_requirements.dart';
 import 'package:kute/services/orchestra/orchestra_quote_gate.dart'
     show OrchestraQuoteFailure;
@@ -468,9 +472,11 @@ void main() {
     AffiliateService.debugSessionToken = 'test-session';
     policy = runtimePolicyFixture();
     TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+    MoveSettledRefresh.debugReset();
   });
 
   tearDown(() async {
+    MoveSettledRefresh.debugReset();
     TrackingService.debugTrackObserver = null;
     policy.dispose();
     AffiliateService.debugSessionToken = null;
@@ -841,6 +847,38 @@ void main() {
     expect([legs.burned, legs.minted, legs.ordered], [true, true, true]);
     expect(legs.sentUsd, 5.25);
     expect(legs.mintUsd, closeTo(5.05, 1e-9));
+  });
+
+  test('the burn refreshes Investing; the end of the move refreshes both ends',
+      () async {
+    final seen = <(Set<MoneyMovementAccount>, String)>[];
+    MoveSettledRefresh.debugObserver =
+        (accounts, source) => seen.add((accounts, source));
+    reads.ledger = (nonce) => nonce == sender.nonce ? _ledgerHash : null;
+    await service()
+        .withdrawToDollars(usd: 5.25, stepUp: approve(), purpose: 'sweep');
+    // The ledger row: the money left Investing.
+    expect(seen.single.$1, {MoneyMovementAccount.investing});
+    expect(seen.single.$2, 'cctp_sent');
+
+    // Minted, submitted, processing: still on its way.
+    now = now.add(const Duration(seconds: 15));
+    reads.mints = [_mint()];
+    orchestra.orders['ord_1'] = _order('ord_1', 'processing');
+    await service().reconcile(await only(), force: true);
+    expect(seen, hasLength(1));
+
+    // Delivered: Investing and Dollars read again, once.
+    orchestra.orders['ord_1'] = _order('ord_1', 'completed');
+    now = now.add(const Duration(minutes: 1));
+    await service().reconcile(await only(), force: true);
+    expect((await only()).stage, SettlementStage.settled);
+    expect(seen, hasLength(2));
+    expect(seen.last.$1,
+        {MoneyMovementAccount.investing, MoneyMovementAccount.dollars});
+    expect(seen.last.$2, 'cctp');
+    await service().reconcile(await only(), force: true);
+    expect(seen, hasLength(2), reason: 'a later pass is not an end');
   });
 
   test(

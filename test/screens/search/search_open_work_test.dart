@@ -1,14 +1,14 @@
 // The work a venue's search button does on open: the dock's square button
-// on Predictions and Investing opens the search sheet straight onto the
-// venue's own tab, and the composer takes focus (and the keyboard rises)
-// once the sheet has slid in.
+// on Predictions and Investing opens the search sheet scoped to the
+// venue's own category, with the keyboard down and no scope row until
+// something is typed (founder, 31 October 2026: "still too dense").
 //
 // Counted per open, from the tap until everything settles, with the
 // keyboard inset stepped frame by frame the way iOS reports it:
 //   * how many times the search surface builds;
 //   * every widget rebuild in the app;
-//   * the first frame's selected tab (a stale tab that then slides over is
-//     a visible jump);
+//   * the first frame's category (a stale one that then switches is a
+//     visible jump once results show), and that no filter row is drawn;
 //   * whether the live sports feed is connected before anything is typed.
 
 import 'package:flutter/material.dart';
@@ -21,6 +21,7 @@ import 'package:kute/models/settings_model.dart';
 import 'package:kute/services/trade_notification_store.dart'
     show TradeNotification;
 import 'package:kute/providers/advisor_provider.dart';
+import 'package:kute/models/hyperliquid_market.dart' show HlMarket;
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/polymarket_sports_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
@@ -28,7 +29,6 @@ import 'package:kute/providers/trade_notifications_provider.dart';
 import 'package:kute/providers/unified_search_provider.dart';
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart';
 import 'package:kute/screens/search/unified_search_screen.dart';
-import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
     show InvestmentsProduct;
@@ -91,6 +91,14 @@ Future<_Probe> _pumpHost(WidgetTester tester, {required bool? predictions}) asyn
       globalHyperliquidResultsProvider
           .overrideWith((_) => const AsyncValue.data([])),
       hyperliquidAllMarketsProvider.overrideWith((_) => []),
+      // The Sal sheet's venue surfaces read the perp markets; the real
+      // provider's reference fetch retries on a timer that would outlive
+      // the test ("timers pending"). Nothing to list here.
+      hyperliquidPerpMarketsProvider.overrideWith((_) async => <HlMarket>[]),
+      hyperliquidPerpCoreMarketsProvider
+          .overrideWith((_) async => <HlMarket>[]),
+      // Spot markets refresh on a periodic timer: the same, nothing to list.
+      hyperliquidSpotMarketsProvider.overrideWith((_) async => <HlMarket>[]),
     ],
     child: ScreenUtilInit(
       designSize: const Size(430, 932),
@@ -130,8 +138,9 @@ Future<_Probe> _pumpHost(WidgetTester tester, {required bool? predictions}) asyn
 
 /// Taps the search button (the dock's Sal-with-a-magnifier when a venue
 /// dock is mounted) and lets the sheet and the keyboard come up together: twelve
-/// frames of 16 ms with the inset growing to 300.
-Future<int?> _open(WidgetTester tester, _Probe probe) async {
+/// frames of 16 ms with the inset growing to 300. Returns the category the
+/// first frame is scoped to.
+Future<SearchCategory> _open(WidgetTester tester, _Probe probe) async {
   debugOnRebuildDirtyWidget = (element, builtOnce) {
     probe.rebuilds++;
     final name = element.widget.runtimeType.toString();
@@ -141,10 +150,11 @@ Future<int?> _open(WidgetTester tester, _Probe probe) async {
   final dock = find.byType(KuteDogMagnifier);
   await tester.tap(dock.evaluate().isEmpty ? find.text('Open search') : dock);
   await tester.pump();
-  final pills = find.byType(KutePillTabs);
-  final firstTab = pills.evaluate().isEmpty
-      ? null
-      : tester.widget<KutePillTabs>(pills.first).selectedIndex;
+  // The empty sheet has no scope chip: it comes with a query.
+  expect(find.byKey(const ValueKey('search-scope-chip')), findsNothing);
+  final firstTab =
+      ProviderScope.containerOf(tester.element(find.byType(UnifiedSearchSurface)))
+          .read(selectedSearchCategoryProvider);
   for (var i = 1; i <= 12; i++) {
     tester.view.viewInsets = FakeViewPadding(bottom: 25.0 * i);
     await tester.pump(const Duration(milliseconds: 16));
@@ -173,12 +183,16 @@ void main() {
           'sports connects ${probe.sportsConnects}');
 
       expect(find.byType(UnifiedSearchSurface), findsOneWidget);
-      // The first frame already shows the venue's own tab.
-      expect(firstTab, predictions ? 1 : 2);
-      // Built once to open, once as Sal's availability resolves and once
-      // when the composer takes focus after the slide; the keyboard's
-      // frames do not rebuild it.
+      // The first frame is already scoped to the venue's own category.
+      expect(firstTab,
+          predictions ? SearchCategory.predictions : SearchCategory.perpetuals);
+      // Built once to open and once as Sal's availability resolves; the
+      // keyboard's frames do not rebuild it.
       expect(probe.surfaceBuilds, lessThanOrEqualTo(3));
+      // The keyboard stays down: nothing in the sheet took focus.
+      expect(
+          tester.widget<TextField>(find.byType(TextField)).focusNode!.hasFocus,
+          isFalse);
       // Nothing typed, so no live sports feed yet.
       expect(probe.sportsConnects, 0);
       expect(tester.takeException(), isNull);

@@ -5,10 +5,12 @@
 // sheets alike). Changing the symbol keeps both, as TradingView keeps the
 // layout's chart type and interval when you switch symbol.
 //
-//   * [kHlCandleIntervals]: the interval row every style shows (1m 5m 15m
-//     1h 4h 1D 1W), all intervals Hyperliquid's candleSnapshot serves.
-//     The style only changes how each bar is drawn; line, area and
-//     baseline draw its close.
+//   * [kHlCandleIntervals]: the interval row every style shows (1m 5m 1h
+//     1D 1W; founder, 31 October 2026: five pills that all fit beside the
+//     chart-type button), all intervals Hyperliquid's candleSnapshot
+//     serves. The style only changes how each bar is drawn; line, area
+//     and baseline draw its close. A saved 15m or 4h from an older build
+//     opens as 1h ([hlPickerInterval]).
 //   * [hlChartLayoutProvider]: the saved choice, read synchronously from
 //     the 'settings' Hive box (opened at app start) so the very first
 //     frame of a chart already shows it. Older builds kept a style per
@@ -28,9 +30,7 @@ typedef HlCandleInterval = ({String label, String interval, int minutes});
 const List<HlCandleInterval> kHlCandleIntervals = [
   (label: '1m', interval: '1m', minutes: 1),
   (label: '5m', interval: '5m', minutes: 5),
-  (label: '15m', interval: '15m', minutes: 15),
   (label: '1h', interval: '1h', minutes: 60),
-  (label: '4h', interval: '4h', minutes: 240),
   (label: '1D', interval: '1d', minutes: 1440),
   (label: '1W', interval: '1w', minutes: 10080),
 ];
@@ -59,8 +59,17 @@ HlCandleInterval hlCandleInterval(String interval) {
   for (final iv in kHlCandleIntervals) {
     if (iv.interval == interval) return iv;
   }
-  return kHlCandleIntervals[3];
+  return kHlCandleIntervals
+      .firstWhere((iv) => iv.interval == kHlDefaultCandleInterval);
 }
+
+/// An interval the picker has, or the default (1h) for anything else: a
+/// saved '15m' or '4h' from a build whose row had them, or no value.
+String hlPickerInterval(Object? interval) =>
+    interval is String &&
+            kHlCandleIntervals.any((iv) => iv.interval == interval)
+        ? interval
+        : kHlDefaultCandleInterval;
 
 /// Trailing window (hours) that holds [kHlCandleSeedBars] bars.
 int hlCandleWindowHours(HlCandleInterval iv) =>
@@ -137,9 +146,13 @@ class HlChartLayoutNotifier extends Notifier<HlChartLayout> {
         final box = Hive.box(_box);
         final style = box.get(_styleKey);
         final interval = box.get(_intervalKey);
-        if (_isStyle(style) && _isInterval(interval)) {
-          return HlChartLayout(
-              style: style as String, interval: interval as String);
+        if (_isStyle(style) && interval is String) {
+          // A retired interval (15m, 4h) opens as 1h; the fallback is
+          // saved so the next read is plain.
+          final layout = HlChartLayout(
+              style: style as String, interval: hlPickerInterval(interval));
+          if (layout.interval != interval) unawaited(_save(layout));
+          return layout;
         }
       }
     } catch (_) {
@@ -171,7 +184,7 @@ class HlChartLayoutNotifier extends Notifier<HlChartLayout> {
     try {
       final box = await Hive.openBox<String>('hl_chart_candle_interval');
       final last = box.get('last');
-      if (_isInterval(last)) interval = last;
+      if (last is String) interval = hlPickerInterval(last);
     } catch (_) {}
     // A choice made while this ran wins over the old saved one.
     final next =

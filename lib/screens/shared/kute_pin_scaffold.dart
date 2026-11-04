@@ -15,12 +15,59 @@ import 'dart:math' as math;
 // under it, the dots, then whatever space is left, then the pad and one
 // footer slot above the home indicator. Every screen reads the same and
 // none of them move when the next one loads.
+//
+// SAL IN THE LOCKUP (founder, 31 October 2026): the 3D face sits at the
+// left of the "kute." wordmark, 44 px, 10 px before it, the two centred
+// as one lockup. He blinks at rest, follows the digits with his curious
+// face ([salMood] `curious`), is sad once on a wrong PIN (one loop, with
+// the dots' shake) and happy for the beat before the app opens.
+// [PinSalMoodMixin] gives the four PIN screens that one state machine.
+// Reduce Motion: the sprite's first frame, still.
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/screens/shared/kute_wordmark.dart';
+import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/theme/app_theme.dart';
+
+/// The Sal of the lockup on a PIN screen: `blink` at rest, `curious`
+/// while digits are typed, `sad` once on a wrong PIN, `happy` on success.
+/// [salSad] and [salHappy] set an override; [salMoodFor] reads the mood
+/// for the digits typed. The timer dies with the screen.
+mixin PinSalMoodMixin<T extends StatefulWidget> on State<T> {
+  String? _salOverride;
+  Timer? _salTimer;
+
+  /// One sad loop (the clip's two seconds), then back to the digits.
+  void salSad() {
+    if (!mounted) return;
+    _salTimer?.cancel();
+    setState(() => _salOverride = 'sad');
+    _salTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _salOverride = null);
+    });
+  }
+
+  /// Happy until the screen goes.
+  void salHappy() {
+    if (!mounted) return;
+    _salTimer?.cancel();
+    setState(() => _salOverride = 'happy');
+  }
+
+  /// The clip for [digits] typed so far, under any override.
+  String salMoodFor(int digits) =>
+      _salOverride ?? (digits > 0 ? 'curious' : 'blink');
+
+  @override
+  void dispose() {
+    _salTimer?.cancel();
+    super.dispose();
+  }
+}
 
 class KutePinScaffold extends StatelessWidget {
   const KutePinScaffold({
@@ -35,7 +82,11 @@ class KutePinScaffold extends StatelessWidget {
     this.footer,
     this.leading,
     this.showWordmark = true,
+    this.salMood = 'blink',
   });
+
+  /// Sal's clip in the lockup (see the file header and [PinSalMoodMixin]).
+  final String salMood;
 
   /// The question, e.g. "Create a PIN".
   final String title;
@@ -82,7 +133,23 @@ class KutePinScaffold extends StatelessWidget {
                 children: [
                   SizedBox(height: 28.h),
                   if (showWordmark) ...[
-                    const KuteWordmark(size: 30),
+                    // Sal and the wordmark as one lockup.
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        SalSprite(
+                          key: const ValueKey('pin-sal'),
+                          clip: salMood,
+                          size: 44,
+                          // The sad face plays once; the others loop.
+                          loop: salMood == 'sad' ? false : null,
+                          fallback: const SizedBox.shrink(),
+                        ),
+                        const SizedBox(width: 10),
+                        const KuteWordmark(size: 30),
+                      ],
+                    ),
                     SizedBox(height: 28.h),
                   ],
                   if (step != null) ...[

@@ -241,6 +241,7 @@ class _LedgerInvestingDiscoveryState
                 HlMarketCard(market: market, onTap: onTap, inGroup: inGroup),
             groups: (_) => true,
             groupRowIndent: hlGroupRowIndent,
+            groupDivider: hlGroupRowDivider,
             onOpenMarket: (market) {
               if (!mounted || widget.walletId != walletId) return;
               final current = ref.read(ledgerIdentityProvider(walletId));

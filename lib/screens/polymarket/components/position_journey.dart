@@ -82,6 +82,16 @@ class PolyPositionResultLine extends StatelessWidget {
   static const caretKey = ValueKey('poly-position-result-caret');
   static const sinceKey = ValueKey('poly-position-result-since');
 
+  /// The figure's size and line height (the "since" caption is smaller,
+  /// under it).
+  static const double _figureSize = 17;
+  static const double _figureHeight = 1.25;
+
+  /// The height of the figure's line ("▲ $9.40") as drawn, for what sits
+  /// beside it (the position screen's Share pill is centred on it).
+  static double figureLineHeight(BuildContext context) =>
+      MediaQuery.textScalerOf(context).scale(_figureSize.sp) * _figureHeight;
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
@@ -93,10 +103,10 @@ class PolyPositionResultLine extends StatelessWidget {
     final percent = flat ? '0.0%' : polyResultPercent(pnlPercent);
     final figure = TextStyle(
       color: color,
-      fontSize: 17.sp,
+      fontSize: _figureSize.sp,
       fontWeight: FontWeight.w700,
       letterSpacing: -0.2,
-      height: 1.25,
+      height: _figureHeight,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
     final quiet = TextStyle(

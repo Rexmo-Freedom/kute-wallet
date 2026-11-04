@@ -34,7 +34,8 @@ import 'package:kute/screens/polymarket/components/position_journey.dart';
 import 'package:kute/screens/polymarket/components/position_speedometer.dart';
 import 'package:kute/screens/polymarket/components/position_detail_sheet.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
-import 'package:kute/screens/shared/ask_sal_chip.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart'
+    show KuteBarContextScope;
 import 'package:kute/screens/shared/kute_dog_scenes.dart' show KuteDogGlance;
 import 'package:kute/screens/shared/kute_motion.dart' show ScorePulseText;
 import 'package:kute/screens/shared/position_rows_card.dart';
@@ -327,8 +328,6 @@ void main() {
         const PositionDetailSheet(position: position),
         overrides: overrides(_game(), ai: true),
       );
-      expect(find.byType(AskSalChip), findsNothing);
-      expect(find.byType(SalWhyMovingRow), findsNothing);
       expect(find.byType(KuteDogGlance), findsNothing);
       // 120 shares bought at 42c: worth $60 now (+$9.60), $120 paid if
       // the 49ers win, $50.40 paid for it. No risk sentence.
@@ -431,7 +430,13 @@ void main() {
       expect(
           find.byKey(const ValueKey('poly-position-title')), findsOneWidget);
       expect(find.text('49ERS'), findsNothing);
-      expect(find.text('Sell'), findsOneWidget);
+      // Sell is the floating bar's button (kute_bar_context.dart).
+      expect(
+          find.byWidgetPredicate((w) =>
+              w is KuteBarContextScope &&
+              w.barContext.isPrimary &&
+              w.barContext.label == 'Sell'),
+          findsOneWidget);
       // On the screen two tiles and plain rows, no card of rows; what the
       // position is made of waits behind one Details row.
       expect(find.byType(PositionRowsCard), findsNothing);
@@ -516,6 +521,17 @@ void main() {
       expect(find.byType(PositionSidePill), findsNothing);
       expect(tester.getRect(pill).bottom,
           lessThan(tester.getRect(find.byType(PolyPositionSpeedometer)).top));
+      // No Share pill beside the result (founder, 1 November 2026: it
+      // crowded the held side); the share is the card under the tiles.
+      expect(
+          find.byKey(const ValueKey('kute-sal-header-button')), findsNothing);
+      final share = find.byKey(const ValueKey('position-share-card'));
+      expect(share, findsOneWidget);
+      expect(
+          tester.getRect(share).top,
+          greaterThan(tester
+              .getRect(find.byKey(const ValueKey('poly-position-value')))
+              .bottom));
       expect(
           tester.getRect(find.byType(PolyPositionSpeedometer)).bottom,
           lessThan(tester

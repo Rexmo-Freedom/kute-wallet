@@ -12,6 +12,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/screens/hyperliquid/components/hl_market_card.dart';
+import 'package:kute/screens/hyperliquid/components/hl_moving_now_strip.dart';
 import 'package:kute/screens/hyperliquid/hyperliquid_screen.dart';
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/screens/polymarket/components/poly_browse_bar.dart'
@@ -40,9 +41,17 @@ HlMarket _market(String coin,
       dex: isHip3 ? 'xyz' : '',
     );
 
+/// Enough perps that the "Moving now" strip (up to five) leaves rows
+/// under it: the strip never empties the list (founder, 1 November 2026).
 final _universe = [
   _market('BTC', vlm: 9e9),
   _market('DOGE', vlm: 5e8),
+  _market('ETH', vlm: 4e9),
+  _market('SOL', vlm: 2e9),
+  _market('XRP', vlm: 1e9),
+  _market('NEAR', vlm: 3e8),
+  _market('LINK', vlm: 2e8),
+  _market('AVAX', vlm: 1e8),
   _market('xyz:AAPL', category: 'stocks', isHip3: true),
   _market('xyz:SPX', category: 'indices', isHip3: true),
 ];
@@ -81,11 +90,16 @@ void main() {
     TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
     addTearDown(() => TrackingService.debugTrackObserver = null);
 
-    await pumpInvestments(tester, browseInvesting: true, overrides: [
-      hyperliquidBrowseUniverseProvider
-          .overrideWithValue(AsyncValue.data(_universe)),
-      hyperliquidBuilderMarketsMissingProvider.overrideWithValue(false),
-    ]);
+    // The drill row is the venue screen's own (a Ledger's Investing
+    // tab); inside Investments the page's pill carries the category.
+    await pumpInvestments(tester,
+        browseInvesting: true,
+        child: const Scaffold(body: HyperliquidScreen()),
+        overrides: [
+          hyperliquidBrowseUniverseProvider
+              .overrideWithValue(AsyncValue.data(_universe)),
+          hyperliquidBuilderMarketsMissingProvider.overrideWithValue(false),
+        ]);
     final container = ProviderScope.containerOf(
         tester.element(find.byType(HyperliquidScreen)));
 
@@ -97,7 +111,7 @@ void main() {
     expect(_pill('Stocks'), findsNothing);
 
     // Every pill on the row is the boxed chip with a 44 pt hit target.
-    expect(tester.getSize(_pill('Tradfi')).height, greaterThanOrEqualTo(44));
+    expect(tester.getSize(_pill('Stocks and shares')).height, greaterThanOrEqualTo(44));
 
     // Perps has no subcategories: it selects, the row stays.
     await _tap(tester, _pill('Perps'));
@@ -107,11 +121,11 @@ void main() {
     expect(_pill('Trending'), findsOneWidget);
 
     // Tradfi drills in: "‹ Tradfi", then Stocks (selected) and Indices.
-    await _tap(tester, _pill('Tradfi'));
+    await _tap(tester, _pill('Stocks and shares'));
     await _settle(tester);
     expect(_pill('Trending'), findsNothing);
     expect(_back, findsOneWidget);
-    expect(tester.widget<KutePill>(_back).label, 'Tradfi');
+    expect(tester.widget<KutePill>(_back).label, 'Stocks and shares');
     expect(tester.widget<KutePill>(_back).icon, Icons.chevron_left_rounded);
     expect(_selected(tester, 'Stocks'), isTrue);
     expect(_selected(tester, 'Indices'), isFalse);
@@ -126,12 +140,12 @@ void main() {
     await _tap(tester, _back);
     await _settle(tester);
     expect(_back, findsNothing);
-    expect(_selected(tester, 'Tradfi'), isTrue);
+    expect(_selected(tester, 'Stocks and shares'), isTrue);
     expect(container.read(hlBrowseSelectionProvider).tab, HlBrowseTab.tradfi);
     expect(container.read(hlBrowseSelectionProvider).sub, HlBrowseSub.all);
 
     // Tapped again, Tradfi drills in again on its first subcategory.
-    await _tap(tester, _pill('Tradfi'));
+    await _tap(tester, _pill('Stocks and shares'));
     await _settle(tester);
     expect(_back, findsOneWidget);
     expect(_selected(tester, 'Stocks'), isTrue);
@@ -157,6 +171,7 @@ void main() {
     await pumpInvestments(tester,
         browseInvesting: true,
         size: const Size(390, 2000),
+        child: const Scaffold(body: HyperliquidScreen()),
         overrides: [
           hyperliquidBrowseUniverseProvider
               .overrideWithValue(AsyncValue.data(_universe)),
@@ -177,11 +192,32 @@ void main() {
 
       final rows = _inBrowser(find.byType(HlMarketCard));
       final n = rows.evaluate().length;
-      expect(n, greaterThan(1));
-      // The list comes straight under the pills.
+      expect(n, greaterThan(0));
+      // The strip's markets are big cards, never rows as well (founder,
+      // 1 November 2026).
+      final onStrip = tester
+          .widgetList<HlMovingNowStrip>(_inBrowser(find.byType(HlMovingNowStrip)))
+          .expand((s) => s.markets.map((m) => m.wireCoin))
+          .toSet();
+      for (final row in tester.widgetList<HlMarketCard>(rows)) {
+        expect(onStrip, isNot(contains(row.market.wireCoin)));
+      }
+      // On Trending the strip comes straight under the pills, and the
+      // list straight under the strip (no title between them). A picked
+      // category has no strip: the list comes straight under the pills.
       final pills = _inBrowser(find.byType(PolyDrillRow));
-      expect(tester.getRect(rows.first).top - tester.getRect(pills).bottom,
-          lessThan(20));
+      final strip = _inBrowser(find.byType(HlMovingNowStrip));
+      if (pill == 'Trending') {
+        expect(strip, findsOneWidget);
+        expect(tester.getRect(strip).top - tester.getRect(pills).bottom,
+            lessThan(20));
+        expect(tester.getRect(rows.first).top - tester.getRect(strip).bottom,
+            lessThan(20));
+      } else {
+        expect(strip, findsNothing);
+        expect(tester.getRect(rows.first).top - tester.getRect(pills).bottom,
+            lessThan(28));
+      }
 
       // ONE grouped card, Home Activity's, holds every row: no card per
       // market, Home's inset hairline between rows.
@@ -195,14 +231,12 @@ void main() {
       for (final row in tester.widgetList<HlMarketCard>(rows)) {
         expect(row.inGroup, isTrue);
       }
-      final dividers =
-          find.descendant(of: group, matching: find.byType(Divider));
-      expect(dividers, findsNWidgets(n - 1));
+      // Investing rows draw no hairline between them (the rows' own
+      // padding separates them, as Robinhood / Public do): the rows abut.
+      expect(find.descendant(of: group, matching: find.byType(Divider)),
+          findsNothing);
       for (var i = 0; i < n - 1; i++) {
-        final d = tester.widget<Divider>(dividers.at(i));
-        expect(d.indent, hlGroupRowIndent());
-        expect(d.thickness, 0.5);
-        expect(tester.getRect(dividers.at(i)).top,
+        expect(tester.getRect(rows.at(i + 1)).top,
             moreOrLessEquals(tester.getRect(rows.at(i)).bottom, epsilon: 0.5));
       }
       // The press ink of the first and last rows is clipped to the card's

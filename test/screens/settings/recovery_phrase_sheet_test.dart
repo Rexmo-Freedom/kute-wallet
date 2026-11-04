@@ -13,6 +13,8 @@ import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
+import '../../helpers/kute_bar_test_support.dart';
+
 const phrase = 'abandon abandon abandon abandon abandon abandon '
     'abandon abandon abandon abandon abandon about';
 
@@ -85,7 +87,9 @@ void main() {
     expect(find.text(phrase), findsOneWidget);
     expect(find.byType(SelectableText), findsNothing);
     expect(find.byType(SelectionArea), findsNothing);
-    expect(find.text(l10n.done), findsOneWidget);
+    // Done is the floating Sal bar's primary action (kute_bar_context
+    // .dart), declared by the sheet rather than drawn on it.
+    expect(kuteBarPrimaryProbe(tester).text, l10n.done);
 
     await tester.longPress(find.text(phrase));
     await tester.pump();

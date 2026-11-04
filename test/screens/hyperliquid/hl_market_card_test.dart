@@ -5,6 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
+import 'package:kute/providers/hyperliquid_markets_provider.dart'
+    show HlMarketDirectory;
 import 'package:kute/providers/hyperliquid_sparkline_provider.dart';
 import 'package:kute/screens/hyperliquid/components/hl_charts.dart';
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
@@ -125,44 +127,46 @@ List<RollingNumberText> _numbers(WidgetTester tester) =>
     tester.widgetList<RollingNumberText>(find.byType(RollingNumberText)).toList();
 
 void main() {
-  testWidgets('a perp shows its name, ticker, price and change',
+  testWidgets('a perp shows its name, price and change, nothing else',
       (tester) async {
     final m = _market();
     await _pump(tester, m, closes: [80000, 82000, 85000]);
 
     expect(find.text('Bitcoin'), findsOneWidget);
-    // The ticker alone: never the max leverage (leverage is blocked).
-    expect(find.text('BTC'), findsOneWidget);
+    // One name line: no ticker sub line, never the max leverage
+    // (leverage is blocked).
+    expect(find.text('BTC'), findsNothing);
     expect(find.textContaining('40x'), findsNothing);
     final numbers = _numbers(tester);
     expect(numbers, hasLength(2));
-    expect(numbers[0].text, formatHlPrice(85806, decimalCap: m.pxDecimalCap));
-    expect(numbers[1].text, '+2.2%');
+    expect(numbers[0].text, formatHlListPrice(85806, decimalCap: m.pxDecimalCap));
+    expect(numbers[0].text, r'$85,806.00');
+    // The change reads direction as a glyph, never a sign.
+    expect(numbers[1].text, '▲ 2.2%');
     final colors = tester.element(find.byType(HlMarketCard)).colors;
     // The price is never red or green; the change is.
     expect(numbers[0].style.color, colors.textPrimary);
     expect(numbers[1].style.color, AppColors.marketUp);
-    // Nothing the old card carried: no kind badge, no volume line.
+    // Nothing else: no sparkline (and no candles asked for), no kind
+    // badge, no volume line.
+    expect(find.byType(HlLineSparkline), findsNothing);
+    expect(_fetched, isEmpty);
     expect(find.byType(HlKindBadge), findsNothing);
     expect(find.textContaining('volume'), findsNothing);
-    // One row, not the old tall card.
+    // One 56 px row.
     final height = tester.getSize(find.byType(HlMarketCard)).height;
-    expect(height, inInclusiveRange(64, 80));
+    expect(height, moreOrLessEquals(kHlMarketRowHeight.w, epsilon: 1));
   });
 
-  testWidgets('a falling market colours the change and the line, not the price',
+  testWidgets('a falling market colours the change, not the price',
       (tester) async {
-    await _pump(tester, _market(px: 82824, prevDayPx: 84000),
-        closes: [86000, 85000, 83000]);
+    await _pump(tester, _market(px: 82824, prevDayPx: 84000));
 
     final numbers = _numbers(tester);
-    expect(numbers[1].text, '−1.4%');
+    expect(numbers[1].text, '▼ 1.4%');
     expect(numbers[1].style.color, AppColors.marketDown);
     final colors = tester.element(find.byType(HlMarketCard)).colors;
     expect(numbers[0].style.color, colors.textPrimary);
-    final line = tester.widget<HlLineSparkline>(find.byType(HlLineSparkline));
-    expect(line.upColor, AppColors.marketDown);
-    expect(line.downColor, AppColors.marketDown);
   });
 
   testWidgets('the price stays the primary colour when a tick moves it',
@@ -176,7 +180,7 @@ void main() {
 
     final numbers = _numbers(tester);
     final m = _market();
-    expect(numbers[0].text, formatHlPrice(85000, decimalCap: m.pxDecimalCap));
+    expect(numbers[0].text, formatHlListPrice(85000, decimalCap: m.pxDecimalCap));
     final colors = tester.element(find.byType(HlMarketCard)).colors;
     expect(numbers[0].style.color, colors.textPrimary);
     await tester.pumpAndSettle();
@@ -196,8 +200,7 @@ void main() {
             px: 5.42,
             prevDayPx: 5.42));
 
-    // The ticker is the title, so the caption does not say it again: a
-    // perp then has no caption, and its name sits centred in the row.
+    // The name sits centred in the row.
     expect(find.text('WHEAT'), findsOneWidget);
     expect(find.textContaining('10x'), findsNothing);
     final row = tester.getCenter(find.byType(HlMarketCard)).dy;
@@ -219,11 +222,63 @@ void main() {
             prevDayPx: 3300));
 
     expect(find.text('Gold'), findsOneWidget);
-    expect(find.text('GOLD'), findsOneWidget);
+    expect(find.text('GOLD'), findsNothing);
     expect(find.textContaining('20x'), findsNothing);
   });
 
-  testWidgets('a spot token says Spot in the caption', (tester) async {
+  testWidgets('two venues listing one symbol: the logo carries the venue',
+      (tester) async {
+    final a = _market(
+        coin: 'ANTH',
+        wireCoin: 'vntl:ANTH',
+        category: 'preipo',
+        isHip3: true,
+        dex: 'vntl',
+        px: 1805,
+        prevDayPx: 1780);
+    final b = _market(
+        coin: 'ANTH',
+        wireCoin: 'km:ANTH',
+        category: 'preipo',
+        isHip3: true,
+        dex: 'km',
+        px: 1805,
+        prevDayPx: 1809);
+    HlDexNames.remember('vntl', 'Ventuals');
+    HlMarketDirectory.remember([a, b]);
+    addTearDown(HlDexNames.debugReset);
+
+    await _pump(tester, a);
+    expect(find.text('Anthropic'), findsOneWidget);
+    // No caption line; the venue's mark on the logo tells the rows apart.
+    expect(find.text('ANTH · Ventuals'), findsNothing);
+    expect(find.byKey(const ValueKey('hl-venue-badge')), findsOneWidget);
+    expect(find.text('V'), findsOneWidget);
+    await _pump(tester, b);
+    expect(find.byKey(const ValueKey('hl-venue-badge')), findsOneWidget);
+    // A symbol only one venue lists carries no mark.
+    await _pump(tester, _market(coin: 'OAI', wireCoin: 'vntl:OAI',
+        category: 'preipo', isHip3: true, dex: 'vntl', px: 1405,
+        prevDayPx: 1380));
+    expect(find.text('OpenAI'), findsOneWidget);
+    expect(find.byKey(const ValueKey('hl-venue-badge')), findsNothing);
+  });
+
+  testWidgets('a perp sharing its symbol with a spot token wears its venue',
+      (tester) async {
+    final perp = _market(coin: 'ANTX', wireCoin: 'ANTX', px: 0.021,
+        prevDayPx: 0.02);
+    final spot = _market(coin: 'ANTX', wireCoin: '@9001',
+        kind: HlMarketKind.spot, px: 0.021, prevDayPx: 0.02);
+    HlMarketDirectory.remember([perp, spot]);
+    await _pump(tester, perp);
+    expect(find.text('H'), findsOneWidget);
+    // The spot row carries no venue mark.
+    await _pump(tester, spot);
+    expect(find.byKey(const ValueKey('hl-venue-badge')), findsNothing);
+  });
+
+  testWidgets('a spot token has no "Spot" sub line', (tester) async {
     await _pump(
         tester,
         _market(
@@ -235,7 +290,8 @@ void main() {
             prevDayPx: 245));
 
     expect(find.text('Tesla'), findsOneWidget);
-    expect(find.text('TSLA · Spot'), findsOneWidget);
+    expect(find.textContaining('Spot'), findsNothing);
+    expect(find.text('TSLA'), findsNothing);
   });
 
   testWidgets('a Unit token is named after the asset it holds',
@@ -249,7 +305,7 @@ void main() {
             unitAssetName: 'Bitcoin'));
 
     expect(find.text('Bitcoin'), findsOneWidget);
-    expect(find.text('UBTC · Spot'), findsOneWidget);
+    expect(find.textContaining('UBTC'), findsNothing);
   });
 
   test('low liquidity is under \$50k traded in 24 hours', () {
@@ -269,28 +325,14 @@ void main() {
           prevDayPx: prevDayPx,
           dayNtlVlm: 0);
 
-  testWidgets('a thin market says so in its caption, whole, on one line',
+  testWidgets('a thin market is the name and the price, no note',
       (tester) async {
-    await _pump(tester, thinSpot('TSLA', px: 820.5), textScale: 0.5);
-
+    await _pump(tester, thinSpot('TSLA', px: 820.5), width: 375);
     expect(find.text('Tesla'), findsOneWidget);
-    expect(find.text('TSLA · Spot · Low liquidity'), findsOneWidget);
-    // Words in the caption line, not a badge box.
-    expect(find.byType(HlMetaChip), findsNothing);
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('a thin market draws no sparkline and asks for no candles',
-      (tester) async {
-    await _pump(tester, thinSpot('GOOGL', px: 335.61),
-        closes: [300, 300, 300, 335]);
-    expect(find.byType(HlLineSparkline), findsNothing);
-    expect(_fetched, isEmpty);
-    // A traded market keeps its line, from one request.
-    await _pump(tester, _market(), closes: [80000, 82000, 85000]);
-    expect(find.byType(HlLineSparkline), findsOneWidget);
-    expect(_fetched, ['BTC']);
     expect(find.textContaining('Low liquidity'), findsNothing);
+    expect(find.byType(HlMetaChip), findsNothing);
+    expect(find.byType(HlLineSparkline), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('a thin market with no 24h change shows the price alone',
@@ -312,118 +354,27 @@ void main() {
             prevDayPx: 1097,
             dayNtlVlm: 1200));
     expect(_numbers(tester), hasLength(2));
-    expect(_numbers(tester)[1].text, '−4.8%');
-  });
-
-  testWidgets('a market titled by its ticker does not repeat it', (tester) async {
-    // MU has no name of its own: the title is the ticker, the caption is
-    // what the market is.
-    await _pump(
-        tester,
-        _market(
-            coin: 'MU',
-            wireCoin: '@300',
-            kind: HlMarketKind.spot,
-            px: 1044.4,
-            prevDayPx: 1097,
-            dayNtlVlm: 1200),
-        textScale: 0.5);
-    expect(find.text('MU'), findsOneWidget);
-    expect(find.text('Spot · Low liquidity'), findsOneWidget);
-
-    await _pump(
-        tester,
-        _market(
-            coin: 'WHEAT',
-            wireCoin: 'unit:WHEAT',
-            maxLeverage: 10,
-            isHip3: true,
-            dex: 'unit'));
-    expect(find.text('WHEAT'), findsOneWidget);
-    expect(find.textContaining(RegExp(r'\d+x')), findsNothing);
-
-    // A thin perp titled by its ticker: the note alone under it.
-    await _pump(
-        tester,
-        _market(
-            coin: 'WHEAT',
-            wireCoin: 'unit:WHEAT',
-            isHip3: true,
-            dex: 'unit',
-            dayNtlVlm: 0));
-    expect(find.text('WHEAT'), findsOneWidget);
-    expect(find.text('Low liquidity'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
-
-  for (final c in [
-    (coin: 'MU', name: 'MU', caption: 'Spot'),
-    (coin: 'CRCL', name: 'Circle', caption: 'CRCL · Spot'),
-    (coin: 'TSLA', name: 'Tesla', caption: 'TSLA · Spot'),
-  ]) {
-    testWidgets(
-        '${c.coin} thin at 375pt: nothing overflows and no ellipsis falls '
-        'inside the caption', (tester) async {
-      // With the widths text has on a phone: the whole caption, one line.
-      await _pump(tester, thinSpot(c.coin, px: 820.5),
-          width: 375, textScale: 0.5);
-      expect(tester.takeException(), isNull);
-      expect(find.text(c.name), findsOneWidget);
-      expect(find.text('${c.caption} · Low liquidity'), findsOneWidget);
-
-      // With text twice as wide (the largest accessibility sizes): the
-      // note moves to a caption line of its own, under the first, and
-      // nothing is cut in the middle.
-      await _pump(tester, thinSpot(c.coin, px: 820.5), width: 375);
-      expect(tester.takeException(), isNull);
-      expect(find.text(c.caption), findsOneWidget);
-      expect(find.text('Low liquidity'), findsOneWidget);
-      final top = tester.getTopLeft(find.text(c.caption));
-      final note = tester.getTopLeft(find.text('Low liquidity'));
-      expect(note.dy, greaterThan(top.dy));
-      expect(note.dx, top.dx);
-      for (final t in tester.widgetList<Text>(find.byType(Text))) {
-        expect(t.data, isNot(contains('…')));
-      }
-    });
-  }
-
-  testWidgets('a normal perp at 375pt keeps its line and one-line caption',
-      (tester) async {
-    await _pump(tester, _market(coin: 'TSLA', wireCoin: 'xyz:TSLA', maxLeverage: 10, category: 'stocks', isHip3: true, dex: 'xyz', px: 430, prevDayPx: 425),
-        closes: [420, 425, 430], width: 375);
-    expect(tester.takeException(), isNull);
-    expect(find.text('Tesla'), findsOneWidget);
-    expect(find.text('TSLA'), findsOneWidget);
-    expect(find.byType(HlLineSparkline), findsOneWidget);
-    expect(_numbers(tester), hasLength(2));
+    expect(_numbers(tester)[1].text, '▼ 4.8%');
   });
 
   testWidgets('an unknown change is a dash in the neutral colour',
       (tester) async {
-    await _pump(tester, _market(prevDayPx: 0), closes: [80000, 82000]);
+    await _pump(tester, _market(prevDayPx: 0));
 
     final numbers = _numbers(tester);
     expect(numbers[1].text, '—');
     final colors = tester.element(find.byType(HlMarketCard)).colors;
     expect(numbers[1].style.color, colors.textSecondary);
-    final line = tester.widget<HlLineSparkline>(find.byType(HlLineSparkline));
-    expect(line.upColor, colors.textSecondary);
   });
 
-  testWidgets('without candles the sparkline space is empty, not a shimmer',
+  testWidgets('text twice as wide (the largest sizes): nothing overflows',
       (tester) async {
-    await _pump(tester, _market());
-
-    final line = tester.widget<HlLineSparkline>(find.byType(HlLineSparkline));
-    expect(line.closes, isEmpty);
-    expect(
-        find.descendant(
-            of: find.byType(HlLineSparkline),
-            matching: find.byType(CustomPaint)),
-        findsNothing);
-    // The space is kept, so the prices still line up down the list.
-    expect(tester.getSize(find.byType(HlLineSparkline)).width, greaterThan(50));
+    // The test font is about twice the app's: scale 1 is the largest
+    // accessibility sizes.
+    await _pump(tester, _market(), width: 375);
+    expect(tester.takeException(), isNull);
+    expect(tester.getSize(find.byType(HlMarketCard)).height,
+        greaterThanOrEqualTo(kHlMarketRowHeight.w - 0.5));
   });
 
   testWidgets('a long name ellipsizes and nothing overflows on a narrow phone',
@@ -434,7 +385,6 @@ void main() {
             coin: 'AVERYLONGTICKERNAMEFORAMARKET',
             px: 123456.78,
             prevDayPx: 120000),
-        closes: [1, 2, 3],
         width: 320);
 
     expect(tester.takeException(), isNull);

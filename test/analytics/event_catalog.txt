@@ -77,10 +77,9 @@ biometric_prompt_cancelled
 biometric_prompt_shown
 biometrics_toggle_cancelled
 biometrics_toggled
-bitcoin_in_out_period_changed
-bitcoin_in_out_side_changed
 block_explorer_opened
 bottom_bar_tapped
+brag_shared
 builder_combo_toggled
 builder_deposit_prompted
 builder_leg_added
@@ -107,6 +106,7 @@ cashapp_purchase_cancelled
 cashapp_purchase_created
 category_pill_tapped
 category_row_back_tapped
+category_sheet_opened
 change_pin_blocked
 chart_autoscale_toggled
 chart_drawing_redone
@@ -145,6 +145,7 @@ device_bound_explainer_viewed
 direct_hypercore_route
 drawing_created
 drawing_deleted
+drawing_edited
 electrum_node_selected
 export_format_selected
 external_address_method_selected
@@ -350,6 +351,7 @@ order_confirmation_view_orders_tapped
 order_funding_abandoned
 order_funding_completed
 order_funding_failed
+order_funding_leg_failed_order_placed
 order_funding_requested
 order_funding_route_selected
 order_funding_started
@@ -377,6 +379,8 @@ passkey_label_customized
 passkey_label_pending_flag_failed
 passkey_label_published
 passkey_label_published_handler_failed
+passkey_prf_unsupported
+passkey_prf_unsupported_action
 passkey_restore_cancelled
 passkey_restore_failed
 passkey_restore_post_save_failed
@@ -412,6 +416,7 @@ pin_gate_result
 pin_set
 pin_set_failed
 pin_sheet_lockout
+polygon_rpc_read_failed
 polymarket_account_ready
 polymarket_account_start_unauthenticated
 polymarket_balance_loaded
@@ -457,6 +462,7 @@ polymarket_sell_failed
 polymarket_sell_initiated
 polymarket_sell_step
 polymarket_sell_submitted
+polymarket_setup_failed
 polymarket_slippage_adjusted
 polymarket_tab_opened
 polymarket_viewed
@@ -464,7 +470,6 @@ polymarket_withdraw_completed
 polymarket_withdraw_failed
 polymarket_withdraw_initiated
 polymarket_withdraw_submitted
-portfolio_allocation_view_changed
 portfolio_available_to_invest_toggled
 portfolio_balances_empty_shown
 portfolio_category_slice_selected
@@ -476,6 +481,7 @@ portfolio_performance_retry_tapped
 portfolio_rebalance_tapped
 portfolio_statistics_venue_toggled
 portfolio_tab_changed
+portfolio_venue_positions_expanded
 position_protect_tapped
 predict_hero_viewed
 prediction_claim_tapped
@@ -596,11 +602,14 @@ send_approval_result
 send_asset_shortcut_tapped
 send_cold_destination_reset
 send_completed
+send_contacts_permission
 send_failed
 send_flow_abandoned
 send_flow_started
 send_invoice_fastpath
 send_max_tapped
+send_pick_market_opened
+send_recipient_picked
 send_review_shown
 send_route_details_opened
 send_step
@@ -632,6 +641,13 @@ settlement_rereview_required
 settlement_route_unavailable
 settlement_submit_attempt
 settlement_terminal
+share_link_cancelled
+share_link_claimed
+share_link_created
+share_link_paid
+share_link_shared
+share_market_link_shared
+share_market_opened
 shell_swipe_hint_shown
 shell_tab_changed
 shell_tab_reselected
@@ -671,7 +687,6 @@ transaction_export_run
 transaction_id_copied
 transaction_received
 transaction_sent
-tx_detail_action
 tx_flow_detail_opened
 unhandled_exception_caught
 unlock_failed
@@ -697,6 +712,7 @@ usd_send_opened
 usd_send_step
 usd_tab_opened
 usd_token_recovery
+usd_withdraw_coin_sheet_opened
 venue_account_link_result
 venue_cash_direct_refused
 venue_cash_pull_failed

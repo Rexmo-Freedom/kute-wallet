@@ -11,6 +11,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:kute/helpers/hyperliquid_activity.dart' show HlFillKind;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart' show HlFill;
 import 'package:kute/models/hyperliquid_model.dart';
@@ -392,8 +393,9 @@ void main() {
       HlFillTooltipEntry(
         identity: 't1',
         isBuy: true,
-        title: 'Bought 0.5 BTC',
-        detail: 'Open Long · 14 Nov, 22:16',
+        effect: (kind: HlFillKind.opened, long: true),
+        title: 'Opened long 0.5 BTC',
+        detail: '14 Nov, 22:16',
         value: '\$104.00',
         subValue: '\$52.00',
         color: AppColors.marketUp,
@@ -465,10 +467,13 @@ void main() {
     expect(tip, isNotNull);
     expect(tip!.entries, hasLength(1));
     final entry = tip.entries.single;
-    expect(entry.title, 'Bought 0.5 BTC');
+    // In the position's words, never "Bought": a short that buys back
+    // is closing, and the word would read as the opposite.
+    expect(entry.title, 'Opened long 0.5 BTC');
     final when = DateFormat('d MMM, HH:mm')
         .format(DateTime.fromMillisecondsSinceEpoch(_fills[0].time));
-    expect(entry.detail, 'Open Long · $when');
+    expect(entry.detail, when);
+    expect(entry.effect, (kind: HlFillKind.opened, long: true));
     // The price, and what the fill was worth, on the right.
     expect(entry.value, '\$104.00');
     expect(entry.subValue, '\$52.00');
@@ -485,18 +490,22 @@ void main() {
     expect(_tooltip(tester), isNull);
   });
 
-  testWidgets('a sell reads as Sold with its own colour', (tester) async {
+  testWidgets('a closing fill reads as Closed, in a neutral colour',
+      (tester) async {
     await _pump(tester);
     final origin = tester.getRect(_surface).topLeft;
     await tester.tapAt(origin + _marker(tester, 't2').center);
     await tester.pump();
     final entry = _tooltip(tester)!.entries.single;
-    expect(entry.title, 'Sold 0.25 BTC');
-    expect(entry.detail, startsWith('Close Long · '));
+    expect(entry.title, 'Closed long 0.25 BTC');
+    expect(entry.detail, isNot(contains(' · ')));
     expect(entry.value, '\$108.00');
     expect(entry.subValue, '\$27.00');
     expect(entry.isBuy, isFalse);
-    expect(entry.color, AppColors.marketDown);
+    expect(entry.effect, (kind: HlFillKind.closed, long: true));
+    // Closing is neither bullish nor bearish.
+    expect(entry.color, isNot(AppColors.marketDown));
+    expect(entry.color, isNot(AppColors.marketUp));
     await _settle(tester);
   });
 
@@ -507,7 +516,9 @@ void main() {
     await tester.tapAt(origin + _marker(tester, 't4').center);
     await tester.pump();
     final tip = _tooltip(tester)!;
-    expect(tip.entries.map((e) => e.title), ['Bought 1 BTC', 'Sold 1 BTC']);
+    // Without the position they met, a buy went long and a sell short.
+    expect(tip.entries.map((e) => e.title),
+        ['Opened long 1 BTC', 'Opened short 1 BTC']);
     expect(tip.entries.map((e) => e.value), ['\$105.50', '\$106.00']);
     // No direction label on these: the time only.
     expect(tip.entries.first.detail, isNot(contains(' · ')));
@@ -577,7 +588,7 @@ void main() {
     final tip = _tooltip(tester);
     expect(tip, isNotNull);
     expect(tip!.isDark, isTrue);
-    expect(tip.entries.single.title, 'Bought 0.5 BTC');
+    expect(tip.entries.single.title, 'Opened long 0.5 BTC');
     await _settle(tester);
   });
 
@@ -587,7 +598,7 @@ void main() {
     final origin = tester.getRect(_surface).topLeft;
     await tester.tapAt(origin + _marker(tester, 't2').center);
     await tester.pump();
-    expect(_tooltip(tester)?.entries.single.title, 'Sold 0.25 BTC');
+    expect(_tooltip(tester)?.entries.single.title, 'Closed long 0.25 BTC');
     await _settle(tester);
   });
 }

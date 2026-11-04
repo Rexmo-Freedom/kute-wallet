@@ -8,6 +8,7 @@
     <!-- Haptics: the rubber band's continuous haptic (ContinuousHapticsPlugin);
          the vibration package merges the same permission. -->
     <uses-permission android:name="android.permission.VIBRATE"/>
+    <uses-permission android:name="android.permission.READ_CONTACTS"/>
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />
@@ -19,7 +20,7 @@
     <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
     <application
-            android:label="Kute"
+            android:label="Kute Money"
             android:name="${applicationName}"
             android:icon="@mipmap/ic_launcher"
             android:enableOnBackInvokedCallback="true"
@@ -91,6 +92,18 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="kute.onelink.me" />
+            </intent-filter>
+            <!--
+                Share-link claims: https://backend.kutewallet.com/c/{id}
+                (PUBLIC_WEB_BASE in .env) opens the Claim screen. The host
+                must serve /.well-known/assetlinks.json with the app's
+                SHA-256 fingerprints for autoVerify to hold.
+            -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="backend.kutewallet.com" android:pathPrefix="/c/" />
             </intent-filter>
         </activity>
         <meta-data

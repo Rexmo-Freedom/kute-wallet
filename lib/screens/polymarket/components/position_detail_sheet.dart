@@ -1,7 +1,12 @@
 import 'dart:async';
 
+import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
+import 'package:kute/screens/shared/kute_page_route.dart';
+import 'package:kute/screens/shared/kute_share_actions.dart';
+import 'package:kute/screens/share/brag/brag_data.dart' show bragPolyPosition;
+import 'package:kute/screens/share/brag/position_share_card.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/fitted_title.dart';
-import 'package:kute/screens/shared/kute_blur.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show KuteStillWhenCovered;
 import 'package:kute/screens/polymarket/components/live_token_scope.dart';
 import 'package:kute/screens/polymarket/components/market_chart.dart'
@@ -43,7 +48,6 @@ import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/polymarket/components/sell_sheet.dart';
 import 'package:kute/screens/polymarket/market_detail_sheet.dart'
     show MarketDetailSheet;
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/polymarket/components/poly_market_stats.dart'
     show PolyRulesRow;
@@ -73,23 +77,30 @@ const Color _kPolyRed = AppColors.marketDown;
 // dial, the price paid a dot on its track, a long needle with a grab knob riding the track, the track filled to the
 // needle in the result's colour, the chance under the hub, drag to
 // explore: position_speedometer.dart); over it the result since the buy at
-// the left ("▲ $9.40", "+247% since 19¢"; while dragging, the what-if one)
-// and the held side at the right; under it, until the dial's first drag on
+// the left ("▲ $9.40", "+247% since 19¢"; while dragging, the what-if one),
+// and the held side (founder, 1 November 2026: no Share pill beside them
+// any more, it crowded "You hold No"); under it, until the dial's first
+// drag on
 // this device, a quiet "Drag the needle to see what it'd be worth" (the
 // needle leans once to show it moves),
 // and once settled the chance bar (position_chance_bar.dart). Then two
 // tiles: what it is worth now with the profit or loss, and the payout if
 // the held side wins with what was paid (once settled: what it paid out);
 // while the needle is dragged, what it would be worth then beside what it
-// is worth now. While open, the chart under the tiles, always (the held
-// side's chance since the buy in the result's colour, a dashed line at the
-// average price; from the price paid to now while the history has nothing
-// since the buy: position_journey.dart); the end as a pill; and plain
+// is worth now. Under the tiles the share card (founder, 1 November 2026:
+// in place of the small "Your avg" chart; "Brag about it" on an open
+// position in profit, else "Send to a friend": position_share_card.dart);
+// the end as a pill; and plain
 // rows: "Protect
 // it" while open, "Details" (outcome / shares / price paid / invested, on
 // the shared bottom sheet, as on the Investing position), the closing
 // conditions and "View market" (the event's sheet); and the Sell (or, on a
-// resolved losing side, Clear) action.
+// resolved losing side, Clear) action, as the floating bar's primary button
+// (founder, 2 November 2026: "a floating pill like the others";
+// kute_bar_context.dart): Sell in the red its pinned button had
+// (KuteBarPrimaryStyle.destructive), Clear in the app's primary look,
+// thinking while the redeem runs (PolyClaimBarAction). The body scrolls
+// clear of the bar.
 // A won position has no action: it is claimed automatically
 // (claim_auto_fire.dart) and reads "Settled".
 
@@ -128,22 +139,16 @@ class PositionDetailSheet extends ConsumerStatefulWidget {
     // Whether the dial's one-time drag hint shows on this open.
     TrackingService.predictionsPositionDetailViewed(
         dialHintShown: !PolyDialDragMemory.dragged);
-    final reduceMotion =
-        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     final navigator = Navigator.of(context, rootNavigator: true);
     OpenOnce.run(key, () => navigator.push(
-      PageRouteBuilder(
+      // The detail sheet's rise (kute_page_route.dart): the settle easing
+      // with the 0.97 → 1 scale, down on the close easing.
+      KuteSheetPageRoute(
         settings: const RouteSettings(name: routeName),
-        opaque: false,
         barrierColor: Colors.black.withValues(alpha: 0.4),
-        fullscreenDialog: true,
-        transitionDuration:
-            reduceMotion ? Duration.zero : const Duration(milliseconds: 300),
-        reverseTransitionDuration:
-            reduceMotion ? Duration.zero : const Duration(milliseconds: 300),
         // Still while the sell slip (or any sheet) covers it, so its tick
         // animations never share the frames of the slip being scrolled.
-        pageBuilder: (_, __, ___) => FastBetScope(
+        builder: (_) => FastBetScope(
           active: polyIsFastBetRound(position.eventSlug),
           child: KuteStillWhenCovered(
             child: PositionDetailSheet(
@@ -152,15 +157,6 @@ class PositionDetailSheet extends ConsumerStatefulWidget {
             ),
           ),
         ),
-        transitionsBuilder: (_, animation, __, child) {
-          return SlideTransition(
-            position: animation.drive(
-              Tween(begin: const Offset(0, 1), end: Offset.zero)
-                  .chain(CurveTween(curve: Curves.easeOutCubic)),
-            ),
-            child: child,
-          );
-        },
       ),
     ));
   }
@@ -446,6 +442,33 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
         PolymarketEvent.logoForText(headerTeams, pos.marketQuestion) ??
         pos.marketImage;
 
+    // The page's Sal context, placed in its header (no bottom bar), held
+    // by the scope around the close button; its control is the share card
+    // under the tiles (PositionShareCard), no header pill on a position.
+    final bar = marketBarContext(
+      context,
+      title: widget.position.marketQuestion,
+      venue: kMarketLinkPredictions,
+      slug: widget.position.eventSlug,
+      // The pick: this position's outcome.
+      outcome: pos.outcome,
+      outcomeChance: pos.currentPrice * 100,
+      side: 'buy',
+      imageUrl: headerImage,
+      position: true,
+      category: SearchCategory.predictions,
+      searchHint: context.l10n.searchPredictionsHint,
+      source: 'predictions',
+      placement: KuteBarPlacement.header,
+      // An open position brags (kute_share_actions.dart).
+      brag: pos.isResolved
+          ? null
+          : () => bragPolyPosition(ref.read,
+              position: pos,
+              costBasis: costBasis,
+              currentPrice: currentPrice,
+              imageUrl: headerImage),
+    );
     return Scaffold(
       backgroundColor: context.isDark
           ? context.colors.gradientBottom
@@ -461,12 +484,14 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                 padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 4.h),
                 child: Row(
                   children: [
-                    const KuteCloseButton(),
+                    KuteBarContextScope(
+                      barContext: bar,
+                      child: const KuteCloseButton(),
+                    ),
                     SizedBox(width: 8.w),
                     // The market's icon (crest-first, see above) and its
-                    // title, as on the market sheet's header. No Sal on a
-                    // position: its rows say what is at risk and how to
-                    // protect it.
+                    // title, as on the market sheet's header; the Share
+                    // pill is beside the result, under it.
                     if (headerImage != null && headerImage.isNotEmpty) ...[
                       // PolyCrestImage (not raw CachedNetworkImage) so SVG
                       // flags / team crests render: Polymarket serves many
@@ -498,7 +523,15 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
               ),
               Expanded(
                 child: SingleChildScrollView(
-                  padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 28.h),
+                  // The foot scrolls clear of the floating Sell (and of
+                  // the home indicator: the page runs to the screen's foot
+                  // on iOS).
+                  padding: EdgeInsets.fromLTRB(
+                      20.w,
+                      0,
+                      20.w,
+                      kuteBarScrollClearance.h +
+                          MediaQuery.paddingOf(context).bottom),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -570,7 +603,10 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                                   children: [
                                     // Over the dial: the result at the
                                     // left (while dragging, the what-if
-                                    // one), the held side at the right.
+                                    // one), the held side, and the Share
+                                    // pill at the end, centred on the
+                                    // result's figure line (the "since"
+                                    // caption is under that line).
                                     Row(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
@@ -608,9 +644,12 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                                           ),
                                         ),
                                         SizedBox(width: 12.w),
-                                        Padding(
-                                          padding: EdgeInsets.only(top: 3.h),
-                                          child: heldLine,
+                                        Flexible(
+                                          child: Padding(
+                                            padding:
+                                                EdgeInsets.only(top: 3.h),
+                                            child: heldLine,
+                                          ),
                                         ),
                                       ],
                                     ),
@@ -665,7 +704,16 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                               return Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  heldLine,
+                                  // Settled: the held side's line, centred
+                                  // (the share is the card under the
+                                  // tiles, position_share_card.dart).
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      Expanded(child: heldLine),
+                                    ],
+                                  ),
                                   SizedBox(height: 14.h),
                                   PolyPositionChanceBar(
                                     spec: spec,
@@ -786,32 +834,26 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                         },
                       ),
 
-                      // The journey since the buy: the held side's chance
-                      // from the first buy to now. Open only, and always
-                      // there once read (position_journey.dart: from the
-                      // price paid to now while the history is thin).
-                      if (showGauge)
-                        Consumer(builder: (context, journeyRef, _) {
-                          final journey = journeyRef
-                              .watch(polyPositionJourneyProvider((
-                                tokenId: pos.tokenId!,
-                                fallbackSince: pos.createdAt,
-                              )))
-                              .valueOrNull;
-                          if (journey == null) return const SizedBox.shrink();
-                          return Padding(
-                            padding: EdgeInsets.only(top: 20.h),
-                            child: PolyPositionJourneyLine(
-                              journey: journey,
-                              live: currentPrice,
-                              // The result's colour: up, down, or neutral.
-                              color: polyJourneyColor(pnl, c.textSecondary),
-                              entry: pos.size > 0 && costBasis > 0
-                                  ? costBasis / pos.size
-                                  : null,
-                            ),
-                          );
-                        }),
+                      // The share, where the small "Your avg" chart was
+                      // (founder, 1 November 2026: the chart is gone, and
+                      // the header pill crowded "You hold No"): one card
+                      // in the tiles' style, "Brag about it" on an open
+                      // position in profit (its brag preview), else "Send
+                      // to a friend" (the page's Sal sheet). The journey
+                      // since the buy stays read for the brag card's line.
+                      SizedBox(height: 12.h),
+                      Consumer(builder: (context, journeyRef, _) {
+                        if (showGauge) {
+                          journeyRef.watch(polyPositionJourneyProvider((
+                            tokenId: pos.tokenId!,
+                            fallbackSince: pos.createdAt,
+                          )));
+                        }
+                        return PositionShareCard(
+                          bar: bar,
+                          brag: !pos.isResolved && pnl >= 0.005,
+                        );
+                      }),
 
                       if (pos.isResolved ||
                           pos.endDateStr?.isNotEmpty == true) ...[
@@ -976,64 +1018,35 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                   ),
                 ),
               ),
-              // Sticky action footer — Buy More + Sell live outside the
-              // scroll view so they're always visible regardless of how
-              // far down the user scrolls. Rendered for every position
-              // but a won one: a win is claimed automatically
+              // ── Sell (or Clear): the floating bar's button ────────
+              // THE BAR IS THE BUTTON (kute_bar_context.dart). Every
+              // position but a won one: a win is claimed automatically
               // (claim_auto_fire.dart), so there is nothing to tap.
-              //
-              // Wrapped in SafeArea(top:false) and given extra bottom
-              // padding so the buttons clear the iPhone home-indicator
-              // area — earlier they sat right against the gesture bar
-              // and felt unconfirmable.
-              if (!(pos.isResolved && pos.won == true))
-                ClipRect(
-                  child: KuteBlur(
-                    sigmaX: 18,
-                    sigmaY: 18,
-                    child: Container(
-                      color: (context.isDark ? c.surface : c.background)
-                          .withValues(alpha: 0.55),
-                      child: SafeArea(
-                        top: false,
-                        child: Padding(
-                          padding:
-                              EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 16.h),
-                          child: Row(
-                            children: [
-                              // Buy More removed — users go to the market
-                              // via the browse list / search to add to a
-                              // position. Position detail sticks to its
-                              // single job: review + sell.
-                              Expanded(
-                                // Resolved (a lost side): Clear runs right
-                                // here, one tap, and ends on the
-                                // confirmation (position_claim.dart).
-                                child: pos.isResolved
-                                    ? PolyClaimButton(
-                                        position: pos,
-                                        surface: 'position_detail',
-                                        popRoute: true,
-                                        icon: Icons.check_rounded,
-                                      )
-                                    : _PositionActionButton(
-                                        label: context.l10n.sell,
-                                        icon: Icons.remove_rounded,
-                                        color: _kPolyRed,
-                                        // AppButton fires its own haptic.
-                                        onTap: () {
-                                          context.pop();
-                                          SellSheet.show(context,
-                                              position: pos);
-                                        },
-                                      ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
+              if (pos.isResolved && pos.won != true)
+                // Resolved (a lost side): Clear runs right here, one tap,
+                // and ends on the confirmation (position_claim.dart).
+                PolyClaimBarAction(
+                  position: pos,
+                  surface: 'position_detail',
+                  popRoute: true,
+                )
+              else if (!pos.isResolved)
+                KuteBarContextScope(
+                  barContext: KuteBarContext.primary(
+                    label: context.l10n.sell,
+                    // The sell slip, as the pinned button opened it.
+                    onPrimary: () {
+                      context.pop();
+                      SellSheet.show(context, position: pos);
+                    },
+                    // Never off: an open position can always be sold.
+                    disabledLabel: null,
+                    style: KuteBarPrimaryStyle.destructive,
+                    category: SearchCategory.predictions,
+                    searchHint: context.l10n.searchPredictionsHint,
+                    source: 'predictions',
                   ),
+                  child: const SizedBox.shrink(),
                 ),
             ],
           ),
@@ -1048,35 +1061,6 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
   /// `$0.00` when rounded to two decimals — the bug you saw on a
   /// position bought around 0.3¢. Once a share crosses $1 the value
   /// switches to dollar formatting.
-}
-
-/// Filled pill button shared by Buy More + Sell. Same height, shape,
-/// icon size, and font weight — only the accent color differs.
-class _PositionActionButton extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _PositionActionButton({
-    required this.label,
-    required this.icon,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    // Unified AppButton chrome (56.h / 16.r); the fill comes from the
-    // canonical market tokens and the label contrast is auto-picked.
-    return AppButton(
-      text: label,
-      icon: icon,
-      onPressed: onTap,
-      color: color,
-      fontWeight: FontWeight.w800,
-    );
-  }
 }
 
 /// "Closing conditions": one row, as the market sheet's "Rules and

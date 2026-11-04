@@ -3391,7 +3391,10 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get depositAutoAfterConfirmations =>
-      'Tiek pievienota automātiski pēc 3 apstiprinājumiem.';
+      'Tiek pievienots automātiski, bieži dažu minūšu laikā un vēlākais pēc 3 apstiprinājumiem. No pirmā apstiprinājuma, iespējams, varēsi to saņemt ātrāk par maksu.';
+
+  @override
+  String get activityClaimNowAvailable => 'Var saņemt tagad';
 
   @override
   String get depositReasonFeeHigh =>
@@ -6599,6 +6602,9 @@ class AppLocalizationsLv extends AppLocalizations {
   String get assetDollars => 'Investments';
 
   @override
+  String get moveSourceInvestments => 'Investīcijas';
+
+  @override
   String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
 
   @override
@@ -7531,30 +7537,10 @@ class AppLocalizationsLv extends AppLocalizations {
   String get btcSetupWalletNameHint => 'Maciņa nosaukums';
 
   @override
-  String get salOrderNoLongerAvailable => 'Šo rīkojumu vairs nevar mainīt.';
-
-  @override
   String get salControlUnavailable => 'Šī vadīkla šajā ekrānā nav pieejama.';
 
   @override
-  String get salSwitchToLimitTitle => 'Pārslēgties uz limita rīkojumu?';
-
-  @override
-  String get salOpenLeverageTitle => 'Atvērt sviras iestatījumus?';
-
-  @override
-  String get salSwitchToLimitBody =>
-      'Tas maina rīkojuma veidu. Pirms rīkojuma veikšanas pārskati cenu un summu.';
-
-  @override
-  String get salOpenLeverageBody =>
-      'Sviru tu izvēlies pats. Tas atver vadīklas, nemainot vērtību.';
-
-  @override
   String get salChatWith => 'Tērzēt ar Sal';
-
-  @override
-  String get salAsk => 'Jautāt Sal';
 
   @override
   String get salUnavailable => 'Sal šobrīd nav pieejams.';
@@ -7674,20 +7660,12 @@ class AppLocalizationsLv extends AppLocalizations {
   String get salStubLiveUnavailable => 'Aktuālā informācija nav pieejama.';
 
   @override
-  String searchNoMatchesAskSal(String query) {
-    return 'Nav atbilstību vaicājumam “$query”. Nosūti to, lai jautātu Sal.';
-  }
-
-  @override
   String searchNoResultsFor(String query) {
     return 'Nav rezultātu vaicājumam “$query”';
   }
 
   @override
   String get searchTypeToSearchMarkets => 'Raksti, lai meklētu tirgus';
-
-  @override
-  String get searchOrAskSal => 'Meklē vai jautā Sal jebko';
 
   @override
   String get searchMarketsHint => 'Meklēt tirgus';
@@ -8027,6 +8005,10 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get movePredictionsWalletNotReady => 'Prognožu maciņš vēl nav gatavs.';
+
+  @override
+  String get predictionsUnreachableNothingSent =>
+      'Prognozes šobrīd nav sasniedzamas. Nekas netika nosūtīts. Pārbaudiet savienojumu un mēģiniet vēlreiz.';
 
   @override
   String get moveDepositRouteUnavailable =>
@@ -8733,6 +8715,14 @@ class AppLocalizationsLv extends AppLocalizations {
   String get hlPositionYouPutIn => 'Tavs ieguldījums';
 
   @override
+  String hlPositionLeverage(String leverage) {
+    return '${leverage}x svira';
+  }
+
+  @override
+  String get hlPositionNoLeverage => 'Bez sviras';
+
+  @override
   String hlPositionWorthNow(String amount) {
     return 'Tagad vērts $amount';
   }
@@ -8810,6 +8800,70 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get hlChartYouSold => 'Tu šeit pārdevi';
+
+  @override
+  String hlChartOpenedLong(String size) {
+    return 'Atvērts long $size';
+  }
+
+  @override
+  String hlChartOpenedShort(String size) {
+    return 'Atvērts short $size';
+  }
+
+  @override
+  String hlChartAddedLong(String size) {
+    return 'Pievienots long $size';
+  }
+
+  @override
+  String hlChartAddedShort(String size) {
+    return 'Pievienots short $size';
+  }
+
+  @override
+  String hlChartReducedLong(String size) {
+    return 'Samazināts long $size';
+  }
+
+  @override
+  String hlChartReducedShort(String size) {
+    return 'Samazināts short $size';
+  }
+
+  @override
+  String hlChartClosedLong(String size) {
+    return 'Slēgts long $size';
+  }
+
+  @override
+  String hlChartClosedShort(String size) {
+    return 'Slēgts short $size';
+  }
+
+  @override
+  String hlChartFlippedLong(String size) {
+    return 'Apgriezts uz long $size';
+  }
+
+  @override
+  String hlChartFlippedShort(String size) {
+    return 'Apgriezts uz short $size';
+  }
+
+  @override
+  String hlChartLiquidatedSize(String size) {
+    return 'Likvidēts $size';
+  }
+
+  @override
+  String get hlChartYouWentLong => 'Tu šeit atvēri long';
+
+  @override
+  String get hlChartYouWentShort => 'Tu šeit atvēri short';
+
+  @override
+  String get hlChartYouClosedHere => 'Tu šeit slēdzi';
 
   @override
   String get hlWithdrawalsUnavailable =>
@@ -10347,151 +10401,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String get hlRejectOracle => 'Šī cena ir pārāk tālu no tirgus cenas.';
 
   @override
-  String get salIntroGeneral =>
-      'Izpēti publiskos tirgus un uzzini, kā viss darbojas.';
-
-  @override
-  String salIntroMarket(String market) {
-    return 'Izpēti tirgu $market un uzzini, kā tas darbojas.';
-  }
-
-  @override
-  String get salIntroThisMarket =>
-      'Izpēti šo tirgu un uzzini, kā tas darbojas.';
-
-  @override
-  String salIntroOrder(String orderType) {
-    return 'Uzzini, kā darbojas rīkojuma veids $orderType.';
-  }
-
-  @override
-  String salOrderTypeName(String type) {
-    String _temp0 = intl.Intl.selectLogic(
-      type,
-      {
-        'market': 'tirgus',
-        'limit': 'limits',
-        'scale': 'pakāpes',
-        'stopMarket': 'stop tirgus',
-        'stopLimit': 'stop limits',
-        'takeProfitMarket': 'take profit tirgus',
-        'takeProfitLimit': 'take profit limits',
-        'twap': 'TWAP',
-        'other': 'rīkojums',
-      },
-    );
-    return '$_temp0';
-  }
-
-  @override
-  String salChipHlMovingToday(String market) {
-    return 'Kāpēc $market šodien kustas?';
-  }
-
-  @override
-  String salChipHlFundingFlip(String market) {
-    return 'Kāpēc finansējums tirgū $market ir negatīvs?';
-  }
-
-  @override
-  String salChipHlFundingExplain(String market) {
-    return 'Kā darbojas finansējums tirgū $market?';
-  }
-
-  @override
-  String salChipHlProtectPosition(String market) {
-    return 'Kā es varu aizsargāt pozīciju tirgū $market?';
-  }
-
-  @override
-  String salChipHlLiquidationExplain(String market) {
-    return 'Kā darbojas likvidācija tirgū $market?';
-  }
-
-  @override
-  String salChipHlWhatDrives(String market) {
-    return 'Kas ietekmē tirgus $market cenu?';
-  }
-
-  @override
-  String salChipHlCompareRelated(String market) {
-    return 'Kā $market izskatās salīdzinājumā ar līdzīgiem tirgiem?';
-  }
-
-  @override
-  String get salChipPmOddsMoving => 'Kāpēc šī tirgus koeficienti mainās?';
-
-  @override
-  String get salChipPmClosingSoon => 'Kas notiek, kad šis tirgus slēdzas?';
-
-  @override
-  String get salChipPmLiveGame => 'Kā notiekošā spēle maina šos koeficientus?';
-
-  @override
-  String get salChipPmWhatMovesIt =>
-      'Kas varētu mainīt šī tirgus koeficientus?';
-
-  @override
-  String get salChipPmResolutionRules =>
-      'Kādi ir šī tirgus izšķiršanas noteikumi?';
-
-  @override
-  String get salChipPmRelatedMarkets => 'Kuri tirgi ir saistīti ar šo?';
-
-  @override
-  String salChipSearchWatchlistNews(String market) {
-    return 'Kādas ir jaunākās ziņas par $market?';
-  }
-
-  @override
-  String salChipEduOrderType(String orderType, String market) {
-    return 'Kā darbojas rīkojuma veids $orderType tirgū $market?';
-  }
-
-  @override
-  String get salChipEduMarketVsLimit =>
-      'Ar ko atšķiras tirgus un limita rīkojumi?';
-
-  @override
-  String get salChipEduLeverage => 'Kā svira maina likvidācijas risku?';
-
-  @override
-  String get salChipEduFunding => 'Kas ir finansējums beztermiņa līgumā?';
-
-  @override
-  String get salChipEduPredictionBasics => 'Kā darbojas prognožu tirgi?';
-
-  @override
-  String get salChipWalletReceive => 'Kā saņemt bitcoin Kute?';
-
-  @override
-  String get salChipWalletSend => 'Kā nosūtīt bitcoin Kute?';
-
-  @override
-  String get salChipStocksVsPerps =>
-      'Kāda ir atšķirība starp akcijām un perps?';
-
-  @override
-  String get salChipRecoveryPhrase => 'Kas ir atkopšanas frāze?';
-
-  @override
-  String get salChipBackupHow => 'Kā darbojas maciņa rezerves kopija?';
-
-  @override
-  String get salChipRecoveryPrivate =>
-      'Kāpēc atkopšanas frāzei jāpaliek privātai?';
-
-  @override
-  String get salChipNetworkConfirmation => 'Kas ir tīkla apstiprinājums?';
-
-  @override
-  String get salChipNetworkFees => 'Kā darbojas Bitcoin tīkla maksas?';
-
-  @override
-  String get salChipTxPending =>
-      'Kāpēc darījums var palikt gaidīšanas stāvoklī?';
-
-  @override
   String amountMinimumInline(String amount) {
     return 'Minimums $amount';
   }
@@ -10520,55 +10429,138 @@ class AppLocalizationsLv extends AppLocalizations {
   }
 
   @override
-  String get searchOrAskSalShort => 'Meklē vai jautā Sal';
+  String get shareHeaderLabel => 'Sūtīt draugam';
+
+  @override
+  String get bragPositionAction => 'Palielies ar šo pozīciju';
+
+  @override
+  String get bragPositionActionSub => 'Kartīte ar tavu rezultātu';
+
+  @override
+  String get bragPortfolioAction => 'Palielies ar savu portfeli';
+
+  @override
+  String get bragBarLabel => 'Kopīgo un palielies';
+
+  @override
+  String get bragPortfolioBarLabel => 'Kopīgo portfeli';
+
+  @override
+  String get bragPnlBarLabel => 'Kopīgo P&L';
+
+  @override
+  String get bragMyPnl => 'Mans P&L';
+
+  @override
+  String bragShareText(String title, String link) {
+    return '$title – Kute $link';
+  }
+
+  @override
+  String get bragMyPortfolio => 'Mans portfelis';
+
+  @override
+  String get bragCodeLabel => 'Kods';
+
+  @override
+  String get bragSinceYouBought => 'Kopš pirkuma';
+
+  @override
+  String get bragAboutIt => 'Palielies';
+
+  @override
+  String get positionShareCardSub => 'Send the market or show off your result';
+
+  @override
+  String get recoverYourAccountTitle => 'Recover your account';
+
+  @override
+  String get barNeedAmount => 'Enter an amount';
+
+  @override
+  String get barNeedLowerAmount => 'Lower the amount';
+
+  @override
+  String get barNeedRaiseAmount => 'Raise the amount';
+
+  @override
+  String get barNeedRecipient => 'Add who to send to';
+
+  @override
+  String get barNeedNetwork => 'Pick a network';
+
+  @override
+  String get barNeedCoin => 'Pick a coin';
+
+  @override
+  String get barNeedAddress => 'Paste an address';
+
+  @override
+  String get barNeedValidAddress => 'Check the address';
+
+  @override
+  String get barNeedTick => 'Tick the box to continue';
+
+  @override
+  String get barNeedPin => 'Enter your 6-digit PIN';
+
+  @override
+  String get barNeedPinAgain => 'Enter the PIN again';
+
+  @override
+  String get barNeedName => 'Enter a name';
+
+  @override
+  String get barNeedCode => 'Enter a code';
+
+  @override
+  String get barNeedPhrase => 'Enter your 12 words';
+
+  @override
+  String get barNeedPublicKey => 'Paste a public key';
+
+  @override
+  String get barNeedNote => 'Write a note';
+
+  @override
+  String get barNeedFee => 'Pick a fee';
+
+  @override
+  String get barNeedPrice => 'Getting a price…';
+
+  @override
+  String get barNeedOption => 'Pick an option';
+
+  @override
+  String get barNeedWallet => 'Pick a wallet';
+
+  @override
+  String get barNeedCheckAmount => 'Check the amount';
+
+  @override
+  String get barNeedWait => 'One moment…';
+
+  @override
+  String get searchPredictionsOrManageAi =>
+      'Meklē prognozes vai pārvaldi ar MI';
+
+  @override
+  String get searchInvestmentsOrManageAi =>
+      'Meklē investīcijas vai pārvaldi ar MI';
+
+  @override
+  String get searchOrManageAi => 'Meklē vai pārvaldi ar MI';
+
+  @override
+  String get connectOwnAiTitle => 'Pievieno savu MI';
+
+  @override
+  String get connectOwnAiSubtitle =>
+      'Ļauj Claude, ChatGPT vai Grok pārvaldīt tavu maciņu';
 
   @override
   String get financialHubAndSettings => 'Finanšu centrs un iestatījumi';
-
-  @override
-  String get analyticsInOutTab => 'Ienāk un iziet';
-
-  @override
-  String get inOutMonth => 'Mēnesis';
-
-  @override
-  String get inOutYear => 'Gads';
-
-  @override
-  String get inOutIn => 'Ienāk';
-
-  @override
-  String get inOutOut => 'Iziet';
-
-  @override
-  String get inOutWhereItWent => 'Kur aizgāja';
-
-  @override
-  String get inOutWhereItCameFrom => 'No kurienes ienāca';
-
-  @override
-  String get inOutSentToPeople => 'Nosūtīts citiem';
-
-  @override
-  String get inOutIntoInvestments => 'Uz Investments';
-
-  @override
-  String get inOutIntoDollars => 'Uz Dolāriem';
-
-  @override
-  String get inOutFromPeople => 'No citiem';
-
-  @override
-  String get inOutFromInvestments => 'No Investments';
-
-  @override
-  String get inOutFromDollars => 'No Dolāriem';
-
-  @override
-  String get inOutBought => 'Nopirkts';
-
-  @override
-  String get inOutEmpty => 'Nav ienākumu vai izdevumu';
 
   @override
   String get portfolioStatsActive => 'Aktīvās';
@@ -10986,9 +10978,6 @@ class AppLocalizationsLv extends AppLocalizations {
   }
 
   @override
-  String get salWhyMoving => 'Kāpēc tas kustas?';
-
-  @override
   String get positionProtectIt => 'Aizsargā to';
 
   @override
@@ -11244,6 +11233,31 @@ class AppLocalizationsLv extends AppLocalizations {
       'Kad jums būs dolāri, šeit redzēsiet sava atlikuma izmaiņas laika gaitā';
 
   @override
+  String get chartPeriodPastWeek => 'Pēdējā nedēļa';
+
+  @override
+  String get chartPeriodPastMonth => 'Pēdējais mēnesis';
+
+  @override
+  String get chartPeriodPast3Months => 'Pēdējie 3 mēneši';
+
+  @override
+  String get chartPeriodPastYear => 'Pēdējais gads';
+
+  @override
+  String get chartPeriodAllTime => 'Viss laiks';
+
+  @override
+  String get chartNoChange => 'Bez izmaiņām';
+
+  @override
+  String get pnlChartNoHistory => 'Tavs P&L parādīsies pēc pirmās pozīcijas.';
+
+  @override
+  String get balanceChartNoHistory =>
+      'Tava atlikuma vēsture sākas ar pirmo darījumu.';
+
+  @override
   String get pnlChartEmpty =>
       'Kad tirgosieties vai prognozēsiet, šeit redzēsiet savu peļņu un zaudējumus';
 
@@ -11273,4 +11287,1055 @@ class AppLocalizationsLv extends AppLocalizations {
   String portfolioRowEntry(String price) {
     return 'ieeja $price';
   }
+
+  @override
+  String get activityOnItsWay => 'Ceļā';
+
+  @override
+  String get investingTradfi => 'Tradicionālie';
+
+  @override
+  String get purchaseShort => 'Pirkt';
+
+  @override
+  String get categoryGroupDiscover => 'Atklāj';
+
+  @override
+  String get categoryGroupMarkets => 'Tirgi';
+
+  @override
+  String get categoryGroupTopics => 'Tēmas';
+
+  @override
+  String categoryStatMarkets(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count tirgi',
+      one: '$count tirgus',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get categoryStatMostActive => 'Aktīvākie';
+
+  @override
+  String get categoryStatToday => 'šodien';
+
+  @override
+  String categoryStatVolToday(String amount) {
+    return '$amount apj. šodien';
+  }
+
+  @override
+  String categoryAllOf(String group) {
+    return 'Visi: $group';
+  }
+
+  @override
+  String get searchHomeMovingNow => 'Tagad kustībā';
+
+  @override
+  String get searchHomeTrendingPredictions => 'Populāras prognozes';
+
+  @override
+  String get barPickMarketGroup => 'Izvēlies tirgu grupu';
+
+  @override
+  String get barPickMarketGroupSub => 'vai palūdz Sal to atrast';
+
+  @override
+  String get barShareWithFriends => 'Sūtīt draugam';
+
+  @override
+  String get barShareMarketSub => 'Sūti tirgu vai savu prognozi';
+
+  @override
+  String get barSharePositionSub => 'Sūti tirgu vai savu pozīciju';
+
+  @override
+  String get shareTheMarket => 'Sūtīt tirgu';
+
+  @override
+  String get shareTheMarketSub => 'Saite, ko var atvērt, ar tavu kodu';
+
+  @override
+  String get shareThisPosition => 'Sūtīt šo pozīciju';
+
+  @override
+  String get shareThisPositionSub => 'Tirgus un kā tev veicas';
+
+  @override
+  String get sendThisPrediction => 'Sūtīt šo prognozi';
+
+  @override
+  String get sendThisInvestment => 'Sūtīt šo investīciju';
+
+  @override
+  String get sendThisPickSub => 'Saņēmējs iegūst tavu izvēli, gatavu veikšanai';
+
+  @override
+  String sharePickOn(String outcome, String title) {
+    return '$title: $outcome';
+  }
+
+  @override
+  String get portfolioInvestedLabel => 'Ieguldīts';
+
+  @override
+  String get portfolioAvailableLabel => 'Pieejams';
+
+  @override
+  String get balanceNoHistoryTitle => 'Vēl nav atlikuma vēstures';
+
+  @override
+  String get balanceNoHistorySub => 'Tā sākas ar tavu pirmo darījumu.';
+
+  @override
+  String get pnlNoHistoryTitle => 'Vēl nav P&L';
+
+  @override
+  String get pnlByVenue => 'By venue';
+
+  @override
+  String get pnlStatRealised => 'Realised';
+
+  @override
+  String get pnlStatUnrealised => 'Unrealised';
+
+  @override
+  String get pnlStatRealisedAllTime => 'All time realised';
+
+  @override
+  String get pnlStatUnrealisedAllTime => 'All time unrealised';
+
+  @override
+  String portfolioInvestedInVenue(String venue) {
+    return 'Invested in $venue';
+  }
+
+  @override
+  String get pnlStatWinRate => 'Win rate';
+
+  @override
+  String get portfolioAllTime => 'Viss laiks';
+
+  @override
+  String get barWhatIsThis => 'Kas tas ir?';
+
+  @override
+  String get barReceiveExplainSub => 'Sal paskaidro, kā darbojas saņemšana';
+
+  @override
+  String get barReceiveQuestion =>
+      'Paskaidro šo saņemšanas ekrānu: QR kodu, Lightning adresi, Apvienots vs Tikai Bitcoin vs Tikai Lightning un ko nozīmē “Pieņem arī”';
+
+  @override
+  String get barScannerLabel => 'Ko es varu skenēt?';
+
+  @override
+  String get barScannerQuestion =>
+      'Ko es varu skenēt ar Kute skeneri: adreses, rēķinus, QR kodus, un kas notiek pēc skenēšanas?';
+
+  @override
+  String get barBackupLabel => 'Kāpēc dublēt?';
+
+  @override
+  String get barBackupQuestion =>
+      'Kāpēc man jādublē savs maciņš, kas ir atkopšanas frāze un kā to droši glabāt?';
+
+  @override
+  String get barReceiptLabel => 'Kas te notika?';
+
+  @override
+  String get barReceiptQuestion =>
+      'Paskaidro šo darījuma kvīti: kas tika pārvietots, maksas, statuss un ko nozīmē katra rinda';
+
+  @override
+  String get barAskSalSub => 'Jautā Sal par šo ekrānu';
+
+  @override
+  String get barMoveMoney => 'Pārvietot naudu';
+
+  @override
+  String get barMoveMoneySub => 'jautā Sal, kur to novirzīt';
+
+  @override
+  String get barAskWhatNext => 'Jautā Sal, kas notiks tālāk';
+
+  @override
+  String get barAskAboutKute => 'Jautā Sal par Kute';
+
+  @override
+  String get searchHomeRecent => 'Nesenie';
+
+  @override
+  String get searchHomeClear => 'Notīrīt';
+
+  @override
+  String get searchScopeTitle => 'Kur meklēt';
+
+  @override
+  String marketMetaLine(String volume, String date) {
+    return 'Beidzas $date · $volume';
+  }
+
+  @override
+  String marketCloses(String date) {
+    return 'Beidzas $date';
+  }
+
+  @override
+  String get shareSendToAnyone => 'Sūtīt jebkuram';
+
+  @override
+  String get shareSendToAnyoneSubtitle => 'Saite, ko saņem ar Kute';
+
+  @override
+  String get shareWhoIsItFor => 'Kam tas paredzēts?';
+
+  @override
+  String get shareFirstNameHint => 'Vārds (neobligāti)';
+
+  @override
+  String get shareCreateLink => 'Izveidot saiti';
+
+  @override
+  String get shareCreatingLink => 'Veido saiti';
+
+  @override
+  String get shareCreateFailed => 'Neizdevās izveidot saiti. Mēģini vēlreiz.';
+
+  @override
+  String shareAmountInBitcoin(String amount) {
+    return '$amount Bitcoin';
+  }
+
+  @override
+  String shareMessageNamed(String name, String amount, String url) {
+    return '$name, es tev nosūtīju $amount ar Kute. Saņem šeit: $url';
+  }
+
+  @override
+  String shareMessageUnnamed(String amount, String url) {
+    return 'Es tev nosūtīju $amount ar Kute. Saņem šeit: $url';
+  }
+
+  @override
+  String shareMessagePredictionNamed(
+      String name, String outcome, String title, String amount, String url) {
+    return '$name, es tev nosūtīju prognozi Kute: $title: $outcome, $amount. Saņem: $url';
+  }
+
+  @override
+  String shareMessagePredictionUnnamed(
+      String outcome, String title, String amount, String url) {
+    return 'Es tev nosūtīju prognozi Kute: $title: $outcome, $amount. Saņem: $url';
+  }
+
+  @override
+  String shareMessageInvestmentNamed(
+      String name, String outcome, String title, String amount, String url) {
+    return '$name, es tev nosūtīju investīciju Kute: $title: $outcome, $amount. Saņem: $url';
+  }
+
+  @override
+  String shareMessageInvestmentUnnamed(
+      String outcome, String title, String amount, String url) {
+    return 'Es tev nosūtīju investīciju Kute: $title: $outcome, $amount. Saņem: $url';
+  }
+
+  @override
+  String shareLinkSentWaiting(String name) {
+    return 'Saite nosūtīta · gaida, kad $name saņems';
+  }
+
+  @override
+  String get shareLinkSentWaitingUnnamed => 'Saite nosūtīta · gaida saņemšanu';
+
+  @override
+  String get shareLinkClaimedReady => 'Saņemts · gatavs sūtīšanai';
+
+  @override
+  String get shareLinkPaid => 'Nosūtīts';
+
+  @override
+  String get shareLinkCancelled => 'Atcelts';
+
+  @override
+  String get shareLinkExpired => 'Beidzies';
+
+  @override
+  String get shareLinkCancel => 'Atcelt saiti';
+
+  @override
+  String get shareLinkCancelFailed => 'Neizdevās atcelt saiti. Mēģini vēlreiz.';
+
+  @override
+  String get shareLinkShareAgain => 'Kopīgot vēlreiz';
+
+  @override
+  String get sharePendingLinksTitle => 'Tavas nosūtītās saites';
+
+  @override
+  String shareClaimedPromptTitle(String name, String amount) {
+    return '$name saņēma tavus $amount';
+  }
+
+  @override
+  String shareClaimedPromptTitleUnnamed(String amount) {
+    return 'Tavi $amount ir saņemti';
+  }
+
+  @override
+  String get shareClaimedPromptBody =>
+      'Nosūti tagad, lai pabeigtu. Līdzekļi atstās maciņu tikai pēc tava apstiprinājuma.';
+
+  @override
+  String get shareSendNow => 'Sūtīt tagad';
+
+  @override
+  String get shareLater => 'Vēlāk';
+
+  @override
+  String get shareSendFailed =>
+      'Neizdevās nosūtīt. Kute jautās vēlreiz nākamajā atvēršanas reizē.';
+
+  @override
+  String claimTitle(String sender, String amount) {
+    return '$sender tev atsūtīja $amount';
+  }
+
+  @override
+  String get claimSomeone => 'Kāds';
+
+  @override
+  String claimMarketLine(String market) {
+    return 'likmei uz $market';
+  }
+
+  @override
+  String get claimButton => 'Saņemt';
+
+  @override
+  String get claimClaiming => 'Saņem';
+
+  @override
+  String get claimOnItsWay => 'Ceļā';
+
+  @override
+  String claimArrivesWhenOpens(String sender) {
+    return 'Tas pienāks, kad $sender atvērs Kute.';
+  }
+
+  @override
+  String claimSentPrediction(String sender) {
+    return '$sender tev atsūtīja prognozi';
+  }
+
+  @override
+  String claimSentInvestment(String sender) {
+    return '$sender tev atsūtīja investīciju';
+  }
+
+  @override
+  String claimPickAmount(String outcome, String amount) {
+    return '$outcome · $amount';
+  }
+
+  @override
+  String claimWaitingForSender(String sender) {
+    return 'Gaida, kad $sender to nosūtīs';
+  }
+
+  @override
+  String claimArrivedInDollars(String amount) {
+    return '$amount ir tavos Dolāros';
+  }
+
+  @override
+  String get claimPlacePrediction => 'Veikt prognozi';
+
+  @override
+  String get claimPlaceInvestment => 'Veikt investīciju';
+
+  @override
+  String get claimOpenMarket => 'Atvērt tirgu';
+
+  @override
+  String get claimAlreadyClaimed => 'Šī saite jau ir saņemta.';
+
+  @override
+  String get claimExpired => 'Šīs saites derīgums ir beidzies.';
+
+  @override
+  String get claimUnavailable => 'Šī saite nav pieejama.';
+
+  @override
+  String get claimFailed => 'Neizdevās saņemt. Mēģini vēlreiz.';
+
+  @override
+  String get claimNeedsWallet =>
+      'Tavs maciņš vēl tiek sagatavots. Mēģini vēlreiz pēc brīža.';
+
+  @override
+  String get shareMarketShareLink => 'Sūtīt saiti';
+
+  @override
+  String shareMarketLookAt(String title, String link) {
+    return 'Paskaties Kute: $title $link';
+  }
+
+  @override
+  String shareMarketChance(String chance) {
+    return '$chance% iespēja';
+  }
+
+  @override
+  String get sendRecipientSearchHint =>
+      'Vārds, adrese, Lightning vai @lietotājs';
+
+  @override
+  String get usdSendRecipientSearchHint => 'Vārds, adrese vai ENS';
+
+  @override
+  String get sendDollarsTitle => 'Sūtīt dolārus';
+
+  @override
+  String sendCoinTitle(String coin) {
+    return 'Sūtīt $coin';
+  }
+
+  @override
+  String get sendContacts => 'Kontakti';
+
+  @override
+  String get sendToAFriend => 'Sūtīt draugam';
+
+  @override
+  String get sendToAFriendSub => 'Saņem ar Kute, maciņš nav vajadzīgs';
+
+  @override
+  String get sendDollarsToAFriend => 'Send dollars to a friend';
+
+  @override
+  String get sendSomeoneElse => 'Kāds cits';
+
+  @override
+  String get sendAllowContactsInSettings => 'Atļauj kontaktus iestatījumos';
+
+  @override
+  String get sendAllowContactsInSettingsSub =>
+      'Kute var rādīt tikai tevis atļautos kontaktus';
+
+  @override
+  String get sendNoContactsMatch => 'Nav atbilstošu kontaktu';
+
+  @override
+  String get sendContactsSearchHint => 'Meklēt kontaktus';
+
+  @override
+  String get sendContactsSeeYours => 'See your contacts';
+
+  @override
+  String get sendContactsSeeYoursSub => 'Send to friends from your phone book';
+
+  @override
+  String sendLinkToPhone(String phone) {
+    return 'Send a link to $phone';
+  }
+
+  @override
+  String get sendBadgeKute => 'On Kute';
+
+  @override
+  String get sendBadgeLightning => 'Lightning address';
+
+  @override
+  String get usdSendSearchHint => 'Name, address or phone';
+
+  @override
+  String get usdSendToYourBitcoin => 'To your Bitcoin';
+
+  @override
+  String usdBitcoinBalanceLine(String amount) {
+    return '$amount in Bitcoin';
+  }
+
+  @override
+  String get usdSendPickRow => 'A stock or prediction';
+
+  @override
+  String get usdSendPickRowSub => 'They get your pick, ready to place';
+
+  @override
+  String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
+
+  @override
+  String get sendRailBitcoinOnchain => 'Bitcoin · on-chain';
+
+  @override
+  String get sendRailLightning => 'Lightning';
+
+  @override
+  String get sendRailSpark => 'Spark';
+
+  @override
+  String usdSendNotNetworkAddress(String network) {
+    return 'Nav $network adrese';
+  }
+
+  @override
+  String usdSendResolvedRail(String network, String asset) {
+    return '$network · $asset';
+  }
+
+  @override
+  String sendAlsoSendsToMore(String names, int count) {
+    return '$names un vēl $count';
+  }
+
+  @override
+  String sendAlsoSendsToList(String names, String last) {
+    return '$names un $last';
+  }
+
+  @override
+  String get sendPickMarket => 'Sūtīt prognozi vai investīciju';
+
+  @override
+  String get sendPickMarketSub =>
+      'Izvēlies tirgu, saņēmējs to iegūs gatavu veikšanai';
+
+  @override
+  String get sendPickMarketSearchHint => 'Meklēt prognozēs un investēšanā';
+
+  @override
+  String get sendPickMarketNoResults => 'Nekas neatbilst';
+
+  @override
+  String get sendPickSideTitle => 'Kura puse?';
+
+  @override
+  String get sendPickSideSub => 'Ko saņēmējs iegūst, gatavu veikšanai';
+
+  @override
+  String get shareSendAgainWhatsApp => 'Sūtīt vēlreiz ar WhatsApp';
+
+  @override
+  String get shareSendAgainSms => 'Sūtīt vēlreiz ar SMS';
+
+  @override
+  String get sendToLabel => 'Saņēmējs';
+
+  @override
+  String get predictionsChance => 'iespēja';
+
+  @override
+  String get actionSoon => 'Soon';
+
+  @override
+  String get sendDollarsCaption => '\$ · stocks · ₿';
+
+  @override
+  String get buyDollarsAction => 'Pirkt dolārus';
+
+  @override
+  String get passkeyPrfUnsupportedTitle =>
+      'This password manager can\'t hold your Kute wallet';
+
+  @override
+  String get passkeyPrfUnsupportedBody =>
+      'It doesn\'t support the key Kute needs, so nothing was created.';
+
+  @override
+  String get passkeyPrfUseApplePasswords => 'Use Apple Passwords';
+
+  @override
+  String get passkeyPrfUseGooglePasswordManager =>
+      'Use Google Password Manager';
+
+  @override
+  String get passkeyPrfPickApplePasswords => 'Pick Passwords when asked';
+
+  @override
+  String get passkeyPrfPickGooglePasswordManager =>
+      'Pick Google Password Manager when asked';
+
+  @override
+  String get passkeyPrfUsePhraseInstead => 'Use a recovery phrase instead';
+
+  @override
+  String get passkeyPrfTryAgain => 'Try again';
+
+  @override
+  String get passkeyPrfSignInTitle =>
+      'This password manager didn\'t return your Kute key';
+
+  @override
+  String get passkeyPrfSignInBody =>
+      'Nothing was changed. Try again and pick the password manager that holds your Kute passkey.';
+
+  @override
+  String get passkeyPrfRestoreBody =>
+      'It doesn\'t support the key Kute needs to open your wallet. Restore with your recovery phrase instead.';
+
+  @override
+  String get passkeyPrfRestoreWithPhrase => 'Restore with your recovery phrase';
+
+  @override
+  String get passkeyChoiceWorksWithApple => 'Works with Apple Passwords';
+
+  @override
+  String get passkeyChoiceWorksWithGoogle =>
+      'Works with Google Password Manager';
+
+  @override
+  String get sendRecipientSendingTo => 'Sending to';
+
+  @override
+  String get sendRecipientChange => 'Change';
+
+  @override
+  String get sendOtherContacts => 'Other contacts';
+
+  @override
+  String get chartSheetTitle => 'Chart';
+
+  @override
+  String get chartSheetStyle => 'Style';
+
+  @override
+  String get chartIndEma => 'Moving averages';
+
+  @override
+  String get chartIndEmaNote => 'Short and long trend lines';
+
+  @override
+  String get chartIndBb => 'Bollinger bands';
+
+  @override
+  String get chartIndBbNote => 'How far the price usually swings';
+
+  @override
+  String get chartIndRsi => 'RSI';
+
+  @override
+  String get chartIndRsiNote => 'Whether buying or selling is overstretched';
+
+  @override
+  String get chartIndMacd => 'MACD';
+
+  @override
+  String get chartIndMacdNote => 'Momentum turning up or down';
+
+  @override
+  String get chartIndVwap => 'VWAP';
+
+  @override
+  String get chartIndVwapNote => 'Average price weighted by volume';
+
+  @override
+  String get chartIndVolumeNote => 'How much traded each bar';
+
+  @override
+  String get chartReset => 'Reset';
+
+  @override
+  String chartPaneLimit(String name) {
+    return '$name is off: two fit below the chart';
+  }
+
+  @override
+  String get chartToolCursor => 'Cursor';
+
+  @override
+  String get chartToolHorizontalLine => 'Horizontal line';
+
+  @override
+  String get chartMoreTools => 'More';
+
+  @override
+  String get chartColor => 'Color';
+
+  @override
+  String get chartBlueColor => 'Blue';
+
+  @override
+  String get chartLineSolid => 'Solid line';
+
+  @override
+  String get chartLineDashed => 'Dashed line';
+
+  @override
+  String get chartExtendLine => 'Extend to the right';
+
+  @override
+  String get chartLock => 'Lock';
+
+  @override
+  String get chartUnlock => 'Unlock';
+
+  @override
+  String get chartDuplicate => 'Duplicate';
+
+  @override
+  String chartHintTapFirstPoint(String tool) {
+    return 'Tap the first point: $tool';
+  }
+
+  @override
+  String get chartHintTapSecondPoint => 'Now tap the second point.';
+
+  @override
+  String chartHintToolKept(String tool) {
+    return '$tool stays on. Tap it to stop.';
+  }
+
+  @override
+  String get chartHintLocked => 'Locked. Unlock it to move it.';
+
+  @override
+  String get chartHintPickToolKeep =>
+      'Pick a tool. Double-tap one to keep it on.';
+
+  @override
+  String hlAboutTradedOn(String venue, String kind) {
+    return 'Traded on $venue · $kind';
+  }
+
+  @override
+  String hlAboutMarketLabel(String name, String ticker) {
+    return '$name ($ticker)';
+  }
+
+  @override
+  String hlAboutFallbackBuilder(String market, String kind, String venue) {
+    return '$market · $kind traded on $venue via Hyperliquid.';
+  }
+
+  @override
+  String hlAboutFallbackMain(String market, String kind) {
+    return '$market · $kind traded on Hyperliquid.';
+  }
+
+  @override
+  String get hlAboutKindCryptoPerp => 'a perpetual on a crypto token';
+
+  @override
+  String get hlAboutKindStockPerp => 'a stock-linked perpetual';
+
+  @override
+  String get hlAboutKindCommodityPerp => 'a commodity-linked perpetual';
+
+  @override
+  String get hlAboutKindIndexPerp => 'an index-linked perpetual';
+
+  @override
+  String get hlAboutKindFxPerp => 'a currency-pair perpetual';
+
+  @override
+  String get hlAboutKindPreIpoPerp =>
+      'a perpetual on a private company before its IPO';
+
+  @override
+  String get hlAboutKindRatesPerp => 'an interest-rate perpetual';
+
+  @override
+  String get hlAboutKindPerp => 'a perpetual';
+
+  @override
+  String get hlAboutKindSpot => 'a spot token';
+
+  @override
+  String get hlAboutKindStockSpot => 'a spot token tracking a stock';
+
+  @override
+  String get hlAboutKindCommoditySpot => 'a spot token tracking a commodity';
+
+  @override
+  String get hlAboutKindIndexSpot => 'a spot token tracking an index';
+
+  @override
+  String get receiptAskWhatHappened => 'What happened here?';
+
+  @override
+  String get receiptResult => 'Result';
+
+  @override
+  String get categoryFilterPrompt => 'Filter';
+
+  @override
+  String activityPaidFrom(String source) {
+    return 'Paid from $source';
+  }
+
+  @override
+  String activityPaidFromBoth(String first, String second) {
+    return 'Paid from $first and $second';
+  }
+
+  @override
+  String predictUpOrDownCompact(String asset, int minutes) {
+    return '$asset up or down · ${minutes}m';
+  }
+
+  @override
+  String get sendFrequent => 'Frequent';
+
+  @override
+  String get sendAllContacts => 'All contacts';
+
+  @override
+  String get shareCardReadyTitle => 'Tava kartīte ir gatava';
+
+  @override
+  String shareCardToday(String change) {
+    return '$change šodien';
+  }
+
+  @override
+  String shareCardForNamed(String name) {
+    return '$name, tev';
+  }
+
+  @override
+  String get shareCardForYou => 'Tev';
+
+  @override
+  String shareCardPickForNamed(String name) {
+    return '$name, ieteikums tev';
+  }
+
+  @override
+  String get shareCardPickForYou => 'Ieteikums tev';
+
+  @override
+  String shareCardInBitcoin(String amount) {
+    return 'bitkoinos · $amount';
+  }
+
+  @override
+  String get shareCardClaimOnKute => 'Saņem to Kute';
+
+  @override
+  String get shareEdgeStockEarly => 'Daži no mums pērk pirms virsrakstiem.';
+
+  @override
+  String shareEdgeStockWelcome(String change) {
+    return 'Kāpums $change. Lūdzu.';
+  }
+
+  @override
+  String shareEdgeStockToldYou(String name) {
+    return '$name. Es taču teicu.';
+  }
+
+  @override
+  String get shareEdgeStockDiscount => 'Atlaide, nevis katastrofa.';
+
+  @override
+  String get shareEdgeStockPanic => 'Pērku, kamēr tu krīti panikā.';
+
+  @override
+  String shareEdgePredictionEarly(String chance) {
+    return '$chance saka, ka esmu priekšā laikam, nevis kļūdos.';
+  }
+
+  @override
+  String shareEdgePredictionCrowd(String chance) {
+    return '$chance pūļa kļūdās.';
+  }
+
+  @override
+  String get shareEdgePredictionDare => 'Liec likmi pret mani. Uzdrošinies.';
+
+  @override
+  String get shareEdgePredictionPolitics =>
+      'Aptaujas ir viedokļi. Šī ir nauda.';
+
+  @override
+  String shareEdgePredictionSports(String outcome) {
+    return '$outcome vai nekas.';
+  }
+
+  @override
+  String get shareEdgeMoneyWisely => 'Tērē gudri. Vai ne.';
+
+  @override
+  String get shareEdgeMoneyFlex => 'Uzskati to par flex.';
+
+  @override
+  String get shareEdgeMoneyBitcoin => 'Bezmaksas bitkoins. Reti redzēts.';
+
+  @override
+  String get shareEdgeBragPattern => 'Nevis veiksme. Likumsakarību atpazīšana.';
+
+  @override
+  String shareEdgeBragScrolling(String amount) {
+    return '$amount, kamēr tu skrollēji.';
+  }
+
+  @override
+  String get shareEdgeBragStillTrading => 'Dziļā mīnusā, joprojām tirgojos.';
+
+  @override
+  String shareEdgeBragCharacter(String amount) {
+    return 'Rakstura rūdīšana, $amount reizē.';
+  }
+
+  @override
+  String get shareEdgePatience => 'Pacietība arī ir pozīcija.';
+
+  @override
+  String shareCardChanceOf(String outcome) {
+    return '$outcome: varbūtība';
+  }
+
+  @override
+  String shareCardAmountOn(String amount, String outcome) {
+    return '$amount: $outcome';
+  }
+
+  @override
+  String get bragMyPosition => 'Mana pozīcija';
+
+  @override
+  String get shareCardOutcomeYes => 'Jā';
+
+  @override
+  String get shareCardOutcomeNo => 'Nē';
+
+  @override
+  String shareCardHeadlineUp(String name, String price, String change) {
+    return '$name: $price, šodien kāpums $change';
+  }
+
+  @override
+  String shareCardHeadlineDown(String name, String price, String change) {
+    return '$name: $price, šodien kritums $change';
+  }
+
+  @override
+  String shareCardHeadlineIs(String name, String price) {
+    return '$name: $price';
+  }
+
+  @override
+  String shareCardHeadlinePreIpo(String name, String price) {
+    return '$name: netiešā cena $price';
+  }
+
+  @override
+  String shareCardHeadlineBarrel(String name, String price) {
+    return '$name: $price par barelu';
+  }
+
+  @override
+  String shareCardHeadlineOunce(String name, String price) {
+    return '$name: $price par unci';
+  }
+
+  @override
+  String shareCardHeadlineAt(String name, String price) {
+    return '$name: $price';
+  }
+
+  @override
+  String shareCardHeadlinePoliticsNamed(String outcome, String chance) {
+    return 'Tirgus vērtējums: $outcome – $chance iespēja';
+  }
+
+  @override
+  String shareCardHeadlinePoliticsBinary(String chance) {
+    return 'Tirgus vērtējums: $chance iespēja';
+  }
+
+  @override
+  String shareCardHeadlineSportsVs(
+      String outcome, String chance, String opponent) {
+    return 'Favorīts: $outcome ($chance) vs $opponent';
+  }
+
+  @override
+  String shareCardHeadlineSportsFav(String outcome, String chance) {
+    return 'Favorīts: $outcome ($chance)';
+  }
+
+  @override
+  String shareCardHeadlineSportsToWin(String outcome, String chance) {
+    return '$outcome: $chance iespēja uzvarēt';
+  }
+
+  @override
+  String shareCardHeadlineCryptoBinary(String chance) {
+    return '$chance iespēja, ka tas notiks';
+  }
+
+  @override
+  String shareCardHeadlineCryptoNamed(String chance, String outcome) {
+    return '$outcome: $chance iespēja';
+  }
+
+  @override
+  String shareCardHeadlineEconomyBinary(String chance) {
+    return '$chance iespēja, ka tas notiks';
+  }
+
+  @override
+  String shareCardHeadlineEconomyNamed(String chance, String outcome) {
+    return '$outcome: $chance iespēja';
+  }
+
+  @override
+  String shareCardHeadlineSayYes(String chance) {
+    return '$chance par „Jā”';
+  }
+
+  @override
+  String shareCardHeadlineSayNo(String chance) {
+    return '$chance par „Nē”';
+  }
+
+  @override
+  String shareCardHeadlineFallback(String outcome, String chance) {
+    return '$outcome: $chance iespēja';
+  }
+
+  @override
+  String claimCardFromFriendNamed(String name) {
+    return '$name, draugs tev atsūtīja';
+  }
+
+  @override
+  String get claimCardFromFriend => 'Draugs tev atsūtīja';
+
+  @override
+  String claimCardPickNamed(String name) {
+    return '$name, draugs tev atsūtīja ieteikumu';
+  }
+
+  @override
+  String get claimCardPick => 'Draugs tev atsūtīja ieteikumu';
+
+  @override
+  String get claimCardTapClaim => 'Tas ir tavs. Pieskaries „Saņemt”.';
+
+  @override
+  String get activityLatest => 'Latest';
+
+  @override
+  String get activityEarlier => 'Earlier';
+
+  @override
+  String polyRowLeads(String leader, String chance) {
+    return '$leader leads · $chance';
+  }
+
+  @override
+  String get predictAboveTarget => 'above target';
+
+  @override
+  String get predictBelowTarget => 'below target';
 }

@@ -19,6 +19,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/app_card.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
@@ -453,30 +454,35 @@ class _SeedWordsState extends ConsumerState<SeedWords> {
   Widget _buildActions(bool backupDone) {
     final wallet = _selectedWallet!;
     final canCopy = _revealed && _mnemonic != null;
+    // THE BAR IS THE BUTTON (kute_bar_context.dart): Backup wallet is the
+    // floating Sal bar's primary action; Copy is a text button above it.
     final primary = wallet.isPasskey
         ? null
         : backupDone
             ? _buildBackupDoneStatus()
-            : AppButton(
-                text: context.l10n.backupWallet,
-                onPressed: () {
-                  TrackingService.track('seed_words_backup_tapped');
-                  // Pin BackupWallet to the wallet picked in the selector.
-                  context.push('/backup_wallet', extra: wallet.id);
-                },
+            : KuteBarContextScope(
+                barContext: KuteBarContext.primary(
+                  label: context.l10n.backupWallet,
+                  onPrimary: () {
+                    TrackingService.track('seed_words_backup_tapped');
+                    // Pin BackupWallet to the wallet picked in the selector.
+                    context.push('/backup_wallet', extra: wallet.id);
+                  },
+                  source: 'seed_words',
+                  disabledLabel: null,
+                ),
+                child: SizedBox(height: kuteBarScrollClearance.h),
               );
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (canCopy) ...[
-          AppButton(
+        if (canCopy)
+          AppTextButton(
             text: context.l10n.copy,
             icon: Icons.copy_rounded,
-            variant: AppButtonVariant.secondary,
             onPressed: _copyToClipboardWithAutoClear,
           ),
-          if (primary != null) SizedBox(height: 10.h),
-        ],
         if (primary != null) primary,
       ],
     );

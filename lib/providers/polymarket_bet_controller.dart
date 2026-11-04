@@ -25,6 +25,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:kute/screens/shared/sal_reactions.dart';
 import 'package:kute/services/success_feedback.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -901,6 +902,8 @@ class PolymarketBetController {
       // bet placement (covers both the open slip and BTC auto-fire). A
       // fill ends on the shared confirmation, whose entrance fires it.
       if (successHaptic && bought <= 0) moneySuccessFeedback();
+      // Sal in the bar winks at a placed bet (sal_reactions.dart).
+      SalReactions.play(SalReaction.wink);
       ref
           .read(pendingPolymarketBetProvider.notifier)
           .updateStatus(PendingBetStatus.done);
@@ -1242,6 +1245,7 @@ class PolymarketBetController {
     SoundService.playSuccess();
     // Apple Pay style two-beat success haptic (see note above).
     if (successHaptic) moneySuccessFeedback();
+    SalReactions.play(SalReaction.wink);
 
     pending.updateStatus(PendingBetStatus.done);
     // The Portfolio card turns from "Placing prediction…" into the

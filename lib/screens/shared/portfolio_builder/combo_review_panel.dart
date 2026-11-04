@@ -26,7 +26,7 @@ import 'package:kute/screens/home/home_feature_carousel.dart'
     show checkPolymarketGeoblock;
 import 'package:kute/screens/hyperliquid/components/hl_format.dart';
 import 'package:kute/screens/polymarket/components/combo_copy.dart';
-import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/portfolio_builder/builder_legs_provider.dart';
 import 'package:kute/services/continuous_haptics.dart';
 import 'package:kute/services/polymarket/combos/combo_analytics.dart';
@@ -58,6 +58,24 @@ bool comboEligible(List<PredictionBuilderLeg> legs) {
 }
 
 enum _Phase { quoting, quoted, noQuote, error, placing, placed, pending }
+
+/// THE BAR IS THE BUTTON (founder, 31 October 2026; kute_bar_context
+/// .dart): the sheet's primary is the floating Sal bar's primary action;
+/// Cancel / Close is a text button above it, over the bar's clearance.
+Widget _bar(String label, VoidCallback? onPrimary,
+        {bool busy = false,
+        String? disabledLabel, String source = 'combo_review'}) =>
+    KuteBarContextScope(
+      barContext: KuteBarContext.primary(
+        label: label,
+        onPrimary: onPrimary,
+        enabled: onPrimary != null && !busy,
+        busy: busy,
+        source: source,
+        disabledLabel: disabledLabel,
+      ),
+      child: SizedBox(height: kuteBarScrollClearance.h),
+    );
 
 class ComboReviewPanel extends ConsumerStatefulWidget {
   const ComboReviewPanel({
@@ -393,10 +411,7 @@ class _ComboReviewPanelState extends ConsumerState<ComboReviewPanel> {
           Text(l10n.comboPlacedBody(formatHlUsd(placed.payoutUsd)),
               style: TextStyle(color: c.textSecondary, fontSize: 14.sp)),
           SizedBox(height: 16.h),
-          AppButton(
-            text: l10n.done,
-            onPressed: () => Navigator.of(context).maybePop(),
-          ),
+          _bar(l10n.done, () => Navigator.of(context).maybePop()),
         ],
       );
     }
@@ -456,25 +471,21 @@ class _ComboReviewPanelState extends ConsumerState<ComboReviewPanel> {
           ),
         ],
         SizedBox(height: 14.h),
+        // THE BAR IS THE BUTTON (kute_bar_context.dart): Deposit, Get a
+        // new price or Place the combo, the floating Sal bar's primary.
         if (_insufficient)
-          AppButton(
-            text: l10n.deposit,
-            onPressed: widget.onDeposit,
-          )
+          _bar(l10n.deposit, widget.onDeposit)
         else if (_phase == _Phase.noQuote || _phase == _Phase.error)
-          AppButton(
-            text: l10n.comboGetNewPrice,
-            onPressed: () {
-              _autoRequotes = 0;
-              _requestQuote();
-            },
-          )
+          _bar(l10n.comboGetNewPrice, () {
+            _autoRequotes = 0;
+            _requestQuote();
+          })
         else
-          AppButton(
-            text: l10n.comboPlace,
-            variant: AppButtonVariant.moneyIn,
-            isLoading: busy || _phase == _Phase.quoting,
-            onPressed: _phase == _Phase.quoted && q != null ? _confirm : null,
+          _bar(
+            l10n.comboPlace,
+            _phase == _Phase.quoted && q != null ? _confirm : null,
+            busy: busy || _phase == _Phase.quoting,
+            disabledLabel: l10n.barNeedPrice,
           ),
       ],
     );

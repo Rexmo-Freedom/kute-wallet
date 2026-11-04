@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'package:kute/screens/shared/sal_reactions.dart';
+import 'package:kute/theme/kute_motion.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:kute/theme/kute_overlay_surface.dart';
 
 void showMessageSnackBarInfo({
   required BuildContext context,
@@ -33,6 +36,8 @@ void showMessageSnackBar({
   if (error) {
     icon = Icons.error_rounded;
     color = AppColors.error;
+    // Sal in the bar shakes his head with the toast (sal_reactions.dart).
+    SalReactions.play(SalReaction.shakeNo);
   } else if (info) {
     icon = Icons.info_rounded;
     color = AppColors.info;
@@ -173,10 +178,13 @@ class _AnimatedToastWidgetState extends State<_AnimatedToastWidget>
   @override
   void initState() {
     super.initState();
+    // The toast comes in on the sheet spring ([KuteMotion.sheetIn]) and
+    // leaves on the settle easing ([KuteMotion.sheetOut]), the one motion
+    // every sheet has (lib/theme/kute_motion.dart).
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 340),
-      reverseDuration: const Duration(milliseconds: 220),
+      duration: KuteMotion.sheetInDuration,
+      reverseDuration: KuteMotion.sheetOutDuration,
     );
 
     // Calm, single-spring entrance — the old elasticOut + scale-back
@@ -185,8 +193,8 @@ class _AnimatedToastWidgetState extends State<_AnimatedToastWidget>
     // eye without the "boing".
     final curvedAnimation = CurvedAnimation(
       parent: _controller,
-      curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeInCubic,
+      curve: KuteMotion.sheetIn,
+      reverseCurve: KuteMotion.sheetOut,
     );
 
     _slideAnimation = Tween<Offset>(
@@ -270,25 +278,28 @@ class _AnimatedToastWidgetState extends State<_AnimatedToastWidget>
       top: MediaQuery.of(context).padding.top + 16.h,
       left: 16.w,
       right: 16.w,
-      child: SlideTransition(
-        position: _slideAnimation,
-        child: ScaleTransition(
-          scale: _scaleAnimation,
-          child: FadeTransition(
-            opacity: _fadeAnimation,
-            child: GestureDetector(
-              onTap: widget.message.onTap == null
-                  ? null
-                  : () {
-                      final tap = widget.message.onTap!;
-                      widget.onDismiss();
-                      tap();
-                    },
-              onVerticalDragUpdate: _onVerticalDragUpdate,
-              onVerticalDragEnd: _onVerticalDragEnd,
-              child: Transform.translate(
-                offset: Offset(0, _dragOffset),
-                child: _buildToastContent(),
+      // On the root overlay: the theme's text (kute_overlay_surface.dart).
+      child: KuteOverlaySurface(
+        child: SlideTransition(
+          position: _slideAnimation,
+          child: ScaleTransition(
+            scale: _scaleAnimation,
+            child: FadeTransition(
+              opacity: _fadeAnimation,
+              child: GestureDetector(
+                onTap: widget.message.onTap == null
+                    ? null
+                    : () {
+                        final tap = widget.message.onTap!;
+                        widget.onDismiss();
+                        tap();
+                      },
+                onVerticalDragUpdate: _onVerticalDragUpdate,
+                onVerticalDragEnd: _onVerticalDragEnd,
+                child: Transform.translate(
+                  offset: Offset(0, _dragOffset),
+                  child: _buildToastContent(),
+                ),
               ),
             ),
           ),

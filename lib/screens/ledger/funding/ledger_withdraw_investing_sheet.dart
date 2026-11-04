@@ -1,4 +1,5 @@
 import 'package:kute/screens/shared/orchestra_fee_summary.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 // lib/screens/ledger/funding/ledger_withdraw_investing_sheet.dart
 //
 // Investing (HyperCore USDC) back to Ledger Bitcoin through Orchestra
@@ -445,6 +446,20 @@ class _LedgerWithdrawInvestingSheetState
 
   // ───────────────────────────── UI ───────────────────────────────
 
+  /// THE BAR IS THE BUTTON (founder, 31 October 2026; kute_bar_context
+  /// .dart): the step's primary (Connect, Approve, Retry) is the floating
+  /// Sal bar's primary action; Cancel is a text button above it, over the
+  /// clearance the bar floats on.
+  Widget _bar(String label, VoidCallback onPrimary) => KuteBarContextScope(
+        barContext: KuteBarContext.primary(
+          label: label,
+          onPrimary: onPrimary,
+          source: 'ledger_withdraw_investing',
+          disabledLabel: null,
+        ),
+        child: SizedBox(height: kuteBarScrollClearance.h),
+      );
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -491,27 +506,27 @@ class _LedgerWithdrawInvestingSheetState
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 20.w),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (ready && _step == _WithdrawStep.intro)
-                  AppButton(
-                    text: l10n.ledgerWithdrawConnectCta,
-                    onPressed: _start,
+                // Nothing to withdraw: Done is the one action, the bar.
+                if (ready)
+                  AppTextButton(
+                    text: l10n.cancel,
+                    onPressed: _busy && _step != _WithdrawStep.connecting
+                        ? null
+                        : _cancel,
                   ),
-                if (ready && _step == _WithdrawStep.review)
-                  AppButton(
-                    text: l10n.ledgerFundApproveCta,
-                    onPressed: _approve,
-                  ),
-                if (ready && _step == _WithdrawStep.error)
-                  AppButton(text: l10n.retry, onPressed: _backToIntro),
-                SizedBox(height: 10.h),
-                AppButton(
-                  text: ready ? l10n.cancel : l10n.done,
-                  variant: AppButtonVariant.secondary,
-                  onPressed: _busy && _step != _WithdrawStep.connecting
-                      ? null
-                      : _cancel,
-                ),
+                if (!ready)
+                  _bar(l10n.done, _cancel)
+                else
+                  switch (_step) {
+                    _WithdrawStep.intro =>
+                      _bar(l10n.ledgerWithdrawConnectCta, _start),
+                    _WithdrawStep.review =>
+                      _bar(l10n.ledgerFundApproveCta, _approve),
+                    _WithdrawStep.error => _bar(l10n.retry, _backToIntro),
+                    _ => SizedBox(height: kuteBarScrollClearance.h),
+                  },
               ],
             ),
           ),

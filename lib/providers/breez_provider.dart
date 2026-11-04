@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:kute/services/spark_deposit_actions.dart';
+import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/spark_deposit_auto_claim.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart' show pickSpendingWallet;
 import 'package:kute/models/breez/error_handling.dart';
@@ -13,7 +14,9 @@ import 'package:kute/providers/balance_provider.dart';
 import 'package:kute/providers/breez_config_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hive_ce/hive.dart';
 import 'package:kute/services/hardware/ledger/ledger_operation_scope.dart';
 import 'package:kute/models/breez/shared_sync.dart';
 import 'package:kute/models/breez/sdk_operation_guard.dart';
@@ -652,26 +655,117 @@ final receivePaymentProvider = FutureProvider.family<ReceivePaymentResponse, ({B
   }
 });
 
+/// When the spending wallet's Bitcoin deposit address may change.
+///
+/// A fresh address is asked of the SDK only the first time on this device
+/// (a re-imported wallet would otherwise hand back an address it already
+/// used) and after money arrived on the current one. That rotation waits
+/// for the next receive screen to open ([apply]): the address never
+/// changes under a screen someone is reading or sharing. Every other read,
+/// including the one after each SDK reconnect, keeps the current address;
+/// before, every reconnect asked for a new one.
+///
+/// Addresses the wallet used before still receive (the SDK keeps watching
+/// them, and the pending-deposit poll reads the last few).
+class SparkDepositAddressRotation {
+  SparkDepositAddressRotation._();
+
+  static bool _requested = false;
+  static bool _due = false;
+
+  /// Money arrived on the current address: rotate at the next receive
+  /// screen.
+  static void request() => _requested = true;
+
+  /// A receive screen is opening: a rotation asked for is made now. True
+  /// when the address providers have to read again.
+  static bool apply() {
+    if (!_requested) return false;
+    _requested = false;
+    _due = true;
+    return true;
+  }
+
+  static bool get _rotateNow => _due;
+  static void _rotated() => _due = false;
+
+  static String _issuedKey(String walletId) => 'sparkDepositIssued_$walletId';
+  static String _addressKey(String walletId) =>
+      'sparkDepositAddress_$walletId';
+
+  @visibleForTesting
+  static void debugReset() {
+    _requested = false;
+    _due = false;
+  }
+}
+
 final getSparkBitcoinAddressProvider = FutureProvider<String>((ref) async {
   try {
     final sdkWrapper = await ref.watch(breezSDKProvider.future);
-    // `newAddress: true` forces the SDK to generate a fresh deposit
-    // address instead of returning the wallet's current "ready"
-    // address. Without it, a re-imported wallet whose chain history
-    // includes a prior deposit address would keep handing that
-    // already-used address back from `receivePayment` — bad for
-    // privacy and a "this is the same address you used before" UX
-    // bug. The SDK exposes this via the `Option<bool> new_address`
-    // field on the BitcoinAddress receive method (see Breez Spark
-    // SDK `ReceivePaymentMethod_BitcoinAddress`).
-    final req = const ReceivePaymentRequest(
-      paymentMethod:
-          ReceivePaymentMethod.bitcoinAddress(newAddress: true),
+    // `newAddress: true` makes the SDK generate a fresh deposit address;
+    // false returns the wallet's current one. See
+    // [SparkDepositAddressRotation] for when each is asked.
+    final walletId = pickSpendingWallet(ref.read(settingsProvider))?.id;
+    Box? box;
+    // Unknown is never a reason to rotate: without the wallet's id (early
+    // in a cold start) or a readable store, the current address is kept.
+    // Only a store that says this device never issued one asks for a
+    // first fresh address. A deposit address the wallet already gave out
+    // stays valid, so keeping it is always safe; changing it is not
+    // needed, and a sender holding the old one is confused.
+    var issued = true;
+    if (walletId != null) {
+      try {
+        box = await Hive.openBox('addresses');
+        issued =
+            box.get(SparkDepositAddressRotation._issuedKey(walletId)) == true;
+      } catch (_) {
+        issued = true;
+      }
+    }
+    final fresh = !issued || SparkDepositAddressRotation._rotateNow;
+    // The address this wallet last gave out on this device. Unless a
+    // rotation is due it is the one shown, whatever a reconnect's SDK
+    // read answers: the wallet's deposit addresses stay valid, so the
+    // only reason to show another is money having arrived on this one.
+    String? pinned;
+    if (!fresh && walletId != null) {
+      try {
+        final v = box?.get(SparkDepositAddressRotation._addressKey(walletId));
+        if (v is String && v.isNotEmpty) pinned = v;
+      } catch (_) {}
+    }
+    final req = ReceivePaymentRequest(
+      paymentMethod: ReceivePaymentMethod.bitcoinAddress(newAddress: fresh),
     );
-    final sdk = sdkWrapper.instance!;
-    final response =
-        await runSparkQuote(() => sdk.receivePayment(request: req));
-    return response.paymentRequest;
+    final String answered;
+    try {
+      final sdk = sdkWrapper.instance!;
+      final response =
+          await runSparkQuote(() => sdk.receivePayment(request: req));
+      answered = response.paymentRequest;
+    } catch (e) {
+      // The SDK could not answer (offline, reconnecting): the pinned
+      // address is still the wallet's, so show it rather than nothing.
+      if (pinned != null) return pinned;
+      rethrow;
+    }
+    if (pinned != null && answered != pinned) {
+      // Not something the app asked for: kept, and counted, so a change
+      // on the SDK's side shows up in analytics rather than on screen.
+      TrackingService.track('spark_deposit_address_sdk_changed');
+      return pinned;
+    }
+    if (fresh) SparkDepositAddressRotation._rotated();
+    if (walletId != null) {
+      try {
+        await box?.put(SparkDepositAddressRotation._issuedKey(walletId), true);
+        await box?.put(
+            SparkDepositAddressRotation._addressKey(walletId), answered);
+      } catch (_) {}
+    }
+    return answered;
   } catch (e) {
     handlePaymentException(e);
   }

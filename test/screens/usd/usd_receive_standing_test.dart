@@ -44,7 +44,6 @@ import 'package:kute/screens/receive/receive_sheet.dart'
     show showOtherCoinsReceiveSheet, showUsdReceiveSheet;
 import 'package:kute/screens/shared/account_switcher_pill.dart';
 import 'package:kute/screens/shared/asset_network_picker.dart' show PickerRow;
-import 'package:kute/screens/shared/coin_asset_grid.dart';
 import 'package:kute/screens/shared/custom_button.dart' show AppButton;
 import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/receive_surface.dart';
@@ -70,6 +69,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:money2/money2.dart';
 
 import '../../helpers/runtime_policy_fixture.dart';
+import '../../helpers/receive_coin_tap.dart';
 
 class _Sdk extends Mock implements BreezSdk {}
 
@@ -197,7 +197,7 @@ Future<void> _settle(WidgetTester tester) async {
 
 /// USDC, then Solana.
 Future<void> _pickSolanaUsdc(WidgetTester tester) async {
-  await tester.tap(find.widgetWithText(CoinAssetTile, 'USDC').first);
+  await tapReceiveCoin(tester, 'USDC');
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 400));
   await tester.tap(find.byWidgetPredicate(
@@ -439,8 +439,9 @@ void main() {
     expect(find.byType(UsdStandingAddressSheet), findsNothing);
     expect(line, findsNothing);
     expect(find.byType(UsdReceiveScreen), findsOneWidget);
-    expect(find.widgetWithText(CoinAssetTile, 'USDC'), findsWidgets);
-    expect(find.text(_l10n.usdReceiveFromAnotherWallet), findsOneWidget);
+    // The Dollars Add as it was: its "From another wallet or exchange"
+    // row (the coins live in the coin sheet).
+    expect(receiveFromAnotherRow, findsOneWidget);
     expect(named('usd_receive_abandoned'), isEmpty,
         reason: 'the Dollars receive is still open underneath');
     expect(tester.takeException(), isNull);
@@ -476,7 +477,7 @@ void main() {
 
       expect(sheet, findsNothing);
       expect(find.byType(UsdReceiveScreen), findsOneWidget);
-      expect(find.widgetWithText(CoinAssetTile, 'USDC'), findsWidgets);
+      expect(receiveFromAnotherRow, findsOneWidget);
       expect(find.byType(RequestAmountSheet), findsNothing);
       expect(named('receive_address_failed'), isEmpty);
       expect(named('receive_address_generated'), isEmpty);
@@ -532,7 +533,7 @@ void main() {
     Navigator.of(tester.element(find.byType(RequestAmountSheet))).pop();
     await _settle(tester);
     standingCalls.clear();
-    await tester.tap(find.widgetWithText(CoinAssetTile, 'USDT').first);
+    await tapReceiveCoin(tester, 'USDT');
     await _settle(tester);
     expect(find.byType(RequestAmountSheet), findsOneWidget);
     expect(standingCalls, isEmpty);
@@ -551,10 +552,11 @@ void main() {
     // One-time off: nothing to fall back to.
     await usePolicy(runtimePolicyFixture(blocked: {kOneTimeAddressCapability}));
     await _pump(tester);
-    // The grid listed USDT as reusable; by the tap, the switch's refusal
-    // is remembered (another coin's registration answered it).
+    // The coin sheet listed USDT as reusable; by the tap, the switch's
+    // refusal is remembered (another coin's registration answered it).
+    await openReceiveCoins(tester);
     StandingReceiveRefusal.remember(RuntimeCapabilitiesService.instance);
-    await tester.tap(find.widgetWithText(CoinAssetTile, 'USDT').first);
+    await tapReceiveCoin(tester, 'USDT');
     await _settle(tester);
 
     final sheet = find.byType(UsdStandingAddressSheet);

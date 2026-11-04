@@ -1,7 +1,9 @@
-// The search sheet with the keyboard up: the composer ("Search or ask Sal",
-// Sal's dog leading it) keeps the sheets' 16dp bottom baseline above the
-// keyboard instead of resting on the keys, the idle Sal questions stay
-// above it, and nothing overflows on a small phone.
+// The search sheet with the keyboard up: the content keeps the sheets' 16dp
+// bottom baseline above the keyboard instead of resting on the keys, the
+// composer line ("Search or Manage with AI", Sal's dog leading it) stays pinned
+// at the top of the sheet under the handle, and nothing overflows on a small
+// phone. The keyboard stays down on open (founder, 31 October 2026); it rises
+// when the field is tapped.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,9 +18,9 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/trade_notifications_provider.dart';
 import 'package:kute/providers/unified_search_provider.dart';
 import 'package:kute/screens/search/unified_search_screen.dart';
-import 'package:kute/screens/shared/ask_sal_sheet.dart'
-    show SalSuggestionButton;
-import 'package:kute/screens/shared/kute_composer.dart';
+import 'package:kute/screens/search/components/search_composer.dart';
+import 'package:kute/screens/search/components/search_rows.dart'
+    show kSearchSheetFraction, kSearchSheetHandleRow;
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/services/trade_notification_store.dart'
     show TradeNotification;
@@ -107,70 +109,61 @@ void main() {
     ('large phone', const Size(430, 932), 336.0),
     ('small phone', const Size(320, 568), 253.0),
   ]) {
-    testWidgets('$name: the composer sits 16dp above the keyboard',
-        (tester) async {
+    testWidgets('$name: the content ends 16dp above the keyboard, the '
+        'composer line at the top', (tester) async {
       await _open(tester, screen, keyboard);
       expect(tester.takeException(), isNull);
       // The sheets' bottom baseline (16.h on the 932 design height).
       final gap = 16 * screen.height / 932;
       final keyboardTop = screen.height - keyboard;
-      final composer = tester.getRect(find.byType(KuteComposer));
-      expect(composer.bottom, moreOrLessEquals(keyboardTop - gap, epsilon: 0.5));
+      final body = tester.getRect(find.byType(ListView));
+      expect(body.bottom, moreOrLessEquals(keyboardTop - gap, epsilon: 0.5));
       // Before the fix it rested on the keys (a 0dp gap).
-      expect(keyboardTop - composer.bottom, greaterThan(9));
-      // Sal's opening questions sit above the composer, never under it,
-      // and the first one is on screen.
-      final chips = find.byType(SalSuggestionButton);
-      expect(chips, findsWidgets);
-      final first = tester.getRect(chips.first);
-      expect(first.top, greaterThanOrEqualTo(0));
-      expect(first.top, lessThan(composer.top));
-      // The last one scrolls into view rather than being cut off.
-      await tester.ensureVisible(chips.last);
-      await tester.pumpAndSettle();
-      expect(tester.getRect(chips.last).bottom,
-          lessThanOrEqualTo(composer.top + 0.5));
+      expect(keyboardTop - body.bottom, greaterThan(9));
+      // The composer line: under the handle at the top of the 96% sheet.
+      final composer = tester.getRect(find.byType(KuteSearchComposer));
+      final sheetTop = screen.height * (1 - kSearchSheetFraction);
+      expect(composer.top,
+          moreOrLessEquals(sheetTop + kSearchSheetHandleRow * screen.height / 932,
+              epsilon: 0.5));
+      expect(composer.height, KuteSearchComposer.height);
       expect(tester.takeException(), isNull);
       await _close(tester);
     });
   }
 
-  testWidgets('the composer takes focus once the sheet has slid in, not '
-      'before', (tester) async {
-    tester.view.physicalSize = const Size(430, 932);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+  testWidgets('the keyboard stays down on open; the composer takes focus '
+      'when tapped', (tester) async {
     await _open(tester, const Size(430, 932), 0);
-    await _close(tester);
     bool focused() => tester
         .widget<EditableText>(find.descendant(
-            of: find.byType(KuteComposer),
+            of: find.byType(KuteSearchComposer),
             matching: find.byType(EditableText)))
         .focusNode
         .hasFocus;
-    await tester.tap(find.text('Open search'));
+    // Settled: the composer is on screen, not focused, so the blocks have
+    // the screen (founder, 31 October 2026).
+    expect(find.byType(KuteSearchComposer), findsOneWidget);
+    expect(focused(), isFalse);
+    // Tapped: the keyboard's turn.
+    await tester.tap(find.byType(KuteSearchComposer));
     await tester.pump();
-    // Mid-slide (250 ms): the composer is on screen, not focused, so the
-    // keyboard never rises against a moving sheet.
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(find.byType(KuteComposer), findsOneWidget);
-    expect(focused(), isFalse);
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(focused(), isFalse);
-    // Settled: focused, the keyboard's turn.
-    await tester.pumpAndSettle();
     expect(focused(), isTrue);
     expect(tester.takeException(), isNull);
     await _close(tester);
   });
 
-  testWidgets('keyboard down: the composer keeps the home-indicator spacing',
-      (tester) async {
+  testWidgets('keyboard down: the content keeps the home-indicator spacing, '
+      'the composer line at the top', (tester) async {
     tester.view.padding = const FakeViewPadding(bottom: 34);
     await _open(tester, const Size(430, 932), 0);
-    final composer = tester.getRect(find.byType(KuteComposer));
+    final body = tester.getRect(find.byType(ListView));
     // Home indicator plus the same 16dp baseline.
-    expect(composer.bottom, moreOrLessEquals(932 - 34 - 16, epsilon: 0.5));
+    expect(body.bottom, moreOrLessEquals(932 - 34 - 16, epsilon: 0.5));
+    final composer = tester.getRect(find.byType(KuteSearchComposer));
+    expect(composer.top,
+        moreOrLessEquals(932 * (1 - kSearchSheetFraction) + kSearchSheetHandleRow,
+            epsilon: 0.5));
     await _close(tester);
   });
 }

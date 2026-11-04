@@ -40,6 +40,8 @@ import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceUnknownProvider;
 import 'package:kute/providers/venue_sweeper_provider.dart';
 import 'package:kute/screens/portfolio/components/balances_overview.dart';
+import 'package:kute/screens/portfolio/components/position_rows.dart'
+    show PortfolioSlice;
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
     show InvestmentsProduct;
 import 'package:kute/screens/portfolio/portfolio_figure_tiles.dart';
@@ -403,10 +405,55 @@ class PortfolioBalanceBreakdown extends ConsumerStatefulWidget {
     required this.predictions,
     this.overview = false,
     this.venues = const {},
+    this.sharesHeader = false,
+    this.sectionSwitch,
+    this.heroOnly = false,
+    this.venuesOnly = false,
+    this.refreshOnOpen = true,
+    this.focus,
+    this.heroMode = BalancesHeroMode.allocation,
+    this.positionSlices = const [],
+    this.positionFocus,
+    this.squareIds = const [],
   });
+
+  /// The venues' positions drawn as squares over their groups, biggest
+  /// first (BalancesOverview.squareIds).
+  final List<String> squareIds;
+
+  /// What the hero ring shows, the open positions' slices and the one
+  /// shown (BalancesOverview.heroMode, .positionSlices, .positionFocus).
+  final BalancesHeroMode heroMode;
+  final List<PortfolioSlice> positionSlices;
+  final String? positionFocus;
+
+  /// The venue picked on P&L Charts, shown by the hero
+  /// (BalancesOverview.focus); null: the allocation.
+  final BalancesCategory? focus;
 
   final bool trading;
   final bool predictions;
+
+  /// THE TOP BLOCK (founder, 31 October 2026: "this part should remain
+  /// stable in P&L and Activity"; since 1 November it scrolls with the
+  /// page, the strip pinning): the Portfolio screen mounts this
+  /// breakdown twice in the [sharesHeader] layout, one instance above the
+  /// section strip drawing only the hero ring and the line under it
+  /// ([heroOnly]) and kept across the sections, and one inside the
+  /// Balances section drawing only the
+  /// venues' positions ([venuesOnly], no refresh of its own: the hero's
+  /// read already runs, [refreshOnOpen] false).
+  final bool heroOnly;
+  final bool venuesOnly;
+  final bool refreshOnOpen;
+
+  /// The Portfolio screen's section switch, under Move money in the
+  /// [sharesHeader] layout (BalancesOverview.sectionSwitch).
+  final Widget? sectionSwitch;
+
+  /// The Portfolio screen's shares block over the venues, instead of
+  /// Available to invest and Move money (BalancesOverview.sharesHeader).
+  final bool sharesHeader;
 
   /// The Balances section's layout: Buying power with the ring, Move
   /// money, then Invested with each venue's positions
@@ -446,10 +493,11 @@ class _PortfolioBalanceBreakdownState
   void initState() {
     super.initState();
     // Right away, from what the app holds: no frame waits on a read.
+    if (!widget.refreshOnOpen) _firstReadDone = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _preview();
-      unawaited(_refresh());
+      if (widget.refreshOnOpen) unawaited(_refresh());
     });
   }
 
@@ -719,6 +767,15 @@ class _PortfolioBalanceBreakdownState
         steps: steps,
         venues: widget.venues,
         firstReadDone: _firstReadDone,
+        sharesHeader: widget.sharesHeader,
+        sectionSwitch: widget.sectionSwitch,
+        heroOnly: widget.heroOnly,
+        venuesOnly: widget.venuesOnly,
+        focus: widget.focus,
+        heroMode: widget.heroMode,
+        positionSlices: widget.positionSlices,
+        positionFocus: widget.positionFocus,
+        squareIds: widget.squareIds,
         wrap: (part, row) => switch (part) {
           BalancesPart.dollars => _ArrivalCatch(
               key: const ValueKey('portfolio-band-dollars'),
@@ -796,7 +853,9 @@ class _PortfolioBalanceBreakdownState
     );
     if (widget.overview) {
       return Column(
-        key: const ValueKey('portfolio-balance-breakdown'),
+        key: ValueKey(widget.heroOnly
+            ? 'portfolio-balance-breakdown-hero'
+            : 'portfolio-balance-breakdown'),
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -806,7 +865,9 @@ class _PortfolioBalanceBreakdownState
       );
     }
     return Column(
-      key: const ValueKey('portfolio-balance-breakdown'),
+      key: ValueKey(widget.heroOnly
+            ? 'portfolio-balance-breakdown-hero'
+            : 'portfolio-balance-breakdown'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [

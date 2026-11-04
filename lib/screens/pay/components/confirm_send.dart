@@ -1,3 +1,5 @@
+import 'package:kute/models/advisor_context.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/scanner/scanner_sheet.dart';
 import 'package:kute/services/security/address_guard.dart';
 import 'package:kute/screens/pay/components/bitcoin_coin_selection_sheet.dart';
@@ -17,7 +19,6 @@ import 'package:kute/models/transactions_model.dart'
 import 'package:kute/providers/transactions_provider.dart';
 import 'package:kute/models/bitcoin_model.dart' show TransactionBuilder;
 import 'package:kute/providers/wallet_scope_provider.dart';
-import 'package:kute/screens/shared/ask_sal_chip.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/services/background_sync_service.dart';
 import 'package:kute/services/onchain/bitcoin_software_send.dart';
@@ -80,7 +81,6 @@ import 'package:kute/providers/send_tx_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/models/account.dart';
 import 'package:kute/providers/accounts_provider.dart';
-import 'package:kute/screens/shared/account_switcher_pill.dart';
 import 'package:kute/services/swap/swap_models.dart';
 import 'package:kute/screens/pay/components/bitcoin_advanced_settings_sheet.dart';
 import 'package:kute/screens/pay/components/watch_only_screen.dart';
@@ -97,7 +97,13 @@ import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/shared/powered_by_badge.dart';
 import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart';
+import 'package:kute/screens/shared/send/send_contacts_list.dart';
+import 'package:kute/screens/shared/send/send_recipient_step.dart';
 import 'package:kute/screens/shared/send/send_sheet.dart';
+import 'package:kute/services/contacts/send_contacts_service.dart'
+    show SendContact, sendContactsProvider;
+import 'package:kute/screens/share/send_to_anyone_sheet.dart';
+import 'package:kute/models/share_link_model.dart' show ShareLinkKind;
 import 'package:kute/screens/shared/stepper/stepper_widgets.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/transaction_modal.dart';
@@ -373,28 +379,6 @@ String _detectedAddressDisplayLabel(
       return l10n.sendDetectedSolanaAddress;
     default:
       return detected.label;
-  }
-}
-
-/// Subtle pill that appears below the address field once we've
-/// identified what was pasted. Tells the user "we got this — sending
-/// to a Bitcoin on-chain address" without needing them to manually
-/// pick a network.
-class _DetectedNetworkBadge extends StatelessWidget {
-  final String address;
-  final AppColorsExtension colors;
-  const _DetectedNetworkBadge({required this.address, required this.colors});
-
-  @override
-  Widget build(BuildContext context) {
-    final detected = _detectAddressType(address);
-    if (!detected.valid) return const SizedBox.shrink();
-    return SendDetectedBadge(
-      label: _detectedAddressDisplayLabel(context, detected),
-      icon: detected.icon,
-      color: detected.color,
-      identity: detected.label,
-    );
   }
 }
 
@@ -1434,6 +1418,12 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     // this; the post-frame write only matters when another listener kept
     // an older unit alive, and runs after the first frame so the
     // autoDispose default is not fought during build.
+    // The contacts permission as it stands (never a prompt here): the
+    // Send to step's "Send to a friend" row asks on its first tap.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(ref.read(sendContactsProvider.notifier).refresh());
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final entryUnit =
@@ -5248,32 +5238,34 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
             shadowColor: Colors.transparent,
             scrolledUnderElevation: 0,
             centerTitle: true,
-            // Identify the entry wallet without allowing a mid-send switch.
-            title: AccountSwitcherPill(
-              pickerTitle: context.l10n.sendFromPickerTitle,
-              account: _selectedAccount,
-              readOnly: true,
-            ),
+            // "Send", centred (founder, 31 October 2026: the recipient-first
+            // step). The source is named on Review.
+            title: SendStepTitle(context.l10n.send),
             // First tap on a sub-step rewinds the stepper one
             // page (and unlocks future steps so the user can
             // re-edit). Only when we're already on step 0
             // does X actually close the screen — keeps the
             // gesture cheap to undo a mis-click without
             // losing the whole address/amount they typed.
-            // Back uses the same thin chevron as KuteBackButton
-            // everywhere else; the first page keeps a close glyph
-            // since there's nothing to go back to.
-            leading: onFirstPage
-                ? KuteBareCloseButton(
-                    onPressed: () {
-                      if (!isProcessing) _onLeadingTap();
-                    },
-                  )
-                : KuteBackButton(
-                    onPressed: () {
-                      if (!isProcessing) _onLeadingTap();
-                    },
-                  ),
+            // The circled close on the first page, the circled back
+            // after it (kute_back_button.dart).
+            leadingWidth: 64.w,
+            leading: Padding(
+              padding: EdgeInsets.only(left: 16.w),
+              child: Center(
+                child: onFirstPage
+                    ? KuteCloseButton(
+                        onPressed: () {
+                          if (!isProcessing) _onLeadingTap();
+                        },
+                      )
+                    : KuteCircleBackButton(
+                        onPressed: () {
+                          if (!isProcessing) _onLeadingTap();
+                        },
+                      ),
+              ),
+            ),
           ),
           body: _buildStepperBody(
             context: context,
@@ -5303,64 +5295,12 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     required String currentInputCurrency,
   }) {
     return SendStepperFrame(
-      progress:
-          // Hardware / watch-only wallets sign the PSBT *outside*
-          // the app (USB / scan-and-paste), so the flow has
-          // an extra explicit "Sign" step at the end that hot
-          // wallets don't need. Total steps + page list adapt
-          // accordingly.
-          () {
-        // Source wallet from `_selectedWalletId` first — active
-        // is pinned to spending so a hardware-source flow would
-        // otherwise report 3 steps and miss the Sign page.
-        final settings = ref.read(settingsProvider);
-        final WalletConfig? w = _selectedWalletId != null
-            ? settings.wallets.firstWhere(
-                (x) => x.id == _selectedWalletId,
-                orElse: () => settings.activeWallet ?? settings.wallets.first,
-              )
-            : settings.activeWallet;
-        final isExternalSigner = w != null && (w.isHardware || w.isWatchOnly);
-        // Internal PageView indices: 0=Amount, 1=Send-to,
-        // 2=Review, (3=Sign for hardware). Translate to a
-        // visible step bar so pages we're *skipping* don't
-        // render as mysteriously-completed segments (the
-        // green chunk reported on the screenshot was Send-to
-        // being auto-marked complete before the user got
-        // there). Hidden pages drop entirely; current /
-        // completed get re-indexed to the visible positions.
-        final internalTotal = isExternalSigner ? 4 : 3;
-        final hidden = <int>{};
-        if (_skipSendToStep) hidden.add(_kSendToPage);
-        if (_skipAmountStep) hidden.add(_kAmountPage);
-        final visiblePages = <int>[
-          for (var i = 0; i < internalTotal; i++)
-            if (!hidden.contains(i)) i
-        ];
-        // Find the visible position of the active internal
-        // step. If somehow it's hidden (shouldn't happen),
-        // pin to the last visible.
-        int currentVisible = visiblePages.indexOf(_step);
-        if (currentVisible < 0) {
-          currentVisible = visiblePages.length - 1;
-        }
-        final completedVisible = <int>{
-          for (var i = 0; i < visiblePages.length; i++)
-            if (_completedSteps.contains(visiblePages[i])) i,
-        };
-        if (visiblePages.length <= 1) {
-          // Single-step flows don't need a bar — it would
-          // render as one fixed-length pill that conveys
-          // nothing. Just collapse the row.
-          return const SizedBox.shrink();
-        }
-        return StepperProgress(
-          totalSteps: visiblePages.length,
-          currentStep: currentVisible,
-          completedSteps: completedVisible,
-          colors: c,
-        );
-      }(),
+      // No step bar (founder, 31 October 2026): the title says where the
+      // person is, and each step is one screen.
+      progress: const SizedBox.shrink(),
+      // Send to runs to the sheet's bottom edge, as the Dollars Send does
+      // (founder: "things get cut"): its one scroll flows under the bar.
+      bleedPages: const {_kSendToPage},
       // Steps advance only via the Continue/Next buttons
       // (`_confirmStep` → `animateToPage`); the frame turns
       // swiping off.
@@ -5377,6 +5317,9 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
       pages: [
         SendStepPage(
           title: context.l10n.sendTo,
+          // The bar is this step's Continue, so the link row ("Send to a
+          // friend") is on the step's own Send to card
+          // (send_recipient_step.dart).
           child: _sendToPage(c),
         ),
         SendStepPage(
@@ -5385,10 +5328,17 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
         ),
         SendStepPage(
           title: context.l10n.sendReview,
-          trailing: const AskSalChip(
-            advisorContext: AdvisorContext(surface: 'send_review'),
+          // Sal is the bar (founder, 1 November 2026): a long press on
+          // Send asks with the review's public context, no circle here.
+          child: KuteBarContextScope(
+            active: _step == _kReviewPage,
+            barContext: KuteBarContext(
+              label: context.l10n.searchOrManageAi,
+              source: 'send_review',
+              advisorContext: const AdvisorContext(surface: 'send_review'),
+            ),
+            child: _reviewPage(c, btcFormat),
           ),
-          child: _reviewPage(c, btcFormat),
         ),
         // Step 3 (Sign) — only meaningful for hardware /
         // watch-only wallets; hot wallets reach broadcast
@@ -5435,6 +5385,12 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
         step: _step,
         colors: c,
         visibleSteps: const {_kSendToPage, _kAmountPage},
+        // Both steps' Continue is the bar (kute_shell_bar.dart; founder:
+        // every pinned button is Sal): the plain primary context, no style
+        // of its own, so its disabled look is the bar's (the `curious`
+        // face, the quiet label).
+        barSteps: const {_kSendToPage, _kAmountPage},
+        source: 'bitcoin_send_amount',
         enabled: () {
           if (_step == _kAmountPage) {
             final amount = ref.watch(sendTxProvider).amount;
@@ -5495,7 +5451,37 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
           }
           return false;
         }(),
+        // The step to take while Continue is off (founder, 1 November
+        // 2026): who to send to, then the network a non-native address
+        // needs, else the address itself; on the amount, an amount, or
+        // less of it.
+        disabledLabel: () {
+          final l10n = context.l10n;
+          if (_step == _kAmountPage) {
+            return ref.read(sendTxProvider).amount > 0
+                ? l10n.barNeedLowerAmount
+                : l10n.barNeedAmount;
+          }
+          final addr = addressController.text;
+          if (addr.isEmpty) return l10n.barNeedRecipient;
+          final label = _detectAddressType(addr).label;
+          final native = label == 'Bitcoin on-chain' ||
+              label == 'Lightning invoice' ||
+              label == 'Lightning address' ||
+              label == 'LNURL' ||
+              label == 'Spark address';
+          if (!native &&
+              (_selectedDestAsset == null || _selectedDestNetwork == null)) {
+            return l10n.barNeedNetwork;
+          }
+          return l10n.barNeedValidAddress;
+        }(),
         onContinue: () {
+          if (_step == _kSendToPage && _addressEntryMethod != 'contacts') {
+            // A recent row tracked itself on tap; this is a typed, pasted
+            // or scanned address.
+            trackSendRecipientPicked('address');
+          }
           if (_step == _kSendToPage || _step == _kAmountPage) {
             _confirmStep(_step);
           }
@@ -7747,65 +7733,87 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     );
   }
 
-  /// Section label above a list card on the Send to step.
-  Widget _sendToSectionHeader(AppColorsExtension c, String title) =>
-      SendToSectionHeader(title: title);
+  /// The recents as Contacts entries (send_contacts_list.dart): the name
+  /// part of a Lightning address ("alice" for alice@getalby.com) over the
+  /// address, or the address shortened; the Kute or ⚡ badge by the
+  /// address.
+  List<SendPerson> _recentPeople(List<RecentRecipient> recents) => [
+        for (final r in recents)
+          SendPerson.recent(
+            address: r.address,
+            name: r.address.contains('@')
+                ? r.address.split('@').first
+                : sendShortAddress(r.address),
+            secondary:
+                r.address.contains('@') ? r.address : null,
+            icon: r.address.contains('@') ? null : Icons.bolt_rounded,
+          ),
+      ];
 
-  Widget _recentRecipientsList(
-      AppColorsExtension c, List<RecentRecipient> recents) {
-    final locale = Localizations.localeOf(context).toString();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _sendToSectionHeader(c, context.l10n.sendRecentRecipients),
-        _SendToListCard(
-          colors: c,
-          rows: [
-            for (final r in recents)
-              _SendToListRow(
-                colors: c,
-                leading: Icon(
-                  r.address.contains('@')
-                      ? Icons.person_rounded
-                      : Icons.bolt_rounded,
-                  color: c.textPrimary,
-                  size: 20.sp,
-                ),
-                title: r.address,
-                trailingTitle: r.sats == null
-                    ? null
-                    : ref.watch(conversionProvider(r.sats!)),
-                trailingSubtitle: DateFormat.MMMd(locale).format(r.when),
-                onTap: () =>
-                    _commitPastedAddress(r.address, method: 'contacts'),
-              ),
-          ],
-        ),
-      ],
-    );
+  /// "Change" on the recipient card: the field empties, as if cleared by
+  /// hand, and the Send to card and the whole Contacts list come back.
+  void _clearRecipient() {
+    HapticFeedback.selectionClick();
+    addressController.clear();
+    ref.read(sendTxProvider.notifier).updateAddress('');
+    _revalidateDestForAddress('');
+    _addressEntryMethod = null;
+    setState(() {});
   }
 
-  /// Cross-chain destinations as one quiet row in one card: it opens
-  /// the picker and also carries the pasted-address network pick plus
-  /// the current selection summary once a destination is chosen. No
-  /// coin is pinned in front of it (user decision): pinned USDC and
-  /// USDT rows read as the offer, when the offer is the whole catalog
-  /// and the user picks inside the sheet.
-  ///
-  /// AT REST IT IS A STATEMENT, not a mode. It says what this money
-  /// can be sent to and shows the coins, exactly as the receive screen
-  /// says what its address accepts, because "Other crypto" read as a
-  /// switch a person had to flip before they could pay someone. The
-  /// three working states are untouched: an address we cannot
-  /// identify, an address that still needs a network, and a
-  /// destination already chosen, all of which have something specific
-  /// to say and say it in the row.
+  /// A Contacts entry tapped: an address is paid directly (filled and on
+  /// to the amount, as a recent always was); a plain contact starts the
+  /// claim link to its number.
+  void _onPerson(SendPerson person) {
+    if (person.direct) {
+      trackSendRecipientPicked(person.contact != null ? 'contact' : 'recent');
+      _commitPastedAddress(person.address!, method: 'contacts');
+      return;
+    }
+    final contact = person.contact;
+    if (contact != null) unawaited(_pickContact(contact));
+  }
+
+  /// "Send a link to +351…": a typed number no contact has, the claim
+  /// link to it with no name.
+  Future<void> _sendLinkToPhone(String phone) async {
+    trackSendRecipientPicked('phone');
+    final created = await showSendToAnyoneSheet(
+      context,
+      kind: ShareLinkKind.bitcoin,
+      recipientPhone: phone,
+      entrySource: 'bitcoin_send_phone',
+    );
+    if (created == true && mounted) _closeAndReset();
+  }
+
+  /// A plain contact picked from the Contacts list: Send to anyone for
+  /// bitcoin with the first name as the link's label and the number kept
+  /// in the local row (send_contacts_service.dart). A created link closes
+  /// the send: the money is on the link now.
+  Future<void> _pickContact(SendContact contact) async {
+    trackSendRecipientPicked('contact');
+    final created = await showSendToAnyoneSheet(
+      context,
+      kind: ShareLinkKind.bitcoin,
+      senderLabel: contact.firstName,
+      recipientPhone: contact.phone,
+      entrySource: 'bitcoin_send_contact',
+    );
+    if (created == true && mounted) _closeAndReset();
+  }
+
+  /// The cross-chain row of the Send to card. AT REST IT IS A STATEMENT,
+  /// not a mode: "Also sends to" with the coins this money can land as,
+  /// exactly as the receive screen says what its address accepts. The
+  /// three working states are untouched: an address we cannot identify,
+  /// an address that still needs a network, and a destination already
+  /// chosen, all of which have something specific to say in the row.
   ///
   /// Hardware / watch-only sources get none of this: cross-chain sends
   /// are Orchestra deliveries from the Spark hot wallet, so cold
-  /// wallets are bitcoin-on-chain-only. Mirrors the account model's
-  /// `canSwap` capability (models/account.dart).
-  Widget _crossChainDestinations(AppColorsExtension c, String addr) {
+  /// wallets are bitcoin-on-chain-only (models/account.dart `canSwap`).
+  Widget _crossChainRow(AppColorsExtension c, String addr) {
     final detected = _detectAddressType(addr);
     final isNativeBtcRail = detected.label == 'Bitcoin on-chain' ||
         detected.label == 'Lightning invoice' ||
@@ -7840,8 +7848,8 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     }
 
     // The coins this send can land as, folded one per coin — the same
-    // fold, the same marks and the same clip the sheet itself uses, so
-    // the line and the grid can never be a different set.
+    // fold the sheet itself uses, so the row and the grid can never be a
+    // different set.
     final catalog = ref.watch(orchestraSupportedRoutesProvider);
     final eligible =
         _eligibleNetworksForFamily[_addressRailFamily(addressController.text)];
@@ -7852,36 +7860,67 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
           _sendDestPickerRow(o),
     ]);
     final atRest = !hasSelection && !needsPick;
-    return _SendToListCard(
+    if (atRest && groups.isNotEmpty) {
+      return SendAlsoSendsToRow(groups: groups, onTap: open);
+    }
+    return _SendToListRow(
       colors: c,
-      // Attention reads through the border weight and copy, never an
-      // accent wash. The Continue gate is inactive while a pick is
-      // pending, so this card is the only forward path.
-      emphasized: needsPick && !hasSelection,
-      rows: [
-        if (atRest && groups.isNotEmpty)
-          CoinMarksLine(
-            label: context.l10n.sendAlsoSendsTo,
-            groups: groups,
-            moreLabel: context.l10n.receiveAlsoAcceptsMore,
-            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
-            onTap: open,
-          )
-        else
-          _SendToListRow(
-            colors: c,
-            leading: hasSelection
-                ? _selectedDestAsset!.iconWidget(size: 28.sp)
-                : Icon(Icons.swap_horiz_rounded,
-                    color: c.textSecondary, size: 20.sp),
-            title: otherTitle,
-            subtitle: otherSubtitle,
-            onTap: open,
-          ),
-      ],
+      leading: hasSelection
+          ? _selectedDestAsset!.iconWidget(size: 28.sp)
+          : Icon(Icons.swap_horiz_rounded, color: c.textSecondary, size: 20.sp),
+      title: otherTitle,
+      subtitle: otherSubtitle,
+      onTap: open,
     );
   }
 
+  /// Whether [addr] still needs a network pick (a 0x… or base58 address
+  /// that could land on several chains); the Send to card is the only
+  /// forward path then.
+  bool _needsNetworkPick(String addr) {
+    if (addr.isEmpty) return false;
+    final detected = _detectAddressType(addr);
+    final isNativeBtcRail = detected.label == 'Bitcoin on-chain' ||
+        detected.label == 'Lightning invoice' ||
+        detected.label == 'Lightning address' ||
+        detected.label == 'LNURL' ||
+        detected.label == 'Spark address';
+    return !isNativeBtcRail &&
+        (_selectedDestAsset == null || _selectedDestNetwork == null);
+  }
+
+  /// The resolved row's words for a recognised destination: the rail
+  /// ("Bitcoin · on-chain", "Lightning", "Spark"), or the picked coin on
+  /// its network for a cross-chain address.
+  String _resolvedRailLabel(_DetectedAddressInfo detected) {
+    final l10n = context.l10n;
+    if (_selectedDestAsset != null && _selectedDestNetwork != null) {
+      return l10n.sendAssetOnNetwork(
+          _selectedDestAsset!.code, _selectedDestNetwork!.name);
+    }
+    switch (detected.label) {
+      case 'Bitcoin on-chain':
+        return l10n.sendRailBitcoinOnchain;
+      case 'Lightning invoice':
+      case 'Lightning address':
+      case 'LNURL':
+        return l10n.sendRailLightning;
+      case 'Spark address':
+        return l10n.sendRailSpark;
+      default:
+        return _detectedAddressDisplayLabel(context, detected);
+    }
+  }
+
+  /// The recipient-first Send to step (send_recipient_step.dart): the
+  /// search field (everything it took before: Lightning addresses of any
+  /// domain, LNURL, invoices, bitcoin and Spark addresses, @user, Paste
+  /// and Scan), the destination it holds resolved as one row FIRST, then
+  /// Frequent (the recents as circles, directly under the field: founder,
+  /// 2 November 2026, "Frequent stays on top"), the Send to card ("Also
+  /// sends to"), and All contacts A–Z filtered by the text
+  /// (send_contacts_list.dart: recents and the phone's contacts, one
+  /// list).
   Widget _sendToPage(AppColorsExtension c) {
     final addr = addressController.text;
     // Hardware/watch-only wallets accept on-chain Bitcoin addresses.
@@ -7904,9 +7943,18 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     } else if (isExternalSigner) {
       hintText = context.l10n.sendPasteBitcoinAddress;
     } else {
-      hintText = context.l10n.sendPasteAddressOrLightning;
+      hintText = context.l10n.sendRecipientSearchHint;
     }
     final detected = _detectAddressType(addr);
+    // A short word with no address shape is a SEARCH (a name in the
+    // recents or the contacts), never an address that needs a network.
+    final looksLikeAddress = detected.valid ||
+        _addressRailFamily(addr) != 'unknown' ||
+        sendTextLooksLikeAddress(addr);
+    final needsPick = looksLikeAddress && _needsNetworkPick(addr);
+    // A destination the flow can act on: recognised, and with its
+    // network picked where the address alone does not say.
+    final resolved = addr.isNotEmpty && detected.valid && !needsPick;
     // Hardware / watch-only + Lightning address: explain the
     // spending-wallet requirement before they hit Review (Continue is
     // also disabled in this state so they can't advance silently).
@@ -7921,40 +7969,47 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
           _selectedDestNetwork?.network.toLowerCase() == 'lightning';
       showSignerWarning = isLnLike && !dstIsLightning;
     }
-    final recents = addr.isEmpty
-        ? _recentRecipients()
-        : const <RecentRecipient>[];
-    // The spending wallet gets it too (owner decision). What was taken
-    // off that wallet was the old "Other crypto" row, a mode to switch
-    // on; at rest this is the marks line, the same statement of what
-    // the address can send to that Receive makes about what it takes.
-    // A bitcoin destination has nothing to pick: the coin and the rail
-    // are the address. The card only helps when an address could land as
-    // several coins (an EVM address as USDC, USDT or ETH), so it hides as
-    // soon as a bitcoin, Lightning or Spark destination is recognised.
-    final detectedForCard = _detectAddressType(addr);
-    final bitcoinDestination = addr.isNotEmpty &&
-        detectedForCard.valid &&
-        (detectedForCard.label == 'Bitcoin on-chain' ||
-            detectedForCard.label == 'Lightning invoice' ||
-            detectedForCard.label == 'Lightning address' ||
-            detectedForCard.label == 'LNURL' ||
-            detectedForCard.label == 'Spark address');
+    // The field's text filters the Contacts list, whatever it is: a
+    // resolved destination shows its row first and the matching entries
+    // (its own recent, a contact with that address) under it.
+    final query = needsPick ? '' : addr;
+    final recentPeople = _recentPeople(_recentRecipients());
+    final bitcoinDestination = resolved &&
+        (detected.label == 'Bitcoin on-chain' ||
+            detected.label == 'Lightning invoice' ||
+            detected.label == 'Lightning address' ||
+            detected.label == 'LNURL' ||
+            detected.label == 'Spark address');
     // Cross-chain is only offered where Orchestra can route it: from
-    // the Spark hot wallet, never from a cold source.
-    final showCrossChain = !_isColdSource && !bitcoinDestination;
-    // Scrollable so five recents plus the cross-chain rows never
-    // overflow on a short screen or at a large text scale.
-    return SingleChildScrollView(
-      padding: EdgeInsets.only(bottom: 8.h),
-      child: Column(
+    // the Spark hot wallet, never from a cold source. A friend's link is
+    // a Spark link: the same source.
+    final hot = !_isColdSource;
+    // Hidden while a recipient is chosen: the card above is the choice.
+    final showSendToCard =
+        !resolved && !bitcoinDestination && (hot || needsPick);
+    // Scrollable so the matches, the card and the contacts never
+    // overflow on a short screen or at a large text scale; the end clears
+    // the floating bar.
+    // Order: the field, the recipient card, Frequent, the Send to card,
+    // All contacts.
+    // ONE scroll view to the sheet's bottom edge (the frame reserves
+    // nothing under this page, SendStepperFrame.bleedPages), the Contacts
+    // as slivers in it.
+    // A coin chosen ("USDT · Base"): the send is address-only, as the
+    // Dollars address step is: no Contacts at all.
+    final coinChosen =
+        _selectedDestAsset != null && _selectedDestNetwork != null;
+    final showContacts = hot && !needsPick && !coinChosen;
+    return CustomScrollView(
+      key: const ValueKey('send-to-scroll'),
+      slivers: [
+        SliverToBoxAdapter(
+          child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SendRecipientField(
+          SendRecipientSearchField(
             controller: addressController,
-            colors: c,
             hintText: hintText,
-            isValid: detected.valid,
             onPaste: _pasteAddressFromClipboard,
             onScan: _scanAddress,
             onChanged: (val) {
@@ -7979,26 +8034,19 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
               setState(() {});
             },
           ),
-          // Detected-network badge: only once the address identifies
-          // as something parseable, so an empty field has no gap.
-          if (detected.valid && detected.label == 'Bitcoin on-chain') ...[
-            // A bitcoin address needs no badge, check or mark: one quiet
-            // line under the field says what it is (owner decision).
-            SizedBox(height: 8.h),
-            Padding(
-              padding: EdgeInsets.only(left: 4.w),
-              child: Text(
-                context.l10n.sendDetectedBitcoinAddress,
-                style: TextStyle(
-                  color: c.textSecondary,
-                  fontSize: 13.sp,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
+          // One recipient card (founder: "more fintech"), the person
+          // never listed again below.
+          if (resolved) ...[
+            SizedBox(height: 20.h),
+            SendRecipientCard(
+              railMark: _selectedDestAsset != null
+                  ? _selectedDestAsset!.iconWidget(size: 28.sp)
+                  : Icon(detected.icon, color: detected.color, size: 24.sp),
+              address: addr,
+              rail: _resolvedRailLabel(detected),
+              recents: recentPeople,
+              onChange: _clearRecipient,
             ),
-          ] else if (detected.valid) ...[
-            SizedBox(height: 10.h),
-            _DetectedNetworkBadge(address: addr, colors: c),
           ],
           if (showSignerWarning) ...[
             SizedBox(height: 10.h),
@@ -8037,20 +8085,78 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
             SizedBox(height: 12.h),
             _clipboardNudgeChip(c, _clipboardCandidate!),
           ],
-          // Recent recipients: the last few Lightning addresses this
-          // wallet paid, one tap to fill the field. Hidden once an
-          // address is in the field so it never competes with it.
-          if (recents.isNotEmpty) ...[
-            SizedBox(height: 24.h),
-            _recentRecipientsList(c, recents),
-          ],
-          if (showCrossChain) ...[
-            SizedBox(height: 24.h),
-            _crossChainDestinations(c, addr),
+          // Frequent stays on top (founder, 2 November 2026): under the
+          // field, above the Send to card; hidden while typing and once
+          // a recipient is chosen.
+          if (showContacts)
+            SendFrequentSection(
+              query: query,
+              recents: recentPeople,
+              excludeAddress: resolved ? addr : null,
+              onPerson: _onPerson,
+            ),
+          if (showSendToCard) ...[
+            SizedBox(height: 20.h),
+            SendSectionLabel(
+              context.l10n.sendToLabel,
+              // A chosen coin can be dropped here, back to bitcoin.
+              trailing: _selectedDestAsset != null
+                  ? SendChangeButton(
+                      key: const ValueKey('send-to-coin-change'),
+                      onTap: _clearDestCoin,
+                    )
+                  : null,
+            ),
+            _SendToListCard(
+              colors: c,
+              // Attention reads through the border weight and copy, never
+              // an accent wash. The Continue gate is inactive while a pick
+              // is pending, so this card is the only forward path.
+              emphasized: needsPick,
+              rows: [
+                if (hot) _crossChainRow(c, looksLikeAddress ? addr : ''),
+              ],
+            ),
           ],
         ],
-      ),
+          ),
+        ),
+        // Contacts (founder, 1 November 2026): All contacts A–Z, filtered
+        // by what is typed, under the Send to card (a growing list never
+        // pushes it out of sight); Frequent sits above the card. A link
+        // needs the spending wallet: hot sources only; none once a coin
+        // is chosen.
+        if (showContacts)
+          SendContactsSection(
+            query: query,
+            recents: recentPeople,
+            excludeAddress: resolved ? addr : null,
+            showFrequent: false,
+            onPerson: _onPerson,
+            onPhoneLink: (phone) => unawaited(_sendLinkToPhone(phone)),
+            background: c.background,
+          ),
+        // The end clears the floating bar and the home indicator: the
+        // last row scrolls fully clear (the frame reserves nothing under
+        // this page, SendStepperFrame.bleedPages).
+        SliverToBoxAdapter(
+          child: SizedBox(
+              height: kuteBarScrollClearance.h +
+                  MediaQuery.viewPaddingOf(context).bottom),
+        ),
+      ],
     );
+  }
+
+  /// "Change" beside a chosen coin on the Send to card: back to a plain
+  /// bitcoin send, the Contacts with it.
+  void _clearDestCoin() {
+    HapticFeedback.selectionClick();
+    setState(() {
+      _selectedDestAsset = null;
+      _selectedDestNetwork = null;
+      _swapQuote = null;
+    });
   }
 
   // ─── Review page (slide-to-send) ────────────────────────────
@@ -8139,6 +8245,8 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
             // used to read as a greyed-out button with nothing moving.
             loading: isProcessing || _sendAwaitingReady,
             onPressed: canTapSend ? () => _sendPressed(context, ref) : null,
+            // Off only while the draft is still resolving.
+            disabledLabel: context.l10n.barNeedWait,
             // While the draft is still resolving the footnote says the
             // fee is being worked out rather than promising an instant
             // debit the tap cannot yet honour.

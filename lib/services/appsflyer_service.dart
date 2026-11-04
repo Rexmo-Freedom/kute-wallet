@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:kute/services/once_flags_service.dart';
 import 'package:kute/services/tracking/appsflyer_uninstall_token.dart';
+import 'package:kute/services/share_link_claims.dart';
+import 'package:kute/services/share_links_store.dart';
 import 'package:kute/services/tracking_service.dart';
 
 /// AppsFlyer wrapper — install attribution + ad-campaign ROAS ONLY.
@@ -238,8 +240,21 @@ class AppsFlyerService {
       final raw =
           (data['deep_link_value'] ?? data['af_sub1'] ?? data['referral_code'])
               ?.toString();
+      // A share-link claim installed the app: park the id for the Claim
+      // screen (opened once the wallet exists) and bind no referral code.
+      if (ShareLinkClaims.isClaimDeepLinkValue(raw)) {
+        _parkClaim(data['deep_link_sub1']?.toString());
+        return;
+      }
       _captureReferrerCode(raw);
     } catch (_) {/* no auto-bind on parse failure */}
+  }
+
+  /// A deferred or direct claim link's id, parked for the Claim screen.
+  static void _parkClaim(String? raw) {
+    final id = ShareLinkClaims.claimIdFromLink(
+        Uri(queryParameters: {'deep_link_value': 'claim', 'deep_link_sub1': raw ?? ''}));
+    if (id != null) ShareLinksStore.parkClaim(id);
   }
 
   /// The AppsFlyer conversion keys each install-attribution field is read
@@ -357,8 +372,12 @@ class AppsFlyerService {
       // properties.
       TrackingService.captureUtmParams(dl.clickEvent);
       _linkWebVisitor(webVisitorIdFrom(dl.clickEvent));
-      _captureReferrerCode(
-          dl.deepLinkValue ?? dl.afSub1 ?? dl.getStringValue('referral_code'));
+      final value = dl.deepLinkValue ?? dl.afSub1;
+      if (ShareLinkClaims.isClaimDeepLinkValue(value)) {
+        _parkClaim(dl.getStringValue('deep_link_sub1'));
+        return;
+      }
+      _captureReferrerCode(value ?? dl.getStringValue('referral_code'));
     } catch (_) {/* no auto-bind on parse failure */}
   }
 

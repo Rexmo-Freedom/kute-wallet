@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:kute/screens/shared/sal_sprite.dart';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -15,6 +16,7 @@ import 'package:kute/screens/shared/fee_copy.dart';
 import 'package:kute/providers/breez_config_provider.dart';
 import 'package:kute/providers/breez_provider.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/shared/qr_code.dart';
@@ -301,7 +303,11 @@ class _ShareCodeScreenState extends ConsumerState<ShareCodeScreen> {
                   // "Invite friends, earn together" is good news and asks
                   // nobody to check a number, so Sal gets to be pleased
                   // about it instead of standing there.
-                  child: KuteDogCheer(size: 48.sp),
+                  child: SalSprite(
+                    clip: 'happy',
+                    size: 48.sp,
+                    fallback: KuteDogCheer(size: 48.sp),
+                  ),
                 ),
                 SizedBox(height: 24.h),
                 Text(
@@ -329,12 +335,19 @@ class _ShareCodeScreenState extends ConsumerState<ShareCodeScreen> {
                 ),
                 SizedBox(height: 28.h),
                 Expanded(child: _body(c)),
-                AppButton(
-                  text: context.l10n.shareCodeStartUsing,
-                  onPressed:
-                      _phase == _Phase.waiting ? null : _finish,
+                // THE BAR IS THE BUTTON (kute_bar_context.dart): Start
+                // using Kute is the floating Sal bar's primary action, on
+                // once the code is there.
+                KuteBarContextScope(
+                  barContext: KuteBarContext.primary(
+                    label: context.l10n.shareCodeStartUsing,
+                    onPrimary: _finish,
+                    enabled: _phase != _Phase.waiting,
+                    source: 'share_code',
+                    disabledLabel: context.l10n.barNeedWait,
+                  ),
+                  child: SizedBox(height: kuteBarScrollClearance.h),
                 ),
-                SizedBox(height: 20.h),
               ],
             ),
           ),

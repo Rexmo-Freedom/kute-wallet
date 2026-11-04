@@ -5,10 +5,8 @@
 // restricted, the refusal stays with a soft failure tap.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/currency_conversions.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/settings_model.dart';
@@ -21,7 +19,6 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/swap_orders_provider.dart';
 import 'package:kute/providers/usd_account_provider.dart';
 import 'package:kute/screens/hyperliquid/components/order_slip_sheet.dart';
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:kute/screens/shared/capability_block_note.dart';
@@ -30,10 +27,10 @@ import 'package:kute/services/investment_provider_availability.dart';
 import 'package:kute/services/kute_haptics.dart';
 import 'package:kute/services/region_freshness.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
-import 'package:kute/theme/app_theme.dart';
 import 'package:money2/money2.dart';
 
 import '../../helpers/fake_swap_orders.dart';
+import '../../helpers/shell_bar_harness.dart';
 
 class _LivePrices extends HlLivePricesNotifier {
   @override
@@ -122,6 +119,7 @@ Future<void> _pumpSlip(WidgetTester tester, Future<HlAccountSnapshot> account,
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
+  installShellBar();
   await tester.pumpWidget(ProviderScope(
     overrides: [
       settingsProvider.overrideWith((_) => SettingsModel(Settings(
@@ -145,21 +143,12 @@ Future<void> _pumpSlip(WidgetTester tester, Future<HlAccountSnapshot> account,
       runtimeCapabilitiesProvider.overrideWithValue(policy),
       usdBalanceProvider.overrideWith((_) => 0),
     ],
-    child: ScreenUtilInit(
-      designSize: const Size(430, 932),
-      builder: (_, __) => MaterialApp(
-        theme: ThemeData(
-          splashFactory: NoSplash.splashFactory,
-          fontFamily: 'Inter',
-          extensions: [AppColorsExtension.light()],
-        ),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: const Scaffold(
-          body: Align(
-            alignment: Alignment.bottomCenter,
-            child: HlOrderSlipSheet(market: _market, initialIsLong: true),
-          ),
+    // The bar over the slip is the slip's button (shell_bar_harness.dart).
+    child: shellBarApp(
+      home: const Scaffold(
+        body: Align(
+          alignment: Alignment.bottomCenter,
+          child: HlOrderSlipSheet(market: _market, initialIsLong: true),
         ),
       ),
     ),
@@ -174,8 +163,6 @@ Future<void> _frames(WidgetTester tester, [int n = 10]) async {
   }
 }
 
-AppButton _button(WidgetTester tester) =>
-    tester.widget<AppButton>(find.byType(AppButton));
 
 const _regionSentence =
     'This feature is restricted in the region your internet connection '
@@ -224,7 +211,8 @@ void main() {
   });
 
   Future<void> tapCheck(WidgetTester tester) async {
-    await tester.tap(find.widgetWithText(AppButton, 'Check connection'));
+    expect(barPrimaryLabel(tester), 'Check connection');
+    await tapBarPrimary(tester, settle: false);
     await _frames(tester, 20);
   }
 
@@ -233,8 +221,8 @@ void main() {
     await _pumpSlip(tester, Future.value(_snapshot(500)), policy);
     expect(find.widgetWithText(CapabilityBlockNote, _regionSentence),
         findsOneWidget);
-    expect(_button(tester).text, 'Check connection');
-    expect(_button(tester).onPressed, isNotNull);
+    expect(barPrimaryLabel(tester), 'Check connection');
+    expect(barPrimaryEnabled(tester), isTrue);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -244,8 +232,8 @@ void main() {
     policy.blocked = false;
     await tapCheck(tester);
     expect(find.byType(CapabilityBlockNote), findsNothing);
-    expect(_button(tester).text, startsWith('Long '));
-    expect(_button(tester).onPressed, isNotNull);
+    expect(barPrimaryLabel(tester), startsWith('Long '));
+    expect(barPrimaryEnabled(tester), isTrue);
     expect(triggers, containsAll(['polymarket:manual', 'hyperliquid:manual']));
     expect(haptics.where((c) => c.method == 'softTap'), isEmpty);
     await tester.pumpWidget(const SizedBox.shrink());
@@ -257,9 +245,9 @@ void main() {
     await tapCheck(tester);
     expect(find.widgetWithText(CapabilityBlockNote, _regionSentence),
         findsOneWidget);
-    expect(_button(tester).text, 'Check connection');
-    expect(_button(tester).isLoading, isFalse);
-    expect(_button(tester).onPressed, isNotNull);
+    expect(barPrimaryLabel(tester), 'Check connection');
+    expect(barPrimaryBusy(tester), isFalse);
+    expect(barPrimaryEnabled(tester), isTrue);
     expect(haptics.where((c) => c.method == 'softTap'), hasLength(1));
     await tester.pumpWidget(const SizedBox.shrink());
   });

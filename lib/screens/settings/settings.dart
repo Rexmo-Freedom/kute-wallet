@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/providers/unified_search_provider.dart'
+    show SearchCategory;
 import 'dart:io';
 
 import 'package:kute/services/onchain/native_onchain_service.dart' show OnchainEndpoint;
@@ -22,7 +25,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_boxicons/flutter_boxicons.dart';
 // ignore: implementation_imports
 import 'package:icons_plus/src/flag.dart';
 import 'package:kute/providers/settings_provider.dart';
@@ -51,7 +53,6 @@ import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/components/kute_list_row.dart';
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/custom_keypad.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
@@ -194,7 +195,12 @@ class _SettingsState extends ConsumerState<Settings> {
         backgroundColor: Colors.transparent,
         centerTitle: true,
         elevation: 0,
-        leading: const KuteBackButton(),
+        // The bar reads "Ask Sal about Kute" over Settings.
+        leading: KuteBarContextScope(
+          barContext: KuteBarContext(
+              label: context.l10n.barAskAboutKute, source: 'settings'),
+          child: const KuteBackButton(),
+        ),
         title: Text(
           context.l10n.settings,
           style: TextStyle(
@@ -211,7 +217,9 @@ class _SettingsState extends ConsumerState<Settings> {
         child: SafeArea(
           bottom: false,
           child: SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 40.h),
+            // The last rows scroll clear of the floating bar.
+            padding: EdgeInsets.fromLTRB(
+                16.w, 16.h, 16.w, 40.h + kuteBarScrollClearance.h),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -328,7 +336,7 @@ class _SettingsState extends ConsumerState<Settings> {
     final version = ref.watch(appVersionLabelProvider).valueOrNull;
     return _SettingsRow(
       title: context.l10n.settingsAppVersion,
-      icon: Icons.info_outline_rounded,
+      icon: Icons.info_rounded,
       subtitle: version ?? '…',
       trailing: const SizedBox.shrink(),
     );
@@ -340,7 +348,7 @@ class _SettingsState extends ConsumerState<Settings> {
     final id = AffiliateService.affiliateId;
     return _SettingsRow(
       title: context.l10n.settingsAffiliateId,
-      icon: Icons.badge_outlined,
+      icon: Icons.badge_rounded,
       subtitle: id ?? context.l10n.settingsAffiliateIdNotRegistered,
       trailing: id == null
           ? const SizedBox.shrink()
@@ -481,7 +489,7 @@ class _SettingsState extends ConsumerState<Settings> {
   Widget _buildChangePinSection(BuildContext context, WidgetRef ref) {
     return _SettingsRow(
       title: context.l10n.appPin,
-      icon: Boxicons.bxs_lock_alt,
+      icon: Icons.lock_rounded,
       subtitle: context.l10n.changeUnlockCode,
       onTap: () => _openChangePin(context, ref),
     );
@@ -519,7 +527,7 @@ class _SettingsState extends ConsumerState<Settings> {
 
     return _SettingsRow(
       title: context.l10n.biometricUnlock,
-      icon: Boxicons.bx_fingerprint,
+      icon: Icons.fingerprint_rounded,
       subtitle: context.l10n.settingsUnlockWithFaceIdOrTouchId,
       onTap: () => _setBiometrics(!biometricsEnabled),
       trailing: _SettingsSwitch(
@@ -633,7 +641,7 @@ class _SettingsState extends ConsumerState<Settings> {
         ref.watch(settingsProvider.select((s) => s.autoLockSeconds));
     return _SettingsRow(
       title: context.l10n.autoLock,
-      icon: Boxicons.bx_lock_alt,
+      icon: Icons.lock_clock_rounded,
       subtitle: _autoLockLabel(context, seconds),
       onTap: () => _openAutoLockPicker(context, ref),
     );
@@ -691,7 +699,7 @@ class _SettingsState extends ConsumerState<Settings> {
   Widget _buildRateAppSection(BuildContext context, WidgetRef ref) {
     return _SettingsRow(
       title: context.l10n.settingsRateTheApp,
-      icon: Boxicons.bxs_star,
+      icon: Icons.star_rounded,
       subtitle: context.l10n.settingsLeaveAReview,
       onTap: () => _rateApp(context, ref),
     );
@@ -717,7 +725,7 @@ class _SettingsState extends ConsumerState<Settings> {
     // grouped card) rather than a fuller, more pronounced card.
     return _SettingsRow(
       title: context.l10n.settingsReferralProgram,
-      icon: Boxicons.bxs_group,
+      icon: Icons.group_rounded,
       subtitle: context.l10n.settingsEarnAShareOfFees,
       onTap: () {
         HapticFeedback.lightImpact();
@@ -754,7 +762,7 @@ class _SettingsState extends ConsumerState<Settings> {
   Widget _buildWalletsSection(BuildContext context) {
     return _SettingsRow(
       title: context.l10n.settingsBackupAndRecovery,
-      icon: Icons.shield_rounded,
+      icon: Icons.account_balance_wallet_rounded,
       subtitle: context.l10n.settingsBackupAndRecoverySubtitle,
       onTap: () {
         HapticFeedback.lightImpact();
@@ -1061,7 +1069,7 @@ class _SettingsState extends ConsumerState<Settings> {
     final language = ref.watch(settingsProvider.select((s) => s.language));
     return _SettingsRow(
       title: context.l10n.language,
-      icon: Boxicons.bx_globe,
+      icon: Icons.language_rounded,
       subtitle: language.toUpperCase(),
       onTap: () => _openLanguagePicker(context, ref),
     );
@@ -1082,7 +1090,7 @@ class _SettingsState extends ConsumerState<Settings> {
     final currency = ref.watch(settingsProvider.select((s) => s.currency));
     return _SettingsRow(
       title: context.l10n.displayCurrency,
-      icon: Boxicons.bxs_dollar_circle,
+      icon: Icons.paid_rounded,
       subtitle: currency.toUpperCase(),
       onTap: () => _openCurrencyPicker(context, ref),
     );
@@ -1107,7 +1115,7 @@ class _SettingsState extends ConsumerState<Settings> {
     final btcFormat = ref.watch(settingsProvider.select((s) => s.btcFormat));
     return _SettingsRow(
       title: context.l10n.bitcoinUnit,
-      icon: Boxicons.bx_bitcoin,
+      icon: Icons.currency_bitcoin_rounded,
       subtitle:
           btcFormat == 'sats' ? context.l10n.accountSats : context.l10n.bitcoin,
       onTap: () => _openBitcoinUnitPicker(context, ref),
@@ -1140,7 +1148,7 @@ class _SettingsState extends ConsumerState<Settings> {
 
     return _SettingsRow(
       title: context.l10n.electrumNode,
-      icon: Boxicons.bxs_server,
+      icon: Icons.dns_rounded,
       subtitle: subtitleText,
       onTap: () => _openElectrumNode(context, ref),
     );
@@ -1554,15 +1562,20 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
             ),
           ),
           SizedBox(height: 20.h),
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20.w),
-            child: AppButton(
-              text: _step == 2 ? context.l10n.save : context.l10n.next,
-              onPressed: canContinue ? _handleNextStep : null,
-              isLoading: _isLoading,
+          // THE BAR IS THE BUTTON (kute_bar_context.dart): Next / Save is
+          // the floating Sal bar's primary action, on once six digits are
+          // in, busy while the PIN is checked or saved.
+          KuteBarContextScope(
+            barContext: KuteBarContext.primary(
+              label: _step == 2 ? context.l10n.save : context.l10n.next,
+              onPrimary: _handleNextStep,
+              enabled: canContinue,
+              busy: _isLoading,
+              source: 'change_pin',
+              disabledLabel: context.l10n.barNeedPin,
             ),
+            child: SizedBox(height: kuteBarScrollClearance.h),
           ),
-          SizedBox(height: 8.h),
         ],
       ),
     );
@@ -2095,10 +2108,19 @@ class _CustomNodeModalContentState
                   ),
                 ],
                 SizedBox(height: 20.h),
-                AppButton(
-                  text: context.l10n.save,
-                  onPressed: _testing ? null : handleSave,
-                  isLoading: _testing,
+                // THE BAR IS THE BUTTON (kute_bar_context.dart): Save is
+                // the floating Sal bar's primary action, riding above the
+                // keyboard, busy while the node is tested.
+                KuteBarContextScope(
+                  barContext: KuteBarContext.primary(
+                    label: context.l10n.save,
+                    onPrimary: handleSave,
+                    enabled: !_testing,
+                    busy: _testing,
+                    source: 'custom_node',
+                    disabledLabel: null,
+                  ),
+                  child: SizedBox(height: kuteBarScrollClearance.h),
                 ),
               ],
             ),
@@ -2554,13 +2576,6 @@ class _TransactionExportWalletSelectorState
           ],
         ),
         SizedBox(height: 12.h),
-        AppButton(
-          text: context.l10n.export,
-          isLoading: _exporting != null,
-          onPressed:
-              canExport ? () => _startExport(context, wallets, _format) : null,
-        ),
-        SizedBox(height: 12.h),
         Text(
           context.l10n.exportOrientationOnly,
           textAlign: TextAlign.center,
@@ -2569,6 +2584,21 @@ class _TransactionExportWalletSelectorState
             fontSize: 12.5.sp,
             height: 1.35,
           ),
+        ),
+        // THE BAR IS THE BUTTON (kute_bar_context.dart): Export is the
+        // floating Sal bar's primary action, on while a wallet is picked,
+        // busy while the file is built; the note sits above it.
+        KuteBarContextScope(
+          barContext: KuteBarContext.primary(
+            label: context.l10n.export,
+            onPrimary: () => _startExport(context, wallets, _format),
+            enabled: canExport,
+            busy: _exporting != null,
+            category: SearchCategory.transactions,
+            source: 'export_transactions',
+            disabledLabel: context.l10n.barNeedWallet,
+          ),
+          child: SizedBox(height: kuteBarScrollClearance.h),
         ),
       ],
     );
@@ -2628,6 +2658,9 @@ class _GroupedCard extends StatelessWidget {
 /// One settings row inside a [_GroupedCard]: the shared [KuteListRow]
 /// (neutral 44 icon tile, 15sp w600 title, 13sp subtitle, tertiary
 /// chevron, surfaceLight press wash plus the light haptic).
+/// A Settings row: the shared list row, its icon in the one monochrome
+/// family (Material rounded filled; founder, 31 October 2026: no tints
+/// anywhere in Settings).
 class _SettingsRow extends StatelessWidget {
   final String title;
   final IconData icon;
@@ -2652,6 +2685,7 @@ class _SettingsRow extends StatelessWidget {
         onTap: onTap,
       );
 }
+
 
 /// Settings > Security > Notifications: the OS push-permission status
 /// (On / Off) read live from the platform, refreshed whenever the app
@@ -2749,7 +2783,7 @@ class _NotificationsRowState extends State<_NotificationsRow>
   Widget build(BuildContext context) {
     return _SettingsRow(
       title: context.l10n.settingsNotifications,
-      icon: Icons.notifications_none_rounded,
+      icon: Icons.notifications_rounded,
       subtitle: _subtitle(context),
       onTap: _status == null ? null : _onTap,
     );

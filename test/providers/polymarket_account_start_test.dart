@@ -312,6 +312,23 @@ void main() {
   });
 
   test(
+      'setup asked while the account is still starting waits for its '
+      'address instead of failing', () async {
+    final net = _Net(hangClob: false);
+    final c = container(restored: false);
+    await _with(net, () async {
+      // Read, not awaited: the start is still deriving the address.
+      c.read(polymarketTradingProvider);
+      expect(c.read(polymarketTradingProvider).valueOrNull?.walletAddress,
+          isNull);
+      await c.read(polymarketTradingProvider.notifier).enableTrading();
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    });
+    expect(c.read(polymarketTradingProvider.notifier).tradingReady, isTrue);
+    expect(event('polymarket_setup_failed'), isNull);
+  });
+
+  test(
       'creation, the home-screen start and the first bet share one setup',
       () async {
     final net = _Net(hangClob: false);

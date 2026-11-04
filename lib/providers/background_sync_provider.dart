@@ -1,5 +1,7 @@
 import 'package:kute/services/polymarket/combos/combo_feed.dart';
 import 'package:kute/services/orchestra/standing_deposit_store.dart';
+import 'package:kute/services/orchestra/own_bitcoin_deliveries.dart'
+    show isOnChainDeposit, orchestraBtcFieldToSats, reconcilerDeliveryLegs, tightDeliveryTolerance, kOwnDeliveryArrivalWindow;
 import 'package:kute/services/orchestra/standing_deposit_sweep.dart';
 import 'dart:async';
 import 'package:hive_ce/hive.dart';
@@ -51,6 +53,7 @@ import 'package:kute/services/accumulation_address_cache.dart';
 import 'package:kute/services/orchestra_routes.dart';
 import 'package:kute/services/orchestra/orchestra_history.dart';
 import 'package:kute/services/orchestra/pending_receive_quote_cache.dart';
+import 'package:kute/services/one_balance/move_settled_refresh.dart';
 import 'package:kute/services/orchestra/venue_arrivals.dart'
     show OrchestraOrderIds;
 import 'package:kute/services/security/address_guard.dart';
@@ -243,12 +246,21 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
   static const int _sparkAddressRingMax = 5;
   bool _sparkAddressRingHydrated = false;
 
+  /// Addresses whose last poll showed money on its way (an incoming tx not
+  /// yet past the bridge window). They are never pushed out of the ring by
+  /// newer addresses: losing the one a deposit was sent to made its
+  /// "Receiving" row vanish on the next poll, which read fine and simply
+  /// no longer looked there. The ring may run past [_sparkAddressRingMax]
+  /// by these, up to [_sparkAddressRingHardMax].
+  final Set<String> _sparkAddressesWithPending = <String>{};
+  static const int _sparkAddressRingHardMax = 10;
+
   void _hydrateSparkAddressRingIfNeeded() {
     if (_sparkAddressRingHydrated) return;
     _sparkAddressRingHydrated = true;
     try {
       final box = Hive.box<String>(_sparkAddressRingBox);
-      for (int i = 0; i < _sparkAddressRingMax; i++) {
+      for (int i = 0; i < _sparkAddressRingHardMax; i++) {
         final v = box.get('pos_$i');
         if (v != null && v.isNotEmpty) {
           _sparkAddressRing.add(v);
@@ -260,7 +272,7 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
   void _persistSparkAddressRing() {
     try {
       final box = Hive.box<String>(_sparkAddressRingBox);
-      for (int i = 0; i < _sparkAddressRingMax; i++) {
+      for (int i = 0; i < _sparkAddressRingHardMax; i++) {
         if (i < _sparkAddressRing.length) {
           box.put('pos_$i', _sparkAddressRing[i]);
         } else {
@@ -276,15 +288,20 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
     if (_sparkAddressRing.isNotEmpty && _sparkAddressRing.first == addr) return;
     _sparkAddressRing.remove(addr);
     _sparkAddressRing.insert(0, addr);
-    if (_sparkAddressRing.length > _sparkAddressRingMax) {
-      _sparkAddressRing.removeRange(
-          _sparkAddressRingMax, _sparkAddressRing.length);
-    }
+    trimSparkAddressRing(_sparkAddressRing,
+        keep: _sparkAddressesWithPending,
+        max: _sparkAddressRingMax,
+        hardMax: _sparkAddressRingHardMax);
     _persistSparkAddressRing();
   }
 
   @override
-  Future<WalletBalance> build() async => WalletBalance.empty();
+  Future<WalletBalance> build() async {
+    // This notifier lives for the session: the scope the move-settled
+    // refresh reads balances through.
+    MoveSettledRefresh.bind(ref);
+    return WalletBalance.empty();
+  }
 
   /// Run [tasks] with at most [concurrency] in flight, preserving
   /// result order (results[i] always belongs to tasks[i], exactly like
@@ -498,7 +515,10 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
     // Dedup against the SDK-driven paths (unclaimed + spark mixed
     // payments) is handled downstream in `transactions_provider.dart`
     // where all sources are collated.
-    Future<List<SparkPendingDeposit>> getSparkPendingDeposits() async {
+    // Null when the poll could not be read in full: the tip height, or any
+    // address the wallet tracks. The build then keeps the rows it already
+    // shows (see RawTransactionData.sparkPendingDepositsFetchFailed).
+    Future<List<SparkPendingDeposit>?> getSparkPendingDeposits() async {
       if (!isSpark) return <SparkPendingDeposit>[];
       try {
         // Hydrate from Hive once per process — covers the case
@@ -523,17 +543,27 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
         // for finding their tx. Tip height fetched once and reused.
         final tipFuture = MempoolAddressService.fetchBlockTipHeight()
             .timeout(const Duration(seconds: 8));
-        final addrFutures = _sparkAddressRing
+        var addressFailed = false;
+        // A snapshot: the ring can change while the reads are out.
+        final polled = List<String>.of(_sparkAddressRing);
+        final addrFutures = polled
             .map((a) => MempoolAddressService.fetchAddressTransactions(a)
-                .timeout(const Duration(seconds: 10))
-                .catchError((_) => <MempoolTransaction>[]))
+                    .timeout(const Duration(seconds: 10))
+                    .catchError((_) {
+                  addressFailed = true;
+                  return <MempoolTransaction>[];
+                }))
             .toList();
         final tipHeight = await tipFuture;
         final perAddrTxs = await Future.wait(addrFutures);
+        // One address unread could be the one the deposit was sent to.
+        if (addressFailed) return null;
 
         final seenTxids = <String>{};
         final pending = <SparkPendingDeposit>[];
-        for (final txs in perAddrTxs) {
+        final withPending = <String>{};
+        for (var a = 0; a < perAddrTxs.length; a++) {
+          final txs = perAddrTxs[a];
           for (final tx in txs) {
             // Only incoming credits to the deposit address. Outbound
             // (balanceChange <= 0) belongs to the withdraw path which
@@ -571,13 +601,19 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
               mempoolTx: tx,
               confirmations: confirmations,
             ));
+            withPending.add(polled[a]);
           }
         }
+        // Read in full (a failed address returned above): these are the
+        // addresses with money on its way now.
+        _sparkAddressesWithPending
+          ..clear()
+          ..addAll(withPending);
         return pending;
       } catch (_) {
-        // Network failure / SDK not ready — empty list keeps the
-        // activity feed stable instead of flashing an error row.
-        return <SparkPendingDeposit>[];
+        // Network failure / SDK not ready: unknown, not empty. The feed
+        // keeps the rows it shows instead of dropping a deposit on its way.
+        return null;
       }
     }
 
@@ -634,8 +670,11 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
     final usdbPaymentsFetchFailed = usdbTokenPaymentsRaw == null;
     final usdbTokenPayments = usdbTokenPaymentsRaw ?? const <breez.Payment>[];
     final polymarketActivity = transactionFutures[4] as List<Activity>;
+    final sparkPendingDepositsRaw =
+        transactionFutures[5] as List<SparkPendingDeposit>?;
+    final sparkPendingDepositsFetchFailed = sparkPendingDepositsRaw == null;
     final sparkPendingDeposits =
-        transactionFutures[5] as List<SparkPendingDeposit>;
+        sparkPendingDepositsRaw ?? const <SparkPendingDeposit>[];
     final polymarketUsdcReceives =
         transactionFutures[6] as List<PolymarketUsdcReceive>;
 
@@ -695,6 +734,7 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
       sparkPaymentsFetchFailed: sparkPaymentsFetchFailed,
       usdbPaymentsFetchFailed: usdbPaymentsFetchFailed,
       unclaimedDepositsFetchFailed: unclaimedDepositsFetchFailed,
+      sparkPendingDepositsFetchFailed: sparkPendingDepositsFetchFailed,
     );
 
     ref.read(rawTransactionDataProvider.notifier).state = rawData;
@@ -1393,70 +1433,84 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
         ],
       };
       final now = DateTime.now();
-      final synthetic = ref
-          .read(swapOrdersProvider)
-          .where((e) =>
-              orchestraRowAwaitsDelivery(e, linked: linkedRows, now: now))
-          .toList();
       final alreadyHidden =
           PolymarketSparkTxsService.orchestraDeliverySnapshot();
       final cacheSnapshots =
           ref.read(walletTransactionCacheProvider).values.toList();
       // Candidate receives across every cached wallet snapshot —
       // deliveries land on the Spark spending wallet, but reading all
-      // slots keeps this correct if that mapping ever widens.
+      // slots keeps this correct if that mapping ever widens. Every
+      // receive's amount is kept so a row's linked legs can be summed.
       final receives = <SparkTransaction>[];
+      final receiveSats = <String, int>{};
       final seenRxIds = <String>{};
       for (final snapshot in cacheSnapshots) {
         for (final tx
             in snapshot.allTransactionsSorted.whereType<SparkTransaction>()) {
           if (tx.type != TransactionType.received) continue;
+          // An on-chain deposit is the person's own money arriving, never
+          // a move's delivery: settling a move on it hid the deposit.
+          if (isOnChainDeposit(tx)) continue;
+          if (!seenRxIds.add(tx.id)) continue;
+          receiveSats[tx.id] = tx.amountSats.abs();
           if (tx.isPending) continue;
           if (alreadyHidden.contains(tx.id)) continue;
-          if (!seenRxIds.add(tx.id)) continue;
           receives.add(tx);
         }
       }
-      for (final ex in synthetic) {
+      final rows = ref.read(swapOrdersProvider);
+      final awaiting = <({SwapOrder row, int linkedSats, int? expectedSats})>[
+        for (final e in rows)
+          if (orchestraRowAwaitsDelivery(e, linked: linkedRows, now: now))
+            (row: e, linkedSats: 0, expectedSats: null)
+          else if (_shortOfItsLegs(e, links, receiveSats, now) case final s?)
+            s,
+      ];
+      for (final w in awaiting) {
         if (receives.isEmpty) break;
+        final ex = w.row;
         // The row's figure is a BTC decimal once polled, or Flashnet's
         // sats as the quote wrote it: read either the way the Activity
         // matcher does, never sats as bitcoin (which matched nothing).
-        final rawOut = double.tryParse(ex.withdrawalAmount) ?? 0;
-        final estSats = rawOut >= 1 && rawOut == rawOut.roundToDouble()
-            ? rawOut.round()
-            : (rawOut * 1e8).round();
-        SparkTransaction? best;
-        int? bestDeltaMs;
-        for (final rx in receives) {
-          final delta = rx.timestamp.millisecondsSinceEpoch - ex.timestamp;
-          if (delta < -2 * 60 * 1000 || delta > 90 * 60 * 1000) continue;
-          if (estSats > 0) {
-            final sats = rx.amountSats;
-            if (sats <= 0) continue;
-            final ratio = sats / estSats;
-            if (ratio < 0.5 || ratio > 1.25) continue;
-          }
-          if (bestDeltaMs == null || delta.abs() < bestDeltaMs) {
-            bestDeltaMs = delta.abs();
-            best = rx;
-          }
+        final estSats = orchestraBtcFieldToSats(ex.withdrawalAmount);
+        // A row already settled on some of its legs waits for the rest of
+        // what it said it would deliver; any other row for its figure.
+        final short = w.expectedSats != null;
+        final target = short ? w.expectedSats! - w.linkedSats : estSats;
+        final legs = reconcilerDeliveryLegs(
+          targetSats: target,
+          rowAt: DateTime.fromMillisecondsSinceEpoch(ex.timestamp),
+          receives: receives,
+          band: !short,
+        );
+        if (legs == null || legs.isEmpty) continue;
+        // A receive settles one exchange.
+        for (final rx in legs) {
+          receives.remove(rx);
         }
-        if (best == null) continue;
-        // One receive settles one exchange.
-        receives.remove(best);
-        final actualBtc = (best.amountSats / 1e8).toStringAsFixed(8);
+        final deliveredSats =
+            w.linkedSats + legs.fold<int>(0, (s, rx) => s + rx.amountSats);
+        final actualBtc = (deliveredSats / 1e8).toStringAsFixed(8);
         // A row Orchestra already reported done keeps its status and
-        // takes the delivered figure it never reported.
+        // takes the delivered figure it never reported; a payout split
+        // across transfers reads its legs' total.
         final settled = ex.copyWith(
           status: ex.isComplete ? ex.status : 'settled',
           withdrawalAmount: actualBtc,
         );
         await ref.read(swapOrdersProvider.notifier).updateExchange(settled);
-        // The link names the row, so Activity folds this receive into it
-        // (or into the move it is a leg of) on every read from now on.
-        PolymarketSparkTxsService.tagOrchestraDelivery(best.id,
-            orderId: ex.id, operationId: ex.operationId);
+        // The receive is the delivery: both ends of the move read again now.
+        MoveSettledRefresh.settledRow(settled, source: 'receive_settled');
+        // The link names the row, so Activity folds each leg into it (or
+        // into the move it is a leg of) on every read from now on; the
+        // figure it was matched against lets a leg still to come join it.
+        final expected = short ? w.expectedSats : (estSats > 0 ? estSats : null);
+        for (final rx in legs) {
+          PolymarketSparkTxsService.tagOrchestraDelivery(rx.id,
+              orderId: ex.id,
+              operationId: ex.operationId,
+              expectedSats: expected);
+        }
         // Surface the settled row without waiting for the next full
         // gather pass — same propagation the sweep's inserts use.
         ref
@@ -1471,13 +1525,11 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
       // refresh). Consumed receive ids share the delivery tag box for
       // persistence; the home feed's hide only applies to
       // SparkTransaction ids, so tagging these is inert on-screen.
+      // Every rail into Predictions: the Orchestra deposit rows (USDC)
+      // and the Investing → Predictions CCTP rows (USDC.e) alike.
       final polygonPending = ref
           .read(swapOrdersProvider)
-          .where((e) =>
-              e.providerName == 'Orchestra' &&
-              e.networkTo == 'POLYGON' &&
-              e.coinTo == 'USDC' &&
-              e.isPending)
+          .where((e) => isPredictionsDepositOrder(e) && e.isPending)
           .toList();
       if (polygonPending.isEmpty) return;
       final usdcRx = <PolymarketUsdcReceive>[];
@@ -1516,11 +1568,16 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
           withdrawalAmount: best.amount.toStringAsFixed(2),
         );
         await ref.read(swapOrdersProvider.notifier).updateExchange(settled);
+        MoveSettledRefresh.settledRow(settled, source: 'receive_settled');
         PolymarketSparkTxsService.tagOrchestraDelivery(best.id,
             orderId: ex.id, operationId: ex.operationId);
         ref
             .read(walletTransactionCacheProvider.notifier)
             .mergeSwapOrder(settled);
+        // The wallet's own receive is the delivery: the money arrived,
+        // so it converts and shows now, the same path a status poll's
+        // "success" takes. Settling the row alone left it as USDC.e.
+        unawaited(_finishPredictionsDeposit(settled));
       }
     } catch (_) {}
   }
@@ -1772,6 +1829,16 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
                       (exchange.status == 'success' ||
                           exchange.status == 'refunded' ||
                           exchange.status == 'expired');
+                  // The move ended (delivered, refunded or expired after
+                  // paying): the cash accounts at both ends read again now,
+                  // not on their next poll. A row the receive reconciler
+                  // already settled was refreshed then.
+                  if (!wasTerminal &&
+                      exchange.status != 'settled' &&
+                      orchestraExchangeStatusIsTerminal(mappedStatus)) {
+                    MoveSettledRefresh.settledRow(updated,
+                        source: 'orchestra_status');
+                  }
                   // A completed delivery to Spark refreshes the wallet from
                   // the swap order store itself (OwnSparkArrivals), for
                   // this poller and every other writer alike.
@@ -2110,6 +2177,13 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
                         (ex.status == 'success' ||
                             ex.status == 'refunded' ||
                             ex.status == 'expired');
+                    // Both ends read again now, as in the primary block.
+                    if (!wasTerminal2 &&
+                        ex.status != 'settled' &&
+                        orchestraExchangeStatusIsTerminal(mappedStatus)) {
+                      MoveSettledRefresh.settledRow(updated,
+                          source: 'orchestra_status');
+                    }
                     // A completed delivery to Spark refreshes the wallet
                     // from the swap order store (OwnSparkArrivals).
                     if (updated.isCashAppPurchase) {
@@ -2528,6 +2602,36 @@ class _RiverpodStandingDepositRows implements StandingDepositRows {
 /// figure stayed 0, and nothing could tie the receive to it. Only rows
 /// created within [kOwnDeliveryLinkWindow] of [now] qualify: older history
 /// is never rematched.
+/// A bitcoin delivery to Spark settled on fewer legs than it said it would
+/// deliver: its linked receives add up to less than the figure the
+/// reconciler matched the first of them against (two percent short at
+/// least), and it started within [kOwnDeliveryArrivalWindow] of [now]. The
+/// rest of the payout may still land and join it; null otherwise.
+({SwapOrder row, int linkedSats, int? expectedSats})? _shortOfItsLegs(
+    SwapOrder e,
+    Map<String, OrchestraDeliveryLink> links,
+    Map<String, int> receiveSats,
+    DateTime now) {
+  if (e.coinTo.toUpperCase() != 'BTC' || e.networkTo != 'SPARK') return null;
+  if (now.difference(DateTime.fromMillisecondsSinceEpoch(e.timestamp)) >
+      kOwnDeliveryArrivalWindow) {
+    return null;
+  }
+  var linked = 0;
+  int? expected;
+  for (final MapEntry(key: rxId, value: link) in links.entries) {
+    final mine = link.orderId == e.id ||
+        (link.operationId != null && link.operationId == e.operationId);
+    if (!mine) continue;
+    linked += receiveSats[rxId] ?? 0;
+    final x = link.expectedSats;
+    if (x != null && (expected == null || x > expected)) expected = x;
+  }
+  if (linked <= 0 || expected == null) return null;
+  if (expected - linked <= tightDeliveryTolerance(expected)) return null;
+  return (row: e, linkedSats: linked, expectedSats: expected);
+}
+
 @visibleForTesting
 bool orchestraRowAwaitsDelivery(SwapOrder e,
     {required Set<String> linked, required DateTime now}) {
@@ -2561,3 +2665,17 @@ bool orchestraRowAwaitsDelivery(SwapOrder e,
 /// How long after it was created a done order with no bitcoin figure may
 /// still be settled on its receive.
 const Duration kOwnDeliveryLinkWindow = Duration(hours: 6);
+
+
+/// Trims [ring] (latest first) to [max] addresses, dropping the oldest
+/// first but never the current one (the first) nor one in [keep] (an
+/// address with a deposit on its way); past [hardMax] the oldest go
+/// regardless.
+@visibleForTesting
+void trimSparkAddressRing(List<String> ring,
+    {required Set<String> keep, required int max, required int hardMax}) {
+  for (var i = ring.length - 1; i >= 1 && ring.length > max; i--) {
+    if (!keep.contains(ring[i])) ring.removeAt(i);
+  }
+  if (ring.length > hardMax) ring.removeRange(hardMax, ring.length);
+}

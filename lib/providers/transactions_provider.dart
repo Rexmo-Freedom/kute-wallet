@@ -19,6 +19,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:kute/screens/shared/sal_reactions.dart';
 import 'package:kute/models/outlogic_model.dart';
 import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/models/polymarket_model.dart' show Activity, ActivityType;
@@ -107,6 +108,13 @@ class RawTransactionData {
   // becomes permanently invisible and unclaimable.
   final bool unclaimedDepositsFetchFailed;
 
+  // True when the mempool poll behind [sparkPendingDeposits] could not be
+  // read in full (the tip height, or any tracked address). An empty or
+  // partial list then is not "no deposit on its way": the cached rows
+  // stand, or an on-chain receive still confirming vanishes from Activity
+  // on whichever sync the read failed (a Lightning receive's, say).
+  final bool sparkPendingDepositsFetchFailed;
+
   RawTransactionData({
     required this.bitcoinTxs,
     required this.lightningPayments,
@@ -123,6 +131,7 @@ class RawTransactionData {
     this.sparkPaymentsFetchFailed = false,
     this.usdbPaymentsFetchFailed = false,
     this.unclaimedDepositsFetchFailed = false,
+    this.sparkPendingDepositsFetchFailed = false,
   });
 }
 
@@ -805,7 +814,11 @@ class TransactionNotifier extends StateNotifier<Transaction> {
     // Money landed in Bitcoin: one pattern however many receives this
     // snapshot holds. The helper keeps it quiet in the background and
     // right after a success overlay already marked the moment.
-    if (arrivedNow) KuteHaptics.play(KuteHaptic.moneyIn);
+    if (arrivedNow) {
+      KuteHaptics.play(KuteHaptic.moneyIn);
+      // Sal in the bar cheers with it (sal_reactions.dart).
+      SalReactions.play(SalReaction.cheer);
+    }
     if (anyReceiveFired) {
       // Drive the mascot into `incoming` for ~1.6s. Single wag
       // regardless of how many receives landed in this snapshot.
@@ -1215,9 +1228,35 @@ class TransactionNotifier extends StateNotifier<Transaction> {
     final sdkListsLive = !rawData.sparkPaymentsFetchFailed &&
         !rawData.unclaimedDepositsFetchFailed &&
         !identical(sparkTransactions, cachedSpark);
-    final sparkPendingDeposits = rawData.sparkPendingDeposits
-        .where((d) => d.confirmations < 3 || sdkListsLive)
-        .toList();
+    // A mempool read that failed keeps the rows this wallet already shows:
+    // an empty list from a timeout is not the deposit leaving.
+    final pendingSource = rawData.sparkPendingDepositsFetchFailed
+        ? (ref.read(walletTransactionCacheProvider)[walletId]
+                ?.sparkPendingDeposits ??
+            const <SparkPendingDeposit>[])
+        : rawData.sparkPendingDeposits;
+    // Deposits the SDK is already adding: an instant claim submitted (or
+    // done) on its unclaimed entry, or its deposit payment still settling.
+    final claimingTxids = <String>{
+      for (final d in rawData.unclaimedDeposits)
+        if (d.instantClaimStatus is breez.InstantClaimStatus_Submitted ||
+            d.instantClaimStatus is breez.InstantClaimStatus_Claimed)
+          d.txid.toLowerCase(),
+      for (final t in sparkTransactions)
+        if (t.details?.status == breez.PaymentStatus.pending &&
+            t.details?.details is breez.PaymentDetails_Deposit)
+          (t.details!.details as breez.PaymentDetails_Deposit)
+              .txId
+              .toLowerCase(),
+    };
+    final sparkPendingDeposits = [
+      for (final d in pendingSource)
+        if (d.confirmations < 3 || sdkListsLive)
+          d.withClaimInProgress(
+              claimingTxids.contains(d.mempoolTx.txid.toLowerCase()) ||
+                  // An unread list says nothing new: keep what was known.
+                  (rawData.unclaimedDepositsFetchFailed && d.claimInProgress)),
+    ];
 
     // 5. Mempool Transactions (External Address)
     final mempoolTransactions = rawData.mempoolTxs;

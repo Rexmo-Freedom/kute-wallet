@@ -28,6 +28,7 @@
 // (PortfolioActivityList), the whole list (founder request, October 2026:
 // the Portfolio was building every row).
 
+import 'package:kute/screens/shared/kute_motion.dart' show KuteStaggerIn;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -207,15 +208,22 @@ class PortfolioActivitySliver extends ConsumerWidget {
             onPressed: () => ref.invalidate(hyperliquidUserFillsProvider),
             icon: const Icon(Icons.refresh_rounded),
             label: Text(context.l10n.hlActivityRefreshFailedRetry)),
-      // Same day cards as Home and the wallets.
-      ...activityDaySections<PortfolioActivityEntry>(
-        shown,
-        timeOf: (e) => e.time,
-        rowOf: (e) => e.fill != null
-            ? HyperliquidFillActivityRow(
-                fill: e.fill!, compareWithSpendingWallet: true)
-            : buildUnifiedTransactionItem(e.tx!, context, ref),
-      ),
+      // Same day cards as Home and the wallets; the first rows arrive
+      // staggered on first paint (KuteStaggerIn).
+      ...() {
+        var index = 0;
+        return activityDaySections<PortfolioActivityEntry>(
+          shown,
+          timeOf: (e) => e.time,
+          rowOf: (e) => KuteStaggerIn(
+            index: index++,
+            child: e.fill != null
+                ? HyperliquidFillActivityRow(
+                    fill: e.fill!, compareWithSpendingWallet: true)
+                : buildUnifiedTransactionItem(e.tx!, context, ref),
+          ),
+        );
+      }(),
       // Home's "See all" pill (its Activity pill once selected), as is.
       if (more && seeAll != null)
         Padding(

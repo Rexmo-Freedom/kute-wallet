@@ -6,10 +6,8 @@
 // non-Yes/No second side read as the first.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/helpers/formatters/polymarket_side_labels.dart';
-import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/models/settings_model.dart';
@@ -32,6 +30,7 @@ import 'package:kute/theme/app_theme.dart';
 
 import '../../helpers/fake_swap_orders.dart';
 import '../../helpers/runtime_policy_fixture.dart';
+import '../../helpers/shell_bar_harness.dart';
 
 class _Prices extends LivePriceNotifier {
   @override
@@ -116,6 +115,7 @@ Future<void> _pumpSlip(
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
   _controller = null;
+  installShellBar();
   await tester.pumpWidget(ProviderScope(
     overrides: [
       settingsProvider.overrideWith((ref) => SettingsModel(Settings(
@@ -138,27 +138,19 @@ Future<void> _pumpSlip(
           controller?.call(ref) ?? (_controller = _CaptureController(ref))),
       ...overrides,
     ],
-    child: ScreenUtilInit(
-      designSize: const Size(430, 932),
-      builder: (_, __) => MaterialApp(
-        theme: ThemeData(
-            splashFactory: NoSplash.splashFactory,
-            fontFamily: 'Inter',
-            extensions: [AppColorsExtension.light()]),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: Scaffold(
-          resizeToAvoidBottomInset: false,
-          body: Align(
-            alignment: Alignment.bottomCenter,
-            child: BetSlipSheet(
-              marketQuestion: question,
-              outcomes: outcomes,
-              initialOutcomeIndex: initialIndex,
-              sideLabelPos: sideLabelPos,
-              sideLabelNeg: sideLabelNeg,
-              initialAmountUsd: 10,
-            ),
+    // The bar over the slip is the slip's button (shell_bar_harness.dart).
+    child: shellBarApp(
+      home: Scaffold(
+        resizeToAvoidBottomInset: false,
+        body: Align(
+          alignment: Alignment.bottomCenter,
+          child: BetSlipSheet(
+            marketQuestion: question,
+            outcomes: outcomes,
+            initialOutcomeIndex: initialIndex,
+            sideLabelPos: sideLabelPos,
+            sideLabelNeg: sideLabelNeg,
+            initialAmountUsd: 10,
           ),
         ),
       ),
@@ -322,12 +314,14 @@ void main() {
           await tester.pumpAndSettle();
 
           final cta = _cta(tester);
-          expect(
-              cta.label, 'Place \$10.00 on ${(c.ctaLabels ?? c.labels)[pick]}');
+          final label = 'Place \$10.00 on ${(c.ctaLabels ?? c.labels)[pick]}';
+          expect(cta.label, label);
           expect(cta.color, c.colors[pick]);
+          // The bar is the slip's button: it reads the same side.
+          expect(barPrimaryLabel(tester), label);
+          expect(barPrimaryEnabled(tester), isTrue);
 
-          await tester.tap(find.byType(PolySlipCta).first);
-          await tester.pumpAndSettle();
+          await tapBarPrimary(tester);
           expect(_controller?.tokens, [c.outcomes[pick].tokenId]);
           expect(tester.takeException(), isNull);
           await _release(tester, policy);
@@ -444,8 +438,7 @@ void main() {
         ],
         initialIndex: 1,
         controller: _ThinBookController.new);
-    await tester.tap(find.byType(PolySlipCta).first);
-    await tester.pumpAndSettle();
+    await tapBarPrimary(tester);
     expect(
         find.text('Up to \$4.00 fills now at this price. Nothing was bought. '
             'Try that amount or less.'),
@@ -494,8 +487,7 @@ void main() {
         ]);
     // A stop on the slip (any), then the autofire's word on it: the round
     // ended while the money moved, the money now Predictions cash.
-    await tester.tap(find.byType(PolySlipCta).first);
-    await tester.pumpAndSettle();
+    await tapBarPrimary(tester);
     final container = ProviderScope.containerOf(
         tester.element(find.byType(BetSlipSheet).first));
     container.read(pendingPolymarketBetProvider.notifier).setIntent(
@@ -516,8 +508,9 @@ void main() {
     expect(retry, findsOneWidget);
     expect(tester.widget<PolySlipCta>(retry).label,
         startsWith('Try again · '));
-    await tester.tap(retry);
-    await tester.pumpAndSettle();
+    // The retry is the bar: it reads the same, and a tap on it runs it.
+    expect(barPrimaryLabel(tester), startsWith('Try again · '));
+    await tapBarPrimary(tester);
     // Resolved from the series (the window in play), never the old id.
     expect(asked, [start]);
     final slips = tester.widgetList<BetSlipSheet>(find.byType(BetSlipSheet));

@@ -1,4 +1,10 @@
+import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/screens/shared/fitted_title.dart';
+import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
+import 'package:kute/screens/shared/kute_share_actions.dart';
+import 'package:kute/screens/home/components/kute_shell_bar.dart'
+    show KuteFigureShareRow, KuteSalHeaderButton;
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/shared/position_rows_card.dart' show PositionLinkRow;
 import 'package:kute/screens/shared/kute_blur.dart';
@@ -6,7 +12,8 @@ import 'package:kute/screens/shared/kute_motion.dart' show KuteStillWhenCovered;
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/screens/shared/charts/kute_chart_trade_lines.dart';
-import 'package:kute/screens/shared/charts/kute_chart_range_pills.dart';
+import 'package:kute/screens/shared/charts/kute_trend_chart.dart'
+    show KuteChartRangeRow;
 import 'package:kute/helpers/require_fresh_auth.dart';
 import 'package:kute/helpers/venue_intents.dart';
 import 'package:kute/helpers/auth_grant.dart';
@@ -19,7 +26,6 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/ledger/ledger_hyperliquid_activity_provider.dart';
 import 'package:kute/providers/ledger/ledger_hyperliquid_account_provider.dart';
 import 'package:kute/providers/ledger/ledger_identity_provider.dart';
-import 'package:kute/screens/shared/ask_sal_chip.dart';
 import 'package:kute/models/polymarket_model.dart' show PolymarketEvent;
 import 'package:kute/providers/hyperliquid_insights_provider.dart';
 import 'package:kute/screens/hyperliquid/components/hl_pressure_strip.dart';
@@ -30,7 +36,6 @@ import 'package:kute/screens/polymarket/market_detail_sheet.dart'
 import 'package:kute/screens/shared/charts/kute_chart_signals.dart';
 import 'package:kute/services/hyperliquid/insights/hl_crowd_match.dart';
 import 'package:kute/services/hyperliquid/insights/hl_flow_signals.dart';
-import 'package:kute/services/runtime_capabilities_service.dart';
 // lib/screens/hyperliquid/market_detail_sheet.dart
 //
 // Fullscreen market detail for one Hyperliquid market (perp or spot) —
@@ -38,8 +43,11 @@ import 'package:kute/services/runtime_capabilities_service.dart';
 // PageRouteBuilder, opaque: false, fullscreenDialog) so the two tabs
 // share one navigation grammar.
 //
-// Content: live header (WS mid via HlTickPrice: primary colour, a brief
-// green/red flash on a tick),
+// Content: the title row (back, logo, ticker, watchlist star), the live
+// price large under it (WS mid via HlTickPrice: primary colour, a brief
+// green/red flash on a tick) with Sal's Share pill at the end of its row
+// (founder, 31 October 2026: next to the big number, not in the title
+// row) and the change today under the price,
 // HlCandleChart (TradingView model for every style: an interval row
 // 1m…1W, the user's pan and zoom, older bars loaded on demand, one global
 // style and interval for all markets — fed by WIRE coin, the one mapping
@@ -63,6 +71,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 
+import 'package:kute/helpers/hyperliquid_activity.dart' show hlOrderSideLabel;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/chart_drawing.dart';
 import 'package:kute/models/hyperliquid_market.dart';
@@ -79,11 +88,14 @@ import 'package:kute/screens/home/components/action_pill.dart'
     show greenColor, redColor;
 import 'package:kute/screens/hyperliquid/components/hl_position_detail_sheet.dart';
 import 'package:kute/screens/hyperliquid/components/hl_charts.dart';
+import 'package:kute/screens/hyperliquid/components/hl_drawing_tools.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_history.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_intervals.dart';
+import 'package:kute/screens/hyperliquid/components/hl_chart_sheet.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_opening.dart';
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 import 'package:kute/screens/hyperliquid/components/hl_format.dart';
+import 'package:kute/screens/hyperliquid/components/hl_market_description.dart';
 import 'package:kute/screens/hyperliquid/components/hl_market_stats.dart';
 import 'package:kute/screens/hyperliquid/components/hl_tick_price.dart';
 import 'package:kute/screens/hyperliquid/components/hl_watch_star.dart';
@@ -139,33 +151,18 @@ class HlMarketDetailSheet extends ConsumerStatefulWidget {
     // Drop active focus (search field) so closing the sheet doesn't
     // re-summon the keyboard — same fix as the PM detail sheet.
     FocusManager.instance.primaryFocus?.unfocus();
-    final reduceMotion =
-        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     Navigator.of(context, rootNavigator: true).push(
-      PageRouteBuilder(
+      // The detail sheet's rise (kute_page_route.dart): the settle easing
+      // with the 0.97 → 1 scale, down on the close easing.
+      KuteSheetPageRoute(
         settings: const RouteSettings(name: routeName),
-        opaque: false,
         barrierColor: Colors.black.withValues(alpha: 0.4),
-        fullscreenDialog: true,
-        transitionDuration:
-            reduceMotion ? Duration.zero : const Duration(milliseconds: 300),
-        reverseTransitionDuration:
-            reduceMotion ? Duration.zero : const Duration(milliseconds: 300),
         // Still while the order slip (or any sheet) covers it, so its tick
         // animations never share the frames of the slip being scrolled.
-        pageBuilder: (_, __, ___) => KuteStillWhenCovered(
+        builder: (_) => KuteStillWhenCovered(
           child: HlMarketDetailSheet(
               market: market, ledgerWalletId: ledgerWalletId, source: source),
         ),
-        transitionsBuilder: (_, animation, __, child) {
-          return SlideTransition(
-            position: animation.drive(
-              Tween(begin: const Offset(0, 1), end: Offset.zero)
-                  .chain(CurveTween(curve: Curves.easeOutCubic)),
-            ),
-            child: child,
-          );
-        },
       ),
     );
   }
@@ -291,14 +288,6 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
 
   HlMarket get market => hlSheetMarket(ref, widget.market);
 
-  /// What Sal is told about this screen: public market facts only.
-  AdvisorContext _salContext(HlMarket m) => AdvisorContext(
-        surface: 'hl_market_detail',
-        marketVenue: 'hyperliquid',
-        marketId: m.wireCoin,
-        marketDisplayName: m.coin,
-      );
-
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
@@ -333,6 +322,34 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
       }
     }
 
+    // The page's Sal context, placed in its header (no bottom bar): held
+    // by the scope around the watchlist star while the header is up; its
+    // control, the Share pill (KuteSalHeaderButton), sits beside the price.
+    final bar = marketBarContext(
+      context,
+      // As the header names it, the logo drawn as the header draws it
+      // (the Sal sheet's preview and send cards; founder: never the raw
+      // ticker and a letter tile).
+      title: hlFriendlyName(widget.market.coin) ?? widget.market.coin,
+      ticker: widget.market.coin,
+      wireCoin: widget.market.wireCoin,
+      coinCategory: widget.market.category,
+      coinIconUrl: widget.market.iconUrl,
+      venue: kMarketLinkInvesting,
+      slug: widget.market.coin,
+      price: formatHlPrice(
+          widget.market.midPx > 0 ? widget.market.midPx : widget.market.markPx,
+          decimalCap: widget.market.pxDecimalCap),
+      // The pick: Long, the side this page opens on.
+      outcome: context.l10n.longLabel,
+      side: 'long',
+      actionRowHeight: _advancedChart ? 0 : _kInvestRowHeight,
+      position: false,
+      category: SearchCategory.perpetuals,
+      searchHint: context.l10n.searchInvestmentsHint,
+      source: 'trading',
+      placement: KuteBarPlacement.header,
+    );
     return Scaffold(
       backgroundColor: context.isDark ? c.gradientBottom : c.background,
       body: Container(
@@ -377,9 +394,14 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                           ),
                         ),
                       ),
-                      // The watchlist star. Sal's one door on this screen
-                      // is the "Why is it moving?" row under the chart.
-                      HlWatchStar(market: m, size: 22, source: 'detail'),
+                      // The watchlist star; the page's bar context is held
+                      // here with its `header` placement. The Share pill
+                      // is beside the price, under this row.
+                      KuteBarContextScope(
+                        barContext: bar,
+                        child:
+                            HlWatchStar(market: m, size: 22, source: 'detail'),
+                      ),
                     ],
                   ),
                 ),
@@ -399,23 +421,32 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                       // Smaller rather than cut on a long price. The
                       // primary text colour at rest; a tick flashes green
                       // or red and fades back, so the price never sits in
-                      // a colour that argues with the change.
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: HlTickPrice(
-                          key: const ValueKey('hl-detail-price'),
-                          price: price,
-                          text: formatHlPrice(price, decimalCap: m.pxDecimalCap),
-                          style: TextStyle(
-                            color: c.textPrimary,
-                            fontSize: 38.sp,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -1.0,
-                            height: 1.1,
-                            fontFeatures: const [FontFeature.tabularFigures()],
+                      // a colour that argues with the change. Sal's Share
+                      // pill at the end of the row, centred on the price
+                      // (founder, 31 October 2026: next to the big number).
+                      KuteFigureShareRow(
+                        gap: 8.w,
+                        figure: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: HlTickPrice(
+                            key: const ValueKey('hl-detail-price'),
+                            price: price,
+                            text: formatHlPrice(price,
+                                decimalCap: m.pxDecimalCap),
+                            style: TextStyle(
+                              color: c.textPrimary,
+                              fontSize: 38.sp,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -1.0,
+                              height: 1.1,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures()
+                              ],
+                            ),
                           ),
                         ),
+                        share: KuteSalHeaderButton(barContext: bar),
                       ),
                       SizedBox(height: 4.h),
                       // Wrap (not Row) so the change and the optional
@@ -455,32 +486,34 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
 
               // ── Body ──────────────────────────────────────────────
               Expanded(
-                child: LayoutBuilder(builder: (context, bodyCons) {
-                  // Bounded chart (540 with Details
-                  // collapsed, 300 once it opens) instead of filling the
-                  // whole viewport, and capped at 78% of the body so the
-                  // pills under it stay on screen on short phones; Details starts below. Advanced mode still grows it to
-                  // dominate. HlCandleChart applies .h internally, so the
-                  // value is handed over in design units.
+                child: Builder(builder: (context) {
+                  // The reading chart: a 260 plot (design units;
+                  // HlCandleChart applies .h) starting 12 under the change
+                  // line, its interval row right under it, and the rows
+                  // below. Advanced mode grows it to the whole screen.
                   if (_advancedChart) {
                     // Editing: the chart alone, the whole screen
                     // (HlChartEditBody, shared with the position screen).
-                    return HlChartEditBody(
-                      chart: HlCandleChart(
-                        key: _chartHostKey,
-                        market: m,
-                        height: 240,
-                        fillHeight: true,
-                        showSignals: true,
-                        ledgerWalletId: widget.ledgerWalletId,
-                        onAdvancedChanged: (on) =>
-                            setState(() => _advancedChart = on),
+                    // The header (and the page's bar context with it) is
+                    // away, so the bar is hidden outright here: nothing
+                    // over the chart tool.
+                    return KuteBarContextScope(
+                      barContext: const KuteBarContext.hidden(),
+                      child: HlChartEditBody(
+                        chart: HlCandleChart(
+                          key: _chartHostKey,
+                          market: m,
+                          height: 240,
+                          fillHeight: true,
+                          showSignals: true,
+                          ledgerWalletId: widget.ledgerWalletId,
+                          onAdvancedChanged: (on) =>
+                              setState(() => _advancedChart = on),
+                        ),
                       ),
                     );
                   }
-                  final target = 540.h;
-                  final chartHeight =
-                      math.min(target, bodyCons.maxHeight * 0.78) / 1.h;
+                  const chartHeight = 260.0;
                   return SingleChildScrollView(
                     // Drawing on the chart must not scroll the sheet, so
                     // Advanced mode pins the body until it is switched off.
@@ -494,16 +527,17 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                     // indicator on its own.
                     padding: EdgeInsets.fromLTRB(
                         20.w,
-                        10.h,
+                        12.h,
                         20.w,
-                        24.h +
+                        // The foot scrolls clear of the floating bar.
+                        kuteBarScrollClearance.h +
                             (_advancedChart
                                 ? MediaQuery.viewPaddingOf(context).bottom
                                 : 0)),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Bounded chart (see chartHeight above); Advanced
+                        // The 260 plot (see chartHeight above); Advanced
                         // mode expands it (animated inside the chart).
                         HlCandleChart(
                           key: _chartHostKey,
@@ -532,16 +566,9 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                             onTap: () =>
                                 HlCandleChart.openAdvanced(_chartHostKey),
                           ),
-                        // Sal's one quiet door on this screen, under the
-                        // Advanced chart row: "Why is it moving?",
-                        // on every market (perp, spot, HIP-3), calm or not.
-                        if (!_advancedChart)
-                          SalWhyMovingRow(
-                            advisorContext: _salContext(m),
-                            question: salWhyMovingHl(context.l10n,
-                                label: m.coin),
-                            chipSignals: salSignalsForHlMarket(m),
-                          ),
+                        // (The "Why is it moving?" row is gone: that
+                        // question is the first Ask Sal chip in the bar's
+                        // Sal sheet; founder, 31 October 2026.)
                         // About, whose sheet holds the stats and
                         // long-form details, so the chart keeps the
                         // screen.
@@ -622,6 +649,10 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
   /// the CTA routes through LedgerActions, which hands the SAME order slip
   /// that wallet id: one ticket, signed by the device instead of the hot
   /// account.
+  /// The pinned row's height for the bar to clear (kute_bar_context.dart,
+  /// actionRowHeight): its padding, the buttons and the hairline above.
+  double get _kInvestRowHeight => 12.h + 56.h + 8.h + 0.5;
+
   Widget _buildInvestRow(HlMarket m, double spotHeld) {
     final l10n = context.l10n;
     final showOtherSide = !m.isSpot || spotHeld > 0;
@@ -688,6 +719,8 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
     return InkWell(
       onTap: () {
         HapticFeedback.selectionClick();
+        // The descriptions table is read while the sheet slides in.
+        ref.read(hlMarketDescriptionsProvider);
         // Once: a second tap while it slides in does not stack another.
         unawaited(OpenOnce.run(
             'hl-about:${m.wireCoin}',
@@ -731,13 +764,14 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
   }
 }
 
-/// The sheet behind the "About (name)" row: first the market's Stats
-/// (label / value pairs in two columns: 24h volume, open interest,
-/// funding, maximum leverage, mark, 24h high and low, spread), then what
-/// the market is and how it trades right now: the contract rows, the
-/// funding payer line and countdown, the stock notice, the order book and
-/// the recent trades. Its requests (the 24h candles, the book, the
-/// trades) only run while it is open.
+/// The sheet behind the "About (name)" row: first what the market is (its
+/// description, [hlMarketDescription], over the venue and kind), then its
+/// Stats (label / value pairs in two columns: 24h volume, open interest,
+/// funding, maximum leverage, mark, 24h high and low, spread), then how it
+/// trades right now: the position rows, the funding payer line and
+/// countdown, the stock notice, the order book and the recent trades. Its
+/// requests (the 24h candles, the book, the trades) only run while it is
+/// open. It scrolls clear of the floating bar.
 class _HlAboutSheet extends ConsumerWidget {
   final String title;
 
@@ -759,6 +793,13 @@ class _HlAboutSheet extends ConsumerWidget {
     final m = hlSheetMarket(ref, market);
     final position = this.position;
     final l10n = context.l10n;
+    // Null for the moment the bundled table is still being read: the
+    // description waits rather than flashing the template first.
+    final descriptions = ref.watch(hlMarketDescriptionsProvider);
+    final description = descriptions.isLoading && !descriptions.hasValue
+        ? null
+        : hlMarketDescription(
+            l10n, m, descriptions.valueOrNull ?? const <String, String>{});
 
     // 24h high/low from the fixed 1h × 24h candle window. Spot-pair
     // candles arrive in raw pair units: rescaled onto display units like
@@ -816,16 +857,43 @@ class _HlAboutSheet extends ConsumerWidget {
           ),
           Flexible(
             child: SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(20.w, 4.h, 20.w, 24.h),
+              // The last trades scroll clear of the floating bar.
+              padding:
+                  EdgeInsets.fromLTRB(20.w, 4.h, 20.w, kuteBarScrollClearance.h),
               child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // What it is: the description, then the venue and
+                      // the kind (Perp / Spot) on one quiet line.
+                      Column(
+                        key: const ValueKey('hl-about-what-it-is'),
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (description != null)
+                            Text(
+                              description,
+                              style: TextStyle(
+                                color: c.textPrimary,
+                                fontSize: 15.sp,
+                                height: 1.4,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          SizedBox(height: 6.h),
+                          Text(
+                            l10n.hlAboutTradedOn(HlDexNames.venueOf(m),
+                                hlKindLabel(l10n, isSpot: m.isSpot)),
+                            style: TextStyle(
+                              color: c.textTertiary,
+                              fontSize: 12.sp,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 20.h),
                       HlStatsSection(title: l10n.investingStats, stats: stats),
                       SizedBox(height: 12.h),
-                      SheetDetailRow(
-                        label: context.l10n.chartInstrument,
-                        value: hlKindLabel(context.l10n, isSpot: m.isSpot),
-                      ),
                       if (position != null) ...[
                         SheetDetailRow(
                             label: context.l10n.chartPositionSize,
@@ -990,84 +1058,25 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
   HlChartStyle get _style =>
       HlChartStyle.fromName(ref.read(hlChartLayoutProvider).style);
 
-  (IconData, String) _styleLook(HlChartStyle style) => switch (style) {
-        HlChartStyle.candles => (
-            Icons.candlestick_chart_rounded,
-            context.l10n.chartStyleCandles
-          ),
-        HlChartStyle.hollow => (
-            Icons.crop_square_rounded,
-            context.l10n.chartStyleHollow
-          ),
-        HlChartStyle.bars => (
-            Icons.bar_chart_rounded,
-            context.l10n.chartStyleBars
-          ),
-        HlChartStyle.heikinAshi => (
-            Icons.stacked_bar_chart_rounded,
-            context.l10n.chartStyleHeikinAshi
-          ),
-        HlChartStyle.line => (
-            Icons.show_chart_rounded,
-            context.l10n.chartStyleLine
-          ),
-        HlChartStyle.area => (
-            Icons.area_chart_rounded,
-            context.l10n.chartStyleArea
-          ),
-        HlChartStyle.baseline => (
-            Icons.align_horizontal_center_rounded,
-            context.l10n.chartStyleBaseline
-          ),
+  /// The chart button's glyph for [style] (one of HlChartStyle.picker).
+  IconData _styleIcon(HlChartStyle style) => switch (style) {
+        HlChartStyle.line => Icons.show_chart_rounded,
+        HlChartStyle.area => Icons.area_chart_rounded,
+        _ => Icons.candlestick_chart_rounded,
       };
 
-  /// One sheet with every chart style named, instead of two pills that
-  /// only knew line and candles.
-  Future<void> _pickChartStyle() async {
-    HapticFeedback.selectionClick();
-    final current = _style;
-    final picked = await showAppBottomSheet<HlChartStyle>(
-      context: context,
-      builder: (sheetContext) => AppBottomSheetContainer(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            AppBottomSheetHeader(
-              title: context.l10n.chartStyleTitle,
-              trailing: IconButton(
-                tooltip:
-                    MaterialLocalizations.of(sheetContext).closeButtonTooltip,
-                onPressed: () => Navigator.of(sheetContext).pop(),
-                icon: const Icon(Icons.close_rounded),
-              ),
-            ),
-            for (final style in HlChartStyle.values)
-              AppBottomSheetListTile(
-                title: _styleLook(style).$2,
-                icon: _styleLook(style).$1,
-                isSelected: style == current,
-                onTap: () => Navigator.of(sheetContext).pop(style),
-              ),
-            SizedBox(height: 8.h),
-          ],
-        ),
-      ),
-    );
-    if (picked == null || !mounted || picked == current) return;
-    // Only how the bars are drawn changes: the interval, the view and the
-    // history stay, on this market and every other one.
-    ref.read(hlChartLayoutProvider.notifier).setStyle(picked.name);
-    VenueAnalytics.settingChanged(
-      'chart_type_changed',
-      setting: 'chart_style',
-      value: picked.name,
-      extra: {
-        'type': picked.name,
-        'coin': widget.market.coin,
-        ...VenueAnalytics.hlAssetParams(widget.market.coin),
-      },
-    );
+  /// The Chart sheet (hl_chart_sheet.dart): the three style cards over
+  /// the indicators list. The Advanced editor opens one half from each of
+  /// its two buttons.
+  void _openChartSheet({bool style = true, bool indicators = true}) {
+    unawaited(showHlChartSheet(
+      context,
+      market: widget.market,
+      marketKey: _marketKey,
+      candles: _shownCandles ?? const <HyperliquidCandle>[],
+      showStyle: style,
+      showIndicators: indicators,
+    ));
   }
 
   /// Interval the live tape is actually painted at (the seed may refine a
@@ -1151,11 +1160,20 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
   /// outside the mode; only placing/selecting/editing needs it on.
   bool _drawingMode = false;
 
-  /// The armed tool. Null = select/edit. Stays armed across placements
-  /// (standard trading-app behavior) so consecutive tap-drags keep
-  /// placing; disarmed only by re-tapping the pill, picking another
-  /// tool, tapping Done, or hitting the per-market drawings cap.
+  /// The tool in hand. Null = Cursor (select/edit). One drawing per
+  /// pick: after it lands the rail goes back to Cursor, unless the tool
+  /// was double-tapped ([_toolSticky]).
   ChartDrawingTool? _armedTool;
+
+  /// TradingView's "stay in drawing mode": a double tap on a rail tool
+  /// keeps it in hand after each drawing, until it is tapped again.
+  bool _toolSticky = false;
+  ChartDrawingTool? _lastRailTool;
+  DateTime _lastRailTapAt = DateTime(0);
+
+  /// The first point of a two-point drawing is down (tap-tap placement);
+  /// the hint asks for the second.
+  bool _placementPending = false;
 
   /// ARGB of the armed color; null = the neutral theme default.
   int? _armedColorValue;
@@ -1314,7 +1332,8 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
           id: 'order:${o.oid}',
           kind: ChartTradeLineKind.limit,
           price: o.limitPx,
-          label: o.isBuy ? context.l10n.buy : context.l10n.sell,
+          label: hlOrderSideLabel(context.l10n,
+              coin: o.coin, isBuy: o.isBuy, reduceOnly: o.reduceOnly),
           detail: '$size @ ${px(o.limitPx)}',
           isBuy: o.isBuy,
           editable: editable,
@@ -1489,81 +1508,13 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     widget.onAdvancedChanged?.call(entering);
   }
 
-  void _toggleIndicator(String key) {
-    HapticFeedback.selectionClick();
-    _preferences.toggleIndicator(key);
-    TrackingService.track('indicator_toggled', params: {
-      'indicator': key,
-      'enabled': ref
-          .read(hlChartPreferencesProvider(_marketKey))
-          .indicators
-          .contains(key),
-      'coin': widget.market.coin,
-      ...VenueAnalytics.hlAssetParams(widget.market.coin),
-    });
-  }
-
-  List<(String, String)> get _indicatorChips => [
-        ('ma', 'MA 20/50'),
-        ('ema', 'EMA 9/21'),
-        ('bb', 'BB 20/2'),
-        ('vwap', 'VWAP'),
-        ('rsi', 'RSI 14'),
-        ('macd', 'MACD'),
-        ('stoch', 'Stoch 14'),
-        ('atr', 'ATR 14'),
-        ('vol', context.l10n.chartVolume),
-        ('volma', 'Vol MA 20'),
-        ('log', context.l10n.chartLogScale),
-      ];
-
   // ─────────────────────── market-signal layers ───────────────────────
   //
-  // Optional marks about the market, listed under the indicators and
-  // stored with them per market. Every one is off until switched on
-  // there, except the pressure strip (on until switched off).
-
-  /// The layers this market can show: (key, title, note). Funding and
-  /// open interest exist on perps only; the Predictions layers only where
-  /// Predictions is offered, and its levels only for an asset it covers.
-  List<(String, String, String)> get _layers {
-    if (!widget.showSignals) return const [];
-    final l10n = context.l10n;
-    final m = widget.market;
-    final predictions =
-        ref.read(runtimeCapabilitiesProvider).allows('polymarket.browse');
-    return [
-      (kHlLayerPressureOff, l10n.hlLayerPressure, l10n.hlLayerPressureNote),
-      (kHlLayerBigTrades, l10n.hlLayerBigTrades, l10n.hlLayerBigTradesNote),
-      if (!m.isSpot) ...[
-        (kHlLayerFunding, l10n.hlLayerFunding, l10n.hlLayerFundingNote),
-        (kHlLayerOi, l10n.hlLayerOi, l10n.hlLayerOiNote),
-      ],
-      if (predictions && hlCrowdAssetFor(m) != null)
-        (kHlLayerCrowd, l10n.hlLayerCrowd, l10n.hlLayerCrowdNote),
-      if (predictions)
-        (kHlLayerMacro, l10n.hlLayerMacro, l10n.hlLayerMacroNote),
-    ];
-  }
-
-  /// A layer is on when its key is stored, except the pressure strip,
-  /// whose stored key switches it off.
-  static bool _layerOn(Set<String> stored, String key) =>
-      key == kHlLayerPressureOff ? !stored.contains(key) : stored.contains(key);
-
-  void _toggleLayer(String key) {
-    HapticFeedback.selectionClick();
-    final wasOn =
-        _layerOn(ref.read(hlChartPreferencesProvider(_marketKey)).indicators, key);
-    _preferences.toggleIndicator(key);
-    TrackingService.track('indicator_toggled', params: {
-      'indicator': key == kHlLayerPressureOff ? 'pressure' : key,
-      'enabled': !wasOn,
-      'layer': true,
-      'coin': widget.market.coin,
-      ...VenueAnalytics.hlAssetParams(widget.market.coin),
-    });
-  }
+  // Optional marks about the market, stored with the indicators per
+  // market. The Chart sheet no longer lists them (founder, 1 November
+  // 2026: only the useful indicators), so a stored one loads as off
+  // (ChartPreferencesNotifier.shownIndicators); the pressure strip, on
+  // until switched off, stays on.
 
   /// Funding flips, recomputed when a new history lands.
   Object? _flipsSource;
@@ -1714,71 +1665,13 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     );
   }
 
-  /// Indicators sit behind one top-bar button (TradingView's "fx") as a
-  /// list that toggles in place, instead of a chip row under the chart.
-  Future<void> _pickIndicators() async {
-    HapticFeedback.selectionClick();
-    await showAppBottomSheet<void>(
-      context: context,
-      builder: (sheetContext) => AppBottomSheetContainer(
-        maxHeight: 0.8,
-        child: Consumer(
-          builder: (context, ref, _) {
-            final on =
-                ref.watch(hlChartPreferencesProvider(_marketKey)).indicators;
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                AppBottomSheetHeader(
-                  title: context.l10n.chartIndicators,
-                  trailing: IconButton(
-                    tooltip: MaterialLocalizations.of(sheetContext)
-                        .closeButtonTooltip,
-                    onPressed: () => Navigator.of(sheetContext).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ),
-                Flexible(
-                  child: ListView(
-                    shrinkWrap: true,
-                    padding: EdgeInsets.only(bottom: 12.h),
-                    children: [
-                      for (final (key, label) in _indicatorChips)
-                        AppBottomSheetListTile(
-                          title: label,
-                          subtitle: key == 'vwap'
-                              ? context.l10n.chartVwapWindow
-                              : null,
-                          isSelected: on.contains(key),
-                          onTap: () => _toggleIndicator(key),
-                        ),
-                      // The market-signal layers, in the same list.
-                      for (final (key, label, note) in _layers)
-                        AppBottomSheetListTile(
-                          title: label,
-                          subtitle: note,
-                          isSelected: _layerOn(on, key),
-                          onTap: () => _toggleLayer(key),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  void _onDrawingPlaced(ChartDrawing drawing) {
+  void _onDrawingPlaced(ChartDrawing drawing, {String? via}) {
     final before = ref
         .read(hlChartDrawingsProvider(hlChartDrawingMarketKey(widget.market)))
         .length;
     if (before >= kMaxDrawingsPerMarket) {
       // At the cap: quietly stop placing — disarm, keep what's drawn.
-      // No snackbar; the toolbar pill un-highlighting is the signal.
+      // No snackbar; the rail going back to Cursor is the signal.
       if (_armedTool != null) setState(() => _armedTool = null);
       return;
     }
@@ -1786,23 +1679,71 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     // No prices in analytics — type + coin only.
     TrackingService.track(
       'drawing_created',
-      params: {'type': drawing.tool.name, 'coin': widget.market.coin},
+      params: {
+        'type': drawing.tool.name,
+        'coin': widget.market.coin,
+        if (via != null) 'via': via,
+      },
     );
-    // One placement per arm (user decision: easy to edit beats fast to
-    // spam). The fresh drawing is selected with its handles up, so the
-    // very next drag adjusts it rather than dropping another shape;
-    // the Tools button re-arms for the next one.
+    if (via == null && _toolSticky && _armedTool == drawing.tool) {
+      // A tool kept in hand: the next tap starts the next drawing.
+      return;
+    }
+    // One drawing per pick, like TradingView: the rail goes back to
+    // Cursor and the new drawing is selected with its handles and
+    // toolbar up, so the next touch adjusts it.
     setState(() {
       _armedTool = null;
+      _toolSticky = false;
       _selectedDrawingId = drawing.id;
     });
   }
 
+  /// A rail tool tapped. One tap takes it in hand for one drawing; a
+  /// double tap keeps it in hand (shown with a small lock); a tap on the
+  /// tool in hand puts it down.
   void _armTool(ChartDrawingTool tool) {
     HapticFeedback.selectionClick();
+    final now = DateTime.now();
+    final second = _lastRailTool == tool &&
+        now.difference(_lastRailTapAt) < const Duration(milliseconds: 350);
+    _lastRailTool = tool;
+    _lastRailTapAt = second ? DateTime(0) : now;
     setState(() {
-      _armedTool = _armedTool == tool ? null : tool;
+      if (second) {
+        _armedTool = tool;
+        _toolSticky = true;
+      } else if (_armedTool == tool) {
+        _armedTool = null;
+        _toolSticky = false;
+      } else {
+        _armedTool = tool;
+        _toolSticky = false;
+      }
+      _placementPending = false;
       _selectedDrawingId = null;
+    });
+  }
+
+  /// Back to Cursor (the rail's first button).
+  void _toCursor() {
+    if (_armedTool == null) return;
+    HapticFeedback.selectionClick();
+    setState(() {
+      _armedTool = null;
+      _toolSticky = false;
+      _placementPending = false;
+    });
+  }
+
+  /// One undoable edit of a drawing from its toolbar.
+  void _editDrawing(ChartDrawing next, String action) {
+    HapticFeedback.selectionClick();
+    _drawingsNotifier.update(next);
+    TrackingService.track('drawing_edited', params: {
+      'type': next.tool.name,
+      'action': action,
+      'coin': widget.market.coin,
     });
   }
 
@@ -1828,74 +1769,77 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     }
   }
 
-  /// The rail's tool groups, TradingView style: a group with one tool
-  /// arms it on tap; a bigger group opens a flyout naming each tool.
-  List<(String, List<ChartDrawingTool>)> get _railGroups => [
+  /// The rail's tools, one button each, TradingView's everyday set. The
+  /// other tools' saved drawings still show, select, edit and delete.
+  List<(ChartDrawingTool, HlRailGlyph, String)> get _railTools => [
         (
-          context.l10n.chartToolGroupLines,
-          const [
-            ChartDrawingTool.trendline,
-            ChartDrawingTool.ray,
-            ChartDrawingTool.extendedLine,
-            ChartDrawingTool.level,
-            ChartDrawingTool.horizontalRay,
-            ChartDrawingTool.verticalLine,
-          ]
+          ChartDrawingTool.trendline,
+          HlRailGlyph.trendline,
+          context.l10n.chartToolTrendLine,
         ),
         (
-          context.l10n.chartToolFibonacci,
-          const [ChartDrawingTool.fibonacci]
+          ChartDrawingTool.level,
+          HlRailGlyph.level,
+          context.l10n.chartToolHorizontalLine,
         ),
         (
-          context.l10n.chartToolGroupShapes,
-          const [ChartDrawingTool.rect, ChartDrawingTool.parallelChannel]
+          ChartDrawingTool.rect,
+          HlRailGlyph.rect,
+          context.l10n.chartToolRectangle,
         ),
         (
-          context.l10n.chartToolGroupPositions,
-          const [ChartDrawingTool.longPosition, ChartDrawingTool.shortPosition]
-        ),
-        (
+          ChartDrawingTool.dateAndPriceRange,
+          HlRailGlyph.measure,
           context.l10n.chartToolGroupMeasure,
-          const [
-            ChartDrawingTool.priceRange,
-            ChartDrawingTool.dateRange,
-            ChartDrawingTool.dateAndPriceRange,
-          ]
         ),
-        (context.l10n.chartToolGroupNotes, const [ChartDrawingTool.text]),
+        (
+          ChartDrawingTool.fibonacci,
+          HlRailGlyph.fibonacci,
+          context.l10n.chartToolFibonacci,
+        ),
+        (
+          ChartDrawingTool.text,
+          HlRailGlyph.text,
+          context.l10n.chartToolText,
+        ),
       ];
 
-  /// The tool each group last armed, so its rail button shows that
-  /// tool's icon (TradingView's "last used" behaviour).
-  final Map<int, ChartDrawingTool> _lastToolInGroup = {};
-
-  (IconData, String) _toolLook(ChartDrawingTool tool) {
-    for (final (t, icon, label) in _drawTools) {
-      if (t == tool) return (icon, label);
+  /// A tool's name: its rail name, else its full name.
+  String _toolLook(ChartDrawingTool tool) {
+    for (final (t, _, label) in _railTools) {
+      if (t == tool) return label;
     }
-    return (Icons.draw_rounded, tool.name);
+    for (final (t, _, label) in _drawTools) {
+      if (t == tool) return label;
+    }
+    return tool.name;
   }
 
-  /// One line under the toolbar that says what the next touch does.
-  String _toolbarHint(String? selectedId) {
+  /// One line under the plot that says what the next touch does.
+  String _toolbarHint(String? selectedId, List<ChartDrawing> drawings) {
+    final l10n = context.l10n;
     final tool = _armedTool;
     if (tool != null) {
-      final (_, label) = _toolLook(tool);
+      final label = _toolLook(tool);
+      if (_placementPending) return l10n.chartHintTapSecondPoint;
+      if (_toolSticky) return l10n.chartHintToolKept(label);
       return chartDrawingPointCount(tool) == 1
-          ? context.l10n.chartHintTapToPlace(label)
-          : context.l10n.chartHintDragToPlace(label);
+          ? l10n.chartHintTapToPlace(label)
+          : l10n.chartHintTapFirstPoint(label);
     }
-    if (selectedId != null) return context.l10n.chartHintAdjust;
-    return context.l10n.chartHintPickTool;
+    for (final d in drawings) {
+      if (d.id == selectedId) {
+        return d.locked ? l10n.chartHintLocked : l10n.chartHintAdjust;
+      }
+    }
+    return l10n.chartHintPickToolKeep;
   }
 
-  /// A group's flyout, opened beside its rail button: every tool with its
-  /// name, the armed one ticked. Picking one arms it.
-  Future<void> _openToolFlyout(
+  /// The rail's overflow: the magnet, and removing every drawing.
+  Future<void> _openRailMore(
     BuildContext anchor,
-    int group,
-    String title,
-    List<ChartDrawingTool> tools,
+    List<ChartDrawing> drawings,
+    bool magnet,
   ) async {
     HapticFeedback.selectionClick();
     final box = anchor.findRenderObject() as RenderBox?;
@@ -1903,11 +1847,12 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
         Overlay.of(context).context.findRenderObject() as RenderBox?;
     if (box == null || overlay == null) return;
     final c = context.colors;
+    final l10n = context.l10n;
     final origin = box.localToGlobal(
       Offset(box.size.width + 6, 0),
       ancestor: overlay,
     );
-    final picked = await showMenu<ChartDrawingTool>(
+    final picked = await showMenu<String>(
       context: context,
       position: RelativeRect.fromRect(
         origin & Size.zero,
@@ -1920,58 +1865,61 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
         side: BorderSide(color: c.borderSubtle, width: 0.5),
       ),
       items: [
-        PopupMenuItem<ChartDrawingTool>(
-          enabled: false,
-          height: 30,
-          child: Text(
-            title.toUpperCase(),
-            style: TextStyle(
-              color: c.textTertiary,
-              fontSize: 11.sp,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.6,
-            ),
-          ),
-        ),
-        for (final tool in tools)
-          PopupMenuItem<ChartDrawingTool>(
-            value: tool,
-            height: 44,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  _toolLook(tool).$1,
-                  size: 18.sp,
-                  color:
-                      _armedTool == tool ? c.textPrimary : c.textSecondary,
-                ),
-                SizedBox(width: 12.w),
-                Text(
-                  _toolLook(tool).$2,
+        PopupMenuItem<String>(
+          key: const ValueKey('hl-chart-rail-magnet'),
+          value: 'magnet',
+          height: 46,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: Text(
+                  l10n.chartMagnet,
+                  maxLines: 2,
                   style: TextStyle(
                     color: c.textPrimary,
                     fontSize: 14.sp,
-                    fontWeight: _armedTool == tool
-                        ? FontWeight.w700
-                        : FontWeight.w500,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-                if (_armedTool == tool) ...[
-                  SizedBox(width: 10.w),
-                  Icon(Icons.check_rounded, size: 16.sp, color: c.textPrimary),
-                ],
-              ],
+              ),
+              SizedBox(width: 16.w),
+              SizedBox(
+                width: 18,
+                child: magnet
+                    ? Icon(Icons.check_rounded,
+                        size: 18.sp, color: c.textPrimary)
+                    : null,
+              ),
+            ],
+          ),
+        ),
+        PopupMenuItem<String>(
+          key: const ValueKey('hl-chart-rail-remove-all'),
+          value: 'removeAll',
+          enabled: drawings.isNotEmpty,
+          height: 46,
+          child: Text(
+            l10n.chartRemoveAllTitle,
+            style: TextStyle(
+              color: drawings.isEmpty
+                  ? c.textTertiary
+                  : AppColors.marketDown,
+              fontSize: 14.sp,
+              fontWeight: FontWeight.w500,
             ),
           ),
+        ),
       ],
     );
     if (picked == null || !mounted) return;
-    setState(() {
-      _lastToolInGroup[group] = picked;
-      _armedTool = picked;
-      _selectedDrawingId = null;
-    });
+    if (picked == 'magnet') {
+      HapticFeedback.selectionClick();
+      _preferences.toggleMagnet();
+      TrackingService.track('chart_magnet_toggled');
+    } else if (picked == 'removeAll') {
+      unawaited(_removeAllDrawings(drawings.length));
+    }
   }
 
   List<(ChartDrawingTool, IconData, String)> get _drawTools => [
@@ -2154,42 +2102,6 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     );
   }
 
-  /// A colour choice with a 40 pt target; [current] is the colour of the
-  /// selected drawing, or the armed colour when nothing is selected.
-  Widget _colorDot(
-    AppColorsExtension c,
-    int? value,
-    String tip,
-    String? selectedId,
-    int? current,
-  ) {
-    final color = value == null ? c.textSecondary : Color(value);
-    return Tooltip(
-      message: tip,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => _pickColor(value, selectedId),
-        child: SizedBox(
-          width: 40,
-          height: 40,
-          child: Center(
-            child: Container(
-              width: 16,
-              height: 16,
-              decoration: BoxDecoration(
-                color: color,
-                shape: BoxShape.circle,
-                border: current == value
-                    ? Border.all(color: c.textPrimary, width: 2)
-                    : Border.all(color: c.border, width: 0.5),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   /// The interval list behind the top bar's interval button.
   Future<void> _pickInterval(HlCandleInterval current) async {
     HapticFeedback.selectionClick();
@@ -2341,16 +2253,16 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
           SizedBox(width: 2.w),
           _editIconButton(
             c,
-            icon: _styleLook(_style).$1,
+            icon: _styleIcon(_style),
             tip: l10n.chartStyleTitle,
-            onTap: _pickChartStyle,
+            onTap: () => _openChartSheet(indicators: false),
           ),
           _editIconButton(
             c,
             icon: Icons.functions_rounded,
             tip: l10n.chartIndicators,
             active: indicators.isNotEmpty,
-            onTap: () => unawaited(_pickIndicators()),
+            onTap: () => _openChartSheet(style: false),
           ),
           _editIconButton(
             c,
@@ -2409,39 +2321,14 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     );
   }
 
-  /// One rail button per tool group (see [_railGroups]).
-  Widget _railGroupButton(
-    AppColorsExtension c,
-    int index,
-    String title,
-    List<ChartDrawingTool> tools,
-  ) {
-    final armed = _armedTool;
-    final armedHere = armed != null && tools.contains(armed);
-    final shown =
-        armedHere ? armed : (_lastToolInGroup[index] ?? tools.first);
-    return Builder(
-      builder: (anchor) => _editIconButton(
-        c,
-        icon: _toolLook(shown).$1,
-        tip: tools.length == 1 ? _toolLook(shown).$2 : title,
-        active: armedHere,
-        more: tools.length > 1,
-        onTap: tools.length == 1
-            ? () => _armTool(tools.first)
-            : () => unawaited(_openToolFlyout(anchor, index, title, tools)),
-      ),
-    );
-  }
-
-  /// The left-edge tool rail: select, the tool groups, then the magnet
-  /// and remove-all. Scrolls if a short chart cannot fit it.
+  /// The left-edge tool rail: tuck away, Cursor, the tools, then the
+  /// overflow (magnet, remove all). Scrolls if a short chart cannot fit
+  /// it.
   Widget _toolRail(
     AppColorsExtension c,
     List<ChartDrawing> drawings,
     bool magnet,
   ) {
-    final groups = _railGroups;
     final l10n = context.l10n;
     return Container(
       key: const ValueKey('hl-chart-tool-rail'),
@@ -2464,42 +2351,36 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
                 onTap: _toggleRail,
               ),
             ),
-            _editIconButton(
-              c,
-              icon: Icons.touch_app_rounded,
-              tip: l10n.chartSelectTool,
-              active: _armedTool == null,
-              onTap: () {
-                final armed = _armedTool;
-                if (armed != null) _armTool(armed);
-              },
+            HlRailButton(
+              key: const ValueKey('hl-chart-rail-cursor'),
+              glyph: HlRailGlyph.cursor,
+              label: l10n.chartToolCursor,
+              selected: _armedTool == null,
+              onTap: _toCursor,
             ),
-            for (var i = 0; i < groups.length; i++)
-              _railGroupButton(c, i, groups[i].$1, groups[i].$2),
+            for (final (tool, glyph, label) in _railTools)
+              HlRailButton(
+                key: ValueKey('hl-chart-rail-${tool.name}'),
+                glyph: glyph,
+                label: label,
+                selected: _armedTool == tool,
+                sticky: _armedTool == tool && _toolSticky,
+                onTap: () => _armTool(tool),
+              ),
             Container(
               width: 24,
               height: 0.5,
               margin: const EdgeInsets.symmetric(vertical: 4),
               color: c.border,
             ),
-            _editIconButton(
-              c,
-              icon: Icons.auto_fix_high_rounded,
-              tip: l10n.chartMagnet,
-              active: magnet,
-              onTap: () {
-                HapticFeedback.selectionClick();
-                _preferences.toggleMagnet();
-                TrackingService.track('chart_magnet_toggled');
-              },
-            ),
-            _editIconButton(
-              c,
-              icon: Icons.delete_sweep_outlined,
-              tip: l10n.chartRemoveAllTitle,
-              onTap: drawings.isEmpty
-                  ? null
-                  : () => unawaited(_removeAllDrawings(drawings.length)),
+            Builder(
+              builder: (anchor) => HlRailButton(
+                key: const ValueKey('hl-chart-rail-more'),
+                icon: Icons.more_horiz_rounded,
+                label: l10n.chartMoreTools,
+                onTap: () =>
+                    unawaited(_openRailMore(anchor, drawings, magnet)),
+              ),
             ),
           ],
         ),
@@ -2507,76 +2388,54 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     );
   }
 
-  /// The small bar floating over the top of the plot while a tool is
-  /// armed (colour for the next drawing, stop) or a drawing is selected
-  /// (its colour, edit note, delete).
-  Widget _contextBar(
-    AppColorsExtension c,
-    List<ChartDrawing> drawings,
-    String? selectedId,
+  /// The floating toolbar over the selected drawing (the chart places
+  /// it): colour, solid or dashed, extend (trend lines), edit (notes),
+  /// lock, duplicate, delete. Every change is one undoable step.
+  Widget _drawingToolbar(
+    ChartDrawing selected,
+    ChartDrawing Function() duplicate,
   ) {
-    ChartDrawing? selected;
-    for (final d in drawings) {
-      if (d.id == selectedId) {
-        selected = d;
-        break;
-      }
-    }
-    final armed = _armedTool;
-    final current = selected != null ? selected.colorValue : _armedColorValue;
     final l10n = context.l10n;
-    return AppCard(
-      padding: const EdgeInsets.symmetric(horizontal: 2),
-      radius: 12.r,
-      color: context.isDark ? c.surfaceElevated : Colors.white,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (armed != null && selected == null)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Icon(_toolLook(armed).$1,
-                  size: 17.sp, color: c.textPrimary),
-            ),
-          _colorDot(c, null, l10n.chartNeutralColor, selectedId, current),
-          _colorDot(c, AppColors.marketUp.toARGB32(), l10n.chartUpColor,
-              selectedId, current),
-          _colorDot(c, AppColors.marketDown.toARGB32(), l10n.chartDownColor,
-              selectedId, current),
-          _colorDot(c, AppColors.warning.toARGB32(),
-              l10n.chartHighlightColor, selectedId, current),
-          if (selected != null && selected.tool == ChartDrawingTool.text)
-            _editIconButton(
-              c,
-              icon: Icons.edit_rounded,
-              tip: l10n.chartEditNote,
-              onTap: () => unawaited(
-                  _editNote(selected!.points.first, existing: selected)),
-            ),
-          if (selected != null)
-            _editIconButton(
-              c,
-              icon: Icons.delete_outline_rounded,
-              tip: l10n.chartDelete,
-              onTap: () {
-                HapticFeedback.selectionClick();
-                _drawingsNotifier.remove(selected!.id);
-                TrackingService.track(
-                  'drawing_deleted',
-                  params: {'via': 'delete', 'coin': widget.market.coin},
-                );
-                setState(() => _selectedDrawingId = null);
-              },
-            ),
-          if (armed != null)
-            _editIconButton(
-              c,
-              icon: Icons.close_rounded,
-              tip: l10n.chartStopDrawing,
-              onTap: () => _armTool(armed),
-            ),
-        ],
+    return HlDrawingToolbar(
+      drawing: selected,
+      swatches: hlDrawingSwatches(l10n),
+      labels: HlDrawingToolbarLabels(
+        color: l10n.chartColor,
+        solid: l10n.chartLineSolid,
+        dashed: l10n.chartLineDashed,
+        extend: l10n.chartExtendLine,
+        lock: l10n.chartLock,
+        unlock: l10n.chartUnlock,
+        duplicate: l10n.chartDuplicate,
+        delete: l10n.chartDelete,
+        editNote: l10n.chartEditNote,
       ),
+      onColor: (value) => _pickColor(value, selected.id),
+      onToggleDashed: () =>
+          _editDrawing(selected.copyWith(dashed: !selected.dashed), 'style'),
+      onToggleExtend: selected.tool == ChartDrawingTool.trendline
+          ? () => _editDrawing(
+              selected.copyWith(extend: !selected.extend), 'extend')
+          : null,
+      onToggleLock: () =>
+          _editDrawing(selected.copyWith(locked: !selected.locked), 'lock'),
+      onDuplicate: () {
+        HapticFeedback.selectionClick();
+        _onDrawingPlaced(duplicate(), via: 'duplicate');
+      },
+      onDelete: () {
+        HapticFeedback.selectionClick();
+        _drawingsNotifier.remove(selected.id);
+        TrackingService.track(
+          'drawing_deleted',
+          params: {'via': 'delete', 'coin': widget.market.coin},
+        );
+        setState(() => _selectedDrawingId = null);
+      },
+      onEditNote: selected.tool == ChartDrawingTool.text
+          ? () => unawaited(
+              _editNote(selected.points.first, existing: selected))
+          : null,
     );
   }
 
@@ -2609,13 +2468,6 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
             fit: widget.fillHeight ? StackFit.expand : StackFit.loose,
             children: [
               chart,
-              if (_armedTool != null || selectedId != null)
-                Positioned(
-                  top: 6,
-                  left: 0,
-                  right: 0,
-                  child: Center(child: _contextBar(c, drawings, selectedId)),
-                ),
               // The rail tucked away: one small tab at the plot's top
               // left brings it back.
               if (!railShown)
@@ -2655,7 +2507,7 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
             padding:
                 EdgeInsets.only(top: 4.h, left: railShown ? 44 + 6.w : 0),
             child: Text(
-              _toolbarHint(selectedId),
+              _toolbarHint(selectedId, drawings),
               style: TextStyle(color: c.textTertiary, fontSize: 11.5.sp),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -2663,19 +2515,6 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
           ),
         ],
       ),
-    );
-  }
-
-  /// One pill of the timeframe row: the range pill every chart shares.
-  Widget _timeframePill(
-    AppColorsExtension c, {
-    required String label,
-    required bool selected,
-    required VoidCallback onTap,
-  }) {
-    return Padding(
-      padding: EdgeInsets.only(right: 4.w),
-      child: KuteRangePill(label: label, selected: selected, onTap: onTap),
     );
   }
 
@@ -2844,37 +2683,30 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     // The position screen's clean reading chart (see positionView).
     final positionView = widget.positionView && !_drawingMode;
 
-    // Candle sizes or ranges, then the chart-type button. Advanced (the
+    // The interval row, then the chart-type button. Advanced (the
     // editing mode) opens from the host screen's "Advanced chart" row.
     final pillRow =
         Row(
           children: [
-            // Candle sizes (candle charts) or ranges (line charts) scroll
-            // horizontally while the chart-type button stays pinned on
-            // the right.
+            // The five intervals share the width (the home strip's range
+            // row, KuteChartRangeRow), so every pill is whole beside the
+            // chart-type button pinned on the right.
             Expanded(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (final iv in kHlCandleIntervals)
-                      _timeframePill(
-                        c,
-                        label: iv.label,
-                        selected: candleIv.interval == iv.interval,
-                        onTap: () => _selectCandleInterval(iv),
-                      ),
-                  ],
-                ),
+              child: KuteChartRangeRow(
+                key: const ValueKey('hl-interval-row'),
+                labels: [for (final iv in kHlCandleIntervals) iv.label],
+                selectedIndex: kHlCandleIntervals
+                    .indexWhere((iv) => iv.interval == candleIv.interval),
+                onSelected: (i) => _selectCandleInterval(kHlCandleIntervals[i]),
               ),
             ),
             SizedBox(width: 6.w),
             // ── Chart style: one button, a named list behind it ────────
             Tooltip(
-              message: context.l10n.chartStyleTitle,
+              message: context.l10n.chartSheetTitle,
               child: GestureDetector(
-                onTap: _pickChartStyle,
+                key: const ValueKey('hl-chart-sheet-button'),
+                onTap: _openChartSheet,
                 child: Container(
                   padding: EdgeInsets.symmetric(horizontal: 9.w, vertical: 7.h),
                   decoration: BoxDecoration(
@@ -2884,7 +2716,7 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(_styleLook(_style).$1,
+                      Icon(_styleIcon(_style),
                           size: 16.sp, color: c.textPrimary),
                       SizedBox(width: 4.w),
                       Icon(Icons.expand_more_rounded,
@@ -2965,6 +2797,8 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
             // chart has no live price pill, line or tag column, its levels
             // inside the plot and the position's lines as captions.
             cleanView: !_drawingMode,
+            // The tucked rail's tab sits at the plot's top left.
+            legendLeftInset: _drawingMode && !_railShown ? 48 : 0,
             positionView: positionView,
             // The interval's identity: a new one opens on its newest
             // bars.
@@ -2977,6 +2811,12 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
             onTextRequested: (point) => unawaited(_editNote(point)),
             selectedDrawingId: selectedId,
             onDrawingPlaced: _onDrawingPlaced,
+            drawingToolbarBuilder: _drawingToolbar,
+            onPlacementPendingChanged: (pending) {
+              if (mounted && pending != _placementPending) {
+                setState(() => _placementPending = pending);
+              }
+            },
             onDrawingSelected: (id) {
               // Selecting from outside Advanced opens Advanced on the
               // tapped drawing; inside it, it is a plain selection.
@@ -3549,13 +3389,23 @@ class _ChartNoteSheetState extends State<_ChartNoteSheet> {
                   onChanged: (_) => setState(() {}),
                 ),
               ),
+              // THE BAR IS THE BUTTON (kute_bar_context.dart): Save is the
+              // floating Sal bar's primary action, riding above the
+              // keyboard while the note is typed; the sheet keeps clear
+              // of it.
               Padding(
                 padding: EdgeInsets.all(20.w),
-                child: AppButton(
-                  text: context.l10n.save,
-                  onPressed: _text.text.trim().isEmpty
-                      ? null
-                      : () => Navigator.of(context).pop(_text.text.trim()),
+                child: KuteBarContextScope(
+                  barContext: KuteBarContext.primary(
+                    label: context.l10n.save,
+                    onPrimary: () =>
+                        Navigator.of(context).pop(_text.text.trim()),
+                    enabled: _text.text.trim().isNotEmpty,
+                    category: SearchCategory.perpetuals,
+                    source: 'chart_note',
+                    disabledLabel: context.l10n.barNeedNote,
+                  ),
+                  child: SizedBox(height: kuteBarScrollClearance.h),
                 ),
               ),
             ],

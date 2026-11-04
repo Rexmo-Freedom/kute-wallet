@@ -188,12 +188,14 @@ List<PolymarketOutcome> polyRealOutcomes(
   return real.isEmpty || real.length == outcomes.length ? outcomes : real;
 }
 
-/// The two most likely of [outcomes] (fewer when the event has fewer),
-/// most likely first; equal chances keep the feed's order. Fillers with
-/// no market behind them are passed over ([polyRealOutcomes]).
+/// The [count] most likely of [outcomes] (fewer when the event has
+/// fewer), most likely first; equal chances keep the feed's order.
+/// Fillers with no market behind them are passed over
+/// ([polyRealOutcomes]).
 List<PolymarketOutcome> polyCardTopOutcomes(
   List<PolymarketOutcome> all, {
   Map<String, double> live = const {},
+  int count = 2,
 }) {
   final outcomes = polyRealOutcomes(all, live: live);
   final indexed = [for (var i = 0; i < outcomes.length; i++) i];
@@ -202,7 +204,7 @@ List<PolymarketOutcome> polyCardTopOutcomes(
         _price(outcomes[y], live).compareTo(_price(outcomes[x], live));
     return byPrice != 0 ? byPrice : x.compareTo(y);
   });
-  return [for (final i in indexed.take(2)) outcomes[i]];
+  return [for (final i in indexed.take(count)) outcomes[i]];
 }
 
 /// A chance as the cards write it, which is how every Predictions surface

@@ -62,6 +62,34 @@ double fittedTitleFontSize({
   }
 }
 
+/// Whether [text] fits whole in [maxLines] lines of [maxWidth] at [style]'s
+/// own size (no shrinking, no ellipsis): what a header checks before it
+/// gives part of the title's row to something else.
+bool fittedTitleFitsWhole({
+  required String text,
+  required TextStyle style,
+  required double maxWidth,
+  int maxLines = 2,
+  TextScaler textScaler = TextScaler.noScaling,
+  TextDirection textDirection = TextDirection.ltr,
+  Locale? locale,
+  TextHeightBehavior? textHeightBehavior,
+}) {
+  if (!maxWidth.isFinite) return true;
+  if (maxWidth <= 0) return text.isEmpty;
+  final painter = TextPainter(
+    text: TextSpan(text: text, style: style),
+    textDirection: textDirection,
+    textScaler: textScaler,
+    maxLines: maxLines,
+    locale: locale,
+    textHeightBehavior: textHeightBehavior,
+  )..layout(maxWidth: maxWidth);
+  final fits = !painter.didExceedMaxLines;
+  painter.dispose();
+  return fits;
+}
+
 /// A header title that keeps every word on screen: it wraps to [maxLines]
 /// and, rather than cutting, shrinks to fit them down to [minScale] of
 /// [style]'s size ([fittedTitleFontSize]).

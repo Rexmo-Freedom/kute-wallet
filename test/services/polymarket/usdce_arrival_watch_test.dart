@@ -166,4 +166,40 @@ void main() {
     expect(start, greaterThan(0));
     expect(code.substring(start, end), contains('.wrapIncomingUsdcEToPusd()'));
   });
+
+  test(
+      'a deposit delivered or shown, and a withdrawal confirmed, refresh '
+      'the accounts the move touched', () {
+    final code = stripComments(
+        File('lib/providers/polymarket_trading_provider.dart')
+            .readAsStringSync());
+    String section(String from, String to) {
+      final start = code.indexOf(from);
+      expect(start, greaterThan(0), reason: from);
+      final end = code.indexOf(to, start);
+      expect(end, greaterThan(start), reason: to);
+      return code.substring(start, end);
+    }
+
+    // Delivered (Orchestra said so): Predictions and the source account.
+    final delivered = section(
+        'Future<void> onDepositDelivered({', "'polymarket_deposit_bettable'");
+    expect(delivered, contains("source: 'predictions_delivered'"));
+    expect(delivered,
+        contains("if (route == 'btc_spending') MoneyMovementAccount.bitcoin"));
+    expect(delivered,
+        contains("if (route == 'usd') MoneyMovementAccount.dollars"));
+    // Shown by the arrival watch (a rail no status poll reports).
+    final shown =
+        section('Future<void> _showArrival()', 'bool _depositOnItsWay(');
+    expect(shown, contains("source: 'predictions_arrival'"));
+    // Withdrawn: once the chain shows the send, never off a stale read.
+    final withdrawn = section(
+        'Future<String> withdrawUsdc({', 'void prefetchOrderReads()');
+    expect(withdrawn, contains("source: 'predictions_withdrawn'"));
+    expect(
+        withdrawn.indexOf("source: 'predictions_withdrawn'"),
+        greaterThan(withdrawn.indexOf(
+            'if ((data.usdcBalance - preSendBalance).abs() < 0.000001) return;')));
+  });
 }

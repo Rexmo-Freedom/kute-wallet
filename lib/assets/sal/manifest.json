@@ -1,0 +1,1253 @@
+{
+  "search": {
+    "framing": "face",
+    "fps": 24,
+    "frames": 48,
+    "columns": 8,
+    "rows": 6,
+    "cell": 48,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "search@2x.webp",
+        "cell": 96,
+        "width": 768,
+        "height": 576
+      },
+      "3x": {
+        "file": "search@3x.webp",
+        "cell": 144,
+        "width": 1152,
+        "height": 864
+      }
+    },
+    "group": "pill"
+  },
+  "share": {
+    "framing": "face",
+    "fps": 24,
+    "frames": 48,
+    "columns": 8,
+    "rows": 6,
+    "cell": 48,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "share@2x.webp",
+        "cell": 96,
+        "width": 768,
+        "height": 576
+      },
+      "3x": {
+        "file": "share@3x.webp",
+        "cell": 144,
+        "width": 1152,
+        "height": 864
+      }
+    },
+    "group": "pill"
+  },
+  "idle": {
+    "framing": "face",
+    "fps": 24,
+    "frames": 48,
+    "columns": 8,
+    "rows": 6,
+    "cell": 48,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "idle@2x.webp",
+        "cell": 96,
+        "width": 768,
+        "height": 576
+      },
+      "3x": {
+        "file": "idle@3x.webp",
+        "cell": 144,
+        "width": 1152,
+        "height": 864
+      }
+    },
+    "group": "pill"
+  },
+  "blink": {
+    "framing": "face",
+    "fps": 24,
+    "frames": 24,
+    "columns": 8,
+    "rows": 3,
+    "cell": 48,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "blink@2x.webp",
+        "cell": 96,
+        "width": 768,
+        "height": 288
+      },
+      "3x": {
+        "file": "blink@3x.webp",
+        "cell": 144,
+        "width": 1152,
+        "height": 432
+      }
+    },
+    "group": "pill"
+  },
+  "happy": {
+    "framing": "face",
+    "fps": 24,
+    "frames": 48,
+    "columns": 8,
+    "rows": 6,
+    "cell": 48,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "happy@2x.webp",
+        "cell": 96,
+        "width": 768,
+        "height": 576
+      },
+      "3x": {
+        "file": "happy@3x.webp",
+        "cell": 144,
+        "width": 1152,
+        "height": 864
+      }
+    },
+    "group": "reaction"
+  },
+  "sad": {
+    "framing": "face",
+    "fps": 24,
+    "frames": 48,
+    "columns": 8,
+    "rows": 6,
+    "cell": 48,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "sad@2x.webp",
+        "cell": 96,
+        "width": 768,
+        "height": 576
+      },
+      "3x": {
+        "file": "sad@3x.webp",
+        "cell": 144,
+        "width": 1152,
+        "height": 864
+      }
+    },
+    "group": "reaction"
+  },
+  "curious": {
+    "framing": "face",
+    "fps": 24,
+    "frames": 48,
+    "columns": 8,
+    "rows": 6,
+    "cell": 48,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "curious@2x.webp",
+        "cell": 96,
+        "width": 768,
+        "height": 576
+      },
+      "3x": {
+        "file": "curious@3x.webp",
+        "cell": 144,
+        "width": 1152,
+        "height": 864
+      }
+    },
+    "group": "reaction"
+  },
+  "surprise": {
+    "framing": "face",
+    "fps": 24,
+    "frames": 36,
+    "columns": 8,
+    "rows": 5,
+    "cell": 48,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "surprise@2x.webp",
+        "cell": 96,
+        "width": 768,
+        "height": 480
+      },
+      "3x": {
+        "file": "surprise@3x.webp",
+        "cell": 144,
+        "width": 1152,
+        "height": 720
+      }
+    },
+    "group": "reaction"
+  },
+  "body_idle": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "body_idle@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_idle@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "body_walk": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "body_walk@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_walk@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "body_sit_down": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "body_sit_down@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_sit_down@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "body_sit": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "body_sit@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_sit@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "body_lie_down": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "body_lie_down@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_lie_down@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "body_lie": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "body_lie@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_lie@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "body_wag": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "body_wag@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_wag@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "body_cheer": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "body_cheer@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_cheer@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "body_sad": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "body_sad@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_sad@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "body_sniff": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "body_sniff@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_sniff@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "body_nudge": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "body_nudge@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_nudge@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "body_search": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "body_search@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_search@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "body_hero": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 160,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "body_hero@2x.webp",
+        "cell": 320,
+        "width": 1920,
+        "height": 2560
+      },
+      "3x": {
+        "file": "body_hero@3x.webp",
+        "cell": 480,
+        "width": 2880,
+        "height": 3840
+      }
+    },
+    "group": "hero"
+  },
+  "hero_stretch": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 160,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "hero_stretch@2x.webp",
+        "cell": 320,
+        "width": 1920,
+        "height": 2560
+      },
+      "3x": {
+        "file": "hero_stretch@3x.webp",
+        "cell": 480,
+        "width": 2880,
+        "height": 3840
+      }
+    },
+    "group": "hero"
+  },
+  "hero_look_around": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 160,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "hero_look_around@2x.webp",
+        "cell": 320,
+        "width": 1920,
+        "height": 2560
+      },
+      "3x": {
+        "file": "hero_look_around@3x.webp",
+        "cell": 480,
+        "width": 2880,
+        "height": 3840
+      }
+    },
+    "group": "hero"
+  },
+  "hero_scratch": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 160,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "hero_scratch@2x.webp",
+        "cell": 320,
+        "width": 1920,
+        "height": 2560
+      },
+      "3x": {
+        "file": "hero_scratch@3x.webp",
+        "cell": 480,
+        "width": 2880,
+        "height": 3840
+      }
+    },
+    "group": "hero"
+  },
+  "hero_tail_chase": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 160,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "hero_tail_chase@2x.webp",
+        "cell": 320,
+        "width": 1920,
+        "height": 2560
+      },
+      "3x": {
+        "file": "hero_tail_chase@3x.webp",
+        "cell": 480,
+        "width": 2880,
+        "height": 3840
+      }
+    },
+    "group": "hero"
+  },
+  "hero_sleep": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 160,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "hero_sleep@2x.webp",
+        "cell": 320,
+        "width": 1920,
+        "height": 2560
+      },
+      "3x": {
+        "file": "hero_sleep@3x.webp",
+        "cell": 480,
+        "width": 2880,
+        "height": 3840
+      }
+    },
+    "group": "hero"
+  },
+  "hero_wake": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 160,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "hero_wake@2x.webp",
+        "cell": 320,
+        "width": 1920,
+        "height": 2560
+      },
+      "3x": {
+        "file": "hero_wake@3x.webp",
+        "cell": 480,
+        "width": 2880,
+        "height": 3840
+      }
+    },
+    "group": "hero"
+  },
+  "body_dig": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "body_dig@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_dig@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "body_pace": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "body_pace@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_pace@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "body_sniff_trail": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "body_sniff_trail@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_sniff_trail@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "body_point": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "body_point@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_point@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "body_think": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "body_think@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_think@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "body_nod": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "body_nod@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_nod@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "body_shake_no": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "body_shake_no@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_shake_no@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "body_shake_off": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "body_shake_off@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_shake_off@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "body_jump": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "body_jump@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_jump@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "wink": {
+    "framing": "face",
+    "fps": 24,
+    "frames": 48,
+    "columns": 8,
+    "rows": 6,
+    "cell": 48,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "wink@2x.webp",
+        "cell": 96,
+        "width": 768,
+        "height": 576
+      },
+      "3x": {
+        "file": "wink@3x.webp",
+        "cell": 144,
+        "width": 1152,
+        "height": 864
+      }
+    },
+    "group": "reaction"
+  },
+  "yawn": {
+    "framing": "face",
+    "fps": 24,
+    "frames": 48,
+    "columns": 8,
+    "rows": 6,
+    "cell": 48,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "yawn@2x.webp",
+        "cell": 96,
+        "width": 768,
+        "height": 576
+      },
+      "3x": {
+        "file": "yawn@3x.webp",
+        "cell": 144,
+        "width": 1152,
+        "height": 864
+      }
+    },
+    "group": "reaction"
+  },
+  "nod": {
+    "framing": "face",
+    "fps": 24,
+    "frames": 48,
+    "columns": 8,
+    "rows": 6,
+    "cell": 48,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "nod@2x.webp",
+        "cell": 96,
+        "width": 768,
+        "height": 576
+      },
+      "3x": {
+        "file": "nod@3x.webp",
+        "cell": 144,
+        "width": 1152,
+        "height": 864
+      }
+    },
+    "group": "reaction"
+  },
+  "shake_no": {
+    "framing": "face",
+    "fps": 24,
+    "frames": 48,
+    "columns": 8,
+    "rows": 6,
+    "cell": 48,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "shake_no@2x.webp",
+        "cell": 96,
+        "width": 768,
+        "height": 576
+      },
+      "3x": {
+        "file": "shake_no@3x.webp",
+        "cell": 144,
+        "width": 1152,
+        "height": 864
+      }
+    },
+    "group": "reaction"
+  },
+  "think": {
+    "framing": "face",
+    "fps": 24,
+    "frames": 48,
+    "columns": 8,
+    "rows": 6,
+    "cell": 48,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "think@2x.webp",
+        "cell": 96,
+        "width": 768,
+        "height": 576
+      },
+      "3x": {
+        "file": "think@3x.webp",
+        "cell": 144,
+        "width": 1152,
+        "height": 864
+      }
+    },
+    "group": "reaction"
+  },
+  "cheer": {
+    "framing": "face",
+    "fps": 24,
+    "frames": 48,
+    "columns": 8,
+    "rows": 6,
+    "cell": 48,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "cheer@2x.webp",
+        "cell": 96,
+        "width": 768,
+        "height": 576
+      },
+      "3x": {
+        "file": "cheer@3x.webp",
+        "cell": 144,
+        "width": 1152,
+        "height": 864
+      }
+    },
+    "group": "reaction"
+  },
+  "body_carry": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "body_carry@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_carry@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting",
+    "coin": "coin_anchors.json"
+  },
+  "body_pickup": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "body_pickup@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_pickup@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "coin",
+    "coin": "coin_anchors.json"
+  },
+  "body_drop": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "body_drop@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_drop@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "coin",
+    "coin": "coin_anchors.json"
+  },
+  "card_bigwin": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "card_bigwin@2x.webp",
+        "cell": 256,
+        "width": 256,
+        "height": 256
+      },
+      "3x": {
+        "file": "card_bigwin@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "card"
+  },
+  "card_flat": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "card_flat@2x.webp",
+        "cell": 256,
+        "width": 256,
+        "height": 256
+      },
+      "3x": {
+        "file": "card_flat@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "card"
+  },
+  "card_loss": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "card_loss@2x.webp",
+        "cell": 256,
+        "width": 256,
+        "height": 256
+      },
+      "3x": {
+        "file": "card_loss@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "card"
+  },
+  "card_predict": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "card_predict@2x.webp",
+        "cell": 256,
+        "width": 256,
+        "height": 256
+      },
+      "3x": {
+        "file": "card_predict@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "card"
+  },
+  "card_send": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "card_send@2x.webp",
+        "cell": 256,
+        "width": 256,
+        "height": 256
+      },
+      "3x": {
+        "file": "card_send@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "card"
+  },
+  "card_win": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "card_win@2x.webp",
+        "cell": 256,
+        "width": 256,
+        "height": 256
+      },
+      "3x": {
+        "file": "card_win@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "card"
+  },
+  "card_claim": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "card_claim@2x.webp",
+        "cell": 256,
+        "width": 256,
+        "height": 256
+      },
+      "3x": {
+        "file": "card_claim@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "card"
+  }
+}

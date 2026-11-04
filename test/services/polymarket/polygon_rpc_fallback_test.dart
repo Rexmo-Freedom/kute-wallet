@@ -12,6 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:kute/services/polymarket_onboarding_service.dart';
+import 'package:kute/services/tracking_service.dart';
 
 const _wallet = '0x14791697260E4c9A71f18484C9f997B308e59325';
 const _token = '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174'; // gitleaks:allow (public USDC.e contract)
@@ -216,6 +217,9 @@ void main() {
   });
 
   test('every endpoint failing throws: the read fails closed', () async {
+    final events = <(String, Map<String, Object>?)>[];
+    TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+    addTearDown(() => TrackingService.debugTrackObserver = null);
     final rpcs = _Rpcs(
         _known, [_Mode.hang, _Mode.serverError, _Mode.rpcError, _Mode.hang]);
     await expectLater(
@@ -227,6 +231,29 @@ void main() {
     );
     // Every endpoint was tried before giving up.
     expect(rpcs.hostsAsked(), {for (final rpc in _known) _host(rpc)});
+    // The fleet hears about the read itself, with no address in it.
+    final failed = events.where((e) => e.$1 == 'polygon_rpc_read_failed');
+    expect(failed.single.$2, {'method': 'eth_call', 'endpoints': 4});
+  });
+
+  test(
+      'a balance that decides a withdrawal throws when every endpoint '
+      'fails; the lenient read still answers 0', () async {
+    final rpcs = _Rpcs(_known,
+        [_Mode.serverError, _Mode.rpcError, _Mode.serverError, _Mode.rpcError]);
+    await expectLater(
+      _with(
+          rpcs,
+          () => PolymarketOnboardingService()
+              .readErc20BalanceOrThrow(token: _token, owner: _wallet)),
+      throwsA(isA<PolymarketReadException>()),
+    );
+    expect(
+        await _with(
+            rpcs,
+            () => PolymarketOnboardingService()
+                .readErc20Balance(token: _token, owner: _wallet)),
+        BigInt.zero);
   });
 
   test('the receipt poll asks every second for 20 s, then every 2 s', () {

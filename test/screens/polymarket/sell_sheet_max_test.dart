@@ -4,19 +4,19 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:money2/money2.dart';
 import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/models/currency_conversions.dart';
-import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/providers/polymarket_cost_basis_provider.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/screens/polymarket/components/sell_sheet.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart';
 import 'package:kute/theme/app_theme.dart';
+
+import '../../helpers/shell_bar_harness.dart';
 
 class _FakeTrading extends PolymarketTradingNotifier {
   @override
@@ -65,23 +65,20 @@ Future<void> _pump(WidgetTester tester, PolymarketPosition position) async {
   tester.view.physicalSize = const Size(430, 932) * 3;
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.reset);
+  // The bar over the sheet is the sheet's button (shell_bar_harness.dart).
+  installShellBar();
   await tester.pumpWidget(ProviderScope(
     overrides: [
       polymarketTradingProvider.overrideWith(_FakeTrading.new),
       polymarketCostBasisProvider.overrideWith((ref) => _NoCostBasis()),
       currencyProvider.overrideWith((_) => _Currency()),
     ],
-    child: ScreenUtilInit(
-      designSize: const Size(430, 932),
-      builder: (_, __) => MaterialApp(
-        theme: ThemeData(
-          splashFactory: NoSplash.splashFactory,
-          extensions: [AppColorsExtension.light()],
-        ),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: Scaffold(body: SellSheet(position: position)),
+    child: shellBarApp(
+      theme: ThemeData(
+        splashFactory: NoSplash.splashFactory,
+        extensions: [AppColorsExtension.light()],
       ),
+      home: Scaffold(body: SellSheet(position: position)),
     ),
   ));
   await tester.pump();
@@ -113,7 +110,12 @@ void main() {
     // 18.6 shares at 15c.
     expect(_typed(tester), '2.79');
     expect(find.textContaining('18.60 shares'), findsWidgets);
-    expect(find.text('Sell · \$2.79'), findsOneWidget);
+    // The bar is the sheet's one button: it reads the sale (a frame after
+    // the sheet declares it).
+    await pumpBar(tester);
+    expect(barPrimaryLabel(tester), 'Sell · \$2.79');
+    expect(barPrimaryText('Sell · \$2.79'), findsOneWidget);
+    expect(barPrimaryEnabled(tester), isTrue);
 
     // Edited down, Max brings the whole position back.
     final pad = find.byType(AmountKeypad);

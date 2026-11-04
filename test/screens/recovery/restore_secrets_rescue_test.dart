@@ -26,6 +26,7 @@ import 'package:kute/theme/app_theme.dart';
 
 import '../../services/support/fake_legacy_keychain_lookup.dart';
 import '../../services/support/fake_secret_store.dart';
+import '../../helpers/kute_bar_test_support.dart';
 
 const phraseA =
     'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
@@ -121,6 +122,9 @@ void main() {
       child: ScreenUtilInit(
         designSize: const Size(430, 932),
         builder: (_, __) => MaterialApp.router(
+          // The shell bar over the page (kute_bar_test_support.dart): Done is
+          // the bar.
+          builder: withKuteShellBar,
           routerConfig: router,
           theme: ThemeData(
               fontFamily: 'Inter', extensions: [AppColorsExtension.light()]),
@@ -189,7 +193,7 @@ void main() {
     expect(find.text('Restored'), findsOneWidget);
 
     // Done goes to the PIN screen now that PIN material is readable.
-    await tester.tap(find.byKey(const ValueKey('restore-done')));
+    await tester.tap(kuteBarPrimaryWithText('Done'));
     await tester.pumpAndSettle();
     expect(find.text('route:open_pin'), findsOneWidget);
   });

@@ -1,12 +1,12 @@
 import 'package:kute/screens/shared/custom_keypad.dart';
 import 'package:kute/screens/shared/kute_pin_scaffold.dart';
-import 'package:kute/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kute/l10n/l10n.dart';
-import 'package:kute/screens/shared/custom_button.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/recovery/restore_secrets_screen.dart'
     show restoreSecretsReturnProvider;
@@ -56,7 +56,7 @@ class SetPin extends ConsumerStatefulWidget {
   _SetPinState createState() => _SetPinState();
 }
 
-class _SetPinState extends ConsumerState<SetPin> {
+class _SetPinState extends ConsumerState<SetPin> with PinSalMoodMixin {
   String pin = '';
   final Stopwatch _elapsed = Stopwatch()..start();
 
@@ -99,6 +99,8 @@ class _SetPinState extends ConsumerState<SetPin> {
     return KutePinScaffold(
       leading: const KuteBackButton(fallbackRoute: '/start'),
       title: context.l10n.createAPin,
+      // Happy once the six digits are in, before Next is tapped.
+      salMood: pin.length == 6 ? 'happy' : salMoodFor(pin.length),
       dots: PinProgressIndicator(currentLength: pin.length),
       keypad: CustomKeypad(
         chromed: true,
@@ -122,10 +124,14 @@ class _SetPinState extends ConsumerState<SetPin> {
         curve: Curves.easeOut,
         child: IgnorePointer(
           ignoring: pin.length != 6,
-          child: AppButton(
-            text: context.l10n.next,
-            color: context.ctaFill,
-            onPressed: () {
+          // THE BAR IS THE BUTTON (kute_bar_context.dart): Next is the
+          // floating Sal bar's primary action, on with six digits.
+          child: KuteBarContextScope(
+            barContext: KuteBarContext.primary(
+            label: context.l10n.next,
+            enabled: pin.length == 6,
+            source: 'set_pin',
+            onPrimary: () {
               if (pin.length == 6) {
                 HapticFeedback.mediumImpact();
                 ref.read(pinProvider.notifier).state = pin;
@@ -139,6 +145,9 @@ class _SetPinState extends ConsumerState<SetPin> {
                 });
               }
             },
+            disabledLabel: context.l10n.barNeedPin,
+            ),
+            child: SizedBox(height: kuteBarScrollClearance.h),
           ),
         ),
       ),

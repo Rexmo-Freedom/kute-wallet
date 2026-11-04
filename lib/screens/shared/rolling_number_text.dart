@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kute/theme/kute_motion.dart';
 
 /// Cash-register / odometer roll for a number string. Each digit
 /// position has its own little reel — when the digit changes the
@@ -135,9 +136,10 @@ class _RollingDigitState extends State<_RollingDigit>
       value: 1.0, // start fully settled — first paint shows the
                   // current digit, not an in-flight roll
     );
+    // The app's settle easing (lib/theme/kute_motion.dart).
     _animation = CurvedAnimation(
       parent: _controller,
-      curve: Curves.easeOutCubic,
+      curve: KuteMotion.settle,
     );
   }
 

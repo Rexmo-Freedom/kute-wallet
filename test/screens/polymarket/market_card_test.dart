@@ -7,6 +7,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/polymarket_model.dart';
+import 'package:kute/services/polymarket/market_buy_quote.dart'
+    show polymarketCentsLabel;
 import 'package:kute/screens/polymarket/components/live_game.dart';
 import 'package:kute/screens/polymarket/components/market_card.dart';
 import 'package:kute/screens/shared/kute_motion.dart';
@@ -165,10 +167,35 @@ void main() {
     expect(find.text('Will it rain in Lisbon?'), findsOneWidget);
     expect(_rolled('24%'), findsOneWidget);
     expect(_rolled('76%'), findsNothing);
-    expect(find.text('+6 today'), findsOneWidget);
-    expect(tester.widget<Text>(find.text('+6 today')).style!.color,
-        AppColors.marketUp);
-    expect(find.text('Dec 31, 2030'), findsOneWidget);
+    // No day move on the row (the gauge carries the chance): one quiet
+    // meta line, when it closes and then the volume, and the two side
+    // pills.
+    expect(find.textContaining('today'), findsNothing);
+    expect(find.text('Dec 31, 2030'), findsNothing);
+    expect(find.text(r'Closes Dec 2030 · $1.5K'), findsOneWidget);
+    expect(find.text('Yes ${polymarketCentsLabel(0.24)}'), findsOneWidget);
+    expect(find.text('No ${polymarketCentsLabel(0.76)}'), findsOneWidget);
+    // The pills are quiet: the side's market colour as ink on the
+    // neutral surface, no solid green / red block and no tint.
+    final c = AppColorsExtension.light();
+    final yes = tester.widget<Text>(find.text('Yes ${polymarketCentsLabel(0.24)}'));
+    final no = tester.widget<Text>(find.text('No ${polymarketCentsLabel(0.76)}'));
+    expect(yes.style?.color, AppColors.marketUp);
+    expect(no.style?.color, AppColors.marketDown);
+    expect(yes.style?.fontWeight, FontWeight.w600);
+    final yesPill = tester.widget<Container>(find.ancestor(
+        of: find.text('Yes ${polymarketCentsLabel(0.24)}'),
+        matching: find.byType(Container)).first);
+    final noPill = tester.widget<Container>(find.ancestor(
+        of: find.text('No ${polymarketCentsLabel(0.76)}'),
+        matching: find.byType(Container)).first);
+    expect((yesPill.decoration as BoxDecoration).color, c.surfaceLight);
+    expect((noPill.decoration as BoxDecoration).color, c.surfaceLight);
+    expect(tester.getSize(find.byWidget(yesPill)).height,
+        moreOrLessEquals(28.h, epsilon: 0.5));
+    // Both pills sit on one line.
+    expect(tester.getTopLeft(find.byWidget(yesPill)).dy,
+        tester.getTopLeft(find.byWidget(noPill)).dy);
   });
 
   testWidgets('a flat or unknown day shows no move', (tester) async {
@@ -189,8 +216,8 @@ void main() {
     expect(find.textContaining('today'), findsNothing);
   });
 
-  testWidgets('many outcomes: the two most likely and how many more',
-      (tester) async {
+  testWidgets('many outcomes: the three most likely, each with its chance '
+      'bar, and how many more', (tester) async {
     await _pump(
       tester,
       const MarketCard(
@@ -210,9 +237,21 @@ void main() {
     expect(find.text('84%'), findsOneWidget);
     expect(find.text('Portugal'), findsOneWidget);
     expect(find.text('16%'), findsOneWidget);
-    expect(find.text('France'), findsNothing);
-    expect(find.text('+2 more'), findsOneWidget);
+    expect(find.text('France'), findsOneWidget);
+    expect(find.text('5%'), findsOneWidget);
+    expect(find.text('Brazil'), findsNothing);
+    expect(find.text('+1 more'), findsOneWidget);
     expect(find.textContaining('outcomes'), findsNothing);
+    // A thin bar per row, filled to the outcome's chance, in order.
+    final bars = tester
+        .widgetList<PolyOutcomeChanceBar>(find.byType(PolyOutcomeChanceBar))
+        .map((b) => b.fraction)
+        .toList();
+    expect(bars, [0.84, 0.16, 0.05]);
+    expect(tester.getSize(find.byType(PolyOutcomeChanceBar).first).height, 4);
+    // The figures end on one edge, so the bars do too.
+    expect(tester.getTopRight(find.text('84%')).dx,
+        tester.getTopRight(find.text('5%')).dx);
   });
 
   testWidgets(

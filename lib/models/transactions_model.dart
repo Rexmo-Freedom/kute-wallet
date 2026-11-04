@@ -419,12 +419,30 @@ class SparkPendingDeposit extends BaseTransaction {
   final mempool.MempoolTransaction mempoolTx;
   final int confirmations; // 0, 1, or 2
 
+  /// The SDK is already adding it (an instant claim submitted, or a
+  /// deposit payment still settling): the row says "Adding to your
+  /// balance" rather than counting confirmations it no longer waits for,
+  /// and offers no Claim now.
+  final bool claimInProgress;
+
   SparkPendingDeposit({
     required super.id,
     required super.timestamp,
     required this.mempoolTx,
     required this.confirmations,
+    this.claimInProgress = false,
   }) : super(isConfirmed: false);
+
+  SparkPendingDeposit withClaimInProgress(bool value) =>
+      value == claimInProgress
+          ? this
+          : SparkPendingDeposit(
+              id: id,
+              timestamp: timestamp,
+              mempoolTx: mempoolTx,
+              confirmations: confirmations,
+              claimInProgress: value,
+            );
 
   @override
   TransactionType get type => TransactionType.received;
@@ -840,14 +858,40 @@ class Transaction {
   /// completed deposit payment). The SDK claims early when the claim fee fits
   /// `kSparkAutoClaimMaxFeeSats`: instantly at 0 confirmations or expedited
   /// at 1-2, so a deposit can be spendable well before 3 confirmations.
+  ///
+  /// Cache-hydrated shells count too: after a restart the cached deposit
+  /// payment has no SDK payload, and reading only live rows brought the
+  /// deposit's old "Receiving" row back beside it, a second transaction,
+  /// until a live sync replaced the shells.
   Set<String> get _creditedDepositTxids => {
         for (final t in sparkTransactions)
           if (t.details?.status == breez.PaymentStatus.completed &&
               t.details?.details is breez.PaymentDetails_Deposit)
             (t.details!.details as breez.PaymentDetails_Deposit)
                 .txId
-                .toLowerCase(),
+                .toLowerCase()
+          else if (_isDepositShell(t) && !t.isPending)
+            t.onChainTxId!.toLowerCase(),
       };
+
+  /// A cached on-chain deposit receive (no SDK payload) that kept its txid.
+  static bool _isDepositShell(SparkTransaction t) =>
+      t.details == null &&
+      t.sparkType == SparkTransactionType.bitcoin &&
+      t.type == TransactionType.received &&
+      (t.onChainTxId?.isNotEmpty ?? false);
+
+  /// Unclaimed rows, without one the wallet has since credited: a cached
+  /// row read back after a restart, before a live list replaces it, would
+  /// otherwise show the claimed deposit a second time.
+  List<SparkUnclaimedDeposit> get _displayUnclaimedDeposits {
+    if (sparkUnclaimedDeposits.isEmpty) return sparkUnclaimedDeposits;
+    final credited = _creditedDepositTxids;
+    if (credited.isEmpty) return sparkUnclaimedDeposits;
+    return sparkUnclaimedDeposits
+        .where((d) => !credited.contains(d.txid.toLowerCase()))
+        .toList();
+  }
 
   /// Mempool `n/3` rows still waiting for their claim. Once the SDK has
   /// credited the deposit, its completed Breez row is the receive and the
@@ -869,7 +913,9 @@ class Transaction {
                   t.details?.details is breez.PaymentDetails_Deposit)
                 (t.details!.details as breez.PaymentDetails_Deposit)
                     .txId
-                    .toLowerCase(),
+                    .toLowerCase()
+              else if (_isDepositShell(t))
+                t.onChainTxId!.toLowerCase(),
           }
         : const <String>{};
     return sparkPendingDeposits.where((d) {
@@ -906,7 +952,7 @@ class Transaction {
     return _cachedAllTransactions ??= [
       ...bitcoinTransactions,
       ..._displaySparkTransactions,
-      ...sparkUnclaimedDeposits,
+      ..._displayUnclaimedDeposits,
       ..._displayPendingDeposits,
       ...mempoolTransactions,
       ...usdbTokenTransactions,
@@ -933,7 +979,7 @@ class Transaction {
     return _cachedAllTransactionsWithSwaps ??= [
       ...bitcoinTransactions,
       ..._displaySparkTransactions,
-      ...sparkUnclaimedDeposits,
+      ..._displayUnclaimedDeposits,
       ..._displayPendingDeposits,
       ...mempoolTransactions,
       ...usdbTokenTransactions,
@@ -1013,7 +1059,11 @@ class Transaction {
       // exchange row (background sync's reconciler), and that row was
       // settled with the real sats in the same pass — the feed always
       // keeps the user-meaningful "Trading withdraw" story row.
-      if (tx is SparkTransaction && orchestraDeliveryIds.contains(tx.id)) {
+      // Never an on-chain deposit: one a mistaken match once tagged
+      // shows again.
+      if (tx is SparkTransaction &&
+          tx.sparkType != SparkTransactionType.bitcoin &&
+          orchestraDeliveryIds.contains(tx.id)) {
         return false;
       }
       // Spark-side Polymarket hide DISABLED. The heuristic was
