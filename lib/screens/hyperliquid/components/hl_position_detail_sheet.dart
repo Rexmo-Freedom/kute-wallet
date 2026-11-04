@@ -19,9 +19,7 @@ import 'package:kute/providers/ledger/ledger_identity_provider.dart';
 // down colour ("+$0.42 (+3.9%)", the return on what was put in), then one
 // quiet line: the side, the size and the market price with its change
 // today ("Short · 0.006 ANTH · $2,104 (+0.8% today)"; founder, 2 November
-// 2026). Sal's share pill sits at the top right of the figure's row
-// (position_share_card.dart): "Brag about it" in profit, else "Send to a
-// friend". Then the sheet's chart, clean, with its pressure bar; two tiles:
+// 2026). Then the sheet's chart, clean, with its pressure bar; two tiles:
 // what was put in (the margin; the collateral on cross) with its leverage
 // ("2x leverage", "No leverage"), and the liquidation price with how far
 // it is ("12% away", coloured as it closes in: HlLiquidationTile); then
@@ -36,9 +34,12 @@ import 'package:kute/providers/ledger/ledger_identity_provider.dart';
 // in the red the pinned button had (KuteBarPrimaryStyle.destructive): it
 // opens the close ticket, whose own button is the bar while it is up (and
 // thinks while the close runs). Once the position this screen saw is gone
-// from the account, the bar reads "Position closed" and takes no tap. The
-// body scrolls clear of the bar; chart-edit mode takes the button away
-// with the header.
+// from the account, the bar reads "Position closed" and takes no tap. At
+// its right the round Sal button (founder, 4 November 2026: no share pill
+// beside the figure, it floats; kute_bar_context.dart, THE TRADE ROW):
+// "Brag about it" in profit (the brag card), else Send to a friend (the
+// page's Sal sheet; position_share_card.dart). The body scrolls clear of
+// the bar; chart-edit mode takes both away with the header.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -61,8 +62,6 @@ import 'package:kute/screens/hyperliquid/components/hl_tick_price.dart';
 import 'package:kute/screens/shared/portfolio_position_card.dart'
     show portfolioCardCaptionStyle;
 import 'package:kute/screens/shared/position_rows_card.dart';
-import 'package:kute/screens/home/components/kute_shell_bar.dart'
-    show KuteFigureShareRow;
 import 'package:kute/screens/hyperliquid/market_detail_sheet.dart'
     show HlCandleChart, HlChartEditBody;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
@@ -262,10 +261,11 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
         ledgerId == null && current != null && hlCanAdjustMargin(pos, m);
     final editing = _advancedChart && m != null;
 
-    // The page's Sal context, placed in its header (its control is the
-    // share pill beside the big figure, PositionSharePill; the bar at the
-    // foot is Close position, below): the scope is around the whole page.
-    // A long press on Close position asks Sal with this context.
+    // The page's Sal context: the round Sal button beside Close position
+    // opens it (or, in profit, the brag card; positionBarShare). The
+    // scope is around the whole page, with the `header` placement so the
+    // chart editor, where Close position is away, has no bar at all. A
+    // long press on Close position asks Sal with this context.
     final bar = marketBarContext(
       context,
       // As the header names it, the logo drawn as the header draws it.
@@ -321,8 +321,7 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                       const KuteCloseButton(),
                       SizedBox(width: 8.w),
                       // The market sheet's header row: logo and ticker; the
-                      // price is the big figure under it, with the Share
-                      // pill beside it.
+                      // figure is under it.
                       HlCoinIcon(
                           coin: m?.coin ?? pos.coin,
                           wireCoin: m?.wireCoin ?? pos.coin,
@@ -382,37 +381,28 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                             // leverage and funding wait in Details
                             // (founder, 2 November 2026: one big number,
                             // one quiet line).
-                            // Sal's share pill at the row's end, the
-                            // market pages' header button (founder, 1
-                            // November 2026): "Brag about it" in profit,
-                            // else "Send to a friend"
-                            // (position_share_card.dart).
-                            KuteFigureShareRow(
-                              gap: 8.w,
-                              figure: FittedBox(
-                                fit: BoxFit.scaleDown,
-                                alignment: Alignment.centerLeft,
-                                child: HlTickPrice(
-                                  // The hero figure (the key names the row's
-                                  // figure the share pill centres on).
-                                  key: const ValueKey('hl-position-price'),
-                                  price: worth,
-                                  text: formatPolyAmount(ref, worth),
-                                  style: TextStyle(
-                                    color: c.textPrimary,
-                                    fontSize: 38.sp,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: -1.0,
-                                    height: 1.1,
-                                    fontFeatures: const [
-                                      FontFeature.tabularFigures()
-                                    ],
-                                  ),
+                            // The row's whole width: the share floats
+                            // beside Close position (founder, 4 November
+                            // 2026).
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: HlTickPrice(
+                                // The hero figure.
+                                key: const ValueKey('hl-position-price'),
+                                price: worth,
+                                text: formatPolyAmount(ref, worth),
+                                style: TextStyle(
+                                  color: c.textPrimary,
+                                  fontSize: 38.sp,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -1.0,
+                                  height: 1.1,
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures()
+                                  ],
                                 ),
                               ),
-                              share: PositionSharePill(
-                                  bar: bar,
-                                  brag: current != null && pnl >= 0.005),
                             ),
                             SizedBox(height: 2.h),
                             // The P&L, amount and return; read aloud with
@@ -622,9 +612,11 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
 
               // ── Close position: the floating bar's button ─────────
               // THE BAR IS THE BUTTON (kute_bar_context.dart): the same
-              // close ticket the pinned red button opened, in its red.
-              // Edit mode drops it so the chart takes the whole screen,
-              // as the header goes; Done brings it back.
+              // close ticket the pinned red button opened, in its red,
+              // with the round Sal button at its right (Brag about it in
+              // profit, else Send to a friend). Edit mode drops both so
+              // the chart takes the whole screen, as the header goes;
+              // Done brings them back.
               KuteBarContextScope(
                 active: !editing,
                 barContext: KuteBarContext.primary(
@@ -641,6 +633,8 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                   category: SearchCategory.perpetuals,
                   searchHint: context.l10n.searchInvestmentsHint,
                   source: 'trading',
+                  share: positionBarShare(bar,
+                      brag: current != null && pnl >= 0.005),
                 ),
                 child: const SizedBox.shrink(),
               ),

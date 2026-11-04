@@ -87,10 +87,7 @@ const Color _kPolyRed = AppColors.marketDown;
 // tiles: what it is worth now with the profit or loss, and the payout if
 // the held side wins with what was paid (once settled: what it paid out);
 // while the needle is dragged, what it would be worth then beside what it
-// is worth now. Under the tiles the share card (founder, 1 November 2026:
-// in place of the small "Your avg" chart; "Brag about it" on an open
-// position in profit, else "Send to a friend": position_share_card.dart);
-// the end as a pill; and plain
+// is worth now. Then the end as a pill; and plain
 // rows: "Protect
 // it" while open, "Details" (outcome / shares / price paid / invested, on
 // the shared bottom sheet, as on the Investing position), the closing
@@ -99,10 +96,14 @@ const Color _kPolyRed = AppColors.marketDown;
 // (founder, 2 November 2026: "a floating pill like the others";
 // kute_bar_context.dart): Sell in the red its pinned button had
 // (KuteBarPrimaryStyle.destructive), Clear in the app's primary look,
-// thinking while the redeem runs (PolyClaimBarAction). The body scrolls
+// thinking while the redeem runs (PolyClaimBarAction), with the round Sal
+// button at its right (founder, 4 November 2026: the share floats, no
+// share card in the page; position_share_card.dart): "Brag about it" on
+// an open position in profit, else Send to a friend. The body scrolls
 // clear of the bar.
 // A won position has no action: it is claimed automatically
-// (claim_auto_fire.dart) and reads "Settled".
+// (claim_auto_fire.dart) and reads "Settled"; its bar is the page's Sal
+// pill, "Send to a friend".
 
 class PositionDetailSheet extends ConsumerStatefulWidget {
   final PolymarketPosition position;
@@ -442,9 +443,10 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
         PolymarketEvent.logoForText(headerTeams, pos.marketQuestion) ??
         pos.marketImage;
 
-    // The page's Sal context, placed in its header (no bottom bar), held
-    // by the scope around the close button; its control is the share card
-    // under the tiles (PositionShareCard), no header pill on a position.
+    // The page's Sal context, held by the scope around the close button:
+    // the round Sal button beside Sell or Clear opens it (or, in profit,
+    // the brag card; positionBarShare); a won position, with no action,
+    // shows it as the floating Sal pill.
     final bar = marketBarContext(
       context,
       title: widget.position.marketQuestion,
@@ -459,7 +461,6 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
       category: SearchCategory.predictions,
       searchHint: context.l10n.searchPredictionsHint,
       source: 'predictions',
-      placement: KuteBarPlacement.header,
       // An open position brags (kute_share_actions.dart).
       brag: pos.isResolved
           ? null
@@ -834,14 +835,11 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                         },
                       ),
 
-                      // The share, where the small "Your avg" chart was
-                      // (founder, 1 November 2026: the chart is gone, and
-                      // the header pill crowded "You hold No"): one card
-                      // in the tiles' style, "Brag about it" on an open
-                      // position in profit (its brag preview), else "Send
-                      // to a friend" (the page's Sal sheet). The journey
-                      // since the buy stays read for the brag card's line.
-                      SizedBox(height: 12.h),
+                      // The journey since the buy stays read while the
+                      // page is up, for the brag card's line (the round
+                      // Sal button beside Sell opens the card in profit).
+                      // The share itself floats in the bar (founder, 4
+                      // November 2026).
                       Consumer(builder: (context, journeyRef, _) {
                         if (showGauge) {
                           journeyRef.watch(polyPositionJourneyProvider((
@@ -849,10 +847,7 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                             fallbackSince: pos.createdAt,
                           )));
                         }
-                        return PositionShareCard(
-                          bar: bar,
-                          brag: !pos.isResolved && pnl >= 0.005,
-                        );
+                        return const SizedBox.shrink();
                       }),
 
                       if (pos.isResolved ||
@@ -1029,6 +1024,7 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                   position: pos,
                   surface: 'position_detail',
                   popRoute: true,
+                  share: positionBarShare(bar, brag: false),
                 )
               else if (!pos.isResolved)
                 KuteBarContextScope(
@@ -1045,6 +1041,8 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                     category: SearchCategory.predictions,
                     searchHint: context.l10n.searchPredictionsHint,
                     source: 'predictions',
+                    share: positionBarShare(bar,
+                        brag: !pos.isResolved && pnl >= 0.005),
                   ),
                   child: const SizedBox.shrink(),
                 ),

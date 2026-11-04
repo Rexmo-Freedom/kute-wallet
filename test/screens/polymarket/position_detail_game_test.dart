@@ -521,17 +521,16 @@ void main() {
       expect(find.byType(PositionSidePill), findsNothing);
       expect(tester.getRect(pill).bottom,
           lessThan(tester.getRect(find.byType(PolyPositionSpeedometer)).top));
-      // No Share pill beside the result (founder, 1 November 2026: it
-      // crowded the held side); the share is the card under the tiles.
+      // Nothing to share beside the result or under the tiles (founder,
+      // 4 November 2026): the round Sal button floats beside Sell.
       expect(
           find.byKey(const ValueKey('kute-sal-header-button')), findsNothing);
-      final share = find.byKey(const ValueKey('position-share-card'));
-      expect(share, findsOneWidget);
-      expect(
-          tester.getRect(share).top,
-          greaterThan(tester
-              .getRect(find.byKey(const ValueKey('poly-position-value')))
-              .bottom));
+      expect(find.byKey(const ValueKey('position-share-card')), findsNothing);
+      final sell = tester
+          .widget<KuteBarContextScope>(find.byWidgetPredicate(
+              (w) => w is KuteBarContextScope && w.barContext.isPrimary))
+          .barContext;
+      expect(sell.share!.barContext.market, isTrue);
       expect(
           tester.getRect(find.byType(PolyPositionSpeedometer)).bottom,
           lessThan(tester

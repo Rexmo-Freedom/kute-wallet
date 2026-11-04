@@ -214,12 +214,14 @@ bool _polyClearing(WidgetRef ref, PolymarketPosition pos) =>
 /// redeem on a tap, busy (Sal thinking) while it runs and while the
 /// redeem propagates. The app's primary look for a lost side's Clear, the
 /// money-in green for a Claim. [child] is the page's own content under the
-/// scope.
+/// scope. [share]: the round Sal button at the button's right (the
+/// position page's Send to a friend; kute_bar_context.dart, THE TRADE ROW).
 class PolyClaimBarAction extends ConsumerStatefulWidget {
   final PolymarketPosition position;
   final String surface;
   final bool popRoute;
   final Widget child;
+  final KuteBarShare? share;
 
   const PolyClaimBarAction({
     super.key,
@@ -227,6 +229,7 @@ class PolyClaimBarAction extends ConsumerStatefulWidget {
     required this.surface,
     this.popRoute = false,
     this.child = const SizedBox.shrink(),
+    this.share,
   });
 
   @override
@@ -267,6 +270,7 @@ class _PolyClaimBarActionState extends ConsumerState<PolyClaimBarAction> {
             : null,
         category: SearchCategory.predictions,
         source: 'predictions',
+        share: widget.share,
       ),
       child: widget.child,
     );
