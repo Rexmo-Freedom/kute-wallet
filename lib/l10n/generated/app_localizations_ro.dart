@@ -5831,6 +5831,40 @@ class AppLocalizationsRo extends AppLocalizations {
   String get hlAdvancedChart => 'Grafic avansat';
 
   @override
+  String get optionAdvancedChartSub => 'Desene și indicatori';
+
+  @override
+  String get optionAboutMarketSub => 'Statistici și registru de ordine';
+
+  @override
+  String get optionAddMarginSub => 'Mai departe de lichidare';
+
+  @override
+  String get optionPositionDetailsSub => 'Mărime, intrare și finanțare';
+
+  @override
+  String optionEndsOn(String date) {
+    return 'Se încheie pe $date';
+  }
+
+  @override
+  String optionEndedOn(String date) {
+    return 'Încheiat pe $date';
+  }
+
+  @override
+  String get optionHowItResolves => 'Cum se rezolvă';
+
+  @override
+  String get optionViewMarketSub => 'Grafic și șanse';
+
+  @override
+  String get optionPredictionDetailsSub => 'Unități și preț plătit';
+
+  @override
+  String get optionProtectSellSub => 'Vinde la prețul tău';
+
+  @override
   String get chartStyleCandles => 'Lumânări';
 
   @override

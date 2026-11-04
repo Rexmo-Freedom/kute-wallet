@@ -324,17 +324,10 @@ void main() {
         expect(tester.getRect(star).left,
             greaterThanOrEqualTo(tester.getRect(title).right));
         expect(find.byKey(const ValueKey('ask-sal-pill')), findsNothing);
-        // Sal's Share pill is not in the header (founder, 31 October 2026):
-        // it ends the headline row, centred on the leader's chance and
-        // right against the page's 20 pt gutter.
-        final share = find.byKey(const ValueKey('kute-sal-header-button'));
-        expect(share, findsOneWidget);
-        expect(find.descendant(of: header, matching: share), findsNothing);
-        final shareRect = tester.getRect(share);
-        final figureRect = tester.getRect(find.text('18%').first);
-        expect(shareRect.center.dy, closeTo(figureRect.center.dy, 2));
-        expect(shareRect.right, closeTo(width - 20 * width / 430, 1));
-        expect(shareRect.left, greaterThanOrEqualTo(figureRect.right));
+        // Nothing to share in the header or beside the leader's chance
+        // (founder, 4 November 2026): Send to a friend floats at the foot.
+        expect(find.byKey(const ValueKey('kute-sal-header-button')),
+            findsNothing);
         // Gone: the market count line, the change / LIVE row, the end date.
         expect(find.textContaining('Tap a market'), findsNothing);
         expect(find.textContaining('markets ·'), findsNothing);

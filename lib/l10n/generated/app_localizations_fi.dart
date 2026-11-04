@@ -5799,6 +5799,40 @@ class AppLocalizationsFi extends AppLocalizations {
   String get hlAdvancedChart => 'Laajennettu kaavio';
 
   @override
+  String get optionAdvancedChartSub => 'Piirrokset ja indikaattorit';
+
+  @override
+  String get optionAboutMarketSub => 'Tilastot ja tilauskirja';
+
+  @override
+  String get optionAddMarginSub => 'Kauemmas likvidaatiosta';
+
+  @override
+  String get optionPositionDetailsSub => 'Koko, avaus ja rahoitus';
+
+  @override
+  String optionEndsOn(String date) {
+    return 'Päättyy $date';
+  }
+
+  @override
+  String optionEndedOn(String date) {
+    return 'Päättyi $date';
+  }
+
+  @override
+  String get optionHowItResolves => 'Miten se ratkaistaan';
+
+  @override
+  String get optionViewMarketSub => 'Kaavio ja todennäköisyydet';
+
+  @override
+  String get optionPredictionDetailsSub => 'Osuudet ja maksettu hinta';
+
+  @override
+  String get optionProtectSellSub => 'Myy omaan hintaasi';
+
+  @override
   String get chartStyleCandles => 'Kynttilät';
 
   @override

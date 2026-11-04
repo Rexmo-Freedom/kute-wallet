@@ -5828,6 +5828,40 @@ class AppLocalizationsLt extends AppLocalizations {
   String get hlAdvancedChart => 'Išplėstinis grafikas';
 
   @override
+  String get optionAdvancedChartSub => 'Piešiniai ir indikatoriai';
+
+  @override
+  String get optionAboutMarketSub => 'Statistika ir pavedimų knyga';
+
+  @override
+  String get optionAddMarginSub => 'Toliau nuo likvidavimo';
+
+  @override
+  String get optionPositionDetailsSub => 'Dydis, įėjimas ir finansavimas';
+
+  @override
+  String optionEndsOn(String date) {
+    return 'Baigiasi $date';
+  }
+
+  @override
+  String optionEndedOn(String date) {
+    return 'Baigėsi $date';
+  }
+
+  @override
+  String get optionHowItResolves => 'Kaip išsprendžiama';
+
+  @override
+  String get optionViewMarketSub => 'Grafikas ir tikimybės';
+
+  @override
+  String get optionPredictionDetailsSub => 'Vienetai ir sumokėta kaina';
+
+  @override
+  String get optionProtectSellSub => 'Parduok už savo kainą';
+
+  @override
   String get chartStyleCandles => 'Žvakės';
 
   @override

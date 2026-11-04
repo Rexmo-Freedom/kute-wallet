@@ -5816,6 +5816,40 @@ class AppLocalizationsPl extends AppLocalizations {
   String get hlAdvancedChart => 'Wykres zaawansowany';
 
   @override
+  String get optionAdvancedChartSub => 'Rysunki i wskaźniki';
+
+  @override
+  String get optionAboutMarketSub => 'Statystyki i arkusz zleceń';
+
+  @override
+  String get optionAddMarginSub => 'Dalej od likwidacji';
+
+  @override
+  String get optionPositionDetailsSub => 'Wielkość, wejście i funding';
+
+  @override
+  String optionEndsOn(String date) {
+    return 'Koniec $date';
+  }
+
+  @override
+  String optionEndedOn(String date) {
+    return 'Zakończono $date';
+  }
+
+  @override
+  String get optionHowItResolves => 'Jak jest rozstrzygany';
+
+  @override
+  String get optionViewMarketSub => 'Wykres i szanse';
+
+  @override
+  String get optionPredictionDetailsSub => 'Udziały i zapłacona cena';
+
+  @override
+  String get optionProtectSellSub => 'Sprzedaj po swojej cenie';
+
+  @override
   String get chartStyleCandles => 'Świece';
 
   @override

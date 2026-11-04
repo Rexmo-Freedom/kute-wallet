@@ -5,9 +5,9 @@
 // at the end with the dot at the price paid, the profit huge with "Won
 // from 41¢ · +143.9%", "Paid · Paid out", the won pool's line, green and
 // Sal's win pose; the preview sheet reads "Show off this win" and
-// brag_shared says card: won; the resolved position page's share card
-// brags on a win and sends on a loss; a receipt's entry draws nothing
-// without a win.
+// brag_shared says card: won; the resolved position page's bar is "Brag
+// about it" on a win and never on a loss; a receipt's entry draws
+// nothing without a win.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -361,26 +361,22 @@ void main() {
     }
 
     testWidgets(
-        'the resolved position page: a win brags (its won card), a loss '
-        'sends', (tester) async {
+        'the resolved position page: a win\'s bar is Brag about it (its won '
+        'card), the round Sal button beside it',
+        (tester) async {
       await pumpPosition(tester, _resolved());
-      final card = find.byKey(const ValueKey('position-share-card'));
-      await tester.ensureVisible(card);
-      expect(find.descendant(of: card, matching: find.text('Brag about it')),
-          findsOneWidget);
-      await tester.tap(card);
+      expect(kuteBarPrimaryWithText('Brag about it'), findsOneWidget);
+      await tester.tap(kuteBarPrimaryWithText('Brag about it'));
       await settle(tester);
       expect(find.text('Show off this win'), findsOneWidget);
       expect(find.text('CALLED IT'), findsOneWidget);
       expect(find.text(r'+$17.70'), findsWidgets);
+    });
 
+    testWidgets('a resolved loss never brags', (tester) async {
       await pumpPosition(tester, _resolved(won: false));
-      final lost = find.byKey(const ValueKey('position-share-card'));
-      await tester.ensureVisible(lost);
-      expect(find.descendant(of: lost, matching: find.text('Brag about it')),
-          findsNothing);
-      expect(find.descendant(of: lost, matching: find.text('Send to a friend')),
-          findsOneWidget);
+      expect(kuteBarPrimaryWithText('Brag about it'), findsNothing);
+      expect(find.text('Brag about it'), findsNothing);
     });
   });
 }

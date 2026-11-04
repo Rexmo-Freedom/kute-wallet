@@ -1,11 +1,16 @@
-// The Bitcoin home's Activity shows everything the spending account did
-// (founder, 1 November 2026): bitcoin sends and receives, the Dollars
-// ledger and the Investments activity the Portfolio's Activity used to
-// list (Investing fills, Predictions bets, venue moves), merged by time,
-// the newest six actions on the home (four "Latest" squares and two
-// "Earlier" rows, no Today card since the declutter); "See all"
-// lists them all on one screen, each funding chain folded into the action
-// it paid for (activity_curation.dart, founder 1 November 2026).
+// The spending account's merged Activity (founder, 1 November 2026):
+// bitcoin sends and receives, the Dollars ledger and the Investments
+// activity (Investing fills, Predictions bets, venue moves), merged by
+// time, each funding chain folded into the action it paid for
+// (activity_curation.dart).
+//
+// The Bitcoin home reads it in the Bitcoin scope (founder, 4 November
+// 2026: "On the Bitcoin activity only show bitcoin-related stuff and
+// deposits and withdrawals and such"): bitcoin sends and receives and
+// money moving into or out of bitcoin, the newest six on the home (four
+// "Latest" squares and two "Earlier" rows, no Today card), all of them on
+// its "See all". The Investments scope is the fills, bets and venue moves
+// for the Portfolio and Dollars screens.
 
 import 'dart:io';
 
@@ -35,6 +40,7 @@ import 'package:kute/screens/share/pending_share_links.dart';
 import 'package:kute/screens/shared/all_activity.dart';
 import 'package:kute/screens/shared/hyperliquid_fill_activity.dart'
     show HyperliquidFillActivityRow;
+import 'package:kute/screens/shared/kute_motion.dart' show KuteStaggerIn;
 import 'package:kute/screens/shared/transactions_builder.dart'
     show ActivityDaySection, ActivityRowNote, assembleActivityRows;
 import 'package:kute/screens/shared/components/receipt_parts.dart'
@@ -421,6 +427,130 @@ void main() {
     });
   });
 
+  group('scopes', () {
+    AllActivityEntry tx(BaseTransaction t) =>
+        (time: t.timestamp, tx: t, fill: null);
+    final rx = _spark('rx', 5000, _t0);
+    final sent = _spark('tx', 4000, _t0, direction: TransactionType.sent);
+    final onChain = SparkUnclaimedDeposit.fromCache(
+      id: 'dep_wait',
+      timestamp: _t0,
+      txid: 'tx_wait',
+      vout: 0,
+      amountSats: 30000,
+      isMature: true,
+      hasClaimError: true,
+    );
+    final dollarsIn =
+        _dollars('usd_in', usd: 20, type: breez.PaymentType.receive, at: _t0);
+    SwapOrderTransaction swap(
+            String id, String from, String fromNet, String to, String toNet) =>
+        _swap(id,
+            coinFrom: from,
+            networkFrom: fromNet,
+            coinTo: to,
+            networkTo: toNet,
+            at: _t0);
+    final btcToUsd =
+        swap('btc_to_usd', 'BTC', 'SPARK', kOrchestraUsdAssetCode, 'SPARK');
+    final buy = swap('buy', kOrchestraUsdAssetCode, 'SPARK', 'BTC', 'SPARK');
+    final btcToPm = swap('btc_to_pm', 'BTC', 'SPARK', 'USDC.E', 'POLYGON');
+    final pmHome = swap('pm_home', 'USDC.E', 'POLYGON', 'BTC', 'SPARK');
+    final btcToHl = swap('btc_to_hl', 'BTC', 'SPARK', 'USDC', 'HYPERCORE');
+    final usdToHl =
+        swap('to_hl', kOrchestraUsdAssetCode, 'SPARK', 'USDC', 'HYPERCORE');
+    final usdToPm =
+        swap('usd_to_pm', kOrchestraUsdAssetCode, 'SPARK', 'USDC.E', 'POLYGON');
+    // Dollars paying someone's bitcoin address: a Dollars send.
+    final dollarSend = _swap('dollar_send',
+            coinFrom: kOrchestraUsdAssetCode,
+            networkFrom: 'SPARK',
+            coinTo: 'BTC',
+            networkTo: 'BITCOIN',
+            at: _t0)
+        .details
+        .copyWith(activityDirection: 'send');
+    final bet = _bet('bet', _t0);
+    final fill = _f(_fill(_t0));
+    final everything = <AllActivityEntry>[
+      for (final t in <BaseTransaction>[
+        rx,
+        sent,
+        onChain,
+        dollarsIn,
+        btcToUsd,
+        buy,
+        btcToPm,
+        pmHome,
+        btcToHl,
+        usdToHl,
+        usdToPm,
+        SwapOrderTransaction(
+            id: 'dollar_send',
+            timestamp: _t0,
+            isConfirmed: true,
+            details: dollarSend),
+        bet,
+      ])
+        tx(t),
+      fill,
+    ];
+
+    test('Bitcoin: its sends and receives and money into or out of it', () {
+      expect(
+          _ids(activityInScope(everything, ActivityScope.bitcoin,
+              classify: _classify)),
+          [
+            'rx',
+            'tx',
+            'dep_wait',
+            'btc_to_usd',
+            'buy',
+            'btc_to_pm',
+            'pm_home',
+            'btc_to_hl',
+          ]);
+    });
+
+    test('Investments: the fills, the bets and every venue move', () {
+      expect(
+          _ids(activityInScope(everything, ActivityScope.investments,
+              classify: _classify)),
+          [
+            'btc_to_pm',
+            'pm_home',
+            'btc_to_hl',
+            'to_hl',
+            'usd_to_pm',
+            'bet',
+            'fill:1'
+          ]);
+    });
+
+    test('all: everything', () {
+      expect(activityInScope(everything, ActivityScope.all), everything);
+    });
+
+    test('a Cash App purchase is bitcoin only when it buys bitcoin', () {
+      SwapOrderTransaction cashApp(String coinTo, String networkTo) =>
+          SwapOrderTransaction(
+              id: 'cashapp_$coinTo',
+              timestamp: _t0,
+              isConfirmed: true,
+              details: _swap('cashapp_$coinTo',
+                      coinFrom: 'BTC',
+                      networkFrom: 'LIGHTNING',
+                      coinTo: coinTo,
+                      networkTo: networkTo,
+                      at: _t0)
+                  .details
+                  .copyWith(purchaseSource: 'cashapp'));
+      expect(isBitcoinActivity(tx(cashApp('BTC', 'SPARK'))), isTrue);
+      expect(isBitcoinActivity(tx(cashApp(kOrchestraUsdAssetCode, 'SPARK'))),
+          isFalse);
+    });
+  });
+
   group('on screen', () {
     Future<void> pump(WidgetTester tester, Widget home,
         {Transaction? history,
@@ -491,25 +621,38 @@ void main() {
     Finder inEarlier(Finder f) => find.descendant(
         of: find.byKey(const ValueKey('activity-earlier')), matching: f);
 
-    testWidgets('the home: the newest six, four squares and two rows',
+    // `count` bitcoin receives, one a minute, beside a dollar deposit and
+    // three predictions newer than all of them.
+    Transaction bitcoinHistory(int count) {
+      final h = history(3);
+      return h.copyWith(sparkTransactions: [
+        for (var i = 0; i < count; i++)
+          _spark('rx$i', 1000 + i, _t0.subtract(Duration(minutes: 1 + i))),
+      ]);
+    }
+
+    Finder rowsIn(Finder area) =>
+        find.descendant(of: area, matching: find.byType(KuteStaggerIn));
+
+    testWidgets('the home: its newest six bitcoin rows, four squares and two',
         (tester) async {
       await pump(
           tester,
           const Scaffold(
               body: SingleChildScrollView(child: AllActivityPreview())),
-          history: history(3),
+          history: bitcoinHistory(8),
           fills: [
             for (var i = 0; i < 7; i++)
               _fill(_t0.add(Duration(minutes: 10 + i)), oid: i),
           ]);
-      // 7 fills + 3 bets + 1 dollar deposit + 1 bitcoin receive = 12; the
-      // newest six: six of the fills, no bet.
+      // 7 fills, 3 bets and a dollar deposit are newer than every bitcoin
+      // receive, and none of them is listed: the six newest receives are.
       expect(find.byType(HyperliquidFillActivityRow, skipOffstage: false),
-          findsNWidgets(6));
-      expect(inSquares(find.byType(HyperliquidFillActivityRow)),
-          findsNWidgets(4));
-      expect(inEarlier(find.byType(HyperliquidFillActivityRow)),
+          findsNothing);
+      expect(rowsIn(find.byType(ActivitySquareGrid)), findsNWidgets(4));
+      expect(rowsIn(find.byKey(const ValueKey('activity-earlier'))),
           findsNWidgets(2));
+      expect(find.text('Received', skipOffstage: false), findsNWidgets(6));
       expect(find.text('Latest'), findsOneWidget);
       expect(find.text('Earlier'), findsOneWidget);
       expect(find.text('Prediction · Yes', skipOffstage: false),
@@ -527,14 +670,15 @@ void main() {
           tester,
           const Scaffold(
               body: SingleChildScrollView(child: AllActivityPreview())),
-          history: history(4));
-      // 4 bets are the squares; the dollar deposit and the bitcoin
-      // receive the two Earlier rows.
-      expect(inSquares(find.text('Prediction · Yes')), findsNWidgets(4));
-      expect(inEarlier(find.text('Prediction · Yes')), findsNothing);
+          history: bitcoinHistory(6));
+      // The four newest receives are the squares, the next two the
+      // Earlier rows.
+      expect(inSquares(find.text('Received')), findsNWidgets(4));
+      expect(inEarlier(find.text('Received')), findsNWidgets(2));
       // Neither shape draws the row's context line (the time) or a second
       // figure.
-      final time = DateFormat('HH:mm').format(_t0.toLocal());
+      final time = DateFormat('HH:mm')
+          .format(_t0.subtract(const Duration(minutes: 1)).toLocal());
       expect(find.textContaining(time), findsNothing);
       // A square is big: about half the screen wide, at least 140 tall.
       final square = tester.getSize(find
@@ -563,17 +707,41 @@ void main() {
       expect(find.byType(ReceiptHero), findsOneWidget);
     });
 
-    testWidgets('a short history: every row, bitcoin and Dollars included',
+    testWidgets('a short history: the bitcoin row alone, no bet, no Dollars',
         (tester) async {
       await pump(
           tester,
           const Scaffold(
               body: SingleChildScrollView(child: AllActivityPreview())),
           history: history(2));
-      expect(find.text('Prediction · Yes', skipOffstage: false),
-          findsNWidgets(2));
-      // The bitcoin receive and the dollar deposit are rows too.
-      expect(find.text('Received', skipOffstage: false), findsWidgets);
+      expect(find.text('Prediction · Yes', skipOffstage: false), findsNothing);
+      // The bitcoin receive; the dollar deposit is the Dollars' row.
+      expect(find.text('Received', skipOffstage: false), findsOneWidget);
+      expect(rowsIn(find.byType(ActivitySquareGrid)), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('only predictions and Investing: the empty state',
+        (tester) async {
+      await pump(
+          tester,
+          const Scaffold(
+              body: SingleChildScrollView(
+                  child: AllActivityPreview(emptyState: Text('empty')))),
+          history: history(3).copyWith(
+              sparkTransactions: const [], usdbTokenTransactions: const []),
+          fills: [_fill(_t0)]);
+      expect(find.text('empty'), findsOneWidget);
+    });
+
+    testWidgets('See all from the Bitcoin home lists its bitcoin only',
+        (tester) async {
+      await pump(
+          tester, const ActivityHistoryScreen(scope: ActivityScope.bitcoin),
+          history: history(12));
+      expect(find.byType(AllActivitySliver), findsOneWidget);
+      expect(find.text('Prediction · Yes', skipOffstage: false), findsNothing);
+      expect(find.text('Received', skipOffstage: false), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -663,7 +831,7 @@ void main() {
           ],
         );
 
-    testWidgets('the home: a bet paid from Bitcoin is one square',
+    testWidgets('the home: the bitcoin that paid for a bet, never the bet',
         (tester) async {
       debugAllActivityClassify = _classify;
       addTearDown(() => debugAllActivityClassify = null);
@@ -675,12 +843,12 @@ void main() {
       // No Today tiles.
       expect(find.byKey(const ValueKey('activity-today-in')), findsNothing);
       expect(find.byKey(const ValueKey('activity-today-out')), findsNothing);
-      // The moves between own accounts are not rows; the bet, the send
-      // and the receive are the three squares, nothing under Earlier.
-      expect(inSquares(find.text('Prediction · Yes')), findsOneWidget);
+      // The receive, the send and Bitcoin → Dollars are the three squares;
+      // the bet and Dollars → Predictions are not bitcoin's.
+      expect(find.text('Prediction · Yes', skipOffstage: false), findsNothing);
+      expect(rowsIn(find.byType(ActivitySquareGrid)), findsNWidgets(3));
       expect(find.byKey(const ValueKey('activity-earlier')), findsNothing);
-      // The square has no context line: where the money came from is on
-      // See all and the receipt.
+      // Nothing folds into a bet here: no note.
       expect(find.textContaining('Paid from Bitcoin'), findsNothing);
       expect(tester.takeException(), isNull);
     });

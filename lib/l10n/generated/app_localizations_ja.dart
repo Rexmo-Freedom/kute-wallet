@@ -5582,6 +5582,40 @@ class AppLocalizationsJa extends AppLocalizations {
   String get hlAdvancedChart => '高度なチャート';
 
   @override
+  String get optionAdvancedChartSub => '描画とインジケーター';
+
+  @override
+  String get optionAboutMarketSub => '統計と板情報';
+
+  @override
+  String get optionAddMarginSub => '清算価格から遠ざける';
+
+  @override
+  String get optionPositionDetailsSub => 'サイズ・エントリー・ファンディング';
+
+  @override
+  String optionEndsOn(String date) {
+    return '$dateに終了';
+  }
+
+  @override
+  String optionEndedOn(String date) {
+    return '$dateに終了済み';
+  }
+
+  @override
+  String get optionHowItResolves => '確定の仕組み';
+
+  @override
+  String get optionViewMarketSub => 'チャートと確率';
+
+  @override
+  String get optionPredictionDetailsSub => 'シェアと購入価格';
+
+  @override
+  String get optionProtectSellSub => '指定価格で売却';
+
+  @override
   String get chartStyleCandles => 'ローソク足';
 
   @override

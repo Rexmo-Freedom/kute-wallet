@@ -5812,6 +5812,40 @@ class AppLocalizationsHr extends AppLocalizations {
   String get hlAdvancedChart => 'Napredni grafikon';
 
   @override
+  String get optionAdvancedChartSub => 'Crteži i indikatori';
+
+  @override
+  String get optionAboutMarketSub => 'Statistika i knjiga naloga';
+
+  @override
+  String get optionAddMarginSub => 'Dalje od likvidacije';
+
+  @override
+  String get optionPositionDetailsSub => 'Veličina, ulaz i financiranje';
+
+  @override
+  String optionEndsOn(String date) {
+    return 'Završava $date';
+  }
+
+  @override
+  String optionEndedOn(String date) {
+    return 'Završeno $date';
+  }
+
+  @override
+  String get optionHowItResolves => 'Kako se razrješava';
+
+  @override
+  String get optionViewMarketSub => 'Grafikon i izgledi';
+
+  @override
+  String get optionPredictionDetailsSub => 'Udjeli i plaćena cijena';
+
+  @override
+  String get optionProtectSellSub => 'Prodaj po svojoj cijeni';
+
+  @override
   String get chartStyleCandles => 'Svijeće';
 
   @override
