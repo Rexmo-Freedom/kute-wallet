@@ -108,6 +108,13 @@ class RawTransactionData {
   // becomes permanently invisible and unclaimable.
   final bool unclaimedDepositsFetchFailed;
 
+  // True when the mempool poll behind [sparkPendingDeposits] could not be
+  // read in full (the tip height, or any tracked address). An empty or
+  // partial list then is not "no deposit on its way": the cached rows
+  // stand, or an on-chain receive still confirming vanishes from Activity
+  // on whichever sync the read failed (a Lightning receive's, say).
+  final bool sparkPendingDepositsFetchFailed;
+
   RawTransactionData({
     required this.bitcoinTxs,
     required this.lightningPayments,
@@ -124,6 +131,7 @@ class RawTransactionData {
     this.sparkPaymentsFetchFailed = false,
     this.usdbPaymentsFetchFailed = false,
     this.unclaimedDepositsFetchFailed = false,
+    this.sparkPendingDepositsFetchFailed = false,
   });
 }
 
@@ -1220,7 +1228,14 @@ class TransactionNotifier extends StateNotifier<Transaction> {
     final sdkListsLive = !rawData.sparkPaymentsFetchFailed &&
         !rawData.unclaimedDepositsFetchFailed &&
         !identical(sparkTransactions, cachedSpark);
-    final sparkPendingDeposits = rawData.sparkPendingDeposits
+    // A mempool read that failed keeps the rows this wallet already shows:
+    // an empty list from a timeout is not the deposit leaving.
+    final pendingSource = rawData.sparkPendingDepositsFetchFailed
+        ? (ref.read(walletTransactionCacheProvider)[walletId]
+                ?.sparkPendingDeposits ??
+            const <SparkPendingDeposit>[])
+        : rawData.sparkPendingDeposits;
+    final sparkPendingDeposits = pendingSource
         .where((d) => d.confirmations < 3 || sdkListsLive)
         .toList();
 

@@ -8,6 +8,8 @@
 //    deposit sheet in transactions_builder.dart).
 // One approval (the step-up used for sends), then the shared result sheet.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -157,6 +159,13 @@ void showDepositClaimFailure(
 /// the provider offers none (the deposit then waits for its 3
 /// confirmations). [vout] may be unknown for a mempool row: the SDK's
 /// pending deposit for [txid] supplies it.
+/// How often, and how many times, Claim now asks again while its sheet is
+/// open (about ten minutes in all).
+abstract final class DepositEarlyClaimRetry {
+  static const every = Duration(seconds: 20);
+  static const maxAttempts = 30;
+}
+
 class DepositEarlyClaim extends ConsumerStatefulWidget {
   const DepositEarlyClaim({
     super.key,
@@ -179,6 +188,14 @@ class _DepositEarlyClaimState extends ConsumerState<DepositEarlyClaim> {
   int? _feeSats;
   bool _busy = false;
 
+  /// Asks again while the sheet stays open: the SDK lists a deposit only
+  /// some time after it is broadcast, and the provider may start (or stop)
+  /// quoting an early claim as it confirms. Checking once, at open, left a
+  /// second deposit with no Claim now for as long as the sheet was up.
+  Timer? _retry;
+  int _attempts = 0;
+  String? _reportedReason;
+
   @override
   void initState() {
     super.initState();
@@ -187,9 +204,31 @@ class _DepositEarlyClaimState extends ConsumerState<DepositEarlyClaim> {
     _load();
   }
 
+  @override
+  void dispose() {
+    _retry?.cancel();
+    super.dispose();
+  }
+
+  void _scheduleRetry(String reason) {
+    // Once per sheet and reason: why this deposit offers no Claim now.
+    if (_reportedReason != reason) {
+      _reportedReason = reason;
+      TrackingService.track('deposit_early_claim_unavailable', params: {
+        'reason': reason,
+        'amount_sats': widget.amountSats,
+        'attempt': _attempts,
+      });
+    }
+    if (!mounted || _attempts >= DepositEarlyClaimRetry.maxAttempts) return;
+    _retry?.cancel();
+    _retry = Timer(DepositEarlyClaimRetry.every, _load);
+  }
+
   Future<void> _load() async {
     final walletId = _walletId;
-    if (walletId == null || widget.txid.isEmpty) return;
+    if (walletId == null || widget.txid.isEmpty || !mounted) return;
+    _attempts++;
     final actions = ref.read(sparkDepositActionsProvider);
     try {
       var vout = _vout;
@@ -198,19 +237,24 @@ class _DepositEarlyClaimState extends ConsumerState<DepositEarlyClaim> {
             await actions.depositForTxid(walletId: walletId, txid: widget.txid);
         vout = deposit?.vout;
       }
-      if (vout == null) return;
+      if (vout == null) return _scheduleRetry('not_listed_yet');
       final quote = await actions.quote(
           walletId: walletId, txid: widget.txid, vout: vout);
       if (!mounted) return;
       final fee = quote.earlyFeeSats;
       // Only a quote the provider made, below the deposit itself.
-      if (fee == null || fee <= 0 || fee >= widget.amountSats) return;
+      if (fee == null) return _scheduleRetry('no_early_quote');
+      if (fee <= 0 || fee >= widget.amountSats) {
+        return _scheduleRetry('fee_not_below_amount');
+      }
       setState(() {
         _vout = vout;
         _feeSats = fee;
       });
     } catch (_) {
-      // No quote: the deposit simply waits for its confirmations.
+      // No quote yet: the deposit waits for its confirmations, and the
+      // sheet asks again.
+      _scheduleRetry('quote_failed');
     }
   }
 

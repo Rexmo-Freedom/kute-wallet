@@ -506,7 +506,10 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
     // Dedup against the SDK-driven paths (unclaimed + spark mixed
     // payments) is handled downstream in `transactions_provider.dart`
     // where all sources are collated.
-    Future<List<SparkPendingDeposit>> getSparkPendingDeposits() async {
+    // Null when the poll could not be read in full: the tip height, or any
+    // address the wallet tracks. The build then keeps the rows it already
+    // shows (see RawTransactionData.sparkPendingDepositsFetchFailed).
+    Future<List<SparkPendingDeposit>?> getSparkPendingDeposits() async {
       if (!isSpark) return <SparkPendingDeposit>[];
       try {
         // Hydrate from Hive once per process — covers the case
@@ -531,13 +534,19 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
         // for finding their tx. Tip height fetched once and reused.
         final tipFuture = MempoolAddressService.fetchBlockTipHeight()
             .timeout(const Duration(seconds: 8));
+        var addressFailed = false;
         final addrFutures = _sparkAddressRing
             .map((a) => MempoolAddressService.fetchAddressTransactions(a)
-                .timeout(const Duration(seconds: 10))
-                .catchError((_) => <MempoolTransaction>[]))
+                    .timeout(const Duration(seconds: 10))
+                    .catchError((_) {
+                  addressFailed = true;
+                  return <MempoolTransaction>[];
+                }))
             .toList();
         final tipHeight = await tipFuture;
         final perAddrTxs = await Future.wait(addrFutures);
+        // One address unread could be the one the deposit was sent to.
+        if (addressFailed) return null;
 
         final seenTxids = <String>{};
         final pending = <SparkPendingDeposit>[];
@@ -583,9 +592,9 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
         }
         return pending;
       } catch (_) {
-        // Network failure / SDK not ready — empty list keeps the
-        // activity feed stable instead of flashing an error row.
-        return <SparkPendingDeposit>[];
+        // Network failure / SDK not ready: unknown, not empty. The feed
+        // keeps the rows it shows instead of dropping a deposit on its way.
+        return null;
       }
     }
 
@@ -642,8 +651,11 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
     final usdbPaymentsFetchFailed = usdbTokenPaymentsRaw == null;
     final usdbTokenPayments = usdbTokenPaymentsRaw ?? const <breez.Payment>[];
     final polymarketActivity = transactionFutures[4] as List<Activity>;
+    final sparkPendingDepositsRaw =
+        transactionFutures[5] as List<SparkPendingDeposit>?;
+    final sparkPendingDepositsFetchFailed = sparkPendingDepositsRaw == null;
     final sparkPendingDeposits =
-        transactionFutures[5] as List<SparkPendingDeposit>;
+        sparkPendingDepositsRaw ?? const <SparkPendingDeposit>[];
     final polymarketUsdcReceives =
         transactionFutures[6] as List<PolymarketUsdcReceive>;
 
@@ -703,6 +715,7 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
       sparkPaymentsFetchFailed: sparkPaymentsFetchFailed,
       usdbPaymentsFetchFailed: usdbPaymentsFetchFailed,
       unclaimedDepositsFetchFailed: unclaimedDepositsFetchFailed,
+      sparkPendingDepositsFetchFailed: sparkPendingDepositsFetchFailed,
     );
 
     ref.read(rawTransactionDataProvider.notifier).state = rawData;
