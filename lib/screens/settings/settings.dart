@@ -56,6 +56,7 @@ import 'package:kute/screens/shared/components/kute_list_row.dart';
 import 'package:kute/screens/shared/custom_keypad.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
+import 'package:kute/screens/shared/kute_action_cards.dart';
 
 final biometricsAvailableProvider = FutureProvider<bool>((ref) async {
   try {
@@ -224,27 +225,20 @@ class _SettingsState extends ConsumerState<Settings> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 SizedBox(height: 24.h),
-                // Each section is one grouped card (AppDecorations.card)
+                // FOUR BIG CARDS ON TOP (founder, 4 November 2026: "the
+                // passwords/backup, referrals, and support should be 4 big
+                // cards on the top and the rest of the items below"): the
+                // shared big squares (kute_action_cards.dart), 2 x 2.
+                // Backup, the app PIN, the referral program and support;
+                // with the referral program withheld, Rate the app takes
+                // its place so the grid stays whole.
+                _buildTopCards(context, ref, showReferral: showReferral),
+                SizedBox(height: 24.h),
+                // Each section below is one grouped card (AppDecorations.card)
                 // with hairline dividers between its rows, the same
                 // chrome as the add-wallet device list.
-                if (showReferral) ...[
-                  _GroupedCard(children: [_buildAffiliateSection(context)]),
-                  SizedBox(height: 24.h),
-                ],
-                _buildSectionHeader(
-                    context, context.l10n.settingsSupportAndFeedback),
-                // Support lives in Settings now — the home mascot header was
-                // replaced by the avatar → Settings nav. Opens live Crisp chat.
-                _GroupedCard(children: [
-                  _buildSupportSection(context),
-                  _buildRateAppSection(context, ref),
-                ]),
-
-                SizedBox(height: 24.h),
                 _buildSectionHeader(context, context.l10n.security),
                 _GroupedCard(children: [
-                  _buildWalletsSection(context),
-                  _buildChangePinSection(context, ref),
                   if (showBiometrics)
                     KeyedSubtree(
                       key: _biometricsKey,
@@ -274,6 +268,14 @@ class _SettingsState extends ConsumerState<Settings> {
                   _GroupedCard(children: [
                     _buildTransactionExportSection(context, ref)
                   ]),
+                ],
+
+                // Rate the app, when it is not one of the cards.
+                if (showReferral) ...[
+                  SizedBox(height: 24.h),
+                  _buildSectionHeader(
+                      context, context.l10n.settingsSupportAndFeedback),
+                  _GroupedCard(children: [_buildRateAppSection(context, ref)]),
                 ],
 
                 SizedBox(height: 24.h),
@@ -486,12 +488,82 @@ class _SettingsState extends ConsumerState<Settings> {
     );
   }
 
-  Widget _buildChangePinSection(BuildContext context, WidgetRef ref) {
-    return _SettingsRow(
-      title: context.l10n.appPin,
-      icon: Icons.lock_rounded,
-      subtitle: context.l10n.changeUnlockCode,
-      onTap: () => _openChangePin(context, ref),
+  /// The four big cards at the top (see build): Backup and recovery, the
+  /// app PIN, the referral program (Rate the app when it is withheld) and
+  /// support, each doing what its row did.
+  Widget _buildTopCards(BuildContext context, WidgetRef ref,
+      {required bool showReferral}) {
+    final l10n = context.l10n;
+    return KuteActionCardGrid(
+      key: const ValueKey('settings-top-cards'),
+      cards: [
+        _SettingsCard.of(
+          context,
+          key: const ValueKey('settings-card-backup'),
+          icon: Icons.account_balance_wallet_rounded,
+          title: l10n.settingsBackupAndRecovery,
+          subtitle: l10n.settingsBackupAndRecoverySubtitle,
+          onTap: () {
+            HapticFeedback.lightImpact();
+            TrackingService.settingsActionTapped('backup_and_recovery');
+            // Auth happens INSIDE the wallets screen on mount — matches the
+            // existing seed-words flow (biometric attempt first, falls back
+            // to the PIN bottom sheet).
+            context.pushNamed('wallets');
+          },
+        ),
+        _SettingsCard.of(
+          context,
+          key: const ValueKey('settings-card-pin'),
+          icon: Icons.lock_rounded,
+          title: l10n.appPin,
+          subtitle: l10n.changeUnlockCode,
+          onTap: () {
+            HapticFeedback.lightImpact();
+            _openChangePin(context, ref);
+          },
+        ),
+        if (showReferral)
+          _SettingsCard.of(
+            context,
+            key: const ValueKey('settings-card-referral'),
+            icon: Icons.group_rounded,
+            title: l10n.settingsReferralProgram,
+            subtitle: l10n.shareCodeTitle,
+            onTap: () {
+              HapticFeedback.lightImpact();
+              TrackingService.settingsActionTapped('referral_program');
+              context.push('/affiliate');
+            },
+          )
+        else
+          _SettingsCard.of(
+            context,
+            key: const ValueKey('settings-card-rate'),
+            icon: Icons.star_rounded,
+            title: l10n.settingsRateTheApp,
+            subtitle: l10n.settingsLeaveAReview,
+            onTap: () {
+              HapticFeedback.lightImpact();
+              // ignore: discarded_futures
+              _rateApp(context, ref);
+            },
+          ),
+        // Opens live Crisp chat.
+        _SettingsCard.of(
+          context,
+          key: const ValueKey('settings-card-support'),
+          icon: Icons.support_agent_rounded,
+          title: l10n.chatWithSupport,
+          subtitle: l10n.getHelpFromKuteTeam,
+          onTap: () {
+            HapticFeedback.lightImpact();
+            TrackingService.supportOpened(source: 'settings');
+            // ignore: discarded_futures
+            openSupportChat();
+          },
+        ),
+      ],
     );
   }
 
@@ -682,20 +754,6 @@ class _SettingsState extends ConsumerState<Settings> {
     );
   }
 
-  Widget _buildSupportSection(BuildContext context) {
-    return _SettingsRow(
-      title: context.l10n.chatWithSupport,
-      icon: Icons.support_agent_rounded,
-      subtitle: context.l10n.getHelpFromKuteTeam,
-      onTap: () {
-        HapticFeedback.lightImpact();
-        TrackingService.supportOpened(source: 'settings');
-        // ignore: discarded_futures
-        openSupportChat();
-      },
-    );
-  }
-
   Widget _buildRateAppSection(BuildContext context, WidgetRef ref) {
     return _SettingsRow(
       title: context.l10n.settingsRateTheApp,
@@ -720,21 +778,6 @@ class _SettingsState extends ConsumerState<Settings> {
     }
   }
 
-  Widget _buildAffiliateSection(BuildContext context) {
-    // A peer of every other settings row (same row primitive inside a
-    // grouped card) rather than a fuller, more pronounced card.
-    return _SettingsRow(
-      title: context.l10n.settingsReferralProgram,
-      icon: Icons.group_rounded,
-      subtitle: context.l10n.settingsEarnAShareOfFees,
-      onTap: () {
-        HapticFeedback.lightImpact();
-        TrackingService.settingsActionTapped('referral_program');
-        context.push('/affiliate');
-      },
-    );
-  }
-
   Widget _buildTransactionExportSection(BuildContext context, WidgetRef ref) {
     return _SettingsRow(
       title: context.l10n.settingsExportTransactions,
@@ -753,25 +796,6 @@ class _SettingsState extends ConsumerState<Settings> {
           _runTransactionExport(context, ref, selectedWallets, format, period);
         },
       ),
-    );
-  }
-
-  /// Wallets entry — replaces the home card's tap-to-flip seed reveal.
-  /// Opens the per-wallet list where the user can view each wallet's
-  /// recovery phrase (hot) or xpub (hardware / watch-only).
-  Widget _buildWalletsSection(BuildContext context) {
-    return _SettingsRow(
-      title: context.l10n.settingsBackupAndRecovery,
-      icon: Icons.account_balance_wallet_rounded,
-      subtitle: context.l10n.settingsBackupAndRecoverySubtitle,
-      onTap: () {
-        HapticFeedback.lightImpact();
-        TrackingService.settingsActionTapped('backup_and_recovery');
-        // Auth happens INSIDE the wallets screen on mount — matches the
-        // existing seed-words flow (biometric attempt first, falls back to
-        // the PIN bottom sheet).
-        context.pushNamed('wallets');
-      },
     );
   }
 
@@ -2686,6 +2710,39 @@ class _SettingsRow extends StatelessWidget {
       );
 }
 
+
+/// One of the four big cards at the top of Settings: the shared big
+/// square ([KuteActionCard]) with the Settings icon in its one monochrome
+/// family (founder, 31 October 2026: no tints anywhere in Settings) on a
+/// soft tile of the ink, as the rows' tiles.
+abstract final class _SettingsCard {
+  static KuteActionCard of(
+    BuildContext context, {
+    required Key key,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    final c = context.colors;
+    return KuteActionCard(
+      key: key,
+      visual: Container(
+        width: kKuteActionCardVisualSize,
+        height: kKuteActionCardVisualSize,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: c.textPrimary.withValues(alpha: context.isDark ? 0.10 : 0.06),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(icon, color: c.textPrimary, size: 22),
+      ),
+      title: title,
+      subtitle: subtitle,
+      onTap: onTap,
+    );
+  }
+}
 
 /// Settings > Security > Notifications: the OS push-permission status
 /// (On / Off) read live from the platform, refreshed whenever the app
