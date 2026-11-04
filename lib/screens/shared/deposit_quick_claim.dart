@@ -25,6 +25,8 @@ import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/transactions_provider.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart';
+import 'package:kute/screens/shared/components/receipt_parts.dart'
+    show ReceiptBarAction;
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/message_display.dart';
@@ -222,17 +224,31 @@ abstract final class DepositEarlyClaimRetry {
   static const maxAttempts = 30;
 }
 
+/// Claim now on a confirming deposit's sheet. THE BAR IS THE BUTTON
+/// (founder, 31 October 2026 and 4 November 2026: "the claim button on
+/// Bitcoin receives is still the old button"): while the provider offers
+/// an early claim, "Claim now · fee" is the floating bar's primary button
+/// ([ReceiptBarAction]), busy while the claim runs, and the sheet's own
+/// action ([otherLabel], View on blockchain) steps down to a text button
+/// above the bar; until then, and when no offer comes, that action is the
+/// bar, as on any receipt. The sheet draws no button of its own.
 class DepositEarlyClaim extends ConsumerStatefulWidget {
   const DepositEarlyClaim({
     super.key,
     required this.txid,
     this.vout,
     required this.amountSats,
+    this.otherLabel,
+    this.onOther,
   });
 
   final String txid;
   final int? vout;
   final int amountSats;
+
+  /// The sheet's one other action (View on blockchain); null for none.
+  final String? otherLabel;
+  final VoidCallback? onOther;
 
   @override
   ConsumerState<DepositEarlyClaim> createState() => _DepositEarlyClaimState();
@@ -391,24 +407,43 @@ class _DepositEarlyClaimState extends ConsumerState<DepositEarlyClaim> {
   @override
   Widget build(BuildContext context) {
     final fee = _feeSats;
-    if (fee == null) return const SizedBox.shrink();
-    final feeText = ref.watch(conversionProvider(fee));
-    return Padding(
-      padding: EdgeInsets.only(top: 16.h),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+    final other = widget.otherLabel;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (fee != null) ...[
+          SizedBox(height: 16.h),
           DepositFeeRow(feeSats: fee),
-          SizedBox(height: 12.h),
-          AppButton(
-            text: context.l10n.depositClaimNowFee(feeText),
-            onPressed: _busy ? null : _claim,
-            isLoading: _busy,
-            compact: true,
-          ),
+          if (other != null) ...[
+            SizedBox(height: 4.h),
+            AppTextButton(
+              key: const ValueKey('deposit-claim-other'),
+              text: other,
+              onPressed: _busy ? null : widget.onOther,
+            ),
+          ],
         ],
-      ),
+        SizedBox(height: 8.h),
+        // One bar scope across both states (keyed), so the bar changes
+        // its words in place when the offer lands.
+        if (fee != null)
+          ReceiptBarAction(
+            key: const ValueKey('deposit-claim-bar'),
+            label: context.l10n
+                .depositClaimNowFee(ref.watch(conversionProvider(fee))),
+            onPrimary: _claim,
+            busy: _busy,
+          )
+        else if (other != null)
+          ReceiptBarAction(
+            key: const ValueKey('deposit-claim-bar'),
+            label: other,
+            onPrimary: widget.onOther,
+          )
+        else
+          const ReceiptBarAction.none(key: ValueKey('deposit-claim-bar')),
+      ],
     );
   }
 }
