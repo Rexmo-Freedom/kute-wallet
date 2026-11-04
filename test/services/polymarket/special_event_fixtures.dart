@@ -1,6 +1,7 @@
 // Real Gamma events of the special shapes the market page draws, trimmed
-// to the keys the app reads: read from gamma-api.polymarket.com/events
-// ?slug=… on 2026-11-04 (the day after the 2026 midterms). Titles, prices,
+// to the keys the app reads: each event read from Gamma by its slug (the
+// app's route, `/events/slug/{slug}`, answers the same event object) on
+// 2026-11-04 (the day after the 2026 midterms). Titles, prices,
 // quotes, last trades and the open / closed flags are Gamma's own; ids and
 // token ids are shortened, questions left out.
 
