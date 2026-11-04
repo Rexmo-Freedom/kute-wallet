@@ -11976,57 +11976,57 @@ class AppLocalizationsSk extends AppLocalizations {
   }
 
   @override
-  String get chartToolCursor => 'Cursor';
+  String get chartToolCursor => 'Kurzor';
 
   @override
-  String get chartToolHorizontalLine => 'Horizontal line';
+  String get chartToolHorizontalLine => 'Vodorovná čiara';
 
   @override
-  String get chartMoreTools => 'More';
+  String get chartMoreTools => 'Viac';
 
   @override
-  String get chartColor => 'Color';
+  String get chartColor => 'Farba';
 
   @override
-  String get chartBlueColor => 'Blue';
+  String get chartBlueColor => 'Modrá';
 
   @override
-  String get chartLineSolid => 'Solid line';
+  String get chartLineSolid => 'Plná čiara';
 
   @override
-  String get chartLineDashed => 'Dashed line';
+  String get chartLineDashed => 'Prerušovaná čiara';
 
   @override
-  String get chartExtendLine => 'Extend to the right';
+  String get chartExtendLine => 'Predĺžiť doprava';
 
   @override
-  String get chartLock => 'Lock';
+  String get chartLock => 'Zamknúť';
 
   @override
-  String get chartUnlock => 'Unlock';
+  String get chartUnlock => 'Odomknúť';
 
   @override
-  String get chartDuplicate => 'Duplicate';
+  String get chartDuplicate => 'Duplikovať';
 
   @override
   String chartHintTapFirstPoint(String tool) {
-    return 'Tap the first point: $tool';
+    return 'Ťukni na prvý bod: $tool';
   }
 
   @override
-  String get chartHintTapSecondPoint => 'Now tap the second point.';
+  String get chartHintTapSecondPoint => 'Teraz ťukni na druhý bod.';
 
   @override
   String chartHintToolKept(String tool) {
-    return '$tool stays on. Tap it to stop.';
+    return '$tool zostáva zapnutý. Ťuknutím ho vypneš.';
   }
 
   @override
-  String get chartHintLocked => 'Locked. Unlock it to move it.';
+  String get chartHintLocked => 'Zamknuté. Odomkni, aby si ho mohol presunúť.';
 
   @override
   String get chartHintPickToolKeep =>
-      'Pick a tool. Double-tap one to keep it on.';
+      'Vyber nástroj. Dvojitým ťuknutím ho necháš zapnutý.';
 
   @override
   String hlAboutTradedOn(String venue, String kind) {

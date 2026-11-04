@@ -12048,57 +12048,58 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
-  String get chartToolCursor => 'Cursor';
+  String get chartToolCursor => 'Curseur';
 
   @override
-  String get chartToolHorizontalLine => 'Horizontal line';
+  String get chartToolHorizontalLine => 'Ligne horizontale';
 
   @override
-  String get chartMoreTools => 'More';
+  String get chartMoreTools => 'Plus';
 
   @override
-  String get chartColor => 'Color';
+  String get chartColor => 'Couleur';
 
   @override
-  String get chartBlueColor => 'Blue';
+  String get chartBlueColor => 'Bleu';
 
   @override
-  String get chartLineSolid => 'Solid line';
+  String get chartLineSolid => 'Ligne continue';
 
   @override
-  String get chartLineDashed => 'Dashed line';
+  String get chartLineDashed => 'Ligne pointillée';
 
   @override
-  String get chartExtendLine => 'Extend to the right';
+  String get chartExtendLine => 'Prolonger vers la droite';
 
   @override
-  String get chartLock => 'Lock';
+  String get chartLock => 'Verrouiller';
 
   @override
-  String get chartUnlock => 'Unlock';
+  String get chartUnlock => 'Déverrouiller';
 
   @override
-  String get chartDuplicate => 'Duplicate';
+  String get chartDuplicate => 'Dupliquer';
 
   @override
   String chartHintTapFirstPoint(String tool) {
-    return 'Tap the first point: $tool';
+    return 'Touchez le premier point : $tool';
   }
 
   @override
-  String get chartHintTapSecondPoint => 'Now tap the second point.';
+  String get chartHintTapSecondPoint => 'Touchez maintenant le deuxième point.';
 
   @override
   String chartHintToolKept(String tool) {
-    return '$tool stays on. Tap it to stop.';
+    return '$tool reste actif. Touchez-le pour arrêter.';
   }
 
   @override
-  String get chartHintLocked => 'Locked. Unlock it to move it.';
+  String get chartHintLocked =>
+      'Verrouillé. Déverrouillez-le pour le déplacer.';
 
   @override
   String get chartHintPickToolKeep =>
-      'Pick a tool. Double-tap one to keep it on.';
+      'Choisissez un outil. Touchez-le deux fois pour le garder actif.';
 
   @override
   String hlAboutTradedOn(String venue, String kind) {

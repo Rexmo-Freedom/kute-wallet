@@ -12010,54 +12010,54 @@ class AppLocalizationsPt extends AppLocalizations {
   String get chartToolCursor => 'Cursor';
 
   @override
-  String get chartToolHorizontalLine => 'Horizontal line';
+  String get chartToolHorizontalLine => 'Linha horizontal';
 
   @override
-  String get chartMoreTools => 'More';
+  String get chartMoreTools => 'Mais';
 
   @override
-  String get chartColor => 'Color';
+  String get chartColor => 'Cor';
 
   @override
-  String get chartBlueColor => 'Blue';
+  String get chartBlueColor => 'Azul';
 
   @override
-  String get chartLineSolid => 'Solid line';
+  String get chartLineSolid => 'Linha contínua';
 
   @override
-  String get chartLineDashed => 'Dashed line';
+  String get chartLineDashed => 'Linha tracejada';
 
   @override
-  String get chartExtendLine => 'Extend to the right';
+  String get chartExtendLine => 'Prolongar para a direita';
 
   @override
-  String get chartLock => 'Lock';
+  String get chartLock => 'Bloquear';
 
   @override
-  String get chartUnlock => 'Unlock';
+  String get chartUnlock => 'Desbloquear';
 
   @override
-  String get chartDuplicate => 'Duplicate';
+  String get chartDuplicate => 'Duplicar';
 
   @override
   String chartHintTapFirstPoint(String tool) {
-    return 'Tap the first point: $tool';
+    return 'Toca no primeiro ponto: $tool';
   }
 
   @override
-  String get chartHintTapSecondPoint => 'Now tap the second point.';
+  String get chartHintTapSecondPoint => 'Agora toca no segundo ponto.';
 
   @override
   String chartHintToolKept(String tool) {
-    return '$tool stays on. Tap it to stop.';
+    return '$tool fica ativo. Toca nele para parar.';
   }
 
   @override
-  String get chartHintLocked => 'Locked. Unlock it to move it.';
+  String get chartHintLocked => 'Bloqueado. Desbloqueia para o mover.';
 
   @override
   String get chartHintPickToolKeep =>
-      'Pick a tool. Double-tap one to keep it on.';
+      'Escolhe uma ferramenta. Toca duas vezes para a manter ativa.';
 
   @override
   String hlAboutTradedOn(String venue, String kind) {

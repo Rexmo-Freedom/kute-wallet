@@ -12003,54 +12003,54 @@ class AppLocalizationsNl extends AppLocalizations {
   String get chartToolCursor => 'Cursor';
 
   @override
-  String get chartToolHorizontalLine => 'Horizontal line';
+  String get chartToolHorizontalLine => 'Horizontale lijn';
 
   @override
-  String get chartMoreTools => 'More';
+  String get chartMoreTools => 'Meer';
 
   @override
-  String get chartColor => 'Color';
+  String get chartColor => 'Kleur';
 
   @override
-  String get chartBlueColor => 'Blue';
+  String get chartBlueColor => 'Blauw';
 
   @override
-  String get chartLineSolid => 'Solid line';
+  String get chartLineSolid => 'Doorgetrokken lijn';
 
   @override
-  String get chartLineDashed => 'Dashed line';
+  String get chartLineDashed => 'Stippellijn';
 
   @override
-  String get chartExtendLine => 'Extend to the right';
+  String get chartExtendLine => 'Naar rechts verlengen';
 
   @override
-  String get chartLock => 'Lock';
+  String get chartLock => 'Vergrendelen';
 
   @override
-  String get chartUnlock => 'Unlock';
+  String get chartUnlock => 'Ontgrendelen';
 
   @override
-  String get chartDuplicate => 'Duplicate';
+  String get chartDuplicate => 'Dupliceren';
 
   @override
   String chartHintTapFirstPoint(String tool) {
-    return 'Tap the first point: $tool';
+    return 'Tik op het eerste punt: $tool';
   }
 
   @override
-  String get chartHintTapSecondPoint => 'Now tap the second point.';
+  String get chartHintTapSecondPoint => 'Tik nu op het tweede punt.';
 
   @override
   String chartHintToolKept(String tool) {
-    return '$tool stays on. Tap it to stop.';
+    return '$tool blijft aan. Tik erop om te stoppen.';
   }
 
   @override
-  String get chartHintLocked => 'Locked. Unlock it to move it.';
+  String get chartHintLocked => 'Vergrendeld. Ontgrendel om te verplaatsen.';
 
   @override
   String get chartHintPickToolKeep =>
-      'Pick a tool. Double-tap one to keep it on.';
+      'Kies een tool. Dubbeltik om hem aan te laten.';
 
   @override
   String hlAboutTradedOn(String venue, String kind) {

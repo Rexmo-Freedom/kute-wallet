@@ -11930,57 +11930,57 @@ class AppLocalizationsLv extends AppLocalizations {
   }
 
   @override
-  String get chartToolCursor => 'Cursor';
+  String get chartToolCursor => 'Kursors';
 
   @override
-  String get chartToolHorizontalLine => 'Horizontal line';
+  String get chartToolHorizontalLine => 'Horizontāla līnija';
 
   @override
-  String get chartMoreTools => 'More';
+  String get chartMoreTools => 'Vairāk';
 
   @override
-  String get chartColor => 'Color';
+  String get chartColor => 'Krāsa';
 
   @override
-  String get chartBlueColor => 'Blue';
+  String get chartBlueColor => 'Zila';
 
   @override
-  String get chartLineSolid => 'Solid line';
+  String get chartLineSolid => 'Nepārtraukta līnija';
 
   @override
-  String get chartLineDashed => 'Dashed line';
+  String get chartLineDashed => 'Svītrlīnija';
 
   @override
-  String get chartExtendLine => 'Extend to the right';
+  String get chartExtendLine => 'Pagarināt pa labi';
 
   @override
-  String get chartLock => 'Lock';
+  String get chartLock => 'Bloķēt';
 
   @override
-  String get chartUnlock => 'Unlock';
+  String get chartUnlock => 'Atbloķēt';
 
   @override
-  String get chartDuplicate => 'Duplicate';
+  String get chartDuplicate => 'Dublēt';
 
   @override
   String chartHintTapFirstPoint(String tool) {
-    return 'Tap the first point: $tool';
+    return 'Pieskaries pirmajam punktam: $tool';
   }
 
   @override
-  String get chartHintTapSecondPoint => 'Now tap the second point.';
+  String get chartHintTapSecondPoint => 'Tagad pieskaries otrajam punktam.';
 
   @override
   String chartHintToolKept(String tool) {
-    return '$tool stays on. Tap it to stop.';
+    return '$tool paliek ieslēgts. Pieskaries tam, lai apturētu.';
   }
 
   @override
-  String get chartHintLocked => 'Locked. Unlock it to move it.';
+  String get chartHintLocked => 'Bloķēts. Atbloķē, lai pārvietotu.';
 
   @override
   String get chartHintPickToolKeep =>
-      'Pick a tool. Double-tap one to keep it on.';
+      'Izvēlies rīku. Pieskaries divreiz, lai tas paliktu ieslēgts.';
 
   @override
   String hlAboutTradedOn(String venue, String kind) {

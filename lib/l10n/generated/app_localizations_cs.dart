@@ -11961,57 +11961,57 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
-  String get chartToolCursor => 'Cursor';
+  String get chartToolCursor => 'Kurzor';
 
   @override
-  String get chartToolHorizontalLine => 'Horizontal line';
+  String get chartToolHorizontalLine => 'Vodorovná čára';
 
   @override
-  String get chartMoreTools => 'More';
+  String get chartMoreTools => 'Další';
 
   @override
-  String get chartColor => 'Color';
+  String get chartColor => 'Barva';
 
   @override
-  String get chartBlueColor => 'Blue';
+  String get chartBlueColor => 'Modrá';
 
   @override
-  String get chartLineSolid => 'Solid line';
+  String get chartLineSolid => 'Plná čára';
 
   @override
-  String get chartLineDashed => 'Dashed line';
+  String get chartLineDashed => 'Přerušovaná čára';
 
   @override
-  String get chartExtendLine => 'Extend to the right';
+  String get chartExtendLine => 'Prodloužit doprava';
 
   @override
-  String get chartLock => 'Lock';
+  String get chartLock => 'Zamknout';
 
   @override
-  String get chartUnlock => 'Unlock';
+  String get chartUnlock => 'Odemknout';
 
   @override
-  String get chartDuplicate => 'Duplicate';
+  String get chartDuplicate => 'Duplikovat';
 
   @override
   String chartHintTapFirstPoint(String tool) {
-    return 'Tap the first point: $tool';
+    return 'Klepni na první bod: $tool';
   }
 
   @override
-  String get chartHintTapSecondPoint => 'Now tap the second point.';
+  String get chartHintTapSecondPoint => 'Teď klepni na druhý bod.';
 
   @override
   String chartHintToolKept(String tool) {
-    return '$tool stays on. Tap it to stop.';
+    return '$tool zůstává zapnutý. Klepnutím ho vypneš.';
   }
 
   @override
-  String get chartHintLocked => 'Locked. Unlock it to move it.';
+  String get chartHintLocked => 'Zamčeno. Odemkni, abys ho mohl přesunout.';
 
   @override
   String get chartHintPickToolKeep =>
-      'Pick a tool. Double-tap one to keep it on.';
+      'Vyber nástroj. Dvojitým klepnutím ho necháš zapnutý.';
 
   @override
   String hlAboutTradedOn(String venue, String kind) {

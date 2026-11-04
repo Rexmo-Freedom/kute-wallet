@@ -12050,54 +12050,54 @@ class AppLocalizationsDe extends AppLocalizations {
   String get chartToolCursor => 'Cursor';
 
   @override
-  String get chartToolHorizontalLine => 'Horizontal line';
+  String get chartToolHorizontalLine => 'Horizontale Linie';
 
   @override
-  String get chartMoreTools => 'More';
+  String get chartMoreTools => 'Mehr';
 
   @override
-  String get chartColor => 'Color';
+  String get chartColor => 'Farbe';
 
   @override
-  String get chartBlueColor => 'Blue';
+  String get chartBlueColor => 'Blau';
 
   @override
-  String get chartLineSolid => 'Solid line';
+  String get chartLineSolid => 'Durchgezogene Linie';
 
   @override
-  String get chartLineDashed => 'Dashed line';
+  String get chartLineDashed => 'Gestrichelte Linie';
 
   @override
-  String get chartExtendLine => 'Extend to the right';
+  String get chartExtendLine => 'Nach rechts verlängern';
 
   @override
-  String get chartLock => 'Lock';
+  String get chartLock => 'Sperren';
 
   @override
-  String get chartUnlock => 'Unlock';
+  String get chartUnlock => 'Entsperren';
 
   @override
-  String get chartDuplicate => 'Duplicate';
+  String get chartDuplicate => 'Duplizieren';
 
   @override
   String chartHintTapFirstPoint(String tool) {
-    return 'Tap the first point: $tool';
+    return 'Tippe auf den ersten Punkt: $tool';
   }
 
   @override
-  String get chartHintTapSecondPoint => 'Now tap the second point.';
+  String get chartHintTapSecondPoint => 'Tippe jetzt auf den zweiten Punkt.';
 
   @override
   String chartHintToolKept(String tool) {
-    return '$tool stays on. Tap it to stop.';
+    return '$tool bleibt aktiv. Tippe darauf, um aufzuhören.';
   }
 
   @override
-  String get chartHintLocked => 'Locked. Unlock it to move it.';
+  String get chartHintLocked => 'Gesperrt. Entsperre es, um es zu verschieben.';
 
   @override
   String get chartHintPickToolKeep =>
-      'Pick a tool. Double-tap one to keep it on.';
+      'Wähle ein Werkzeug. Doppeltippe, damit es aktiv bleibt.';
 
   @override
   String hlAboutTradedOn(String venue, String kind) {

@@ -11976,57 +11976,57 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
-  String get chartToolCursor => 'Cursor';
+  String get chartToolCursor => 'Osoitin';
 
   @override
-  String get chartToolHorizontalLine => 'Horizontal line';
+  String get chartToolHorizontalLine => 'Vaakaviiva';
 
   @override
-  String get chartMoreTools => 'More';
+  String get chartMoreTools => 'Lisää';
 
   @override
-  String get chartColor => 'Color';
+  String get chartColor => 'Väri';
 
   @override
-  String get chartBlueColor => 'Blue';
+  String get chartBlueColor => 'Sininen';
 
   @override
-  String get chartLineSolid => 'Solid line';
+  String get chartLineSolid => 'Yhtenäinen viiva';
 
   @override
-  String get chartLineDashed => 'Dashed line';
+  String get chartLineDashed => 'Katkoviiva';
 
   @override
-  String get chartExtendLine => 'Extend to the right';
+  String get chartExtendLine => 'Jatka oikealle';
 
   @override
-  String get chartLock => 'Lock';
+  String get chartLock => 'Lukitse';
 
   @override
-  String get chartUnlock => 'Unlock';
+  String get chartUnlock => 'Avaa lukitus';
 
   @override
-  String get chartDuplicate => 'Duplicate';
+  String get chartDuplicate => 'Monista';
 
   @override
   String chartHintTapFirstPoint(String tool) {
-    return 'Tap the first point: $tool';
+    return 'Napauta ensimmäistä pistettä: $tool';
   }
 
   @override
-  String get chartHintTapSecondPoint => 'Now tap the second point.';
+  String get chartHintTapSecondPoint => 'Napauta nyt toista pistettä.';
 
   @override
   String chartHintToolKept(String tool) {
-    return '$tool stays on. Tap it to stop.';
+    return '$tool pysyy valittuna. Lopeta napauttamalla sitä.';
   }
 
   @override
-  String get chartHintLocked => 'Locked. Unlock it to move it.';
+  String get chartHintLocked => 'Lukittu. Avaa lukitus siirtääksesi.';
 
   @override
   String get chartHintPickToolKeep =>
-      'Pick a tool. Double-tap one to keep it on.';
+      'Valitse työkalu. Kaksoisnapauta pitääksesi sen valittuna.';
 
   @override
   String hlAboutTradedOn(String venue, String kind) {

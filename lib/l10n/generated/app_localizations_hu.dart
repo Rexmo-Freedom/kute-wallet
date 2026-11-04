@@ -11990,57 +11990,57 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
-  String get chartToolCursor => 'Cursor';
+  String get chartToolCursor => 'Kurzor';
 
   @override
-  String get chartToolHorizontalLine => 'Horizontal line';
+  String get chartToolHorizontalLine => 'Vízszintes vonal';
 
   @override
-  String get chartMoreTools => 'More';
+  String get chartMoreTools => 'Továbbiak';
 
   @override
-  String get chartColor => 'Color';
+  String get chartColor => 'Szín';
 
   @override
-  String get chartBlueColor => 'Blue';
+  String get chartBlueColor => 'Kék';
 
   @override
-  String get chartLineSolid => 'Solid line';
+  String get chartLineSolid => 'Folytonos vonal';
 
   @override
-  String get chartLineDashed => 'Dashed line';
+  String get chartLineDashed => 'Szaggatott vonal';
 
   @override
-  String get chartExtendLine => 'Extend to the right';
+  String get chartExtendLine => 'Meghosszabbítás jobbra';
 
   @override
-  String get chartLock => 'Lock';
+  String get chartLock => 'Zárolás';
 
   @override
-  String get chartUnlock => 'Unlock';
+  String get chartUnlock => 'Feloldás';
 
   @override
-  String get chartDuplicate => 'Duplicate';
+  String get chartDuplicate => 'Másolat';
 
   @override
   String chartHintTapFirstPoint(String tool) {
-    return 'Tap the first point: $tool';
+    return 'Koppints az első pontra: $tool';
   }
 
   @override
-  String get chartHintTapSecondPoint => 'Now tap the second point.';
+  String get chartHintTapSecondPoint => 'Most koppints a második pontra.';
 
   @override
   String chartHintToolKept(String tool) {
-    return '$tool stays on. Tap it to stop.';
+    return 'A(z) $tool bekapcsolva marad. Koppints rá a leállításhoz.';
   }
 
   @override
-  String get chartHintLocked => 'Locked. Unlock it to move it.';
+  String get chartHintLocked => 'Zárolva. Oldd fel az áthelyezéshez.';
 
   @override
   String get chartHintPickToolKeep =>
-      'Pick a tool. Double-tap one to keep it on.';
+      'Válassz eszközt. Dupla koppintással bekapcsolva marad.';
 
   @override
   String hlAboutTradedOn(String venue, String kind) {

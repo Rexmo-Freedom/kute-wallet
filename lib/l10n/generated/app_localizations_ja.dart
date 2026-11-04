@@ -5591,7 +5591,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get chartStyleBars => 'バー';
 
   @override
-  String get chartStyleHeikinAshi => 'Heikin Ashi';
+  String get chartStyleHeikinAshi => '平均足';
 
   @override
   String get chartStyleLine => 'ライン';
@@ -11537,57 +11537,56 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get chartToolCursor => 'Cursor';
+  String get chartToolCursor => 'カーソル';
 
   @override
-  String get chartToolHorizontalLine => 'Horizontal line';
+  String get chartToolHorizontalLine => '水平線';
 
   @override
-  String get chartMoreTools => 'More';
+  String get chartMoreTools => 'その他';
 
   @override
-  String get chartColor => 'Color';
+  String get chartColor => '色';
 
   @override
-  String get chartBlueColor => 'Blue';
+  String get chartBlueColor => '青';
 
   @override
-  String get chartLineSolid => 'Solid line';
+  String get chartLineSolid => '実線';
 
   @override
-  String get chartLineDashed => 'Dashed line';
+  String get chartLineDashed => '破線';
 
   @override
-  String get chartExtendLine => 'Extend to the right';
+  String get chartExtendLine => '右に延長';
 
   @override
-  String get chartLock => 'Lock';
+  String get chartLock => 'ロック';
 
   @override
-  String get chartUnlock => 'Unlock';
+  String get chartUnlock => 'ロック解除';
 
   @override
-  String get chartDuplicate => 'Duplicate';
+  String get chartDuplicate => '複製';
 
   @override
   String chartHintTapFirstPoint(String tool) {
-    return 'Tap the first point: $tool';
+    return '最初の点をタップ：$tool';
   }
 
   @override
-  String get chartHintTapSecondPoint => 'Now tap the second point.';
+  String get chartHintTapSecondPoint => '次に2つ目の点をタップしてください。';
 
   @override
   String chartHintToolKept(String tool) {
-    return '$tool stays on. Tap it to stop.';
+    return '$toolは選択したままです。タップすると終了します。';
   }
 
   @override
-  String get chartHintLocked => 'Locked. Unlock it to move it.';
+  String get chartHintLocked => 'ロック中です。移動するにはロックを解除してください。';
 
   @override
-  String get chartHintPickToolKeep =>
-      'Pick a tool. Double-tap one to keep it on.';
+  String get chartHintPickToolKeep => 'ツールを選択してください。ダブルタップで選択したままにできます。';
 
   @override
   String hlAboutTradedOn(String venue, String kind) {

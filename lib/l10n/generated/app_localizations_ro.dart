@@ -12024,54 +12024,54 @@ class AppLocalizationsRo extends AppLocalizations {
   String get chartToolCursor => 'Cursor';
 
   @override
-  String get chartToolHorizontalLine => 'Horizontal line';
+  String get chartToolHorizontalLine => 'Linie orizontală';
 
   @override
-  String get chartMoreTools => 'More';
+  String get chartMoreTools => 'Mai mult';
 
   @override
-  String get chartColor => 'Color';
+  String get chartColor => 'Culoare';
 
   @override
-  String get chartBlueColor => 'Blue';
+  String get chartBlueColor => 'Albastru';
 
   @override
-  String get chartLineSolid => 'Solid line';
+  String get chartLineSolid => 'Linie continuă';
 
   @override
-  String get chartLineDashed => 'Dashed line';
+  String get chartLineDashed => 'Linie întreruptă';
 
   @override
-  String get chartExtendLine => 'Extend to the right';
+  String get chartExtendLine => 'Prelungește la dreapta';
 
   @override
-  String get chartLock => 'Lock';
+  String get chartLock => 'Blochează';
 
   @override
-  String get chartUnlock => 'Unlock';
+  String get chartUnlock => 'Deblochează';
 
   @override
-  String get chartDuplicate => 'Duplicate';
+  String get chartDuplicate => 'Duplică';
 
   @override
   String chartHintTapFirstPoint(String tool) {
-    return 'Tap the first point: $tool';
+    return 'Atinge primul punct: $tool';
   }
 
   @override
-  String get chartHintTapSecondPoint => 'Now tap the second point.';
+  String get chartHintTapSecondPoint => 'Acum atinge al doilea punct.';
 
   @override
   String chartHintToolKept(String tool) {
-    return '$tool stays on. Tap it to stop.';
+    return '$tool rămâne activ. Atinge-l ca să te oprești.';
   }
 
   @override
-  String get chartHintLocked => 'Locked. Unlock it to move it.';
+  String get chartHintLocked => 'Blocat. Deblochează ca să-l muți.';
 
   @override
   String get chartHintPickToolKeep =>
-      'Pick a tool. Double-tap one to keep it on.';
+      'Alege un instrument. Atinge de două ori ca să rămână activ.';
 
   @override
   String hlAboutTradedOn(String venue, String kind) {

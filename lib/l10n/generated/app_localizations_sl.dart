@@ -11999,57 +11999,57 @@ class AppLocalizationsSl extends AppLocalizations {
   }
 
   @override
-  String get chartToolCursor => 'Cursor';
+  String get chartToolCursor => 'Kazalec';
 
   @override
-  String get chartToolHorizontalLine => 'Horizontal line';
+  String get chartToolHorizontalLine => 'Vodoravna črta';
 
   @override
-  String get chartMoreTools => 'More';
+  String get chartMoreTools => 'Več';
 
   @override
-  String get chartColor => 'Color';
+  String get chartColor => 'Barva';
 
   @override
-  String get chartBlueColor => 'Blue';
+  String get chartBlueColor => 'Modra';
 
   @override
-  String get chartLineSolid => 'Solid line';
+  String get chartLineSolid => 'Polna črta';
 
   @override
-  String get chartLineDashed => 'Dashed line';
+  String get chartLineDashed => 'Črtkana črta';
 
   @override
-  String get chartExtendLine => 'Extend to the right';
+  String get chartExtendLine => 'Podaljšaj v desno';
 
   @override
-  String get chartLock => 'Lock';
+  String get chartLock => 'Zakleni';
 
   @override
-  String get chartUnlock => 'Unlock';
+  String get chartUnlock => 'Odkleni';
 
   @override
-  String get chartDuplicate => 'Duplicate';
+  String get chartDuplicate => 'Podvoji';
 
   @override
   String chartHintTapFirstPoint(String tool) {
-    return 'Tap the first point: $tool';
+    return 'Tapnite prvo točko: $tool';
   }
 
   @override
-  String get chartHintTapSecondPoint => 'Now tap the second point.';
+  String get chartHintTapSecondPoint => 'Zdaj tapnite drugo točko.';
 
   @override
   String chartHintToolKept(String tool) {
-    return '$tool stays on. Tap it to stop.';
+    return '$tool ostane vklopljen. Tapnite ga, da ustavite.';
   }
 
   @override
-  String get chartHintLocked => 'Locked. Unlock it to move it.';
+  String get chartHintLocked => 'Zaklenjeno. Odklenite, da premaknete.';
 
   @override
   String get chartHintPickToolKeep =>
-      'Pick a tool. Double-tap one to keep it on.';
+      'Izberite orodje. Dvakrat tapnite, da ostane vklopljeno.';
 
   @override
   String hlAboutTradedOn(String venue, String kind) {

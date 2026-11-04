@@ -12019,54 +12019,54 @@ class AppLocalizationsEs extends AppLocalizations {
   String get chartToolCursor => 'Cursor';
 
   @override
-  String get chartToolHorizontalLine => 'Horizontal line';
+  String get chartToolHorizontalLine => 'Línea horizontal';
 
   @override
-  String get chartMoreTools => 'More';
+  String get chartMoreTools => 'Más';
 
   @override
   String get chartColor => 'Color';
 
   @override
-  String get chartBlueColor => 'Blue';
+  String get chartBlueColor => 'Azul';
 
   @override
-  String get chartLineSolid => 'Solid line';
+  String get chartLineSolid => 'Línea continua';
 
   @override
-  String get chartLineDashed => 'Dashed line';
+  String get chartLineDashed => 'Línea discontinua';
 
   @override
-  String get chartExtendLine => 'Extend to the right';
+  String get chartExtendLine => 'Extender a la derecha';
 
   @override
-  String get chartLock => 'Lock';
+  String get chartLock => 'Bloquear';
 
   @override
-  String get chartUnlock => 'Unlock';
+  String get chartUnlock => 'Desbloquear';
 
   @override
-  String get chartDuplicate => 'Duplicate';
+  String get chartDuplicate => 'Duplicar';
 
   @override
   String chartHintTapFirstPoint(String tool) {
-    return 'Tap the first point: $tool';
+    return 'Toca el primer punto: $tool';
   }
 
   @override
-  String get chartHintTapSecondPoint => 'Now tap the second point.';
+  String get chartHintTapSecondPoint => 'Ahora toca el segundo punto.';
 
   @override
   String chartHintToolKept(String tool) {
-    return '$tool stays on. Tap it to stop.';
+    return '$tool sigue activo. Tócalo para parar.';
   }
 
   @override
-  String get chartHintLocked => 'Locked. Unlock it to move it.';
+  String get chartHintLocked => 'Bloqueado. Desbloquéalo para moverlo.';
 
   @override
   String get chartHintPickToolKeep =>
-      'Pick a tool. Double-tap one to keep it on.';
+      'Elige una herramienta. Toca dos veces para dejarla activa.';
 
   @override
   String hlAboutTradedOn(String venue, String kind) {

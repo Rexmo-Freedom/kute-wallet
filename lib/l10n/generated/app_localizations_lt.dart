@@ -12017,57 +12017,57 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
-  String get chartToolCursor => 'Cursor';
+  String get chartToolCursor => 'Žymeklis';
 
   @override
-  String get chartToolHorizontalLine => 'Horizontal line';
+  String get chartToolHorizontalLine => 'Horizontali linija';
 
   @override
-  String get chartMoreTools => 'More';
+  String get chartMoreTools => 'Daugiau';
 
   @override
-  String get chartColor => 'Color';
+  String get chartColor => 'Spalva';
 
   @override
-  String get chartBlueColor => 'Blue';
+  String get chartBlueColor => 'Mėlyna';
 
   @override
-  String get chartLineSolid => 'Solid line';
+  String get chartLineSolid => 'Ištisinė linija';
 
   @override
-  String get chartLineDashed => 'Dashed line';
+  String get chartLineDashed => 'Brūkšninė linija';
 
   @override
-  String get chartExtendLine => 'Extend to the right';
+  String get chartExtendLine => 'Pratęsti į dešinę';
 
   @override
-  String get chartLock => 'Lock';
+  String get chartLock => 'Užrakinti';
 
   @override
-  String get chartUnlock => 'Unlock';
+  String get chartUnlock => 'Atrakinti';
 
   @override
-  String get chartDuplicate => 'Duplicate';
+  String get chartDuplicate => 'Dubliuoti';
 
   @override
   String chartHintTapFirstPoint(String tool) {
-    return 'Tap the first point: $tool';
+    return 'Bakstelėkite pirmą tašką: $tool';
   }
 
   @override
-  String get chartHintTapSecondPoint => 'Now tap the second point.';
+  String get chartHintTapSecondPoint => 'Dabar bakstelėkite antrą tašką.';
 
   @override
   String chartHintToolKept(String tool) {
-    return '$tool stays on. Tap it to stop.';
+    return '$tool lieka įjungtas. Bakstelėkite, kad sustabdytumėte.';
   }
 
   @override
-  String get chartHintLocked => 'Locked. Unlock it to move it.';
+  String get chartHintLocked => 'Užrakinta. Atrakinkite, kad perkeltumėte.';
 
   @override
   String get chartHintPickToolKeep =>
-      'Pick a tool. Double-tap one to keep it on.';
+      'Pasirinkite įrankį. Bakstelėkite dukart, kad liktų įjungtas.';
 
   @override
   String hlAboutTradedOn(String venue, String kind) {
