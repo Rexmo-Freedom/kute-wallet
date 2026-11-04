@@ -9829,6 +9829,62 @@ class AppLocalizationsHr extends AppLocalizations {
   String get polyCountNow => 'Sada';
 
   @override
+  String get polyMapRepublican => 'Republikanci';
+
+  @override
+  String get polyMapDemocratic => 'Demokrati';
+
+  @override
+  String get polyMapIndependent => 'Nezavisni';
+
+  @override
+  String get polyMapNotRepublican => 'Ne republikanci';
+
+  @override
+  String get polyMapNotDemocratic => 'Ne demokrati';
+
+  @override
+  String polyMapRepublicansFavoured(int count, int total) {
+    return 'Republikanci vode u $count od $total saveznih država';
+  }
+
+  @override
+  String polyMapDemocratsFavoured(int count, int total) {
+    return 'Demokrati vode u $count od $total saveznih država';
+  }
+
+  @override
+  String polyMapYesLeads(int count, int total) {
+    return '„Da” vodi u $count od $total saveznih država';
+  }
+
+  @override
+  String get polyMapNoMarket => 'Nema otvorenog tržišta';
+
+  @override
+  String get polyMapChanceOfYes => 'Šansa za „Da”';
+
+  @override
+  String get polyMapTapToBuild => 'Dodirni savezne države i složi svoju kartu';
+
+  @override
+  String get polyMapMostLikely => 'Najvjerojatnija karta';
+
+  @override
+  String get polyMapYourMap => 'Tvoja karta';
+
+  @override
+  String get polyMapNoSuchMap => 'Nema tržišta za ovu kartu';
+
+  @override
+  String get polyMapBackToMostLikely => 'Natrag na najvjerojatniju kartu';
+
+  @override
+  String polyMapStatePick(String state, String side) {
+    return '$state: $side na tvojoj karti';
+  }
+
+  @override
   String get polyPillWatchlist => 'Popis praćenja';
 
   @override

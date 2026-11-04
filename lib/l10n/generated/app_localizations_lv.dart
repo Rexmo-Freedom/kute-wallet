@@ -9781,6 +9781,63 @@ class AppLocalizationsLv extends AppLocalizations {
   String get polyCountNow => 'Tagad';
 
   @override
+  String get polyMapRepublican => 'Republikāņi';
+
+  @override
+  String get polyMapDemocratic => 'Demokrāti';
+
+  @override
+  String get polyMapIndependent => 'Neatkarīgie';
+
+  @override
+  String get polyMapNotRepublican => 'Ne republikāņi';
+
+  @override
+  String get polyMapNotDemocratic => 'Ne demokrāti';
+
+  @override
+  String polyMapRepublicansFavoured(int count, int total) {
+    return 'Republikāņi vadībā $count no $total štatiem';
+  }
+
+  @override
+  String polyMapDemocratsFavoured(int count, int total) {
+    return 'Demokrāti vadībā $count no $total štatiem';
+  }
+
+  @override
+  String polyMapYesLeads(int count, int total) {
+    return '“Jā” vadībā $count no $total štatiem';
+  }
+
+  @override
+  String get polyMapNoMarket => 'Nav atvērta tirgus';
+
+  @override
+  String get polyMapChanceOfYes => '“Jā” iespēja';
+
+  @override
+  String get polyMapTapToBuild =>
+      'Pieskaries štatiem, lai izveidotu savu karti';
+
+  @override
+  String get polyMapMostLikely => 'Visticamākā karte';
+
+  @override
+  String get polyMapYourMap => 'Tava karte';
+
+  @override
+  String get polyMapNoSuchMap => 'Šai kartei nav tirgus';
+
+  @override
+  String get polyMapBackToMostLikely => 'Atpakaļ uz visticamāko karti';
+
+  @override
+  String polyMapStatePick(String state, String side) {
+    return '$state: $side tavā kartē';
+  }
+
+  @override
   String get polyPillWatchlist => 'Vērošanas saraksts';
 
   @override

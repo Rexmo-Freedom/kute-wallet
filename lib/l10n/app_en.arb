@@ -5977,6 +5977,102 @@
   },
   "polyCountSoFar": "Count so far",
   "polyCountNow": "Now",
+  "polyMapRepublican": "Republican",
+  "@polyMapRepublican": {
+    "description": "Predictions state map legend and a state's odds: the side of a state the Republican party wins."
+  },
+  "polyMapDemocratic": "Democratic",
+  "@polyMapDemocratic": {
+    "description": "Predictions state map legend and a state's odds: the side of a state the Democratic party wins."
+  },
+  "polyMapIndependent": "Independent",
+  "@polyMapIndependent": {
+    "description": "Predictions state map legend and a state's odds: the side of a state an independent candidate wins."
+  },
+  "polyMapNotRepublican": "Not Republican",
+  "@polyMapNotRepublican": {
+    "description": "Predictions 'Build your map' legend: a state the Republican party does not win (whoever else wins it)."
+  },
+  "polyMapNotDemocratic": "Not Democratic",
+  "@polyMapNotDemocratic": {
+    "description": "Predictions 'Build your map' legend: a state the Democratic party does not win (whoever else wins it)."
+  },
+  "polyMapRepublicansFavoured": "Republicans favoured in {count} of {total} states",
+  "@polyMapRepublicansFavoured": {
+    "description": "Predictions state map summary above the map: in how many of the market's states the Republican party is more likely than not to win.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "polyMapDemocratsFavoured": "Democrats favoured in {count} of {total} states",
+  "@polyMapDemocratsFavoured": {
+    "description": "Predictions state map summary above the map: in how many of the market's states the Democratic party is more likely than not to win.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "polyMapYesLeads": "Yes leads in {count} of {total} states",
+  "@polyMapYesLeads": {
+    "description": "Predictions state map summary above a map of one Yes/No market per state: how many states are more likely Yes than No.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "polyMapNoMarket": "No open market",
+  "@polyMapNoMarket": {
+    "description": "Predictions state map legend: the grey of a state with no open market in this event."
+  },
+  "polyMapChanceOfYes": "Chance of Yes",
+  "@polyMapChanceOfYes": {
+    "description": "Predictions state map legend: the colour scale of each state's chance of Yes, from 0% to 100%."
+  },
+  "polyMapTapToBuild": "Tap the states to build your map",
+  "@polyMapTapToBuild": {
+    "description": "Predictions 'Build your map': the hint under the map before a state is tapped. Tapping a state switches which side wins it on the user's map."
+  },
+  "polyMapMostLikely": "Most likely map",
+  "@polyMapMostLikely": {
+    "description": "Predictions 'Build your map': the row naming the most likely combination of states, which opens that market."
+  },
+  "polyMapYourMap": "Your map",
+  "@polyMapYourMap": {
+    "description": "Predictions 'Build your map': the row naming the combination of states the user picked, which opens that market."
+  },
+  "polyMapNoSuchMap": "No market for this map",
+  "@polyMapNoSuchMap": {
+    "description": "Predictions 'Build your map': the user's combination of states has no market to bet on in this event."
+  },
+  "polyMapBackToMostLikely": "Back to the most likely map",
+  "@polyMapBackToMostLikely": {
+    "description": "Predictions 'Build your map': resets the user's map to the most likely combination."
+  },
+  "polyMapStatePick": "{state}: {side} on your map",
+  "@polyMapStatePick": {
+    "description": "Predictions 'Build your map', read by a screen reader for a state: the side the user's map gives it, e.g. 'Texas: Republican on your map'.",
+    "placeholders": {
+      "state": {
+        "type": "String"
+      },
+      "side": {
+        "type": "String"
+      }
+    }
+  },
   "polyPillWatchlist": "Watchlist",
   "polyWatchlistAdd": "Add to watchlist",
   "polyWatchlistRemove": "Remove from watchlist",

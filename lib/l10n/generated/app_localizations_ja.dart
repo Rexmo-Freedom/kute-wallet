@@ -9433,6 +9433,62 @@ class AppLocalizationsJa extends AppLocalizations {
   String get polyCountNow => '現在';
 
   @override
+  String get polyMapRepublican => '共和党';
+
+  @override
+  String get polyMapDemocratic => '民主党';
+
+  @override
+  String get polyMapIndependent => '無所属';
+
+  @override
+  String get polyMapNotRepublican => '共和党以外';
+
+  @override
+  String get polyMapNotDemocratic => '民主党以外';
+
+  @override
+  String polyMapRepublicansFavoured(int count, int total) {
+    return '$total州中$count州で共和党が優勢';
+  }
+
+  @override
+  String polyMapDemocratsFavoured(int count, int total) {
+    return '$total州中$count州で民主党が優勢';
+  }
+
+  @override
+  String polyMapYesLeads(int count, int total) {
+    return '$total州中$count州で「はい」が優勢';
+  }
+
+  @override
+  String get polyMapNoMarket => '取引中のマーケットなし';
+
+  @override
+  String get polyMapChanceOfYes => '「はい」の確率';
+
+  @override
+  String get polyMapTapToBuild => '州をタップしてマップを作成';
+
+  @override
+  String get polyMapMostLikely => '最も可能性の高いマップ';
+
+  @override
+  String get polyMapYourMap => 'あなたのマップ';
+
+  @override
+  String get polyMapNoSuchMap => 'このマップのマーケットはありません';
+
+  @override
+  String get polyMapBackToMostLikely => '最も可能性の高いマップに戻す';
+
+  @override
+  String polyMapStatePick(String state, String side) {
+    return '$state：あなたのマップでは$side';
+  }
+
+  @override
   String get polyPillWatchlist => 'ウォッチリスト';
 
   @override

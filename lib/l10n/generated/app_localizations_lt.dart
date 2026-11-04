@@ -9859,6 +9859,63 @@ class AppLocalizationsLt extends AppLocalizations {
   String get polyCountNow => 'Dabar';
 
   @override
+  String get polyMapRepublican => 'Respublikonai';
+
+  @override
+  String get polyMapDemocratic => 'Demokratai';
+
+  @override
+  String get polyMapIndependent => 'Nepriklausomi';
+
+  @override
+  String get polyMapNotRepublican => 'Ne respublikonai';
+
+  @override
+  String get polyMapNotDemocratic => 'Ne demokratai';
+
+  @override
+  String polyMapRepublicansFavoured(int count, int total) {
+    return 'Respublikonai pirmauja $count iš $total valstijų';
+  }
+
+  @override
+  String polyMapDemocratsFavoured(int count, int total) {
+    return 'Demokratai pirmauja $count iš $total valstijų';
+  }
+
+  @override
+  String polyMapYesLeads(int count, int total) {
+    return '„Taip“ pirmauja $count iš $total valstijų';
+  }
+
+  @override
+  String get polyMapNoMarket => 'Nėra atviros rinkos';
+
+  @override
+  String get polyMapChanceOfYes => '„Taip“ tikimybė';
+
+  @override
+  String get polyMapTapToBuild =>
+      'Bakstelėkite valstijas ir sudarykite savo žemėlapį';
+
+  @override
+  String get polyMapMostLikely => 'Labiausiai tikėtinas žemėlapis';
+
+  @override
+  String get polyMapYourMap => 'Jūsų žemėlapis';
+
+  @override
+  String get polyMapNoSuchMap => 'Šiam žemėlapiui rinkos nėra';
+
+  @override
+  String get polyMapBackToMostLikely => 'Grįžti į labiausiai tikėtiną žemėlapį';
+
+  @override
+  String polyMapStatePick(String state, String side) {
+    return '$state: $side jūsų žemėlapyje';
+  }
+
+  @override
   String get polyPillWatchlist => 'Stebimi';
 
   @override

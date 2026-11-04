@@ -44,6 +44,7 @@ import 'package:kute/providers/polymarket_tweet_count_provider.dart';
 import 'package:kute/screens/polymarket/components/game_chart_section.dart';
 import 'package:kute/screens/polymarket/components/game_header.dart';
 import 'package:kute/screens/polymarket/components/exact_score_list.dart';
+import 'package:kute/screens/polymarket/components/special_event_section.dart';
 import 'package:kute/services/polymarket/thin_history.dart';
 import 'package:kute/services/polymarket/shown_price.dart';
 import 'package:kute/screens/polymarket/components/game_winner_lines.dart';
@@ -703,6 +704,13 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
                             ],
                           ),
                         ),
+                        // A US election event drawn: its state map ("Build
+                        // your map", one market per state) or its races
+                        // split by party, above its outcomes; nothing for
+                        // any other event (special_event_section.dart).
+                        if (!event.isBinary)
+                          PolySpecialEventSection.sliver(event,
+                              onPickOutcome: _openCandidateDetail),
                         // Own Consumer, returning slivers: it rebuilds when
                         // the order of the outcomes changes; a price tick
                         // repaints the one row (or board button) it moved.

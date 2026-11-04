@@ -9803,6 +9803,62 @@ class AppLocalizationsCs extends AppLocalizations {
   String get polyCountNow => 'Teď';
 
   @override
+  String get polyMapRepublican => 'Republikáni';
+
+  @override
+  String get polyMapDemocratic => 'Demokraté';
+
+  @override
+  String get polyMapIndependent => 'Nezávislí';
+
+  @override
+  String get polyMapNotRepublican => 'Nikoli republikáni';
+
+  @override
+  String get polyMapNotDemocratic => 'Nikoli demokraté';
+
+  @override
+  String polyMapRepublicansFavoured(int count, int total) {
+    return 'Republikáni vedou v $count z $total států';
+  }
+
+  @override
+  String polyMapDemocratsFavoured(int count, int total) {
+    return 'Demokraté vedou v $count z $total států';
+  }
+
+  @override
+  String polyMapYesLeads(int count, int total) {
+    return '„Ano“ vede v $count z $total států';
+  }
+
+  @override
+  String get polyMapNoMarket => 'Žádný otevřený trh';
+
+  @override
+  String get polyMapChanceOfYes => 'Šance na „Ano“';
+
+  @override
+  String get polyMapTapToBuild => 'Klepni na státy a sestav si svou mapu';
+
+  @override
+  String get polyMapMostLikely => 'Nejpravděpodobnější mapa';
+
+  @override
+  String get polyMapYourMap => 'Tvoje mapa';
+
+  @override
+  String get polyMapNoSuchMap => 'Pro tuto mapu není žádný trh';
+
+  @override
+  String get polyMapBackToMostLikely => 'Zpět na nejpravděpodobnější mapu';
+
+  @override
+  String polyMapStatePick(String state, String side) {
+    return '$state: $side na tvé mapě';
+  }
+
+  @override
   String get polyPillWatchlist => 'Sledované';
 
   @override
