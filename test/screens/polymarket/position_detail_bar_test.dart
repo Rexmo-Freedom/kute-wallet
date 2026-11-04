@@ -6,8 +6,10 @@
 // thinking while the redeem runs; a won position has none. No pinned panel
 // is left at the foot, and the body scrolls clear of the bar. Sell and
 // Clear carry the round Sal button at their right (founder, 4 November
-// 2026: Send to a friend floats); a won position's bar is the Sal pill,
-// "Send to a friend".
+// 2026: Send to a friend floats). A won position in profit is "Brag about
+// it" (its won card; founder, 4 November 2026: past wins brag too) with
+// the round Sal button; a win with no profit is the Sal pill, "Send to a
+// friend".
 //
 // Light and dark PNGs of the open position with its bar:
 // flutter test --dart-define=POLY_POSITION_SHOT_OUT=<dir>.
@@ -150,6 +152,22 @@ const _won = PolymarketPosition(
   currentPrice: 1,
   pnl: 16.2,
   pnlPercent: 426,
+  isResolved: true,
+  won: true,
+  tokenId: 'cf-no',
+  eventSlug: 'ceasefire-2026',
+);
+
+/// A win bought at a dollar a share: paid out what it cost, no profit.
+const _wonEven = PolymarketPosition(
+  marketId: 'c-cf',
+  marketQuestion: 'Ukraine x Russia ceasefire in 2026?',
+  outcome: 'No',
+  size: 20,
+  avgPrice: 1,
+  currentPrice: 1,
+  pnl: 0,
+  pnlPercent: 0,
   isResolved: true,
   won: true,
   tokenId: 'cf-no',
@@ -329,9 +347,27 @@ void main() {
   });
 
   testWidgets(
-      'a won position has no action: the bar is not a button there but '
-      'the Sal pill, "Send to a friend"', (tester) async {
+      'a won position in profit has no Sell: the bar is "Brag about it", '
+      'the round Sal button beside it', (tester) async {
     await _pump(tester, _won);
+    expect(find.byType(AppButton), findsNothing);
+    expect(barIsUp(tester), isTrue);
+    final ctx = barPrimaryContext(tester);
+    expect(ctx.label, 'Brag about it');
+    expect(ctx.style, isNull);
+    expect(barPrimaryEnabled(tester), isTrue);
+    // The button is the brag; the round Sal button is the page's Sal
+    // sheet, never a second brag.
+    expect(find.byKey(const ValueKey('kute-bar-share')), findsOneWidget);
+    expect(ctx.share!.brag, isNull);
+    expect(find.byKey(const ValueKey('kute-bar-pill')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'a won position with no profit has no action: the bar is not a '
+      'button there but the Sal pill, "Send to a friend"', (tester) async {
+    await _pump(tester, _wonEven);
     expect(barIsPrimary(tester), isFalse);
     expect(barIsUp(tester), isTrue);
     expect(find.byType(AppButton), findsNothing);
