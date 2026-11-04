@@ -5814,6 +5814,40 @@ class AppLocalizationsHu extends AppLocalizations {
   String get hlAdvancedChart => 'Speciális diagram';
 
   @override
+  String get optionAdvancedChartSub => 'Rajzok és indikátorok';
+
+  @override
+  String get optionAboutMarketSub => 'Statisztika és megbízási könyv';
+
+  @override
+  String get optionAddMarginSub => 'Távolabb a likvidációtól';
+
+  @override
+  String get optionPositionDetailsSub => 'Méret, belépés és finanszírozás';
+
+  @override
+  String optionEndsOn(String date) {
+    return 'Vége: $date';
+  }
+
+  @override
+  String optionEndedOn(String date) {
+    return 'Véget ért: $date';
+  }
+
+  @override
+  String get optionHowItResolves => 'Hogyan értékelik ki';
+
+  @override
+  String get optionViewMarketSub => 'Diagram és esélyek';
+
+  @override
+  String get optionPredictionDetailsSub => 'Egységek és fizetett ár';
+
+  @override
+  String get optionProtectSellSub => 'Add el a saját áradon';
+
+  @override
   String get chartStyleCandles => 'Gyertyák';
 
   @override
@@ -11462,7 +11496,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get barShareWithFriends => 'Küldés barátnak';
 
   @override
-  String get barShareMarketSub => 'Küldd el a piacot vagy az előrejelzésedet';
+  String get barShareMarketSub => 'Küldd el a piacot vagy egy előrejelzést';
 
   @override
   String get barSharePositionSub => 'Küldd el a piacot vagy a pozíciódat';
@@ -11471,7 +11505,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get shareTheMarket => 'Piac küldése';
 
   @override
-  String get shareTheMarketSub => 'Egy megnyitható link a kódoddal';
+  String get shareTheMarketSub => 'Kapnak egy linket, hogy megnézzék';
 
   @override
   String get shareThisPosition => 'Pozíció küldése';
@@ -11881,12 +11915,6 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
-  String get usdSendPickRow => 'A stock or prediction';
-
-  @override
-  String get usdSendPickRowSub => 'They get your pick, ready to place';
-
-  @override
   String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
 
   @override
@@ -11922,7 +11950,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get sendPickMarket => 'Előrejelzés vagy befektetés küldése';
 
   @override
-  String get sendPickMarketSub => 'Válassz piacot, leadásra készen kapják meg';
+  String get sendPickMarketSub => 'Keress egy piacot, aztán válassz oldalt';
 
   @override
   String get sendPickMarketSearchHint =>
@@ -11932,10 +11960,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get sendPickMarketNoResults => 'Nincs találat';
 
   @override
-  String get sendPickSideTitle => 'Melyik oldal?';
-
-  @override
-  String get sendPickSideSub => 'Amit kapnak, leadásra készen';
+  String get sendPickSideSub => 'Válaszd ki, melyik oldalt kapják';
 
   @override
   String get shareSendAgainWhatsApp => 'Újraküldés WhatsAppon';
@@ -12456,4 +12481,33 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get predictBelowTarget => 'below target';
+
+  @override
+  String get sendAPrediction => 'Előrejelzés küldése';
+
+  @override
+  String get sendAnInvestment => 'Befektetés küldése';
+
+  @override
+  String get sendAPredictionSub =>
+      'Megkapják az általad választott előrejelzést';
+
+  @override
+  String get sendAnInvestmentSub =>
+      'Megkapják az általad választott befektetést';
+
+  @override
+  String get sendPickOutcomeSub => 'Válaszd ki, melyik kimenetelt kapják';
+
+  @override
+  String get sendPickAmountSub => 'Mennyit kapnak?';
+
+  @override
+  String get sendToAFriendLabel => 'Barátnak';
+
+  @override
+  String get sendToCryptoAddress => 'Kriptocímre';
+
+  @override
+  String get sendPickRowSub => 'Vagy befektetés. Keress piacot, válassz oldalt';
 }

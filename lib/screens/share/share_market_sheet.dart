@@ -14,12 +14,15 @@
 //     {deepLink}" (shareCardMessage), the sender's referral code on
 //     the link as `?ref=CODE` (the affiliate code AffiliateService already
 //     holds) and drawn on the card's footer.
-//   * Send this prediction (Send this investment on Investing): Send to
-//     anyone (send_to_anyone_sheet.dart) for dollars with the pick on the
-//     link: the market slug and title, the venue, the outcome and side the
-//     page showed (kute_share_actions.dart). Only where the page is one
-//     prediction: an event's page (several outcomes, a game) sends the
+//   * Send a prediction (Send an investment on Investing; "this" on a
+//     position): Send to anyone (send_to_anyone_sheet.dart) for dollars on
+//     the market's sides, none chosen: the person picks the side there
+//     (kute_share_actions.dart, send_pick.dart). Only where the page is
+//     one prediction: an event's page (several outcomes, a game) sends the
 //     market alone, `sendPick: false` (founder, 2 November 2026).
+//
+// THE CARD IS A BUTTON TOO (founder, 4 November 2026: "I click and
+// nothing happens"): a tap on the card shares it, as the bar does.
 //
 // `share_market_opened {market}` once per open. Never the link.
 
@@ -39,6 +42,7 @@ import 'package:kute/screens/share/cards/share_card_copy.dart'
 import 'package:kute/screens/share/cards/share_card_data.dart';
 import 'package:kute/screens/share/cards/share_card_preview.dart';
 import 'package:kute/screens/share/cards/share_card_sources.dart';
+import 'package:kute/screens/share/send_pick.dart';
 import 'package:kute/screens/share/send_to_anyone_sheet.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/custom_button.dart';
@@ -75,6 +79,7 @@ Future<void> openShareForMarket(
   String? coinCategory,
   String? coinIconUrl,
   bool sendPick = true,
+  SendPickMarket? pickMarket,
 }) {
   ShareLinkEvents.marketOpened(marketSlug: marketSlug);
   return showAppBottomSheet<void>(
@@ -97,6 +102,7 @@ Future<void> openShareForMarket(
       coinCategory: coinCategory,
       coinIconUrl: coinIconUrl,
       sendPick: sendPick,
+      pickMarket: pickMarket,
     ),
   );
 }
@@ -131,6 +137,7 @@ class ShareMarketSheet extends ConsumerStatefulWidget {
     this.coinCategory,
     this.coinIconUrl,
     this.sendPick = true,
+    this.pickMarket,
   });
 
   final String title;
@@ -153,9 +160,13 @@ class ShareMarketSheet extends ConsumerStatefulWidget {
   final String? coinCategory;
   final String? coinIconUrl;
 
-  /// Whether the sheet offers Send this prediction (false on an event's
+  /// Whether the sheet offers Send a prediction (false on an event's
   /// page: the market alone).
   final bool sendPick;
+
+  /// The market the send button sends a pick on, its sides to choose from
+  /// (or a position's side, chosen); null: the pick fields as they are.
+  final SendPickMarket? pickMarket;
 
   bool get investing => venue == 'hyperliquid';
 
@@ -222,6 +233,7 @@ class _ShareMarketSheetState extends ConsumerState<ShareMarketSheet> {
     await showSendToAnyoneSheet(
       root,
       kind: ShareLinkKind.dollars,
+      market: widget.pickMarket,
       marketSlug: widget.marketSlug,
       marketTitle: widget.title,
       venue: widget.venue,
@@ -245,12 +257,22 @@ class _ShareMarketSheetState extends ConsumerState<ShareMarketSheet> {
           // word is never "Share" for the sheet; the card's button is.
           AppBottomSheetHeader(
               title: l10n.sendToAFriend, icon: Icons.ios_share_rounded),
-          ShareCardPreviewBox(
-            key: const ValueKey('share-market-preview'),
-            data: data,
-            boundaryKey: _boundary,
-            heightFraction: 0.48,
-            lineSeed: _seed,
+          // The card shares too (see the file header).
+          Semantics(
+            button: true,
+            label: l10n.share,
+            child: GestureDetector(
+              key: const ValueKey('share-market-card-tap'),
+              behavior: HitTestBehavior.opaque,
+              onTap: () => unawaited(_share(data)),
+              child: ShareCardPreviewBox(
+                key: const ValueKey('share-market-preview'),
+                data: data,
+                boundaryKey: _boundary,
+                heightFraction: 0.48,
+                lineSeed: _seed,
+              ),
+            ),
           ),
           Padding(
             padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 0),
@@ -262,9 +284,15 @@ class _ShareMarketSheetState extends ConsumerState<ShareMarketSheet> {
                 if (widget.sendPick)
                   AppTextButton(
                     key: const ValueKey('share-market-send-pick'),
-                    text: widget.investing
-                        ? l10n.sendThisInvestment
-                        : l10n.sendThisPrediction,
+                    // "a" while the side is still to pick, "this" for a
+                    // position's own.
+                    text: (widget.pickMarket?.needsSide ?? false)
+                        ? (widget.investing
+                            ? l10n.sendAnInvestment
+                            : l10n.sendAPrediction)
+                        : (widget.investing
+                            ? l10n.sendThisInvestment
+                            : l10n.sendThisPrediction),
                     onPressed: () => unawaited(_sendPick(context)),
                   ),
                 // THE BAR IS THE BUTTON (kute_bar_context.dart): Share

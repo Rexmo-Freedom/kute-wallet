@@ -5796,6 +5796,40 @@ class AppLocalizationsCs extends AppLocalizations {
   String get hlAdvancedChart => 'Pokročilý graf';
 
   @override
+  String get optionAdvancedChartSub => 'Kreslení a indikátory';
+
+  @override
+  String get optionAboutMarketSub => 'Statistiky a kniha pokynů';
+
+  @override
+  String get optionAddMarginSub => 'Dál od likvidace';
+
+  @override
+  String get optionPositionDetailsSub => 'Velikost, vstup a funding';
+
+  @override
+  String optionEndsOn(String date) {
+    return 'Končí $date';
+  }
+
+  @override
+  String optionEndedOn(String date) {
+    return 'Skončilo $date';
+  }
+
+  @override
+  String get optionHowItResolves => 'Jak se vyhodnotí';
+
+  @override
+  String get optionViewMarketSub => 'Graf a šance';
+
+  @override
+  String get optionPredictionDetailsSub => 'Podíly a zaplacená cena';
+
+  @override
+  String get optionProtectSellSub => 'Prodej za svou cenu';
+
+  @override
   String get chartStyleCandles => 'Svíčky';
 
   @override
@@ -11433,7 +11467,7 @@ class AppLocalizationsCs extends AppLocalizations {
   String get barShareWithFriends => 'Poslat kamarádovi';
 
   @override
-  String get barShareMarketSub => 'Pošli trh nebo svou predikci';
+  String get barShareMarketSub => 'Pošli trh nebo predikci';
 
   @override
   String get barSharePositionSub => 'Pošli trh nebo svou pozici';
@@ -11442,7 +11476,7 @@ class AppLocalizationsCs extends AppLocalizations {
   String get shareTheMarket => 'Poslat trh';
 
   @override
-  String get shareTheMarketSub => 'Odkaz k otevření, s tvým kódem';
+  String get shareTheMarketSub => 'Dostanou odkaz, aby si ho prohlédli';
 
   @override
   String get shareThisPosition => 'Poslat tuto pozici';
@@ -11852,12 +11886,6 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
-  String get usdSendPickRow => 'A stock or prediction';
-
-  @override
-  String get usdSendPickRowSub => 'They get your pick, ready to place';
-
-  @override
   String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
 
   @override
@@ -11893,7 +11921,7 @@ class AppLocalizationsCs extends AppLocalizations {
   String get sendPickMarket => 'Poslat predikci nebo investici';
 
   @override
-  String get sendPickMarketSub => 'Vyber trh, dostanou ho připravený k zadání';
+  String get sendPickMarketSub => 'Vyhledej trh a pak vyber stranu';
 
   @override
   String get sendPickMarketSearchHint => 'Hledat v predikcích a investování';
@@ -11902,10 +11930,7 @@ class AppLocalizationsCs extends AppLocalizations {
   String get sendPickMarketNoResults => 'Nic neodpovídá';
 
   @override
-  String get sendPickSideTitle => 'Která strana?';
-
-  @override
-  String get sendPickSideSub => 'Co dostanou, připravené k zadání';
+  String get sendPickSideSub => 'Vyber stranu, kterou dostanou';
 
   @override
   String get shareSendAgainWhatsApp => 'Poslat znovu přes WhatsApp';
@@ -12425,4 +12450,31 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get predictBelowTarget => 'below target';
+
+  @override
+  String get sendAPrediction => 'Poslat predikci';
+
+  @override
+  String get sendAnInvestment => 'Poslat investici';
+
+  @override
+  String get sendAPredictionSub => 'Dostanou predikci, kterou vybereš';
+
+  @override
+  String get sendAnInvestmentSub => 'Dostanou investici, kterou vybereš';
+
+  @override
+  String get sendPickOutcomeSub => 'Vyber výsledek, který dostanou';
+
+  @override
+  String get sendPickAmountSub => 'Kolik dostanou?';
+
+  @override
+  String get sendToAFriendLabel => 'Kamarádovi';
+
+  @override
+  String get sendToCryptoAddress => 'Na kryptoadresu';
+
+  @override
+  String get sendPickRowSub => 'Nebo investici. Vyhledej trh, vyber stranu';
 }

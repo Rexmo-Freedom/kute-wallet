@@ -43,10 +43,24 @@
 // page's context lifted over a row that is now covered.
 //
 // NEVER OVER A SCREEN'S OWN ACTION ROW: a page with a pinned row at its
-// foot (a market's Yes / No pair, Invest) declares the
-// row's height in [actionRowHeight] (the row plus its own bottom padding,
-// read from its code); the bar sits above that, and the lift animates on
-// the sheet spring when the row appears or goes.
+// foot declares the row's height in [actionRowHeight] (the row plus its
+// own bottom padding, read from its code); the bar sits above that, and
+// the lift animates on the sheet spring when the row appears or goes.
+//
+// THE TRADE ROW (founder, 4 November 2026: "On the Invest and Short and
+// Yes and No, we have the new floating buttons but it should be the
+// same"; "Send to a friend ... must be a floating button"). A market page
+// pins no row of its own: its trade buttons ARE the bar
+// ([KuteBarContext.trade]), floating pills in the market's colours
+// ([KuteBarTrade]: Invest | Short on Investing, Yes | No on one
+// prediction), and at the row's end the round Sal button ([KuteBarShare])
+// opens the page's Send to a friend sheet. No "Send to a friend" pill in
+// the header or beside the figure any more. An open position's Close or
+// Sell primary carries the same round button
+// ([KuteBarContext.primary]'s share); in profit it opens the brag card.
+// A page with no trade pair (an event, a game) shows its market context
+// as the floating Sal pill, which folds into that same round button while
+// the page scrolls down (kute_shell_bar.dart).
 //
 // Tapping the bar ALWAYS opens the same search / Sal sheet as Home, with
 // the context's block on top: a market page's preview and its send cards
@@ -134,19 +148,57 @@ class KuteBarPrimaryStyle {
   final FontWeight? fontWeight;
 }
 
-/// What the bar is on a surface: the search / Sal pill, or the surface's
+/// One floating trade pill in a market page's bar row (see the file
+/// header, THE TRADE ROW): [label] ("Invest", "Yes") with the live
+/// [value] after it ("62%"), on [fill] (the market's colour, the words in
+/// its contrast ink, white on the up and down colours), or, with no fill,
+/// in the light pill look (white, a hairline, the primary ink: a spot
+/// token's Sell). [flex] is its share of the row's width (Invest 2 to
+/// Short's 1, as the pinned pair was). [onTap] is the handler the pinned
+/// button had; [id] keys the pill (`kute-bar-trade-{id}`).
+class KuteBarTrade {
+  const KuteBarTrade({
+    required this.id,
+    required this.label,
+    required this.onTap,
+    this.value,
+    this.fill,
+    this.flex = 1,
+  });
+
+  final String id;
+  final String label;
+  final String? value;
+  final Color? fill;
+  final int flex;
+  final VoidCallback onTap;
+}
+
+/// The round Sal button at the end of a page's bar row (see the file
+/// header): a tap opens [barContext]'s Sal sheet (the market's Send to a
+/// friend cards), travelling to its composer as the pill does; on an open
+/// position in profit [brag] (its brag preview) runs instead.
+class KuteBarShare {
+  const KuteBarShare({required this.barContext, this.brag});
+
+  final KuteBarContext barContext;
+  final VoidCallback? brag;
+}
+
+/// What the bar is on a surface: the search / Sal pill, the surface's
 /// PRIMARY BUTTON (founder, 31 October 2026: on amount and keypad
 /// screens and slips the bar IS the Place / Send / Continue button; the
-/// page draws none of its own). See [KuteBarContext.primary].
-enum KuteBarKind { search, primaryAction }
+/// page draws none of its own; see [KuteBarContext.primary]), or a market
+/// page's TRADE ROW ([KuteBarContext.trade]).
+enum KuteBarKind { search, primaryAction, trade }
 
-/// Where a surface's Sal control sits (founder, 31 October 2026): the
-/// floating pill at the foot of the screen ([bottom], the default), or a
-/// compact circle the page draws in its own header's top-right
-/// ([header]: market, position and multi-outcome event pages, where the
-/// pill covered the Advanced chart and Rules rows). With [header] the
-/// shell bar keeps its pill away and the page renders
-/// `KuteSalHeaderButton` (kute_shell_bar.dart) with this same context.
+/// Where a surface's Sal control sits: the floating pill at the foot of
+/// the screen ([bottom], the default), or the page's own ([header]: the
+/// shell bar keeps its pill away for this context). Since 4 November 2026
+/// no page draws a header button any more; the Investing position page
+/// keeps [header] for its market context, so its chart editor (where the
+/// Close position row is away) has no bar, and its Sal control is the
+/// round button beside Close position ([KuteBarShare]).
 enum KuteBarPlacement { bottom, header }
 
 /// What the bar says and does while its surface is on screen.
@@ -174,7 +226,9 @@ class KuteBarContext {
         busyLabel = null,
         disabledLabel = null,
         pairedWidth = null,
-        style = null;
+        style = null,
+        trades = const [],
+        share = null;
 
   /// Where this surface's Sal control sits (see [KuteBarPlacement]).
   final KuteBarPlacement placement;
@@ -203,6 +257,9 @@ class KuteBarContext {
   /// never the greyed action. EVERY call site sets it (an architecture
   /// test holds them to it); null only where the button is never disabled
   /// for want of input (it is then [label]).
+  ///
+  /// [share]: the round Sal button beside the button (an open position's
+  /// Close position or Sell; see the file header, THE TRADE ROW).
   const KuteBarContext.primary({
     required this.label,
     required this.onPrimary,
@@ -217,6 +274,7 @@ class KuteBarContext {
     this.searchHint,
     this.source = 'bar',
     this.route,
+    this.share,
   })  : question = null,
         advisorContext = null,
         kind = KuteBarKind.primaryAction,
@@ -226,7 +284,48 @@ class KuteBarContext {
         hidden = false,
         actionRowHeight = 0,
         placement = KuteBarPlacement.bottom,
-        sheetHome = null;
+        sheetHome = null,
+        trades = const [];
+
+  /// THE TRADE ROW (see the file header): the bar as a market page's
+  /// trade buttons, [trades] side by side as floating pills and [share],
+  /// the round Sal button, at the row's end. The page draws no row of its
+  /// own and scrolls its content clear of the bar
+  /// ([kuteBarScrollClearance]). Sal's `share` clip: the bar arrives on
+  /// the page as a market's does (its intro), but never folds.
+  const KuteBarContext.trade({
+    required this.trades,
+    required KuteBarShare this.share,
+    this.category = SearchCategory.all,
+    this.searchHint,
+    this.source = 'bar',
+    this.route,
+  })  : label = '',
+        sublabel = null,
+        clip = 'share',
+        actions = const [],
+        prompts = const [],
+        hidden = false,
+        actionRowHeight = 0,
+        question = null,
+        advisorContext = null,
+        kind = KuteBarKind.trade,
+        enabled = true,
+        busy = false,
+        onPrimary = null,
+        busyLabel = null,
+        disabledLabel = null,
+        pairedWidth = null,
+        placement = KuteBarPlacement.bottom,
+        sheetHome = null,
+        style = null;
+
+  /// The trade row's pills (see [KuteBarContext.trade]); empty otherwise.
+  final List<KuteBarTrade> trades;
+
+  /// The round Sal button at the end of the bar's row: a trade row's, or
+  /// beside a position's primary button; null for none.
+  final KuteBarShare? share;
 
   final KuteBarKind kind;
   final bool enabled;
@@ -281,13 +380,19 @@ class KuteBarContext {
         pairedWidth = null,
         placement = KuteBarPlacement.bottom,
         sheetHome = null,
-        style = null;
+        style = null,
+        trades = const [],
+        share = null;
 
-  /// The Sal control is the page's own header circle, not the pill.
+  /// The page keeps the pill away for this context (see
+  /// [KuteBarPlacement.header]).
   bool get inHeader => placement == KuteBarPlacement.header;
 
   /// The bar is this surface's primary button (see [KuteBarContext.primary]).
   bool get isPrimary => kind == KuteBarKind.primaryAction;
+
+  /// The bar is a market page's trade row (see [KuteBarContext.trade]).
+  bool get isTrade => kind == KuteBarKind.trade;
 
   final String label;
   final String? sublabel;
@@ -337,7 +442,16 @@ class KuteBarContext {
   bool get current => route == null || route!.isCurrent;
 
   /// This context bound to [route] (see [KuteBarContextScope]).
-  KuteBarContext boundTo(Route<dynamic>? route) => isPrimary
+  KuteBarContext boundTo(Route<dynamic>? route) => isTrade
+      ? KuteBarContext.trade(
+          trades: trades,
+          share: share!,
+          category: category,
+          searchHint: searchHint,
+          source: source,
+          route: route,
+        )
+      : isPrimary
       ? KuteBarContext.primary(
           label: label,
           onPrimary: onPrimary,
@@ -352,6 +466,7 @@ class KuteBarContext {
           searchHint: searchHint,
           source: source,
           route: route,
+          share: share,
         )
       : KuteBarContext(
           label: label,

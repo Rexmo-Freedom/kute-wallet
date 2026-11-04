@@ -5782,6 +5782,40 @@ class AppLocalizationsLv extends AppLocalizations {
   String get hlAdvancedChart => 'Paplašināts grafiks';
 
   @override
+  String get optionAdvancedChartSub => 'Zīmējumi un indikatori';
+
+  @override
+  String get optionAboutMarketSub => 'Statistika un rīkojumu grāmata';
+
+  @override
+  String get optionAddMarginSub => 'Tālāk no likvidācijas';
+
+  @override
+  String get optionPositionDetailsSub => 'Lielums, ieeja un finansējums';
+
+  @override
+  String optionEndsOn(String date) {
+    return 'Beidzas $date';
+  }
+
+  @override
+  String optionEndedOn(String date) {
+    return 'Beidzās $date';
+  }
+
+  @override
+  String get optionHowItResolves => 'Kā tiek noslēgts';
+
+  @override
+  String get optionViewMarketSub => 'Grafiks un izredzes';
+
+  @override
+  String get optionPredictionDetailsSub => 'Daļas un samaksātā cena';
+
+  @override
+  String get optionProtectSellSub => 'Pārdod par savu cenu';
+
+  @override
   String get chartStyleCandles => 'Sveces';
 
   @override
@@ -11406,7 +11440,7 @@ class AppLocalizationsLv extends AppLocalizations {
   String get barShareWithFriends => 'Sūtīt draugam';
 
   @override
-  String get barShareMarketSub => 'Sūti tirgu vai savu prognozi';
+  String get barShareMarketSub => 'Sūti tirgu vai prognozi';
 
   @override
   String get barSharePositionSub => 'Sūti tirgu vai savu pozīciju';
@@ -11415,7 +11449,7 @@ class AppLocalizationsLv extends AppLocalizations {
   String get shareTheMarket => 'Sūtīt tirgu';
 
   @override
-  String get shareTheMarketSub => 'Saite, ko var atvērt, ar tavu kodu';
+  String get shareTheMarketSub => 'Saņēmējs saņem saiti, lai to apskatītu';
 
   @override
   String get shareThisPosition => 'Sūtīt šo pozīciju';
@@ -11821,12 +11855,6 @@ class AppLocalizationsLv extends AppLocalizations {
   }
 
   @override
-  String get usdSendPickRow => 'A stock or prediction';
-
-  @override
-  String get usdSendPickRowSub => 'They get your pick, ready to place';
-
-  @override
   String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
 
   @override
@@ -11862,8 +11890,7 @@ class AppLocalizationsLv extends AppLocalizations {
   String get sendPickMarket => 'Sūtīt prognozi vai investīciju';
 
   @override
-  String get sendPickMarketSub =>
-      'Izvēlies tirgu, saņēmējs to iegūs gatavu veikšanai';
+  String get sendPickMarketSub => 'Atrodi tirgu un tad izvēlies pusi';
 
   @override
   String get sendPickMarketSearchHint => 'Meklēt prognozēs un investēšanā';
@@ -11872,10 +11899,7 @@ class AppLocalizationsLv extends AppLocalizations {
   String get sendPickMarketNoResults => 'Nekas neatbilst';
 
   @override
-  String get sendPickSideTitle => 'Kura puse?';
-
-  @override
-  String get sendPickSideSub => 'Ko saņēmējs iegūst, gatavu veikšanai';
+  String get sendPickSideSub => 'Izvēlies pusi, ko saņēmējs saņems';
 
   @override
   String get shareSendAgainWhatsApp => 'Sūtīt vēlreiz ar WhatsApp';
@@ -12395,4 +12419,31 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get predictBelowTarget => 'below target';
+
+  @override
+  String get sendAPrediction => 'Sūtīt prognozi';
+
+  @override
+  String get sendAnInvestment => 'Sūtīt investīciju';
+
+  @override
+  String get sendAPredictionSub => 'Saņēmējs saņem tevis izvēlēto prognozi';
+
+  @override
+  String get sendAnInvestmentSub => 'Saņēmējs saņem tevis izvēlēto investīciju';
+
+  @override
+  String get sendPickOutcomeSub => 'Izvēlies iznākumu, ko saņēmējs saņems';
+
+  @override
+  String get sendPickAmountSub => 'Cik saņēmējs saņems?';
+
+  @override
+  String get sendToAFriendLabel => 'Draugam';
+
+  @override
+  String get sendToCryptoAddress => 'Uz kripto adresi';
+
+  @override
+  String get sendPickRowSub => 'Vai investīciju. Atrodi tirgu, izvēlies pusi';
 }

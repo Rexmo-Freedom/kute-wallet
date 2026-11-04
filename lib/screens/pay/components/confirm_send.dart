@@ -7787,6 +7787,18 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     if (created == true && mounted) _closeAndReset();
   }
 
+  /// "Send to anyone" on the friend card: the claim link for bitcoin with
+  /// no contact and no number (the name is asked on the sheet).
+  Future<void> _sendLinkToAnyone() async {
+    trackSendRecipientPicked('link');
+    final created = await showSendToAnyoneSheet(
+      context,
+      kind: ShareLinkKind.bitcoin,
+      entrySource: 'bitcoin_send_link',
+    );
+    if (created == true && mounted) _closeAndReset();
+  }
+
   /// A plain contact picked from the Contacts list: Send to anyone for
   /// bitcoin with the first name as the link's label and the number kept
   /// in the local row (send_contacts_service.dart). A created link closes
@@ -7918,8 +7930,10 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   /// and Scan), the destination it holds resolved as one row FIRST, then
   /// Frequent (the recents as circles, directly under the field: founder,
   /// 2 November 2026, "Frequent stays on top"), the Send to card ("Also
-  /// sends to"), and All contacts A–Z filtered by the text
-  /// (send_contacts_list.dart: recents and the phone's contacts, one
+  /// sends to"), the "To a friend" card ("Send to anyone": a link they
+  /// claim with Kute, no contact needed; founder, 4 November 2026: the
+  /// friend options must be clear), and All contacts A–Z filtered by the
+  /// text (send_contacts_list.dart: recents and the phone's contacts, one
   /// list).
   Widget _sendToPage(AppColorsExtension c) {
     final addr = addressController.text;
@@ -8115,6 +8129,26 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
               emphasized: needsPick,
               rows: [
                 if (hot) _crossChainRow(c, looksLikeAddress ? addr : ''),
+              ],
+            ),
+          ],
+          // To a friend: a link anyone claims, the contacts under it.
+          // Hidden once a recipient is chosen, as the Send to card is.
+          if (showContacts && !resolved) ...[
+            SizedBox(height: 20.h),
+            SendSectionLabel(context.l10n.sendToAFriendLabel),
+            _SendToListCard(
+              key: const ValueKey('send-friend-card'),
+              colors: c,
+              rows: [
+                _SendToListRow(
+                  key: const ValueKey('send-to-anyone-row'),
+                  colors: c,
+                  leading: const SendSalShareGlyph(),
+                  title: context.l10n.shareSendToAnyone,
+                  subtitle: context.l10n.shareSendToAnyoneSubtitle,
+                  onTap: () => unawaited(_sendLinkToAnyone()),
+                ),
               ],
             ),
           ],

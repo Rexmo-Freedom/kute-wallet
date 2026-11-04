@@ -5784,6 +5784,40 @@ class AppLocalizationsEt extends AppLocalizations {
   String get hlAdvancedChart => 'Täpsem graafik';
 
   @override
+  String get optionAdvancedChartSub => 'Joonised ja indikaatorid';
+
+  @override
+  String get optionAboutMarketSub => 'Statistika ja tellimusraamat';
+
+  @override
+  String get optionAddMarginSub => 'Likvideerimisest kaugemale';
+
+  @override
+  String get optionPositionDetailsSub => 'Suurus, sisenemine ja rahastamine';
+
+  @override
+  String optionEndsOn(String date) {
+    return 'Lõpeb $date';
+  }
+
+  @override
+  String optionEndedOn(String date) {
+    return 'Lõppes $date';
+  }
+
+  @override
+  String get optionHowItResolves => 'Kuidas see lahendatakse';
+
+  @override
+  String get optionViewMarketSub => 'Graafik ja tõenäosused';
+
+  @override
+  String get optionPredictionDetailsSub => 'Osakud ja makstud hind';
+
+  @override
+  String get optionProtectSellSub => 'Müü oma hinnaga';
+
+  @override
   String get chartStyleCandles => 'Küünlad';
 
   @override
@@ -11423,7 +11457,7 @@ class AppLocalizationsEt extends AppLocalizations {
   String get barShareWithFriends => 'Saada sõbrale';
 
   @override
-  String get barShareMarketSub => 'Saada turg või oma ennustus';
+  String get barShareMarketSub => 'Saada turg või ennustus';
 
   @override
   String get barSharePositionSub => 'Saada turg või oma positsioon';
@@ -11432,7 +11466,7 @@ class AppLocalizationsEt extends AppLocalizations {
   String get shareTheMarket => 'Saada turg';
 
   @override
-  String get shareTheMarketSub => 'Link, mida saab avada, sinu koodiga';
+  String get shareTheMarketSub => 'Saaja saab lingi, et seda vaadata';
 
   @override
   String get shareThisPosition => 'Saada see positsioon';
@@ -11842,12 +11876,6 @@ class AppLocalizationsEt extends AppLocalizations {
   }
 
   @override
-  String get usdSendPickRow => 'A stock or prediction';
-
-  @override
-  String get usdSendPickRowSub => 'They get your pick, ready to place';
-
-  @override
   String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
 
   @override
@@ -11883,8 +11911,7 @@ class AppLocalizationsEt extends AppLocalizations {
   String get sendPickMarket => 'Saada ennustus või investeering';
 
   @override
-  String get sendPickMarketSub =>
-      'Vali turg, saaja saab selle tegemiseks valmis';
+  String get sendPickMarketSub => 'Otsi turg ja vali siis pool';
 
   @override
   String get sendPickMarketSearchHint => 'Otsi ennustusi ja investeeringuid';
@@ -11893,10 +11920,7 @@ class AppLocalizationsEt extends AppLocalizations {
   String get sendPickMarketNoResults => 'Midagi ei leitud';
 
   @override
-  String get sendPickSideTitle => 'Kumb pool?';
-
-  @override
-  String get sendPickSideSub => 'Mida saaja saab, tegemiseks valmis';
+  String get sendPickSideSub => 'Vali pool, mille saaja saab';
 
   @override
   String get shareSendAgainWhatsApp => 'Saada uuesti WhatsAppiga';
@@ -12416,4 +12440,31 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get predictBelowTarget => 'below target';
+
+  @override
+  String get sendAPrediction => 'Saada ennustus';
+
+  @override
+  String get sendAnInvestment => 'Saada investeering';
+
+  @override
+  String get sendAPredictionSub => 'Saaja saab sinu valitud ennustuse';
+
+  @override
+  String get sendAnInvestmentSub => 'Saaja saab sinu valitud investeeringu';
+
+  @override
+  String get sendPickOutcomeSub => 'Vali tulemus, mille saaja saab';
+
+  @override
+  String get sendPickAmountSub => 'Kui palju saaja saab?';
+
+  @override
+  String get sendToAFriendLabel => 'Sõbrale';
+
+  @override
+  String get sendToCryptoAddress => 'Krüptoaadressile';
+
+  @override
+  String get sendPickRowSub => 'Või investeering. Otsi turg, vali pool';
 }

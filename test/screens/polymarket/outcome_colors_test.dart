@@ -36,7 +36,8 @@ import 'package:kute/screens/polymarket/components/game_chart_section.dart';
 import 'package:kute/screens/polymarket/components/outcome_leading.dart';
 import 'package:kute/screens/polymarket/components/sell_sheet.dart';
 import 'package:kute/screens/polymarket/market_detail_sheet.dart';
-import 'package:kute/screens/shared/market_pair_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart'
+    show KuteBarContextScope;
 import 'package:kute/screens/shared/side_tint_palette.dart';
 import 'package:kute/screens/polymarket/components/slip_chrome.dart' show PolySlipCta;
 import 'package:kute/theme/app_theme.dart';
@@ -355,11 +356,14 @@ void main() {
       );
       await http.runWithClient(() async {
         await _pump(tester, MarketDetailSheet(event: binary));
-        final pair = tester
-            .widgetList<MarketPairButton>(find.byType(MarketPairButton))
-            .map((b) => b.color)
-            .toList();
-        expect(pair, [AppColors.marketUp, AppColors.marketDown]);
+        // The pair is the floating bar's trade row (founder, 4 November
+        // 2026): the page declares it in its bar context.
+        final row = tester
+            .widget<KuteBarContextScope>(find.byWidgetPredicate(
+                (w) => w is KuteBarContextScope && w.barContext.isTrade))
+            .barContext;
+        expect(row.trades.map((t) => t.fill),
+            [AppColors.marketUp, AppColors.marketDown]);
         await tester.pumpWidget(const SizedBox());
       }, () => MockClient((_) async => http.Response('{}', 404)));
     });

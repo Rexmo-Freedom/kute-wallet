@@ -1,13 +1,8 @@
-import 'dart:async';
-
 import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/screens/shared/fitted_title.dart';
 import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
 import 'package:kute/screens/shared/kute_share_actions.dart';
-import 'package:kute/screens/home/components/kute_shell_bar.dart'
-    show KuteFigureShareRow, KuteSalHeaderButton, openKuteBarSheet;
 import 'package:kute/screens/shared/kute_bar_context.dart';
-import 'package:kute/screens/shared/kute_blur.dart';
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/helpers/formatters/polymarket_side_labels.dart';
 import 'package:kute/l10n/l10n.dart';
@@ -28,6 +23,7 @@ import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart';
 import 'package:kute/screens/polymarket/components/market_chart.dart';
 import 'package:kute/screens/polymarket/components/poly_chart_history.dart';
 import 'package:kute/screens/polymarket/components/poly_market_stats.dart';
+import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/polymarket/components/price_format.dart';
 import 'package:kute/screens/polymarket/components/outcome_leading.dart';
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
@@ -58,12 +54,9 @@ import 'package:kute/screens/polymarket/polymarket_screen.dart'
     show CryptoPredictBanner;
 
 import 'package:kute/screens/shared/kute_back_button.dart';
-import 'package:kute/screens/shared/market_pair_button.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart'
-    show SliverConstraints, OverflowBoxFit;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -358,41 +351,10 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   /// (search-opened events lose `teams`). Populated in [build].
   List<PolymarketTeam> _fetchedTeams = const [];
 
-  /// Fits one screen above the sticky outcome bar and Buy buttons on a
-  /// standard iPhone. With [_chartFill] added when the screen has room.
-  static const double _chartHeight = 380;
-
-  /// Height added to the chart so a short list (a Yes / No market, two or
-  /// three outcomes) leaves no empty room under it ([polyChartFillExtra]).
-  /// Worked out once, the first time the sheet is laid out with its chart
-  /// at its own height, from the room left in the scroll area; never
-  /// changed again for that height, so nothing moves as prices and the
-  /// chart's history load.
-  double _chartFill = 0;
-
-  /// The scroll area's height [_chartFill] was worked out for.
-  double? _chartFillViewport;
-
-  /// The chart's own height (without [_chartFill]) as last built; null
-  /// when the sheet has no chart.
-  double? _chartBase;
-
-  /// Works out [_chartFill] from [constraints], the constraints of a sliver
-  /// laid out after everything else in the scroll area.
-  void _fitChartToScreen(SliverConstraints constraints) {
-    final base = _chartBase;
-    if (base == null || watchingStream) return;
-    final viewport = constraints.viewportMainAxisExtent;
-    if (_chartFillViewport == viewport) return;
-    _chartFillViewport = viewport;
-    final content = constraints.precedingScrollExtent - _chartFill;
-    final fill = polyChartFillExtra(
-        leftover: viewport - content, base: base, viewport: viewport);
-    if ((fill - _chartFill).abs() < 1) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) setState(() => _chartFill = fill);
-    });
-  }
+  /// The chart's height: the Investing market chart's plot over the time
+  /// axis ([polyMarketChartHeight]), the same for every market, event and
+  /// game, and never grown to fill the screen (founder, 4 November 2026).
+  double get _chartHeight => polyMarketChartHeight();
 
   /// The event as this sheet lists it: [MarketDetailSheet.event], with any
   /// placeholder outcome the user holds listed again
@@ -646,7 +608,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
                                 buildWatchPlayer(c),
                                 SizedBox(height: 18.h),
                               ],
-                              _buildHeroCard(c, bar),
+                              _buildHeroCard(c),
                               SizedBox(height: 20.h),
                               if (event.hasLivestream && !watching) ...[
                                 buildMediaToggle(c),
@@ -663,9 +625,6 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
                                 // chart and nothing else.
                                 Consumer(builder: (context, chartRef, _) {
                                   final chartWidget = _buildChartBody(chartRef);
-                                  _chartBase = chartWidget == null
-                                      ? null
-                                      : chartWidget.height - _chartFill;
                                   if (chartWidget == null) {
                                     return const SizedBox.shrink();
                                   }
@@ -737,25 +696,18 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
                         ),
                       ]),
                     ),
-                    // Laid out last, it reads how much room the content
-                    // leaves, for the chart to take ([_fitChartToScreen]).
-                    SliverLayoutBuilder(builder: (context, constraints) {
-                      _fitChartToScreen(constraints);
-                      return const SliverToBoxAdapter(child: SizedBox.shrink());
-                    }),
                     // The last rows (the outcomes, Rules) scroll clear of
-                    // the floating bar (kute_bar_context.dart).
+                    // the floating bar (kute_bar_context.dart) and of the
+                    // home indicator: nothing is pinned under the list.
                     SliverToBoxAdapter(
                       child: SizedBox(
                           height: kuteBarScrollClearance.h +
-                              (event.isBinary
-                                  ? 0
-                                  : MediaQuery.viewPaddingOf(context).bottom)),
+                              MediaQuery.viewPaddingOf(context).bottom),
                     ),
                   ],
                 ),
               ),
-              _buildStickyActions(c),
+              _buildTradeBar(bar),
             ],
           ),
         ),
@@ -763,12 +715,14 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     );
   }
 
-  /// The page's Sal context, placed in its header (no bottom bar), held by
-  /// the scope around the close button while the page is up. Its control,
-  /// the Share pill (KuteSalHeaderButton), sits beside the headline figure
-  /// ([_figureWithShare]), not in the title row; a game sheet's sits in
-  /// the title row where it fits there, else the bar at the foot is the
-  /// "Send to a friend" button ([_sendToFriendBar], [_buildHeader]).
+  /// The page's Sal context (Send to a friend), held by the scope around
+  /// the close button while the page is up (founder, 4 November 2026: no
+  /// Send to a friend in the header or beside the figure; "it must be a
+  /// floating button"). One prediction's Yes / No row covers it with the
+  /// trade row, whose round Sal button opens it ([_buildTradeBar]); an
+  /// event or a game, with no pair, shows it as the floating Sal pill,
+  /// "Send to a friend", folding into that same round button while the
+  /// page scrolls down (kute_shell_bar.dart).
   KuteBarContext _barContext() {
     return marketBarContext(
       context,
@@ -776,22 +730,23 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       venue: kMarketLinkPredictions,
       slug: event.slug,
       chance: event.isBinary ? event.yesPrice * 100 : null,
-      // The pick: the leading outcome, the side this page shows.
+      // The leading outcome. Never the pick's default: a market page's
+      // "Send a prediction" asks for the side (kute_share_actions.dart).
       outcome: polymarketLeadingPick(event)?.label,
       outcomeIndex: polymarketLeadingPick(event)?.index,
       outcomeChance: polymarketLeadingPick(event)?.chance,
       side: 'buy',
       imageUrl: event.displayIconUrl,
-      actionRowHeight: event.isBinary ? _kStickyActionsHeight : 0,
       position: false,
       category: SearchCategory.predictions,
       searchHint: context.l10n.searchPredictionsHint,
       source: 'predictions',
-      placement: KuteBarPlacement.header,
       // An event (outcome rows, a game's board) sends the market alone;
       // one prediction sends the market or the prediction (founder, 2
       // November 2026; kute_share_actions.dart).
       sendPick: _isSinglePrediction,
+      // Its sides for "Send a prediction", none chosen (send_pick.dart).
+      predictionEvent: event,
     );
   }
 
@@ -806,62 +761,10 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
           !_showsGameLines &&
           event.outcomes.every((o) => o.noTokenId == null));
 
-  /// A game sheet whose title row has no room for the pill: the bar at the
-  /// foot is the dark primary button every pinned action is, saying "Send
-  /// to a friend" on one line (founder, 2 November 2026: "make the button
-  /// dark like the others"), and a tap opens the same Sal sheet the pill
-  /// opens, with the page's market context ([bar]: Send the market; a
-  /// game is an event, so no Send this prediction). It never waits on
-  /// input, so off it says the same.
-  KuteBarContext _sendToFriendBar(KuteBarContext bar) {
-    final label = context.l10n.shareHeaderLabel;
-    return KuteBarContext.primary(
-      label: label,
-      disabledLabel: label,
-      onPrimary: () => unawaited(openKuteBarSheet(bar)),
-      category: SearchCategory.predictions,
-      searchHint: context.l10n.searchPredictionsHint,
-      source: 'predictions',
-    );
-  }
-
-  /// Whether a game sheet's title row holds both the whole title (up to
-  /// two lines at its own size, never shrunk or cut) and the whole "Send
-  /// to a friend" pill, at [rowWidth] (founder, 2 November 2026). Where it
-  /// does not, the pill leaves the header and the bar at the foot is the
-  /// dark "Send to a friend" button instead ([_buildHeader]).
-  bool _gameHeaderFitsShare(
-      BuildContext context, double rowWidth, TextStyle titleStyle) {
-    // The row's other pieces: close (44), gap, icon (32), gap, gap before
-    // the star, the star (22 with 4 a side), and the gap before the pill.
-    final chrome = 44.w + 8.w + 32.w + 8.w + 8.w + 22.sp + 8.w + 8.w;
-    final pill = KuteSalHeaderButton.widthFor(
-        context, context.l10n.shareHeaderLabel);
-    return fittedTitleFitsWhole(
-      text: event.title,
-      style: DefaultTextStyle.of(context).style.merge(titleStyle),
-      maxWidth: rowWidth - chrome - pill,
-      maxLines: 2,
-      textScaler: MediaQuery.textScalerOf(context),
-      textDirection: Directionality.of(context),
-      locale: Localizations.maybeLocaleOf(context),
-      textHeightBehavior: DefaultTextHeightBehavior.maybeOf(context),
-    );
-  }
-
   /// Close, the event's image and title (up to two lines) and the
-  /// watchlist star. Sal's pill is beside the big number in the hero
-  /// (founder, 31 October 2026), so the title keeps its two lines' width.
-  /// A game sheet, which has no headline figure, keeps the whole "Send to
-  /// a friend" pill here WHILE IT FITS beside the whole title
-  /// ([_gameHeaderFitsShare]); where it does not (a long game title, a
-  /// narrow phone, a large text size) the pill leaves the header and the
-  /// bar at the foot of the screen is the dark primary "Send to a friend"
-  /// button ([_sendToFriendBar]), the same Sal sheet on a tap (founder, 2
-  /// November 2026: "when there is no space, the share with a friend
-  /// button should be floating in the bottom", and "make the button dark
-  /// like the others"). The page's last rows already scroll clear of the bar
-  /// ([kuteBarScrollClearance] at the end of the list).
+  /// watchlist star; the title has the row's whole width (founder, 4
+  /// November 2026: Send to a friend floats at the foot, never here). The
+  /// page's Sal context is held by the scope around the close button.
   Widget _buildHeader(AppColorsExtension c, KuteBarContext bar) {
     final titleStyle = TextStyle(
       color: c.textPrimary,
@@ -872,53 +775,43 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     );
     return Padding(
       padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 4.h),
-      child: LayoutBuilder(builder: (context, box) {
-        final shareInHeader = !_isGameSheet ||
-            _gameHeaderFitsShare(context, box.maxWidth, titleStyle);
-        return Row(
-          children: [
-            KuteBarContextScope(
-              barContext: shareInHeader
-                  ? bar
-                  : _sendToFriendBar(bar),
-              child: const KuteCloseButton(),
+      child: Row(
+        children: [
+          KuteBarContextScope(
+            barContext: bar,
+            child: const KuteCloseButton(),
+          ),
+          SizedBox(width: 8.w),
+          // The SAME resolver the cards use (team crest for a gaming /
+          // esports "vs" market the sports detector didn't catch, the
+          // leading candidate's portrait for a multi-outcome event, else
+          // the event image), SVG-aware so `.svg` crests load; the size of
+          // the Investing header's logo.
+          Builder(builder: (_) {
+            final iconUrl = event.displayIconUrl;
+            if (iconUrl == null || iconUrl.isEmpty) {
+              return _buildFallbackIcon(c, 32.w);
+            }
+            return PolyCrestImage(
+              url: iconUrl,
+              size: 32.w,
+              radius: 8.w,
+              fallback: _buildFallbackIcon(c, 32.w),
+            );
+          }),
+          SizedBox(width: 8.w),
+          Expanded(
+            // The whole title: smaller rather than cut.
+            child: FittedTitle(
+              event.title,
+              key: const ValueKey('poly-detail-title'),
+              style: titleStyle,
             ),
-            SizedBox(width: 8.w),
-            // The SAME resolver the cards use (team crest for a gaming /
-            // esports "vs" market the sports detector didn't catch, the
-            // leading candidate's portrait for a multi-outcome event, else
-            // the event image), SVG-aware so `.svg` crests load; the size of
-            // the Investing header's logo.
-            Builder(builder: (_) {
-              final iconUrl = event.displayIconUrl;
-              if (iconUrl == null || iconUrl.isEmpty) {
-                return _buildFallbackIcon(c, 32.w);
-              }
-              return PolyCrestImage(
-                url: iconUrl,
-                size: 32.w,
-                radius: 8.w,
-                fallback: _buildFallbackIcon(c, 32.w),
-              );
-            }),
-            SizedBox(width: 8.w),
-            Expanded(
-              // The whole title: smaller rather than cut.
-              child: FittedTitle(
-                event.title,
-                key: const ValueKey('poly-detail-title'),
-                style: titleStyle,
-              ),
-            ),
-            if (_isGameSheet && shareInHeader) ...[
-              SizedBox(width: 8.w),
-              KuteSalHeaderButton(barContext: bar),
-            ],
-            SizedBox(width: 8.w),
-            PolyWatchStar(event: event, size: 22, source: 'detail'),
-          ],
-        );
-      }),
+          ),
+          SizedBox(width: 8.w),
+          PolyWatchStar(event: event, size: 22, source: 'detail'),
+        ],
+      ),
     );
   }
 
@@ -1654,7 +1547,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     });
   }
 
-  Widget _buildHeroCard(AppColorsExtension c, KuteBarContext bar) {
+  Widget _buildHeroCard(AppColorsExtension c) {
     final sportsTeams = _detectSportsTeams();
     // Where the game stands (live or over, score, clock): the same read
     // the open-position screen makes for its header.
@@ -1690,7 +1583,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
             // hero card that has to follow a price tick.
             Consumer(
               builder: (context, heroRef, _) =>
-                  _buildHeroHeadline(heroRef, c, bar),
+                  _buildHeroHeadline(heroRef, c),
             ),
           ],
         ],
@@ -1712,60 +1605,25 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   ///   5. Otherwise — leading outcome's name + its % (drops the
   ///      misleading "Leading" framing in favour of the actual
   ///      candidate, e.g. "Senegal 50%" / "France 18%").
-  /// On every path Sal's Share pill sits at the end of the figure's row
-  /// ([_figureWithShare]).
   Widget _buildHeroHeadline(
-      WidgetRef ref, AppColorsExtension c, KuteBarContext bar) {
+      WidgetRef ref, AppColorsExtension c) {
     if (event.isBinary) {
-      return _buildBinaryHeroHeadline(ref, c, bar);
+      return _buildBinaryHeroHeadline(ref, c);
     }
     if (_allOutcomesResolvedFor(ref)) {
-      return _buildResolvedHeroPill(ref, c, bar);
+      return _buildResolvedHeroPill(ref, c);
     }
     if (_allOutcomesStubFor(ref)) {
-      return _buildAwaitingLiquidityHeroPill(c, bar);
+      return _buildAwaitingLiquidityHeroPill(c);
     }
     if (_isLargeMultiOutcome) {
-      return _buildMarketCountHero(ref, c, bar);
+      return _buildMarketCountHero(ref, c);
     }
-    return _buildLeadingOutcomeHero(ref, c, bar);
+    return _buildLeadingOutcomeHero(ref, c);
   }
-
-  /// The headline figure with Sal's Share pill (KuteSalHeaderButton) at the
-  /// end of its row, right against the gutter and centred on the figure's
-  /// first line, [lineHeight] tall (founder, 31 October 2026: the pill sits
-  /// next to the big number, not in the title row). The figure is as it
-  /// was, in the width the pill leaves it; the pill, taller than a short
-  /// line, overflows that line evenly above and below.
-  Widget _figureWithShare(Widget figure, KuteBarContext bar,
-      {required double lineHeight}) {
-    // The pill says "Send to a friend" where that fits beside the figure,
-    // else "Share" (KuteFigureShareRow).
-    return KuteFigureShareRow(
-      gap: 8.w,
-      alignTop: true,
-      figure: figure,
-      share: SizedBox(
-        height: lineHeight,
-        child: OverflowBox(
-          fit: OverflowBoxFit.deferToChild,
-          alignment: Alignment.center,
-          minHeight: KuteSalHeaderButton.height,
-          maxHeight: KuteSalHeaderButton.height,
-          child: KuteSalHeaderButton(barContext: bar),
-        ),
-      ),
-    );
-  }
-
-  /// The height of one line of [style] as it is drawn here (its size, the
-  /// text scale and its line height).
-  double _lineHeightOf(TextStyle style) =>
-      MediaQuery.textScalerOf(context).scale(style.fontSize!) *
-      (style.height ?? 1.0);
 
   Widget _buildBinaryHeroHeadline(
-      WidgetRef ref, AppColorsExtension c, KuteBarContext bar) {
+      WidgetRef ref, AppColorsExtension c) {
     final heroProb = _liveYesPrice(ref);
     final figureStyle = TextStyle(
       color: _kPolyGreen,
@@ -1789,11 +1647,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
           ),
         ),
         SizedBox(height: 4.h),
-        _figureWithShare(
-          Text(_formatPctShort(heroProb), style: figureStyle),
-          bar,
-          lineHeight: _lineHeightOf(figureStyle),
-        ),
+        Text(_formatPctShort(heroProb), style: figureStyle),
       ],
     );
   }
@@ -1802,7 +1656,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   /// its probability instead of the generic "Leading" label. Mirrors
   /// polymarket.com's event hero treatment ("Senegal 50%").
   Widget _buildLeadingOutcomeHero(
-      WidgetRef ref, AppColorsExtension c, KuteBarContext bar) {
+      WidgetRef ref, AppColorsExtension c) {
     // Rank only the BETTABLE field — a decided sports sub-market pinned
     // at 100% (e.g. a finished "Set 1 Winner") must not hijack the
     // headline from the still-live markets. Falls back to the raw list
@@ -1844,11 +1698,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
           ),
         ),
         SizedBox(height: 4.h),
-        _figureWithShare(
-          Text(_formatPctShort(leaderPrice), style: figureStyle),
-          bar,
-          lineHeight: _lineHeightOf(figureStyle),
-        ),
+        Text(_formatPctShort(leaderPrice), style: figureStyle),
       ],
     );
   }
@@ -1858,7 +1708,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   /// outcome with price >0.97 as the winner; falls back to the
   /// highest-priced outcome if none crosses the threshold (defensive).
   Widget _buildResolvedHeroPill(
-      WidgetRef ref, AppColorsExtension c, KuteBarContext bar) {
+      WidgetRef ref, AppColorsExtension c) {
     final prices = _livePriceMap(ref);
     final indexed = List.generate(event.outcomes.length, (i) => i);
     indexed.sort((a, b) {
@@ -1903,12 +1753,8 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
           ),
         ),
         SizedBox(height: 10.h),
-        _figureWithShare(
-          Text(winner.name,
-              maxLines: 2, overflow: TextOverflow.ellipsis, style: figureStyle),
-          bar,
-          lineHeight: _lineHeightOf(figureStyle),
-        ),
+        Text(winner.name,
+            maxLines: 2, overflow: TextOverflow.ellipsis, style: figureStyle),
       ],
     );
   }
@@ -1917,7 +1763,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   /// because no one has placed an order yet. Don't pretend there's a
   /// leader.
   Widget _buildAwaitingLiquidityHeroPill(
-      AppColorsExtension c, KuteBarContext bar) {
+      AppColorsExtension c) {
     final figureStyle = TextStyle(
       color: c.textSecondary,
       fontSize: 22.sp,
@@ -1946,11 +1792,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
           ),
         ),
         SizedBox(height: 10.h),
-        _figureWithShare(
-          Text(context.l10n.betNoPricesYet, style: figureStyle),
-          bar,
-          lineHeight: _lineHeightOf(figureStyle),
-        ),
+        Text(context.l10n.betNoPricesYet, style: figureStyle),
       ],
     );
   }
@@ -2034,7 +1876,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   }
 
   Widget _buildMarketCountHero(
-      WidgetRef ref, AppColorsExtension c, KuteBarContext bar) {
+      WidgetRef ref, AppColorsExtension c) {
     final bettable = _bettableOutcomesFor(ref);
     final n = bettable.length;
     // The headline is the leader: the open outcome with the highest
@@ -2064,22 +1906,18 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // The pill's row leaves the headline the width to decide where
-          // the name goes (beside the figure or under it).
-          _figureWithShare(
-            _LeaderHeadline(
-              figure: _formatPctShort(leaderPrice),
-              name: leader.name,
-              figureStyle: figureStyle,
-              nameStyle: TextStyle(
-                color: c.textSecondary,
-                fontSize: 16.sp,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.2,
-              ),
+          // The headline decides from its width where the name goes
+          // (beside the figure or under it).
+          _LeaderHeadline(
+            figure: _formatPctShort(leaderPrice),
+            name: leader.name,
+            figureStyle: figureStyle,
+            nameStyle: TextStyle(
+              color: c.textSecondary,
+              fontSize: 16.sp,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.2,
             ),
-            bar,
-            lineHeight: _lineHeightOf(figureStyle),
           ),
         ],
       );
@@ -2088,28 +1926,24 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        _figureWithShare(
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text('$n', style: figureStyle),
-              SizedBox(width: 8.w),
-              Padding(
-                padding: EdgeInsets.only(bottom: 10.h),
-                child: Text(
-                  context.l10n.betMarketsSuffix,
-                  style: TextStyle(
-                    color: c.textSecondary,
-                    fontSize: 16.sp,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.2,
-                  ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text('$n', style: figureStyle),
+            SizedBox(width: 8.w),
+            Padding(
+              padding: EdgeInsets.only(bottom: 10.h),
+              child: Text(
+                context.l10n.betMarketsSuffix,
+                style: TextStyle(
+                  color: c.textSecondary,
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.2,
                 ),
               ),
-            ],
-          ),
-          bar,
-          lineHeight: _lineHeightOf(figureStyle),
+            ),
+          ],
         ),
       ],
     );
@@ -2142,28 +1976,45 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     );
   }
 
-  /// Under the chart and the outcomes: the one row that opens the
-  /// market's rules, how it resolves, its stats and what people wrote
-  /// under it. The stats (24h volume, volume, liquidity) go in with the
-  /// sheet rather than sitting on this screen (owner decision); when the
-  /// market closes is already one of the sheet's own rows, so the end
-  /// date is not among them.
+  /// Under the chart and the outcomes: the market's option card, as the
+  /// Investing screens' (founder, 4 November 2026: "like squares";
+  /// kute_action_cards.dart), saying when the market ends and opening its
+  /// rules, how it resolves, its stats and what people wrote under it.
+  /// The stats (24h volume, volume, liquidity) go in with the sheet
+  /// rather than sitting on this screen (owner decision); when the market
+  /// closes is already one of the sheet's own rows, so the end date is not
+  /// among them.
   Widget _buildRulesRow() => Consumer(
-        builder: (context, statsRef, _) => PolyRulesRow(
-          onTap: () => showPolyRulesSheet(
-            context,
-            event,
-            stats: polyMarketStats(
-              context.l10n,
-              volume24hr: event.volume24hr,
-              volume: event.volume,
-              liquidity: event.liquidity,
-              endDate: null,
-              ended: _isOverFor(statsRef),
-              money: (v) => _formatVolume(statsRef, v),
-            ),
-          ),
-        ),
+        builder: (context, statsRef, _) {
+          final over = _isOverFor(statsRef);
+          return KuteActionCardGrid(
+            key: const ValueKey('poly-market-options'),
+            cards: [
+              polyRulesCard(
+                context,
+                subtitle: polyRulesCardLine(
+                  context.l10n,
+                  endDate: event.endDate,
+                  ended: over,
+                  locale: Localizations.localeOf(context).toString(),
+                ),
+                onTap: () => showPolyRulesSheet(
+                  context,
+                  event,
+                  stats: polyMarketStats(
+                    context.l10n,
+                    volume24hr: event.volume24hr,
+                    volume: event.volume,
+                    liquidity: event.liquidity,
+                    endDate: null,
+                    ended: over,
+                    money: (v) => _formatVolume(statsRef, v),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       );
 
   /// The outcome list of an event with many outcomes, as slivers (its
@@ -2380,7 +2231,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
         if (tokenId == null || tokenId.isEmpty) return null;
         return MarketChart(
           tokenId: tokenId,
-          height: _chartHeight + _chartFill,
+          height: _chartHeight,
           accentColor: _kPolyGreen,
           bought: _chartBought(ref, [tokenId]),
           shortMarket: _isShortRound,
@@ -2393,7 +2244,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       }
       return MarketChart(
         lines: lines,
-        height: _chartHeight + _chartFill,
+        height: _chartHeight,
         // Match the charted line: green for Yes, red for the No-only
         // fallback.
         accentColor: lines.first.color,
@@ -2423,7 +2274,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
               livePrice: _livePriceFor(ref, line.tokenId, line.price),
             ),
         ],
-        height: _chartHeight + _chartFill,
+        height: _chartHeight,
         accentColor: winner.first.color,
         bought: _chartBought(ref, [for (final l in winner) l.tokenId]),
         shortMarket: _isShortRound,
@@ -2461,7 +2312,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       if (wdlLines.length >= 2) {
         return MarketChart(
           lines: wdlLines,
-          height: _chartHeight + _chartFill,
+          height: _chartHeight,
           accentColor: colors.teamA,
           bought: _chartBought(ref, [for (final l in wdlLines) l.tokenId]),
           shortMarket: _isShortRound,
@@ -2491,7 +2342,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
 
     return MarketChart(
       lines: lines,
-      height: polyChartHeightFor(lines.length) + _chartFill,
+      height: _chartHeight,
       accentColor: lines.first.color,
       bought: _chartBought(ref, [for (final l in lines) l.tokenId]),
       shortMarket: _isShortRound,
@@ -2626,109 +2477,76 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     return polymarketSideLabels(name);
   }
 
-  /// The sticky pair's height for the bar to clear (kute_bar_context.dart,
-  /// actionRowHeight): its padding, the buttons and the hairline above.
-  double get _kStickyActionsHeight => 12.h + 60.h + 8.h + 0.5;
-
-  Widget _buildStickyActions(AppColorsExtension c) {
-    // Multi-outcome has no sticky bar — tapping a candidate opens its own
-    // full-screen binary detail (chart + Yes/No). Keeps the list flush to
-    // the bottom (no empty CTA space).
+  /// THE BAR IS THE YES / NO PAIR (founder, 4 November 2026: "On the
+  /// Invest and Short and Yes and No, we have the new floating buttons but
+  /// it should be the same"; kute_bar_context.dart, THE TRADE ROW): one
+  /// prediction's two sides float at the foot as the bar's trade pills, in
+  /// the green and red the pinned pair had, each naming the outcome it
+  /// opens the slip on with its live price ("Yes 62%"), and at the row's
+  /// end the round Sal button that sends the market to a friend ([bar]).
+  /// Own Consumer: the two prices follow the live feed without rebuilding
+  /// the sheet. An event (a multi-outcome list, a game's board) has no
+  /// pair: a candidate opens its own Yes / No page, and the bar is the
+  /// page's Sal pill.
+  Widget _buildTradeBar(KuteBarContext bar) {
     if (!event.isBinary) {
       return const SizedBox.shrink();
     }
-    return ClipRect(
-      child: KuteBlur(
-        sigmaX: 18,
-        sigmaY: 18,
-        child: Container(
-          padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 8.h),
-          decoration: BoxDecoration(
-            color: (context.isDark ? c.surface : c.background)
-                .withValues(alpha: 0.55),
-            border: Border(
-              top: BorderSide(color: c.borderSubtle, width: 0.5),
+    return Consumer(builder: (context, priceRef, _) {
+      // The two written off the one price, so they add up to 100.
+      final sides = formatPolyChancePair(_liveYesPrice(priceRef));
+      // Semantic side labels: Over/Under → OVER/UNDER, moneyline → the two
+      // teams (from the reliable vs-header detector), spread → team +
+      // line, etc. — Yes/No is meaningless here.
+      final title = _sideLabelsFor(event.title);
+      // Each pill names the outcome it opens the slip on: the title's pair
+      // matched to the outcomes by name (the slip reads it the same way),
+      // else the outcomes' own names.
+      final names = [for (final o in event.outcomes) o.name];
+      final labels = () {
+        if (names.length != 2) return title;
+        final positive = polymarketPositiveIndex(names);
+        final matched = polymarketBinarySideLabels(names, title);
+        if (matched != null) {
+          return (pos: matched[positive], neg: matched[1 - positive]);
+        }
+        final lower = names.map((n) => n.trim().toLowerCase()).toSet();
+        if (lower.containsAll(const {'yes', 'no'})) return title;
+        return (pos: names[positive], neg: names[1 - positive]);
+      }();
+      // YES / NO outcome tokens keep their localized display labels; any
+      // other side label (teams, Over/Under, Up/Down) passes through.
+      String displayFor(String l) => l.toUpperCase() == 'YES'
+          ? context.l10n.yes
+          : l.toUpperCase() == 'NO'
+              ? context.l10n.betNo
+              : l;
+      return KuteBarContextScope(
+        barContext: KuteBarContext.trade(
+          trades: [
+            KuteBarTrade(
+              id: 'yes',
+              label: displayFor(labels.pos),
+              value: sides.first,
+              fill: _kPolyGreen,
+              onTap: () => _openBetSlip('yes'),
             ),
-          ),
-          child: SafeArea(
-            top: false,
-            // Own Consumer: the two cent values follow the live feed; the
-            // blurred bar around them does not need to be rebuilt for that.
-            child: Consumer(builder: (context, priceRef, _) {
-              // The two written off the one price, so they add up to 100.
-              final sides = formatPolyChancePair(_liveYesPrice(priceRef));
-              // Semantic side labels: Over/Under → OVER/UNDER, moneyline →
-              // the two teams (from the reliable vs-header detector),
-              // spread → team + line, etc. — Yes/No is meaningless here.
-              final title = _sideLabelsFor(event.title);
-              // Each button names the outcome it opens the slip on: the
-              // title's pair matched to the outcomes by name (the slip
-              // reads it the same way), else the outcomes' own names.
-              final names = [for (final o in event.outcomes) o.name];
-              final labels = () {
-                if (names.length != 2) return title;
-                final positive = polymarketPositiveIndex(names);
-                final matched = polymarketBinarySideLabels(names, title);
-                if (matched != null) {
-                  return (
-                    pos: matched[positive],
-                    neg: matched[1 - positive]
-                  );
-                }
-                final lower = names.map((n) => n.trim().toLowerCase()).toSet();
-                if (lower.containsAll(const {'yes', 'no'})) return title;
-                return (pos: names[positive], neg: names[1 - positive]);
-              }();
-              // Shared badge CTA (disc icon + glow). YES/NO outcome
-              // tokens keep their localized display labels; any other
-              // semantic side label (teams, Over/Under) passes through
-              // with the generic bolt glyph — exactly the old
-              // `_ActionButton` logic, now at the call site.
-              // Up/Down sides take the browse card's arrows.
-              IconData iconFor(String l) => switch (polymarketSideGlyph(l)) {
-                    PolymarketSideGlyph.yes => Icons.check_rounded,
-                    PolymarketSideGlyph.no => Icons.close_rounded,
-                    PolymarketSideGlyph.up => Icons.arrow_upward_rounded,
-                    PolymarketSideGlyph.down => Icons.arrow_downward_rounded,
-                    PolymarketSideGlyph.neutral => Icons.bolt_rounded,
-                  };
-              String displayFor(String l) => l.toUpperCase() == 'YES'
-                  ? context.l10n.yes
-                  : l.toUpperCase() == 'NO'
-                      ? context.l10n.betNo
-                      : l;
-              return Row(
-                children: [
-                  Expanded(
-                    child: MarketPairButton(
-                      label: displayFor(labels.pos),
-                      value: sides.first,
-                      icon: iconFor(labels.pos),
-                      iconDisc: true,
-                      glow: true,
-                      color: _kPolyGreen,
-                      onTap: () => _openBetSlip('yes'),
-                    ),
-                  ),
-                  SizedBox(width: 12.w),
-                  Expanded(
-                    child: MarketPairButton(
-                      label: displayFor(labels.neg),
-                      value: sides.second,
-                      icon: iconFor(labels.neg),
-                      iconDisc: true,
-                      glow: true,
-                      color: _kPolyRed,
-                      onTap: () => _openBetSlip('no'),
-                    ),
-                  ),
-                ],
-              );
-            }),
-          ),
+            KuteBarTrade(
+              id: 'no',
+              label: displayFor(labels.neg),
+              value: sides.second,
+              fill: _kPolyRed,
+              onTap: () => _openBetSlip('no'),
+            ),
+          ],
+          share: KuteBarShare(barContext: bar),
+          category: SearchCategory.predictions,
+          searchHint: context.l10n.searchPredictionsHint,
+          source: 'predictions',
         ),
-      ),
-    );
+        child: const SizedBox.shrink(),
+      );
+    });
   }
 
   /// Tap a multi-outcome row. Only TRUE candidate-pickers — where the
@@ -3437,9 +3255,8 @@ class _ExpandableOutcomeLegendState extends State<_ExpandableOutcomeLegend> {
   }
 }
 
-// The paired badge CTA now lives in the shared `MarketPairButton`
-// (disc icon + glow configuration); the YES/NO icon + label mapping
-// moved to the call site above.
+// The Yes / No pair is the floating bar's trade row ([_buildTradeBar] above,
+// kute_bar_trade_row.dart).
 
 /// Detail sheet for the 5-min Up/Down crypto markets. Mirrors the
 /// standard `MarketDetailSheet` chrome (close button, the Instant chip,

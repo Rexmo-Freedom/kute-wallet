@@ -5828,6 +5828,40 @@ class AppLocalizationsEs extends AppLocalizations {
   String get hlAdvancedChart => 'Gráfico avanzado';
 
   @override
+  String get optionAdvancedChartSub => 'Dibujos e indicadores';
+
+  @override
+  String get optionAboutMarketSub => 'Estadísticas y libro de órdenes';
+
+  @override
+  String get optionAddMarginSub => 'Más lejos de la liquidación';
+
+  @override
+  String get optionPositionDetailsSub => 'Tamaño, entrada y financiación';
+
+  @override
+  String optionEndsOn(String date) {
+    return 'Termina el $date';
+  }
+
+  @override
+  String optionEndedOn(String date) {
+    return 'Terminó el $date';
+  }
+
+  @override
+  String get optionHowItResolves => 'Cómo se resuelve';
+
+  @override
+  String get optionViewMarketSub => 'Gráfico y probabilidades';
+
+  @override
+  String get optionPredictionDetailsSub => 'Participaciones y precio pagado';
+
+  @override
+  String get optionProtectSellSub => 'Vende a tu precio';
+
+  @override
   String get chartStyleCandles => 'Velas';
 
   @override
@@ -11487,7 +11521,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get barShareWithFriends => 'Enviar a un amigo';
 
   @override
-  String get barShareMarketSub => 'Envía el mercado o tu predicción';
+  String get barShareMarketSub => 'Envía el mercado o una predicción';
 
   @override
   String get barSharePositionSub => 'Envía el mercado o tu posición';
@@ -11496,7 +11530,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get shareTheMarket => 'Enviar el mercado';
 
   @override
-  String get shareTheMarketSub => 'Un enlace que pueden abrir, con tu código';
+  String get shareTheMarketSub => 'Reciben un enlace para verlo';
 
   @override
   String get shareThisPosition => 'Enviar esta posición';
@@ -11906,12 +11940,6 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get usdSendPickRow => 'A stock or prediction';
-
-  @override
-  String get usdSendPickRowSub => 'They get your pick, ready to place';
-
-  @override
   String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
 
   @override
@@ -11947,8 +11975,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get sendPickMarket => 'Enviar una predicción o inversión';
 
   @override
-  String get sendPickMarketSub =>
-      'Elige un mercado y lo reciben listo para realizar';
+  String get sendPickMarketSub => 'Busca un mercado y luego elige el lado';
 
   @override
   String get sendPickMarketSearchHint => 'Buscar en predicciones e inversiones';
@@ -11957,10 +11984,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get sendPickMarketNoResults => 'No hay coincidencias';
 
   @override
-  String get sendPickSideTitle => '¿Qué lado?';
-
-  @override
-  String get sendPickSideSub => 'Lo que reciben, listo para realizar';
+  String get sendPickSideSub => 'Elige el lado que reciben';
 
   @override
   String get shareSendAgainWhatsApp => 'Volver a enviar por WhatsApp';
@@ -12481,4 +12505,32 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get predictBelowTarget => 'below target';
+
+  @override
+  String get sendAPrediction => 'Enviar una predicción';
+
+  @override
+  String get sendAnInvestment => 'Enviar una inversión';
+
+  @override
+  String get sendAPredictionSub => 'Reciben la predicción que elijas';
+
+  @override
+  String get sendAnInvestmentSub => 'Reciben la inversión que elijas';
+
+  @override
+  String get sendPickOutcomeSub => 'Elige el resultado que reciben';
+
+  @override
+  String get sendPickAmountSub => '¿Cuánto reciben?';
+
+  @override
+  String get sendToAFriendLabel => 'A un amigo';
+
+  @override
+  String get sendToCryptoAddress => 'A una dirección cripto';
+
+  @override
+  String get sendPickRowSub =>
+      'O una inversión. Busca un mercado, elige el lado';
 }

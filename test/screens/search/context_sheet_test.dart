@@ -416,7 +416,7 @@ void main() {
     expect(bar.sublabel, l10n.shareTheMarketSub);
     await _pumpSheet(tester, bar);
     expect(find.text(l10n.shareTheMarket), findsOneWidget);
-    expect(find.text(l10n.sendThisPrediction), findsNothing);
+    expect(find.text(l10n.sendAPrediction), findsNothing);
     final grid =
         tester.getRect(find.byKey(const ValueKey('context-actions-card')));
     final card =
@@ -433,7 +433,8 @@ void main() {
 
   testWidgets(
       'a single prediction page (a Yes/No market, or an outcome drilled '
-      'into): both cards, "Send the market" and "Send this prediction"',
+      'into): both cards, "Send the market" and "Send a prediction"; no '
+      'side is chosen: the preview and the card\'s foot read both sides',
       (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
@@ -443,17 +444,28 @@ void main() {
     final bar = await _marketBar(tester, sendPick: true);
     final l10n = lookupAppLocalizations(const Locale('en'));
     expect(bar.actions.map((a) => a.label),
-        [l10n.shareTheMarket, l10n.sendThisPrediction]);
+        [l10n.shareTheMarket, l10n.sendAPrediction]);
+    expect(bar.actions.map((a) => a.sublabel),
+        [l10n.shareTheMarketSub, l10n.sendAPredictionSub]);
     expect(bar.sublabel, l10n.barShareMarketSub);
     await _pumpSheet(tester, bar);
     expect(find.text(l10n.shareTheMarket), findsOneWidget);
-    expect(find.text(l10n.sendThisPrediction), findsOneWidget);
+    expect(find.text(l10n.sendAPrediction), findsOneWidget);
+    // Both sides, equal, on the card that sends a prediction and in the
+    // preview: nothing reads as picked (the page passed "Yes" as its
+    // leading outcome; it is not a default).
     expect(
         tester
             .widget<Text>(find.byKey(
-                ValueKey('context-action-sent-${l10n.sendThisPrediction}')))
+                ValueKey('context-action-sent-${l10n.sendAPrediction}')))
             .data,
-        'Yes 64%');
+        'Yes 64% · No 36%');
+    expect(
+        tester
+            .widget<Text>(
+                find.byKey(const ValueKey('context-preview-figure')))
+            .data,
+        'Yes 64% · No 36%');
     await _closeSheet(tester);
     expect(tester.takeException(), isNull);
   });
@@ -482,8 +494,8 @@ void main() {
               icon: Icons.ios_share_rounded,
               onTap: (_) {}),
           KuteMarketBarAction(
-              label: l10n.sendThisPrediction,
-              sublabel: l10n.sendThisPickSub,
+              label: l10n.sendAPrediction,
+              sublabel: l10n.sendAPredictionSub,
               salClip: 'share',
               onTap: (_) {}),
         ],

@@ -1,18 +1,38 @@
 // lib/screens/share/send_pick_market_sheet.dart
 //
-// SEND A PREDICTION OR INVESTMENT FROM THE DOLLAR SEND (founder, 31
-// October 2026): people must be able to send a pick from the Send screen,
-// not only from a market page. The "Send a prediction or investment" row
-// of the dollar send's Send to card opens this picker: the search sheet's
-// own result rows (search_rows.dart) scoped to Predictions and Investing,
-// "Trending predictions" from the loaded trending feed and "Moving now"
-// from the loaded Investing universe, a search field filtering both. A
-// picked market opens the side choice (Yes / No with the leading outcome
-// preselected on a binary prediction, the outcomes as rows otherwise;
-// Long / Short with Long preselected on Investing) as the slip's own
-// pair, then Send to anyone for dollars with the pick, exactly as a
-// market page's bar does (kute_share_actions.dart). A recipient picked
-// before the row (a contact) rides along as the link's label.
+// SEND A PREDICTION OR AN INVESTMENT FROM SEND (founder, 31 October 2026:
+// people must be able to send a pick from the Send screen, not only from
+// a market page). The Dollars Send's "Send a prediction or investment" row
+// opens this sheet.
+//
+// THE SEARCH WE ALREADY HAVE (founder, 4 November 2026: "Sending the
+// actual prediction sucks ... Should just somehow allow you to search the
+// prediction you want and open it, use the stuff and design we already
+// have for Hyperliquid search and Polymarket"). The sheet is the Sal
+// sheet's search, scoped to Predictions and Investing:
+//
+//   * the search sheet's own line (KuteSearchComposer without Sal: the
+//     magnifier, the text, the clear ✕), "Search predictions and
+//     investing";
+//   * nothing typed: "Trending predictions" from the loaded trending feed
+//     and "Moving now" from the loaded Investing universe, the search
+//     sheet's rows (SearchPredictionRow, SearchInvestingRow);
+//   * typed: the venues' own searches, the ones the search sheet runs
+//     (polymarketSearchProvider, hyperliquidMarketSearchProvider), under
+//     "Predictions" and "Investing", skeleton rows while they answer, the
+//     loaded markets that match standing in meanwhile; Sal's sad face
+//     when nothing matches.
+//
+// A tap on a market opens it to send (send_to_anyone_sheet.dart, handed
+// the market, send_pick.dart): its picture and name over every side it
+// can send, NONE CHOSEN (Yes and No as the market page's pair, Long and
+// Short, or one row per outcome), then how much, then who it is for. A
+// recipient picked before the row (a contact) rides along as the link's
+// label and number. A link created closes this sheet too.
+//
+// A venue the region's policy does not offer is left out
+// (runtimeCapabilitiesProvider, `polymarket.browse` and
+// `hyperliquid.browse`, as the search sheet leaves it out).
 
 import 'dart:async';
 
@@ -27,25 +47,30 @@ import 'package:kute/models/share_link_model.dart' show ShareLinkKind;
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/hyperliquid_search_provider.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart';
+import 'package:kute/screens/search/components/search_composer.dart';
 import 'package:kute/screens/search/components/search_rows.dart';
+import 'package:kute/screens/share/send_pick.dart';
 import 'package:kute/screens/share/send_to_anyone_sheet.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
-import 'package:kute/screens/shared/kute_share_actions.dart'
-    show kShareVenueHyperliquid, kShareVenuePolymarket, polymarketLeadingPick;
-import 'package:kute/screens/shared/market_side_toggle.dart';
-import 'package:kute/screens/shared/send/send_flow_widgets.dart'
-    show SendToListCard, SendToListRow;
+import 'package:kute/screens/shared/kute_skeleton.dart' show SkeletonRowList;
+import 'package:kute/services/runtime_capabilities_service.dart'
+    show runtimeCapabilitiesProvider;
 import 'package:kute/services/tracking_service.dart';
-import 'package:kute/theme/app_theme.dart';
 
-/// The two feeds the picker lists.
+/// The two feeds the sheet lists while nothing is typed.
 typedef SendPickFeeds = ({
   List<PolymarketEvent> predictions,
   List<HlMarket> investing,
 });
 
-/// Opens the picker over the dollar send. Resolves to true when a link
+/// How many rows each block shows while nothing is typed.
+const int kSendPickHomeRows = 6;
+
+/// How many results each venue shows.
+const int kSendPickResultRows = 8;
+
+/// Opens the sheet over the dollar send. Resolves to true when a link
 /// was created. [senderLabel] and [recipientPhone] are the recipient
 /// picked before the row, if any (send_to_anyone_sheet.dart).
 Future<bool?> showSendPickMarketSheet(
@@ -89,18 +114,22 @@ class SendPickMarketSheet extends ConsumerStatefulWidget {
 
 class _SendPickMarketSheetState extends ConsumerState<SendPickMarketSheet> {
   final TextEditingController _query = TextEditingController();
+  final FocusNode _focus = FocusNode();
 
   @override
   void dispose() {
     _query.dispose();
+    _focus.dispose();
     super.dispose();
   }
 
-  SendPickFeeds _feeds() {
+  SendPickFeeds _feeds({required bool predictions, required bool investing}) {
     final debug = SendPickMarketSheet.debugFeeds;
     if (debug != null) return debug;
-    final universe =
-        ref.watch(hyperliquidBrowseUniverseProvider).valueOrNull ?? const [];
+    final universe = investing
+        ? ref.watch(hyperliquidBrowseUniverseProvider).valueOrNull ??
+            const <HlMarket>[]
+        : const <HlMarket>[];
     final movers = [
       for (final m in universe)
         if (m.prevDayPx > 0 &&
@@ -110,10 +139,12 @@ class _SendPickMarketSheetState extends ConsumerState<SendPickMarketSheet> {
     ]..sort((a, b) => (b.markPx / b.prevDayPx - 1)
         .abs()
         .compareTo((a.markPx / a.prevDayPx - 1).abs()));
-    final trending = ref
-        .watch(polyBrowseFeedProvider(
-            const PolyFeedQuery(pill: PolyPill.trending)))
-        .events;
+    final trending = predictions
+        ? ref
+            .watch(polyBrowseFeedProvider(
+                const PolyFeedQuery(pill: PolyPill.trending)))
+            .events
+        : const <PolymarketEvent>[];
     return (predictions: trending, investing: movers);
   }
 
@@ -133,52 +164,18 @@ class _SendPickMarketSheetState extends ConsumerState<SendPickMarketSheet> {
         market: m,
       );
 
-  Future<void> _pickPrediction(PolymarketEvent e) async {
-    final lead = polymarketLeadingPick(e);
-    if (lead == null) return;
-    final pick = await _choosePredictionSide(context, e, lead);
-    if (pick == null || !mounted) return;
-    await _finish(
-      marketSlug: e.slug,
-      marketTitle: e.title,
-      venue: kShareVenuePolymarket,
-      outcome: pick.label,
-      outcomeIndex: pick.index,
-      side: 'buy',
-    );
-  }
-
-  Future<void> _pickInvesting(HlMarket m) async {
-    final long = await _chooseInvestingSide(context, m);
-    if (long == null || !mounted) return;
-    final l10n = context.l10n;
-    await _finish(
-      marketSlug: m.coin,
-      marketTitle: m.coin,
-      venue: kShareVenueHyperliquid,
-      outcome: long ? l10n.longLabel : l10n.shortLabel,
-      outcomeIndex: null,
-      side: long ? 'long' : 'short',
-    );
-  }
-
-  Future<void> _finish({
-    required String marketSlug,
-    required String marketTitle,
-    required String venue,
-    required String outcome,
-    required int? outcomeIndex,
-    required String side,
-  }) async {
+  /// A market tapped: open it to send, its side still to pick.
+  Future<void> _open(SendPickMarket market) async {
+    if (market.sides.isEmpty) return;
+    TrackingService.track('send_pick_market_picked', params: {
+      'venue': market.venue,
+      'searched': _query.text.trim().isNotEmpty,
+    });
+    _focus.unfocus();
     final created = await showSendToAnyoneSheet(
       context,
       kind: ShareLinkKind.dollars,
-      marketSlug: marketSlug,
-      marketTitle: marketTitle,
-      venue: venue,
-      outcome: outcome,
-      outcomeIndex: outcomeIndex,
-      side: side,
+      market: market,
       senderLabel: widget.senderLabel,
       recipientPhone: widget.recipientPhone,
       entrySource: widget.entrySource,
@@ -187,27 +184,24 @@ class _SendPickMarketSheetState extends ConsumerState<SendPickMarketSheet> {
     if (created == true) Navigator.of(context).pop(true);
   }
 
+  void _openPrediction(PolymarketEvent e) =>
+      unawaited(_open(SendPickMarket.prediction(e)));
+
+  void _openInvesting(HlMarketSearchResult r) => unawaited(
+      _open(SendPickMarket.investingResult(r, l10n: context.l10n)));
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final c = context.colors;
-    final feeds = _feeds();
-    final q = _query.text.trim().toLowerCase();
-    final predictions = q.isEmpty
-        ? feeds.predictions.take(8).toList()
-        : [
-            for (final e in feeds.predictions)
-              if (e.title.toLowerCase().contains(q)) e
-          ].take(12).toList();
-    final investing = q.isEmpty
-        ? feeds.investing.take(8).toList()
-        : [
-            for (final m in feeds.investing)
-              if (m.coin.toLowerCase().contains(q) ||
-                  (m.unitAssetName?.toLowerCase().contains(q) ?? false))
-                m
-          ].take(12).toList();
-    final empty = predictions.isEmpty && investing.isEmpty;
+    final policy = ref.watch(runtimeCapabilitiesProvider);
+    final debug = SendPickMarketSheet.debugFeeds != null;
+    final showPredictions = debug || policy.allows('polymarket.browse');
+    final showInvesting = debug || policy.allows('hyperliquid.browse');
+    final q = _query.text.trim();
+    final blocks = q.isEmpty
+        ? _home(showPredictions: showPredictions, showInvesting: showInvesting)
+        : _results(q,
+            showPredictions: showPredictions, showInvesting: showInvesting);
     return AppBottomSheetContainer(
       maxHeight: MediaQuery.sizeOf(context).height * 0.92,
       followKeyboard: true,
@@ -220,79 +214,32 @@ class _SendPickMarketSheetState extends ConsumerState<SendPickMarketSheet> {
             subtitle: l10n.sendPickMarketSub,
             icon: Icons.ios_share_rounded,
           ),
+          // The search sheet's own line (search_composer.dart), Sal off,
+          // on the sheet header's gutters.
           Padding(
-            padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 12.h),
-            child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 14.w),
-              decoration: BoxDecoration(
-                color: c.surfaceLight,
-                borderRadius: BorderRadius.circular(14.r),
-                border: Border.all(color: c.borderSubtle, width: 0.5),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.search_rounded,
-                      color: c.textSecondary, size: 20.sp),
-                  SizedBox(width: 8.w),
-                  Expanded(
-                    child: TextField(
-                      key: const ValueKey('send-pick-market-search'),
-                      controller: _query,
-                      onChanged: (_) => setState(() {}),
-                      style: TextStyle(
-                        color: c.textPrimary,
-                        fontSize: 15.sp,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: l10n.sendPickMarketSearchHint,
-                        hintStyle: TextStyle(
-                          color: c.textSecondary,
-                          fontSize: 15.sp,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        border: InputBorder.none,
-                        isDense: true,
-                        contentPadding: EdgeInsets.symmetric(vertical: 12.h),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+            padding: EdgeInsets.symmetric(horizontal: 20.w),
+            child: KuteSearchComposer(
+              key: const ValueKey('send-pick-market-search'),
+              controller: _query,
+              focusNode: _focus,
+              aiEnabled: false,
+              hint: l10n.sendPickMarketSearchHint,
+              onChanged: (_) => setState(() {}),
+              onSubmit: _focus.unfocus,
             ),
           ),
           Flexible(
             child: ListView(
               shrinkWrap: true,
-              padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 32.h),
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 0),
               children: [
-                if (empty)
-                  SearchEmptyState(text: l10n.sendPickMarketNoResults),
-                if (predictions.isNotEmpty) ...[
-                  SearchBlockHeader(text: l10n.searchHomeTrendingPredictions),
-                  SearchRowList(
-                    key: const ValueKey('send-pick-predictions'),
-                    children: [
-                      for (final e in predictions)
-                        SearchPredictionRow(
-                            event: e,
-                            onTap: () => unawaited(_pickPrediction(e))),
-                    ],
-                  ),
-                  SizedBox(height: 20.h),
+                for (var i = 0; i < blocks.length; i++) ...[
+                  if (i > 0) SizedBox(height: kSearchBlockGap.h),
+                  blocks[i],
                 ],
-                if (investing.isNotEmpty) ...[
-                  SearchBlockHeader(text: l10n.searchHomeMovingNow),
-                  SearchRowList(
-                    key: const ValueKey('send-pick-investing'),
-                    children: [
-                      for (final m in investing)
-                        SearchInvestingRow(
-                            result: _result(m),
-                            onTap: () => unawaited(_pickInvesting(m))),
-                    ],
-                  ),
-                ],
+                // The rows scroll clear of the floating bar.
+                SizedBox(height: kuteBarScrollClearance.h),
               ],
             ),
           ),
@@ -300,153 +247,136 @@ class _SendPickMarketSheetState extends ConsumerState<SendPickMarketSheet> {
       ),
     );
   }
-}
 
-/// Yes / No as the slip's pair, the leading outcome preselected; the
-/// outcomes as rows on a market with more than two.
-Future<({String label, int index})?> _choosePredictionSide(
-  BuildContext context,
-  PolymarketEvent e,
-  ({String label, int index, double chance}) lead,
-) {
-  if (!e.isBinary) {
-    return showAppBottomSheet<({String label, int index})>(
-      context: context,
-      builder: (sheetCtx) => AppBottomSheetContainer(
-        maxHeight: MediaQuery.sizeOf(sheetCtx).height * 0.8,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            AppBottomSheetHeader(
-              title: sheetCtx.l10n.sendPickSideTitle,
-              subtitle: e.title,
-            ),
-            Flexible(
-              child: ListView(
-                shrinkWrap: true,
-                padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 32.h),
-                children: [
-                  SendToListCard(
-                    colors: sheetCtx.colors,
-                    rows: [
-                      for (var i = 0; i < e.outcomes.length; i++)
-                        SendToListRow(
-                          key: ValueKey('send-pick-outcome-$i'),
-                          colors: sheetCtx.colors,
-                          leading: Icon(
-                              i == lead.index
-                                  ? Icons.radio_button_checked_rounded
-                                  : Icons.radio_button_off_rounded,
-                              color: sheetCtx.colors.textPrimary,
-                              size: 22.sp),
-                          title: e.outcomes[i].name,
-                          trailingTitle:
-                              '${(e.outcomes[i].price * 100).round()}%',
-                          onTap: () => Navigator.of(sheetCtx)
-                              .pop((label: e.outcomes[i].name, index: i)),
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-  return showAppBottomSheet<({String label, int index})>(
-    context: context,
-    builder: (sheetCtx) => _SideSheet(
-      title: e.title,
-      upLabel: sheetCtx.l10n.yes,
-      downLabel: sheetCtx.l10n.betNo,
-      initialUp: lead.label == 'Yes',
-      onPicked: (up) {
-        final label = up ? 'Yes' : 'No';
-        final index = e.outcomes
-            .indexWhere((o) => o.name.toLowerCase() == label.toLowerCase());
-        Navigator.of(sheetCtx).pop((label: label, index: index < 0 ? 0 : index));
-      },
-    ),
-  );
-}
-
-/// Long / Short, Long preselected. Resolves to whether Long was picked.
-Future<bool?> _chooseInvestingSide(BuildContext context, HlMarket m) =>
-    showAppBottomSheet<bool>(
-      context: context,
-      builder: (sheetCtx) => _SideSheet(
-        title: m.coin,
-        upLabel: sheetCtx.l10n.longLabel,
-        downLabel: sheetCtx.l10n.shortLabel,
-        initialUp: true,
-        onPicked: (up) => Navigator.of(sheetCtx).pop(up),
-      ),
-    );
-
-class _SideSheet extends StatefulWidget {
-  const _SideSheet({
-    required this.title,
-    required this.upLabel,
-    required this.downLabel,
-    required this.initialUp,
-    required this.onPicked,
-  });
-
-  final String title;
-  final String upLabel;
-  final String downLabel;
-  final bool initialUp;
-  final ValueChanged<bool> onPicked;
-
-  @override
-  State<_SideSheet> createState() => _SideSheetState();
-}
-
-class _SideSheetState extends State<_SideSheet> {
-  late bool _up = widget.initialUp;
-
-  @override
-  Widget build(BuildContext context) {
+  /// Nothing typed: Trending predictions and Moving now.
+  List<Widget> _home(
+      {required bool showPredictions, required bool showInvesting}) {
     final l10n = context.l10n;
-    return AppBottomSheetContainer(
-      child: Column(
+    final feeds =
+        _feeds(predictions: showPredictions, investing: showInvesting);
+    final predictions =
+        feeds.predictions.take(kSendPickHomeRows).toList(growable: false);
+    final investing =
+        feeds.investing.take(kSendPickHomeRows).toList(growable: false);
+    return [
+      if (showPredictions)
+        _block(
+          l10n.searchHomeTrendingPredictions,
+          predictions.isEmpty
+              ? _skeleton('send-pick-predictions-loading')
+              : SearchRowList(
+                  key: const ValueKey('send-pick-predictions'),
+                  children: [
+                    for (final e in predictions)
+                      SearchPredictionRow(
+                          event: e, onTap: () => _openPrediction(e)),
+                  ],
+                ),
+        ),
+      if (showInvesting && investing.isNotEmpty)
+        _block(
+          l10n.searchHomeMovingNow,
+          SearchRowList(
+            key: const ValueKey('send-pick-investing'),
+            children: [
+              for (final m in investing)
+                SearchInvestingRow(
+                    result: _result(m),
+                    onTap: () => _openInvesting(_result(m))),
+            ],
+          ),
+        ),
+    ];
+  }
+
+  /// Typed: the venues' own searches, the loaded markets that match
+  /// standing in while they answer.
+  List<Widget> _results(String q,
+      {required bool showPredictions, required bool showInvesting}) {
+    final l10n = context.l10n;
+    final lower = q.toLowerCase();
+    final feeds =
+        _feeds(predictions: showPredictions, investing: showInvesting);
+
+    var predictionsLoading = false;
+    var predictions = const <PolymarketEvent>[];
+    if (showPredictions) {
+      final async = ref.watch(polymarketSearchProvider(q));
+      final found = async.valueOrNull;
+      predictionsLoading = found == null && async.isLoading;
+      predictions = (found ??
+              [
+                for (final e in feeds.predictions)
+                  if (e.title.toLowerCase().contains(lower)) e
+              ])
+          .take(kSendPickResultRows)
+          .toList();
+    }
+
+    var investingLoading = false;
+    var investing = const <HlMarketSearchResult>[];
+    if (showInvesting) {
+      final async = ref.watch(hyperliquidMarketSearchProvider(q));
+      final found = async.valueOrNull;
+      investingLoading = found == null && async.isLoading;
+      investing = (found ??
+              [
+                for (final m in feeds.investing)
+                  if (m.coin.toLowerCase().contains(lower) ||
+                      (m.unitAssetName?.toLowerCase().contains(lower) ??
+                          false))
+                    _result(m)
+              ])
+          .take(kSendPickResultRows)
+          .toList();
+    }
+
+    final blocks = <Widget>[
+      if (predictions.isNotEmpty || predictionsLoading)
+        _block(
+          l10n.predictions,
+          predictions.isEmpty
+              ? _skeleton('send-pick-predictions-loading')
+              : SearchRowList(
+                  key: const ValueKey('send-pick-predictions'),
+                  children: [
+                    for (final e in predictions)
+                      SearchPredictionRow(
+                          event: e, onTap: () => _openPrediction(e)),
+                  ],
+                ),
+        ),
+      if (investing.isNotEmpty || investingLoading)
+        _block(
+          l10n.trading,
+          investing.isEmpty
+              ? _skeleton('send-pick-investing-loading')
+              : SearchRowList(
+                  key: const ValueKey('send-pick-investing'),
+                  children: [
+                    for (final r in investing)
+                      SearchInvestingRow(
+                          result: r, onTap: () => _openInvesting(r)),
+                  ],
+                ),
+        ),
+    ];
+    if (blocks.isEmpty) {
+      return [SearchEmptyState(text: l10n.sendPickMarketNoResults)];
+    }
+    return blocks;
+  }
+
+  Widget _block(String header, Widget rows) => Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          AppBottomSheetHeader(
-            title: l10n.sendPickSideTitle,
-            subtitle: widget.title,
-          ),
-          Padding(
-            padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 16.h),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                MarketSideToggle(
-                  key: const ValueKey('send-pick-side-toggle'),
-                  isUp: _up,
-                  upLabel: widget.upLabel,
-                  downLabel: widget.downLabel,
-                  onChanged: (up) => setState(() => _up = up),
-                ),
-                // Continue is the bar (kute_bar_context.dart).
-                KuteBarContextScope(
-                  barContext: KuteBarContext.primary(
-                    label: l10n.continueLabel,
-                    onPrimary: () => widget.onPicked(_up),
-                    source: 'send_pick_side',
-                    disabledLabel: null,
-                  ),
-                  child: SizedBox(height: kuteBarScrollClearance.h),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+        children: [SearchBlockHeader(text: header), rows],
+      );
+
+  Widget _skeleton(String key) => SkeletonRowList(
+        key: ValueKey(key),
+        count: 3,
+        padding: EdgeInsets.zero,
+        rowPadding: EdgeInsets.symmetric(vertical: 8.h),
+      );
 }

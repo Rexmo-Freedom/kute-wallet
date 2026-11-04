@@ -17,19 +17,44 @@
 // under Today (the one row that needs a tap). Every row is the widget its
 // own surface draws, on the same day cards as before: nothing restyled.
 //
-// Curated (founder, 1 November 2026; activity_curation.dart): the
-// Bitcoin home shows the newest [kHomeActivityRows] actions, never the
-// money moving between the person's own accounts: the first
-// [kHomeActivityLatest] as square tiles under "Latest", the rest as plain
-// rows under "Earlier" ([AllActivityPreview]; no Today card since the
-// declutter of 1 November 2026).
-// "See all" opens the Activity screen, which lists everything
-// ([AllActivitySliver]), built a page at a time as it scrolls, with each
-// funding chain folded into the action it paid for ("Paid from Bitcoin").
+// Scoped (founder, 4 November 2026: "On the Bitcoin activity only show
+// bitcoin-related stuff and deposits and withdrawals and such"): every list
+// reads the same merged entries through an [ActivityScope].
+//
+//   * [ActivityScope.bitcoin], the Bitcoin home's Activity and its "See
+//     all": bitcoin sends and receives (Lightning, Spark, on-chain, the
+//     deposits waiting to be claimed), and money moving into or out of
+//     bitcoin: Bitcoin to Dollars and back, Bitcoin into Investing or
+//     Predictions, withdrawals home to Bitcoin (a move from Investments
+//     included), purchases of bitcoin ([isBitcoinActivity]). Predictions
+//     placed, Investing fills and money moving between Dollars and the
+//     venues are not listed: they are the Investments' and the Dollars'.
+//     Nothing folds into a bet here: a Bitcoin → Predictions deposit that
+//     paid for one is the bitcoin that left, listed as itself.
+//   * [ActivityScope.investments], for the Portfolio and Dollars screens
+//     (built elsewhere): every Investing fill, every prediction placed,
+//     sold, won or lost, and every move into or out of Investing or
+//     Predictions from anywhere, each funding chain folded into the action
+//     it paid for ([isInvestmentsActivity], activity_curation.dart).
+//   * [ActivityScope.all]: everything (the Activity screen opened from a
+//     money move, which may be any of them).
+//
+// Read it with [watchAllActivity] (`scope:`) in a widget, or filter merged
+// entries with [activityInScope]; [AllActivityPreview] and
+// [AllActivitySliver] take a scope too.
+//
+// The Bitcoin home shows the newest [kHomeActivityRows] bitcoin entries:
+// the first [kHomeActivityLatest] as square tiles under "Latest", the rest
+// as plain rows under "Earlier" ([AllActivityPreview]; no Today card since
+// the declutter of 1 November 2026). "See all" opens the Activity screen
+// in the same scope ([AllActivitySliver]), built a page at a time as it
+// scrolls.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:kute/helpers/cash_app_destination.dart'
+    show cashAppDestination;
 import 'package:kute/helpers/swap_activity.dart'
     show SwapActivityKind, swapActivityFor;
 import 'package:kute/l10n/l10n.dart';
@@ -48,9 +73,13 @@ import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/screens/shared/hyperliquid_fill_activity.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show KuteStaggerIn;
+import 'package:kute/screens/shared/multi_source_move_activity.dart'
+    show MultiSourceMoveTransaction;
 import 'package:kute/screens/shared/transactions_builder.dart';
 import 'package:kute/services/one_balance/multi_source_move.dart'
     show multiSourceMovesProvider;
+import 'package:kute/services/one_balance/venue_funder.dart'
+    show VenueCashDestination;
 import 'package:kute/services/orchestra/bitcoin_receive_marks.dart';
 import 'package:kute/services/orchestra/own_spark_arrivals.dart'
     show ownSparkArrivalsProvider;
@@ -96,6 +125,96 @@ List<AllActivityEntry> mergeAllActivity({
   return [...entries.where(waiting), ...entries.where((e) => !waiting(e))];
 }
 
+/// What an Activity list shows of the spending account (see the file
+/// header).
+enum ActivityScope {
+  /// Everything every account did.
+  all,
+
+  /// Bitcoin sends and receives, and money moving into or out of bitcoin
+  /// ([isBitcoinActivity]): the Bitcoin home's Activity and its See all.
+  bitcoin,
+
+  /// The venues' fills, bets and results, and money moving into or out of
+  /// Investing or Predictions ([isInvestmentsActivity]).
+  investments,
+}
+
+/// Whether the Bitcoin activity lists [e]: a bitcoin send or receive
+/// (Lightning, Spark, on-chain, a deposit waiting to be claimed, a
+/// purchase of bitcoin), a conversion with bitcoin at one end that is not
+/// a send paid from Dollars ([bitcoinLedgerListsSwap]), or a move from
+/// Investments to Bitcoin. Never an Investing fill, a prediction, a
+/// Dollars transfer or a move between Dollars and a venue.
+bool isBitcoinActivity(
+  AllActivityEntry e, {
+  SwapActivityKind Function(SwapOrder order) classify = swapActivityFor,
+  List<BitcoinReceiveMark> marks = const [],
+}) {
+  final tx = e.tx;
+  return switch (tx) {
+    null => false,
+    BitcoinTransaction() ||
+    SparkTransaction() ||
+    SparkUnclaimedDeposit() ||
+    SparkPendingDeposit() ||
+    MempoolAddressTransaction() ||
+    OutlogicTransaction() =>
+      true,
+    SwapOrderTransaction() =>
+      bitcoinLedgerListsSwap(tx.details, classify: classify, marks: marks),
+    MultiSourceMoveTransaction() =>
+      tx.move.destination == VenueCashDestination.bitcoin,
+    _ => false,
+  };
+}
+
+/// Whether the Investments activity lists [e]: an Investing fill, a
+/// prediction placed, sold, won or lost (and the venue's own deposit and
+/// withdrawal records), USDC arriving in Predictions, a conversion into or
+/// out of Investing or Predictions whatever paid for it (a Cash App
+/// purchase into a venue included), or a move that took money from or to
+/// a venue.
+bool isInvestmentsActivity(
+  AllActivityEntry e, {
+  SwapActivityKind Function(SwapOrder order) classify = swapActivityFor,
+}) {
+  if (e.fill != null) return true;
+  final tx = e.tx;
+  return switch (tx) {
+    PolymarketTransaction() || PolymarketUsdcReceive() => true,
+    SwapOrderTransaction() => tx.details.isCashAppPurchase
+        ? cashAppDestination(tx.details)?.isVenue ?? false
+        : _isVenueKind(classify(tx.details)),
+    MultiSourceMoveTransaction() => tx.move.okLegs.isNotEmpty ||
+        tx.move.destination == VenueCashDestination.investing ||
+        tx.move.destination == VenueCashDestination.predictions,
+    _ => false,
+  };
+}
+
+bool _isVenueKind(SwapActivityKind kind) =>
+    kind.isPredictions || kind.isInvesting;
+
+/// [entries] in [scope], the order kept.
+List<AllActivityEntry> activityInScope(
+  List<AllActivityEntry> entries,
+  ActivityScope scope, {
+  SwapActivityKind Function(SwapOrder order) classify = swapActivityFor,
+  List<BitcoinReceiveMark> marks = const [],
+}) =>
+    switch (scope) {
+      ActivityScope.all => entries,
+      ActivityScope.bitcoin => [
+          for (final e in entries)
+            if (isBitcoinActivity(e, classify: classify, marks: marks)) e,
+        ],
+      ActivityScope.investments => [
+          for (final e in entries)
+            if (isInvestmentsActivity(e, classify: classify)) e,
+        ],
+    };
+
 /// The spending account's merged activity: the entries newest first, and
 /// whether the Investing history is still on its way or failed.
 typedef AllActivity = ({
@@ -106,8 +225,15 @@ typedef AllActivity = ({
 });
 
 /// Watches everything the merged list is made of (see the file header) for
-/// the spending account and merges it.
-AllActivity watchAllActivity(WidgetRef ref) {
+/// the spending account and merges it, in [scope]. The Bitcoin scope never
+/// reads the venues' histories (no fill or bet is listed there).
+///
+/// [AllActivity.entries] are the scope's entries newest first;
+/// [AllActivity.curated] the same with each funding chain folded into the
+/// action it paid for (nothing folds in the Bitcoin scope, which lists no
+/// action of a venue).
+AllActivity watchAllActivity(WidgetRef ref,
+    {ActivityScope scope = ActivityScope.all}) {
   final walletId =
       ref.watch(settingsProvider.select((s) => pickSpendingWallet(s)?.id));
   final txs = ref.watch(walletTransactionCacheProvider
@@ -121,6 +247,7 @@ AllActivity watchAllActivity(WidgetRef ref) {
   // A delivery to Spark the balance does not show yet keeps its row
   // pending: rebuild when that changes.
   ref.watch(ownSparkArrivalsProvider);
+  final marks = ref.watch(bitcoinReceiveMarksProvider);
   final walletRows = assembleActivityRows(
     txs.allTransactionsSorted,
     ownAddresses: activityOwnSettleAddresses(ref),
@@ -136,8 +263,21 @@ AllActivity watchAllActivity(WidgetRef ref) {
     walletId: walletId,
     // A move over with nothing delivered has no row; its legs show.
     dissolved: moves.isEmpty ? null : watchMultiSourceMovesDissolved(ref),
-    bitcoinReceiveMarks: ref.watch(bitcoinReceiveMarksProvider),
+    bitcoinReceiveMarks: marks,
+    receivedUsd: activityReceivedUsd(ref),
   );
+  final classify = debugAllActivityClassify ?? swapActivityFor;
+  if (scope == ActivityScope.bitcoin) {
+    final entries = activityInScope(
+        mergeAllActivity(walletRows: walletRows), scope,
+        classify: classify, marks: marks);
+    return (
+      entries: entries,
+      curated: CuratedActivity(entries: entries),
+      loading: false,
+      failed: false,
+    );
+  }
   final bets = <PolymarketTransaction>[
     ...txs.polymarketTransactions.where((t) =>
         t.activityType == ActivityType.trade ||
@@ -149,12 +289,14 @@ AllActivity watchAllActivity(WidgetRef ref) {
   ];
   final fills = ref.watch(hyperliquidActivityFillsProvider);
   final history = ref.watch(hyperliquidUserFillsProvider);
-  final entries =
-      mergeAllActivity(walletRows: walletRows, bets: bets, fills: fills);
+  final entries = activityInScope(
+      mergeAllActivity(walletRows: walletRows, bets: bets, fills: fills),
+      scope,
+      classify: classify,
+      marks: marks);
   return (
     entries: entries,
-    curated: curateAllActivity(entries,
-        classify: debugAllActivityClassify ?? swapActivityFor),
+    curated: curateAllActivity(entries, classify: classify),
     loading: history.isLoading,
     failed: history.hasError,
   );
@@ -204,29 +346,35 @@ List<Widget> allActivityDaySections(
 }
 
 /// The Bitcoin home's Activity (founder, 1 November 2026: less clutter,
-/// each row one or two things): the newest [limit] actions of everything
-/// the spending account did (no money moving between its own accounts:
-/// activity_curation.dart). The first [kHomeActivityLatest] under
-/// "Latest" as square tiles two by two (the row's icon, the action, the
-/// amount large), the rest under "Earlier" as plain one-line rows on one
-/// card. A tap opens the same receipt as the row. [emptyState] when there
-/// is nothing yet.
+/// each row one or two things; 4 November 2026: bitcoin only, deposits and
+/// withdrawals included): the newest [limit] entries of [scope] (the
+/// Bitcoin scope: bitcoin sends and receives, and money moving into or out
+/// of bitcoin). Another scope lists its newest actions, never the money
+/// moving between the person's own accounts (activity_curation.dart). The
+/// first [kHomeActivityLatest] under "Latest" as square tiles two by two
+/// (the row's icon, the action, the amount large), the rest under
+/// "Earlier" as plain one-line rows on one card. A tap opens the same
+/// receipt as the row. [emptyState] when there is nothing yet.
 class AllActivityPreview extends ConsumerWidget {
   const AllActivityPreview({
     super.key,
     this.limit = kHomeActivityPreviewRows,
     this.emptyState,
+    this.scope = ActivityScope.bitcoin,
   });
 
   final int limit;
   final Widget? emptyState;
+  final ActivityScope scope;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final activity = watchAllActivity(ref);
+    final activity = watchAllActivity(ref, scope: scope);
     final classify = debugAllActivityClassify ?? swapActivityFor;
-    final shown =
-        homeActivityEntries(activity.curated, limit: limit, classify: classify);
+    final shown = scope == ActivityScope.bitcoin
+        ? activity.entries.take(limit).toList(growable: false)
+        : homeActivityEntries(activity.curated,
+            limit: limit, classify: classify);
     if (shown.isEmpty) {
       return emptyState ?? buildNoTransactionsFound(context);
     }
@@ -331,19 +479,22 @@ class ActivitySquareGrid extends StatelessWidget {
   }
 }
 
-/// Every entry, newest first, as slivers for the Activity screen: built a
-/// page of [pageSize] at a time, the next page once the list scrolls near
-/// its end (the entries are all known; only their rows wait).
+/// Every entry of [scope], newest first, as slivers for the Activity
+/// screen: built a page of [pageSize] at a time, the next page once the
+/// list scrolls near its end (the entries are all known; only their rows
+/// wait).
 class AllActivitySliver extends ConsumerStatefulWidget {
   const AllActivitySliver({
     super.key,
     required this.controller,
     this.pageSize = 60,
+    this.scope = ActivityScope.all,
   });
 
   /// The screen's scroll controller, read to load the next page.
   final ScrollController controller;
   final int pageSize;
+  final ActivityScope scope;
 
   @override
   ConsumerState<AllActivitySliver> createState() => _AllActivitySliverState();
@@ -384,7 +535,7 @@ class _AllActivitySliverState extends ConsumerState<AllActivitySliver> {
 
   @override
   Widget build(BuildContext context) {
-    final activity = watchAllActivity(ref);
+    final activity = watchAllActivity(ref, scope: widget.scope);
     final entries = activity.curated.entries;
     _total = entries.length;
     // A page that does not fill the screen loads the next one at once.

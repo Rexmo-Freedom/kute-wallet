@@ -5828,6 +5828,40 @@ class AppLocalizationsLt extends AppLocalizations {
   String get hlAdvancedChart => 'Išplėstinis grafikas';
 
   @override
+  String get optionAdvancedChartSub => 'Piešiniai ir indikatoriai';
+
+  @override
+  String get optionAboutMarketSub => 'Statistika ir pavedimų knyga';
+
+  @override
+  String get optionAddMarginSub => 'Toliau nuo likvidavimo';
+
+  @override
+  String get optionPositionDetailsSub => 'Dydis, įėjimas ir finansavimas';
+
+  @override
+  String optionEndsOn(String date) {
+    return 'Baigiasi $date';
+  }
+
+  @override
+  String optionEndedOn(String date) {
+    return 'Baigėsi $date';
+  }
+
+  @override
+  String get optionHowItResolves => 'Kaip išsprendžiama';
+
+  @override
+  String get optionViewMarketSub => 'Grafikas ir tikimybės';
+
+  @override
+  String get optionPredictionDetailsSub => 'Vienetai ir sumokėta kaina';
+
+  @override
+  String get optionProtectSellSub => 'Parduok už savo kainą';
+
+  @override
   String get chartStyleCandles => 'Žvakės';
 
   @override
@@ -11487,7 +11521,7 @@ class AppLocalizationsLt extends AppLocalizations {
   String get barShareWithFriends => 'Siųsti draugui';
 
   @override
-  String get barShareMarketSub => 'Siųskite rinką arba savo prognozę';
+  String get barShareMarketSub => 'Siųskite rinką arba prognozę';
 
   @override
   String get barSharePositionSub => 'Siųskite rinką arba savo poziciją';
@@ -11496,8 +11530,7 @@ class AppLocalizationsLt extends AppLocalizations {
   String get shareTheMarket => 'Siųsti rinką';
 
   @override
-  String get shareTheMarketSub =>
-      'Nuoroda, kurią galima atidaryti, su jūsų kodu';
+  String get shareTheMarketSub => 'Gavėjas gauna nuorodą jai peržiūrėti';
 
   @override
   String get shareThisPosition => 'Siųsti šią poziciją';
@@ -11907,12 +11940,6 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
-  String get usdSendPickRow => 'A stock or prediction';
-
-  @override
-  String get usdSendPickRowSub => 'They get your pick, ready to place';
-
-  @override
   String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
 
   @override
@@ -11948,8 +11975,7 @@ class AppLocalizationsLt extends AppLocalizations {
   String get sendPickMarket => 'Siųsti prognozę arba investiciją';
 
   @override
-  String get sendPickMarketSub =>
-      'Pasirinkite rinką, gavėjas gaus ją paruoštą pateikti';
+  String get sendPickMarketSub => 'Raskite rinką, tada pasirinkite pusę';
 
   @override
   String get sendPickMarketSearchHint => 'Ieškoti prognozių ir investicijų';
@@ -11958,10 +11984,7 @@ class AppLocalizationsLt extends AppLocalizations {
   String get sendPickMarketNoResults => 'Nieko nerasta';
 
   @override
-  String get sendPickSideTitle => 'Kuri pusė?';
-
-  @override
-  String get sendPickSideSub => 'Ką gaus gavėjas, paruošta pateikti';
+  String get sendPickSideSub => 'Pasirinkite pusę, kurią gaus gavėjas';
 
   @override
   String get shareSendAgainWhatsApp => 'Siųsti dar kartą per WhatsApp';
@@ -12482,4 +12505,32 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get predictBelowTarget => 'below target';
+
+  @override
+  String get sendAPrediction => 'Siųsti prognozę';
+
+  @override
+  String get sendAnInvestment => 'Siųsti investiciją';
+
+  @override
+  String get sendAPredictionSub => 'Gavėjas gauna jūsų pasirinktą prognozę';
+
+  @override
+  String get sendAnInvestmentSub => 'Gavėjas gauna jūsų pasirinktą investiciją';
+
+  @override
+  String get sendPickOutcomeSub => 'Pasirinkite baigtį, kurią gaus gavėjas';
+
+  @override
+  String get sendPickAmountSub => 'Kiek gaus gavėjas?';
+
+  @override
+  String get sendToAFriendLabel => 'Draugui';
+
+  @override
+  String get sendToCryptoAddress => 'Į kripto adresą';
+
+  @override
+  String get sendPickRowSub =>
+      'Arba investiciją. Raskite rinką, pasirinkite pusę';
 }

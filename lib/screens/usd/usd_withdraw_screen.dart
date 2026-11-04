@@ -14,15 +14,21 @@
 //   * "Frequent" directly under the field (founder, 2 November 2026:
 //     "Frequent stays on top"), the recent recipients as circles, hidden
 //     while typing and once a recipient is chosen;
-//   * the "Send to" card: "To your Bitcoin" (the Move money sheet,
-//     Dollars to Bitcoin), "A stock or prediction" (the market picker,
-//     send_pick_market_sheet.dart) and "Also sends to" (the coins, in the
-//     coin sheet, exactly as the Bitcoin send's row opens its own);
-//   * All contacts A–Z under it (send_contacts_list.dart; founder: a
-//     growing list never hides the card): the recent dollar recipients
-//     (paid directly: the send opens on that coin and address) and the
-//     phone's contacts (a claim link for dollars to their number),
-//     filtered by the text, "Send a link to +351…" for a typed number.
+//   * TWO SHORT CARDS, EACH UNDER ITS WORDS (founder, 4 November 2026:
+//     "too many options and buttons, make it more clear"): "Send to",
+//     where the money goes that is yours or an address: "To your
+//     Bitcoin" (the Move money sheet, Dollars to Bitcoin) and "To a
+//     crypto address" (the coins it can land as, in the coin sheet,
+//     exactly as the Bitcoin send's row opens its own); then "To a
+//     friend": "Send to anyone" (a link they claim with Kute, no contact
+//     needed) and "Send a prediction" ("Or an investment", the market
+//     search, send_pick_market_sheet.dart);
+//   * All contacts A–Z under them, the friends themselves
+//     (send_contacts_list.dart; founder: a growing list never hides the
+//     cards): the recent dollar recipients (paid directly: the send opens
+//     on that coin and address) and the phone's contacts (a claim link for
+//     dollars to their number), filtered by the text, "Send a link to
+//     +351…" for a typed number.
 //
 // No big Bitcoin card and no inline coin grid any more. The bar is the default
 // "Search or Manage with AI" (the rows are the actions), Continue while the
@@ -108,13 +114,13 @@ class UsdWithdrawScreen extends ConsumerStatefulWidget {
   static Future<bool?> Function(BuildContext context,
       UsdSendDestination destination, String? recipient)? debugSendOpener;
 
-  /// Test seam: what "A stock or prediction" opens. Null opens the market
-  /// picker; the answer is whether a link was created.
+  /// Test seam: what "Send a prediction" opens. Null opens
+  /// the market search; the answer is whether a link was created.
   @visibleForTesting
   static Future<bool?> Function(BuildContext context)? debugPickOpener;
 
-  /// Test seam: the claim link for a contact or a typed number. Null
-  /// opens Send to anyone for dollars.
+  /// Test seam: the claim link for a contact, a typed number or anyone
+  /// ("Send to anyone", neither). Null opens Send to anyone for dollars.
   @visibleForTesting
   static Future<bool?> Function(BuildContext context,
       {SendContact? contact, String? phone})? debugLinkOpener;
@@ -164,7 +170,8 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
     ));
   }
 
-  /// "A stock or prediction": the market picker, a pick on a link.
+  /// "Send a prediction": the market search, a pick on a
+  /// link.
   Future<void> _openPick() {
     final open = UsdWithdrawScreen.debugPickOpener;
     return _afterLink(open != null
@@ -174,9 +181,10 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
   }
 
   /// The claim link for dollars: to a contact (its first name, its number
-  /// kept in the local row) or to a typed number.
+  /// kept in the local row), to a typed number, or to anyone (neither).
   Future<void> _openLink({SendContact? contact, String? phone}) {
-    trackSendRecipientPicked(contact != null ? 'contact' : 'phone');
+    trackSendRecipientPicked(
+        contact != null ? 'contact' : (phone != null ? 'phone' : 'link'));
     final open = UsdWithdrawScreen.debugLinkOpener;
     return _afterLink(open != null
         ? open(context, contact: contact, phone: phone)
@@ -337,15 +345,17 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
                 recents: recents,
                 onPerson: (p) => _onPerson(p, offered),
               ),
-              // The Send to card before Contacts (founder): a growing
-              // list never pushes it out of sight; Contacts scroll on to
-              // the bar's clearance.
-              // Hidden while a recipient is chosen: the card above is the
-              // choice.
+              // The two cards before Contacts (founder): a growing list
+              // never pushes them out of sight; Contacts scroll on to the
+              // bar's clearance. Hidden while a recipient is chosen: the
+              // card above is the choice.
               if (auto == null) ...[
                 SizedBox(height: 20.h),
                 SendSectionLabel(l10n.sendToLabel),
                 _sendToCard(c, offered),
+                SizedBox(height: 20.h),
+                SendSectionLabel(l10n.sendToAFriendLabel),
+                _friendCard(c),
               ],
             ],
                 ),
@@ -413,7 +423,37 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
     unawaited(_openSend(recent.destination, recipient: recent.address));
   }
 
-  /// "Send to": To your Bitcoin, A stock or prediction, Also sends to.
+  /// "To a friend": Send to anyone (a link, no contact needed) and Send a
+  /// prediction (or an investment: the market search).
+  Widget _friendCard(AppColorsExtension c) {
+    final l10n = context.l10n;
+    return SendToListCard(
+      key: const ValueKey('usd-withdraw-friend'),
+      colors: c,
+      rows: [
+        SendToListRow(
+          key: const ValueKey('usd-withdraw-anyone'),
+          colors: c,
+          leading: const SendSalShareGlyph(),
+          title: l10n.shareSendToAnyone,
+          subtitle: l10n.shareSendToAnyoneSubtitle,
+          onTap: () => unawaited(_openLink()),
+        ),
+        SendToListRow(
+          key: const ValueKey('usd-withdraw-pick'),
+          colors: c,
+          leading: const SendSalShareGlyph(),
+          // "Send a prediction", short in every language (the row's title
+          // is one line); the line under it names investing too.
+          title: l10n.sendAPrediction,
+          subtitle: l10n.sendPickRowSub,
+          onTap: () => unawaited(_openPick()),
+        ),
+      ],
+    );
+  }
+
+  /// "Send to": To your Bitcoin and To a crypto address.
   Widget _sendToCard(AppColorsExtension c, List<UsdSendDestination> offered) {
     final l10n = context.l10n;
     final loading = ref.watch(orchestraRoutesReadyProvider).isLoading;
@@ -439,16 +479,11 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
                   balance == null ? null : l10n.usdBitcoinBalanceLine(balance),
               onTap: _openToBitcoin,
             ),
-            SendToListRow(
-              key: const ValueKey('usd-withdraw-pick'),
-              colors: c,
-              leading: const SendSalShareGlyph(),
-              title: l10n.usdSendPickRow,
-              subtitle: l10n.usdSendPickRowSub,
-              onTap: () => unawaited(_openPick()),
-            ),
             if (groups.isNotEmpty)
-              SendAlsoSendsToRow(groups: groups, onTap: _openCoinPicker),
+              SendAlsoSendsToRow(
+                  groups: groups,
+                  title: l10n.sendToCryptoAddress,
+                  onTap: _openCoinPicker),
           ],
         ),
         if (groups.isEmpty) ...[

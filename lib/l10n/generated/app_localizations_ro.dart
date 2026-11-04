@@ -5831,6 +5831,40 @@ class AppLocalizationsRo extends AppLocalizations {
   String get hlAdvancedChart => 'Grafic avansat';
 
   @override
+  String get optionAdvancedChartSub => 'Desene și indicatori';
+
+  @override
+  String get optionAboutMarketSub => 'Statistici și registru de ordine';
+
+  @override
+  String get optionAddMarginSub => 'Mai departe de lichidare';
+
+  @override
+  String get optionPositionDetailsSub => 'Mărime, intrare și finanțare';
+
+  @override
+  String optionEndsOn(String date) {
+    return 'Se încheie pe $date';
+  }
+
+  @override
+  String optionEndedOn(String date) {
+    return 'Încheiat pe $date';
+  }
+
+  @override
+  String get optionHowItResolves => 'Cum se rezolvă';
+
+  @override
+  String get optionViewMarketSub => 'Grafic și șanse';
+
+  @override
+  String get optionPredictionDetailsSub => 'Unități și preț plătit';
+
+  @override
+  String get optionProtectSellSub => 'Vinde la prețul tău';
+
+  @override
   String get chartStyleCandles => 'Lumânări';
 
   @override
@@ -11491,7 +11525,7 @@ class AppLocalizationsRo extends AppLocalizations {
   String get barShareWithFriends => 'Trimite unui prieten';
 
   @override
-  String get barShareMarketSub => 'Trimite piața sau predicția ta';
+  String get barShareMarketSub => 'Trimite piața sau o predicție';
 
   @override
   String get barSharePositionSub => 'Trimite piața sau poziția ta';
@@ -11500,8 +11534,7 @@ class AppLocalizationsRo extends AppLocalizations {
   String get shareTheMarket => 'Trimite piața';
 
   @override
-  String get shareTheMarketSub =>
-      'Un link pe care îl pot deschide, cu codul tău';
+  String get shareTheMarketSub => 'Primesc un link ca să o vadă';
 
   @override
   String get shareThisPosition => 'Trimite această poziție';
@@ -11912,12 +11945,6 @@ class AppLocalizationsRo extends AppLocalizations {
   }
 
   @override
-  String get usdSendPickRow => 'A stock or prediction';
-
-  @override
-  String get usdSendPickRowSub => 'They get your pick, ready to place';
-
-  @override
   String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
 
   @override
@@ -11953,7 +11980,7 @@ class AppLocalizationsRo extends AppLocalizations {
   String get sendPickMarket => 'Trimite o predicție sau o investiție';
 
   @override
-  String get sendPickMarketSub => 'Alege o piață, o primesc gata de plasat';
+  String get sendPickMarketSub => 'Caută o piață, apoi alege partea';
 
   @override
   String get sendPickMarketSearchHint => 'Caută în predicții și investiții';
@@ -11962,10 +11989,7 @@ class AppLocalizationsRo extends AppLocalizations {
   String get sendPickMarketNoResults => 'Nicio potrivire';
 
   @override
-  String get sendPickSideTitle => 'Ce parte?';
-
-  @override
-  String get sendPickSideSub => 'Ce primesc, gata de plasat';
+  String get sendPickSideSub => 'Alege partea pe care o primesc';
 
   @override
   String get shareSendAgainWhatsApp => 'Trimite din nou prin WhatsApp';
@@ -12487,4 +12511,31 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get predictBelowTarget => 'below target';
+
+  @override
+  String get sendAPrediction => 'Trimite o predicție';
+
+  @override
+  String get sendAnInvestment => 'Trimite o investiție';
+
+  @override
+  String get sendAPredictionSub => 'Primesc predicția pe care o alegi';
+
+  @override
+  String get sendAnInvestmentSub => 'Primesc investiția pe care o alegi';
+
+  @override
+  String get sendPickOutcomeSub => 'Alege rezultatul pe care îl primesc';
+
+  @override
+  String get sendPickAmountSub => 'Cât primesc?';
+
+  @override
+  String get sendToAFriendLabel => 'Unui prieten';
+
+  @override
+  String get sendToCryptoAddress => 'Către o adresă crypto';
+
+  @override
+  String get sendPickRowSub => 'Sau o investiție. Caută o piață, alege partea';
 }
