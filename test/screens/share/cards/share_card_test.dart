@@ -1016,7 +1016,7 @@ void main() {
       expect(shareCardEdges(_en, fakePredictionPick()), [
         "47% says I'm early, not wrong.",
         'The crowd is 53% wrong.',
-        'Bet against me. I dare you.',
+        'Take the other side. I dare you.',
         'Gen.G or bust.',
       ]);
       // Politics.

@@ -12209,7 +12209,7 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
-  String get shareEdgePredictionDare => 'Fogadj ellenem. Ha mersz.';
+  String get shareEdgePredictionDare => 'Válaszd a másik oldalt. Ha mersz.';
 
   @override
   String get shareEdgePredictionPolitics =>
@@ -12382,6 +12382,114 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get claimCardTapClaim => 'A tiéd. Koppints az Átvétel gombra.';
+
+  @override
+  String get bragWonCaps => 'Megmondtam';
+
+  @override
+  String bragWonFrom(String entry) {
+    return 'Nyert $entry árról';
+  }
+
+  @override
+  String bragWonPaidPayout(String paid, String payout) {
+    return 'Fizettem $paid · Kaptam $payout';
+  }
+
+  @override
+  String get bragWonAction => 'Dicsekedj ezzel a nyereménnyel';
+
+  @override
+  String get bragEdgeWonReceipts => 'Eldőlt. A bizonyíték mellékelve.';
+
+  @override
+  String bragEdgeWonAgedWell(String entry) {
+    return 'Beszállás $entry áron. Jól öregedett.';
+  }
+
+  @override
+  String bragEdgeWonRight(String amount) {
+    return '$amount, mert igazam volt.';
+  }
+
+  @override
+  String get challengeToggle => 'Hívd ki';
+
+  @override
+  String get challengeToggleSub => 'Hívd ki, hogy a másik oldalt válassza';
+
+  @override
+  String get challengeCaps => 'Kihívlak';
+
+  @override
+  String challengeCapsNamed(String name) {
+    return '$name, kihívlak';
+  }
+
+  @override
+  String get challengeCapsRecipient => 'Egy barátod kihív';
+
+  @override
+  String challengeCapsRecipientNamed(String name) {
+    return '$name, egy barátod kihív';
+  }
+
+  @override
+  String get challengeMySide => 'Az én oldalam';
+
+  @override
+  String get challengeFriendSide => 'A barátod oldala';
+
+  @override
+  String get challengeYourSide => 'A te oldalad?';
+
+  @override
+  String challengeStake(String amount) {
+    return '$amount a játékhoz, én állom';
+  }
+
+  @override
+  String challengeEdgeWrong(String side) {
+    return 'A tippem: $side. Szerinted tévedek? Válaszd a másik oldalt.';
+  }
+
+  @override
+  String challengeEdgeFight(String side) {
+    return 'Szerintem $side. Mersz ellenem menni?';
+  }
+
+  @override
+  String challengeEdgeProve(String side) {
+    return '$side. Bizonyítsd, hogy tévedek.';
+  }
+
+  @override
+  String challengeEdgeMove(String side) {
+    return 'A választásom: $side. Te jössz.';
+  }
+
+  @override
+  String shareMessageChallengeNamed(
+      String name, String outcome, String title, String amount, String url) {
+    return '$name, a tippem: $outcome, $title. Válaszd a másik oldalt, vagy tarts velem. $amount én állom: $url';
+  }
+
+  @override
+  String shareMessageChallengeUnnamed(
+      String outcome, String title, String amount, String url) {
+    return 'A tippem: $outcome, $title. Válaszd a másik oldalt, vagy tarts velem. $amount én állom: $url';
+  }
+
+  @override
+  String get claimChallengeOtherSide => 'A másik oldalt választom';
+
+  @override
+  String get claimChallengeSameSide => 'Ugyanaz az oldal, mint a barátodé';
+
+  @override
+  String claimChallengeFriendOn(String outcome) {
+    return 'A barátod tippje: $outcome';
+  }
 
   @override
   String get activityLatest => 'Latest';

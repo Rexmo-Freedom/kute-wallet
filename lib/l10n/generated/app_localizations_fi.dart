@@ -12193,7 +12193,7 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
-  String get shareEdgePredictionDare => 'Lyö vetoa minua vastaan. Uskallatko.';
+  String get shareEdgePredictionDare => 'Valitse toinen puoli. Uskallatko.';
 
   @override
   String get shareEdgePredictionPolitics =>
@@ -12366,6 +12366,114 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get claimCardTapClaim => 'Se on sinun. Napauta Lunasta.';
+
+  @override
+  String get bragWonCaps => 'Sanoinhan';
+
+  @override
+  String bragWonFrom(String entry) {
+    return 'Voitto hinnasta $entry';
+  }
+
+  @override
+  String bragWonPaidPayout(String paid, String payout) {
+    return 'Maksoin $paid · Sain $payout';
+  }
+
+  @override
+  String get bragWonAction => 'Leveile tällä voitolla';
+
+  @override
+  String get bragEdgeWonReceipts => 'Ratkaistu. Kuitit liitteenä.';
+
+  @override
+  String bragEdgeWonAgedWell(String entry) {
+    return 'Sisään hintaan $entry. Vanheni hyvin.';
+  }
+
+  @override
+  String bragEdgeWonRight(String amount) {
+    return '$amount siitä, että olin oikeassa.';
+  }
+
+  @override
+  String get challengeToggle => 'Haasta';
+
+  @override
+  String get challengeToggleSub => 'Haasta valitsemaan toinen puoli';
+
+  @override
+  String get challengeCaps => 'Haastan sinut';
+
+  @override
+  String challengeCapsNamed(String name) {
+    return '$name, haastan sinut';
+  }
+
+  @override
+  String get challengeCapsRecipient => 'Ystävä haastaa sinut';
+
+  @override
+  String challengeCapsRecipientNamed(String name) {
+    return '$name, ystävä haastaa sinut';
+  }
+
+  @override
+  String get challengeMySide => 'Minun puoleni';
+
+  @override
+  String get challengeFriendSide => 'Ystävän puoli';
+
+  @override
+  String get challengeYourSide => 'Sinun puolesi?';
+
+  @override
+  String challengeStake(String amount) {
+    return '$amount pelattavaksi, minä tarjoan';
+  }
+
+  @override
+  String challengeEdgeWrong(String side) {
+    return 'Valitsin $side. Luuletko, että olen väärässä? Valitse toinen puoli.';
+  }
+
+  @override
+  String challengeEdgeFight(String side) {
+    return 'Sanon $side. Uskallatko vastaan?';
+  }
+
+  @override
+  String challengeEdgeProve(String side) {
+    return '$side. Todista, että olen väärässä.';
+  }
+
+  @override
+  String challengeEdgeMove(String side) {
+    return 'Valintani on $side. Sinun vuorosi.';
+  }
+
+  @override
+  String shareMessageChallengeNamed(
+      String name, String outcome, String title, String amount, String url) {
+    return '$name, valintani: $outcome, $title. Valitse toinen puoli tai liity mukaan. $amount minä tarjoan: $url';
+  }
+
+  @override
+  String shareMessageChallengeUnnamed(
+      String outcome, String title, String amount, String url) {
+    return 'Valintani: $outcome, $title. Valitse toinen puoli tai liity mukaan. $amount minä tarjoan: $url';
+  }
+
+  @override
+  String get claimChallengeOtherSide => 'Valitse toinen puoli';
+
+  @override
+  String get claimChallengeSameSide => 'Sama puoli kuin ystävälläsi';
+
+  @override
+  String claimChallengeFriendOn(String outcome) {
+    return 'Ystäväsi valitsi: $outcome';
+  }
 
   @override
   String get activityLatest => 'Latest';

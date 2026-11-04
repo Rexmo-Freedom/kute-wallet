@@ -12235,7 +12235,7 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
-  String get shareEdgePredictionDare => 'Statyk prieš mane. Išdrįsk.';
+  String get shareEdgePredictionDare => 'Rinkis kitą pusę. Išdrįsk.';
 
   @override
   String get shareEdgePredictionPolitics =>
@@ -12408,6 +12408,114 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get claimCardTapClaim => 'Tai jūsų. Bakstelėkite „Atsiimti“.';
+
+  @override
+  String get bragWonCaps => 'Sakiau gi';
+
+  @override
+  String bragWonFrom(String entry) {
+    return 'Laimėta nuo $entry';
+  }
+
+  @override
+  String bragWonPaidPayout(String paid, String payout) {
+    return 'Sumokėta $paid · Išmokėta $payout';
+  }
+
+  @override
+  String get bragWonAction => 'Pasigirti šiuo laimėjimu';
+
+  @override
+  String get bragEdgeWonReceipts => 'Išspręsta. Įrodymai pridėti.';
+
+  @override
+  String bragEdgeWonAgedWell(String entry) {
+    return 'Įėjau po $entry. Pasiteisino.';
+  }
+
+  @override
+  String bragEdgeWonRight(String amount) {
+    return '$amount už teisingą spėjimą.';
+  }
+
+  @override
+  String get challengeToggle => 'Mesti iššūkį';
+
+  @override
+  String get challengeToggleSub => 'Mesk iššūkį pasirinkti kitą pusę';
+
+  @override
+  String get challengeCaps => 'Metu tau iššūkį';
+
+  @override
+  String challengeCapsNamed(String name) {
+    return '$name, metu tau iššūkį';
+  }
+
+  @override
+  String get challengeCapsRecipient => 'Draugas meta tau iššūkį';
+
+  @override
+  String challengeCapsRecipientNamed(String name) {
+    return '$name, draugas meta tau iššūkį';
+  }
+
+  @override
+  String get challengeMySide => 'Mano pusė';
+
+  @override
+  String get challengeFriendSide => 'Draugo pusė';
+
+  @override
+  String get challengeYourSide => 'Tavo pusė?';
+
+  @override
+  String challengeStake(String amount) {
+    return '$amount žaidimui, aš vaišinu';
+  }
+
+  @override
+  String challengeEdgeWrong(String side) {
+    return 'Aš už $side. Manai, klystu? Rinkis kitą pusę.';
+  }
+
+  @override
+  String challengeEdgeFight(String side) {
+    return 'Sakau $side. Išdrįsi?';
+  }
+
+  @override
+  String challengeEdgeProve(String side) {
+    return '$side. Įrodyk, kad klystu.';
+  }
+
+  @override
+  String challengeEdgeMove(String side) {
+    return 'Pasirinkau $side. Tavo ėjimas.';
+  }
+
+  @override
+  String shareMessageChallengeNamed(
+      String name, String outcome, String title, String amount, String url) {
+    return '$name, mano pasirinkimas: $outcome rinkoje $title. Rinkis kitą pusę arba prisijunk. $amount aš vaišinu: $url';
+  }
+
+  @override
+  String shareMessageChallengeUnnamed(
+      String outcome, String title, String amount, String url) {
+    return 'Mano pasirinkimas: $outcome rinkoje $title. Rinkis kitą pusę arba prisijunk. $amount aš vaišinu: $url';
+  }
+
+  @override
+  String get claimChallengeOtherSide => 'Rinktis kitą pusę';
+
+  @override
+  String get claimChallengeSameSide => 'Ta pati pusė kaip draugo';
+
+  @override
+  String claimChallengeFriendOn(String outcome) {
+    return 'Jūsų draugas už $outcome';
+  }
 
   @override
   String get activityLatest => 'Latest';

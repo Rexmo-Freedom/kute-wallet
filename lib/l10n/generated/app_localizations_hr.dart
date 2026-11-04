@@ -12208,7 +12208,7 @@ class AppLocalizationsHr extends AppLocalizations {
   }
 
   @override
-  String get shareEdgePredictionDare => 'Okladi se protiv mene. Usudi se.';
+  String get shareEdgePredictionDare => 'Uzmi drugu stranu. Usudi se.';
 
   @override
   String get shareEdgePredictionPolitics =>
@@ -12380,6 +12380,114 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get claimCardTapClaim => 'Tvoje je. Dodirni Preuzmi.';
+
+  @override
+  String get bragWonCaps => 'Pogođeno';
+
+  @override
+  String bragWonFrom(String entry) {
+    return 'Dobiveno, ulaz po $entry';
+  }
+
+  @override
+  String bragWonPaidPayout(String paid, String payout) {
+    return 'Plaćeno $paid · Isplaćeno $payout';
+  }
+
+  @override
+  String get bragWonAction => 'Pohvali se ovim dobitkom';
+
+  @override
+  String get bragEdgeWonReceipts => 'Riješeno. Dokazi u prilogu.';
+
+  @override
+  String bragEdgeWonAgedWell(String entry) {
+    return 'Ulaz po $entry. Dobro je ostarjelo.';
+  }
+
+  @override
+  String bragEdgeWonRight(String amount) {
+    return '$amount za točnu procjenu.';
+  }
+
+  @override
+  String get challengeToggle => 'Izazovi';
+
+  @override
+  String get challengeToggleSub => 'Izazovi ih da uzmu drugu stranu';
+
+  @override
+  String get challengeCaps => 'Izazivam te';
+
+  @override
+  String challengeCapsNamed(String name) {
+    return '$name, izazivam te';
+  }
+
+  @override
+  String get challengeCapsRecipient => 'Prijatelj te izaziva';
+
+  @override
+  String challengeCapsRecipientNamed(String name) {
+    return '$name, prijatelj te izaziva';
+  }
+
+  @override
+  String get challengeMySide => 'Moja strana';
+
+  @override
+  String get challengeFriendSide => 'Strana prijatelja';
+
+  @override
+  String get challengeYourSide => 'Tvoja strana?';
+
+  @override
+  String challengeStake(String amount) {
+    return '$amount za igru, častim ja';
+  }
+
+  @override
+  String challengeEdgeWrong(String side) {
+    return 'Ja sam za $side. Misliš da griješim? Uzmi drugu stranu.';
+  }
+
+  @override
+  String challengeEdgeFight(String side) {
+    return 'Kažem $side. Usudiš se?';
+  }
+
+  @override
+  String challengeEdgeProve(String side) {
+    return '$side. Dokaži da griješim.';
+  }
+
+  @override
+  String challengeEdgeMove(String side) {
+    return 'Moj izbor: $side. Ti si na potezu.';
+  }
+
+  @override
+  String shareMessageChallengeNamed(
+      String name, String outcome, String title, String amount, String url) {
+    return '$name, moj izbor: $outcome na $title. Uzmi drugu stranu ili mi se pridruži. $amount častim ja: $url';
+  }
+
+  @override
+  String shareMessageChallengeUnnamed(
+      String outcome, String title, String amount, String url) {
+    return 'Moj izbor: $outcome na $title. Uzmi drugu stranu ili mi se pridruži. $amount častim ja: $url';
+  }
+
+  @override
+  String get claimChallengeOtherSide => 'Uzmi drugu stranu';
+
+  @override
+  String get claimChallengeSameSide => 'Ista strana kao prijatelj';
+
+  @override
+  String claimChallengeFriendOn(String outcome) {
+    return 'Tvoj prijatelj je za $outcome';
+  }
 
   @override
   String get activityLatest => 'Latest';

@@ -11756,7 +11756,7 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get shareEdgePredictionDare => '逆に賭けてみなよ。どうぞ。';
+  String get shareEdgePredictionDare => '逆を選んでみなよ。どうぞ。';
 
   @override
   String get shareEdgePredictionPolitics => '世論調査は意見。これはお金。';
@@ -11927,6 +11927,114 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get claimCardTapClaim => 'あなたのものです。「受け取る」をタップ。';
+
+  @override
+  String get bragWonCaps => '言った通り';
+
+  @override
+  String bragWonFrom(String entry) {
+    return '$entryから的中';
+  }
+
+  @override
+  String bragWonPaidPayout(String paid, String payout) {
+    return '支払い $paid · 払い戻し $payout';
+  }
+
+  @override
+  String get bragWonAction => 'この的中を自慢する';
+
+  @override
+  String get bragEdgeWonReceipts => '確定。証拠はこちら。';
+
+  @override
+  String bragEdgeWonAgedWell(String entry) {
+    return '$entryで参入。読みどおり。';
+  }
+
+  @override
+  String bragEdgeWonRight(String amount) {
+    return '正解して$amount。';
+  }
+
+  @override
+  String get challengeToggle => '挑戦状を送る';
+
+  @override
+  String get challengeToggleSub => '逆の側を選ぶよう挑発する';
+
+  @override
+  String get challengeCaps => '挑戦状';
+
+  @override
+  String challengeCapsNamed(String name) {
+    return '$nameさんへの挑戦状';
+  }
+
+  @override
+  String get challengeCapsRecipient => '友達からの挑戦状';
+
+  @override
+  String challengeCapsRecipientNamed(String name) {
+    return '$nameさん、友達からの挑戦状';
+  }
+
+  @override
+  String get challengeMySide => '私の側';
+
+  @override
+  String get challengeFriendSide => '友達の側';
+
+  @override
+  String get challengeYourSide => 'あなたの側？';
+
+  @override
+  String challengeStake(String amount) {
+    return '$amountは私のおごり';
+  }
+
+  @override
+  String challengeEdgeWrong(String side) {
+    return '私は$side。間違ってると思う？なら逆を選んで。';
+  }
+
+  @override
+  String challengeEdgeFight(String side) {
+    return '$sideだと思う。受けて立つ？';
+  }
+
+  @override
+  String challengeEdgeProve(String side) {
+    return '$side。違うなら証明して。';
+  }
+
+  @override
+  String challengeEdgeMove(String side) {
+    return '$sideを選んだ。次はあなたの番。';
+  }
+
+  @override
+  String shareMessageChallengeNamed(
+      String name, String outcome, String title, String amount, String url) {
+    return '$nameさん、私の予想は$titleで$outcome。逆を選ぶか、同じ側に乗るか。$amountは私のおごり：$url';
+  }
+
+  @override
+  String shareMessageChallengeUnnamed(
+      String outcome, String title, String amount, String url) {
+    return '私の予想は$titleで$outcome。逆を選ぶか、同じ側に乗るか。$amountは私のおごり：$url';
+  }
+
+  @override
+  String get claimChallengeOtherSide => '逆の側を選ぶ';
+
+  @override
+  String get claimChallengeSameSide => '友達と同じ側';
+
+  @override
+  String claimChallengeFriendOn(String outcome) {
+    return '友達の予想は$outcome';
+  }
 
   @override
   String get activityLatest => 'Latest';
