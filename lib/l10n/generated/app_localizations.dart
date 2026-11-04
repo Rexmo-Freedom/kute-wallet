@@ -19813,18 +19813,6 @@ abstract class AppLocalizations {
   /// **'{amount} in Bitcoin'**
   String usdBitcoinBalanceLine(String amount);
 
-  /// Dollars Send, Send to card: send a friend a stock or a prediction on a link.
-  ///
-  /// In en, this message translates to:
-  /// **'A stock or prediction'**
-  String get usdSendPickRow;
-
-  /// Under usdSendPickRow.
-  ///
-  /// In en, this message translates to:
-  /// **'They get your pick, ready to place'**
-  String get usdSendPickRowSub;
-
   /// Dollars Add first step: deposit into Dollars from the user's own Bitcoin.
   ///
   /// In en, this message translates to:
@@ -20773,6 +20761,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'How much do they get?'**
   String get sendPickAmountSub;
+
+  /// Section label over the Send screens' friend card (Send to anyone, Send a prediction or investment).
+  ///
+  /// In en, this message translates to:
+  /// **'To a friend'**
+  String get sendToAFriendLabel;
+
+  /// The Dollars Send's row for the coins dollars can land as (opens the coin sheet); the coins are listed under it.
+  ///
+  /// In en, this message translates to:
+  /// **'To a crypto address'**
+  String get sendToCryptoAddress;
+
+  /// Under Send a prediction on the Dollars Send's To a friend card: the row opens the market search (predictions and investing).
+  ///
+  /// In en, this message translates to:
+  /// **'Or an investment. Search a market, pick the side'**
+  String get sendPickRowSub;
 }
 
 class _AppLocalizationsDelegate

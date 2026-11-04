@@ -8704,14 +8704,6 @@
       }
     }
   },
-  "usdSendPickRow": "A stock or prediction",
-  "@usdSendPickRow": {
-    "description": "Dollars Send, Send to card: send a friend a stock or a prediction on a link."
-  },
-  "usdSendPickRowSub": "They get your pick, ready to place",
-  "@usdSendPickRowSub": {
-    "description": "Under usdSendPickRow."
-  },
   "usdReceiveFromYourBitcoin": "From your Bitcoin",
   "@usdReceiveFromYourBitcoin": {
     "description": "Dollars Add first step: deposit into Dollars from the user's own Bitcoin."
@@ -9600,5 +9592,17 @@
   },
   "@sendPickMarketSub": {
     "description": "Under Send a prediction or investment: the market search sheet's subtitle and the Send row's second line."
+  },
+  "sendToAFriendLabel": "To a friend",
+  "@sendToAFriendLabel": {
+    "description": "Section label over the Send screens' friend card (Send to anyone, Send a prediction or investment)."
+  },
+  "sendToCryptoAddress": "To a crypto address",
+  "@sendToCryptoAddress": {
+    "description": "The Dollars Send's row for the coins dollars can land as (opens the coin sheet); the coins are listed under it."
+  },
+  "sendPickRowSub": "Or an investment. Search a market, pick the side",
+  "@sendPickRowSub": {
+    "description": "Under Send a prediction on the Dollars Send's To a friend card: the row opens the market search (predictions and investing)."
   }
 }

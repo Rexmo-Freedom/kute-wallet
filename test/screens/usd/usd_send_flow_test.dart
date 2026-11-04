@@ -483,6 +483,8 @@ void main() {
     expect(find.descendant(of: friend, matching: find.byType(SendSalShareGlyph)),
         findsOneWidget);
     expect(find.byKey(const ValueKey('send-pick-market-row')), findsOneWidget);
+    // Under the Send screens' friend label.
+    expect(find.text(_l10n.sendToAFriendLabel), findsOneWidget);
     expect(find.byKey(const ValueKey('send-to-anyone-row')), findsNothing);
     expect(find.text(_l10n.shareSendToAnyone), findsNothing);
     expect(find.text(_l10n.sendContacts), findsNothing);

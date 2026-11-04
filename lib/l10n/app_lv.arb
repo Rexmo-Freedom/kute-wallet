@@ -3253,8 +3253,6 @@
   "usdSendSearchHint": "Name, address or phone",
   "usdSendToYourBitcoin": "To your Bitcoin",
   "usdBitcoinBalanceLine": "{amount} in Bitcoin",
-  "usdSendPickRow": "A stock or prediction",
-  "usdSendPickRowSub": "They get your pick, ready to place",
   "usdReceiveFromYourBitcoin": "From your Bitcoin",
   "sendRailBitcoinOnchain": "Bitcoin · on-chain",
   "sendRailLightning": "Lightning",
@@ -3485,5 +3483,8 @@
   "sendAPredictionSub": "Saņēmējs saņem tevis izvēlēto prognozi",
   "sendAnInvestmentSub": "Saņēmējs saņem tevis izvēlēto investīciju",
   "sendPickOutcomeSub": "Izvēlies iznākumu, ko saņēmējs saņems",
-  "sendPickAmountSub": "Cik saņēmējs saņems?"
+  "sendPickAmountSub": "Cik saņēmējs saņems?",
+  "sendToAFriendLabel": "Draugam",
+  "sendToCryptoAddress": "Uz kripto adresi",
+  "sendPickRowSub": "Vai investīciju. Atrodi tirgu, izvēlies pusi"
 }

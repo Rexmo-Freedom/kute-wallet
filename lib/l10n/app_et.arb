@@ -3253,8 +3253,6 @@
   "usdSendSearchHint": "Name, address or phone",
   "usdSendToYourBitcoin": "To your Bitcoin",
   "usdBitcoinBalanceLine": "{amount} in Bitcoin",
-  "usdSendPickRow": "A stock or prediction",
-  "usdSendPickRowSub": "They get your pick, ready to place",
   "usdReceiveFromYourBitcoin": "From your Bitcoin",
   "sendRailBitcoinOnchain": "Bitcoin · on-chain",
   "sendRailLightning": "Lightning",
@@ -3485,5 +3483,8 @@
   "sendAPredictionSub": "Saaja saab sinu valitud ennustuse",
   "sendAnInvestmentSub": "Saaja saab sinu valitud investeeringu",
   "sendPickOutcomeSub": "Vali tulemus, mille saaja saab",
-  "sendPickAmountSub": "Kui palju saaja saab?"
+  "sendPickAmountSub": "Kui palju saaja saab?",
+  "sendToAFriendLabel": "Sõbrale",
+  "sendToCryptoAddress": "Krüptoaadressile",
+  "sendPickRowSub": "Või investeering. Otsi turg, vali pool"
 }

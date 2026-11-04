@@ -3253,8 +3253,6 @@
   "usdSendSearchHint": "Name, address or phone",
   "usdSendToYourBitcoin": "To your Bitcoin",
   "usdBitcoinBalanceLine": "{amount} in Bitcoin",
-  "usdSendPickRow": "A stock or prediction",
-  "usdSendPickRowSub": "They get your pick, ready to place",
   "usdReceiveFromYourBitcoin": "From your Bitcoin",
   "sendRailBitcoinOnchain": "Bitcoin · on-chain",
   "sendRailLightning": "Lightning",
@@ -3485,5 +3483,8 @@
   "sendAPredictionSub": "Dostanú predpoveď, ktorú vyberieš",
   "sendAnInvestmentSub": "Dostanú investíciu, ktorú vyberieš",
   "sendPickOutcomeSub": "Vyber výsledok, ktorý dostanú",
-  "sendPickAmountSub": "Koľko dostanú?"
+  "sendPickAmountSub": "Koľko dostanú?",
+  "sendToAFriendLabel": "Kamarátovi",
+  "sendToCryptoAddress": "Na kryptoadresu",
+  "sendPickRowSub": "Alebo investíciu. Vyhľadaj trh, vyber stranu"
 }

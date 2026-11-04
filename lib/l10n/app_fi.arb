@@ -3253,8 +3253,6 @@
   "usdSendSearchHint": "Name, address or phone",
   "usdSendToYourBitcoin": "To your Bitcoin",
   "usdBitcoinBalanceLine": "{amount} in Bitcoin",
-  "usdSendPickRow": "A stock or prediction",
-  "usdSendPickRowSub": "They get your pick, ready to place",
   "usdReceiveFromYourBitcoin": "From your Bitcoin",
   "sendRailBitcoinOnchain": "Bitcoin · on-chain",
   "sendRailLightning": "Lightning",
@@ -3485,5 +3483,8 @@
   "sendAPredictionSub": "He saavat valitsemasi ennusteen",
   "sendAnInvestmentSub": "He saavat valitsemasi sijoituksen",
   "sendPickOutcomeSub": "Valitse lopputulos, jonka he saavat",
-  "sendPickAmountSub": "Kuinka paljon he saavat?"
+  "sendPickAmountSub": "Kuinka paljon he saavat?",
+  "sendToAFriendLabel": "Ystävälle",
+  "sendToCryptoAddress": "Kryptoosoitteeseen",
+  "sendPickRowSub": "Tai sijoitus. Hae markkina, valitse puoli"
 }

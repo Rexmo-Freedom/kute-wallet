@@ -11855,12 +11855,6 @@ class AppLocalizationsRo extends AppLocalizations {
   }
 
   @override
-  String get usdSendPickRow => 'A stock or prediction';
-
-  @override
-  String get usdSendPickRowSub => 'They get your pick, ready to place';
-
-  @override
   String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
 
   @override
@@ -12445,4 +12439,13 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get sendPickAmountSub => 'Cât primesc?';
+
+  @override
+  String get sendToAFriendLabel => 'Unui prieten';
+
+  @override
+  String get sendToCryptoAddress => 'Către o adresă crypto';
+
+  @override
+  String get sendPickRowSub => 'Sau o investiție. Caută o piață, alege partea';
 }

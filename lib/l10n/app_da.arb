@@ -3253,8 +3253,6 @@
   "usdSendSearchHint": "Name, address or phone",
   "usdSendToYourBitcoin": "To your Bitcoin",
   "usdBitcoinBalanceLine": "{amount} in Bitcoin",
-  "usdSendPickRow": "A stock or prediction",
-  "usdSendPickRowSub": "They get your pick, ready to place",
   "usdReceiveFromYourBitcoin": "From your Bitcoin",
   "sendRailBitcoinOnchain": "Bitcoin · on-chain",
   "sendRailLightning": "Lightning",
@@ -3485,5 +3483,8 @@
   "sendAPredictionSub": "De får den forudsigelse, du vælger",
   "sendAnInvestmentSub": "De får den investering, du vælger",
   "sendPickOutcomeSub": "Vælg det udfald, de får",
-  "sendPickAmountSub": "Hvor meget får de?"
+  "sendPickAmountSub": "Hvor meget får de?",
+  "sendToAFriendLabel": "Til en ven",
+  "sendToCryptoAddress": "Til en kryptoadresse",
+  "sendPickRowSub": "Eller en investering. Søg et marked, vælg side"
 }

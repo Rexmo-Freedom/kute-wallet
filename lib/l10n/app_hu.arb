@@ -3253,8 +3253,6 @@
   "usdSendSearchHint": "Name, address or phone",
   "usdSendToYourBitcoin": "To your Bitcoin",
   "usdBitcoinBalanceLine": "{amount} in Bitcoin",
-  "usdSendPickRow": "A stock or prediction",
-  "usdSendPickRowSub": "They get your pick, ready to place",
   "usdReceiveFromYourBitcoin": "From your Bitcoin",
   "sendRailBitcoinOnchain": "Bitcoin · on-chain",
   "sendRailLightning": "Lightning",
@@ -3485,5 +3483,8 @@
   "sendAPredictionSub": "Megkapják az általad választott előrejelzést",
   "sendAnInvestmentSub": "Megkapják az általad választott befektetést",
   "sendPickOutcomeSub": "Válaszd ki, melyik kimenetelt kapják",
-  "sendPickAmountSub": "Mennyit kapnak?"
+  "sendPickAmountSub": "Mennyit kapnak?",
+  "sendToAFriendLabel": "Barátnak",
+  "sendToCryptoAddress": "Kriptocímre",
+  "sendPickRowSub": "Vagy befektetés. Keress piacot, válassz oldalt"
 }
