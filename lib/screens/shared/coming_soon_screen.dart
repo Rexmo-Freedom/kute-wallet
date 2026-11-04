@@ -1,4 +1,4 @@
-import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -92,16 +92,18 @@ class ComingSoonScreen extends StatelessWidget {
                         height: 1.5,
                       ),
                     ),
-                    SizedBox(height: 40.h),
-                    SizedBox(
-                      width: double.infinity,
-                      child: AppButton(
-                        text: context.l10n.goBack,
-                        onPressed: () => context.pop(),
-                        color: color,
-                        textColor: color,
-                        isOutlined: true,
+                    // THE BAR IS THE BUTTON (kute_bar_context.dart): Go back
+                    // is the floating bar's primary, not an outlined
+                    // full-width button over the default pill.
+                    KuteBarContextScope(
+                      barContext: KuteBarContext.primary(
+                        label: context.l10n.goBack,
+                        onPrimary: () => context.pop(),
+                        source: 'coming_soon',
+                        // Never waits on input.
+                        disabledLabel: null,
                       ),
+                      child: SizedBox(height: kuteBarScrollClearance.h),
                     ),
                   ],
                 ),
