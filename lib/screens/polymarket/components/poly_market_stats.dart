@@ -138,11 +138,7 @@ class PolyRulesSheet extends StatelessWidget {
         children: [
           AppBottomSheetHeader(
             title: l10n.polyRulesAndResolution,
-            trailing: IconButton(
-              tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-              onPressed: () => Navigator.of(context).pop(),
-              icon: const Icon(Icons.close_rounded),
-            ),
+            trailing: const AppBottomSheetCloseButton(),
           ),
           Flexible(
             child: SingleChildScrollView(

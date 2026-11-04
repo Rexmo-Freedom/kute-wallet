@@ -124,10 +124,7 @@ class _ResultsSheetState extends ConsumerState<_ResultsSheet> {
       child: Column(children: [
         AppBottomSheetHeader(
             title: context.l10n.notificationsSheetTitle,
-            trailing: IconButton.outlined(
-                tooltip: context.l10n.close,
-                onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.close_rounded))),
+            trailing: const AppBottomSheetCloseButton()),
         Expanded(
             child: state.hasError
                 ? Center(

@@ -222,7 +222,9 @@ class HlChartSheet extends ConsumerWidget {
             AppBottomSheetHeader(
               title: title,
               compact: true,
-              trailing: const _CircleClose(),
+              // The app's one close (kute_back_button.dart).
+              trailing: const AppBottomSheetCloseButton(
+                  key: ValueKey('hl-chart-sheet-close')),
             ),
             Padding(
               padding: EdgeInsets.symmetric(horizontal: 20.w),
@@ -333,44 +335,6 @@ class _SectionLabel extends StatelessWidget {
           ),
         ),
       );
-}
-
-/// The header's close, in a soft circle.
-class _CircleClose extends StatelessWidget {
-  const _CircleClose();
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    return Semantics(
-      button: true,
-      label: MaterialLocalizations.of(context).closeButtonTooltip,
-      child: GestureDetector(
-        key: const ValueKey('hl-chart-sheet-close'),
-        behavior: HitTestBehavior.opaque,
-        onTap: () {
-          HapticFeedback.selectionClick();
-          Navigator.of(context).pop();
-        },
-        child: SizedBox(
-          width: 44,
-          height: 44,
-          child: Center(
-            child: Container(
-              width: 30,
-              height: 30,
-              decoration: BoxDecoration(
-                color: c.textPrimary.withValues(alpha: 0.07),
-                shape: BoxShape.circle,
-              ),
-              child:
-                  Icon(Icons.close_rounded, size: 18, color: c.textSecondary),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 /// One style card: the thumbnail and the name under it.

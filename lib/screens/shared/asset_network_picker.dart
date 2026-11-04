@@ -861,7 +861,6 @@ class _NetworkListSheetState extends State<_NetworkListSheet> {
                 ),
                 SizedBox(width: 8.w),
                 KuteCloseButton(
-                  size: 36,
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ],

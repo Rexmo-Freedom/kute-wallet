@@ -723,7 +723,7 @@ void main() {
       // Closed with its own button, then opened again.
       await tester.tap(find.descendant(
           of: find.byType(AppBottomSheetHeader),
-          matching: find.byIcon(Icons.close_rounded)));
+          matching: find.byType(AppBottomSheetCloseButton)));
       await tester.pumpAndSettle();
       expect(find.byType(AppBottomSheetHeader), findsNothing);
       await tester.tap(row);

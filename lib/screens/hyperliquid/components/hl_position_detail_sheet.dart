@@ -735,11 +735,7 @@ class _HlPositionDetailsSheet extends ConsumerWidget {
         children: [
           AppBottomSheetHeader(
             title: l10n.details,
-            trailing: IconButton(
-              tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-              onPressed: () => Navigator.of(context).pop(),
-              icon: const Icon(Icons.close_rounded),
-            ),
+            trailing: const AppBottomSheetCloseButton(),
           ),
           Flexible(
             child: SingleChildScrollView(

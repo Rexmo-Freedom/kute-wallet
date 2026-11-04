@@ -23,6 +23,7 @@
 // shows it, and the quiet line that opens the sheet.
 
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -580,9 +581,10 @@ class _CoinAssetPickerSheetState extends State<CoinAssetPickerSheet> {
     final pinned = widget.pinned;
     final hiddenReason = offered.hiddenReason;
     final close = KuteCloseButton(
-      size: 36,
       onPressed: () => Navigator.of(context).pop(),
     );
+    // The close and back circles sit centred on the title's first line.
+    final lift = math.min(14.h, kuteNavTitleLift(context, 24.sp));
 
     return AppBottomSheetContainer(
       maxHeight: 0.9,
@@ -592,7 +594,7 @@ class _CoinAssetPickerSheetState extends State<CoinAssetPickerSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Center(child: AppDecorations.dragHandle(context)),
-            SizedBox(height: 14.h),
+            SizedBox(height: 14.h - lift),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -601,54 +603,54 @@ class _CoinAssetPickerSheetState extends State<CoinAssetPickerSheet> {
                   SizedBox(width: 10.w),
                 ],
                 if (group != null) ...[
-                  Padding(
-                    padding: EdgeInsets.only(top: 2.h),
-                    child: _SheetBackButton(
-                      onTap: () => setState(() => _openGroupKey = null),
-                    ),
+                  KuteCircleBackButton(
+                    onPressed: () => setState(() => _openGroupKey = null),
                   ),
                   SizedBox(width: 10.w),
                 ],
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        group?.displayName ?? widget.title,
-                        style: TextStyle(
-                          color: c.textPrimary,
-                          fontSize: 24.sp,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                      SizedBox(height: 4.h),
-                      Text(
-                        group == null
-                            ? widget.subtitle
-                            : l10n.receivePickNetwork,
-                        style: TextStyle(
-                          color: c.textTertiary,
-                          fontSize: 14.sp,
-                          fontWeight: FontWeight.w500,
-                          letterSpacing: -0.1,
-                        ),
-                      ),
-                      if (group == null && hiddenReason != null) ...[
-                        SizedBox(height: 6.h),
-                        // Some coins are not offered here: the policy's
-                        // own words for why, said once above the grid.
+                  child: Padding(
+                    padding: EdgeInsets.only(top: lift),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          hiddenReason,
+                          group?.displayName ?? widget.title,
                           style: TextStyle(
-                            color: c.textTertiary,
-                            fontSize: 12.sp,
-                            fontWeight: FontWeight.w500,
-                            height: 1.3,
+                            color: c.textPrimary,
+                            fontSize: 24.sp,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.5,
                           ),
                         ),
+                        SizedBox(height: 4.h),
+                        Text(
+                          group == null
+                              ? widget.subtitle
+                              : l10n.receivePickNetwork,
+                          style: TextStyle(
+                            color: c.textTertiary,
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: -0.1,
+                          ),
+                        ),
+                        if (group == null && hiddenReason != null) ...[
+                          SizedBox(height: 6.h),
+                          // Some coins are not offered here: the policy's
+                          // own words for why, said once above the grid.
+                          Text(
+                            hiddenReason,
+                            style: TextStyle(
+                              color: c.textTertiary,
+                              fontSize: 12.sp,
+                              fontWeight: FontWeight.w500,
+                              height: 1.3,
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
                 if (!widget.closeOnLeft) ...[
@@ -715,43 +717,6 @@ class _CoinAssetPickerSheetState extends State<CoinAssetPickerSheet> {
       }
     }
     return null;
-  }
-}
-
-/// The back arrow on the sheet's network pane. Its own class so it
-/// reads the live theme.
-class _SheetBackButton extends StatelessWidget {
-  const _SheetBackButton({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    return Semantics(
-      button: true,
-      label: context.l10n.back,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            HapticFeedback.selectionClick();
-            onTap();
-          },
-          borderRadius: BorderRadius.circular(12.r),
-          child: Container(
-            width: 36.sp,
-            height: 36.sp,
-            decoration: BoxDecoration(
-              color: c.textPrimary.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(12.r),
-            ),
-            child: Icon(Icons.arrow_back_rounded,
-                size: 18.sp, color: c.textPrimary),
-          ),
-        ),
-      ),
-    );
   }
 }
 

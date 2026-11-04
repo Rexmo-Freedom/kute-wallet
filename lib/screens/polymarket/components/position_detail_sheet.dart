@@ -1290,11 +1290,7 @@ class _PositionDetailsSheet extends StatelessWidget {
         children: [
           AppBottomSheetHeader(
             title: context.l10n.details,
-            trailing: IconButton(
-              tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-              onPressed: () => Navigator.of(context).pop(),
-              icon: const Icon(Icons.close_rounded),
-            ),
+            trailing: const AppBottomSheetCloseButton(),
           ),
           Flexible(
             child: SingleChildScrollView(
@@ -1357,11 +1353,7 @@ class _ClosingConditionsSheet extends StatelessWidget {
         children: [
           AppBottomSheetHeader(
             title: context.l10n.betClosingConditions,
-            trailing: IconButton(
-              tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-              onPressed: () => Navigator.of(context).pop(),
-              icon: const Icon(Icons.close_rounded),
-            ),
+            trailing: const AppBottomSheetCloseButton(),
           ),
           Flexible(
             child: SingleChildScrollView(
