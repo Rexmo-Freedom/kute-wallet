@@ -5782,6 +5782,40 @@ class AppLocalizationsEn extends AppLocalizations {
   String get hlAdvancedChart => 'Advanced chart';
 
   @override
+  String get optionAdvancedChartSub => 'Drawings and indicators';
+
+  @override
+  String get optionAboutMarketSub => 'Stats and order book';
+
+  @override
+  String get optionAddMarginSub => 'Further from liquidation';
+
+  @override
+  String get optionPositionDetailsSub => 'Size, entry and funding';
+
+  @override
+  String optionEndsOn(String date) {
+    return 'Ends $date';
+  }
+
+  @override
+  String optionEndedOn(String date) {
+    return 'Ended $date';
+  }
+
+  @override
+  String get optionHowItResolves => 'How it resolves';
+
+  @override
+  String get optionViewMarketSub => 'Chart and odds';
+
+  @override
+  String get optionPredictionDetailsSub => 'Shares and price paid';
+
+  @override
+  String get optionProtectSellSub => 'Sell at your price';
+
+  @override
   String get chartStyleCandles => 'Candles';
 
   @override

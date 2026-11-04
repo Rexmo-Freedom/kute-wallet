@@ -37,7 +37,7 @@ import 'package:kute/providers/polymarket_sports_provider.dart';
 import 'package:kute/providers/polymarket_watchlist_provider.dart';
 import 'package:kute/screens/home/components/kute_shell_bar.dart';
 import 'package:kute/screens/polymarket/components/poly_market_stats.dart'
-    show PolyRulesRow;
+    show kPolyRulesCardKey;
 import 'package:kute/screens/polymarket/market_detail_sheet.dart';
 import 'package:kute/screens/shared/kute_back_button.dart'
     show KuteCloseButton;
@@ -284,7 +284,7 @@ void main() {
         for (var i = 0; i < 10; i++) {
           await tester.pump(const Duration(milliseconds: 100));
         }
-        final rules = find.byType(PolyRulesRow);
+        final rules = find.byKey(kPolyRulesCardKey);
         final barTop = tester.getRect(button).top;
         expect(tester.getRect(rules).bottom, lessThan(barTop));
         // A tap opens the Sal sheet with the market's send card, as the

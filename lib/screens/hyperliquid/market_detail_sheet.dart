@@ -6,7 +6,9 @@ import 'package:kute/screens/home/components/kute_shell_bar.dart'
     show KuteFigureShareRow, KuteSalHeaderButton;
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/open_once.dart';
-import 'package:kute/screens/shared/position_rows_card.dart' show PositionLinkRow;
+import 'package:kute/screens/shared/kute_action_cards.dart';
+import 'package:kute/screens/shared/charts/kute_chart_core.dart'
+    show kKuteMarketChartHeight;
 import 'package:kute/screens/shared/kute_blur.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show KuteStillWhenCovered;
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
@@ -487,10 +489,12 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
               // ── Body ──────────────────────────────────────────────
               Expanded(
                 child: Builder(builder: (context) {
-                  // The reading chart: a 260 plot (design units;
-                  // HlCandleChart applies .h) starting 12 under the change
-                  // line, its interval row right under it, and the rows
-                  // below. Advanced mode grows it to the whole screen.
+                  // The reading chart: the market chart's plot
+                  // ([kKuteMarketChartHeight], design units; HlCandleChart
+                  // applies .h, as the Predictions charts do) starting 12
+                  // under the change line, its interval row right under
+                  // it, and the option cards below. Advanced mode grows it
+                  // to the whole screen.
                   if (_advancedChart) {
                     // Editing: the chart alone, the whole screen
                     // (HlChartEditBody, shared with the position screen).
@@ -513,7 +517,7 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                       ),
                     );
                   }
-                  const chartHeight = 260.0;
+                  const chartHeight = kKuteMarketChartHeight;
                   return SingleChildScrollView(
                     // Drawing on the chart must not scroll the sheet, so
                     // Advanced mode pins the body until it is switched off.
@@ -537,8 +541,9 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // The 260 plot (see chartHeight above); Advanced
-                        // mode expands it (animated inside the chart).
+                        // The market chart's plot (see chartHeight above);
+                        // Advanced mode expands it (animated inside the
+                        // chart).
                         HlCandleChart(
                           key: _chartHostKey,
                           market: m,
@@ -555,25 +560,31 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                         // 2026-10-20): the position has its own screen,
                         // and the chart already marks entry and
                         // liquidation.
-                        // The chart's editing mode (drawing tools,
-                        // indicators), first under the intervals, in
-                        // About's own row style.
-                        if (!_advancedChart)
-                          PositionLinkRow(
-                            key: const ValueKey('hl-advanced-chart'),
-                            label: context.l10n.hlAdvancedChart,
-                            icon: Icons.candlestick_chart_rounded,
-                            onTap: () =>
-                                HlCandleChart.openAdvanced(_chartHostKey),
-                          ),
+                        // The options under the chart, as two cards side
+                        // by side (founder, 4 November 2026: "big squares",
+                        // kute_action_cards.dart), as on the position
+                        // screen and the Predictions screens: the chart's
+                        // editing mode (drawing tools, indicators) and
+                        // About, whose sheet holds the stats and long-form
+                        // details, so the chart keeps the screen.
                         // (The "Why is it moving?" row is gone: that
                         // question is the first Ask Sal chip in the bar's
                         // Sal sheet; founder, 31 October 2026.)
-                        // About, whose sheet holds the stats and
-                        // long-form details, so the chart keeps the
-                        // screen.
                         if (!_advancedChart)
-                          _buildAboutRow(c, m, isStock, position),
+                          KuteActionCardGrid(
+                            key: const ValueKey('hl-market-options'),
+                            cards: [
+                              KuteActionCard.option(
+                                key: const ValueKey('hl-advanced-chart'),
+                                icon: Icons.candlestick_chart_rounded,
+                                title: context.l10n.hlAdvancedChart,
+                                subtitle: context.l10n.optionAdvancedChartSub,
+                                onTap: () =>
+                                    HlCandleChart.openAdvanced(_chartHostKey),
+                              ),
+                              _aboutCard(m, isStock, position),
+                            ],
+                          ),
                         SizedBox(height: 16.h),
                       ],
                     ),
@@ -710,15 +721,18 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
     );
   }
 
-  /// "About Bitcoin": the one row under the chart, opening the sheet
-  /// with the market's Stats and everything the old Details expander
-  /// held.
-  Widget _buildAboutRow(AppColorsExtension c, HlMarket m, bool isStock,
-      HlPerpPosition? position) {
+  /// "About Bitcoin": the option card beside Advanced chart, opening the
+  /// sheet with the market's Stats and everything the old Details
+  /// expander held.
+  KuteActionCard _aboutCard(
+      HlMarket m, bool isStock, HlPerpPosition? position) {
     final name = hlFriendlyName(m.coin) ?? m.unitAssetName ?? m.coin;
-    return InkWell(
+    return KuteActionCard.option(
+      key: const ValueKey('hl-about'),
+      icon: Icons.info_outline_rounded,
+      title: context.l10n.investingAboutMarket(name),
+      subtitle: context.l10n.optionAboutMarketSub,
       onTap: () {
-        HapticFeedback.selectionClick();
         // The descriptions table is read while the sheet slides in.
         ref.read(hlMarketDescriptionsProvider);
         // Once: a second tap while it slides in does not stack another.
@@ -734,32 +748,6 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                   ),
                 )));
       },
-      child: Container(
-        padding: EdgeInsets.symmetric(vertical: 14.h),
-        decoration: BoxDecoration(
-          border: Border(
-            top: BorderSide(color: c.borderSubtle, width: 0.5),
-          ),
-        ),
-        child: Row(
-          children: [
-            // The same leading icon as the Advanced chart row above.
-            Icon(Icons.info_outline_rounded,
-                color: c.textSecondary, size: 20.sp),
-            SizedBox(width: 10.w),
-            Expanded(
-              child: Text(
-                context.l10n.investingAboutMarket(name),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTextStyles.settingsTitle(context),
-              ),
-            ),
-            Icon(Icons.chevron_right_rounded,
-                color: c.textTertiary, size: 22.sp),
-          ],
-        ),
-      ),
     );
   }
 }

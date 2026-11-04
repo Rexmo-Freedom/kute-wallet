@@ -5797,6 +5797,40 @@ class AppLocalizationsSv extends AppLocalizations {
   String get hlAdvancedChart => 'Avancerat diagram';
 
   @override
+  String get optionAdvancedChartSub => 'Ritningar och indikatorer';
+
+  @override
+  String get optionAboutMarketSub => 'Statistik och orderbok';
+
+  @override
+  String get optionAddMarginSub => 'Längre från likvidation';
+
+  @override
+  String get optionPositionDetailsSub => 'Storlek, ingång och finansiering';
+
+  @override
+  String optionEndsOn(String date) {
+    return 'Slutar $date';
+  }
+
+  @override
+  String optionEndedOn(String date) {
+    return 'Avslutad $date';
+  }
+
+  @override
+  String get optionHowItResolves => 'Hur det avgörs';
+
+  @override
+  String get optionViewMarketSub => 'Diagram och odds';
+
+  @override
+  String get optionPredictionDetailsSub => 'Andelar och betalt pris';
+
+  @override
+  String get optionProtectSellSub => 'Sälj till ditt pris';
+
+  @override
   String get chartStyleCandles => 'Ljus';
 
   @override

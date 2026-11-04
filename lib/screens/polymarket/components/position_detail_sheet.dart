@@ -28,7 +28,6 @@ import 'package:kute/providers/polymarket_sports_provider.dart'
 import 'package:kute/screens/shared/position_rows_card.dart';
 
 import 'package:kute/screens/shared/kute_back_button.dart';
-import 'package:kute/screens/shared/kute_skeleton.dart';
 
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
@@ -50,7 +49,8 @@ import 'package:kute/screens/polymarket/market_detail_sheet.dart'
     show MarketDetailSheet;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/polymarket/components/poly_market_stats.dart'
-    show PolyRulesRow;
+    show polyRulesCard;
+import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
@@ -90,11 +90,12 @@ const Color _kPolyRed = AppColors.marketDown;
 // is worth now. Under the tiles the share card (founder, 1 November 2026:
 // in place of the small "Your avg" chart; "Brag about it" on an open
 // position in profit, else "Send to a friend": position_share_card.dart);
-// the end as a pill; and plain
-// rows: "Protect
-// it" while open, "Details" (outcome / shares / price paid / invested, on
-// the shared bottom sheet, as on the Investing position), the closing
-// conditions and "View market" (the event's sheet); and the Sell (or, on a
+// the end as a pill; and the options as cards, two side by side (founder,
+// 4 November 2026: "like squares"; kute_action_cards.dart, as on the
+// Investing screens): "View market" (the event's sheet), "Protect it"
+// while open, "Details" (outcome / shares / price paid / invested, on the
+// shared bottom sheet, as on the Investing position) and the closing
+// conditions; and the Sell (or, on a
 // resolved losing side, Clear) action, as the floating bar's primary button
 // (founder, 2 November 2026: "a floating pill like the others";
 // kute_bar_context.dart): Sell in the red its pinned button had
@@ -117,11 +118,18 @@ class PositionDetailSheet extends ConsumerStatefulWidget {
   static const routeName = 'polymarket-position-detail-sheet';
 
   /// polymarket_viewed's source for a market opened from this screen's
-  /// "View market" row.
+  /// "View market" card.
   static const seeMarketSource = 'position_see_market';
 
-  /// The "View market" row's key.
+  /// The "View market" card's key.
   static const seeMarketRowKey = ValueKey('poly-position-see-market');
+
+  /// The "Details" card's key.
+  static const detailsRowKey = ValueKey('poly-position-details');
+
+  /// The "Closing conditions" card's key.
+  static const closingConditionsKey =
+      ValueKey('poly-position-closing-conditions');
 
   /// "Drag the needle to see what it'd be worth", under the result until
   /// the dial's first drag.
@@ -333,6 +341,32 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
         event: event,
         onDeposit: widget.onDeposit,
         source: PositionDetailSheet.seeMarketSource);
+  }
+
+  /// "Details": the shared bottom sheet with what the position is made of
+  /// ([rows]), the screen keeping only what is at risk. Once: a second tap
+  /// while it opens or is open does nothing.
+  void _showDetails(PolymarketPosition pos, List<PositionRow> rows) {
+    unawaited(OpenOnce.run(
+        'poly-position-details:${pos.tokenId ?? pos.marketId}',
+        () => showAppBottomSheet<void>(
+              context: context,
+              builder: (_) => _PositionDetailsSheet(rows: rows),
+            )));
+  }
+
+  /// "Closing conditions": the market's [description] on the shared
+  /// bottom sheet, laid out as the "Rules and resolution" sheet. Once, as
+  /// Details.
+  void _showClosingConditions(String description) {
+    final pos = widget.position;
+    unawaited(OpenOnce.run(
+        'poly-position-closing:${pos.tokenId ?? pos.marketId}',
+        () => showAppBottomSheet<void>(
+              context: context,
+              builder: (_) =>
+                  _ClosingConditionsSheet(description: description),
+            )));
   }
 
   @override
@@ -927,89 +961,92 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
 
 
                       SizedBox(height: 12.h),
-                      // First row: the market the position belongs to, its
-                      // event's sheet, with the chart (a candidate's position opens
-                      // the whole race). Once the event is read; never a
-                      // dead row.
-                      if (event != null)
-                        PositionLinkRow(
-                          key: PositionDetailSheet.seeMarketRowKey,
-                          label: context.l10n.salViewMarket,
-                          onTap: () => _seeMarket(event),
-                        ),
-
-                      // How to protect it: the closest protective order
-                      // Predictions has, a limit sell, set on the sell
-                      // ticket's Advanced page. Only while it is open.
-                      if (!pos.isResolved && pos.size > 0)
-                        PositionLinkRow(
-                          key: const ValueKey('poly-position-protect'),
-                          label: context.l10n.positionProtectIt,
-                          value: context.l10n.betSellAt,
-                          onTap: () {
-                            TrackingService.track('position_protect_tapped',
-                                params: {
-                                  'venue': 'polymarket',
-                                  ...VenueAnalytics.pmKindParams([
-                                    pos.tokenId,
-                                    pos.marketId,
-                                    pos.eventSlug
-                                  ]),
-                                  'wallet_kind': 'hot',
-                                  'target': 'limit_sell',
-                                });
-                            context.pop();
-                            SellSheet.show(context,
-                                position: pos,
-                                source: 'position_protect',
-                                startWithLimit: true);
-                          },
-                        ),
-
-                      // What the position is made of, as plain rows on
-                      // the shared bottom sheet, one row away.
-                      _PositionDetailsRow(rows: [
-                        PositionRow(
-                            context.l10n.activityOutcome, pos.outcome),
-                        PositionRow(context.l10n.betShares,
-                            pos.size.toStringAsFixed(2)),
-                        // What was paid per share: the chart's dashed
-                        // "Bought" line, as a number.
-                        if (pos.size > 0 && costBasis > 0)
-                          PositionRow(context.l10n.chartBoughtAt,
-                              formatPolyBoughtCents(costBasis / pos.size)),
-                        // The entry basis (what the user actually paid).
-                        PositionRow(context.l10n.betInvested, investedText),
-                      ]),
-
-                      if (eventDetails != null)
-                        eventDetails.when(
-                          // Skeleton mimicking the description text lines.
-                          loading: () => Padding(
-                            padding: EdgeInsets.only(top: 12.h),
-                            child: KuteSkeleton(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  SkeletonBar(double.infinity, 12.h),
-                                  SizedBox(height: 8.h),
-                                  SkeletonBar(double.infinity, 12.h),
-                                  SizedBox(height: 8.h),
-                                  SkeletonBar(180.w, 12.h),
-                                ],
-                              ),
+                      // The options, as cards two side by side (founder, 4
+                      // November 2026: "like squares";
+                      // kute_action_cards.dart), as on the market sheet and
+                      // the Investing screens.
+                      KuteActionCardGrid(
+                        key: const ValueKey('poly-position-options'),
+                        cards: [
+                          // First: the market the position belongs to, its
+                          // event's sheet, with the chart (a candidate's
+                          // position opens the whole race). Once the event
+                          // is read; never a dead card.
+                          if (event != null)
+                            KuteActionCard.option(
+                              key: PositionDetailSheet.seeMarketRowKey,
+                              icon: Icons.show_chart_rounded,
+                              title: context.l10n.salViewMarket,
+                              subtitle: context.l10n.optionViewMarketSub,
+                              onTap: () => _seeMarket(event),
                             ),
+                          // How to protect it: the closest protective order
+                          // Predictions has, a limit sell, set on the sell
+                          // ticket's Advanced page. Only while it is open.
+                          if (!pos.isResolved && pos.size > 0)
+                            KuteActionCard.option(
+                              key: const ValueKey('poly-position-protect'),
+                              icon: Icons.shield_outlined,
+                              title: context.l10n.positionProtectIt,
+                              subtitle: context.l10n.optionProtectSellSub,
+                              onTap: () {
+                                TrackingService.track(
+                                    'position_protect_tapped',
+                                    params: {
+                                      'venue': 'polymarket',
+                                      ...VenueAnalytics.pmKindParams([
+                                        pos.tokenId,
+                                        pos.marketId,
+                                        pos.eventSlug
+                                      ]),
+                                      'wallet_kind': 'hot',
+                                      'target': 'limit_sell',
+                                    });
+                                context.pop();
+                                SellSheet.show(context,
+                                    position: pos,
+                                    source: 'position_protect',
+                                    startWithLimit: true);
+                              },
+                            ),
+                          // What the position is made of, as plain rows on
+                          // the shared bottom sheet, one card away.
+                          KuteActionCard.option(
+                            key: PositionDetailSheet.detailsRowKey,
+                            icon: Icons.receipt_long_rounded,
+                            title: context.l10n.details,
+                            subtitle: context.l10n.optionPredictionDetailsSub,
+                            onTap: () => _showDetails(pos, [
+                              PositionRow(
+                                  context.l10n.activityOutcome, pos.outcome),
+                              PositionRow(context.l10n.betShares,
+                                  pos.size.toStringAsFixed(2)),
+                              // What was paid per share: the chart's
+                              // dashed "Bought" line, as a number.
+                              if (pos.size > 0 && costBasis > 0)
+                                PositionRow(
+                                    context.l10n.chartBoughtAt,
+                                    formatPolyBoughtCents(
+                                        costBasis / pos.size)),
+                              // The entry basis (what the user actually
+                              // paid).
+                              PositionRow(
+                                  context.l10n.betInvested, investedText),
+                            ]),
                           ),
-                          error: (_, __) => const SizedBox.shrink(),
-                          data: (event) {
-                            if (event?.description == null ||
-                                event!.description!.isEmpty) {
-                              return const SizedBox.shrink();
-                            }
-                            return _ClosingConditionsRow(
-                                description: event.description!);
-                          },
-                        ),
+                          // The market's closing conditions (its
+                          // description), once the event is read.
+                          if (event?.description?.isNotEmpty == true)
+                            polyRulesCard(
+                              context,
+                              key: PositionDetailSheet.closingConditionsKey,
+                              title: context.l10n.betClosingConditions,
+                              subtitle: context.l10n.optionHowItResolves,
+                              onTap: () =>
+                                  _showClosingConditions(event!.description!),
+                            ),
+                        ],
+                      ),
 
                       // (Balance row removed — BTC-native model: users think in BTC,
                       // not USDC, on Polymarket screens. The balance lives on home.)
@@ -1061,47 +1098,6 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
   /// `$0.00` when rounded to two decimals — the bug you saw on a
   /// position bought around 0.3¢. Once a share crosses $1 the value
   /// switches to dollar formatting.
-}
-
-/// "Closing conditions": one row, as the market sheet's "Rules and
-/// resolution", opening the market's description on the app's shared
-/// bottom sheet. A second tap while that sheet is opening or open is
-/// ignored, so the same sheet is never stacked on itself.
-/// "Details": one row under the position (the Investing position's same
-/// row), opening the shared bottom sheet with what the position is made
-/// of, the screen keeping only what is at risk.
-class _PositionDetailsRow extends StatefulWidget {
-  final List<PositionRow> rows;
-  const _PositionDetailsRow({required this.rows});
-
-  static const rowKey = ValueKey('poly-position-details');
-
-  @override
-  State<_PositionDetailsRow> createState() => _PositionDetailsRowState();
-}
-
-class _PositionDetailsRowState extends State<_PositionDetailsRow> {
-  bool _open = false;
-
-  Future<void> _show() async {
-    if (_open) return;
-    _open = true;
-    try {
-      await showAppBottomSheet<void>(
-        context: context,
-        builder: (_) => _PositionDetailsSheet(rows: widget.rows),
-      );
-    } finally {
-      _open = false;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) => PositionLinkRow(
-        key: _PositionDetailsRow.rowKey,
-        label: context.l10n.details,
-        onTap: _show,
-      );
 }
 
 /// The held side's colour, the same on every market: Yes / Up in the up
@@ -1306,38 +1302,6 @@ class _PositionDetailsSheet extends StatelessWidget {
       ),
     );
   }
-}
-
-class _ClosingConditionsRow extends StatefulWidget {
-  final String description;
-  const _ClosingConditionsRow({required this.description});
-
-  @override
-  State<_ClosingConditionsRow> createState() => _ClosingConditionsRowState();
-}
-
-class _ClosingConditionsRowState extends State<_ClosingConditionsRow> {
-  bool _open = false;
-
-  Future<void> _show() async {
-    if (_open) return;
-    _open = true;
-    try {
-      await showAppBottomSheet<void>(
-        context: context,
-        builder: (_) =>
-            _ClosingConditionsSheet(description: widget.description),
-      );
-    } finally {
-      _open = false;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) => PolyRulesRow(
-        label: context.l10n.betClosingConditions,
-        onTap: _show,
-      );
 }
 
 /// The market's closing conditions (its description) on the shared
