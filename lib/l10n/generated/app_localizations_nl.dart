@@ -5930,9 +5930,6 @@ class AppLocalizationsNl extends AppLocalizations {
   String get chartVwapWindow => 'VWAP over de getoonde candles';
 
   @override
-  String get chartRsiLabel => 'RSI (14)';
-
-  @override
   String get chartIndicators => 'Indicatoren';
 
   @override
@@ -11970,50 +11967,36 @@ class AppLocalizationsNl extends AppLocalizations {
   String get sendOtherContacts => 'Other contacts';
 
   @override
-  String get chartSheetTitle => 'Chart';
+  String get chartSheetTitle => 'Grafiek';
 
   @override
-  String get chartSheetStyle => 'Style';
+  String get chartIndEmaNote => 'Kortetermijntrend die snel draait';
 
   @override
-  String get chartIndEma => 'Moving averages';
+  String get chartIndBb => 'Bollinger Bands';
 
   @override
-  String get chartIndEmaNote => 'Short and long trend lines';
+  String get chartIndBbNote => 'Hoe ver de prijs gewoonlijk schommelt';
 
   @override
-  String get chartIndBb => 'Bollinger bands';
+  String get chartIndRsiNote => 'Of kopen of verkopen overdreven is';
 
   @override
-  String get chartIndBbNote => 'How far the price usually swings';
+  String get chartIndMacdNote => 'Momentum dat omhoog of omlaag draait';
 
   @override
-  String get chartIndRsi => 'RSI';
+  String get chartIndVwapNote =>
+      'Gemiddeld betaalde prijs, gewogen naar volume';
 
   @override
-  String get chartIndRsiNote => 'Whether buying or selling is overstretched';
+  String get chartIndVolumeNote => 'Hoeveel er per periode werd verhandeld';
 
   @override
-  String get chartIndMacd => 'MACD';
-
-  @override
-  String get chartIndMacdNote => 'Momentum turning up or down';
-
-  @override
-  String get chartIndVwap => 'VWAP';
-
-  @override
-  String get chartIndVwapNote => 'Average price weighted by volume';
-
-  @override
-  String get chartIndVolumeNote => 'How much traded each bar';
-
-  @override
-  String get chartReset => 'Reset';
+  String get chartReset => 'Herstellen';
 
   @override
   String chartPaneLimit(String name) {
-    return '$name is off: two fit below the chart';
+    return '$name staat uit: er passen er twee onder de grafiek';
   }
 
   @override
@@ -12408,4 +12391,78 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get predictBelowTarget => 'below target';
+
+  @override
+  String get chartSheetChartType => 'Grafiektype';
+
+  @override
+  String get chartGroupTrend => 'Trend';
+
+  @override
+  String get chartGroupMomentum => 'Momentum';
+
+  @override
+  String get chartGroupVolatility => 'Volatiliteit';
+
+  @override
+  String get chartIndSmaNote => 'Langetermijntrend die langzaam draait';
+
+  @override
+  String get chartIndStNote => 'Een meebewegende stop die met de trend omslaat';
+
+  @override
+  String get chartIndSrsiNote =>
+      'Snelle uitslagen tussen overgekocht en oververkocht';
+
+  @override
+  String get chartIndAtrNote => 'Hoe ver één periode gewoonlijk beweegt';
+
+  @override
+  String get chartIndObvNote => 'Of het volume de beweging steunt';
+
+  @override
+  String get chartIndVp => 'Volumeprofiel';
+
+  @override
+  String get chartIndVpNote => 'Prijzen waar het meest werd verhandeld';
+
+  @override
+  String chartPriceLimit(String name) {
+    return '$name staat uit: er passen er vier op de prijs';
+  }
+
+  @override
+  String chartIndSettingsTitle(String name) {
+    return 'Instellingen $name';
+  }
+
+  @override
+  String get chartParamLength => 'Lengte';
+
+  @override
+  String get chartParamFast => 'Snel';
+
+  @override
+  String get chartParamSlow => 'Langzaam';
+
+  @override
+  String get chartParamSignal => 'Signaal';
+
+  @override
+  String get chartParamMultiplier => 'Vermenigvuldiger';
+
+  @override
+  String get chartParamRsiLength => 'RSI-lengte';
+
+  @override
+  String get chartParamStochLength => 'Stochastische lengte';
+
+  @override
+  String get chartParamSmoothK => '%K-afvlakking';
+
+  @override
+  String get chartParamSmoothD => '%D-afvlakking';
+
+  @override
+  String get chartParamRows => 'Rijen';
 }

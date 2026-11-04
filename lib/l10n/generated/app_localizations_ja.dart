@@ -5591,7 +5591,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get chartStyleBars => 'バー';
 
   @override
-  String get chartStyleHeikinAshi => '平均足';
+  String get chartStyleHeikinAshi => 'Heikin Ashi';
 
   @override
   String get chartStyleLine => 'ライン';
@@ -5685,9 +5685,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get chartVwapWindow => '表示中のローソク足のVWAP';
-
-  @override
-  String get chartRsiLabel => 'RSI (14)';
 
   @override
   String get chartIndicators => 'インジケーター';
@@ -11508,50 +11505,35 @@ class AppLocalizationsJa extends AppLocalizations {
   String get sendOtherContacts => 'Other contacts';
 
   @override
-  String get chartSheetTitle => 'Chart';
+  String get chartSheetTitle => 'チャート';
 
   @override
-  String get chartSheetStyle => 'Style';
+  String get chartIndEmaNote => '短期トレンド、転換が速い';
 
   @override
-  String get chartIndEma => 'Moving averages';
+  String get chartIndBb => 'ボリンジャーバンド';
 
   @override
-  String get chartIndEmaNote => 'Short and long trend lines';
+  String get chartIndBbNote => '価格の通常の振れ幅';
 
   @override
-  String get chartIndBb => 'Bollinger bands';
+  String get chartIndRsiNote => '買いや売りが行き過ぎているか';
 
   @override
-  String get chartIndBbNote => 'How far the price usually swings';
+  String get chartIndMacdNote => 'モメンタムの上向き・下向きへの転換';
 
   @override
-  String get chartIndRsi => 'RSI';
+  String get chartIndVwapNote => '出来高で加重した平均約定価格';
 
   @override
-  String get chartIndRsiNote => 'Whether buying or selling is overstretched';
+  String get chartIndVolumeNote => '各足の取引量';
 
   @override
-  String get chartIndMacd => 'MACD';
-
-  @override
-  String get chartIndMacdNote => 'Momentum turning up or down';
-
-  @override
-  String get chartIndVwap => 'VWAP';
-
-  @override
-  String get chartIndVwapNote => 'Average price weighted by volume';
-
-  @override
-  String get chartIndVolumeNote => 'How much traded each bar';
-
-  @override
-  String get chartReset => 'Reset';
+  String get chartReset => 'リセット';
 
   @override
   String chartPaneLimit(String name) {
-    return '$name is off: two fit below the chart';
+    return '$nameをオフにしました：チャートの下に表示できるのは2つまでです';
   }
 
   @override
@@ -11944,4 +11926,77 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get predictBelowTarget => 'below target';
+
+  @override
+  String get chartSheetChartType => 'チャートの種類';
+
+  @override
+  String get chartGroupTrend => 'トレンド';
+
+  @override
+  String get chartGroupMomentum => 'モメンタム';
+
+  @override
+  String get chartGroupVolatility => 'ボラティリティ';
+
+  @override
+  String get chartIndSmaNote => '長期トレンド、転換が遅い';
+
+  @override
+  String get chartIndStNote => 'トレンドと共に反転するトレーリングストップ';
+
+  @override
+  String get chartIndSrsiNote => '買われ過ぎ・売られ過ぎの素早い振れ';
+
+  @override
+  String get chartIndAtrNote => '1本あたりの平均的な値幅';
+
+  @override
+  String get chartIndObvNote => '出来高が値動きを裏付けているか';
+
+  @override
+  String get chartIndVp => '出来高プロファイル';
+
+  @override
+  String get chartIndVpNote => '最も多く取引された価格帯';
+
+  @override
+  String chartPriceLimit(String name) {
+    return '$nameをオフにしました：価格上に表示できるのは4つまでです';
+  }
+
+  @override
+  String chartIndSettingsTitle(String name) {
+    return '$nameの設定';
+  }
+
+  @override
+  String get chartParamLength => '期間';
+
+  @override
+  String get chartParamFast => '短期';
+
+  @override
+  String get chartParamSlow => '長期';
+
+  @override
+  String get chartParamSignal => 'シグナル';
+
+  @override
+  String get chartParamMultiplier => '乗数';
+
+  @override
+  String get chartParamRsiLength => 'RSIの期間';
+
+  @override
+  String get chartParamStochLength => 'ストキャスティクスの期間';
+
+  @override
+  String get chartParamSmoothK => '%Kの平滑化';
+
+  @override
+  String get chartParamSmoothD => '%Dの平滑化';
+
+  @override
+  String get chartParamRows => '行数';
 }

@@ -111,6 +111,7 @@ change_pin_blocked
 chart_autoscale_toggled
 chart_drawing_redone
 chart_history_extended
+chart_log_scale_toggled
 chart_magnet_toggled
 chart_note_saved
 chart_timeframe_changed
@@ -238,6 +239,7 @@ hyperliquid_withdraw_failed
 hyperliquid_withdraw_initiated
 hyperliquid_withdraw_step
 hyperliquid_withdraw_submitted
+indicator_settings_changed
 indicator_toggled
 investing_cash_pulled
 investing_close_available_tapped

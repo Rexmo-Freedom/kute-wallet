@@ -5911,9 +5911,6 @@ class AppLocalizationsSk extends AppLocalizations {
   String get chartVwapWindow => 'VWAP zo zobrazených sviečok';
 
   @override
-  String get chartRsiLabel => 'RSI (14)';
-
-  @override
   String get chartIndicators => 'Indikátory';
 
   @override
@@ -11947,50 +11944,35 @@ class AppLocalizationsSk extends AppLocalizations {
   String get sendOtherContacts => 'Other contacts';
 
   @override
-  String get chartSheetTitle => 'Chart';
+  String get chartSheetTitle => 'Graf';
 
   @override
-  String get chartSheetStyle => 'Style';
+  String get chartIndEmaNote => 'Krátkodobý trend, rýchlo sa otáča';
 
   @override
-  String get chartIndEma => 'Moving averages';
+  String get chartIndBb => 'Bollingerove pásma';
 
   @override
-  String get chartIndEmaNote => 'Short and long trend lines';
+  String get chartIndBbNote => 'Ako veľmi cena zvyčajne kolíše';
 
   @override
-  String get chartIndBb => 'Bollinger bands';
+  String get chartIndRsiNote => 'Či je nákup alebo predaj prehnaný';
 
   @override
-  String get chartIndBbNote => 'How far the price usually swings';
+  String get chartIndMacdNote => 'Momentum sa otáča nahor alebo nadol';
 
   @override
-  String get chartIndRsi => 'RSI';
+  String get chartIndVwapNote => 'Priemerná zaplatená cena vážená objemom';
 
   @override
-  String get chartIndRsiNote => 'Whether buying or selling is overstretched';
+  String get chartIndVolumeNote => 'Koľko sa zobchodovalo v každom období';
 
   @override
-  String get chartIndMacd => 'MACD';
-
-  @override
-  String get chartIndMacdNote => 'Momentum turning up or down';
-
-  @override
-  String get chartIndVwap => 'VWAP';
-
-  @override
-  String get chartIndVwapNote => 'Average price weighted by volume';
-
-  @override
-  String get chartIndVolumeNote => 'How much traded each bar';
-
-  @override
-  String get chartReset => 'Reset';
+  String get chartReset => 'Obnoviť';
 
   @override
   String chartPaneLimit(String name) {
-    return '$name is off: two fit below the chart';
+    return '$name je vypnuté: pod graf sa zmestia dve';
   }
 
   @override
@@ -12384,4 +12366,77 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String get predictBelowTarget => 'below target';
+
+  @override
+  String get chartSheetChartType => 'Typ grafu';
+
+  @override
+  String get chartGroupTrend => 'Trend';
+
+  @override
+  String get chartGroupMomentum => 'Momentum';
+
+  @override
+  String get chartGroupVolatility => 'Volatilita';
+
+  @override
+  String get chartIndSmaNote => 'Dlhodobý trend, pomaly sa otáča';
+
+  @override
+  String get chartIndStNote => 'Posuvný stop, ktorý sa otočí s trendom';
+
+  @override
+  String get chartIndSrsiNote => 'Rýchle výkyvy prekúpenosti a prepredanosti';
+
+  @override
+  String get chartIndAtrNote => 'Ako ďaleko sa jedno obdobie zvyčajne pohne';
+
+  @override
+  String get chartIndObvNote => 'Či pohyb podporuje objem';
+
+  @override
+  String get chartIndVp => 'Objemový profil';
+
+  @override
+  String get chartIndVpNote => 'Ceny, kde sa najviac obchodovalo';
+
+  @override
+  String chartPriceLimit(String name) {
+    return '$name je vypnuté: na cenu sa zmestia štyri';
+  }
+
+  @override
+  String chartIndSettingsTitle(String name) {
+    return 'Nastavenia $name';
+  }
+
+  @override
+  String get chartParamLength => 'Dĺžka';
+
+  @override
+  String get chartParamFast => 'Rýchla';
+
+  @override
+  String get chartParamSlow => 'Pomalá';
+
+  @override
+  String get chartParamSignal => 'Signál';
+
+  @override
+  String get chartParamMultiplier => 'Násobiteľ';
+
+  @override
+  String get chartParamRsiLength => 'Dĺžka RSI';
+
+  @override
+  String get chartParamStochLength => 'Dĺžka stochastiky';
+
+  @override
+  String get chartParamSmoothK => 'Vyhladenie %K';
+
+  @override
+  String get chartParamSmoothD => 'Vyhladenie %D';
+
+  @override
+  String get chartParamRows => 'Riadky';
 }

@@ -5922,9 +5922,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get chartVwapWindow => 'VWAP a megjelenített gyertyákon';
 
   @override
-  String get chartRsiLabel => 'RSI (14)';
-
-  @override
   String get chartIndicators => 'Indikátorok';
 
   @override
@@ -11961,50 +11958,35 @@ class AppLocalizationsHu extends AppLocalizations {
   String get sendOtherContacts => 'Other contacts';
 
   @override
-  String get chartSheetTitle => 'Chart';
+  String get chartSheetTitle => 'Grafikon';
 
   @override
-  String get chartSheetStyle => 'Style';
+  String get chartIndEmaNote => 'Rövid távú trend, gyorsan fordul';
 
   @override
-  String get chartIndEma => 'Moving averages';
+  String get chartIndBb => 'Bollinger-szalagok';
 
   @override
-  String get chartIndEmaNote => 'Short and long trend lines';
+  String get chartIndBbNote => 'Mennyire ingadozik általában az ár';
 
   @override
-  String get chartIndBb => 'Bollinger bands';
+  String get chartIndRsiNote => 'Túlfeszített-e a vétel vagy az eladás';
 
   @override
-  String get chartIndBbNote => 'How far the price usually swings';
+  String get chartIndMacdNote => 'A momentum felfelé vagy lefelé fordul';
 
   @override
-  String get chartIndRsi => 'RSI';
+  String get chartIndVwapNote => 'Átlagosan fizetett ár, forgalommal súlyozva';
 
   @override
-  String get chartIndRsiNote => 'Whether buying or selling is overstretched';
+  String get chartIndVolumeNote => 'Mennyi forgalom volt egyes periódusokban';
 
   @override
-  String get chartIndMacd => 'MACD';
-
-  @override
-  String get chartIndMacdNote => 'Momentum turning up or down';
-
-  @override
-  String get chartIndVwap => 'VWAP';
-
-  @override
-  String get chartIndVwapNote => 'Average price weighted by volume';
-
-  @override
-  String get chartIndVolumeNote => 'How much traded each bar';
-
-  @override
-  String get chartReset => 'Reset';
+  String get chartReset => 'Visszaállítás';
 
   @override
   String chartPaneLimit(String name) {
-    return '$name is off: two fit below the chart';
+    return '$name kikapcsolva: a grafikon alá kettő fér';
   }
 
   @override
@@ -12399,4 +12381,77 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get predictBelowTarget => 'below target';
+
+  @override
+  String get chartSheetChartType => 'Diagramtípus';
+
+  @override
+  String get chartGroupTrend => 'Trend';
+
+  @override
+  String get chartGroupMomentum => 'Momentum';
+
+  @override
+  String get chartGroupVolatility => 'Volatilitás';
+
+  @override
+  String get chartIndSmaNote => 'Hosszú távú trend, lassan fordul';
+
+  @override
+  String get chartIndStNote => 'Követő stop, amely a trenddel fordul';
+
+  @override
+  String get chartIndSrsiNote => 'Gyors túlvett és túladott kilengések';
+
+  @override
+  String get chartIndAtrNote => 'Mekkorát mozdul általában egy periódus';
+
+  @override
+  String get chartIndObvNote => 'Alátámasztja-e a forgalom a mozgást';
+
+  @override
+  String get chartIndVp => 'Volumenprofil';
+
+  @override
+  String get chartIndVpNote => 'Árak, ahol a legtöbb kereskedés zajlott';
+
+  @override
+  String chartPriceLimit(String name) {
+    return '$name kikapcsolva: az árra négy fér';
+  }
+
+  @override
+  String chartIndSettingsTitle(String name) {
+    return '$name beállításai';
+  }
+
+  @override
+  String get chartParamLength => 'Hossz';
+
+  @override
+  String get chartParamFast => 'Gyors';
+
+  @override
+  String get chartParamSlow => 'Lassú';
+
+  @override
+  String get chartParamSignal => 'Jelzés';
+
+  @override
+  String get chartParamMultiplier => 'Szorzó';
+
+  @override
+  String get chartParamRsiLength => 'RSI hossza';
+
+  @override
+  String get chartParamStochLength => 'Sztochasztikus hossz';
+
+  @override
+  String get chartParamSmoothK => '%K simítás';
+
+  @override
+  String get chartParamSmoothD => '%D simítás';
+
+  @override
+  String get chartParamRows => 'Sorok';
 }

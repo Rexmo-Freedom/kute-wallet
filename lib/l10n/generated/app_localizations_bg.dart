@@ -5918,9 +5918,6 @@ class AppLocalizationsBg extends AppLocalizations {
   String get chartVwapWindow => 'VWAP за показаните свещи';
 
   @override
-  String get chartRsiLabel => 'RSI (14)';
-
-  @override
   String get chartIndicators => 'Индикатори';
 
   @override
@@ -11954,50 +11951,35 @@ class AppLocalizationsBg extends AppLocalizations {
   String get sendOtherContacts => 'Other contacts';
 
   @override
-  String get chartSheetTitle => 'Chart';
+  String get chartSheetTitle => 'Графика';
 
   @override
-  String get chartSheetStyle => 'Style';
+  String get chartIndEmaNote => 'Краткосрочен тренд, който се обръща бързо';
 
   @override
-  String get chartIndEma => 'Moving averages';
+  String get chartIndBb => 'Ленти на Болинджър';
 
   @override
-  String get chartIndEmaNote => 'Short and long trend lines';
+  String get chartIndBbNote => 'Колко обикновено се люшка цената';
 
   @override
-  String get chartIndBb => 'Bollinger bands';
+  String get chartIndRsiNote => 'Дали покупките или продажбите са прекалени';
 
   @override
-  String get chartIndBbNote => 'How far the price usually swings';
+  String get chartIndMacdNote => 'Моментумът се обръща нагоре или надолу';
 
   @override
-  String get chartIndRsi => 'RSI';
+  String get chartIndVwapNote => 'Средна платена цена, претеглена по обем';
 
   @override
-  String get chartIndRsiNote => 'Whether buying or selling is overstretched';
+  String get chartIndVolumeNote => 'Колко е търгувано във всеки период';
 
   @override
-  String get chartIndMacd => 'MACD';
-
-  @override
-  String get chartIndMacdNote => 'Momentum turning up or down';
-
-  @override
-  String get chartIndVwap => 'VWAP';
-
-  @override
-  String get chartIndVwapNote => 'Average price weighted by volume';
-
-  @override
-  String get chartIndVolumeNote => 'How much traded each bar';
-
-  @override
-  String get chartReset => 'Reset';
+  String get chartReset => 'Нулиране';
 
   @override
   String chartPaneLimit(String name) {
-    return '$name is off: two fit below the chart';
+    return '$name е изключен: под графиката се побират два';
   }
 
   @override
@@ -12390,4 +12372,78 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get predictBelowTarget => 'below target';
+
+  @override
+  String get chartSheetChartType => 'Тип графика';
+
+  @override
+  String get chartGroupTrend => 'Тренд';
+
+  @override
+  String get chartGroupMomentum => 'Моментум';
+
+  @override
+  String get chartGroupVolatility => 'Волатилност';
+
+  @override
+  String get chartIndSmaNote => 'Дългосрочен тренд, който се обръща бавно';
+
+  @override
+  String get chartIndStNote => 'Плъзгащ се стоп, който се обръща с тренда';
+
+  @override
+  String get chartIndSrsiNote =>
+      'Бързи колебания между свръхкупеност и свръхпродаденост';
+
+  @override
+  String get chartIndAtrNote => 'Колко обикновено се движи един период';
+
+  @override
+  String get chartIndObvNote => 'Дали обемът подкрепя движението';
+
+  @override
+  String get chartIndVp => 'Обемен профил';
+
+  @override
+  String get chartIndVpNote => 'Цените с най-много сделки';
+
+  @override
+  String chartPriceLimit(String name) {
+    return '$name е изключен: на цената се побират четири';
+  }
+
+  @override
+  String chartIndSettingsTitle(String name) {
+    return 'Настройки на $name';
+  }
+
+  @override
+  String get chartParamLength => 'Дължина';
+
+  @override
+  String get chartParamFast => 'Бърза';
+
+  @override
+  String get chartParamSlow => 'Бавна';
+
+  @override
+  String get chartParamSignal => 'Сигнал';
+
+  @override
+  String get chartParamMultiplier => 'Множител';
+
+  @override
+  String get chartParamRsiLength => 'Дължина на RSI';
+
+  @override
+  String get chartParamStochLength => 'Дължина на стохастика';
+
+  @override
+  String get chartParamSmoothK => 'Изглаждане на %K';
+
+  @override
+  String get chartParamSmoothD => 'Изглаждане на %D';
+
+  @override
+  String get chartParamRows => 'Редове';
 }

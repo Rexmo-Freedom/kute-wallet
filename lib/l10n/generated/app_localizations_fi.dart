@@ -5907,9 +5907,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get chartVwapWindow => 'VWAP näytettyjen kynttilöiden ajalta';
 
   @override
-  String get chartRsiLabel => 'RSI (14)';
-
-  @override
   String get chartIndicators => 'Indikaattorit';
 
   @override
@@ -11945,50 +11942,37 @@ class AppLocalizationsFi extends AppLocalizations {
   String get sendOtherContacts => 'Other contacts';
 
   @override
-  String get chartSheetTitle => 'Chart';
+  String get chartSheetTitle => 'Kaavio';
 
   @override
-  String get chartSheetStyle => 'Style';
+  String get chartIndEmaNote => 'Lyhyen aikavälin trendi, kääntyy nopeasti';
 
   @override
-  String get chartIndEma => 'Moving averages';
+  String get chartIndBb => 'Bollinger-nauhat';
 
   @override
-  String get chartIndEmaNote => 'Short and long trend lines';
+  String get chartIndBbNote => 'Kuinka paljon hinta yleensä heiluu';
 
   @override
-  String get chartIndBb => 'Bollinger bands';
+  String get chartIndRsiNote => 'Onko osto tai myynti ylivenytetty';
 
   @override
-  String get chartIndBbNote => 'How far the price usually swings';
+  String get chartIndMacdNote => 'Momentum kääntyy ylös tai alas';
 
   @override
-  String get chartIndRsi => 'RSI';
+  String get chartIndVwapNote =>
+      'Keskimääräinen maksettu hinta volyymilla painotettuna';
 
   @override
-  String get chartIndRsiNote => 'Whether buying or selling is overstretched';
+  String get chartIndVolumeNote =>
+      'Kuinka paljon kullakin jaksolla vaihdettiin';
 
   @override
-  String get chartIndMacd => 'MACD';
-
-  @override
-  String get chartIndMacdNote => 'Momentum turning up or down';
-
-  @override
-  String get chartIndVwap => 'VWAP';
-
-  @override
-  String get chartIndVwapNote => 'Average price weighted by volume';
-
-  @override
-  String get chartIndVolumeNote => 'How much traded each bar';
-
-  @override
-  String get chartReset => 'Reset';
+  String get chartReset => 'Palauta';
 
   @override
   String chartPaneLimit(String name) {
-    return '$name is off: two fit below the chart';
+    return '$name pois päältä: kaavion alle mahtuu kaksi';
   }
 
   @override
@@ -12383,4 +12367,77 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get predictBelowTarget => 'below target';
+
+  @override
+  String get chartSheetChartType => 'Kaaviotyyppi';
+
+  @override
+  String get chartGroupTrend => 'Trendi';
+
+  @override
+  String get chartGroupMomentum => 'Momentum';
+
+  @override
+  String get chartGroupVolatility => 'Volatiliteetti';
+
+  @override
+  String get chartIndSmaNote => 'Pitkän aikavälin trendi, kääntyy hitaasti';
+
+  @override
+  String get chartIndStNote => 'Seuraava stop, joka kääntyy trendin mukana';
+
+  @override
+  String get chartIndSrsiNote => 'Nopeat yliostetun ja ylimyydyn heilahdukset';
+
+  @override
+  String get chartIndAtrNote => 'Kuinka paljon yksi jakso yleensä liikkuu';
+
+  @override
+  String get chartIndObvNote => 'Tukeeko volyymi liikettä';
+
+  @override
+  String get chartIndVp => 'Volyymiprofiili';
+
+  @override
+  String get chartIndVpNote => 'Hinnat, joilla käytiin eniten kauppaa';
+
+  @override
+  String chartPriceLimit(String name) {
+    return '$name pois päältä: hinnan päälle mahtuu neljä';
+  }
+
+  @override
+  String chartIndSettingsTitle(String name) {
+    return '$name-asetukset';
+  }
+
+  @override
+  String get chartParamLength => 'Pituus';
+
+  @override
+  String get chartParamFast => 'Nopea';
+
+  @override
+  String get chartParamSlow => 'Hidas';
+
+  @override
+  String get chartParamSignal => 'Signaali';
+
+  @override
+  String get chartParamMultiplier => 'Kerroin';
+
+  @override
+  String get chartParamRsiLength => 'RSI:n pituus';
+
+  @override
+  String get chartParamStochLength => 'Stokastisen pituus';
+
+  @override
+  String get chartParamSmoothK => '%K-tasoitus';
+
+  @override
+  String get chartParamSmoothD => '%D-tasoitus';
+
+  @override
+  String get chartParamRows => 'Rivit';
 }

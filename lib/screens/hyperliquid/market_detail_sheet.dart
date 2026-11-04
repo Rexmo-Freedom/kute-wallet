@@ -1065,18 +1065,31 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
         _ => Icons.candlestick_chart_rounded,
       };
 
-  /// The Chart sheet (hl_chart_sheet.dart): the three style cards over
-  /// the indicators list. The Advanced editor opens one half from each of
-  /// its two buttons.
-  void _openChartSheet({bool style = true, bool indicators = true}) {
+  /// The Chart sheet (hl_chart_sheet.dart): the chart types and the
+  /// indicators, behind the chart's one button (the market chart's and
+  /// the Advanced top bar's alike).
+  void _openChartSheet() {
     unawaited(showHlChartSheet(
       context,
       market: widget.market,
       marketKey: _marketKey,
       candles: _shownCandles ?? const <HyperliquidCandle>[],
-      showStyle: style,
-      showIndicators: indicators,
     ));
+  }
+
+  /// The Advanced axes' corner "Log" switch.
+  void _setLogScale(bool on) {
+    _preferences.setLogScale(on);
+    VenueAnalytics.settingChanged(
+      'chart_log_scale_toggled',
+      setting: 'log_scale',
+      value: on,
+      scope: _marketKey,
+      extra: {
+        'coin': widget.market.coin,
+        ...VenueAnalytics.hlAssetParams(widget.market.coin),
+      },
+    );
   }
 
   /// Interval the live tape is actually painted at (the seed may refine a
@@ -2184,13 +2197,9 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     setState(() => _selectedDrawingId = null);
   }
 
-  /// The slim top bar: the market, the interval and chart-style pickers,
-  /// indicators, undo / redo and Done (which leaves edit mode).
-  Widget _editTopBar(
-    AppColorsExtension c,
-    HlCandleInterval candleIv,
-    Set<String> indicators,
-  ) {
+  /// The slim top bar: the market, the interval, the chart button (chart
+  /// types and indicators), undo / redo and Done (which leaves edit mode).
+  Widget _editTopBar(AppColorsExtension c, HlCandleInterval candleIv) {
     final m = widget.market;
     final l10n = context.l10n;
     return SizedBox(
@@ -2250,20 +2259,15 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
               ),
             ),
           ),
+          SizedBox(width: 6.w),
+          // The chart's one button, as on the market chart: the chart
+          // types and the indicators in one sheet.
+          HlChartSheetButton(
+            key: const ValueKey('hl-chart-edit-sheet-button'),
+            style: _style,
+            onTap: _openChartSheet,
+          ),
           SizedBox(width: 2.w),
-          _editIconButton(
-            c,
-            icon: _styleIcon(_style),
-            tip: l10n.chartStyleTitle,
-            onTap: () => _openChartSheet(indicators: false),
-          ),
-          _editIconButton(
-            c,
-            icon: Icons.functions_rounded,
-            tip: l10n.chartIndicators,
-            active: indicators.isNotEmpty,
-            onTap: () => _openChartSheet(style: false),
-          ),
           _editIconButton(
             c,
             icon: Icons.undo_rounded,
@@ -2447,7 +2451,6 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     required List<ChartDrawing> drawings,
     required String? selectedId,
     required HlCandleInterval candleIv,
-    required Set<String> indicators,
     required bool magnet,
   }) {
     final railShown = _railShown;
@@ -2500,7 +2503,7 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _editTopBar(c, candleIv, indicators),
+          _editTopBar(c, candleIv),
           SizedBox(height: 6.h),
           _flexed(body),
           Padding(
@@ -2781,7 +2784,9 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
               },
             ),
             indicators: indicators,
-            logScale: indicators.contains('log'),
+            indicatorParams: preferences.params,
+            logScale: preferences.logScale,
+            onLogScaleChanged: _drawingMode ? _setLogScale : null,
             fills: myFills,
             // The entry rides the trade lines now (with the
             // liquidation and every working order); the painter's own
@@ -2842,7 +2847,6 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
         drawings: drawings,
         selectedId: selectedId,
         candleIv: candleIv,
-        indicators: indicators,
         magnet: preferences.magnet,
       );
     }

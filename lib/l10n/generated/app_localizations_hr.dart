@@ -5920,9 +5920,6 @@ class AppLocalizationsHr extends AppLocalizations {
   String get chartVwapWindow => 'VWAP za prikazane svijeće';
 
   @override
-  String get chartRsiLabel => 'RSI (14)';
-
-  @override
   String get chartIndicators => 'Indikatori';
 
   @override
@@ -11960,50 +11957,36 @@ class AppLocalizationsHr extends AppLocalizations {
   String get sendOtherContacts => 'Other contacts';
 
   @override
-  String get chartSheetTitle => 'Chart';
+  String get chartSheetTitle => 'Grafikon';
 
   @override
-  String get chartSheetStyle => 'Style';
+  String get chartIndEmaNote => 'Kratkoročni trend koji se brzo okreće';
 
   @override
-  String get chartIndEma => 'Moving averages';
+  String get chartIndBb => 'Bollingerove vrpce';
 
   @override
-  String get chartIndEmaNote => 'Short and long trend lines';
+  String get chartIndBbNote => 'Koliko cijena obično oscilira';
 
   @override
-  String get chartIndBb => 'Bollinger bands';
+  String get chartIndRsiNote => 'Jesu li kupnja ili prodaja pretjerane';
 
   @override
-  String get chartIndBbNote => 'How far the price usually swings';
+  String get chartIndMacdNote => 'Zamah se okreće gore ili dolje';
 
   @override
-  String get chartIndRsi => 'RSI';
+  String get chartIndVwapNote =>
+      'Prosječna plaćena cijena ponderirana volumenom';
 
   @override
-  String get chartIndRsiNote => 'Whether buying or selling is overstretched';
+  String get chartIndVolumeNote => 'Koliko se trgovalo u svakom razdoblju';
 
   @override
-  String get chartIndMacd => 'MACD';
-
-  @override
-  String get chartIndMacdNote => 'Momentum turning up or down';
-
-  @override
-  String get chartIndVwap => 'VWAP';
-
-  @override
-  String get chartIndVwapNote => 'Average price weighted by volume';
-
-  @override
-  String get chartIndVolumeNote => 'How much traded each bar';
-
-  @override
-  String get chartReset => 'Reset';
+  String get chartReset => 'Vrati zadano';
 
   @override
   String chartPaneLimit(String name) {
-    return '$name is off: two fit below the chart';
+    return '$name je isključen: ispod grafikona stanu dva';
   }
 
   @override
@@ -12397,4 +12380,77 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get predictBelowTarget => 'below target';
+
+  @override
+  String get chartSheetChartType => 'Vrsta grafikona';
+
+  @override
+  String get chartGroupTrend => 'Trend';
+
+  @override
+  String get chartGroupMomentum => 'Zamah';
+
+  @override
+  String get chartGroupVolatility => 'Volatilnost';
+
+  @override
+  String get chartIndSmaNote => 'Dugoročni trend koji se sporo okreće';
+
+  @override
+  String get chartIndStNote => 'Pomični stop koji se okreće s trendom';
+
+  @override
+  String get chartIndSrsiNote => 'Brze izmjene prekupljenosti i preprodanosti';
+
+  @override
+  String get chartIndAtrNote => 'Koliko se jedno razdoblje obično pomakne';
+
+  @override
+  String get chartIndObvNote => 'Podržava li volumen kretanje';
+
+  @override
+  String get chartIndVp => 'Profil volumena';
+
+  @override
+  String get chartIndVpNote => 'Cijene na kojima se najviše trgovalo';
+
+  @override
+  String chartPriceLimit(String name) {
+    return '$name je isključen: na cijenu stanu četiri';
+  }
+
+  @override
+  String chartIndSettingsTitle(String name) {
+    return 'Postavke za $name';
+  }
+
+  @override
+  String get chartParamLength => 'Duljina';
+
+  @override
+  String get chartParamFast => 'Brza';
+
+  @override
+  String get chartParamSlow => 'Spora';
+
+  @override
+  String get chartParamSignal => 'Signal';
+
+  @override
+  String get chartParamMultiplier => 'Množitelj';
+
+  @override
+  String get chartParamRsiLength => 'Duljina RSI-ja';
+
+  @override
+  String get chartParamStochLength => 'Duljina stohastike';
+
+  @override
+  String get chartParamSmoothK => 'Izglađivanje %K';
+
+  @override
+  String get chartParamSmoothD => 'Izglađivanje %D';
+
+  @override
+  String get chartParamRows => 'Redovi';
 }

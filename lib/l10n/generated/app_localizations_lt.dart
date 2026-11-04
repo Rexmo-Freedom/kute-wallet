@@ -5936,9 +5936,6 @@ class AppLocalizationsLt extends AppLocalizations {
   String get chartVwapWindow => 'VWAP per rodomas žvakes';
 
   @override
-  String get chartRsiLabel => 'RSI (14)';
-
-  @override
   String get chartIndicators => 'Indikatoriai';
 
   @override
@@ -11987,50 +11984,36 @@ class AppLocalizationsLt extends AppLocalizations {
   String get sendOtherContacts => 'Other contacts';
 
   @override
-  String get chartSheetTitle => 'Chart';
+  String get chartSheetTitle => 'Grafikas';
 
   @override
-  String get chartSheetStyle => 'Style';
+  String get chartIndEmaNote => 'Trumpalaikė tendencija, greitai apsigręžia';
 
   @override
-  String get chartIndEma => 'Moving averages';
+  String get chartIndBb => 'Bollingerio juostos';
 
   @override
-  String get chartIndEmaNote => 'Short and long trend lines';
+  String get chartIndBbNote => 'Kiek kaina paprastai svyruoja';
 
   @override
-  String get chartIndBb => 'Bollinger bands';
+  String get chartIndRsiNote => 'Ar pirkimas ar pardavimas per didelis';
 
   @override
-  String get chartIndBbNote => 'How far the price usually swings';
+  String get chartIndMacdNote => 'Momentumas sukasi aukštyn ar žemyn';
 
   @override
-  String get chartIndRsi => 'RSI';
+  String get chartIndVwapNote =>
+      'Vidutinė sumokėta kaina, svertinė pagal apimtį';
 
   @override
-  String get chartIndRsiNote => 'Whether buying or selling is overstretched';
+  String get chartIndVolumeNote => 'Kiek prekiauta kiekvienu laikotarpiu';
 
   @override
-  String get chartIndMacd => 'MACD';
-
-  @override
-  String get chartIndMacdNote => 'Momentum turning up or down';
-
-  @override
-  String get chartIndVwap => 'VWAP';
-
-  @override
-  String get chartIndVwapNote => 'Average price weighted by volume';
-
-  @override
-  String get chartIndVolumeNote => 'How much traded each bar';
-
-  @override
-  String get chartReset => 'Reset';
+  String get chartReset => 'Atstatyti';
 
   @override
   String chartPaneLimit(String name) {
-    return '$name is off: two fit below the chart';
+    return '$name išjungta: po grafiku telpa du';
   }
 
   @override
@@ -12425,4 +12408,77 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get predictBelowTarget => 'below target';
+
+  @override
+  String get chartSheetChartType => 'Grafiko tipas';
+
+  @override
+  String get chartGroupTrend => 'Tendencija';
+
+  @override
+  String get chartGroupMomentum => 'Momentumas';
+
+  @override
+  String get chartGroupVolatility => 'Kintamumas';
+
+  @override
+  String get chartIndSmaNote => 'Ilgalaikė tendencija, lėtai apsigręžia';
+
+  @override
+  String get chartIndStNote => 'Slenkantis stop, apsigręžiantis su tendencija';
+
+  @override
+  String get chartIndSrsiNote => 'Greiti perpirkimo ir perpardavimo svyravimai';
+
+  @override
+  String get chartIndAtrNote => 'Kiek paprastai pajuda vienas laikotarpis';
+
+  @override
+  String get chartIndObvNote => 'Ar apimtis palaiko judėjimą';
+
+  @override
+  String get chartIndVp => 'Apimties profilis';
+
+  @override
+  String get chartIndVpNote => 'Kainos, kuriomis prekiauta daugiausia';
+
+  @override
+  String chartPriceLimit(String name) {
+    return '$name išjungta: ant kainos telpa keturi';
+  }
+
+  @override
+  String chartIndSettingsTitle(String name) {
+    return '$name nustatymai';
+  }
+
+  @override
+  String get chartParamLength => 'Ilgis';
+
+  @override
+  String get chartParamFast => 'Greitoji';
+
+  @override
+  String get chartParamSlow => 'Lėtoji';
+
+  @override
+  String get chartParamSignal => 'Signalas';
+
+  @override
+  String get chartParamMultiplier => 'Daugiklis';
+
+  @override
+  String get chartParamRsiLength => 'RSI ilgis';
+
+  @override
+  String get chartParamStochLength => 'Stochastinio ilgis';
+
+  @override
+  String get chartParamSmoothK => '%K glodinimas';
+
+  @override
+  String get chartParamSmoothD => '%D glodinimas';
+
+  @override
+  String get chartParamRows => 'Eilutės';
 }
