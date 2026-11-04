@@ -265,8 +265,8 @@ class InvestmentBalanceHeader extends ConsumerWidget {
     ];
   }
 
-  /// Whether [state] puts the in-flight lines where the split would be:
-  /// whenever [inFlightLines] has one.
+  /// Whether [state] puts in-flight lines under the split: whenever
+  /// [inFlightLines] has one.
   static bool showsInFlight(OneBalanceState state) =>
       state.inFlight.any((move) => move.hasLine) ||
       state.waiting.values.any((usd) => usd > 0);
@@ -334,9 +334,9 @@ class InvestmentBalanceHeader extends ConsumerWidget {
 }
 
 /// The one-balance hero: the total with the portfolio glyph after
-/// it and "Available $X · Invested $Y" under it, or the in-flight lines in
-/// that line's place. Stateful only to ping the arrow's quick play on each
-/// press.
+/// it, "Invested $X · Available $Y" under it ([OneBalanceSplitLine]) and
+/// the in-flight lines under that. Stateful only to ping the arrow's quick
+/// play on each press.
 class _OneBalanceHero extends ConsumerStatefulWidget {
   const _OneBalanceHero({this.onTap});
 

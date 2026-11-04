@@ -104,6 +104,22 @@ Future<void> _pump(WidgetTester tester, Widget child,
   }
 }
 
+/// The one-balance hero's "Invested $X · Available $Y" figures as printed
+/// ([OneBalanceSplitLine]), or null while the line is not up.
+(String, String)? _split(WidgetTester tester) {
+  final line = find.byKey(const ValueKey('investments-balance-split'));
+  if (line.evaluate().isEmpty) return null;
+  String figure(String key) => tester
+      .widget<RollingNumberText>(find.descendant(
+          of: find.byKey(ValueKey(key)),
+          matching: find.byType(RollingNumberText)))
+      .text;
+  return (
+    figure('investments-balance-invested'),
+    figure('investments-balance-available'),
+  );
+}
+
 void main() {
   setUp(() async {
     GoogleFonts.config.allowRuntimeFetching = false;
@@ -250,24 +266,30 @@ void main() {
     final chevron = find.byKey(const ValueKey('investments-balance-chevron'));
 
     testWidgets(
-        'no title: the total with "Invested" alone under it, no '
+        'no title: the total with "Invested · Available" under it, no '
         'deposit door',
         (tester) async {
       await pumpOne(tester, known);
       expect(header(tester).amountText, r'$100.00');
       expect(header(tester).totalLabel, isNull);
       expect(find.text('Investments total'), findsNothing);
-      // Only Invested under the total (founder, 28 October 2026).
+      // "Invested $X · Available $Y" under the total, always, adding up to
+      // it (founder, 4 November 2026; it read Invested alone since
+      // 28 October): the hero's own split line, not the venue header's.
       expect(header(tester).availableText, isNull);
+      expect(header(tester).investedText, isNull);
       expect(header(tester).availableFirst, isFalse);
-      expect(header(tester).investedText, r'$57.50');
-      expect(find.text('Available '), findsNothing);
+      expect(_split(tester), (r'$57.50', r'$42.50'));
+      expect(find.text('Invested '), findsOneWidget);
+      expect(find.text('Available '), findsOneWidget);
+      expect(tester.getTopLeft(find.text('Invested ')).dx,
+          lessThan(tester.getTopLeft(find.text('Available ')).dx));
+      expect(find.byType(PendingDepositLine), findsNothing);
       // Not tappable without a door: no arrow, no press feedback.
       expect(chevron, findsNothing);
       expect(find.byKey(const ValueKey('investments-balance')), findsNothing);
       expect(header(tester).stale, isFalse);
       expect(header(tester).loading, isFalse);
-      expect(header(tester).investedChild, isNull);
       expect(find.byType(VenueDepositButton), findsNothing);
       expect(find.textContaining('deposit'), findsNothing);
       expect(find.text('Withdraw'), findsNothing);
@@ -317,8 +339,9 @@ void main() {
     });
 
     testWidgets(
-        'money on a rail replaces the split with the in-flight lines, in '
-        'order, and the total counts it', (tester) async {
+        'money on a rail: the in-flight lines under the split, in order; '
+        'the total counts it and Available leaves the lines\' money out',
+        (tester) async {
       await pumpOne(
           tester,
           known.copyWith(inFlight: const [
@@ -340,6 +363,13 @@ void main() {
       expect(header(tester).amountText, r'$138.00');
       expect(header(tester).availableText, isNull);
       expect(header(tester).investedText, isNull);
+      // 138 - 57.5 invested - 25.6 on the lines (5 + 20 + 0.6); the sweep
+      // home has no line, so its 12.4 stays in Available.
+      expect(_split(tester), (r'$57.50', r'$54.90'));
+      final splitBottom = tester
+          .getBottomLeft(
+              find.byKey(const ValueKey('investments-balance-split')))
+          .dy;
       final lines = [
         r'Placing $5.00 on Yes · Lakers vs Celtics',
         r'Incoming $20.00',
@@ -351,6 +381,7 @@ void main() {
       double top(String line) => tester.getTopLeft(find.text(line)).dy;
       for (var i = 0; i < lines.length; i++) {
         expect(find.text(lines[i]), findsOneWidget, reason: lines[i]);
+        expect(top(lines[i]), greaterThan(splitBottom), reason: lines[i]);
         if (i > 0) expect(top(lines[i]), greaterThan(top(lines[i - 1])));
       }
       expect(find.textContaining('arriving'), findsNothing);
@@ -371,8 +402,10 @@ void main() {
               venueCash: const {OneBalanceVenue.investing: 0.06}));
       expect(header(tester).amountText, r'$6.26');
       expect(header(tester).availableText, isNull);
-      expect(header(tester).investedText, r'$0.00');
-      expect(header(tester).investedChild, isNull);
+      expect(header(tester).investedText, isNull);
+      // In Available with the Dollars: the split still makes the total.
+      expect(_split(tester), (r'$0.00', r'$6.26'));
+      expect(find.byType(PendingDepositLine), findsNothing);
       expect(find.textContaining('unavailable'), findsNothing);
     });
 
@@ -436,9 +469,9 @@ void main() {
           ]));
       expect(find.textContaining('coming back'), findsNothing);
       expect(find.byType(PendingDepositLine), findsNothing);
-      expect(header(tester).availableText, isNull);
-      expect(header(tester).investedText, r'$57.50');
-      expect(header(tester).investedChild, isNull);
+      // 42.5 + 57.5 + the sweep's 3, which is in Available.
+      expect(header(tester).amountText, r'$103.00');
+      expect(_split(tester), (r'$57.50', r'$45.50'));
       // Money moving to a venue for no order: no line either.
       await pumpOne(
           tester,
@@ -745,7 +778,12 @@ void main() {
           ]);
       expect(header(tester).amountText, r'$100.00');
       expect(header(tester).availableText, isNull);
-      expect(header(tester).investedText, r'$58.00');
+      expect(header(tester).investedText, isNull);
+      expect(_split(tester), (r'$58.00', r'$42.00'));
+      bool splitStale() => tester
+          .widget<OneBalanceSplitLine>(find.byType(OneBalanceSplitLine))
+          .stale;
+      expect(splitStale(), isFalse);
       final container = ProviderScope.containerOf(
           tester.element(find.byType(InvestmentBalanceHeader)));
       container.read(state.notifier).state = const OneBalanceState(
@@ -757,16 +795,17 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
       expect(header(tester).amountText, r'$100.00');
-      expect(header(tester).availableText, isNull);
-      expect(header(tester).investedText, r'$58.00');
+      // The saved split, dimmed with the total.
+      expect(_split(tester), (r'$58.00', r'$42.00'));
+      expect(splitStale(), isTrue);
       expect(header(tester).stale, isTrue);
       // A completed, genuinely empty read must replace the saved figure.
       container.read(state.notifier).state =
           const OneBalanceState(investingKnown: true, predictionsKnown: true);
       await tester.pumpAndSettle();
       expect(header(tester).amountText, r'$0.00');
-      expect(header(tester).availableText, isNull);
-      expect(header(tester).investedText, r'$0.00');
+      expect(_split(tester), (r'$0.00', r'$0.00'));
+      expect(splitStale(), isFalse);
       expect(header(tester).stale, isFalse);
     });
 
