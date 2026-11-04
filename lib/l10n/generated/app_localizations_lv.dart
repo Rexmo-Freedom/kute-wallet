@@ -12394,7 +12394,7 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String challengeCapsRecipientNamed(String name) {
-    return '$name, draugs tevi izaicina';
+    return '$name, izaicinājums';
   }
 
   @override

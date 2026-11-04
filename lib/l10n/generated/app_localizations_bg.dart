@@ -12446,14 +12446,14 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String challengeCapsRecipientNamed(String name) {
-    return '$name, приятел те предизвиква';
+    return '$name, предизвикан си';
   }
 
   @override
   String get challengeMySide => 'Моята страна';
 
   @override
-  String get challengeFriendSide => 'Страната на приятеля';
+  String get challengeFriendSide => 'Приятелят';
 
   @override
   String get challengeYourSide => 'Твоята страна?';
@@ -12465,7 +12465,7 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String challengeEdgeWrong(String side) {
-    return 'Аз съм за $side. Мислиш, че греша? Избери другата страна.';
+    return 'За $side съм. Греша ли? Избери другата страна.';
   }
 
   @override

@@ -164,14 +164,18 @@ class _Side extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            side.tag.toUpperCase(),
-            key: ValueKey('$keyPrefix-tag'),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: shareCardText(11, FontWeight.w700,
-                marked ? words.withValues(alpha: 0.8) : p.muted,
-                spacing: 1.1, height: 1.2),
+          // Smaller rather than cut.
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: AlignmentDirectional.centerStart,
+            child: Text(
+              side.tag.toUpperCase(),
+              key: ValueKey('$keyPrefix-tag'),
+              maxLines: 1,
+              style: shareCardText(11, FontWeight.w700,
+                  marked ? words.withValues(alpha: 0.8) : p.muted,
+                  spacing: 1.1, height: 1.2),
+            ),
           ),
           const Spacer(),
           if (image != null && image.isNotEmpty) ...[

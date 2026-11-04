@@ -12488,7 +12488,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get challengeMySide => 'Mi lado';
 
   @override
-  String get challengeFriendSide => 'Lado de tu amigo';
+  String get challengeFriendSide => 'Tu amigo';
 
   @override
   String get challengeYourSide => '¿Tu lado?';
@@ -12500,7 +12500,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String challengeEdgeWrong(String side) {
-    return 'Voy con $side. ¿Crees que me equivoco? Toma el otro lado.';
+    return 'Voy con $side. ¿Me equivoco? Toma el otro lado.';
   }
 
   @override

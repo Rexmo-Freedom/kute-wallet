@@ -12464,14 +12464,14 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String challengeCapsRecipientNamed(String name) {
-    return '$name, een vriend daagt je uit';
+    return '$name, een uitdaging';
   }
 
   @override
   String get challengeMySide => 'Mijn kant';
 
   @override
-  String get challengeFriendSide => 'Kant van je vriend';
+  String get challengeFriendSide => 'Je vriend';
 
   @override
   String get challengeYourSide => 'Jouw kant?';
@@ -12483,7 +12483,7 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String challengeEdgeWrong(String side) {
-    return 'Ik zit op $side. Denk je dat ik het mis heb? Kies de andere kant.';
+    return 'Ik zit op $side. Fout? Kies de andere kant.';
   }
 
   @override

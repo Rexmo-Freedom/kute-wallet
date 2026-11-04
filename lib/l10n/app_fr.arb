@@ -3500,7 +3500,7 @@
   "challengeFriendSide": "Camp de ton ami",
   "challengeYourSide": "Ton camp ?",
   "challengeStake": "{amount} pour jouer, c’est moi qui offre",
-  "challengeEdgeWrong": "Je suis sur {side}. Tu crois que j’ai tort ? Prends l’autre camp.",
+  "challengeEdgeWrong": "Je suis sur {side}. J’ai tort ? Prends l’autre camp.",
   "challengeEdgeFight": "Je dis {side}. Tu oses ?",
   "challengeEdgeProve": "{side}. Prouve-moi que j’ai tort.",
   "challengeEdgeMove": "J’ai choisi {side}. À toi.",

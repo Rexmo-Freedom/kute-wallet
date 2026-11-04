@@ -12530,7 +12530,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String challengeEdgeWrong(String side) {
-    return 'Je suis sur $side. Tu crois que j’ai tort ? Prends l’autre camp.';
+    return 'Je suis sur $side. J’ai tort ? Prends l’autre camp.';
   }
 
   @override

@@ -12424,7 +12424,7 @@ class AppLocalizationsDa extends AppLocalizations {
 
   @override
   String challengeCapsRecipientNamed(String name) {
-    return '$name, en ven udfordrer dig';
+    return '$name, en udfordring';
   }
 
   @override
@@ -12443,7 +12443,7 @@ class AppLocalizationsDa extends AppLocalizations {
 
   @override
   String challengeEdgeWrong(String side) {
-    return 'Jeg er på $side. Tror du, jeg tager fejl? Tag den anden side.';
+    return 'Jeg er på $side. Tager jeg fejl? Tag den anden side.';
   }
 
   @override

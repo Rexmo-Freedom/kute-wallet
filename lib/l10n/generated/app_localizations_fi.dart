@@ -12439,7 +12439,7 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String challengeCapsRecipientNamed(String name) {
-    return '$name, ystävä haastaa sinut';
+    return '$name, haaste sinulle';
   }
 
   @override
@@ -12458,7 +12458,7 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String challengeEdgeWrong(String side) {
-    return 'Valitsin $side. Luuletko, että olen väärässä? Valitse toinen puoli.';
+    return 'Valitsin $side. Väärin? Valitse toinen puoli.';
   }
 
   @override

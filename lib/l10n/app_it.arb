@@ -3497,7 +3497,7 @@
   "challengeCapsRecipient": "Un amico ti sfida",
   "challengeCapsRecipientNamed": "{name}, un amico ti sfida",
   "challengeMySide": "La mia parte",
-  "challengeFriendSide": "La parte del tuo amico",
+  "challengeFriendSide": "Il tuo amico",
   "challengeYourSide": "La tua parte?",
   "challengeStake": "{amount} per giocare, offro io",
   "challengeEdgeWrong": "Sto con {side}. Pensi che sbagli? Prendi l’altra parte.",

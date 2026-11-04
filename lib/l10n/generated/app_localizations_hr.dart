@@ -12452,14 +12452,14 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String challengeCapsRecipientNamed(String name) {
-    return '$name, prijatelj te izaziva';
+    return '$name, izazov za tebe';
   }
 
   @override
   String get challengeMySide => 'Moja strana';
 
   @override
-  String get challengeFriendSide => 'Strana prijatelja';
+  String get challengeFriendSide => 'Prijatelj';
 
   @override
   String get challengeYourSide => 'Tvoja strana?';

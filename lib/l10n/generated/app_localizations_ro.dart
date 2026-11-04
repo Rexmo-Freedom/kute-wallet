@@ -12487,14 +12487,14 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String challengeCapsRecipientNamed(String name) {
-    return '$name, un prieten te provoacă';
+    return '$name, o provocare';
   }
 
   @override
   String get challengeMySide => 'Partea mea';
 
   @override
-  String get challengeFriendSide => 'Partea prietenului';
+  String get challengeFriendSide => 'Prietenul';
 
   @override
   String get challengeYourSide => 'Partea ta?';

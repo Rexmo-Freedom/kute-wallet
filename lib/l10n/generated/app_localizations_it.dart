@@ -12480,7 +12480,7 @@ class AppLocalizationsIt extends AppLocalizations {
   String get challengeMySide => 'La mia parte';
 
   @override
-  String get challengeFriendSide => 'La parte del tuo amico';
+  String get challengeFriendSide => 'Il tuo amico';
 
   @override
   String get challengeYourSide => 'La tua parte?';

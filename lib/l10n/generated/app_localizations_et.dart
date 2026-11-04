@@ -12415,7 +12415,7 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String challengeCapsRecipientNamed(String name) {
-    return '$name, sõber kutsub sind välja';
+    return '$name, väljakutse';
   }
 
   @override

@@ -3497,7 +3497,7 @@
   "challengeCapsRecipient": "Prijatelj te izziva",
   "challengeCapsRecipientNamed": "{name}, prijatelj te izziva",
   "challengeMySide": "Moja stran",
-  "challengeFriendSide": "Prijateljeva stran",
+  "challengeFriendSide": "Prijatelj",
   "challengeYourSide": "Tvoja stran?",
   "challengeStake": "{amount} za igro, plačam jaz",
   "challengeEdgeWrong": "Sem za {side}. Misliš, da se motim? Izberi drugo stran.",

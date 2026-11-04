@@ -12469,7 +12469,7 @@ class AppLocalizationsSl extends AppLocalizations {
   String get challengeMySide => 'Moja stran';
 
   @override
-  String get challengeFriendSide => 'Prijateljeva stran';
+  String get challengeFriendSide => 'Prijatelj';
 
   @override
   String get challengeYourSide => 'Tvoja stran?';

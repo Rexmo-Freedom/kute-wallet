@@ -12426,14 +12426,14 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String challengeCapsRecipientNamed(String name) {
-    return '$name, kamarád tě vyzývá';
+    return '$name, výzva pro tebe';
   }
 
   @override
   String get challengeMySide => 'Moje strana';
 
   @override
-  String get challengeFriendSide => 'Strana kamaráda';
+  String get challengeFriendSide => 'Kamarád';
 
   @override
   String get challengeYourSide => 'Tvoje strana?';

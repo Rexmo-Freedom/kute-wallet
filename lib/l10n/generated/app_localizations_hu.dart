@@ -12463,7 +12463,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get challengeMySide => 'Az én oldalam';
 
   @override
-  String get challengeFriendSide => 'A barátod oldala';
+  String get challengeFriendSide => 'A barátod';
 
   @override
   String get challengeYourSide => 'A te oldalad?';
@@ -12475,7 +12475,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String challengeEdgeWrong(String side) {
-    return 'A tippem: $side. Szerinted tévedek? Válaszd a másik oldalt.';
+    return 'A tippem: $side. Tévedek? Válaszd a másik oldalt.';
   }
 
   @override
