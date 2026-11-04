@@ -1,7 +1,11 @@
-// The market sheet's chart takes the room a short list leaves: a Yes / No
-// market or an event of two outcomes has no empty screen under it, while
-// a long list keeps the chart at its own height. Worked out once, so the
-// chart does not move afterwards.
+// One chart size for both venues (founder, 4 November 2026: the
+// Predictions charts "sometimes just occupy way too much of the screen";
+// "should the Polymarket graphs follow the same new fintech style in size
+// and such"): the Investing market chart and every Predictions market,
+// event and game chart draw their plot at one shared height
+// (kKuteMarketChartHeight, scaled by height the same way), whatever the
+// number of lines, and a Predictions chart no longer grows into the room
+// a short list leaves. Every line is drawn at the one line width.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,7 +24,15 @@ import 'package:kute/providers/polymarket_sports_provider.dart';
 import 'package:kute/providers/polymarket_watchlist_provider.dart';
 import 'package:kute/screens/polymarket/components/market_chart.dart';
 import 'package:kute/screens/polymarket/market_detail_sheet.dart';
+import 'package:kute/screens/hyperliquid/components/hl_charts.dart'
+    show HlCandlestickChart;
+import 'package:kute/screens/hyperliquid/market_detail_sheet.dart'
+    show HlCandleChart;
+import 'package:kute/screens/shared/charts/kute_chart_core.dart';
+import 'package:kute/screens/shared/charts/kute_chart_time_axis.dart';
 import 'package:kute/theme/app_theme.dart';
+
+import '../helpers/hl_chart_edit_harness.dart';
 
 class _NoStars extends PolyWatchlistNotifier {
   @override
@@ -125,82 +137,68 @@ Future<void> _pump(WidgetTester tester, PolymarketEvent event,
 double _chartHeight(WidgetTester tester) =>
     tester.widget<MarketChart>(find.byType(MarketChart)).height;
 
-/// The room under the scroll area's last content: the space between the
-/// Rules row's bottom and the sticky buttons, when it is on screen.
-double _emptyUnderContent(WidgetTester tester) {
-  final scrollable = tester.getRect(find.byType(Scrollable).first);
-  final rules = find.text('Rules and resolution');
-  if (rules.evaluate().isEmpty) return 0;
-  return scrollable.bottom - tester.getRect(rules).bottom;
-}
+/// The plot the Predictions chart draws: its height less the time axis
+/// row under the plot.
+double _pmPlot(WidgetTester tester) =>
+    tester.getSize(find.byType(MarketChart)).height - kKuteTimeAxisHeight;
+
+/// The plot the Investing market chart draws ([HlCandlestickChart.height]
+/// in design units, scaled by height as the chart scales it).
+double _hlPlot(WidgetTester tester) =>
+    tester.widget<HlCandlestickChart>(find.byType(HlCandlestickChart)).height.h;
 
 void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
 
-  group('polyChartFillExtra', () {
-    test('takes the room left, up to its share of the screen', () {
-      expect(polyChartFillExtra(leftover: 120, base: 220, viewport: 700), 120);
-      // 70% of 700 is 490: 270 over a 220 chart at most.
-      expect(polyChartFillExtra(leftover: 400, base: 220, viewport: 700),
-          closeTo(270, 1e-9));
-      // No room left (a long list): the chart's own height.
-      expect(polyChartFillExtra(leftover: -300, base: 220, viewport: 700), 0);
-      // A chart already past its share never grows (and never shrinks).
-      expect(polyChartFillExtra(leftover: 200, base: 380, viewport: 520), 0);
+  test('one plot height and one line width for both venues', () {
+    expect(kKuteMarketChartHeight, 260);
+    expect(kuteStrokePaint(Colors.blue).strokeWidth, kKuteChartLineWidth);
+    expect(kKuteChartLineWidth, 2.0);
+  });
+
+  for (final (name, event) in [
+    ('a Yes / No market', _yesNo),
+    ('two outcomes', _two),
+    ('25 outcomes', _many),
+  ]) {
+    testWidgets('$name on a tall phone: the Investing plot over the time '
+        'axis, never grown into the room, and it stays put', (tester) async {
+      await http.runWithClient(() async {
+        await _pump(tester, event);
+        final expected = kKuteMarketChartHeight.h + kKuteTimeAxisHeight;
+        expect(polyMarketChartHeight(), moreOrLessEquals(expected));
+        expect(_chartHeight(tester), moreOrLessEquals(expected));
+        expect(tester.getSize(find.byType(MarketChart)).height,
+            moreOrLessEquals(expected));
+        // Settled: later frames do not move it.
+        await tester.pump(const Duration(seconds: 1));
+        expect(_chartHeight(tester), moreOrLessEquals(expected));
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      }, () => MockClient((_) async => http.Response('{}', 404)));
     });
-  });
+  }
 
-  testWidgets('two outcomes on a tall phone: the chart grows into the room '
-      'under the list, and stays put', (tester) async {
-    await http.runWithClient(() async {
-      await _pump(tester, _two);
-      final base = polyChartHeightFor(2);
-      final height = _chartHeight(tester);
-      expect(height, greaterThan(base + 40));
-      // The rest of the screen is not left empty, nor overflowed past the
-      // sticky buttons by more than a row's slack.
-      expect(_emptyUnderContent(tester), lessThan(60));
-      expect(_emptyUnderContent(tester), greaterThanOrEqualTo(-1));
-      // Settled: later frames do not move it.
-      await tester.pump(const Duration(seconds: 1));
-      expect(_chartHeight(tester), height);
+  for (final size in const [Size(390, 844), Size(320, 568)]) {
+    testWidgets('${size.width.toInt()} x ${size.height.toInt()}: the '
+        'Predictions and Investing market charts draw one plot height',
+        (tester) async {
+      double pm = 0;
+      await http.runWithClient(() async {
+        await _pump(tester, _two, size: size);
+        pm = _pmPlot(tester);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      }, () => MockClient((_) async => http.Response('{}', 404)));
+
+      await pumpHlEditSheet(tester, width: size.width, height: size.height);
+      expect(tester.widget<HlCandleChart>(find.byType(HlCandleChart)).height,
+          kKuteMarketChartHeight);
+      final hl = _hlPlot(tester);
+      expect(pm, moreOrLessEquals(hl, epsilon: 0.01));
+      expect(hl, moreOrLessEquals(kKuteMarketChartHeight.h, epsilon: 0.01));
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
-    }, () => MockClient((_) async => http.Response('{}', 404)));
-  });
-
-  testWidgets('a Yes / No market grows its chart too', (tester) async {
-    await http.runWithClient(() async {
-      await _pump(tester, _yesNo);
-      expect(_chartHeight(tester), greaterThan(380));
-      expect(tester.takeException(), isNull);
-      await tester.pumpWidget(const SizedBox.shrink());
-    }, () => MockClient((_) async => http.Response('{}', 404)));
-  });
-
-  testWidgets('a long list keeps the chart at its own height',
-      (tester) async {
-    await http.runWithClient(() async {
-      await _pump(tester, _many);
-      expect(_chartHeight(tester), polyChartHeightFor(3));
-      expect(tester.takeException(), isNull);
-      await tester.pumpWidget(const SizedBox.shrink());
-    }, () => MockClient((_) async => http.Response('{}', 404)));
-  });
-
-  testWidgets('a small phone: never smaller than its own height, never past '
-      'its share of the screen', (tester) async {
-    await http.runWithClient(() async {
-      await _pump(tester, _two, size: const Size(320, 568));
-      final h = _chartHeight(tester);
-      expect(h, greaterThanOrEqualTo(polyChartHeightFor(2)));
-      final viewport = tester.getRect(find.byType(Scrollable).first).height;
-      expect(h, lessThanOrEqualTo(
-          viewport * kPolyChartMaxShare + 1 > polyChartHeightFor(2)
-              ? viewport * kPolyChartMaxShare + 1
-              : polyChartHeightFor(2)));
-      expect(tester.takeException(), isNull);
-      await tester.pumpWidget(const SizedBox.shrink());
-    }, () => MockClient((_) async => http.Response('{}', 404)));
-  });
+    });
+  }
 }

@@ -19,8 +19,24 @@
 // More than four (no sheet has that) continue in pairs, an odd last card
 // full width. The cards of one row are equally tall, so their foot lines
 // sit level.
+//
+// OPTION CARDS, THE SAME SQUARES, SMALLER (founder, 4 November 2026: the
+// rows under a market's or a position's chart, "Add margin", "Rules and
+// resolution", "should be like big squares"; "little cards, square-ish"):
+// [KuteActionCard.option] is the card for a screen rather than a sheet,
+// the options under the chart of the Investing and Predictions market
+// and position screens, alike on both venues. The same surface, hairline
+// and press spring; radius 18, 14 padding, at least 112 tall; an icon (22,
+// primary text) at the top left, the title under it (15, w600, two lines)
+// and, when the option has one, its value on one line (13, textSecondary:
+// "Stop loss", "Ends Nov 5"). The text sits at the top, so the titles of
+// a row sit level whether or not a card has a value. A tap gives the
+// selection click the rows gave. The same grid lays them out, in two
+// columns: a lone option card, or an odd last one, keeps its column (half
+// the width, a square like the others) rather than a full-width band.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/screens/shared/kute_motion.dart' show KutePressable;
@@ -42,6 +58,19 @@ const double kKuteActionCardVisualSlot = 40;
 /// The size the converted sheets draw their visuals at.
 const double kKuteActionCardVisualSize = 40;
 
+/// The least height of an option card ([KuteActionCard.option]).
+const double kKuteOptionCardMinHeight = 112;
+
+/// An option card's inner padding.
+const double kKuteOptionCardPadding = 14;
+
+/// The height of an option card's icon box; its icon is drawn at
+/// [kKuteOptionCardIconSize].
+const double kKuteOptionCardVisualSlot = 24;
+
+/// The size of an option card's icon.
+const double kKuteOptionCardIconSize = 22;
+
 /// One big action card (see the file header). A null [onTap] draws the
 /// card disabled (0.6 opacity, no press); [badge] then reads at its top
 /// right ("SELECTED", "SOON"), in the Move pickers' pill.
@@ -57,7 +86,24 @@ class KuteActionCard extends StatelessWidget {
     this.semanticsLabel,
     this.visualSlot = kKuteActionCardVisualSlot,
     required this.onTap,
-  });
+  }) : compact = false;
+
+  /// An option card (see the file header): [icon] at the top left, the
+  /// [title] and, when the option has one, its value ([subtitle]) on one
+  /// line.
+  KuteActionCard.option({
+    super.key,
+    required IconData icon,
+    required this.title,
+    this.subtitle,
+    this.semanticsLabel,
+    required this.onTap,
+  })  : visual = _KuteOptionIcon(icon),
+        footer = null,
+        footerKey = null,
+        badge = null,
+        visualSlot = kKuteOptionCardVisualSlot,
+        compact = true;
 
   /// The large visual at the top left.
   final Widget visual;
@@ -84,6 +130,10 @@ class KuteActionCard extends StatelessWidget {
   /// Null: disabled.
   final VoidCallback? onTap;
 
+  /// An option card ([KuteActionCard.option]): smaller, the text at the
+  /// top, the value on one line.
+  final bool compact;
+
   bool get enabled => onTap != null;
 
   /// The title's style (shared with the grid's fit measurement).
@@ -103,6 +153,22 @@ class KuteActionCard extends StatelessWidget {
         height: 1.3,
       );
 
+  /// An option card's title style.
+  static TextStyle optionTitleStyle(AppColorsExtension c) => TextStyle(
+        color: c.textPrimary,
+        fontSize: 15.sp,
+        fontWeight: FontWeight.w600,
+        letterSpacing: -0.2,
+        height: 1.2,
+      );
+
+  /// This card's title style.
+  TextStyle titleStyleOf(AppColorsExtension c) =>
+      compact ? optionTitleStyle(c) : titleStyle(c);
+
+  /// How many lines this card's [subtitle] takes at most.
+  int get subtitleMaxLines => compact ? 1 : 2;
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
@@ -110,11 +176,14 @@ class KuteActionCard extends StatelessWidget {
     final badgeText = badge;
     final foot = footer;
     final card = Container(
-      constraints: const BoxConstraints(minHeight: kKuteActionCardMinHeight),
-      padding: const EdgeInsets.all(kKuteActionCardPadding),
+      constraints: BoxConstraints(
+          minHeight:
+              compact ? kKuteOptionCardMinHeight : kKuteActionCardMinHeight),
+      padding: EdgeInsets.all(
+          compact ? kKuteOptionCardPadding : kKuteActionCardPadding),
       decoration: BoxDecoration(
         color: isLight ? c.surfaceLight : c.surface,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(compact ? 18 : 20),
         border:
             Border.all(color: isLight ? c.border : c.borderSubtle, width: 1),
       ),
@@ -154,23 +223,25 @@ class KuteActionCard extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: compact ? 10 : 12),
           Text(
             title,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: titleStyle(c),
+            style: titleStyleOf(c),
           ),
           if (subtitle != null) ...[
-            const SizedBox(height: 4),
+            SizedBox(height: compact ? 2 : 4),
             Text(
               subtitle!,
-              maxLines: 2,
+              maxLines: subtitleMaxLines,
               overflow: TextOverflow.ellipsis,
               style: subtitleStyle(c),
             ),
           ],
-          const Spacer(),
+          // An option card's text stays at the top; a big card's foot sits
+          // at its bottom.
+          if (!compact) const Spacer(),
           if (foot != null && foot.isNotEmpty) ...[
             const SizedBox(height: 12),
             Text(
@@ -202,13 +273,29 @@ class KuteActionCard extends StatelessWidget {
           enabled: enabled,
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: onTap,
+            onTap: compact && onTap != null
+                ? () {
+                    HapticFeedback.selectionClick();
+                    onTap!();
+                  }
+                : onTap,
             child: card,
           ),
         ),
       ),
     );
   }
+}
+
+/// An option card's icon, at the left of its box.
+class _KuteOptionIcon extends StatelessWidget {
+  const _KuteOptionIcon(this.icon);
+
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) => Icon(icon,
+      size: kKuteOptionCardIconSize, color: context.colors.textPrimary);
 }
 
 /// Lays out 1 to 4 [cards] (see the file header).
@@ -232,12 +319,15 @@ class KuteActionCardGrid extends StatelessWidget {
     double cardWidth,
   ) {
     final c = context.colors;
-    final inner = cardWidth - 2 * kKuteActionCardPadding;
+    final padding = cards.any((card) => !card.compact)
+        ? kKuteActionCardPadding
+        : kKuteOptionCardPadding;
+    final inner = cardWidth - 2 * padding;
     if (inner <= 0) return false;
     final base = DefaultTextStyle.of(context).style;
     final scaler = MediaQuery.textScalerOf(context);
     final direction = Directionality.of(context);
-    bool fits(String text, TextStyle style) {
+    bool fits(String text, TextStyle style, {int maxLines = 2}) {
       final s = base.merge(style);
       // A single word wider than the card would break mid-word.
       for (final word in text.split(RegExp(r'\s+'))) {
@@ -256,7 +346,7 @@ class KuteActionCardGrid extends StatelessWidget {
         text: TextSpan(text: text, style: s),
         textDirection: direction,
         textScaler: scaler,
-        maxLines: 2,
+        maxLines: maxLines,
       )..layout(maxWidth: inner);
       final over = p.didExceedMaxLines;
       p.dispose();
@@ -264,9 +354,11 @@ class KuteActionCardGrid extends StatelessWidget {
     }
 
     for (final card in cards) {
-      if (!fits(card.title, KuteActionCard.titleStyle(c))) return false;
+      if (!fits(card.title, card.titleStyleOf(c))) return false;
       final sub = card.subtitle;
-      if (sub != null && !fits(sub, KuteActionCard.subtitleStyle(c))) {
+      if (sub != null &&
+          !fits(sub, KuteActionCard.subtitleStyle(c),
+              maxLines: card.subtitleMaxLines)) {
         return false;
       }
     }
@@ -290,7 +382,21 @@ class KuteActionCardGrid extends StatelessWidget {
             ],
           ),
         );
-    Widget single(KuteActionCard card) => IntrinsicHeight(child: card);
+    // Option cards keep their column: a lone or odd last one is half the
+    // width, the other half left empty.
+    final columns = cards.every((card) => card.compact);
+    Widget single(KuteActionCard card) => IntrinsicHeight(
+          child: columns
+              ? Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(child: card),
+                    space,
+                    const Expanded(child: SizedBox.shrink()),
+                  ],
+                )
+              : card,
+        );
 
     if (cards.isEmpty) return const SizedBox.shrink();
     if (cards.length == 1) return single(cards.first);

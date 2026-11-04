@@ -31,6 +31,8 @@ import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/services/kute_haptics.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart'
+    show KuteBarContextScope, KuteBarPrimaryStyle;
 
 class _NoGames extends SportsLiveNotifier {
   @override
@@ -231,9 +233,9 @@ void main() {
     final dialRect =
         tester.getRect(find.byKey(PolyPositionSpeedometer.dialKey));
     expect(result.left, closeTo(dialRect.left, 1));
-    // The held line keeps inside the dial's width; no Share pill beside
-    // it (founder, 1 November 2026: the share is the card under the
-    // tiles).
+    // The held line keeps inside the dial's width; nothing to share
+    // beside it (founder, 4 November 2026: the round Sal button floats
+    // beside Sell).
     expect(heldRect.right, lessThanOrEqualTo(dialRect.right + 1));
     expect(find.byKey(const ValueKey('kute-sal-header-button')), findsNothing);
     expect(result.bottom, lessThanOrEqualTo(dialRect.top));
@@ -263,9 +265,9 @@ void main() {
         findsOneWidget);
     expect(_rolling(r'$13.20'), findsOneWidget);
     // No journey chart under the tiles any more (founder, 1 November
-    // 2026): the share card in its place.
+    // 2026), and no share card (4 November 2026: it floats beside Sell).
     expect(find.byType(PolyPositionJourneyLine), findsNothing);
-    expect(find.byKey(const ValueKey('position-share-card')), findsOneWidget);
+    expect(find.byKey(const ValueKey('position-share-card')), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -535,8 +537,9 @@ void main() {
     expect(polyWhatIfSellPrice(0.0), 0.01);
   });
 
-  testWidgets('under the tiles: no chart (founder, 1 November 2026), the '
-      'share card, "Brag about it" in profit', (tester) async {
+  testWidgets('under the tiles: no chart (founder, 1 November 2026) and no '
+      'share card; Sell carries the round Sal button, the brag card in '
+      'profit (4 November 2026)', (tester) async {
     final since = DateTime.now().subtract(const Duration(days: 9));
     await _pump(tester, _no, journey: (
       since: since,
@@ -550,16 +553,15 @@ void main() {
     ));
     expect(find.byType(PolyPositionJourneyLine), findsNothing);
     expect(find.text('Your avg 19¢'), findsNothing);
-    final card = find.byKey(const ValueKey('position-share-card'));
-    expect(card, findsOneWidget);
-    expect(
-        find.descendant(of: card, matching: find.text('Brag about it')),
-        findsOneWidget);
-    expect(
-        tester.getRect(card).top,
-        greaterThan(tester
-            .getRect(find.byKey(const ValueKey('poly-position-value')))
-            .bottom));
+    expect(find.byKey(const ValueKey('position-share-card')), findsNothing);
+    final sell = tester
+        .widget<KuteBarContextScope>(find.byWidgetPredicate(
+            (w) => w is KuteBarContextScope && w.barContext.isPrimary))
+        .barContext;
+    expect(sell.style, KuteBarPrimaryStyle.destructive);
+    expect(sell.share, isNotNull);
+    expect(sell.share!.barContext.market, isTrue);
+    expect(sell.share!.brag, isNotNull, reason: 'in profit: the card');
     expect(tester.takeException(), isNull);
   });
 

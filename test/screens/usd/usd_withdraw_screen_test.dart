@@ -1,8 +1,10 @@
-// The Dollars Send (the Bitcoin send's layout; founder, 1 November 2026):
-// "Send dollars", the search field ("Name, address or phone"), the
-// Contacts list, then the Send to card: "To your Bitcoin" (the Move money
-// sheet, Dollars to Bitcoin), "A stock or prediction" (the market picker)
-// and "Also sends to" (the coin sheet). A typed address resolves first and
+// The Dollars Send (the Bitcoin send's layout; founder, 1 November 2026;
+// made clearer 4 November 2026: "too many options and buttons"): "Send
+// dollars", the search field ("Name, address or phone"), then two short
+// cards under their words, "Send to": "To your Bitcoin" (the Move money
+// sheet, Dollars to Bitcoin) and "To a crypto address" (the coin sheet);
+// "To a friend": "Send to anyone" (a link, no contact needed) and "Send a
+// prediction" (or an investment: the market search); then the Contacts. A typed address resolves first and
 // the bar's Continue opens the dollar send on it; an address several
 // networks take asks which one; a send that went out, or a link created,
 // closes the sheet. Nothing here reaches a money call: every door is a
@@ -92,6 +94,7 @@ final _l10n = AppLocalizationsEn();
 
 const _bitcoinRow = ValueKey('usd-withdraw-to-bitcoin');
 const _pickRow = ValueKey('usd-withdraw-pick');
+const _anyoneRow = ValueKey('usd-withdraw-anyone');
 const _alsoRow = ValueKey('send-also-sends-to-row');
 late FakeSendContactsGateway _gateway;
 const _underneath = 'open withdraw';
@@ -243,9 +246,10 @@ void main() {
 
   for (final dark in [false, true]) {
     testWidgets(
-        'the Bitcoin send\'s layout: "Send dollars", the search field, the '
-        'Contacts list, then To your Bitcoin, A stock or prediction and Also '
-        'sends to; no Bitcoin card, no inline grid '
+        'the Bitcoin send\'s layout: "Send dollars", the search field, Send '
+        'to (To your Bitcoin, To a crypto address), To a friend (Send to '
+        'anyone, Send a prediction), then the Contacts; no '
+        'Bitcoin card, no inline grid '
         '(${dark ? 'dark' : 'light'})', (tester) async {
       await _pump(tester, spendingSats: 100000, dark: dark);
       final screen = find.byType(UsdWithdrawScreen);
@@ -262,26 +266,27 @@ void main() {
       final bitcoin = tester.widget<SendToListRow>(find.byKey(_bitcoinRow));
       expect(bitcoin.title, _l10n.usdSendToYourBitcoin);
       expect(bitcoin.subtitle, _l10n.usdBitcoinBalanceLine('\$60.00'));
+      expect(find.text(_l10n.sendToCryptoAddress), findsOneWidget);
+      expect(find.text(_l10n.sendToAFriendLabel), findsOneWidget);
+      final anyone = tester.widget<SendToListRow>(find.byKey(_anyoneRow));
+      expect(anyone.title, _l10n.shareSendToAnyone);
+      expect(anyone.subtitle, _l10n.shareSendToAnyoneSubtitle);
       final pick = tester.widget<SendToListRow>(find.byKey(_pickRow));
-      expect(pick.title, _l10n.usdSendPickRow);
-      expect(pick.subtitle, _l10n.usdSendPickRowSub);
-      expect(find.byKey(_alsoRow), findsOneWidget);
-      // Top to bottom: the field, the Send to card, the Contacts (a
-      // growing list never hides the card).
-      expect(
-          tester
-              .getTopLeft(find.byKey(const ValueKey('send-recipient-search')))
-              .dy,
-          lessThan(tester.getTopLeft(find.byKey(_bitcoinRow)).dy));
-      expect(tester.getTopLeft(find.byKey(_bitcoinRow)).dy,
-          lessThan(tester.getTopLeft(find.byKey(_pickRow)).dy));
-      expect(tester.getTopLeft(find.byKey(_pickRow)).dy,
-          lessThan(tester.getTopLeft(find.byKey(_alsoRow)).dy));
-      expect(
-          tester.getTopLeft(find.byKey(_alsoRow)).dy,
-          lessThan(tester
-              .getTopLeft(find.byKey(const ValueKey('send-contacts-ask-row')))
-              .dy));
+      expect(pick.title, _l10n.sendAPrediction);
+      expect(pick.subtitle, _l10n.sendPickRowSub);
+      // Top to bottom: the field, Send to (yours or an address), To a
+      // friend, the Contacts (a growing list never hides the cards).
+      double top(Finder f) => tester.getTopLeft(f).dy;
+      expect(top(find.byKey(const ValueKey('send-recipient-search'))),
+          lessThan(top(find.byKey(_bitcoinRow))));
+      expect(top(find.byKey(_bitcoinRow)), lessThan(top(find.byKey(_alsoRow))));
+      expect(top(find.byKey(_alsoRow)),
+          lessThan(top(find.text(_l10n.sendToAFriendLabel))));
+      expect(top(find.text(_l10n.sendToAFriendLabel)),
+          lessThan(top(find.byKey(_anyoneRow))));
+      expect(top(find.byKey(_anyoneRow)), lessThan(top(find.byKey(_pickRow))));
+      expect(top(find.byKey(_pickRow)),
+          lessThan(top(find.byKey(const ValueKey('send-contacts-ask-row')))));
 
       // No old card, no inline grid, no friend row.
       expect(find.text(_l10n.usdWithdrawToYourWallet), findsNothing);
@@ -360,8 +365,22 @@ void main() {
   });
 
   testWidgets(
-      'A stock or prediction opens the market picker; a link created closes '
-      'the sheet', (tester) async {
+      'Send to anyone opens the claim link with no contact and no number; a '
+      'link created closes the sheet', (tester) async {
+    linkResult = true;
+    await _pump(tester);
+    await tester.tap(find.byKey(_anyoneRow));
+    await tester.pumpAndSettle();
+    expect(linksOpened, [(null, null)]);
+    expect(events.where((e) => e.$1 == 'send_recipient_picked').single.$2,
+        containsPair('kind', 'link'));
+    expect(find.byType(UsdWithdrawScreen), findsNothing);
+    await _unmount(tester);
+  });
+
+  testWidgets(
+      'Send a prediction opens the market search; a link '
+      'created closes the sheet', (tester) async {
     linkResult = true;
     await _pump(tester);
     await tester.tap(find.byKey(_pickRow));

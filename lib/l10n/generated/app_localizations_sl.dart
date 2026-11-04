@@ -5812,6 +5812,40 @@ class AppLocalizationsSl extends AppLocalizations {
   String get hlAdvancedChart => 'Napredni graf';
 
   @override
+  String get optionAdvancedChartSub => 'Risbe in indikatorji';
+
+  @override
+  String get optionAboutMarketSub => 'Statistika in knjiga naročil';
+
+  @override
+  String get optionAddMarginSub => 'Dlje od likvidacije';
+
+  @override
+  String get optionPositionDetailsSub => 'Velikost, vstop in financiranje';
+
+  @override
+  String optionEndsOn(String date) {
+    return 'Konec $date';
+  }
+
+  @override
+  String optionEndedOn(String date) {
+    return 'Končano $date';
+  }
+
+  @override
+  String get optionHowItResolves => 'Kako se razreši';
+
+  @override
+  String get optionViewMarketSub => 'Graf in verjetnosti';
+
+  @override
+  String get optionPredictionDetailsSub => 'Deleži in plačana cena';
+
+  @override
+  String get optionProtectSellSub => 'Prodaj po svoji ceni';
+
+  @override
   String get chartStyleCandles => 'Sveče';
 
   @override
@@ -11420,7 +11454,7 @@ class AppLocalizationsSl extends AppLocalizations {
   String get barShareWithFriends => 'Pošlji prijatelju';
 
   @override
-  String get barShareMarketSub => 'Pošljite trg ali svojo napoved';
+  String get barShareMarketSub => 'Pošljite trg ali napoved';
 
   @override
   String get barSharePositionSub => 'Pošljite trg ali svojo pozicijo';
@@ -11429,7 +11463,7 @@ class AppLocalizationsSl extends AppLocalizations {
   String get shareTheMarket => 'Pošlji trg';
 
   @override
-  String get shareTheMarketSub => 'Povezava, ki jo lahko odprejo, z vašo kodo';
+  String get shareTheMarketSub => 'Prejmejo povezavo, da si ga ogledajo';
 
   @override
   String get shareThisPosition => 'Pošlji to pozicijo';
@@ -11837,12 +11871,6 @@ class AppLocalizationsSl extends AppLocalizations {
   }
 
   @override
-  String get usdSendPickRow => 'A stock or prediction';
-
-  @override
-  String get usdSendPickRowSub => 'They get your pick, ready to place';
-
-  @override
   String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
 
   @override
@@ -11878,8 +11906,7 @@ class AppLocalizationsSl extends AppLocalizations {
   String get sendPickMarket => 'Pošlji napoved ali naložbo';
 
   @override
-  String get sendPickMarketSub =>
-      'Izberite trg, prejmejo ga pripravljenega za oddajo';
+  String get sendPickMarketSub => 'Poiščite trg, nato izberite stran';
 
   @override
   String get sendPickMarketSearchHint => 'Iskanje napovedi in investiranja';
@@ -11888,10 +11915,7 @@ class AppLocalizationsSl extends AppLocalizations {
   String get sendPickMarketNoResults => 'Ni zadetkov';
 
   @override
-  String get sendPickSideTitle => 'Katera stran?';
-
-  @override
-  String get sendPickSideSub => 'Kar prejmejo, pripravljeno za oddajo';
+  String get sendPickSideSub => 'Izberite stran, ki jo prejmejo';
 
   @override
   String get shareSendAgainWhatsApp => 'Pošlji znova prek WhatsAppa';
@@ -12410,4 +12434,31 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get predictBelowTarget => 'below target';
+
+  @override
+  String get sendAPrediction => 'Pošlji napoved';
+
+  @override
+  String get sendAnInvestment => 'Pošlji naložbo';
+
+  @override
+  String get sendAPredictionSub => 'Prejmejo napoved, ki jo izberete';
+
+  @override
+  String get sendAnInvestmentSub => 'Prejmejo naložbo, ki jo izberete';
+
+  @override
+  String get sendPickOutcomeSub => 'Izberite izid, ki ga prejmejo';
+
+  @override
+  String get sendPickAmountSub => 'Koliko prejmejo?';
+
+  @override
+  String get sendToAFriendLabel => 'Prijatelju';
+
+  @override
+  String get sendToCryptoAddress => 'Na kripto naslov';
+
+  @override
+  String get sendPickRowSub => 'Ali naložbo. Poiščite trg, izberite stran';
 }

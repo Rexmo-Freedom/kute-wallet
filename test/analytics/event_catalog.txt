@@ -138,6 +138,7 @@ crypto_window_changed
 custom_electrum_node_saved
 deep_link_opened
 deposit_claim_waiting_shown
+deposit_early_claim_unavailable
 deposit_quick_claim_failed
 deposit_quick_claim_started
 deposit_quick_claim_succeeded
@@ -609,6 +610,8 @@ send_flow_started
 send_invoice_fastpath
 send_max_tapped
 send_pick_market_opened
+send_pick_market_picked
+send_pick_side_picked
 send_recipient_picked
 send_review_shown
 send_route_details_opened
@@ -655,6 +658,7 @@ shell_wallet_tab_selected
 slip_top_up_opened
 slip_top_up_returned
 spark_connect_latency
+spark_deposit_address_sdk_changed
 spark_deposit_auto_claimed
 spark_deposit_claim_failed
 spark_deposit_claim_fee_confirmed

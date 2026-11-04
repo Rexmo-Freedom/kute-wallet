@@ -274,6 +274,40 @@ void main() {
   });
 
   testWidgets(
+      'To a friend (founder, 4 November 2026: the friend options must be '
+      'clear): "Send to anyone" between the Send to card and the Contacts '
+      'opens Send to anyone for bitcoin with no contact; a resolved '
+      'recipient hides it', (tester) async {
+    await _pump(tester);
+    const friend = ValueKey('send-friend-card');
+    const anyone = ValueKey('send-to-anyone-row');
+    expect(find.byKey(friend), findsOneWidget);
+    expect(find.text(_l10n.sendToAFriendLabel), findsOneWidget);
+    expect(_text(_l10n.shareSendToAnyone), findsOneWidget);
+    expect(_text(_l10n.shareSendToAnyoneSubtitle), findsOneWidget);
+    double top(Finder f) => tester.getTopLeft(f).dy;
+    expect(top(find.text(_l10n.sendToLabel)), lessThan(top(find.byKey(friend))));
+    expect(top(find.byKey(friend)), lessThan(top(find.byKey(ask))));
+
+    await tester.tap(find.byKey(anyone));
+    await tester.pumpAndSettle();
+    expect(find.byType(SendToAnyoneSheet), findsOneWidget);
+    expect(_paramsOf('send_recipient_picked').single,
+        containsPair('kind', 'link'));
+    final sheet =
+        tester.widget<SendToAnyoneSheet>(find.byType(SendToAnyoneSheet));
+    expect(sheet.kind.name, 'bitcoin');
+    expect(sheet.senderLabel, isNull);
+    expect(sheet.recipientPhone, isNull);
+    Navigator.of(tester.element(find.byType(SendToAnyoneSheet))).pop();
+    await tester.pumpAndSettle();
+
+    // A Lightning address resolves: the recipient card is the choice.
+    await type(tester, 'rita@paykute.com');
+    expect(find.byKey(friend), findsNothing);
+  });
+
+  testWidgets(
       '"See your contacts" prompts on tap only; granted, the book is the '
       'list, plain contacts with no badge', (tester) async {
     await _pump(tester);

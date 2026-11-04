@@ -271,10 +271,11 @@ Future<void> showKuteSearch(
   // place and draws the pill transparent (kute_shell_bar.dart reads
   // kuteSearchMorphing / kuteSearchSheetOpen), so the pill's return lands
   // exactly where it rests; a hidden context would slide the bar down and
-  // back and miss the landing. A context placed in the page's header
-  // travels from KuteSalHeaderButton instead and the bar's pill is away
-  // already, so the hidden context goes up as for any sheet (or the bar
-  // would rise behind the tall sheet with the default pill).
+  // back and miss the landing. A context placed in the page's header (the
+  // Investing position's) has no pill of its own, so the hidden context
+  // goes up as for any sheet (or the bar would rise behind the tall sheet
+  // with the default pill); when its round Sal button in the bar is the
+  // one travelling, the bar holds its place regardless.
   const hiddenBar = KuteBarContext.hidden();
   final overlay =
       morph == null ? null : Navigator.of(context, rootNavigator: true).overlay;
@@ -2155,9 +2156,18 @@ const double kContextCardVisualSlot = 56;
 /// a card that sends a pick), the title (16, w600), two lines under it
 /// (13, textSecondary) and, at the foot, what is sent (13, w600,
 /// textPrimary): the market's name for the link, the pick ("Gen.G · 47%")
-/// for the pick. The press spring; a tap runs the action and the sheet
-/// closes. Always the market's own artwork or Sal: never a generic arrow
+/// for the pick. The press spring; a tap closes the sheet, then runs the
+/// action. Always the market's own artwork or Sal: never a generic arrow
 /// in a tinted circle.
+///
+/// CLOSE FIRST, THEN ACT (founder, 4 November 2026: "Card on search share
+/// not working. I click and nothing happens"). The card used to run the
+/// action and then `maybePop` the sheet. `maybePop` is asynchronous: the
+/// market rows open their sheet one microtask later (kute_share_actions
+/// .dart), that sheet landed on top before the pop resolved, and the pop
+/// gave up ("something happened to our history"): the Sal sheet stayed
+/// open under the new sheet, and closing that one landed back on it. The
+/// sheet is now popped synchronously and the action runs after.
 KuteActionCard _contextActionCard(
     BuildContext context, KuteBarAction a, KuteBarPreview p) {
   final c = context.colors;
@@ -2218,8 +2228,9 @@ KuteActionCard _contextActionCard(
     footer: sent,
     footerKey: ValueKey('context-action-sent-${a.label}'),
     onTap: () {
+      final navigator = Navigator.of(context);
+      if (navigator.canPop()) navigator.pop();
       a.onTap(context);
-      Navigator.of(context).maybePop();
     },
   );
 }

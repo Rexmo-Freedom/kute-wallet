@@ -21,6 +21,7 @@ import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/screens/polymarket/components/market_chart.dart';
 import 'package:kute/screens/polymarket/components/poly_chart_tags.dart';
 import 'package:kute/screens/shared/charts/kute_chart_core.dart';
+import 'package:kute/screens/shared/charts/kute_chart_time_axis.dart';
 import 'package:kute/theme/app_theme.dart';
 
 const _hour = 3600000;
@@ -131,7 +132,7 @@ Future<void> _pump(WidgetTester tester, List<_Line> lines,
                     livePrice: lines[i].to,
                   ),
               ],
-              height: polyChartHeightFor(lines.length),
+              height: kKuteMarketChartHeight + kKuteTimeAxisHeight,
             ),
           ),
         ),

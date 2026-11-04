@@ -16,6 +16,12 @@ const List<String> kLedgerVenueBadgeAssets = [
 
 class AddWalletState {
   final List<WalletDeviceConfig> hotWallets;
+
+  /// Every hardware vendor the app knows, QR, SD-card and xpub signers
+  /// included. It stays whole: a wallet already added from a Keystone,
+  /// Passport, SeedSigner, Krux or "Other wallet" still reads its signing
+  /// methods here, and the scanner still labels a scanned xpub with it.
+  /// Add wallet offers only [bluetoothWallets].
   final List<WalletDeviceConfig> coldWallets;
   final List<WalletDeviceConfig> trackingWallets;
   final String? selectedWalletType;
@@ -28,6 +34,14 @@ class AddWalletState {
     this.selectedWalletType,
     this.selectedWalletConfigId,
   });
+
+  /// The hardware wallets Add wallet offers: only the ones the app pairs
+  /// with natively over Bluetooth, Ledger (Nano X, Stax, Flex) and
+  /// Blockstream Jade (founder, 4 November 2026: "only those with native
+  /// Bluetooth show up"). QR, SD-card and USB-only signers and the "Other
+  /// wallet" xpub import are not offered there.
+  List<WalletDeviceConfig> get bluetoothWallets =>
+      [for (final c in coldWallets) if (c.isBluetooth) c];
 
   AddWalletState copyWith({
     List<WalletDeviceConfig>? hotWallets,
@@ -197,7 +211,7 @@ class AddWalletNotifier extends StateNotifier<AddWalletState> {
         importTitle: 'Import Wallet',
         icon: Icons.account_balance_wallet_rounded,
         // Monochrome outline mark — Colors.white flags the
-        // textPrimary tint path (see _DeviceTile / WalletIcon).
+        // textPrimary tint path (see _OptionMark / WalletIcon).
         color: Colors.white,
         svgAsset: 'lib/assets/generic-wallet-logo.svg',
         primaryActionLabel: 'Scan QR Code',

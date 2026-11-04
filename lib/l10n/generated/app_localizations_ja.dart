@@ -5582,6 +5582,40 @@ class AppLocalizationsJa extends AppLocalizations {
   String get hlAdvancedChart => '高度なチャート';
 
   @override
+  String get optionAdvancedChartSub => '描画とインジケーター';
+
+  @override
+  String get optionAboutMarketSub => '統計と板情報';
+
+  @override
+  String get optionAddMarginSub => '清算価格から遠ざける';
+
+  @override
+  String get optionPositionDetailsSub => 'サイズ・エントリー・ファンディング';
+
+  @override
+  String optionEndsOn(String date) {
+    return '$dateに終了';
+  }
+
+  @override
+  String optionEndedOn(String date) {
+    return '$dateに終了済み';
+  }
+
+  @override
+  String get optionHowItResolves => '確定の仕組み';
+
+  @override
+  String get optionViewMarketSub => 'チャートと確率';
+
+  @override
+  String get optionPredictionDetailsSub => 'シェアと購入価格';
+
+  @override
+  String get optionProtectSellSub => '指定価格で売却';
+
+  @override
   String get chartStyleCandles => 'ローソク足';
 
   @override
@@ -10974,7 +11008,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get shareTheMarket => 'マーケットを送る';
 
   @override
-  String get shareTheMarketSub => 'あなたのコード付きで開けるリンク';
+  String get shareTheMarketSub => '見るためのリンクが届きます';
 
   @override
   String get shareThisPosition => 'このポジションを送る';
@@ -11375,12 +11409,6 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get usdSendPickRow => 'A stock or prediction';
-
-  @override
-  String get usdSendPickRowSub => 'They get your pick, ready to place';
-
-  @override
   String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
 
   @override
@@ -11416,7 +11444,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get sendPickMarket => '予測または投資を送る';
 
   @override
-  String get sendPickMarketSub => 'マーケットを選ぶと、すぐ注文できる状態で届きます';
+  String get sendPickMarketSub => 'マーケットを検索して、サイドを選びます';
 
   @override
   String get sendPickMarketSearchHint => '予測と投資を検索';
@@ -11425,10 +11453,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get sendPickMarketNoResults => '該当なし';
 
   @override
-  String get sendPickSideTitle => 'どちら側？';
-
-  @override
-  String get sendPickSideSub => '相手に届く内容（すぐ注文可能）';
+  String get sendPickSideSub => '相手に送るサイドを選んでください';
 
   @override
   String get shareSendAgainWhatsApp => 'WhatsAppで再送';
@@ -11947,4 +11972,31 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get predictBelowTarget => 'below target';
+
+  @override
+  String get sendAPrediction => '予測を送る';
+
+  @override
+  String get sendAnInvestment => '投資を送る';
+
+  @override
+  String get sendAPredictionSub => 'あなたが選んだ予測が届きます';
+
+  @override
+  String get sendAnInvestmentSub => 'あなたが選んだ投資が届きます';
+
+  @override
+  String get sendPickOutcomeSub => '相手に送る結果を選んでください';
+
+  @override
+  String get sendPickAmountSub => 'いくら送りますか？';
+
+  @override
+  String get sendToAFriendLabel => '友達へ';
+
+  @override
+  String get sendToCryptoAddress => '暗号資産アドレスへ';
+
+  @override
+  String get sendPickRowSub => '投資も可。マーケットを検索してサイドを選択';
 }

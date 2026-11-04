@@ -5849,6 +5849,40 @@ class AppLocalizationsEl extends AppLocalizations {
   String get hlAdvancedChart => 'Προηγμένο γράφημα';
 
   @override
+  String get optionAdvancedChartSub => 'Σχέδια και δείκτες';
+
+  @override
+  String get optionAboutMarketSub => 'Στατιστικά και βιβλίο εντολών';
+
+  @override
+  String get optionAddMarginSub => 'Πιο μακριά από τη ρευστοποίηση';
+
+  @override
+  String get optionPositionDetailsSub => 'Μέγεθος, είσοδος και funding';
+
+  @override
+  String optionEndsOn(String date) {
+    return 'Λήγει $date';
+  }
+
+  @override
+  String optionEndedOn(String date) {
+    return 'Έληξε $date';
+  }
+
+  @override
+  String get optionHowItResolves => 'Πώς επιλύεται';
+
+  @override
+  String get optionViewMarketSub => 'Γράφημα και πιθανότητες';
+
+  @override
+  String get optionPredictionDetailsSub => 'Μερίδια και τιμή αγοράς';
+
+  @override
+  String get optionProtectSellSub => 'Πώληση στην τιμή σου';
+
+  @override
   String get chartStyleCandles => 'Κεριά';
 
   @override
@@ -11458,7 +11492,7 @@ class AppLocalizationsEl extends AppLocalizations {
   String get barShareWithFriends => 'Αποστολή σε φίλο';
 
   @override
-  String get barShareMarketSub => 'Στείλε την αγορά ή την πρόβλεψή σου';
+  String get barShareMarketSub => 'Στείλε την αγορά ή μια πρόβλεψη';
 
   @override
   String get barSharePositionSub => 'Στείλε την αγορά ή τη θέση σου';
@@ -11467,8 +11501,7 @@ class AppLocalizationsEl extends AppLocalizations {
   String get shareTheMarket => 'Αποστολή της αγοράς';
 
   @override
-  String get shareTheMarketSub =>
-      'Ένας σύνδεσμος που μπορούν να ανοίξουν, με τον κωδικό σου';
+  String get shareTheMarketSub => 'Λαμβάνουν έναν σύνδεσμο για να τη δουν';
 
   @override
   String get shareThisPosition => 'Αποστολή αυτής της θέσης';
@@ -11880,12 +11913,6 @@ class AppLocalizationsEl extends AppLocalizations {
   }
 
   @override
-  String get usdSendPickRow => 'A stock or prediction';
-
-  @override
-  String get usdSendPickRowSub => 'They get your pick, ready to place';
-
-  @override
   String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
 
   @override
@@ -11921,8 +11948,7 @@ class AppLocalizationsEl extends AppLocalizations {
   String get sendPickMarket => 'Στείλε μια πρόβλεψη ή επένδυση';
 
   @override
-  String get sendPickMarketSub =>
-      'Διάλεξε αγορά, τη λαμβάνουν έτοιμη για καταχώριση';
+  String get sendPickMarketSub => 'Αναζήτησε μια αγορά και διάλεξε πλευρά';
 
   @override
   String get sendPickMarketSearchHint =>
@@ -11932,10 +11958,7 @@ class AppLocalizationsEl extends AppLocalizations {
   String get sendPickMarketNoResults => 'Δεν βρέθηκε τίποτα';
 
   @override
-  String get sendPickSideTitle => 'Ποια πλευρά;';
-
-  @override
-  String get sendPickSideSub => 'Τι λαμβάνουν, έτοιμο για καταχώριση';
+  String get sendPickSideSub => 'Διάλεξε την πλευρά που θα λάβουν';
 
   @override
   String get shareSendAgainWhatsApp => 'Στείλε ξανά μέσω WhatsApp';
@@ -12456,4 +12479,31 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get predictBelowTarget => 'below target';
+
+  @override
+  String get sendAPrediction => 'Στείλε μια πρόβλεψη';
+
+  @override
+  String get sendAnInvestment => 'Στείλε μια επένδυση';
+
+  @override
+  String get sendAPredictionSub => 'Λαμβάνουν την πρόβλεψη που διαλέγεις';
+
+  @override
+  String get sendAnInvestmentSub => 'Λαμβάνουν την επένδυση που διαλέγεις';
+
+  @override
+  String get sendPickOutcomeSub => 'Διάλεξε το αποτέλεσμα που θα λάβουν';
+
+  @override
+  String get sendPickAmountSub => 'Πόσα λαμβάνουν;';
+
+  @override
+  String get sendToAFriendLabel => 'Σε φίλο';
+
+  @override
+  String get sendToCryptoAddress => 'Σε διεύθυνση κρυπτονομισμάτων';
+
+  @override
+  String get sendPickRowSub => 'Ή μια επένδυση. Βρες αγορά, διάλεξε πλευρά';
 }
