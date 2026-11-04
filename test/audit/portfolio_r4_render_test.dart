@@ -280,7 +280,6 @@ Future<void> _mount(WidgetTester tester,
                     color: Colors.transparent,
                     child: Consumer(
                       builder: (context, ref, _) => InvestmentsPortfolio(
-                        sharesHeader: true,
                         onSection: (s) => ref
                             .read(portfolioSectionProvider.notifier)
                             .state = s,

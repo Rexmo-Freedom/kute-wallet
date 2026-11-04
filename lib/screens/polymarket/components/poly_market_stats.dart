@@ -142,11 +142,7 @@ class PolyRulesSheet extends StatelessWidget {
         children: [
           AppBottomSheetHeader(
             title: l10n.polyRulesAndResolution,
-            trailing: IconButton(
-              tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-              onPressed: () => Navigator.of(context).pop(),
-              icon: const Icon(Icons.close_rounded),
-            ),
+            trailing: const AppBottomSheetCloseButton(),
           ),
           Flexible(
             child: SingleChildScrollView(
@@ -196,6 +192,8 @@ class PolyRulesSheet extends StatelessWidget {
                     heading(l10n.predictNewsTab),
                     PolyMarketComments(eventId: eventId),
                   ],
+                  // The last rows scroll clear of the floating bar.
+                  const KuteSheetBarSpace(),
                 ],
               ),
             ),

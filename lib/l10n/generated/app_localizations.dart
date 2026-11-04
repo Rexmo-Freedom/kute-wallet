@@ -18987,16 +18987,16 @@ abstract class AppLocalizations {
   /// **'To move it, contact Support.'**
   String get cctpRefundContactSupport;
 
-  /// No description provided for @portfolioSectionPnlCharts.
+  /// Portfolio screen: the last pill of the Activity | Positions | P&L switch, for each venue's profit and loss, the all-time stats and the resting orders (the chart is the screen's hero). Was "P&L Charts" until the overhaul of 4 November 2026.
   ///
   /// In en, this message translates to:
-  /// **'P&L Charts'**
+  /// **'P&L'**
   String get portfolioSectionPnlCharts;
 
-  /// Investments, Portfolio pill: the small pill (beside P&L charts and Activity) for the section with Available to invest, the Move money button and the Predictions and Investing positions. Reads the same as the Portfolio pill above it (founder, October 2026); was "Balances".
+  /// Portfolio screen: the middle pill of the Activity | Positions | P&L switch, for the open positions (the biggest as squares, the rest under their venue). Was "Portfolio" until the screen's overhaul of 4 November 2026; the key keeps its old name.
   ///
   /// In en, this message translates to:
-  /// **'Portfolio'**
+  /// **'Positions'**
   String get portfolioSectionBalances;
 
   /// Balance chart (Bitcoin home, Dollars), header above the line for the 1W range: {change} is the signed amount, e.g. '+₿6,938' or '−$12.30', optionally followed by a small percent.

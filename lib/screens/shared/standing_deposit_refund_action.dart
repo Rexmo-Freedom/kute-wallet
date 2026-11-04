@@ -7,6 +7,7 @@ import 'package:kute/helpers/require_fresh_auth.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
+import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/services/api/orchestra_api.dart';
@@ -105,9 +106,8 @@ class _StandingDepositRefundActionState
                                     style: const TextStyle(
                                         fontSize: 24,
                                         fontWeight: FontWeight.w700))),
-                            IconButton(
-                                onPressed: () => Navigator.pop(ctx),
-                                icon: const Icon(Icons.close))
+                            KuteCloseButton(
+                                onPressed: () => Navigator.pop(ctx))
                           ]),
                           const SizedBox(height: 16),
                           Text('${orchestraChainDisplayName(chain)} · $asset'),

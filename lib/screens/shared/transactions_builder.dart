@@ -2687,22 +2687,37 @@ void _showPendingUnclaimedSheet(
               if (tx.stage == SparkDepositStage.confirming) ...[
                 SizedBox(height: 16.h),
                 DepositSheetNote(context.l10n.depositAutoAfterConfirmations),
+                // Claim now, when offered, is the bar; View on blockchain
+                // the bar until then, a text button above it after.
                 DepositEarlyClaim(
-                    txid: txid,
-                    vout: tx.vout,
-                    amountSats: tx.amount.toInt()),
+                  txid: txid,
+                  vout: tx.vout,
+                  amountSats: tx.amount.toInt(),
+                  otherLabel: txid.isEmpty
+                      ? null
+                      : context.l10n.activityViewOnBlockchain,
+                  onOther: txid.isEmpty
+                      ? null
+                      : () {
+                          ctx.pop();
+                          _openExplorer(
+                              Uri.parse('https://mempool.space/tx/$txid'));
+                        },
+                ),
+              ] else ...[
+                SizedBox(height: 8.h),
+                if (txid.isNotEmpty)
+                  ReceiptBarAction(
+                    label: context.l10n.activityViewOnBlockchain,
+                    onPrimary: () {
+                      ctx.pop();
+                      _openExplorer(
+                          Uri.parse('https://mempool.space/tx/$txid'));
+                    },
+                  )
+                else
+                  const ReceiptBarAction.none(),
               ],
-              SizedBox(height: 8.h),
-              if (txid.isNotEmpty)
-                ReceiptBarAction(
-                  label: context.l10n.activityViewOnBlockchain,
-                  onPrimary: () {
-                    ctx.pop();
-                    _openExplorer(Uri.parse('https://mempool.space/tx/$txid'));
-                  },
-                )
-              else
-                const ReceiptBarAction.none(),
             ],
           ),
         ),
@@ -2938,17 +2953,27 @@ void _showSparkPendingDepositDetails(
               // confirmations. Claim now is the optional, costlier one, and
               // shows only when the provider quotes an early claim.
               // Already being added: nothing to wait for or claim.
+              // Claim now, when offered, is the bar; View on blockchain
+              // the bar until then, a text button above it after.
               if (tx.confirmations < 3 && !tx.claimInProgress) ...[
                 DepositSheetNote(context.l10n.depositAutoAfterConfirmations),
-                DepositEarlyClaim(txid: txid, amountSats: amountSats),
-              ],
-              ReceiptBarAction(
-                label: context.l10n.activityViewOnBlockchain,
-                onPrimary: () {
-                  context.pop();
-                  _openExplorer(Uri.parse('https://mempool.space/tx/$txid'));
-                },
-              ),
+                DepositEarlyClaim(
+                  txid: txid,
+                  amountSats: amountSats,
+                  otherLabel: context.l10n.activityViewOnBlockchain,
+                  onOther: () {
+                    context.pop();
+                    _openExplorer(Uri.parse('https://mempool.space/tx/$txid'));
+                  },
+                ),
+              ] else
+                ReceiptBarAction(
+                  label: context.l10n.activityViewOnBlockchain,
+                  onPrimary: () {
+                    context.pop();
+                    _openExplorer(Uri.parse('https://mempool.space/tx/$txid'));
+                  },
+                ),
             ],
           ),
         ),

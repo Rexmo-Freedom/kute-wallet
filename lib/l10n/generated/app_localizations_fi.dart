@@ -11292,10 +11292,10 @@ class AppLocalizationsFi extends AppLocalizations {
       'Siirtääksesi sen ota yhteyttä tukeen.';
 
   @override
-  String get portfolioSectionPnlCharts => 'P&L-kaaviot';
+  String get portfolioSectionPnlCharts => 'P&L';
 
   @override
-  String get portfolioSectionBalances => 'Salkku';
+  String get portfolioSectionBalances => 'Positiot';
 
   @override
   String balanceChangePastWeek(String change) {

@@ -11293,10 +11293,10 @@ class AppLocalizationsSk extends AppLocalizations {
       'Ak ich chceš presunúť, kontaktuj podporu.';
 
   @override
-  String get portfolioSectionPnlCharts => 'Grafy P&L';
+  String get portfolioSectionPnlCharts => 'P&L';
 
   @override
-  String get portfolioSectionBalances => 'Portfólio';
+  String get portfolioSectionBalances => 'Pozície';
 
   @override
   String balanceChangePastWeek(String change) {

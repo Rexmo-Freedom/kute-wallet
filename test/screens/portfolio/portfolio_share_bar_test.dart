@@ -1,15 +1,17 @@
 // The Portfolio screen's bar shares what the section shows (founder, 2
 // November 2026: "On share and brag portfolio we should say share
 // portfolio on the bottom. PnL should say [something else]"): "Share
-// portfolio" on Portfolio, "Share P&L" on P&L Charts, the label morphing
-// on a switch like every bar label; "Share P&L" opens the P&L card for
-// the range picked on the chart, and `brag_shared` says which card and
-// which range.
+// portfolio" on Activity and Positions, "Share P&L" on P&L, the label
+// morphing on a switch like every bar label; "Share P&L" opens the P&L
+// card for the range picked on the hero's chart, and `brag_shared` says
+// which card and which range.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kute/providers/currency_conversions_provider.dart'
+    show currentBtcUsdProvider;
 import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/models/balance_history.dart';
 import 'package:kute/models/hyperliquid_market.dart';
@@ -31,7 +33,6 @@ import 'package:kute/screens/portfolio/portfolio_screen.dart';
 import 'package:kute/screens/share/brag/brag_preview_sheet.dart';
 import 'package:kute/screens/share/brag/pnl_share_card.dart';
 import 'package:kute/screens/shared/kute_morph_label.dart';
-import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -97,6 +98,8 @@ Future<void> _mount(WidgetTester tester, {required List<Override> extra}) async 
   await tester.pumpWidget(ProviderScope(
     overrides: [
       ...portfolioOverrides(),
+      // The Investments activity reads the price (no rates box here).
+      currentBtcUsdProvider.overrideWithValue(100000),
       hyperliquidLiveMidProvider('BTC').overrideWith((_) => null),
       hyperliquidAccountMarketProvider('BTC').overrideWith((_) => null),
       hyperliquidPerpMarketsProvider.overrideWith((_) async => <HlMarket>[]),
@@ -164,8 +167,8 @@ void main() {
   });
 
   testWidgets(
-      'the bar says "Share portfolio" on Portfolio and "Share P&L" on P&L '
-      'Charts, the words morphing on the switch, the same button',
+      'the bar says "Share portfolio" on Positions and Activity and "Share '
+      'P&L" on P&L, the words morphing on the switch, the same button',
       (tester) async {
     await _mount(tester, extra: _history());
     expect(kuteBarPrimaryWithText('Share portfolio'), findsOneWidget);
@@ -189,24 +192,30 @@ void main() {
     await _pick(tester, PortfolioSection.balances);
     await _settle(tester);
     expect(kuteBarPrimaryWithText('Share portfolio'), findsOneWidget);
+    await _pick(tester, PortfolioSection.activity);
+    await _settle(tester);
+    expect(kuteBarPrimaryWithText('Share portfolio'), findsOneWidget);
+    expect(kuteBarPrimaryWithText('Share P&L'), findsNothing);
     await _unmount(tester);
   });
 
-  testWidgets('nothing ever traded: the default bar on both sections',
+  testWidgets('nothing ever traded: the default bar on every section',
       (tester) async {
     await _mount(tester, extra: _none());
     expect(kuteBarPrimary, findsNothing);
-    await _pick(tester, PortfolioSection.charts);
-    await _settle(tester);
-    expect(kuteBarPrimary, findsNothing);
+    for (final s in [PortfolioSection.charts, PortfolioSection.activity]) {
+      await _pick(tester, s);
+      await _settle(tester);
+      expect(kuteBarPrimary, findsNothing, reason: '$s');
+    }
     expect(find.text('Share P&L'), findsNothing);
     await _unmount(tester);
   });
 
   testWidgets(
-      '"Share P&L" opens the P&L card for the range picked (1Y): the '
-      'chart\'s figure, the range, its line; Share sends card pnl and the '
-      'range', (tester) async {
+      '"Share P&L" opens the P&L card for the range picked on the hero '
+      '(1Y): the hero\'s P&L, the range, its line; Share sends card pnl and '
+      'the range', (tester) async {
     BragPreviewSheet.debugLineSeed = 0;
     final sent = <String>[];
     BragPreviewSheet.debugSharer = (_, text) async => sent.add(text);
@@ -215,17 +224,20 @@ void main() {
     await _settle(tester);
     await tester.tap(find.text('1Y'));
     await _settle(tester);
+    // The hero's P&L over the year ("▲ $12.40 · Past year").
     final headline = tester
-        .widget<RollingNumberText>(
-            find.byKey(const ValueKey('statistics-pnl-headline')))
-        .text;
+        .widget<Text>(find.byKey(const ValueKey('portfolio-hero-change')))
+        .textSpan!
+        .toPlainText()
+        .split(' · ')
+        .first;
 
     await tester.tap(kuteBarPrimary);
     await _settle(tester);
     final card = tester.widget<PnlShareCard>(find.byType(PnlShareCard));
     expect(card.data.range, BalanceRange.year);
     expect(card.data.venue, isNull);
-    // The card's figure is the chart's, the range its pill's.
+    // The card's figure is the hero's, the range its pill's.
     expect(card.data.result!.text.replaceAll(RegExp(r'[^\d.,]'), ''),
         headline.replaceAll(RegExp(r'[^\d.,]'), ''));
     Finder onCard(Finder f) =>

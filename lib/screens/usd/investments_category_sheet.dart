@@ -196,6 +196,7 @@ String? investmentsCategoryShortLabel(
 
 String portfolioSectionLabel(AppLocalizations l10n, PortfolioSection s) =>
     switch (s) {
+      PortfolioSection.activity => l10n.activity,
       PortfolioSection.charts => l10n.portfolioSectionPnlCharts,
       PortfolioSection.balances => l10n.portfolioSectionBalances,
     };
@@ -347,6 +348,7 @@ Color _polyTint(AppColorsExtension c, PolyPill p) => switch (p) {
 String _polyIconAsset(PolyPill p) => 'lib/assets/polymarket_tags/${p.key}.svg';
 
 IconData _portfolioIcon(PortfolioSection s) => switch (s) {
+      PortfolioSection.activity => Icons.receipt_long_rounded,
       PortfolioSection.balances => Icons.pie_chart_rounded,
       PortfolioSection.charts => Icons.show_chart_rounded,
     };

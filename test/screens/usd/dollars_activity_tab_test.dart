@@ -18,7 +18,7 @@ import 'package:kute/providers/portfolio_performance_provider.dart';
 import 'package:kute/screens/portfolio/components/balances_overview.dart'
     show BalancesVenueList;
 import 'package:kute/screens/portfolio/components/position_rows.dart'
-    show HlPositionRow, PortfolioSlice;
+    show HlPositionRow;
 import 'package:kute/screens/shared/kute_bar_context.dart'
     show kuteBarContextProvider, kuteBarTop;
 import 'package:kute/screens/shared/no_activity_state.dart';
@@ -30,9 +30,6 @@ import 'package:polybrainz_polymarket/polybrainz_polymarket.dart'
 
 import '../../helpers/portfolio_overrides.dart' show PortfolioTestTrading;
 import 'investments_harness.dart';
-
-PortfolioSlice _slice(String id, double usd) =>
-    PortfolioSlice(id: id, name: id, valueUsd: usd, color: Colors.black);
 
 HlPerpPosition _perp(String coin, double margin) => HlPerpPosition(
     coin: coin,
@@ -82,17 +79,11 @@ void main() {
 
   group('the squares', () {
     test('the biggest open positions, biggest first, four at most', () {
-      // portfolioOpenSlices hands them biggest first.
-      final slices = [
-        _slice('poly-a', 900),
-        _slice('hl-ETH', 500),
-        _slice('hl-HYPE', 300),
-        _slice('poly-b', 200),
-        _slice('hl-BTC', 100),
-      ];
-      expect(dollarsActivitySquareIds(slices),
+      // portfolioOpenRanked hands them biggest first.
+      const ranked = ['poly-a', 'hl-ETH', 'hl-HYPE', 'poly-b', 'hl-BTC'];
+      expect(dollarsActivitySquareIds(ranked),
           ['poly-a', 'hl-ETH', 'hl-HYPE', 'poly-b']);
-      expect(dollarsActivitySquareIds(slices.take(3).toList()),
+      expect(dollarsActivitySquareIds(ranked.take(3).toList()),
           ['poly-a', 'hl-ETH', 'hl-HYPE']);
       expect(dollarsActivitySquareIds(const []), isEmpty);
     });

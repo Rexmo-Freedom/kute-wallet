@@ -195,6 +195,8 @@ Future<RecordingRewardsApi> pumpInvestments(
   await tester.pumpWidget(ProviderScope(
     overrides: [
       ...portfolioOverrides(dollars: balance.dollarsUsd, history: history),
+      // The Investments activity reads the price (no rates box here).
+      currentBtcUsdProvider.overrideWithValue(100000),
       settingsProvider.overrideWith((_) => SettingsModel(settings)),
       runtimeCapabilitiesProvider.overrideWithValue(policy),
       oneBalanceProvider.overrideWithValue(balance),
@@ -213,9 +215,6 @@ Future<RecordingRewardsApi> pumpInvestments(
       polyWatchlistProvider.overrideWith(_NoPolyStars.new),
       // The shared pull-to-refresh: recorded, nothing read.
       refreshEverythingProvider.overrideWith(RecordingRefresh.new),
-      // The Activity pill's rows value Spark receives at the bitcoin
-      // price (activityReceivedUsd): a price, without the rates' Hive box.
-      currentBtcUsdProvider.overrideWithValue(100000),
       ...overrides,
     ],
     child: ScreenUtilInit(

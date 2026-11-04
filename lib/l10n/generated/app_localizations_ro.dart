@@ -11336,10 +11336,10 @@ class AppLocalizationsRo extends AppLocalizations {
   String get cctpRefundContactSupport => 'Ca să îi muți, contactează suportul.';
 
   @override
-  String get portfolioSectionPnlCharts => 'Grafice P&L';
+  String get portfolioSectionPnlCharts => 'P&L';
 
   @override
-  String get portfolioSectionBalances => 'Portofoliu';
+  String get portfolioSectionBalances => 'Poziții';
 
   @override
   String balanceChangePastWeek(String change) {

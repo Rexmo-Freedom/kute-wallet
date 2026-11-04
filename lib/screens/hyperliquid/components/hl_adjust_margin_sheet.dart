@@ -50,6 +50,7 @@
 // addresses.
 
 import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
+import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -1138,16 +1139,11 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
                             ],
                           ),
                         ),
-                        IconButton(
-                          tooltip: MaterialLocalizations.of(context)
-                              .closeButtonTooltip,
-                          // A funded change on its way keeps going when
-                          // the ticket closes.
-                          onPressed: _busy
-                              ? null
-                              : () => Navigator.of(context).maybePop(),
-                          icon: Icon(Icons.close_rounded,
-                              color: c.textPrimary, size: 22.sp),
+                        // A funded change on its way keeps going when
+                        // the ticket closes.
+                        KuteCloseButton(
+                          enabled: !_busy,
+                          onPressed: () => Navigator.of(context).maybePop(),
                         ),
                       ],
                     ),

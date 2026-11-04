@@ -10,8 +10,8 @@
 // (position_rows.dart), nothing new:
 //
 //   * OPEN POSITIONS: the biggest open positions at both venues together,
-//     biggest first ([dollarsActivitySquareIds], the Portfolio ring's
-//     slices, portfolioOpenSlices), at most [kDollarsActivitySquares], as
+//     biggest first ([dollarsActivitySquareIds], the Portfolio's own
+//     ranking, portfolioOpenRanked), at most [kDollarsActivitySquares], as
 //     the Portfolio's squares (PortfolioRowLayout.square: the logo, the P&L
 //     % in colour, the name and the value large), two by two in the home's
 //     "Latest" grid (ActivitySquareGrid); one position alone is one
@@ -62,15 +62,11 @@ import 'package:kute/screens/portfolio/components/balances_overview.dart'
 import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart'
     show pnlChartRangeProvider, pnlRangeChange, pnlResultColor;
 import 'package:kute/screens/portfolio/components/position_rows.dart'
-    show
-        PortfolioRowLayout,
-        PortfolioRowLayoutScope,
-        PortfolioSlice,
-        portfolioSquareHeight;
+    show PortfolioRowLayout, PortfolioRowLayoutScope, portfolioSquareHeight;
 import 'package:kute/screens/portfolio/investments_portfolio.dart'
     show PortfolioSection;
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
-    show portfolioOpenSlices, portfolioVenueLists;
+    show portfolioOpenRanked, portfolioVenueLists;
 import 'package:kute/screens/portfolio/portfolio_filters.dart'
     show portfolioVenuesProvider;
 import 'package:kute/screens/shared/activity_curation.dart'
@@ -103,11 +99,10 @@ const int kDollarsActivityRows = 5;
 const double kDollarsPnlPlotHeight = 64;
 
 /// The ids of the open positions drawn as squares: the biggest first (the
-/// order of [slices], portfolioOpenSlices), at most
+/// order of [ranked], portfolioOpenRanked), at most
 /// [kDollarsActivitySquares]. Pure for the tests.
-List<String> dollarsActivitySquareIds(List<PortfolioSlice> slices) => [
-      for (final s in slices.take(kDollarsActivitySquares)) s.id,
-    ];
+List<String> dollarsActivitySquareIds(List<String> ranked) =>
+    ranked.take(kDollarsActivitySquares).toList(growable: false);
 
 /// The rows of [lists] whose keys are [ids], in [ids]' order; an id with
 /// no row (a read still catching up) is skipped, never a hole.
@@ -134,14 +129,13 @@ class DollarsActivityTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final venues = ref.watch(portfolioVenuesProvider);
-    final slices = venues.any
-        ? portfolioOpenSlices(context, ref, venues)
-        : const <PortfolioSlice>[];
+    final ranked =
+        venues.any ? portfolioOpenRanked(ref, venues) : const <String>[];
     final lists = venues.any
         ? portfolioVenueLists(context, ref, venues)
         : const <BalancesCategory, BalancesVenueList>{};
-    final squares =
-        dollarsActivitySquareRows(dollarsActivitySquareIds(slices), lists.values);
+    final squares = dollarsActivitySquareRows(
+        dollarsActivitySquareIds(ranked), lists.values);
     final loading =
         squares.isEmpty && lists.values.any((list) => list.loading);
 

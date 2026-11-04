@@ -11335,10 +11335,10 @@ class AppLocalizationsEs extends AppLocalizations {
   String get cctpRefundContactSupport => 'Para moverlo, contacta con soporte.';
 
   @override
-  String get portfolioSectionPnlCharts => 'Gráficos de P&L';
+  String get portfolioSectionPnlCharts => 'P&L';
 
   @override
-  String get portfolioSectionBalances => 'Cartera de inversión';
+  String get portfolioSectionBalances => 'Posiciones';
 
   @override
   String balanceChangePastWeek(String change) {

@@ -782,11 +782,7 @@ class _HlAboutSheet extends ConsumerWidget {
         children: [
           AppBottomSheetHeader(
             title: title,
-            trailing: IconButton(
-              tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-              onPressed: () => Navigator.of(context).pop(),
-              icon: const Icon(Icons.close_rounded),
-            ),
+            trailing: const AppBottomSheetCloseButton(),
           ),
           Flexible(
             child: SingleChildScrollView(
@@ -2061,12 +2057,7 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
           children: [
             AppBottomSheetHeader(
               title: context.l10n.chartInterval,
-              trailing: IconButton(
-                tooltip:
-                    MaterialLocalizations.of(sheetContext).closeButtonTooltip,
-                onPressed: () => Navigator.of(sheetContext).pop(),
-                icon: const Icon(Icons.close_rounded),
-              ),
+              trailing: const AppBottomSheetCloseButton(),
             ),
             Flexible(
               child: ListView(
@@ -2079,6 +2070,8 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
                       isSelected: iv.interval == current.interval,
                       onTap: () => Navigator.of(sheetContext).pop(iv),
                     ),
+                  // The last interval scrolls clear of the floating bar.
+                  const KuteSheetBarSpace(),
                 ],
               ),
             ),
