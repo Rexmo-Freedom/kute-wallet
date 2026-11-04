@@ -52,7 +52,8 @@ import 'package:kute/screens/shared/amount_keypad_panel.dart'
     show AmountKeypad, BigAmountDisplay;
 import 'package:kute/screens/shared/custom_button.dart' show AppTextButton;
 import 'package:kute/screens/shared/receive_surface.dart';
-import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
+import 'package:kute/screens/shared/kute_back_button.dart'
+    show KuteCloseButton, KuteNavGlyph, KuteNavGlyphPainter;
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show sendShortAddress;
 import 'package:kute/screens/shared/stepper/stepper_widgets.dart'
@@ -809,9 +810,15 @@ void main() {
       final close =
           find.descendant(of: sheet, matching: find.byType(KuteCloseButton));
       expect(close, findsOneWidget);
+      // The one X drawn on the sheet is that button's.
       expect(
           find.descendant(
-              of: sheet, matching: find.byIcon(Icons.close_rounded)),
+              of: sheet,
+              matching: find.byWidgetPredicate((w) =>
+                  w is CustomPaint &&
+                  w.painter is KuteNavGlyphPainter &&
+                  (w.painter as KuteNavGlyphPainter).glyph ==
+                      KuteNavGlyph.close)),
           findsOneWidget);
       expect(tester.getCenter(close).dx, lessThan(tester.getCenter(sheet).dx));
     }

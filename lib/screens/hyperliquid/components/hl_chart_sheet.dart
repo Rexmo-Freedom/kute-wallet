@@ -355,7 +355,9 @@ class _HlChartSheetState extends ConsumerState<HlChartSheet> {
             AppBottomSheetHeader(
               title: l10n.chartSheetTitle,
               compact: true,
-              trailing: const _CircleClose(key: ValueKey('hl-chart-sheet-close')),
+              // The app's one close (kute_back_button.dart).
+              trailing: const AppBottomSheetCloseButton(
+                  key: ValueKey('hl-chart-sheet-close')),
             ),
             Flexible(
               child: SingleChildScrollView(
@@ -415,43 +417,6 @@ class _SectionLabel extends StatelessWidget {
           ),
         ),
       );
-}
-
-/// The header's close, in a soft circle.
-class _CircleClose extends StatelessWidget {
-  const _CircleClose({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    return Semantics(
-      button: true,
-      label: MaterialLocalizations.of(context).closeButtonTooltip,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () {
-          HapticFeedback.selectionClick();
-          Navigator.of(context).pop();
-        },
-        child: SizedBox(
-          width: 44,
-          height: 44,
-          child: Center(
-            child: Container(
-              width: 30,
-              height: 30,
-              decoration: BoxDecoration(
-                color: c.textPrimary.withValues(alpha: 0.07),
-                shape: BoxShape.circle,
-              ),
-              child:
-                  Icon(Icons.close_rounded, size: 18, color: c.textSecondary),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 /// A square card's box, in the app's big-square language (the option
@@ -1218,7 +1183,8 @@ class _HlIndicatorSettingsSheetState
               title: l10n.chartIndSettingsTitle(
                   hlIndicatorName(l10n, widget.indicator)),
               compact: true,
-              trailing: const _CircleClose(
+              // The app's one close (kute_back_button.dart).
+              trailing: const AppBottomSheetCloseButton(
                   key: ValueKey('hl-indicator-settings-close')),
             ),
             Padding(

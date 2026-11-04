@@ -1284,16 +1284,19 @@ class _PositionDetailsSheet extends StatelessWidget {
         children: [
           AppBottomSheetHeader(
             title: context.l10n.details,
-            trailing: IconButton(
-              tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-              onPressed: () => Navigator.of(context).pop(),
-              icon: const Icon(Icons.close_rounded),
-            ),
+            trailing: const AppBottomSheetCloseButton(),
           ),
           Flexible(
             child: SingleChildScrollView(
               padding: EdgeInsets.fromLTRB(20.w, 4.h, 20.w, 24.h),
-              child: PositionRowsCard(rows: rows),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  PositionRowsCard(rows: rows),
+                  // The last rows scroll clear of the floating bar.
+                  const KuteSheetBarSpace(),
+                ],
+              ),
             ),
           ),
         ],
@@ -1319,24 +1322,27 @@ class _ClosingConditionsSheet extends StatelessWidget {
         children: [
           AppBottomSheetHeader(
             title: context.l10n.betClosingConditions,
-            trailing: IconButton(
-              tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-              onPressed: () => Navigator.of(context).pop(),
-              icon: const Icon(Icons.close_rounded),
-            ),
+            trailing: const AppBottomSheetCloseButton(),
           ),
           Flexible(
             child: SingleChildScrollView(
               padding: EdgeInsets.fromLTRB(20.w, 4.h, 20.w, 24.h),
-              child: Text(
-                description,
-                style: TextStyle(
-                  color: c.textSecondary,
-                  fontSize: 15.sp,
-                  fontWeight: FontWeight.w500,
-                  height: 1.5,
-                  letterSpacing: -0.1,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    description,
+                    style: TextStyle(
+                      color: c.textSecondary,
+                      fontSize: 15.sp,
+                      fontWeight: FontWeight.w500,
+                      height: 1.5,
+                      letterSpacing: -0.1,
+                    ),
+                  ),
+                  // The last lines scroll clear of the floating bar.
+                  const KuteSheetBarSpace(),
+                ],
               ),
             ),
           ),

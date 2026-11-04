@@ -77,6 +77,9 @@ Future<void> showAmountUnitPicker(
             onPressed: () => Navigator.of(sheetContext).pop(),
           ),
           SizedBox(height: 8.h),
+          // Cancel stays above the floating bar when the bar is over the
+          // sheet (a long list of units); nothing on a short sheet.
+          const KuteSheetBarSpace(),
         ],
       ),
     ),
