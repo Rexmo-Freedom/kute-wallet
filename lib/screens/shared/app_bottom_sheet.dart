@@ -138,6 +138,46 @@ class AppBottomSheetContainer extends StatefulWidget {
 /// Under this share of the screen a sheet is short (see the container).
 const double kuteBarShortSheetFraction = 0.6;
 
+/// The room a sheet's scroll view leaves at its end for the floating bar
+/// (founder: "we have to be able to scroll, it is paramount, so we can see
+/// and click what is under the bar"): [kuteBarScrollClearance] while the
+/// bar floats over the [AppBottomSheetContainer] around [context] (a
+/// sheet past [kuteBarShortSheetFraction]), nothing on a short sheet,
+/// where the bar is away, so a short sheet gains no empty band. Added to
+/// the end padding INSIDE the scroll view, never under it. A sheet whose
+/// own primary is the bar keeps its own clearance under that button.
+/// [context] must be inside the container (a widget the sheet builds, not
+/// the one that builds the sheet); [KuteSheetBarSpace] is that room as
+/// the scroll content's last child.
+double kuteSheetBarClearance(BuildContext context) =>
+    _KuteSheetBarRoom.barOver(context) ? kuteBarScrollClearance.h : 0;
+
+/// [kuteSheetBarClearance] as a box: the last child of a sheet's scroll
+/// content, so its last rows scroll clear of the floating bar while the
+/// bar is over the sheet, and nothing on a short sheet.
+class KuteSheetBarSpace extends StatelessWidget {
+  const KuteSheetBarSpace({super.key});
+
+  @override
+  Widget build(BuildContext context) =>
+      SizedBox(height: kuteSheetBarClearance(context));
+}
+
+/// Whether the bar floats over the enclosing sheet (see
+/// [kuteSheetBarClearance]).
+class _KuteSheetBarRoom extends InheritedWidget {
+  const _KuteSheetBarRoom({required this.over, required super.child});
+
+  final bool over;
+
+  static bool barOver(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_KuteSheetBarRoom>()?.over ??
+      false;
+
+  @override
+  bool updateShouldNotify(_KuteSheetBarRoom old) => old.over != over;
+}
+
 class _AppBottomSheetContainerState extends State<AppBottomSheetContainer> {
   bool? _short;
 
@@ -224,7 +264,9 @@ class _AppBottomSheetContainerState extends State<AppBottomSheetContainer> {
         child: KuteBarContextScope(
             barContext: const KuteBarContext.hidden(),
             active: _short == true,
-            child: sheet),
+            // Measured tall: the bar is over this sheet, and its scroll
+            // views leave it room (kuteSheetBarClearance).
+            child: _KuteSheetBarRoom(over: _short == false, child: sheet)),
       ),
     );
   }

@@ -191,7 +191,9 @@ class CoinAssetGrid extends StatelessWidget {
     return GridView.builder(
       shrinkWrap: shrinkWrap,
       physics: shrinkWrap ? const NeverScrollableScrollPhysics() : null,
-      padding: EdgeInsets.only(bottom: 8.h),
+      // Scrolling on its own in a sheet, the last row clears the bar.
+      padding: EdgeInsets.only(
+          bottom: 8.h + (shrinkWrap ? 0 : kuteSheetBarClearance(context))),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 4,
         mainAxisSpacing: 10.h,
@@ -678,25 +680,32 @@ class _CoinAssetPickerSheetState extends State<CoinAssetPickerSheet> {
                   // needed; every row is still its own widget.
                   : SingleChildScrollView(
                       padding: EdgeInsets.only(bottom: 8.h),
-                      child: PickerGroupedList(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          for (final option in group.options)
-                            PickerRow(
-                              leading: ChainAvatarIcon(
-                                chainId: option.chain,
-                                label: option.chainDisplayName,
-                                iconUrl: option.chainIconUrl,
-                                size: 40,
-                              ),
-                              title: option.chainDisplayName,
-                              // A row that takes one payment and
-                              // expires behaves differently enough to
-                              // say so before the tap, not after it.
-                              subtitle: coinNetworkRowNote(option, l10n),
-                              selected: '${option.chain}:${option.assetCode}' ==
-                                  selected,
-                              onTap: () => unawaited(_pick(option)),
-                            ),
+                          PickerGroupedList(
+                            children: [
+                              for (final option in group.options)
+                                PickerRow(
+                                  leading: ChainAvatarIcon(
+                                    chainId: option.chain,
+                                    label: option.chainDisplayName,
+                                    iconUrl: option.chainIconUrl,
+                                    size: 40,
+                                  ),
+                                  title: option.chainDisplayName,
+                                  // A row that takes one payment and
+                                  // expires behaves differently enough to
+                                  // say so before the tap, not after it.
+                                  subtitle: coinNetworkRowNote(option, l10n),
+                                  selected: '${option.chain}:${option.assetCode}' ==
+                                      selected,
+                                  onTap: () => unawaited(_pick(option)),
+                                ),
+                            ],
+                          ),
+                          // The last rows scroll clear of the floating bar.
+                          const KuteSheetBarSpace(),
                         ],
                       ),
                     ),

@@ -2124,6 +2124,8 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
                       isSelected: iv.interval == current.interval,
                       onTap: () => Navigator.of(sheetContext).pop(iv),
                     ),
+                  // The last interval scrolls clear of the floating bar.
+                  const KuteSheetBarSpace(),
                 ],
               ),
             ),

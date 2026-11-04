@@ -2950,7 +2950,11 @@ class _SettingsPickerSheetState extends State<_SettingsPickerSheet> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: widget.rows,
+                children: [
+                  ...widget.rows,
+                  // The last rows scroll clear of the floating bar.
+                  const KuteSheetBarSpace(),
+                ],
               ),
             ),
           ),

@@ -188,6 +188,8 @@ class PolyRulesSheet extends StatelessWidget {
                     heading(l10n.predictNewsTab),
                     PolyMarketComments(eventId: eventId),
                   ],
+                  // The last rows scroll clear of the floating bar.
+                  const KuteSheetBarSpace(),
                 ],
               ),
             ),

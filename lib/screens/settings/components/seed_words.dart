@@ -306,6 +306,8 @@ class _SeedWordsState extends ConsumerState<SeedWords> {
                       isSelected: wallet.id == _selectedWallet?.id,
                       onTap: () => Navigator.of(ctx).pop(wallet),
                     ),
+                  // The last rows scroll clear of the floating bar.
+                  const KuteSheetBarSpace(),
                 ],
               ),
             ),

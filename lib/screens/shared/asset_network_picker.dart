@@ -879,23 +879,30 @@ class _NetworkListSheetState extends State<_NetworkListSheet> {
                     )
                   : SingleChildScrollView(
                       padding: EdgeInsets.only(bottom: 8.h),
-                      child: PickerGroupedList(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          if (q.isEmpty)
-                            PickerRow(
-                              leading: const _AllNetworksGlyph(),
-                              title: widget.allLabel,
-                              selected: widget.selectedId == kPickerAllChainsId,
-                              onTap: () =>
-                                  Navigator.of(context).pop(kPickerAllChainsId),
-                            ),
-                          for (final ch in rows)
-                            PickerRow(
-                              leading: ch.iconBuilder(36),
-                              title: ch.name,
-                              selected: widget.selectedId == ch.id,
-                              onTap: () => Navigator.of(context).pop(ch.id),
-                            ),
+                          PickerGroupedList(
+                            children: [
+                              if (q.isEmpty)
+                                PickerRow(
+                                  leading: const _AllNetworksGlyph(),
+                                  title: widget.allLabel,
+                                  selected: widget.selectedId == kPickerAllChainsId,
+                                  onTap: () =>
+                                      Navigator.of(context).pop(kPickerAllChainsId),
+                                ),
+                              for (final ch in rows)
+                                PickerRow(
+                                  leading: ch.iconBuilder(36),
+                                  title: ch.name,
+                                  selected: widget.selectedId == ch.id,
+                                  onTap: () => Navigator.of(context).pop(ch.id),
+                                ),
+                            ],
+                          ),
+                          // The last rows scroll clear of the floating bar.
+                          const KuteSheetBarSpace(),
                         ],
                       ),
                     ),

@@ -776,6 +776,8 @@ class _HlPositionDetailsSheet extends ConsumerWidget {
                     l10n.hlPositionSizeExplain,
                     style: portfolioCardCaptionStyle(context.colors),
                   ),
+                  // The last rows scroll clear of the floating bar.
+                  const KuteSheetBarSpace(),
                 ],
               ),
             ),

@@ -1295,7 +1295,14 @@ class _PositionDetailsSheet extends StatelessWidget {
           Flexible(
             child: SingleChildScrollView(
               padding: EdgeInsets.fromLTRB(20.w, 4.h, 20.w, 24.h),
-              child: PositionRowsCard(rows: rows),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  PositionRowsCard(rows: rows),
+                  // The last rows scroll clear of the floating bar.
+                  const KuteSheetBarSpace(),
+                ],
+              ),
             ),
           ),
         ],
@@ -1358,15 +1365,22 @@ class _ClosingConditionsSheet extends StatelessWidget {
           Flexible(
             child: SingleChildScrollView(
               padding: EdgeInsets.fromLTRB(20.w, 4.h, 20.w, 24.h),
-              child: Text(
-                description,
-                style: TextStyle(
-                  color: c.textSecondary,
-                  fontSize: 15.sp,
-                  fontWeight: FontWeight.w500,
-                  height: 1.5,
-                  letterSpacing: -0.1,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    description,
+                    style: TextStyle(
+                      color: c.textSecondary,
+                      fontSize: 15.sp,
+                      fontWeight: FontWeight.w500,
+                      height: 1.5,
+                      letterSpacing: -0.1,
+                    ),
+                  ),
+                  // The last lines scroll clear of the floating bar.
+                  const KuteSheetBarSpace(),
+                ],
               ),
             ),
           ),

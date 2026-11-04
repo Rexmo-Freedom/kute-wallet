@@ -548,6 +548,8 @@ class _PolyMoreSheet extends ConsumerWidget {
                         },
                       ),
                   ],
+                // The last rows scroll clear of the floating bar.
+                const KuteSheetBarSpace(),
               ],
             ),
           ),

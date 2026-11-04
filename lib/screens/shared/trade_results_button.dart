@@ -140,7 +140,8 @@ class _ResultsSheetState extends ConsumerState<_ResultsSheet> {
                             child: Text(context.l10n.notificationsEmpty))
                         : ListView(
                             padding: EdgeInsets.only(bottom: 24.h),
-                            children: groups.entries
+                            children: [
+                              ...groups.entries
                                 .map((group) => Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
@@ -249,8 +250,10 @@ class _ResultsSheetState extends ConsumerState<_ResultsSheet> {
                                         )),
                                         SizedBox(height: 12.h),
                                       ],
-                                    ))
-                                .toList())),
+                                    )),
+                              // The last rows scroll clear of the bar.
+                              const KuteSheetBarSpace(),
+                            ])),
       ]),
     ));
   }
