@@ -25,19 +25,18 @@
 //     in its result colour, the line with the split fill, no scrub, no
 //     range row: the range is the one picked on P&L Charts, 1M to start).
 //     A tap opens the Portfolio on P&L Charts. Never traded: no card;
-//   * LATEST: the newest [kDollarsActivityRows] Dollars actions
-//     ([dollarsActivityEntries]): bets placed, sold, won or lost, Investing
-//     opens and closes, money into and out of Dollars, as the home's plain
-//     rows on one soft card (its "Earlier" card). The moves between the
-//     venues and Dollars that paid for an order are folded into it, as on
-//     the home (activity_curation.dart).
+//   * LATEST: the newest [kDollarsActivityRows] actions of the
+//     Investments activity (all_activity.dart, [ActivityScope.investments]:
+//     bets placed, sold, won or lost, Investing opens and closes, money
+//     into or out of the venues, each funding chain folded into the order
+//     it paid for), never the money moving between the person's own
+//     accounts on its own (homeActivityEntries, as the home's preview of
+//     a scope), as the home's plain rows on one soft card (its "Earlier"
+//     card).
 //
 // The bar on this tab is "See full portfolio and activity", which pushes
 // the Portfolio screen (usd_account_screen.dart), so there is no See all
 // here.
-//
-// The Dollars filter is local ([isDollarsActivity]): the merged Activity
-// (all_activity.dart) has no Investments filter of its own yet.
 //
 // Analytics: nothing new. A square's tap sends the Portfolio row's own
 // `open_investments_position_tapped`, a row's tap its receipt's events.
@@ -48,13 +47,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
-import 'package:kute/helpers/swap_activity.dart'
-    show SwapActivityKind, swapActivityFor;
+import 'package:kute/helpers/swap_activity.dart' show swapActivityFor;
 import 'package:kute/l10n/l10n.dart';
-import 'package:kute/models/polymarket_model.dart' show ActivityType;
 import 'package:kute/models/portfolio_performance.dart';
-import 'package:kute/models/swap_order_model.dart' show SwapOrder;
-import 'package:kute/models/transactions_model.dart';
 import 'package:kute/providers/portfolio_performance_provider.dart'
     show PortfolioPerformanceRequest, portfolioPerformanceDisplayProvider;
 import 'package:kute/providers/polymarket_live_prices_provider.dart'
@@ -79,9 +74,9 @@ import 'package:kute/screens/portfolio/open_investments_screen.dart'
 import 'package:kute/screens/portfolio/portfolio_filters.dart'
     show portfolioVenuesProvider;
 import 'package:kute/screens/shared/activity_curation.dart'
-    show CuratedActivity;
+    show homeActivityEntries;
 import 'package:kute/screens/shared/all_activity.dart'
-    show ActivitySquareGrid, AllActivityEntry, watchAllActivity;
+    show ActivityScope, ActivitySquareGrid, AllActivityEntry, watchAllActivity;
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/screens/shared/charts/kute_chart_format.dart'
     show kuteChangeSign;
@@ -91,32 +86,21 @@ import 'package:kute/screens/shared/hyperliquid_fill_activity.dart';
 import 'package:kute/screens/shared/kute_motion.dart'
     show KutePressable, KuteStaggerIn;
 import 'package:kute/screens/shared/kute_skeleton.dart';
-import 'package:kute/screens/shared/multi_source_move_activity.dart'
-    show MultiSourceMoveTransaction;
 import 'package:kute/screens/shared/no_activity_state.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/screens/shared/transactions_builder.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart'
     show openInvestmentsPortfolio;
-import 'package:kute/services/one_balance/venue_cash_source.dart'
-    show VenueCashFor;
-import 'package:kute/services/orchestra_routes.dart'
-    show isOrchestraUsdLikeCoin;
 import 'package:kute/theme/app_theme.dart';
 
 /// The open positions drawn as squares, at most.
 const int kDollarsActivitySquares = 4;
 
-/// The Dollars actions listed under "Latest".
+/// The Investments actions listed under "Latest".
 const int kDollarsActivityRows = 5;
 
 /// The compact P&L line's height, design units.
 const double kDollarsPnlPlotHeight = 64;
-
-/// Tests read swaps' intent without the settlement store; null in the app
-/// ([swapActivityFor]).
-@visibleForTesting
-SwapActivityKind Function(SwapOrder order)? debugDollarsActivityClassify;
 
 /// The ids of the open positions drawn as squares: the biggest first (the
 /// order of [slices], portfolioOpenSlices), at most
@@ -140,70 +124,6 @@ List<Widget> dollarsActivitySquareRows(
   ];
 }
 
-bool _dollarsOnSpark(String coin, String network) =>
-    network.trim().toUpperCase() == 'SPARK' && isOrchestraUsdLikeCoin(coin);
-
-/// Whether [e] is a Dollars action (see the file header): an Investing
-/// fill; a prediction placed, sold, won or lost (never the venue's own
-/// deposit and withdrawal records); the Dollars ledger; dollars received
-/// at Predictions; Bitcoin into Dollars and back; a send or receive whose
-/// dollar side is the spending account's Dollars; a send paid from more
-/// than one place. Never a Bitcoin-only payment, nor the moves between
-/// Dollars and the venues (plumbing, folded into the order they paid for
-/// where they paid for one). Pure for the tests.
-bool isDollarsActivity(
-  AllActivityEntry e, {
-  SwapActivityKind Function(SwapOrder order) classify = swapActivityFor,
-}) {
-  if (e.fill != null) return true;
-  final tx = e.tx;
-  if (tx == null) return false;
-  if (tx is PolymarketTransaction) {
-    if (tx.result != null) return true;
-    final ActivityType? type;
-    try {
-      type = tx.activityType;
-    } catch (_) {
-      return false;
-    }
-    return type != ActivityType.deposit && type != ActivityType.withdraw;
-  }
-  if (tx is UsdbTokenTransaction || tx is PolymarketUsdcReceive) return true;
-  if (tx is SwapOrderTransaction) {
-    final d = tx.details;
-    if (d.isCashAppPurchase) return false;
-    final kind = classify(d);
-    if (kind.isDollars) return true;
-    if (kind == SwapActivityKind.receive) {
-      return _dollarsOnSpark(d.coinTo, d.networkTo);
-    }
-    if (kind == SwapActivityKind.send) {
-      return _dollarsOnSpark(d.coinFrom, d.networkFrom);
-    }
-    return false;
-  }
-  if (tx is MultiSourceMoveTransaction) {
-    return tx.move.forAction == VenueCashFor.send;
-  }
-  return false;
-}
-
-/// The newest [limit] Dollars actions of [curated] (the merged Activity
-/// with each funding chain folded into the action it paid for), newest
-/// first. Pure for the tests.
-List<AllActivityEntry> dollarsActivityEntries(
-  CuratedActivity curated, {
-  int limit = kDollarsActivityRows,
-  SwapActivityKind Function(SwapOrder order) classify = swapActivityFor,
-}) {
-  final out = <AllActivityEntry>[];
-  for (final e in curated.entries) {
-    if (out.length >= limit) break;
-    if (isDollarsActivity(e, classify: classify)) out.add(e);
-  }
-  return out;
-}
-
 /// The Activity pill's page (see the file header). One scroll, the
 /// nested scroll's inner list, so the Dollars header collapses over it as
 /// over the venues' lists.
@@ -225,9 +145,9 @@ class DollarsActivityTab extends ConsumerWidget {
     final loading =
         squares.isEmpty && lists.values.any((list) => list.loading);
 
-    final classify = debugDollarsActivityClassify ?? swapActivityFor;
-    final activity = watchAllActivity(ref);
-    final latest = dollarsActivityEntries(activity.curated, classify: classify);
+    final activity = watchAllActivity(ref, scope: ActivityScope.investments);
+    final latest = homeActivityEntries(activity.curated,
+        limit: kDollarsActivityRows, classify: swapActivityFor);
     var index = 0;
     Widget rowOf(AllActivityEntry e) => KuteStaggerIn(
           index: index++,

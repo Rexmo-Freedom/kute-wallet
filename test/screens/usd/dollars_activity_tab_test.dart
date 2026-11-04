@@ -2,7 +2,8 @@
 // we do on the Bitcoin screen, have the first tab be the Activity screen …
 // It must have the P&L below the 4 squares with the highest predictions and
 // Hyperliquid bets."): the biggest open positions as squares, biggest
-// first, four at most; the P&L under them; the latest Dollars actions; the
+// first, four at most; the P&L under them; the latest Investments actions
+// (fw2's ActivityScope.investments); the
 // empty state with nothing open; and the bar, "See full portfolio and
 // activity", pushing the Portfolio screen.
 
@@ -10,7 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:kute/models/hyperliquid_market.dart';
+import 'package:kute/models/hyperliquid_market.dart' show HlPerpPosition;
 import 'package:kute/models/transactions_model.dart';
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
 import 'package:kute/providers/portfolio_performance_provider.dart';
@@ -18,9 +19,6 @@ import 'package:kute/screens/portfolio/components/balances_overview.dart'
     show BalancesVenueList;
 import 'package:kute/screens/portfolio/components/position_rows.dart'
     show HlPositionRow, PortfolioSlice;
-import 'package:kute/screens/shared/activity_curation.dart'
-    show CuratedActivity;
-import 'package:kute/screens/shared/all_activity.dart' show AllActivityEntry;
 import 'package:kute/screens/shared/kute_bar_context.dart'
     show kuteBarContextProvider, kuteBarTop;
 import 'package:kute/screens/shared/no_activity_state.dart';
@@ -49,7 +47,7 @@ HlPerpPosition _perp(String coin, double margin) => HlPerpPosition(
     leverageValue: 2,
     maxLeverage: 40);
 
-PolymarketTransaction _bet(String id, {String type = 'TRADE'}) {
+PolymarketTransaction _bet(String id) {
   final at = DateTime.utc(2026, 11, 4, 12)
       .add(Duration(minutes: int.parse(id.substring(3))));
   return PolymarketTransaction(
@@ -59,7 +57,7 @@ PolymarketTransaction _bet(String id, {String type = 'TRADE'}) {
       proxyWallet: '0xself',
       timestamp: at.millisecondsSinceEpoch ~/ 1000,
       conditionId: '0xrain',
-      type: type,
+      type: 'TRADE',
       size: 10,
       usdcSize: 5,
       transactionHash: '0x$id',
@@ -72,9 +70,6 @@ PolymarketTransaction _bet(String id, {String type = 'TRADE'}) {
     ),
   );
 }
-
-AllActivityEntry _entry(BaseTransaction tx) =>
-    (time: tx.timestamp, tx: tx, fill: null);
 
 ProviderContainer _container(WidgetTester tester) => ProviderScope.containerOf(
     tester.element(find.byType(InvestmentsBody, skipOffstage: false)));
@@ -117,52 +112,39 @@ void main() {
     });
   });
 
-  group('the Dollars actions', () {
-    test('bets and fills are listed; a venue\'s own deposit is plumbing', () {
-      final placed = _bet('bet1');
-      final deposit = _bet('bet2', type: 'DEPOSIT');
-      expect(isDollarsActivity(_entry(placed)), isTrue);
-      expect(isDollarsActivity(_entry(deposit)), isFalse);
-      final fill = (
-        time: DateTime.utc(2026, 11, 4),
-        tx: null,
-        fill: const HlFill(
-            coin: 'BTC',
-            px: 100,
-            sz: 1,
-            side: 'B',
-            time: 0,
-            closedPnl: 0,
-            fee: 0,
-            feeToken: 'USDC',
-            oid: 1,
-            hash: '0x',
-            dir: 'Open Long',
-            cloid: null),
-      );
-      expect(isDollarsActivity(fill), isTrue);
-    });
-
-    test('a Bitcoin payment is not a Dollars action', () {
-      final btc = BitcoinTransaction.fromCache(
-          id: 'btc1',
-          timestamp: DateTime.utc(2026, 11, 4),
-          isConfirmed: true,
-          receivedSats: 1000,
-          sentSats: 0);
-      expect(isDollarsActivity(_entry(btc)), isFalse);
-    });
-
-    test('the newest five, newest first, Dollars actions only', () {
-      final entries = [
-        for (var i = 9; i >= 1; i--)
-          _entry(_bet('bet$i', type: i.isEven ? 'DEPOSIT' : 'TRADE')),
-      ];
-      final shown =
-          dollarsActivityEntries(CuratedActivity(entries: entries), limit: 3);
-      expect(shown.map((e) => e.tx!.id), ['bet9', 'bet7', 'bet5']);
-      expect(kDollarsActivityRows, 5);
-    });
+  testWidgets(
+      'Latest: the newest Investments actions, five at most, newest first, '
+      'never a Bitcoin payment', (tester) async {
+    await pumpInvestments(tester,
+        history: Transaction(
+          bitcoinTransactions: [
+            BitcoinTransaction.fromCache(
+                id: 'btc1',
+                timestamp: DateTime.utc(2026, 11, 4, 13),
+                isConfirmed: true,
+                receivedSats: 1000,
+                sentSats: 0),
+          ],
+          sparkTransactions: const [],
+          sparkUnclaimedDeposits: const [],
+          polymarketTransactions: [
+            for (var i = 1; i <= 7; i++) _bet('bet$i'),
+          ],
+        ));
+    final card = find.byKey(const ValueKey('dollars-activity-rows'));
+    expect(card, findsOneWidget);
+    expect(find.byKey(const ValueKey('dollars-activity-latest-heading')),
+        findsOneWidget);
+    expect(kDollarsActivityRows, 5);
+    // Every row a prediction placed, five of the seven; the bitcoin
+    // receive is not an Investments action.
+    expect(
+        find.descendant(of: card, matching: find.text('Prediction · Yes')),
+        findsNWidgets(5));
+    expect(find.descendant(of: card, matching: find.text(r'$5.00')),
+        findsNWidgets(5));
+    expect(tester.takeException(), isNull);
+    await unmountInvestments(tester);
   });
 
   testWidgets(

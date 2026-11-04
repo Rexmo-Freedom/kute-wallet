@@ -8,6 +8,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kute/providers/currency_conversions_provider.dart'
+    show currentBtcUsdProvider;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/settings_model.dart';
@@ -211,6 +213,9 @@ Future<RecordingRewardsApi> pumpInvestments(
       polyWatchlistProvider.overrideWith(_NoPolyStars.new),
       // The shared pull-to-refresh: recorded, nothing read.
       refreshEverythingProvider.overrideWith(RecordingRefresh.new),
+      // The Activity pill's rows value Spark receives at the bitcoin
+      // price (activityReceivedUsd): a price, without the rates' Hive box.
+      currentBtcUsdProvider.overrideWithValue(100000),
       ...overrides,
     ],
     child: ScreenUtilInit(
