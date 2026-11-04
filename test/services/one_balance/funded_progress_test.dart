@@ -328,7 +328,7 @@ void main() {
               _money),
           l10n.betAutofireFundsTimeout);
     });
-    test('still in Dollars: in Investments', () {
+    test('still in Dollars: the line says Dollars', () {
       expect(
           fundedStopLine(
               l10n,
@@ -338,7 +338,7 @@ void main() {
                   reason: 'venue_refused',
                   message: 'No route right now.'),
               _money),
-          r'No route right now. Your $5.00 is in Investments. Tap to place.');
+          r'No route right now. Your $5.00 is in Dollars. Tap to place.');
     });
     test('an Investing order: in Investing', () {
       expect(
