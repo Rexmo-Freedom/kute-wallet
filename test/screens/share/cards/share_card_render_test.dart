@@ -284,6 +284,21 @@ void main() {
         fakePredictionPick(name: 'Daniel').asRecipient(),
         const Locale('en')
       ),
+      // A dare (founder, 4 November 2026): both sides, the sender's
+      // marked.
+      '7_challenge_binary': (fakeChallenge(), const Locale('en')),
+      '7_challenge_named': (fakeChallengeNamed(), const Locale('en')),
+      '7_challenge_long_question': (
+        fakeChallenge(question: kShareLongQuestion, name: null),
+        const Locale('en')
+      ),
+      'de_challenge_binary': (fakeChallenge(), const Locale('de')),
+      'fi_challenge_named': (fakeChallengeNamed(), const Locale('fi')),
+      'ja_challenge_binary': (fakeChallenge(), const Locale('ja')),
+      'claim_hero_challenge': (
+        fakeChallenge(name: 'Daniel').asRecipient(),
+        const Locale('en')
+      ),
     };
     for (final MapEntry(key: name, value: (data, locale)) in frames.entries) {
       final key = GlobalKey();
