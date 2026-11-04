@@ -9829,6 +9829,63 @@ class AppLocalizationsEt extends AppLocalizations {
   String get polyCountNow => 'Praegu';
 
   @override
+  String get polyMapRepublican => 'Vabariiklased';
+
+  @override
+  String get polyMapDemocratic => 'Demokraadid';
+
+  @override
+  String get polyMapIndependent => 'Sõltumatud';
+
+  @override
+  String get polyMapNotRepublican => 'Mitte vabariiklased';
+
+  @override
+  String get polyMapNotDemocratic => 'Mitte demokraadid';
+
+  @override
+  String polyMapRepublicansFavoured(int count, int total) {
+    return 'Vabariiklased juhivad $count osariigis $total-st';
+  }
+
+  @override
+  String polyMapDemocratsFavoured(int count, int total) {
+    return 'Demokraadid juhivad $count osariigis $total-st';
+  }
+
+  @override
+  String polyMapYesLeads(int count, int total) {
+    return 'Jah juhib $count osariigis $total-st';
+  }
+
+  @override
+  String get polyMapNoMarket => 'Avatud turgu pole';
+
+  @override
+  String get polyMapChanceOfYes => 'Jah-i tõenäosus';
+
+  @override
+  String get polyMapTapToBuild => 'Puuduta osariike, et oma kaart koostada';
+
+  @override
+  String get polyMapMostLikely => 'Kõige tõenäolisem kaart';
+
+  @override
+  String get polyMapYourMap => 'Sinu kaart';
+
+  @override
+  String get polyMapNoSuchMap => 'Selle kaardi jaoks pole turgu';
+
+  @override
+  String get polyMapBackToMostLikely =>
+      'Tagasi kõige tõenäolisema kaardi juurde';
+
+  @override
+  String polyMapStatePick(String state, String side) {
+    return '$state: $side sinu kaardil';
+  }
+
+  @override
   String get polyPillWatchlist => 'Jälgimisloend';
 
   @override

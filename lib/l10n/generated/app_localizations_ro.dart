@@ -9893,6 +9893,62 @@ class AppLocalizationsRo extends AppLocalizations {
   String get polyCountNow => 'Acum';
 
   @override
+  String get polyMapRepublican => 'Republican';
+
+  @override
+  String get polyMapDemocratic => 'Democrat';
+
+  @override
+  String get polyMapIndependent => 'Independent';
+
+  @override
+  String get polyMapNotRepublican => 'Nu republican';
+
+  @override
+  String get polyMapNotDemocratic => 'Nu democrat';
+
+  @override
+  String polyMapRepublicansFavoured(int count, int total) {
+    return 'Republicanii conduc în $count din $total state';
+  }
+
+  @override
+  String polyMapDemocratsFavoured(int count, int total) {
+    return 'Democrații conduc în $count din $total state';
+  }
+
+  @override
+  String polyMapYesLeads(int count, int total) {
+    return 'Da conduce în $count din $total state';
+  }
+
+  @override
+  String get polyMapNoMarket => 'Nicio piață deschisă';
+
+  @override
+  String get polyMapChanceOfYes => 'Șansa pentru Da';
+
+  @override
+  String get polyMapTapToBuild => 'Atinge statele pentru a-ți construi harta';
+
+  @override
+  String get polyMapMostLikely => 'Cea mai probabilă hartă';
+
+  @override
+  String get polyMapYourMap => 'Harta ta';
+
+  @override
+  String get polyMapNoSuchMap => 'Nu există piață pentru această hartă';
+
+  @override
+  String get polyMapBackToMostLikely => 'Înapoi la cea mai probabilă hartă';
+
+  @override
+  String polyMapStatePick(String state, String side) {
+    return '$state: $side pe harta ta';
+  }
+
+  @override
   String get polyPillWatchlist => 'Favorite';
 
   @override

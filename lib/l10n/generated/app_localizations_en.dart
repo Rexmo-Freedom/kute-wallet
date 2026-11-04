@@ -9802,6 +9802,62 @@ class AppLocalizationsEn extends AppLocalizations {
   String get polyCountNow => 'Now';
 
   @override
+  String get polyMapRepublican => 'Republican';
+
+  @override
+  String get polyMapDemocratic => 'Democratic';
+
+  @override
+  String get polyMapIndependent => 'Independent';
+
+  @override
+  String get polyMapNotRepublican => 'Not Republican';
+
+  @override
+  String get polyMapNotDemocratic => 'Not Democratic';
+
+  @override
+  String polyMapRepublicansFavoured(int count, int total) {
+    return 'Republicans favoured in $count of $total states';
+  }
+
+  @override
+  String polyMapDemocratsFavoured(int count, int total) {
+    return 'Democrats favoured in $count of $total states';
+  }
+
+  @override
+  String polyMapYesLeads(int count, int total) {
+    return 'Yes leads in $count of $total states';
+  }
+
+  @override
+  String get polyMapNoMarket => 'No open market';
+
+  @override
+  String get polyMapChanceOfYes => 'Chance of Yes';
+
+  @override
+  String get polyMapTapToBuild => 'Tap the states to build your map';
+
+  @override
+  String get polyMapMostLikely => 'Most likely map';
+
+  @override
+  String get polyMapYourMap => 'Your map';
+
+  @override
+  String get polyMapNoSuchMap => 'No market for this map';
+
+  @override
+  String get polyMapBackToMostLikely => 'Back to the most likely map';
+
+  @override
+  String polyMapStatePick(String state, String side) {
+    return '$state: $side on your map';
+  }
+
+  @override
   String get polyPillWatchlist => 'Watchlist';
 
   @override

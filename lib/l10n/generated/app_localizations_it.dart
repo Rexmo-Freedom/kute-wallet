@@ -9880,6 +9880,62 @@ class AppLocalizationsIt extends AppLocalizations {
   String get polyCountNow => 'Ora';
 
   @override
+  String get polyMapRepublican => 'Repubblicano';
+
+  @override
+  String get polyMapDemocratic => 'Democratico';
+
+  @override
+  String get polyMapIndependent => 'Indipendente';
+
+  @override
+  String get polyMapNotRepublican => 'Non repubblicano';
+
+  @override
+  String get polyMapNotDemocratic => 'Non democratico';
+
+  @override
+  String polyMapRepublicansFavoured(int count, int total) {
+    return 'Repubblicani in vantaggio in $count stati su $total';
+  }
+
+  @override
+  String polyMapDemocratsFavoured(int count, int total) {
+    return 'Democratici in vantaggio in $count stati su $total';
+  }
+
+  @override
+  String polyMapYesLeads(int count, int total) {
+    return 'Sì in vantaggio in $count stati su $total';
+  }
+
+  @override
+  String get polyMapNoMarket => 'Nessun mercato aperto';
+
+  @override
+  String get polyMapChanceOfYes => 'Probabilità del Sì';
+
+  @override
+  String get polyMapTapToBuild => 'Tocca gli stati per costruire la tua mappa';
+
+  @override
+  String get polyMapMostLikely => 'Mappa più probabile';
+
+  @override
+  String get polyMapYourMap => 'La tua mappa';
+
+  @override
+  String get polyMapNoSuchMap => 'Nessun mercato per questa mappa';
+
+  @override
+  String get polyMapBackToMostLikely => 'Torna alla mappa più probabile';
+
+  @override
+  String polyMapStatePick(String state, String side) {
+    return '$state: $side sulla tua mappa';
+  }
+
+  @override
   String get polyPillWatchlist => 'Preferiti';
 
   @override

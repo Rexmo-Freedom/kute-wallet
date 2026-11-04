@@ -9874,6 +9874,63 @@ class AppLocalizationsNl extends AppLocalizations {
   String get polyCountNow => 'Nu';
 
   @override
+  String get polyMapRepublican => 'Republikeins';
+
+  @override
+  String get polyMapDemocratic => 'Democratisch';
+
+  @override
+  String get polyMapIndependent => 'Onafhankelijk';
+
+  @override
+  String get polyMapNotRepublican => 'Niet Republikeins';
+
+  @override
+  String get polyMapNotDemocratic => 'Niet Democratisch';
+
+  @override
+  String polyMapRepublicansFavoured(int count, int total) {
+    return 'Republikeinen voor in $count van $total staten';
+  }
+
+  @override
+  String polyMapDemocratsFavoured(int count, int total) {
+    return 'Democraten voor in $count van $total staten';
+  }
+
+  @override
+  String polyMapYesLeads(int count, int total) {
+    return 'Ja voor in $count van $total staten';
+  }
+
+  @override
+  String get polyMapNoMarket => 'Geen open markt';
+
+  @override
+  String get polyMapChanceOfYes => 'Kans op Ja';
+
+  @override
+  String get polyMapTapToBuild => 'Tik op de staten om je kaart te maken';
+
+  @override
+  String get polyMapMostLikely => 'Meest waarschijnlijke kaart';
+
+  @override
+  String get polyMapYourMap => 'Jouw kaart';
+
+  @override
+  String get polyMapNoSuchMap => 'Geen markt voor deze kaart';
+
+  @override
+  String get polyMapBackToMostLikely =>
+      'Terug naar de meest waarschijnlijke kaart';
+
+  @override
+  String polyMapStatePick(String state, String side) {
+    return '$state: $side op jouw kaart';
+  }
+
+  @override
   String get polyPillWatchlist => 'Volglijst';
 
   @override

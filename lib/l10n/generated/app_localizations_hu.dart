@@ -9865,6 +9865,63 @@ class AppLocalizationsHu extends AppLocalizations {
   String get polyCountNow => 'Most';
 
   @override
+  String get polyMapRepublican => 'Republikánus';
+
+  @override
+  String get polyMapDemocratic => 'Demokrata';
+
+  @override
+  String get polyMapIndependent => 'Független';
+
+  @override
+  String get polyMapNotRepublican => 'Nem republikánus';
+
+  @override
+  String get polyMapNotDemocratic => 'Nem demokrata';
+
+  @override
+  String polyMapRepublicansFavoured(int count, int total) {
+    return 'A republikánusok vezetnek: $count/$total állam';
+  }
+
+  @override
+  String polyMapDemocratsFavoured(int count, int total) {
+    return 'A demokraták vezetnek: $count/$total állam';
+  }
+
+  @override
+  String polyMapYesLeads(int count, int total) {
+    return 'Az Igen vezet: $count/$total állam';
+  }
+
+  @override
+  String get polyMapNoMarket => 'Nincs nyitott piac';
+
+  @override
+  String get polyMapChanceOfYes => 'Az Igen esélye';
+
+  @override
+  String get polyMapTapToBuild =>
+      'Koppints az államokra, és állítsd össze a térképed';
+
+  @override
+  String get polyMapMostLikely => 'Legvalószínűbb térkép';
+
+  @override
+  String get polyMapYourMap => 'A te térképed';
+
+  @override
+  String get polyMapNoSuchMap => 'Ehhez a térképhez nincs piac';
+
+  @override
+  String get polyMapBackToMostLikely => 'Vissza a legvalószínűbb térképhez';
+
+  @override
+  String polyMapStatePick(String state, String side) {
+    return '$state: $side a térképeden';
+  }
+
+  @override
   String get polyPillWatchlist => 'Figyelőlista';
 
   @override

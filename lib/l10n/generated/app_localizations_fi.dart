@@ -9846,6 +9846,63 @@ class AppLocalizationsFi extends AppLocalizations {
   String get polyCountNow => 'Nyt';
 
   @override
+  String get polyMapRepublican => 'Republikaanit';
+
+  @override
+  String get polyMapDemocratic => 'Demokraatit';
+
+  @override
+  String get polyMapIndependent => 'Sitoutumattomat';
+
+  @override
+  String get polyMapNotRepublican => 'Ei republikaanit';
+
+  @override
+  String get polyMapNotDemocratic => 'Ei demokraatit';
+
+  @override
+  String polyMapRepublicansFavoured(int count, int total) {
+    return 'Republikaanit johtavat $count/$total osavaltiossa';
+  }
+
+  @override
+  String polyMapDemocratsFavoured(int count, int total) {
+    return 'Demokraatit johtavat $count/$total osavaltiossa';
+  }
+
+  @override
+  String polyMapYesLeads(int count, int total) {
+    return 'Kyllä johtaa $count/$total osavaltiossa';
+  }
+
+  @override
+  String get polyMapNoMarket => 'Ei avointa markkinaa';
+
+  @override
+  String get polyMapChanceOfYes => 'Kyllä-todennäköisyys';
+
+  @override
+  String get polyMapTapToBuild =>
+      'Napauta osavaltioita ja rakenna oma karttasi';
+
+  @override
+  String get polyMapMostLikely => 'Todennäköisin kartta';
+
+  @override
+  String get polyMapYourMap => 'Oma karttasi';
+
+  @override
+  String get polyMapNoSuchMap => 'Tälle kartalle ei ole markkinaa';
+
+  @override
+  String get polyMapBackToMostLikely => 'Takaisin todennäköisimpään karttaan';
+
+  @override
+  String polyMapStatePick(String state, String side) {
+    return '$state: $side kartallasi';
+  }
+
+  @override
   String get polyPillWatchlist => 'Seurantalista';
 
   @override

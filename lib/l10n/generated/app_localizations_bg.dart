@@ -9861,6 +9861,62 @@ class AppLocalizationsBg extends AppLocalizations {
   String get polyCountNow => 'Сега';
 
   @override
+  String get polyMapRepublican => 'Републиканци';
+
+  @override
+  String get polyMapDemocratic => 'Демократи';
+
+  @override
+  String get polyMapIndependent => 'Независими';
+
+  @override
+  String get polyMapNotRepublican => 'Не републиканци';
+
+  @override
+  String get polyMapNotDemocratic => 'Не демократи';
+
+  @override
+  String polyMapRepublicansFavoured(int count, int total) {
+    return 'Републиканците водят в $count от $total щата';
+  }
+
+  @override
+  String polyMapDemocratsFavoured(int count, int total) {
+    return 'Демократите водят в $count от $total щата';
+  }
+
+  @override
+  String polyMapYesLeads(int count, int total) {
+    return '„Да“ води в $count от $total щата';
+  }
+
+  @override
+  String get polyMapNoMarket => 'Няма отворен пазар';
+
+  @override
+  String get polyMapChanceOfYes => 'Шанс за „Да“';
+
+  @override
+  String get polyMapTapToBuild => 'Докосни щатите, за да направиш своята карта';
+
+  @override
+  String get polyMapMostLikely => 'Най-вероятна карта';
+
+  @override
+  String get polyMapYourMap => 'Твоята карта';
+
+  @override
+  String get polyMapNoSuchMap => 'Няма пазар за тази карта';
+
+  @override
+  String get polyMapBackToMostLikely => 'Обратно към най-вероятната карта';
+
+  @override
+  String polyMapStatePick(String state, String side) {
+    return '$state: $side на твоята карта';
+  }
+
+  @override
   String get polyPillWatchlist => 'Наблюдавани';
 
   @override

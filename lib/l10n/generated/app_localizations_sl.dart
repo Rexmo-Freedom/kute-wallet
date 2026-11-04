@@ -9871,6 +9871,63 @@ class AppLocalizationsSl extends AppLocalizations {
   String get polyCountNow => 'Zdaj';
 
   @override
+  String get polyMapRepublican => 'Republikanci';
+
+  @override
+  String get polyMapDemocratic => 'Demokrati';
+
+  @override
+  String get polyMapIndependent => 'Neodvisni';
+
+  @override
+  String get polyMapNotRepublican => 'Ne republikanci';
+
+  @override
+  String get polyMapNotDemocratic => 'Ne demokrati';
+
+  @override
+  String polyMapRepublicansFavoured(int count, int total) {
+    return 'Republikanci vodijo v $count od $total zveznih držav';
+  }
+
+  @override
+  String polyMapDemocratsFavoured(int count, int total) {
+    return 'Demokrati vodijo v $count od $total zveznih držav';
+  }
+
+  @override
+  String polyMapYesLeads(int count, int total) {
+    return '»Da« vodi v $count od $total zveznih držav';
+  }
+
+  @override
+  String get polyMapNoMarket => 'Ni odprtega trga';
+
+  @override
+  String get polyMapChanceOfYes => 'Možnost za »Da«';
+
+  @override
+  String get polyMapTapToBuild =>
+      'Tapnite zvezne države in sestavite svoj zemljevid';
+
+  @override
+  String get polyMapMostLikely => 'Najverjetnejši zemljevid';
+
+  @override
+  String get polyMapYourMap => 'Vaš zemljevid';
+
+  @override
+  String get polyMapNoSuchMap => 'Za ta zemljevid ni trga';
+
+  @override
+  String get polyMapBackToMostLikely => 'Nazaj na najverjetnejši zemljevid';
+
+  @override
+  String polyMapStatePick(String state, String side) {
+    return '$state: $side na vašem zemljevidu';
+  }
+
+  @override
   String get polyPillWatchlist => 'Spremljam';
 
   @override

@@ -9909,6 +9909,63 @@ class AppLocalizationsEl extends AppLocalizations {
   String get polyCountNow => 'Τώρα';
 
   @override
+  String get polyMapRepublican => 'Ρεπουμπλικανοί';
+
+  @override
+  String get polyMapDemocratic => 'Δημοκρατικοί';
+
+  @override
+  String get polyMapIndependent => 'Ανεξάρτητοι';
+
+  @override
+  String get polyMapNotRepublican => 'Όχι Ρεπουμπλικανοί';
+
+  @override
+  String get polyMapNotDemocratic => 'Όχι Δημοκρατικοί';
+
+  @override
+  String polyMapRepublicansFavoured(int count, int total) {
+    return 'Οι Ρεπουμπλικανοί προηγούνται σε $count από $total πολιτείες';
+  }
+
+  @override
+  String polyMapDemocratsFavoured(int count, int total) {
+    return 'Οι Δημοκρατικοί προηγούνται σε $count από $total πολιτείες';
+  }
+
+  @override
+  String polyMapYesLeads(int count, int total) {
+    return 'Το «Ναι» προηγείται σε $count από $total πολιτείες';
+  }
+
+  @override
+  String get polyMapNoMarket => 'Καμία ανοιχτή αγορά';
+
+  @override
+  String get polyMapChanceOfYes => 'Πιθανότητα για «Ναι»';
+
+  @override
+  String get polyMapTapToBuild =>
+      'Πάτησε τις πολιτείες για να φτιάξεις τον χάρτη σου';
+
+  @override
+  String get polyMapMostLikely => 'Πιθανότερος χάρτης';
+
+  @override
+  String get polyMapYourMap => 'Ο χάρτης σου';
+
+  @override
+  String get polyMapNoSuchMap => 'Καμία αγορά για αυτόν τον χάρτη';
+
+  @override
+  String get polyMapBackToMostLikely => 'Πίσω στον πιθανότερο χάρτη';
+
+  @override
+  String polyMapStatePick(String state, String side) {
+    return '$state: $side στον χάρτη σου';
+  }
+
+  @override
   String get polyPillWatchlist => 'Λίστα παρακολούθησης';
 
   @override

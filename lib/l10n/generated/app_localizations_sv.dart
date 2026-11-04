@@ -9836,6 +9836,64 @@ class AppLocalizationsSv extends AppLocalizations {
   String get polyCountNow => 'Nu';
 
   @override
+  String get polyMapRepublican => 'Republikansk';
+
+  @override
+  String get polyMapDemocratic => 'Demokratisk';
+
+  @override
+  String get polyMapIndependent => 'Oberoende';
+
+  @override
+  String get polyMapNotRepublican => 'Inte republikansk';
+
+  @override
+  String get polyMapNotDemocratic => 'Inte demokratisk';
+
+  @override
+  String polyMapRepublicansFavoured(int count, int total) {
+    return 'Republikanerna leder i $count av $total delstater';
+  }
+
+  @override
+  String polyMapDemocratsFavoured(int count, int total) {
+    return 'Demokraterna leder i $count av $total delstater';
+  }
+
+  @override
+  String polyMapYesLeads(int count, int total) {
+    return 'Ja leder i $count av $total delstater';
+  }
+
+  @override
+  String get polyMapNoMarket => 'Ingen öppen marknad';
+
+  @override
+  String get polyMapChanceOfYes => 'Chans för Ja';
+
+  @override
+  String get polyMapTapToBuild =>
+      'Tryck på delstaterna för att bygga din karta';
+
+  @override
+  String get polyMapMostLikely => 'Mest sannolika kartan';
+
+  @override
+  String get polyMapYourMap => 'Din karta';
+
+  @override
+  String get polyMapNoSuchMap => 'Ingen marknad för den här kartan';
+
+  @override
+  String get polyMapBackToMostLikely =>
+      'Tillbaka till den mest sannolika kartan';
+
+  @override
+  String polyMapStatePick(String state, String side) {
+    return '$state: $side på din karta';
+  }
+
+  @override
   String get polyPillWatchlist => 'Bevakningslista';
 
   @override
