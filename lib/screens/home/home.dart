@@ -45,7 +45,8 @@ import 'package:kute/screens/home/components/wallet_cards.dart';
 import 'package:kute/screens/home/home_wallet_switcher.dart';
 import 'package:kute/screens/activity/activity_history_screen.dart';
 import 'package:kute/screens/shared/transactions_builder.dart';
-import 'package:kute/screens/shared/all_activity.dart' show AllActivityPreview;
+import 'package:kute/screens/shared/all_activity.dart'
+    show ActivityScope, AllActivityPreview;
 import 'package:kute/providers/breez_config_provider.dart'
     show breezSDKProvider;
 import 'package:kute/screens/shared/kute_skeleton.dart';
@@ -855,13 +856,15 @@ class _ActivitySection extends ConsumerWidget {
               // `/home?tab=activity` (kHomeActivityLocation) lands on the
               // Activity tab, whatever was selected.
               selectActivityRequest: homeActivityRequest(context),
-              onSeeAllActivity: () =>
-                  showActivityHistory(context, source: 'home'),
+              // The Bitcoin home's See all: its bitcoin, in full.
+              onSeeAllActivity: () => showActivityHistory(context,
+                  source: 'home', scope: ActivityScope.bitcoin),
               activityChild: breezWaking
                   ? const _ActivitySkeleton()
-                  // The spending wallet's Activity is everything it did,
-                  // every account merged by time (all_activity.dart); a
-                  // Ledger or watch-only wallet keeps its own history.
+                  // The spending wallet's Activity is its bitcoin: sends,
+                  // receives and money moving into or out of bitcoin,
+                  // merged by time (all_activity.dart, the Bitcoin scope);
+                  // a Ledger or watch-only wallet keeps its own history.
                   // Compact rows on Home: one line of context and one
                   // figure each; the rest is in the row's detail.
                   : !isSavings
@@ -869,6 +872,7 @@ class _ActivitySection extends ConsumerWidget {
                           child: ActivityRowStyle(
                             compact: true,
                             child: AllActivityPreview(
+                                scope: ActivityScope.bitcoin,
                                 emptyState: NoActivityState()),
                           ),
                         )

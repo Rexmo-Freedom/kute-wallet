@@ -1311,6 +1311,27 @@ bool orchestraTouchesBitcoin(SwapOrder order) {
   return swapAssetIsBitcoin(order.coinTo) || swapAssetIsBitcoin(order.coinFrom);
 }
 
+/// Whether the bitcoin ledger lists the conversion [d] (the Bitcoin home's
+/// Activity, all_activity.dart's [ActivityScope.bitcoin]): bitcoin moved
+/// at one end of it (bought, sold, converted to or from Dollars, paid into
+/// Investing or Predictions, withdrawn home, received from another coin),
+/// and it is not a send paid from Dollars ("All sends from Dollars should
+/// only show up in Dollars"). A Cash App purchase counts only when it
+/// delivers bitcoin. A coin received into Dollars through an address
+/// opened from the Bitcoin receive is listed too ([marks], founder
+/// decision). A move between Dollars and a venue moved no bitcoin.
+bool bitcoinLedgerListsSwap(
+  SwapOrder d, {
+  SwapActivityKind Function(SwapOrder order) classify = swapActivityFor,
+  List<BitcoinReceiveMark> marks = const [],
+}) {
+  if (shownFromBitcoinReceive(d, marks)) return true;
+  if (swapTouchesOnlyDollars(d)) return false;
+  if (d.isCashAppPurchase) return orchestraTouchesBitcoin(d);
+  if (!orchestraTouchesBitcoin(d)) return false;
+  return !_isDollarFundedSend(d, classify(d));
+}
+
 /// Whether [order] is a send to someone else paid from the dollar
 /// balance. The Dollars send screen pays every destination this way
 /// (bitcoin on-chain, Lightning, Spark, other dollars): the dollar token
