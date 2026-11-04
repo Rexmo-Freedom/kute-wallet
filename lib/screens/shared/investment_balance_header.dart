@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/providers/currency_conversions_provider.dart'
+    show selectedCurrencyProviderFromUSD;
 import 'package:kute/providers/investment_balances_provider.dart';
 import 'package:kute/providers/one_balance_provider.dart';
 import 'package:kute/providers/pending_pool_deposits_provider.dart';
@@ -21,6 +23,7 @@ import 'package:kute/screens/portfolio/open_investments_screen.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show KutePressScale;
 import 'package:kute/screens/shared/pending_deposit_line.dart';
 import 'package:kute/screens/shared/pool_balance_header.dart';
+import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/screens/shared/portfolio_arrow_glyph.dart';
 import 'package:kute/screens/shared/portfolio_builder/builder_legs_provider.dart';
 import 'package:kute/screens/shared/portfolio_builder/portfolio_builder_screen.dart';
@@ -82,11 +85,12 @@ class InvestmentDiscoveryNotice extends ConsumerWidget {
 ///     2026): the total stands alone, Dollars plus the open positions of
 ///     every venue, the portfolio glyph (an arrow with a pie badge, built
 ///     like the hub's + gear) right after it
-///     ([PortfolioArrowGlyph]); under it "Available $X · Invested $Y"
-///     (Available: Dollars plus the venues' unreserved cash; Invested:
-///     positions, reserved order cash and pending fills; back on
-///     27 October 2026, founder). While anything is on a rail that line
-///     gives way to the in-flight lines, in order:
+///     ([PortfolioArrowGlyph]); under it "Invested $X · Available $Y"
+///     ([OneBalanceSplitLine]; founder, 4 November 2026), the two adding
+///     up to the total ([oneBalanceSplit]; Invested: positions, reserved
+///     order cash and pending fills; Available: the rest, Dollars and the
+///     venues' cash). While anything is on a rail the in-flight lines
+///     follow under it, and Available leaves their money out, in order:
 ///     the order money
 ///     on a rail is for ("Placing $5 on Yes · Lakers"), incoming from
 ///     outside, unavailable until balancing completes (venue cash the
@@ -284,6 +288,37 @@ class InvestmentBalanceHeader extends ConsumerWidget {
     );
   }
 
+  /// The hero's "Invested · Available" under its total, as printed: the
+  /// split of the total the hero prints ([oneBalanceSplit]: they add up to
+  /// it, less the money the in-flight lines name, to the cent in the
+  /// currency on screen), from the same snapshot as the figure (a saved
+  /// one, dimmed, while a venue is still on its way).
+  static ({double investedUsd, double availableUsd, bool stale})
+      oneBalanceSplitFigures(WidgetRef ref) {
+    final display = _oneBalanceDisplay(ref);
+    final split = oneBalanceSplit(
+      totalUsd: display.total,
+      investedUsd: display.invested,
+      onLinesUsd: ref.watch(oneBalanceProvider).onLinesUsd,
+      rate: _displayRate(ref),
+    );
+    return (
+      investedUsd: split.investedUsd,
+      availableUsd: split.availableUsd,
+      stale: display.stale,
+    );
+  }
+
+  /// US dollars to the currency on screen (1 for USD, and while no rate is
+  /// known: the formatter then prints dollars too).
+  static double _displayRate(WidgetRef ref) {
+    final currency = ref.watch(settingsProvider.select((s) => s.currency));
+    if (currency == 'USD') return 1;
+    final rate =
+        ref.watch(selectedCurrencyProviderFromUSD(currency)).toDouble();
+    return rate.isFinite && rate > 0 ? rate : 1;
+  }
+
   /// The hero's displayed total, also used by the collapsed Investments bar.
   static ({String text, bool stale}) oneBalanceFigure(WidgetRef ref) {
     final display = _oneBalanceDisplay(ref);
@@ -327,7 +362,7 @@ class _OneBalanceHeroState extends ConsumerState<_OneBalanceHero> {
     String amount(double value) =>
         visible ? formatPolyFiatForced(ref, value) : '••••••';
     final lines = InvestmentBalanceHeader.inFlightLines(context, state, amount);
-    final display = InvestmentBalanceHeader._oneBalanceDisplay(ref);
+    final split = InvestmentBalanceHeader.oneBalanceSplitFigures(ref);
     final figure = InvestmentBalanceHeader.oneBalanceFigure(ref);
     final tap = widget.onTap;
     // The tap affordance: an arrow to the right with the Portfolio's pie
@@ -353,16 +388,31 @@ class _OneBalanceHeroState extends ConsumerState<_OneBalanceHero> {
       investedLabel: context.l10n.betInvested,
       amountTrailing: arrow,
       amountTrailingWidth: arrow == null ? 0 : arrowGap + arrowSize,
-      // Only "Invested $Y" under the total (founder, 28 October 2026,
-      // again 31 October: the person needs to know what is invested, and
-      // that is it); the in-flight lines in its place while anything is
-      // on a rail.
+      // "Invested $X · Available $Y" under the total, always (founder,
+      // 4 November 2026: "it should show invested and available in a good
+      // way at the bottom, don't make it sloppy"; it read Invested alone
+      // since 28 October). The two add up to the total ([oneBalanceSplit]);
+      // while money is on a rail its lines follow, under the split, and
+      // the split leaves their money out, so the three still add up.
       availableText: null,
-      investedText: lines.isEmpty ? amount(display.invested) : null,
+      investedText: null,
       showActionRow: false,
-      investedChild: lines.isEmpty
-          ? null
-          : Row(
+      investedChild: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: EdgeInsets.only(top: 2.h),
+            child: OneBalanceSplitLine(
+              invested: amount(split.investedUsd),
+              available: amount(split.availableUsd),
+              investedLabel: context.l10n.betInvested,
+              availableLabel: context.l10n.available,
+              stale: split.stale,
+            ),
+          ),
+          if (lines.isNotEmpty) ...[
+            SizedBox(height: 4.h),
+            Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Flexible(
@@ -376,6 +426,9 @@ class _OneBalanceHeroState extends ConsumerState<_OneBalanceHero> {
                 ),
               ],
             ),
+          ],
+        ],
+      ),
     );
     if (tap == null) return header;
     return Semantics(
@@ -387,6 +440,89 @@ class _OneBalanceHeroState extends ConsumerState<_OneBalanceHero> {
           onTap: tap,
           child: header,
         ),
+      ),
+    );
+  }
+}
+
+/// "Invested $X · Available $Y" under the Dollars total
+/// ([InvestmentBalanceHeader.oneBalanceSplitFigures]), drawn so it never
+/// jitters: the dot is fixed at the centre, right under the total, the
+/// Invested half ends at it and the Available half starts at it, each
+/// figure in tabular digits rolling like the total. A figure that ticks,
+/// or grows a digit, moves only its own half outwards; the dot and the
+/// other half stay where they are. Too wide for its half (a large text
+/// size), a half scales down rather than wrapping or cutting. The words
+/// stay quiet (textTertiary), the amounts carry the line (textSecondary,
+/// w600); a saved figure still updating is dimmed, as the total is.
+class OneBalanceSplitLine extends StatelessWidget {
+  const OneBalanceSplitLine({
+    super.key,
+    required this.invested,
+    required this.available,
+    required this.investedLabel,
+    required this.availableLabel,
+    this.stale = false,
+  });
+
+  final String invested;
+  final String available;
+  final String investedLabel;
+  final String availableLabel;
+  final bool stale;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final labelStyle = TextStyle(
+      color: c.textTertiary,
+      fontSize: 15.sp,
+      fontWeight: FontWeight.w500,
+      letterSpacing: -0.1,
+      height: 1.2,
+    );
+    final valueStyle = TextStyle(
+      color: stale ? c.textTertiary : c.textSecondary,
+      fontSize: 15.sp,
+      fontWeight: FontWeight.w600,
+      letterSpacing: -0.1,
+      height: 1.2,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    Widget half(Key key, String label, String value, Alignment align) =>
+        Expanded(
+          child: Align(
+            alignment: align,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: align,
+              child: Row(
+                key: key,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('$label ', maxLines: 1, style: labelStyle),
+                  RollingNumberText(text: value, style: valueStyle),
+                ],
+              ),
+            ),
+          ),
+        );
+    return Semantics(
+      container: true,
+      label: '$investedLabel $invested, $availableLabel $available',
+      excludeSemantics: true,
+      child: Row(
+        key: const ValueKey('investments-balance-split'),
+        children: [
+          half(const ValueKey('investments-balance-invested'), investedLabel,
+              invested, Alignment.centerRight),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 8.w),
+            child: Text('·', style: labelStyle),
+          ),
+          half(const ValueKey('investments-balance-available'),
+              availableLabel, available, Alignment.centerLeft),
+        ],
       ),
     );
   }
