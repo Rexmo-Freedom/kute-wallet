@@ -20,6 +20,8 @@ import 'package:kute/services/one_balance/multi_source_move.dart';
 import 'package:kute/services/one_balance/move_steps.dart' show MoveSteps;
 import 'package:kute/services/orchestra/own_spark_arrivals.dart';
 import 'package:kute/services/orchestra/own_bitcoin_deliveries.dart';
+import 'package:kute/services/orchestra/settlement_funding_legs.dart'
+    show fundingLegsOf;
 import 'package:kute/services/one_balance/venue_cash_source.dart'
     show
         VenueCashDestination,
@@ -346,6 +348,7 @@ class _TransactionListState extends ConsumerState<TransactionList> {
       // A move over with nothing delivered has no row; its legs show.
       dissolved: moves.isEmpty ? null : watchMultiSourceMovesDissolved(ref),
       bitcoinReceiveMarks: ref.watch(bitcoinReceiveMarksProvider),
+      receivedUsd: activityReceivedUsd(ref),
     );
 
     // A deposit waiting on the person (fee above the cap, a failed claim)
@@ -1230,6 +1233,19 @@ Set<String> activityOwnSettleAddresses(WidgetRef ref) {
   return own;
 }
 
+/// Each Spark receive's dollar value when it landed, for the Activity lists
+/// ([assembleActivityRows]): its fiat snapshot, else its sats at the
+/// current price (read, not watched: a price tick never rebuilds a list).
+ReceivedUsd activityReceivedUsd(WidgetRef ref) {
+  double price = 0;
+  try {
+    price = ref.read(currentBtcUsdProvider);
+  } catch (_) {
+    // No price yet: snapshots alone.
+  }
+  return snapshotReceivedUsd(currentBtcUsd: price);
+}
+
 /// Destination string of an outbound Spark payment, lowercased for
 /// address comparison. The Breez `PaymentDetails` variants carry
 /// "where did it go" in different fields:
@@ -1329,20 +1345,28 @@ bool _isDollarLegOf(UsdbTokenTransaction tx, SwapOrderTransaction ex) {
       30 * 60 * 1000;
 }
 
-/// How long after a venue withdrawal to Dollars started its dollars may
-/// still land and be linked to it. Orchestra can hold an order well past
-/// the 30 minutes [_isDollarLegOf] allows (the first Circle CCTP sweep
-/// landed 42 minutes after it left, held for screening); the link then
-/// rests on the record and the exact amount, not on the clock.
+/// How long after one of the wallet's own moves into Dollars started its
+/// dollars may still land and be linked to it. Orchestra can hold an
+/// order well past the 30 minutes [_isDollarLegOf] allows (the first
+/// Circle CCTP sweep landed 42 minutes after it left, held for
+/// screening); the link then rests on the record and the amount, not on
+/// the clock.
 const Duration kVenueWithdrawalArrivalWindow = Duration(hours: 24);
 
-/// Whether [d] is the wallet's own withdrawal from Investing or
-/// Predictions into Dollars (a sweep, the Circle CCTP fallback, a manual
-/// move) that can still deliver: a settlement-record row (its recipient
-/// is the wallet's own Spark address by construction) or one that settles
-/// to an address the wallet owns. Failed, refunded or expired orders never
+/// How far a delivery into Dollars may land from the figure of a move
+/// still under way: that figure is the quote's estimate (or, for a Circle
+/// CCTP move, what reached Orchestra before its fee) until the status
+/// poll writes what was delivered.
+const double kOwnDollarArrivalEstimateBand = 0.05;
+
+/// Whether [d] is the wallet's own move into Dollars that can still
+/// deliver: a withdrawal from Investing or Predictions (a sweep, the
+/// Circle CCTP fallback, a manual move) or a conversion of the wallet's
+/// own bitcoin into Dollars, with a settlement record (its recipient is
+/// the wallet's own Spark address by construction) or settling to an
+/// address the wallet owns. Failed, refunded or expired orders never
 /// deliver, so nothing links to them.
-bool _isOwnVenueWithdrawalToDollars(
+bool _isOwnMoveIntoDollars(
   SwapOrder d,
   SwapActivityKind kind, {
   required Set<String> ownAddresses,
@@ -1350,7 +1374,8 @@ bool _isOwnVenueWithdrawalToDollars(
   if (!d.isOrchestra) return false;
   if (d.coinTo.toUpperCase() != kOrchestraUsdAssetCode) return false;
   if (kind != SwapActivityKind.investingWithdrawal &&
-      kind != SwapActivityKind.predictionsWithdrawal) {
+      kind != SwapActivityKind.predictionsWithdrawal &&
+      kind != SwapActivityKind.dollarDeposit) {
     return false;
   }
   if (!d.isComplete && !d.isPending) return false;
@@ -1358,46 +1383,74 @@ bool _isOwnVenueWithdrawalToDollars(
       settlesToOwnAddress(d.withdrawalAddress, ownAddresses);
 }
 
-/// Whether the dollar receive [tx] can be the late arrival of the venue
-/// withdrawal [ex]: exactly the order's dollar amount (to the cent), and
-/// landing after the order started, within [kVenueWithdrawalArrivalWindow].
-bool _isLateArrivalOf(UsdbTokenTransaction tx, SwapOrderTransaction ex) {
-  if (tx.details.paymentType != breez.PaymentType.receive) return false;
+/// How far the dollar receive [tx] is from what the own move [ex] into
+/// Dollars said it would deliver, when it can be its late arrival: landing
+/// after the order started, within [kVenueWithdrawalArrivalWindow], and
+/// exactly the order's amount (to the cent) once the order is done, within
+/// [kOwnDollarArrivalEstimateBand] of its estimate while it is under way.
+/// Null when it cannot.
+double? _lateArrivalGap(UsdbTokenTransaction tx, SwapOrderTransaction ex) {
+  if (tx.details.paymentType != breez.PaymentType.receive) return null;
   final dollars = tx.amount.toInt() / 1e6;
   final amount = _exchangeUsdFieldToDollars(ex.details.withdrawalAmount);
-  if (dollars <= 0 || amount <= 0) return false;
-  if ((dollars - amount).abs() > 0.005 + 1e-9) return false;
+  if (dollars <= 0 || amount <= 0) return null;
+  final gap = (dollars - amount).abs();
+  final allowed = ex.details.isComplete
+      ? 0.005
+      : max(0.01, amount * kOwnDollarArrivalEstimateBand);
+  if (gap > allowed + 1e-9) return null;
   final delta = tx.timestamp.difference(ex.timestamp);
   // A small clock margin before the order (the row is stamped when the
   // app wrote it, the transfer by the network).
-  return delta >= const Duration(minutes: -2) &&
-      delta <= kVenueWithdrawalArrivalWindow;
+  if (delta < const Duration(minutes: -2) ||
+      delta > kVenueWithdrawalArrivalWindow) {
+    return null;
+  }
+  return gap;
 }
 
 /// The dollar transfers in [transfers] that settled one of [exchanges],
 /// so their own rows can go behind the move's row.
 ///
-/// Two links, the first one winning:
+/// Three links, the first one winning:
+///   * the payment the conversion's own settlement record names as its
+///     funding ([funding], settlement_funding_legs.dart): the Dollars
+///     token transfer that paid for a move out of Dollars, by its id;
 ///   * the near match ([_isDollarLegOf]): same side, the amount within
 ///     two percent, within 30 minutes of the order;
-///   * a late arrival into Dollars from the wallet's own venue withdrawal
-///     ([_isOwnVenueWithdrawalToDollars]) that has no near match: the
-///     receive of exactly its amount, after it started, within a day.
-///     One receive per withdrawal and one withdrawal per receive, the
-///     oldest withdrawal taking the first receive after it, so an
-///     unrelated transfer of the same amount (the next one, or one before
-///     the move) keeps its own row.
+///   * a late arrival into Dollars from the wallet's own move
+///     ([_isOwnMoveIntoDollars]: a venue withdrawal, or its own bitcoin
+///     converted) that has no near match: the receive of its amount
+///     ([_lateArrivalGap]: to the cent once done, within the estimate's
+///     band while under way), after it started, within a day. One
+///     receive per move and one move per receive, the oldest move taking
+///     the closest amount, then the first receive after it, so an
+///     unrelated transfer (the next one, or one before the move) keeps
+///     its own row.
 Set<String> _settledDollarLegIds(
   List<SwapOrderTransaction> exchanges,
   Iterable<UsdbTokenTransaction> transfers, {
   required Set<String> ownAddresses,
   required SwapActivityKind Function(SwapOrder order) classify,
+  Map<String, String> funding = const {},
 }) {
   final legs = <String>{};
   if (exchanges.isEmpty) return legs;
   final list = transfers.toList();
+  if (funding.isNotEmpty) {
+    final listed = {for (final ex in exchanges) ex.id};
+    for (final tx in list) {
+      final row = funding[tx.id];
+      if (row != null &&
+          listed.contains(row) &&
+          tx.details.paymentType == breez.PaymentType.send) {
+        legs.add(tx.id);
+      }
+    }
+  }
   final nearMatched = <String>{};
   for (final tx in list) {
+    if (legs.contains(tx.id)) continue;
     for (final ex in exchanges) {
       if (_isDollarLegOf(tx, ex)) {
         legs.add(tx.id);
@@ -1408,7 +1461,7 @@ Set<String> _settledDollarLegIds(
   final waiting = [
     for (final ex in exchanges)
       if (!nearMatched.contains(ex.id) &&
-          _isOwnVenueWithdrawalToDollars(ex.details, classify(ex.details),
+          _isOwnMoveIntoDollars(ex.details, classify(ex.details),
               ownAddresses: ownAddresses))
         ex,
   ]..sort((a, b) => a.timestamp.compareTo(b.timestamp));
@@ -1420,13 +1473,20 @@ Set<String> _settledDollarLegIds(
         tx,
   ]..sort((a, b) => a.timestamp.compareTo(b.timestamp));
   for (final ex in waiting) {
+    UsdbTokenTransaction? best;
+    var bestGap = 0.0;
     for (final tx in receives) {
       if (legs.contains(tx.id)) continue;
-      if (_isLateArrivalOf(tx, ex)) {
-        legs.add(tx.id);
-        break;
+      final gap = _lateArrivalGap(tx, ex);
+      if (gap == null) continue;
+      // The closest amount; the earliest of equals (the list is in time
+      // order).
+      if (best == null || gap < bestGap - 1e-9) {
+        best = tx;
+        bestGap = gap;
       }
     }
+    if (best != null) legs.add(best.id);
   }
   return legs;
 }
@@ -1486,6 +1546,16 @@ bool dollarSendDeliveredKnown(SwapOrder order) {
 /// (default: the stored ones): a linked receive folds into its row
 /// (own_bitcoin_deliveries.dart).
 ///
+/// [receivedUsd] is each Spark receive's dollar value when it landed
+/// (default: its fiat snapshot): the wallet's own moves to Bitcoin claim
+/// their delivery by it when no link or amount does (a CCTP leg with no
+/// bitcoin figure yet, a delivery the fees moved, a late one).
+///
+/// [fundingPaymentOf] names the payment a settlement operation was paid
+/// with (default: its record, settlement_funding_legs.dart): that Spark or
+/// Dollars transfer folds into its conversion's row by id, before any
+/// amount or time match.
+///
 /// [allAccounts] is the Bitcoin home's whole Activity (all_activity.dart):
 /// neither ledger's filter runs, so the bitcoin rows, the dollar ledger and
 /// every venue move are listed together, and the leg collapse that follows
@@ -1504,6 +1574,8 @@ List<BaseTransaction> assembleActivityRows(
   MultiSourceMoveDissolved? dissolved,
   List<BitcoinReceiveMark> bitcoinReceiveMarks = const [],
   Map<String, OrchestraDeliveryLink>? deliveryLinks,
+  ReceivedUsd? receivedUsd,
+  String? Function(String operationId)? fundingPaymentOf,
 }) {
   // Home activity is bitcoin-anchored (user decision): pool deposits
   // and withdrawals stay (they move wallet funds), but pool-internal
@@ -1613,17 +1685,22 @@ List<BaseTransaction> assembleActivityRows(
     if (dollarVenueMoves.isNotEmpty) {
       final legs = _settledDollarLegIds(
           dollarVenueMoves, rows.whereType<UsdbTokenTransaction>(),
-          ownAddresses: ownAddresses, classify: classify);
+          ownAddresses: ownAddresses,
+          classify: classify,
+          funding:
+              fundingLegsOf(dollarVenueMoves, paymentOf: fundingPaymentOf));
       rows = rows
           .where((tx) => tx is! UsdbTokenTransaction || !legs.contains(tx.id))
           .toList();
     }
     if (dollarSends.isNotEmpty) {
+      final funded = fundingLegsOf(dollarSends, paymentOf: fundingPaymentOf);
       rows = rows
           .where((tx) =>
               tx is! UsdbTokenTransaction ||
               tx.details.paymentType != breez.PaymentType.send ||
-              !dollarSends.any((ex) => _isDollarLegOf(tx, ex)))
+              (!funded.containsKey(tx.id) &&
+                  !dollarSends.any((ex) => _isDollarLegOf(tx, ex))))
           .toList();
     }
   }
@@ -1635,6 +1712,8 @@ List<BaseTransaction> assembleActivityRows(
     keepVenueMoves: keepVenueMoves,
     classify: classify,
     links: deliveryLinks,
+    receivedUsd: receivedUsd,
+    fundingPaymentOf: fundingPaymentOf,
   );
   // An action that took money from more than one place is one row too:
   // its legs fold into it (multi_source_move_activity.dart).
@@ -1663,8 +1742,11 @@ List<BaseTransaction> assembleActivityRows(
 ///     within ±30 min of it in [transactions]. A bet-flow tag alone no
 ///     longer hides one: the bet and claim rows it used to stand behind
 ///     are not on these surfaces, so the move must keep its own row.
-///   * Spark SENDS — hidden deterministically when the payment's own
-///     destination string equals ANY listed exchange's deposit address
+///   * Spark SENDS — hidden by id when a listed exchange's settlement
+///     record names it as the payment that funded it
+///     (settlement_funding_legs.dart); else deterministically when the
+///     payment's own destination string equals ANY listed exchange's
+///     deposit address
 ///     (it IS the swap-funding leg, whatever the provider), or the tx id
 ///     was tagged at send time AND a bitcoin-funded exchange it can stand
 ///     behind is listed within ±30 min. Only when no destination is
@@ -1679,7 +1761,10 @@ List<BaseTransaction> assembleActivityRows(
 ///     polled, ±2% otherwise) and time (10 min before to 90 min after an
 ///     own withdrawal or a row settling to an own address, the
 ///     reconciler's window; 30 min for a bet-flow tag alone; a linked
-///     receive whenever it landed). Fallback: a Spark-protocol receive within
+///     receive whenever it landed); else, for the wallet's own moves to
+///     Bitcoin only, the receive whose dollar value when it landed is what
+///     the dollars that left buy, less fees, within six hours (a day for a
+///     CCTP leg). Fallback: a Spark-protocol receive within
 ///     ±10 min of a Predictions withdraw row that has no receive yet.
 ///     Anything looser stays visible — money appearing in the wallet
 ///     must never vanish unless we're confident it's an internal leg.
@@ -1699,6 +1784,8 @@ List<BaseTransaction> _collapsePolymarketFlows(
   bool keepVenueMoves = false,
   SwapActivityKind Function(SwapOrder order) classify = swapActivityFor,
   Map<String, OrchestraDeliveryLink>? links,
+  ReceivedUsd? receivedUsd,
+  String? Function(String operationId)? fundingPaymentOf,
 }) {
   // Snapshot the Hive tag boxes once per pass, not per row.
   final betFlowOrderIds = PolymarketSparkTxsService.orchestraOrderSnapshot();
@@ -1725,6 +1812,9 @@ List<BaseTransaction> _collapsePolymarketFlows(
   if (exchanges.isEmpty && betFlowSparkIds.isEmpty) {
     return transactions;
   }
+  // The payments the listed conversions' own records name as their
+  // funding: payment id → row.
+  final funding = fundingLegsOf(exchanges, paymentOf: fundingPaymentOf);
 
   bool isPolymarketLeg(SwapOrder d) => classify(d).isPredictions;
 
@@ -1776,7 +1866,9 @@ List<BaseTransaction> _collapsePolymarketFlows(
   }
 
   bool hideSparkSend(SparkTransaction tx) {
-    // Deterministic first: the payment's own destination string. A
+    // The conversion's own record names this payment as what paid for it.
+    if (funding.containsKey(tx.id)) return true;
+    // Deterministic next: the payment's own destination string. A
     // match against an exchange deposit address means this send IS the
     // swap-funding leg — hide unconditionally.
     final dest = _sparkSendDestination(tx);
@@ -1829,6 +1921,7 @@ List<BaseTransaction> _collapsePolymarketFlows(
     classify: classify,
     betFlowOrderIds: betFlowOrderIds,
     links: deliveryLinks,
+    receivedUsd: receivedUsd ?? snapshotReceivedUsd(),
   );
   final deliveredRows = ownDeliveries.values.toSet();
 
@@ -1891,7 +1984,7 @@ List<BaseTransaction> _collapsePolymarketFlows(
   /// exact amount ([_settledDollarLegIds]).
   final dollarLegs = _settledDollarLegIds(
       exchanges, transactions.whereType<UsdbTokenTransaction>(),
-      ownAddresses: ownAddresses, classify: classify);
+      ownAddresses: ownAddresses, classify: classify, funding: funding);
   bool hideDollarLeg(UsdbTokenTransaction tx) => dollarLegs.contains(tx.id);
 
   return transactions.where((tx) {
