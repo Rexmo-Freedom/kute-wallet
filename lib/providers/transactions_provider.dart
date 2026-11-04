@@ -40,7 +40,7 @@ import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/services/polymarket_spark_txs_service.dart';
 import 'package:kute/services/orchestra/own_bitcoin_deliveries.dart'
-    show ownBitcoinDeliveryReceives;
+    show ownBitcoinDeliveryReceives, snapshotReceivedUsd;
 import 'package:kute/helpers/swap_activity.dart' show swapActivityFor;
 import 'package:kute/services/haptic_gates.dart';
 import 'package:kute/services/kute_haptics.dart';
@@ -731,6 +731,7 @@ class TransactionNotifier extends StateNotifier<Transaction> {
           ownAddresses: const {},
           classify: swapActivityFor,
           links: PolymarketSparkTxsService.orchestraDeliveryLinks(),
+          receivedUsd: snapshotReceivedUsd(currentBtcUsd: _currentBtcUsd()),
         );
     for (final tx in snapshot.sparkTransactions) {
       // Cached shells (no live `details`) are skipped here — we

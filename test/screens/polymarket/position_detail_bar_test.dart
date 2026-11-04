@@ -4,7 +4,10 @@
 // position_detail_sheet.dart, kute_bar_context.dart): Sell in the red its
 // pinned button had, Clear (a lost side) in the app's primary look and
 // thinking while the redeem runs; a won position has none. No pinned panel
-// is left at the foot, and the body scrolls clear of the bar.
+// is left at the foot, and the body scrolls clear of the bar. Sell and
+// Clear carry the round Sal button at their right (founder, 4 November
+// 2026: Send to a friend floats); a won position's bar is the Sal pill,
+// "Send to a friend".
 //
 // Light and dark PNGs of the open position with its bar:
 // flutter test --dart-define=POLY_POSITION_SHOT_OUT=<dir>.
@@ -260,6 +263,17 @@ void main() {
     expect(ctx.style, same(KuteBarPrimaryStyle.destructive));
     expect(ctx.style!.fill, AppColors.marketDown);
     expect(barPrimaryInk(tester), const Color(0xFFFFFFFF));
+    // The round Sal button at Sell's right, both taking their taps.
+    final share = find.byKey(const ValueKey('kute-bar-share'));
+    expect(share, findsOneWidget);
+    expect(tester.getRect(share).left,
+        greaterThan(tester.getRect(findBarPrimary()).right));
+    expect(ctx.share!.barContext.market, isTrue);
+    for (final f in [findBarPrimary(), share]) {
+      final hit = tester.hitTestOnBinding(tester.getCenter(f));
+      expect(hit.path.any((e) => e.target == tester.renderObject(f)), isTrue);
+    }
+    expect(find.byKey(const ValueKey('position-share-card')), findsNothing);
     // The body scrolls clear of the floating bar.
     final scroll = tester.widget<SingleChildScrollView>(find
         .ancestor(
@@ -287,6 +301,9 @@ void main() {
     expect(ctx.label, 'Clear position');
     expect(ctx.style, isNull);
     expect(barPrimaryEnabled(tester), isTrue);
+    // Settled: the round Sal button sends the market, never the brag.
+    expect(find.byKey(const ValueKey('kute-bar-share')), findsOneWidget);
+    expect(ctx.share!.brag, isNull);
 
     trading.hold = Completer<double?>();
     await tapBarPrimary(tester, settle: false);
@@ -311,11 +328,17 @@ void main() {
     await tester.pump(const Duration(seconds: 5));
   });
 
-  testWidgets('a won position has no action: the bar is not a button there',
-      (tester) async {
+  testWidgets(
+      'a won position has no action: the bar is not a button there but '
+      'the Sal pill, "Send to a friend"', (tester) async {
     await _pump(tester, _won);
     expect(barIsPrimary(tester), isFalse);
+    expect(barIsUp(tester), isTrue);
     expect(find.byType(AppButton), findsNothing);
+    final pill = find.byKey(const ValueKey('kute-bar-pill'));
+    expect(pill, findsOneWidget);
+    expect(find.descendant(of: pill, matching: find.text('Send to a friend')),
+        findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

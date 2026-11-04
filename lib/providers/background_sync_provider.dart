@@ -1,7 +1,15 @@
 import 'package:kute/services/polymarket/combos/combo_feed.dart';
 import 'package:kute/services/orchestra/standing_deposit_store.dart';
 import 'package:kute/services/orchestra/own_bitcoin_deliveries.dart'
-    show isOnChainDeposit, orchestraBtcFieldToSats, reconcilerDeliveryLegs, tightDeliveryTolerance, kOwnDeliveryArrivalWindow;
+    show
+        deliverySentUsd,
+        isOnChainDeposit,
+        kOwnCctpDeliveryArrivalWindow,
+        orchestraBtcFieldToSats,
+        reconcilerDeliveryLegs,
+        snapshotReceivedUsd,
+        tightDeliveryTolerance,
+        kOwnDeliveryArrivalWindow;
 import 'package:kute/services/orchestra/standing_deposit_sweep.dart';
 import 'dart:async';
 import 'package:hive_ce/hive.dart';
@@ -1465,7 +1473,26 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
             (row: e, linkedSats: 0, expectedSats: null)
           else if (_shortOfItsLegs(e, links, receiveSats, now) case final s?)
             s,
-      ];
+      ]
+        // Rows that know their figure claim first: a row still without one
+        // (a CCTP leg Orchestra reported done with no bitcoin figure) took
+        // the receive closest in time, another leg's delivery among them,
+        // and that leg's receive then stood beside the move.
+        ..sort((a, b) {
+          int known(({SwapOrder row, int linkedSats, int? expectedSats}) w) =>
+              w.expectedSats != null ||
+                      orchestraBtcFieldToSats(w.row.withdrawalAmount) > 0
+                  ? 0
+                  : 1;
+          final byKnown = known(a).compareTo(known(b));
+          return byKnown != 0
+              ? byKnown
+              : a.row.timestamp.compareTo(b.row.timestamp);
+        });
+      // A receive's dollar value when it landed: how a row without a
+      // bitcoin figure is matched (never to just any receive).
+      final receivedUsd =
+          snapshotReceivedUsd(currentBtcUsd: ref.read(currentBtcUsdProvider));
       for (final w in awaiting) {
         if (receives.isEmpty) break;
         final ex = w.row;
@@ -1482,6 +1509,12 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
           rowAt: DateTime.fromMillisecondsSinceEpoch(ex.timestamp),
           receives: receives,
           band: !short,
+          // A Circle CCTP leg may be held for screening: its day.
+          window: _isCctpRow(ex)
+              ? kOwnCctpDeliveryArrivalWindow
+              : kOwnDeliveryArrivalWindow,
+          sentUsd: deliverySentUsd(ex),
+          receivedUsd: receivedUsd,
         );
         if (legs == null || legs.isEmpty) continue;
         // A receive settles one exchange.
@@ -2659,12 +2692,17 @@ bool orchestraRowAwaitsDelivery(SwapOrder e,
   final raw = double.tryParse(e.withdrawalAmount) ?? 0;
   if (raw.isFinite && raw > 0) return false;
   return now.difference(DateTime.fromMillisecondsSinceEpoch(e.timestamp)) <=
-      kOwnDeliveryLinkWindow;
+      (_isCctpRow(e) ? kOwnCctpDeliveryArrivalWindow : kOwnDeliveryLinkWindow);
 }
 
 /// How long after it was created a done order with no bitcoin figure may
-/// still be settled on its receive.
+/// still be settled on its receive (a Circle CCTP leg: a day, its
+/// delivery may be held for screening).
 const Duration kOwnDeliveryLinkWindow = Duration(hours: 6);
+
+/// Whether [e] is a Circle CCTP move out of Investing.
+bool _isCctpRow(SwapOrder e) =>
+    (e.routeVersion ?? '').startsWith('hypercore_cctp_to_');
 
 
 /// Trims [ring] (latest first) to [max] addresses, dropping the oldest

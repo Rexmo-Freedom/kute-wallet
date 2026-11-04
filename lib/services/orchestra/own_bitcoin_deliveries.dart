@@ -28,14 +28,28 @@
 //     A row whose linked legs fall short of the figure the reconciler saw
 //     when it linked them ([OrchestraDeliveryLink.expectedSats]) claims the
 //     rest the same way, held to two percent of the whole.
-//     An unlinked receive later than the window keeps its own row, and so
+//  3. otherwise, for the wallet's own moves to Bitcoin only (its own
+//     withdrawal kinds, or a row settling to its own address; never a row
+//     only a bet-flow tag ties to it), by the dollars that left for it:
+//     one receive whose dollar value when it landed ([ReceivedUsd], its
+//     fiat snapshot) is what that many dollars buy less the route's fees
+//     ([plausibleDeliveryUsd]), from [kOwnDeliveryEarlyMargin] before the
+//     row to [kOwnDeliveryUsdWindow] after it (a day for a Circle CCTP
+//     leg). This is how a row whose bitcoin figure is not known yet (a
+//     CCTP leg out of Investing that Orchestra reports done with no
+//     figure) finds its receive without the reconciler, and how a
+//     delivery the fees took more than the estimate's band from, or that
+//     landed after the amount window, still folds in. A row that already
+//     has a figure also needs the receive within half to five quarters of
+//     it. The closest dollar value first, then the closest time, the
+//     oldest row first.
+//     An unlinked receive later than the windows keeps its own row, and so
 //     does one a row has no room left for: amount and time alone never
-//     hide money that may have come from outside.
+//     hide money that may have come from outside, and a receive whose
+//     dollar value is not known is never matched by it.
 //
-// A row whose bitcoin amount is not known yet (a CCTP leg before its
-// order reports one) claims nothing by amount: only the reconciler's link
-// can tie a receive to it. A receive nothing claims keeps its own row.
-// Pure, so the lists and the tests read the same answer.
+// A receive nothing claims keeps its own row. Pure, so the lists and the
+// tests read the same answer.
 
 import 'dart:math' as math;
 
@@ -50,6 +64,8 @@ import 'package:kute/services/polymarket_spark_txs_service.dart'
     show OrchestraDeliveryLink;
 import 'package:kute/services/security/address_guard.dart'
     show sparkIdentityPubkeyHex;
+import 'package:kute/services/tx_fiat_snapshot_service.dart'
+    show TxFiatSnapshotService;
 
 /// How long after one of the wallet's own deliveries to Bitcoin started an
 /// unlinked receive may still be matched to it by amount: the delivery
@@ -64,6 +80,61 @@ const Duration kOwnCctpDeliveryArrivalWindow = Duration(hours: 24);
 /// A row stamped a little after its money moved (written when the flow
 /// returned) may see its receive land just before it.
 const Duration kOwnDeliveryEarlyMargin = Duration(minutes: 10);
+
+/// How long after one of the wallet's own moves to Bitcoin started a
+/// receive may still be matched to it by the dollars that left for it
+/// ([plausibleDeliveryUsd]): Orchestra can hold a delivery well past the
+/// amount window. A Circle CCTP leg keeps its day
+/// ([kOwnCctpDeliveryArrivalWindow]).
+const Duration kOwnDeliveryUsdWindow = Duration(hours: 6);
+
+/// The dollar value a receive had when it landed (its fiat snapshot, else
+/// its sats at the current price), null when not known. The wallet's own
+/// moves to Bitcoin are matched by it ([plausibleDeliveryUsd]).
+typedef ReceivedUsd = double? Function(SparkTransaction rx);
+
+/// [ReceivedUsd] from the wallet's own records: the receive's fiat
+/// snapshot (its dollar value when the wallet first saw it,
+/// [TxFiatSnapshotService]), else its sats at [currentBtcUsd] (0 when the
+/// price is not known: null then).
+ReceivedUsd snapshotReceivedUsd({double currentBtcUsd = 0}) => (rx) {
+      final snap = TxFiatSnapshotService.snapshot(rx.id);
+      if (snap != null && snap.usd > 0) return snap.usd;
+      if (!currentBtcUsd.isFinite || currentBtcUsd <= 0) return null;
+      return rx.amountSats.abs() / 1e8 * currentBtcUsd;
+    };
+
+const Set<String> _dollarCoins = {
+  'USDC',
+  'USDC.E',
+  'USDT',
+  'DAI',
+  'USD',
+  'USDB',
+  'PUSD',
+};
+
+/// The dollars that left for [d] when its source is a dollar coin (USDC
+/// on HyperCore or Polygon, USDB, pUSD): six-decimal base units or plain
+/// dollars, the same reading the rows make. Null otherwise.
+double? deliverySentUsd(SwapOrder d) {
+  final coin = d.coinFrom.trim().toUpperCase();
+  if (!_dollarCoins.contains(coin)) return null;
+  final raw = double.tryParse(d.depositAmount) ?? 0;
+  if (!raw.isFinite || raw <= 0) return null;
+  return (raw >= 10000 && raw == raw.roundToDouble()) ? raw / 1e6 : raw;
+}
+
+/// Whether a receive worth [receivedUsd] when it landed can be what
+/// [sentUsd] dollars bought: the route's fees (the CCTP forward fee,
+/// Orchestra's and Kute's) keep it under what left, a quarter at most plus
+/// 75 cents on a small move, and the price moving while it travelled (or
+/// before the wallet first saw it) keeps it within eight percent above.
+bool plausibleDeliveryUsd(double receivedUsd, double sentUsd) =>
+    sentUsd > 0 &&
+    receivedUsd > 0 &&
+    receivedUsd >= sentUsd * 0.75 - 0.75 &&
+    receivedUsd <= sentUsd * 1.08 + 0.25;
 
 /// Whether [address] is one of [own] (lowercased), either spelling of a
 /// Spark address included (`sp1…` and `spark1…` encode the same key, and
@@ -179,7 +250,9 @@ List<SparkTransaction>? matchDeliveryLegSet(
 /// belongs to one row at most.
 ///
 /// [betFlowOrderIds] are orders the bet and claim flows tagged (ownership
-/// without an own settle address); [links] the reconciler's links.
+/// without an own settle address); [links] the reconciler's links;
+/// [receivedUsd] each receive's dollar value when it landed (step 3 of the
+/// file header; without it nothing is matched by dollars).
 Map<String, String> ownBitcoinDeliveryReceives(
   List<SwapOrderTransaction> exchanges,
   Iterable<SparkTransaction> receives, {
@@ -187,6 +260,7 @@ Map<String, String> ownBitcoinDeliveryReceives(
   required SwapActivityKind Function(SwapOrder order) classify,
   Set<String> betFlowOrderIds = const {},
   Map<String, OrchestraDeliveryLink> links = const {},
+  ReceivedUsd? receivedUsd,
 }) {
   final claimed = <String, String>{};
   // An on-chain deposit is never a delivery: Orchestra pays the wallet
@@ -238,6 +312,13 @@ Map<String, String> ownBitcoinDeliveryReceives(
     int loose,
     Duration window,
   })>[];
+  // The wallet's own moves to Bitcoin paid in dollars, for step 3.
+  final byUsd = <({
+    SwapOrderTransaction ex,
+    double sentUsd,
+    int fieldSats,
+    Duration window,
+  })>[];
   for (final ex in exchanges) {
     final d = ex.details;
     if (d.coinTo.toUpperCase() != 'BTC') continue;
@@ -249,7 +330,6 @@ Map<String, String> ownBitcoinDeliveryReceives(
     final fieldSats = orchestraBtcFieldToSats(d.withdrawalAmount);
     final linked = linkedSats[ex.id] ?? 0;
     final expected = math.max(fieldSats, linkedExpected[ex.id] ?? 0);
-    if (expected <= 0) continue;
     final kind = classify(d);
     final toSelf = settlesToOwnAddress(d.withdrawalAddress, ownAddresses);
     // A Spark address the wallet knows is not its own: someone else's
@@ -259,6 +339,20 @@ Map<String, String> ownBitcoinDeliveryReceives(
         sparkIdentityPubkeyHex(d.withdrawalAddress.trim()) != null;
     final ownWithdrawal =
         d.isOrchestra && _ownWithdrawalKinds.contains(kind) && !foreign;
+    final cctp = (d.routeVersion ?? '').startsWith('hypercore_cctp_to_');
+    if ((ownWithdrawal || toSelf) && linked == 0) {
+      final sentUsd = deliverySentUsd(d);
+      if (sentUsd != null) {
+        byUsd.add((
+          ex: ex,
+          sentUsd: sentUsd,
+          fieldSats: fieldSats,
+          window: cctp ? kOwnCctpDeliveryArrivalWindow : kOwnDeliveryUsdWindow,
+        ));
+      }
+    }
+    // A row whose bitcoin figure is not known yet claims nothing by amount.
+    if (expected <= 0) continue;
     final tagged = betFlowOrderIds.contains(ex.id);
     // Amount and time alone can coincide: the row must be the wallet's.
     if (!ownWithdrawal && !toSelf && !tagged && linked == 0) continue;
@@ -282,7 +376,6 @@ Map<String, String> ownBitcoinDeliveryReceives(
     // amount is held to.
     // A Circle CCTP leg's figure is what its order reported delivering,
     // never an estimate, and its window is long: the tight match only.
-    final cctp = (d.routeVersion ?? '').startsWith('hypercore_cctp_to_');
     wants.add((
       ex: ex,
       target: expected,
@@ -293,7 +386,7 @@ Map<String, String> ownBitcoinDeliveryReceives(
       window: _deliveryWindow(d, ownWithdrawal || toSelf),
     ));
   }
-  if (wants.isEmpty) return claimed;
+  if (wants.isEmpty && byUsd.isEmpty) return claimed;
 
   bool inWindow(SparkTransaction rx, SwapOrderTransaction ex, Duration w) {
     final delta = rx.timestamp.difference(ex.timestamp);
@@ -370,6 +463,45 @@ Map<String, String> ownBitcoinDeliveryReceives(
       claimed[single.id] = w.ex.id;
     }
   }
+
+  // 3. The wallet's own moves to Bitcoin still without a receive, oldest
+  // first: by the dollars that left for them.
+  if (receivedUsd == null || byUsd.isEmpty) return claimed;
+  final served = claimed.values.toSet();
+  final usdOf = <String, double?>{};
+  double? valueOf(SparkTransaction rx) =>
+      usdOf.putIfAbsent(rx.id, () => receivedUsd(rx));
+  byUsd.sort((a, b) => a.ex.timestamp.compareTo(b.ex.timestamp));
+  for (final w in byUsd) {
+    if (served.contains(w.ex.id)) continue;
+    // What the dollars buy, give or take: the fees take a little.
+    final aim = w.sentUsd * 0.985;
+    SparkTransaction? best;
+    var bestDiff = 0.0;
+    for (final rx in inbound) {
+      if (claimed.containsKey(rx.id)) continue;
+      if (!inWindow(rx, w.ex, w.window)) continue;
+      final value = valueOf(rx);
+      if (value == null || !plausibleDeliveryUsd(value, w.sentUsd)) continue;
+      if (w.fieldSats > 0) {
+        final ratio = rx.amountSats.abs() / w.fieldSats;
+        if (ratio < 0.5 || ratio > 1.25) continue;
+      }
+      final diff = (value - aim).abs();
+      if (best == null ||
+          diff < bestDiff - 1e-9 ||
+          ((diff - bestDiff).abs() <= 1e-9 &&
+              rx.timestamp.difference(w.ex.timestamp).abs() <
+                  best.timestamp.difference(w.ex.timestamp).abs())) {
+        best = rx;
+        bestDiff = diff;
+      }
+    }
+    if (best != null) {
+      claimed[best.id] = w.ex.id;
+      served.add(w.ex.id);
+    }
+  }
   return claimed;
 }
 
@@ -389,7 +521,8 @@ Duration _deliveryWindow(SwapOrder d, bool own) {
 /// The delivery reconciler's pick of the receives among [receives] that
 /// settle a row stamped [rowAt] waiting for [targetSats] (0 when its
 /// figure is not known yet): those landing from two minutes before the row
-/// to [kOwnDeliveryArrivalWindow] after it, then
+/// to [window] after it ([kOwnDeliveryArrivalWindow]; a Circle CCTP leg
+/// passes its day), then
 ///
 ///  * one receive within two percent of the figure;
 ///  * else the set of two to [kMaxDeliveryLegs] receives adding up to it
@@ -398,7 +531,13 @@ Duration _deliveryWindow(SwapOrder d, bool own) {
 ///    closest in time within half to five quarters of the figure: a first
 ///    leg of a split payout settles the row and the rest follows it
 ///    (the link keeps the figure it was matched against);
-///  * with no figure, the receive closest in time.
+///  * with no figure and the dollars that left for the row known
+///    ([sentUsd]), the receive whose dollar value when it landed
+///    ([receivedUsd]) is what those dollars buy ([plausibleDeliveryUsd]),
+///    the closest value first, then the closest time: never just any
+///    receive, which settled a CCTP leg on another leg's delivery or on
+///    money from outside (and left its own delivery listed beside it);
+///  * with no figure and no dollars to go by, the receive closest in time.
 ///
 /// Null when nothing qualifies. Pure, so the reconciler and its tests read
 /// the same answer.
@@ -407,13 +546,16 @@ List<SparkTransaction>? reconcilerDeliveryLegs({
   required DateTime rowAt,
   required List<SparkTransaction> receives,
   bool band = true,
+  Duration window = kOwnDeliveryArrivalWindow,
+  double? sentUsd,
+  ReceivedUsd? receivedUsd,
 }) {
   final candidates = [
     for (final rx in receives)
       if (rx.amountSats > 0 &&
           !isOnChainDeposit(rx) &&
           !rx.timestamp.isBefore(rowAt.subtract(const Duration(minutes: 2))) &&
-          !rx.timestamp.isAfter(rowAt.add(kOwnDeliveryArrivalWindow)))
+          !rx.timestamp.isAfter(rowAt.add(window)))
         rx,
   ];
   if (candidates.isEmpty) return null;
@@ -429,6 +571,23 @@ List<SparkTransaction>? reconcilerDeliveryLegs({
   }
 
   if (targetSats <= 0) {
+    if (sentUsd != null && sentUsd > 0 && receivedUsd != null) {
+      final aim = sentUsd * 0.985;
+      SparkTransaction? best;
+      var bestDiff = 0.0;
+      for (final rx in candidates) {
+        final value = receivedUsd(rx);
+        if (value == null || !plausibleDeliveryUsd(value, sentUsd)) continue;
+        final diff = (value - aim).abs();
+        if (best == null ||
+            diff < bestDiff - 1e-9 ||
+            ((diff - bestDiff).abs() <= 1e-9 && deltaOf(rx) < deltaOf(best))) {
+          best = rx;
+          bestDiff = diff;
+        }
+      }
+      return best == null ? null : [best];
+    }
     final any = closest((_) => true);
     return any == null ? null : [any];
   }

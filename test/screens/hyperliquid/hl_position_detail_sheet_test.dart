@@ -242,20 +242,24 @@ void main() {
     // The price is the big figure under the header row, not in it.
     expect(find.descendant(of: header, matching: find.byType(HlTickPrice)),
         findsNothing);
-    // The share is the market pages' header pill at the top right beside
-    // the big figure (founder, 1 November 2026): "Brag about it" in
-    // profit, else the header button; no card under the tiles.
-    expect(find.byKey(const ValueKey('position-share-card')), findsNothing);
-    final brag = find.byKey(const ValueKey('position-share-pill'));
-    final send = find.byKey(const ValueKey('kute-sal-header-button'));
-    expect(brag.evaluate().length + send.evaluate().length, 1);
-    final pill = brag.evaluate().isNotEmpty ? brag : send;
-    final pillRect = tester.getRect(pill);
-    final priceRect =
-        tester.getRect(find.byKey(const ValueKey('hl-position-price')));
-    expect(pillRect.center.dy, closeTo(priceRect.center.dy, 2));
-    expect(pillRect.left, greaterThanOrEqualTo(priceRect.right));
-    expect(pillRect.height, 40);
+    // Nothing to share in the page (founder, 4 November 2026): no pill
+    // beside the figure, no card under the tiles. The round Sal button
+    // floats beside Close position: in profit, the brag card.
+    for (final key in [
+      'kute-sal-header-button',
+      'position-share-pill',
+      'position-share-card',
+    ]) {
+      expect(find.byKey(ValueKey(key)), findsNothing, reason: key);
+    }
+    final close = tester
+        .widget<KuteBarContextScope>(find.byWidgetPredicate(
+            (w) => w is KuteBarContextScope && w.barContext.isPrimary))
+        .barContext;
+    expect(close.label, 'Close position');
+    expect(close.share, isNotNull);
+    expect(close.share!.barContext.market, isTrue);
+    expect(close.share!.brag, isNotNull, reason: 'in profit: the card');
     expect(find.byType(KuteDogGlance), findsNothing);
     expect(find.byType(SalAiRing), findsNothing);
     // The Liquidation row says how far it is; no sentence under it on
@@ -584,6 +588,46 @@ void main() {
         barIsUp(tester) &&
         barPrimaryContext(tester).label == 'Close position';
 
+    testWidgets(
+        'Close position carries the round Sal button at its right, read '
+        'as Brag about it in profit, both taking taps; the chart editor '
+        'takes both away', (tester) async {
+      await pumpScreen(
+          tester, const HlPositionDetailSheet(position: _position, market: btc),
+          bar: true);
+      await pumpBar(tester);
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(closeOnBar(tester), isTrue);
+      final share = find.byKey(const ValueKey('kute-bar-share'));
+      expect(share, findsOneWidget);
+      final close = tester.getRect(findBarPrimary());
+      final circle = tester.getRect(share);
+      expect(circle.left, greaterThan(close.right));
+      expect(circle.center.dy, moreOrLessEquals(close.center.dy, epsilon: 1));
+      expect(find.bySemanticsLabel('Brag about it'), findsOneWidget);
+      for (final f in [findBarPrimary(), share]) {
+        final hit = tester.hitTestOnBinding(tester.getCenter(f));
+        expect(hit.path.any((e) => e.target == tester.renderObject(f)),
+            isTrue);
+      }
+      // Nothing beside the figure.
+      expect(find.byKey(const ValueKey('position-share-pill')), findsNothing);
+      expect(find.byKey(const ValueKey('kute-sal-header-button')),
+          findsNothing);
+
+      await enterEdit(tester);
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(barIsUp(tester), isFalse);
+      await tester.tap(find.text('Done'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await pumpBar(tester);
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(closeOnBar(tester), isTrue);
+      expect(share, findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('the position screen edits on the whole screen, like the '
         'market sheet', (tester) async {
       await pumpScreen(
@@ -643,21 +687,20 @@ void main() {
           .descendant(of: header.first, matching: find.byType(HlCoinIcon))
           .first);
       expect(icon.size, 32);
-      // The star stays in the header; Sal's Share pill ends the price's
-      // row under it, centred on the price and right against the 20 pt
-      // gutter (founder, 31 October 2026).
+      // The star stays in the header. Nothing to share there or beside
+      // the price (founder, 4 November 2026): Send to a friend is the
+      // round Sal button at the end of the floating trade row.
       expect(
           find.descendant(of: header.first, matching: find.byType(HlWatchStar)),
           findsOneWidget);
-      final share = find.byKey(const ValueKey('kute-sal-header-button'));
-      expect(share, findsOneWidget);
-      expect(find.descendant(of: header.first, matching: share), findsNothing);
-      final shareRect = tester.getRect(share);
-      final priceRect =
-          tester.getRect(find.byKey(const ValueKey('hl-detail-price')));
-      expect(shareRect.center.dy, closeTo(priceRect.center.dy, 2));
-      expect(shareRect.right, closeTo(390 - 20 * 390 / 430, 1));
-      expect(shareRect.left, greaterThanOrEqualTo(priceRect.right));
+      expect(find.byKey(const ValueKey('kute-sal-header-button')),
+          findsNothing);
+      final row = tester
+          .widget<KuteBarContextScope>(find.byWidgetPredicate(
+              (w) => w is KuteBarContextScope && w.barContext.isTrade))
+          .barContext;
+      expect(row.trades.map((t) => t.label), ['Invest', 'Short']);
+      expect(row.share!.barContext.market, isTrue);
       expect(tester.takeException(), isNull);
     });
 
@@ -899,8 +942,10 @@ void main() {
       hyperliquidExactMarketProvider.overrideWith((ref, key) => moving),
     ];
     final row = find.byKey(const ValueKey('sal-why-moving-row'));
+    // About: the option card beside Advanced chart.
     final aboutRow = find.ancestor(
-        of: find.text('About Bitcoin'), matching: find.byType(InkWell));
+        of: find.text('About Bitcoin'),
+        matching: find.byKey(const ValueKey('hl-about')));
     Finder headerRow() => find
         .ancestor(
             of: find.byType(KuteCircleBackButton), matching: find.byType(Row))
@@ -971,14 +1016,17 @@ void main() {
       expect(protect, findsOneWidget);
       expect(find.text('Liquidation'), findsOneWidget);
       expect(find.byKey(const ValueKey('hl-position-risk-line')), findsNothing);
-      // An isolated position on its own market: "Add margin" is a plain
-      // row of its own, over "Protect it" (no chip beside the price).
+      // An isolated position on its own market: "Add margin" is an option
+      // card of its own, beside "Protect it" (no chip beside the price),
+      // the two as tall as each other.
       final add = find.byKey(const ValueKey('hl-add-margin'));
       expect(add, findsOneWidget);
       expect(find.descendant(of: add, matching: find.text('Add margin')),
           findsOneWidget);
-      expect(tester.getRect(add).bottom,
-          lessThanOrEqualTo(tester.getRect(protect).top + 0.5));
+      expect(tester.getRect(add).top, tester.getRect(protect).top);
+      expect(tester.getRect(add).right,
+          lessThan(tester.getRect(protect).left));
+      expect(tester.getRect(add).height, tester.getRect(protect).height);
       expect(find.descendant(of: protect, matching: find.text('Stop loss')),
           findsOneWidget);
       expect(find.byType(KuteDogGlance), findsNothing);

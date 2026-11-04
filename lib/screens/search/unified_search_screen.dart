@@ -271,10 +271,11 @@ Future<void> showKuteSearch(
   // place and draws the pill transparent (kute_shell_bar.dart reads
   // kuteSearchMorphing / kuteSearchSheetOpen), so the pill's return lands
   // exactly where it rests; a hidden context would slide the bar down and
-  // back and miss the landing. A context placed in the page's header
-  // travels from KuteSalHeaderButton instead and the bar's pill is away
-  // already, so the hidden context goes up as for any sheet (or the bar
-  // would rise behind the tall sheet with the default pill).
+  // back and miss the landing. A context placed in the page's header (the
+  // Investing position's) has no pill of its own, so the hidden context
+  // goes up as for any sheet (or the bar would rise behind the tall sheet
+  // with the default pill); when its round Sal button in the bar is the
+  // one travelling, the bar holds its place regardless.
   const hiddenBar = KuteBarContext.hidden();
   final overlay =
       morph == null ? null : Navigator.of(context, rootNavigator: true).overlay;

@@ -5814,6 +5814,40 @@ class AppLocalizationsHu extends AppLocalizations {
   String get hlAdvancedChart => 'Speciális diagram';
 
   @override
+  String get optionAdvancedChartSub => 'Rajzok és indikátorok';
+
+  @override
+  String get optionAboutMarketSub => 'Statisztika és megbízási könyv';
+
+  @override
+  String get optionAddMarginSub => 'Távolabb a likvidációtól';
+
+  @override
+  String get optionPositionDetailsSub => 'Méret, belépés és finanszírozás';
+
+  @override
+  String optionEndsOn(String date) {
+    return 'Vége: $date';
+  }
+
+  @override
+  String optionEndedOn(String date) {
+    return 'Véget ért: $date';
+  }
+
+  @override
+  String get optionHowItResolves => 'Hogyan értékelik ki';
+
+  @override
+  String get optionViewMarketSub => 'Diagram és esélyek';
+
+  @override
+  String get optionPredictionDetailsSub => 'Egységek és fizetett ár';
+
+  @override
+  String get optionProtectSellSub => 'Add el a saját áradon';
+
+  @override
   String get chartStyleCandles => 'Gyertyák';
 
   @override

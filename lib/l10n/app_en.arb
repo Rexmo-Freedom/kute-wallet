@@ -3087,7 +3087,57 @@
   "chartStyleTitle": "Chart style",
   "hlAdvancedChart": "Advanced chart",
   "@hlAdvancedChart": {
-    "description": "Row under a Hyperliquid chart (market screen, above About; position screen, above Details) that opens the chart in its editing mode: drawing tools and indicators."
+    "description": "Option card under a Hyperliquid chart (market screen, beside About; position screen, beside Details) that opens the chart in its editing mode: drawing tools and indicators."
+  },
+  "optionAdvancedChartSub": "Drawings and indicators",
+  "@optionAdvancedChartSub": {
+    "description": "Option card under an Investing chart (market and position screens): the line under 'Advanced chart', what that mode has. Short, one line."
+  },
+  "optionAboutMarketSub": "Stats and order book",
+  "@optionAboutMarketSub": {
+    "description": "Option card under an Investing market's chart: the line under 'About Bitcoin', what its sheet holds. Short, one line."
+  },
+  "optionAddMarginSub": "Further from liquidation",
+  "@optionAddMarginSub": {
+    "description": "Option card on an Investing position screen: the line under 'Add margin'; adding margin moves the liquidation price further away. Short, one line."
+  },
+  "optionPositionDetailsSub": "Size, entry and funding",
+  "@optionPositionDetailsSub": {
+    "description": "Option card on an Investing position screen: the line under 'Details', what its sheet holds (position size, entry price, funding). Short, one line."
+  },
+  "optionEndsOn": "Ends {date}",
+  "@optionEndsOn": {
+    "description": "Option card under a Predictions market's chart: the line under 'Rules and resolution' when the market is still open. {date} is a short date, e.g. 'Nov 5'. Short, one line.",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "optionEndedOn": "Ended {date}",
+  "@optionEndedOn": {
+    "description": "Option card under a Predictions market's chart: the line under 'Rules and resolution' once the market has ended. {date} is a short date, e.g. 'Nov 5'. Short, one line.",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "optionHowItResolves": "How it resolves",
+  "@optionHowItResolves": {
+    "description": "Option card on Predictions screens: the line under 'Rules and resolution' (no end date known) and under 'Closing conditions' on a position. Short, one line."
+  },
+  "optionViewMarketSub": "Chart and odds",
+  "@optionViewMarketSub": {
+    "description": "Option card on a Predictions position screen: the line under 'View market' (the market's screen, with its chart and the chances). Short, one line."
+  },
+  "optionPredictionDetailsSub": "Shares and price paid",
+  "@optionPredictionDetailsSub": {
+    "description": "Option card on a Predictions position screen: the line under 'Details', what its sheet holds (shares, the price paid). Short, one line."
+  },
+  "optionProtectSellSub": "Sell at your price",
+  "@optionProtectSellSub": {
+    "description": "Option card on a Predictions position screen: the line under 'Protect it', which opens a limit sell at a price the user picks. Short, one line."
   },
   "chartStyleCandles": "Candles",
   "chartStyleHollow": "Hollow candles",

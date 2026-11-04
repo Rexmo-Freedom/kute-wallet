@@ -687,7 +687,22 @@ class KuteSalPill extends StatelessWidget {
                                 : Padding(
                                     key: ValueKey('$label|$sublabel'),
                                     padding: EdgeInsets.only(left: 6.w),
-                                    child: text,
+                                    // The two lines are sized in .sp: on a
+                                    // tablet they outgrow the 56 pill, so
+                                    // they scale down there (never up),
+                                    // laid out in the pill's width as ever
+                                    // (a long label still fades at its end).
+                                    child: LayoutBuilder(
+                                      builder: (context, box) => FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        alignment: Alignment.centerLeft,
+                                        child: ConstrainedBox(
+                                          constraints: BoxConstraints(
+                                              maxWidth: box.maxWidth),
+                                          child: text,
+                                        ),
+                                      ),
+                                    ),
                                   ),
                           ),
                         ),
