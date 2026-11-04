@@ -3423,7 +3423,10 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get depositAutoAfterConfirmations =>
-      'Se añade automáticamente tras 3 confirmaciones.';
+      'Se añade automáticamente, a menudo en minutos y como muy tarde tras 3 confirmaciones. Desde la primera confirmación quizá puedas reclamarlo antes, con una comisión.';
+
+  @override
+  String get activityClaimNowAvailable => 'Ya puedes reclamarlo';
 
   @override
   String get depositReasonFeeHigh =>

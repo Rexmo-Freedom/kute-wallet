@@ -3408,7 +3408,10 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get depositAutoAfterConfirmations =>
-      '3 megerősítés után automatikusan hozzáadódik.';
+      'Automatikusan jóváírjuk, gyakran perceken belül, legkésőbb 3 megerősítés után. Az első megerősítéstől díj ellenében talán előbb is igényelheted.';
+
+  @override
+  String get activityClaimNowAvailable => 'Most igényelhető';
 
   @override
   String get depositReasonFeeHigh =>

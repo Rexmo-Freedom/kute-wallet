@@ -3415,7 +3415,10 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get depositAutoAfterConfirmations =>
-      'Wordt automatisch toegevoegd na 3 bevestigingen.';
+      'Wordt automatisch bijgeschreven, vaak binnen een paar minuten en uiterlijk na 3 bevestigingen. Vanaf de eerste bevestiging kun je het misschien eerder ophalen, tegen een vergoeding.';
+
+  @override
+  String get activityClaimNowAvailable => 'Nu op te halen';
 
   @override
   String get depositReasonFeeHigh =>

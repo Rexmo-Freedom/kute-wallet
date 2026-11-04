@@ -3400,7 +3400,10 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get depositAutoAfterConfirmations =>
-      'Läggs till automatiskt efter 3 bekräftelser.';
+      'Läggs till automatiskt, ofta inom några minuter och senast efter 3 bekräftelser. Från första bekräftelsen kan du kanske hämta det tidigare, mot en avgift.';
+
+  @override
+  String get activityClaimNowAvailable => 'Kan hämtas nu';
 
   @override
   String get depositReasonFeeHigh =>

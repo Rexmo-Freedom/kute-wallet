@@ -3398,7 +3398,10 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get depositAutoAfterConfirmations =>
-      'Přidá se automaticky po 3 potvrzeních.';
+      'Přidá se automaticky, často během pár minut a nejpozději po 3 potvrzeních. Od prvního potvrzení ho možná půjde vyzvednout dřív, za poplatek.';
+
+  @override
+  String get activityClaimNowAvailable => 'Lze vyzvednout hned';
 
   @override
   String get depositReasonFeeHigh =>

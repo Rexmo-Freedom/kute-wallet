@@ -3403,7 +3403,10 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String get depositAutoAfterConfirmations =>
-      'Pridá sa automaticky po 3 potvrdeniach.';
+      'Pridá sa automaticky, často v priebehu pár minút a najneskôr po 3 potvrdeniach. Od prvého potvrdenia ho možno budeš môcť vyzdvihnúť skôr, za poplatok.';
+
+  @override
+  String get activityClaimNowAvailable => 'Dá sa vyzdvihnúť hneď';
 
   @override
   String get depositReasonFeeHigh =>

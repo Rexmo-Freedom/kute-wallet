@@ -3391,7 +3391,10 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get depositAutoAfterConfirmations =>
-      'Tiek pievienota automātiski pēc 3 apstiprinājumiem.';
+      'Tiek pievienots automātiski, bieži dažu minūšu laikā un vēlākais pēc 3 apstiprinājumiem. No pirmā apstiprinājuma, iespējams, varēsi to saņemt ātrāk par maksu.';
+
+  @override
+  String get activityClaimNowAvailable => 'Var saņemt tagad';
 
   @override
   String get depositReasonFeeHigh =>

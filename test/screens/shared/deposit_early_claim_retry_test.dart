@@ -21,6 +21,8 @@ class _Actions extends SparkDepositActions {
   /// The SDK lists the deposit from this lookup on (1-based).
   int listedFrom = 3;
   int? earlyFee = 400;
+  int confirmations = 0;
+  int? earlyNeeds;
   int lookups = 0;
   int quotes = 0;
 
@@ -40,7 +42,10 @@ class _Actions extends SparkDepositActions {
       required int vout}) async {
     quotes++;
     return SparkDepositQuote(
-        confirmations: 0, matureFeeSats: 300, earlyFeeSats: earlyFee);
+        confirmations: confirmations,
+        matureFeeSats: 300,
+        earlyFeeSats: earlyFee,
+        earlyConfirmations: earlyNeeds);
   }
 }
 
@@ -80,6 +85,25 @@ class _Probe extends StatelessWidget {
 }
 
 void main() {
+  test('Claim now is offered from the first confirmation, never at 0', () async {
+    final a = _Actions()..listedFrom = 1;
+    // Quoted, but unconfirmed: no button.
+    expect((await _offer(a)).reason, 'unconfirmed');
+    a.confirmations = 1;
+    expect((await _offer(a)).feeSats, 400);
+    // The provider wants 2 for an early claim: not at 1.
+    a.earlyNeeds = 2;
+    expect((await _offer(a)).reason, 'needs_more_confirmations');
+    a.confirmations = 2;
+    expect((await _offer(a)).feeSats, 400);
+    // No early quote at all: no button.
+    a.earlyFee = null;
+    expect((await _offer(a)).reason, 'no_early_quote');
+    // Not listed by the SDK yet.
+    final b = _Actions()..listedFrom = 99;
+    expect((await _offer(b)).reason, 'not_listed_yet');
+  });
+
   testWidgets('a deposit the SDK lists later still gets its quote',
       (tester) async {
     final actions = _Actions()..earlyFee = null;
@@ -97,8 +121,12 @@ void main() {
     await tester.pump(DepositEarlyClaimRetry.every + const Duration(seconds: 1));
     expect(actions.quotes, 2);
     // Closing the sheet stops the asking.
+    // (Before it closes: an offer at 0 confirmations is never shown.)
     await tester.pumpWidget(const SizedBox());
     await tester.pump(DepositEarlyClaimRetry.every * 3);
     expect(actions.quotes, 2);
   });
 }
+
+Future<({int? feeSats, int? vout, String? reason})> _offer(_Actions a) =>
+    earlyClaimOffer(a, walletId: 'spending', txid: 'abc', amountSats: 50000);

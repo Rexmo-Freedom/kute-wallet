@@ -3395,7 +3395,10 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get depositAutoAfterConfirmations =>
-      'Lisatakse automaatselt pärast 3 kinnitust.';
+      'Lisatakse automaatselt, sageli mõne minutiga ja hiljemalt 3 kinnituse järel. Alates esimesest kinnitusest võid selle tasu eest varem kätte saada.';
+
+  @override
+  String get activityClaimNowAvailable => 'Saab kohe kätte';
 
   @override
   String get depositReasonFeeHigh =>

@@ -3406,7 +3406,10 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get depositAutoAfterConfirmations =>
-      'Doda se samodejno po 3 potrditvah.';
+      'Doda se samodejno, pogosto v nekaj minutah in najpozneje po 3 potrditvah. Od prve potrditve ga boste morda lahko prevzeli prej, proti plačilu provizije.';
+
+  @override
+  String get activityClaimNowAvailable => 'Na voljo za prevzem zdaj';
 
   @override
   String get depositReasonFeeHigh =>

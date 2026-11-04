@@ -2744,8 +2744,23 @@ Widget _buildSparkPendingDepositItem(
     subtitle: tx.confirmations < 3
         ? context.l10n.activityConfirmationsOfThree('${tx.confirmations}')
         : context.l10n.activityAddingToBalance,
+    // From the first confirmation, when the provider offers an early
+    // claim, the row says so: the offer used to be found only by opening
+    // the sheet.
     status: _RowStatus(
-        text: context.l10n.activityArriving, color: context.colors.warning),
+        text: tx.confirmations >= 1 &&
+                tx.confirmations < 3 &&
+                ref
+                        .watch(depositEarlyClaimOfferProvider((
+                          txid: tx.mempoolTx.txid,
+                          confirmations: tx.confirmations,
+                          amountSats: amountSats,
+                        )))
+                        .valueOrNull !=
+                    null
+            ? context.l10n.activityClaimNowAvailable
+            : context.l10n.activityArriving,
+        color: context.colors.warning),
     amount: ref.watch(conversionProvider(amountSats)),
     flow: ActivityFlow.moneyIn,
     amountIsBtc: true,

@@ -3402,7 +3402,10 @@ class AppLocalizationsDa extends AppLocalizations {
 
   @override
   String get depositAutoAfterConfirmations =>
-      'Tilføjes automatisk efter 3 bekræftelser.';
+      'Tilføjes automatisk, ofte inden for få minutter og senest efter 3 bekræftelser. Fra første bekræftelse kan du måske hente det før, mod et gebyr.';
+
+  @override
+  String get activityClaimNowAvailable => 'Kan hentes nu';
 
   @override
   String get depositReasonFeeHigh =>

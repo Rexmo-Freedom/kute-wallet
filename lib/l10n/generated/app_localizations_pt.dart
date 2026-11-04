@@ -3421,7 +3421,10 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get depositAutoAfterConfirmations =>
-      'Adicionado automaticamente após 3 confirmações.';
+      'É adicionado automaticamente, muitas vezes em minutos e no máximo após 3 confirmações. A partir da primeira confirmação, poderá resgatá-lo mais cedo, mediante uma taxa.';
+
+  @override
+  String get activityClaimNowAvailable => 'Já pode resgatar';
 
   @override
   String get depositReasonFeeHigh =>

@@ -3412,7 +3412,10 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get depositAutoAfterConfirmations =>
-      'Добавя се автоматично след 3 потвърждения.';
+      'Добавя се автоматично, често до минути и най-късно след 3 потвърждения. След първото потвърждение може да успееш да го вземеш по-рано срещу такса.';
+
+  @override
+  String get activityClaimNowAvailable => 'Може да се вземе сега';
 
   @override
   String get depositReasonFeeHigh =>

@@ -6156,8 +6156,14 @@ abstract class AppLocalizations {
   /// No description provided for @depositAutoAfterConfirmations.
   ///
   /// In en, this message translates to:
-  /// **'Added automatically after 3 confirmations.'**
+  /// **'Added automatically, often within minutes and at the latest after 3 confirmations. From the first confirmation you may be able to claim it sooner, for a fee.'**
   String get depositAutoAfterConfirmations;
+
+  /// No description provided for @activityClaimNowAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Claim now available'**
+  String get activityClaimNowAvailable;
 
   /// No description provided for @depositReasonFeeHigh.
   ///

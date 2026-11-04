@@ -3409,7 +3409,10 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get depositAutoAfterConfirmations =>
-      'Pridedama automatiškai po 3 patvirtinimų.';
+      'Pridedama automatiškai, dažnai per kelias minutes ir ne vėliau kaip po 3 patvirtinimų. Nuo pirmo patvirtinimo galbūt galėsite atsiimti anksčiau, sumokėję mokestį.';
+
+  @override
+  String get activityClaimNowAvailable => 'Galima atsiimti dabar';
 
   @override
   String get depositReasonFeeHigh =>

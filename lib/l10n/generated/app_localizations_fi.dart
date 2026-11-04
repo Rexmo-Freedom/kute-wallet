@@ -3399,7 +3399,10 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get depositAutoAfterConfirmations =>
-      'Lisätään automaattisesti 3 vahvistuksen jälkeen.';
+      'Lisätään automaattisesti, usein muutamassa minuutissa ja viimeistään 3 vahvistuksen jälkeen. Ensimmäisestä vahvistuksesta alkaen voit ehkä lunastaa sen aiemmin maksua vastaan.';
+
+  @override
+  String get activityClaimNowAvailable => 'Lunastettavissa nyt';
 
   @override
   String get depositReasonFeeHigh =>

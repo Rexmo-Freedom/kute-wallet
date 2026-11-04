@@ -3430,7 +3430,10 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get depositAutoAfterConfirmations =>
-      'Wird nach 3 Bestätigungen automatisch hinzugefügt.';
+      'Wird automatisch gutgeschrieben, oft innerhalb weniger Minuten und spätestens nach 3 Bestätigungen. Ab der ersten Bestätigung kannst du es eventuell früher abholen, gegen eine Gebühr.';
+
+  @override
+  String get activityClaimNowAvailable => 'Jetzt abholbar';
 
   @override
   String get depositReasonFeeHigh =>

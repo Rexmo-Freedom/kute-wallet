@@ -3307,7 +3307,11 @@ class AppLocalizationsJa extends AppLocalizations {
   String get depositStatusFailed => 'まだ追加できていません';
 
   @override
-  String get depositAutoAfterConfirmations => '3回の承認後に自動で追加されます。';
+  String get depositAutoAfterConfirmations =>
+      '自動で追加されます。多くは数分以内、遅くとも3回の承認後です。1回目の承認から、手数料を払って早めに受け取れる場合があります。';
+
+  @override
+  String get activityClaimNowAvailable => '今すぐ受け取れます';
 
   @override
   String get depositReasonFeeHigh =>

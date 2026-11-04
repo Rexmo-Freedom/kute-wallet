@@ -159,6 +159,62 @@ void showDepositClaimFailure(
 /// the provider offers none (the deposit then waits for its 3
 /// confirmations). [vout] may be unknown for a mempool row: the SDK's
 /// pending deposit for [txid] supplies it.
+/// What the provider offers to claim [txid] now, ahead of its 3
+/// confirmations: the fee and output when Claim now can be offered, else
+/// why not (`not_listed_yet`, `unconfirmed`, `needs_more_confirmations`,
+/// `no_early_quote`, `fee_not_below_amount`, `quote_failed`). Never at 0
+/// confirmations, never before the provider's own minimum for an early
+/// claim. Shared by the sheet's button and the Activity row's hint, so
+/// both say the same. Never throws.
+Future<({int? feeSats, int? vout, String? reason})> earlyClaimOffer(
+  SparkDepositActions actions, {
+  required String walletId,
+  required String txid,
+  int? vout,
+  required int amountSats,
+}) async {
+  try {
+    var out = vout;
+    if (out == null) {
+      final deposit =
+          await actions.depositForTxid(walletId: walletId, txid: txid);
+      out = deposit?.vout;
+    }
+    if (out == null) {
+      return (feeSats: null, vout: null, reason: 'not_listed_yet');
+    }
+    final quote = await actions.quote(walletId: walletId, txid: txid, vout: out);
+    if (quote.confirmations < 1) {
+      return (feeSats: null, vout: out, reason: 'unconfirmed');
+    }
+    if (quote.confirmations < (quote.earlyConfirmations ?? 1)) {
+      return (feeSats: null, vout: out, reason: 'needs_more_confirmations');
+    }
+    final fee = quote.earlyFeeSats;
+    if (fee == null) return (feeSats: null, vout: out, reason: 'no_early_quote');
+    if (fee <= 0 || fee >= amountSats) {
+      return (feeSats: null, vout: out, reason: 'fee_not_below_amount');
+    }
+    return (feeSats: fee, vout: out, reason: null);
+  } catch (_) {
+    return (feeSats: null, vout: vout, reason: 'quote_failed');
+  }
+}
+
+/// Whether Claim now is available for a confirming deposit, for its
+/// Activity row: the fee when it is, null otherwise. Keyed by the txid and
+/// the confirmations the row shows, so each new confirmation asks again.
+final depositEarlyClaimOfferProvider = FutureProvider.autoDispose
+    .family<int?, ({String txid, int confirmations, int amountSats})>(
+        (ref, key) async {
+  if (key.confirmations < 1 || key.confirmations >= 3) return null;
+  final walletId = pickSpendingWallet(ref.read(settingsProvider))?.id;
+  if (walletId == null) return null;
+  final offer = await earlyClaimOffer(ref.read(sparkDepositActionsProvider),
+      walletId: walletId, txid: key.txid, amountSats: key.amountSats);
+  return offer.feeSats;
+});
+
 /// How often, and how many times, Claim now asks again while its sheet is
 /// open (about ten minutes in all).
 abstract final class DepositEarlyClaimRetry {
@@ -229,33 +285,18 @@ class _DepositEarlyClaimState extends ConsumerState<DepositEarlyClaim> {
     final walletId = _walletId;
     if (walletId == null || widget.txid.isEmpty || !mounted) return;
     _attempts++;
-    final actions = ref.read(sparkDepositActionsProvider);
-    try {
-      var vout = _vout;
-      if (vout == null) {
-        final deposit =
-            await actions.depositForTxid(walletId: walletId, txid: widget.txid);
-        vout = deposit?.vout;
-      }
-      if (vout == null) return _scheduleRetry('not_listed_yet');
-      final quote = await actions.quote(
-          walletId: walletId, txid: widget.txid, vout: vout);
-      if (!mounted) return;
-      final fee = quote.earlyFeeSats;
-      // Only a quote the provider made, below the deposit itself.
-      if (fee == null) return _scheduleRetry('no_early_quote');
-      if (fee <= 0 || fee >= widget.amountSats) {
-        return _scheduleRetry('fee_not_below_amount');
-      }
-      setState(() {
-        _vout = vout;
-        _feeSats = fee;
-      });
-    } catch (_) {
-      // No quote yet: the deposit waits for its confirmations, and the
-      // sheet asks again.
-      _scheduleRetry('quote_failed');
-    }
+    final offer = await earlyClaimOffer(ref.read(sparkDepositActionsProvider),
+        walletId: walletId,
+        txid: widget.txid,
+        vout: _vout,
+        amountSats: widget.amountSats);
+    if (!mounted) return;
+    final fee = offer.feeSats;
+    if (fee == null) return _scheduleRetry(offer.reason ?? 'quote_failed');
+    setState(() {
+      _vout = offer.vout;
+      _feeSats = fee;
+    });
   }
 
   Future<void> _claim() async {

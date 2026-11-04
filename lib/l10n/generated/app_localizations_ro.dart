@@ -3418,7 +3418,10 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get depositAutoAfterConfirmations =>
-      'Se adaugă automat după 3 confirmări.';
+      'Se adaugă automat, adesea în câteva minute și cel târziu după 3 confirmări. De la prima confirmare îl poți revendica mai devreme, contra unei taxe.';
+
+  @override
+  String get activityClaimNowAvailable => 'Poate fi revendicat acum';
 
   @override
   String get depositReasonFeeHigh =>

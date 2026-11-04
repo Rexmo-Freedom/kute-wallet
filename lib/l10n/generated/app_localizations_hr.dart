@@ -3408,7 +3408,10 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get depositAutoAfterConfirmations =>
-      'Dodaje se automatski nakon 3 potvrde.';
+      'Dodaje se automatski, često u nekoliko minuta, a najkasnije nakon 3 potvrde. Od prve potvrde možda ga možeš preuzeti ranije, uz naknadu.';
+
+  @override
+  String get activityClaimNowAvailable => 'Može se preuzeti sada';
 
   @override
   String get depositReasonFeeHigh =>

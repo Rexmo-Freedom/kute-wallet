@@ -3409,7 +3409,10 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get depositAutoAfterConfirmations =>
-      'Dodawana automatycznie po 3 potwierdzeniach.';
+      'Dodawane automatycznie, często w ciągu kilku minut, a najpóźniej po 3 potwierdzeniach. Od pierwszego potwierdzenia możesz je odebrać wcześniej za opłatą.';
+
+  @override
+  String get activityClaimNowAvailable => 'Możesz odebrać teraz';
 
   @override
   String get depositReasonFeeHigh =>

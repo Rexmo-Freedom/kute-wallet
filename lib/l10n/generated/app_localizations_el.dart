@@ -3435,7 +3435,10 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get depositAutoAfterConfirmations =>
-      'Προστίθεται αυτόματα μετά από 3 επιβεβαιώσεις.';
+      'Προστίθεται αυτόματα, συχνά μέσα σε λίγα λεπτά και το αργότερο μετά από 3 επιβεβαιώσεις. Από την πρώτη επιβεβαίωση ίσως μπορείς να το παραλάβεις νωρίτερα, με χρέωση.';
+
+  @override
+  String get activityClaimNowAvailable => 'Διαθέσιμο για παραλαβή τώρα';
 
   @override
   String get depositReasonFeeHigh =>
