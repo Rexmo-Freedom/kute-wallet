@@ -10779,10 +10779,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get cctpRefundContactSupport => '移動するには、サポートにお問い合わせください。';
 
   @override
-  String get portfolioSectionPnlCharts => '損益チャート';
+  String get portfolioSectionPnlCharts => '損益';
 
   @override
-  String get portfolioSectionBalances => 'ポートフォリオ';
+  String get portfolioSectionBalances => 'ポジション';
 
   @override
   String balanceChangePastWeek(String change) {

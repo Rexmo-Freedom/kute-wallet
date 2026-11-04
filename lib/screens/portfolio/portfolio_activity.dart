@@ -1,7 +1,7 @@
 // lib/screens/portfolio/portfolio_activity.dart
 //
-// The Portfolio screen's Activity, at its bottom (it was the Portfolio's
-// Activity tab): ONE list, everything the spending account's investments
+// The older Portfolio page's Activity (OpenInvestmentsScreen), at its
+// bottom (it was the Portfolio's Activity tab): ONE list, everything the spending account's investments
 // did, newest first (owner decision October 2026, replacing the Investing
 // | Predictions switch over two lists).
 //
@@ -27,8 +27,47 @@
 // pill opens the Activity screen in its Investments scope
 // (PortfolioActivityList), the whole list (founder request, October 2026:
 // the Portfolio was building every row).
+//
+// THE PORTFOLIO SCREEN'S ACTIVITY SECTION (founder, 4 November 2026: "the
+// portfolio should have back an activity row (the first one) which should
+// have all the placed bets and such with the 4 squares, a couple on the
+// bottom and then See all like we do on the Bitcoin"):
+// [PortfolioActivitySection], the Bitcoin home's Activity pattern with its
+// own widgets (all_activity.dart, transactions_builder.dart): the four
+// newest actions as the home's "Latest" squares two by two
+// (ActivitySquareGrid, ActivityRowShape.square), the next two as its
+// plain rows on one card under "Earlier" (PremiumGroupContainer,
+// ActivityRowShape.plain), then the home's "See all" pill, which opens
+// the whole list ([showPortfolioActivity]: the same rows on the day cards,
+// newest first). What it lists is what the person DID with their
+// investments, never the money moving between their own accounts
+// ([watchInvestmentsActivity]: every prediction placed, sold, won or lost
+// and every Investing fill, opens and closes). A tap opens the row's
+// receipt, as on the home. Nothing yet: the sections' one empty state
+// (Sal, "No activity yet"); the Investing history still on its way with
+// nothing else to show: skeleton rows.
+//
+// [watchInvestmentsActivity] is the screen's own minimal filter over the
+// home's sources (a dedicated investments-activity provider may replace
+// it).
 
 import 'package:kute/screens/shared/kute_motion.dart' show KuteStaggerIn;
+import 'package:kute/screens/portfolio/components/balances_overview.dart'
+    show balancesFlatSectionTitle, kBalancesGroupGap, kBalancesTitleGap;
+import 'package:kute/screens/portfolio/portfolio_empty_state.dart';
+import 'package:kute/screens/portfolio/portfolio_filters.dart';
+import 'package:kute/screens/shared/activity_curation.dart'
+    show kHomeActivityLatest, kHomeActivityRows;
+import 'package:kute/screens/shared/all_activity.dart'
+    show AllActivityEntry, ActivitySquareGrid, mergeAllActivity;
+import 'package:kute/screens/shared/animations/premium_group_container.dart';
+import 'package:kute/screens/shared/kute_back_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart'
+    show kuteBarScrollClearance;
+import 'package:kute/screens/shared/kute_page_route.dart';
+import 'package:kute/screens/shared/kute_skeleton.dart' show SkeletonRowList;
+import 'package:kute/services/tracking_service.dart';
+import 'package:kute/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -271,5 +310,254 @@ class PortfolioActivityList extends ConsumerWidget {
       SliverPadding(
           padding: EdgeInsets.only(top: 8.h, bottom: 24.h), sliver: body),
     ]);
+  }
+}
+
+// ─────────────────── the Portfolio screen's Activity ───────────────────
+
+/// What the person did with their investments (see the file header),
+/// newest first, and whether the Investing history is still on its way or
+/// failed.
+typedef InvestmentsActivity = ({
+  List<AllActivityEntry> entries,
+  bool loading,
+  bool failed,
+});
+
+/// [bets] (predictions placed, sold, won or lost) and [fills] (Investing
+/// opens and closes) as one list, newest first, a bet listed once. Pure,
+/// so a test can pin what is listed and in what order.
+List<AllActivityEntry> mergeInvestmentsActivity({
+  List<PolymarketTransaction> bets = const [],
+  List<HlFill> fills = const [],
+}) =>
+    mergeAllActivity(walletRows: const [], bets: bets, fills: fills);
+
+/// Every prediction placed, sold, won or lost and every Investing fill of
+/// the spending account, newest first, for the venues on the account; no
+/// money moving between the person's own accounts (see the file header).
+InvestmentsActivity watchInvestmentsActivity(WidgetRef ref) {
+  final venues = ref.watch(portfolioVenuesProvider);
+  final walletId =
+      ref.watch(settingsProvider.select((s) => pickSpendingWallet(s)?.id));
+  final bets = <PolymarketTransaction>[];
+  if (venues.predictions) {
+    final txs = ref.watch(walletTransactionCacheProvider
+            .select((cache) => walletId == null ? null : cache[walletId])) ??
+        Transaction.empty();
+    bets
+      ..addAll(txs.polymarketTransactions.where((t) =>
+          t.activityType == ActivityType.trade ||
+          t.activityType == ActivityType.redeem))
+      // The results the history does not record: a lost prediction is
+      // never claimed, so only its resolved market says it lost.
+      ..addAll(predictionResultTransactions(ref, txs.polymarketTransactions));
+  }
+  final fills = venues.trading
+      ? ref.watch(hyperliquidActivityFillsProvider)
+      : const <HlFill>[];
+  final history = venues.trading
+      ? ref.watch(hyperliquidUserFillsProvider)
+      : const AsyncValue<List<HlFill>>.data([]);
+  return (
+    entries: mergeInvestmentsActivity(bets: bets, fills: fills),
+    loading: history.isLoading,
+    failed: history.hasError,
+  );
+}
+
+/// The row a [AllActivityEntry] is drawn as, wherever it is listed: the
+/// widget its own surface draws.
+Widget _activityRow(BuildContext context, WidgetRef ref, AllActivityEntry e) =>
+    e.fill != null
+        ? HyperliquidFillActivityRow(
+            fill: e.fill!, compareWithSpendingWallet: true)
+        : buildUnifiedTransactionItem(e.tx!, context, ref);
+
+/// The Portfolio screen's Activity section (see the file header). It
+/// carries its own 16 gutters, as the home's Activity does (the card's
+/// own margin), and starts [kPortfolioSectionEmptyTop] under the strip.
+class PortfolioActivitySection extends ConsumerWidget {
+  const PortfolioActivitySection({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final activity = watchInvestmentsActivity(ref);
+    final entries = activity.entries;
+    final gutter = EdgeInsets.symmetric(horizontal: 16.w);
+    final retry = activity.failed
+        ? Padding(
+            padding: gutter,
+            child: TextButton.icon(
+                key: const ValueKey('portfolio-activity-retry'),
+                onPressed: () => ref.invalidate(hyperliquidUserFillsProvider),
+                icon: const Icon(Icons.refresh_rounded),
+                label: Text(l10n.hlActivityRefreshFailedRetry)),
+          )
+        : null;
+    if (entries.isEmpty) {
+      if (activity.loading) {
+        return Padding(
+          key: const ValueKey('portfolio-activity-loading'),
+          padding: EdgeInsets.only(top: kPortfolioSectionEmptyTop.h),
+          child: SkeletonRowList(count: 4, padding: gutter),
+        );
+      }
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (retry != null) retry,
+          Padding(
+            key: const ValueKey('portfolio-activity-empty'),
+            padding: EdgeInsets.only(top: kPortfolioSectionEmptyTop.h),
+            child: PortfolioSectionEmpty(
+                title: l10n.ledgerActivityEmpty,
+                tagline: PortfolioSectionTagline.activity),
+          ),
+        ],
+      );
+    }
+    final latest =
+        entries.take(kHomeActivityLatest).toList(growable: false);
+    final earlier = entries
+        .skip(kHomeActivityLatest)
+        .take(kHomeActivityRows - kHomeActivityLatest)
+        .toList(growable: false);
+    var index = 0;
+    Widget row(AllActivityEntry e) => KuteStaggerIn(
+        index: index++, child: _activityRow(context, ref, e));
+    return ActivityRowStyle(
+      compact: true,
+      child: Column(
+        key: const ValueKey('portfolio-activity'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(height: kPortfolioSectionEmptyTop.h),
+          if (retry != null) retry,
+          // The newest four: the home's Latest squares, two by two.
+          Padding(
+            padding: gutter,
+            child: ActivityRowLayout(
+              shape: ActivityRowShape.square,
+              child: ActivitySquareGrid(
+                  key: const ValueKey('portfolio-activity-squares'),
+                  children: [for (final e in latest) row(e)]),
+            ),
+          ),
+          // The next two: the home's Earlier rows on one card.
+          if (earlier.isNotEmpty) ...[
+            SizedBox(height: kBalancesGroupGap.h),
+            Padding(
+              padding: gutter,
+              child: Text(l10n.activityEarlier,
+                  key: const ValueKey('portfolio-activity-earlier-title'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: balancesFlatSectionTitle(context)),
+            ),
+            SizedBox(height: kBalancesTitleGap.h),
+            ActivityRowLayout(
+              shape: ActivityRowShape.plain,
+              child: PremiumGroupContainer(
+                key: const ValueKey('portfolio-activity-earlier'),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 4.h),
+                  child: Column(children: [for (final e in earlier) row(e)]),
+                ),
+              ),
+            ),
+          ],
+          // The home's "See all" pill: the whole list.
+          SizedBox(height: 16.h),
+          Center(
+            child: KutePill(
+              key: const ValueKey('portfolio-activity-see-all'),
+              label: l10n.seeAll,
+              icon: Icons.arrow_forward_rounded,
+              selected: true,
+              link: true,
+              onTap: () => showPortfolioActivity(context),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Opens every action of [watchInvestmentsActivity] on its own screen,
+/// the same rows on the day cards, newest first.
+Future<void> showPortfolioActivity(BuildContext context) {
+  // As every Activity list's open; no ids, no amounts.
+  TrackingService.track('activity_history_opened',
+      params: const {'entry_source': 'portfolio', 'scope': 'investments'});
+  return Navigator.of(context, rootNavigator: true).push<void>(
+    KutePageRoute<void>(
+      settings: const RouteSettings(name: PortfolioActivityScreen.routeName),
+      builder: (_) => const PortfolioActivityScreen(),
+    ),
+  );
+}
+
+/// The Portfolio's whole Activity ([showPortfolioActivity]): the app's
+/// Activity screen's chrome, the investments' actions alone.
+class PortfolioActivityScreen extends ConsumerWidget {
+  const PortfolioActivityScreen({super.key});
+
+  static const routeName = 'portfolio-activity';
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    final activity = watchInvestmentsActivity(ref);
+    final Widget body;
+    if (activity.entries.isNotEmpty || activity.failed) {
+      body = PortfolioActivitySliver(
+          entries: activity.entries, failed: activity.failed);
+    } else if (activity.loading) {
+      body = SliverToBoxAdapter(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 24.h),
+          child: const Center(child: CircularProgressIndicator.adaptive()),
+        ),
+      );
+    } else {
+      body = SliverToBoxAdapter(child: buildNoTransactionsFound(context));
+    }
+    return Scaffold(
+      backgroundColor: c.background,
+      appBar: AppBar(
+        backgroundColor: c.background,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: true,
+        leading: const KuteBackButton(),
+        automaticallyImplyLeading: false,
+        title: Text(
+          context.l10n.activity,
+          style: TextStyle(
+            color: c.textPrimary,
+            fontSize: 18.sp,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.2,
+          ),
+        ),
+      ),
+      body: PlatformSafeArea(
+        top: false,
+        child: CustomScrollView(
+          key: const ValueKey('portfolio-activity-list'),
+          slivers: [
+            SliverPadding(padding: EdgeInsets.only(top: 8.h), sliver: body),
+            // The last rows scroll clear of the floating bar.
+            SliverPadding(
+                padding: EdgeInsets.only(
+                    bottom: 24.h + kuteBarScrollClearance.h)),
+          ],
+        ),
+      ),
+    );
   }
 }

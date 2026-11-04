@@ -11212,10 +11212,10 @@ class AppLocalizationsBg extends AppLocalizations {
       'За да го преместиш, свържи се с поддръжката.';
 
   @override
-  String get portfolioSectionPnlCharts => 'Графики P&L';
+  String get portfolioSectionPnlCharts => 'P&L';
 
   @override
-  String get portfolioSectionBalances => 'Портфолио';
+  String get portfolioSectionBalances => 'Позиции';
 
   @override
   String balanceChangePastWeek(String change) {

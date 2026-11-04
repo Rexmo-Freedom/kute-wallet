@@ -11224,10 +11224,10 @@ class AppLocalizationsSl extends AppLocalizations {
       'Če jih želite premakniti, se obrnite na podporo.';
 
   @override
-  String get portfolioSectionPnlCharts => 'Grafi P&L';
+  String get portfolioSectionPnlCharts => 'P&L';
 
   @override
-  String get portfolioSectionBalances => 'Portfelj';
+  String get portfolioSectionBalances => 'Pozicije';
 
   @override
   String balanceChangePastWeek(String change) {

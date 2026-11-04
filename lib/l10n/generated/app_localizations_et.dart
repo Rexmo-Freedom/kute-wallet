@@ -11178,10 +11178,10 @@ class AppLocalizationsEt extends AppLocalizations {
       'Selle liigutamiseks võta ühendust toega.';
 
   @override
-  String get portfolioSectionPnlCharts => 'P&L graafikud';
+  String get portfolioSectionPnlCharts => 'P&L';
 
   @override
-  String get portfolioSectionBalances => 'Portfell';
+  String get portfolioSectionBalances => 'Positsioonid';
 
   @override
   String balanceChangePastWeek(String change) {

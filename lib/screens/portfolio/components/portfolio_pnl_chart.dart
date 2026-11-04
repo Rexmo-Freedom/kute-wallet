@@ -93,7 +93,7 @@ import 'package:kute/screens/portfolio/components/position_rows.dart'
         portfolioRowSubStyle,
         portfolioRowTitleStyle;
 import 'package:kute/screens/portfolio/components/balances_overview.dart'
-    show balancesFlatSectionTitle, kBalancesTitleGap;
+    show balancesFlatSectionTitle, kBalancesGroupGap, kBalancesTitleGap;
 import 'package:kute/screens/portfolio/portfolio_empty_state.dart';
 import 'package:kute/screens/shared/charts/kute_chart_core.dart';
 import 'package:kute/screens/shared/charts/kute_chart_format.dart';
@@ -123,24 +123,19 @@ Color pnlResultColor(AppColorsExtension c, double change) => change > 0
         ? AppColors.marketDown
         : c.textPrimary;
 
-/// The range the P&L chart shows, for the rest of the session: the past
-/// month to start. One choice for every series (the toggle keeps it).
+/// The range the P&L charts show, for the rest of the session: the past
+/// month to start. One choice for every series (the toggle keeps it), the
+/// Portfolio screen's hero chart, its P&L section's venue rows and the
+/// "Share P&L" card alike.
 final pnlChartRangeProvider =
     StateProvider<BalanceRange>((ref) => BalanceRange.month);
 
-/// The venue picked in "By venue" on the spending account's P&L Charts
-/// (portfolio_statistics.dart): the chart draws it alone and the Portfolio
-/// screen's ring above shows it (balances_overview.dart). Null: All.
-/// Cleared once nothing watches it (the section left).
+/// The venue picked in "By venue" under the older Portfolio page's P&L
+/// chart (portfolio_statistics.dart, OpenInvestmentsScreen): the chart
+/// draws it alone. Null: All. Cleared once nothing watches it. The
+/// Portfolio screen picks none (its venue rows chart nothing).
 final pnlChartVenueProvider =
     StateProvider.autoDispose<PortfolioPerformanceVenue?>((ref) => null);
-
-/// The point under the finger on the Portfolio screen's P&L chart (the
-/// flat chart only): the chart's figure for it (since the range's start)
-/// and its moment as the line under the figure writes it; null at rest.
-/// The ring above follows it (balances_overview.dart).
-final pnlChartScrubProvider =
-    StateProvider.autoDispose<({double value, String label})?>((ref) => null);
 
 /// The P&L over [range] of a window's [values] (oldest first): the line's
 /// end (or [at], a point under the finger) less the range's start; for
@@ -424,18 +419,7 @@ class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
           ),
       ],
       height: kPnlChartPlotHeight.h,
-      onScrub: (p) {
-        _scrub.value = p;
-        // The Portfolio screen's ring follows the finger.
-        if (!flat) return;
-        final at = p == null || p.index >= values.length ? null : p;
-        ref.read(pnlChartScrubProvider.notifier).state = at == null
-            ? null
-            : (
-                value: pnlRangeChange(values, range, at: at.value) ?? at.value,
-                label: timeOf(at.time ?? times.last),
-              );
-      },
+      onScrub: (p) => _scrub.value = p,
       // Once per scrub gesture.
       onScrubStart: () => TrackingService.track(
           'portfolio_performance_chart_scrubbed',
@@ -524,9 +508,13 @@ class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
 /// 12 sp label in textSecondary over a 15 w600 figure; a figure that is
 /// not given leaves its column out.
 class PnlStatsStrip extends ConsumerWidget {
-  const PnlStatsStrip({super.key, required this.stats});
+  const PnlStatsStrip({super.key, required this.stats, this.allTime = true});
 
   final PnlStatsFigures stats;
+
+  /// The labels say all time themselves ("All time realised"); false
+  /// under an "All time" title of their own ([PnlBreakdown]).
+  final bool allTime;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -540,9 +528,19 @@ class PnlStatsStrip extends ConsumerWidget {
     final columns = <(String, String, String, Color)>[
       // All time: the providers give these as totals, not over a range.
       if (stats.realisedUsd case final v?)
-        ('realised', l10n.pnlStatRealisedAllTime, signed(v), colorOf(v)),
+        (
+          'realised',
+          allTime ? l10n.pnlStatRealisedAllTime : l10n.pnlStatRealised,
+          signed(v),
+          colorOf(v)
+        ),
       if (stats.unrealisedUsd case final v?)
-        ('unrealised', l10n.pnlStatUnrealisedAllTime, signed(v), colorOf(v)),
+        (
+          'unrealised',
+          allTime ? l10n.pnlStatUnrealisedAllTime : l10n.pnlStatUnrealised,
+          signed(v),
+          colorOf(v)
+        ),
       if (stats.winRate case final v?)
         (
           'win-rate',
@@ -586,6 +584,65 @@ class PnlStatsStrip extends ConsumerWidget {
           ),
         // Fewer than three: the columns keep their thirds.
         for (var i = columns.length; i < 3; i++) const Spacer(),
+      ],
+    );
+  }
+}
+
+/// The Portfolio screen's P&L section (founder, 4 November 2026: the one
+/// chart is the hero's, components/portfolio_hero.dart): "By venue" over
+/// the venue rows ([venues], [PnlVenueRow]s in ONE soft card: each
+/// venue's P&L now with its change and its sparkline over the hero's
+/// range), then "All time" over the stats strip in its own soft card
+/// (Realised, Unrealised, Win rate where a provider counts closed trades;
+/// a figure no provider gives leaves its column out). The section's first
+/// title sits [kPortfolioSectionEmptyTop] under the strip, where the
+/// other sections start.
+class PnlBreakdown extends StatelessWidget {
+  const PnlBreakdown({super.key, required this.venues, required this.stats});
+
+  final Widget venues;
+  final PnlStatsFigures stats;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Column(
+      key: const ValueKey('statistics-pnl-section'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // The section's list starts 4 under the strip.
+        SizedBox(height: (kPortfolioSectionEmptyTop - 4).h),
+        Text(l10n.pnlByVenue,
+            key: const ValueKey('statistics-pnl-by-venue'),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: balancesFlatSectionTitle(context)),
+        SizedBox(height: kBalancesTitleGap.h),
+        venues,
+        if (!stats.isEmpty) ...[
+          SizedBox(height: kBalancesGroupGap.h),
+          Text(l10n.portfolioAllTime,
+              key: const ValueKey('statistics-pnl-all-time'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: balancesFlatSectionTitle(context)),
+          SizedBox(height: kBalancesTitleGap.h),
+          PortfolioCardList(
+            key: const ValueKey('statistics-pnl-stats-card'),
+            rows: [
+              Builder(
+                builder: (context) => Padding(
+                  padding: EdgeInsets.symmetric(
+                      horizontal: PortfolioRowInset.of(context),
+                      vertical: PortfolioRowInset.verticalOf(context)),
+                  child: PnlStatsStrip(stats: stats, allTime: false),
+                ),
+              ),
+            ],
+          ),
+        ],
       ],
     );
   }

@@ -11186,10 +11186,10 @@ class AppLocalizationsCs extends AppLocalizations {
       'Chceš-li je přesunout, kontaktuj podporu.';
 
   @override
-  String get portfolioSectionPnlCharts => 'Grafy P&L';
+  String get portfolioSectionPnlCharts => 'P&L';
 
   @override
-  String get portfolioSectionBalances => 'Portfolio';
+  String get portfolioSectionBalances => 'Pozice';
 
   @override
   String balanceChangePastWeek(String change) {
