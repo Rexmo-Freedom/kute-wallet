@@ -8,6 +8,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kute/providers/currency_conversions_provider.dart'
+    show currentBtcUsdProvider;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/settings_model.dart';
@@ -193,6 +195,8 @@ Future<RecordingRewardsApi> pumpInvestments(
   await tester.pumpWidget(ProviderScope(
     overrides: [
       ...portfolioOverrides(dollars: balance.dollarsUsd, history: history),
+      // The Investments activity reads the price (no rates box here).
+      currentBtcUsdProvider.overrideWithValue(100000),
       settingsProvider.overrideWith((_) => SettingsModel(settings)),
       runtimeCapabilitiesProvider.overrideWithValue(policy),
       oneBalanceProvider.overrideWithValue(balance),

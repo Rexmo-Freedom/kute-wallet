@@ -18,6 +18,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kute/providers/currency_conversions_provider.dart'
+    show currentBtcUsdProvider;
 import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/polymarket_model.dart' show Activity;
@@ -44,9 +46,11 @@ import 'package:kute/screens/portfolio/components/portfolio_hero.dart';
 import 'package:kute/screens/portfolio/components/position_rows.dart'
     show PortfolioCardList, PortfolioPositionRow;
 import 'package:kute/screens/portfolio/investments_portfolio.dart';
-import 'package:kute/screens/portfolio/portfolio_activity.dart';
+import 'package:kute/screens/activity/activity_history_screen.dart'
+    show ActivityHistoryScreen;
 import 'package:kute/screens/portfolio/portfolio_empty_state.dart';
-import 'package:kute/screens/shared/all_activity.dart' show ActivitySquareGrid;
+import 'package:kute/screens/shared/all_activity.dart'
+    show ActivityScope, ActivitySquareGrid;
 import 'package:kute/screens/shared/charts/kute_donut_chart.dart';
 import 'package:kute/screens/shared/charts/kute_trend_chart.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart'
@@ -232,6 +236,8 @@ Future<void> _mount(WidgetTester tester,
   await tester.pumpWidget(ProviderScope(
     overrides: [
       ...portfolioOverrides(trading: trading, history: history),
+      // The Investments activity reads the price (no rates box here).
+      currentBtcUsdProvider.overrideWithValue(100000),
       hyperliquidLiveMidProvider('BTC').overrideWith((_) => null),
       hyperliquidAccountMarketProvider('BTC').overrideWith((_) => null),
       hyperliquidPerpMarketsProvider.overrideWith((_) async => <HlMarket>[]),
@@ -598,7 +604,8 @@ void main() {
 
   testWidgets(
       'Activity: the four newest actions as the home\'s squares, the next '
-      'two as its Earlier rows, then "See all" to the whole list',
+      'two as its Earlier rows, then "See all" to the Activity screen on the '
+      'Investments activity',
       (tester) async {
     final events = <(String, Map<String, Object>?)>[];
     TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
@@ -646,22 +653,13 @@ void main() {
     expect(pill.selected, isTrue);
     await tester.tap(seeAll);
     await _settle(tester);
-    expect(find.byType(PortfolioActivityScreen), findsOneWidget);
+    final screen = tester
+        .widget<ActivityHistoryScreen>(find.byType(ActivityHistoryScreen));
+    expect(screen.listedScope, ActivityScope.investments);
     expect(
         events.where((e) => e.$1 == 'activity_history_opened').single.$2,
         {'entry_source': 'portfolio', 'scope': 'investments'});
     await _unmount(tester);
-  });
-
-  test(
-      'the Activity lists only what was done with the investments: bets and '
-      'fills, newest first, a bet listed once', () {
-    // The merge the section reads (watchInvestmentsActivity): no wallet
-    // rows, so no money moving between the person's own accounts.
-    final bet = _bet('a', const Duration(hours: 3));
-    final fill = _fill('BTC', const Duration(hours: 1), 'Open Long');
-    final entries = mergeInvestmentsActivity(bets: [bet, bet], fills: [fill]);
-    expect(entries.map((e) => e.tx?.id ?? e.fill!.coin), ['BTC', 'a']);
   });
 
   testWidgets(

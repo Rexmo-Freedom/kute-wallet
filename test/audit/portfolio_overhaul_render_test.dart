@@ -21,6 +21,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:kute/providers/currency_conversions_provider.dart'
+    show currentBtcUsdProvider;
 import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/polymarket_model.dart' show Activity;
@@ -298,6 +300,7 @@ Future<void> _mount(WidgetTester tester,
       usdBalanceUnknownProvider.overrideWithValue(false),
       venueSweeperProvider.overrideWith(_Sweeper.new),
       portfolioSectionProvider.overrideWith((_) => section),
+      currentBtcUsdProvider.overrideWithValue(100000),
     ],
     child: ScreenUtilInit(
       designSize: const Size(430, 932),
