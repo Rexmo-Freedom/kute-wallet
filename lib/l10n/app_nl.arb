@@ -1869,6 +1869,7 @@
   "investingCancellationDetails": "Bedragen die al zijn uitgevoerd, blijven op je rekening.",
   "betPreviousOrderChecked": "Vorige order gecontroleerd. Controleer je orders en saldo voordat je doorgaat.",
   "walletPortfolioAction": "Portfolio",
+  "seeFullPortfolioAndActivity": "Volledig portfolio en activiteit zien",
   "walletActionsWalletChanged": "De wallet is gewijzigd. Open het actiemenu opnieuw om door te gaan.",
   "ledgerBuilderReviewEach": "Controleer elke voorspelling op je Ledger. Een instelstap of onzekere indiening pauzeert het portfolio.",
   "ledgerBuilderCashUnknown": "Verbind je Ledger om het beschikbare geld te verifiëren.",

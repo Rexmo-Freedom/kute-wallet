@@ -6475,6 +6475,10 @@ class AppLocalizationsSv extends AppLocalizations {
   String get walletPortfolioAction => 'Portfölj';
 
   @override
+  String get seeFullPortfolioAndActivity =>
+      'Se hela portföljen och aktiviteten';
+
+  @override
   String get walletActionsWalletChanged =>
       'Plånboken ändrades. Öppna åtgärdsmenyn igen för att fortsätta.';
 

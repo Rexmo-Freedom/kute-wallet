@@ -1869,6 +1869,7 @@
   "investingCancellationDetails": "Beløb, der allerede er udført, bliver på din konto.",
   "betPreviousOrderChecked": "Tidligere ordre tjekket. Gennemse dine ordrer og din saldo, før du fortsætter.",
   "walletPortfolioAction": "Portefølje",
+  "seeFullPortfolioAndActivity": "Se hele porteføljen og aktiviteten",
   "walletActionsWalletChanged": "Tegnebogen er skiftet. Åbn handlingsmenuen igen for at fortsætte.",
   "ledgerBuilderReviewEach": "Gennemse hver forudsigelse på din Ledger. Opsætning eller en usikker indsendelse sætter porteføljen på pause.",
   "ledgerBuilderCashUnknown": "Forbind din Ledger for at bekræfte tilgængelige midler.",

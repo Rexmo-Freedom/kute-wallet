@@ -6237,6 +6237,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get walletPortfolioAction => 'ポートフォリオ';
 
   @override
+  String get seeFullPortfolioAndActivity => 'ポートフォリオとアクティビティをすべて表示';
+
+  @override
   String get walletActionsWalletChanged =>
       'ウォレットが変更されました。続けるには操作メニューをもう一度開いてください。';
 

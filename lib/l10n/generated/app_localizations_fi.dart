@@ -6477,6 +6477,9 @@ class AppLocalizationsFi extends AppLocalizations {
   String get walletPortfolioAction => 'Salkku';
 
   @override
+  String get seeFullPortfolioAndActivity => 'Näytä koko salkku ja toiminta';
+
+  @override
   String get walletActionsWalletChanged =>
       'Lompakko vaihtui. Avaa toimintovalikko uudelleen jatkaaksesi.';
 

@@ -6510,6 +6510,10 @@ class AppLocalizationsEs extends AppLocalizations {
   String get walletPortfolioAction => 'Cartera de inversión';
 
   @override
+  String get seeFullPortfolioAndActivity =>
+      'Ver toda la cartera y la actividad';
+
+  @override
   String get walletActionsWalletChanged =>
       'La cartera ha cambiado. Vuelve a abrir el menú de acciones para continuar.';
 

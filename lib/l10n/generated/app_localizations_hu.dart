@@ -6493,6 +6493,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get walletPortfolioAction => 'Portfólió';
 
   @override
+  String get seeFullPortfolioAndActivity => 'Teljes portfólió és tevékenység';
+
+  @override
   String get walletActionsWalletChanged =>
       'A tárca megváltozott. A folytatáshoz nyisd meg újra a műveletek menüt.';
 

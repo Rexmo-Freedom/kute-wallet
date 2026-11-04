@@ -1869,6 +1869,7 @@
   "investingCancellationDetails": "Juba täidetud summad jäävad sinu kontole.",
   "betPreviousOrderChecked": "Eelmine tellimus kontrollitud. Vaata enne jätkamist oma tellimused ja saldo üle.",
   "walletPortfolioAction": "Portfell",
+  "seeFullPortfolioAndActivity": "Näita kogu portfelli ja tegevusi",
   "walletActionsWalletChanged": "Rahakott muutus. Jätkamiseks ava toimingute menüü uuesti.",
   "ledgerBuilderReviewEach": "Vaata iga ennustus oma Ledgeris üle. Seadistamine või ebakindel esitamine peatab portfelli.",
   "ledgerBuilderCashUnknown": "Saadaoleva raha kontrollimiseks ühenda Ledger.",

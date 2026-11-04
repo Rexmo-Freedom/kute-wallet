@@ -1869,6 +1869,7 @@
   "investingCancellationDetails": "Jo toteutuneet määrät jäävät tilillesi.",
   "betPreviousOrderChecked": "Edellinen toimeksianto tarkistettu. Tarkista toimeksiantosi ja saldosi ennen kuin jatkat.",
   "walletPortfolioAction": "Salkku",
+  "seeFullPortfolioAndActivity": "Näytä koko salkku ja toiminta",
   "walletActionsWalletChanged": "Lompakko vaihtui. Avaa toimintovalikko uudelleen jatkaaksesi.",
   "ledgerBuilderReviewEach": "Tarkista jokainen ennuste Ledgerilläsi. Käyttöönotto tai epävarma lähetys keskeyttää salkun.",
   "ledgerBuilderCashUnknown": "Yhdistä Ledgerisi vahvistaaksesi käytettävissä olevat varat.",

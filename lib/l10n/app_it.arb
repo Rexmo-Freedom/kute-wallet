@@ -1869,6 +1869,7 @@
   "investingCancellationDetails": "Gli importi già eseguiti restano nel tuo conto.",
   "betPreviousOrderChecked": "Ordine precedente verificato. Controlla ordini e saldo prima di continuare.",
   "walletPortfolioAction": "Portafoglio",
+  "seeFullPortfolioAndActivity": "Vedi tutto il portafoglio e le attività",
   "walletActionsWalletChanged": "Il wallet è cambiato. Riapri il menu delle azioni per continuare.",
   "ledgerBuilderReviewEach": "Controlla ogni previsione sul Ledger. La configurazione o un invio incerto mettono in pausa il portafoglio.",
   "ledgerBuilderCashUnknown": "Collega il Ledger per verificare i fondi disponibili.",

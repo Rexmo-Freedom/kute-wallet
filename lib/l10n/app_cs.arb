@@ -1869,6 +1869,7 @@
   "investingCancellationDetails": "Už vyplněné částky zůstávají na tvém účtu.",
   "betPreviousOrderChecked": "Předchozí pokyn zkontrolován. Před pokračováním zkontroluj pokyny a zůstatek.",
   "walletPortfolioAction": "Portfolio",
+  "seeFullPortfolioAndActivity": "Zobrazit celé portfolio a aktivitu",
   "walletActionsWalletChanged": "Peněženka se změnila. Pro pokračování znovu otevři nabídku akcí.",
   "ledgerBuilderReviewEach": "Každou predikci zkontroluj na Ledgeru. Nastavení nebo nejisté odeslání portfolio pozastaví.",
   "ledgerBuilderCashUnknown": "Připoj Ledger a ověř dostupné prostředky.",

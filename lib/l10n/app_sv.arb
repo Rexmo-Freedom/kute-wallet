@@ -1869,6 +1869,7 @@
   "investingCancellationDetails": "Belopp som redan fyllts ligger kvar på ditt konto.",
   "betPreviousOrderChecked": "Tidigare order kontrollerad. Granska dina ordrar och ditt saldo innan du fortsätter.",
   "walletPortfolioAction": "Portfölj",
+  "seeFullPortfolioAndActivity": "Se hela portföljen och aktiviteten",
   "walletActionsWalletChanged": "Plånboken ändrades. Öppna åtgärdsmenyn igen för att fortsätta.",
   "ledgerBuilderReviewEach": "Granska varje prognos på din Ledger. Konfiguration eller en osäker inskickning pausar portföljen.",
   "ledgerBuilderCashUnknown": "Anslut din Ledger för att verifiera tillgängliga pengar.",

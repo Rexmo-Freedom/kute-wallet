@@ -1869,6 +1869,7 @@
   "investingCancellationDetails": "すでに約定した分はアカウントに残ります。",
   "betPreviousOrderChecked": "以前の注文を確認しました。続ける前に注文と残高を確認してください。",
   "walletPortfolioAction": "ポートフォリオ",
+  "seeFullPortfolioAndActivity": "ポートフォリオとアクティビティをすべて表示",
   "walletActionsWalletChanged": "ウォレットが変更されました。続けるには操作メニューをもう一度開いてください。",
   "ledgerBuilderReviewEach": "各予測をLedgerで確認してください。設定が必要な場合や送信結果が不確かな場合、ポートフォリオは一時停止します。",
   "ledgerBuilderCashUnknown": "利用可能な資金を確認するにはLedgerを接続してください。",

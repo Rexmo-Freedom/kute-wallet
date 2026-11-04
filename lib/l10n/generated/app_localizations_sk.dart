@@ -6484,6 +6484,10 @@ class AppLocalizationsSk extends AppLocalizations {
   String get walletPortfolioAction => 'Portfólio';
 
   @override
+  String get seeFullPortfolioAndActivity =>
+      'Zobraziť celé portfólio a aktivitu';
+
+  @override
   String get walletActionsWalletChanged =>
       'Peňaženka sa zmenila. Znova otvor menu akcií a pokračuj.';
 

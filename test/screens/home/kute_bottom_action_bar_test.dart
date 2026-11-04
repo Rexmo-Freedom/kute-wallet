@@ -320,7 +320,7 @@ void main() {
 
   testWidgets(
       'the Investments money verbs are one compact row, Buy dollars, '
-      'Portfolio, Receive and Send, and the dock is search alone; Receive '
+      'Receive and Send, and the dock is search alone; Receive '
       'opens the Dollars receive screen, Buy dollars the Move sheet',
       (tester) async {
     final events = <(String, Map<String, Object>?)>[];
@@ -348,25 +348,25 @@ void main() {
     expect(find.byKey(const ValueKey('dock-search-pill')), findsNothing);
     expect(find.byKey(const ValueKey('dock-bar-room')), findsOneWidget);
     expect(find.byType(KuteDogMagnifier), findsNothing);
-    // The row: Buy dollars first, the Portfolio, then Receive and Send
-    // with the Bitcoin dock's arrows and action keys (founder, 2 November
-    // 2026: "Send and Receive, not Add and Send"; "Buy dollars" in place
-    // of Manage with AI).
+    // The row: Buy dollars first, then Receive and Send with the Bitcoin
+    // dock's arrows and action keys (founder, 2 November 2026: "Send and
+    // Receive, not Add and Send"; "Buy dollars" in place of Manage with
+    // AI; 4 November 2026: the Portfolio is no longer a top button, the
+    // Activity pill's bar opens it).
     final actions = UsdAccountActionBar.moneyActions(
         tester.element(find.byType(UsdAccountActionRow)));
-    expect(actions.map((a) => a.label),
-        ['Buy dollars', 'Portfolio', 'Receive', 'Send']);
+    expect(actions.map((a) => a.label), ['Buy dollars', 'Receive', 'Send']);
     expect(actions.map((a) => a.trackingId),
-        ['buy_dollars', 'portfolio', 'receive', 'send']);
+        ['buy_dollars', 'receive', 'send']);
     expect(actions.map((a) => a.icon), [
       Icons.attach_money_rounded,
-      InvestmentsTab.positions.icon,
       Icons.south_west_rounded,
       Icons.north_east_rounded
     ]);
     // Buy dollars first and solid (founder, 2 November 2026), the rest
     // outlined.
-    expect(actions.map((a) => a.solid), [true, false, false, false]);
+    expect(actions.map((a) => a.solid), [true, false, false]);
+    expect(find.text('Portfolio'), findsNothing);
     expect(actions.map((a) => a.onTap), everyElement(isNotNull));
     expect(find.text('Receive'), findsOneWidget);
     expect(find.text('Send'), findsOneWidget);

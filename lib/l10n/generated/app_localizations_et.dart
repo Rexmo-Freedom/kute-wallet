@@ -6463,6 +6463,9 @@ class AppLocalizationsEt extends AppLocalizations {
   String get walletPortfolioAction => 'Portfell';
 
   @override
+  String get seeFullPortfolioAndActivity => 'Näita kogu portfelli ja tegevusi';
+
+  @override
   String get walletActionsWalletChanged =>
       'Rahakott muutus. Jätkamiseks ava toimingute menüü uuesti.';
 

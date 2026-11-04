@@ -6528,6 +6528,10 @@ class AppLocalizationsEl extends AppLocalizations {
   String get walletPortfolioAction => 'Χαρτοφυλάκιο';
 
   @override
+  String get seeFullPortfolioAndActivity =>
+      'Όλο το χαρτοφυλάκιο και η δραστηριότητα';
+
+  @override
   String get walletActionsWalletChanged =>
       'Το πορτοφόλι άλλαξε. Άνοιξε ξανά το μενού ενεργειών για να συνεχίσεις.';
 

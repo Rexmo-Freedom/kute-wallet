@@ -1869,6 +1869,7 @@
   "investingCancellationDetails": "Sumele deja executate rămân în cont.",
   "betPreviousOrderChecked": "Ordinul anterior a fost verificat. Verifică ordinele și soldul înainte să continui.",
   "walletPortfolioAction": "Portofoliu",
+  "seeFullPortfolioAndActivity": "Vezi tot portofoliul și activitatea",
   "walletActionsWalletChanged": "Portofelul s-a schimbat. Redeschide meniul de acțiuni pentru a continua.",
   "ledgerBuilderReviewEach": "Verifică fiecare predicție pe Ledger. Configurarea sau o trimitere incertă pune portofoliul pe pauză.",
   "ledgerBuilderCashUnknown": "Conectează Ledger-ul ca să verifici fondurile disponibile.",

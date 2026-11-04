@@ -6482,6 +6482,10 @@ class AppLocalizationsDa extends AppLocalizations {
   String get walletPortfolioAction => 'Portefølje';
 
   @override
+  String get seeFullPortfolioAndActivity =>
+      'Se hele porteføljen og aktiviteten';
+
+  @override
   String get walletActionsWalletChanged =>
       'Tegnebogen er skiftet. Åbn handlingsmenuen igen for at fortsætte.';
 

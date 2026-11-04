@@ -1869,6 +1869,7 @@
   "investingCancellationDetails": "Όσα ποσά έχουν ήδη εκτελεστεί μένουν στον λογαριασμό σου.",
   "betPreviousOrderChecked": "Η προηγούμενη εντολή ελέγχθηκε. Έλεγξε τις εντολές και το υπόλοιπό σου πριν συνεχίσεις.",
   "walletPortfolioAction": "Χαρτοφυλάκιο",
+  "seeFullPortfolioAndActivity": "Όλο το χαρτοφυλάκιο και η δραστηριότητα",
   "walletActionsWalletChanged": "Το πορτοφόλι άλλαξε. Άνοιξε ξανά το μενού ενεργειών για να συνεχίσεις.",
   "ledgerBuilderReviewEach": "Έλεγξε κάθε πρόβλεψη στο Ledger σου. Μια ρύθμιση ή μια αβέβαιη υποβολή θέτει το χαρτοφυλάκιο σε παύση.",
   "ledgerBuilderCashUnknown": "Σύνδεσε το Ledger σου για να επαληθεύσεις τα διαθέσιμα κεφάλαια.",

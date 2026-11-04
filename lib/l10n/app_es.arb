@@ -1869,6 +1869,7 @@
   "investingCancellationDetails": "Los importes ya ejecutados se quedan en tu cuenta.",
   "betPreviousOrderChecked": "Orden anterior comprobada. Revisa tus órdenes y tu saldo antes de continuar.",
   "walletPortfolioAction": "Cartera de inversión",
+  "seeFullPortfolioAndActivity": "Ver toda la cartera y la actividad",
   "walletActionsWalletChanged": "La cartera ha cambiado. Vuelve a abrir el menú de acciones para continuar.",
   "ledgerBuilderReviewEach": "Revisa cada predicción en tu Ledger. La configuración o un envío dudoso pausan la cartera de inversión.",
   "ledgerBuilderCashUnknown": "Conecta tu Ledger para verificar los fondos disponibles.",
