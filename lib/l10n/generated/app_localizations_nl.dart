@@ -5964,9 +5964,6 @@ class AppLocalizationsNl extends AppLocalizations {
   String get chartVwapWindow => 'VWAP over de getoonde candles';
 
   @override
-  String get chartRsiLabel => 'RSI (14)';
-
-  @override
   String get chartIndicators => 'Indicatoren';
 
   @override
@@ -9881,6 +9878,63 @@ class AppLocalizationsNl extends AppLocalizations {
   String get polyCountNow => 'Nu';
 
   @override
+  String get polyMapRepublican => 'Republikeins';
+
+  @override
+  String get polyMapDemocratic => 'Democratisch';
+
+  @override
+  String get polyMapIndependent => 'Onafhankelijk';
+
+  @override
+  String get polyMapNotRepublican => 'Niet Republikeins';
+
+  @override
+  String get polyMapNotDemocratic => 'Niet Democratisch';
+
+  @override
+  String polyMapRepublicansFavoured(int count, int total) {
+    return 'Republikeinen voor in $count van $total staten';
+  }
+
+  @override
+  String polyMapDemocratsFavoured(int count, int total) {
+    return 'Democraten voor in $count van $total staten';
+  }
+
+  @override
+  String polyMapYesLeads(int count, int total) {
+    return 'Ja voor in $count van $total staten';
+  }
+
+  @override
+  String get polyMapNoMarket => 'Geen open markt';
+
+  @override
+  String get polyMapChanceOfYes => 'Kans op Ja';
+
+  @override
+  String get polyMapTapToBuild => 'Tik op de staten om je kaart te maken';
+
+  @override
+  String get polyMapMostLikely => 'Meest waarschijnlijke kaart';
+
+  @override
+  String get polyMapYourMap => 'Jouw kaart';
+
+  @override
+  String get polyMapNoSuchMap => 'Geen markt voor deze kaart';
+
+  @override
+  String get polyMapBackToMostLikely =>
+      'Terug naar de meest waarschijnlijke kaart';
+
+  @override
+  String polyMapStatePick(String state, String side) {
+    return '$state: $side op jouw kaart';
+  }
+
+  @override
   String get polyPillWatchlist => 'Volglijst';
 
   @override
@@ -11998,104 +12052,90 @@ class AppLocalizationsNl extends AppLocalizations {
   String get sendOtherContacts => 'Other contacts';
 
   @override
-  String get chartSheetTitle => 'Chart';
+  String get chartSheetTitle => 'Grafiek';
 
   @override
-  String get chartSheetStyle => 'Style';
+  String get chartIndEmaNote => 'Kortetermijntrend die snel draait';
 
   @override
-  String get chartIndEma => 'Moving averages';
+  String get chartIndBb => 'Bollinger Bands';
 
   @override
-  String get chartIndEmaNote => 'Short and long trend lines';
+  String get chartIndBbNote => 'Hoe ver de prijs gewoonlijk schommelt';
 
   @override
-  String get chartIndBb => 'Bollinger bands';
+  String get chartIndRsiNote => 'Of kopen of verkopen overdreven is';
 
   @override
-  String get chartIndBbNote => 'How far the price usually swings';
+  String get chartIndMacdNote => 'Momentum dat omhoog of omlaag draait';
 
   @override
-  String get chartIndRsi => 'RSI';
+  String get chartIndVwapNote =>
+      'Gemiddeld betaalde prijs, gewogen naar volume';
 
   @override
-  String get chartIndRsiNote => 'Whether buying or selling is overstretched';
+  String get chartIndVolumeNote => 'Hoeveel er per periode werd verhandeld';
 
   @override
-  String get chartIndMacd => 'MACD';
-
-  @override
-  String get chartIndMacdNote => 'Momentum turning up or down';
-
-  @override
-  String get chartIndVwap => 'VWAP';
-
-  @override
-  String get chartIndVwapNote => 'Average price weighted by volume';
-
-  @override
-  String get chartIndVolumeNote => 'How much traded each bar';
-
-  @override
-  String get chartReset => 'Reset';
+  String get chartReset => 'Herstellen';
 
   @override
   String chartPaneLimit(String name) {
-    return '$name is off: two fit below the chart';
+    return '$name staat uit: er passen er twee onder de grafiek';
   }
 
   @override
   String get chartToolCursor => 'Cursor';
 
   @override
-  String get chartToolHorizontalLine => 'Horizontal line';
+  String get chartToolHorizontalLine => 'Horizontale lijn';
 
   @override
-  String get chartMoreTools => 'More';
+  String get chartMoreTools => 'Meer';
 
   @override
-  String get chartColor => 'Color';
+  String get chartColor => 'Kleur';
 
   @override
-  String get chartBlueColor => 'Blue';
+  String get chartBlueColor => 'Blauw';
 
   @override
-  String get chartLineSolid => 'Solid line';
+  String get chartLineSolid => 'Doorgetrokken lijn';
 
   @override
-  String get chartLineDashed => 'Dashed line';
+  String get chartLineDashed => 'Stippellijn';
 
   @override
-  String get chartExtendLine => 'Extend to the right';
+  String get chartExtendLine => 'Naar rechts verlengen';
 
   @override
-  String get chartLock => 'Lock';
+  String get chartLock => 'Vergrendelen';
 
   @override
-  String get chartUnlock => 'Unlock';
+  String get chartUnlock => 'Ontgrendelen';
 
   @override
-  String get chartDuplicate => 'Duplicate';
+  String get chartDuplicate => 'Dupliceren';
 
   @override
   String chartHintTapFirstPoint(String tool) {
-    return 'Tap the first point: $tool';
+    return 'Tik op het eerste punt: $tool';
   }
 
   @override
-  String get chartHintTapSecondPoint => 'Now tap the second point.';
+  String get chartHintTapSecondPoint => 'Tik nu op het tweede punt.';
 
   @override
   String chartHintToolKept(String tool) {
-    return '$tool stays on. Tap it to stop.';
+    return '$tool blijft aan. Tik erop om te stoppen.';
   }
 
   @override
-  String get chartHintLocked => 'Locked. Unlock it to move it.';
+  String get chartHintLocked => 'Vergrendeld. Ontgrendel om te verplaatsen.';
 
   @override
   String get chartHintPickToolKeep =>
-      'Pick a tool. Double-tap one to keep it on.';
+      'Kies een tool. Dubbeltik om hem aan te laten.';
 
   @override
   String hlAboutTradedOn(String venue, String kind) {
@@ -12463,4 +12503,78 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get sendPickRowSub => 'Of een belegging. Zoek een markt, kies de kant';
+
+  @override
+  String get chartSheetChartType => 'Grafiektype';
+
+  @override
+  String get chartGroupTrend => 'Trend';
+
+  @override
+  String get chartGroupMomentum => 'Momentum';
+
+  @override
+  String get chartGroupVolatility => 'Volatiliteit';
+
+  @override
+  String get chartIndSmaNote => 'Langetermijntrend die langzaam draait';
+
+  @override
+  String get chartIndStNote => 'Een meebewegende stop die met de trend omslaat';
+
+  @override
+  String get chartIndSrsiNote =>
+      'Snelle uitslagen tussen overgekocht en oververkocht';
+
+  @override
+  String get chartIndAtrNote => 'Hoe ver één periode gewoonlijk beweegt';
+
+  @override
+  String get chartIndObvNote => 'Of het volume de beweging steunt';
+
+  @override
+  String get chartIndVp => 'Volumeprofiel';
+
+  @override
+  String get chartIndVpNote => 'Prijzen waar het meest werd verhandeld';
+
+  @override
+  String chartPriceLimit(String name) {
+    return '$name staat uit: er passen er vier op de prijs';
+  }
+
+  @override
+  String chartIndSettingsTitle(String name) {
+    return 'Instellingen $name';
+  }
+
+  @override
+  String get chartParamLength => 'Lengte';
+
+  @override
+  String get chartParamFast => 'Snel';
+
+  @override
+  String get chartParamSlow => 'Langzaam';
+
+  @override
+  String get chartParamSignal => 'Signaal';
+
+  @override
+  String get chartParamMultiplier => 'Vermenigvuldiger';
+
+  @override
+  String get chartParamRsiLength => 'RSI-lengte';
+
+  @override
+  String get chartParamStochLength => 'Stochastische lengte';
+
+  @override
+  String get chartParamSmoothK => '%K-afvlakking';
+
+  @override
+  String get chartParamSmoothD => '%D-afvlakking';
+
+  @override
+  String get chartParamRows => 'Rijen';
 }

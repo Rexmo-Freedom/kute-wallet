@@ -5941,9 +5941,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get chartVwapWindow => 'VWAP näytettyjen kynttilöiden ajalta';
 
   @override
-  String get chartRsiLabel => 'RSI (14)';
-
-  @override
   String get chartIndicators => 'Indikaattorit';
 
   @override
@@ -9852,6 +9849,63 @@ class AppLocalizationsFi extends AppLocalizations {
   String get polyCountNow => 'Nyt';
 
   @override
+  String get polyMapRepublican => 'Republikaanit';
+
+  @override
+  String get polyMapDemocratic => 'Demokraatit';
+
+  @override
+  String get polyMapIndependent => 'Sitoutumattomat';
+
+  @override
+  String get polyMapNotRepublican => 'Ei republikaanit';
+
+  @override
+  String get polyMapNotDemocratic => 'Ei demokraatit';
+
+  @override
+  String polyMapRepublicansFavoured(int count, int total) {
+    return 'Republikaanit johtavat $count/$total osavaltiossa';
+  }
+
+  @override
+  String polyMapDemocratsFavoured(int count, int total) {
+    return 'Demokraatit johtavat $count/$total osavaltiossa';
+  }
+
+  @override
+  String polyMapYesLeads(int count, int total) {
+    return 'Kyllä johtaa $count/$total osavaltiossa';
+  }
+
+  @override
+  String get polyMapNoMarket => 'Ei avointa markkinaa';
+
+  @override
+  String get polyMapChanceOfYes => 'Kyllä-todennäköisyys';
+
+  @override
+  String get polyMapTapToBuild =>
+      'Napauta osavaltioita ja rakenna oma karttasi';
+
+  @override
+  String get polyMapMostLikely => 'Todennäköisin kartta';
+
+  @override
+  String get polyMapYourMap => 'Oma karttasi';
+
+  @override
+  String get polyMapNoSuchMap => 'Tälle kartalle ei ole markkinaa';
+
+  @override
+  String get polyMapBackToMostLikely => 'Takaisin todennäköisimpään karttaan';
+
+  @override
+  String polyMapStatePick(String state, String side) {
+    return '$state: $side kartallasi';
+  }
+
+  @override
   String get polyPillWatchlist => 'Seurantalista';
 
   @override
@@ -11972,104 +12026,91 @@ class AppLocalizationsFi extends AppLocalizations {
   String get sendOtherContacts => 'Other contacts';
 
   @override
-  String get chartSheetTitle => 'Chart';
+  String get chartSheetTitle => 'Kaavio';
 
   @override
-  String get chartSheetStyle => 'Style';
+  String get chartIndEmaNote => 'Lyhyen aikavälin trendi, kääntyy nopeasti';
 
   @override
-  String get chartIndEma => 'Moving averages';
+  String get chartIndBb => 'Bollinger-nauhat';
 
   @override
-  String get chartIndEmaNote => 'Short and long trend lines';
+  String get chartIndBbNote => 'Kuinka paljon hinta yleensä heiluu';
 
   @override
-  String get chartIndBb => 'Bollinger bands';
+  String get chartIndRsiNote => 'Onko osto tai myynti ylivenytetty';
 
   @override
-  String get chartIndBbNote => 'How far the price usually swings';
+  String get chartIndMacdNote => 'Momentum kääntyy ylös tai alas';
 
   @override
-  String get chartIndRsi => 'RSI';
+  String get chartIndVwapNote =>
+      'Keskimääräinen maksettu hinta volyymilla painotettuna';
 
   @override
-  String get chartIndRsiNote => 'Whether buying or selling is overstretched';
+  String get chartIndVolumeNote =>
+      'Kuinka paljon kullakin jaksolla vaihdettiin';
 
   @override
-  String get chartIndMacd => 'MACD';
-
-  @override
-  String get chartIndMacdNote => 'Momentum turning up or down';
-
-  @override
-  String get chartIndVwap => 'VWAP';
-
-  @override
-  String get chartIndVwapNote => 'Average price weighted by volume';
-
-  @override
-  String get chartIndVolumeNote => 'How much traded each bar';
-
-  @override
-  String get chartReset => 'Reset';
+  String get chartReset => 'Palauta';
 
   @override
   String chartPaneLimit(String name) {
-    return '$name is off: two fit below the chart';
+    return '$name pois päältä: kaavion alle mahtuu kaksi';
   }
 
   @override
-  String get chartToolCursor => 'Cursor';
+  String get chartToolCursor => 'Osoitin';
 
   @override
-  String get chartToolHorizontalLine => 'Horizontal line';
+  String get chartToolHorizontalLine => 'Vaakaviiva';
 
   @override
-  String get chartMoreTools => 'More';
+  String get chartMoreTools => 'Lisää';
 
   @override
-  String get chartColor => 'Color';
+  String get chartColor => 'Väri';
 
   @override
-  String get chartBlueColor => 'Blue';
+  String get chartBlueColor => 'Sininen';
 
   @override
-  String get chartLineSolid => 'Solid line';
+  String get chartLineSolid => 'Yhtenäinen viiva';
 
   @override
-  String get chartLineDashed => 'Dashed line';
+  String get chartLineDashed => 'Katkoviiva';
 
   @override
-  String get chartExtendLine => 'Extend to the right';
+  String get chartExtendLine => 'Jatka oikealle';
 
   @override
-  String get chartLock => 'Lock';
+  String get chartLock => 'Lukitse';
 
   @override
-  String get chartUnlock => 'Unlock';
+  String get chartUnlock => 'Avaa lukitus';
 
   @override
-  String get chartDuplicate => 'Duplicate';
+  String get chartDuplicate => 'Monista';
 
   @override
   String chartHintTapFirstPoint(String tool) {
-    return 'Tap the first point: $tool';
+    return 'Napauta ensimmäistä pistettä: $tool';
   }
 
   @override
-  String get chartHintTapSecondPoint => 'Now tap the second point.';
+  String get chartHintTapSecondPoint => 'Napauta nyt toista pistettä.';
 
   @override
   String chartHintToolKept(String tool) {
-    return '$tool stays on. Tap it to stop.';
+    return '$tool pysyy valittuna. Lopeta napauttamalla sitä.';
   }
 
   @override
-  String get chartHintLocked => 'Locked. Unlock it to move it.';
+  String get chartHintLocked => 'Lukittu. Avaa lukitus siirtääksesi.';
 
   @override
   String get chartHintPickToolKeep =>
-      'Pick a tool. Double-tap one to keep it on.';
+      'Valitse työkalu. Kaksoisnapauta pitääksesi sen valittuna.';
 
   @override
   String hlAboutTradedOn(String venue, String kind) {
@@ -12437,4 +12478,77 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get sendPickRowSub => 'Tai sijoitus. Hae markkina, valitse puoli';
+
+  @override
+  String get chartSheetChartType => 'Kaaviotyyppi';
+
+  @override
+  String get chartGroupTrend => 'Trendi';
+
+  @override
+  String get chartGroupMomentum => 'Momentum';
+
+  @override
+  String get chartGroupVolatility => 'Volatiliteetti';
+
+  @override
+  String get chartIndSmaNote => 'Pitkän aikavälin trendi, kääntyy hitaasti';
+
+  @override
+  String get chartIndStNote => 'Seuraava stop, joka kääntyy trendin mukana';
+
+  @override
+  String get chartIndSrsiNote => 'Nopeat yliostetun ja ylimyydyn heilahdukset';
+
+  @override
+  String get chartIndAtrNote => 'Kuinka paljon yksi jakso yleensä liikkuu';
+
+  @override
+  String get chartIndObvNote => 'Tukeeko volyymi liikettä';
+
+  @override
+  String get chartIndVp => 'Volyymiprofiili';
+
+  @override
+  String get chartIndVpNote => 'Hinnat, joilla käytiin eniten kauppaa';
+
+  @override
+  String chartPriceLimit(String name) {
+    return '$name pois päältä: hinnan päälle mahtuu neljä';
+  }
+
+  @override
+  String chartIndSettingsTitle(String name) {
+    return '$name-asetukset';
+  }
+
+  @override
+  String get chartParamLength => 'Pituus';
+
+  @override
+  String get chartParamFast => 'Nopea';
+
+  @override
+  String get chartParamSlow => 'Hidas';
+
+  @override
+  String get chartParamSignal => 'Signaali';
+
+  @override
+  String get chartParamMultiplier => 'Kerroin';
+
+  @override
+  String get chartParamRsiLength => 'RSI:n pituus';
+
+  @override
+  String get chartParamStochLength => 'Stokastisen pituus';
+
+  @override
+  String get chartParamSmoothK => '%K-tasoitus';
+
+  @override
+  String get chartParamSmoothD => '%D-tasoitus';
+
+  @override
+  String get chartParamRows => 'Rivit';
 }

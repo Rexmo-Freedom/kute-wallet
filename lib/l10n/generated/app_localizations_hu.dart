@@ -5956,9 +5956,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get chartVwapWindow => 'VWAP a megjelenített gyertyákon';
 
   @override
-  String get chartRsiLabel => 'RSI (14)';
-
-  @override
   String get chartIndicators => 'Indikátorok';
 
   @override
@@ -9871,6 +9868,63 @@ class AppLocalizationsHu extends AppLocalizations {
   String get polyCountNow => 'Most';
 
   @override
+  String get polyMapRepublican => 'Republikánus';
+
+  @override
+  String get polyMapDemocratic => 'Demokrata';
+
+  @override
+  String get polyMapIndependent => 'Független';
+
+  @override
+  String get polyMapNotRepublican => 'Nem republikánus';
+
+  @override
+  String get polyMapNotDemocratic => 'Nem demokrata';
+
+  @override
+  String polyMapRepublicansFavoured(int count, int total) {
+    return 'A republikánusok vezetnek: $count/$total állam';
+  }
+
+  @override
+  String polyMapDemocratsFavoured(int count, int total) {
+    return 'A demokraták vezetnek: $count/$total állam';
+  }
+
+  @override
+  String polyMapYesLeads(int count, int total) {
+    return 'Az Igen vezet: $count/$total állam';
+  }
+
+  @override
+  String get polyMapNoMarket => 'Nincs nyitott piac';
+
+  @override
+  String get polyMapChanceOfYes => 'Az Igen esélye';
+
+  @override
+  String get polyMapTapToBuild =>
+      'Koppints az államokra, és állítsd össze a térképed';
+
+  @override
+  String get polyMapMostLikely => 'Legvalószínűbb térkép';
+
+  @override
+  String get polyMapYourMap => 'A te térképed';
+
+  @override
+  String get polyMapNoSuchMap => 'Ehhez a térképhez nincs piac';
+
+  @override
+  String get polyMapBackToMostLikely => 'Vissza a legvalószínűbb térképhez';
+
+  @override
+  String polyMapStatePick(String state, String side) {
+    return '$state: $side a térképeden';
+  }
+
+  @override
   String get polyPillWatchlist => 'Figyelőlista';
 
   @override
@@ -11989,104 +12043,89 @@ class AppLocalizationsHu extends AppLocalizations {
   String get sendOtherContacts => 'Other contacts';
 
   @override
-  String get chartSheetTitle => 'Chart';
+  String get chartSheetTitle => 'Grafikon';
 
   @override
-  String get chartSheetStyle => 'Style';
+  String get chartIndEmaNote => 'Rövid távú trend, gyorsan fordul';
 
   @override
-  String get chartIndEma => 'Moving averages';
+  String get chartIndBb => 'Bollinger-szalagok';
 
   @override
-  String get chartIndEmaNote => 'Short and long trend lines';
+  String get chartIndBbNote => 'Mennyire ingadozik általában az ár';
 
   @override
-  String get chartIndBb => 'Bollinger bands';
+  String get chartIndRsiNote => 'Túlfeszített-e a vétel vagy az eladás';
 
   @override
-  String get chartIndBbNote => 'How far the price usually swings';
+  String get chartIndMacdNote => 'A momentum felfelé vagy lefelé fordul';
 
   @override
-  String get chartIndRsi => 'RSI';
+  String get chartIndVwapNote => 'Átlagosan fizetett ár, forgalommal súlyozva';
 
   @override
-  String get chartIndRsiNote => 'Whether buying or selling is overstretched';
+  String get chartIndVolumeNote => 'Mennyi forgalom volt egyes periódusokban';
 
   @override
-  String get chartIndMacd => 'MACD';
-
-  @override
-  String get chartIndMacdNote => 'Momentum turning up or down';
-
-  @override
-  String get chartIndVwap => 'VWAP';
-
-  @override
-  String get chartIndVwapNote => 'Average price weighted by volume';
-
-  @override
-  String get chartIndVolumeNote => 'How much traded each bar';
-
-  @override
-  String get chartReset => 'Reset';
+  String get chartReset => 'Visszaállítás';
 
   @override
   String chartPaneLimit(String name) {
-    return '$name is off: two fit below the chart';
+    return '$name kikapcsolva: a grafikon alá kettő fér';
   }
 
   @override
-  String get chartToolCursor => 'Cursor';
+  String get chartToolCursor => 'Kurzor';
 
   @override
-  String get chartToolHorizontalLine => 'Horizontal line';
+  String get chartToolHorizontalLine => 'Vízszintes vonal';
 
   @override
-  String get chartMoreTools => 'More';
+  String get chartMoreTools => 'Továbbiak';
 
   @override
-  String get chartColor => 'Color';
+  String get chartColor => 'Szín';
 
   @override
-  String get chartBlueColor => 'Blue';
+  String get chartBlueColor => 'Kék';
 
   @override
-  String get chartLineSolid => 'Solid line';
+  String get chartLineSolid => 'Folytonos vonal';
 
   @override
-  String get chartLineDashed => 'Dashed line';
+  String get chartLineDashed => 'Szaggatott vonal';
 
   @override
-  String get chartExtendLine => 'Extend to the right';
+  String get chartExtendLine => 'Meghosszabbítás jobbra';
 
   @override
-  String get chartLock => 'Lock';
+  String get chartLock => 'Zárolás';
 
   @override
-  String get chartUnlock => 'Unlock';
+  String get chartUnlock => 'Feloldás';
 
   @override
-  String get chartDuplicate => 'Duplicate';
+  String get chartDuplicate => 'Másolat';
 
   @override
   String chartHintTapFirstPoint(String tool) {
-    return 'Tap the first point: $tool';
+    return 'Koppints az első pontra: $tool';
   }
 
   @override
-  String get chartHintTapSecondPoint => 'Now tap the second point.';
+  String get chartHintTapSecondPoint => 'Most koppints a második pontra.';
 
   @override
   String chartHintToolKept(String tool) {
-    return '$tool stays on. Tap it to stop.';
+    return 'A(z) $tool bekapcsolva marad. Koppints rá a leállításhoz.';
   }
 
   @override
-  String get chartHintLocked => 'Locked. Unlock it to move it.';
+  String get chartHintLocked => 'Zárolva. Oldd fel az áthelyezéshez.';
 
   @override
   String get chartHintPickToolKeep =>
-      'Pick a tool. Double-tap one to keep it on.';
+      'Válassz eszközt. Dupla koppintással bekapcsolva marad.';
 
   @override
   String hlAboutTradedOn(String venue, String kind) {
@@ -12456,4 +12495,77 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get sendPickRowSub => 'Vagy befektetés. Keress piacot, válassz oldalt';
+
+  @override
+  String get chartSheetChartType => 'Diagramtípus';
+
+  @override
+  String get chartGroupTrend => 'Trend';
+
+  @override
+  String get chartGroupMomentum => 'Momentum';
+
+  @override
+  String get chartGroupVolatility => 'Volatilitás';
+
+  @override
+  String get chartIndSmaNote => 'Hosszú távú trend, lassan fordul';
+
+  @override
+  String get chartIndStNote => 'Követő stop, amely a trenddel fordul';
+
+  @override
+  String get chartIndSrsiNote => 'Gyors túlvett és túladott kilengések';
+
+  @override
+  String get chartIndAtrNote => 'Mekkorát mozdul általában egy periódus';
+
+  @override
+  String get chartIndObvNote => 'Alátámasztja-e a forgalom a mozgást';
+
+  @override
+  String get chartIndVp => 'Volumenprofil';
+
+  @override
+  String get chartIndVpNote => 'Árak, ahol a legtöbb kereskedés zajlott';
+
+  @override
+  String chartPriceLimit(String name) {
+    return '$name kikapcsolva: az árra négy fér';
+  }
+
+  @override
+  String chartIndSettingsTitle(String name) {
+    return '$name beállításai';
+  }
+
+  @override
+  String get chartParamLength => 'Hossz';
+
+  @override
+  String get chartParamFast => 'Gyors';
+
+  @override
+  String get chartParamSlow => 'Lassú';
+
+  @override
+  String get chartParamSignal => 'Jelzés';
+
+  @override
+  String get chartParamMultiplier => 'Szorzó';
+
+  @override
+  String get chartParamRsiLength => 'RSI hossza';
+
+  @override
+  String get chartParamStochLength => 'Sztochasztikus hossz';
+
+  @override
+  String get chartParamSmoothK => '%K simítás';
+
+  @override
+  String get chartParamSmoothD => '%D simítás';
+
+  @override
+  String get chartParamRows => 'Sorok';
 }

@@ -5954,9 +5954,6 @@ class AppLocalizationsHr extends AppLocalizations {
   String get chartVwapWindow => 'VWAP za prikazane svijeće';
 
   @override
-  String get chartRsiLabel => 'RSI (14)';
-
-  @override
   String get chartIndicators => 'Indikatori';
 
   @override
@@ -9867,6 +9864,62 @@ class AppLocalizationsHr extends AppLocalizations {
   String get polyCountNow => 'Sada';
 
   @override
+  String get polyMapRepublican => 'Republikanci';
+
+  @override
+  String get polyMapDemocratic => 'Demokrati';
+
+  @override
+  String get polyMapIndependent => 'Nezavisni';
+
+  @override
+  String get polyMapNotRepublican => 'Ne republikanci';
+
+  @override
+  String get polyMapNotDemocratic => 'Ne demokrati';
+
+  @override
+  String polyMapRepublicansFavoured(int count, int total) {
+    return 'Republikanci vode u $count od $total saveznih država';
+  }
+
+  @override
+  String polyMapDemocratsFavoured(int count, int total) {
+    return 'Demokrati vode u $count od $total saveznih država';
+  }
+
+  @override
+  String polyMapYesLeads(int count, int total) {
+    return '„Da” vodi u $count od $total saveznih država';
+  }
+
+  @override
+  String get polyMapNoMarket => 'Nema otvorenog tržišta';
+
+  @override
+  String get polyMapChanceOfYes => 'Šansa za „Da”';
+
+  @override
+  String get polyMapTapToBuild => 'Dodirni savezne države i složi svoju kartu';
+
+  @override
+  String get polyMapMostLikely => 'Najvjerojatnija karta';
+
+  @override
+  String get polyMapYourMap => 'Tvoja karta';
+
+  @override
+  String get polyMapNoSuchMap => 'Nema tržišta za ovu kartu';
+
+  @override
+  String get polyMapBackToMostLikely => 'Natrag na najvjerojatniju kartu';
+
+  @override
+  String polyMapStatePick(String state, String side) {
+    return '$state: $side na tvojoj karti';
+  }
+
+  @override
   String get polyPillWatchlist => 'Popis praćenja';
 
   @override
@@ -11987,104 +12040,90 @@ class AppLocalizationsHr extends AppLocalizations {
   String get sendOtherContacts => 'Other contacts';
 
   @override
-  String get chartSheetTitle => 'Chart';
+  String get chartSheetTitle => 'Grafikon';
 
   @override
-  String get chartSheetStyle => 'Style';
+  String get chartIndEmaNote => 'Kratkoročni trend koji se brzo okreće';
 
   @override
-  String get chartIndEma => 'Moving averages';
+  String get chartIndBb => 'Bollingerove vrpce';
 
   @override
-  String get chartIndEmaNote => 'Short and long trend lines';
+  String get chartIndBbNote => 'Koliko cijena obično oscilira';
 
   @override
-  String get chartIndBb => 'Bollinger bands';
+  String get chartIndRsiNote => 'Jesu li kupnja ili prodaja pretjerane';
 
   @override
-  String get chartIndBbNote => 'How far the price usually swings';
+  String get chartIndMacdNote => 'Zamah se okreće gore ili dolje';
 
   @override
-  String get chartIndRsi => 'RSI';
+  String get chartIndVwapNote =>
+      'Prosječna plaćena cijena ponderirana volumenom';
 
   @override
-  String get chartIndRsiNote => 'Whether buying or selling is overstretched';
+  String get chartIndVolumeNote => 'Koliko se trgovalo u svakom razdoblju';
 
   @override
-  String get chartIndMacd => 'MACD';
-
-  @override
-  String get chartIndMacdNote => 'Momentum turning up or down';
-
-  @override
-  String get chartIndVwap => 'VWAP';
-
-  @override
-  String get chartIndVwapNote => 'Average price weighted by volume';
-
-  @override
-  String get chartIndVolumeNote => 'How much traded each bar';
-
-  @override
-  String get chartReset => 'Reset';
+  String get chartReset => 'Vrati zadano';
 
   @override
   String chartPaneLimit(String name) {
-    return '$name is off: two fit below the chart';
+    return '$name je isključen: ispod grafikona stanu dva';
   }
 
   @override
-  String get chartToolCursor => 'Cursor';
+  String get chartToolCursor => 'Pokazivač';
 
   @override
-  String get chartToolHorizontalLine => 'Horizontal line';
+  String get chartToolHorizontalLine => 'Vodoravna linija';
 
   @override
-  String get chartMoreTools => 'More';
+  String get chartMoreTools => 'Više';
 
   @override
-  String get chartColor => 'Color';
+  String get chartColor => 'Boja';
 
   @override
-  String get chartBlueColor => 'Blue';
+  String get chartBlueColor => 'Plava';
 
   @override
-  String get chartLineSolid => 'Solid line';
+  String get chartLineSolid => 'Puna linija';
 
   @override
-  String get chartLineDashed => 'Dashed line';
+  String get chartLineDashed => 'Isprekidana linija';
 
   @override
-  String get chartExtendLine => 'Extend to the right';
+  String get chartExtendLine => 'Produži udesno';
 
   @override
-  String get chartLock => 'Lock';
+  String get chartLock => 'Zaključaj';
 
   @override
-  String get chartUnlock => 'Unlock';
+  String get chartUnlock => 'Otključaj';
 
   @override
-  String get chartDuplicate => 'Duplicate';
+  String get chartDuplicate => 'Dupliciraj';
 
   @override
   String chartHintTapFirstPoint(String tool) {
-    return 'Tap the first point: $tool';
+    return 'Dodirni prvu točku: $tool';
   }
 
   @override
-  String get chartHintTapSecondPoint => 'Now tap the second point.';
+  String get chartHintTapSecondPoint => 'Sad dodirni drugu točku.';
 
   @override
   String chartHintToolKept(String tool) {
-    return '$tool stays on. Tap it to stop.';
+    return '$tool ostaje uključen. Dodirni ga za prekid.';
   }
 
   @override
-  String get chartHintLocked => 'Locked. Unlock it to move it.';
+  String get chartHintLocked => 'Zaključano. Otključaj za pomicanje.';
 
   @override
   String get chartHintPickToolKeep =>
-      'Pick a tool. Double-tap one to keep it on.';
+      'Odaberi alat. Dodirni dvaput da ostane uključen.';
 
   @override
   String hlAboutTradedOn(String venue, String kind) {
@@ -12451,4 +12490,77 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get sendPickRowSub => 'Ili ulaganje. Potraži tržište, odaberi stranu';
+
+  @override
+  String get chartSheetChartType => 'Vrsta grafikona';
+
+  @override
+  String get chartGroupTrend => 'Trend';
+
+  @override
+  String get chartGroupMomentum => 'Zamah';
+
+  @override
+  String get chartGroupVolatility => 'Volatilnost';
+
+  @override
+  String get chartIndSmaNote => 'Dugoročni trend koji se sporo okreće';
+
+  @override
+  String get chartIndStNote => 'Pomični stop koji se okreće s trendom';
+
+  @override
+  String get chartIndSrsiNote => 'Brze izmjene prekupljenosti i preprodanosti';
+
+  @override
+  String get chartIndAtrNote => 'Koliko se jedno razdoblje obično pomakne';
+
+  @override
+  String get chartIndObvNote => 'Podržava li volumen kretanje';
+
+  @override
+  String get chartIndVp => 'Profil volumena';
+
+  @override
+  String get chartIndVpNote => 'Cijene na kojima se najviše trgovalo';
+
+  @override
+  String chartPriceLimit(String name) {
+    return '$name je isključen: na cijenu stanu četiri';
+  }
+
+  @override
+  String chartIndSettingsTitle(String name) {
+    return 'Postavke za $name';
+  }
+
+  @override
+  String get chartParamLength => 'Duljina';
+
+  @override
+  String get chartParamFast => 'Brza';
+
+  @override
+  String get chartParamSlow => 'Spora';
+
+  @override
+  String get chartParamSignal => 'Signal';
+
+  @override
+  String get chartParamMultiplier => 'Množitelj';
+
+  @override
+  String get chartParamRsiLength => 'Duljina RSI-ja';
+
+  @override
+  String get chartParamStochLength => 'Duljina stohastike';
+
+  @override
+  String get chartParamSmoothK => 'Izglađivanje %K';
+
+  @override
+  String get chartParamSmoothD => 'Izglađivanje %D';
+
+  @override
+  String get chartParamRows => 'Redovi';
 }

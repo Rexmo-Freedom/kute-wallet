@@ -10408,12 +10408,6 @@ abstract class AppLocalizations {
   /// **'VWAP across the displayed candles'**
   String get chartVwapWindow;
 
-  /// No description provided for @chartRsiLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'RSI (14)'**
-  String get chartRsiLabel;
-
   /// No description provided for @chartIndicators.
   ///
   /// In en, this message translates to:
@@ -16937,6 +16931,102 @@ abstract class AppLocalizations {
   /// **'Now'**
   String get polyCountNow;
 
+  /// Predictions state map legend and a state's odds: the side of a state the Republican party wins.
+  ///
+  /// In en, this message translates to:
+  /// **'Republican'**
+  String get polyMapRepublican;
+
+  /// Predictions state map legend and a state's odds: the side of a state the Democratic party wins.
+  ///
+  /// In en, this message translates to:
+  /// **'Democratic'**
+  String get polyMapDemocratic;
+
+  /// Predictions state map legend and a state's odds: the side of a state an independent candidate wins.
+  ///
+  /// In en, this message translates to:
+  /// **'Independent'**
+  String get polyMapIndependent;
+
+  /// Predictions 'Build your map' legend: a state the Republican party does not win (whoever else wins it).
+  ///
+  /// In en, this message translates to:
+  /// **'Not Republican'**
+  String get polyMapNotRepublican;
+
+  /// Predictions 'Build your map' legend: a state the Democratic party does not win (whoever else wins it).
+  ///
+  /// In en, this message translates to:
+  /// **'Not Democratic'**
+  String get polyMapNotDemocratic;
+
+  /// Predictions state map summary above the map: in how many of the market's states the Republican party is more likely than not to win.
+  ///
+  /// In en, this message translates to:
+  /// **'Republicans favoured in {count} of {total} states'**
+  String polyMapRepublicansFavoured(int count, int total);
+
+  /// Predictions state map summary above the map: in how many of the market's states the Democratic party is more likely than not to win.
+  ///
+  /// In en, this message translates to:
+  /// **'Democrats favoured in {count} of {total} states'**
+  String polyMapDemocratsFavoured(int count, int total);
+
+  /// Predictions state map summary above a map of one Yes/No market per state: how many states are more likely Yes than No.
+  ///
+  /// In en, this message translates to:
+  /// **'Yes leads in {count} of {total} states'**
+  String polyMapYesLeads(int count, int total);
+
+  /// Predictions state map legend: the grey of a state with no open market in this event.
+  ///
+  /// In en, this message translates to:
+  /// **'No open market'**
+  String get polyMapNoMarket;
+
+  /// Predictions state map legend: the colour scale of each state's chance of Yes, from 0% to 100%.
+  ///
+  /// In en, this message translates to:
+  /// **'Chance of Yes'**
+  String get polyMapChanceOfYes;
+
+  /// Predictions 'Build your map': the hint under the map before a state is tapped. Tapping a state switches which side wins it on the user's map.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap the states to build your map'**
+  String get polyMapTapToBuild;
+
+  /// Predictions 'Build your map': the row naming the most likely combination of states, which opens that market.
+  ///
+  /// In en, this message translates to:
+  /// **'Most likely map'**
+  String get polyMapMostLikely;
+
+  /// Predictions 'Build your map': the row naming the combination of states the user picked, which opens that market.
+  ///
+  /// In en, this message translates to:
+  /// **'Your map'**
+  String get polyMapYourMap;
+
+  /// Predictions 'Build your map': the user's combination of states has no market to bet on in this event.
+  ///
+  /// In en, this message translates to:
+  /// **'No market for this map'**
+  String get polyMapNoSuchMap;
+
+  /// Predictions 'Build your map': resets the user's map to the most likely combination.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to the most likely map'**
+  String get polyMapBackToMostLikely;
+
+  /// Predictions 'Build your map', read by a screen reader for a state: the side the user's map gives it, e.g. 'Texas: Republican on your map'.
+  ///
+  /// In en, this message translates to:
+  /// **'{state}: {side} on your map'**
+  String polyMapStatePick(String state, String side);
+
   /// No description provided for @polyPillWatchlist.
   ///
   /// In en, this message translates to:
@@ -20107,22 +20197,10 @@ abstract class AppLocalizations {
   /// **'Chart'**
   String get chartSheetTitle;
 
-  /// Section label above the three chart style cards.
+  /// One-line explanation of the EMA indicator (two exponential moving averages).
   ///
   /// In en, this message translates to:
-  /// **'Style'**
-  String get chartSheetStyle;
-
-  /// Indicator name: the EMA 9/21 trend lines.
-  ///
-  /// In en, this message translates to:
-  /// **'Moving averages'**
-  String get chartIndEma;
-
-  /// One-line explanation of the moving averages indicator.
-  ///
-  /// In en, this message translates to:
-  /// **'Short and long trend lines'**
+  /// **'Short-term trend, quick to turn'**
   String get chartIndEmaNote;
 
   /// Indicator name.
@@ -20137,23 +20215,11 @@ abstract class AppLocalizations {
   /// **'How far the price usually swings'**
   String get chartIndBbNote;
 
-  /// Indicator name (relative strength index).
-  ///
-  /// In en, this message translates to:
-  /// **'RSI'**
-  String get chartIndRsi;
-
   /// One-line explanation of RSI.
   ///
   /// In en, this message translates to:
   /// **'Whether buying or selling is overstretched'**
   String get chartIndRsiNote;
-
-  /// Indicator name.
-  ///
-  /// In en, this message translates to:
-  /// **'MACD'**
-  String get chartIndMacd;
 
   /// One-line explanation of MACD.
   ///
@@ -20161,16 +20227,10 @@ abstract class AppLocalizations {
   /// **'Momentum turning up or down'**
   String get chartIndMacdNote;
 
-  /// Indicator name (volume-weighted average price).
-  ///
-  /// In en, this message translates to:
-  /// **'VWAP'**
-  String get chartIndVwap;
-
   /// One-line explanation of VWAP.
   ///
   /// In en, this message translates to:
-  /// **'Average price weighted by volume'**
+  /// **'Average price paid, weighted by volume'**
   String get chartIndVwapNote;
 
   /// One-line explanation of the volume indicator.
@@ -20845,6 +20905,144 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Or an investment. Search a market, pick the side'**
   String get sendPickRowSub;
+
+  /// Chart sheet: section label above the chart type cards (Line, Candles, Area, Heikin Ashi).
+  ///
+  /// In en, this message translates to:
+  /// **'Chart type'**
+  String get chartSheetChartType;
+
+  /// Chart sheet: section label above the trend indicators (EMA, SMA, VWAP, Supertrend).
+  ///
+  /// In en, this message translates to:
+  /// **'Trend'**
+  String get chartGroupTrend;
+
+  /// Chart sheet: section label above the momentum indicators (RSI, MACD, Stoch RSI).
+  ///
+  /// In en, this message translates to:
+  /// **'Momentum'**
+  String get chartGroupMomentum;
+
+  /// Chart sheet: section label above the volatility indicators (Bollinger bands, ATR).
+  ///
+  /// In en, this message translates to:
+  /// **'Volatility'**
+  String get chartGroupVolatility;
+
+  /// One-line explanation of the SMA indicator (the 50 and 200 simple moving averages by default).
+  ///
+  /// In en, this message translates to:
+  /// **'Long-term trend, slow to turn'**
+  String get chartIndSmaNote;
+
+  /// One-line explanation of the Supertrend indicator.
+  ///
+  /// In en, this message translates to:
+  /// **'A trailing stop that flips with the trend'**
+  String get chartIndStNote;
+
+  /// One-line explanation of the Stochastic RSI indicator.
+  ///
+  /// In en, this message translates to:
+  /// **'Fast overbought and oversold swings'**
+  String get chartIndSrsiNote;
+
+  /// One-line explanation of the ATR (average true range) indicator.
+  ///
+  /// In en, this message translates to:
+  /// **'How far a bar usually moves'**
+  String get chartIndAtrNote;
+
+  /// One-line explanation of the OBV (on-balance volume) indicator.
+  ///
+  /// In en, this message translates to:
+  /// **'Whether volume is backing the move'**
+  String get chartIndObvNote;
+
+  /// Indicator name: the volume traded at each price over the bars on screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Volume profile'**
+  String get chartIndVp;
+
+  /// One-line explanation of the volume profile indicator.
+  ///
+  /// In en, this message translates to:
+  /// **'Prices where the most was traded'**
+  String get chartIndVpNote;
+
+  /// Toast when a fifth indicator on the price replaces the oldest one.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} is off: four fit on the price'**
+  String chartPriceLimit(String name);
+
+  /// Title of an indicator's settings sheet, e.g. "RSI settings".
+  ///
+  /// In en, this message translates to:
+  /// **'{name} settings'**
+  String chartIndSettingsTitle(String name);
+
+  /// Indicator settings: the name of one setting (a stepper row).
+  ///
+  /// In en, this message translates to:
+  /// **'Length'**
+  String get chartParamLength;
+
+  /// Indicator settings: the name of one setting (a stepper row).
+  ///
+  /// In en, this message translates to:
+  /// **'Fast'**
+  String get chartParamFast;
+
+  /// Indicator settings: the name of one setting (a stepper row).
+  ///
+  /// In en, this message translates to:
+  /// **'Slow'**
+  String get chartParamSlow;
+
+  /// Indicator settings: the name of one setting (a stepper row).
+  ///
+  /// In en, this message translates to:
+  /// **'Signal'**
+  String get chartParamSignal;
+
+  /// Indicator settings: the name of one setting (a stepper row).
+  ///
+  /// In en, this message translates to:
+  /// **'Multiplier'**
+  String get chartParamMultiplier;
+
+  /// Indicator settings: the name of one setting (a stepper row).
+  ///
+  /// In en, this message translates to:
+  /// **'RSI length'**
+  String get chartParamRsiLength;
+
+  /// Indicator settings: the name of one setting (a stepper row).
+  ///
+  /// In en, this message translates to:
+  /// **'Stochastic length'**
+  String get chartParamStochLength;
+
+  /// Indicator settings: the name of one setting (a stepper row).
+  ///
+  /// In en, this message translates to:
+  /// **'%K smoothing'**
+  String get chartParamSmoothK;
+
+  /// Indicator settings: the name of one setting (a stepper row).
+  ///
+  /// In en, this message translates to:
+  /// **'%D smoothing'**
+  String get chartParamSmoothD;
+
+  /// Indicator settings: the name of one setting (a stepper row).
+  ///
+  /// In en, this message translates to:
+  /// **'Rows'**
+  String get chartParamRows;
 }
 
 class _AppLocalizationsDelegate

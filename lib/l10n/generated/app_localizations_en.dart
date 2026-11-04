@@ -5923,9 +5923,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chartVwapWindow => 'VWAP across the displayed candles';
 
   @override
-  String get chartRsiLabel => 'RSI (14)';
-
-  @override
   String get chartIndicators => 'Indicators';
 
   @override
@@ -9808,6 +9805,62 @@ class AppLocalizationsEn extends AppLocalizations {
   String get polyCountNow => 'Now';
 
   @override
+  String get polyMapRepublican => 'Republican';
+
+  @override
+  String get polyMapDemocratic => 'Democratic';
+
+  @override
+  String get polyMapIndependent => 'Independent';
+
+  @override
+  String get polyMapNotRepublican => 'Not Republican';
+
+  @override
+  String get polyMapNotDemocratic => 'Not Democratic';
+
+  @override
+  String polyMapRepublicansFavoured(int count, int total) {
+    return 'Republicans favoured in $count of $total states';
+  }
+
+  @override
+  String polyMapDemocratsFavoured(int count, int total) {
+    return 'Democrats favoured in $count of $total states';
+  }
+
+  @override
+  String polyMapYesLeads(int count, int total) {
+    return 'Yes leads in $count of $total states';
+  }
+
+  @override
+  String get polyMapNoMarket => 'No open market';
+
+  @override
+  String get polyMapChanceOfYes => 'Chance of Yes';
+
+  @override
+  String get polyMapTapToBuild => 'Tap the states to build your map';
+
+  @override
+  String get polyMapMostLikely => 'Most likely map';
+
+  @override
+  String get polyMapYourMap => 'Your map';
+
+  @override
+  String get polyMapNoSuchMap => 'No market for this map';
+
+  @override
+  String get polyMapBackToMostLikely => 'Back to the most likely map';
+
+  @override
+  String polyMapStatePick(String state, String side) {
+    return '$state: $side on your map';
+  }
+
+  @override
   String get polyPillWatchlist => 'Watchlist';
 
   @override
@@ -11919,13 +11972,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chartSheetTitle => 'Chart';
 
   @override
-  String get chartSheetStyle => 'Style';
-
-  @override
-  String get chartIndEma => 'Moving averages';
-
-  @override
-  String get chartIndEmaNote => 'Short and long trend lines';
+  String get chartIndEmaNote => 'Short-term trend, quick to turn';
 
   @override
   String get chartIndBb => 'Bollinger bands';
@@ -11934,22 +11981,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chartIndBbNote => 'How far the price usually swings';
 
   @override
-  String get chartIndRsi => 'RSI';
-
-  @override
   String get chartIndRsiNote => 'Whether buying or selling is overstretched';
-
-  @override
-  String get chartIndMacd => 'MACD';
 
   @override
   String get chartIndMacdNote => 'Momentum turning up or down';
 
   @override
-  String get chartIndVwap => 'VWAP';
-
-  @override
-  String get chartIndVwapNote => 'Average price weighted by volume';
+  String get chartIndVwapNote => 'Average price paid, weighted by volume';
 
   @override
   String get chartIndVolumeNote => 'How much traded each bar';
@@ -12381,4 +12419,77 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get sendPickRowSub =>
       'Or an investment. Search a market, pick the side';
+
+  @override
+  String get chartSheetChartType => 'Chart type';
+
+  @override
+  String get chartGroupTrend => 'Trend';
+
+  @override
+  String get chartGroupMomentum => 'Momentum';
+
+  @override
+  String get chartGroupVolatility => 'Volatility';
+
+  @override
+  String get chartIndSmaNote => 'Long-term trend, slow to turn';
+
+  @override
+  String get chartIndStNote => 'A trailing stop that flips with the trend';
+
+  @override
+  String get chartIndSrsiNote => 'Fast overbought and oversold swings';
+
+  @override
+  String get chartIndAtrNote => 'How far a bar usually moves';
+
+  @override
+  String get chartIndObvNote => 'Whether volume is backing the move';
+
+  @override
+  String get chartIndVp => 'Volume profile';
+
+  @override
+  String get chartIndVpNote => 'Prices where the most was traded';
+
+  @override
+  String chartPriceLimit(String name) {
+    return '$name is off: four fit on the price';
+  }
+
+  @override
+  String chartIndSettingsTitle(String name) {
+    return '$name settings';
+  }
+
+  @override
+  String get chartParamLength => 'Length';
+
+  @override
+  String get chartParamFast => 'Fast';
+
+  @override
+  String get chartParamSlow => 'Slow';
+
+  @override
+  String get chartParamSignal => 'Signal';
+
+  @override
+  String get chartParamMultiplier => 'Multiplier';
+
+  @override
+  String get chartParamRsiLength => 'RSI length';
+
+  @override
+  String get chartParamStochLength => 'Stochastic length';
+
+  @override
+  String get chartParamSmoothK => '%K smoothing';
+
+  @override
+  String get chartParamSmoothD => '%D smoothing';
+
+  @override
+  String get chartParamRows => 'Rows';
 }

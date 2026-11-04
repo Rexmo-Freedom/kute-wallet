@@ -5937,9 +5937,6 @@ class AppLocalizationsCs extends AppLocalizations {
   String get chartVwapWindow => 'VWAP přes zobrazené svíčky';
 
   @override
-  String get chartRsiLabel => 'RSI (14)';
-
-  @override
   String get chartIndicators => 'Indikátory';
 
   @override
@@ -9841,6 +9838,62 @@ class AppLocalizationsCs extends AppLocalizations {
   String get polyCountNow => 'Teď';
 
   @override
+  String get polyMapRepublican => 'Republikáni';
+
+  @override
+  String get polyMapDemocratic => 'Demokraté';
+
+  @override
+  String get polyMapIndependent => 'Nezávislí';
+
+  @override
+  String get polyMapNotRepublican => 'Nikoli republikáni';
+
+  @override
+  String get polyMapNotDemocratic => 'Nikoli demokraté';
+
+  @override
+  String polyMapRepublicansFavoured(int count, int total) {
+    return 'Republikáni vedou v $count z $total států';
+  }
+
+  @override
+  String polyMapDemocratsFavoured(int count, int total) {
+    return 'Demokraté vedou v $count z $total států';
+  }
+
+  @override
+  String polyMapYesLeads(int count, int total) {
+    return '„Ano“ vede v $count z $total států';
+  }
+
+  @override
+  String get polyMapNoMarket => 'Žádný otevřený trh';
+
+  @override
+  String get polyMapChanceOfYes => 'Šance na „Ano“';
+
+  @override
+  String get polyMapTapToBuild => 'Klepni na státy a sestav si svou mapu';
+
+  @override
+  String get polyMapMostLikely => 'Nejpravděpodobnější mapa';
+
+  @override
+  String get polyMapYourMap => 'Tvoje mapa';
+
+  @override
+  String get polyMapNoSuchMap => 'Pro tuto mapu není žádný trh';
+
+  @override
+  String get polyMapBackToMostLikely => 'Zpět na nejpravděpodobnější mapu';
+
+  @override
+  String polyMapStatePick(String state, String side) {
+    return '$state: $side na tvé mapě';
+  }
+
+  @override
   String get polyPillWatchlist => 'Sledované';
 
   @override
@@ -11961,104 +12014,89 @@ class AppLocalizationsCs extends AppLocalizations {
   String get sendOtherContacts => 'Other contacts';
 
   @override
-  String get chartSheetTitle => 'Chart';
+  String get chartSheetTitle => 'Graf';
 
   @override
-  String get chartSheetStyle => 'Style';
+  String get chartIndEmaNote => 'Krátkodobý trend, rychle se otáčí';
 
   @override
-  String get chartIndEma => 'Moving averages';
+  String get chartIndBb => 'Bollingerova pásma';
 
   @override
-  String get chartIndEmaNote => 'Short and long trend lines';
+  String get chartIndBbNote => 'Jak moc cena obvykle kolísá';
 
   @override
-  String get chartIndBb => 'Bollinger bands';
+  String get chartIndRsiNote => 'Zda je nákup nebo prodej přehnaný';
 
   @override
-  String get chartIndBbNote => 'How far the price usually swings';
+  String get chartIndMacdNote => 'Momentum se otáčí nahoru nebo dolů';
 
   @override
-  String get chartIndRsi => 'RSI';
+  String get chartIndVwapNote => 'Průměrná zaplacená cena vážená objemem';
 
   @override
-  String get chartIndRsiNote => 'Whether buying or selling is overstretched';
+  String get chartIndVolumeNote => 'Kolik se zobchodovalo v každém období';
 
   @override
-  String get chartIndMacd => 'MACD';
-
-  @override
-  String get chartIndMacdNote => 'Momentum turning up or down';
-
-  @override
-  String get chartIndVwap => 'VWAP';
-
-  @override
-  String get chartIndVwapNote => 'Average price weighted by volume';
-
-  @override
-  String get chartIndVolumeNote => 'How much traded each bar';
-
-  @override
-  String get chartReset => 'Reset';
+  String get chartReset => 'Obnovit';
 
   @override
   String chartPaneLimit(String name) {
-    return '$name is off: two fit below the chart';
+    return '$name je vypnuto: pod graf se vejdou dva';
   }
 
   @override
-  String get chartToolCursor => 'Cursor';
+  String get chartToolCursor => 'Kurzor';
 
   @override
-  String get chartToolHorizontalLine => 'Horizontal line';
+  String get chartToolHorizontalLine => 'Vodorovná čára';
 
   @override
-  String get chartMoreTools => 'More';
+  String get chartMoreTools => 'Další';
 
   @override
-  String get chartColor => 'Color';
+  String get chartColor => 'Barva';
 
   @override
-  String get chartBlueColor => 'Blue';
+  String get chartBlueColor => 'Modrá';
 
   @override
-  String get chartLineSolid => 'Solid line';
+  String get chartLineSolid => 'Plná čára';
 
   @override
-  String get chartLineDashed => 'Dashed line';
+  String get chartLineDashed => 'Přerušovaná čára';
 
   @override
-  String get chartExtendLine => 'Extend to the right';
+  String get chartExtendLine => 'Prodloužit doprava';
 
   @override
-  String get chartLock => 'Lock';
+  String get chartLock => 'Zamknout';
 
   @override
-  String get chartUnlock => 'Unlock';
+  String get chartUnlock => 'Odemknout';
 
   @override
-  String get chartDuplicate => 'Duplicate';
+  String get chartDuplicate => 'Duplikovat';
 
   @override
   String chartHintTapFirstPoint(String tool) {
-    return 'Tap the first point: $tool';
+    return 'Klepni na první bod: $tool';
   }
 
   @override
-  String get chartHintTapSecondPoint => 'Now tap the second point.';
+  String get chartHintTapSecondPoint => 'Teď klepni na druhý bod.';
 
   @override
   String chartHintToolKept(String tool) {
-    return '$tool stays on. Tap it to stop.';
+    return '$tool zůstává zapnutý. Klepnutím ho vypneš.';
   }
 
   @override
-  String get chartHintLocked => 'Locked. Unlock it to move it.';
+  String get chartHintLocked => 'Zamčeno. Odemkni, abys ho mohl přesunout.';
 
   @override
   String get chartHintPickToolKeep =>
-      'Pick a tool. Double-tap one to keep it on.';
+      'Vyber nástroj. Dvojitým klepnutím ho necháš zapnutý.';
 
   @override
   String hlAboutTradedOn(String venue, String kind) {
@@ -12425,4 +12463,77 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get sendPickRowSub => 'Nebo investici. Vyhledej trh, vyber stranu';
+
+  @override
+  String get chartSheetChartType => 'Typ grafu';
+
+  @override
+  String get chartGroupTrend => 'Trend';
+
+  @override
+  String get chartGroupMomentum => 'Momentum';
+
+  @override
+  String get chartGroupVolatility => 'Volatilita';
+
+  @override
+  String get chartIndSmaNote => 'Dlouhodobý trend, otáčí se pomalu';
+
+  @override
+  String get chartIndStNote => 'Posuvný stop, který se otočí s trendem';
+
+  @override
+  String get chartIndSrsiNote => 'Rychlé výkyvy překoupenosti a přeprodanosti';
+
+  @override
+  String get chartIndAtrNote => 'Jak daleko se jedno období obvykle pohne';
+
+  @override
+  String get chartIndObvNote => 'Zda pohyb podporuje objem';
+
+  @override
+  String get chartIndVp => 'Objemový profil';
+
+  @override
+  String get chartIndVpNote => 'Ceny, kde se nejvíc obchodovalo';
+
+  @override
+  String chartPriceLimit(String name) {
+    return '$name je vypnuto: na cenu se vejdou čtyři';
+  }
+
+  @override
+  String chartIndSettingsTitle(String name) {
+    return 'Nastavení $name';
+  }
+
+  @override
+  String get chartParamLength => 'Délka';
+
+  @override
+  String get chartParamFast => 'Rychlá';
+
+  @override
+  String get chartParamSlow => 'Pomalá';
+
+  @override
+  String get chartParamSignal => 'Signál';
+
+  @override
+  String get chartParamMultiplier => 'Násobitel';
+
+  @override
+  String get chartParamRsiLength => 'Délka RSI';
+
+  @override
+  String get chartParamStochLength => 'Délka stochastiku';
+
+  @override
+  String get chartParamSmoothK => 'Vyhlazení %K';
+
+  @override
+  String get chartParamSmoothD => 'Vyhlazení %D';
+
+  @override
+  String get chartParamRows => 'Řádky';
 }

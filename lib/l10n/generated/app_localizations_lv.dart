@@ -5924,9 +5924,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String get chartVwapWindow => 'VWAP redzamajām svecēm';
 
   @override
-  String get chartRsiLabel => 'RSI (14)';
-
-  @override
   String get chartIndicators => 'Indikatori';
 
   @override
@@ -9819,6 +9816,63 @@ class AppLocalizationsLv extends AppLocalizations {
   String get polyCountNow => 'Tagad';
 
   @override
+  String get polyMapRepublican => 'Republikāņi';
+
+  @override
+  String get polyMapDemocratic => 'Demokrāti';
+
+  @override
+  String get polyMapIndependent => 'Neatkarīgie';
+
+  @override
+  String get polyMapNotRepublican => 'Ne republikāņi';
+
+  @override
+  String get polyMapNotDemocratic => 'Ne demokrāti';
+
+  @override
+  String polyMapRepublicansFavoured(int count, int total) {
+    return 'Republikāņi vadībā $count no $total štatiem';
+  }
+
+  @override
+  String polyMapDemocratsFavoured(int count, int total) {
+    return 'Demokrāti vadībā $count no $total štatiem';
+  }
+
+  @override
+  String polyMapYesLeads(int count, int total) {
+    return '“Jā” vadībā $count no $total štatiem';
+  }
+
+  @override
+  String get polyMapNoMarket => 'Nav atvērta tirgus';
+
+  @override
+  String get polyMapChanceOfYes => '“Jā” iespēja';
+
+  @override
+  String get polyMapTapToBuild =>
+      'Pieskaries štatiem, lai izveidotu savu karti';
+
+  @override
+  String get polyMapMostLikely => 'Visticamākā karte';
+
+  @override
+  String get polyMapYourMap => 'Tava karte';
+
+  @override
+  String get polyMapNoSuchMap => 'Šai kartei nav tirgus';
+
+  @override
+  String get polyMapBackToMostLikely => 'Atpakaļ uz visticamāko karti';
+
+  @override
+  String polyMapStatePick(String state, String side) {
+    return '$state: $side tavā kartē';
+  }
+
+  @override
   String get polyPillWatchlist => 'Vērošanas saraksts';
 
   @override
@@ -11929,104 +11983,89 @@ class AppLocalizationsLv extends AppLocalizations {
   String get sendOtherContacts => 'Other contacts';
 
   @override
-  String get chartSheetTitle => 'Chart';
+  String get chartSheetTitle => 'Grafiks';
 
   @override
-  String get chartSheetStyle => 'Style';
+  String get chartIndEmaNote => 'Īstermiņa tendence, ātri mainās';
 
   @override
-  String get chartIndEma => 'Moving averages';
+  String get chartIndBb => 'Bollindžera joslas';
 
   @override
-  String get chartIndEmaNote => 'Short and long trend lines';
+  String get chartIndBbNote => 'Cik cena parasti svārstās';
 
   @override
-  String get chartIndBb => 'Bollinger bands';
+  String get chartIndRsiNote => 'Vai pirkšana vai pārdošana ir pārmērīga';
 
   @override
-  String get chartIndBbNote => 'How far the price usually swings';
+  String get chartIndMacdNote => 'Momentums pagriežas augšup vai lejup';
 
   @override
-  String get chartIndRsi => 'RSI';
+  String get chartIndVwapNote => 'Vidējā samaksātā cena, svērta pēc apjoma';
 
   @override
-  String get chartIndRsiNote => 'Whether buying or selling is overstretched';
+  String get chartIndVolumeNote => 'Cik tirgots katrā periodā';
 
   @override
-  String get chartIndMacd => 'MACD';
-
-  @override
-  String get chartIndMacdNote => 'Momentum turning up or down';
-
-  @override
-  String get chartIndVwap => 'VWAP';
-
-  @override
-  String get chartIndVwapNote => 'Average price weighted by volume';
-
-  @override
-  String get chartIndVolumeNote => 'How much traded each bar';
-
-  @override
-  String get chartReset => 'Reset';
+  String get chartReset => 'Atiestatīt';
 
   @override
   String chartPaneLimit(String name) {
-    return '$name is off: two fit below the chart';
+    return '$name izslēgts: zem grafika ietilpst divi';
   }
 
   @override
-  String get chartToolCursor => 'Cursor';
+  String get chartToolCursor => 'Kursors';
 
   @override
-  String get chartToolHorizontalLine => 'Horizontal line';
+  String get chartToolHorizontalLine => 'Horizontāla līnija';
 
   @override
-  String get chartMoreTools => 'More';
+  String get chartMoreTools => 'Vairāk';
 
   @override
-  String get chartColor => 'Color';
+  String get chartColor => 'Krāsa';
 
   @override
-  String get chartBlueColor => 'Blue';
+  String get chartBlueColor => 'Zila';
 
   @override
-  String get chartLineSolid => 'Solid line';
+  String get chartLineSolid => 'Nepārtraukta līnija';
 
   @override
-  String get chartLineDashed => 'Dashed line';
+  String get chartLineDashed => 'Svītrlīnija';
 
   @override
-  String get chartExtendLine => 'Extend to the right';
+  String get chartExtendLine => 'Pagarināt pa labi';
 
   @override
-  String get chartLock => 'Lock';
+  String get chartLock => 'Bloķēt';
 
   @override
-  String get chartUnlock => 'Unlock';
+  String get chartUnlock => 'Atbloķēt';
 
   @override
-  String get chartDuplicate => 'Duplicate';
+  String get chartDuplicate => 'Dublēt';
 
   @override
   String chartHintTapFirstPoint(String tool) {
-    return 'Tap the first point: $tool';
+    return 'Pieskaries pirmajam punktam: $tool';
   }
 
   @override
-  String get chartHintTapSecondPoint => 'Now tap the second point.';
+  String get chartHintTapSecondPoint => 'Tagad pieskaries otrajam punktam.';
 
   @override
   String chartHintToolKept(String tool) {
-    return '$tool stays on. Tap it to stop.';
+    return '$tool paliek ieslēgts. Pieskaries tam, lai apturētu.';
   }
 
   @override
-  String get chartHintLocked => 'Locked. Unlock it to move it.';
+  String get chartHintLocked => 'Bloķēts. Atbloķē, lai pārvietotu.';
 
   @override
   String get chartHintPickToolKeep =>
-      'Pick a tool. Double-tap one to keep it on.';
+      'Izvēlies rīku. Pieskaries divreiz, lai tas paliktu ieslēgts.';
 
   @override
   String hlAboutTradedOn(String venue, String kind) {
@@ -12393,4 +12432,78 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get sendPickRowSub => 'Vai investīciju. Atrodi tirgu, izvēlies pusi';
+
+  @override
+  String get chartSheetChartType => 'Grafika veids';
+
+  @override
+  String get chartGroupTrend => 'Tendence';
+
+  @override
+  String get chartGroupMomentum => 'Momentums';
+
+  @override
+  String get chartGroupVolatility => 'Svārstīgums';
+
+  @override
+  String get chartIndSmaNote => 'Ilgtermiņa tendence, lēni mainās';
+
+  @override
+  String get chartIndStNote => 'Slīdošs stops, kas mainās līdz ar tendenci';
+
+  @override
+  String get chartIndSrsiNote =>
+      'Ātras pārpirktības un pārpārdotības svārstības';
+
+  @override
+  String get chartIndAtrNote => 'Cik parasti pārvietojas viens periods';
+
+  @override
+  String get chartIndObvNote => 'Vai apjoms atbalsta kustību';
+
+  @override
+  String get chartIndVp => 'Apjoma profils';
+
+  @override
+  String get chartIndVpNote => 'Cenas, kurās tirgots visvairāk';
+
+  @override
+  String chartPriceLimit(String name) {
+    return '$name izslēgts: uz cenas ietilpst četri';
+  }
+
+  @override
+  String chartIndSettingsTitle(String name) {
+    return '$name iestatījumi';
+  }
+
+  @override
+  String get chartParamLength => 'Garums';
+
+  @override
+  String get chartParamFast => 'Ātrā';
+
+  @override
+  String get chartParamSlow => 'Lēnā';
+
+  @override
+  String get chartParamSignal => 'Signāls';
+
+  @override
+  String get chartParamMultiplier => 'Reizinātājs';
+
+  @override
+  String get chartParamRsiLength => 'RSI garums';
+
+  @override
+  String get chartParamStochLength => 'Stohastiskā garums';
+
+  @override
+  String get chartParamSmoothK => '%K izlīdzināšana';
+
+  @override
+  String get chartParamSmoothD => '%D izlīdzināšana';
+
+  @override
+  String get chartParamRows => 'Rindas';
 }
