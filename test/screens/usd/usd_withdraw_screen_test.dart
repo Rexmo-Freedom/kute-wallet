@@ -1,10 +1,12 @@
 // The Dollars Send (the Bitcoin send's layout; founder, 1 November 2026;
-// made clearer 4 November 2026: "too many options and buttons"): "Send
-// dollars", the search field ("Name, address or phone"), then two short
-// cards under their words, "Send to": "To your Bitcoin" (the Move money
-// sheet, Dollars to Bitcoin) and "To a crypto address" (the coin sheet);
-// "To a friend": "Send to anyone" (a link, no contact needed) and "Send a
-// prediction" (or an investment: the market search); then the Contacts. A typed address resolves first and
+// made clearer 4 November 2026: "too many options and buttons"; squares 5
+// November 2026: "these should be cards like squares"): "Send dollars",
+// the search field ("Name, address or phone"), then under one "Send to"
+// label a 2 x 2 grid of big square cards: "To your Bitcoin" (the Move
+// money sheet, Dollars to Bitcoin) and "To a crypto address" (the coin
+// sheet) on top, "Send to anyone" (a link, no contact needed) and "Send a
+// prediction" (or an investment: the market search) under them; then the
+// Contacts. A typed address resolves first and
 // the bar's Continue opens the dollar send on it; an address several
 // networks take asks which one; a send that went out, or a link created,
 // closes the sheet. Nothing here reaches a money call: every door is a
@@ -13,6 +15,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/l10n/generated/app_localizations_en.dart';
@@ -29,8 +32,13 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/shared/asset_network_picker.dart' show PickerRow;
 import 'package:kute/screens/shared/coin_asset_grid.dart';
 import 'package:kute/screens/shared/custom_button.dart' show AppButton;
+import 'package:kute/screens/search/components/search_rows.dart'
+    show SearchChanceGauge;
+import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show SendToListRow;
+import 'package:kute/screens/shared/send/send_recipient_step.dart'
+    show SendCoinStack, SendSalShareGlyph;
 import 'package:kute/services/contacts/send_contacts_service.dart';
 import 'package:kute/screens/usd/usd_withdraw_screen.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -246,10 +254,11 @@ void main() {
 
   for (final dark in [false, true]) {
     testWidgets(
-        'the Bitcoin send\'s layout: "Send dollars", the search field, Send '
-        'to (To your Bitcoin, To a crypto address), To a friend (Send to '
-        'anyone, Send a prediction), then the Contacts; no '
-        'Bitcoin card, no inline grid '
+        'the Bitcoin send\'s layout: "Send dollars", the search field, then '
+        'under one "Send to" label ONE 2 x 2 grid of square cards (To your '
+        'Bitcoin | To a crypto address over Send to anyone | Send a '
+        'prediction), then the Contacts; no list rows, no "To a friend" '
+        'label, no Bitcoin card, no inline grid '
         '(${dark ? 'dark' : 'light'})', (tester) async {
       await _pump(tester, spendingSats: 100000, dark: dark);
       final screen = find.byType(UsdWithdrawScreen);
@@ -261,31 +270,56 @@ void main() {
       expect(find.text(_l10n.usdSendSearchHint), findsOneWidget);
       expect(
           find.byKey(const ValueKey('send-contacts-ask-row')), findsOneWidget);
+      // One label over the grid.
       expect(find.text(_l10n.sendToLabel), findsOneWidget);
+      expect(find.text(_l10n.sendToAFriendLabel), findsNothing);
 
-      final bitcoin = tester.widget<SendToListRow>(find.byKey(_bitcoinRow));
-      expect(bitcoin.title, _l10n.usdSendToYourBitcoin);
-      expect(bitcoin.subtitle, _l10n.usdBitcoinBalanceLine('\$60.00'));
-      expect(find.text(_l10n.sendToCryptoAddress), findsOneWidget);
-      expect(find.text(_l10n.sendToAFriendLabel), findsOneWidget);
-      final anyone = tester.widget<SendToListRow>(find.byKey(_anyoneRow));
-      expect(anyone.title, _l10n.shareSendToAnyone);
-      expect(anyone.subtitle, _l10n.shareSendToAnyoneSubtitle);
-      final pick = tester.widget<SendToListRow>(find.byKey(_pickRow));
-      expect(pick.title, _l10n.sendAPrediction);
-      expect(pick.subtitle, _l10n.sendPickRowSub);
-      // Top to bottom: the field, Send to (yours or an address), To a
-      // friend, the Contacts (a growing list never hides the cards).
+      final grid = find.byKey(const ValueKey('usd-withdraw-options'));
+      expect(grid, findsOneWidget);
+      expect(tester.widget<KuteActionCardGrid>(grid).cards.map((c) => c.key),
+          [_bitcoinRow, _alsoRow, _anyoneRow, _pickRow]);
+      // Square cards, none of the old list rows (the Contacts' own ask
+      // row is the only one left).
+      expect(
+          find.byWidgetPredicate((w) =>
+              w is SendToListRow &&
+              w.key != const ValueKey('send-contacts-ask-row')),
+          findsNothing);
+      KuteActionCard card(Key key) =>
+          tester.widget<KuteActionCard>(find.byKey(key));
+      expect(card(_bitcoinRow).title, _l10n.usdSendToYourBitcoin);
+      expect(card(_bitcoinRow).subtitle, _l10n.usdBitcoinBalanceLine('\$60.00'));
+      expect(card(_bitcoinRow).visual, isA<SvgPicture>());
+      expect(card(_alsoRow).title, _l10n.sendToCryptoAddress);
+      expect(card(_alsoRow).subtitle, _l10n.sendAlsoSendsToList('USDC', 'USDT'));
+      expect(card(_alsoRow).visual, isA<SendCoinStack>());
+      expect(card(_anyoneRow).title, _l10n.shareSendToAnyone);
+      expect(card(_anyoneRow).subtitle, _l10n.shareSendToAnyoneSubtitle);
+      expect(card(_anyoneRow).visual, isA<SendSalShareGlyph>());
+      expect(card(_pickRow).title, _l10n.sendAPrediction);
+      expect(card(_pickRow).subtitle, _l10n.sendPickCardSub);
+      expect(card(_pickRow).visual, isA<SearchChanceGauge>());
+
+      // 2 x 2: Bitcoin | address on one row, anyone | prediction on the
+      // next, left and right columns aligned, the cards of a row equally
+      // tall; the field above, the Contacts below.
+      Rect r(Key key) => tester.getRect(find.byKey(key));
+      expect(r(_bitcoinRow).top, moreOrLessEquals(r(_alsoRow).top));
+      expect(r(_bitcoinRow).height, moreOrLessEquals(r(_alsoRow).height));
+      expect(r(_anyoneRow).top, moreOrLessEquals(r(_pickRow).top));
+      expect(r(_anyoneRow).height, moreOrLessEquals(r(_pickRow).height));
+      expect(r(_anyoneRow).top, greaterThan(r(_bitcoinRow).bottom));
+      expect(r(_bitcoinRow).left, moreOrLessEquals(r(_anyoneRow).left));
+      expect(r(_alsoRow).left, moreOrLessEquals(r(_pickRow).left));
+      expect(r(_bitcoinRow).right, lessThan(r(_alsoRow).left));
+      expect(r(_bitcoinRow).width, moreOrLessEquals(r(_alsoRow).width));
+      expect(r(_bitcoinRow).height,
+          greaterThanOrEqualTo(kKuteActionCardMinHeight));
       double top(Finder f) => tester.getTopLeft(f).dy;
       expect(top(find.byKey(const ValueKey('send-recipient-search'))),
-          lessThan(top(find.byKey(_bitcoinRow))));
-      expect(top(find.byKey(_bitcoinRow)), lessThan(top(find.byKey(_alsoRow))));
-      expect(top(find.byKey(_alsoRow)),
-          lessThan(top(find.text(_l10n.sendToAFriendLabel))));
-      expect(top(find.text(_l10n.sendToAFriendLabel)),
-          lessThan(top(find.byKey(_anyoneRow))));
-      expect(top(find.byKey(_anyoneRow)), lessThan(top(find.byKey(_pickRow))));
-      expect(top(find.byKey(_pickRow)),
+          lessThan(top(find.text(_l10n.sendToLabel))));
+      expect(top(find.text(_l10n.sendToLabel)), lessThan(r(_bitcoinRow).top));
+      expect(r(_pickRow).bottom,
           lessThan(top(find.byKey(const ValueKey('send-contacts-ask-row')))));
 
       // No old card, no inline grid, no friend row.
@@ -301,6 +335,30 @@ void main() {
       await _unmount(tester);
     });
   }
+
+  testWidgets(
+      'at 375 pt and a large text the four squares wrap their words, never '
+      'cut, and nothing overflows', (tester) async {
+    await _pump(tester, spendingSats: 100000);
+    tester.view.physicalSize = const Size(375, 667);
+    tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await _settle(tester);
+    for (final key in [_bitcoinRow, _alsoRow, _anyoneRow, _pickRow]) {
+      final texts = find.descendant(
+          of: find.byKey(key), matching: find.byType(Text));
+      for (final e in texts.evaluate()) {
+        final t = e.widget as Text;
+        if (t.data == _l10n.sendAPrediction ||
+            t.data == _l10n.shareSendToAnyoneSubtitle) {
+          expect(t.overflow, isNull);
+          expect(t.maxLines, isNull);
+        }
+      }
+    }
+    expect(tester.takeException(), isNull);
+    await _unmount(tester);
+  });
 
   testWidgets(
       'Frequent stays on top: the recent recipients under the field, above '
@@ -504,13 +562,24 @@ void main() {
   });
 
   testWidgets(
-      'nothing offered: To your Bitcoin and the pick stay, no Also sends to, '
-      'the unavailable line', (tester) async {
+      'nothing offered: To your Bitcoin, Send to anyone and the pick stay as '
+      'three squares, no address card, the unavailable line under them',
+      (tester) async {
     await _pump(tester, coins: false);
     expect(find.byKey(_bitcoinRow), findsOneWidget);
+    expect(find.byKey(_anyoneRow), findsOneWidget);
     expect(find.byKey(_pickRow), findsOneWidget);
     expect(find.byKey(_alsoRow), findsNothing);
+    expect(
+        tester
+            .widget<KuteActionCardGrid>(
+                find.byKey(const ValueKey('usd-withdraw-options')))
+            .cards,
+        hasLength(3));
     expect(find.text(_l10n.usdSendDestinationsUnavailable), findsOneWidget);
+    expect(
+        tester.getTopLeft(find.text(_l10n.usdSendDestinationsUnavailable)).dy,
+        greaterThan(tester.getRect(find.byKey(_pickRow)).bottom));
     expect(tester.takeException(), isNull);
     await _unmount(tester);
   });

@@ -12005,6 +12005,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get shareSendAgainSms => 'Újraküldés SMS-ben';
 
   @override
+  String get sendPickCardSub => 'Vagy egy befektetést';
+
+  @override
   String get sendToLabel => 'Címzett';
 
   @override

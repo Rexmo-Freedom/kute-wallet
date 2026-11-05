@@ -11991,6 +11991,9 @@ class AppLocalizationsSk extends AppLocalizations {
   String get shareSendAgainSms => 'Poslať znova cez SMS';
 
   @override
+  String get sendPickCardSub => 'Alebo investíciu';
+
+  @override
   String get sendToLabel => 'Príjemca';
 
   @override

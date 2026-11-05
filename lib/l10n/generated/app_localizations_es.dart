@@ -12030,6 +12030,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get shareSendAgainSms => 'Volver a enviar por SMS';
 
   @override
+  String get sendPickCardSub => 'O una inversión';
+
+  @override
   String get sendToLabel => 'Enviar a';
 
   @override

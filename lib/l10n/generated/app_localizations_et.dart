@@ -11965,6 +11965,9 @@ class AppLocalizationsEt extends AppLocalizations {
   String get shareSendAgainSms => 'Saada uuesti SMS-iga';
 
   @override
+  String get sendPickCardSub => 'Või investeering';
+
+  @override
   String get sendToLabel => 'Saaja';
 
   @override

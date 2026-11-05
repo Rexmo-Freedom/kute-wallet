@@ -11973,6 +11973,9 @@ class AppLocalizationsSv extends AppLocalizations {
   String get shareSendAgainSms => 'Skicka igen via sms';
 
   @override
+  String get sendPickCardSub => 'Eller en investering';
+
+  @override
   String get sendToLabel => 'Skicka till';
 
   @override

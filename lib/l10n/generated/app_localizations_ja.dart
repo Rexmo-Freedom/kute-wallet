@@ -11551,6 +11551,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get shareSendAgainSms => 'SMSで再送';
 
   @override
+  String get sendPickCardSub => '投資も送れます';
+
+  @override
   String get sendToLabel => '送金先';
 
   @override

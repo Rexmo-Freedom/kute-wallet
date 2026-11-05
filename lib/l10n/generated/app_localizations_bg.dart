@@ -11996,6 +11996,9 @@ class AppLocalizationsBg extends AppLocalizations {
   String get shareSendAgainSms => 'Изпрати отново чрез SMS';
 
   @override
+  String get sendPickCardSub => 'Или инвестиция';
+
+  @override
   String get sendToLabel => 'Получател';
 
   @override

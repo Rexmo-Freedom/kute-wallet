@@ -12014,6 +12014,9 @@ class AppLocalizationsNl extends AppLocalizations {
   String get shareSendAgainSms => 'Opnieuw sturen via sms';
 
   @override
+  String get sendPickCardSub => 'Of een belegging';
+
+  @override
   String get sendToLabel => 'Versturen naar';
 
   @override

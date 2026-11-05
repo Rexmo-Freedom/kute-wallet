@@ -12035,6 +12035,9 @@ class AppLocalizationsRo extends AppLocalizations {
   String get shareSendAgainSms => 'Trimite din nou prin SMS';
 
   @override
+  String get sendPickCardSub => 'Sau o investiție';
+
+  @override
   String get sendToLabel => 'Trimite către';
 
   @override

@@ -43,6 +43,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/asset_icon_provider.dart' show AssetIcon;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
+import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/shared/coin_asset_grid.dart'
     show CoinAssetGroup;
 import 'package:kute/screens/shared/sal_sprite.dart';
@@ -841,6 +842,63 @@ class SendPickMarketRow extends StatelessWidget {
   }
 }
 
+/// "USDC, USDT, ETH and 16 more": the first [SendCoinStack.stack] coins of
+/// [groups] by symbol and how many more (the Also sends to row's and
+/// card's line); empty with no coins.
+String sendAlsoSendsToSummary(
+    AppLocalizations l10n, List<CoinAssetGroup> groups) {
+  final shown = groups.take(SendCoinStack.stack).toList();
+  final rest = groups.length - shown.length;
+  final names = [for (final g in shown) g.displaySymbol];
+  if (names.isEmpty) return '';
+  if (rest > 0) return l10n.sendAlsoSendsToMore(names.join(', '), rest);
+  if (names.length == 1) return names.first;
+  return l10n.sendAlsoSendsToList(
+      names.sublist(0, names.length - 1).join(', '), names.last);
+}
+
+/// The first [stack] coin marks of [groups], [mark] each, overlapping by
+/// a little over half: the Also sends to row's leading glyph and card's
+/// visual.
+class SendCoinStack extends StatelessWidget {
+  const SendCoinStack({super.key, required this.groups, this.mark = 22});
+
+  final List<CoinAssetGroup> groups;
+
+  /// One mark's side (scaled by sp).
+  final double mark;
+
+  /// How many marks it shows.
+  static const int stack = 3;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final shown = groups.take(stack).toList();
+    final step = mark * 9 / 22;
+    return SizedBox(
+      width: (mark + (shown.length - 1) * step).sp,
+      height: mark.sp,
+      child: Stack(
+        children: [
+          for (var i = 0; i < shown.length; i++)
+            Positioned(
+              left: (i * step).sp,
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: c.surfaceLight,
+                  border: Border.all(color: c.surfaceLight, width: 1.5),
+                ),
+                child: AssetIcon(assetCode: shown[i].assetCode, size: mark.sp),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 /// "Also sends to": the coin marks stacked, "USDC, USDT, ETH and 16
 /// more" and the chevron, opening the rails sheet.
 class SendAlsoSendsToRow extends StatelessWidget {
@@ -858,55 +916,39 @@ class SendAlsoSendsToRow extends StatelessWidget {
   /// "From another wallet or exchange").
   final String? title;
 
-  static const int _stack = 3;
-
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final c = context.colors;
-    final shown = groups.take(_stack).toList();
-    final rest = groups.length - shown.length;
-    final names = [for (final g in shown) g.displaySymbol];
-    final String summary;
-    if (names.isEmpty) {
-      summary = '';
-    } else if (rest > 0) {
-      summary = l10n.sendAlsoSendsToMore(names.join(', '), rest);
-    } else if (names.length == 1) {
-      summary = names.first;
-    } else {
-      summary = l10n.sendAlsoSendsToList(
-          names.sublist(0, names.length - 1).join(', '), names.last);
-    }
     // Three marks overlapping by half, in the row's 40 px leading slot.
-    const mark = 22.0;
-    const step = 9.0;
     return SendToListRow(
       key: const ValueKey('send-also-sends-to-row'),
-      colors: c,
-      leading: SizedBox(
-        width: (mark + (shown.length - 1) * step).sp,
-        height: mark.sp,
-        child: Stack(
-          children: [
-            for (var i = 0; i < shown.length; i++)
-              Positioned(
-                left: (i * step).sp,
-                child: Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: c.surfaceLight,
-                    border: Border.all(color: c.surfaceLight, width: 1.5),
-                  ),
-                  child: AssetIcon(assetCode: shown[i].assetCode, size: mark.sp),
-                ),
-              ),
-          ],
-        ),
-      ),
+      colors: context.colors,
+      leading: SendCoinStack(groups: groups),
       title: title ?? l10n.sendAlsoSendsTo,
-      subtitle: summary,
+      subtitle: sendAlsoSendsToSummary(l10n, groups),
       onTap: onTap,
     );
   }
 }
+
+/// The coin marks' side on a big square card ([sendAlsoSendsToCard]).
+const double kSendCoinStackCardMark = 30;
+
+/// "Also sends to" (or [title]: "To a crypto address") as the app's big
+/// square card (kute_action_cards.dart; founder, 5 November 2026: the
+/// Send recipient options "should be cards like squares"): the coin marks
+/// stacked at the top left, the title, "USDC, USDT, ETH and 16 more"
+/// under it; keyed `send-also-sends-to-row` as the row was.
+KuteActionCard sendAlsoSendsToCard(
+  AppLocalizations l10n, {
+  required List<CoinAssetGroup> groups,
+  required VoidCallback onTap,
+  String? title,
+}) =>
+    KuteActionCard(
+      key: const ValueKey('send-also-sends-to-row'),
+      visual: SendCoinStack(groups: groups, mark: kSendCoinStackCardMark),
+      title: title ?? l10n.sendAlsoSendsTo,
+      subtitle: sendAlsoSendsToSummary(l10n, groups),
+      onTap: onTap,
+    );

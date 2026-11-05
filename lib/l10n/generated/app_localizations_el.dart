@@ -12057,6 +12057,9 @@ class AppLocalizationsEl extends AppLocalizations {
   String get shareSendAgainSms => 'Στείλε ξανά μέσω SMS';
 
   @override
+  String get sendPickCardSub => 'Ή μια επένδυση';
+
+  @override
   String get sendToLabel => 'Αποστολή σε';
 
   @override

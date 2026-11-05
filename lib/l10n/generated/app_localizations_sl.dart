@@ -12014,6 +12014,9 @@ class AppLocalizationsSl extends AppLocalizations {
   String get shareSendAgainSms => 'Pošlji znova po SMS-u';
 
   @override
+  String get sendPickCardSub => 'Ali naložbo';
+
+  @override
   String get sendToLabel => 'Prejemnik';
 
   @override

@@ -12062,6 +12062,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get shareSendAgainSms => 'Renvoyer par SMS';
 
   @override
+  String get sendPickCardSub => 'Ou un investissement';
+
+  @override
   String get sendToLabel => 'Envoyer à';
 
   @override

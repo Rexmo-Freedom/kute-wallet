@@ -20131,6 +20131,12 @@ abstract class AppLocalizations {
   /// **'Send again via SMS'**
   String get shareSendAgainSms;
 
+  /// The Dollars Send recipient step's Send a prediction square card: the one line under the title, saying an investment can be sent too.
+  ///
+  /// In en, this message translates to:
+  /// **'Or an investment'**
+  String get sendPickCardSub;
+
   /// No description provided for @sendToLabel.
   ///
   /// In en, this message translates to:

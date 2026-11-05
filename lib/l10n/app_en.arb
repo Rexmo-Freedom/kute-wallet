@@ -8959,6 +8959,10 @@
   "sendPickSideSub": "Pick the side they get",
   "shareSendAgainWhatsApp": "Send again via WhatsApp",
   "shareSendAgainSms": "Send again via SMS",
+  "sendPickCardSub": "Or an investment",
+  "@sendPickCardSub": {
+    "description": "The Dollars Send recipient step's Send a prediction square card: the one line under the title, saying an investment can be sent too."
+  },
   "sendToLabel": "Send to",
   "predictionsChance": "chance",
   "@predictionsChance": {

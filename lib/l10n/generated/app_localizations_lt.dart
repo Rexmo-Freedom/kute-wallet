@@ -12029,6 +12029,9 @@ class AppLocalizationsLt extends AppLocalizations {
   String get shareSendAgainSms => 'Siųsti dar kartą SMS žinute';
 
   @override
+  String get sendPickCardSub => 'Arba investiciją';
+
+  @override
   String get sendToLabel => 'Gavėjas';
 
   @override

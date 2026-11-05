@@ -11931,6 +11931,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get shareSendAgainSms => 'Send again via SMS';
 
   @override
+  String get sendPickCardSub => 'Or an investment';
+
+  @override
   String get sendToLabel => 'Send to';
 
   @override

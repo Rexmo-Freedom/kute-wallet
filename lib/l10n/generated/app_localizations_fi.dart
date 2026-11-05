@@ -11988,6 +11988,9 @@ class AppLocalizationsFi extends AppLocalizations {
   String get shareSendAgainSms => 'Lähetä uudelleen tekstiviestillä';
 
   @override
+  String get sendPickCardSub => 'Tai sijoitus';
+
+  @override
   String get sendToLabel => 'Vastaanottaja';
 
   @override

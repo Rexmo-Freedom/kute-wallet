@@ -12020,6 +12020,9 @@ class AppLocalizationsPt extends AppLocalizations {
   String get shareSendAgainSms => 'Enviar novamente por SMS';
 
   @override
+  String get sendPickCardSub => 'Ou um investimento';
+
+  @override
   String get sendToLabel => 'Enviar para';
 
   @override
