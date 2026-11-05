@@ -52,7 +52,7 @@ import 'package:kute/screens/polymarket/market_detail_sheet.dart'
     show MarketDetailSheet;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/polymarket/components/poly_market_stats.dart'
-    show polyRulesCard;
+    show polyRulesCard, polyRulesCardDetail;
 import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -974,8 +974,9 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                       SizedBox(height: 12.h),
                       // The options, as cards two side by side (founder, 4
                       // November 2026: "like squares";
-                      // kute_action_cards.dart), as on the market sheet and
-                      // the Investing screens.
+                      // kute_action_cards.dart), an odd last one full
+                      // width, as on the market sheet and the Investing
+                      // screens.
                       KuteActionCardGrid(
                         key: const ValueKey('poly-position-options'),
                         cards: [
@@ -1053,6 +1054,10 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                               key: PositionDetailSheet.closingConditionsKey,
                               title: context.l10n.betClosingConditions,
                               subtitle: context.l10n.optionHowItResolves,
+                              // Read when it is the odd last card, full
+                              // width (a settled position's three).
+                              detail:
+                                  polyRulesCardDetail(event?.description),
                               onTap: () =>
                                   _showClosingConditions(event!.description!),
                             ),

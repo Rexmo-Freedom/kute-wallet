@@ -355,8 +355,12 @@ void main() {
       expect(find.text(l10n.shareHeaderLabel), findsNothing);
       // The last row scrolls clear of the floating row.
       await _scrollToEnd(tester);
-      expect(tester.getRect(find.byKey(kPolyRulesCardKey)).bottom,
-          lessThan(tester.getRect(_trade('yes')).top));
+      final rules = tester.getRect(find.byKey(kPolyRulesCardKey));
+      expect(rules.bottom, lessThan(tester.getRect(_trade('yes')).top));
+      // Rules and resolution is the page's only option card: the full
+      // width, never half of it (founder, 5 November 2026).
+      expect(rules.center.dx, moreOrLessEquals(390 / 2, epsilon: 1));
+      expect(rules.width, greaterThan(390 * 0.85));
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 6));
