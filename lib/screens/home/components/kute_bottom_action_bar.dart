@@ -732,7 +732,7 @@ class _SalPillGlyph extends StatefulWidget {
 
   final Color lensColor;
 
-  /// The context's clip at rest (`search`, `share`).
+  /// The context's clip at rest (`search`, `share`, `face_share`).
   final String clip;
 
   /// See [KuteSalPill.salCue].
@@ -845,11 +845,17 @@ class _SalPillGlyphState extends State<_SalPillGlyph> {
                 : null,
         // A reaction clip that is not there: back to the context's clip.
         onUnavailable: reaction != null ? () => _reactionDone(reaction) : null,
-        // `share` is still being rendered: `happy` stands in, the rig
-        // under that.
-        fallback: clip == 'share' || reaction != null
-            ? SalSprite(clip: 'happy', size: 38, fallback: rig)
-            : rig,
+        // A clip that cannot be read: `face_share` (the round share
+        // button) falls back to the `share` face, `share` and a reaction
+        // to `happy`, the rig under those.
+        fallback: clip == 'face_share'
+            ? SalSprite(
+                clip: 'share',
+                size: 38,
+                fallback: SalSprite(clip: 'happy', size: 38, fallback: rig))
+            : clip == 'share' || reaction != null
+                ? SalSprite(clip: 'happy', size: 38, fallback: rig)
+                : rig,
       ),
     );
   }

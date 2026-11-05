@@ -13,13 +13,23 @@
 //     Sell is the light pill (white, a hairline). The press spring of every
 //     button; a tap runs exactly what the pinned button ran;
 //   * at the row's end the round Sal button ([KuteBarShareButton]): the
-//     Sal pill folded to its 52 circle (KuteSalPill.collapsed), Sal's
-//     `share` face and no words (founder: "just a share button on the
+//     Sal pill folded to its 52 circle (KuteSalPill.collapsed), Sal with
+//     the share glyph and no words (founder: "just a share button on the
 //     right side, in the same button style, with Sal, with no text"); read
 //     aloud as "Send to a friend". A tap opens the page's Send to a friend
 //     Sal sheet, the circle travelling to the composer as the pill does; on
 //     an open position in profit it opens the brag card instead ("Brag
 //     about it").
+//
+// THE SHARE CLIP (founder, 5 November 2026: "Kute symbol here should be
+// with the share"): the round button wears [kSalShareButtonClip],
+// `face_share`, a Blender clip of its own (the v5 rig, the face clips'
+// camera and lights): Sal's head, deadpan, behind a 3D share glyph in
+// Kute's ink (the iOS tray with the up arrow, bevelled), the arrow
+// rising gently out of the tray twice a loop, a side-eye down at it and
+// a dry blink; 48 frames at 24 fps, seamless. Its frame 0 (level stare,
+// arrow at rest) is the Reduce Motion still. The same clip for Brag.
+// Until the sheet loads, Sal's `share` face stands in.
 //
 // An open position's Close position or Sell keeps its own red primary
 // button and takes the same round button at its right ([KuteBarShareSlot]:
@@ -49,6 +59,10 @@ import 'package:kute/theme/kute_motion.dart';
 
 /// The air between the row's pills, and before the round Sal button.
 const double kBarRowGap = 8;
+
+/// The round share button's Sal clip (see the file header, THE SHARE
+/// CLIP): Sal presenting the share glyph.
+const String kSalShareButtonClip = 'face_share';
 
 /// The trade row: [barContext]'s trades side by side, each its flex of
 /// the width the round Sal button leaves, and the button at the end.
@@ -182,9 +196,10 @@ class KuteBarTradePill extends StatelessWidget {
 }
 
 /// The round Sal button (see the file header), keyed `kute-bar-share`:
-/// the Sal pill folded to its circle, Sal's `share` face, no words; read
-/// aloud as "Send to a friend", or "Brag about it" where a tap opens the
-/// brag card. [onTap] gets the button's own element.
+/// the Sal pill folded to its circle, Sal with the share glyph
+/// ([kSalShareButtonClip]), no words; read aloud as "Send to a friend",
+/// or "Brag about it" where a tap opens the brag card. [onTap] gets the
+/// button's own element.
 class KuteBarShareButton extends StatelessWidget {
   const KuteBarShareButton({
     super.key,
@@ -204,7 +219,7 @@ class KuteBarShareButton extends StatelessWidget {
       key: const ValueKey('kute-bar-share'),
       child: KuteSalPill(
         label: share.brag != null ? l10n.bragAboutIt : l10n.shareHeaderLabel,
-        clip: 'share',
+        clip: kSalShareButtonClip,
         // Sal's face whatever the AI setting: this is the share, not a
         // question to Sal.
         aiEnabled: true,

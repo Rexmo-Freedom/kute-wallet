@@ -8,7 +8,9 @@
 // `loop` and `framing`:
 //
 //   * face framing (cell 48 logical): `search`, `idle`, `happy`, `sad`,
-//     `curious`, `surprised` (stills), `blink` (a 24-frame loop);
+//     `curious`, `surprised` (stills), `blink` (a 24-frame loop),
+//     `face_share` (Sal with the share glyph: the round share button,
+//     kute_bar_trade_row.dart);
 //   * body framing (cell 128 logical, 24 frames at 12 fps): `body_idle`,
 //     `body_walk`, `body_sit_down` (one-shot), `body_sit`, `body_lie_down`
 //     (one-shot), `body_lie`, `body_wag`, `body_cheer`, `body_sad`,
