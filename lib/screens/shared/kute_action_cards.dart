@@ -6,9 +6,11 @@
 // cards, in the style the Sal sheet's send cards set (commit 6dcf960f):
 // surface-1 (the dark surface in dark mode), radius 20, a 1 px hairline,
 // 16 padding, at least 170 tall; a large visual at the top left (a logo,
-// Sal, an icon), the title (16, w600, two lines), up to two lines under
-// it (13, textSecondary) and, optionally, the foot (13, w600, two lines);
-// the press spring.
+// Sal, an icon), the title (16, w600), the lines under it (13,
+// textSecondary) and, optionally, the foot (13, w600, two lines); the
+// press spring. The title and its lines are never cut (founder, 5 November
+// 2026: "this is cut"): they wrap to the lines they need, and the cards of
+// a row grow together.
 //
 // [KuteActionCardGrid] lays them out:
 //   1 card:  one full-width card;
@@ -224,18 +226,26 @@ class KuteActionCard extends StatelessWidget {
             ),
           ),
           SizedBox(height: compact ? 10 : 12),
+          // A big card's title wraps whole too (French "Un autre
+          // portefeuille ou une plateforme" took three lines at 375 pt); an
+          // option card's keeps its two.
           Text(
             title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+            maxLines: compact ? 2 : null,
+            overflow: compact ? TextOverflow.ellipsis : null,
             style: titleStyleOf(c),
           ),
           if (subtitle != null) ...[
             SizedBox(height: compact ? 2 : 4),
             Text(
               subtitle!,
-              maxLines: subtitleMaxLines,
-              overflow: TextOverflow.ellipsis,
+              // A big card's lines are never cut (founder, 5 November 2026:
+              // "this is cut", the Add money card's "Get an address to send
+              // dollars to"): they wrap to the lines they need and the
+              // cards of the row grow together (the grid's IntrinsicHeight).
+              // An option card's value stays on its one line.
+              maxLines: compact ? subtitleMaxLines : null,
+              overflow: compact ? TextOverflow.ellipsis : null,
               style: subtitleStyle(c),
             ),
           ],
