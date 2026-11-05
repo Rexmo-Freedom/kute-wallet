@@ -541,6 +541,9 @@ class KuteSalPill extends StatelessWidget {
     this.aiEnabled = true,
     this.collapsed = false,
     this.salCue = 0,
+    this.salSize = kSalPillGlyphSize,
+    this.badge,
+    this.onSalFrame,
     required this.onTap,
   });
 
@@ -558,6 +561,17 @@ class KuteSalPill extends StatelessWidget {
   /// bar arriving on a market page); 0 plays it as it is.
   final int salCue;
   final VoidCallback onTap;
+
+  /// Sal's side in the pill ([kSalPillGlyphSize]); the round share button
+  /// draws him smaller, the whole head inside its circle.
+  final double salSize;
+
+  /// Drawn over the collapsed circle at its bottom right, past its edge
+  /// (the round share button's share badge), pressed with it; null: none.
+  final Widget? badge;
+
+  /// Every frame Sal's clip shows ([SalSprite.onFrame]): repaint from it.
+  final ValueChanged<SalSpriteFrame>? onSalFrame;
 
   /// The collapsed circle's side.
   static const double collapsedSize = 52;
@@ -613,7 +627,7 @@ class KuteSalPill extends StatelessWidget {
       excludeSemantics: true,
       child: _Frosted(
         child: KutePressable(
-          child: AnimatedContainer(
+          child: _withBadge(AnimatedContainer(
             key: const ValueKey('dock-search-pill'),
             duration: duration,
             curve: reduce ? Curves.linear : KuteMotion.chip,
@@ -650,11 +664,11 @@ class KuteSalPill extends StatelessWidget {
                 child: AnimatedPadding(
                   duration: duration,
                   curve: reduce ? Curves.linear : KuteMotion.settle,
-                  // Collapsed: the glyph (38) centred in the circle, the
-                  // border counted in its side.
+                  // Collapsed: the glyph ([salSize], 38) centred in the
+                  // circle, the border counted in its side.
                   padding: collapsed
                       ? EdgeInsets.symmetric(
-                          horizontal: (collapsedSize - 38) / 2 -
+                          horizontal: (collapsedSize - salSize) / 2 -
                               (isLight ? 1.0 : 0.5))
                       : EdgeInsets.fromLTRB(8.w, 0, 18.w, 0),
                   child: Row(
@@ -664,7 +678,9 @@ class KuteSalPill extends StatelessWidget {
                           ? _SalPillGlyph(
                               lensColor: c.textPrimary,
                               clip: clip,
-                              cue: salCue)
+                              cue: salCue,
+                              size: salSize,
+                              onFrame: onSalFrame)
                           : Padding(
                               padding: EdgeInsets.symmetric(horizontal: 6.w),
                               child: Icon(Icons.search_rounded,
@@ -712,12 +728,38 @@ class KuteSalPill extends StatelessWidget {
                 ),
               ),
             ),
-          ),
+          )),
         ),
       ),
     );
   }
+
+  /// [pill] with [badge] over its bottom right, past the circle's edges
+  /// by [kSalPillBadgeOverhang]; the badge takes no taps of its own.
+  Widget _withBadge(Widget pill) {
+    final badge = this.badge;
+    if (badge == null) return pill;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        pill,
+        Positioned(
+          right: -kSalPillBadgeOverhang,
+          bottom: -kSalPillBadgeOverhang,
+          child: IgnorePointer(child: badge),
+        ),
+      ],
+    );
+  }
 }
+
+/// Sal's side in the Sal pill and its collapsed circle.
+const double kSalPillGlyphSize = 38;
+
+/// How far a [KuteSalPill.badge] (26 across with its ring) stands past
+/// the collapsed circle's right and bottom edges: its centre sits on the
+/// circle's 45 degree radius, 4 inside the edge.
+const double kSalPillBadgeOverhang = 2.5;
 
 /// Sal in the pill (see [KuteBottomActionBar]): the `search` clip, 1.8x
 /// while results load, `happy` for 600 ms when they land, then `search`
@@ -727,16 +769,27 @@ class KuteSalPill extends StatelessWidget {
 /// for money in, a wink for a fill, a shake for an error, a think for a
 /// long load) plays once over whatever he wears and crossfades back.
 class _SalPillGlyph extends StatefulWidget {
-  const _SalPillGlyph(
-      {required this.lensColor, this.clip = 'search', this.cue = 0});
+  const _SalPillGlyph({
+    required this.lensColor,
+    this.clip = 'search',
+    this.cue = 0,
+    this.size = kSalPillGlyphSize,
+    this.onFrame,
+  });
 
   final Color lensColor;
 
-  /// The context's clip at rest (`search`, `share`, `face_share`).
+  /// The context's clip at rest (`search`, `share`, `idle`).
   final String clip;
 
   /// See [KuteSalPill.salCue].
   final int cue;
+
+  /// See [KuteSalPill.salSize].
+  final double size;
+
+  /// See [KuteSalPill.onSalFrame].
+  final ValueChanged<SalSpriteFrame>? onFrame;
 
   @override
   State<_SalPillGlyph> createState() => _SalPillGlyphState();
@@ -812,8 +865,11 @@ class _SalPillGlyphState extends State<_SalPillGlyph> {
 
   @override
   Widget build(BuildContext context) {
+    final size = widget.size;
     final rig = KuteStillWhenCovered(
-        child: KuteDogMagnifier(size: 34, lensColor: widget.lensColor));
+        child: KuteDogMagnifier(
+            size: size * 34 / kSalPillGlyphSize,
+            lensColor: widget.lensColor));
     final reaction = _reaction;
     final clip = reaction != null
         ? reaction.clip
@@ -833,7 +889,7 @@ class _SalPillGlyphState extends State<_SalPillGlyph> {
             ? 'reaction-$clip#${reaction.seq}'
             : '$clip#${widget.cue}'),
         clip: clip,
-        size: 38,
+        size: size,
         speed: _loading && reaction == null ? 1.4 : (intro ? 1.3 : 1.0),
         loop: oneShot ? false : null,
         onComplete: reaction != null
@@ -845,17 +901,13 @@ class _SalPillGlyphState extends State<_SalPillGlyph> {
                 : null,
         // A reaction clip that is not there: back to the context's clip.
         onUnavailable: reaction != null ? () => _reactionDone(reaction) : null,
-        // A clip that cannot be read: `face_share` (the round share
-        // button) falls back to the `share` face, `share` and a reaction
-        // to `happy`, the rig under those.
-        fallback: clip == 'face_share'
-            ? SalSprite(
-                clip: 'share',
-                size: 38,
-                fallback: SalSprite(clip: 'happy', size: 38, fallback: rig))
-            : clip == 'share' || reaction != null
-                ? SalSprite(clip: 'happy', size: 38, fallback: rig)
-                : rig,
+        onFrame: widget.onFrame,
+        // A clip that cannot be read: `happy` stands in for the share and
+        // idle faces and a reaction, the rig (the magnifier, search's
+        // glyph) under that and for search.
+        fallback: clip == 'share' || clip == 'idle' || reaction != null
+            ? SalSprite(clip: 'happy', size: size, fallback: rig)
+            : rig,
       ),
     );
   }

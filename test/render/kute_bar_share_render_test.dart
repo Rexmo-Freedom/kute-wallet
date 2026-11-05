@@ -1,10 +1,11 @@
-// A look by eye at the round share button's Sal (`face_share`,
-// kute_bar_trade_row.dart, THE SHARE CLIP), written only when asked:
-// FW11_SHARE_RENDER=<dir> flutter test
-// test/render/kute_bar_share_render_test.dart. The real Inter face and the
-// real Sal sheets, 390 wide at 3x, light and dark: a market's trade row
-// (Invest | Short + the round button), a position's Close position with
-// the round button at its right, and the button scaled to 44 and 36.
+// A look by eye at the round share button (kute_bar_trade_row.dart, THE
+// SHARE BADGE), written only when asked: FW11_SHARE_RENDER=<dir> flutter
+// test test/render/kute_bar_share_render_test.dart. The real Inter face and
+// the real Sal sheets, 390 wide at 3x, light and dark: a market's trade row
+// (Invest | Short + the round button), a position's Close position with the
+// round button at its right, the button at 52, 44 and 36; at rest and on
+// Sal's blink (the badge's arrow up). Plus the choices weighed: Sal at 30 /
+// 32 / 34 in the circle, and the badge's ring white or the dark surface.
 
 import 'dart:convert';
 import 'dart:io';
@@ -17,9 +18,12 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/home/components/kute_bar_trade_row.dart';
+import 'package:kute/screens/home/components/kute_bottom_action_bar.dart'
+    show KuteSalPill;
 import 'package:kute/screens/home/components/kute_shell_bar.dart'
     show KuteBarPrimaryButton;
 import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/screens/shared/kute_share_badge.dart';
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -42,7 +46,9 @@ Future<void> _assets(WidgetTester tester) async {
         jsonDecode(await rootBundle.loadString('$kSalSpriteDir/manifest.json'))
             as Map<String, dynamic>;
     SalSpriteCache.debugSetManifest(manifest);
-    await SalSpriteCache.clip(kSalShareButtonClip, 3);
+    for (final clip in ['idle', 'curious', 'think', 'search', 'happy']) {
+      await SalSpriteCache.clip(clip, 3);
+    }
   });
 }
 
@@ -51,22 +57,41 @@ ThemeData _theme(bool dark) {
   return base.copyWith(textTheme: base.textTheme.apply(fontFamily: 'Inter'));
 }
 
-Widget _shareButton({bool brag = false}) => KuteBarShareButton(
-      share: KuteBarShare(barContext: _market, brag: brag ? () {} : null),
+Widget _shareButton() => KuteBarShareButton(
+      share: const KuteBarShare(barContext: _market),
       onTap: (_) {},
     );
 
-/// The button drawn at [side] (52 is its own size).
-Widget _scaled(double side) => SizedBox(
-      width: side,
-      height: side,
-      child: FittedBox(child: _shareButton()),
+/// [child] (a 52 button) drawn at [side].
+Widget _scaled(double side, Widget child) =>
+    SizedBox(width: side, height: side, child: FittedBox(child: child));
+
+/// The round button as the share button builds it, with Sal at [sal] and
+/// the badge's ring in [ring].
+Widget _variant(double sal, Color ring) => KuteSalPill(
+      label: 'Send to a friend',
+      clip: kSalShareButtonClip,
+      collapsed: true,
+      salSize: sal,
+      badge: KuteShareBadge(ringColor: ring),
+      onTap: () {},
     );
 
-/// [at] into the 2 s loop: 2 s is frame 0 again (the rest pose).
+Widget _sizes(Widget Function() button) => Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _scaled(52, button()),
+        const SizedBox(width: 28),
+        _scaled(44, button()),
+        const SizedBox(width: 28),
+        _scaled(36, button()),
+      ],
+    );
+
 Future<void> _shot(WidgetTester tester, String name, bool dark,
-    {Duration at = const Duration(seconds: 2)}) async {
-  tester.view.physicalSize = const Size(390 * 3, 300 * 3);
+    List<Widget> Function(BuildContext) rows,
+    {double height = 300, Duration at = const Duration(seconds: 2)}) async {
+  tester.view.physicalSize = Size(390 * 3, height * 3);
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.reset);
   final key = GlobalKey();
@@ -86,57 +111,7 @@ Future<void> _shot(WidgetTester tester, String name, bool dark,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  KuteBarTradeRow(
-                    barContext: KuteBarContext.trade(
-                      trades: [
-                        KuteBarTrade(
-                            id: 'invest',
-                            label: 'Invest',
-                            fill: AppColors.marketUp,
-                            flex: 2,
-                            onTap: () {}),
-                        KuteBarTrade(
-                            id: 'short',
-                            label: 'Short',
-                            fill: AppColors.marketDown,
-                            onTap: () {}),
-                      ],
-                      share: const KuteBarShare(barContext: _market),
-                    ),
-                    onShare: (_) {},
-                  ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Flexible(
-                        child: KuteBarPrimaryButton(
-                          barContext: KuteBarContext.primary(
-                            label: 'Close position',
-                            onPrimary: () {},
-                            disabledLabel: 'Position closed',
-                            style: KuteBarPrimaryStyle.destructive,
-                          ),
-                          onAsk: () {},
-                        ),
-                      ),
-                      KuteBarShareSlot(
-                        share: KuteBarShare(barContext: _market, brag: () {}),
-                        onTap: (_) {},
-                      ),
-                    ],
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _scaled(52),
-                      const SizedBox(width: 24),
-                      _scaled(44),
-                      const SizedBox(width: 24),
-                      _scaled(36),
-                    ],
-                  ),
-                ],
+                children: rows(context),
               ),
             ),
           ),
@@ -157,6 +132,49 @@ Future<void> _shot(WidgetTester tester, String name, bool dark,
   await tester.pumpWidget(const SizedBox());
 }
 
+List<Widget> _bar(BuildContext context) => [
+      KuteBarTradeRow(
+        barContext: KuteBarContext.trade(
+          trades: [
+            KuteBarTrade(
+                id: 'invest',
+                label: 'Invest',
+                fill: AppColors.marketUp,
+                flex: 2,
+                onTap: () {}),
+            KuteBarTrade(
+                id: 'short',
+                label: 'Short',
+                fill: AppColors.marketDown,
+                onTap: () {}),
+          ],
+          share: const KuteBarShare(barContext: _market),
+        ),
+        onShare: (_) {},
+      ),
+      Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: KuteBarPrimaryButton(
+              barContext: KuteBarContext.primary(
+                label: 'Close position',
+                onPrimary: () {},
+                disabledLabel: 'Position closed',
+                style: KuteBarPrimaryStyle.destructive,
+              ),
+              onAsk: () {},
+            ),
+          ),
+          KuteBarShareSlot(
+            share: KuteBarShare(barContext: _market, brag: () {}),
+            onTap: (_) {},
+          ),
+        ],
+      ),
+      _sizes(_shareButton),
+    ];
+
 void main() {
   tearDown(() => SalSpriteCache.debugSetManifest(null));
   for (final dark in [false, true]) {
@@ -164,11 +182,26 @@ void main() {
     testWidgets('render: the round share button, $mode', skip: _dir == null,
         (tester) async {
       await _assets(tester);
-      await _shot(tester, 'share-button-$mode', dark);
-      // Mid-loop (frame 14): the arrow up out of the tray, the side-eye
-      // down at it.
-      await _shot(tester, 'share-button-$mode-mid', dark,
-          at: const Duration(milliseconds: 2600));
+      // Frame 0: Sal's level stare, the arrow at rest.
+      await _shot(tester, 'share-badge-$mode', dark, _bar);
+      // Frame 38: his lids shut on the blink, the arrow up.
+      await _shot(tester, 'share-badge-$mode-blink', dark, _bar,
+          at: const Duration(milliseconds: 3600));
+    });
+
+    testWidgets('render: the choices weighed, $mode', skip: _dir == null,
+        (tester) async {
+      await _assets(tester);
+      await _shot(
+          tester,
+          'share-badge-variants-$mode',
+          dark,
+          (context) => [
+                for (final sal in [30.0, 32.0, 34.0])
+                  _sizes(() => _variant(sal, Colors.white)),
+                if (dark) _sizes(() => _variant(32, context.colors.surface)),
+              ],
+          height: dark ? 400 : 300);
     });
   }
 }

@@ -13,23 +13,24 @@
 //     Sell is the light pill (white, a hairline). The press spring of every
 //     button; a tap runs exactly what the pinned button ran;
 //   * at the row's end the round Sal button ([KuteBarShareButton]): the
-//     Sal pill folded to its 52 circle (KuteSalPill.collapsed), Sal with
-//     the share glyph and no words (founder: "just a share button on the
+//     Sal pill folded to its 52 circle (KuteSalPill.collapsed), Sal and
+//     the share badge, no words (founder: "just a share button on the
 //     right side, in the same button style, with Sal, with no text"); read
 //     aloud as "Send to a friend". A tap opens the page's Send to a friend
 //     Sal sheet, the circle travelling to the composer as the pill does; on
 //     an open position in profit it opens the brag card instead ("Brag
 //     about it").
 //
-// THE SHARE CLIP (founder, 5 November 2026: "Kute symbol here should be
-// with the share"): the round button wears [kSalShareButtonClip],
-// `face_share`, a Blender clip of its own (the v5 rig, the face clips'
-// camera and lights): Sal's head, deadpan, behind a 3D share glyph in
-// Kute's ink (the iOS tray with the up arrow, bevelled), the arrow
-// rising gently out of the tray twice a loop, a side-eye down at it and
-// a dry blink; 48 frames at 24 fps, seamless. Its frame 0 (level stare,
-// arrow at rest) is the Reduce Motion still. The same clip for Brag.
-// Until the sheet loads, Sal's `share` face stands in.
+// THE SHARE BADGE (founder, 5 November 2026: "Kute symbol here should be
+// with the share", then of the 3D clip with the glyph in front of Sal:
+// "still not clear, kinda hides behind Sal"): share is said by a vector
+// badge, apart from Sal. The circle holds his deadpan `idle` face whole,
+// [kSalShareButtonSalSize] (not 38: no ear at the circle's edge), centred;
+// over its bottom right, past the edge like an app badge, the share badge
+// (kute_share_badge.dart): an ink disc in a white ring with the white iOS
+// share glyph, whose arrow bobs up out of the tray as Sal blinks (his
+// frames drive it; none under Reduce Motion, where he holds frame 0). The
+// same button for Brag.
 //
 // An open position's Close position or Sell keeps its own red primary
 // button and takes the same round button at its right ([KuteBarShareSlot]:
@@ -49,6 +50,7 @@ import 'package:kute/screens/home/components/kute_shell_bar.dart'
     show KuteBarPrimaryButton;
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_morph_label.dart' show KuteMorphSize;
+import 'package:kute/screens/shared/kute_share_badge.dart';
 import 'package:kute/screens/shared/kute_motion.dart'
     show KutePressable, kuteReduceMotion;
 import 'package:kute/screens/shared/market_pair_button.dart'
@@ -61,8 +63,12 @@ import 'package:kute/theme/kute_motion.dart';
 const double kBarRowGap = 8;
 
 /// The round share button's Sal clip (see the file header, THE SHARE
-/// CLIP): Sal presenting the share glyph.
-const String kSalShareButtonClip = 'face_share';
+/// BADGE): his deadpan face, the badge keeping time with its blink.
+const String kSalShareButtonClip = kShareBadgeBeatClip;
+
+/// Sal's side in the round share button: his whole head inside the 52
+/// circle, with room for the badge.
+const double kSalShareButtonSalSize = 32;
 
 /// The trade row: [barContext]'s trades side by side, each its flex of
 /// the width the round Sal button leaves, and the button at the end.
@@ -196,11 +202,11 @@ class KuteBarTradePill extends StatelessWidget {
 }
 
 /// The round Sal button (see the file header), keyed `kute-bar-share`:
-/// the Sal pill folded to its circle, Sal with the share glyph
-/// ([kSalShareButtonClip]), no words; read aloud as "Send to a friend",
-/// or "Brag about it" where a tap opens the brag card. [onTap] gets the
-/// button's own element.
-class KuteBarShareButton extends StatelessWidget {
+/// the Sal pill folded to its circle, Sal's face ([kSalShareButtonClip])
+/// and the share badge ([KuteShareBadge]), no words; read aloud as "Send
+/// to a friend", or "Brag about it" where a tap opens the brag card.
+/// [onTap] gets the button's own element.
+class KuteBarShareButton extends StatefulWidget {
   const KuteBarShareButton({
     super.key,
     required this.share,
@@ -213,8 +219,23 @@ class KuteBarShareButton extends StatelessWidget {
   final int salCue;
 
   @override
+  State<KuteBarShareButton> createState() => _KuteBarShareButtonState();
+}
+
+class _KuteBarShareButtonState extends State<KuteBarShareButton> {
+  /// The badge's arrow, up on Sal's blink (repainted, never rebuilt).
+  final ValueNotifier<double> _lift = ValueNotifier<double>(0);
+
+  @override
+  void dispose() {
+    _lift.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final share = widget.share;
     return KeyedSubtree(
       key: const ValueKey('kute-bar-share'),
       child: KuteSalPill(
@@ -224,8 +245,11 @@ class KuteBarShareButton extends StatelessWidget {
         // question to Sal.
         aiEnabled: true,
         collapsed: true,
-        salCue: salCue,
-        onTap: () => onTap(context),
+        salCue: widget.salCue,
+        salSize: kSalShareButtonSalSize,
+        badge: KuteShareBadge(lift: _lift),
+        onSalFrame: (frame) => _lift.value = kuteShareBadgeLift(frame),
+        onTap: () => widget.onTap(context),
       ),
     );
   }

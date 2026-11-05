@@ -1249,29 +1249,5 @@
       }
     },
     "group": "card"
-  },
-  "face_share": {
-    "framing": "face",
-    "fps": 24,
-    "frames": 48,
-    "columns": 8,
-    "rows": 6,
-    "cell": 48,
-    "loop": true,
-    "files": {
-      "2x": {
-        "file": "face_share@2x.webp",
-        "cell": 96,
-        "width": 768,
-        "height": 576
-      },
-      "3x": {
-        "file": "face_share@3x.webp",
-        "cell": 144,
-        "width": 1152,
-        "height": 864
-      }
-    },
-    "group": "pill"
   }
 }
