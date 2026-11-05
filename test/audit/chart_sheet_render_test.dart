@@ -1,7 +1,8 @@
 // Render harness for the Hyperliquid chart's Chart sheet and the Advanced
 // chart (4 November 2026): the sheet over the market page (the chart
 // types and the curated indicators as square cards, at its top and
-// scrolled to its foot), an indicator's settings, and the Advanced chart
+// scrolled to its foot), an indicator's settings, the Advanced chart's
+// Interval sheet (its intervals as the same squares), and the Advanced chart
 // with EMA, Supertrend, volume profile, RSI and MACD on (its O H L C
 // legend, the indicators' values and labelled panes), at rest and with
 // the long-press crosshair. The Investing market sheet at 390 x 844 in
@@ -137,6 +138,18 @@ void main() {
       await tester.tap(tune);
       await _settle(tester);
       await _png(tester, 'indicator_settings_$mode');
+    });
+
+    testWidgets('interval sheet, $mode', (tester) async {
+      tester.view.devicePixelRatio = _dpr;
+      addTearDown(tester.view.reset);
+      await _mount(tester, dark: dark);
+      await enterHlEdit(tester);
+      await _settle(tester);
+      await tester
+          .tap(find.byKey(const ValueKey('hl-chart-edit-interval-button')));
+      await _settle(tester);
+      await _png(tester, 'interval_sheet_$mode');
     });
 
     testWidgets('advanced chart, $mode', (tester) async {

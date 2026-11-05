@@ -91,6 +91,7 @@ import 'package:kute/screens/hyperliquid/components/hl_charts.dart';
 import 'package:kute/screens/hyperliquid/components/hl_drawing_tools.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_history.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_intervals.dart';
+import 'package:kute/screens/hyperliquid/components/hl_chart_interval_sheet.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_sheet.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_opening.dart';
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
@@ -2044,41 +2045,11 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     );
   }
 
-  /// The interval list behind the top bar's interval button.
+  /// The Interval sheet behind the top bar's interval button: the
+  /// intervals as square cards (hl_chart_interval_sheet.dart).
   Future<void> _pickInterval(HlCandleInterval current) async {
     HapticFeedback.selectionClick();
-    final picked = await showAppBottomSheet<HlCandleInterval>(
-      context: context,
-      builder: (sheetContext) => AppBottomSheetContainer(
-        maxHeight: 0.8,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            AppBottomSheetHeader(
-              title: context.l10n.chartInterval,
-              trailing: const AppBottomSheetCloseButton(),
-            ),
-            Flexible(
-              child: ListView(
-                shrinkWrap: true,
-                padding: EdgeInsets.only(bottom: 12.h),
-                children: [
-                  for (final iv in kHlCandleIntervals)
-                    AppBottomSheetListTile(
-                      title: iv.label,
-                      isSelected: iv.interval == current.interval,
-                      onTap: () => Navigator.of(sheetContext).pop(iv),
-                    ),
-                  // The last interval scrolls clear of the floating bar.
-                  const KuteSheetBarSpace(),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    final picked = await showHlIntervalSheet(context, current: current);
     if (picked == null || !mounted) return;
     _selectCandleInterval(picked);
   }
@@ -2156,6 +2127,7 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
           Tooltip(
             message: l10n.chartInterval,
             child: GestureDetector(
+              key: const ValueKey('hl-chart-edit-interval-button'),
               behavior: HitTestBehavior.opaque,
               onTap: () => unawaited(_pickInterval(candleIv)),
               child: Container(

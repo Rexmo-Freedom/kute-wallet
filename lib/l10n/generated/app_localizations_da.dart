@@ -5956,6 +5956,36 @@ class AppLocalizationsDa extends AppLocalizations {
   String get chartInterval => 'Interval';
 
   @override
+  String get chartIntervalMinute => '1 minut';
+
+  @override
+  String get chartIntervalMinuteHint => 'Bevægelser live';
+
+  @override
+  String get chartIntervalFiveMinutes => '5 minutter';
+
+  @override
+  String get chartIntervalFiveMinutesHint => 'Dagens udsving';
+
+  @override
+  String get chartIntervalHour => '1 time';
+
+  @override
+  String get chartIntervalHourHint => 'De sidste par dage';
+
+  @override
+  String get chartIntervalDay => '1 dag';
+
+  @override
+  String get chartIntervalDayHint => 'De sidste måneder';
+
+  @override
+  String get chartIntervalWeek => '1 uge';
+
+  @override
+  String get chartIntervalWeekHint => 'På lang sigt';
+
+  @override
   String get chartSelectTool => 'Vælg og rediger tegninger';
 
   @override

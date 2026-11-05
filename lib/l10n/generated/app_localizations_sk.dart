@@ -5954,6 +5954,36 @@ class AppLocalizationsSk extends AppLocalizations {
   String get chartInterval => 'Interval';
 
   @override
+  String get chartIntervalMinute => '1 minúta';
+
+  @override
+  String get chartIntervalMinuteHint => 'Pohyby naživo';
+
+  @override
+  String get chartIntervalFiveMinutes => '5 minút';
+
+  @override
+  String get chartIntervalFiveMinutesHint => 'Dnešné výkyvy';
+
+  @override
+  String get chartIntervalHour => '1 hodina';
+
+  @override
+  String get chartIntervalHourHint => 'Posledných pár dní';
+
+  @override
+  String get chartIntervalDay => '1 deň';
+
+  @override
+  String get chartIntervalDayHint => 'Posledné mesiace';
+
+  @override
+  String get chartIntervalWeek => '1 týždeň';
+
+  @override
+  String get chartIntervalWeekHint => 'Dlhodobo';
+
+  @override
   String get chartSelectTool => 'Vybrať a upraviť kresby';
 
   @override

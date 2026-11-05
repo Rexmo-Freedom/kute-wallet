@@ -10426,6 +10426,66 @@ abstract class AppLocalizations {
   /// **'Interval'**
   String get chartInterval;
 
+  /// Advanced chart Interval sheet: what one bar of the 1m interval spans (under the big "1m").
+  ///
+  /// In en, this message translates to:
+  /// **'1 minute'**
+  String get chartIntervalMinute;
+
+  /// Advanced chart Interval sheet: what the 1m interval is good for (one short line, its chart opens on the last ~2 hours).
+  ///
+  /// In en, this message translates to:
+  /// **'Live moves'**
+  String get chartIntervalMinuteHint;
+
+  /// Advanced chart Interval sheet: what one bar of the 5m interval spans (under the big "5m").
+  ///
+  /// In en, this message translates to:
+  /// **'5 minutes'**
+  String get chartIntervalFiveMinutes;
+
+  /// Advanced chart Interval sheet: what the 5m interval is good for (one short line, its chart opens on the last ~8 hours).
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s swings'**
+  String get chartIntervalFiveMinutesHint;
+
+  /// Advanced chart Interval sheet: what one bar of the 1h interval spans (under the big "1h").
+  ///
+  /// In en, this message translates to:
+  /// **'1 hour'**
+  String get chartIntervalHour;
+
+  /// Advanced chart Interval sheet: what the 1h interval is good for (one short line, its chart opens on the last ~4 days).
+  ///
+  /// In en, this message translates to:
+  /// **'The last few days'**
+  String get chartIntervalHourHint;
+
+  /// Advanced chart Interval sheet: what one bar of the 1D interval spans (under the big "1D").
+  ///
+  /// In en, this message translates to:
+  /// **'1 day'**
+  String get chartIntervalDay;
+
+  /// Advanced chart Interval sheet: what the 1D interval is good for (one short line, its chart opens on the last ~3 months).
+  ///
+  /// In en, this message translates to:
+  /// **'The last months'**
+  String get chartIntervalDayHint;
+
+  /// Advanced chart Interval sheet: what one bar of the 1W interval spans (under the big "1W").
+  ///
+  /// In en, this message translates to:
+  /// **'1 week'**
+  String get chartIntervalWeek;
+
+  /// Advanced chart Interval sheet: what the 1W interval is good for (one short line, its chart opens on the last ~2 years).
+  ///
+  /// In en, this message translates to:
+  /// **'The long run'**
+  String get chartIntervalWeekHint;
+
   /// No description provided for @chartSelectTool.
   ///
   /// In en, this message translates to:

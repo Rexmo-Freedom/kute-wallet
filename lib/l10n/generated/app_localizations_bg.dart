@@ -5961,6 +5961,36 @@ class AppLocalizationsBg extends AppLocalizations {
   String get chartInterval => 'Интервал';
 
   @override
+  String get chartIntervalMinute => '1 минута';
+
+  @override
+  String get chartIntervalMinuteHint => 'Движения на живо';
+
+  @override
+  String get chartIntervalFiveMinutes => '5 минути';
+
+  @override
+  String get chartIntervalFiveMinutesHint => 'Колебанията днес';
+
+  @override
+  String get chartIntervalHour => '1 час';
+
+  @override
+  String get chartIntervalHourHint => 'Последните няколко дни';
+
+  @override
+  String get chartIntervalDay => '1 ден';
+
+  @override
+  String get chartIntervalDayHint => 'Последните месеци';
+
+  @override
+  String get chartIntervalWeek => '1 седмица';
+
+  @override
+  String get chartIntervalWeekHint => 'Дългосрочно';
+
+  @override
   String get chartSelectTool => 'Избирай и редактирай чертежи';
 
   @override

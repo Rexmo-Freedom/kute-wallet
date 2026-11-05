@@ -5982,6 +5982,36 @@ class AppLocalizationsRo extends AppLocalizations {
   String get chartInterval => 'Interval';
 
   @override
+  String get chartIntervalMinute => '1 minut';
+
+  @override
+  String get chartIntervalMinuteHint => 'Mișcări în timp real';
+
+  @override
+  String get chartIntervalFiveMinutes => '5 minute';
+
+  @override
+  String get chartIntervalFiveMinutesHint => 'Fluctuațiile de azi';
+
+  @override
+  String get chartIntervalHour => '1 oră';
+
+  @override
+  String get chartIntervalHourHint => 'Ultimele zile';
+
+  @override
+  String get chartIntervalDay => '1 zi';
+
+  @override
+  String get chartIntervalDayHint => 'Ultimele luni';
+
+  @override
+  String get chartIntervalWeek => '1 săptămână';
+
+  @override
+  String get chartIntervalWeekHint => 'Pe termen lung';
+
+  @override
   String get chartSelectTool => 'Selectează și editează desenele';
 
   @override

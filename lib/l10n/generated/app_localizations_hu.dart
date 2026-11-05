@@ -5965,6 +5965,36 @@ class AppLocalizationsHu extends AppLocalizations {
   String get chartInterval => 'Időköz';
 
   @override
+  String get chartIntervalMinute => '1 perc';
+
+  @override
+  String get chartIntervalMinuteHint => 'Élő mozgások';
+
+  @override
+  String get chartIntervalFiveMinutes => '5 perc';
+
+  @override
+  String get chartIntervalFiveMinutesHint => 'A mai kilengések';
+
+  @override
+  String get chartIntervalHour => '1 óra';
+
+  @override
+  String get chartIntervalHourHint => 'Az elmúlt néhány nap';
+
+  @override
+  String get chartIntervalDay => '1 nap';
+
+  @override
+  String get chartIntervalDayHint => 'Az elmúlt hónapok';
+
+  @override
+  String get chartIntervalWeek => '1 hét';
+
+  @override
+  String get chartIntervalWeekHint => 'Hosszú távon';
+
+  @override
   String get chartSelectTool => 'Rajzok kijelölése és szerkesztése';
 
   @override

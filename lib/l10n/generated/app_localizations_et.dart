@@ -5935,6 +5935,36 @@ class AppLocalizationsEt extends AppLocalizations {
   String get chartInterval => 'Intervall';
 
   @override
+  String get chartIntervalMinute => '1 minut';
+
+  @override
+  String get chartIntervalMinuteHint => 'Liikumised reaalajas';
+
+  @override
+  String get chartIntervalFiveMinutes => '5 minutit';
+
+  @override
+  String get chartIntervalFiveMinutesHint => 'Tänased kõikumised';
+
+  @override
+  String get chartIntervalHour => '1 tund';
+
+  @override
+  String get chartIntervalHourHint => 'Viimased päevad';
+
+  @override
+  String get chartIntervalDay => '1 päev';
+
+  @override
+  String get chartIntervalDayHint => 'Viimased kuud';
+
+  @override
+  String get chartIntervalWeek => '1 nädal';
+
+  @override
+  String get chartIntervalWeekHint => 'Pikas plaanis';
+
+  @override
   String get chartSelectTool => 'Vali ja muuda jooniseid';
 
   @override
