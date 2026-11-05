@@ -6000,6 +6000,36 @@ class AppLocalizationsEl extends AppLocalizations {
   String get chartInterval => 'Διάστημα';
 
   @override
+  String get chartIntervalMinute => '1 λεπτό';
+
+  @override
+  String get chartIntervalMinuteHint => 'Ζωντανές κινήσεις';
+
+  @override
+  String get chartIntervalFiveMinutes => '5 λεπτά';
+
+  @override
+  String get chartIntervalFiveMinutesHint => 'Οι κινήσεις της ημέρας';
+
+  @override
+  String get chartIntervalHour => '1 ώρα';
+
+  @override
+  String get chartIntervalHourHint => 'Οι τελευταίες μέρες';
+
+  @override
+  String get chartIntervalDay => '1 ημέρα';
+
+  @override
+  String get chartIntervalDayHint => 'Οι τελευταίοι μήνες';
+
+  @override
+  String get chartIntervalWeek => '1 εβδομάδα';
+
+  @override
+  String get chartIntervalWeekHint => 'Σε βάθος χρόνου';
+
+  @override
   String get chartSelectTool => 'Επιλογή και επεξεργασία σχεδίων';
 
   @override

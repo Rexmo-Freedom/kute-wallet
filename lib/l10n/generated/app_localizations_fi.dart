@@ -5950,6 +5950,36 @@ class AppLocalizationsFi extends AppLocalizations {
   String get chartInterval => 'Aikaväli';
 
   @override
+  String get chartIntervalMinute => '1 minuutti';
+
+  @override
+  String get chartIntervalMinuteHint => 'Liikkeet reaaliajassa';
+
+  @override
+  String get chartIntervalFiveMinutes => '5 minuuttia';
+
+  @override
+  String get chartIntervalFiveMinutesHint => 'Päivän heilahtelut';
+
+  @override
+  String get chartIntervalHour => '1 tunti';
+
+  @override
+  String get chartIntervalHourHint => 'Viime päivät';
+
+  @override
+  String get chartIntervalDay => '1 päivä';
+
+  @override
+  String get chartIntervalDayHint => 'Viime kuukaudet';
+
+  @override
+  String get chartIntervalWeek => '1 viikko';
+
+  @override
+  String get chartIntervalWeekHint => 'Pitkällä aikavälillä';
+
+  @override
   String get chartSelectTool => 'Valitse ja muokkaa piirroksia';
 
   @override

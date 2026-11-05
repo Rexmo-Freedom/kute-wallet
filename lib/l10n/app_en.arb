@@ -3199,6 +3199,46 @@
   "chartVwapWindow": "VWAP across the displayed candles",
   "chartIndicators": "Indicators",
   "chartInterval": "Interval",
+  "chartIntervalMinute": "1 minute",
+  "@chartIntervalMinute": {
+    "description": "Advanced chart Interval sheet: what one bar of the 1m interval spans (under the big \"1m\")."
+  },
+  "chartIntervalMinuteHint": "Live moves",
+  "@chartIntervalMinuteHint": {
+    "description": "Advanced chart Interval sheet: what the 1m interval is good for (one short line, its chart opens on the last ~2 hours)."
+  },
+  "chartIntervalFiveMinutes": "5 minutes",
+  "@chartIntervalFiveMinutes": {
+    "description": "Advanced chart Interval sheet: what one bar of the 5m interval spans (under the big \"5m\")."
+  },
+  "chartIntervalFiveMinutesHint": "Today's swings",
+  "@chartIntervalFiveMinutesHint": {
+    "description": "Advanced chart Interval sheet: what the 5m interval is good for (one short line, its chart opens on the last ~8 hours)."
+  },
+  "chartIntervalHour": "1 hour",
+  "@chartIntervalHour": {
+    "description": "Advanced chart Interval sheet: what one bar of the 1h interval spans (under the big \"1h\")."
+  },
+  "chartIntervalHourHint": "The last few days",
+  "@chartIntervalHourHint": {
+    "description": "Advanced chart Interval sheet: what the 1h interval is good for (one short line, its chart opens on the last ~4 days)."
+  },
+  "chartIntervalDay": "1 day",
+  "@chartIntervalDay": {
+    "description": "Advanced chart Interval sheet: what one bar of the 1D interval spans (under the big \"1D\")."
+  },
+  "chartIntervalDayHint": "The last months",
+  "@chartIntervalDayHint": {
+    "description": "Advanced chart Interval sheet: what the 1D interval is good for (one short line, its chart opens on the last ~3 months)."
+  },
+  "chartIntervalWeek": "1 week",
+  "@chartIntervalWeek": {
+    "description": "Advanced chart Interval sheet: what one bar of the 1W interval spans (under the big \"1W\")."
+  },
+  "chartIntervalWeekHint": "The long run",
+  "@chartIntervalWeekHint": {
+    "description": "Advanced chart Interval sheet: what the 1W interval is good for (one short line, its chart opens on the last ~2 years)."
+  },
   "chartSelectTool": "Select and edit drawings",
   "chartStopDrawing": "Stop drawing",
   "chartRemoveAllTitle": "Remove all drawings",

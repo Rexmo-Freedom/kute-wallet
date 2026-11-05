@@ -5730,6 +5730,36 @@ class AppLocalizationsJa extends AppLocalizations {
   String get chartInterval => '時間足';
 
   @override
+  String get chartIntervalMinute => '1分';
+
+  @override
+  String get chartIntervalMinuteHint => 'リアルタイムの値動き';
+
+  @override
+  String get chartIntervalFiveMinutes => '5分';
+
+  @override
+  String get chartIntervalFiveMinutesHint => '今日の値動き';
+
+  @override
+  String get chartIntervalHour => '1時間';
+
+  @override
+  String get chartIntervalHourHint => 'ここ数日';
+
+  @override
+  String get chartIntervalDay => '1日';
+
+  @override
+  String get chartIntervalDayHint => 'ここ数か月';
+
+  @override
+  String get chartIntervalWeek => '1週間';
+
+  @override
+  String get chartIntervalWeekHint => '長期の流れ';
+
+  @override
   String get chartSelectTool => '描画を選択して編集';
 
   @override

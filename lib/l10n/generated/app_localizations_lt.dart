@@ -5979,6 +5979,36 @@ class AppLocalizationsLt extends AppLocalizations {
   String get chartInterval => 'Intervalas';
 
   @override
+  String get chartIntervalMinute => '1 minutė';
+
+  @override
+  String get chartIntervalMinuteHint => 'Judėjimas tiesiogiai';
+
+  @override
+  String get chartIntervalFiveMinutes => '5 minutės';
+
+  @override
+  String get chartIntervalFiveMinutesHint => 'Šiandienos svyravimai';
+
+  @override
+  String get chartIntervalHour => '1 valanda';
+
+  @override
+  String get chartIntervalHourHint => 'Pastarosios kelios dienos';
+
+  @override
+  String get chartIntervalDay => '1 diena';
+
+  @override
+  String get chartIntervalDayHint => 'Pastarieji mėnesiai';
+
+  @override
+  String get chartIntervalWeek => '1 savaitė';
+
+  @override
+  String get chartIntervalWeekHint => 'Ilgalaikė perspektyva';
+
+  @override
   String get chartSelectTool => 'Pasirinkti ir redaguoti piešinius';
 
   @override

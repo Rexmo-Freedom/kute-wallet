@@ -5963,6 +5963,36 @@ class AppLocalizationsHr extends AppLocalizations {
   String get chartInterval => 'Interval';
 
   @override
+  String get chartIntervalMinute => '1 minuta';
+
+  @override
+  String get chartIntervalMinuteHint => 'Kretanja uživo';
+
+  @override
+  String get chartIntervalFiveMinutes => '5 minuta';
+
+  @override
+  String get chartIntervalFiveMinutesHint => 'Današnja kolebanja';
+
+  @override
+  String get chartIntervalHour => '1 sat';
+
+  @override
+  String get chartIntervalHourHint => 'Zadnjih nekoliko dana';
+
+  @override
+  String get chartIntervalDay => '1 dan';
+
+  @override
+  String get chartIntervalDayHint => 'Zadnji mjeseci';
+
+  @override
+  String get chartIntervalWeek => '1 tjedan';
+
+  @override
+  String get chartIntervalWeekHint => 'Dugoročno';
+
+  @override
   String get chartSelectTool => 'Odaberi i uredi crteže';
 
   @override

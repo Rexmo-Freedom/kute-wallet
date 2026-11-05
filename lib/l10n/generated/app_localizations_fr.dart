@@ -5996,6 +5996,36 @@ class AppLocalizationsFr extends AppLocalizations {
   String get chartInterval => 'Intervalle';
 
   @override
+  String get chartIntervalMinute => '1 minute';
+
+  @override
+  String get chartIntervalMinuteHint => 'Mouvements en direct';
+
+  @override
+  String get chartIntervalFiveMinutes => '5 minutes';
+
+  @override
+  String get chartIntervalFiveMinutesHint => 'Les variations du jour';
+
+  @override
+  String get chartIntervalHour => '1 heure';
+
+  @override
+  String get chartIntervalHourHint => 'Les derniers jours';
+
+  @override
+  String get chartIntervalDay => '1 jour';
+
+  @override
+  String get chartIntervalDayHint => 'Les derniers mois';
+
+  @override
+  String get chartIntervalWeek => '1 semaine';
+
+  @override
+  String get chartIntervalWeekHint => 'Sur le long terme';
+
+  @override
   String get chartSelectTool => 'Sélectionner et modifier les tracés';
 
   @override

@@ -423,12 +423,21 @@ class _SectionLabel extends StatelessWidget {
 /// cards of kute_action_cards.dart: the sheet card's surface, a 1 px
 /// hairline, radius 18, 14 padding, at least 112 tall, the press spring).
 /// [picked] draws the selection the app's chips use: the CTA colour, here
-/// as the card's outline.
-class _SquareBox extends StatelessWidget {
-  const _SquareBox({required this.picked, required this.child});
+/// as the card's outline. The Interval sheet (hl_chart_interval_sheet.dart)
+/// uses the same box, a square at least [minHeight] tall.
+class HlSquareBox extends StatelessWidget {
+  const HlSquareBox({
+    super.key,
+    required this.picked,
+    required this.child,
+    this.minHeight = 112,
+  });
 
   final bool picked;
   final Widget child;
+
+  /// The least height (112, the option cards').
+  final double minHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -438,7 +447,7 @@ class _SquareBox extends StatelessWidget {
     return KutePressable(
       child: AnimatedContainer(
         duration: reduce ? Duration.zero : const Duration(milliseconds: 150),
-        constraints: const BoxConstraints(minHeight: 112),
+        constraints: BoxConstraints(minHeight: minHeight),
         padding: EdgeInsets.all(picked ? 13.5 : 14),
         decoration: BoxDecoration(
           color: isLight ? c.surfaceLight : c.surface,
@@ -483,7 +492,7 @@ class _StyleCard extends StatelessWidget {
         key: ValueKey('hl-chart-style-${style.name}'),
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
-        child: _SquareBox(
+        child: HlSquareBox(
           picked: picked,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -738,7 +747,7 @@ class _IndicatorCard extends StatelessWidget {
         key: ValueKey('hl-chart-indicator-${spec.key}'),
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
-        child: _SquareBox(
+        child: HlSquareBox(
           picked: on,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
