@@ -1084,6 +1084,7 @@
   "activityApproved": "Εγκρίθηκε",
   "activityProcessingEllipsis": "Επεξεργασία…",
   "usdAccountTab": "Investments",
+  "homeTabSavings": "Αποταμιεύσεις",
   "activityFromAmount": "από {amount}",
   "activityUnclaimed": "Μη εισπραγμένο",
   "activitySwapLegs": "Ανταλλαγή · {from} → {to}",

@@ -1084,6 +1084,7 @@
   "activityApproved": "Одобрено",
   "activityProcessingEllipsis": "Обработване…",
   "usdAccountTab": "Investments",
+  "homeTabSavings": "Спестявания",
   "activityFromAmount": "от {amount}",
   "activityUnclaimed": "Невзето",
   "activitySwapLegs": "Размяна · {from} → {to}",

@@ -208,10 +208,10 @@ class _FloatingActionPillState extends ConsumerState<FloatingActionPill> {
           // chance of an outcome in Predictions (user decision 2026-10-12,
           // replacing the mascot and the venue logos).
           icon: Icons.currency_bitcoin_rounded,
-          // The first tab is named for what it holds, the same way a
-          // Ledger's first tab is. "Home" said where you were, not what
-          // account you were looking at.
-          label: context.l10n.bitcoin,
+          // The first tab is named for what it is to the person: their
+          // Savings (founder, 5 November 2026; it was "Bitcoin", named for
+          // what it holds).
+          label: context.l10n.homeTabSavings,
           active: widget.activeTab == ActiveNavTab.home,
           onTap: () => _handleHome(context),
         )

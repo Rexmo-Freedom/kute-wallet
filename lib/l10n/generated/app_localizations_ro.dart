@@ -3701,6 +3701,9 @@ class AppLocalizationsRo extends AppLocalizations {
   String get usdAccountTab => 'Investments';
 
   @override
+  String get homeTabSavings => 'Economii';
+
+  @override
   String activityFromAmount(String amount) {
     return 'din $amount';
   }

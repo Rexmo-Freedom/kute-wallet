@@ -1084,6 +1084,7 @@
   "activityApproved": "Aprobat",
   "activityProcessingEllipsis": "Se procesează…",
   "usdAccountTab": "Investments",
+  "homeTabSavings": "Economii",
   "activityFromAmount": "din {amount}",
   "activityUnclaimed": "Nerevendicat",
   "activitySwapLegs": "Schimb · {from} → {to}",

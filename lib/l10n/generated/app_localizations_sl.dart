@@ -3690,6 +3690,9 @@ class AppLocalizationsSl extends AppLocalizations {
   String get usdAccountTab => 'Investments';
 
   @override
+  String get homeTabSavings => 'Prihranki';
+
+  @override
   String activityFromAmount(String amount) {
     return 'od $amount';
   }

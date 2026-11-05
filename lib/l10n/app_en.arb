@@ -2051,6 +2051,10 @@
   "activityApproved": "Approved",
   "activityProcessingEllipsis": "Processing…",
   "usdAccountTab": "Dollars",
+  "homeTabSavings": "Savings",
+  "@homeTabSavings": {
+    "description": "The first top tab on the spending account: the bitcoin wallet, named Savings (founder, 5 November 2026)."
+  },
   "activityFromAmount": "from {amount}",
   "@activityFromAmount": {
     "placeholders": {

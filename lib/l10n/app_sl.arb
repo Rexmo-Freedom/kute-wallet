@@ -1084,6 +1084,7 @@
   "activityApproved": "Odobreno",
   "activityProcessingEllipsis": "Obdelava …",
   "usdAccountTab": "Investments",
+  "homeTabSavings": "Prihranki",
   "activityFromAmount": "od {amount}",
   "activityUnclaimed": "Neprevzeto",
   "activitySwapLegs": "Zamenjava · {from} → {to}",

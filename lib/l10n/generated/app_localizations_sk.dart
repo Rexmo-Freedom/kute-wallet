@@ -3686,6 +3686,9 @@ class AppLocalizationsSk extends AppLocalizations {
   String get usdAccountTab => 'Investments';
 
   @override
+  String get homeTabSavings => 'Úspory';
+
+  @override
   String activityFromAmount(String amount) {
     return 'z $amount';
   }

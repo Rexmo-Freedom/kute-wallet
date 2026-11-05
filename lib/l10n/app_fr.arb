@@ -1084,6 +1084,7 @@
   "activityApproved": "Approuvé",
   "activityProcessingEllipsis": "Traitement…",
   "usdAccountTab": "Investments",
+  "homeTabSavings": "Épargne",
   "activityFromAmount": "à partir de {amount}",
   "activityUnclaimed": "Non récupéré",
   "activitySwapLegs": "Échange · {from} → {to}",

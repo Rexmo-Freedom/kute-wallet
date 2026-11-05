@@ -7787,18 +7787,6 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     if (created == true && mounted) _closeAndReset();
   }
 
-  /// "Send to anyone" on the friend card: the claim link for bitcoin with
-  /// no contact and no number (the name is asked on the sheet).
-  Future<void> _sendLinkToAnyone() async {
-    trackSendRecipientPicked('link');
-    final created = await showSendToAnyoneSheet(
-      context,
-      kind: ShareLinkKind.bitcoin,
-      entrySource: 'bitcoin_send_link',
-    );
-    if (created == true && mounted) _closeAndReset();
-  }
-
   /// A plain contact picked from the Contacts list: Send to anyone for
   /// bitcoin with the first name as the link's label and the number kept
   /// in the local row (send_contacts_service.dart). A created link closes
@@ -8132,26 +8120,9 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
               ],
             ),
           ],
-          // To a friend: a link anyone claims, the contacts under it.
-          // Hidden once a recipient is chosen, as the Send to card is.
-          if (showContacts && !resolved) ...[
-            SizedBox(height: 20.h),
-            SendSectionLabel(context.l10n.sendToAFriendLabel),
-            _SendToListCard(
-              key: const ValueKey('send-friend-card'),
-              colors: c,
-              rows: [
-                _SendToListRow(
-                  key: const ValueKey('send-to-anyone-row'),
-                  colors: c,
-                  leading: const SendSalShareGlyph(),
-                  title: context.l10n.shareSendToAnyone,
-                  subtitle: context.l10n.shareSendToAnyoneSubtitle,
-                  onTap: () => unawaited(_sendLinkToAnyone()),
-                ),
-              ],
-            ),
-          ],
+          // No "To a friend · Send to anyone" card on a bitcoin send
+          // (founder, 5 November 2026): a contact or a phone number typed
+          // in the field already sends by link.
         ],
           ),
         ),

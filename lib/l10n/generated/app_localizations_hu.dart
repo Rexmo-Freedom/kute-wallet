@@ -3690,6 +3690,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get usdAccountTab => 'Investments';
 
   @override
+  String get homeTabSavings => 'Megtakarítás';
+
+  @override
   String activityFromAmount(String amount) {
     return 'ebből: $amount';
   }

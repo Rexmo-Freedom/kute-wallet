@@ -6603,6 +6603,12 @@ abstract class AppLocalizations {
   /// **'Dollars'**
   String get usdAccountTab;
 
+  /// The first top tab on the spending account: the bitcoin wallet, named Savings (founder, 5 November 2026).
+  ///
+  /// In en, this message translates to:
+  /// **'Savings'**
+  String get homeTabSavings;
+
   /// No description provided for @activityFromAmount.
   ///
   /// In en, this message translates to:

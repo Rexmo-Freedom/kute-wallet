@@ -1084,6 +1084,7 @@
   "activityApproved": "Jóváhagyva",
   "activityProcessingEllipsis": "Feldolgozás…",
   "usdAccountTab": "Investments",
+  "homeTabSavings": "Megtakarítás",
   "activityFromAmount": "ebből: {amount}",
   "activityUnclaimed": "Nem igényelt",
   "activitySwapLegs": "Váltás · {from} → {to}",

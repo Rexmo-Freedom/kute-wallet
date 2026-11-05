@@ -3692,6 +3692,9 @@ class AppLocalizationsBg extends AppLocalizations {
   String get usdAccountTab => 'Investments';
 
   @override
+  String get homeTabSavings => 'Спестявания';
+
+  @override
   String activityFromAmount(String amount) {
     return 'от $amount';
   }

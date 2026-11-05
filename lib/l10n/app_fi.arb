@@ -1084,6 +1084,7 @@
   "activityApproved": "Hyväksytty",
   "activityProcessingEllipsis": "Käsitellään…",
   "usdAccountTab": "Investments",
+  "homeTabSavings": "Säästöt",
   "activityFromAmount": "summasta {amount}",
   "activityUnclaimed": "Lunastamaton",
   "activitySwapLegs": "Vaihto · {from} → {to}",

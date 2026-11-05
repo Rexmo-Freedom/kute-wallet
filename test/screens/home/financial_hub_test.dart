@@ -145,7 +145,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Financial hub'), findsOneWidget);
     expect(find.text('Spending'), findsOneWidget);
-    expect(find.text('Savings'), findsOneWidget);
+    // The hub's Savings section, and the first top tab (named Savings
+    // since 5 November 2026) under the hub.
+    expect(find.text('Savings'), findsNWidgets(2));
     expect(find.text('Add account'), findsOneWidget);
     expect(find.byIcon(Icons.notifications_none_rounded), findsNothing);
     // One row under the title, right-aligned: Referrals, Support, then
@@ -265,7 +267,7 @@ void main() {
   testWidgets('re-tapping the active first tab opens nothing', (tester) async {
     final events = _events();
     await _pump(tester);
-    await tester.tap(find.text('Bitcoin'));
+    await tester.tap(find.text('Savings'));
     await tester.pumpAndSettle();
     expect(find.text('Financial hub'), findsNothing);
     expect(find.text('Add account'), findsNothing);

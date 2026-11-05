@@ -1084,6 +1084,7 @@
   "activityApproved": "Apstiprināts",
   "activityProcessingEllipsis": "Apstrādā…",
   "usdAccountTab": "Investments",
+  "homeTabSavings": "Uzkrājumi",
   "activityFromAmount": "no {amount}",
   "activityUnclaimed": "Nesaņemts",
   "activitySwapLegs": "Maiņa · {from} → {to}",

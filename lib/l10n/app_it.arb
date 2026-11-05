@@ -1084,6 +1084,7 @@
   "activityApproved": "Approvato",
   "activityProcessingEllipsis": "Elaborazione…",
   "usdAccountTab": "Investments",
+  "homeTabSavings": "Risparmi",
   "activityFromAmount": "da {amount}",
   "activityUnclaimed": "Non riscosso",
   "activitySwapLegs": "Scambio · {from} → {to}",

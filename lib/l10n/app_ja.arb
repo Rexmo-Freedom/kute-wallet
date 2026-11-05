@@ -1084,6 +1084,7 @@
   "activityApproved": "承認済み",
   "activityProcessingEllipsis": "処理中…",
   "usdAccountTab": "Investments",
+  "homeTabSavings": "貯蓄",
   "activityFromAmount": "{amount}から",
   "activityUnclaimed": "未受取",
   "activitySwapLegs": "交換 · {from} → {to}",
