@@ -25,12 +25,13 @@
 //         the Investing list's rows under their venue
 //         (PortfolioBalanceBreakdown.venuesOnly, components/
 //         balances_overview.dart);
-//       - P&L (the `charts` section): each venue's P&L ("By venue", the
-//         venue rows with their sparkline over the hero's range), the
-//         all-time stats (realised, unrealised, win rate) and the resting
-//         orders, each with its own cancel (PortfolioStatisticsOverview
-//         without its chart, portfolio_statistics.dart). The chart is the
-//         hero's.
+//       - P&L (the `charts` section): each venue's P&L ("By venue", two
+//         big squares side by side, each venue's P&L over the hero's range
+//         with its sparkline across the bottom), the all-time stats
+//         (realised, unrealised, win rate) as compact tiles in one row,
+//         and the resting orders, each row with its own cancel
+//         (PortfolioStatisticsOverview without its chart,
+//         portfolio_statistics.dart). The chart is the hero's.
 //
 // Every section starts [kPortfolioSectionEmptyTop] under the strip, its
 // empty state the one treatment (Sal, portfolio_empty_state.dart), and

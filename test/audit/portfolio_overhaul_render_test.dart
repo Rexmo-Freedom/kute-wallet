@@ -4,7 +4,10 @@
 // figure, the P&L over the range, the one P&L chart, the line under it)
 // over Activity | Positions | P&L, each section with a full account and
 // with a never-traded one, light and dark, at 390 x 844 in the app's real
-// theme and Inter. Writes PNGs.
+// theme and Inter; and the P&L section's squares (founder, 5 November
+// 2026: "here should be square cards") with Predictions alone, with
+// balances hidden, with a venue that never traded, and at 375 pt with
+// 130 % text. Writes PNGs.
 //
 // Not part of the normal suite; it only runs when asked:
 //
@@ -43,6 +46,7 @@ import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceUnknownProvider;
 import 'package:kute/providers/venue_sweeper_provider.dart';
 import 'package:kute/screens/portfolio/investments_portfolio.dart';
+import 'package:kute/screens/portfolio/portfolio_filters.dart';
 import 'package:kute/screens/shared/sal_sprite.dart'
     show SalSpriteCache, kSalHeroLoop;
 import 'package:kute/services/one_balance/one_balance_state.dart';
@@ -281,7 +285,8 @@ List<Override> _empty() => [
 Future<void> _mount(WidgetTester tester,
     {required bool dark,
     required PortfolioSection section,
-    required List<Override> overrides}) async {
+    required List<Override> overrides,
+    bool hidden = false}) async {
   await tester.pumpWidget(const SizedBox());
   await tester.pumpWidget(ProviderScope(
     overrides: [
@@ -295,6 +300,7 @@ Future<void> _mount(WidgetTester tester,
           bitcoinElectrumNode: '',
           nodeType: '',
           reviewDone: true,
+          balancePrivacy: hidden ? 1 : 0,
           activeWalletId: 'spending',
           wallets: [WalletConfig(id: 'spending', name: 'Spending')]))),
       usdBalanceUnknownProvider.overrideWithValue(false),
@@ -403,6 +409,63 @@ void main() {
     await SalSpriteCache.warm([kSalHeroLoop], 3);
   });
   tearDownAll(() => SalSpriteCache.debugSetManifest(null));
+
+  testWidgets('P&L squares: one venue, hidden, a quiet venue, 375 at 130 %',
+      (tester) async {
+    addTearDown(tester.view.reset);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    final variants = <(String, List<Override> Function(), bool, Size, double)>[
+      (
+        'predictions_only',
+        () => [
+              ..._full(),
+              portfolioVenuesProvider.overrideWithValue(
+                  const PortfolioVenues(trading: false, predictions: true)),
+            ],
+        false,
+        _size,
+        1
+      ),
+      ('hidden', _full, true, _size, 1),
+      (
+        'investing_quiet',
+        () => [
+              ..._full(),
+              portfolioPerformanceProvider(const PortfolioPerformanceRequest(
+                      venue: PortfolioPerformanceVenue.trading))
+                  .overrideWith((_) async => const PortfolioPerformance(
+                      points: [],
+                      sourceLabel: 'Hyperliquid',
+                      basisLabel: 'P&L',
+                      coverageLabel: 'All time')),
+            ],
+        false,
+        _size,
+        1
+      ),
+      ('375_130', _full, false, const Size(375, 812), 1.3),
+    ];
+    for (final (name, overrides, hidden, size, scale) in variants) {
+      tester.view.devicePixelRatio = _dpr;
+      tester.view.physicalSize = size * _dpr;
+      tester.platformDispatcher.textScaleFactorTestValue = scale;
+      for (final dark in [false, true]) {
+        await _mount(tester,
+            dark: dark,
+            section: PortfolioSection.charts,
+            overrides: overrides(),
+            hidden: hidden);
+        await tester.drag(find.byKey(const ValueKey('portfolio-page-scroll')),
+            const Offset(0, -420));
+        await _settle(tester);
+        await _png(
+            tester, 'portfolio_pnl_${name}_${dark ? 'dark' : 'light'}');
+      }
+    }
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
+  });
 
   for (final (name, overrides) in [('full', _full), ('empty', _empty)]) {
     testWidgets('$name, every section, light and dark', (tester) async {

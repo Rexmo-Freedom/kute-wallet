@@ -54,6 +54,16 @@
 //     open, 15 w600) in its colour with its change over the range (12)
 //     under it; the card's inset hairline between rows. A row tapped
 //     charts that venue alone (portfolio_statistics.dart);
+//   * THE PORTFOLIO SCREEN'S P&L SECTION ([PnlBreakdown]; founder, 5
+//     November 2026: "here should be square cards") draws the venues and
+//     the all-time stats as the app's squares instead (the Positions and
+//     Activity squares: the grouped card's ground, 14 padding): "By venue"
+//     as two big squares side by side ([PnlVenueSquare]: the logo
+//     top-left, the change top-right in its colour, the name and where the
+//     money is quiet, the venue's P&L over the hero's range ONCE at 22 sp,
+//     its sparkline across the bottom), and "All time" as compact tiles in
+//     one row ([PnlStatTiles]: Realised, Unrealised, Win rate where
+//     counted; thirds, halves or one across, never an orphan half);
 //   * NO HISTORY (nothing traded or predicted yet, every point zero): no
 //     chart. On the Portfolio the sections' one empty state
 //     (PortfolioSectionEmpty: the hero Sal, "No P&L yet"); on a Ledger its
@@ -88,6 +98,7 @@ import 'package:kute/screens/portfolio/components/position_rows.dart'
         PortfolioRowInset,
         kPortfolioRowGap,
         kPortfolioRowImage,
+        kPortfolioSquareIcon,
         portfolioRowChangeStyle,
         portfolioRowFigureStyle,
         portfolioRowSubStyle,
@@ -95,13 +106,17 @@ import 'package:kute/screens/portfolio/components/position_rows.dart'
 import 'package:kute/screens/portfolio/components/balances_overview.dart'
     show balancesFlatSectionTitle, kBalancesGroupGap, kBalancesTitleGap;
 import 'package:kute/screens/portfolio/portfolio_empty_state.dart';
+import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/screens/shared/charts/kute_chart_core.dart';
 import 'package:kute/screens/shared/charts/kute_chart_format.dart';
 import 'package:kute/screens/shared/charts/kute_trend_chart.dart';
 import 'package:kute/screens/shared/charts/kute_trend_window.dart';
+import 'package:kute/screens/shared/kute_motion.dart' show KutePressable;
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/shared/no_activity_state.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
+import 'package:kute/screens/shared/transactions_builder.dart'
+    show kActivitySquareHeight;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -113,6 +128,15 @@ const double kPnlRangeRowWidth = 280;
 
 /// A venue row's sparkline.
 const Size kPnlSparklineSize = Size(48, 20);
+
+/// A venue square's and a stat tile's inner padding (the Positions
+/// squares'), the gap over a square's sparkline and its height, and the
+/// gap between squares and between tiles (ActivitySquareGrid's), design
+/// units.
+const double kPnlSquarePad = 14;
+const double kPnlSquareSparkGap = 10;
+const double kPnlSquareSparkHeight = 28;
+const double kPnlSquareGap = 10;
 
 /// The line's colour: the result over the range, [change] being the P&L
 /// at the range's end less its start. Red when it fell, green when it
@@ -504,63 +528,75 @@ class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
   }
 }
 
+/// One figure of the stats: its key ([id], `statistics-pnl-stat-<id>`),
+/// its label, the figure as written and its colour.
+typedef PnlStat = ({String id, String label, String figure, Color color});
+
+/// The stats [stats] gives, in order (Realised, Unrealised, Win rate), a
+/// figure no provider gives left out. [allTime]: the labels say all time
+/// themselves ("All time realised"); false under an "All time" title of
+/// their own ([PnlBreakdown]). Masked with balances hidden.
+List<PnlStat> pnlStats(BuildContext context, WidgetRef ref,
+    PnlStatsFigures stats,
+    {required bool allTime}) {
+  final c = context.colors;
+  final l10n = context.l10n;
+  final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
+  String signed(double v) => visible
+      ? '${kuteChangeSign(v)}${formatPolyAmount(ref, v.abs())}'
+      : '••••••';
+  Color colorOf(double v) => visible ? pnlResultColor(c, v) : c.textPrimary;
+  return [
+    // All time: the providers give these as totals, not over a range.
+    if (stats.realisedUsd case final v?)
+      (
+        id: 'realised',
+        label: allTime ? l10n.pnlStatRealisedAllTime : l10n.pnlStatRealised,
+        figure: signed(v),
+        color: colorOf(v)
+      ),
+    if (stats.unrealisedUsd case final v?)
+      (
+        id: 'unrealised',
+        label:
+            allTime ? l10n.pnlStatUnrealisedAllTime : l10n.pnlStatUnrealised,
+        figure: signed(v),
+        color: colorOf(v)
+      ),
+    if (stats.winRate case final v?)
+      (
+        id: 'win-rate',
+        label: l10n.pnlStatWinRate,
+        figure: '${(v * 100).round()}%',
+        color: c.textPrimary
+      ),
+  ];
+}
+
 /// The stats strip (see the file header): one row of equal thirds, a
 /// 12 sp label in textSecondary over a 15 w600 figure; a figure that is
 /// not given leaves its column out.
 class PnlStatsStrip extends ConsumerWidget {
-  const PnlStatsStrip({super.key, required this.stats, this.allTime = true});
+  const PnlStatsStrip({super.key, required this.stats});
 
   final PnlStatsFigures stats;
-
-  /// The labels say all time themselves ("All time realised"); false
-  /// under an "All time" title of their own ([PnlBreakdown]).
-  final bool allTime;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
-    final l10n = context.l10n;
-    final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
-    String signed(double v) => visible
-        ? '${kuteChangeSign(v)}${formatPolyAmount(ref, v.abs())}'
-        : '••••••';
-    Color colorOf(double v) => visible ? pnlResultColor(c, v) : c.textPrimary;
-    final columns = <(String, String, String, Color)>[
-      // All time: the providers give these as totals, not over a range.
-      if (stats.realisedUsd case final v?)
-        (
-          'realised',
-          allTime ? l10n.pnlStatRealisedAllTime : l10n.pnlStatRealised,
-          signed(v),
-          colorOf(v)
-        ),
-      if (stats.unrealisedUsd case final v?)
-        (
-          'unrealised',
-          allTime ? l10n.pnlStatUnrealisedAllTime : l10n.pnlStatUnrealised,
-          signed(v),
-          colorOf(v)
-        ),
-      if (stats.winRate case final v?)
-        (
-          'win-rate',
-          l10n.pnlStatWinRate,
-          '${(v * 100).round()}%',
-          c.textPrimary
-        ),
-    ];
+    final columns = pnlStats(context, ref, stats, allTime: true);
     return Row(
       key: const ValueKey('statistics-pnl-stats'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (final (id, label, figure, color) in columns)
+        for (final s in columns)
           Expanded(
-            key: ValueKey('statistics-pnl-stat-$id'),
+            key: ValueKey('statistics-pnl-stat-${s.id}'),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(label,
+                Text(s.label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -571,10 +607,10 @@ class PnlStatsStrip extends ConsumerWidget {
                 FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
-                  child: Text(figure,
+                  child: Text(s.figure,
                       maxLines: 1,
                       style: TextStyle(
-                          color: color,
+                          color: s.color,
                           fontSize: 15.sp,
                           fontWeight: FontWeight.w600,
                           fontFeatures: const [FontFeature.tabularFigures()])),
@@ -590,14 +626,15 @@ class PnlStatsStrip extends ConsumerWidget {
 }
 
 /// The Portfolio screen's P&L section (founder, 4 November 2026: the one
-/// chart is the hero's, components/portfolio_hero.dart): "By venue" over
-/// the venue rows ([venues], [PnlVenueRow]s in ONE soft card: each
-/// venue's P&L now with its change and its sparkline over the hero's
-/// range), then "All time" over the stats strip in its own soft card
-/// (Realised, Unrealised, Win rate where a provider counts closed trades;
-/// a figure no provider gives leaves its column out). The section's first
-/// title sits [kPortfolioSectionEmptyTop] under the strip, where the
-/// other sections start.
+/// chart is the hero's, components/portfolio_hero.dart; 5 November 2026:
+/// "here should be square cards"): "By venue" over the venue squares
+/// ([venues]: [PnlVenueSquare]s side by side, each venue's P&L over the
+/// hero's range with its sparkline), then "All time" over the stats as
+/// compact square tiles in one row ([PnlStatTiles]: Realised, Unrealised,
+/// Win rate where a provider counts closed trades; a figure no provider
+/// gives leaves its tile out). The section's first title sits
+/// [kPortfolioSectionEmptyTop] under the strip, where the other sections
+/// start.
 class PnlBreakdown extends StatelessWidget {
   const PnlBreakdown({super.key, required this.venues, required this.stats});
 
@@ -629,18 +666,318 @@ class PnlBreakdown extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: balancesFlatSectionTitle(context)),
           SizedBox(height: kBalancesTitleGap.h),
-          PortfolioCardList(
-            key: const ValueKey('statistics-pnl-stats-card'),
-            rows: [
-              Builder(
-                builder: (context) => Padding(
-                  padding: EdgeInsets.symmetric(
-                      horizontal: PortfolioRowInset.of(context),
-                      vertical: PortfolioRowInset.verticalOf(context)),
-                  child: PnlStatsStrip(stats: stats, allTime: false),
-                ),
+          PnlStatTiles(
+              key: const ValueKey('statistics-pnl-stats-card'), stats: stats),
+        ],
+      ],
+    );
+  }
+}
+
+/// A venue square's height: its content at the viewer's text size (the
+/// logo row, the name and the line under it, the P&L, the sparkline), at
+/// least [kActivitySquareHeight]. The same for every venue, so squares
+/// side by side line up whatever each shows.
+double pnlVenueSquareHeight(BuildContext context) {
+  final scaler = MediaQuery.textScalerOf(context);
+  final content = kPnlSquarePad.w * 2 +
+      kPortfolioSquareIcon.w +
+      10.w +
+      scaler.scale(13.sp) * 1.25 +
+      2.h +
+      scaler.scale(12.sp) * 1.3 +
+      4.h +
+      scaler.scale(22.sp) * 1.2 +
+      kPnlSquareSparkGap.h +
+      kPnlSquareSparkHeight.h +
+      // A pixel of slack for rounding.
+      2;
+  final least = kActivitySquareHeight.w;
+  return content > least ? content : least;
+}
+
+/// One venue under "By venue" on the Portfolio screen as a big square (the
+/// Positions squares' shape, position_rows.dart: the grouped card's
+/// ground, [kPnlSquarePad] padding, [pnlVenueSquareHeight] tall):
+///
+///   * the venue's logo ([kPortfolioSquareIcon]) top-left;
+///   * top-right the change in its colour: "▲ 12.3%" of [percentBaseUsd]
+///     where a real base is given (none today: a P&L series has no base of
+///     its own, so none is invented), else the arrow and the range the
+///     figure is over ("▲ Past month"), never the amount a second time;
+///   * the venue's name quiet (13) over where the money is (12, tertiary);
+///   * the venue's P&L over the hero's range ([pnlChartRangeProvider],
+///     [pnlRangeChange]: the line's end less the range's start, ALL the
+///     P&L now) ONCE, 22 sp w700 tabular, signed, in its colour;
+///   * its sparkline across the bottom ([PnlSparkline.wide]).
+///
+/// [quiet] (the venue's "No … yet") stands as the line under the name and
+/// leaves the figure, the change and the sparkline out. With balances
+/// hidden the figure is dots and nothing says which way it went. [onTap]
+/// (null: nothing to open) taps the whole square on the press spring.
+class PnlVenueSquare extends ConsumerWidget {
+  const PnlVenueSquare({
+    super.key,
+    required this.logoAsset,
+    required this.name,
+    required this.subtitle,
+    required this.data,
+    this.quiet,
+    this.percentBaseUsd,
+    this.onTap,
+    this.now,
+  });
+
+  final String logoAsset;
+  final String name;
+
+  /// Where the money is ("Polymarket").
+  final String subtitle;
+  final PortfolioPerformance data;
+
+  /// The venue's "No … yet": the line under the name, no figure.
+  final String? quiet;
+
+  /// What the change's percent is taken of; null (or not above zero)
+  /// writes the range instead. No provider gives one today.
+  final double? percentBaseUsd;
+  final VoidCallback? onTap;
+  final DateTime? now;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    final l10n = context.l10n;
+    final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
+    final range = ref.watch(pnlChartRangeProvider);
+    final quietText = quiet;
+    final List<double> values;
+    if (quietText == null) {
+      final series = pnlSeries(data, now ?? DateTime.now());
+      values = kuteTrendWindow(series, series.spanFor(range)).values;
+    } else {
+      values = const [];
+    }
+    final pnl = quietText == null ? pnlRangeChange(values, range) : null;
+    final tone = pnl == null || !visible
+        ? c.textSecondary
+        : pnl == 0
+            ? c.textSecondary
+            : pnlResultColor(c, pnl);
+
+    // The corner: the percent of a real base, else the range.
+    String? corner;
+    if (quietText == null && pnl != null) {
+      final base = percentBaseUsd;
+      final arrow = visible ? kuteTrendArrow(pnl) : '';
+      corner = visible && base != null && base > 0
+          ? '$arrow${kuteSignedPercent(pnl / base * 100).replaceFirst(RegExp(r'^[+−]'), '')}'
+          : '$arrow${kuteTrendPeriodLabel(l10n, range)}';
+    }
+
+    final quietStyle = TextStyle(
+      color: c.textSecondary,
+      fontSize: 13.sp,
+      fontWeight: FontWeight.w500,
+      letterSpacing: -0.1,
+      height: 1.25,
+    );
+    final decoration = PremiumGroupContainer.decorationOf(context);
+    final radius = decoration.borderRadius as BorderRadius?;
+    final icon = kPortfolioSquareIcon.w;
+    final spark = kPnlSquareSparkHeight.h;
+    return KutePressable(
+      enabled: onTap != null,
+      child: Container(
+        key: const ValueKey('pnl-venue-square'),
+        height: pnlVenueSquareHeight(context),
+        decoration: decoration,
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: radius,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: radius,
+            child: Padding(
+              padding: EdgeInsets.all(kPnlSquarePad.w),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox.square(
+                        dimension: icon,
+                        child: SvgPicture.asset(logoAsset,
+                            width: icon, height: icon, fit: BoxFit.contain),
+                      ),
+                      SizedBox(width: 8.w),
+                      if (corner != null)
+                        Expanded(
+                          child: Align(
+                            alignment: Alignment.topRight,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.topRight,
+                              child: Text(corner,
+                                  key: const ValueKey('pnl-venue-change'),
+                                  maxLines: 1,
+                                  style: quietStyle.copyWith(
+                                    color: tone,
+                                    fontWeight: FontWeight.w600,
+                                    height: 1.2,
+                                    fontFeatures: const [
+                                      FontFeature.tabularFigures()
+                                    ],
+                                  )),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const Spacer(),
+                  Text(name,
+                      key: const ValueKey('pnl-venue-name'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: quietStyle),
+                  SizedBox(height: 2.h),
+                  Text(quietText ?? subtitle,
+                      key: const ValueKey('pnl-venue-subtitle'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: quietStyle.copyWith(
+                          color: c.textTertiary, fontSize: 12.sp, height: 1.3)),
+                  if (quietText == null) ...[
+                    SizedBox(height: 4.h),
+                    // A figure too wide for the square shrinks rather than
+                    // overflow it.
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        pnl == null
+                            ? '—'
+                            : visible
+                                ? '${kuteChangeSign(pnl)}${formatPolyAmount(ref, pnl.abs())}'
+                                : '••••••',
+                        key: const ValueKey('pnl-venue-figure'),
+                        maxLines: 1,
+                        style: TextStyle(
+                          color: pnl == null || !visible
+                              ? c.textPrimary
+                              : pnlResultColor(c, pnl),
+                          fontSize: 22.sp,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.6,
+                          height: 1.2,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ),
+                  ] else
+                    // The figure's room, so a quiet square's words sit
+                    // level with its neighbour's.
+                    SizedBox(
+                        height: 4.h +
+                            MediaQuery.textScalerOf(context).scale(22.sp) *
+                                1.2),
+                  SizedBox(height: kPnlSquareSparkGap.h),
+                  if (values.length >= 2)
+                    PnlSparkline.wide(
+                        values: values,
+                        height: spark,
+                        color: visible
+                            ? pnlResultColor(c, values.last - values.first)
+                            : c.textTertiary)
+                  else
+                    SizedBox(height: spark),
+                ],
               ),
-            ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A stat tile's height: its label's line over the figure, at the
+/// viewer's text size.
+double pnlStatTileHeight(BuildContext context) {
+  final scaler = MediaQuery.textScalerOf(context);
+  return kPnlSquarePad.w * 2 +
+      scaler.scale(12.sp) * 1.3 +
+      8.h +
+      scaler.scale(20.sp) * 1.2 +
+      // A pixel of slack for rounding.
+      2;
+}
+
+/// The all-time stats under "All time" on the Portfolio screen as compact
+/// square tiles in ONE row ([pnlStats]: Realised, Unrealised, Win rate
+/// where counted), equal widths [kPnlSquareGap] apart: thirds for three,
+/// halves for two, one across for one, so never an orphan half tile. Each
+/// tile is the squares' ground ([PremiumGroupContainer], [kPnlSquarePad]):
+/// its label (12, textSecondary) at the top, its figure (20 w700 tabular,
+/// in its colour) at the bottom, each scaled down rather than cut.
+class PnlStatTiles extends ConsumerWidget {
+  const PnlStatTiles({super.key, required this.stats});
+
+  final PnlStatsFigures stats;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    final tiles = pnlStats(context, ref, stats, allTime: false);
+    if (tiles.isEmpty) return const SizedBox.shrink();
+    final height = pnlStatTileHeight(context);
+    final decoration = PremiumGroupContainer.decorationOf(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var i = 0; i < tiles.length; i++) ...[
+          if (i > 0) SizedBox(width: kPnlSquareGap.w),
+          Expanded(
+            child: Container(
+              key: ValueKey('statistics-pnl-stat-${tiles[i].id}'),
+              height: height,
+              padding: EdgeInsets.all(kPnlSquarePad.w),
+              decoration: decoration,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(tiles[i].label,
+                        maxLines: 1,
+                        style: TextStyle(
+                            color: c.textSecondary,
+                            fontSize: 12.sp,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: -0.1,
+                            height: 1.3)),
+                  ),
+                  const Spacer(),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(tiles[i].figure,
+                        maxLines: 1,
+                        style: TextStyle(
+                            color: tiles[i].color,
+                            fontSize: 20.sp,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.4,
+                            height: 1.2,
+                            fontFeatures: const [
+                              FontFeature.tabularFigures()
+                            ])),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ],
@@ -819,20 +1156,44 @@ class PnlVenueRow extends ConsumerWidget {
   }
 }
 
-/// A venue's P&L over the range, [kPnlSparklineSize]: the monotone line
-/// alone, 1.5 px in its result colour, no fill, no reference.
+/// A venue's P&L over the range, [kPnlSparklineSize] (a venue row's) or
+/// across the width it is given ([PnlSparkline.wide], a venue square's):
+/// the monotone line alone, 1.5 px in its result colour, no fill, no
+/// reference.
 class PnlSparkline extends StatelessWidget {
-  const PnlSparkline({super.key, required this.values, required this.color});
+  const PnlSparkline({super.key, required this.values, required this.color})
+      : height = null;
+
+  /// The whole width it is given, [height] (logical pixels) tall.
+  const PnlSparkline.wide(
+      {super.key,
+      required this.values,
+      required this.color,
+      required double this.height});
 
   final List<double> values;
   final Color color;
 
+  /// [PnlSparkline.wide]'s height; null: [kPnlSparklineSize].
+  final double? height;
+
   @override
-  Widget build(BuildContext context) => CustomPaint(
+  Widget build(BuildContext context) {
+    final tall = height;
+    final painter = _SparklinePainter(values, color);
+    if (tall == null) {
+      return CustomPaint(
         key: const ValueKey('pnl-sparkline'),
         size: Size(kPnlSparklineSize.width.w, kPnlSparklineSize.height.h),
-        painter: _SparklinePainter(values, color),
+        painter: painter,
       );
+    }
+    return SizedBox(
+      width: double.infinity,
+      height: tall,
+      child: CustomPaint(key: const ValueKey('pnl-sparkline'), painter: painter),
+    );
+  }
 }
 
 class _SparklinePainter extends CustomPainter {

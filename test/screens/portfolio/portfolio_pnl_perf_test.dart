@@ -221,7 +221,9 @@ const _heavy = [
   'PortfolioStatisticsOverview',
   'PnlBreakdown',
   'PnlVenueRow',
+  'PnlVenueSquare',
   'PnlStatsStrip',
+  'PnlStatTiles',
   'PortfolioBalanceBreakdown',
   'PortfolioActivitySection',
 ];

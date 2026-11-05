@@ -33,6 +33,9 @@ import 'package:kute/screens/shared/venue_deposit_button.dart'
     show venueMarkAsset;
 import 'package:kute/screens/shared/charts/kute_chart_format.dart'
     show kuteChangeSign;
+import 'package:kute/screens/shared/all_activity.dart'
+    show ActivitySquareGrid;
+import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
@@ -218,8 +221,10 @@ class PortfolioStatisticsOverview extends ConsumerStatefulWidget {
 
   /// False on the Portfolio screen, whose hero draws the one P&L chart
   /// (components/portfolio_hero.dart): the section is the venues' P&L and
-  /// the all-time stats without a chart of its own ([PnlBreakdown]), the
-  /// resting orders under them; the venue rows pick nothing.
+  /// the all-time stats without a chart of its own ([PnlBreakdown]: the
+  /// venues as big squares side by side, the stats as compact tiles in
+  /// one row), the resting orders under them as their rows (each keeps
+  /// its own Cancel); the venue squares pick nothing.
   final bool chart;
 
   /// The whole page when the account never traded, in place of the header
@@ -561,7 +566,8 @@ class _OverviewBody extends ConsumerWidget {
                 data: data,
                 quiet: quietVenues,
                 selected: null,
-                onPick: null),
+                onPick: null,
+                squares: true),
           )
         else
           Padding(
@@ -604,25 +610,40 @@ class _OverviewBody extends ConsumerWidget {
 
 /// The Portfolio screen's P&L while a read is on its way
 /// ([PortfolioStatisticsOverview.chart] false): "By venue" over two
-/// shimmer rows in the venue card's shape, at the section's first title.
+/// shimmer squares side by side in the venue squares' shape, at the
+/// section's first title.
 class _PnlBreakdownSkeleton extends StatelessWidget {
   const _PnlBreakdownSkeleton({super.key});
 
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: EdgeInsets.only(top: (kPortfolioSectionEmptyTop - 4).h),
-        child: KuteSkeleton(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SkeletonBar(72.w, 13.sp),
-              SizedBox(height: kBalancesTitleGap.h),
-              SkeletonBar(double.infinity, 136.h, radius: 20.r),
-            ],
-          ),
+  Widget build(BuildContext context) {
+    final height = pnlVenueSquareHeight(context);
+    final radius = PremiumGroupContainer.radius;
+    return Padding(
+      padding: EdgeInsets.only(top: (kPortfolioSectionEmptyTop - 4).h),
+      child: KuteSkeleton(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SkeletonBar(72.w, 13.sp),
+            SizedBox(height: kBalancesTitleGap.h),
+            Row(
+              children: [
+                Expanded(
+                    child:
+                        SkeletonBar(double.infinity, height, radius: radius)),
+                SizedBox(width: kPnlSquareGap.w),
+                Expanded(
+                    child:
+                        SkeletonBar(double.infinity, height, radius: radius)),
+              ],
+            ),
+          ],
         ),
-      );
+      ),
+    );
+  }
 }
 
 /// The share of a Predictions account's closed positions that made money,
@@ -653,13 +674,18 @@ BalancesCategory _categoryOf(PortfolioPerformanceVenue venue) =>
         ? BalancesCategory.predictions
         : BalancesCategory.investing;
 
-/// The venue rows under "By venue" (see [PortfolioStatisticsOverview]):
-/// one [PnlVenueRow] per venue in the Portfolio's row language, in ONE
-/// soft card ([PortfolioCardList], the home Activity list's, its inset
-/// hairline between rows), its P&L now (realised plus open, the venue's line's last
-/// point) right-aligned in its colour with its change and its sparkline,
-/// its "No … yet" with no history; a row tapped picks the
+/// The venues under "By venue" (see [PortfolioStatisticsOverview]): one
+/// [PnlVenueRow] per venue in the Portfolio's row language, in ONE soft
+/// card ([PortfolioCardList], the home Activity list's, its inset hairline
+/// between rows), its P&L now (realised plus open, the venue's line's
+/// last point) right-aligned in its colour with its change and its
+/// sparkline, its "No … yet" with no history; a row tapped picks the
 /// series the chart draws ([onPick]), the other row dimmed.
+///
+/// [squares] (the Portfolio screen's P&L section, founder 5 November
+/// 2026: "here should be square cards"): one [PnlVenueSquare] per venue
+/// instead, two side by side (ActivitySquareGrid, the Positions squares'
+/// grid), one alone across the whole width.
 class _PnlVenues extends StatelessWidget {
   const _PnlVenues({
     required this.listed,
@@ -667,7 +693,11 @@ class _PnlVenues extends StatelessWidget {
     required this.quiet,
     required this.selected,
     required this.onPick,
+    this.squares = false,
   });
+
+  /// The venues as big squares (see above).
+  final bool squares;
 
   /// The venues read, in Balances' order.
   final List<PortfolioPerformanceVenue> listed;
@@ -686,20 +716,46 @@ class _PnlVenues extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final now = DateTime.now();
+    String logoOf(PortfolioPerformanceVenue v) => venueMarkAsset(
+        v == PortfolioPerformanceVenue.predictions
+            ? InvestmentsProduct.predictions
+            : InvestmentsProduct.trading);
+    // Where the money is: the venue's own name.
+    String whereOf(PortfolioPerformanceVenue v) =>
+        v == PortfolioPerformanceVenue.predictions
+            ? 'Polymarket'
+            : 'Hyperliquid';
+    if (squares) {
+      final tiles = [
+        for (final v in listed)
+          PnlVenueSquare(
+            key: ValueKey('pnl-venue-${_categoryOf(v).name}'),
+            logoAsset: logoOf(v),
+            name: _venueName(l10n, v),
+            subtitle: whereOf(v),
+            data: data[v]!,
+            now: now,
+            quiet: quiet.contains(v)
+                ? _quietText(l10n, v, StatisticsScope.historic)
+                : null,
+          ),
+      ];
+      return KeyedSubtree(
+        key: const ValueKey('statistics-figures'),
+        child: tiles.length == 1
+            ? tiles.single
+            : ActivitySquareGrid(children: tiles),
+      );
+    }
     Widget venue(PortfolioPerformanceVenue v) {
       final perf = data[v]!;
       final name = _categoryOf(v).name;
       final pick = onPick;
       final row = PnlVenueRow(
         key: ValueKey('pnl-venue-$name'),
-        logoAsset: venueMarkAsset(v == PortfolioPerformanceVenue.predictions
-            ? InvestmentsProduct.predictions
-            : InvestmentsProduct.trading),
+        logoAsset: logoOf(v),
         name: _venueName(l10n, v),
-        // Where the money is: the venue's own name.
-        subtitle: v == PortfolioPerformanceVenue.predictions
-            ? 'Polymarket'
-            : 'Hyperliquid',
+        subtitle: whereOf(v),
         data: perf,
         now: now,
         // The line's last point (pnlSeries ends on it), without laying

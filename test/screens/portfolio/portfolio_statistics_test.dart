@@ -29,6 +29,7 @@ import 'package:kute/screens/portfolio/portfolio_figure_tiles.dart';
 import 'package:kute/screens/portfolio/poly_position_events.dart'
     show polyEventsBatchFetchProvider, polyFeedCacheLookupProvider;
 import 'package:kute/screens/portfolio/portfolio_statistics.dart';
+import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/screens/shared/charts/kute_donut_chart.dart';
 import 'package:kute/screens/shared/charts/kute_trend_chart.dart';
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
@@ -1900,6 +1901,433 @@ void main() {
       }
       expect(tester.takeException(), isNull);
     });
+  });
+
+  // The Portfolio screen's P&L section as squares (founder, 5 November
+  // 2026: "here should be square cards"; PnlBreakdown,
+  // portfolio_pnl_chart.dart): "By venue" two big squares side by side in
+  // the Positions squares' style, "All time" compact tiles in one row.
+  group('the Portfolio screen\'s P&L as squares', () {
+    // Design units at 390 pt.
+    double u(double v) => v * 390 / 430;
+    final gutter = u(16);
+
+    Future<void> pumpSquares(WidgetTester tester,
+            {bool trading = true,
+            bool predictions = true,
+            bool noPredictions = false,
+            bool hidden = false,
+            double textScale = 1,
+            Size size = const Size(390, 844)}) =>
+        _pump(tester,
+            predictions: true,
+            noPredictions: noPredictions,
+            hidden: hidden,
+            scope: StatisticsScope.active,
+            textScale: textScale,
+            size: size,
+            home: SingleChildScrollView(
+              child: PortfolioStatisticsOverview(
+                  trading: trading,
+                  predictions: predictions,
+                  boxed: true,
+                  chart: false,
+                  endClearance: 0),
+            ));
+
+    void expectSameSize(Size a, Size b) {
+      expect(a.width, closeTo(b.width, 0.01));
+      expect(a.height, closeTo(b.height, 0.01));
+    }
+
+    Finder square(String venue) => find.byKey(ValueKey('pnl-venue-$venue'));
+    Finder inSquare(String venue, Finder f) =>
+        find.descendant(of: square(venue), matching: f);
+    Finder tile(String id) => find.byKey(ValueKey('statistics-pnl-stat-$id'));
+    Text text(WidgetTester tester, Finder f) => tester.widget<Text>(f);
+    String figure(WidgetTester tester, String venue) => text(tester,
+            inSquare(venue, find.byKey(const ValueKey('pnl-venue-figure'))))
+        .data!;
+    String corner(WidgetTester tester, String venue) => text(tester,
+            inSquare(venue, find.byKey(const ValueKey('pnl-venue-change'))))
+        .data!;
+    String tileFigure(WidgetTester tester, String id) => tester
+        .widgetList<Text>(
+            find.descendant(of: tile(id), matching: find.byType(Text)))
+        .last
+        .data!;
+
+    Future<void> range(WidgetTester tester, BalanceRange r) async {
+      ProviderScope.containerOf(tester.element(square('predictions')))
+          .read(pnlChartRangeProvider.notifier)
+          .state = r;
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets(
+        '"By venue": two big squares side by side in the squares\' style '
+        '(logo top-left, the change top-right in its colour, the name over '
+        'where the money is, the P&L over the range ONCE, the sparkline '
+        'across the bottom); no list card, no venue row, nothing to tap',
+        (tester) async {
+      await pumpSquares(tester);
+      expect(find.byType(PnlVenueSquare), findsNWidgets(2));
+      expect(find.byType(PnlVenueRow), findsNothing);
+      expect(find.byType(PortfolioCardList), findsNothing);
+      expect(find.byType(PnlStatsStrip), findsNothing);
+      final left = tester.getRect(square('predictions'));
+      final right = tester.getRect(square('investing'));
+      // Side by side, Predictions first, the same size, 10 apart, on the
+      // page's gutters.
+      expect(left.top, right.top);
+      expectSameSize(left.size, right.size);
+      expect(left.left, closeTo(gutter, 0.5));
+      expect(right.right, closeTo(390 - gutter, 0.5));
+      expect(right.left - left.right, closeTo(u(10), 0.5));
+      // As tall as its content (about as tall as it is wide).
+      expect(left.height, greaterThanOrEqualTo(u(140)));
+      expect(left.height / left.width, closeTo(1, 0.15));
+      // The squares' ground (the Positions squares').
+      final box = tester.widget<Container>(
+          inSquare('predictions', find.byKey(const ValueKey('pnl-venue-square'))));
+      expect(
+          box.decoration,
+          PremiumGroupContainer.decorationOf(
+              tester.element(square('predictions'))));
+
+      for (final v in ['predictions', 'investing']) {
+        final r = tester.getRect(square(v));
+        final pad = u(14);
+        final logo = tester.getRect(inSquare(v, find.byType(SvgPicture)));
+        expect(logo.size.width, closeTo(u(40), 0.5));
+        expect(logo.topLeft.dx, closeTo(r.left + pad, 0.5));
+        expect(logo.topLeft.dy, closeTo(r.top + pad, 0.5));
+        final change = tester.getRect(
+            inSquare(v, find.byKey(const ValueKey('pnl-venue-change'))));
+        expect(change.right, closeTo(r.right - pad, 0.5));
+        expect(change.top, closeTo(r.top + pad, 1));
+        final amount = tester.getRect(
+            inSquare(v, find.byKey(const ValueKey('pnl-venue-figure'))));
+        final name = tester.getRect(
+            inSquare(v, find.byKey(const ValueKey('pnl-venue-name'))));
+        final sub = tester.getRect(
+            inSquare(v, find.byKey(const ValueKey('pnl-venue-subtitle'))));
+        final spark = tester.getRect(
+            inSquare(v, find.byKey(const ValueKey('pnl-sparkline'))));
+        // Top down: the logo, the name, where the money is, the P&L, the
+        // sparkline across the bottom.
+        expect(name.top, greaterThan(logo.bottom));
+        expect(sub.top, greaterThanOrEqualTo(name.bottom - 0.5));
+        expect(amount.top, greaterThanOrEqualTo(sub.bottom - 0.5));
+        expect(spark.top, greaterThan(amount.bottom));
+        expect(spark.left, closeTo(r.left + pad, 0.5));
+        expect(spark.right, closeTo(r.right - pad, 0.5));
+        expect(spark.bottom, closeTo(r.bottom - pad, 1));
+        // The amount once: the only money written in the square.
+        expect(inSquare(v, find.textContaining(r'$')), findsOneWidget);
+        // Nothing to tap (the P&L section's venues chart nothing).
+        expect(tester.widget<InkWell>(inSquare(v, find.byType(InkWell))).onTap,
+            isNull);
+      }
+      expect(text(tester, inSquare('predictions', find.text('Predictions'))),
+          isNotNull);
+      expect(
+          text(tester,
+                  inSquare('predictions', find.byKey(const ValueKey('pnl-venue-subtitle'))))
+              .data,
+          'Polymarket');
+      expect(
+          text(tester,
+                  inSquare('investing', find.byKey(const ValueKey('pnl-venue-subtitle'))))
+              .data,
+          'Hyperliquid');
+      // The P&L over the month (each −5 a month ago): +21 and +20, in the
+      // up colour, 22 w700 tabular; the corner says which way and over
+      // what, never the amount again.
+      expect(figure(tester, 'predictions'), r'+$21.00');
+      expect(figure(tester, 'investing'), r'+$20.00');
+      final style = text(tester,
+              inSquare('investing', find.byKey(const ValueKey('pnl-venue-figure'))))
+          .style!;
+      expect(style.color, AppColors.marketUp);
+      expect(style.fontSize, closeTo(u(22), 0.01));
+      expect(style.fontWeight, FontWeight.w700);
+      expect(style.fontFeatures, contains(const FontFeature.tabularFigures()));
+      expect(corner(tester, 'predictions'), '▲ Past month');
+      expect(
+          text(tester,
+                  inSquare('predictions', find.byKey(const ValueKey('pnl-venue-change'))))
+              .style!
+              .color,
+          AppColors.marketUp);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        '"All time": Realised and Unrealised as two compact tiles in one row '
+        '(halves, no Win rate with Investing in the account), under the '
+        'squares, on the gutters, the same height', (tester) async {
+      await pumpSquares(tester);
+      final allTime = find.byKey(const ValueKey('statistics-pnl-all-time'));
+      expect(text(tester, allTime).data, 'All time');
+      expect(tileFigure(tester, 'realised'), r'+$14.00');
+      expect(tileFigure(tester, 'unrealised'), r'+$15.00');
+      expect(tile('win-rate'), findsNothing);
+      final realised = tester.getRect(tile('realised'));
+      final unrealised = tester.getRect(tile('unrealised'));
+      expect(tester.getRect(allTime).top,
+          greaterThan(tester.getRect(square('predictions')).bottom));
+      expect(realised.top, greaterThan(tester.getRect(allTime).bottom));
+      expect(realised.top, unrealised.top);
+      expectSameSize(realised.size, unrealised.size);
+      expect(realised.left, closeTo(gutter, 0.5));
+      expect(unrealised.right, closeTo(390 - gutter, 0.5));
+      expect(unrealised.left - realised.right, closeTo(u(10), 0.5));
+      // Compact: shorter than the squares.
+      expect(realised.height,
+          lessThan(tester.getRect(square('predictions')).height * 0.7));
+      final label = tester.widget<Text>(
+          find.descendant(of: tile('realised'), matching: find.text('Realised')));
+      expect(label.style!.color, AppColorsExtension.light().textSecondary);
+      final figureStyle = tester
+          .widgetList<Text>(
+              find.descendant(of: tile('realised'), matching: find.byType(Text)))
+          .last
+          .style!;
+      expect(figureStyle.color, AppColors.marketUp);
+      expect(figureStyle.fontWeight, FontWeight.w700);
+      expect(
+          figureStyle.fontFeatures, contains(const FontFeature.tabularFigures()));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'the range picked moves each square\'s P&L and its corner; ALL is '
+        'the P&L now; the all-time tiles stay', (tester) async {
+      await pumpSquares(tester);
+      await range(tester, BalanceRange.all);
+      expect(figure(tester, 'predictions'), r'+$16.00');
+      expect(figure(tester, 'investing'), r'+$15.00');
+      expect(corner(tester, 'investing'), '▲ All time');
+      await range(tester, BalanceRange.week);
+      expect(corner(tester, 'investing'), endsWith('Past week'));
+      expect(tileFigure(tester, 'realised'), r'+$14.00');
+      for (final v in ['predictions', 'investing']) {
+        expect(inSquare(v, find.textContaining(r'$')), findsOneWidget);
+      }
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'a loss: the figure and the corner in the down colour, the arrow '
+        'down, the sparkline red', (tester) async {
+      final now = DateTime.now().toUtc();
+      await _pump(tester,
+          home: Center(
+            child: SizedBox(
+              width: 180,
+              child: PnlVenueSquare(
+                logoAsset: 'lib/assets/hyperliquid-logo.svg',
+                name: 'Investing',
+                subtitle: 'Hyperliquid',
+                data: PortfolioPerformance(
+                    points: [
+                      PortfolioPnlPoint(
+                          timestamp: now.subtract(const Duration(days: 40)),
+                          pnlUsd: 5),
+                      PortfolioPnlPoint(
+                          timestamp: now.subtract(const Duration(days: 2)),
+                          pnlUsd: -3),
+                    ],
+                    totalPnlUsd: -3,
+                    sourceLabel: 'Hyperliquid',
+                    basisLabel: 'P&L',
+                    coverageLabel: 'All time'),
+              ),
+            ),
+          ));
+      final amount =
+          tester.widget<Text>(find.byKey(const ValueKey('pnl-venue-figure')));
+      expect(amount.data, '−\$8.00');
+      expect(amount.style!.color, AppColors.marketDown);
+      final change =
+          tester.widget<Text>(find.byKey(const ValueKey('pnl-venue-change')));
+      expect(change.data, '▼ Past month');
+      expect(change.style!.color, AppColors.marketDown);
+      expect(
+          tester
+              .widget<PnlSparkline>(find.byType(PnlSparkline))
+              .color,
+          AppColors.marketDown);
+      expect(find.textContaining(r'$'), findsOneWidget);
+    });
+
+    testWidgets(
+        'Predictions alone: one square across the whole width, three tiles '
+        'in thirds with its Win rate', (tester) async {
+      await pumpSquares(tester, trading: false);
+      expect(find.byType(PnlVenueSquare), findsOneWidget);
+      final r = tester.getRect(square('predictions'));
+      expect(r.left, closeTo(gutter, 0.5));
+      expect(r.right, closeTo(390 - gutter, 0.5));
+      expect(tileFigure(tester, 'win-rate'), '50%');
+      final rects = [
+        for (final id in ['realised', 'unrealised', 'win-rate'])
+          tester.getRect(tile(id))
+      ];
+      expect(rects.first.left, closeTo(gutter, 0.5));
+      expect(rects.last.right, closeTo(390 - gutter, 0.5));
+      for (final t in rects) {
+        expect(t.top, rects.first.top);
+        expect(t.width, closeTo(rects.first.width, 0.01));
+      }
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'a venue without history: its square says so under its name, no '
+        'figure, no corner, no sparkline; its words level with its '
+        'neighbour\'s', (tester) async {
+      await pumpSquares(tester, noPredictions: true);
+      expect(
+          text(tester,
+                  inSquare('predictions', find.byKey(const ValueKey('pnl-venue-subtitle'))))
+              .data,
+          'No predictions yet');
+      for (final key in ['pnl-venue-figure', 'pnl-venue-change', 'pnl-sparkline']) {
+        expect(inSquare('predictions', find.byKey(ValueKey(key))), findsNothing,
+            reason: key);
+      }
+      expectSameSize(tester.getRect(square('predictions')).size,
+          tester.getRect(square('investing')).size);
+      expect(
+          tester
+              .getRect(inSquare(
+                  'predictions', find.byKey(const ValueKey('pnl-venue-name'))))
+              .top,
+          closeTo(
+              tester
+                  .getRect(inSquare(
+                      'investing', find.byKey(const ValueKey('pnl-venue-name'))))
+                  .top,
+              0.5));
+      expect(figure(tester, 'investing'), r'+$20.00');
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'hidden balances: dots, no arrow and nothing coloured, the range '
+        'still named', (tester) async {
+      await pumpSquares(tester, hidden: true);
+      for (final v in ['predictions', 'investing']) {
+        expect(figure(tester, v), '••••••');
+        expect(corner(tester, v), 'Past month');
+        expect(
+            text(tester,
+                    inSquare(v, find.byKey(const ValueKey('pnl-venue-change'))))
+                .style!
+                .color,
+            AppColorsExtension.light().textSecondary);
+      }
+      expect(tileFigure(tester, 'realised'), '••••••');
+      expect(find.textContaining(r'$'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'a real base writes the percent in the corner, the amount still '
+        'once', (tester) async {
+      await _pump(tester,
+          home: Center(
+            child: SizedBox(
+              width: 180,
+              child: PnlVenueSquare(
+                logoAsset: 'lib/assets/hyperliquid-logo.svg',
+                name: 'Investing',
+                subtitle: 'Hyperliquid',
+                data: _tradingHistory(),
+                percentBaseUsd: 80,
+              ),
+            ),
+          ));
+      // The month: −5 to 15, +20 of 80.
+      expect(find.text('▲ 25.0%'), findsOneWidget);
+      expect(find.text(r'+$20.00'), findsOneWidget);
+      expect(find.textContaining(r'$'), findsOneWidget);
+    });
+
+    testWidgets(
+        'on its way: "By venue" over two shimmer squares side by side at the '
+        'squares\' height, never a blank frame', (tester) async {
+      await _pump(tester,
+          settle: false,
+          scope: StatisticsScope.active,
+          overrides: [
+            portfolioPerformanceProvider(const PortfolioPerformanceRequest(
+                    venue: PortfolioPerformanceVenue.predictions))
+                .overrideWith(
+                    (_) => Completer<PortfolioPerformance>().future),
+          ],
+          home: const SingleChildScrollView(
+            child: PortfolioStatisticsOverview(
+                trading: true,
+                predictions: true,
+                boxed: true,
+                chart: false,
+                endClearance: 0),
+          ));
+      final loading =
+          find.byKey(const ValueKey('portfolio-performance-loading'));
+      expect(loading, findsOneWidget);
+      final bones = find.descendant(
+          of: loading,
+          matching: find.byWidgetPredicate(
+              (w) => w is SkeletonBar && w.width == double.infinity));
+      expect(bones, findsNWidgets(2));
+      final a = tester.getRect(bones.at(0));
+      final b = tester.getRect(bones.at(1));
+      expect(a.top, b.top);
+      expect(a.width, closeTo(b.width, 0.01));
+      expect(b.left - a.right, closeTo(u(10), 0.5));
+      expect(a.left, closeTo(gutter, 0.5));
+      expect(b.right, closeTo(390 - gutter, 0.5));
+      expect(
+          a.height,
+          closeTo(
+              pnlVenueSquareHeight(tester.element(loading)), 0.01));
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    for (final width in [390.0, 375.0]) {
+      testWidgets(
+          '${width.round()} pt at 130 % text: every figure whole inside its '
+          'square and tile', (tester) async {
+        await pumpSquares(tester,
+            size: Size(width, 900), textScale: 1.3);
+        expect(tester.takeException(), isNull);
+        final pad = 14 * width / 430;
+        for (final block in [
+          square('predictions'),
+          square('investing'),
+          tile('realised'),
+          tile('unrealised'),
+        ]) {
+          final r = tester.getRect(block);
+          for (final e in find
+              .descendant(of: block, matching: find.byType(Text))
+              .evaluate()) {
+            final t = tester.getRect(find.byWidget(e.widget));
+            expect(t.left, greaterThanOrEqualTo(r.left + pad - 0.5),
+                reason: (e.widget as Text).data);
+            expect(t.right, lessThanOrEqualTo(r.right - pad + 0.5),
+                reason: (e.widget as Text).data);
+            expect(t.bottom, lessThanOrEqualTo(r.bottom - pad + 0.5),
+                reason: (e.widget as Text).data);
+          }
+        }
+      });
+    }
   });
 }
 
