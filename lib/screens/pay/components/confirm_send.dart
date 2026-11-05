@@ -98,6 +98,7 @@ import 'package:kute/screens/shared/powered_by_badge.dart';
 import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart';
 import 'package:kute/screens/shared/send/send_contacts_list.dart';
+import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/shared/send/send_recipient_step.dart';
 import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/services/contacts/send_contacts_service.dart'
@@ -7803,17 +7804,25 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     if (created == true && mounted) _closeAndReset();
   }
 
-  /// The cross-chain row of the Send to card. AT REST IT IS A STATEMENT,
-  /// not a mode: "Also sends to" with the coins this money can land as,
-  /// exactly as the receive screen says what its address accepts. The
-  /// three working states are untouched: an address we cannot identify,
-  /// an address that still needs a network, and a destination already
-  /// chosen, all of which have something specific to say in the row.
+  /// The cross-chain option of the Send to step. AT REST IT IS A
+  /// STATEMENT, not a mode: "Also sends to" with the coins this money can
+  /// land as, exactly as the receive screen says what its address
+  /// accepts. The working states keep their words: an address we cannot
+  /// identify, an address that still needs a network, and a destination
+  /// already chosen, all of which have something specific to say.
+  ///
+  /// AS A SQUARE (founder, 5 November 2026: "I think these should be cards
+  /// like squares, also in Bitcoin"): the option is the app's big card
+  /// (kute_action_cards.dart), the only one on a bitcoin send, so full
+  /// width (KuteActionCardGrid's one card; no half card alone). An address
+  /// that still needs a network stays the emphasized row: it is the one
+  /// forward path, a question rather than an option, and its border says
+  /// so.
   ///
   /// Hardware / watch-only sources get none of this: cross-chain sends
   /// are Orchestra deliveries from the Spark hot wallet, so cold
   /// wallets are bitcoin-on-chain-only (models/account.dart `canSwap`).
-  Widget _crossChainRow(AppColorsExtension c, String addr) {
+  Widget _crossChainOption(AppColorsExtension c, String addr) {
     final detected = _detectAddressType(addr);
     final isNativeBtcRail = detected.label == 'Bitcoin on-chain' ||
         detected.label == 'Lightning invoice' ||
@@ -7860,18 +7869,42 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
           _sendDestPickerRow(o),
     ]);
     final atRest = !hasSelection && !needsPick;
-    if (atRest && groups.isNotEmpty) {
-      return SendAlsoSendsToRow(groups: groups, onTap: open);
+    if (needsPick) {
+      return _SendToListCard(
+        colors: c,
+        // Attention reads through the border weight and copy, never an
+        // accent wash. The Continue gate is inactive while a pick is
+        // pending, so this row is the only forward path.
+        emphasized: true,
+        rows: [
+          _SendToListRow(
+            colors: c,
+            leading: Icon(Icons.swap_horiz_rounded,
+                color: c.textSecondary, size: 20.sp),
+            title: otherTitle,
+            subtitle: otherSubtitle,
+            onTap: open,
+          ),
+        ],
+      );
     }
-    return _SendToListRow(
-      colors: c,
-      leading: hasSelection
-          ? _selectedDestAsset!.iconWidget(size: 28.sp)
-          : Icon(Icons.swap_horiz_rounded, color: c.textSecondary, size: 20.sp),
-      title: otherTitle,
-      subtitle: otherSubtitle,
-      onTap: open,
-    );
+    final KuteActionCard card;
+    if (atRest && groups.isNotEmpty) {
+      card = sendAlsoSendsToCard(context.l10n, groups: groups, onTap: open);
+    } else {
+      card = KuteActionCard(
+        key: const ValueKey('send-to-coin-card'),
+        visual: hasSelection
+            ? _selectedDestAsset!.iconWidget(size: kKuteActionCardVisualSize.sp)
+            : Icon(Icons.swap_horiz_rounded,
+                color: c.textPrimary, size: 28.sp),
+        title: otherTitle,
+        subtitle: otherSubtitle.isEmpty ? null : otherSubtitle,
+        onTap: open,
+      );
+    }
+    return KuteActionCardGrid(
+        key: const ValueKey('send-to-options'), cards: [card]);
   }
 
   /// Whether [addr] still needs a network pick (a 0x… or base58 address
@@ -8109,16 +8142,10 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
                     )
                   : null,
             ),
-            _SendToListCard(
-              colors: c,
-              // Attention reads through the border weight and copy, never
-              // an accent wash. The Continue gate is inactive while a pick
-              // is pending, so this card is the only forward path.
-              emphasized: needsPick,
-              rows: [
-                if (hot) _crossChainRow(c, looksLikeAddress ? addr : ''),
-              ],
-            ),
+            if (hot)
+              _crossChainOption(c, looksLikeAddress ? addr : '')
+            else
+              _SendToListCard(colors: c, emphasized: needsPick, rows: const []),
           ],
           // No "To a friend · Send to anyone" card on a bitcoin send
           // (founder, 5 November 2026): a contact or a phone number typed
