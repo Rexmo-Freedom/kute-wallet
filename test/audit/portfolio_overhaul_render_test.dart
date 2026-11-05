@@ -7,7 +7,9 @@
 // theme and Inter; and the P&L section's squares (founder, 5 November
 // 2026: "here should be square cards") with Predictions alone, with
 // balances hidden, with a venue that never traded, and at 375 pt with
-// 130 % text. Writes PNGs.
+// 130 % text; a venue square picked (the hero showing it alone, mid-way and
+// settled) and the Positions hero (the open P&L, the chart folding away,
+// mid-way and settled). Writes PNGs.
 //
 // Not part of the normal suite; it only runs when asked:
 //
@@ -461,6 +463,44 @@ void main() {
         await _png(
             tester, 'portfolio_pnl_${name}_${dark ? 'dark' : 'light'}');
       }
+    }
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets(
+      'a venue square picked on P&L (the hero follows), the Positions hero '
+      '(open P&L, no chart), light and dark', (tester) async {
+    tester.view.devicePixelRatio = _dpr;
+    tester.view.physicalSize = _size * _dpr;
+    addTearDown(tester.view.reset);
+    for (final dark in [false, true]) {
+      final tone = dark ? 'dark' : 'light';
+      for (final venue in ['predictions', 'investing']) {
+        await _mount(tester,
+            dark: dark, section: PortfolioSection.charts, overrides: _full());
+        await tester.tap(find.byKey(ValueKey('pnl-venue-$venue')));
+        // Mid-way: the line morphing, the outline easing in.
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 90));
+        await _png(tester, 'portfolio_pick_${venue}_mid_$tone');
+        await _settle(tester);
+        await _png(tester, 'portfolio_pick_${venue}_$tone');
+      }
+      await _mount(tester,
+          dark: dark, section: PortfolioSection.balances, overrides: _full());
+      await _png(tester, 'portfolio_positions_open_$tone');
+      // From P&L to Positions: the chart folding away, mid-way.
+      await _mount(tester,
+          dark: dark, section: PortfolioSection.charts, overrides: _full());
+      await tester
+          .tap(find.byKey(const ValueKey('portfolio-section-pill-balances')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 120));
+      await _png(tester, 'portfolio_positions_fold_mid_$tone');
+      await _settle(tester);
+      await _png(tester, 'portfolio_positions_fold_end_$tone');
     }
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());

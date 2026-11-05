@@ -11630,6 +11630,9 @@ class AppLocalizationsEl extends AppLocalizations {
   String get pnlByVenue => 'By venue';
 
   @override
+  String get portfolioPnlAllVenues => 'Όλα';
+
+  @override
   String get pnlStatRealised => 'Realised';
 
   @override

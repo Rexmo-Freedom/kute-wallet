@@ -84,6 +84,45 @@ List<Override> _history() {
   ];
 }
 
+/// [_history] with Predictions' book (one prediction closed for +$7.61),
+/// so its venue square has figures and can be picked.
+List<Override> _historyBooked() {
+  final now = DateTime.now().toUtc();
+  return [
+    _history().first,
+    portfolioPerformanceProvider(const PortfolioPerformanceRequest(
+            venue: PortfolioPerformanceVenue.predictions))
+        .overrideWith((_) async => PortfolioPerformance(
+                points: [
+                  for (final (days, pnl) in [(45, 0.0), (20, 2.5), (2, 7.61)])
+                    PortfolioPnlPoint(
+                        timestamp: now.subtract(Duration(days: days)),
+                        pnlUsd: pnl)
+                ],
+                totalPnlUsd: 7.61,
+                asOf: now.subtract(const Duration(days: 2)),
+                sourceLabel: 'Polymarket',
+                basisLabel: 'P&L',
+                coverageLabel: 'All time')
+            .withPredictions(PredictionsBook(records: [
+              PredictionRecord(
+                tokenId: 'won',
+                open: false,
+                redeemable: false,
+                size: 0,
+                totalSize: 20,
+                avgPrice: 0.4,
+                entryCostUsd: 0,
+                currentPrice: 1,
+                realizedPnlUsd: 7.61,
+                unrealizedPnlUsd: 0,
+                firstEntryAt: now.subtract(const Duration(days: 40)),
+                lastEventAt: now.subtract(const Duration(days: 2)),
+              ),
+            ]))),
+  ];
+}
+
 /// Nothing ever traded at either venue.
 List<Override> _none() => [
       for (final v in PortfolioPerformanceVenue.values)
@@ -262,6 +301,46 @@ void main() {
         [
           {'kind': 'portfolio', 'card': 'pnl', 'range': '1Y'}
         ]);
+    await _unmount(tester);
+  });
+
+  testWidgets(
+      'a venue square picked: "Share P&L" opens that venue\'s card, its P&L '
+      'the hero\'s; P&L left and opened again, both venues\' card',
+      (tester) async {
+    await _mount(tester, extra: _historyBooked());
+    await _pick(tester, PortfolioSection.charts);
+    await _settle(tester);
+    await tester.tap(find.byKey(const ValueKey('pnl-venue-predictions')));
+    await _settle(tester);
+    // "Predictions · ▲ $X · Past month": the venue's P&L over the month.
+    final parts = tester
+        .widget<Text>(find.byKey(const ValueKey('portfolio-hero-change')))
+        .textSpan!
+        .toPlainText()
+        .split(' · ');
+    expect(parts.first, 'Predictions');
+    final headline = parts[1];
+
+    await tester.tap(kuteBarPrimary);
+    await _settle(tester);
+    var card = tester.widget<PnlShareCard>(find.byType(PnlShareCard));
+    expect(card.data.venue, PortfolioPerformanceVenue.predictions);
+    expect(card.data.range, BalanceRange.month);
+    expect(card.data.result!.text.replaceAll(RegExp(r'[^\d.,]'), ''),
+        headline.replaceAll(RegExp(r'[^\d.,]'), ''));
+    Navigator.of(tester.element(find.byType(PnlShareCard))).pop();
+    await _settle(tester);
+
+    // Away from P&L and back: the pick is gone, the card is both venues'.
+    await _pick(tester, PortfolioSection.activity);
+    await _settle(tester);
+    await _pick(tester, PortfolioSection.charts);
+    await _settle(tester);
+    await tester.tap(kuteBarPrimary);
+    await _settle(tester);
+    card = tester.widget<PnlShareCard>(find.byType(PnlShareCard));
+    expect(card.data.venue, isNull);
     await _unmount(tester);
   });
 }

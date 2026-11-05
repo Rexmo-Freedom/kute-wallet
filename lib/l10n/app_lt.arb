@@ -3310,6 +3310,7 @@
   "sendDollarsCaption": "$ · stocks · ₿",
   "buyDollarsAction": "Pirkti dolerių",
   "pnlByVenue": "By venue",
+  "portfolioPnlAllVenues": "Viskas",
   "pnlStatRealised": "Realised",
   "pnlStatUnrealised": "Unrealised",
   "pnlStatRealisedAllTime": "All time realised",

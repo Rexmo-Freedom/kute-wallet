@@ -3,10 +3,11 @@
 // overhaul of 4 November 2026 the one chart is the hero's and the P&L
 // section lists the venues). Six months of history at both venues
 // (Investing every six hours, Predictions daily with a 200-position
-// book): the time to the first chart (the screen's first frame), the P&L
-// section's first frame, a range switch, a scrub frame and a live price
-// tick, and how many P&L grids ([pnlSeries], up to 20,000 points each)
-// each of them lays. The numbers are printed (`PNL_PERF …`) and held to
+// book): the screen's first frames on Positions (whose hero draws no
+// chart: no grid), the P&L section's first frame, a range switch, a scrub
+// frame, a venue square picked and a scrub on it, and a live price tick,
+// and how many P&L grids ([pnlSeries], up to 20,000 points each) each of
+// them lays. The numbers are printed (`PNL_PERF …`) and held to
 // budgets well above what the screen needs now, so a regression to
 // per-frame recomputation fails.
 
@@ -235,11 +236,13 @@ void main() {
   testWidgets('P&L: first chart, the section, range switch, scrub, live tick',
       (tester) async {
     final firstGrids = await _mount(tester);
-    // The hero's chart is on screen from the first frames, whatever the
-    // section.
-    expect(find.byKey(const ValueKey('portfolio-hero-chart')), findsOneWidget);
+    // Positions: the hero reads the positions open now, no chart, so no
+    // P&L grid is laid for it.
+    expect(find.byKey(const ValueKey('portfolio-hero-chart')), findsNothing);
+    expect(firstGrids, 0);
 
-    // The P&L section: the pill tapped, one frame (its venue rows).
+    // The P&L section: the pill tapped, one frame (its venue squares, the
+    // hero's series); the hero's chart unfolds over the next frames.
     await tester
         .tap(find.byKey(const ValueKey('portfolio-section-pill-charts')));
     final first = await _frame(tester, () => tester.pump());
@@ -247,6 +250,7 @@ void main() {
     for (var i = 0; i < 10; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
+    expect(find.byKey(const ValueKey('portfolio-hero-chart')), findsOneWidget);
 
     // A range switch: 1Y tapped, one frame.
     await tester.tap(find.text('1Y'));
@@ -303,6 +307,36 @@ void main() {
     await gesture.up();
     await tester.pump(const Duration(milliseconds: 100));
 
+    // A venue square picked: one frame lays its series once; a scrub on it
+    // is as light as on both.
+    final pick = await _frame(tester, () async {
+      await tester.tap(find.byKey(const ValueKey('pnl-venue-predictions')));
+      await tester.pump();
+    });
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    final venueGesture =
+        await tester.startGesture(Offset(box.left + 10, box.center.dy));
+    await tester.pump(const Duration(milliseconds: 16));
+    await venueGesture.moveBy(const Offset(30, 0));
+    await tester.pump(const Duration(milliseconds: 16));
+    var venueScrubGrids = 0;
+    var venueScrubHeavy = 0;
+    for (var i = 0; i < 20; i++) {
+      await venueGesture.moveBy(Offset(step, 0));
+      final f = await _frame(
+          tester, () => tester.pump(const Duration(milliseconds: 16)));
+      venueScrubGrids += f.grids;
+      venueScrubHeavy += _heavyBuilt(f.built);
+    }
+    await venueGesture.up();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(pick.grids, lessThanOrEqualTo(6), reason: 'grids on a pick');
+    expect(venueScrubGrids, 0, reason: 'grids laid scrubbing a venue');
+    expect(venueScrubHeavy, 0,
+        reason: 'hero or section rebuilt scrubbing a venue');
+
     // A live price tick on an open prediction.
     final tick = await _frame(tester, () async {
       _feed!.tick('open-0', 0.61);
@@ -315,7 +349,7 @@ void main() {
     });
 
     // ignore: avoid_print
-    print('PNL_PERF mount=$firstGrids grids '
+    print('PNL_PERF mount=$firstGrids grids pick=${pick.ms.toStringAsFixed(1)}ms/${pick.grids} grids '
         'section=${first.ms.toStringAsFixed(1)}ms/${first.grids} grids '
         'range=${range.ms.toStringAsFixed(1)}ms/${range.grids} grids '
         'idle=${idleMs.toStringAsFixed(2)}ms paint=${paintMs.toStringAsFixed(2)}ms '
@@ -330,7 +364,6 @@ void main() {
     // series a bounded number of times (the venues, their sum).
     expect(scrubGrids, 0, reason: 'grids laid while scrubbing');
     expect(scrubHeavy, 0, reason: 'hero or section rebuilt while scrubbing');
-    expect(firstGrids, lessThanOrEqualTo(6));
     expect(other.grids, 0);
     expect(_heavyBuilt(other.built), 0,
         reason: 'another market\'s tick rebuilt the section');

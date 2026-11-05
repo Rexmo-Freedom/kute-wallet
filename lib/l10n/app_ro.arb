@@ -3310,6 +3310,7 @@
   "sendDollarsCaption": "$ · stocks · ₿",
   "buyDollarsAction": "Cumpără dolari",
   "pnlByVenue": "By venue",
+  "portfolioPnlAllVenues": "Toate",
   "pnlStatRealised": "Realised",
   "pnlStatUnrealised": "Unrealised",
   "pnlStatRealisedAllTime": "All time realised",

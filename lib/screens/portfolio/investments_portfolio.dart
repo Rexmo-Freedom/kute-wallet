@@ -10,7 +10,10 @@
 //     open positions are worth now, the P&L over the range picked under
 //     it, ONE P&L chart with the app's range row, and "3 positions ·
 //     Available $17.64". The allocation ring that adapted to each section
-//     is gone: the hero is the same whatever the section;
+//     is gone; the hero is one instance whatever the section, and reads
+//     it (founder, 5 November 2026): on Positions only the positions open
+//     now (their P&L now, the chart folded away), on P&L the venue square
+//     picked alone (portfolioPnlVenueProvider, dropped when P&L is left);
 //   * the section switch, pinned under the app bar once it reaches it
 //     ([_StripHeader]): Activity | Positions | P&L (KutePillTabs at the
 //     app's switch size, equal thirds, the one white pill sliding);
@@ -48,6 +51,9 @@
 // open a section from anywhere.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show precisionErrorTolerance;
+import 'package:flutter/rendering.dart'
+    show RenderSliverToBoxAdapter, SliverGeometry;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/l10n/l10n.dart';
@@ -56,6 +62,8 @@ import 'package:kute/providers/hyperliquid_sats_pnl_provider.dart'
 import 'package:kute/screens/home/components/kute_dock_host.dart'
     show kuteDockScrollClearance;
 import 'package:kute/screens/portfolio/components/portfolio_hero.dart';
+import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart'
+    show portfolioPnlVenueProvider;
 import 'package:kute/screens/portfolio/components/position_rows.dart'
     show portfolioSquareCount;
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
@@ -163,12 +171,20 @@ class _PortfolioPageState extends ConsumerState<_PortfolioPage> {
     }
     // A switch keeps the hero where it is; a section scrolled past the
     // pin opens the next at its top, the strip still pinned. Before the
-    // new section is built, so it never shows at the old depth.
+    // new section is built, so it never shows at the old depth. Leaving
+    // P&L drops its venue pick: the hero is both venues again.
     ref.listen(portfolioSectionProvider, (prev, next) {
-      if (prev == next || !_scroll.hasClients) return;
+      if (prev == next) return;
+      if (next != PortfolioSection.charts) {
+        ref.read(portfolioPnlVenueProvider.notifier).state = null;
+      }
+      if (!_scroll.hasClients) return;
       final pin = _pinAt;
       if (_scroll.offset > pin) _scroll.jumpTo(pin);
     });
+    // Watched for the page's life: the pick lasts while the screen is
+    // open and goes with it.
+    final picked = ref.watch(portfolioPnlVenueProvider);
     final strip = _StripHeader(
       pills: widget.pills,
       background: context.colors.background,
@@ -182,13 +198,18 @@ class _PortfolioPageState extends ConsumerState<_PortfolioPage> {
         key: const ValueKey('portfolio-page-scroll'),
         controller: _scroll,
         slivers: [
-          SliverToBoxAdapter(
+          _HeroSliver(
             child: Padding(
               key: _top,
               padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 0),
-              child: const KeyedSubtree(
-                key: ValueKey('portfolio-top'),
-                child: PortfolioHero(),
+              child: KeyedSubtree(
+                key: const ValueKey('portfolio-top'),
+                // Section-aware: Positions reads only the positions open
+                // now (no chart), P&L the venue square picked.
+                child: PortfolioHero(
+                  open: section == PortfolioSection.balances,
+                  venue: section == PortfolioSection.charts ? picked : null,
+                ),
               ),
             ),
           ),
@@ -213,6 +234,48 @@ class _PortfolioPageState extends ConsumerState<_PortfolioPage> {
         ],
       );
     });
+  }
+}
+
+/// The hero as the page's first sliver, its height kept out of the
+/// section's way: the hero folds its chart on Positions and back
+/// (components/portfolio_hero.dart), and while it is scrolled out of sight
+/// above the pinned strip every change of its height moves the scroll
+/// position with it ([SliverGeometry.scrollOffsetCorrection]), so the
+/// section under the strip stays exactly where it is. In sight, the hero
+/// eases its height and the page under it follows, as any block does.
+class _HeroSliver extends SingleChildRenderObjectWidget {
+  const _HeroSliver({required Widget super.child});
+
+  @override
+  RenderSliverToBoxAdapter createRenderObject(BuildContext context) =>
+      _RenderHeroSliver();
+}
+
+class _RenderHeroSliver extends RenderSliverToBoxAdapter {
+  /// The hero's height at the last layout.
+  double? _extent;
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    final box = child;
+    if (box == null || !box.hasSize) return;
+    final extent = switch (constraints.axis) {
+      Axis.vertical => box.size.height,
+      Axis.horizontal => box.size.width,
+    };
+    final before = _extent;
+    _extent = extent;
+    if (before == null || (extent - before).abs() < precisionErrorTolerance) {
+      return;
+    }
+    // Wholly above the viewport (the strip pinned): keep what is under it
+    // still.
+    if (constraints.scrollOffset > 0 &&
+        constraints.scrollOffset >= before - precisionErrorTolerance) {
+      geometry = SliverGeometry(scrollOffsetCorrection: extent - before);
+    }
   }
 }
 

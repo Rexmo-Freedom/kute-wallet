@@ -11540,6 +11540,9 @@ class AppLocalizationsEt extends AppLocalizations {
   String get pnlByVenue => 'By venue';
 
   @override
+  String get portfolioPnlAllVenues => 'Kõik';
+
+  @override
   String get pnlStatRealised => 'Realised';
 
   @override

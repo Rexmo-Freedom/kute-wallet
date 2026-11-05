@@ -11565,6 +11565,9 @@ class AppLocalizationsFi extends AppLocalizations {
   String get pnlByVenue => 'By venue';
 
   @override
+  String get portfolioPnlAllVenues => 'Kaikki';
+
+  @override
   String get pnlStatRealised => 'Realised';
 
   @override
