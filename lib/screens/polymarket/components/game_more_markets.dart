@@ -103,12 +103,10 @@ GameLineStatus gameLineStatus(
 }
 
 /// What a side tap hands the page: the line's market, the side (0 its
-/// first token, 1 its second), the line's full title ("Game 2 · Winner")
-/// and the two sides' names for the slip.
+/// first token, 1 its second) and the two sides' names for the slip.
 typedef GameLineSideTap = void Function(
   PolymarketOutcome market,
   int side, {
-  required String title,
   required String pos,
   required String neg,
 });
@@ -124,7 +122,7 @@ class PolyGameMoreMarkets extends ConsumerStatefulWidget {
 
   /// Opens the market's own page (its chart, its rules), as a tap on a
   /// line's label.
-  final void Function(PolymarketOutcome market, String title) onOpen;
+  final void Function(PolymarketOutcome market) onOpen;
 
   const PolyGameMoreMarkets({
     super.key,
@@ -313,23 +311,12 @@ class _PolyGameMoreMarketsState extends ConsumerState<PolyGameMoreMarkets> {
       return parts.isEmpty ? gameLineTypeName(l10n, r.type) : parts.join(' · ');
     }
 
-    /// The line's title as the slip and the market's own page show it:
-    /// always its period and its kind.
-    String fullTitle(GameLineRow r) => [
-          if (!r.period.isWhole) periodName(r.period),
-          if (r.label.isEmpty ||
-              (r.type != GameLineType.other && r.type != GameLineType.players))
-            gameLineTypeName(l10n, r.type),
-          if (r.label.isNotEmpty) r.label,
-        ].join(' · ');
-
     final entries = <Widget Function(BuildContext)>[];
     Widget tile(int i, String text, {bool muted = false}) {
       final r = rows[i];
       final o = outcomes[i];
       final names = _sideNames(l10n, r);
       final slip = _slipNames(l10n, r, o);
-      final full = fullTitle(r);
       return _GameLineTile(
         key: ValueKey('game-line-${o.tokenId ?? o.gammaMarketId ?? i}'),
         outcome: o,
@@ -337,9 +324,8 @@ class _PolyGameMoreMarketsState extends ConsumerState<PolyGameMoreMarkets> {
         sideA: names.$1,
         sideB: names.$2,
         muted: muted,
-        onOpen: () => widget.onOpen(o, full),
-        onSide: (side) =>
-            widget.onSide(o, side, title: full, pos: slip.$1, neg: slip.$2),
+        onOpen: () => widget.onOpen(o),
+        onSide: (side) => widget.onSide(o, side, pos: slip.$1, neg: slip.$2),
       );
     }
 

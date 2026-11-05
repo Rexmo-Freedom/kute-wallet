@@ -1336,34 +1336,20 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
             teams: teams,
             outcomes: rest,
             onSide: _openGameLineSide,
-            onOpen: (market, title) =>
-                _openCandidateDetail(_renamed(market, title)),
+            // The line's own page (its chart, its rules), as before.
+            onOpen: _openCandidateDetail,
           ),
       ],
     );
   }
 
-  /// [market] under the name [name] (a "More markets" line's title, "Game
-  /// 2 · Winner"), for the slip or the page it opens.
-  static PolymarketOutcome _renamed(PolymarketOutcome market, String name) =>
-      PolymarketOutcome(
-        name: name,
-        price: market.price,
-        tokenId: market.tokenId,
-        noTokenId: market.noTokenId,
-        imageUrl: market.imageUrl,
-        volume: market.volume,
-        conditionId: market.conditionId,
-        gammaMarketId: market.gammaMarketId,
-        marketLine: market.marketLine,
-        unpriced: market.unpriced,
-      );
-
   /// One side of a "More markets" line, tapped: the slip opens straight on
-  /// that side ([side] 0 the market's first token, 1 its second), named as
-  /// the line names it ([title], [pos], [neg]), at the live price.
+  /// that side ([side] 0 the market's first token, 1 its second), its sides
+  /// named as the line names them ([pos], [neg]), at the live price. Its
+  /// question is the market's own, as on the line's own page before (the
+  /// slip's analytics read the kind of market from it).
   void _openGameLineSide(PolymarketOutcome market, int side,
-      {required String title, required String pos, required String neg}) {
+      {required String pos, required String neg}) {
     // The same intent signal the line's own page sent from its Yes / No.
     TrackingService.track('prediction_outcome_tapped', params: {
       'outcome_type': side == 0 ? 'yes' : 'no',
@@ -1372,23 +1358,23 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     final live = market.tokenId == null
         ? null
         : ref.read(livePriceProvider).prices[market.tokenId];
-    final named = _renamed(market, title);
     _openLineBetSlip(
       live == null
-          ? named
+          ? market
           : PolymarketOutcome(
-              name: named.name,
+              name: market.name,
               price: live,
-              tokenId: named.tokenId,
-              noTokenId: named.noTokenId,
-              imageUrl: named.imageUrl,
-              conditionId: named.conditionId,
-              gammaMarketId: named.gammaMarketId,
-              marketLine: named.marketLine,
+              tokenId: market.tokenId,
+              noTokenId: market.noTokenId,
+              imageUrl: market.imageUrl,
+              conditionId: market.conditionId,
+              gammaMarketId: market.gammaMarketId,
+              marketLine: market.marketLine,
             ),
       second: side == 1,
       pos: pos,
       neg: neg,
+      question: market.name,
     );
   }
 
@@ -1397,11 +1383,13 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   /// [neg] name the sides on the slip ("49ers -3.5" / "Broncos +3.5").
   /// The same call the feed card makes for one candidate of an event.
   /// [colors] are the two sides' line colours (either may be null): the
-  /// slip wears the picked side's.
+  /// slip wears the picked side's. [question] is the slip's question, the
+  /// event's title and the market's name when null.
   void _openLineBetSlip(PolymarketOutcome market,
       {required bool second,
       String? pos,
       String? neg,
+      String? question,
       List<Color?> colors = const []}) {
     if (!market.hasYesNo) {
       _openCandidateDetail(market);
@@ -1414,7 +1402,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       negRisk: event.negRisk,
       marketSlug: event.slug,
       event: event,
-      marketQuestion: '${event.title}: ${market.name}',
+      marketQuestion: question ?? '${event.title}: ${market.name}',
       marketImage: PolymarketEvent.logoFromTeams(
               event.teams.isNotEmpty ? event.teams : _fetchedTeams,
               market.name) ??

@@ -279,7 +279,8 @@ void main() {
           [market.tokenId, market.noTokenId]);
       expect(slip.sideLabelPos, 'Yellow Submarine');
       expect(slip.sideLabelNeg, 'GamerLegion');
-      expect(slip.marketQuestion, '${event.title}: Game 2 · Winner');
+      // The market's own question, as its page's slip had it.
+      expect(slip.marketQuestion, market.name);
       await closeSlip(tester);
     });
   });
@@ -330,8 +331,7 @@ void main() {
       expect(slip.outcomes.last.tokenId, market.noTokenId);
       expect(
           (slip.sideLabelPos, slip.sideLabelNeg), ('Over 24.5', 'Under 24.5'));
-      expect(
-          slip.marketQuestion, '${event.title}: Game 4 · Total kills · 24.5');
+      expect(slip.marketQuestion, 'Total Kills Over/Under 24.5 in Game 4?');
       await closeSlip(tester);
     });
   });
