@@ -7427,6 +7427,9 @@ class AppLocalizationsLt extends AppLocalizations {
   String get addWalletOther => 'Kita piniginė';
 
   @override
+  String get addWalletOtherSubtitle => 'QR kodas, failas arba įklijavimas';
+
+  @override
   String get addWalletTrackSubtitle =>
       'Stebėkite bet kurį Bitcoin adresą (tik peržiūra).';
 

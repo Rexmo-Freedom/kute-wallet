@@ -2120,6 +2120,7 @@
   "addWalletSeedSignerSubtitle": "Air-gapped υπογραφέας DIY",
   "addWalletKruxSubtitle": "Air-gapped υπογραφέας ανοιχτού κώδικα",
   "addWalletOther": "Άλλο πορτοφόλι",
+  "addWalletOtherSubtitle": "Κωδικός QR, αρχείο ή επικόλληση",
   "addWalletTrackSubtitle": "Παρακολούθηση οποιασδήποτε διεύθυνσης Bitcoin (μόνο προβολή).",
   "addWalletImportDevice": "Εισαγωγή {device}",
   "addWalletImportWallet": "Εισαγωγή πορτοφολιού",

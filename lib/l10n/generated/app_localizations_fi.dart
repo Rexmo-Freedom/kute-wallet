@@ -7394,6 +7394,9 @@ class AppLocalizationsFi extends AppLocalizations {
   String get addWalletOther => 'Muu lompakko';
 
   @override
+  String get addWalletOtherSubtitle => 'QR-koodi, tiedosto tai liittäminen';
+
+  @override
   String get addWalletTrackSubtitle =>
       'Seuraa mitä tahansa Bitcoin-osoitetta (vain katselu).';
 

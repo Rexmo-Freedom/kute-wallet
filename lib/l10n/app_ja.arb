@@ -2120,6 +2120,7 @@
   "addWalletSeedSignerSubtitle": "エアギャップの自作署名デバイス",
   "addWalletKruxSubtitle": "オープンソースのエアギャップ署名デバイス",
   "addWalletOther": "その他のウォレット",
+  "addWalletOtherSubtitle": "QRコード、ファイル、貼り付け",
   "addWalletTrackSubtitle": "任意のビットコインアドレスを追跡（閲覧のみ）。",
   "addWalletImportDevice": "{device}をインポート",
   "addWalletImportWallet": "ウォレットをインポート",

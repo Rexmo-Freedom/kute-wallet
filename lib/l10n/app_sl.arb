@@ -2120,6 +2120,7 @@
   "addWalletSeedSignerSubtitle": "Podpisnik brez povezave, sestavite ga sami",
   "addWalletKruxSubtitle": "Odprtokodni podpisnik brez povezave",
   "addWalletOther": "Druga denarnica",
+  "addWalletOtherSubtitle": "Koda QR, datoteka ali lepljenje",
   "addWalletTrackSubtitle": "Spremljajte kateri koli Bitcoin naslov (samo ogled).",
   "addWalletImportDevice": "Uvozi {device}",
   "addWalletImportWallet": "Uvozi denarnico",

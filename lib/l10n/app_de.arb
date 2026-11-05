@@ -2120,6 +2120,7 @@
   "addWalletSeedSignerSubtitle": "Air-gapped DIY-Signer",
   "addWalletKruxSubtitle": "Air-gapped Open-Source-Signer",
   "addWalletOther": "Anderes Wallet",
+  "addWalletOtherSubtitle": "QR-Code, Datei oder Einfügen",
   "addWalletTrackSubtitle": "Beliebige Bitcoin-Adresse beobachten (nur ansehen).",
   "addWalletImportDevice": "{device} importieren",
   "addWalletImportWallet": "Wallet importieren",

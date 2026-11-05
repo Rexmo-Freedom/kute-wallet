@@ -7395,6 +7395,9 @@ class AppLocalizationsDa extends AppLocalizations {
   String get addWalletOther => 'Anden tegnebog';
 
   @override
+  String get addWalletOtherSubtitle => 'QR-kode, fil eller indsætning';
+
+  @override
   String get addWalletTrackSubtitle =>
       'Overvåg en hvilken som helst Bitcoin-adresse (kun visning).';
 

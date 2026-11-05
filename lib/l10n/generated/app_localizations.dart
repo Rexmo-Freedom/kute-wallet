@@ -12822,6 +12822,12 @@ abstract class AppLocalizations {
   /// **'Other Wallet'**
   String get addWalletOther;
 
+  /// Add wallet, Hardware wallets: the line under the Other Wallet card (after Ledger and Blockstream Jade), the ways it imports any other signer's public key: scan its QR code, load its exported file, or paste the key.
+  ///
+  /// In en, this message translates to:
+  /// **'QR code, file or paste'**
+  String get addWalletOtherSubtitle;
+
   /// No description provided for @addWalletTrackSubtitle.
   ///
   /// In en, this message translates to:

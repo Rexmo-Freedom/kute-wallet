@@ -7375,6 +7375,9 @@ class AppLocalizationsLv extends AppLocalizations {
   String get addWalletOther => 'Cits maciņš';
 
   @override
+  String get addWalletOtherSubtitle => 'QR kods, fails vai ielīmēšana';
+
+  @override
   String get addWalletTrackSubtitle =>
       'Uzraugi jebkuru Bitcoin adresi (tikai skatīšanai).';
 

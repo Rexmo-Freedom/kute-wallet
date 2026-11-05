@@ -7392,6 +7392,9 @@ class AppLocalizationsCs extends AppLocalizations {
   String get addWalletOther => 'Jiná peněženka';
 
   @override
+  String get addWalletOtherSubtitle => 'QR kód, soubor nebo vložení';
+
+  @override
   String get addWalletTrackSubtitle =>
       'Sleduj libovolnou Bitcoin adresu (jen pro čtení).';
 

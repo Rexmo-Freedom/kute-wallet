@@ -2120,6 +2120,7 @@
   "addWalletSeedSignerSubtitle": "Semnatar DIY izolat de rețea",
   "addWalletKruxSubtitle": "Semnatar open-source izolat de rețea",
   "addWalletOther": "Alt portofel",
+  "addWalletOtherSubtitle": "Cod QR, fișier sau lipire",
   "addWalletTrackSubtitle": "Monitorizează orice adresă Bitcoin (doar vizualizare).",
   "addWalletImportDevice": "Importă {device}",
   "addWalletImportWallet": "Importă portofel",

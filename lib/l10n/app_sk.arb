@@ -2120,6 +2120,7 @@
   "addWalletSeedSignerSubtitle": "Svojpomocne zostavený offline podpisovač",
   "addWalletKruxSubtitle": "Open-source offline podpisovač",
   "addWalletOther": "Iná peňaženka",
+  "addWalletOtherSubtitle": "QR kód, súbor alebo vloženie",
   "addWalletTrackSubtitle": "Sleduj akúkoľvek Bitcoin adresu (len na zobrazenie).",
   "addWalletImportDevice": "Importovať {device}",
   "addWalletImportWallet": "Importovať peňaženku",

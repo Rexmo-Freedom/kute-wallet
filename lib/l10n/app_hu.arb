@@ -2120,6 +2120,7 @@
   "addWalletSeedSignerSubtitle": "Offline, saját építésű aláíró",
   "addWalletKruxSubtitle": "Nyílt forráskódú offline aláíró",
   "addWalletOther": "Egyéb tárca",
+  "addWalletOtherSubtitle": "QR-kód, fájl vagy beillesztés",
   "addWalletTrackSubtitle": "Bármely Bitcoin-cím figyelése (csak megtekintés).",
   "addWalletImportDevice": "{device} importálása",
   "addWalletImportWallet": "Tárca importálása",

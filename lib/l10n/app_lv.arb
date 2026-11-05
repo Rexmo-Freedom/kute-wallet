@@ -2120,6 +2120,7 @@
   "addWalletSeedSignerSubtitle": "Bezsaistes DIY parakstītājs",
   "addWalletKruxSubtitle": "Atvērtā koda bezsaistes parakstītājs",
   "addWalletOther": "Cits maciņš",
+  "addWalletOtherSubtitle": "QR kods, fails vai ielīmēšana",
   "addWalletTrackSubtitle": "Uzraugi jebkuru Bitcoin adresi (tikai skatīšanai).",
   "addWalletImportDevice": "Importēt {device}",
   "addWalletImportWallet": "Importēt maciņu",

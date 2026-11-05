@@ -2120,6 +2120,7 @@
   "addWalletSeedSignerSubtitle": "Air-gapped podpisové zařízení DIY",
   "addWalletKruxSubtitle": "Open-source air-gapped podpisové zařízení",
   "addWalletOther": "Jiná peněženka",
+  "addWalletOtherSubtitle": "QR kód, soubor nebo vložení",
   "addWalletTrackSubtitle": "Sleduj libovolnou Bitcoin adresu (jen pro čtení).",
   "addWalletImportDevice": "Importovat {device}",
   "addWalletImportWallet": "Importovat peněženku",

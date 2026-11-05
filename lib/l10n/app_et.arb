@@ -2120,6 +2120,7 @@
   "addWalletSeedSignerSubtitle": "Võrgust eraldatud isetehtud allkirjastaja",
   "addWalletKruxSubtitle": "Avatud lähtekoodiga võrgust eraldatud allkirjastaja",
   "addWalletOther": "Muu rahakott",
+  "addWalletOtherSubtitle": "QR-kood, fail või kleepimine",
   "addWalletTrackSubtitle": "Jälgi mis tahes Bitcoini aadressi (ainult vaatamiseks).",
   "addWalletImportDevice": "Impordi {device}",
   "addWalletImportWallet": "Impordi rahakott",

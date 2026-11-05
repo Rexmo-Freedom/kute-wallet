@@ -7411,6 +7411,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get addWalletOther => 'Egyéb tárca';
 
   @override
+  String get addWalletOtherSubtitle => 'QR-kód, fájl vagy beillesztés';
+
+  @override
   String get addWalletTrackSubtitle =>
       'Bármely Bitcoin-cím figyelése (csak megtekintés).';
 

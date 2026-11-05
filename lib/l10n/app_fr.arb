@@ -2120,6 +2120,7 @@
   "addWalletSeedSignerSubtitle": "Signataire DIY isolé",
   "addWalletKruxSubtitle": "Signataire isolé open source",
   "addWalletOther": "Autre portefeuille",
+  "addWalletOtherSubtitle": "QR code, fichier ou copier-coller",
   "addWalletTrackSubtitle": "Suivre n'importe quelle adresse Bitcoin (lecture seule).",
   "addWalletImportDevice": "Importer {device}",
   "addWalletImportWallet": "Importer un portefeuille",

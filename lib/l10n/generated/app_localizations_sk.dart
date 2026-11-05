@@ -7401,6 +7401,9 @@ class AppLocalizationsSk extends AppLocalizations {
   String get addWalletOther => 'Iná peňaženka';
 
   @override
+  String get addWalletOtherSubtitle => 'QR kód, súbor alebo vloženie';
+
+  @override
   String get addWalletTrackSubtitle =>
       'Sleduj akúkoľvek Bitcoin adresu (len na zobrazenie).';
 
