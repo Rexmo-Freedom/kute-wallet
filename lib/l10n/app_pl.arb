@@ -1084,7 +1084,6 @@
   "activityApproved": "Zatwierdzone",
   "activityProcessingEllipsis": "Przetwarzanie…",
   "usdAccountTab": "Investments",
-  "homeTabSavings": "Oszczędności",
   "activityFromAmount": "z {amount}",
   "activityUnclaimed": "Nieodebrane",
   "activitySwapLegs": "Zamiana · {from} → {to}",

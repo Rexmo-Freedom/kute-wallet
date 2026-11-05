@@ -1084,7 +1084,6 @@
   "activityApproved": "Goedgekeurd",
   "activityProcessingEllipsis": "Verwerken…",
   "usdAccountTab": "Investments",
-  "homeTabSavings": "Spaargeld",
   "activityFromAmount": "van {amount}",
   "activityUnclaimed": "Niet geclaimd",
   "activitySwapLegs": "Swap · {from} → {to}",

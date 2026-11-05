@@ -1084,7 +1084,6 @@
   "activityApproved": "Patvirtinta",
   "activityProcessingEllipsis": "Apdorojama…",
   "usdAccountTab": "Investments",
-  "homeTabSavings": "Santaupos",
   "activityFromAmount": "iš {amount}",
   "activityUnclaimed": "Neatsiimta",
   "activitySwapLegs": "Keitimas · {from} → {to}",

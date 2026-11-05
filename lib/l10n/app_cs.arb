@@ -1084,7 +1084,6 @@
   "activityApproved": "Schváleno",
   "activityProcessingEllipsis": "Zpracovává se…",
   "usdAccountTab": "Investments",
-  "homeTabSavings": "Úspory",
   "activityFromAmount": "z {amount}",
   "activityUnclaimed": "Nevyzvednuto",
   "activitySwapLegs": "Směna · {from} → {to}",

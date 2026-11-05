@@ -1084,7 +1084,6 @@
   "activityApproved": "Godkendt",
   "activityProcessingEllipsis": "Behandler…",
   "usdAccountTab": "Investments",
-  "homeTabSavings": "Opsparing",
   "activityFromAmount": "fra {amount}",
   "activityUnclaimed": "Ikke indløst",
   "activitySwapLegs": "Byt · {from} → {to}",

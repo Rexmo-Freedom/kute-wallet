@@ -3682,9 +3682,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get usdAccountTab => 'Investments';
 
   @override
-  String get homeTabSavings => 'Säästöt';
-
-  @override
   String activityFromAmount(String amount) {
     return 'summasta $amount';
   }

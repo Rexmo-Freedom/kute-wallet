@@ -1084,7 +1084,6 @@
   "activityApproved": "Kinnitatud",
   "activityProcessingEllipsis": "Töötlemine…",
   "usdAccountTab": "Investments",
-  "homeTabSavings": "Säästud",
   "activityFromAmount": "alates {amount}",
   "activityUnclaimed": "Kätte saamata",
   "activitySwapLegs": "Vahetus · {from} → {to}",

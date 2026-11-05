@@ -1084,7 +1084,6 @@
   "activityApproved": "Godkänd",
   "activityProcessingEllipsis": "Bearbetar…",
   "usdAccountTab": "Investments",
-  "homeTabSavings": "Sparande",
   "activityFromAmount": "från {amount}",
   "activityUnclaimed": "Ohämtad",
   "activitySwapLegs": "Växling · {from} → {to}",

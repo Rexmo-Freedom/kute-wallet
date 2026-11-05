@@ -1195,7 +1195,6 @@
   "activityApproved": "Aprovado",
   "activityProcessingEllipsis": "A processar…",
   "usdAccountTab": "Investments",
-  "homeTabSavings": "Poupança",
   "activityFromAmount": "de {amount}",
   "activityUnclaimed": "Por resgatar",
   "activitySwapLegs": "Conversão · {from} → {to}",
