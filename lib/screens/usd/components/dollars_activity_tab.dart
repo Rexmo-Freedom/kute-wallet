@@ -34,9 +34,17 @@
 //     a scope), as the home's plain rows on one soft card (its "Earlier"
 //     card).
 //
+// ONE EDGE FOR EVERY BLOCK (founder, 5 November 2026: "different size
+// here"): the squares, the P&L card and the Latest card all stand on the
+// page's 16 gutters, the Latest card drawn with the group card's face
+// alone (PremiumGroupContainer.decorationOf), never its own 16 margin on
+// top of the page's; the headings sit 12 inside that edge, as the Bitcoin
+// home's "Latest" and "Earlier" do.
+//
 // The bar on this tab is "See full portfolio and activity", which pushes
 // the Portfolio screen (usd_account_screen.dart), so there is no See all
-// here.
+// here, and the Activity pill always reads Activity (founder, 5 November
+// 2026: "it's on the bottom button").
 //
 // Analytics: nothing new. A square's tap sends the Portfolio row's own
 // `open_investments_position_tapped`, a row's tap its receipt's events.
@@ -200,12 +208,22 @@ class DollarsActivityTab extends ConsumerWidget {
                   compact: true,
                   child: ActivityRowLayout(
                     shape: ActivityRowShape.plain,
-                    child: PremiumGroupContainer(
+                    // The group card's own face on the page's gutters:
+                    // PremiumGroupContainer adds a 16 margin of its own,
+                    // which inset this card 16 inside the squares and the
+                    // P&L card (founder, 5 November 2026: "different size
+                    // here"). Every block on the tab shares one edge.
+                    child: DecoratedBox(
                       key: const ValueKey('dollars-activity-rows'),
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(vertical: 4.h),
-                        child: Column(
-                          children: [for (final e in latest) rowOf(e)],
+                      decoration: PremiumGroupContainer.decorationOf(context),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(
+                            PremiumGroupContainer.radius),
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 4.h),
+                          child: Column(
+                            children: [for (final e in latest) rowOf(e)],
+                          ),
                         ),
                       ),
                     ),
@@ -226,7 +244,7 @@ class DollarsActivityTab extends ConsumerWidget {
 
 /// A section's title over its block, in the home Activity's heading style
 /// ("Latest", all_activity.dart), on the page's 16 gutter plus the cards'
-/// 12 inset.
+/// 12 inset: every heading on one line, 12 inside the blocks' one edge.
 class _Heading extends StatelessWidget {
   const _Heading(this.label, {super.key});
 
