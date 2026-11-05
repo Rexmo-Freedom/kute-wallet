@@ -3310,6 +3310,7 @@
   "sendDollarsCaption": "$ · stocks · ₿",
   "buyDollarsAction": "Osta dollareid",
   "pnlByVenue": "By venue",
+  "portfolioPnlAllVenues": "Kõik",
   "pnlStatRealised": "Realised",
   "pnlStatUnrealised": "Unrealised",
   "pnlStatRealisedAllTime": "All time realised",

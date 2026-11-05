@@ -3583,6 +3583,7 @@
   "sendDollarsCaption": "$ · stocks · ₿",
   "buyDollarsAction": "Comprar dólares",
   "pnlByVenue": "By venue",
+  "portfolioPnlAllVenues": "Tudo",
   "pnlStatRealised": "Realised",
   "pnlStatUnrealised": "Unrealised",
   "pnlStatRealisedAllTime": "All time realised",

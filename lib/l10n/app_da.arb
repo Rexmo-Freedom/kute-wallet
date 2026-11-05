@@ -3310,6 +3310,7 @@
   "sendDollarsCaption": "$ · stocks · ₿",
   "buyDollarsAction": "Køb dollars",
   "pnlByVenue": "By venue",
+  "portfolioPnlAllVenues": "Alle",
   "pnlStatRealised": "Realised",
   "pnlStatUnrealised": "Unrealised",
   "pnlStatRealisedAllTime": "All time realised",

@@ -11573,6 +11573,9 @@ class AppLocalizationsBg extends AppLocalizations {
   String get pnlByVenue => 'By venue';
 
   @override
+  String get portfolioPnlAllVenues => 'Всички';
+
+  @override
   String get pnlStatRealised => 'Realised';
 
   @override

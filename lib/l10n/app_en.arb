@@ -8429,6 +8429,10 @@
   "@pnlByVenue": {
     "description": "Portfolio P&L Charts: the small title over the per-venue P&L rows."
   },
+  "portfolioPnlAllVenues": "All",
+  "@portfolioPnlAllVenues": {
+    "description": "Portfolio screen hero: the small chip beside the Invested figure, shown while one venue (Predictions or Investing) is picked on the P&L section; tapping it shows both venues together again. Short, one word."
+  },
   "pnlStatRealised": "Realised",
   "@pnlStatRealised": {
     "description": "Portfolio P&L Charts stats strip: label over the P&L made by closed positions."

@@ -198,7 +198,8 @@ class _PortfolioStatisticsState extends ConsumerState<PortfolioStatistics> {
 ///     Loading shows shimmer cards until every venue has answered; every
 ///     venue failing is the retry state (one
 ///     `portfolio_performance_error_shown` per venue).
-///   * Analytics: a venue line picked (or tapped again, All) sends
+///   * Analytics: a venue line or square picked (or tapped again, All;
+///     the Portfolio hero's "All" chip too) sends
 ///     `portfolio_statistics_venue_toggled` {venue: all | hyperliquid |
 ///     polymarket}; the chart's scrub event carries the series drawn as
 ///     `venue` (`all`, `hyperliquid`, `polymarket`); the orders' cancel
@@ -224,7 +225,11 @@ class PortfolioStatisticsOverview extends ConsumerStatefulWidget {
   /// the all-time stats without a chart of its own ([PnlBreakdown]: the
   /// venues as big squares side by side, the stats as compact tiles in
   /// one row), the resting orders under them as their rows (each keeps
-  /// its own Cancel); the venue squares pick nothing.
+  /// its own Cancel). With two venues side by side, a square tapped picks
+  /// the venue the hero shows alone and the tiles follow it
+  /// ([portfolioPnlVenueProvider]; founder, 5 November 2026: "selecting
+  /// here must change the top graph"); the picked square tapped again is
+  /// both venues.
   final bool chart;
 
   /// The whole page when the account never traded, in place of the header
@@ -267,12 +272,8 @@ class PortfolioStatisticsOverview extends ConsumerStatefulWidget {
 }
 
 /// A venue as the spending account's Statistics events name it; null is
-/// the account as a whole.
-String _eventVenue(PortfolioPerformanceVenue? venue) => switch (venue) {
-      null => 'all',
-      PortfolioPerformanceVenue.trading => 'hyperliquid',
-      PortfolioPerformanceVenue.predictions => 'polymarket',
-    };
+/// the account as a whole ([pnlEventVenue]).
+String _eventVenue(PortfolioPerformanceVenue? venue) => pnlEventVenue(venue);
 
 class _PortfolioStatisticsOverviewState
     extends ConsumerState<PortfolioStatisticsOverview> {
@@ -404,6 +405,10 @@ class _PortfolioStatisticsOverviewState
       data: data,
       charted: widget.chart ? _charted : null,
       onChart: _chart,
+      // The Portfolio screen's squares pick what its hero shows.
+      squarePick:
+          widget.chart ? null : ref.watch(portfolioPnlVenueProvider),
+      onSquarePick: (v) => portfolioPickPnlVenue(ref, v),
       chart: widget.chart,
       orders: widget.orders,
       footerEmpty: widget.footerEmpty,
@@ -419,6 +424,8 @@ class _OverviewBody extends ConsumerWidget {
     required this.data,
     required this.charted,
     required this.onChart,
+    required this.squarePick,
+    required this.onSquarePick,
     required this.chart,
     required this.orders,
     required this.footerEmpty,
@@ -434,6 +441,12 @@ class _OverviewBody extends ConsumerWidget {
   final Map<PortfolioPerformanceVenue, PortfolioPerformance> data;
   final PortfolioPerformanceVenue? charted;
   final ValueChanged<PortfolioPerformanceVenue?> onChart;
+
+  /// The Portfolio screen ([chart] false): the venue square picked
+  /// ([portfolioPnlVenueProvider]; null: both), and a square tapped (the
+  /// picked one again: null).
+  final PortfolioPerformanceVenue? squarePick;
+  final ValueChanged<PortfolioPerformanceVenue?> onSquarePick;
 
   /// The chart over the venues ([PortfolioStatisticsOverview.chart]).
   final bool chart;
@@ -515,7 +528,32 @@ class _OverviewBody extends ConsumerWidget {
       if (venues.contains(PortfolioPerformanceVenue.trading))
         PortfolioPerformanceVenue.trading,
     ];
-    final picked = toggled ? charted : null;
+    // Nothing to show for a venue: a P&L that never moved, or no history
+    // in its own books.
+    final quietVenues = {
+      for (final v in listed)
+        if (!data[v]!.hasMovement || _Figures.quiet(byVenue[v])) v
+    };
+    // The Portfolio screen's squares (no chart of their own): with two
+    // venues side by side, a square with figures picks the venue the hero
+    // shows alone (and the stats under them follow). A pick the figures
+    // no longer allow (a venue gone quiet or unread) is dropped, so the
+    // hero never shows a venue the squares do not.
+    final squaresPickable = !chart && listed.length > 1;
+    final squarePicked = squaresPickable &&
+            squarePick != null &&
+            !quietVenues.contains(squarePick) &&
+            listed.contains(squarePick)
+        ? squarePick
+        : null;
+    if (!chart && squarePick != null && squarePicked == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) {
+          ref.read(portfolioPnlVenueProvider.notifier).state = null;
+        }
+      });
+    }
+    final picked = toggled ? charted : squarePicked;
     // The stats strip: the realised P&L of the series drawn (nothing ever
     // closed: zero; not known: its column left out), what its open
     // positions stand at, and the win rate where closed trades are counted.
@@ -547,12 +585,6 @@ class _OverviewBody extends ConsumerWidget {
 
     final stats = PnlStatsFigures(
         realisedUsd: realised, unrealisedUsd: unrealised, winRate: winRate);
-    // Nothing to show for a venue: a P&L that never moved, or no history
-    // in its own books.
-    final quietVenues = {
-      for (final v in listed)
-        if (!data[v]!.hasMovement || _Figures.quiet(byVenue[v])) v
-    };
     if (!chart) {
       // The Portfolio screen's P&L: the venues' P&L and the all-time
       // stats, the hero above drawing the chart; a P&L that never moved:
@@ -565,8 +597,10 @@ class _OverviewBody extends ConsumerWidget {
                 listed: listed,
                 data: data,
                 quiet: quietVenues,
-                selected: null,
-                onPick: null,
+                selected: squarePicked,
+                onPick: squaresPickable
+                    ? (v) => onSquarePick(v == squarePicked ? null : v)
+                    : null,
                 squares: true),
           )
         else
@@ -685,7 +719,9 @@ BalancesCategory _categoryOf(PortfolioPerformanceVenue venue) =>
 /// [squares] (the Portfolio screen's P&L section, founder 5 November
 /// 2026: "here should be square cards"): one [PnlVenueSquare] per venue
 /// instead, two side by side (ActivitySquareGrid, the Positions squares'
-/// grid), one alone across the whole width.
+/// grid), one alone across the whole width. With [onPick] a square with
+/// figures picks its venue (the selected outline on it, the other
+/// dimmed); one alone, or a quiet one, picks nothing.
 class _PnlVenues extends StatelessWidget {
   const _PnlVenues({
     required this.listed,
@@ -726,20 +762,31 @@ class _PnlVenues extends StatelessWidget {
             ? 'Polymarket'
             : 'Hyperliquid';
     if (squares) {
-      final tiles = [
-        for (final v in listed)
-          PnlVenueSquare(
-            key: ValueKey('pnl-venue-${_categoryOf(v).name}'),
-            logoAsset: logoOf(v),
-            name: _venueName(l10n, v),
-            subtitle: whereOf(v),
-            data: data[v]!,
-            now: now,
-            quiet: quiet.contains(v)
-                ? _quietText(l10n, v, StatisticsScope.historic)
-                : null,
-          ),
-      ];
+      final pick = onPick;
+      Widget square(PortfolioPerformanceVenue v) {
+        final name = _categoryOf(v).name;
+        // A quiet venue has nothing to show alone: no pick.
+        final tap = pick == null || quiet.contains(v) ? null : () => pick(v);
+        final tile = PnlVenueSquare(
+          key: ValueKey('pnl-venue-$name'),
+          logoAsset: logoOf(v),
+          name: _venueName(l10n, v),
+          subtitle: whereOf(v),
+          data: data[v]!,
+          now: now,
+          quiet: quiet.contains(v)
+              ? _quietText(l10n, v, StatisticsScope.historic)
+              : null,
+          selected: selected == v,
+          dimmed: selected != null && selected != v,
+          onTap: tap,
+        );
+        return tap == null
+            ? tile
+            : KeyedSubtree(key: ValueKey('pnl-venue-$name-pick'), child: tile);
+      }
+
+      final tiles = [for (final v in listed) square(v)];
       return KeyedSubtree(
         key: const ValueKey('statistics-figures'),
         child: tiles.length == 1

@@ -11599,6 +11599,9 @@ class AppLocalizationsIt extends AppLocalizations {
   String get pnlByVenue => 'By venue';
 
   @override
+  String get portfolioPnlAllVenues => 'Tutto';
+
+  @override
   String get pnlStatRealised => 'Realised';
 
   @override

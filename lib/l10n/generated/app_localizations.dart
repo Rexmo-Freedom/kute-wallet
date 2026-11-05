@@ -19431,6 +19431,12 @@ abstract class AppLocalizations {
   /// **'By venue'**
   String get pnlByVenue;
 
+  /// Portfolio screen hero: the small chip beside the Invested figure, shown while one venue (Predictions or Investing) is picked on the P&L section; tapping it shows both venues together again. Short, one word.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get portfolioPnlAllVenues;
+
   /// Portfolio P&L Charts stats strip: label over the P&L made by closed positions.
   ///
   /// In en, this message translates to:

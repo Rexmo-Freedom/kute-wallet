@@ -11579,6 +11579,9 @@ class AppLocalizationsHr extends AppLocalizations {
   String get pnlByVenue => 'By venue';
 
   @override
+  String get portfolioPnlAllVenues => 'Sve';
+
+  @override
   String get pnlStatRealised => 'Realised';
 
   @override

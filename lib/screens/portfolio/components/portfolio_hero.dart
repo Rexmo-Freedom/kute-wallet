@@ -55,14 +55,53 @@
 // The venues are read again as the screen opens (as their pull to
 // refresh does, capped), the figures sweeping until they land.
 //
-// Analytics: `portfolio_performance_chart_scrubbed` {venue: all} once per
-// scrub gesture, as the P&L chart sent it. Ranges send nothing.
+// THE HERO READS THE SECTION UNDER IT (founder, 5 November 2026):
+//
+//   * ACTIVITY: as above, both venues over the range;
+//   * POSITIONS ("here show the current positions P&L … only the open
+//     ones", [PortfolioHero.open]): the line is what the positions open
+//     now made or lost so far, at the live prices, "▲ $0.52 (2.7%) · Open
+//     P&L" ([_HeroOpenLine]; the rows' P&L added, the percent of what they
+//     cost only where every one has a cost: a prediction its entry, a perp
+//     its margin, a holding its recorded cost). The chart and its ranges
+//     FOLD AWAY: no venue publishes a history of the positions open now
+//     alone (Hyperliquid's line is the account's P&L, realised and open
+//     together, never per position; Polymarket's open P&L on a past day
+//     counts what was open that day, sold positions included), and
+//     today's sizes against past prices would draw a P&L the person never
+//     had (a position opened mid-range, added to over time). So nothing
+//     closed is shown there, and no line is invented;
+//   * P&L: both venues over the range, or the venue square picked
+//     ([PortfolioHero.venue], portfolioPnlVenueProvider; founder:
+//     "selecting here must change the top graph") alone: that venue's
+//     Invested (the one balance's investedByVenue; the whole block then
+//     reads one thing, never a total over one venue's P&L), its P&L line
+//     with its logo and name first ("Predictions · ▼ $10.08 · Past
+//     week"), its chart (the same chart morphing to it on the chip
+//     spring), its open positions in the line under the chart (Available
+//     stays the one balance's), and a small "All" beside the figure that
+//     puts both venues back, as the picked square tapped again does.
+//
+// Transitions: the line's words fade out then in (ArrivalSwitcher
+// .sequential, never one over the other), the chart folds and unfolds on
+// KuteMotion's settle (300 ms) and draws in afresh, the figure rolls; all
+// at once under Reduce Motion. Every figure is tabular, so a live tick
+// never shifts the line, and a tick rebuilds the open line alone. The page
+// keeps the section under the pinned strip still while the hero's height
+// changes out of sight (investments_portfolio.dart).
+//
+// Analytics: `portfolio_performance_chart_scrubbed` {venue: all |
+// hyperliquid | polymarket, the series drawn} once per scrub gesture, as
+// the P&L chart sent it; the "All" chip sends
+// `portfolio_statistics_venue_toggled` {venue: all}, as a square does.
+// Ranges send nothing.
 
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/balance_history.dart';
@@ -81,11 +120,20 @@ import 'package:kute/providers/venue_sweeper_provider.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/screens/portfolio/components/balances_overview.dart'
-    show BalancesFigure, BalancesLiveFigure;
+    show
+        BalancesFigure,
+        BalancesLiveFigure,
+        BalancesPnlText,
+        kBalancesCentUsd;
 import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart'
-    show pnlChartRangeProvider, pnlRangeChange, pnlResultColor;
+    show
+        pnlChartRangeProvider,
+        pnlEventVenue,
+        pnlRangeChange,
+        pnlResultColor,
+        portfolioPickPnlVenue;
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
-    show portfolioOpenCount;
+    show InvestmentsProduct, portfolioOpenCount, portfolioOpenPnl;
 import 'package:kute/screens/portfolio/portfolio_balance_breakdown.dart'
     show kBreakdownRefreshCap;
 import 'package:kute/screens/portfolio/portfolio_filters.dart';
@@ -94,11 +142,20 @@ import 'package:kute/screens/shared/investment_balance_header.dart'
 import 'package:kute/screens/shared/charts/kute_chart_format.dart';
 import 'package:kute/screens/shared/charts/kute_trend_chart.dart';
 import 'package:kute/screens/shared/charts/kute_trend_window.dart';
+import 'package:kute/screens/shared/kute_motion.dart'
+    show ArrivalSwitcher, kuteMotion;
+import 'package:kute/screens/shared/kute_pill_tabs.dart'
+    show KutePill, KutePillSize;
 import 'package:kute/screens/shared/kute_skeleton.dart';
+import 'package:kute/screens/shared/venue_deposit_button.dart'
+    show venueMarkAsset;
+import 'package:kute/services/one_balance/one_balance_state.dart'
+    show OneBalanceVenue;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/venue_total_cache_service.dart'
     show resolveVenueTotal;
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/theme/kute_motion.dart';
 
 /// The display cache's key for the Invested figure: the Dollars header's
 /// own (venue_total_cache_service.dart, resolveInvestmentsDisplay), so the
@@ -113,7 +170,15 @@ const double kPortfolioHeroQuiet = 13;
 
 /// The hero (see the file header).
 class PortfolioHero extends ConsumerStatefulWidget {
-  const PortfolioHero({super.key});
+  const PortfolioHero({super.key, this.open = false, this.venue});
+
+  /// Positions: only the positions open now, their P&L now and no chart
+  /// (see the file header).
+  final bool open;
+
+  /// P&L: the venue square picked ([portfolioPnlVenueProvider]); null:
+  /// both venues.
+  final PortfolioPerformanceVenue? venue;
 
   @override
   ConsumerState<PortfolioHero> createState() => _PortfolioHeroState();
@@ -165,10 +230,10 @@ class _PortfolioHeroState extends ConsumerState<PortfolioHero> {
       mainAxisSize: MainAxisSize.min,
       children: [
         SizedBox(height: 4.h),
-        _HeroFigure(refreshing: _refreshing),
-        const PortfolioHeroChart(),
+        _HeroFigure(refreshing: _refreshing, venue: widget.venue),
+        PortfolioHeroChart(open: widget.open, venue: widget.venue),
         SizedBox(height: 16.h),
-        const _HeroLine(),
+        _HeroLine(venue: widget.venue),
       ],
     );
   }
@@ -183,11 +248,13 @@ TextStyle _quiet(BuildContext context) => TextStyle(
       fontFeatures: const [FontFeature.tabularFigures()],
     );
 
-/// "Invested" over the figure (see the file header).
+/// "Invested" over the figure (see the file header); with a venue picked
+/// that venue's own Invested, and the "All" chip beside it.
 class _HeroFigure extends ConsumerWidget {
-  const _HeroFigure({required this.refreshing});
+  const _HeroFigure({required this.refreshing, this.venue});
 
   final bool refreshing;
+  final PortfolioPerformanceVenue? venue;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -195,28 +262,52 @@ class _HeroFigure extends ConsumerWidget {
     final l10n = context.l10n;
     final state = ref.watch(oneBalanceProvider);
     final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
-    // The Dollars header's figure (its cache too): both venues read, the
-    // figure; else the last one known, sweeping; never read, a dash.
-    final display = resolveVenueTotal(
-      walletId:
-          ref.watch(settingsProvider.select((s) => pickSpendingWallet(s)?.id)),
-      venue: kInvestmentsInvestedCacheKey,
-      fresh: state.investingKnown && state.predictionsKnown
-          ? state.investedUsd
-          : null,
-    );
-    // Read once, ever: the Dollars header's own figure (the same split,
-    // see the file header); never read, a dash.
-    final split = InvestmentBalanceHeader.oneBalanceSplitFigures(ref);
-    final usd = display.value == null ? null : split.investedUsd;
+    final walletId =
+        ref.watch(settingsProvider.select((s) => pickSpendingWallet(s)?.id));
+    final picked = venue;
+    final double? usd;
+    final bool stale;
+    if (picked == null) {
+      // The Dollars header's figure (its cache too): both venues read, the
+      // figure; else the last one known, sweeping; never read, a dash.
+      final display = resolveVenueTotal(
+        walletId: walletId,
+        venue: kInvestmentsInvestedCacheKey,
+        fresh: state.investingKnown && state.predictionsKnown
+            ? state.investedUsd
+            : null,
+      );
+      // Read once, ever: the Dollars header's own figure (the same split,
+      // see the file header); never read, a dash.
+      final split = InvestmentBalanceHeader.oneBalanceSplitFigures(ref);
+      usd = display.value == null ? null : split.investedUsd;
+      stale = display.stale;
+    } else {
+      // The venue's own share of it (the one balance's Invested is the
+      // venues' added), its last figure known while it is read again.
+      final known = picked == PortfolioPerformanceVenue.trading
+          ? state.investingKnown
+          : state.predictionsKnown;
+      final display = resolveVenueTotal(
+        walletId: walletId,
+        venue: 'portfolio_invested_${picked.name}',
+        fresh: known ? state.investedByVenue[_oneBalanceVenue(picked)] ?? 0 : null,
+      );
+      usd = display.value;
+      stale = display.stale;
+    }
     final text = usd == null
         ? '—'
         : visible
             ? formatPolyFiatForced(ref, usd)
             : '••••••';
-    return Semantics(
+    final figure = Semantics(
       container: true,
-      label: '${l10n.portfolioInvestedLabel}, $text',
+      label: [
+        l10n.portfolioInvestedLabel,
+        if (picked != null) _venueName(l10n, picked),
+        text,
+      ].join(', '),
       excludeSemantics: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -236,8 +327,7 @@ class _HeroFigure extends ConsumerWidget {
             child: BalancesLiveFigure(
               key: const ValueKey('portfolio-hero-value'),
               figure: BalancesFigure(text,
-                  stale: usd != null && (display.stale || refreshing),
-                  usd: usd),
+                  stale: usd != null && (stale || refreshing), usd: usd),
               style: TextStyle(
                 color: c.textPrimary,
                 fontSize: kPortfolioHeroFigure.sp,
@@ -251,12 +341,62 @@ class _HeroFigure extends ConsumerWidget {
         ],
       ),
     );
+    // With a venue picked, "All" at the block's end puts both venues back
+    // (the picked square tapped again does too); it fades in and out, and
+    // nothing in the block moves for it.
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(child: figure),
+        ArrivalSwitcher(
+          state: picked != null,
+          animateSize: false,
+          alignment: Alignment.centerRight,
+          child: picked == null
+              ? const SizedBox.shrink()
+              : Padding(
+                  padding: EdgeInsetsDirectional.only(start: 8.w),
+                  child: KutePill(
+                    key: const ValueKey('portfolio-hero-all'),
+                    label: l10n.portfolioPnlAllVenues,
+                    icon: Icons.close_rounded,
+                    selected: true,
+                    link: true,
+                    size: KutePillSize.compact,
+                    onTap: () => portfolioPickPnlVenue(ref, null),
+                  ),
+                ),
+        ),
+      ],
+    );
   }
 }
 
-/// "3 positions · Available $17.64" (see the file header).
+/// A P&L venue as the one balance names it.
+OneBalanceVenue _oneBalanceVenue(PortfolioPerformanceVenue venue) =>
+    venue == PortfolioPerformanceVenue.trading
+        ? OneBalanceVenue.investing
+        : OneBalanceVenue.predictions;
+
+/// A venue's name as the app writes it.
+String _venueName(AppLocalizations l10n, PortfolioPerformanceVenue venue) =>
+    venue == PortfolioPerformanceVenue.predictions
+        ? l10n.predictions
+        : l10n.trading;
+
+/// A venue's logo (the P&L squares').
+String _venueLogo(PortfolioPerformanceVenue venue) => venueMarkAsset(
+    venue == PortfolioPerformanceVenue.predictions
+        ? InvestmentsProduct.predictions
+        : InvestmentsProduct.trading);
+
+/// "3 positions · Available $17.64" (see the file header); with a venue
+/// picked, that venue's positions (Available is the one balance's, never
+/// a venue's).
 class _HeroLine extends ConsumerWidget {
-  const _HeroLine();
+  const _HeroLine({this.venue});
+
+  final PortfolioPerformanceVenue? venue;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -264,7 +404,17 @@ class _HeroLine extends ConsumerWidget {
     final l10n = context.l10n;
     final state = ref.watch(oneBalanceProvider);
     final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
-    final count = portfolioOpenCount(ref, ref.watch(portfolioVenuesProvider));
+    final all = ref.watch(portfolioVenuesProvider);
+    final picked = venue;
+    final count = portfolioOpenCount(
+        ref,
+        picked == null
+            ? all
+            : PortfolioVenues(
+                trading:
+                    all.trading && picked == PortfolioPerformanceVenue.trading,
+                predictions: all.predictions &&
+                    picked == PortfolioPerformanceVenue.predictions));
     // Dollars and both venues' cash read: the figure; else the last one
     // known, sweeping; never read, a dash.
     final cached = resolveVenueTotal(
@@ -341,11 +491,24 @@ class _HeroLine extends ConsumerWidget {
 /// only the venues' P&L, the live prices of the predictions held and the
 /// range: a price tick on another market, the one balance moving or a
 /// section switch never lays the series again.
+///
+/// [venue] (P&L, a venue square picked): that venue's series alone, the
+/// line naming it with its logo. [open] (Positions): the open positions'
+/// P&L now in the line ([_HeroOpenLine]) and the chart and its ranges
+/// folded away (see the file header); the reads stay watched so the
+/// chart is back at once on another section, but no series is laid.
 class PortfolioHeroChart extends ConsumerStatefulWidget {
-  const PortfolioHeroChart({super.key, this.now});
+  const PortfolioHeroChart(
+      {super.key, this.now, this.open = false, this.venue});
 
   /// The moment the line ends on; now unless a test pins it.
   final DateTime? now;
+
+  /// Positions: only the positions open now.
+  final bool open;
+
+  /// The venue drawn alone; null: both.
+  final PortfolioPerformanceVenue? venue;
 
   @override
   ConsumerState<PortfolioHeroChart> createState() =>
@@ -358,10 +521,36 @@ class _PortfolioHeroChartState extends ConsumerState<PortfolioHeroChart> {
   /// crosshair).
   final _scrub = ValueNotifier<KuteTrendPoint?>(null);
 
+  /// The plot and its ranges as last drawn: what folds away on Positions
+  /// (without laying the series again there).
+  Widget? _lastChart;
+
   @override
   void dispose() {
     _scrub.dispose();
     super.dispose();
+  }
+
+  /// The line over the chart ([state] names what it shows, so a change of
+  /// what it shows fades the old line out and the new one in, and a scrub
+  /// or a new figure updates it in place) and the chart folding under it
+  /// ([chart] null: folded).
+  Widget _layout(
+      {required Object state, required Widget line, required Widget? chart}) {
+    if (chart != null) _lastChart = chart;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Words in the same place: the old line out, then the new one in,
+        // never one over the other.
+        ArrivalSwitcher(state: state, sequential: true, child: line),
+        _HeroFold(
+          folded: chart == null,
+          child: chart ?? _lastChart ?? const SizedBox.shrink(),
+        ),
+      ],
+    );
   }
 
   @override
@@ -371,11 +560,13 @@ class _PortfolioHeroChartState extends ConsumerState<PortfolioHeroChart> {
     final venues = ref.watch(portfolioVenuesProvider);
     final range = ref.watch(pnlChartRangeProvider);
     final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
+    final open = widget.open;
 
     // Each venue's P&L, the predictions at the live prices of the shares
-    // held (another market's tick rebuilds nothing).
+    // held (another market's tick rebuilds nothing; on Positions, where no
+    // series is drawn, none does).
     var loading = false;
-    final known = <PortfolioPerformance>[];
+    final known = <PortfolioPerformanceVenue, PortfolioPerformance>{};
     for (final (on, venue) in [
       (venues.trading, PortfolioPerformanceVenue.trading),
       (venues.predictions, PortfolioPerformanceVenue.predictions),
@@ -388,25 +579,46 @@ class _PortfolioHeroChartState extends ConsumerState<PortfolioHeroChart> {
         if (!read.hasError) loading = true;
         continue;
       }
-      known.add(venue == PortfolioPerformanceVenue.predictions
+      known[venue] = venue == PortfolioPerformanceVenue.predictions && !open
           ? data.withLivePredictions(ref
               .watch(livePriceProvider.select(
                   (s) => HeldPredictionPrices.of(data.predictions, s.prices)))
               .prices)
-          : data);
+          : data;
     }
-    if (loading) return const _HeroChartSkeleton();
+    // Positions: the open positions' P&L now; the chart folds away.
+    if (open) {
+      return _layout(state: 'open', line: const _HeroOpenLine(), chart: null);
+    }
+    if (loading) {
+      return _layout(
+          state: 'loading',
+          line: const _HeroLineSkeleton(),
+          chart: const _HeroPlotSkeleton());
+    }
     // Nothing read (no venue, or every read failed): the figure alone.
-    if (known.isEmpty) return SizedBox(height: 4.h);
+    if (known.isEmpty) {
+      return _layout(state: 'none', line: SizedBox(height: 4.h), chart: null);
+    }
 
-    final data =
-        known.length == 1 ? known.single : PortfolioPerformance.combine(known);
+    // The venue picked, when its P&L is read; else both.
+    final picked = widget.venue != null && known.containsKey(widget.venue)
+        ? widget.venue
+        : null;
+    final data = picked != null
+        ? known[picked]!
+        : known.length == 1
+            ? known.values.single
+            : PortfolioPerformance.combine(known.values.toList());
     final series = pnlSeries(data, widget.now ?? DateTime.now());
     final quiet = _quiet(context);
     // Never traded: the figure alone; the sections say it with Sal.
     if (!series.values.any((v) => v != 0)) {
-      return SizedBox(
-          key: const ValueKey('portfolio-hero-no-history'), height: 4.h);
+      return _layout(
+          state: 'none',
+          line: SizedBox(
+              key: const ValueKey('portfolio-hero-no-history'), height: 4.h),
+          chart: null);
     }
 
     final shown = kuteTrendWindow(series, series.spanFor(range));
@@ -426,9 +638,10 @@ class _PortfolioHeroChartState extends ConsumerState<PortfolioHeroChart> {
 
     String money(double v) =>
         visible ? formatPolyAmount(ref, v.abs()) : '••••••';
+    final venueName = picked == null ? null : _venueName(l10n, picked);
 
     // The P&L line: over the range, or since its start to the point under
-    // the finger.
+    // the finger; the venue picked named first, after its logo.
     Widget change(KuteTrendPoint? point) {
       final scrub =
           point != null && point.index < values.length ? point : null;
@@ -438,8 +651,13 @@ class _PortfolioHeroChartState extends ConsumerState<PortfolioHeroChart> {
           ? timeOf(scrub.time ?? times.last)
           : kuteTrendPeriodLabel(l10n, range);
       final color = !visible || pnl == 0 ? c.textPrimary : pnlResultColor(c, pnl);
-      return Text.rich(
+      final text = Text.rich(
         TextSpan(children: [
+          if (venueName != null)
+            TextSpan(
+                text: '$venueName · ',
+                style: TextStyle(
+                    color: c.textPrimary, fontWeight: FontWeight.w600)),
           TextSpan(
             // Hidden: dots alone, no arrow to read a direction from.
             text: visible ? '${kuteTrendArrow(pnl)}${money(pnl)}' : money(pnl),
@@ -452,47 +670,160 @@ class _PortfolioHeroChartState extends ConsumerState<PortfolioHeroChart> {
         overflow: TextOverflow.ellipsis,
         style: quiet,
       );
+      if (picked == null) return text;
+      final logo =
+          MediaQuery.textScalerOf(context).scale(kPortfolioHeroQuiet.sp) * 1.15;
+      return Row(
+        children: [
+          SvgPicture.asset(_venueLogo(picked),
+              key: const ValueKey('portfolio-hero-venue-logo'),
+              width: logo,
+              height: logo,
+              fit: BoxFit.contain),
+          SizedBox(width: 6.w),
+          Flexible(child: text),
+        ],
+      );
     }
 
+    return _layout(
+      state: 'range-${picked?.name ?? 'all'}',
+      line: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(height: 6.h),
+          ValueListenableBuilder<KuteTrendPoint?>(
+            valueListenable: _scrub,
+            builder: (context, point, _) => change(point),
+          ),
+        ],
+      ),
+      chart: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(height: 16.h),
+          // One chart whatever is drawn: a venue picked, or both again,
+          // morphs the line (KuteMotion's chip spring).
+          KuteTrendChart(
+            key: const ValueKey('portfolio-hero-chart'),
+            values: values,
+            times: times,
+            lineColor: values.isEmpty
+                ? c.textPrimary
+                : pnlResultColor(c, values.last - values.first),
+            zeroSplit: true,
+            height: kKuteTrendPlotHeightCompact.h,
+            onScrub: (p) => _scrub.value = p,
+            // Once per scrub gesture.
+            onScrubStart: () => TrackingService.track(
+                'portfolio_performance_chart_scrubbed',
+                params: {'venue': pnlEventVenue(picked)}),
+            rangeLabels: [for (final r in BalanceRange.values) r.label],
+            selectedRange: range.index,
+            onRangeSelected: (i) => ref
+                .read(pnlChartRangeProvider.notifier)
+                .state = BalanceRange.values[i],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Positions: what the open positions made or lost so far, both venues
+/// added, at the live prices (open_investments_screen.dart,
+/// [portfolioOpenPnl]: the rows' P&L added): "▲ $0.52 (2.7%) · Open P&L",
+/// in the result colour, the percent of what they cost only where every
+/// one of them has a cost (a prediction its entry, a perp its margin, a
+/// holding its recorded cost). Nothing open: no line. Its own widget, so
+/// a tick rebuilds this line alone; tabular figures, so it never jitters.
+class _HeroOpenLine extends ConsumerWidget {
+  const _HeroOpenLine();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    final l10n = context.l10n;
+    final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
+    final pnl = portfolioOpenPnl(ref, ref.watch(portfolioVenuesProvider));
+    if (pnl == null) {
+      return SizedBox(
+          key: const ValueKey('portfolio-hero-open-none'), height: 4.h);
+    }
+    // Under a cent is no move.
+    final usd = pnl.usd.abs() < kBalancesCentUsd ? 0.0 : pnl.usd;
+    final percent = visible && pnl.costed && usd != 0
+        ? BalancesPnlText.percentOf(usd, pnl.costUsd)
+        : null;
+    final color = !visible || usd == 0 ? c.textPrimary : pnlResultColor(c, usd);
+    final amount = visible
+        ? '${kuteTrendArrow(usd)}${formatPolyAmount(ref, usd.abs())}'
+            '${percent == null ? '' : ' ($percent)'}'
+        : '••••••';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
         SizedBox(height: 6.h),
-        ValueListenableBuilder<KuteTrendPoint?>(
-          valueListenable: _scrub,
-          builder: (context, point, _) => change(point),
-        ),
-        SizedBox(height: 16.h),
-        KuteTrendChart(
-          key: const ValueKey('portfolio-hero-chart'),
-          values: values,
-          times: times,
-          lineColor: values.isEmpty
-              ? c.textPrimary
-              : pnlResultColor(c, values.last - values.first),
-          zeroSplit: true,
-          height: kKuteTrendPlotHeightCompact.h,
-          onScrub: (p) => _scrub.value = p,
-          // Once per scrub gesture.
-          onScrubStart: () => TrackingService.track(
-              'portfolio_performance_chart_scrubbed',
-              params: const {'venue': 'all'}),
-          rangeLabels: [for (final r in BalanceRange.values) r.label],
-          selectedRange: range.index,
-          onRangeSelected: (i) => ref
-              .read(pnlChartRangeProvider.notifier)
-              .state = BalanceRange.values[i],
+        Text.rich(
+          TextSpan(children: [
+            TextSpan(
+              text: amount,
+              style: TextStyle(color: color, fontWeight: FontWeight.w700),
+            ),
+            TextSpan(text: ' · ${l10n.portfolioStatOpenPnl}'),
+          ]),
+          key: const ValueKey('portfolio-hero-open'),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: _quiet(context),
         ),
       ],
     );
   }
 }
 
-/// The P&L line, the plot and the range row as shapes while the history
-/// is on its way, at their own sizes, so nothing moves when it lands.
-class _HeroChartSkeleton extends StatelessWidget {
-  const _HeroChartSkeleton();
+/// The chart's room: on Positions it eases to nothing as it fades, and
+/// back on another section (KuteMotion's settle, 300 ms; at once under
+/// Reduce Motion). Clipped only while it moves, so at rest the range
+/// pill's shadow is whole; once folded the chart leaves the tree (no
+/// taps, nothing read out, nothing painted), and coming back it draws in
+/// afresh.
+class _HeroFold extends StatelessWidget {
+  const _HeroFold({required this.folded, required this.child});
+
+  final bool folded;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => TweenAnimationBuilder<double>(
+        tween: Tween<double>(end: folded ? 0 : 1),
+        duration: kuteMotion(context, KuteMotion.settleDuration),
+        curve: KuteMotion.settle,
+        child: child,
+        builder: (context, open, child) {
+          if (open <= 0) return const SizedBox(width: double.infinity);
+          return ClipRect(
+            clipBehavior: open < 1 ? Clip.hardEdge : Clip.none,
+            child: Align(
+              alignment: Alignment.topCenter,
+              heightFactor: open,
+              child: IgnorePointer(
+                ignoring: open < 1,
+                child: Opacity(opacity: open.clamp(0.0, 1.0), child: child),
+              ),
+            ),
+          );
+        },
+      );
+}
+
+/// The P&L line as a shape while the history is on its way, at its own
+/// size, so nothing moves when it lands.
+class _HeroLineSkeleton extends StatelessWidget {
+  const _HeroLineSkeleton();
 
   @override
   Widget build(BuildContext context) => KuteSkeleton(
@@ -503,6 +834,21 @@ class _HeroChartSkeleton extends StatelessWidget {
           children: [
             SizedBox(height: 6.h),
             SkeletonBar(150.w, kPortfolioHeroQuiet.sp),
+          ],
+        ),
+      );
+}
+
+/// The plot and the range row as shapes while the history is on its way.
+class _HeroPlotSkeleton extends StatelessWidget {
+  const _HeroPlotSkeleton();
+
+  @override
+  Widget build(BuildContext context) => KuteSkeleton(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
             SizedBox(height: 16.h),
             SkeletonBar(double.infinity, kKuteTrendPlotHeightCompact.h,
                 radius: 12.r),

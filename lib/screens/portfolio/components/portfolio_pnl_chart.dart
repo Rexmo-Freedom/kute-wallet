@@ -63,7 +63,10 @@
 //     money is quiet, the venue's P&L over the hero's range ONCE at 22 sp,
 //     its sparkline across the bottom), and "All time" as compact tiles in
 //     one row ([PnlStatTiles]: Realised, Unrealised, Win rate where
-//     counted; thirds, halves or one across, never an orphan half);
+//     counted; thirds, halves or one across, never an orphan half). A
+//     square tapped picks its venue for the hero above
+//     ([portfolioPnlVenueProvider]: the selected outline on it, the other
+//     dimmed, the tiles following it); tapped again, both venues;
 //   * NO HISTORY (nothing traded or predicted yet, every point zero): no
 //     chart. On the Portfolio the sections' one empty state
 //     (PortfolioSectionEmpty: the hero Sal, "No P&L yet"); on a Ledger its
@@ -83,6 +86,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -111,7 +115,8 @@ import 'package:kute/screens/shared/charts/kute_chart_core.dart';
 import 'package:kute/screens/shared/charts/kute_chart_format.dart';
 import 'package:kute/screens/shared/charts/kute_trend_chart.dart';
 import 'package:kute/screens/shared/charts/kute_trend_window.dart';
-import 'package:kute/screens/shared/kute_motion.dart' show KutePressable;
+import 'package:kute/screens/shared/kute_motion.dart'
+    show KutePressable, kuteMotion;
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/shared/no_activity_state.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
@@ -138,6 +143,11 @@ const double kPnlSquareSparkGap = 10;
 const double kPnlSquareSparkHeight = 28;
 const double kPnlSquareGap = 10;
 
+/// A venue square's pick: how long its outline and its neighbour's dim
+/// take, and how far the neighbour steps back.
+const Duration kPnlPickDuration = Duration(milliseconds: 150);
+const double kPnlDimmedOpacity = 0.55;
+
 /// The line's colour: the result over the range, [change] being the P&L
 /// at the range's end less its start. Red when it fell, green when it
 /// rose, the text colour when it did not move.
@@ -157,9 +167,40 @@ final pnlChartRangeProvider =
 /// The venue picked in "By venue" under the older Portfolio page's P&L
 /// chart (portfolio_statistics.dart, OpenInvestmentsScreen): the chart
 /// draws it alone. Null: All. Cleared once nothing watches it. The
-/// Portfolio screen picks none (its venue rows chart nothing).
+/// Portfolio screen keeps its own pick ([portfolioPnlVenueProvider]).
 final pnlChartVenueProvider =
     StateProvider.autoDispose<PortfolioPerformanceVenue?>((ref) => null);
+
+/// The venue square picked on the Portfolio screen's P&L section
+/// (founder, 5 November 2026: "selecting here must change the top
+/// graph"): the hero's figure, its P&L line and its chart show that venue
+/// alone (components/portfolio_hero.dart), the all-time tiles follow it
+/// and "Share P&L" shares its card. Null: both venues. Back to null when
+/// the person leaves the P&L section (investments_portfolio.dart) or the
+/// screen (nothing watches it then).
+final portfolioPnlVenueProvider =
+    StateProvider.autoDispose<PortfolioPerformanceVenue?>((ref) => null);
+
+/// A venue as the P&L events name it; null is the account as a whole.
+String pnlEventVenue(PortfolioPerformanceVenue? venue) => switch (venue) {
+      null => 'all',
+      PortfolioPerformanceVenue.trading => 'hyperliquid',
+      PortfolioPerformanceVenue.predictions => 'polymarket',
+    };
+
+/// The Portfolio screen's venue pick ([portfolioPnlVenueProvider]) set to
+/// [next] (null: both venues again), from a venue square or the hero's
+/// "All" chip: a selection click and `portfolio_statistics_venue_toggled`
+/// {venue: all | hyperliquid | polymarket}, the event the older page's
+/// venue rows send. Nothing when [next] is already the pick.
+void portfolioPickPnlVenue(WidgetRef ref, PortfolioPerformanceVenue? next) {
+  final notifier = ref.read(portfolioPnlVenueProvider.notifier);
+  if (notifier.state == next) return;
+  HapticFeedback.selectionClick();
+  TrackingService.track('portfolio_statistics_venue_toggled',
+      params: {'venue': pnlEventVenue(next)});
+  notifier.state = next;
+}
 
 /// The P&L over [range] of a window's [values] (oldest first): the line's
 /// end (or [at], a point under the finger) less the range's start; for
@@ -714,7 +755,14 @@ double pnlVenueSquareHeight(BuildContext context) {
 /// [quiet] (the venue's "No … yet") stands as the line under the name and
 /// leaves the figure, the change and the sparkline out. With balances
 /// hidden the figure is dots and nothing says which way it went. [onTap]
-/// (null: nothing to open) taps the whole square on the press spring.
+/// (null: nothing to pick) taps the whole square on the press spring.
+///
+/// PICKED (the Portfolio screen's P&L, founder 5 November 2026: the hero
+/// shows the venue picked): [selected] draws the app's selected outline
+/// over the square (1.5 in the call-to-action colour, as a picked
+/// Portfolio Builder card; easing in over 150 ms), [dimmed] (the other
+/// venue picked) takes it to 55 % opacity. Screen readers hear a button,
+/// selected or not.
 class PnlVenueSquare extends ConsumerWidget {
   const PnlVenueSquare({
     super.key,
@@ -725,8 +773,16 @@ class PnlVenueSquare extends ConsumerWidget {
     this.quiet,
     this.percentBaseUsd,
     this.onTap,
+    this.selected = false,
+    this.dimmed = false,
     this.now,
   });
+
+  /// The venue the hero shows alone: the selected outline.
+  final bool selected;
+
+  /// The other venue is picked: the square steps back.
+  final bool dimmed;
 
   final String logoAsset;
   final String name;
@@ -786,12 +842,30 @@ class PnlVenueSquare extends ConsumerWidget {
     final radius = decoration.borderRadius as BorderRadius?;
     final icon = kPortfolioSquareIcon.w;
     final spark = kPnlSquareSparkHeight.h;
-    return KutePressable(
+    final outline = context.ctaFill;
+    final square = KutePressable(
       enabled: onTap != null,
-      child: Container(
-        key: const ValueKey('pnl-venue-square'),
-        height: pnlVenueSquareHeight(context),
-        decoration: decoration,
+      // The selected outline eases in and out with the pick (a picked
+      // Portfolio Builder card's), drawn over the square so nothing in it
+      // moves; at once under Reduce Motion.
+      child: TweenAnimationBuilder<double>(
+        tween: Tween<double>(end: selected ? 1 : 0),
+        duration: kuteMotion(context, kPnlPickDuration),
+        curve: Curves.easeOut,
+        builder: (context, picked, child) => Container(
+          key: const ValueKey('pnl-venue-square'),
+          height: pnlVenueSquareHeight(context),
+          decoration: decoration,
+          foregroundDecoration: picked <= 0
+              ? null
+              : BoxDecoration(
+                  borderRadius: radius,
+                  border: Border.all(
+                      color: outline.withValues(alpha: outline.a * picked),
+                      width: 1.5),
+                ),
+          child: child,
+        ),
         child: Material(
           color: Colors.transparent,
           borderRadius: radius,
@@ -899,6 +973,14 @@ class PnlVenueSquare extends ConsumerWidget {
         ),
       ),
     );
+    final body = AnimatedOpacity(
+      opacity: dimmed ? kPnlDimmedOpacity : 1,
+      duration: kuteMotion(context, kPnlPickDuration),
+      curve: Curves.easeOut,
+      child: square,
+    );
+    if (onTap == null) return body;
+    return Semantics(button: true, selected: selected, child: body);
   }
 }
 

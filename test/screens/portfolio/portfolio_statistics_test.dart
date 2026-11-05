@@ -1968,7 +1968,7 @@ void main() {
         '"By venue": two big squares side by side in the squares\' style '
         '(logo top-left, the change top-right in its colour, the name over '
         'where the money is, the P&L over the range ONCE, the sparkline '
-        'across the bottom); no list card, no venue row, nothing to tap',
+        'across the bottom); no list card, no venue row; each picks its venue',
         (tester) async {
       await pumpSquares(tester);
       expect(find.byType(PnlVenueSquare), findsNWidgets(2));
@@ -2025,9 +2025,10 @@ void main() {
         expect(spark.bottom, closeTo(r.bottom - pad, 1));
         // The amount once: the only money written in the square.
         expect(inSquare(v, find.textContaining(r'$')), findsOneWidget);
-        // Nothing to tap (the P&L section's venues chart nothing).
+        // A tap picks the venue the Portfolio hero shows alone.
         expect(tester.widget<InkWell>(inSquare(v, find.byType(InkWell))).onTap,
-            isNull);
+            isNotNull);
+        expect(find.byKey(ValueKey('pnl-venue-$v-pick')), findsOneWidget);
       }
       expect(text(tester, inSquare('predictions', find.text('Predictions'))),
           isNotNull);
@@ -2116,6 +2117,43 @@ void main() {
         expect(inSquare(v, find.textContaining(r'$')), findsOneWidget);
       }
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'a square tapped picks its venue for the hero (outlined, the other '
+        'dimmed) and the all-time tiles follow it; tapped again, both; one '
+        'venue alone picks nothing', (tester) async {
+      await pumpSquares(tester);
+      final container =
+          ProviderScope.containerOf(tester.element(square('predictions')));
+      final both = tileFigure(tester, 'realised');
+      expect(both, r'+$14.00');
+      await tester.tap(square('predictions'));
+      await tester.pumpAndSettle();
+      expect(container.read(portfolioPnlVenueProvider),
+          PortfolioPerformanceVenue.predictions);
+      expect(tester.widget<PnlVenueSquare>(square('predictions')).selected,
+          isTrue);
+      expect(tester.widget<PnlVenueSquare>(square('investing')).dimmed, isTrue);
+      expect(tileFigure(tester, 'realised'), isNot(both));
+      // The picked square again: both venues.
+      await tester.tap(square('predictions'));
+      await tester.pumpAndSettle();
+      expect(container.read(portfolioPnlVenueProvider), isNull);
+      expect(tester.widget<PnlVenueSquare>(square('investing')).dimmed,
+          isFalse);
+      expect(tileFigure(tester, 'realised'), both);
+      expect(tester.takeException(), isNull);
+
+      // One venue on the account: its one square picks nothing.
+      await pumpSquares(tester, trading: false);
+      expect(find.byKey(const ValueKey('pnl-venue-predictions-pick')),
+          findsNothing);
+      expect(
+          tester
+              .widget<InkWell>(inSquare('predictions', find.byType(InkWell)))
+              .onTap,
+          isNull);
     });
 
     testWidgets(

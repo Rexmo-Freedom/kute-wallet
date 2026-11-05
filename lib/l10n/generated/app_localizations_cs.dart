@@ -11551,6 +11551,9 @@ class AppLocalizationsCs extends AppLocalizations {
   String get pnlByVenue => 'By venue';
 
   @override
+  String get portfolioPnlAllVenues => 'Vše';
+
+  @override
   String get pnlStatRealised => 'Realised';
 
   @override
