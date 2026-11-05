@@ -549,7 +549,8 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                             ],
                             // The options, as cards two side by side
                             // (founder, 4 November 2026: "big squares";
-                            // kute_action_cards.dart), as on the market
+                            // kute_action_cards.dart; an odd last one full
+                            // width), as on the market
                             // screen and the Predictions screens: add margin
                             // (an isolated position the app can move margin
                             // on), protect it, the chart's editing mode and

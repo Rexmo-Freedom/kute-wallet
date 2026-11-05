@@ -212,7 +212,8 @@ void main() {
   });
 
   group('rules and resolution', () {
-    testWidgets('the option card says when the market ends and opens the '
+    testWidgets('alone, the option card takes the full width: when the '
+        'market ends, the first line of its rules, a chevron; it opens the '
         'sheet', (tester) async {
       var opened = 0;
       await _pump(
@@ -220,21 +221,38 @@ void main() {
         Builder(
           builder: (context) => KuteActionCardGrid(cards: [
             polyRulesCard(context,
-                subtitle: 'Ends Nov 5', onTap: () => opened++),
+                subtitle: 'Ends Nov 5',
+                detail: polyRulesCardDetail(
+                    'Resolves to Yes if it happens by the date.\n\nThe '
+                    'resolution source is the official record.'),
+                onTap: () => opened++),
           ]),
         ),
       );
       final card = find.byKey(kPolyRulesCardKey);
       expect(card, findsOneWidget);
       expect(tester.widget<KuteActionCard>(card).compact, isTrue);
+      // The sheet's width, inside its 16 margins.
+      expect(tester.getRect(card).width, moreOrLessEquals(375 - 32));
       Finder inCard(Finder f) => find.descendant(of: card, matching: f);
       expect(inCard(find.text('Rules and resolution')), findsOneWidget);
       expect(inCard(find.text('Ends Nov 5')), findsOneWidget);
+      expect(inCard(find.text('Resolves to Yes if it happens by the date.')),
+          findsOneWidget);
       expect(inCard(find.byIcon(Icons.gavel_rounded)), findsOneWidget);
-      // A card, not a row: no chevron.
-      expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
+      expect(inCard(find.byIcon(Icons.chevron_right_rounded)), findsOneWidget);
       await tester.tap(card);
       expect(opened, 1);
+    });
+
+    test('the card\'s rules line: the first paragraph, its spaces '
+        'collapsed; none without rules text', () {
+      expect(
+          polyRulesCardDetail('\n  This market will resolve to "Yes"  if\t'
+              'it happens.\nThe resolution source is X.'),
+          'This market will resolve to "Yes" if it happens.');
+      expect(polyRulesCardDetail(null), isNull);
+      expect(polyRulesCardDetail(' \n \n'), isNull);
     });
 
     test('the card\'s line: the end in the current year, with the year '

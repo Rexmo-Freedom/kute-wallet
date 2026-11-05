@@ -211,6 +211,12 @@ void main() {
       if (protect.evaluate().isNotEmpty) {
         expect(first.top, tester.getRect(protect).top);
         expect(first.right, lessThan(tester.getRect(protect).left));
+        // Four: a 2 x 2 grid of squares, the rules' first line kept for
+        // a full-width card.
+        expect(tester.getRect(rules).top, tester.getRect(details).top);
+        expect(find.text('Resolves to the winner of the 2026 election.'),
+            findsNothing);
+        expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
       }
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
@@ -226,7 +232,10 @@ void main() {
     }, () => MockClient((_) async => http.Response('{}', 404)));
   });
 
-  testWidgets('a settled position keeps the row', (tester) async {
+  testWidgets('a settled position keeps the row: View market and Details '
+      'side by side, Closing Conditions full width under them with the '
+      'first line of the rules and a chevron (never a lone half-width card)',
+      (tester) async {
     await http.runWithClient(() async {
       await _pump(
           tester,
@@ -248,6 +257,28 @@ void main() {
           ),
           event: _election);
       expect(_row, findsOneWidget);
+      final view = tester.getRect(_row);
+      final details =
+          tester.getRect(find.byKey(PositionDetailSheet.detailsRowKey));
+      final rules = find.byKey(PositionDetailSheet.closingConditionsKey);
+      expect(find.byKey(const ValueKey('poly-position-protect')),
+          findsNothing);
+      expect(view.top, details.top);
+      expect(view.right, lessThan(details.left));
+      expect(tester.getRect(rules).top, greaterThan(view.bottom));
+      expect(tester.getRect(rules).left, moreOrLessEquals(view.left));
+      expect(tester.getRect(rules).right, moreOrLessEquals(details.right));
+      expect(
+          find.descendant(
+              of: rules,
+              matching:
+                  find.text('Resolves to the winner of the 2026 election.')),
+          findsOneWidget);
+      expect(
+          find.descendant(
+              of: rules, matching: find.byIcon(Icons.chevron_right_rounded)),
+          findsOneWidget);
+      expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     }, () => MockClient((_) async => http.Response('{}', 404)));
   });
