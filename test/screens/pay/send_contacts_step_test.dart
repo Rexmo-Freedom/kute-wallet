@@ -501,7 +501,7 @@ void main() {
     final grid = tester.widget<KuteActionCardGrid>(find.byKey(options));
     expect(grid.cards.map((c) => c.key), [also]);
     final card = tester.widget<KuteActionCard>(find.byKey(also));
-    expect(card.title, _l10n.sendAlsoSendsTo);
+    expect(card.title, _l10n.sendToCryptoAddress);
     expect(card.subtitle, _l10n.sendAlsoSendsToList('USDC, USD', 'USDT'));
     expect(card.visual, isA<SendCoinStack>());
     // Full width: as wide as the search field above it; compact, as tall
@@ -513,7 +513,7 @@ void main() {
     expect(rect.left, moreOrLessEquals(field.left, epsilon: 1));
     Rect inCard(Finder f) =>
         tester.getRect(find.descendant(of: find.byKey(also), matching: f));
-    final title = inCard(find.text(_l10n.sendAlsoSendsTo));
+    final title = inCard(find.text(_l10n.sendToCryptoAddress));
     final list = inCard(find.text(_l10n.sendAlsoSendsToList('USDC, USD', 'USDT')));
     final coins = inCard(find.byType(SendCoinStack));
     final chevron = inCard(find.byIcon(Icons.chevron_right_rounded));

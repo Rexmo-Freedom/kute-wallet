@@ -924,7 +924,7 @@ class SendAlsoSendsToRow extends StatelessWidget {
       key: const ValueKey('send-also-sends-to-row'),
       colors: context.colors,
       leading: SendCoinStack(groups: groups),
-      title: title ?? l10n.sendAlsoSendsTo,
+      title: title ?? l10n.sendToCryptoAddress,
       subtitle: sendAlsoSendsToSummary(l10n, groups),
       onTap: onTap,
     );
@@ -950,7 +950,7 @@ KuteActionCard sendAlsoSendsToCard(
     KuteActionCard(
       key: key ?? const ValueKey('send-also-sends-to-row'),
       visual: SendCoinStack(groups: groups, mark: kSendCoinStackCardMark),
-      title: title ?? l10n.sendAlsoSendsTo,
+      title: title ?? l10n.sendToCryptoAddress,
       subtitle: sendAlsoSendsToSummary(l10n, groups),
       onTap: onTap,
     );
