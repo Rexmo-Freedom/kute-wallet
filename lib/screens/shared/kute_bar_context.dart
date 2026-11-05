@@ -58,6 +58,9 @@
 // the header or beside the figure any more. An open position's Close or
 // Sell primary carries the same round button
 // ([KuteBarContext.primary]'s share); in profit it opens the brag card.
+// Every transaction receipt's primary (View on the blockchain, View
+// market, Done) carries it too, opening the receipt's own card
+// ([KuteBarShare.open], receipt_parts.dart).
 // A page with no trade pair (an event, a game) shows its market context
 // as the floating Sal pill, which folds into that same round button while
 // the page scrolls down (kute_shell_bar.dart).
@@ -177,12 +180,17 @@ class KuteBarTrade {
 /// The round Sal button at the end of a page's bar row (see the file
 /// header): a tap opens [barContext]'s Sal sheet (the market's Send to a
 /// friend cards), travelling to its composer as the pill does; on an open
-/// position in profit [brag] (its brag preview) runs instead.
+/// position in profit [brag] (its brag preview) runs instead. [open] is a
+/// share with nothing to ask Sal first: a receipt's (founder, 5 November
+/// 2026: "All these transactions, next to View on the blockchain, should
+/// have the share and a special share card"), its card's preview
+/// (screens/share/receipt_share.dart), read aloud as "Send to a friend".
 class KuteBarShare {
-  const KuteBarShare({required this.barContext, this.brag});
+  const KuteBarShare({required this.barContext, this.brag, this.open});
 
   final KuteBarContext barContext;
   final VoidCallback? brag;
+  final VoidCallback? open;
 }
 
 /// What the bar is on a surface: the search / Sal pill, the surface's

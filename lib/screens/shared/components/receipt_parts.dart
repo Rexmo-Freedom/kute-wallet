@@ -21,11 +21,22 @@
 //     button; a long press opens the Sal sheet asking "What happened
 //     here?". A receipt with no action keeps the default bar. Either way
 //     the content scrolls clear of the bar.
+//     EVERY TRANSACTION SHARES (founder, 5 November 2026: "All these
+//     transactions, next to View on the blockchain, should have the share
+//     and a special share card"): with [ReceiptBarAction.share] the round
+//     Sal button (the market pages' own, kute_bar_trade_row.dart) sits at
+//     the primary's right and opens the receipt's card
+//     (screens/share/receipt_share.dart). A receipt with no action of its
+//     own but a share gets Done as its primary (it closes the receipt),
+//     so the button always has a pill beside it. A failed, refunded or
+//     expired transaction passes no share.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/screens/share/receipt_share.dart'
+    show ReceiptShare, openReceiptShare;
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/message_display.dart';
@@ -402,18 +413,22 @@ void receiptCopy(BuildContext context, String value) {
 /// [onPrimary] are the button the sheet used to pin at its foot; [busy]
 /// while it runs. A long press on the bar opens the Sal sheet asking
 /// "What happened here?" (the receipt's own question context, held in
-/// the same route beside the primary). With no [label] the bar is the
-/// default one and only the scroll clearance is drawn.
+/// the same route beside the primary). [share]: the round Sal button at
+/// the primary's right, opening the receipt's card. With no [label] the
+/// bar is the default one and only the scroll clearance is drawn, unless
+/// there is a [share]: then Done (closing the receipt) is the primary.
 class ReceiptBarAction extends StatelessWidget {
   const ReceiptBarAction({
     super.key,
     required this.label,
     required this.onPrimary,
     this.busy = false,
+    this.share,
   });
 
-  /// No action: the default bar, and the room under the content.
-  const ReceiptBarAction.none({super.key})
+  /// No action: the default bar, and the room under the content; with a
+  /// [share], Done and the round share button.
+  const ReceiptBarAction.none({super.key, this.share})
       : label = null,
         onPrimary = null,
         busy = false;
@@ -422,28 +437,43 @@ class ReceiptBarAction extends StatelessWidget {
   final VoidCallback? onPrimary;
   final bool busy;
 
+  /// What the round Sal button shares; null: no button.
+  final ReceiptShare? share;
+
   @override
   Widget build(BuildContext context) {
     final clearance = SizedBox(
         key: const ValueKey('receipt-bar-clearance'),
         height: kuteBarScrollClearance.h);
-    final label = this.label;
+    final share = this.share;
+    final label =
+        this.label ?? (share == null ? null : context.l10n.done);
     if (label == null) return clearance;
     final question = context.l10n.receiptAskWhatHappened;
+    final ask = KuteBarContext(
+      label: question,
+      question: question,
+      source: kReceiptBarSource,
+    );
     return KuteBarContextScope(
-      barContext: KuteBarContext(
-        label: question,
-        question: question,
-        source: kReceiptBarSource,
-      ),
+      barContext: ask,
       child: KuteBarContextScope(
         barContext: KuteBarContext.primary(
           label: label,
-          onPrimary: onPrimary,
+          // Done closes the receipt the bar stands for.
+          onPrimary: this.label != null
+              ? onPrimary
+              : () => Navigator.of(context).maybePop(),
           busy: busy,
           disabledLabel: null,
           clip: 'idle',
           source: kReceiptBarSource,
+          share: share == null
+              ? null
+              : KuteBarShare(
+                  barContext: ask,
+                  open: () => openReceiptShare(context, share),
+                ),
         ),
         child: clearance,
       ),
