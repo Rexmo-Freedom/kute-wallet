@@ -12753,4 +12753,87 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Řádky';
+
+  @override
+  String get polyPeriodMatch => 'Zápas';
+
+  @override
+  String get polyPeriodFullGame => 'Celý zápas';
+
+  @override
+  String polyPeriodGame(int number) {
+    return 'Hra $number';
+  }
+
+  @override
+  String polyPeriodMap(int number) {
+    return 'Mapa $number';
+  }
+
+  @override
+  String polyPeriodSet(int number) {
+    return 'Set $number';
+  }
+
+  @override
+  String get polyPeriodFirstHalf => '1. poločas';
+
+  @override
+  String get polyPeriodSecondHalf => '2. poločas';
+
+  @override
+  String polyPeriodQuarter(int number) {
+    return 'Q$number';
+  }
+
+  @override
+  String polyPeriodPeriod(int number) {
+    return '$number. třetina';
+  }
+
+  @override
+  String get polyPeriodFirstFive => 'Prvních 5 směn';
+
+  @override
+  String get polyPeriodFirstInning => '1. směna';
+
+  @override
+  String get polyLineSetHandicap => 'Handicap na sety';
+
+  @override
+  String get polyLineTotalGames => 'Celkem her';
+
+  @override
+  String get polyLineTotalSets => 'Celkem setů';
+
+  @override
+  String get polyLineTotalKills => 'Celkem zabití';
+
+  @override
+  String get polyLineTotalRounds => 'Celkem kol';
+
+  @override
+  String get polyLineDuration => 'Délka';
+
+  @override
+  String get polyLineTeamTotals => 'Týmové součty';
+
+  @override
+  String get polyLinePlayers => 'Hráči';
+
+  @override
+  String polyLinesNotTrading(int count) {
+    return 'Zatím se neobchoduje · $count';
+  }
+
+  @override
+  String polyLinesSettled(int count) {
+    return 'Rozhodnuté · $count';
+  }
+
+  @override
+  String get polySideOver => 'Více';
+
+  @override
+  String get polySideUnder => 'Méně';
 }

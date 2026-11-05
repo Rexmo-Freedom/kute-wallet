@@ -12769,4 +12769,87 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Rivit';
+
+  @override
+  String get polyPeriodMatch => 'Ottelu';
+
+  @override
+  String get polyPeriodFullGame => 'Koko ottelu';
+
+  @override
+  String polyPeriodGame(int number) {
+    return 'Peli $number';
+  }
+
+  @override
+  String polyPeriodMap(int number) {
+    return 'Kartta $number';
+  }
+
+  @override
+  String polyPeriodSet(int number) {
+    return 'Erä $number';
+  }
+
+  @override
+  String get polyPeriodFirstHalf => '1. puoliaika';
+
+  @override
+  String get polyPeriodSecondHalf => '2. puoliaika';
+
+  @override
+  String polyPeriodQuarter(int number) {
+    return 'Q$number';
+  }
+
+  @override
+  String polyPeriodPeriod(int number) {
+    return '$number. erä';
+  }
+
+  @override
+  String get polyPeriodFirstFive => 'Ensimmäiset 5 vuoroparia';
+
+  @override
+  String get polyPeriodFirstInning => '1. vuoropari';
+
+  @override
+  String get polyLineSetHandicap => 'Erätasoitus';
+
+  @override
+  String get polyLineTotalGames => 'Pelejä yhteensä';
+
+  @override
+  String get polyLineTotalSets => 'Eriä yhteensä';
+
+  @override
+  String get polyLineTotalKills => 'Tappoja yhteensä';
+
+  @override
+  String get polyLineTotalRounds => 'Kierroksia yhteensä';
+
+  @override
+  String get polyLineDuration => 'Kesto';
+
+  @override
+  String get polyLineTeamTotals => 'Joukkueen määrät';
+
+  @override
+  String get polyLinePlayers => 'Pelaajat';
+
+  @override
+  String polyLinesNotTrading(int count) {
+    return 'Ei vielä kaupankäyntiä · $count';
+  }
+
+  @override
+  String polyLinesSettled(int count) {
+    return 'Ratkenneet · $count';
+  }
+
+  @override
+  String get polySideOver => 'Yli';
+
+  @override
+  String get polySideUnder => 'Alle';
 }

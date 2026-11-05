@@ -10186,5 +10186,132 @@
   "chartParamRows": "Rows",
   "@chartParamRows": {
     "description": "Indicator settings: the name of one setting (a stepper row)."
+  },
+  "polyPeriodMatch": "Match",
+  "@polyPeriodMatch": {
+    "description": "A game's More markets: the period chip for the markets about the whole match (esports series, tennis, football)."
+  },
+  "polyPeriodFullGame": "Full game",
+  "@polyPeriodFullGame": {
+    "description": "A game's More markets: the period chip for the markets about the whole game, in a sport with quarters or innings (basketball, American football)."
+  },
+  "polyPeriodGame": "Game {number}",
+  "@polyPeriodGame": {
+    "description": "Period chip: one game of an esports series (Game 2).",
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "polyPeriodMap": "Map {number}",
+  "@polyPeriodMap": {
+    "description": "Period chip: one map of an esports series (Map 1).",
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "polyPeriodSet": "Set {number}",
+  "@polyPeriodSet": {
+    "description": "Period chip: one set of a tennis match (Set 1).",
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "polyPeriodFirstHalf": "1st half",
+  "@polyPeriodFirstHalf": {
+    "description": "Period chip: the first half of a match."
+  },
+  "polyPeriodSecondHalf": "2nd half",
+  "@polyPeriodSecondHalf": {
+    "description": "Period chip: the second half of a match."
+  },
+  "polyPeriodQuarter": "Q{number}",
+  "@polyPeriodQuarter": {
+    "description": "Period chip: one quarter of a basketball or American football game (Q3).",
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "polyPeriodPeriod": "Period {number}",
+  "@polyPeriodPeriod": {
+    "description": "Period chip: one period of an ice hockey game.",
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "polyPeriodFirstFive": "First 5 innings",
+  "@polyPeriodFirstFive": {
+    "description": "Period chip: the first five innings of a baseball game."
+  },
+  "polyPeriodFirstInning": "1st inning",
+  "@polyPeriodFirstInning": {
+    "description": "Period chip: the first inning of a baseball game."
+  },
+  "polyLineSetHandicap": "Set handicap",
+  "@polyLineSetHandicap": {
+    "description": "A tennis match's More markets: heading of the handicap lines counted in sets (beside the handicap in games)."
+  },
+  "polyLineTotalGames": "Total games",
+  "@polyLineTotalGames": {
+    "description": "A game's More markets: heading of the over/under lines on the number of games (or maps) played."
+  },
+  "polyLineTotalSets": "Total sets",
+  "@polyLineTotalSets": {
+    "description": "Heading of the over/under lines on the number of sets played."
+  },
+  "polyLineTotalKills": "Total kills",
+  "@polyLineTotalKills": {
+    "description": "Heading of the over/under lines on the number of kills in an esports game."
+  },
+  "polyLineTotalRounds": "Total rounds",
+  "@polyLineTotalRounds": {
+    "description": "Heading of the over/under lines on the number of rounds in a map."
+  },
+  "polyLineDuration": "Duration",
+  "@polyLineDuration": {
+    "description": "Heading of the over/under lines on how long an esports game lasts."
+  },
+  "polyLineTeamTotals": "Team totals",
+  "@polyLineTeamTotals": {
+    "description": "Heading of the over/under lines on one team's own score."
+  },
+  "polyLinePlayers": "Players",
+  "@polyLinePlayers": {
+    "description": "Heading of the lines on one player's numbers (points, rebounds)."
+  },
+  "polyLinesNotTrading": "Not trading yet · {count}",
+  "@polyLinesNotTrading": {
+    "description": "Collapsed group at the foot of a game's More markets: lines nobody has traded yet. {count} is how many.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "polyLinesSettled": "Settled · {count}",
+  "@polyLinesSettled": {
+    "description": "Collapsed group at the foot of a game's More markets: lines already decided (over 99% or under 1%). {count} is how many.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "polySideOver": "Over",
+  "@polySideOver": {
+    "description": "The Over side of an over/under line, on its button."
+  },
+  "polySideUnder": "Under",
+  "@polySideUnder": {
+    "description": "The Under side of an over/under line, on its button."
   }
 }

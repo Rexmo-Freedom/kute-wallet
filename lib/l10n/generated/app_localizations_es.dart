@@ -12810,4 +12810,87 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Filas';
+
+  @override
+  String get polyPeriodMatch => 'Partido';
+
+  @override
+  String get polyPeriodFullGame => 'Partido completo';
+
+  @override
+  String polyPeriodGame(int number) {
+    return 'Partida $number';
+  }
+
+  @override
+  String polyPeriodMap(int number) {
+    return 'Mapa $number';
+  }
+
+  @override
+  String polyPeriodSet(int number) {
+    return 'Set $number';
+  }
+
+  @override
+  String get polyPeriodFirstHalf => '1.ª parte';
+
+  @override
+  String get polyPeriodSecondHalf => '2.ª parte';
+
+  @override
+  String polyPeriodQuarter(int number) {
+    return 'Q$number';
+  }
+
+  @override
+  String polyPeriodPeriod(int number) {
+    return 'Periodo $number';
+  }
+
+  @override
+  String get polyPeriodFirstFive => 'Primeras 5 entradas';
+
+  @override
+  String get polyPeriodFirstInning => '1.ª entrada';
+
+  @override
+  String get polyLineSetHandicap => 'Hándicap de sets';
+
+  @override
+  String get polyLineTotalGames => 'Total de juegos';
+
+  @override
+  String get polyLineTotalSets => 'Total de sets';
+
+  @override
+  String get polyLineTotalKills => 'Total de bajas';
+
+  @override
+  String get polyLineTotalRounds => 'Total de rondas';
+
+  @override
+  String get polyLineDuration => 'Duración';
+
+  @override
+  String get polyLineTeamTotals => 'Totales por equipo';
+
+  @override
+  String get polyLinePlayers => 'Jugadores';
+
+  @override
+  String polyLinesNotTrading(int count) {
+    return 'Aún sin operar · $count';
+  }
+
+  @override
+  String polyLinesSettled(int count) {
+    return 'Decididos · $count';
+  }
+
+  @override
+  String get polySideOver => 'Más';
+
+  @override
+  String get polySideUnder => 'Menos';
 }

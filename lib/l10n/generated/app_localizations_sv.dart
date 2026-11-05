@@ -12754,4 +12754,87 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Rader';
+
+  @override
+  String get polyPeriodMatch => 'Match';
+
+  @override
+  String get polyPeriodFullGame => 'Hela matchen';
+
+  @override
+  String polyPeriodGame(int number) {
+    return 'Spel $number';
+  }
+
+  @override
+  String polyPeriodMap(int number) {
+    return 'Karta $number';
+  }
+
+  @override
+  String polyPeriodSet(int number) {
+    return 'Set $number';
+  }
+
+  @override
+  String get polyPeriodFirstHalf => '1:a halvlek';
+
+  @override
+  String get polyPeriodSecondHalf => '2:a halvlek';
+
+  @override
+  String polyPeriodQuarter(int number) {
+    return 'Q$number';
+  }
+
+  @override
+  String polyPeriodPeriod(int number) {
+    return 'Period $number';
+  }
+
+  @override
+  String get polyPeriodFirstFive => 'Första 5 inningarna';
+
+  @override
+  String get polyPeriodFirstInning => '1:a inningen';
+
+  @override
+  String get polyLineSetHandicap => 'Sethandikapp';
+
+  @override
+  String get polyLineTotalGames => 'Antal game';
+
+  @override
+  String get polyLineTotalSets => 'Antal set';
+
+  @override
+  String get polyLineTotalKills => 'Antal kills';
+
+  @override
+  String get polyLineTotalRounds => 'Antal rundor';
+
+  @override
+  String get polyLineDuration => 'Längd';
+
+  @override
+  String get polyLineTeamTotals => 'Lagtotaler';
+
+  @override
+  String get polyLinePlayers => 'Spelare';
+
+  @override
+  String polyLinesNotTrading(int count) {
+    return 'Handlas inte än · $count';
+  }
+
+  @override
+  String polyLinesSettled(int count) {
+    return 'Avgjorda · $count';
+  }
+
+  @override
+  String get polySideOver => 'Över';
+
+  @override
+  String get polySideUnder => 'Under';
 }

@@ -1,7 +1,7 @@
 // Opening a game's market sheet: the board is drawn from the event the
-// card already has (never waiting on a second read of the game), the rows
+// card already has (never waiting on a second read of the game), the lines
 // of "More markets" are built as they scroll into view, and a price tick
-// repaints the one row it moved.
+// repaints the one line it moved.
 
 import 'dart:async';
 
@@ -22,6 +22,7 @@ import 'package:kute/providers/polymarket_game_timeline_provider.dart';
 import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/providers/polymarket_sports_provider.dart';
 import 'package:kute/providers/polymarket_watchlist_provider.dart';
+import 'package:kute/screens/polymarket/components/game_side_button.dart';
 import 'package:kute/screens/polymarket/components/poly_watch_star.dart';
 import 'package:kute/screens/polymarket/market_detail_sheet.dart';
 import 'package:flutter/rendering.dart' show RenderParagraph;
@@ -31,7 +32,6 @@ import 'package:kute/screens/hyperliquid/components/hl_charts.dart'
 import 'package:kute/screens/shared/kute_dog_scenes.dart'
     show KuteDogGlance, SalAiRing;
 import 'package:kute/screens/shared/kute_back_button.dart';
-import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
 import 'package:kute/theme/app_theme.dart';
 
 /// No stars: the watchlist box is never opened in a test.
@@ -163,16 +163,21 @@ void main() {
       expect(built, greaterThan(0));
       expect(built, lessThan(40));
 
-      // A tick on the first prop's token repaints that row's figure.
-      final row = find.text('Player 0: Anytime touchdown?');
+      // A tick on the first prop's token repaints that line's buttons: its
+      // label without the "?", its Yes and No.
+      final row = find.text('Player 0: Anytime touchdown');
       expect(row, findsOneWidget);
-      Finder figure(String text) => find.byWidgetPredicate(
-          (w) => w is RollingFigure && w.identity == 'p0a' && w.text == text);
-      expect(figure('90%'), findsOneWidget);
+      Finder figure(int side, String text) => find.byWidgetPredicate((w) =>
+          w is PolyGameSideButton &&
+          w.key == ValueKey('game-line-side-p0a-$side') &&
+          w.pctText == text);
+      expect(figure(0, '90%'), findsOneWidget);
+      expect(figure(1, '10%'), findsOneWidget);
       prices.tick('p0a', 0.95);
       await tester.pump();
       await tester.pump(const Duration(seconds: 1));
-      expect(figure('95%'), findsOneWidget);
+      expect(figure(0, '95%'), findsOneWidget);
+      expect(figure(1, '5%'), findsOneWidget);
       expect(tester.takeException(), isNull);
     }, () => MockClient((_) async => http.Response('{}', 404)));
   });

@@ -12818,4 +12818,87 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Rânduri';
+
+  @override
+  String get polyPeriodMatch => 'Meci';
+
+  @override
+  String get polyPeriodFullGame => 'Meci complet';
+
+  @override
+  String polyPeriodGame(int number) {
+    return 'Jocul $number';
+  }
+
+  @override
+  String polyPeriodMap(int number) {
+    return 'Harta $number';
+  }
+
+  @override
+  String polyPeriodSet(int number) {
+    return 'Setul $number';
+  }
+
+  @override
+  String get polyPeriodFirstHalf => 'Repriza 1';
+
+  @override
+  String get polyPeriodSecondHalf => 'Repriza 2';
+
+  @override
+  String polyPeriodQuarter(int number) {
+    return 'Q$number';
+  }
+
+  @override
+  String polyPeriodPeriod(int number) {
+    return 'Perioada $number';
+  }
+
+  @override
+  String get polyPeriodFirstFive => 'Primele 5 inninguri';
+
+  @override
+  String get polyPeriodFirstInning => 'Primul inning';
+
+  @override
+  String get polyLineSetHandicap => 'Handicap seturi';
+
+  @override
+  String get polyLineTotalGames => 'Total jocuri';
+
+  @override
+  String get polyLineTotalSets => 'Total seturi';
+
+  @override
+  String get polyLineTotalKills => 'Total eliminări';
+
+  @override
+  String get polyLineTotalRounds => 'Total runde';
+
+  @override
+  String get polyLineDuration => 'Durată';
+
+  @override
+  String get polyLineTeamTotals => 'Totaluri pe echipă';
+
+  @override
+  String get polyLinePlayers => 'Jucători';
+
+  @override
+  String polyLinesNotTrading(int count) {
+    return 'Încă nu se tranzacționează · $count';
+  }
+
+  @override
+  String polyLinesSettled(int count) {
+    return 'Decise · $count';
+  }
+
+  @override
+  String get polySideOver => 'Peste';
+
+  @override
+  String get polySideUnder => 'Sub';
 }

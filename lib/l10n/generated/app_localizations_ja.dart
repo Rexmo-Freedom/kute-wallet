@@ -12326,4 +12326,87 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get chartParamRows => '行数';
+
+  @override
+  String get polyPeriodMatch => '試合全体';
+
+  @override
+  String get polyPeriodFullGame => '試合全体';
+
+  @override
+  String polyPeriodGame(int number) {
+    return '第$numberゲーム';
+  }
+
+  @override
+  String polyPeriodMap(int number) {
+    return '第$numberマップ';
+  }
+
+  @override
+  String polyPeriodSet(int number) {
+    return '第$numberセット';
+  }
+
+  @override
+  String get polyPeriodFirstHalf => '前半';
+
+  @override
+  String get polyPeriodSecondHalf => '後半';
+
+  @override
+  String polyPeriodQuarter(int number) {
+    return '第${number}Q';
+  }
+
+  @override
+  String polyPeriodPeriod(int number) {
+    return '第$numberピリオド';
+  }
+
+  @override
+  String get polyPeriodFirstFive => '5回まで';
+
+  @override
+  String get polyPeriodFirstInning => '1回';
+
+  @override
+  String get polyLineSetHandicap => 'セットハンディキャップ';
+
+  @override
+  String get polyLineTotalGames => '合計ゲーム数';
+
+  @override
+  String get polyLineTotalSets => '合計セット数';
+
+  @override
+  String get polyLineTotalKills => '合計キル数';
+
+  @override
+  String get polyLineTotalRounds => '合計ラウンド数';
+
+  @override
+  String get polyLineDuration => '試合時間';
+
+  @override
+  String get polyLineTeamTotals => 'チーム合計';
+
+  @override
+  String get polyLinePlayers => '選手';
+
+  @override
+  String polyLinesNotTrading(int count) {
+    return 'まだ取引なし · $count';
+  }
+
+  @override
+  String polyLinesSettled(int count) {
+    return '確定済み · $count';
+  }
+
+  @override
+  String get polySideOver => 'オーバー';
+
+  @override
+  String get polySideUnder => 'アンダー';
 }

@@ -12781,4 +12781,87 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Redovi';
+
+  @override
+  String get polyPeriodMatch => 'Utakmica';
+
+  @override
+  String get polyPeriodFullGame => 'Cijela utakmica';
+
+  @override
+  String polyPeriodGame(int number) {
+    return 'Igra $number';
+  }
+
+  @override
+  String polyPeriodMap(int number) {
+    return 'Mapa $number';
+  }
+
+  @override
+  String polyPeriodSet(int number) {
+    return 'Set $number';
+  }
+
+  @override
+  String get polyPeriodFirstHalf => '1. poluvrijeme';
+
+  @override
+  String get polyPeriodSecondHalf => '2. poluvrijeme';
+
+  @override
+  String polyPeriodQuarter(int number) {
+    return 'Q$number';
+  }
+
+  @override
+  String polyPeriodPeriod(int number) {
+    return '$number. trećina';
+  }
+
+  @override
+  String get polyPeriodFirstFive => 'Prvih 5 izmjena';
+
+  @override
+  String get polyPeriodFirstInning => '1. izmjena';
+
+  @override
+  String get polyLineSetHandicap => 'Hendikep setova';
+
+  @override
+  String get polyLineTotalGames => 'Ukupno igara';
+
+  @override
+  String get polyLineTotalSets => 'Ukupno setova';
+
+  @override
+  String get polyLineTotalKills => 'Ukupno ubojstava';
+
+  @override
+  String get polyLineTotalRounds => 'Ukupno rundi';
+
+  @override
+  String get polyLineDuration => 'Trajanje';
+
+  @override
+  String get polyLineTeamTotals => 'Ukupno po momčadi';
+
+  @override
+  String get polyLinePlayers => 'Igrači';
+
+  @override
+  String polyLinesNotTrading(int count) {
+    return 'Još se ne trguje · $count';
+  }
+
+  @override
+  String polyLinesSettled(int count) {
+    return 'Riješeno · $count';
+  }
+
+  @override
+  String get polySideOver => 'Više';
+
+  @override
+  String get polySideUnder => 'Manje';
 }
