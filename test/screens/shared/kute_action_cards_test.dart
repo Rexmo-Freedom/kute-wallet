@@ -1,8 +1,12 @@
 // The shared big-square action cards (kute_action_cards.dart): the grid's
-// layouts for one to four cards, a disabled card's badge, and the smaller
-// option cards under a market's or a position's chart, never one alone in
-// half the width: the lone card full width with more presence, an odd
-// last one full width under the squares.
+// layouts for one to four cards (as tall as their content, no floor; the
+// lone card or an odd last one full width and compact, the visual at its
+// left and a chevron at its right), a disabled card's badge, and the
+// smaller option cards under a market's or a position's chart, never one
+// alone in half the width: the lone card full width with more presence, an
+// odd last one full width under the squares.
+
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -45,11 +49,88 @@ Rect _r(WidgetTester tester, String title) =>
     tester.getRect(find.byKey(ValueKey('card-$title')));
 
 void main() {
-  testWidgets('one card is full width, at least 170 tall', (tester) async {
-    await _pump(tester, [_card('A', onTap: () {})]);
-    final a = _r(tester, 'A');
+  Finder chevronOf(String title) => find.descendant(
+      of: find.byKey(ValueKey('card-$title')),
+      matching: find.byIcon(Icons.chevron_right_rounded));
+
+  testWidgets(
+      'one card is full width and compact (founder: "no need to be as '
+      'big"): the visual at its left, the title over its line beside it, a '
+      'chevron at its right; as tall as that, no taller', (tester) async {
+    var taps = 0;
+    await _pump(tester, [
+      _card('Also sends to', sub: 'USDC, USDT, ETH and 19 more',
+          onTap: () => taps++),
+    ]);
+    final a = _r(tester, 'Also sends to');
+    expect(a.left, moreOrLessEquals(20));
     expect(a.width, moreOrLessEquals(390));
-    expect(a.height, greaterThanOrEqualTo(kKuteActionCardMinHeight));
+    final visual = tester.getRect(find.descendant(
+        of: find.byKey(const ValueKey('card-Also sends to')),
+        matching: find.byIcon(Icons.star_rounded)));
+    final title = tester.getRect(find.text('Also sends to'));
+    final line = tester.getRect(find.text('USDC, USDT, ETH and 19 more'));
+    final chevron = tester.getRect(chevronOf('Also sends to'));
+    // The visual inside the padding and the hairline, at the left; the
+    // text beside it, the title over its line; the chevron at the right.
+    expect(visual.left - a.left, moreOrLessEquals(kKuteActionCardPadding + 1));
+    expect(title.left, greaterThanOrEqualTo(visual.right));
+    expect(line.top, greaterThanOrEqualTo(title.bottom));
+    expect(line.left, moreOrLessEquals(title.left));
+    expect(a.right - chevron.right,
+        moreOrLessEquals(kKuteActionCardPadding + 1));
+    expect(chevron.center.dy, moreOrLessEquals(a.center.dy, epsilon: 1));
+    // As tall as its taller side (the 40 visual or the text) and the
+    // padding, nothing more: far from a square across the whole width.
+    final content = math.max(kKuteActionCardVisualSlot, line.bottom - title.top);
+    expect(a.height,
+        moreOrLessEquals(content + 2 * (kKuteActionCardPadding + 1),
+            epsilon: 1));
+    expect(a.height, lessThan(100));
+    expect(
+        tester.getSemantics(find.byKey(const ValueKey('card-Also sends to'))),
+        matchesSemantics(
+            label: 'Also sends to, USDC, USDT, ETH and 19 more',
+            isButton: true));
+    await tester.tap(find.byKey(const ValueKey('card-Also sends to')));
+    await tester.pumpAndSettle();
+    expect(taps, 1);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'the lone card\'s words wrap whole beside the visual, the card grows '
+      'with them; a disabled lone card reads its badge in the chevron\'s '
+      'place', (tester) async {
+    const long = 'A line long enough that it needs a second line and a '
+        'third one beside the visual at this width, never cut';
+    await _pump(tester, [_card('Lone', sub: long, badge: 'SOON')]);
+    final a = _r(tester, 'Lone');
+    final text = tester.widget<Text>(find.text(long));
+    expect(text.maxLines, isNull);
+    expect(text.overflow, isNull);
+    expect(tester.getRect(find.text(long)).bottom,
+        lessThanOrEqualTo(a.bottom - kKuteActionCardPadding));
+    expect(a.height, greaterThan(kKuteActionCardVisualSlot + 2 * kKuteActionCardPadding + 2));
+    expect(find.text('SOON'), findsOneWidget);
+    expect(chevronOf('Lone'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'two squares are as tall as their content, the taller one setting the '
+      'row: no floor, no half-empty card', (tester) async {
+    await _pump(tester, [
+      _card('A', sub: 'One line', onTap: () {}),
+      _card('B', sub: 'Two', onTap: () {}),
+    ]);
+    final a = _r(tester, 'A');
+    final line = tester.getRect(find.text('One line'));
+    expect(a.bottom - line.bottom,
+        moreOrLessEquals(kKuteActionCardPadding + 1, epsilon: 1));
+    expect(a.height, lessThan(170));
+    expect(chevronOf('A'), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('two cards: equal, side by side, 12 apart, equally tall',
@@ -94,6 +175,14 @@ void main() {
     expect(a.top, b.top);
     expect(c.top, greaterThan(a.bottom));
     expect(c.width, moreOrLessEquals(390));
+    // The full-width one is the compact card: a chevron, the visual at
+    // its left, lower than the squares; the squares show no chevron.
+    expect(chevronOf('Show off this position'), findsOneWidget);
+    expect(chevronOf('Send the market'), findsNothing);
+    expect(c.height, lessThan(a.height));
+    expect(tester.getRect(find.text('Show off this position')).left,
+        greaterThan(c.left + kKuteActionCardPadding + 30));
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('four cards: a 2 x 2 grid', (tester) async {
@@ -143,7 +232,6 @@ void main() {
       expect(a.top, b.top);
       expect(a.height, b.height);
       expect(a.height, greaterThanOrEqualTo(kKuteOptionCardMinHeight));
-      expect(a.height, lessThan(kKuteActionCardMinHeight));
       expect(b.left - a.right, moreOrLessEquals(12));
       final card = tester.widget<KuteActionCard>(
           find.byKey(const ValueKey('card-Add margin')));

@@ -12900,7 +12900,11 @@ class AppLocalizationsRo extends AppLocalizations {
   String get polySideUnder => 'Sub';
 
   @override
-  String get sendPickCardSub => 'Sau o investiție';
+  String get sendPickCardSub => 'Alege o piață, partea și suma';
+
+  @override
+  String get sendAnInvestmentOrPrediction =>
+      'Trimite o investiție sau o predicție';
 
   @override
   String get sendPredictionCta => 'Trimite predicția';

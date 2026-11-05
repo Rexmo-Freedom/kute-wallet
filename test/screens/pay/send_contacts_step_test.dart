@@ -481,10 +481,12 @@ void main() {
   });
 
   testWidgets(
-      'the Send to option is the app\'s big square card, the only one, so '
-      'full width (no half card alone): "Also sends to" with the coins; an '
-      'address that needs a network asks in the emphasized row; a coin '
-      'chosen is the card again', (tester) async {
+      'the Send to option is the app\'s big card, the only one, so full '
+      'width and compact (founder: "here no need to be as big"): the coins '
+      'at its left, "Also sends to" over the list, a chevron at its right, '
+      'as tall as that; an address that needs a network asks in the '
+      'emphasized row; a coin chosen is the compact card again',
+      (tester) async {
     AffiliateService.debugSessionToken = 'test-session';
     final policy = runtimePolicyFixture();
     RuntimeCapabilitiesService.debugInstance = policy;
@@ -502,12 +504,36 @@ void main() {
     expect(card.title, _l10n.sendAlsoSendsTo);
     expect(card.subtitle, _l10n.sendAlsoSendsToList('USDC, USD', 'USDT'));
     expect(card.visual, isA<SendCoinStack>());
-    // Full width: as wide as the search field above it, square-card tall.
+    // Full width: as wide as the search field above it; compact, as tall
+    // as the coins or the two lines of text and the padding, no taller
+    // (not the ~170 square it was).
     final field = tester.getRect(find.byKey(const ValueKey('send-recipient-search')));
     final rect = tester.getRect(find.byKey(also));
     expect(rect.width, moreOrLessEquals(field.width, epsilon: 1));
     expect(rect.left, moreOrLessEquals(field.left, epsilon: 1));
-    expect(rect.height, greaterThanOrEqualTo(kKuteActionCardMinHeight));
+    Rect inCard(Finder f) =>
+        tester.getRect(find.descendant(of: find.byKey(also), matching: f));
+    final title = inCard(find.text(_l10n.sendAlsoSendsTo));
+    final list = inCard(find.text(_l10n.sendAlsoSendsToList('USDC, USD', 'USDT')));
+    final coins = inCard(find.byType(SendCoinStack));
+    final chevron = inCard(find.byIcon(Icons.chevron_right_rounded));
+    final text = list.bottom - title.top;
+    expect(
+        rect.height,
+        moreOrLessEquals(
+            (text > kKuteActionCardVisualSlot
+                    ? text
+                    : kKuteActionCardVisualSlot) +
+                2 * (kKuteActionCardPadding + 1),
+            epsilon: 1));
+    expect(rect.height, lessThan(110));
+    // The coins at the left, the words beside them, the chevron at the
+    // right, level with the card's middle.
+    expect(coins.left - rect.left,
+        moreOrLessEquals(kKuteActionCardPadding + 1, epsilon: 1));
+    expect(title.left, greaterThan(coins.right));
+    expect(chevron.left, greaterThan(list.right - 1));
+    expect(chevron.center.dy, moreOrLessEquals(rect.center.dy, epsilon: 1));
     expect(find.byType(SendAlsoSendsToRow), findsNothing);
 
     // An address several networks take: the question, as the emphasized
@@ -540,6 +566,12 @@ void main() {
         startsWith('USDC ·'));
     expect(tester.getRect(find.byKey(coin)).width,
         moreOrLessEquals(field.width, epsilon: 1));
+    expect(tester.getRect(find.byKey(coin)).height, lessThan(110));
+    expect(
+        find.descendant(
+            of: find.byKey(coin),
+            matching: find.byIcon(Icons.chevron_right_rounded)),
+        findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('send-to-coin-change')));
     await tester.pumpAndSettle();
     expect(find.byKey(also), findsOneWidget);

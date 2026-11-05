@@ -12856,7 +12856,10 @@ class AppLocalizationsBg extends AppLocalizations {
   String get polySideUnder => 'Под';
 
   @override
-  String get sendPickCardSub => 'Или инвестиция';
+  String get sendPickCardSub => 'Избери пазар, страна и сума';
+
+  @override
+  String get sendAnInvestmentOrPrediction => 'Изпрати инвестиция или прогноза';
 
   @override
   String get sendPredictionCta => 'Изпрати прогнозата';

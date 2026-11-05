@@ -12877,7 +12877,11 @@ class AppLocalizationsNl extends AppLocalizations {
   String get polySideUnder => 'Onder';
 
   @override
-  String get sendPickCardSub => 'Of een belegging';
+  String get sendPickCardSub => 'Kies een markt, kant en bedrag';
+
+  @override
+  String get sendAnInvestmentOrPrediction =>
+      'Stuur een belegging of voorspelling';
 
   @override
   String get sendPredictionCta => 'Voorspelling versturen';

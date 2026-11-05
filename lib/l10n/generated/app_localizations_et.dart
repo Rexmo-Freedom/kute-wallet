@@ -12825,7 +12825,10 @@ class AppLocalizationsEt extends AppLocalizations {
   String get polySideUnder => 'Alla';
 
   @override
-  String get sendPickCardSub => 'Või investeering';
+  String get sendPickCardSub => 'Vali turg, pool ja summa';
+
+  @override
+  String get sendAnInvestmentOrPrediction => 'Saada investeering või ennustus';
 
   @override
   String get sendPredictionCta => 'Saada ennustus';

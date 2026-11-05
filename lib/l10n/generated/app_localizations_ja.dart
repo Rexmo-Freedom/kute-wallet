@@ -12408,7 +12408,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get polySideUnder => 'アンダー';
 
   @override
-  String get sendPickCardSub => '投資も送れます';
+  String get sendPickCardSub => 'マーケット、サイド、金額を選びます';
+
+  @override
+  String get sendAnInvestmentOrPrediction => '投資または予測を送る';
 
   @override
   String get sendPredictionCta => '予測を送る';

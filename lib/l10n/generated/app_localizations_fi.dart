@@ -12851,7 +12851,10 @@ class AppLocalizationsFi extends AppLocalizations {
   String get polySideUnder => 'Alle';
 
   @override
-  String get sendPickCardSub => 'Tai sijoitus';
+  String get sendPickCardSub => 'Valitse markkina, puoli ja summa';
+
+  @override
+  String get sendAnInvestmentOrPrediction => 'Lähetä sijoitus tai ennuste';
 
   @override
   String get sendPredictionCta => 'Lähetä ennuste';
