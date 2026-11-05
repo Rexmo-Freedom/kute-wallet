@@ -120,13 +120,22 @@ void main() {
   });
 
   group('the copy', () {
-    test('four dares built from the sender\'s side, PG, never "bet"', () {
-      expect(challengeEdges(_en, fakeChallenge()), [
+    test('fifteen dares built from the sender\'s side, PG, never "bet"', () {
+      final dares = challengeEdges(_en, fakeChallenge());
+      expect(dares.take(4), [
         "I'm on Yes. Think I'm wrong? Take the other side.",
         'I say Yes. Wanna fight me?',
         'Yes. Prove me wrong.',
         'I picked Yes. Your move.',
       ]);
+      expect(dares,
+          containsAll(['Yes. Come at me.', "I'm on Yes. Bring receipts."]));
+      expect(dares, hasLength(15));
+      // The favourite's dare never calls the crowd wrong; the underdog's
+      // may, from the card's own percent (the other side's 53%).
+      expect(dares.where((l) => l.contains('crowd')), isEmpty);
+      expect(challengeEdges(_en, fakeChallengeNamed()).last,
+          'The crowd is 53% wrong.');
       expect(challengeEdges(_en, fakeChallengeNamed()).first,
           "I'm on Gen.G. Think I'm wrong? Take the other side.");
       // The side in the card's language.
@@ -146,7 +155,12 @@ void main() {
           l10n.shareMessageChallengeNamed('Ana', 'Yes', 'Q', r'$10', 'u'),
         ]) {
           if (l.languageCode == 'en') {
-            expect(line.toLowerCase(), isNot(contains('bet')), reason: line);
+            // The word, not "better".
+            expect(
+                RegExp(r'\bbet(s|ting)?\b', caseSensitive: false)
+                    .hasMatch(line),
+                isFalse,
+                reason: line);
           }
           expect(line, isNot(contains('{')), reason: '$l: $line');
         }

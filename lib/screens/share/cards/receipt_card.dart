@@ -37,6 +37,10 @@
 //     · $250.00" under it. CLOSED POSITION · LONG / SOLD: the result huge
 //     in its colour, "Exit price · $3,576.10", the size.
 //
+// The edgy line comes from a pool of 10 to 15 per kind (founder, 5
+// November 2026: "add many more variations"; [receiptCardEdges]), a sale
+// or a close by its result's sign, a prediction placed by its odds.
+//
 // Never an address, a transaction id or any identifier: only what the
 // receipt's hero and tiles already show. PG, never "bet", never a promise
 // of profit; a loss is shown only when the person chose to share it.
@@ -157,42 +161,243 @@ String receiptCardTopLine(AppLocalizations l10n, ReceiptCardData d) {
   };
 }
 
-/// The edgy lines that may go on a receipt's card (see the file header).
+/// The edgy lines that may go on a receipt's card (see the file header):
+/// 10 to 15 per kind, a sale or a close by its result's sign (an unknown
+/// result only lines that claim none), a prediction placed by the chance
+/// it was placed at (the favourite "Went with the odds. Shocking.", the
+/// underdog "41% says I'm early, not wrong.", "The crowd is 59%
+/// wrong."). A figure in a line is the card's own.
 List<String> receiptCardEdges(AppLocalizations l10n, ReceiptCardData d) {
-  List<String> result() => switch (_sign(d.pnl)) {
-        1 => [l10n.receiptEdgeTookWin],
-        -1 => [l10n.receiptEdgeCutIt],
-        _ => [l10n.receiptEdgeInAndOut],
+  final loc = l10n.localeName;
+  String? text(String? s) => s?.trim().isNotEmpty == true ? s!.trim() : null;
+  final money = text(d.amount);
+  // The card's big number on a money receipt.
+  final figure = money ?? text(d.bitcoin);
+  final result = text(d.result);
+  final price = text(d.price);
+  final side = text(d.side) == null ? null : shareCardOutcome(l10n, d.side!);
+  List<String> exit() => switch (d.pnl == null ? null : _sign(d.pnl)) {
+        // No result known: nothing that names one.
+        null => [
+            l10n.receiptEdgeInAndOut,
+            l10n.receiptEdgeUpWhenToLeave,
+            l10n.receiptEdgeDownExits,
+            l10n.receiptEdgeSoldLeftDrama,
+            l10n.receiptEdgeSoldCashPosition,
+            l10n.receiptEdgeSoldDeliberately,
+          ],
+        1 => [
+            l10n.receiptEdgeTookWin,
+            l10n.receiptEdgeUpInUpOut,
+            l10n.receiptEdgeUpEgo,
+            l10n.receiptEdgeUpWhileGreen,
+            l10n.receiptEdgeUpWhenToLeave,
+            if (result != null) l10n.receiptEdgeUpDoneHere(result),
+            l10n.receiptEdgeUpBooked,
+            l10n.receiptEdgeUpNoEncore,
+            l10n.receiptEdgeUpGreed,
+            l10n.receiptEdgeUpDiscipline,
+            l10n.receiptEdgeUpWinIsWin,
+            l10n.bragEdgeWonNoNotes,
+          ],
+        -1 => [
+            l10n.receiptEdgeCutIt,
+            l10n.receiptEdgeDownDignity,
+            l10n.receiptEdgeDownExits,
+            l10n.receiptEdgeDownQuick,
+            l10n.receiptEdgeDownLessonKept,
+            l10n.receiptEdgeDownStubborn,
+            l10n.receiptEdgeDownTookL,
+            l10n.receiptEdgeDownNotMyDay,
+            l10n.receiptEdgeDownZeroTears,
+            l10n.receiptEdgeDownHalfSkill,
+            if (result != null) l10n.receiptEdgeDownTuition(result),
+            l10n.shareEdgeBragNotOut,
+          ],
+        _ => [
+            l10n.receiptEdgeInAndOut,
+            l10n.receiptEdgeFlatRoundTrip,
+            l10n.receiptEdgeFlatWiser,
+            l10n.receiptEdgeFlatZeroStress,
+            l10n.receiptEdgeFlatNoHarm,
+            l10n.receiptEdgeFlatShrugged,
+            l10n.receiptEdgeFlatStory,
+            l10n.shareEdgeBragUndefeated,
+            l10n.shareEdgeBragNetCalm,
+            l10n.shareEdgeBragSteadyHands,
+            l10n.shareEdgeBragDidntPanic,
+            l10n.shareEdgeBragBalanced,
+          ],
       };
-  return switch (d.type) {
-    ReceiptCardKind.sent => [l10n.receiptEdgeNoBank, l10n.receiptEdgeSentNext],
-    ReceiptCardKind.received => [
+  switch (d.type) {
+    case ReceiptCardKind.sent:
+      return [
+        l10n.receiptEdgeNoBank,
+        l10n.receiptEdgeSentNext,
+        l10n.receiptEdgeSentNoHold,
+        l10n.receiptEdgeSentBeforeBank,
+        l10n.receiptEdgeSentDrama,
+        l10n.receiptEdgeSentBusinessDays,
+        l10n.receiptEdgeSentThankLater,
+        l10n.receiptEdgeSentEfficient,
+        l10n.receiptEdgeSentOneTap,
+        l10n.receiptEdgeSentPaidUp,
+        l10n.receiptEdgeSentAdult,
+        if (figure != null) l10n.receiptEdgeSentGone(figure),
+        l10n.receiptEdgeSentSaga,
+      ];
+    case ReceiptCardKind.received:
+      return [
         l10n.receiptEdgeLanded,
-        l10n.shareEdgeMoneyFlex
-      ],
-    ReceiptCardKind.incoming => [l10n.receiptEdgeIncoming],
-    ReceiptCardKind.moved => [l10n.receiptEdgeMoved],
-    ReceiptCardKind.bought => [l10n.receiptEdgeStacked],
-    ReceiptCardKind.sold => [l10n.receiptEdgeTookSome],
-    ReceiptCardKind.predicted => [
+        l10n.shareEdgeMoneyFlex,
+        l10n.receiptEdgeReceivedCasual,
+        l10n.receiptEdgeReceivedNoted,
+        if (figure != null) l10n.receiptEdgeReceivedRicher(figure),
+        l10n.receiptEdgeReceivedThankYou,
+        l10n.receiptEdgeReceivedMoodUp,
+        l10n.receiptEdgeReceivedGrace,
+        l10n.receiptEdgeReceivedAskTwice,
+        l10n.receiptEdgeReceivedUnscheduled,
+        l10n.receiptEdgeReceivedNoMiddle,
+        l10n.receiptEdgeReceivedCompliments,
+      ];
+    case ReceiptCardKind.incoming:
+      return [
+        l10n.receiptEdgeIncoming,
+        l10n.receiptEdgeIncomingAlmost,
+        l10n.receiptEdgeIncomingLoading,
+        l10n.receiptEdgeIncomingRefreshing,
+        l10n.receiptEdgeIncomingNotChecking,
+        l10n.receiptEdgeIncomingPending,
+        l10n.receiptEdgeIncomingPatienceMode,
+        l10n.receiptEdgeIncomingSnacks,
+        l10n.receiptEdgeIncomingMinute,
+        l10n.receiptEdgeIncomingMotion,
+        l10n.receiptEdgeIncomingWatched,
+      ];
+    case ReceiptCardKind.moved:
+      return [
+        l10n.receiptEdgeMoved,
+        l10n.receiptEdgeMovedFurniture,
+        l10n.receiptEdgeMovedDidntLose,
+        l10n.receiptEdgeMovedPockets,
+        l10n.receiptEdgeMovedRelocated,
+        l10n.receiptEdgeMovedNewRoom,
+        l10n.receiptEdgeMovedHousekeeping,
+        l10n.receiptEdgeMovedShuffle,
+        l10n.receiptEdgeMovedGrownUp,
+        l10n.receiptEdgeMovedOrganised,
+        l10n.receiptEdgeMovedTidying,
+        l10n.receiptEdgeMovedAllocating,
+      ];
+    case ReceiptCardKind.bought:
+      return [
+        l10n.receiptEdgeStacked,
+        l10n.receiptEdgeBoughtOverthink,
+        l10n.receiptEdgeBoughtPile,
+        l10n.receiptEdgeBoughtAccumulation,
+        l10n.receiptEdgeBoughtToldNoOne,
+        l10n.receiptEdgeBoughtNotTiming,
+        if (figure != null) l10n.receiptEdgeBoughtConviction(figure),
+        l10n.receiptEdgeBoughtPatience,
+        l10n.receiptEdgeBoughtNoise,
+        l10n.receiptEdgeBoughtBackToDay,
+        l10n.receiptEdgeBoughtShoes,
+      ];
+    case ReceiptCardKind.sold:
+      return [
+        l10n.receiptEdgeTookSome,
+        l10n.receiptEdgeSoldKeptCool,
+        l10n.receiptEdgeSoldNoRegrets,
+        l10n.receiptEdgeSoldDidntCheck,
+        l10n.receiptEdgeSoldLiquidity,
+        l10n.receiptEdgeSoldLeftDrama,
+        l10n.receiptEdgeSoldSleeping,
+        l10n.receiptEdgeSoldCashPosition,
+        l10n.receiptEdgeSoldDeliberately,
+        l10n.receiptEdgeSoldPressed,
+        l10n.receiptEdgeSoldLittleCash,
+      ];
+    case ReceiptCardKind.predicted:
+      // By the whole percent the speedometer shows.
+      final c = d.chance;
+      final shown = c != null && c > 0 && c < 1 ? (c * 100).round() : null;
+      return [
         l10n.receiptEdgeLockedIn,
         l10n.receiptEdgeOnRecord,
-        // "41% says I'm early": only for the underdog.
-        if (d.chance case final c? when c > 0 && c < 0.5)
-          l10n.shareEdgePredictionEarly(
-              shareCardChance(l10n.localeName, c * 100)),
-      ],
-    ReceiptCardKind.cashedOut || ReceiptCardKind.closed => result(),
-    ReceiptCardKind.lost => [
+        l10n.receiptEdgePredictedCommitted,
+        l10n.receiptEdgePredictedHardPart,
+        l10n.receiptEdgePredictedSkin,
+        l10n.receiptEdgePredictedNails,
+        l10n.receiptEdgePredictedTookSide,
+        l10n.receiptEdgePredictedJustMySide,
+        l10n.receiptEdgePredictedResolution,
+        if (money != null && side != null)
+          l10n.receiptEdgePredictedThatsThePost(money, side),
+        if (shown != null && shown >= 50) ...[
+          l10n.shareEdgePickWithOdds,
+          l10n.shareEdgePickSafePick,
+        ],
+        // "41% says I'm early", "The crowd is 59% wrong": only for the
+        // underdog.
+        if (shown != null && shown < 50) ...[
+          l10n.shareEdgePredictionEarly(shareCardChance(loc, c! * 100)),
+          l10n.shareEdgePredictionCrowd(shareCardChance(loc, 100.0 - shown)),
+          l10n.shareEdgePickLongShot,
+          l10n.shareEdgePickContrarian,
+        ],
+      ];
+    case ReceiptCardKind.cashedOut:
+    case ReceiptCardKind.closed:
+      return exit();
+    case ReceiptCardKind.lost:
+      return [
         l10n.receiptEdgeWrongToday,
-        l10n.receiptEdgeLesson
-      ],
-    ReceiptCardKind.paidOut => [l10n.receiptEdgeCollected],
-    ReceiptCardKind.opened => [
+        l10n.receiptEdgeLesson,
+        l10n.receiptEdgeLostNextQuestion,
+        l10n.receiptEdgeLostRudely,
+        l10n.receiptEdgeLostHumour,
+        l10n.receiptEdgeLostCompany,
+        l10n.receiptEdgeLostOnMe,
+        l10n.receiptEdgeLostConfidence,
+        l10n.receiptEdgeLostWrongly,
+        l10n.receiptEdgeLostGraceful,
+        l10n.receiptEdgeLostOddsWereOdds,
+        l10n.receiptEdgeLostAlreadyMoved,
+        l10n.receiptEdgeLostUpLesson,
+        l10n.receiptEdgeDownTookL,
+      ];
+    case ReceiptCardKind.paidOut:
+      return [
+        l10n.receiptEdgeCollected,
+        l10n.receiptEdgePaidResolved,
+        l10n.receiptEdgePaidNormal,
+        if (money != null) l10n.receiptEdgePaidInFull(money),
+        l10n.receiptEdgePaidCourtesy,
+        l10n.bragEdgeWonReceipts,
+        l10n.bragEdgeWonPaysSometimes,
+        l10n.bragEdgeWonAgreed,
+        l10n.bragEdgeWonNoNotes,
+        l10n.bragEdgeWonCollecting,
+        l10n.bragEdgeWonThenPayout,
+        l10n.bragEdgeWonMySide,
+      ];
+    case ReceiptCardKind.opened:
+      return [
         l10n.receiptEdgeOpened,
-        l10n.receiptEdgeOnRecord
-      ],
-  };
+        l10n.receiptEdgeOnRecord,
+        if (!d.spot) l10n.receiptEdgeOpenedPulse,
+        l10n.receiptEdgeOpenedCalmly,
+        if (price != null) l10n.receiptEdgeOpenedInAt(price),
+        l10n.receiptEdgeOpenedNotRefreshing,
+        l10n.receiptEdgeOpenedSized,
+        l10n.receiptEdgeOpenedJustMine,
+        l10n.receiptEdgeOpenedUnderstanding,
+        l10n.receiptEdgeOpenedMyProblem,
+        l10n.receiptEdgeOpenedEither,
+        l10n.shareEdgeStockFeelings,
+      ];
+  }
 }
 
 /// One receipt's card in the family's frame (see the file header).

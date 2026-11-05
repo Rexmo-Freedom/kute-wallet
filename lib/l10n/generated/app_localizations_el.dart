@@ -12300,8 +12300,7 @@ class AppLocalizationsEl extends AppLocalizations {
   String get receiptCardMoved => 'Μεταφέρθηκε';
 
   @override
-  String get receiptEdgeNoBank =>
-      'Καμία τράπεζα δεν τραυματίστηκε σε αυτή την πληρωμή.';
+  String get receiptEdgeNoBank => 'Καμία τράπεζα δεν τραυματίστηκε.';
 
   @override
   String get receiptEdgeSentNext => 'Στάλθηκε. Επόμενο.';
@@ -12695,6 +12694,959 @@ class AppLocalizationsEl extends AppLocalizations {
   String challengeEdgeMove(String side) {
     return 'Διάλεξα $side. Σειρά σου.';
   }
+
+  @override
+  String get shareEdgeMoneyNoStrings => 'Χωρίς ψιλά γράμματα. Το έλεγξα.';
+
+  @override
+  String get shareEdgeMoneyMakeItText => 'Λεφτά, αλλά σαν μήνυμα.';
+
+  @override
+  String get shareEdgeMoneyLowBar => 'Ταχύτερο από τράπεζα. Χαμηλός πήχης.';
+
+  @override
+  String get shareEdgeMoneyNoForms => 'Χωρίς φόρμες. Χωρίς κουβεντούλα.';
+
+  @override
+  String get shareEdgeMoneyActNatural => 'Έκπληξη. Κάνε πως δεν τρέχει τίποτα.';
+
+  @override
+  String get shareEdgeMoneyInAdvance => 'Παρακαλώ, εκ των προτέρων.';
+
+  @override
+  String shareEdgeMoneyNoQuestions(String amount) {
+    return '$amount, χωρίς ερωτήσεις.';
+  }
+
+  @override
+  String get shareEdgeMoneyNotALoan => 'Δώρο. Όχι δάνειο. Μάλλον.';
+
+  @override
+  String get shareEdgeMoneyAllAtOnce => 'Μην τα φας όλα μαζί.';
+
+  @override
+  String get shareEdgeMoneyGetUsed => 'Μην το συνηθίσεις.';
+
+  @override
+  String get shareEdgeMoneyLittleEgo => 'Με αγάπη. Και λίγο εγωισμό.';
+
+  @override
+  String get shareEdgeMoneyNoBank => 'Καμία τράπεζα δεν ρωτήθηκε.';
+
+  @override
+  String get shareEdgeMoneyHandlePatience => 'Bitcoin. Χειριστείτε με υπομονή.';
+
+  @override
+  String get shareEdgeMoneyStackResponsibly => 'Μαζεύετε υπεύθυνα.';
+
+  @override
+  String get shareEdgeMoneyNoLecture => 'Bitcoin. Χωρίς κήρυγμα.';
+
+  @override
+  String get shareEdgeMoneyTinySats => 'Λίγα sats. Μεγάλη ευθύνη.';
+
+  @override
+  String get shareEdgeMoneySameDollars => 'Ψηφιακά δολάρια. Ίδια δολάρια.';
+
+  @override
+  String get shareEdgeMoneyNoEnvelope => 'Μετρητά, χωρίς τον φάκελο.';
+
+  @override
+  String get shareEdgeMoneyNoExchange => 'Δολάρια. Χωρίς ισοτιμία αεροδρομίου.';
+
+  @override
+  String get shareEdgePickScreenshot => 'Η πρόβλεψή μου. Κράτα screenshot.';
+
+  @override
+  String get shareEdgePickSaidFirst => 'Για το αρχείο: το είπα πρώτα εγώ.';
+
+  @override
+  String shareEdgePickFinalAnswer(String side) {
+    return '$side. Τελική απάντηση.';
+  }
+
+  @override
+  String get shareEdgePickStrongOpinion => 'Όχι συμβουλή. Απλώς έντονη άποψη.';
+
+  @override
+  String get shareEdgePickDidReading => 'Έκανα το διάβασμά μου. Σχεδόν.';
+
+  @override
+  String get shareEdgePickToldYouSo => 'Το κρατάω για το «σου τα \'λεγα».';
+
+  @override
+  String get shareEdgePickConviction => 'Η σιγουριά μού πάει.';
+
+  @override
+  String get shareEdgePickNotFree => 'Οι απόψεις είναι δωρεάν. Αυτή όχι.';
+
+  @override
+  String shareEdgePickAmountSays(String amount, String side) {
+    return 'Τα $amount λένε $side.';
+  }
+
+  @override
+  String get shareEdgePickLowDrama => 'Λίγο δράμα. Πολλή σιγουριά.';
+
+  @override
+  String get shareEdgePickInsufferable => 'Αν βγει, δεν θα με αντέχεις.';
+
+  @override
+  String get shareEdgePickRevolutionary => 'Με το φαβορί. Επαναστατικό.';
+
+  @override
+  String shareEdgePickSmartCrowd(String chance) {
+    return '$chance συμφωνούν. Έξυπνο πλήθος.';
+  }
+
+  @override
+  String get shareEdgePickSafePick => 'Ασφαλής επιλογή. Πάντως επιλογή.';
+
+  @override
+  String get shareEdgePickWithOdds => 'Πήγα με τις πιθανότητες. Σοκ.';
+
+  @override
+  String get shareEdgePickOnPurpose => 'Αουτσάιντερ. Επίτηδες.';
+
+  @override
+  String shareEdgePickOnlySee(String chance) {
+    return 'Μόνο το $chance το βλέπει. Μια χαρά.';
+  }
+
+  @override
+  String get shareEdgePickLongShot => 'Λίγες πιθανότητες. Λίγες εξηγήσεις.';
+
+  @override
+  String get shareEdgePickContrarian => 'Πάω κόντρα. Δεν μπερδεύτηκα.';
+
+  @override
+  String get shareEdgeTopicDebates => 'Ντιμπέιτ: θόρυβος. Ποσοστά: όχι.';
+
+  @override
+  String get shareEdgeTopicCoach => 'Σήμερα όλοι είναι προπονητές.';
+
+  @override
+  String get shareEdgeTopicVolatility => 'Με μεταβλητότητα. Χωρίς επιβάρυνση.';
+
+  @override
+  String get shareEdgeTopicMinutes => 'Διάβασα τα πρακτικά. Όλα.';
+
+  @override
+  String get shareEdgeMarketPickOrWatch => 'Διάλεξε πλευρά. Ή απλώς κοίτα.';
+
+  @override
+  String get shareEdgeMarketHasOdds => 'Απόψεις δωρεάν. Αυτή με ποσοστά.';
+
+  @override
+  String get shareEdgeMarketUntilResolves => 'Όλοι ειδικοί, μέχρι να κριθεί.';
+
+  @override
+  String get shareEdgeMarketGroupChat => 'Group chat, από εδώ τα ποσοστά.';
+
+  @override
+  String get shareEdgeMarketHotTakes => 'Καυτές απόψεις δεκτές. Με ποσοστά.';
+
+  @override
+  String get shareEdgeMarketJustMarket => 'Όχι συμβουλή. Απλώς η αγορά.';
+
+  @override
+  String get shareEdgeMarketOddsMove => 'Τα ποσοστά κινούνται. Η ερώτηση όχι.';
+
+  @override
+  String get shareEdgeMarketYourCall => 'Εσύ αποφασίζεις. Χωρίς πίεση.';
+
+  @override
+  String get shareEdgeMarketDiscuss => 'Συζητήστε. Ήρεμα.';
+
+  @override
+  String get shareEdgeMarketWhereLand => 'Εσύ με ποιους είσαι;';
+
+  @override
+  String shareEdgeMarketSayDiscuss(String chance, String side) {
+    return '$chance λένε $side. Συζητήστε.';
+  }
+
+  @override
+  String get shareEdgeMarketHarder => 'Ναι ή όχι. Ακούγεται εύκολο.';
+
+  @override
+  String get shareEdgeMarketTwoAnswers => 'Μία ερώτηση. Δύο απαντήσεις.';
+
+  @override
+  String shareEdgeMarketNotGuarantee(String chance) {
+    return 'Το $chance δεν είναι εγγύηση.';
+  }
+
+  @override
+  String get shareEdgeMarketFeelings => 'Απλή ερώτηση. Περίπλοκα συναισθήματα.';
+
+  @override
+  String get shareEdgeMarketLikely => 'Πιθανό δεν σημαίνει σίγουρο.';
+
+  @override
+  String shareEdgeMarketLeads(String leader) {
+    return '$leader μπροστά. Τίποτα δεν κρίθηκε.';
+  }
+
+  @override
+  String shareEdgeMarketCoronation(String chance) {
+    return 'Το $chance δεν είναι στέψη.';
+  }
+
+  @override
+  String shareEdgeMarketHistoryWait(String leader) {
+    return 'Γράφημα: $leader. Ιστορία: περίμενε.';
+  }
+
+  @override
+  String get shareEdgeMarketAskTomorrow => 'Φαβορί σήμερα. Ρώτα ξανά αύριο.';
+
+  @override
+  String get shareEdgeMarketCrowdedField => 'Πολλοί υποψήφιοι. Μία απάντηση.';
+
+  @override
+  String shareEdgeMarketStayTuned(String leader, String chance) {
+    return '$leader στο $chance. Συνεχίζεται.';
+  }
+
+  @override
+  String get shareEdgeMarketLeadingNotWinning =>
+      'Το προβάδισμα δεν είναι νίκη.';
+
+  @override
+  String get shareEdgeMarketNotSureThing => 'Φαβορί, όχι σίγουρο.';
+
+  @override
+  String get shareEdgeMarketUpsets => 'Εκπλήξεις γίνονται. Φαβορί επίσης.';
+
+  @override
+  String get shareEdgeMarketGameDecides =>
+      'Αποφασίζει ο αγώνας. Όχι τα σχόλια.';
+
+  @override
+  String get shareEdgeMarketOddsDontPlay =>
+      'Τα ποσοστά δεν μπαίνουν στο γήπεδο.';
+
+  @override
+  String get shareEdgeMarketScoreboard => 'Τώρα κουβέντα. Μετά το σκορ.';
+
+  @override
+  String challengeEdgeComeAtMe(String side) {
+    return '$side. Έλα, αν τολμάς.';
+  }
+
+  @override
+  String challengeEdgeOnNotice(String side) {
+    return 'Λέω $side. Έχεις ειδοποιηθεί.';
+  }
+
+  @override
+  String challengeEdgeTalkCheap(String side) {
+    return '$side. Λόγια φτηνά. Διάλεξε πλευρά.';
+  }
+
+  @override
+  String challengeEdgeScared(String side) {
+    return '$side. Φοβάσαι; Λογικό.';
+  }
+
+  @override
+  String challengeEdgeKnowBetter(String side) {
+    return '$side. Εκτός αν ξέρεις καλύτερα.';
+  }
+
+  @override
+  String challengeEdgeTurnWrong(String side) {
+    return 'Λέω $side. Σειρά σου να πέσεις έξω.';
+  }
+
+  @override
+  String challengeEdgeNotSorry(String side) {
+    return '$side, και δεν ζητώ συγγνώμη.';
+  }
+
+  @override
+  String challengeEdgeAllYours(String side) {
+    return 'Πήρα το $side. Η άλλη πλευρά δική σου.';
+  }
+
+  @override
+  String challengeEdgeConvince(String side) {
+    return '$side. Πείσε με για το αντίθετο.';
+  }
+
+  @override
+  String challengeEdgeSeeYou(String side) {
+    return '$side. Τα λέμε στο αποτέλεσμα.';
+  }
+
+  @override
+  String challengeEdgeReceipts(String side) {
+    return 'Λέω $side. Φέρε αποδείξεις.';
+  }
+
+  @override
+  String get shareEdgeStockJustChart => 'Όχι συμβουλή. Απλώς ένα γράφημα.';
+
+  @override
+  String get shareEdgeStockFeelings => 'Το γράφημα δεν έχει συναισθήματα.';
+
+  @override
+  String shareEdgeStockHeardOfIt(String name) {
+    return '$name. Ίσως το έχεις ακουστά.';
+  }
+
+  @override
+  String get shareEdgeStockActNormal => 'Πράσινη μέρα. Φέρσου φυσιολογικά.';
+
+  @override
+  String shareEdgeStockJustChange(String change) {
+    return 'Ηρέμησε. Μόνο $change είναι.';
+  }
+
+  @override
+  String get shareEdgeStockIKnew => 'Δεν λέω ότι το ήξερα. Αλλά το ήξερα.';
+
+  @override
+  String get shareEdgeStockTomorrow => 'Πάνω σήμερα. Το αύριο δεν με αφορά.';
+
+  @override
+  String shareEdgeStockGreenLooks(String name) {
+    return '$name στα πράσινα. Ταιριάζει.';
+  }
+
+  @override
+  String get shareEdgeStockEgoSteady => 'Το γράφημα πάνω. Το εγώ σταθερό.';
+
+  @override
+  String get shareEdgeStockDontClap => 'Μη χειροκροτείς. Απλώς κοίτα.';
+
+  @override
+  String get shareEdgeStockDoubleDigits => 'Διψήφιο. Θα το επιτρέψω.';
+
+  @override
+  String shareEdgeStockCheckShorts(String change) {
+    return 'Πάνω $change. Οι short είναι καλά;';
+  }
+
+  @override
+  String get shareEdgeStockCalmAsEver => 'Κόκκινη μέρα. Ήρεμα, όπως πάντα.';
+
+  @override
+  String shareEdgeStockZoomOut(String change) {
+    return 'Κάτω $change. Κάνε zoom out.';
+  }
+
+  @override
+  String get shareEdgeStockPanicOptional =>
+      'Πτώση; Ο πανικός είναι προαιρετικός.';
+
+  @override
+  String shareEdgeStockCharacterArc(String change) {
+    return 'Κάτω $change. Εξέλιξη χαρακτήρα.';
+  }
+
+  @override
+  String get shareEdgeStockPlotTwist => 'Βουτιά, όχι ανατροπή πλοκής.';
+
+  @override
+  String get shareEdgeStockStillHere => 'Κάτω σήμερα. Ακόμα εδώ.';
+
+  @override
+  String get shareEdgeStockAsIntended => 'Μεταβλητότητα: όπως σχεδιάστηκε.';
+
+  @override
+  String get shareEdgeStockBadDay => 'Κάθε γράφημα έχει κακές μέρες.';
+
+  @override
+  String shareEdgeStockDeepBreaths(String change) {
+    return 'Κάτω $change. Βαθιές ανάσες.';
+  }
+
+  @override
+  String get shareEdgeStockRiveting => 'Δεν έγινε τίποτα. Συναρπαστικό.';
+
+  @override
+  String get shareEdgeStockBoringUnderrated =>
+      'Επίπεδη μέρα. Το βαρετό υποτιμάται.';
+
+  @override
+  String get shareEdgeStockSideways => 'Το πλάγια είναι κι αυτό κατεύθυνση.';
+
+  @override
+  String get shareEdgeStockSuspicious => 'Χωρίς δράμα σήμερα. Ύποπτο.';
+
+  @override
+  String get shareEdgeStockNap => 'Το γράφημα πήρε έναν υπνάκο.';
+
+  @override
+  String get shareEdgeStockPaintDry => 'Παρακολουθώ το τίποτα. Επαγγελματικά.';
+
+  @override
+  String get shareEdgeStockUnchanged => 'Αμετάβλητο. Ατάραχο.';
+
+  @override
+  String get shareEdgeStockShortUnbothered => 'Short, και με απόλυτη ηρεμία.';
+
+  @override
+  String get shareEdgeStockNotEverythingUp => 'Δεν ανεβαίνουν όλα.';
+
+  @override
+  String get shareEdgeStockGravity => 'Και η βαρύτητα είναι στρατηγική.';
+
+  @override
+  String get shareEdgeStockShortHype => 'Short στο hype. Ευγενικά.';
+
+  @override
+  String get shareEdgeStockShortContrarian => 'Πάω κόντρα. Με γράφημα.';
+
+  @override
+  String get shareEdgeStockFlipSide => 'Κάποιος πρέπει να πάει κόντρα.';
+
+  @override
+  String shareEdgeStockAsPlanned(String change) {
+    return 'Κάτω $change. Όπως το σχεδίασα.';
+  }
+
+  @override
+  String get shareEdgeStockICanWait => 'Πάνω σήμερα. Μπορώ να περιμένω.';
+
+  @override
+  String get shareEdgeBragQuietlyGreen => 'Ήσυχα στα πράσινα.';
+
+  @override
+  String get shareEdgeBragGreenSuits => 'Το πράσινο μού πάει.';
+
+  @override
+  String get shareEdgeBragCopyMe => 'Θα εξηγούσα, αλλά θα με αντέγραφες.';
+
+  @override
+  String get shareEdgeBragHumbleWorking => 'Ταπεινότητα; Δουλεύεται.';
+
+  @override
+  String get shareEdgeBragNotVibes => 'Αποτελέσματα, όχι vibes.';
+
+  @override
+  String get shareEdgeBragMildlyPleased =>
+      'Καμία έκπληξη. Ελαφριά ικανοποίηση.';
+
+  @override
+  String get shareEdgeBragNotAPromise => 'Παλιές αποδόσεις. Όχι υπόσχεση.';
+
+  @override
+  String get shareEdgeBragBeforeItChanges => 'Screenshot πριν αλλάξει.';
+
+  @override
+  String get shareEdgeBragMainCharacter => 'Πρωταγωνιστική ενέργεια.';
+
+  @override
+  String shareEdgeBragUnbearable(String amount) {
+    return '$amount. Θα το λέω για καιρό.';
+  }
+
+  @override
+  String get shareEdgeBragBeingCalm => 'Αυτή είναι η ήρεμη εκδοχή μου.';
+
+  @override
+  String get shareEdgeBragAllegedly => 'Μεγάλο νούμερο. Μικρό εγώ. Λέμε τώρα.';
+
+  @override
+  String get shareEdgeBragStillAWin => 'Μικρή νίκη. Πάντως νίκη.';
+
+  @override
+  String shareEdgeBragRome(String amount) {
+    return '$amount. Και η Ρώμη σιγά σιγά.';
+  }
+
+  @override
+  String get shareEdgeBragModest => 'Μετριόφρον. Σαν εμένα.';
+
+  @override
+  String get shareEdgeBragHumbled => 'Προσωρινή προσγείωση.';
+
+  @override
+  String get shareEdgeBragRedPhase => 'Το κόκκινο είναι φάση.';
+
+  @override
+  String shareEdgeBragLessons(String amount) {
+    return 'Μείον $amount. Μαθήματα δώρο.';
+  }
+
+  @override
+  String get shareEdgeBragNotOut => 'Κάτω, αλλά όχι νοκ άουτ.';
+
+  @override
+  String get shareEdgeBragGrowth => 'Ανεβάζω τις απώλειές μου. Ωρίμανση.';
+
+  @override
+  String get shareEdgeBragHumbleEra => 'Αυτή είναι η ταπεινή μου εποχή.';
+
+  @override
+  String get shareEdgeBragOnTheChin => 'Έφαγα τη σφαλιάρα. Κομψά.';
+
+  @override
+  String get shareEdgeBragNotMyBest => 'Όχι η καλύτερή μου. Ούτε η τελευταία.';
+
+  @override
+  String get shareEdgeBragDignified => 'Κόκκινο, αλλά με αξιοπρέπεια.';
+
+  @override
+  String get shareEdgeBragTuition => 'Οι απώλειες είναι δίδακτρα.';
+
+  @override
+  String get shareEdgeBragNetCalm => 'Καθαρό μηδέν. Καθαρή ηρεμία.';
+
+  @override
+  String get shareEdgeBragBalanced => 'Επίπεδο. Τέλεια ισορροπημένο.';
+
+  @override
+  String get shareEdgeBragDidntPanic =>
+      'Ούτε κέρδος. Ούτε ζημιά. Ούτε πανικός.';
+
+  @override
+  String get shareEdgeBragUndefeated => 'Το μηδέν μένει αήττητο.';
+
+  @override
+  String get shareEdgeBragWithStyle => 'Πλάγια, με στυλ.';
+
+  @override
+  String get shareEdgeBragSharedAnyway =>
+      'Τίποτα να δεις. Το μοιράστηκα πάντως.';
+
+  @override
+  String get shareEdgeBragSteadyHands => 'Επίπεδη γραμμή. Σταθερά χέρια.';
+
+  @override
+  String get shareEdgeBragBlinked => 'Η αγορά λύγισε. Εγώ όχι.';
+
+  @override
+  String get shareEdgeBragEvenTemper => 'Ισορροπία. Σαν τον χαρακτήρα μου.';
+
+  @override
+  String get shareEdgeBragNoDrama => 'Μηδέν δράμα. Μηδέν αλλαγή.';
+
+  @override
+  String get bragEdgeWonToldPolitely => 'Σου το είπα. Ευγενικά.';
+
+  @override
+  String get bragEdgeWonNormal => 'Είχα δίκιο. Θα το πάρω ψύχραιμα.';
+
+  @override
+  String get bragEdgeWonMyFavour => 'Κρίθηκε υπέρ μου.';
+
+  @override
+  String get bragEdgeWonPaysSometimes => 'Το δίκιο πληρώνει. Καμιά φορά.';
+
+  @override
+  String get bragEdgeWonAgreed => 'Η αγορά συμφώνησε. Στο τέλος.';
+
+  @override
+  String get bragEdgeWonMySide => 'Η πλευρά μου τα κατάφερε.';
+
+  @override
+  String get bragEdgeWonThenPayout => 'Υπομονή, μετά πληρωμή.';
+
+  @override
+  String get bragEdgeWonNoNotes => 'Καμία παρατήρηση.';
+
+  @override
+  String get bragEdgeWonFutureSelf => 'Screenshot για το μελλοντικό μου εγώ.';
+
+  @override
+  String get bragEdgeWonEarlyThenRight => 'Πρώτα νωρίς. Μετά σωστά.';
+
+  @override
+  String get bragEdgeWonCollecting => 'Εισπράττω ήσυχα.';
+
+  @override
+  String get bragEdgeWonNotSurprised => 'Θα προσποιούμουν έκπληξη. Δεν έχω.';
+
+  @override
+  String get receiptEdgeSentNoHold => 'Στάλθηκε. Χωρίς μουσική αναμονής.';
+
+  @override
+  String get receiptEdgeSentBeforeBank => 'Έγινε πριν ανοίξει η τράπεζα.';
+
+  @override
+  String get receiptEdgeSentDrama => 'Τα λεφτά κινήθηκαν. Το δράμα όχι.';
+
+  @override
+  String get receiptEdgeSentBusinessDays => 'Δευτερόλεπτα, όχι εργάσιμες.';
+
+  @override
+  String get receiptEdgeSentThankLater => 'Στάλθηκε. Με ευχαριστείς μετά.';
+
+  @override
+  String get receiptEdgeSentEfficient => 'Γενναιόδωρα και αποτελεσματικά.';
+
+  @override
+  String get receiptEdgeSentOneTap => 'Ένα πάτημα. Χωρίς φόρμες.';
+
+  @override
+  String get receiptEdgeSentPaidUp => 'Ξεπληρώθηκε. Προχωράμε.';
+
+  @override
+  String get receiptEdgeSentAdult => 'Εξοφλήθηκε. Σαν ενήλικας.';
+
+  @override
+  String receiptEdgeSentGone(String amount) {
+    return '$amount, έφυγαν σε δευτερόλεπτα.';
+  }
+
+  @override
+  String get receiptEdgeSentSaga => 'Μια πληρωμή δεν θέλει σίριαλ.';
+
+  @override
+  String get receiptEdgeReceivedCasual => 'Πληρώθηκα. Ψυχραιμία.';
+
+  @override
+  String get receiptEdgeReceivedNoted => 'Ελήφθη. Σημειώθηκε. Εκτιμήθηκε.';
+
+  @override
+  String receiptEdgeReceivedRicher(String amount) {
+    return '$amount παραπάνω. Καμία ταραχή.';
+  }
+
+  @override
+  String get receiptEdgeReceivedThankYou =>
+      'Έφτασε πριν το μήνυμα ευχαριστίας.';
+
+  @override
+  String get receiptEdgeReceivedMoodUp => 'Λεφτά μέσα. Διάθεση πάνω.';
+
+  @override
+  String get receiptEdgeReceivedGrace => 'Παραλήφθηκε με χάρη.';
+
+  @override
+  String get receiptEdgeReceivedAskTwice => 'Ούτε δεύτερη φορά δεν ρώτησα.';
+
+  @override
+  String get receiptEdgeReceivedUnscheduled =>
+      'Μέρα πληρωμής, εκτός προγράμματος.';
+
+  @override
+  String get receiptEdgeReceivedNoMiddle => 'Έφτασε. Χωρίς τράπεζα στη μέση.';
+
+  @override
+  String get receiptEdgeReceivedCompliments =>
+      'Δέχομαι κομπλιμέντα και μεταφορές.';
+
+  @override
+  String get receiptEdgeIncomingAlmost => 'Σχεδόν εδώ. Μη στέκεσαι από πάνω.';
+
+  @override
+  String get receiptEdgeIncomingLoading => 'Φορτώνει. Ψυχραιμία.';
+
+  @override
+  String get receiptEdgeIncomingRefreshing =>
+      'Έρχεται. Το refresh δεν βοηθάει.';
+
+  @override
+  String get receiptEdgeIncomingNotChecking => 'Έρχεται. Δεν το ελέγχω.';
+
+  @override
+  String get receiptEdgeIncomingPending => 'Εκκρεμεί. Όπως όλα τα καλά.';
+
+  @override
+  String get receiptEdgeIncomingPatienceMode =>
+      'Έρχεται. Λειτουργία υπομονής: ON.';
+
+  @override
+  String get receiptEdgeIncomingSnacks =>
+      'Καθ\' οδόν. Σνακ δεν περιλαμβάνονται.';
+
+  @override
+  String get receiptEdgeIncomingMinute => 'Τα καλά πράγματα αργούν να γίνουν.';
+
+  @override
+  String get receiptEdgeIncomingMotion => 'Χρήματα σε κίνηση.';
+
+  @override
+  String get receiptEdgeIncomingWatched => 'Όσο την κοιτάς, τόσο αργεί.';
+
+  @override
+  String get receiptEdgeMovedFurniture => 'Αλλάζω τα έπιπλα θέση.';
+
+  @override
+  String get receiptEdgeMovedDidntLose => 'Τα μετακίνησα. Δεν τα έχασα.';
+
+  @override
+  String get receiptEdgeMovedPockets => 'Από τη μία τσέπη στην άλλη.';
+
+  @override
+  String get receiptEdgeMovedRelocated => 'Τα λεφτά μετακόμισαν.';
+
+  @override
+  String get receiptEdgeMovedNewRoom => 'Ίδιος ιδιοκτήτης. Νέο δωμάτιο.';
+
+  @override
+  String get receiptEdgeMovedHousekeeping => 'Νοικοκύρεμα, αλλά για λεφτά.';
+
+  @override
+  String get receiptEdgeMovedShuffle => 'Ένα στρατηγικό ανακάτεμα.';
+
+  @override
+  String get receiptEdgeMovedGrownUp => 'Μετακινώ λεφτά με ωριμότητα.';
+
+  @override
+  String get receiptEdgeMovedOrganised => 'Οργανωμένα. Για λίγο.';
+
+  @override
+  String get receiptEdgeMovedTidying => 'Απλώς συμμαζεύω.';
+
+  @override
+  String get receiptEdgeMovedAllocating => 'Κατανέμω. Πολύ ήρεμα.';
+
+  @override
+  String get receiptEdgeBoughtOverthink => 'Δεν το σκέφτηκα πολύ.';
+
+  @override
+  String get receiptEdgeBoughtPile => 'Προστέθηκε στη στοίβα.';
+
+  @override
+  String get receiptEdgeBoughtAccumulation => 'Ήσυχη συσσώρευση.';
+
+  @override
+  String get receiptEdgeBoughtToldNoOne =>
+      'Δεν το είπα σε κανέναν. Μέχρι τώρα.';
+
+  @override
+  String get receiptEdgeBoughtNotTiming => 'Αγοράζω, δεν κάνω timing.';
+
+  @override
+  String receiptEdgeBoughtConviction(String amount) {
+    return '$amount πεποίθησης.';
+  }
+
+  @override
+  String get receiptEdgeBoughtPatience => 'Πρώτα αγορά. Μετά υπομονή.';
+
+  @override
+  String get receiptEdgeBoughtNoise => 'Αγοράζω. Αγνοώ τον θόρυβο.';
+
+  @override
+  String get receiptEdgeBoughtBackToDay => 'Το αγόρασα. Πίσω στη μέρα μου.';
+
+  @override
+  String get receiptEdgeBoughtShoes => 'Κάποιοι αγοράζουν παπούτσια.';
+
+  @override
+  String get receiptEdgeSoldKeptCool => 'Πούλησα λίγο. Με ψυχραιμία.';
+
+  @override
+  String get receiptEdgeSoldNoRegrets => 'Μετατράπηκε. Καμία μετάνοια. Ακόμα.';
+
+  @override
+  String get receiptEdgeSoldDidntCheck => 'Πούλησα. Δεν ξανακοιτάζω την τιμή.';
+
+  @override
+  String get receiptEdgeSoldLiquidity => 'Ρευστότητα: αποκτήθηκε.';
+
+  @override
+  String get receiptEdgeSoldLeftDrama => 'Πήρα τα λεφτά. Άφησα το δράμα.';
+
+  @override
+  String get receiptEdgeSoldSleeping => 'Πούλησα. Κοιμάμαι μια χαρά.';
+
+  @override
+  String get receiptEdgeSoldCashPosition => 'Και τα μετρητά είναι θέση.';
+
+  @override
+  String get receiptEdgeSoldDeliberately => 'Σε μετρητά. Συνειδητά.';
+
+  @override
+  String get receiptEdgeSoldPressed => 'Κουμπί πώλησης: πατήθηκε. Ήρεμα.';
+
+  @override
+  String get receiptEdgeSoldLittleCash => 'Λίγα μετρητά δεν βλάπτουν.';
+
+  @override
+  String get receiptEdgePredictedCommitted => 'Δεσμεύτηκα. Σχεδόν.';
+
+  @override
+  String get receiptEdgePredictedHardPart => 'Η αναμονή είναι το δύσκολο.';
+
+  @override
+  String get receiptEdgePredictedSkin => 'Μια άποψη, πλέον με αντίκρισμα.';
+
+  @override
+  String get receiptEdgePredictedNails => 'Καταχωρήθηκε. Τα νύχια ακέραια.';
+
+  @override
+  String get receiptEdgePredictedTookSide =>
+      'Πήρα θέση. Κράτησα την ψυχραιμία.';
+
+  @override
+  String get receiptEdgePredictedJustMySide =>
+      'Όχι συμβουλή. Απλώς η πλευρά μου.';
+
+  @override
+  String get receiptEdgePredictedResolution => 'Τα λέμε στο αποτέλεσμα.';
+
+  @override
+  String receiptEdgePredictedThatsThePost(String amount, String side) {
+    return '$amount στο $side. Αυτά.';
+  }
+
+  @override
+  String get receiptEdgeUpInUpOut => 'Μέσα. Πάνω. Έξω.';
+
+  @override
+  String get receiptEdgeUpEgo => 'Πήρα το κέρδος. Άφησα το εγώ.';
+
+  @override
+  String get receiptEdgeUpWhileGreen => 'Έφυγα όσο ήταν πράσινο.';
+
+  @override
+  String get receiptEdgeUpWhenToLeave => 'Ξέρω πότε να φεύγω. Είναι τέχνη.';
+
+  @override
+  String receiptEdgeUpDoneHere(String amount) {
+    return '$amount. Τελειώσαμε εδώ.';
+  }
+
+  @override
+  String get receiptEdgeUpBooked => 'Στην τσέπη.';
+
+  @override
+  String get receiptEdgeUpNoEncore => 'Πράσινη έξοδος. Χωρίς μπιζ.';
+
+  @override
+  String get receiptEdgeUpGreed => 'Η απληστία δεν είναι στρατηγική.';
+
+  @override
+  String get receiptEdgeUpDiscipline => 'Έφυγα με κέρδος. Σπάνια πειθαρχία.';
+
+  @override
+  String get receiptEdgeUpWinIsWin => 'Η νίκη είναι νίκη.';
+
+  @override
+  String get receiptEdgeDownDignity => 'Κόψιμο ζημιάς. Αξιοπρέπεια ακέραια.';
+
+  @override
+  String get receiptEdgeDownExits => 'Και οι έξοδοι είναι τέχνη.';
+
+  @override
+  String get receiptEdgeDownQuick => 'Έπεσα έξω. Το έκλεισα γρήγορα.';
+
+  @override
+  String get receiptEdgeDownLessonKept => 'Βγήκα νωρίς. Κράτησα το μάθημα.';
+
+  @override
+  String get receiptEdgeDownStubborn => 'Καλύτερα έξω παρά πείσμα.';
+
+  @override
+  String get receiptEdgeDownTookL => 'Έχασα. Κράτησα την απόδειξη.';
+
+  @override
+  String get receiptEdgeDownNotMyDay => 'Έκλεισε. Δεν ήταν η μέρα μου.';
+
+  @override
+  String get receiptEdgeDownZeroTears => 'Κόκκινη έξοδος. Μηδέν δάκρυα.';
+
+  @override
+  String get receiptEdgeDownHalfSkill => 'Η παραδοχή είναι η μισή τέχνη.';
+
+  @override
+  String receiptEdgeDownTuition(String amount) {
+    return '$amount. Τα δίδακτρα πληρώθηκαν.';
+  }
+
+  @override
+  String get receiptEdgeFlatRoundTrip => 'Μετ\' επιστροφής. Χωρίς σουβενίρ.';
+
+  @override
+  String get receiptEdgeFlatWiser => 'Πίσω στην αρχή. Με γνώσεις παραπάνω.';
+
+  @override
+  String get receiptEdgeFlatZeroStress => 'Μηδενικό άθροισμα. Μηδέν άγχος.';
+
+  @override
+  String get receiptEdgeFlatNoHarm => 'Καμία ζημιά. Κανένα φάουλ.';
+
+  @override
+  String get receiptEdgeFlatShrugged => 'Η αγορά σήκωσε τους ώμους. Κι εγώ.';
+
+  @override
+  String get receiptEdgeFlatStory => 'Καθαρό αποτέλεσμα: μια ιστορία.';
+
+  @override
+  String get receiptEdgeLostNextQuestion => 'Επόμενη ερώτηση.';
+
+  @override
+  String get receiptEdgeLostRudely => 'Η αγορά διαφώνησε. Αγενώς.';
+
+  @override
+  String get receiptEdgeLostHumour => 'Έχασα μία. Κράτησα το χιούμορ μου.';
+
+  @override
+  String get receiptEdgeLostCompany => 'Λάθος, αλλά σε καλή παρέα.';
+
+  @override
+  String get receiptEdgeLostOnMe => 'Αυτό το χρεώνομαι εγώ.';
+
+  @override
+  String get receiptEdgeLostConfidence => 'Πιο άδειο πορτοφόλι. Ίδιος αέρας.';
+
+  @override
+  String get receiptEdgeLostWrongly => 'Το προέβλεψα. Λάθος.';
+
+  @override
+  String get receiptEdgeLostGraceful => 'Το να χάνεις με χάρη είναι flex.';
+
+  @override
+  String get receiptEdgeLostOddsWereOdds => 'Οι πιθανότητες ήταν πιθανότητες.';
+
+  @override
+  String get receiptEdgeLostAlreadyMoved => 'Προχωράω. Ήδη προχώρησα.';
+
+  @override
+  String get receiptEdgeLostUpLesson => 'Μία πρόβλεψη κάτω. Ένα μάθημα πάνω.';
+
+  @override
+  String get receiptEdgePaidResolved => 'Κρίθηκε. Εισπράχθηκε.';
+
+  @override
+  String get receiptEdgePaidNormal => 'Η πληρωμή έφτασε. Φέρομαι κανονικά.';
+
+  @override
+  String receiptEdgePaidInFull(String amount) {
+    return '$amount, πληρωμένα στο ακέραιο.';
+  }
+
+  @override
+  String get receiptEdgePaidCourtesy => 'Πληρώνομαι επειδή είχα δίκιο.';
+
+  @override
+  String get receiptEdgeOpenedPulse => 'Θέση ανοιχτή. Σφυγμός κανονικός.';
+
+  @override
+  String get receiptEdgeOpenedCalmly => 'Μπήκα ήρεμα. Θα βγω ήρεμα.';
+
+  @override
+  String receiptEdgeOpenedInAt(String price) {
+    return 'Μέσα στα $price. Σημειώθηκε.';
+  }
+
+  @override
+  String get receiptEdgeOpenedNotRefreshing =>
+      'Μέσα. Χωρίς refresh κάθε λεπτό.';
+
+  @override
+  String get receiptEdgeOpenedSized => 'Πεποίθηση, σε υπεύθυνη δόση.';
+
+  @override
+  String get receiptEdgeOpenedJustMine => 'Όχι συμβουλή. Απλώς το trade μου.';
+
+  @override
+  String get receiptEdgeOpenedUnderstanding =>
+      'Με το γράφημα έχουμε μια συνεννόηση.';
+
+  @override
+  String get receiptEdgeOpenedMyProblem => 'Η είσοδός μου. Το πρόβλημά μου.';
+
+  @override
+  String get receiptEdgeOpenedEither => 'Πάνω ή κάτω, όλα καλά.';
 
   @override
   String shareMessageChallengeNamed(

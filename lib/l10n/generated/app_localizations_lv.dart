@@ -12581,6 +12581,953 @@ class AppLocalizationsLv extends AppLocalizations {
   }
 
   @override
+  String get shareEdgeMoneyNoStrings => 'Bez saistībām. Pārbaudīju.';
+
+  @override
+  String get shareEdgeMoneyMakeItText => 'Nauda, bet kā īsziņa.';
+
+  @override
+  String get shareEdgeMoneyLowBar => 'Ātrāk nekā banka. Latiņa zema.';
+
+  @override
+  String get shareEdgeMoneyNoForms => 'Bez veidlapām. Bez pļāpām.';
+
+  @override
+  String get shareEdgeMoneyActNatural => 'Pārsteigums. Uzvedies dabiski.';
+
+  @override
+  String get shareEdgeMoneyInAdvance => 'Lūdzu. Jau iepriekš.';
+
+  @override
+  String shareEdgeMoneyNoQuestions(String amount) {
+    return '$amount, bez liekiem jautājumiem.';
+  }
+
+  @override
+  String get shareEdgeMoneyNotALoan => 'Dāvana. Ne aizdevums. Laikam.';
+
+  @override
+  String get shareEdgeMoneyAllAtOnce => 'Neiztērē visu uzreiz.';
+
+  @override
+  String get shareEdgeMoneyGetUsed => 'Tikai nepierodi.';
+
+  @override
+  String get shareEdgeMoneyLittleEgo => 'Ar mīlestību. Un mazliet ego.';
+
+  @override
+  String get shareEdgeMoneyNoBank => 'Bankai neviens neprasīja.';
+
+  @override
+  String get shareEdgeMoneyHandlePatience => 'Bitkoins. Turēt pacietīgi.';
+
+  @override
+  String get shareEdgeMoneyStackResponsibly => 'Krāj atbildīgi.';
+
+  @override
+  String get shareEdgeMoneyNoLecture => 'Bitkoins. Bez lekcijas.';
+
+  @override
+  String get shareEdgeMoneyTinySats => 'Mazi sati. Liela atbildība.';
+
+  @override
+  String get shareEdgeMoneySameDollars => 'Digitālie dolāri. Tie paši dolāri.';
+
+  @override
+  String get shareEdgeMoneyNoEnvelope =>
+      'Kā skaidra nauda, tikai bez kartītes.';
+
+  @override
+  String get shareEdgeMoneyNoExchange => 'Dolāri. Bez lidostas kursa.';
+
+  @override
+  String get shareEdgePickScreenshot => 'Mana prognoze. Ekrānšāviņš obligāts.';
+
+  @override
+  String get shareEdgePickSaidFirst => 'Sadaļa: es to teicu pirms visiem.';
+
+  @override
+  String shareEdgePickFinalAnswer(String side) {
+    return '$side. Galīgā atbilde.';
+  }
+
+  @override
+  String get shareEdgePickStrongOpinion =>
+      'Nav padoms. Tikai stingrs viedoklis.';
+
+  @override
+  String get shareEdgePickDidReading => 'Iedziļinājos. Lielākoties.';
+
+  @override
+  String get shareEdgePickToldYouSo => 'Saglabāju „es taču teicu“ brīdim.';
+
+  @override
+  String get shareEdgePickConviction => 'Pārliecība man piestāv.';
+
+  @override
+  String get shareEdgePickNotFree => 'Viedokļi ir par brīvu. Šis nav.';
+
+  @override
+  String shareEdgePickAmountSays(String amount, String side) {
+    return '$amount saka: $side.';
+  }
+
+  @override
+  String get shareEdgePickLowDrama => 'Maz drāmas. Daudz pārliecības.';
+
+  @override
+  String get shareEdgePickInsufferable => 'Ja trāpīs, tu mani nevarēsi ciest.';
+
+  @override
+  String get shareEdgePickRevolutionary => 'Izvēlos favorītu. Revolucionāri.';
+
+  @override
+  String shareEdgePickSmartCrowd(String chance) {
+    return '$chance piekrīt. Gudrs pūlis.';
+  }
+
+  @override
+  String get shareEdgePickSafePick => 'Droša izvēle. Bet tomēr izvēle.';
+
+  @override
+  String get shareEdgePickWithOdds => 'Izvēlējos pēc izredzēm. Negaidīti.';
+
+  @override
+  String get shareEdgePickOnPurpose => 'Autsaiders. Ar nodomu.';
+
+  @override
+  String shareEdgePickOnlySee(String chance) {
+    return 'Tikai $chance tic. Man der.';
+  }
+
+  @override
+  String get shareEdgePickLongShot => 'Maz izredžu. Maz skaidrojumu.';
+
+  @override
+  String get shareEdgePickContrarian => 'Pret straumi. Ne kļūdas pēc.';
+
+  @override
+  String get shareEdgeTopicDebates => 'Debates ir troksnis. Izredzes – nē.';
+
+  @override
+  String get shareEdgeTopicCoach => 'Šodien visi ir treneri.';
+
+  @override
+  String get shareEdgeTopicVolatility => 'Svārstības iekļautas. Bez piemaksas.';
+
+  @override
+  String get shareEdgeTopicMinutes => 'Lasi protokolus. Visus.';
+
+  @override
+  String get shareEdgeMarketPickOrWatch => 'Izvēlies pusi. Vai vienkārši vēro.';
+
+  @override
+  String get shareEdgeMarketHasOdds => 'Viedoklis par brīvu. Šim – izredzes.';
+
+  @override
+  String get shareEdgeMarketUntilResolves =>
+      'Visi ir eksperti, līdz tas izšķiras.';
+
+  @override
+  String get shareEdgeMarketGroupChat => 'Grupas čats, iepazīsties: izredzes.';
+
+  @override
+  String get shareEdgeMarketHotTakes =>
+      'Karsti viedokļi? Izredzes pievienotas.';
+
+  @override
+  String get shareEdgeMarketJustMarket => 'Nav padoms. Tikai tirgus.';
+
+  @override
+  String get shareEdgeMarketOddsMove => 'Izredzes mainās. Jautājums – nē.';
+
+  @override
+  String get shareEdgeMarketYourCall => 'Tu izlem. Bez spiediena.';
+
+  @override
+  String get shareEdgeMarketDiscuss => 'Apspriediet. Mierīgi.';
+
+  @override
+  String get shareEdgeMarketWhereLand => 'Un tu kurā pusē?';
+
+  @override
+  String shareEdgeMarketSayDiscuss(String chance, String side) {
+    return '$chance saka: $side. Apspriediet.';
+  }
+
+  @override
+  String get shareEdgeMarketHarder => 'Jā vai nē. Grūtāk, nekā izklausās.';
+
+  @override
+  String get shareEdgeMarketTwoAnswers => 'Viens jautājums. Divas atbildes.';
+
+  @override
+  String shareEdgeMarketNotGuarantee(String chance) {
+    return '$chance nav garantija.';
+  }
+
+  @override
+  String get shareEdgeMarketFeelings => 'Jautājums vienkāršs. Jūtas – nē.';
+
+  @override
+  String get shareEdgeMarketLikely => 'Visticamāk nav garantēti.';
+
+  @override
+  String shareEdgeMarketLeads(String leader) {
+    return 'Vadībā $leader. Nekas nav izlemts.';
+  }
+
+  @override
+  String shareEdgeMarketCoronation(String chance) {
+    return '$chance vēl nav kronēšana.';
+  }
+
+  @override
+  String shareEdgeMarketHistoryWait(String leader) {
+    return 'Grafiks: $leader. Vēsture: pagaidi.';
+  }
+
+  @override
+  String get shareEdgeMarketAskTomorrow =>
+      'Šodien līderis. Pajautā rīt vēlreiz.';
+
+  @override
+  String get shareEdgeMarketCrowdedField => 'Daudz kandidātu. Viena atbilde.';
+
+  @override
+  String shareEdgeMarketStayTuned(String leader, String chance) {
+    return '$leader: $chance. Nepārslēdz.';
+  }
+
+  @override
+  String get shareEdgeMarketLeadingNotWinning => 'Vadīt vēl nav uzvarēt.';
+
+  @override
+  String get shareEdgeMarketNotSureThing => 'Favorīts vēl nav fakts.';
+
+  @override
+  String get shareEdgeMarketUpsets => 'Pārsteigumi notiek. Favorīti arī.';
+
+  @override
+  String get shareEdgeMarketGameDecides => 'Izšķir spēle. Ne komentāri.';
+
+  @override
+  String get shareEdgeMarketOddsDontPlay => 'Izredzes laukumā nespēlē.';
+
+  @override
+  String get shareEdgeMarketScoreboard => 'Runā tagad. Rezultāts vēlāk.';
+
+  @override
+  String challengeEdgeComeAtMe(String side) {
+    return '$side. Nu, pamēģini.';
+  }
+
+  @override
+  String challengeEdgeOnNotice(String side) {
+    return 'Es par $side. Tas ir brīdinājums.';
+  }
+
+  @override
+  String challengeEdgeTalkCheap(String side) {
+    return '$side. Runāt ir lēti. Izvēlies pusi.';
+  }
+
+  @override
+  String challengeEdgeScared(String side) {
+    return '$side. Bail? Saprotams.';
+  }
+
+  @override
+  String challengeEdgeKnowBetter(String side) {
+    return '$side. Ja vien tu nezini labāk.';
+  }
+
+  @override
+  String challengeEdgeTurnWrong(String side) {
+    return 'Es par $side. Tava kārta kļūdīties.';
+  }
+
+  @override
+  String challengeEdgeNotSorry(String side) {
+    return '$side, un es nenožēloju.';
+  }
+
+  @override
+  String challengeEdgeAllYours(String side) {
+    return 'Es ņēmu $side. Otra puse ir tava.';
+  }
+
+  @override
+  String challengeEdgeConvince(String side) {
+    return '$side. Pamēģini pārliecināt.';
+  }
+
+  @override
+  String challengeEdgeSeeYou(String side) {
+    return '$side. Tiksimies, kad izšķirsies.';
+  }
+
+  @override
+  String challengeEdgeReceipts(String side) {
+    return 'Es par $side. Nāc ar pierādījumiem.';
+  }
+
+  @override
+  String get shareEdgeStockJustChart => 'Nav padoms. Tikai grafiks.';
+
+  @override
+  String get shareEdgeStockFeelings => 'Grafikiem nerūp jūtas.';
+
+  @override
+  String shareEdgeStockHeardOfIt(String name) {
+    return '$name. Varbūt dzirdēts?';
+  }
+
+  @override
+  String get shareEdgeStockActNormal => 'Zaļa diena. Uzvedies normāli.';
+
+  @override
+  String shareEdgeStockJustChange(String change) {
+    return 'Nomierinies. Tikai $change.';
+  }
+
+  @override
+  String get shareEdgeStockIKnew => 'Nesaku, ka zināju. Bet zināju.';
+
+  @override
+  String get shareEdgeStockTomorrow => 'Šodien augšā. Rīt nav mana problēma.';
+
+  @override
+  String shareEdgeStockGreenLooks(String name) {
+    return '$name un zaļais. Ideāls pāris.';
+  }
+
+  @override
+  String get shareEdgeStockEgoSteady => 'Grafiks augšā. Ego vietā.';
+
+  @override
+  String get shareEdgeStockDontClap => 'Neaplaudē. Vienkārši skaties.';
+
+  @override
+  String get shareEdgeStockDoubleDigits => 'Divciparu skaitlis. Atļauju.';
+
+  @override
+  String shareEdgeStockCheckShorts(String change) {
+    return 'Kāpums $change. Šortotāji, turieties.';
+  }
+
+  @override
+  String get shareEdgeStockCalmAsEver => 'Sarkana diena. Miers kā vienmēr.';
+
+  @override
+  String shareEdgeStockZoomOut(String change) {
+    return 'Kritums $change. Skaties plašāk.';
+  }
+
+  @override
+  String get shareEdgeStockPanicOptional =>
+      'Kritumi notiek. Panika – pēc izvēles.';
+
+  @override
+  String shareEdgeStockCharacterArc(String change) {
+    return 'Kritums $change. Rakstura attīstība.';
+  }
+
+  @override
+  String get shareEdgeStockPlotTwist => 'Kritums, ne sižeta pavērsiens.';
+
+  @override
+  String get shareEdgeStockStillHere => 'Šodien lejā. Joprojām šeit.';
+
+  @override
+  String get shareEdgeStockAsIntended => 'Svārstības: darbojas, kā paredzēts.';
+
+  @override
+  String get shareEdgeStockBadDay => 'Arī grafikiem ir sliktas dienas.';
+
+  @override
+  String shareEdgeStockDeepBreaths(String change) {
+    return 'Kritums $change. Dziļi ieelpo.';
+  }
+
+  @override
+  String get shareEdgeStockRiveting => 'Nekas nenotika. Aizraujoši.';
+
+  @override
+  String get shareEdgeStockBoringUnderrated =>
+      'Rāma diena. Garlaicība nenovērtēta.';
+
+  @override
+  String get shareEdgeStockSideways => 'Uz sāniem – arī virziens.';
+
+  @override
+  String get shareEdgeStockSuspicious => 'Šodien bez drāmas. Aizdomīgi.';
+
+  @override
+  String get shareEdgeStockNap => 'Grafiks nosnaudās.';
+
+  @override
+  String get shareEdgeStockPaintDry => 'Krāsa žūst. Vēroju profesionāli.';
+
+  @override
+  String get shareEdgeStockUnchanged => 'Bez izmaiņām. Bez nerviem.';
+
+  @override
+  String get shareEdgeStockShortUnbothered => 'Šortoju mierīgi.';
+
+  @override
+  String get shareEdgeStockNotEverythingUp => 'Ne viss kāpj augšā.';
+
+  @override
+  String get shareEdgeStockGravity => 'Gravitācija arī ir stratēģija.';
+
+  @override
+  String get shareEdgeStockShortHype => 'Šortoju ažiotāžu. Pieklājīgi.';
+
+  @override
+  String get shareEdgeStockShortContrarian => 'Pret straumi, ar grafiku.';
+
+  @override
+  String get shareEdgeStockFlipSide => 'Kādam jābūt otrā pusē.';
+
+  @override
+  String shareEdgeStockAsPlanned(String change) {
+    return 'Kritums $change. Kā plānots.';
+  }
+
+  @override
+  String get shareEdgeStockICanWait => 'Šodien augšā. Es pagaidīšu.';
+
+  @override
+  String get shareEdgeBragQuietlyGreen => 'Klusiņām zaļajā zonā.';
+
+  @override
+  String get shareEdgeBragGreenSuits => 'Zaļais man piestāv.';
+
+  @override
+  String get shareEdgeBragCopyMe => 'Paskaidrotu, bet tu nokopētu.';
+
+  @override
+  String get shareEdgeBragHumbleWorking => 'Pieticība? Strādāju pie tā.';
+
+  @override
+  String get shareEdgeBragNotVibes => 'Rezultāti, nevis vaibi.';
+
+  @override
+  String get shareEdgeBragMildlyPleased => 'Nepārsteidz. Mazliet priecē.';
+
+  @override
+  String get shareEdgeBragNotAPromise => 'Pagātnes rezultāti. Ne solījums.';
+
+  @override
+  String get shareEdgeBragBeforeItChanges =>
+      'Ekrānšāviņš, kamēr nav mainījies.';
+
+  @override
+  String get shareEdgeBragMainCharacter => 'Galvenā varoņa enerģija.';
+
+  @override
+  String shareEdgeBragUnbearable(String amount) {
+    return '$amount. Tagad ar mani būs grūti.';
+  }
+
+  @override
+  String get shareEdgeBragBeingCalm => 'Šī ir mana mierīgā versija.';
+
+  @override
+  String get shareEdgeBragAllegedly => 'Liels skaitlis. Mazs ego. It kā.';
+
+  @override
+  String get shareEdgeBragStillAWin => 'Mazs pluss. Bet pluss.';
+
+  @override
+  String shareEdgeBragRome(String amount) {
+    return '$amount. Rīga nav vienā dienā celta.';
+  }
+
+  @override
+  String get shareEdgeBragModest => 'Pieticīgi. Kā es.';
+
+  @override
+  String get shareEdgeBragHumbled => 'Īslaicīga pazemība.';
+
+  @override
+  String get shareEdgeBragRedPhase => 'Sarkanais ir tikai posms.';
+
+  @override
+  String shareEdgeBragLessons(String amount) {
+    return 'Mīnus $amount. Mācības komplektā.';
+  }
+
+  @override
+  String get shareEdgeBragNotOut => 'Kritu, bet neizkritu.';
+
+  @override
+  String get shareEdgeBragGrowth => 'Publicēju zaudējumus. Izaugsme.';
+
+  @override
+  String get shareEdgeBragHumbleEra => 'Mana pieticības ēra.';
+
+  @override
+  String get shareEdgeBragOnTheChin => 'Pieņēmu sitienu. Graciozi.';
+
+  @override
+  String get shareEdgeBragNotMyBest => 'Ne labākais. Ne pēdējais.';
+
+  @override
+  String get shareEdgeBragDignified => 'Sarkanajā zonā, bet ar cieņu.';
+
+  @override
+  String get shareEdgeBragTuition => 'Zaudējumi ir mācību maksa.';
+
+  @override
+  String get shareEdgeBragNetCalm => 'Tīrā nulle. Tīrs miers.';
+
+  @override
+  String get shareEdgeBragBalanced => 'Nulle. Ideāls līdzsvars.';
+
+  @override
+  String get shareEdgeBragDidntPanic => 'Neuzvarēju. Nezaudēju. Nepanikoju.';
+
+  @override
+  String get shareEdgeBragUndefeated => 'Nulle nekad nezaudē.';
+
+  @override
+  String get shareEdgeBragWithStyle => 'Uz sāniem, bet stilīgi.';
+
+  @override
+  String get shareEdgeBragSharedAnyway => 'Nav ko redzēt. Dalos tik un tā.';
+
+  @override
+  String get shareEdgeBragSteadyHands => 'Līdzena līnija. Stingras rokas.';
+
+  @override
+  String get shareEdgeBragBlinked => 'Tirgus pamirkšķināja. Es – nē.';
+
+  @override
+  String get shareEdgeBragEvenTemper => 'Līdzens. Kā mans raksturs.';
+
+  @override
+  String get shareEdgeBragNoDrama => 'Nulle drāmas. Nulle izmaiņu.';
+
+  @override
+  String get bragEdgeWonToldPolitely => 'Es taču teicu. Pieklājīgi.';
+
+  @override
+  String get bragEdgeWonNormal => 'Paredzēju. Uzvedīšos normāli.';
+
+  @override
+  String get bragEdgeWonMyFavour => 'Izšķīrās man par labu.';
+
+  @override
+  String get bragEdgeWonPaysSometimes => 'Taisnība atmaksājas. Dažreiz.';
+
+  @override
+  String get bragEdgeWonAgreed => 'Tirgus piekrita. Galu galā.';
+
+  @override
+  String get bragEdgeWonMySide => 'Mana puse nepievīla.';
+
+  @override
+  String get bragEdgeWonThenPayout => 'Vispirms pacietība, tad izmaksa.';
+
+  @override
+  String get bragEdgeWonNoNotes => 'Piezīmju nav.';
+
+  @override
+  String get bragEdgeWonFutureSelf => 'Ekrānšāviņš nākotnes sev.';
+
+  @override
+  String get bragEdgeWonEarlyThenRight => 'Vispirms agri, tad pareizi.';
+
+  @override
+  String get bragEdgeWonCollecting => 'Klusiņām vācu.';
+
+  @override
+  String get bragEdgeWonNotSurprised => 'Varētu tēlot pārsteigumu. Bet nē.';
+
+  @override
+  String get receiptEdgeSentNoHold => 'Nosūtīts. Bez gaidīšanas mūzikas.';
+
+  @override
+  String get receiptEdgeSentBeforeBank => 'Izdarīts, pirms banka atvērās.';
+
+  @override
+  String get receiptEdgeSentDrama => 'Nauda kustējās. Drāma – nē.';
+
+  @override
+  String get receiptEdgeSentBusinessDays => 'Sekundes, ne darba dienas.';
+
+  @override
+  String get receiptEdgeSentThankLater => 'Nosūtīts. Pateiksies vēlāk.';
+
+  @override
+  String get receiptEdgeSentEfficient => 'Dāsni un efektīvi.';
+
+  @override
+  String get receiptEdgeSentOneTap => 'Viens pieskāriens. Bez veidlapām.';
+
+  @override
+  String get receiptEdgeSentPaidUp => 'Norēķinājos. Ejam tālāk.';
+
+  @override
+  String get receiptEdgeSentAdult => 'Nokārtots. Kā pieaugušie dara.';
+
+  @override
+  String receiptEdgeSentGone(String amount) {
+    return '$amount aizceļoja sekundēs.';
+  }
+
+  @override
+  String get receiptEdgeSentSaga => 'Naudas sūtīšana nav sāga.';
+
+  @override
+  String get receiptEdgeReceivedCasual => 'Saņēmu naudu. Nekas īpašs.';
+
+  @override
+  String get receiptEdgeReceivedNoted => 'Saņemts. Piefiksēts. Novērtēts.';
+
+  @override
+  String receiptEdgeReceivedRicher(String amount) {
+    return 'Plus $amount. Mierīgi.';
+  }
+
+  @override
+  String get receiptEdgeReceivedThankYou => 'Pienāca ātrāk par „paldies“.';
+
+  @override
+  String get receiptEdgeReceivedMoodUp => 'Nauda ienāca. Garastāvoklis cēlās.';
+
+  @override
+  String get receiptEdgeReceivedGrace => 'Pieņemts graciozi.';
+
+  @override
+  String get receiptEdgeReceivedAskTwice => 'Pat nevajadzēja prasīt divreiz.';
+
+  @override
+  String get receiptEdgeReceivedUnscheduled => 'Algas diena, neplānota.';
+
+  @override
+  String get receiptEdgeReceivedNoMiddle => 'Pienāca. Bez bankas pa vidu.';
+
+  @override
+  String get receiptEdgeReceivedCompliments =>
+      'Pieņemu komplimentus un pārskaitījumus.';
+
+  @override
+  String get receiptEdgeIncomingAlmost => 'Gandrīz klāt. Nestāvi virs galvas.';
+
+  @override
+  String get receiptEdgeIncomingLoading => 'Ielādējas. Mierīgi.';
+
+  @override
+  String get receiptEdgeIncomingRefreshing =>
+      'Ceļā. Atsvaidzināšana nepalīdzēs.';
+
+  @override
+  String get receiptEdgeIncomingNotChecking => 'Jau ceļā. Es nepārbaudu.';
+
+  @override
+  String get receiptEdgeIncomingPending => 'Procesā. Kā vairums labu lietu.';
+
+  @override
+  String get receiptEdgeIncomingPatienceMode =>
+      'Ienāk. Pacietības režīms ieslēgts.';
+
+  @override
+  String get receiptEdgeIncomingSnacks => 'Ceļā. Uzkodas nav iekļautas.';
+
+  @override
+  String get receiptEdgeIncomingMinute => 'Labas lietas prasa laiku.';
+
+  @override
+  String get receiptEdgeIncomingMotion => 'Nauda kustībā.';
+
+  @override
+  String get receiptEdgeIncomingWatched => 'Vērots pārskaitījums nepienāk.';
+
+  @override
+  String get receiptEdgeMovedFurniture => 'Pārbīdu mēbeles.';
+
+  @override
+  String get receiptEdgeMovedDidntLose => 'Pārcēlu. Nepazaudēju.';
+
+  @override
+  String get receiptEdgeMovedPockets => 'No kreisās kabatas labajā.';
+
+  @override
+  String get receiptEdgeMovedRelocated => 'Nauda, pārvietota.';
+
+  @override
+  String get receiptEdgeMovedNewRoom => 'Tas pats saimnieks. Jauna istaba.';
+
+  @override
+  String get receiptEdgeMovedHousekeeping => 'Mājas uzkopšana, tikai naudai.';
+
+  @override
+  String get receiptEdgeMovedShuffle => 'Stratēģiska pārkārtošana.';
+
+  @override
+  String get receiptEdgeMovedGrownUp => 'Naudas kārtība pieaugušo līmenī.';
+
+  @override
+  String get receiptEdgeMovedOrganised => 'Sakārtots. Uz brīdi.';
+
+  @override
+  String get receiptEdgeMovedTidying => 'Tikai sakārtoju.';
+
+  @override
+  String get receiptEdgeMovedAllocating => 'Sadalu. Ļoti mierīgi.';
+
+  @override
+  String get receiptEdgeBoughtOverthink => 'Lieki nedomāju.';
+
+  @override
+  String get receiptEdgeBoughtPile => 'Papildināju kaudzīti.';
+
+  @override
+  String get receiptEdgeBoughtAccumulation => 'Klusa krāšana.';
+
+  @override
+  String get receiptEdgeBoughtToldNoOne => 'Nevienam neteicu. Līdz šim.';
+
+  @override
+  String get receiptEdgeBoughtNotTiming => 'Pērku, nevis ķeru brīdi.';
+
+  @override
+  String receiptEdgeBoughtConviction(String amount) {
+    return '$amount pārliecības.';
+  }
+
+  @override
+  String get receiptEdgeBoughtPatience => 'Pirmkārt: pērc. Otrkārt: pacietība.';
+
+  @override
+  String get receiptEdgeBoughtNoise => 'Pērku. Troksni ignorēju.';
+
+  @override
+  String get receiptEdgeBoughtBackToDay => 'Nopirku. Dzīvoju tālāk.';
+
+  @override
+  String get receiptEdgeBoughtShoes => 'Citi pērk kurpes.';
+
+  @override
+  String get receiptEdgeSoldKeptCool => 'Pārdevu daļu. Saglabāju mieru.';
+
+  @override
+  String get receiptEdgeSoldNoRegrets => 'Apmainīts. Nenožēloju. Pagaidām.';
+
+  @override
+  String get receiptEdgeSoldDidntCheck => 'Pārdots. Cenu vairs nepārbaudu.';
+
+  @override
+  String get receiptEdgeSoldLiquidity => 'Likviditāte iegūta.';
+
+  @override
+  String get receiptEdgeSoldLeftDrama => 'Naudu paņēmu. Drāmu atstāju.';
+
+  @override
+  String get receiptEdgeSoldSleeping => 'Pārdots. Guļu mierīgi.';
+
+  @override
+  String get receiptEdgeSoldCashPosition => 'Skaidra nauda arī ir pozīcija.';
+
+  @override
+  String get receiptEdgeSoldDeliberately => 'Uz skaidru naudu. Apzināti.';
+
+  @override
+  String get receiptEdgeSoldPressed => '„Pārdot“ nospiests. Mierīgi.';
+
+  @override
+  String get receiptEdgeSoldLittleCash => 'Mazliet skaidras naudas nekaitēs.';
+
+  @override
+  String get receiptEdgePredictedCommitted => 'Izlēmu. Gandrīz.';
+
+  @override
+  String get receiptEdgePredictedHardPart => 'Grūtākais ir gaidīt.';
+
+  @override
+  String get receiptEdgePredictedSkin => 'Viedoklis, tagad ar savu naudu.';
+
+  @override
+  String get receiptEdgePredictedNails => 'Prognoze iesniegta. Nagus negraužu.';
+
+  @override
+  String get receiptEdgePredictedTookSide => 'Izvēlējos pusi. Saglabāju mieru.';
+
+  @override
+  String get receiptEdgePredictedJustMySide => 'Nav padoms. Tikai mana puse.';
+
+  @override
+  String get receiptEdgePredictedResolution => 'Tiksimies, kad izšķirsies.';
+
+  @override
+  String receiptEdgePredictedThatsThePost(String amount, String side) {
+    return '$amount par $side. Tas arī viss.';
+  }
+
+  @override
+  String get receiptEdgeUpInUpOut => 'Iekšā. Augšā. Ārā.';
+
+  @override
+  String get receiptEdgeUpEgo => 'Peļņu paņēmu. Ego atstāju.';
+
+  @override
+  String get receiptEdgeUpWhileGreen => 'Aizgāju, kamēr bija zaļš.';
+
+  @override
+  String get receiptEdgeUpWhenToLeave => 'Zināt, kad iet prom, arī ir prasme.';
+
+  @override
+  String receiptEdgeUpDoneHere(String amount) {
+    return '$amount. Šeit pabeigts.';
+  }
+
+  @override
+  String get receiptEdgeUpBooked => 'Piefiksēju.';
+
+  @override
+  String get receiptEdgeUpNoEncore => 'Zaļa izeja. Bez bisa.';
+
+  @override
+  String get receiptEdgeUpGreed => 'Alkatība nav stratēģija.';
+
+  @override
+  String get receiptEdgeUpDiscipline => 'Aizgāju plusā. Reta disciplīna.';
+
+  @override
+  String get receiptEdgeUpWinIsWin => 'Pluss ir pluss.';
+
+  @override
+  String get receiptEdgeDownDignity => 'Nogriezu zaudējumu. Cieņu saglabāju.';
+
+  @override
+  String get receiptEdgeDownExits => 'Iziet arī ir prasme.';
+
+  @override
+  String get receiptEdgeDownQuick => 'Kļūdījos. Bet ātri.';
+
+  @override
+  String get receiptEdgeDownLessonKept => 'Ārā agri. Mācība paliek.';
+
+  @override
+  String get receiptEdgeDownStubborn => 'Labāk iziet nekā spītēties.';
+
+  @override
+  String get receiptEdgeDownTookL => 'Zaudēju. Čeku paturēju.';
+
+  @override
+  String get receiptEdgeDownNotMyDay => 'Aizvēru. Ne mana diena.';
+
+  @override
+  String get receiptEdgeDownZeroTears => 'Sarkana izeja. Nulle asaru.';
+
+  @override
+  String get receiptEdgeDownHalfSkill => 'Atzīt ir puse prasmes.';
+
+  @override
+  String receiptEdgeDownTuition(String amount) {
+    return '$amount. Mācību maksa samaksāta.';
+  }
+
+  @override
+  String get receiptEdgeFlatRoundTrip => 'Turp un atpakaļ. Bez suvenīriem.';
+
+  @override
+  String get receiptEdgeFlatWiser => 'Atpakaļ sākumā. Ar pieredzi.';
+
+  @override
+  String get receiptEdgeFlatZeroStress => 'Nulles summa. Nulle stresa.';
+
+  @override
+  String get receiptEdgeFlatNoHarm => 'Nekas slikts nenotika.';
+
+  @override
+  String get receiptEdgeFlatShrugged => 'Tirgus paraustīja plecus. Es arī.';
+
+  @override
+  String get receiptEdgeFlatStory => 'Tīrais rezultāts: stāsts.';
+
+  @override
+  String get receiptEdgeLostNextQuestion => 'Nākamais jautājums.';
+
+  @override
+  String get receiptEdgeLostRudely => 'Tirgus nepiekrita. Nepieklājīgi.';
+
+  @override
+  String get receiptEdgeLostHumour => 'Vienu zaudēju. Humora izjūtu – nē.';
+
+  @override
+  String get receiptEdgeLostCompany => 'Kļūdījos, bet labā kompānijā.';
+
+  @override
+  String get receiptEdgeLostOnMe => 'Šo es uzņemos.';
+
+  @override
+  String get receiptEdgeLostConfidence =>
+      'Vieglāks maks. Tā pati pašpārliecība.';
+
+  @override
+  String get receiptEdgeLostWrongly => 'Paredzēju. Nepareizi.';
+
+  @override
+  String get receiptEdgeLostGraceful => 'Zaudēt ar cieņu arī ir flex.';
+
+  @override
+  String get receiptEdgeLostOddsWereOdds => 'Izredzes bija izredzes.';
+
+  @override
+  String get receiptEdgeLostAlreadyMoved => 'Ejam tālāk. Jau aizgāju.';
+
+  @override
+  String get receiptEdgeLostUpLesson => 'Mīnus prognoze. Plus mācība.';
+
+  @override
+  String get receiptEdgePaidResolved => 'Izšķirts. Saņemts.';
+
+  @override
+  String get receiptEdgePaidNormal => 'Izmaksa pienāca. Uzvedos normāli.';
+
+  @override
+  String receiptEdgePaidInFull(String amount) {
+    return '$amount, izmaksāts pilnā apmērā.';
+  }
+
+  @override
+  String get receiptEdgePaidCourtesy => 'Algas diena par pareizu prognozi.';
+
+  @override
+  String get receiptEdgeOpenedPulse => 'Pozīcija atvērta. Pulss normāls.';
+
+  @override
+  String get receiptEdgeOpenedCalmly => 'Iegāju mierīgi. Iziešu mierīgi.';
+
+  @override
+  String receiptEdgeOpenedInAt(String price) {
+    return 'Iekšā par $price. Piefiksēts.';
+  }
+
+  @override
+  String get receiptEdgeOpenedNotRefreshing =>
+      'Iekšā. Neatsvaidzinu katru minūti.';
+
+  @override
+  String get receiptEdgeOpenedSized => 'Pārliecība, atbildīgā apmērā.';
+
+  @override
+  String get receiptEdgeOpenedJustMine => 'Nav padoms. Tikai mans darījums.';
+
+  @override
+  String get receiptEdgeOpenedUnderstanding => 'Mums ar grafiku ir vienošanās.';
+
+  @override
+  String get receiptEdgeOpenedMyProblem => 'Mana ieeja. Mana problēma.';
+
+  @override
+  String get receiptEdgeOpenedEither => 'Der jebkurš virziens.';
+
+  @override
   String shareMessageChallengeNamed(
       String name, String outcome, String title, String amount, String url) {
     return '$name, mana izvēle: $outcome tirgū $title. Izvēlies otru pusi vai pievienojies. $amount es maksāju: $url';

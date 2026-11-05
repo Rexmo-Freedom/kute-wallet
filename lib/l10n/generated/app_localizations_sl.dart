@@ -12650,6 +12650,951 @@ class AppLocalizationsSl extends AppLocalizations {
   }
 
   @override
+  String get shareEdgeMoneyNoStrings => 'Brez skritih pasti. Preverjeno.';
+
+  @override
+  String get shareEdgeMoneyMakeItText => 'Denar, ampak kot sporočilo.';
+
+  @override
+  String get shareEdgeMoneyLowBar => 'Hitreje kot banka. Letvica je nizko.';
+
+  @override
+  String get shareEdgeMoneyNoForms => 'Brez obrazcev. Brez klepeta.';
+
+  @override
+  String get shareEdgeMoneyActNatural => 'Presenečenje. Delaj se, kot da nič.';
+
+  @override
+  String get shareEdgeMoneyInAdvance => 'Ni za kaj. Že vnaprej.';
+
+  @override
+  String shareEdgeMoneyNoQuestions(String amount) {
+    return '$amount, brez vprašanj.';
+  }
+
+  @override
+  String get shareEdgeMoneyNotALoan => 'Darilo. Ne posojilo. Najbrž.';
+
+  @override
+  String get shareEdgeMoneyAllAtOnce => 'Ne zapravi vsega naenkrat.';
+
+  @override
+  String get shareEdgeMoneyGetUsed => 'Ne navadi se na to.';
+
+  @override
+  String get shareEdgeMoneyLittleEgo => 'Poslano z ljubeznijo. In malo ega.';
+
+  @override
+  String get shareEdgeMoneyNoBank => 'Banke ni nihče vprašal.';
+
+  @override
+  String get shareEdgeMoneyHandlePatience => 'Bitcoin. Ravnaj potrpežljivo.';
+
+  @override
+  String get shareEdgeMoneyStackResponsibly => 'Kopiči odgovorno.';
+
+  @override
+  String get shareEdgeMoneyNoLecture => 'Bitcoin. Predavanje ni vključeno.';
+
+  @override
+  String get shareEdgeMoneyTinySats => 'Malo satov. Velika odgovornost.';
+
+  @override
+  String get shareEdgeMoneySameDollars => 'Digitalni dolarji. Isti dolarji.';
+
+  @override
+  String get shareEdgeMoneyNoEnvelope => 'Gotovina, le brez kuverte.';
+
+  @override
+  String get shareEdgeMoneyNoExchange => 'Dolarji. Brez letališkega tečaja.';
+
+  @override
+  String get shareEdgePickScreenshot => 'Moja napoved. Naredi screenshot.';
+
+  @override
+  String get shareEdgePickSaidFirst => 'Pod rubriko: to sem rekel prvi.';
+
+  @override
+  String shareEdgePickFinalAnswer(String side) {
+    return '$side. Končni odgovor.';
+  }
+
+  @override
+  String get shareEdgePickStrongOpinion => 'Ni nasvet. Le močno mnenje.';
+
+  @override
+  String get shareEdgePickDidReading => 'Naštudirano. Večinoma.';
+
+  @override
+  String get shareEdgePickToldYouSo => 'Shranjujem za „sem ti rekel“.';
+
+  @override
+  String get shareEdgePickConviction => 'Prepričanje mi pristoji.';
+
+  @override
+  String get shareEdgePickNotFree => 'Mnenja so zastonj. To pa ne.';
+
+  @override
+  String shareEdgePickAmountSays(String amount, String side) {
+    return '$amount pravi: $side.';
+  }
+
+  @override
+  String get shareEdgePickLowDrama => 'Malo drame. Veliko prepričanja.';
+
+  @override
+  String get shareEdgePickInsufferable =>
+      'Če se izide, z mano ne bo za zdržat.';
+
+  @override
+  String get shareEdgePickRevolutionary => 'Za favorita. Revolucionarno.';
+
+  @override
+  String shareEdgePickSmartCrowd(String chance) {
+    return '$chance se strinja. Pametna množica.';
+  }
+
+  @override
+  String get shareEdgePickSafePick => 'Varna izbira. Še vedno izbira.';
+
+  @override
+  String get shareEdgePickWithOdds => 'Sledim številkam. Šokantno.';
+
+  @override
+  String get shareEdgePickOnPurpose => 'Autsajder. Namenoma.';
+
+  @override
+  String shareEdgePickOnlySee(String chance) {
+    return 'To vidi le $chance. Meni prav.';
+  }
+
+  @override
+  String get shareEdgePickLongShot => 'Majhne možnosti. Še manj besed.';
+
+  @override
+  String get shareEdgePickContrarian => 'Proti toku, ne mimo.';
+
+  @override
+  String get shareEdgeTopicDebates => 'Debate so šum. Številke niso.';
+
+  @override
+  String get shareEdgeTopicCoach => 'Danes je vsak selektor.';
+
+  @override
+  String get shareEdgeTopicVolatility => 'Nihanja vključena. Brez doplačila.';
+
+  @override
+  String get shareEdgeTopicMinutes => 'Zapisniki prebrani. Vsi.';
+
+  @override
+  String get shareEdgeMarketPickOrWatch => 'Izberi stran. Ali pa samo glej.';
+
+  @override
+  String get shareEdgeMarketHasOdds => 'Mnenja so zastonj. To ima številke.';
+
+  @override
+  String get shareEdgeMarketUntilResolves => 'Vsi so eksperti do razpleta.';
+
+  @override
+  String get shareEdgeMarketGroupChat => 'Skupinski chat, spoznaj številke.';
+
+  @override
+  String get shareEdgeMarketHotTakes => 'Vroča mnenja? Številke so zraven.';
+
+  @override
+  String get shareEdgeMarketJustMarket => 'Ni nasvet. Le trg.';
+
+  @override
+  String get shareEdgeMarketOddsMove => 'Številke se premikajo. Vprašanje ne.';
+
+  @override
+  String get shareEdgeMarketYourCall => 'Tvoja odločitev. Brez pritiska.';
+
+  @override
+  String get shareEdgeMarketDiscuss => 'Razpravljajte. Mirno.';
+
+  @override
+  String get shareEdgeMarketWhereLand => 'Na kateri strani si ti?';
+
+  @override
+  String shareEdgeMarketSayDiscuss(String chance, String side) {
+    return '$chance pravi: $side. Razpravljajte.';
+  }
+
+  @override
+  String get shareEdgeMarketHarder => 'Da ali ne. Težje, kot se sliši.';
+
+  @override
+  String get shareEdgeMarketTwoAnswers => 'Eno vprašanje. Dva odgovora.';
+
+  @override
+  String shareEdgeMarketNotGuarantee(String chance) {
+    return '$chance ni garancija.';
+  }
+
+  @override
+  String get shareEdgeMarketFeelings => 'Lahko vprašanje. Zapleteni občutki.';
+
+  @override
+  String get shareEdgeMarketLikely => 'Verjetno ne pomeni gotovo.';
+
+  @override
+  String shareEdgeMarketLeads(String leader) {
+    return '$leader vodi. Nič še ni odločeno.';
+  }
+
+  @override
+  String shareEdgeMarketCoronation(String chance) {
+    return '$chance še ni kronanje.';
+  }
+
+  @override
+  String shareEdgeMarketHistoryWait(String leader) {
+    return 'Graf: $leader. Zgodovina: počakaj.';
+  }
+
+  @override
+  String get shareEdgeMarketAskTomorrow => 'Danes favorit. Vprašaj jutri.';
+
+  @override
+  String get shareEdgeMarketCrowdedField => 'Veliko imen. En odgovor.';
+
+  @override
+  String shareEdgeMarketStayTuned(String leader, String chance) {
+    return '$leader pri $chance. Ostani na zvezi.';
+  }
+
+  @override
+  String get shareEdgeMarketLeadingNotWinning => 'Voditi ne pomeni zmagati.';
+
+  @override
+  String get shareEdgeMarketNotSureThing => 'Favorit, ne gotova stvar.';
+
+  @override
+  String get shareEdgeMarketUpsets => 'Presenečenja se zgodijo. Favoriti tudi.';
+
+  @override
+  String get shareEdgeMarketGameDecides => 'Odloči tekma. Ne komentarji.';
+
+  @override
+  String get shareEdgeMarketOddsDontPlay => 'Številke ne igrajo tekme.';
+
+  @override
+  String get shareEdgeMarketScoreboard => 'Zdaj se govori. Potem se šteje.';
+
+  @override
+  String challengeEdgeComeAtMe(String side) {
+    return '$side. Daj, poskusi.';
+  }
+
+  @override
+  String challengeEdgeOnNotice(String side) {
+    return 'Sem za $side. To je opozorilo.';
+  }
+
+  @override
+  String challengeEdgeTalkCheap(String side) {
+    return '$side. Besede so poceni. Izberi.';
+  }
+
+  @override
+  String challengeEdgeScared(String side) {
+    return '$side. Te je strah? Razumljivo.';
+  }
+
+  @override
+  String challengeEdgeKnowBetter(String side) {
+    return '$side. Razen če veš bolje.';
+  }
+
+  @override
+  String challengeEdgeTurnWrong(String side) {
+    return 'Sem za $side. Zdaj se moti ti.';
+  }
+
+  @override
+  String challengeEdgeNotSorry(String side) {
+    return '$side, in mi ni žal.';
+  }
+
+  @override
+  String challengeEdgeAllYours(String side) {
+    return 'Vzamem $side. Druga stran je tvoja.';
+  }
+
+  @override
+  String challengeEdgeConvince(String side) {
+    return '$side. Prepričaj me v nasprotno.';
+  }
+
+  @override
+  String challengeEdgeSeeYou(String side) {
+    return '$side. Se vidiva ob razpletu.';
+  }
+
+  @override
+  String challengeEdgeReceipts(String side) {
+    return 'Sem za $side. Prinesi dokaze.';
+  }
+
+  @override
+  String get shareEdgeStockJustChart => 'Ni nasvet. Le graf.';
+
+  @override
+  String get shareEdgeStockFeelings => 'Grafom je vseeno za čustva.';
+
+  @override
+  String shareEdgeStockHeardOfIt(String name) {
+    return '$name. Morda ti kaj pove.';
+  }
+
+  @override
+  String get shareEdgeStockActNormal => 'Zelen dan. Obnašaj se normalno.';
+
+  @override
+  String shareEdgeStockJustChange(String change) {
+    return 'Pomiri se. Samo $change je.';
+  }
+
+  @override
+  String get shareEdgeStockIKnew => 'Ne trdim, da sem vedel. Ampak sem.';
+
+  @override
+  String get shareEdgeStockTomorrow => 'Danes gor. Jutri ni moja skrb.';
+
+  @override
+  String shareEdgeStockGreenLooks(String name) {
+    return '$name v zelenem. Lepo pristoji.';
+  }
+
+  @override
+  String get shareEdgeStockEgoSteady => 'Graf gor. Ego mirno.';
+
+  @override
+  String get shareEdgeStockDontClap => 'Ne ploskaj. Samo poglej.';
+
+  @override
+  String get shareEdgeStockDoubleDigits => 'Dvomestna rast. Naj bo.';
+
+  @override
+  String shareEdgeStockCheckShorts(String change) {
+    return 'Gor za $change. Shortarji, vse v redu?';
+  }
+
+  @override
+  String get shareEdgeStockCalmAsEver => 'Rdeč dan. Mirno kot vedno.';
+
+  @override
+  String shareEdgeStockZoomOut(String change) {
+    return 'Dol za $change. Oddalji graf.';
+  }
+
+  @override
+  String get shareEdgeStockPanicOptional =>
+      'Padci se zgodijo. Panika ni obvezna.';
+
+  @override
+  String shareEdgeStockCharacterArc(String change) {
+    return 'Dol za $change. Razvoj lika.';
+  }
+
+  @override
+  String get shareEdgeStockPlotTwist => 'Padec, ne preobrat zgodbe.';
+
+  @override
+  String get shareEdgeStockStillHere => 'Danes dol. Še vedno tu.';
+
+  @override
+  String get shareEdgeStockAsIntended => 'Nihanje: deluje, kot je treba.';
+
+  @override
+  String get shareEdgeStockBadDay => 'Tudi graf ima slab dan.';
+
+  @override
+  String shareEdgeStockDeepBreaths(String change) {
+    return 'Dol za $change. Globoko dihaj.';
+  }
+
+  @override
+  String get shareEdgeStockRiveting => 'Nič se ni zgodilo. Napeto.';
+
+  @override
+  String get shareEdgeStockBoringUnderrated =>
+      'Raven dan. Dolgčas je podcenjen.';
+
+  @override
+  String get shareEdgeStockSideways => 'Vstran je tudi smer.';
+
+  @override
+  String get shareEdgeStockSuspicious => 'Danes brez drame. Sumljivo.';
+
+  @override
+  String get shareEdgeStockNap => 'Graf je zadremal.';
+
+  @override
+  String get shareEdgeStockPaintDry => 'Gledam, kako trava raste. Poklicno.';
+
+  @override
+  String get shareEdgeStockUnchanged => 'Brez spremembe. Brez skrbi.';
+
+  @override
+  String get shareEdgeStockShortUnbothered => 'Short in brez skrbi.';
+
+  @override
+  String get shareEdgeStockNotEverythingUp => 'Ne gre vse gor.';
+
+  @override
+  String get shareEdgeStockGravity => 'Tudi gravitacija je strategija.';
+
+  @override
+  String get shareEdgeStockShortHype => 'Shortam hype. Vljudno.';
+
+  @override
+  String get shareEdgeStockShortContrarian => 'Proti toku, z grafom.';
+
+  @override
+  String get shareEdgeStockFlipSide => 'Nekdo mora biti na drugi strani.';
+
+  @override
+  String shareEdgeStockAsPlanned(String change) {
+    return 'Dol za $change. Po načrtu.';
+  }
+
+  @override
+  String get shareEdgeStockICanWait => 'Danes gor. Lahko počakam.';
+
+  @override
+  String get shareEdgeBragQuietlyGreen => 'Tiho v zelenem.';
+
+  @override
+  String get shareEdgeBragGreenSuits => 'Zelena mi pristoji.';
+
+  @override
+  String get shareEdgeBragCopyMe => 'Razložil bi, a bi me kopiral.';
+
+  @override
+  String get shareEdgeBragHumbleWorking => 'Skromnost? Delam na tem.';
+
+  @override
+  String get shareEdgeBragNotVibes => 'Rezultati, ne občutki.';
+
+  @override
+  String get shareEdgeBragMildlyPleased =>
+      'Presenečenja ni. Zadovoljstvo zmerno.';
+
+  @override
+  String get shareEdgeBragNotAPromise => 'Pretekli rezultati. Ne obljuba.';
+
+  @override
+  String get shareEdgeBragBeforeItChanges => 'Screenshot, preden se spremeni.';
+
+  @override
+  String get shareEdgeBragMainCharacter => 'Energija glavnega lika.';
+
+  @override
+  String shareEdgeBragUnbearable(String amount) {
+    return '$amount. Zdaj bom neznosen.';
+  }
+
+  @override
+  String get shareEdgeBragBeingCalm => 'To je moja mirna verzija.';
+
+  @override
+  String get shareEdgeBragAllegedly => 'Velika številka. Majhen ego. Baje.';
+
+  @override
+  String get shareEdgeBragStillAWin => 'Majhna zmaga. Še vedno zmaga.';
+
+  @override
+  String shareEdgeBragRome(String amount) {
+    return '$amount. Rim ni bil zgrajen v dnevu.';
+  }
+
+  @override
+  String get shareEdgeBragModest => 'Skromno. Kot jaz.';
+
+  @override
+  String get shareEdgeBragHumbled => 'Začasna lekcija ponižnosti.';
+
+  @override
+  String get shareEdgeBragRedPhase => 'Rdeča je le faza.';
+
+  @override
+  String shareEdgeBragLessons(String amount) {
+    return 'Minus $amount. Lekcije vključene.';
+  }
+
+  @override
+  String get shareEdgeBragNotOut => 'V minusu, ne izven igre.';
+
+  @override
+  String get shareEdgeBragGrowth => 'Delim svoje izgube. Osebna rast.';
+
+  @override
+  String get shareEdgeBragHumbleEra => 'To je moje skromno obdobje.';
+
+  @override
+  String get shareEdgeBragOnTheChin => 'Udarec sprejet. Elegantno.';
+
+  @override
+  String get shareEdgeBragNotMyBest => 'Ne najboljši dan. Ne zadnji.';
+
+  @override
+  String get shareEdgeBragDignified => 'Rdeče, ampak dostojanstveno.';
+
+  @override
+  String get shareEdgeBragTuition => 'Izgube so šolnina.';
+
+  @override
+  String get shareEdgeBragNetCalm => 'Neto nič. Neto mir.';
+
+  @override
+  String get shareEdgeBragBalanced => 'Na ničli. Popolnoma uravnoteženo.';
+
+  @override
+  String get shareEdgeBragDidntPanic => 'Ni dobička. Ni izgube. Ni panike.';
+
+  @override
+  String get shareEdgeBragUndefeated => 'Ničla nikoli ne izgubi.';
+
+  @override
+  String get shareEdgeBragWithStyle => 'Vstran, ampak s stilom.';
+
+  @override
+  String get shareEdgeBragSharedAnyway => 'Nič za videti. Delim vseeno.';
+
+  @override
+  String get shareEdgeBragSteadyHands => 'Ravna črta. Mirne roke.';
+
+  @override
+  String get shareEdgeBragBlinked => 'Trg je trenil. Jaz ne.';
+
+  @override
+  String get shareEdgeBragEvenTemper => 'Uravnoteženo. Kot moj temperament.';
+
+  @override
+  String get shareEdgeBragNoDrama => 'Nič drame. Nič spremembe.';
+
+  @override
+  String get bragEdgeWonToldPolitely => 'Sem ti rekel. Vljudno.';
+
+  @override
+  String get bragEdgeWonNormal => 'Imel sem prav. Ostal bom normalen.';
+
+  @override
+  String get bragEdgeWonMyFavour => 'Odločeno v moj prid.';
+
+  @override
+  String get bragEdgeWonPaysSometimes => 'Imeti prav se splača. Včasih.';
+
+  @override
+  String get bragEdgeWonAgreed => 'Trg se je strinjal. Sčasoma.';
+
+  @override
+  String get bragEdgeWonMySide => 'Moja izbira se je izšla.';
+
+  @override
+  String get bragEdgeWonThenPayout => 'Potrpežljivost, nato izplačilo.';
+
+  @override
+  String get bragEdgeWonNoNotes => 'Brez pripomb.';
+
+  @override
+  String get bragEdgeWonFutureSelf => 'Screenshot za moj prihodnji jaz.';
+
+  @override
+  String get bragEdgeWonEarlyThenRight => 'Najprej prezgodaj. Nato prav.';
+
+  @override
+  String get bragEdgeWonCollecting => 'Tiho pobiram.';
+
+  @override
+  String get bragEdgeWonNotSurprised => 'Delal bi se presenečenega. Nisem.';
+
+  @override
+  String get receiptEdgeSentNoHold => 'Poslano. Brez glasbe na čakanju.';
+
+  @override
+  String get receiptEdgeSentBeforeBank => 'Opravljeno, preden je banka odprla.';
+
+  @override
+  String get receiptEdgeSentDrama => 'Denar se je premaknil. Drama ne.';
+
+  @override
+  String get receiptEdgeSentBusinessDays => 'Sekunde, ne delovni dnevi.';
+
+  @override
+  String get receiptEdgeSentThankLater => 'Poslano. Zahvališ se kasneje.';
+
+  @override
+  String get receiptEdgeSentEfficient => 'Radodarno in učinkovito.';
+
+  @override
+  String get receiptEdgeSentOneTap => 'En dotik. Brez obrazcev.';
+
+  @override
+  String get receiptEdgeSentPaidUp => 'Poravnano. Gremo naprej.';
+
+  @override
+  String get receiptEdgeSentAdult => 'Urejeno. Kot se za odrasle spodobi.';
+
+  @override
+  String receiptEdgeSentGone(String amount) {
+    return '$amount, odšlo v nekaj sekundah.';
+  }
+
+  @override
+  String get receiptEdgeSentSaga => 'Pošiljanje denarja ni nadaljevanka.';
+
+  @override
+  String get receiptEdgeReceivedCasual => 'Denar je tu. Delam se, kot da nič.';
+
+  @override
+  String get receiptEdgeReceivedNoted => 'Prejeto. Zabeleženo. Cenjeno.';
+
+  @override
+  String receiptEdgeReceivedRicher(String amount) {
+    return 'Za $amount bogatejši. Brez stresa.';
+  }
+
+  @override
+  String get receiptEdgeReceivedThankYou =>
+      'Prispelo pred zahvalnim sporočilom.';
+
+  @override
+  String get receiptEdgeReceivedMoodUp => 'Denar noter. Volja gor.';
+
+  @override
+  String get receiptEdgeReceivedGrace => 'Prejeto z eleganco.';
+
+  @override
+  String get receiptEdgeReceivedAskTwice => 'Ni bilo treba vprašati dvakrat.';
+
+  @override
+  String get receiptEdgeReceivedUnscheduled => 'Nenapovedan plačilni dan.';
+
+  @override
+  String get receiptEdgeReceivedNoMiddle => 'Prispelo. Brez banke vmes.';
+
+  @override
+  String get receiptEdgeReceivedCompliments =>
+      'Sprejemam komplimente in nakazila.';
+
+  @override
+  String get receiptEdgeIncomingAlmost => 'Skoraj tu. Ne stoj nad tem.';
+
+  @override
+  String get receiptEdgeIncomingLoading => 'Nalaganje. Mirno kri.';
+
+  @override
+  String get receiptEdgeIncomingRefreshing =>
+      'Na poti je. Osveževanje ne pomaga.';
+
+  @override
+  String get receiptEdgeIncomingNotChecking => 'Na poti je. Ne preverjam.';
+
+  @override
+  String get receiptEdgeIncomingPending =>
+      'V obdelavi. Kot večina dobrih stvari.';
+
+  @override
+  String get receiptEdgeIncomingPatienceMode =>
+      'Prihaja. Potrpežljivost vklopljena.';
+
+  @override
+  String get receiptEdgeIncomingSnacks => 'Na poti. Prigrizki niso vključeni.';
+
+  @override
+  String get receiptEdgeIncomingMinute => 'Dobre stvari vzamejo minutko.';
+
+  @override
+  String get receiptEdgeIncomingMotion => 'Denar v gibanju.';
+
+  @override
+  String get receiptEdgeIncomingWatched =>
+      'Opazovano nakazilo nikoli ne prispe.';
+
+  @override
+  String get receiptEdgeMovedFurniture => 'Prestavljam pohištvo.';
+
+  @override
+  String get receiptEdgeMovedDidntLose => 'Premaknjeno. Ne izgubljeno.';
+
+  @override
+  String get receiptEdgeMovedPockets => 'Iz levega žepa v desnega.';
+
+  @override
+  String get receiptEdgeMovedRelocated => 'Denar, preseljen.';
+
+  @override
+  String get receiptEdgeMovedNewRoom => 'Isti lastnik. Nova soba.';
+
+  @override
+  String get receiptEdgeMovedHousekeeping => 'Pospravljanje, a za denar.';
+
+  @override
+  String get receiptEdgeMovedShuffle => 'Strateška premestitev.';
+
+  @override
+  String get receiptEdgeMovedGrownUp => 'Premikam denar kot odrasla oseba.';
+
+  @override
+  String get receiptEdgeMovedOrganised => 'Urejeno. Vsaj za hip.';
+
+  @override
+  String get receiptEdgeMovedTidying => 'Samo pospravljam.';
+
+  @override
+  String get receiptEdgeMovedAllocating => 'Razporejam. Zelo mirno.';
+
+  @override
+  String get receiptEdgeBoughtOverthink => 'Brez pretiranega razmišljanja.';
+
+  @override
+  String get receiptEdgeBoughtPile => 'Dodano na kup.';
+
+  @override
+  String get receiptEdgeBoughtAccumulation => 'Tiho kopičenje.';
+
+  @override
+  String get receiptEdgeBoughtToldNoOne => 'Nihče ni vedel. Do zdaj.';
+
+  @override
+  String get receiptEdgeBoughtNotTiming => 'Kupujem, ne lovim trenutka.';
+
+  @override
+  String receiptEdgeBoughtConviction(String amount) {
+    return '$amount prepričanja.';
+  }
+
+  @override
+  String get receiptEdgeBoughtPatience => 'Prvi korak: kupi. Drugi: potrpi.';
+
+  @override
+  String get receiptEdgeBoughtNoise => 'Kupujem. Hrup ignoriram.';
+
+  @override
+  String get receiptEdgeBoughtBackToDay => 'Kupljeno. Dan gre naprej.';
+
+  @override
+  String get receiptEdgeBoughtShoes => 'Nekateri kupujejo čevlje.';
+
+  @override
+  String get receiptEdgeSoldKeptCool => 'Nekaj prodano. Hladna glava.';
+
+  @override
+  String get receiptEdgeSoldNoRegrets => 'Zamenjano. Brez kesanja. Zaenkrat.';
+
+  @override
+  String get receiptEdgeSoldDidntCheck => 'Prodano. Cene ne preverjam več.';
+
+  @override
+  String get receiptEdgeSoldLiquidity => 'Likvidnost pridobljena.';
+
+  @override
+  String get receiptEdgeSoldLeftDrama => 'Denar vzamem. Dramo pustim.';
+
+  @override
+  String get receiptEdgeSoldSleeping => 'Prodano. Spim mirno.';
+
+  @override
+  String get receiptEdgeSoldCashPosition => 'Tudi gotovina je pozicija.';
+
+  @override
+  String get receiptEdgeSoldDeliberately => 'Premik v gotovino. Namerno.';
+
+  @override
+  String get receiptEdgeSoldPressed => 'Gumb Prodaj: pritisnjen. Mirno.';
+
+  @override
+  String get receiptEdgeSoldLittleCash => 'Malo gotovine nikoli ne škodi.';
+
+  @override
+  String get receiptEdgePredictedCommitted => 'Notri sem. Večinoma.';
+
+  @override
+  String get receiptEdgePredictedHardPart => 'Čakanje je najtežji del.';
+
+  @override
+  String get receiptEdgePredictedSkin => 'Mnenje, zdaj z lastnim denarjem.';
+
+  @override
+  String get receiptEdgePredictedNails => 'Oddano. Nohti še celi.';
+
+  @override
+  String get receiptEdgePredictedTookSide => 'Stran izbrana. Glava hladna.';
+
+  @override
+  String get receiptEdgePredictedJustMySide => 'Ni nasvet. Le moja stran.';
+
+  @override
+  String get receiptEdgePredictedResolution => 'Se vidimo ob razpletu.';
+
+  @override
+  String receiptEdgePredictedThatsThePost(String amount, String side) {
+    return '$amount za $side. To je cela objava.';
+  }
+
+  @override
+  String get receiptEdgeUpInUpOut => 'Noter. Gor. Ven.';
+
+  @override
+  String get receiptEdgeUpEgo => 'Dobiček pobran. Ego ostal doma.';
+
+  @override
+  String get receiptEdgeUpWhileGreen => 'Ven, dokler je bilo zeleno.';
+
+  @override
+  String get receiptEdgeUpWhenToLeave => 'Vedeti, kdaj oditi, je veščina.';
+
+  @override
+  String receiptEdgeUpDoneHere(String amount) {
+    return '$amount. Tu smo končali.';
+  }
+
+  @override
+  String get receiptEdgeUpBooked => 'Knjiženo.';
+
+  @override
+  String get receiptEdgeUpNoEncore => 'Zelen izhod. Brez dodatka.';
+
+  @override
+  String get receiptEdgeUpGreed => 'Pohlep ni strategija.';
+
+  @override
+  String get receiptEdgeUpDiscipline => 'Odhod v plusu. Redka disciplina.';
+
+  @override
+  String get receiptEdgeUpWinIsWin => 'Zmaga je zmaga.';
+
+  @override
+  String get receiptEdgeDownDignity => 'Izguba odrezana. Dostojanstvo ostalo.';
+
+  @override
+  String get receiptEdgeDownExits => 'Tudi izhod je veščina.';
+
+  @override
+  String get receiptEdgeDownQuick => 'Zgrešeno, a vsaj hitro.';
+
+  @override
+  String get receiptEdgeDownLessonKept => 'Ven pravočasno. Lekcija ostane.';
+
+  @override
+  String get receiptEdgeDownStubborn => 'Raje ven kot trmasto.';
+
+  @override
+  String get receiptEdgeDownTookL => 'Poraz sprejet. Potrdilo obdržano.';
+
+  @override
+  String get receiptEdgeDownNotMyDay => 'Zaprto. Ni bil moj dan.';
+
+  @override
+  String get receiptEdgeDownZeroTears => 'Rdeč izhod. Nič solz.';
+
+  @override
+  String get receiptEdgeDownHalfSkill => 'Priznati je pol veščine.';
+
+  @override
+  String receiptEdgeDownTuition(String amount) {
+    return '$amount. Šolnina plačana.';
+  }
+
+  @override
+  String get receiptEdgeFlatRoundTrip => 'Povratna pot. Brez spominkov.';
+
+  @override
+  String get receiptEdgeFlatWiser => 'Nazaj na začetku. Pametnejši.';
+
+  @override
+  String get receiptEdgeFlatZeroStress => 'Ničelna vsota. Ničelni stres.';
+
+  @override
+  String get receiptEdgeFlatNoHarm => 'Brez škode. Brez prekrška.';
+
+  @override
+  String get receiptEdgeFlatShrugged => 'Trg je skomignil. Jaz tudi.';
+
+  @override
+  String get receiptEdgeFlatStory => 'Neto rezultat: zgodba.';
+
+  @override
+  String get receiptEdgeLostNextQuestion => 'Naslednje vprašanje.';
+
+  @override
+  String get receiptEdgeLostRudely => 'Trg se ni strinjal. Nevljudno.';
+
+  @override
+  String get receiptEdgeLostHumour => 'En poraz. Humor ostaja.';
+
+  @override
+  String get receiptEdgeLostCompany => 'Zgrešeno, a v dobri družbi.';
+
+  @override
+  String get receiptEdgeLostOnMe => 'Ta gre na moj račun.';
+
+  @override
+  String get receiptEdgeLostConfidence => 'Lažja denarnica. Enaka samozavest.';
+
+  @override
+  String get receiptEdgeLostWrongly => 'Napovedal sem. Napačno.';
+
+  @override
+  String get receiptEdgeLostGraceful => 'Izgubiti z eleganco je flex.';
+
+  @override
+  String get receiptEdgeLostOddsWereOdds => 'Verjetnost je bila verjetnost.';
+
+  @override
+  String get receiptEdgeLostAlreadyMoved => 'Gremo naprej. Pravzaprav že smo.';
+
+  @override
+  String get receiptEdgeLostUpLesson => 'Napoved manj. Lekcija več.';
+
+  @override
+  String get receiptEdgePaidResolved => 'Odločeno. Prejeto.';
+
+  @override
+  String get receiptEdgePaidNormal => 'Izplačilo je tu. Delam se normalno.';
+
+  @override
+  String receiptEdgePaidInFull(String amount) {
+    return '$amount, izplačano v celoti.';
+  }
+
+  @override
+  String get receiptEdgePaidCourtesy => 'Izplačilo, ker sem imel prav.';
+
+  @override
+  String get receiptEdgeOpenedPulse => 'Pozicija odprta. Utrip normalen.';
+
+  @override
+  String get receiptEdgeOpenedCalmly => 'Mirno noter. Mirno tudi ven.';
+
+  @override
+  String receiptEdgeOpenedInAt(String price) {
+    return 'Vstop pri $price. Zabeleženo.';
+  }
+
+  @override
+  String get receiptEdgeOpenedNotRefreshing =>
+      'Notri. Ne osvežujem vsako minuto.';
+
+  @override
+  String get receiptEdgeOpenedSized => 'Prepričanje, odgovorno odmerjeno.';
+
+  @override
+  String get receiptEdgeOpenedJustMine => 'Ni nasvet. Le moj posel.';
+
+  @override
+  String get receiptEdgeOpenedUnderstanding => 'Z grafom se razumeva.';
+
+  @override
+  String get receiptEdgeOpenedMyProblem => 'Moj vstop. Moj problem.';
+
+  @override
+  String get receiptEdgeOpenedEither => 'Pripravljen na obe smeri.';
+
+  @override
   String shareMessageChallengeNamed(
       String name, String outcome, String title, String amount, String url) {
     return '$name, moja izbira: $outcome na $title. Izberi drugo stran ali se mi pridruži. $amount plačam jaz: $url';

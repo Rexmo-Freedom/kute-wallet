@@ -12674,6 +12674,952 @@ class AppLocalizationsRo extends AppLocalizations {
   }
 
   @override
+  String get shareEdgeMoneyNoStrings => 'Fără condiții. Am verificat.';
+
+  @override
+  String get shareEdgeMoneyMakeItText => 'Bani, dar sub formă de mesaj.';
+
+  @override
+  String get shareEdgeMoneyLowBar => 'Mai rapid ca banca. Ștacheta e jos.';
+
+  @override
+  String get shareEdgeMoneyNoForms => 'Fără formulare. Fără vorbe goale.';
+
+  @override
+  String get shareEdgeMoneyActNatural => 'Surpriză. Poartă-te normal.';
+
+  @override
+  String get shareEdgeMoneyInAdvance => 'Cu plăcere, de pe acum.';
+
+  @override
+  String shareEdgeMoneyNoQuestions(String amount) {
+    return '$amount, fără întrebări.';
+  }
+
+  @override
+  String get shareEdgeMoneyNotALoan => 'Un cadou. Nu un împrumut. Probabil.';
+
+  @override
+  String get shareEdgeMoneyAllAtOnce => 'Nu-i cheltui pe toți odată.';
+
+  @override
+  String get shareEdgeMoneyGetUsed => 'Nu te obișnui cu asta.';
+
+  @override
+  String get shareEdgeMoneyLittleEgo => 'Cu drag. Și cu un pic de ego.';
+
+  @override
+  String get shareEdgeMoneyNoBank => 'Nicio bancă n-a fost consultată.';
+
+  @override
+  String get shareEdgeMoneyHandlePatience =>
+      'Bitcoin. A se manevra cu răbdare.';
+
+  @override
+  String get shareEdgeMoneyStackResponsibly => 'Strânge cu responsabilitate.';
+
+  @override
+  String get shareEdgeMoneyNoLecture => 'Bitcoin. Fără predică.';
+
+  @override
+  String get shareEdgeMoneyTinySats => 'Sats mici. Responsabilitate mare.';
+
+  @override
+  String get shareEdgeMoneySameDollars => 'Dolari digitali. Aceiași dolari.';
+
+  @override
+  String get shareEdgeMoneyNoEnvelope => 'Bani cash, fără plic.';
+
+  @override
+  String get shareEdgeMoneyNoExchange => 'Dolari. Fără cursul de la aeroport.';
+
+  @override
+  String get shareEdgePickScreenshot => 'Predicția mea. Fă-i screenshot.';
+
+  @override
+  String get shareEdgePickSaidFirst => 'Dosar: am zis-o eu primul.';
+
+  @override
+  String shareEdgePickFinalAnswer(String side) {
+    return '$side. Răspuns final.';
+  }
+
+  @override
+  String get shareEdgePickStrongOpinion => 'Nu e sfat. Doar o părere fermă.';
+
+  @override
+  String get shareEdgePickDidReading => 'M-am documentat. În mare.';
+
+  @override
+  String get shareEdgePickToldYouSo => 'Păstrez asta pentru „ți-am zis”.';
+
+  @override
+  String get shareEdgePickConviction => 'Convingerea îmi stă bine.';
+
+  @override
+  String get shareEdgePickNotFree => 'Părerile sunt gratis. Asta nu.';
+
+  @override
+  String shareEdgePickAmountSays(String amount, String side) {
+    return '$amount votează $side.';
+  }
+
+  @override
+  String get shareEdgePickLowDrama => 'Dramă puțină. Convingere multă.';
+
+  @override
+  String get shareEdgePickInsufferable => 'Dacă iese, o să fiu insuportabil.';
+
+  @override
+  String get shareEdgePickRevolutionary => 'Merg pe favorit. Revoluționar.';
+
+  @override
+  String shareEdgePickSmartCrowd(String chance) {
+    return '$chance sunt de acord. Lume isteață.';
+  }
+
+  @override
+  String get shareEdgePickSafePick => 'Alegere sigură. Tot alegere.';
+
+  @override
+  String get shareEdgePickWithOdds => 'Am mers cu șansele. Șocant.';
+
+  @override
+  String get shareEdgePickOnPurpose => 'Outsider. Intenționat.';
+
+  @override
+  String shareEdgePickOnlySee(String chance) {
+    return 'Doar $chance o văd. Mie-mi convine.';
+  }
+
+  @override
+  String get shareEdgePickLongShot => 'Șansă mică. Explicație scurtă.';
+
+  @override
+  String get shareEdgePickContrarian => 'Contra curentului, nu confuz.';
+
+  @override
+  String get shareEdgeTopicDebates => 'Dezbaterile fac zgomot. Șansele, nu.';
+
+  @override
+  String get shareEdgeTopicCoach => 'Azi toată lumea e selecționer.';
+
+  @override
+  String get shareEdgeTopicVolatility => 'Volatilitate inclusă. Gratuit.';
+
+  @override
+  String get shareEdgeTopicMinutes => 'Am citit minutele ședinței. Toate.';
+
+  @override
+  String get shareEdgeMarketPickOrWatch => 'Alege o parte. Sau doar privește.';
+
+  @override
+  String get shareEdgeMarketHasOdds => 'Părerile-s gratis. Asta are șanse.';
+
+  @override
+  String get shareEdgeMarketUntilResolves =>
+      'Toți sunt experți până se decide.';
+
+  @override
+  String get shareEdgeMarketGroupChat => 'Grupul, fă cunoștință cu șansele.';
+
+  @override
+  String get shareEdgeMarketHotTakes => 'Păreri tari? Șansele sunt atașate.';
+
+  @override
+  String get shareEdgeMarketJustMarket => 'Nu e sfat. Doar piața.';
+
+  @override
+  String get shareEdgeMarketOddsMove => 'Șansele se mișcă. Întrebarea, nu.';
+
+  @override
+  String get shareEdgeMarketYourCall => 'Tu decizi. Fără presiune.';
+
+  @override
+  String get shareEdgeMarketDiscuss => 'Discutați. Calm.';
+
+  @override
+  String get shareEdgeMarketWhereLand => 'Tu de ce parte ești?';
+
+  @override
+  String shareEdgeMarketSayDiscuss(String chance, String side) {
+    return '$chance zic $side. Discutați.';
+  }
+
+  @override
+  String get shareEdgeMarketHarder => 'Da sau nu. Mai greu decât pare.';
+
+  @override
+  String get shareEdgeMarketTwoAnswers => 'O întrebare. Două răspunsuri.';
+
+  @override
+  String shareEdgeMarketNotGuarantee(String chance) {
+    return '$chance nu e o garanție.';
+  }
+
+  @override
+  String get shareEdgeMarketFeelings => 'Întrebare simplă. Trăiri complicate.';
+
+  @override
+  String get shareEdgeMarketLikely => 'Probabil nu înseamnă sigur.';
+
+  @override
+  String shareEdgeMarketLeads(String leader) {
+    return '$leader conduce. Nimic nu e decis.';
+  }
+
+  @override
+  String shareEdgeMarketCoronation(String chance) {
+    return '$chance nu e o încoronare.';
+  }
+
+  @override
+  String shareEdgeMarketHistoryWait(String leader) {
+    return 'Graficul: $leader. Istoria: mai stai.';
+  }
+
+  @override
+  String get shareEdgeMarketAskTomorrow => 'Favorit azi. Mai întreabă mâine.';
+
+  @override
+  String get shareEdgeMarketCrowdedField =>
+      'Mulți candidați. Un singur răspuns.';
+
+  @override
+  String shareEdgeMarketStayTuned(String leader, String chance) {
+    return '$leader la $chance. Rămâi pe aproape.';
+  }
+
+  @override
+  String get shareEdgeMarketLeadingNotWinning =>
+      'A conduce nu înseamnă a câștiga.';
+
+  @override
+  String get shareEdgeMarketNotSureThing => 'Favorit, nu câștigător sigur.';
+
+  @override
+  String get shareEdgeMarketUpsets => 'Surprizele există. Și favoriții.';
+
+  @override
+  String get shareEdgeMarketGameDecides => 'Decide meciul. Nu comentariile.';
+
+  @override
+  String get shareEdgeMarketOddsDontPlay => 'Șansele nu joacă meciul.';
+
+  @override
+  String get shareEdgeMarketScoreboard => 'Vorbe acum. Tabela mai târziu.';
+
+  @override
+  String challengeEdgeComeAtMe(String side) {
+    return '$side. Vino, dacă îndrăznești.';
+  }
+
+  @override
+  String challengeEdgeOnNotice(String side) {
+    return 'Sunt pe $side. Ești avertizat.';
+  }
+
+  @override
+  String challengeEdgeTalkCheap(String side) {
+    return '$side. Vorba e ieftină. Alege.';
+  }
+
+  @override
+  String challengeEdgeScared(String side) {
+    return '$side. Ți-e frică? Te înțeleg.';
+  }
+
+  @override
+  String challengeEdgeKnowBetter(String side) {
+    return '$side. Doar dacă știi tu mai bine.';
+  }
+
+  @override
+  String challengeEdgeTurnWrong(String side) {
+    return 'Sunt pe $side. Rândul tău să greșești.';
+  }
+
+  @override
+  String challengeEdgeNotSorry(String side) {
+    return '$side, și nu-mi pare rău.';
+  }
+
+  @override
+  String challengeEdgeAllYours(String side) {
+    return 'Am luat $side. Cealaltă e a ta.';
+  }
+
+  @override
+  String challengeEdgeConvince(String side) {
+    return '$side. Convinge-mă de contrariu.';
+  }
+
+  @override
+  String challengeEdgeSeeYou(String side) {
+    return '$side. Ne vedem la deznodământ.';
+  }
+
+  @override
+  String challengeEdgeReceipts(String side) {
+    return 'Sunt pe $side. Vino cu dovezi.';
+  }
+
+  @override
+  String get shareEdgeStockJustChart => 'Nu e sfat. Doar un grafic.';
+
+  @override
+  String get shareEdgeStockFeelings => 'Graficelor nu le pasă de sentimente.';
+
+  @override
+  String shareEdgeStockHeardOfIt(String name) {
+    return '$name. Poate-ți sună cunoscut.';
+  }
+
+  @override
+  String get shareEdgeStockActNormal => 'Zi verde. Poartă-te normal.';
+
+  @override
+  String shareEdgeStockJustChange(String change) {
+    return 'Calm. E doar $change.';
+  }
+
+  @override
+  String get shareEdgeStockIKnew => 'Nu zic că știam. Dar știam.';
+
+  @override
+  String get shareEdgeStockTomorrow => 'Sus azi. Mâine nu e treaba mea.';
+
+  @override
+  String shareEdgeStockGreenLooks(String name) {
+    return '$name pe verde. Îi stă bine.';
+  }
+
+  @override
+  String get shareEdgeStockEgoSteady => 'Graficul sus. Ego-ul stabil.';
+
+  @override
+  String get shareEdgeStockDontClap => 'Nu aplauda. Doar privește.';
+
+  @override
+  String get shareEdgeStockDoubleDigits => 'Două cifre. Accept.';
+
+  @override
+  String shareEdgeStockCheckShorts(String change) {
+    return 'Plus $change. Sărmanii de pe short.';
+  }
+
+  @override
+  String get shareEdgeStockCalmAsEver => 'Zi roșie. Calm ca de obicei.';
+
+  @override
+  String shareEdgeStockZoomOut(String change) {
+    return 'Minus $change. Dă zoom out.';
+  }
+
+  @override
+  String get shareEdgeStockPanicOptional =>
+      'Scăderile vin. Panica e opțională.';
+
+  @override
+  String shareEdgeStockCharacterArc(String change) {
+    return 'Minus $change. Evoluție de personaj.';
+  }
+
+  @override
+  String get shareEdgeStockPlotTwist => 'O scădere. Nu un plot twist.';
+
+  @override
+  String get shareEdgeStockStillHere => 'Jos azi. Tot aici.';
+
+  @override
+  String get shareEdgeStockAsIntended => 'Volatilitatea: merge cum trebuie.';
+
+  @override
+  String get shareEdgeStockBadDay => 'Orice grafic are o zi proastă.';
+
+  @override
+  String shareEdgeStockDeepBreaths(String change) {
+    return 'Minus $change. Respiră adânc.';
+  }
+
+  @override
+  String get shareEdgeStockRiveting => 'Nu s-a întâmplat nimic. Captivant.';
+
+  @override
+  String get shareEdgeStockBoringUnderrated =>
+      'Zi plată. Plictisul e subestimat.';
+
+  @override
+  String get shareEdgeStockSideways => 'Lateral e tot o direcție.';
+
+  @override
+  String get shareEdgeStockSuspicious => 'Nicio dramă azi. Suspect.';
+
+  @override
+  String get shareEdgeStockNap => 'Graficul a tras un pui de somn.';
+
+  @override
+  String get shareEdgeStockPaintDry => 'Văd cum se usucă vopseaua. Pro.';
+
+  @override
+  String get shareEdgeStockUnchanged => 'Neschimbat. Netulburat.';
+
+  @override
+  String get shareEdgeStockShortUnbothered => 'Pe short și relaxat.';
+
+  @override
+  String get shareEdgeStockNotEverythingUp => 'Nu totul urcă.';
+
+  @override
+  String get shareEdgeStockGravity => 'Și gravitația e o strategie.';
+
+  @override
+  String get shareEdgeStockShortHype => 'Short pe hype. Politicos.';
+
+  @override
+  String get shareEdgeStockShortContrarian => 'Contra curentului, cu grafic.';
+
+  @override
+  String get shareEdgeStockFlipSide => 'Cineva trebuie să ia cealaltă parte.';
+
+  @override
+  String shareEdgeStockAsPlanned(String change) {
+    return 'Minus $change. Conform planului.';
+  }
+
+  @override
+  String get shareEdgeStockICanWait => 'Sus azi. Pot să aștept.';
+
+  @override
+  String get shareEdgeBragQuietlyGreen => 'Discret, pe plus.';
+
+  @override
+  String get shareEdgeBragGreenSuits => 'Verdele îmi stă bine.';
+
+  @override
+  String get shareEdgeBragCopyMe => 'Aș explica, dar m-ai copia.';
+
+  @override
+  String get shareEdgeBragHumbleWorking => 'Modest? Lucrez la asta.';
+
+  @override
+  String get shareEdgeBragNotVibes => 'Rezultate, nu vibe-uri.';
+
+  @override
+  String get shareEdgeBragMildlyPleased => 'Nu-s surprins. Ușor mulțumit.';
+
+  @override
+  String get shareEdgeBragNotAPromise => 'Rezultate trecute. Nu o promisiune.';
+
+  @override
+  String get shareEdgeBragBeforeItChanges => 'Screenshot până nu se schimbă.';
+
+  @override
+  String get shareEdgeBragMainCharacter => 'Energie de personaj principal.';
+
+  @override
+  String shareEdgeBragUnbearable(String amount) {
+    return '$amount. De-acum sunt insuportabil.';
+  }
+
+  @override
+  String get shareEdgeBragBeingCalm => 'Așa arăt eu când sunt calm.';
+
+  @override
+  String get shareEdgeBragAllegedly => 'Sumă mare. Ego mic. Chipurile.';
+
+  @override
+  String get shareEdgeBragStillAWin => 'Câștig mic. Tot câștig.';
+
+  @override
+  String shareEdgeBragRome(String amount) {
+    return '$amount. Încet, încet se face oțetul.';
+  }
+
+  @override
+  String get shareEdgeBragModest => 'Modest. Ca mine.';
+
+  @override
+  String get shareEdgeBragHumbled => 'Temporar, mai modest.';
+
+  @override
+  String get shareEdgeBragRedPhase => 'Roșul e doar o fază.';
+
+  @override
+  String shareEdgeBragLessons(String amount) {
+    return 'Minus $amount. Lecții incluse.';
+  }
+
+  @override
+  String get shareEdgeBragNotOut => 'Jos, dar nu KO.';
+
+  @override
+  String get shareEdgeBragGrowth => 'Îmi postez pierderile. Evoluez.';
+
+  @override
+  String get shareEdgeBragHumbleEra => 'Asta e era mea modestă.';
+
+  @override
+  String get shareEdgeBragOnTheChin => 'Am încasat-o. Cu grație.';
+
+  @override
+  String get shareEdgeBragNotMyBest => 'Nu cea mai bună. Nici ultima.';
+
+  @override
+  String get shareEdgeBragDignified => 'Roșu, dar cu demnitate.';
+
+  @override
+  String get shareEdgeBragTuition => 'Pierderile sunt taxă de școlarizare.';
+
+  @override
+  String get shareEdgeBragNetCalm => 'Zero net. Calm net.';
+
+  @override
+  String get shareEdgeBragBalanced => 'Pe zero. Perfect echilibrat.';
+
+  @override
+  String get shareEdgeBragDidntPanic => 'Nici plus, nici minus, nici panică.';
+
+  @override
+  String get shareEdgeBragUndefeated => 'Zero la zero. Neînvins.';
+
+  @override
+  String get shareEdgeBragWithStyle => 'Lateral, cu stil.';
+
+  @override
+  String get shareEdgeBragSharedAnyway => 'Nimic de văzut. Am postat oricum.';
+
+  @override
+  String get shareEdgeBragSteadyHands => 'Linie dreaptă. Mână sigură.';
+
+  @override
+  String get shareEdgeBragBlinked => 'Piața a clipit. Eu, nu.';
+
+  @override
+  String get shareEdgeBragEvenTemper => 'Echilibrat. Ca temperamentul meu.';
+
+  @override
+  String get shareEdgeBragNoDrama => 'Zero dramă. Zero schimbare.';
+
+  @override
+  String get bragEdgeWonToldPolitely => 'Ți-am zis. Politicos.';
+
+  @override
+  String get bragEdgeWonNormal => 'Am avut dreptate. O să fiu normal.';
+
+  @override
+  String get bragEdgeWonMyFavour => 'S-a decis în favoarea mea.';
+
+  @override
+  String get bragEdgeWonPaysSometimes => 'Să ai dreptate plătește. Uneori.';
+
+  @override
+  String get bragEdgeWonAgreed => 'Piața a fost de acord. Până la urmă.';
+
+  @override
+  String get bragEdgeWonMySide => 'Partea mea a câștigat.';
+
+  @override
+  String get bragEdgeWonThenPayout => 'Răbdare, apoi plată.';
+
+  @override
+  String get bragEdgeWonNoNotes => 'Nimic de adăugat.';
+
+  @override
+  String get bragEdgeWonFutureSelf => 'Screenshot pentru viitorul meu eu.';
+
+  @override
+  String get bragEdgeWonEarlyThenRight => 'Devreme. Apoi cu dreptate.';
+
+  @override
+  String get bragEdgeWonCollecting => 'Încasez discret.';
+
+  @override
+  String get bragEdgeWonNotSurprised => 'Aș face pe surprinsul. Nu sunt.';
+
+  @override
+  String get receiptEdgeSentNoHold => 'Trimis. Fără muzică de așteptare.';
+
+  @override
+  String get receiptEdgeSentBeforeBank => 'Gata înainte să deschidă banca.';
+
+  @override
+  String get receiptEdgeSentDrama => 'Banii s-au mișcat. Drama, nu.';
+
+  @override
+  String get receiptEdgeSentBusinessDays => 'Secunde, nu zile lucrătoare.';
+
+  @override
+  String get receiptEdgeSentThankLater => 'Trimis. Mulțumește-mi mai târziu.';
+
+  @override
+  String get receiptEdgeSentEfficient => 'Generos și eficient.';
+
+  @override
+  String get receiptEdgeSentOneTap => 'O atingere. Fără formulare.';
+
+  @override
+  String get receiptEdgeSentPaidUp => 'Plătit. Mergem mai departe.';
+
+  @override
+  String get receiptEdgeSentAdult => 'Achitat. Ca un adult.';
+
+  @override
+  String receiptEdgeSentGone(String amount) {
+    return '$amount. Câteva secunde și gata.';
+  }
+
+  @override
+  String get receiptEdgeSentSaga => 'Să trimiți bani nu e o telenovelă.';
+
+  @override
+  String get receiptEdgeReceivedCasual => 'Am încasat. Lejer.';
+
+  @override
+  String get receiptEdgeReceivedNoted => 'Primit. Notat. Apreciat.';
+
+  @override
+  String receiptEdgeReceivedRicher(String amount) {
+    return 'Plus $amount. Zero emoții.';
+  }
+
+  @override
+  String get receiptEdgeReceivedThankYou => 'A ajuns înaintea lui „mersi”.';
+
+  @override
+  String get receiptEdgeReceivedMoodUp => 'Bani intrați. Moral sus.';
+
+  @override
+  String get receiptEdgeReceivedGrace => 'Primit cu grație.';
+
+  @override
+  String get receiptEdgeReceivedAskTwice =>
+      'Nici n-a trebuit să cer de două ori.';
+
+  @override
+  String get receiptEdgeReceivedUnscheduled => 'Zi de salariu, neprogramată.';
+
+  @override
+  String get receiptEdgeReceivedNoMiddle => 'A ajuns. Fără bancă la mijloc.';
+
+  @override
+  String get receiptEdgeReceivedCompliments =>
+      'Accept complimente și transferuri.';
+
+  @override
+  String get receiptEdgeIncomingAlmost =>
+      'Aproape aici. Nu sta cu ochii pe el.';
+
+  @override
+  String get receiptEdgeIncomingLoading => 'Se încarcă. Calm.';
+
+  @override
+  String get receiptEdgeIncomingRefreshing => 'E pe drum. Refresh-ul nu ajută.';
+
+  @override
+  String get receiptEdgeIncomingNotChecking => 'E pe drum. Nu verific.';
+
+  @override
+  String get receiptEdgeIncomingPending => 'În așteptare. Ca orice lucru bun.';
+
+  @override
+  String get receiptEdgeIncomingPatienceMode =>
+      'Pe drum. Modul răbdare: pornit.';
+
+  @override
+  String get receiptEdgeIncomingSnacks => 'Pe drum. Fără gustări incluse.';
+
+  @override
+  String get receiptEdgeIncomingMinute => 'Lucrurile bune durează un minut.';
+
+  @override
+  String get receiptEdgeIncomingMotion => 'Bani în mișcare.';
+
+  @override
+  String get receiptEdgeIncomingWatched => 'Un transfer urmărit nu mai ajunge.';
+
+  @override
+  String get receiptEdgeMovedFurniture => 'Rearanjez mobila.';
+
+  @override
+  String get receiptEdgeMovedDidntLose => 'I-am mutat. Nu i-am pierdut.';
+
+  @override
+  String get receiptEdgeMovedPockets => 'Buzunarul stâng, buzunarul drept.';
+
+  @override
+  String get receiptEdgeMovedRelocated => 'Bani, relocați.';
+
+  @override
+  String get receiptEdgeMovedNewRoom => 'Același proprietar. Cameră nouă.';
+
+  @override
+  String get receiptEdgeMovedHousekeeping => 'Curățenie, dar la bani.';
+
+  @override
+  String get receiptEdgeMovedShuffle => 'O rocadă strategică.';
+
+  @override
+  String get receiptEdgeMovedGrownUp => 'Mut bani ca un om mare.';
+
+  @override
+  String get receiptEdgeMovedOrganised => 'Organizat. Pentru scurt timp.';
+
+  @override
+  String get receiptEdgeMovedTidying => 'Doar fac ordine.';
+
+  @override
+  String get receiptEdgeMovedAllocating => 'Alocare. Foarte calm.';
+
+  @override
+  String get receiptEdgeBoughtOverthink => 'Nu m-am gândit prea mult.';
+
+  @override
+  String get receiptEdgeBoughtPile => 'Adăugat la grămadă.';
+
+  @override
+  String get receiptEdgeBoughtAccumulation => 'Acumulare discretă.';
+
+  @override
+  String get receiptEdgeBoughtToldNoOne => 'N-am spus nimănui. Până acum.';
+
+  @override
+  String get receiptEdgeBoughtNotTiming => 'Cumpăr, nu ghicesc momentul.';
+
+  @override
+  String receiptEdgeBoughtConviction(String amount) {
+    return '$amount de convingere.';
+  }
+
+  @override
+  String get receiptEdgeBoughtPatience => 'Pas unu: cumpăr. Pas doi: răbdare.';
+
+  @override
+  String get receiptEdgeBoughtNoise => 'Cumpăr. Ignor zgomotul.';
+
+  @override
+  String get receiptEdgeBoughtBackToDay =>
+      'Cumpărat. Înapoi la treburile mele.';
+
+  @override
+  String get receiptEdgeBoughtShoes => 'Unii își cumpără pantofi.';
+
+  @override
+  String get receiptEdgeSoldKeptCool => 'Am vândut puțin. Cu sânge rece.';
+
+  @override
+  String get receiptEdgeSoldNoRegrets => 'Convertit. Fără regrete. Deocamdată.';
+
+  @override
+  String get receiptEdgeSoldDidntCheck => 'Vândut. Nu mă mai uit la preț.';
+
+  @override
+  String get receiptEdgeSoldLiquidity => 'Lichiditate, obținută.';
+
+  @override
+  String get receiptEdgeSoldLeftDrama => 'Am luat banii. Am lăsat drama.';
+
+  @override
+  String get receiptEdgeSoldSleeping => 'Vândut. Dorm bine.';
+
+  @override
+  String get receiptEdgeSoldCashPosition => 'Și cash-ul e o poziție.';
+
+  @override
+  String get receiptEdgeSoldDeliberately => 'Trecut pe cash. Intenționat.';
+
+  @override
+  String get receiptEdgeSoldPressed => 'Butonul de vânzare: apăsat. Calm.';
+
+  @override
+  String get receiptEdgeSoldLittleCash => 'Puțin cash n-a stricat niciodată.';
+
+  @override
+  String get receiptEdgePredictedCommitted => 'Decizie luată. În mare.';
+
+  @override
+  String get receiptEdgePredictedHardPart => 'Așteptarea e partea grea.';
+
+  @override
+  String get receiptEdgePredictedSkin => 'O părere, acum cu miză.';
+
+  @override
+  String get receiptEdgePredictedNails => 'Plasat. Unghiile, intacte.';
+
+  @override
+  String get receiptEdgePredictedTookSide => 'Am ales o parte. Cu sânge rece.';
+
+  @override
+  String get receiptEdgePredictedJustMySide => 'Nu e sfat. Doar partea mea.';
+
+  @override
+  String get receiptEdgePredictedResolution => 'Ne vedem la deznodământ.';
+
+  @override
+  String receiptEdgePredictedThatsThePost(String amount, String side) {
+    return '$amount pe $side. Atât am de spus.';
+  }
+
+  @override
+  String get receiptEdgeUpInUpOut => 'Intrat. Sus. Ieșit.';
+
+  @override
+  String get receiptEdgeUpEgo => 'Profit luat. Ego lăsat în urmă.';
+
+  @override
+  String get receiptEdgeUpWhileGreen => 'Am ieșit cât era verde.';
+
+  @override
+  String get receiptEdgeUpWhenToLeave => 'Să știi când să pleci e o artă.';
+
+  @override
+  String receiptEdgeUpDoneHere(String amount) {
+    return '$amount. Am terminat aici.';
+  }
+
+  @override
+  String get receiptEdgeUpBooked => 'Încasat.';
+
+  @override
+  String get receiptEdgeUpNoEncore => 'Ieșire pe verde. Fără bis.';
+
+  @override
+  String get receiptEdgeUpGreed => 'Lăcomia nu e strategie.';
+
+  @override
+  String get receiptEdgeUpDiscipline => 'Am plecat pe plus. Disciplină rară.';
+
+  @override
+  String get receiptEdgeUpWinIsWin => 'Un câștig e un câștig.';
+
+  @override
+  String get receiptEdgeDownDignity => 'Pierdere tăiată. Demnitate păstrată.';
+
+  @override
+  String get receiptEdgeDownExits => 'Și ieșirile sunt o artă.';
+
+  @override
+  String get receiptEdgeDownQuick => 'Am greșit, dar repede.';
+
+  @override
+  String get receiptEdgeDownLessonKept => 'Ieșit devreme. Lecția, păstrată.';
+
+  @override
+  String get receiptEdgeDownStubborn => 'Mai bine afară decât încăpățânat.';
+
+  @override
+  String get receiptEdgeDownTookL => 'Am luat L-ul. Am păstrat chitanța.';
+
+  @override
+  String get receiptEdgeDownNotMyDay => 'Închis. Nu a fost ziua mea.';
+
+  @override
+  String get receiptEdgeDownZeroTears => 'Ieșire pe roșu. Zero lacrimi.';
+
+  @override
+  String get receiptEdgeDownHalfSkill => 'Să recunoști e jumătate din artă.';
+
+  @override
+  String receiptEdgeDownTuition(String amount) {
+    return '$amount. Școlarizare plătită.';
+  }
+
+  @override
+  String get receiptEdgeFlatRoundTrip => 'Dus-întors. Fără suveniruri.';
+
+  @override
+  String get receiptEdgeFlatWiser => 'Înapoi la start. Mai înțelept.';
+
+  @override
+  String get receiptEdgeFlatZeroStress => 'Sumă zero. Stres zero.';
+
+  @override
+  String get receiptEdgeFlatNoHarm => 'Nicio pagubă. Niciun fault.';
+
+  @override
+  String get receiptEdgeFlatShrugged => 'Piața a ridicat din umeri. Și eu.';
+
+  @override
+  String get receiptEdgeFlatStory => 'Rezultat net: o poveste.';
+
+  @override
+  String get receiptEdgeLostNextQuestion => 'Următoarea întrebare.';
+
+  @override
+  String get receiptEdgeLostRudely => 'Piața n-a fost de acord. Brutal.';
+
+  @override
+  String get receiptEdgeLostHumour => 'Am pierdut una. Umorul a rămas.';
+
+  @override
+  String get receiptEdgeLostCompany => 'Greșit, dar în companie bună.';
+
+  @override
+  String get receiptEdgeLostOnMe => 'Asta-i vina mea.';
+
+  @override
+  String get receiptEdgeLostConfidence => 'Portofel mai ușor. Același tupeu.';
+
+  @override
+  String get receiptEdgeLostWrongly => 'Am prezis-o. Greșit.';
+
+  @override
+  String get receiptEdgeLostGraceful => 'Să pierzi elegant e un flex.';
+
+  @override
+  String get receiptEdgeLostOddsWereOdds => 'Șansele au fost șanse.';
+
+  @override
+  String get receiptEdgeLostAlreadyMoved => 'Merg mai departe. Am și plecat.';
+
+  @override
+  String get receiptEdgeLostUpLesson => 'Minus o predicție. Plus o lecție.';
+
+  @override
+  String get receiptEdgePaidResolved => 'Decis. Încasat.';
+
+  @override
+  String get receiptEdgePaidNormal => 'Plata a ajuns. Mă port normal.';
+
+  @override
+  String receiptEdgePaidInFull(String amount) {
+    return '$amount, plată integrală.';
+  }
+
+  @override
+  String get receiptEdgePaidCourtesy => 'Salariu, pentru că am avut dreptate.';
+
+  @override
+  String get receiptEdgeOpenedPulse => 'Poziție deschisă. Puls normal.';
+
+  @override
+  String get receiptEdgeOpenedCalmly => 'Intrat calm. Voi ieși calm.';
+
+  @override
+  String receiptEdgeOpenedInAt(String price) {
+    return 'Intrat la $price. Notat.';
+  }
+
+  @override
+  String get receiptEdgeOpenedNotRefreshing =>
+      'Intrat. Nu dau refresh încontinuu.';
+
+  @override
+  String get receiptEdgeOpenedSized => 'Convingere, dozată responsabil.';
+
+  @override
+  String get receiptEdgeOpenedJustMine => 'Nu e sfat. Doar tranzacția mea.';
+
+  @override
+  String get receiptEdgeOpenedUnderstanding => 'Eu și graficul ne înțelegem.';
+
+  @override
+  String get receiptEdgeOpenedMyProblem => 'Intrarea mea. Problema mea.';
+
+  @override
+  String get receiptEdgeOpenedEither => 'Gata de orice direcție.';
+
+  @override
   String shareMessageChallengeNamed(
       String name, String outcome, String title, String amount, String url) {
     return '$name, alegerea mea: $outcome la $title. Alege cealaltă parte sau vino cu mine. $amount din partea mea: $url';

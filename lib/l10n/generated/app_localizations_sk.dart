@@ -12628,6 +12628,952 @@ class AppLocalizationsSk extends AppLocalizations {
   }
 
   @override
+  String get shareEdgeMoneyNoStrings => 'Žiadny háčik. Overené.';
+
+  @override
+  String get shareEdgeMoneyMakeItText => 'Peniaze, ale ako správa.';
+
+  @override
+  String get shareEdgeMoneyLowBar => 'Rýchlejšie ako banka. Latka je nízko.';
+
+  @override
+  String get shareEdgeMoneyNoForms => 'Bez formulárov. Bez zbytočných rečí.';
+
+  @override
+  String get shareEdgeMoneyActNatural => 'Prekvapenie. Rob, akoby nič.';
+
+  @override
+  String get shareEdgeMoneyInAdvance => 'Niet začo. Vopred.';
+
+  @override
+  String shareEdgeMoneyNoQuestions(String amount) {
+    return '$amount, bez otázok.';
+  }
+
+  @override
+  String get shareEdgeMoneyNotALoan => 'Dar. Nie pôžička. Asi.';
+
+  @override
+  String get shareEdgeMoneyAllAtOnce => 'Nemíňaj to všetko naraz.';
+
+  @override
+  String get shareEdgeMoneyGetUsed => 'Nezvykaj si na to.';
+
+  @override
+  String get shareEdgeMoneyLittleEgo => 'Poslané s láskou. A trochou ega.';
+
+  @override
+  String get shareEdgeMoneyNoBank => 'Banky sa nikto nepýtal.';
+
+  @override
+  String get shareEdgeMoneyHandlePatience =>
+      'Bitcoin. Zaobchádzaj s trpezlivosťou.';
+
+  @override
+  String get shareEdgeMoneyStackResponsibly => 'Hromaď zodpovedne.';
+
+  @override
+  String get shareEdgeMoneyNoLecture => 'Bitcoin. Prednáška v cene nie je.';
+
+  @override
+  String get shareEdgeMoneyTinySats => 'Pár satov. Veľká zodpovednosť.';
+
+  @override
+  String get shareEdgeMoneySameDollars => 'Digitálne doláre. Tie isté doláre.';
+
+  @override
+  String get shareEdgeMoneyNoEnvelope => 'Hotovosť, len bez obálky.';
+
+  @override
+  String get shareEdgeMoneyNoExchange => 'Doláre. Bez letiskového kurzu.';
+
+  @override
+  String get shareEdgePickScreenshot => 'Moja voľba. Sprav si screenshot.';
+
+  @override
+  String get shareEdgePickSaidFirst => 'Kategória: hovoril som to prvý.';
+
+  @override
+  String shareEdgePickFinalAnswer(String side) {
+    return '$side. Konečná odpoveď.';
+  }
+
+  @override
+  String get shareEdgePickStrongOpinion => 'Nie rada. Len silný názor.';
+
+  @override
+  String get shareEdgePickDidReading => 'Naštudované. Väčšinou.';
+
+  @override
+  String get shareEdgePickToldYouSo => 'Odkladám si to na „veď som vravel“.';
+
+  @override
+  String get shareEdgePickConviction => 'Presvedčenie mi pristane.';
+
+  @override
+  String get shareEdgePickNotFree => 'Názory sú zadarmo. Tento nie.';
+
+  @override
+  String shareEdgePickAmountSays(String amount, String side) {
+    return '$amount hovorí: $side.';
+  }
+
+  @override
+  String get shareEdgePickLowDrama => 'Málo drámy. Veľa presvedčenia.';
+
+  @override
+  String get shareEdgePickInsufferable => 'Ak to vyjde, nebude so mnou reč.';
+
+  @override
+  String get shareEdgePickRevolutionary => 'Som za favorita. Revolučné.';
+
+  @override
+  String shareEdgePickSmartCrowd(String chance) {
+    return '$chance súhlasí. Múdry dav.';
+  }
+
+  @override
+  String get shareEdgePickSafePick => 'Bezpečná voľba. Aj tak voľba.';
+
+  @override
+  String get shareEdgePickWithOdds => 'Idem so šancami. Šokujúce.';
+
+  @override
+  String get shareEdgePickOnPurpose => 'Outsider. Zámerne.';
+
+  @override
+  String shareEdgePickOnlySee(String chance) {
+    return 'Vidí to len $chance. Mne to stačí.';
+  }
+
+  @override
+  String get shareEdgePickLongShot => 'Šanca malá. Vysvetlenie ešte kratšie.';
+
+  @override
+  String get shareEdgePickContrarian => 'Proti prúdu, nie mimo.';
+
+  @override
+  String get shareEdgeTopicDebates => 'Debaty sú šum. Čísla nie.';
+
+  @override
+  String get shareEdgeTopicCoach => 'Dnes je každý tréner.';
+
+  @override
+  String get shareEdgeTopicVolatility => 'Volatilita v cene. Bez príplatku.';
+
+  @override
+  String get shareEdgeTopicMinutes => 'Zápisnice prečítané. Všetky.';
+
+  @override
+  String get shareEdgeMarketPickOrWatch => 'Vyber stranu. Alebo len sleduj.';
+
+  @override
+  String get shareEdgeMarketHasOdds => 'Názory sú zadarmo. Tento má čísla.';
+
+  @override
+  String get shareEdgeMarketUntilResolves => 'Každý je expert. Do výsledku.';
+
+  @override
+  String get shareEdgeMarketGroupChat =>
+      'Skupinový chat, zoznám sa so šancami.';
+
+  @override
+  String get shareEdgeMarketHotTakes => 'Ostré názory vítané. Šance v prílohe.';
+
+  @override
+  String get shareEdgeMarketJustMarket => 'Nie rada. Len trh.';
+
+  @override
+  String get shareEdgeMarketOddsMove => 'Šance sa hýbu. Otázka nie.';
+
+  @override
+  String get shareEdgeMarketYourCall => 'Je to na tebe. Bez tlaku.';
+
+  @override
+  String get shareEdgeMarketDiscuss => 'Debatujte. Pokojne.';
+
+  @override
+  String get shareEdgeMarketWhereLand => 'Na ktorej strane si ty?';
+
+  @override
+  String shareEdgeMarketSayDiscuss(String chance, String side) {
+    return '$chance hovorí: $side. Debatujte.';
+  }
+
+  @override
+  String get shareEdgeMarketHarder => 'Áno alebo nie. Ťažšie, než to znie.';
+
+  @override
+  String get shareEdgeMarketTwoAnswers => 'Jedna otázka. Dve odpovede.';
+
+  @override
+  String shareEdgeMarketNotGuarantee(String chance) {
+    return '$chance nie je záruka.';
+  }
+
+  @override
+  String get shareEdgeMarketFeelings => 'Jednoduchá otázka. Zložité pocity.';
+
+  @override
+  String get shareEdgeMarketLikely => 'Pravdepodobné neznamená isté.';
+
+  @override
+  String shareEdgeMarketLeads(String leader) {
+    return '$leader vedie. Nič nie je rozhodnuté.';
+  }
+
+  @override
+  String shareEdgeMarketCoronation(String chance) {
+    return '$chance ešte nie je korunovácia.';
+  }
+
+  @override
+  String shareEdgeMarketHistoryWait(String leader) {
+    return 'Graf: $leader. História: počkaj.';
+  }
+
+  @override
+  String get shareEdgeMarketAskTomorrow => 'Dnes favorit. Spýtaj sa zajtra.';
+
+  @override
+  String get shareEdgeMarketCrowdedField => 'Veľa mien. Jedna odpoveď.';
+
+  @override
+  String shareEdgeMarketStayTuned(String leader, String chance) {
+    return '$leader na $chance. Sleduj ďalej.';
+  }
+
+  @override
+  String get shareEdgeMarketLeadingNotWinning => 'Viesť neznamená vyhrať.';
+
+  @override
+  String get shareEdgeMarketNotSureThing => 'Favorit, nie istota.';
+
+  @override
+  String get shareEdgeMarketUpsets => 'Prekvapenia sa dejú. Favoriti tiež.';
+
+  @override
+  String get shareEdgeMarketGameDecides => 'Rozhodne zápas. Nie komentáre.';
+
+  @override
+  String get shareEdgeMarketOddsDontPlay => 'Šance zápas nehrajú.';
+
+  @override
+  String get shareEdgeMarketScoreboard => 'Teraz sa kecá. Potom sa počíta.';
+
+  @override
+  String challengeEdgeComeAtMe(String side) {
+    return '$side. Poď do mňa.';
+  }
+
+  @override
+  String challengeEdgeOnNotice(String side) {
+    return 'Som za $side. Toto je varovanie.';
+  }
+
+  @override
+  String challengeEdgeTalkCheap(String side) {
+    return '$side. Reči sú lacné. Vyber si.';
+  }
+
+  @override
+  String challengeEdgeScared(String side) {
+    return '$side. Bojíš sa? Chápem.';
+  }
+
+  @override
+  String challengeEdgeKnowBetter(String side) {
+    return '$side. Ak nevieš niečo lepšie.';
+  }
+
+  @override
+  String challengeEdgeTurnWrong(String side) {
+    return 'Som za $side. Mýliť sa môžeš ty.';
+  }
+
+  @override
+  String challengeEdgeNotSorry(String side) {
+    return '$side, a neľutujem.';
+  }
+
+  @override
+  String challengeEdgeAllYours(String side) {
+    return 'Beriem $side. Druhá strana je tvoja.';
+  }
+
+  @override
+  String challengeEdgeConvince(String side) {
+    return '$side. Presvedč ma o opaku.';
+  }
+
+  @override
+  String challengeEdgeSeeYou(String side) {
+    return '$side. Uvidíme sa pri výsledku.';
+  }
+
+  @override
+  String challengeEdgeReceipts(String side) {
+    return 'Som za $side. Prines dôkazy.';
+  }
+
+  @override
+  String get shareEdgeStockJustChart => 'Nie rada. Len graf.';
+
+  @override
+  String get shareEdgeStockFeelings => 'Grafy nezaujímajú pocity.';
+
+  @override
+  String shareEdgeStockHeardOfIt(String name) {
+    return '$name. Možno ti to niečo hovorí.';
+  }
+
+  @override
+  String get shareEdgeStockActNormal => 'Zelený deň. Správaj sa normálne.';
+
+  @override
+  String shareEdgeStockJustChange(String change) {
+    return 'Pokoj. Je to len $change.';
+  }
+
+  @override
+  String get shareEdgeStockIKnew => 'Netvrdím, že som to vedel. Ale vedel.';
+
+  @override
+  String get shareEdgeStockTomorrow => 'Dnes hore. Zajtra nie je moja vec.';
+
+  @override
+  String shareEdgeStockGreenLooks(String name) {
+    return '$name v zelenom. Sluší to.';
+  }
+
+  @override
+  String get shareEdgeStockEgoSteady => 'Graf hore. Ego v pokoji.';
+
+  @override
+  String get shareEdgeStockDontClap => 'Netlieskaj. Len sa pozri.';
+
+  @override
+  String get shareEdgeStockDoubleDigits => 'Dvojciferný rast. To beriem.';
+
+  @override
+  String shareEdgeStockCheckShorts(String change) {
+    return 'Hore o $change. Shortisti, žijete?';
+  }
+
+  @override
+  String get shareEdgeStockCalmAsEver => 'Červený deň. Pokoj ako vždy.';
+
+  @override
+  String shareEdgeStockZoomOut(String change) {
+    return 'Dole o $change. Oddiaľ graf.';
+  }
+
+  @override
+  String get shareEdgeStockPanicOptional =>
+      'Poklesy sa dejú. Panika je voliteľná.';
+
+  @override
+  String shareEdgeStockCharacterArc(String change) {
+    return 'Dole o $change. Vývoj postavy.';
+  }
+
+  @override
+  String get shareEdgeStockPlotTwist => 'Pokles, nie dejový zvrat.';
+
+  @override
+  String get shareEdgeStockStillHere => 'Dnes dole. Stále tu.';
+
+  @override
+  String get shareEdgeStockAsIntended => 'Volatilita: funguje, ako má.';
+
+  @override
+  String get shareEdgeStockBadDay => 'Aj graf má zlý deň.';
+
+  @override
+  String shareEdgeStockDeepBreaths(String change) {
+    return 'Dole o $change. Zhlboka dýchaj.';
+  }
+
+  @override
+  String get shareEdgeStockRiveting => 'Nič sa nestalo. Napínavé.';
+
+  @override
+  String get shareEdgeStockBoringUnderrated =>
+      'Plochý deň. Nuda je podceňovaná.';
+
+  @override
+  String get shareEdgeStockSideways => 'Bokom je tiež smer.';
+
+  @override
+  String get shareEdgeStockSuspicious => 'Dnes žiadna dráma. Podozrivé.';
+
+  @override
+  String get shareEdgeStockNap => 'Graf si zdriemol.';
+
+  @override
+  String get shareEdgeStockPaintDry => 'Sledujem, ako rastie tráva. Profesne.';
+
+  @override
+  String get shareEdgeStockUnchanged => 'Bez zmeny. Bez stresu.';
+
+  @override
+  String get shareEdgeStockShortUnbothered => 'Short a v pohode.';
+
+  @override
+  String get shareEdgeStockNotEverythingUp => 'Nie všetko ide hore.';
+
+  @override
+  String get shareEdgeStockGravity => 'Gravitácia je tiež stratégia.';
+
+  @override
+  String get shareEdgeStockShortHype => 'Shortujem hype. Zdvorilo.';
+
+  @override
+  String get shareEdgeStockShortContrarian => 'Proti prúdu, s grafom.';
+
+  @override
+  String get shareEdgeStockFlipSide => 'Niekto musí byť na druhej strane.';
+
+  @override
+  String shareEdgeStockAsPlanned(String change) {
+    return 'Dole o $change. Podľa plánu.';
+  }
+
+  @override
+  String get shareEdgeStockICanWait => 'Dnes hore. Počkám.';
+
+  @override
+  String get shareEdgeBragQuietlyGreen => 'Potichu v zelenom.';
+
+  @override
+  String get shareEdgeBragGreenSuits => 'Zelená mi pristane.';
+
+  @override
+  String get shareEdgeBragCopyMe => 'Vysvetlím? Nie. Skopíruješ ma.';
+
+  @override
+  String get shareEdgeBragHumbleWorking => 'Skromnosť? Pracujem na nej.';
+
+  @override
+  String get shareEdgeBragNotVibes => 'Výsledky, nie pocity.';
+
+  @override
+  String get shareEdgeBragMildlyPleased => 'Prekvapenie žiadne. Radosť mierna.';
+
+  @override
+  String get shareEdgeBragNotAPromise => 'Minulé výsledky. Nie sľub.';
+
+  @override
+  String get shareEdgeBragBeforeItChanges => 'Screenshot, kým sa to zmení.';
+
+  @override
+  String get shareEdgeBragMainCharacter => 'Energia hlavnej postavy.';
+
+  @override
+  String shareEdgeBragUnbearable(String amount) {
+    return '$amount. Teraz budem neznesiteľný.';
+  }
+
+  @override
+  String get shareEdgeBragBeingCalm => 'Toto je moja pokojná verzia.';
+
+  @override
+  String get shareEdgeBragAllegedly => 'Veľké číslo. Malé ego. Vraj.';
+
+  @override
+  String get shareEdgeBragStillAWin => 'Malé víťazstvo. Stále víťazstvo.';
+
+  @override
+  String shareEdgeBragRome(String amount) {
+    return '$amount. Ani Rím nepostavili za deň.';
+  }
+
+  @override
+  String get shareEdgeBragModest => 'Skromné. Ako ja.';
+
+  @override
+  String get shareEdgeBragHumbled => 'Dočasná lekcia pokory.';
+
+  @override
+  String get shareEdgeBragRedPhase => 'Červená je len fáza.';
+
+  @override
+  String shareEdgeBragLessons(String amount) {
+    return 'Mínus $amount. Lekcie v cene.';
+  }
+
+  @override
+  String get shareEdgeBragNotOut => 'V mínuse, nie mimo hry.';
+
+  @override
+  String get shareEdgeBragGrowth => 'Zdieľam svoje straty. Osobný rast.';
+
+  @override
+  String get shareEdgeBragHumbleEra => 'Toto je moja skromná éra.';
+
+  @override
+  String get shareEdgeBragOnTheChin => 'Inkasované. S gráciou.';
+
+  @override
+  String get shareEdgeBragNotMyBest => 'Nie môj najlepší deň. Ani posledný.';
+
+  @override
+  String get shareEdgeBragDignified => 'Červená, ale dôstojne.';
+
+  @override
+  String get shareEdgeBragTuition => 'Straty sú školné.';
+
+  @override
+  String get shareEdgeBragNetCalm => 'Čistá nula. Čistý pokoj.';
+
+  @override
+  String get shareEdgeBragBalanced => 'Na nule. Dokonale vyvážené.';
+
+  @override
+  String get shareEdgeBragDidntPanic => 'Bez zisku. Bez straty. Bez paniky.';
+
+  @override
+  String get shareEdgeBragUndefeated => 'Nula nikdy neprehrá.';
+
+  @override
+  String get shareEdgeBragWithStyle => 'Bokom, ale štýlovo.';
+
+  @override
+  String get shareEdgeBragSharedAnyway =>
+      'Nie je na čo pozerať. Zdieľam aj tak.';
+
+  @override
+  String get shareEdgeBragSteadyHands => 'Rovná čiara. Pokojné ruky.';
+
+  @override
+  String get shareEdgeBragBlinked => 'Trh žmurkol. Ja nie.';
+
+  @override
+  String get shareEdgeBragEvenTemper => 'Vyrovnané. Ako moja povaha.';
+
+  @override
+  String get shareEdgeBragNoDrama => 'Nula drámy. Nula zmeny.';
+
+  @override
+  String get bragEdgeWonToldPolitely => 'Hovoril som ti to. Slušne.';
+
+  @override
+  String get bragEdgeWonNormal => 'Mal som pravdu. Ostanem nad vecou.';
+
+  @override
+  String get bragEdgeWonMyFavour => 'Rozhodnuté v môj prospech.';
+
+  @override
+  String get bragEdgeWonPaysSometimes => 'Mať pravdu sa oplatí. Niekedy.';
+
+  @override
+  String get bragEdgeWonAgreed => 'Trh súhlasil. Nakoniec.';
+
+  @override
+  String get bragEdgeWonMySide => 'Moja voľba vyšla.';
+
+  @override
+  String get bragEdgeWonThenPayout => 'Najprv trpezlivosť, potom výplata.';
+
+  @override
+  String get bragEdgeWonNoNotes => 'Bez pripomienok.';
+
+  @override
+  String get bragEdgeWonFutureSelf => 'Screenshot pre moje budúce ja.';
+
+  @override
+  String get bragEdgeWonEarlyThenRight => 'Najprv priskoro. Potom správne.';
+
+  @override
+  String get bragEdgeWonCollecting => 'Potichu inkasujem.';
+
+  @override
+  String get bragEdgeWonNotSurprised => 'Hral by som prekvapeného. Nie som.';
+
+  @override
+  String get receiptEdgeSentNoHold => 'Odoslané. Bez čakacej melódie.';
+
+  @override
+  String get receiptEdgeSentBeforeBank => 'Hotovo skôr, než banka otvorila.';
+
+  @override
+  String get receiptEdgeSentDrama => 'Peniaze sa pohli. Dráma nie.';
+
+  @override
+  String get receiptEdgeSentBusinessDays => 'Sekundy, nie pracovné dni.';
+
+  @override
+  String get receiptEdgeSentThankLater => 'Odoslané. Poďakuješ neskôr.';
+
+  @override
+  String get receiptEdgeSentEfficient => 'Štedro a efektívne.';
+
+  @override
+  String get receiptEdgeSentOneTap => 'Jedno ťuknutie. Žiadne formuláre.';
+
+  @override
+  String get receiptEdgeSentPaidUp => 'Vyrovnané. Idem ďalej.';
+
+  @override
+  String get receiptEdgeSentAdult => 'Vybavené. Ako dospelý človek.';
+
+  @override
+  String receiptEdgeSentGone(String amount) {
+    return '$amount, preč za pár sekúnd.';
+  }
+
+  @override
+  String get receiptEdgeSentSaga => 'Posielanie peňazí nemá byť sága.';
+
+  @override
+  String get receiptEdgeReceivedCasual => 'Prišli peniaze. Tvárim sa nenútene.';
+
+  @override
+  String get receiptEdgeReceivedNoted => 'Prijaté. Zaznamenané. Ocenené.';
+
+  @override
+  String receiptEdgeReceivedRicher(String amount) {
+    return 'O $amount bohatší. V pohode.';
+  }
+
+  @override
+  String get receiptEdgeReceivedThankYou => 'Dorazilo skôr než ďakovná správa.';
+
+  @override
+  String get receiptEdgeReceivedMoodUp => 'Peniaze dnu. Nálada hore.';
+
+  @override
+  String get receiptEdgeReceivedGrace => 'Prijaté s gráciou.';
+
+  @override
+  String get receiptEdgeReceivedAskTwice => 'Netreba bolo pýtať sa dvakrát.';
+
+  @override
+  String get receiptEdgeReceivedUnscheduled => 'Výplata mimo plánu.';
+
+  @override
+  String get receiptEdgeReceivedNoMiddle =>
+      'Dorazilo. Žiadna banka medzi nami.';
+
+  @override
+  String get receiptEdgeReceivedCompliments =>
+      'Prijímam komplimenty aj platby.';
+
+  @override
+  String get receiptEdgeIncomingAlmost => 'Takmer tu. Nevis nad tým.';
+
+  @override
+  String get receiptEdgeIncomingLoading => 'Načítava sa. Zachovaj pokoj.';
+
+  @override
+  String get receiptEdgeIncomingRefreshing =>
+      'Je na ceste. Obnovovanie nepomôže.';
+
+  @override
+  String get receiptEdgeIncomingNotChecking => 'Je na ceste. Nekontrolujem to.';
+
+  @override
+  String get receiptEdgeIncomingPending => 'Čaká sa. Ako na všetko dobré.';
+
+  @override
+  String get receiptEdgeIncomingPatienceMode =>
+      'Na ceste. Režim trpezlivosti zapnutý.';
+
+  @override
+  String get receiptEdgeIncomingSnacks =>
+      'Na ceste. Občerstvenie nie je v cene.';
+
+  @override
+  String get receiptEdgeIncomingMinute => 'Dobré veci chvíľu trvajú.';
+
+  @override
+  String get receiptEdgeIncomingMotion => 'Peniaze v pohybe.';
+
+  @override
+  String get receiptEdgeIncomingWatched => 'Sledovaný prevod nikdy nedorazí.';
+
+  @override
+  String get receiptEdgeMovedFurniture => 'Prestavujem nábytok.';
+
+  @override
+  String get receiptEdgeMovedDidntLose => 'Presunuté. Nie stratené.';
+
+  @override
+  String get receiptEdgeMovedPockets => 'Z ľavého vrecka do pravého.';
+
+  @override
+  String get receiptEdgeMovedRelocated => 'Peniaze, presťahované.';
+
+  @override
+  String get receiptEdgeMovedNewRoom => 'Ten istý majiteľ. Nová izba.';
+
+  @override
+  String get receiptEdgeMovedHousekeeping => 'Upratovanie, ale pre peniaze.';
+
+  @override
+  String get receiptEdgeMovedShuffle => 'Strategický presun.';
+
+  @override
+  String get receiptEdgeMovedGrownUp => 'Presúvam peniaze ako dospelý.';
+
+  @override
+  String get receiptEdgeMovedOrganised => 'Usporiadané. Aspoň na chvíľu.';
+
+  @override
+  String get receiptEdgeMovedTidying => 'Len upratujem.';
+
+  @override
+  String get receiptEdgeMovedAllocating => 'Alokujem. Veľmi pokojne.';
+
+  @override
+  String get receiptEdgeBoughtOverthink => 'Bez zbytočného premýšľania.';
+
+  @override
+  String get receiptEdgeBoughtPile => 'Pridané na kôpku.';
+
+  @override
+  String get receiptEdgeBoughtAccumulation => 'Tiché hromadenie.';
+
+  @override
+  String get receiptEdgeBoughtToldNoOne => 'Nikto o tom nevedel. Až doteraz.';
+
+  @override
+  String get receiptEdgeBoughtNotTiming => 'Kupujem. Trh nečasujem.';
+
+  @override
+  String receiptEdgeBoughtConviction(String amount) {
+    return '$amount presvedčenia.';
+  }
+
+  @override
+  String get receiptEdgeBoughtPatience => 'Krok jedna: kúpiť. Krok dva: čakať.';
+
+  @override
+  String get receiptEdgeBoughtNoise => 'Kupujem. Šum ignorujem.';
+
+  @override
+  String get receiptEdgeBoughtBackToDay => 'Kúpené. Späť k svojmu dňu.';
+
+  @override
+  String get receiptEdgeBoughtShoes => 'Niekto si kupuje topánky.';
+
+  @override
+  String get receiptEdgeSoldKeptCool => 'Časť predaná. Chladná hlava.';
+
+  @override
+  String get receiptEdgeSoldNoRegrets => 'Zamenené. Bez ľútosti. Zatiaľ.';
+
+  @override
+  String get receiptEdgeSoldDidntCheck => 'Predané. Cenu už nekontrolujem.';
+
+  @override
+  String get receiptEdgeSoldLiquidity => 'Likvidita získaná.';
+
+  @override
+  String get receiptEdgeSoldLeftDrama => 'Peniaze beriem. Drámu nechávam.';
+
+  @override
+  String get receiptEdgeSoldSleeping => 'Predané. Spím pokojne.';
+
+  @override
+  String get receiptEdgeSoldCashPosition => 'Hotovosť je tiež pozícia.';
+
+  @override
+  String get receiptEdgeSoldDeliberately => 'Presun do hotovosti. Zámerne.';
+
+  @override
+  String get receiptEdgeSoldPressed => 'Tlačidlo Predať: stlačené. Pokojne.';
+
+  @override
+  String get receiptEdgeSoldLittleCash => 'Trocha hotovosti nikdy nezaškodí.';
+
+  @override
+  String get receiptEdgePredictedCommitted => 'Som v tom. Viac-menej.';
+
+  @override
+  String get receiptEdgePredictedHardPart => 'Čakanie je to najťažšie.';
+
+  @override
+  String get receiptEdgePredictedSkin =>
+      'Názor, teraz aj s vlastnými peniazmi.';
+
+  @override
+  String get receiptEdgePredictedNails => 'Hotovo. Nechty zatiaľ celé.';
+
+  @override
+  String get receiptEdgePredictedTookSide => 'Strana vybraná. Hlava chladná.';
+
+  @override
+  String get receiptEdgePredictedJustMySide => 'Nie rada. Len moja strana.';
+
+  @override
+  String get receiptEdgePredictedResolution => 'Uvidíme sa pri výsledku.';
+
+  @override
+  String receiptEdgePredictedThatsThePost(String amount, String side) {
+    return '$amount za $side. To je celý post.';
+  }
+
+  @override
+  String get receiptEdgeUpInUpOut => 'Dnu. Hore. Von.';
+
+  @override
+  String get receiptEdgeUpEgo => 'Zisk vybraný. Ego zostalo doma.';
+
+  @override
+  String get receiptEdgeUpWhileGreen => 'Von, kým to bolo zelené.';
+
+  @override
+  String get receiptEdgeUpWhenToLeave => 'Vedieť, kedy odísť, je umenie.';
+
+  @override
+  String receiptEdgeUpDoneHere(String amount) {
+    return '$amount. Tu je hotovo.';
+  }
+
+  @override
+  String get receiptEdgeUpBooked => 'Zaúčtované.';
+
+  @override
+  String get receiptEdgeUpNoEncore => 'Zelený odchod. Bez prídavku.';
+
+  @override
+  String get receiptEdgeUpGreed => 'Chamtivosť nie je stratégia.';
+
+  @override
+  String get receiptEdgeUpDiscipline => 'Odchod v pluse. Vzácna disciplína.';
+
+  @override
+  String get receiptEdgeUpWinIsWin => 'Zisk je zisk.';
+
+  @override
+  String get receiptEdgeDownDignity => 'Stratu som odrezal. Dôstojnosť nie.';
+
+  @override
+  String get receiptEdgeDownExits => 'Aj odchod je umenie.';
+
+  @override
+  String get receiptEdgeDownQuick => 'Vedľa, ale aspoň rýchlo.';
+
+  @override
+  String get receiptEdgeDownLessonKept => 'Von včas. Lekcia zostáva.';
+
+  @override
+  String get receiptEdgeDownStubborn => 'Radšej von ako tvrdohlavo.';
+
+  @override
+  String get receiptEdgeDownTookL => 'Prehra prijatá. Potvrdenie mám.';
+
+  @override
+  String get receiptEdgeDownNotMyDay => 'Zatvorené. Nebol môj deň.';
+
+  @override
+  String get receiptEdgeDownZeroTears => 'Červený odchod. Nula sĺz.';
+
+  @override
+  String get receiptEdgeDownHalfSkill => 'Priznať to je polovica umenia.';
+
+  @override
+  String receiptEdgeDownTuition(String amount) {
+    return '$amount. Školné zaplatené.';
+  }
+
+  @override
+  String get receiptEdgeFlatRoundTrip => 'Spiatočná cesta. Bez suvenírov.';
+
+  @override
+  String get receiptEdgeFlatWiser => 'Späť na štarte. Múdrejší.';
+
+  @override
+  String get receiptEdgeFlatZeroStress => 'Nulový súčet. Nulový stres.';
+
+  @override
+  String get receiptEdgeFlatNoHarm => 'Žiadna škoda. Žiadny faul.';
+
+  @override
+  String get receiptEdgeFlatShrugged => 'Trh pokrčil plecami. Ja tiež.';
+
+  @override
+  String get receiptEdgeFlatStory => 'Čistý výsledok: príbeh.';
+
+  @override
+  String get receiptEdgeLostNextQuestion => 'Ďalšia otázka.';
+
+  @override
+  String get receiptEdgeLostRudely => 'Trh nesúhlasil. Nezdvorilo.';
+
+  @override
+  String get receiptEdgeLostHumour => 'Jedna prehra. Humor zostal.';
+
+  @override
+  String get receiptEdgeLostCompany => 'Vedľa, ale v dobrej spoločnosti.';
+
+  @override
+  String get receiptEdgeLostOnMe => 'Toto ide na mňa.';
+
+  @override
+  String get receiptEdgeLostConfidence => 'Ľahšia peňaženka. Rovnaké ego.';
+
+  @override
+  String get receiptEdgeLostWrongly => 'Trafil som. Vedľa.';
+
+  @override
+  String get receiptEdgeLostGraceful => 'Prehrať s gráciou je flex.';
+
+  @override
+  String get receiptEdgeLostOddsWereOdds => 'Šance boli šance.';
+
+  @override
+  String get receiptEdgeLostAlreadyMoved => 'Idem ďalej. Vlastne už som ďalej.';
+
+  @override
+  String get receiptEdgeLostUpLesson => 'O odhad menej. O lekciu viac.';
+
+  @override
+  String get receiptEdgePaidResolved => 'Rozhodnuté. Prijaté.';
+
+  @override
+  String get receiptEdgePaidNormal => 'Výplata dorazila. Tvárim sa normálne.';
+
+  @override
+  String receiptEdgePaidInFull(String amount) {
+    return '$amount, vyplatené v plnej výške.';
+  }
+
+  @override
+  String get receiptEdgePaidCourtesy => 'Výplata za to, že som mal pravdu.';
+
+  @override
+  String get receiptEdgeOpenedPulse => 'Pozícia otvorená. Pulz v norme.';
+
+  @override
+  String get receiptEdgeOpenedCalmly => 'Pokojne dnu. Pokojne aj von.';
+
+  @override
+  String receiptEdgeOpenedInAt(String price) {
+    return 'Vstup za $price. Zaznamenané.';
+  }
+
+  @override
+  String get receiptEdgeOpenedNotRefreshing =>
+      'Som dnu. Neobnovujem každú minútu.';
+
+  @override
+  String get receiptEdgeOpenedSized => 'Presvedčenie, zodpovedne dávkované.';
+
+  @override
+  String get receiptEdgeOpenedJustMine => 'Nie rada. Len môj obchod.';
+
+  @override
+  String get receiptEdgeOpenedUnderstanding => 'Graf a ja si rozumieme.';
+
+  @override
+  String get receiptEdgeOpenedMyProblem => 'Môj vstup. Môj problém.';
+
+  @override
+  String get receiptEdgeOpenedEither => 'Pripravený na oba smery.';
+
+  @override
   String shareMessageChallengeNamed(
       String name, String outcome, String title, String amount, String url) {
     return '$name, môj tip: $outcome na $title. Vezmi opačnú stranu, alebo sa pridaj. $amount platím ja: $url';

@@ -12611,6 +12611,948 @@ class AppLocalizationsSv extends AppLocalizations {
   }
 
   @override
+  String get shareEdgeMoneyNoStrings => 'Inga villkor. Jag har kollat.';
+
+  @override
+  String get shareEdgeMoneyMakeItText => 'Pengar, fast som ett sms.';
+
+  @override
+  String get shareEdgeMoneyLowBar => 'Snabbare än banken. Låg ribba.';
+
+  @override
+  String get shareEdgeMoneyNoForms => 'Inga blanketter. Inget småprat.';
+
+  @override
+  String get shareEdgeMoneyActNatural => 'Överraskning. Låtsas som ingenting.';
+
+  @override
+  String get shareEdgeMoneyInAdvance => 'Varsågod, i förskott.';
+
+  @override
+  String shareEdgeMoneyNoQuestions(String amount) {
+    return '$amount, inga frågor ställda.';
+  }
+
+  @override
+  String get shareEdgeMoneyNotALoan => 'En gåva. Inget lån. Förmodligen.';
+
+  @override
+  String get shareEdgeMoneyAllAtOnce => 'Gör inte av med allt på en gång.';
+
+  @override
+  String get shareEdgeMoneyGetUsed => 'Vänj dig inte vid det här.';
+
+  @override
+  String get shareEdgeMoneyLittleEgo => 'Skickat med kärlek. Och lite ego.';
+
+  @override
+  String get shareEdgeMoneyNoBank => 'Ingen bank tillfrågades.';
+
+  @override
+  String get shareEdgeMoneyHandlePatience => 'Bitcoin. Hanteras med tålamod.';
+
+  @override
+  String get shareEdgeMoneyStackResponsibly => 'Stapla ansvarsfullt.';
+
+  @override
+  String get shareEdgeMoneyNoLecture => 'Bitcoin. Ingen predikan ingår.';
+
+  @override
+  String get shareEdgeMoneyTinySats => 'Små sats. Stort ansvar.';
+
+  @override
+  String get shareEdgeMoneySameDollars => 'Digitala dollar. Samma dollar.';
+
+  @override
+  String get shareEdgeMoneyNoEnvelope => 'Kontanter, minus kuvertet.';
+
+  @override
+  String get shareEdgeMoneyNoExchange => 'Dollar. Utan flygplatskurs.';
+
+  @override
+  String get shareEdgePickScreenshot => 'Min bedömning. Skärmdumpa det.';
+
+  @override
+  String get shareEdgePickSaidFirst => 'Arkiverat under: sa det först.';
+
+  @override
+  String shareEdgePickFinalAnswer(String side) {
+    return '$side. Slutgiltigt svar.';
+  }
+
+  @override
+  String get shareEdgePickStrongOpinion => 'Inget råd. Bara en stark åsikt.';
+
+  @override
+  String get shareEdgePickDidReading => 'Jag gjorde läxan. Nästan.';
+
+  @override
+  String get shareEdgePickToldYouSo => 'Sparas till vad-var-det-jag-sa.';
+
+  @override
+  String get shareEdgePickConviction => 'Övertygelse klär mig.';
+
+  @override
+  String get shareEdgePickNotFree => 'Åsikter är gratis. Inte den här.';
+
+  @override
+  String shareEdgePickAmountSays(String amount, String side) {
+    return '$amount säger $side.';
+  }
+
+  @override
+  String get shareEdgePickLowDrama => 'Lite drama. Stark övertygelse.';
+
+  @override
+  String get shareEdgePickInsufferable => 'Går den hem blir jag outhärdlig.';
+
+  @override
+  String get shareEdgePickRevolutionary => 'Valde favoriten. Banbrytande.';
+
+  @override
+  String shareEdgePickSmartCrowd(String chance) {
+    return '$chance håller med. Klokt gäng.';
+  }
+
+  @override
+  String get shareEdgePickSafePick => 'Säkert val. Fortfarande ett val.';
+
+  @override
+  String get shareEdgePickWithOdds => 'Följde oddsen. Chockerande.';
+
+  @override
+  String get shareEdgePickOnPurpose => 'Underdog. Med flit.';
+
+  @override
+  String shareEdgePickOnlySee(String chance) {
+    return 'Bara $chance ser det. Gärna för mig.';
+  }
+
+  @override
+  String get shareEdgePickLongShot => 'Långskott. Kort förklaring.';
+
+  @override
+  String get shareEdgePickContrarian => 'Mot strömmen, inte förvirrad.';
+
+  @override
+  String get shareEdgeTopicDebates => 'Debatter är brus. Inte odds.';
+
+  @override
+  String get shareEdgeTopicCoach => 'Alla är förbundskaptener i dag.';
+
+  @override
+  String get shareEdgeTopicVolatility => 'Volatilitet ingår. Helt gratis.';
+
+  @override
+  String get shareEdgeTopicMinutes => 'Läs protokollen. Vartenda ett.';
+
+  @override
+  String get shareEdgeMarketPickOrWatch => 'Välj sida. Eller titta bara på.';
+
+  @override
+  String get shareEdgeMarketHasOdds => 'Åsikter är gratis. Den här har odds.';
+
+  @override
+  String get shareEdgeMarketUntilResolves =>
+      'Alla är experter tills det avgörs.';
+
+  @override
+  String get shareEdgeMarketGroupChat => 'Gruppchatt, möt oddsen.';
+
+  @override
+  String get shareEdgeMarketHotTakes => 'Hot takes välkomna. Odds bifogade.';
+
+  @override
+  String get shareEdgeMarketJustMarket => 'Inget råd. Bara marknaden.';
+
+  @override
+  String get shareEdgeMarketOddsMove => 'Oddsen rör sig. Frågan står kvar.';
+
+  @override
+  String get shareEdgeMarketYourCall => 'Ditt val. Ingen press.';
+
+  @override
+  String get shareEdgeMarketDiscuss => 'Diskutera. Lugnt.';
+
+  @override
+  String get shareEdgeMarketWhereLand => 'Var landar du?';
+
+  @override
+  String shareEdgeMarketSayDiscuss(String chance, String side) {
+    return '$chance säger $side. Diskutera.';
+  }
+
+  @override
+  String get shareEdgeMarketHarder => 'Ja eller nej. Svårare än det låter.';
+
+  @override
+  String get shareEdgeMarketTwoAnswers => 'En fråga. Två svar.';
+
+  @override
+  String shareEdgeMarketNotGuarantee(String chance) {
+    return '$chance är ingen garanti.';
+  }
+
+  @override
+  String get shareEdgeMarketFeelings => 'Enkel fråga. Blandade känslor.';
+
+  @override
+  String get shareEdgeMarketLikely => 'Troligt är inte säkert.';
+
+  @override
+  String shareEdgeMarketLeads(String leader) {
+    return '$leader leder. Inget är avgjort.';
+  }
+
+  @override
+  String shareEdgeMarketCoronation(String chance) {
+    return '$chance är ingen kröning.';
+  }
+
+  @override
+  String shareEdgeMarketHistoryWait(String leader) {
+    return 'Grafen: $leader. Historien: vänta.';
+  }
+
+  @override
+  String get shareEdgeMarketAskTomorrow => 'Ledare i dag. Fråga igen i morgon.';
+
+  @override
+  String get shareEdgeMarketCrowdedField => 'Trångt fält. Ett svar.';
+
+  @override
+  String shareEdgeMarketStayTuned(String leader, String chance) {
+    return '$leader på $chance. Fortsättning följer.';
+  }
+
+  @override
+  String get shareEdgeMarketLeadingNotWinning => 'Att leda är inte att vinna.';
+
+  @override
+  String get shareEdgeMarketNotSureThing => 'Favorit, inte en självklarhet.';
+
+  @override
+  String get shareEdgeMarketUpsets => 'Skrällar händer. Favoriter också.';
+
+  @override
+  String get shareEdgeMarketGameDecides => 'Matchen avgör. Inte kommentarerna.';
+
+  @override
+  String get shareEdgeMarketOddsDontPlay => 'Odds står inte på planen.';
+
+  @override
+  String get shareEdgeMarketScoreboard => 'Snacka nu. Resultattavlan sen.';
+
+  @override
+  String challengeEdgeComeAtMe(String side) {
+    return '$side. Kom an bara.';
+  }
+
+  @override
+  String challengeEdgeOnNotice(String side) {
+    return 'Jag är på $side. Du är varnad.';
+  }
+
+  @override
+  String challengeEdgeTalkCheap(String side) {
+    return '$side. Prat är gratis. Välj sida.';
+  }
+
+  @override
+  String challengeEdgeScared(String side) {
+    return '$side. Rädd? Förståeligt.';
+  }
+
+  @override
+  String challengeEdgeKnowBetter(String side) {
+    return '$side. Om du inte vet bättre.';
+  }
+
+  @override
+  String challengeEdgeTurnWrong(String side) {
+    return '$side här. Din tur att ha fel.';
+  }
+
+  @override
+  String challengeEdgeNotSorry(String side) {
+    return '$side, och jag ber inte om ursäkt.';
+  }
+
+  @override
+  String challengeEdgeAllYours(String side) {
+    return 'Jag tog $side. Andra sidan är din.';
+  }
+
+  @override
+  String challengeEdgeConvince(String side) {
+    return '$side. Övertyga mig om motsatsen.';
+  }
+
+  @override
+  String challengeEdgeSeeYou(String side) {
+    return '$side. Vi ses vid avgörandet.';
+  }
+
+  @override
+  String challengeEdgeReceipts(String side) {
+    return 'Jag är på $side. Kom med bevis.';
+  }
+
+  @override
+  String get shareEdgeStockJustChart => 'Inget råd. Bara en graf.';
+
+  @override
+  String get shareEdgeStockFeelings => 'Grafer bryr sig inte om känslor.';
+
+  @override
+  String shareEdgeStockHeardOfIt(String name) {
+    return '$name. Du har nog hört talas om den.';
+  }
+
+  @override
+  String get shareEdgeStockActNormal => 'Grön dag. Bete dig normalt.';
+
+  @override
+  String shareEdgeStockJustChange(String change) {
+    return 'Lugn. Det är bara $change.';
+  }
+
+  @override
+  String get shareEdgeStockIKnew => 'Säger inte att jag visste. Men ja.';
+
+  @override
+  String get shareEdgeStockTomorrow => 'Upp i dag. I morgon? Inte mitt bord.';
+
+  @override
+  String shareEdgeStockGreenLooks(String name) {
+    return 'Grönt klär $name.';
+  }
+
+  @override
+  String get shareEdgeStockEgoSteady => 'Grafen upp. Egot stabilt.';
+
+  @override
+  String get shareEdgeStockDontClap => 'Klappa inte. Titta bara.';
+
+  @override
+  String get shareEdgeStockDoubleDigits => 'Tvåsiffrigt. Det tillåter jag.';
+
+  @override
+  String shareEdgeStockCheckShorts(String change) {
+    return 'Upp $change. Kolla till blankarna.';
+  }
+
+  @override
+  String get shareEdgeStockCalmAsEver => 'Röd dag. Lugn som alltid.';
+
+  @override
+  String shareEdgeStockZoomOut(String change) {
+    return 'Ner $change. Zooma ut.';
+  }
+
+  @override
+  String get shareEdgeStockPanicOptional =>
+      'Dippar händer. Panik är frivillig.';
+
+  @override
+  String shareEdgeStockCharacterArc(String change) {
+    return 'Ner $change. Karaktärsutveckling.';
+  }
+
+  @override
+  String get shareEdgeStockPlotTwist => 'En dipp, ingen plot twist.';
+
+  @override
+  String get shareEdgeStockStillHere => 'Ner i dag. Fortfarande kvar.';
+
+  @override
+  String get shareEdgeStockAsIntended => 'Volatilitet: fungerar som tänkt.';
+
+  @override
+  String get shareEdgeStockBadDay => 'Alla grafer har en dålig dag.';
+
+  @override
+  String shareEdgeStockDeepBreaths(String change) {
+    return 'Ner $change. Andas djupt.';
+  }
+
+  @override
+  String get shareEdgeStockRiveting => 'Inget hände. Fängslande.';
+
+  @override
+  String get shareEdgeStockBoringUnderrated =>
+      'Platt dag. Tråkigt är underskattat.';
+
+  @override
+  String get shareEdgeStockSideways => 'Sidledes är också en riktning.';
+
+  @override
+  String get shareEdgeStockSuspicious => 'Inget drama i dag. Suspekt.';
+
+  @override
+  String get shareEdgeStockNap => 'Grafen tog en tupplur.';
+
+  @override
+  String get shareEdgeStockPaintDry => 'Ser färg torka. Professionellt.';
+
+  @override
+  String get shareEdgeStockUnchanged => 'Oförändrad. Oberörd.';
+
+  @override
+  String get shareEdgeStockShortUnbothered => 'Short och oberörd.';
+
+  @override
+  String get shareEdgeStockNotEverythingUp => 'Allt går inte upp.';
+
+  @override
+  String get shareEdgeStockGravity => 'Tyngdkraft är också en strategi.';
+
+  @override
+  String get shareEdgeStockShortHype => 'Shortar hajpen. Artigt.';
+
+  @override
+  String get shareEdgeStockShortContrarian => 'Mot strömmen, med en graf.';
+
+  @override
+  String get shareEdgeStockFlipSide => 'Någon måste ta andra sidan.';
+
+  @override
+  String shareEdgeStockAsPlanned(String change) {
+    return 'Ner $change. Som planerat.';
+  }
+
+  @override
+  String get shareEdgeStockICanWait => 'Upp i dag. Jag kan vänta.';
+
+  @override
+  String get shareEdgeBragQuietlyGreen => 'Diskret på plus.';
+
+  @override
+  String get shareEdgeBragGreenSuits => 'Grönt klär mig.';
+
+  @override
+  String get shareEdgeBragCopyMe => 'Förklara? Då härmar du mig.';
+
+  @override
+  String get shareEdgeBragHumbleWorking => 'Ödmjuk? Jobbar på det.';
+
+  @override
+  String get shareEdgeBragNotVibes => 'Resultat, inte vibbar.';
+
+  @override
+  String get shareEdgeBragMildlyPleased => 'Inte förvånad. Måttligt nöjd.';
+
+  @override
+  String get shareEdgeBragNotAPromise => 'Tidigare resultat. Inget löfte.';
+
+  @override
+  String get shareEdgeBragBeforeItChanges => 'Skärmdump innan det ändras.';
+
+  @override
+  String get shareEdgeBragMainCharacter => 'Huvudrollsenergi.';
+
+  @override
+  String shareEdgeBragUnbearable(String amount) {
+    return '$amount. Nu blir jag outhärdlig.';
+  }
+
+  @override
+  String get shareEdgeBragBeingCalm => 'Så här ser jag lugn ut.';
+
+  @override
+  String get shareEdgeBragAllegedly => 'Stort tal. Litet ego. Sägs det.';
+
+  @override
+  String get shareEdgeBragStillAWin => 'Liten vinst. Men en vinst.';
+
+  @override
+  String shareEdgeBragRome(String amount) {
+    return '$amount. Rom byggdes inte på en dag.';
+  }
+
+  @override
+  String get shareEdgeBragModest => 'Blygsamt. Precis som jag.';
+
+  @override
+  String get shareEdgeBragHumbled => 'Tillfälligt ödmjukad.';
+
+  @override
+  String get shareEdgeBragRedPhase => 'Rött är en fas.';
+
+  @override
+  String shareEdgeBragLessons(String amount) {
+    return 'Back $amount. Lärdomar ingår.';
+  }
+
+  @override
+  String get shareEdgeBragNotOut => 'Nere, inte ute.';
+
+  @override
+  String get shareEdgeBragGrowth => 'Delar mina förluster. Utveckling.';
+
+  @override
+  String get shareEdgeBragHumbleEra => 'Det här är min ödmjuka era.';
+
+  @override
+  String get shareEdgeBragOnTheChin => 'Tog smällen. Med värdighet.';
+
+  @override
+  String get shareEdgeBragNotMyBest => 'Inte min bästa. Inte min sista.';
+
+  @override
+  String get shareEdgeBragDignified => 'Rött, men med värdighet.';
+
+  @override
+  String get shareEdgeBragTuition => 'Förluster är lärpengar.';
+
+  @override
+  String get shareEdgeBragNetCalm => 'Netto noll. Netto lugn.';
+
+  @override
+  String get shareEdgeBragBalanced => 'Platt. Perfekt balanserat.';
+
+  @override
+  String get shareEdgeBragDidntPanic => 'Inget plus. Inget minus. Ingen panik.';
+
+  @override
+  String get shareEdgeBragUndefeated => 'Plus minus noll är obesegrad.';
+
+  @override
+  String get shareEdgeBragWithStyle => 'I sidled, med stil.';
+
+  @override
+  String get shareEdgeBragSharedAnyway => 'Inget att se. Delar ändå.';
+
+  @override
+  String get shareEdgeBragSteadyHands => 'Platt linje. Stadiga händer.';
+
+  @override
+  String get shareEdgeBragBlinked => 'Marknaden blinkade. Inte jag.';
+
+  @override
+  String get shareEdgeBragEvenTemper => 'Jämnt. Precis som mitt humör.';
+
+  @override
+  String get shareEdgeBragNoDrama => 'Noll drama. Noll förändring.';
+
+  @override
+  String get bragEdgeWonToldPolitely => 'Sa ju det. Artigt.';
+
+  @override
+  String get bragEdgeWonNormal => 'Jag hade rätt. Jag tar det med ro.';
+
+  @override
+  String get bragEdgeWonMyFavour => 'Avgjort till min fördel.';
+
+  @override
+  String get bragEdgeWonPaysSometimes => 'Att ha rätt lönar sig. Ibland.';
+
+  @override
+  String get bragEdgeWonAgreed => 'Marknaden höll med. Till slut.';
+
+  @override
+  String get bragEdgeWonMySide => 'Min sida levererade.';
+
+  @override
+  String get bragEdgeWonThenPayout => 'Tålamod, sen utbetalning.';
+
+  @override
+  String get bragEdgeWonNoNotes => 'Inget att tillägga.';
+
+  @override
+  String get bragEdgeWonFutureSelf => 'Skärmdump till mitt framtida jag.';
+
+  @override
+  String get bragEdgeWonEarlyThenRight => 'Tidigt ute. Sen hade jag rätt.';
+
+  @override
+  String get bragEdgeWonCollecting => 'Kammar hem. I tysthet.';
+
+  @override
+  String get bragEdgeWonNotSurprised => 'Förvånad? Jag kunde låtsas.';
+
+  @override
+  String get receiptEdgeSentNoHold => 'Skickat. Ingen väntmusik.';
+
+  @override
+  String get receiptEdgeSentBeforeBank => 'Klart innan banken öppnade.';
+
+  @override
+  String get receiptEdgeSentDrama => 'Pengar flyttade. Drama uteblev.';
+
+  @override
+  String get receiptEdgeSentBusinessDays => 'Sekunder, inte bankdagar.';
+
+  @override
+  String get receiptEdgeSentThankLater => 'Skickat. Tacka mig sen.';
+
+  @override
+  String get receiptEdgeSentEfficient => 'Generös och effektiv.';
+
+  @override
+  String get receiptEdgeSentOneTap => 'Ett tryck. Inga formulär.';
+
+  @override
+  String get receiptEdgeSentPaidUp => 'Betalt. Vidare.';
+
+  @override
+  String get receiptEdgeSentAdult => 'Uppgjort. Som en vuxen.';
+
+  @override
+  String receiptEdgeSentGone(String amount) {
+    return '$amount, borta på sekunder.';
+  }
+
+  @override
+  String get receiptEdgeSentSaga => 'Att skicka pengar är ingen följetong.';
+
+  @override
+  String get receiptEdgeReceivedCasual => 'Fick betalt. Låtsas som ingenting.';
+
+  @override
+  String get receiptEdgeReceivedNoted => 'Mottaget. Noterat. Uppskattat.';
+
+  @override
+  String receiptEdgeReceivedRicher(String amount) {
+    return '$amount rikare. Oberörd.';
+  }
+
+  @override
+  String get receiptEdgeReceivedThankYou => 'Landade före tack-sms:et.';
+
+  @override
+  String get receiptEdgeReceivedMoodUp => 'Pengar in. Humöret upp.';
+
+  @override
+  String get receiptEdgeReceivedGrace => 'Mottaget med stil.';
+
+  @override
+  String get receiptEdgeReceivedAskTwice => 'Behövde inte ens tjata.';
+
+  @override
+  String get receiptEdgeReceivedUnscheduled => 'Lönedag, oplanerad.';
+
+  @override
+  String get receiptEdgeReceivedNoMiddle => 'Framme. Ingen bank emellan.';
+
+  @override
+  String get receiptEdgeReceivedCompliments =>
+      'Tar emot komplimanger. Och pengar.';
+
+  @override
+  String get receiptEdgeIncomingAlmost => 'Nästan framme. Sluta stirra.';
+
+  @override
+  String get receiptEdgeIncomingLoading => 'Laddar. Behåll lugnet.';
+
+  @override
+  String get receiptEdgeIncomingRefreshing =>
+      'På väg. Att uppdatera hjälper inte.';
+
+  @override
+  String get receiptEdgeIncomingNotChecking =>
+      'Den är på väg. Jag kollar inte.';
+
+  @override
+  String get receiptEdgeIncomingPending => 'Väntar. Som de flesta bra saker.';
+
+  @override
+  String get receiptEdgeIncomingPatienceMode => 'På väg in. Tålamodsläge på.';
+
+  @override
+  String get receiptEdgeIncomingSnacks => 'På väg. Snacks ingår inte.';
+
+  @override
+  String get receiptEdgeIncomingMinute => 'Bra saker tar en stund.';
+
+  @override
+  String get receiptEdgeIncomingMotion => 'Pengar i rörelse.';
+
+  @override
+  String get receiptEdgeIncomingWatched => 'Tittar du, landar den aldrig.';
+
+  @override
+  String get receiptEdgeMovedFurniture => 'Möblerar om.';
+
+  @override
+  String get receiptEdgeMovedDidntLose => 'Flyttat. Inte tappat.';
+
+  @override
+  String get receiptEdgeMovedPockets => 'Vänster ficka, höger ficka.';
+
+  @override
+  String get receiptEdgeMovedRelocated => 'Pengar, omplacerade.';
+
+  @override
+  String get receiptEdgeMovedNewRoom => 'Samma ägare. Nytt rum.';
+
+  @override
+  String get receiptEdgeMovedHousekeeping => 'Storstädning, fast för pengar.';
+
+  @override
+  String get receiptEdgeMovedShuffle => 'En strategisk rockad.';
+
+  @override
+  String get receiptEdgeMovedGrownUp => 'Flyttar pengar som en vuxen.';
+
+  @override
+  String get receiptEdgeMovedOrganised => 'Ordning och reda. En stund.';
+
+  @override
+  String get receiptEdgeMovedTidying => 'Städar bara lite.';
+
+  @override
+  String get receiptEdgeMovedAllocating => 'Allokerar. Mycket lugnt.';
+
+  @override
+  String get receiptEdgeBoughtOverthink => 'Övertänkte det inte.';
+
+  @override
+  String get receiptEdgeBoughtPile => 'La på högen.';
+
+  @override
+  String get receiptEdgeBoughtAccumulation => 'Tyst ackumulering.';
+
+  @override
+  String get receiptEdgeBoughtToldNoOne => 'Berättade för ingen. Förrän nu.';
+
+  @override
+  String get receiptEdgeBoughtNotTiming => 'Köper, tajmar inte.';
+
+  @override
+  String receiptEdgeBoughtConviction(String amount) {
+    return '$amount ren övertygelse.';
+  }
+
+  @override
+  String get receiptEdgeBoughtPatience => 'Steg ett: köp. Steg två: tålamod.';
+
+  @override
+  String get receiptEdgeBoughtNoise => 'Köper. Ignorerar bruset.';
+
+  @override
+  String get receiptEdgeBoughtBackToDay => 'Köpt. Tillbaka till min dag.';
+
+  @override
+  String get receiptEdgeBoughtShoes => 'Vissa köper skor.';
+
+  @override
+  String get receiptEdgeSoldKeptCool => 'Sålde lite. Höll huvudet kallt.';
+
+  @override
+  String get receiptEdgeSoldNoRegrets => 'Växlat. Ingen ånger. Än.';
+
+  @override
+  String get receiptEdgeSoldDidntCheck => 'Sålt. Kollar inte kursen igen.';
+
+  @override
+  String get receiptEdgeSoldLiquidity => 'Likviditet: säkrad.';
+
+  @override
+  String get receiptEdgeSoldLeftDrama => 'Tog pengarna. Lämnade dramat.';
+
+  @override
+  String get receiptEdgeSoldSleeping => 'Sålt. Sover gott.';
+
+  @override
+  String get receiptEdgeSoldCashPosition => 'Kontanter är också en position.';
+
+  @override
+  String get receiptEdgeSoldDeliberately => 'Över i kontanter. Med flit.';
+
+  @override
+  String get receiptEdgeSoldPressed => 'Säljknappen: intryckt. Lugnt.';
+
+  @override
+  String get receiptEdgeSoldLittleCash => 'Lite kontanter har aldrig skadat.';
+
+  @override
+  String get receiptEdgePredictedCommitted => 'Fullt engagerad. Nästan.';
+
+  @override
+  String get receiptEdgePredictedHardPart => 'Det svåra är att vänta.';
+
+  @override
+  String get receiptEdgePredictedSkin => 'En åsikt. Pengarna där munnen är.';
+
+  @override
+  String get receiptEdgePredictedNails => 'Lagd. Naglarna intakta.';
+
+  @override
+  String get receiptEdgePredictedTookSide => 'Valde sida. Höll huvudet kallt.';
+
+  @override
+  String get receiptEdgePredictedJustMySide => 'Inget råd. Bara min sida.';
+
+  @override
+  String get receiptEdgePredictedResolution => 'Vi ses vid avgörandet.';
+
+  @override
+  String receiptEdgePredictedThatsThePost(String amount, String side) {
+    return '$amount på $side. Det var inlägget.';
+  }
+
+  @override
+  String get receiptEdgeUpInUpOut => 'In. Upp. Ut.';
+
+  @override
+  String get receiptEdgeUpEgo => 'Vinsten hemtagen. Egot lämnat kvar.';
+
+  @override
+  String get receiptEdgeUpWhileGreen => 'Gick medan det var grönt.';
+
+  @override
+  String get receiptEdgeUpWhenToLeave => 'Att gå i tid är en konst.';
+
+  @override
+  String receiptEdgeUpDoneHere(String amount) {
+    return '$amount. Tack och hej.';
+  }
+
+  @override
+  String get receiptEdgeUpBooked => 'Bokfört.';
+
+  @override
+  String get receiptEdgeUpNoEncore => 'Grön exit. Inget extranummer.';
+
+  @override
+  String get receiptEdgeUpGreed => 'Girighet är ingen strategi.';
+
+  @override
+  String get receiptEdgeUpDiscipline => 'Gick på plus. Sällsynt disciplin.';
+
+  @override
+  String get receiptEdgeUpWinIsWin => 'Vinst är vinst.';
+
+  @override
+  String get receiptEdgeDownDignity => 'Tog förlusten. Behöll värdigheten.';
+
+  @override
+  String get receiptEdgeDownExits => 'Att kliva av är också en konst.';
+
+  @override
+  String get receiptEdgeDownQuick => 'Fel, men snabbt ute.';
+
+  @override
+  String get receiptEdgeDownLessonKept => 'Ute tidigt. Läxan behållen.';
+
+  @override
+  String get receiptEdgeDownStubborn => 'Hellre ute än envis.';
+
+  @override
+  String get receiptEdgeDownTookL => 'Tog förlusten. Sparade kvittot.';
+
+  @override
+  String get receiptEdgeDownNotMyDay => 'Stängt. Inte min dag.';
+
+  @override
+  String get receiptEdgeDownZeroTears => 'Röd exit. Noll tårar.';
+
+  @override
+  String get receiptEdgeDownHalfSkill => 'Att erkänna är halva konsten.';
+
+  @override
+  String receiptEdgeDownTuition(String amount) {
+    return '$amount. Lärpengar betalda.';
+  }
+
+  @override
+  String get receiptEdgeFlatRoundTrip => 'Tur och retur. Inga souvenirer.';
+
+  @override
+  String get receiptEdgeFlatWiser => 'Tillbaka på ruta ett. Klokare.';
+
+  @override
+  String get receiptEdgeFlatZeroStress => 'Nollsumma. Noll stress.';
+
+  @override
+  String get receiptEdgeFlatNoHarm => 'Ingen skada skedd.';
+
+  @override
+  String get receiptEdgeFlatShrugged => 'Marknaden ryckte på axlarna. Jag med.';
+
+  @override
+  String get receiptEdgeFlatStory => 'Nettoresultat: en historia.';
+
+  @override
+  String get receiptEdgeLostNextQuestion => 'Nästa fråga.';
+
+  @override
+  String get receiptEdgeLostRudely => 'Marknaden höll inte med. Oartigt.';
+
+  @override
+  String get receiptEdgeLostHumour => 'Förlorade en. Behöll humorn.';
+
+  @override
+  String get receiptEdgeLostCompany => 'Fel, men i gott sällskap.';
+
+  @override
+  String get receiptEdgeLostOnMe => 'Den tar jag på mig.';
+
+  @override
+  String get receiptEdgeLostConfidence => 'Lättare plånbok. Samma självkänsla.';
+
+  @override
+  String get receiptEdgeLostWrongly => 'Förutsåg det. Fel.';
+
+  @override
+  String get receiptEdgeLostGraceful => 'Att förlora med stil är en flex.';
+
+  @override
+  String get receiptEdgeLostOddsWereOdds => 'Odds är odds.';
+
+  @override
+  String get receiptEdgeLostAlreadyMoved => 'Går vidare. Redan vidare.';
+
+  @override
+  String get receiptEdgeLostUpLesson => 'Minus en prognos. Plus en läxa.';
+
+  @override
+  String get receiptEdgePaidResolved => 'Avgjort. Mottaget.';
+
+  @override
+  String get receiptEdgePaidNormal => 'Utbetalt. Beter mig normalt.';
+
+  @override
+  String receiptEdgePaidInFull(String amount) {
+    return '$amount, betalt i sin helhet.';
+  }
+
+  @override
+  String get receiptEdgePaidCourtesy => 'Lönedag. Sponsrad av att ha rätt.';
+
+  @override
+  String get receiptEdgeOpenedPulse => 'Position öppen. Puls normal.';
+
+  @override
+  String get receiptEdgeOpenedCalmly => 'Gick in lugnt. Går ut lugnt.';
+
+  @override
+  String receiptEdgeOpenedInAt(String price) {
+    return 'In på $price. Noterat.';
+  }
+
+  @override
+  String get receiptEdgeOpenedNotRefreshing =>
+      'Inne. Uppdaterar inte varje minut.';
+
+  @override
+  String get receiptEdgeOpenedSized => 'Övertygelse, ansvarsfullt doserad.';
+
+  @override
+  String get receiptEdgeOpenedJustMine => 'Inget råd. Bara min trade.';
+
+  @override
+  String get receiptEdgeOpenedUnderstanding =>
+      'Grafen och jag förstår varandra.';
+
+  @override
+  String get receiptEdgeOpenedMyProblem => 'Min entry. Mitt problem.';
+
+  @override
+  String get receiptEdgeOpenedEither => 'Redo åt båda hållen.';
+
+  @override
   String shareMessageChallengeNamed(
       String name, String outcome, String title, String amount, String url) {
     return '$name, mitt val: $outcome på $title. Ta andra sidan eller häng med. $amount bjuder jag på: $url';

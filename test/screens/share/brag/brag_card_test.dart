@@ -16,10 +16,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/models/balance_history.dart' show BalanceRange;
 import 'package:kute/screens/share/brag/brag_card.dart';
 import 'package:kute/screens/share/brag/brag_data.dart';
 import 'package:kute/screens/share/brag/brag_lines.dart';
 import 'package:kute/screens/share/brag/brag_preview_sheet.dart';
+import 'package:kute/screens/share/brag/pnl_share_card.dart';
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/screens/polymarket/components/position_speedometer.dart'
@@ -31,6 +33,7 @@ import '../../../helpers/kute_bar_test_support.dart';
 import '../share_test_harness.dart';
 import 'brag_fixtures.dart';
 import 'brag_test_fonts.dart';
+import '../cards/share_card_test_fonts.dart';
 
 void main() {
   late ShareTestEnv env;
@@ -139,30 +142,61 @@ void main() {
       await pumpShareWidget(tester, env, const SizedBox());
       final l10n =
           AppLocalizations.of(tester.element(find.byType(SizedBox).first));
-      expect(bragEdges(l10n, fakeBragPortfolio()), [
+      final big = bragEdges(l10n, fakeBragPortfolio());
+      expect(big.take(2), [
         'Not luck. Pattern recognition.',
         r'+$412.35 while you were scrolling.',
       ]);
-      expect(bragEdges(l10n, fakeBragSmallWinPortfolio()), [
+      expect(big,
+          containsAll([r"+$412.35. I'll be unbearable now.", 'This is me being calm.']));
+      expect(big, isNot(contains('Small win. Still a win.')));
+      final small = bragEdges(l10n, fakeBragSmallWinPortfolio());
+      expect(small.take(2), [
         'Not luck. Pattern recognition.',
         r'+$7.57 while you were scrolling.',
       ]);
+      expect(
+          small,
+          containsAll(
+              ['Small win. Still a win.', r"+$7.57. Rome wasn't built in a day."]));
+      expect(small, isNot(contains('This is me being calm.')));
       // A loss: the amount without its sign.
-      expect(bragEdges(l10n, fakeBragLosingPortfolio()), [
+      final loss = bragEdges(l10n, fakeBragLosingPortfolio());
+      expect(loss.take(2), [
         'Down bad, still trading.',
         r'Character building, $23.40 at a time.',
       ]);
-      expect(bragEdges(l10n, fakeBragLosingPosition()), [
+      expect(loss, contains(r'Down $23.40. Lessons included.'));
+      expect(bragEdges(l10n, fakeBragLosingPosition()).take(2), [
         'Down bad, still trading.',
         r'Character building, $12.40 at a time.',
       ]);
-      expect(bragEdges(l10n, fakeBragFlatPortfolio()),
-          ['Patience is a position.']);
+      final flat = bragEdges(l10n, fakeBragFlatPortfolio());
+      expect(flat.first, 'Patience is a position.');
+      expect(flat, contains('Break-even is undefeated.'));
+      // No result yet: nothing that says zero.
+      expect(
+          bragEdges(l10n,
+              const BragPortfolio(title: 'My portfolio', link: 'https://x.test')),
+          [
+            'Patience is a position.',
+            "The market blinked. I didn't.",
+            'Past results. Not a promise.',
+            'Screenshot before it changes.',
+          ]);
+      for (final pool in [big, small, loss, flat]) {
+        expect(pool.length, inInclusiveRange(12, 16));
+        for (final line in pool) {
+          expect(RegExp(r'\bbet(s|ting)?\b', caseSensitive: false)
+              .hasMatch(line), isFalse, reason: line);
+        }
+      }
       // The seed rotates through the pool, any int.
       final pool = bragEdges(l10n, fakeBragPosition());
-      expect(
-          {for (var i = 0; i < 6; i++) bragEdge(l10n, fakeBragPosition(), i)},
-          pool.toSet());
+      expect({
+        for (var i = 0; i < pool.length; i++)
+          bragEdge(l10n, fakeBragPosition(), i)
+      }, pool.toSet());
       expect(bragEdge(l10n, fakeBragPosition(), -3), isIn(pool));
     });
 
@@ -423,7 +457,7 @@ void main() {
       final sent = <(XFile, String)>[];
       BragPreviewSheet.debugSharer =
           (file, text) async => sent.add((file, text));
-      BragPreviewSheet.debugLineSeed = 3;
+      BragPreviewSheet.debugLineSeed = 1;
       await pumpShareWidget(
           tester, env, BragPreviewSheet(data: fakeBragPosition()));
 
@@ -504,5 +538,65 @@ void main() {
       expect(env.paramsOf('brag_shared').single,
           {'kind': 'portfolio', 'card': 'portfolio'});
     });
+  });
+
+  // Every line of every tone whole in en, de and ja (founder, 5 November
+  // 2026: "add many more variations"), on the brag card and the P&L card.
+  group('fits', () {
+    for (final locale in const [Locale('en'), Locale('de'), Locale('ja')]) {
+      testWidgets(
+          'every tone and every line of its pool lays out in '
+          '${locale.languageCode}: no overflow, the line whole',
+          (tester) async {
+        await tester.runAsync(loadShareCardFonts);
+        final l10n = lookupAppLocalizations(locale);
+        Future<void> check(
+            BragData data, Widget Function(int seed) card, String key) async {
+          final pool = bragEdges(l10n, data);
+          for (var seed = 0; seed < pool.length; seed++) {
+            await pumpShareWidget(
+                tester,
+                env,
+                Builder(
+                    builder: (context) => Localizations.override(
+                        context: context,
+                        locale: locale,
+                        child: Center(child: card(seed)))));
+            expect(tester.takeException(), isNull,
+                reason: '${locale.languageCode} ${pool[seed]}');
+            final edge =
+                tester.renderObject<RenderParagraph>(find.byKey(ValueKey(key)));
+            expect(edge.didExceedMaxLines, isFalse,
+                reason: '${locale.languageCode}: ${pool[seed]}');
+          }
+        }
+
+        for (final data in <BragData>[
+          fakeBragPosition(),
+          fakeBragSmallWinPortfolio(),
+          fakeBragLosingPortfolio(),
+          fakeBragLosingPosition(),
+          fakeBragFlatPortfolio(),
+          fakeBragWin(),
+        ]) {
+          await check(data, (seed) => BragCard(data: data, lineSeed: seed),
+              'brag-card-edge');
+        }
+        for (final usd in const [128.4, -41.2]) {
+          final pnl = BragPnl(
+            title: 'My P&L',
+            link: 'https://x.test',
+            referralCode: kBragTestCode,
+            range: BalanceRange.month,
+            allTime: BragResult(
+                usd: usd,
+                text: usd > 0 ? r'+$128.40' : '−\$41.20'),
+            series: kFakeBragPortfolioSeries,
+          );
+          await check(pnl, (seed) => PnlShareCard(data: pnl, lineSeed: seed),
+              'pnl-card-edge');
+        }
+      });
+    }
   });
 }
