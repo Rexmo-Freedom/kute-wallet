@@ -12676,4 +12676,84 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Sorok';
+
+  @override
+  String get polyPeriodMatch => 'Mérkőzés';
+
+  @override
+  String get polyPeriodFullGame => 'Teljes mérkőzés';
+
+  @override
+  String polyPeriodGame(int number) {
+    return '$number. játék';
+  }
+
+  @override
+  String polyPeriodMap(int number) {
+    return '$number. pálya';
+  }
+
+  @override
+  String polyPeriodSet(int number) {
+    return '$number. szett';
+  }
+
+  @override
+  String get polyPeriodFirstHalf => '1. félidő';
+
+  @override
+  String get polyPeriodSecondHalf => '2. félidő';
+
+  @override
+  String polyPeriodQuarter(int number) {
+    return 'Q$number';
+  }
+
+  @override
+  String polyPeriodPeriod(int number) {
+    return '$number. harmad';
+  }
+
+  @override
+  String get polyPeriodFirstFive => 'Első 5 játékrész';
+
+  @override
+  String get polyPeriodFirstInning => '1. játékrész';
+
+  @override
+  String get polyLineTotalGames => 'Összes játék';
+
+  @override
+  String get polyLineTotalSets => 'Összes szett';
+
+  @override
+  String get polyLineTotalKills => 'Összes ölés';
+
+  @override
+  String get polyLineTotalRounds => 'Összes kör';
+
+  @override
+  String get polyLineDuration => 'Időtartam';
+
+  @override
+  String get polyLineTeamTotals => 'Csapatösszesítők';
+
+  @override
+  String get polyLinePlayers => 'Játékosok';
+
+  @override
+  String polyLinesNotTrading(int count) {
+    return 'Még nincs kereskedés · $count';
+  }
+
+  @override
+  String polyLinesSettled(int count) {
+    return 'Eldőlt · $count';
+  }
+
+  @override
+  String get polySideOver => 'Felett';
+
+  @override
+  String get polySideUnder => 'Alatt';
 }

@@ -12729,4 +12729,84 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Γραμμές';
+
+  @override
+  String get polyPeriodMatch => 'Αγώνας';
+
+  @override
+  String get polyPeriodFullGame => 'Όλος ο αγώνας';
+
+  @override
+  String polyPeriodGame(int number) {
+    return 'Παιχνίδι $number';
+  }
+
+  @override
+  String polyPeriodMap(int number) {
+    return 'Χάρτης $number';
+  }
+
+  @override
+  String polyPeriodSet(int number) {
+    return 'Σετ $number';
+  }
+
+  @override
+  String get polyPeriodFirstHalf => '1ο ημίχρονο';
+
+  @override
+  String get polyPeriodSecondHalf => '2ο ημίχρονο';
+
+  @override
+  String polyPeriodQuarter(int number) {
+    return 'Q$number';
+  }
+
+  @override
+  String polyPeriodPeriod(int number) {
+    return 'Περίοδος $number';
+  }
+
+  @override
+  String get polyPeriodFirstFive => 'Πρώτα 5 innings';
+
+  @override
+  String get polyPeriodFirstInning => '1ο inning';
+
+  @override
+  String get polyLineTotalGames => 'Σύνολο παιχνιδιών';
+
+  @override
+  String get polyLineTotalSets => 'Σύνολο σετ';
+
+  @override
+  String get polyLineTotalKills => 'Σύνολο kills';
+
+  @override
+  String get polyLineTotalRounds => 'Σύνολο γύρων';
+
+  @override
+  String get polyLineDuration => 'Διάρκεια';
+
+  @override
+  String get polyLineTeamTotals => 'Σύνολα ομάδας';
+
+  @override
+  String get polyLinePlayers => 'Παίκτες';
+
+  @override
+  String polyLinesNotTrading(int count) {
+    return 'Χωρίς συναλλαγές ακόμη · $count';
+  }
+
+  @override
+  String polyLinesSettled(int count) {
+    return 'Κρίθηκαν · $count';
+  }
+
+  @override
+  String get polySideOver => 'Over';
+
+  @override
+  String get polySideUnder => 'Under';
 }

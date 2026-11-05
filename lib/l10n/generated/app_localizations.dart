@@ -21201,6 +21201,138 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Rows'**
   String get chartParamRows;
+
+  /// A game's More markets: the period chip for the markets about the whole match (esports series, tennis, football).
+  ///
+  /// In en, this message translates to:
+  /// **'Match'**
+  String get polyPeriodMatch;
+
+  /// A game's More markets: the period chip for the markets about the whole game, in a sport with quarters or innings (basketball, American football).
+  ///
+  /// In en, this message translates to:
+  /// **'Full game'**
+  String get polyPeriodFullGame;
+
+  /// Period chip: one game of an esports series (Game 2).
+  ///
+  /// In en, this message translates to:
+  /// **'Game {number}'**
+  String polyPeriodGame(int number);
+
+  /// Period chip: one map of an esports series (Map 1).
+  ///
+  /// In en, this message translates to:
+  /// **'Map {number}'**
+  String polyPeriodMap(int number);
+
+  /// Period chip: one set of a tennis match (Set 1).
+  ///
+  /// In en, this message translates to:
+  /// **'Set {number}'**
+  String polyPeriodSet(int number);
+
+  /// Period chip: the first half of a match.
+  ///
+  /// In en, this message translates to:
+  /// **'1st half'**
+  String get polyPeriodFirstHalf;
+
+  /// Period chip: the second half of a match.
+  ///
+  /// In en, this message translates to:
+  /// **'2nd half'**
+  String get polyPeriodSecondHalf;
+
+  /// Period chip: one quarter of a basketball or American football game (Q3).
+  ///
+  /// In en, this message translates to:
+  /// **'Q{number}'**
+  String polyPeriodQuarter(int number);
+
+  /// Period chip: one period of an ice hockey game.
+  ///
+  /// In en, this message translates to:
+  /// **'Period {number}'**
+  String polyPeriodPeriod(int number);
+
+  /// Period chip: the first five innings of a baseball game.
+  ///
+  /// In en, this message translates to:
+  /// **'First 5 innings'**
+  String get polyPeriodFirstFive;
+
+  /// Period chip: the first inning of a baseball game.
+  ///
+  /// In en, this message translates to:
+  /// **'1st inning'**
+  String get polyPeriodFirstInning;
+
+  /// A game's More markets: heading of the over/under lines on the number of games (or maps) played.
+  ///
+  /// In en, this message translates to:
+  /// **'Total games'**
+  String get polyLineTotalGames;
+
+  /// Heading of the over/under lines on the number of sets played.
+  ///
+  /// In en, this message translates to:
+  /// **'Total sets'**
+  String get polyLineTotalSets;
+
+  /// Heading of the over/under lines on the number of kills in an esports game.
+  ///
+  /// In en, this message translates to:
+  /// **'Total kills'**
+  String get polyLineTotalKills;
+
+  /// Heading of the over/under lines on the number of rounds in a map.
+  ///
+  /// In en, this message translates to:
+  /// **'Total rounds'**
+  String get polyLineTotalRounds;
+
+  /// Heading of the over/under lines on how long an esports game lasts.
+  ///
+  /// In en, this message translates to:
+  /// **'Duration'**
+  String get polyLineDuration;
+
+  /// Heading of the over/under lines on one team's own score.
+  ///
+  /// In en, this message translates to:
+  /// **'Team totals'**
+  String get polyLineTeamTotals;
+
+  /// Heading of the lines on one player's numbers (points, rebounds).
+  ///
+  /// In en, this message translates to:
+  /// **'Players'**
+  String get polyLinePlayers;
+
+  /// Collapsed group at the foot of a game's More markets: lines nobody has traded yet. {count} is how many.
+  ///
+  /// In en, this message translates to:
+  /// **'Not trading yet · {count}'**
+  String polyLinesNotTrading(int count);
+
+  /// Collapsed group at the foot of a game's More markets: lines already decided (over 99% or under 1%). {count} is how many.
+  ///
+  /// In en, this message translates to:
+  /// **'Settled · {count}'**
+  String polyLinesSettled(int count);
+
+  /// The Over side of an over/under line, on its button.
+  ///
+  /// In en, this message translates to:
+  /// **'Over'**
+  String get polySideOver;
+
+  /// The Under side of an over/under line, on its button.
+  ///
+  /// In en, this message translates to:
+  /// **'Under'**
+  String get polySideUnder;
 }
 
 class _AppLocalizationsDelegate

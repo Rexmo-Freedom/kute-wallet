@@ -12614,4 +12614,84 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Rindas';
+
+  @override
+  String get polyPeriodMatch => 'Mačs';
+
+  @override
+  String get polyPeriodFullGame => 'Visa spēle';
+
+  @override
+  String polyPeriodGame(int number) {
+    return '$number. spēle';
+  }
+
+  @override
+  String polyPeriodMap(int number) {
+    return '$number. karte';
+  }
+
+  @override
+  String polyPeriodSet(int number) {
+    return '$number. sets';
+  }
+
+  @override
+  String get polyPeriodFirstHalf => '1. puslaiks';
+
+  @override
+  String get polyPeriodSecondHalf => '2. puslaiks';
+
+  @override
+  String polyPeriodQuarter(int number) {
+    return 'Q$number';
+  }
+
+  @override
+  String polyPeriodPeriod(int number) {
+    return '$number. periods';
+  }
+
+  @override
+  String get polyPeriodFirstFive => 'Pirmie 5 iningi';
+
+  @override
+  String get polyPeriodFirstInning => '1. inings';
+
+  @override
+  String get polyLineTotalGames => 'Kopā spēles';
+
+  @override
+  String get polyLineTotalSets => 'Kopā seti';
+
+  @override
+  String get polyLineTotalKills => 'Kopā nogalinājumi';
+
+  @override
+  String get polyLineTotalRounds => 'Kopā raundi';
+
+  @override
+  String get polyLineDuration => 'Ilgums';
+
+  @override
+  String get polyLineTeamTotals => 'Komandu kopsummas';
+
+  @override
+  String get polyLinePlayers => 'Spēlētāji';
+
+  @override
+  String polyLinesNotTrading(int count) {
+    return 'Vēl netirgo · $count';
+  }
+
+  @override
+  String polyLinesSettled(int count) {
+    return 'Izšķirti · $count';
+  }
+
+  @override
+  String get polySideOver => 'Virs';
+
+  @override
+  String get polySideUnder => 'Zem';
 }

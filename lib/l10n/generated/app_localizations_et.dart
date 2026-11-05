@@ -12633,4 +12633,84 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Read';
+
+  @override
+  String get polyPeriodMatch => 'Kohtumine';
+
+  @override
+  String get polyPeriodFullGame => 'Terve mäng';
+
+  @override
+  String polyPeriodGame(int number) {
+    return 'Mäng $number';
+  }
+
+  @override
+  String polyPeriodMap(int number) {
+    return 'Kaart $number';
+  }
+
+  @override
+  String polyPeriodSet(int number) {
+    return 'Sett $number';
+  }
+
+  @override
+  String get polyPeriodFirstHalf => '1. poolaeg';
+
+  @override
+  String get polyPeriodSecondHalf => '2. poolaeg';
+
+  @override
+  String polyPeriodQuarter(int number) {
+    return 'Q$number';
+  }
+
+  @override
+  String polyPeriodPeriod(int number) {
+    return '$number. kolmandik';
+  }
+
+  @override
+  String get polyPeriodFirstFive => 'Esimesed 5 vooru';
+
+  @override
+  String get polyPeriodFirstInning => '1. voor';
+
+  @override
+  String get polyLineTotalGames => 'Mänge kokku';
+
+  @override
+  String get polyLineTotalSets => 'Sette kokku';
+
+  @override
+  String get polyLineTotalKills => 'Tapmisi kokku';
+
+  @override
+  String get polyLineTotalRounds => 'Raunde kokku';
+
+  @override
+  String get polyLineDuration => 'Kestus';
+
+  @override
+  String get polyLineTeamTotals => 'Meeskonna kogused';
+
+  @override
+  String get polyLinePlayers => 'Mängijad';
+
+  @override
+  String polyLinesNotTrading(int count) {
+    return 'Veel ei kaubelda · $count';
+  }
+
+  @override
+  String polyLinesSettled(int count) {
+    return 'Selgunud · $count';
+  }
+
+  @override
+  String get polySideOver => 'Üle';
+
+  @override
+  String get polySideUnder => 'Alla';
 }

@@ -12700,4 +12700,84 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Eilutės';
+
+  @override
+  String get polyPeriodMatch => 'Rungtynės';
+
+  @override
+  String get polyPeriodFullGame => 'Visos rungtynės';
+
+  @override
+  String polyPeriodGame(int number) {
+    return '$number žaidimas';
+  }
+
+  @override
+  String polyPeriodMap(int number) {
+    return '$number žemėlapis';
+  }
+
+  @override
+  String polyPeriodSet(int number) {
+    return '$number setas';
+  }
+
+  @override
+  String get polyPeriodFirstHalf => '1 kėlinys';
+
+  @override
+  String get polyPeriodSecondHalf => '2 kėlinys';
+
+  @override
+  String polyPeriodQuarter(int number) {
+    return 'Q$number';
+  }
+
+  @override
+  String polyPeriodPeriod(int number) {
+    return '$number kėlinys';
+  }
+
+  @override
+  String get polyPeriodFirstFive => 'Pirmi 5 iningai';
+
+  @override
+  String get polyPeriodFirstInning => '1 iningas';
+
+  @override
+  String get polyLineTotalGames => 'Iš viso žaidimų';
+
+  @override
+  String get polyLineTotalSets => 'Iš viso setų';
+
+  @override
+  String get polyLineTotalKills => 'Iš viso nužudymų';
+
+  @override
+  String get polyLineTotalRounds => 'Iš viso raundų';
+
+  @override
+  String get polyLineDuration => 'Trukmė';
+
+  @override
+  String get polyLineTeamTotals => 'Komandos sumos';
+
+  @override
+  String get polyLinePlayers => 'Žaidėjai';
+
+  @override
+  String polyLinesNotTrading(int count) {
+    return 'Dar neprekiaujama · $count';
+  }
+
+  @override
+  String polyLinesSettled(int count) {
+    return 'Išspręsta · $count';
+  }
+
+  @override
+  String get polySideOver => 'Daugiau';
+
+  @override
+  String get polySideUnder => 'Mažiau';
 }

@@ -12664,4 +12664,84 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Редове';
+
+  @override
+  String get polyPeriodMatch => 'Мач';
+
+  @override
+  String get polyPeriodFullGame => 'Цял мач';
+
+  @override
+  String polyPeriodGame(int number) {
+    return 'Игра $number';
+  }
+
+  @override
+  String polyPeriodMap(int number) {
+    return 'Карта $number';
+  }
+
+  @override
+  String polyPeriodSet(int number) {
+    return 'Сет $number';
+  }
+
+  @override
+  String get polyPeriodFirstHalf => '1-во полувреме';
+
+  @override
+  String get polyPeriodSecondHalf => '2-ро полувреме';
+
+  @override
+  String polyPeriodQuarter(int number) {
+    return 'Q$number';
+  }
+
+  @override
+  String polyPeriodPeriod(int number) {
+    return 'Период $number';
+  }
+
+  @override
+  String get polyPeriodFirstFive => 'Първи 5 ининга';
+
+  @override
+  String get polyPeriodFirstInning => '1-ви ининг';
+
+  @override
+  String get polyLineTotalGames => 'Общо игри';
+
+  @override
+  String get polyLineTotalSets => 'Общо сетове';
+
+  @override
+  String get polyLineTotalKills => 'Общо убийства';
+
+  @override
+  String get polyLineTotalRounds => 'Общо рундове';
+
+  @override
+  String get polyLineDuration => 'Продължителност';
+
+  @override
+  String get polyLineTeamTotals => 'Тотал на отбор';
+
+  @override
+  String get polyLinePlayers => 'Играчи';
+
+  @override
+  String polyLinesNotTrading(int count) {
+    return 'Още не се търгува · $count';
+  }
+
+  @override
+  String polyLinesSettled(int count) {
+    return 'Приключили · $count';
+  }
+
+  @override
+  String get polySideOver => 'Над';
+
+  @override
+  String get polySideUnder => 'Под';
 }
