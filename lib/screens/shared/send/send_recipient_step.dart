@@ -938,15 +938,17 @@ const double kSendCoinStackCardMark = 30;
 /// square card (kute_action_cards.dart; founder, 5 November 2026: the
 /// Send recipient options "should be cards like squares"): the coin marks
 /// stacked at the top left, the title, "USDC, USDT, ETH and 16 more"
-/// under it; keyed `send-also-sends-to-row` as the row was.
+/// under it; keyed `send-also-sends-to-row` as the row was, unless [key]
+/// names it (the Dollars Add's "From another wallet or exchange").
 KuteActionCard sendAlsoSendsToCard(
   AppLocalizations l10n, {
   required List<CoinAssetGroup> groups,
   required VoidCallback onTap,
   String? title,
+  Key? key,
 }) =>
     KuteActionCard(
-      key: const ValueKey('send-also-sends-to-row'),
+      key: key ?? const ValueKey('send-also-sends-to-row'),
       visual: SendCoinStack(groups: groups, mark: kSendCoinStackCardMark),
       title: title ?? l10n.sendAlsoSendsTo,
       subtitle: sendAlsoSendsToSummary(l10n, groups),

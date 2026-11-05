@@ -44,12 +44,20 @@ const double kReceiveSheetMaxHeight = 0.9;
 /// [title] unless the slot carries something to act on (the bitcoin
 /// receive's "Receive into" pill). Without one, [semanticTitle] still
 /// names the sheet to a screen reader, as a header, from the same slot.
+///
+/// [fitContent] sizes the sheet to its content instead (still capped at
+/// the same height): a body of a few choices, the Dollars Add's two cards
+/// (founder, 5 November 2026: a tall sheet with "a big empty area"). Being
+/// short, such a sheet hides the floating bar while it is up (the
+/// container's short-sheet rule, KuteSheetBarFit). Its [child] must size
+/// itself (no Expanded inside).
 class ReceiveSheetFrame extends StatelessWidget {
   const ReceiveSheetFrame({
     super.key,
     required this.leading,
     this.title,
     this.semanticTitle,
+    this.fitContent = false,
     required this.child,
   });
 
@@ -58,6 +66,9 @@ class ReceiveSheetFrame extends StatelessWidget {
 
   /// What a screen reader calls the sheet when [title] is null.
   final String? semanticTitle;
+
+  /// As tall as the content rather than the full receive height.
+  final bool fitContent;
 
   final Widget child;
 
@@ -70,11 +81,12 @@ class ReceiveSheetFrame extends StatelessWidget {
       // mode keeps the theme's sheet surface.
       color: context.isDark ? null : Colors.white,
       child: Column(
+        mainAxisSize: fitContent ? MainAxisSize.min : MainAxisSize.max,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           ReceiveSheetHeader(
               leading: leading, title: title, semanticTitle: semanticTitle),
-          Expanded(child: child),
+          if (fitContent) Flexible(child: child) else Expanded(child: child),
         ],
       ),
     );
