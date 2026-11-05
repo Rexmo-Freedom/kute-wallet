@@ -178,7 +178,24 @@ class _KuteSheetBarRoom extends InheritedWidget {
   bool updateShouldNotify(_KuteSheetBarRoom old) => old.over != over;
 }
 
-class _AppBottomSheetContainerState extends State<AppBottomSheetContainer> {
+/// The short-sheet rule of [AppBottomSheetContainer] around a sheet that
+/// draws its own surface (a Move picker, a menu, an account list): a
+/// [child] measured under [kuteBarShortSheetFraction] of the screen hides
+/// the floating bar while it is up (founder, 5 November 2026: the Sal pill
+/// sat over the "Add money to Dollars" cards, "this is cut"); a taller one
+/// keeps it, and its scroll views leave it room ([kuteSheetBarClearance]).
+/// Wrap the sheet's whole surface, inside the sheet's route. The height is
+/// measured after the first layout and re-read on every size change.
+class KuteSheetBarFit extends StatefulWidget {
+  const KuteSheetBarFit({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<KuteSheetBarFit> createState() => _KuteSheetBarFitState();
+}
+
+class _KuteSheetBarFitState extends State<KuteSheetBarFit> {
   bool? _short;
 
   void _measure() {
@@ -192,11 +209,36 @@ class _AppBottomSheetContainerState extends State<AppBottomSheetContainer> {
 
   @override
   Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
+    return NotificationListener<SizeChangedLayoutNotification>(
+      onNotification: (_) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
+        return false;
+      },
+      // The scope stays in place and is toggled (KuteBarContextScope
+      // .active): swapping it in and out re-parented the sheet, and a
+      // field focused as the keyboard lifted a short sheet past the
+      // fraction lost its focus and its text.
+      child: SizeChangedLayoutNotifier(
+        child: KuteBarContextScope(
+            barContext: const KuteBarContext.hidden(),
+            active: _short == true,
+            // Measured tall: the bar is over this sheet, and its scroll
+            // views leave it room (kuteSheetBarClearance).
+            child: _KuteSheetBarRoom(
+                over: _short == false, child: widget.child)),
+      ),
+    );
+  }
+}
+
+class _AppBottomSheetContainerState extends State<AppBottomSheetContainer> {
+  @override
+  Widget build(BuildContext context) {
     final child = widget.child;
     final maxHeight = widget.maxHeight;
     final followKeyboard = widget.followKeyboard;
     final color = widget.color;
-    WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
     final resolvedMaxHeight = maxHeight != null && maxHeight <= 1.0
         ? MediaQuery.sizeOf(context).height * maxHeight
         : maxHeight;
@@ -251,24 +293,7 @@ class _AppBottomSheetContainerState extends State<AppBottomSheetContainer> {
               child: content,
             ),
     );
-    return NotificationListener<SizeChangedLayoutNotification>(
-      onNotification: (_) {
-        WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
-        return false;
-      },
-      // The scope stays in place and is toggled (KuteBarContextScope
-      // .active): swapping it in and out re-parented the sheet, and a
-      // field focused as the keyboard lifted a short sheet past the
-      // fraction lost its focus and its text.
-      child: SizeChangedLayoutNotifier(
-        child: KuteBarContextScope(
-            barContext: const KuteBarContext.hidden(),
-            active: _short == true,
-            // Measured tall: the bar is over this sheet, and its scroll
-            // views leave it room (kuteSheetBarClearance).
-            child: _KuteSheetBarRoom(over: _short == false, child: sheet)),
-      ),
-    );
+    return KuteSheetBarFit(child: sheet);
   }
 }
 
