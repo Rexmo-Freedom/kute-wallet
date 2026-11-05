@@ -86,6 +86,55 @@ void main() {
     expect(lines.winner, same(lines.moneyline));
   });
 
+  test('a line nobody has traded is never the main one', () {
+    // Arsenal vs Hull City's More Markets: Hull City (-4.5) sits at
+    // Gamma's untouched 44.5% with a 1¢-89¢ book; Arsenal (-2.5) trades
+    // at 40.5%.
+    final lines = PolyGameLines.fromRawEvent({
+      'markets': [
+        {
+          ..._market('spreads', -2.5, 'Spread: Arsenal FC (-2.5)',
+              ['Arsenal FC', 'Hull City AFC'], ['0.405', '0.595']),
+          'bestBid': 0.4,
+          'bestAsk': 0.41,
+          'spread': 0.01,
+        },
+        {
+          ..._market('spreads', -4.5, 'Spread: Hull City AFC (-4.5)',
+              ['Hull City AFC', 'Arsenal FC'], ['0.445', '0.555']),
+          'bestAsk': 0.89,
+          'spread': 0.89,
+        },
+      ],
+    });
+    expect(lines.spread!.question, 'Spread: Arsenal FC (-2.5)');
+    // Laid out from the event the card had, the same.
+    final event = PolymarketModel().parseEventsRaw([
+      {
+        'id': '1',
+        'slug': 'epl-ars-hul',
+        'title': 'Arsenal FC vs. Hull City AFC - More Markets',
+        'markets': [
+          {
+            ..._market('spreads', -2.5, 'Spread: Arsenal FC (-2.5)',
+                ['Arsenal FC', 'Hull City AFC'], ['0.405', '0.595']),
+            'bestBid': 0.4,
+            'bestAsk': 0.41,
+            'spread': 0.01,
+          },
+          {
+            ..._market('spreads', -4.5, 'Spread: Hull City AFC (-4.5)',
+                ['Hull City AFC', 'Arsenal FC'], ['0.445', '0.555']),
+            'bestAsk': 0.89,
+            'spread': 0.89,
+          },
+        ],
+      }
+    ]).single;
+    expect(PolyGameLines.fromEvent(event).spread!.question,
+        'Spread: Arsenal FC (-2.5)');
+  });
+
   test('without bestLines the line closest to even is the main one', () {
     final lines = PolyGameLines.fromRawEvent({...raw, 'bestLines': null});
     expect(lines.spread!.question, 'Spread: Colts (-4.5)');
