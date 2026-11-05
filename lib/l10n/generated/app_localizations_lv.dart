@@ -12805,7 +12805,10 @@ class AppLocalizationsLv extends AppLocalizations {
   String get polySideUnder => 'Zem';
 
   @override
-  String get sendPickCardSub => 'Vai ieguldījumu';
+  String get sendPickCardSub => 'Izvēlies tirgu, pusi un summu';
+
+  @override
+  String get sendAnInvestmentOrPrediction => 'Sūtīt investīciju vai prognozi';
 
   @override
   String get sendPredictionCta => 'Sūtīt prognozi';

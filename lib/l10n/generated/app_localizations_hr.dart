@@ -12863,7 +12863,10 @@ class AppLocalizationsHr extends AppLocalizations {
   String get polySideUnder => 'Manje';
 
   @override
-  String get sendPickCardSub => 'Ili investiciju';
+  String get sendPickCardSub => 'Odaberi tržište, stranu i iznos';
+
+  @override
+  String get sendAnInvestmentOrPrediction => 'Pošalji ulaganje ili predviđanje';
 
   @override
   String get sendPredictionCta => 'Pošalji predviđanje';

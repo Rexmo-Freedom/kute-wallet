@@ -12851,7 +12851,11 @@ class AppLocalizationsSk extends AppLocalizations {
   String get polySideUnder => 'Menej';
 
   @override
-  String get sendPickCardSub => 'Alebo investíciu';
+  String get sendPickCardSub => 'Vyber trh, stranu a sumu';
+
+  @override
+  String get sendAnInvestmentOrPrediction =>
+      'Poslať investíciu alebo predpoveď';
 
   @override
   String get sendPredictionCta => 'Poslať predpoveď';

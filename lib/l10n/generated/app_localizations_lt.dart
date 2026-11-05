@@ -12892,7 +12892,10 @@ class AppLocalizationsLt extends AppLocalizations {
   String get polySideUnder => 'Mažiau';
 
   @override
-  String get sendPickCardSub => 'Arba investiciją';
+  String get sendPickCardSub => 'Pasirinkite rinką, pusę ir sumą';
+
+  @override
+  String get sendAnInvestmentOrPrediction => 'Siųsti investiciją arba prognozę';
 
   @override
   String get sendPredictionCta => 'Siųsti prognozę';

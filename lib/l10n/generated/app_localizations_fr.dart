@@ -12927,7 +12927,11 @@ class AppLocalizationsFr extends AppLocalizations {
   String get polySideUnder => 'Moins';
 
   @override
-  String get sendPickCardSub => 'Ou un investissement';
+  String get sendPickCardSub => 'Choisissez un marché, le côté et le montant';
+
+  @override
+  String get sendAnInvestmentOrPrediction =>
+      'Envoyer un investissement ou une prédiction';
 
   @override
   String get sendPredictionCta => 'Envoyer la prédiction';

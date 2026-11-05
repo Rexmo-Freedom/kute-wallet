@@ -14,19 +14,20 @@
 //   * "Frequent" directly under the field (founder, 2 November 2026:
 //     "Frequent stays on top"), the recent recipients as circles, hidden
 //     while typing and once a recipient is chosen;
-//   * THE FOUR WAYS AS SQUARES (founder, 4 November 2026: "too many
-//     options and buttons, make it more clear"; 5 November 2026: "I think
-//     these should be cards like squares, also in Bitcoin"): under one
-//     "Send to" label, a 2 x 2 grid of the app's big square cards
-//     (kute_action_cards.dart): on top, where the money goes that is yours
-//     or an address, "To your Bitcoin" (the Move money sheet, Dollars to
-//     Bitcoin) and "To a crypto address" (the coins it can land as, in the
-//     coin sheet, exactly as the Bitcoin send's card opens its own); under
-//     them, a friend: "Send to anyone" (a link they claim with Kute, no
-//     contact needed) and "Send a prediction" ("Or an investment", the
-//     market search, send_pick_market_sheet.dart: a market's page, its
-//     slip sends; the card goes where neither venue is open to this
-//     person, sendPickOffered);
+//   * THE WAYS AS CARDS (founder, 4 November 2026: "too many options and
+//     buttons, make it more clear"; 5 November 2026: "I think these should
+//     be cards like squares, also in Bitcoin"): under one "Send to" label,
+//     the app's big cards (kute_action_cards.dart): "To your Bitcoin" (the
+//     Move money sheet, Dollars to Bitcoin) and "To a crypto address" (the
+//     coins it can land as, in the coin sheet, exactly as the Bitcoin
+//     send's card opens its own) as two squares, then "Send an investment
+//     or prediction" ("Pick a market, side and amount": the market search,
+//     send_pick_market_sheet.dart, a market's page, its slip sends) across
+//     the width under them, compact (the grid's no-orphan rule; the card
+//     goes where neither venue is open to this person, sendPickOffered).
+//     No "Send to anyone" card (founder, 5 November 2026: "makes no sense
+//     since we have phone numbers"; as the Bitcoin send): a contact or a
+//     typed phone number already sends by link;
 //   * All contacts A–Z under them, the friends themselves
 //     (send_contacts_list.dart; founder: a growing list never hides the
 //     cards): the recent dollar recipients (paid directly: the send opens
@@ -123,13 +124,13 @@ class UsdWithdrawScreen extends ConsumerStatefulWidget {
   static Future<bool?> Function(BuildContext context,
       UsdSendDestination destination, String? recipient)? debugSendOpener;
 
-  /// Test seam: what "Send a prediction" opens. Null opens
+  /// Test seam: what "Send an investment or prediction" opens. Null opens
   /// the market search; the answer is whether a link was created.
   @visibleForTesting
   static Future<bool?> Function(BuildContext context)? debugPickOpener;
 
-  /// Test seam: the claim link for a contact, a typed number or anyone
-  /// ("Send to anyone", neither). Null opens Send to anyone for dollars.
+  /// Test seam: the claim link for a contact or a typed number. Null opens
+  /// Send to anyone for dollars, with the contact's name or the number.
   @visibleForTesting
   static Future<bool?> Function(BuildContext context,
       {SendContact? contact, String? phone})? debugLinkOpener;
@@ -179,7 +180,7 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
     ));
   }
 
-  /// "Send a prediction": the market search, a pick on a
+  /// "Send an investment or prediction": the market search, a pick on a
   /// link.
   Future<void> _openPick() {
     final open = UsdWithdrawScreen.debugPickOpener;
@@ -190,10 +191,9 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
   }
 
   /// The claim link for dollars: to a contact (its first name, its number
-  /// kept in the local row), to a typed number, or to anyone (neither).
+  /// kept in the local row) or to a typed number.
   Future<void> _openLink({SendContact? contact, String? phone}) {
-    trackSendRecipientPicked(
-        contact != null ? 'contact' : (phone != null ? 'phone' : 'link'));
+    trackSendRecipientPicked(contact != null ? 'contact' : 'phone');
     final open = UsdWithdrawScreen.debugLinkOpener;
     return _afterLink(open != null
         ? open(context, contact: contact, phone: phone)
@@ -429,15 +429,15 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
     unawaited(_openSend(recent.destination, recipient: recent.address));
   }
 
-  /// THE FOUR WAYS AS SQUARES (founder, 5 November 2026: "I think these
-  /// should be cards like squares"): one 2 x 2 grid of the app's big
-  /// square cards (kute_action_cards.dart) under the one "Send to" label.
-  /// Yours or an address on top, "To your Bitcoin" (the Move money
-  /// sheet) and "To a crypto address" (the coin sheet); a friend under
-  /// them, "Send to anyone" (a link, no contact needed) and "Send a
-  /// prediction" (or an investment: the market search). With no coin
-  /// offered the address card goes and the unavailable line sits under
-  /// the three.
+  /// THE WAYS AS CARDS (founder, 5 November 2026: "I think these should
+  /// be cards like squares"): the app's big cards (kute_action_cards.dart)
+  /// under the one "Send to" label. "To your Bitcoin" (the Move money
+  /// sheet) and "To a crypto address" (the coin sheet) as two squares,
+  /// "Send an investment or prediction" (the market search) across the
+  /// width under them, compact. No "Send to anyone" (founder, 5 November
+  /// 2026: a contact or a typed phone number sends by link). With no coin
+  /// offered the address card goes (two squares) and the unavailable line
+  /// sits under them.
   Widget _optionsGrid(List<UsdSendDestination> offered) {
     final l10n = context.l10n;
     final loading = ref.watch(orchestraRoutesReadyProvider).isLoading;
@@ -471,22 +471,15 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
                   groups: groups,
                   title: l10n.sendToCryptoAddress,
                   onTap: _openCoinPicker),
-            KuteActionCard(
-              key: const ValueKey('usd-withdraw-anyone'),
-              visual: const SendSalShareGlyph(size: kKuteActionCardVisualSize),
-              title: l10n.shareSendToAnyone,
-              subtitle: l10n.shareSendToAnyoneSubtitle,
-              onTap: () => unawaited(_openLink()),
-            ),
             if (pickOffered)
               KuteActionCard(
-              key: const ValueKey('usd-withdraw-pick'),
-              // The predictions' own gauge (the search rows' half ring).
-              visual: const SearchChanceGauge(chance: 0.64),
-              title: l10n.sendAPrediction,
-              subtitle: l10n.sendPickCardSub,
-              onTap: () => unawaited(_openPick()),
-            ),
+                key: const ValueKey('usd-withdraw-pick'),
+                // The predictions' own gauge (the search rows' half ring).
+                visual: const SearchChanceGauge(chance: 0.64),
+                title: l10n.sendAnInvestmentOrPrediction,
+                subtitle: l10n.sendPickCardSub,
+                onTap: () => unawaited(_openPick()),
+              ),
           ],
         ),
         if (groups.isEmpty) ...[

@@ -12868,7 +12868,11 @@ class AppLocalizationsHu extends AppLocalizations {
   String get polySideUnder => 'Alatt';
 
   @override
-  String get sendPickCardSub => 'Vagy egy befektetést';
+  String get sendPickCardSub => 'Válassz piacot, oldalt és összeget';
+
+  @override
+  String get sendAnInvestmentOrPrediction =>
+      'Befektetés vagy előrejelzés küldése';
 
   @override
   String get sendPredictionCta => 'Előrejelzés küldése';

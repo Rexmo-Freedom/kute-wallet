@@ -2,11 +2,11 @@
 // made clearer 4 November 2026: "too many options and buttons"; squares 5
 // November 2026: "these should be cards like squares"): "Send dollars",
 // the search field ("Name, address or phone"), then under one "Send to"
-// label a 2 x 2 grid of big square cards: "To your Bitcoin" (the Move
-// money sheet, Dollars to Bitcoin) and "To a crypto address" (the coin
-// sheet) on top, "Send to anyone" (a link, no contact needed) and "Send a
-// prediction" (or an investment: the market search) under them; then the
-// Contacts. A typed address resolves first and
+// label the big cards: "To your Bitcoin" (the Move money sheet, Dollars to
+// Bitcoin) and "To a crypto address" (the coin sheet) as two squares, "Send
+// an investment or prediction" (the market search) compact across the
+// width under them; no "Send to anyone" (a contact or a typed number sends
+// by link); then the Contacts. A typed address resolves first and
 // the bar's Continue opens the dollar send on it; an address several
 // networks take asks which one; a send that went out, or a link created,
 // closes the sheet. Nothing here reaches a money call: every door is a
@@ -15,6 +15,8 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -105,6 +107,14 @@ final _l10n = AppLocalizationsEn();
 const _bitcoinRow = ValueKey('usd-withdraw-to-bitcoin');
 const _pickRow = ValueKey('usd-withdraw-pick');
 const _anyoneRow = ValueKey('usd-withdraw-anyone');
+
+Future<void> _loadInter() async {
+  final inter = FontLoader('Inter');
+  for (final f in ['Regular', 'SemiBold', 'Bold']) {
+    inter.addFont(rootBundle.load('lib/assets/fonts/Inter-$f.ttf'));
+  }
+  await inter.load();
+}
 const _alsoRow = ValueKey('send-also-sends-to-row');
 late FakeSendContactsGateway _gateway;
 const _underneath = 'open withdraw';
@@ -114,8 +124,10 @@ Future<void> _pump(WidgetTester tester,
     {bool coins = true,
     int? spendingSats,
     bool dark = false,
+    Size size = const Size(390, 844),
+    Locale? locale,
     List<SwapOrder> orders = const []}) async {
-  tester.view.physicalSize = const Size(390, 844);
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(ProviderScope(
@@ -156,6 +168,7 @@ Future<void> _pump(WidgetTester tester,
             extensions: [
               dark ? AppColorsExtension.dark() : AppColorsExtension.light()
             ]),
+        locale: locale,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
@@ -260,10 +273,10 @@ void main() {
   for (final dark in [false, true]) {
     testWidgets(
         'the Bitcoin send\'s layout: "Send dollars", the search field, then '
-        'under one "Send to" label ONE 2 x 2 grid of square cards (To your '
-        'Bitcoin | To a crypto address over Send to anyone | Send a '
-        'prediction), then the Contacts; no list rows, no "To a friend" '
-        'label, no Bitcoin card, no inline grid '
+        'under one "Send to" label the big cards (To your Bitcoin | To a '
+        'crypto address as squares, Send an investment or prediction '
+        'compact across the width under them; no Send to anyone), then the '
+        'Contacts; no list rows, no "To a friend" label, no inline grid '
         '(${dark ? 'dark' : 'light'})', (tester) async {
       await _pump(tester, spendingSats: 100000, dark: dark);
       final screen = find.byType(UsdWithdrawScreen);
@@ -282,7 +295,12 @@ void main() {
       final grid = find.byKey(const ValueKey('usd-withdraw-options'));
       expect(grid, findsOneWidget);
       expect(tester.widget<KuteActionCardGrid>(grid).cards.map((c) => c.key),
-          [_bitcoinRow, _alsoRow, _anyoneRow, _pickRow]);
+          [_bitcoinRow, _alsoRow, _pickRow]);
+      // No Send to anyone (founder, 5 November 2026: "makes no sense since
+      // we have phone numbers"): a contact or a typed number sends by link.
+      expect(find.byKey(_anyoneRow), findsNothing);
+      expect(find.text(_l10n.shareSendToAnyone), findsNothing);
+      expect(find.byType(SendSalShareGlyph), findsNothing);
       // Square cards, none of the old list rows (the Contacts' own ask
       // row is the only one left).
       expect(
@@ -298,26 +316,31 @@ void main() {
       expect(card(_alsoRow).title, _l10n.sendToCryptoAddress);
       expect(card(_alsoRow).subtitle, _l10n.sendAlsoSendsToList('USDC', 'USDT'));
       expect(card(_alsoRow).visual, isA<SendCoinStack>());
-      expect(card(_anyoneRow).title, _l10n.shareSendToAnyone);
-      expect(card(_anyoneRow).subtitle, _l10n.shareSendToAnyoneSubtitle);
-      expect(card(_anyoneRow).visual, isA<SendSalShareGlyph>());
-      expect(card(_pickRow).title, _l10n.sendAPrediction);
+      expect(card(_pickRow).title, _l10n.sendAnInvestmentOrPrediction);
+      expect(card(_pickRow).title, 'Send an investment or prediction');
       expect(card(_pickRow).subtitle, _l10n.sendPickCardSub);
+      expect(card(_pickRow).subtitle, 'Pick a market, side and amount');
       expect(card(_pickRow).visual, isA<SearchChanceGauge>());
 
-      // 2 x 2: Bitcoin | address on one row, anyone | prediction on the
-      // next, left and right columns aligned, the cards of a row equally
-      // tall; the field above, the Contacts below.
+      // Bitcoin | address as two squares on one row, equally tall; the
+      // prediction card under them across both columns, compact (a
+      // chevron, lower than the squares): never a square alone in half the
+      // width. The field above, the Contacts below.
       Rect r(Key key) => tester.getRect(find.byKey(key));
       expect(r(_bitcoinRow).top, moreOrLessEquals(r(_alsoRow).top));
       expect(r(_bitcoinRow).height, moreOrLessEquals(r(_alsoRow).height));
-      expect(r(_anyoneRow).top, moreOrLessEquals(r(_pickRow).top));
-      expect(r(_anyoneRow).height, moreOrLessEquals(r(_pickRow).height));
-      expect(r(_anyoneRow).top, greaterThan(r(_bitcoinRow).bottom));
-      expect(r(_bitcoinRow).left, moreOrLessEquals(r(_anyoneRow).left));
-      expect(r(_alsoRow).left, moreOrLessEquals(r(_pickRow).left));
       expect(r(_bitcoinRow).right, lessThan(r(_alsoRow).left));
       expect(r(_bitcoinRow).width, moreOrLessEquals(r(_alsoRow).width));
+      expect(r(_pickRow).top, greaterThan(r(_bitcoinRow).bottom));
+      expect(r(_pickRow).left, moreOrLessEquals(r(_bitcoinRow).left));
+      expect(r(_pickRow).right, moreOrLessEquals(r(_alsoRow).right));
+      expect(r(_pickRow).height, lessThan(r(_bitcoinRow).height));
+      Finder chevronIn(Key key) => find.descendant(
+          of: find.byKey(key),
+          matching: find.byIcon(Icons.chevron_right_rounded));
+      expect(chevronIn(_pickRow), findsOneWidget);
+      expect(chevronIn(_bitcoinRow), findsNothing);
+      expect(chevronIn(_alsoRow), findsNothing);
       // As tall as their content: the row ends one padding under the
       // taller card's last line; no floor, no half-empty square.
       double lastLine(Key key) {
@@ -358,9 +381,9 @@ void main() {
   }
 
   testWidgets(
-      'Predictions and Investing closed to this person: no Send a '
-      'prediction card (its slip could only send the market\'s card); the '
-      'other three stay', (tester) async {
+      'Predictions and Investing closed to this person: no Send an '
+      'investment or prediction card (its slip could only send the '
+      'market\'s card); the other two stay, two squares', (tester) async {
     final closed = runtimePolicyFixture(
         blocked: const {'polymarket.trade', 'hyperliquid.trade'},
         also: const {'polymarket.browse', 'hyperliquid.browse'});
@@ -368,28 +391,32 @@ void main() {
     await tester.runAsync(closed.refresh);
     await _pump(tester, spendingSats: 100000);
     expect(find.byKey(_pickRow), findsNothing);
-    for (final key in [_bitcoinRow, _alsoRow, _anyoneRow]) {
+    expect(find.byKey(_anyoneRow), findsNothing);
+    for (final key in [_bitcoinRow, _alsoRow]) {
       expect(find.byKey(key), findsOneWidget);
     }
+    expect(tester.getRect(find.byKey(_bitcoinRow)).top,
+        moreOrLessEquals(tester.getRect(find.byKey(_alsoRow)).top));
     expect(tester.takeException(), isNull);
     await _unmount(tester);
   });
 
   testWidgets(
-      'at 375 pt and a large text the four squares wrap their words, never '
-      'cut, and nothing overflows', (tester) async {
+      'at 375 pt and a large text the cards wrap their words, never cut, '
+      'and nothing overflows', (tester) async {
     await _pump(tester, spendingSats: 100000);
     tester.view.physicalSize = const Size(375, 667);
     tester.platformDispatcher.textScaleFactorTestValue = 1.3;
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     await _settle(tester);
-    for (final key in [_bitcoinRow, _alsoRow, _anyoneRow, _pickRow]) {
+    for (final key in [_bitcoinRow, _alsoRow, _pickRow]) {
       final texts = find.descendant(
           of: find.byKey(key), matching: find.byType(Text));
       for (final e in texts.evaluate()) {
         final t = e.widget as Text;
-        if (t.data == _l10n.sendAPrediction ||
-            t.data == _l10n.shareSendToAnyoneSubtitle) {
+        if (t.data == _l10n.sendAnInvestmentOrPrediction ||
+            t.data == _l10n.sendPickCardSub ||
+            t.data == _l10n.sendToCryptoAddress) {
           expect(t.overflow, isNull);
           expect(t.maxLines, isNull);
         }
@@ -462,21 +489,26 @@ void main() {
   });
 
   testWidgets(
-      'Send to anyone opens the claim link with no contact and no number; a '
-      'link created closes the sheet', (tester) async {
+      'a typed number sends by link (the reason there is no Send to anyone '
+      'card); a link created closes the sheet', (tester) async {
     linkResult = true;
     await _pump(tester);
-    await tester.tap(find.byKey(_anyoneRow));
+    expect(find.byKey(_anyoneRow), findsNothing);
+    await type(tester, '+351 999 888 777');
+    final row = find.byKey(const ValueKey('send-phone-link-row'));
+    expect(row, findsOneWidget);
+    await tester.ensureVisible(row);
+    await tester.tap(row);
     await tester.pumpAndSettle();
-    expect(linksOpened, [(null, null)]);
+    expect(linksOpened, [(null, '+351999888777')]);
     expect(events.where((e) => e.$1 == 'send_recipient_picked').single.$2,
-        containsPair('kind', 'link'));
+        containsPair('kind', 'phone'));
     expect(find.byType(UsdWithdrawScreen), findsNothing);
     await _unmount(tester);
   });
 
   testWidgets(
-      'Send a prediction opens the market search; a link '
+      'Send an investment or prediction opens the market search; a link '
       'created closes the sheet', (tester) async {
     linkResult = true;
     await _pump(tester);
@@ -601,12 +633,11 @@ void main() {
   });
 
   testWidgets(
-      'nothing offered: To your Bitcoin, Send to anyone and the pick stay as '
-      'three squares, no address card, the unavailable line under them',
-      (tester) async {
+      'nothing offered: To your Bitcoin and the pick stay as two squares, no '
+      'address card, the unavailable line under them', (tester) async {
     await _pump(tester, coins: false);
     expect(find.byKey(_bitcoinRow), findsOneWidget);
-    expect(find.byKey(_anyoneRow), findsOneWidget);
+    expect(find.byKey(_anyoneRow), findsNothing);
     expect(find.byKey(_pickRow), findsOneWidget);
     expect(find.byKey(_alsoRow), findsNothing);
     expect(
@@ -614,12 +645,69 @@ void main() {
             .widget<KuteActionCardGrid>(
                 find.byKey(const ValueKey('usd-withdraw-options')))
             .cards,
-        hasLength(3));
+        hasLength(2));
+    expect(tester.getRect(find.byKey(_pickRow)).top,
+        moreOrLessEquals(tester.getRect(find.byKey(_bitcoinRow)).top));
     expect(find.text(_l10n.usdSendDestinationsUnavailable), findsOneWidget);
     expect(
         tester.getTopLeft(find.text(_l10n.usdSendDestinationsUnavailable)).dy,
         greaterThan(tester.getRect(find.byKey(_pickRow)).bottom));
     expect(tester.takeException(), isNull);
     await _unmount(tester);
+  });
+
+  testWidgets(
+      'at 375 pt, in Inter, in every shipped language: two squares over '
+      'the compact "Send an investment or prediction", every word whole '
+      'inside its card, nothing overflowing', (tester) async {
+    await tester.runAsync(_loadInter);
+    for (final locale in AppLocalizations.supportedLocales) {
+      final l10n = l10nForLanguage(locale.languageCode);
+      final why = locale.languageCode;
+      await _pump(tester,
+          spendingSats: 123456789,
+          size: const Size(375, 812),
+          locale: locale);
+      await tester.pump();
+      expect(tester.takeException(), isNull, reason: why);
+      final a = tester.getRect(find.byKey(_bitcoinRow));
+      final b = tester.getRect(find.byKey(_alsoRow));
+      final pick = tester.getRect(find.byKey(_pickRow));
+      expect(a.top, moreOrLessEquals(b.top), reason: why);
+      expect(a.height, moreOrLessEquals(b.height), reason: why);
+      expect(b.right, lessThanOrEqualTo(375), reason: why);
+      expect(pick.top, greaterThan(a.bottom), reason: why);
+      expect(pick.width, moreOrLessEquals(b.right - a.left), reason: why);
+      expect(
+          find.descendant(
+              of: find.byKey(_pickRow),
+              matching: find.text(l10n.sendAnInvestmentOrPrediction)),
+          findsOneWidget,
+          reason: why);
+      expect(
+          find.descendant(
+              of: find.byKey(_pickRow),
+              matching: find.text(l10n.sendPickCardSub)),
+          findsOneWidget,
+          reason: why);
+      for (final (key, box) in [
+        (_bitcoinRow, a),
+        (_alsoRow, b),
+        (_pickRow, pick),
+      ]) {
+        final texts = find.descendant(
+            of: find.byKey(key), matching: find.byType(RichText));
+        for (var i = 0; i < texts.evaluate().length; i++) {
+          final p = tester.renderObject<RenderParagraph>(texts.at(i));
+          expect(p.didExceedMaxLines, isFalse, reason: '$why: a line is cut');
+          final shown = tester.getRect(texts.at(i));
+          expect(shown.right, lessThanOrEqualTo(box.right + 0.5),
+              reason: why);
+          expect(shown.bottom, lessThanOrEqualTo(box.bottom + 0.5),
+              reason: '$why: a line runs past its card');
+        }
+      }
+      await _unmount(tester);
+    }
   });
 }

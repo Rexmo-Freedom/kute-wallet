@@ -12835,7 +12835,10 @@ class AppLocalizationsCs extends AppLocalizations {
   String get polySideUnder => 'Méně';
 
   @override
-  String get sendPickCardSub => 'Nebo investici';
+  String get sendPickCardSub => 'Vyber trh, stranu a částku';
+
+  @override
+  String get sendAnInvestmentOrPrediction => 'Poslat investici nebo predikci';
 
   @override
   String get sendPredictionCta => 'Poslat predikci';

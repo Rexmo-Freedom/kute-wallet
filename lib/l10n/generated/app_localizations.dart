@@ -21544,11 +21544,17 @@ abstract class AppLocalizations {
   /// **'Under'**
   String get polySideUnder;
 
-  /// The Dollars Send recipient step's Send a prediction square card: the one line under the title, saying an investment can be sent too.
+  /// The Dollars Send recipient step's Send an investment or prediction card: the line under the title, what the person does next (the market search, then the side, then the amount).
   ///
   /// In en, this message translates to:
-  /// **'Or an investment'**
+  /// **'Pick a market, side and amount'**
   String get sendPickCardSub;
+
+  /// The Dollars Send recipient step's card title (founder, 5 November 2026): send an investment or a prediction on a link, the market search first.
+  ///
+  /// In en, this message translates to:
+  /// **'Send an investment or prediction'**
+  String get sendAnInvestmentOrPrediction;
 
   /// The floating bar on Send this prediction's last step: creates the prediction's link.
   ///
