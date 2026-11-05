@@ -3569,5 +3569,17 @@
   "chartParamStochLength": "Stochastische lengte",
   "chartParamSmoothK": "%K-afvlakking",
   "chartParamSmoothD": "%D-afvlakking",
-  "chartParamRows": "Rijen"
+  "chartParamRows": "Rijen",
+  "sendPredictionCta": "Voorspelling versturen",
+  "sendInvestmentCta": "Belegging versturen",
+  "sendPickYourFriend": "Je vriend",
+  "sendPickGets": "{who} krijgt {amount} op {market} — {side}",
+  "sendPickSideAtChance": "{side} op {chance}",
+  "sendPickHowItWorks": "Claimen en met één tik plaatsen",
+  "shareCardPredictionForYou": "Een voorspelling voor jou",
+  "shareCardPredictionForNamed": "{name}, een voorspelling voor jou",
+  "slipShareEnterAmount": "Vul een bedrag in om te versturen",
+  "slipShareMinimum": "Vul minstens {amount} in om te versturen",
+  "slipShareYesOnly": "Alleen Ja op {outcome} kan worden verstuurd. Kies Ja om het te versturen.",
+  "sendPickMarketHow": "Zoek een markt, kies een kant en bedrag en tik dan op Sal om te versturen"
 }

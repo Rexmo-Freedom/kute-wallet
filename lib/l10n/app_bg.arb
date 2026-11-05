@@ -3569,5 +3569,17 @@
   "chartParamStochLength": "Дължина на стохастика",
   "chartParamSmoothK": "Изглаждане на %K",
   "chartParamSmoothD": "Изглаждане на %D",
-  "chartParamRows": "Редове"
+  "chartParamRows": "Редове",
+  "sendPredictionCta": "Изпрати прогнозата",
+  "sendInvestmentCta": "Изпрати инвестицията",
+  "sendPickYourFriend": "Твоят приятел",
+  "sendPickGets": "{who} получава {amount} за {market} — {side}",
+  "sendPickSideAtChance": "{side} при {chance}",
+  "sendPickHowItWorks": "Приятелят ти ги взема и ги поставя с едно докосване",
+  "shareCardPredictionForYou": "Прогноза за теб",
+  "shareCardPredictionForNamed": "{name}, прогноза за теб",
+  "slipShareEnterAmount": "Въведи сума за изпращане",
+  "slipShareMinimum": "Въведи поне {amount}, за да изпратиш",
+  "slipShareYesOnly": "Може да се изпрати само „Да“ за {outcome}. Избери „Да“, за да изпратиш.",
+  "sendPickMarketHow": "Намери пазар, избери страна и сума, после докосни Sal, за да изпратиш"
 }

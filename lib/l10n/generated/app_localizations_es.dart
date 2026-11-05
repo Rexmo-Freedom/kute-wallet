@@ -12739,4 +12739,51 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Filas';
+
+  @override
+  String get sendPredictionCta => 'Enviar predicción';
+
+  @override
+  String get sendInvestmentCta => 'Enviar inversión';
+
+  @override
+  String get sendPickYourFriend => 'Tu amigo';
+
+  @override
+  String sendPickGets(String who, String amount, String market, String side) {
+    return '$who recibe $amount en $market — $side';
+  }
+
+  @override
+  String sendPickSideAtChance(String side, String chance) {
+    return '$side al $chance';
+  }
+
+  @override
+  String get sendPickHowItWorks => 'Lo reclama y lo coloca con un toque';
+
+  @override
+  String get shareCardPredictionForYou => 'Una predicción para ti';
+
+  @override
+  String shareCardPredictionForNamed(String name) {
+    return '$name, una predicción para ti';
+  }
+
+  @override
+  String get slipShareEnterAmount => 'Introduce un importe para enviar';
+
+  @override
+  String slipShareMinimum(String amount) {
+    return 'Introduce al menos $amount para enviar';
+  }
+
+  @override
+  String slipShareYesOnly(String outcome) {
+    return 'Solo se puede enviar Sí en $outcome. Cambia a Sí para enviarlo.';
+  }
+
+  @override
+  String get sendPickMarketHow =>
+      'Busca un mercado, elige el lado y el importe, y toca Sal para enviarlo';
 }

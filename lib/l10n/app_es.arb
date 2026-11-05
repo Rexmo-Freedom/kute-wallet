@@ -3569,5 +3569,17 @@
   "chartParamStochLength": "Longitud estocástica",
   "chartParamSmoothK": "Suavizado %K",
   "chartParamSmoothD": "Suavizado %D",
-  "chartParamRows": "Filas"
+  "chartParamRows": "Filas",
+  "sendPredictionCta": "Enviar predicción",
+  "sendInvestmentCta": "Enviar inversión",
+  "sendPickYourFriend": "Tu amigo",
+  "sendPickGets": "{who} recibe {amount} en {market} — {side}",
+  "sendPickSideAtChance": "{side} al {chance}",
+  "sendPickHowItWorks": "Lo reclama y lo coloca con un toque",
+  "shareCardPredictionForYou": "Una predicción para ti",
+  "shareCardPredictionForNamed": "{name}, una predicción para ti",
+  "slipShareEnterAmount": "Introduce un importe para enviar",
+  "slipShareMinimum": "Introduce al menos {amount} para enviar",
+  "slipShareYesOnly": "Solo se puede enviar Sí en {outcome}. Cambia a Sí para enviarlo.",
+  "sendPickMarketHow": "Busca un mercado, elige el lado y el importe, y toca Sal para enviarlo"
 }

@@ -12703,4 +12703,52 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Редове';
+
+  @override
+  String get sendPredictionCta => 'Изпрати прогнозата';
+
+  @override
+  String get sendInvestmentCta => 'Изпрати инвестицията';
+
+  @override
+  String get sendPickYourFriend => 'Твоят приятел';
+
+  @override
+  String sendPickGets(String who, String amount, String market, String side) {
+    return '$who получава $amount за $market — $side';
+  }
+
+  @override
+  String sendPickSideAtChance(String side, String chance) {
+    return '$side при $chance';
+  }
+
+  @override
+  String get sendPickHowItWorks =>
+      'Приятелят ти ги взема и ги поставя с едно докосване';
+
+  @override
+  String get shareCardPredictionForYou => 'Прогноза за теб';
+
+  @override
+  String shareCardPredictionForNamed(String name) {
+    return '$name, прогноза за теб';
+  }
+
+  @override
+  String get slipShareEnterAmount => 'Въведи сума за изпращане';
+
+  @override
+  String slipShareMinimum(String amount) {
+    return 'Въведи поне $amount, за да изпратиш';
+  }
+
+  @override
+  String slipShareYesOnly(String outcome) {
+    return 'Може да се изпрати само „Да“ за $outcome. Избери „Да“, за да изпратиш.';
+  }
+
+  @override
+  String get sendPickMarketHow =>
+      'Намери пазар, избери страна и сума, после докосни Sal, за да изпратиш';
 }

@@ -12739,4 +12739,51 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Eilutės';
+
+  @override
+  String get sendPredictionCta => 'Siųsti prognozę';
+
+  @override
+  String get sendInvestmentCta => 'Siųsti investiciją';
+
+  @override
+  String get sendPickYourFriend => 'Tavo draugas';
+
+  @override
+  String sendPickGets(String who, String amount, String market, String side) {
+    return '$who gauna $amount: $market — $side';
+  }
+
+  @override
+  String sendPickSideAtChance(String side, String chance) {
+    return '$side, tikimybė $chance';
+  }
+
+  @override
+  String get sendPickHowItWorks => 'Atsiima ir vienu palietimu pateikia';
+
+  @override
+  String get shareCardPredictionForYou => 'Prognozė tau';
+
+  @override
+  String shareCardPredictionForNamed(String name) {
+    return '$name, prognozė tau';
+  }
+
+  @override
+  String get slipShareEnterAmount => 'Įveskite siunčiamą sumą';
+
+  @override
+  String slipShareMinimum(String amount) {
+    return 'Norėdami siųsti, įveskite bent $amount';
+  }
+
+  @override
+  String slipShareYesOnly(String outcome) {
+    return 'Galima siųsti tik „Taip“: $outcome. Pasirinkite „Taip“, kad išsiųstumėte.';
+  }
+
+  @override
+  String get sendPickMarketHow =>
+      'Raskite rinką, pasirinkite pusę ir sumą, tada palieskite Sal, kad išsiųstumėte';
 }

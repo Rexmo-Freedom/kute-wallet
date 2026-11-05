@@ -12715,4 +12715,51 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Sorok';
+
+  @override
+  String get sendPredictionCta => 'Előrejelzés küldése';
+
+  @override
+  String get sendInvestmentCta => 'Befektetés küldése';
+
+  @override
+  String get sendPickYourFriend => 'A barátod';
+
+  @override
+  String sendPickGets(String who, String amount, String market, String side) {
+    return '$who $amount összeget kap erre: $market — $side';
+  }
+
+  @override
+  String sendPickSideAtChance(String side, String chance) {
+    return '$side, $chance eséllyel';
+  }
+
+  @override
+  String get sendPickHowItWorks => 'Átveszi, majd egy koppintással megteszi';
+
+  @override
+  String get shareCardPredictionForYou => 'Előrejelzés neked';
+
+  @override
+  String shareCardPredictionForNamed(String name) {
+    return '$name, egy előrejelzés neked';
+  }
+
+  @override
+  String get slipShareEnterAmount => 'Add meg a küldendő összeget';
+
+  @override
+  String slipShareMinimum(String amount) {
+    return 'A küldéshez legalább $amount kell';
+  }
+
+  @override
+  String slipShareYesOnly(String outcome) {
+    return 'Csak az Igen küldhető erre: $outcome. Válts Igenre a küldéshez.';
+  }
+
+  @override
+  String get sendPickMarketHow =>
+      'Keress egy piacot, válassz oldalt és összeget, majd koppints Salra a küldéshez';
 }

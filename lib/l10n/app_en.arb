@@ -10088,5 +10088,90 @@
   "chartParamRows": "Rows",
   "@chartParamRows": {
     "description": "Indicator settings: the name of one setting (a stepper row)."
+  },
+  "sendPredictionCta": "Send prediction",
+  "@sendPredictionCta": {
+    "description": "The floating bar on Send this prediction's last step: creates the prediction's link."
+  },
+  "sendInvestmentCta": "Send investment",
+  "@sendInvestmentCta": {
+    "description": "As sendPredictionCta, for an investment."
+  },
+  "sendPickYourFriend": "Your friend",
+  "@sendPickYourFriend": {
+    "description": "Send this prediction's last step: the subject of sendPickGets before a name is typed."
+  },
+  "sendPickGets": "{who} gets {amount} on {market} — {side}",
+  "@sendPickGets": {
+    "description": "Send this prediction's last step, under the card: what the friend gets. {who} is the typed first name or sendPickYourFriend, {amount} a formatted amount ('$5'), {market} the market's title, {side} the side, with its chance (sendPickSideAtChance) on a prediction. Never 'bet'.",
+    "placeholders": {
+      "who": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      },
+      "market": {
+        "type": "String"
+      },
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "sendPickSideAtChance": "{side} at {chance}",
+  "@sendPickSideAtChance": {
+    "description": "The side with its chance in sendPickGets, e.g. 'Yes at 62%'.",
+    "placeholders": {
+      "side": {
+        "type": "String"
+      },
+      "chance": {
+        "type": "String"
+      }
+    }
+  },
+  "sendPickHowItWorks": "They claim it, then place it with one tap",
+  "@sendPickHowItWorks": {
+    "description": "Send this prediction's last step: the subtitle saying the friend claims the money, then places the prediction with one tap."
+  },
+  "shareCardPredictionForYou": "A prediction for you",
+  "@shareCardPredictionForYou": {
+    "description": "Prediction share card sent with money: the small caps line at the top (drawn uppercase), 'A PREDICTION FOR YOU'."
+  },
+  "shareCardPredictionForNamed": "{name}, a prediction for you",
+  "@shareCardPredictionForNamed": {
+    "description": "As shareCardPredictionForYou with the recipient's first name: 'ANA, A PREDICTION FOR YOU'.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "slipShareEnterAmount": "Enter an amount to send",
+  "@slipShareEnterAmount": {
+    "description": "Toast when the slip's round Sal send button is tapped with no amount typed."
+  },
+  "slipShareMinimum": "Enter at least {amount} to send",
+  "@slipShareMinimum": {
+    "description": "Toast when the slip's send button is tapped under the market's minimum. {amount} is the minimum, formatted.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "slipShareYesOnly": "Only Yes on {outcome} can be sent. Switch to Yes to send it.",
+  "@slipShareYesOnly": {
+    "description": "Toast when the slip's send button is tapped on No for one candidate: a link can only carry Yes on a candidate. {outcome} is the candidate.",
+    "placeholders": {
+      "outcome": {
+        "type": "String"
+      }
+    }
+  },
+  "sendPickMarketHow": "Find a market, pick a side and amount, then tap Sal to send it",
+  "@sendPickMarketHow": {
+    "description": "Subtitle of Send's market search for sending a prediction: open a market, pick the side and amount on its slip, then tap the round Sal button."
   }
 }

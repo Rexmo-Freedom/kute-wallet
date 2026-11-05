@@ -12698,4 +12698,51 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Riadky';
+
+  @override
+  String get sendPredictionCta => 'Poslať predpoveď';
+
+  @override
+  String get sendInvestmentCta => 'Poslať investíciu';
+
+  @override
+  String get sendPickYourFriend => 'Tvoj kamarát';
+
+  @override
+  String sendPickGets(String who, String amount, String market, String side) {
+    return '$who dostane $amount na $market — $side';
+  }
+
+  @override
+  String sendPickSideAtChance(String side, String chance) {
+    return '$side pri $chance';
+  }
+
+  @override
+  String get sendPickHowItWorks => 'Vyzdvihne si ich a jedným ťuknutím zadá';
+
+  @override
+  String get shareCardPredictionForYou => 'Predpoveď pre teba';
+
+  @override
+  String shareCardPredictionForNamed(String name) {
+    return '$name, predpoveď pre teba';
+  }
+
+  @override
+  String get slipShareEnterAmount => 'Zadaj sumu na odoslanie';
+
+  @override
+  String slipShareMinimum(String amount) {
+    return 'Na odoslanie zadaj aspoň $amount';
+  }
+
+  @override
+  String slipShareYesOnly(String outcome) {
+    return 'Poslať sa dá len „Áno“ na $outcome. Prepni na „Áno“ a pošli to.';
+  }
+
+  @override
+  String get sendPickMarketHow =>
+      'Nájdi trh, vyber stranu a sumu a potom ťukni na Sal a pošli to';
 }

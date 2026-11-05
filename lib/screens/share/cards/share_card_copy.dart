@@ -24,8 +24,9 @@
 //     profanity, no slurs, nothing about real people beyond the market's
 //     own subject. The share message does not repeat it.
 //   * THE CAPS LINE at the top of the card ([shareCardTopLine]): "For
-//     Daniel", "Ana, a pick for you", the recipient's "Daniel, a friend
-//     sent you", or the venue on a market shared without a link.
+//     Daniel", "Ana, a prediction for you" (an investment: "Ana, a pick
+//     for you"), the recipient's "Daniel, a friend sent you", or the venue
+//     on a market shared without a link.
 //   * A CHALLENGE (founder, 4 November 2026: "I think Bitcoin will win,
 //     wanna fight me?"; PredictionCardData.challenge): the caps line dares
 //     ("Ana, I dare you", the recipient's "Ana, a friend dares you"), the
@@ -341,6 +342,13 @@ String shareCardTopLine(AppLocalizations l10n, ShareCardData data) {
   }
   if (recipient) {
     return n.isEmpty ? l10n.claimCardPick : l10n.claimCardPickNamed(n);
+  }
+  // A prediction says it is one (founder, 5 November 2026: "more clear we
+  // are sending the prediction").
+  if (data is PredictionCardData) {
+    return n.isEmpty
+        ? l10n.shareCardPredictionForYou
+        : l10n.shareCardPredictionForNamed(n);
   }
   return n.isEmpty ? l10n.shareCardPickForYou : l10n.shareCardPickForNamed(n);
 }

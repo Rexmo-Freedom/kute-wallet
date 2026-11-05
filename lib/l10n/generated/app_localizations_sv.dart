@@ -12683,4 +12683,51 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Rader';
+
+  @override
+  String get sendPredictionCta => 'Skicka prognos';
+
+  @override
+  String get sendInvestmentCta => 'Skicka investering';
+
+  @override
+  String get sendPickYourFriend => 'Din vän';
+
+  @override
+  String sendPickGets(String who, String amount, String market, String side) {
+    return '$who får $amount på $market — $side';
+  }
+
+  @override
+  String sendPickSideAtChance(String side, String chance) {
+    return '$side på $chance';
+  }
+
+  @override
+  String get sendPickHowItWorks => 'Hämta ut och lägg den med ett tryck';
+
+  @override
+  String get shareCardPredictionForYou => 'En prognos till dig';
+
+  @override
+  String shareCardPredictionForNamed(String name) {
+    return '$name, en prognos till dig';
+  }
+
+  @override
+  String get slipShareEnterAmount => 'Ange ett belopp att skicka';
+
+  @override
+  String slipShareMinimum(String amount) {
+    return 'Ange minst $amount för att skicka';
+  }
+
+  @override
+  String slipShareYesOnly(String outcome) {
+    return 'Bara Ja på $outcome kan skickas. Byt till Ja för att skicka.';
+  }
+
+  @override
+  String get sendPickMarketHow =>
+      'Hitta en marknad, välj sida och belopp och tryck sedan på Sal för att skicka';
 }

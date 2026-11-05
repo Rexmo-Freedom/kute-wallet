@@ -12724,4 +12724,51 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Rijen';
+
+  @override
+  String get sendPredictionCta => 'Voorspelling versturen';
+
+  @override
+  String get sendInvestmentCta => 'Belegging versturen';
+
+  @override
+  String get sendPickYourFriend => 'Je vriend';
+
+  @override
+  String sendPickGets(String who, String amount, String market, String side) {
+    return '$who krijgt $amount op $market — $side';
+  }
+
+  @override
+  String sendPickSideAtChance(String side, String chance) {
+    return '$side op $chance';
+  }
+
+  @override
+  String get sendPickHowItWorks => 'Claimen en met één tik plaatsen';
+
+  @override
+  String get shareCardPredictionForYou => 'Een voorspelling voor jou';
+
+  @override
+  String shareCardPredictionForNamed(String name) {
+    return '$name, een voorspelling voor jou';
+  }
+
+  @override
+  String get slipShareEnterAmount => 'Vul een bedrag in om te versturen';
+
+  @override
+  String slipShareMinimum(String amount) {
+    return 'Vul minstens $amount in om te versturen';
+  }
+
+  @override
+  String slipShareYesOnly(String outcome) {
+    return 'Alleen Ja op $outcome kan worden verstuurd. Kies Ja om het te versturen.';
+  }
+
+  @override
+  String get sendPickMarketHow =>
+      'Zoek een markt, kies een kant en bedrag en tik dan op Sal om te versturen';
 }

@@ -12747,4 +12747,51 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Rânduri';
+
+  @override
+  String get sendPredictionCta => 'Trimite predicția';
+
+  @override
+  String get sendInvestmentCta => 'Trimite investiția';
+
+  @override
+  String get sendPickYourFriend => 'Prietenul tău';
+
+  @override
+  String sendPickGets(String who, String amount, String market, String side) {
+    return '$who primește $amount pe $market — $side';
+  }
+
+  @override
+  String sendPickSideAtChance(String side, String chance) {
+    return '$side la $chance';
+  }
+
+  @override
+  String get sendPickHowItWorks => 'O revendică și o plasează cu o atingere';
+
+  @override
+  String get shareCardPredictionForYou => 'O predicție pentru tine';
+
+  @override
+  String shareCardPredictionForNamed(String name) {
+    return '$name, o predicție pentru tine';
+  }
+
+  @override
+  String get slipShareEnterAmount => 'Introdu o sumă de trimis';
+
+  @override
+  String slipShareMinimum(String amount) {
+    return 'Introdu cel puțin $amount ca să trimiți';
+  }
+
+  @override
+  String slipShareYesOnly(String outcome) {
+    return 'Se poate trimite doar Da pe $outcome. Treci pe Da ca să trimiți.';
+  }
+
+  @override
+  String get sendPickMarketHow =>
+      'Găsește o piață, alege partea și suma, apoi atinge Sal ca să trimiți';
 }

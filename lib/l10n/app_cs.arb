@@ -3569,5 +3569,17 @@
   "chartParamStochLength": "Délka stochastiku",
   "chartParamSmoothK": "Vyhlazení %K",
   "chartParamSmoothD": "Vyhlazení %D",
-  "chartParamRows": "Řádky"
+  "chartParamRows": "Řádky",
+  "sendPredictionCta": "Poslat predikci",
+  "sendInvestmentCta": "Poslat investici",
+  "sendPickYourFriend": "Tvůj kamarád",
+  "sendPickGets": "{who} dostane {amount} na {market} — {side}",
+  "sendPickSideAtChance": "{side} při {chance}",
+  "sendPickHowItWorks": "Vyzvedne si je a jedním klepnutím zadá",
+  "shareCardPredictionForYou": "Predikce pro tebe",
+  "shareCardPredictionForNamed": "{name}, predikce pro tebe",
+  "slipShareEnterAmount": "Zadej částku k odeslání",
+  "slipShareMinimum": "Pro odeslání zadej aspoň {amount}",
+  "slipShareYesOnly": "Poslat jde jen „Ano“ na {outcome}. Přepni na „Ano“ a pošli to.",
+  "sendPickMarketHow": "Najdi trh, vyber stranu a částku a pak klepni na Sal a pošli to"
 }

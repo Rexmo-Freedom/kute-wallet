@@ -456,7 +456,8 @@ void main() {
       expectRestrained(tester, code: true);
       expect(background(tester), ShareCardPalette.prediction.background);
       expect(shareCardPose(fakePredictionPick()), ShareCardPose.predict);
-      expect(textOf(tester, 'share-card-caps'), 'ANA, A PICK FOR YOU');
+      // It says it is a prediction (founder, 5 November 2026).
+      expect(textOf(tester, 'share-card-caps'), 'ANA, A PREDICTION FOR YOU');
       expect(find.text('LoL Worlds 2026 Final: Gen.G vs T1'), findsOneWidget);
       expect(textOf(tester, 'share-card-number'), '47%');
       expect(textOf(tester, 'share-card-fact'), 'Chance of Gen.G');
@@ -480,6 +481,11 @@ void main() {
               .getBottomLeft(find.byKey(const ValueKey('share-card-logo')))
               .dy));
       expect(textOf(tester, 'share-card-plain'), r'$10 on Gen.G');
+      // What was sent, in big type, the full ink.
+      final plain = tester.widget<Text>(
+          find.byKey(const ValueKey('share-card-plain')));
+      expect(plain.style!.fontSize, kShareCardPlainStrongSize);
+      expect(plain.style!.fontWeight, FontWeight.w800);
       // The line is the stock card's graphic, never a second one here.
       expect(find.byKey(const ValueKey('share-card-chart')), findsNothing);
     });

@@ -3569,5 +3569,17 @@
   "chartParamStochLength": "Duljina stohastike",
   "chartParamSmoothK": "Izglađivanje %K",
   "chartParamSmoothD": "Izglađivanje %D",
-  "chartParamRows": "Redovi"
+  "chartParamRows": "Redovi",
+  "sendPredictionCta": "Pošalji predviđanje",
+  "sendInvestmentCta": "Pošalji ulaganje",
+  "sendPickYourFriend": "Tvoj prijatelj",
+  "sendPickGets": "{who} dobiva {amount} na {market} — {side}",
+  "sendPickSideAtChance": "{side} uz {chance}",
+  "sendPickHowItWorks": "Preuzme ga i postavi jednim dodirom",
+  "shareCardPredictionForYou": "Predviđanje za tebe",
+  "shareCardPredictionForNamed": "{name}, predviđanje za tebe",
+  "slipShareEnterAmount": "Unesi iznos za slanje",
+  "slipShareMinimum": "Unesi barem {amount} za slanje",
+  "slipShareYesOnly": "Može se poslati samo Da na {outcome}. Prebaci na Da da ga pošalješ.",
+  "sendPickMarketHow": "Pronađi tržište, odaberi stranu i iznos, pa dodirni Sala za slanje"
 }

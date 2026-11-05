@@ -3569,5 +3569,17 @@
   "chartParamStochLength": "Stokastisk längd",
   "chartParamSmoothK": "%K-utjämning",
   "chartParamSmoothD": "%D-utjämning",
-  "chartParamRows": "Rader"
+  "chartParamRows": "Rader",
+  "sendPredictionCta": "Skicka prognos",
+  "sendInvestmentCta": "Skicka investering",
+  "sendPickYourFriend": "Din vän",
+  "sendPickGets": "{who} får {amount} på {market} — {side}",
+  "sendPickSideAtChance": "{side} på {chance}",
+  "sendPickHowItWorks": "Hämta ut och lägg den med ett tryck",
+  "shareCardPredictionForYou": "En prognos till dig",
+  "shareCardPredictionForNamed": "{name}, en prognos till dig",
+  "slipShareEnterAmount": "Ange ett belopp att skicka",
+  "slipShareMinimum": "Ange minst {amount} för att skicka",
+  "slipShareYesOnly": "Bara Ja på {outcome} kan skickas. Byt till Ja för att skicka.",
+  "sendPickMarketHow": "Hitta en marknad, välj sida och belopp och tryck sedan på Sal för att skicka"
 }

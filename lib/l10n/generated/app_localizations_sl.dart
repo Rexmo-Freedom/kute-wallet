@@ -12721,4 +12721,51 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Vrstice';
+
+  @override
+  String get sendPredictionCta => 'Pošlji napoved';
+
+  @override
+  String get sendInvestmentCta => 'Pošlji naložbo';
+
+  @override
+  String get sendPickYourFriend => 'Tvoj prijatelj';
+
+  @override
+  String sendPickGets(String who, String amount, String market, String side) {
+    return '$who dobi $amount na $market — $side';
+  }
+
+  @override
+  String sendPickSideAtChance(String side, String chance) {
+    return '$side pri $chance';
+  }
+
+  @override
+  String get sendPickHowItWorks => 'Prevzame in z enim dotikom odda';
+
+  @override
+  String get shareCardPredictionForYou => 'Napoved zate';
+
+  @override
+  String shareCardPredictionForNamed(String name) {
+    return '$name, napoved zate';
+  }
+
+  @override
+  String get slipShareEnterAmount => 'Vnesite znesek za pošiljanje';
+
+  @override
+  String slipShareMinimum(String amount) {
+    return 'Za pošiljanje vnesite vsaj $amount';
+  }
+
+  @override
+  String slipShareYesOnly(String outcome) {
+    return 'Poslati je mogoče le Da na $outcome. Preklopite na Da, da pošljete.';
+  }
+
+  @override
+  String get sendPickMarketHow =>
+      'Poiščite trg, izberite stran in znesek, nato tapnite Sal za pošiljanje';
 }
