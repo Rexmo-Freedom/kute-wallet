@@ -36,6 +36,8 @@
 //     outcome and the other one (No for Yes, the strongest rival of a
 //     named outcome), each with the market's chance. Never "bet", never a
 //     promise of a win.
+//   * A RECEIPT'S CARD (ReceiptCardData): its own caps line and edgy
+//     lines, receipt_card.dart; no headline.
 //   * THE FIGURES: prices, percents and amounts in the locale's own number
 //     format ("41 %", "242,10 $" in German).
 
@@ -43,6 +45,8 @@ import 'package:intl/intl.dart';
 
 import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/models/hyperliquid_market.dart' show HlMarket;
+import 'package:kute/screens/share/cards/receipt_card.dart'
+    show receiptCardEdges, receiptCardTopLine;
 import 'package:kute/screens/hyperliquid/components/hl_format.dart'
     show hlListPriceDecimals;
 import 'package:kute/screens/share/cards/share_card_data.dart';
@@ -252,6 +256,8 @@ List<String> shareCardEdges(AppLocalizations l10n, ShareCardData data) {
         ];
       }
       return [l10n.shareEdgeStockDiscount, l10n.shareEdgeStockPanic];
+    case final ReceiptCardData d:
+      return receiptCardEdges(l10n, d);
   }
 }
 
@@ -313,12 +319,14 @@ String shareCardEdge(AppLocalizations l10n, ShareCardData data, int seed) {
 
 /// The caps line at the top of [data]'s card (see the file header).
 String shareCardTopLine(AppLocalizations l10n, ShareCardData data) {
+  if (data is ReceiptCardData) return receiptCardTopLine(l10n, data);
   final n = data.recipient?.trim() ?? '';
   final recipient = data.audience == ShareCardAudience.recipient;
   final bool pick = switch (data) {
     MoneyCardData() => true,
     PredictionCardData(:final picked) => picked,
     InvestmentCardData(:final picked) => picked,
+    ReceiptCardData() => true,
   };
   if (!pick) {
     return data is InvestmentCardData ? l10n.trading : l10n.predictions;
@@ -345,12 +353,12 @@ String shareCardTopLine(AppLocalizations l10n, ShareCardData data) {
   return n.isEmpty ? l10n.shareCardPickForYou : l10n.shareCardPickForNamed(n);
 }
 
-/// The headline of [data] (see the file header); null on a money card
-/// or without the figure.
+/// The headline of [data] (see the file header); null on a money card, a
+/// receipt's card or without the figure.
 ShareCardHeadlineText? shareCardHeadline(
         AppLocalizations l10n, ShareCardData data) =>
     switch (data) {
-      MoneyCardData() => null,
+      MoneyCardData() || ReceiptCardData() => null,
       final PredictionCardData d => predictionHeadline(l10n, d),
       final InvestmentCardData d => investmentHeadline(l10n, d),
     };

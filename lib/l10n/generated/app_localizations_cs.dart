@@ -12162,6 +12162,79 @@ class AppLocalizationsCs extends AppLocalizations {
   String get receiptAskWhatHappened => 'What happened here?';
 
   @override
+  String receiptCardOnSide(String side) {
+    return 'Jsem pro $side';
+  }
+
+  @override
+  String get receiptCardEntryChance => 'Šance při mém vstupu';
+
+  @override
+  String get receiptCardCashedOut => 'Zpeněženo';
+
+  @override
+  String receiptCardSoldFor(String amount) {
+    return 'Prodáno za $amount';
+  }
+
+  @override
+  String get receiptCardNotThisTime => 'Tentokrát ne';
+
+  @override
+  String get receiptCardPaidOut => 'Vyplaceno';
+
+  @override
+  String get receiptCardMoved => 'Přesunuto';
+
+  @override
+  String get receiptEdgeNoBank => 'Při této platbě nebyla zraněna žádná banka.';
+
+  @override
+  String get receiptEdgeSentNext => 'Odesláno. Další.';
+
+  @override
+  String get receiptEdgeLanded => 'Dorazilo. Žádné formuláře.';
+
+  @override
+  String get receiptEdgeIncoming => 'Je na cestě. Trpělivost je funkce.';
+
+  @override
+  String get receiptEdgeMoved => 'Stejné peníze. Lepší místo.';
+
+  @override
+  String get receiptEdgeStacked => 'Zase o kousek víc.';
+
+  @override
+  String get receiptEdgeTookSome => 'Něco jsem si vzal ze stolu.';
+
+  @override
+  String get receiptEdgeLockedIn => 'Rozhodnuto. Teď čekáme.';
+
+  @override
+  String get receiptEdgeOnRecord => 'Můj odhad. Oficiálně.';
+
+  @override
+  String get receiptEdgeTookWin => 'Vzal jsem zisk a odešel.';
+
+  @override
+  String get receiptEdgeCutIt => 'Uťal jsem to. Jdu dál.';
+
+  @override
+  String get receiptEdgeInAndOut => 'Dovnitř a ven.';
+
+  @override
+  String get receiptEdgeWrongToday => 'Dnes vedle. Zítra znovu.';
+
+  @override
+  String get receiptEdgeLesson => 'Lekce zaplacena v plné výši.';
+
+  @override
+  String get receiptEdgeCollected => 'Trefil jsem to. Vybral jsem to.';
+
+  @override
+  String get receiptEdgeOpened => 'Jsem uvnitř. Teď je řada na trhu.';
+
+  @override
   String get receiptResult => 'Result';
 
   @override

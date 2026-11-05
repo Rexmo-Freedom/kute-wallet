@@ -12189,6 +12189,80 @@ class AppLocalizationsHr extends AppLocalizations {
   String get receiptAskWhatHappened => 'What happened here?';
 
   @override
+  String receiptCardOnSide(String side) {
+    return 'Ja sam za $side';
+  }
+
+  @override
+  String get receiptCardEntryChance => 'Šansa pri mom ulasku';
+
+  @override
+  String get receiptCardCashedOut => 'Unovčeno';
+
+  @override
+  String receiptCardSoldFor(String amount) {
+    return 'Prodano za $amount';
+  }
+
+  @override
+  String get receiptCardNotThisTime => 'Ne ovaj put';
+
+  @override
+  String get receiptCardPaidOut => 'Isplaćeno';
+
+  @override
+  String get receiptCardMoved => 'Premješteno';
+
+  @override
+  String get receiptEdgeNoBank =>
+      'Nijedna banka nije stradala u ovom plaćanju.';
+
+  @override
+  String get receiptEdgeSentNext => 'Poslano. Sljedeće.';
+
+  @override
+  String get receiptEdgeLanded => 'Stiglo. Bez ispunjavanja obrazaca.';
+
+  @override
+  String get receiptEdgeIncoming => 'Na putu je. Strpljenje je značajka.';
+
+  @override
+  String get receiptEdgeMoved => 'Isti novac. Bolje mjesto.';
+
+  @override
+  String get receiptEdgeStacked => 'Skupio sam još malo.';
+
+  @override
+  String get receiptEdgeTookSome => 'Uzeo sam malo sa stola.';
+
+  @override
+  String get receiptEdgeLockedIn => 'Odlučeno. Sad čekamo.';
+
+  @override
+  String get receiptEdgeOnRecord => 'Moja prognoza. Službeno.';
+
+  @override
+  String get receiptEdgeTookWin => 'Uzeo dobit i otišao.';
+
+  @override
+  String get receiptEdgeCutIt => 'Presjekao. Idem dalje.';
+
+  @override
+  String get receiptEdgeInAndOut => 'Unutra i van.';
+
+  @override
+  String get receiptEdgeWrongToday => 'Danas promašaj. Sutra opet.';
+
+  @override
+  String get receiptEdgeLesson => 'Lekcija plaćena u cijelosti.';
+
+  @override
+  String get receiptEdgeCollected => 'Predvidio. Naplatio.';
+
+  @override
+  String get receiptEdgeOpened => 'Unutra. Sad je na tržištu.';
+
+  @override
   String get receiptResult => 'Result';
 
   @override

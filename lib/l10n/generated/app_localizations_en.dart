@@ -12117,6 +12117,79 @@ class AppLocalizationsEn extends AppLocalizations {
   String get receiptAskWhatHappened => 'What happened here?';
 
   @override
+  String receiptCardOnSide(String side) {
+    return 'I\'m on $side';
+  }
+
+  @override
+  String get receiptCardEntryChance => 'Chance when I got in';
+
+  @override
+  String get receiptCardCashedOut => 'Cashed out';
+
+  @override
+  String receiptCardSoldFor(String amount) {
+    return 'Sold for $amount';
+  }
+
+  @override
+  String get receiptCardNotThisTime => 'Not this time';
+
+  @override
+  String get receiptCardPaidOut => 'Paid out';
+
+  @override
+  String get receiptCardMoved => 'Moved';
+
+  @override
+  String get receiptEdgeNoBank => 'No bank was harmed in this payment.';
+
+  @override
+  String get receiptEdgeSentNext => 'Sent. Next.';
+
+  @override
+  String get receiptEdgeLanded => 'Landed. No forms were filled.';
+
+  @override
+  String get receiptEdgeIncoming => 'On its way. Patience is a feature.';
+
+  @override
+  String get receiptEdgeMoved => 'Same money. Better spot.';
+
+  @override
+  String get receiptEdgeStacked => 'Stacked a little more.';
+
+  @override
+  String get receiptEdgeTookSome => 'Took some off the table.';
+
+  @override
+  String get receiptEdgeLockedIn => 'Locked in. Now we wait.';
+
+  @override
+  String get receiptEdgeOnRecord => 'My call. On the record.';
+
+  @override
+  String get receiptEdgeTookWin => 'Took the win and left.';
+
+  @override
+  String get receiptEdgeCutIt => 'Cut it. Moved on.';
+
+  @override
+  String get receiptEdgeInAndOut => 'In and out.';
+
+  @override
+  String get receiptEdgeWrongToday => 'Wrong today. Back tomorrow.';
+
+  @override
+  String get receiptEdgeLesson => 'Lesson paid in full.';
+
+  @override
+  String get receiptEdgeCollected => 'Called it. Collected it.';
+
+  @override
+  String get receiptEdgeOpened => 'In. Now it\'s up to the market.';
+
+  @override
   String get receiptResult => 'Result';
 
   @override

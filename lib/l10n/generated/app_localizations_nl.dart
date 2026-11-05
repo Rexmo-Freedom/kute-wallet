@@ -12201,6 +12201,80 @@ class AppLocalizationsNl extends AppLocalizations {
   String get receiptAskWhatHappened => 'What happened here?';
 
   @override
+  String receiptCardOnSide(String side) {
+    return 'Ik ga voor $side';
+  }
+
+  @override
+  String get receiptCardEntryChance => 'Kans toen ik instapte';
+
+  @override
+  String get receiptCardCashedOut => 'Uitgestapt';
+
+  @override
+  String receiptCardSoldFor(String amount) {
+    return 'Verkocht voor $amount';
+  }
+
+  @override
+  String get receiptCardNotThisTime => 'Niet deze keer';
+
+  @override
+  String get receiptCardPaidOut => 'Uitbetaald';
+
+  @override
+  String get receiptCardMoved => 'Verplaatst';
+
+  @override
+  String get receiptEdgeNoBank =>
+      'Bij deze betaling raakte geen enkele bank gewond.';
+
+  @override
+  String get receiptEdgeSentNext => 'Verstuurd. Volgende.';
+
+  @override
+  String get receiptEdgeLanded => 'Binnen. Geen formulier ingevuld.';
+
+  @override
+  String get receiptEdgeIncoming => 'Onderweg. Geduld is een feature.';
+
+  @override
+  String get receiptEdgeMoved => 'Zelfde geld. Betere plek.';
+
+  @override
+  String get receiptEdgeStacked => 'Weer wat bijgestapeld.';
+
+  @override
+  String get receiptEdgeTookSome => 'Wat van tafel gehaald.';
+
+  @override
+  String get receiptEdgeLockedIn => 'Vastgelegd. Nu wachten we.';
+
+  @override
+  String get receiptEdgeOnRecord => 'Mijn voorspelling. Officieel.';
+
+  @override
+  String get receiptEdgeTookWin => 'Winst gepakt en weg.';
+
+  @override
+  String get receiptEdgeCutIt => 'Afgekapt. Door.';
+
+  @override
+  String get receiptEdgeInAndOut => 'In en uit.';
+
+  @override
+  String get receiptEdgeWrongToday => 'Vandaag mis. Morgen weer.';
+
+  @override
+  String get receiptEdgeLesson => 'Leergeld volledig betaald.';
+
+  @override
+  String get receiptEdgeCollected => 'Voorspeld. Geïnd.';
+
+  @override
+  String get receiptEdgeOpened => 'Erin. Nu is de markt aan zet.';
+
+  @override
   String get receiptResult => 'Result';
 
   @override

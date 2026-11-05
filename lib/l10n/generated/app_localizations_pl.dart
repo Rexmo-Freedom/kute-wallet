@@ -12201,6 +12201,80 @@ class AppLocalizationsPl extends AppLocalizations {
   String get receiptAskWhatHappened => 'What happened here?';
 
   @override
+  String receiptCardOnSide(String side) {
+    return 'Jestem za $side';
+  }
+
+  @override
+  String get receiptCardEntryChance => 'Szansa przy moim wejściu';
+
+  @override
+  String get receiptCardCashedOut => 'Spieniężone';
+
+  @override
+  String receiptCardSoldFor(String amount) {
+    return 'Sprzedane za $amount';
+  }
+
+  @override
+  String get receiptCardNotThisTime => 'Nie tym razem';
+
+  @override
+  String get receiptCardPaidOut => 'Wypłacone';
+
+  @override
+  String get receiptCardMoved => 'Przeniesione';
+
+  @override
+  String get receiptEdgeNoBank =>
+      'Przy tej płatności nie ucierpiał żaden bank.';
+
+  @override
+  String get receiptEdgeSentNext => 'Wysłane. Następne.';
+
+  @override
+  String get receiptEdgeLanded => 'Dotarło. Zero formularzy.';
+
+  @override
+  String get receiptEdgeIncoming => 'Jest w drodze. Cierpliwość to funkcja.';
+
+  @override
+  String get receiptEdgeMoved => 'Te same pieniądze. Lepsze miejsce.';
+
+  @override
+  String get receiptEdgeStacked => 'Odłożone trochę więcej.';
+
+  @override
+  String get receiptEdgeTookSome => 'Zdjąłem trochę ze stołu.';
+
+  @override
+  String get receiptEdgeLockedIn => 'Postanowione. Teraz czekamy.';
+
+  @override
+  String get receiptEdgeOnRecord => 'Moja prognoza. Oficjalnie.';
+
+  @override
+  String get receiptEdgeTookWin => 'Wziąłem zysk i wyszedłem.';
+
+  @override
+  String get receiptEdgeCutIt => 'Ucięte. Idę dalej.';
+
+  @override
+  String get receiptEdgeInAndOut => 'Wejście i wyjście.';
+
+  @override
+  String get receiptEdgeWrongToday => 'Dziś pudło. Jutro znowu.';
+
+  @override
+  String get receiptEdgeLesson => 'Lekcja opłacona w całości.';
+
+  @override
+  String get receiptEdgeCollected => 'Przewidziałem. Odebrałem.';
+
+  @override
+  String get receiptEdgeOpened => 'W środku. Teraz kolej rynku.';
+
+  @override
   String get receiptResult => 'Result';
 
   @override

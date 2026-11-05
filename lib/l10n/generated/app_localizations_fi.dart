@@ -12176,6 +12176,80 @@ class AppLocalizationsFi extends AppLocalizations {
   String get receiptAskWhatHappened => 'What happened here?';
 
   @override
+  String receiptCardOnSide(String side) {
+    return 'Valintani: $side';
+  }
+
+  @override
+  String get receiptCardEntryChance => 'Todennäköisyys, kun tulin mukaan';
+
+  @override
+  String get receiptCardCashedOut => 'Kotiutettu';
+
+  @override
+  String receiptCardSoldFor(String amount) {
+    return 'Myyty hintaan $amount';
+  }
+
+  @override
+  String get receiptCardNotThisTime => 'Ei tällä kertaa';
+
+  @override
+  String get receiptCardPaidOut => 'Maksettu';
+
+  @override
+  String get receiptCardMoved => 'Siirretty';
+
+  @override
+  String get receiptEdgeNoBank =>
+      'Yksikään pankki ei vahingoittunut tässä maksussa.';
+
+  @override
+  String get receiptEdgeSentNext => 'Lähetetty. Seuraava.';
+
+  @override
+  String get receiptEdgeLanded => 'Perillä. Ei lomakkeita.';
+
+  @override
+  String get receiptEdgeIncoming => 'Tulossa. Kärsivällisyys on ominaisuus.';
+
+  @override
+  String get receiptEdgeMoved => 'Samat rahat. Parempi paikka.';
+
+  @override
+  String get receiptEdgeStacked => 'Vähän lisää kasaan.';
+
+  @override
+  String get receiptEdgeTookSome => 'Otin vähän pöydältä.';
+
+  @override
+  String get receiptEdgeLockedIn => 'Lukittu. Nyt odotetaan.';
+
+  @override
+  String get receiptEdgeOnRecord => 'Minun ennusteeni. Virallisesti.';
+
+  @override
+  String get receiptEdgeTookWin => 'Otin voiton ja lähdin.';
+
+  @override
+  String get receiptEdgeCutIt => 'Katkaisin. Eteenpäin.';
+
+  @override
+  String get receiptEdgeInAndOut => 'Sisään ja ulos.';
+
+  @override
+  String get receiptEdgeWrongToday => 'Tänään väärin. Huomenna uudestaan.';
+
+  @override
+  String get receiptEdgeLesson => 'Oppirahat maksettu täysin.';
+
+  @override
+  String get receiptEdgeCollected => 'Ennustin. Kotiutin.';
+
+  @override
+  String get receiptEdgeOpened => 'Mukana. Nyt on markkinan vuoro.';
+
+  @override
   String get receiptResult => 'Result';
 
   @override

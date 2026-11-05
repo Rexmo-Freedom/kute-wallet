@@ -360,5 +360,7 @@ extension ShareCardRecipientCopy on ShareCardData {
             amount: d.amount,
             recipient: d.recipient,
             audience: ShareCardAudience.recipient),
+        // A receipt's card is only ever the sharer's.
+        ReceiptCardData() => this,
       };
 }

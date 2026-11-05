@@ -12208,6 +12208,80 @@ class AppLocalizationsIt extends AppLocalizations {
   String get receiptAskWhatHappened => 'What happened here?';
 
   @override
+  String receiptCardOnSide(String side) {
+    return 'Sto con $side';
+  }
+
+  @override
+  String get receiptCardEntryChance => 'Probabilità al mio ingresso';
+
+  @override
+  String get receiptCardCashedOut => 'Incassato';
+
+  @override
+  String receiptCardSoldFor(String amount) {
+    return 'Venduto per $amount';
+  }
+
+  @override
+  String get receiptCardNotThisTime => 'Non stavolta';
+
+  @override
+  String get receiptCardPaidOut => 'Pagato';
+
+  @override
+  String get receiptCardMoved => 'Spostato';
+
+  @override
+  String get receiptEdgeNoBank =>
+      'Nessuna banca è stata maltrattata in questo pagamento.';
+
+  @override
+  String get receiptEdgeSentNext => 'Inviato. Avanti il prossimo.';
+
+  @override
+  String get receiptEdgeLanded => 'Arrivato. Nessun modulo compilato.';
+
+  @override
+  String get receiptEdgeIncoming => 'In arrivo. La pazienza è una funzione.';
+
+  @override
+  String get receiptEdgeMoved => 'Stessi soldi. Posto migliore.';
+
+  @override
+  String get receiptEdgeStacked => 'Accumulato un altro po\'.';
+
+  @override
+  String get receiptEdgeTookSome => 'Tolto qualcosa dal tavolo.';
+
+  @override
+  String get receiptEdgeLockedIn => 'Deciso. Ora si aspetta.';
+
+  @override
+  String get receiptEdgeOnRecord => 'La mia previsione. Agli atti.';
+
+  @override
+  String get receiptEdgeTookWin => 'Preso il guadagno e via.';
+
+  @override
+  String get receiptEdgeCutIt => 'Tagliato. Si va avanti.';
+
+  @override
+  String get receiptEdgeInAndOut => 'Dentro e fuori.';
+
+  @override
+  String get receiptEdgeWrongToday => 'Sbagliato oggi. Si torna domani.';
+
+  @override
+  String get receiptEdgeLesson => 'Lezione pagata per intero.';
+
+  @override
+  String get receiptEdgeCollected => 'Previsto. Incassato.';
+
+  @override
+  String get receiptEdgeOpened => 'Dentro. Ora tocca al mercato.';
+
+  @override
   String get receiptResult => 'Result';
 
   @override

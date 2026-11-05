@@ -9178,6 +9178,108 @@
   "@receiptAskWhatHappened": {
     "description": "The question Sal is asked when the person long-presses the bar on an Activity receipt (a transaction detail sheet)."
   },
+  "receiptCardOnSide": "I'm on {side}",
+  "@receiptCardOnSide": {
+    "description": "Receipt share card of a prediction placed: the caps line at the top, e.g. 'I'm on Yes'. {side} is the outcome picked (Yes, No or a name). Shown uppercased. Never 'bet'.",
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "receiptCardEntryChance": "Chance when I got in",
+  "@receiptCardEntryChance": {
+    "description": "Receipt share card of a prediction placed: the caption under the chance on the speedometer, the market's chance when the prediction was placed."
+  },
+  "receiptCardCashedOut": "Cashed out",
+  "@receiptCardCashedOut": {
+    "description": "Receipt share card of a prediction sold: the caps line at the top. Shown uppercased."
+  },
+  "receiptCardSoldFor": "Sold for {amount}",
+  "@receiptCardSoldFor": {
+    "description": "Receipt share card of a prediction sold: the line under the result, what it sold for. {amount} is formatted money.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "receiptCardNotThisTime": "Not this time",
+  "@receiptCardNotThisTime": {
+    "description": "Receipt share card of a prediction lost: the caps line at the top, dry and classy, never sad. Shown uppercased."
+  },
+  "receiptCardPaidOut": "Paid out",
+  "@receiptCardPaidOut": {
+    "description": "Receipt share card of a payout from a resolved prediction: the caps line at the top. Shown uppercased."
+  },
+  "receiptCardMoved": "Moved",
+  "@receiptCardMoved": {
+    "description": "Receipt share card of money moved between the person's own accounts: the caps line at the top. Shown uppercased."
+  },
+  "receiptEdgeNoBank": "No bank was harmed in this payment.",
+  "@receiptEdgeNoBank": {
+    "description": "Receipt share card, the short deadpan line on a send. PG, no promise of profit."
+  },
+  "receiptEdgeSentNext": "Sent. Next.",
+  "@receiptEdgeSentNext": {
+    "description": "Receipt share card, the short deadpan line on a send."
+  },
+  "receiptEdgeLanded": "Landed. No forms were filled.",
+  "@receiptEdgeLanded": {
+    "description": "Receipt share card, the short deadpan line on money received."
+  },
+  "receiptEdgeIncoming": "On its way. Patience is a feature.",
+  "@receiptEdgeIncoming": {
+    "description": "Receipt share card, the short deadpan line on money still on its way in."
+  },
+  "receiptEdgeMoved": "Same money. Better spot.",
+  "@receiptEdgeMoved": {
+    "description": "Receipt share card, the short deadpan line on money moved between the person's own accounts."
+  },
+  "receiptEdgeStacked": "Stacked a little more.",
+  "@receiptEdgeStacked": {
+    "description": "Receipt share card, the short deadpan line on bitcoin bought."
+  },
+  "receiptEdgeTookSome": "Took some off the table.",
+  "@receiptEdgeTookSome": {
+    "description": "Receipt share card, the short deadpan line on bitcoin sold."
+  },
+  "receiptEdgeLockedIn": "Locked in. Now we wait.",
+  "@receiptEdgeLockedIn": {
+    "description": "Receipt share card, the short deadpan line on a prediction placed. Never 'bet', no promise of a win."
+  },
+  "receiptEdgeOnRecord": "My call. On the record.",
+  "@receiptEdgeOnRecord": {
+    "description": "Receipt share card, the short deadpan line on a prediction placed or a trade opened: the call is on record."
+  },
+  "receiptEdgeTookWin": "Took the win and left.",
+  "@receiptEdgeTookWin": {
+    "description": "Receipt share card, the short deadpan line on a prediction sold or a trade closed in profit."
+  },
+  "receiptEdgeCutIt": "Cut it. Moved on.",
+  "@receiptEdgeCutIt": {
+    "description": "Receipt share card, the short deadpan line on a prediction sold or a trade closed at a loss."
+  },
+  "receiptEdgeInAndOut": "In and out.",
+  "@receiptEdgeInAndOut": {
+    "description": "Receipt share card, the short deadpan line on a prediction sold or a trade closed with no result to speak of."
+  },
+  "receiptEdgeWrongToday": "Wrong today. Back tomorrow.",
+  "@receiptEdgeWrongToday": {
+    "description": "Receipt share card, the short deadpan line on a prediction lost. Dry, classy, never sad."
+  },
+  "receiptEdgeLesson": "Lesson paid in full.",
+  "@receiptEdgeLesson": {
+    "description": "Receipt share card, the short deadpan line on a prediction lost. Dry, classy, never sad."
+  },
+  "receiptEdgeCollected": "Called it. Collected it.",
+  "@receiptEdgeCollected": {
+    "description": "Receipt share card, the short deadpan line on a payout from a prediction that won."
+  },
+  "receiptEdgeOpened": "In. Now it's up to the market.",
+  "@receiptEdgeOpened": {
+    "description": "Receipt share card, the short deadpan line on an Investing trade opened. No promise of profit."
+  },
   "receiptResult": "Result",
   "@receiptResult": {
     "description": "Activity receipt tile label: the realised profit or loss of a sale or payout."
