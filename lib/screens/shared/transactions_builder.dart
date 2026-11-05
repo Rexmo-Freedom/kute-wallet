@@ -93,6 +93,9 @@ import 'package:kute/helpers/prediction_results.dart'
     show PredictionResult, predictionResults;
 import 'package:kute/screens/share/brag/brag_data.dart'
     show bragWonPrediction;
+import 'package:kute/screens/share/cards/share_card_data.dart'
+    show ReceiptCardAsset, ReceiptCardKind;
+import 'package:kute/screens/share/receipt_share.dart';
 import 'package:kute/screens/share/brag/brag_win_entry.dart'
     show BragWinEntry;
 import 'package:kute/screens/polymarket/market_detail_sheet.dart'
@@ -2220,11 +2223,16 @@ void _showPolymarketUsdcReceiveDetails(
                 _sheetDetailRow(c, context.l10n.activityTxHash, hash,
                     copiable: true, isAddress: true, ctx: ctx),
               ]),
-              // The explorer is the bar's primary button.
+              // The explorer is the bar's primary button; the round Sal
+              // button beside it shares the card.
               ReceiptBarAction(
                 label: context.l10n.activityViewOnBlockchain,
                 onPrimary: () =>
                     _openExplorer(Uri.parse('https://polygonscan.com/tx/$hash')),
+                share: moneyReceiptShare(
+                    type: ReceiptCardKind.received,
+                    asset: ReceiptCardAsset.dollars,
+                    usd: tx.amount.toDouble()),
               ),
             ],
           ),
@@ -2288,6 +2296,10 @@ void _showNativeUsdcSendDetails(
                 label: context.l10n.activityViewOnBlockchain,
                 onPrimary: () => _openExplorer(Uri.parse(
                     'https://polygonscan.com/address/${details.withdrawalAddress}')),
+                share: moneyReceiptShare(
+                    type: ReceiptCardKind.sent,
+                    asset: ReceiptCardAsset.dollars,
+                    usd: double.tryParse(details.depositAmount)),
               ),
             ],
           ),
@@ -2558,12 +2570,43 @@ void _showOutlogicTxDetails(
                   _sheetDetailRow(c, context.l10n.orderId, order.id,
                       copiable: true, ctx: ctx),
                 ]),
-                const ReceiptBarAction.none(),
+                // A done purchase or sale shares its card (Done beside it);
+                // an order still waiting, or one that failed, does not.
+                ReceiptBarAction.none(
+                    share: statusColor == AppColors.success
+                        ? _outlogicShare(context, tx)
+                        : null),
               ],
             ),
           )),
     );
     },
+  );
+}
+
+/// A done bank order's card (receipt_share.dart): the bitcoin bought or
+/// sold, and the money paid or got in the order's own currency.
+ReceiptShare _outlogicShare(BuildContext context, OutlogicTransaction tx) {
+  final order = tx.details;
+  final trade = order.trade;
+  final isBuy = tx.isBuy;
+  final btc = isBuy ? trade?.toAmount : order.fromAmount;
+  final fiat = isBuy ? order.fromAmount : trade?.toAmount;
+  String? money;
+  if (fiat != null && fiat > 0) {
+    try {
+      money = NumberFormat.simpleCurrency(
+              locale: context.l10n.localeName, name: tx.fiatAsset)
+          .format(fiat);
+    } catch (_) {
+      money = '${fiat.toStringAsFixed(2)} ${tx.fiatAsset}';
+    }
+  }
+  return moneyReceiptShare(
+    type: isBuy ? ReceiptCardKind.bought : ReceiptCardKind.sold,
+    asset: ReceiptCardAsset.bitcoin,
+    amount: money,
+    sats: btc == null || btc <= 0 ? null : (btc * 100000000).round(),
   );
 }
 
@@ -2652,6 +2695,11 @@ void _showPendingUnclaimedSheet(
   TrackingService.transactionDetailViewed('spark_unclaimed_pending');
   final dateStr = activitySheetDate(context, tx.timestamp);
   final txid = tx.txid;
+  // On its way in: the round Sal button shares it.
+  final share = moneyReceiptShare(
+      type: ReceiptCardKind.incoming,
+      asset: ReceiptCardAsset.bitcoin,
+      sats: tx.amount.toInt());
 
   showAppBottomSheet(
     context: context,
@@ -2707,6 +2755,7 @@ void _showPendingUnclaimedSheet(
                           _openExplorer(
                               Uri.parse('https://mempool.space/tx/$txid'));
                         },
+                  share: share,
                 ),
               ] else ...[
                 SizedBox(height: 8.h),
@@ -2718,9 +2767,10 @@ void _showPendingUnclaimedSheet(
                       _openExplorer(
                           Uri.parse('https://mempool.space/tx/$txid'));
                     },
+                    share: share,
                   )
                 else
-                  const ReceiptBarAction.none(),
+                  ReceiptBarAction.none(share: share),
               ],
             ],
           ),
@@ -2853,6 +2903,14 @@ void _showTrackedBitcoinTxDetails(BuildContext context, WidgetRef ref,
                           Navigator.of(ctx).pop();
                           router.push('/search_modal');
                         },
+                        share: moneyReceiptShare(
+                            type: !isReceive
+                                ? ReceiptCardKind.sent
+                                : tx.isConfirmed
+                                    ? ReceiptCardKind.received
+                                    : ReceiptCardKind.incoming,
+                            asset: ReceiptCardAsset.bitcoin,
+                            sats: tx.details.balanceChange.abs()),
                       ),
                     ])),
               ));
@@ -2909,6 +2967,11 @@ void _showSparkPendingDepositDetails(
   final amountSats = tx.amount.toInt();
   final dateStr = activitySheetDate(context, tx.timestamp);
   final txid = tx.mempoolTx.txid;
+  // On its way in: the round Sal button shares it.
+  final share = moneyReceiptShare(
+      type: ReceiptCardKind.incoming,
+      asset: ReceiptCardAsset.bitcoin,
+      sats: amountSats);
 
   showAppBottomSheet(
     context: context,
@@ -2969,6 +3032,7 @@ void _showSparkPendingDepositDetails(
                     context.pop();
                     _openExplorer(Uri.parse('https://mempool.space/tx/$txid'));
                   },
+                  share: share,
                 ),
               ] else
                 ReceiptBarAction(
@@ -2977,6 +3041,7 @@ void _showSparkPendingDepositDetails(
                     context.pop();
                     _openExplorer(Uri.parse('https://mempool.space/tx/$txid'));
                   },
+                  share: share,
                 ),
             ],
           ),
@@ -3110,7 +3175,8 @@ void _showUsdbTokenTxDetails(
                     isAddress: true,
                     ctx: ctx),
               ]),
-              // SparkScan is the bar's primary button.
+              // SparkScan is the bar's primary button; the round Sal
+              // button shares the card, unless the payment failed.
               ReceiptBarAction(
                 label: context.l10n.activityViewOnBlockchain,
                 onPrimary: () {
@@ -3120,6 +3186,16 @@ void _showUsdbTokenTxDetails(
                   _openExplorer(Uri.parse(
                       'https://sparkscan.io/tx/$cleanId?network=mainnet'));
                 },
+                share: payment.status == breez.PaymentStatus.failed
+                    ? null
+                    : moneyReceiptShare(
+                        type: isSend
+                            ? ReceiptCardKind.sent
+                            : payment.status == breez.PaymentStatus.pending
+                                ? ReceiptCardKind.incoming
+                                : ReceiptCardKind.received,
+                        asset: ReceiptCardAsset.dollars,
+                        usd: tx.amount.toInt() / 1e6),
               ),
             ],
           ),
@@ -3956,8 +4032,10 @@ class _SwapOrderDetailSheetState extends ConsumerState<_SwapOrderDetailSheet> {
 
                 if (isOrchestra) OrchestraSwapRefundAction(order: details),
 
-                // Track this exchange is the bar's primary button.
-                ..._orchestraTrackExchange(context, c, details, bar: true),
+                // Track this exchange is the bar's primary button, the
+                // round Sal button beside it sharing the receipt's card.
+                ..._orchestraTrackExchange(context, c, details,
+                    bar: true, share: _swapReceiptShare(context, details)),
               ],
             ),
           ),
@@ -3965,6 +4043,189 @@ class _SwapOrderDetailSheetState extends ConsumerState<_SwapOrderDetailSheet> {
       ),
     );
   }
+}
+
+/// What a swap order's receipt shares (receipt_share.dart), by what its
+/// row says it is: a purchase (Cash App) BOUGHT, once paid and done;
+/// dollars into bitcoin (Withdraw · from Dollars) or any conversion into
+/// bitcoin BOUGHT · BITCOIN, out of it SOLD · BITCOIN; another move between
+/// the person's own balances MOVED ("Bitcoin → Predictions"); a send to
+/// someone SENT; a receive RECEIVED (ON ITS WAY until it lands).
+/// Nothing for an order that failed, expired, was refunded or is held, a
+/// retired provider's order or a stuck deposit.
+ReceiptShare? _swapReceiptShare(BuildContext context, SwapOrder d) {
+  const stopped = {
+    'expired',
+    'overdue',
+    'unfulfilled',
+    'failed',
+    'emergency',
+    'settle_data_error',
+    'refunded',
+    'held',
+    'refund_requested',
+  };
+  if (d.isUntrackedLegacyOrder ||
+      d.isExpired ||
+      d.isStuckStandingDeposit ||
+      stopped.contains(d.status)) {
+    return null;
+  }
+  final l10n = context.l10n;
+  final activity = swapActivityFor(d);
+  double value(String raw, String coin) =>
+      d.isOrchestra ? orchestraRowAmount(raw, coin) : double.tryParse(raw) ?? 0;
+  int? satsOf(String raw, String coin) {
+    if (coin.toUpperCase() != 'BTC') return null;
+    final v = value(raw, coin);
+    return v > 0 ? (v * 100000000).round() : null;
+  }
+
+  double? usdOf(String raw, String coin) {
+    if (!_isDollarCoin(coin)) return null;
+    final v = value(raw, coin);
+    return v > 0 ? v : null;
+  }
+
+  final inSats = satsOf(d.depositAmount, d.coinFrom);
+  final outSats = satsOf(d.withdrawalAmount, d.coinTo);
+  final inUsd = usdOf(d.depositAmount, d.coinFrom);
+  final outUsd = usdOf(d.withdrawalAmount, d.coinTo);
+  String leg(String code, String network) =>
+      _swapSheetLegLabel(context, code, network);
+
+  // A dollar transfer on one chain (an older build's "Native" row): a send.
+  if (_isDollarCoin(d.coinFrom) &&
+      _isDollarCoin(d.coinTo) &&
+      d.networkFrom.toUpperCase() == d.networkTo.toUpperCase()) {
+    return inUsd == null
+        ? null
+        : moneyReceiptShare(
+            type: ReceiptCardKind.sent,
+            asset: ReceiptCardAsset.dollars,
+            usd: inUsd);
+  }
+
+  if (d.isCashAppPurchase) {
+    if (!d.isComplete) return null;
+    final asset = switch (cashAppDestination(d)) {
+      CashAppDestination.predictions => ReceiptCardAsset.predictions,
+      CashAppDestination.investing => ReceiptCardAsset.investing,
+      CashAppDestination.dollars => ReceiptCardAsset.dollars,
+      _ => ReceiptCardAsset.bitcoin,
+    };
+    return moneyReceiptShare(
+      type: ReceiptCardKind.bought,
+      asset: asset,
+      usd: double.tryParse(d.purchaseFiatUsd ?? '') ?? outUsd,
+      sats: outSats,
+      what: _cashAppDestinationLabel(context, d),
+    );
+  }
+
+  final venueBitcoinMove = (activity.isPredictions || activity.isInvesting) &&
+      orchestraTouchesBitcoin(d);
+  // Dollars into bitcoin is a purchase, bitcoin into dollars a sale.
+  if (activity.isDollars && outSats != null && inUsd != null) {
+    return moneyReceiptShare(
+        type: ReceiptCardKind.bought,
+        asset: ReceiptCardAsset.bitcoin,
+        usd: inUsd,
+        sats: outSats,
+        what: l10n.bitcoin);
+  }
+  if (activity.isDollars && inSats != null && outUsd != null) {
+    return moneyReceiptShare(
+        type: ReceiptCardKind.sold,
+        asset: ReceiptCardAsset.bitcoin,
+        usd: outUsd,
+        sats: inSats,
+        what: l10n.bitcoin);
+  }
+  if (activity.isPredictions ||
+      activity.isInvesting ||
+      activity.isDollars ||
+      venueBitcoinMove) {
+    // A move between the person's own balances.
+    final venue = activity.isPredictions && !venueBitcoinMove
+        ? l10n.predictions
+        : activity.isInvesting && !venueBitcoinMove
+            ? l10n.trading
+            : l10n.assetDollars;
+    final venueAsset = activity.isPredictions && !venueBitcoinMove
+        ? ReceiptCardAsset.predictions
+        : activity.isInvesting && !venueBitcoinMove
+            ? ReceiptCardAsset.investing
+            : ReceiptCardAsset.dollars;
+    final deposit = activity.isDeposit;
+    return moneyReceiptShare(
+      type: ReceiptCardKind.moved,
+      asset: deposit
+          ? venueAsset
+          : d.coinTo.toUpperCase() == 'BTC'
+              ? ReceiptCardAsset.bitcoin
+              : ReceiptCardAsset.dollars,
+      usd: inUsd ?? outUsd,
+      sats: deposit ? inSats : outSats ?? inSats,
+      from: deposit ? leg(d.coinFrom, d.networkFrom) : venue,
+      to: deposit ? venue : leg(d.coinTo, d.networkTo),
+    );
+  }
+
+  if (activity.isExternal) {
+    if (activity == SwapActivityKind.send) {
+      if (_isDollarFundedSend(d, activity) || inUsd != null) {
+        return moneyReceiptShare(
+            type: ReceiptCardKind.sent,
+            asset: ReceiptCardAsset.dollars,
+            usd: inUsd);
+      }
+      if (inSats == null) return null;
+      return moneyReceiptShare(
+          type: ReceiptCardKind.sent,
+          asset: ReceiptCardAsset.bitcoin,
+          sats: inSats);
+    }
+    final landed = d.isComplete && !OwnSparkArrivals.awaitingCredit(d.id);
+    final type = landed ? ReceiptCardKind.received : ReceiptCardKind.incoming;
+    if (outSats != null) {
+      return moneyReceiptShare(
+          type: type, asset: ReceiptCardAsset.bitcoin, sats: outSats);
+    }
+    if (outUsd != null || inUsd != null) {
+      return moneyReceiptShare(
+          type: type,
+          asset: ReceiptCardAsset.dollars,
+          usd: outUsd ?? inUsd);
+    }
+    return null;
+  }
+
+  // A conversion: into bitcoin is a purchase, out of it a sale.
+  if (outSats != null && inUsd != null) {
+    return moneyReceiptShare(
+        type: ReceiptCardKind.bought,
+        asset: ReceiptCardAsset.bitcoin,
+        usd: inUsd,
+        sats: outSats,
+        what: l10n.bitcoin);
+  }
+  if (inSats != null && outUsd != null) {
+    return moneyReceiptShare(
+        type: ReceiptCardKind.sold,
+        asset: ReceiptCardAsset.bitcoin,
+        usd: outUsd,
+        sats: inSats,
+        what: l10n.bitcoin);
+  }
+  if (outSats == null && inSats == null) return null;
+  return moneyReceiptShare(
+    type: ReceiptCardKind.moved,
+    asset: ReceiptCardAsset.bitcoin,
+    sats: outSats ?? inSats,
+    from: leg(d.coinFrom, d.networkFrom),
+    to: leg(d.coinTo, d.networkTo),
+  );
 }
 
 /// What became of a one-time receive's deposit that could not complete:
@@ -4161,10 +4422,13 @@ void Function(Uri uri)? debugOrchestraTrackLaunch;
 /// primary ([ReceiptBarAction]); with no order to track, the default bar
 /// and the room under the content. Otherwise (a leg's own Nerd data) the
 /// outlined button in place.
+/// [share]: the receipt's round Sal button beside the bar (with no order
+/// to track, beside Done).
 List<Widget> _orchestraTrackExchange(
     BuildContext context, AppColorsExtension c, SwapOrder details,
-    {bool bar = false}) {
-  final none = bar ? const [ReceiptBarAction.none()] : const <Widget>[];
+    {bool bar = false, ReceiptShare? share}) {
+  final none =
+      bar ? [ReceiptBarAction.none(share: share)] : const <Widget>[];
   if (details.id.isEmpty ||
       details.isStuckStandingDeposit ||
       !details.isOrchestra) {
@@ -4177,7 +4441,11 @@ List<Widget> _orchestraTrackExchange(
       !orchestraTrackResolvable(details)) {
     return none;
   }
-  if (bar) return [_OrchestraTrackExchangeButton(order: details, bar: true)];
+  if (bar) {
+    return [
+      _OrchestraTrackExchangeButton(order: details, bar: true, share: share)
+    ];
+  }
   return [
     SizedBox(height: 20.h),
     _OrchestraTrackExchangeButton(order: details),
@@ -4186,12 +4454,16 @@ List<Widget> _orchestraTrackExchange(
 }
 
 class _OrchestraTrackExchangeButton extends ConsumerStatefulWidget {
-  const _OrchestraTrackExchangeButton({required this.order, this.bar = false});
+  const _OrchestraTrackExchangeButton(
+      {required this.order, this.bar = false, this.share});
 
   final SwapOrder order;
 
   /// The receipt's action: the bar's primary button, not one in place.
   final bool bar;
+
+  /// The receipt's round Sal button beside the bar.
+  final ReceiptShare? share;
 
   @override
   ConsumerState<_OrchestraTrackExchangeButton> createState() =>
@@ -4295,6 +4567,7 @@ class _OrchestraTrackExchangeButtonState
         label: context.l10n.activityTrackExchange,
         onPrimary: _open,
         busy: _resolving,
+        share: widget.share,
       );
     }
     return SizedBox(
@@ -4671,17 +4944,22 @@ void _showPolymarketTxDetails(
               // The transaction hash is deliberately not shown on a trade
               // (owner decision); the explorer, the bar's primary button,
               // still opens it. A just-placed row keyed by its CLOB trade
-              // id has no chain hash yet, and keeps the default bar.
+              // id has no chain hash yet: Done is its primary. The round
+              // Sal button beside either shares the receipt's card.
               SizedBox(height: 8.h),
-              if (PolymarketOptimisticActivityService.isChainTxHash(
-                  activity.transactionHash))
-                ReceiptBarAction(
-                  label: context.l10n.activityViewOnBlockchain,
-                  onPrimary: () => _openExplorer(Uri.parse(
-                      'https://polygonscan.com/tx/${activity.transactionHash}')),
-                )
-              else
-                const ReceiptBarAction.none(),
+              Consumer(builder: (context, ref, _) {
+                final share =
+                    _polymarketShare(context, ref, tx, salePnl: resultPnl);
+                return PolymarketOptimisticActivityService.isChainTxHash(
+                        activity.transactionHash)
+                    ? ReceiptBarAction(
+                        label: context.l10n.activityViewOnBlockchain,
+                        onPrimary: () => _openExplorer(Uri.parse(
+                            'https://polygonscan.com/tx/${activity.transactionHash}')),
+                        share: share,
+                      )
+                    : ReceiptBarAction.none(share: share);
+              }),
             ],
           ),
         ),
@@ -4689,6 +4967,90 @@ void _showPolymarketTxDetails(
     );
     },
   );
+}
+
+/// What a Predictions receipt's round Sal button shares
+/// (receipt_share.dart): a prediction placed ("I'M ON YES" at the price
+/// paid), sold (its result, [salePnl], as the Result tile reads it), a
+/// payout (the won card when its cost is known, else "PAID OUT"), a lost
+/// prediction's redeem, money moved in or out of Predictions. A merge or
+/// a split shares nothing.
+ReceiptShare? _polymarketShare(BuildContext context, WidgetRef ref,
+    PolymarketTransaction tx, {double? salePnl}) {
+  final l10n = context.l10n;
+  final activity = tx.activity;
+  final title = (activity.title ?? '').trim();
+  final side = activity.outcome;
+  final slug = activity.eventSlug;
+  switch (tx.activityType) {
+    case ActivityType.trade:
+      if (title.isEmpty) return null;
+      final sell = activity.side?.toUpperCase() == 'SELL';
+      return predictionReceiptShare(
+        type: sell ? ReceiptCardKind.cashedOut : ReceiptCardKind.predicted,
+        title: title,
+        side: side,
+        imageUrl: activityCrestIcon(ref, activity),
+        eventSlug: slug,
+        chance: sell ? null : activity.price,
+        usd: tx.usdcAmount,
+        pnlUsd: sell ? salePnl : null,
+      );
+    case ActivityType.redeem:
+      if (title.isEmpty) return null;
+      final image = activityCrestIcon(ref, activity);
+      final stake = predictionStakeOnMarket(_polymarketHistory(ref), activity);
+      if (tx.usdcAmount > 0.001) {
+        final payout = tx.usdcAmount;
+        return predictionReceiptShare(
+          type: ReceiptCardKind.paidOut,
+          title: title,
+          side: side,
+          imageUrl: image,
+          eventSlug: slug,
+          usd: payout,
+          won: (watch) => bragWonPrediction(
+            watch,
+            title: title,
+            side: side ?? '',
+            resolved: true,
+            won: true,
+            costUsd: stake,
+            payoutUsd: payout,
+            shares: activity.size,
+            eventSlug: slug,
+            imageUrl: image,
+            resolvedAt: tx.timestamp,
+          ),
+        );
+      }
+      // A losing side redeemed for nothing: the stake it cost, when known.
+      if (stake <= 0) return null;
+      return predictionReceiptShare(
+        type: ReceiptCardKind.lost,
+        title: title,
+        side: side,
+        imageUrl: image,
+        eventSlug: slug,
+        usd: stake,
+      );
+    case ActivityType.deposit:
+      return moneyReceiptShare(
+          type: ReceiptCardKind.moved,
+          asset: ReceiptCardAsset.predictions,
+          usd: tx.usdcAmount,
+          from: l10n.activityYourWallet,
+          to: l10n.predictions);
+    case ActivityType.withdraw:
+      return moneyReceiptShare(
+          type: ReceiptCardKind.moved,
+          asset: ReceiptCardAsset.dollars,
+          usd: tx.usdcAmount,
+          from: l10n.predictions,
+          to: l10n.activityYourWallet);
+    default:
+      return null;
+  }
 }
 
 /// The receipt tile of how a prediction or a trade did against holding
@@ -4739,6 +5101,41 @@ void showPredictionResultDetails(BuildContext context, PredictionResult result,
             final pnl = result.pnlUsd;
             final event =
                 slug.isEmpty ? null : ref.watch(polyPositionEventProvider(slug));
+            final image = activityCrestIcon(ref, activity);
+            final share = title.isEmpty
+                ? null
+                : result.won
+                    ? predictionReceiptShare(
+                        type: ReceiptCardKind.paidOut,
+                        title: title,
+                        side: activity.outcome,
+                        imageUrl: image,
+                        eventSlug: slug,
+                        usd: result.payoutUsd,
+                        won: (watch) => bragWonPrediction(
+                          watch,
+                          title: title,
+                          side: activity.outcome ?? '',
+                          resolved: true,
+                          won: true,
+                          costUsd: result.stakeUsd,
+                          payoutUsd: result.payoutUsd,
+                          shares: activity.size,
+                          eventSlug: slug,
+                          imageUrl: image,
+                          resolvedAt: tx.timestamp,
+                        ),
+                      )
+                    : result.stakeUsd <= 0
+                        ? null
+                        : predictionReceiptShare(
+                            type: ReceiptCardKind.lost,
+                            title: title,
+                            side: activity.outcome,
+                            imageUrl: image,
+                            eventSlug: slug,
+                            usd: result.stakeUsd,
+                          );
             return Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -4786,7 +5183,8 @@ void showPredictionResultDetails(BuildContext context, PredictionResult result,
                   ReceiptLongRow(label: l.betMarketCategory, value: title),
                 SizedBox(height: 8.h),
                 // The market is the bar's primary button once its event is
-                // known.
+                // known (Done until then); the round Sal button beside it
+                // shares the result: the won card, or a loss's dry card.
                 if (event != null)
                   ReceiptBarAction(
                     label: l.salViewMarket,
@@ -4794,9 +5192,10 @@ void showPredictionResultDetails(BuildContext context, PredictionResult result,
                         event: event,
                         ledgerWalletId: ledgerWalletId,
                         source: 'activity'),
+                    share: share,
                   )
                 else
-                  const ReceiptBarAction.none(),
+                  ReceiptBarAction.none(share: share),
               ],
             );
           }),
@@ -5017,6 +5416,20 @@ void _showBitcoinTxDetails(
   // node) when > 0; cached entries have no fee and just skip the node.
   final feeSats = details?.fee?.toSat() ?? 0;
 
+  // The amount the hero shows (transactionAmount), for the share card.
+  final int shareSats;
+  if (details != null) {
+    final received = details.received.toSat();
+    final sent = details.sent.toSat();
+    shareSats = received == 0 && sent > 0
+        ? sent
+        : sent == 0 && received > 0
+            ? received
+            : (received - sent).abs();
+  } else {
+    shareSats = (tx.receivedSats - tx.sentSats).abs();
+  }
+
   // Technical
   final txid = details?.txid.toString() ?? tx.id;
   String? feeRate;
@@ -5139,7 +5552,8 @@ void _showBitcoinTxDetails(
                       // A Ledger funding transaction whose settlement is pending keeps
                       // its Ledger account one tap away (Phase 5 plan B13).
                       _LedgerSettlementLink(txid: txid),
-                      // The mempool explorer is the bar's primary button.
+                      // The mempool explorer is the bar's primary button; the
+                      // round Sal button beside it shares the card.
                       ReceiptBarAction(
                         label: context.l10n.activityViewOnBlockchain,
                         onPrimary: () {
@@ -5147,6 +5561,14 @@ void _showBitcoinTxDetails(
                           _openExplorer(
                               Uri.parse('https://mempool.space/tx/$txid'));
                         },
+                        share: moneyReceiptShare(
+                            type: !isReceive
+                                ? ReceiptCardKind.sent
+                                : isPending
+                                    ? ReceiptCardKind.incoming
+                                    : ReceiptCardKind.received,
+                            asset: ReceiptCardAsset.bitcoin,
+                            sats: shareSats),
                       ),
                     ],
                   ),
@@ -5375,7 +5797,8 @@ void _showSparkTxDetails(
                             isAddress: true,
                             ctx: ctx),
                       ]),
-                      // The explorer is the bar's primary button.
+                      // The explorer is the bar's primary button; the round
+                      // Sal button shares the card, unless it failed.
                       ReceiptBarAction(
                         label: context.l10n.activityViewOnBlockchain,
                         onPrimary: () {
@@ -5385,6 +5808,16 @@ void _showSparkTxDetails(
                           _openExplorer(Uri.parse(
                               'https://sparkscan.io/tx/$cleanId?network=mainnet'));
                         },
+                        share: payment?.status == breez.PaymentStatus.failed
+                            ? null
+                            : moneyReceiptShare(
+                                type: isSend
+                                    ? ReceiptCardKind.sent
+                                    : tx.isPending
+                                        ? ReceiptCardKind.incoming
+                                        : ReceiptCardKind.received,
+                                asset: ReceiptCardAsset.bitcoin,
+                                sats: amountSat),
                       ),
                     ],
                   ),
@@ -6689,6 +7122,43 @@ class _MultiSourceMoveDetailSheetState
         !primary &&
         finish == null;
 
+    // The round Sal button: what the move did, once it is done or on its
+    // way (never while a leg needs the person): a send SENT, any other
+    // move MOVED, in the colour of where it went.
+    final ReceiptShare? moveShare;
+    if (tx.partial || tx.stepFailed || waitingUsd != null) {
+      moveShare = null;
+    } else if (move.forAction == VenueCashFor.send) {
+      moveShare = moneyReceiptShare(
+          type: ReceiptCardKind.sent,
+          asset: ReceiptCardAsset.dollars,
+          usd: move.totalUsd);
+    } else {
+      final toBitcoin = move.destination == VenueCashDestination.bitcoin;
+      final coins = toBitcoin && multiSourceMoveBitcoinKnown(tx)
+          ? multiSourceMoveBitcoin(tx)
+          : 0.0;
+      final venues = {
+        for (final leg in move.legs) venueCashVenueName(l10n, leg.venue),
+      };
+      moveShare = moneyReceiptShare(
+        type: ReceiptCardKind.moved,
+        asset: switch (move.destination) {
+          VenueCashDestination.bitcoin => ReceiptCardAsset.bitcoin,
+          VenueCashDestination.predictions => ReceiptCardAsset.predictions,
+          VenueCashDestination.investing => ReceiptCardAsset.investing,
+          VenueCashDestination.dollars => ReceiptCardAsset.dollars,
+        },
+        usd: move.totalUsd,
+        sats: coins > 0 ? (coins * 100000000).round() : null,
+        from: move.destination == VenueCashDestination.dollars &&
+                venues.isNotEmpty
+            ? venues.join(' + ')
+            : l10n.assetDollars,
+        to: destination,
+      );
+    }
+
     String btc(double v) =>
         ref.watch(conversionProvider((v * 100000000).round()));
     String both(double usd, double coins) => [
@@ -6875,12 +7345,13 @@ class _MultiSourceMoveDetailSheetState
                 ),
               ],
               // One order to track: Track this exchange is the bar's
-              // primary button. Otherwise the default bar.
+              // primary button. Otherwise the default bar (Done beside the
+              // round Sal button when the move shares).
               if (trackBelow)
                 ..._orchestraTrackExchange(context, c, orders.single,
-                    bar: true)
+                    bar: true, share: moveShare)
               else
-                const ReceiptBarAction.none(),
+                ReceiptBarAction.none(share: moveShare),
             ],
           ),
         ),

@@ -40,7 +40,7 @@ Future<void> _assets(WidgetTester tester) async {
             await rootBundle.loadString('$kSalSpriteDir/manifest.json'))
         as Map<String, dynamic>;
     SalSpriteCache.debugSetManifest(manifest);
-    for (final clip in ['idle', 'search']) {
+    for (final clip in ['idle', 'search', 'share']) {
       await SalSpriteCache.clip(clip, 3);
     }
   });

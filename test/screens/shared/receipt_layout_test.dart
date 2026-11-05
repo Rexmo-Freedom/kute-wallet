@@ -190,7 +190,8 @@ void main() {
   });
 
   testWidgets('Investing reduce: Amount, Execution price, Direction, Fee; the '
-      'market on its own row; no action, the default bar', (tester) async {
+      'market on its own row; Done and the round share button',
+      (tester) async {
     await pump(tester,
         home: const HyperliquidFillActivityRow(fill: receiptInvestingReduce));
     await tester.tap(find.text('Reduced OAI'));
@@ -202,7 +203,11 @@ void main() {
     expect(_tile(tester, 'Direction'), 'Closed position · Long');
     expect(_tile(tester, 'Paid fee'), r'$0.04');
     expect(_long(tester, 'Market'), isNotEmpty);
-    expect(_primaries(), isEmpty);
+    // A Ledger account's fill (no spending wallet): Done, not View market,
+    // with the trade's card beside it (receipt_share_test.dart).
+    final primary = _primaries().single;
+    expect(primary.label, 'Done');
+    expect(primary.share?.open, isNotNull);
   });
 
   testWidgets('a tile row keeps equal widths, two per row, 10 apart',

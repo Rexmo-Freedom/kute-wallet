@@ -512,6 +512,7 @@ qr_scanner_dismissed
 qr_scanner_torch_toggled
 quick_action_tapped
 quote_roundtrip_latency
+receipt_card_shared
 receive_abandoned
 receive_address_failed
 receive_address_generated
