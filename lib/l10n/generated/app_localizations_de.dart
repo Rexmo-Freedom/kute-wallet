@@ -7450,6 +7450,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get addWalletOther => 'Anderes Wallet';
 
   @override
+  String get addWalletOtherSubtitle => 'QR-Code, Datei oder Einfügen';
+
+  @override
   String get addWalletTrackSubtitle =>
       'Beliebige Bitcoin-Adresse beobachten (nur ansehen).';
 

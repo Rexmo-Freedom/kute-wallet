@@ -7436,6 +7436,9 @@ class AppLocalizationsRo extends AppLocalizations {
   String get addWalletOther => 'Alt portofel';
 
   @override
+  String get addWalletOtherSubtitle => 'Cod QR, fișier sau lipire';
+
+  @override
   String get addWalletTrackSubtitle =>
       'Monitorizează orice adresă Bitcoin (doar vizualizare).';
 

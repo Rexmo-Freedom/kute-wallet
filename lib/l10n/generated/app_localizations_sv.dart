@@ -7393,6 +7393,9 @@ class AppLocalizationsSv extends AppLocalizations {
   String get addWalletOther => 'Annan plånbok';
 
   @override
+  String get addWalletOtherSubtitle => 'QR-kod, fil eller klistra in';
+
+  @override
   String get addWalletTrackSubtitle =>
       'Bevaka valfri Bitcoin-adress (endast visning).';
 

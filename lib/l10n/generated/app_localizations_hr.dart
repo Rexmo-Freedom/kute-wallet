@@ -7414,6 +7414,9 @@ class AppLocalizationsHr extends AppLocalizations {
   String get addWalletOther => 'Drugi novčanik';
 
   @override
+  String get addWalletOtherSubtitle => 'QR kod, datoteka ili lijepljenje';
+
+  @override
   String get addWalletTrackSubtitle =>
       'Prati bilo koju Bitcoin adresu (samo pregled).';
 

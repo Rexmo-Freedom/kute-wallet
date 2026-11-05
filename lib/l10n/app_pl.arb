@@ -2121,6 +2121,7 @@
   "addWalletSeedSignerSubtitle": "Odizolowany sygnatariusz DIY",
   "addWalletKruxSubtitle": "Odizolowany sygnatariusz open source",
   "addWalletOther": "Inny portfel",
+  "addWalletOtherSubtitle": "Kod QR, plik lub wklejenie",
   "addWalletTrackSubtitle": "Obserwuj dowolny adres Bitcoin (tylko podgląd).",
   "addWalletImportDevice": "Importuj {device}",
   "addWalletImportWallet": "Importuj portfel",

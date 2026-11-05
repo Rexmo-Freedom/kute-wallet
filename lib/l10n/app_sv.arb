@@ -2121,6 +2121,7 @@
   "addWalletSeedSignerSubtitle": "Luftisolerad gör-det-själv-signerare",
   "addWalletKruxSubtitle": "Luftisolerad signerare med öppen källkod",
   "addWalletOther": "Annan plånbok",
+  "addWalletOtherSubtitle": "QR-kod, fil eller klistra in",
   "addWalletTrackSubtitle": "Bevaka valfri Bitcoin-adress (endast visning).",
   "addWalletImportDevice": "Importera {device}",
   "addWalletImportWallet": "Importera plånbok",

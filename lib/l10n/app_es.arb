@@ -2121,6 +2121,7 @@
   "addWalletSeedSignerSubtitle": "Firmador aislado hecho por ti",
   "addWalletKruxSubtitle": "Firmador aislado de código abierto",
   "addWalletOther": "Otra cartera",
+  "addWalletOtherSubtitle": "Código QR, archivo o pegar",
   "addWalletTrackSubtitle": "Sigue cualquier dirección Bitcoin (solo lectura).",
   "addWalletImportDevice": "Importar {device}",
   "addWalletImportWallet": "Importar cartera",

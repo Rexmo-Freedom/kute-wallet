@@ -7381,6 +7381,9 @@ class AppLocalizationsEt extends AppLocalizations {
   String get addWalletOther => 'Muu rahakott';
 
   @override
+  String get addWalletOtherSubtitle => 'QR-kood, fail või kleepimine';
+
+  @override
   String get addWalletTrackSubtitle =>
       'Jälgi mis tahes Bitcoini aadressi (ainult vaatamiseks).';
 

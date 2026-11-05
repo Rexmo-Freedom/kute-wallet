@@ -7416,6 +7416,9 @@ class AppLocalizationsSl extends AppLocalizations {
   String get addWalletOther => 'Druga denarnica';
 
   @override
+  String get addWalletOtherSubtitle => 'Koda QR, datoteka ali lepljenje';
+
+  @override
   String get addWalletTrackSubtitle =>
       'Spremljajte kateri koli Bitcoin naslov (samo ogled).';
 

@@ -2121,6 +2121,7 @@
   "addWalletSeedSignerSubtitle": "Verkosta eristetty itse rakennettava allekirjoittaja",
   "addWalletKruxSubtitle": "Avoimen lähdekoodin verkosta eristetty allekirjoittaja",
   "addWalletOther": "Muu lompakko",
+  "addWalletOtherSubtitle": "QR-koodi, tiedosto tai liittäminen",
   "addWalletTrackSubtitle": "Seuraa mitä tahansa Bitcoin-osoitetta (vain katselu).",
   "addWalletImportDevice": "Tuo {device}",
   "addWalletImportWallet": "Tuo lompakko",

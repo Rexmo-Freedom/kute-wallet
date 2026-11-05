@@ -14,6 +14,7 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
 import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
+import 'package:kute/screens/shared/kute_motion.dart' show KutePressable;
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/helpers/user_error_copy.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -201,16 +202,16 @@ class _AddWalletState extends ConsumerState<AddWallet> {
     }
   }
 
-  /// One option as a big card: its mark, its name and one line under it.
+  /// One option as a card: its mark, its name and one line under it.
   /// Disabled while the spending wallet is being created.
-  KuteActionCard _optionCard(
+  _OptionCard _optionCard(
     WalletDeviceConfig config, {
     required String subtitle,
     required VoidCallback onTap,
   }) {
     final l10n = context.l10n;
     final title = config.titleIn(l10n);
-    return KuteActionCard(
+    return _OptionCard(
       key: ValueKey('add-wallet-option-${config.id}'),
       visual: _OptionMark(
         svgAsset: config.svgAsset,
@@ -235,13 +236,13 @@ class _AddWalletState extends ConsumerState<AddWallet> {
 
   /// A preview of what is coming, with the "Soon" pill: a tap counts the
   /// interest and says it is coming; it never navigates.
-  KuteActionCard _comingSoonCard({
+  _OptionCard _comingSoonCard({
     required String feature,
     required String title,
     required IconData icon,
     required String message,
   }) =>
-      KuteActionCard(
+      _OptionCard(
         key: ValueKey('add-wallet-soon-$feature'),
         visual: _OptionMark(icon: icon),
         title: title,
@@ -255,6 +256,16 @@ class _AddWalletState extends ConsumerState<AddWallet> {
         },
       );
 
+  /// A hardware option (a Bluetooth device or "Other wallet"): once the
+  /// policy allows it, the xpub import screen for [option].
+  Future<void> _openXpubImport(WalletDeviceConfig option) async {
+    if (!await _offered(option.type)) return;
+    if (!mounted) return;
+    _pick(option.id);
+    ref.read(addWalletProvider.notifier).selectWallet(option.id, option.type);
+    context.pushNamed('importXpub');
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(addWalletProvider);
@@ -267,9 +278,11 @@ class _AddWalletState extends ConsumerState<AddWallet> {
 
     // Every option is drawn whatever the policy says; a withheld one is
     // refused at the tap by [_offered]. See
-    // lib/services/add_wallet_capabilities.dart. Hardware shows only the
-    // devices that pair natively over Bluetooth.
+    // lib/services/add_wallet_capabilities.dart. Hardware names only the
+    // devices that pair natively over Bluetooth; every other signer comes
+    // in through "Other wallet" after them.
     final hardwareWallets = state.bluetoothWallets;
+    final otherWallet = state.otherWallet;
     final trackingWallets = state.trackingWallets;
 
     return Scaffold(
@@ -330,13 +343,13 @@ class _AddWalletState extends ConsumerState<AddWallet> {
                       // screen; sections start straight away.
                       SizedBox(height: 8.h),
 
-                      // Every option is a big card (kute_action_cards.dart),
-                      // two side by side, under its section's header
-                      // (founder, 4 November 2026: every option on Add
-                      // wallet as the square cards, not list rows).
+                      // Every option is a card, two side by side, under its
+                      // section's header (founder, 4 November 2026: every
+                      // option on Add wallet as the square cards, not list
+                      // rows), as tall as what it holds ([_OptionCard]).
                       if (!hasHotWallet) ...[
                         _SectionHeader(title: context.l10n.walletsSpendingAccountSection),
-                        KuteActionCardGrid(cards: [
+                        _OptionGrid(cards: [
                           for (final wallet in state.hotWallets)
                             _optionCard(
                               wallet,
@@ -363,23 +376,25 @@ class _AddWalletState extends ConsumerState<AddWallet> {
                         SizedBox(height: 20.h),
                       ],
 
-                      // Hardware = "I have a device": only the ones the
-                      // app pairs with natively over Bluetooth (see
-                      // AddWalletState.bluetoothWallets).
-                      if (hardwareWallets.isNotEmpty) ...[
+                      // Hardware = "I have a device": the ones the app
+                      // pairs with natively over Bluetooth side by side
+                      // (AddWalletState.bluetoothWallets), then "Other
+                      // wallet" full width under them, any other signer's
+                      // public key by QR code, file or paste.
+                      if (hardwareWallets.isNotEmpty || otherWallet != null) ...[
                         _SectionHeader(title: context.l10n.walletsHardwareWalletsSection),
-                        KuteActionCardGrid(cards: [
+                        _OptionGrid(cards: [
                           for (final option in hardwareWallets)
                             _optionCard(
                               option,
                               subtitle: context.l10n.bluetooth,
-                              onTap: () async {
-                                if (!await _offered(option.type)) return;
-                                if (!context.mounted) return;
-                                _pick(option.id);
-                                notifier.selectWallet(option.id, option.type);
-                                context.pushNamed('importXpub');
-                              },
+                              onTap: () => _openXpubImport(option),
+                            ),
+                          if (otherWallet != null)
+                            _optionCard(
+                              otherWallet,
+                              subtitle: context.l10n.addWalletOtherSubtitle,
+                              onTap: () => _openXpubImport(otherWallet),
                             ),
                         ]),
                         SizedBox(height: 20.h),
@@ -388,7 +403,7 @@ class _AddWalletState extends ConsumerState<AddWallet> {
                       // Bitcoin: another 12-word wallet, and one address
                       // watched (view only), side by side.
                       _SectionHeader(title: context.l10n.bitcoin),
-                      KuteActionCardGrid(cards: [
+                      _OptionGrid(cards: [
                         _optionCard(
                           _kBitcoinWalletOption,
                           subtitle: _kBitcoinWalletOption.subtitleIn(context.l10n),
@@ -415,7 +430,7 @@ class _AddWalletState extends ConsumerState<AddWallet> {
                       ]),
                       SizedBox(height: 20.h),
                       _SectionHeader(title: context.l10n.comingSoon2),
-                      KuteActionCardGrid(cards: [
+                      _OptionGrid(cards: [
                         _comingSoonCard(
                           feature: 'open_banking',
                           title: context.l10n.walletsBank,
@@ -479,6 +494,213 @@ class _SectionHeader extends StatelessWidget {
           fontWeight: FontWeight.w800,
           letterSpacing: -0.5,
           height: 1.1,
+        ),
+      ),
+    );
+  }
+}
+
+/// Lays out Add wallet's [cards] two side by side, the two of a row
+/// equally tall. An odd last card (a section's third, "Other wallet" under
+/// Ledger and Jade) takes the full width as a compact band
+/// ([_OptionCard.wide]), never a square alone in half the width.
+class _OptionGrid extends StatelessWidget {
+  final List<_OptionCard> cards;
+  const _OptionGrid({required this.cards});
+
+  @override
+  Widget build(BuildContext context) {
+    final gap = kKuteActionCardGap.w;
+    final children = <Widget>[];
+    for (var i = 0; i < cards.length; i += 2) {
+      if (i > 0) children.add(SizedBox(height: gap));
+      children.add(i + 1 < cards.length
+          ? IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(child: cards[i]),
+                  SizedBox(width: gap),
+                  Expanded(child: cards[i + 1]),
+                ],
+              ),
+            )
+          : cards[i].asWide());
+    }
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: children,
+    );
+  }
+}
+
+/// One option on Add wallet: the action cards' square
+/// (kute_action_cards.dart) with the same surface-1, hairline, radius 20
+/// and 16 padding, the 40 mark at the top left, the title (16, w600, two
+/// lines), its line (13, textSecondary, two lines), the "Soon" pill and
+/// the press spring, but as tall as what it holds rather than the sheets'
+/// 170 (founder, 5 November 2026: the squares read tall and empty here).
+/// [wide]: the full-width card under a pair, the mark at the left of the
+/// title and its line, a chevron at the right, one compact band.
+class _OptionCard extends StatelessWidget {
+  final Widget visual;
+  final String title;
+  final String? subtitle;
+
+  /// A pill at the top right ("SOON").
+  final String? badge;
+
+  /// The label read out; defaults to the title, its line and the pill.
+  final String? semanticsLabel;
+  final bool wide;
+
+  /// Null: disabled (0.6 opacity, no press).
+  final VoidCallback? onTap;
+
+  const _OptionCard({
+    super.key,
+    required this.visual,
+    required this.title,
+    this.subtitle,
+    this.badge,
+    this.semanticsLabel,
+    this.wide = false,
+    required this.onTap,
+  });
+
+  /// This card laid out full width ([wide]).
+  _OptionCard asWide() => _OptionCard(
+        key: key,
+        visual: visual,
+        title: title,
+        subtitle: subtitle,
+        badge: badge,
+        semanticsLabel: semanticsLabel,
+        wide: true,
+        onTap: onTap,
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final enabled = onTap != null;
+    final line = subtitle;
+    final pill = badge;
+    final text = <Widget>[
+      Text(
+        title,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: KuteActionCard.titleStyle(c),
+      ),
+      if (line != null) ...[
+        const SizedBox(height: 4),
+        Text(
+          line,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: KuteActionCard.subtitleStyle(c),
+        ),
+      ],
+    ];
+    final card = Container(
+      padding: const EdgeInsets.all(kKuteActionCardPadding),
+      decoration: BoxDecoration(
+        color: isLight ? c.surfaceLight : c.surface,
+        borderRadius: BorderRadius.circular(20),
+        border:
+            Border.all(color: isLight ? c.border : c.borderSubtle, width: 1),
+      ),
+      child: wide
+          ? Row(
+              children: [
+                SizedBox(height: kKuteActionCardVisualSlot, child: visual),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: text,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                if (pill != null)
+                  _SoonPill(text: pill)
+                else
+                  Icon(Icons.chevron_right_rounded,
+                      size: 22, color: c.textTertiary),
+              ],
+            )
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  height: kKuteActionCardVisualSlot,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Align(
+                            alignment: Alignment.centerLeft, child: visual),
+                      ),
+                      if (pill != null)
+                        Align(
+                          alignment: Alignment.topRight,
+                          child: _SoonPill(text: pill),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ...text,
+              ],
+            ),
+    );
+    return Semantics(
+      button: true,
+      enabled: enabled ? null : false,
+      label: semanticsLabel ??
+          [title, if (line != null) line, if (pill != null) pill].join(', '),
+      excludeSemantics: true,
+      child: Opacity(
+        opacity: enabled ? 1 : 0.6,
+        child: KutePressable(
+          enabled: enabled,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onTap,
+            child: card,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The action cards' "Soon" pill (the Move pickers' pill).
+class _SoonPill extends StatelessWidget {
+  final String text;
+  const _SoonPill({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+      decoration: BoxDecoration(
+        color: c.textPrimary.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(8.r),
+      ),
+      child: Text(
+        text,
+        maxLines: 1,
+        style: TextStyle(
+          color: c.textTertiary,
+          fontSize: 11.sp,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.4,
         ),
       ),
     );
@@ -551,8 +773,14 @@ class _OptionMark extends StatelessWidget {
             ),
           );
     if (venueBadges.isEmpty) return mark;
+    // Spread across a square's width; side by side in a wide card's band.
     return Row(
-      children: [mark, const Spacer(), _VenueBadges(assets: venueBadges)],
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        mark,
+        SizedBox(width: 8.w),
+        _VenueBadges(assets: venueBadges),
+      ],
     );
   }
 }

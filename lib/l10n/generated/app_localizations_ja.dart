@@ -7093,6 +7093,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get addWalletOther => 'その他のウォレット';
 
   @override
+  String get addWalletOtherSubtitle => 'QRコード、ファイル、貼り付け';
+
+  @override
   String get addWalletTrackSubtitle => '任意のビットコインアドレスを追跡（閲覧のみ）。';
 
   @override

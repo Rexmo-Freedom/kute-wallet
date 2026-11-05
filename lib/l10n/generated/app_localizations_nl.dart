@@ -7422,6 +7422,9 @@ class AppLocalizationsNl extends AppLocalizations {
   String get addWalletOther => 'Andere wallet';
 
   @override
+  String get addWalletOtherSubtitle => 'QR-code, bestand of plakken';
+
+  @override
   String get addWalletTrackSubtitle =>
       'Volg elk Bitcoin-adres (alleen bekijken).';
 

@@ -2121,6 +2121,7 @@
   "addWalletSeedSignerSubtitle": "Air-gapped DIY uređaj za potpisivanje",
   "addWalletKruxSubtitle": "Air-gapped uređaj za potpisivanje otvorenog koda",
   "addWalletOther": "Drugi novčanik",
+  "addWalletOtherSubtitle": "QR kod, datoteka ili lijepljenje",
   "addWalletTrackSubtitle": "Prati bilo koju Bitcoin adresu (samo pregled).",
   "addWalletImportDevice": "Uvezi {device}",
   "addWalletImportWallet": "Uvezi novčanik",

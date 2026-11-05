@@ -7432,6 +7432,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get addWalletOther => 'Otra cartera';
 
   @override
+  String get addWalletOtherSubtitle => 'Código QR, archivo o pegar';
+
+  @override
   String get addWalletTrackSubtitle =>
       'Sigue cualquier dirección Bitcoin (solo lectura).';
 

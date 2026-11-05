@@ -7410,6 +7410,9 @@ class AppLocalizationsBg extends AppLocalizations {
   String get addWalletOther => 'Друг портфейл';
 
   @override
+  String get addWalletOtherSubtitle => 'QR код, файл или поставяне';
+
+  @override
   String get addWalletTrackSubtitle =>
       'Следи всеки Bitcoin адрес (само преглед).';
 

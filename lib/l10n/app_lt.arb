@@ -2121,6 +2121,7 @@
   "addWalletSeedSignerSubtitle": "Neprijungiamas pasidaromas pasirašymo įrenginys",
   "addWalletKruxSubtitle": "Atvirojo kodo neprijungiamas pasirašymo įrenginys",
   "addWalletOther": "Kita piniginė",
+  "addWalletOtherSubtitle": "QR kodas, failas arba įklijavimas",
   "addWalletTrackSubtitle": "Stebėkite bet kurį Bitcoin adresą (tik peržiūra).",
   "addWalletImportDevice": "Importuoti {device}",
   "addWalletImportWallet": "Importuoti piniginę",

@@ -4212,6 +4212,10 @@
   "addWalletSeedSignerSubtitle": "Air-gapped DIY signer",
   "addWalletKruxSubtitle": "Open-source air-gapped signer",
   "addWalletOther": "Other Wallet",
+  "addWalletOtherSubtitle": "QR code, file or paste",
+  "@addWalletOtherSubtitle": {
+    "description": "Add wallet, Hardware wallets: the line under the Other Wallet card (after Ledger and Blockstream Jade), the ways it imports any other signer's public key: scan its QR code, load its exported file, or paste the key."
+  },
   "addWalletTrackSubtitle": "Monitor any Bitcoin address (view only).",
   "addWalletImportDevice": "Import {device}",
   "@addWalletImportDevice": {

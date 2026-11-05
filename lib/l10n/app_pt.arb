@@ -2394,6 +2394,7 @@
   "addWalletSeedSignerSubtitle": "Assinador isolado da rede, feito por si",
   "addWalletKruxSubtitle": "Assinador isolado da rede e de código aberto",
   "addWalletOther": "Outra carteira",
+  "addWalletOtherSubtitle": "Código QR, ficheiro ou colar",
   "addWalletTrackSubtitle": "Acompanhe qualquer endereço Bitcoin (apenas consulta).",
   "addWalletImportDevice": "Importar {device}",
   "addWalletImportWallet": "Importar carteira",

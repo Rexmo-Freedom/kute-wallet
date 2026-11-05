@@ -7451,6 +7451,9 @@ class AppLocalizationsEl extends AppLocalizations {
   String get addWalletOther => 'Άλλο πορτοφόλι';
 
   @override
+  String get addWalletOtherSubtitle => 'Κωδικός QR, αρχείο ή επικόλληση';
+
+  @override
   String get addWalletTrackSubtitle =>
       'Παρακολούθηση οποιασδήποτε διεύθυνσης Bitcoin (μόνο προβολή).';
 

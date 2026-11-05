@@ -21,7 +21,7 @@ class AddWalletState {
   /// included. It stays whole: a wallet already added from a Keystone,
   /// Passport, SeedSigner, Krux or "Other wallet" still reads its signing
   /// methods here, and the scanner still labels a scanned xpub with it.
-  /// Add wallet offers only [bluetoothWallets].
+  /// Add wallet offers only [bluetoothWallets] and [otherWallet].
   final List<WalletDeviceConfig> coldWallets;
   final List<WalletDeviceConfig> trackingWallets;
   final String? selectedWalletType;
@@ -35,13 +35,20 @@ class AddWalletState {
     this.selectedWalletConfigId,
   });
 
-  /// The hardware wallets Add wallet offers: only the ones the app pairs
-  /// with natively over Bluetooth, Ledger (Nano X, Stax, Flex) and
+  /// The named hardware wallets Add wallet offers: only the ones the app
+  /// pairs with natively over Bluetooth, Ledger (Nano X, Stax, Flex) and
   /// Blockstream Jade (founder, 4 November 2026: "only those with native
-  /// Bluetooth show up"). QR, SD-card and USB-only signers and the "Other
-  /// wallet" xpub import are not offered there.
+  /// Bluetooth show up"). QR, SD-card and USB-only signers are not named
+  /// there; they import through [otherWallet].
   List<WalletDeviceConfig> get bluetoothWallets =>
       [for (final c in coldWallets) if (c.isBluetooth) c];
+
+  /// "Other wallet", after the Bluetooth devices under Hardware wallets on
+  /// Add wallet (founder, 5 November 2026: "here we should have Other
+  /// wallet as well"): any other signer's public key, by QR code, file or
+  /// paste, imported watch-only on the xpub import screen.
+  WalletDeviceConfig? get otherWallet =>
+      coldWallets.where((c) => c.id == 'generic').firstOrNull;
 
   AddWalletState copyWith({
     List<WalletDeviceConfig>? hotWallets,
