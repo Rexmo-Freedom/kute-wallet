@@ -113,10 +113,11 @@ ShareCardPose receiptCardPose(ReceiptCardData d) => switch (d.type) {
             ? ShareCardPose.claim
             : ShareCardPose.win,
       ReceiptCardKind.moved || ReceiptCardKind.sold => ShareCardPose.flat,
-      ReceiptCardKind.predicted || ReceiptCardKind.opened =>
+      ReceiptCardKind.predicted ||
+      ReceiptCardKind.opened =>
         ShareCardPose.predict,
-      ReceiptCardKind.cashedOut || ReceiptCardKind.closed =>
-        switch (_sign(d.pnl)) {
+      ReceiptCardKind.cashedOut || ReceiptCardKind.closed => switch (
+            _sign(d.pnl)) {
           1 => ShareCardPose.win,
           -1 => ShareCardPose.loss,
           _ => ShareCardPose.flat,
@@ -131,7 +132,8 @@ String _sideLabel(AppLocalizations l10n, String? side) =>
 
 /// The caps line at the top of a receipt's card (see the file header).
 String receiptCardTopLine(AppLocalizations l10n, ReceiptCardData d) {
-  final what = d.what?.trim().isNotEmpty == true ? d.what!.trim() : l10n.bitcoin;
+  final what =
+      d.what?.trim().isNotEmpty == true ? d.what!.trim() : l10n.bitcoin;
   return switch (d.type) {
     ReceiptCardKind.sent => l10n.sent,
     ReceiptCardKind.received => l10n.received,
@@ -220,7 +222,8 @@ class ReceiptShareCard extends StatelessWidget {
     final code = d.referralCode;
     final money = d.amount?.trim().isNotEmpty == true ? d.amount!.trim() : null;
     final btc = d.bitcoin?.trim().isNotEmpty == true ? d.bitcoin!.trim() : null;
-    final result = d.result?.trim().isNotEmpty == true ? d.result!.trim() : null;
+    final result =
+        d.result?.trim().isNotEmpty == true ? d.result!.trim() : null;
     final sign = _sign(d.pnl);
     final resultColor = sign > 0
         ? p.up
@@ -335,7 +338,8 @@ class ReceiptShareCard extends StatelessWidget {
         );
       case ReceiptCardKind.opened:
       case ReceiptCardKind.closed:
-        final price = d.price?.trim().isNotEmpty == true ? d.price!.trim() : null;
+        final price =
+            d.price?.trim().isNotEmpty == true ? d.price!.trim() : null;
         final ticker = d.ticker?.trim();
         final size = [
           if (d.size?.trim().isNotEmpty == true) d.size!.trim(),

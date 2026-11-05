@@ -242,7 +242,8 @@ void main() {
       expect(caps('spot_bought'), 'Bought');
     });
 
-    test('the edgy lines: deadpan by kind, a result by its sign, never '
+    test(
+        'the edgy lines: deadpan by kind, a result by its sign, never '
         '"bet", never a promise', () {
       List<String> edges(String k) => receiptCardEdges(_en, receiptCards[k]!);
       expect(edges('sent_bitcoin'),
@@ -268,7 +269,8 @@ void main() {
       expect(edges('closed_long_down'), ['Cut it. Moved on.']);
       for (final d in receiptCards.values) {
         for (final l in receiptCardEdges(_en, d)) {
-          expect(RegExp(r'\bbet(s|ting)?\b', caseSensitive: false).hasMatch(l), isFalse,
+          expect(RegExp(r'\bbet(s|ting)?\b', caseSensitive: false).hasMatch(l),
+              isFalse,
               reason: l);
           expect(l.toLowerCase(), isNot(contains('guarantee')), reason: l);
         }
@@ -286,7 +288,8 @@ void main() {
   });
 
   group('colour and pose', () {
-    test('bitcoin on the ink with the orange amount, dollars green, a '
+    test(
+        'bitcoin on the ink with the orange amount, dollars green, a '
         'prediction blue, a trade navy, a result by its sign', () {
       ShareCardPalette p(String k) => shareCardPalette(receiptCards[k]!);
       expect(p('sent_bitcoin'), ShareCardPalette.bitcoinClaim);
@@ -303,7 +306,8 @@ void main() {
       expect(p('closed_long_down'), ShareCardPalette.loss);
     });
 
-    test("Sal's pose: hands it over on a send, the coin on a bitcoin "
+    test(
+        "Sal's pose: hands it over on a send, the coin on a bitcoin "
         'receive, a squint at a call, the flop on a loss', () {
       ShareCardPose pose(String k) => shareCardPose(receiptCards[k]!);
       expect(pose('sent_bitcoin'), ShareCardPose.send);
@@ -319,7 +323,8 @@ void main() {
   });
 
   group('the card', () {
-    testWidgets('SENT bitcoin: the value huge, the bitcoin under it, ink and '
+    testWidgets(
+        'SENT bitcoin: the value huge, the bitcoin under it, ink and '
         'orange, Sal on the rule', (tester) async {
       await pumpCard(tester, receiptCards['sent_bitcoin']!);
       expect(find.byKey(const ValueKey('share-card-receipt_sent')),
@@ -344,7 +349,8 @@ void main() {
       expect(find.byKey(const ValueKey('share-card-plain')), findsNothing);
     });
 
-    testWidgets("I'M ON YES: the market, the speedometer at the entry, the "
+    testWidgets(
+        "I'M ON YES: the market, the speedometer at the entry, the "
         'stake on the side', (tester) async {
       await pumpCard(tester, receiptCards['predicted']!);
       expect(text(tester, 'share-card-caps'), "I'M ON YES");
@@ -409,8 +415,7 @@ void main() {
         await tester.runAsync(loadShareCardSal);
         addTearDown(ShareCardSal.debugReset);
         for (final MapEntry(key: name, value: data) in receiptCards.entries) {
-          final pool = receiptCardEdges(
-              lookupAppLocalizations(locale), data);
+          final pool = receiptCardEdges(lookupAppLocalizations(locale), data);
           for (var seed = 0; seed < pool.length; seed++) {
             await pumpCard(tester, data, locale: locale, seed: seed);
             expect(tester.takeException(), isNull,
@@ -450,8 +455,14 @@ void main() {
     for (final locale in const [Locale('en'), Locale('de'), Locale('ja')]) {
       for (final MapEntry(key: name, value: data) in receiptCards.entries) {
         if (locale.languageCode != 'en' &&
-            !const {'sent_bitcoin', 'predicted', 'lost', 'opened_long', 'moved_to_bitcoin', 'cashed_out_up'}
-                .contains(name)) {
+            !const {
+              'sent_bitcoin',
+              'predicted',
+              'lost',
+              'opened_long',
+              'moved_to_bitcoin',
+              'cashed_out_up'
+            }.contains(name)) {
           continue;
         }
         final key = GlobalKey();
