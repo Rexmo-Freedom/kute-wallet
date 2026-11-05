@@ -310,7 +310,7 @@ void main() {
         "Sal's pose: hands it over on a send, the coin on a bitcoin "
         'receive, a squint at a call, the flop on a loss', () {
       ShareCardPose pose(String k) => shareCardPose(receiptCards[k]!);
-      expect(pose('sent_bitcoin'), ShareCardPose.send);
+      expect(pose('sent_bitcoin'), ShareCardPose.claim);
       expect(pose('received_bitcoin'), ShareCardPose.claim);
       expect(pose('received_dollars'), ShareCardPose.win);
       expect(pose('moved_to_bitcoin'), ShareCardPose.flat);

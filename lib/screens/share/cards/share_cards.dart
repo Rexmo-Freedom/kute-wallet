@@ -87,8 +87,10 @@ const double kShareCardBigChange = 0.10;
 /// lounging up, eyes shut at
 /// [kShareCardBigChange] or more, a flop down, a side-eye flat.
 ShareCardPose shareCardPose(ShareCardData data) => switch (data) {
-      final MoneyCardData d =>
-        d.bitcoin ? ShareCardPose.claim : ShareCardPose.send,
+      MoneyCardData() =>
+        // Every money send has the coin on her head (founder, 5 November
+        // 2026: not the briefcase-and-glasses one).
+        ShareCardPose.claim,
       // A dare: the slow side-eye, "and?".
       PredictionCardData(challenge: true) => ShareCardPose.flat,
       PredictionCardData() => ShareCardPose.predict,

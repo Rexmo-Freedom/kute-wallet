@@ -615,7 +615,7 @@ void main() {
           ShareCardPalette.prediction);
       expect(shareCardPose(fakeBitcoinCard()), ShareCardPose.claim);
       expect(shareCardPose(fakeDollarsCard().asRecipient()),
-          ShareCardPose.send);
+          ShareCardPose.claim);
       expect(shareCardPose(fakeBitcoinCard().asRecipient()),
           ShareCardPose.claim);
       // The send card's amount is the orange hero too.
@@ -668,7 +668,7 @@ void main() {
         "on every bitcoin send, weighing a prediction, a stock by today's "
         'change', () {
       expect(shareCardPose(fakeBitcoinCard()), ShareCardPose.claim);
-      expect(shareCardPose(fakeDollarsCard()), ShareCardPose.send);
+      expect(shareCardPose(fakeDollarsCard()), ShareCardPose.claim);
       expect(shareCardPose(fakePredictionPick()), ShareCardPose.predict);
       expect(shareCardPose(fakePredictionMarket()), ShareCardPose.predict);
       InvestmentCardData stock(double? change) => InvestmentCardData(

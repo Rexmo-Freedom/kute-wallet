@@ -105,7 +105,9 @@ ShareCardPalette receiptCardPalette(ReceiptCardData d) {
 
 /// Sal's pose (see the file header).
 ShareCardPose receiptCardPose(ReceiptCardData d) => switch (d.type) {
-      ReceiptCardKind.sent => ShareCardPose.send,
+      // The coin on her head, never the briefcase and glasses (founder,
+      // 5 November 2026).
+      ReceiptCardKind.sent => ShareCardPose.claim,
       ReceiptCardKind.received ||
       ReceiptCardKind.incoming ||
       ReceiptCardKind.bought =>
