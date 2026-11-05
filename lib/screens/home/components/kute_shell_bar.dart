@@ -37,13 +37,20 @@
 // friend on the top right in Hyperliquid and Predictions. It must be a
 // floating button"; kute_bar_trade_row.dart): on a market page the bar is
 // the page's trade buttons, Invest | Short or Yes | No, as floating pills
-// with the round Sal button at the row's end; the button opens the Send
-// to a friend Sal sheet and travels to its composer the way the pill
-// does. An open position's Close or Sell primary carries the same round
-// button at its right. The row never folds. A page with no trade pair (an
-// event, a game) has the Sal pill, "Send to a friend", which folds into
-// that same circle while the page scrolls (above). No page draws a
-// header button any more.
+// with the round Sal button at the row's end. An open position's Close
+// or Sell primary carries the same round button at its right, and so does
+// a slip's Place (THIS prediction to a friend, screens/share/slip_share
+// .dart). The row never folds. A page with no trade pair (an event, a
+// game) has the Sal pill, "Send to a friend", which folds into that same
+// circle while the page scrolls (above). No page draws a header button
+// any more.
+//
+// STRAIGHT INTO THE SEND (founder, 5 November 2026: "the other shares are
+// just sharing the market, no picker"; "so we can take the user straight
+// into that"): a context with its own action
+// ([KuteBarContext.directAction], a market page's: the market send
+// sheet) runs it on a tap of the pill or the round button; no Sal sheet
+// in between. Only a context without one opens the Sal sheet.
 //
 // THE PILL BECOMES THE COMPOSER (founder, 31 October 2026;
 // search_morph.dart): a tap hands [showKuteSearch] the pill's rect
@@ -191,18 +198,38 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
       });
 
   /// The round Sal button at the end of the bar's row (a trade row's, a
-  /// position's beside Close or Sell, a receipt's beside its action): a
-  /// receipt's card preview, the brag card on an open position in profit,
-  /// else the page's Sal sheet, the button travelling to the composer
-  /// ([shareContext], its own element).
+  /// position's beside Close or Sell, a slip's beside its Place, a
+  /// receipt's beside its action): the brag card on an open position in
+  /// profit, a slip's own send (THIS prediction), a receipt's card
+  /// preview, else the page's own action (a market page sends the market,
+  /// no Sal sheet in between); only a context with none opens the Sal
+  /// sheet, the button travelling to the composer ([shareContext], its own
+  /// element).
   void _shareTap(KuteBarShare share, BuildContext shareContext) {
-    final direct = share.open ?? share.brag;
+    final direct = share.brag ??
+        share.send ??
+        share.open ??
+        share.barContext?.directAction;
     if (direct != null) {
       HapticFeedback.lightImpact();
       direct();
       return;
     }
-    _open(share.barContext, shareContext);
+    final ctx = share.barContext;
+    if (ctx != null) _open(ctx, shareContext);
+  }
+
+  /// The pill: the context's own action when it has one (a market or an
+  /// event page sends the market at once; founder, 5 November 2026: "so
+  /// we can take the user straight into that"), else the Sal sheet.
+  void _pillTap(KuteBarContext ctx, BuildContext pillContext) {
+    final direct = ctx.directAction;
+    if (direct != null) {
+      HapticFeedback.lightImpact();
+      direct();
+      return;
+    }
+    _open(ctx, pillContext);
   }
 
   /// A tap on the primary button acts on the LIVE top context, not the
@@ -335,7 +362,7 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
                 aiEnabled: aiEnabled,
                 collapsed: collapsed,
                 salCue: _salCue,
-                onTap: () => _open(ctx, pillContext),
+                onTap: () => _pillTap(ctx, pillContext),
               ),
             ),
     );

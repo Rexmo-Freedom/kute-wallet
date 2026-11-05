@@ -1,10 +1,11 @@
 // The position pages' brag hooks (kute_share_actions.dart,
-// position_share_card.dart): an open position's context brags (a third
+// position_share_card.dart): an open position's context brags (a second
 // Sal row, "Show off this position", and a primary action opening the
 // card); the round Sal button beside Close position or Sell
 // (positionBarShare, kute_bar_trade_row.dart) opens the card at once in
-// profit and reads "Brag about it", else it opens the Sal sheet and reads
-// "Send to a friend"; a settled position keeps the send rows only.
+// profit and reads "Brag about it", else it opens the market send sheet at
+// once (no Sal sheet in between since 5 November 2026) and reads "Send to
+// a friend"; a settled position keeps the send row only.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,6 +13,7 @@ import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
 import 'package:kute/screens/share/brag/brag_preview_sheet.dart';
 import 'package:kute/screens/share/brag/position_share_card.dart';
+import 'package:kute/screens/share/share_market_sheet.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_share_actions.dart';
 import 'package:kute/screens/home/components/kute_bar_trade_row.dart'
@@ -46,16 +48,20 @@ void main() {
       ) as KuteMarketBarContext;
 
   /// The round Sal button for [share]; a tap runs what the shell bar
-  /// runs: the brag card where there is one, else (here) [onSheet].
+  /// runs: the brag card where there is one, else the context's own
+  /// action (the market send sheet), else (here) [onSheet].
   Widget button(KuteBarShare share, VoidCallback onSheet) => Center(
         child: KuteBarShareButton(
           share: share,
-          onTap: (_) => (share.brag ?? onSheet)(),
+          onTap: (_) => (share.brag ??
+              share.send ??
+              share.barContext?.directAction ??
+              onSheet)(),
         ),
       );
 
   testWidgets(
-      'an open position in profit: a third Sal row, and the round Sal '
+      'an open position in profit: a second Sal row, and the round Sal '
       'button reads Brag about it and opens the card', (tester) async {
     late KuteMarketBarContext bar;
     var sheets = 0;
@@ -63,7 +69,7 @@ void main() {
       bar = barFor(context, open: true);
       return button(positionBarShare(bar, brag: true), () => sheets++);
     }));
-    expect(bar.actions, hasLength(3));
+    expect(bar.actions, hasLength(2));
     expect(bar.actions.last.label, 'Show off this position');
     expect(bar.actions.last.sublabel, 'A card with your result');
     expect(bar.primaryAction, isNotNull);
@@ -88,7 +94,7 @@ void main() {
 
   testWidgets(
       'an open position at a loss: the round button reads Send to a friend '
-      'and opens the Sal sheet', (tester) async {
+      'and opens the market send sheet at once', (tester) async {
     late KuteMarketBarContext bar;
     var sheets = 0;
     await pumpShareWidget(tester, env, Builder(builder: (context) {
@@ -99,21 +105,23 @@ void main() {
     expect(positionBarShare(bar, brag: false).barContext, same(bar));
     expect(find.bySemanticsLabel('Send to a friend'), findsOneWidget);
     expect(find.bySemanticsLabel('Brag about it'), findsNothing);
+    expect(bar.directAction, isNotNull);
     await tester.tap(find.byKey(const ValueKey('kute-bar-share')));
     await settle(tester);
-    expect(sheets, 1);
+    expect(sheets, 0);
+    expect(find.byType(ShareMarketSheet), findsOneWidget);
     expect(find.byType(BragPreviewSheet), findsNothing);
   });
 
-  testWidgets('a settled position keeps the send rows only', (tester) async {
+  testWidgets('a settled position keeps the send row only', (tester) async {
     late KuteMarketBarContext bar;
     await pumpShareWidget(tester, env, Builder(builder: (context) {
       bar = barFor(context, open: false);
-      // Even asked to brag, a context without the card's action offers
-      // the Sal sheet.
+      // Even asked to brag, a context without the card's action sends
+      // the market.
       return button(positionBarShare(bar, brag: true), () {});
     }));
-    expect(bar.actions, hasLength(2));
+    expect(bar.actions, hasLength(1));
     expect(bar.primaryAction, isNull);
     expect(positionBarShare(bar, brag: true).brag, isNull);
     expect(find.bySemanticsLabel('Send to a friend'), findsOneWidget);

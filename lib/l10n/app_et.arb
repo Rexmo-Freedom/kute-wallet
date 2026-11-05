@@ -3614,5 +3614,18 @@
   "polyLinesNotTrading": "Veel ei kaubelda · {count}",
   "polyLinesSettled": "Selgunud · {count}",
   "polySideOver": "Üle",
-  "polySideUnder": "Alla"
+  "polySideUnder": "Alla",
+  "sendPickCardSub": "Või investeering",
+  "sendPredictionCta": "Saada ennustus",
+  "sendInvestmentCta": "Saada investeering",
+  "sendPickYourFriend": "Sinu sõber",
+  "sendPickGets": "{who} saab {amount}: {market} — {side}",
+  "sendPickSideAtChance": "{side} tõenäosusega {chance}",
+  "sendPickHowItWorks": "Ta võtab selle vastu ja paigutab ühe puudutusega",
+  "shareCardPredictionForYou": "Ennustus sulle",
+  "shareCardPredictionForNamed": "{name}, ennustus sulle",
+  "slipShareEnterAmount": "Sisesta saadetav summa",
+  "slipShareMinimum": "Saatmiseks sisesta vähemalt {amount}",
+  "slipShareYesOnly": "Saata saab ainult valikut Jah: {outcome}. Saatmiseks vali Jah.",
+  "sendPickMarketHow": "Leia turg, vali pool ja summa ning puuduta saatmiseks Sali"
 }

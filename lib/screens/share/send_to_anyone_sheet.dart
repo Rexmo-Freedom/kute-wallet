@@ -23,31 +23,39 @@
 //      Claim it here: {url}". Sharing always shows the card first; Done
 //      is a text button.
 //
-// Launched from a market page's bar, the market share sheet or the
-// market search (kute_share_actions.dart, share_market_sheet.dart,
-// send_pick_market_sheet.dart) the sheet carries THE PICK on the link: the
-// market slug and title, the venue, the outcome ("Yes", a candidate,
-// "Long"), its index and the side. The pick reads above the amount, the
-// market's picture beside it ("Yes on Gemini Carbon", "64% chance"), goes
-// to the backend with the link, and the share text says "I sent you a
-// prediction on Kute: Yes on Gemini Carbon, $12.00".
+// A PREDICTION (or an investment) IS SENT FROM ITS SLIP (founder, 5
+// November 2026: "the share button should be on this bet slip page
+// actually, it carries all the information, even the amount";
+// slip_share.dart). The slip's round Sal button hands the sheet THE PICK
+// and the amount: the market slug and title, the venue, the outcome
+// ("Yes", a candidate, "Long"), its index and the side, the dollars. The
+// sheet then opens on its last step at once, made unmistakable ("here,
+// sending the prediction must actually be better, more clear we are
+// sending the prediction"):
 //
-// NO SIDE IS EVER CHOSEN FOR THE PERSON (founder, 4 November 2026: "it
-// auto-selects No"). Handed a market ([SendToAnyoneSheet.market],
-// send_pick.dart) whose side is not picked yet, the sheet opens on a step
-// before the amount: what is sent (the market's picture and name) over
-// every side it can send, the two sides of a Yes/No market as the market
-// page's own pair, equal, nothing selected, or one row per outcome; a tap
-// is the choice and the amount follows, the pick over it with "Change"
-// back to the sides. Each step says what it asks: the side, how much, who
-// it is for.
+//   * the title "Send this prediction" ("Send this investment"), with
+//     what happens under it: they claim it, then place it with one tap
+//     (nothing moves until they claim; the Claim screen opens the slip on
+//     the pick, nothing placed without their tap, claim_screen.dart);
+//   * THE CARD as the hero, as wide as the sheet allows, live as the name
+//     is typed ("ANA, A PREDICTION FOR YOU", the chance on the
+//     speedometer, "$5 on Yes" in big type; cards/share_cards.dart);
+//   * the one line saying what the friend gets, in words: "Your friend
+//     gets $5 on Apple — Yes at 62%" ("Ana gets …" once a name is typed);
+//   * the name field (optional, not focused: the card leads) and the
+//     "Challenge them" switch;
+//   * the bar "Send prediction" ("Send investment"): it creates the link
+//     and the card is ready to share.
+//
+// The content scrolls under its header, so nothing overflows with the
+// keyboard up on the smallest phone; the field scrolls clear of the bar
+// riding above the keyboard.
 //
 // A PREDICTION pick can go as a DARE (share_challenge.dart): the
 // "Challenge them" switch under the name, off by default, turns the live
 // card into the challenge card (both sides, the sender's marked) and the
 // link into a challenge (`challenge: true` to the backend, `?challenge=1`
-// on the URL kept in the pending row, so every resend carries it). It is
-// offered once the side is chosen (never a side chosen for the person).
+// on the URL kept in the pending row, so every resend carries it).
 
 import 'dart:async';
 
@@ -65,12 +73,11 @@ import 'package:kute/providers/currency_conversions_provider.dart'
     show conversionProvider, conversionToFiatProvider, inputToSatsProvider;
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/share/cards/share_card_copy.dart'
-    show shareCardMessage;
+    show shareCardChance, shareCardMessage, shareCardOutcome;
 import 'package:kute/screens/share/cards/share_card_data.dart';
 import 'package:kute/screens/share/cards/share_card_preview.dart';
 import 'package:kute/screens/share/cards/share_card_sources.dart';
 import 'package:kute/screens/share/pending_share_links.dart';
-import 'package:kute/screens/share/send_pick.dart';
 import 'package:kute/screens/share/share_challenge.dart';
 import 'package:kute/screens/share/share_link_copy.dart';
 import 'package:kute/screens/share/share_link_resend.dart';
@@ -81,8 +88,6 @@ import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show SendAmountUnitPill, SendToListCard, SendTypedAmountHero;
-import 'package:kute/screens/shared/send/send_recipient_step.dart'
-    show SendChangeButton;
 import 'package:kute/services/api/share_links_api.dart';
 import 'package:kute/services/share_link_events.dart';
 import 'package:kute/services/share_links_store.dart';
@@ -93,20 +98,19 @@ import 'package:kute/theme/app_theme.dart';
 const String kSendToAnyoneRouteName = 'send_to_anyone';
 
 /// Opens Send to anyone for [kind] over the current screen. Resolves to
-/// true when a link was created. The pick ([marketTitle], [venue],
-/// [outcome], [outcomeIndex], [side]) is optional; see the file header.
-/// [market] is a market whose side the person picks first (or whose side
-/// was picked already, a position's); it stands in for the pick fields.
+/// true when a link was created. The pick ([marketSlug], [marketTitle],
+/// [venue], [outcome], [outcomeIndex], [side]) with [amountMinor] (cents,
+/// a slip's amount) opens on the last step; see the file header.
 Future<bool?> showSendToAnyoneSheet(
   BuildContext context, {
   required ShareLinkKind kind,
-  SendPickMarket? market,
   String? marketSlug,
   String? marketTitle,
   String? venue,
   String? outcome,
   int? outcomeIndex,
   String? side,
+  int? amountMinor,
   String? senderLabel,
   String? recipientPhone,
   required String entrySource,
@@ -117,13 +121,13 @@ Future<bool?> showSendToAnyoneSheet(
     routeSettings: const RouteSettings(name: kSendToAnyoneRouteName),
     builder: (_) => SendToAnyoneSheet(
       kind: kind,
-      market: market,
       marketSlug: marketSlug,
       marketTitle: marketTitle,
       venue: venue,
       outcome: outcome,
       outcomeIndex: outcomeIndex,
       side: side,
+      amountMinor: amountMinor,
       senderLabel: senderLabel,
       recipientPhone: recipientPhone,
     ),
@@ -134,22 +138,18 @@ class SendToAnyoneSheet extends ConsumerStatefulWidget {
   const SendToAnyoneSheet({
     super.key,
     required this.kind,
-    this.market,
     this.marketSlug,
     this.marketTitle,
     this.venue,
     this.outcome,
     this.outcomeIndex,
     this.side,
+    this.amountMinor,
     this.senderLabel,
     this.recipientPhone,
   });
 
   final ShareLinkKind kind;
-
-  /// A market whose side is picked on the sheet's first step (see the
-  /// file header); with one, the pick fields below are left out.
-  final SendPickMarket? market;
   final String? marketSlug;
 
   /// The name field prefilled (a contact picked on the Send screen, its
@@ -168,24 +168,27 @@ class SendToAnyoneSheet extends ConsumerStatefulWidget {
   final int? outcomeIndex;
   final String? side;
 
-  /// Whether the link carries a pick handed over as it is (a market to
-  /// pick the side on counts once the side is picked; see the state).
+  /// The amount already chosen (a slip's), in the link's minor units;
+  /// null or 0 asks for it on the amount step.
+  final int? amountMinor;
+
+  /// Whether the link carries a pick.
   bool get hasPick =>
-      market != null ||
-      ((outcome?.trim().isNotEmpty ?? false) &&
-          (marketTitle?.trim().isNotEmpty ?? false));
+      (outcome?.trim().isNotEmpty ?? false) &&
+      (marketTitle?.trim().isNotEmpty ?? false);
+
+  /// Whether the amount came with the sheet (a slip's).
+  bool get hasAmount => (amountMinor ?? 0) > 0;
 
   @override
   ConsumerState<SendToAnyoneSheet> createState() => _SendToAnyoneSheetState();
 }
 
-enum _Step { side, amount, name, done }
+enum _Step { amount, name, done }
 
 class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
-  /// The market with the side picked so far (see the file header).
-  late SendPickMarket? _market = widget.market;
-  late _Step _step =
-      widget.market?.needsSide ?? false ? _Step.side : _Step.amount;
+  // A pick arrives with its amount (a slip's): straight to who it is for.
+  late _Step _step = widget.hasAmount ? _Step.name : _Step.amount;
   String _typed = '';
   late final TextEditingController _name =
       TextEditingController(text: widget.senderLabel?.trim() ?? '');
@@ -199,6 +202,9 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
   String? _error;
   PendingShareLink? _created;
 
+  /// The live card as the name step last drew it.
+  ShareCardData? _liveCard;
+
   /// The card's capture (the last step) and Sal's line, picked once.
   final GlobalKey _boundary = GlobalKey();
   final GlobalKey _liveBoundary = GlobalKey();
@@ -207,37 +213,14 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
   ShareLinkKind get kind => widget.kind;
   bool get _dollars => kind == ShareLinkKind.dollars;
 
-  /// The pick the link carries: the market's picked side, else the pick
-  /// fields as handed over.
-  SendPickSide? get _side => _market?.settled;
-  String? get _pickSlug => _market?.slug ?? widget.marketSlug;
-  String? get _pickTitle => _market?.title ?? widget.marketTitle;
-  String? get _pickVenue => _market?.venue ?? widget.venue;
-  String? get _pickOutcome =>
-      _market != null ? _side?.label : widget.outcome;
-  int? get _pickIndex => _market != null ? _side?.index : widget.outcomeIndex;
-  String? get _pickSide => _market != null ? _side?.side : widget.side;
+  String? get _pickSlug => widget.marketSlug;
+  String? get _pickTitle => widget.marketTitle;
+  String? get _pickVenue => widget.venue;
+  String? get _pickOutcome => widget.outcome;
+  int? get _pickIndex => widget.outcomeIndex;
+  String? get _pickSide => widget.side;
   bool get _investing => _pickVenue == 'hyperliquid';
-
-  /// Whether the link carries a pick (a market's side picked).
-  bool get _hasPick =>
-      (_pickOutcome?.trim().isNotEmpty ?? false) &&
-      (_pickTitle?.trim().isNotEmpty ?? false);
-
-  /// A side picked on the side step: on to the amount.
-  void _pickSideNow(SendPickSide side) {
-    final market = _market;
-    if (market == null) return;
-    TrackingService.track('send_pick_side_picked', params: {
-      'venue': market.venue,
-      'side': side.side,
-      'sides': market.sides.length,
-    });
-    setState(() {
-      _market = market.choose(side);
-      _step = _Step.amount;
-    });
-  }
+  bool get _hasPick => widget.hasPick;
 
   @override
   void dispose() {
@@ -245,9 +228,11 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
     super.dispose();
   }
 
-  /// The typed figure as the link's minor units: cents, or sats through
-  /// the bitcoin send's conversion. Zero while nothing usable is typed.
+  /// The link's minor units: the amount handed over, else the typed
+  /// figure as cents, or sats through the bitcoin send's conversion. Zero
+  /// while nothing usable is typed.
   int _amountMinor() {
+    if (widget.hasAmount) return widget.amountMinor!;
     final value = double.tryParse(_typed) ?? 0;
     if (value <= 0) return 0;
     if (_dollars) return (value * 100).round();
@@ -269,6 +254,12 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
       _error = null;
     });
     final label = _name.text.trim();
+    // The market's own title for the row and the message: the live card's
+    // (as last drawn), which names the event behind a candidate's page.
+    final card = _liveCard;
+    final title = card is PredictionCardData && card.question.trim().isNotEmpty
+        ? card.question.trim()
+        : _pickTitle?.trim();
     try {
       final pick = _hasPick;
       final challenge = _challenge && _canChallenge;
@@ -289,7 +280,7 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
         amountMinor: amountMinor,
         label: label.isEmpty ? null : label,
         marketSlug: _pickSlug,
-        marketTitle: pick ? _pickTitle!.trim() : null,
+        marketTitle: pick ? title : null,
         venue: pick ? _pickVenue : null,
         outcome: pick ? _pickOutcome!.trim() : null,
         url: challenge ? shareChallengeUrl(created.url) : created.url,
@@ -381,6 +372,8 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    // A pick's last step says what is sent (see the file header).
+    final pickName = _hasPick && _step == _Step.name;
     return AppBottomSheetContainer(
       maxHeight: MediaQuery.sizeOf(context).height * 0.92,
       followKeyboard: _step == _Step.name,
@@ -388,143 +381,39 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Each step says what it asks (see the file header): the side,
-          // how much, who it is for.
+          // Each step says what it asks: how much, who it is for; a pick
+          // says it is a prediction (an investment) being sent.
           AppBottomSheetHeader(
             title: switch (_step) {
-              _Step.name => l10n.shareWhoIsItFor,
               _Step.done => l10n.shareCardReadyTitle,
-              // "a" while the side is picked here, "this" for a side
-              // handed over (a position's).
-              _ when widget.market?.needsSide ?? false =>
-                _investing ? l10n.sendAnInvestment : l10n.sendAPrediction,
-              _ when widget.hasPick =>
+              _ when _hasPick =>
                 _investing ? l10n.sendThisInvestment : l10n.sendThisPrediction,
-              _ => l10n.shareSendToAnyone,
+              _Step.name => l10n.shareWhoIsItFor,
+              _Step.amount => l10n.shareSendToAnyone,
             },
             subtitle: switch (_step) {
-              _Step.side => (_market?.isPair ?? true)
-                  ? l10n.sendPickSideSub
-                  : l10n.sendPickOutcomeSub,
-              _Step.amount => widget.hasPick
-                  ? l10n.sendPickAmountSub
-                  : l10n.shareSendToAnyoneSubtitle,
+              _Step.amount => l10n.shareSendToAnyoneSubtitle,
+              _ when pickName => l10n.sendPickHowItWorks,
               _ => null,
             },
             icon: Icons.ios_share_rounded,
           ),
-          if (_step == _Step.side)
-            // The outcomes of a big event can run long: they scroll.
-            Flexible(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 24.h),
-                child: _sideStep(),
-              ),
-            )
-          else
-            Padding(
+          // The step scrolls under the header: nothing overflows with the
+          // keyboard up, however small the phone (see the file header).
+          Flexible(
+            child: SingleChildScrollView(
+              key: const ValueKey('send-to-anyone-scroll'),
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.manual,
               padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 24.h),
               child: switch (_step) {
-                _Step.side => const SizedBox.shrink(),
                 _Step.amount => _amountStep(),
                 _Step.name => _nameStep(),
                 _Step.done => _doneStep(),
               },
             ),
+          ),
         ],
       ),
-    );
-  }
-
-  /// The side step: what is sent over every side it can send, none
-  /// chosen (send_pick.dart). A tap is the choice.
-  Widget _sideStep() {
-    final market = _market;
-    if (market == null) return const SizedBox.shrink();
-    return Column(
-      key: const ValueKey('send-pick-side-step'),
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        SendPickMarketHeader(market: market),
-        SizedBox(height: 20.h),
-        SendPickSideChooser(market: market, onPicked: _pickSideNow),
-        // A long list of outcomes scrolls clear of the floating bar.
-        if (!market.isPair) SizedBox(height: kuteBarScrollClearance.h),
-      ],
-    );
-  }
-
-  /// The pick over the amount: the market's picture (when the sheet has
-  /// the market), "Yes on {market}" and the side's chance or the price
-  /// under it, and "Change" back to the sides when there was a choice.
-  Widget _pickSummary(AppColorsExtension c) {
-    final l10n = context.l10n;
-    final market = _market;
-    final side = _side;
-    final outcome = side != null
-        ? sendPickSideLabel(l10n, side)
-        : _pickOutcome!.trim();
-    final String? under;
-    if (side?.chance != null) {
-      under = sendPickChanceLine(l10n, side!);
-    } else if (market != null && market.investing) {
-      under = market.price;
-    } else {
-      under = null;
-    }
-    final line = Text(
-      sharePickLine(context, outcome: outcome, title: _pickTitle!.trim()),
-      key: const ValueKey('share-pick-line'),
-      maxLines: 2,
-      overflow: TextOverflow.ellipsis,
-      style: TextStyle(
-        color: c.textPrimary,
-        fontSize: 15.sp,
-        fontWeight: FontWeight.w600,
-        letterSpacing: -0.1,
-        height: 1.3,
-      ),
-    );
-    if (market == null) return line;
-    final canChange = widget.market?.needsSide ?? false;
-    return Row(
-      key: const ValueKey('share-pick-summary'),
-      children: [
-        sendPickLogo(context, market),
-        SizedBox(width: 12.w),
-        Expanded(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              line,
-              if (under != null && under.isNotEmpty) ...[
-                SizedBox(height: 2.h),
-                Text(
-                  under,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: c.textSecondary,
-                    fontSize: 13.sp,
-                    fontWeight: FontWeight.w500,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-        if (canChange)
-          SendChangeButton(
-            key: const ValueKey('share-pick-change'),
-            onTap: () => setState(() {
-              _market = _market?.choose(null);
-              _step = _Step.side;
-            }),
-          ),
-      ],
     );
   }
 
@@ -548,11 +437,6 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (_hasPick) ...[
-          // The pick, above the amount: "Yes on Gemini Carbon".
-          _pickSummary(c),
-          SizedBox(height: 10.h),
-        ],
         SizedBox(height: 6.h),
         Row(
           children: [
@@ -612,34 +496,98 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
     );
   }
 
+  /// What the friend gets, in words, under a pick's card: "Your friend
+  /// gets $5 on Apple — Yes at 62%" ("Ana gets …" with a name), read off
+  /// [card] so it says exactly what the card shows. Null without a pick.
+  String? _friendGets(ShareCardData card, String? name) {
+    final l10n = context.l10n;
+    final who = name ?? l10n.sendPickYourFriend;
+    switch (card) {
+      case final PredictionCardData d:
+        final amount = d.amount;
+        if (amount == null) return null;
+        final market = d.question.trim();
+        var side = shareCardOutcome(l10n, d.outcome);
+        // A candidate's own page before the event is read: the market is
+        // the candidate, and the side is its Yes.
+        if (side.toLowerCase() == market.toLowerCase()) side = l10n.yes;
+        final chance = d.chance;
+        return l10n.sendPickGets(
+            who,
+            amount,
+            market,
+            chance == null
+                ? side
+                : l10n.sendPickSideAtChance(
+                    side, shareCardChance(l10n.localeName, chance)));
+      case final InvestmentCardData d:
+        final amount = d.amount;
+        if (amount == null) return null;
+        final side = d.side == 'short' ? l10n.shortLabel : l10n.longLabel;
+        return l10n.sendPickGets(who, amount, d.title, side);
+      case MoneyCardData():
+      case ReceiptCardData():
+        return null;
+    }
+  }
+
   Widget _nameStep() {
     final l10n = context.l10n;
+    final c = context.colors;
     final label = _name.text.trim();
+    final name = label.isEmpty ? null : label;
+    final card = _liveCard =
+        _card(_amountMinor(), name, challenge: _challenge && _canChallenge);
+    final pick = _hasPick;
+    final gets = pick ? _friendGets(card, name) : null;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // The card, live as the name is typed (see the file header).
+        // The card, live as the name is typed (see the file header): a
+        // pick's is the hero, as wide as the sheet allows.
         ShareCardPreviewBox(
           key: const ValueKey('share-live-card'),
-          data: _card(_amountMinor(), label.isEmpty ? null : label,
-              challenge: _challenge && _canChallenge),
+          data: card,
           boundaryKey: _liveBoundary,
-          widthFraction: 0.6,
-          heightFraction: 0.34,
+          widthFraction: pick ? 1 : 0.6,
+          heightFraction: pick ? 0.5 : 0.34,
           lineSeed: _seed,
         ),
+        if (gets != null) ...[
+          SizedBox(height: 14.h),
+          // What the friend gets, in words.
+          Text(
+            gets,
+            key: const ValueKey('send-pick-gets'),
+            textAlign: TextAlign.center,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: c.textPrimary,
+              fontSize: 15.sp,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.1,
+              height: 1.3,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
         SizedBox(height: 14.h),
         AppTextField(
           key: const ValueKey('share-name-field'),
           controller: _name,
           hintText: l10n.shareFirstNameHint,
-          autofocus: true,
+          // A pick's card leads: the name is optional and waits for a
+          // tap; a plain send asks for it at once.
+          autofocus: !pick,
           maxLength: 40,
           keyboardType: TextInputType.name,
+          // Clear of the bar riding above the keyboard.
+          scrollPadding: EdgeInsets.fromLTRB(
+              20, 20, 20, kuteBarScrollClearance.h + 20),
           onChanged: (_) => setState(() {}),
-          // The bar is Create link and hides under the keyboard: the
-          // return key creates the link too.
+          // The return key sends too.
           textInputAction: TextInputAction.done,
           onSubmitted: (_) {
             if (!_creating) unawaited(_create());
@@ -664,12 +612,14 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
             ),
           ),
         ],
-        // Create link is the bar (kute_bar_context.dart), busy while the
-        // link is posted. The bar hides under the keyboard, so the field's
-        // return key creates the link too.
+        // The bar sends (kute_bar_context.dart), busy while the link is
+        // posted: "Send prediction" on a pick, else Create link. It rides
+        // above the keyboard; the field's return key sends too.
         KuteBarContextScope(
           barContext: KuteBarContext.primary(
-            label: l10n.shareCreateLink,
+            label: pick
+                ? (_investing ? l10n.sendInvestmentCta : l10n.sendPredictionCta)
+                : l10n.shareCreateLink,
             onPrimary: () => unawaited(_create()),
             enabled: !_creating,
             busy: _creating,

@@ -3614,5 +3614,18 @@
   "polyLinesNotTrading": "Ei vielä kaupankäyntiä · {count}",
   "polyLinesSettled": "Ratkenneet · {count}",
   "polySideOver": "Yli",
-  "polySideUnder": "Alle"
+  "polySideUnder": "Alle",
+  "sendPickCardSub": "Tai sijoitus",
+  "sendPredictionCta": "Lähetä ennuste",
+  "sendInvestmentCta": "Lähetä sijoitus",
+  "sendPickYourFriend": "Ystäväsi",
+  "sendPickGets": "{who} saa {amount}: {market} — {side}",
+  "sendPickSideAtChance": "{side}, todennäköisyys {chance}",
+  "sendPickHowItWorks": "Hän lunastaa sen ja tekee sen yhdellä napautuksella",
+  "shareCardPredictionForYou": "Ennuste sinulle",
+  "shareCardPredictionForNamed": "{name}, ennuste sinulle",
+  "slipShareEnterAmount": "Syötä lähetettävä summa",
+  "slipShareMinimum": "Syötä vähintään {amount} lähettääksesi",
+  "slipShareYesOnly": "Vain Kyllä kohteeseen {outcome} voidaan lähettää. Vaihda Kyllä lähettääksesi.",
+  "sendPickMarketHow": "Etsi markkina, valitse puoli ja summa ja napauta sitten Salia lähettääksesi"
 }

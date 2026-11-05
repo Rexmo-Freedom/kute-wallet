@@ -12852,4 +12852,55 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get polySideUnder => 'Alle';
+
+  @override
+  String get sendPickCardSub => 'Tai sijoitus';
+
+  @override
+  String get sendPredictionCta => 'Lähetä ennuste';
+
+  @override
+  String get sendInvestmentCta => 'Lähetä sijoitus';
+
+  @override
+  String get sendPickYourFriend => 'Ystäväsi';
+
+  @override
+  String sendPickGets(String who, String amount, String market, String side) {
+    return '$who saa $amount: $market — $side';
+  }
+
+  @override
+  String sendPickSideAtChance(String side, String chance) {
+    return '$side, todennäköisyys $chance';
+  }
+
+  @override
+  String get sendPickHowItWorks =>
+      'Hän lunastaa sen ja tekee sen yhdellä napautuksella';
+
+  @override
+  String get shareCardPredictionForYou => 'Ennuste sinulle';
+
+  @override
+  String shareCardPredictionForNamed(String name) {
+    return '$name, ennuste sinulle';
+  }
+
+  @override
+  String get slipShareEnterAmount => 'Syötä lähetettävä summa';
+
+  @override
+  String slipShareMinimum(String amount) {
+    return 'Syötä vähintään $amount lähettääksesi';
+  }
+
+  @override
+  String slipShareYesOnly(String outcome) {
+    return 'Vain Kyllä kohteeseen $outcome voidaan lähettää. Vaihda Kyllä lähettääksesi.';
+  }
+
+  @override
+  String get sendPickMarketHow =>
+      'Etsi markkina, valitse puoli ja summa ja napauta sitten Salia lähettääksesi';
 }

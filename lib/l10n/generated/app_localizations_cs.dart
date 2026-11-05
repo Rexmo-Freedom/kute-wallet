@@ -12836,4 +12836,54 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get polySideUnder => 'Méně';
+
+  @override
+  String get sendPickCardSub => 'Nebo investici';
+
+  @override
+  String get sendPredictionCta => 'Poslat predikci';
+
+  @override
+  String get sendInvestmentCta => 'Poslat investici';
+
+  @override
+  String get sendPickYourFriend => 'Tvůj kamarád';
+
+  @override
+  String sendPickGets(String who, String amount, String market, String side) {
+    return '$who dostane $amount na $market — $side';
+  }
+
+  @override
+  String sendPickSideAtChance(String side, String chance) {
+    return '$side při $chance';
+  }
+
+  @override
+  String get sendPickHowItWorks => 'Vyzvedne si je a jedním klepnutím zadá';
+
+  @override
+  String get shareCardPredictionForYou => 'Predikce pro tebe';
+
+  @override
+  String shareCardPredictionForNamed(String name) {
+    return '$name, predikce pro tebe';
+  }
+
+  @override
+  String get slipShareEnterAmount => 'Zadej částku k odeslání';
+
+  @override
+  String slipShareMinimum(String amount) {
+    return 'Pro odeslání zadej aspoň $amount';
+  }
+
+  @override
+  String slipShareYesOnly(String outcome) {
+    return 'Poslat jde jen „Ano“ na $outcome. Přepni na „Ano“ a pošli to.';
+  }
+
+  @override
+  String get sendPickMarketHow =>
+      'Najdi trh, vyber stranu a částku a pak klepni na Sal a pošli to';
 }

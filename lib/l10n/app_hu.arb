@@ -3614,5 +3614,18 @@
   "polyLinesNotTrading": "Még nincs kereskedés · {count}",
   "polyLinesSettled": "Eldőlt · {count}",
   "polySideOver": "Felett",
-  "polySideUnder": "Alatt"
+  "polySideUnder": "Alatt",
+  "sendPickCardSub": "Vagy egy befektetést",
+  "sendPredictionCta": "Előrejelzés küldése",
+  "sendInvestmentCta": "Befektetés küldése",
+  "sendPickYourFriend": "A barátod",
+  "sendPickGets": "{who} {amount} összeget kap erre: {market} — {side}",
+  "sendPickSideAtChance": "{side}, {chance} eséllyel",
+  "sendPickHowItWorks": "Átveszi, majd egy koppintással megteszi",
+  "shareCardPredictionForYou": "Előrejelzés neked",
+  "shareCardPredictionForNamed": "{name}, egy előrejelzés neked",
+  "slipShareEnterAmount": "Add meg a küldendő összeget",
+  "slipShareMinimum": "A küldéshez legalább {amount} kell",
+  "slipShareYesOnly": "Csak az Igen küldhető erre: {outcome}. Válts Igenre a küldéshez.",
+  "sendPickMarketHow": "Keress egy piacot, válassz oldalt és összeget, majd koppints Salra a küldéshez"
 }

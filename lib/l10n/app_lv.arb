@@ -3614,5 +3614,18 @@
   "polyLinesNotTrading": "Vēl netirgo · {count}",
   "polyLinesSettled": "Izšķirti · {count}",
   "polySideOver": "Virs",
-  "polySideUnder": "Zem"
+  "polySideUnder": "Zem",
+  "sendPickCardSub": "Vai ieguldījumu",
+  "sendPredictionCta": "Sūtīt prognozi",
+  "sendInvestmentCta": "Sūtīt investīciju",
+  "sendPickYourFriend": "Tavs draugs",
+  "sendPickGets": "{who} saņem {amount}: {market} — {side}",
+  "sendPickSideAtChance": "{side}, iespēja {chance}",
+  "sendPickHowItWorks": "Saņem un ar vienu pieskārienu izvieto",
+  "shareCardPredictionForYou": "Prognoze tev",
+  "shareCardPredictionForNamed": "{name}, prognoze tev",
+  "slipShareEnterAmount": "Ievadi sūtāmo summu",
+  "slipShareMinimum": "Lai nosūtītu, ievadi vismaz {amount}",
+  "slipShareYesOnly": "Var nosūtīt tikai “Jā”: {outcome}. Pārslēdz uz “Jā”, lai nosūtītu.",
+  "sendPickMarketHow": "Atrodi tirgu, izvēlies pusi un summu, tad pieskaries Sal, lai nosūtītu"
 }

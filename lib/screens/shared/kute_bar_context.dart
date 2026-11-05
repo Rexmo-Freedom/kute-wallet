@@ -54,7 +54,8 @@
 // ([KuteBarContext.trade]), floating pills in the market's colours
 // ([KuteBarTrade]: Invest | Short on Investing, Yes | No on one
 // prediction), and at the row's end the round Sal button ([KuteBarShare])
-// opens the page's Send to a friend sheet. No "Send to a friend" pill in
+// sends the market at once (no Sal sheet in between since 5 November
+// 2026); on a slip the same button sends THAT prediction. No "Send to a friend" pill in
 // the header or beside the figure any more. An open position's Close or
 // Sell primary carries the same round button
 // ([KuteBarContext.primary]'s share); in profit it opens the brag card.
@@ -65,18 +66,21 @@
 // as the floating Sal pill, which folds into that same round button while
 // the page scrolls down (kute_shell_bar.dart).
 //
-// Tapping the bar ALWAYS opens the same search / Sal sheet as Home, with
-// the context's block on top: a market page's preview and its send cards
-// ([actions]: "Share the market", "Send this prediction"; drawn only with
-// a market's preview, never as generic arrow cards), or the surface's own
+// Tapping the bar opens the same search / Sal sheet as Home, with the
+// context's block on top, unless the context has its own action
+// ([directAction]: a market page sends the market at once): a market's
+// preview and its send card ([actions]: "Send the market", "Show off this
+// position"; drawn only with a market's preview, never as generic arrow
+// cards; reached by a long press on a primary button), or the surface's own
 // widget in place of the home's blocks ([sheetHome]: over the category
 // sheet, every category of the venue as the grid's own tiles), Sal's
 // prompt chips tuned to the screen ([prompts]), and the composer scoped
 // to that venue ([category], [searchHint]). A keyboard-driven surface, and the Sal
 // sheet itself, push a [hidden] context: the bar slides away.
 //
-// Share links: the two market rows go through the share flow in
-// screens/share/ (the market share sheet, Send to anyone); see
+// Share links: the market goes through the market send sheet
+// (screens/share/share_market_sheet.dart), a prediction through its slip's
+// round Sal button and Send to anyone (screens/share/slip_share.dart); see
 // kute_share_actions.dart for the link they carry.
 //
 // The page's scroll reaches the bar through [kuteBarScroll]: the
@@ -178,18 +182,27 @@ class KuteBarTrade {
 }
 
 /// The round Sal button at the end of a page's bar row (see the file
-/// header): a tap opens [barContext]'s Sal sheet (the market's Send to a
-/// friend cards), travelling to its composer as the pill does; on an open
-/// position in profit [brag] (its brag preview) runs instead. [open] is a
-/// share with nothing to ask Sal first: a receipt's (founder, 5 November
-/// 2026: "All these transactions, next to View on the blockchain, should
-/// have the share and a special share card"), its card's preview
-/// (screens/share/receipt_share.dart), read aloud as "Send to a friend".
+/// header). A tap runs, in this order: [brag] (an open position in
+/// profit: its brag preview), [send] (a slip: THIS prediction or
+/// investment to a friend, screens/share/slip_share.dart), [open] (a
+/// receipt's card preview, screens/share/receipt_share.dart; founder, 5
+/// November 2026: "All these transactions, next to View on the
+/// blockchain, should have the share and a special share card"), else
+/// [barContext]'s own action ([KuteBarContext.directAction]: a market
+/// page sends the market straight away; founder, 5 November 2026: "the
+/// other shares are just sharing the market, no picker"), and only
+/// without one [barContext]'s Sal sheet, travelling to its composer as
+/// the pill does.
 class KuteBarShare {
-  const KuteBarShare({required this.barContext, this.brag, this.open});
+  const KuteBarShare({this.barContext, this.brag, this.send, this.open})
+      : assert(barContext != null ||
+            brag != null ||
+            send != null ||
+            open != null);
 
-  final KuteBarContext barContext;
+  final KuteBarContext? barContext;
   final VoidCallback? brag;
+  final VoidCallback? send;
   final VoidCallback? open;
 }
 
@@ -439,6 +452,11 @@ class KuteBarContext {
   final WidgetBuilder? sheetHome;
 
   bool get hasRecommendations => actions.isNotEmpty || sheetHome != null;
+
+  /// What a tap on the pill (and on the round Sal button carrying this
+  /// context) does instead of opening the Sal sheet: a market page sends
+  /// the market at once (kute_share_actions.dart). Null: the Sal sheet.
+  VoidCallback? get directAction => null;
 
   /// A market or position page's context: the bar moves with the page
   /// there (kute_shell_bar.dart). Its clip is the `share` one

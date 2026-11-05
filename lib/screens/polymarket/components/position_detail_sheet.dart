@@ -501,7 +501,6 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
       // The pick: this position's outcome.
       outcome: pos.outcome,
       outcomeChance: pos.currentPrice * 100,
-      side: 'buy',
       imageUrl: headerImage,
       position: true,
       category: SearchCategory.predictions,

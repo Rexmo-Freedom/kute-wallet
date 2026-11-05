@@ -12836,4 +12836,55 @@ class AppLocalizationsDa extends AppLocalizations {
 
   @override
   String get polySideUnder => 'Under';
+
+  @override
+  String get sendPickCardSub => 'Eller en investering';
+
+  @override
+  String get sendPredictionCta => 'Send forudsigelse';
+
+  @override
+  String get sendInvestmentCta => 'Send investering';
+
+  @override
+  String get sendPickYourFriend => 'Din ven';
+
+  @override
+  String sendPickGets(String who, String amount, String market, String side) {
+    return '$who får $amount på $market — $side';
+  }
+
+  @override
+  String sendPickSideAtChance(String side, String chance) {
+    return '$side til $chance';
+  }
+
+  @override
+  String get sendPickHowItWorks =>
+      'De indløser den og placerer den med ét tryk';
+
+  @override
+  String get shareCardPredictionForYou => 'En forudsigelse til dig';
+
+  @override
+  String shareCardPredictionForNamed(String name) {
+    return '$name, en forudsigelse til dig';
+  }
+
+  @override
+  String get slipShareEnterAmount => 'Indtast et beløb at sende';
+
+  @override
+  String slipShareMinimum(String amount) {
+    return 'Indtast mindst $amount for at sende';
+  }
+
+  @override
+  String slipShareYesOnly(String outcome) {
+    return 'Kun Ja på $outcome kan sendes. Skift til Ja for at sende den.';
+  }
+
+  @override
+  String get sendPickMarketHow =>
+      'Find et marked, vælg side og beløb, og tryk så på Sal for at sende';
 }

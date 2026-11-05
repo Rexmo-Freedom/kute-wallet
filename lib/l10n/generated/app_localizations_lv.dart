@@ -12806,4 +12806,54 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get polySideUnder => 'Zem';
+
+  @override
+  String get sendPickCardSub => 'Vai ieguldījumu';
+
+  @override
+  String get sendPredictionCta => 'Sūtīt prognozi';
+
+  @override
+  String get sendInvestmentCta => 'Sūtīt investīciju';
+
+  @override
+  String get sendPickYourFriend => 'Tavs draugs';
+
+  @override
+  String sendPickGets(String who, String amount, String market, String side) {
+    return '$who saņem $amount: $market — $side';
+  }
+
+  @override
+  String sendPickSideAtChance(String side, String chance) {
+    return '$side, iespēja $chance';
+  }
+
+  @override
+  String get sendPickHowItWorks => 'Saņem un ar vienu pieskārienu izvieto';
+
+  @override
+  String get shareCardPredictionForYou => 'Prognoze tev';
+
+  @override
+  String shareCardPredictionForNamed(String name) {
+    return '$name, prognoze tev';
+  }
+
+  @override
+  String get slipShareEnterAmount => 'Ievadi sūtāmo summu';
+
+  @override
+  String slipShareMinimum(String amount) {
+    return 'Lai nosūtītu, ievadi vismaz $amount';
+  }
+
+  @override
+  String slipShareYesOnly(String outcome) {
+    return 'Var nosūtīt tikai “Jā”: $outcome. Pārslēdz uz “Jā”, lai nosūtītu.';
+  }
+
+  @override
+  String get sendPickMarketHow =>
+      'Atrodi tirgu, izvēlies pusi un summu, tad pieskaries Sal, lai nosūtītu';
 }

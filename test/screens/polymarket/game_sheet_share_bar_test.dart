@@ -3,9 +3,10 @@
 // Predictions. It must be a floating button"). No pill in the title row,
 // whatever the title's length: the title has the row up to the star, and
 // the bar at the foot is the floating Sal pill, "Send to a friend", which
-// opens the market's Sal sheet (a game is an event: Send the market
-// alone) and which the page's last rows scroll clear of. A game has no
-// Yes / No pair, so no trade row.
+// opens the market send sheet at once (founder, 5 November 2026: "the
+// other shares are just sharing the market, no picker") and which the
+// page's last rows scroll clear of. A game has no Yes / No pair, so no
+// trade row.
 //
 // On demand, light renders:
 //   flutter test test/screens/polymarket/game_sheet_share_bar_test.dart \
@@ -41,6 +42,7 @@ import 'package:kute/screens/polymarket/components/poly_watch_star.dart';
 import 'package:kute/screens/polymarket/components/poly_market_stats.dart'
     show kPolyRulesCardKey;
 import 'package:kute/screens/polymarket/market_detail_sheet.dart';
+import 'package:kute/screens/share/share_market_sheet.dart';
 import 'package:kute/screens/shared/kute_back_button.dart'
     show KuteCloseButton;
 import 'package:kute/screens/shared/kute_bar_context.dart';
@@ -220,7 +222,7 @@ void main() {
     testWidgets(
         'at ${width.toInt()} wide "${game.$1}": nothing to share in the '
         'title row, the title whole up to the star; the bar is the floating '
-        'Sal pill "Send to a friend", opening the market\'s Sal sheet, and '
+        'Sal pill "Send to a friend", opening the market send sheet, and '
         'the last rows scroll clear of it', (tester) async {
       await _loadInter(tester);
       await http.runWithClient(() async {
@@ -274,13 +276,15 @@ void main() {
         expect(tester.getRect(rules).bottom,
             lessThan(tester.getRect(_pill).top));
         expect(tester.takeException(), isNull);
-        // A tap opens the Sal sheet with the market's send card: a game is
-        // an event, so the market alone (founder, 2 November 2026).
+        // A tap opens the market send sheet at once: no Sal sheet, no
+        // picker (founder, 5 November 2026).
         await tester.tap(_pill);
         for (var i = 0; i < 12; i++) {
           await tester.pump(const Duration(milliseconds: 100));
         }
-        expect(find.text(l10n.shareTheMarket), findsWidgets);
+        expect(find.byType(ShareMarketSheet), findsOneWidget);
+        expect(find.byKey(const ValueKey('context-actions-card')),
+            findsNothing);
         expect(find.text(l10n.sendThisPrediction), findsNothing);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox.shrink());

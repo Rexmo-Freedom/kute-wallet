@@ -3614,5 +3614,18 @@
   "polyLinesNotTrading": "Handles ikke endnu · {count}",
   "polyLinesSettled": "Afgjort · {count}",
   "polySideOver": "Over",
-  "polySideUnder": "Under"
+  "polySideUnder": "Under",
+  "sendPickCardSub": "Eller en investering",
+  "sendPredictionCta": "Send forudsigelse",
+  "sendInvestmentCta": "Send investering",
+  "sendPickYourFriend": "Din ven",
+  "sendPickGets": "{who} får {amount} på {market} — {side}",
+  "sendPickSideAtChance": "{side} til {chance}",
+  "sendPickHowItWorks": "De indløser den og placerer den med ét tryk",
+  "shareCardPredictionForYou": "En forudsigelse til dig",
+  "shareCardPredictionForNamed": "{name}, en forudsigelse til dig",
+  "slipShareEnterAmount": "Indtast et beløb at sende",
+  "slipShareMinimum": "Indtast mindst {amount} for at sende",
+  "slipShareYesOnly": "Kun Ja på {outcome} kan sendes. Skift til Ja for at sende den.",
+  "sendPickMarketHow": "Find et marked, vælg side og beløb, og tryk så på Sal for at sende"
 }

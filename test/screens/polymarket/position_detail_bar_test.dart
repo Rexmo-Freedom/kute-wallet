@@ -286,7 +286,7 @@ void main() {
     expect(share, findsOneWidget);
     expect(tester.getRect(share).left,
         greaterThan(tester.getRect(findBarPrimary()).right));
-    expect(ctx.share!.barContext.market, isTrue);
+    expect(ctx.share!.barContext!.market, isTrue);
     for (final f in [findBarPrimary(), share]) {
       final hit = tester.hitTestOnBinding(tester.getCenter(f));
       expect(hit.path.any((e) => e.target == tester.renderObject(f)), isTrue);

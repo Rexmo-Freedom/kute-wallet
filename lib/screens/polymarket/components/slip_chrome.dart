@@ -303,6 +303,25 @@ class PolySlipFigureRow extends StatelessWidget {
   }
 }
 
+/// The round Sal button a slip puts beside its primary (founder, 5
+/// November 2026: the share belongs on the slip, "it carries all the
+/// information, even the amount"; screens/share/slip_share.dart): every
+/// [PolySlipCta] under it carries [share] into the bar, whatever the
+/// button is at the moment (the bet, the deposit door, Check connection).
+class PolySlipShareScope extends InheritedWidget {
+  const PolySlipShareScope(
+      {super.key, required this.share, required super.child});
+
+  final KuteBarShare? share;
+
+  static KuteBarShare? maybeOf(BuildContext context) => context
+      .dependOnInheritedWidgetOfExactType<PolySlipShareScope>()
+      ?.share;
+
+  @override
+  bool updateShouldNotify(PolySlipShareScope old) => old.share != share;
+}
+
 /// The ticket's single primary action.
 ///
 /// On a side-tinted sheet the CTA inverts: the sheet's ink becomes the
@@ -408,6 +427,8 @@ class PolySlipCta extends StatelessWidget {
         category: SearchCategory.predictions,
         source: 'slip',
         disabledLabel: disabledLabel,
+        // The slip's round Sal button, where the slip has one.
+        share: PolySlipShareScope.maybeOf(context),
       ),
       child: SizedBox(
           key: const ValueKey('poly-slip-cta-room'),

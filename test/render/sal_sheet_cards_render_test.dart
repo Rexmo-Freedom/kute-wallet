@@ -1,8 +1,10 @@
 // A look by eye at the Sal sheet's send cards on a market (light and
 // dark, English and German), written only when asked: R4_BAR_RENDER=<dir>.
-// The event page (Michigan Senate Election Winner, several outcomes) holds
-// the one full-width "Send the market" card; a single Yes/No market keeps
-// both cards (founder, 2 November 2026). The bars are built as the market
+// Both the event page (Michigan Senate Election Winner, several outcomes)
+// and a single Yes/No market hold the one full-width "Send the market"
+// card where something opens the Sal sheet with the market's context (a
+// prediction is sent from its slip since 5 November 2026; the page's own
+// buttons open the market send sheet at once). The bars are built as the market
 // page builds them (marketBarContext). One render per run (a second sheet
 // in the same process captures blank), so:
 //   for v in 'event en light' 'single de dark' ...; do R4_BAR_RENDER=<dir> \
@@ -61,15 +63,10 @@ KuteMarketBarContext _bar(BuildContext context, {required bool single}) =>
       venue: kMarketLinkPredictions,
       slug: 'michigan-senate-election-winner',
       chance: single ? 64 : null,
-      outcome: single ? 'Yes' : 'Abdul El-Sayed (D)',
-      outcomeIndex: 0,
-      outcomeChance: 64,
-      side: 'buy',
       position: false,
       category: SearchCategory.predictions,
       searchHint: null,
       source: 'predictions',
-      sendPick: single,
     ) as KuteMarketBarContext;
 
 void main() {

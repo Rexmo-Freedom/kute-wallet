@@ -162,8 +162,9 @@ void main() {
           'Ana, a friend dares you');
       expect(shareCardTopLine(_en, fakeChallenge(name: null).asRecipient()),
           'A friend dares you');
-      // A plain pick keeps its own.
-      expect(shareCardTopLine(_en, fakeBinaryPick()), 'Ana, a pick for you');
+      // A plain prediction keeps its own, and says it is one.
+      expect(shareCardTopLine(_en, fakeBinaryPick()),
+          'Ana, a prediction for you');
     });
 
     test('the two sides: the other of Yes and No, else the rival', () {
@@ -505,8 +506,11 @@ void main() {
       };
     });
 
+    /// The sheet on who it is for: a pick comes from its slip with its
+    /// amount already; a plain send types $10 first.
     Future<void> toName(WidgetTester tester, SendToAnyoneSheet sheet) async {
       await pumpShareWidget(tester, env, sheet);
+      if (sheet.hasAmount) return;
       await tester.tap(find.text('1'));
       await tester.pump();
       await tester.tap(find.text('0'));
@@ -528,6 +532,7 @@ void main() {
             outcome: 'Yes',
             outcomeIndex: 0,
             side: 'buy',
+            amountMinor: 1000,
           ));
       expect(find.text('Challenge them'), findsOneWidget);
       expect(find.text('Dare them to take the other side'), findsOneWidget);
@@ -541,12 +546,14 @@ void main() {
           findsOneWidget);
       await tester.enterText(
           find.byKey(const ValueKey('share-name-field')), 'Ana');
+      await tester.ensureVisible(
+          find.byKey(const ValueKey('share-challenge-toggle')));
       await tester.tap(find.byKey(const ValueKey('share-challenge-toggle')));
       await settle(tester);
       expect(find.byKey(const ValueKey('share-card-send_challenge')),
           findsOneWidget);
       expect(find.text('ANA, I DARE YOU'), findsOneWidget);
-      await tester.tap(kuteBarPrimaryWithText('Create link'));
+      await tester.tap(kuteBarPrimaryWithText('Send prediction'));
       await settle(tester);
       await shareCardAndWait(tester, shared);
 
@@ -568,7 +575,8 @@ void main() {
       });
     });
 
-    testWidgets('left off: a plain pick, no flag anywhere', (tester) async {
+    testWidgets('left off: a plain prediction, no flag anywhere',
+        (tester) async {
       await toName(
           tester,
           const SendToAnyoneSheet(
@@ -579,8 +587,9 @@ void main() {
             outcome: 'Yes',
             outcomeIndex: 0,
             side: 'buy',
+            amountMinor: 1000,
           ));
-      await tester.tap(kuteBarPrimaryWithText('Create link'));
+      await tester.tap(kuteBarPrimaryWithText('Send prediction'));
       await settle(tester);
       expect(env.fake.calls.single.$2.containsKey('challenge'), isFalse);
       expect(ShareLinksStore.byId('lnk_1')!.url, 'https://web.test/c/lnk_1');
@@ -598,6 +607,7 @@ void main() {
             venue: 'hyperliquid',
             outcome: 'Long',
             side: 'long',
+            amountMinor: 1000,
           ));
       expect(find.byKey(const ValueKey('share-name-field')), findsOneWidget);
       expect(find.text('Challenge them'), findsNothing);

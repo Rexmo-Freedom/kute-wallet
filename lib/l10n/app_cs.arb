@@ -3614,5 +3614,18 @@
   "polyLinesNotTrading": "Zatím se neobchoduje · {count}",
   "polyLinesSettled": "Rozhodnuté · {count}",
   "polySideOver": "Více",
-  "polySideUnder": "Méně"
+  "polySideUnder": "Méně",
+  "sendPickCardSub": "Nebo investici",
+  "sendPredictionCta": "Poslat predikci",
+  "sendInvestmentCta": "Poslat investici",
+  "sendPickYourFriend": "Tvůj kamarád",
+  "sendPickGets": "{who} dostane {amount} na {market} — {side}",
+  "sendPickSideAtChance": "{side} při {chance}",
+  "sendPickHowItWorks": "Vyzvedne si je a jedním klepnutím zadá",
+  "shareCardPredictionForYou": "Predikce pro tebe",
+  "shareCardPredictionForNamed": "{name}, predikce pro tebe",
+  "slipShareEnterAmount": "Zadej částku k odeslání",
+  "slipShareMinimum": "Pro odeslání zadej aspoň {amount}",
+  "slipShareYesOnly": "Poslat jde jen „Ano“ na {outcome}. Přepni na „Ano“ a pošli to.",
+  "sendPickMarketHow": "Najdi trh, vyber stranu a částku a pak klepni na Sal a pošli to"
 }

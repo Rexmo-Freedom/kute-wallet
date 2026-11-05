@@ -3614,5 +3614,18 @@
   "polyLinesNotTrading": "Încă nu se tranzacționează · {count}",
   "polyLinesSettled": "Decise · {count}",
   "polySideOver": "Peste",
-  "polySideUnder": "Sub"
+  "polySideUnder": "Sub",
+  "sendPickCardSub": "Sau o investiție",
+  "sendPredictionCta": "Trimite predicția",
+  "sendInvestmentCta": "Trimite investiția",
+  "sendPickYourFriend": "Prietenul tău",
+  "sendPickGets": "{who} primește {amount} pe {market} — {side}",
+  "sendPickSideAtChance": "{side} la {chance}",
+  "sendPickHowItWorks": "O revendică și o plasează cu o atingere",
+  "shareCardPredictionForYou": "O predicție pentru tine",
+  "shareCardPredictionForNamed": "{name}, o predicție pentru tine",
+  "slipShareEnterAmount": "Introdu o sumă de trimis",
+  "slipShareMinimum": "Introdu cel puțin {amount} ca să trimiți",
+  "slipShareYesOnly": "Se poate trimite doar Da pe {outcome}. Treci pe Da ca să trimiți.",
+  "sendPickMarketHow": "Găsește o piață, alege partea și suma, apoi atinge Sal ca să trimiți"
 }

@@ -258,7 +258,7 @@ void main() {
         .barContext;
     expect(close.label, 'Close position');
     expect(close.share, isNotNull);
-    expect(close.share!.barContext.market, isTrue);
+    expect(close.share!.barContext!.market, isTrue);
     expect(close.share!.brag, isNotNull, reason: 'in profit: the card');
     expect(find.byType(KuteDogGlance), findsNothing);
     expect(find.byType(SalAiRing), findsNothing);
@@ -700,7 +700,7 @@ void main() {
               (w) => w is KuteBarContextScope && w.barContext.isTrade))
           .barContext;
       expect(row.trades.map((t) => t.label), ['Invest', 'Short']);
-      expect(row.share!.barContext.market, isTrue);
+      expect(row.share!.barContext!.market, isTrue);
       expect(tester.takeException(), isNull);
     });
 

@@ -13,11 +13,11 @@
 //     "in bitcoin · ₿12,000" under it), Sal with his briefcase and coin
 //     standing on the rule beside it, the edgy line, "Claim it on Kute"
 //     quiet over the footer.
-//   * PREDICTION (blue): "ANA, A PICK FOR YOU", the market's picture (36)
+//   * PREDICTION (blue): "ANA, A PREDICTION FOR YOU", the market's picture (36)
 //     and question (18, wrapping, never cut while it can be read), then
 //     the open-position screen's speedometer with the outcome's chance huge
-//     under its hub and "Chance of Gen.G", "$10 on Gen.G" when sent as a
-//     pick, the edgy line; Sal looking up, weighing it. A MARKET of named
+//     under its hub and "Chance of Gen.G", "$10 on Gen.G" in big type when
+//     sent as a pick, the edgy line; Sal looking up, weighing it. A MARKET of named
 //     outcomes shared without a pick (Lula vs Bolsonaro) draws the market
 //     page's own chart instead (share_card_market_chart.dart): its top
 //     outcomes' real lines filling the card, each labelled "Lula da Silva
@@ -227,6 +227,9 @@ class ShareCard extends StatelessWidget {
           plain: d.picked && d.amount != null
               ? l10n.shareCardAmountOn(d.amount!, outcome)
               : null,
+          // What was sent, as big as the rest (founder, 5 November 2026:
+          // "more clear we are sending the prediction").
+          plainStrong: d.picked,
           line: line,
           code: code,
           mark: mark,

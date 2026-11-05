@@ -80,6 +80,9 @@ import 'package:kute/screens/shared/sal_sprite.dart'
     show SalClip, SalSpriteCache;
 import 'package:kute/theme/app_theme.dart';
 
+/// A strong plain line's size ([ShareCardFrame.plainStrong]).
+const double kShareCardPlainStrongSize = 24;
+
 /// The card's logical size: 4:5.
 const Size kShareCardSize = Size(360, 450);
 
@@ -507,6 +510,7 @@ class ShareCardFrame extends StatelessWidget {
     this.graphicFills = false,
     this.graphicBelowSal = false,
     this.plain,
+    this.plainStrong = false,
     this.line,
     this.quiet,
     this.code,
@@ -562,6 +566,10 @@ class ShareCardFrame extends StatelessWidget {
   /// One plain fact line under the graphic.
   final String? plain;
 
+  /// [plain] as the card's second statement, big and in the full ink (a
+  /// prediction sent with money: "$5 on Yes"), not a quiet fact.
+  final bool plainStrong;
+
   /// The edgy line (20, w600, 90% ink, two lines at most).
   final String? line;
 
@@ -607,8 +615,12 @@ class ShareCardFrame extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: textAlign,
-            style: shareCardText(16, FontWeight.w600, p.ink,
-                spacing: -0.2, tabular: true),
+            style: plainStrong
+                ? shareCardText(kShareCardPlainStrongSize, FontWeight.w800,
+                    p.ink,
+                    spacing: -0.4, tabular: true)
+                : shareCardText(16, FontWeight.w600, p.ink,
+                    spacing: -0.2, tabular: true),
           );
     // Beside Sal on the floor the lines under the number keep clear of
     // him, a long one shrunk a touch rather than cut.

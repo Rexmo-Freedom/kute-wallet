@@ -532,7 +532,7 @@ void main() {
           .widget<KuteBarContextScope>(find.byWidgetPredicate(
               (w) => w is KuteBarContextScope && w.barContext.isPrimary))
           .barContext;
-      expect(sell.share!.barContext.market, isTrue);
+      expect(sell.share!.barContext!.market, isTrue);
       expect(
           tester.getRect(find.byType(PolyPositionSpeedometer)).bottom,
           lessThan(tester

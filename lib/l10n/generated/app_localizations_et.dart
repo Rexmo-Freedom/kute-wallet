@@ -12826,4 +12826,55 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get polySideUnder => 'Alla';
+
+  @override
+  String get sendPickCardSub => 'Või investeering';
+
+  @override
+  String get sendPredictionCta => 'Saada ennustus';
+
+  @override
+  String get sendInvestmentCta => 'Saada investeering';
+
+  @override
+  String get sendPickYourFriend => 'Sinu sõber';
+
+  @override
+  String sendPickGets(String who, String amount, String market, String side) {
+    return '$who saab $amount: $market — $side';
+  }
+
+  @override
+  String sendPickSideAtChance(String side, String chance) {
+    return '$side tõenäosusega $chance';
+  }
+
+  @override
+  String get sendPickHowItWorks =>
+      'Ta võtab selle vastu ja paigutab ühe puudutusega';
+
+  @override
+  String get shareCardPredictionForYou => 'Ennustus sulle';
+
+  @override
+  String shareCardPredictionForNamed(String name) {
+    return '$name, ennustus sulle';
+  }
+
+  @override
+  String get slipShareEnterAmount => 'Sisesta saadetav summa';
+
+  @override
+  String slipShareMinimum(String amount) {
+    return 'Saatmiseks sisesta vähemalt $amount';
+  }
+
+  @override
+  String slipShareYesOnly(String outcome) {
+    return 'Saata saab ainult valikut Jah: $outcome. Saatmiseks vali Jah.';
+  }
+
+  @override
+  String get sendPickMarketHow =>
+      'Leia turg, vali pool ja summa ning puuduta saatmiseks Sali';
 }

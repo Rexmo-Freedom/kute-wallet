@@ -12792,4 +12792,54 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get polySideUnder => 'Under';
+
+  @override
+  String get sendPickCardSub => 'Or an investment';
+
+  @override
+  String get sendPredictionCta => 'Send prediction';
+
+  @override
+  String get sendInvestmentCta => 'Send investment';
+
+  @override
+  String get sendPickYourFriend => 'Your friend';
+
+  @override
+  String sendPickGets(String who, String amount, String market, String side) {
+    return '$who gets $amount on $market — $side';
+  }
+
+  @override
+  String sendPickSideAtChance(String side, String chance) {
+    return '$side at $chance';
+  }
+
+  @override
+  String get sendPickHowItWorks => 'They claim it, then place it with one tap';
+
+  @override
+  String get shareCardPredictionForYou => 'A prediction for you';
+
+  @override
+  String shareCardPredictionForNamed(String name) {
+    return '$name, a prediction for you';
+  }
+
+  @override
+  String get slipShareEnterAmount => 'Enter an amount to send';
+
+  @override
+  String slipShareMinimum(String amount) {
+    return 'Enter at least $amount to send';
+  }
+
+  @override
+  String slipShareYesOnly(String outcome) {
+    return 'Only Yes on $outcome can be sent. Switch to Yes to send it.';
+  }
+
+  @override
+  String get sendPickMarketHow =>
+      'Find a market, pick a side and amount, then tap Sal to send it';
 }

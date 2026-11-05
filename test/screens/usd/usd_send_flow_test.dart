@@ -413,7 +413,10 @@ void main() {
     // pumpAndSettle; the glyphs fall back to their icons.
     SalSpriteCache.debugSetManifest(null);
     AffiliateService.debugSessionToken = 'test-session';
-    final policy = runtimePolicyFixture();
+    // The venues open: the prediction card's slip can send
+    // (send_pick_market_sheet.dart, sendPickOffered).
+    final policy = runtimePolicyFixture(
+        also: const {'polymarket.browse', 'hyperliquid.browse'});
     RuntimeCapabilitiesService.debugInstance = policy;
     expect(await policy.refresh(), isTrue);
     _clipboard = null;
@@ -468,6 +471,19 @@ void main() {
     expect(find.text(_l10n.sendWhereShouldItLand), findsNothing);
     // A link needs no coin: the Send to card sits under the grid.
     expect(find.byKey(const ValueKey('send-pick-market-row')), findsOneWidget);
+    expect(find.byKey(const ValueKey('send-to-friend-row')), findsOneWidget);
+  });
+
+  testWidgets(
+      'the coin step with Predictions and Investing closed to this person: '
+      'no prediction row; Send dollars to a friend stays', (tester) async {
+    final closed = runtimePolicyFixture(
+        blocked: const {'polymarket.trade', 'hyperliquid.trade'},
+        also: const {'polymarket.browse', 'hyperliquid.browse'});
+    RuntimeCapabilitiesService.debugInstance = closed;
+    await tester.runAsync(closed.refresh);
+    await _pump(tester);
+    expect(find.byKey(const ValueKey('send-pick-market-row')), findsNothing);
     expect(find.byKey(const ValueKey('send-to-friend-row')), findsOneWidget);
   });
 

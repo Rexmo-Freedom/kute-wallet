@@ -3614,5 +3614,18 @@
   "polyLinesNotTrading": "Noch kein Handel · {count}",
   "polyLinesSettled": "Entschieden · {count}",
   "polySideOver": "Über",
-  "polySideUnder": "Unter"
+  "polySideUnder": "Unter",
+  "sendPickCardSub": "Oder ein Investment",
+  "sendPredictionCta": "Prognose senden",
+  "sendInvestmentCta": "Investition senden",
+  "sendPickYourFriend": "Dein Freund",
+  "sendPickGets": "{who} bekommt {amount} auf {market} — {side}",
+  "sendPickSideAtChance": "{side} bei {chance}",
+  "sendPickHowItWorks": "Abholen und mit einem Tippen platzieren",
+  "shareCardPredictionForYou": "Eine Prognose für dich",
+  "shareCardPredictionForNamed": "{name}, eine Prognose für dich",
+  "slipShareEnterAmount": "Gib einen Betrag zum Senden ein",
+  "slipShareMinimum": "Gib mindestens {amount} zum Senden ein",
+  "slipShareYesOnly": "Nur Ja auf {outcome} kann gesendet werden. Wechsle zu Ja, um es zu senden.",
+  "sendPickMarketHow": "Finde einen Markt, wähle Seite und Betrag und tippe dann auf Sal, um zu senden"
 }

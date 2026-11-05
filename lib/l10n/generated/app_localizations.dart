@@ -21549,6 +21549,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Under'**
   String get polySideUnder;
+
+  /// The Dollars Send recipient step's Send a prediction square card: the one line under the title, saying an investment can be sent too.
+  ///
+  /// In en, this message translates to:
+  /// **'Or an investment'**
+  String get sendPickCardSub;
+
+  /// The floating bar on Send this prediction's last step: creates the prediction's link.
+  ///
+  /// In en, this message translates to:
+  /// **'Send prediction'**
+  String get sendPredictionCta;
+
+  /// As sendPredictionCta, for an investment.
+  ///
+  /// In en, this message translates to:
+  /// **'Send investment'**
+  String get sendInvestmentCta;
+
+  /// Send this prediction's last step: the subject of sendPickGets before a name is typed.
+  ///
+  /// In en, this message translates to:
+  /// **'Your friend'**
+  String get sendPickYourFriend;
+
+  /// Send this prediction's last step, under the card: what the friend gets. {who} is the typed first name or sendPickYourFriend, {amount} a formatted amount ('$5'), {market} the market's title, {side} the side, with its chance (sendPickSideAtChance) on a prediction. Never 'bet'.
+  ///
+  /// In en, this message translates to:
+  /// **'{who} gets {amount} on {market} — {side}'**
+  String sendPickGets(String who, String amount, String market, String side);
+
+  /// The side with its chance in sendPickGets, e.g. 'Yes at 62%'.
+  ///
+  /// In en, this message translates to:
+  /// **'{side} at {chance}'**
+  String sendPickSideAtChance(String side, String chance);
+
+  /// Send this prediction's last step: the subtitle saying the friend claims the money, then places the prediction with one tap.
+  ///
+  /// In en, this message translates to:
+  /// **'They claim it, then place it with one tap'**
+  String get sendPickHowItWorks;
+
+  /// Prediction share card sent with money: the small caps line at the top (drawn uppercase), 'A PREDICTION FOR YOU'.
+  ///
+  /// In en, this message translates to:
+  /// **'A prediction for you'**
+  String get shareCardPredictionForYou;
+
+  /// As shareCardPredictionForYou with the recipient's first name: 'ANA, A PREDICTION FOR YOU'.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}, a prediction for you'**
+  String shareCardPredictionForNamed(String name);
+
+  /// Toast when the slip's round Sal send button is tapped with no amount typed.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter an amount to send'**
+  String get slipShareEnterAmount;
+
+  /// Toast when the slip's send button is tapped under the market's minimum. {amount} is the minimum, formatted.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter at least {amount} to send'**
+  String slipShareMinimum(String amount);
+
+  /// Toast when the slip's send button is tapped on No for one candidate: a link can only carry Yes on a candidate. {outcome} is the candidate.
+  ///
+  /// In en, this message translates to:
+  /// **'Only Yes on {outcome} can be sent. Switch to Yes to send it.'**
+  String slipShareYesOnly(String outcome);
+
+  /// Subtitle of Send's market search for sending a prediction: open a market, pick the side and amount on its slip, then tap the round Sal button.
+  ///
+  /// In en, this message translates to:
+  /// **'Find a market, pick a side and amount, then tap Sal to send it'**
+  String get sendPickMarketHow;
 }
 
 class _AppLocalizationsDelegate

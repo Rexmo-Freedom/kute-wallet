@@ -3614,5 +3614,18 @@
   "polyLinesNotTrading": "まだ取引なし · {count}",
   "polyLinesSettled": "確定済み · {count}",
   "polySideOver": "オーバー",
-  "polySideUnder": "アンダー"
+  "polySideUnder": "アンダー",
+  "sendPickCardSub": "投資も送れます",
+  "sendPredictionCta": "予測を送る",
+  "sendInvestmentCta": "投資を送る",
+  "sendPickYourFriend": "友だち",
+  "sendPickGets": "{who}に{amount}：{market} — {side}",
+  "sendPickSideAtChance": "{side}（{chance}）",
+  "sendPickHowItWorks": "受け取って、ワンタップで発注できます",
+  "shareCardPredictionForYou": "あなたへの予測",
+  "shareCardPredictionForNamed": "{name}さんへの予測",
+  "slipShareEnterAmount": "送る金額を入力してください",
+  "slipShareMinimum": "{amount}以上を入力してください",
+  "slipShareYesOnly": "{outcome}は「はい」だけ送れます。「はい」に切り替えて送ってください。",
+  "sendPickMarketHow": "マーケットを探し、サイドと金額を選んでSalをタップすると送れます"
 }

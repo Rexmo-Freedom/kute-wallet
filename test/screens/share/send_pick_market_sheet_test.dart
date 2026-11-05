@@ -4,10 +4,11 @@
 // search sheet's line and rows, Trending predictions and Moving now while
 // nothing is typed, the venues' own searches under Predictions and
 // Investing once something is, Sal's sad face when nothing matches. A
-// market tapped opens to send with NO SIDE CHOSEN (Yes and No equal; Long
-// and Short); the side tapped is the one on the link; a contact picked
-// before rides along as the label, and the created row keeps the number
-// for WhatsApp / SMS without it ever reaching the backend or an event.
+// market tapped opens ITS PAGE (founder, 5 November 2026: the slip is the
+// one place a prediction is composed; it sends with its round Sal
+// button): the side is picked there, nothing chosen for the person, and
+// the header says how it sends. A venue closed to this person is left
+// out (the slip there could only send the market's card).
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -20,13 +21,9 @@ import 'package:kute/providers/polymarket_browse_provider.dart'
 import 'package:kute/screens/search/components/search_composer.dart';
 import 'package:kute/screens/search/components/search_rows.dart';
 import 'package:kute/screens/share/send_pick_market_sheet.dart';
-import 'package:kute/screens/share/cards/share_card_preview.dart';
-import 'package:kute/screens/share/send_to_anyone_sheet.dart';
-import 'package:kute/screens/share/share_link_resend.dart';
-import 'package:kute/screens/shared/market_pair_button.dart';
-import 'package:kute/services/share_links_store.dart';
+import 'package:kute/services/runtime_capabilities_service.dart';
 
-import '../../helpers/kute_bar_test_support.dart';
+import '../../helpers/runtime_policy_fixture.dart';
 import 'share_test_harness.dart';
 
 final _l10n = AppLocalizationsEn();
@@ -116,29 +113,30 @@ class _Launcher extends StatelessWidget {
 
 void main() {
   late ShareTestEnv env;
-  final shared = <String>[];
-  final launched = <Uri>[];
+  late List<Object> opened;
 
-  setUp(() {
+  Future<void> policy({Set<String> blocked = const {}}) async {
+    final service = runtimePolicyFixture(
+        blocked: blocked,
+        also: const {'polymarket.browse', 'hyperliquid.browse'});
+    RuntimeCapabilitiesService.debugInstance = service;
+    expect(await service.refresh(), isTrue);
+  }
+
+  setUp(() async {
     env = setUpShareTest();
-    shared.clear();
-    launched.clear();
-    ShareCardShare.debugSharer = (image, text) async {
-      shared.add(text);
-      return 'success';
-    };
-    debugShareLinkResendLauncher = (uri) async {
-      launched.add(uri);
-      return true;
-    };
+    opened = [];
+    await policy();
     SendPickMarketSheet.debugFeeds =
         (predictions: [_event], investing: [_market]);
+    SendPickMarketSheet.debugOpenMarket = opened.add;
   });
 
   tearDown(() {
     tearDownShareTest();
-    debugShareLinkResendLauncher = null;
+    RuntimeCapabilitiesService.debugInstance = null;
     SendPickMarketSheet.debugFeeds = null;
+    SendPickMarketSheet.debugOpenMarket = null;
   });
 
   Future<void> open(WidgetTester tester,
@@ -194,105 +192,52 @@ void main() {
   });
 
   testWidgets(
-      'a prediction found by search opens to send with nothing chosen (Yes '
-      'and No equal, no amount); No tapped is the side on the link, with the '
-      'contact picked before; the row keeps the number for WhatsApp, the '
-      'backend never sees it', (tester) async {
+      'a prediction found by search opens its page, where the side is '
+      'picked (nothing chosen here); the header says the slip sends it',
+      (tester) async {
     await open(tester,
         senderLabel: 'Maria', recipientPhone: '+351 912 345 678');
+    expect(find.text(_l10n.sendPickMarketHow), findsOneWidget);
     await search(tester, 'lula');
     await tester.tap(find.text('Will Lula win the 2026 election?'));
     await settle(tester);
     expect(env.paramsOf('send_pick_market_picked').single,
         {'venue': 'polymarket', 'searched': true});
-    expect(find.byType(SendToAnyoneSheet), findsOneWidget);
-    expect(find.byKey(const ValueKey('send-pick-side-step')), findsOneWidget);
-    final pair = tester
-        .widgetList<MarketPairButton>(find.byType(MarketPairButton))
-        .toList();
-    expect(pair.map((b) => b.label), [_l10n.yes, _l10n.betNo]);
-    expect(pair.map((b) => b.value), ['41%', '59%']);
-    expect(find.byKey(const ValueKey('share-pick-line')), findsNothing);
-    expect(kuteBarPrimary, findsNothing);
-
-    await tester.tap(find.byKey(const ValueKey('send-pick-side-1')));
-    await settle(tester);
-    expect(find.text('No on Will Lula win the 2026 election?'),
-        findsOneWidget);
-    await tester.tap(find.text('1'));
-    await settle(tester);
-    await tester.tap(find.text('2'));
-    await settle(tester);
-    await tester.tap(kuteBarPrimaryWithText(_l10n.continueLabel));
-    await settle(tester);
-    // The contact's first name is the label already.
-    final field = tester.widget<TextField>(find.descendant(
-        of: find.byKey(const ValueKey('share-name-field')),
-        matching: find.byType(TextField)));
-    expect(field.controller!.text, 'Maria');
-
-    await tester.tap(kuteBarPrimaryWithText(_l10n.shareCreateLink));
-    await settle(tester);
-    await shareCardAndWait(tester, shared);
-    final create = env.fake.calls.where((c) => c.$1 == 'create').single.$2;
-    expect(create['kind'], 'dollars');
-    expect(create['amountMinor'], 1200);
-    expect(create['marketSlug'], 'lula-wins');
-    expect(create['venue'], 'polymarket');
-    expect(create['outcome'], 'No');
-    expect(create['outcomeIndex'], 1);
-    expect(create['side'], 'buy');
-    expect(create['senderLabel'], 'Maria');
-    expect(create.values.map((v) => '$v').join(' '), isNot(contains('912')));
-    final row = ShareLinksStore.all().single;
-    expect(row.recipientPhone, '+351 912 345 678');
-    expect(row.label, 'Maria');
+    expect(opened.single, same(_lula));
+    // No send of its own: the slip is where it is composed.
+    expect(find.byKey(const ValueKey('send-pick-side-step')), findsNothing);
+    expect(env.fake.calls, isEmpty);
+    // Nothing identifying reaches an event.
     for (final e in env.events) {
       expect(e.$2?.values.map((v) => '$v').join(' ') ?? '',
           isNot(contains('912')));
     }
-    expect(shared.single, contains('Maria'));
-
-    // The receipt: Send again via WhatsApp opens wa.me with the number and
-    // the text; SMS the composer.
-    await tester.tap(find.byKey(const ValueKey('share-again-whatsapp')));
-    await settle(tester);
-    expect(launched.single.host, 'wa.me');
-    expect(launched.single.path, '/351912345678');
-    expect(launched.single.queryParameters['text'], contains('Maria'));
-    await tester.tap(find.byKey(const ValueKey('share-again-sms')));
-    await settle(tester);
-    expect(launched.last.scheme, 'sms');
-    expect(launched.last.path, '+351912345678');
   });
 
-  testWidgets(
-      'an investment opens to send with Long and Short, equal, nothing '
-      'chosen; Short tapped is the side on the link', (tester) async {
+  testWidgets('an investment opens its own page', (tester) async {
     await open(tester);
     await tester.tap(find.byType(SearchInvestingRow));
     await settle(tester);
-    expect(find.text(_l10n.sendAnInvestment), findsOneWidget);
-    final labels = tester
-        .widgetList<MarketPairButton>(find.byType(MarketPairButton))
-        .map((b) => b.label)
-        .toList();
-    expect(labels, [_l10n.longLabel, _l10n.shortLabel]);
-    await tester.tap(find.byKey(const ValueKey('send-pick-side-1')));
-    await settle(tester);
-    expect(find.text('Short on Ethereum'), findsOneWidget);
-    await tester.tap(find.text('5'));
-    await settle(tester);
-    await tester.tap(kuteBarPrimaryWithText(_l10n.continueLabel));
-    await settle(tester);
-    await tester.tap(kuteBarPrimaryWithText(_l10n.shareCreateLink));
-    await settle(tester);
-    await shareCardAndWait(tester, shared);
-    final create = env.fake.calls.where((c) => c.$1 == 'create').single.$2;
-    expect(create['venue'], 'hyperliquid');
-    expect(create['side'], 'short');
-    expect(create['outcome'], _l10n.shortLabel);
-    expect(create['marketSlug'], 'ETH');
-    expect(create['senderLabel'], isNull);
+    expect(env.paramsOf('send_pick_market_picked').single,
+        {'venue': 'hyperliquid', 'searched': false});
+    expect((opened.single as HlMarket).wireCoin, 'ETH');
+  });
+
+  testWidgets(
+      'a venue closed to this person is left out: Predictions blocked, '
+      'Investing only', (tester) async {
+    await tester.runAsync(() => policy(blocked: {'polymarket.trade'}));
+    expect(sendPickOffered(RuntimeCapabilitiesService.instance), isTrue);
+    await open(tester);
+    expect(find.text(_l10n.searchHomeTrendingPredictions), findsNothing);
+    expect(find.byType(SearchPredictionRow), findsNothing);
+    expect(find.byType(SearchInvestingRow), findsOneWidget);
+  });
+
+  test('both venues closed: nothing to send a prediction on', () async {
+    await policy(blocked: {'polymarket.trade', 'hyperliquid.trade'});
+    expect(sendPickOffered(RuntimeCapabilitiesService.instance), isFalse);
+    await policy(blocked: {'hyperliquid.trade'});
+    expect(sendPickOffered(RuntimeCapabilitiesService.instance), isTrue);
   });
 }

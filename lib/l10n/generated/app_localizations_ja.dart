@@ -12409,4 +12409,53 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get polySideUnder => 'アンダー';
+
+  @override
+  String get sendPickCardSub => '投資も送れます';
+
+  @override
+  String get sendPredictionCta => '予測を送る';
+
+  @override
+  String get sendInvestmentCta => '投資を送る';
+
+  @override
+  String get sendPickYourFriend => '友だち';
+
+  @override
+  String sendPickGets(String who, String amount, String market, String side) {
+    return '$whoに$amount：$market — $side';
+  }
+
+  @override
+  String sendPickSideAtChance(String side, String chance) {
+    return '$side（$chance）';
+  }
+
+  @override
+  String get sendPickHowItWorks => '受け取って、ワンタップで発注できます';
+
+  @override
+  String get shareCardPredictionForYou => 'あなたへの予測';
+
+  @override
+  String shareCardPredictionForNamed(String name) {
+    return '$nameさんへの予測';
+  }
+
+  @override
+  String get slipShareEnterAmount => '送る金額を入力してください';
+
+  @override
+  String slipShareMinimum(String amount) {
+    return '$amount以上を入力してください';
+  }
+
+  @override
+  String slipShareYesOnly(String outcome) {
+    return '$outcomeは「はい」だけ送れます。「はい」に切り替えて送ってください。';
+  }
+
+  @override
+  String get sendPickMarketHow => 'マーケットを探し、サイドと金額を選んでSalをタップすると送れます';
 }

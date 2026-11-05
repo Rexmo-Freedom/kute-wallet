@@ -33,7 +33,12 @@ import 'package:kute/providers/spark_contacts_provider.dart';
 import 'package:kute/screens/pay/components/confirm_send.dart';
 import 'package:kute/screens/share/send_to_anyone_sheet.dart';
 import 'package:kute/screens/shared/coin_asset_grid.dart' show CoinAssetTile;
+import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
+import 'package:kute/screens/shared/send/send_flow_widgets.dart'
+    show SendToListCard;
+import 'package:kute/screens/shared/send/send_recipient_step.dart'
+    show SendAlsoSendsToRow, SendCoinStack;
 import 'package:kute/screens/shared/sal_sprite.dart' show SalSpriteCache;
 import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/screens/shared/stepper/stepper_widgets.dart'
@@ -472,6 +477,72 @@ void main() {
     await tester.pumpAndSettle();
     expect(person('c1'), findsOneWidget);
     expect(find.byKey(const ValueKey('send-to-coin-change')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'the Send to option is the app\'s big square card, the only one, so '
+      'full width (no half card alone): "Also sends to" with the coins; an '
+      'address that needs a network asks in the emphasized row; a coin '
+      'chosen is the card again', (tester) async {
+    AffiliateService.debugSessionToken = 'test-session';
+    final policy = runtimePolicyFixture();
+    RuntimeCapabilitiesService.debugInstance = policy;
+    addTearDown(() {
+      RuntimeCapabilitiesService.debugInstance = null;
+      AffiliateService.debugSessionToken = null;
+    });
+    await tester.runAsync(policy.refresh);
+    await _pump(tester, catalog: true);
+    const options = ValueKey('send-to-options');
+    const also = ValueKey('send-also-sends-to-row');
+    final grid = tester.widget<KuteActionCardGrid>(find.byKey(options));
+    expect(grid.cards.map((c) => c.key), [also]);
+    final card = tester.widget<KuteActionCard>(find.byKey(also));
+    expect(card.title, _l10n.sendAlsoSendsTo);
+    expect(card.subtitle, _l10n.sendAlsoSendsToList('USDC, USD', 'USDT'));
+    expect(card.visual, isA<SendCoinStack>());
+    // Full width: as wide as the search field above it, square-card tall.
+    final field = tester.getRect(find.byKey(const ValueKey('send-recipient-search')));
+    final rect = tester.getRect(find.byKey(also));
+    expect(rect.width, moreOrLessEquals(field.width, epsilon: 1));
+    expect(rect.left, moreOrLessEquals(field.left, epsilon: 1));
+    expect(rect.height, greaterThanOrEqualTo(kKuteActionCardMinHeight));
+    expect(find.byType(SendAlsoSendsToRow), findsNothing);
+
+    // An address several networks take: the question, as the emphasized
+    // row (the one forward path), not a card.
+    await type(tester, '0x742d35cc6634c0532925a3b844bc454e4438f44e');
+    expect(find.byKey(options), findsNothing);
+    expect(_text(_l10n.sendWhichNetworkIsThisAddressOn), findsOneWidget);
+    expect(
+        tester
+            .widget<SendToListCard>(find.ancestor(
+                of: _text(_l10n.sendWhichNetworkIsThisAddressOn),
+                matching: find.byType(SendToListCard)))
+            .emphasized,
+        isTrue);
+    // Cleared: the square again; a coin chosen from it is the card,
+    // full width, with Change beside the label.
+    await type(tester, '');
+    expect(find.byKey(also), findsOneWidget);
+    await tester.tap(find.byKey(also));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(CoinAssetTile, 'USDC').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('base').first);
+    await tester.pumpAndSettle();
+    const coin = ValueKey('send-to-coin-card');
+    expect(
+        tester.widget<KuteActionCardGrid>(find.byKey(options)).cards.map((c) => c.key),
+        [coin]);
+    expect(tester.widget<KuteActionCard>(find.byKey(coin)).title,
+        startsWith('USDC ·'));
+    expect(tester.getRect(find.byKey(coin)).width,
+        moreOrLessEquals(field.width, epsilon: 1));
+    await tester.tap(find.byKey(const ValueKey('send-to-coin-change')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(also), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

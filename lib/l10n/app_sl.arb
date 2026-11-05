@@ -3614,5 +3614,18 @@
   "polyLinesNotTrading": "Še se ne trguje · {count}",
   "polyLinesSettled": "Odločeno · {count}",
   "polySideOver": "Več",
-  "polySideUnder": "Manj"
+  "polySideUnder": "Manj",
+  "sendPickCardSub": "Ali naložbo",
+  "sendPredictionCta": "Pošlji napoved",
+  "sendInvestmentCta": "Pošlji naložbo",
+  "sendPickYourFriend": "Tvoj prijatelj",
+  "sendPickGets": "{who} dobi {amount} na {market} — {side}",
+  "sendPickSideAtChance": "{side} pri {chance}",
+  "sendPickHowItWorks": "Prevzame in z enim dotikom odda",
+  "shareCardPredictionForYou": "Napoved zate",
+  "shareCardPredictionForNamed": "{name}, napoved zate",
+  "slipShareEnterAmount": "Vnesite znesek za pošiljanje",
+  "slipShareMinimum": "Za pošiljanje vnesite vsaj {amount}",
+  "slipShareYesOnly": "Poslati je mogoče le Da na {outcome}. Preklopite na Da, da pošljete.",
+  "sendPickMarketHow": "Poiščite trg, izberite stran in znesek, nato tapnite Sal za pošiljanje"
 }

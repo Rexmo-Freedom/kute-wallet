@@ -10,7 +10,10 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:share_plus/share_plus.dart' show XFile;
+import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/models/share_link_model.dart';
+import 'package:kute/providers/polymarket_browse_provider.dart'
+    show polymarketEventDetailsProvider;
 import 'package:kute/screens/share/cards/share_card_preview.dart';
 import 'package:kute/screens/share/send_to_anyone_sheet.dart';
 import 'package:kute/screens/share/share_market_sheet.dart';
@@ -18,6 +21,40 @@ import 'package:kute/services/share_links_store.dart';
 
 import '../../helpers/kute_bar_test_support.dart';
 import 'share_test_harness.dart';
+
+final _gemini = PolymarketEvent(
+  id: 'gemini',
+  slug: 'gemini-carbon',
+  title: 'Gemini Carbon',
+  volume: 1000,
+  liquidity: 1000,
+  category: 'tech',
+  tags: const [],
+  endDate: DateTime(2027),
+  conditionId: 'c-g',
+  outcomes: const [
+    PolymarketOutcome(name: 'Yes', price: 0.62, tokenId: 'g-y', conditionId: 'c-g'),
+    PolymarketOutcome(name: 'No', price: 0.38, tokenId: 'g-n', conditionId: 'c-g'),
+  ],
+);
+
+final _election = PolymarketEvent(
+  id: 'pres',
+  slug: 'presidential-election-winner-2028',
+  title: 'Presidential Election Winner 2028',
+  volume: 1000,
+  liquidity: 1000,
+  category: 'politics',
+  tags: const [],
+  endDate: DateTime(2028, 11, 7),
+  conditionId: 'c-p',
+  outcomes: const [
+    PolymarketOutcome(
+        name: 'JD Vance', price: 0.30, tokenId: 'v-y', noTokenId: 'v-n', conditionId: 'c-v'),
+    PolymarketOutcome(
+        name: 'Jon Ossoff', price: 0.21, tokenId: 'o-y', noTokenId: 'o-n', conditionId: 'c-o'),
+  ],
+);
 
 void main() {
   late ShareTestEnv env;
@@ -143,8 +180,9 @@ void main() {
   });
 
   testWidgets(
-      'a prediction pick: the pick line, the pick on the create request, '
-      'the prediction share text and the outcome on the event',
+      'a prediction from its slip: the last step at once, titled and worded '
+      'as a prediction; the card says it; the pick and amount on the create '
+      'request, the prediction share text and the outcome on the event',
       (tester) async {
     await pumpShareWidget(
         tester,
@@ -157,27 +195,47 @@ void main() {
           outcome: 'Yes',
           outcomeIndex: 0,
           side: 'buy',
-        ));
-    // The sheet is titled by the pick and shows it above the amount.
+          amountMinor: 2000,
+        ),
+        cardVenues: false,
+        overrides: [
+          polymarketEventDetailsProvider
+              .overrideWith((ref, slug) async => _gemini),
+        ]);
+    // Straight to who it is for: no keypad, the pick's own title and what
+    // happens next.
     expect(find.text('Send this prediction'), findsOneWidget);
-    expect(find.byKey(const ValueKey('share-pick-line')), findsOneWidget);
-    expect(find.text('Yes on Gemini Carbon'), findsOneWidget);
-
-    await tester.tap(find.text('2'));
-    await tester.pump();
-    await tester.tap(find.text('0'));
-    await settle(tester);
-    await tester.tap(kuteBarPrimaryWithText('Continue'));
-    await settle(tester);
-    // The pick's card, live: the prediction with the pick and amount.
+    expect(find.text('They claim it, then place it with one tap'),
+        findsOneWidget);
+    expect(find.text('Who is it for?'), findsNothing);
+    expect(kuteBarPrimaryWithText('Continue'), findsNothing);
+    // The card is the hero: as wide as the sheet allows.
+    final card = tester.getRect(find.byKey(const ValueKey('share-card-preview')));
+    expect(card.width, greaterThan(390 * 0.7));
     expect(find.byKey(const ValueKey('share-card-send_prediction')),
         findsOneWidget);
+    expect(find.text('A PREDICTION FOR YOU'), findsOneWidget);
     expect(find.text(r'$20 on Yes'), findsOneWidget);
+    // What the friend gets, in words, the chance read off the market.
+    expect(find.byKey(const ValueKey('send-pick-gets')), findsOneWidget);
+    expect(find.text('Your friend gets \$20 on Gemini Carbon — Yes at 62%'),
+        findsOneWidget);
+    // The name waits for a tap: the card leads.
+    final field = tester.widget<EditableText>(find.descendant(
+        of: find.byKey(const ValueKey('share-name-field')),
+        matching: find.byType(EditableText)));
+    expect(field.focusNode.hasFocus, isFalse);
+    // The bar sends the prediction.
+    expect(kuteBarPrimaryWithText('Send prediction'), findsOneWidget);
+    expect(kuteBarPrimaryWithText('Create link'), findsNothing);
+
     await tester.enterText(
         find.byKey(const ValueKey('share-name-field')), 'Ana');
     await tester.pump();
-    expect(find.text('ANA, A PICK FOR YOU'), findsOneWidget);
-    await tester.tap(kuteBarPrimaryWithText('Create link'));
+    expect(find.text('ANA, A PREDICTION FOR YOU'), findsOneWidget);
+    expect(find.text('Ana gets \$20 on Gemini Carbon — Yes at 62%'),
+        findsOneWidget);
+    await tester.tap(kuteBarPrimaryWithText('Send prediction'));
     await settle(tester);
     await shareCardAndWait(tester, shared);
 
@@ -192,10 +250,11 @@ void main() {
       'outcomeIndex': 0,
       'side': 'buy',
     });
+    // The card's headline first, then the prediction.
     expect(
         shared.single,
-        'Ana, I sent you a prediction on Kute: Yes on Gemini Carbon, '
-        '\$20.00. Claim it: https://web.test/c/lnk_1');
+        endsWith('Ana, I sent you a prediction on Kute: Yes on Gemini '
+            'Carbon, \$20.00. Claim it: https://web.test/c/lnk_1'));
     final row = ShareLinksStore.byId('lnk_1')!;
     expect(row.outcome, 'Yes');
     expect(row.marketTitle, 'Gemini Carbon');
@@ -210,7 +269,43 @@ void main() {
     });
   });
 
-  testWidgets('an investment pick says an investment', (tester) async {
+  testWidgets(
+      "a candidate's own page: the link names the candidate, the card and "
+      'the line the event behind it', (tester) async {
+    await pumpShareWidget(
+        tester,
+        env,
+        const SendToAnyoneSheet(
+          kind: ShareLinkKind.dollars,
+          marketSlug: 'presidential-election-winner-2028',
+          marketTitle: 'Jon Ossoff',
+          venue: 'polymarket',
+          outcome: 'Jon Ossoff',
+          side: 'buy',
+          amountMinor: 500,
+        ),
+        cardVenues: false,
+        overrides: [
+          polymarketEventDetailsProvider
+              .overrideWith((ref, slug) async => _election),
+        ]);
+    // The card names the event; the candidate is the chance and the side.
+    expect(find.text('Chance of Jon Ossoff'), findsOneWidget);
+    expect(find.text(r'$5 on Jon Ossoff'), findsOneWidget);
+    expect(
+        find.text('Your friend gets \$5 on Presidential Election Winner '
+            '2028 — Jon Ossoff at 21%'),
+        findsOneWidget);
+    await tester.tap(kuteBarPrimaryWithText('Send prediction'));
+    await settle(tester);
+    expect(env.fake.calls.single.$2['outcome'], 'Jon Ossoff');
+    // The row and its message name the event, not the candidate twice.
+    expect(ShareLinksStore.byId('lnk_1')!.marketTitle,
+        'Presidential Election Winner 2028');
+  });
+
+  testWidgets('an investment from its slip says an investment',
+      (tester) async {
     await pumpShareWidget(
         tester,
         env,
@@ -221,26 +316,89 @@ void main() {
           venue: 'hyperliquid',
           outcome: 'Long',
           side: 'long',
+          amountMinor: 500,
         ));
     expect(find.text('Send this investment'), findsOneWidget);
-    expect(find.text('Long on BTC'), findsOneWidget);
-    await tester.tap(find.text('5'));
-    await settle(tester);
-    await tester.tap(kuteBarPrimaryWithText('Continue'));
-    await settle(tester);
     expect(find.byKey(const ValueKey('share-card-send_investment')),
         findsOneWidget);
     expect(find.text(r'Long · $5'), findsOneWidget);
-    await tester.tap(kuteBarPrimaryWithText('Create link'));
+    expect(find.text(r'Your friend gets $5 on Bitcoin — Long'), findsOneWidget);
+    // No dare on an investment.
+    expect(find.byKey(const ValueKey('share-challenge-toggle')), findsNothing);
+    await tester.tap(kuteBarPrimaryWithText('Send investment'));
     await settle(tester);
     await shareCardAndWait(tester, shared);
     expect(env.fake.calls.single.$2['side'], 'long');
+    expect(env.fake.calls.single.$2['amountMinor'], 500);
     expect(env.fake.calls.single.$2.containsKey('outcomeIndex'), isFalse);
     expect(
         shared.single,
         'I sent you an investment on Kute: Long on BTC, \$5.00. '
         'Claim it: https://web.test/c/lnk_1');
   });
+
+  for (final size in const [Size(375, 667), Size(402, 874)]) {
+    testWidgets(
+        'the last step with the keyboard up at ${size.width.round()} x '
+        '${size.height.round()}: nothing overflows, the field and the '
+        'switch scroll into view', (tester) async {
+      await pumpShareWidget(
+        tester,
+        env,
+        Builder(
+          builder: (context) => Center(
+            child: TextButton(
+              onPressed: () => showSendToAnyoneSheet(
+                context,
+                kind: ShareLinkKind.dollars,
+                marketSlug: 'gemini-carbon',
+                marketTitle: 'Gemini Carbon',
+                venue: 'polymarket',
+                outcome: 'Yes',
+                outcomeIndex: 0,
+                side: 'buy',
+                amountMinor: 500,
+                entrySource: 'test',
+              ),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      );
+      tester.view.physicalSize = size;
+      await tester.pump();
+      await tester.tap(find.text('open'));
+      await settle(tester);
+      expect(tester.takeException(), isNull);
+      // The keyboard up (an iPhone's, with its suggestion row), the name
+      // field focused.
+      tester.view.viewInsets =
+          FakeViewPadding(bottom: size.height < 700 ? 260 : 336);
+      addTearDown(tester.view.resetViewInsets);
+      await tester.tap(find.byKey(const ValueKey('share-name-field')));
+      await settle(tester);
+      expect(tester.takeException(), isNull);
+      await tester.enterText(
+          find.byKey(const ValueKey('share-name-field')), 'Ana');
+      await settle(tester);
+      expect(tester.takeException(), isNull);
+      // The field sits above the keyboard and clear of the bar riding on
+      // it.
+      final fieldBox =
+          tester.getRect(find.byKey(const ValueKey('share-name-field')));
+      final keyboardTop = size.height - (size.height < 700 ? 260 : 336);
+      final bar = tester.getRect(kuteBarPrimaryWithText('Send prediction'));
+      expect(fieldBox.bottom, lessThanOrEqualTo(bar.top + 1));
+      expect(bar.bottom, lessThanOrEqualTo(keyboardTop));
+      // The switch scrolls into view too.
+      await tester.dragUntilVisible(
+          find.byKey(const ValueKey('share-challenge-toggle')),
+          find.byKey(const ValueKey('send-to-anyone-scroll')),
+          const Offset(0, -80));
+      await settle(tester);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets('a backend failure keeps the name step with a note',
       (tester) async {

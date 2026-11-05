@@ -3614,5 +3614,18 @@
   "polyLinesNotTrading": "Dar neprekiaujama · {count}",
   "polyLinesSettled": "Išspręsta · {count}",
   "polySideOver": "Daugiau",
-  "polySideUnder": "Mažiau"
+  "polySideUnder": "Mažiau",
+  "sendPickCardSub": "Arba investiciją",
+  "sendPredictionCta": "Siųsti prognozę",
+  "sendInvestmentCta": "Siųsti investiciją",
+  "sendPickYourFriend": "Tavo draugas",
+  "sendPickGets": "{who} gauna {amount}: {market} — {side}",
+  "sendPickSideAtChance": "{side}, tikimybė {chance}",
+  "sendPickHowItWorks": "Atsiima ir vienu palietimu pateikia",
+  "shareCardPredictionForYou": "Prognozė tau",
+  "shareCardPredictionForNamed": "{name}, prognozė tau",
+  "slipShareEnterAmount": "Įveskite siunčiamą sumą",
+  "slipShareMinimum": "Norėdami siųsti, įveskite bent {amount}",
+  "slipShareYesOnly": "Galima siųsti tik „Taip“: {outcome}. Pasirinkite „Taip“, kad išsiųstumėte.",
+  "sendPickMarketHow": "Raskite rinką, pasirinkite pusę ir sumą, tada palieskite Sal, kad išsiųstumėte"
 }
