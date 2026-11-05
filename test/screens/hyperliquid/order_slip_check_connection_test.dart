@@ -3,6 +3,9 @@
 // a dead one. A tap asks the venues and Kute's policy again; allowed now,
 // the refusal goes and the button is the order, ready to place; still
 // restricted, the refusal stays with a soft failure tap.
+//
+// THE ROUND SAL BUTTON beside it (slip_share.dart): allowed, it sends THIS
+// investment (Long, the amount); refused here, the market's card only.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -22,6 +25,7 @@ import 'package:kute/screens/hyperliquid/components/order_slip_sheet.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:kute/screens/shared/capability_block_note.dart';
+import 'package:kute/screens/share/slip_share.dart';
 import 'package:kute/services/continuous_haptics.dart';
 import 'package:kute/services/investment_provider_availability.dart';
 import 'package:kute/services/kute_haptics.dart';
@@ -114,7 +118,7 @@ const _market = HlMarket(
 );
 
 Future<void> _pumpSlip(WidgetTester tester, Future<HlAccountSnapshot> account,
-    _Policy policy) async {
+    _Policy policy, {double? initialUsd}) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -145,10 +149,11 @@ Future<void> _pumpSlip(WidgetTester tester, Future<HlAccountSnapshot> account,
     ],
     // The bar over the slip is the slip's button (shell_bar_harness.dart).
     child: shellBarApp(
-      home: const Scaffold(
+      home: Scaffold(
         body: Align(
           alignment: Alignment.bottomCenter,
-          child: HlOrderSlipSheet(market: _market, initialIsLong: true),
+          child: HlOrderSlipSheet(
+              market: _market, initialIsLong: true, initialUsd: initialUsd),
         ),
       ),
     ),
@@ -250,5 +255,51 @@ void main() {
     expect(barPrimaryEnabled(tester), isTrue);
     expect(haptics.where((c) => c.method == 'softTap'), hasLength(1));
     await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  group('the round Sal button', () {
+    late List<(SlipSendRoute, SlipSharePick)> sends;
+    setUp(() {
+      sends = [];
+      SlipShare.debugRoute = (r, p) => sends.add((r, p));
+      SlipShare.debugOpen = false;
+    });
+    tearDown(() {
+      SlipShare.debugRoute = null;
+      SlipShare.debugOpen = true;
+    });
+
+    final share = find.byKey(const ValueKey('kute-bar-share'));
+
+    testWidgets('allowed: it sends THIS investment, Long and the amount',
+        (tester) async {
+      policy.blocked = false;
+      await _pumpSlip(tester, Future.value(_snapshot(500)), policy,
+          initialUsd: 25);
+      expect(share, findsOneWidget);
+      await tester.tap(share);
+      await _frames(tester, 2);
+      final (route, pick) = sends.single;
+      expect(route, SlipSendRoute.pick);
+      expect(pick.investing, isTrue);
+      expect(pick.slug, 'BTC');
+      expect(pick.outcome, 'Long');
+      expect(pick.side, 'long');
+      expect(pick.amountUsd, 25);
+      expect(pick.blocked, isFalse);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    testWidgets('refused here: the market\'s card only', (tester) async {
+      await _pumpSlip(tester, Future.value(_snapshot(500)), policy,
+          initialUsd: 25);
+      expect(barPrimaryLabel(tester), 'Check connection');
+      expect(share, findsOneWidget);
+      await tester.tap(share);
+      await _frames(tester, 2);
+      expect(sends.single.$1, SlipSendRoute.market);
+      expect(sends.single.$2.investing, isTrue);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
   });
 }

@@ -719,10 +719,11 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   /// the close button while the page is up (founder, 4 November 2026: no
   /// Send to a friend in the header or beside the figure; "it must be a
   /// floating button"). One prediction's Yes / No row covers it with the
-  /// trade row, whose round Sal button opens it ([_buildTradeBar]); an
+  /// trade row, whose round Sal button carries it ([_buildTradeBar]); an
   /// event or a game, with no pair, shows it as the floating Sal pill,
   /// "Send to a friend", folding into that same round button while the
-  /// page scrolls down (kute_shell_bar.dart).
+  /// page scrolls down (kute_shell_bar.dart). Either sends the market at
+  /// once (kute_share_actions.dart); a prediction is sent from its slip.
   KuteBarContext _barContext() {
     return marketBarContext(
       context,
@@ -730,36 +731,13 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       venue: kMarketLinkPredictions,
       slug: event.slug,
       chance: event.isBinary ? event.yesPrice * 100 : null,
-      // The leading outcome. Never the pick's default: a market page's
-      // "Send a prediction" asks for the side (kute_share_actions.dart).
-      outcome: polymarketLeadingPick(event)?.label,
-      outcomeIndex: polymarketLeadingPick(event)?.index,
-      outcomeChance: polymarketLeadingPick(event)?.chance,
-      side: 'buy',
       imageUrl: event.displayIconUrl,
       position: false,
       category: SearchCategory.predictions,
       searchHint: context.l10n.searchPredictionsHint,
       source: 'predictions',
-      // An event (outcome rows, a game's board) sends the market alone;
-      // one prediction sends the market or the prediction (founder, 2
-      // November 2026; kute_share_actions.dart).
-      sendPick: _isSinglePrediction,
-      // Its sides for "Send a prediction", none chosen (send_pick.dart).
-      predictionEvent: event,
     );
   }
-
-  /// Whether this page is one prediction: a Yes/No market (an outcome
-  /// drilled into from an event is one too), or one two-sided market
-  /// (Up / Down) that is not a game's board. An event whose outcomes are
-  /// each their own Yes/No market (a NO token on the outcome), a
-  /// multi-outcome event or a game is the market, not a prediction.
-  bool get _isSinglePrediction =>
-      event.isBinary ||
-      (event.outcomes.length <= 2 &&
-          !_showsGameLines &&
-          event.outcomes.every((o) => o.noTokenId == null));
 
   /// Close, the event's image and title (up to two lines) and the
   /// watchlist star; the title has the row's whole width (founder, 4

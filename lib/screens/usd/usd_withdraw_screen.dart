@@ -24,7 +24,9 @@
 //     coin sheet, exactly as the Bitcoin send's card opens its own); under
 //     them, a friend: "Send to anyone" (a link they claim with Kute, no
 //     contact needed) and "Send a prediction" ("Or an investment", the
-//     market search, send_pick_market_sheet.dart);
+//     market search, send_pick_market_sheet.dart: a market's page, its
+//     slip sends; the card goes where neither venue is open to this
+//     person, sendPickOffered);
 //   * All contacts A–Z under them, the friends themselves
 //     (send_contacts_list.dart; founder: a growing list never hides the
 //     cards): the recent dollar recipients (paid directly: the send opens
@@ -55,8 +57,10 @@ import 'package:kute/providers/unified_search_provider.dart'
 import 'package:kute/screens/scanner/scanner_sheet.dart' show showScannerSheet;
 import 'package:kute/screens/search/components/search_rows.dart'
     show SearchChanceGauge;
+import 'package:kute/services/runtime_capabilities_service.dart'
+    show runtimeCapabilitiesProvider;
 import 'package:kute/screens/share/send_pick_market_sheet.dart'
-    show showSendPickMarketSheet;
+    show sendPickOffered, showSendPickMarketSheet;
 import 'package:kute/screens/share/send_to_anyone_sheet.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/coin_asset_grid.dart';
@@ -442,6 +446,10 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
       otherLegAsset: kOrchestraUsdAssetCode,
     ).groups;
     final balance = watchSpendingBitcoinUsd(ref);
+    // A prediction (an investment) is composed on a slip that can send it:
+    // with both venues closed to this person the card goes
+    // (send_pick_market_sheet.dart; founder, 5 November 2026).
+    final pickOffered = sendPickOffered(ref.watch(runtimeCapabilitiesProvider));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -470,7 +478,8 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
               subtitle: l10n.shareSendToAnyoneSubtitle,
               onTap: () => unawaited(_openLink()),
             ),
-            KuteActionCard(
+            if (pickOffered)
+              KuteActionCard(
               key: const ValueKey('usd-withdraw-pick'),
               // The predictions' own gauge (the search rows' half ring).
               visual: const SearchChanceGauge(chance: 0.64),

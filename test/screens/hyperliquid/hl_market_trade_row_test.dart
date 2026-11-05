@@ -94,7 +94,7 @@ void main() {
     final ctx = scopeContext(tester,
         within: find.byType(HlMarketDetailSheet));
     expect(ctx.isTrade, isTrue);
-    expect(ctx.share!.barContext.market, isTrue);
+    expect(ctx.share!.barContext!.market, isTrue);
     expect(ctx.share!.brag, isNull);
     expect(tester.takeException(), isNull);
   });

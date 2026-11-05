@@ -560,7 +560,7 @@ void main() {
         .barContext;
     expect(sell.style, KuteBarPrimaryStyle.destructive);
     expect(sell.share, isNotNull);
-    expect(sell.share!.barContext.market, isTrue);
+    expect(sell.share!.barContext!.market, isTrue);
     expect(sell.share!.brag, isNotNull, reason: 'in profit: the card');
     expect(tester.takeException(), isNull);
   });

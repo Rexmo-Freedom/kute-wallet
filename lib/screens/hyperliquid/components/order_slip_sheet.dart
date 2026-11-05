@@ -64,6 +64,7 @@ import 'package:flutter/material.dart';
 import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
 import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/screens/share/slip_share.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -903,6 +904,37 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   final List<HlFill> _orderFills = [];
 
   HlMarket get market => widget.market;
+
+  /// What the round Sal button sends, read at the tap
+  /// (screens/share/slip_share.dart): this market by the wire coin the
+  /// Claim screen resolves, Long or Short, the amount typed. A spot sale
+  /// is no investment to send: the market's card alone.
+  SlipSharePick _slipSharePick({required double minUsd, required bool blocked}) {
+    final name = hlFriendlyName(market.coin) ?? market.coin;
+    final mid = market.midPx > 0 ? market.midPx : market.markPx;
+    final selling = isSpot && !_isLong;
+    return SlipSharePick(
+      investing: true,
+      slug: market.wireCoin,
+      marketLinkSlug: market.coin,
+      title: name,
+      outcome: _isLong ? _strings.longLabel : _strings.shortLabel,
+      side: _isLong ? 'long' : 'short',
+      sideLabel: _isLong ? _strings.longLabel : _strings.shortLabel,
+      amountUsd: _marginUsd,
+      minUsd: minUsd,
+      minLabel: formatHlUsd(minUsd),
+      blocked: blocked || selling,
+      price: mid > 0
+          ? formatHlPrice(mid, decimalCap: market.pxDecimalCap)
+          : null,
+      ticker: name != market.coin ? market.coin : null,
+      wireCoin: market.wireCoin,
+      coinCategory: market.category,
+      coinIconUrl: market.iconUrl,
+      entrySource: 'order_slip',
+    );
+  }
   bool get isSpot => market.isSpot;
 
   /// The plain-money cost of HOLDING a leveraged position for a day at the
@@ -5254,6 +5286,15 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                     category: SearchCategory.perpetuals,
                     source: 'order_slip',
                     disabledLabel: primaryKind == 'trade' && _marginUsd <= 0 && !placesMinimum ? context.l10n.barNeedAmount : null,
+                    // The round Sal button: THIS investment to a friend
+                    // (screens/share/slip_share.dart); the market's card
+                    // alone while the open gate refuses this person.
+                    share: slipShareButton(
+                        context,
+                        () => _slipSharePick(
+                            minUsd: minAmountUsd,
+                            blocked: _openGateMessage != null ||
+                                ledgerRegionBlocked)),
                   ),
                   child: SizedBox(height: kuteBarScrollClearance.h),
                 ),

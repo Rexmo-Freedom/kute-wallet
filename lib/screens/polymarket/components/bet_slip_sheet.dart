@@ -42,6 +42,7 @@ import 'package:kute/providers/polymarket_browse_provider.dart'
 import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
 import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/screens/share/slip_share.dart';
 
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/helpers/formatters/polymarket_side_labels.dart';
@@ -408,6 +409,11 @@ class BetSlipSheet extends ConsumerStatefulWidget {
   /// polymarket_bet_slip_opened.source and polymarket_bet_placed.entry_source.
   final String source;
 
+  /// The market's event, when the opener has it: a candidate's own Yes /
+  /// No page ([PolymarketEvent.isSyntheticBinary]) sends its candidate,
+  /// not "Yes" (screens/share/slip_share.dart).
+  final PolymarketEvent? event;
+
   final _BetSlipDraft? _sharedDraft;
   final bool _advanced;
 
@@ -430,6 +436,7 @@ class BetSlipSheet extends ConsumerStatefulWidget {
     this.initialAmountUsd,
     this.negRisk = false,
     this.source = 'unknown',
+    this.event,
   })  : _sharedDraft = null,
         _advanced = false;
 
@@ -451,6 +458,7 @@ class BetSlipSheet extends ConsumerStatefulWidget {
         initialAmountUsd = source.initialAmountUsd,
         negRisk = source.negRisk,
         source = source.source,
+        event = source.event,
         _sharedDraft = draft,
         _advanced = true;
 
@@ -608,6 +616,7 @@ class BetSlipSheet extends ConsumerStatefulWidget {
         initialAmountUsd: initialAmountUsd,
         negRisk: negRisk,
         source: source,
+        event: event,
       )),
     );
   }
@@ -5450,10 +5459,15 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           ),
         );
 
+    // The round Sal button beside the slip's primary: THIS prediction to a
+    // friend (screens/share/slip_share.dart).
+    final share = slipShareButton(context, _slipSharePick);
     if (widget._advanced) {
       // The full-screen Advanced page keeps the app palette (user
       // decision: only sheets wear the side colour).
-      return PopScope(
+      return PolySlipShareScope(
+        share: share,
+        child: PopScope(
         canPop: !_buyInFlight && !_draft.ledgerBusy && !activelyPlacing,
         child: Builder(
           builder: (context) => PolySlipAdvancedScaffold(
@@ -5463,11 +5477,14 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
             body: KeyboardDismissOnTap(child: ticket(fullscreen: true)),
           ),
         ),
+        ),
       );
     }
     // Flipping side inside the sheet (Yes↔No, candidate Yes↔No) slides the
     // whole sheet to the other colour rather than cutting to it.
-    return PopScope(
+    return PolySlipShareScope(
+      share: share,
+      child: PopScope(
       canPop: !_buyInFlight && !_draft.ledgerBusy && !activelyPlacing,
       child: KeyboardDismissOnTap(
         child: tinted(
@@ -5503,6 +5520,59 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           ),
         ),
       ),
+      ),
+    );
+  }
+
+  /// What the round Sal button sends, read at the tap
+  /// (screens/share/slip_share.dart): this market, the side picked, the
+  /// amount typed, and whether the slip's open gate refuses this person
+  /// (then the market's card only). A candidate's own Yes / No page sends
+  /// the candidate on its Yes; No on a candidate is not something a link
+  /// can carry ([SlipSharePick.outcome] null).
+  SlipSharePick _slipSharePick() {
+    final outcomes = widget.outcomes;
+    final index =
+        outcomes.isEmpty ? 0 : _selectedIndex.clamp(0, outcomes.length - 1);
+    final selected = outcomes.isEmpty ? null : outcomes[index];
+    final candidatePage = widget.event?.isSyntheticBinary ?? false;
+    String? outcome;
+    int? outcomeIndex;
+    String sideLabel;
+    if (selected == null) {
+      sideLabel = widget.marketQuestion;
+    } else if (candidatePage) {
+      // The candidate, by its name on the event (the link resolves it).
+      sideLabel = widget.marketQuestion;
+      outcome = index == _positiveIndex ? widget.marketQuestion : null;
+    } else if (_isCandidatePicker) {
+      sideLabel = selected.name;
+      outcome = _buyNo ? null : selected.name;
+      outcomeIndex = _buyNo ? null : index;
+    } else {
+      sideLabel = _sideDisplayName(selected);
+      outcome = selected.name;
+      outcomeIndex = index;
+    }
+    final event = widget.event;
+    final yesChance = event != null && event.isBinary
+        ? event.yesPrice * 100
+        : (_isBinary ? outcomes[_positiveIndex].price * 100 : null);
+    return SlipSharePick(
+      investing: false,
+      slug: widget.marketSlug,
+      title: widget.marketQuestion,
+      outcome: outcome,
+      outcomeIndex: outcomeIndex,
+      side: 'buy',
+      sideLabel: sideLabel,
+      amountUsd: _emptyStake ? 0 : _amount,
+      minUsd: _effectiveMinBetUsd,
+      minLabel: _fiatCompanion(_effectiveMinBetUsd),
+      blocked: _capabilityBlockMessage != null,
+      marketChance: yesChance,
+      imageUrl: widget.marketImage,
+      entrySource: 'bet_slip',
     );
   }
 

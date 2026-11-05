@@ -7,14 +7,14 @@
 // (kute_bar_context.dart, THE TRADE ROW; kute_bar_trade_row.dart): on an
 // open position in profit a tap opens its brag preview ("Brag about it",
 // the bar context's primaryAction, kute_share_actions.dart), else the
-// position's Sal sheet ("Send to a friend": send the market, send this
-// prediction, and for an open position "Show off this position"). No
-// share pill beside the figure and no share card in the page any more.
+// market send sheet at once (founder, 5 November 2026: "the other shares
+// are just sharing the market, no picker"; the context's directAction).
+// No share pill beside the figure and no share card in the page any more.
 //
 // A RESOLVED WIN in profit (founder, 4 November 2026: past wins brag too)
 // has no Sell: its bar is "Brag about it" opening the won card
 // (brag_data.dart: bragWonPosition), with this round Sal button beside it
-// for the Sal sheet. A loss keeps Clear and the Sal sheet.
+// sending the market. A loss keeps Clear and the same button.
 
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_share_actions.dart'
@@ -23,7 +23,7 @@ import 'package:kute/screens/shared/kute_share_actions.dart'
 /// The round Sal button beside a position's Close position or Sell, for
 /// the page's market context [bar]: with [brag] (an open position in
 /// profit) a tap opens the brag preview, where the context has one;
-/// otherwise the Sal sheet.
+/// otherwise the market send sheet (the context's directAction).
 KuteBarShare positionBarShare(KuteBarContext bar, {required bool brag}) =>
     KuteBarShare(
       barContext: bar,

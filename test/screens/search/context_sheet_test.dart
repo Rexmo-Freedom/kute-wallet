@@ -261,8 +261,6 @@ void main() {
           venue: kMarketLinkInvesting,
           slug: 'XYZ100',
           price: '25,100.0',
-          outcome: 'Long',
-          side: 'long',
           position: false,
           category: SearchCategory.perpetuals,
           searchHint: null,
@@ -410,7 +408,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     await _loadInter(tester);
-    final bar = await _marketBar(tester, sendPick: false);
+    final bar = await _marketBar(tester, single: false);
     final l10n = lookupAppLocalizations(const Locale('en'));
     expect(bar.actions.map((a) => a.label), [l10n.shareTheMarket]);
     expect(bar.sublabel, l10n.shareTheMarketSub);
@@ -433,39 +431,28 @@ void main() {
 
   testWidgets(
       'a single prediction page (a Yes/No market, or an outcome drilled '
-      'into): both cards, "Send the market" and "Send a prediction"; no '
-      'side is chosen: the preview and the card\'s foot read both sides',
+      'into): the same one "Send the market" card; a prediction is sent '
+      'from its slip, never picked here (founder, 5 November 2026)',
       (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     await _loadInter(tester);
-    final bar = await _marketBar(tester, sendPick: true);
+    final bar = await _marketBar(tester, single: true);
     final l10n = lookupAppLocalizations(const Locale('en'));
-    expect(bar.actions.map((a) => a.label),
-        [l10n.shareTheMarket, l10n.sendAPrediction]);
-    expect(bar.actions.map((a) => a.sublabel),
-        [l10n.shareTheMarketSub, l10n.sendAPredictionSub]);
-    expect(bar.sublabel, l10n.barShareMarketSub);
+    expect(bar.actions.map((a) => a.label), [l10n.shareTheMarket]);
+    expect(bar.sublabel, l10n.shareTheMarketSub);
+    // The page's buttons send the market at once.
+    expect(bar.directAction, isNotNull);
     await _pumpSheet(tester, bar);
     expect(find.text(l10n.shareTheMarket), findsOneWidget);
-    expect(find.text(l10n.sendAPrediction), findsOneWidget);
-    // Both sides, equal, on the card that sends a prediction and in the
-    // preview: nothing reads as picked (the page passed "Yes" as its
-    // leading outcome; it is not a default).
+    expect(find.text(l10n.sendAPrediction), findsNothing);
     expect(
-        tester
-            .widget<Text>(find.byKey(
-                ValueKey('context-action-sent-${l10n.sendAPrediction}')))
-            .data,
-        'Yes 64% · No 36%');
-    expect(
-        tester
-            .widget<Text>(
-                find.byKey(const ValueKey('context-preview-figure')))
-            .data,
-        'Yes 64% · No 36%');
+        find.descendant(
+            of: find.byKey(const ValueKey('context-preview-figure')),
+            matching: find.text(l10n.shareMarketChance('64'))),
+        findsOneWidget);
     await _closeSheet(tester);
     expect(tester.takeException(), isNull);
   });
@@ -529,10 +516,10 @@ Future<void> _loadInter(WidgetTester tester) => tester.runAsync(() async {
       await inter.load();
     });
 
-/// The Michigan Senate event page's bar ([sendPick] false: an event) or a
+/// The Michigan Senate event page's bar ([single] false: an event) or a
 /// single Yes/No market's, as market_detail_sheet builds it.
 Future<KuteMarketBarContext> _marketBar(WidgetTester tester,
-    {required bool sendPick}) async {
+    {required bool single}) async {
   late KuteMarketBarContext bar;
   await tester.pumpWidget(MaterialApp(
     localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -540,21 +527,16 @@ Future<KuteMarketBarContext> _marketBar(WidgetTester tester,
     home: Builder(builder: (context) {
       bar = marketBarContext(
         context,
-        title: sendPick
+        title: single
             ? 'Will Abdul El-Sayed win the Michigan Senate election?'
             : 'Michigan Senate Election Winner',
         venue: kMarketLinkPredictions,
         slug: 'michigan-senate-election-winner',
-        chance: sendPick ? 64 : null,
-        outcome: sendPick ? 'Yes' : 'Abdul El-Sayed (D)',
-        outcomeIndex: 0,
-        outcomeChance: 64,
-        side: 'buy',
+        chance: single ? 64 : null,
         position: false,
         category: SearchCategory.predictions,
         searchHint: null,
         source: 'predictions',
-        sendPick: sendPick,
       ) as KuteMarketBarContext;
       return const SizedBox();
     }),

@@ -1234,8 +1234,8 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
   /// usd_withdraw_screen.dart): a prediction or investment on a link (the
   /// market search, send_pick_market_sheet.dart) and "Send dollars to a
   /// friend" (the contacts picker, "Someone else" at its top, then
-  /// send_to_anyone_sheet.dart). A contact picked before carries its label
-  /// into the prediction row.
+  /// send_to_anyone_sheet.dart). The prediction row is there only where a
+  /// slip can send one (sendPickOffered).
   Widget _sendToCard(AppColorsExtension c) {
     final l10n = context.l10n;
     return Column(
@@ -1245,7 +1245,9 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
         SendToListCard(
           colors: c,
           rows: [
-            SendPickMarketRow(
+            // Only where a slip can send it (sendPickOffered).
+            if (sendPickOffered(ref.watch(runtimeCapabilitiesProvider)))
+              SendPickMarketRow(
               onTap: () => unawaited(_afterLink(showSendPickMarketSheet(
                 context,
                 entrySource: 'dollar_send',

@@ -23,16 +23,23 @@
 //     loaded markets that match standing in meanwhile; Sal's sad face
 //     when nothing matches.
 //
-// A tap on a market opens it to send (send_to_anyone_sheet.dart, handed
-// the market, send_pick.dart): its picture and name over every side it
-// can send, NONE CHOSEN (Yes and No as the market page's pair, Long and
-// Short, or one row per outcome), then how much, then who it is for. A
-// recipient picked before the row (a contact) rides along as the link's
-// label and number. A link created closes this sheet too.
+// A TAP OPENS THE MARKET, AND ITS SLIP SENDS (founder, 5 November 2026:
+// the share belongs on the slip, "it carries all the information, even
+// the amount"; screens/share/slip_share.dart). A tap on a market opens
+// its page, the one the search sheet opens (MarketDetailSheet,
+// HlMarketDetailSheet), where the person picks the side as they always
+// do (Yes | No, Invest | Short, an outcome's row: nothing chosen for
+// them), types the amount on the slip, and sends it with the slip's round
+// Sal button. The header says so. The slip is the one place a prediction
+// is composed, so a slip cannot open here with a side nobody picked.
 //
-// A venue the region's policy does not offer is left out
-// (runtimeCapabilitiesProvider, `polymarket.browse` and
-// `hyperliquid.browse`, as the search sheet leaves it out).
+// A venue the region's policy does not offer, or where this person cannot
+// place a prediction (an investment), is left out
+// (runtimeCapabilitiesProvider: `polymarket.browse` and `polymarket.trade`,
+// `hyperliquid.browse` and `hyperliquid.trade`): a slip there could only
+// send the market's card ("when the user is blocked on Polymarket he
+// cannot also send the actual prediction, just the card"). The Send
+// screen hides its card when neither is open (sendPickOffered).
 
 import 'dart:async';
 
@@ -43,19 +50,22 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/polymarket_model.dart';
-import 'package:kute/models/share_link_model.dart' show ShareLinkKind;
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/hyperliquid_search_provider.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/screens/search/components/search_composer.dart';
 import 'package:kute/screens/search/components/search_rows.dart';
-import 'package:kute/screens/share/send_pick.dart';
-import 'package:kute/screens/share/send_to_anyone_sheet.dart';
+import 'package:kute/screens/hyperliquid/market_detail_sheet.dart'
+    show HlMarketDetailSheet;
+import 'package:kute/screens/polymarket/market_detail_sheet.dart'
+    show MarketDetailSheet;
+import 'package:kute/screens/shared/message_display.dart'
+    show showMessageSnackBar;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart' show SkeletonRowList;
 import 'package:kute/services/runtime_capabilities_service.dart'
-    show runtimeCapabilitiesProvider;
+    show RuntimeCapabilitiesService, runtimeCapabilitiesProvider;
 import 'package:kute/services/tracking_service.dart';
 
 /// The two feeds the sheet lists while nothing is typed.
@@ -70,9 +80,18 @@ const int kSendPickHomeRows = 6;
 /// How many results each venue shows.
 const int kSendPickResultRows = 8;
 
-/// Opens the sheet over the dollar send. Resolves to true when a link
-/// was created. [senderLabel] and [recipientPhone] are the recipient
-/// picked before the row, if any (send_to_anyone_sheet.dart).
+/// Whether a prediction or an investment can be composed to send here:
+/// either venue offered and open to this person (see the file header).
+bool sendPickOffered(RuntimeCapabilitiesService policy) =>
+    (policy.allows('polymarket.browse') &&
+        policy.allows('polymarket.trade')) ||
+    (policy.allows('hyperliquid.browse') &&
+        policy.allows('hyperliquid.trade'));
+
+/// Opens the sheet over the dollar send. A market tapped opens its page
+/// (see the file header); the sheet stays under it. [senderLabel] and
+/// [recipientPhone] are the recipient picked before the row, if any:
+/// kept for the callers, the slip's send asks the name itself.
 Future<bool?> showSendPickMarketSheet(
   BuildContext context, {
   required String entrySource,
@@ -106,6 +125,11 @@ class SendPickMarketSheet extends ConsumerStatefulWidget {
   /// Test seam: the feeds in place of the live providers.
   @visibleForTesting
   static SendPickFeeds? debugFeeds;
+
+  /// Test seam: what a tapped market opens (a [PolymarketEvent] or an
+  /// [HlMarket]); null opens its page.
+  @visibleForTesting
+  static void Function(Object market)? debugOpenMarket;
 
   @override
   ConsumerState<SendPickMarketSheet> createState() =>
@@ -164,39 +188,49 @@ class _SendPickMarketSheetState extends ConsumerState<SendPickMarketSheet> {
         market: m,
       );
 
-  /// A market tapped: open it to send, its side still to pick.
-  Future<void> _open(SendPickMarket market) async {
-    if (market.sides.isEmpty) return;
+  void _picked(String venue) {
     TrackingService.track('send_pick_market_picked', params: {
-      'venue': market.venue,
+      'venue': venue,
       'searched': _query.text.trim().isNotEmpty,
     });
     _focus.unfocus();
-    final created = await showSendToAnyoneSheet(
-      context,
-      kind: ShareLinkKind.dollars,
-      market: market,
-      senderLabel: widget.senderLabel,
-      recipientPhone: widget.recipientPhone,
-      entrySource: widget.entrySource,
-    );
-    if (!mounted) return;
-    if (created == true) Navigator.of(context).pop(true);
   }
 
-  void _openPrediction(PolymarketEvent e) =>
-      unawaited(_open(SendPickMarket.prediction(e)));
+  /// A prediction tapped: its page, as the search sheet opens it.
+  void _openPrediction(PolymarketEvent e) {
+    _picked('polymarket');
+    final debug = SendPickMarketSheet.debugOpenMarket;
+    if (debug != null) return debug(e);
+    MarketDetailSheet.show(context, event: e, source: 'send_pick');
+  }
 
-  void _openInvesting(HlMarketSearchResult r) => unawaited(
-      _open(SendPickMarket.investingResult(r, l10n: context.l10n)));
+  /// An Investing market tapped: this row's own instrument (the row's
+  /// market, else the one its wire id pins), its page.
+  void _openInvesting(HlMarketSearchResult r) {
+    _picked('hyperliquid');
+    final market = r.market ??
+        ref.read(hyperliquidExactMarketProvider(
+            '${r.kind.name}:${r.wireCoin}'));
+    if (market == null) {
+      showMessageSnackBar(
+          context: context, message: context.l10n.notAvailable, error: true);
+      return;
+    }
+    final debug = SendPickMarketSheet.debugOpenMarket;
+    if (debug != null) return debug(market);
+    HlMarketDetailSheet.show(context, market: market, source: 'send_pick');
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final policy = ref.watch(runtimeCapabilitiesProvider);
     final debug = SendPickMarketSheet.debugFeeds != null;
-    final showPredictions = debug || policy.allows('polymarket.browse');
-    final showInvesting = debug || policy.allows('hyperliquid.browse');
+    // Only a venue where the slip can send (see the file header).
+    final showPredictions = (debug || policy.allows('polymarket.browse')) &&
+        policy.allows('polymarket.trade');
+    final showInvesting = (debug || policy.allows('hyperliquid.browse')) &&
+        policy.allows('hyperliquid.trade');
     final q = _query.text.trim();
     final blocks = q.isEmpty
         ? _home(showPredictions: showPredictions, showInvesting: showInvesting)
@@ -211,7 +245,9 @@ class _SendPickMarketSheetState extends ConsumerState<SendPickMarketSheet> {
         children: [
           AppBottomSheetHeader(
             title: l10n.sendPickMarket,
-            subtitle: l10n.sendPickMarketSub,
+            // How it sends: the side and amount on the market's slip, then
+            // its Sal button (see the file header).
+            subtitle: l10n.sendPickMarketHow,
             icon: Icons.ios_share_rounded,
           ),
           // The search sheet's own line (search_composer.dart), Sal off,

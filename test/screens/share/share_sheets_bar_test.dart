@@ -33,7 +33,7 @@ void main() {
   });
 
   testWidgets('market share sheet: the card first, Share is the bar, the '
-      'pick stays a text button', (tester) async {
+      'market only (a prediction is sent from its slip)', (tester) async {
     final shared = <String>[];
     final names = <String>[];
     ShareCardShare.debugSharer = (image, text) async {
@@ -57,34 +57,14 @@ void main() {
     expect(find.byKey(const ValueKey('share-card-prediction_market')),
         findsOneWidget);
     expect(kuteBarPrimaryWithText('Share'), findsOneWidget);
-    expect(find.text('Send this prediction'), findsOneWidget);
+    expect(find.text('Send this prediction'), findsNothing);
+    expect(find.text('Send a prediction'), findsNothing);
     expect(kuteBarPrimaryEnabled(tester), isTrue);
 
     await shareCardAndWait(tester, shared);
     expect(shared.single, contains('https://web.test/m/will-it-rain'));
     expect(env.paramsOf('share_market_link_shared').single,
         containsPair('result', 'success'));
-  });
-
-  testWidgets('market share sheet from an event\'s page (sendPick false): '
-      'the card and Share only, no Send this prediction', (tester) async {
-    await pumpShareWidget(
-        tester,
-        env,
-        const ShareMarketSheet(
-          title: 'Michigan Senate Election Winner',
-          subtitle: null,
-          deepLink: 'https://web.test/m/michigan-senate-election-winner',
-          marketSlug: 'michigan-senate-election-winner',
-          venue: 'polymarket',
-          sendPick: false,
-        ));
-
-    expect(find.byKey(const ValueKey('share-card-prediction_market')),
-        findsOneWidget);
-    expect(kuteBarPrimaryWithText('Share'), findsOneWidget);
-    expect(find.text('Send this prediction'), findsNothing);
-    expect(find.byKey(const ValueKey('share-market-send-pick')), findsNothing);
   });
 
   testWidgets('claimed prompt: Send now is the bar, busy while the payment '

@@ -207,7 +207,10 @@ void main() {
 
   setUp(() async {
     GoogleFonts.config.allowRuntimeFetching = false;
-    final policy = runtimePolicyFixture();
+    // The venues open: the prediction card's slip can send
+    // (send_pick_market_sheet.dart, sendPickOffered).
+    final policy = runtimePolicyFixture(
+        also: const {'polymarket.browse', 'hyperliquid.browse'});
     RuntimeCapabilitiesService.debugInstance = policy;
     expect(await policy.refresh(), isTrue);
     events = [];
@@ -335,6 +338,24 @@ void main() {
       await _unmount(tester);
     });
   }
+
+  testWidgets(
+      'Predictions and Investing closed to this person: no Send a '
+      'prediction card (its slip could only send the market\'s card); the '
+      'other three stay', (tester) async {
+    final closed = runtimePolicyFixture(
+        blocked: const {'polymarket.trade', 'hyperliquid.trade'},
+        also: const {'polymarket.browse', 'hyperliquid.browse'});
+    RuntimeCapabilitiesService.debugInstance = closed;
+    await tester.runAsync(closed.refresh);
+    await _pump(tester, spendingSats: 100000);
+    expect(find.byKey(_pickRow), findsNothing);
+    for (final key in [_bitcoinRow, _alsoRow, _anyoneRow]) {
+      expect(find.byKey(key), findsOneWidget);
+    }
+    expect(tester.takeException(), isNull);
+    await _unmount(tester);
+  });
 
   testWidgets(
       'at 375 pt and a large text the four squares wrap their words, never '
