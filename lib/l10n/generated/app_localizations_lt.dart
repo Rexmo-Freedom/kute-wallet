@@ -12249,6 +12249,80 @@ class AppLocalizationsLt extends AppLocalizations {
   String get receiptAskWhatHappened => 'What happened here?';
 
   @override
+  String receiptCardOnSide(String side) {
+    return 'Mano pasirinkimas: $side';
+  }
+
+  @override
+  String get receiptCardEntryChance => 'Tikimybė, kai įėjau';
+
+  @override
+  String get receiptCardCashedOut => 'Išgryninta';
+
+  @override
+  String receiptCardSoldFor(String amount) {
+    return 'Parduota už $amount';
+  }
+
+  @override
+  String get receiptCardNotThisTime => 'Ne šį kartą';
+
+  @override
+  String get receiptCardPaidOut => 'Išmokėta';
+
+  @override
+  String get receiptCardMoved => 'Perkelta';
+
+  @override
+  String get receiptEdgeNoBank =>
+      'Per šį mokėjimą nenukentėjo nė vienas bankas.';
+
+  @override
+  String get receiptEdgeSentNext => 'Išsiųsta. Kitas.';
+
+  @override
+  String get receiptEdgeLanded => 'Atkeliavo. Jokių formų.';
+
+  @override
+  String get receiptEdgeIncoming => 'Pakeliui. Kantrybė – irgi funkcija.';
+
+  @override
+  String get receiptEdgeMoved => 'Tie patys pinigai. Geresnė vieta.';
+
+  @override
+  String get receiptEdgeStacked => 'Sukaupiau dar truputį.';
+
+  @override
+  String get receiptEdgeTookSome => 'Šiek tiek nuėmiau nuo stalo.';
+
+  @override
+  String get receiptEdgeLockedIn => 'Nuspręsta. Dabar laukiam.';
+
+  @override
+  String get receiptEdgeOnRecord => 'Mano prognozė. Oficialiai.';
+
+  @override
+  String get receiptEdgeTookWin => 'Pasiėmiau pelną ir išėjau.';
+
+  @override
+  String get receiptEdgeCutIt => 'Nukirpau. Judam toliau.';
+
+  @override
+  String get receiptEdgeInAndOut => 'Įėjau ir išėjau.';
+
+  @override
+  String get receiptEdgeWrongToday => 'Šiandien neatspėjau. Rytoj vėl.';
+
+  @override
+  String get receiptEdgeLesson => 'Pamoka apmokėta pilnai.';
+
+  @override
+  String get receiptEdgeCollected => 'Atspėjau. Atsiėmiau.';
+
+  @override
+  String get receiptEdgeOpened => 'Viduje. Dabar rinkos eilė.';
+
+  @override
   String get receiptResult => 'Result';
 
   @override

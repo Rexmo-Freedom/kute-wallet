@@ -12210,6 +12210,80 @@ class AppLocalizationsSk extends AppLocalizations {
   String get receiptAskWhatHappened => 'What happened here?';
 
   @override
+  String receiptCardOnSide(String side) {
+    return 'Som za $side';
+  }
+
+  @override
+  String get receiptCardEntryChance => 'Šanca pri mojom vstupe';
+
+  @override
+  String get receiptCardCashedOut => 'Speňažené';
+
+  @override
+  String receiptCardSoldFor(String amount) {
+    return 'Predané za $amount';
+  }
+
+  @override
+  String get receiptCardNotThisTime => 'Tentoraz nie';
+
+  @override
+  String get receiptCardPaidOut => 'Vyplatené';
+
+  @override
+  String get receiptCardMoved => 'Presunuté';
+
+  @override
+  String get receiptEdgeNoBank =>
+      'Pri tejto platbe neutrpela ujmu žiadna banka.';
+
+  @override
+  String get receiptEdgeSentNext => 'Odoslané. Ďalšie.';
+
+  @override
+  String get receiptEdgeLanded => 'Dorazilo. Žiadne formuláre.';
+
+  @override
+  String get receiptEdgeIncoming => 'Je na ceste. Trpezlivosť je funkcia.';
+
+  @override
+  String get receiptEdgeMoved => 'Tie isté peniaze. Lepšie miesto.';
+
+  @override
+  String get receiptEdgeStacked => 'Zase o kúsok viac.';
+
+  @override
+  String get receiptEdgeTookSome => 'Niečo som zobral zo stola.';
+
+  @override
+  String get receiptEdgeLockedIn => 'Rozhodnuté. Teraz čakáme.';
+
+  @override
+  String get receiptEdgeOnRecord => 'Môj odhad. Oficiálne.';
+
+  @override
+  String get receiptEdgeTookWin => 'Zobral som zisk a odišiel.';
+
+  @override
+  String get receiptEdgeCutIt => 'Odrezané. Idem ďalej.';
+
+  @override
+  String get receiptEdgeInAndOut => 'Dnu a von.';
+
+  @override
+  String get receiptEdgeWrongToday => 'Dnes vedľa. Zajtra znova.';
+
+  @override
+  String get receiptEdgeLesson => 'Lekcia zaplatená v plnej výške.';
+
+  @override
+  String get receiptEdgeCollected => 'Trafil som. Vybral som.';
+
+  @override
+  String get receiptEdgeOpened => 'Som dnu. Teraz je na rade trh.';
+
+  @override
   String get receiptResult => 'Result';
 
   @override

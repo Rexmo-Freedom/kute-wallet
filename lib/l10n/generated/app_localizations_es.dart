@@ -12249,6 +12249,80 @@ class AppLocalizationsEs extends AppLocalizations {
   String get receiptAskWhatHappened => 'What happened here?';
 
   @override
+  String receiptCardOnSide(String side) {
+    return 'Voy con $side';
+  }
+
+  @override
+  String get receiptCardEntryChance => 'Probabilidad al entrar';
+
+  @override
+  String get receiptCardCashedOut => 'Me salí';
+
+  @override
+  String receiptCardSoldFor(String amount) {
+    return 'Vendido por $amount';
+  }
+
+  @override
+  String get receiptCardNotThisTime => 'Esta vez no';
+
+  @override
+  String get receiptCardPaidOut => 'Pagado';
+
+  @override
+  String get receiptCardMoved => 'Movido';
+
+  @override
+  String get receiptEdgeNoBank => 'Ningún banco salió herido en este pago.';
+
+  @override
+  String get receiptEdgeSentNext => 'Enviado. Siguiente.';
+
+  @override
+  String get receiptEdgeLanded => 'Llegó. Sin rellenar formularios.';
+
+  @override
+  String get receiptEdgeIncoming =>
+      'Va en camino. La paciencia es una función.';
+
+  @override
+  String get receiptEdgeMoved => 'El mismo dinero. Mejor sitio.';
+
+  @override
+  String get receiptEdgeStacked => 'Acumulé un poco más.';
+
+  @override
+  String get receiptEdgeTookSome => 'Saqué algo de la mesa.';
+
+  @override
+  String get receiptEdgeLockedIn => 'Decidido. Ahora a esperar.';
+
+  @override
+  String get receiptEdgeOnRecord => 'Mi predicción. Que conste.';
+
+  @override
+  String get receiptEdgeTookWin => 'Tomé la ganancia y me fui.';
+
+  @override
+  String get receiptEdgeCutIt => 'Lo corté. A otra cosa.';
+
+  @override
+  String get receiptEdgeInAndOut => 'Entrar y salir.';
+
+  @override
+  String get receiptEdgeWrongToday => 'Hoy fallé. Mañana vuelvo.';
+
+  @override
+  String get receiptEdgeLesson => 'Lección pagada por completo.';
+
+  @override
+  String get receiptEdgeCollected => 'Lo dije. Lo cobré.';
+
+  @override
+  String get receiptEdgeOpened => 'Dentro. Ahora le toca al mercado.';
+
+  @override
   String get receiptResult => 'Result';
 
   @override

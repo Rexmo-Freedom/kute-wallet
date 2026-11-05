@@ -12254,6 +12254,80 @@ class AppLocalizationsRo extends AppLocalizations {
   String get receiptAskWhatHappened => 'What happened here?';
 
   @override
+  String receiptCardOnSide(String side) {
+    return 'Sunt cu $side';
+  }
+
+  @override
+  String get receiptCardEntryChance => 'Șansa la intrare';
+
+  @override
+  String get receiptCardCashedOut => 'Încasat';
+
+  @override
+  String receiptCardSoldFor(String amount) {
+    return 'Vândut cu $amount';
+  }
+
+  @override
+  String get receiptCardNotThisTime => 'Nu de data asta';
+
+  @override
+  String get receiptCardPaidOut => 'Plătit';
+
+  @override
+  String get receiptCardMoved => 'Mutat';
+
+  @override
+  String get receiptEdgeNoBank =>
+      'Nicio bancă nu a fost rănită în această plată.';
+
+  @override
+  String get receiptEdgeSentNext => 'Trimis. Următorul.';
+
+  @override
+  String get receiptEdgeLanded => 'A ajuns. Niciun formular completat.';
+
+  @override
+  String get receiptEdgeIncoming => 'E pe drum. Răbdarea e o funcție.';
+
+  @override
+  String get receiptEdgeMoved => 'Aceiași bani. Loc mai bun.';
+
+  @override
+  String get receiptEdgeStacked => 'Am mai strâns puțin.';
+
+  @override
+  String get receiptEdgeTookSome => 'Am luat ceva de pe masă.';
+
+  @override
+  String get receiptEdgeLockedIn => 'Hotărât. Acum așteptăm.';
+
+  @override
+  String get receiptEdgeOnRecord => 'Predicția mea. Oficial.';
+
+  @override
+  String get receiptEdgeTookWin => 'Am luat câștigul și am plecat.';
+
+  @override
+  String get receiptEdgeCutIt => 'Am tăiat-o. Mergem mai departe.';
+
+  @override
+  String get receiptEdgeInAndOut => 'Intrat și ieșit.';
+
+  @override
+  String get receiptEdgeWrongToday => 'Azi pe lângă. Mâine din nou.';
+
+  @override
+  String get receiptEdgeLesson => 'Lecție plătită integral.';
+
+  @override
+  String get receiptEdgeCollected => 'Am prezis. Am încasat.';
+
+  @override
+  String get receiptEdgeOpened => 'Înăuntru. Acum e rândul pieței.';
+
+  @override
   String get receiptResult => 'Result';
 
   @override

@@ -12215,6 +12215,80 @@ class AppLocalizationsBg extends AppLocalizations {
   String get receiptAskWhatHappened => 'What happened here?';
 
   @override
+  String receiptCardOnSide(String side) {
+    return 'Аз съм за $side';
+  }
+
+  @override
+  String get receiptCardEntryChance => 'Шанс, когато влязох';
+
+  @override
+  String get receiptCardCashedOut => 'Осребрено';
+
+  @override
+  String receiptCardSoldFor(String amount) {
+    return 'Продадено за $amount';
+  }
+
+  @override
+  String get receiptCardNotThisTime => 'Не и този път';
+
+  @override
+  String get receiptCardPaidOut => 'Изплатено';
+
+  @override
+  String get receiptCardMoved => 'Преместено';
+
+  @override
+  String get receiptEdgeNoBank =>
+      'Нито една банка не пострада при това плащане.';
+
+  @override
+  String get receiptEdgeSentNext => 'Изпратено. Следващото.';
+
+  @override
+  String get receiptEdgeLanded => 'Пристигна. Без попълване на формуляри.';
+
+  @override
+  String get receiptEdgeIncoming => 'На път е. Търпението е функция.';
+
+  @override
+  String get receiptEdgeMoved => 'Същите пари. По-добро място.';
+
+  @override
+  String get receiptEdgeStacked => 'Натрупах още малко.';
+
+  @override
+  String get receiptEdgeTookSome => 'Прибрах малко от масата.';
+
+  @override
+  String get receiptEdgeLockedIn => 'Решено. Сега чакаме.';
+
+  @override
+  String get receiptEdgeOnRecord => 'Моята прогноза. Официално.';
+
+  @override
+  String get receiptEdgeTookWin => 'Взех печалбата и си тръгнах.';
+
+  @override
+  String get receiptEdgeCutIt => 'Отрязах го. Продължавам.';
+
+  @override
+  String get receiptEdgeInAndOut => 'Влязох и излязох.';
+
+  @override
+  String get receiptEdgeWrongToday => 'Грешах днес. Утре пак.';
+
+  @override
+  String get receiptEdgeLesson => 'Урокът е платен изцяло.';
+
+  @override
+  String get receiptEdgeCollected => 'Познах. Прибрах.';
+
+  @override
+  String get receiptEdgeOpened => 'Вътре съм. Сега е ред на пазара.';
+
+  @override
   String get receiptResult => 'Result';
 
   @override

@@ -12164,6 +12164,79 @@ class AppLocalizationsLv extends AppLocalizations {
   String get receiptAskWhatHappened => 'What happened here?';
 
   @override
+  String receiptCardOnSide(String side) {
+    return 'Mana izvēle: $side';
+  }
+
+  @override
+  String get receiptCardEntryChance => 'Iespēja, kad iegāju';
+
+  @override
+  String get receiptCardCashedOut => 'Izņemts';
+
+  @override
+  String receiptCardSoldFor(String amount) {
+    return 'Pārdots par $amount';
+  }
+
+  @override
+  String get receiptCardNotThisTime => 'Ne šoreiz';
+
+  @override
+  String get receiptCardPaidOut => 'Izmaksāts';
+
+  @override
+  String get receiptCardMoved => 'Pārvietots';
+
+  @override
+  String get receiptEdgeNoBank => 'Šajā maksājumā necieta neviena banka.';
+
+  @override
+  String get receiptEdgeSentNext => 'Nosūtīts. Nākamais.';
+
+  @override
+  String get receiptEdgeLanded => 'Pienāca. Nekādu veidlapu.';
+
+  @override
+  String get receiptEdgeIncoming => 'Ceļā. Pacietība ir funkcija.';
+
+  @override
+  String get receiptEdgeMoved => 'Tā pati nauda. Labāka vieta.';
+
+  @override
+  String get receiptEdgeStacked => 'Sakrāju vēl mazliet.';
+
+  @override
+  String get receiptEdgeTookSome => 'Mazliet noņēmu no galda.';
+
+  @override
+  String get receiptEdgeLockedIn => 'Izlemts. Tagad gaidām.';
+
+  @override
+  String get receiptEdgeOnRecord => 'Mana prognoze. Oficiāli.';
+
+  @override
+  String get receiptEdgeTookWin => 'Paņēmu peļņu un aizgāju.';
+
+  @override
+  String get receiptEdgeCutIt => 'Nogriezu. Ejam tālāk.';
+
+  @override
+  String get receiptEdgeInAndOut => 'Iekšā un ārā.';
+
+  @override
+  String get receiptEdgeWrongToday => 'Šodien garām. Rīt atkal.';
+
+  @override
+  String get receiptEdgeLesson => 'Mācība samaksāta pilnā apmērā.';
+
+  @override
+  String get receiptEdgeCollected => 'Paredzēju. Saņēmu.';
+
+  @override
+  String get receiptEdgeOpened => 'Iekšā. Tagad tirgus kārta.';
+
+  @override
   String get receiptResult => 'Result';
 
   @override

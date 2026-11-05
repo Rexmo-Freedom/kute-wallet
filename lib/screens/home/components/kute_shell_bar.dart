@@ -190,15 +190,16 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
         if (mounted && _morphed != on) setState(() => _morphed = on);
       });
 
-  /// The round Sal button at the end of the bar's row (a trade row's, or a
-  /// position's beside Close or Sell): the brag card on an open position
-  /// in profit, else the page's Sal sheet, the button travelling to the
-  /// composer ([shareContext], its own element).
+  /// The round Sal button at the end of the bar's row (a trade row's, a
+  /// position's beside Close or Sell, a receipt's beside its action): a
+  /// receipt's card preview, the brag card on an open position in profit,
+  /// else the page's Sal sheet, the button travelling to the composer
+  /// ([shareContext], its own element).
   void _shareTap(KuteBarShare share, BuildContext shareContext) {
-    final brag = share.brag;
-    if (brag != null) {
+    final direct = share.open ?? share.brag;
+    if (direct != null) {
       HapticFeedback.lightImpact();
-      brag();
+      direct();
       return;
     }
     _open(share.barContext, shareContext);

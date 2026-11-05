@@ -12193,6 +12193,81 @@ class AppLocalizationsDa extends AppLocalizations {
   String get receiptAskWhatHappened => 'What happened here?';
 
   @override
+  String receiptCardOnSide(String side) {
+    return 'Jeg er på $side';
+  }
+
+  @override
+  String get receiptCardEntryChance => 'Chance, da jeg gik ind';
+
+  @override
+  String get receiptCardCashedOut => 'Indkasseret';
+
+  @override
+  String receiptCardSoldFor(String amount) {
+    return 'Solgt for $amount';
+  }
+
+  @override
+  String get receiptCardNotThisTime => 'Ikke denne gang';
+
+  @override
+  String get receiptCardPaidOut => 'Udbetalt';
+
+  @override
+  String get receiptCardMoved => 'Flyttet';
+
+  @override
+  String get receiptEdgeNoBank =>
+      'Ingen banker kom til skade ved denne betaling.';
+
+  @override
+  String get receiptEdgeSentNext => 'Sendt. Næste.';
+
+  @override
+  String get receiptEdgeLanded => 'Landet. Ingen formularer udfyldt.';
+
+  @override
+  String get receiptEdgeIncoming =>
+      'Den er på vej. Tålmodighed er en funktion.';
+
+  @override
+  String get receiptEdgeMoved => 'Samme penge. Bedre sted.';
+
+  @override
+  String get receiptEdgeStacked => 'Stablet lidt mere.';
+
+  @override
+  String get receiptEdgeTookSome => 'Tog lidt af bordet.';
+
+  @override
+  String get receiptEdgeLockedIn => 'Låst. Nu venter vi.';
+
+  @override
+  String get receiptEdgeOnRecord => 'Min vurdering. Officielt.';
+
+  @override
+  String get receiptEdgeTookWin => 'Tog gevinsten og gik.';
+
+  @override
+  String get receiptEdgeCutIt => 'Skar den. Videre.';
+
+  @override
+  String get receiptEdgeInAndOut => 'Ind og ud.';
+
+  @override
+  String get receiptEdgeWrongToday => 'Forkert i dag. Tilbage i morgen.';
+
+  @override
+  String get receiptEdgeLesson => 'Lektien er betalt fuldt ud.';
+
+  @override
+  String get receiptEdgeCollected => 'Forudså det. Hentede det.';
+
+  @override
+  String get receiptEdgeOpened => 'Inde. Nu er det op til markedet.';
+
+  @override
   String get receiptResult => 'Result';
 
   @override

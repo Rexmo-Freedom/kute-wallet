@@ -28,6 +28,8 @@
 //     "Yes", "62%"), the other open ("YOUR SIDE?", "No", "38%"), "VS"
 //     between; "$10 to play, on me", the dare as the edgy line
 //     (challengeEdges); Sal's side-eye ("and?").
+//   * RECEIPT (a transaction's own card, founder, 5 November 2026; its
+//     colour by kind): receipt_card.dart.
 //   * INVESTMENT (navy): THE ACTUAL STOCK: its real logo (HlCoinIcon, 36),
 //     name and ticker, the price huge, "+3.4% today" in the change's
 //     colour, the last 30 days' closes as the line filling the space,
@@ -49,6 +51,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/screens/share/cards/receipt_card.dart';
 import 'package:kute/screens/share/cards/share_card_copy.dart';
 import 'package:kute/screens/share/cards/share_card_data.dart';
 import 'package:kute/screens/share/cards/share_card_frame.dart';
@@ -72,6 +75,7 @@ ShareCardPalette shareCardPalette(ShareCardData data) => switch (data) {
         d.bitcoin ? ShareCardPalette.bitcoinClaim : ShareCardPalette.dollars,
       PredictionCardData() => ShareCardPalette.prediction,
       InvestmentCardData() => ShareCardPalette.investment,
+      final ReceiptCardData d => receiptCardPalette(d),
     };
 
 /// A stock up this much today (a fraction) gets Sal's big win.
@@ -94,6 +98,7 @@ ShareCardPose shareCardPose(ShareCardData data) => switch (data) {
           final c when c < -_kFlatChange => ShareCardPose.loss,
           _ => ShareCardPose.flat,
         },
+      final ReceiptCardData d => receiptCardPose(d),
     };
 
 class ShareCard extends StatelessWidget {
@@ -121,6 +126,9 @@ class ShareCard extends StatelessWidget {
     final p = shareCardPalette(data);
     final pose = shareCardPose(data);
     switch (data) {
+      // A transaction's receipt (receipt_card.dart).
+      case final ReceiptCardData d:
+        return ReceiptShareCard(data: d, caps: caps, line: line, mark: mark);
       case final MoneyCardData d:
         final sub = d.amountSub;
         final bitcoin = d.bitcoin;

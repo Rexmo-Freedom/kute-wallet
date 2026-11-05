@@ -18,6 +18,11 @@ import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/historical_price_provider.dart';
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
+import 'package:kute/screens/hyperliquid/market_detail_sheet.dart'
+    show HlMarketDetailSheet;
+import 'package:kute/screens/share/cards/share_card_data.dart'
+    show ReceiptCardKind;
+import 'package:kute/screens/share/receipt_share.dart';
 import 'package:kute/theme/app_theme.dart';
 
 final _bitcoinComparison =
@@ -203,12 +208,66 @@ class _FillDetails extends ConsumerWidget {
                 // The transaction hash is deliberately not shown on a
                 // closed trade (owner decision).
               ]),
-              // No action of its own: the default bar, and room under it.
-              const ReceiptBarAction.none(),
+              // The market is the bar's primary on the spending wallet's
+              // receipt (a Ledger account's has Done: its market opens on
+              // the account's own page); the round Sal button beside it
+              // shares the trade's card.
+              if (market != null && compareWithSpendingWallet)
+                ReceiptBarAction(
+                  label: context.l10n.salViewMarket,
+                  onPrimary: () => HlMarketDetailSheet.show(context,
+                      market: market, source: 'activity'),
+                  share: hlFillReceiptShare(fill, market),
+                )
+              else
+                ReceiptBarAction.none(share: hlFillReceiptShare(fill, market)),
             ]),
           )),
     );
   }
+}
+
+/// What an Investing fill's receipt shares (receipt_share.dart): a
+/// position opened ("OPENED POSITION · LONG", the entry price, the size)
+/// or a token bought; a position closed, reduced, reversed or liquidated
+/// (what closing realised, the exit price) or a token sold.
+ReceiptShare hlFillReceiptShare(HlFill fill, HlMarket? market) {
+  final coin = market?.coin ?? fill.coin;
+  final symbol = hlBaseCoin(coin);
+  final spot = fill.coin.startsWith('@') || fill.coin.contains('/');
+  final dir = fill.dir.trim().toLowerCase();
+  String side(String words) => words.contains('short') ? 'short' : 'long';
+  final bool opened;
+  String? held;
+  if (spot) {
+    opened = fill.isBuy;
+  } else if (dir.startsWith('open ')) {
+    opened = true;
+    held = side(dir.substring(5));
+  } else if (dir.contains('>')) {
+    // A reversal closes the side it held.
+    opened = false;
+    held = side(dir.split('>').first);
+  } else {
+    // Close Long, Close Short, a liquidation.
+    opened = false;
+    held = side(dir);
+  }
+  return tradeReceiptShare(
+    type: opened ? ReceiptCardKind.opened : ReceiptCardKind.closed,
+    title: hlFriendlyName(symbol) ?? hlFriendlyName(coin) ?? symbol,
+    ticker: symbol,
+    coin: coin,
+    wireCoin: market?.wireCoin ?? fill.coin,
+    iconUrl: market?.iconUrl,
+    category: market?.category,
+    side: held,
+    spot: spot,
+    price: formatHlPrice(fill.px, decimalCap: market?.pxDecimalCap),
+    size: '${formatHlSize(fill.sz)} $symbol',
+    usd: fill.px * fill.sz,
+    pnlUsd: opened ? null : fill.closedPnl,
+  );
 }
 
 /// The venue's direction words ("Open Long", "Close Short", "Long >

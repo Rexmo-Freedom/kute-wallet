@@ -27,6 +27,7 @@ import 'package:kute/providers/transactions_provider.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart';
 import 'package:kute/screens/shared/components/receipt_parts.dart'
     show ReceiptBarAction;
+import 'package:kute/screens/share/receipt_share.dart' show ReceiptShare;
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/message_display.dart';
@@ -231,7 +232,9 @@ abstract final class DepositEarlyClaimRetry {
 /// ([ReceiptBarAction]), busy while the claim runs, and the sheet's own
 /// action ([otherLabel], View on blockchain) steps down to a text button
 /// above the bar; until then, and when no offer comes, that action is the
-/// bar, as on any receipt. The sheet draws no button of its own.
+/// bar, as on any receipt. The sheet draws no button of its own. [share]:
+/// the receipt's round Sal button beside the bar, whichever it is
+/// (ReceiptBarAction.share).
 class DepositEarlyClaim extends ConsumerStatefulWidget {
   const DepositEarlyClaim({
     super.key,
@@ -240,6 +243,7 @@ class DepositEarlyClaim extends ConsumerStatefulWidget {
     required this.amountSats,
     this.otherLabel,
     this.onOther,
+    this.share,
   });
 
   final String txid;
@@ -249,6 +253,9 @@ class DepositEarlyClaim extends ConsumerStatefulWidget {
   /// The sheet's one other action (View on blockchain); null for none.
   final String? otherLabel;
   final VoidCallback? onOther;
+
+  /// What the round Sal button beside the bar shares; null: none.
+  final ReceiptShare? share;
 
   @override
   ConsumerState<DepositEarlyClaim> createState() => _DepositEarlyClaimState();
@@ -434,15 +441,18 @@ class _DepositEarlyClaimState extends ConsumerState<DepositEarlyClaim> {
                 .depositClaimNowFee(ref.watch(conversionProvider(fee))),
             onPrimary: _claim,
             busy: _busy,
+            share: widget.share,
           )
         else if (other != null)
           ReceiptBarAction(
             key: const ValueKey('deposit-claim-bar'),
             label: other,
             onPrimary: widget.onOther,
+            share: widget.share,
           )
         else
-          const ReceiptBarAction.none(key: ValueKey('deposit-claim-bar')),
+          ReceiptBarAction.none(
+              key: const ValueKey('deposit-claim-bar'), share: widget.share),
       ],
     );
   }

@@ -20521,6 +20521,144 @@ abstract class AppLocalizations {
   /// **'What happened here?'**
   String get receiptAskWhatHappened;
 
+  /// Receipt share card of a prediction placed: the caps line at the top, e.g. 'I'm on Yes'. {side} is the outcome picked (Yes, No or a name). Shown uppercased. Never 'bet'.
+  ///
+  /// In en, this message translates to:
+  /// **'I\'m on {side}'**
+  String receiptCardOnSide(String side);
+
+  /// Receipt share card of a prediction placed: the caption under the chance on the speedometer, the market's chance when the prediction was placed.
+  ///
+  /// In en, this message translates to:
+  /// **'Chance when I got in'**
+  String get receiptCardEntryChance;
+
+  /// Receipt share card of a prediction sold: the caps line at the top. Shown uppercased.
+  ///
+  /// In en, this message translates to:
+  /// **'Cashed out'**
+  String get receiptCardCashedOut;
+
+  /// Receipt share card of a prediction sold: the line under the result, what it sold for. {amount} is formatted money.
+  ///
+  /// In en, this message translates to:
+  /// **'Sold for {amount}'**
+  String receiptCardSoldFor(String amount);
+
+  /// Receipt share card of a prediction lost: the caps line at the top, dry and classy, never sad. Shown uppercased.
+  ///
+  /// In en, this message translates to:
+  /// **'Not this time'**
+  String get receiptCardNotThisTime;
+
+  /// Receipt share card of a payout from a resolved prediction: the caps line at the top. Shown uppercased.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid out'**
+  String get receiptCardPaidOut;
+
+  /// Receipt share card of money moved between the person's own accounts: the caps line at the top. Shown uppercased.
+  ///
+  /// In en, this message translates to:
+  /// **'Moved'**
+  String get receiptCardMoved;
+
+  /// Receipt share card, the short deadpan line on a send. PG, no promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'No bank was harmed in this payment.'**
+  String get receiptEdgeNoBank;
+
+  /// Receipt share card, the short deadpan line on a send.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent. Next.'**
+  String get receiptEdgeSentNext;
+
+  /// Receipt share card, the short deadpan line on money received.
+  ///
+  /// In en, this message translates to:
+  /// **'Landed. No forms were filled.'**
+  String get receiptEdgeLanded;
+
+  /// Receipt share card, the short deadpan line on money still on its way in.
+  ///
+  /// In en, this message translates to:
+  /// **'On its way. Patience is a feature.'**
+  String get receiptEdgeIncoming;
+
+  /// Receipt share card, the short deadpan line on money moved between the person's own accounts.
+  ///
+  /// In en, this message translates to:
+  /// **'Same money. Better spot.'**
+  String get receiptEdgeMoved;
+
+  /// Receipt share card, the short deadpan line on bitcoin bought.
+  ///
+  /// In en, this message translates to:
+  /// **'Stacked a little more.'**
+  String get receiptEdgeStacked;
+
+  /// Receipt share card, the short deadpan line on bitcoin sold.
+  ///
+  /// In en, this message translates to:
+  /// **'Took some off the table.'**
+  String get receiptEdgeTookSome;
+
+  /// Receipt share card, the short deadpan line on a prediction placed. Never 'bet', no promise of a win.
+  ///
+  /// In en, this message translates to:
+  /// **'Locked in. Now we wait.'**
+  String get receiptEdgeLockedIn;
+
+  /// Receipt share card, the short deadpan line on a prediction placed or a trade opened: the call is on record.
+  ///
+  /// In en, this message translates to:
+  /// **'My call. On the record.'**
+  String get receiptEdgeOnRecord;
+
+  /// Receipt share card, the short deadpan line on a prediction sold or a trade closed in profit.
+  ///
+  /// In en, this message translates to:
+  /// **'Took the win and left.'**
+  String get receiptEdgeTookWin;
+
+  /// Receipt share card, the short deadpan line on a prediction sold or a trade closed at a loss.
+  ///
+  /// In en, this message translates to:
+  /// **'Cut it. Moved on.'**
+  String get receiptEdgeCutIt;
+
+  /// Receipt share card, the short deadpan line on a prediction sold or a trade closed with no result to speak of.
+  ///
+  /// In en, this message translates to:
+  /// **'In and out.'**
+  String get receiptEdgeInAndOut;
+
+  /// Receipt share card, the short deadpan line on a prediction lost. Dry, classy, never sad.
+  ///
+  /// In en, this message translates to:
+  /// **'Wrong today. Back tomorrow.'**
+  String get receiptEdgeWrongToday;
+
+  /// Receipt share card, the short deadpan line on a prediction lost. Dry, classy, never sad.
+  ///
+  /// In en, this message translates to:
+  /// **'Lesson paid in full.'**
+  String get receiptEdgeLesson;
+
+  /// Receipt share card, the short deadpan line on a payout from a prediction that won.
+  ///
+  /// In en, this message translates to:
+  /// **'Called it. Collected it.'**
+  String get receiptEdgeCollected;
+
+  /// Receipt share card, the short deadpan line on an Investing trade opened. No promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'In. Now it\'s up to the market.'**
+  String get receiptEdgeOpened;
+
   /// Activity receipt tile label: the realised profit or loss of a sale or payout.
   ///
   /// In en, this message translates to:

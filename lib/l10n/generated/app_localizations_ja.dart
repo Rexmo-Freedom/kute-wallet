@@ -11769,6 +11769,79 @@ class AppLocalizationsJa extends AppLocalizations {
   String get receiptAskWhatHappened => 'What happened here?';
 
   @override
+  String receiptCardOnSide(String side) {
+    return '私は$side派';
+  }
+
+  @override
+  String get receiptCardEntryChance => '参加時の確率';
+
+  @override
+  String get receiptCardCashedOut => '売却';
+
+  @override
+  String receiptCardSoldFor(String amount) {
+    return '$amountで売却';
+  }
+
+  @override
+  String get receiptCardNotThisTime => '今回は外れ';
+
+  @override
+  String get receiptCardPaidOut => '受け取り済み';
+
+  @override
+  String get receiptCardMoved => '移動';
+
+  @override
+  String get receiptEdgeNoBank => 'この支払いで傷ついた銀行はありません。';
+
+  @override
+  String get receiptEdgeSentNext => '送金完了。次へ。';
+
+  @override
+  String get receiptEdgeLanded => '着金。書類はゼロ。';
+
+  @override
+  String get receiptEdgeIncoming => '向かっています。待つのも機能のうち。';
+
+  @override
+  String get receiptEdgeMoved => '同じお金。もっといい場所へ。';
+
+  @override
+  String get receiptEdgeStacked => 'また少し積み増し。';
+
+  @override
+  String get receiptEdgeTookSome => '少しだけ手仕舞い。';
+
+  @override
+  String get receiptEdgeLockedIn => '決めた。あとは待つだけ。';
+
+  @override
+  String get receiptEdgeOnRecord => '私の予想。記録済み。';
+
+  @override
+  String get receiptEdgeTookWin => '勝ちを持って退場。';
+
+  @override
+  String get receiptEdgeCutIt => '切った。次へ。';
+
+  @override
+  String get receiptEdgeInAndOut => '入って、出た。';
+
+  @override
+  String get receiptEdgeWrongToday => '今日は外れ。また明日。';
+
+  @override
+  String get receiptEdgeLesson => '授業料、全額支払い済み。';
+
+  @override
+  String get receiptEdgeCollected => '予想的中。受け取り済み。';
+
+  @override
+  String get receiptEdgeOpened => '参戦。あとは市場次第。';
+
+  @override
   String get receiptResult => 'Result';
 
   @override

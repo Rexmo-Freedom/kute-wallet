@@ -12224,6 +12224,80 @@ class AppLocalizationsHu extends AppLocalizations {
   String get receiptAskWhatHappened => 'What happened here?';
 
   @override
+  String receiptCardOnSide(String side) {
+    return 'A választásom: $side';
+  }
+
+  @override
+  String get receiptCardEntryChance => 'Esély, amikor beszálltam';
+
+  @override
+  String get receiptCardCashedOut => 'Kiszálltam';
+
+  @override
+  String receiptCardSoldFor(String amount) {
+    return 'Eladva: $amount';
+  }
+
+  @override
+  String get receiptCardNotThisTime => 'Most nem jött össze';
+
+  @override
+  String get receiptCardPaidOut => 'Kifizetve';
+
+  @override
+  String get receiptCardMoved => 'Áthelyezve';
+
+  @override
+  String get receiptEdgeNoBank =>
+      'Ennél a fizetésnél egyetlen bank sem sérült meg.';
+
+  @override
+  String get receiptEdgeSentNext => 'Elküldve. Jöhet a következő.';
+
+  @override
+  String get receiptEdgeLanded => 'Megérkezett. Űrlap nélkül.';
+
+  @override
+  String get receiptEdgeIncoming => 'Úton van. A türelem is egy funkció.';
+
+  @override
+  String get receiptEdgeMoved => 'Ugyanaz a pénz. Jobb helyen.';
+
+  @override
+  String get receiptEdgeStacked => 'Gyűjtöttem még egy kicsit.';
+
+  @override
+  String get receiptEdgeTookSome => 'Levettem egy kicsit az asztalról.';
+
+  @override
+  String get receiptEdgeLockedIn => 'Eldöntve. Most várunk.';
+
+  @override
+  String get receiptEdgeOnRecord => 'Az én tippem. Hivatalosan.';
+
+  @override
+  String get receiptEdgeTookWin => 'Elvittem a nyereséget, és távoztam.';
+
+  @override
+  String get receiptEdgeCutIt => 'Elvágtam. Megyünk tovább.';
+
+  @override
+  String get receiptEdgeInAndOut => 'Be és ki.';
+
+  @override
+  String get receiptEdgeWrongToday => 'Ma mellé. Holnap újra.';
+
+  @override
+  String get receiptEdgeLesson => 'A lecke teljes áron kifizetve.';
+
+  @override
+  String get receiptEdgeCollected => 'Megmondtam. Bezsebeltem.';
+
+  @override
+  String get receiptEdgeOpened => 'Benne vagyok. Most a piacon a sor.';
+
+  @override
   String get receiptResult => 'Result';
 
   @override
