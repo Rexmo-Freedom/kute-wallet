@@ -8,9 +8,7 @@
 // `loop` and `framing`:
 //
 //   * face framing (cell 48 logical): `search`, `idle`, `happy`, `sad`,
-//     `curious`, `surprised` (stills), `blink` (a 24-frame loop),
-//     `face_share` (Sal with the share glyph: the round share button,
-//     kute_bar_trade_row.dart);
+//     `curious`, `surprised` (stills), `blink` (a 24-frame loop);
 //   * body framing (cell 128 logical, 24 frames at 12 fps): `body_idle`,
 //     `body_walk`, `body_sit_down` (one-shot), `body_sit`, `body_lie_down`
 //     (one-shot), `body_lie`, `body_wag`, `body_cheer`, `body_sad`,
@@ -471,6 +469,7 @@ class SalSprite extends StatefulWidget {
     this.switchAtBoundary = true,
     this.onComplete,
     this.onUnavailable,
+    this.onFrame,
     required this.fallback,
   });
 
@@ -528,6 +527,11 @@ class SalSprite extends StatefulWidget {
   /// Drawn when no sheet can be read (not rendered yet, not registered):
   /// the rig drawing the site wore before.
   final Widget fallback;
+
+  /// Called with every new frame the painter is handed (a layer timed to
+  /// Sal's beats, the share badge's arrow on his blink). It can come
+  /// during a build: repaint from it, never rebuild.
+  final ValueChanged<SalSpriteFrame>? onFrame;
 
   @override
   State<SalSprite> createState() => _SalSpriteState();
@@ -832,7 +836,10 @@ class _SalSpriteState extends State<SalSprite>
       outgoingFrame: _outFrame,
       fade: fade,
     );
-    if (next != _paint.value) _paint.value = next;
+    if (next != _paint.value) {
+      _paint.value = next;
+      widget.onFrame?.call(next);
+    }
   }
 
   /// Tests: what the painter draws now (null: nothing decoded yet).
