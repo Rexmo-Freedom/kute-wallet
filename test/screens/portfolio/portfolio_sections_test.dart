@@ -43,6 +43,8 @@ import 'package:kute/screens/hyperliquid/components/hl_market_card.dart'
 import 'package:kute/screens/portfolio/components/balances_overview.dart'
     show BalancesLiveFigure;
 import 'package:kute/screens/portfolio/components/portfolio_hero.dart';
+import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart'
+    show PnlStatTiles, PnlVenueSquare;
 import 'package:kute/screens/portfolio/components/position_rows.dart'
     show PortfolioCardList, PortfolioPositionRow;
 import 'package:kute/screens/portfolio/investments_portfolio.dart';
@@ -534,7 +536,7 @@ void main() {
   testWidgets(
       'one hero for every section: never rebuilt by a switch, at the same '
       'place; a range picked moves the P&L line and the P&L section\'s '
-      'venue rows together', (tester) async {
+      'venue squares together', (tester) async {
     await _mount(tester,
         state: _bothAtWork,
         section: PortfolioSection.activity,
@@ -557,14 +559,20 @@ void main() {
           rect,
           '$s');
     }
-    final venueChange = find.descendant(
+    // The venue square's P&L is over the hero's range, its corner names it.
+    Finder inInvesting(String key) => find.descendant(
         of: find.byKey(const ValueKey('pnl-venue-investing')),
-        matching: find.byKey(const ValueKey('pnl-venue-change')));
-    final month = tester.widget<Text>(venueChange).data;
+        matching: find.byKey(ValueKey(key)));
+    final month = tester.widget<Text>(inInvesting('pnl-venue-figure')).data;
+    expect(tester.widget<Text>(inInvesting('pnl-venue-change')).data,
+        endsWith('Past month'));
     await tester.tap(find.text('1W'));
     await _settle(tester);
     expect(_change(tester), endsWith(' · Past week'));
-    expect(tester.widget<Text>(venueChange).data, isNot(month));
+    expect(tester.widget<Text>(inInvesting('pnl-venue-figure')).data,
+        isNot(month));
+    expect(tester.widget<Text>(inInvesting('pnl-venue-change')).data,
+        endsWith('Past week'));
     await tester.tap(find.text('ALL'));
     await _settle(tester);
     // ALL: the P&L since the account began, both venues added.
@@ -664,9 +672,9 @@ void main() {
   });
 
   testWidgets(
-      'P&L: each venue\'s P&L and the all-time stats, no chart of its own '
-      '(the hero\'s is the one), its first title where every section starts',
-      (tester) async {
+      'P&L: each venue\'s P&L as two squares side by side and the all-time '
+      'stats as tiles, no chart of its own (the hero\'s is the one), its '
+      'first title where every section starts', (tester) async {
     await _mount(tester,
         state: _bothAtWork,
         section: PortfolioSection.charts,
@@ -679,7 +687,24 @@ void main() {
     expect(
         find.byKey(const ValueKey('pnl-venue-predictions')), findsOneWidget);
     expect(find.byKey(const ValueKey('pnl-venue-investing')), findsOneWidget);
-    // The rows chart nothing: no pick.
+    // The Positions squares' grid: two side by side, no list card.
+    expect(
+        find.descendant(
+            of: find.byKey(const ValueKey('statistics-figures')),
+            matching: find.byType(ActivitySquareGrid)),
+        findsOneWidget);
+    expect(find.byType(PnlVenueSquare), findsNWidgets(2));
+    expect(
+        tester.getRect(find.byKey(const ValueKey('pnl-venue-predictions'))).top,
+        tester.getRect(find.byKey(const ValueKey('pnl-venue-investing'))).top);
+    expect(
+        find.descendant(
+            of: find.byKey(const ValueKey('statistics-pnl-section')),
+            matching: find.byType(PortfolioCardList)),
+        findsNothing);
+    // All time: one row of tiles.
+    expect(find.byType(PnlStatTiles), findsOneWidget);
+    // The squares chart nothing: no pick.
     expect(find.byKey(const ValueKey('pnl-venue-investing-pick')),
         findsNothing);
     final byVenue = find.byKey(const ValueKey('statistics-pnl-by-venue'));
@@ -824,7 +849,10 @@ void main() {
       final bar = size.height - kuteBarScrollClearance * size.height / 932;
       expect(tester.getRect(last).bottom, lessThanOrEqualTo(bar + 0.5),
           reason: 'the last row under the bar');
-      final inset = 16 * size.width / 430;
+      // The list cards' 16 inset; the P&L squares' 14 padding.
+      final inset = (section == PortfolioSection.charts ? 14 : 16) *
+          size.width /
+          430;
       final card = switch (section) {
         PortfolioSection.activity =>
           find.byKey(const ValueKey('portfolio-activity-earlier')),
@@ -901,6 +929,9 @@ void main() {
       await _pick(tester, PortfolioSection.charts);
       await _settle(tester);
       expect(tester.takeException(), isNull);
+      // The venue squares and the stat tiles on the gutters, every text
+      // inside the squares' 14 padding.
+      final squarePad = 14 * width / 430;
       for (final key in ['statistics-figures', 'statistics-pnl-stats-card']) {
         final card = find.byKey(ValueKey(key));
         final r = tester.getRect(card);
@@ -910,7 +941,7 @@ void main() {
         for (final e
             in find.descendant(of: card, matching: find.byType(Text)).evaluate()) {
           expect(tester.getRect(find.byWidget(e.widget)).right,
-              lessThanOrEqualTo(r.right - gutter + 0.5),
+              lessThanOrEqualTo(r.right - squarePad + 0.5),
               reason: key);
         }
       }
