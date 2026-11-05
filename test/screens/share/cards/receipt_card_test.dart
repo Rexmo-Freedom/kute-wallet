@@ -30,170 +30,6 @@ import 'share_card_test_fonts.dart';
 
 final _en = AppLocalizationsEn();
 
-const _market = 'Will Bitcoin close above \$150,000 on December 31, 2026?';
-
-/// One card of every kind, with the figures a real receipt carries.
-final Map<String, ReceiptCardData> receiptCards = {
-  'sent_bitcoin': const ReceiptCardData(
-      type: ReceiptCardKind.sent,
-      asset: ReceiptCardAsset.bitcoin,
-      amount: r'$9.40',
-      bitcoin: '₿12,000',
-      referralCode: kShareTestCode),
-  'received_bitcoin': const ReceiptCardData(
-      type: ReceiptCardKind.received,
-      asset: ReceiptCardAsset.bitcoin,
-      amount: r'$145.50',
-      bitcoin: '₿150,000',
-      referralCode: kShareTestCode),
-  'incoming_bitcoin': const ReceiptCardData(
-      type: ReceiptCardKind.incoming,
-      asset: ReceiptCardAsset.bitcoin,
-      amount: r'$48.50',
-      bitcoin: '₿50,000',
-      referralCode: kShareTestCode),
-  'sent_dollars': const ReceiptCardData(
-      type: ReceiptCardKind.sent,
-      asset: ReceiptCardAsset.dollars,
-      amount: r'$25.00',
-      referralCode: kShareTestCode),
-  'received_dollars': const ReceiptCardData(
-      type: ReceiptCardKind.received,
-      asset: ReceiptCardAsset.dollars,
-      amount: r'$25.00',
-      referralCode: kShareTestCode),
-  'moved_to_bitcoin': const ReceiptCardData(
-      type: ReceiptCardKind.moved,
-      asset: ReceiptCardAsset.bitcoin,
-      amount: r'$50.00',
-      bitcoin: '₿51,500',
-      from: 'Dollars',
-      to: 'Bitcoin',
-      referralCode: kShareTestCode),
-  'moved_to_predictions': const ReceiptCardData(
-      type: ReceiptCardKind.moved,
-      asset: ReceiptCardAsset.predictions,
-      amount: r'$20.00',
-      from: 'Your wallet',
-      to: 'Predictions',
-      referralCode: kShareTestCode),
-  'bought_bitcoin': const ReceiptCardData(
-      type: ReceiptCardKind.bought,
-      asset: ReceiptCardAsset.bitcoin,
-      amount: '€50.00',
-      bitcoin: '₿60,000',
-      what: 'Bitcoin',
-      referralCode: kShareTestCode),
-  'sold_bitcoin': const ReceiptCardData(
-      type: ReceiptCardKind.sold,
-      asset: ReceiptCardAsset.bitcoin,
-      amount: r'$97.00',
-      bitcoin: '₿100,000',
-      what: 'Bitcoin',
-      referralCode: kShareTestCode),
-  'predicted': const ReceiptCardData(
-      type: ReceiptCardKind.predicted,
-      asset: ReceiptCardAsset.predictions,
-      amount: r'$10.00',
-      title: _market,
-      side: 'Yes',
-      chance: 0.41,
-      link: 'https://backend.kutewallet.com/m/predictions/btc-150k',
-      referralCode: kShareTestCode),
-  'predicted_named': const ReceiptCardData(
-      type: ReceiptCardKind.predicted,
-      asset: ReceiptCardAsset.predictions,
-      amount: r'$10.00',
-      title: 'LoL Worlds 2026 Final: Gen.G vs T1',
-      side: 'Gen.G',
-      chance: 0.62,
-      referralCode: kShareTestCode),
-  'cashed_out_up': const ReceiptCardData(
-      type: ReceiptCardKind.cashedOut,
-      asset: ReceiptCardAsset.predictions,
-      amount: r'$14.20',
-      result: r'+$4.20',
-      pnl: 4.2,
-      title: _market,
-      side: 'No',
-      referralCode: kShareTestCode),
-  'cashed_out_down': const ReceiptCardData(
-      type: ReceiptCardKind.cashedOut,
-      asset: ReceiptCardAsset.predictions,
-      amount: r'$4.37',
-      result: r'−$0.09',
-      pnl: -0.09,
-      title: _market,
-      side: 'No',
-      referralCode: kShareTestCode),
-  'lost': const ReceiptCardData(
-      type: ReceiptCardKind.lost,
-      asset: ReceiptCardAsset.predictions,
-      amount: r'$10.00',
-      result: r'−$10.00',
-      pnl: -10,
-      title: _market,
-      side: 'Yes',
-      referralCode: kShareTestCode),
-  'paid_out': const ReceiptCardData(
-      type: ReceiptCardKind.paidOut,
-      asset: ReceiptCardAsset.predictions,
-      amount: r'$30.00',
-      result: r'+$30.00',
-      pnl: 30,
-      title: _market,
-      side: 'Yes',
-      referralCode: kShareTestCode),
-  'opened_long': const ReceiptCardData(
-      type: ReceiptCardKind.opened,
-      asset: ReceiptCardAsset.investing,
-      amount: r'$605.25',
-      title: 'Tesla',
-      ticker: 'TSLA',
-      coin: 'TSLA',
-      side: 'long',
-      price: r'$242.10',
-      size: '2.5 TSLA',
-      referralCode: kShareTestCode),
-  'closed_short_up': const ReceiptCardData(
-      type: ReceiptCardKind.closed,
-      asset: ReceiptCardAsset.investing,
-      amount: r'$71.09',
-      result: r'+$3.12',
-      pnl: 3.12,
-      title: 'OpenAI',
-      ticker: 'OAI',
-      coin: 'xyz:OAI',
-      side: 'short',
-      price: r'$142.18',
-      size: '0.5 OAI',
-      referralCode: kShareTestCode),
-  'closed_long_down': const ReceiptCardData(
-      type: ReceiptCardKind.closed,
-      asset: ReceiptCardAsset.investing,
-      amount: r'$71.09',
-      result: r'−$0.03',
-      pnl: -0.03,
-      title: 'OpenAI',
-      ticker: 'OAI',
-      coin: 'xyz:OAI',
-      side: 'long',
-      price: r'$142.18',
-      size: '0.5 OAI',
-      referralCode: kShareTestCode),
-  'spot_bought': const ReceiptCardData(
-      type: ReceiptCardKind.opened,
-      asset: ReceiptCardAsset.investing,
-      amount: r'$120.00',
-      title: 'Hyperliquid',
-      ticker: 'HYPE',
-      coin: 'HYPE',
-      spot: true,
-      price: r'$40.00',
-      size: '3 HYPE',
-      referralCode: kShareTestCode),
-};
-
 void main() {
   late ShareTestEnv env;
   setUp(() => env = setUpShareTest());
@@ -246,27 +82,64 @@ void main() {
         'the edgy lines: deadpan by kind, a result by its sign, never '
         '"bet", never a promise', () {
       List<String> edges(String k) => receiptCardEdges(_en, receiptCards[k]!);
-      expect(edges('sent_bitcoin'),
+      expect(edges('sent_bitcoin').take(2),
           ['No bank was harmed in this payment.', 'Sent. Next.']);
-      expect(edges('received_dollars'),
+      expect(edges('sent_bitcoin'), contains(r'$9.40, gone in seconds.'));
+      expect(edges('received_dollars').take(2),
           ['Landed. No forms were filled.', 'Consider this a flex.']);
-      expect(edges('incoming_bitcoin'), ['On its way. Patience is a feature.']);
-      expect(edges('moved_to_bitcoin'), ['Same money. Better spot.']);
-      expect(edges('bought_bitcoin'), ['Stacked a little more.']);
-      expect(edges('predicted'), [
-        'Locked in. Now we wait.',
-        'My call. On the record.',
-        "41% says I'm early, not wrong.",
-      ]);
-      // The favourite is not "early".
-      expect(edges('predicted_named'),
-          ['Locked in. Now we wait.', 'My call. On the record.']);
-      expect(edges('cashed_out_up'), ['Took the win and left.']);
-      expect(edges('cashed_out_down'), ['Cut it. Moved on.']);
-      expect(edges('lost'),
+      expect(edges('received_dollars'),
+          contains(r'$25.00 richer. Unbothered.'));
+      expect(edges('incoming_bitcoin').first,
+          'On its way. Patience is a feature.');
+      expect(edges('moved_to_bitcoin').first, 'Same money. Better spot.');
+      expect(edges('bought_bitcoin').first, 'Stacked a little more.');
+      expect(
+          edges('predicted'),
+          containsAll([
+            'Locked in. Now we wait.',
+            'My call. On the record.',
+            "41% says I'm early, not wrong.",
+            'The crowd is 59% wrong.',
+            r"$10.00 on Yes. That's the post.",
+          ]));
+      // The favourite is not "early", the crowd not "wrong".
+      expect(
+          edges('predicted_named')
+              .where((l) => l.contains('early') || l.contains('wrong')),
+          isEmpty);
+      expect(edges('predicted_named'), contains('Went with the odds. Shocking.'));
+      expect(edges('cashed_out_up').first, 'Took the win and left.');
+      expect(edges('cashed_out_up'), contains(r'+$4.20. Done here.'));
+      expect(edges('cashed_out_down').first, 'Cut it. Moved on.');
+      expect(edges('lost').take(2),
           ['Wrong today. Back tomorrow.', 'Lesson paid in full.']);
-      expect(edges('paid_out'), ['Called it. Collected it.']);
-      expect(edges('closed_long_down'), ['Cut it. Moved on.']);
+      expect(edges('paid_out').first, 'Called it. Collected it.');
+      expect(edges('paid_out'), contains(r'$30.00, paid in full.'));
+      expect(edges('closed_long_down').first, 'Cut it. Moved on.');
+      expect(edges('opened_long'), contains(r'In at $242.10. Noted.'));
+      // A token bought is no "position".
+      expect(edges('spot_bought'),
+          isNot(contains('Position open. Pulse normal.')));
+      // A sale whose result is unknown claims none.
+      expect(
+          receiptCardEdges(
+              _en,
+              const ReceiptCardData(
+                  type: ReceiptCardKind.cashedOut,
+                  asset: ReceiptCardAsset.predictions,
+                  amount: r'$14.20')),
+          [
+            'In and out.',
+            'Knowing when to leave is a skill.',
+            'Exits are a skill too.',
+            'Took the money. Left the drama.',
+            'Cash is a position too.',
+            'Moved to cash. Deliberately.',
+          ]);
+      for (final d in receiptCards.values) {
+        expect(receiptCardEdges(_en, d).length, greaterThanOrEqualTo(10),
+            reason: d.kind);
+      }
       for (final d in receiptCards.values) {
         for (final l in receiptCardEdges(_en, d)) {
           expect(RegExp(r'\bbet(s|ting)?\b', caseSensitive: false).hasMatch(l),

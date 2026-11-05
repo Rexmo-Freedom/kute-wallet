@@ -9959,6 +9959,1359 @@
       }
     }
   },
+  "shareEdgeMoneyNoStrings": "No strings attached. I checked.",
+  "@shareEdgeMoneyNoStrings": {
+    "description": "Edgy line written on a send-money share card (a link sending bitcoin or dollars to a friend, and the friend's claim screen). The sender's voice, deadpan, PG."
+  },
+  "shareEdgeMoneyMakeItText": "Money, but make it a text.",
+  "@shareEdgeMoneyMakeItText": {
+    "description": "Edgy line written on a send-money share card (a link sending bitcoin or dollars to a friend, and the friend's claim screen). The sender's voice, deadpan, PG."
+  },
+  "shareEdgeMoneyLowBar": "Faster than a bank. Low bar.",
+  "@shareEdgeMoneyLowBar": {
+    "description": "Edgy line written on a send-money share card (a link sending bitcoin or dollars to a friend, and the friend's claim screen). The sender's voice, deadpan, PG."
+  },
+  "shareEdgeMoneyNoForms": "No forms. No small talk.",
+  "@shareEdgeMoneyNoForms": {
+    "description": "Edgy line written on a send-money share card (a link sending bitcoin or dollars to a friend, and the friend's claim screen). The sender's voice, deadpan, PG."
+  },
+  "shareEdgeMoneyActNatural": "Surprise. Act natural.",
+  "@shareEdgeMoneyActNatural": {
+    "description": "Edgy line written on a send-money share card (a link sending bitcoin or dollars to a friend, and the friend's claim screen). The sender's voice, deadpan, PG."
+  },
+  "shareEdgeMoneyInAdvance": "You're welcome, in advance.",
+  "@shareEdgeMoneyInAdvance": {
+    "description": "Edgy line written on a send-money share card (a link sending bitcoin or dollars to a friend, and the friend's claim screen). The sender's voice, deadpan, PG."
+  },
+  "shareEdgeMoneyNoQuestions": "{amount}, no questions asked.",
+  "@shareEdgeMoneyNoQuestions": {
+    "description": "Edgy line written on a send-money share card (a link sending bitcoin or dollars to a friend, and the friend's claim screen). The sender's voice, deadpan, PG. {amount} is the amount on the card, formatted, e.g. '$10'.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "shareEdgeMoneyNotALoan": "A gift. Not a loan. Probably.",
+  "@shareEdgeMoneyNotALoan": {
+    "description": "Edgy line written on a send-money share card (a link sending bitcoin or dollars to a friend, and the friend's claim screen). The sender's voice, deadpan, PG."
+  },
+  "shareEdgeMoneyAllAtOnce": "Don't spend it all at once.",
+  "@shareEdgeMoneyAllAtOnce": {
+    "description": "Edgy line written on a send-money share card (a link sending bitcoin or dollars to a friend, and the friend's claim screen). The sender's voice, deadpan, PG."
+  },
+  "shareEdgeMoneyGetUsed": "Don't get used to this.",
+  "@shareEdgeMoneyGetUsed": {
+    "description": "Edgy line written on a send-money share card (a link sending bitcoin or dollars to a friend, and the friend's claim screen). The sender's voice, deadpan, PG."
+  },
+  "shareEdgeMoneyLittleEgo": "Sent with love. And a little ego.",
+  "@shareEdgeMoneyLittleEgo": {
+    "description": "Edgy line written on a send-money share card (a link sending bitcoin or dollars to a friend, and the friend's claim screen). The sender's voice, deadpan, PG."
+  },
+  "shareEdgeMoneyNoBank": "No bank was consulted.",
+  "@shareEdgeMoneyNoBank": {
+    "description": "Edgy line written on a send-money share card (a link sending bitcoin or dollars to a friend, and the friend's claim screen). The sender's voice, deadpan, PG."
+  },
+  "shareEdgeMoneyHandlePatience": "Bitcoin. Handle with patience.",
+  "@shareEdgeMoneyHandlePatience": {
+    "description": "Edgy line written on a send-BITCOIN share card (a link sending bitcoin to a friend). Deadpan, PG."
+  },
+  "shareEdgeMoneyStackResponsibly": "Stack responsibly.",
+  "@shareEdgeMoneyStackResponsibly": {
+    "description": "Edgy line written on a send-BITCOIN share card (a link sending bitcoin to a friend). Deadpan, PG."
+  },
+  "shareEdgeMoneyNoLecture": "Bitcoin. No lecture included.",
+  "@shareEdgeMoneyNoLecture": {
+    "description": "Edgy line written on a send-BITCOIN share card (a link sending bitcoin to a friend). Deadpan, PG."
+  },
+  "shareEdgeMoneyTinySats": "Small sats. Big responsibility.",
+  "@shareEdgeMoneyTinySats": {
+    "description": "Edgy line written on a send-BITCOIN share card (a link sending bitcoin to a friend). Deadpan, PG."
+  },
+  "shareEdgeMoneySameDollars": "Digital dollars. Same dollars.",
+  "@shareEdgeMoneySameDollars": {
+    "description": "Edgy line written on a send-DOLLARS share card (a link sending digital dollars to a friend). Deadpan, PG."
+  },
+  "shareEdgeMoneyNoEnvelope": "Cash, minus the envelope.",
+  "@shareEdgeMoneyNoEnvelope": {
+    "description": "Edgy line written on a send-DOLLARS share card (a link sending digital dollars to a friend). Deadpan, PG."
+  },
+  "shareEdgeMoneyNoExchange": "Dollars. No airport exchange rate.",
+  "@shareEdgeMoneyNoExchange": {
+    "description": "Edgy line written on a send-DOLLARS share card (a link sending digital dollars to a friend). Deadpan, PG."
+  },
+  "shareEdgePickScreenshot": "My call. Screenshot this.",
+  "@shareEdgePickScreenshot": {
+    "description": "Edgy line on a prediction share card where the sender PICKED a side and sends it to a friend. The sender's voice, deadpan, PG; never 'bet', no promise of a win."
+  },
+  "shareEdgePickSaidFirst": "Filed under: things I said first.",
+  "@shareEdgePickSaidFirst": {
+    "description": "Edgy line on a prediction share card where the sender PICKED a side and sends it to a friend. The sender's voice, deadpan, PG; never 'bet', no promise of a win."
+  },
+  "shareEdgePickFinalAnswer": "{side}. Final answer.",
+  "@shareEdgePickFinalAnswer": {
+    "description": "Edgy line on a prediction share card where the sender PICKED a side and sends it to a friend. The sender's voice, deadpan, PG; never 'bet', no promise of a win. {side} is the side picked: 'Yes', 'No' (already translated) or a name, e.g. 'Gen.G'.",
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "shareEdgePickStrongOpinion": "Not advice. Just a strong opinion.",
+  "@shareEdgePickStrongOpinion": {
+    "description": "Edgy line on a prediction share card where the sender PICKED a side and sends it to a friend. The sender's voice, deadpan, PG; never 'bet', no promise of a win."
+  },
+  "shareEdgePickDidReading": "I did the reading. Mostly.",
+  "@shareEdgePickDidReading": {
+    "description": "Edgy line on a prediction share card where the sender PICKED a side and sends it to a friend. The sender's voice, deadpan, PG; never 'bet', no promise of a win."
+  },
+  "shareEdgePickToldYouSo": "Saving this for the told-you-so.",
+  "@shareEdgePickToldYouSo": {
+    "description": "Edgy line on a prediction share card where the sender PICKED a side and sends it to a friend. The sender's voice, deadpan, PG; never 'bet', no promise of a win."
+  },
+  "shareEdgePickConviction": "Conviction looks good on me.",
+  "@shareEdgePickConviction": {
+    "description": "Edgy line on a prediction share card where the sender PICKED a side and sends it to a friend. The sender's voice, deadpan, PG; never 'bet', no promise of a win."
+  },
+  "shareEdgePickNotFree": "Opinions are free. This one isn't.",
+  "@shareEdgePickNotFree": {
+    "description": "Edgy line on a prediction share card where the sender PICKED a side and sends it to a friend. The sender's voice, deadpan, PG; never 'bet', no promise of a win."
+  },
+  "shareEdgePickAmountSays": "{amount} says {side}.",
+  "@shareEdgePickAmountSays": {
+    "description": "Edgy line on a prediction share card where the sender PICKED a side and sends it to a friend. The sender's voice, deadpan, PG; never 'bet', no promise of a win. {amount} is the amount on the card, formatted, e.g. '$10'. {side} is the side picked: 'Yes', 'No' (already translated) or a name, e.g. 'Gen.G'.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "shareEdgePickLowDrama": "Low drama. High conviction.",
+  "@shareEdgePickLowDrama": {
+    "description": "Edgy line on a prediction share card where the sender PICKED a side and sends it to a friend. The sender's voice, deadpan, PG; never 'bet', no promise of a win."
+  },
+  "shareEdgePickInsufferable": "I'll be insufferable if this hits.",
+  "@shareEdgePickInsufferable": {
+    "description": "Edgy line on a prediction share card where the sender PICKED a side and sends it to a friend. The sender's voice, deadpan, PG; never 'bet', no promise of a win."
+  },
+  "shareEdgePickRevolutionary": "Backing the favourite. Revolutionary.",
+  "@shareEdgePickRevolutionary": {
+    "description": "Edgy line on a prediction pick share card when the pick is the FAVOURITE (50% or more). Sender's voice, deadpan, PG; never 'bet'."
+  },
+  "shareEdgePickSmartCrowd": "{chance} agree. Smart crowd.",
+  "@shareEdgePickSmartCrowd": {
+    "description": "Edgy line on a prediction pick share card when the pick is the FAVOURITE (50% or more). Sender's voice, deadpan, PG; never 'bet'. {chance} is the chance shown on the card, e.g. '47%'.",
+    "placeholders": {
+      "chance": {
+        "type": "String"
+      }
+    }
+  },
+  "shareEdgePickSafePick": "Safe pick. Still a pick.",
+  "@shareEdgePickSafePick": {
+    "description": "Edgy line on a prediction pick share card when the pick is the FAVOURITE (50% or more). Sender's voice, deadpan, PG; never 'bet'."
+  },
+  "shareEdgePickWithOdds": "Went with the odds. Shocking.",
+  "@shareEdgePickWithOdds": {
+    "description": "Edgy line on a prediction pick share card when the pick is the FAVOURITE (50% or more). Sender's voice, deadpan, PG; never 'bet'."
+  },
+  "shareEdgePickOnPurpose": "Underdog. On purpose.",
+  "@shareEdgePickOnPurpose": {
+    "description": "Edgy line on a prediction pick share card when the pick is the UNDERDOG (under 50%). Sender's voice, deadpan, PG; never 'bet'."
+  },
+  "shareEdgePickOnlySee": "Only {chance} see it. Fine by me.",
+  "@shareEdgePickOnlySee": {
+    "description": "Edgy line on a prediction pick share card when the pick is the UNDERDOG (under 50%). Sender's voice, deadpan, PG; never 'bet'. {chance} is the chance shown on the card, e.g. '47%'.",
+    "placeholders": {
+      "chance": {
+        "type": "String"
+      }
+    }
+  },
+  "shareEdgePickLongShot": "Long shot. Short explanation.",
+  "@shareEdgePickLongShot": {
+    "description": "Edgy line on a prediction pick share card when the pick is the UNDERDOG (under 50%). Sender's voice, deadpan, PG; never 'bet'."
+  },
+  "shareEdgePickContrarian": "Contrarian, not confused.",
+  "@shareEdgePickContrarian": {
+    "description": "Edgy line on a prediction pick share card when the pick is the UNDERDOG (under 50%). Sender's voice, deadpan, PG; never 'bet'."
+  },
+  "shareEdgeTopicDebates": "Debates are noise. Odds aren't.",
+  "@shareEdgeTopicDebates": {
+    "description": "Edgy line on a prediction share card for a market about politics, shown both on a pick and on a whole market shared. NEUTRAL: takes no side. Deadpan, PG."
+  },
+  "shareEdgeTopicCoach": "Everyone's a coach today.",
+  "@shareEdgeTopicCoach": {
+    "description": "Edgy line on a prediction share card for a market about sports/esports, shown both on a pick and on a whole market shared. NEUTRAL: takes no side. Deadpan, PG."
+  },
+  "shareEdgeTopicVolatility": "Volatility included. No extra charge.",
+  "@shareEdgeTopicVolatility": {
+    "description": "Edgy line on a prediction share card for a market about crypto, shown both on a pick and on a whole market shared. NEUTRAL: takes no side. Deadpan, PG."
+  },
+  "shareEdgeTopicMinutes": "Read the minutes. All of them.",
+  "@shareEdgeTopicMinutes": {
+    "description": "Edgy line on a prediction share card for a market about economics (central banks, rates, inflation), shown both on a pick and on a whole market shared. NEUTRAL: takes no side. Deadpan, PG."
+  },
+  "shareEdgeMarketPickOrWatch": "Pick a side. Or just watch.",
+  "@shareEdgeMarketPickOrWatch": {
+    "description": "Edgy line on a prediction share card for a WHOLE MARKET shared (no pick). Must be NEUTRAL: never implies the sharer is on a side or that anyone is wrong; about the question itself. Deadpan, PG; never 'bet'."
+  },
+  "shareEdgeMarketHasOdds": "Opinions are free. This one has odds.",
+  "@shareEdgeMarketHasOdds": {
+    "description": "Edgy line on a prediction share card for a WHOLE MARKET shared (no pick). Must be NEUTRAL: never implies the sharer is on a side or that anyone is wrong; about the question itself. Deadpan, PG; never 'bet'."
+  },
+  "shareEdgeMarketUntilResolves": "Everyone's an expert until it resolves.",
+  "@shareEdgeMarketUntilResolves": {
+    "description": "Edgy line on a prediction share card for a WHOLE MARKET shared (no pick). Must be NEUTRAL: never implies the sharer is on a side or that anyone is wrong; about the question itself. Deadpan, PG; never 'bet'."
+  },
+  "shareEdgeMarketGroupChat": "Group chat, meet the odds.",
+  "@shareEdgeMarketGroupChat": {
+    "description": "Edgy line on a prediction share card for a WHOLE MARKET shared (no pick). Must be NEUTRAL: never implies the sharer is on a side or that anyone is wrong; about the question itself. Deadpan, PG; never 'bet'."
+  },
+  "shareEdgeMarketHotTakes": "Hot takes welcome. Odds attached.",
+  "@shareEdgeMarketHotTakes": {
+    "description": "Edgy line on a prediction share card for a WHOLE MARKET shared (no pick). Must be NEUTRAL: never implies the sharer is on a side or that anyone is wrong; about the question itself. Deadpan, PG; never 'bet'."
+  },
+  "shareEdgeMarketJustMarket": "Not advice. Just the market.",
+  "@shareEdgeMarketJustMarket": {
+    "description": "Edgy line on a prediction share card for a WHOLE MARKET shared (no pick). Must be NEUTRAL: never implies the sharer is on a side or that anyone is wrong; about the question itself. Deadpan, PG; never 'bet'."
+  },
+  "shareEdgeMarketOddsMove": "The odds move. The question doesn't.",
+  "@shareEdgeMarketOddsMove": {
+    "description": "Edgy line on a prediction share card for a WHOLE MARKET shared (no pick). Must be NEUTRAL: never implies the sharer is on a side or that anyone is wrong; about the question itself. Deadpan, PG; never 'bet'."
+  },
+  "shareEdgeMarketYourCall": "Your call. No pressure.",
+  "@shareEdgeMarketYourCall": {
+    "description": "Edgy line on a prediction share card for a WHOLE MARKET shared (no pick). Must be NEUTRAL: never implies the sharer is on a side or that anyone is wrong; about the question itself. Deadpan, PG; never 'bet'."
+  },
+  "shareEdgeMarketDiscuss": "Discuss. Calmly.",
+  "@shareEdgeMarketDiscuss": {
+    "description": "Edgy line on a prediction share card for a WHOLE MARKET shared (no pick). Must be NEUTRAL: never implies the sharer is on a side or that anyone is wrong; about the question itself. Deadpan, PG; never 'bet'."
+  },
+  "shareEdgeMarketWhereLand": "Where do you land?",
+  "@shareEdgeMarketWhereLand": {
+    "description": "Edgy line on a prediction share card for a WHOLE MARKET shared (no pick). Must be NEUTRAL: never implies the sharer is on a side or that anyone is wrong; about the question itself. Deadpan, PG; never 'bet'."
+  },
+  "shareEdgeMarketSayDiscuss": "{chance} say {side}. Discuss.",
+  "@shareEdgeMarketSayDiscuss": {
+    "description": "Edgy line on a WHOLE yes/no prediction market shared (no pick). NEUTRAL, takes no side. Deadpan, PG. {chance} is the chance shown on the card, e.g. '47%'. {side} is the side picked: 'Yes', 'No' (already translated) or a name, e.g. 'Gen.G'.",
+    "placeholders": {
+      "chance": {
+        "type": "String"
+      },
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "shareEdgeMarketHarder": "Yes or no. Harder than it sounds.",
+  "@shareEdgeMarketHarder": {
+    "description": "Edgy line on a WHOLE yes/no prediction market shared (no pick). NEUTRAL, takes no side. Deadpan, PG."
+  },
+  "shareEdgeMarketTwoAnswers": "One question. Two answers.",
+  "@shareEdgeMarketTwoAnswers": {
+    "description": "Edgy line on a WHOLE yes/no prediction market shared (no pick). NEUTRAL, takes no side. Deadpan, PG."
+  },
+  "shareEdgeMarketNotGuarantee": "{chance} isn't a guarantee.",
+  "@shareEdgeMarketNotGuarantee": {
+    "description": "Edgy line on a WHOLE yes/no prediction market shared (no pick). NEUTRAL, takes no side. Deadpan, PG. {chance} is the chance shown on the card, e.g. '47%'.",
+    "placeholders": {
+      "chance": {
+        "type": "String"
+      }
+    }
+  },
+  "shareEdgeMarketFeelings": "Simple question. Complicated feelings.",
+  "@shareEdgeMarketFeelings": {
+    "description": "Edgy line on a WHOLE yes/no prediction market shared (no pick). NEUTRAL, takes no side. Deadpan, PG."
+  },
+  "shareEdgeMarketLikely": "Likely isn't certain.",
+  "@shareEdgeMarketLikely": {
+    "description": "Edgy line on a WHOLE yes/no prediction market shared (no pick). NEUTRAL, takes no side. Deadpan, PG."
+  },
+  "shareEdgeMarketLeads": "{leader} leads. Nothing's settled.",
+  "@shareEdgeMarketLeads": {
+    "description": "Edgy line on a WHOLE prediction market of named outcomes (an election, a race) shared with its chart (no pick). NEUTRAL: about the race, never that the leader is wrong. Deadpan, PG. {leader} is the leading outcome's short name as the chart labels it, e.g. 'Vance'.",
+    "placeholders": {
+      "leader": {
+        "type": "String"
+      }
+    }
+  },
+  "shareEdgeMarketCoronation": "{chance} isn't a coronation.",
+  "@shareEdgeMarketCoronation": {
+    "description": "Edgy line on a WHOLE prediction market of named outcomes (an election, a race) shared with its chart (no pick). NEUTRAL: about the race, never that the leader is wrong. Deadpan, PG. {chance} is the chance shown on the card, e.g. '47%'.",
+    "placeholders": {
+      "chance": {
+        "type": "String"
+      }
+    }
+  },
+  "shareEdgeMarketHistoryWait": "The chart says {leader}. History says wait.",
+  "@shareEdgeMarketHistoryWait": {
+    "description": "Edgy line on a WHOLE prediction market of named outcomes (an election, a race) shared with its chart (no pick). NEUTRAL: about the race, never that the leader is wrong. Deadpan, PG. {leader} is the leading outcome's short name as the chart labels it, e.g. 'Vance'.",
+    "placeholders": {
+      "leader": {
+        "type": "String"
+      }
+    }
+  },
+  "shareEdgeMarketAskTomorrow": "Front-runner today. Ask again tomorrow.",
+  "@shareEdgeMarketAskTomorrow": {
+    "description": "Edgy line on a WHOLE prediction market of named outcomes (an election, a race) shared with its chart (no pick). NEUTRAL: about the race, never that the leader is wrong. Deadpan, PG."
+  },
+  "shareEdgeMarketCrowdedField": "Crowded field. One answer.",
+  "@shareEdgeMarketCrowdedField": {
+    "description": "Edgy line on a WHOLE prediction market of named outcomes (an election, a race) shared with its chart (no pick). NEUTRAL: about the race, never that the leader is wrong. Deadpan, PG."
+  },
+  "shareEdgeMarketStayTuned": "{leader} at {chance}. Stay tuned.",
+  "@shareEdgeMarketStayTuned": {
+    "description": "Edgy line on a WHOLE prediction market of named outcomes (an election, a race) shared with its chart (no pick). NEUTRAL: about the race, never that the leader is wrong. Deadpan, PG. {leader} is the leading outcome's short name as the chart labels it, e.g. 'Vance'. {chance} is the chance shown on the card, e.g. '47%'.",
+    "placeholders": {
+      "leader": {
+        "type": "String"
+      },
+      "chance": {
+        "type": "String"
+      }
+    }
+  },
+  "shareEdgeMarketLeadingNotWinning": "Leading isn't winning.",
+  "@shareEdgeMarketLeadingNotWinning": {
+    "description": "Edgy line on a WHOLE prediction market of named outcomes (an election, a race) shared with its chart (no pick). NEUTRAL: about the race, never that the leader is wrong. Deadpan, PG."
+  },
+  "shareEdgeMarketNotSureThing": "Favourite, not a sure thing.",
+  "@shareEdgeMarketNotSureThing": {
+    "description": "Edgy line on a WHOLE prediction market of named outcomes (an election, a race) shared with its chart (no pick). NEUTRAL: about the race, never that the leader is wrong. Deadpan, PG."
+  },
+  "shareEdgeMarketUpsets": "Upsets happen. So do favourites.",
+  "@shareEdgeMarketUpsets": {
+    "description": "Edgy line on a WHOLE sports/esports match market shared (no pick). NEUTRAL, takes no side. Deadpan, PG."
+  },
+  "shareEdgeMarketGameDecides": "The game decides. Not the comments.",
+  "@shareEdgeMarketGameDecides": {
+    "description": "Edgy line on a WHOLE sports/esports match market shared (no pick). NEUTRAL, takes no side. Deadpan, PG."
+  },
+  "shareEdgeMarketOddsDontPlay": "Odds don't play the match.",
+  "@shareEdgeMarketOddsDontPlay": {
+    "description": "Edgy line on a WHOLE sports/esports match market shared (no pick). NEUTRAL, takes no side. Deadpan, PG."
+  },
+  "shareEdgeMarketScoreboard": "Talk now. Scoreboard later.",
+  "@shareEdgeMarketScoreboard": {
+    "description": "Edgy line on a WHOLE sports/esports match market shared (no pick). NEUTRAL, takes no side. Deadpan, PG."
+  },
+  "challengeEdgeComeAtMe": "{side}. Come at me.",
+  "@challengeEdgeComeAtMe": {
+    "description": "Edgy line on a CHALLENGE card: the sender picked a side and dares the friend to take the other one. Playful dare, deadpan, PG; never 'bet', no wager talk. {side} is the side picked: 'Yes', 'No' (already translated) or a name, e.g. 'Gen.G'.",
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "challengeEdgeOnNotice": "I'm on {side}. You're on notice.",
+  "@challengeEdgeOnNotice": {
+    "description": "Edgy line on a CHALLENGE card: the sender picked a side and dares the friend to take the other one. Playful dare, deadpan, PG; never 'bet', no wager talk. {side} is the side picked: 'Yes', 'No' (already translated) or a name, e.g. 'Gen.G'.",
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "challengeEdgeTalkCheap": "{side}. Talk is cheap. Pick a side.",
+  "@challengeEdgeTalkCheap": {
+    "description": "Edgy line on a CHALLENGE card: the sender picked a side and dares the friend to take the other one. Playful dare, deadpan, PG; never 'bet', no wager talk. {side} is the side picked: 'Yes', 'No' (already translated) or a name, e.g. 'Gen.G'.",
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "challengeEdgeScared": "{side}. Scared? Understandable.",
+  "@challengeEdgeScared": {
+    "description": "Edgy line on a CHALLENGE card: the sender picked a side and dares the friend to take the other one. Playful dare, deadpan, PG; never 'bet', no wager talk. {side} is the side picked: 'Yes', 'No' (already translated) or a name, e.g. 'Gen.G'.",
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "challengeEdgeKnowBetter": "{side}. Unless you know better.",
+  "@challengeEdgeKnowBetter": {
+    "description": "Edgy line on a CHALLENGE card: the sender picked a side and dares the friend to take the other one. Playful dare, deadpan, PG; never 'bet', no wager talk. {side} is the side picked: 'Yes', 'No' (already translated) or a name, e.g. 'Gen.G'.",
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "challengeEdgeTurnWrong": "I'm on {side}. Your turn to be wrong.",
+  "@challengeEdgeTurnWrong": {
+    "description": "Edgy line on a CHALLENGE card: the sender picked a side and dares the friend to take the other one. Playful dare, deadpan, PG; never 'bet', no wager talk. {side} is the side picked: 'Yes', 'No' (already translated) or a name, e.g. 'Gen.G'.",
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "challengeEdgeNotSorry": "{side}, and I'm not sorry.",
+  "@challengeEdgeNotSorry": {
+    "description": "Edgy line on a CHALLENGE card: the sender picked a side and dares the friend to take the other one. Playful dare, deadpan, PG; never 'bet', no wager talk. {side} is the side picked: 'Yes', 'No' (already translated) or a name, e.g. 'Gen.G'.",
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "challengeEdgeAllYours": "I took {side}. The other side's all yours.",
+  "@challengeEdgeAllYours": {
+    "description": "Edgy line on a CHALLENGE card: the sender picked a side and dares the friend to take the other one. Playful dare, deadpan, PG; never 'bet', no wager talk. {side} is the side picked: 'Yes', 'No' (already translated) or a name, e.g. 'Gen.G'.",
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "challengeEdgeConvince": "{side}. Convince me otherwise.",
+  "@challengeEdgeConvince": {
+    "description": "Edgy line on a CHALLENGE card: the sender picked a side and dares the friend to take the other one. Playful dare, deadpan, PG; never 'bet', no wager talk. {side} is the side picked: 'Yes', 'No' (already translated) or a name, e.g. 'Gen.G'.",
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "challengeEdgeSeeYou": "{side}. See you at resolution.",
+  "@challengeEdgeSeeYou": {
+    "description": "Edgy line on a CHALLENGE card: the sender picked a side and dares the friend to take the other one. Playful dare, deadpan, PG; never 'bet', no wager talk. {side} is the side picked: 'Yes', 'No' (already translated) or a name, e.g. 'Gen.G'.",
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "challengeEdgeReceipts": "I'm on {side}. Bring receipts.",
+  "@challengeEdgeReceipts": {
+    "description": "Edgy line on a CHALLENGE card: the sender picked a side and dares the friend to take the other one. Playful dare, deadpan, PG; never 'bet', no wager talk. {side} is the side picked: 'Yes', 'No' (already translated) or a name, e.g. 'Gen.G'.",
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "shareEdgeStockJustChart": "Not advice. Just a chart.",
+  "@shareEdgeStockJustChart": {
+    "description": "Edgy line on an Investing share card (a stock, index, commodity or coin), any day. Deadpan, PG; not advice, no promise of profit."
+  },
+  "shareEdgeStockFeelings": "Charts don't care about feelings.",
+  "@shareEdgeStockFeelings": {
+    "description": "Edgy line on an Investing share card (a stock, index, commodity or coin), any day. Deadpan, PG; not advice, no promise of profit."
+  },
+  "shareEdgeStockHeardOfIt": "{name}. You might've heard of it.",
+  "@shareEdgeStockHeardOfIt": {
+    "description": "Edgy line on an Investing share card (a stock, index, commodity or coin), any day. Deadpan, PG; not advice, no promise of profit. {name} is the market's name, e.g. 'Tesla'.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "shareEdgeStockActNormal": "Green day. Act normal.",
+  "@shareEdgeStockActNormal": {
+    "description": "Edgy line on an Investing share card when the market is UP today (shared, or sent as a long pick). Deadpan, PG; no promise of profit."
+  },
+  "shareEdgeStockJustChange": "Calm down. It's only {change}.",
+  "@shareEdgeStockJustChange": {
+    "description": "Edgy line on an Investing share card when the market is UP today (shared, or sent as a long pick). Deadpan, PG; no promise of profit. {change} is today's change, unsigned, e.g. '3.4%'.",
+    "placeholders": {
+      "change": {
+        "type": "String"
+      }
+    }
+  },
+  "shareEdgeStockIKnew": "Not saying I knew. But I knew.",
+  "@shareEdgeStockIKnew": {
+    "description": "Edgy line on an Investing share card when the market is UP today (shared, or sent as a long pick). Deadpan, PG; no promise of profit."
+  },
+  "shareEdgeStockTomorrow": "Up today. Tomorrow's not my problem.",
+  "@shareEdgeStockTomorrow": {
+    "description": "Edgy line on an Investing share card when the market is UP today (shared, or sent as a long pick). Deadpan, PG; no promise of profit."
+  },
+  "shareEdgeStockGreenLooks": "Green looks good on {name}.",
+  "@shareEdgeStockGreenLooks": {
+    "description": "Edgy line on an Investing share card when the market is UP today (shared, or sent as a long pick). Deadpan, PG; no promise of profit. {name} is the market's name, e.g. 'Tesla'.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "shareEdgeStockEgoSteady": "Chart up. Ego steady.",
+  "@shareEdgeStockEgoSteady": {
+    "description": "Edgy line on an Investing share card when the market is UP today (shared, or sent as a long pick). Deadpan, PG; no promise of profit."
+  },
+  "shareEdgeStockDontClap": "Don't clap. Just look.",
+  "@shareEdgeStockDontClap": {
+    "description": "Edgy line on an Investing share card when the market is UP today (shared, or sent as a long pick). Deadpan, PG; no promise of profit."
+  },
+  "shareEdgeStockDoubleDigits": "Double digits. I'll allow it.",
+  "@shareEdgeStockDoubleDigits": {
+    "description": "Edgy line on an Investing share card when the market is up 10% or more today. Deadpan, PG."
+  },
+  "shareEdgeStockCheckShorts": "Up {change}. Someone check on the shorts.",
+  "@shareEdgeStockCheckShorts": {
+    "description": "Edgy line on an Investing share card when the market is up 10% or more today. Deadpan, PG. {change} is today's change, unsigned, e.g. '3.4%'.",
+    "placeholders": {
+      "change": {
+        "type": "String"
+      }
+    }
+  },
+  "shareEdgeStockCalmAsEver": "Red day. Calm as ever.",
+  "@shareEdgeStockCalmAsEver": {
+    "description": "Edgy line on an Investing share card when the market is DOWN today (shared, or sent as a long pick). Unbothered, deadpan, PG."
+  },
+  "shareEdgeStockZoomOut": "Down {change}. Zoom out.",
+  "@shareEdgeStockZoomOut": {
+    "description": "Edgy line on an Investing share card when the market is DOWN today (shared, or sent as a long pick). Unbothered, deadpan, PG. {change} is today's change, unsigned, e.g. '3.4%'.",
+    "placeholders": {
+      "change": {
+        "type": "String"
+      }
+    }
+  },
+  "shareEdgeStockPanicOptional": "Dips happen. Panic is optional.",
+  "@shareEdgeStockPanicOptional": {
+    "description": "Edgy line on an Investing share card when the market is DOWN today (shared, or sent as a long pick). Unbothered, deadpan, PG."
+  },
+  "shareEdgeStockCharacterArc": "Down {change}. Character arc.",
+  "@shareEdgeStockCharacterArc": {
+    "description": "Edgy line on an Investing share card when the market is DOWN today (shared, or sent as a long pick). Unbothered, deadpan, PG. {change} is today's change, unsigned, e.g. '3.4%'.",
+    "placeholders": {
+      "change": {
+        "type": "String"
+      }
+    }
+  },
+  "shareEdgeStockPlotTwist": "A dip, not a plot twist.",
+  "@shareEdgeStockPlotTwist": {
+    "description": "Edgy line on an Investing share card when the market is DOWN today (shared, or sent as a long pick). Unbothered, deadpan, PG."
+  },
+  "shareEdgeStockStillHere": "Down today. Still here.",
+  "@shareEdgeStockStillHere": {
+    "description": "Edgy line on an Investing share card when the market is DOWN today (shared, or sent as a long pick). Unbothered, deadpan, PG."
+  },
+  "shareEdgeStockAsIntended": "Volatility: working as intended.",
+  "@shareEdgeStockAsIntended": {
+    "description": "Edgy line on an Investing share card when the market is DOWN today (shared, or sent as a long pick). Unbothered, deadpan, PG."
+  },
+  "shareEdgeStockBadDay": "Every chart has a bad day.",
+  "@shareEdgeStockBadDay": {
+    "description": "Edgy line on an Investing share card when the market is DOWN today (shared, or sent as a long pick). Unbothered, deadpan, PG."
+  },
+  "shareEdgeStockDeepBreaths": "Down {change}. Deep breaths.",
+  "@shareEdgeStockDeepBreaths": {
+    "description": "Edgy line on an Investing share card when the market is down 10% or more today. Unbothered, deadpan, PG. {change} is today's change, unsigned, e.g. '3.4%'.",
+    "placeholders": {
+      "change": {
+        "type": "String"
+      }
+    }
+  },
+  "shareEdgeStockRiveting": "Nothing happened. Riveting.",
+  "@shareEdgeStockRiveting": {
+    "description": "Edgy line on an Investing share card when the market is FLAT today. Deadpan, PG."
+  },
+  "shareEdgeStockBoringUnderrated": "Flat day. Boring is underrated.",
+  "@shareEdgeStockBoringUnderrated": {
+    "description": "Edgy line on an Investing share card when the market is FLAT today. Deadpan, PG."
+  },
+  "shareEdgeStockSideways": "Sideways is a direction.",
+  "@shareEdgeStockSideways": {
+    "description": "Edgy line on an Investing share card when the market is FLAT today. Deadpan, PG."
+  },
+  "shareEdgeStockSuspicious": "No drama today. Suspicious.",
+  "@shareEdgeStockSuspicious": {
+    "description": "Edgy line on an Investing share card when the market is FLAT today. Deadpan, PG."
+  },
+  "shareEdgeStockNap": "The chart took a nap.",
+  "@shareEdgeStockNap": {
+    "description": "Edgy line on an Investing share card when the market is FLAT today. Deadpan, PG."
+  },
+  "shareEdgeStockPaintDry": "Watching paint dry, professionally.",
+  "@shareEdgeStockPaintDry": {
+    "description": "Edgy line on an Investing share card when the market is FLAT today. Deadpan, PG."
+  },
+  "shareEdgeStockUnchanged": "Unchanged. Unbothered.",
+  "@shareEdgeStockUnchanged": {
+    "description": "Edgy line on an Investing share card when the market is FLAT today. Deadpan, PG."
+  },
+  "shareEdgeStockShortUnbothered": "Short and unbothered.",
+  "@shareEdgeStockShortUnbothered": {
+    "description": "Edgy line on an Investing share card sent as a SHORT pick (the sender expects it to go down). Deadpan, PG; no promise of profit."
+  },
+  "shareEdgeStockNotEverythingUp": "Not everything goes up.",
+  "@shareEdgeStockNotEverythingUp": {
+    "description": "Edgy line on an Investing share card sent as a SHORT pick (the sender expects it to go down). Deadpan, PG; no promise of profit."
+  },
+  "shareEdgeStockGravity": "Gravity is a strategy too.",
+  "@shareEdgeStockGravity": {
+    "description": "Edgy line on an Investing share card sent as a SHORT pick (the sender expects it to go down). Deadpan, PG; no promise of profit."
+  },
+  "shareEdgeStockShortHype": "Shorting the hype. Politely.",
+  "@shareEdgeStockShortHype": {
+    "description": "Edgy line on an Investing share card sent as a SHORT pick (the sender expects it to go down). Deadpan, PG; no promise of profit."
+  },
+  "shareEdgeStockShortContrarian": "Contrarian, with a chart.",
+  "@shareEdgeStockShortContrarian": {
+    "description": "Edgy line on an Investing share card sent as a SHORT pick (the sender expects it to go down). Deadpan, PG; no promise of profit."
+  },
+  "shareEdgeStockFlipSide": "Someone has to take the other side.",
+  "@shareEdgeStockFlipSide": {
+    "description": "Edgy line on an Investing share card sent as a SHORT pick (the sender expects it to go down). Deadpan, PG; no promise of profit."
+  },
+  "shareEdgeStockAsPlanned": "Down {change}. As planned.",
+  "@shareEdgeStockAsPlanned": {
+    "description": "Edgy line on an Investing share card sent as a SHORT pick on a day the market is DOWN. Deadpan, PG. {change} is today's change, unsigned, e.g. '3.4%'.",
+    "placeholders": {
+      "change": {
+        "type": "String"
+      }
+    }
+  },
+  "shareEdgeStockICanWait": "Up today. I can wait.",
+  "@shareEdgeStockICanWait": {
+    "description": "Edgy line on an Investing share card sent as a SHORT pick on a day the market is UP (against the sender). Unbothered, deadpan, PG."
+  },
+  "shareEdgeBragQuietlyGreen": "Quietly in the green.",
+  "@shareEdgeBragQuietlyGreen": {
+    "description": "Edgy line on a brag card (a position, the portfolio or the P&L chart) IN PROFIT. Cocky but deadpan, PG; never 'bet', no promise of more."
+  },
+  "shareEdgeBragGreenSuits": "Green suits me.",
+  "@shareEdgeBragGreenSuits": {
+    "description": "Edgy line on a brag card (a position, the portfolio or the P&L chart) IN PROFIT. Cocky but deadpan, PG; never 'bet', no promise of more."
+  },
+  "shareEdgeBragCopyMe": "I'd explain, but you'd copy me.",
+  "@shareEdgeBragCopyMe": {
+    "description": "Edgy line on a brag card (a position, the portfolio or the P&L chart) IN PROFIT. Cocky but deadpan, PG; never 'bet', no promise of more."
+  },
+  "shareEdgeBragHumbleWorking": "Humble? Working on it.",
+  "@shareEdgeBragHumbleWorking": {
+    "description": "Edgy line on a brag card (a position, the portfolio or the P&L chart) IN PROFIT. Cocky but deadpan, PG; never 'bet', no promise of more."
+  },
+  "shareEdgeBragNotVibes": "Results, not vibes.",
+  "@shareEdgeBragNotVibes": {
+    "description": "Edgy line on a brag card (a position, the portfolio or the P&L chart) IN PROFIT. Cocky but deadpan, PG; never 'bet', no promise of more."
+  },
+  "shareEdgeBragMildlyPleased": "Not surprised. Mildly pleased.",
+  "@shareEdgeBragMildlyPleased": {
+    "description": "Edgy line on a brag card (a position, the portfolio or the P&L chart) IN PROFIT. Cocky but deadpan, PG; never 'bet', no promise of more."
+  },
+  "shareEdgeBragNotAPromise": "Past results. Not a promise.",
+  "@shareEdgeBragNotAPromise": {
+    "description": "Edgy line on a brag card (a position, the portfolio or the P&L chart) IN PROFIT. Cocky but deadpan, PG; never 'bet', no promise of more."
+  },
+  "shareEdgeBragBeforeItChanges": "Screenshot before it changes.",
+  "@shareEdgeBragBeforeItChanges": {
+    "description": "Edgy line on a brag card (a position, the portfolio or the P&L chart) IN PROFIT. Cocky but deadpan, PG; never 'bet', no promise of more."
+  },
+  "shareEdgeBragMainCharacter": "Main character energy.",
+  "@shareEdgeBragMainCharacter": {
+    "description": "Edgy line on a brag card (a position, the portfolio or the P&L chart) IN PROFIT. Cocky but deadpan, PG; never 'bet', no promise of more."
+  },
+  "shareEdgeBragUnbearable": "{amount}. I'll be unbearable now.",
+  "@shareEdgeBragUnbearable": {
+    "description": "Edgy line on a brag card with a BIG profit (10% or more). Cocky but deadpan, PG. {amount} is the signed result on the card, e.g. '+$412.35'.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "shareEdgeBragBeingCalm": "This is me being calm.",
+  "@shareEdgeBragBeingCalm": {
+    "description": "Edgy line on a brag card with a BIG profit (10% or more). Cocky but deadpan, PG."
+  },
+  "shareEdgeBragAllegedly": "Big number. Small ego. Allegedly.",
+  "@shareEdgeBragAllegedly": {
+    "description": "Edgy line on a brag card with a BIG profit (10% or more). Cocky but deadpan, PG."
+  },
+  "shareEdgeBragStillAWin": "Small win. Still a win.",
+  "@shareEdgeBragStillAWin": {
+    "description": "Edgy line on a brag card with a SMALL profit (under 2%). Deadpan, PG."
+  },
+  "shareEdgeBragRome": "{amount}. Rome wasn't built in a day.",
+  "@shareEdgeBragRome": {
+    "description": "Edgy line on a brag card with a SMALL profit (under 2%). Deadpan, PG. {amount} is the signed result on the card, e.g. '+$412.35'.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "shareEdgeBragModest": "Modest. Like me.",
+  "@shareEdgeBragModest": {
+    "description": "Edgy line on a brag card with a SMALL profit (under 2%). Deadpan, PG."
+  },
+  "shareEdgeBragHumbled": "Temporarily humbled.",
+  "@shareEdgeBragHumbled": {
+    "description": "Edgy line on a brag card AT A LOSS (the person chose to share it). Unbothered, dry, classy, never sad, PG."
+  },
+  "shareEdgeBragRedPhase": "Red is a phase.",
+  "@shareEdgeBragRedPhase": {
+    "description": "Edgy line on a brag card AT A LOSS (the person chose to share it). Unbothered, dry, classy, never sad, PG."
+  },
+  "shareEdgeBragLessons": "Down {amount}. Lessons included.",
+  "@shareEdgeBragLessons": {
+    "description": "Edgy line on a brag card AT A LOSS (the person chose to share it). Unbothered, dry, classy, never sad, PG. {amount} is the loss without its sign, e.g. '$23.00'.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "shareEdgeBragNotOut": "Down, not out.",
+  "@shareEdgeBragNotOut": {
+    "description": "Edgy line on a brag card AT A LOSS (the person chose to share it). Unbothered, dry, classy, never sad, PG."
+  },
+  "shareEdgeBragGrowth": "Posting my losses. Growth.",
+  "@shareEdgeBragGrowth": {
+    "description": "Edgy line on a brag card AT A LOSS (the person chose to share it). Unbothered, dry, classy, never sad, PG."
+  },
+  "shareEdgeBragHumbleEra": "This is my humble era.",
+  "@shareEdgeBragHumbleEra": {
+    "description": "Edgy line on a brag card AT A LOSS (the person chose to share it). Unbothered, dry, classy, never sad, PG."
+  },
+  "shareEdgeBragOnTheChin": "Took it on the chin. Gracefully.",
+  "@shareEdgeBragOnTheChin": {
+    "description": "Edgy line on a brag card AT A LOSS (the person chose to share it). Unbothered, dry, classy, never sad, PG."
+  },
+  "shareEdgeBragNotMyBest": "Not my best. Not my last.",
+  "@shareEdgeBragNotMyBest": {
+    "description": "Edgy line on a brag card AT A LOSS (the person chose to share it). Unbothered, dry, classy, never sad, PG."
+  },
+  "shareEdgeBragDignified": "Red, but make it dignified.",
+  "@shareEdgeBragDignified": {
+    "description": "Edgy line on a brag card AT A LOSS (the person chose to share it). Unbothered, dry, classy, never sad, PG."
+  },
+  "shareEdgeBragTuition": "Losses are tuition.",
+  "@shareEdgeBragTuition": {
+    "description": "Edgy line on a brag card AT A LOSS (the person chose to share it). Unbothered, dry, classy, never sad, PG."
+  },
+  "shareEdgeBragNetCalm": "Net zero. Net calm.",
+  "@shareEdgeBragNetCalm": {
+    "description": "Edgy line on a brag card with a FLAT result (about zero). Deadpan, PG."
+  },
+  "shareEdgeBragBalanced": "Flat. Perfectly balanced.",
+  "@shareEdgeBragBalanced": {
+    "description": "Edgy line on a brag card with a FLAT result (about zero). Deadpan, PG."
+  },
+  "shareEdgeBragDidntPanic": "Didn't win. Didn't lose. Didn't panic.",
+  "@shareEdgeBragDidntPanic": {
+    "description": "Edgy line on a brag card with a FLAT result (about zero). Deadpan, PG."
+  },
+  "shareEdgeBragUndefeated": "Break-even is undefeated.",
+  "@shareEdgeBragUndefeated": {
+    "description": "Edgy line on a brag card with a FLAT result (about zero). Deadpan, PG."
+  },
+  "shareEdgeBragWithStyle": "Sideways, with style.",
+  "@shareEdgeBragWithStyle": {
+    "description": "Edgy line on a brag card with a FLAT result (about zero). Deadpan, PG."
+  },
+  "shareEdgeBragSharedAnyway": "Nothing to see. Shared anyway.",
+  "@shareEdgeBragSharedAnyway": {
+    "description": "Edgy line on a brag card with a FLAT result (about zero). Deadpan, PG."
+  },
+  "shareEdgeBragSteadyHands": "Flat line. Steady hands.",
+  "@shareEdgeBragSteadyHands": {
+    "description": "Edgy line on a brag card with a FLAT result (about zero). Deadpan, PG."
+  },
+  "shareEdgeBragBlinked": "The market blinked. I didn't.",
+  "@shareEdgeBragBlinked": {
+    "description": "Edgy line on a brag card with a FLAT result (about zero). Deadpan, PG."
+  },
+  "shareEdgeBragEvenTemper": "Even. Like my temper.",
+  "@shareEdgeBragEvenTemper": {
+    "description": "Edgy line on a brag card with a FLAT result (about zero). Deadpan, PG."
+  },
+  "shareEdgeBragNoDrama": "Zero drama. Zero change.",
+  "@shareEdgeBragNoDrama": {
+    "description": "Edgy line on a brag card with a FLAT result (about zero). Deadpan, PG."
+  },
+  "bragEdgeWonToldPolitely": "Told you. Politely.",
+  "@bragEdgeWonToldPolitely": {
+    "description": "Edgy line on the WON prediction brag card (caps line 'Called it'; the market resolved in the person's favour). Cocky but deadpan, PG; never 'bet', no promise of a next win."
+  },
+  "bragEdgeWonNormal": "I was right. I'll be normal about it.",
+  "@bragEdgeWonNormal": {
+    "description": "Edgy line on the WON prediction brag card (caps line 'Called it'; the market resolved in the person's favour). Cocky but deadpan, PG; never 'bet', no promise of a next win."
+  },
+  "bragEdgeWonMyFavour": "Resolved in my favour.",
+  "@bragEdgeWonMyFavour": {
+    "description": "Edgy line on the WON prediction brag card (caps line 'Called it'; the market resolved in the person's favour). Cocky but deadpan, PG; never 'bet', no promise of a next win."
+  },
+  "bragEdgeWonPaysSometimes": "Being right pays. Sometimes.",
+  "@bragEdgeWonPaysSometimes": {
+    "description": "Edgy line on the WON prediction brag card (caps line 'Called it'; the market resolved in the person's favour). Cocky but deadpan, PG; never 'bet', no promise of a next win."
+  },
+  "bragEdgeWonAgreed": "The market agreed. Eventually.",
+  "@bragEdgeWonAgreed": {
+    "description": "Edgy line on the WON prediction brag card (caps line 'Called it'; the market resolved in the person's favour). Cocky but deadpan, PG; never 'bet', no promise of a next win."
+  },
+  "bragEdgeWonMySide": "My side came through.",
+  "@bragEdgeWonMySide": {
+    "description": "Edgy line on the WON prediction brag card (caps line 'Called it'; the market resolved in the person's favour). Cocky but deadpan, PG; never 'bet', no promise of a next win."
+  },
+  "bragEdgeWonThenPayout": "Patience, then payout.",
+  "@bragEdgeWonThenPayout": {
+    "description": "Edgy line on the WON prediction brag card (caps line 'Called it'; the market resolved in the person's favour). Cocky but deadpan, PG; never 'bet', no promise of a next win."
+  },
+  "bragEdgeWonNoNotes": "No notes.",
+  "@bragEdgeWonNoNotes": {
+    "description": "Edgy line on the WON prediction brag card (caps line 'Called it'; the market resolved in the person's favour). Cocky but deadpan, PG; never 'bet', no promise of a next win."
+  },
+  "bragEdgeWonFutureSelf": "Screenshot for my future self.",
+  "@bragEdgeWonFutureSelf": {
+    "description": "Edgy line on the WON prediction brag card (caps line 'Called it'; the market resolved in the person's favour). Cocky but deadpan, PG; never 'bet', no promise of a next win."
+  },
+  "bragEdgeWonEarlyThenRight": "Early, then right.",
+  "@bragEdgeWonEarlyThenRight": {
+    "description": "Edgy line on the WON prediction brag card (caps line 'Called it'; the market resolved in the person's favour). Cocky but deadpan, PG; never 'bet', no promise of a next win."
+  },
+  "bragEdgeWonCollecting": "Quietly collecting.",
+  "@bragEdgeWonCollecting": {
+    "description": "Edgy line on the WON prediction brag card (caps line 'Called it'; the market resolved in the person's favour). Cocky but deadpan, PG; never 'bet', no promise of a next win."
+  },
+  "bragEdgeWonNotSurprised": "I'd act surprised. I'm not.",
+  "@bragEdgeWonNotSurprised": {
+    "description": "Edgy line on the WON prediction brag card (caps line 'Called it'; the market resolved in the person's favour). Cocky but deadpan, PG; never 'bet', no promise of a next win."
+  },
+  "receiptEdgeSentNoHold": "Sent. No hold music.",
+  "@receiptEdgeSentNoHold": {
+    "description": "Edgy line on a receipt share card: money SENT to someone. Deadpan, PG."
+  },
+  "receiptEdgeSentBeforeBank": "Done before the bank opened.",
+  "@receiptEdgeSentBeforeBank": {
+    "description": "Edgy line on a receipt share card: money SENT to someone. Deadpan, PG."
+  },
+  "receiptEdgeSentDrama": "Money moved. Drama didn't.",
+  "@receiptEdgeSentDrama": {
+    "description": "Edgy line on a receipt share card: money SENT to someone. Deadpan, PG."
+  },
+  "receiptEdgeSentBusinessDays": "Seconds, not business days.",
+  "@receiptEdgeSentBusinessDays": {
+    "description": "Edgy line on a receipt share card: money SENT to someone. Deadpan, PG."
+  },
+  "receiptEdgeSentThankLater": "Sent. Thank me later.",
+  "@receiptEdgeSentThankLater": {
+    "description": "Edgy line on a receipt share card: money SENT to someone. Deadpan, PG."
+  },
+  "receiptEdgeSentEfficient": "Generous and efficient.",
+  "@receiptEdgeSentEfficient": {
+    "description": "Edgy line on a receipt share card: money SENT to someone. Deadpan, PG."
+  },
+  "receiptEdgeSentOneTap": "One tap. No forms.",
+  "@receiptEdgeSentOneTap": {
+    "description": "Edgy line on a receipt share card: money SENT to someone. Deadpan, PG."
+  },
+  "receiptEdgeSentPaidUp": "Paid up. Moving on.",
+  "@receiptEdgeSentPaidUp": {
+    "description": "Edgy line on a receipt share card: money SENT to someone. Deadpan, PG."
+  },
+  "receiptEdgeSentAdult": "Settled. Like an adult.",
+  "@receiptEdgeSentAdult": {
+    "description": "Edgy line on a receipt share card: money SENT to someone. Deadpan, PG."
+  },
+  "receiptEdgeSentGone": "{amount}, gone in seconds.",
+  "@receiptEdgeSentGone": {
+    "description": "Edgy line on a receipt share card: money SENT to someone. Deadpan, PG. {amount} is the amount on the card, formatted, e.g. '$10'.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "receiptEdgeSentSaga": "Sending money shouldn't be a saga.",
+  "@receiptEdgeSentSaga": {
+    "description": "Edgy line on a receipt share card: money SENT to someone. Deadpan, PG."
+  },
+  "receiptEdgeReceivedCasual": "Got paid. Acting casual.",
+  "@receiptEdgeReceivedCasual": {
+    "description": "Edgy line on a receipt share card: money RECEIVED. Deadpan, PG."
+  },
+  "receiptEdgeReceivedNoted": "Received. Noted. Appreciated.",
+  "@receiptEdgeReceivedNoted": {
+    "description": "Edgy line on a receipt share card: money RECEIVED. Deadpan, PG."
+  },
+  "receiptEdgeReceivedRicher": "{amount} richer. Unbothered.",
+  "@receiptEdgeReceivedRicher": {
+    "description": "Edgy line on a receipt share card: money RECEIVED. Deadpan, PG. {amount} is the amount on the card, formatted, e.g. '$10'.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "receiptEdgeReceivedThankYou": "Landed before the thank-you text.",
+  "@receiptEdgeReceivedThankYou": {
+    "description": "Edgy line on a receipt share card: money RECEIVED. Deadpan, PG."
+  },
+  "receiptEdgeReceivedMoodUp": "Money in. Mood up.",
+  "@receiptEdgeReceivedMoodUp": {
+    "description": "Edgy line on a receipt share card: money RECEIVED. Deadpan, PG."
+  },
+  "receiptEdgeReceivedGrace": "Received with grace.",
+  "@receiptEdgeReceivedGrace": {
+    "description": "Edgy line on a receipt share card: money RECEIVED. Deadpan, PG."
+  },
+  "receiptEdgeReceivedAskTwice": "Didn't even have to ask twice.",
+  "@receiptEdgeReceivedAskTwice": {
+    "description": "Edgy line on a receipt share card: money RECEIVED. Deadpan, PG."
+  },
+  "receiptEdgeReceivedUnscheduled": "Payday, unscheduled.",
+  "@receiptEdgeReceivedUnscheduled": {
+    "description": "Edgy line on a receipt share card: money RECEIVED. Deadpan, PG."
+  },
+  "receiptEdgeReceivedNoMiddle": "Arrived. No bank in the middle.",
+  "@receiptEdgeReceivedNoMiddle": {
+    "description": "Edgy line on a receipt share card: money RECEIVED. Deadpan, PG."
+  },
+  "receiptEdgeReceivedCompliments": "Accepting compliments and transfers.",
+  "@receiptEdgeReceivedCompliments": {
+    "description": "Edgy line on a receipt share card: money RECEIVED. Deadpan, PG."
+  },
+  "receiptEdgeIncomingAlmost": "Almost here. Don't hover.",
+  "@receiptEdgeIncomingAlmost": {
+    "description": "Edgy line on a receipt share card: money still ON ITS WAY in (not landed yet). Deadpan, PG."
+  },
+  "receiptEdgeIncomingLoading": "Loading. Stay calm.",
+  "@receiptEdgeIncomingLoading": {
+    "description": "Edgy line on a receipt share card: money still ON ITS WAY in (not landed yet). Deadpan, PG."
+  },
+  "receiptEdgeIncomingRefreshing": "On its way. Refreshing won't help.",
+  "@receiptEdgeIncomingRefreshing": {
+    "description": "Edgy line on a receipt share card: money still ON ITS WAY in (not landed yet). Deadpan, PG."
+  },
+  "receiptEdgeIncomingNotChecking": "It's on its way. I'm not checking.",
+  "@receiptEdgeIncomingNotChecking": {
+    "description": "Edgy line on a receipt share card: money still ON ITS WAY in (not landed yet). Deadpan, PG."
+  },
+  "receiptEdgeIncomingPending": "Pending. Like most good things.",
+  "@receiptEdgeIncomingPending": {
+    "description": "Edgy line on a receipt share card: money still ON ITS WAY in (not landed yet). Deadpan, PG."
+  },
+  "receiptEdgeIncomingPatienceMode": "Inbound. Patience mode on.",
+  "@receiptEdgeIncomingPatienceMode": {
+    "description": "Edgy line on a receipt share card: money still ON ITS WAY in (not landed yet). Deadpan, PG."
+  },
+  "receiptEdgeIncomingSnacks": "En route. Snacks not included.",
+  "@receiptEdgeIncomingSnacks": {
+    "description": "Edgy line on a receipt share card: money still ON ITS WAY in (not landed yet). Deadpan, PG."
+  },
+  "receiptEdgeIncomingMinute": "Good things take a minute.",
+  "@receiptEdgeIncomingMinute": {
+    "description": "Edgy line on a receipt share card: money still ON ITS WAY in (not landed yet). Deadpan, PG."
+  },
+  "receiptEdgeIncomingMotion": "Money in motion.",
+  "@receiptEdgeIncomingMotion": {
+    "description": "Edgy line on a receipt share card: money still ON ITS WAY in (not landed yet). Deadpan, PG."
+  },
+  "receiptEdgeIncomingWatched": "A watched transfer never lands.",
+  "@receiptEdgeIncomingWatched": {
+    "description": "Edgy line on a receipt share card: money still ON ITS WAY in (not landed yet). Deadpan, PG."
+  },
+  "receiptEdgeMovedFurniture": "Rearranging the furniture.",
+  "@receiptEdgeMovedFurniture": {
+    "description": "Edgy line on a receipt share card: money MOVED between the person's own accounts (e.g. Dollars to Bitcoin). Deadpan, PG."
+  },
+  "receiptEdgeMovedDidntLose": "Moved it. Didn't lose it.",
+  "@receiptEdgeMovedDidntLose": {
+    "description": "Edgy line on a receipt share card: money MOVED between the person's own accounts (e.g. Dollars to Bitcoin). Deadpan, PG."
+  },
+  "receiptEdgeMovedPockets": "Left pocket, right pocket.",
+  "@receiptEdgeMovedPockets": {
+    "description": "Edgy line on a receipt share card: money MOVED between the person's own accounts (e.g. Dollars to Bitcoin). Deadpan, PG."
+  },
+  "receiptEdgeMovedRelocated": "Money, relocated.",
+  "@receiptEdgeMovedRelocated": {
+    "description": "Edgy line on a receipt share card: money MOVED between the person's own accounts (e.g. Dollars to Bitcoin). Deadpan, PG."
+  },
+  "receiptEdgeMovedNewRoom": "Same owner. New room.",
+  "@receiptEdgeMovedNewRoom": {
+    "description": "Edgy line on a receipt share card: money MOVED between the person's own accounts (e.g. Dollars to Bitcoin). Deadpan, PG."
+  },
+  "receiptEdgeMovedHousekeeping": "Housekeeping, but for money.",
+  "@receiptEdgeMovedHousekeeping": {
+    "description": "Edgy line on a receipt share card: money MOVED between the person's own accounts (e.g. Dollars to Bitcoin). Deadpan, PG."
+  },
+  "receiptEdgeMovedShuffle": "A strategic shuffle.",
+  "@receiptEdgeMovedShuffle": {
+    "description": "Edgy line on a receipt share card: money MOVED between the person's own accounts (e.g. Dollars to Bitcoin). Deadpan, PG."
+  },
+  "receiptEdgeMovedGrownUp": "Moving money like a grown-up.",
+  "@receiptEdgeMovedGrownUp": {
+    "description": "Edgy line on a receipt share card: money MOVED between the person's own accounts (e.g. Dollars to Bitcoin). Deadpan, PG."
+  },
+  "receiptEdgeMovedOrganised": "Organised. Briefly.",
+  "@receiptEdgeMovedOrganised": {
+    "description": "Edgy line on a receipt share card: money MOVED between the person's own accounts (e.g. Dollars to Bitcoin). Deadpan, PG."
+  },
+  "receiptEdgeMovedTidying": "Just tidying up.",
+  "@receiptEdgeMovedTidying": {
+    "description": "Edgy line on a receipt share card: money MOVED between the person's own accounts (e.g. Dollars to Bitcoin). Deadpan, PG."
+  },
+  "receiptEdgeMovedAllocating": "Allocating. Very calmly.",
+  "@receiptEdgeMovedAllocating": {
+    "description": "Edgy line on a receipt share card: money MOVED between the person's own accounts (e.g. Dollars to Bitcoin). Deadpan, PG."
+  },
+  "receiptEdgeBoughtOverthink": "Didn't overthink it.",
+  "@receiptEdgeBoughtOverthink": {
+    "description": "Edgy line on a receipt share card: something BOUGHT (usually bitcoin). Deadpan, PG; no promise of profit."
+  },
+  "receiptEdgeBoughtPile": "Added to the pile.",
+  "@receiptEdgeBoughtPile": {
+    "description": "Edgy line on a receipt share card: something BOUGHT (usually bitcoin). Deadpan, PG; no promise of profit."
+  },
+  "receiptEdgeBoughtAccumulation": "Quiet accumulation.",
+  "@receiptEdgeBoughtAccumulation": {
+    "description": "Edgy line on a receipt share card: something BOUGHT (usually bitcoin). Deadpan, PG; no promise of profit."
+  },
+  "receiptEdgeBoughtToldNoOne": "Told no one. Until now.",
+  "@receiptEdgeBoughtToldNoOne": {
+    "description": "Edgy line on a receipt share card: something BOUGHT (usually bitcoin). Deadpan, PG; no promise of profit."
+  },
+  "receiptEdgeBoughtNotTiming": "Buying, not timing.",
+  "@receiptEdgeBoughtNotTiming": {
+    "description": "Edgy line on a receipt share card: something BOUGHT (usually bitcoin). Deadpan, PG; no promise of profit."
+  },
+  "receiptEdgeBoughtConviction": "{amount} of conviction.",
+  "@receiptEdgeBoughtConviction": {
+    "description": "Edgy line on a receipt share card: something BOUGHT (usually bitcoin). Deadpan, PG; no promise of profit. {amount} is the amount on the card, formatted, e.g. '$10'.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "receiptEdgeBoughtPatience": "Step one: buy. Step two: patience.",
+  "@receiptEdgeBoughtPatience": {
+    "description": "Edgy line on a receipt share card: something BOUGHT (usually bitcoin). Deadpan, PG; no promise of profit."
+  },
+  "receiptEdgeBoughtNoise": "Buying. Ignoring the noise.",
+  "@receiptEdgeBoughtNoise": {
+    "description": "Edgy line on a receipt share card: something BOUGHT (usually bitcoin). Deadpan, PG; no promise of profit."
+  },
+  "receiptEdgeBoughtBackToDay": "Bought it. Back to my day.",
+  "@receiptEdgeBoughtBackToDay": {
+    "description": "Edgy line on a receipt share card: something BOUGHT (usually bitcoin). Deadpan, PG; no promise of profit."
+  },
+  "receiptEdgeBoughtShoes": "Some people buy shoes.",
+  "@receiptEdgeBoughtShoes": {
+    "description": "Edgy line on a receipt share card: something BOUGHT (usually bitcoin). Deadpan, PG; no promise of profit."
+  },
+  "receiptEdgeSoldKeptCool": "Sold some. Kept my cool.",
+  "@receiptEdgeSoldKeptCool": {
+    "description": "Edgy line on a receipt share card: something SOLD (usually bitcoin); the result is not shown. Deadpan, PG."
+  },
+  "receiptEdgeSoldNoRegrets": "Converted. No regrets. Yet.",
+  "@receiptEdgeSoldNoRegrets": {
+    "description": "Edgy line on a receipt share card: something SOLD (usually bitcoin); the result is not shown. Deadpan, PG."
+  },
+  "receiptEdgeSoldDidntCheck": "Sold. Not checking the price again.",
+  "@receiptEdgeSoldDidntCheck": {
+    "description": "Edgy line on a receipt share card: something SOLD (usually bitcoin); the result is not shown. Deadpan, PG."
+  },
+  "receiptEdgeSoldLiquidity": "Liquidity, acquired.",
+  "@receiptEdgeSoldLiquidity": {
+    "description": "Edgy line on a receipt share card: something SOLD (usually bitcoin); the result is not shown. Deadpan, PG."
+  },
+  "receiptEdgeSoldLeftDrama": "Took the money. Left the drama.",
+  "@receiptEdgeSoldLeftDrama": {
+    "description": "Edgy line on a receipt share card: something SOLD (usually bitcoin); the result is not shown. Deadpan, PG."
+  },
+  "receiptEdgeSoldSleeping": "Sold. Sleeping fine.",
+  "@receiptEdgeSoldSleeping": {
+    "description": "Edgy line on a receipt share card: something SOLD (usually bitcoin); the result is not shown. Deadpan, PG."
+  },
+  "receiptEdgeSoldCashPosition": "Cash is a position too.",
+  "@receiptEdgeSoldCashPosition": {
+    "description": "Edgy line on a receipt share card: something SOLD (usually bitcoin); the result is not shown. Deadpan, PG."
+  },
+  "receiptEdgeSoldDeliberately": "Moved to cash. Deliberately.",
+  "@receiptEdgeSoldDeliberately": {
+    "description": "Edgy line on a receipt share card: something SOLD (usually bitcoin); the result is not shown. Deadpan, PG."
+  },
+  "receiptEdgeSoldPressed": "Sell button: pressed. Calmly.",
+  "@receiptEdgeSoldPressed": {
+    "description": "Edgy line on a receipt share card: something SOLD (usually bitcoin); the result is not shown. Deadpan, PG."
+  },
+  "receiptEdgeSoldLittleCash": "A little cash never hurt.",
+  "@receiptEdgeSoldLittleCash": {
+    "description": "Edgy line on a receipt share card: something SOLD (usually bitcoin); the result is not shown. Deadpan, PG."
+  },
+  "receiptEdgePredictedCommitted": "Committed. Mostly.",
+  "@receiptEdgePredictedCommitted": {
+    "description": "Edgy line on a receipt share card: a prediction PLACED (the person's own side). Deadpan, PG; never 'bet', no promise of a win."
+  },
+  "receiptEdgePredictedHardPart": "Waiting is the hard part.",
+  "@receiptEdgePredictedHardPart": {
+    "description": "Edgy line on a receipt share card: a prediction PLACED (the person's own side). Deadpan, PG; never 'bet', no promise of a win."
+  },
+  "receiptEdgePredictedSkin": "An opinion, now with skin in it.",
+  "@receiptEdgePredictedSkin": {
+    "description": "Edgy line on a receipt share card: a prediction PLACED (the person's own side). Deadpan, PG; never 'bet', no promise of a win."
+  },
+  "receiptEdgePredictedNails": "Placed. Nails intact.",
+  "@receiptEdgePredictedNails": {
+    "description": "Edgy line on a receipt share card: a prediction PLACED (the person's own side). Deadpan, PG; never 'bet', no promise of a win."
+  },
+  "receiptEdgePredictedTookSide": "Took a side. Kept my cool.",
+  "@receiptEdgePredictedTookSide": {
+    "description": "Edgy line on a receipt share card: a prediction PLACED (the person's own side). Deadpan, PG; never 'bet', no promise of a win."
+  },
+  "receiptEdgePredictedJustMySide": "Not advice. Just my side.",
+  "@receiptEdgePredictedJustMySide": {
+    "description": "Edgy line on a receipt share card: a prediction PLACED (the person's own side). Deadpan, PG; never 'bet', no promise of a win."
+  },
+  "receiptEdgePredictedResolution": "See you at resolution.",
+  "@receiptEdgePredictedResolution": {
+    "description": "Edgy line on a receipt share card: a prediction PLACED (the person's own side). Deadpan, PG; never 'bet', no promise of a win."
+  },
+  "receiptEdgePredictedThatsThePost": "{amount} on {side}. That's the post.",
+  "@receiptEdgePredictedThatsThePost": {
+    "description": "Edgy line on a receipt share card: a prediction PLACED (the person's own side). Deadpan, PG; never 'bet', no promise of a win. {amount} is the amount on the card, formatted, e.g. '$10'. {side} is the side picked: 'Yes', 'No' (already translated) or a name, e.g. 'Gen.G'.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "receiptEdgeUpInUpOut": "In. Up. Out.",
+  "@receiptEdgeUpInUpOut": {
+    "description": "Edgy line on a receipt share card: a prediction sold or an Investing trade closed IN PROFIT. Deadpan, PG."
+  },
+  "receiptEdgeUpEgo": "Profit taken. Ego left behind.",
+  "@receiptEdgeUpEgo": {
+    "description": "Edgy line on a receipt share card: a prediction sold or an Investing trade closed IN PROFIT. Deadpan, PG."
+  },
+  "receiptEdgeUpWhileGreen": "Left while it was green.",
+  "@receiptEdgeUpWhileGreen": {
+    "description": "Edgy line on a receipt share card: a prediction sold or an Investing trade closed IN PROFIT. Deadpan, PG."
+  },
+  "receiptEdgeUpWhenToLeave": "Knowing when to leave is a skill.",
+  "@receiptEdgeUpWhenToLeave": {
+    "description": "Edgy line on a receipt share card: a prediction sold or an Investing trade closed IN PROFIT. Deadpan, PG."
+  },
+  "receiptEdgeUpDoneHere": "{amount}. Done here.",
+  "@receiptEdgeUpDoneHere": {
+    "description": "Edgy line on a receipt share card: a prediction sold or an Investing trade closed IN PROFIT. Deadpan, PG. {amount} is the signed result on the card, e.g. '+$412.35'.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "receiptEdgeUpBooked": "Booked it.",
+  "@receiptEdgeUpBooked": {
+    "description": "Edgy line on a receipt share card: a prediction sold or an Investing trade closed IN PROFIT. Deadpan, PG."
+  },
+  "receiptEdgeUpNoEncore": "Green exit. No encore.",
+  "@receiptEdgeUpNoEncore": {
+    "description": "Edgy line on a receipt share card: a prediction sold or an Investing trade closed IN PROFIT. Deadpan, PG."
+  },
+  "receiptEdgeUpGreed": "Greed is not a strategy.",
+  "@receiptEdgeUpGreed": {
+    "description": "Edgy line on a receipt share card: a prediction sold or an Investing trade closed IN PROFIT. Deadpan, PG."
+  },
+  "receiptEdgeUpDiscipline": "Walked away up. Rare discipline.",
+  "@receiptEdgeUpDiscipline": {
+    "description": "Edgy line on a receipt share card: a prediction sold or an Investing trade closed IN PROFIT. Deadpan, PG."
+  },
+  "receiptEdgeUpWinIsWin": "A win is a win.",
+  "@receiptEdgeUpWinIsWin": {
+    "description": "Edgy line on a receipt share card: a prediction sold or an Investing trade closed IN PROFIT. Deadpan, PG."
+  },
+  "receiptEdgeDownDignity": "Cut the loss. Kept the dignity.",
+  "@receiptEdgeDownDignity": {
+    "description": "Edgy line on a receipt share card: a prediction sold or an Investing trade closed AT A LOSS. Dry, classy, never sad, PG."
+  },
+  "receiptEdgeDownExits": "Exits are a skill too.",
+  "@receiptEdgeDownExits": {
+    "description": "Edgy line on a receipt share card: a prediction sold or an Investing trade closed AT A LOSS. Dry, classy, never sad, PG."
+  },
+  "receiptEdgeDownQuick": "Wrong, then quick about it.",
+  "@receiptEdgeDownQuick": {
+    "description": "Edgy line on a receipt share card: a prediction sold or an Investing trade closed AT A LOSS. Dry, classy, never sad, PG."
+  },
+  "receiptEdgeDownLessonKept": "Out early. Lesson kept.",
+  "@receiptEdgeDownLessonKept": {
+    "description": "Edgy line on a receipt share card: a prediction sold or an Investing trade closed AT A LOSS. Dry, classy, never sad, PG."
+  },
+  "receiptEdgeDownStubborn": "Better out than stubborn.",
+  "@receiptEdgeDownStubborn": {
+    "description": "Edgy line on a receipt share card: a prediction sold or an Investing trade closed AT A LOSS. Dry, classy, never sad, PG."
+  },
+  "receiptEdgeDownTookL": "Took the L. Kept the receipt.",
+  "@receiptEdgeDownTookL": {
+    "description": "Edgy line on a receipt share card: a prediction sold or an Investing trade closed AT A LOSS. Dry, classy, never sad, PG."
+  },
+  "receiptEdgeDownNotMyDay": "Closed it. Not my day.",
+  "@receiptEdgeDownNotMyDay": {
+    "description": "Edgy line on a receipt share card: a prediction sold or an Investing trade closed AT A LOSS. Dry, classy, never sad, PG."
+  },
+  "receiptEdgeDownZeroTears": "Red exit. Zero tears.",
+  "@receiptEdgeDownZeroTears": {
+    "description": "Edgy line on a receipt share card: a prediction sold or an Investing trade closed AT A LOSS. Dry, classy, never sad, PG."
+  },
+  "receiptEdgeDownHalfSkill": "Admitting it is half the skill.",
+  "@receiptEdgeDownHalfSkill": {
+    "description": "Edgy line on a receipt share card: a prediction sold or an Investing trade closed AT A LOSS. Dry, classy, never sad, PG."
+  },
+  "receiptEdgeDownTuition": "{amount}. Tuition paid.",
+  "@receiptEdgeDownTuition": {
+    "description": "Edgy line on a receipt share card: a prediction sold or an Investing trade closed AT A LOSS. Dry, classy, never sad, PG. {amount} is the signed result on the card, e.g. '+$412.35'.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "receiptEdgeFlatRoundTrip": "Round trip. No souvenirs.",
+  "@receiptEdgeFlatRoundTrip": {
+    "description": "Edgy line on a receipt share card: a prediction sold or an Investing trade closed at about BREAK-EVEN. Deadpan, PG."
+  },
+  "receiptEdgeFlatWiser": "Back where I started. Wiser.",
+  "@receiptEdgeFlatWiser": {
+    "description": "Edgy line on a receipt share card: a prediction sold or an Investing trade closed at about BREAK-EVEN. Deadpan, PG."
+  },
+  "receiptEdgeFlatZeroStress": "Zero sum. Zero stress.",
+  "@receiptEdgeFlatZeroStress": {
+    "description": "Edgy line on a receipt share card: a prediction sold or an Investing trade closed at about BREAK-EVEN. Deadpan, PG."
+  },
+  "receiptEdgeFlatNoHarm": "No harm. No foul.",
+  "@receiptEdgeFlatNoHarm": {
+    "description": "Edgy line on a receipt share card: a prediction sold or an Investing trade closed at about BREAK-EVEN. Deadpan, PG."
+  },
+  "receiptEdgeFlatShrugged": "The market shrugged. So did I.",
+  "@receiptEdgeFlatShrugged": {
+    "description": "Edgy line on a receipt share card: a prediction sold or an Investing trade closed at about BREAK-EVEN. Deadpan, PG."
+  },
+  "receiptEdgeFlatStory": "Net result: a story.",
+  "@receiptEdgeFlatStory": {
+    "description": "Edgy line on a receipt share card: a prediction sold or an Investing trade closed at about BREAK-EVEN. Deadpan, PG."
+  },
+  "receiptEdgeLostNextQuestion": "Next question.",
+  "@receiptEdgeLostNextQuestion": {
+    "description": "Edgy line on a receipt share card: a prediction LOST (caps line 'Not this time'; shared by choice). Dry, classy, never sad, PG."
+  },
+  "receiptEdgeLostRudely": "The market disagreed. Rudely.",
+  "@receiptEdgeLostRudely": {
+    "description": "Edgy line on a receipt share card: a prediction LOST (caps line 'Not this time'; shared by choice). Dry, classy, never sad, PG."
+  },
+  "receiptEdgeLostHumour": "Lost one. Kept my sense of humour.",
+  "@receiptEdgeLostHumour": {
+    "description": "Edgy line on a receipt share card: a prediction LOST (caps line 'Not this time'; shared by choice). Dry, classy, never sad, PG."
+  },
+  "receiptEdgeLostCompany": "Wrong, but in good company.",
+  "@receiptEdgeLostCompany": {
+    "description": "Edgy line on a receipt share card: a prediction LOST (caps line 'Not this time'; shared by choice). Dry, classy, never sad, PG."
+  },
+  "receiptEdgeLostOnMe": "That one's on me.",
+  "@receiptEdgeLostOnMe": {
+    "description": "Edgy line on a receipt share card: a prediction LOST (caps line 'Not this time'; shared by choice). Dry, classy, never sad, PG."
+  },
+  "receiptEdgeLostConfidence": "Lighter wallet. Same confidence.",
+  "@receiptEdgeLostConfidence": {
+    "description": "Edgy line on a receipt share card: a prediction LOST (caps line 'Not this time'; shared by choice). Dry, classy, never sad, PG."
+  },
+  "receiptEdgeLostWrongly": "Called it. Wrongly.",
+  "@receiptEdgeLostWrongly": {
+    "description": "Edgy line on a receipt share card: a prediction LOST (caps line 'Not this time'; shared by choice). Dry, classy, never sad, PG."
+  },
+  "receiptEdgeLostGraceful": "Losing gracefully is a flex.",
+  "@receiptEdgeLostGraceful": {
+    "description": "Edgy line on a receipt share card: a prediction LOST (caps line 'Not this time'; shared by choice). Dry, classy, never sad, PG."
+  },
+  "receiptEdgeLostOddsWereOdds": "The odds were the odds.",
+  "@receiptEdgeLostOddsWereOdds": {
+    "description": "Edgy line on a receipt share card: a prediction LOST (caps line 'Not this time'; shared by choice). Dry, classy, never sad, PG."
+  },
+  "receiptEdgeLostAlreadyMoved": "Moving on. Already moved.",
+  "@receiptEdgeLostAlreadyMoved": {
+    "description": "Edgy line on a receipt share card: a prediction LOST (caps line 'Not this time'; shared by choice). Dry, classy, never sad, PG."
+  },
+  "receiptEdgeLostUpLesson": "Down one prediction. Up one lesson.",
+  "@receiptEdgeLostUpLesson": {
+    "description": "Edgy line on a receipt share card: a prediction LOST (caps line 'Not this time'; shared by choice). Dry, classy, never sad, PG."
+  },
+  "receiptEdgePaidResolved": "Resolved. Received.",
+  "@receiptEdgePaidResolved": {
+    "description": "Edgy line on a receipt share card: a PAYOUT from a prediction that won. Cocky but deadpan, PG."
+  },
+  "receiptEdgePaidNormal": "Payout landed. Acting normal.",
+  "@receiptEdgePaidNormal": {
+    "description": "Edgy line on a receipt share card: a PAYOUT from a prediction that won. Cocky but deadpan, PG."
+  },
+  "receiptEdgePaidInFull": "{amount}, paid in full.",
+  "@receiptEdgePaidInFull": {
+    "description": "Edgy line on a receipt share card: a PAYOUT from a prediction that won. Cocky but deadpan, PG. {amount} is the amount on the card, formatted, e.g. '$10'.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "receiptEdgePaidCourtesy": "Payday, courtesy of being right.",
+  "@receiptEdgePaidCourtesy": {
+    "description": "Edgy line on a receipt share card: a PAYOUT from a prediction that won. Cocky but deadpan, PG."
+  },
+  "receiptEdgeOpenedPulse": "Position open. Pulse normal.",
+  "@receiptEdgeOpenedPulse": {
+    "description": "Edgy line on a receipt share card: an Investing trade OPENED (or a token bought). Deadpan, PG; not advice, no promise of profit."
+  },
+  "receiptEdgeOpenedCalmly": "Entered calmly. Will exit calmly.",
+  "@receiptEdgeOpenedCalmly": {
+    "description": "Edgy line on a receipt share card: an Investing trade OPENED (or a token bought). Deadpan, PG; not advice, no promise of profit."
+  },
+  "receiptEdgeOpenedInAt": "In at {price}. Noted.",
+  "@receiptEdgeOpenedInAt": {
+    "description": "Edgy line on a receipt share card: an Investing trade OPENED (or a token bought). Deadpan, PG; not advice, no promise of profit. {price} is the entry price on the card, e.g. '$242.10'.",
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "receiptEdgeOpenedNotRefreshing": "In. Not refreshing every minute.",
+  "@receiptEdgeOpenedNotRefreshing": {
+    "description": "Edgy line on a receipt share card: an Investing trade OPENED (or a token bought). Deadpan, PG; not advice, no promise of profit."
+  },
+  "receiptEdgeOpenedSized": "Conviction, sized responsibly.",
+  "@receiptEdgeOpenedSized": {
+    "description": "Edgy line on a receipt share card: an Investing trade OPENED (or a token bought). Deadpan, PG; not advice, no promise of profit."
+  },
+  "receiptEdgeOpenedJustMine": "Not advice. Just my trade.",
+  "@receiptEdgeOpenedJustMine": {
+    "description": "Edgy line on a receipt share card: an Investing trade OPENED (or a token bought). Deadpan, PG; not advice, no promise of profit."
+  },
+  "receiptEdgeOpenedUnderstanding": "The chart and I have an understanding.",
+  "@receiptEdgeOpenedUnderstanding": {
+    "description": "Edgy line on a receipt share card: an Investing trade OPENED (or a token bought). Deadpan, PG; not advice, no promise of profit."
+  },
+  "receiptEdgeOpenedMyProblem": "My entry. My problem.",
+  "@receiptEdgeOpenedMyProblem": {
+    "description": "Edgy line on a receipt share card: an Investing trade OPENED (or a token bought). Deadpan, PG; not advice, no promise of profit."
+  },
+  "receiptEdgeOpenedEither": "Ready for either direction.",
+  "@receiptEdgeOpenedEither": {
+    "description": "Edgy line on a receipt share card: an Investing trade OPENED (or a token bought). Deadpan, PG; not advice, no promise of profit."
+  },
   "shareMessageChallengeNamed": "{name}, my pick: {outcome} on {title}. Take the other side or join me. {amount} on me: {url}",
   "@shareMessageChallengeNamed": {
     "description": "The share text of a challenge link: the sender's outcome on the market, the dare and the amount, with the link. Never 'bet'.",

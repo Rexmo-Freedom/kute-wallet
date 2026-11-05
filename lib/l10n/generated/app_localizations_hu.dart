@@ -12646,6 +12646,948 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
+  String get shareEdgeMoneyNoStrings => 'Apróbetű nincs. Megnéztem.';
+
+  @override
+  String get shareEdgeMoneyMakeItText => 'Pénz, de üzenetként.';
+
+  @override
+  String get shareEdgeMoneyLowBar => 'Gyorsabb a banknál. Nem nagy kunszt.';
+
+  @override
+  String get shareEdgeMoneyNoForms => 'Nincs űrlap. Nincs csevej.';
+
+  @override
+  String get shareEdgeMoneyActNatural => 'Meglepetés. Csak lazán.';
+
+  @override
+  String get shareEdgeMoneyInAdvance => 'Előre is szívesen.';
+
+  @override
+  String shareEdgeMoneyNoQuestions(String amount) {
+    return '$amount, kérdések nélkül.';
+  }
+
+  @override
+  String get shareEdgeMoneyNotALoan => 'Ajándék. Nem kölcsön. Valószínűleg.';
+
+  @override
+  String get shareEdgeMoneyAllAtOnce => 'Ne költsd el egyszerre.';
+
+  @override
+  String get shareEdgeMoneyGetUsed => 'Ne szokj hozzá.';
+
+  @override
+  String get shareEdgeMoneyLittleEgo => 'Szeretettel. És egy kis egóval.';
+
+  @override
+  String get shareEdgeMoneyNoBank => 'Bankot nem kérdeztem meg.';
+
+  @override
+  String get shareEdgeMoneyHandlePatience => 'Bitcoin. Türelemmel kezelendő.';
+
+  @override
+  String get shareEdgeMoneyStackResponsibly => 'Gyűjts felelősen.';
+
+  @override
+  String get shareEdgeMoneyNoLecture => 'Bitcoin. Kiselőadás nélkül.';
+
+  @override
+  String get shareEdgeMoneyTinySats => 'Kevés sat. Nagy felelősség.';
+
+  @override
+  String get shareEdgeMoneySameDollars => 'Digitális dollár. Ugyanaz a dollár.';
+
+  @override
+  String get shareEdgeMoneyNoEnvelope => 'Készpénz, csak boríték nélkül.';
+
+  @override
+  String get shareEdgeMoneyNoExchange => 'Dollár. Reptéri árfolyam nélkül.';
+
+  @override
+  String get shareEdgePickScreenshot => 'Az én tippem. Képernyőkép kötelező.';
+
+  @override
+  String get shareEdgePickSaidFirst => 'Iktatva: én mondtam először.';
+
+  @override
+  String shareEdgePickFinalAnswer(String side) {
+    return '$side. Végleges válasz.';
+  }
+
+  @override
+  String get shareEdgePickStrongOpinion => 'Nem tanács. Csak erős vélemény.';
+
+  @override
+  String get shareEdgePickDidReading => 'Utánaolvastam. Nagyjából.';
+
+  @override
+  String get shareEdgePickToldYouSo => 'Ezt elteszem a megmondtam napjára.';
+
+  @override
+  String get shareEdgePickConviction => 'Jól áll nekem a meggyőződés.';
+
+  @override
+  String get shareEdgePickNotFree => 'A vélemény ingyenes. Ez nem az.';
+
+  @override
+  String shareEdgePickAmountSays(String amount, String side) {
+    return '$amount szerint: $side.';
+  }
+
+  @override
+  String get shareEdgePickLowDrama => 'Kis dráma. Nagy meggyőződés.';
+
+  @override
+  String get shareEdgePickInsufferable => 'Ha bejön, elviselhetetlen leszek.';
+
+  @override
+  String get shareEdgePickRevolutionary => 'A favoritot választom. Forradalmi.';
+
+  @override
+  String shareEdgePickSmartCrowd(String chance) {
+    return '$chance egyetért. Okos tömeg.';
+  }
+
+  @override
+  String get shareEdgePickSafePick => 'Biztos tipp. Attól még tipp.';
+
+  @override
+  String get shareEdgePickWithOdds => 'Mentem az esélyekkel. Sokkoló.';
+
+  @override
+  String get shareEdgePickOnPurpose => 'Az esélytelen. Szándékosan.';
+
+  @override
+  String shareEdgePickOnlySee(String chance) {
+    return 'Csak $chance látja így. Nekem jó.';
+  }
+
+  @override
+  String get shareEdgePickLongShot => 'Kis esély. Rövid magyarázat.';
+
+  @override
+  String get shareEdgePickContrarian => 'Szembemegyek, nem tévedtem el.';
+
+  @override
+  String get shareEdgeTopicDebates => 'A vita zaj. Az esély nem.';
+
+  @override
+  String get shareEdgeTopicCoach => 'Ma mindenki szövetségi kapitány.';
+
+  @override
+  String get shareEdgeTopicVolatility => 'Volatilitás benne. Felár nélkül.';
+
+  @override
+  String get shareEdgeTopicMinutes => 'Jegyzőkönyvek: mind elolvasva.';
+
+  @override
+  String get shareEdgeMarketPickOrWatch => 'Válassz oldalt. Vagy csak nézd.';
+
+  @override
+  String get shareEdgeMarketHasOdds => 'Vélemény ingyen. Ehhez esély is jár.';
+
+  @override
+  String get shareEdgeMarketUntilResolves => 'Eldőlésig mindenki szakértő.';
+
+  @override
+  String get shareEdgeMarketGroupChat => 'Csoportchat, íme az esélyek.';
+
+  @override
+  String get shareEdgeMarketHotTakes => 'Jöhet a vélemény. Esély mellékelve.';
+
+  @override
+  String get shareEdgeMarketJustMarket => 'Nem tanács. Csak a piac.';
+
+  @override
+  String get shareEdgeMarketOddsMove => 'Az esély mozog. A kérdés marad.';
+
+  @override
+  String get shareEdgeMarketYourCall => 'Te döntesz. Semmi nyomás.';
+
+  @override
+  String get shareEdgeMarketDiscuss => 'Vitassátok meg. Higgadtan.';
+
+  @override
+  String get shareEdgeMarketWhereLand => 'Te hol állsz?';
+
+  @override
+  String shareEdgeMarketSayDiscuss(String chance, String side) {
+    return '$chance szerint: $side. Mehet a vita.';
+  }
+
+  @override
+  String get shareEdgeMarketHarder => 'Igen vagy nem. Nem olyan egyszerű.';
+
+  @override
+  String get shareEdgeMarketTwoAnswers => 'Egy kérdés. Két válasz.';
+
+  @override
+  String shareEdgeMarketNotGuarantee(String chance) {
+    return '$chance esély nem garancia.';
+  }
+
+  @override
+  String get shareEdgeMarketFeelings => 'Egyszerű kérdés. Bonyolult érzések.';
+
+  @override
+  String get shareEdgeMarketLikely => 'A valószínű nem biztos.';
+
+  @override
+  String shareEdgeMarketLeads(String leader) {
+    return '$leader vezet. Semmi sincs eldőlve.';
+  }
+
+  @override
+  String shareEdgeMarketCoronation(String chance) {
+    return '$chance még nem koronázás.';
+  }
+
+  @override
+  String shareEdgeMarketHistoryWait(String leader) {
+    return 'Grafikon: $leader. Történelem: várj.';
+  }
+
+  @override
+  String get shareEdgeMarketAskTomorrow => 'Ma ő vezet. Kérdezz holnap újra.';
+
+  @override
+  String get shareEdgeMarketCrowdedField => 'Sok jelölt. Egy válasz.';
+
+  @override
+  String shareEdgeMarketStayTuned(String leader, String chance) {
+    return '$leader: $chance. Maradj velünk.';
+  }
+
+  @override
+  String get shareEdgeMarketLeadingNotWinning => 'Vezetni még nem nyerni.';
+
+  @override
+  String get shareEdgeMarketNotSureThing => 'Favorit, nem biztos befutó.';
+
+  @override
+  String get shareEdgeMarketUpsets => 'Meglepetések vannak. Favoritok is.';
+
+  @override
+  String get shareEdgeMarketGameDecides => 'A meccs dönt. Nem a kommentek.';
+
+  @override
+  String get shareEdgeMarketOddsDontPlay => 'Az esélyek nem lépnek pályára.';
+
+  @override
+  String get shareEdgeMarketScoreboard => 'Most beszéd. Később eredményjelző.';
+
+  @override
+  String challengeEdgeComeAtMe(String side) {
+    return '$side. Gyere, ha mersz.';
+  }
+
+  @override
+  String challengeEdgeOnNotice(String side) {
+    return 'Tippem: $side. Figyelmeztettelek.';
+  }
+
+  @override
+  String challengeEdgeTalkCheap(String side) {
+    return '$side. Dumálni könnyű. Válassz.';
+  }
+
+  @override
+  String challengeEdgeScared(String side) {
+    return '$side. Félsz? Megértem.';
+  }
+
+  @override
+  String challengeEdgeKnowBetter(String side) {
+    return '$side. Hacsak nem tudod jobban.';
+  }
+
+  @override
+  String challengeEdgeTurnWrong(String side) {
+    return 'Tippem: $side. Te jössz tévedni.';
+  }
+
+  @override
+  String challengeEdgeNotSorry(String side) {
+    return '$side, és nem kérek bocsánatot.';
+  }
+
+  @override
+  String challengeEdgeAllYours(String side) {
+    return 'Tippem: $side. A másik oldal a tiéd.';
+  }
+
+  @override
+  String challengeEdgeConvince(String side) {
+    return '$side. Győzz meg az ellenkezőjéről.';
+  }
+
+  @override
+  String challengeEdgeSeeYou(String side) {
+    return '$side. Találkozunk, ha eldőlt.';
+  }
+
+  @override
+  String challengeEdgeReceipts(String side) {
+    return 'Tippem: $side. Hozz bizonyítékot.';
+  }
+
+  @override
+  String get shareEdgeStockJustChart => 'Nem tanács. Csak egy grafikon.';
+
+  @override
+  String get shareEdgeStockFeelings => 'A grafikont nem érdeklik az érzések.';
+
+  @override
+  String shareEdgeStockHeardOfIt(String name) {
+    return '$name. Talán hallottál róla.';
+  }
+
+  @override
+  String get shareEdgeStockActNormal => 'Zöld nap. Viselkedj normálisan.';
+
+  @override
+  String shareEdgeStockJustChange(String change) {
+    return 'Nyugi. Ez csak $change.';
+  }
+
+  @override
+  String get shareEdgeStockIKnew => 'Nem mondom, hogy tudtam. De tudtam.';
+
+  @override
+  String get shareEdgeStockTomorrow => 'Ma fent. A holnap nem az én gondom.';
+
+  @override
+  String shareEdgeStockGreenLooks(String name) {
+    return '$name zöldben. Jól áll neki.';
+  }
+
+  @override
+  String get shareEdgeStockEgoSteady => 'Grafikon fel. Ego stabil.';
+
+  @override
+  String get shareEdgeStockDontClap => 'Ne tapsolj. Csak nézd.';
+
+  @override
+  String get shareEdgeStockDoubleDigits => 'Kétjegyű szám. Belefér.';
+
+  @override
+  String shareEdgeStockCheckShorts(String change) {
+    return 'Plusz $change. Szegény shortosok.';
+  }
+
+  @override
+  String get shareEdgeStockCalmAsEver => 'Piros nap. Higgadt, mint mindig.';
+
+  @override
+  String shareEdgeStockZoomOut(String change) {
+    return 'Mínusz $change. Zoomolj ki.';
+  }
+
+  @override
+  String get shareEdgeStockPanicOptional => 'Esés van. A pánik opcionális.';
+
+  @override
+  String shareEdgeStockCharacterArc(String change) {
+    return 'Mínusz $change. Jellemfejlődés.';
+  }
+
+  @override
+  String get shareEdgeStockPlotTwist => 'Esés, nem csavar a sztoriban.';
+
+  @override
+  String get shareEdgeStockStillHere => 'Ma lent. Még mindig itt.';
+
+  @override
+  String get shareEdgeStockAsIntended => 'Volatilitás: működik, ahogy kell.';
+
+  @override
+  String get shareEdgeStockBadDay => 'Minden grafikonnak van rossz napja.';
+
+  @override
+  String shareEdgeStockDeepBreaths(String change) {
+    return 'Mínusz $change. Mély levegő.';
+  }
+
+  @override
+  String get shareEdgeStockRiveting => 'Nem történt semmi. Lebilincselő.';
+
+  @override
+  String get shareEdgeStockBoringUnderrated =>
+      'Lapos nap. Az unalom alulértékelt.';
+
+  @override
+  String get shareEdgeStockSideways => 'Az oldalazás is irány.';
+
+  @override
+  String get shareEdgeStockSuspicious => 'Ma nincs dráma. Gyanús.';
+
+  @override
+  String get shareEdgeStockNap => 'A grafikon szundít egyet.';
+
+  @override
+  String get shareEdgeStockPaintDry => 'Festékszáradást nézek. Profin.';
+
+  @override
+  String get shareEdgeStockUnchanged => 'Változatlan. Zavartalan.';
+
+  @override
+  String get shareEdgeStockShortUnbothered => 'Shortban, teljes nyugalommal.';
+
+  @override
+  String get shareEdgeStockNotEverythingUp => 'Nem minden megy felfelé.';
+
+  @override
+  String get shareEdgeStockGravity => 'A gravitáció is stratégia.';
+
+  @override
+  String get shareEdgeStockShortHype => 'Shortolom a hype-ot. Udvariasan.';
+
+  @override
+  String get shareEdgeStockShortContrarian => 'Szembemegyek, grafikonnal.';
+
+  @override
+  String get shareEdgeStockFlipSide => 'A másik oldalra is kell valaki.';
+
+  @override
+  String shareEdgeStockAsPlanned(String change) {
+    return 'Mínusz $change. Ahogy terveztem.';
+  }
+
+  @override
+  String get shareEdgeStockICanWait => 'Ma fent. Ráérek.';
+
+  @override
+  String get shareEdgeBragQuietlyGreen => 'Csendben pluszban.';
+
+  @override
+  String get shareEdgeBragGreenSuits => 'Jól áll nekem a zöld.';
+
+  @override
+  String get shareEdgeBragCopyMe => 'Elmagyaráznám, de lemásolnál.';
+
+  @override
+  String get shareEdgeBragHumbleWorking => 'Szerény? Dolgozom rajta.';
+
+  @override
+  String get shareEdgeBragNotVibes => 'Eredmény, nem vibe.';
+
+  @override
+  String get shareEdgeBragMildlyPleased => 'Nem meglepő. Enyhén elégedett.';
+
+  @override
+  String get shareEdgeBragNotAPromise => 'Múltbeli eredmény. Nem ígéret.';
+
+  @override
+  String get shareEdgeBragBeforeItChanges => 'Képernyőkép, mielőtt változik.';
+
+  @override
+  String get shareEdgeBragMainCharacter => 'Főszereplő-energia.';
+
+  @override
+  String shareEdgeBragUnbearable(String amount) {
+    return '$amount. Elviselhetetlen leszek.';
+  }
+
+  @override
+  String get shareEdgeBragBeingCalm => 'Ez nálam a nyugalom.';
+
+  @override
+  String get shareEdgeBragAllegedly => 'Nagy szám. Kis ego. Állítólag.';
+
+  @override
+  String get shareEdgeBragStillAWin => 'Kis nyereség. Attól még nyereség.';
+
+  @override
+  String shareEdgeBragRome(String amount) {
+    return '$amount. Lassan járj, tovább érsz.';
+  }
+
+  @override
+  String get shareEdgeBragModest => 'Szerény. Mint én.';
+
+  @override
+  String get shareEdgeBragHumbled => 'Ideiglenesen szerény.';
+
+  @override
+  String get shareEdgeBragRedPhase => 'A piros csak egy fázis.';
+
+  @override
+  String shareEdgeBragLessons(String amount) {
+    return 'Mínusz $amount. Leckével együtt.';
+  }
+
+  @override
+  String get shareEdgeBragNotOut => 'Lent, de nem kiütve.';
+
+  @override
+  String get shareEdgeBragGrowth => 'Posztolom a veszteségem. Fejlődés.';
+
+  @override
+  String get shareEdgeBragHumbleEra => 'Ez a szerény korszakom.';
+
+  @override
+  String get shareEdgeBragOnTheChin => 'Lenyeltem. Méltósággal.';
+
+  @override
+  String get shareEdgeBragNotMyBest => 'Nem a legjobb. Nem az utolsó.';
+
+  @override
+  String get shareEdgeBragDignified => 'Piros, de méltósággal.';
+
+  @override
+  String get shareEdgeBragTuition => 'A veszteség tandíj.';
+
+  @override
+  String get shareEdgeBragNetCalm => 'Nettó nulla. Nettó nyugalom.';
+
+  @override
+  String get shareEdgeBragBalanced => 'Nulla. Tökéletes egyensúly.';
+
+  @override
+  String get shareEdgeBragDidntPanic => 'Se nyerés, se bukta, se pánik.';
+
+  @override
+  String get shareEdgeBragUndefeated => 'A nullszaldó veretlen.';
+
+  @override
+  String get shareEdgeBragWithStyle => 'Oldalazás, stílusosan.';
+
+  @override
+  String get shareEdgeBragSharedAnyway => 'Nincs mit nézni. Azért megosztom.';
+
+  @override
+  String get shareEdgeBragSteadyHands => 'Egyenes vonal. Biztos kéz.';
+
+  @override
+  String get shareEdgeBragBlinked => 'A piac pislogott. Én nem.';
+
+  @override
+  String get shareEdgeBragEvenTemper => 'Kiegyensúlyozott. Mint én.';
+
+  @override
+  String get shareEdgeBragNoDrama => 'Nulla dráma. Nulla változás.';
+
+  @override
+  String get bragEdgeWonToldPolitely => 'Megmondtam. Udvariasan.';
+
+  @override
+  String get bragEdgeWonNormal => 'Igazam lett. Normálisan kezelem.';
+
+  @override
+  String get bragEdgeWonMyFavour => 'Javamra dőlt el.';
+
+  @override
+  String get bragEdgeWonPaysSometimes => 'Ha igazad van, fizet. Néha.';
+
+  @override
+  String get bragEdgeWonAgreed => 'A piac egyetértett. Végül.';
+
+  @override
+  String get bragEdgeWonMySide => 'Az én oldalam hozta.';
+
+  @override
+  String get bragEdgeWonThenPayout => 'Türelem, aztán kifizetés.';
+
+  @override
+  String get bragEdgeWonNoNotes => 'Nincs mit hozzátenni.';
+
+  @override
+  String get bragEdgeWonFutureSelf => 'Képernyőkép a jövőbeli énemnek.';
+
+  @override
+  String get bragEdgeWonEarlyThenRight => 'Korán szóltam. Igazam lett.';
+
+  @override
+  String get bragEdgeWonCollecting => 'Csendben bezsebelem.';
+
+  @override
+  String get bragEdgeWonNotSurprised => 'Meglepődnék, de minek?';
+
+  @override
+  String get receiptEdgeSentNoHold => 'Elküldve. Várakozási zene nélkül.';
+
+  @override
+  String get receiptEdgeSentBeforeBank => 'Kész, mielőtt a bank kinyitott.';
+
+  @override
+  String get receiptEdgeSentDrama => 'A pénz mozdult. A dráma nem.';
+
+  @override
+  String get receiptEdgeSentBusinessDays => 'Másodpercek, nem munkanapok.';
+
+  @override
+  String get receiptEdgeSentThankLater => 'Elküldve. Majd megköszönöd.';
+
+  @override
+  String get receiptEdgeSentEfficient => 'Nagyvonalú és hatékony.';
+
+  @override
+  String get receiptEdgeSentOneTap => 'Egy koppintás. Űrlap nélkül.';
+
+  @override
+  String get receiptEdgeSentPaidUp => 'Kifizetve. Megyünk tovább.';
+
+  @override
+  String get receiptEdgeSentAdult => 'Rendezve. Felnőtt módra.';
+
+  @override
+  String receiptEdgeSentGone(String amount) {
+    return '$amount, másodpercek alatt elment.';
+  }
+
+  @override
+  String get receiptEdgeSentSaga => 'Pénzt küldeni nem kalandregény.';
+
+  @override
+  String get receiptEdgeReceivedCasual => 'Fizettek. Lazán veszem.';
+
+  @override
+  String get receiptEdgeReceivedNoted => 'Megjött. Nyugtázva. Köszönöm.';
+
+  @override
+  String receiptEdgeReceivedRicher(String amount) {
+    return 'Plusz $amount. Semmi izgalom.';
+  }
+
+  @override
+  String get receiptEdgeReceivedThankYou => 'Előbb ért ide, mint a köszi.';
+
+  @override
+  String get receiptEdgeReceivedMoodUp => 'Pénz be. Hangulat fel.';
+
+  @override
+  String get receiptEdgeReceivedGrace => 'Méltósággal átvéve.';
+
+  @override
+  String get receiptEdgeReceivedAskTwice => 'Kétszer se kellett kérnem.';
+
+  @override
+  String get receiptEdgeReceivedUnscheduled => 'Fizetésnap, menetrenden kívül.';
+
+  @override
+  String get receiptEdgeReceivedNoMiddle => 'Megérkezett. Bank nem állt közé.';
+
+  @override
+  String get receiptEdgeReceivedCompliments => 'Bókok és utalások jöhetnek.';
+
+  @override
+  String get receiptEdgeIncomingAlmost => 'Mindjárt itt. Ne lesd folyton.';
+
+  @override
+  String get receiptEdgeIncomingLoading => 'Töltődik. Maradj nyugodt.';
+
+  @override
+  String get receiptEdgeIncomingRefreshing =>
+      'Úton van. A frissítés nem segít.';
+
+  @override
+  String get receiptEdgeIncomingNotChecking => 'Úton van. Nem nézegetem.';
+
+  @override
+  String get receiptEdgeIncomingPending => 'Függőben. Mint a legtöbb jó dolog.';
+
+  @override
+  String get receiptEdgeIncomingPatienceMode =>
+      'Érkezik. Türelem mód bekapcsolva.';
+
+  @override
+  String get receiptEdgeIncomingSnacks => 'Úton van. Nasi nem jár hozzá.';
+
+  @override
+  String get receiptEdgeIncomingMinute => 'A jó dolgokhoz idő kell.';
+
+  @override
+  String get receiptEdgeIncomingMotion => 'Pénz mozgásban.';
+
+  @override
+  String get receiptEdgeIncomingWatched => 'A figyelt utalás sosem ér ide.';
+
+  @override
+  String get receiptEdgeMovedFurniture => 'Átrendezem a bútorokat.';
+
+  @override
+  String get receiptEdgeMovedDidntLose => 'Áttettem. Nem vesztettem el.';
+
+  @override
+  String get receiptEdgeMovedPockets => 'Bal zseb, jobb zseb.';
+
+  @override
+  String get receiptEdgeMovedRelocated => 'Pénz, átköltöztetve.';
+
+  @override
+  String get receiptEdgeMovedNewRoom => 'Ugyanaz a gazda. Új szoba.';
+
+  @override
+  String get receiptEdgeMovedHousekeeping => 'Rendrakás, csak pénzben.';
+
+  @override
+  String get receiptEdgeMovedShuffle => 'Stratégiai átrendezés.';
+
+  @override
+  String get receiptEdgeMovedGrownUp => 'Pénzt mozgatok, mint egy felnőtt.';
+
+  @override
+  String get receiptEdgeMovedOrganised => 'Rendezett. Egy darabig.';
+
+  @override
+  String get receiptEdgeMovedTidying => 'Csak rendet rakok.';
+
+  @override
+  String get receiptEdgeMovedAllocating => 'Allokálok. Nagyon nyugodtan.';
+
+  @override
+  String get receiptEdgeBoughtOverthink => 'Nem gondoltam túl.';
+
+  @override
+  String get receiptEdgeBoughtPile => 'Ment a kupacra.';
+
+  @override
+  String get receiptEdgeBoughtAccumulation => 'Csendes gyűjtögetés.';
+
+  @override
+  String get receiptEdgeBoughtToldNoOne => 'Senkinek se szóltam. Eddig.';
+
+  @override
+  String get receiptEdgeBoughtNotTiming => 'Veszek, nem időzítek.';
+
+  @override
+  String receiptEdgeBoughtConviction(String amount) {
+    return '$amount értékű meggyőződés.';
+  }
+
+  @override
+  String get receiptEdgeBoughtPatience =>
+      'Első lépés: venni. Második: türelem.';
+
+  @override
+  String get receiptEdgeBoughtNoise => 'Veszek. A zajt kiszűröm.';
+
+  @override
+  String get receiptEdgeBoughtBackToDay => 'Megvettem. Megyek a dolgomra.';
+
+  @override
+  String get receiptEdgeBoughtShoes => 'Van, aki cipőt vesz.';
+
+  @override
+  String get receiptEdgeSoldKeptCool => 'Eladtam egy kicsit. Hidegvérrel.';
+
+  @override
+  String get receiptEdgeSoldNoRegrets => 'Átváltva. Semmi megbánás. Egyelőre.';
+
+  @override
+  String get receiptEdgeSoldDidntCheck => 'Eladva. Az árat többet nem nézem.';
+
+  @override
+  String get receiptEdgeSoldLiquidity => 'Likviditás megszerezve.';
+
+  @override
+  String get receiptEdgeSoldLeftDrama => 'A pénzt vittem. A drámát nem.';
+
+  @override
+  String get receiptEdgeSoldSleeping => 'Eladva. Nyugodtan alszom.';
+
+  @override
+  String get receiptEdgeSoldCashPosition => 'A készpénz is pozíció.';
+
+  @override
+  String get receiptEdgeSoldDeliberately => 'Készpénzbe tettem. Szándékosan.';
+
+  @override
+  String get receiptEdgeSoldPressed => 'Eladás gomb: megnyomva. Nyugodtan.';
+
+  @override
+  String get receiptEdgeSoldLittleCash => 'Egy kis készpénz sosem árt.';
+
+  @override
+  String get receiptEdgePredictedCommitted => 'Elköteleződtem. Nagyjából.';
+
+  @override
+  String get receiptEdgePredictedHardPart => 'A várakozás a nehéz rész.';
+
+  @override
+  String get receiptEdgePredictedSkin => 'Vélemény, immár téttel.';
+
+  @override
+  String get receiptEdgePredictedNails => 'Leadva. A körmöm még megvan.';
+
+  @override
+  String get receiptEdgePredictedTookSide =>
+      'Oldalt választottam. Hidegvérrel.';
+
+  @override
+  String get receiptEdgePredictedJustMySide =>
+      'Nem tanács. Csak az én oldalam.';
+
+  @override
+  String get receiptEdgePredictedResolution => 'Találkozunk, ha eldőlt.';
+
+  @override
+  String receiptEdgePredictedThatsThePost(String amount, String side) {
+    return '$side, $amount. Ennyi volt a poszt.';
+  }
+
+  @override
+  String get receiptEdgeUpInUpOut => 'Be. Fel. Ki.';
+
+  @override
+  String get receiptEdgeUpEgo => 'Nyereség elvive. Ego otthagyva.';
+
+  @override
+  String get receiptEdgeUpWhileGreen => 'Kiszálltam, amíg zöld volt.';
+
+  @override
+  String get receiptEdgeUpWhenToLeave => 'Időben kiszállni is tudomány.';
+
+  @override
+  String receiptEdgeUpDoneHere(String amount) {
+    return '$amount. Végeztem.';
+  }
+
+  @override
+  String get receiptEdgeUpBooked => 'Elkönyvelve.';
+
+  @override
+  String get receiptEdgeUpNoEncore => 'Zöld kiszállás. Nincs ráadás.';
+
+  @override
+  String get receiptEdgeUpGreed => 'A kapzsiság nem stratégia.';
+
+  @override
+  String get receiptEdgeUpDiscipline => 'Pluszban léptem le. Ritka fegyelem.';
+
+  @override
+  String get receiptEdgeUpWinIsWin => 'Nyereség az nyereség.';
+
+  @override
+  String get receiptEdgeDownDignity => 'Veszteség lezárva. Méltóság megvan.';
+
+  @override
+  String get receiptEdgeDownExits => 'Kiszállni is tudni kell.';
+
+  @override
+  String get receiptEdgeDownQuick => 'Tévedtem, de gyorsan.';
+
+  @override
+  String get receiptEdgeDownLessonKept => 'Korán ki. A lecke marad.';
+
+  @override
+  String get receiptEdgeDownStubborn => 'Inkább kint, mint makacsul.';
+
+  @override
+  String get receiptEdgeDownTookL => 'Bebuktam. A nyugtát megtartom.';
+
+  @override
+  String get receiptEdgeDownNotMyDay => 'Lezártam. Nem az én napom.';
+
+  @override
+  String get receiptEdgeDownZeroTears => 'Piros kiszállás. Nulla könny.';
+
+  @override
+  String get receiptEdgeDownHalfSkill => 'Beismerni a tudás fele.';
+
+  @override
+  String receiptEdgeDownTuition(String amount) {
+    return '$amount. Tandíj kifizetve.';
+  }
+
+  @override
+  String get receiptEdgeFlatRoundTrip => 'Oda-vissza út. Szuvenír nélkül.';
+
+  @override
+  String get receiptEdgeFlatWiser => 'Ott vagyok, ahol kezdtem. Okosabban.';
+
+  @override
+  String get receiptEdgeFlatZeroStress => 'Nullszaldó. Nulla stressz.';
+
+  @override
+  String get receiptEdgeFlatNoHarm => 'Kár nincs. Baj nincs.';
+
+  @override
+  String get receiptEdgeFlatShrugged => 'A piac vállat vont. Én is.';
+
+  @override
+  String get receiptEdgeFlatStory => 'Nettó eredmény: egy sztori.';
+
+  @override
+  String get receiptEdgeLostNextQuestion => 'Következő kérdés.';
+
+  @override
+  String get receiptEdgeLostRudely => 'A piac nem értett egyet. Durván.';
+
+  @override
+  String get receiptEdgeLostHumour => 'Egyet buktam. A humorom megvan.';
+
+  @override
+  String get receiptEdgeLostCompany => 'Tévedtem, de jó társaságban.';
+
+  @override
+  String get receiptEdgeLostOnMe => 'Ez az én számlámra megy.';
+
+  @override
+  String get receiptEdgeLostConfidence => 'Soványabb tárca. Önbizalom a régi.';
+
+  @override
+  String get receiptEdgeLostWrongly => 'Megmondtam. Rosszul.';
+
+  @override
+  String get receiptEdgeLostGraceful => 'Elegánsan veszíteni is flex.';
+
+  @override
+  String get receiptEdgeLostOddsWereOdds => 'Az esély esély volt.';
+
+  @override
+  String get receiptEdgeLostAlreadyMoved => 'Lépünk tovább. Már léptem is.';
+
+  @override
+  String get receiptEdgeLostUpLesson => 'Egy tipp mínusz. Egy lecke plusz.';
+
+  @override
+  String get receiptEdgePaidResolved => 'Eldőlt. Megjött.';
+
+  @override
+  String get receiptEdgePaidNormal => 'Megjött a kifizetés. Csak lazán.';
+
+  @override
+  String receiptEdgePaidInFull(String amount) {
+    return '$amount, hiánytalanul kifizetve.';
+  }
+
+  @override
+  String get receiptEdgePaidCourtesy => 'Fizetésnap, mert igazam volt.';
+
+  @override
+  String get receiptEdgeOpenedPulse => 'Pozíció nyitva. Pulzus normális.';
+
+  @override
+  String get receiptEdgeOpenedCalmly => 'Nyugodtan be. Nyugodtan ki.';
+
+  @override
+  String receiptEdgeOpenedInAt(String price) {
+    return 'Beszállás: $price. Feljegyezve.';
+  }
+
+  @override
+  String get receiptEdgeOpenedNotRefreshing =>
+      'Bent. Nem frissítek percenként.';
+
+  @override
+  String get receiptEdgeOpenedSized => 'Meggyőződés, felelős méretben.';
+
+  @override
+  String get receiptEdgeOpenedJustMine => 'Nem tanács. Csak az én kötésem.';
+
+  @override
+  String get receiptEdgeOpenedUnderstanding =>
+      'A grafikon és én értjük egymást.';
+
+  @override
+  String get receiptEdgeOpenedMyProblem => 'Én szálltam be. Az én gondom.';
+
+  @override
+  String get receiptEdgeOpenedEither => 'Bármelyik irányra készen.';
+
+  @override
   String shareMessageChallengeNamed(
       String name, String outcome, String title, String amount, String url) {
     return '$name, a tippem: $outcome, $title. Válaszd a másik oldalt, vagy tarts velem. $amount én állom: $url';

@@ -12605,6 +12605,952 @@ class AppLocalizationsEt extends AppLocalizations {
   }
 
   @override
+  String get shareEdgeMoneyNoStrings => 'Ilma tingimusteta. Kontrollisin.';
+
+  @override
+  String get shareEdgeMoneyMakeItText => 'Raha, aga sõnumina.';
+
+  @override
+  String get shareEdgeMoneyLowBar => 'Kiirem kui pank. Latt on madal.';
+
+  @override
+  String get shareEdgeMoneyNoForms => 'Ei vorme. Ei tühja juttu.';
+
+  @override
+  String get shareEdgeMoneyActNatural => 'Üllatus. Käitu loomulikult.';
+
+  @override
+  String get shareEdgeMoneyInAdvance => 'Pole tänu väärt. Juba ette.';
+
+  @override
+  String shareEdgeMoneyNoQuestions(String amount) {
+    return '$amount, ilma küsimusteta.';
+  }
+
+  @override
+  String get shareEdgeMoneyNotALoan => 'Kingitus. Mitte laen. Vist.';
+
+  @override
+  String get shareEdgeMoneyAllAtOnce => 'Ära kõike korraga kuluta.';
+
+  @override
+  String get shareEdgeMoneyGetUsed => 'Ära sellega harju.';
+
+  @override
+  String get shareEdgeMoneyLittleEgo => 'Armastusega. Ja natuke egoga.';
+
+  @override
+  String get shareEdgeMoneyNoBank => 'Pangalt ei küsitud.';
+
+  @override
+  String get shareEdgeMoneyHandlePatience => 'Bitcoin. Käsitse kannatlikult.';
+
+  @override
+  String get shareEdgeMoneyStackResponsibly => 'Kogu vastutustundlikult.';
+
+  @override
+  String get shareEdgeMoneyNoLecture => 'Bitcoin. Ilma loenguta.';
+
+  @override
+  String get shareEdgeMoneyTinySats => 'Väikesed satsid. Suur vastutus.';
+
+  @override
+  String get shareEdgeMoneySameDollars => 'Digidollarid. Samad dollarid.';
+
+  @override
+  String get shareEdgeMoneyNoEnvelope => 'Sularaha, miinus ümbrik.';
+
+  @override
+  String get shareEdgeMoneyNoExchange => 'Dollarid. Ilma lennujaama kursita.';
+
+  @override
+  String get shareEdgePickScreenshot => 'Minu valik. Tee kuvatõmmis.';
+
+  @override
+  String get shareEdgePickSaidFirst => 'Arhiivi: mina ütlesin esimesena.';
+
+  @override
+  String shareEdgePickFinalAnswer(String side) {
+    return '$side. Lõplik vastus.';
+  }
+
+  @override
+  String get shareEdgePickStrongOpinion =>
+      'Mitte nõuanne. Vaid kindel arvamus.';
+
+  @override
+  String get shareEdgePickDidReading => 'Tegin kodutöö ära. Enamasti.';
+
+  @override
+  String get shareEdgePickToldYouSo => 'Hoian alles. Ma ju ütlesin.';
+
+  @override
+  String get shareEdgePickConviction => 'Veendumus sobib mulle.';
+
+  @override
+  String get shareEdgePickNotFree => 'Arvamused on tasuta. See mitte.';
+
+  @override
+  String shareEdgePickAmountSays(String amount, String side) {
+    return '$amount ütleb: $side.';
+  }
+
+  @override
+  String get shareEdgePickLowDrama => 'Vähe draamat. Palju veendumust.';
+
+  @override
+  String get shareEdgePickInsufferable => 'Kui see läheb täppi, olen talumatu.';
+
+  @override
+  String get shareEdgePickRevolutionary => 'Valisin favoriidi. Pöördeline.';
+
+  @override
+  String shareEdgePickSmartCrowd(String chance) {
+    return '$chance on nõus. Tark rahvas.';
+  }
+
+  @override
+  String get shareEdgePickSafePick => 'Turvaline valik. Ikkagi valik.';
+
+  @override
+  String get shareEdgePickWithOdds => 'Läksin tõenäosusega kaasa. Šokeeriv.';
+
+  @override
+  String get shareEdgePickOnPurpose => 'Autsaider. Meelega.';
+
+  @override
+  String shareEdgePickOnlySee(String chance) {
+    return 'Vaid $chance näeb seda. Mulle sobib.';
+  }
+
+  @override
+  String get shareEdgePickLongShot => 'Pikk lask. Lühike selgitus.';
+
+  @override
+  String get shareEdgePickContrarian => 'Vastuvoolu, mitte segaduses.';
+
+  @override
+  String get shareEdgeTopicDebates => 'Debatid on müra. Tõenäosused mitte.';
+
+  @override
+  String get shareEdgeTopicCoach => 'Täna on kõik treenerid.';
+
+  @override
+  String get shareEdgeTopicVolatility => 'Volatiilsus kaasas. Lisatasuta.';
+
+  @override
+  String get shareEdgeTopicMinutes => 'Loe protokollid läbi. Kõik.';
+
+  @override
+  String get shareEdgeMarketPickOrWatch => 'Vali pool. Või lihtsalt vaata.';
+
+  @override
+  String get shareEdgeMarketHasOdds => 'Arvamus on tasuta. Sel on numbrid.';
+
+  @override
+  String get shareEdgeMarketUntilResolves =>
+      'Kõik on eksperdid, kuni see laheneb.';
+
+  @override
+  String get shareEdgeMarketGroupChat => 'Grupivestlus, tutvu tõenäosustega.';
+
+  @override
+  String get shareEdgeMarketHotTakes => 'Kuumad arvamused? Numbrid lisatud.';
+
+  @override
+  String get shareEdgeMarketJustMarket => 'Mitte nõuanne. Lihtsalt turg.';
+
+  @override
+  String get shareEdgeMarketOddsMove => 'Tõenäosused liiguvad. Küsimus mitte.';
+
+  @override
+  String get shareEdgeMarketYourCall => 'Sinu otsus. Survet pole.';
+
+  @override
+  String get shareEdgeMarketDiscuss => 'Arutage. Rahulikult.';
+
+  @override
+  String get shareEdgeMarketWhereLand => 'Kus sina seisad?';
+
+  @override
+  String shareEdgeMarketSayDiscuss(String chance, String side) {
+    return '$chance ütleb: $side. Arutage.';
+  }
+
+  @override
+  String get shareEdgeMarketHarder => 'Jah või ei. Raskem, kui kõlab.';
+
+  @override
+  String get shareEdgeMarketTwoAnswers => 'Üks küsimus. Kaks vastust.';
+
+  @override
+  String shareEdgeMarketNotGuarantee(String chance) {
+    return '$chance pole garantii.';
+  }
+
+  @override
+  String get shareEdgeMarketFeelings => 'Lihtne küsimus. Keerulised tunded.';
+
+  @override
+  String get shareEdgeMarketLikely => 'Tõenäoline pole kindel.';
+
+  @override
+  String shareEdgeMarketLeads(String leader) {
+    return '$leader juhib. Lõpp on lahtine.';
+  }
+
+  @override
+  String shareEdgeMarketCoronation(String chance) {
+    return '$chance pole kroonimine.';
+  }
+
+  @override
+  String shareEdgeMarketHistoryWait(String leader) {
+    return 'Graafik: $leader. Ajalugu: oota veidi.';
+  }
+
+  @override
+  String get shareEdgeMarketAskTomorrow => 'Täna liider. Küsi homme uuesti.';
+
+  @override
+  String get shareEdgeMarketCrowdedField => 'Palju kandidaate. Üks vastus.';
+
+  @override
+  String shareEdgeMarketStayTuned(String leader, String chance) {
+    return '$leader: $chance. Püsi lainel.';
+  }
+
+  @override
+  String get shareEdgeMarketLeadingNotWinning => 'Eesotsas pole veel võit.';
+
+  @override
+  String get shareEdgeMarketNotSureThing => 'Favoriit, mitte kindel asi.';
+
+  @override
+  String get shareEdgeMarketUpsets => 'Autsaiderid võidavad. Favoriidid ka.';
+
+  @override
+  String get shareEdgeMarketGameDecides => 'Mäng otsustab. Mitte kommentaarid.';
+
+  @override
+  String get shareEdgeMarketOddsDontPlay => 'Tõenäosused ei mängi matši.';
+
+  @override
+  String get shareEdgeMarketScoreboard => 'Jutt nüüd. Tablo hiljem.';
+
+  @override
+  String challengeEdgeComeAtMe(String side) {
+    return '$side. Tule peale.';
+  }
+
+  @override
+  String challengeEdgeOnNotice(String side) {
+    return 'Minu valik: $side. Sind on hoiatatud.';
+  }
+
+  @override
+  String challengeEdgeTalkCheap(String side) {
+    return '$side. Jutt on odav. Vali pool.';
+  }
+
+  @override
+  String challengeEdgeScared(String side) {
+    return '$side. Kardad? Arusaadav.';
+  }
+
+  @override
+  String challengeEdgeKnowBetter(String side) {
+    return '$side. Kui sa just paremini ei tea.';
+  }
+
+  @override
+  String challengeEdgeTurnWrong(String side) {
+    return 'Valisin $side. Sinu kord eksida.';
+  }
+
+  @override
+  String challengeEdgeNotSorry(String side) {
+    return '$side, ja ma ei kahetse.';
+  }
+
+  @override
+  String challengeEdgeAllYours(String side) {
+    return '$side mulle. Teine pool on sinu.';
+  }
+
+  @override
+  String challengeEdgeConvince(String side) {
+    return '$side. Veena mind vastupidises.';
+  }
+
+  @override
+  String challengeEdgeSeeYou(String side) {
+    return '$side. Näeme, kui see laheneb.';
+  }
+
+  @override
+  String challengeEdgeReceipts(String side) {
+    return 'Valisin $side. Too tõendid.';
+  }
+
+  @override
+  String get shareEdgeStockJustChart => 'Mitte nõuanne. Lihtsalt graafik.';
+
+  @override
+  String get shareEdgeStockFeelings => 'Graafikut ei huvita tunded.';
+
+  @override
+  String shareEdgeStockHeardOfIt(String name) {
+    return '$name. Võib-olla oled kuulnud.';
+  }
+
+  @override
+  String get shareEdgeStockActNormal => 'Roheline päev. Käitu normaalselt.';
+
+  @override
+  String shareEdgeStockJustChange(String change) {
+    return 'Rahu. See on ainult $change.';
+  }
+
+  @override
+  String get shareEdgeStockIKnew => 'Ma ei ütle, et teadsin. Aga teadsin.';
+
+  @override
+  String get shareEdgeStockTomorrow => 'Täna tõusus. Homne pole minu mure.';
+
+  @override
+  String shareEdgeStockGreenLooks(String name) {
+    return '$name. Roheline sobib.';
+  }
+
+  @override
+  String get shareEdgeStockEgoSteady => 'Graafik üles. Ego paigal.';
+
+  @override
+  String get shareEdgeStockDontClap => 'Ära plaksuta. Lihtsalt vaata.';
+
+  @override
+  String get shareEdgeStockDoubleDigits => 'Kahekohaline. Las olla.';
+
+  @override
+  String shareEdgeStockCheckShorts(String change) {
+    return 'Tõus $change. Kuidas shortijatel läheb?';
+  }
+
+  @override
+  String get shareEdgeStockCalmAsEver => 'Punane päev. Rahulik nagu alati.';
+
+  @override
+  String shareEdgeStockZoomOut(String change) {
+    return 'Langus $change. Suumi välja.';
+  }
+
+  @override
+  String get shareEdgeStockPanicOptional =>
+      'Langusi tuleb. Paanika on vabatahtlik.';
+
+  @override
+  String shareEdgeStockCharacterArc(String change) {
+    return 'Langus $change. Tegelase areng.';
+  }
+
+  @override
+  String get shareEdgeStockPlotTwist => 'Langus, mitte süžeepööre.';
+
+  @override
+  String get shareEdgeStockStillHere => 'Täna langus. Ikka siin.';
+
+  @override
+  String get shareEdgeStockAsIntended =>
+      'Volatiilsus: töötab nagu ette nähtud.';
+
+  @override
+  String get shareEdgeStockBadDay => 'Igal graafikul on halb päev.';
+
+  @override
+  String shareEdgeStockDeepBreaths(String change) {
+    return 'Langus $change. Hinga sügavalt.';
+  }
+
+  @override
+  String get shareEdgeStockRiveting => 'Midagi ei juhtunud. Põnev.';
+
+  @override
+  String get shareEdgeStockBoringUnderrated =>
+      'Tasane päev. Igav on alahinnatud.';
+
+  @override
+  String get shareEdgeStockSideways => 'Külgliikumine on ka suund.';
+
+  @override
+  String get shareEdgeStockSuspicious => 'Täna draamat pole. Kahtlane.';
+
+  @override
+  String get shareEdgeStockNap => 'Graafik tegi uinaku.';
+
+  @override
+  String get shareEdgeStockPaintDry => 'Vaatan värvi kuivamist. Töö pärast.';
+
+  @override
+  String get shareEdgeStockUnchanged => 'Muutumatu. Häirimatu.';
+
+  @override
+  String get shareEdgeStockShortUnbothered => 'Shortis ja rahulik.';
+
+  @override
+  String get shareEdgeStockNotEverythingUp => 'Kõik ei tõuse.';
+
+  @override
+  String get shareEdgeStockGravity => 'Gravitatsioon on ka strateegia.';
+
+  @override
+  String get shareEdgeStockShortHype => 'Shordin hüpet. Viisakalt.';
+
+  @override
+  String get shareEdgeStockShortContrarian => 'Vastuvoolu, graafikuga.';
+
+  @override
+  String get shareEdgeStockFlipSide => 'Keegi peab teise poole võtma.';
+
+  @override
+  String shareEdgeStockAsPlanned(String change) {
+    return 'Langus $change. Nagu plaanitud.';
+  }
+
+  @override
+  String get shareEdgeStockICanWait => 'Täna tõus. Ma võin oodata.';
+
+  @override
+  String get shareEdgeBragQuietlyGreen => 'Vaikselt rohelises.';
+
+  @override
+  String get shareEdgeBragGreenSuits => 'Roheline sobib mulle.';
+
+  @override
+  String get shareEdgeBragCopyMe => 'Seletaksin, aga sa teeksid järele.';
+
+  @override
+  String get shareEdgeBragHumbleWorking => 'Tagasihoidlik? Töös.';
+
+  @override
+  String get shareEdgeBragNotVibes => 'Tulemused, mitte vaibid.';
+
+  @override
+  String get shareEdgeBragMildlyPleased => 'Ei üllatunud. Kergelt rahul.';
+
+  @override
+  String get shareEdgeBragNotAPromise => 'Varasem tulemus. Mitte lubadus.';
+
+  @override
+  String get shareEdgeBragBeforeItChanges => 'Kuvatõmmis, enne kui see muutub.';
+
+  @override
+  String get shareEdgeBragMainCharacter => 'Peategelase energia.';
+
+  @override
+  String shareEdgeBragUnbearable(String amount) {
+    return '$amount. Nüüd olen talumatu.';
+  }
+
+  @override
+  String get shareEdgeBragBeingCalm => 'See olen mina rahulikuna.';
+
+  @override
+  String get shareEdgeBragAllegedly => 'Suur number. Väike ego. Väidetavalt.';
+
+  @override
+  String get shareEdgeBragStillAWin => 'Väike võit. Ikkagi võit.';
+
+  @override
+  String shareEdgeBragRome(String amount) {
+    return '$amount. Roomat ei ehitatud päevaga.';
+  }
+
+  @override
+  String get shareEdgeBragModest => 'Tagasihoidlik. Nagu mina.';
+
+  @override
+  String get shareEdgeBragHumbled => 'Ajutiselt alandlik.';
+
+  @override
+  String get shareEdgeBragRedPhase => 'Punane on vaid etapp.';
+
+  @override
+  String shareEdgeBragLessons(String amount) {
+    return 'Miinus $amount. Õppetunnid kaasas.';
+  }
+
+  @override
+  String get shareEdgeBragNotOut => 'Maas, aga mitte väljas.';
+
+  @override
+  String get shareEdgeBragGrowth => 'Postitan kahjumid. Areng.';
+
+  @override
+  String get shareEdgeBragHumbleEra => 'See on mu tagasihoidlik ajastu.';
+
+  @override
+  String get shareEdgeBragOnTheChin => 'Võtsin hoobi vastu. Graatsiliselt.';
+
+  @override
+  String get shareEdgeBragNotMyBest => 'Mitte parim. Mitte viimane.';
+
+  @override
+  String get shareEdgeBragDignified => 'Punane, aga väärikalt.';
+
+  @override
+  String get shareEdgeBragTuition => 'Kahjum on õppemaks.';
+
+  @override
+  String get shareEdgeBragNetCalm => 'Neto null. Neto rahu.';
+
+  @override
+  String get shareEdgeBragBalanced => 'Tasa. Täiuslikus tasakaalus.';
+
+  @override
+  String get shareEdgeBragDidntPanic => 'Ei võitu. Ei kaotust. Ei paanikat.';
+
+  @override
+  String get shareEdgeBragUndefeated => 'Nulltulemus on võitmatu.';
+
+  @override
+  String get shareEdgeBragWithStyle => 'Külgsuunas, stiilselt.';
+
+  @override
+  String get shareEdgeBragSharedAnyway => 'Pole midagi näha. Jagasin ikka.';
+
+  @override
+  String get shareEdgeBragSteadyHands => 'Sirge joon. Kindlad käed.';
+
+  @override
+  String get shareEdgeBragBlinked => 'Turg pilgutas. Mina mitte.';
+
+  @override
+  String get shareEdgeBragEvenTemper => 'Tasakaalus. Nagu mu närvid.';
+
+  @override
+  String get shareEdgeBragNoDrama => 'Null draamat. Null muutust.';
+
+  @override
+  String get bragEdgeWonToldPolitely => 'Ma ju ütlesin. Viisakalt.';
+
+  @override
+  String get bragEdgeWonNormal => 'Mul oli õigus. Käitun normaalselt.';
+
+  @override
+  String get bragEdgeWonMyFavour => 'Lahenes minu kasuks.';
+
+  @override
+  String get bragEdgeWonPaysSometimes => 'Õige olemine tasub. Mõnikord.';
+
+  @override
+  String get bragEdgeWonAgreed => 'Turg nõustus. Lõpuks.';
+
+  @override
+  String get bragEdgeWonMySide => 'Minu pool vedas välja.';
+
+  @override
+  String get bragEdgeWonThenPayout => 'Kannatlikkus, siis väljamakse.';
+
+  @override
+  String get bragEdgeWonNoNotes => 'Märkusi pole.';
+
+  @override
+  String get bragEdgeWonFutureSelf => 'Kuvatõmmis tulevasele minale.';
+
+  @override
+  String get bragEdgeWonEarlyThenRight => 'Ajast ees. Siis õigus.';
+
+  @override
+  String get bragEdgeWonCollecting => 'Korjan vaikselt.';
+
+  @override
+  String get bragEdgeWonNotSurprised => 'Mängiksin üllatunut. Aga ma pole.';
+
+  @override
+  String get receiptEdgeSentNoHold => 'Saadetud. Ilma ootemuusikata.';
+
+  @override
+  String get receiptEdgeSentBeforeBank => 'Tehtud enne panga avamist.';
+
+  @override
+  String get receiptEdgeSentDrama => 'Raha liikus. Draama mitte.';
+
+  @override
+  String get receiptEdgeSentBusinessDays => 'Sekundid, mitte tööpäevad.';
+
+  @override
+  String get receiptEdgeSentThankLater => 'Saadetud. Täna mind hiljem.';
+
+  @override
+  String get receiptEdgeSentEfficient => 'Helde ja tõhus.';
+
+  @override
+  String get receiptEdgeSentOneTap => 'Üks puudutus. Ei vorme.';
+
+  @override
+  String get receiptEdgeSentPaidUp => 'Makstud. Edasi.';
+
+  @override
+  String get receiptEdgeSentAdult => 'Klaaritud. Nagu täiskasvanu.';
+
+  @override
+  String receiptEdgeSentGone(String amount) {
+    return '$amount, läinud sekunditega.';
+  }
+
+  @override
+  String get receiptEdgeSentSaga => 'Raha saatmine ei peaks olema saaga.';
+
+  @override
+  String get receiptEdgeReceivedCasual =>
+      'Sain raha. Teen näo, et pole midagi.';
+
+  @override
+  String get receiptEdgeReceivedNoted => 'Saadud. Märgitud. Hinnatud.';
+
+  @override
+  String receiptEdgeReceivedRicher(String amount) {
+    return '$amount rikkam. Muretu.';
+  }
+
+  @override
+  String get receiptEdgeReceivedThankYou => 'Kohal enne tänusõnumit.';
+
+  @override
+  String get receiptEdgeReceivedMoodUp => 'Raha sisse. Tuju üles.';
+
+  @override
+  String get receiptEdgeReceivedGrace => 'Vastu võetud graatsiliselt.';
+
+  @override
+  String get receiptEdgeReceivedAskTwice =>
+      'Ei pidanud isegi kaks korda küsima.';
+
+  @override
+  String get receiptEdgeReceivedUnscheduled => 'Palgapäev, plaaniväline.';
+
+  @override
+  String get receiptEdgeReceivedNoMiddle => 'Kohal. Ühtegi panka vahel.';
+
+  @override
+  String get receiptEdgeReceivedCompliments =>
+      'Võtan vastu komplimente ja ülekandeid.';
+
+  @override
+  String get receiptEdgeIncomingAlmost => 'Peaaegu kohal. Ära passi.';
+
+  @override
+  String get receiptEdgeIncomingLoading => 'Laeb. Püsi rahulik.';
+
+  @override
+  String get receiptEdgeIncomingRefreshing => 'Teel. Värskendamine ei aita.';
+
+  @override
+  String get receiptEdgeIncomingNotChecking => 'See on teel. Ma ei kontrolli.';
+
+  @override
+  String get receiptEdgeIncomingPending => 'Ootel. Nagu enamik häid asju.';
+
+  @override
+  String get receiptEdgeIncomingPatienceMode =>
+      'Teel. Kannatlikkuse režiim sees.';
+
+  @override
+  String get receiptEdgeIncomingSnacks => 'Teel. Snäkid pole kaasas.';
+
+  @override
+  String get receiptEdgeIncomingMinute => 'Head asjad võtavad hetke.';
+
+  @override
+  String get receiptEdgeIncomingMotion => 'Raha liikvel.';
+
+  @override
+  String get receiptEdgeIncomingWatched => 'Vaadatud ülekanne ei jõua kunagi.';
+
+  @override
+  String get receiptEdgeMovedFurniture => 'Tõstan mööblit ümber.';
+
+  @override
+  String get receiptEdgeMovedDidntLose => 'Liigutasin. Kaotsi ei läinud.';
+
+  @override
+  String get receiptEdgeMovedPockets => 'Vasak tasku, parem tasku.';
+
+  @override
+  String get receiptEdgeMovedRelocated => 'Raha, uues kohas.';
+
+  @override
+  String get receiptEdgeMovedNewRoom => 'Sama omanik. Uus tuba.';
+
+  @override
+  String get receiptEdgeMovedHousekeeping => 'Majapidamine, aga rahale.';
+
+  @override
+  String get receiptEdgeMovedShuffle => 'Strateegiline käik.';
+
+  @override
+  String get receiptEdgeMovedGrownUp => 'Liigutan raha nagu täiskasvanu.';
+
+  @override
+  String get receiptEdgeMovedOrganised => 'Korras. Korraks.';
+
+  @override
+  String get receiptEdgeMovedTidying => 'Lihtsalt koristan.';
+
+  @override
+  String get receiptEdgeMovedAllocating => 'Jaotan. Väga rahulikult.';
+
+  @override
+  String get receiptEdgeBoughtOverthink => 'Ma ei mõelnud üle.';
+
+  @override
+  String get receiptEdgeBoughtPile => 'Kuhja juurde.';
+
+  @override
+  String get receiptEdgeBoughtAccumulation => 'Vaikne kogumine.';
+
+  @override
+  String get receiptEdgeBoughtToldNoOne => 'Ei rääkinud kellelegi. Siiani.';
+
+  @override
+  String get receiptEdgeBoughtNotTiming => 'Ostan, mitte ei ajasta.';
+
+  @override
+  String receiptEdgeBoughtConviction(String amount) {
+    return '$amount veendumust.';
+  }
+
+  @override
+  String get receiptEdgeBoughtPatience => 'Kõigepealt osta. Siis oota.';
+
+  @override
+  String get receiptEdgeBoughtNoise => 'Ostan. Eiran müra.';
+
+  @override
+  String get receiptEdgeBoughtBackToDay => 'Ostetud. Tagasi oma päeva juurde.';
+
+  @override
+  String get receiptEdgeBoughtShoes => 'Mõned ostavad kingi.';
+
+  @override
+  String get receiptEdgeSoldKeptCool => 'Müüsin veidi. Säilitasin rahu.';
+
+  @override
+  String get receiptEdgeSoldNoRegrets => 'Vahetatud. Ei kahetse. Veel.';
+
+  @override
+  String get receiptEdgeSoldDidntCheck => 'Müüdud. Hinda enam ei vaata.';
+
+  @override
+  String get receiptEdgeSoldLiquidity => 'Likviidsus hangitud.';
+
+  @override
+  String get receiptEdgeSoldLeftDrama => 'Võtsin raha. Jätsin draama.';
+
+  @override
+  String get receiptEdgeSoldSleeping => 'Müüdud. Uni on hea.';
+
+  @override
+  String get receiptEdgeSoldCashPosition => 'Sularaha on ka positsioon.';
+
+  @override
+  String get receiptEdgeSoldDeliberately => 'Liikusin rahasse. Teadlikult.';
+
+  @override
+  String get receiptEdgeSoldPressed => 'Müüginupp: vajutatud. Rahulikult.';
+
+  @override
+  String get receiptEdgeSoldLittleCash => 'Natuke sularaha ei tee paha.';
+
+  @override
+  String get receiptEdgePredictedCommitted => 'Pühendunud. Enamasti.';
+
+  @override
+  String get receiptEdgePredictedHardPart => 'Ootamine on kõige raskem.';
+
+  @override
+  String get receiptEdgePredictedSkin => 'Arvamus, nüüd oma rahaga.';
+
+  @override
+  String get receiptEdgePredictedNails => 'Tehtud. Küüned terved.';
+
+  @override
+  String get receiptEdgePredictedTookSide => 'Valisin poole. Jäin rahulikuks.';
+
+  @override
+  String get receiptEdgePredictedJustMySide =>
+      'Mitte nõuanne. Lihtsalt minu pool.';
+
+  @override
+  String get receiptEdgePredictedResolution => 'Näeme, kui see laheneb.';
+
+  @override
+  String receiptEdgePredictedThatsThePost(String amount, String side) {
+    return '$amount: $side. See ongi postitus.';
+  }
+
+  @override
+  String get receiptEdgeUpInUpOut => 'Sisse. Üles. Välja.';
+
+  @override
+  String get receiptEdgeUpEgo => 'Kasum võetud. Ego maha jäetud.';
+
+  @override
+  String get receiptEdgeUpWhileGreen => 'Lahkusin, kuni oli roheline.';
+
+  @override
+  String get receiptEdgeUpWhenToLeave => 'Õigel ajal lahkumine on oskus.';
+
+  @override
+  String receiptEdgeUpDoneHere(String amount) {
+    return '$amount. Siin lõpetatud.';
+  }
+
+  @override
+  String get receiptEdgeUpBooked => 'Kirja pandud.';
+
+  @override
+  String get receiptEdgeUpNoEncore => 'Roheline väljumine. Lisalugu pole.';
+
+  @override
+  String get receiptEdgeUpGreed => 'Ahnus pole strateegia.';
+
+  @override
+  String get receiptEdgeUpDiscipline => 'Lahkusin plussis. Harv distsipliin.';
+
+  @override
+  String get receiptEdgeUpWinIsWin => 'Võit on võit.';
+
+  @override
+  String get receiptEdgeDownDignity => 'Lõikasin kahjumi. Hoidsin väärikuse.';
+
+  @override
+  String get receiptEdgeDownExits => 'Väljumine on ka oskus.';
+
+  @override
+  String get receiptEdgeDownQuick => 'Eksisin. Siis kiirelt välja.';
+
+  @override
+  String get receiptEdgeDownLessonKept => 'Varakult väljas. Õppetund alles.';
+
+  @override
+  String get receiptEdgeDownStubborn => 'Parem väljas kui kangekaelne.';
+
+  @override
+  String get receiptEdgeDownTookL => 'Võtsin kaotuse. Kviitung jäi alles.';
+
+  @override
+  String get receiptEdgeDownNotMyDay => 'Sulgesin. Polnud minu päev.';
+
+  @override
+  String get receiptEdgeDownZeroTears => 'Punane väljumine. Null pisarat.';
+
+  @override
+  String get receiptEdgeDownHalfSkill => 'Tunnistamine on pool oskusest.';
+
+  @override
+  String receiptEdgeDownTuition(String amount) {
+    return '$amount. Õppemaks makstud.';
+  }
+
+  @override
+  String get receiptEdgeFlatRoundTrip => 'Edasi-tagasi reis. Suveniire pole.';
+
+  @override
+  String get receiptEdgeFlatWiser => 'Tagasi alguses. Targemana.';
+
+  @override
+  String get receiptEdgeFlatZeroStress => 'Nullsumma. Null stressi.';
+
+  @override
+  String get receiptEdgeFlatNoHarm => 'Kahju pole. Viga pole.';
+
+  @override
+  String get receiptEdgeFlatShrugged => 'Turg kehitas õlgu. Mina ka.';
+
+  @override
+  String get receiptEdgeFlatStory => 'Netotulemus: üks lugu.';
+
+  @override
+  String get receiptEdgeLostNextQuestion => 'Järgmine küsimus.';
+
+  @override
+  String get receiptEdgeLostRudely => 'Turg ei nõustunud. Ebaviisakalt.';
+
+  @override
+  String get receiptEdgeLostHumour => 'Kaotasin ühe. Huumorimeel jäi alles.';
+
+  @override
+  String get receiptEdgeLostCompany => 'Valesti, aga heas seltskonnas.';
+
+  @override
+  String get receiptEdgeLostOnMe => 'See läheb minu arvele.';
+
+  @override
+  String get receiptEdgeLostConfidence => 'Kergem rahakott. Sama enesekindlus.';
+
+  @override
+  String get receiptEdgeLostWrongly => 'Ennustasin. Valesti.';
+
+  @override
+  String get receiptEdgeLostGraceful => 'Väärikalt kaotamine on flex.';
+
+  @override
+  String get receiptEdgeLostOddsWereOdds => 'Tõenäosused olid, mis olid.';
+
+  @override
+  String get receiptEdgeLostAlreadyMoved => 'Edasi. Olen juba edasi läinud.';
+
+  @override
+  String get receiptEdgeLostUpLesson => 'Ennustus miinus. Õppetund pluss.';
+
+  @override
+  String get receiptEdgePaidResolved => 'Lahendatud. Laekunud.';
+
+  @override
+  String get receiptEdgePaidNormal => 'Väljamakse kohal. Käitun normaalselt.';
+
+  @override
+  String receiptEdgePaidInFull(String amount) {
+    return '$amount, täies mahus makstud.';
+  }
+
+  @override
+  String get receiptEdgePaidCourtesy => 'Palgapäev tänu õigele ennustusele.';
+
+  @override
+  String get receiptEdgeOpenedPulse => 'Positsioon avatud. Pulss normaalne.';
+
+  @override
+  String get receiptEdgeOpenedCalmly => 'Sisse rahulikult. Välja rahulikult.';
+
+  @override
+  String receiptEdgeOpenedInAt(String price) {
+    return 'Sisse $price juures. Märgitud.';
+  }
+
+  @override
+  String get receiptEdgeOpenedNotRefreshing =>
+      'Sees. Ma ei värskenda iga minut.';
+
+  @override
+  String get receiptEdgeOpenedSized => 'Veendumus, mõistlikult doseeritud.';
+
+  @override
+  String get receiptEdgeOpenedJustMine =>
+      'Mitte nõuanne. Lihtsalt minu tehing.';
+
+  @override
+  String get receiptEdgeOpenedUnderstanding => 'Mul ja graafikul on kokkulepe.';
+
+  @override
+  String get receiptEdgeOpenedMyProblem => 'Minu sisenemine. Minu probleem.';
+
+  @override
+  String get receiptEdgeOpenedEither => 'Valmis mõlemaks suunaks.';
+
+  @override
   String shareMessageChallengeNamed(
       String name, String outcome, String title, String amount, String url) {
     return '$name, minu valik: $outcome turul $title. Vali teine pool või ühine minuga. $amount minu kulul: $url';

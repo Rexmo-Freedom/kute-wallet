@@ -12704,6 +12704,957 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
+  String get shareEdgeMoneyNoStrings => 'Ohne Haken. Ich hab nachgeschaut.';
+
+  @override
+  String get shareEdgeMoneyMakeItText => 'Geld, aber als Nachricht.';
+
+  @override
+  String get shareEdgeMoneyLowBar => 'Schneller als die Bank. Keine Kunst.';
+
+  @override
+  String get shareEdgeMoneyNoForms => 'Keine Formulare. Kein Smalltalk.';
+
+  @override
+  String get shareEdgeMoneyActNatural => 'Überraschung. Tu ganz normal.';
+
+  @override
+  String get shareEdgeMoneyInAdvance => 'Gern geschehen. Schon mal vorab.';
+
+  @override
+  String shareEdgeMoneyNoQuestions(String amount) {
+    return '$amount, ohne Wenn und Aber.';
+  }
+
+  @override
+  String get shareEdgeMoneyNotALoan => 'Geschenk, kein Kredit. Vermutlich.';
+
+  @override
+  String get shareEdgeMoneyAllAtOnce => 'Gib nicht alles auf einmal aus.';
+
+  @override
+  String get shareEdgeMoneyGetUsed => 'Gewöhn dich nicht dran.';
+
+  @override
+  String get shareEdgeMoneyLittleEgo => 'Mit Liebe gesendet. Und etwas Ego.';
+
+  @override
+  String get shareEdgeMoneyNoBank => 'Keine Bank wurde gefragt.';
+
+  @override
+  String get shareEdgeMoneyHandlePatience =>
+      'Bitcoin. Bitte mit Geduld behandeln.';
+
+  @override
+  String get shareEdgeMoneyStackResponsibly => 'Verantwortungsvoll stapeln.';
+
+  @override
+  String get shareEdgeMoneyNoLecture => 'Bitcoin. Predigt nicht inklusive.';
+
+  @override
+  String get shareEdgeMoneyTinySats => 'Kleine Sats. Große Verantwortung.';
+
+  @override
+  String get shareEdgeMoneySameDollars => 'Digitale Dollar. Gleiche Dollar.';
+
+  @override
+  String get shareEdgeMoneyNoEnvelope => 'Bargeld, nur ohne Umschlag.';
+
+  @override
+  String get shareEdgeMoneyNoExchange => 'Dollar. Ohne Flughafen-Wechselkurs.';
+
+  @override
+  String get shareEdgePickScreenshot => 'Meine Ansage. Mach \'nen Screenshot.';
+
+  @override
+  String get shareEdgePickSaidFirst => 'Kategorie: Hab ich zuerst gesagt.';
+
+  @override
+  String shareEdgePickFinalAnswer(String side) {
+    return '$side. Ich logge ein.';
+  }
+
+  @override
+  String get shareEdgePickStrongOpinion => 'Kein Rat. Nur eine starke Meinung.';
+
+  @override
+  String get shareEdgePickDidReading => 'Hab mich eingelesen. Größtenteils.';
+
+  @override
+  String get shareEdgePickToldYouSo => 'Gespeichert fürs Hab-ich-doch-gesagt.';
+
+  @override
+  String get shareEdgePickConviction => 'Überzeugung steht mir.';
+
+  @override
+  String get shareEdgePickNotFree => 'Meinungen sind gratis. Diese nicht.';
+
+  @override
+  String shareEdgePickAmountSays(String amount, String side) {
+    return '$amount sprechen für $side.';
+  }
+
+  @override
+  String get shareEdgePickLowDrama => 'Wenig Drama. Viel Überzeugung.';
+
+  @override
+  String get shareEdgePickInsufferable =>
+      'Trifft das ein, bin ich unerträglich.';
+
+  @override
+  String get shareEdgePickRevolutionary => 'Für den Favoriten. Revolutionär.';
+
+  @override
+  String shareEdgePickSmartCrowd(String chance) {
+    return '$chance stimmen zu. Kluge Runde.';
+  }
+
+  @override
+  String get shareEdgePickSafePick => 'Sichere Wahl. Trotzdem eine Wahl.';
+
+  @override
+  String get shareEdgePickWithOdds => 'Den Chancen gefolgt. Schockierend.';
+
+  @override
+  String get shareEdgePickOnPurpose => 'Außenseiter. Mit Absicht.';
+
+  @override
+  String shareEdgePickOnlySee(String chance) {
+    return 'Nur $chance sehen es so. Passt mir.';
+  }
+
+  @override
+  String get shareEdgePickLongShot => 'Weitschuss. Kurze Erklärung.';
+
+  @override
+  String get shareEdgePickContrarian => 'Gegen den Strom, nicht verwirrt.';
+
+  @override
+  String get shareEdgeTopicDebates => 'Debatten sind Lärm. Chancen nicht.';
+
+  @override
+  String get shareEdgeTopicCoach => 'Heute ist jeder Bundestrainer.';
+
+  @override
+  String get shareEdgeTopicVolatility =>
+      'Volatilität inklusive. Ohne Aufpreis.';
+
+  @override
+  String get shareEdgeTopicMinutes => 'Hab die Protokolle gelesen. Alle.';
+
+  @override
+  String get shareEdgeMarketPickOrWatch =>
+      'Wähl eine Seite. Oder schau nur zu.';
+
+  @override
+  String get shareEdgeMarketHasOdds => 'Meinung ist gratis. Diese hat Zahlen.';
+
+  @override
+  String get shareEdgeMarketUntilResolves =>
+      'Alle sind Experten. Bis zum Ergebnis.';
+
+  @override
+  String get shareEdgeMarketGroupChat => 'Gruppenchat, hier sind die Chancen.';
+
+  @override
+  String get shareEdgeMarketHotTakes => 'Steile Thesen gern. Chancen anbei.';
+
+  @override
+  String get shareEdgeMarketJustMarket => 'Kein Rat. Nur der Markt.';
+
+  @override
+  String get shareEdgeMarketOddsMove => 'Chancen schwanken. Die Frage bleibt.';
+
+  @override
+  String get shareEdgeMarketYourCall => 'Deine Entscheidung. Kein Druck.';
+
+  @override
+  String get shareEdgeMarketDiscuss => 'Diskutieren. Aber ruhig.';
+
+  @override
+  String get shareEdgeMarketWhereLand => 'Wo stehst du?';
+
+  @override
+  String shareEdgeMarketSayDiscuss(String chance, String side) {
+    return '$chance sagen $side. Diskutieren.';
+  }
+
+  @override
+  String get shareEdgeMarketHarder => 'Ja oder Nein. Schwerer als gedacht.';
+
+  @override
+  String get shareEdgeMarketTwoAnswers => 'Eine Frage. Zwei Antworten.';
+
+  @override
+  String shareEdgeMarketNotGuarantee(String chance) {
+    return '$chance sind keine Garantie.';
+  }
+
+  @override
+  String get shareEdgeMarketFeelings => 'Einfache Frage. Gemischte Gefühle.';
+
+  @override
+  String get shareEdgeMarketLikely => 'Wahrscheinlich ist nicht sicher.';
+
+  @override
+  String shareEdgeMarketLeads(String leader) {
+    return '$leader führt. Nichts ist entschieden.';
+  }
+
+  @override
+  String shareEdgeMarketCoronation(String chance) {
+    return '$chance sind noch keine Krönung.';
+  }
+
+  @override
+  String shareEdgeMarketHistoryWait(String leader) {
+    return 'Chart: $leader. Geschichte: abwarten.';
+  }
+
+  @override
+  String get shareEdgeMarketAskTomorrow => 'Heute vorne. Frag morgen nochmal.';
+
+  @override
+  String get shareEdgeMarketCrowdedField => 'Großes Feld. Eine Antwort.';
+
+  @override
+  String shareEdgeMarketStayTuned(String leader, String chance) {
+    return '$leader bei $chance. Dranbleiben.';
+  }
+
+  @override
+  String get shareEdgeMarketLeadingNotWinning => 'Führen ist nicht gewinnen.';
+
+  @override
+  String get shareEdgeMarketNotSureThing => 'Favorit, kein Selbstläufer.';
+
+  @override
+  String get shareEdgeMarketUpsets => 'Sensationen gibt\'s. Favoriten auch.';
+
+  @override
+  String get shareEdgeMarketGameDecides => 'Entscheidend ist auf\'m Platz.';
+
+  @override
+  String get shareEdgeMarketOddsDontPlay => 'Prozente spielen nicht mit.';
+
+  @override
+  String get shareEdgeMarketScoreboard => 'Jetzt Sprüche. Später Ergebnisse.';
+
+  @override
+  String challengeEdgeComeAtMe(String side) {
+    return '$side. Na komm doch.';
+  }
+
+  @override
+  String challengeEdgeOnNotice(String side) {
+    return 'Ich sage $side. Du bist gewarnt.';
+  }
+
+  @override
+  String challengeEdgeTalkCheap(String side) {
+    return '$side. Reden kann jeder. Und du?';
+  }
+
+  @override
+  String challengeEdgeScared(String side) {
+    return '$side. Angst? Verständlich.';
+  }
+
+  @override
+  String challengeEdgeKnowBetter(String side) {
+    return '$side. Außer du weißt es besser.';
+  }
+
+  @override
+  String challengeEdgeTurnWrong(String side) {
+    return '$side. Jetzt darfst du falschliegen.';
+  }
+
+  @override
+  String challengeEdgeNotSorry(String side) {
+    return '$side, und es tut mir nicht leid.';
+  }
+
+  @override
+  String challengeEdgeAllYours(String side) {
+    return 'Ich nehme $side. Der Rest gehört dir.';
+  }
+
+  @override
+  String challengeEdgeConvince(String side) {
+    return '$side. Überzeug mich vom Gegenteil.';
+  }
+
+  @override
+  String challengeEdgeSeeYou(String side) {
+    return '$side. Man sieht sich beim Ergebnis.';
+  }
+
+  @override
+  String challengeEdgeReceipts(String side) {
+    return 'Ich sage $side. Bring Beweise.';
+  }
+
+  @override
+  String get shareEdgeStockJustChart => 'Keine Anlageberatung. Nur ein Chart.';
+
+  @override
+  String get shareEdgeStockFeelings => 'Charts sind Gefühle egal.';
+
+  @override
+  String shareEdgeStockHeardOfIt(String name) {
+    return '$name. Vielleicht schon mal gehört.';
+  }
+
+  @override
+  String get shareEdgeStockActNormal => 'Grüner Tag. Ganz normal bleiben.';
+
+  @override
+  String shareEdgeStockJustChange(String change) {
+    return 'Ruhig bleiben. Sind nur $change.';
+  }
+
+  @override
+  String get shareEdgeStockIKnew => 'Ich sag nichts. Aber ich wusste es.';
+
+  @override
+  String get shareEdgeStockTomorrow => 'Heute im Plus. Morgen ist morgen.';
+
+  @override
+  String shareEdgeStockGreenLooks(String name) {
+    return 'Grün steht $name.';
+  }
+
+  @override
+  String get shareEdgeStockEgoSteady => 'Chart oben. Ego stabil.';
+
+  @override
+  String get shareEdgeStockDontClap => 'Nicht klatschen. Nur gucken.';
+
+  @override
+  String get shareEdgeStockDoubleDigits => 'Zweistellig. Lass ich gelten.';
+
+  @override
+  String shareEdgeStockCheckShorts(String change) {
+    return 'Plus $change. Kopf hoch, Leerverkäufer.';
+  }
+
+  @override
+  String get shareEdgeStockCalmAsEver => 'Roter Tag. Ruhig wie immer.';
+
+  @override
+  String shareEdgeStockZoomOut(String change) {
+    return '$change im Minus. Rauszoomen.';
+  }
+
+  @override
+  String get shareEdgeStockPanicOptional =>
+      'Dips passieren. Panik ist optional.';
+
+  @override
+  String shareEdgeStockCharacterArc(String change) {
+    return '$change im Minus. Charakterbildung.';
+  }
+
+  @override
+  String get shareEdgeStockPlotTwist => 'Ein Dip, kein Plot-Twist.';
+
+  @override
+  String get shareEdgeStockStillHere => 'Heute im Minus. Noch da.';
+
+  @override
+  String get shareEdgeStockAsIntended => 'Volatilität: läuft wie vorgesehen.';
+
+  @override
+  String get shareEdgeStockBadDay => 'Auch Charts haben schlechte Tage.';
+
+  @override
+  String shareEdgeStockDeepBreaths(String change) {
+    return '$change im Minus. Tief durchatmen.';
+  }
+
+  @override
+  String get shareEdgeStockRiveting => 'Nichts passiert. Fesselnd.';
+
+  @override
+  String get shareEdgeStockBoringUnderrated =>
+      'Flach. Langeweile wird unterschätzt.';
+
+  @override
+  String get shareEdgeStockSideways => 'Seitwärts ist auch eine Richtung.';
+
+  @override
+  String get shareEdgeStockSuspicious => 'Heute kein Drama. Verdächtig.';
+
+  @override
+  String get shareEdgeStockNap => 'Der Chart macht ein Nickerchen.';
+
+  @override
+  String get shareEdgeStockPaintDry => 'Gras beim Wachsen zusehen. Beruflich.';
+
+  @override
+  String get shareEdgeStockUnchanged => 'Unverändert. Unbeeindruckt.';
+
+  @override
+  String get shareEdgeStockShortUnbothered => 'Short und schmerzlos.';
+
+  @override
+  String get shareEdgeStockNotEverythingUp => 'Nicht alles geht nach oben.';
+
+  @override
+  String get shareEdgeStockGravity => 'Schwerkraft ist auch eine Strategie.';
+
+  @override
+  String get shareEdgeStockShortHype => 'Ich shorte den Hype. Höflich.';
+
+  @override
+  String get shareEdgeStockShortContrarian => 'Gegen den Strom, mit Chart.';
+
+  @override
+  String get shareEdgeStockFlipSide => 'Einer muss ja dagegenhalten.';
+
+  @override
+  String shareEdgeStockAsPlanned(String change) {
+    return '$change im Minus. Wie geplant.';
+  }
+
+  @override
+  String get shareEdgeStockICanWait => 'Heute im Plus. Ich kann warten.';
+
+  @override
+  String get shareEdgeBragQuietlyGreen => 'Still und heimlich im Plus.';
+
+  @override
+  String get shareEdgeBragGreenSuits => 'Grün steht mir.';
+
+  @override
+  String get shareEdgeBragCopyMe => 'Erklären? Dann kopierst du mich.';
+
+  @override
+  String get shareEdgeBragHumbleWorking => 'Bescheiden? Ich arbeite dran.';
+
+  @override
+  String get shareEdgeBragNotVibes => 'Ergebnisse, keine Vibes.';
+
+  @override
+  String get shareEdgeBragMildlyPleased => 'Nicht überrascht. Leicht erfreut.';
+
+  @override
+  String get shareEdgeBragNotAPromise => 'Rückblick, kein Versprechen.';
+
+  @override
+  String get shareEdgeBragBeforeItChanges =>
+      'Screenshot, bevor es sich ändert.';
+
+  @override
+  String get shareEdgeBragMainCharacter => 'Hauptfigur-Energie.';
+
+  @override
+  String shareEdgeBragUnbearable(String amount) {
+    return '$amount. Ab jetzt unerträglich.';
+  }
+
+  @override
+  String get shareEdgeBragBeingCalm => 'So sehe ich aus, wenn ich ruhig bin.';
+
+  @override
+  String get shareEdgeBragAllegedly => 'Große Zahl. Kleines Ego. Angeblich.';
+
+  @override
+  String get shareEdgeBragStillAWin => 'Kleiner Gewinn. Trotzdem Gewinn.';
+
+  @override
+  String shareEdgeBragRome(String amount) {
+    return '$amount. Kleinvieh macht auch Mist.';
+  }
+
+  @override
+  String get shareEdgeBragModest => 'Bescheiden. Wie ich.';
+
+  @override
+  String get shareEdgeBragHumbled => 'Vorübergehend geerdet.';
+
+  @override
+  String get shareEdgeBragRedPhase => 'Rot ist nur eine Phase.';
+
+  @override
+  String shareEdgeBragLessons(String amount) {
+    return '$amount ärmer. Lektion inklusive.';
+  }
+
+  @override
+  String get shareEdgeBragNotOut => 'Angezählt, nicht k.o.';
+
+  @override
+  String get shareEdgeBragGrowth => 'Ich poste meine Verluste. Wachstum.';
+
+  @override
+  String get shareEdgeBragHumbleEra => 'Meine Bescheidenheits-Ära.';
+
+  @override
+  String get shareEdgeBragOnTheChin => 'Eingesteckt. Mit Stil.';
+
+  @override
+  String get shareEdgeBragNotMyBest => 'Nicht mein Bestes. Nicht mein Letztes.';
+
+  @override
+  String get shareEdgeBragDignified => 'Rot, aber mit Würde.';
+
+  @override
+  String get shareEdgeBragTuition => 'Verluste sind Lehrgeld.';
+
+  @override
+  String get shareEdgeBragNetCalm => 'Netto null. Netto ruhig.';
+
+  @override
+  String get shareEdgeBragBalanced => 'Flach. Perfekt ausbalanciert.';
+
+  @override
+  String get shareEdgeBragDidntPanic =>
+      'Kein Gewinn. Kein Verlust. Keine Panik.';
+
+  @override
+  String get shareEdgeBragUndefeated => 'Plusminus null. Ungeschlagen.';
+
+  @override
+  String get shareEdgeBragWithStyle => 'Seitwärts, mit Stil.';
+
+  @override
+  String get shareEdgeBragSharedAnyway => 'Nichts zu sehen. Trotzdem geteilt.';
+
+  @override
+  String get shareEdgeBragSteadyHands => 'Flache Linie. Ruhige Hand.';
+
+  @override
+  String get shareEdgeBragBlinked => 'Der Markt hat gezuckt. Ich nicht.';
+
+  @override
+  String get shareEdgeBragEvenTemper => 'Ausgeglichen. Wie ich.';
+
+  @override
+  String get shareEdgeBragNoDrama => 'Null Drama. Null Änderung.';
+
+  @override
+  String get bragEdgeWonToldPolitely => 'Hab\'s ja gesagt. Höflich.';
+
+  @override
+  String get bragEdgeWonNormal => 'Recht gehabt. Ich bleib ganz normal.';
+
+  @override
+  String get bragEdgeWonMyFavour => 'Zu meinen Gunsten entschieden.';
+
+  @override
+  String get bragEdgeWonPaysSometimes => 'Rechthaben zahlt sich aus. Manchmal.';
+
+  @override
+  String get bragEdgeWonAgreed => 'Der Markt gab mir recht. Irgendwann.';
+
+  @override
+  String get bragEdgeWonMySide => 'Meine Seite hat geliefert.';
+
+  @override
+  String get bragEdgeWonThenPayout => 'Erst Geduld, dann Auszahlung.';
+
+  @override
+  String get bragEdgeWonNoNotes => 'Keine Anmerkungen.';
+
+  @override
+  String get bragEdgeWonFutureSelf => 'Screenshot für mein zukünftiges Ich.';
+
+  @override
+  String get bragEdgeWonEarlyThenRight => 'Erst früh, dann richtig.';
+
+  @override
+  String get bragEdgeWonCollecting => 'Kassiere ganz leise.';
+
+  @override
+  String get bragEdgeWonNotSurprised => 'Überrascht tun? Bin ich nicht.';
+
+  @override
+  String get receiptEdgeSentNoHold => 'Gesendet. Ohne Warteschleife.';
+
+  @override
+  String get receiptEdgeSentBeforeBank => 'Erledigt, bevor die Bank aufmacht.';
+
+  @override
+  String get receiptEdgeSentDrama => 'Geld bewegt. Kein Drama.';
+
+  @override
+  String get receiptEdgeSentBusinessDays => 'Sekunden, keine Werktage.';
+
+  @override
+  String get receiptEdgeSentThankLater => 'Gesendet. Danke mir später.';
+
+  @override
+  String get receiptEdgeSentEfficient => 'Großzügig und effizient.';
+
+  @override
+  String get receiptEdgeSentOneTap => 'Einmal tippen. Keine Formulare.';
+
+  @override
+  String get receiptEdgeSentPaidUp => 'Bezahlt. Weiter geht\'s.';
+
+  @override
+  String get receiptEdgeSentAdult => 'Beglichen. Ganz erwachsen.';
+
+  @override
+  String receiptEdgeSentGone(String amount) {
+    return '$amount, in Sekunden weg.';
+  }
+
+  @override
+  String get receiptEdgeSentSaga => 'Geld senden ist keine Odyssee.';
+
+  @override
+  String get receiptEdgeReceivedCasual => 'Geld bekommen. Ganz lässig.';
+
+  @override
+  String get receiptEdgeReceivedNoted => 'Erhalten. Notiert. Geschätzt.';
+
+  @override
+  String receiptEdgeReceivedRicher(String amount) {
+    return '$amount reicher. Unbeeindruckt.';
+  }
+
+  @override
+  String get receiptEdgeReceivedThankYou =>
+      'Schneller da als die Danke-Nachricht.';
+
+  @override
+  String get receiptEdgeReceivedMoodUp => 'Geld rein. Laune rauf.';
+
+  @override
+  String get receiptEdgeReceivedGrace => 'Mit Würde empfangen.';
+
+  @override
+  String get receiptEdgeReceivedAskTwice => 'Musste nicht mal zweimal fragen.';
+
+  @override
+  String get receiptEdgeReceivedUnscheduled => 'Zahltag, außer der Reihe.';
+
+  @override
+  String get receiptEdgeReceivedNoMiddle => 'Angekommen. Ohne Bank dazwischen.';
+
+  @override
+  String get receiptEdgeReceivedCompliments =>
+      'Nehme Lob und Überweisungen an.';
+
+  @override
+  String get receiptEdgeIncomingAlmost => 'Fast da. Nicht drängeln.';
+
+  @override
+  String get receiptEdgeIncomingLoading => 'Lädt. Ruhig bleiben.';
+
+  @override
+  String get receiptEdgeIncomingRefreshing =>
+      'Unterwegs. Neu laden hilft nicht.';
+
+  @override
+  String get receiptEdgeIncomingNotChecking =>
+      'Ist unterwegs. Ich schau nicht nach.';
+
+  @override
+  String get receiptEdgeIncomingPending => 'Ausstehend. Wie alles Gute.';
+
+  @override
+  String get receiptEdgeIncomingPatienceMode => 'Im Anflug. Geduldsmodus an.';
+
+  @override
+  String get receiptEdgeIncomingSnacks => 'Unterwegs. Snacks nicht inklusive.';
+
+  @override
+  String get receiptEdgeIncomingMinute => 'Gut Ding will Weile haben.';
+
+  @override
+  String get receiptEdgeIncomingMotion => 'Geld in Bewegung.';
+
+  @override
+  String get receiptEdgeIncomingWatched => 'Wer zuschaut, wartet länger.';
+
+  @override
+  String get receiptEdgeMovedFurniture => 'Nur die Möbel umgestellt.';
+
+  @override
+  String get receiptEdgeMovedDidntLose => 'Umgeschichtet. Nicht verloren.';
+
+  @override
+  String get receiptEdgeMovedPockets => 'Linke Tasche, rechte Tasche.';
+
+  @override
+  String get receiptEdgeMovedRelocated => 'Geld, umgezogen.';
+
+  @override
+  String get receiptEdgeMovedNewRoom => 'Gleicher Besitzer. Neues Zimmer.';
+
+  @override
+  String get receiptEdgeMovedHousekeeping => 'Frühjahrsputz, aber fürs Geld.';
+
+  @override
+  String get receiptEdgeMovedShuffle => 'Strategisch umsortiert.';
+
+  @override
+  String get receiptEdgeMovedGrownUp => 'Geld umschichten wie Erwachsene.';
+
+  @override
+  String get receiptEdgeMovedOrganised => 'Organisiert. Für den Moment.';
+
+  @override
+  String get receiptEdgeMovedTidying => 'Nur ein bisschen aufräumen.';
+
+  @override
+  String get receiptEdgeMovedAllocating => 'Umverteilt. Sehr gelassen.';
+
+  @override
+  String get receiptEdgeBoughtOverthink => 'Nicht lange überlegt.';
+
+  @override
+  String get receiptEdgeBoughtPile => 'Auf den Stapel gelegt.';
+
+  @override
+  String get receiptEdgeBoughtAccumulation => 'Stilles Stapeln.';
+
+  @override
+  String get receiptEdgeBoughtToldNoOne => 'Keinem erzählt. Bis jetzt.';
+
+  @override
+  String get receiptEdgeBoughtNotTiming => 'Kaufen, nicht timen.';
+
+  @override
+  String receiptEdgeBoughtConviction(String amount) {
+    return '$amount Überzeugung.';
+  }
+
+  @override
+  String get receiptEdgeBoughtPatience => 'Erstens kaufen. Zweitens Geduld.';
+
+  @override
+  String get receiptEdgeBoughtNoise => 'Kaufen. Das Rauschen ignorieren.';
+
+  @override
+  String get receiptEdgeBoughtBackToDay => 'Gekauft. Weiter im Tagesgeschäft.';
+
+  @override
+  String get receiptEdgeBoughtShoes => 'Andere kaufen Schuhe.';
+
+  @override
+  String get receiptEdgeSoldKeptCool => 'Etwas verkauft. Cool geblieben.';
+
+  @override
+  String get receiptEdgeSoldNoRegrets => 'Getauscht. Keine Reue. Bisher.';
+
+  @override
+  String get receiptEdgeSoldDidntCheck =>
+      'Verkauft. Kurs? Schau ich nicht mehr.';
+
+  @override
+  String get receiptEdgeSoldLiquidity => 'Liquidität, beschafft.';
+
+  @override
+  String get receiptEdgeSoldLeftDrama => 'Geld genommen. Drama dagelassen.';
+
+  @override
+  String get receiptEdgeSoldSleeping => 'Verkauft. Schlafe gut.';
+
+  @override
+  String get receiptEdgeSoldCashPosition => 'Cash ist auch eine Position.';
+
+  @override
+  String get receiptEdgeSoldDeliberately => 'In Cash gewechselt. Bewusst.';
+
+  @override
+  String get receiptEdgeSoldPressed => 'Verkaufen-Knopf: gedrückt. Ruhig.';
+
+  @override
+  String get receiptEdgeSoldLittleCash => 'Ein bisschen Cash schadet nie.';
+
+  @override
+  String get receiptEdgePredictedCommitted => 'Festgelegt. Weitgehend.';
+
+  @override
+  String get receiptEdgePredictedHardPart => 'Warten ist das Schwierigste.';
+
+  @override
+  String get receiptEdgePredictedSkin => 'Meinung, jetzt mit eigenem Geld.';
+
+  @override
+  String get receiptEdgePredictedNails => 'Platziert. Nägel unversehrt.';
+
+  @override
+  String get receiptEdgePredictedTookSide => 'Seite gewählt. Ruhig geblieben.';
+
+  @override
+  String get receiptEdgePredictedJustMySide => 'Kein Rat. Nur meine Seite.';
+
+  @override
+  String get receiptEdgePredictedResolution => 'Man sieht sich beim Ergebnis.';
+
+  @override
+  String receiptEdgePredictedThatsThePost(String amount, String side) {
+    return '$amount für $side. Das ist der Post.';
+  }
+
+  @override
+  String get receiptEdgeUpInUpOut => 'Rein. Rauf. Raus.';
+
+  @override
+  String get receiptEdgeUpEgo => 'Gewinn mitgenommen. Ego dagelassen.';
+
+  @override
+  String get receiptEdgeUpWhileGreen => 'Gegangen, solange es grün war.';
+
+  @override
+  String get receiptEdgeUpWhenToLeave => 'Rechtzeitig gehen ist eine Kunst.';
+
+  @override
+  String receiptEdgeUpDoneHere(String amount) {
+    return '$amount. Hier bin ich fertig.';
+  }
+
+  @override
+  String get receiptEdgeUpBooked => 'Verbucht.';
+
+  @override
+  String get receiptEdgeUpNoEncore => 'Grüner Ausstieg. Keine Zugabe.';
+
+  @override
+  String get receiptEdgeUpGreed => 'Gier ist keine Strategie.';
+
+  @override
+  String get receiptEdgeUpDiscipline => 'Im Plus gegangen. Seltene Disziplin.';
+
+  @override
+  String get receiptEdgeUpWinIsWin => 'Gewinn ist Gewinn.';
+
+  @override
+  String get receiptEdgeDownDignity => 'Verlust begrenzt. Würde behalten.';
+
+  @override
+  String get receiptEdgeDownExits => 'Aussteigen will auch gelernt sein.';
+
+  @override
+  String get receiptEdgeDownQuick => 'Daneben, aber dafür schnell.';
+
+  @override
+  String get receiptEdgeDownLessonKept => 'Früh raus. Lektion behalten.';
+
+  @override
+  String get receiptEdgeDownStubborn => 'Lieber raus als stur.';
+
+  @override
+  String get receiptEdgeDownTookL => 'L kassiert. Beleg behalten.';
+
+  @override
+  String get receiptEdgeDownNotMyDay => 'Geschlossen. Nicht mein Tag.';
+
+  @override
+  String get receiptEdgeDownZeroTears => 'Roter Ausstieg. Null Tränen.';
+
+  @override
+  String get receiptEdgeDownHalfSkill => 'Einsicht ist die halbe Kunst.';
+
+  @override
+  String receiptEdgeDownTuition(String amount) {
+    return '$amount. Lehrgeld bezahlt.';
+  }
+
+  @override
+  String get receiptEdgeFlatRoundTrip => 'Hin und zurück. Keine Souvenirs.';
+
+  @override
+  String get receiptEdgeFlatWiser => 'Zurück auf Los. Aber klüger.';
+
+  @override
+  String get receiptEdgeFlatZeroStress => 'Nullsumme. Null Stress.';
+
+  @override
+  String get receiptEdgeFlatNoHarm => 'Außer Spesen nichts gewesen.';
+
+  @override
+  String get receiptEdgeFlatShrugged => 'Markt: Schulterzucken. Ich: auch.';
+
+  @override
+  String get receiptEdgeFlatStory => 'Unterm Strich: eine Geschichte.';
+
+  @override
+  String get receiptEdgeLostNextQuestion => 'Nächste Frage.';
+
+  @override
+  String get receiptEdgeLostRudely => 'Der Markt sah das anders. Unhöflich.';
+
+  @override
+  String get receiptEdgeLostHumour => 'Eine verloren. Humor behalten.';
+
+  @override
+  String get receiptEdgeLostCompany => 'Falsch, aber in guter Gesellschaft.';
+
+  @override
+  String get receiptEdgeLostOnMe => 'Die geht auf mich.';
+
+  @override
+  String get receiptEdgeLostConfidence => 'Wallet leichter. Ego unverändert.';
+
+  @override
+  String get receiptEdgeLostWrongly => 'Vorhergesagt. Falsch.';
+
+  @override
+  String get receiptEdgeLostGraceful => 'Mit Stil verlieren ist ein Flex.';
+
+  @override
+  String get receiptEdgeLostOddsWereOdds => 'Chancen sind halt Chancen.';
+
+  @override
+  String get receiptEdgeLostAlreadyMoved => 'Abgehakt. Schon weitergezogen.';
+
+  @override
+  String get receiptEdgeLostUpLesson => 'Prognose verloren. Lektion gewonnen.';
+
+  @override
+  String get receiptEdgePaidResolved => 'Entschieden. Erhalten.';
+
+  @override
+  String get receiptEdgePaidNormal => 'Auszahlung da. Ich bleib normal.';
+
+  @override
+  String receiptEdgePaidInFull(String amount) {
+    return '$amount, voll ausgezahlt.';
+  }
+
+  @override
+  String get receiptEdgePaidCourtesy => 'Zahltag, dank Rechthaben.';
+
+  @override
+  String get receiptEdgeOpenedPulse => 'Position offen. Puls normal.';
+
+  @override
+  String get receiptEdgeOpenedCalmly => 'Ruhig rein. Ruhig raus.';
+
+  @override
+  String receiptEdgeOpenedInAt(String price) {
+    return 'Rein bei $price. Notiert.';
+  }
+
+  @override
+  String get receiptEdgeOpenedNotRefreshing =>
+      'Drin. Lade nicht jede Minute neu.';
+
+  @override
+  String get receiptEdgeOpenedSized => 'Überzeugung, vernünftig dosiert.';
+
+  @override
+  String get receiptEdgeOpenedJustMine =>
+      'Keine Anlageberatung. Nur mein Trade.';
+
+  @override
+  String get receiptEdgeOpenedUnderstanding =>
+      'Der Chart und ich verstehen uns.';
+
+  @override
+  String get receiptEdgeOpenedMyProblem => 'Mein Einstieg. Mein Problem.';
+
+  @override
+  String get receiptEdgeOpenedEither => 'Bereit für beide Richtungen.';
+
+  @override
   String shareMessageChallengeNamed(
       String name, String outcome, String title, String amount, String url) {
     return '$name, mein Tipp: $outcome bei $title. Nimm die andere Seite oder mach mit. $amount gehen auf mich: $url';

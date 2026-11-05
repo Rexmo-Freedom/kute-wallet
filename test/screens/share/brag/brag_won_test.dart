@@ -263,16 +263,18 @@ void main() {
       final l10n = AppLocalizations.of(
           tester.element(find.byType(SizedBox).first));
       final pool = bragEdges(l10n, fakeBragWin());
-      expect(pool, [
+      expect(pool.take(4), [
         'Resolved. Receipts attached.',
         'In at 41¢. Aged well.',
         r'+$17.70 for being right.',
         'Not luck. Pattern recognition.',
       ]);
+      expect(pool, containsAll(['Told you. Politely.', 'Early, then right.']));
+      expect(pool, hasLength(16));
       for (final line in pool) {
         expect(line.toLowerCase(), isNot(contains('bet')));
       }
-      for (var seed = 0; seed < 8; seed++) {
+      for (var seed = 0; seed < pool.length * 2; seed++) {
         expect(bragEdge(l10n, fakeBragWin(), seed), isIn(pool));
       }
     });
