@@ -12730,6 +12730,9 @@ class AppLocalizationsNl extends AppLocalizations {
   String get polyPeriodFirstInning => '1e inning';
 
   @override
+  String get polyLineSetHandicap => 'Sethandicap';
+
+  @override
   String get polyLineTotalGames => 'Totaal games';
 
   @override

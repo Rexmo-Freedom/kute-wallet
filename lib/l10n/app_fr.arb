@@ -3568,6 +3568,7 @@
   "polyPeriodPeriod": "Période {number}",
   "polyPeriodFirstFive": "5 premières manches",
   "polyPeriodFirstInning": "1re manche",
+  "polyLineSetHandicap": "Handicap de sets",
   "polyLineTotalGames": "Total de jeux",
   "polyLineTotalSets": "Total de sets",
   "polyLineTotalKills": "Total d'éliminations",

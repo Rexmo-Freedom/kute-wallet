@@ -12262,6 +12262,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get polyPeriodFirstInning => '1回';
 
   @override
+  String get polyLineSetHandicap => 'セットハンディキャップ';
+
+  @override
   String get polyLineTotalGames => '合計ゲーム数';
 
   @override

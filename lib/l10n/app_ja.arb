@@ -3568,6 +3568,7 @@
   "polyPeriodPeriod": "第{number}ピリオド",
   "polyPeriodFirstFive": "5回まで",
   "polyPeriodFirstInning": "1回",
+  "polyLineSetHandicap": "セットハンディキャップ",
   "polyLineTotalGames": "合計ゲーム数",
   "polyLineTotalSets": "合計セット数",
   "polyLineTotalKills": "合計キル数",

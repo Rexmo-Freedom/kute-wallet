@@ -12721,6 +12721,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get polyPeriodFirstInning => '1. játékrész';
 
   @override
+  String get polyLineSetHandicap => 'Szetthendikep';
+
+  @override
   String get polyLineTotalGames => 'Összes játék';
 
   @override

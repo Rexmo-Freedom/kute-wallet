@@ -10106,6 +10106,10 @@
   "@polyPeriodFirstInning": {
     "description": "Period chip: the first inning of a baseball game."
   },
+  "polyLineSetHandicap": "Set handicap",
+  "@polyLineSetHandicap": {
+    "description": "A tennis match's More markets: heading of the handicap lines counted in sets (beside the handicap in games)."
+  },
   "polyLineTotalGames": "Total games",
   "@polyLineTotalGames": {
     "description": "A game's More markets: heading of the over/under lines on the number of games (or maps) played."

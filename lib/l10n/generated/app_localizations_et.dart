@@ -12678,6 +12678,9 @@ class AppLocalizationsEt extends AppLocalizations {
   String get polyPeriodFirstInning => '1. voor';
 
   @override
+  String get polyLineSetHandicap => 'Settide händikäp';
+
+  @override
   String get polyLineTotalGames => 'Mänge kokku';
 
   @override

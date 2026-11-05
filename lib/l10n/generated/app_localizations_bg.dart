@@ -12709,6 +12709,9 @@ class AppLocalizationsBg extends AppLocalizations {
   String get polyPeriodFirstInning => '1-ви ининг';
 
   @override
+  String get polyLineSetHandicap => 'Хендикап на сетове';
+
+  @override
   String get polyLineTotalGames => 'Общо игри';
 
   @override

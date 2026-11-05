@@ -12704,6 +12704,9 @@ class AppLocalizationsFi extends AppLocalizations {
   String get polyPeriodFirstInning => '1. vuoropari';
 
   @override
+  String get polyLineSetHandicap => 'Erätasoitus';
+
+  @override
   String get polyLineTotalGames => 'Pelejä yhteensä';
 
   @override

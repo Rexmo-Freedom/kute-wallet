@@ -92,6 +92,9 @@ class GamePeriod implements Comparable<GamePeriod> {
 enum GameLineType {
   winner,
   handicap,
+
+  /// A tennis match's handicap in sets, beside its handicap in games.
+  setHandicap,
   total,
   totalGames,
   totalSets,
@@ -109,6 +112,7 @@ extension GameLineTypeX on GameLineType {
   String get key => switch (this) {
         GameLineType.winner => 'winner',
         GameLineType.handicap => 'spreads',
+        GameLineType.setHandicap => 'set_spreads',
         GameLineType.total => 'totals',
         GameLineType.totalGames => 'total_games',
         GameLineType.totalSets => 'total_sets',
@@ -304,9 +308,8 @@ final RegExp _kSignedLine = RegExp(r'\(\s*[+-]\s*\d');
 final RegExp _kOverUnder = RegExp(
     r'\bo\s*/\s*u\b|\bover\s*/\s*under\b|\bover\b|\bunder\b',
     caseSensitive: false);
-final RegExp _kOverUnderWords = RegExp(
-    r'\bo\s*/\s*u\b|\bover\s*/\s*under\b',
-    caseSensitive: false);
+final RegExp _kOverUnderWords =
+    RegExp(r'\bo\s*/\s*u\b|\bover\s*/\s*under\b', caseSensitive: false);
 final RegExp _kNumber = RegExp(r'\d+(?:\.\d+)?');
 final RegExp _kClock = RegExp(r'\b(\d{1,3}):(\d{2})\b');
 final RegExp _kHandicapPair = RegExp(
@@ -331,9 +334,8 @@ String _tidy(String text) => text
 /// [text] without what [m] covers, and the " in " or " - " before it.
 String _cut(String text, int start, int end) {
   final before = text.substring(0, start);
-  final glue =
-      RegExp(r'(?:\s+in(?:\s+the)?|\s*[-–])\s*$', caseSensitive: false)
-          .firstMatch(before);
+  final glue = RegExp(r'(?:\s+in(?:\s+the)?|\s*[-–])\s*$', caseSensitive: false)
+      .firstMatch(before);
   final from = glue?.start ?? start;
   return '${text.substring(0, from)} ${text.substring(end)}';
 }
@@ -354,8 +356,8 @@ String _clock(double minutes) {
 }
 
 List<String> _words(String s) => [
-      for (final w in s.toLowerCase().split(RegExp(r'[^\p{L}\p{N}]+',
-          unicode: true)))
+      for (final w
+          in s.toLowerCase().split(RegExp(r'[^\p{L}\p{N}]+', unicode: true)))
         if (w.isNotEmpty) w,
     ];
 
@@ -584,8 +586,7 @@ class GameLineReader {
     final yesNo = lowerSides.length == 2 &&
         lowerSides.toSet().containsAll(const {'yes', 'no'});
     final overUnderSides = lowerSides.length == 2 &&
-        lowerSides
-            .every((s) => s.startsWith('over') || s.startsWith('under'));
+        lowerSides.every((s) => s.startsWith('over') || s.startsWith('under'));
     final lowerText = text.toLowerCase();
     final lowerQuestion = question.toLowerCase();
     final isOu = overUnderSides ||
@@ -614,7 +615,8 @@ class GameLineReader {
       words = GameSideWords.overUnder;
     } else if (rawSides.length == 2) {
       words = GameSideWords.named;
-      if (type == GameLineType.handicap && line != null) {
+      if ((type == GameLineType.handicap || type == GameLineType.setHandicap) &&
+          line != null) {
         sideA = '${shortName(rawSides[0])} ${_signed(line)}';
         sideB = '${shortName(rawSides[1])} ${_signed(-line)}';
       } else if (rawSides.every((s) => _teamFor(s) != null)) {
@@ -632,7 +634,7 @@ class GameLineReader {
     switch (type) {
       case GameLineType.winner:
         label = '';
-      case GameLineType.handicap:
+      case GameLineType.handicap || GameLineType.setHandicap:
         final team = rawSides.isNotEmpty
             ? rawSides[0]
             : _kTeamOfLine.firstMatch(text.split(': ').last)?.group(1) ?? '';
@@ -736,7 +738,10 @@ class GameLineReader {
         kind.contains('handicap') ||
         RegExp(r'\b(spread|handicap)\b').hasMatch(question) ||
         _kSignedLine.hasMatch(question)) {
-      return GameLineType.handicap;
+      return kind.contains('set_handicap') ||
+              RegExp(r'\bset handicap\b').hasMatch(question)
+          ? GameLineType.setHandicap
+          : GameLineType.handicap;
     }
     if (kind.contains('player') ||
         const {'points', 'rebounds', 'assists', 'threes', 'steals', 'blocks'}

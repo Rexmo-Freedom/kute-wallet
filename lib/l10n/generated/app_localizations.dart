@@ -21268,6 +21268,12 @@ abstract class AppLocalizations {
   /// **'1st inning'**
   String get polyPeriodFirstInning;
 
+  /// A tennis match's More markets: heading of the handicap lines counted in sets (beside the handicap in games).
+  ///
+  /// In en, this message translates to:
+  /// **'Set handicap'**
+  String get polyLineSetHandicap;
+
   /// A game's More markets: heading of the over/under lines on the number of games (or maps) played.
   ///
   /// In en, this message translates to:

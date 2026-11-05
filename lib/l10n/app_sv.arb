@@ -3568,6 +3568,7 @@
   "polyPeriodPeriod": "Period {number}",
   "polyPeriodFirstFive": "Första 5 inningarna",
   "polyPeriodFirstInning": "1:a inningen",
+  "polyLineSetHandicap": "Sethandikapp",
   "polyLineTotalGames": "Antal game",
   "polyLineTotalSets": "Antal set",
   "polyLineTotalKills": "Antal kills",

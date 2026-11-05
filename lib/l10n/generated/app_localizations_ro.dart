@@ -12753,6 +12753,9 @@ class AppLocalizationsRo extends AppLocalizations {
   String get polyPeriodFirstInning => 'Primul inning';
 
   @override
+  String get polyLineSetHandicap => 'Handicap seturi';
+
+  @override
   String get polyLineTotalGames => 'Total jocuri';
 
   @override

@@ -32,10 +32,9 @@ GameLineReader _reader(PolymarketEvent e) => GameLineReader(
     outcomes: e.outcomes);
 
 /// The row of [e]'s market whose question is [question].
-GameLineRow _row(PolymarketEvent e, String question,
-    [GameLineReader? reader]) {
-  final o = e.outcomes
-      .firstWhere((o) => GameLineReader.questionOf(o) == question);
+GameLineRow _row(PolymarketEvent e, String question, [GameLineReader? reader]) {
+  final o =
+      e.outcomes.firstWhere((o) => GameLineReader.questionOf(o) == question);
   return (reader ?? _reader(e)).read(o);
 }
 
@@ -53,8 +52,7 @@ GameLineRow _q(String title, String question,
     marketLine: PolymarketMarketLine(
         kind: kind, question: question, line: line, sides: sides),
   );
-  return GameLineReader(eventTitle: title, teams: teams, outcomes: [o])
-      .read(o);
+  return GameLineReader(eventTitle: title, teams: teams, outcomes: [o]).read(o);
 }
 
 void main() {
@@ -66,8 +64,10 @@ void main() {
         ('Game 3: Duration Over/Under 32:30 min?', 'game3'),
         ('Game 5: Any Player Penta Kill?', 'game5'),
         ('Map 2 Total Rounds: Over/Under 18.5', 'map2'),
-        ('Map 1 Rounds Handicap: INOX Division (-3.5) vs Honvéd (+3.5)',
-            'map1'),
+        (
+          'Map 1 Rounds Handicap: INOX Division (-3.5) vs Honvéd (+3.5)',
+          'map1'
+        ),
         // The series: no period.
         ('Games Total: O/U 3.5', 'match'),
         ('Game Handicap: DK (-1.5) vs Bilibili Gaming (+1.5)', 'match'),
@@ -80,11 +80,17 @@ void main() {
       for (final (q, kind, key) in [
         ('Set 1 Winner: Arthur Fils vs Taylor Fritz', '', 'set1'),
         ('Fils vs. Fritz: Set 2 Games O/U 9.5', '', 'set2'),
-        ('Set Handicap: Taylor Fritz (-1.5) vs Arthur Fils (+1.5)', '',
-            'match'),
+        (
+          'Set Handicap: Taylor Fritz (-1.5) vs Arthur Fils (+1.5)',
+          '',
+          'match'
+        ),
         ('Arsenal FC vs. Hull City AFC: 1st Half O/U 1.5', '', 'half1'),
-        ('Arsenal FC vs. Hull City AFC: Both Teams to Score in Second Half',
-            '', 'half2'),
+        (
+          'Arsenal FC vs. Hull City AFC: Both Teams to Score in Second Half',
+          '',
+          'half2'
+        ),
         ('1H Spread: Warriors (-3.5)', '', 'half1'),
         ('Jaguars vs. Ravens: 2H Moneyline', '', 'half2'),
         ('Will Portugal lead at half-time?', '', 'half1'),
@@ -102,7 +108,8 @@ void main() {
       }
     });
 
-    test('the chips of a best-of-five, a best-of-three and a football '
+    test(
+        'the chips of a best-of-five, a best-of-three and a football '
         'match', () {
       Set<String> periods(String name) {
         final e = _fixture(name);
@@ -123,7 +130,8 @@ void main() {
     final e = _fixture('lol_dk_blg_bo5');
     final r = _reader(e);
 
-    test('a game\'s winner: no label, the teams by Polymarket\'s own short '
+    test(
+        'a game\'s winner: no label, the teams by Polymarket\'s own short '
         'names', () {
       final row =
           _row(e, 'LoL: Dplus KIA vs Bilibili Gaming - Game 2 Winner', r);
@@ -154,8 +162,7 @@ void main() {
           _row(e, 'Game Handicap: DK (-1.5) vs Bilibili Gaming (+1.5)', r);
       expect((h.type, h.label, h.sideA, h.sideB),
           (GameLineType.handicap, 'DK -1.5', 'DK -1.5', 'BLG +1.5'));
-      final other =
-          _row(e, 'Game Handicap: BLG (-2.5) vs Dplus KIA (+2.5)', r);
+      final other = _row(e, 'Game Handicap: BLG (-2.5) vs Dplus KIA (+2.5)', r);
       expect((other.label, other.sideA, other.sideB),
           ('BLG -2.5', 'BLG -2.5', 'DK +2.5'));
     });
@@ -167,9 +174,17 @@ void main() {
           o.marketLine?.question == 'Game 3: Both Teams Slay Baron Nashor?');
       expect(o.name, 'Both Teams Slay Baron Nashor');
       final row = r.read(o);
-      expect((row.period.key, row.type, row.label, row.words),
-          ('game3', GameLineType.other, 'Both Teams Slay Baron Nashor',
-              GameSideWords.yesNo));
+      expect((
+        row.period.key,
+        row.type,
+        row.label,
+        row.words
+      ), (
+        'game3',
+        GameLineType.other,
+        'Both Teams Slay Baron Nashor',
+        GameSideWords.yesNo
+      ));
     });
   });
 
@@ -178,13 +193,13 @@ void main() {
     final r = _reader(e);
 
     test('"Yellow Submarine" reads YS, "GamerLegion" GL', () {
-      final row = _row(
-          e, 'Dota 2: Yellow Submarine vs GamerLegion - Game 2 Winner', r);
+      final row =
+          _row(e, 'Dota 2: Yellow Submarine vs GamerLegion - Game 2 Winner', r);
       expect((row.period.key, row.type, row.label),
           ('game2', GameLineType.winner, ''));
       expect((row.sideA, row.sideB), ('YS', 'GL'));
-      final h = _row(e,
-          'Game Handicap: GL (-1.5) vs Yellow Submarine (+1.5)', r);
+      final h =
+          _row(e, 'Game Handicap: GL (-1.5) vs Yellow Submarine (+1.5)', r);
       expect((h.label, h.sideA, h.sideB), ('GL -1.5', 'GL -1.5', 'YS +1.5'));
     });
 
@@ -199,8 +214,8 @@ void main() {
   test('CS2: maps, rounds and the map handicap', () {
     final e = _fixture('cs2_inox_honved_bo3');
     final r = _reader(e);
-    final w = _row(e, 'Counter-Strike: INOX Division vs Honvéd - Map 1 Winner',
-        r);
+    final w =
+        _row(e, 'Counter-Strike: INOX Division vs Honvéd - Map 1 Winner', r);
     expect((w.period.key, w.type, w.sideA, w.sideB),
         ('map1', GameLineType.winner, 'INOX', 'Honvéd'));
     final rounds = _row(e, 'Map 1 Total Rounds: Over/Under 21.5', r);
@@ -227,12 +242,21 @@ void main() {
     expect(_row(e, 'Fils vs. Fritz: Match O/U 22.5', r).type,
         GameLineType.totalGames);
     expect(
-        _row(e, 'Rolex Paris Masters: Completed Match: Arthur Fils vs Taylor '
-                'Fritz', r)
+        _row(
+                e,
+                'Rolex Paris Masters: Completed Match: Arthur Fils vs Taylor '
+                'Fritz',
+                r)
             .label,
         'Completed Match');
-    final h = _row(e, 'Set Handicap: Taylor Fritz (-1.5) vs Arthur Fils (+1.5)',
-        r);
+    final h =
+        _row(e, 'Set Handicap: Taylor Fritz (-1.5) vs Arthur Fils (+1.5)', r);
+    // In sets, beside the handicap in games.
+    expect(h.type, GameLineType.setHandicap);
+    expect(
+        _row(e, 'Game Spread: Arthur Fils (-0.5) vs Taylor Fritz (+0.5)', r)
+            .type,
+        GameLineType.handicap);
     expect((h.label, h.sideB), ('Fritz -1.5', 'Fils +1.5'));
   });
 
@@ -242,7 +266,13 @@ void main() {
 
     test('spreads by the club\'s short name', () {
       final h = _row(e, 'Spread: Arsenal FC (-1.5)', r);
-      expect((h.period.isWhole, h.type, h.label, h.sideA, h.sideB), (
+      expect((
+        h.period.isWhole,
+        h.type,
+        h.label,
+        h.sideA,
+        h.sideB
+      ), (
         true,
         GameLineType.handicap,
         'Arsenal -1.5',
@@ -259,14 +289,18 @@ void main() {
       final h1 = _row(e, 'Arsenal FC vs. Hull City AFC: 1st Half O/U 1.5', r);
       expect((h1.period.key, h1.type, h1.label),
           ('half1', GameLineType.total, '1.5'));
-      final team =
-          _row(e, 'Arsenal FC vs. Hull City AFC: Hull City AFC 2nd Half O/U 1.5',
-              r);
+      final team = _row(
+          e, 'Arsenal FC vs. Hull City AFC: Hull City AFC 2nd Half O/U 1.5', r);
       expect((team.period.key, team.type, team.label),
           ('half2', GameLineType.teamTotals, 'Hull City 1.5'));
       final btts = _row(e,
           'Arsenal FC vs. Hull City AFC: Both Teams to Score in First Half', r);
-      expect((btts.period.key, btts.type, btts.label, btts.words), (
+      expect((
+        btts.period.key,
+        btts.type,
+        btts.label,
+        btts.words
+      ), (
         'half1',
         GameLineType.other,
         'Both Teams to Score',
@@ -282,7 +316,8 @@ void main() {
     test('quarters and halves of the lines', () {
       final q = _q(nfl, 'Jaguars vs. Ravens: 3Q O/U 5.5',
           kind: 'q3_totals', sides: ['Over', 'Under'], line: 5.5);
-      expect((q.period.key, q.type, q.label), ('q3', GameLineType.total, '5.5'));
+      expect(
+          (q.period.key, q.type, q.label), ('q3', GameLineType.total, '5.5'));
       final ml = _q(nfl, 'Jaguars vs. Ravens: 1Q Moneyline',
           kind: 'q1_moneyline', sides: ['Jaguars', 'Ravens']);
       expect((ml.period.key, ml.type, ml.label, ml.sideA, ml.sideB),
@@ -307,7 +342,11 @@ void main() {
       // A player's line is a Yes / No market: Yes is the Over.
       final p = _q(nba, 'Stephen Curry: Points O/U 25.5',
           kind: 'points', sides: ['Yes', 'No'], line: 25.5);
-      expect((p.type, p.label, p.words), (
+      expect((
+        p.type,
+        p.label,
+        p.words
+      ), (
         GameLineType.players,
         'Stephen Curry: Points 25.5',
         GameSideWords.overUnder
@@ -329,8 +368,8 @@ void main() {
           kind: 'basketball_odd_even', sides: ['Odd', 'Even']);
       expect((odd.words, odd.sideA, odd.sideB),
           (GameSideWords.named, 'Odd', 'Even'));
-      final two = _q(nfl,
-          'Jaguars vs. Ravens: Total Two-Point Conversions O/U 0.5',
+      final two = _q(
+          nfl, 'Jaguars vs. Ravens: Total Two-Point Conversions O/U 0.5',
           kind: 'two_point_conversions', sides: ['Over', 'Under'], line: 0.5);
       expect((two.type, two.label),
           (GameLineType.total, 'Total Two-Point Conversions 0.5'));

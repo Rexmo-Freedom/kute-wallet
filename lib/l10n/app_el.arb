@@ -3568,6 +3568,7 @@
   "polyPeriodPeriod": "Περίοδος {number}",
   "polyPeriodFirstFive": "Πρώτα 5 innings",
   "polyPeriodFirstInning": "1ο inning",
+  "polyLineSetHandicap": "Χάντικαπ σετ",
   "polyLineTotalGames": "Σύνολο παιχνιδιών",
   "polyLineTotalSets": "Σύνολο σετ",
   "polyLineTotalKills": "Σύνολο kills",

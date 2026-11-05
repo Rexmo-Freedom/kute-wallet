@@ -12774,6 +12774,9 @@ class AppLocalizationsEl extends AppLocalizations {
   String get polyPeriodFirstInning => '1ο inning';
 
   @override
+  String get polyLineSetHandicap => 'Χάντικαπ σετ';
+
+  @override
   String get polyLineTotalGames => 'Σύνολο παιχνιδιών';
 
   @override

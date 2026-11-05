@@ -12745,6 +12745,9 @@ class AppLocalizationsLt extends AppLocalizations {
   String get polyPeriodFirstInning => '1 iningas';
 
   @override
+  String get polyLineSetHandicap => 'Setų fora';
+
+  @override
   String get polyLineTotalGames => 'Iš viso žaidimų';
 
   @override

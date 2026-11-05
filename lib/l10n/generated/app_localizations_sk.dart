@@ -12704,6 +12704,9 @@ class AppLocalizationsSk extends AppLocalizations {
   String get polyPeriodFirstInning => '1. zmena';
 
   @override
+  String get polyLineSetHandicap => 'Handicap na sety';
+
+  @override
   String get polyLineTotalGames => 'Spolu hier';
 
   @override

@@ -12727,6 +12727,9 @@ class AppLocalizationsSl extends AppLocalizations {
   String get polyPeriodFirstInning => '1. menjava';
 
   @override
+  String get polyLineSetHandicap => 'Hendikep nizov';
+
+  @override
   String get polyLineTotalGames => 'Skupaj iger';
 
   @override
