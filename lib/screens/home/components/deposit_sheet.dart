@@ -1,4 +1,5 @@
-import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
+import 'package:kute/screens/shared/app_bottom_sheet.dart'
+    show KuteSheetBarFit, showKuteModalSheet;
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
@@ -5814,36 +5815,40 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       backgroundColor: _untintedColors(context).surface,
       shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24.r))),
+      // A short list: the floating bar goes while it is up
+      // (KuteSheetBarFit, the app's short-sheet rule).
       builder: (ctx) => _untinted(
           ctx,
-          SafeArea(
-            child: ListView(
-              shrinkWrap: true,
-              children: [
-                Padding(
-                  padding: EdgeInsets.all(16.w),
-                  child: Text(context.l10n.moveSelectCurrency,
-                      style: TextStyle(
-                          color: c.textPrimary,
-                          fontSize: 18.sp,
-                          fontWeight: FontWeight.w700)),
-                ),
-                for (final cur in _kBankFiatCurrencies)
-                  ListTile(
-                    leading:
-                        Text(_fiatFlag(cur), style: TextStyle(fontSize: 22.sp)),
-                    title: Text(cur,
-                        style:
-                            TextStyle(color: c.textPrimary, fontSize: 16.sp)),
-                    trailing: _fiatCurrency == cur
-                        ? Icon(Icons.check, color: c.accent)
-                        : null,
-                    onTap: () {
-                      setState(() => _fiatCurrency = cur);
-                      Navigator.of(ctx).pop();
-                    },
+          KuteSheetBarFit(
+            child: SafeArea(
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  Padding(
+                    padding: EdgeInsets.all(16.w),
+                    child: Text(context.l10n.moveSelectCurrency,
+                        style: TextStyle(
+                            color: c.textPrimary,
+                            fontSize: 18.sp,
+                            fontWeight: FontWeight.w700)),
                   ),
-              ],
+                  for (final cur in _kBankFiatCurrencies)
+                    ListTile(
+                      leading: Text(_fiatFlag(cur),
+                          style: TextStyle(fontSize: 22.sp)),
+                      title: Text(cur,
+                          style:
+                              TextStyle(color: c.textPrimary, fontSize: 16.sp)),
+                      trailing: _fiatCurrency == cur
+                          ? Icon(Icons.check, color: c.accent)
+                          : null,
+                      onTap: () {
+                        setState(() => _fiatCurrency = cur);
+                        Navigator.of(ctx).pop();
+                      },
+                    ),
+                ],
+              ),
             ),
           )),
     );
@@ -9131,63 +9136,69 @@ Future<T?> _showMovePickerSheet<T>(
       // opened this one. On a green sheet that ink is white, so the
       // title rendered white on the white picker and disappeared.
       final pc = _untintedColors(sheetCtx);
+      // A picker is a short sheet: content-sized under the short fraction,
+      // the floating bar goes while it is up (KuteSheetBarFit; founder,
+      // 5 November 2026: the Sal pill sat over the "Add money to Dollars"
+      // cards). A long list past it keeps the bar.
       return _untinted(
         sheetCtx,
-        Container(
-          decoration: BoxDecoration(
-            color: pc.surface,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
-          ),
-          padding: EdgeInsets.fromLTRB(0, 16.h, 0, 16.h),
-          child: SafeArea(
-            top: false,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40.w,
-                    height: 4.h,
-                    decoration: BoxDecoration(
-                      color: pc.dragHandle,
-                      borderRadius: BorderRadius.circular(2.r),
+        KuteSheetBarFit(
+          child: Container(
+            decoration: BoxDecoration(
+              color: pc.surface,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+            ),
+            padding: EdgeInsets.fromLTRB(0, 16.h, 0, 16.h),
+            child: SafeArea(
+              top: false,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40.w,
+                      height: 4.h,
+                      decoration: BoxDecoration(
+                        color: pc.dragHandle,
+                        borderRadius: BorderRadius.circular(2.r),
+                      ),
                     ),
                   ),
-                ),
-                SizedBox(height: 20.h),
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20.w),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          color: pc.textPrimary,
-                          fontSize: 28.sp,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.6,
-                        ),
-                      ),
-                      if (hint(policy).isNotEmpty) ...[
-                        SizedBox(height: 6.h),
+                  SizedBox(height: 20.h),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20.w),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          hint(policy),
+                          title,
                           style: TextStyle(
-                            color: pc.textTertiary,
-                            fontSize: 15.sp,
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: -0.1,
+                            color: pc.textPrimary,
+                            fontSize: 28.sp,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.6,
                           ),
                         ),
+                        if (hint(policy).isNotEmpty) ...[
+                          SizedBox(height: 6.h),
+                          Text(
+                            hint(policy),
+                            style: TextStyle(
+                              color: pc.textTertiary,
+                              fontSize: 15.sp,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: -0.1,
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
-                ),
-                SizedBox(height: 16.h),
-                ..._movePickerBody(rows(sheetCtx, policy)),
-                SizedBox(height: 8.h),
-              ],
+                  SizedBox(height: 16.h),
+                  ..._movePickerBody(rows(sheetCtx, policy)),
+                  SizedBox(height: 8.h),
+                ],
+              ),
             ),
           ),
         ),

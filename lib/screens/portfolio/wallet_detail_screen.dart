@@ -1,7 +1,8 @@
 // Detail and funding flows stay pinned to this wallet without changing the
 // spending account. The previous display scope is restored when leaving.
 
-import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
+import 'package:kute/screens/shared/app_bottom_sheet.dart'
+    show KuteSheetBarFit, showKuteModalSheet;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -384,49 +385,53 @@ class WalletMenuButton extends ConsumerWidget {
       context: context,
       useRootNavigator: true,
       backgroundColor: Colors.transparent,
-      builder: (sheetContext) => Container(
-        decoration: BoxDecoration(
-          color: c.surface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
-        ),
-        child: SafeArea(
-          top: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: EdgeInsets.only(top: 12.h, bottom: 4.h),
-                child: AppDecorations.dragHandle(sheetContext),
-              ),
-              _sheetRow(
-                sheetContext,
-                icon: Icons.edit_rounded,
-                label: context.l10n.rename,
-                onTap: () {
-                  TrackingService.track('wallet_menu_option_tapped', params: {
-                    'surface': 'wallet_detail',
-                    'option': 'rename',
-                    'wallet_kind': _walletKind,
-                  });
-                  _showRenameDialog(context, ref);
-                },
-              ),
-              _sheetRow(
-                sheetContext,
-                icon: Icons.delete_rounded,
-                label: context.l10n.delete,
-                destructive: true,
-                onTap: () {
-                  TrackingService.track('wallet_menu_option_tapped', params: {
-                    'surface': 'wallet_detail',
-                    'option': 'delete',
-                    'wallet_kind': _walletKind,
-                  });
-                  _handleDeleteRequest(context, ref);
-                },
-              ),
-              SizedBox(height: 8.h),
-            ],
+      // A short menu: the floating bar goes while it is up
+      // (KuteSheetBarFit, the app's short-sheet rule).
+      builder: (sheetContext) => KuteSheetBarFit(
+        child: Container(
+          decoration: BoxDecoration(
+            color: c.surface,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: EdgeInsets.only(top: 12.h, bottom: 4.h),
+                  child: AppDecorations.dragHandle(sheetContext),
+                ),
+                _sheetRow(
+                  sheetContext,
+                  icon: Icons.edit_rounded,
+                  label: context.l10n.rename,
+                  onTap: () {
+                    TrackingService.track('wallet_menu_option_tapped', params: {
+                      'surface': 'wallet_detail',
+                      'option': 'rename',
+                      'wallet_kind': _walletKind,
+                    });
+                    _showRenameDialog(context, ref);
+                  },
+                ),
+                _sheetRow(
+                  sheetContext,
+                  icon: Icons.delete_rounded,
+                  label: context.l10n.delete,
+                  destructive: true,
+                  onTap: () {
+                    TrackingService.track('wallet_menu_option_tapped', params: {
+                      'surface': 'wallet_detail',
+                      'option': 'delete',
+                      'wallet_kind': _walletKind,
+                    });
+                    _handleDeleteRequest(context, ref);
+                  },
+                ),
+                SizedBox(height: 8.h),
+              ],
+            ),
           ),
         ),
       ),

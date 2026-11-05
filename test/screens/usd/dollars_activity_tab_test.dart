@@ -9,6 +9,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/models/hyperliquid_market.dart' show HlPerpPosition;
@@ -19,6 +20,8 @@ import 'package:kute/screens/portfolio/components/balances_overview.dart'
     show BalancesVenueList;
 import 'package:kute/screens/portfolio/components/position_rows.dart'
     show HlPositionRow;
+import 'package:kute/screens/shared/all_activity.dart'
+    show ActivitySquareGrid;
 import 'package:kute/screens/shared/kute_bar_context.dart'
     show kuteBarContextProvider, kuteBarTop;
 import 'package:kute/screens/shared/no_activity_state.dart';
@@ -216,6 +219,102 @@ void main() {
         kuteBarTop(_container(tester).read(kuteBarContextProvider));
     expect(venueBar!.isPrimary, isFalse);
     expect(venueBar.label, 'Search investments or Manage with AI');
+    expect(tester.takeException(), isNull);
+    await unmountInvestments(tester);
+  });
+
+  testWidgets(
+      'one edge for every block: the squares, the P&L card and the Latest '
+      'card share the page\'s gutters, the headings one line 12 inside',
+      (tester) async {
+    // Founder, 5 November 2026 ("different size here"): the Latest card
+    // stood 16 inside the squares and the P&L card. Dark, as the screenshot.
+    final now = DateTime.now();
+    await pumpInvestments(tester,
+        dark: true,
+        // Tall enough that the Latest card is laid out.
+        size: const Size(390, 2000),
+        history: Transaction(
+          bitcoinTransactions: const [],
+          sparkTransactions: const [],
+          sparkUnclaimedDeposits: const [],
+          polymarketTransactions: [
+            for (var i = 1; i <= 3; i++) _bet('bet$i'),
+          ],
+        ),
+        overrides: [
+          hyperliquidTradingProvider.overrideWith(() => PortfolioTestTrading(
+                  HyperliquidTradingState(isInitialized: true, positions: [
+                _perp('BTC', 100),
+                _perp('ETH', 500),
+                _perp('HYPE', 300),
+              ]))),
+          portfolioPerformanceProvider(const PortfolioPerformanceRequest(
+                  venue: PortfolioPerformanceVenue.trading))
+              .overrideWith((_) async => PortfolioPerformance(
+                    points: [
+                      PortfolioPnlPoint(
+                          timestamp: now.subtract(const Duration(days: 20)),
+                          pnlUsd: 10),
+                      PortfolioPnlPoint(
+                          timestamp: now.subtract(const Duration(days: 2)),
+                          pnlUsd: 22.5),
+                    ],
+                    sourceLabel: '',
+                    basisLabel: 'P&L',
+                    coverageLabel: '',
+                  )),
+        ]);
+    final list =
+        tester.getRect(find.byKey(const ValueKey('dollars-activity-list')));
+    final squares = tester.getRect(find.descendant(
+        of: find.byKey(const ValueKey('dollars-activity-squares')),
+        matching: find.byType(ActivitySquareGrid)));
+    final pnl = tester.getRect(find.byKey(const ValueKey('dollars-pnl-strip')));
+    // The card's face (its clip), never a margin around it: a Container's
+    // rect counts its margin.
+    final latest = tester.getRect(find
+        .descendant(
+            of: find.byKey(const ValueKey('dollars-activity-rows')),
+            matching: find.byType(ClipRRect))
+        .first);
+    // The page's 16 gutters, one each side, for every block.
+    final gutter = 16.w;
+    for (final (name, r) in [
+      ('squares', squares),
+      ('P&L card', pnl),
+      ('Latest card', latest),
+    ]) {
+      expect(r.left - list.left, moreOrLessEquals(gutter, epsilon: 0.5),
+          reason: '$name left');
+      expect(list.right - r.right, moreOrLessEquals(gutter, epsilon: 0.5),
+          reason: '$name right');
+    }
+    expect(latest.left, moreOrLessEquals(squares.left, epsilon: 0.5));
+    expect(latest.right, moreOrLessEquals(squares.right, epsilon: 0.5));
+    expect(pnl.left, moreOrLessEquals(squares.left, epsilon: 0.5));
+    expect(pnl.right, moreOrLessEquals(squares.right, epsilon: 0.5));
+    // The squares' own cells reach the grid's edges.
+    final cells = find.descendant(
+        of: find.byKey(const ValueKey('dollars-activity-squares')),
+        matching: find.byType(HlPositionRow));
+    expect(tester.getRect(cells.at(0)).left,
+        moreOrLessEquals(squares.left, epsilon: 0.5));
+    expect(tester.getRect(cells.at(1)).right,
+        moreOrLessEquals(squares.right, epsilon: 0.5));
+    // Both headings on one line, 12 inside the blocks' edge (the Bitcoin
+    // home's "Latest" and "Earlier"), each over its block.
+    Rect heading(String key) => tester.getRect(find.descendant(
+        of: find.byKey(ValueKey(key)), matching: find.byType(Text)));
+    final positionsHeading = heading('dollars-activity-positions-heading');
+    final latestHeading = heading('dollars-activity-latest-heading');
+    expect(positionsHeading.left,
+        moreOrLessEquals(latestHeading.left, epsilon: 0.5));
+    expect(positionsHeading.left - squares.left,
+        moreOrLessEquals(12.w, epsilon: 0.5));
+    expect(positionsHeading.bottom, lessThanOrEqualTo(squares.top));
+    expect(latestHeading.bottom, lessThanOrEqualTo(latest.top));
+    expect(latestHeading.top, greaterThanOrEqualTo(pnl.bottom));
     expect(tester.takeException(), isNull);
     await unmountInvestments(tester);
   });

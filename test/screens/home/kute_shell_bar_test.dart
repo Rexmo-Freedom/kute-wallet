@@ -254,6 +254,49 @@ void main() {
   });
 
   testWidgets(
+      'a sheet with its own surface keeps the short-sheet rule through '
+      'KuteSheetBarFit: short, the bar goes; tall, it stays and the scroll '
+      'leaves it room', (tester) async {
+    // Founder, 5 November 2026: the Sal pill sat over the "Add money to
+    // Dollars" picker's cards, a sheet that draws its own surface.
+    await _pump(tester);
+    // ignore: unawaited_futures
+    showKuteModalSheet<void>(
+        context: _navKey.currentContext!,
+        isScrollControlled: true,
+        builder: (_) => const KuteSheetBarFit(
+            child: SizedBox(height: 300, child: Text('Picker'))));
+    await tester.pumpAndSettle();
+    expect(find.text('Picker'), findsOneWidget);
+    expect(_up(tester), isFalse);
+    _nav(tester).pop();
+    await tester.pumpAndSettle();
+
+    // Past the short fraction: the bar floats over it, and the sheet's
+    // scroll content leaves it room.
+    double? room;
+    // ignore: unawaited_futures
+    showKuteModalSheet<void>(
+        context: _navKey.currentContext!,
+        isScrollControlled: true,
+        builder: (_) => KuteSheetBarFit(
+              child: SizedBox(
+                height: 844 * 0.8,
+                child: Builder(builder: (context) {
+                  room = kuteSheetBarClearance(context);
+                  return const Text('Tall');
+                }),
+              ),
+            ));
+    await tester.pumpAndSettle();
+    expect(find.text('Tall'), findsOneWidget);
+    expect(_up(tester), isTrue);
+    expect(room, greaterThan(0));
+    _nav(tester).pop();
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets(
       'a page\'s context reads while its route is current; a sheet over it '
       'gets the default', (tester) async {
     await _pump(tester);
