@@ -119,7 +119,8 @@ void main() {
     expect(support.top, closeTo(referral.top, 0.5));
     expect(support.left, greaterThan(referral.right));
     expect(backup.width, closeTo(pin.width, 0.5));
-    expect(backup.height, greaterThanOrEqualTo(kKuteActionCardMinHeight));
+    // As tall as their content, the row's taller card setting both.
+    expect(backup.height, closeTo(pin.height, 0.5));
     // Their words, and nothing of them repeated as a row.
     for (final (id, title, line) in [
       ('backup', _l10n.settingsBackupAndRecovery,

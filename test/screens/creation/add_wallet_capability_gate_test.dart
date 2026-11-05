@@ -23,7 +23,6 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/creation/add_wallet.dart';
 import 'package:kute/screens/creation/bitcoin_wallet_setup.dart';
 import 'package:kute/screens/creation/xpub_import_screen.dart';
-import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/services/add_wallet_capabilities.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -255,8 +254,8 @@ void main() {
       expect(a.width, closeTo(b.width, 0.01), reason: reason);
       expect(a.height, closeTo(b.height, 0.01), reason: reason);
       expect(a.right, lessThan(b.left), reason: reason);
-      // Sized to what they hold, not the sheets' 170 floor.
-      expect(a.height, lessThan(kKuteActionCardMinHeight), reason: reason);
+      // Sized to what they hold, never a 170 floor.
+      expect(a.height, lessThan(170), reason: reason);
     }
     // Other wallet: the full width under Ledger and Jade, one compact
     // band, no half-width square left alone.

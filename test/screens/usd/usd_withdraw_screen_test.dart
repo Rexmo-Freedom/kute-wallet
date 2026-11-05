@@ -12,6 +12,8 @@
 // closes the sheet. Nothing here reaches a money call: every door is a
 // test seam.
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -316,8 +318,24 @@ void main() {
       expect(r(_alsoRow).left, moreOrLessEquals(r(_pickRow).left));
       expect(r(_bitcoinRow).right, lessThan(r(_alsoRow).left));
       expect(r(_bitcoinRow).width, moreOrLessEquals(r(_alsoRow).width));
-      expect(r(_bitcoinRow).height,
-          greaterThanOrEqualTo(kKuteActionCardMinHeight));
+      // As tall as their content: the row ends one padding under the
+      // taller card's last line; no floor, no half-empty square.
+      double lastLine(Key key) {
+        final texts =
+            find.descendant(of: find.byKey(key), matching: find.byType(Text));
+        var bottom = 0.0;
+        for (var i = 0; i < texts.evaluate().length; i++) {
+          bottom = math.max(bottom, tester.getRect(texts.at(i)).bottom);
+        }
+        return bottom;
+      }
+      expect(
+          r(_bitcoinRow).bottom,
+          moreOrLessEquals(
+              math.max(lastLine(_bitcoinRow), lastLine(_alsoRow)) +
+                  kKuteActionCardPadding +
+                  1,
+              epsilon: 1));
       double top(Finder f) => tester.getTopLeft(f).dy;
       expect(top(find.byKey(const ValueKey('send-recipient-search'))),
           lessThan(top(find.text(_l10n.sendToLabel))));

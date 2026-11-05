@@ -7814,7 +7814,9 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   /// AS A SQUARE (founder, 5 November 2026: "I think these should be cards
   /// like squares, also in Bitcoin"): the option is the app's big card
   /// (kute_action_cards.dart), the only one on a bitcoin send, so full
-  /// width (KuteActionCardGrid's one card; no half card alone). An address
+  /// width and compact (KuteActionCardGrid's lone card; founder, 5
+  /// November 2026: "here no need to be as big"): the coins at its left,
+  /// the words beside them, a chevron at its right. An address
   /// that still needs a network stays the emphasized row: it is the one
   /// forward path, a question rather than an option, and its border says
   /// so.
