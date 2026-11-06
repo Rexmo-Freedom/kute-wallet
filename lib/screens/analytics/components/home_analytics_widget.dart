@@ -143,8 +143,9 @@ class HomeAnalyticsWidget extends ConsumerStatefulWidget {
   final bool showBalanceHeadline;
 
   /// The Bitcoin home's milestones on the Balance tab (balance_goals.dart):
-  /// the goal line, the level and progress, the Move to Dollars nudge.
-  /// Only the Bitcoin home's spending wallet passes true.
+  /// the goal line on the plot; under the card, the Level and Next goal
+  /// squares and the Move to Dollars nudge. Only the Bitcoin home's
+  /// spending wallet passes true.
   final bool balanceGoals;
 
   const HomeAnalyticsWidget({
@@ -708,10 +709,11 @@ class _InternalAnalyticsViewState
 
     // The Balance tab's card is as tall as its chart (founder, 6 November
     // 2026: "card bottom is not great, it expands too much"): the header,
-    // the plot, the range row, the footer when there is one, and the
-    // card's own 16 under it. No fixed height, no dead space.
+    // the plot, the range row and the card's own 16 under it. No fixed
+    // height, no dead space. On the Bitcoin home the milestones stand
+    // under the card, never inside it (balance_goals.dart).
     if (tab == AnalyticsTab.valuation) {
-      return AnalyticsCard(
+      Widget card(KuteTrendGoal? goal) => AnalyticsCard(
         key: const ValueKey('balance-card'),
         height: null,
         child: Padding(
@@ -759,10 +761,17 @@ class _InternalAnalyticsViewState
                 currency: currency,
                 c: c,
                 nonBtcFiatOffset: nonBtcFiatOffset,
+                balanceGoal: goal,
               ),
             ],
           ),
         ),
+      );
+      if (!widget.balanceGoals) return card(null);
+      final history = ref.watch(bitcoinBalanceStepsProvider);
+      return BalanceGoals(
+        hasHistory: history.changes.isNotEmpty || history.opening > 0,
+        card: card,
       );
     }
 
@@ -1071,6 +1080,7 @@ class _InternalAnalyticsViewState
     required String currency,
     required AppColorsExtension c,
     required double nonBtcFiatOffset,
+    KuteTrendGoal? balanceGoal,
   }) {
     // Tabs that do NOT need market data
     switch (tab) {
@@ -1107,8 +1117,7 @@ class _InternalAnalyticsViewState
       case AnalyticsTab.valuation:
         // The Balance tab: its own range row under the plot (the range
         // row above and LIVE are the Price tab's).
-        return _BitcoinBalanceHistory(
-            btcFormat: btcFormat, goals: widget.balanceGoals);
+        return _BitcoinBalanceHistory(btcFormat: btcFormat, goal: balanceGoal);
       default:
         break;
     }
@@ -1252,10 +1261,11 @@ class _InternalAnalyticsViewState
 class _BitcoinBalanceHistory extends ConsumerWidget {
   final String btcFormat;
 
-  /// The Bitcoin home's milestones (balance_goals.dart).
-  final bool goals;
+  /// The Bitcoin home's next milestone, drawn as the plot's goal line
+  /// (balance_goals.dart); null draws none.
+  final KuteTrendGoal? goal;
 
-  const _BitcoinBalanceHistory({required this.btcFormat, this.goals = false});
+  const _BitcoinBalanceHistory({required this.btcFormat, this.goal});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1263,21 +1273,17 @@ class _BitcoinBalanceHistory extends ConsumerWidget {
     final currency = ref.watch(settingsProvider.select((s) => s.currency));
     final fiatPerBtc = ref.watch(selectedCurrencyProvider(currency)).toDouble();
     final fiat = NumberFormat.simpleCurrency(name: currency, decimalDigits: 2);
-    Widget chart(KuteTrendGoal? goal, Widget? footer) => BalanceHistoryChart(
-          history: history,
-          // As the app writes a bitcoin amount: "₿17,520", "₿0.00017520".
-          format: (sats) => '₿${sats.round().toFormattedString(btcFormat)}',
-          // Its worth in the display currency at today's price, under it.
-          secondary: fiatPerBtc > 0
-              ? (sats) => fiat.format(sats / 1e8 * fiatPerBtc)
-              : null,
-          rangeKey: 'bitcoin',
-          trackingChart: 'valuation',
-          goal: goal,
-          footer: footer,
-        );
-    if (!goals) return chart(null, null);
-    return BalanceGoalsChart(chart: chart);
+    return BalanceHistoryChart(
+      history: history,
+      // As the app writes a bitcoin amount: "₿17,520", "₿0.00017520".
+      format: (sats) => '₿${sats.round().toFormattedString(btcFormat)}',
+      // Its worth in the display currency at today's price, under it.
+      secondary:
+          fiatPerBtc > 0 ? (sats) => fiat.format(sats / 1e8 * fiatPerBtc) : null,
+      rangeKey: 'bitcoin',
+      trackingChart: 'valuation',
+      goal: goal,
+    );
   }
 }
 

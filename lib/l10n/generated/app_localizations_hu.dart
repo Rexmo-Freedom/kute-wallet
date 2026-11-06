@@ -11619,6 +11619,17 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
+  String get balanceGoalsHeading => 'Célok';
+
+  @override
+  String get balanceGoalNext => 'Következő cél';
+
+  @override
+  String balanceGoalToGo(String amount) {
+    return 'Még $amount';
+  }
+
+  @override
   String balanceGoalChartLabel(String goal) {
     return 'Következő: $goal';
   }
@@ -11632,16 +11643,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get balanceGoalMovePlain => 'Áthelyezés Dollárba';
 
   @override
-  String get balanceGoalMoveWhyBoth =>
-      'A pénzed, több lehetőség: Befektetés és Előrejelzések dollárban.';
-
-  @override
-  String get balanceGoalMoveWhyInvesting =>
-      'A pénzed, több lehetőség: Befektetés dollárban.';
-
-  @override
-  String get balanceGoalMoveWhyPredictions =>
-      'A pénzed, több lehetőség: Előrejelzések dollárban.';
+  String get balanceGoalMoveWhy => 'A pénzed, több lehetőség dollárban.';
 
   @override
   String balanceMilestonePassed(String amount) {

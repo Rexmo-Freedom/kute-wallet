@@ -11645,6 +11645,17 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
+  String get balanceGoalsHeading => 'Tikslai';
+
+  @override
+  String get balanceGoalNext => 'Kitas tikslas';
+
+  @override
+  String balanceGoalToGo(String amount) {
+    return 'Liko $amount';
+  }
+
+  @override
   String balanceGoalChartLabel(String goal) {
     return 'Kitas: $goal';
   }
@@ -11658,16 +11669,7 @@ class AppLocalizationsLt extends AppLocalizations {
   String get balanceGoalMovePlain => 'Perkelti į Dolerius';
 
   @override
-  String get balanceGoalMoveWhyBoth =>
-      'Jūsų pinigai, daugiau galimybių: Investavimas ir Prognozės doleriais.';
-
-  @override
-  String get balanceGoalMoveWhyInvesting =>
-      'Jūsų pinigai, daugiau galimybių: Investavimas doleriais.';
-
-  @override
-  String get balanceGoalMoveWhyPredictions =>
-      'Jūsų pinigai, daugiau galimybių: Prognozės doleriais.';
+  String get balanceGoalMoveWhy => 'Jūsų pinigai, daugiau galimybių doleriais.';
 
   @override
   String balanceMilestonePassed(String amount) {
