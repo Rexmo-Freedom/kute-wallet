@@ -11092,6 +11092,24 @@ abstract class AppLocalizations {
   /// **'The exchange has not confirmed the result. Check your orders and balance before trying again.'**
   String get investingSubmissionUnknown;
 
+  /// Prediction slip button and Portfolio card while the app looks the order up with Polymarket after an answer that proved nothing (a timeout, a dropped connection) or after the card waited a long time. Never a failure.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirming with Polymarket…'**
+  String get betConfirmingWithVenue;
+
+  /// Investing order slip button while the app looks the order up with the exchange (by its client order id) after an answer that proved nothing (a timeout, a dropped connection, a gateway error).
+  ///
+  /// In en, this message translates to:
+  /// **'Confirming with the exchange…'**
+  String get investingConfirmingWithExchange;
+
+  /// Investing order slip notice when the order's answer never came and the app then read the account for long enough to know the exchange took nothing: no fill, no resting order.
+  ///
+  /// In en, this message translates to:
+  /// **'This order did not go through. Nothing was placed.'**
+  String get investingOrderNotPlaced;
+
   /// No description provided for @investingApprovalExpired.
   ///
   /// In en, this message translates to:
@@ -19419,6 +19437,144 @@ abstract class AppLocalizations {
   /// **'It starts with your first transaction.'**
   String get balanceNoHistorySub;
 
+  /// Bitcoin home, Balance tab, the Level square under the chart: the level on the milestone ladder (levels go up as the person's Bitcoin + Dollars total passes round figures), the square's large figure. The level's name is the quiet line above it. Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Level {level}'**
+  String balanceGoalLevel(int level);
+
+  /// Level name (level 1, below the first milestone, about $100). Deadpan, playful, never about returns. Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Warming up'**
+  String get balanceLevelName0;
+
+  /// Level name (level 2, past ~$100). Deadpan, short.
+  ///
+  /// In en, this message translates to:
+  /// **'Pocket money'**
+  String get balanceLevelName1;
+
+  /// Level name (level 3, past ~$250). 'Stacker' as in someone who stacks sats. Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Stacker'**
+  String get balanceLevelName2;
+
+  /// Level name (level 4, past ~$500). Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Regular'**
+  String get balanceLevelName3;
+
+  /// Level name (level 5, past ~$1,000). Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Grown-up'**
+  String get balanceLevelName4;
+
+  /// Level name (level 6, past ~$2,500). Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Serious'**
+  String get balanceLevelName5;
+
+  /// Level name (level 7, past ~$5,000). Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Steady hand'**
+  String get balanceLevelName6;
+
+  /// Level name (level 8, past ~$10,000). Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Heavyweight'**
+  String get balanceLevelName7;
+
+  /// Level name (level 9, past ~$25,000). Dog pun (Sal is a dog), means a big shot. Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Big dog'**
+  String get balanceLevelName8;
+
+  /// Level name (level 10, past ~$50,000). Dog pun, the one at the top. Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Top dog'**
+  String get balanceLevelName9;
+
+  /// Level name (level 11, past ~$100,000). Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Legend'**
+  String get balanceLevelName10;
+
+  /// Level name (level 12 and every level above). Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Off the charts'**
+  String get balanceLevelName11;
+
+  /// Bitcoin home, Balance tab, the Level square: the small line over 'Level 3', how far the Bitcoin + Dollars total is towards the next round goal ('62% to $500'). percent is a whole number; goal is a formatted amount. Short: it shares half the screen's width.
+  ///
+  /// In en, this message translates to:
+  /// **'{percent}% to {goal}'**
+  String balanceGoalProgress(int percent, String goal);
+
+  /// Bitcoin home, Balance tab: the small section heading under the chart, over the Level and Next goal squares (round balance milestones). One word.
+  ///
+  /// In en, this message translates to:
+  /// **'Goals'**
+  String get balanceGoalsHeading;
+
+  /// Bitcoin home, Balance tab, the Next goal square: its label, over the goal written large ('$500'). The goal is the next round figure for the person's Bitcoin + Dollars total. Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Next goal'**
+  String get balanceGoalNext;
+
+  /// Bitcoin home, Balance tab, the Next goal square: what is left to reach the goal ('$250 to go'). amount is a formatted amount. Short: it shares half the screen's width.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} to go'**
+  String balanceGoalToGo(String amount);
+
+  /// Bitcoin home, Balance chart: the small label on the dashed goal line ('Next $500'). Very short.
+  ///
+  /// In en, this message translates to:
+  /// **'Next {goal}'**
+  String balanceGoalChartLabel(String goal);
+
+  /// Bitcoin home, Balance tab: the title of the card under the goals that opens the Move to Dollars sheet with this amount filled in (bitcoin into the Dollars account). Never imply growth or returns.
+  ///
+  /// In en, this message translates to:
+  /// **'Move {amount} to Dollars'**
+  String balanceGoalMove(String amount);
+
+  /// Same row as balanceGoalMove while balances are hidden (no amount).
+  ///
+  /// In en, this message translates to:
+  /// **'Move to Dollars'**
+  String get balanceGoalMovePlain;
+
+  /// The line under 'Move $25 to Dollars'. Ambition and control, never returns: Dollars (the app's dollar account) open more places for the money. Names no product or venue. One short line.
+  ///
+  /// In en, this message translates to:
+  /// **'Your money, more places to go in Dollars.'**
+  String get balanceGoalMoveWhy;
+
+  /// Bitcoin home, Balance tab: shown once, large, with Sal and confetti in place of the goal squares when the Bitcoin + Dollars total passes a round goal ('You passed $250').
+  ///
+  /// In en, this message translates to:
+  /// **'You passed {amount}'**
+  String balanceMilestonePassed(String amount);
+
+  /// The deadpan line under balanceMilestonePassed: the total counts Bitcoin and Dollars, and Sal (the dog mascot) plays it cool. One short line.
+  ///
+  /// In en, this message translates to:
+  /// **'Bitcoin and Dollars together. Sal is acting like it\'s nothing.'**
+  String get balanceMilestonePassedLine;
+
   /// Portfolio P&L Charts, empty: the title over Sal.
   ///
   /// In en, this message translates to:
@@ -20035,7 +20191,7 @@ abstract class AppLocalizations {
   /// **'Name, address or phone'**
   String get usdSendSearchHint;
 
-  /// Dollars Send, Send to card: move dollars to the user's own Bitcoin.
+  /// Dollars Send, the chip under Frequent (keep it short: three chips share a phone's width): move dollars to the user's own Bitcoin.
   ///
   /// In en, this message translates to:
   /// **'To your Bitcoin'**
@@ -20052,6 +20208,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'From your Bitcoin'**
   String get usdReceiveFromYourBitcoin;
+
+  /// Title of the first sheet the Receive button opens on the Bitcoin and Dollars tabs: receive from another wallet, or swap (convert) from your own Bitcoin, Dollars or another asset. Short; one line at 375 pt.
+  ///
+  /// In en, this message translates to:
+  /// **'Receive or swap'**
+  String get receiveOrSwapTitle;
+
+  /// Bitcoin Receive or swap sheet, card title: move money from the user's own Dollars balance into Bitcoin. Dollars is the account name.
+  ///
+  /// In en, this message translates to:
+  /// **'From your Dollars'**
+  String get receiveFromYourDollars;
+
+  /// Under From your Dollars: the user's Dollars balance, e.g. "$4.75 in Dollars". Dollars is the account name.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} in Dollars'**
+  String usdDollarsBalanceLine(String amount);
+
+  /// Bitcoin Receive or swap sheet, card title: receive another coin (USDC, USDT, ETH...) that arrives as bitcoin.
+  ///
+  /// In en, this message translates to:
+  /// **'From another asset'**
+  String get receiveFromAnotherAsset;
+
+  /// Bitcoin Receive or swap sheet, under the Bitcoin card: the networks its QR code accepts.
+  ///
+  /// In en, this message translates to:
+  /// **'Bitcoin and Lightning'**
+  String get receiveBitcoinAndLightning;
 
   /// No description provided for @sendRailBitcoinOnchain.
   ///
@@ -22977,6 +23163,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'To a crypto address'**
   String get sendToCryptoAddress;
+
+  /// Send (Bitcoin and Dollars): the small header over the one row of chips between Frequent and All contacts (To your Bitcoin or To Dollars, Crypto address, Prediction).
+  ///
+  /// In en, this message translates to:
+  /// **'More ways to send'**
+  String get sendMoreWaysToSend;
+
+  /// Send (Bitcoin and Dollars): the short chip label that opens the coins this money can land as on another chain. Keep it short: three chips share a phone's width.
+  ///
+  /// In en, this message translates to:
+  /// **'Crypto address'**
+  String get sendWayCryptoAddress;
+
+  /// Send (Bitcoin and Dollars): the short chip label that opens the market search to send a prediction or an investment. Keep it short.
+  ///
+  /// In en, this message translates to:
+  /// **'Prediction'**
+  String get sendWayPrediction;
+
+  /// Bitcoin Send: the short chip label that moves bitcoin into the user's own Dollars account (the Move money sheet). Keep it short.
+  ///
+  /// In en, this message translates to:
+  /// **'To Dollars'**
+  String get sendWayToDollars;
 
   /// Under Send a prediction on the Dollars Send's To a friend card: the row opens the market search (predictions and investing).
   ///

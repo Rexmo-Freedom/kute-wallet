@@ -2,9 +2,10 @@
 // Investments category sheet (investments_category_sheet.dart; founder,
 // 1 November 2026: "user has clicked, so show the market categories"):
 // the Sal sheet opens with EVERY category of the venue under its
-// composer, as the category grid's own tiles in a two-column grid, the
-// picked one in the white-pill style; never the generic arrow cards. A
-// tap on a tile picks it and closes both sheets.
+// composer, as the category grid's own cards in a two-column grid (the
+// same 96 px card for both venues since 6 November 2026, an odd last one
+// full width), the picked one in the white-pill style; never the generic
+// arrow cards. A tap on a tile picks it and closes both sheets.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -151,7 +152,8 @@ void main() {
     expect(ctx.sheetHome, isNotNull);
 
     // The grid under the composer: every topic on offer, each with
-    // Polymarket's own glyph and its name, in two 56 px columns.
+    // Polymarket's own glyph and its name, in two columns of Investing's
+    // 96 px cards.
     expect(_grid, findsOneWidget);
     final policy = _container(tester).read(runtimeCapabilitiesProvider);
     final offered = [
@@ -172,7 +174,7 @@ void main() {
     final second = tester.getRect(_salTile(offered[1].key));
     expect(second.top, first.top, reason: 'two columns');
     expect(second.left, greaterThan(first.right));
-    expect(first.height, 56);
+    expect(first.height, 96);
     expect(tester.getRect(_salTile(offered[2].key)).left, first.left);
 
     // The picked one in the white-pill style, the others flat.

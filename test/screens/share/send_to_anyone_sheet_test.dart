@@ -2,16 +2,36 @@
 // name under the live share card, Create link posting to the backend, the
 // card in full with Share as the bar (the PNG and the OS share text), the
 // local pending row and the events. Plus the market share sheet's referral link.
+//
+// THE AMOUNT STEP IS THE SEND'S (founder, 6 November 2026: "this one must
+// have the sats and such, like here"): a bitcoin link opens in sats with
+// the Send amount step's own pieces (the ₿ figure, the other unit with the
+// ⇅ swap, "N sats available · $X", the unit pill and its sheet, 25% · 50%
+// · 100%); a dollar link keeps dollars only, "$X available".
 // The sheet's Continue / Create link / Done is the floating Sal bar
 // (kute_bar_test_support.dart).
 
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:money2/money2.dart' show Fixed;
 import 'package:share_plus/share_plus.dart' show XFile;
+import 'package:kute/models/balance_model.dart';
+import 'package:kute/models/currency_conversions.dart';
 import 'package:kute/models/polymarket_model.dart';
+import 'package:kute/models/settings_model.dart';
 import 'package:kute/models/share_link_model.dart';
+import 'package:kute/providers/balance_provider.dart';
+import 'package:kute/providers/currency_conversions_provider.dart';
+import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/screens/shared/send/send_flow_widgets.dart'
+    show
+        SendAmountConversionLine,
+        SendAmountUnitPill,
+        SendBitcoinAmountHero,
+        SendTypedAmountHero;
 import 'package:kute/providers/polymarket_browse_provider.dart'
     show polymarketEventDetailsProvider;
 import 'package:kute/screens/share/cards/share_card_preview.dart';
@@ -55,6 +75,54 @@ final _election = PolymarketEvent(
         name: 'Jon Ossoff', price: 0.21, tokenId: 'o-y', noTokenId: 'o-n', conditionId: 'c-o'),
   ],
 );
+
+class _Balances extends WalletBalanceCacheNotifier {
+  _Balances(Map<String, WalletBalance> values) {
+    state = values;
+  }
+}
+
+/// Rates without Hive: bitcoin at $100,000.
+class _Rates extends StateNotifier<CurrencyState> implements CurrencyNotifier {
+  _Rates()
+      : super(CurrencyState({
+          'USD': Fixed.fromInt(100),
+          'BTC': Fixed.parse('0.00001'),
+        }));
+
+  @override
+  Future<void> updateRates() async {}
+}
+
+/// The spending wallet holding [sats], bitcoin at $100,000, sats as the
+/// Bitcoin unit and dollars as the currency.
+List<Override> _bitcoinWallet({int sats = 328686}) => [
+      settingsProvider.overrideWith((_) => SettingsModel(Settings(
+            currency: 'USD',
+            language: 'en',
+            btcFormat: 'sats',
+            backup: false,
+            biometricsEnabled: false,
+            bitcoinElectrumNode: '',
+            nodeType: 'Blockstream',
+            reviewDone: true,
+            activeWalletId: 'spending',
+            wallets: [WalletConfig(id: 'spending', name: 'Spending')],
+          ))),
+      walletBalanceCacheProvider.overrideWith((_) => _Balances({
+            'spending': WalletBalance(
+                onChainBtcBalance: 0, sparkBitcoinbalance: sats),
+          })),
+      currencyProvider.overrideWith((_) => _Rates()),
+    ];
+
+Future<void> _keys(WidgetTester tester, String keys) async {
+  for (final k in keys.split('')) {
+    await tester.tap(find.text(k).last);
+    await tester.pump();
+  }
+  await settle(tester);
+}
 
 void main() {
   late ShareTestEnv env;
@@ -417,6 +485,187 @@ void main() {
     expect(shared, isEmpty);
     expect(ShareLinksStore.all(), isEmpty);
     expect(env.paramsOf('share_link_created'), isEmpty);
+  });
+
+  testWidgets(
+      'a bitcoin link\'s amount step is the Send amount step: sats by '
+      'default (the sats pill that opens the unit sheet), the ₿ figure, the '
+      'dollars under it with the ⇅ swap, "328,686 sats available · '
+      '\$328.69", 25% · 50% · 100%; the sats typed are the link\'s',
+      (tester) async {
+    await pumpShareWidget(
+        tester, env, const SendToAnyoneSheet(kind: ShareLinkKind.bitcoin),
+        overrides: _bitcoinWallet());
+    expect(tester.takeException(), isNull);
+    // The Send's pieces, in sats.
+    expect(find.byType(SendBitcoinAmountHero), findsOneWidget);
+    final pill = tester.widget<SendAmountUnitPill>(
+        find.byKey(const ValueKey('share-amount-unit')));
+    expect(pill.code, 'Sats');
+    expect(pill.onTap, isNotNull);
+    expect(
+        find.descendant(
+            of: find.byKey(const ValueKey('share-amount-unit')),
+            matching: find.byIcon(Icons.expand_more_rounded)),
+        findsOneWidget);
+    expect(find.text('328,686 sats available · \$328.69'), findsOneWidget);
+    expect(find.byType(SendAmountConversionLine), findsOneWidget);
+    expect(find.byIcon(Icons.swap_vert_rounded), findsOneWidget);
+    for (final p in ['25%', '50%', '100%']) {
+      expect(find.text(p), findsOneWidget);
+    }
+    // The old dollar-typed figure with a "₿ USD" chip is gone.
+    expect(find.byType(SendTypedAmountHero), findsNothing);
+
+    // 5,000 sats typed: the figure, and $5.00 under it.
+    await _keys(tester, '5000');
+    expect(
+        tester.widget<SendBitcoinAmountHero>(
+            find.byType(SendBitcoinAmountHero)).digits,
+        '5000');
+    expect(find.text('\$5.00'), findsOneWidget);
+
+    // ⇅: the same amount in dollars, the sats under it; and back.
+    await tester.tap(find.byKey(const ValueKey('send-amount-swap')));
+    await settle(tester);
+    expect(find.byType(SendBitcoinAmountHero), findsNothing);
+    expect(
+        tester.widget<SendTypedAmountHero>(find.byType(SendTypedAmountHero))
+            .typed,
+        '5.00');
+    expect(find.text('₿5,000'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('send-amount-swap')));
+    await settle(tester);
+    expect(
+        tester.widget<SendBitcoinAmountHero>(
+            find.byType(SendBitcoinAmountHero)).digits,
+        '5000');
+
+    // 50% of the spending bitcoin; 100% is all of it.
+    await tester.tap(find.text('50%'));
+    await settle(tester);
+    expect(
+        tester.widget<SendBitcoinAmountHero>(
+            find.byType(SendBitcoinAmountHero)).digits,
+        '164343');
+    await tester.tap(find.text('100%'));
+    await settle(tester);
+    expect(
+        tester.widget<SendBitcoinAmountHero>(
+            find.byType(SendBitcoinAmountHero)).digits,
+        '328686');
+    expect(find.byKey(const ValueKey('send-amount-warning')), findsNothing);
+
+    // One more digit: more than there is, red, and Continue stays off.
+    await _keys(tester, '0');
+    expect(find.byKey(const ValueKey('send-amount-warning')), findsOneWidget);
+    expect(find.text('That is more than you have available.'), findsOneWidget);
+    expect(
+        tester
+            .widget<SendBitcoinAmountHero>(find.byType(SendBitcoinAmountHero))
+            .overBalance,
+        isTrue);
+    expect(kuteBarPrimaryEnabled(tester), isFalse);
+    expect(kuteBarPrimaryWithText('Lower the amount'), findsOneWidget);
+
+    // Back under it: the sats typed are the link's.
+    await tester.tap(find.text('50%'));
+    await settle(tester);
+    await tester.tap(kuteBarPrimaryWithText('Continue'));
+    await settle(tester);
+    await tester.tap(kuteBarPrimaryWithText('Create link'));
+    await settle(tester);
+    expect(env.fake.calls.single.$2['kind'], 'bitcoin');
+    expect(env.fake.calls.single.$2['amountMinor'], 164343);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'the unit pill opens the Send\'s unit sheet; a dollar figure typed '
+      'there goes on the link as its sats', (tester) async {
+    await pumpShareWidget(
+        tester, env, const SendToAnyoneSheet(kind: ShareLinkKind.bitcoin),
+        overrides: _bitcoinWallet());
+    await tester.tap(find.byKey(const ValueKey('share-amount-unit')));
+    await settle(tester);
+    expect(find.text('USD'), findsWidgets);
+    await tester.tap(find.text('USD').last);
+    await settle(tester);
+    expect(
+        tester
+            .widget<SendAmountUnitPill>(
+                find.byKey(const ValueKey('share-amount-unit')))
+            .code,
+        'USD');
+    await _keys(tester, '12');
+    expect(find.text('₿12,000'), findsOneWidget);
+    await tester.tap(kuteBarPrimaryWithText('Continue'));
+    await settle(tester);
+    await tester.tap(kuteBarPrimaryWithText('Create link'));
+    await settle(tester);
+    expect(env.fake.calls.single.$2['amountMinor'], 12000);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'a dollar link keeps dollars only: the USD pill names the unit (no '
+      'sheet), "\$40.00 available", no ⇅; 100% is the balance and over it '
+      'is red with Continue off', (tester) async {
+    await pumpShareWidget(
+        tester, env, const SendToAnyoneSheet(kind: ShareLinkKind.dollars),
+        dollars: 40);
+    final pill = tester.widget<SendAmountUnitPill>(
+        find.byType(SendAmountUnitPill));
+    expect(pill.code, 'USD');
+    expect(pill.onTap, isNull);
+    expect(find.text('\$40.00 available'), findsOneWidget);
+    expect(find.byType(SendAmountConversionLine), findsNothing);
+    expect(find.byType(SendBitcoinAmountHero), findsNothing);
+    // Over the balance: red, and Continue stays off.
+    await _keys(tester, '45');
+    expect(find.byKey(const ValueKey('send-amount-warning')), findsOneWidget);
+    expect(
+        tester.widget<SendTypedAmountHero>(find.byType(SendTypedAmountHero))
+            .overBalance,
+        isTrue);
+    expect(kuteBarPrimaryEnabled(tester), isFalse);
+    // 100%: the whole balance, to the cent.
+    await tester.tap(find.text('100%'));
+    await settle(tester);
+    expect(
+        tester.widget<SendTypedAmountHero>(find.byType(SendTypedAmountHero))
+            .typed,
+        '40.00');
+    expect(find.byKey(const ValueKey('send-amount-warning')), findsNothing);
+    expect(kuteBarPrimaryEnabled(tester), isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'the bitcoin amount step at 375 x 667: nothing overflows, the keypad '
+      'and the percent row on screen', (tester) async {
+    await pumpShareWidget(
+      tester,
+      env,
+      Builder(
+        builder: (context) => Center(
+          child: TextButton(
+            onPressed: () => showSendToAnyoneSheet(context,
+                kind: ShareLinkKind.bitcoin, entrySource: 'test'),
+            child: const Text('open'),
+          ),
+        ),
+      ),
+      overrides: _bitcoinWallet(),
+    );
+    tester.view.physicalSize = const Size(375, 667);
+    await tester.pump();
+    await tester.tap(find.text('open'));
+    await settle(tester);
+    expect(tester.takeException(), isNull);
+    await _keys(tester, '1234567');
+    expect(tester.takeException(), isNull);
+    expect(find.text('100%'), findsOneWidget);
   });
 
   test('the market link carries the referral code as ref', () {

@@ -9,11 +9,21 @@
 // the number kept on the phone; a contact with a Kute Lightning address
 // wears the Kute badge and is paid directly; a typed number no contact has
 // offers "Send a link to +…".
+//
+// ONE QUESTION PER LEVEL, PEOPLE FIRST (founder, 6 November 2026): the
+// search field, Frequent, then under a small "More ways to send" label ONE
+// row of three small equal chips ("To Dollars": the Move money sheet,
+// Bitcoin to Dollars; "Crypto address": the destination sheet;
+// "Prediction": the market search), then All contacts. No big card grid;
+// an address that needs a network still asks in the highlighted row.
 
 import 'dart:io';
 
+import 'package:flutter/services.dart' show FontLoader, rootBundle;
+
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart' show Contact;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -33,12 +43,21 @@ import 'package:kute/providers/spark_contacts_provider.dart';
 import 'package:kute/screens/pay/components/confirm_send.dart';
 import 'package:kute/screens/share/send_to_anyone_sheet.dart';
 import 'package:kute/screens/shared/coin_asset_grid.dart' show CoinAssetTile;
-import 'package:kute/screens/shared/kute_action_cards.dart';
+import 'package:kute/screens/search/components/search_rows.dart'
+    show SearchChanceGauge;
 import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show SendToListCard;
 import 'package:kute/screens/shared/send/send_recipient_step.dart'
-    show SendAlsoSendsToRow, SendCoinStack;
+    show
+        SendAlsoSendsToRow,
+        SendCoinStack,
+        SendWayChip,
+        SendWaysRow,
+        kSendWayChipGap;
+import 'package:kute/screens/shared/kute_action_cards.dart'
+    show KuteActionCard, KuteActionCardGrid;
+import 'package:flutter_svg/flutter_svg.dart' show SvgPicture;
 import 'package:kute/screens/shared/sal_sprite.dart' show SalSpriteCache;
 import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/screens/shared/stepper/stepper_widgets.dart'
@@ -119,8 +138,11 @@ class _Paid extends SparkContactsNotifier {
 }
 
 Future<void> _pump(WidgetTester tester,
-    {bool catalog = false, bool recents = false}) async {
-  tester.view.physicalSize = const Size(1125, 2436);
+    {bool catalog = false,
+    bool recents = false,
+    Locale? locale,
+    Size size = const Size(375, 812)}) async {
+  tester.view.physicalSize = size * 3;
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.reset);
   final router = GoRouter(routes: [
@@ -167,6 +189,7 @@ Future<void> _pump(WidgetTester tester,
             splashFactory: NoSplash.splashFactory,
             fontFamily: 'Inter',
             extensions: [AppColorsExtension.light()]),
+        locale: locale,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
       ),
@@ -183,6 +206,20 @@ Finder _text(String text) => find.text(text, skipOffstage: false);
 
 Iterable<Map<String, Object>?> _paramsOf(String event) =>
     _events.where((e) => e.$1 == event).map((e) => e.$2);
+
+/// The app's own type, Inter: the chips' labels are measured in it.
+Future<void> _loadInter() async {
+  final inter = FontLoader('Inter');
+  for (final f in ['Regular', 'SemiBold', 'Bold']) {
+    inter.addFont(rootBundle.load('lib/assets/fonts/Inter-$f.ttf'));
+  }
+  await inter.load();
+}
+
+const _dollarsChip = ValueKey('send-to-dollars');
+const _addressChip = ValueKey('send-also-sends-to-row');
+const _pickChip = ValueKey('send-pick');
+const _ways = ValueKey('send-to-options');
 
 void main() {
   late Directory hiveDir;
@@ -241,10 +278,12 @@ void main() {
     expect(_text(_l10n.sendContactsSeeYours), findsOneWidget);
     expect(find.byKey(const ValueKey('send-to-friend-row')), findsNothing);
     expect(find.byKey(const ValueKey('send-pick-market-row')), findsNothing);
-    // Top to bottom: the field, the Send to card, then the Contacts (a
-    // growing list never hides "Also sends to").
-    final sendTo = find.text(_l10n.sendToLabel);
+    // Top to bottom: the field, the More ways to send chips, then the
+    // Contacts (a growing list never hides them). No "Send to" grid.
+    final sendTo = find.text(_l10n.sendMoreWaysToSend);
     expect(sendTo, findsOneWidget);
+    expect(find.text(_l10n.sendToLabel), findsNothing);
+    expect(find.byType(KuteActionCardGrid), findsNothing);
     expect(
         tester
             .getTopLeft(find.byKey(const ValueKey('send-recipient-search')))
@@ -257,20 +296,24 @@ void main() {
   });
 
   testWidgets(
-      'Frequent stays on top: the recents under the field, above the Send '
-      'to card, All contacts below it; typing hides Frequent',
-      (tester) async {
+      'people first: search < Frequent < the More ways to send chips < All '
+      'contacts; typing hides Frequent', (tester) async {
+    await tester.runAsync(_loadInter);
     await _pump(tester, recents: true);
     const frequent = ValueKey('send-frequent-section');
     expect(find.byKey(frequent), findsOneWidget);
     expect(find.byKey(const ValueKey('send-frequent-recent:rita@paykute.com')),
         findsOneWidget);
     double top(Finder f) => tester.getTopLeft(f).dy;
-    final sendTo = find.text(_l10n.sendToLabel);
-    expect(top(find.byKey(const ValueKey('send-recipient-search'))),
-        lessThan(top(find.byKey(frequent))));
-    expect(top(find.byKey(frequent)), lessThan(top(sendTo)));
-    expect(top(sendTo), lessThan(top(find.byKey(ask))));
+    double bottom(Finder f) => tester.getBottomLeft(f).dy;
+    final label = find.text(_l10n.sendMoreWaysToSend);
+    expect(bottom(find.byKey(const ValueKey('send-recipient-search'))),
+        lessThanOrEqualTo(top(find.byKey(frequent))));
+    expect(bottom(find.byKey(frequent)), lessThanOrEqualTo(top(label)));
+    expect(bottom(label), lessThanOrEqualTo(top(find.byKey(_ways))));
+    for (final chip in [_dollarsChip, _addressChip]) {
+      expect(bottom(find.byKey(chip)), lessThan(top(find.byKey(ask))));
+    }
     // Once only: the Contacts below never repeat it.
     expect(find.byKey(const ValueKey('send-frequent-row')), findsOneWidget);
 
@@ -391,7 +434,7 @@ void main() {
 
   testWidgets(
       'a resolved destination is ONE recipient card: the contact named, '
-      'not listed again, the Send to card hidden; Change brings both back',
+      'not listed again, the chips hidden; Change brings both back',
       (tester) async {
     _gateway
       ..permission = SendContactsPermission.granted
@@ -405,7 +448,7 @@ void main() {
             lightningAddress: 'joana@paykute.com'),
       ];
     await _pump(tester);
-    expect(find.text(_l10n.sendToLabel), findsOneWidget);
+    expect(find.text(_l10n.sendMoreWaysToSend), findsOneWidget);
     await type(tester, 'joana@paykute.com');
     final card = find.byKey(const ValueKey('send-recipient-card'));
     expect(card, findsOneWidget);
@@ -428,7 +471,7 @@ void main() {
     expect(find.byKey(const ValueKey('send-person-contact:k1')), findsNothing);
     expect(person('c1'), findsOneWidget);
     expect(_text(_l10n.sendOtherContacts), findsOneWidget);
-    expect(find.text(_l10n.sendToLabel), findsNothing);
+    expect(find.text(_l10n.sendMoreWaysToSend), findsNothing);
     // The bar stays Continue.
     expect(kuteBarPrimaryEnabled(tester), isTrue);
 
@@ -438,7 +481,7 @@ void main() {
         tester.widget<TextField>(find.byType(TextField).first).controller!.text,
         isEmpty);
     expect(card, findsNothing);
-    expect(find.text(_l10n.sendToLabel), findsOneWidget);
+    expect(find.text(_l10n.sendMoreWaysToSend), findsOneWidget);
     expect(_text(_l10n.sendAllContacts), findsOneWidget);
     expect(find.byKey(const ValueKey('send-person-contact:k1'),
             skipOffstage: false),
@@ -471,21 +514,80 @@ void main() {
     expect(find.byKey(const ValueKey('send-contacts-section')), findsNothing);
     expect(person('c1'), findsNothing);
     expect(find.textContaining('USDC ·'), findsOneWidget);
+    // The chosen coin is one plain row right under the field, Change at
+    // its right; no chips while it is chosen.
+    final coin = find.byKey(const ValueKey('send-to-coin-card'));
+    expect(coin, findsOneWidget);
+    expect(tester.widget<SendToListCard>(coin).emphasized, isFalse);
+    expect(find.byKey(_ways), findsNothing);
+    expect(find.text(_l10n.sendMoreWaysToSend), findsNothing);
     final change = find.byKey(const ValueKey('send-to-coin-change'));
     expect(change, findsOneWidget);
+    expect(find.descendant(of: coin, matching: change), findsOneWidget);
     await tester.tap(change);
     await tester.pumpAndSettle();
     expect(person('c1'), findsOneWidget);
     expect(find.byKey(const ValueKey('send-to-coin-change')), findsNothing);
+    expect(find.byKey(_ways), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
   testWidgets(
-      'the Send to option is the app\'s big card, the only one, so full '
-      'width and compact (founder: "here no need to be as big"): the coins '
-      'at its left, "Also sends to" over the list, a chevron at its right, '
-      'as tall as that; an address that needs a network asks in the '
-      'emphasized row; a coin chosen is the compact card again',
+      'level 2 is ONE row of three small equal chips under "More ways to '
+      'send": To Dollars (the dollars mark), Crypto address (the coins '
+      'stacked, read out with the list), Prediction (the gauge); a third of '
+      'the field each, no chevrons, compact', (tester) async {
+    await tester.runAsync(_loadInter);
+    AffiliateService.debugSessionToken = 'test-session';
+    final policy = runtimePolicyFixture(
+        also: const {'polymarket.browse', 'hyperliquid.browse'});
+    RuntimeCapabilitiesService.debugInstance = policy;
+    addTearDown(() {
+      RuntimeCapabilitiesService.debugInstance = null;
+      AffiliateService.debugSessionToken = null;
+    });
+    await tester.runAsync(policy.refresh);
+    await _pump(tester, catalog: true);
+    final row = tester.widget<SendWaysRow>(find.byKey(_ways));
+    expect(row.chips.map((c) => c.key), [_dollarsChip, _addressChip, _pickChip]);
+    SendWayChip chip(Key key) => tester.widget<SendWayChip>(find.byKey(key));
+    expect(chip(_dollarsChip).label, _l10n.sendWayToDollars);
+    expect(chip(_dollarsChip).label, 'To Dollars');
+    expect(chip(_dollarsChip).icon, isA<SvgPicture>());
+    expect(chip(_addressChip).label, _l10n.sendWayCryptoAddress);
+    expect(chip(_addressChip).icon, isA<SendCoinStack>());
+    expect(chip(_addressChip).semanticsLabel,
+        '${_l10n.sendToCryptoAddress}, ${_l10n.sendAlsoSendsToList('USDC, USD', 'USDT')}');
+    expect(chip(_pickChip).label, _l10n.sendWayPrediction);
+    expect(chip(_pickChip).semanticsLabel, _l10n.sendAnInvestmentOrPrediction);
+    expect(chip(_pickChip).icon, isA<SearchChanceGauge>());
+    expect(find.byType(KuteActionCard), findsNothing);
+    expect(find.byType(SendAlsoSendsToRow), findsNothing);
+
+    final field =
+        tester.getRect(find.byKey(const ValueKey('send-recipient-search')));
+    final third = (field.width - 2 * kSendWayChipGap.w) / 3;
+    Rect r(Key key) => tester.getRect(find.byKey(key));
+    for (final key in [_dollarsChip, _addressChip, _pickChip]) {
+      expect(r(key).top, moreOrLessEquals(r(_dollarsChip).top));
+      expect(r(key).height, moreOrLessEquals(r(_dollarsChip).height));
+      expect(r(key).width, moreOrLessEquals(third, epsilon: 0.5));
+      expect(r(key).height, lessThan(100));
+      expect(
+          find.descendant(
+              of: find.byKey(key),
+              matching: find.byIcon(Icons.chevron_right_rounded)),
+          findsNothing);
+    }
+    expect(r(_dollarsChip).left, moreOrLessEquals(field.left, epsilon: 0.5));
+    expect(r(_pickChip).right, moreOrLessEquals(field.right, epsilon: 0.5));
+    expect(find.byKey(const ValueKey('send-ways-scroll')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'an address several networks take asks in the highlighted row right '
+      'under the field, the chips gone; cleared, they come back',
       (tester) async {
     AffiliateService.debugSessionToken = 'test-session';
     final policy = runtimePolicyFixture();
@@ -496,86 +598,146 @@ void main() {
     });
     await tester.runAsync(policy.refresh);
     await _pump(tester, catalog: true);
-    const options = ValueKey('send-to-options');
-    const also = ValueKey('send-also-sends-to-row');
-    final grid = tester.widget<KuteActionCardGrid>(find.byKey(options));
-    expect(grid.cards.map((c) => c.key), [also]);
-    final card = tester.widget<KuteActionCard>(find.byKey(also));
-    expect(card.title, _l10n.sendToCryptoAddress);
-    expect(card.subtitle, _l10n.sendAlsoSendsToList('USDC, USD', 'USDT'));
-    expect(card.visual, isA<SendCoinStack>());
-    // Full width: as wide as the search field above it; compact, as tall
-    // as the coins or the two lines of text and the padding, no taller
-    // (not the ~170 square it was).
-    final field = tester.getRect(find.byKey(const ValueKey('send-recipient-search')));
-    final rect = tester.getRect(find.byKey(also));
-    expect(rect.width, moreOrLessEquals(field.width, epsilon: 1));
-    expect(rect.left, moreOrLessEquals(field.left, epsilon: 1));
-    Rect inCard(Finder f) =>
-        tester.getRect(find.descendant(of: find.byKey(also), matching: f));
-    final title = inCard(find.text(_l10n.sendToCryptoAddress));
-    final list = inCard(find.text(_l10n.sendAlsoSendsToList('USDC, USD', 'USDT')));
-    final coins = inCard(find.byType(SendCoinStack));
-    final chevron = inCard(find.byIcon(Icons.chevron_right_rounded));
-    final text = list.bottom - title.top;
-    expect(
-        rect.height,
-        moreOrLessEquals(
-            (text > kKuteActionCardVisualSlot
-                    ? text
-                    : kKuteActionCardVisualSlot) +
-                2 * (kKuteActionCardPadding + 1),
-            epsilon: 1));
-    expect(rect.height, lessThan(110));
-    // The coins at the left, the words beside them, the chevron at the
-    // right, level with the card's middle.
-    expect(coins.left - rect.left,
-        moreOrLessEquals(kKuteActionCardPadding + 1, epsilon: 1));
-    expect(title.left, greaterThan(coins.right));
-    expect(chevron.left, greaterThan(list.right - 1));
-    expect(chevron.center.dy, moreOrLessEquals(rect.center.dy, epsilon: 1));
-    expect(find.byType(SendAlsoSendsToRow), findsNothing);
-
-    // An address several networks take: the question, as the emphasized
-    // row (the one forward path), not a card.
     await type(tester, '0x742d35cc6634c0532925a3b844bc454e4438f44e');
-    expect(find.byKey(options), findsNothing);
-    expect(_text(_l10n.sendWhichNetworkIsThisAddressOn), findsOneWidget);
-    expect(
-        tester
-            .widget<SendToListCard>(find.ancestor(
-                of: _text(_l10n.sendWhichNetworkIsThisAddressOn),
-                matching: find.byType(SendToListCard)))
-            .emphasized,
-        isTrue);
-    // Cleared: the square again; a coin chosen from it is the card,
-    // full width, with Change beside the label.
+    expect(find.byKey(_ways), findsNothing);
+    expect(find.text(_l10n.sendMoreWaysToSend), findsNothing);
+    final question = _text(_l10n.sendWhichNetworkIsThisAddressOn);
+    expect(question, findsOneWidget);
+    final card = find.ancestor(
+        of: question, matching: find.byType(SendToListCard));
+    expect(tester.widget<SendToListCard>(card).emphasized, isTrue);
+    // Right under the field, nothing between them.
+    final field =
+        tester.getRect(find.byKey(const ValueKey('send-recipient-search')));
+    expect(tester.getRect(card).top - field.bottom, lessThan(16));
     await type(tester, '');
-    expect(find.byKey(also), findsOneWidget);
-    await tester.tap(find.byKey(also));
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(CoinAssetTile, 'USDC').first);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('base').first);
-    await tester.pumpAndSettle();
-    const coin = ValueKey('send-to-coin-card');
-    expect(
-        tester.widget<KuteActionCardGrid>(find.byKey(options)).cards.map((c) => c.key),
-        [coin]);
-    expect(tester.widget<KuteActionCard>(find.byKey(coin)).title,
-        startsWith('USDC ·'));
-    expect(tester.getRect(find.byKey(coin)).width,
-        moreOrLessEquals(field.width, epsilon: 1));
-    expect(tester.getRect(find.byKey(coin)).height, lessThan(110));
-    expect(
-        find.descendant(
-            of: find.byKey(coin),
-            matching: find.byIcon(Icons.chevron_right_rounded)),
-        findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('send-to-coin-change')));
-    await tester.pumpAndSettle();
-    expect(find.byKey(also), findsOneWidget);
+    expect(find.byKey(_ways), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'the chips\' destinations: To Dollars opens Move money (Bitcoin to '
+      'Dollars, its entry source); Crypto address the destination sheet; '
+      'Prediction the market search, and a link created closes the send',
+      (tester) async {
+    AffiliateService.debugSessionToken = 'test-session';
+    final policy = runtimePolicyFixture(
+        also: const {'polymarket.browse', 'hyperliquid.browse'});
+    RuntimeCapabilitiesService.debugInstance = policy;
+    var moves = 0;
+    var picks = 0;
+    ConfirmSend.debugMoveSheetOpener = (_) async => moves++;
+    ConfirmSend.debugPickOpener = (_) async {
+      picks++;
+      return picks > 1;
+    };
+    addTearDown(() {
+      RuntimeCapabilitiesService.debugInstance = null;
+      AffiliateService.debugSessionToken = null;
+      ConfirmSend.debugMoveSheetOpener = null;
+      ConfirmSend.debugPickOpener = null;
+    });
+    await tester.runAsync(policy.refresh);
+    await _pump(tester, catalog: true);
+
+    await tester.tap(find.byKey(_dollarsChip));
+    await tester.pumpAndSettle();
+    expect(moves, 1);
+    expect(TrackingService.takeEntrySource('move'),
+        kBitcoinSendToDollarsSource);
+    expect(find.byType(ConfirmSend), findsOneWidget);
+
+    await tester.tap(find.byKey(_addressChip));
+    await tester.pumpAndSettle();
+    expect(find.byType(CoinAssetTile), findsWidgets);
+    expect(_paramsOf('send_asset_shortcut_tapped'), isNotEmpty);
+    Navigator.of(tester.element(find.byType(CoinAssetTile).first)).pop();
+    await tester.pumpAndSettle();
+
+    // Closed without a link: the send stays.
+    await tester.tap(find.byKey(_pickChip));
+    await tester.pumpAndSettle();
+    expect(picks, 1);
+    expect(find.byType(ConfirmSend), findsOneWidget);
+    // A link created closes it.
+    await tester.tap(find.byKey(_pickChip));
+    await tester.pumpAndSettle();
+    expect(picks, 2);
+    expect(find.byType(ConfirmSend), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'Predictions and Investing closed to this person: no Prediction chip; '
+      'To Dollars and Crypto address stay, the same small size',
+      (tester) async {
+    await tester.runAsync(_loadInter);
+    final closed = runtimePolicyFixture(
+        blocked: const {'polymarket.trade', 'hyperliquid.trade'},
+        also: const {'polymarket.browse', 'hyperliquid.browse'});
+    AffiliateService.debugSessionToken = 'test-session';
+    RuntimeCapabilitiesService.debugInstance = closed;
+    addTearDown(() {
+      RuntimeCapabilitiesService.debugInstance = null;
+      AffiliateService.debugSessionToken = null;
+    });
+    await tester.runAsync(closed.refresh);
+    await _pump(tester, catalog: true);
+    expect(find.byKey(_pickChip), findsNothing);
+    expect(tester.widget<SendWaysRow>(find.byKey(_ways)).chips.map((c) => c.key),
+        [_dollarsChip, _addressChip]);
+    final field =
+        tester.getRect(find.byKey(const ValueKey('send-recipient-search')));
+    expect(tester.getRect(find.byKey(_addressChip)).width,
+        moreOrLessEquals((field.width - 2 * kSendWayChipGap.w) / 3,
+            epsilon: 0.5));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'at 375 pt, in Inter, in every shipped language: the three chips fit '
+      'across in one row (no sideways scroll), every label whole',
+      (tester) async {
+    await tester.runAsync(_loadInter);
+    final policy = runtimePolicyFixture(
+        also: const {'polymarket.browse', 'hyperliquid.browse'});
+    AffiliateService.debugSessionToken = 'test-session';
+    RuntimeCapabilitiesService.debugInstance = policy;
+    addTearDown(() {
+      RuntimeCapabilitiesService.debugInstance = null;
+      AffiliateService.debugSessionToken = null;
+    });
+    await tester.runAsync(policy.refresh);
+    for (final locale in AppLocalizations.supportedLocales) {
+      final l10n = l10nForLanguage(locale.languageCode);
+      final why = locale.languageCode;
+      await _pump(tester, locale: locale, catalog: true);
+      expect(tester.takeException(), isNull, reason: why);
+      expect(find.text(l10n.sendMoreWaysToSend), findsOneWidget, reason: why);
+      expect(find.byKey(const ValueKey('send-ways-scroll')), findsNothing,
+          reason: '$why: the chips do not fit across');
+      final first = tester.getRect(find.byKey(_dollarsChip));
+      for (final (key, label) in [
+        (_dollarsChip, l10n.sendWayToDollars),
+        (_addressChip, l10n.sendWayCryptoAddress),
+        (_pickChip, l10n.sendWayPrediction),
+      ]) {
+        final box = tester.getRect(find.byKey(key));
+        expect(box.top, moreOrLessEquals(first.top), reason: why);
+        expect(box.width, moreOrLessEquals(first.width), reason: why);
+        expect(box.right, lessThanOrEqualTo(375), reason: why);
+        final text = find.descendant(
+            of: find.byKey(key), matching: find.text(label));
+        expect(text, findsOneWidget, reason: why);
+        final p = tester.renderObject<RenderParagraph>(find.descendant(
+            of: find.byKey(key), matching: find.byType(RichText)));
+        expect(p.didExceedMaxLines, isFalse, reason: '$why: $label is cut');
+        expect(tester.getRect(text).bottom, lessThanOrEqualTo(box.bottom),
+            reason: why);
+      }
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpAndSettle();
+    }
   });
 
   testWidgets(

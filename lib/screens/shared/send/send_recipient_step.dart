@@ -13,9 +13,23 @@
 //   * "Frequent" under it (founder, 2 November 2026: "Frequent stays on
 //     top"): the recents as circles, hidden while typing and once a
 //     recipient is chosen (send_contacts_list.dart, SendFrequentSection);
-//   * one soft "Send to" card: the coins an address can land as (and, on
-//     the Dollars Send, To your Bitcoin and A stock or prediction);
-//   * All contacts A–Z under the card (founder, 1 November 2026,
+//   * ONE QUESTION PER LEVEL, PEOPLE FIRST (founder, 6 November 2026,
+//     the approved Send hierarchy, on the Bitcoin and the Dollars Send):
+//
+//       [ 🔍 Name, phone, address or @user   📋 ⌗ ]
+//       Frequent                 (P) (J) (A)          ← level 1: people
+//       More ways to send
+//       [₿ To your Bitcoin] [⛓ Crypto address] [📈 Prediction]  ← level 2
+//       All contacts             A Anna Haro …        ← level 3
+//
+//     Level 2 is ONE row of small, equal chips ([SendWaysRow] of
+//     [SendWayChip]: the big cards' surface, smaller; the icon at the
+//     top left, a short label under it), clearly under the people above
+//     it. Three fit across a 375 pt phone in every shipped language; a
+//     label that cannot fit (a very large text) turns the row into a
+//     horizontal scroll, never a cut word. No big "Send to" card grid any
+//     more;
+//   * All contacts A–Z under the chips (founder, 1 November 2026,
 //     Revolut's one list: send_contacts_list.dart): the recents and the
 //     phone's contacts, filtered by what is typed, badged Kute or ⚡, the
 //     resolved destination always first above it.
@@ -44,6 +58,7 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/asset_icon_provider.dart' show AssetIcon;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_action_cards.dart';
+import 'package:kute/screens/shared/kute_motion.dart' show KutePressable;
 import 'package:kute/screens/shared/coin_asset_grid.dart'
     show CoinAssetGroup;
 import 'package:kute/screens/shared/sal_sprite.dart';
@@ -954,3 +969,203 @@ KuteActionCard sendAlsoSendsToCard(
       subtitle: sendAlsoSendsToSummary(l10n, groups),
       onTap: onTap,
     );
+
+/// The space between the chips of a [SendWaysRow] (design units, scaled
+/// by width).
+const double kSendWayChipGap = 8;
+
+/// A chip's inner padding (design units).
+const double kSendWayChipPadding = 12;
+
+/// The height of a chip's icon box (scaled by sp); a 20 to 24 mark sits
+/// in it, centred on its left edge.
+const double kSendWayChipIconSlot = 24;
+
+/// The coin marks' side in the Crypto address chip's stack.
+const double kSendWayChipCoinMark = 20;
+
+/// How many chips share the row's width: three always, so two chips are
+/// as small as three (equal weight, whatever the screen offers).
+const int kSendWayChipSlots = 3;
+
+/// One way to send on the level-2 row (see the file header): the big
+/// cards' surface (kute_action_cards.dart), smaller. [icon] at the top
+/// left in its 24 box, [label] under it (13, w600, up to two lines,
+/// never a word cut: [SendWaysRow] measures). [semanticsLabel] says what
+/// the short label stands for ("Send an investment or prediction").
+class SendWayChip extends StatelessWidget {
+  const SendWayChip({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.semanticsLabel,
+  });
+
+  final Widget icon;
+  final String label;
+  final VoidCallback onTap;
+  final String? semanticsLabel;
+
+  /// The label's style (shared with the row's fit measurement).
+  static TextStyle labelStyle(AppColorsExtension c) => TextStyle(
+        color: c.textPrimary,
+        fontSize: 13.sp,
+        fontWeight: FontWeight.w600,
+        letterSpacing: -0.1,
+        height: 1.2,
+      );
+
+  /// The lines a label may take.
+  static const int maxLines = 2;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    return Semantics(
+      button: true,
+      label: semanticsLabel ?? label,
+      excludeSemantics: true,
+      child: KutePressable(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            HapticFeedback.selectionClick();
+            onTap();
+          },
+          child: Container(
+            padding: EdgeInsets.symmetric(
+                horizontal: kSendWayChipPadding.w,
+                vertical: kSendWayChipPadding.h),
+            // The big cards' surface: surface-1 (the dark surface in dark
+            // mode) and the hairline, a smaller radius.
+            decoration: BoxDecoration(
+              color: isLight ? c.surfaceLight : c.surface,
+              borderRadius: BorderRadius.circular(16.r),
+              border: Border.all(
+                  color: isLight ? c.border : c.borderSubtle, width: 1),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  height: kSendWayChipIconSlot.sp,
+                  child: Align(alignment: Alignment.centerLeft, child: icon),
+                ),
+                SizedBox(height: 8.h),
+                Text(
+                  label,
+                  maxLines: maxLines,
+                  overflow: TextOverflow.ellipsis,
+                  style: labelStyle(c),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Level 2 of the Send step (see the file header): ONE row of [chips],
+/// each a third of the width (two chips stay that size, left aligned),
+/// equally tall. When a label cannot fit its third (a very large text)
+/// the row scrolls sideways, the chips as wide as the longest label
+/// needs, all alike.
+class SendWaysRow extends StatelessWidget {
+  const SendWaysRow({super.key, required this.chips});
+
+  final List<SendWayChip> chips;
+
+  /// The text a chip [chipWidth] wide has for its label.
+  static double _inner(double chipWidth) =>
+      chipWidth - 2 * kSendWayChipPadding.w - 2;
+
+  /// Whether every chip's label fits a chip [chipWidth] wide: no word
+  /// wider than the chip (it would break mid-word) and no more than
+  /// [SendWayChip.maxLines] lines. A word may break after its hyphen
+  /// ("Krypto-Adresse"); Japanese breaks between characters, so only its
+  /// lines count.
+  static bool labelsFit(
+      BuildContext context, List<SendWayChip> chips, double chipWidth) {
+    final inner = _inner(chipWidth);
+    if (inner <= 0) return false;
+    final style =
+        DefaultTextStyle.of(context).style.merge(SendWayChip.labelStyle(context.colors));
+    final scaler = MediaQuery.textScalerOf(context);
+    final direction = Directionality.of(context);
+    final cjk = RegExp(r'[　-鿿＀-￯]');
+    double width(String text) {
+      final p = TextPainter(
+        text: TextSpan(text: text, style: style),
+        textDirection: direction,
+        textScaler: scaler,
+        maxLines: 1,
+      )..layout();
+      final w = p.width;
+      p.dispose();
+      return w;
+    }
+
+    for (final chip in chips) {
+      for (final word in chip.label.split(RegExp(r'\s+'))) {
+        if (word.isEmpty || cjk.hasMatch(word)) continue;
+        for (final part in word.split(RegExp(r'(?<=[-‐])'))) {
+          if (width(part) > inner) return false;
+        }
+      }
+      final p = TextPainter(
+        text: TextSpan(text: chip.label, style: style),
+        textDirection: direction,
+        textScaler: scaler,
+        maxLines: SendWayChip.maxLines,
+      )..layout(maxWidth: inner);
+      final over = p.didExceedMaxLines;
+      p.dispose();
+      if (over) return false;
+    }
+    return true;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (chips.isEmpty) return const SizedBox.shrink();
+    return LayoutBuilder(builder: (context, constraints) {
+      final g = kSendWayChipGap.w;
+      final slots =
+          chips.length > kSendWayChipSlots ? chips.length : kSendWayChipSlots;
+      final total = constraints.hasBoundedWidth
+          ? constraints.maxWidth
+          : MediaQuery.sizeOf(context).width;
+      final third = (total - g * (slots - 1)) / slots;
+      Widget row(double chipWidth) => IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (var i = 0; i < chips.length; i++) ...[
+                  if (i > 0) SizedBox(width: g),
+                  SizedBox(width: chipWidth, child: chips[i]),
+                ],
+              ],
+            ),
+          );
+      if (labelsFit(context, chips, third)) {
+        return Align(alignment: Alignment.centerLeft, child: row(third));
+      }
+      // Wider chips, all alike, scrolling sideways: never a cut word.
+      var wide = third;
+      while (wide < total && !labelsFit(context, chips, wide)) {
+        wide += 8;
+      }
+      return SingleChildScrollView(
+        key: const ValueKey('send-ways-scroll'),
+        scrollDirection: Axis.horizontal,
+        clipBehavior: Clip.none,
+        child: row(wide),
+      );
+    });
+  }
+}

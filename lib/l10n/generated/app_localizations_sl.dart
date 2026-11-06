@@ -6363,6 +6363,16 @@ class AppLocalizationsSl extends AppLocalizations {
       'Borza še ni potrdila izida. Pred ponovnim poskusom preverite naročila in stanje.';
 
   @override
+  String get betConfirmingWithVenue => 'Potrjevanje pri Polymarketu…';
+
+  @override
+  String get investingConfirmingWithExchange => 'Potrjevanje pri borzi…';
+
+  @override
+  String get investingOrderNotPlaced =>
+      'To naročilo ni bilo izvedeno. Nič ni bilo oddano.';
+
+  @override
   String get investingApprovalExpired =>
       'Odobritev je potekla. Preglejte posel in ga znova odobrite.';
 
@@ -11585,6 +11595,88 @@ class AppLocalizationsSl extends AppLocalizations {
   String get balanceNoHistorySub => 'Začne se z vašo prvo transakcijo.';
 
   @override
+  String balanceGoalLevel(int level) {
+    return 'Raven $level';
+  }
+
+  @override
+  String get balanceLevelName0 => 'Ogrevanje';
+
+  @override
+  String get balanceLevelName1 => 'Žepnina';
+
+  @override
+  String get balanceLevelName2 => 'Zbiralec';
+
+  @override
+  String get balanceLevelName3 => 'Stalni gost';
+
+  @override
+  String get balanceLevelName4 => 'Odrasel';
+
+  @override
+  String get balanceLevelName5 => 'Resno';
+
+  @override
+  String get balanceLevelName6 => 'Mirna roka';
+
+  @override
+  String get balanceLevelName7 => 'Težka kategorija';
+
+  @override
+  String get balanceLevelName8 => 'Velik pes';
+
+  @override
+  String get balanceLevelName9 => 'Vodja tropa';
+
+  @override
+  String get balanceLevelName10 => 'Legenda';
+
+  @override
+  String get balanceLevelName11 => 'Izven lestvice';
+
+  @override
+  String balanceGoalProgress(int percent, String goal) {
+    return '$percent % do $goal';
+  }
+
+  @override
+  String get balanceGoalsHeading => 'Cilji';
+
+  @override
+  String get balanceGoalNext => 'Naslednji cilj';
+
+  @override
+  String balanceGoalToGo(String amount) {
+    return 'Še $amount';
+  }
+
+  @override
+  String balanceGoalChartLabel(String goal) {
+    return 'Naslednji: $goal';
+  }
+
+  @override
+  String balanceGoalMove(String amount) {
+    return 'Premaknite $amount v Dolarje';
+  }
+
+  @override
+  String get balanceGoalMovePlain => 'Premaknite v Dolarje';
+
+  @override
+  String get balanceGoalMoveWhy => 'Vaš denar, več možnosti v dolarjih.';
+
+  @override
+  String balanceMilestonePassed(String amount) {
+    return 'Presegli ste $amount';
+  }
+
+  @override
+  String get balanceMilestonePassedLine =>
+      'Bitcoin in dolarji skupaj. Sal se dela, kot da ni nič.';
+
+  @override
   String get pnlNoHistoryTitle => 'Še ni dobička/izgube';
 
   @override
@@ -11966,7 +12058,7 @@ class AppLocalizationsSl extends AppLocalizations {
   String get usdSendSearchHint => 'Name, address or phone';
 
   @override
-  String get usdSendToYourBitcoin => 'To your Bitcoin';
+  String get usdSendToYourBitcoin => 'Na tvoj Bitcoin';
 
   @override
   String usdBitcoinBalanceLine(String amount) {
@@ -11975,6 +12067,23 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
+
+  @override
+  String get receiveOrSwapTitle => 'Prejmi ali zamenjaj';
+
+  @override
+  String get receiveFromYourDollars => 'Iz vaših Dolarjev';
+
+  @override
+  String usdDollarsBalanceLine(String amount) {
+    return '$amount v Dolarjih';
+  }
+
+  @override
+  String get receiveFromAnotherAsset => 'Iz drugega sredstva';
+
+  @override
+  String get receiveBitcoinAndLightning => 'Bitcoin in Lightning';
 
   @override
   String get sendRailBitcoinOnchain => 'Bitcoin · on-chain';
@@ -13673,6 +13782,18 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get sendToCryptoAddress => 'Na kripto naslov';
+
+  @override
+  String get sendMoreWaysToSend => 'Več načinov pošiljanja';
+
+  @override
+  String get sendWayCryptoAddress => 'Kripto naslov';
+
+  @override
+  String get sendWayPrediction => 'Napoved';
+
+  @override
+  String get sendWayToDollars => 'V Dolarje';
 
   @override
   String get sendPickRowSub => 'Ali naložbo. Poiščite trg, izberite stran';

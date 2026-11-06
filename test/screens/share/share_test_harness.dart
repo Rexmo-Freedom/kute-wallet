@@ -17,6 +17,8 @@ import 'package:kute/providers/hyperliquid_markets_provider.dart'
     show hyperliquidPerpMarketsProvider, hyperliquidSpotMarketsProvider;
 import 'package:kute/providers/polymarket_browse_provider.dart'
     show polymarketEventDetailsProvider;
+import 'package:kute/providers/usd_account_provider.dart'
+    show usdBalanceProvider;
 import 'package:kute/screens/share/cards/share_card_preview.dart';
 import 'package:kute/services/api/share_links_api.dart';
 import 'package:kute/services/share_links_store.dart';
@@ -90,12 +92,15 @@ Future<void> shareCardAndWait(WidgetTester tester, List<Object?> sent,
   await settle(tester);
 }
 
+/// [dollars] is the Dollars balance the dollar link's amount step reads
+/// (0: not known, never judged); no SDK is touched for it.
 Future<void> pumpShareWidget(
   WidgetTester tester,
   ShareTestEnv env,
   Widget child, {
   List<Override> overrides = const [],
   bool cardVenues = true,
+  double dollars = 0,
 }) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
@@ -107,6 +112,7 @@ Future<void> pumpShareWidget(
   await tester.pumpWidget(ProviderScope(
     overrides: [
       shareLinksApiProvider.overrideWithValue(env.fake),
+      usdBalanceProvider.overrideWith((_) => dollars),
       if (cardVenues) ...shareCardVenueOverrides(),
       ...overrides,
     ],

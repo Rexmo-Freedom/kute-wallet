@@ -20,6 +20,8 @@ import 'package:kute/providers/polymarket_sports_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/trade_notifications_provider.dart';
 import 'package:kute/providers/unified_search_provider.dart';
+import 'package:kute/screens/home/components/deposit_sheet.dart'
+    show DepositSheet;
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart';
 import 'package:kute/screens/home/home.dart' show HomeDock;
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
@@ -28,6 +30,8 @@ import 'package:kute/screens/receive/receive_sheet.dart' show ReceiveSheets;
 import 'package:kute/screens/search/unified_search_screen.dart';
 import 'package:kute/screens/shared/bitcoin_wallet_actions.dart'
     show bitcoinWalletDockActions;
+import 'package:kute/screens/shared/capability_unavailable_sheet.dart'
+    show CapabilityUnavailableSheet;
 import 'package:kute/screens/shared/kute_dog_scenes.dart';
 import 'package:kute/screens/shared/investment_action_bar.dart';
 import 'package:kute/screens/shared/open_once.dart';
@@ -44,7 +48,7 @@ class _Sports extends SportsLiveNotifier {
   void connect() {}
 }
 
-Settings _settings() => Settings(
+Settings _settings({List<WalletConfig> extra = const []}) => Settings(
       currency: 'USD',
       language: 'en',
       btcFormat: 'sats',
@@ -53,19 +57,23 @@ Settings _settings() => Settings(
       bitcoinElectrumNode: '',
       nodeType: 'Blockstream',
       reviewDone: true,
-      wallets: [WalletConfig(id: 'spending', name: 'Spending')],
+      wallets: [WalletConfig(id: 'spending', name: 'Spending'), ...extra],
       activeWalletId: 'spending',
     );
 
 /// [routes] mounts the dock under a real router (at `/`) beside them, so
 /// a test can see where a dock action navigates.
 Future<ProviderContainer> _pump(WidgetTester tester, Widget dock,
-    {bool aiEnabled = true, bool dark = false, List<GoRoute>? routes}) async {
+    {bool aiEnabled = true,
+    bool dark = false,
+    List<GoRoute>? routes,
+    Settings? settings}) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   final container = ProviderContainer(overrides: [
-    settingsProvider.overrideWith((_) => SettingsModel(_settings())),
+    settingsProvider
+        .overrideWith((_) => SettingsModel(settings ?? _settings())),
     aiEnabledProvider.overrideWith((_) async => aiEnabled),
     sportsLiveProvider.overrideWith(_Sports.new),
     tradeNotificationsProvider
@@ -321,7 +329,7 @@ void main() {
   testWidgets(
       'the Investments money verbs are one compact row, Buy dollars, '
       'Receive and Send, and the dock is search alone; Receive '
-      'opens the Dollars receive screen, Buy dollars the Move sheet',
+      'opens the Dollars receive screen, Buy dollars its own opener',
       (tester) async {
     final events = <(String, Map<String, Object>?)>[];
     TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
@@ -382,15 +390,41 @@ void main() {
         {'action': 'receive', 'source': 'usd'});
     expect(TrackingService.takeEntrySource('usd_receive'), 'usd_dock');
 
-    // Buy dollars: the Move sheet locked to Dollars (bitcoin into
-    // dollars), its own action key and entry source.
+    // Buy dollars: its own action key; no Move sheet behind it any more,
+    // so it leaves no Move entry source.
     events.clear();
     await tester.tap(find.text('Buy dollars'));
     await tester.pump();
     expect(buyOpened, 1);
     expect(events.where((e) => e.$1 == 'quick_action_tapped').single.$2,
         {'action': 'buy_dollars', 'source': 'usd'});
-    expect(TrackingService.takeEntrySource('move'), 'usd_buy_dollars');
+    expect(TrackingService.takeEntrySource('move'), 'unknown');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'Buy dollars is not available yet: the shared Unavailable sheet with '
+      'its generic sentence, never the Move sheet (founder, 6 November '
+      '2026)', (tester) async {
+    final events = <(String, Map<String, Object>?)>[];
+    TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+    addTearDown(() => TrackingService.debugTrackObserver = null);
+    await _pump(tester, const UsdAccountActionRow());
+    await tester.tap(find.text('Buy dollars'));
+    await tester.pumpAndSettle();
+    final l10n =
+        AppLocalizations.of(tester.element(find.byType(UsdAccountActionRow)));
+    expect(find.byType(CapabilityUnavailableSheet), findsOneWidget);
+    final sheet = tester.widget<CapabilityUnavailableSheet>(
+        find.byType(CapabilityUnavailableSheet));
+    expect(sheet.message, l10n.capabilityUnavailable);
+    expect(sheet.regionRestricted, isFalse);
+    expect(find.text(l10n.gateUnavailableTitle), findsOneWidget);
+    expect(find.text(l10n.capabilityUnavailable), findsOneWidget);
+    expect(find.byType(DepositSheet), findsNothing);
+    expect(events.where((e) => e.$1 == 'quick_action_tapped').single.$2,
+        {'action': 'buy_dollars', 'source': 'usd'});
+    expect(TrackingService.takeEntrySource('move'), 'unknown');
     expect(tester.takeException(), isNull);
   });
 
@@ -423,10 +457,15 @@ void main() {
   });
 
   testWidgets(
-      'the Bitcoin row\'s Receive opens the Bitcoin receive as a bottom '
-      'sheet over the screen, not a route push', (tester) async {
+      'the Bitcoin row\'s Receive opens Receive or swap as a bottom sheet '
+      'over the screen, not a route push', (tester) async {
+    ReceiveSheets.debugBitcoinOptionsBody =
+        (_) => const Text('btc receive options');
     ReceiveSheets.debugBitcoinBody = (_) => const Text('btc receive body');
-    addTearDown(() => ReceiveSheets.debugBitcoinBody = null);
+    addTearDown(() {
+      ReceiveSheets.debugBitcoinOptionsBody = null;
+      ReceiveSheets.debugBitcoinBody = null;
+    });
     final pushed = <Uri>[];
     // Home's row: the dock's own Receive and Send, under the balance.
     final row = Consumer(
@@ -447,11 +486,39 @@ void main() {
     await tester.tap(find.text('Receive'));
     await tester.pumpAndSettle();
     expect(pushed, isEmpty);
+    // The spending wallet: "Receive or swap" first, never the QR itself.
+    expect(find.text('btc receive options'), findsOneWidget);
+    expect(find.text('btc receive body'), findsNothing);
+    final route =
+        ModalRoute.of(tester.element(find.text('btc receive options')));
+    expect(route, isA<ModalBottomSheetRoute<void>>());
+    expect(route!.settings.name, 'receiveOptions');
+    expect(find.byType(KuteActionRow), findsOneWidget);
+  });
+
+  testWidgets(
+      'a watch-only wallet\'s Receive opens the QR receive straight away: '
+      'nothing to swap from, so no Receive or swap', (tester) async {
+    ReceiveSheets.debugBitcoinOptionsBody =
+        (_) => const Text('btc receive options');
+    ReceiveSheets.debugBitcoinBody = (_) => const Text('btc receive body');
+    addTearDown(() {
+      ReceiveSheets.debugBitcoinOptionsBody = null;
+      ReceiveSheets.debugBitcoinBody = null;
+    });
+    final cold = WalletConfig(
+        id: 'cold', name: 'Cold', isWatchOnly: true, sparkEnabled: false);
+    final row = Consumer(
+        builder: (context, ref, _) => KuteActionRow(
+            source: 'wallet_detail',
+            actions: bitcoinWalletDockActions(context, ref, cold)));
+    await _pump(tester, row, settings: _settings(extra: [cold]));
+    await tester.tap(find.text('Receive'));
+    await tester.pumpAndSettle();
+    expect(find.text('btc receive options'), findsNothing);
     expect(find.text('btc receive body'), findsOneWidget);
     final route = ModalRoute.of(tester.element(find.text('btc receive body')));
-    expect(route, isA<ModalBottomSheetRoute<void>>());
     expect(route!.settings.name, 'receive');
-    expect(find.byType(KuteActionRow), findsOneWidget);
   });
 
   testWidgets('the Portfolio pill\'s dock draws no pill: the shell bar is the one',

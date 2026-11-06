@@ -19,14 +19,17 @@ import 'package:kute/providers/ledger/ledger_identity_provider.dart';
 // down colour ("+$0.42 (+3.9%)", the return on what was put in), then one
 // quiet line: the side, the size and the market price with its change
 // today ("Short · 0.006 ANTH · $2,104 (+0.8% today)"; founder, 2 November
-// 2026). Then the sheet's chart, clean, with its pressure bar; two tiles:
-// what was put in (the margin; the collateral on cross) with its leverage
-// ("2x leverage", "No leverage"), and the liquidation price with how far
-// it is ("12% away", coloured as it closes in: HlLiquidationTile); then
-// the options as cards, two side by side (kute_action_cards.dart; founder,
-// 4 November 2026: "big squares"): "Add margin" on an isolated position
-// (the margin sheet, where Remove is a mode), "Protect it", "Advanced
-// chart" and "Details". The position size (the notional, size x price,
+// 2026). Then the sheet's chart, clean, with its pressure bar and its
+// interval row; then, actions first (founder, 6 November 2026), what can
+// be done to the position as cards, two side by side
+// (kute_action_cards.dart; founder, 4 November 2026: "big squares"; a lone
+// one full width): "Add margin" on an isolated position (the margin
+// sheet, where Remove is a mode) and "Protect it"; then two tiles: what
+// was put in (the margin; the collateral on cross) with its leverage ("2x
+// leverage", "No leverage"), and the liquidation price with how far it is
+// ("12% away", coloured as it closes in: HlLiquidationTile); then the
+// cards to read more, "Advanced chart" and "Details". The position size
+// (the notional, size x price,
 // with the coin size), entry, leverage, margin mode and funding wait in
 // Details, with one line on what the position size is; closing stays
 // wallet-scoped.
@@ -263,6 +266,46 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
     final canAdjustMargin =
         ledgerId == null && current != null && hlCanAdjustMargin(pos, m);
     final editing = _advancedChart && m != null;
+    // What can be done to the position, first under the chart (founder, 6
+    // November 2026: actions first).
+    final actions = <KuteActionCard>[
+      if (current != null && canAdjustMargin)
+        KuteActionCard.option(
+          key: const ValueKey('hl-add-margin'),
+          icon: Icons.add_rounded,
+          title: context.l10n.hlMarginAdd,
+          subtitle: context.l10n.optionAddMarginSub,
+          // Removing is a mode of the same sheet.
+          onTap: () => HlAdjustMarginSheet.show(context,
+              position: pos,
+              market: m!,
+              add: true,
+              source: HlMarginSource.liquidationRow),
+        ),
+      // The ticket's own protective orders (stop / take profit, the
+      // trailing stop), one tap away. Needs the market to place them.
+      if (current != null && m != null && !m.isSpot)
+        KuteActionCard.option(
+          key: const ValueKey('hl-position-protect'),
+          icon: Icons.shield_outlined,
+          title: context.l10n.positionProtectIt,
+          subtitle: ledgerId == null
+              ? context.l10n.hlStopLoss
+              : context.l10n.investingTrailingStop,
+          onTap: () {
+            TrackingService.track('position_protect_tapped', params: {
+              'venue': 'hyperliquid',
+              'coin': pos.coin,
+              ...VenueAnalytics.hlAssetParams(pos.coin),
+              'side': pos.isLong ? 'long' : 'short',
+              'wallet_kind': ledgerId != null ? 'ledger' : 'hot',
+              'target': ledgerId == null ? 'stop_loss' : 'trailing_stop',
+            });
+            HlClosePositionSheet.showProtect(context, ref,
+                position: pos, market: m, ledgerWalletId: ledgerId);
+          },
+        ),
+    ];
 
     // The page's Sal context: the round Sal button beside Close position
     // opens it (or, in profit, the brag card; positionBarShare). The
@@ -503,10 +546,27 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                               const SkeletonLineChart(
                                   height: 380, padding: EdgeInsets.zero),
                             SizedBox(height: 16.h),
-                            // Only what matters on the screen, in plain
-                            // words: what was put in (with its leverage) and
-                            // how far the liquidation is, each on its own
-                            // tile; then the option cards.
+                            // Actions first (founder, 6 November 2026):
+                            // what can be done to the position, as cards
+                            // two side by side (kute_action_cards.dart; a
+                            // lone one full width), right under the chart;
+                            // add margin (an isolated position the app can
+                            // move margin on) and protect it.
+                            if (actions.isNotEmpty) ...[
+                              KuteActionCardGrid(
+                                key: const ValueKey('hl-position-actions'),
+                                // Alone (a cross position's Protect it),
+                                // full width at the squares' size.
+                                compactLone: true,
+                                cards: actions,
+                              ),
+                              SizedBox(height: 12.h),
+                            ],
+                            // Then only what matters on the screen, in
+                            // plain words: what was put in (with its
+                            // leverage) and how far the liquidation is,
+                            // each on its own tile; then the cards to read
+                            // more.
                             if (current != null) ...[
                               PositionStatTiles(
                                 left: PositionStatTile(
@@ -546,66 +606,16 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                               ),
                               SizedBox(height: 12.h),
                             ],
-                            // The options, as cards two side by side
+                            // The cards to read more, two side by side
                             // (founder, 4 November 2026: "big squares";
                             // kute_action_cards.dart; an odd last one full
-                            // width), as on the market
-                            // screen and the Predictions screens: add margin
-                            // (an isolated position the app can move margin
-                            // on), protect it, the chart's editing mode and
-                            // Details (what else the position is made of).
+                            // width), as on the market screen and the
+                            // Predictions screens: the chart's editing mode
+                            // and Details (what else the position is made
+                            // of).
                             KuteActionCardGrid(
                               key: const ValueKey('hl-position-options'),
                               cards: [
-                                if (current != null && canAdjustMargin)
-                                  KuteActionCard.option(
-                                    key: const ValueKey('hl-add-margin'),
-                                    icon: Icons.add_rounded,
-                                    title: context.l10n.hlMarginAdd,
-                                    subtitle: context.l10n.optionAddMarginSub,
-                                    // Removing is a mode of the same sheet.
-                                    onTap: () => HlAdjustMarginSheet.show(
-                                        context,
-                                        position: pos,
-                                        market: m!,
-                                        add: true,
-                                        source: HlMarginSource.liquidationRow),
-                                  ),
-                                // The ticket's own protective orders (stop /
-                                // take profit, the trailing stop), one tap
-                                // away. Needs the market to place them.
-                                if (current != null && m != null && !m.isSpot)
-                                  KuteActionCard.option(
-                                    key: const ValueKey('hl-position-protect'),
-                                    icon: Icons.shield_outlined,
-                                    title: context.l10n.positionProtectIt,
-                                    subtitle: ledgerId == null
-                                        ? context.l10n.hlStopLoss
-                                        : context.l10n.investingTrailingStop,
-                                    onTap: () {
-                                      TrackingService.track(
-                                          'position_protect_tapped',
-                                          params: {
-                                            'venue': 'hyperliquid',
-                                            'coin': pos.coin,
-                                            ...VenueAnalytics.hlAssetParams(
-                                                pos.coin),
-                                            'side':
-                                                pos.isLong ? 'long' : 'short',
-                                            'wallet_kind': ledgerId != null
-                                                ? 'ledger'
-                                                : 'hot',
-                                            'target': ledgerId == null
-                                                ? 'stop_loss'
-                                                : 'trailing_stop',
-                                          });
-                                      HlClosePositionSheet.showProtect(
-                                          context, ref,
-                                          position: pos,
-                                          market: m,
-                                          ledgerWalletId: ledgerId);
-                                    },
-                                  ),
                                 // The chart's editing mode, as on the market
                                 // screen.
                                 if (m != null)

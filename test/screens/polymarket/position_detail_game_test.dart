@@ -703,16 +703,19 @@ void main() {
         const PositionDetailSheet(position: position),
         overrides: overrides(event),
       );
-      // An option card, not an expander: the text is not on the screen
-      // itself.
+      // An option card, not an expander: on the screen, only the card's
+      // first line of the rules (it is the odd last card, full width,
+      // under View market and Details).
       final row = find.text('Closing Conditions');
       await tester.pump();
       await tester.ensureVisible(row);
       await tester.pumpAndSettle();
       expect(row, findsOneWidget);
-      expect(find.text(conditions), findsNothing);
       final card = find.byKey(PositionDetailSheet.closingConditionsKey);
       expect(find.descendant(of: card, matching: row), findsOneWidget);
+      expect(find.text(conditions), findsOneWidget);
+      expect(find.descendant(of: card, matching: find.text(conditions)),
+          findsOneWidget);
       // Two taps inside one frame (the card's handler called twice before
       // the sheet's route is built): one sheet.
       final onTap = tester.widget<KuteActionCard>(card).onTap!;
@@ -720,7 +723,8 @@ void main() {
       onTap();
       await tester.pumpAndSettle();
       expect(find.byType(AppBottomSheetHeader), findsOneWidget);
-      expect(find.text(conditions), findsOneWidget);
+      // The whole text on the sheet, over the card's first line.
+      expect(find.text(conditions), findsNWidgets(2));
       // Closed with its own button, then opened again.
       await tester.tap(find.descendant(
           of: find.byType(AppBottomSheetHeader),
@@ -882,7 +886,7 @@ void main() {
     });
 
     testWidgets('under a day to go: "Ends in 12:34" counted down on a '
-        'centred pill', (tester) async {
+        'quiet centred line', (tester) async {
       final end = DateTime.now().add(const Duration(minutes: 12, seconds: 40));
       await _pump(
         tester,
@@ -892,17 +896,14 @@ void main() {
         width: 375,
       );
       await tester.pump();
-      final pill = find.byKey(const ValueKey('poly-position-expiry'));
-      expect(pill, findsOneWidget);
+      final line = find.byKey(const ValueKey('poly-position-expiry'));
+      expect(line, findsOneWidget);
       expect(
-          find.descendant(
-              of: pill,
-              matching: find.byWidgetPredicate((w) =>
-                  w is Text &&
-                  RegExp(r'^Ends in 12:[0-9]{2}$').hasMatch(w.data ?? ''))),
-          findsOneWidget);
+          RegExp(r'^Ends in 12:[0-9]{2}$')
+              .hasMatch(tester.widget<Text>(line).data ?? ''),
+          isTrue);
       expect(find.textContaining('ENDS'), findsNothing);
-      expect(tester.getCenter(pill).dx, closeTo(375 / 2, 1));
+      expect(tester.getCenter(line).dx, closeTo(375 / 2, 1));
       expect(tester.takeException(), isNull);
     });
 

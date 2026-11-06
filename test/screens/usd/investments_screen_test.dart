@@ -658,15 +658,16 @@ void main() {
         tester.getSemantics(trendingTile),
         isSemantics(isButton: true, isSelected: true));
 
-    // A topic whose feed is not loaded is a compact 56 px row: Polymarket's
+    // A topic whose feed is not loaded is Investing's 96 px card
+    // (founder, 6 November 2026: one design for both sheets): Polymarket's
     // own glyph for it (an SVG, never a Material icon) on the surface-1
-    // square, the name at w500, no count, and the flat unpicked surface
-    // with no border and no shadow.
+    // square, the name at w500, no count while none is at hand, and the
+    // flat unpicked surface with no border and no shadow.
     final politics =
         find.byKey(ValueKey('category-tile-${PolyPill.politics.key}'));
     final politicsBox = find.descendant(
         of: politics, matching: find.byType(AnimatedContainer));
-    expect(tester.getSize(politicsBox).height, 56);
+    expect(tester.getSize(politicsBox).height, 96);
     expect(
         find.descendant(
             of: politics,

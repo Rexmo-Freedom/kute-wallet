@@ -88,6 +88,10 @@ void main() {
     // On Balance the pill is Activity again, and a tap only selects it.
     await tester.tap(find.text('Balance'));
     await tester.pump(const Duration(milliseconds: 500));
+    // The pill's words morph (an AnimatedSwitcher): the old words leave on
+    // the frame after their fade ends.
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump();
     expect(find.text('the chart'), findsOneWidget);
     expect(find.text('Activity'), findsOneWidget);
     expect(find.text('See all'), findsNothing);
@@ -152,6 +156,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
     await tester.tap(find.text('Balance'));
     await tester.pump(const Duration(milliseconds: 500));
+    // The pill's words morph (an AnimatedSwitcher): the old words leave on
+    // the frame after their fade ends.
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump();
     expect(find.text('the chart'), findsOneWidget);
 
     await tester.pumpWidget(app('/home?tab=activity'));

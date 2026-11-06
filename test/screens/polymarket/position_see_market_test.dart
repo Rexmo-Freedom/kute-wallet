@@ -184,8 +184,10 @@ void main() {
   });
   tearDown(OpenOnce.reset);
 
-  testWidgets('"View market" is the first option card, before Protect it, '
-      'Details and Closing Conditions, with its chart glyph', (tester) async {
+  testWidgets('actions first (founder, 6 November 2026): Protect it alone, '
+      'full width at the squares\' size, over the tiles; then "View market" '
+      'first of the cards to read more, Details beside it, Closing '
+      'Conditions full width under them', (tester) async {
     await http.runWithClient(() async {
       await _pump(tester, const PositionDetailSheet(position: _position),
           event: _election);
@@ -200,24 +202,52 @@ void main() {
           find.descendant(
               of: _row, matching: find.byIcon(Icons.show_chart_rounded)),
           findsOneWidget);
-      // Reading order: first at the top left, the others after it.
+      // Reading order: the action, the tiles, then View market at the top
+      // left of the cards to read more, the others after it.
+      final protect = find.byKey(const ValueKey('poly-position-protect'));
+      expect(protect, findsOneWidget);
+      expect(
+          find.descendant(
+              of: find.byKey(const ValueKey('poly-position-actions')),
+              matching: protect),
+          findsOneWidget);
+      final tiles =
+          tester.getRect(find.byKey(const ValueKey('poly-position-value')));
       final first = tester.getRect(_row);
+      final details =
+          tester.getRect(find.byKey(PositionDetailSheet.detailsRowKey));
       final rules = find.byKey(PositionDetailSheet.closingConditionsKey);
       expect(rules, findsOneWidget);
-      expect(first.top, lessThan(tester.getRect(rules).top));
-      final details = find.byKey(PositionDetailSheet.detailsRowKey);
-      expect(first.top, lessThan(tester.getRect(details).top));
-      final protect = find.byKey(const ValueKey('poly-position-protect'));
-      if (protect.evaluate().isNotEmpty) {
-        expect(first.top, tester.getRect(protect).top);
-        expect(first.right, lessThan(tester.getRect(protect).left));
-        // Four: a 2 x 2 grid of squares, the rules' first line kept for
-        // a full-width card.
-        expect(tester.getRect(rules).top, tester.getRect(details).top);
-        expect(find.text('Resolves to the winner of the 2026 election.'),
-            findsNothing);
-        expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
-      }
+      expect(tester.getRect(protect).bottom, lessThan(tiles.top));
+      expect(tiles.bottom, lessThan(first.top));
+      // Alone: the full width (View market's left to Details' right), at
+      // the squares' size (title 15, not the lone card's 17), with a
+      // chevron.
+      expect(tester.getRect(protect).left, moreOrLessEquals(first.left));
+      expect(tester.getRect(protect).right, moreOrLessEquals(details.right));
+      expect(
+          tester
+              .widget<Text>(find.descendant(
+                  of: protect, matching: find.text('Protect it')))
+              .style
+              ?.fontSize,
+          15.sp);
+      expect(
+          find.descendant(
+              of: protect, matching: find.byIcon(Icons.chevron_right_rounded)),
+          findsOneWidget);
+      // View market and Details side by side, the rules full width under
+      // them with their first line.
+      expect(first.top, details.top);
+      expect(first.right, lessThan(details.left));
+      expect(tester.getRect(rules).top, greaterThan(first.bottom));
+      expect(tester.getRect(rules).right, moreOrLessEquals(details.right));
+      expect(
+          find.descendant(
+              of: rules,
+              matching:
+                  find.text('Resolves to the winner of the 2026 election.')),
+          findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     }, () => MockClient((_) async => http.Response('{}', 404)));
@@ -263,6 +293,15 @@ void main() {
       final rules = find.byKey(PositionDetailSheet.closingConditionsKey);
       expect(find.byKey(const ValueKey('poly-position-protect')),
           findsNothing);
+      // Nothing left to do to it: no actions row, the tiles then the cards
+      // to read more.
+      expect(find.byKey(const ValueKey('poly-position-actions')),
+          findsNothing);
+      expect(
+          tester
+              .getRect(find.byKey(const ValueKey('poly-position-value')))
+              .bottom,
+          lessThan(view.top));
       expect(view.top, details.top);
       expect(view.right, lessThan(details.left));
       expect(tester.getRect(rules).top, greaterThan(view.bottom));

@@ -6343,6 +6343,15 @@ class AppLocalizationsSv extends AppLocalizations {
       'Börsen har inte bekräftat resultatet. Kontrollera dina ordrar och ditt saldo innan du försöker igen.';
 
   @override
+  String get betConfirmingWithVenue => 'Bekräftar med Polymarket…';
+
+  @override
+  String get investingConfirmingWithExchange => 'Bekräftar med börsen…';
+
+  @override
+  String get investingOrderNotPlaced => 'Ordern gick inte igenom. Inget lades.';
+
+  @override
   String get investingApprovalExpired =>
       'Godkännandet har gått ut. Granska affären och godkänn den igen.';
 
@@ -11545,6 +11554,88 @@ class AppLocalizationsSv extends AppLocalizations {
   String get balanceNoHistorySub => 'Den börjar med din första transaktion.';
 
   @override
+  String balanceGoalLevel(int level) {
+    return 'Nivå $level';
+  }
+
+  @override
+  String get balanceLevelName0 => 'Uppvärmning';
+
+  @override
+  String get balanceLevelName1 => 'Fickpengar';
+
+  @override
+  String get balanceLevelName2 => 'Samlare';
+
+  @override
+  String get balanceLevelName3 => 'Stamgäst';
+
+  @override
+  String get balanceLevelName4 => 'Vuxen';
+
+  @override
+  String get balanceLevelName5 => 'Seriös';
+
+  @override
+  String get balanceLevelName6 => 'Stadig hand';
+
+  @override
+  String get balanceLevelName7 => 'Tungviktare';
+
+  @override
+  String get balanceLevelName8 => 'Stor hund';
+
+  @override
+  String get balanceLevelName9 => 'Flockledare';
+
+  @override
+  String get balanceLevelName10 => 'Legend';
+
+  @override
+  String get balanceLevelName11 => 'Utanför skalan';
+
+  @override
+  String balanceGoalProgress(int percent, String goal) {
+    return '$percent % till $goal';
+  }
+
+  @override
+  String get balanceGoalsHeading => 'Mål';
+
+  @override
+  String get balanceGoalNext => 'Nästa mål';
+
+  @override
+  String balanceGoalToGo(String amount) {
+    return '$amount kvar';
+  }
+
+  @override
+  String balanceGoalChartLabel(String goal) {
+    return 'Nästa: $goal';
+  }
+
+  @override
+  String balanceGoalMove(String amount) {
+    return 'Flytta $amount till Dollar';
+  }
+
+  @override
+  String get balanceGoalMovePlain => 'Flytta till Dollar';
+
+  @override
+  String get balanceGoalMoveWhy => 'Dina pengar, fler ställen att gå i dollar.';
+
+  @override
+  String balanceMilestonePassed(String amount) {
+    return 'Du passerade $amount';
+  }
+
+  @override
+  String get balanceMilestonePassedLine =>
+      'Bitcoin och dollar tillsammans. Sal låtsas att det inte är något.';
+
+  @override
   String get pnlNoHistoryTitle => 'Inget resultat än';
 
   @override
@@ -11923,7 +12014,7 @@ class AppLocalizationsSv extends AppLocalizations {
   String get usdSendSearchHint => 'Name, address or phone';
 
   @override
-  String get usdSendToYourBitcoin => 'To your Bitcoin';
+  String get usdSendToYourBitcoin => 'Till din Bitcoin';
 
   @override
   String usdBitcoinBalanceLine(String amount) {
@@ -11932,6 +12023,23 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
+
+  @override
+  String get receiveOrSwapTitle => 'Ta emot eller växla';
+
+  @override
+  String get receiveFromYourDollars => 'Från dina Dollar';
+
+  @override
+  String usdDollarsBalanceLine(String amount) {
+    return '$amount i Dollar';
+  }
+
+  @override
+  String get receiveFromAnotherAsset => 'Från en annan tillgång';
+
+  @override
+  String get receiveBitcoinAndLightning => 'Bitcoin och Lightning';
 
   @override
   String get sendRailBitcoinOnchain => 'Bitcoin · on-chain';
@@ -13629,6 +13737,18 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get sendToCryptoAddress => 'Till en kryptoadress';
+
+  @override
+  String get sendMoreWaysToSend => 'Fler sätt att skicka';
+
+  @override
+  String get sendWayCryptoAddress => 'Kryptoadress';
+
+  @override
+  String get sendWayPrediction => 'Prognos';
+
+  @override
+  String get sendWayToDollars => 'Till Dollar';
 
   @override
   String get sendPickRowSub =>

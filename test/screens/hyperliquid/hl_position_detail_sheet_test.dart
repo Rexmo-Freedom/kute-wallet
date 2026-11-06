@@ -1033,6 +1033,78 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    // Actions first (founder, 6 November 2026): the chart and its
+    // interval row, then what can be done to the position, then the tiles,
+    // then the cards to read more.
+    testWidgets('actions first: Add margin and Protect it under the chart, '
+        'over the tiles; Advanced chart and Details under the tiles',
+        (tester) async {
+      await pumpScreen(tester,
+          const HlPositionDetailSheet(position: _position, market: btc),
+          height: 1600);
+      final actions = find.byKey(const ValueKey('hl-position-actions'));
+      final add = find.byKey(const ValueKey('hl-add-margin'));
+      final protect = find.byKey(const ValueKey('hl-position-protect'));
+      expect(find.descendant(of: actions, matching: add), findsOneWidget);
+      expect(find.descendant(of: actions, matching: protect), findsOneWidget);
+      final options = find.byKey(const ValueKey('hl-position-options'));
+      final advanced = find.byKey(const ValueKey('hl-advanced-chart'));
+      final details = find.byKey(const ValueKey('hl-position-details'));
+      expect(find.descendant(of: options, matching: advanced), findsOneWidget);
+      expect(find.descendant(of: options, matching: details), findsOneWidget);
+      expect(find.descendant(of: options, matching: protect), findsNothing);
+      final tile = find.byKey(const ValueKey('hl-position-margin'));
+      expect(tester.getRect(find.byType(HlCandleChart)).bottom,
+          lessThanOrEqualTo(tester.getRect(actions).top));
+      expect(tester.getRect(add).top, tester.getRect(protect).top);
+      expect(tester.getRect(actions).bottom,
+          lessThan(tester.getRect(tile).top));
+      expect(tester.getRect(tile).bottom,
+          lessThan(tester.getRect(options).top));
+      expect(tester.getRect(advanced).top, tester.getRect(details).top);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('cross: Protect it alone in the actions row, full width at '
+        'the squares\' size, over the tiles', (tester) async {
+      const cross = HlPerpPosition(
+        coin: 'BTC',
+        szi: 0.5,
+        entryPx: 64000,
+        positionValue: 32000,
+        unrealizedPnl: 0,
+        returnOnEquity: 0,
+        liquidationPx: 58000,
+        marginUsed: 6400,
+        leverageType: 'cross',
+        leverageValue: 5,
+        maxLeverage: 40,
+      );
+      await pumpScreen(tester,
+          const HlPositionDetailSheet(position: cross, market: btc),
+          position: cross, height: 1600);
+      final actions = find.byKey(const ValueKey('hl-position-actions'));
+      final protect = find.byKey(const ValueKey('hl-position-protect'));
+      expect(find.byKey(const ValueKey('hl-add-margin')), findsNothing);
+      expect(find.descendant(of: actions, matching: protect), findsOneWidget);
+      final options =
+          tester.getRect(find.byKey(const ValueKey('hl-position-options')));
+      expect(tester.getRect(protect).left, moreOrLessEquals(options.left));
+      expect(tester.getRect(protect).right, moreOrLessEquals(options.right));
+      expect(
+          tester
+              .widget<Text>(find.descendant(
+                  of: protect, matching: find.text('Protect it')))
+              .style
+              ?.fontSize,
+          15.sp);
+      expect(tester.getRect(protect).bottom,
+          lessThan(tester
+              .getRect(find.byKey(const ValueKey('hl-position-margin')))
+              .top));
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('"Protect it" opens the close ticket\'s own Advanced page on a '
         'stop-market close of the whole position', (tester) async {
       OpenOnce.reset();

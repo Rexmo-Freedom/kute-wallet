@@ -6368,6 +6368,16 @@ class AppLocalizationsPl extends AppLocalizations {
       'Giełda nie potwierdziła wyniku. Sprawdź zlecenia i saldo, zanim spróbujesz ponownie.';
 
   @override
+  String get betConfirmingWithVenue => 'Potwierdzanie w Polymarket…';
+
+  @override
+  String get investingConfirmingWithExchange => 'Potwierdzanie na giełdzie…';
+
+  @override
+  String get investingOrderNotPlaced =>
+      'To zlecenie nie zostało zrealizowane. Nic nie zostało złożone.';
+
+  @override
   String get investingApprovalExpired =>
       'Zatwierdzenie wygasło. Przejrzyj transakcję i zatwierdź ją ponownie.';
 
@@ -11586,6 +11596,89 @@ class AppLocalizationsPl extends AppLocalizations {
   String get balanceNoHistorySub => 'Zacznie się od pierwszej transakcji.';
 
   @override
+  String balanceGoalLevel(int level) {
+    return 'Poziom $level';
+  }
+
+  @override
+  String get balanceLevelName0 => 'Rozgrzewka';
+
+  @override
+  String get balanceLevelName1 => 'Kieszonkowe';
+
+  @override
+  String get balanceLevelName2 => 'Zbieracz';
+
+  @override
+  String get balanceLevelName3 => 'Stały bywalec';
+
+  @override
+  String get balanceLevelName4 => 'Dorosły';
+
+  @override
+  String get balanceLevelName5 => 'Na poważnie';
+
+  @override
+  String get balanceLevelName6 => 'Pewna ręka';
+
+  @override
+  String get balanceLevelName7 => 'Waga ciężka';
+
+  @override
+  String get balanceLevelName8 => 'Duży pies';
+
+  @override
+  String get balanceLevelName9 => 'Przywódca stada';
+
+  @override
+  String get balanceLevelName10 => 'Legenda';
+
+  @override
+  String get balanceLevelName11 => 'Poza skalą';
+
+  @override
+  String balanceGoalProgress(int percent, String goal) {
+    return '$percent% do $goal';
+  }
+
+  @override
+  String get balanceGoalsHeading => 'Cele';
+
+  @override
+  String get balanceGoalNext => 'Następny cel';
+
+  @override
+  String balanceGoalToGo(String amount) {
+    return 'Jeszcze $amount';
+  }
+
+  @override
+  String balanceGoalChartLabel(String goal) {
+    return 'Następny: $goal';
+  }
+
+  @override
+  String balanceGoalMove(String amount) {
+    return 'Przenieś $amount do Dolarów';
+  }
+
+  @override
+  String get balanceGoalMovePlain => 'Przenieś do Dolarów';
+
+  @override
+  String get balanceGoalMoveWhy =>
+      'Twoje pieniądze, więcej możliwości w dolarach.';
+
+  @override
+  String balanceMilestonePassed(String amount) {
+    return 'Przekroczono $amount';
+  }
+
+  @override
+  String get balanceMilestonePassedLine =>
+      'Bitcoin i dolary razem. Sal udaje, że to nic takiego.';
+
+  @override
   String get pnlNoHistoryTitle => 'Brak wyniku';
 
   @override
@@ -11967,7 +12060,7 @@ class AppLocalizationsPl extends AppLocalizations {
   String get usdSendSearchHint => 'Name, address or phone';
 
   @override
-  String get usdSendToYourBitcoin => 'To your Bitcoin';
+  String get usdSendToYourBitcoin => 'Na twój Bitcoin';
 
   @override
   String usdBitcoinBalanceLine(String amount) {
@@ -11976,6 +12069,23 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
+
+  @override
+  String get receiveOrSwapTitle => 'Odbierz lub wymień';
+
+  @override
+  String get receiveFromYourDollars => 'Z twoich Dolarów';
+
+  @override
+  String usdDollarsBalanceLine(String amount) {
+    return '$amount w Dolarach';
+  }
+
+  @override
+  String get receiveFromAnotherAsset => 'Z innego aktywa';
+
+  @override
+  String get receiveBitcoinAndLightning => 'Bitcoin i Lightning';
 
   @override
   String get sendRailBitcoinOnchain => 'Bitcoin · on-chain';
@@ -13677,6 +13787,18 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get sendToCryptoAddress => 'Na adres krypto';
+
+  @override
+  String get sendMoreWaysToSend => 'Więcej sposobów wysyłki';
+
+  @override
+  String get sendWayCryptoAddress => 'Adres krypto';
+
+  @override
+  String get sendWayPrediction => 'Prognoza';
+
+  @override
+  String get sendWayToDollars => 'Do Dolarów';
 
   @override
   String get sendPickRowSub => 'Lub inwestycję. Wyszukaj rynek, wybierz stronę';

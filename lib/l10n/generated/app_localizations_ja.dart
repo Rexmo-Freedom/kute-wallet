@@ -6114,6 +6114,15 @@ class AppLocalizationsJa extends AppLocalizations {
       '取引所から結果が確認されていません。再試行する前に注文と残高を確認してください。';
 
   @override
+  String get betConfirmingWithVenue => 'Polymarketで確認中…';
+
+  @override
+  String get investingConfirmingWithExchange => '取引所で確認中…';
+
+  @override
+  String get investingOrderNotPlaced => 'この注文は成立しませんでした。何も注文されていません。';
+
+  @override
   String get investingApprovalExpired =>
       '承認の有効期限が切れました。注文内容を確認して、もう一度承認してください。';
 
@@ -11129,6 +11138,87 @@ class AppLocalizationsJa extends AppLocalizations {
   String get balanceNoHistorySub => '最初の取引から始まります。';
 
   @override
+  String balanceGoalLevel(int level) {
+    return 'レベル $level';
+  }
+
+  @override
+  String get balanceLevelName0 => 'ウォーミングアップ';
+
+  @override
+  String get balanceLevelName1 => 'おこづかい';
+
+  @override
+  String get balanceLevelName2 => 'スタッカー';
+
+  @override
+  String get balanceLevelName3 => '常連';
+
+  @override
+  String get balanceLevelName4 => '大人';
+
+  @override
+  String get balanceLevelName5 => '本気';
+
+  @override
+  String get balanceLevelName6 => '安定した手';
+
+  @override
+  String get balanceLevelName7 => 'ヘビー級';
+
+  @override
+  String get balanceLevelName8 => '大物';
+
+  @override
+  String get balanceLevelName9 => '群れのリーダー';
+
+  @override
+  String get balanceLevelName10 => '伝説';
+
+  @override
+  String get balanceLevelName11 => '規格外';
+
+  @override
+  String balanceGoalProgress(int percent, String goal) {
+    return '$goalまで$percent%';
+  }
+
+  @override
+  String get balanceGoalsHeading => '目標';
+
+  @override
+  String get balanceGoalNext => '次の目標';
+
+  @override
+  String balanceGoalToGo(String amount) {
+    return 'あと$amount';
+  }
+
+  @override
+  String balanceGoalChartLabel(String goal) {
+    return '次: $goal';
+  }
+
+  @override
+  String balanceGoalMove(String amount) {
+    return '$amountをドルへ移す';
+  }
+
+  @override
+  String get balanceGoalMovePlain => 'ドルへ移す';
+
+  @override
+  String get balanceGoalMoveWhy => 'ドルで、お金の行き先が広がる。';
+
+  @override
+  String balanceMilestonePassed(String amount) {
+    return '$amountを突破';
+  }
+
+  @override
+  String get balanceMilestonePassedLine => 'ビットコインとドルの合計。Salは平静を装っています。';
+
+  @override
   String get pnlNoHistoryTitle => '損益はまだありません';
 
   @override
@@ -11501,7 +11591,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get usdSendSearchHint => 'Name, address or phone';
 
   @override
-  String get usdSendToYourBitcoin => 'To your Bitcoin';
+  String get usdSendToYourBitcoin => 'ビットコインへ';
 
   @override
   String usdBitcoinBalanceLine(String amount) {
@@ -11510,6 +11600,23 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
+
+  @override
+  String get receiveOrSwapTitle => '受け取り・交換';
+
+  @override
+  String get receiveFromYourDollars => 'ドルから';
+
+  @override
+  String usdDollarsBalanceLine(String amount) {
+    return 'ドル残高 $amount';
+  }
+
+  @override
+  String get receiveFromAnotherAsset => '他の暗号資産から';
+
+  @override
+  String get receiveBitcoinAndLightning => 'ビットコインとLightning';
 
   @override
   String get sendRailBitcoinOnchain => 'ビットコイン · オンチェーン';
@@ -13195,6 +13302,18 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get sendToCryptoAddress => '暗号資産アドレスへ';
+
+  @override
+  String get sendMoreWaysToSend => 'その他の送金方法';
+
+  @override
+  String get sendWayCryptoAddress => '暗号アドレス';
+
+  @override
+  String get sendWayPrediction => '予測';
+
+  @override
+  String get sendWayToDollars => 'ドルへ';
 
   @override
   String get sendPickRowSub => '投資も可。マーケットを検索してサイドを選択';

@@ -6381,6 +6381,16 @@ class AppLocalizationsRo extends AppLocalizations {
       'Platforma nu a confirmat rezultatul. Verifică ordinele și soldul înainte să încerci din nou.';
 
   @override
+  String get betConfirmingWithVenue => 'Se confirmă cu Polymarket…';
+
+  @override
+  String get investingConfirmingWithExchange => 'Se confirmă cu platforma…';
+
+  @override
+  String get investingOrderNotPlaced =>
+      'Acest ordin nu a trecut. Nu s-a plasat nimic.';
+
+  @override
   String get investingApprovalExpired =>
       'Aprobarea a expirat. Verifică tranzacția și aprob-o din nou.';
 
@@ -11603,6 +11613,89 @@ class AppLocalizationsRo extends AppLocalizations {
   String get balanceNoHistorySub => 'Începe cu prima ta tranzacție.';
 
   @override
+  String balanceGoalLevel(int level) {
+    return 'Nivelul $level';
+  }
+
+  @override
+  String get balanceLevelName0 => 'Încălzire';
+
+  @override
+  String get balanceLevelName1 => 'Bani de buzunar';
+
+  @override
+  String get balanceLevelName2 => 'Strângător';
+
+  @override
+  String get balanceLevelName3 => 'Obișnuit';
+
+  @override
+  String get balanceLevelName4 => 'Matur';
+
+  @override
+  String get balanceLevelName5 => 'Serios';
+
+  @override
+  String get balanceLevelName6 => 'Mână sigură';
+
+  @override
+  String get balanceLevelName7 => 'Categoria grea';
+
+  @override
+  String get balanceLevelName8 => 'Câine mare';
+
+  @override
+  String get balanceLevelName9 => 'Liderul haitei';
+
+  @override
+  String get balanceLevelName10 => 'Legendă';
+
+  @override
+  String get balanceLevelName11 => 'În afara scalei';
+
+  @override
+  String balanceGoalProgress(int percent, String goal) {
+    return '$percent% până la $goal';
+  }
+
+  @override
+  String get balanceGoalsHeading => 'Obiective';
+
+  @override
+  String get balanceGoalNext => 'Următorul obiectiv';
+
+  @override
+  String balanceGoalToGo(String amount) {
+    return 'Mai sunt $amount';
+  }
+
+  @override
+  String balanceGoalChartLabel(String goal) {
+    return 'Următorul: $goal';
+  }
+
+  @override
+  String balanceGoalMove(String amount) {
+    return 'Mută $amount în Dolari';
+  }
+
+  @override
+  String get balanceGoalMovePlain => 'Mută în Dolari';
+
+  @override
+  String get balanceGoalMoveWhy =>
+      'Banii tăi, mai multe locuri unde să meargă în dolari.';
+
+  @override
+  String balanceMilestonePassed(String amount) {
+    return 'Ai depășit $amount';
+  }
+
+  @override
+  String get balanceMilestonePassedLine =>
+      'Bitcoin și dolari împreună. Sal se preface că nu e mare lucru.';
+
+  @override
   String get pnlNoHistoryTitle => 'Încă nu ai P&L';
 
   @override
@@ -11986,7 +12079,7 @@ class AppLocalizationsRo extends AppLocalizations {
   String get usdSendSearchHint => 'Name, address or phone';
 
   @override
-  String get usdSendToYourBitcoin => 'To your Bitcoin';
+  String get usdSendToYourBitcoin => 'În Bitcoin-ul tău';
 
   @override
   String usdBitcoinBalanceLine(String amount) {
@@ -11995,6 +12088,23 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
+
+  @override
+  String get receiveOrSwapTitle => 'Primește sau schimbă';
+
+  @override
+  String get receiveFromYourDollars => 'Din Dolarii tăi';
+
+  @override
+  String usdDollarsBalanceLine(String amount) {
+    return '$amount în Dolari';
+  }
+
+  @override
+  String get receiveFromAnotherAsset => 'Din alt activ';
+
+  @override
+  String get receiveBitcoinAndLightning => 'Bitcoin și Lightning';
 
   @override
   String get sendRailBitcoinOnchain => 'Bitcoin · on-chain';
@@ -13697,6 +13807,18 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get sendToCryptoAddress => 'Către o adresă crypto';
+
+  @override
+  String get sendMoreWaysToSend => 'Alte moduri de trimitere';
+
+  @override
+  String get sendWayCryptoAddress => 'Adresă crypto';
+
+  @override
+  String get sendWayPrediction => 'Predicție';
+
+  @override
+  String get sendWayToDollars => 'În Dolari';
 
   @override
   String get sendPickRowSub => 'Sau o investiție. Caută o piață, alege partea';

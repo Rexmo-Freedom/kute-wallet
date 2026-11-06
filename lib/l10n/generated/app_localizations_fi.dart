@@ -6345,6 +6345,17 @@ class AppLocalizationsFi extends AppLocalizations {
       'Markkinapaikka ei ole vahvistanut tulosta. Tarkista toimeksiantosi ja saldosi ennen kuin yrität uudelleen.';
 
   @override
+  String get betConfirmingWithVenue => 'Vahvistetaan Polymarketin kanssa…';
+
+  @override
+  String get investingConfirmingWithExchange =>
+      'Vahvistetaan markkinapaikan kanssa…';
+
+  @override
+  String get investingOrderNotPlaced =>
+      'Toimeksianto ei mennyt läpi. Mitään ei tehty.';
+
+  @override
   String get investingApprovalExpired =>
       'Hyväksyntä vanhentui. Tarkista toimeksianto ja hyväksy se uudelleen.';
 
@@ -11559,6 +11570,89 @@ class AppLocalizationsFi extends AppLocalizations {
   String get balanceNoHistorySub => 'Se alkaa ensimmäisestä tapahtumastasi.';
 
   @override
+  String balanceGoalLevel(int level) {
+    return 'Taso $level';
+  }
+
+  @override
+  String get balanceLevelName0 => 'Lämmittelyä';
+
+  @override
+  String get balanceLevelName1 => 'Taskurahaa';
+
+  @override
+  String get balanceLevelName2 => 'Kerääjä';
+
+  @override
+  String get balanceLevelName3 => 'Vakiokasvo';
+
+  @override
+  String get balanceLevelName4 => 'Aikuinen';
+
+  @override
+  String get balanceLevelName5 => 'Tosissaan';
+
+  @override
+  String get balanceLevelName6 => 'Vakaa käsi';
+
+  @override
+  String get balanceLevelName7 => 'Raskassarjalainen';
+
+  @override
+  String get balanceLevelName8 => 'Iso koira';
+
+  @override
+  String get balanceLevelName9 => 'Laumanjohtaja';
+
+  @override
+  String get balanceLevelName10 => 'Legenda';
+
+  @override
+  String get balanceLevelName11 => 'Asteikon ulkopuolella';
+
+  @override
+  String balanceGoalProgress(int percent, String goal) {
+    return '$percent % tavoitteesta $goal';
+  }
+
+  @override
+  String get balanceGoalsHeading => 'Tavoitteet';
+
+  @override
+  String get balanceGoalNext => 'Seuraava tavoite';
+
+  @override
+  String balanceGoalToGo(String amount) {
+    return '$amount jäljellä';
+  }
+
+  @override
+  String balanceGoalChartLabel(String goal) {
+    return 'Seuraava: $goal';
+  }
+
+  @override
+  String balanceGoalMove(String amount) {
+    return 'Siirrä $amount dollareihin';
+  }
+
+  @override
+  String get balanceGoalMovePlain => 'Siirrä dollareihin';
+
+  @override
+  String get balanceGoalMoveWhy =>
+      'Rahasi, enemmän mahdollisuuksia dollareissa.';
+
+  @override
+  String balanceMilestonePassed(String amount) {
+    return 'Ohitit $amount';
+  }
+
+  @override
+  String get balanceMilestonePassedLine =>
+      'Bitcoin ja dollarit yhteensä. Sal esittää, ettei tämä ole mitään.';
+
+  @override
   String get pnlNoHistoryTitle => 'Ei vielä voittoa / tappiota';
 
   @override
@@ -11938,7 +12032,7 @@ class AppLocalizationsFi extends AppLocalizations {
   String get usdSendSearchHint => 'Name, address or phone';
 
   @override
-  String get usdSendToYourBitcoin => 'To your Bitcoin';
+  String get usdSendToYourBitcoin => 'Bitcoiniisi';
 
   @override
   String usdBitcoinBalanceLine(String amount) {
@@ -11947,6 +12041,23 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
+
+  @override
+  String get receiveOrSwapTitle => 'Vastaanota tai vaihda';
+
+  @override
+  String get receiveFromYourDollars => 'Dollareistasi';
+
+  @override
+  String usdDollarsBalanceLine(String amount) {
+    return '$amount Dollareissa';
+  }
+
+  @override
+  String get receiveFromAnotherAsset => 'Toisesta varasta';
+
+  @override
+  String get receiveBitcoinAndLightning => 'Bitcoin ja Lightning';
 
   @override
   String get sendRailBitcoinOnchain => 'Bitcoin · on-chain';
@@ -13658,6 +13769,18 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get sendToCryptoAddress => 'Kryptoosoitteeseen';
+
+  @override
+  String get sendMoreWaysToSend => 'Lisää tapoja lähettää';
+
+  @override
+  String get sendWayCryptoAddress => 'Kryptoosoite';
+
+  @override
+  String get sendWayPrediction => 'Ennuste';
+
+  @override
+  String get sendWayToDollars => 'Dollareihin';
 
   @override
   String get sendPickRowSub => 'Tai sijoitus. Hae markkina, valitse puoli';

@@ -6360,6 +6360,16 @@ class AppLocalizationsHr extends AppLocalizations {
       'Burza nije potvrdila rezultat. Provjeri naloge i saldo prije novog pokušaja.';
 
   @override
+  String get betConfirmingWithVenue => 'Potvrđuje se s Polymarketom…';
+
+  @override
+  String get investingConfirmingWithExchange => 'Potvrđuje se s burzom…';
+
+  @override
+  String get investingOrderNotPlaced =>
+      'Ovaj nalog nije prošao. Ništa nije postavljeno.';
+
+  @override
   String get investingApprovalExpired =>
       'Odobrenje je isteklo. Pregledaj transakciju i ponovno je odobri.';
 
@@ -11573,6 +11583,88 @@ class AppLocalizationsHr extends AppLocalizations {
   String get balanceNoHistorySub => 'Počinje tvojom prvom transakcijom.';
 
   @override
+  String balanceGoalLevel(int level) {
+    return 'Razina $level';
+  }
+
+  @override
+  String get balanceLevelName0 => 'Zagrijavanje';
+
+  @override
+  String get balanceLevelName1 => 'Džeparac';
+
+  @override
+  String get balanceLevelName2 => 'Skupljač';
+
+  @override
+  String get balanceLevelName3 => 'Stalni gost';
+
+  @override
+  String get balanceLevelName4 => 'Odrastao';
+
+  @override
+  String get balanceLevelName5 => 'Ozbiljno';
+
+  @override
+  String get balanceLevelName6 => 'Mirna ruka';
+
+  @override
+  String get balanceLevelName7 => 'Teška kategorija';
+
+  @override
+  String get balanceLevelName8 => 'Veliki pas';
+
+  @override
+  String get balanceLevelName9 => 'Vođa čopora';
+
+  @override
+  String get balanceLevelName10 => 'Legenda';
+
+  @override
+  String get balanceLevelName11 => 'Izvan ljestvice';
+
+  @override
+  String balanceGoalProgress(int percent, String goal) {
+    return '$percent % do $goal';
+  }
+
+  @override
+  String get balanceGoalsHeading => 'Ciljevi';
+
+  @override
+  String get balanceGoalNext => 'Sljedeći cilj';
+
+  @override
+  String balanceGoalToGo(String amount) {
+    return 'Još $amount';
+  }
+
+  @override
+  String balanceGoalChartLabel(String goal) {
+    return 'Sljedeće: $goal';
+  }
+
+  @override
+  String balanceGoalMove(String amount) {
+    return 'Premjesti $amount u Dolare';
+  }
+
+  @override
+  String get balanceGoalMovePlain => 'Premjesti u Dolare';
+
+  @override
+  String get balanceGoalMoveWhy => 'Tvoj novac, više mogućnosti u dolarima.';
+
+  @override
+  String balanceMilestonePassed(String amount) {
+    return 'Iza tebe je $amount';
+  }
+
+  @override
+  String get balanceMilestonePassedLine =>
+      'Bitcoin i dolari zajedno. Sal se pravi da nije ništa.';
+
+  @override
   String get pnlNoHistoryTitle => 'Još nema dobiti/gubitka';
 
   @override
@@ -11953,7 +12045,7 @@ class AppLocalizationsHr extends AppLocalizations {
   String get usdSendSearchHint => 'Name, address or phone';
 
   @override
-  String get usdSendToYourBitcoin => 'To your Bitcoin';
+  String get usdSendToYourBitcoin => 'Na tvoj Bitcoin';
 
   @override
   String usdBitcoinBalanceLine(String amount) {
@@ -11962,6 +12054,23 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
+
+  @override
+  String get receiveOrSwapTitle => 'Primi ili zamijeni';
+
+  @override
+  String get receiveFromYourDollars => 'Iz tvojih Dolara';
+
+  @override
+  String usdDollarsBalanceLine(String amount) {
+    return '$amount u Dolarima';
+  }
+
+  @override
+  String get receiveFromAnotherAsset => 'Iz druge kriptovalute';
+
+  @override
+  String get receiveBitcoinAndLightning => 'Bitcoin i Lightning';
 
   @override
   String get sendRailBitcoinOnchain => 'Bitcoin · on-chain';
@@ -13660,6 +13769,18 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get sendToCryptoAddress => 'Na kripto adresu';
+
+  @override
+  String get sendMoreWaysToSend => 'Više načina slanja';
+
+  @override
+  String get sendWayCryptoAddress => 'Kripto adresa';
+
+  @override
+  String get sendWayPrediction => 'Predviđanje';
+
+  @override
+  String get sendWayToDollars => 'U Dolare';
 
   @override
   String get sendPickRowSub => 'Ili ulaganje. Potraži tržište, odaberi stranu';

@@ -6331,6 +6331,16 @@ class AppLocalizationsEt extends AppLocalizations {
       'Platvorm pole tulemust kinnitanud. Kontrolli enne uut katset oma tellimusi ja saldot.';
 
   @override
+  String get betConfirmingWithVenue => 'Kinnitatakse Polymarketiga…';
+
+  @override
+  String get investingConfirmingWithExchange => 'Kinnitatakse platvormiga…';
+
+  @override
+  String get investingOrderNotPlaced =>
+      'See tellimus ei läinud läbi. Midagi ei esitatud.';
+
+  @override
   String get investingApprovalExpired =>
       'Kinnitus aegus. Vaata tehing üle ja kinnita uuesti.';
 
@@ -11534,6 +11544,88 @@ class AppLocalizationsEt extends AppLocalizations {
   String get balanceNoHistorySub => 'See algab sinu esimesest tehingust.';
 
   @override
+  String balanceGoalLevel(int level) {
+    return 'Tase $level';
+  }
+
+  @override
+  String get balanceLevelName0 => 'Soojendus';
+
+  @override
+  String get balanceLevelName1 => 'Taskuraha';
+
+  @override
+  String get balanceLevelName2 => 'Koguja';
+
+  @override
+  String get balanceLevelName3 => 'Püsikunde';
+
+  @override
+  String get balanceLevelName4 => 'Täiskasvanu';
+
+  @override
+  String get balanceLevelName5 => 'Tõsine';
+
+  @override
+  String get balanceLevelName6 => 'Kindel käsi';
+
+  @override
+  String get balanceLevelName7 => 'Raskekaallane';
+
+  @override
+  String get balanceLevelName8 => 'Suur koer';
+
+  @override
+  String get balanceLevelName9 => 'Karjajuht';
+
+  @override
+  String get balanceLevelName10 => 'Legend';
+
+  @override
+  String get balanceLevelName11 => 'Skaalast väljas';
+
+  @override
+  String balanceGoalProgress(int percent, String goal) {
+    return '$percent% eesmärgist $goal';
+  }
+
+  @override
+  String get balanceGoalsHeading => 'Eesmärgid';
+
+  @override
+  String get balanceGoalNext => 'Järgmine eesmärk';
+
+  @override
+  String balanceGoalToGo(String amount) {
+    return 'Veel $amount';
+  }
+
+  @override
+  String balanceGoalChartLabel(String goal) {
+    return 'Järgmine: $goal';
+  }
+
+  @override
+  String balanceGoalMove(String amount) {
+    return 'Vii $amount dollaritesse';
+  }
+
+  @override
+  String get balanceGoalMovePlain => 'Vii dollaritesse';
+
+  @override
+  String get balanceGoalMoveWhy => 'Sinu raha, rohkem võimalusi dollarites.';
+
+  @override
+  String balanceMilestonePassed(String amount) {
+    return 'Sa ületasid $amount';
+  }
+
+  @override
+  String get balanceMilestonePassedLine =>
+      'Bitcoin ja dollarid kokku. Sal teeb näo, nagu poleks midagi.';
+
+  @override
   String get pnlNoHistoryTitle => 'Kasumit/kahjumit veel pole';
 
   @override
@@ -11915,7 +12007,7 @@ class AppLocalizationsEt extends AppLocalizations {
   String get usdSendSearchHint => 'Name, address or phone';
 
   @override
-  String get usdSendToYourBitcoin => 'To your Bitcoin';
+  String get usdSendToYourBitcoin => 'Sinu Bitcoini';
 
   @override
   String usdBitcoinBalanceLine(String amount) {
@@ -11924,6 +12016,23 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
+
+  @override
+  String get receiveOrSwapTitle => 'Võta vastu või vaheta';
+
+  @override
+  String get receiveFromYourDollars => 'Sinu Dollaritest';
+
+  @override
+  String usdDollarsBalanceLine(String amount) {
+    return '$amount Dollarites';
+  }
+
+  @override
+  String get receiveFromAnotherAsset => 'Teisest varast';
+
+  @override
+  String get receiveBitcoinAndLightning => 'Bitcoin ja Lightning';
 
   @override
   String get sendRailBitcoinOnchain => 'Bitcoin · on-chain';
@@ -13624,6 +13733,18 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get sendToCryptoAddress => 'Krüptoaadressile';
+
+  @override
+  String get sendMoreWaysToSend => 'Veel saatmisviise';
+
+  @override
+  String get sendWayCryptoAddress => 'Krüptoaadress';
+
+  @override
+  String get sendWayPrediction => 'Ennustus';
+
+  @override
+  String get sendWayToDollars => 'Dollaritesse';
 
   @override
   String get sendPickRowSub => 'Või investeering. Otsi turg, vali pool';

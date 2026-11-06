@@ -45,6 +45,9 @@ import 'package:kute/screens/shared/kute_bar_context.dart'
     show KuteBarPrimaryStyle, kuteBarScrollClearance;
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/sal_sprite.dart';
+import 'package:kute/screens/polymarket/components/position_speedometer.dart'
+    show PolyPositionSpeedometer;
+import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/theme/app_theme.dart';
 
 import '../../helpers/shell_bar_harness.dart';
@@ -375,6 +378,61 @@ void main() {
     expect(pill, findsOneWidget);
     expect(find.descendant(of: pill, matching: find.text('Send to a friend')),
         findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final (name, settled) in [('won', _won), ('lost', _lost)]) {
+    testWidgets('settled ($name): "Settled" is the quiet line under the '
+        'bar\'s chance, as under the dial, over the tiles', (tester) async {
+      await _pump(tester, settled);
+      final line = find.byKey(const ValueKey('poly-position-expiry'));
+      expect(line, findsOneWidget);
+      expect(tester.widget<Text>(line).data, 'Settled');
+      expect(tester.widget<Text>(line).style?.color,
+          AppColorsExtension.light().textSecondary);
+      final chance = find.byWidgetPredicate(
+          (w) => w is RollingNumberText && w.text.endsWith('% chance'));
+      expect(tester.getRect(line).top,
+          greaterThanOrEqualTo(tester.getRect(chance).bottom));
+      expect(tester.getRect(line).bottom,
+          lessThan(tester
+              .getRect(find.byKey(const ValueKey('poly-position-value')))
+              .top));
+      expect(find.text('Settled'), findsOneWidget);
+      // Nothing to do to it any more: no actions row over the tiles.
+      expect(find.byKey(const ValueKey('poly-position-actions')),
+          findsNothing);
+      expect(find.byKey(const ValueKey('poly-position-protect')),
+          findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 5));
+    });
+  }
+
+  testWidgets('open: Protect it is the actions row between the dial and the '
+      'tiles (founder, 6 November 2026: actions first)', (tester) async {
+    await _pump(tester, _open);
+    final actions = find.byKey(const ValueKey('poly-position-actions'));
+    final protect = find.byKey(const ValueKey('poly-position-protect'));
+    expect(find.descendant(of: actions, matching: protect), findsOneWidget);
+    expect(
+        tester.getRect(actions).top,
+        greaterThan(tester
+            .getRect(find.byKey(PolyPositionSpeedometer.figureKey))
+            .bottom));
+    expect(
+        tester.getRect(actions).bottom,
+        lessThan(tester
+            .getRect(find.byKey(const ValueKey('poly-position-value')))
+            .top));
+    expect(
+        tester
+            .getRect(find.byKey(const ValueKey('poly-position-value')))
+            .bottom,
+        lessThan(tester
+            .getRect(find.byKey(PositionDetailSheet.detailsRowKey))
+            .top));
     expect(tester.takeException(), isNull);
   });
 

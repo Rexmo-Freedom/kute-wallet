@@ -6394,6 +6394,16 @@ class AppLocalizationsDe extends AppLocalizations {
       'Die Börse hat das Ergebnis nicht bestätigt. Prüfe deine Aufträge und dein Guthaben, bevor du es erneut versuchst.';
 
   @override
+  String get betConfirmingWithVenue => 'Wird mit Polymarket bestätigt…';
+
+  @override
+  String get investingConfirmingWithExchange => 'Wird mit der Börse bestätigt…';
+
+  @override
+  String get investingOrderNotPlaced =>
+      'Dieser Auftrag wurde nicht ausgeführt. Es wurde nichts platziert.';
+
+  @override
   String get investingApprovalExpired =>
       'Die Freigabe ist abgelaufen. Prüfe den Auftrag und gib ihn erneut frei.';
 
@@ -11630,6 +11640,88 @@ class AppLocalizationsDe extends AppLocalizations {
   String get balanceNoHistorySub => 'Er beginnt mit deiner ersten Transaktion.';
 
   @override
+  String balanceGoalLevel(int level) {
+    return 'Level $level';
+  }
+
+  @override
+  String get balanceLevelName0 => 'Aufwärmphase';
+
+  @override
+  String get balanceLevelName1 => 'Taschengeld';
+
+  @override
+  String get balanceLevelName2 => 'Sammler';
+
+  @override
+  String get balanceLevelName3 => 'Stammgast';
+
+  @override
+  String get balanceLevelName4 => 'Erwachsen';
+
+  @override
+  String get balanceLevelName5 => 'Ernsthaft';
+
+  @override
+  String get balanceLevelName6 => 'Ruhige Hand';
+
+  @override
+  String get balanceLevelName7 => 'Schwergewicht';
+
+  @override
+  String get balanceLevelName8 => 'Großer Hund';
+
+  @override
+  String get balanceLevelName9 => 'Platzhirsch';
+
+  @override
+  String get balanceLevelName10 => 'Legende';
+
+  @override
+  String get balanceLevelName11 => 'Jenseits der Skala';
+
+  @override
+  String balanceGoalProgress(int percent, String goal) {
+    return '$percent % bis $goal';
+  }
+
+  @override
+  String get balanceGoalsHeading => 'Ziele';
+
+  @override
+  String get balanceGoalNext => 'Nächstes Ziel';
+
+  @override
+  String balanceGoalToGo(String amount) {
+    return 'Noch $amount';
+  }
+
+  @override
+  String balanceGoalChartLabel(String goal) {
+    return 'Nächstes: $goal';
+  }
+
+  @override
+  String balanceGoalMove(String amount) {
+    return '$amount in Dollar verschieben';
+  }
+
+  @override
+  String get balanceGoalMovePlain => 'In Dollar verschieben';
+
+  @override
+  String get balanceGoalMoveWhy => 'Dein Geld, mehr Möglichkeiten in Dollar.';
+
+  @override
+  String balanceMilestonePassed(String amount) {
+    return 'Du hast $amount überschritten';
+  }
+
+  @override
+  String get balanceMilestonePassedLine =>
+      'Bitcoin und Dollar zusammen. Sal tut so, als wäre nichts.';
+
+  @override
   String get pnlNoHistoryTitle => 'Noch kein Gewinn / Verlust';
 
   @override
@@ -12010,7 +12102,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get usdSendSearchHint => 'Name, address or phone';
 
   @override
-  String get usdSendToYourBitcoin => 'To your Bitcoin';
+  String get usdSendToYourBitcoin => 'Zu deinem Bitcoin';
 
   @override
   String usdBitcoinBalanceLine(String amount) {
@@ -12019,6 +12111,23 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
+
+  @override
+  String get receiveOrSwapTitle => 'Empfangen oder tauschen';
+
+  @override
+  String get receiveFromYourDollars => 'Aus deinen Dollar';
+
+  @override
+  String usdDollarsBalanceLine(String amount) {
+    return '$amount in Dollar';
+  }
+
+  @override
+  String get receiveFromAnotherAsset => 'Aus einem anderen Asset';
+
+  @override
+  String get receiveBitcoinAndLightning => 'Bitcoin und Lightning';
 
   @override
   String get sendRailBitcoinOnchain => 'Bitcoin · On-Chain';
@@ -13729,6 +13838,18 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get sendToCryptoAddress => 'An eine Krypto-Adresse';
+
+  @override
+  String get sendMoreWaysToSend => 'Weitere Wege zu senden';
+
+  @override
+  String get sendWayCryptoAddress => 'Krypto-Adresse';
+
+  @override
+  String get sendWayPrediction => 'Prognose';
+
+  @override
+  String get sendWayToDollars => 'Zu Dollar';
 
   @override
   String get sendPickRowSub =>

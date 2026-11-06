@@ -6358,6 +6358,16 @@ class AppLocalizationsBg extends AppLocalizations {
       'Платформата не е потвърдила резултата. Провери поръчките и баланса си, преди да опиташ отново.';
 
   @override
+  String get betConfirmingWithVenue => 'Потвърждава се с Polymarket…';
+
+  @override
+  String get investingConfirmingWithExchange => 'Потвърждава се с платформата…';
+
+  @override
+  String get investingOrderNotPlaced =>
+      'Поръчката не беше изпълнена. Нищо не е направено.';
+
+  @override
   String get investingApprovalExpired =>
       'Одобрението изтече. Прегледай сделката и я одобри отново.';
 
@@ -11567,6 +11577,88 @@ class AppLocalizationsBg extends AppLocalizations {
   String get balanceNoHistorySub => 'Тя започва с първата ти транзакция.';
 
   @override
+  String balanceGoalLevel(int level) {
+    return 'Ниво $level';
+  }
+
+  @override
+  String get balanceLevelName0 => 'Загрявка';
+
+  @override
+  String get balanceLevelName1 => 'Джобни';
+
+  @override
+  String get balanceLevelName2 => 'Трупач';
+
+  @override
+  String get balanceLevelName3 => 'Редовен';
+
+  @override
+  String get balanceLevelName4 => 'Пораснал';
+
+  @override
+  String get balanceLevelName5 => 'Сериозно';
+
+  @override
+  String get balanceLevelName6 => 'Твърда ръка';
+
+  @override
+  String get balanceLevelName7 => 'Тежка категория';
+
+  @override
+  String get balanceLevelName8 => 'Голямо куче';
+
+  @override
+  String get balanceLevelName9 => 'Водач на глутницата';
+
+  @override
+  String get balanceLevelName10 => 'Легенда';
+
+  @override
+  String get balanceLevelName11 => 'Извън скалата';
+
+  @override
+  String balanceGoalProgress(int percent, String goal) {
+    return '$percent% до $goal';
+  }
+
+  @override
+  String get balanceGoalsHeading => 'Цели';
+
+  @override
+  String get balanceGoalNext => 'Следваща цел';
+
+  @override
+  String balanceGoalToGo(String amount) {
+    return 'Остават $amount';
+  }
+
+  @override
+  String balanceGoalChartLabel(String goal) {
+    return 'Следваща: $goal';
+  }
+
+  @override
+  String balanceGoalMove(String amount) {
+    return 'Премести $amount в Долари';
+  }
+
+  @override
+  String get balanceGoalMovePlain => 'Премести в Долари';
+
+  @override
+  String get balanceGoalMoveWhy => 'Твоите пари, повече възможности в долари.';
+
+  @override
+  String balanceMilestonePassed(String amount) {
+    return 'Мина $amount';
+  }
+
+  @override
+  String get balanceMilestonePassedLine =>
+      'Биткойн и долари заедно. Сал се прави, че не е нищо.';
+
+  @override
   String get pnlNoHistoryTitle => 'Още няма печалба / загуба';
 
   @override
@@ -11946,7 +12038,7 @@ class AppLocalizationsBg extends AppLocalizations {
   String get usdSendSearchHint => 'Name, address or phone';
 
   @override
-  String get usdSendToYourBitcoin => 'To your Bitcoin';
+  String get usdSendToYourBitcoin => 'Към твоя Bitcoin';
 
   @override
   String usdBitcoinBalanceLine(String amount) {
@@ -11955,6 +12047,23 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
+
+  @override
+  String get receiveOrSwapTitle => 'Получаване или размяна';
+
+  @override
+  String get receiveFromYourDollars => 'От твоите Долари';
+
+  @override
+  String usdDollarsBalanceLine(String amount) {
+    return '$amount в Долари';
+  }
+
+  @override
+  String get receiveFromAnotherAsset => 'От друг актив';
+
+  @override
+  String get receiveBitcoinAndLightning => 'Bitcoin и Lightning';
 
   @override
   String get sendRailBitcoinOnchain => 'Bitcoin · on-chain';
@@ -13649,6 +13758,18 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get sendToCryptoAddress => 'Към крипто адрес';
+
+  @override
+  String get sendMoreWaysToSend => 'Още начини за изпращане';
+
+  @override
+  String get sendWayCryptoAddress => 'Крипто адрес';
+
+  @override
+  String get sendWayPrediction => 'Прогноза';
+
+  @override
+  String get sendWayToDollars => 'Към Долари';
 
   @override
   String get sendPickRowSub => 'Или инвестиция. Потърси пазар, избери страна';

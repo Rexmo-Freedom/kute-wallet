@@ -6361,6 +6361,16 @@ class AppLocalizationsHu extends AppLocalizations {
       'A tőzsde még nem erősítette meg az eredményt. Mielőtt újrapróbálod, ellenőrizd a megbízásaidat és az egyenlegedet.';
 
   @override
+  String get betConfirmingWithVenue => 'Megerősítés a Polymarkettel…';
+
+  @override
+  String get investingConfirmingWithExchange => 'Megerősítés a tőzsdével…';
+
+  @override
+  String get investingOrderNotPlaced =>
+      'Ez a megbízás nem teljesült. Semmi sem lett leadva.';
+
+  @override
   String get investingApprovalExpired =>
       'A jóváhagyás lejárt. Nézd át az ügyletet, és hagyd jóvá újra.';
 
@@ -11573,6 +11583,88 @@ class AppLocalizationsHu extends AppLocalizations {
   String get balanceNoHistorySub => 'Az első tranzakcióddal kezdődik.';
 
   @override
+  String balanceGoalLevel(int level) {
+    return '$level. szint';
+  }
+
+  @override
+  String get balanceLevelName0 => 'Bemelegítés';
+
+  @override
+  String get balanceLevelName1 => 'Zsebpénz';
+
+  @override
+  String get balanceLevelName2 => 'Gyűjtögető';
+
+  @override
+  String get balanceLevelName3 => 'Törzsvendég';
+
+  @override
+  String get balanceLevelName4 => 'Felnőtt';
+
+  @override
+  String get balanceLevelName5 => 'Komoly';
+
+  @override
+  String get balanceLevelName6 => 'Biztos kéz';
+
+  @override
+  String get balanceLevelName7 => 'Nehézsúlyú';
+
+  @override
+  String get balanceLevelName8 => 'Nagykutya';
+
+  @override
+  String get balanceLevelName9 => 'Falkavezér';
+
+  @override
+  String get balanceLevelName10 => 'Legenda';
+
+  @override
+  String get balanceLevelName11 => 'Skálán kívül';
+
+  @override
+  String balanceGoalProgress(int percent, String goal) {
+    return '$percent% · cél: $goal';
+  }
+
+  @override
+  String get balanceGoalsHeading => 'Célok';
+
+  @override
+  String get balanceGoalNext => 'Következő cél';
+
+  @override
+  String balanceGoalToGo(String amount) {
+    return 'Még $amount';
+  }
+
+  @override
+  String balanceGoalChartLabel(String goal) {
+    return 'Következő: $goal';
+  }
+
+  @override
+  String balanceGoalMove(String amount) {
+    return '$amount áthelyezése Dollárba';
+  }
+
+  @override
+  String get balanceGoalMovePlain => 'Áthelyezés Dollárba';
+
+  @override
+  String get balanceGoalMoveWhy => 'A pénzed, több lehetőség dollárban.';
+
+  @override
+  String balanceMilestonePassed(String amount) {
+    return 'Túl vagy rajta: $amount';
+  }
+
+  @override
+  String get balanceMilestonePassedLine =>
+      'Bitcoin és dollár együtt. Sal úgy tesz, mintha semmi sem történt volna.';
+
+  @override
   String get pnlNoHistoryTitle => 'Még nincs eredmény';
 
   @override
@@ -11954,7 +12046,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get usdSendSearchHint => 'Name, address or phone';
 
   @override
-  String get usdSendToYourBitcoin => 'To your Bitcoin';
+  String get usdSendToYourBitcoin => 'A Bitcoinodba';
 
   @override
   String usdBitcoinBalanceLine(String amount) {
@@ -11963,6 +12055,23 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
+
+  @override
+  String get receiveOrSwapTitle => 'Fogadás vagy csere';
+
+  @override
+  String get receiveFromYourDollars => 'A Dollárodból';
+
+  @override
+  String usdDollarsBalanceLine(String amount) {
+    return '$amount Dollárban';
+  }
+
+  @override
+  String get receiveFromAnotherAsset => 'Másik eszközből';
+
+  @override
+  String get receiveBitcoinAndLightning => 'Bitcoin és Lightning';
 
   @override
   String get sendRailBitcoinOnchain => 'Bitcoin · on-chain';
@@ -13663,6 +13772,18 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get sendToCryptoAddress => 'Kriptocímre';
+
+  @override
+  String get sendMoreWaysToSend => 'További küldési módok';
+
+  @override
+  String get sendWayCryptoAddress => 'Kriptocím';
+
+  @override
+  String get sendWayPrediction => 'Előrejelzés';
+
+  @override
+  String get sendWayToDollars => 'Dollárba';
 
   @override
   String get sendPickRowSub => 'Vagy befektetés. Keress piacot, válassz oldalt';

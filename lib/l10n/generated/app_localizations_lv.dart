@@ -6330,6 +6330,17 @@ class AppLocalizationsLv extends AppLocalizations {
       'Birža nav apstiprinājusi rezultātu. Pirms mēģini vēlreiz, pārbaudi savus rīkojumus un atlikumu.';
 
   @override
+  String get betConfirmingWithVenue => 'Notiek apstiprināšana ar Polymarket…';
+
+  @override
+  String get investingConfirmingWithExchange =>
+      'Notiek apstiprināšana ar biržu…';
+
+  @override
+  String get investingOrderNotPlaced =>
+      'Šis rīkojums netika izpildīts. Nekas netika veikts.';
+
+  @override
   String get investingApprovalExpired =>
       'Apstiprinājuma derīgums beidzās. Pārskati darījumu un apstiprini to vēlreiz.';
 
@@ -11518,6 +11529,88 @@ class AppLocalizationsLv extends AppLocalizations {
   String get balanceNoHistorySub => 'Tā sākas ar tavu pirmo darījumu.';
 
   @override
+  String balanceGoalLevel(int level) {
+    return 'Līmenis $level';
+  }
+
+  @override
+  String get balanceLevelName0 => 'Iesildīšanās';
+
+  @override
+  String get balanceLevelName1 => 'Kabatas nauda';
+
+  @override
+  String get balanceLevelName2 => 'Krājējs';
+
+  @override
+  String get balanceLevelName3 => 'Pastāvīgais';
+
+  @override
+  String get balanceLevelName4 => 'Pieaugušais';
+
+  @override
+  String get balanceLevelName5 => 'Nopietni';
+
+  @override
+  String get balanceLevelName6 => 'Stingra roka';
+
+  @override
+  String get balanceLevelName7 => 'Smagsvars';
+
+  @override
+  String get balanceLevelName8 => 'Liels suns';
+
+  @override
+  String get balanceLevelName9 => 'Bara vadonis';
+
+  @override
+  String get balanceLevelName10 => 'Leģenda';
+
+  @override
+  String get balanceLevelName11 => 'Ārpus skalas';
+
+  @override
+  String balanceGoalProgress(int percent, String goal) {
+    return '$percent% līdz $goal';
+  }
+
+  @override
+  String get balanceGoalsHeading => 'Mērķi';
+
+  @override
+  String get balanceGoalNext => 'Nākamais mērķis';
+
+  @override
+  String balanceGoalToGo(String amount) {
+    return 'Vēl $amount';
+  }
+
+  @override
+  String balanceGoalChartLabel(String goal) {
+    return 'Nākamais: $goal';
+  }
+
+  @override
+  String balanceGoalMove(String amount) {
+    return 'Pārvietot $amount uz Dolāriem';
+  }
+
+  @override
+  String get balanceGoalMovePlain => 'Pārvietot uz Dolāriem';
+
+  @override
+  String get balanceGoalMoveWhy => 'Tava nauda, vairāk iespēju dolāros.';
+
+  @override
+  String balanceMilestonePassed(String amount) {
+    return 'Tu pārsniedzi $amount';
+  }
+
+  @override
+  String get balanceMilestonePassedLine =>
+      'Bitcoin un dolāri kopā. Sal izliekas, ka tas nav nekas.';
+
+  @override
   String get pnlNoHistoryTitle => 'Vēl nav P&L';
 
   @override
@@ -11895,7 +11988,7 @@ class AppLocalizationsLv extends AppLocalizations {
   String get usdSendSearchHint => 'Name, address or phone';
 
   @override
-  String get usdSendToYourBitcoin => 'To your Bitcoin';
+  String get usdSendToYourBitcoin => 'Uz tavu Bitcoin';
 
   @override
   String usdBitcoinBalanceLine(String amount) {
@@ -11904,6 +11997,23 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
+
+  @override
+  String get receiveOrSwapTitle => 'Saņemt vai apmainīt';
+
+  @override
+  String get receiveFromYourDollars => 'No taviem Dolāriem';
+
+  @override
+  String usdDollarsBalanceLine(String amount) {
+    return '$amount Dolāros';
+  }
+
+  @override
+  String get receiveFromAnotherAsset => 'No cita aktīva';
+
+  @override
+  String get receiveBitcoinAndLightning => 'Bitcoin un Lightning';
 
   @override
   String get sendRailBitcoinOnchain => 'Bitcoin · on-chain';
@@ -13604,6 +13714,18 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get sendToCryptoAddress => 'Uz kripto adresi';
+
+  @override
+  String get sendMoreWaysToSend => 'Citi sūtīšanas veidi';
+
+  @override
+  String get sendWayCryptoAddress => 'Kripto adrese';
+
+  @override
+  String get sendWayPrediction => 'Prognoze';
+
+  @override
+  String get sendWayToDollars => 'Uz Dolāriem';
 
   @override
   String get sendPickRowSub => 'Vai investīciju. Atrodi tirgu, izvēlies pusi';
