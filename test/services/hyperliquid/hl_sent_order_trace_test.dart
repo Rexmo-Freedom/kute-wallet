@@ -200,14 +200,40 @@ void main() {
       );
       await expectLater(
           sent, throwsA(isA<HyperliquidOrderNotPlacedException>()));
-      // Read across the window, not once.
-      expect(reads, 11);
+      // Read across the window (every 20 ms for 200 ms), not once; never
+      // more reads than the window holds.
+      expect(reads, inInclusiveRange(2, 11));
       expect(events.single.$2!['outcome'], 'not_placed');
       final l10n = l10nForLanguage('en');
       expect(hlTradeErrorMessage(l10n, const HyperliquidOrderNotPlacedException()),
           'This order did not go through. Nothing was placed.');
       expect(hlFailureStage(const HyperliquidOrderNotPlacedException()),
           'not_placed');
+    });
+
+    test('slow reads: the window is bounded on the clock, not stretched by '
+        'them', () async {
+      var reads = 0;
+      final clock = Stopwatch()..start();
+      final trace = await hlReconcileSentOrder(
+        (_, __) async {
+          reads++;
+          // A read on a bad connection takes a while itself.
+          await Future<void>.delayed(const Duration(milliseconds: 80));
+          return const HlSentOrderTrace.none();
+        },
+        const ['0xc1'],
+        _market,
+        window: const Duration(milliseconds: 200),
+        every: const Duration(milliseconds: 20),
+      );
+      clock.stop();
+      expect(trace.known, isTrue);
+      expect(trace.found, isNull);
+      // Counted in reads alone it would make 11 of them (~1 s); bounded on
+      // the clock it ends a read or two past the window.
+      expect(reads, lessThan(6));
+      expect(clock.elapsed, lessThan(const Duration(milliseconds: 700)));
     });
 
     test('an empty read followed by unreadable ones: unconfirmed, not "not '

@@ -107,11 +107,14 @@ Future<HlSentOrderTrace> hlReconcileSentOrder(
   Duration window = kHlReconcileWindow,
   Duration every = kHlReconcileEvery,
 }) async {
-  // Counted in reads, not on the wall clock: the window is `every` apart
-  // reads from the first one until `window` has gone by.
+  // Reads `every` apart from the first one until `window` has gone by,
+  // counted in reads; and never much past the window when the reads are
+  // slow themselves (each may take seconds on a bad connection), so the
+  // slip's "Confirming…" is bounded either way.
   final gaps = every <= Duration.zero
       ? 1
       : (window.inMicroseconds / every.inMicroseconds).ceil().clamp(1, 600);
+  final elapsed = Stopwatch()..start();
   var last = const HlSentOrderTrace.unknown();
   for (var i = 0; i <= gaps; i++) {
     try {
@@ -120,7 +123,8 @@ Future<HlSentOrderTrace> hlReconcileSentOrder(
       last = const HlSentOrderTrace.unknown();
     }
     if (last.found != null) return last;
-    if (i < gaps) await Future<void>.delayed(every);
+    if (i == gaps || elapsed.elapsed >= window) break;
+    await Future<void>.delayed(every);
   }
   return last.known ? const HlSentOrderTrace.none() : last;
 }
