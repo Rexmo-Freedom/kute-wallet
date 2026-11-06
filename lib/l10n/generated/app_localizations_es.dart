@@ -12071,6 +12071,23 @@ class AppLocalizationsEs extends AppLocalizations {
   String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
 
   @override
+  String get receiveOrSwapTitle => 'Recibir o intercambiar';
+
+  @override
+  String get receiveFromYourDollars => 'Desde tus Dólares';
+
+  @override
+  String usdDollarsBalanceLine(String amount) {
+    return '$amount en Dólares';
+  }
+
+  @override
+  String get receiveFromAnotherAsset => 'Desde otro activo';
+
+  @override
+  String get receiveBitcoinAndLightning => 'Bitcoin y Lightning';
+
+  @override
   String get sendRailBitcoinOnchain => 'Bitcoin · on-chain';
 
   @override

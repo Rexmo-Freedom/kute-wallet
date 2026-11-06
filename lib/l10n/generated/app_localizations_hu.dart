@@ -12045,6 +12045,23 @@ class AppLocalizationsHu extends AppLocalizations {
   String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
 
   @override
+  String get receiveOrSwapTitle => 'Fogadás vagy csere';
+
+  @override
+  String get receiveFromYourDollars => 'A Dollárodból';
+
+  @override
+  String usdDollarsBalanceLine(String amount) {
+    return '$amount Dollárban';
+  }
+
+  @override
+  String get receiveFromAnotherAsset => 'Másik eszközből';
+
+  @override
+  String get receiveBitcoinAndLightning => 'Bitcoin és Lightning';
+
+  @override
   String get sendRailBitcoinOnchain => 'Bitcoin · on-chain';
 
   @override

@@ -20185,6 +20185,36 @@ abstract class AppLocalizations {
   /// **'From your Bitcoin'**
   String get usdReceiveFromYourBitcoin;
 
+  /// Title of the first sheet the Receive button opens on the Bitcoin and Dollars tabs: receive from another wallet, or swap (convert) from your own Bitcoin, Dollars or another asset. Short; one line at 375 pt.
+  ///
+  /// In en, this message translates to:
+  /// **'Receive or swap'**
+  String get receiveOrSwapTitle;
+
+  /// Bitcoin Receive or swap sheet, card title: move money from the user's own Dollars balance into Bitcoin. Dollars is the account name.
+  ///
+  /// In en, this message translates to:
+  /// **'From your Dollars'**
+  String get receiveFromYourDollars;
+
+  /// Under From your Dollars: the user's Dollars balance, e.g. "$4.75 in Dollars". Dollars is the account name.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} in Dollars'**
+  String usdDollarsBalanceLine(String amount);
+
+  /// Bitcoin Receive or swap sheet, card title: receive another coin (USDC, USDT, ETH...) that arrives as bitcoin.
+  ///
+  /// In en, this message translates to:
+  /// **'From another asset'**
+  String get receiveFromAnotherAsset;
+
+  /// Bitcoin Receive or swap sheet, under the Bitcoin card: the networks its QR code accepts.
+  ///
+  /// In en, this message translates to:
+  /// **'Bitcoin and Lightning'**
+  String get receiveBitcoinAndLightning;
+
   /// No description provided for @sendRailBitcoinOnchain.
   ///
   /// In en, this message translates to:

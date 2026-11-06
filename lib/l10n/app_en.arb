@@ -9033,6 +9033,31 @@
   "@usdReceiveFromYourBitcoin": {
     "description": "Dollars Add first step: deposit into Dollars from the user's own Bitcoin."
   },
+  "receiveOrSwapTitle": "Receive or swap",
+  "@receiveOrSwapTitle": {
+    "description": "Title of the first sheet the Receive button opens on the Bitcoin and Dollars tabs: receive from another wallet, or swap (convert) from your own Bitcoin, Dollars or another asset. Short; one line at 375 pt."
+  },
+  "receiveFromYourDollars": "From your Dollars",
+  "@receiveFromYourDollars": {
+    "description": "Bitcoin Receive or swap sheet, card title: move money from the user's own Dollars balance into Bitcoin. Dollars is the account name."
+  },
+  "usdDollarsBalanceLine": "{amount} in Dollars",
+  "@usdDollarsBalanceLine": {
+    "description": "Under From your Dollars: the user's Dollars balance, e.g. \"$4.75 in Dollars\". Dollars is the account name.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "receiveFromAnotherAsset": "From another asset",
+  "@receiveFromAnotherAsset": {
+    "description": "Bitcoin Receive or swap sheet, card title: receive another coin (USDC, USDT, ETH...) that arrives as bitcoin."
+  },
+  "receiveBitcoinAndLightning": "Bitcoin and Lightning",
+  "@receiveBitcoinAndLightning": {
+    "description": "Bitcoin Receive or swap sheet, under the Bitcoin card: the networks its QR code accepts."
+  },
   "sendRailBitcoinOnchain": "Bitcoin · on-chain",
   "sendRailLightning": "Lightning",
   "sendRailSpark": "Spark",

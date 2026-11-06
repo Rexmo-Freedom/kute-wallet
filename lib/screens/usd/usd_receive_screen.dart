@@ -64,7 +64,7 @@ import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show SendToSectionHeader;
 import 'package:kute/screens/shared/send/send_recipient_step.dart'
-    show sendAlsoSendsToCard;
+    show SendStepTitle, sendAlsoSendsToCard;
 import 'package:kute/screens/usd/flow/usd_flow_widgets.dart';
 import 'package:kute/services/orchestra/bitcoin_receive_marks.dart'
     show BitcoinReceiveMarks;
@@ -225,7 +225,7 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
   /// "From your Bitcoin" (the Bitcoin mark, its balance; the Move sheet
   /// from the spending bitcoin) and "From another wallet or exchange" (the
   /// coins stacked, "USDC, USDT, ETH and N more"), opening the coin sheet
-  /// exactly as the Bitcoin receive's "Also accepts" does. With no coin
+  /// as the Bitcoin receive's "From another asset" does. With no coin
   /// offered the Bitcoin card is alone, full width and compact. No inline
   /// grid.
   Widget _dollarsCard(BuildContext context, List<CoinAssetGroup> groups) {
@@ -285,14 +285,20 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
     final l10n = context.l10n;
     return ReceiveSheetFrame(
       leading: KuteCloseButton(onPressed: _onBack),
-      // The balance the money lands in, read-only, where the bitcoin
+      // The Dollars Add is "Receive or swap" (founder, 6 November 2026),
+      // as the Bitcoin receive's first sheet is: money in from another
+      // wallet, or moved in from your own Bitcoin. The other coins' grid
+      // keeps the balance the money lands in, read-only, where the bitcoin
       // receive names its wallet. No step bar.
-      title: AccountSwitcherPill(
-        pickerTitle: l10n.receiveInto,
-        readOnly: true,
-        label: _dollars ? l10n.assetDollars : l10n.bitcoin,
-      ),
-      semanticTitle: _dollars ? l10n.usdReceiveTitle : l10n.receiveBitcoin,
+      title: _dollars
+          ? SendStepTitle(l10n.receiveOrSwapTitle)
+          : AccountSwitcherPill(
+              pickerTitle: l10n.receiveInto,
+              readOnly: true,
+              label: l10n.bitcoin,
+            ),
+      semanticTitle:
+          _dollars ? l10n.receiveOrSwapTitle : l10n.receiveBitcoin,
       // The Dollars Add is two cards: the sheet is as tall as they are
       // (founder, 5 November 2026: no "big empty area"), and being short
       // it hides the floating bar while it is up. The other coins' grid

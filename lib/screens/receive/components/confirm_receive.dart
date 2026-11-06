@@ -33,9 +33,6 @@ import 'package:kute/providers/usdc_balance_provider.dart';
 import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceProvider;
 import 'package:kute/screens/receive/components/request_amount_sheet.dart';
-import 'package:kute/screens/receive/receive_sheet.dart'
-    show showOtherCoinsReceiveSheet;
-import 'package:kute/screens/shared/coin_asset_grid.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/jade_device_picker.dart';
@@ -47,12 +44,7 @@ import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/shared/qr_code.dart';
 import 'package:kute/screens/shared/receive_surface.dart';
 import 'package:kute/screens/shared/stepper/stepper_widgets.dart';
-import 'package:kute/providers/orchestra_supported_routes_provider.dart';
 import 'package:kute/services/background_sync_service.dart';
-import 'package:kute/services/orchestra/reusable_deposit_address.dart'
-    show standingDestinationsProvider;
-import 'package:kute/services/orchestra_routes.dart'
-    show kOrchestraUsdAssetCode;
 import 'package:kute/services/jade_service.dart';
 import 'package:kute/services/ledger_service.dart';
 import 'package:kute/services/sound_service.dart';
@@ -1050,17 +1042,10 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
                     lightningLabel: context.l10n.receiveQrFormatLightningOnly,
                   ),
                 ],
-                // 2a'. What else this address takes, UNDER the three
-                // format buttons (owner decision). Those answer "which
-                // bitcoin code"; this states a property of the address
-                // they all encode, so it reads after them, not before.
-                // One quiet line: the words, a few coin marks and a count.
-                // A tap opens the Dollars receive's sheet over this one.
-                ...() {
-                  final card = _buildAlsoAcceptsSlot(c);
-                  if (card == null) return const <Widget>[];
-                  return <Widget>[SizedBox(height: 12.h), card];
-                }(),
+                // No "Also accepts" line here any more (founder, 6
+                // November 2026: "get rid of it"): the other coins are
+                // "From another asset" on Receive or swap, the sheet this
+                // one opens from (bitcoin_receive_options.dart).
 
                 // 2b. Lightning address shimmer (Spark wallets,
                 // unified view only). The actual lightning row is
@@ -1259,57 +1244,6 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
     );
   }
 
-  /// The coins the Bitcoin receive also takes from other networks, folded
-  /// one per coin: exactly the set its "other coins" sheet offers (a
-  /// reusable standing address into the Investments dollar balance where
-  /// that route may serve the coin, else a one-time address into
-  /// `spark:BTC` while the policy allows them). Empty off the spending
-  /// wallet, on the USDC pool, and for accounts that may not be offered
-  /// swaps.
-  List<CoinAssetGroup> _alsoAcceptedCoins() {
-    // Kick the live Flashnet route-catalog fetch (and rebuild when it
-    // lands) so the offering matches today's routes.
-    final catalog = ref.watch(orchestraSupportedRoutesProvider);
-    final offersOn = ref.watch(swapOffersEnabledProvider);
-    final destinations = ref.watch(standingDestinationsProvider).valueOrNull;
-    if (_selectedPool == _ReceivePool.usdc) return const [];
-    if (!_isPickedWalletSparkSpending()) return const [];
-    // `swapOffersEnabledProvider` answers whether an account may be
-    // offered swap affordances IT would have to sign for, which is why
-    // a cold account is refused them.
-    if (!offersOn) return const [];
-    return coinGroupsOfferedUnderPolicy(
-      receiveCoinGroups(catalog, context.l10n,
-          destinationAsset: 'BTC', standingDestinations: destinations),
-      otherLegAsset: 'BTC',
-      reusableLegAsset: kOrchestraUsdAssetCode,
-      depositAddress: true,
-    ).groups;
-  }
-
-  /// The line under the format buttons: what else the Bitcoin receive
-  /// takes. A tap opens the coin sheet over this one (closing it comes
-  /// back here as it was); a picked coin shows the reusable Dollars
-  /// address (landing in Investments, as its note says) or, where that
-  /// cannot serve it, asks its amount and shows a one-time address that
-  /// delivers bitcoin. Null when there is nothing to offer, so the line
-  /// is gone.
-  Widget? _buildAlsoAcceptsSlot(AppColorsExtension c) {
-    final groups = _alsoAcceptedCoins();
-    if (groups.isEmpty) return null;
-    return CoinMarksLine(
-      label: context.l10n.receiveAlsoAccepts,
-      groups: groups,
-      moreLabel: context.l10n.receiveAlsoAcceptsMore,
-      onTap: () {
-        HapticFeedback.lightImpact();
-        TrackingService.track('receive_also_accepts_opened',
-            params: {'source': 'address', 'coins': groups.length});
-        unawaited(showOtherCoinsReceiveSheet(context));
-      },
-    );
-  }
-
   /// Stable analytics name for a QR format, independent of copy.
   String _formatEventName(_FallbackAddress? f) {
     switch (f) {
@@ -1482,16 +1416,6 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
   /// `addressProvider` is pinned to.
   String? get _pickedReceiveWalletId =>
       _selectedWalletId ?? ref.read(settingsProvider).activeWalletId;
-
-  /// True when the wallet picked on Step 0 is the Spark spending
-  /// wallet — the only wallet the Dollars receive's addresses pay (its
-  /// spending account's dollar balance). Same predicate as
-  /// `_pickSpending` in breez_config_provider.dart.
-  bool _isPickedWalletSparkSpending() {
-    final settings = ref.read(settingsProvider);
-    final spending = settings.wallets.where((w) => w.isSparkWallet).firstOrNull;
-    return spending != null && spending.id == _pickedReceiveWalletId;
-  }
 
   // ─── Misc helpers ─────────────────────────────────────────────
 
