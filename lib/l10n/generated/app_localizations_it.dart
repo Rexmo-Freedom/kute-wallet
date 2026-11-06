@@ -6365,6 +6365,17 @@ class AppLocalizationsIt extends AppLocalizations {
       'La piattaforma non ha confermato il risultato. Controlla ordini e saldo prima di riprovare.';
 
   @override
+  String get betConfirmingWithVenue => 'Conferma con Polymarket in corso…';
+
+  @override
+  String get investingConfirmingWithExchange =>
+      'Conferma con la piattaforma in corso…';
+
+  @override
+  String get investingOrderNotPlaced =>
+      'Questo ordine non è andato a buon fine. Non è stato inviato nulla.';
+
+  @override
   String get investingApprovalExpired =>
       'Approvazione scaduta. Ricontrolla l\'operazione e approvala di nuovo.';
 

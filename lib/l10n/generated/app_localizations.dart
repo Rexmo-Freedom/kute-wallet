@@ -11092,6 +11092,24 @@ abstract class AppLocalizations {
   /// **'The exchange has not confirmed the result. Check your orders and balance before trying again.'**
   String get investingSubmissionUnknown;
 
+  /// Prediction slip button and Portfolio card while the app looks the order up with Polymarket after an answer that proved nothing (a timeout, a dropped connection) or after the card waited a long time. Never a failure.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirming with Polymarket…'**
+  String get betConfirmingWithVenue;
+
+  /// Investing order slip button while the app looks the order up with the exchange (by its client order id) after an answer that proved nothing (a timeout, a dropped connection, a gateway error).
+  ///
+  /// In en, this message translates to:
+  /// **'Confirming with the exchange…'**
+  String get investingConfirmingWithExchange;
+
+  /// Investing order slip notice when the order's answer never came and the app then read the account for long enough to know the exchange took nothing: no fill, no resting order.
+  ///
+  /// In en, this message translates to:
+  /// **'This order did not go through. Nothing was placed.'**
+  String get investingOrderNotPlaced;
+
   /// No description provided for @investingApprovalExpired.
   ///
   /// In en, this message translates to:

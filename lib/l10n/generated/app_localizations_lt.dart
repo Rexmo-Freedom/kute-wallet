@@ -6380,6 +6380,16 @@ class AppLocalizationsLt extends AppLocalizations {
       'Birža nepatvirtino rezultato. Prieš bandydami dar kartą, patikrinkite pavedimus ir likutį.';
 
   @override
+  String get betConfirmingWithVenue => 'Tikrinama su Polymarket…';
+
+  @override
+  String get investingConfirmingWithExchange => 'Tikrinama su birža…';
+
+  @override
+  String get investingOrderNotPlaced =>
+      'Šis pavedimas nebuvo įvykdytas. Niekas nepateikta.';
+
+  @override
   String get investingApprovalExpired =>
       'Patvirtinimas nebegalioja. Peržiūrėkite sandorį ir patvirtinkite jį dar kartą.';
 

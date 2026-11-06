@@ -6373,6 +6373,16 @@ class AppLocalizationsPt extends AppLocalizations {
       'A bolsa ainda não confirmou o resultado. Verifique as suas ordens e o saldo antes de tentar novamente.';
 
   @override
+  String get betConfirmingWithVenue => 'A confirmar com a Polymarket…';
+
+  @override
+  String get investingConfirmingWithExchange => 'A confirmar com a bolsa…';
+
+  @override
+  String get investingOrderNotPlaced =>
+      'Esta ordem não foi concluída. Nada foi registado.';
+
+  @override
   String get investingApprovalExpired =>
       'A aprovação expirou. Reveja a negociação e aprove novamente.';
 

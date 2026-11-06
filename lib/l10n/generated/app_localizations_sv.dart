@@ -6343,6 +6343,15 @@ class AppLocalizationsSv extends AppLocalizations {
       'Börsen har inte bekräftat resultatet. Kontrollera dina ordrar och ditt saldo innan du försöker igen.';
 
   @override
+  String get betConfirmingWithVenue => 'Bekräftar med Polymarket…';
+
+  @override
+  String get investingConfirmingWithExchange => 'Bekräftar med börsen…';
+
+  @override
+  String get investingOrderNotPlaced => 'Ordern gick inte igenom. Inget lades.';
+
+  @override
   String get investingApprovalExpired =>
       'Godkännandet har gått ut. Granska affären och godkänn den igen.';
 

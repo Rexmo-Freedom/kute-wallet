@@ -6327,6 +6327,16 @@ class AppLocalizationsEn extends AppLocalizations {
       'The exchange has not confirmed the result. Check your orders and balance before trying again.';
 
   @override
+  String get betConfirmingWithVenue => 'Confirming with Polymarket…';
+
+  @override
+  String get investingConfirmingWithExchange => 'Confirming with the exchange…';
+
+  @override
+  String get investingOrderNotPlaced =>
+      'This order did not go through. Nothing was placed.';
+
+  @override
   String get investingApprovalExpired =>
       'Approval expired. Review the trade and approve it again.';
 

@@ -6345,6 +6345,17 @@ class AppLocalizationsFi extends AppLocalizations {
       'Markkinapaikka ei ole vahvistanut tulosta. Tarkista toimeksiantosi ja saldosi ennen kuin yrität uudelleen.';
 
   @override
+  String get betConfirmingWithVenue => 'Vahvistetaan Polymarketin kanssa…';
+
+  @override
+  String get investingConfirmingWithExchange =>
+      'Vahvistetaan markkinapaikan kanssa…';
+
+  @override
+  String get investingOrderNotPlaced =>
+      'Toimeksianto ei mennyt läpi. Mitään ei tehty.';
+
+  @override
   String get investingApprovalExpired =>
       'Hyväksyntä vanhentui. Tarkista toimeksianto ja hyväksy se uudelleen.';
 

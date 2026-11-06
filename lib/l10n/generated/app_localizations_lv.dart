@@ -6330,6 +6330,17 @@ class AppLocalizationsLv extends AppLocalizations {
       'Birža nav apstiprinājusi rezultātu. Pirms mēģini vēlreiz, pārbaudi savus rīkojumus un atlikumu.';
 
   @override
+  String get betConfirmingWithVenue => 'Notiek apstiprināšana ar Polymarket…';
+
+  @override
+  String get investingConfirmingWithExchange =>
+      'Notiek apstiprināšana ar biržu…';
+
+  @override
+  String get investingOrderNotPlaced =>
+      'Šis rīkojums netika izpildīts. Nekas netika veikts.';
+
+  @override
   String get investingApprovalExpired =>
       'Apstiprinājuma derīgums beidzās. Pārskati darījumu un apstiprini to vēlreiz.';
 

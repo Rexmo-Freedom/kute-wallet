@@ -6363,6 +6363,16 @@ class AppLocalizationsSl extends AppLocalizations {
       'Borza še ni potrdila izida. Pred ponovnim poskusom preverite naročila in stanje.';
 
   @override
+  String get betConfirmingWithVenue => 'Potrjevanje pri Polymarketu…';
+
+  @override
+  String get investingConfirmingWithExchange => 'Potrjevanje pri borzi…';
+
+  @override
+  String get investingOrderNotPlaced =>
+      'To naročilo ni bilo izvedeno. Nič ni bilo oddano.';
+
+  @override
   String get investingApprovalExpired =>
       'Odobritev je potekla. Preglejte posel in ga znova odobrite.';
 

@@ -6360,6 +6360,16 @@ class AppLocalizationsHr extends AppLocalizations {
       'Burza nije potvrdila rezultat. Provjeri naloge i saldo prije novog pokušaja.';
 
   @override
+  String get betConfirmingWithVenue => 'Potvrđuje se s Polymarketom…';
+
+  @override
+  String get investingConfirmingWithExchange => 'Potvrđuje se s burzom…';
+
+  @override
+  String get investingOrderNotPlaced =>
+      'Ovaj nalog nije prošao. Ništa nije postavljeno.';
+
+  @override
   String get investingApprovalExpired =>
       'Odobrenje je isteklo. Pregledaj transakciju i ponovno je odobri.';
 

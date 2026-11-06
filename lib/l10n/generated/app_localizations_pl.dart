@@ -6368,6 +6368,16 @@ class AppLocalizationsPl extends AppLocalizations {
       'Giełda nie potwierdziła wyniku. Sprawdź zlecenia i saldo, zanim spróbujesz ponownie.';
 
   @override
+  String get betConfirmingWithVenue => 'Potwierdzanie w Polymarket…';
+
+  @override
+  String get investingConfirmingWithExchange => 'Potwierdzanie na giełdzie…';
+
+  @override
+  String get investingOrderNotPlaced =>
+      'To zlecenie nie zostało zrealizowane. Nic nie zostało złożone.';
+
+  @override
   String get investingApprovalExpired =>
       'Zatwierdzenie wygasło. Przejrzyj transakcję i zatwierdź ją ponownie.';
 

@@ -6361,6 +6361,16 @@ class AppLocalizationsHu extends AppLocalizations {
       'A tőzsde még nem erősítette meg az eredményt. Mielőtt újrapróbálod, ellenőrizd a megbízásaidat és az egyenlegedet.';
 
   @override
+  String get betConfirmingWithVenue => 'Megerősítés a Polymarkettel…';
+
+  @override
+  String get investingConfirmingWithExchange => 'Megerősítés a tőzsdével…';
+
+  @override
+  String get investingOrderNotPlaced =>
+      'Ez a megbízás nem teljesült. Semmi sem lett leadva.';
+
+  @override
   String get investingApprovalExpired =>
       'A jóváhagyás lejárt. Nézd át az ügyletet, és hagyd jóvá újra.';
 

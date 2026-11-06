@@ -6396,6 +6396,17 @@ class AppLocalizationsEl extends AppLocalizations {
       'Το ανταλλακτήριο δεν έχει επιβεβαιώσει το αποτέλεσμα. Έλεγξε τις εντολές και το υπόλοιπό σου πριν δοκιμάσεις ξανά.';
 
   @override
+  String get betConfirmingWithVenue => 'Επιβεβαίωση με το Polymarket…';
+
+  @override
+  String get investingConfirmingWithExchange =>
+      'Επιβεβαίωση με το ανταλλακτήριο…';
+
+  @override
+  String get investingOrderNotPlaced =>
+      'Η εντολή δεν ολοκληρώθηκε. Δεν καταχωρίστηκε τίποτα.';
+
+  @override
   String get investingApprovalExpired =>
       'Η έγκριση έληξε. Έλεγξε τη συναλλαγή και έγκρινέ τη ξανά.';
 

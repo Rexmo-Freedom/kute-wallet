@@ -6114,6 +6114,15 @@ class AppLocalizationsJa extends AppLocalizations {
       '取引所から結果が確認されていません。再試行する前に注文と残高を確認してください。';
 
   @override
+  String get betConfirmingWithVenue => 'Polymarketで確認中…';
+
+  @override
+  String get investingConfirmingWithExchange => '取引所で確認中…';
+
+  @override
+  String get investingOrderNotPlaced => 'この注文は成立しませんでした。何も注文されていません。';
+
+  @override
   String get investingApprovalExpired =>
       '承認の有効期限が切れました。注文内容を確認して、もう一度承認してください。';
 

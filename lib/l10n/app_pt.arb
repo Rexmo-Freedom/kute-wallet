@@ -2054,6 +2054,9 @@
   "investingInsufficientBalance": "Saldo insuficiente para esta negociação.",
   "investingTradeRejected": "A bolsa rejeitou este pedido. Reveja as suas ordens antes de tentar novamente.",
   "investingSubmissionUnknown": "A bolsa ainda não confirmou o resultado. Verifique as suas ordens e o saldo antes de tentar novamente.",
+  "betConfirmingWithVenue": "A confirmar com a Polymarket…",
+  "investingConfirmingWithExchange": "A confirmar com a bolsa…",
+  "investingOrderNotPlaced": "Esta ordem não foi concluída. Nada foi registado.",
   "investingApprovalExpired": "A aprovação expirou. Reveja a negociação e aprove novamente.",
   "investingLeverageCapped": "A Kute limita a alavancagem a {max}x na sua região.",
   "@investingLeverageCapped": {
