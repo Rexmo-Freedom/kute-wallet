@@ -3311,6 +3311,7 @@
   "buyDollarsAction": "Köp dollar",
   "pnlByVenue": "By venue",
   "portfolioPnlAllVenues": "Alla",
+  "portfolioOpenPnlNotCharted": "{count, plural, =1{1 position finns inte i diagrammet (ingen historik)} other{{count} positioner finns inte i diagrammet (ingen historik)}}",
   "pnlStatRealised": "Realised",
   "pnlStatUnrealised": "Unrealised",
   "pnlStatRealisedAllTime": "All time realised",

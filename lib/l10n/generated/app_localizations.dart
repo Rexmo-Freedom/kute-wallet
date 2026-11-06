@@ -19437,6 +19437,12 @@ abstract class AppLocalizations {
   /// **'All'**
   String get portfolioPnlAllVenues;
 
+  /// Portfolio screen, Positions: a quiet line under the open positions' P&L chart when some open positions could not be drawn on it (their opening fill or their market's price history could not be read). The chart draws the others; the Open P&L figure still counts every position.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 position not charted (history unavailable)} other{{count} positions not charted (history unavailable)}}'**
+  String portfolioOpenPnlNotCharted(int count);
+
   /// Portfolio P&L Charts stats strip: label over the P&L made by closed positions.
   ///
   /// In en, this message translates to:

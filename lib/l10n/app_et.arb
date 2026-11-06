@@ -3311,6 +3311,7 @@
   "buyDollarsAction": "Osta dollareid",
   "pnlByVenue": "By venue",
   "portfolioPnlAllVenues": "Kõik",
+  "portfolioOpenPnlNotCharted": "{count, plural, =1{1 positsioon pole graafikul (ajalugu puudub)} other{{count} positsiooni pole graafikul (ajalugu puudub)}}",
   "pnlStatRealised": "Realised",
   "pnlStatUnrealised": "Unrealised",
   "pnlStatRealisedAllTime": "All time realised",

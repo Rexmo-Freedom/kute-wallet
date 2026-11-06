@@ -3311,6 +3311,7 @@
   "buyDollarsAction": "Acheter des dollars",
   "pnlByVenue": "By venue",
   "portfolioPnlAllVenues": "Tout",
+  "portfolioOpenPnlNotCharted": "{count, plural, one{{count} position absente du graphique (historique indisponible)} other{{count} positions absentes du graphique (historique indisponible)}}",
   "pnlStatRealised": "Realised",
   "pnlStatUnrealised": "Unrealised",
   "pnlStatRealisedAllTime": "All time realised",

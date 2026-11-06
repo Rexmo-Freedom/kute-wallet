@@ -277,6 +277,40 @@ void main() {
     await settle(tester);
   });
 
+  testWidgets(
+      'a live tick (only the last point moved) repaints in place, no morph; '
+      'another series morphs; a baseline puts the dashed line (and the '
+      'scale) at it, zero dropping the solid zero line', (tester) async {
+    dynamic painter() => tester
+        .widget<CustomPaint>(find.descendant(
+            of: find.byType(KuteTrendChart),
+            matching: find.byType(CustomPaint)))
+        .painter;
+    await pump(tester,
+        const KuteTrendChart(values: [1, 2, 3, 4], zeroSplit: true, baseline: 0));
+    expect(painter().startValue, 0.0);
+    expect(painter().zeroLine, isFalse);
+    // The newest point moves: the series as given, at once.
+    await tester.pumpWidget(app(const KuteTrendChart(
+        values: [1, 2, 3, 4.5], zeroSplit: true, baseline: 0)));
+    await tester.pump();
+    expect(painter().values, [1.0, 2.0, 3.0, 4.5]);
+    // Another series: the morph's resampled line on its way.
+    await tester.pumpWidget(app(const KuteTrendChart(
+        values: [4, 1, 3, 2], zeroSplit: true, baseline: 0)));
+    await tester.pump(const Duration(milliseconds: 16));
+    expect((painter().values as List<double>).length, kKuteTrendMorphSamples);
+    await tester.pump(const Duration(seconds: 1));
+    expect(painter().values, [4.0, 1.0, 3.0, 2.0]);
+    // No baseline: the period's first value, the solid zero line kept.
+    await tester.pumpWidget(
+        app(const KuteTrendChart(values: [-1, 2, 3], zeroSplit: true)));
+    await tester.pump(const Duration(seconds: 1));
+    expect(painter().startValue, -1.0);
+    expect(painter().zeroLine, isTrue);
+    await settle(tester);
+  });
+
   test('the split gradient: up at 8% down to zero, down at 8% from it, a '
       'hard stop', () {
     final g = kuteZeroSplitGradient(

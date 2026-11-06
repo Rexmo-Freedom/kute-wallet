@@ -3311,6 +3311,7 @@
   "buyDollarsAction": "ドルを購入",
   "pnlByVenue": "By venue",
   "portfolioPnlAllVenues": "すべて",
+  "portfolioOpenPnlNotCharted": "{count, plural, =1{1件のポジションはグラフ外（履歴なし）} other{{count}件のポジションはグラフ外（履歴なし）}}",
   "pnlStatRealised": "Realised",
   "pnlStatUnrealised": "Unrealised",
   "pnlStatRealisedAllTime": "All time realised",

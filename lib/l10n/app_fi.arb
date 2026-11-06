@@ -3311,6 +3311,7 @@
   "buyDollarsAction": "Osta dollareita",
   "pnlByVenue": "By venue",
   "portfolioPnlAllVenues": "Kaikki",
+  "portfolioOpenPnlNotCharted": "{count, plural, =1{1 positio ei ole kaaviossa (historiaa ei saatavilla)} other{{count} positiota ei ole kaaviossa (historiaa ei saatavilla)}}",
   "pnlStatRealised": "Realised",
   "pnlStatUnrealised": "Unrealised",
   "pnlStatRealisedAllTime": "All time realised",

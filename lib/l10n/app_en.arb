@@ -8433,6 +8433,15 @@
   "@portfolioPnlAllVenues": {
     "description": "Portfolio screen hero: the small chip beside the Invested figure, shown while one venue (Predictions or Investing) is picked on the P&L section; tapping it shows both venues together again. Short, one word."
   },
+  "portfolioOpenPnlNotCharted": "{count, plural, =1{1 position not charted (history unavailable)} other{{count} positions not charted (history unavailable)}}",
+  "@portfolioOpenPnlNotCharted": {
+    "description": "Portfolio screen, Positions: a quiet line under the open positions' P&L chart when some open positions could not be drawn on it (their opening fill or their market's price history could not be read). The chart draws the others; the Open P&L figure still counts every position.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "pnlStatRealised": "Realised",
   "@pnlStatRealised": {
     "description": "Portfolio P&L Charts stats strip: label over the P&L made by closed positions."

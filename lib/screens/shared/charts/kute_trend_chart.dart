@@ -36,7 +36,13 @@
 //     at 8% above zero and marketDown at 8% below it (one hard-stop
 //     gradient, [kuteZeroSplitGradient]) instead of the single-colour
 //     fade, and a 1 px zero line in textTertiary at 30% when the series
-//     crosses zero. A balance chart (never under zero) keeps the fade.
+//     crosses zero. A balance chart (never under zero) keeps the fade;
+//   * BASELINE ([KuteTrendChart.baseline], the Portfolio's open positions'
+//     P&L since their entry): the dashed hairline at that value instead of
+//     the period's first (zero: the dashed line is the zero line, and the
+//     scale always holds it);
+//   * A LIVE TICK (the same points, only the last one moved) repaints the
+//     line in place: no morph.
 //
 // Painters here never read Theme — the widget resolves colours once per
 // build and hands them down.
@@ -165,6 +171,10 @@ class KuteTrendChart extends StatefulWidget {
   /// line when the series crosses it (see the file header).
   final bool zeroSplit;
 
+  /// The value the dashed hairline marks (and the scale holds); null: the
+  /// period's first value.
+  final double? baseline;
+
   /// The one caption drawn when there is no history ([values] empty).
   final String? emptyCaption;
 
@@ -199,6 +209,7 @@ class KuteTrendChart extends StatefulWidget {
     this.height = kKuteTrendPlotHeight,
     this.live = true,
     this.zeroSplit = false,
+    this.baseline,
     this.emptyCaption,
     this.onScrub,
     this.onScrubStart,
@@ -276,6 +287,9 @@ class _KuteTrendChartState extends State<KuteTrendChart>
         old.values.length == widget.values.length) {
       return;
     }
+    // A live tick: only the newest point moved; repainted in place (a
+    // morph on its way finishes on its own).
+    if (_onlyLastMoved(old.values, widget.values)) return;
     if (_reduceMotion || old.values.length < 2 || widget.values.length < 2) {
       if (_morphActive) _morph.value = 1.0;
       return;
@@ -385,7 +399,7 @@ class _KuteTrendChartState extends State<KuteTrendChart>
             size: Size(width, widget.height),
             painter: _KuteTrendPainter(
               values: morphed ?? values,
-              startValue: values.first,
+              startValue: widget.baseline ?? values.first,
               lines: morphed == null ? widget.lines : const [],
               lineColor: lineColor,
               hairlineColor: c.border,
@@ -397,6 +411,8 @@ class _KuteTrendChartState extends State<KuteTrendChart>
               scrubIndex: scrubbing ? ti : null,
               scrubHairline: c.textTertiary,
               zeroSplit: widget.zeroSplit,
+              // A zero baseline is the zero line already (dashed).
+              zeroLine: widget.zeroSplit && widget.baseline != 0,
               zeroLineColor:
                   c.textTertiary.withValues(alpha: kKuteZeroLineAlpha),
             ),
@@ -447,6 +463,15 @@ class _KuteTrendChartState extends State<KuteTrendChart>
 /// Inset on the right so the end dot (breathing) stays whole.
 const double _kRightInset = 6;
 
+/// Whether [b] is [a] with only its last point moved (a live tick).
+bool _onlyLastMoved(List<double> a, List<double> b) {
+  if (a.length != b.length || a.length < 2) return false;
+  for (var i = 0; i < a.length - 1; i++) {
+    if (a[i] != b[i]) return false;
+  }
+  return true;
+}
+
 class _KuteTrendPainter extends CustomPainter {
   final List<double> values;
   final double startValue;
@@ -459,6 +484,7 @@ class _KuteTrendPainter extends CustomPainter {
   final int? scrubIndex;
   final Color scrubHairline;
   final bool zeroSplit;
+  final bool zeroLine;
   final Color zeroLineColor;
 
   const _KuteTrendPainter({
@@ -473,6 +499,7 @@ class _KuteTrendPainter extends CustomPainter {
     required this.scrubIndex,
     required this.scrubHairline,
     required this.zeroSplit,
+    this.zeroLine = true,
     required this.zeroLineColor,
   });
 
@@ -526,7 +553,7 @@ class _KuteTrendPainter extends CustomPainter {
       if (v > vMax) vMax = v;
     }
     final yZero = yOf(0).clamp(0.0, size.height);
-    if (zeroSplit && vMin < 0 && vMax > 0) {
+    if (zeroSplit && zeroLine && vMin < 0 && vMax > 0) {
       canvas.drawLine(
           Offset(0, yZero),
           Offset(size.width, yZero),
@@ -625,6 +652,7 @@ class _KuteTrendPainter extends CustomPainter {
       old.breath != breath ||
       old.scrubIndex != scrubIndex ||
       old.zeroSplit != zeroSplit ||
+      old.zeroLine != zeroLine ||
       old.zeroLineColor != zeroLineColor;
 }
 

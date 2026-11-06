@@ -3311,6 +3311,7 @@
   "buyDollarsAction": "Αγορά δολαρίων",
   "pnlByVenue": "By venue",
   "portfolioPnlAllVenues": "Όλα",
+  "portfolioOpenPnlNotCharted": "{count, plural, =1{1 θέση εκτός γραφήματος (χωρίς ιστορικό)} other{{count} θέσεις εκτός γραφήματος (χωρίς ιστορικό)}}",
   "pnlStatRealised": "Realised",
   "pnlStatUnrealised": "Unrealised",
   "pnlStatRealisedAllTime": "All time realised",

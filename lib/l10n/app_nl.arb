@@ -3311,6 +3311,7 @@
   "buyDollarsAction": "Dollars kopen",
   "pnlByVenue": "By venue",
   "portfolioPnlAllVenues": "Alles",
+  "portfolioOpenPnlNotCharted": "{count, plural, =1{1 positie niet in de grafiek (geen historie)} other{{count} posities niet in de grafiek (geen historie)}}",
   "pnlStatRealised": "Realised",
   "pnlStatUnrealised": "Unrealised",
   "pnlStatRealisedAllTime": "All time realised",

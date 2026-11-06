@@ -3311,6 +3311,7 @@
   "buyDollarsAction": "Купи долари",
   "pnlByVenue": "By venue",
   "portfolioPnlAllVenues": "Всички",
+  "portfolioOpenPnlNotCharted": "{count, plural, =1{1 позиция не е в графиката (няма история)} other{{count} позиции не са в графиката (няма история)}}",
   "pnlStatRealised": "Realised",
   "pnlStatUnrealised": "Unrealised",
   "pnlStatRealisedAllTime": "All time realised",

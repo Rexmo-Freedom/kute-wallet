@@ -11568,6 +11568,17 @@ class AppLocalizationsFi extends AppLocalizations {
   String get portfolioPnlAllVenues => 'Kaikki';
 
   @override
+  String portfolioOpenPnlNotCharted(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count positiota ei ole kaaviossa (historiaa ei saatavilla)',
+      one: '1 positio ei ole kaaviossa (historiaa ei saatavilla)',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get pnlStatRealised => 'Realised';
 
   @override

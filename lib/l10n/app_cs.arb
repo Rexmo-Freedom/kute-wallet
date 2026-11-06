@@ -3311,6 +3311,7 @@
   "buyDollarsAction": "Koupit dolary",
   "pnlByVenue": "By venue",
   "portfolioPnlAllVenues": "Vše",
+  "portfolioOpenPnlNotCharted": "{count, plural, =1{1 pozice není v grafu (historie nedostupná)} few{{count} pozice nejsou v grafu (historie nedostupná)} other{{count} pozic není v grafu (historie nedostupná)}}",
   "pnlStatRealised": "Realised",
   "pnlStatUnrealised": "Unrealised",
   "pnlStatRealisedAllTime": "All time realised",

@@ -11570,6 +11570,18 @@ class AppLocalizationsSk extends AppLocalizations {
   String get portfolioPnlAllVenues => 'Všetko';
 
   @override
+  String portfolioOpenPnlNotCharted(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count pozícií nie je v grafe (história nedostupná)',
+      few: '$count pozície nie sú v grafe (história nedostupná)',
+      one: '1 pozícia nie je v grafe (história nedostupná)',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get pnlStatRealised => 'Realised';
 
   @override

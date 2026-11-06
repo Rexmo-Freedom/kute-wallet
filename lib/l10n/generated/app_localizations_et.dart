@@ -11543,6 +11543,17 @@ class AppLocalizationsEt extends AppLocalizations {
   String get portfolioPnlAllVenues => 'Kõik';
 
   @override
+  String portfolioOpenPnlNotCharted(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count positsiooni pole graafikul (ajalugu puudub)',
+      one: '1 positsioon pole graafikul (ajalugu puudub)',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get pnlStatRealised => 'Realised';
 
   @override

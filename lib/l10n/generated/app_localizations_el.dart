@@ -11633,6 +11633,17 @@ class AppLocalizationsEl extends AppLocalizations {
   String get portfolioPnlAllVenues => 'Όλα';
 
   @override
+  String portfolioOpenPnlNotCharted(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count θέσεις εκτός γραφήματος (χωρίς ιστορικό)',
+      one: '1 θέση εκτός γραφήματος (χωρίς ιστορικό)',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get pnlStatRealised => 'Realised';
 
   @override

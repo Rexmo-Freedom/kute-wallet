@@ -3311,6 +3311,7 @@
   "buyDollarsAction": "Kup dolary",
   "pnlByVenue": "By venue",
   "portfolioPnlAllVenues": "Wszystko",
+  "portfolioOpenPnlNotCharted": "{count, plural, =1{1 pozycja poza wykresem (brak historii)} few{{count} pozycje poza wykresem (brak historii)} many{{count} pozycji poza wykresem (brak historii)} other{{count} pozycji poza wykresem (brak historii)}}",
   "pnlStatRealised": "Realised",
   "pnlStatUnrealised": "Unrealised",
   "pnlStatRealisedAllTime": "All time realised",

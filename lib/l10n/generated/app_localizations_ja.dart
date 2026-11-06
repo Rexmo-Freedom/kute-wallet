@@ -11138,6 +11138,17 @@ class AppLocalizationsJa extends AppLocalizations {
   String get portfolioPnlAllVenues => 'すべて';
 
   @override
+  String portfolioOpenPnlNotCharted(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count件のポジションはグラフ外（履歴なし）',
+      one: '1件のポジションはグラフ外（履歴なし）',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get pnlStatRealised => 'Realised';
 
   @override

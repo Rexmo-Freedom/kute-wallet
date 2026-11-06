@@ -3311,6 +3311,7 @@
   "buyDollarsAction": "Pirkt dolārus",
   "pnlByVenue": "By venue",
   "portfolioPnlAllVenues": "Viss",
+  "portfolioOpenPnlNotCharted": "{count, plural, =1{1 pozīcija nav grafikā (vēsture nav pieejama)} other{{count} pozīcijas nav grafikā (vēsture nav pieejama)}}",
   "pnlStatRealised": "Realised",
   "pnlStatUnrealised": "Unrealised",
   "pnlStatRealisedAllTime": "All time realised",

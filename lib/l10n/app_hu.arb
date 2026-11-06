@@ -3311,6 +3311,7 @@
   "buyDollarsAction": "Dollárvásárlás",
   "pnlByVenue": "By venue",
   "portfolioPnlAllVenues": "Összes",
+  "portfolioOpenPnlNotCharted": "{count, plural, =1{1 pozíció nincs a grafikonon (nincs előzmény)} other{{count} pozíció nincs a grafikonon (nincs előzmény)}}",
   "pnlStatRealised": "Realised",
   "pnlStatUnrealised": "Unrealised",
   "pnlStatRealisedAllTime": "All time realised",

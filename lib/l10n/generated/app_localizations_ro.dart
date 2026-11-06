@@ -11612,6 +11612,18 @@ class AppLocalizationsRo extends AppLocalizations {
   String get portfolioPnlAllVenues => 'Toate';
 
   @override
+  String portfolioOpenPnlNotCharted(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count de poziții nu apar în grafic (fără istoric)',
+      few: '$count poziții nu apar în grafic (fără istoric)',
+      one: '1 poziție nu apare în grafic (fără istoric)',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get pnlStatRealised => 'Realised';
 
   @override

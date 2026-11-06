@@ -11582,6 +11582,17 @@ class AppLocalizationsHu extends AppLocalizations {
   String get portfolioPnlAllVenues => 'Összes';
 
   @override
+  String portfolioOpenPnlNotCharted(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count pozíció nincs a grafikonon (nincs előzmény)',
+      one: '1 pozíció nincs a grafikonon (nincs előzmény)',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get pnlStatRealised => 'Realised';
 
   @override

@@ -12,8 +12,8 @@
 //     Available $17.64". The allocation ring that adapted to each section
 //     is gone; the hero is one instance whatever the section, and reads
 //     it (founder, 5 November 2026): on Positions only the positions open
-//     now (their P&L now, the chart folded away), on P&L the venue square
-//     picked alone (portfolioPnlVenueProvider, dropped when P&L is left);
+//     now (their P&L now and its chart since each was opened, founder 6
+//     November 2026), on P&L the venue square picked alone (portfolioPnlVenueProvider, dropped when P&L is left);
 //   * the section switch, pinned under the app bar once it reaches it
 //     ([_StripHeader]): Positions | P&L | Activity (KutePillTabs at the
 //     app's switch size, equal thirds, the one white pill sliding);
@@ -210,7 +210,7 @@ class _PortfolioPageState extends ConsumerState<_PortfolioPage> {
               child: KeyedSubtree(
                 key: const ValueKey('portfolio-top'),
                 // Section-aware: Positions reads only the positions open
-                // now (no chart), P&L the venue square picked.
+                // now (their own P&L chart), P&L the venue square picked.
                 child: PortfolioHero(
                   open: section == PortfolioSection.balances,
                   venue: section == PortfolioSection.charts ? picked : null,

@@ -3311,6 +3311,7 @@
   "buyDollarsAction": "Dollar kaufen",
   "pnlByVenue": "By venue",
   "portfolioPnlAllVenues": "Alle",
+  "portfolioOpenPnlNotCharted": "{count, plural, =1{1 Position nicht im Chart (kein Verlauf verfügbar)} other{{count} Positionen nicht im Chart (kein Verlauf verfügbar)}}",
   "pnlStatRealised": "Realised",
   "pnlStatUnrealised": "Unrealised",
   "pnlStatRealisedAllTime": "All time realised",

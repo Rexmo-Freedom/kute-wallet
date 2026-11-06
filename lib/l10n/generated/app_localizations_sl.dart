@@ -11594,6 +11594,19 @@ class AppLocalizationsSl extends AppLocalizations {
   String get portfolioPnlAllVenues => 'Vse';
 
   @override
+  String portfolioOpenPnlNotCharted(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count pozicij ni v grafu (zgodovina ni na voljo)',
+      few: '$count pozicije niso v grafu (zgodovina ni na voljo)',
+      two: '$count poziciji nista v grafu (zgodovina ni na voljo)',
+      one: '$count pozicija ni v grafu (zgodovina ni na voljo)',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get pnlStatRealised => 'Realised';
 
   @override

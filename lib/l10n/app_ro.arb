@@ -3311,6 +3311,7 @@
   "buyDollarsAction": "Cumpără dolari",
   "pnlByVenue": "By venue",
   "portfolioPnlAllVenues": "Toate",
+  "portfolioOpenPnlNotCharted": "{count, plural, =1{1 poziție nu apare în grafic (fără istoric)} few{{count} poziții nu apar în grafic (fără istoric)} other{{count} de poziții nu apar în grafic (fără istoric)}}",
   "pnlStatRealised": "Realised",
   "pnlStatUnrealised": "Unrealised",
   "pnlStatRealisedAllTime": "All time realised",
