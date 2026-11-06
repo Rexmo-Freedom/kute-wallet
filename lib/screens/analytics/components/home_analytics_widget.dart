@@ -694,6 +694,66 @@ class _InternalAnalyticsViewState
     const double stablesFiat = 0.0;
     const double nonBtcFiatOffset = 0.0;
 
+    // The Balance tab's card is as tall as its chart (founder, 6 November
+    // 2026: "card bottom is not great, it expands too much"): the header,
+    // the plot, the range row, the footer when there is one, and the
+    // card's own 16 under it. No fixed height, no dead space.
+    if (tab == AnalyticsTab.valuation) {
+      return AnalyticsCard(
+        key: const ValueKey('balance-card'),
+        height: null,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 16.h),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (_shouldShowValueHeader(tab) && marketDataAsync is AsyncData)
+                _ValueHeader(
+                  scrubValue: _scrubValue,
+                  scrubDate: _scrubDate,
+                  scrubCounterpart: _computeScrubCounterpart(
+                    tab: tab,
+                    btcFormat: btcFormat,
+                    currency: currency,
+                    fiatPerBtc: fiatPerBtc,
+                  ),
+                  scrubPrimaryOverride: _computeScrubPrimaryValuation(
+                    tab: tab,
+                    btcFormat: btcFormat,
+                  ),
+                  tab: tab,
+                  btcFormat: btcFormat,
+                  currency: currency,
+                  c: c,
+                  latestValue: _getLatestValue(
+                      tab, selectedDays, btcFormat, nonBtcFiatOffset,
+                      liveBtcFiat: btcFiat,
+                      liveStablesFiat: stablesFiat,
+                      liveBtcSatsTotal: btcSatsTotal),
+                  latestDate: null,
+                  btcFiat: btcFiat,
+                  btcSats: btcSatsTotal,
+                  stablesFiat: stablesFiat,
+                  showBitcoin: false,
+                  showStables: false,
+                ),
+              _buildTabContent(
+                tab: tab,
+                marketDataAsync: marketDataAsync,
+                utxosAsync: utxosAsync,
+                selectedDays: selectedDays,
+                btcFormat: btcFormat,
+                currency: currency,
+                c: c,
+                nonBtcFiatOffset: nonBtcFiatOffset,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return AnalyticsCard(
       // Fees tab gets more vertical room than other charts because
       // every fee category is rendered as its own row — Bitcoin
