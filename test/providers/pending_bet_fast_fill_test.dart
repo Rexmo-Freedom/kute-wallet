@@ -26,6 +26,8 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/venue_sweeper_provider.dart'
     show pendingBetHoldsCash;
 import 'package:kute/services/one_balance/prediction_funding_ledger.dart';
+import 'package:kute/services/polymarket/hot_order_guard.dart'
+    show PolymarketOrderOutcomeUnknown;
 import 'package:kute/services/polymarket/market_buy_quote.dart';
 import 'package:kute/services/polymarket/venue_collateral.dart';
 import 'package:kute/services/polymarket/sell_settlement.dart';
@@ -527,6 +529,93 @@ void main() {
         () async {
       final r = await run(['0.48'],
           accepted: delayed,
+          settle: (response,
+                  {required tokenId, required orderedShares, onStage}) async =>
+              settled(PmSellResult.unknown));
+      final pending = r.c.read(pendingPolymarketBetProvider)!;
+      expect(pending.status, PendingBetStatus.awaitingConfirmation);
+      expect(events.where((e) => e.$1 == 'polymarket_bet_failed'), isEmpty);
+    });
+  });
+
+  // Founder: "the predictions say failed, and they don't actually fail".
+  // A queued bet whose order went out and got an answer that proved
+  // nothing (a timeout, a dropped connection, a 5xx after the venue took
+  // it) ended "awaiting confirmation" without asking the venue. It is now
+  // followed by its id the way a live game's held order is: matched, the
+  // receipt; ended with nothing bought, said so; not said, waits as before.
+  group('a queued bet whose answer proved nothing', () {
+    final orderId = '0x${'cd' * 32}';
+    PmSellSettlement settled(PmSellResult result,
+            {double shares = 0, double? proceeds}) =>
+        PmSellSettlement(
+          result: result,
+          offeredShares: 20,
+          soldShares: shares,
+          proceeds: proceeds,
+          firstStatus: '',
+          confirmedBy: shares > 0 ? 'mined' : 'none',
+          timeToMatch: const Duration(seconds: 2),
+        );
+
+    test('matched at the venue: placed, the venue\'s figures, never failed',
+        () async {
+      final statuses = <PendingBetStatus>[];
+      final stages = <PendingBetStage>[];
+      String? funded;
+      Map<String, dynamic>? followed;
+      final r = await run(['0.48'],
+          refusals: [PolymarketOrderOutcomeUnknown(orderId: orderId)],
+          onQueued: (c) => funded = _follow(c),
+          onReady: (c) {
+            c.read(polymarketCostBasisProvider);
+            c.listen<PendingBetIntent?>(pendingPolymarketBetProvider,
+                (_, next) {
+              if (next == null) return;
+              statuses.add(next.status);
+              stages.add(next.stage);
+            });
+          },
+          settle: (response,
+              {required tokenId, required orderedShares, onStage}) async {
+            followed = response;
+            onStage?.call(PmSellStage.matched, 20);
+            return settled(PmSellResult.filled, shares: 20, proceeds: 9.6);
+          });
+      // Followed by the order's own id (the hash computed before the POST).
+      expect(followed?['orderID'], orderId);
+      expect(stages, contains(PendingBetStage.reconciling));
+      expect(statuses, contains(PendingBetStatus.done));
+      expect(statuses, isNot(contains(PendingBetStatus.failed)));
+      expect(statuses, isNot(contains(PendingBetStatus.awaitingConfirmation)));
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(events.where((e) => e.$1 == 'polymarket_bet_failed'), isEmpty);
+      expect(events.where((e) => e.$1 == 'polymarket_bet_placed'), hasLength(1));
+      expect(
+          events
+              .singleWhere(
+                  (e) => e.$1 == 'polymarket_order_outcome_reconciled')
+              .$2!['outcome'],
+          'filled');
+      final record = r.c.read(fundedOrdersProvider.notifier).byId(funded!)!;
+      expect(record.stage, FundedOrderStage.done);
+    });
+
+    test('ended with nothing bought: said so, the cash stays', () async {
+      final r = await run(['0.48'],
+          refusals: [PolymarketOrderOutcomeUnknown(orderId: orderId)],
+          settle: (response,
+                  {required tokenId, required orderedShares, onStage}) async =>
+              settled(PmSellResult.notFilled));
+      final pending = r.c.read(pendingPolymarketBetProvider)!;
+      expect(pending.status, PendingBetStatus.failed);
+      expect(pending.errorMessage, l10nForLanguage('en').betBuyNotMatched);
+    });
+
+    test('the venue does not say: waits for its confirmation, never failed',
+        () async {
+      final r = await run(['0.48'],
+          refusals: [PolymarketOrderOutcomeUnknown(orderId: orderId)],
           settle: (response,
                   {required tokenId, required orderedShares, onStage}) async =>
               settled(PmSellResult.unknown));

@@ -3868,221 +3868,237 @@ class PolymarketTradingNotifier
             throw Exception('Order placement failed. Please try again.');
           }
 
-          if (isCurrentAccount()) {
-            // A buy of a token sold minutes ago (matched now or resting):
-            // the shares it brings are not a stale pre-sale row.
-            if (side == OrderSide.buy) _forgetSaleOf(tokenId, publish: false);
-            _setData(
-              (state.valueOrNull ?? current).copyWith(
-                  isPlacingOrder: false,
-                  confirmedSales: _salesFor(
-                      (state.valueOrNull ?? current).proxyWalletAddress)),
-            );
-          }
-
-          // Polymarket's real order hash from the CLOB submit response. This is
-          // the join key the backend uses to attribute the exact builder fee
-          // (fee_usdc) to this user: provider_order_id = taker_order_hash.
-          final responseOrderId = (response['orderID'] ??
-                  response['orderId'] ??
-                  response['order_id'])
-              ?.toString();
-
-          final making = double.tryParse(
-            '${response['makingAmount'] ?? response['making_amount']}',
-          );
-          final taking = double.tryParse(
-            '${response['takingAmount'] ?? response['taking_amount']}',
-          );
-          final hasFill =
-              response['status']?.toString().toLowerCase() == 'matched' &&
-                  making != null &&
-                  making.isFinite &&
-                  making > 0 &&
-                  taking != null &&
-                  taking.isFinite &&
-                  taking > 0;
-          // The buy matched: its cost leaves the cash and its shares count
-          // now, not when the chain settles and the Data API lists them.
-          if (side == OrderSide.buy && hasFill && isCurrentAccount()) {
-            notePendingFill(
-              key: responseOrderId ??
-                  '$tokenId@${DateTime.now().microsecondsSinceEpoch}',
-              tokenId: tokenId,
-              shares: taking,
-              costUsd: making,
-            );
-          }
-          // Submitted orders are not filled activity. Indexing supplies the final
-          // amounts when the acknowledgement does not contain a verified fill.
-          // Keyed by the trade id (never a CLOB id posing as a chain hash);
-          // the Data API fill evicts it by trade shape.
-          final optimisticKey =
-              PolymarketOptimisticActivityService.optimisticTradeKey(response);
-          if (side == OrderSide.buy && hasFill && optimisticKey != null) {
-            try {
-              final filledUsdc = making;
-              final filledShares = taking;
-              final fillPrice = filledUsdc / filledShares;
-
-              PolymarketOptimisticActivityService.record(
-                Activity(
-                  proxyWallet: current.proxyWalletAddress ?? '',
-                  timestamp: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-                  conditionId: conditionId ?? '',
-                  type: 'TRADE',
-                  size: filledShares,
-                  usdcSize: filledUsdc,
-                  transactionHash: optimisticKey,
-                  price: fillPrice,
-                  asset: tokenId,
-                  side: side == OrderSide.buy ? 'BUY' : 'SELL',
-                  title: marketTitle,
-                  slug: eventSlug,
-                  eventSlug: eventSlug,
-                  outcome: marketOutcome,
-                  icon: marketImage,
-                ),
+          // The venue took the order. Everything from here is bookkeeping
+          // (state, the optimistic fill and activity, analytics, the
+          // first-bet milestone): a throw in it used to reach the slip as
+          // a failed prediction although the order was placed. It is
+          // caught, and the venue's answer is returned whatever happens.
+          try {
+            if (isCurrentAccount()) {
+              // A buy of a token sold minutes ago (matched now or resting):
+              // the shares it brings are not a stale pre-sale row.
+              if (side == OrderSide.buy) _forgetSaleOf(tokenId, publish: false);
+              _setData(
+                (state.valueOrNull ?? current).copyWith(
+                    isPlacingOrder: false,
+                    confirmedSales: _salesFor(
+                        (state.valueOrNull ?? current).proxyWalletAddress)),
               );
-              ref
-                  .read(transactionNotifierProvider.notifier)
-                  .refreshOptimisticPolymarketActivity();
-            } catch (_) {
-              // Optimistic injection is a UX nicety — never block the success path.
             }
-          }
 
-          // Poll to pick up the real position from the Data API.
-          for (final delay in [1, 3, 6, 10]) {
-            Future.delayed(Duration(seconds: delay), () {
-              if (!isCurrentAccount()) return;
+            // Polymarket's real order hash from the CLOB submit response. This is
+            // the join key the backend uses to attribute the exact builder fee
+            // (fee_usdc) to this user: provider_order_id = taker_order_hash.
+            final responseOrderId = (response['orderID'] ??
+                    response['orderId'] ??
+                    response['order_id'])
+                ?.toString();
+
+            final making = double.tryParse(
+              '${response['makingAmount'] ?? response['making_amount']}',
+            );
+            final taking = double.tryParse(
+              '${response['takingAmount'] ?? response['taking_amount']}',
+            );
+            final hasFill =
+                response['status']?.toString().toLowerCase() == 'matched' &&
+                    making != null &&
+                    making.isFinite &&
+                    making > 0 &&
+                    taking != null &&
+                    taking.isFinite &&
+                    taking > 0;
+            // The buy matched: its cost leaves the cash and its shares count
+            // now, not when the chain settles and the Data API lists them.
+            if (side == OrderSide.buy && hasFill && isCurrentAccount()) {
+              notePendingFill(
+                key: responseOrderId ??
+                    '$tokenId@${DateTime.now().microsecondsSinceEpoch}',
+                tokenId: tokenId,
+                shares: taking,
+                costUsd: making,
+              );
+            }
+            // Submitted orders are not filled activity. Indexing supplies the final
+            // amounts when the acknowledgement does not contain a verified fill.
+            // Keyed by the trade id (never a CLOB id posing as a chain hash);
+            // the Data API fill evicts it by trade shape.
+            final optimisticKey =
+                PolymarketOptimisticActivityService.optimisticTradeKey(response);
+            if (side == OrderSide.buy && hasFill && optimisticKey != null) {
               try {
-                refresh();
+                final filledUsdc = making;
+                final filledShares = taking;
+                final fillPrice = filledUsdc / filledShares;
+
+                PolymarketOptimisticActivityService.record(
+                  Activity(
+                    proxyWallet: current.proxyWalletAddress ?? '',
+                    timestamp: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+                    conditionId: conditionId ?? '',
+                    type: 'TRADE',
+                    size: filledShares,
+                    usdcSize: filledUsdc,
+                    transactionHash: optimisticKey,
+                    price: fillPrice,
+                    asset: tokenId,
+                    side: side == OrderSide.buy ? 'BUY' : 'SELL',
+                    title: marketTitle,
+                    slug: eventSlug,
+                    eventSlug: eventSlug,
+                    outcome: marketOutcome,
+                    icon: marketImage,
+                  ),
+                );
+                ref
+                    .read(transactionNotifierProvider.notifier)
+                    .refreshOptimisticPolymarketActivity();
+              } catch (_) {
+                // Optimistic injection is a UX nicety — never block the success path.
+              }
+            }
+
+            // Poll to pick up the real position from the Data API.
+            for (final delay in [1, 3, 6, 10]) {
+              Future.delayed(Duration(seconds: delay), () {
+                if (!isCurrentAccount()) return;
+                try {
+                  refresh();
+                } catch (_) {}
+              });
+            }
+
+            // A sale that filled freed venue cash: the sweeper brings it
+            // home.
+            if (side == OrderSide.sell && hasFill) {
+              VenueActivity.note(OneBalanceVenue.predictions);
+              VenueCashReleased.emit(
+                  OneBalanceVenue.predictions, 'position_closed');
+            }
+            if (hasFill) {
+              TrackingService.polymarketBetPlaced(
+                // SELLs are reported by polymarket_position_sold (market) or
+                // polymarket_limit_sell_placed (GTC); counting them here too
+                // made every sale also a "bet". Backend provider-event logging
+                // still runs inside the helper when emitAnalytics is false.
+                emitAnalytics: side == OrderSide.buy,
+                side: side == OrderSide.buy ? 'buy' : 'sell',
+                orderType:
+                    (orderType == OrderType.gtc || orderType == OrderType.gtd)
+                        ? 'limit'
+                        : 'market',
+                marketOutcome: marketOutcome,
+                walletKind: 'hot',
+                entrySource: entrySource,
+                marketId: tokenId,
+                outcome: side == OrderSide.buy ? 'buy' : 'sell',
+                amount: side == OrderSide.buy ? making : taking,
+                price: side == OrderSide.buy ? making / taking : taking / making,
+                shares: (side == OrderSide.buy ? taking : making).round(),
+                // Real Polymarket order hash → backend joins it to the builder trade
+                // for exact fee_usdc attribution (synthetic fallback inside if null).
+                providerOrderId: responseOrderId,
+                category: marketCategory,
+                marketTitle: marketTitle,
+                source: source,
+                // Coarse market type (moneyline / yes_no / over_under / spread /
+                // … / other) so the funnel can split placement by bet structure —
+                // including politics multi-outcome. Pure name classification, no
+                // sensitive data.
+                betType: polymarketMarketType(
+                  marketTitle ?? '',
+                  outcome: marketOutcome,
+                ),
+                // Polymarket bets are gated to the spending wallet (the Safe's
+                // owner EOA is the spending wallet's BIP39 derivation). The
+                // analytics dashboard still gets the explicit param so future
+                // signers/hardware support shows up as a distinct cohort if
+                // we ever lift the restriction.
+                walletCategory: 'spending',
+                // Market sells get their provider_events row from the sell
+                // sheet's `polymarketPositionSold` (same orderID, correct
+                // pm_shares → USDC direction) — logging from here too created a
+                // duplicate backend row per sell order. Resting GTC sells never
+                // reach that path, so they keep logging from here.
+                logAffiliateEvent:
+                    side == OrderSide.buy || orderType == OrderType.gtc,
+                extra: {
+                  ...?analytics,
+                  // The price the fill came at (pUSD per share, exact), next
+                  // to the `quoted_price` the caller priced it from.
+                  'fill_price':
+                      side == OrderSide.buy ? making / taking : taking / making,
+                  // A market buy sized by its stake: the stake typed (what
+                  // the order signed, to the cent) beside what the venue
+                  // filled (`amount_usd` is the filled cost) and the exact
+                  // shares, so a stake that filled short is visible.
+                  if (marketSpend != null)
+                    ...TrackingService.exactUsd('stake_usd', marketSpend),
+                  if (side == OrderSide.buy) ...{
+                    ...TrackingService.exactUsd('filled_usd', making),
+                    'filled_shares': (taking * 100).round() / 100,
+                  },
+                  // v1 (CTF) | v2 (Protocol V2 / ExchangeV3), from the token.
+                  'market_protocol': PolyMarketProtocol.wireForToken(tokenId),
+                  // biometric | fast_window | allowance: how this order
+                  // was approved (FastBetWindow.approvalParam).
+                  'approval': FastBetWindow.approvalParam(grant.method),
+                },
+              );
+            }
+            // Tag the funding source for the auto-sweep on resolve. We
+            // only tag BUYs (sells don't need tagging — selling closes
+            // the position; the sweep is for the winnings on a held
+            // outcome). First write wins per conditionId so a follow-up
+            // top-up from a different asset doesn't re-route the original
+            // stake. `source == 'btc_pool'` means the user came in via the
+            // BTC card; `usdc_pool` means they had existing USDC.
+            if (side == OrderSide.buy && conditionId != null) {
+              final fundingSource = source == 'btc_pool'
+                  ? BetFundingSource.btc
+                  : BetFundingSource.usdc;
+              // ignore: discarded_futures
+              PolymarketBetFundingService.tag(
+                conditionId: conditionId,
+                source: fundingSource,
+                marketTitle: marketTitle,
+              );
+            }
+            // First-bet milestone — gated once-per-device by OnceFlagsService.
+            // Buys only: a sell is not a bet and must not unlock the first-bet
+            // milestone or bump the lifetime bet counter.
+            if (hasFill && side == OrderSide.buy) {
+              TrackingService.polymarketFirstBetPlaced();
+              // Surface the in-app celebration card too (quiet variant — no
+              // confetti, see HARD RULE: we celebrate outcomes not bets).
+              try {
+                ref
+                    .read(pendingMilestoneProvider.notifier)
+                    .unlock(MilestoneKeys.firstPrediction);
               } catch (_) {}
-            });
+              // Bump lifetime bet count + primary-rail user property so the
+              // Firebase admin segments (e.g. "active predictors in last 30d")
+              // don't require a BigQuery aggregation.
+              // A bet is not a swap: revenueEventCompleted bumped
+              // lifetime_swap_count for every Polymarket fill. Revenue itself is
+              // recorded server-side from the provider event, so only the
+              // lifetime bet props are refreshed here.
+              TrackingService.refreshLifetimeProps(
+                isFunded: true,
+                lifetimeBetCount: TrackingService.bumpBetCount(),
+                primaryRail: 'predictions',
+              );
+            }
+          } catch (e) {
+            _devLog('[pm] after-accept bookkeeping threw: $e');
+            try {
+              if (isCurrentAccount()) {
+                _setData((state.valueOrNull ?? current)
+                    .copyWith(isPlacingOrder: false));
+              }
+            } catch (_) {}
           }
 
-          // A sale that filled freed venue cash: the sweeper brings it
-          // home.
-          if (side == OrderSide.sell && hasFill) {
-            VenueActivity.note(OneBalanceVenue.predictions);
-            VenueCashReleased.emit(
-                OneBalanceVenue.predictions, 'position_closed');
-          }
-          if (hasFill) {
-            TrackingService.polymarketBetPlaced(
-              // SELLs are reported by polymarket_position_sold (market) or
-              // polymarket_limit_sell_placed (GTC); counting them here too
-              // made every sale also a "bet". Backend provider-event logging
-              // still runs inside the helper when emitAnalytics is false.
-              emitAnalytics: side == OrderSide.buy,
-              side: side == OrderSide.buy ? 'buy' : 'sell',
-              orderType:
-                  (orderType == OrderType.gtc || orderType == OrderType.gtd)
-                      ? 'limit'
-                      : 'market',
-              marketOutcome: marketOutcome,
-              walletKind: 'hot',
-              entrySource: entrySource,
-              marketId: tokenId,
-              outcome: side == OrderSide.buy ? 'buy' : 'sell',
-              amount: side == OrderSide.buy ? making : taking,
-              price: side == OrderSide.buy ? making / taking : taking / making,
-              shares: (side == OrderSide.buy ? taking : making).round(),
-              // Real Polymarket order hash → backend joins it to the builder trade
-              // for exact fee_usdc attribution (synthetic fallback inside if null).
-              providerOrderId: responseOrderId,
-              category: marketCategory,
-              marketTitle: marketTitle,
-              source: source,
-              // Coarse market type (moneyline / yes_no / over_under / spread /
-              // … / other) so the funnel can split placement by bet structure —
-              // including politics multi-outcome. Pure name classification, no
-              // sensitive data.
-              betType: polymarketMarketType(
-                marketTitle ?? '',
-                outcome: marketOutcome,
-              ),
-              // Polymarket bets are gated to the spending wallet (the Safe's
-              // owner EOA is the spending wallet's BIP39 derivation). The
-              // analytics dashboard still gets the explicit param so future
-              // signers/hardware support shows up as a distinct cohort if
-              // we ever lift the restriction.
-              walletCategory: 'spending',
-              // Market sells get their provider_events row from the sell
-              // sheet's `polymarketPositionSold` (same orderID, correct
-              // pm_shares → USDC direction) — logging from here too created a
-              // duplicate backend row per sell order. Resting GTC sells never
-              // reach that path, so they keep logging from here.
-              logAffiliateEvent:
-                  side == OrderSide.buy || orderType == OrderType.gtc,
-              extra: {
-                ...?analytics,
-                // The price the fill came at (pUSD per share, exact), next
-                // to the `quoted_price` the caller priced it from.
-                'fill_price':
-                    side == OrderSide.buy ? making / taking : taking / making,
-                // A market buy sized by its stake: the stake typed (what
-                // the order signed, to the cent) beside what the venue
-                // filled (`amount_usd` is the filled cost) and the exact
-                // shares, so a stake that filled short is visible.
-                if (marketSpend != null)
-                  ...TrackingService.exactUsd('stake_usd', marketSpend),
-                if (side == OrderSide.buy) ...{
-                  ...TrackingService.exactUsd('filled_usd', making),
-                  'filled_shares': (taking * 100).round() / 100,
-                },
-                // v1 (CTF) | v2 (Protocol V2 / ExchangeV3), from the token.
-                'market_protocol': PolyMarketProtocol.wireForToken(tokenId),
-                // biometric | fast_window | allowance: how this order
-                // was approved (FastBetWindow.approvalParam).
-                'approval': FastBetWindow.approvalParam(grant.method),
-              },
-            );
-          }
-          // Tag the funding source for the auto-sweep on resolve. We
-          // only tag BUYs (sells don't need tagging — selling closes
-          // the position; the sweep is for the winnings on a held
-          // outcome). First write wins per conditionId so a follow-up
-          // top-up from a different asset doesn't re-route the original
-          // stake. `source == 'btc_pool'` means the user came in via the
-          // BTC card; `usdc_pool` means they had existing USDC.
-          if (side == OrderSide.buy && conditionId != null) {
-            final fundingSource = source == 'btc_pool'
-                ? BetFundingSource.btc
-                : BetFundingSource.usdc;
-            // ignore: discarded_futures
-            PolymarketBetFundingService.tag(
-              conditionId: conditionId,
-              source: fundingSource,
-              marketTitle: marketTitle,
-            );
-          }
-          // First-bet milestone — gated once-per-device by OnceFlagsService.
-          // Buys only: a sell is not a bet and must not unlock the first-bet
-          // milestone or bump the lifetime bet counter.
-          if (hasFill && side == OrderSide.buy) {
-            TrackingService.polymarketFirstBetPlaced();
-            // Surface the in-app celebration card too (quiet variant — no
-            // confetti, see HARD RULE: we celebrate outcomes not bets).
-            try {
-              ref
-                  .read(pendingMilestoneProvider.notifier)
-                  .unlock(MilestoneKeys.firstPrediction);
-            } catch (_) {}
-            // Bump lifetime bet count + primary-rail user property so the
-            // Firebase admin segments (e.g. "active predictors in last 30d")
-            // don't require a BigQuery aggregation.
-            // A bet is not a swap: revenueEventCompleted bumped
-            // lifetime_swap_count for every Polymarket fill. Revenue itself is
-            // recorded server-side from the provider event, so only the
-            // lifetime bet props are refreshed here.
-            TrackingService.refreshLifetimeProps(
-              isFunded: true,
-              lifetimeBetCount: TrackingService.bumpBetCount(),
-              primaryRail: 'predictions',
-            );
-          }
           // Note: tracking_service.polymarketBetPlaced internally calls
           // AffiliateService.logProviderEvent with status='completed', which
           // triggers the backend's first_polymarket action milestone on the

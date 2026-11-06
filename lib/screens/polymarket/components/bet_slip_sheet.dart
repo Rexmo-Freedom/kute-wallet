@@ -6536,6 +6536,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         PendingBetStage.settingUp => l10n.betSettingUpWallet,
         PendingBetStage.approving => l10n.betApprovingSpend,
         PendingBetStage.confirming => l10n.betMatchedConfirming,
+        PendingBetStage.reconciling => l10n.betConfirmingWithVenue,
         _ => l10n.betPlacingPrediction,
       };
     }

@@ -38,8 +38,18 @@ enum PendingBetStatus {
 
 /// How far a submitted placement has got, for the slip's button: the
 /// order on its way, a step of one-time account setup the venue asked for,
-/// held for a live game's delay, or matched and being confirmed on chain.
-enum PendingBetStage { submitting, settingUp, approving, delayed, confirming }
+/// held for a live game's delay, matched and being confirmed on chain, or
+/// [reconciling]: sent, its answer proved nothing (a timeout, a dropped
+/// connection), and the order is being looked up with the venue before
+/// anything is said ("Confirming with Polymarket…").
+enum PendingBetStage {
+  submitting,
+  settingUp,
+  approving,
+  delayed,
+  confirming,
+  reconciling,
+}
 
 /// How far a queued bet's money is from usable, as the autofire checks it
 /// before placing (pending_bet_autofire.dart): the deposit has not landed,

@@ -1327,6 +1327,12 @@ class PendingBetAutoFire {
     final ledger = PredictionFundingLedger.instance;
     final fundingKey = intent.fundQuoteRef;
     var retried = false;
+    // The last order sent (its shares, and whether it was resized to what
+    // landed), for the lookup of one whose answer proved nothing; and
+    // whether the venue took it, after which nothing ends it as failed.
+    var sentShares = 0.0;
+    var sentResized = false;
+    var venueTook = false;
     try {
       // Limit intents never reach here — they return from the GTC branch
       // above. Everything below is the market (FAK) path.
@@ -1430,6 +1436,8 @@ class PendingBetAutoFire {
           shares = (minShares * 100).ceilToDouble() / 100;
         }
         orderedShares = shares;
+        sentShares = shares;
+        sentResized = resized;
         // The stake itself is signed, to the cent, never the floored
         // shares × price (a typed \$5.00 signed as \$4.99); the venue's
         // minimum when the shares were lifted to it.
@@ -1521,6 +1529,7 @@ class PendingBetAutoFire {
         }
       }
       final placed = response;
+      venueTook = true;
 
       // Record actual USDC moved on the BUY so the position detail
       // sheet's "Invested" reflects wallet truth, not the API's
@@ -1607,6 +1616,59 @@ class PendingBetAutoFire {
     } catch (e, st) {
       if (!_sameAttempt(intent)) return;
       if (kDebugMode) debugPrint('[pm-autofire] failed: $e\n$st');
+      // The venue took the order and something of ours threw after that:
+      // never "failed". The bet waits for its confirmation instead.
+      if (venueTook && e is! PendingPolymarketOrder) {
+        if (funded) {
+          journey.completed(OneBalanceVenue.predictions, resized: false);
+        }
+        ledger.release(fundingKey, reason: 'placed');
+        pendingNotifier.updateStatus(PendingBetStatus.awaitingConfirmation);
+        placingNotifier.clear(placementId);
+        return;
+      }
+      // Sent, and the answer proved nothing: looked up with the venue by
+      // its id first (the same follow a live game's held order gets).
+      // Matched, the receipt; ended with nothing bought, said so; still
+      // nowhere, it waits for its confirmation as before.
+      if (e is PolymarketOrderOutcomeUnknown &&
+          e.orderId != null &&
+          sentShares > 0) {
+        placingNotifier.markConfirming(placementId);
+        pendingNotifier.setStage(PendingBetStage.reconciling);
+        var ended = false;
+        try {
+          ended = await _followHeldOrder(
+              intent, {'orderID': e.orderId, 'status': ''},
+              orderedShares: sentShares,
+              placementId: placementId,
+              retried: retried,
+              resized: sentResized,
+              costBasis: costBasis);
+        } catch (_) {}
+        try {
+          final status = ref.read(pendingPolymarketBetProvider)?.status;
+          // Categorical only: never the order's id.
+          TrackingService.track('polymarket_order_outcome_reconciled',
+              params: {
+                'outcome': !ended
+                    ? 'unconfirmed'
+                    : status == PendingBetStatus.failed
+                        ? 'not_filled'
+                        : 'filled',
+                'side': 'buy',
+                'order_type': 'market',
+                'entry_source': 'autofire',
+              });
+        } catch (_) {}
+        if (ended) {
+          unawaited(tradingNotifier
+              .checkPendingOrder(tokenId: intent.tokenId)
+              .catchError((_) {}));
+          return;
+        }
+        if (!_sameAttempt(intent)) return;
+      }
       if (e is PendingPolymarketOrder) {
         if (funded) {
           journey.completed(OneBalanceVenue.predictions, resized: false);
