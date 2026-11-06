@@ -59,7 +59,12 @@
 // the sheet is up the bar keeps its place and draws the pill transparent
 // ([_morphed]; no slide, no hidden context, the keyboard inside the sheet
 // ignored), so the return lands exactly where the pill rests and the
-// pill is simply there again when it does.
+// pill is simply there again when it does. Only while the sheet is ON
+// TOP: a result's market page or its slip stacks over the sheet, and the
+// bar is theirs meanwhile (their trade row, the slip's primary with its
+// round share button), then holds the pill again when they close
+// ([_searchCovered]; founder, 6 November 2026: "Predictions on search
+// have no buy button on the bet slip").
 //
 // Reduce Motion: the full pill, still, above the action row; it still
 // slides in and out with the keyboard and the Sal sheet, at once, and the
@@ -137,6 +142,15 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
   /// the file header).
   bool _morphed = false;
 
+  /// What the bar showed when it became the composer, its lift and
+  /// whether it was a market's: held while the sheet is on top, and given
+  /// back when a page or a slip opened over the sheet closes (meanwhile
+  /// the bar is theirs; see [_searchCovered]), so the way back still
+  /// lands on it.
+  KuteBarContext? _heldLast;
+  double _heldLift = 0;
+  bool _heldMarket = false;
+
   /// The entry from the bottom when a market context takes over a bar
   /// that was already up (0 → 1 on the sheet spring; 1 at rest).
   late final AnimationController _entry = AnimationController(
@@ -194,8 +208,33 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
   /// back (search_morph.dart); the bar draws it transparent meanwhile.
   Future<void> _open(KuteBarContext ctx, [BuildContext? pillContext]) =>
       openKuteBarSheet(ctx, source: pillContext, travelling: (on) {
-        if (mounted && _morphed != on) setState(() => _morphed = on);
+        if (!mounted || _morphed == on) return;
+        setState(() {
+          _morphed = on;
+          _heldLast = on ? _last : null;
+          _heldLift = on ? _lift : 0;
+          _heldMarket = on && _market;
+        });
       });
+
+  /// THE SEARCH SHEET ONLY HOLDS THE BAR WHILE IT IS ON TOP
+  /// (kute_bar_context.dart): a result's market page or its slip stands
+  /// on the sheet (they stack on the root navigator), and the bar is
+  /// theirs, the trade row, the slip's primary and its round share
+  /// button, whether the pill travelled to the composer or the sheet hid
+  /// the bar. Founder, 6 November 2026: "Predictions on search have no
+  /// buy button on the bet slip, and Hyperliquid the same".
+  bool _searchCovered() => kuteSearchSheetCovered();
+
+  /// The stack's top as the bar reads it: the search sheet's hidden
+  /// context (the one with no route) gives way while the sheet is covered.
+  KuteBarContext? _top(List<KuteBarContext> stack, {required bool covered}) =>
+      kuteBarTop(covered
+          ? [
+              for (final c in stack)
+                if (!(c.hidden && c.route == null)) c
+            ]
+          : stack);
 
   /// The round Sal button at the end of the bar's row (a trade row's, a
   /// position's beside Close or Sell, a slip's beside its Place, a
@@ -237,7 +276,8 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
   /// has written the stack, and the frame that redraws the bar may not
   /// have run yet. Nothing runs while the live action is off or busy.
   void _primaryTap() {
-    final live = kuteBarTop(ref.read(kuteBarContextProvider));
+    final live = _top(ref.read(kuteBarContextProvider),
+        covered: _searchCovered());
     if (live == null || !live.isPrimary || !live.current) return;
     if (!live.enabled || live.busy || live.onPrimary == null) return;
     HapticFeedback.lightImpact();
@@ -247,7 +287,12 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
   @override
   Widget build(BuildContext context) {
     final reduce = kuteReduceMotion(context);
-    final stackTop = kuteBarTop(ref.watch(kuteBarContextProvider));
+    // A page or a slip over the search sheet: the bar is theirs (see
+    // [_searchCovered]). The route observer's count and the stack both
+    // move when one is pushed or popped, so the bar rebuilds then.
+    final covered = _searchCovered();
+    final stackTop =
+        _top(ref.watch(kuteBarContextProvider), covered: covered);
     final over = KuteBarRouteObserver.over.value > 0;
     // The stack's top while its route is current; else the default: over
     // whatever is pushed, and on the tab roots themselves (the ONE pill of
@@ -264,7 +309,15 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
     // A context placed in the page's header (KuteBarPlacement.header)
     // keeps the pill away: the Investing position's market context, whose
     // control is the round Sal button beside Close position.
-    final morphed = _morphed;
+    // Only while the sheet is on top: covered, the bar is the covering
+    // page's; back on top, it holds what it showed when it became the
+    // composer, so the way back lands on it.
+    final morphed = _morphed && !covered;
+    if (morphed && _heldLast != null) {
+      _last = _heldLast;
+      _lift = _heldLift;
+      _market = _heldMarket;
+    }
     final inset = MediaQuery.viewInsetsOf(context).bottom;
     final keyboard = !morphed && inset > 0;
     // The primary button rides ABOVE the keyboard (founder, 31 October
