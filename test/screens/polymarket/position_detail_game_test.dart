@@ -882,7 +882,7 @@ void main() {
     });
 
     testWidgets('under a day to go: "Ends in 12:34" counted down on a '
-        'centred pill', (tester) async {
+        'quiet centred line', (tester) async {
       final end = DateTime.now().add(const Duration(minutes: 12, seconds: 40));
       await _pump(
         tester,
@@ -892,17 +892,14 @@ void main() {
         width: 375,
       );
       await tester.pump();
-      final pill = find.byKey(const ValueKey('poly-position-expiry'));
-      expect(pill, findsOneWidget);
+      final line = find.byKey(const ValueKey('poly-position-expiry'));
+      expect(line, findsOneWidget);
       expect(
-          find.descendant(
-              of: pill,
-              matching: find.byWidgetPredicate((w) =>
-                  w is Text &&
-                  RegExp(r'^Ends in 12:[0-9]{2}$').hasMatch(w.data ?? ''))),
-          findsOneWidget);
+          RegExp(r'^Ends in 12:[0-9]{2}$')
+              .hasMatch(tester.widget<Text>(line).data ?? ''),
+          isTrue);
       expect(find.textContaining('ENDS'), findsNothing);
-      expect(tester.getCenter(pill).dx, closeTo(375 / 2, 1));
+      expect(tester.getCenter(line).dx, closeTo(375 / 2, 1));
       expect(tester.takeException(), isNull);
     });
 

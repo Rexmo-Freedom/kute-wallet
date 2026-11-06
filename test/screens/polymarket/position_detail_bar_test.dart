@@ -45,6 +45,7 @@ import 'package:kute/screens/shared/kute_bar_context.dart'
     show KuteBarPrimaryStyle, kuteBarScrollClearance;
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/sal_sprite.dart';
+import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/theme/app_theme.dart';
 
 import '../../helpers/shell_bar_harness.dart';
@@ -377,6 +378,30 @@ void main() {
         findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  for (final (name, settled) in [('won', _won), ('lost', _lost)]) {
+    testWidgets('settled ($name): "Settled" is the quiet line under the '
+        'bar\'s chance, as under the dial, over the tiles', (tester) async {
+      await _pump(tester, settled);
+      final line = find.byKey(const ValueKey('poly-position-expiry'));
+      expect(line, findsOneWidget);
+      expect(tester.widget<Text>(line).data, 'Settled');
+      expect(tester.widget<Text>(line).style?.color,
+          AppColorsExtension.light().textSecondary);
+      final chance = find.byWidgetPredicate(
+          (w) => w is RollingNumberText && w.text.endsWith('% chance'));
+      expect(tester.getRect(line).top,
+          greaterThanOrEqualTo(tester.getRect(chance).bottom));
+      expect(tester.getRect(line).bottom,
+          lessThan(tester
+              .getRect(find.byKey(const ValueKey('poly-position-value')))
+              .top));
+      expect(find.text('Settled'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 5));
+    });
+  }
 
   const shotOut = String.fromEnvironment('POLY_POSITION_SHOT_OUT');
   for (final dark in [false, true]) {
