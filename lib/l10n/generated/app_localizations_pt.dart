@@ -10128,12 +10128,6 @@ class AppLocalizationsPt extends AppLocalizations {
   String get hlPillTrending => 'Em alta';
 
   @override
-  String get hlMarketMapTitle => 'Mapa do mercado';
-
-  @override
-  String get hlMarketMapWindow => '24h';
-
-  @override
   String get hlKindAll => 'Todos';
 
   @override

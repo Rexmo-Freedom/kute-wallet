@@ -2871,8 +2871,6 @@
   "livestreamOnHost": "Live palvelussa {host}",
   "livestreamNowPlaying": "Nyt toistetaan: {title}",
   "hlPillTrending": "Suosittu",
-  "hlMarketMapTitle": "Markkinakartta",
-  "hlMarketMapWindow": "24 h",
   "hlKindAll": "Kaikki",
   "comboCombineTitle": "Yhdistä yhdeksi ennusteeksi",
   "comboCombineSubtitle": "Yksi summa. Jokaisen kohteen on voitettava, jotta saat suuremman maksun.",

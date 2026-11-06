@@ -216,18 +216,16 @@ void main() {
     final entries = hlMarketMapEntries(hlMarketMapFixture);
 
     test(
-        'blocks by class with their label strips; tiles inside, no '
-        'overlaps, one scale', () {
+        'blocks by class with no titles; tiles inside, no overlaps, one '
+        'scale', () {
       final layout = HlMarketMapLayout.compute(entries, size);
       expect(layout.blocks.map((b) => b.group).toSet(),
           HlMarketMapGroup.values.toSet());
       final tiles = layout.tiles.toList();
       final bounds = Offset.zero & size;
       for (final b in layout.blocks) {
-        expect(b.header, isNotNull, reason: '${b.group} has room for a label');
-        expect(b.header!.height, 18);
+        expect(b.header, isNull, reason: 'no group titles');
         for (final t in b.tiles) {
-          expect(t.rect.top, greaterThanOrEqualTo(b.header!.bottom - 1e-9));
           expect(b.rect.inflate(1e-6).contains(t.rect.topLeft), isTrue);
           expect(b.rect.inflate(1e-6).contains(t.rect.bottomRight), isTrue);
         }
@@ -255,9 +253,8 @@ void main() {
       final biggest = tiles.reduce((a, b) =>
           a.rect.width * a.rect.height >= b.rect.width * b.rect.height ? a : b);
       expect(biggest.id, 'perp:BTC');
-      // A tap finds its tile; a label strip finds none.
+      // A tap finds its tile.
       expect(layout.tileAt(biggest.rect.center)?.id, 'perp:BTC');
-      expect(layout.tileAt(layout.blocks.first.header!.center), isNull);
     });
 
     test('the same markets always lay out the same, in any order', () {
@@ -432,11 +429,12 @@ void main() {
   });
 
   group('the card', () {
-    testWidgets('header, the map, and a tile opens its market', (tester) async {
+    testWidgets('no title, the map, and a tile opens its market',
+        (tester) async {
       final tapped = <HlMarket>[];
       await _pumpCard(tester, hlMarketMapFixture, onTap: tapped.add);
-      expect(find.text('Market map'), findsOneWidget);
-      expect(find.text('24h'), findsOneWidget);
+      expect(find.text('Market map'), findsNothing);
+      expect(find.text('24h'), findsNothing);
       final painter = _painter(tester);
       expect(painter.layout.tiles.length, greaterThan(30));
       // The big tiles carry a logo: BTC's.

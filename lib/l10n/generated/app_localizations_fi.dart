@@ -10093,12 +10093,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get hlPillTrending => 'Suosittu';
 
   @override
-  String get hlMarketMapTitle => 'Markkinakartta';
-
-  @override
-  String get hlMarketMapWindow => '24 h';
-
-  @override
   String get hlKindAll => 'Kaikki';
 
   @override

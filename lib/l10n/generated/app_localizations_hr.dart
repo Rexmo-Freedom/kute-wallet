@@ -10107,12 +10107,6 @@ class AppLocalizationsHr extends AppLocalizations {
   String get hlPillTrending => 'U trendu';
 
   @override
-  String get hlMarketMapTitle => 'Karta tržišta';
-
-  @override
-  String get hlMarketMapWindow => '24 h';
-
-  @override
   String get hlKindAll => 'Sve';
 
   @override

@@ -10060,12 +10060,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String get hlPillTrending => 'Populāri';
 
   @override
-  String get hlMarketMapTitle => 'Tirgus karte';
-
-  @override
-  String get hlMarketMapWindow => '24 h';
-
-  @override
   String get hlKindAll => 'Visi';
 
   @override

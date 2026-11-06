@@ -117,14 +117,6 @@ const String kHlMarketMapSource = 'market_map';
 const double _kTileGap = 2;
 const double _kBlockGap = 4;
 
-/// A block's label strip, over its tiles.
-const double _kHeaderHeight = 18;
-
-/// A block narrower than this, or too short for its strip and a row of
-/// tiles, carries no label. A label wider than its block is set smaller,
-/// down to 9, then cut with an ellipsis.
-const double _kHeaderMinWidth = 40;
-
 /// Inside a tile, around its label; around a lone ticker on a small one.
 const double _kLabelPad = 4;
 const double _kTightPad = 2;
@@ -347,10 +339,9 @@ class HlMarketMapLayout {
       return HlMarketMapLayout._(size, blocks, shares);
     }
 
-    double headerOf(Rect r) =>
-        r.width >= _kHeaderMinWidth && r.height >= _kHeaderHeight * 2.5
-            ? _kHeaderHeight
-            : 0;
+    // No group titles on the blocks (founder, 6 November 2026: "not
+    // titles like crypto and such"): the blocks keep their own areas.
+    double headerOf(Rect r) => 0;
     final sums = [for (final g in groups) sumOf(g)];
     // First pass: blocks by volume alone, to know which carry a strip and
     // how wide it is; then the strips' area added to their blocks, so the
@@ -1047,8 +1038,9 @@ class _HlMarketMapCardState extends ConsumerState<HlMarketMapCard> {
   }
 }
 
-/// The card around the map: the grouped card's ground, "Market map" and
-/// the window (24h) over [map].
+/// The card around the map: the grouped card's ground and [map], with no
+/// title (founder, 6 November 2026: "don't call it market map, just have
+/// the card there").
 class _HlMarketMapFrame extends StatelessWidget {
   const _HlMarketMapFrame({super.key, required this.map});
 
@@ -1056,41 +1048,13 @@ class _HlMarketMapFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final c = context.colors;
     return PremiumGroupContainer(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 10.h),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                Expanded(
-                  child: Text(
-                    l10n.hlMarketMapTitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.settingsTitle(context),
-                  ),
-                ),
-                SizedBox(width: 12.w),
-                Text(
-                  l10n.hlMarketMapWindow,
-                  style: TextStyle(
-                    color: c.textSecondary,
-                    fontSize: 13.sp,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: EdgeInsets.fromLTRB(10.w, 0, 10.w, 10.w),
+            padding: EdgeInsets.all(10.w),
             child: map,
           ),
         ],

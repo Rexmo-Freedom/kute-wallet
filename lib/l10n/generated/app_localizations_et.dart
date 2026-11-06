@@ -10076,12 +10076,6 @@ class AppLocalizationsEt extends AppLocalizations {
   String get hlPillTrending => 'Populaarne';
 
   @override
-  String get hlMarketMapTitle => 'Turukaart';
-
-  @override
-  String get hlMarketMapWindow => '24 h';
-
-  @override
   String get hlKindAll => 'Kõik';
 
   @override

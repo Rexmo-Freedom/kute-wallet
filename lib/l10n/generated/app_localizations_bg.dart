@@ -10107,12 +10107,6 @@ class AppLocalizationsBg extends AppLocalizations {
   String get hlPillTrending => 'Популярни';
 
   @override
-  String get hlMarketMapTitle => 'Пазарна карта';
-
-  @override
-  String get hlMarketMapWindow => '24ч';
-
-  @override
   String get hlKindAll => 'Всички';
 
   @override

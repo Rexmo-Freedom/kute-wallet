@@ -2871,8 +2871,6 @@
   "livestreamOnHost": "Live pe {host}",
   "livestreamNowPlaying": "Acum rulează: {title}",
   "hlPillTrending": "În tendințe",
-  "hlMarketMapTitle": "Harta pieței",
-  "hlMarketMapWindow": "24h",
   "hlKindAll": "Toate",
   "comboCombineTitle": "Combină într-o singură predicție",
   "comboCombineSubtitle": "O singură sumă. Fiecare selecție trebuie să câștige, pentru o plată mai mare.",

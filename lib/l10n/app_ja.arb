@@ -2871,8 +2871,6 @@
   "livestreamOnHost": "{host}でライブ配信中",
   "livestreamNowPlaying": "再生中：{title}",
   "hlPillTrending": "トレンド",
-  "hlMarketMapTitle": "マーケットマップ",
-  "hlMarketMapWindow": "24時間",
   "hlKindAll": "すべて",
   "comboCombineTitle": "1つの予測にまとめる",
   "comboCombineSubtitle": "金額は1つ。すべてのレッグが的中すると、より大きな払い戻しになります。",

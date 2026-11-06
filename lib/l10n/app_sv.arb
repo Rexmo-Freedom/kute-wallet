@@ -2871,8 +2871,6 @@
   "livestreamOnHost": "Live på {host}",
   "livestreamNowPlaying": "Spelas nu: {title}",
   "hlPillTrending": "Trendar",
-  "hlMarketMapTitle": "Marknadskarta",
-  "hlMarketMapWindow": "24 h",
   "hlKindAll": "Alla",
   "comboCombineTitle": "Kombinera till en prognos",
   "comboCombineSubtitle": "Ett belopp. Varje del måste vinna, för en större utbetalning.",

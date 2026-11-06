@@ -2871,8 +2871,6 @@
   "livestreamOnHost": "En direct sur {host}",
   "livestreamNowPlaying": "En cours de lecture : {title}",
   "hlPillTrending": "Tendances",
-  "hlMarketMapTitle": "Carte du marché",
-  "hlMarketMapWindow": "24 h",
   "hlKindAll": "Tout",
   "comboCombineTitle": "Combiner en une seule prédiction",
   "comboCombineSubtitle": "Un seul montant. Chaque sélection doit gagner, pour un gain plus élevé.",
