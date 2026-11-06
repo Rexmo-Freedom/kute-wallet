@@ -10087,6 +10087,12 @@ class AppLocalizationsDa extends AppLocalizations {
   String get hlPillTrending => 'Populært';
 
   @override
+  String get hlMarketMapTitle => 'Markedskort';
+
+  @override
+  String get hlMarketMapWindow => '24 t';
+
+  @override
   String get hlKindAll => 'Alle';
 
   @override

@@ -10112,6 +10112,12 @@ class AppLocalizationsHu extends AppLocalizations {
   String get hlPillTrending => 'Felkapott';
 
   @override
+  String get hlMarketMapTitle => 'Piaci térkép';
+
+  @override
+  String get hlMarketMapWindow => '24 óra';
+
+  @override
   String get hlKindAll => 'Összes';
 
   @override

@@ -2871,6 +2871,8 @@
   "livestreamOnHost": "Live auf {host}",
   "livestreamNowPlaying": "Läuft gerade: {title}",
   "hlPillTrending": "Im Trend",
+  "hlMarketMapTitle": "Marktkarte",
+  "hlMarketMapWindow": "24h",
   "hlKindAll": "Alle",
   "comboCombineTitle": "Zu einer Prognose kombinieren",
   "comboCombineSubtitle": "Ein Betrag. Jeder Teil muss gewinnen, dafür gibt es eine höhere Auszahlung.",

@@ -10157,6 +10157,12 @@ class AppLocalizationsEl extends AppLocalizations {
   String get hlPillTrending => 'Τάσεις';
 
   @override
+  String get hlMarketMapTitle => 'Χάρτης αγοράς';
+
+  @override
+  String get hlMarketMapWindow => '24ω';
+
+  @override
   String get hlKindAll => 'Όλα';
 
   @override

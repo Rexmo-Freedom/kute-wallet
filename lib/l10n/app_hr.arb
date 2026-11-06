@@ -2871,6 +2871,8 @@
   "livestreamOnHost": "Uživo na {host}",
   "livestreamNowPlaying": "Sada se reproducira: {title}",
   "hlPillTrending": "U trendu",
+  "hlMarketMapTitle": "Karta tržišta",
+  "hlMarketMapWindow": "24 h",
   "hlKindAll": "Sve",
   "comboCombineTitle": "Spoji u jednu kombinaciju",
   "comboCombineSubtitle": "Jedan iznos. Svaki dio mora dobiti, za veću isplatu.",

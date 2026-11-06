@@ -2871,6 +2871,8 @@
   "livestreamOnHost": "Ζωντανά στο {host}",
   "livestreamNowPlaying": "Παίζει τώρα: {title}",
   "hlPillTrending": "Τάσεις",
+  "hlMarketMapTitle": "Χάρτης αγοράς",
+  "hlMarketMapWindow": "24ω",
   "hlKindAll": "Όλα",
   "comboCombineTitle": "Συνδυασμός σε μία πρόβλεψη",
   "comboCombineSubtitle": "Ένα ποσό. Κάθε σκέλος πρέπει να κερδίσει, για μεγαλύτερη πληρωμή.",

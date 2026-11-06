@@ -2871,6 +2871,8 @@
   "livestreamOnHost": "Na żywo w {host}",
   "livestreamNowPlaying": "Teraz odtwarzane: {title}",
   "hlPillTrending": "Popularne",
+  "hlMarketMapTitle": "Mapa rynku",
+  "hlMarketMapWindow": "24h",
   "hlKindAll": "Wszystkie",
   "comboCombineTitle": "Połącz w jedną prognozę",
   "comboCombineSubtitle": "Jedna kwota. Każde zdarzenie musi wygrać, za to wypłata jest większa.",

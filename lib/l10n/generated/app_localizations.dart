@@ -17333,6 +17333,18 @@ abstract class AppLocalizations {
   /// **'Trending'**
   String get hlPillTrending;
 
+  /// Title of the Investing card under the Trending list: a treemap of the markets, each tile sized by its 24h volume and coloured red (down) or green (up) by its 24h change.
+  ///
+  /// In en, this message translates to:
+  /// **'Market map'**
+  String get hlMarketMapTitle;
+
+  /// Quiet caption at the right of the market map card's title: the window the tiles' colours and changes are measured over, the last 24 hours. Keep it as short as the language allows.
+  ///
+  /// In en, this message translates to:
+  /// **'24h'**
+  String get hlMarketMapWindow;
+
   /// No description provided for @hlKindAll.
   ///
   /// In en, this message translates to:

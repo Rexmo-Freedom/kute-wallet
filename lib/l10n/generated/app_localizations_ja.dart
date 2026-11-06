@@ -9710,6 +9710,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get hlPillTrending => 'トレンド';
 
   @override
+  String get hlMarketMapTitle => 'マーケットマップ';
+
+  @override
+  String get hlMarketMapWindow => '24時間';
+
+  @override
   String get hlKindAll => 'すべて';
 
   @override

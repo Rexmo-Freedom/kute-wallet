@@ -10140,6 +10140,12 @@ class AppLocalizationsRo extends AppLocalizations {
   String get hlPillTrending => 'În tendințe';
 
   @override
+  String get hlMarketMapTitle => 'Harta pieței';
+
+  @override
+  String get hlMarketMapWindow => '24h';
+
+  @override
   String get hlKindAll => 'Toate';
 
   @override
