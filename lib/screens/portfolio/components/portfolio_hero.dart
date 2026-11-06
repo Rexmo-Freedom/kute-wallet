@@ -22,15 +22,25 @@
 //     P&L since the range's start to the point under it and its moment
 //     ("▲ $12.10 · Oct 16 14:00"); only that line rebuilds on a scrub
 //     frame (a [ValueNotifier], never the section);
-//   * ONE chart: the account's P&L (Investing and Predictions added,
-//     [PortfolioPerformance.combine], the predictions at the live prices
-//     of the shares held only) over the range, [KuteTrendChart] as the
-//     Bitcoin and Dollars balance charts draw it (the result colour, the
-//     dashed hairline at the range's start, the scrub; the compact 160
-//     plot, so the section's first row is in sight) with the P&L split
-//     fill around zero, and the app's range row under it (1W 1M 3M 1Y
-//     ALL, [pnlChartRangeProvider], kept for the session and shared with
-//     the P&L section's venue rows and the "Share P&L" card);
+//   * ONE chart: the account's P&L (Investing and Predictions added)
+//     over the range, FROM THE POSITIONS CHART'S ENGINE (founder, 6
+//     November 2026; providers/open_pnl_history_provider.dart, "the whole
+//     P&L history"): every position's realised P&L stepping at its closes,
+//     sells, redeems and fees, plus what the positions held at each moment
+//     were winning or losing then, each from its own entry at its market's
+//     prices, under each venue's own published figures (what no fill or
+//     trade carries, held from each of them); its last point pinned to the
+//     P&L now (the venues' own, the predictions at the live prices of the
+//     shares held), so the line's figure IS the hero's. [KuteTrendChart]
+//     as the Positions chart draws it (the colour of the range's P&L, the
+//     split fill, the dashed line at zero, the scrub; the compact 160
+//     plot, so the section's first row is in sight), "N positions not
+//     charted" under it for a position held whose line cannot be read, and
+//     the app's range row (1W 1M 3M 1Y ALL, [pnlChartRangeProvider], kept
+//     for the session and shared with the P&L section's venue squares and
+//     the "Share P&L" card; every range its own reach). The engine's
+//     shapes while it is read; nothing it can chart (every read failed):
+//     the venues' own published line ([pnlSeries]);
 //   * one quiet line: "3 positions · Available $17.64" (the open
 //     positions the Positions section lists). Nothing open: the Available
 //     alone.
