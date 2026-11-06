@@ -6,8 +6,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/models/share_link_model.dart';
-import 'package:kute/providers/usd_account_provider.dart'
-    show usdBalanceProvider;
 import 'package:kute/screens/share/claim_screen.dart';
 import 'package:kute/services/share_links_store.dart';
 
@@ -124,8 +122,7 @@ void main() {
         outcome: 'Yes',
         outcomeIndex: 0,
         side: 'buy'));
-    await pumpShareWidget(tester, env, const ClaimScreen(id: 'lnk_1'),
-        overrides: [usdBalanceProvider.overrideWithValue(0)]);
+    await pumpShareWidget(tester, env, const ClaimScreen(id: 'lnk_1'));
 
     // The hero: the pick's card. The slug's words until the event is
     // read; the outcome big and the amount on it.
@@ -171,8 +168,7 @@ void main() {
   testWidgets('an investment pick reads as an investment', (tester) async {
     env.fake.seed(_link(
         market: 'BTC', venue: 'hyperliquid', outcome: 'Long', side: 'long'));
-    await pumpShareWidget(tester, env, const ClaimScreen(id: 'lnk_1'),
-        overrides: [usdBalanceProvider.overrideWithValue(0)]);
+    await pumpShareWidget(tester, env, const ClaimScreen(id: 'lnk_1'));
     expect(find.byKey(const ValueKey('share-card-send_investment')),
         findsOneWidget);
     expect(find.text('ANA, A FRIEND SENT YOU A PICK'), findsOneWidget);

@@ -11545,6 +11545,86 @@ class AppLocalizationsCs extends AppLocalizations {
   String get balanceNoHistorySub => 'Začíná tvou první transakcí.';
 
   @override
+  String balanceGoalLevel(int level) {
+    return 'Úroveň $level';
+  }
+
+  @override
+  String get balanceLevelName0 => 'Zahřívání';
+
+  @override
+  String get balanceLevelName1 => 'Kapesné';
+
+  @override
+  String get balanceLevelName2 => 'Střádal';
+
+  @override
+  String get balanceLevelName3 => 'Štamgast';
+
+  @override
+  String get balanceLevelName4 => 'Dospělý';
+
+  @override
+  String get balanceLevelName5 => 'Vážně';
+
+  @override
+  String get balanceLevelName6 => 'Pevná ruka';
+
+  @override
+  String get balanceLevelName7 => 'Těžká váha';
+
+  @override
+  String get balanceLevelName8 => 'Velký pes';
+
+  @override
+  String get balanceLevelName9 => 'Vůdce smečky';
+
+  @override
+  String get balanceLevelName10 => 'Legenda';
+
+  @override
+  String get balanceLevelName11 => 'Mimo stupnici';
+
+  @override
+  String balanceGoalProgress(int percent, String goal) {
+    return '$percent % do $goal';
+  }
+
+  @override
+  String balanceGoalChartLabel(String goal) {
+    return 'Další: $goal';
+  }
+
+  @override
+  String balanceGoalMove(String amount) {
+    return 'Přesunout $amount do Dolarů';
+  }
+
+  @override
+  String get balanceGoalMovePlain => 'Přesunout do Dolarů';
+
+  @override
+  String get balanceGoalMoveWhyBoth =>
+      'Tvoje peníze, víc možností: Investování a Predikce v dolarech.';
+
+  @override
+  String get balanceGoalMoveWhyInvesting =>
+      'Tvoje peníze, víc možností: Investování v dolarech.';
+
+  @override
+  String get balanceGoalMoveWhyPredictions =>
+      'Tvoje peníze, víc možností: Predikce v dolarech.';
+
+  @override
+  String balanceMilestonePassed(String amount) {
+    return 'Máš za sebou $amount';
+  }
+
+  @override
+  String get balanceMilestonePassedLine =>
+      'Bitcoin a dolary dohromady. Sal dělá, že o nic nejde.';
+
+  @override
   String get pnlNoHistoryTitle => 'Zatím žádný zisk a ztráta';
 
   @override
@@ -11927,7 +12007,7 @@ class AppLocalizationsCs extends AppLocalizations {
   String get usdSendSearchHint => 'Name, address or phone';
 
   @override
-  String get usdSendToYourBitcoin => 'To your Bitcoin';
+  String get usdSendToYourBitcoin => 'Na tvůj Bitcoin';
 
   @override
   String usdBitcoinBalanceLine(String amount) {
@@ -11936,6 +12016,23 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
+
+  @override
+  String get receiveOrSwapTitle => 'Přijmout nebo směnit';
+
+  @override
+  String get receiveFromYourDollars => 'Z tvých Dolarů';
+
+  @override
+  String usdDollarsBalanceLine(String amount) {
+    return '$amount v Dolarech';
+  }
+
+  @override
+  String get receiveFromAnotherAsset => 'Z jiného aktiva';
+
+  @override
+  String get receiveBitcoinAndLightning => 'Bitcoin a Lightning';
 
   @override
   String get sendRailBitcoinOnchain => 'Bitcoin · on-chain';
@@ -13626,6 +13723,18 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get sendToCryptoAddress => 'Na kryptoadresu';
+
+  @override
+  String get sendMoreWaysToSend => 'Další způsoby odeslání';
+
+  @override
+  String get sendWayCryptoAddress => 'Kryptoadresa';
+
+  @override
+  String get sendWayPrediction => 'Predikce';
+
+  @override
+  String get sendWayToDollars => 'Do Dolarů';
 
   @override
   String get sendPickRowSub => 'Nebo investici. Vyhledej trh, vyber stranu';

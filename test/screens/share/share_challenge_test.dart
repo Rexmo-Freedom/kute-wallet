@@ -27,8 +27,6 @@ import 'package:kute/providers/hyperliquid_markets_provider.dart'
     show hyperliquidPerpMarketsProvider, hyperliquidSpotMarketsProvider;
 import 'package:kute/providers/polymarket_browse_provider.dart'
     show polymarketEventDetailsProvider, polymarketMarketHistoryProvider;
-import 'package:kute/providers/usd_account_provider.dart'
-    show usdBalanceProvider;
 import 'package:kute/screens/share/brag/brag_card.dart';
 import 'package:kute/screens/share/cards/share_card_copy.dart';
 import 'package:kute/screens/share/cards/share_card_data.dart';
@@ -649,7 +647,6 @@ void main() {
             tester, env, ClaimScreen(id: 'lnk_1', challenge: routeFlag),
             cardVenues: false,
             overrides: [
-              usdBalanceProvider.overrideWithValue(0),
               polymarketEventDetailsProvider.overrideWith((ref, slug) async =>
                   slug == _btc.slug
                       ? _btc

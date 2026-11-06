@@ -1,18 +1,15 @@
 // The Dollars Send (the Bitcoin send's layout; founder, 1 November 2026;
-// made clearer 4 November 2026: "too many options and buttons"; squares 5
-// November 2026: "these should be cards like squares"): "Send dollars",
-// the search field ("Name, address or phone"), then under one "Send to"
-// label the big cards: "To your Bitcoin" (the Move money sheet, Dollars to
-// Bitcoin) and "To a crypto address" (the coin sheet) as two squares, "Send
-// an investment or prediction" (the market search) compact across the
-// width under them; no "Send to anyone" (a contact or a typed number sends
-// by link); then the Contacts. A typed address resolves first and
+// the approved hierarchy, 6 November 2026: "one question per level, people
+// first"): "Send dollars", the search field ("Name, address or phone"),
+// Frequent (the people), then under a small "More ways to send" label ONE
+// row of small equal chips: "To your Bitcoin" (the Move money sheet,
+// Dollars to Bitcoin), "Crypto address" (the coin sheet) and "Prediction"
+// (the market search); no "Send to anyone" (a contact or a typed number
+// sends by link); then All contacts. A typed address resolves first and
 // the bar's Continue opens the dollar send on it; an address several
-// networks take asks which one; a send that went out, or a link created,
-// closes the sheet. Nothing here reaches a money call: every door is a
-// test seam.
-
-import 'dart:math' as math;
+// networks take asks which one in the highlighted row; a send that went
+// out, or a link created, closes the sheet. Nothing here reaches a money
+// call: every door is a test seam.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -40,9 +37,14 @@ import 'package:kute/screens/search/components/search_rows.dart'
     show SearchChanceGauge;
 import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
-    show SendToListRow;
+    show SendToListCard, SendToListRow;
 import 'package:kute/screens/shared/send/send_recipient_step.dart'
-    show SendCoinStack, SendSalShareGlyph;
+    show
+        SendCoinStack,
+        SendSalShareGlyph,
+        SendWayChip,
+        SendWaysRow,
+        kSendWayChipGap;
 import 'package:kute/services/contacts/send_contacts_service.dart';
 import 'package:kute/screens/usd/usd_withdraw_screen.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -202,6 +204,50 @@ Future<void> _settle(WidgetTester tester) async {
   await tester.pump(const Duration(milliseconds: 400));
 }
 
+/// Every line break of the [RichText]s under [of] falls at a space, after a
+/// hyphen or inside Japanese: never inside a word.
+void _expectNoBrokenWord(WidgetTester tester, Finder of, String why) {
+  final texts = find.descendant(of: of, matching: find.byType(RichText));
+  final cjk = RegExp(r'[\u3000-\u9fff\uff00-\uffef]');
+  for (var i = 0; i < texts.evaluate().length; i++) {
+    final p = tester.renderObject<RenderParagraph>(texts.at(i));
+    expect(p.didExceedMaxLines, isFalse, reason: '$why: a label is cut');
+    final text = p.text.toPlainText();
+    // The paragraph's own lines, laid out again as it laid them out.
+    final painter = TextPainter(
+      text: p.text,
+      textDirection: p.textDirection,
+      textScaler: p.textScaler,
+      maxLines: p.maxLines,
+      locale: p.locale,
+      strutStyle: p.strutStyle,
+      textWidthBasis: p.textWidthBasis,
+    )..layout(maxWidth: p.constraints.maxWidth);
+    addTearDown(painter.dispose);
+    var offset = 0;
+    while (offset < text.length) {
+      final line = painter.getLineBoundary(TextPosition(offset: offset));
+      if (line.end <= offset) break;
+      final next = line.end;
+      if (next < text.length) {
+        final before = text[next - 1];
+        final after = text[next];
+        expect(
+            before.trim().isEmpty ||
+                after.trim().isEmpty ||
+                before == '-' ||
+                cjk.hasMatch(before),
+            isTrue,
+            reason: '$why: "$text" breaks inside a word');
+      }
+      offset = next;
+      while (offset < text.length && text[offset].trim().isEmpty) {
+        offset++;
+      }
+    }
+  }
+}
+
 /// The primary bar contexts the sheet declares (the bar as a button).
 List<KuteBarContext> _primaryScopes() => [
       for (final e in find
@@ -272,12 +318,14 @@ void main() {
 
   for (final dark in [false, true]) {
     testWidgets(
-        'the Bitcoin send\'s layout: "Send dollars", the search field, then '
-        'under one "Send to" label the big cards (To your Bitcoin | To a '
-        'crypto address as squares, Send an investment or prediction '
-        'compact across the width under them; no Send to anyone), then the '
-        'Contacts; no list rows, no "To a friend" label, no inline grid '
+        'one question per level, people first: "Send dollars", the search '
+        'field, then under a small "More ways to send" label ONE row of '
+        'three small equal chips (To your Bitcoin, Crypto address, '
+        'Prediction), then the Contacts; no big card grid, no "Send to" '
+        'label, no Send to anyone, no inline grid '
         '(${dark ? 'dark' : 'light'})', (tester) async {
+      // The app's own type: the labels are measured in it.
+      await tester.runAsync(_loadInter);
       await _pump(tester, spendingSats: 100000, dark: dark);
       final screen = find.byType(UsdWithdrawScreen);
       expect(ModalRoute.of(tester.element(screen))!.settings.name,
@@ -288,81 +336,75 @@ void main() {
       expect(find.text(_l10n.usdSendSearchHint), findsOneWidget);
       expect(
           find.byKey(const ValueKey('send-contacts-ask-row')), findsOneWidget);
-      // One label over the grid.
-      expect(find.text(_l10n.sendToLabel), findsOneWidget);
+      // One small label over the chips; the old "Send to" grid is gone.
+      expect(find.text(_l10n.sendMoreWaysToSend), findsOneWidget);
+      expect(find.text(_l10n.sendToLabel), findsNothing);
       expect(find.text(_l10n.sendToAFriendLabel), findsNothing);
+      expect(find.byType(KuteActionCardGrid), findsNothing);
+      expect(find.byType(KuteActionCard), findsNothing);
 
-      final grid = find.byKey(const ValueKey('usd-withdraw-options'));
-      expect(grid, findsOneWidget);
-      expect(tester.widget<KuteActionCardGrid>(grid).cards.map((c) => c.key),
+      final row = find.byKey(const ValueKey('usd-withdraw-options'));
+      expect(row, findsOneWidget);
+      expect(tester.widget<SendWaysRow>(row).chips.map((c) => c.key),
           [_bitcoinRow, _alsoRow, _pickRow]);
       // No Send to anyone (founder, 5 November 2026: "makes no sense since
       // we have phone numbers"): a contact or a typed number sends by link.
       expect(find.byKey(_anyoneRow), findsNothing);
       expect(find.text(_l10n.shareSendToAnyone), findsNothing);
       expect(find.byType(SendSalShareGlyph), findsNothing);
-      // Square cards, none of the old list rows (the Contacts' own ask
-      // row is the only one left).
+      // Chips, none of the old list rows (the Contacts' own ask row is the
+      // only one left).
       expect(
           find.byWidgetPredicate((w) =>
               w is SendToListRow &&
               w.key != const ValueKey('send-contacts-ask-row')),
           findsNothing);
-      KuteActionCard card(Key key) =>
-          tester.widget<KuteActionCard>(find.byKey(key));
-      expect(card(_bitcoinRow).title, _l10n.usdSendToYourBitcoin);
-      expect(card(_bitcoinRow).subtitle, _l10n.usdBitcoinBalanceLine('\$60.00'));
-      expect(card(_bitcoinRow).visual, isA<SvgPicture>());
-      expect(card(_alsoRow).title, _l10n.sendToCryptoAddress);
-      expect(card(_alsoRow).subtitle, _l10n.sendAlsoSendsToList('USDC', 'USDT'));
-      expect(card(_alsoRow).visual, isA<SendCoinStack>());
-      expect(card(_pickRow).title, _l10n.sendAnInvestmentOrPrediction);
-      expect(card(_pickRow).title, 'Send an investment or prediction');
-      expect(card(_pickRow).subtitle, _l10n.sendPickCardSub);
-      expect(card(_pickRow).subtitle, 'Pick a market, side and amount');
-      expect(card(_pickRow).visual, isA<SearchChanceGauge>());
+      SendWayChip chip(Key key) => tester.widget<SendWayChip>(find.byKey(key));
+      expect(chip(_bitcoinRow).label, _l10n.usdSendToYourBitcoin);
+      expect(chip(_bitcoinRow).icon, isA<SvgPicture>());
+      // The balance is read out, not printed: the chips stay equal.
+      expect(chip(_bitcoinRow).semanticsLabel,
+          '${_l10n.usdSendToYourBitcoin}, ${_l10n.usdBitcoinBalanceLine('\$60.00')}');
+      expect(chip(_alsoRow).label, _l10n.sendWayCryptoAddress);
+      expect(chip(_alsoRow).label, 'Crypto address');
+      expect(chip(_alsoRow).icon, isA<SendCoinStack>());
+      expect(chip(_alsoRow).semanticsLabel,
+          '${_l10n.sendToCryptoAddress}, ${_l10n.sendAlsoSendsToList('USDC', 'USDT')}');
+      expect(chip(_pickRow).label, _l10n.sendWayPrediction);
+      expect(chip(_pickRow).label, 'Prediction');
+      expect(chip(_pickRow).semanticsLabel, _l10n.sendAnInvestmentOrPrediction);
+      expect(chip(_pickRow).icon, isA<SearchChanceGauge>());
 
-      // Bitcoin | address as two squares on one row, equally tall; the
-      // prediction card under them across both columns, compact (a
-      // chevron, lower than the squares): never a square alone in half the
-      // width. The field above, the Contacts below.
+      // ONE row: the three side by side, left to right, equally wide and
+      // tall, a third of the field's width each; no chevrons, no lines
+      // under the labels.
       Rect r(Key key) => tester.getRect(find.byKey(key));
-      expect(r(_bitcoinRow).top, moreOrLessEquals(r(_alsoRow).top));
-      expect(r(_bitcoinRow).height, moreOrLessEquals(r(_alsoRow).height));
-      expect(r(_bitcoinRow).right, lessThan(r(_alsoRow).left));
-      expect(r(_bitcoinRow).width, moreOrLessEquals(r(_alsoRow).width));
-      expect(r(_pickRow).top, greaterThan(r(_bitcoinRow).bottom));
-      expect(r(_pickRow).left, moreOrLessEquals(r(_bitcoinRow).left));
-      expect(r(_pickRow).right, moreOrLessEquals(r(_alsoRow).right));
-      expect(r(_pickRow).height, lessThan(r(_bitcoinRow).height));
-      Finder chevronIn(Key key) => find.descendant(
-          of: find.byKey(key),
-          matching: find.byIcon(Icons.chevron_right_rounded));
-      expect(chevronIn(_pickRow), findsOneWidget);
-      expect(chevronIn(_bitcoinRow), findsNothing);
-      expect(chevronIn(_alsoRow), findsNothing);
-      // As tall as their content: the row ends one padding under the
-      // taller card's last line; no floor, no half-empty square.
-      double lastLine(Key key) {
-        final texts =
-            find.descendant(of: find.byKey(key), matching: find.byType(Text));
-        var bottom = 0.0;
-        for (var i = 0; i < texts.evaluate().length; i++) {
-          bottom = math.max(bottom, tester.getRect(texts.at(i)).bottom);
-        }
-        return bottom;
+      final field =
+          tester.getRect(find.byKey(const ValueKey('send-recipient-search')));
+      final third = (field.width - 2 * kSendWayChipGap.w) / 3;
+      for (final key in [_bitcoinRow, _alsoRow, _pickRow]) {
+        expect(r(key).top, moreOrLessEquals(r(_bitcoinRow).top));
+        expect(r(key).height, moreOrLessEquals(r(_bitcoinRow).height));
+        expect(r(key).width, moreOrLessEquals(third, epsilon: 0.5));
+        expect(
+            find.descendant(
+                of: find.byKey(key),
+                matching: find.byIcon(Icons.chevron_right_rounded)),
+            findsNothing);
       }
-      expect(
-          r(_bitcoinRow).bottom,
-          moreOrLessEquals(
-              math.max(lastLine(_bitcoinRow), lastLine(_alsoRow)) +
-                  kKuteActionCardPadding +
-                  1,
-              epsilon: 1));
+      expect(r(_bitcoinRow).left, moreOrLessEquals(field.left, epsilon: 0.5));
+      expect(r(_bitcoinRow).right, lessThan(r(_alsoRow).left));
+      expect(r(_alsoRow).right, lessThan(r(_pickRow).left));
+      expect(r(_pickRow).right, moreOrLessEquals(field.right, epsilon: 0.5));
+      // Compact: clearly smaller than the old squares.
+      expect(r(_bitcoinRow).height, lessThan(100));
+      expect(find.byKey(const ValueKey('send-ways-scroll')), findsNothing);
+      // Top to bottom: the field, the label, the chips, the Contacts.
       double top(Finder f) => tester.getTopLeft(f).dy;
       expect(top(find.byKey(const ValueKey('send-recipient-search'))),
-          lessThan(top(find.text(_l10n.sendToLabel))));
-      expect(top(find.text(_l10n.sendToLabel)), lessThan(r(_bitcoinRow).top));
+          lessThan(top(find.text(_l10n.sendMoreWaysToSend))));
+      expect(top(find.text(_l10n.sendMoreWaysToSend)),
+          lessThan(r(_bitcoinRow).top));
       expect(r(_pickRow).bottom,
           lessThan(top(find.byKey(const ValueKey('send-contacts-ask-row')))));
 
@@ -381,54 +423,61 @@ void main() {
   }
 
   testWidgets(
-      'Predictions and Investing closed to this person: no Send an '
-      'investment or prediction card (its slip could only send the '
-      'market\'s card); the other two stay, two squares', (tester) async {
+      'Predictions and Investing closed to this person: no Prediction chip '
+      '(its slip could only send the market\'s card); the other two stay, '
+      'the same small size, from the left', (tester) async {
     final closed = runtimePolicyFixture(
         blocked: const {'polymarket.trade', 'hyperliquid.trade'},
         also: const {'polymarket.browse', 'hyperliquid.browse'});
     RuntimeCapabilitiesService.debugInstance = closed;
     await tester.runAsync(closed.refresh);
+    await tester.runAsync(_loadInter);
     await _pump(tester, spendingSats: 100000);
     expect(find.byKey(_pickRow), findsNothing);
     expect(find.byKey(_anyoneRow), findsNothing);
     for (final key in [_bitcoinRow, _alsoRow]) {
       expect(find.byKey(key), findsOneWidget);
     }
-    expect(tester.getRect(find.byKey(_bitcoinRow)).top,
-        moreOrLessEquals(tester.getRect(find.byKey(_alsoRow)).top));
+    final a = tester.getRect(find.byKey(_bitcoinRow));
+    final b = tester.getRect(find.byKey(_alsoRow));
+    final field =
+        tester.getRect(find.byKey(const ValueKey('send-recipient-search')));
+    expect(a.top, moreOrLessEquals(b.top));
+    expect(a.left, moreOrLessEquals(field.left, epsilon: 0.5));
+    expect(b.width,
+        moreOrLessEquals((field.width - 2 * kSendWayChipGap.w) / 3,
+            epsilon: 0.5));
     expect(tester.takeException(), isNull);
     await _unmount(tester);
   });
 
   testWidgets(
-      'at 375 pt and a large text the cards wrap their words, never cut, '
-      'and nothing overflows', (tester) async {
+      'at 375 pt and a large text the chips never cut a word: the row '
+      'scrolls sideways when the labels outgrow a third, nothing overflows',
+      (tester) async {
+    await tester.runAsync(_loadInter);
     await _pump(tester, spendingSats: 100000);
     tester.view.physicalSize = const Size(375, 667);
-    tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+    tester.platformDispatcher.textScaleFactorTestValue = 2.0;
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     await _settle(tester);
-    for (final key in [_bitcoinRow, _alsoRow, _pickRow]) {
-      final texts = find.descendant(
-          of: find.byKey(key), matching: find.byType(Text));
-      for (final e in texts.evaluate()) {
-        final t = e.widget as Text;
-        if (t.data == _l10n.sendAnInvestmentOrPrediction ||
-            t.data == _l10n.sendPickCardSub ||
-            t.data == _l10n.sendToCryptoAddress) {
-          expect(t.overflow, isNull);
-          expect(t.maxLines, isNull);
-        }
-      }
-    }
     expect(tester.takeException(), isNull);
+    expect(find.byKey(const ValueKey('send-ways-scroll')), findsOneWidget);
+    for (final key in [_bitcoinRow, _alsoRow, _pickRow]) {
+      _expectNoBrokenWord(tester, find.byKey(key), 'text x2');
+    }
+    final a = tester.getRect(find.byKey(_bitcoinRow));
+    for (final key in [_alsoRow, _pickRow]) {
+      expect(tester.getRect(find.byKey(key)).width,
+          moreOrLessEquals(a.width));
+      expect(tester.getRect(find.byKey(key)).top, moreOrLessEquals(a.top));
+    }
     await _unmount(tester);
   });
 
   testWidgets(
-      'Frequent stays on top: the recent recipients under the field, above '
-      'the Send to card; All contacts below it; typing hides Frequent',
+      'people first: search < Frequent < the More ways to send chips < All '
+      'contacts; typing hides Frequent',
       (tester) async {
     const evm = '0x742d35cc6634c0532925a3b844bc454e4438f44e';
     await _pump(tester, spendingSats: 100000, orders: [
@@ -460,9 +509,15 @@ void main() {
     double top(Finder f) => tester.getTopLeft(f).dy;
     expect(top(find.byKey(const ValueKey('send-recipient-search'))),
         lessThan(top(find.byKey(frequent))));
-    expect(top(find.byKey(frequent)), lessThan(top(find.text(_l10n.sendToLabel))));
-    expect(top(find.byKey(_alsoRow)),
-        lessThan(top(find.byKey(const ValueKey('send-contacts-ask-row')))));
+    final label = find.text(_l10n.sendMoreWaysToSend);
+    expect(tester.getBottomLeft(find.byKey(frequent)).dy,
+        lessThanOrEqualTo(top(label)));
+    expect(tester.getBottomLeft(label).dy,
+        lessThanOrEqualTo(top(find.byKey(_bitcoinRow))));
+    for (final key in [_bitcoinRow, _alsoRow, _pickRow]) {
+      expect(tester.getBottomLeft(find.byKey(key)).dy,
+          lessThan(top(find.byKey(const ValueKey('send-contacts-ask-row')))));
+    }
     // Once only: the Contacts below never repeat it.
     expect(find.byKey(const ValueKey('send-frequent-row')), findsOneWidget);
 
@@ -573,16 +628,16 @@ void main() {
     const tron = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
     await type(tester, tron);
     expect(find.byKey(const ValueKey('send-recipient-card')), findsOneWidget);
-    // One recipient card: the Send to card is hidden meanwhile.
+    // One recipient card: the chips are hidden meanwhile.
     expect(find.text(_l10n.sendRecipientSendingTo), findsOneWidget);
     expect(find.byKey(_bitcoinRow), findsNothing);
-    expect(find.text(_l10n.sendToLabel), findsNothing);
+    expect(find.text(_l10n.sendMoreWaysToSend), findsNothing);
     expect(_primaryScopes(), hasLength(1));
     expect(kuteBarPrimaryEnabled(tester), isTrue);
     kuteBarPrimaryContext(tester).onPrimary!();
     await _settle(tester);
     expect(sendsOpened, [('tron:USDT', tron)]);
-    // Change empties the field and brings the Send to card back.
+    // Change empties the field and brings the chips back.
     await tester.tap(find.byKey(const ValueKey('send-recipient-change')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('send-recipient-card')), findsNothing);
@@ -599,6 +654,15 @@ void main() {
     expect(find.byKey(const ValueKey('send-recipient-card')), findsNothing);
     final pick = find.byKey(const ValueKey('usd-withdraw-pick-network'));
     expect(pick, findsOneWidget);
+    // The highlighted row (the stronger border), right under the field.
+    expect(
+        tester
+            .widget<SendToListCard>(find.ancestor(
+                of: pick, matching: find.byType(SendToListCard)))
+            .emphasized,
+        isTrue);
+    expect(tester.getTopLeft(pick).dy,
+        lessThan(tester.getTopLeft(find.byKey(_bitcoinRow)).dy));
     await tester.tap(pick);
     await _settle(tester);
     expect(find.byType(CoinAssetPickerSheet), findsOneWidget);
@@ -633,8 +697,9 @@ void main() {
   });
 
   testWidgets(
-      'nothing offered: To your Bitcoin and the pick stay as two squares, no '
-      'address card, the unavailable line under them', (tester) async {
+      'nothing offered: To your Bitcoin and Prediction stay, two small '
+      'chips, no address chip, the unavailable line under them',
+      (tester) async {
     await _pump(tester, coins: false);
     expect(find.byKey(_bitcoinRow), findsOneWidget);
     expect(find.byKey(_anyoneRow), findsNothing);
@@ -642,9 +707,9 @@ void main() {
     expect(find.byKey(_alsoRow), findsNothing);
     expect(
         tester
-            .widget<KuteActionCardGrid>(
+            .widget<SendWaysRow>(
                 find.byKey(const ValueKey('usd-withdraw-options')))
-            .cards,
+            .chips,
         hasLength(2));
     expect(tester.getRect(find.byKey(_pickRow)).top,
         moreOrLessEquals(tester.getRect(find.byKey(_bitcoinRow)).top));
@@ -657,9 +722,9 @@ void main() {
   });
 
   testWidgets(
-      'at 375 pt, in Inter, in every shipped language: two squares over '
-      'the compact "Send an investment or prediction", every word whole '
-      'inside its card, nothing overflowing', (tester) async {
+      'at 375 pt, in Inter, in every shipped language: the three chips fit '
+      'across in one row (no sideways scroll), equal, every word whole '
+      'inside its chip, nothing overflowing', (tester) async {
     await tester.runAsync(_loadInter);
     for (final locale in AppLocalizations.supportedLocales) {
       final l10n = l10nForLanguage(locale.languageCode);
@@ -670,41 +735,37 @@ void main() {
           locale: locale);
       await tester.pump();
       expect(tester.takeException(), isNull, reason: why);
+      expect(find.byKey(const ValueKey('send-ways-scroll')), findsNothing,
+          reason: '$why: the chips do not fit across');
+      expect(find.text(l10n.sendMoreWaysToSend), findsOneWidget, reason: why);
       final a = tester.getRect(find.byKey(_bitcoinRow));
       final b = tester.getRect(find.byKey(_alsoRow));
       final pick = tester.getRect(find.byKey(_pickRow));
-      expect(a.top, moreOrLessEquals(b.top), reason: why);
-      expect(a.height, moreOrLessEquals(b.height), reason: why);
-      expect(b.right, lessThanOrEqualTo(375), reason: why);
-      expect(pick.top, greaterThan(a.bottom), reason: why);
-      expect(pick.width, moreOrLessEquals(b.right - a.left), reason: why);
-      expect(
-          find.descendant(
-              of: find.byKey(_pickRow),
-              matching: find.text(l10n.sendAnInvestmentOrPrediction)),
-          findsOneWidget,
-          reason: why);
-      expect(
-          find.descendant(
-              of: find.byKey(_pickRow),
-              matching: find.text(l10n.sendPickCardSub)),
-          findsOneWidget,
-          reason: why);
-      for (final (key, box) in [
-        (_bitcoinRow, a),
-        (_alsoRow, b),
-        (_pickRow, pick),
+      for (final box in [b, pick]) {
+        expect(box.top, moreOrLessEquals(a.top), reason: why);
+        expect(box.height, moreOrLessEquals(a.height), reason: why);
+        expect(box.width, moreOrLessEquals(a.width), reason: why);
+      }
+      expect(pick.right, lessThanOrEqualTo(375), reason: why);
+      for (final (key, label) in [
+        (_bitcoinRow, l10n.usdSendToYourBitcoin),
+        (_alsoRow, l10n.sendWayCryptoAddress),
+        (_pickRow, l10n.sendWayPrediction),
       ]) {
+        expect(
+            find.descendant(of: find.byKey(key), matching: find.text(label)),
+            findsOneWidget,
+            reason: why);
+        _expectNoBrokenWord(tester, find.byKey(key), why);
+        final box = tester.getRect(find.byKey(key));
         final texts = find.descendant(
             of: find.byKey(key), matching: find.byType(RichText));
         for (var i = 0; i < texts.evaluate().length; i++) {
-          final p = tester.renderObject<RenderParagraph>(texts.at(i));
-          expect(p.didExceedMaxLines, isFalse, reason: '$why: a line is cut');
           final shown = tester.getRect(texts.at(i));
           expect(shown.right, lessThanOrEqualTo(box.right + 0.5),
               reason: why);
           expect(shown.bottom, lessThanOrEqualTo(box.bottom + 0.5),
-              reason: '$why: a line runs past its card');
+              reason: '$why: a line runs past its chip');
         }
       }
       await _unmount(tester);

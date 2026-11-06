@@ -11,7 +11,10 @@
 //   * a chip or segmented pill: spring 500 / 25, more bounce;
 //   * a press on a row or a button: 1 → 0.98 on touch, and back on release
 //     on spring 520 / 42, mass 0.7 (overdamped: it returns, never bounces);
-//   * the CSS parts' overshoot cubic-bezier(0.34, 1.56, 0.64, 1).
+//   * the CSS parts' overshoot cubic-bezier(0.34, 1.56, 0.64, 1);
+//   * a page's content switching (a pill, a picked category, a sheet's
+//     next page): in 24 px from its side with a fade on the sheet spring,
+//     the same for every switch ([KuteMotion.switchIn]).
 //
 // A spring is given to Flutter as a [Curve] ([KuteSpringCurve]: the
 // simulation's position over the curve's duration), so AnimatedScale,
@@ -83,6 +86,24 @@ abstract final class KuteMotion {
       SpringDescription(mass: 0.7, stiffness: 520, damping: 42);
   static const Duration pressDuration = Duration(milliseconds: 280);
   static final Curve press = KuteSpringCurve(pressSpring, pressDuration);
+
+  // ── A page's content switching ───────────────────────────────────────
+
+  /// ONE CHOREOGRAPHY FOR A SWITCH (founder, 6 November 2026: "why are
+  /// the animations here when clicking the buttons not the same as the
+  /// ones from these buttons, as in going to the next page?"). Whatever
+  /// changes what a page shows moves the same way: a pill of a switch
+  /// (Activity · Investing · Predictions), a category picked in the
+  /// category sheet, a sheet going to a group's own page. The new content
+  /// fades in and slides [switchSlide] from the side it comes from (a pill
+  /// to the right, the next page: from the right) on [switchIn], the
+  /// sheet spring; where the old content is still drawn while it goes (a
+  /// sheet's pages) it slides the other way and fades on [switchOut]. The
+  /// pill's own words morph on the chip spring meanwhile ([chip]).
+  static const double switchSlide = 24;
+  static const Duration switchDuration = sheetInDuration;
+  static final Curve switchIn = sheetIn;
+  static const Curve switchOut = settle;
 
   // ── Reduce Motion ────────────────────────────────────────────────────
 

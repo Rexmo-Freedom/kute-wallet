@@ -11599,6 +11599,86 @@ class AppLocalizationsLt extends AppLocalizations {
   String get balanceNoHistorySub => 'Ji prasideda nuo pirmosios operacijos.';
 
   @override
+  String balanceGoalLevel(int level) {
+    return 'Lygis $level';
+  }
+
+  @override
+  String get balanceLevelName0 => 'Įšylama';
+
+  @override
+  String get balanceLevelName1 => 'Kišenpinigiai';
+
+  @override
+  String get balanceLevelName2 => 'Kaupėjas';
+
+  @override
+  String get balanceLevelName3 => 'Nuolatinis';
+
+  @override
+  String get balanceLevelName4 => 'Suaugęs';
+
+  @override
+  String get balanceLevelName5 => 'Rimtai';
+
+  @override
+  String get balanceLevelName6 => 'Tvirta ranka';
+
+  @override
+  String get balanceLevelName7 => 'Sunkiasvoris';
+
+  @override
+  String get balanceLevelName8 => 'Didelis šuo';
+
+  @override
+  String get balanceLevelName9 => 'Gaujos vadas';
+
+  @override
+  String get balanceLevelName10 => 'Legenda';
+
+  @override
+  String get balanceLevelName11 => 'Už skalės ribų';
+
+  @override
+  String balanceGoalProgress(int percent, String goal) {
+    return '$percent % iki $goal';
+  }
+
+  @override
+  String balanceGoalChartLabel(String goal) {
+    return 'Kitas: $goal';
+  }
+
+  @override
+  String balanceGoalMove(String amount) {
+    return 'Perkelti $amount į Dolerius';
+  }
+
+  @override
+  String get balanceGoalMovePlain => 'Perkelti į Dolerius';
+
+  @override
+  String get balanceGoalMoveWhyBoth =>
+      'Jūsų pinigai, daugiau galimybių: Investavimas ir Prognozės doleriais.';
+
+  @override
+  String get balanceGoalMoveWhyInvesting =>
+      'Jūsų pinigai, daugiau galimybių: Investavimas doleriais.';
+
+  @override
+  String get balanceGoalMoveWhyPredictions =>
+      'Jūsų pinigai, daugiau galimybių: Prognozės doleriais.';
+
+  @override
+  String balanceMilestonePassed(String amount) {
+    return 'Jūs viršijote $amount';
+  }
+
+  @override
+  String get balanceMilestonePassedLine =>
+      'Bitcoin ir doleriai kartu. Sal apsimeta, kad nieko tokio.';
+
+  @override
   String get pnlNoHistoryTitle => 'P&L dar nėra';
 
   @override
@@ -11981,7 +12061,7 @@ class AppLocalizationsLt extends AppLocalizations {
   String get usdSendSearchHint => 'Name, address or phone';
 
   @override
-  String get usdSendToYourBitcoin => 'To your Bitcoin';
+  String get usdSendToYourBitcoin => 'Į tavo Bitcoin';
 
   @override
   String usdBitcoinBalanceLine(String amount) {
@@ -11990,6 +12070,23 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
+
+  @override
+  String get receiveOrSwapTitle => 'Gauti arba keisti';
+
+  @override
+  String get receiveFromYourDollars => 'Iš jūsų Dolerių';
+
+  @override
+  String usdDollarsBalanceLine(String amount) {
+    return '$amount Doleriuose';
+  }
+
+  @override
+  String get receiveFromAnotherAsset => 'Iš kito turto';
+
+  @override
+  String get receiveBitcoinAndLightning => 'Bitcoin ir Lightning';
 
   @override
   String get sendRailBitcoinOnchain => 'Bitcoin · grandinėje';
@@ -13690,6 +13787,18 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get sendToCryptoAddress => 'Į kripto adresą';
+
+  @override
+  String get sendMoreWaysToSend => 'Daugiau siuntimo būdų';
+
+  @override
+  String get sendWayCryptoAddress => 'Kripto adresas';
+
+  @override
+  String get sendWayPrediction => 'Prognozė';
+
+  @override
+  String get sendWayToDollars => 'Į Dolerius';
 
   @override
   String get sendPickRowSub =>

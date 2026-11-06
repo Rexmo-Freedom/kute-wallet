@@ -15,10 +15,11 @@ import 'package:kute/screens/home/components/action_pill.dart'
     show selectedNetworkTypeProvider;
 import 'package:kute/screens/home/components/deposit_sheet.dart';
 import 'package:kute/screens/receive/receive_sheet.dart'
-    show showBitcoinReceiveSheet;
+    show showBitcoinQrReceiveSheet, showBitcoinReceiveSheet;
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/pool_balance_header.dart';
+import 'package:kute/screens/shared/receive_swap_glyph.dart';
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart';
 import 'package:kute/services/onramp_visibility.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -47,11 +48,19 @@ bool _pinBitcoinWallet(
 /// `quick_action_tapped` event for both buttons.
 /// Receive on the left, Send on the right. Money coming in reads first,
 /// and the order matches the way the two are arranged everywhere else.
+///
+/// The spending wallet's Receive opens "Receive or swap" (founder, 6
+/// November 2026; bitcoin_receive_options.dart): From your Dollars, From
+/// another asset, or Bitcoin, the QR; its arrow wears the swap badge
+/// ([ReceiveSwapGlyph]), the label stays "Receive". A watch-only or
+/// hardware wallet has no Dollars and is offered no swap, so its Receive
+/// is the plain arrow and opens the QR itself.
 List<KuteDockAction> bitcoinWalletDockActions(
     BuildContext context, WidgetRef ref, WalletConfig wallet) {
   return [
     KuteDockAction(
       icon: Icons.south_west_rounded,
+      glyph: wallet.isSparkWallet ? receiveSwapGlyph : null,
       label: context.l10n.receive,
       trackingId: 'receive',
       onTap: () {
@@ -59,7 +68,9 @@ List<KuteDockAction> bitcoinWalletDockActions(
         ref.read(selectedNetworkTypeProvider.notifier).state =
             'Bitcoin Network';
         // ignore: discarded_futures
-        showBitcoinReceiveSheet(context);
+        wallet.isSparkWallet
+            ? showBitcoinReceiveSheet(context)
+            : showBitcoinQrReceiveSheet(context);
       },
     ),
     KuteDockAction(

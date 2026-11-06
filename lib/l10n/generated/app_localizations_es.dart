@@ -11599,6 +11599,86 @@ class AppLocalizationsEs extends AppLocalizations {
   String get balanceNoHistorySub => 'Empieza con tu primera transacción.';
 
   @override
+  String balanceGoalLevel(int level) {
+    return 'Nivel $level';
+  }
+
+  @override
+  String get balanceLevelName0 => 'Calentando';
+
+  @override
+  String get balanceLevelName1 => 'Dinero de bolsillo';
+
+  @override
+  String get balanceLevelName2 => 'Acumulador';
+
+  @override
+  String get balanceLevelName3 => 'Habitual';
+
+  @override
+  String get balanceLevelName4 => 'Adulto';
+
+  @override
+  String get balanceLevelName5 => 'En serio';
+
+  @override
+  String get balanceLevelName6 => 'Pulso firme';
+
+  @override
+  String get balanceLevelName7 => 'Peso pesado';
+
+  @override
+  String get balanceLevelName8 => 'Perro grande';
+
+  @override
+  String get balanceLevelName9 => 'Jefe de la manada';
+
+  @override
+  String get balanceLevelName10 => 'Leyenda';
+
+  @override
+  String get balanceLevelName11 => 'Fuera de serie';
+
+  @override
+  String balanceGoalProgress(int percent, String goal) {
+    return '$percent % hacia $goal';
+  }
+
+  @override
+  String balanceGoalChartLabel(String goal) {
+    return 'Siguiente: $goal';
+  }
+
+  @override
+  String balanceGoalMove(String amount) {
+    return 'Pasar $amount a Dólares';
+  }
+
+  @override
+  String get balanceGoalMovePlain => 'Pasar a Dólares';
+
+  @override
+  String get balanceGoalMoveWhyBoth =>
+      'Tu dinero, más sitios adonde ir: Invertir y Predicciones en dólares.';
+
+  @override
+  String get balanceGoalMoveWhyInvesting =>
+      'Tu dinero, más sitios adonde ir: Invertir en dólares.';
+
+  @override
+  String get balanceGoalMoveWhyPredictions =>
+      'Tu dinero, más sitios adonde ir: Predicciones en dólares.';
+
+  @override
+  String balanceMilestonePassed(String amount) {
+    return 'Has superado $amount';
+  }
+
+  @override
+  String get balanceMilestonePassedLine =>
+      'Bitcoin y dólares juntos. Sal hace como si nada.';
+
+  @override
   String get pnlNoHistoryTitle => 'Aún no hay P&L';
 
   @override
@@ -11980,7 +12060,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get usdSendSearchHint => 'Name, address or phone';
 
   @override
-  String get usdSendToYourBitcoin => 'To your Bitcoin';
+  String get usdSendToYourBitcoin => 'A tu Bitcoin';
 
   @override
   String usdBitcoinBalanceLine(String amount) {
@@ -11989,6 +12069,23 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
+
+  @override
+  String get receiveOrSwapTitle => 'Recibir o intercambiar';
+
+  @override
+  String get receiveFromYourDollars => 'Desde tus Dólares';
+
+  @override
+  String usdDollarsBalanceLine(String amount) {
+    return '$amount en Dólares';
+  }
+
+  @override
+  String get receiveFromAnotherAsset => 'Desde otro activo';
+
+  @override
+  String get receiveBitcoinAndLightning => 'Bitcoin y Lightning';
 
   @override
   String get sendRailBitcoinOnchain => 'Bitcoin · on-chain';
@@ -13710,6 +13807,18 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get sendToCryptoAddress => 'A una dirección cripto';
+
+  @override
+  String get sendMoreWaysToSend => 'Más formas de enviar';
+
+  @override
+  String get sendWayCryptoAddress => 'Dirección cripto';
+
+  @override
+  String get sendWayPrediction => 'Predicción';
+
+  @override
+  String get sendWayToDollars => 'A Dólares';
 
   @override
   String get sendPickRowSub =>

@@ -162,7 +162,7 @@ import 'package:kute/screens/receive/receive_sheet.dart'
 import 'package:kute/screens/search/unified_search_screen.dart';
 import 'package:kute/screens/shared/investment_balance_header.dart';
 import 'package:kute/screens/shared/kute_motion.dart'
-    show kuteMotion, kuteReduceMotion;
+    show SelectionFade, kuteMotion, kuteReduceMotion;
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/shared/stale_shimmer.dart';
@@ -173,8 +173,10 @@ import 'package:kute/screens/usd/investments_category_sheet.dart'
         investmentsCategoryLabel,
         investmentsCategoryShortLabel,
         showInvestmentsCategorySheet;
-import 'package:kute/screens/home/components/deposit_sheet.dart'
-    show MoveLockedSide, showDepositSheet;
+import 'package:kute/screens/shared/capability_unavailable_sheet.dart'
+    show showCapabilityUnavailableSheet;
+import 'package:kute/screens/shared/receive_swap_glyph.dart'
+    show receiveSwapGlyph;
 import 'package:kute/screens/usd/usd_withdraw_screen.dart'
     show showUsdWithdrawSheet;
 import 'package:kute/services/tracking_service.dart';
@@ -696,7 +698,16 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
                 ),
               ),
             ],
-            body: IndexedStack(
+            // A pill switch moves as every switch does (KuteMotion.switchIn,
+            // founder 6 November 2026): the pill's page fades in and slides
+            // 24 px from its side, a pill to the right from the right; a
+            // category picked for the pill moves its list the same way
+            // (the venue list's SliverSelectionFade). At once under Reduce
+            // Motion.
+            body: SelectionFade(
+              selection: selected,
+              order: tabs.indexOf(selected),
+              child: IndexedStack(
               index: tabs.indexOf(selected),
               // Every pill keeps its state; only the one on screen ticks.
               children: [
@@ -714,6 +725,7 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
                     },
                   ),
               ],
+              ),
             ),
           ),
         ),
@@ -1095,23 +1107,26 @@ class UsdAccountActionBar extends ConsumerWidget {
 
   final ValueChanged<double>? onHeightChanged;
 
-  /// Test seam: what Buy dollars opens. Null opens the Move sheet locked
-  /// to Dollars ([showDepositSheet]).
+  /// Test seam: what Buy dollars opens. Null opens the shared
+  /// Unavailable sheet ([showCapabilityUnavailableSheet]).
   @visibleForTesting
   static void Function(BuildContext context)? debugBuyDollarsOpener;
 
-  /// Where Buy dollars says it came from (the Move sheet's entry source).
-  static const String buyDollarsSource = 'usd_buy_dollars';
+  /// The `surface` Buy dollars opens the Unavailable sheet with.
+  static const String buyDollarsSurface = 'buy_dollars';
 
-  /// The row's Buy dollars: bitcoin into Dollars, the Move sheet from the
-  /// spending bitcoin locked to Dollars, exactly as the Receive sheet's
-  /// "From your Bitcoin" row opens it.
+  /// The row's Buy dollars: not available yet (founder, 6 November 2026:
+  /// "Buy dollars and Receive are basically one and the same ... we will
+  /// have an actual buy. So for now Buy just shows not available"). The
+  /// shared Unavailable sheet, its generic sentence; bitcoin into Dollars
+  /// is the Receive sheet's "From your Bitcoin". The tap still counts as
+  /// `quick_action_tapped` `buy_dollars`.
   static void buyDollars(BuildContext context) {
-    TrackingService.markEntrySource('move', buyDollarsSource);
     final open = debugBuyDollarsOpener;
     if (open != null) return open(context);
-    unawaited(
-        showDepositSheet(context, lockedSide: MoveLockedSide.depositToUsd));
+    unawaited(showCapabilityUnavailableSheet(context,
+        message: context.l10n.capabilityUnavailable,
+        surface: buyDollarsSurface));
   }
 
   /// Test seam: what Receive opens. Null opens the Dollars receive sheet
@@ -1234,8 +1249,8 @@ class UsdAccountActionBar extends ConsumerWidget {
   /// dollars · Receive · Send (founder, 2 November 2026: "Buy dollars" in
   /// place of Manage with AI, "Send and Receive, not Add and Send"; 4
   /// November 2026: Portfolio is no longer needed on the top buttons, the
-  /// Activity pill's bar opens it). Buy dollars sends `buy_dollars` and
-  /// opens the Move sheet from the spending bitcoin locked to Dollars.
+  /// Activity pill's bar opens it). Buy dollars sends `buy_dollars` and,
+  /// until there is a real buy, opens the Unavailable sheet ([buyDollars]).
   /// Receive and Send keep the keys `receive` and `send`, so the events
   /// read as before: Receive is money into Dollars (from Bitcoin or
   /// another wallet), Send is Dollars out, to Bitcoin or sent on as a coin
@@ -1250,8 +1265,11 @@ class UsdAccountActionBar extends ConsumerWidget {
           solid: true,
           onTap: () => buyDollars(context),
         ),
+        // The arrow with the swap badge (founder, 6 November 2026): the
+        // sheet behind it is "Receive or swap"; the label stays Receive.
         KuteDockAction(
           icon: Icons.south_west_rounded,
+          glyph: receiveSwapGlyph,
           label: context.l10n.receive,
           trackingId: 'receive',
           onTap: () => receive(context),

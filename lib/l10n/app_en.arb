@@ -8421,6 +8421,122 @@
   "@balanceNoHistorySub": {
     "description": "Bitcoin Balance tab and Dollars balance chart, empty: the line under the title."
   },
+  "balanceGoalLevel": "Level {level}",
+  "@balanceGoalLevel": {
+    "description": "Bitcoin home, Balance tab footer: the level on the milestone ladder (levels go up as the person's Bitcoin + Dollars total passes round figures). Shown bold, followed by ' · ' and the level's name.",
+    "placeholders": {
+      "level": {
+        "type": "int"
+      }
+    }
+  },
+  "balanceLevelName0": "Warming up",
+  "@balanceLevelName0": {
+    "description": "Level name (level 1, below the first milestone, about $100). Deadpan, playful, never about returns. Short."
+  },
+  "balanceLevelName1": "Pocket money",
+  "@balanceLevelName1": {
+    "description": "Level name (level 2, past ~$100). Deadpan, short."
+  },
+  "balanceLevelName2": "Stacker",
+  "@balanceLevelName2": {
+    "description": "Level name (level 3, past ~$250). 'Stacker' as in someone who stacks sats. Short."
+  },
+  "balanceLevelName3": "Regular",
+  "@balanceLevelName3": {
+    "description": "Level name (level 4, past ~$500). Short."
+  },
+  "balanceLevelName4": "Grown-up",
+  "@balanceLevelName4": {
+    "description": "Level name (level 5, past ~$1,000). Short."
+  },
+  "balanceLevelName5": "Serious",
+  "@balanceLevelName5": {
+    "description": "Level name (level 6, past ~$2,500). Short."
+  },
+  "balanceLevelName6": "Steady hand",
+  "@balanceLevelName6": {
+    "description": "Level name (level 7, past ~$5,000). Short."
+  },
+  "balanceLevelName7": "Heavyweight",
+  "@balanceLevelName7": {
+    "description": "Level name (level 8, past ~$10,000). Short."
+  },
+  "balanceLevelName8": "Big dog",
+  "@balanceLevelName8": {
+    "description": "Level name (level 9, past ~$25,000). Dog pun (Sal is a dog), means a big shot. Short."
+  },
+  "balanceLevelName9": "Top dog",
+  "@balanceLevelName9": {
+    "description": "Level name (level 10, past ~$50,000). Dog pun, the one at the top. Short."
+  },
+  "balanceLevelName10": "Legend",
+  "@balanceLevelName10": {
+    "description": "Level name (level 11, past ~$100,000). Short."
+  },
+  "balanceLevelName11": "Off the charts",
+  "@balanceLevelName11": {
+    "description": "Level name (level 12 and every level above). Short."
+  },
+  "balanceGoalProgress": "{percent}% to {goal}",
+  "@balanceGoalProgress": {
+    "description": "Bitcoin home, Balance tab footer, right side: how far the Bitcoin + Dollars total is towards the next round goal ('62% to $500'). percent is a whole number; goal is a formatted amount.",
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      },
+      "goal": {
+        "type": "String"
+      }
+    }
+  },
+  "balanceGoalChartLabel": "Next {goal}",
+  "@balanceGoalChartLabel": {
+    "description": "Bitcoin home, Balance chart: the small label on the dashed goal line ('Next $500'). Very short.",
+    "placeholders": {
+      "goal": {
+        "type": "String"
+      }
+    }
+  },
+  "balanceGoalMove": "Move {amount} to Dollars",
+  "@balanceGoalMove": {
+    "description": "Bitcoin home, Balance tab footer: the row that opens the Move to Dollars sheet with this amount filled in (bitcoin into the Dollars account). Never imply growth or returns.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "balanceGoalMovePlain": "Move to Dollars",
+  "@balanceGoalMovePlain": {
+    "description": "Same row as balanceGoalMove while balances are hidden (no amount)."
+  },
+  "balanceGoalMoveWhyBoth": "Your money, more places to go: Investing and Predictions in Dollars.",
+  "@balanceGoalMoveWhyBoth": {
+    "description": "The line under 'Move $25 to Dollars' where both Investing and Predictions are available. Ambition and control, never returns: Dollars open more places for the money. Keep the product names as the app writes them."
+  },
+  "balanceGoalMoveWhyInvesting": "Your money, more places to go: Investing in Dollars.",
+  "@balanceGoalMoveWhyInvesting": {
+    "description": "The same line where only Investing is available."
+  },
+  "balanceGoalMoveWhyPredictions": "Your money, more places to go: Predictions in Dollars.",
+  "@balanceGoalMoveWhyPredictions": {
+    "description": "The same line where only Predictions is available."
+  },
+  "balanceMilestonePassed": "You passed {amount}",
+  "@balanceMilestonePassed": {
+    "description": "Bitcoin home, Balance tab: shown once with Sal and confetti when the Bitcoin + Dollars total passes a round goal ('You passed $250').",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "balanceMilestonePassedLine": "Bitcoin and Dollars together. Sal is acting like it's nothing.",
+  "@balanceMilestonePassedLine": {
+    "description": "The deadpan line under balanceMilestonePassed: the total counts Bitcoin and Dollars, and Sal (the dog mascot) plays it cool. One short line."
+  },
   "pnlNoHistoryTitle": "No P&L yet",
   "@pnlNoHistoryTitle": {
     "description": "Portfolio P&L Charts, empty: the title over Sal."
@@ -8902,7 +9018,7 @@
   },
   "usdSendToYourBitcoin": "To your Bitcoin",
   "@usdSendToYourBitcoin": {
-    "description": "Dollars Send, Send to card: move dollars to the user's own Bitcoin."
+    "description": "Dollars Send, the chip under Frequent (keep it short: three chips share a phone's width): move dollars to the user's own Bitcoin."
   },
   "usdBitcoinBalanceLine": "{amount} in Bitcoin",
   "@usdBitcoinBalanceLine": {
@@ -8916,6 +9032,31 @@
   "usdReceiveFromYourBitcoin": "From your Bitcoin",
   "@usdReceiveFromYourBitcoin": {
     "description": "Dollars Add first step: deposit into Dollars from the user's own Bitcoin."
+  },
+  "receiveOrSwapTitle": "Receive or swap",
+  "@receiveOrSwapTitle": {
+    "description": "Title of the first sheet the Receive button opens on the Bitcoin and Dollars tabs: receive from another wallet, or swap (convert) from your own Bitcoin, Dollars or another asset. Short; one line at 375 pt."
+  },
+  "receiveFromYourDollars": "From your Dollars",
+  "@receiveFromYourDollars": {
+    "description": "Bitcoin Receive or swap sheet, card title: move money from the user's own Dollars balance into Bitcoin. Dollars is the account name."
+  },
+  "usdDollarsBalanceLine": "{amount} in Dollars",
+  "@usdDollarsBalanceLine": {
+    "description": "Under From your Dollars: the user's Dollars balance, e.g. \"$4.75 in Dollars\". Dollars is the account name.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "receiveFromAnotherAsset": "From another asset",
+  "@receiveFromAnotherAsset": {
+    "description": "Bitcoin Receive or swap sheet, card title: receive another coin (USDC, USDT, ETH...) that arrives as bitcoin."
+  },
+  "receiveBitcoinAndLightning": "Bitcoin and Lightning",
+  "@receiveBitcoinAndLightning": {
+    "description": "Bitcoin Receive or swap sheet, under the Bitcoin card: the networks its QR code accepts."
   },
   "sendRailBitcoinOnchain": "Bitcoin · on-chain",
   "sendRailLightning": "Lightning",
@@ -11442,6 +11583,22 @@
   "sendToCryptoAddress": "To a crypto address",
   "@sendToCryptoAddress": {
     "description": "The Dollars Send's row for the coins dollars can land as (opens the coin sheet); the coins are listed under it."
+  },
+  "sendMoreWaysToSend": "More ways to send",
+  "@sendMoreWaysToSend": {
+    "description": "Send (Bitcoin and Dollars): the small header over the one row of chips between Frequent and All contacts (To your Bitcoin or To Dollars, Crypto address, Prediction)."
+  },
+  "sendWayCryptoAddress": "Crypto address",
+  "@sendWayCryptoAddress": {
+    "description": "Send (Bitcoin and Dollars): the short chip label that opens the coins this money can land as on another chain. Keep it short: three chips share a phone's width."
+  },
+  "sendWayPrediction": "Prediction",
+  "@sendWayPrediction": {
+    "description": "Send (Bitcoin and Dollars): the short chip label that opens the market search to send a prediction or an investment. Keep it short."
+  },
+  "sendWayToDollars": "To Dollars",
+  "@sendWayToDollars": {
+    "description": "Bitcoin Send: the short chip label that moves bitcoin into the user's own Dollars account (the Move money sheet). Keep it short."
   },
   "sendPickRowSub": "Or an investment. Search a market, pick the side",
   "@sendPickRowSub": {

@@ -853,6 +853,9 @@ class _ActivitySection extends ConsumerWidget {
             child: HomeAnalyticsWidget(
               surface: 'home',
               showPrice: false,
+              // The spending wallet's Balance tab climbs the milestones
+              // (balance_goals.dart); a Ledger or watch-only home does not.
+              balanceGoals: !isSavings,
               // `/home?tab=activity` (kHomeActivityLocation) lands on the
               // Activity tab, whatever was selected.
               selectActivityRequest: homeActivityRequest(context),

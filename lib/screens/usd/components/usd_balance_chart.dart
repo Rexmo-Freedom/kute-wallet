@@ -19,8 +19,8 @@ import 'package:kute/providers/usd_account_provider.dart';
 import 'package:kute/screens/analytics/components/analytics_card.dart';
 import 'package:kute/screens/analytics/components/balance_history_chart.dart';
 
-/// The dollar balance chart, sized and framed exactly as the bitcoin
-/// one so switching tabs never shifts the card.
+/// The dollar balance chart, framed exactly as the bitcoin one: the card
+/// hugs the chart, the range row and the card's 16 pt padding under it.
 class UsdBalanceChart extends ConsumerWidget {
   const UsdBalanceChart({super.key});
 
@@ -32,8 +32,9 @@ class UsdBalanceChart extends ConsumerWidget {
     final dollars = NumberFormat.simpleCurrency(name: 'USD');
 
     return AnalyticsCard(
-      // The 400 dp every non-Fees analytics card shares.
-      height: 400.h,
+      // As tall as the chart, as the bitcoin one: no dead space under the
+      // range row (founder, 6 November 2026).
+      height: null,
       child: Padding(
         padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 16.h),
         // The chart's own header: the balance (the one under a scrubbing
