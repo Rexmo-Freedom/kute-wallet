@@ -6368,6 +6368,16 @@ class AppLocalizationsNl extends AppLocalizations {
       'Het platform heeft het resultaat niet bevestigd. Controleer je orders en saldo voordat je het opnieuw probeert.';
 
   @override
+  String get betConfirmingWithVenue => 'Bevestigen bij Polymarket…';
+
+  @override
+  String get investingConfirmingWithExchange => 'Bevestigen bij het platform…';
+
+  @override
+  String get investingOrderNotPlaced =>
+      'Deze order is niet doorgegaan. Er is niets geplaatst.';
+
+  @override
   String get investingApprovalExpired =>
       'Goedkeuring verlopen. Controleer de order en keur hem opnieuw goed.';
 

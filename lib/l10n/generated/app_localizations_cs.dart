@@ -6345,6 +6345,16 @@ class AppLocalizationsCs extends AppLocalizations {
       'Burza zatím nepotvrdila výsledek. Než to zkusíš znovu, zkontroluj pokyny a zůstatek.';
 
   @override
+  String get betConfirmingWithVenue => 'Ověřuje se u Polymarketu…';
+
+  @override
+  String get investingConfirmingWithExchange => 'Ověřuje se u burzy…';
+
+  @override
+  String get investingOrderNotPlaced =>
+      'Tento pokyn neprošel. Nic nebylo zadáno.';
+
+  @override
   String get investingApprovalExpired =>
       'Schválení vypršelo. Zkontroluj obchod a schval ho znovu.';
 

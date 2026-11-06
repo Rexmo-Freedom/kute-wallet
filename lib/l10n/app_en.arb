@@ -3501,6 +3501,18 @@
   "investingInsufficientBalance": "Not enough balance for this trade.",
   "investingTradeRejected": "The exchange rejected this request. Review your orders before trying again.",
   "investingSubmissionUnknown": "The exchange has not confirmed the result. Check your orders and balance before trying again.",
+  "betConfirmingWithVenue": "Confirming with Polymarket…",
+  "@betConfirmingWithVenue": {
+    "description": "Prediction slip button and Portfolio card while the app looks the order up with Polymarket after an answer that proved nothing (a timeout, a dropped connection) or after the card waited a long time. Never a failure."
+  },
+  "investingConfirmingWithExchange": "Confirming with the exchange…",
+  "@investingConfirmingWithExchange": {
+    "description": "Investing order slip button while the app looks the order up with the exchange (by its client order id) after an answer that proved nothing (a timeout, a dropped connection, a gateway error)."
+  },
+  "investingOrderNotPlaced": "This order did not go through. Nothing was placed.",
+  "@investingOrderNotPlaced": {
+    "description": "Investing order slip notice when the order's answer never came and the app then read the account for long enough to know the exchange took nothing: no fill, no resting order."
+  },
   "investingApprovalExpired": "Approval expired. Review the trade and approve it again.",
   "investingLeverageCapped": "Kute limits leverage to {max}x in your region.",
   "@investingLeverageCapped": {

@@ -19,8 +19,14 @@ class PendingPolymarketOrder implements Exception {
 /// Its row keeps protecting the outcome like any [PendingPolymarketOrder];
 /// the type only tells analytics that the order itself went out, rather
 /// than an earlier one blocking it.
+///
+/// [orderId] is the order's hash (computed locally before the POST, the
+/// id the venue files it under), so the placement can look the order up
+/// (`GET /data/order/{id}`) before it says anything. Local only: never
+/// tracked, logged or shown.
 class PolymarketOrderOutcomeUnknown extends PendingPolymarketOrder {
-  const PolymarketOrderOutcomeUnknown();
+  const PolymarketOrderOutcomeUnknown({this.orderId});
+  final String? orderId;
 }
 
 /// The earlier submission is still unaccounted for because the venue could
@@ -363,7 +369,7 @@ class HotPolymarketOrderGuard {
               !const {'matched', 'live', 'delayed', 'unmatched'}
                   .contains(response['status']?.toString().toLowerCase())) {
             throw postStarted
-                ? const PolymarketOrderOutcomeUnknown()
+                ? PolymarketOrderOutcomeUnknown(orderId: id)
                 : const PendingPolymarketOrder();
           }
           row['stage'] = 'accepted';
@@ -384,7 +390,7 @@ class HotPolymarketOrderGuard {
           }
           // Leave the persisted order blocking; arbitrary errors prove nothing.
           if (error is PendingPolymarketOrder) rethrow;
-          throw const PolymarketOrderOutcomeUnknown();
+          throw PolymarketOrderOutcomeUnknown(orderId: id);
         }
       }
 

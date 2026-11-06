@@ -6381,6 +6381,16 @@ class AppLocalizationsRo extends AppLocalizations {
       'Platforma nu a confirmat rezultatul. Verifică ordinele și soldul înainte să încerci din nou.';
 
   @override
+  String get betConfirmingWithVenue => 'Se confirmă cu Polymarket…';
+
+  @override
+  String get investingConfirmingWithExchange => 'Se confirmă cu platforma…';
+
+  @override
+  String get investingOrderNotPlaced =>
+      'Acest ordin nu a trecut. Nu s-a plasat nimic.';
+
+  @override
   String get investingApprovalExpired =>
       'Aprobarea a expirat. Verifică tranzacția și aprob-o din nou.';
 

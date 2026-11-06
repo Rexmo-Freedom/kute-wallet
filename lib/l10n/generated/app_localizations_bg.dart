@@ -6358,6 +6358,16 @@ class AppLocalizationsBg extends AppLocalizations {
       'Платформата не е потвърдила резултата. Провери поръчките и баланса си, преди да опиташ отново.';
 
   @override
+  String get betConfirmingWithVenue => 'Потвърждава се с Polymarket…';
+
+  @override
+  String get investingConfirmingWithExchange => 'Потвърждава се с платформата…';
+
+  @override
+  String get investingOrderNotPlaced =>
+      'Поръчката не беше изпълнена. Нищо не е направено.';
+
+  @override
   String get investingApprovalExpired =>
       'Одобрението изтече. Прегледай сделката и я одобри отново.';
 

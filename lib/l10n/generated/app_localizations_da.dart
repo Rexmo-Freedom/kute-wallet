@@ -6350,6 +6350,16 @@ class AppLocalizationsDa extends AppLocalizations {
       'Børsen har ikke bekræftet resultatet. Tjek dine ordrer og din saldo, før du prøver igen.';
 
   @override
+  String get betConfirmingWithVenue => 'Bekræfter med Polymarket…';
+
+  @override
+  String get investingConfirmingWithExchange => 'Bekræfter med børsen…';
+
+  @override
+  String get investingOrderNotPlaced =>
+      'Ordren gik ikke igennem. Intet blev afgivet.';
+
+  @override
   String get investingApprovalExpired =>
       'Godkendelsen er udløbet. Gennemse handlen, og godkend den igen.';
 

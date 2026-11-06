@@ -6394,6 +6394,16 @@ class AppLocalizationsDe extends AppLocalizations {
       'Die Börse hat das Ergebnis nicht bestätigt. Prüfe deine Aufträge und dein Guthaben, bevor du es erneut versuchst.';
 
   @override
+  String get betConfirmingWithVenue => 'Wird mit Polymarket bestätigt…';
+
+  @override
+  String get investingConfirmingWithExchange => 'Wird mit der Börse bestätigt…';
+
+  @override
+  String get investingOrderNotPlaced =>
+      'Dieser Auftrag wurde nicht ausgeführt. Es wurde nichts platziert.';
+
+  @override
   String get investingApprovalExpired =>
       'Die Freigabe ist abgelaufen. Prüfe den Auftrag und gib ihn erneut frei.';
 

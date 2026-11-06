@@ -27,6 +27,7 @@ import 'package:kute/providers/settings_provider.dart';
 
 import 'package:kute/providers/polymarket_browse_provider.dart'
     show polymarketActivePositionsProvider;
+import 'package:kute/services/foreground_timer.dart';
 
 enum PlacingBetStatus { placing, succeeded, failed }
 
@@ -107,10 +108,17 @@ class PlacingBet {
       );
 }
 
+/// How long a tile that has turned into "Confirming with Polymarket…"
+/// stays before it is dropped quietly: the placement (or the position
+/// landing) settles it long before; this only bounds a tile whose
+/// placement died with the app. Never a failure.
+const Duration kPlacingConfirmingBound = Duration(minutes: 10);
+
 class PlacingPolymarketBetNotifier extends Notifier<List<PlacingBet>> {
   // One timer per placement so concurrent bets don't cancel each other's
-  // watchdog/fail-clear timers.
-  final Map<String, Timer> _watchdogTimers = {};
+  // watchdog/fail-clear timers. The watchdogs count foreground time only
+  // (a Face ID sheet or the background does not run them down).
+  final Map<String, ForegroundTimer> _watchdogTimers = {};
   final Map<String, Timer> _failClearTimers = {};
   int _idSeq = 0;
 
@@ -168,10 +176,14 @@ class PlacingPolymarketBetNotifier extends Notifier<List<PlacingBet>> {
   /// id when the order finally lands, so the user sees one continuous
   /// "Placing bet" tile instead of two stacked.
   ///
-  /// [watchdogDuration] caps how long the tile can sit in "placing"
-  /// status before auto-failing. Default 25s for direct CLOB submits;
-  /// pass a longer value (e.g. 5 min) when registering during a
-  /// BTC→USDC routing wait so Orchestra has time to deliver.
+  /// [watchdogDuration] is how long the tile says its step before it says
+  /// "Confirming with Polymarket…" instead. Default 25s for direct CLOB
+  /// submits; pass a longer value (e.g. 5 min) when registering during a
+  /// BTC→USDC routing wait so Orchestra has time to deliver. Running out
+  /// of time is never a failure: only a placement that heard the venue
+  /// refuse (or proved nothing was bought) calls [markFailed]. The tile
+  /// then stays, confirming, until the position lands or the placement
+  /// settles it, at most [kPlacingConfirmingBound] more.
   String markPlacing({
     required String tokenId,
     required String marketQuestion,
@@ -211,14 +223,46 @@ class PlacingPolymarketBetNotifier extends Notifier<List<PlacingBet>> {
     );
     state = [...state, bet];
 
-    // A timeout cannot establish whether the venue accepted the order.
-    _watchdogTimers[id] = Timer(watchdogDuration, () {
-      final b = _find(id);
-      if (b == null || b.status != PlacingBetStatus.placing) return;
-      markFailed(id, l10nForLanguage(ref.read(settingsProvider).language).betSalePendingDetail);
-    });
+    // A timeout cannot establish whether the venue accepted the order:
+    // the tile says it is confirming, never that it failed. The founder
+    // saw "Placement failed" on predictions that were placed: this timer
+    // used to mark the tile failed while the placement was still running
+    // (a conversion, a live game's delay, a slow answer).
+    _watchdogTimers[id] =
+        ForegroundTimer(watchdogDuration, () => _markConfirming(id));
 
     return id;
+  }
+
+  /// The watchdog ran out with the placement still going: the tile says
+  /// "Confirming with Polymarket…" and stays until the position lands or
+  /// the placement settles it, at most [kPlacingConfirmingBound], then is
+  /// dropped quietly.
+  void _markConfirming(String placementId) {
+    final current = _find(placementId);
+    if (current == null || current.status != PlacingBetStatus.placing) return;
+    state = [
+      for (final b in state)
+        b.placementId == placementId
+            ? b.copyWith(
+                stepLabel: l10nForLanguage(ref.read(settingsProvider).language)
+                    .betConfirmingWithVenue)
+            : b,
+    ];
+    _watchdogTimers[placementId] =
+        ForegroundTimer(kPlacingConfirmingBound, () {
+      _watchdogTimers.remove(placementId);
+      final b = _find(placementId);
+      if (b?.status == PlacingBetStatus.placing) clear(placementId);
+    });
+  }
+
+  /// Says "Confirming with Polymarket…" on [placementId] now: the
+  /// placement is looking the order up after an answer that proved
+  /// nothing. No-op once it succeeded or failed.
+  void markConfirming(String placementId) {
+    _watchdogTimers.remove(placementId)?.cancel();
+    _markConfirming(placementId);
   }
 
   PlacingBet? _find(String placementId) {

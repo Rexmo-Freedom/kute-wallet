@@ -6331,6 +6331,16 @@ class AppLocalizationsEt extends AppLocalizations {
       'Platvorm pole tulemust kinnitanud. Kontrolli enne uut katset oma tellimusi ja saldot.';
 
   @override
+  String get betConfirmingWithVenue => 'Kinnitatakse Polymarketiga…';
+
+  @override
+  String get investingConfirmingWithExchange => 'Kinnitatakse platvormiga…';
+
+  @override
+  String get investingOrderNotPlaced =>
+      'See tellimus ei läinud läbi. Midagi ei esitatud.';
+
+  @override
   String get investingApprovalExpired =>
       'Kinnitus aegus. Vaata tehing üle ja kinnita uuesti.';
 
