@@ -1139,6 +1139,9 @@ class PendingBetAutoFire {
       AuthGrant? limitApproval;
       var notReady = 0;
       DateTime? notReadySince;
+      // The venue took the limit (it rests on the book): nothing after
+      // that ends it as failed.
+      var limitTook = false;
       try {
         final price = intent.limitPrice.clamp(0.01, 0.99).toDouble();
         var placedShares = 0.0;
@@ -1229,6 +1232,7 @@ class PendingBetAutoFire {
               onStep: (step) => _placementStep(intent, step),
             );
             placedShares = shares;
+            limitTook = true;
             break;
           } catch (e) {
             if (await _waitAfterNotReady(
@@ -1258,6 +1262,29 @@ class PendingBetAutoFire {
         });
       } catch (e, st) {
         if (!_sameAttempt(intent)) return;
+        // Taken by the venue, then something of ours threw (a read, the
+        // bookkeeping): the order rests on the book, never "failed".
+        if (limitTook) {
+          if (kDebugMode) debugPrint('[pm-autofire] after the limit: $e\n$st');
+          try {
+            if (funded) {
+              journey.completed(OneBalanceVenue.predictions, resized: false);
+            }
+          } catch (_) {}
+          try {
+            PredictionFundingLedger.instance
+                .release(intent.fundQuoteRef, reason: 'placed');
+          } catch (_) {}
+          try {
+            pendingNotifier.updateStatus(PendingBetStatus.done);
+          } catch (_) {}
+          Future.delayed(const Duration(milliseconds: 600), () {
+            try {
+              if (_sameAttempt(intent)) pendingNotifier.clear();
+            } catch (_) {}
+          });
+          return;
+        }
         if (e is PendingPolymarketOrder) {
           if (funded) {
             journey.completed(OneBalanceVenue.predictions, resized: false);
@@ -1333,6 +1360,10 @@ class PendingBetAutoFire {
     var sentShares = 0.0;
     var sentResized = false;
     var venueTook = false;
+    // The venue's answer once it took the order, and what it paid when
+    // that answer is a verified match (the receipt's figures).
+    Map<String, dynamic>? takenAnswer;
+    double? takenPaid;
     try {
       // Limit intents never reach here — they return from the GTC branch
       // above. Everything below is the market (FAK) path.
@@ -1530,6 +1561,7 @@ class PendingBetAutoFire {
       }
       final placed = response;
       venueTook = true;
+      takenAnswer = placed;
 
       // Record actual USDC moved on the BUY so the position detail
       // sheet's "Invested" reflects wallet truth, not the API's
@@ -1556,6 +1588,7 @@ class PendingBetAutoFire {
               gotShares.isFinite &&
               gotShares > 0;
       if (verifiedFill) {
+        takenPaid = paidUsdc;
         unawaited(costBasis.addCost(intent.tokenId, paidUsdc)
             .catchError((_) {}));
       }
@@ -1617,14 +1650,14 @@ class PendingBetAutoFire {
       if (!_sameAttempt(intent)) return;
       if (kDebugMode) debugPrint('[pm-autofire] failed: $e\n$st');
       // The venue took the order and something of ours threw after that:
-      // never "failed". The bet waits for its confirmation instead.
+      // never "failed". A verified match still ends on the receipt; any
+      // other answer waits for its confirmation.
       if (venueTook && e is! PendingPolymarketOrder) {
-        if (funded) {
-          journey.completed(OneBalanceVenue.predictions, resized: false);
-        }
-        ledger.release(fundingKey, reason: 'placed');
-        pendingNotifier.updateStatus(PendingBetStatus.awaitingConfirmation);
-        placingNotifier.clear(placementId);
+        _endTaken(intent,
+            answer: takenAnswer,
+            paidUsdc: takenPaid,
+            resized: sentResized,
+            placementId: placementId);
         return;
       }
       // Sent, and the answer proved nothing: looked up with the venue by
@@ -1736,6 +1769,60 @@ class PendingBetAutoFire {
           failureCode: _stopCode(e));
       placingNotifier.markFailed(placementId, msg);
     }
+  }
+
+  /// The venue took [intent]'s order ([answer]) and something of ours
+  /// threw after that (the receipt's bookkeeping, a read, a listener):
+  /// never "failed", and every step here runs on its own so one more throw
+  /// cannot undo the rest. A verified match ([paidUsdc]) ends on the
+  /// receipt with the venue's figures; any other answer waits for its
+  /// confirmation (the slip's fill listener and the position landing
+  /// settle it), the cash released as placed.
+  void _endTaken(PendingBetIntent intent,
+      {required Map<String, dynamic>? answer,
+      required double? paidUsdc,
+      required bool resized,
+      String? placementId}) {
+    void quietly(void Function() step) {
+      try {
+        step();
+      } catch (_) {}
+    }
+
+    final pendingNotifier = ref.read(pendingPolymarketBetProvider.notifier);
+    final placingNotifier = ref.read(placingPolymarketBetProvider.notifier);
+    if (intent.funded) {
+      quietly(() => OrderFundingJourney.instance.completed(
+          OneBalanceVenue.predictions,
+          resized: resized,
+          amountUsd: paidUsdc));
+    }
+    quietly(() => PredictionFundingLedger.instance
+        .release(intent.fundQuoteRef, reason: 'placed'));
+    var receipt = false;
+    if (answer != null && paidUsdc != null) {
+      try {
+        pendingNotifier.recordFill(answer);
+        pendingNotifier.updateStatus(PendingBetStatus.done);
+        receipt = true;
+      } catch (_) {}
+    }
+    if (receipt) {
+      if (placementId != null) {
+        quietly(() => placingNotifier.markSucceeded(placementId,
+            holdUntilPositionArrives: true));
+      }
+      Future.delayed(const Duration(milliseconds: 600), () {
+        try {
+          if (_sameAttempt(intent)) pendingNotifier.clear();
+        } catch (_) {}
+      });
+      return;
+    }
+    quietly(() => ref.invalidate(polymarketOpenOrdersProvider));
+    quietly(() =>
+        pendingNotifier.updateStatus(PendingBetStatus.awaitingConfirmation));
+    if (placementId != null) quietly(() => placingNotifier.clear(placementId));
   }
 
   /// Follows [placed], an order the venue took without a fill in its
