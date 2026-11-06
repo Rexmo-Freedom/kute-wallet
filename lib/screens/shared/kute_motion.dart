@@ -3,10 +3,13 @@
 // The small transitions the browse lists, the cards and the slips share,
 // so a screen that changes state eases into it instead of snapping:
 //
-//   * [SliverSelectionFade] / [SelectionFade]: a list under pills fades
+//   * [SliverSelectionFade] / [SelectionFade]: a list under pills switches
 //     its new content in when the selection changes (never on a data
-//     refresh). The list is neither rebuilt nor remounted by it: only an
-//     opacity runs, so paging, scroll position and state are untouched.
+//     refresh), THE SWITCH'S ONE CHOREOGRAPHY (KuteMotion.switchIn): a
+//     fade and 24 px from the side it comes from on the sheet spring, the
+//     same for a pill, a picked category and a sheet's next page. The list
+//     is neither rebuilt nor remounted by it: only an opacity and a paint
+//     offset run, so paging, scroll position and state are untouched.
 //   * [ArrivalSwitcher]: a block that changes shape when its data lands
 //     (a fallback title giving way to a game's rows, a button changing
 //     what it does) cross-fades and eases its height.
@@ -39,6 +42,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import 'package:kute/screens/shared/rolling_number_text.dart';
@@ -52,7 +56,8 @@ bool kuteReduceMotion(BuildContext context) =>
 Duration kuteMotion(BuildContext context, Duration duration) =>
     kuteReduceMotion(context) ? Duration.zero : duration;
 
-/// A list's fade when its pill changes.
+/// A list's fade when its pill changed, before the switch choreography
+/// (KuteMotion.switchIn); still the length of a few small fades.
 const Duration kSelectionFadeDuration = Duration(milliseconds: 170);
 
 /// A block's cross-fade when its data lands.
@@ -61,25 +66,47 @@ const Duration kArrivalDuration = Duration(milliseconds: 180);
 /// A score's pulse.
 const Duration kScorePulseDuration = Duration(milliseconds: 250);
 
-/// Runs a fade-in each time [selection] changes; the first build and any
-/// rebuild with the same selection draw at full opacity.
+/// Runs the switch's arrival (KuteMotion.switchIn: a fade and a slide in
+/// from [direction]'s side) each time [selection] changes; the first build
+/// and any rebuild with the same selection draw at rest.
 mixin _SelectionFadeController<T extends StatefulWidget>
     on State<T>, SingleTickerProviderStateMixin<T> {
   late final AnimationController _fade = AnimationController(
     vsync: this,
-    duration: kSelectionFadeDuration,
+    duration: KuteMotion.switchDuration,
     value: 1,
   );
-  late final Animation<double> opacity =
-      CurvedAnimation(parent: _fade, curve: Curves.easeOut);
 
-  void selectionChanged() {
+  /// The fade: the sheet spring held to 0..1 (an opacity never passes 1).
+  late final Animation<double> opacity = CurvedAnimation(
+      parent: _fade, curve: KuteMotion.clamped(KuteMotion.switchIn));
+
+  /// The slide: the sheet spring itself, its overshoot a hair past rest.
+  late final Animation<double> arrival =
+      CurvedAnimation(parent: _fade, curve: KuteMotion.switchIn);
+
+  /// 1: the new content comes from the right (the next page, a pill to
+  /// the right); -1: from the left.
+  double _from = 1;
+
+  /// How far the content sits from its rest now, in logical pixels.
+  double get shift => _from * KuteMotion.switchSlide * (1 - arrival.value);
+
+  /// The selection changed: from the right, or [from] the side its place
+  /// in the row says ([direction]).
+  void selectionChanged({double from = 1}) {
+    _from = from;
     if (kuteReduceMotion(context)) {
       _fade.value = 1;
     } else {
       _fade.forward(from: 0);
     }
   }
+
+  /// Which side the new selection comes from: its [order] against the old
+  /// one's, from the right when either is unknown or they are equal.
+  static double direction(int? from, int? to) =>
+      from != null && to != null && to < from ? -1 : 1;
 
   @override
   void dispose() {
@@ -88,21 +115,31 @@ mixin _SelectionFadeController<T extends StatefulWidget>
   }
 }
 
-/// The slivers of a list under pills, faded in when [selection] changes.
+/// The slivers of a list under pills, switched in when [selection]
+/// changes: the switch's arrival (KuteMotion.switchIn), a fade and 24 px
+/// from the right (or from [order]'s side), the same as a pill switch and
+/// a category pick everywhere.
 ///
 /// The slivers are laid out as one group ([SliverMainAxisGroup]) so a
 /// lazy list inside keeps building only what is on screen; the fade is
-/// an opacity on that group, so nothing is rebuilt or read again for it.
+/// an opacity on that group and the slide a paint offset
+/// ([KuteSliverShift]), so nothing is rebuilt, laid out or read again for
+/// it and the scroll position is untouched.
 class SliverSelectionFade extends StatefulWidget {
   /// What the pills chose (a category, a subcategory). Data refreshes keep
-  /// it equal and so never fade.
+  /// it equal and so never switch.
   final Object? selection;
+
+  /// The selection's place in its row, when it has one: a later one comes
+  /// in from the right, an earlier one from the left. Null: from the right.
+  final int? order;
   final List<Widget> slivers;
 
   const SliverSelectionFade({
     super.key,
     required this.selection,
     required this.slivers,
+    this.order,
   });
 
   @override
@@ -116,23 +153,39 @@ class _SliverSelectionFadeState extends State<SliverSelectionFade>
   @override
   void didUpdateWidget(SliverSelectionFade oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.selection != widget.selection) selectionChanged();
+    if (oldWidget.selection != widget.selection) {
+      selectionChanged(
+          from: _SelectionFadeController.direction(
+              oldWidget.order, widget.order));
+    }
   }
 
   @override
-  Widget build(BuildContext context) => SliverFadeTransition(
-        opacity: opacity,
-        sliver: SliverMainAxisGroup(slivers: widget.slivers),
+  Widget build(BuildContext context) => AnimatedBuilder(
+        animation: arrival,
+        builder: (context, sliver) =>
+            KuteSliverShift(dx: shift, sliver: sliver!),
+        child: SliverFadeTransition(
+          opacity: opacity,
+          sliver: SliverMainAxisGroup(slivers: widget.slivers),
+        ),
       );
 }
 
-/// A box's content faded in when [selection] changes. The child keeps its
-/// element and its state: only an opacity runs.
+/// A box's content switched in when [selection] changes: the switch's
+/// arrival (a fade and 24 px from the right, or from [order]'s side), as
+/// [SliverSelectionFade]. The child keeps its element and its state: only
+/// an opacity and a translation run. The Dollars page's body switches
+/// between Activity, Investing and Predictions this way.
 class SelectionFade extends StatefulWidget {
   final Object? selection;
+
+  /// See [SliverSelectionFade.order].
+  final int? order;
   final Widget child;
 
-  const SelectionFade({super.key, required this.selection, required this.child});
+  const SelectionFade(
+      {super.key, required this.selection, required this.child, this.order});
 
   @override
   State<SelectionFade> createState() => _SelectionFadeState();
@@ -145,12 +198,90 @@ class _SelectionFadeState extends State<SelectionFade>
   @override
   void didUpdateWidget(SelectionFade oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.selection != widget.selection) selectionChanged();
+    if (oldWidget.selection != widget.selection) {
+      selectionChanged(
+          from: _SelectionFadeController.direction(
+              oldWidget.order, widget.order));
+    }
   }
 
   @override
-  Widget build(BuildContext context) =>
-      FadeTransition(opacity: opacity, child: widget.child);
+  Widget build(BuildContext context) => FadeTransition(
+        opacity: opacity,
+        child: AnimatedBuilder(
+          animation: arrival,
+          builder: (context, child) =>
+              Transform.translate(offset: Offset(shift, 0), child: child),
+          child: widget.child,
+        ),
+      );
+}
+
+/// Paints its sliver [dx] logical pixels across (right for a positive
+/// [dx]) without laying it out again: the switch's slide on a list
+/// ([SliverSelectionFade]). Taps follow what is painted. Only a vertical
+/// list is shifted; any other is drawn in place.
+class KuteSliverShift extends SingleChildRenderObjectWidget {
+  const KuteSliverShift({super.key, required this.dx, required Widget sliver})
+      : super(child: sliver);
+
+  final double dx;
+
+  @override
+  RenderKuteSliverShift createRenderObject(BuildContext context) =>
+      RenderKuteSliverShift(dx);
+
+  @override
+  void updateRenderObject(
+          BuildContext context, RenderKuteSliverShift renderObject) =>
+      renderObject.dx = dx;
+}
+
+/// [KuteSliverShift]'s render object.
+class RenderKuteSliverShift extends RenderProxySliver {
+  RenderKuteSliverShift(this._dx);
+
+  double _dx;
+  double get dx => _dx;
+  set dx(double value) {
+    if (value == _dx) return;
+    _dx = value;
+    markNeedsPaint();
+  }
+
+  /// The shift on screen: across a vertical list only.
+  Offset get _offset =>
+      constraints.axis == Axis.vertical ? Offset(_dx, 0) : Offset.zero;
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    final child = this.child;
+    if (child != null && child.geometry!.visible) {
+      context.paintChild(child, offset + _offset);
+    }
+  }
+
+  @override
+  void applyPaintTransform(RenderObject child, Matrix4 transform) {
+    super.applyPaintTransform(child, transform);
+    final o = _offset;
+    transform.translateByDouble(o.dx, o.dy, 0, 1);
+  }
+
+  @override
+  bool hitTestChildren(SliverHitTestResult result,
+      {required double mainAxisPosition, required double crossAxisPosition}) {
+    final child = this.child;
+    if (child == null || child.geometry!.hitTestExtent <= 0) return false;
+    // The cross axis runs right (left in a right-to-left list): the touch
+    // in the child's own frame is the touch less the shift.
+    final across = constraints.axis != Axis.vertical
+        ? 0.0
+        : (constraints.crossAxisDirection == AxisDirection.left ? -_dx : _dx);
+    return child.hitTest(result,
+        mainAxisPosition: mainAxisPosition,
+        crossAxisPosition: crossAxisPosition - across);
+  }
 }
 
 /// How long a keypad takes to fold away for the money's steps, and the

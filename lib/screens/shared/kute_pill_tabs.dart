@@ -27,6 +27,14 @@
 // ([KutePill.flat]) and only their labels change weight and colour. At
 // once under Reduce Motion.
 //
+// A PILL'S WORDS MORPH (founder, 6 November 2026: a category picked in
+// the category sheet moves as a pill switch does): when they change
+// ("Predictions" → "Predictions · Live"), their box eases to the new width
+// on the chip spring with the pill's own, the new words fading in from
+// the start of the line and the old fading out ([_PillWords]); never a
+// jump, never squeezed into a pill still on its way. At once under Reduce
+// Motion.
+//
 // A pill that holds more (the Investments pills, founder 31 October
 // 2026: "it should be more clear that we have much more context here")
 // carries its context after its name in the quieter weight ("Investing ·
@@ -59,6 +67,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show OverflowBoxFit;
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/screens/shared/kute_motion.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -271,6 +280,25 @@ class KutePill extends StatelessWidget {
         1;
   }
 
+  /// The words' own width on one line ("Predictions · Live"), in [style]
+  /// with the context in [detailStyle], as a Text lays them out: the width
+  /// the words' box springs to ([_PillWords]).
+  double _wordsWidth(
+      BuildContext context, TextStyle style, TextStyle detailStyle) {
+    final painter = TextPainter(
+      text: TextSpan(style: style, children: [
+        TextSpan(text: label),
+        if (detail != null) TextSpan(text: ' · $detail', style: detailStyle),
+      ]),
+      textDirection: Directionality.maybeOf(context) ?? TextDirection.ltr,
+      textScaler: MediaQuery.maybeTextScalerOf(context) ?? TextScaler.noScaling,
+      maxLines: 1,
+    )..layout();
+    final width = painter.width;
+    painter.dispose();
+    return width;
+  }
+
   /// A pill sharing a row at a set width (fillWidth): its words shrink to
   /// that width rather than being clipped. A natural-width pill is as wide
   /// as its words already.
@@ -334,17 +362,25 @@ class KutePill extends StatelessWidget {
                       // extrapolates (a shadow's blur negative); the settle.
                       curve: reduce ? Curves.linear : KuteMotion.textCurve,
                       style: textStyle,
-                      child: Text.rich(
-                        TextSpan(children: [
-                          TextSpan(text: label),
-                          // The context after the name, quieter.
-                          if (detail != null)
-                            TextSpan(text: ' · $detail', style: detailStyle),
-                        ]),
-                        semanticsLabel: semanticLabel,
-                        maxLines: 1,
-                        overflow: TextOverflow.clip,
-                        softWrap: false,
+                      // The words morph when they change (a category
+                      // picked, a pill picked or let go), with the pill's
+                      // width on the chip spring ([_PillWords]).
+                      child: _PillWords(
+                        reduce: reduce,
+                        width: _wordsWidth(context, textStyle, detailStyle),
+                        child: Text.rich(
+                          TextSpan(children: [
+                            TextSpan(text: label),
+                            // The context after the name, quieter.
+                            if (detail != null)
+                              TextSpan(text: ' · $detail', style: detailStyle),
+                          ]),
+                          key: ValueKey<String>('$label\u0000${detail ?? ''}'),
+                          semanticsLabel: semanticLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.clip,
+                          softWrap: false,
+                        ),
                       ),
                     ),
                   ),
@@ -394,6 +430,90 @@ class KutePill extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The length of a pill's words morph: the chip spring's, so the words
+/// and the pill's width (and the white pill under it) move as one.
+const Duration kutePillWordsMorphDuration = KuteMotion.chipDuration;
+
+/// A pill's words, morphing when they change ("Predictions" →
+/// "Predictions · Live" as a category is picked, or as the pill is picked;
+/// founder, 6 November 2026: a pick moves as a pill switch does). Their
+/// box eases from the old words' width to the new words' [width] (measured
+/// as [KutePill.naturalWidth] measures them) on the chip spring held to
+/// its end, from the same frame as the pill's own width ([_SwitchLayout]),
+/// so the words keep step with the pill and are never squeezed into a pill
+/// still on its way; the new words fade in from the start of the line as
+/// the box opens, the old fade out over them from the same start (the name
+/// they share does not move). Only the width clips, never a glyph above or
+/// below the line. At once under Reduce Motion. [child] is the words,
+/// keyed by what they say.
+class _PillWords extends StatelessWidget {
+  const _PillWords(
+      {required this.child, required this.width, required this.reduce});
+
+  final Widget child;
+  final double width;
+  final bool reduce;
+
+  @override
+  Widget build(BuildContext context) {
+    final duration = reduce ? Duration.zero : kutePillWordsMorphDuration;
+    return ClipRect(
+      clipper: const _ClipAcross(),
+      child: TweenAnimationBuilder<double>(
+        tween: Tween<double>(end: width),
+        duration: duration,
+        // The chip spring held to its end: the box never runs past the
+        // new words, so a pill growing into a tight fit never squeezes
+        // them at its overshoot (the pill's chrome still bounces).
+        curve: reduce ? Curves.linear : KuteMotion.clamped(KuteMotion.chip),
+        builder: (context, w, words) =>
+            SizedBox(width: math.max(0.0, w), child: words),
+        // The words at their own width whatever the box's; the box clips.
+        child: OverflowBox(
+          alignment: AlignmentDirectional.centerStart,
+          minWidth: 0,
+          maxWidth: double.infinity,
+          fit: OverflowBoxFit.deferToChild,
+          child: AnimatedSwitcher(
+            duration: duration,
+            // A fade never rides the spring (an opacity past 1); the settle.
+            switchInCurve: reduce ? Curves.linear : KuteMotion.textCurve,
+            switchOutCurve: reduce ? Curves.linear : KuteMotion.textCurve,
+            // Sized by the new words alone; the old ones sit at the same
+            // start while they fade.
+            layoutBuilder: (current, previous) => Stack(
+              clipBehavior: Clip.none,
+              alignment: AlignmentDirectional.centerStart,
+              children: [
+                for (final old in previous)
+                  PositionedDirectional(
+                      start: 0, top: 0, bottom: 0, child: old),
+                if (current != null) current,
+              ],
+            ),
+            transitionBuilder: (child, animation) =>
+                FadeTransition(opacity: animation, child: child),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Clips across only: the words' box at its width, with room above and
+/// below for the glyphs that rise or fall past a 1.0 line height.
+class _ClipAcross extends CustomClipper<Rect> {
+  const _ClipAcross();
+
+  @override
+  Rect getClip(Size size) =>
+      Rect.fromLTRB(-1, -size.height, size.width + 1, size.height * 2);
+
+  @override
+  bool shouldReclip(_ClipAcross oldClipper) => false;
 }
 
 /// A row of [KutePill]s, 34.h tall at the regular [size].
