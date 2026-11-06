@@ -11505,6 +11505,86 @@ class AppLocalizationsEn extends AppLocalizations {
   String get balanceNoHistorySub => 'It starts with your first transaction.';
 
   @override
+  String balanceGoalLevel(int level) {
+    return 'Level $level';
+  }
+
+  @override
+  String get balanceLevelName0 => 'Warming up';
+
+  @override
+  String get balanceLevelName1 => 'Pocket money';
+
+  @override
+  String get balanceLevelName2 => 'Stacker';
+
+  @override
+  String get balanceLevelName3 => 'Regular';
+
+  @override
+  String get balanceLevelName4 => 'Grown-up';
+
+  @override
+  String get balanceLevelName5 => 'Serious';
+
+  @override
+  String get balanceLevelName6 => 'Steady hand';
+
+  @override
+  String get balanceLevelName7 => 'Heavyweight';
+
+  @override
+  String get balanceLevelName8 => 'Big dog';
+
+  @override
+  String get balanceLevelName9 => 'Top dog';
+
+  @override
+  String get balanceLevelName10 => 'Legend';
+
+  @override
+  String get balanceLevelName11 => 'Off the charts';
+
+  @override
+  String balanceGoalProgress(int percent, String goal) {
+    return '$percent% to $goal';
+  }
+
+  @override
+  String balanceGoalChartLabel(String goal) {
+    return 'Next $goal';
+  }
+
+  @override
+  String balanceGoalMove(String amount) {
+    return 'Move $amount to Dollars';
+  }
+
+  @override
+  String get balanceGoalMovePlain => 'Move to Dollars';
+
+  @override
+  String get balanceGoalMoveWhyBoth =>
+      'Your money, more places to go: Investing and Predictions in Dollars.';
+
+  @override
+  String get balanceGoalMoveWhyInvesting =>
+      'Your money, more places to go: Investing in Dollars.';
+
+  @override
+  String get balanceGoalMoveWhyPredictions =>
+      'Your money, more places to go: Predictions in Dollars.';
+
+  @override
+  String balanceMilestonePassed(String amount) {
+    return 'You passed $amount';
+  }
+
+  @override
+  String get balanceMilestonePassedLine =>
+      'Bitcoin and Dollars together. Sal is acting like it\'s nothing.';
+
+  @override
   String get pnlNoHistoryTitle => 'No P&L yet';
 
   @override
@@ -11512,6 +11592,17 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get portfolioPnlAllVenues => 'All';
+
+  @override
+  String portfolioOpenPnlNotCharted(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count positions not charted (history unavailable)',
+      one: '1 position not charted (history unavailable)',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get pnlStatRealised => 'Realised';
@@ -13596,6 +13687,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get sendToCryptoAddress => 'To a crypto address';
+
+  @override
+  String get sendMoreWaysToSend => 'More ways to send';
+
+  @override
+  String get sendWayCryptoAddress => 'Crypto address';
+
+  @override
+  String get sendWayPrediction => 'Prediction';
+
+  @override
+  String get sendWayToDollars => 'To Dollars';
 
   @override
   String get sendPickRowSub =>

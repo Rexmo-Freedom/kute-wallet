@@ -11573,6 +11573,86 @@ class AppLocalizationsHu extends AppLocalizations {
   String get balanceNoHistorySub => 'Az első tranzakcióddal kezdődik.';
 
   @override
+  String balanceGoalLevel(int level) {
+    return '$level. szint';
+  }
+
+  @override
+  String get balanceLevelName0 => 'Bemelegítés';
+
+  @override
+  String get balanceLevelName1 => 'Zsebpénz';
+
+  @override
+  String get balanceLevelName2 => 'Gyűjtögető';
+
+  @override
+  String get balanceLevelName3 => 'Törzsvendég';
+
+  @override
+  String get balanceLevelName4 => 'Felnőtt';
+
+  @override
+  String get balanceLevelName5 => 'Komoly';
+
+  @override
+  String get balanceLevelName6 => 'Biztos kéz';
+
+  @override
+  String get balanceLevelName7 => 'Nehézsúlyú';
+
+  @override
+  String get balanceLevelName8 => 'Nagykutya';
+
+  @override
+  String get balanceLevelName9 => 'Falkavezér';
+
+  @override
+  String get balanceLevelName10 => 'Legenda';
+
+  @override
+  String get balanceLevelName11 => 'Skálán kívül';
+
+  @override
+  String balanceGoalProgress(int percent, String goal) {
+    return '$percent% · cél: $goal';
+  }
+
+  @override
+  String balanceGoalChartLabel(String goal) {
+    return 'Következő: $goal';
+  }
+
+  @override
+  String balanceGoalMove(String amount) {
+    return '$amount áthelyezése Dollárba';
+  }
+
+  @override
+  String get balanceGoalMovePlain => 'Áthelyezés Dollárba';
+
+  @override
+  String get balanceGoalMoveWhyBoth =>
+      'A pénzed, több lehetőség: Befektetés és Előrejelzések dollárban.';
+
+  @override
+  String get balanceGoalMoveWhyInvesting =>
+      'A pénzed, több lehetőség: Befektetés dollárban.';
+
+  @override
+  String get balanceGoalMoveWhyPredictions =>
+      'A pénzed, több lehetőség: Előrejelzések dollárban.';
+
+  @override
+  String balanceMilestonePassed(String amount) {
+    return 'Túl vagy rajta: $amount';
+  }
+
+  @override
+  String get balanceMilestonePassedLine =>
+      'Bitcoin és dollár együtt. Sal úgy tesz, mintha semmi sem történt volna.';
+
+  @override
   String get pnlNoHistoryTitle => 'Még nincs eredmény';
 
   @override
@@ -11580,6 +11660,17 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get portfolioPnlAllVenues => 'Összes';
+
+  @override
+  String portfolioOpenPnlNotCharted(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count pozíció nincs a grafikonon (nincs előzmény)',
+      one: '1 pozíció nincs a grafikonon (nincs előzmény)',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get pnlStatRealised => 'Realised';
@@ -11943,7 +12034,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get usdSendSearchHint => 'Name, address or phone';
 
   @override
-  String get usdSendToYourBitcoin => 'To your Bitcoin';
+  String get usdSendToYourBitcoin => 'A Bitcoinodba';
 
   @override
   String usdBitcoinBalanceLine(String amount) {
@@ -13669,6 +13760,18 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get sendToCryptoAddress => 'Kriptocímre';
+
+  @override
+  String get sendMoreWaysToSend => 'További küldési módok';
+
+  @override
+  String get sendWayCryptoAddress => 'Kriptocím';
+
+  @override
+  String get sendWayPrediction => 'Előrejelzés';
+
+  @override
+  String get sendWayToDollars => 'Dollárba';
 
   @override
   String get sendPickRowSub => 'Vagy befektetés. Keress piacot, válassz oldalt';

@@ -11561,6 +11561,86 @@ class AppLocalizationsSk extends AppLocalizations {
   String get balanceNoHistorySub => 'Začína tvojou prvou transakciou.';
 
   @override
+  String balanceGoalLevel(int level) {
+    return 'Úroveň $level';
+  }
+
+  @override
+  String get balanceLevelName0 => 'Zahrievanie';
+
+  @override
+  String get balanceLevelName1 => 'Vreckové';
+
+  @override
+  String get balanceLevelName2 => 'Zberateľ';
+
+  @override
+  String get balanceLevelName3 => 'Štamgast';
+
+  @override
+  String get balanceLevelName4 => 'Dospelý';
+
+  @override
+  String get balanceLevelName5 => 'Vážne';
+
+  @override
+  String get balanceLevelName6 => 'Pevná ruka';
+
+  @override
+  String get balanceLevelName7 => 'Ťažká váha';
+
+  @override
+  String get balanceLevelName8 => 'Veľký pes';
+
+  @override
+  String get balanceLevelName9 => 'Vodca svorky';
+
+  @override
+  String get balanceLevelName10 => 'Legenda';
+
+  @override
+  String get balanceLevelName11 => 'Mimo stupnice';
+
+  @override
+  String balanceGoalProgress(int percent, String goal) {
+    return '$percent % do $goal';
+  }
+
+  @override
+  String balanceGoalChartLabel(String goal) {
+    return 'Ďalší: $goal';
+  }
+
+  @override
+  String balanceGoalMove(String amount) {
+    return 'Presunúť $amount do Dolárov';
+  }
+
+  @override
+  String get balanceGoalMovePlain => 'Presunúť do Dolárov';
+
+  @override
+  String get balanceGoalMoveWhyBoth =>
+      'Tvoje peniaze, viac možností: Investovanie a Predpovede v dolároch.';
+
+  @override
+  String get balanceGoalMoveWhyInvesting =>
+      'Tvoje peniaze, viac možností: Investovanie v dolároch.';
+
+  @override
+  String get balanceGoalMoveWhyPredictions =>
+      'Tvoje peniaze, viac možností: Predpovede v dolároch.';
+
+  @override
+  String balanceMilestonePassed(String amount) {
+    return 'Máš za sebou $amount';
+  }
+
+  @override
+  String get balanceMilestonePassedLine =>
+      'Bitcoin a doláre spolu. Sal robí, že o nič nejde.';
+
+  @override
   String get pnlNoHistoryTitle => 'Zatiaľ žiadny zisk a strata';
 
   @override
@@ -11568,6 +11648,18 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String get portfolioPnlAllVenues => 'Všetko';
+
+  @override
+  String portfolioOpenPnlNotCharted(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count pozícií nie je v grafe (história nedostupná)',
+      few: '$count pozície nie sú v grafe (história nedostupná)',
+      one: '1 pozícia nie je v grafe (história nedostupná)',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get pnlStatRealised => 'Realised';
@@ -11930,7 +12022,7 @@ class AppLocalizationsSk extends AppLocalizations {
   String get usdSendSearchHint => 'Name, address or phone';
 
   @override
-  String get usdSendToYourBitcoin => 'To your Bitcoin';
+  String get usdSendToYourBitcoin => 'Na tvoj Bitcoin';
 
   @override
   String usdBitcoinBalanceLine(String amount) {
@@ -13656,6 +13748,18 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String get sendToCryptoAddress => 'Na kryptoadresu';
+
+  @override
+  String get sendMoreWaysToSend => 'Ďalšie spôsoby odoslania';
+
+  @override
+  String get sendWayCryptoAddress => 'Kryptoadresa';
+
+  @override
+  String get sendWayPrediction => 'Predpoveď';
+
+  @override
+  String get sendWayToDollars => 'Do Dolárov';
 
   @override
   String get sendPickRowSub => 'Alebo investíciu. Vyhľadaj trh, vyber stranu';

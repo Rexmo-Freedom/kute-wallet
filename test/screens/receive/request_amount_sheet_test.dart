@@ -258,6 +258,9 @@ void main() {
     read.complete();
     await tester.pump();
     await tester.pump();
+    // The bar's longer words ("Check the amount") once their room has
+    // grown (kute_shell_bar.dart, THE WORDS NEVER CLIP).
+    await tester.pump(const Duration(milliseconds: 400));
     expect(_creating(tester), isFalse);
     expect(results, isEmpty);
     expect(find.byType(RequestAmountSheet), findsOneWidget);

@@ -11586,6 +11586,86 @@ class AppLocalizationsPl extends AppLocalizations {
   String get balanceNoHistorySub => 'Zacznie się od pierwszej transakcji.';
 
   @override
+  String balanceGoalLevel(int level) {
+    return 'Poziom $level';
+  }
+
+  @override
+  String get balanceLevelName0 => 'Rozgrzewka';
+
+  @override
+  String get balanceLevelName1 => 'Kieszonkowe';
+
+  @override
+  String get balanceLevelName2 => 'Zbieracz';
+
+  @override
+  String get balanceLevelName3 => 'Stały bywalec';
+
+  @override
+  String get balanceLevelName4 => 'Dorosły';
+
+  @override
+  String get balanceLevelName5 => 'Na poważnie';
+
+  @override
+  String get balanceLevelName6 => 'Pewna ręka';
+
+  @override
+  String get balanceLevelName7 => 'Waga ciężka';
+
+  @override
+  String get balanceLevelName8 => 'Duży pies';
+
+  @override
+  String get balanceLevelName9 => 'Przywódca stada';
+
+  @override
+  String get balanceLevelName10 => 'Legenda';
+
+  @override
+  String get balanceLevelName11 => 'Poza skalą';
+
+  @override
+  String balanceGoalProgress(int percent, String goal) {
+    return '$percent% do $goal';
+  }
+
+  @override
+  String balanceGoalChartLabel(String goal) {
+    return 'Następny: $goal';
+  }
+
+  @override
+  String balanceGoalMove(String amount) {
+    return 'Przenieś $amount do Dolarów';
+  }
+
+  @override
+  String get balanceGoalMovePlain => 'Przenieś do Dolarów';
+
+  @override
+  String get balanceGoalMoveWhyBoth =>
+      'Twoje pieniądze, więcej możliwości: Inwestowanie i Prognozy w dolarach.';
+
+  @override
+  String get balanceGoalMoveWhyInvesting =>
+      'Twoje pieniądze, więcej możliwości: Inwestowanie w dolarach.';
+
+  @override
+  String get balanceGoalMoveWhyPredictions =>
+      'Twoje pieniądze, więcej możliwości: Prognozy w dolarach.';
+
+  @override
+  String balanceMilestonePassed(String amount) {
+    return 'Przekroczono $amount';
+  }
+
+  @override
+  String get balanceMilestonePassedLine =>
+      'Bitcoin i dolary razem. Sal udaje, że to nic takiego.';
+
+  @override
   String get pnlNoHistoryTitle => 'Brak wyniku';
 
   @override
@@ -11593,6 +11673,19 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get portfolioPnlAllVenues => 'Wszystko';
+
+  @override
+  String portfolioOpenPnlNotCharted(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count pozycji poza wykresem (brak historii)',
+      many: '$count pozycji poza wykresem (brak historii)',
+      few: '$count pozycje poza wykresem (brak historii)',
+      one: '1 pozycja poza wykresem (brak historii)',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get pnlStatRealised => 'Realised';
@@ -11954,7 +12047,7 @@ class AppLocalizationsPl extends AppLocalizations {
   String get usdSendSearchHint => 'Name, address or phone';
 
   @override
-  String get usdSendToYourBitcoin => 'To your Bitcoin';
+  String get usdSendToYourBitcoin => 'Na twój Bitcoin';
 
   @override
   String usdBitcoinBalanceLine(String amount) {
@@ -13681,6 +13774,18 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get sendToCryptoAddress => 'Na adres krypto';
+
+  @override
+  String get sendMoreWaysToSend => 'Więcej sposobów wysyłki';
+
+  @override
+  String get sendWayCryptoAddress => 'Adres krypto';
+
+  @override
+  String get sendWayPrediction => 'Prognoza';
+
+  @override
+  String get sendWayToDollars => 'Do Dolarów';
 
   @override
   String get sendPickRowSub => 'Lub inwestycję. Wyszukaj rynek, wybierz stronę';

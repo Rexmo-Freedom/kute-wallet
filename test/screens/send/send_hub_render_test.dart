@@ -212,7 +212,9 @@ void main() {
     GoogleFonts.config.allowRuntimeFetching = false;
     TrackingService.setDisabled(true);
     AffiliateService.debugSessionToken = 'test-session';
-    final policy = runtimePolicyFixture();
+    // The venues open: the frames show the Prediction chip too.
+    final policy = runtimePolicyFixture(
+        also: const {'polymarket.browse', 'hyperliquid.browse'});
     RuntimeCapabilitiesService.debugInstance = policy;
     expect(await policy.refresh(), isTrue);
   });

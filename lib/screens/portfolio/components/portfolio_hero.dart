@@ -63,14 +63,26 @@
 //     now made or lost so far, at the live prices, "▲ $0.52 (2.7%) · Open
 //     P&L" ([_HeroOpenLine]; the rows' P&L added, the percent of what they
 //     cost only where every one has a cost: a prediction its entry, a perp
-//     its margin, a holding its recorded cost). The chart and its ranges
-//     FOLD AWAY: no venue publishes a history of the positions open now
-//     alone (Hyperliquid's line is the account's P&L, realised and open
-//     together, never per position; Polymarket's open P&L on a past day
-//     counts what was open that day, sold positions included), and
-//     today's sizes against past prices would draw a P&L the person never
-//     had (a position opened mid-range, added to over time). So nothing
-//     closed is shown there, and no line is invented;
+//     its margin, a holding its recorded cost). Under it THE OPEN
+//     POSITIONS' P&L CHART ([_OpenPnlChart]; founder, 6 November 2026:
+//     "here I wanted the P&L of the open positions — the graph. Put it
+//     back."): what the positions held now made or lost since each was
+//     opened, each from its own entry (its fills or trades, its market's
+//     prices; models/open_pnl_history.dart, providers/
+//     open_pnl_history_provider.dart), 0 before it existed, its last point
+//     the line's figure itself. No venue publishes this line, so it is
+//     worked out from what they do publish, never the account's P&L and
+//     never today's sizes against prices from before a position. The same
+//     chart as P&L's (the compact plot, the split fill, the result colour
+//     of the figure now), the dashed hairline at zero, and its own range
+//     row (1W 1M 3M 1Y ALL, [openPnlShownRangeProvider]: the shortest that
+//     covers the oldest position's entry to start, the pick kept for the
+//     session). A scrub writes the open P&L at that moment in the line
+//     ("▲ $0.40 · Open P&L · Oct 16 14:00"). The chart's shapes while the
+//     history is read; a position whose history cannot be read is left
+//     out of the line (a quiet "1 position not charted" under it; the
+//     figure still counts it); nothing charted: the chart folds away as
+//     before;
 //   * P&L: both venues over the range, or the venue square picked
 //     ([PortfolioHero.venue], portfolioPnlVenueProvider; founder:
 //     "selecting here must change the top graph") alone: that venue's
@@ -91,13 +103,14 @@
 // changes out of sight (investments_portfolio.dart).
 //
 // Analytics: `portfolio_performance_chart_scrubbed` {venue: all |
-// hyperliquid | polymarket, the series drawn} once per scrub gesture, as
-// the P&L chart sent it; the "All" chip sends
+// hyperliquid | polymarket | open_positions, the series drawn} once per
+// scrub gesture, as the P&L chart sent it; the "All" chip sends
 // `portfolio_statistics_venue_toggled` {venue: all}, as a square does.
 // Ranges send nothing.
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -105,6 +118,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/balance_history.dart';
+import 'package:kute/providers/open_pnl_history_provider.dart';
 import 'package:kute/providers/hyperliquid_trading_provider.dart'
     show hyperliquidTradingProvider;
 import 'package:kute/providers/one_balance_provider.dart';
@@ -172,8 +186,8 @@ const double kPortfolioHeroQuiet = 13;
 class PortfolioHero extends ConsumerStatefulWidget {
   const PortfolioHero({super.key, this.open = false, this.venue});
 
-  /// Positions: only the positions open now, their P&L now and no chart
-  /// (see the file header).
+  /// Positions: only the positions open now, their P&L now and its chart
+  /// since each was opened (see the file header).
   final bool open;
 
   /// P&L: the venue square picked ([portfolioPnlVenueProvider]); null:
@@ -494,9 +508,10 @@ class _HeroLine extends ConsumerWidget {
 ///
 /// [venue] (P&L, a venue square picked): that venue's series alone, the
 /// line naming it with its logo. [open] (Positions): the open positions'
-/// P&L now in the line ([_HeroOpenLine]) and the chart and its ranges
-/// folded away (see the file header); the reads stay watched so the
-/// chart is back at once on another section, but no series is laid.
+/// P&L now in the line ([_HeroOpenLine]) and their own chart under it
+/// ([_OpenPnlChart], see the file header); the venues' reads stay watched
+/// so the P&L chart is back at once on another section, but no series of
+/// theirs is laid.
 class PortfolioHeroChart extends ConsumerStatefulWidget {
   const PortfolioHeroChart(
       {super.key, this.now, this.open = false, this.venue});
@@ -521,13 +536,18 @@ class _PortfolioHeroChartState extends ConsumerState<PortfolioHeroChart> {
   /// crosshair).
   final _scrub = ValueNotifier<KuteTrendPoint?>(null);
 
-  /// The plot and its ranges as last drawn: what folds away on Positions
-  /// (without laying the series again there).
+  /// The point under the finger on the Positions chart: its open P&L
+  /// and its moment as written; null at rest. Read by the line alone.
+  final _openScrub = ValueNotifier<OpenPnlScrub?>(null);
+
+  /// The plot and its ranges as last drawn: what folds away when there is
+  /// nothing to chart (without laying the series again).
   Widget? _lastChart;
 
   @override
   void dispose() {
     _scrub.dispose();
+    _openScrub.dispose();
     super.dispose();
   }
 
@@ -586,9 +606,27 @@ class _PortfolioHeroChartState extends ConsumerState<PortfolioHeroChart> {
               .prices)
           : data;
     }
-    // Positions: the open positions' P&L now; the chart folds away.
+    // Positions: the open positions' P&L now, and its chart since each
+    // was opened (its shapes while their history is read; folded with
+    // nothing to chart).
     if (open) {
-      return _layout(state: 'open', line: const _HeroOpenLine(), chart: null);
+      final status = ref.watch(openPnlChartStatusProvider);
+      return _layout(
+        state: 'open',
+        line: _HeroOpenLine(scrub: _openScrub),
+        chart: switch (status) {
+          OpenPnlChartStatus.none => null,
+          OpenPnlChartStatus.loading => const _HeroPlotSkeleton(),
+          OpenPnlChartStatus.chart => _OpenPnlChart(scrub: _openScrub),
+        },
+      );
+    }
+    // A finger left on the Positions chart as the section changed: no
+    // stale moment when Positions is back (after this frame: the line may
+    // still be fading out).
+    if (_openScrub.value != null) {
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _openScrub.value = null);
     }
     if (loading) {
       return _layout(
@@ -739,8 +777,14 @@ class _PortfolioHeroChartState extends ConsumerState<PortfolioHeroChart> {
 /// one of them has a cost (a prediction its entry, a perp its margin, a
 /// holding its recorded cost). Nothing open: no line. Its own widget, so
 /// a tick rebuilds this line alone; tabular figures, so it never jitters.
+/// While a finger is on the Positions chart ([scrub]), the open P&L at
+/// that moment and the moment: "▲ $0.40 · Open P&L · Oct 16 14:00" (no
+/// percent: what they cost then is not what they cost now); only the
+/// text rebuilds on a scrub frame.
 class _HeroOpenLine extends ConsumerWidget {
-  const _HeroOpenLine();
+  const _HeroOpenLine({this.scrub});
+
+  final ValueListenable<OpenPnlScrub?>? scrub;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -752,42 +796,147 @@ class _HeroOpenLine extends ConsumerWidget {
       return SizedBox(
           key: const ValueKey('portfolio-hero-open-none'), height: 4.h);
     }
-    // Under a cent is no move.
-    final usd = pnl.usd.abs() < kBalancesCentUsd ? 0.0 : pnl.usd;
-    final percent = visible && pnl.costed && usd != 0
-        ? BalancesPnlText.percentOf(usd, pnl.costUsd)
-        : null;
-    final color = !visible || usd == 0 ? c.textPrimary : pnlResultColor(c, usd);
-    final amount = visible
-        ? '${kuteTrendArrow(usd)}${formatPolyAmount(ref, usd.abs())}'
-            '${percent == null ? '' : ' ($percent)'}'
-        : '••••••';
+    final quiet = _quiet(context);
+    Widget line(OpenPnlScrub? at) {
+      // Under a cent is no move.
+      final raw = at?.value ?? pnl.usd;
+      final usd = raw.abs() < kBalancesCentUsd ? 0.0 : raw;
+      final percent = at == null && visible && pnl.costed && usd != 0
+          ? BalancesPnlText.percentOf(usd, pnl.costUsd)
+          : null;
+      final color =
+          !visible || usd == 0 ? c.textPrimary : pnlResultColor(c, usd);
+      final amount = visible
+          ? '${kuteTrendArrow(usd)}${formatPolyAmount(ref, usd.abs())}'
+              '${percent == null ? '' : ' ($percent)'}'
+          : '••••••';
+      return Text.rich(
+        TextSpan(children: [
+          TextSpan(
+            text: amount,
+            style: TextStyle(color: color, fontWeight: FontWeight.w700),
+          ),
+          TextSpan(
+              text: ' · ${l10n.portfolioStatOpenPnl}'
+                  '${at == null ? '' : ' · ${at.when}'}'),
+        ]),
+        key: const ValueKey('portfolio-hero-open'),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: quiet,
+      );
+    }
+
+    final scrub = this.scrub;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
         SizedBox(height: 6.h),
-        Text.rich(
-          TextSpan(children: [
-            TextSpan(
-              text: amount,
-              style: TextStyle(color: color, fontWeight: FontWeight.w700),
-            ),
-            TextSpan(text: ' · ${l10n.portfolioStatOpenPnl}'),
-          ]),
-          key: const ValueKey('portfolio-hero-open'),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: _quiet(context),
-        ),
+        if (scrub == null)
+          line(null)
+        else
+          ValueListenableBuilder<OpenPnlScrub?>(
+            valueListenable: scrub,
+            builder: (context, at, _) => line(at),
+          ),
       ],
     );
   }
 }
 
-/// The chart's room: on Positions it eases to nothing as it fades, and
-/// back on another section (KuteMotion's settle, 300 ms; at once under
-/// Reduce Motion). Clipped only while it moves, so at rest the range
+/// A point under the finger on the Positions chart: the open P&L then and
+/// its moment as the line writes it.
+typedef OpenPnlScrub = ({double value, String when});
+
+/// The open positions' P&L since each was opened (see the file header):
+/// the range's points ([openPnlWindowProvider], laid once per range and
+/// history), the last one the open P&L now (portfolioOpenPnl, the left-out
+/// positions left out, so with all of them charted it IS the line's
+/// figure). A tick moves that point alone (the chart repaints, no morph);
+/// a scrub frame rebuilds neither this nor the hero.
+class _OpenPnlChart extends ConsumerWidget {
+  const _OpenPnlChart({required this.scrub});
+
+  final ValueNotifier<OpenPnlScrub?> scrub;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    final l10n = context.l10n;
+    final range = ref.watch(openPnlShownRangeProvider);
+    final window = ref.watch(openPnlWindowProvider(range));
+    final leftOut = ref.watch(openPnlHistoryProvider
+            .select((read) => read.valueOrNull?.leftOut)) ??
+        const <String>{};
+    if (window == null || window.values.isEmpty) {
+      return const _HeroPlotSkeleton();
+    }
+    final now = portfolioOpenPnl(ref, ref.watch(portfolioVenuesProvider),
+        leaveOut: leftOut);
+    final values = [...window.values];
+    if (now != null) values[values.length - 1] = now.usd;
+    final times = window.times;
+    final locale = kuteChartLocale(context);
+    String timeOf(DateTime t) {
+      // On daily buckets a point at midnight closes the day before.
+      final d = window.daily && t.hour == 0 && t.minute == 0
+          ? t.subtract(const Duration(minutes: 1))
+          : t;
+      return window.daily
+          ? kuteChartDay(d, locale)
+          : kuteChartDayTime(t, locale);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(height: 16.h),
+        KuteTrendChart(
+          key: const ValueKey('portfolio-hero-open-chart'),
+          values: values,
+          times: times,
+          // The figure's own colour: green above zero, red below.
+          lineColor: pnlResultColor(c, values.last),
+          zeroSplit: true,
+          baseline: 0,
+          height: kKuteTrendPlotHeightCompact.h,
+          onScrub: (p) => scrub.value = p == null
+              ? null
+              : (value: p.value, when: timeOf(p.time ?? times.last)),
+          // Once per scrub gesture.
+          onScrubStart: () => TrackingService.track(
+              'portfolio_performance_chart_scrubbed',
+              params: {'venue': 'open_positions'}),
+          rangeLabels: [for (final r in BalanceRange.values) r.label],
+          selectedRange: range.index,
+          onRangeSelected: (i) => ref
+              .read(openPnlRangeProvider.notifier)
+              .state = BalanceRange.values[i],
+        ),
+        if (leftOut.isNotEmpty) ...[
+          SizedBox(height: 10.h),
+          Text(
+            l10n.portfolioOpenPnlNotCharted(leftOut.length),
+            key: const ValueKey('portfolio-hero-open-left-out'),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: c.textSecondary,
+              fontSize: 12.sp,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// The chart's room: with nothing to chart (no history, nothing open on
+/// Positions) it eases to nothing as it fades, and back once there is
+/// (KuteMotion's settle, 300 ms; at once under Reduce Motion). Clipped only while it moves, so at rest the range
 /// pill's shadow is whole; once folded the chart leaves the tree (no
 /// taps, nothing read out, nothing painted), and coming back it draws in
 /// afresh.
