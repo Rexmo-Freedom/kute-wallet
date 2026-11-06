@@ -120,6 +120,8 @@ import 'package:kute/screens/shared/sticky_action_bar.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/market_side_toggle.dart';
 import 'package:kute/services/hyperliquid/hl_failure_analytics.dart';
+import 'package:kute/services/hyperliquid/hl_sent_order_trace.dart'
+    show hlConfirmingOrdersProvider;
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart';
 import 'package:kute/services/hyperliquid/hl_position_effect.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_rounding.dart';
@@ -516,6 +518,11 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   bool? _advancedOptionsOpen;
 
   bool _isPlacing = false;
+
+  /// The cloid of the order this ticket sent last: while the trading
+  /// notifier is looking it up after a send with no answer, the busy
+  /// button says "Confirming with the exchange…".
+  String? _sentCloid;
 
   /// Tapped, and the checks that run before the order is built are
   /// still going. Separate from [_isPlacing], which means the order
@@ -1937,6 +1944,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
 
     _updateDraft(() {
       _isPlacing = true;
+      _sentCloid = cloid;
       _errorText = null;
       _errorCause = null;
     });
@@ -1980,7 +1988,14 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         await _onGrantFailure(e);
         return;
       }
-      placing.markFailed(placementId, _messageFor(e));
+      if (e is HyperliquidOrderUnconfirmedException) {
+        // Sent, and nobody has heard back: never "failed". The tile stays
+        // confirming and the fill listener stays on, so a fill that lands
+        // still ends on the receipt.
+        placing.markConfirming(placementId);
+      } else {
+        placing.markFailed(placementId, _messageFor(e));
+      }
       if (mounted) {
         _updateDraft(() {
           _isPlacing = false;
@@ -2131,6 +2146,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
 
     _updateDraft(() {
       _isPlacing = true;
+      _sentCloid = cloid;
       _errorText = null;
       _errorCause = null;
     });
@@ -2150,7 +2166,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         _onRestingAccepted();
       }
     } catch (e) {
-      _fillSub?.cancel();
+      // Unconfirmed: a fill can still arrive for it, and ends on the
+      // receipt.
+      if (e is! HyperliquidOrderUnconfirmedException) _fillSub?.cancel();
       _lastErrorCategory = TrackingService.errorCategory(e);
       if (e is AuthGrantException) {
         // Nothing was signed.
@@ -3289,10 +3307,29 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           _onFundedPlaced(next);
         case PendingHlOrderStatus.failed:
           _onFundedFailed(next);
+        case PendingHlOrderStatus.unconfirmed:
+          _onFundedUnconfirmed(next);
         case PendingHlOrderStatus.awaitingDeposit:
         case PendingHlOrderStatus.awaitingBalance:
           break;
       }
+    });
+  }
+
+  /// The queued order went out and its answer never came, and the account
+  /// could not say either: the ticket says the result is not confirmed,
+  /// never that it failed, and its fill listener stays on, so a fill that
+  /// lands still ends on the receipt.
+  void _onFundedUnconfirmed(PendingHlOrderIntent intent) {
+    if (_completed || !mounted) return;
+    _pendingSub?.close();
+    _pendingSub = null;
+    _stopped('order_unconfirmed');
+    _updateDraft(() {
+      _isPlacing = false;
+      _fundingStage = null;
+      _errorText = intent.errorMessage ?? _strings.investingSubmissionUnknown;
+      _errorCause = null;
     });
   }
 
@@ -5021,6 +5058,13 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     final bool primaryNeutral;
     // What the button is, for its cross-fade (presentation only).
     final String primaryKind;
+    // The order went out without an answer and is being looked up on the
+    // account: the busy button says so.
+    final sentCloid = _sentCloid;
+    final confirmingWithExchange = _isPlacing &&
+        sentCloid != null &&
+        ref.watch(hlConfirmingOrdersProvider
+            .select((cloids) => cloids.contains(sentCloid)));
     // The busy button's words while its money moves (or it just placed).
     final bitcoinStep = fundedRunning
         ? fundedSteps![funded.active.clamp(0, fundedSteps.length - 1)]
@@ -5276,6 +5320,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                         ? context.l10n.feeUiCalculating
                         : bitcoinStep != null
                             ? null
+                            : confirmingWithExchange
+                            ? context.l10n.investingConfirmingWithExchange
                             : (_isPlacing &&
                                     _fundingStage != null &&
                                     _fundingStage != OrderFundingStage.order

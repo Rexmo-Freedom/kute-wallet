@@ -76,7 +76,11 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart'
-    show HlOrderResult, HyperliquidInsufficientMarginException;
+    show
+        HlOrderResult,
+        HyperliquidInsufficientMarginException,
+        HyperliquidOrderNotPlacedException,
+        HyperliquidOrderUnconfirmedException;
 import 'package:kute/services/one_balance/hyperliquid_move_rail.dart';
 import 'package:kute/services/one_balance/hyperliquid_venue_funder.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
@@ -108,6 +112,15 @@ enum PendingHlOrderStatus {
   /// Submission (or the wait) failed. The overlay shows a retry CTA;
   /// any deposited funds stay on the user's exchange account.
   failed,
+
+  /// The order went out and its answer never came, and the account could
+  /// not be read well enough to say whether the exchange took it
+  /// (`HyperliquidOrderUnconfirmedException`). Finished like [done] and
+  /// [failed], but neither: the slip says the result is not confirmed
+  /// (never that it failed) and keeps listening for the fill. Nothing is
+  /// sent again, and the venue's cash is not released (an order may be
+  /// using it).
+  unconfirmed,
 }
 
 /// The exact notifier call the slip built for a queued order, so a funded
@@ -395,7 +408,8 @@ class PendingHyperliquidOrderNotifier extends Notifier<PendingHlOrderIntent?> {
     final current = state;
     if (current == null) return;
     if (current.status != PendingHlOrderStatus.done &&
-        current.status != PendingHlOrderStatus.failed) {
+        current.status != PendingHlOrderStatus.failed &&
+        current.status != PendingHlOrderStatus.unconfirmed) {
       return;
     }
     final failed = current.status == PendingHlOrderStatus.failed;
@@ -824,7 +838,8 @@ class PendingHlOrderAutoFire {
     final intent = ref.read(pendingHyperliquidOrderProvider);
     if (intent == null ||
         intent.status == PendingHlOrderStatus.done ||
-        intent.status == PendingHlOrderStatus.failed) {
+        intent.status == PendingHlOrderStatus.failed ||
+        intent.status == PendingHlOrderStatus.unconfirmed) {
       return;
     }
     _stopAwaitPolling();
@@ -1081,15 +1096,26 @@ class PendingHlOrderAutoFire {
           // broke): it may well have taken the order. Looked up before
           // anything is said, still `placing`: found, the order is done
           // as it stands; nowhere, it was not placed; unreadable, the
-          // failure says the result is unconfirmed. Never sent again.
+          // order ends `unconfirmed` (never failed). Never sent again.
           if (hlOrderOutcomeUnknown(e)) {
-            final trace = await _traceSent(firstCloid, market);
+            // The trading notifier already looked an order it sent up for
+            // the whole window before saying unconfirmed: one quick read
+            // more. A raw "no answer" from anywhere else gets the whole
+            // window here. Found is placed; nowhere for the window is not
+            // placed; unreadable is unconfirmed, never failed.
+            final looked = e is HyperliquidOrderUnconfirmedException;
+            final trace = looked
+                ? await _traceSent(firstCloid, market)
+                : await hlReconcileSentOrder(ref.read(hlSentOrderTraceProvider),
+                    HlResendCloids.all(firstCloid), market);
             final found = trace.found;
             if (found != null) {
               result = found;
               break;
             }
-            rethrow;
+            if (looked) rethrow;
+            if (trace.known) throw HyperliquidOrderNotPlacedException(cause: e);
+            throw HyperliquidOrderUnconfirmedException(cause: e);
           }
           final next =
               await _waitAfterNotReady(e, intent, approval, notReady++);
@@ -1123,6 +1149,19 @@ class PendingHlOrderAutoFire {
     } catch (e, st) {
       if (e is _HlApprovalLapsed) {
         _cancelForReconfirm(placementId: placementId);
+        return;
+      }
+      if (e is HyperliquidOrderUnconfirmedException) {
+        // Sent, looked up, and still nobody can say: never "failed". The
+        // tile keeps confirming, the slip says the result is unconfirmed
+        // and keeps listening for the fill (hl_order_outcome_reconciled
+        // carries the lookup).
+        placing.markConfirming(placementId);
+        pending.updateStatus(
+          PendingHlOrderStatus.unconfirmed,
+          errorMessage: l10nForLanguage(ref.read(settingsProvider).language)
+              .investingSubmissionUnknown,
+        );
         return;
       }
       _trackAutofireFailed('error', intent, error: e);

@@ -957,6 +957,9 @@ class BitcoinFundedOrderRunner {
                 case PendingHlOrderStatus.placing:
                   if (next.readiness != HlReadiness.crediting) onCredited();
                 case PendingHlOrderStatus.done:
+                // Sent with no answer, as Predictions' awaitingConfirmation:
+                // the order is out there, its own result says the rest.
+                case PendingHlOrderStatus.unconfirmed:
                   end(true);
                 case PendingHlOrderStatus.failed:
                   final message = next.errorMessage;

@@ -182,6 +182,7 @@ hl_close_setting_changed
 hl_close_step
 hl_crowd_market_tapped
 hl_invest_cta_tapped
+hl_order_outcome_reconciled
 hl_order_slip_setting_changed
 hl_order_step
 hl_referrer_set

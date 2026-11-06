@@ -18,6 +18,7 @@ import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/auth_provider.dart' show sessionUnlockedProvider;
 import 'package:kute/providers/hyperliquid_account_provider.dart';
 import 'package:kute/providers/pending_hyperliquid_order_provider.dart';
+import 'package:kute/providers/placing_hyperliquid_order_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart';
 import 'package:kute/services/hyperliquid/hypercore_dex_cash.dart';
@@ -181,7 +182,8 @@ void main() {
   PendingHlOrderIntent terminal() => history.lastWhere((s) =>
       s != null &&
       (s.status == PendingHlOrderStatus.done ||
-          s.status == PendingHlOrderStatus.failed))!;
+          s.status == PendingHlOrderStatus.failed ||
+          s.status == PendingHlOrderStatus.unconfirmed))!;
 
   setUp(() {
     rail = FakeHyperliquidMoveRail();
@@ -665,33 +667,100 @@ void main() {
       });
     });
 
-    test('nowhere on the account: failed, never sent again', () {
+    // The exchange was still taking the order when the first read came
+    // back empty. Before, that first empty read was believed: "failed",
+    // and the position then appeared.
+    test('found only on a later read: placed, never shown as failed', () {
+      fakeAsync((async) {
+        final placement = _Placement(
+            resizable: true, refusals: [TimeoutException('15 s')]);
+        var reads = 0;
+        queue(placement,
+            trace: (_) => ++reads < 3
+                ? const HlSentOrderTrace.none()
+                : const HlSentOrderTrace.found(HlOrderResult(
+                    kind: HlOrderResultKind.filled,
+                    oid: 12,
+                    cloid: 'c1',
+                    filledSz: 0.0003,
+                    avgPx: 60000)));
+        async.flushMicrotasks();
+        perp = 20.5;
+        async.elapse(const Duration(seconds: 10));
+        async.flushMicrotasks();
+        expect(placement.placed, [20]);
+        expect(history.whereType<PendingHlOrderIntent>().map((s) => s.status),
+            isNot(contains(PendingHlOrderStatus.failed)));
+        final done = terminal();
+        expect(done.status, PendingHlOrderStatus.done);
+        expect(done.result!.oid, 12);
+      });
+    });
+
+    test('nowhere on the account for the whole window: not placed, never '
+        'sent again', () {
       fakeAsync((async) {
         final placement = _Placement(
             resizable: true, refusals: [TimeoutException('15 s')]);
         queue(placement);
         async.flushMicrotasks();
         perp = 20.5;
-        async.elapse(const Duration(seconds: 5));
+        async.elapse(const Duration(seconds: 25));
         async.flushMicrotasks();
         expect(placement.placed, [20]);
-        expect(terminal().status, PendingHlOrderStatus.failed);
+        final failed = terminal();
+        expect(failed.status, PendingHlOrderStatus.failed);
+        expect(failed.errorMessage,
+            'This order did not go through. Nothing was placed.');
       });
     });
 
-    test('unreadable: failed as unconfirmed, never sent again', () {
+    test('unreadable: unconfirmed (never failed), never sent again', () {
       fakeAsync((async) {
         final placement = _Placement(
             resizable: true, refusals: [TimeoutException('15 s')]);
-        queue(placement, trace: (_) => const HlSentOrderTrace.unknown());
+        final c =
+            queue(placement, trace: (_) => const HlSentOrderTrace.unknown());
+        async.flushMicrotasks();
+        perp = 20.5;
+        async.elapse(const Duration(seconds: 25));
+        async.flushMicrotasks();
+        expect(placement.placed, [20]);
+        expect(history.whereType<PendingHlOrderIntent>().map((s) => s.status),
+            isNot(contains(PendingHlOrderStatus.failed)));
+        final end = terminal();
+        expect(end.status, PendingHlOrderStatus.unconfirmed);
+        expect(end.errorMessage, contains('not confirmed'));
+        // The Portfolio tile keeps confirming; it never says it failed.
+        final tile = c.read(placingHyperliquidOrderProvider).single;
+        expect(tile.status, PlacingHlOrderStatus.placing);
+        expect(tile.stepLabel, 'Confirming with the exchange…');
+        expect(
+            events.where((e) =>
+                e.$1 == 'order_funding_failed' ||
+                e.$1 == 'hyperliquid_order_failed'),
+            isEmpty);
+      });
+    });
+
+    test('the notifier already looked it up: one read more, then unconfirmed',
+        () {
+      fakeAsync((async) {
+        final placement = _Placement(
+            resizable: true,
+            refusals: [const HyperliquidOrderUnconfirmedException()]);
+        var reads = 0;
+        queue(placement, trace: (_) {
+          reads++;
+          return const HlSentOrderTrace.unknown();
+        });
         async.flushMicrotasks();
         perp = 20.5;
         async.elapse(const Duration(seconds: 8));
         async.flushMicrotasks();
         expect(placement.placed, [20]);
-        final failed = terminal();
-        expect(failed.status, PendingHlOrderStatus.failed);
-        expect(failed.errorMessage, contains('not confirmed'));
+        expect(reads, lessThanOrEqualTo(3));
+        expect(terminal().status, PendingHlOrderStatus.unconfirmed);
       });
     });
   });
