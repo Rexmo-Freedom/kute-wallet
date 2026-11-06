@@ -22,11 +22,14 @@
 //     as the Portfolio's row does. Still reading with nothing listed: the
 //     squares' skeletons. Nothing open: the app's empty state, Sal over
 //     "No open positions";
-//   * PROFIT AND LOSS under the squares ([DollarsPnlStrip]): the P&L
-//     Charts' figure and line in one soft card, compact (the range's P&L
-//     in its result colour, the line with the split fill, no scrub, no
-//     range row: the range is the one picked on P&L Charts, 1M to start).
-//     A tap opens the Portfolio on P&L Charts. Never traded: no card;
+//   * OPEN P&L under the squares ([DollarsPnlStrip]; founder, 6 November
+//     2026: the card is the open positions' P&L): what the positions open
+//     now made or lost so far (the Portfolio Positions hero's figure, at
+//     the live prices) in one soft card, compact, over the open positions'
+//     P&L since each was opened (the Positions chart's own series and
+//     range, its last point that figure; the split fill, the dashed line
+//     at zero, no scrub, no range row). A tap opens the Portfolio on
+//     Positions. Nothing open: no card;
 //   * LATEST: the newest [kDollarsActivityRows] actions of the
 //     Investments activity (all_activity.dart, [ActivityScope.investments]:
 //     bets placed, sold, won or lost, Investing opens and closes, money
@@ -59,24 +62,26 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/helpers/swap_activity.dart' show swapActivityFor;
 import 'package:kute/l10n/l10n.dart';
-import 'package:kute/models/portfolio_performance.dart';
-import 'package:kute/providers/portfolio_performance_provider.dart'
-    show PortfolioPerformanceRequest, portfolioPerformanceDisplayProvider;
-import 'package:kute/providers/polymarket_live_prices_provider.dart'
-    show livePriceProvider;
+import 'package:kute/providers/open_pnl_history_provider.dart'
+    show
+        OpenPnlChartStatus,
+        openPnlChartStatusProvider,
+        openPnlHistoryProvider,
+        openPnlShownRangeProvider,
+        openPnlWindowProvider;
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/home/components/kute_dock_host.dart'
     show kuteDockScrollClearance;
 import 'package:kute/screens/portfolio/components/balances_overview.dart'
-    show BalancesCategory, BalancesVenueList;
+    show BalancesCategory, BalancesVenueList, kBalancesCentUsd;
 import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart'
-    show pnlChartRangeProvider, pnlRangeChange, pnlResultColor;
+    show pnlResultColor;
 import 'package:kute/screens/portfolio/components/position_rows.dart'
     show PortfolioPositionSquares, portfolioSquareHeight;
 import 'package:kute/screens/portfolio/investments_portfolio.dart'
     show PortfolioSection;
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
-    show portfolioOpenRanked, portfolioVenueLists;
+    show portfolioOpenPnl, portfolioOpenRanked, portfolioVenueLists;
 import 'package:kute/screens/portfolio/portfolio_filters.dart'
     show portfolioVenuesProvider;
 import 'package:kute/screens/shared/activity_curation.dart'
@@ -87,7 +92,6 @@ import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/screens/shared/charts/kute_chart_format.dart'
     show kuteChangeSign;
 import 'package:kute/screens/shared/charts/kute_trend_chart.dart';
-import 'package:kute/screens/shared/charts/kute_trend_window.dart';
 import 'package:kute/screens/shared/hyperliquid_fill_activity.dart';
 import 'package:kute/screens/shared/kute_motion.dart'
     show KutePressable, KuteStaggerIn;
@@ -286,74 +290,66 @@ class _SquaresSkeleton extends StatelessWidget {
   }
 }
 
-/// The P&L under the squares (see the file header): the Portfolio's P&L
-/// Charts in compact form, one soft card. The account's P&L at both
-/// venues together over the range picked on P&L Charts
-/// ([pnlChartRangeProvider]), drawn with the same pieces: the figure
-/// ([pnlRangeChange]) in its result colour ([pnlResultColor]), signed and
-/// rolling, the range named after it, and the line with the split fill
-/// ([KuteTrendChart.zeroSplit]), short and still. A tap opens the
-/// Portfolio on P&L Charts. Nothing ever traded, or every read failed: no
-/// card. A read on its way: the card's skeleton.
+/// The OPEN P&L under the squares (see the file header; founder, 6
+/// November 2026: the card is the open positions' P&L, "Open P&L"): what
+/// the positions open now made or lost so far at both venues, at the live
+/// prices (portfolioOpenPnl, the Portfolio Positions hero's own figure),
+/// signed and rolling in its result colour, over the open positions' P&L
+/// since each was opened (the Positions chart's own series,
+/// [openPnlWindowProvider] on its range [openPnlShownRangeProvider], its
+/// last point the figure with the positions it cannot chart left out) with
+/// the split fill and the dashed line at zero, short and still. A tap opens
+/// the Portfolio on Positions, where that chart is. Nothing open: no card.
+/// The history on its way: the card's skeleton; nothing it can chart: the
+/// figure alone.
 class DollarsPnlStrip extends ConsumerWidget {
-  const DollarsPnlStrip({super.key, this.now});
-
-  /// The line's end; now unless a test pins it.
-  final DateTime? now;
+  const DollarsPnlStrip({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final venues = ref.watch(portfolioVenuesProvider);
     if (!venues.any) return const SizedBox.shrink();
-    final results = {
-      if (venues.trading)
-        PortfolioPerformanceVenue.trading: ref.watch(
-            portfolioPerformanceDisplayProvider(const PortfolioPerformanceRequest(
-                venue: PortfolioPerformanceVenue.trading))),
-      if (venues.predictions)
-        PortfolioPerformanceVenue.predictions: ref.watch(
-            portfolioPerformanceDisplayProvider(const PortfolioPerformanceRequest(
-                venue: PortfolioPerformanceVenue.predictions))),
-    };
-    if (results.values.any((r) => !r.hasValue && !r.hasError)) {
+    final open = portfolioOpenPnl(ref, venues);
+    if (open == null) return const SizedBox.shrink();
+    final status = ref.watch(openPnlChartStatusProvider);
+    if (status == OpenPnlChartStatus.loading) {
       return const _PnlStripSkeleton(key: ValueKey('dollars-pnl-loading'));
     }
-    final parts = <PortfolioPerformance>[
-      for (final MapEntry(key: venue, value: result) in results.entries)
-        if (result.hasValue)
-          venue == PortfolioPerformanceVenue.predictions
-              // The open predictions at their live price, as P&L Charts
-              // draws them.
-              ? result.requireValue.withLivePredictions(ref
-                  .watch(livePriceProvider.select((s) =>
-                      HeldPredictionPrices.of(
-                          result.requireValue.predictions, s.prices)))
-                  .prices)
-              : result.requireValue,
-    ];
-    if (parts.isEmpty) return const SizedBox.shrink();
-    final combined = PortfolioPerformance.combine(parts);
-    if (!combined.hasMovement) return const SizedBox.shrink();
 
     final c = context.colors;
     final l10n = context.l10n;
-    final range = ref.watch(pnlChartRangeProvider);
     final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
-    final series = pnlSeries(combined, now ?? DateTime.now());
-    final shown = kuteTrendWindow(series, series.spanFor(range));
-    final change = pnlRangeChange(shown.values, range) ??
-        (series.values.isEmpty ? 0.0 : series.values.last);
-    final color = !visible ? c.textPrimary : pnlResultColor(c, change);
+    // Under a cent is no move.
+    final usd = open.usd.abs() < kBalancesCentUsd ? 0.0 : open.usd;
+    final color = !visible ? c.textPrimary : pnlResultColor(c, usd);
     final figure = !visible
         ? '••••••'
-        : '${kuteChangeSign(change)}${formatPolyAmount(ref, change.abs())}';
+        : '${kuteChangeSign(usd)}${formatPolyAmount(ref, usd.abs())}';
+
+    // The Positions chart's line on its range, its last point the open
+    // P&L of what it charts.
+    List<double>? values;
+    List<DateTime>? times;
+    if (status == OpenPnlChartStatus.chart) {
+      final window =
+          ref.watch(openPnlWindowProvider(ref.watch(openPnlShownRangeProvider)));
+      if (window != null && window.values.isNotEmpty) {
+        final leftOut = ref.watch(openPnlHistoryProvider
+                .select((read) => read.valueOrNull?.leftOut)) ??
+            const <String>{};
+        values = [...window.values];
+        values[values.length - 1] =
+            portfolioOpenPnl(ref, venues, leaveOut: leftOut)?.usd ??
+                values.last;
+        times = window.times;
+      }
+    }
 
     return Padding(
       padding: EdgeInsets.only(top: 12.h),
       child: Semantics(
         button: true,
-        label: '${l10n.portfolioProfitLoss} $figure, '
-            '${kuteTrendPeriodLabel(l10n, range)}',
+        label: '${l10n.portfolioStatOpenPnl} $figure',
         excludeSemantics: true,
         child: KutePressable(
           child: GestureDetector(
@@ -361,7 +357,7 @@ class DollarsPnlStrip extends ConsumerWidget {
             behavior: HitTestBehavior.opaque,
             onTap: () {
               HapticFeedback.selectionClick();
-              openInvestmentsPortfolio(context, PortfolioSection.charts);
+              openInvestmentsPortfolio(context, PortfolioSection.balances);
             },
             child: DecoratedBox(
               decoration: PremiumGroupContainer.decorationOf(context),
@@ -374,7 +370,8 @@ class DollarsPnlStrip extends ConsumerWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            l10n.portfolioProfitLoss,
+                            l10n.portfolioStatOpenPnl,
+                            key: const ValueKey('dollars-pnl-label'),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -382,15 +379,6 @@ class DollarsPnlStrip extends ConsumerWidget {
                               fontSize: 13.sp,
                               fontWeight: FontWeight.w500,
                             ),
-                          ),
-                        ),
-                        Text(
-                          kuteTrendPeriodLabel(l10n, range),
-                          maxLines: 1,
-                          style: TextStyle(
-                            color: c.textTertiary,
-                            fontSize: 13.sp,
-                            fontWeight: FontWeight.w500,
                           ),
                         ),
                         Icon(Icons.chevron_right_rounded,
@@ -417,25 +405,25 @@ class DollarsPnlStrip extends ConsumerWidget {
                         ),
                       ),
                     ),
-                    SizedBox(height: 10.h),
-                    // Still, no scrub: the card is one tap to P&L Charts.
-                    IgnorePointer(
-                      child: KuteTrendChart(
-                        key: const ValueKey('dollars-pnl-chart'),
-                        values: shown.values,
-                        times: shown.times,
-                        lineColor: !visible
-                            ? c.textPrimary
-                            : pnlResultColor(
-                                c,
-                                shown.values.length < 2
-                                    ? 0
-                                    : shown.values.last - shown.values.first),
-                        zeroSplit: true,
-                        live: false,
-                        height: kDollarsPnlPlotHeight.h,
+                    if (values != null) ...[
+                      SizedBox(height: 10.h),
+                      // Still, no scrub: the card is one tap to Positions.
+                      IgnorePointer(
+                        child: KuteTrendChart(
+                          key: const ValueKey('dollars-pnl-chart'),
+                          values: values,
+                          times: times,
+                          // The figure's own colour, as on Positions.
+                          lineColor: !visible
+                              ? c.textPrimary
+                              : pnlResultColor(c, values.last),
+                          zeroSplit: true,
+                          baseline: 0,
+                          live: false,
+                          height: kDollarsPnlPlotHeight.h,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),

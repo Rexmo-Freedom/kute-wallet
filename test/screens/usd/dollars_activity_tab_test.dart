@@ -12,7 +12,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:kute/models/hyperliquid_market.dart' show HlPerpPosition;
+import 'package:kute/models/hyperliquid_market.dart'
+    show HlFill, HlPerpPosition;
+import 'package:kute/models/hyperliquid_model.dart' show HyperliquidCandle;
+import 'package:kute/providers/open_pnl_history_provider.dart'
+    show OpenPnlSources;
+import 'package:kute/screens/shared/charts/kute_trend_chart.dart'
+    show KuteTrendChart;
+import 'package:kute/screens/shared/rolling_number_text.dart'
+    show RollingNumberText;
+import 'package:kute/theme/app_theme.dart' show AppColors;
 import 'package:kute/models/transactions_model.dart';
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
 import 'package:kute/providers/portfolio_performance_provider.dart';
@@ -195,12 +204,16 @@ void main() {
     expect(third.left, moreOrLessEquals(first.left, epsilon: 0.5));
     expect(first.width, moreOrLessEquals(second.width, epsilon: 0.5));
 
-    // The P&L under the squares: the range's P&L (the past month, $10 to
-    // $22.50: +$12.50) on its card.
+    // The Open P&L under the squares (no fills read here: the figure
+    // alone, the chart folded; its line is driven below).
     final pnl = find.byKey(const ValueKey('dollars-pnl-strip'));
     expect(pnl, findsOneWidget);
     expect(tester.getTopLeft(pnl).dy, greaterThan(tester.getBottomLeft(squares).dy));
-    expect(find.byKey(const ValueKey('dollars-pnl-chart')), findsOneWidget);
+    expect(
+        tester.widget<Text>(find.byKey(const ValueKey('dollars-pnl-label'))).data,
+        'Open P&L');
+    expect(find.text('Profit and loss'), findsNothing);
+    expect(find.byKey(const ValueKey('dollars-pnl-chart')), findsNothing);
     expect(find.byKey(const ValueKey('dollars-activity-empty')), findsNothing);
 
     // The bar on Activity: "See full portfolio and activity", the
@@ -316,6 +329,97 @@ void main() {
     expect(positionsHeading.bottom, lessThanOrEqualTo(squares.top));
     expect(latestHeading.bottom, lessThanOrEqualTo(latest.top));
     expect(latestHeading.top, greaterThanOrEqualTo(pnl.bottom));
+    expect(tester.takeException(), isNull);
+    await unmountInvestments(tester);
+  });
+
+  testWidgets(
+      'Open P&L under the squares (founder, 6 November 2026): what the '
+      'positions open now are winning, over the Positions chart\'s own line '
+      'since each was opened, its last point that figure, the dashed line '
+      'at zero; a tap opens the Portfolio on Positions', (tester) async {
+    final now = DateTime.now();
+    HlPerpPosition perp(String coin) => HlPerpPosition(
+        coin: coin,
+        szi: 1,
+        entryPx: 100,
+        positionValue: 102,
+        unrealizedPnl: 2,
+        returnOnEquity: 0,
+        liquidationPx: null,
+        marginUsed: 50,
+        leverageType: 'cross',
+        leverageValue: 2,
+        maxLeverage: 40);
+    // Each opened ten days back by one fill at 100.
+    HlFill opened(String coin) => HlFill(
+          coin: coin,
+          px: 100,
+          sz: 1,
+          side: 'B',
+          time: now.subtract(const Duration(days: 10)).millisecondsSinceEpoch,
+          closedPnl: 0,
+          fee: 0,
+          feeToken: 'USDC',
+          oid: coin.hashCode,
+          hash: '0xopen-$coin',
+          dir: 'Open Long',
+          cloid: null,
+          startPosition: 0,
+        );
+    await pumpInvestments(tester,
+        size: const Size(390, 1400),
+        // Every coin at 102 throughout: +$2 each once opened.
+        openPnlSources: OpenPnlSources(
+          activity: (_) async => const [],
+          candles: (_, wire, interval, window) async => [
+            for (var t = now.subtract(window);
+                t.isBefore(now);
+                t = t.add(const Duration(hours: 1)))
+              HyperliquidCandle(
+                  openTime: t,
+                  closeTime: t.add(const Duration(hours: 1)),
+                  open: 102,
+                  high: 102,
+                  low: 102,
+                  close: 102,
+                  volume: 1),
+          ],
+          polyHistory: (_, __, ___) async => null,
+        ),
+        overrides: [
+          hyperliquidTradingProvider.overrideWith(() => PortfolioTestTrading(
+              HyperliquidTradingState(
+                  isInitialized: true,
+                  positions: [perp('BTC'), perp('ETH')],
+                  recentFills: [opened('BTC'), opened('ETH')]))),
+        ]);
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    final strip = find.byKey(const ValueKey('dollars-pnl-strip'));
+    expect(strip, findsOneWidget);
+    expect(
+        tester.widget<Text>(find.byKey(const ValueKey('dollars-pnl-label'))).data,
+        'Open P&L');
+    expect(
+        tester
+            .widget<RollingNumberText>(
+                find.byKey(const ValueKey('dollars-pnl-figure')))
+            .text,
+        r'+$4.00');
+    final chart = tester.widget<KuteTrendChart>(
+        find.byKey(const ValueKey('dollars-pnl-chart')));
+    // The Positions chart's line on its range (ten days back: 1M, from a
+    // month back): zero before the opens, +$4 since, the figure last.
+    expect(chart.values.first, 0);
+    expect(chart.values.last, closeTo(4, 1e-9));
+    expect(chart.times!.first.isBefore(now.subtract(const Duration(days: 29))),
+        isTrue);
+    expect(chart.baseline, 0);
+    expect(chart.zeroSplit, isTrue);
+    expect(chart.live, isFalse);
+    expect(chart.lineColor, AppColors.marketUp);
     expect(tester.takeException(), isNull);
     await unmountInvestments(tester);
   });
