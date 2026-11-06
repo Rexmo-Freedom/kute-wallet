@@ -11545,6 +11545,86 @@ class AppLocalizationsDa extends AppLocalizations {
   String get balanceNoHistorySub => 'Den starter med din første transaktion.';
 
   @override
+  String balanceGoalLevel(int level) {
+    return 'Niveau $level';
+  }
+
+  @override
+  String get balanceLevelName0 => 'Varmer op';
+
+  @override
+  String get balanceLevelName1 => 'Lommepenge';
+
+  @override
+  String get balanceLevelName2 => 'Samler';
+
+  @override
+  String get balanceLevelName3 => 'Stamgæst';
+
+  @override
+  String get balanceLevelName4 => 'Voksen';
+
+  @override
+  String get balanceLevelName5 => 'Seriøs';
+
+  @override
+  String get balanceLevelName6 => 'Rolig hånd';
+
+  @override
+  String get balanceLevelName7 => 'Sværvægter';
+
+  @override
+  String get balanceLevelName8 => 'Stor hund';
+
+  @override
+  String get balanceLevelName9 => 'Flokleder';
+
+  @override
+  String get balanceLevelName10 => 'Legende';
+
+  @override
+  String get balanceLevelName11 => 'Uden for skalaen';
+
+  @override
+  String balanceGoalProgress(int percent, String goal) {
+    return '$percent % til $goal';
+  }
+
+  @override
+  String balanceGoalChartLabel(String goal) {
+    return 'Næste: $goal';
+  }
+
+  @override
+  String balanceGoalMove(String amount) {
+    return 'Flyt $amount til Dollars';
+  }
+
+  @override
+  String get balanceGoalMovePlain => 'Flyt til Dollars';
+
+  @override
+  String get balanceGoalMoveWhyBoth =>
+      'Dine penge, flere steder at gå hen: Investering og Forudsigelser i dollars.';
+
+  @override
+  String get balanceGoalMoveWhyInvesting =>
+      'Dine penge, flere steder at gå hen: Investering i dollars.';
+
+  @override
+  String get balanceGoalMoveWhyPredictions =>
+      'Dine penge, flere steder at gå hen: Forudsigelser i dollars.';
+
+  @override
+  String balanceMilestonePassed(String amount) {
+    return 'Du passerede $amount';
+  }
+
+  @override
+  String get balanceMilestonePassedLine =>
+      'Bitcoin og dollars samlet. Sal lader, som om det ingenting er.';
+
+  @override
   String get pnlNoHistoryTitle => 'Ingen gevinst / tab endnu';
 
   @override

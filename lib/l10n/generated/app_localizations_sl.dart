@@ -11585,6 +11585,86 @@ class AppLocalizationsSl extends AppLocalizations {
   String get balanceNoHistorySub => 'Začne se z vašo prvo transakcijo.';
 
   @override
+  String balanceGoalLevel(int level) {
+    return 'Raven $level';
+  }
+
+  @override
+  String get balanceLevelName0 => 'Ogrevanje';
+
+  @override
+  String get balanceLevelName1 => 'Žepnina';
+
+  @override
+  String get balanceLevelName2 => 'Zbiralec';
+
+  @override
+  String get balanceLevelName3 => 'Stalni gost';
+
+  @override
+  String get balanceLevelName4 => 'Odrasel';
+
+  @override
+  String get balanceLevelName5 => 'Resno';
+
+  @override
+  String get balanceLevelName6 => 'Mirna roka';
+
+  @override
+  String get balanceLevelName7 => 'Težka kategorija';
+
+  @override
+  String get balanceLevelName8 => 'Velik pes';
+
+  @override
+  String get balanceLevelName9 => 'Vodja tropa';
+
+  @override
+  String get balanceLevelName10 => 'Legenda';
+
+  @override
+  String get balanceLevelName11 => 'Izven lestvice';
+
+  @override
+  String balanceGoalProgress(int percent, String goal) {
+    return '$percent % do $goal';
+  }
+
+  @override
+  String balanceGoalChartLabel(String goal) {
+    return 'Naslednji: $goal';
+  }
+
+  @override
+  String balanceGoalMove(String amount) {
+    return 'Premaknite $amount v Dolarje';
+  }
+
+  @override
+  String get balanceGoalMovePlain => 'Premaknite v Dolarje';
+
+  @override
+  String get balanceGoalMoveWhyBoth =>
+      'Vaš denar, več možnosti: Investiranje in Napovedi v dolarjih.';
+
+  @override
+  String get balanceGoalMoveWhyInvesting =>
+      'Vaš denar, več možnosti: Investiranje v dolarjih.';
+
+  @override
+  String get balanceGoalMoveWhyPredictions =>
+      'Vaš denar, več možnosti: Napovedi v dolarjih.';
+
+  @override
+  String balanceMilestonePassed(String amount) {
+    return 'Presegli ste $amount';
+  }
+
+  @override
+  String get balanceMilestonePassedLine =>
+      'Bitcoin in dolarji skupaj. Sal se dela, kot da ni nič.';
+
+  @override
   String get pnlNoHistoryTitle => 'Še ni dobička/izgube';
 
   @override

@@ -11593,6 +11593,86 @@ class AppLocalizationsIt extends AppLocalizations {
   String get balanceNoHistorySub => 'Inizia con la tua prima transazione.';
 
   @override
+  String balanceGoalLevel(int level) {
+    return 'Livello $level';
+  }
+
+  @override
+  String get balanceLevelName0 => 'Riscaldamento';
+
+  @override
+  String get balanceLevelName1 => 'Paghetta';
+
+  @override
+  String get balanceLevelName2 => 'Accumulatore';
+
+  @override
+  String get balanceLevelName3 => 'Abituale';
+
+  @override
+  String get balanceLevelName4 => 'Adulto';
+
+  @override
+  String get balanceLevelName5 => 'Sul serio';
+
+  @override
+  String get balanceLevelName6 => 'Mano ferma';
+
+  @override
+  String get balanceLevelName7 => 'Peso massimo';
+
+  @override
+  String get balanceLevelName8 => 'Pezzo grosso';
+
+  @override
+  String get balanceLevelName9 => 'Capobranco';
+
+  @override
+  String get balanceLevelName10 => 'Leggenda';
+
+  @override
+  String get balanceLevelName11 => 'Fuori scala';
+
+  @override
+  String balanceGoalProgress(int percent, String goal) {
+    return '$percent% verso $goal';
+  }
+
+  @override
+  String balanceGoalChartLabel(String goal) {
+    return 'Prossimo: $goal';
+  }
+
+  @override
+  String balanceGoalMove(String amount) {
+    return 'Sposta $amount in Dollari';
+  }
+
+  @override
+  String get balanceGoalMovePlain => 'Sposta in Dollari';
+
+  @override
+  String get balanceGoalMoveWhyBoth =>
+      'I tuoi soldi, più posti dove andare: Investire e Previsioni in dollari.';
+
+  @override
+  String get balanceGoalMoveWhyInvesting =>
+      'I tuoi soldi, più posti dove andare: Investire in dollari.';
+
+  @override
+  String get balanceGoalMoveWhyPredictions =>
+      'I tuoi soldi, più posti dove andare: Previsioni in dollari.';
+
+  @override
+  String balanceMilestonePassed(String amount) {
+    return 'Hai superato $amount';
+  }
+
+  @override
+  String get balanceMilestonePassedLine =>
+      'Bitcoin e dollari insieme. Sal fa finta di niente.';
+
+  @override
   String get pnlNoHistoryTitle => 'Ancora nessun P&L';
 
   @override

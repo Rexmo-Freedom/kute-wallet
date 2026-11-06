@@ -11545,6 +11545,86 @@ class AppLocalizationsSv extends AppLocalizations {
   String get balanceNoHistorySub => 'Den börjar med din första transaktion.';
 
   @override
+  String balanceGoalLevel(int level) {
+    return 'Nivå $level';
+  }
+
+  @override
+  String get balanceLevelName0 => 'Uppvärmning';
+
+  @override
+  String get balanceLevelName1 => 'Fickpengar';
+
+  @override
+  String get balanceLevelName2 => 'Samlare';
+
+  @override
+  String get balanceLevelName3 => 'Stamgäst';
+
+  @override
+  String get balanceLevelName4 => 'Vuxen';
+
+  @override
+  String get balanceLevelName5 => 'Seriös';
+
+  @override
+  String get balanceLevelName6 => 'Stadig hand';
+
+  @override
+  String get balanceLevelName7 => 'Tungviktare';
+
+  @override
+  String get balanceLevelName8 => 'Stor hund';
+
+  @override
+  String get balanceLevelName9 => 'Flockledare';
+
+  @override
+  String get balanceLevelName10 => 'Legend';
+
+  @override
+  String get balanceLevelName11 => 'Utanför skalan';
+
+  @override
+  String balanceGoalProgress(int percent, String goal) {
+    return '$percent % till $goal';
+  }
+
+  @override
+  String balanceGoalChartLabel(String goal) {
+    return 'Nästa: $goal';
+  }
+
+  @override
+  String balanceGoalMove(String amount) {
+    return 'Flytta $amount till Dollar';
+  }
+
+  @override
+  String get balanceGoalMovePlain => 'Flytta till Dollar';
+
+  @override
+  String get balanceGoalMoveWhyBoth =>
+      'Dina pengar, fler ställen att gå: Investera och Prognoser i dollar.';
+
+  @override
+  String get balanceGoalMoveWhyInvesting =>
+      'Dina pengar, fler ställen att gå: Investera i dollar.';
+
+  @override
+  String get balanceGoalMoveWhyPredictions =>
+      'Dina pengar, fler ställen att gå: Prognoser i dollar.';
+
+  @override
+  String balanceMilestonePassed(String amount) {
+    return 'Du passerade $amount';
+  }
+
+  @override
+  String get balanceMilestonePassedLine =>
+      'Bitcoin och dollar tillsammans. Sal låtsas att det inte är något.';
+
+  @override
   String get pnlNoHistoryTitle => 'Inget resultat än';
 
   @override
