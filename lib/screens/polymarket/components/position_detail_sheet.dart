@@ -89,16 +89,18 @@ const Color _kPolyRed = AppColors.marketDown;
 // "Drag the needle to see what it'd be worth" (the needle leans once to
 // show it moves); while the needle is dragged, "Set a sell at 72%" takes
 // their place. Once settled, the chance bar (position_chance_bar.dart)
-// with "Settled" under its chance. Then two
+// with "Settled" under its chance. Then, actions first (founder, 6
+// November 2026), what can be done to it while open as an option card
+// (kute_action_cards.dart, as on the Investing screens; alone it takes the
+// full width): "Protect it", a sell at your price. Then two
 // tiles: what it is worth now with the profit or loss, and the payout if
 // the held side wins with what was paid (once settled: what it paid out);
 // while the needle is dragged, what it would be worth then beside what it
-// is worth now. Then the options as cards, two
-// side by side (founder, 4 November 2026: "like squares";
-// kute_action_cards.dart, as on the Investing screens): "View market" (the
-// event's sheet), "Protect it" while open, "Details" (outcome / shares /
-// price paid / invested, on the shared bottom sheet, as on the Investing
-// position) and the closing conditions; and the Sell (or, on a
+// is worth now. Then the cards to read more, two side by side (founder, 4
+// November 2026: "like squares"): "View market" (the event's sheet),
+// "Details" (outcome / shares / price paid / invested, on the shared
+// bottom sheet, as on the Investing position) and the closing
+// conditions; and the Sell (or, on a
 // resolved losing side, Clear) action, as the floating bar's primary button
 // (founder, 2 November 2026: "a floating pill like the others";
 // kute_bar_context.dart): Sell in the red its pinned button had
@@ -861,11 +863,55 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                         ),
                       ],
 
+                      SizedBox(height: 20.h),
+                      // Actions first (founder, 6 November 2026): what can
+                      // be done to the position, right under the dial, as
+                      // the option cards (kute_action_cards.dart; a lone
+                      // one full width, never half a row). Only while it
+                      // is open.
+                      if (!pos.isResolved && pos.size > 0) ...[
+                        KuteActionCardGrid(
+                          key: const ValueKey('poly-position-actions'),
+                          // Alone, full width at the squares' size: it
+                          // never outweighs the tiles under it.
+                          compactLone: true,
+                          cards: [
+                            // How to protect it: the closest protective
+                            // order Predictions has, a limit sell, set on
+                            // the sell ticket's Advanced page.
+                            KuteActionCard.option(
+                              key: const ValueKey('poly-position-protect'),
+                              icon: Icons.shield_outlined,
+                              title: context.l10n.positionProtectIt,
+                              subtitle: context.l10n.optionProtectSellSub,
+                              onTap: () {
+                                TrackingService.track(
+                                    'position_protect_tapped',
+                                    params: {
+                                      'venue': 'polymarket',
+                                      ...VenueAnalytics.pmKindParams([
+                                        pos.tokenId,
+                                        pos.marketId,
+                                        pos.eventSlug
+                                      ]),
+                                      'wallet_kind': 'hot',
+                                      'target': 'limit_sell',
+                                    });
+                                context.pop();
+                                SellSheet.show(context,
+                                    position: pos,
+                                    source: 'position_protect',
+                                    startWithLimit: true);
+                              },
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 12.h),
+                      ],
 
                       // What it is worth now (with the profit or loss) and
                       // what it pays if the held side wins (once settled:
                       // what it paid), each on its own tile.
-                      SizedBox(height: 20.h),
                       ValueListenableBuilder<double?>(
                         valueListenable: _whatIf,
                         builder: (context, whatIf, _) {
@@ -983,8 +1029,8 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
 
 
                       SizedBox(height: 12.h),
-                      // The options, as cards two side by side (founder, 4
-                      // November 2026: "like squares";
+                      // The cards to read more, two side by side (founder,
+                      // 4 November 2026: "like squares";
                       // kute_action_cards.dart), an odd last one full
                       // width, as on the market sheet and the Investing
                       // screens.
@@ -1002,35 +1048,6 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                               title: context.l10n.salViewMarket,
                               subtitle: context.l10n.optionViewMarketSub,
                               onTap: () => _seeMarket(event),
-                            ),
-                          // How to protect it: the closest protective order
-                          // Predictions has, a limit sell, set on the sell
-                          // ticket's Advanced page. Only while it is open.
-                          if (!pos.isResolved && pos.size > 0)
-                            KuteActionCard.option(
-                              key: const ValueKey('poly-position-protect'),
-                              icon: Icons.shield_outlined,
-                              title: context.l10n.positionProtectIt,
-                              subtitle: context.l10n.optionProtectSellSub,
-                              onTap: () {
-                                TrackingService.track(
-                                    'position_protect_tapped',
-                                    params: {
-                                      'venue': 'polymarket',
-                                      ...VenueAnalytics.pmKindParams([
-                                        pos.tokenId,
-                                        pos.marketId,
-                                        pos.eventSlug
-                                      ]),
-                                      'wallet_kind': 'hot',
-                                      'target': 'limit_sell',
-                                    });
-                                context.pop();
-                                SellSheet.show(context,
-                                    position: pos,
-                                    source: 'position_protect',
-                                    startWithLimit: true);
-                              },
                             ),
                           // What the position is made of, as plain rows on
                           // the shared bottom sheet, one card away.

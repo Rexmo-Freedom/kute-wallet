@@ -703,16 +703,19 @@ void main() {
         const PositionDetailSheet(position: position),
         overrides: overrides(event),
       );
-      // An option card, not an expander: the text is not on the screen
-      // itself.
+      // An option card, not an expander: on the screen, only the card's
+      // first line of the rules (it is the odd last card, full width,
+      // under View market and Details).
       final row = find.text('Closing Conditions');
       await tester.pump();
       await tester.ensureVisible(row);
       await tester.pumpAndSettle();
       expect(row, findsOneWidget);
-      expect(find.text(conditions), findsNothing);
       final card = find.byKey(PositionDetailSheet.closingConditionsKey);
       expect(find.descendant(of: card, matching: row), findsOneWidget);
+      expect(find.text(conditions), findsOneWidget);
+      expect(find.descendant(of: card, matching: find.text(conditions)),
+          findsOneWidget);
       // Two taps inside one frame (the card's handler called twice before
       // the sheet's route is built): one sheet.
       final onTap = tester.widget<KuteActionCard>(card).onTap!;
@@ -720,7 +723,8 @@ void main() {
       onTap();
       await tester.pumpAndSettle();
       expect(find.byType(AppBottomSheetHeader), findsOneWidget);
-      expect(find.text(conditions), findsOneWidget);
+      // The whole text on the sheet, over the card's first line.
+      expect(find.text(conditions), findsNWidgets(2));
       // Closed with its own button, then opened again.
       await tester.tap(find.descendant(
           of: find.byType(AppBottomSheetHeader),

@@ -53,7 +53,10 @@
 //            icon (28) and title (17), the value, and the option's
 //            [KuteActionCard.detail] when it has one (two lines, 13,
 //            textSecondary: the first line of a market's rules), a chevron
-//            at its right; as tall as that content, no taller;
+//            at its right; as tall as that content, no taller (a
+//            position's actions row, [KuteActionCardGrid.compactLone],
+//            keeps the squares' sizes instead: one action never
+//            outweighs the tiles under it);
 //   2 cards: two squares side by side;
 //   3 cards: two squares over one full-width card;
 //   4 cards: a 2 x 2 grid; 5: 2 x 2 over one full width; and so on, an odd
@@ -550,12 +553,19 @@ class KuteActionCardGrid extends StatelessWidget {
     super.key,
     required this.cards,
     this.gap = kKuteActionCardGap,
+    this.compactLone = false,
   });
 
   final List<KuteActionCard> cards;
 
   /// The space between cards, in design units (scaled by width).
   final double gap;
+
+  /// A lone card laid out as an odd last one is (full width, the squares'
+  /// sizes) rather than with the lone card's presence: a position's
+  /// actions row over its tiles, which one card must not outweigh
+  /// (founder, 6 November 2026: full width and compact).
+  final bool compactLone;
 
   /// Whether every card's title and line fit a card [cardWidth] wide
   /// without an ellipsis or a word broken across lines.
@@ -664,7 +674,7 @@ class KuteActionCardGrid extends StatelessWidget {
       if (i > 0) children.add(space);
       children.add(i + 1 < cards.length
           ? row(cards.sublist(i, i + 2))
-          : full(cards[i], lone: cards.length == 1));
+          : full(cards[i], lone: cards.length == 1 && !compactLone));
     }
     return Column(
       mainAxisSize: MainAxisSize.min,

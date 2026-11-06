@@ -26,7 +26,8 @@ KuteActionCard _card(String title, {String? sub, VoidCallback? onTap,
       onTap: onTap,
     );
 
-Future<void> _pump(WidgetTester tester, List<KuteActionCard> cards) async {
+Future<void> _pump(WidgetTester tester, List<KuteActionCard> cards,
+    {bool compactLone = false}) async {
   tester.view.physicalSize = const Size(430, 932);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -37,7 +38,9 @@ Future<void> _pump(WidgetTester tester, List<KuteActionCard> cards) async {
       home: Scaffold(
         body: ListView(
           padding: const EdgeInsets.all(20),
-          children: [KuteActionCardGrid(cards: cards)],
+          children: [
+            KuteActionCardGrid(cards: cards, compactLone: compactLone)
+          ],
         ),
       ),
     ),
@@ -314,6 +317,28 @@ void main() {
       expect(chevronIn('Rules and resolution'), findsOneWidget);
       expect(plain.bottom - tester.getRect(find.text('Ends Jan 1, 2027')).bottom,
           moreOrLessEquals(kKuteOptionCardLonePadding + 1, epsilon: 1));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('compactLone (a position\'s actions row): the lone card full '
+        'width at the squares\' size, the chevron at its right', (tester) async {
+      await _pump(tester, [option('Protect it', sub: 'Sell at your price')],
+          compactLone: true);
+      final card = _r(tester, 'Protect it');
+      expect(card.left, moreOrLessEquals(20));
+      expect(card.width, moreOrLessEquals(390));
+      final icon = tester.getRect(find.byIcon(Icons.shield_outlined));
+      expect(icon.width, kKuteOptionCardIconSize);
+      expect(icon.left - card.left,
+          moreOrLessEquals(kKuteOptionCardPadding + 1));
+      expect(tester.widget<Text>(find.text('Protect it')).style!.fontSize,
+          15);
+      expect(chevronOf('Protect it'), findsOneWidget);
+      // Two cards are still squares side by side.
+      await _pump(tester, [option('Add margin'), option('Protect it')],
+          compactLone: true);
+      expect(_r(tester, 'Add margin').top, _r(tester, 'Protect it').top);
+      expect(chevronOf('Protect it'), findsNothing);
       expect(tester.takeException(), isNull);
     });
 
