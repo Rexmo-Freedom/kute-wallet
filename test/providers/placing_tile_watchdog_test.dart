@@ -184,6 +184,32 @@ void main() {
       });
     });
 
+    test('time with the app inactive (Face ID up) is not counted; a fill '
+        'after it settles the tile', () {
+      fakeAsync((async) {
+        final c = _container();
+        final id = _placeHl(c);
+        final tiles = c.read(placingHyperliquidOrderProvider.notifier);
+        tiles.attachCloid(id, '0xc1');
+        final seen = <PlacingHlOrderStatus>{};
+        c.listen<List<PlacingHlOrder>>(placingHyperliquidOrderProvider,
+            (_, next) => seen.addAll(next.map((t) => t.status)));
+        // The approval sheet is up for two minutes: the app is inactive.
+        foreground = false;
+        async.elapse(const Duration(minutes: 2));
+        final tile = c.read(placingHyperliquidOrderProvider).single;
+        expect(tile.status, PlacingHlOrderStatus.placing);
+        expect(tile.stepLabel, isNot('Confirming with the exchange…'));
+        // Back on screen, the fill lands: placed, never failed.
+        foreground = true;
+        async.elapse(const Duration(seconds: 5));
+        tiles.markSucceededByFill(coin: 'BTC', cloid: '0xc1');
+        expect(c.read(placingHyperliquidOrderProvider).single.status,
+            PlacingHlOrderStatus.succeeded);
+        expect(seen, isNot(contains(PlacingHlOrderStatus.failed)));
+      });
+    });
+
     test('confirming is bounded and ends quietly', () {
       fakeAsync((async) {
         final c = _container();
