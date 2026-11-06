@@ -1301,7 +1301,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   /// mode, where the existing decimal-entry TextField stays in
   /// charge.
   String _atmDigits = '';
-  static const int _atmMaxDigits = 10;
+  static const int _atmMaxDigits = kSendAtmMaxDigits;
 
   // Destination: null = Bitcoin/Lightning/Spark (default), otherwise cross-chain swap
   _DestAsset? _selectedDestAsset;
@@ -1834,45 +1834,6 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     _setDraining(false);
   }
 
-  /// Format the ATM accumulator for display. In 'Sats' mode the
-  /// amount renders as the bare integer ("550"). In 'BTC' mode the
-  /// sats value is rendered with the standard 8-decimal layout
-  /// ("0.00 000 550") so the user's keystrokes flow in from the
-  /// right.
-  String _formatAtmAmount(String digits, String inputCurrency) {
-    final sats = digits.isEmpty ? 0 : int.tryParse(digits) ?? 0;
-    if (inputCurrency == 'Sats') {
-      return sats.toString();
-    }
-    // BTC mode: render the spaced 8-decimal form via the shared
-    // formatter so the gap pattern matches the rest of the app.
-    return sats.toFormattedString('BTC');
-  }
-
-  /// Split a formatted BTC display string at the boundary between
-  /// the "user-typed" trailing digits and the leading-zero padding,
-  /// so the padding can be drawn in tertiary color and the typed
-  /// digits in primary. `userDigitCount` counts digit characters
-  /// (not spaces/decimal) from the right.
-  (String leading, String trailing) _splitAtmDisplay(
-      String formatted, int userDigitCount) {
-    if (userDigitCount <= 0) return (formatted, '');
-    int counted = 0;
-    int splitIdx = 0;
-    for (int i = formatted.length - 1; i >= 0; i--) {
-      final ch = formatted.codeUnitAt(i);
-      // ASCII '0'..'9'
-      if (ch >= 0x30 && ch <= 0x39) {
-        counted++;
-        if (counted >= userDigitCount) {
-          splitIdx = i;
-          break;
-        }
-      }
-    }
-    return (formatted.substring(0, splitIdx), formatted.substring(splitIdx));
-  }
-
   Future<void> _checkAndPopulateInvoiceAmount(String input) async {
     if (input.isEmpty) return;
     try {
@@ -2013,61 +1974,10 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     }
   }
 
-  String _getCurrencyPrefix(String code) {
-    switch (code) {
-      case 'USD':
-        return '\$';
-      case 'EUR':
-        return '€';
-      case 'GBP':
-        return '£';
-      case 'BRL':
-        return 'R\$';
-      case 'CHF':
-        return 'Fr';
-      case 'BTC':
-        return '₿';
-      case 'Sats':
-        return '₿';
-      default:
-        return '';
-    }
-  }
+  String _getCurrencyPrefix(String code) => sendCurrencyPrefix(code);
 
-  Widget _currencyIcon(String code, {double? size}) {
-    final s = size ?? 24.sp;
-    switch (code) {
-      case 'BTC':
-        return ClipRRect(
-            borderRadius: BorderRadius.circular(s * 0.3),
-            child: SvgPicture.asset('lib/assets/bitcoin-icon.svg',
-                width: s, height: s));
-      case 'Sats':
-        return ClipRRect(
-            borderRadius: BorderRadius.circular(s * 0.3),
-            child: SvgPicture.asset('lib/assets/sats-icon.svg',
-                width: s, height: s));
-      default:
-        return Text(_getCurrencyFlag(code), style: TextStyle(fontSize: s));
-    }
-  }
-
-  String _getCurrencyFlag(String code) {
-    switch (code) {
-      case 'USD':
-        return '🇺🇸';
-      case 'EUR':
-        return '🇪🇺';
-      case 'GBP':
-        return '🇬🇧';
-      case 'BRL':
-        return '🇧🇷';
-      case 'CHF':
-        return '🇨🇭';
-      default:
-        return '';
-    }
-  }
+  Widget _currencyIcon(String code, {double? size}) =>
+      sendCurrencyIcon(code, size: size ?? 24.sp);
 
   /// Resolve the wallet captured at entry, independently of the active
   /// spending account. A removed explicit source never falls back here.
@@ -5538,58 +5448,12 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   /// no TextField here, so the OS keyboard never opens on this step.
   Widget _buildAtmAmountInput(AppColorsExtension c, String currentInputCurrency,
       {bool overBalance = false}) {
-    final isSatsUnit = currentInputCurrency == 'Sats';
-    final hasDigits = _atmDigits.isNotEmpty;
-    final typedColor = overBalance ? AppColors.marketDown : c.textPrimary;
-    final formatted = _formatAtmAmount(_atmDigits, currentInputCurrency);
-    // Split the formatted display into (greyed-leading) + (typed-trailing).
-    // In sats mode there's no leading padding — everything the user
-    // typed is the whole string.
-    final (leading, trailing) = isSatsUnit || !hasDigits
-        ? (hasDigits ? '' : formatted, hasDigits ? formatted : '')
-        : _splitAtmDisplay(formatted, _atmDigits.length);
-    final amountTextStyle = TextStyle(
-      fontSize: 56.sp,
-      fontWeight: FontWeight.w800,
-      letterSpacing: -1.4,
-      height: 1.0,
-      fontFeatures: const [FontFeature.tabularFigures()],
-    );
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.baseline,
-      textBaseline: TextBaseline.alphabetic,
-      children: [
-        Text(_getCurrencyPrefix(currentInputCurrency),
-            style: amountTextStyle.copyWith(
-                color: hasDigits ? typedColor : c.textTertiary)),
-        SizedBox(width: 6.w),
-        // The amount itself — Text.rich so leading-zero padding (BTC
-        // mode) can fade to tertiary while the typed digits land in
-        // primary, making the right-to-left growth feel like an ATM
-        // keypad.
-        Text.rich(
-          TextSpan(
-            children: [
-              if (leading.isNotEmpty)
-                TextSpan(
-                  text: leading,
-                  style: amountTextStyle.copyWith(color: c.textTertiary),
-                ),
-              if (trailing.isNotEmpty)
-                TextSpan(
-                  text: trailing,
-                  style: amountTextStyle.copyWith(color: typedColor),
-                ),
-            ],
-          ),
-          maxLines: 1,
-        ),
-        // Sats mode no longer trails a "sats" label — the ₿
-        // prefix (BIP-177) already denotes the unit, matching the
-        // activity feed and balance headline.
-      ],
+    // Sats mode trails no "sats" label: the ₿ prefix (BIP-177) already
+    // denotes the unit, matching the activity feed and balance headline.
+    return SendBitcoinAmountHero(
+      digits: _atmDigits,
+      unit: currentInputCurrency,
+      overBalance: overBalance,
     );
   }
 
@@ -5629,13 +5493,8 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   /// Fiat unit the swap icon flips to from a Bitcoin unit: the one the
   /// user last typed in, else the settings currency when the unit
   /// sheet offers it, else USD.
-  String _fiatFlipUnit() {
-    const supported = {'USD', 'EUR', 'GBP', 'BRL', 'CHF'};
-    final last = _lastFiatUnit;
-    if (last != null && supported.contains(last)) return last;
-    final settingsCode = currency.toUpperCase();
-    return supported.contains(settingsCode) ? settingsCode : 'USD';
-  }
+  String _fiatFlipUnit() =>
+      sendFiatFlipUnit(lastFiat: _lastFiatUnit, settingsCurrency: currency);
 
   /// Flip the Amount entry unit between Bitcoin (sats / BTC per the
   /// display setting) and fiat, keeping the typed amount. The amount
@@ -5680,35 +5539,9 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     } else {
       secondary = '₿${amountSats.toFormattedString(btcFormat)}';
     }
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          secondary,
-          style: TextStyle(
-            color: c.textSecondary,
-            fontSize: 17.sp,
-            fontWeight: FontWeight.w700,
-            letterSpacing: -0.2,
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
-        ),
-        SizedBox(width: 4.w),
-        Material(
-          color: Colors.transparent,
-          shape: const CircleBorder(),
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: () => _flipAmountUnit(unit),
-            child: Padding(
-              padding: EdgeInsets.all(6.w),
-              child: Icon(Icons.swap_vert_rounded,
-                  size: 20.sp, color: c.textSecondary),
-            ),
-          ),
-        ),
-      ],
+    return SendAmountConversionLine(
+      secondary: secondary,
+      onSwap: () => _flipAmountUnit(unit),
     );
   }
 
@@ -5795,29 +5628,14 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
                 ],
                 if (overBalance) ...[
                   SizedBox(height: 8.h),
-                  Text(
-                    context.l10n.sendMoreThanAvailable,
-                    style: TextStyle(
-                      color: AppColors.marketDown,
-                      fontSize: 14.sp,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: -0.1,
-                    ),
-                  ),
+                  SendAmountWarningLine(context.l10n.sendMoreThanAvailable),
                 ],
                 SizedBox(height: 10.h),
-                Text(
+                SendAmountAvailableLine(
                   context.l10n.sendAmountUnitAvailableWithFiat(
                       btcSats.toFormattedString(btcFormat),
                       btcFormat,
                       selectedPoolFiat),
-                  style: TextStyle(
-                    color: c.textTertiary,
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: -0.1,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
                 ),
               ],
             ),

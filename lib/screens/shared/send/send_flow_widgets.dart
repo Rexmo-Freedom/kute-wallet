@@ -21,7 +21,9 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
+import 'package:kute/helpers/formatters/currency_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart'
     show groupTypedAmount;
@@ -334,6 +336,293 @@ class SendAmountUnitPill extends StatelessWidget {
       ),
     );
   }
+}
+
+// ─── The bitcoin amount step's pieces ─────────────────────────────────
+//
+// Lifted out of the Bitcoin Send's amount step (confirm_send.dart) so a
+// screen that asks for a bitcoin amount the same way ("Send to anyone",
+// share/send_to_anyone_sheet.dart; founder, 6 November 2026: "this one
+// must have the sats and such, like here") draws it identically: the big
+// figure in the chosen unit (₿ sats, ₿ BTC or a fiat), the other unit's
+// figure with the ⇅ swap under it, the "328,686 sats available · $248.82"
+// line and the unit pill ([SendAmountUnitPill] with [sendCurrencyIcon]).
+
+/// The longest run of digits the Bitcoin figure takes (≈100 BTC in sats).
+const int kSendAtmMaxDigits = 10;
+
+/// The fiat units the unit sheet offers beside sats and BTC.
+const Set<String> kSendFiatUnits = {'USD', 'EUR', 'GBP', 'BRL', 'CHF'};
+
+/// Whether [unit] is a Bitcoin unit ('Sats' or 'BTC') rather than a fiat.
+bool sendIsBitcoinUnit(String unit) => unit == 'Sats' || unit == 'BTC';
+
+/// The symbol a figure in [code] starts with: ₿ for sats and BTC, $, €, …
+String sendCurrencyPrefix(String code) {
+  switch (code) {
+    case 'USD':
+      return '\$';
+    case 'EUR':
+      return '€';
+    case 'GBP':
+      return '£';
+    case 'BRL':
+      return 'R\$';
+    case 'CHF':
+      return 'Fr';
+    case 'BTC':
+      return '₿';
+    case 'Sats':
+      return '₿';
+    default:
+      return '';
+  }
+}
+
+/// The unit's mark in the unit pill and the unit sheet: the bitcoin or
+/// the sats icon, a fiat's flag.
+Widget sendCurrencyIcon(String code, {required double size}) {
+  switch (code) {
+    case 'BTC':
+      return ClipRRect(
+          borderRadius: BorderRadius.circular(size * 0.3),
+          child: SvgPicture.asset('lib/assets/bitcoin-icon.svg',
+              width: size, height: size));
+    case 'Sats':
+      return ClipRRect(
+          borderRadius: BorderRadius.circular(size * 0.3),
+          child: SvgPicture.asset('lib/assets/sats-icon.svg',
+              width: size, height: size));
+    default:
+      return Text(_sendCurrencyFlag(code), style: TextStyle(fontSize: size));
+  }
+}
+
+String _sendCurrencyFlag(String code) {
+  switch (code) {
+    case 'USD':
+      return '🇺🇸';
+    case 'EUR':
+      return '🇪🇺';
+    case 'GBP':
+      return '🇬🇧';
+    case 'BRL':
+      return '🇧🇷';
+    case 'CHF':
+      return '🇨🇭';
+    default:
+      return '';
+  }
+}
+
+/// The fiat unit the ⇅ swap flips a Bitcoin figure to: the one last typed
+/// in ([lastFiat]), else [settingsCurrency] when the unit sheet offers it,
+/// else USD.
+String sendFiatFlipUnit({String? lastFiat, required String settingsCurrency}) {
+  if (lastFiat != null && kSendFiatUnits.contains(lastFiat)) return lastFiat;
+  final code = settingsCurrency.toUpperCase();
+  return kSendFiatUnits.contains(code) ? code : 'USD';
+}
+
+/// The keypad's raw text as the Bitcoin figure's digits: digits only, no
+/// leading zero (a lone 0 is no amount), the last [kSendAtmMaxDigits].
+String sendAtmDigits(String raw) {
+  var digits = raw.replaceAll(RegExp(r'[^0-9]'), '');
+  digits = digits.replaceAll(RegExp(r'^0+'), '');
+  if (digits.length > kSendAtmMaxDigits) {
+    digits = digits.substring(digits.length - kSendAtmMaxDigits);
+  }
+  return digits;
+}
+
+/// [sats] as the Bitcoin figure's digits ('' for none).
+String sendAtmDigitsOf(int sats) => sats <= 0 ? '' : sendAtmDigits('$sats');
+
+/// The Bitcoin figure as shown: the bare integer in sats ("550"), the
+/// spaced 8-decimal form in BTC ("0.00 000 550") so the keystrokes flow
+/// in from the right.
+String sendFormatAtmAmount(String digits, String unit) {
+  final sats = digits.isEmpty ? 0 : int.tryParse(digits) ?? 0;
+  if (unit == 'Sats') return sats.toString();
+  return sats.toFormattedString('BTC');
+}
+
+/// [formatted] split where the typed digits start ([userDigitCount] digit
+/// characters from the right): the zero padding before, drawn tertiary,
+/// and the typed digits after.
+(String leading, String trailing) sendSplitAtmDisplay(
+    String formatted, int userDigitCount) {
+  if (userDigitCount <= 0) return (formatted, '');
+  var counted = 0;
+  var splitIdx = 0;
+  for (var i = formatted.length - 1; i >= 0; i--) {
+    final ch = formatted.codeUnitAt(i);
+    if (ch >= 0x30 && ch <= 0x39) {
+      counted++;
+      if (counted >= userDigitCount) {
+        splitIdx = i;
+        break;
+      }
+    }
+  }
+  return (formatted.substring(0, splitIdx), formatted.substring(splitIdx));
+}
+
+/// The Bitcoin figure, ATM style: the ₿ prefix and [digits] in [unit]
+/// ('Sats' or 'BTC'), the BTC zero padding in tertiary and the typed
+/// digits in primary (red when [overBalance]). No TextField: the digits
+/// come from the app's keypad.
+class SendBitcoinAmountHero extends StatelessWidget {
+  const SendBitcoinAmountHero({
+    super.key,
+    required this.digits,
+    required this.unit,
+    this.overBalance = false,
+  });
+
+  final String digits;
+  final String unit;
+  final bool overBalance;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final isSatsUnit = unit == 'Sats';
+    final hasDigits = digits.isNotEmpty;
+    final typedColor = overBalance ? AppColors.marketDown : c.textPrimary;
+    final formatted = sendFormatAtmAmount(digits, unit);
+    // In sats there is no padding: what was typed is the whole figure.
+    final (leading, trailing) = isSatsUnit || !hasDigits
+        ? (hasDigits ? '' : formatted, hasDigits ? formatted : '')
+        : sendSplitAtmDisplay(formatted, digits.length);
+    final amountTextStyle = TextStyle(
+      fontSize: 56.sp,
+      fontWeight: FontWeight.w800,
+      letterSpacing: -1.4,
+      height: 1.0,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
+      children: [
+        Text(sendCurrencyPrefix(unit),
+            style: amountTextStyle.copyWith(
+                color: hasDigits ? typedColor : c.textTertiary)),
+        SizedBox(width: 6.w),
+        Text.rich(
+          TextSpan(
+            children: [
+              if (leading.isNotEmpty)
+                TextSpan(
+                  text: leading,
+                  style: amountTextStyle.copyWith(color: c.textTertiary),
+                ),
+              if (trailing.isNotEmpty)
+                TextSpan(
+                  text: trailing,
+                  style: amountTextStyle.copyWith(color: typedColor),
+                ),
+            ],
+          ),
+          maxLines: 1,
+        ),
+      ],
+    );
+  }
+}
+
+/// "$105.40" under a Bitcoin figure, "₿45,120" under a fiat one, and the
+/// ⇅ swap that flips the entry unit ([onSwap]). No approximation mark: it
+/// reads as a second price tag, not a hedge.
+class SendAmountConversionLine extends StatelessWidget {
+  const SendAmountConversionLine({
+    super.key,
+    required this.secondary,
+    required this.onSwap,
+  });
+
+  final String secondary;
+  final VoidCallback onSwap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Row(
+      key: const ValueKey('send-amount-conversion'),
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          secondary,
+          style: TextStyle(
+            color: c.textSecondary,
+            fontSize: 17.sp,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.2,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+        SizedBox(width: 4.w),
+        Material(
+          color: Colors.transparent,
+          shape: const CircleBorder(),
+          child: InkWell(
+            key: const ValueKey('send-amount-swap'),
+            customBorder: const CircleBorder(),
+            onTap: onSwap,
+            child: Padding(
+              padding: EdgeInsets.all(6.w),
+              child: Icon(Icons.swap_vert_rounded,
+                  size: 20.sp, color: c.textSecondary),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// The balance the amount is judged against, under the figure ("328,686
+/// sats available · $248.82", "$12.00 available").
+class SendAmountAvailableLine extends StatelessWidget {
+  const SendAmountAvailableLine(this.text, {super.key});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Text(
+        text,
+        key: const ValueKey('send-amount-available'),
+        style: TextStyle(
+          color: context.colors.textTertiary,
+          fontSize: 14.sp,
+          fontWeight: FontWeight.w500,
+          letterSpacing: -0.1,
+          fontFeatures: const [FontFeature.tabularFigures()],
+        ),
+      );
+}
+
+/// What is wrong with the amount, in red, under the figure ("That is more
+/// than you have available.").
+class SendAmountWarningLine extends StatelessWidget {
+  const SendAmountWarningLine(this.text, {super.key});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Text(
+        text,
+        key: const ValueKey('send-amount-warning'),
+        style: TextStyle(
+          color: AppColors.marketDown,
+          fontSize: 14.sp,
+          fontWeight: FontWeight.w600,
+          letterSpacing: -0.1,
+        ),
+      );
 }
 
 /// Recipient field of the Send to step. One tall surface card (56pt
