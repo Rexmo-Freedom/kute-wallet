@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/theme/kute_motion.dart';
 
 class AnalyticsCard extends StatelessWidget {
   const AnalyticsCard({
@@ -20,8 +21,11 @@ class AnalyticsCard extends StatelessWidget {
   });
 
   /// Animated so a tab swap that needs more room (Fees) grows into it
-  /// instead of snapping.
-  final double height;
+  /// instead of snapping. Null: the card is as tall as its content (the
+  /// Balance charts, founder 6 November 2026: "card bottom is not great,
+  /// it expands too much"), growing and shrinking with it on the settle
+  /// curve.
+  final double? height;
 
   final Widget child;
 
@@ -62,7 +66,16 @@ class AnalyticsCard extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(20.r),
-        child: child,
+        // Under Reduce Motion it simply takes the new height (an
+        // AnimatedSize of zero duration re-dirties itself mid-layout).
+        child: height == null && !KuteMotion.reduce(context)
+            ? AnimatedSize(
+                duration: KuteMotion.settleDuration,
+                curve: KuteMotion.settle,
+                alignment: Alignment.topCenter,
+                child: child,
+              )
+            : child,
       ),
     );
   }

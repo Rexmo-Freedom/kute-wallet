@@ -6,8 +6,8 @@
 //     (a Ledger's tabs, the Portfolio screen the Predictions card opens),
 //     the app's empty state centred clear of the dock.
 //   * [PortfolioSectionEmpty]: the Portfolio
-//     screen's sections under the pinned strip (Activity | Positions |
-//     P&L since 4 November 2026). ONE treatment
+//     screen's sections under the pinned strip (Positions | P&L |
+//     Activity since 6 November 2026). ONE treatment
 //     for all three (founder, 1 November 2026: "empty states must be the same
 //     on all three sections"; the
 //     P&L one was the one he liked): the hero Sal ([NoActivityState]:

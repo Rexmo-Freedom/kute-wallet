@@ -11599,6 +11599,86 @@ class AppLocalizationsLt extends AppLocalizations {
   String get balanceNoHistorySub => 'Ji prasideda nuo pirmosios operacijos.';
 
   @override
+  String balanceGoalLevel(int level) {
+    return 'Lygis $level';
+  }
+
+  @override
+  String get balanceLevelName0 => 'Įšylama';
+
+  @override
+  String get balanceLevelName1 => 'Kišenpinigiai';
+
+  @override
+  String get balanceLevelName2 => 'Kaupėjas';
+
+  @override
+  String get balanceLevelName3 => 'Nuolatinis';
+
+  @override
+  String get balanceLevelName4 => 'Suaugęs';
+
+  @override
+  String get balanceLevelName5 => 'Rimtai';
+
+  @override
+  String get balanceLevelName6 => 'Tvirta ranka';
+
+  @override
+  String get balanceLevelName7 => 'Sunkiasvoris';
+
+  @override
+  String get balanceLevelName8 => 'Didelis šuo';
+
+  @override
+  String get balanceLevelName9 => 'Gaujos vadas';
+
+  @override
+  String get balanceLevelName10 => 'Legenda';
+
+  @override
+  String get balanceLevelName11 => 'Už skalės ribų';
+
+  @override
+  String balanceGoalProgress(int percent, String goal) {
+    return '$percent % iki $goal';
+  }
+
+  @override
+  String balanceGoalChartLabel(String goal) {
+    return 'Kitas: $goal';
+  }
+
+  @override
+  String balanceGoalMove(String amount) {
+    return 'Perkelti $amount į Dolerius';
+  }
+
+  @override
+  String get balanceGoalMovePlain => 'Perkelti į Dolerius';
+
+  @override
+  String get balanceGoalMoveWhyBoth =>
+      'Jūsų pinigai, daugiau galimybių: Investavimas ir Prognozės doleriais.';
+
+  @override
+  String get balanceGoalMoveWhyInvesting =>
+      'Jūsų pinigai, daugiau galimybių: Investavimas doleriais.';
+
+  @override
+  String get balanceGoalMoveWhyPredictions =>
+      'Jūsų pinigai, daugiau galimybių: Prognozės doleriais.';
+
+  @override
+  String balanceMilestonePassed(String amount) {
+    return 'Jūs viršijote $amount';
+  }
+
+  @override
+  String get balanceMilestonePassedLine =>
+      'Bitcoin ir doleriai kartu. Sal apsimeta, kad nieko tokio.';
+
+  @override
   String get pnlNoHistoryTitle => 'P&L dar nėra';
 
   @override
@@ -11606,6 +11686,19 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get portfolioPnlAllVenues => 'Viskas';
+
+  @override
+  String portfolioOpenPnlNotCharted(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count pozicijų nerodoma grafike (istorija nepasiekiama)',
+      many: '$count pozicijos nerodoma grafike (istorija nepasiekiama)',
+      few: '$count pozicijos nerodomos grafike (istorija nepasiekiama)',
+      one: '$count pozicija nerodoma grafike (istorija nepasiekiama)',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get pnlStatRealised => 'Realised';

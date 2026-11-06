@@ -704,8 +704,9 @@ void main() {
     // The Portfolio: on the Activity pill the bar is "See full portfolio
     // and activity" (founder, 4 November 2026); its tap sends the Home
     // card's key under this surface and pushes the Portfolio screen, which
-    // mounts on Activity (its first section, founder 4 November 2026) with
-    // the app's standard back; no pill event, no extra event of its own.
+    // mounts on Positions (its first section and default, founder 6
+    // November 2026) with the app's standard back; no pill event, no extra
+    // event of its own.
     await _tapPill(tester, l10n.activity);
     expect(events.where((e) => e.$1 == 'analytics_tab_selected').last.$2, {
       'tab': 'activity',
@@ -718,11 +719,11 @@ void main() {
     await openPortfolio(tester);
     expect(find.byType(InvestmentsPortfolio), findsOneWidget);
     expect(_container(tester).read(portfolioSectionProvider),
-        PortfolioSection.activity);
-    expect(_sectionOn(tester), 'activity');
+        PortfolioSection.balances);
+    expect(_sectionOn(tester), 'balances');
     // The hero over the section.
     expect(find.byKey(const ValueKey('portfolio-hero')), findsOneWidget);
-    expect(find.byKey(const ValueKey('portfolio-section-activity')),
+    expect(find.byKey(const ValueKey('portfolio-section-balances')),
         findsOneWidget);
     expect(find.byType(OpenInvestmentsScreen), findsNothing);
     expect(find.byType(KuteBackButton), findsOneWidget);
@@ -841,10 +842,11 @@ void main() {
     expect(InvestmentsTab.fromKey('deposit'), isNull);
     // The old Earn pill's link lands on the first pill, never a blank.
     expect(InvestmentsTab.fromKey('earn'), isNull);
-    // The Portfolio's sections, analytics and links alike: Activity |
-    // Positions (`balances`) | P&L (`charts`), Activity first.
+    // The Portfolio's sections, analytics and links alike: Positions
+    // (`balances`) | P&L (`charts`) | Activity, Positions first (founder,
+    // 6 November 2026); the keys are unchanged by the order.
     expect(PortfolioSection.values.map((s) => s.key),
-        ['activity', 'balances', 'charts']);
+        ['balances', 'charts', 'activity']);
     // The old Positions links (the section, the old Portfolio pill and its
     // Open tab) land on Balances, where the positions are; the old Orders
     // and Statistics tabs open P&L charts, where the orders are; Activity
@@ -908,7 +910,7 @@ void main() {
   });
 
   testWidgets(
-      'the Portfolio screen\'s sections: Activity first, Positions, P&L '
+      'the Portfolio screen\'s sections: Positions first, P&L, Activity '
       'under one hero (no ring); each switch is reported, and the section '
       'is kept for the session', (tester) async {
     final events = recordEvents();
@@ -935,13 +937,13 @@ void main() {
             of: find.byType(AppBar),
             matching: find.text(l10n.walletPortfolioAction)),
         findsOneWidget);
-    expect(_sectionOn(tester), 'activity');
-    // Activity: the two predictions placed, as the home's squares.
-    expect(
-        find.descendant(
-            of: find.byKey(const ValueKey('portfolio-activity-squares')),
-            matching: find.text('Prediction · Yes')),
-        findsNWidgets(2));
+    // Positions first (founder, 6 November 2026): what is held, no
+    // activity and no P&L section.
+    expect(_sectionOn(tester), 'balances');
+    expect(find.byKey(const ValueKey('portfolio-balance-breakdown')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('portfolio-activity-squares')),
+        findsNothing);
     expect(find.byKey(const ValueKey('statistics-overview')), findsNothing);
     // The hero (founder, 4 November 2026: the ring "means nothing"):
     // "Invested" over the figure, the line under it, the strip under
@@ -989,21 +991,6 @@ void main() {
           reason: 'the strip never moves');
     }
 
-    // Positions.
-    await pickSection(tester, 'balances');
-    pinned();
-    expect(events.where((e) => e.$1 == 'analytics_tab_selected').last.$2, {
-      'tab': 'positions',
-      'from_tab': 'positions',
-      'surface': 'investments',
-      'sub': 'balances',
-      'from_sub': 'activity'
-    });
-    expect(find.byKey(const ValueKey('portfolio-balance-breakdown')),
-        findsOneWidget);
-    expect(find.byKey(const ValueKey('portfolio-section-activity')),
-        findsNothing);
-
     // P&L: the venues' P&L (no chart of its own); neither Positions nor
     // the activity.
     await pickSection(tester, 'charts');
@@ -1024,10 +1011,29 @@ void main() {
     expect(find.byKey(const ValueKey('portfolio-activity-squares')),
         findsNothing);
 
+    // Activity, last: the two predictions placed, as the home's squares.
+    await pickSection(tester, 'activity');
+    pinned();
+    expect(events.where((e) => e.$1 == 'analytics_tab_selected').last.$2, {
+      'tab': 'positions',
+      'from_tab': 'positions',
+      'surface': 'investments',
+      'sub': 'activity',
+      'from_sub': 'charts'
+    });
+    expect(
+        find.descendant(
+            of: find.byKey(const ValueKey('portfolio-activity-squares')),
+            matching: find.text('Prediction · Yes')),
+        findsNWidgets(2));
+    expect(find.byKey(const ValueKey('statistics-overview')), findsNothing);
+    expect(find.byKey(const ValueKey('portfolio-section-balances')),
+        findsNothing);
+
     // Re-picking the section on screen is not a new view.
     final before =
         events.where((e) => e.$1 == 'analytics_tab_selected').length;
-    await pickSection(tester, 'charts');
+    await pickSection(tester, 'activity');
     expect(events.where((e) => e.$1 == 'analytics_tab_selected').length,
         before);
 
@@ -1035,8 +1041,9 @@ void main() {
     // on. Opening the screen is no pill switch, so no strip event.
     await closePortfolio(tester);
     await openPortfolio(tester);
-    expect(_sectionOn(tester), 'charts');
-    expect(find.byKey(const ValueKey('statistics-overview')), findsOneWidget);
+    expect(_sectionOn(tester), 'activity');
+    expect(find.byKey(const ValueKey('portfolio-activity-squares')),
+        findsOneWidget);
     expect(events.where((e) => e.$1 == 'analytics_tab_selected').length,
         before);
     expect(find.byType(OpenInvestmentsScreen), findsNothing);
@@ -1345,7 +1352,7 @@ void main() {
 
   testWidgets(
       'the Portfolio screen: the app\'s back under a Portfolio title, no '
-      'dock, and three section pills, Activity · Positions · P&L, '
+      'dock, and three section pills, Positions · P&L · Activity, '
       'the one on screen marked; back lands on the page, its pill untouched',
       (tester) async {
     await pumpRouted(tester, size: const Size(375, 812));
@@ -1363,12 +1370,13 @@ void main() {
     // it, offstage.
     expect(_sectionPills, findsNWidgets(3));
     expect(tester.widgetList<KutePill>(_sectionPills).map((p) => p.label), [
-      l10n.activity,
       l10n.portfolioSectionBalances,
       l10n.portfolioSectionPnlCharts,
+      l10n.activity,
     ]);
     expect(tester.widgetList<KutePill>(_sectionPills).map((p) => p.label),
-        ['Activity', 'Positions', 'P&L']);
+        ['Positions', 'P&L', 'Activity']);
+    // Positions first and the default (founder, 6 November 2026).
     expect(tester.widgetList<KutePill>(_sectionPills).map((p) => p.selected),
         [true, false, false]);
     // The section pills are the app's switch row; the page's venue strip
@@ -1378,8 +1386,8 @@ void main() {
         find.descendant(
             of: find.byType(KutePillTabs), matching: _sectionPills),
         findsNWidgets(3));
-    await pickSection(tester, 'charts');
-    expect(_sectionOn(tester), 'charts');
+    await pickSection(tester, 'activity');
+    expect(_sectionOn(tester), 'activity');
     expect(tester.widgetList<KutePill>(_sectionPills).map((p) => p.selected),
         [false, false, true]);
 

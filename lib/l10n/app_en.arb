@@ -8081,11 +8081,11 @@
   },
   "portfolioSectionPnlCharts": "P&L",
   "@portfolioSectionPnlCharts": {
-    "description": "Portfolio screen: the last pill of the Activity | Positions | P&L switch, for each venue's profit and loss, the all-time stats and the resting orders (the chart is the screen's hero). Was \"P&L Charts\" until the overhaul of 4 November 2026."
+    "description": "Portfolio screen: the middle pill of the Positions | P&L | Activity switch, for each venue's profit and loss, the all-time stats and the resting orders (the chart is the screen's hero). Was \"P&L Charts\" until the overhaul of 4 November 2026."
   },
   "portfolioSectionBalances": "Positions",
   "@portfolioSectionBalances": {
-    "description": "Portfolio screen: the middle pill of the Activity | Positions | P&L switch, for the open positions (the biggest as squares, the rest under their venue). Was \"Portfolio\" until the screen's overhaul of 4 November 2026; the key keeps its old name."
+    "description": "Portfolio screen: the first pill (and the screen's default) of the Positions | P&L | Activity switch, for the open positions (the biggest as squares, the rest under their venue). Was \"Portfolio\" until the screen's overhaul of 4 November 2026; the key keeps its old name."
   },
   "balanceChangePastWeek": "{change} past week",
   "@balanceChangePastWeek": {
@@ -8421,6 +8421,122 @@
   "@balanceNoHistorySub": {
     "description": "Bitcoin Balance tab and Dollars balance chart, empty: the line under the title."
   },
+  "balanceGoalLevel": "Level {level}",
+  "@balanceGoalLevel": {
+    "description": "Bitcoin home, Balance tab footer: the level on the milestone ladder (levels go up as the person's Bitcoin + Dollars total passes round figures). Shown bold, followed by ' · ' and the level's name.",
+    "placeholders": {
+      "level": {
+        "type": "int"
+      }
+    }
+  },
+  "balanceLevelName0": "Warming up",
+  "@balanceLevelName0": {
+    "description": "Level name (level 1, below the first milestone, about $100). Deadpan, playful, never about returns. Short."
+  },
+  "balanceLevelName1": "Pocket money",
+  "@balanceLevelName1": {
+    "description": "Level name (level 2, past ~$100). Deadpan, short."
+  },
+  "balanceLevelName2": "Stacker",
+  "@balanceLevelName2": {
+    "description": "Level name (level 3, past ~$250). 'Stacker' as in someone who stacks sats. Short."
+  },
+  "balanceLevelName3": "Regular",
+  "@balanceLevelName3": {
+    "description": "Level name (level 4, past ~$500). Short."
+  },
+  "balanceLevelName4": "Grown-up",
+  "@balanceLevelName4": {
+    "description": "Level name (level 5, past ~$1,000). Short."
+  },
+  "balanceLevelName5": "Serious",
+  "@balanceLevelName5": {
+    "description": "Level name (level 6, past ~$2,500). Short."
+  },
+  "balanceLevelName6": "Steady hand",
+  "@balanceLevelName6": {
+    "description": "Level name (level 7, past ~$5,000). Short."
+  },
+  "balanceLevelName7": "Heavyweight",
+  "@balanceLevelName7": {
+    "description": "Level name (level 8, past ~$10,000). Short."
+  },
+  "balanceLevelName8": "Big dog",
+  "@balanceLevelName8": {
+    "description": "Level name (level 9, past ~$25,000). Dog pun (Sal is a dog), means a big shot. Short."
+  },
+  "balanceLevelName9": "Top dog",
+  "@balanceLevelName9": {
+    "description": "Level name (level 10, past ~$50,000). Dog pun, the one at the top. Short."
+  },
+  "balanceLevelName10": "Legend",
+  "@balanceLevelName10": {
+    "description": "Level name (level 11, past ~$100,000). Short."
+  },
+  "balanceLevelName11": "Off the charts",
+  "@balanceLevelName11": {
+    "description": "Level name (level 12 and every level above). Short."
+  },
+  "balanceGoalProgress": "{percent}% to {goal}",
+  "@balanceGoalProgress": {
+    "description": "Bitcoin home, Balance tab footer, right side: how far the Bitcoin + Dollars total is towards the next round goal ('62% to $500'). percent is a whole number; goal is a formatted amount.",
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      },
+      "goal": {
+        "type": "String"
+      }
+    }
+  },
+  "balanceGoalChartLabel": "Next {goal}",
+  "@balanceGoalChartLabel": {
+    "description": "Bitcoin home, Balance chart: the small label on the dashed goal line ('Next $500'). Very short.",
+    "placeholders": {
+      "goal": {
+        "type": "String"
+      }
+    }
+  },
+  "balanceGoalMove": "Move {amount} to Dollars",
+  "@balanceGoalMove": {
+    "description": "Bitcoin home, Balance tab footer: the row that opens the Move to Dollars sheet with this amount filled in (bitcoin into the Dollars account). Never imply growth or returns.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "balanceGoalMovePlain": "Move to Dollars",
+  "@balanceGoalMovePlain": {
+    "description": "Same row as balanceGoalMove while balances are hidden (no amount)."
+  },
+  "balanceGoalMoveWhyBoth": "Your money, more places to go: Investing and Predictions in Dollars.",
+  "@balanceGoalMoveWhyBoth": {
+    "description": "The line under 'Move $25 to Dollars' where both Investing and Predictions are available. Ambition and control, never returns: Dollars open more places for the money. Keep the product names as the app writes them."
+  },
+  "balanceGoalMoveWhyInvesting": "Your money, more places to go: Investing in Dollars.",
+  "@balanceGoalMoveWhyInvesting": {
+    "description": "The same line where only Investing is available."
+  },
+  "balanceGoalMoveWhyPredictions": "Your money, more places to go: Predictions in Dollars.",
+  "@balanceGoalMoveWhyPredictions": {
+    "description": "The same line where only Predictions is available."
+  },
+  "balanceMilestonePassed": "You passed {amount}",
+  "@balanceMilestonePassed": {
+    "description": "Bitcoin home, Balance tab: shown once with Sal and confetti when the Bitcoin + Dollars total passes a round goal ('You passed $250').",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "balanceMilestonePassedLine": "Bitcoin and Dollars together. Sal is acting like it's nothing.",
+  "@balanceMilestonePassedLine": {
+    "description": "The deadpan line under balanceMilestonePassed: the total counts Bitcoin and Dollars, and Sal (the dog mascot) plays it cool. One short line."
+  },
   "pnlNoHistoryTitle": "No P&L yet",
   "@pnlNoHistoryTitle": {
     "description": "Portfolio P&L Charts, empty: the title over Sal."
@@ -8432,6 +8548,15 @@
   "portfolioPnlAllVenues": "All",
   "@portfolioPnlAllVenues": {
     "description": "Portfolio screen hero: the small chip beside the Invested figure, shown while one venue (Predictions or Investing) is picked on the P&L section; tapping it shows both venues together again. Short, one word."
+  },
+  "portfolioOpenPnlNotCharted": "{count, plural, =1{1 position not charted (history unavailable)} other{{count} positions not charted (history unavailable)}}",
+  "@portfolioOpenPnlNotCharted": {
+    "description": "Portfolio screen, Positions: a quiet line under the open positions' P&L chart when some open positions could not be drawn on it (their opening fill or their market's price history could not be read). The chart draws the others; the Open P&L figure still counts every position.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "pnlStatRealised": "Realised",
   "@pnlStatRealised": {

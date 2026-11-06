@@ -13,7 +13,8 @@
 // comparable to the rest of the app"), the page is investments_portfolio
 // .dart's, top down: the hero ("Invested", the figure, the P&L over the
 // range, ONE P&L chart with its ranges, "3 positions · Available $17.64";
-// components/portfolio_hero.dart), the Activity | Positions | P&L switch
+// components/portfolio_hero.dart), the Positions | P&L | Activity switch
+// (Positions first and the default since 6 November 2026)
 // pinned under the app bar once it reaches it, then the section. The
 // allocation ring that read each section is gone.
 //
@@ -27,7 +28,8 @@
 // share and brag portfolio we should say share portfolio on the bottom.
 // PnL should say [something else]"): on Activity and Positions, with a
 // position open or a P&L off zero, "Share portfolio" opens the portfolio
-// card; on P&L, with a P&L drawn, "Share P&L" opens the P&L card for the
+// card (Positions, the screen's first section, and Activity, its last);
+// on P&L, with a P&L drawn, "Share P&L" opens the P&L card for the
 // range picked on the hero's chart, of the venue square picked alone when
 // one is (portfolioPnlVenueProvider; both venues otherwise;
 // brag_preview_sheet.dart). The label
@@ -35,8 +37,8 @@
 // Nothing to share: the default bar.
 //
 // Analytics: the existing `analytics_tab_selected` on a section pill
-// (surface investments, tab positions, sub / from_sub: activity |
-// balances | charts), as the Investments page sent it; the screen itself
+// (surface investments, tab positions, sub / from_sub: balances |
+// charts | activity, the keys unchanged by the pills' order), as the Investments page sent it; the screen itself
 // adds no event.
 
 import 'dart:async';
