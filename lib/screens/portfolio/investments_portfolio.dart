@@ -15,14 +15,11 @@
 //     now (their P&L now, the chart folded away), on P&L the venue square
 //     picked alone (portfolioPnlVenueProvider, dropped when P&L is left);
 //   * the section switch, pinned under the app bar once it reaches it
-//     ([_StripHeader]): Activity | Positions | P&L (KutePillTabs at the
+//     ([_StripHeader]): Positions | P&L | Activity (KutePillTabs at the
 //     app's switch size, equal thirds, the one white pill sliding);
 //   * the section ([PortfolioSection], shared state kept for the
-//     session, Activity first and the default):
-//       - ACTIVITY (portfolio_activity.dart, PortfolioActivitySection):
-//         the bets placed, sold, won or lost and the Investing opens and
-//         closes, the newest four as the home's Latest squares, the next
-//         two as its Earlier rows, then its "See all";
+//     session, Positions first and the default; founder, 6 November 2026:
+//     "Activity should be the last, Positions first"):
 //       - POSITIONS (the `balances` section, its key kept for links and
 //         analytics): the biggest open positions as squares, the rest as
 //         the Investing list's rows under their venue
@@ -34,7 +31,11 @@
 //         (realised, unrealised, win rate) as compact tiles in one row,
 //         and the resting orders, each row with its own cancel
 //         (PortfolioStatisticsOverview without its chart,
-//         portfolio_statistics.dart). The chart is the hero's.
+//         portfolio_statistics.dart). The chart is the hero's;
+//       - ACTIVITY (portfolio_activity.dart, PortfolioActivitySection):
+//         the bets placed, sold, won or lost and the Investing opens and
+//         closes, the newest four as the home's Latest squares, the next
+//         two as its Earlier rows, then its "See all".
 //
 // Every section starts [kPortfolioSectionEmptyTop] under the strip, its
 // empty state the one treatment (Sal, portfolio_empty_state.dart), and
@@ -81,14 +82,17 @@ import 'package:kute/theme/app_theme.dart';
 import 'package:kute/screens/shared/kute_pill_tabs.dart'
     show KutePillItem, KutePillTabs, kutePillSwitchSize;
 
-/// The Portfolio screen's sections, in pill order. [key] is the analytics
-/// value (`sub` on `analytics_tab_selected`) and the link vocabulary,
-/// fixed English: Positions keeps `balances` and P&L keeps `charts`, the
-/// names they had when the pills read Portfolio and P&L Charts.
+/// The Portfolio screen's sections, in pill order: Positions, P&L,
+/// Activity (founder, 6 November 2026: "Activity should be the last,
+/// Positions first"). [key] is the analytics value (`sub` on
+/// `analytics_tab_selected`) and the link vocabulary, fixed English and
+/// unchanged by the order: Positions keeps `balances` and P&L keeps
+/// `charts`, the names they had when the pills read Portfolio and P&L
+/// Charts.
 enum PortfolioSection {
-  activity('activity'),
   balances('balances'),
-  charts('charts');
+  charts('charts'),
+  activity('activity');
 
   const PortfolioSection(this.key);
 
@@ -115,10 +119,11 @@ enum PortfolioSection {
 /// `/usd?tab=activity` link lands (app_router.dart).
 const String kHomeActivityLocation = '/home?tab=activity';
 
-/// The section on screen, kept for the session; Activity to start
-/// (founder, 4 November 2026: "an activity row (the first one)").
+/// The section on screen, kept for the session; Positions to start
+/// (founder, 6 November 2026: "Activity should be the last, Positions
+/// first").
 final portfolioSectionProvider =
-    StateProvider<PortfolioSection>((_) => PortfolioSection.activity);
+    StateProvider<PortfolioSection>((_) => PortfolioSection.balances);
 
 /// The Portfolio screen's page (see the file header). [onSection] is a
 /// pill tap; the screen reports it and writes the section.
@@ -283,7 +288,7 @@ class _RenderHeroSliver extends RenderSliverToBoxAdapter {
 const double _kStripTop = 14;
 const double _kStripBottom = 4;
 
-/// The Activity | Positions | P&L strip as a pinned sliver header, on the
+/// The Positions | P&L | Activity strip as a pinned sliver header, on the
 /// page's own background so the section scrolls under it.
 class _StripHeader extends SliverPersistentHeaderDelegate {
   const _StripHeader(
@@ -399,7 +404,7 @@ class _ChartsBox extends ConsumerWidget {
   }
 }
 
-/// Activity | Positions | P&L: the app's switch row (KutePillTabs at
+/// Positions | P&L | Activity: the app's switch row (KutePillTabs at
 /// [kutePillSwitchSize]): equal thirds across the width, the one white
 /// pill sliding to the picked one. Each pill keeps its key.
 class _SectionPills extends StatelessWidget {

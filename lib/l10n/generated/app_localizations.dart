@@ -19053,13 +19053,13 @@ abstract class AppLocalizations {
   /// **'To move it, contact Support.'**
   String get cctpRefundContactSupport;
 
-  /// Portfolio screen: the last pill of the Activity | Positions | P&L switch, for each venue's profit and loss, the all-time stats and the resting orders (the chart is the screen's hero). Was "P&L Charts" until the overhaul of 4 November 2026.
+  /// Portfolio screen: the middle pill of the Positions | P&L | Activity switch, for each venue's profit and loss, the all-time stats and the resting orders (the chart is the screen's hero). Was "P&L Charts" until the overhaul of 4 November 2026.
   ///
   /// In en, this message translates to:
   /// **'P&L'**
   String get portfolioSectionPnlCharts;
 
-  /// Portfolio screen: the middle pill of the Activity | Positions | P&L switch, for the open positions (the biggest as squares, the rest under their venue). Was "Portfolio" until the screen's overhaul of 4 November 2026; the key keeps its old name.
+  /// Portfolio screen: the first pill (and the screen's default) of the Positions | P&L | Activity switch, for the open positions (the biggest as squares, the rest under their venue). Was "Portfolio" until the screen's overhaul of 4 November 2026; the key keeps its old name.
   ///
   /// In en, this message translates to:
   /// **'Positions'**

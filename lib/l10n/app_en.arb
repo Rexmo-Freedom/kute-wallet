@@ -8081,11 +8081,11 @@
   },
   "portfolioSectionPnlCharts": "P&L",
   "@portfolioSectionPnlCharts": {
-    "description": "Portfolio screen: the last pill of the Activity | Positions | P&L switch, for each venue's profit and loss, the all-time stats and the resting orders (the chart is the screen's hero). Was \"P&L Charts\" until the overhaul of 4 November 2026."
+    "description": "Portfolio screen: the middle pill of the Positions | P&L | Activity switch, for each venue's profit and loss, the all-time stats and the resting orders (the chart is the screen's hero). Was \"P&L Charts\" until the overhaul of 4 November 2026."
   },
   "portfolioSectionBalances": "Positions",
   "@portfolioSectionBalances": {
-    "description": "Portfolio screen: the middle pill of the Activity | Positions | P&L switch, for the open positions (the biggest as squares, the rest under their venue). Was \"Portfolio\" until the screen's overhaul of 4 November 2026; the key keeps its old name."
+    "description": "Portfolio screen: the first pill (and the screen's default) of the Positions | P&L | Activity switch, for the open positions (the biggest as squares, the rest under their venue). Was \"Portfolio\" until the screen's overhaul of 4 November 2026; the key keeps its old name."
   },
   "balanceChangePastWeek": "{change} past week",
   "@balanceChangePastWeek": {

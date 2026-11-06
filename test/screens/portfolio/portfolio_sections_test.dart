@@ -9,10 +9,11 @@
 //     section that reads it (founder, 5 November 2026): on Positions the
 //     open positions' P&L now and no chart, on P&L the venue square
 //     picked alone;
-//   * Activity | Positions | P&L, Activity first: the home's squares and
-//     rows for the investments' actions, the biggest positions as squares
-//     and the rest as the Investing list's rows, each venue's P&L and the
-//     all-time stats (the chart is the hero's);
+//   * Positions | P&L | Activity, Positions first (founder, 6 November
+//     2026): the biggest positions as squares and the rest as the
+//     Investing list's rows, each venue's P&L and the all-time stats (the
+//     chart is the hero's), the home's squares and rows for the
+//     investments' actions;
 //   * one empty state at one place for all three, one scroll with the
 //     strip pinning, every last row clear of the bar.
 
@@ -483,13 +484,14 @@ void main() {
   });
 
   testWidgets(
-      'the strip is Activity | Positions | P&L in equal thirds, Activity '
-      'first and the screen\'s default', (tester) async {
+      'the strip is Positions | P&L | Activity in equal thirds, Positions '
+      'first and the screen\'s default, Activity last', (tester) async {
     final container = ProviderContainer();
     addTearDown(container.dispose);
-    expect(container.read(portfolioSectionProvider), PortfolioSection.activity);
+    expect(container.read(portfolioSectionProvider), PortfolioSection.balances);
+    // The keys (links, analytics) are unchanged; only the order moved.
     expect(PortfolioSection.values.map((s) => s.key),
-        ['activity', 'balances', 'charts']);
+        ['balances', 'charts', 'activity']);
 
     await _mount(tester);
     final pills = [
@@ -497,9 +499,9 @@ void main() {
         find.byKey(ValueKey('portfolio-section-pill-${s.key}'))
     ];
     for (final (pill, label) in [
-      (pills[0], 'Activity'),
-      (pills[1], 'Positions'),
-      (pills[2], 'P&L'),
+      (pills[0], 'Positions'),
+      (pills[1], 'P&L'),
+      (pills[2], 'Activity'),
     ]) {
       expect(pill, findsOneWidget);
       expect(
