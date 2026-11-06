@@ -95,6 +95,8 @@ import 'package:kute/screens/polymarket/components/position_detail_sheet.dart'
     show PositionDetailSheet, polyPositionEnd;
 import 'package:kute/screens/portfolio/poly_position_events.dart'
     show polyPositionEventProvider;
+import 'package:kute/screens/shared/all_activity.dart'
+    show ActivitySquareGrid;
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/screens/shared/kute_motion.dart'
     show KutePressable, RollingFigure;
@@ -263,9 +265,10 @@ class PortfolioCardList extends StatelessWidget {
 }
 
 /// How a [PortfolioPositionRow] is drawn (see the file header): the
-/// Portfolio's own row ([list]), the Investing list's row ([market]) or a
-/// big square ([square]).
-enum PortfolioRowLayout { list, market, square }
+/// Portfolio's own row ([list]), the Investing list's row ([market]), a
+/// big square ([square]) or the full-width compact card an odd last
+/// square becomes ([wide], [PortfolioPositionSquares]).
+enum PortfolioRowLayout { list, market, square, wide }
 
 /// The [PortfolioRowLayout] of the position rows under it; none above:
 /// [PortfolioRowLayout.list].
@@ -286,8 +289,10 @@ class PortfolioRowLayoutScope extends InheritedWidget {
 }
 
 /// How many of [positions] open positions the Portfolio screen draws as
-/// squares: full rows of two only, two for two or three, four from four;
-/// a single position is one full-width square. Pure for the tests.
+/// squares: full rows of two only, two for two or three, four from four
+/// (the rest are their venue's rows); a single position is the one
+/// full-width compact card ([PortfolioPositionSquares]: never a lone
+/// half square). Pure for the tests.
 int portfolioSquareCount(int positions) => positions >= 4
     ? 4
     : positions >= 2
@@ -299,6 +304,50 @@ int portfolioSquareCount(int positions) => positions >= 4
 /// The square's logo (the Latest square's icon size) and inner padding.
 const double kPortfolioSquareIcon = 40;
 const double _kSquarePad = 14;
+
+/// The gap between squares, each way (ActivitySquareGrid's), and over the
+/// full-width card under them.
+const double kPortfolioSquareGap = 10;
+
+/// THE NO-ORPHAN RULE (founder, 6 November 2026, on three open positions
+/// on the Dollars Activity tab, the third a half square alone on its row:
+/// "should the 3rd one be rectangular and not with this disposition?"):
+/// [rows] (the positions' own rows, biggest first) as squares two by two
+/// (ActivitySquareGrid, [PortfolioRowLayout.square]), and an odd last one,
+/// one alone included, as one full-width compact card under them
+/// ([PortfolioRowLayout.wide]: the logo, the name over the side held, the
+/// value, the P&L in money over its %), never a lone half square. The
+/// Dollars Activity tab's squares (up to four) and the Portfolio's
+/// (portfolioSquareCount: whole rows of two, the rest as rows) both draw
+/// through it.
+class PortfolioPositionSquares extends StatelessWidget {
+  const PortfolioPositionSquares({super.key, required this.rows});
+
+  final List<Widget> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    final paired = rows.length - rows.length % 2;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (paired > 0)
+          PortfolioRowLayoutScope(
+            layout: PortfolioRowLayout.square,
+            child: ActivitySquareGrid(children: rows.sublist(0, paired)),
+          ),
+        if (rows.length.isOdd) ...[
+          if (paired > 0) SizedBox(height: kPortfolioSquareGap.w),
+          PortfolioRowLayoutScope(
+            layout: PortfolioRowLayout.wide,
+            child: rows.last,
+          ),
+        ],
+      ],
+    );
+  }
+}
 
 /// A P&L as the Investing rows write a change: "▲ 4.0%" / "▼ 4.0%" in the
 /// up / down colour, "0.0%" quietly when flat ([portfolioPnlPill]'s
@@ -872,6 +921,18 @@ class PortfolioPositionRow extends StatelessWidget {
           detail: detail,
           onTap: onTap,
         );
+      case PortfolioRowLayout.wide:
+        return _PositionWide(
+          leading: leading,
+          name: title,
+          subtitle: subtitle,
+          value: value,
+          change: under == null
+              ? null
+              : portfolioCornerPnl(context, under, amount: pnlAmount),
+          detail: detail,
+          onTap: onTap,
+        );
       case PortfolioRowLayout.list:
         break;
     }
@@ -1130,6 +1191,161 @@ class _PositionSquare extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One position as the full-width compact card an odd last square becomes
+/// ([PortfolioPositionSquares], the no-orphan rule): the square's ground
+/// and padding, one row: the logo ([kPortfolioSquareIcon]) on the left,
+/// the name over the side held quiet, then the value, and at the end the
+/// P&L as the square's corner writes it (the money over its %, or the
+/// quiet [detail]) in its colour. Its own content's height, never taller
+/// than it needs; the whole card taps through on the press spring.
+class _PositionWide extends StatelessWidget {
+  const _PositionWide({
+    required this.leading,
+    required this.name,
+    required this.subtitle,
+    required this.value,
+    required this.change,
+    required this.detail,
+    required this.onTap,
+  });
+
+  final Widget leading;
+  final String name;
+  final String subtitle;
+  final String value;
+  final PortfolioCornerPnl? change;
+  final String? detail;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final decoration = PremiumGroupContainer.decorationOf(context);
+    final radius = decoration.borderRadius as BorderRadius?;
+    final change = this.change;
+    final corner = change?.percent ?? detail;
+    final amount = change?.amount;
+    final cornerStyle = TextStyle(
+      color: change?.color ?? c.textSecondary,
+      fontSize: 13.sp,
+      fontWeight: FontWeight.w600,
+      letterSpacing: -0.1,
+      height: 1.2,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    return KutePressable(
+      enabled: onTap != null,
+      child: Container(
+        key: const ValueKey('portfolio-wide'),
+        decoration: decoration,
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: radius,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: radius,
+            child: Padding(
+              padding: EdgeInsets.all(_kSquarePad.w),
+              child: LayoutBuilder(builder: (context, box) {
+                return Row(
+                  children: [
+                    // The row's picture, drawn at the square's size.
+                    SizedBox.square(
+                      dimension: kPortfolioSquareIcon.w,
+                      child: FittedBox(child: leading),
+                    ),
+                    SizedBox(width: kPortfolioRowGap.w),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(name,
+                              key: const ValueKey('portfolio-row-title'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: portfolioRowTitleStyle(context)),
+                          SizedBox(height: 2.h),
+                          Text(subtitle,
+                              key: const ValueKey('portfolio-row-subtitle'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: portfolioRowSubStyle(context)),
+                        ],
+                      ),
+                    ),
+                    SizedBox(width: 12.w),
+                    // The figures take what they need, at most
+                    // kPortfolioRowFiguresShare of the card, scaled down
+                    // past that, never cut at its edge.
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                          maxWidth: box.maxWidth * kPortfolioRowFiguresShare),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: AlignmentDirectional.centerEnd,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            RollingFigure(
+                              key: const ValueKey('portfolio-row-value'),
+                              text: value,
+                              style: TextStyle(
+                                color: c.textPrimary,
+                                fontSize: 17.sp,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -0.4,
+                                height: 1.2,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures()
+                                ],
+                              ),
+                            ),
+                            if (corner != null) ...[
+                              SizedBox(width: 12.w),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (amount != null) ...[
+                                    RollingFigure(
+                                      key: const ValueKey(
+                                          'portfolio-row-pnl-usd'),
+                                      text: amount,
+                                      style: cornerStyle,
+                                    ),
+                                    SizedBox(height: 1.h),
+                                  ],
+                                  RollingFigure(
+                                    key: ValueKey(change != null
+                                        ? 'portfolio-row-pnl'
+                                        : 'portfolio-row-detail'),
+                                    text: corner,
+                                    style: amount == null
+                                        ? cornerStyle
+                                        : cornerStyle.copyWith(
+                                            fontSize: 12.sp,
+                                            fontWeight: FontWeight.w500,
+                                            height: 1.3),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }),
             ),
           ),
         ),

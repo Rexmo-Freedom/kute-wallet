@@ -81,7 +81,8 @@
 // largest open positions across both venues as squares in two columns
 // (ActivitySquareGrid, the Bitcoin home's Latest squares), full rows
 // only (portfolioSquareCount: two for two or three positions, four from
-// four, one full-width square for one), then [kBalancesGroupGap]; each
+// four; one alone is the full-width compact card, never a lone half
+// square: PortfolioPositionSquares), then [kBalancesGroupGap]; each
 // venue's group lists only what is left ("Investing · 3", its count
 // what it lists), a venue with nothing left out. Those rows are the
 // Investing list's own (PortfolioRowLayout.market, HlListRow: the logo,
@@ -104,14 +105,13 @@ import 'package:kute/screens/portfolio/components/position_rows.dart'
     show
         PortfolioCardList,
         PortfolioRowInset,
+        PortfolioPositionSquares,
         PortfolioRowLayout,
         PortfolioRowLayoutScope,
         portfolioSquareCount,
         kPortfolioCardInset,
         kPortfolioRowGap,
         kPortfolioRowImage;
-import 'package:kute/screens/shared/all_activity.dart'
-    show ActivitySquareGrid;
 import 'package:kute/screens/shared/market_groups.dart' show marketGroupDivider;
 import 'package:kute/screens/shared/kute_motion.dart'
     show RollingFigure, kuteReduceMotion;
@@ -881,9 +881,9 @@ class _VenueCard extends StatelessWidget {
   }
 }
 
-/// The biggest positions as squares (see the file header): two by two
-/// (ActivitySquareGrid), one alone across the whole width; each the
-/// position's own row drawn as a square (PortfolioRowLayout.square), so a
+/// The biggest positions as squares (see the file header): two by two,
+/// one alone the full-width compact card (PortfolioPositionSquares, the
+/// no-orphan rule); each the position's own row drawn as a square, so a
 /// tap opens what the row opens.
 class _PositionSquares extends StatelessWidget {
   const _PositionSquares({super.key, required this.rows});
@@ -891,12 +891,7 @@ class _PositionSquares extends StatelessWidget {
   final List<Widget> rows;
 
   @override
-  Widget build(BuildContext context) => PortfolioRowLayoutScope(
-        layout: PortfolioRowLayout.square,
-        child: rows.length == 1
-            ? rows.single
-            : ActivitySquareGrid(children: rows),
-      );
+  Widget build(BuildContext context) => PortfolioPositionSquares(rows: rows);
 }
 
 /// "See all  N ›" at the foot of a venue's card ("Show less" once

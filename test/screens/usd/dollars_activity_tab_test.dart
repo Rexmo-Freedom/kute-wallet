@@ -336,20 +336,84 @@ void main() {
     await unmountInvestments(tester);
   });
 
-  testWidgets('one position alone is one square across the whole width',
-      (tester) async {
-    await pumpInvestments(tester, overrides: [
-      hyperliquidTradingProvider.overrideWith(() => PortfolioTestTrading(
-          HyperliquidTradingState(
-              isInitialized: true, positions: [_perp('BTC', 100)]))),
-    ]);
+  group('the no-orphan rule (founder, 6 November 2026: "should the 3rd one '
+      'be rectangular and not with this disposition?")', () {
+    Future<void> mount(WidgetTester tester, int count) =>
+        pumpInvestments(tester, size: const Size(390, 1400), overrides: [
+          hyperliquidTradingProvider.overrideWith(() => PortfolioTestTrading(
+                  HyperliquidTradingState(isInitialized: true, positions: [
+                for (var i = 0; i < count; i++)
+                  _perp(const ['BTC', 'ETH', 'SOL', 'HYPE', 'DOGE'][i],
+                      500.0 - i * 100),
+              ]))),
+        ]);
     final squares = find.byKey(const ValueKey('dollars-activity-squares'));
-    final row = find.descendant(of: squares, matching: find.byType(HlPositionRow));
-    expect(row, findsOneWidget);
-    final list = tester.getRect(find.byKey(const ValueKey('dollars-activity-list')));
-    expect(tester.getSize(row).width, greaterThan(list.width * 0.8));
-    expect(tester.takeException(), isNull);
-    await unmountInvestments(tester);
+    Finder inSquares(String key) =>
+        find.descendant(of: squares, matching: find.byKey(ValueKey(key)));
+
+    testWidgets(
+        'one position: the full-width compact card, the logo left and the '
+        'value with its P&L at the end; no square', (tester) async {
+      await mount(tester, 1);
+      expect(inSquares('portfolio-square'), findsNothing);
+      final wide = inSquares('portfolio-wide');
+      expect(wide, findsOneWidget);
+      final list =
+          tester.getRect(find.byKey(const ValueKey('dollars-activity-list')));
+      final card = tester.getRect(wide);
+      expect(list.width - card.width, moreOrLessEquals(32.w, epsilon: 0.5));
+      // Compact: well under a square's height.
+      expect(card.height, lessThan(110.h));
+      // The name on the left, the value toward the end.
+      final title = tester.getRect(find.descendant(
+          of: wide, matching: find.byKey(const ValueKey('portfolio-row-title'))));
+      final value = tester.getRect(find.descendant(
+          of: wide, matching: find.byKey(const ValueKey('portfolio-row-value'))));
+      expect(value.left, greaterThan(title.left));
+      expect(value.center.dy, moreOrLessEquals(card.center.dy, epsilon: 6));
+      expect(tester.takeException(), isNull);
+      await unmountInvestments(tester);
+    });
+
+    testWidgets(
+        'three: the two biggest squares side by side, the third the '
+        'full-width card under them, never a lone half square',
+        (tester) async {
+      await mount(tester, 3);
+      final cells = inSquares('portfolio-square');
+      expect(cells, findsNWidgets(2));
+      final a = tester.getRect(cells.at(0));
+      final b = tester.getRect(cells.at(1));
+      expect(a.top, moreOrLessEquals(b.top, epsilon: 0.5));
+      final wide = tester.getRect(inSquares('portfolio-wide'));
+      expect(wide.top, moreOrLessEquals(a.bottom + 10.w, epsilon: 0.5));
+      expect(wide.left, moreOrLessEquals(a.left, epsilon: 0.5));
+      expect(wide.right, moreOrLessEquals(b.right, epsilon: 0.5));
+      // Biggest first: BTC and ETH squares, SOL the card.
+      final rows = tester
+          .widgetList<HlPositionRow>(
+              find.descendant(of: squares, matching: find.byType(HlPositionRow)))
+          .map((r) => (r.key! as ValueKey<String>).value)
+          .toList();
+      expect(rows, ['hl-BTC', 'hl-ETH', 'hl-SOL']);
+      expect(
+          find.descendant(
+              of: inSquares('portfolio-wide'),
+              matching: find.byType(HlPositionRow)),
+          findsNothing,
+          reason: 'the card is drawn by the row itself');
+      expect(tester.takeException(), isNull);
+      await unmountInvestments(tester);
+    });
+
+    testWidgets('five: the four biggest as squares, two by two; no card',
+        (tester) async {
+      await mount(tester, 5);
+      expect(inSquares('portfolio-square'), findsNWidgets(4));
+      expect(inSquares('portfolio-wide'), findsNothing);
+      expect(tester.takeException(), isNull);
+      await unmountInvestments(tester);
+    });
   });
 
   testWidgets(

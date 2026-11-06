@@ -14,8 +14,10 @@
 //     ranking, portfolioOpenRanked), at most [kDollarsActivitySquares], as
 //     the Portfolio's squares (PortfolioRowLayout.square: the logo, the P&L
 //     % in colour, the name and the value large), two by two in the home's
-//     "Latest" grid (ActivitySquareGrid); one position alone is one
-//     full-width square, as on the Portfolio. Each square IS the position's
+//     "Latest" grid (ActivitySquareGrid); an odd last one, one alone
+//     included, is one full-width compact card under them, never a lone
+//     half square (PortfolioPositionSquares, the no-orphan rule; founder,
+//     6 November 2026), as on the Portfolio. Each square IS the position's
 //     own row (portfolioVenueLists), so a tap opens the position exactly
 //     as the Portfolio's row does. Still reading with nothing listed: the
 //     squares' skeletons. Nothing open: the app's empty state, Sal over
@@ -70,7 +72,7 @@ import 'package:kute/screens/portfolio/components/balances_overview.dart'
 import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart'
     show pnlChartRangeProvider, pnlRangeChange, pnlResultColor;
 import 'package:kute/screens/portfolio/components/position_rows.dart'
-    show PortfolioRowLayout, PortfolioRowLayoutScope, portfolioSquareHeight;
+    show PortfolioPositionSquares, portfolioSquareHeight;
 import 'package:kute/screens/portfolio/investments_portfolio.dart'
     show PortfolioSection;
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
@@ -80,7 +82,7 @@ import 'package:kute/screens/portfolio/portfolio_filters.dart'
 import 'package:kute/screens/shared/activity_curation.dart'
     show homeActivityEntries;
 import 'package:kute/screens/shared/all_activity.dart'
-    show ActivityScope, ActivitySquareGrid, AllActivityEntry, watchAllActivity;
+    show ActivityScope, AllActivityEntry, watchAllActivity;
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/screens/shared/charts/kute_chart_format.dart'
     show kuteChangeSign;
@@ -161,15 +163,10 @@ class DollarsActivityTab extends ConsumerWidget {
 
     final Widget positions;
     if (squares.isNotEmpty) {
-      positions = PortfolioRowLayoutScope(
-        key: const ValueKey('dollars-activity-squares'),
-        layout: PortfolioRowLayout.square,
-        // One position: one square across the whole width, as on the
-        // Portfolio; more: the home's Latest grid, two by two.
-        child: squares.length == 1
-            ? squares.single
-            : ActivitySquareGrid(children: squares),
-      );
+      // Two by two, an odd last one (one alone included) the full-width
+      // compact card: never a lone half square (the no-orphan rule).
+      positions = PortfolioPositionSquares(
+          key: const ValueKey('dollars-activity-squares'), rows: squares);
     } else if (loading) {
       positions = const _SquaresSkeleton(key: ValueKey('dollars-activity-loading'));
     } else {

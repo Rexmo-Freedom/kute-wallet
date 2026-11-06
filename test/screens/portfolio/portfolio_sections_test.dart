@@ -893,6 +893,62 @@ void main() {
     await _unmount(tester);
   });
 
+  group('the no-orphan rule on Positions: never a lone half square', () {
+    List<Override> predictions(int n) => [
+          polymarketActivePositionsProvider.overrideWith((_) => [
+                for (var i = 0; i < n; i++)
+                  PolymarketPosition(
+                      marketId: 'm-$i',
+                      marketQuestion: 'Will $i happen this year?',
+                      outcome: 'Yes',
+                      size: 10.0 - i,
+                      avgPrice: 0.5,
+                      currentPrice: 0.6,
+                      pnl: 0,
+                      pnlPercent: 0,
+                      isResolved: false,
+                      tokenId: 't$i'),
+              ]),
+        ];
+    final block = find.byKey(const ValueKey('portfolio-balance-squares'));
+    Finder inBlock(String key) =>
+        find.descendant(of: block, matching: find.byKey(ValueKey(key)));
+
+    testWidgets('one position: the full-width compact card, no square',
+        (tester) async {
+      await _mount(tester,
+          state: _bothAtWork, size: const Size(390, 1400), trading: _btcHeld);
+      expect(inBlock('portfolio-square'), findsNothing);
+      expect(inBlock('portfolio-wide'), findsOneWidget);
+      expect(_squareKeys(tester), ['hl-BTC']);
+      await _unmount(tester);
+    });
+
+    testWidgets(
+        'three: two squares, the third its venue\'s row; five: four squares, '
+        'the fifth its venue\'s row; no card either way', (tester) async {
+      for (final (n, squares) in [(2, 2), (4, 4)]) {
+        await _mount(tester,
+            state: _bothAtWork,
+            size: const Size(390, 1400),
+            trading: _btcHeld,
+            extra: predictions(n));
+        expect(inBlock('portfolio-square'), findsNWidgets(squares),
+            reason: '${n + 1} positions');
+        expect(inBlock('portfolio-wide'), findsNothing,
+            reason: '${n + 1} positions');
+        expect(
+            find.descendant(
+                of: find.byKey(
+                    const ValueKey('portfolio-balance-predictions-positions')),
+                matching: find.byType(HlListRow)),
+            findsOneWidget,
+            reason: '${n + 1} positions: the rest is a row');
+        await _unmount(tester);
+      }
+    });
+  });
+
   for (final section in PortfolioSection.values) {
     testWidgets(
         '${section.key}: the last row scrolls clear of the bar '
