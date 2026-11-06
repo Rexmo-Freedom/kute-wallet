@@ -36,6 +36,13 @@ import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/hyperliquid_model.dart';
 import 'package:kute/models/open_pnl_history.dart';
 import 'package:kute/models/polymarket_model.dart';
+import 'package:kute/models/portfolio_performance.dart'
+    show
+        PortfolioPerformanceVenue,
+        PortfolioPnlPoint,
+        PredictionsBook;
+import 'package:kute/providers/portfolio_performance_provider.dart'
+    show PortfolioPerformanceRequest, portfolioPerformanceDisplayProvider;
 import 'package:kute/providers/hyperliquid_markets_provider.dart'
     show hyperliquidSpotMarketsProvider, hyperliquidTradingModelProvider;
 import 'package:kute/providers/hyperliquid_sats_pnl_provider.dart'
@@ -50,8 +57,6 @@ import 'package:kute/screens/polymarket/components/position_journey.dart'
     show polyJourneyInterval;
 import 'package:kute/screens/portfolio/portfolio_filters.dart'
     show portfolioVenuesProvider;
-import 'package:kute/screens/shared/charts/kute_trend_window.dart'
-    show kuteTrendWindow;
 
 /// What an open position is.
 enum OpenPnlKind { perp, spot, prediction }
@@ -334,6 +339,7 @@ class OpenPnlHistory {
     required this.legs,
     required this.leftOut,
     required this.series,
+    this.changes = const [],
   });
 
   /// When it was laid: the line's end.
@@ -348,6 +354,11 @@ class OpenPnlHistory {
 
   /// The line on the Balance charts' grid; null with nothing charted.
   final BalanceSeries? series;
+
+  /// The moments the line moved ([openPnlChanges]): what a range
+  /// reaching back past the line's start is laid from again
+  /// ([openPnlRangeWindow]).
+  final List<(DateTime, double)> changes;
 
   /// When the oldest position charted was opened.
   DateTime? get oldestOpen => openPnlOldest(legs, asOf);
@@ -526,11 +537,18 @@ final openPnlHistoryProvider =
     }
     legs.add(OpenPnlLeg(key: e.key, steps: s, prices: prices));
   }
+  final end = now.toLocal();
+  final oldest = openPnlOldest(legs, end);
+  final changes = openPnlChanges(legs, end);
   return OpenPnlHistory(
     asOf: now,
     legs: List.unmodifiable(legs),
     leftOut: Set.unmodifiable(leftOut),
-    series: openPnlSeries(legs, now),
+    changes: List.unmodifiable(changes),
+    series: oldest == null
+        ? null
+        : openPnlGrid(
+            changes: changes, first: openPnlLeadIn(oldest, end), now: end),
   );
 });
 
@@ -573,20 +591,26 @@ class OpenPnlWindow {
 }
 
 /// [range]'s points of the line (the Balance charts' bucket closes,
-/// kuteTrendWindow), computed once per range and history.
+/// every range its own reach: [openPnlRangeWindow]), computed once per
+/// range and history.
 final openPnlWindowProvider = Provider.autoDispose
     .family<OpenPnlWindow?, BalanceRange>((ref, range) {
-  final series = ref.watch(
-      openPnlHistoryProvider.select((read) => read.valueOrNull?.series));
-  if (series == null) return null;
-  final span = series.spanFor(range);
-  final shown = kuteTrendWindow(series, span);
-  return OpenPnlWindow(
-    values: shown.values,
-    times: shown.times,
-    daily: series.strideFor(span) * series.cellMinutes >= 1440,
-  );
+  final history = ref.watch(openPnlHistoryProvider.select((read) {
+    final h = read.valueOrNull;
+    return h?.series == null ? null : h;
+  }));
+  return history == null ? null : _windowOf(history, range);
 });
+
+OpenPnlWindow _windowOf(OpenPnlHistory h, BalanceRange range) {
+  final shown = openPnlRangeWindow(
+      series: h.series!,
+      changes: h.changes,
+      now: h.asOf,
+      range: range);
+  return OpenPnlWindow(
+      values: shown.values, times: shown.times, daily: shown.daily);
+}
 
 /// The range picked on the Positions chart, kept for the session; null
 /// until one is picked ([openPnlShownRangeProvider] then picks).
@@ -605,4 +629,402 @@ final openPnlShownRangeProvider = Provider.autoDispose<BalanceRange>((ref) {
   return oldest == null
       ? BalanceRange.all
       : openPnlDefaultRange(oldest, at!.asOf);
+});
+
+// ─────────────────────── the whole P&L history ───────────────────────
+//
+// The Portfolio's P&L and Activity heroes (and the P&L section's venue
+// squares): the account's P&L over time from the same engine as the
+// Positions chart (models/open_pnl_history.dart, "the whole P&L
+// history"): every position's realised P&L stepping at its closes, sells,
+// redeems and fees, plus what the positions held at each moment were
+// winning or losing then, each from its own entry. Computed here, once per
+// change of what was traded or is held, never on a frame:
+//
+//   * [_pnlFillLegsProvider]: every Hyperliquid perp's whole history from
+//     the fills (hlPerpHistory) and the spot pairs' realised P&L
+//     (hlSpotRealised); equal while the fills say the same;
+//   * [_pnlLegsProvider]: the perps' prices (their coins' candles, read as
+//     the Positions chart reads them and from the same cache: every coin
+//     held now, and the [kPnlHistoryCurves] most recently traded of those
+//     closed; an older closed one keeps its realised steps, unmarked
+//     between them), the predictions and spot holdings open now taken from
+//     the Positions chart's own history (its legs, its left-out ones);
+//   * [pnlHistoryProvider] (per venue: both, or the P&L square picked):
+//     those legs, every prediction's realised P&L as Polymarket books it
+//     (polyRealisedLegs), and under them THE VENUE'S OWN P&L
+//     (openPnlVenueLeg): at every moment a venue published its P&L the
+//     line is that figure, what the positions charted do not carry
+//     (funding, rewards, fills older than those the venue keeps, a cut
+//     book, a closed prediction's swings before it was decided) held from
+//     there to the next; with nothing of a venue's charted, its own line;
+//     and the line on the grid;
+//   * [pnlWindowProvider]: the points a range draws, per range and venue,
+//     every range its own reach (openPnlRangeWindow).
+//
+// The live figure is not here: the hero pins the line's last point to the
+// P&L now it writes (the venues' own, the predictions at the live prices),
+// so a tick moves that point alone, and the range's P&L in the line is that
+// figure less the range's start.
+
+/// How many CLOSED Hyperliquid coins are marked between their fills (the
+/// most recently traded); every coin held now always is.
+const int kPnlHistoryCurves = 8;
+
+/// The fills' account of every perp and spot pair ([pnlFillLegs]);
+/// [pending] while the fills are first read.
+@immutable
+class PnlFillLegs {
+  const PnlFillLegs(
+      {required this.perps, required this.spot, this.pending = false});
+
+  static const none = PnlFillLegs(perps: {}, spot: {});
+
+  /// Each perp coin's whole history, by coin.
+  final Map<String, HlPerpHistory> perps;
+
+  /// Each spot pair's realised steps, by the fills' coin.
+  final Map<String, List<OpenPnlRealised>> spot;
+
+  final bool pending;
+
+  @override
+  bool operator ==(Object other) {
+    if (other is! PnlFillLegs || other.pending != pending) return false;
+    if (other.perps.length != perps.length ||
+        other.spot.length != spot.length) {
+      return false;
+    }
+    for (final e in perps.entries) {
+      final o = other.perps[e.key];
+      if (o == null ||
+          o.assumedEntry != e.value.assumedEntry ||
+          !listEquals(o.steps, e.value.steps) ||
+          !listEquals(o.realised, e.value.realised)) {
+        return false;
+      }
+    }
+    for (final e in spot.entries) {
+      final o = other.spot[e.key];
+      if (o == null || !listEquals(o, e.value)) return false;
+    }
+    return true;
+  }
+
+  @override
+  int get hashCode => Object.hash(pending, perps.length, spot.length);
+}
+
+/// The fills' account of the perps and spot pairs (see [PnlFillLegs]).
+PnlFillLegs pnlFillLegs(
+    Iterable<HlFill> fills, Map<String, (double, double)> openPerps) {
+  final coins = <String>{
+    for (final f in fills)
+      if (f.sz > 0 && !hlFillIsSpot(f)) f.coin,
+  };
+  final perps = <String, HlPerpHistory>{};
+  for (final coin in coins) {
+    final open = openPerps[coin];
+    final h = hlPerpHistory(
+        coin: coin, fills: fills, szi: open?.$1, entryPx: open?.$2);
+    if (h != null) perps[coin] = h;
+  }
+  return PnlFillLegs(perps: perps, spot: hlSpotRealised(fills));
+}
+
+final _pnlFillLegsProvider = Provider.autoDispose<PnlFillLegs>((ref) {
+  if (!ref.watch(portfolioVenuesProvider.select((v) => v.trading))) {
+    return PnlFillLegs.none;
+  }
+  final read = ref.watch(hyperliquidUserFillsProvider);
+  if (!read.hasValue && !read.hasError) {
+    return const PnlFillLegs(perps: {}, spot: {}, pending: true);
+  }
+  final fills = ref.watch(hyperliquidActivityFillsProvider);
+  final open = ref.watch(openPnlBookProvider.select((b) => OpenPnlBook([
+        for (final e in b.entries)
+          if (e.kind == OpenPnlKind.perp) e,
+      ])));
+  return pnlFillLegs(fills, {
+    for (final e in open.entries) e.id: (e.qty, e.entry),
+  });
+});
+
+/// A charted position and the venue it is at.
+typedef PnlVenueLeg = (PortfolioPerformanceVenue, OpenPnlLeg);
+
+/// Every position of the account the engine can chart (see the section
+/// header), both venues, before a venue is picked.
+@immutable
+class PnlLegs {
+  const PnlLegs(
+      {required this.asOf, required this.legs, required this.leftOut});
+
+  final DateTime asOf;
+  final List<PnlVenueLeg> legs;
+
+  /// The positions open now whose line could not be read
+  /// ([openPnlKeyPerp] and the others).
+  final Set<String> leftOut;
+}
+
+/// A perp coin's candles over its whole history ([openPnlCandlePlan]
+/// from [from]), the Positions chart's reads and cache.
+Future<List<OpenPnlPrice>?> _hlCoinPrices(
+    Ref ref, String coin, DateTime from, DateTime now, int bucket) {
+  final plan = openPnlCandlePlan(now.difference(from));
+  final reads = [
+    for (final (interval, window) in plan)
+      _capped(ref.watch(_openPnlCandlesProvider((
+        wire: coin,
+        interval: interval,
+        windowHours: (window.inMinutes / 60).ceil(),
+        bucket: bucket,
+      )).future)),
+  ];
+  return Future.wait(reads).then((lists) {
+    final first = lists.first;
+    if (first == null || first.isEmpty) return null;
+    var out = openPnlCandlePrices(first, now);
+    for (final finer in lists.skip(1)) {
+      if (finer != null && finer.isNotEmpty) {
+        out = openPnlMergePrices(out, openPnlCandlePrices(finer, now));
+      }
+    }
+    return out;
+  });
+}
+
+final _pnlLegsProvider = FutureProvider.autoDispose<PnlLegs>((ref) async {
+  // Every read is started before the first wait (see
+  // openPnlHistoryProvider).
+  final open = ref.watch(openPnlHistoryProvider);
+  final fills = ref.watch(_pnlFillLegsProvider);
+  if ((!open.hasValue && !open.hasError) || fills.pending) {
+    return Completer<PnlLegs>().future;
+  }
+  final now = DateTime.now();
+  _keepFor(ref, kOpenPnlKeep);
+  var stale = false;
+  ref.onDispose(() => stale = true);
+  final bucket = now.millisecondsSinceEpoch ~/ kOpenPnlKeep.inMilliseconds;
+
+  // The coins to mark: every one held now, then the most recently traded.
+  final coins = fills.perps.keys.toList()
+    ..sort((a, b) => fills.perps[b]!.steps.last.at
+        .compareTo(fills.perps[a]!.steps.last.at));
+  final marked = <String>{};
+  var closed = 0;
+  for (final coin in coins) {
+    final held = fills.perps[coin]!.steps.last.qty != 0;
+    if (held || closed++ < kPnlHistoryCurves) marked.add(coin);
+  }
+  final reads = <String, Future<List<OpenPnlPrice>?>>{
+    for (final coin in marked)
+      coin: _hlCoinPrices(
+          ref, coin, fills.perps[coin]!.steps.first.at, now, bucket),
+  };
+
+  final legs = <PnlVenueLeg>[];
+  final leftOut = <String>{};
+  final positions = open.valueOrNull;
+  // The predictions and holdings open now: the Positions chart's own.
+  for (final leg in positions?.legs ?? const <OpenPnlLeg>[]) {
+    if (leg.key.startsWith('pm:')) {
+      legs.add((PortfolioPerformanceVenue.predictions, leg));
+    } else if (leg.key.startsWith('spot:')) {
+      legs.add((PortfolioPerformanceVenue.trading, leg));
+    }
+  }
+  for (final key in positions?.leftOut ?? const <String>{}) {
+    if (!key.startsWith('perp:')) leftOut.add(key);
+  }
+  // A perp held now with no fill on its coin: its line cannot be read.
+  final book = ref.watch(openPnlBookProvider);
+  for (final e in book.entries) {
+    if (e.kind == OpenPnlKind.perp && !fills.perps.containsKey(e.id)) {
+      leftOut.add(e.key);
+    }
+  }
+  for (final coin in coins) {
+    final h = fills.perps[coin]!;
+    final read = reads[coin];
+    final prices = read == null ? null : await read;
+    if (stale) return Completer<PnlLegs>().future;
+    final key = openPnlKeyPerp(coin);
+    if (prices == null) {
+      // Unmarked: its realised steps alone; held now, not charted.
+      if (h.steps.last.qty != 0) leftOut.add(key);
+      if (h.realised.isNotEmpty) {
+        legs.add((
+          PortfolioPerformanceVenue.trading,
+          OpenPnlLeg(
+              key: key,
+              steps: const [],
+              prices: const [],
+              realised: h.realised),
+        ));
+      }
+      continue;
+    }
+    legs.add((
+      PortfolioPerformanceVenue.trading,
+      OpenPnlLeg(key: key, steps: h.steps, prices: prices, realised: h.realised),
+    ));
+  }
+  for (final MapEntry(key: coin, value: realised) in fills.spot.entries) {
+    legs.add((
+      PortfolioPerformanceVenue.trading,
+      OpenPnlLeg(
+          key: openPnlKeyRealised('spot:$coin'),
+          steps: const [],
+          prices: const [],
+          realised: realised),
+    ));
+  }
+  return PnlLegs(
+    asOf: now,
+    legs: List.unmodifiable(legs),
+    leftOut: Set.unmodifiable(leftOut),
+  );
+});
+
+/// The venue a left-out position's key is at.
+PortfolioPerformanceVenue _venueOfKey(String key) => key.startsWith('pm:')
+    ? PortfolioPerformanceVenue.predictions
+    : PortfolioPerformanceVenue.trading;
+
+/// What a venue's own P&L read gives the engine: its published points
+/// and, on Predictions, the book (its realised P&L per position, and
+/// whether it is whole).
+@immutable
+class _VenueRead {
+  const _VenueRead(this.points, this.book);
+
+  final List<PortfolioPnlPoint> points;
+  final PredictionsBook? book;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _VenueRead &&
+      identical(other.points, points) &&
+      identical(other.book?.records, book?.records) &&
+      other.book?.complete == book?.complete;
+
+  @override
+  int get hashCode => Object.hash(identityHashCode(points),
+      identityHashCode(book?.records), book?.complete);
+}
+
+/// The account's P&L over time as the engine draws it, for [venue]
+/// (null: both venues the account has; see the section header). Loading
+/// while the fills, trades, prices or the venues' own P&L are read; an
+/// error when the positions' reads failed outright.
+final pnlHistoryProvider = Provider.autoDispose
+    .family<AsyncValue<OpenPnlHistory>, PortfolioPerformanceVenue?>(
+        (ref, venue) {
+  final venues = ref.watch(portfolioVenuesProvider);
+  final scope = [
+    if (venues.trading &&
+        (venue == null || venue == PortfolioPerformanceVenue.trading))
+      PortfolioPerformanceVenue.trading,
+    if (venues.predictions &&
+        (venue == null || venue == PortfolioPerformanceVenue.predictions))
+      PortfolioPerformanceVenue.predictions,
+  ];
+  final now = DateTime.now();
+  if (scope.isEmpty) {
+    return AsyncData(OpenPnlHistory(
+        asOf: now, legs: const [], leftOut: const {}, series: null));
+  }
+  final reads = <PortfolioPerformanceVenue, _VenueRead?>{};
+  var loading = false;
+  for (final v in scope) {
+    // The points and the book only: the live prices are the hero's.
+    final read = ref.watch(portfolioPerformanceDisplayProvider(
+            PortfolioPerformanceRequest(venue: v))
+        .select((a) => (
+              loading: !a.hasValue && !a.hasError,
+              read: a.hasValue
+                  ? _VenueRead(
+                      a.requireValue.points, a.requireValue.predictions)
+                  : null,
+            )));
+    if (read.loading) loading = true;
+    reads[v] = read.read;
+  }
+  final all = ref.watch(_pnlLegsProvider);
+  if (loading || (!all.hasValue && !all.hasError)) {
+    return const AsyncLoading();
+  }
+  final engine = all.valueOrNull;
+  final asOf = engine?.asOf ?? now;
+  final legs = <OpenPnlLeg>[];
+  for (final v in scope) {
+    final read = reads[v];
+    final own = <OpenPnlLeg>[
+      for (final (at, leg) in engine?.legs ?? const <PnlVenueLeg>[])
+        if (at == v) leg,
+      if (v == PortfolioPerformanceVenue.predictions && read?.book != null)
+        ...polyRealisedLegs(read!.book!.records),
+    ];
+    legs.addAll(own);
+    // The venue's own P&L under its positions: its figure at every moment
+    // it published one (openPnlVenueLeg); with nothing charted, its line.
+    if (read != null) {
+      final venueLeg = openPnlVenueLeg('venue:${v.name}', read.points, own);
+      if (venueLeg != null) legs.add(venueLeg);
+    }
+  }
+  final end = asOf.toLocal();
+  final oldest = openPnlOldest(legs, end);
+  final changes = openPnlChanges(legs, end);
+  return AsyncData(OpenPnlHistory(
+    asOf: asOf,
+    legs: List.unmodifiable(legs),
+    leftOut: {
+      for (final key in engine?.leftOut ?? const <String>{})
+        if (scope.contains(_venueOfKey(key))) key,
+    },
+    changes: List.unmodifiable(changes),
+    series: oldest == null
+        ? null
+        : openPnlGrid(
+            changes: changes, first: openPnlLeadIn(oldest, end), now: end),
+  ));
+});
+
+/// What the P&L hero draws for [venue] (see [OpenPnlChartStatus]).
+final pnlChartStatusProvider = Provider.autoDispose
+    .family<OpenPnlChartStatus, PortfolioPerformanceVenue?>((ref, venue) {
+  return ref.watch(pnlHistoryProvider(venue).select((read) {
+    final h = read.valueOrNull;
+    if (h == null) {
+      return read.hasError
+          ? OpenPnlChartStatus.none
+          : OpenPnlChartStatus.loading;
+    }
+    return h.series == null
+        ? OpenPnlChartStatus.none
+        : OpenPnlChartStatus.chart;
+  }));
+});
+
+/// The positions [venue]'s line leaves out (held now, their line not
+/// read): the note under the chart.
+final pnlLeftOutProvider = Provider.autoDispose
+    .family<Set<String>, PortfolioPerformanceVenue?>((ref, venue) =>
+        ref.watch(pnlHistoryProvider(venue)
+            .select((read) => read.valueOrNull?.leftOut)) ??
+        const <String>{});
+
+/// One range's points of the whole P&L line for [venue] (null: both),
+/// computed once per range, venue and history.
+final pnlWindowProvider = Provider.autoDispose.family<OpenPnlWindow?,
+    ({BalanceRange range, PortfolioPerformanceVenue? venue})>((ref, key) {
+  final history = ref.watch(pnlHistoryProvider(key.venue).select((read) {
+    final h = read.valueOrNull;
+    return h?.series == null ? null : h;
+  }));
+  return history == null ? null : _windowOf(history, key.range);
 });

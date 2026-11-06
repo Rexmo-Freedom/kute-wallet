@@ -37,9 +37,11 @@
 // newest actions as the home's "Latest" squares two by two
 // (ActivitySquareGrid, ActivityRowShape.square), the next two as its
 // plain rows on one card under "Earlier" (PremiumGroupContainer,
-// ActivityRowShape.plain), then the home's "See all" pill, which opens the
-// Activity screen on the Investments activity (showActivityHistory with
-// ActivityScope.investments). What it lists is what the person DID with
+// ActivityRowShape.plain). No See all button under them (founder, 6
+// November 2026): the section switch's Activity pill reads "→ See all"
+// once Activity is on screen and its second tap opens the Activity screen
+// on the Investments activity (investments_portfolio.dart, the Bitcoin
+// home's mechanism). What it lists is what the person DID with
 // their investments: the Investments activity (watchAllActivity with
 // ActivityScope.investments: every prediction placed, sold, won or lost,
 // every Investing open and close, each funding chain folded into the bet
@@ -53,8 +55,6 @@ import 'package:kute/screens/shared/kute_motion.dart' show KuteStaggerIn;
 import 'package:kute/screens/portfolio/components/balances_overview.dart'
     show balancesFlatSectionTitle, kBalancesGroupGap, kBalancesTitleGap;
 import 'package:kute/screens/portfolio/portfolio_empty_state.dart';
-import 'package:kute/screens/activity/activity_history_screen.dart'
-    show showActivityHistory;
 import 'package:kute/screens/shared/activity_curation.dart'
     show homeActivityEntries, kHomeActivityLatest, kHomeActivityRows;
 import 'package:kute/screens/shared/all_activity.dart'
@@ -317,7 +317,8 @@ class PortfolioActivityList extends ConsumerWidget {
 /// each funding chain folded into the bet or trade it paid for) less the
 /// money moving between the person's own accounts ([homeActivityEntries]),
 /// the newest [kHomeActivityLatest] as the home's squares, the next ones
-/// up to [kHomeActivityRows] as its Earlier rows, then See all. It carries
+/// up to [kHomeActivityRows] as its Earlier rows (See all is the section
+/// pill's second tap, investments_portfolio.dart). It carries
 /// its own 16 gutters, as the home's Activity does (the card's own
 /// margin), and starts [kPortfolioSectionEmptyTop] under the strip.
 class PortfolioActivitySection extends ConsumerWidget {
@@ -415,20 +416,8 @@ class PortfolioActivitySection extends ConsumerWidget {
               ),
             ),
           ],
-          // The home's "See all" pill: the Activity screen on the
-          // Investments activity.
-          SizedBox(height: 16.h),
-          Center(
-            child: KutePill(
-              key: const ValueKey('portfolio-activity-see-all'),
-              label: l10n.seeAll,
-              icon: Icons.arrow_forward_rounded,
-              selected: true,
-              link: true,
-              onTap: () => showActivityHistory(context,
-                  source: 'portfolio', scope: ActivityScope.investments),
-            ),
-          ),
+          // No See all here: the section's own pill reads "→ See all"
+          // once Activity is on screen (investments_portfolio.dart).
         ],
       ),
     );

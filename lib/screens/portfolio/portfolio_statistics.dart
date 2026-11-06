@@ -774,6 +774,8 @@ class _PnlVenues extends StatelessWidget {
           subtitle: whereOf(v),
           data: data[v]!,
           now: now,
+          // The hero's engine: a square picked reads what the hero draws.
+          venue: v,
           quiet: quiet.contains(v)
               ? _quietText(l10n, v, StatisticsScope.historic)
               : null,

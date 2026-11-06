@@ -95,6 +95,8 @@ import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/balance_history.dart';
 import 'package:kute/models/portfolio_performance.dart';
+import 'package:kute/providers/open_pnl_history_provider.dart'
+    show pnlWindowProvider;
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/portfolio/components/position_rows.dart'
     show
@@ -776,7 +778,15 @@ class PnlVenueSquare extends ConsumerWidget {
     this.selected = false,
     this.dimmed = false,
     this.now,
+    this.venue,
   });
+
+  /// The venue the square is (the Portfolio screen's P&L): its figure and
+  /// sparkline from the whole P&L engine, the hero's own line when the
+  /// square is picked ([pnlWindowProvider], its last point the venue's
+  /// P&L now); null, or while the engine is read: the venue's published
+  /// line ([pnlSeries]).
+  final PortfolioPerformanceVenue? venue;
 
   /// The venue the hero shows alone: the selected outline.
   final bool selected;
@@ -808,7 +818,15 @@ class PnlVenueSquare extends ConsumerWidget {
     final range = ref.watch(pnlChartRangeProvider);
     final quietText = quiet;
     final List<double> values;
-    if (quietText == null) {
+    final engine = quietText == null && venue != null
+        ? ref.watch(pnlWindowProvider((range: range, venue: venue)))
+        : null;
+    if (engine != null && engine.values.isNotEmpty) {
+      // The engine's line, its last point the venue's P&L now.
+      values = [...engine.values];
+      values[values.length - 1] = data.totalPnlUsd ??
+          (data.points.isEmpty ? 0.0 : data.points.last.pnlUsd);
+    } else if (quietText == null) {
       final series = pnlSeries(data, now ?? DateTime.now());
       values = kuteTrendWindow(series, series.spanFor(range)).values;
     } else {

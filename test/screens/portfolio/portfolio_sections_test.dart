@@ -67,7 +67,6 @@ import 'package:kute/screens/shared/charts/kute_donut_chart.dart';
 import 'package:kute/screens/shared/charts/kute_trend_chart.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart'
     show kuteBarScrollClearance;
-import 'package:kute/screens/shared/kute_pill_tabs.dart' show KutePill;
 import 'package:kute/screens/shared/kute_skeleton.dart' show KuteSkeleton;
 import 'package:kute/screens/shared/sal_sprite.dart'
     show SalIdleDirector, SalSprite;
@@ -689,8 +688,9 @@ void main() {
 
   testWidgets(
       'Activity: the four newest actions as the home\'s squares, the next '
-      'two as its Earlier rows, then "See all" to the Activity screen on the '
-      'Investments activity',
+      'two as its Earlier rows, no See all button under them: the Activity '
+      'pill reads "→ See all" and its second tap opens the Activity screen '
+      'on the Investments activity',
       (tester) async {
     final events = <(String, Map<String, Object>?)>[];
     TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
@@ -730,13 +730,23 @@ void main() {
     final strip = tester.getRect(find.byKey(const ValueKey('portfolio-strip')));
     expect(tester.getRect(squares).top - strip.bottom,
         moreOrLessEquals(kPortfolioSectionEmptyTop.h, epsilon: 0.5));
-    // "See all": the home's pill, opening the whole list.
-    final seeAll = find.byKey(const ValueKey('portfolio-activity-see-all'));
-    final pill = tester.widget<KutePill>(seeAll);
-    expect(pill.label, 'See all');
-    expect(pill.icon, Icons.arrow_forward_rounded);
-    expect(pill.selected, isTrue);
-    await tester.tap(seeAll);
+    // No See all button of the section's own any more.
+    expect(find.byKey(const ValueKey('portfolio-activity-see-all')),
+        findsNothing);
+    // The Bitcoin home's mechanism: Activity on screen, its pill names
+    // what a second tap does, "→ See all".
+    final pill =
+        find.byKey(const ValueKey('portfolio-section-pill-activity'));
+    expect(find.descendant(of: pill, matching: find.text('See all')),
+        findsOneWidget);
+    expect(find.descendant(of: pill, matching: find.text('Activity')),
+        findsNothing);
+    expect(
+        find.descendant(
+            of: pill, matching: find.byIcon(Icons.arrow_forward_rounded)),
+        findsOneWidget);
+    expect(find.byType(ActivityHistoryScreen), findsNothing);
+    await tester.tap(pill);
     await _settle(tester);
     final screen = tester
         .widget<ActivityHistoryScreen>(find.byType(ActivityHistoryScreen));
@@ -972,7 +982,7 @@ void main() {
       await _settle(tester);
       final last = switch (section) {
         PortfolioSection.activity =>
-          find.byKey(const ValueKey('portfolio-activity-see-all')),
+          find.byKey(const ValueKey('portfolio-activity-earlier')),
         PortfolioSection.balances => find.byType(PortfolioPositionRow).last,
         PortfolioSection.charts =>
           find.byKey(const ValueKey('statistics-pnl-stats-card')),
@@ -1619,6 +1629,63 @@ void main() {
     });
 
     testWidgets(
+        'THE RANGES MOVE THE WINDOW (founder, 6 November 2026: "the Positions '
+        'chart ignores the 1W/1M/3M/1Y/ALL buttons"): every pill tapped '
+        'draws its own reach, zero before the oldest entry, the same figure '
+        'last', (tester) async {
+      await _mount(tester,
+          state: _bothAtWork,
+          trading: _btcHeld,
+          fills: btcFills,
+          size: const Size(390, 1400),
+          sources: sources(),
+          extra: [..._history(), ..._predictionsHistory(), ...open()]);
+      final firsts = <BalanceRange, DateTime>{};
+      // Out of order, so each tap is a change from another range.
+      for (final r in const [
+        BalanceRange.year,
+        BalanceRange.week,
+        BalanceRange.all,
+        BalanceRange.threeMonths,
+        BalanceRange.month,
+      ]) {
+        await tester.tap(find.descendant(
+            of: find.byKey(const ValueKey('portfolio-hero-open-chart')),
+            matching: find.text(r.label)));
+        await _settle(tester);
+        final c = chart(tester);
+        expect(c.selectedRange, r.index, reason: r.label);
+        expect(c.values.last, closeTo(0.2, 1e-9), reason: r.label);
+        final first = c.times!.first;
+        firsts[r] = first;
+        final back = r.duration;
+        if (back == null) {
+          // ALL: the whole line, from its lead-in before the oldest entry
+          // (ten days back).
+          expect(first.isBefore(now.subtract(const Duration(days: 10))),
+              isTrue,
+              reason: r.label);
+          expect(first.isAfter(now.subtract(const Duration(days: 12))),
+              isTrue,
+              reason: r.label);
+        } else {
+          // Its own reach, a month or a year past the line's start too.
+          expect(
+              first.difference(now.subtract(back)).inMinutes.abs(),
+              lessThanOrEqualTo(24 * 60),
+              reason: '${r.label} starts ${back.inDays} days back');
+        }
+        // Zero before the oldest entry, ten days back (a week starts after
+        // it: a alone held then, +0.20).
+        expect(c.values.first, r == BalanceRange.week ? closeTo(0.2, 1e-9) : 0,
+            reason: r.label);
+      }
+      expect(firsts.values.toSet(), hasLength(5),
+          reason: 'every range a window of its own');
+      await _unmount(tester);
+    });
+
+    testWidgets(
         'a scrub writes the open P&L at that moment in the line, keeping '
         '"Open P&L"; release puts the figure now back', (tester) async {
       final events = <(String, Map<String, Object>?)>[];
@@ -1730,6 +1797,187 @@ void main() {
       expect(find.byKey(const ValueKey('portfolio-hero-open-chart')),
           findsNothing);
       expect(find.byType(KuteTrendChart), findsNothing);
+      await _unmount(tester);
+    });
+  });
+
+  group(
+      'P&L and Activity: the account\'s P&L from the Positions chart\'s '
+      'engine, realised steps and each position from its own entry, under '
+      'the venue\'s own figures', () {
+    final now = DateTime.now();
+    int ago(Duration d) => now.subtract(d).millisecondsSinceEpoch;
+    HlFill fill(String coin, double px, double sz, String side, Duration at,
+            double start, String dir) =>
+        HlFill(
+          coin: coin,
+          px: px,
+          sz: sz,
+          side: side,
+          time: ago(at),
+          closedPnl: 0,
+          fee: coin == 'ETH' ? 0.5 : 0,
+          feeToken: 'USDC',
+          oid: at.inMinutes,
+          hash: '0x$coin-${at.inMinutes}',
+          dir: dir,
+          cloid: null,
+          startPosition: start,
+        );
+
+    /// BTC long 0.1 at 60,000 six days back, held; ETH 1 bought at 2,000
+    /// five days back and sold at 2,100 four days back ($0.50 fee each:
+    /// +$99 realised).
+    final fills = [
+      fill('BTC', 60000, 0.1, 'B', const Duration(days: 6), 0, 'Open Long'),
+      fill('ETH', 2000, 1, 'B', const Duration(days: 5), 0, 'Open Long'),
+      fill('ETH', 2100, 1, 'A', const Duration(days: 4), 1, 'Close Long'),
+    ];
+
+    /// BTC's candles at 60,004 (+$0.40 on 0.1), ETH's at 2,050 (+$50 on
+    /// 1 while held); [btc] false: BTC's cannot be read.
+    OpenPnlSources sources({bool btc = true}) => OpenPnlSources(
+          activity: (_) async => const [],
+          candles: (_, wire, interval, window) async {
+            if (wire == 'BTC' && !btc) return null;
+            final px = wire == 'BTC' ? 60004.0 : 2050.0;
+            return [
+              for (var t = now.subtract(window);
+                  t.isBefore(now);
+                  t = t.add(const Duration(hours: 1)))
+                HyperliquidCandle(
+                    openTime: t,
+                    closeTime: t.add(const Duration(hours: 1)),
+                    open: px,
+                    high: px,
+                    low: px,
+                    close: px,
+                    volume: 1),
+            ];
+          },
+          polyHistory: (_, __, ___) async => null,
+        );
+
+    /// The venue's own P&L: $1.00 twenty days back that no fill carries
+    /// (funding, say), then everything: $100.40 two days back and now.
+    List<Override> venue() => [
+          portfolioPerformanceProvider(const PortfolioPerformanceRequest(
+                  venue: PortfolioPerformanceVenue.trading))
+              .overrideWith((_) async =>
+                  _perf([(30, 0.0), (20, 1.0), (2, 100.4)], 'Hyperliquid')),
+        ];
+
+    KuteTrendChart chart(WidgetTester tester) => tester.widget<KuteTrendChart>(
+        find.byKey(const ValueKey('portfolio-hero-chart')));
+
+    String line(WidgetTester tester) => tester
+        .widget<Text>(find.byKey(const ValueKey('portfolio-hero-change')))
+        .textSpan!
+        .toPlainText();
+
+    for (final section in const [
+      PortfolioSection.activity,
+      PortfolioSection.charts,
+    ]) {
+      testWidgets(
+          '${section.key}: the venue\'s figure before the fills, then BTC '
+          'from its entry, ETH marked while held and its +\$99 realised at '
+          'its sale, the last point the P&L now; the dashed line at zero',
+          (tester) async {
+        await _mount(tester,
+            state: _bothAtWork,
+            section: section,
+            trading: _btcHeld,
+            fills: fills,
+            size: const Size(390, 1600),
+            sources: sources(),
+            extra: venue());
+        final c = chart(tester);
+        // The past month (the default): from a month back, zero then.
+        expect(c.times!.first.difference(now.subtract(const Duration(days: 30)))
+                .inHours
+                .abs(),
+            lessThanOrEqualTo(24));
+        expect(c.values.first, 0);
+        expect(c.values.last, closeTo(100.4, 1e-9));
+        for (var i = 0; i < c.values.length - 1; i++) {
+          final t = c.times![i];
+          final expected = t.isBefore(now.subtract(const Duration(days: 20)))
+              ? 0.0
+              : t.isBefore(now.subtract(const Duration(days: 6)))
+                  ? 1.0
+                  : t.isBefore(now.subtract(const Duration(days: 5)))
+                      ? 1.4
+                      : t.isBefore(now.subtract(const Duration(days: 4)))
+                          // ETH held: +$50 at 2,050, its $0.50 fee paid.
+                          ? 1.4 + 49.5
+                          : 1.4 + 99;
+          expect(c.values[i], closeTo(expected, 1e-9), reason: '$t');
+        }
+        expect(c.baseline, 0);
+        expect(c.zeroSplit, isTrue);
+        expect(c.lineColor, AppColors.marketUp);
+        // The past month's P&L: all of it.
+        expect(line(tester), startsWith(r'▲ $100.40 · Past month'));
+        expect(find.byKey(const ValueKey('portfolio-hero-left-out')),
+            findsNothing);
+
+        // The past week: from its start (the $1.00 then) to now.
+        await tester.tap(find.descendant(
+            of: find.byKey(const ValueKey('portfolio-hero-chart')),
+            matching: find.text('1W')));
+        await _settle(tester);
+        expect(chart(tester).selectedRange, BalanceRange.week.index);
+        expect(line(tester), startsWith(r'▲ $99.40 · Past week'));
+        expect(chart(tester).values.last, closeTo(100.4, 1e-9));
+        await _unmount(tester);
+      });
+    }
+
+    testWidgets(
+        'a position held whose prices cannot be read: its realised steps '
+        'stay, its swings are left out and said so; the last point is still '
+        'the P&L now', (tester) async {
+      await _mount(tester,
+          state: _bothAtWork,
+          section: PortfolioSection.activity,
+          trading: _btcHeld,
+          fills: fills,
+          size: const Size(390, 1600),
+          sources: sources(btc: false),
+          extra: venue());
+      expect(chart(tester).values.last, closeTo(100.4, 1e-9));
+      expect(
+          tester
+              .widget<Text>(
+                  find.byKey(const ValueKey('portfolio-hero-left-out')))
+              .data,
+          '1 position not charted (history unavailable)');
+      await _unmount(tester);
+    });
+
+    testWidgets(
+        'a venue square picked: the hero draws that venue\'s engine line, '
+        'and the square says the hero\'s own range P&L', (tester) async {
+      await _mount(tester,
+          state: _bothAtWork,
+          section: PortfolioSection.charts,
+          trading: _btcHeld,
+          fills: fills,
+          size: const Size(390, 1600),
+          sources: sources(),
+          extra: [...venue(), ..._predictionsBooked()]);
+      await tester.tap(find.byKey(const ValueKey('pnl-venue-investing')));
+      await _settle(tester);
+      expect(chart(tester).values.last, closeTo(100.4, 1e-9));
+      expect(line(tester), contains(r'▲ $100.40 · Past month'));
+      expect(
+          tester
+              .widget<Text>(find.descendant(
+                  of: find.byKey(const ValueKey('pnl-venue-investing')),
+                  matching: find.byKey(const ValueKey('pnl-venue-figure'))))
+              .data,
+          r'+$100.40');
       await _unmount(tester);
     });
   });

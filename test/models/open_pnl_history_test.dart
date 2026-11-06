@@ -8,6 +8,8 @@ import 'package:kute/models/balance_history.dart';
 import 'package:kute/models/hyperliquid_market.dart' show HlFill;
 import 'package:kute/models/hyperliquid_model.dart' show HyperliquidCandle;
 import 'package:kute/models/open_pnl_history.dart';
+import 'package:kute/models/portfolio_performance.dart'
+    show PortfolioPnlPoint, PredictionRecord;
 import 'package:kute/screens/shared/charts/kute_trend_window.dart';
 import 'package:polybrainz_polymarket/polybrainz_polymarket.dart'
     show Activity;
@@ -329,5 +331,254 @@ void main() {
             [(_ago(const Duration(days: 3)), 1.0), (_ago(const Duration(days: 1)), 2.0)],
             [(_ago(const Duration(days: 2)), 3.0)]),
         [(_ago(const Duration(days: 3)), 1.0), (_ago(const Duration(days: 2)), 3.0)]);
+  });
+
+  group('the whole P&L history (the P&L and Activity heroes)', () {
+    test(
+        'a perp\'s whole history from its fills: the average moving on an '
+        'increase, a reduction realising (price − entry) on what it closes, '
+        'a flip closing one side and opening the other, every dollar fee out '
+        'of the realised; flat between', () {
+      HlFill fee(HlFill f, double fee) => HlFill(
+          coin: f.coin,
+          px: f.px,
+          sz: f.sz,
+          side: f.side,
+          time: f.time,
+          closedPnl: 0,
+          fee: fee,
+          feeToken: 'USDC',
+          oid: f.oid,
+          hash: f.hash,
+          dir: f.dir,
+          cloid: null,
+          startPosition: f.startPosition);
+      final fills = [
+        // Long 1 at 100, then 1 more at 110 (average 105).
+        fee(_fill('ETH', const Duration(days: 10), buy: true, sz: 1, px: 100,
+            start: 0), 0.1),
+        _fill('ETH', const Duration(days: 9), buy: true, sz: 1, px: 110,
+            start: 1),
+        // Half sold at 115: +10 realised, the average kept.
+        _fill('ETH', const Duration(days: 8), buy: false, sz: 1, px: 115,
+            start: 2),
+        // Flipped: 3 sold at 95: the long's 1 closes (−10), short 2 at 95.
+        _fill('ETH', const Duration(days: 7), buy: false, sz: 3, px: 95,
+            start: 1),
+        // Closed at 90: +10.
+        _fill('ETH', const Duration(days: 6), buy: true, sz: 2, px: 90,
+            start: -2),
+      ];
+      final h = hlPerpHistory(coin: 'ETH', fills: fills)!;
+      expect(h.assumedEntry, isFalse);
+      expect(h.steps, [
+        OpenPnlStep(_ago(const Duration(days: 10)), 1, 100),
+        OpenPnlStep(_ago(const Duration(days: 9)), 2, 105),
+        OpenPnlStep(_ago(const Duration(days: 8)), 1, 105),
+        OpenPnlStep(_ago(const Duration(days: 7)), -2, 95),
+        OpenPnlStep(_ago(const Duration(days: 6)), 0, 0),
+      ]);
+      final realised = [for (final r in h.realised) r.$2];
+      expect(realised[0], closeTo(-0.1, 1e-9));
+      expect(realised[1], closeTo(-0.1, 1e-9));
+      expect(realised[2], closeTo(9.9, 1e-9));
+      expect(realised[3], closeTo(-0.1, 1e-9));
+      expect(realised[4], closeTo(9.9, 1e-9));
+      // Marked between fills, flat after: the leg at a moment.
+      final leg = OpenPnlLeg(
+          key: openPnlKeyPerp('ETH'),
+          steps: h.steps,
+          prices: _hourly(12, (_) => 100),
+          realised: h.realised);
+      expect(leg.valueAt(_ago(const Duration(days: 11))), 0);
+      // Long 2 at 105 marked at 100: −10, the fee paid.
+      expect(leg.valueAt(_ago(const Duration(days: 8, hours: 12))),
+          closeTo(-10.1, 1e-9));
+      // Short 2 at 95 marked at 100: −10, after −0.1 realised.
+      expect(leg.valueAt(_ago(const Duration(days: 6, hours: 12))),
+          closeTo(-10.1, 1e-9));
+      expect(leg.valueAt(_now), closeTo(9.9, 1e-9));
+    });
+
+    test(
+        'held now: the last stretch is the venue\'s own size and entry; '
+        'held before the first fill read: marked from that fill\'s price', () {
+      final open = hlPerpHistory(
+          coin: 'BTC',
+          fills: [
+            _fill('BTC', const Duration(days: 3), buy: true, sz: 0.1, px: 60000,
+                start: 0),
+          ],
+          szi: 0.1,
+          entryPx: 60010)!;
+      expect(open.steps.single, OpenPnlStep(_ago(const Duration(days: 3)), 0.1, 60010));
+      final older = hlPerpHistory(
+          coin: 'BTC',
+          fills: [
+            // 0.2 held before this, its entry unknown: reduced at 61,000.
+            _fill('BTC', const Duration(days: 3), buy: false, sz: 0.1,
+                px: 61000, start: 0.2),
+          ],
+          szi: 0.1,
+          entryPx: 58000)!;
+      expect(older.assumedEntry, isTrue);
+      // Its moves from the mark on: nothing realised selling at the mark,
+      // and the stretch kept on the mark, never the venue's older entry.
+      expect(older.realised.single.$2, 0);
+      expect(older.steps.single, OpenPnlStep(_ago(const Duration(days: 3)), 0.1, 61000));
+      expect(hlPerpHistory(coin: 'SOL', fills: const []), isNull);
+    });
+
+    test('spot pairs: the venue\'s closedPnl less dollar fees, by pair', () {
+      HlFill spot(String coin, Duration ago, double closed, double fee,
+              String token) =>
+          HlFill(
+              coin: coin,
+              px: 1,
+              sz: 10,
+              side: closed == 0 ? 'B' : 'A',
+              time: _ago(ago).millisecondsSinceEpoch,
+              closedPnl: closed,
+              fee: fee,
+              feeToken: token,
+              oid: ago.inMinutes,
+              hash: '0x$coin${ago.inMinutes}',
+              dir: closed == 0 ? 'Buy' : 'Sell',
+              cloid: null);
+      final r = hlSpotRealised([
+        // A buy's fee is in the token bought: not dollars.
+        spot('@107', const Duration(days: 4), 0, 0.01, 'HYPE'),
+        spot('@107', const Duration(days: 2), 5, 0.2, 'USDC'),
+        spot('PURR/USDC', const Duration(days: 1), -1, 0.1, 'USDC'),
+        // A perp fill is no spot pair's.
+        _fill('BTC', const Duration(days: 1), buy: true, sz: 1, px: 1),
+      ]);
+      expect(r.keys.toSet(), {'@107', 'PURR/USDC'});
+      expect(r['@107']!.single.$2, closeTo(4.8, 1e-9));
+      expect(r['PURR/USDC']!.single.$2, closeTo(-1.1, 1e-9));
+    });
+
+    test(
+        'predictions: each one\'s realised P&L as Polymarket books it, at '
+        'its last event; nothing realised or no moment: none', () {
+      PredictionRecord rec(String token,
+              {bool open = false,
+              bool redeemable = false,
+              double realised = 0,
+              double unrealised = 0,
+              Duration? last}) =>
+          PredictionRecord(
+              tokenId: token,
+              open: open,
+              redeemable: redeemable,
+              size: open ? 10 : 0,
+              totalSize: 10,
+              avgPrice: 0.5,
+              entryCostUsd: open ? 5 : 0,
+              currentPrice: 0.6,
+              realizedPnlUsd: realised,
+              unrealizedPnlUsd: unrealised,
+              lastEventAt: last == null ? null : _ago(last));
+      final legs = polyRealisedLegs([
+        rec('won', realised: 3, last: const Duration(days: 2)),
+        // Resolved, waiting to be claimed: its payout.
+        rec('claim',
+            open: true,
+            redeemable: true,
+            realised: -1,
+            unrealised: 5,
+            last: const Duration(days: 1)),
+        // Open, part sold: what it realised so far.
+        rec('part', open: true, realised: 0.5, last: const Duration(hours: 5)),
+        rec('nothing', open: true, last: const Duration(hours: 1)),
+        rec('when', realised: 2),
+      ]);
+      expect([for (final l in legs) l.key], [
+        openPnlKeyRealised('pm:won'),
+        openPnlKeyRealised('pm:claim'),
+        openPnlKeyRealised('pm:part'),
+      ]);
+      expect([for (final l in legs) l.realised.single.$2], [3, 4, 0.5]);
+      expect(legs.first.realised.single.$1, _ago(const Duration(days: 2)));
+    });
+
+    test(
+        'the venue\'s own P&L under the legs: at each of its observations '
+        'the line is the venue\'s figure, what the legs do not carry held to '
+        'the next; with no legs, the venue\'s line', () {
+      final leg = OpenPnlLeg(
+          key: 'x',
+          steps: const [],
+          prices: const [],
+          realised: [(_ago(const Duration(days: 5)), 10.0)]);
+      PortfolioPnlPoint at(Duration d, double v) =>
+          PortfolioPnlPoint(timestamp: _ago(d), pnlUsd: v);
+      final points = [
+        at(const Duration(days: 30), 0),
+        at(const Duration(days: 20), 1),
+        at(const Duration(days: 3), 11.5),
+        at(const Duration(days: 1), 11.5),
+      ];
+      final venue = openPnlVenueLeg('venue:trading', points, [leg])!;
+      // Leading zero left out; unchanged moves left out.
+      expect(venue.realised, [
+        (_ago(const Duration(days: 20)), 1.0),
+        (_ago(const Duration(days: 3)), 1.5),
+      ]);
+      final legs = [leg, venue];
+      for (final p in points.skip(1)) {
+        expect(openPnlValueAt(legs, p.timestamp), closeTo(p.pnlUsd, 1e-9));
+      }
+      // Between observations the legs move it.
+      expect(openPnlValueAt(legs, _ago(const Duration(days: 4))), 11);
+      final alone = openPnlVenueLeg('venue:trading', points, const [])!;
+      expect([for (final r in alone.realised) r.$2], [1, 11.5]);
+      expect(openPnlVenueLeg('v', [at(const Duration(days: 2), 0)], const []),
+          isNull);
+    });
+
+    test(
+        'every range its own reach: a range older than the line is laid '
+        'again from its own start, zero before; ALL the whole line', () {
+      final legs = [
+        OpenPnlLeg(
+            key: 'a',
+            steps: [OpenPnlStep(_ago(const Duration(days: 2)), 1, 10)],
+            prices: _hourly(3, (_) => 12)),
+      ];
+      final changes = openPnlChanges(legs, _now);
+      final series = openPnlSeries(legs, _now)!;
+      final firsts = <DateTime>{};
+      for (final r in BalanceRange.values) {
+        final w = openPnlRangeWindow(
+            series: series, changes: changes, now: _now, range: r);
+        expect(w.values.last, closeTo(2, 1e-9), reason: r.label);
+        firsts.add(w.times.first);
+        if (r.duration case final back?) {
+          expect(w.times.first, _now.subtract(back), reason: r.label);
+          expect(w.values.first, 0, reason: r.label);
+        } else {
+          expect(w.times.first, series.times.first);
+        }
+      }
+      expect(firsts, hasLength(BalanceRange.values.length));
+      // A range inside the line is its window, nothing laid again.
+      final long = [
+        OpenPnlLeg(
+            key: 'b',
+            steps: [OpenPnlStep(_ago(const Duration(days: 40)), 1, 10)],
+            prices: _hourly(41, (_) => 12)),
+      ];
+      final longSeries = openPnlSeries(long, _now)!;
+      final week = openPnlRangeWindow(
+          series: longSeries,
+          changes: openPnlChanges(long, _now),
+          now: _now,
+          range: BalanceRange.week);
+      final clipped =
+          kuteTrendWindow(longSeries, longSeries.spanFor(BalanceRange.week));
+      expect(week.values, clipped.values);
+      expect(week.times, clipped.times);
+    });
   });
 }

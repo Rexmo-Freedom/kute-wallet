@@ -7,10 +7,12 @@
 // open positions' P&L since each was opened: ten predictions and a perp
 // held for up to six months, their prices hourly and daily; one grid,
 // laid once), a scrub and live ticks on that chart, the P&L section's
-// first frame, a range switch, a scrub frame, a venue square picked and a
-// scrub on it, and a live price tick, and how many P&L grids
-// ([pnlSeries], [openPnlSeries], up to 20,000 points each) each of them
-// lays. The numbers are printed (`PNL_PERF …`) and held to
+// first frame (its hero and venue squares drawn from the whole P&L
+// engine, openPnlGrid, laid once per venue and range), a range switch, a
+// scrub frame, a venue square picked and a scrub on it, and a live price
+// tick (the engine's pinned last point alone: no grid), and how many P&L
+// grids ([pnlSeries], [openPnlGrid], up to 20,000 points each) each of
+// them lays. The numbers are printed (`PNL_PERF …`) and held to
 // budgets well above what the screen needs now, so a regression to
 // per-frame recomputation fails.
 
@@ -80,6 +82,28 @@ class _Prices extends LivePriceNotifier {
 }
 
 const _days = 180;
+
+/// The venues' P&L now in [_sixMonths]: each series' last observation.
+double get _hlNow => _lastOf(const Duration(hours: 6));
+double get _pmNow {
+  // Predictions: rebuilt from the book at the live prices (open-0 at the
+  // feed's 0.80 by then, the others at their 0.45), as the hero draws it.
+  var realised = 0.0;
+  for (var i = 10; i < 200; i++) {
+    realised += i % 3 == 0 ? -2 : 3;
+  }
+  var open = 0.0;
+  for (var i = 0; i < 10; i++) {
+    open += (i == 0 ? 0.8 : 0.45) * 20 - 8;
+  }
+  return realised + open;
+}
+
+double _lastOf(Duration every) {
+  final n = (const Duration(days: _days).inMinutes / every.inMinutes).ceil();
+  final i = n - 1;
+  return ((i * 7) % 41) - 15.0 + i * 0.02;
+}
 
 /// [days] of P&L observations every [every], wandering above and below
 /// zero.
@@ -360,7 +384,9 @@ void main() {
     expect(find.byKey(const ValueKey('portfolio-hero-chart')), findsNothing);
     final openChart = find.byKey(const ValueKey('portfolio-hero-open-chart'));
     expect(openChart, findsOneWidget);
-    expect(firstGrids, 1);
+    // Its line once, and its range's own reach once (the oldest position
+    // four months back: 1Y, older than the line, laid from a year back).
+    expect(firstGrids, lessThanOrEqualTo(2));
 
     // A scrub on it: no grid, nothing heavy, not even the chart's own
     // widget (the plot and the line's text alone).
@@ -444,6 +470,7 @@ void main() {
 
     // The P&L section: the pill tapped, one frame (its venue squares, the
     // hero's series); the hero's chart unfolds over the next frames.
+    final sectionBefore = debugPnlSeriesGrids;
     await tester
         .tap(find.byKey(const ValueKey('portfolio-section-pill-charts')));
     final first = await _frame(tester, () => tester.pump());
@@ -451,7 +478,16 @@ void main() {
     for (var i = 0; i < 10; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
-    expect(find.byKey(const ValueKey('portfolio-hero-chart')), findsOneWidget);
+    // The whole P&L engine (the hero's and the venue squares'): each
+    // venue's line and both venues' once, their range's own reach once.
+    final sectionGrids = debugPnlSeriesGrids - sectionBefore;
+    expect(sectionGrids, lessThanOrEqualTo(6),
+        reason: 'grids laid opening the P&L section');
+    final heroChart = find.byKey(const ValueKey('portfolio-hero-chart'));
+    expect(heroChart, findsOneWidget);
+    // Its last point is the P&L now: the venues' own figures added.
+    expect(tester.widget<KuteTrendChart>(heroChart).values.last,
+        closeTo(_hlNow + _pmNow, 1e-6));
 
     // A range switch: 1Y tapped, one frame.
     await tester.tap(find.text('1Y'));
@@ -533,7 +569,8 @@ void main() {
     }
     await venueGesture.up();
     await tester.pump(const Duration(milliseconds: 100));
-    expect(pick.grids, lessThanOrEqualTo(6), reason: 'grids on a pick');
+    // The venue's window is its square's already: nothing laid.
+    expect(pick.grids, 0, reason: 'grids on a pick');
     expect(venueScrubGrids, 0, reason: 'grids laid scrubbing a venue');
     expect(venueScrubHeavy, 0,
         reason: 'hero or section rebuilt scrubbing a venue');
@@ -550,7 +587,7 @@ void main() {
     });
 
     // ignore: avoid_print
-    print('PNL_PERF mount=$firstGrids grids '
+    print('PNL_PERF mount=$firstGrids grids sectionSettle=$sectionGrids grids '
         'openScrub=${(openScrubMs / openMoves).toStringAsFixed(2)}ms/frame '
         'openTick=${openTick.ms.toStringAsFixed(1)}ms '
         'openRange=${openRange.ms.toStringAsFixed(1)}ms pick=${pick.ms.toStringAsFixed(1)}ms/${pick.grids} grids '
@@ -573,7 +610,8 @@ void main() {
         reason: 'another market\'s tick rebuilt the section');
     expect(first.grids, lessThanOrEqualTo(6));
     expect(range.grids, lessThanOrEqualTo(6));
-    expect(tick.grids, lessThanOrEqualTo(6));
+    // A tick moves the line's pinned last point alone: no grid.
+    expect(tick.grids, 0);
     // The hero's P&L line is there to follow the finger.
     expect(find.byKey(const ValueKey('portfolio-hero-change')),
         findsOneWidget);

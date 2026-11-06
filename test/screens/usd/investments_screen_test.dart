@@ -73,6 +73,8 @@ import 'package:kute/screens/portfolio/portfolio_screen.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/investment_action_bar.dart';
 import 'package:kute/screens/shared/investment_balance_header.dart';
+import 'package:kute/screens/activity/activity_history_screen.dart'
+    show ActivityHistoryScreen;
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart'
     show KuteBarContext, kuteBarContextProvider, kuteBarTop;
@@ -1029,12 +1031,32 @@ void main() {
     expect(find.byKey(const ValueKey('portfolio-section-balances')),
         findsNothing);
 
-    // Re-picking the section on screen is not a new view.
+    // Re-picking the section on screen is not a new view: its pill reads
+    // "→ See all" there and opens the whole Investments activity (the
+    // Bitcoin home's mechanism); back, the Portfolio as it was.
     final before =
         events.where((e) => e.$1 == 'analytics_tab_selected').length;
+    expect(
+        find.descendant(
+            of: find.byKey(const ValueKey('portfolio-section-pill-activity')),
+            matching: find.text(_l10n(tester).seeAll)),
+        findsOneWidget);
     await pickSection(tester, 'activity');
     expect(events.where((e) => e.$1 == 'analytics_tab_selected').length,
         before);
+    expect(find.byType(ActivityHistoryScreen), findsOneWidget);
+    // Its push settled (a back during the transition is dropped).
+    await tester.pump(const Duration(milliseconds: 600));
+    // Back (the harness has no router over the root navigator the screen
+    // is pushed on, so the route is popped as its back button would).
+    Navigator.of(tester.element(find.byType(ActivityHistoryScreen)),
+            rootNavigator: true)
+        .pop();
+    for (var i = 0; i < 15; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.byType(ActivityHistoryScreen), findsNothing);
+    expect(_sectionOn(tester), 'activity');
 
     // Away and back: the Portfolio comes back on the section it was left
     // on. Opening the screen is no pill switch, so no strip event.

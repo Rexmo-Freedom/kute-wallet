@@ -35,7 +35,10 @@
 //       - ACTIVITY (portfolio_activity.dart, PortfolioActivitySection):
 //         the bets placed, sold, won or lost and the Investing opens and
 //         closes, the newest four as the home's Latest squares, the next
-//         two as its Earlier rows, then its "See all".
+//         two as its Earlier rows. No See all button under them: once
+//         Activity is on screen its pill reads "→ See all" and a second
+//         tap opens the whole Investments activity (the Bitcoin home's
+//         mechanism, [_SectionPills]).
 //
 // Every section starts [kPortfolioSectionEmptyTop] under the strip, its
 // empty state the one treatment (Sal, portfolio_empty_state.dart), and
@@ -71,6 +74,9 @@ import 'package:kute/screens/portfolio/open_investments_screen.dart'
     show portfolioOpenRanked, portfolioVenueLists;
 import 'package:kute/screens/portfolio/portfolio_activity.dart'
     show PortfolioActivitySection;
+import 'package:kute/screens/activity/activity_history_screen.dart'
+    show showActivityHistory;
+import 'package:kute/screens/shared/all_activity.dart' show ActivityScope;
 import 'package:kute/screens/portfolio/portfolio_balance_breakdown.dart';
 import 'package:kute/screens/portfolio/portfolio_empty_state.dart';
 import 'package:kute/screens/portfolio/portfolio_filters.dart';
@@ -407,6 +413,14 @@ class _ChartsBox extends ConsumerWidget {
 /// Positions | P&L | Activity: the app's switch row (KutePillTabs at
 /// [kutePillSwitchSize]): equal thirds across the width, the one white
 /// pill sliding to the picked one. Each pill keeps its key.
+///
+/// ACTIVITY'S SEE ALL (founder, 6 November 2026), the Bitcoin home's own
+/// mechanism (home_analytics_widget.dart, activityPillSeesAll): once
+/// Activity is the section on screen its pill stops naming it and names
+/// what a second tap does, "→ See all" (the arrow, l10n seeAll), and that
+/// second tap opens the Activity screen on the Investments activity
+/// ([portfolioSeeAllActivity]); on another section it reads Activity
+/// again. The section itself has no See all button of its own.
 class _SectionPills extends StatelessWidget {
   const _SectionPills({required this.selected, required this.onPick});
 
@@ -416,20 +430,44 @@ class _SectionPills extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sections = PortfolioSection.values;
+    final seesAll = selected == PortfolioSection.activity;
     return KutePillTabs(
       horizontalPadding: 0,
       items: [
         for (final s in sections)
-          KutePillItem(
-            key: ValueKey('portfolio-section-pill-${s.key}'),
-            label: portfolioSectionName(context.l10n, s),
-          ),
+          if (s == PortfolioSection.activity && seesAll)
+            KutePillItem(
+              key: ValueKey('portfolio-section-pill-${s.key}'),
+              label: context.l10n.seeAll,
+              icon: Icons.arrow_forward_rounded,
+            )
+          else
+            KutePillItem(
+              key: ValueKey('portfolio-section-pill-${s.key}'),
+              label: portfolioSectionName(context.l10n, s),
+            ),
       ],
       selectedIndex: sections.indexOf(selected),
-      onTap: (i) => onPick(sections[i]),
+      onTap: (i) {
+        final tapped = sections[i];
+        if (tapped == PortfolioSection.activity && seesAll) {
+          portfolioSeeAllActivity(context);
+          return;
+        }
+        onPick(tapped);
+      },
     );
   }
 }
+
+/// The Activity pill's second tap (see [_SectionPills]): the Activity
+/// screen on the Investments activity, as the section's old See all
+/// button opened it (`activity_history_opened` {entry_source: portfolio,
+/// scope: investments}).
+void portfolioSeeAllActivity(BuildContext context) => showActivityHistory(
+    context,
+    source: 'portfolio',
+    scope: ActivityScope.investments);
 
 /// A section's name as its pill writes it.
 String portfolioSectionName(AppLocalizations l10n, PortfolioSection s) =>

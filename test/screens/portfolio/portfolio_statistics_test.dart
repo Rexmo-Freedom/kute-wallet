@@ -17,6 +17,7 @@ import 'package:kute/providers/hyperliquid_live_prices_provider.dart'
     show hyperliquidLiveMidProvider;
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
+import 'package:kute/providers/open_pnl_history_provider.dart';
 import 'package:kute/screens/hyperliquid/components/hl_position_detail_sheet.dart';
 import 'package:kute/providers/hyperliquid_sats_pnl_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
@@ -39,6 +40,9 @@ import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/services/portfolio/portfolio_categories.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
+
+import '../../helpers/portfolio_overrides.dart'
+    show kPortfolioNoOpenPnlSources;
 
 PortfolioPerformance _history() => PortfolioPerformance(
         points: [
@@ -1926,6 +1930,13 @@ void main() {
             scope: StatisticsScope.active,
             textScale: textScale,
             size: size,
+            // The squares' engine (the hero's): nothing open, no prices
+            // read; the fills' realised steps under each venue's own line.
+            overrides: [
+              openPnlBookProvider.overrideWith((_) => OpenPnlBook.empty),
+              openPnlSourcesProvider
+                  .overrideWithValue(kPortfolioNoOpenPnlSources),
+            ],
             home: SingleChildScrollView(
               child: PortfolioStatisticsOverview(
                   trading: trading,

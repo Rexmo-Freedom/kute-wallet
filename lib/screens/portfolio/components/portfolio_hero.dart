@@ -648,10 +648,13 @@ class _PortfolioHeroChartState extends ConsumerState<PortfolioHeroChart> {
         : known.length == 1
             ? known.values.single
             : PortfolioPerformance.combine(known.values.toList());
-    final series = pnlSeries(data, widget.now ?? DateTime.now());
+    // The P&L now, the line's last point: the venues' own (the
+    // predictions at the live prices), without laying a line.
+    final live = data.totalPnlUsd ??
+        (data.points.isEmpty ? 0.0 : data.points.last.pnlUsd);
     final quiet = _quiet(context);
     // Never traded: the figure alone; the sections say it with Sal.
-    if (!series.values.any((v) => v != 0)) {
+    if (live == 0 && !data.points.any((p) => p.pnlUsd != 0)) {
       return _layout(
           state: 'none',
           line: SizedBox(
@@ -659,14 +662,47 @@ class _PortfolioHeroChartState extends ConsumerState<PortfolioHeroChart> {
           chart: null);
     }
 
-    final shown = kuteTrendWindow(series, series.spanFor(range));
-    final values = shown.values;
-    final times = shown.times;
+    // THE SAME ENGINE AS THE POSITIONS CHART (founder, 6 November 2026;
+    // providers/open_pnl_history_provider.dart, "the whole P&L history"):
+    // every position's realised P&L stepping at its closes, sells and
+    // redeems, plus what the positions held then were winning or losing,
+    // each from its own entry; the range's points laid once per range and
+    // venue, the last one pinned to the P&L now. Its shapes while it is
+    // read; nothing it can chart: the venues' own published line.
+    final engineVenue =
+        picked ?? (known.length == 1 ? known.keys.single : null);
+    final status = ref.watch(pnlChartStatusProvider(engineVenue));
+    if (status == OpenPnlChartStatus.loading) {
+      return _layout(
+          state: 'loading',
+          line: const _HeroLineSkeleton(),
+          chart: const _HeroPlotSkeleton());
+    }
+    final List<double> values;
+    final List<DateTime> times;
+    final bool daily;
+    var leftOut = const <String>{};
+    final window = status == OpenPnlChartStatus.chart
+        ? ref.watch(
+            pnlWindowProvider((range: range, venue: engineVenue)))
+        : null;
+    if (window != null && window.values.isNotEmpty) {
+      values = [...window.values];
+      values[values.length - 1] = live;
+      times = window.times;
+      daily = window.daily;
+      leftOut = ref.watch(pnlLeftOutProvider(engineVenue));
+    } else {
+      final series = pnlSeries(data, widget.now ?? DateTime.now());
+      final shown = kuteTrendWindow(series, series.spanFor(range));
+      values = shown.values;
+      times = shown.times;
+      // On daily (or coarser) buckets a point at midnight closes the day
+      // before; finer buckets say when in the day.
+      daily =
+          series.strideFor(series.spanFor(range)) * series.cellMinutes >= 1440;
+    }
     final locale = kuteChartLocale(context);
-    // On daily (or coarser) buckets a point at midnight closes the day
-    // before; finer buckets say when in the day.
-    final daily =
-        series.strideFor(series.spanFor(range)) * series.cellMinutes >= 1440;
     String timeOf(DateTime t) {
       final d = daily && t.hour == 0 && t.minute == 0
           ? t.subtract(const Duration(minutes: 1))
@@ -683,8 +719,7 @@ class _PortfolioHeroChartState extends ConsumerState<PortfolioHeroChart> {
     Widget change(KuteTrendPoint? point) {
       final scrub =
           point != null && point.index < values.length ? point : null;
-      final pnl = pnlRangeChange(values, range, at: scrub?.value) ??
-          series.values.last;
+      final pnl = pnlRangeChange(values, range, at: scrub?.value) ?? live;
       final tail = scrub != null
           ? timeOf(scrub.time ?? times.last)
           : kuteTrendPeriodLabel(l10n, range);
@@ -748,10 +783,13 @@ class _PortfolioHeroChartState extends ConsumerState<PortfolioHeroChart> {
             key: const ValueKey('portfolio-hero-chart'),
             values: values,
             times: times,
+            // The figure's own colour: the range's P&L, green or red.
             lineColor: values.isEmpty
                 ? c.textPrimary
-                : pnlResultColor(c, values.last - values.first),
+                : pnlResultColor(c, pnlRangeChange(values, range) ?? 0),
             zeroSplit: true,
+            // The Positions chart's look: the dashed hairline at zero.
+            baseline: 0,
             height: kKuteTrendPlotHeightCompact.h,
             onScrub: (p) => _scrub.value = p,
             // Once per scrub gesture.
@@ -764,10 +802,36 @@ class _PortfolioHeroChartState extends ConsumerState<PortfolioHeroChart> {
                 .read(pnlChartRangeProvider.notifier)
                 .state = BalanceRange.values[i],
           ),
+          if (leftOut.isNotEmpty) _NotCharted(count: leftOut.length),
         ],
       ),
     );
   }
+}
+
+/// "1 position not charted (history unavailable)" under a chart: a
+/// position held now whose line could not be read (the figure still
+/// counts it).
+class _NotCharted extends StatelessWidget {
+  const _NotCharted({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: EdgeInsets.only(top: 10.h),
+        child: Text(
+          context.l10n.portfolioOpenPnlNotCharted(count),
+          key: const ValueKey('portfolio-hero-left-out'),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: context.colors.textSecondary,
+            fontSize: 12.sp,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      );
 }
 
 /// Positions: what the open positions made or lost so far, both venues

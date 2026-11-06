@@ -52,7 +52,11 @@ import 'package:kute/models/balance_history.dart';
 import 'package:kute/models/hyperliquid_market.dart' show HlFill;
 import 'package:kute/models/hyperliquid_model.dart' show HyperliquidCandle;
 import 'package:kute/models/portfolio_performance.dart'
-    show debugPnlSeriesGrids;
+    show
+        PortfolioPnlPoint,
+        PredictionRecord,
+        debugPnlSeriesGrids,
+        distinctPredictionRecords;
 import 'package:polybrainz_polymarket/polybrainz_polymarket.dart'
     show Activity;
 
@@ -89,31 +93,53 @@ class OpenPnlStep {
 /// A price at a moment, oldest first in a list.
 typedef OpenPnlPrice = (DateTime, double);
 
-/// One open position charted: its stretches ([steps], oldest first, the
-/// first one its open) and its market's [prices] (oldest first, from
-/// before the open where the venue has them).
+/// A position's realised P&L up to a moment: (when, all it realised so
+/// far), oldest first in a list.
+typedef OpenPnlRealised = (DateTime, double);
+
+/// One position charted: its stretches ([steps], oldest first, the first
+/// one its open; a stretch of 0 is flat), its market's [prices] (oldest
+/// first, from before the open where the venue has them) and, on the
+/// whole P&L history ([pnlHistoryLegs] and the others), what it realised
+/// ([realised]: closes, sells, redeems, fees, each step the running
+/// total). The Positions chart's legs realise nothing: they are what is
+/// open now.
 @immutable
 class OpenPnlLeg {
-  const OpenPnlLeg(
-      {required this.key, required this.steps, required this.prices})
-      : assert(steps.length > 0);
+  const OpenPnlLeg({
+    required this.key,
+    required this.steps,
+    required this.prices,
+    this.realised = const [],
+  }) : assert(steps.length > 0 || realised.length > 0);
 
   /// The position's key ([openPnlKeyPerp] and the others).
   final String key;
   final List<OpenPnlStep> steps;
   final List<OpenPnlPrice> prices;
+  final List<OpenPnlRealised> realised;
 
-  /// When the position held now was opened.
-  DateTime get openedAt => steps.first.at;
+  /// When the position was opened (its first stretch, or its first
+  /// realised step when it has no stretch charted).
+  DateTime get openedAt {
+    if (steps.isEmpty) return realised.first.$1;
+    if (realised.isEmpty) return steps.first.at;
+    final a = steps.first.at, b = realised.first.$1;
+    return b.isBefore(a) ? b : a;
+  }
 
-  /// Its P&L at [t]: 0 before it was opened; else the stretch at [t]
-  /// against the last price at or before [t] (the stretch's entry when no
-  /// price is known yet, so the open itself reads 0).
+  /// Its P&L at [t]: what it had realised by [t], plus 0 before its first
+  /// stretch, else the stretch at [t] against the last price at or before
+  /// [t] (the stretch's entry when no price is known yet, so the open
+  /// itself reads 0).
   double valueAt(DateTime t) {
-    if (t.isBefore(openedAt)) return 0;
+    final done = realised.isEmpty
+        ? 0.0
+        : _lastAtOrBefore(realised, t, (r) => r.$1)?.$2 ?? 0.0;
+    if (steps.isEmpty || t.isBefore(steps.first.at)) return done;
     final step = _lastAtOrBefore(steps, t, (s) => s.at)!;
     final price = _lastAtOrBefore(prices, t, (p) => p.$1);
-    return step.pnlAt(price?.$2 ?? step.entry);
+    return done + step.pnlAt(price?.$2 ?? step.entry);
   }
 }
 
@@ -315,6 +341,237 @@ List<OpenPnlStep>? polyOpenSteps({
 
 DateTime _local(int ms) => DateTime.fromMillisecondsSinceEpoch(ms);
 
+// ─────────────────────── the whole P&L history ───────────────────────
+//
+// THE PORTFOLIO'S P&L OVER TIME, DRAWN AS THE POSITIONS CHART IS (founder,
+// 6 November 2026: the P&L and Activity heroes "use the same detailed
+// engine as the Positions chart"). The account's P&L at a moment t is
+// every position's
+//
+//     realised(t) + quantity(t) × (price(t) − entry(t))
+//
+// realised(t) stepping at each close, sell, redeem and fee, the second
+// term what the position held at t was winning or losing then, from its
+// own entry, at its market's prices:
+//
+//   * a Hyperliquid perp ([hlPerpHistory]): every fill on its coin, oldest
+//     first: an increase moves the average entry (the venue's weighted
+//     average), a reduction realises (price − entry) on what it closes, a
+//     flip closes the one side and opens the other at that fill, and every
+//     fill's dollar fee is paid out of the realised; between fills it is
+//     marked at the coin's candles. When the fills read do not reach back
+//     to the position's own open (the venue keeps the latest fills only),
+//     what was held before the first fill read is marked from that fill's
+//     price (its moves from there on, never what it made before), and the
+//     venue's own P&L under the line carries the rest ([openPnlVenueLeg]),
+//     so nothing is counted twice;
+//   * a Hyperliquid spot holding: its sells' realised P&L as the venue
+//     books it ([hlSpotRealised]; spot fill prices are in raw pair units on
+//     some pairs, so they are never priced by hand), and the holding held
+//     now as on the Positions chart (its recorded cost);
+//   * a prediction: its realised P&L as Polymarket books it (sells and
+//     claims, fees included; a resolved one at its payout) at its last
+//     event ([polyRealisedLegs]), and the position held now as on the
+//     Positions chart;
+//   * under them all, each venue's own published P&L ([openPnlVenueLeg]):
+//     at every moment the venue published its figure the line is that
+//     figure, what the positions charted do not carry held from there.
+
+/// What a Hyperliquid perp's fills say it did ([hlPerpHistory]): its
+/// stretches (0 where it was flat) and its realised steps; [assumedEntry]
+/// when it was already held before the first fill read (its entry then
+/// marked from that fill's price).
+typedef HlPerpHistory = ({
+  List<OpenPnlStep> steps,
+  List<OpenPnlRealised> realised,
+  bool assumedEntry,
+});
+
+/// A fill's fee is in dollars (USDC, or a USD-pegged quote on the newer
+/// perps) and so comes out of the realised; a fee in the bought token (a
+/// spot buy) does not.
+bool _usdFee(HlFill f) =>
+    f.feeToken.isEmpty || f.feeToken.toUpperCase().startsWith('USD');
+
+/// Whether [f] is a spot fill (a pair's wire coin "@107" or "PURR/USDC",
+/// or a plain Buy / Sell); a perp's say Open / Close Long / Short.
+bool hlFillIsSpot(HlFill f) =>
+    f.coin.startsWith('@') ||
+    f.coin.contains('/') ||
+    f.dir == 'Buy' ||
+    f.dir == 'Sell';
+
+/// The whole history of the Hyperliquid perp on [coin] from its [fills]
+/// (see the section header): null without a fill on it. [szi] and
+/// [entryPx]: the position open now as the venue reports it (null: flat
+/// now), which the last stretch is (its entry the venue's own, unless the
+/// fills never reached its open).
+HlPerpHistory? hlPerpHistory({
+  required String coin,
+  required Iterable<HlFill> fills,
+  double? szi,
+  double? entryPx,
+}) {
+  final mine = fills.where((f) => f.coin == coin && f.sz > 0).toList()
+    ..sort((a, b) => a.time.compareTo(b.time));
+  if (mine.isEmpty) return null;
+  bool flat(double v) => v.abs() <= kOpenPnlFlat;
+  bool sameSide(double a, double b) => !flat(a) && !flat(b) && a.sign == b.sign;
+  var pos = mine.first.startPosition ?? 0.0;
+  var entry = 0.0;
+  var assumed = false;
+  final steps = <OpenPnlStep>[];
+  final realised = <OpenPnlRealised>[];
+  var done = 0.0;
+  if (!flat(pos)) {
+    // Held before the first fill read: marked from its price.
+    entry = mine.first.px;
+    assumed = true;
+  }
+  for (final f in mine) {
+    var start = f.startPosition ?? pos;
+    if ((start - pos).abs() > math.max(kOpenPnlFlat, start.abs() * 1e-6)) {
+      // A fill the history does not hold moved it: the venue's own
+      // position before this fill stands; a new side's entry is marked
+      // here.
+      if (!sameSide(start, pos)) {
+        entry = f.px;
+        if (!flat(start)) assumed = true;
+      }
+    }
+    if (flat(start)) start = 0;
+    final end = start + (f.isBuy ? f.sz : -f.sz);
+    if (flat(start)) {
+      entry = f.px;
+    } else if (sameSide(start, end) && end.abs() > start.abs()) {
+      entry = (start.abs() * entry + (end.abs() - start.abs()) * f.px) /
+          end.abs();
+    } else {
+      // A reduction, a close or a flip: what it closes is realised.
+      final closed =
+          sameSide(start, end) ? start.abs() - end.abs() : start.abs();
+      done += closed * (f.px - entry) * start.sign;
+      if (!flat(end) && !sameSide(start, end)) entry = f.px;
+    }
+    if (_usdFee(f)) done -= f.fee;
+    pos = flat(end) ? 0 : end;
+    final at = _local(f.time);
+    steps.add(OpenPnlStep(at, pos, pos == 0 ? 0 : entry));
+    realised.add((at, done));
+  }
+  final open = szi != null && !flat(szi);
+  final last = steps.removeLast();
+  if (open) {
+    // The last stretch is the position as the venue reports it now (its
+    // own entry, unless the fills never reached its open: then the mark
+    // the line started from).
+    final sideKept = sameSide(last.qty, szi);
+    steps.add(OpenPnlStep(last.at, szi,
+        assumed && sideKept ? last.entry : (entryPx ?? last.entry)));
+  } else {
+    // Flat now, whatever the fills read add up to.
+    steps.add(OpenPnlStep(last.at, 0, 0));
+  }
+  return (
+    steps: _merged(steps),
+    realised: _mergedRealised(realised),
+    assumedEntry: assumed,
+  );
+}
+
+/// Realised steps sharing a moment kept as the last of them.
+List<OpenPnlRealised> _mergedRealised(List<OpenPnlRealised> steps) {
+  final out = <OpenPnlRealised>[];
+  for (final r in steps) {
+    if (out.isNotEmpty && out.last.$1 == r.$1) {
+      out[out.length - 1] = r;
+    } else {
+      out.add(r);
+    }
+  }
+  return out;
+}
+
+/// The realised P&L of the spot fills on each pair, as the venue books it
+/// (each fill's closedPnl, its dollar fee out of it), by the fill's coin;
+/// a pair that never realised anything is left out.
+Map<String, List<OpenPnlRealised>> hlSpotRealised(Iterable<HlFill> fills) {
+  final byCoin = <String, List<HlFill>>{};
+  for (final f in fills) {
+    if (f.sz > 0 && hlFillIsSpot(f)) (byCoin[f.coin] ??= []).add(f);
+  }
+  final out = <String, List<OpenPnlRealised>>{};
+  for (final MapEntry(key: coin, value: list) in byCoin.entries) {
+    list.sort((a, b) => a.time.compareTo(b.time));
+    var done = 0.0;
+    final steps = <OpenPnlRealised>[];
+    for (final f in list) {
+      final moved = f.closedPnl + (_usdFee(f) ? -f.fee : 0.0);
+      if (moved == 0 || !moved.isFinite) continue;
+      done += moved;
+      steps.add((_local(f.time), done));
+    }
+    if (steps.isNotEmpty) out[coin] = _mergedRealised(steps);
+  }
+  return out;
+}
+
+/// The key of a realised-only leg: a spot pair's sells, a prediction's
+/// realised P&L.
+String openPnlKeyRealised(String id) => 'realised:$id';
+
+/// Every prediction's realised P&L as Polymarket books it ([records], the
+/// Data API's positions): a closed one's result, a resolved one waiting
+/// to be claimed at its payout, an open one's sells so far; each as one
+/// step at its last event (its first entry when the venue gives no last
+/// event). A prediction with nothing realised, or no moment at all, is
+/// left out (the live figure the line ends on still counts it).
+List<OpenPnlLeg> polyRealisedLegs(List<PredictionRecord> records) => [
+      for (final r in distinctPredictionRecords(records))
+        if ((r.decidedPnlUsd ?? r.realizedPnlUsd) case final v
+            when v != 0 && v.isFinite)
+          if ((r.lastEventAt ?? r.firstEntryAt)?.toLocal() case final at?)
+            OpenPnlLeg(
+              key: openPnlKeyRealised('pm:${r.tokenId}'),
+              steps: const [],
+              prices: const [],
+              realised: [(at, v)],
+            ),
+    ];
+
+/// THE VENUE'S OWN P&L UNDER THE ENGINE ([points], the venue's published
+/// observations, oldest first; [legs] the venue's positions charted): one
+/// realised-only leg holding, from each observation on, what the venue
+/// counted then that the positions charted do not (the venue's P&L less
+/// the legs' sum at that moment). So the line is the venue's own figure at
+/// every moment it published one, and the positions' detail between them:
+/// what no fill or trade carries (funding, rewards, fees booked apart, a
+/// position closed before the fills read, the predictions a cut book does
+/// not hold, a closed prediction's swings before it was decided) is in
+/// the line at the venue's own moments, never piled onto its last point;
+/// before the first fill or trade read the line is the venue's own; with
+/// nothing charted at all it IS the venue's line. Observations before the
+/// first one off zero, and moves under a millionth, are left out. Null
+/// when there is nothing to hold.
+OpenPnlLeg? openPnlVenueLeg(
+    String key, List<PortfolioPnlPoint> points, List<OpenPnlLeg> legs) {
+  final steps = <OpenPnlRealised>[];
+  for (final p in points) {
+    if (!p.pnlUsd.isFinite) continue;
+    final at = p.timestamp.toLocal();
+    var rest = p.pnlUsd - openPnlValueAt(legs, at);
+    if (rest.abs() < 1e-6) rest = 0;
+    if (steps.isEmpty ? rest == 0 : (rest - steps.last.$2).abs() < 1e-6) {
+      continue;
+    }
+    steps.add((at, rest));
+  }
+  if (steps.isEmpty) return null;
+  return OpenPnlLeg(
+      key: key, steps: const [], prices: const [], realised: steps);
+}
+
+
 /// A Hyperliquid candle read as prices: the first candle's open at its
 /// open, then each close at its close (the candle still running at
 /// [now]), oldest first.
@@ -371,10 +628,10 @@ List<(String, Duration)> openPnlCandlePlan(Duration age) {
   ];
 }
 
-/// The open positions' P&L added, as the moments it moved: (when, the sum
-/// of every leg at that moment), oldest first, up to [now]. A leg moves
-/// at its open, at each of its stretches and at each of its prices after
-/// the open.
+/// The positions' P&L added, as the moments it moved: (when, the sum of
+/// every leg at that moment), oldest first, up to [now]. A leg moves at
+/// its open, at each of its stretches, at each of its prices after its
+/// first stretch and at each of its realised steps.
 List<(DateTime, double)> openPnlChanges(List<OpenPnlLeg> legs, DateTime now) {
   final nowUs = now.microsecondsSinceEpoch;
   final events = <(int, int)>[];
@@ -387,8 +644,15 @@ List<(DateTime, double)> openPnlChanges(List<OpenPnlLeg> legs, DateTime now) {
       final us = s.at.microsecondsSinceEpoch;
       if (us > open && us <= nowUs) events.add((us, k));
     }
-    for (final p in leg.prices) {
-      final us = p.$1.microsecondsSinceEpoch;
+    if (leg.steps.isNotEmpty) {
+      final held = leg.steps.first.at.microsecondsSinceEpoch;
+      for (final p in leg.prices) {
+        final us = p.$1.microsecondsSinceEpoch;
+        if (us > held && us > open && us <= nowUs) events.add((us, k));
+      }
+    }
+    for (final r in leg.realised) {
+      final us = r.$1.microsecondsSinceEpoch;
       if (us > open && us <= nowUs) events.add((us, k));
     }
   }
@@ -396,6 +660,7 @@ List<(DateTime, double)> openPnlChanges(List<OpenPnlLeg> legs, DateTime now) {
   final n = legs.length;
   final stepAt = List<int>.filled(n, -1);
   final priceAt = List<int>.filled(n, -1);
+  final realAt = List<int>.filled(n, -1);
   final contrib = List<double>.filled(n, 0);
   final out = <(DateTime, double)>[];
   var i = 0;
@@ -412,9 +677,17 @@ List<(DateTime, double)> openPnlChanges(List<OpenPnlLeg> legs, DateTime now) {
           leg.prices[priceAt[k] + 1].$1.microsecondsSinceEpoch <= us) {
         priceAt[k]++;
       }
-      final step = leg.steps[math.max(0, stepAt[k])];
-      final price = priceAt[k] < 0 ? step.entry : leg.prices[priceAt[k]].$2;
-      contrib[k] = step.pnlAt(price);
+      while (realAt[k] + 1 < leg.realised.length &&
+          leg.realised[realAt[k] + 1].$1.microsecondsSinceEpoch <= us) {
+        realAt[k]++;
+      }
+      var v = realAt[k] < 0 ? 0.0 : leg.realised[realAt[k]].$2;
+      if (stepAt[k] >= 0) {
+        final step = leg.steps[stepAt[k]];
+        final price = priceAt[k] < 0 ? step.entry : leg.prices[priceAt[k]].$2;
+        v += step.pnlAt(price);
+      }
+      contrib[k] = v;
       i++;
     }
     // Added afresh at each moment, so no rounding builds up.
@@ -458,20 +731,84 @@ BalanceSeries? openPnlSeries(List<OpenPnlLeg> legs, DateTime now) {
   final end = now.toLocal();
   final oldest = openPnlOldest(legs, end);
   if (oldest == null) return null;
-  debugPnlSeriesGrids++;
+  return openPnlGrid(
+      changes: openPnlChanges(legs, end),
+      first: openPnlLeadIn(oldest, end),
+      now: end);
+}
+
+/// Where a line whose oldest position opened at [oldest] starts: a
+/// twelfth of its history before (at least an hour; the Balance charts'
+/// lead-in).
+DateTime openPnlLeadIn(DateTime oldest, DateTime now) {
   var lead = Duration(
       microseconds:
-          (end.difference(oldest).inMicroseconds * kBalanceHistoryLeadIn)
+          (now.difference(oldest).inMicroseconds * kBalanceHistoryLeadIn)
               .round());
   if (lead < kBalanceMinLeadIn) lead = kBalanceMinLeadIn;
-  final first = oldest.subtract(lead);
-  final changes = openPnlChanges(legs, end);
+  return oldest.subtract(lead);
+}
+
+/// [changes] ([openPnlChanges]) laid on the grid from [first] to [now],
+/// held at 0 before the first change.
+BalanceSeries openPnlGrid({
+  required List<(DateTime, double)> changes,
+  required DateTime first,
+  required DateTime now,
+}) {
+  debugPnlSeriesGrids++;
   return stepGridSeries(
     first: first,
-    now: end,
+    now: now,
     opening: 0,
     changes: changes.isEmpty ? [(first, 0.0)] : changes,
     current: changes.isEmpty ? 0.0 : changes.last.$2,
+  );
+}
+
+/// The points [range] draws of a line ([series], laid from its lead-in by
+/// [openPnlGrid] out of [changes]) ending [now]: EVERY RANGE
+/// SHOWS ITS OWN REACH (founder, 6 November 2026: "the Positions chart
+/// ignores the 1W/1M/3M/1Y/ALL buttons": a line younger than a range drew
+/// the same whole line on every range longer than it). A range that
+/// reaches back past the line's start is laid again from the range's
+/// start, held at 0 before the first position (nothing was open or
+/// realised then); ALL is the whole line from its lead-in; a range inside
+/// the line is its window ([BalanceSeries.spanFor]). The buckets are the
+/// range's own ([kuteTrendWindow]'s rule). With [daily] whether a bucket
+/// is a day or more, so a moment is written as a day.
+({List<double> values, List<DateTime> times, bool daily}) openPnlRangeWindow({
+  required BalanceSeries series,
+  required List<(DateTime, double)> changes,
+  required DateTime now,
+  required BalanceRange range,
+}) {
+  final back = range.duration;
+  var grid = series;
+  var span = series.spanFor(range);
+  if (back != null && series.length > 0) {
+    final from = now.toLocal().subtract(back);
+    if (series.times.first.isAfter(from)) {
+      grid = openPnlGrid(changes: changes, first: from, now: now.toLocal());
+      span = grid.extent;
+    }
+  }
+  final n = grid.length;
+  if (n == 0) return (values: const [], times: const [], daily: false);
+  final start = (grid.extent - span).ceil().clamp(0, n - 1).toInt();
+  final stride = grid.strideFor(span);
+  final values = <double>[];
+  final times = <DateTime>[];
+  for (var i = start; i < n; i++) {
+    if (i == start || grid.isDrawn(i, stride)) {
+      values.add(grid.values[i]);
+      times.add(grid.times[i]);
+    }
+  }
+  return (
+    values: values,
+    times: times,
+    daily: grid.strideFor(span) * grid.cellMinutes >= 1440,
   );
 }
 
