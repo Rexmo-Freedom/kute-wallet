@@ -27,6 +27,7 @@ import 'package:kute/screens/shared/kute_bar_context.dart'
 import 'package:kute/screens/shared/no_activity_state.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/usd/components/dollars_activity_tab.dart';
+import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
 import 'package:kute/screens/usd/usd_account_screen.dart';
 import 'package:polybrainz_polymarket/polybrainz_polymarket.dart'
     show Activity;
@@ -347,6 +348,39 @@ void main() {
     expect(row, findsOneWidget);
     final list = tester.getRect(find.byKey(const ValueKey('dollars-activity-list')));
     expect(tester.getSize(row).width, greaterThan(list.width * 0.8));
+    expect(tester.takeException(), isNull);
+    await unmountInvestments(tester);
+  });
+
+  testWidgets(
+      'an open-position square says what it is winning in money: "▲ \$0.61" '
+      'over "5.4%" in the corner, the value the big number (founder, 6 '
+      'November 2026)', (tester) async {
+    await pumpInvestments(tester, overrides: [
+      hyperliquidTradingProvider.overrideWith(() => PortfolioTestTrading(
+          const HyperliquidTradingState(isInitialized: true, positions: [
+            HlPerpPosition(
+                coin: 'BTC',
+                szi: 0.0001,
+                entryPx: 100000,
+                positionValue: 10.61,
+                unrealizedPnl: 0.61,
+                returnOnEquity: 0.054,
+                liquidationPx: null,
+                marginUsed: 11.3,
+                leverageType: 'cross',
+                leverageValue: 1,
+                maxLeverage: 40),
+          ]))),
+    ]);
+    final squares = find.byKey(const ValueKey('dollars-activity-squares'));
+    String figure(String key) => tester
+        .widget<RollingFigure>(find.descendant(
+            of: squares, matching: find.byKey(ValueKey(key))))
+        .text;
+    expect(figure('portfolio-row-pnl-usd'), r'▲ $0.61');
+    expect(figure('portfolio-row-pnl'), '5.4%');
+    expect(figure('portfolio-row-value'), r'$11.91');
     expect(tester.takeException(), isNull);
     await unmountInvestments(tester);
   });
