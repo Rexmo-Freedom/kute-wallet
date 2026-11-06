@@ -11601,6 +11601,17 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
+  String get balanceGoalsHeading => 'Cíle';
+
+  @override
+  String get balanceGoalNext => 'Další cíl';
+
+  @override
+  String balanceGoalToGo(String amount) {
+    return 'Zbývá $amount';
+  }
+
+  @override
   String balanceGoalChartLabel(String goal) {
     return 'Další: $goal';
   }
@@ -11614,16 +11625,7 @@ class AppLocalizationsCs extends AppLocalizations {
   String get balanceGoalMovePlain => 'Přesunout do Dolarů';
 
   @override
-  String get balanceGoalMoveWhyBoth =>
-      'Tvoje peníze, víc možností: Investování a Predikce v dolarech.';
-
-  @override
-  String get balanceGoalMoveWhyInvesting =>
-      'Tvoje peníze, víc možností: Investování v dolarech.';
-
-  @override
-  String get balanceGoalMoveWhyPredictions =>
-      'Tvoje peníze, víc možností: Predikce v dolarech.';
+  String get balanceGoalMoveWhy => 'Tvoje peníze, víc možností v dolarech.';
 
   @override
   String balanceMilestonePassed(String amount) {

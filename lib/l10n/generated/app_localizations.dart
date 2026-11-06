@@ -19437,7 +19437,7 @@ abstract class AppLocalizations {
   /// **'It starts with your first transaction.'**
   String get balanceNoHistorySub;
 
-  /// Bitcoin home, Balance tab footer: the level on the milestone ladder (levels go up as the person's Bitcoin + Dollars total passes round figures). Shown bold, followed by ' · ' and the level's name.
+  /// Bitcoin home, Balance tab, the Level square under the chart: the level on the milestone ladder (levels go up as the person's Bitcoin + Dollars total passes round figures), the square's large figure. The level's name is the quiet line above it. Short.
   ///
   /// In en, this message translates to:
   /// **'Level {level}'**
@@ -19515,11 +19515,29 @@ abstract class AppLocalizations {
   /// **'Off the charts'**
   String get balanceLevelName11;
 
-  /// Bitcoin home, Balance tab footer, right side: how far the Bitcoin + Dollars total is towards the next round goal ('62% to $500'). percent is a whole number; goal is a formatted amount.
+  /// Bitcoin home, Balance tab, the Level square: the small line over 'Level 3', how far the Bitcoin + Dollars total is towards the next round goal ('62% to $500'). percent is a whole number; goal is a formatted amount. Short: it shares half the screen's width.
   ///
   /// In en, this message translates to:
   /// **'{percent}% to {goal}'**
   String balanceGoalProgress(int percent, String goal);
+
+  /// Bitcoin home, Balance tab: the small section heading under the chart, over the Level and Next goal squares (round balance milestones). One word.
+  ///
+  /// In en, this message translates to:
+  /// **'Goals'**
+  String get balanceGoalsHeading;
+
+  /// Bitcoin home, Balance tab, the Next goal square: its label, over the goal written large ('$500'). The goal is the next round figure for the person's Bitcoin + Dollars total. Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Next goal'**
+  String get balanceGoalNext;
+
+  /// Bitcoin home, Balance tab, the Next goal square: what is left to reach the goal ('$250 to go'). amount is a formatted amount. Short: it shares half the screen's width.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} to go'**
+  String balanceGoalToGo(String amount);
 
   /// Bitcoin home, Balance chart: the small label on the dashed goal line ('Next $500'). Very short.
   ///
@@ -19527,7 +19545,7 @@ abstract class AppLocalizations {
   /// **'Next {goal}'**
   String balanceGoalChartLabel(String goal);
 
-  /// Bitcoin home, Balance tab footer: the row that opens the Move to Dollars sheet with this amount filled in (bitcoin into the Dollars account). Never imply growth or returns.
+  /// Bitcoin home, Balance tab: the title of the card under the goals that opens the Move to Dollars sheet with this amount filled in (bitcoin into the Dollars account). Never imply growth or returns.
   ///
   /// In en, this message translates to:
   /// **'Move {amount} to Dollars'**
@@ -19539,25 +19557,13 @@ abstract class AppLocalizations {
   /// **'Move to Dollars'**
   String get balanceGoalMovePlain;
 
-  /// The line under 'Move $25 to Dollars' where both Investing and Predictions are available. Ambition and control, never returns: Dollars open more places for the money. Keep the product names as the app writes them.
+  /// The line under 'Move $25 to Dollars'. Ambition and control, never returns: Dollars (the app's dollar account) open more places for the money. Names no product or venue. One short line.
   ///
   /// In en, this message translates to:
-  /// **'Your money, more places to go: Investing and Predictions in Dollars.'**
-  String get balanceGoalMoveWhyBoth;
+  /// **'Your money, more places to go in Dollars.'**
+  String get balanceGoalMoveWhy;
 
-  /// The same line where only Investing is available.
-  ///
-  /// In en, this message translates to:
-  /// **'Your money, more places to go: Investing in Dollars.'**
-  String get balanceGoalMoveWhyInvesting;
-
-  /// The same line where only Predictions is available.
-  ///
-  /// In en, this message translates to:
-  /// **'Your money, more places to go: Predictions in Dollars.'**
-  String get balanceGoalMoveWhyPredictions;
-
-  /// Bitcoin home, Balance tab: shown once with Sal and confetti when the Bitcoin + Dollars total passes a round goal ('You passed $250').
+  /// Bitcoin home, Balance tab: shown once, large, with Sal and confetti in place of the goal squares when the Bitcoin + Dollars total passes a round goal ('You passed $250').
   ///
   /// In en, this message translates to:
   /// **'You passed {amount}'**

@@ -31,8 +31,8 @@
 //     milestone, balance_goals.dart): drawn as the plot's dashed goal line
 //     only while it is in reach of the line on screen
 //     ([balanceGoalInReach]: the line keeps at least half the plot) and
-//     the figures are shown; a FOOTER ([BalanceHistoryChart.footer]) under
-//     the range row, with the chart (never on the empty state).
+//     the figures are shown. Nothing else of the milestones is drawn
+//     here: they stand under the card.
 //
 // Analytics: `analytics_chart_scrubbed` {chart, view: line}, once per
 // scrub gesture. Ranges send nothing.
@@ -84,10 +84,6 @@ class BalanceHistoryChart extends ConsumerStatefulWidget {
   /// it is in reach of the line on screen; null draws none.
   final KuteTrendGoal? goal;
 
-  /// Drawn under the range row (the Bitcoin home's milestones); never on
-  /// the empty state.
-  final Widget? footer;
-
   const BalanceHistoryChart({
     super.key,
     required this.history,
@@ -97,7 +93,6 @@ class BalanceHistoryChart extends ConsumerStatefulWidget {
     this.rangeKey = 'bitcoin',
     this.now,
     this.goal,
-    this.footer,
   });
 
   @override
@@ -298,7 +293,6 @@ class _BalanceHistoryChartState extends ConsumerState<BalanceHistoryChart> {
       children: [
         header,
         if (hasHistory) ...[SizedBox(height: 12.h), chart],
-        if (hasHistory && widget.footer != null) widget.footer!,
       ],
     );
   }

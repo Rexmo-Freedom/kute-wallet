@@ -11659,6 +11659,17 @@ class AppLocalizationsRo extends AppLocalizations {
   }
 
   @override
+  String get balanceGoalsHeading => 'Obiective';
+
+  @override
+  String get balanceGoalNext => 'Următorul obiectiv';
+
+  @override
+  String balanceGoalToGo(String amount) {
+    return 'Mai sunt $amount';
+  }
+
+  @override
   String balanceGoalChartLabel(String goal) {
     return 'Următorul: $goal';
   }
@@ -11672,16 +11683,8 @@ class AppLocalizationsRo extends AppLocalizations {
   String get balanceGoalMovePlain => 'Mută în Dolari';
 
   @override
-  String get balanceGoalMoveWhyBoth =>
-      'Banii tăi, mai multe locuri unde să meargă: Investiții și Predicții în dolari.';
-
-  @override
-  String get balanceGoalMoveWhyInvesting =>
-      'Banii tăi, mai multe locuri unde să meargă: Investiții în dolari.';
-
-  @override
-  String get balanceGoalMoveWhyPredictions =>
-      'Banii tăi, mai multe locuri unde să meargă: Predicții în dolari.';
+  String get balanceGoalMoveWhy =>
+      'Banii tăi, mai multe locuri unde să meargă în dolari.';
 
   @override
   String balanceMilestonePassed(String amount) {

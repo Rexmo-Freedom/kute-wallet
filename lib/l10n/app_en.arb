@@ -8435,7 +8435,7 @@
   },
   "balanceGoalLevel": "Level {level}",
   "@balanceGoalLevel": {
-    "description": "Bitcoin home, Balance tab footer: the level on the milestone ladder (levels go up as the person's Bitcoin + Dollars total passes round figures). Shown bold, followed by ' · ' and the level's name.",
+    "description": "Bitcoin home, Balance tab, the Level square under the chart: the level on the milestone ladder (levels go up as the person's Bitcoin + Dollars total passes round figures), the square's large figure. The level's name is the quiet line above it. Short.",
     "placeholders": {
       "level": {
         "type": "int"
@@ -8492,12 +8492,29 @@
   },
   "balanceGoalProgress": "{percent}% to {goal}",
   "@balanceGoalProgress": {
-    "description": "Bitcoin home, Balance tab footer, right side: how far the Bitcoin + Dollars total is towards the next round goal ('62% to $500'). percent is a whole number; goal is a formatted amount.",
+    "description": "Bitcoin home, Balance tab, the Level square: the small line over 'Level 3', how far the Bitcoin + Dollars total is towards the next round goal ('62% to $500'). percent is a whole number; goal is a formatted amount. Short: it shares half the screen's width.",
     "placeholders": {
       "percent": {
         "type": "int"
       },
       "goal": {
+        "type": "String"
+      }
+    }
+  },
+  "balanceGoalsHeading": "Goals",
+  "@balanceGoalsHeading": {
+    "description": "Bitcoin home, Balance tab: the small section heading under the chart, over the Level and Next goal squares (round balance milestones). One word."
+  },
+  "balanceGoalNext": "Next goal",
+  "@balanceGoalNext": {
+    "description": "Bitcoin home, Balance tab, the Next goal square: its label, over the goal written large ('$500'). The goal is the next round figure for the person's Bitcoin + Dollars total. Short."
+  },
+  "balanceGoalToGo": "{amount} to go",
+  "@balanceGoalToGo": {
+    "description": "Bitcoin home, Balance tab, the Next goal square: what is left to reach the goal ('$250 to go'). amount is a formatted amount. Short: it shares half the screen's width.",
+    "placeholders": {
+      "amount": {
         "type": "String"
       }
     }
@@ -8513,7 +8530,7 @@
   },
   "balanceGoalMove": "Move {amount} to Dollars",
   "@balanceGoalMove": {
-    "description": "Bitcoin home, Balance tab footer: the row that opens the Move to Dollars sheet with this amount filled in (bitcoin into the Dollars account). Never imply growth or returns.",
+    "description": "Bitcoin home, Balance tab: the title of the card under the goals that opens the Move to Dollars sheet with this amount filled in (bitcoin into the Dollars account). Never imply growth or returns.",
     "placeholders": {
       "amount": {
         "type": "String"
@@ -8524,21 +8541,13 @@
   "@balanceGoalMovePlain": {
     "description": "Same row as balanceGoalMove while balances are hidden (no amount)."
   },
-  "balanceGoalMoveWhyBoth": "Your money, more places to go: Investing and Predictions in Dollars.",
-  "@balanceGoalMoveWhyBoth": {
-    "description": "The line under 'Move $25 to Dollars' where both Investing and Predictions are available. Ambition and control, never returns: Dollars open more places for the money. Keep the product names as the app writes them."
-  },
-  "balanceGoalMoveWhyInvesting": "Your money, more places to go: Investing in Dollars.",
-  "@balanceGoalMoveWhyInvesting": {
-    "description": "The same line where only Investing is available."
-  },
-  "balanceGoalMoveWhyPredictions": "Your money, more places to go: Predictions in Dollars.",
-  "@balanceGoalMoveWhyPredictions": {
-    "description": "The same line where only Predictions is available."
+  "balanceGoalMoveWhy": "Your money, more places to go in Dollars.",
+  "@balanceGoalMoveWhy": {
+    "description": "The line under 'Move $25 to Dollars'. Ambition and control, never returns: Dollars (the app's dollar account) open more places for the money. Names no product or venue. One short line."
   },
   "balanceMilestonePassed": "You passed {amount}",
   "@balanceMilestonePassed": {
-    "description": "Bitcoin home, Balance tab: shown once with Sal and confetti when the Bitcoin + Dollars total passes a round goal ('You passed $250').",
+    "description": "Bitcoin home, Balance tab: shown once, large, with Sal and confetti in place of the goal squares when the Bitcoin + Dollars total passes a round goal ('You passed $250').",
     "placeholders": {
       "amount": {
         "type": "String"

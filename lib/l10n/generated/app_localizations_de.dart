@@ -11686,6 +11686,17 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
+  String get balanceGoalsHeading => 'Ziele';
+
+  @override
+  String get balanceGoalNext => 'Nächstes Ziel';
+
+  @override
+  String balanceGoalToGo(String amount) {
+    return 'Noch $amount';
+  }
+
+  @override
   String balanceGoalChartLabel(String goal) {
     return 'Nächstes: $goal';
   }
@@ -11699,16 +11710,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get balanceGoalMovePlain => 'In Dollar verschieben';
 
   @override
-  String get balanceGoalMoveWhyBoth =>
-      'Dein Geld, mehr Möglichkeiten: Investieren und Prognosen in Dollar.';
-
-  @override
-  String get balanceGoalMoveWhyInvesting =>
-      'Dein Geld, mehr Möglichkeiten: Investieren in Dollar.';
-
-  @override
-  String get balanceGoalMoveWhyPredictions =>
-      'Dein Geld, mehr Möglichkeiten: Prognosen in Dollar.';
+  String get balanceGoalMoveWhy => 'Dein Geld, mehr Möglichkeiten in Dollar.';
 
   @override
   String balanceMilestonePassed(String amount) {

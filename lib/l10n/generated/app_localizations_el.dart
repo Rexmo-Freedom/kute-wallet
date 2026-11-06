@@ -11681,6 +11681,17 @@ class AppLocalizationsEl extends AppLocalizations {
   }
 
   @override
+  String get balanceGoalsHeading => 'Στόχοι';
+
+  @override
+  String get balanceGoalNext => 'Επόμενος στόχος';
+
+  @override
+  String balanceGoalToGo(String amount) {
+    return 'Απομένουν $amount';
+  }
+
+  @override
   String balanceGoalChartLabel(String goal) {
     return 'Επόμενο: $goal';
   }
@@ -11694,16 +11705,8 @@ class AppLocalizationsEl extends AppLocalizations {
   String get balanceGoalMovePlain => 'Μετακίνηση στα Δολάρια';
 
   @override
-  String get balanceGoalMoveWhyBoth =>
-      'Τα χρήματά σου, περισσότερες επιλογές: Επενδύσεις και Προβλέψεις σε δολάρια.';
-
-  @override
-  String get balanceGoalMoveWhyInvesting =>
-      'Τα χρήματά σου, περισσότερες επιλογές: Επενδύσεις σε δολάρια.';
-
-  @override
-  String get balanceGoalMoveWhyPredictions =>
-      'Τα χρήματά σου, περισσότερες επιλογές: Προβλέψεις σε δολάρια.';
+  String get balanceGoalMoveWhy =>
+      'Τα χρήματά σου, περισσότερες επιλογές σε δολάρια.';
 
   @override
   String balanceMilestonePassed(String amount) {

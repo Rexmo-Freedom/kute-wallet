@@ -18,9 +18,11 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/transactions_provider.dart';
 import 'package:kute/providers/viewed_wallet_provider.dart';
 import 'package:kute/screens/analytics/components/balance_goals.dart';
+import 'package:kute/screens/analytics/components/balance_history_chart.dart';
 import 'package:kute/screens/analytics/components/home_analytics_widget.dart';
 import 'package:kute/screens/home/components/deposit_sheet.dart';
 import 'package:kute/screens/shared/charts/kute_trend_chart.dart';
+import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
 import 'package:kute/services/balance_milestones.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -47,13 +49,14 @@ class _Market extends BitcoinMarketDataNotifier {
 final _input = StateProvider<BalanceGoalInput?>((_) => null);
 
 /// The Bitcoin home's milestones on its Balance tab (founder, 6 November
-/// 2026): the level and progress under the range row, the goal line on
-/// the plot while it is in reach, a once-only celebration with Sal and
-/// confetti when a round figure is passed, the Move to Dollars nudge
-/// opening the Move sheet locked to Dollars with a suggested amount, all
-/// of it dots (or nothing) with balances hidden; and the Balance cards
-/// hugging their content (founder: "card bottom is not great, it expands
-/// too much").
+/// 2026): the goal line on the plot while it is in reach; UNDER the card
+/// (founder: "The design is too dense; must be better, like the things in
+/// the Dollars screens"), "Goals" over the Level and Next goal squares and
+/// the Move to Dollars nudge card; a once-only celebration with Sal and
+/// confetti in the squares' place when a round figure is passed; the
+/// nudge opening the Move sheet locked to Dollars with a suggested
+/// amount; all of it dots (or nothing) with balances hidden; and the
+/// Balance card hugging its chart, with nothing of the goals inside it.
 void main() {
   const price = 70000.0;
 
@@ -102,17 +105,20 @@ void main() {
 
   tearDown(() {
     TrackingService.debugTrackObserver = null;
-    BalanceGoalsChart.debugMoveOpener = null;
+    BalanceGoals.debugMoveOpener = null;
   });
 
-  List<Override> overrides({int sats = 355000, int privacy = 0}) {
+  List<Override> overrides(
+      {int sats = 355000, int privacy = 0, bool held = true}) {
     // Flat at [sats] for the month: the bitcoin held two months ago.
+    // [held] false: nothing ever held (the card's empty state).
     final history = BalanceHistory(
       opening: 0,
       changes: [
-        (DateTime.now().subtract(const Duration(days: 60)), sats.toDouble())
+        if (held)
+          (DateTime.now().subtract(const Duration(days: 60)), sats.toDouble())
       ],
-      current: sats.toDouble(),
+      current: held ? sats.toDouble() : 0,
     );
     final prices = [
       for (var ago = 90; ago >= 0; ago--)
@@ -168,6 +174,7 @@ void main() {
     int? sats,
     int privacy = 0,
     bool reduceMotion = false,
+    bool held = true,
     Widget child =
         const HomeAnalyticsWidget(surface: 'home', balanceGoals: true),
   }) async {
@@ -177,7 +184,9 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     final container = ProviderContainer(
         overrides: overrides(
-            sats: sats ?? first?.bitcoinSats ?? 355000, privacy: privacy));
+            sats: sats ?? first?.bitcoinSats ?? 355000,
+            privacy: privacy,
+            held: held));
     addTearDown(container.dispose);
     container.read(_input.notifier).state = first;
     await tester.pumpWidget(UncontrolledProviderScope(
@@ -198,33 +207,65 @@ void main() {
   String text(WidgetTester tester, String key) {
     final w = tester.widget(find.byKey(ValueKey(key)));
     if (w is Text) return w.textSpan?.toPlainText() ?? w.data!;
+    if (w is RollingFigure) return w.text;
     throw StateError('$key is ${w.runtimeType}');
   }
 
   KuteTrendChart chart(WidgetTester tester) =>
       tester.widget<KuteTrendChart>(find.byType(KuteTrendChart));
 
-  double barFill(WidgetTester tester) =>
-      tester
-          .getSize(find.byKey(const ValueKey('balance-goal-bar-fill')))
-          .width /
-      tester.getSize(find.byKey(const ValueKey('balance-goal-bar'))).width;
+  double ringFill(WidgetTester tester) =>
+      tester.widget<BalanceGoalRing>(find.byType(BalanceGoalRing)).fraction;
+
+  Rect rectOf(WidgetTester tester, String key) =>
+      tester.getRect(find.byKey(ValueKey(key)));
 
   Finder confetti() => find.byKey(const ValueKey('kute-confetti'));
 
   testWidgets(
-      r'the level and the progress to the next goal under the range row; '
-      'the goal line on the plot while it is in reach', (tester) async {
+      r'under the card: "Goals", the Level and Next goal squares side by '
+      'side, then the nudge; the goal line on the plot while it is in reach',
+      (tester) async {
     // ₿355,000 at $70,000: $248.50, the next goal $250.
     await pump(tester, input());
-    expect(text(tester, 'balance-goal-level'), 'Level 2 · Pocket money');
+    expect(text(tester, 'balance-goals-heading'), 'Goals');
+    expect(text(tester, 'balance-goal-level'), 'Level 2');
+    expect(text(tester, 'balance-goal-level-name'), 'Pocket money');
     expect(text(tester, 'balance-goal-progress'), r'99% to $250');
-    expect(barFill(tester), closeTo(0.994, 0.01));
-    // Under the range row.
+    expect(ringFill(tester), closeTo(0.994, 0.01));
+    expect(text(tester, 'balance-goal-next-label'), 'Next goal');
+    expect(text(tester, 'balance-goal-next'), r'$250');
+    expect(text(tester, 'balance-goal-to-go'), r'$1.50 to go');
+
+    // Nothing of the goals inside the card: they start under it.
+    final card = rectOf(tester, 'balance-card');
     expect(
-        tester.getTopLeft(find.byKey(const ValueKey('balance-goal-footer'))).dy,
-        greaterThanOrEqualTo(
-            tester.getBottomLeft(find.byType(KuteChartRangeRow)).dy));
+        find.descendant(
+            of: find.byKey(const ValueKey('balance-card')),
+            matching: find.byKey(const ValueKey('balance-goals'))),
+        findsNothing);
+    expect(rectOf(tester, 'balance-goals').top,
+        greaterThanOrEqualTo(card.bottom));
+    // The two squares side by side, as tall as each other, the nudge
+    // under them across both.
+    final level = tester.getRect(find
+        .ancestor(
+            of: find.byKey(const ValueKey('balance-goal-level')),
+            matching: find.byType(Container))
+        .first);
+    final next = tester.getRect(find
+        .ancestor(
+            of: find.byKey(const ValueKey('balance-goal-next')),
+            matching: find.byType(Container))
+        .first);
+    expect(level.top, next.top);
+    expect(level.height, next.height);
+    expect(next.left, greaterThan(level.right));
+    final nudge = rectOf(tester, 'balance-goal-nudge');
+    expect(nudge.top, greaterThan(level.bottom));
+    expect(nudge.left, closeTo(level.left, 0.5));
+    expect(nudge.right, closeTo(next.right, 0.5));
+
     // The goal line: the bitcoin now plus the gap at today's price.
     final goal = chart(tester).goal;
     expect(goal, isNotNull);
@@ -233,12 +274,13 @@ void main() {
     await settle(tester);
   });
 
-  testWidgets('a goal far above the line is not drawn; the footer still is',
+  testWidgets('a goal far above the line is not drawn; the squares still are',
       (tester) async {
     // $105 of bitcoin, $250 to go for: the line would be squashed.
     await pump(tester, input(sats: 150000));
     expect(chart(tester).goal, isNull);
     expect(text(tester, 'balance-goal-progress'), r'42% to $250');
+    expect(text(tester, 'balance-goal-to-go'), r'$145 to go');
     await settle(tester);
   });
 
@@ -252,7 +294,8 @@ void main() {
         input(sats: 177500, cashUsd: 124.25);
     await tester.pump(const Duration(milliseconds: 600));
     expect(text(tester, 'balance-goal-progress'), r'99% to $250');
-    expect(text(tester, 'balance-goal-level'), 'Level 2 · Pocket money');
+    expect(text(tester, 'balance-goal-level'), 'Level 2');
+    expect(text(tester, 'balance-goal-to-go'), r'$1.50 to go');
     await settle(tester);
   });
 
@@ -278,9 +321,11 @@ void main() {
   });
 
   testWidgets(
-      'a round figure passed: Sal, the line and confetti, once; then the '
-      'next goal', (tester) async {
+      'a round figure passed: Sal, the line and confetti in the squares\' '
+      'place, once, nothing under it moving; then the next goal',
+      (tester) async {
     final container = await pump(tester, input());
+    final nudgeTop = rectOf(tester, 'balance-goal-nudge').top;
     // The first reading is history: recorded, nothing celebrated.
     await tester.pump(kBalanceMilestoneSettle);
     await tester.pump(const Duration(milliseconds: 100));
@@ -303,6 +348,10 @@ void main() {
             'nothing.'),
         findsOneWidget);
     expect(confetti(), findsOneWidget);
+    // In the squares' place at their height: the nudge has not moved.
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byKey(const ValueKey('balance-goal-squares')), findsNothing);
+    expect(rectOf(tester, 'balance-goal-nudge').top, closeTo(nudgeTop, 0.5));
     // No goal line while it celebrates.
     expect(chart(tester).goal, isNull);
     final reached =
@@ -313,13 +362,15 @@ void main() {
     // The burst is over in under two seconds.
     await tester.pump(const Duration(seconds: 2));
     expect(confetti(), findsNothing);
-    // Back to the progress, towards $500.
+    // Back to the squares, towards $500.
     await tester.pump(kBalanceMilestoneCelebration);
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.byKey(const ValueKey('balance-goal-celebration-title')),
         findsNothing);
-    expect(text(tester, 'balance-goal-level'), 'Level 3 · Stacker');
+    expect(text(tester, 'balance-goal-level'), 'Level 3');
+    expect(text(tester, 'balance-goal-level-name'), 'Stacker');
     expect(text(tester, 'balance-goal-progress'), r'50% to $500');
+    expect(text(tester, 'balance-goal-next'), r'$500');
 
     // Down and back up again: never twice.
     container.read(_input.notifier).state = input(sats: 340000);
@@ -351,8 +402,10 @@ void main() {
     await settle(tester);
   });
 
-  testWidgets('Reduce Motion: Sal and the line, no confetti', (tester) async {
+  testWidgets('Reduce Motion: Sal and the line, no confetti, the ring at once',
+      (tester) async {
     final container = await pump(tester, input(), reduceMotion: true);
+    expect(ringFill(tester), closeTo(0.994, 0.01));
     await tester.pump(kBalanceMilestoneSettle);
     await tester.pump(const Duration(milliseconds: 100));
     container.read(_input.notifier).state = input(sats: 360000);
@@ -365,13 +418,17 @@ void main() {
   });
 
   testWidgets(
-      'balances hidden: dots, the bar empty, no goal line, the nudge without '
+      'balances hidden: dots, the ring empty, no goal line, the nudge without '
       'its amount, and no celebration until the figures are back',
       (tester) async {
     final container = await pump(tester, input(), privacy: 1);
     expect(text(tester, 'balance-goal-level'), '••••••');
-    expect(text(tester, 'balance-goal-progress'), '••••••');
-    expect(barFill(tester), 0);
+    expect(text(tester, 'balance-goal-level-name'), '••••');
+    expect(text(tester, 'balance-goal-progress'), '••••');
+    expect(text(tester, 'balance-goal-next'), '••••••');
+    expect(text(tester, 'balance-goal-to-go'), '••••');
+    expect(text(tester, 'balance-goal-next-label'), 'Next goal');
+    expect(ringFill(tester), 0);
     expect(chart(tester).goal, isNull);
     expect(text(tester, 'balance-goal-nudge-label'), 'Move to Dollars');
     expect(find.textContaining(r'$'), findsNothing);
@@ -389,14 +446,12 @@ void main() {
       r'the nudge: "Move $25 to Dollars" opens the Move sheet locked to '
       'Dollars with \$25 filled in', (tester) async {
     final opened = <(MoveLockedSide, double)>[];
-    BalanceGoalsChart.debugMoveOpener =
+    BalanceGoals.debugMoveOpener =
         (context, side, usd) => opened.add((side, usd));
     await pump(tester, input());
     expect(text(tester, 'balance-goal-nudge-label'), r'Move $25 to Dollars');
-    expect(
-        text(tester, 'balance-goal-nudge-line'),
-        'Your money, more places to go: Investing and Predictions in '
-        'Dollars.');
+    expect(text(tester, 'balance-goal-nudge-line'),
+        'Your money, more places to go in Dollars.');
     await tester.tap(find.byKey(const ValueKey('balance-goal-nudge')));
     await tester.pump(const Duration(milliseconds: 200));
     expect(opened, [(MoveLockedSide.depositToUsd, 25.0)]);
@@ -409,15 +464,16 @@ void main() {
   });
 
   testWidgets(
-      'the nudge names only what is live, and is gone where the move or '
-      'both venues are not', (tester) async {
+      'the nudge names no venue; it is there while either is live, and gone '
+      'where the move or both venues are not', (tester) async {
+    const line = 'Your money, more places to go in Dollars.';
     final container = await pump(tester, input(investing: false));
-    expect(text(tester, 'balance-goal-nudge-line'),
-        'Your money, more places to go: Predictions in Dollars.');
+    expect(text(tester, 'balance-goal-nudge-line'), line);
     container.read(_input.notifier).state = input(predictions: false);
     await tester.pump(const Duration(milliseconds: 100));
-    expect(text(tester, 'balance-goal-nudge-line'),
-        'Your money, more places to go: Investing in Dollars.');
+    expect(text(tester, 'balance-goal-nudge-line'), line);
+    expect(find.textContaining('Investing'), findsNothing);
+    expect(find.textContaining('Predictions'), findsNothing);
     container.read(_input.notifier).state =
         input(investing: false, predictions: false);
     await tester.pump(const Duration(milliseconds: 100));
@@ -437,12 +493,36 @@ void main() {
   testWidgets('not ready, or not the spending wallet: no milestones at all',
       (tester) async {
     final container = await pump(tester, input(ready: false));
-    expect(find.byKey(const ValueKey('balance-goal-footer')), findsNothing);
+    expect(find.byKey(const ValueKey('balance-goals')), findsNothing);
     expect(chart(tester).goal, isNull);
     container.read(_input.notifier).state = null;
     await tester.pump(const Duration(milliseconds: 100));
-    expect(find.byKey(const ValueKey('balance-goal-footer')), findsNothing);
+    expect(find.byKey(const ValueKey('balance-goals')), findsNothing);
     await tester.pump(kBalanceMilestoneSettle);
+    expect(flags.claimed, isEmpty);
+    await settle(tester);
+  });
+
+  testWidgets(
+      'the goals arriving under the card never rebuild the card from scratch',
+      (tester) async {
+    final container = await pump(tester, input(ready: false));
+    final before = tester.state(find.byType(BalanceHistoryChart));
+    container.read(_input.notifier).state = input();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.byKey(const ValueKey('balance-goals')), findsOneWidget);
+    expect(tester.state(find.byType(BalanceHistoryChart)), same(before));
+    await settle(tester);
+  });
+
+  testWidgets('nothing ever held: the empty state alone, nothing recorded',
+      (tester) async {
+    await pump(tester, input(cashUsd: 300), held: false);
+    expect(find.byKey(const ValueKey('balance-chart-no-history')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('balance-goals')), findsNothing);
+    await tester.pump(kBalanceMilestoneSettle);
+    await tester.pump(const Duration(milliseconds: 100));
     expect(flags.claimed, isEmpty);
     await settle(tester);
   });
@@ -450,31 +530,30 @@ void main() {
   testWidgets('another wallet screen never shows them', (tester) async {
     await pump(tester, input(),
         child: const HomeAnalyticsWidget(surface: 'wallet_detail'));
-    expect(find.byKey(const ValueKey('balance-goal-footer')), findsNothing);
+    expect(find.byKey(const ValueKey('balance-goals')), findsNothing);
     await settle(tester);
   });
 
-  group('the card hugs the milestones', () {
-    double bottomGap(WidgetTester tester, Finder last) =>
+  group('the card hugs its chart, with the goals under it', () {
+    double bottomGap(WidgetTester tester) =>
         tester.getBottomLeft(find.byKey(const ValueKey('balance-card'))).dy -
-        tester.getBottomLeft(last).dy;
+        tester.getBottomLeft(find.byType(KuteChartRangeRow)).dy;
 
     final pad = 16 * 393 / 430;
 
-    testWidgets('with the milestones, 16 under the nudge', (tester) async {
+    testWidgets('16 under the range row, the goals and the nudge outside',
+        (tester) async {
       await pump(tester, input());
-      expect(
-          bottomGap(tester, find.byKey(const ValueKey('balance-goal-footer'))),
-          closeTo(pad, 0.5));
+      expect(bottomGap(tester), closeTo(pad, 0.5));
+      expect(rectOf(tester, 'balance-goal-nudge').top,
+          greaterThan(rectOf(tester, 'balance-card').bottom));
       await settle(tester);
     });
 
-    testWidgets('and 16 under the progress when there is no nudge',
-        (tester) async {
+    testWidgets('the same when there is no nudge', (tester) async {
       await pump(tester, input(swap: false));
-      expect(
-          bottomGap(tester, find.byKey(const ValueKey('balance-goal-footer'))),
-          closeTo(pad, 0.5));
+      expect(bottomGap(tester), closeTo(pad, 0.5));
+      expect(find.byKey(const ValueKey('balance-goal-nudge')), findsNothing);
       await settle(tester);
     });
   });

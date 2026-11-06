@@ -11575,6 +11575,17 @@ class AppLocalizationsLv extends AppLocalizations {
   }
 
   @override
+  String get balanceGoalsHeading => 'Mērķi';
+
+  @override
+  String get balanceGoalNext => 'Nākamais mērķis';
+
+  @override
+  String balanceGoalToGo(String amount) {
+    return 'Vēl $amount';
+  }
+
+  @override
   String balanceGoalChartLabel(String goal) {
     return 'Nākamais: $goal';
   }
@@ -11588,16 +11599,7 @@ class AppLocalizationsLv extends AppLocalizations {
   String get balanceGoalMovePlain => 'Pārvietot uz Dolāriem';
 
   @override
-  String get balanceGoalMoveWhyBoth =>
-      'Tava nauda, vairāk iespēju: Investēšana un Prognozes dolāros.';
-
-  @override
-  String get balanceGoalMoveWhyInvesting =>
-      'Tava nauda, vairāk iespēju: Investēšana dolāros.';
-
-  @override
-  String get balanceGoalMoveWhyPredictions =>
-      'Tava nauda, vairāk iespēju: Prognozes dolāros.';
+  String get balanceGoalMoveWhy => 'Tava nauda, vairāk iespēju dolāros.';
 
   @override
   String balanceMilestonePassed(String amount) {

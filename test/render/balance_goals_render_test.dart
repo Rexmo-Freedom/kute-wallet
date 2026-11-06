@@ -2,9 +2,10 @@
 // written only when asked: FW27_GOALS_RENDER=<dir> flutter test
 // test/render/balance_goals_render_test.dart. The real Inter face and the
 // real Sal sheets, 390 wide at 3x, light and dark: the Balance card near a
-// goal (the goal line drawn), far from one (no line), a rung just passed
-// (Sal, the line and the confetti mid-burst), the same under Reduce
-// Motion, and with balances hidden.
+// goal (the goal line drawn) with the Goals squares and the nudge under
+// it, far from one (no line), a rung just passed (Sal and the line in the
+// squares' place, the confetti mid-burst), the same under Reduce Motion,
+// with balances hidden, and in German (the longest words).
 
 import 'dart:convert';
 import 'dart:io';
@@ -119,8 +120,9 @@ Future<ProviderContainer> _show(
   int privacy = 0,
   bool reduceMotion = false,
   _MapFlags? flags,
+  Locale? locale,
 }) async {
-  tester.view.physicalSize = const Size(390 * 3, 700 * 3);
+  tester.view.physicalSize = const Size(390 * 3, 900 * 3);
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.reset);
   final prices = [
@@ -165,6 +167,7 @@ Future<ProviderContainer> _show(
       designSize: const Size(430, 932),
       builder: (_, __) => MaterialApp(
         debugShowCheckedModeBanner: false,
+        locale: locale,
         theme: _theme(dark),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
@@ -263,6 +266,16 @@ void main() {
         await tester.pump(const Duration(seconds: 3));
       });
     }
+
+    testWidgets('in German $mode', (tester) async {
+      await _assets(tester);
+      final key = GlobalKey();
+      await _show(tester, key,
+          dark: dark, sats: 240000, cash: 120, locale: const Locale('de'));
+      await _save(tester, key, 'goals_de_$mode');
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 3));
+    });
 
     testWidgets('balances hidden $mode', (tester) async {
       await _assets(tester);
