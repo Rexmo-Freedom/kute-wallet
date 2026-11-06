@@ -82,20 +82,25 @@ const Color _kPolyRed = AppColors.marketDown;
 // explore: position_speedometer.dart); over it the result since the buy at
 // the left ("▲ $9.40", "+247% since 19¢"; while dragging, the what-if one),
 // and the held side (founder, 1 November 2026: no Share pill beside them
-// any more, it crowded "You hold No"); under it, until the dial's first
-// drag on
-// this device, a quiet "Drag the needle to see what it'd be worth" (the
-// needle leans once to show it moves),
-// and once settled the chance bar (position_chance_bar.dart). Then two
+// any more, it crowded "You hold No"); right under its chance, when the
+// market ends as one quiet centred line ("Ends Dec 9, 00:00", a countdown
+// under a day, what an ended market waits for; founder, 6 November 2026:
+// no pill), then, until the dial's first drag on this device, a quiet
+// "Drag the needle to see what it'd be worth" (the needle leans once to
+// show it moves); while the needle is dragged, "Set a sell at 72%" takes
+// their place. Once settled, the chance bar (position_chance_bar.dart)
+// with "Settled" under its chance. Then, actions first (founder, 6
+// November 2026), what can be done to it while open as an option card
+// (kute_action_cards.dart, as on the Investing screens; alone it takes the
+// full width): "Protect it", a sell at your price. Then two
 // tiles: what it is worth now with the profit or loss, and the payout if
 // the held side wins with what was paid (once settled: what it paid out);
 // while the needle is dragged, what it would be worth then beside what it
-// is worth now. Then the end as a pill; and the options as cards, two
-// side by side (founder, 4 November 2026: "like squares";
-// kute_action_cards.dart, as on the Investing screens): "View market" (the
-// event's sheet), "Protect it" while open, "Details" (outcome / shares /
-// price paid / invested, on the shared bottom sheet, as on the Investing
-// position) and the closing conditions; and the Sell (or, on a
+// is worth now. Then the cards to read more, two side by side (founder, 4
+// November 2026: "like squares"): "View market" (the event's sheet),
+// "Details" (outcome / shares / price paid / invested, on the shared
+// bottom sheet, as on the Investing position) and the closing
+// conditions; and the Sell (or, on a
 // resolved losing side, Clear) action, as the floating bar's primary button
 // (founder, 2 November 2026: "a floating pill like the others";
 // kute_bar_context.dart): Sell in the red its pinned button had
@@ -466,6 +471,66 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
         ? const <PolymarketTeam>[]
         : (event.teams.isNotEmpty ? event.teams : fetchedTeams);
     final sportsTeams = event == null ? null : _sportsTeams(event, fetchedTeams);
+    // When the market ends ("Ends Dec 9, 00:00", a countdown under a day,
+    // what an ended market waits for, "Settled"): a quiet line right under
+    // the chance, dial or bar (founder, 6 November 2026); with neither on
+    // screen (the stream playing), over the options.
+    final hasExpiry = pos.isResolved || pos.endDateStr?.isNotEmpty == true;
+    final expiryUnderChance = !watching && hasToken;
+    Widget buildExpiry() => Consumer(builder: (context, expiryRef, _) {
+          // While a game is being played its header says where it is; the
+          // market's scheduled end (already past) would only mislead.
+          final isGame = event != null && sportsTeams != null;
+          final ws = isGame ? polyLiveMatchUpdate(expiryRef, event) : null;
+          if (!pos.isResolved && isGame && polyGameIsLive(event, ws)) {
+            return const SizedBox.shrink();
+          }
+          // Over and not claimable yet: when Polymarket expects the result,
+          // counted down by the minute. A passed end date alone is not over
+          // (the Brazil "who wins" market kept its first-round date while
+          // still trading), but for a 5 or 15 minute round:
+          // polyMarketHasEnded, as on the card.
+          final end = polyPositionEnd(pos);
+          final over = !pos.isResolved &&
+              polyMarketHasEnded(
+                  eventSlug: pos.eventSlug,
+                  end: end,
+                  event: event,
+                  live: isGame ? PolyLiveGame.of(event, ws) : null,
+                  isGame: isGame);
+          final settleAt = over && pos.marketId.isNotEmpty
+              ? expiryRef
+                  .watch(polyExpectedSettlementProvider(pos.marketId))
+                  .valueOrNull
+              : null;
+          if (settleAt != null) {
+            expiryRef.watch(polyMinuteTickProvider);
+          }
+          final roundEnd = polyShortRoundEnd(pos.eventSlug);
+          if (over && polyShortRoundEstimating(roundEnd, DateTime.now())) {
+            expiryRef.watch(polyAwaitingTickProvider);
+          }
+          return _PositionExpiry(
+            end: end,
+            resolved: pos.isResolved,
+            // The game's header already says when it kicks off; a match's
+            // end is its kickoff.
+            quietBeforeEnd: event != null &&
+                sportsTeams != null &&
+                event.kickoff != null,
+            // Over but not claimable yet: say what is being waited for
+            // (position_awaiting.dart).
+            ended: over,
+            // Still trading past the market's own end: the event's, when it
+            // is later.
+            eventEnd: event?.endDate,
+            endedLabel: polyAwaitingText(
+                context.l10n, polyAwaitingResultFor(currentPrice),
+                shortRound: polyIsShortRound(pos.eventSlug),
+                settleAt: settleAt,
+                roundEnd: roundEnd),
+          );
+        });
     // A game keeps the live score feed open while its position is on
     // screen (nothing else joined it when the screen opens from the
     // Portfolio). connect() is idempotent.
@@ -718,16 +783,25 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                                           kind: kind),
                                     ),
                                     SizedBox(height: 2.h),
-                                    // Under the chance: the drag hint
-                                    // until the first drag, or, while and
-                                    // just after a drag, the offer to sell
-                                    // at the explored chance.
+                                    // Under the chance: when it ends, over
+                                    // the drag hint until the first drag;
+                                    // while and just after a drag, the
+                                    // offer to sell at the explored chance
+                                    // in their place.
                                     _ResultOrSellSlot(
                                       whatIf: _whatIf,
                                       sellAt: _sellAt,
-                                      result: _dialHintRoom
-                                          ? _DialHintLine(visible: _dialHint)
-                                          : const SizedBox.shrink(),
+                                      tall: hasExpiry && _dialHintRoom,
+                                      result: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (hasExpiry) buildExpiry(),
+                                          if (hasExpiry && _dialHintRoom)
+                                            SizedBox(height: 4.h),
+                                          if (_dialHintRoom)
+                                            _DialHintLine(visible: _dialHint),
+                                        ],
+                                      ),
                                       onSell: (at) => _sellAtWhatIf(pos, at),
                                     ),
                                   ],
@@ -777,6 +851,11 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                                         formatPolyChanceFigure(currentPrice)),
                                     style: positionTileCaptionStyle(c),
                                   ),
+                                  // Under it, as under the dial's chance.
+                                  if (hasExpiry) ...[
+                                    SizedBox(height: 6.h),
+                                    buildExpiry(),
+                                  ],
                                 ],
                               );
                             }),
@@ -784,11 +863,55 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                         ),
                       ],
 
+                      SizedBox(height: 20.h),
+                      // Actions first (founder, 6 November 2026): what can
+                      // be done to the position, right under the dial, as
+                      // the option cards (kute_action_cards.dart; a lone
+                      // one full width, never half a row). Only while it
+                      // is open.
+                      if (!pos.isResolved && pos.size > 0) ...[
+                        KuteActionCardGrid(
+                          key: const ValueKey('poly-position-actions'),
+                          // Alone, full width at the squares' size: it
+                          // never outweighs the tiles under it.
+                          compactLone: true,
+                          cards: [
+                            // How to protect it: the closest protective
+                            // order Predictions has, a limit sell, set on
+                            // the sell ticket's Advanced page.
+                            KuteActionCard.option(
+                              key: const ValueKey('poly-position-protect'),
+                              icon: Icons.shield_outlined,
+                              title: context.l10n.positionProtectIt,
+                              subtitle: context.l10n.optionProtectSellSub,
+                              onTap: () {
+                                TrackingService.track(
+                                    'position_protect_tapped',
+                                    params: {
+                                      'venue': 'polymarket',
+                                      ...VenueAnalytics.pmKindParams([
+                                        pos.tokenId,
+                                        pos.marketId,
+                                        pos.eventSlug
+                                      ]),
+                                      'wallet_kind': 'hot',
+                                      'target': 'limit_sell',
+                                    });
+                                context.pop();
+                                SellSheet.show(context,
+                                    position: pos,
+                                    source: 'position_protect',
+                                    startWithLimit: true);
+                              },
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 12.h),
+                      ],
 
                       // What it is worth now (with the profit or loss) and
                       // what it pays if the held side wins (once settled:
                       // what it paid), each on its own tile.
-                      SizedBox(height: 20.h),
                       ValueListenableBuilder<double?>(
                         valueListenable: _whatIf,
                         builder: (context, whatIf, _) {
@@ -899,80 +1022,15 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                         return const SizedBox.shrink();
                       }),
 
-                      if (pos.isResolved ||
-                          pos.endDateStr?.isNotEmpty == true) ...[
+                      if (hasExpiry && !expiryUnderChance) ...[
                         SizedBox(height: 16.h),
-                        // While a game is being played its header says
-                        // where it is; the market's scheduled end (already
-                        // past) would only mislead.
-                        Consumer(builder: (context, expiryRef, _) {
-                          final isGame = event != null && sportsTeams != null;
-                          final ws = isGame
-                              ? polyLiveMatchUpdate(expiryRef, event)
-                              : null;
-                          if (!pos.isResolved &&
-                              isGame &&
-                              polyGameIsLive(event, ws)) {
-                            return const SizedBox.shrink();
-                          }
-                          // Over and not claimable yet: when Polymarket
-                          // expects the result, counted down by the minute.
-                          // A passed end date alone is not over (the Brazil
-                          // "who wins" market kept its first-round date
-                          // while still trading), but for a 5 or 15 minute
-                          // round: polyMarketHasEnded, as on the card.
-                          final end = polyPositionEnd(pos);
-                          final over = !pos.isResolved &&
-                              polyMarketHasEnded(
-                                  eventSlug: pos.eventSlug,
-                                  end: end,
-                                  event: event,
-                                  live: isGame
-                                      ? PolyLiveGame.of(event, ws)
-                                      : null,
-                                  isGame: isGame);
-                          final settleAt = over && pos.marketId.isNotEmpty
-                              ? expiryRef
-                                  .watch(polyExpectedSettlementProvider(
-                                      pos.marketId))
-                                  .valueOrNull
-                              : null;
-                          if (settleAt != null) {
-                            expiryRef.watch(polyMinuteTickProvider);
-                          }
-                          final roundEnd = polyShortRoundEnd(pos.eventSlug);
-                          if (over &&
-                              polyShortRoundEstimating(
-                                  roundEnd, DateTime.now())) {
-                            expiryRef.watch(polyAwaitingTickProvider);
-                          }
-                          return _PositionExpiry(
-                            end: end,
-                            resolved: pos.isResolved,
-                            // The game's header already says when it
-                            // kicks off; a match's end is its kickoff.
-                            quietBeforeEnd: event != null &&
-                                sportsTeams != null &&
-                                event.kickoff != null,
-                            // Over but not claimable yet: say what is
-                            // being waited for (position_awaiting.dart).
-                            ended: over,
-                            // Still trading past the market's own end: the
-                            // event's, when it is later.
-                            eventEnd: event?.endDate,
-                            endedLabel: polyAwaitingText(context.l10n,
-                                polyAwaitingResultFor(currentPrice),
-                                shortRound: polyIsShortRound(pos.eventSlug),
-                                settleAt: settleAt,
-                                roundEnd: roundEnd),
-                          );
-                        }),
+                        buildExpiry(),
                       ],
 
 
                       SizedBox(height: 12.h),
-                      // The options, as cards two side by side (founder, 4
-                      // November 2026: "like squares";
+                      // The cards to read more, two side by side (founder,
+                      // 4 November 2026: "like squares";
                       // kute_action_cards.dart), an odd last one full
                       // width, as on the market sheet and the Investing
                       // screens.
@@ -990,35 +1048,6 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                               title: context.l10n.salViewMarket,
                               subtitle: context.l10n.optionViewMarketSub,
                               onTap: () => _seeMarket(event),
-                            ),
-                          // How to protect it: the closest protective order
-                          // Predictions has, a limit sell, set on the sell
-                          // ticket's Advanced page. Only while it is open.
-                          if (!pos.isResolved && pos.size > 0)
-                            KuteActionCard.option(
-                              key: const ValueKey('poly-position-protect'),
-                              icon: Icons.shield_outlined,
-                              title: context.l10n.positionProtectIt,
-                              subtitle: context.l10n.optionProtectSellSub,
-                              onTap: () {
-                                TrackingService.track(
-                                    'position_protect_tapped',
-                                    params: {
-                                      'venue': 'polymarket',
-                                      ...VenueAnalytics.pmKindParams([
-                                        pos.tokenId,
-                                        pos.marketId,
-                                        pos.eventSlug
-                                      ]),
-                                      'wallet_kind': 'hot',
-                                      'target': 'limit_sell',
-                                    });
-                                context.pop();
-                                SellSheet.show(context,
-                                    position: pos,
-                                    source: 'position_protect',
-                                    startWithLimit: true);
-                              },
                             ),
                           // What the position is made of, as plain rows on
                           // the shared bottom sheet, one card away.
@@ -1158,20 +1187,25 @@ Color polyHeldSideColor(String outcome, AppColorsExtension c) =>
 double polyWhatIfSellPrice(double chance) =>
     chance.clamp(0.01, 0.99).toDouble();
 
-/// Under the dial: the result since the buy; while the needle is dragged
-/// and for a moment after, a quiet "Set a sell at 72%" in its place.
+/// Under the dial: when the market ends (over the drag hint, until the
+/// first drag); while the needle is dragged and for a moment after, a
+/// quiet "Set a sell at 72%" in its place.
 class _ResultOrSellSlot extends StatelessWidget {
   const _ResultOrSellSlot({
     required this.whatIf,
     required this.sellAt,
     required this.result,
     required this.onSell,
+    this.tall = false,
   });
 
   final ValueListenable<double?> whatIf;
   final ValueListenable<double?> sellAt;
   final Widget result;
   final ValueChanged<double> onSell;
+
+  /// Room for two lines: when it ends, over the drag hint.
+  final bool tall;
 
   static const sellKey = ValueKey('poly-position-whatif-sell');
 
@@ -1225,7 +1259,7 @@ class _ResultOrSellSlot extends StatelessWidget {
           }
           // One height for both, so nothing under it moves.
           return SizedBox(
-            height: 36.h,
+            height: tall ? 52.h : 36.h,
             child: Center(
               child: AnimatedSwitcher(
                 duration: reduceMotion
@@ -1489,24 +1523,20 @@ class _PositionExpiryState extends State<_PositionExpiry> {
       label = context.l10n.predictEndsIn(h > 0 ? '$h:$m:$s' : '$m:$s');
     }
     final c = context.colors;
-    // A quiet pill, centred.
+    // A quiet line, centred under the chance: no pill, no border.
     return Center(
-      child: Container(
-        key: const ValueKey('poly-position-expiry'),
-        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
-        decoration: BoxDecoration(
-          color: c.surface,
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: c.borderSubtle, width: 0.5),
-        ),
-        child: Text(label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-                color: c.textSecondary,
-                fontSize: 13.sp,
-                fontWeight: FontWeight.w600,
-                fontFeatures: const [FontFeature.tabularFigures()])),
-      ),
+      child: Text(label,
+          key: const ValueKey('poly-position-expiry'),
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+              color: c.textSecondary,
+              fontSize: 13.sp,
+              fontWeight: FontWeight.w500,
+              letterSpacing: -0.1,
+              height: 1.3,
+              fontFeatures: const [FontFeature.tabularFigures()])),
     );
   }
 }
