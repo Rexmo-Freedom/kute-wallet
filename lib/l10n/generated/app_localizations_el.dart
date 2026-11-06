@@ -11624,6 +11624,86 @@ class AppLocalizationsEl extends AppLocalizations {
   String get balanceNoHistorySub => 'Ξεκινά με την πρώτη σου συναλλαγή.';
 
   @override
+  String balanceGoalLevel(int level) {
+    return 'Επίπεδο $level';
+  }
+
+  @override
+  String get balanceLevelName0 => 'Ζέσταμα';
+
+  @override
+  String get balanceLevelName1 => 'Χαρτζιλίκι';
+
+  @override
+  String get balanceLevelName2 => 'Συλλέκτης';
+
+  @override
+  String get balanceLevelName3 => 'Θαμώνας';
+
+  @override
+  String get balanceLevelName4 => 'Ενήλικας';
+
+  @override
+  String get balanceLevelName5 => 'Σοβαρά';
+
+  @override
+  String get balanceLevelName6 => 'Σταθερό χέρι';
+
+  @override
+  String get balanceLevelName7 => 'Βαρέων βαρών';
+
+  @override
+  String get balanceLevelName8 => 'Μεγάλος σκύλος';
+
+  @override
+  String get balanceLevelName9 => 'Αρχηγός της αγέλης';
+
+  @override
+  String get balanceLevelName10 => 'Θρύλος';
+
+  @override
+  String get balanceLevelName11 => 'Εκτός κλίμακας';
+
+  @override
+  String balanceGoalProgress(int percent, String goal) {
+    return '$percent% προς $goal';
+  }
+
+  @override
+  String balanceGoalChartLabel(String goal) {
+    return 'Επόμενο: $goal';
+  }
+
+  @override
+  String balanceGoalMove(String amount) {
+    return 'Μετακίνηση $amount στα Δολάρια';
+  }
+
+  @override
+  String get balanceGoalMovePlain => 'Μετακίνηση στα Δολάρια';
+
+  @override
+  String get balanceGoalMoveWhyBoth =>
+      'Τα χρήματά σου, περισσότερες επιλογές: Επενδύσεις και Προβλέψεις σε δολάρια.';
+
+  @override
+  String get balanceGoalMoveWhyInvesting =>
+      'Τα χρήματά σου, περισσότερες επιλογές: Επενδύσεις σε δολάρια.';
+
+  @override
+  String get balanceGoalMoveWhyPredictions =>
+      'Τα χρήματά σου, περισσότερες επιλογές: Προβλέψεις σε δολάρια.';
+
+  @override
+  String balanceMilestonePassed(String amount) {
+    return 'Ξεπέρασες τα $amount';
+  }
+
+  @override
+  String get balanceMilestonePassedLine =>
+      'Bitcoin και δολάρια μαζί. Ο Sal κάνει πως δεν είναι τίποτα.';
+
+  @override
   String get pnlNoHistoryTitle => 'Δεν υπάρχει ακόμα κέρδος / ζημιά';
 
   @override

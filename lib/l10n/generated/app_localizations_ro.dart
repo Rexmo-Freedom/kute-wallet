@@ -11603,6 +11603,86 @@ class AppLocalizationsRo extends AppLocalizations {
   String get balanceNoHistorySub => 'Începe cu prima ta tranzacție.';
 
   @override
+  String balanceGoalLevel(int level) {
+    return 'Nivelul $level';
+  }
+
+  @override
+  String get balanceLevelName0 => 'Încălzire';
+
+  @override
+  String get balanceLevelName1 => 'Bani de buzunar';
+
+  @override
+  String get balanceLevelName2 => 'Strângător';
+
+  @override
+  String get balanceLevelName3 => 'Obișnuit';
+
+  @override
+  String get balanceLevelName4 => 'Matur';
+
+  @override
+  String get balanceLevelName5 => 'Serios';
+
+  @override
+  String get balanceLevelName6 => 'Mână sigură';
+
+  @override
+  String get balanceLevelName7 => 'Categoria grea';
+
+  @override
+  String get balanceLevelName8 => 'Câine mare';
+
+  @override
+  String get balanceLevelName9 => 'Liderul haitei';
+
+  @override
+  String get balanceLevelName10 => 'Legendă';
+
+  @override
+  String get balanceLevelName11 => 'În afara scalei';
+
+  @override
+  String balanceGoalProgress(int percent, String goal) {
+    return '$percent% până la $goal';
+  }
+
+  @override
+  String balanceGoalChartLabel(String goal) {
+    return 'Următorul: $goal';
+  }
+
+  @override
+  String balanceGoalMove(String amount) {
+    return 'Mută $amount în Dolari';
+  }
+
+  @override
+  String get balanceGoalMovePlain => 'Mută în Dolari';
+
+  @override
+  String get balanceGoalMoveWhyBoth =>
+      'Banii tăi, mai multe locuri unde să meargă: Investiții și Predicții în dolari.';
+
+  @override
+  String get balanceGoalMoveWhyInvesting =>
+      'Banii tăi, mai multe locuri unde să meargă: Investiții în dolari.';
+
+  @override
+  String get balanceGoalMoveWhyPredictions =>
+      'Banii tăi, mai multe locuri unde să meargă: Predicții în dolari.';
+
+  @override
+  String balanceMilestonePassed(String amount) {
+    return 'Ai depășit $amount';
+  }
+
+  @override
+  String get balanceMilestonePassedLine =>
+      'Bitcoin și dolari împreună. Sal se preface că nu e mare lucru.';
+
+  @override
   String get pnlNoHistoryTitle => 'Încă nu ai P&L';
 
   @override

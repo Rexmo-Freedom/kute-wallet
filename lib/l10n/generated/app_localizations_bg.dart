@@ -11567,6 +11567,86 @@ class AppLocalizationsBg extends AppLocalizations {
   String get balanceNoHistorySub => 'Тя започва с първата ти транзакция.';
 
   @override
+  String balanceGoalLevel(int level) {
+    return 'Ниво $level';
+  }
+
+  @override
+  String get balanceLevelName0 => 'Загрявка';
+
+  @override
+  String get balanceLevelName1 => 'Джобни';
+
+  @override
+  String get balanceLevelName2 => 'Трупач';
+
+  @override
+  String get balanceLevelName3 => 'Редовен';
+
+  @override
+  String get balanceLevelName4 => 'Пораснал';
+
+  @override
+  String get balanceLevelName5 => 'Сериозно';
+
+  @override
+  String get balanceLevelName6 => 'Твърда ръка';
+
+  @override
+  String get balanceLevelName7 => 'Тежка категория';
+
+  @override
+  String get balanceLevelName8 => 'Голямо куче';
+
+  @override
+  String get balanceLevelName9 => 'Водач на глутницата';
+
+  @override
+  String get balanceLevelName10 => 'Легенда';
+
+  @override
+  String get balanceLevelName11 => 'Извън скалата';
+
+  @override
+  String balanceGoalProgress(int percent, String goal) {
+    return '$percent% до $goal';
+  }
+
+  @override
+  String balanceGoalChartLabel(String goal) {
+    return 'Следваща: $goal';
+  }
+
+  @override
+  String balanceGoalMove(String amount) {
+    return 'Премести $amount в Долари';
+  }
+
+  @override
+  String get balanceGoalMovePlain => 'Премести в Долари';
+
+  @override
+  String get balanceGoalMoveWhyBoth =>
+      'Твоите пари, повече възможности: Инвестиране и Прогнози в долари.';
+
+  @override
+  String get balanceGoalMoveWhyInvesting =>
+      'Твоите пари, повече възможности: Инвестиране в долари.';
+
+  @override
+  String get balanceGoalMoveWhyPredictions =>
+      'Твоите пари, повече възможности: Прогнози в долари.';
+
+  @override
+  String balanceMilestonePassed(String amount) {
+    return 'Мина $amount';
+  }
+
+  @override
+  String get balanceMilestonePassedLine =>
+      'Биткойн и долари заедно. Сал се прави, че не е нищо.';
+
+  @override
   String get pnlNoHistoryTitle => 'Още няма печалба / загуба';
 
   @override

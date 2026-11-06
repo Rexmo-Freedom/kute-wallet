@@ -11559,6 +11559,86 @@ class AppLocalizationsFi extends AppLocalizations {
   String get balanceNoHistorySub => 'Se alkaa ensimmäisestä tapahtumastasi.';
 
   @override
+  String balanceGoalLevel(int level) {
+    return 'Taso $level';
+  }
+
+  @override
+  String get balanceLevelName0 => 'Lämmittelyä';
+
+  @override
+  String get balanceLevelName1 => 'Taskurahaa';
+
+  @override
+  String get balanceLevelName2 => 'Kerääjä';
+
+  @override
+  String get balanceLevelName3 => 'Vakiokasvo';
+
+  @override
+  String get balanceLevelName4 => 'Aikuinen';
+
+  @override
+  String get balanceLevelName5 => 'Tosissaan';
+
+  @override
+  String get balanceLevelName6 => 'Vakaa käsi';
+
+  @override
+  String get balanceLevelName7 => 'Raskassarjalainen';
+
+  @override
+  String get balanceLevelName8 => 'Iso koira';
+
+  @override
+  String get balanceLevelName9 => 'Laumanjohtaja';
+
+  @override
+  String get balanceLevelName10 => 'Legenda';
+
+  @override
+  String get balanceLevelName11 => 'Asteikon ulkopuolella';
+
+  @override
+  String balanceGoalProgress(int percent, String goal) {
+    return '$percent % tavoitteesta $goal';
+  }
+
+  @override
+  String balanceGoalChartLabel(String goal) {
+    return 'Seuraava: $goal';
+  }
+
+  @override
+  String balanceGoalMove(String amount) {
+    return 'Siirrä $amount dollareihin';
+  }
+
+  @override
+  String get balanceGoalMovePlain => 'Siirrä dollareihin';
+
+  @override
+  String get balanceGoalMoveWhyBoth =>
+      'Rahasi, enemmän mahdollisuuksia: Sijoita ja Ennusteet dollareissa.';
+
+  @override
+  String get balanceGoalMoveWhyInvesting =>
+      'Rahasi, enemmän mahdollisuuksia: Sijoita dollareissa.';
+
+  @override
+  String get balanceGoalMoveWhyPredictions =>
+      'Rahasi, enemmän mahdollisuuksia: Ennusteet dollareissa.';
+
+  @override
+  String balanceMilestonePassed(String amount) {
+    return 'Ohitit $amount';
+  }
+
+  @override
+  String get balanceMilestonePassedLine =>
+      'Bitcoin ja dollarit yhteensä. Sal esittää, ettei tämä ole mitään.';
+
+  @override
   String get pnlNoHistoryTitle => 'Ei vielä voittoa / tappiota';
 
   @override

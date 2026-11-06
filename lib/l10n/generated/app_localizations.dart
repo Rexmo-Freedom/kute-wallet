@@ -19419,6 +19419,138 @@ abstract class AppLocalizations {
   /// **'It starts with your first transaction.'**
   String get balanceNoHistorySub;
 
+  /// Bitcoin home, Balance tab footer: the level on the milestone ladder (levels go up as the person's Bitcoin + Dollars total passes round figures). Shown bold, followed by ' · ' and the level's name.
+  ///
+  /// In en, this message translates to:
+  /// **'Level {level}'**
+  String balanceGoalLevel(int level);
+
+  /// Level name (level 1, below the first milestone, about $100). Deadpan, playful, never about returns. Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Warming up'**
+  String get balanceLevelName0;
+
+  /// Level name (level 2, past ~$100). Deadpan, short.
+  ///
+  /// In en, this message translates to:
+  /// **'Pocket money'**
+  String get balanceLevelName1;
+
+  /// Level name (level 3, past ~$250). 'Stacker' as in someone who stacks sats. Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Stacker'**
+  String get balanceLevelName2;
+
+  /// Level name (level 4, past ~$500). Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Regular'**
+  String get balanceLevelName3;
+
+  /// Level name (level 5, past ~$1,000). Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Grown-up'**
+  String get balanceLevelName4;
+
+  /// Level name (level 6, past ~$2,500). Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Serious'**
+  String get balanceLevelName5;
+
+  /// Level name (level 7, past ~$5,000). Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Steady hand'**
+  String get balanceLevelName6;
+
+  /// Level name (level 8, past ~$10,000). Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Heavyweight'**
+  String get balanceLevelName7;
+
+  /// Level name (level 9, past ~$25,000). Dog pun (Sal is a dog), means a big shot. Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Big dog'**
+  String get balanceLevelName8;
+
+  /// Level name (level 10, past ~$50,000). Dog pun, the one at the top. Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Top dog'**
+  String get balanceLevelName9;
+
+  /// Level name (level 11, past ~$100,000). Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Legend'**
+  String get balanceLevelName10;
+
+  /// Level name (level 12 and every level above). Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Off the charts'**
+  String get balanceLevelName11;
+
+  /// Bitcoin home, Balance tab footer, right side: how far the Bitcoin + Dollars total is towards the next round goal ('62% to $500'). percent is a whole number; goal is a formatted amount.
+  ///
+  /// In en, this message translates to:
+  /// **'{percent}% to {goal}'**
+  String balanceGoalProgress(int percent, String goal);
+
+  /// Bitcoin home, Balance chart: the small label on the dashed goal line ('Next $500'). Very short.
+  ///
+  /// In en, this message translates to:
+  /// **'Next {goal}'**
+  String balanceGoalChartLabel(String goal);
+
+  /// Bitcoin home, Balance tab footer: the row that opens the Move to Dollars sheet with this amount filled in (bitcoin into the Dollars account). Never imply growth or returns.
+  ///
+  /// In en, this message translates to:
+  /// **'Move {amount} to Dollars'**
+  String balanceGoalMove(String amount);
+
+  /// Same row as balanceGoalMove while balances are hidden (no amount).
+  ///
+  /// In en, this message translates to:
+  /// **'Move to Dollars'**
+  String get balanceGoalMovePlain;
+
+  /// The line under 'Move $25 to Dollars' where both Investing and Predictions are available. Ambition and control, never returns: Dollars open more places for the money. Keep the product names as the app writes them.
+  ///
+  /// In en, this message translates to:
+  /// **'Your money, more places to go: Investing and Predictions in Dollars.'**
+  String get balanceGoalMoveWhyBoth;
+
+  /// The same line where only Investing is available.
+  ///
+  /// In en, this message translates to:
+  /// **'Your money, more places to go: Investing in Dollars.'**
+  String get balanceGoalMoveWhyInvesting;
+
+  /// The same line where only Predictions is available.
+  ///
+  /// In en, this message translates to:
+  /// **'Your money, more places to go: Predictions in Dollars.'**
+  String get balanceGoalMoveWhyPredictions;
+
+  /// Bitcoin home, Balance tab: shown once with Sal and confetti when the Bitcoin + Dollars total passes a round goal ('You passed $250').
+  ///
+  /// In en, this message translates to:
+  /// **'You passed {amount}'**
+  String balanceMilestonePassed(String amount);
+
+  /// The deadpan line under balanceMilestonePassed: the total counts Bitcoin and Dollars, and Sal (the dog mascot) plays it cool. One short line.
+  ///
+  /// In en, this message translates to:
+  /// **'Bitcoin and Dollars together. Sal is acting like it\'s nothing.'**
+  String get balanceMilestonePassedLine;
+
   /// Portfolio P&L Charts, empty: the title over Sal.
   ///
   /// In en, this message translates to:
