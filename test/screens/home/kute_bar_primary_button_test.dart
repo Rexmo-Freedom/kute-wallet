@@ -58,6 +58,14 @@ Future<ValueNotifier<KuteBarContext>> _pump(
   return ctx;
 }
 
+/// Frames until the button is at rest: the words' cross-slide, the
+/// leaving words' hold and the width's spring.
+Future<void> _settle(WidgetTester tester) async {
+  for (var i = 0; i < 12; i++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+}
+
 BoxDecoration _decoration(WidgetTester tester) {
   final box = tester.widget<AnimatedContainer>(_button);
   return box.decoration! as BoxDecoration;
@@ -136,6 +144,8 @@ void main() {
       busyLabel: 'Sending…',
       onPrimary: () => ran++,
     );
+    // Longer words wait for their room (the spring's first frames).
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 600));
     expect(find.text('Sending…'), findsOneWidget);
     expect(_shimmer, findsOneWidget);
@@ -176,12 +186,14 @@ void main() {
     final narrow = tester.getSize(_button).width;
     notifier.value = KuteBarContext.primary(
         label: 'Place prediction · \$1,250.00 on Gen.G', onPrimary: () {});
-    await tester.pump(const Duration(milliseconds: 600));
+    // The width springs (the button's own room, kute_shell_bar.dart).
+    await _settle(tester);
     final wide = tester.getSize(_button).width;
     expect(narrow, lessThan(wide));
     expect(wide, lessThanOrEqualTo(390 - 32 + 0.5));
     notifier.value = KuteBarContext.primary(label: 'OK', onPrimary: () {});
-    await tester.pump(const Duration(milliseconds: 600));
+    // The old words leave first, then the width springs down.
+    await _settle(tester);
     expect(tester.getSize(_button).width,
         moreOrLessEquals(KuteBarPrimaryButton.minWidth));
     expect(tester.getSize(_button).height, KuteBarPrimaryButton.height);
