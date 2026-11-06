@@ -11938,6 +11938,23 @@ class AppLocalizationsFi extends AppLocalizations {
   String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
 
   @override
+  String get receiveOrSwapTitle => 'Vastaanota tai vaihda';
+
+  @override
+  String get receiveFromYourDollars => 'Dollareistasi';
+
+  @override
+  String usdDollarsBalanceLine(String amount) {
+    return '$amount Dollareissa';
+  }
+
+  @override
+  String get receiveFromAnotherAsset => 'Toisesta varasta';
+
+  @override
+  String get receiveBitcoinAndLightning => 'Bitcoin ja Lightning';
+
+  @override
   String get sendRailBitcoinOnchain => 'Bitcoin · on-chain';
 
   @override

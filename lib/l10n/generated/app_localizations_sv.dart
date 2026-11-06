@@ -11923,6 +11923,23 @@ class AppLocalizationsSv extends AppLocalizations {
   String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
 
   @override
+  String get receiveOrSwapTitle => 'Ta emot eller växla';
+
+  @override
+  String get receiveFromYourDollars => 'Från dina Dollar';
+
+  @override
+  String usdDollarsBalanceLine(String amount) {
+    return '$amount i Dollar';
+  }
+
+  @override
+  String get receiveFromAnotherAsset => 'Från en annan tillgång';
+
+  @override
+  String get receiveBitcoinAndLightning => 'Bitcoin och Lightning';
+
+  @override
   String get sendRailBitcoinOnchain => 'Bitcoin · on-chain';
 
   @override

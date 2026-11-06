@@ -48,7 +48,7 @@ class _Sports extends SportsLiveNotifier {
   void connect() {}
 }
 
-Settings _settings() => Settings(
+Settings _settings({List<WalletConfig> extra = const []}) => Settings(
       currency: 'USD',
       language: 'en',
       btcFormat: 'sats',
@@ -57,19 +57,23 @@ Settings _settings() => Settings(
       bitcoinElectrumNode: '',
       nodeType: 'Blockstream',
       reviewDone: true,
-      wallets: [WalletConfig(id: 'spending', name: 'Spending')],
+      wallets: [WalletConfig(id: 'spending', name: 'Spending'), ...extra],
       activeWalletId: 'spending',
     );
 
 /// [routes] mounts the dock under a real router (at `/`) beside them, so
 /// a test can see where a dock action navigates.
 Future<ProviderContainer> _pump(WidgetTester tester, Widget dock,
-    {bool aiEnabled = true, bool dark = false, List<GoRoute>? routes}) async {
+    {bool aiEnabled = true,
+    bool dark = false,
+    List<GoRoute>? routes,
+    Settings? settings}) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   final container = ProviderContainer(overrides: [
-    settingsProvider.overrideWith((_) => SettingsModel(_settings())),
+    settingsProvider
+        .overrideWith((_) => SettingsModel(settings ?? _settings())),
     aiEnabledProvider.overrideWith((_) async => aiEnabled),
     sportsLiveProvider.overrideWith(_Sports.new),
     tradeNotificationsProvider
@@ -453,10 +457,15 @@ void main() {
   });
 
   testWidgets(
-      'the Bitcoin row\'s Receive opens the Bitcoin receive as a bottom '
-      'sheet over the screen, not a route push', (tester) async {
+      'the Bitcoin row\'s Receive opens Receive or swap as a bottom sheet '
+      'over the screen, not a route push', (tester) async {
+    ReceiveSheets.debugBitcoinOptionsBody =
+        (_) => const Text('btc receive options');
     ReceiveSheets.debugBitcoinBody = (_) => const Text('btc receive body');
-    addTearDown(() => ReceiveSheets.debugBitcoinBody = null);
+    addTearDown(() {
+      ReceiveSheets.debugBitcoinOptionsBody = null;
+      ReceiveSheets.debugBitcoinBody = null;
+    });
     final pushed = <Uri>[];
     // Home's row: the dock's own Receive and Send, under the balance.
     final row = Consumer(
@@ -477,11 +486,39 @@ void main() {
     await tester.tap(find.text('Receive'));
     await tester.pumpAndSettle();
     expect(pushed, isEmpty);
+    // The spending wallet: "Receive or swap" first, never the QR itself.
+    expect(find.text('btc receive options'), findsOneWidget);
+    expect(find.text('btc receive body'), findsNothing);
+    final route =
+        ModalRoute.of(tester.element(find.text('btc receive options')));
+    expect(route, isA<ModalBottomSheetRoute<void>>());
+    expect(route!.settings.name, 'receiveOptions');
+    expect(find.byType(KuteActionRow), findsOneWidget);
+  });
+
+  testWidgets(
+      'a watch-only wallet\'s Receive opens the QR receive straight away: '
+      'nothing to swap from, so no Receive or swap', (tester) async {
+    ReceiveSheets.debugBitcoinOptionsBody =
+        (_) => const Text('btc receive options');
+    ReceiveSheets.debugBitcoinBody = (_) => const Text('btc receive body');
+    addTearDown(() {
+      ReceiveSheets.debugBitcoinOptionsBody = null;
+      ReceiveSheets.debugBitcoinBody = null;
+    });
+    final cold = WalletConfig(
+        id: 'cold', name: 'Cold', isWatchOnly: true, sparkEnabled: false);
+    final row = Consumer(
+        builder: (context, ref, _) => KuteActionRow(
+            source: 'wallet_detail',
+            actions: bitcoinWalletDockActions(context, ref, cold)));
+    await _pump(tester, row, settings: _settings(extra: [cold]));
+    await tester.tap(find.text('Receive'));
+    await tester.pumpAndSettle();
+    expect(find.text('btc receive options'), findsNothing);
     expect(find.text('btc receive body'), findsOneWidget);
     final route = ModalRoute.of(tester.element(find.text('btc receive body')));
-    expect(route, isA<ModalBottomSheetRoute<void>>());
     expect(route!.settings.name, 'receive');
-    expect(find.byType(KuteActionRow), findsOneWidget);
   });
 
   testWidgets('the Portfolio pill\'s dock draws no pill: the shell bar is the one',

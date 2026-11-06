@@ -11501,6 +11501,23 @@ class AppLocalizationsJa extends AppLocalizations {
   String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
 
   @override
+  String get receiveOrSwapTitle => '受け取り・交換';
+
+  @override
+  String get receiveFromYourDollars => 'ドルから';
+
+  @override
+  String usdDollarsBalanceLine(String amount) {
+    return 'ドル残高 $amount';
+  }
+
+  @override
+  String get receiveFromAnotherAsset => '他の暗号資産から';
+
+  @override
+  String get receiveBitcoinAndLightning => 'ビットコインとLightning';
+
+  @override
   String get sendRailBitcoinOnchain => 'ビットコイン · オンチェーン';
 
   @override
