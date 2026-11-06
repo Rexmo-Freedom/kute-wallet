@@ -11943,7 +11943,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get usdSendSearchHint => 'Name, address or phone';
 
   @override
-  String get usdSendToYourBitcoin => 'To your Bitcoin';
+  String get usdSendToYourBitcoin => 'A Bitcoinodba';
 
   @override
   String usdBitcoinBalanceLine(String amount) {
@@ -13652,6 +13652,18 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get sendToCryptoAddress => 'Kriptocímre';
+
+  @override
+  String get sendMoreWaysToSend => 'További küldési módok';
+
+  @override
+  String get sendWayCryptoAddress => 'Kriptocím';
+
+  @override
+  String get sendWayPrediction => 'Előrejelzés';
+
+  @override
+  String get sendWayToDollars => 'Dollárba';
 
   @override
   String get sendPickRowSub => 'Vagy befektetés. Keress piacot, válassz oldalt';

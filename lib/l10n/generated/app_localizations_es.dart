@@ -11969,7 +11969,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get usdSendSearchHint => 'Name, address or phone';
 
   @override
-  String get usdSendToYourBitcoin => 'To your Bitcoin';
+  String get usdSendToYourBitcoin => 'A tu Bitcoin';
 
   @override
   String usdBitcoinBalanceLine(String amount) {
@@ -13699,6 +13699,18 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get sendToCryptoAddress => 'A una dirección cripto';
+
+  @override
+  String get sendMoreWaysToSend => 'Más formas de enviar';
+
+  @override
+  String get sendWayCryptoAddress => 'Dirección cripto';
+
+  @override
+  String get sendWayPrediction => 'Predicción';
+
+  @override
+  String get sendWayToDollars => 'A Dólares';
 
   @override
   String get sendPickRowSub =>

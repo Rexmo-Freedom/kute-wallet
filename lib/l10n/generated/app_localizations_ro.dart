@@ -11974,7 +11974,7 @@ class AppLocalizationsRo extends AppLocalizations {
   String get usdSendSearchHint => 'Name, address or phone';
 
   @override
-  String get usdSendToYourBitcoin => 'To your Bitcoin';
+  String get usdSendToYourBitcoin => 'În Bitcoin-ul tău';
 
   @override
   String usdBitcoinBalanceLine(String amount) {
@@ -13685,6 +13685,18 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get sendToCryptoAddress => 'Către o adresă crypto';
+
+  @override
+  String get sendMoreWaysToSend => 'Alte moduri de trimitere';
+
+  @override
+  String get sendWayCryptoAddress => 'Adresă crypto';
+
+  @override
+  String get sendWayPrediction => 'Predicție';
+
+  @override
+  String get sendWayToDollars => 'În Dolari';
 
   @override
   String get sendPickRowSub => 'Sau o investiție. Caută o piață, alege partea';

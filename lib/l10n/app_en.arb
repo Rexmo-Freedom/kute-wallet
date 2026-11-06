@@ -8893,7 +8893,7 @@
   },
   "usdSendToYourBitcoin": "To your Bitcoin",
   "@usdSendToYourBitcoin": {
-    "description": "Dollars Send, Send to card: move dollars to the user's own Bitcoin."
+    "description": "Dollars Send, the chip under Frequent (keep it short: three chips share a phone's width): move dollars to the user's own Bitcoin."
   },
   "usdBitcoinBalanceLine": "{amount} in Bitcoin",
   "@usdBitcoinBalanceLine": {
@@ -11433,6 +11433,22 @@
   "sendToCryptoAddress": "To a crypto address",
   "@sendToCryptoAddress": {
     "description": "The Dollars Send's row for the coins dollars can land as (opens the coin sheet); the coins are listed under it."
+  },
+  "sendMoreWaysToSend": "More ways to send",
+  "@sendMoreWaysToSend": {
+    "description": "Send (Bitcoin and Dollars): the small header over the one row of chips between Frequent and All contacts (To your Bitcoin or To Dollars, Crypto address, Prediction)."
+  },
+  "sendWayCryptoAddress": "Crypto address",
+  "@sendWayCryptoAddress": {
+    "description": "Send (Bitcoin and Dollars): the short chip label that opens the coins this money can land as on another chain. Keep it short: three chips share a phone's width."
+  },
+  "sendWayPrediction": "Prediction",
+  "@sendWayPrediction": {
+    "description": "Send (Bitcoin and Dollars): the short chip label that opens the market search to send a prediction or an investment. Keep it short."
+  },
+  "sendWayToDollars": "To Dollars",
+  "@sendWayToDollars": {
+    "description": "Bitcoin Send: the short chip label that moves bitcoin into the user's own Dollars account (the Move money sheet). Keep it short."
   },
   "sendPickRowSub": "Or an investment. Search a market, pick the side",
   "@sendPickRowSub": {

@@ -11927,7 +11927,7 @@ class AppLocalizationsFi extends AppLocalizations {
   String get usdSendSearchHint => 'Name, address or phone';
 
   @override
-  String get usdSendToYourBitcoin => 'To your Bitcoin';
+  String get usdSendToYourBitcoin => 'Bitcoiniisi';
 
   @override
   String usdBitcoinBalanceLine(String amount) {
@@ -13647,6 +13647,18 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get sendToCryptoAddress => 'Kryptoosoitteeseen';
+
+  @override
+  String get sendMoreWaysToSend => 'Lisää tapoja lähettää';
+
+  @override
+  String get sendWayCryptoAddress => 'Kryptoosoite';
+
+  @override
+  String get sendWayPrediction => 'Ennuste';
+
+  @override
+  String get sendWayToDollars => 'Dollareihin';
 
   @override
   String get sendPickRowSub => 'Tai sijoitus. Hae markkina, valitse puoli';

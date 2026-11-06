@@ -14,26 +14,28 @@
 //   * "Frequent" directly under the field (founder, 2 November 2026:
 //     "Frequent stays on top"), the recent recipients as circles, hidden
 //     while typing and once a recipient is chosen;
-//   * THE WAYS AS CARDS (founder, 4 November 2026: "too many options and
-//     buttons, make it more clear"; 5 November 2026: "I think these should
-//     be cards like squares, also in Bitcoin"): under one "Send to" label,
-//     the app's big cards (kute_action_cards.dart): "To your Bitcoin" (the
-//     Move money sheet, Dollars to Bitcoin) and "To a crypto address" (the
-//     coins it can land as, in the coin sheet, exactly as the Bitcoin
-//     send's card opens its own) as two squares, then "Send an investment
-//     or prediction" ("Pick a market, side and amount": the market search,
-//     send_pick_market_sheet.dart, a market's page, its slip sends) across
-//     the width under them, compact (the grid's no-orphan rule; the card
-//     goes where neither venue is open to this person, sendPickOffered).
-//     No "Send to anyone" card (founder, 5 November 2026: "makes no sense
-//     since we have phone numbers"; as the Bitcoin send): a contact or a
-//     typed phone number already sends by link;
+//   * THE WAYS AS ONE ROW OF CHIPS (founder, 6 November 2026, the approved
+//     hierarchy, "one question per level, people first";
+//     send_recipient_step.dart): under a small "More ways to send" label,
+//     three small equal chips (SendWaysRow), clearly under the people
+//     above: "To your Bitcoin" (the Move money sheet, Dollars to
+//     Bitcoin), "Crypto address" (the coins it can land as, in the coin
+//     sheet, exactly as the Bitcoin send's chip opens its own) and
+//     "Prediction" (Send an investment or prediction: the market search,
+//     send_pick_market_sheet.dart, a market's page, its slip sends; the
+//     chip goes where neither venue is open to this person,
+//     sendPickOffered). No big "Send to" card grid any more, and no "Send
+//     to anyone" (founder, 5 November 2026: "makes no sense since we have
+//     phone numbers"): a contact or a typed phone number sends by link;
 //   * All contacts A–Z under them, the friends themselves
 //     (send_contacts_list.dart; founder: a growing list never hides the
-//     cards): the recent dollar recipients (paid directly: the send opens
+//     chips): the recent dollar recipients (paid directly: the send opens
 //     on that coin and address) and the phone's contacts (a claim link for
 //     dollars to their number), filtered by the text, "Send a link to
 //     +351…" for a typed number.
+//
+// An address several networks take asks which one in the highlighted row
+// under the field, as before.
 //
 // No big Bitcoin card and no inline coin grid any more. The bar is the default
 // "Search or Manage with AI" (the rows are the actions), Continue while the
@@ -66,7 +68,6 @@ import 'package:kute/screens/share/send_to_anyone_sheet.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/coin_asset_grid.dart';
 import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
-import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/money_movement_sheet.dart'
     show MoneyMovementAccount, showMoneyMovementSheet;
@@ -345,23 +346,23 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
                 SizedBox(height: 10.h),
                 SendInlineError(message: error),
               ],
-              // Frequent stays on top (founder, 2 November 2026):
-              // directly under the field, above the Send to card. Hidden
-              // while typing and once a recipient is chosen.
+              // Level 1, people (founder, 2 November 2026: "Frequent stays
+              // on top"): directly under the field. Hidden while typing and
+              // once a recipient is chosen.
               SendFrequentSection(
                 query: text,
                 excludeAddress: resolved,
                 recents: recents,
                 onPerson: (p) => _onPerson(p, offered),
               ),
-              // The two cards before Contacts (founder): a growing list
-              // never pushes them out of sight; Contacts scroll on to the
-              // bar's clearance. Hidden while a recipient is chosen: the
-              // card above is the choice.
+              // Level 2, the other ways, one row of chips before Contacts:
+              // a growing list never pushes them out of sight; Contacts
+              // scroll on to the bar's clearance. Hidden while a recipient
+              // is chosen: the card above is the choice.
               if (auto == null) ...[
                 SizedBox(height: 20.h),
-                SendSectionLabel(l10n.sendToLabel),
-                _optionsGrid(offered),
+                SendSectionLabel(l10n.sendMoreWaysToSend),
+                _waysRow(offered),
               ],
             ],
                 ),
@@ -373,7 +374,7 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
                 query: text,
                 excludeAddress: resolved,
                 recents: recents,
-                // Frequent sits above the Send to card.
+                // Frequent sits above the chips.
                 showFrequent: false,
                 onPerson: (p) => _onPerson(p, offered),
                 onPhoneLink: (phone) => unawaited(_openLink(phone: phone)),
@@ -429,16 +430,14 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
     unawaited(_openSend(recent.destination, recipient: recent.address));
   }
 
-  /// THE WAYS AS CARDS (founder, 5 November 2026: "I think these should
-  /// be cards like squares"): the app's big cards (kute_action_cards.dart)
-  /// under the one "Send to" label. "To your Bitcoin" (the Move money
-  /// sheet) and "To a crypto address" (the coin sheet) as two squares,
-  /// "Send an investment or prediction" (the market search) across the
-  /// width under them, compact. No "Send to anyone" (founder, 5 November
-  /// 2026: a contact or a typed phone number sends by link). With no coin
-  /// offered the address card goes (two squares) and the unavailable line
-  /// sits under them.
-  Widget _optionsGrid(List<UsdSendDestination> offered) {
+  /// LEVEL 2, ONE ROW OF CHIPS (founder, 6 November 2026; see the file
+  /// header): "To your Bitcoin" (the Move money sheet), "Crypto address"
+  /// (the coin sheet) and "Prediction" (the market search), small and
+  /// equal under the "More ways to send" label. No "Send to anyone"
+  /// (founder, 5 November 2026: a contact or a typed phone number sends by
+  /// link). With no coin offered the address chip goes and the unavailable
+  /// line sits under the row.
+  Widget _waysRow(List<UsdSendDestination> offered) {
     final l10n = context.l10n;
     final loading = ref.watch(orchestraRoutesReadyProvider).isLoading;
     final groups = coinGroupsOfferedUnderPolicy(
@@ -447,37 +446,46 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
     ).groups;
     final balance = watchSpendingBitcoinUsd(ref);
     // A prediction (an investment) is composed on a slip that can send it:
-    // with both venues closed to this person the card goes
+    // with both venues closed to this person the chip goes
     // (send_pick_market_sheet.dart; founder, 5 November 2026).
     final pickOffered = sendPickOffered(ref.watch(runtimeCapabilitiesProvider));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        KuteActionCardGrid(
+        SendWaysRow(
           key: const ValueKey('usd-withdraw-options'),
-          cards: [
-            KuteActionCard(
+          chips: [
+            SendWayChip(
               key: const ValueKey('usd-withdraw-to-bitcoin'),
-              visual: SvgPicture.asset(kBitcoinMarkAsset,
-                  width: kKuteActionCardVisualSize.sp,
-                  height: kKuteActionCardVisualSize.sp),
-              title: l10n.usdSendToYourBitcoin,
-              subtitle:
-                  balance == null ? null : l10n.usdBitcoinBalanceLine(balance),
+              icon: SvgPicture.asset(kBitcoinMarkAsset,
+                  width: kSendWayChipIconSlot.sp,
+                  height: kSendWayChipIconSlot.sp),
+              label: l10n.usdSendToYourBitcoin,
+              // The balance read out, as the card showed it.
+              semanticsLabel: balance == null
+                  ? null
+                  : '${l10n.usdSendToYourBitcoin}, '
+                      '${l10n.usdBitcoinBalanceLine(balance)}',
               onTap: _openToBitcoin,
             ),
             if (groups.isNotEmpty)
-              sendAlsoSendsToCard(l10n,
-                  groups: groups,
-                  title: l10n.sendToCryptoAddress,
-                  onTap: _openCoinPicker),
+              SendWayChip(
+                key: const ValueKey('send-also-sends-to-row'),
+                icon: SendCoinStack(
+                    groups: groups, mark: kSendWayChipCoinMark),
+                label: l10n.sendWayCryptoAddress,
+                // "USDC, USDT, ETH and 16 more" read out after the label.
+                semanticsLabel: '${l10n.sendToCryptoAddress}, '
+                    '${sendAlsoSendsToSummary(l10n, groups)}',
+                onTap: _openCoinPicker,
+              ),
             if (pickOffered)
-              KuteActionCard(
+              SendWayChip(
                 key: const ValueKey('usd-withdraw-pick'),
                 // The predictions' own gauge (the search rows' half ring).
-                visual: const SearchChanceGauge(chance: 0.64),
-                title: l10n.sendAnInvestmentOrPrediction,
-                subtitle: l10n.sendPickCardSub,
+                icon: const SearchChanceGauge(chance: 0.64),
+                label: l10n.sendWayPrediction,
+                semanticsLabel: l10n.sendAnInvestmentOrPrediction,
                 onTap: () => unawaited(_openPick()),
               ),
           ],

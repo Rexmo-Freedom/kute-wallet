@@ -20029,7 +20029,7 @@ abstract class AppLocalizations {
   /// **'Name, address or phone'**
   String get usdSendSearchHint;
 
-  /// Dollars Send, Send to card: move dollars to the user's own Bitcoin.
+  /// Dollars Send, the chip under Frequent (keep it short: three chips share a phone's width): move dollars to the user's own Bitcoin.
   ///
   /// In en, this message translates to:
   /// **'To your Bitcoin'**
@@ -22971,6 +22971,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'To a crypto address'**
   String get sendToCryptoAddress;
+
+  /// Send (Bitcoin and Dollars): the small header over the one row of chips between Frequent and All contacts (To your Bitcoin or To Dollars, Crypto address, Prediction).
+  ///
+  /// In en, this message translates to:
+  /// **'More ways to send'**
+  String get sendMoreWaysToSend;
+
+  /// Send (Bitcoin and Dollars): the short chip label that opens the coins this money can land as on another chain. Keep it short: three chips share a phone's width.
+  ///
+  /// In en, this message translates to:
+  /// **'Crypto address'**
+  String get sendWayCryptoAddress;
+
+  /// Send (Bitcoin and Dollars): the short chip label that opens the market search to send a prediction or an investment. Keep it short.
+  ///
+  /// In en, this message translates to:
+  /// **'Prediction'**
+  String get sendWayPrediction;
+
+  /// Bitcoin Send: the short chip label that moves bitcoin into the user's own Dollars account (the Move money sheet). Keep it short.
+  ///
+  /// In en, this message translates to:
+  /// **'To Dollars'**
+  String get sendWayToDollars;
 
   /// Under Send a prediction on the Dollars Send's To a friend card: the row opens the market search (predictions and investing).
   ///

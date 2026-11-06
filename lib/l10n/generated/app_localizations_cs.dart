@@ -11915,7 +11915,7 @@ class AppLocalizationsCs extends AppLocalizations {
   String get usdSendSearchHint => 'Name, address or phone';
 
   @override
-  String get usdSendToYourBitcoin => 'To your Bitcoin';
+  String get usdSendToYourBitcoin => 'Na tvůj Bitcoin';
 
   @override
   String usdBitcoinBalanceLine(String amount) {
@@ -13614,6 +13614,18 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get sendToCryptoAddress => 'Na kryptoadresu';
+
+  @override
+  String get sendMoreWaysToSend => 'Další způsoby odeslání';
+
+  @override
+  String get sendWayCryptoAddress => 'Kryptoadresa';
+
+  @override
+  String get sendWayPrediction => 'Predikce';
+
+  @override
+  String get sendWayToDollars => 'Do Dolarů';
 
   @override
   String get sendPickRowSub => 'Nebo investici. Vyhledej trh, vyber stranu';

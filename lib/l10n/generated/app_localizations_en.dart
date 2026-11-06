@@ -13581,6 +13581,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sendToCryptoAddress => 'To a crypto address';
 
   @override
+  String get sendMoreWaysToSend => 'More ways to send';
+
+  @override
+  String get sendWayCryptoAddress => 'Crypto address';
+
+  @override
+  String get sendWayPrediction => 'Prediction';
+
+  @override
+  String get sendWayToDollars => 'To Dollars';
+
+  @override
   String get sendPickRowSub =>
       'Or an investment. Search a market, pick the side';
 
