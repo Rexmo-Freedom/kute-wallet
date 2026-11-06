@@ -666,7 +666,8 @@ class KutePressable extends StatefulWidget {
   final bool enabled;
 
   /// The scale held while pressed; [KuteMotion.pressScale] unless a surface
-  /// asks for a deeper press (the category tiles, 0.97).
+  /// asks for a deeper press (none does: the category tiles press as the
+  /// pills and cards do since 6 November 2026).
   final double scale;
 
   const KutePressable(

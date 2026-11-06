@@ -162,7 +162,7 @@ import 'package:kute/screens/receive/receive_sheet.dart'
 import 'package:kute/screens/search/unified_search_screen.dart';
 import 'package:kute/screens/shared/investment_balance_header.dart';
 import 'package:kute/screens/shared/kute_motion.dart'
-    show kuteMotion, kuteReduceMotion;
+    show SelectionFade, kuteMotion, kuteReduceMotion;
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/shared/stale_shimmer.dart';
@@ -696,7 +696,16 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
                 ),
               ),
             ],
-            body: IndexedStack(
+            // A pill switch moves as every switch does (KuteMotion.switchIn,
+            // founder 6 November 2026): the pill's page fades in and slides
+            // 24 px from its side, a pill to the right from the right; a
+            // category picked for the pill moves its list the same way
+            // (the venue list's SliverSelectionFade). At once under Reduce
+            // Motion.
+            body: SelectionFade(
+              selection: selected,
+              order: tabs.indexOf(selected),
+              child: IndexedStack(
               index: tabs.indexOf(selected),
               // Every pill keeps its state; only the one on screen ticks.
               children: [
@@ -714,6 +723,7 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
                     },
                   ),
               ],
+              ),
             ),
           ),
         ),
