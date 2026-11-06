@@ -20,6 +20,8 @@ import 'package:kute/providers/polymarket_sports_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/trade_notifications_provider.dart';
 import 'package:kute/providers/unified_search_provider.dart';
+import 'package:kute/screens/home/components/deposit_sheet.dart'
+    show DepositSheet;
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart';
 import 'package:kute/screens/home/home.dart' show HomeDock;
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
@@ -28,6 +30,8 @@ import 'package:kute/screens/receive/receive_sheet.dart' show ReceiveSheets;
 import 'package:kute/screens/search/unified_search_screen.dart';
 import 'package:kute/screens/shared/bitcoin_wallet_actions.dart'
     show bitcoinWalletDockActions;
+import 'package:kute/screens/shared/capability_unavailable_sheet.dart'
+    show CapabilityUnavailableSheet;
 import 'package:kute/screens/shared/kute_dog_scenes.dart';
 import 'package:kute/screens/shared/investment_action_bar.dart';
 import 'package:kute/screens/shared/open_once.dart';
@@ -321,7 +325,7 @@ void main() {
   testWidgets(
       'the Investments money verbs are one compact row, Buy dollars, '
       'Receive and Send, and the dock is search alone; Receive '
-      'opens the Dollars receive screen, Buy dollars the Move sheet',
+      'opens the Dollars receive screen, Buy dollars its own opener',
       (tester) async {
     final events = <(String, Map<String, Object>?)>[];
     TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
@@ -382,15 +386,41 @@ void main() {
         {'action': 'receive', 'source': 'usd'});
     expect(TrackingService.takeEntrySource('usd_receive'), 'usd_dock');
 
-    // Buy dollars: the Move sheet locked to Dollars (bitcoin into
-    // dollars), its own action key and entry source.
+    // Buy dollars: its own action key; no Move sheet behind it any more,
+    // so it leaves no Move entry source.
     events.clear();
     await tester.tap(find.text('Buy dollars'));
     await tester.pump();
     expect(buyOpened, 1);
     expect(events.where((e) => e.$1 == 'quick_action_tapped').single.$2,
         {'action': 'buy_dollars', 'source': 'usd'});
-    expect(TrackingService.takeEntrySource('move'), 'usd_buy_dollars');
+    expect(TrackingService.takeEntrySource('move'), 'unknown');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'Buy dollars is not available yet: the shared Unavailable sheet with '
+      'its generic sentence, never the Move sheet (founder, 6 November '
+      '2026)', (tester) async {
+    final events = <(String, Map<String, Object>?)>[];
+    TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+    addTearDown(() => TrackingService.debugTrackObserver = null);
+    await _pump(tester, const UsdAccountActionRow());
+    await tester.tap(find.text('Buy dollars'));
+    await tester.pumpAndSettle();
+    final l10n =
+        AppLocalizations.of(tester.element(find.byType(UsdAccountActionRow)));
+    expect(find.byType(CapabilityUnavailableSheet), findsOneWidget);
+    final sheet = tester.widget<CapabilityUnavailableSheet>(
+        find.byType(CapabilityUnavailableSheet));
+    expect(sheet.message, l10n.capabilityUnavailable);
+    expect(sheet.regionRestricted, isFalse);
+    expect(find.text(l10n.gateUnavailableTitle), findsOneWidget);
+    expect(find.text(l10n.capabilityUnavailable), findsOneWidget);
+    expect(find.byType(DepositSheet), findsNothing);
+    expect(events.where((e) => e.$1 == 'quick_action_tapped').single.$2,
+        {'action': 'buy_dollars', 'source': 'usd'});
+    expect(TrackingService.takeEntrySource('move'), 'unknown');
     expect(tester.takeException(), isNull);
   });
 
