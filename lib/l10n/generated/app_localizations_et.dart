@@ -11534,6 +11534,86 @@ class AppLocalizationsEt extends AppLocalizations {
   String get balanceNoHistorySub => 'See algab sinu esimesest tehingust.';
 
   @override
+  String balanceGoalLevel(int level) {
+    return 'Tase $level';
+  }
+
+  @override
+  String get balanceLevelName0 => 'Soojendus';
+
+  @override
+  String get balanceLevelName1 => 'Taskuraha';
+
+  @override
+  String get balanceLevelName2 => 'Koguja';
+
+  @override
+  String get balanceLevelName3 => 'Püsikunde';
+
+  @override
+  String get balanceLevelName4 => 'Täiskasvanu';
+
+  @override
+  String get balanceLevelName5 => 'Tõsine';
+
+  @override
+  String get balanceLevelName6 => 'Kindel käsi';
+
+  @override
+  String get balanceLevelName7 => 'Raskekaallane';
+
+  @override
+  String get balanceLevelName8 => 'Suur koer';
+
+  @override
+  String get balanceLevelName9 => 'Karjajuht';
+
+  @override
+  String get balanceLevelName10 => 'Legend';
+
+  @override
+  String get balanceLevelName11 => 'Skaalast väljas';
+
+  @override
+  String balanceGoalProgress(int percent, String goal) {
+    return '$percent% eesmärgist $goal';
+  }
+
+  @override
+  String balanceGoalChartLabel(String goal) {
+    return 'Järgmine: $goal';
+  }
+
+  @override
+  String balanceGoalMove(String amount) {
+    return 'Vii $amount dollaritesse';
+  }
+
+  @override
+  String get balanceGoalMovePlain => 'Vii dollaritesse';
+
+  @override
+  String get balanceGoalMoveWhyBoth =>
+      'Sinu raha, rohkem võimalusi: Investeerimine ja Ennustused dollarites.';
+
+  @override
+  String get balanceGoalMoveWhyInvesting =>
+      'Sinu raha, rohkem võimalusi: Investeerimine dollarites.';
+
+  @override
+  String get balanceGoalMoveWhyPredictions =>
+      'Sinu raha, rohkem võimalusi: Ennustused dollarites.';
+
+  @override
+  String balanceMilestonePassed(String amount) {
+    return 'Sa ületasid $amount';
+  }
+
+  @override
+  String get balanceMilestonePassedLine =>
+      'Bitcoin ja dollarid kokku. Sal teeb näo, nagu poleks midagi.';
+
+  @override
   String get pnlNoHistoryTitle => 'Kasumit/kahjumit veel pole';
 
   @override
@@ -11541,6 +11621,17 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get portfolioPnlAllVenues => 'Kõik';
+
+  @override
+  String portfolioOpenPnlNotCharted(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count positsiooni pole graafikul (ajalugu puudub)',
+      one: '1 positsioon pole graafikul (ajalugu puudub)',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get pnlStatRealised => 'Realised';

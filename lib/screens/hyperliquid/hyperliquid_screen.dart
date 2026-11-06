@@ -33,6 +33,7 @@ import 'package:kute/screens/home/components/deposit_sheet.dart';
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart'
     show HlIconPrefetch;
 import 'package:kute/screens/hyperliquid/components/hl_market_card.dart';
+import 'package:kute/screens/hyperliquid/components/hl_market_map.dart';
 import 'package:kute/screens/hyperliquid/components/hl_moving_now_strip.dart';
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/screens/shared/market_groups.dart';
@@ -480,8 +481,9 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
     ref.watch(hlWatchlistProvider);
 
     final universeAsync = ref.watch(hyperliquidBrowseUniverseProvider);
-    // Trending's strip waits for the full perp list ([_trendingStrip]).
-    ref.watch(hyperliquidPerpMarketsProvider
+    // Trending's strip waits for the full perp list ([_trendingStrip]),
+    // and so does its market map.
+    final perpsLanded = ref.watch(hyperliquidPerpMarketsProvider
         .select((perps) => perps.valueOrNull != null));
     final universe = universeAsync.valueOrNull ?? const <HlMarket>[];
 
@@ -659,6 +661,25 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                                 ),
                               ),
                             ),
+                            // The market map under the list, on the
+                            // default view only, as the squares: a
+                            // treemap of the whole universe, sized by
+                            // 24 h volume, red and green by the day's
+                            // change (hl_market_map.dart). Its loading
+                            // state until the builder-dex markets (the
+                            // stocks, indices and commodities) are in.
+                            if (hlBrowseIsDefaultView(tab, sub))
+                              SliverToBoxAdapter(
+                                child: Padding(
+                                  padding: EdgeInsets.only(top: 16.h),
+                                  child: HlMarketMapCard(
+                                    universe: universe,
+                                    loading: buildersMissing ||
+                                        (!perpsLanded &&
+                                            !universe.any((m) => m.isHip3)),
+                                  ),
+                                ),
+                              ),
                           ],
                         ],
                       ),

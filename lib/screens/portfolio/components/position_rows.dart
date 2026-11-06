@@ -20,10 +20,11 @@
 //     is blocked in the app; the entry price is on the position screen);
 //   * a Predictions row that is still open adds a thin bar, the held
 //     side's live chance ([PortfolioChanceBar]);
-//   * on the right what it is worth now (15 w600) with the P&L as a %
-//     under it (12, a caret, up or down); a P&L under a cent reads "0.0%"
-//     quietly, never a red minus ([portfolioPnlPill]). The $ P&L is on the
-//     position screen.
+//   * on the right what it is worth now (15 w600) with the P&L under it
+//     in money and as a % (12, a caret, up or down: "▲ $0.61 · 5.4%";
+//     founder, 6 November 2026: "on each open position say how much I am
+//     actually winning in dollars"); a P&L under a cent reads "$0.00 ·
+//     0.0%" quietly, never a red minus ([portfolioPnlPill]).
 //
 // The Portfolio's one row language ([kPortfolioRowPadV] and the styles
 // under it, founder 1 November 2026): the picture 32, the title 15 w500,
@@ -42,12 +43,13 @@
 // line"; [PortfolioRowLayoutScope]): the same row widgets drawn two other
 // ways. The biggest open positions are SQUARES ([PortfolioRowLayout
 // .square], the Bitcoin home's Latest squares and the Investing grid's:
-// the logo 40, the P&L % top-right in colour,
-// the name and the line under it quiet, the value 22 sp); the rest are
-// the INVESTING LIST'S OWN ROW ([PortfolioRowLayout.market], HlListRow in
-// hl_market_card.dart: the logo, the name alone, the value over the P&L
-// as "▲ 3.4%"; no line under the name and no chance bar, the position
-// screen has them). A tap opens the position in every shape.
+// the logo 40, the P&L top-right in colour, in money over its % ("▲
+// $0.61" over "5.4%"), the name and the line under it quiet, the value
+// 22 sp); the rest are the INVESTING LIST'S OWN ROW ([PortfolioRowLayout
+// .market], HlListRow in hl_market_card.dart: the logo, the name alone,
+// the value over the P&L as "▲ $0.61 · 5.4%"; no line under the name and
+// no chance bar, the position screen has them). The Dollars Activity
+// tab's open-position squares are these squares. A tap opens the position in every shape.
 // Every row is its own widget watching only what it needs, so a price
 // tick repaints one row. Taps open the same screens the cards opened,
 // with the same `open_investments_position_tapped` event.
@@ -300,10 +302,14 @@ const double _kSquarePad = 14;
 
 /// A P&L as the Investing rows write a change: "▲ 4.0%" / "▼ 4.0%" in the
 /// up / down colour, "0.0%" quietly when flat ([portfolioPnlPill]'s
-/// figure, its sign turned into the arrow).
+/// figure, its sign turned into the arrow). With its [amount] in money
+/// (unsigned, "$0.61"), the money first: "▲ $0.61 · 4.0%", "$0.00 · 0.0%"
+/// quietly when flat.
 ({String text, Color color}) portfolioArrowPnl(
-    BuildContext context, ({String text, PortfolioPnlTone tone}) pnl) {
-  final shown = pnl.text.replaceFirst(RegExp(r'^[+\u2212-]'), '');
+    BuildContext context, ({String text, PortfolioPnlTone tone}) pnl,
+    {String? amount}) {
+  final percent = pnl.text.replaceFirst(RegExp(r'^[+\u2212-]'), '');
+  final shown = amount == null ? percent : '$amount · $percent';
   return switch (pnl.tone) {
     PortfolioPnlTone.up => (text: '▲ $shown', color: greenColor),
     PortfolioPnlTone.down => (text: '▼ $shown', color: redColor),
@@ -314,13 +320,42 @@ const double _kSquarePad = 14;
   };
 }
 
+/// The P&L in a square's corner: the money with its arrow over the %
+/// ("▲ $0.61" over "5.4%"), both in the result's colour; without [amount],
+/// the % alone with its arrow, as before.
+typedef PortfolioCornerPnl = ({String? amount, String percent, Color color});
+
+/// [pnl] as a square's corner writes it ([PortfolioCornerPnl]).
+PortfolioCornerPnl portfolioCornerPnl(
+    BuildContext context, ({String text, PortfolioPnlTone tone}) pnl,
+    {String? amount}) {
+  final arrow = portfolioArrowPnl(context, pnl);
+  if (amount == null) {
+    return (amount: null, percent: arrow.text, color: arrow.color);
+  }
+  final lead = switch (pnl.tone) {
+    PortfolioPnlTone.up => '▲ ',
+    PortfolioPnlTone.down => '▼ ',
+    PortfolioPnlTone.flat => '',
+  };
+  return (
+    amount: '$lead$amount',
+    percent: pnl.text.replaceFirst(RegExp(r'^[+\u2212-]'), ''),
+    color: arrow.color,
+  );
+}
+
 /// A position square's height: [kActivitySquareHeight], or its content at
 /// the viewer's text size when that is taller (no overflow at an
 /// accessibility size).
 double portfolioSquareHeight(BuildContext context) {
   final scaler = MediaQuery.textScalerOf(context);
+  // The top row: the logo, or the corner's two lines (the P&L in money
+  // over its %) when they are taller at the viewer's text size.
+  final corner = scaler.scale(13.sp) * 1.2 + 1.h + scaler.scale(12.sp) * 1.3;
+  final top = corner > kPortfolioSquareIcon.w ? corner : kPortfolioSquareIcon.w;
   final content = _kSquarePad.w * 2 +
-      kPortfolioSquareIcon.w +
+      top +
       10.w +
       scaler.scale(13.sp) * 1.25 +
       2.h +
@@ -662,10 +697,15 @@ class PortfolioChanceBar extends StatelessWidget {
 /// The P&L % pill: the up or down colour on its own light tint, the quiet
 /// text on the neutral surface when flat.
 class PortfolioPnlPill extends StatelessWidget {
-  const PortfolioPnlPill({super.key, required this.text, required this.tone});
+  const PortfolioPnlPill(
+      {super.key, required this.text, required this.tone, this.amount});
 
   final String text;
   final PortfolioPnlTone tone;
+
+  /// The P&L in money, unsigned ("$0.61"), written before the %: "▲ $0.61
+  /// · 5.4%". Null: the % alone.
+  final String? amount;
 
   /// The pill's ground and text colours for [tone].
   static ({Color background, Color foreground}) colorsFor(
@@ -692,8 +732,11 @@ class PortfolioPnlPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = colorsFor(context, tone);
     // Plain figure, brokerage style: a small caret for the direction and
-    // the unsigned %, in the up/down colour; flat reads "0.0%" quietly.
+    // the unsigned money and %, in the up/down colour; flat reads "$0.00 ·
+    // 0.0%" quietly.
     final shown = text.replaceFirst(RegExp(r'^[+\u2212-]'), '');
+    final style = portfolioRowChangeStyle(colors.foreground);
+    final amount = this.amount;
     return Row(
       key: const ValueKey('portfolio-row-pnl-pill'),
       mainAxisSize: MainAxisSize.min,
@@ -706,10 +749,18 @@ class PortfolioPnlPill extends StatelessWidget {
           ),
           SizedBox(width: 4.w),
         ],
+        if (amount != null) ...[
+          RollingFigure(
+            key: const ValueKey('portfolio-row-pnl-usd'),
+            text: amount,
+            style: style,
+          ),
+          Text(' · ', style: style),
+        ],
         RollingFigure(
           key: const ValueKey('portfolio-row-pnl'),
           text: shown,
-          style: portfolioRowChangeStyle(colors.foreground),
+          style: style,
         ),
       ],
     );
@@ -755,6 +806,7 @@ class PortfolioPositionRow extends StatelessWidget {
     this.chance,
     this.entry,
     this.pnl,
+    this.pnlAmount,
     this.detail,
     this.onTap,
     this.listName,
@@ -775,6 +827,11 @@ class PortfolioPositionRow extends StatelessWidget {
   /// bar.
   final double? entry;
   final ({String text, PortfolioPnlTone tone})? pnl;
+
+  /// [pnl] in money, unsigned ("$0.61"): written before its % in every
+  /// shape (founder, 6 November 2026: "on each open position say how much
+  /// I am actually winning in dollars"). Null: the % alone.
+  final String? pnlAmount;
   final String? detail;
   final VoidCallback? onTap;
 
@@ -785,7 +842,9 @@ class PortfolioPositionRow extends StatelessWidget {
     final chance = this.chance;
     switch (PortfolioRowLayoutScope.of(context)) {
       case PortfolioRowLayout.market:
-        final change = under == null ? null : portfolioArrowPnl(context, under);
+        final change = under == null
+            ? null
+            : portfolioArrowPnl(context, under, amount: pnlAmount);
         return HlListRow(
           inGroup: true,
           leading: SizedBox.square(
@@ -807,7 +866,9 @@ class PortfolioPositionRow extends StatelessWidget {
           name: title,
           subtitle: subtitle,
           value: value,
-          change: under == null ? null : portfolioArrowPnl(context, under),
+          change: under == null
+              ? null
+              : portfolioCornerPnl(context, under, amount: pnlAmount),
           detail: detail,
           onTap: onTap,
         );
@@ -890,7 +951,9 @@ class PortfolioPositionRow extends StatelessWidget {
                       if (under != null) ...[
                         SizedBox(height: 2.h),
                         _figureFit(PortfolioPnlPill(
-                            text: under.text, tone: under.tone)),
+                            text: under.text,
+                            tone: under.tone,
+                            amount: pnlAmount)),
                       ] else if (detail case final word?) ...[
                         SizedBox(height: 4.h),
                         _figureFit(Text(word, maxLines: 1, style: secondary)),
@@ -918,9 +981,9 @@ Widget _figureFit(Widget figure) => FittedBox(
 /// One position as a big square (see the file header; drawn as the
 /// Investing grid's HlMovingNowCard and the home's Latest squares): the
 /// grouped card's ground, 14 padding, [portfolioSquareHeight] tall; the
-/// logo ([kPortfolioSquareIcon]) top-left, the P&L ([change], or the
-/// quiet [detail]) top-right, then the name and the line under it quiet
-/// over the value at 22 sp. The whole square taps through to the position
+/// logo ([kPortfolioSquareIcon]) top-left, the P&L ([change]: in money
+/// over its %, or the quiet [detail]) top-right, then the name and the
+/// line under it quiet over the value at 22 sp. The whole square taps through to the position
 /// on the press spring.
 class _PositionSquare extends StatelessWidget {
   const _PositionSquare({
@@ -937,7 +1000,7 @@ class _PositionSquare extends StatelessWidget {
   final String name;
   final String subtitle;
   final String value;
-  final ({String text, Color color})? change;
+  final PortfolioCornerPnl? change;
   final String? detail;
   final VoidCallback? onTap;
 
@@ -954,8 +1017,15 @@ class _PositionSquare extends StatelessWidget {
       height: 1.25,
     );
     final change = this.change;
-    final corner = change?.text ?? detail;
+    final corner = change?.percent ?? detail;
     final icon = kPortfolioSquareIcon.w;
+    final cornerStyle = quiet.copyWith(
+      color: change?.color ?? c.textSecondary,
+      fontWeight: FontWeight.w600,
+      height: 1.2,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    final amount = change?.amount;
     return KutePressable(
       enabled: onTap != null,
       child: Container(
@@ -986,22 +1056,38 @@ class _PositionSquare extends StatelessWidget {
                         Expanded(
                           child: Align(
                             alignment: Alignment.topRight,
+                            // The money over its %, right-aligned; a wide
+                            // figure scales down rather than run into the
+                            // logo.
                             child: FittedBox(
                               fit: BoxFit.scaleDown,
                               alignment: Alignment.topRight,
-                              child: RollingFigure(
-                                key: ValueKey(change != null
-                                    ? 'portfolio-row-pnl'
-                                    : 'portfolio-row-detail'),
-                                text: corner,
-                                style: quiet.copyWith(
-                                  color: change?.color ?? c.textSecondary,
-                                  fontWeight: FontWeight.w600,
-                                  height: 1.2,
-                                  fontFeatures: const [
-                                    FontFeature.tabularFigures()
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (amount != null) ...[
+                                    RollingFigure(
+                                      key: const ValueKey(
+                                          'portfolio-row-pnl-usd'),
+                                      text: amount,
+                                      style: cornerStyle,
+                                    ),
+                                    SizedBox(height: 1.h),
                                   ],
-                                ),
+                                  RollingFigure(
+                                    key: ValueKey(change != null
+                                        ? 'portfolio-row-pnl'
+                                        : 'portfolio-row-detail'),
+                                    text: corner,
+                                    style: amount == null
+                                        ? cornerStyle
+                                        : cornerStyle.copyWith(
+                                            fontSize: 12.sp,
+                                            fontWeight: FontWeight.w500,
+                                            height: 1.3),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
@@ -1189,6 +1275,7 @@ class PolyPositionRow extends ConsumerWidget {
         chance: p.isResolved ? null : price,
         entry: p.isResolved ? null : p.avgPrice,
         pnl: portfolioPnlPill(pnl, percent: pnlPercent),
+        pnlAmount: money(pnl.abs()),
         onTap: () {
           HapticFeedback.selectionClick();
           TrackingService.track('open_investments_position_tapped',
@@ -1232,6 +1319,7 @@ class ComboPositionRow extends StatelessWidget {
           ? portfolioPnlPill(pnl,
               percent: p.stakeUsd > 0 ? pnl / p.stakeUsd * 100 : null)
           : null,
+      pnlAmount: formatHlUsd(pnl.abs()),
       detail: l10n.comboEstimatedValue,
       onTap: () {
         HapticFeedback.selectionClick();
@@ -1326,6 +1414,7 @@ class HlPositionRow extends ConsumerWidget {
           '${formatHlSize(p.szi.abs())} ${_ticker(coin)}',
       value: money(hlCloseValue(p, liveMid: mid)),
       pnl: portfolioPnlPill(pnl, percent: roe * 100),
+      pnlAmount: money(pnl.abs()),
       onTap: () {
         HapticFeedback.selectionClick();
         TrackingService.track('open_investments_position_tapped',
@@ -1371,6 +1460,7 @@ class HlSpotRow extends ConsumerWidget {
           ? null
           : portfolioPnlPill(pnl,
               percent: cost != null && cost > 0 ? pnl / cost * 100 : null),
+      pnlAmount: pnl == null ? null : money(pnl.abs()),
       onTap: market == null
           ? null
           : () {

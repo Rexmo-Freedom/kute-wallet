@@ -42,6 +42,17 @@
 // over a market) gets the default bar at the bottom rather than the
 // page's context lifted over a row that is now covered.
 //
+// THE SEARCH SHEET ONLY HOLDS THE BAR WHILE IT IS ON TOP (founder, 6
+// November 2026: "Predictions on search have no buy button on the bet
+// slip, and Hyperliquid the same"). A result opens its market page OVER
+// the sheet (the sheet stays, the page and its slip stack on the root
+// navigator), so the sheet's hold on the bar (the pill become its
+// composer, transparent in place; or, under Reduce Motion, its hidden
+// context, which has no route) gives way while a page or a sheet the bar
+// shows over covers it ([KuteBarRouteObserver.covered]): the page's
+// trade row, the slip's primary and its round share button, as anywhere
+// else. Whatever opened a slip, the bar is its button.
+//
 // NEVER OVER A SCREEN'S OWN ACTION ROW: a page with a pinned row at its
 // foot declares the row's height in [actionRowHeight] (the row plus its
 // own bottom padding, read from its code); the bar sits above that, and
@@ -783,6 +794,20 @@ class KuteBarRouteObserver extends NavigatorObserver {
     final name = settings.name;
     if (name != null && kuteBarSilentRoutes.contains(name)) return false;
     return route is PageRoute || route is ModalBottomSheetRoute;
+  }
+
+  /// Whether a page or a sheet the bar shows over ([counts]) stands on
+  /// top of [route] in its navigator: [route] is still there and no
+  /// longer current, and the route that is current is one of those. A
+  /// dialog or a menu over it does not count, nor does a [route] on its
+  /// way out. The search sheet reads it (kute_shell_bar.dart): a market
+  /// page or a slip opened from a result stacks over the sheet and gets
+  /// its own bar.
+  static bool covered(Route<dynamic> route) {
+    if (!route.isActive || route.isCurrent) return false;
+    final navigator = route.navigator;
+    return _over
+        .any((r) => r != route && r.navigator == navigator && r.isCurrent);
   }
 
   static void _add(Route<dynamic> route) {

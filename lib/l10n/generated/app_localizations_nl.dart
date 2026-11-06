@@ -11586,6 +11586,86 @@ class AppLocalizationsNl extends AppLocalizations {
   String get balanceNoHistorySub => 'Die begint bij je eerste transactie.';
 
   @override
+  String balanceGoalLevel(int level) {
+    return 'Niveau $level';
+  }
+
+  @override
+  String get balanceLevelName0 => 'Opwarmen';
+
+  @override
+  String get balanceLevelName1 => 'Zakgeld';
+
+  @override
+  String get balanceLevelName2 => 'Stapelaar';
+
+  @override
+  String get balanceLevelName3 => 'Vaste klant';
+
+  @override
+  String get balanceLevelName4 => 'Volwassen';
+
+  @override
+  String get balanceLevelName5 => 'Serieus';
+
+  @override
+  String get balanceLevelName6 => 'Vaste hand';
+
+  @override
+  String get balanceLevelName7 => 'Zwaargewicht';
+
+  @override
+  String get balanceLevelName8 => 'Grote hond';
+
+  @override
+  String get balanceLevelName9 => 'Leider van de roedel';
+
+  @override
+  String get balanceLevelName10 => 'Legende';
+
+  @override
+  String get balanceLevelName11 => 'Buiten categorie';
+
+  @override
+  String balanceGoalProgress(int percent, String goal) {
+    return '$percent% naar $goal';
+  }
+
+  @override
+  String balanceGoalChartLabel(String goal) {
+    return 'Volgende: $goal';
+  }
+
+  @override
+  String balanceGoalMove(String amount) {
+    return 'Zet $amount naar Dollars';
+  }
+
+  @override
+  String get balanceGoalMovePlain => 'Naar Dollars zetten';
+
+  @override
+  String get balanceGoalMoveWhyBoth =>
+      'Je geld, meer plekken om naartoe te gaan: Beleggen en Voorspellingen in dollars.';
+
+  @override
+  String get balanceGoalMoveWhyInvesting =>
+      'Je geld, meer plekken om naartoe te gaan: Beleggen in dollars.';
+
+  @override
+  String get balanceGoalMoveWhyPredictions =>
+      'Je geld, meer plekken om naartoe te gaan: Voorspellingen in dollars.';
+
+  @override
+  String balanceMilestonePassed(String amount) {
+    return 'Je bent voorbij $amount';
+  }
+
+  @override
+  String get balanceMilestonePassedLine =>
+      'Bitcoin en dollars samen. Sal doet alsof het niks is.';
+
+  @override
   String get pnlNoHistoryTitle => 'Nog geen winst/verlies';
 
   @override
@@ -11593,6 +11673,17 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get portfolioPnlAllVenues => 'Alles';
+
+  @override
+  String portfolioOpenPnlNotCharted(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count posities niet in de grafiek (geen historie)',
+      one: '1 positie niet in de grafiek (geen historie)',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get pnlStatRealised => 'Realised';
