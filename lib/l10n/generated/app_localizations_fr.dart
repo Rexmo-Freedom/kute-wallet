@@ -11640,6 +11640,86 @@ class AppLocalizationsFr extends AppLocalizations {
       'Il commence avec votre première transaction.';
 
   @override
+  String balanceGoalLevel(int level) {
+    return 'Niveau $level';
+  }
+
+  @override
+  String get balanceLevelName0 => 'Échauffement';
+
+  @override
+  String get balanceLevelName1 => 'Argent de poche';
+
+  @override
+  String get balanceLevelName2 => 'Accumulateur';
+
+  @override
+  String get balanceLevelName3 => 'Habitué';
+
+  @override
+  String get balanceLevelName4 => 'Adulte';
+
+  @override
+  String get balanceLevelName5 => 'Sérieux';
+
+  @override
+  String get balanceLevelName6 => 'Main sûre';
+
+  @override
+  String get balanceLevelName7 => 'Poids lourd';
+
+  @override
+  String get balanceLevelName8 => 'Gros bonnet';
+
+  @override
+  String get balanceLevelName9 => 'Chef de meute';
+
+  @override
+  String get balanceLevelName10 => 'Légende';
+
+  @override
+  String get balanceLevelName11 => 'Hors catégorie';
+
+  @override
+  String balanceGoalProgress(int percent, String goal) {
+    return '$percent % vers $goal';
+  }
+
+  @override
+  String balanceGoalChartLabel(String goal) {
+    return 'Prochain : $goal';
+  }
+
+  @override
+  String balanceGoalMove(String amount) {
+    return 'Déplacer $amount vers Dollars';
+  }
+
+  @override
+  String get balanceGoalMovePlain => 'Déplacer vers Dollars';
+
+  @override
+  String get balanceGoalMoveWhyBoth =>
+      'Votre argent, plus d\'horizons : Investir et Prédictions en dollars.';
+
+  @override
+  String get balanceGoalMoveWhyInvesting =>
+      'Votre argent, plus d\'horizons : Investir en dollars.';
+
+  @override
+  String get balanceGoalMoveWhyPredictions =>
+      'Votre argent, plus d\'horizons : Prédictions en dollars.';
+
+  @override
+  String balanceMilestonePassed(String amount) {
+    return 'Vous avez dépassé $amount';
+  }
+
+  @override
+  String get balanceMilestonePassedLine =>
+      'Bitcoin et dollars réunis. Sal fait comme si de rien n\'était.';
+
+  @override
   String get pnlNoHistoryTitle => 'Pas encore de gains / pertes';
 
   @override
@@ -11647,6 +11727,17 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get portfolioPnlAllVenues => 'Tout';
+
+  @override
+  String portfolioOpenPnlNotCharted(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count positions absentes du graphique (historique indisponible)',
+      one: '$count position absente du graphique (historique indisponible)',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get pnlStatRealised => 'Realised';
@@ -12011,7 +12102,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get usdSendSearchHint => 'Name, address or phone';
 
   @override
-  String get usdSendToYourBitcoin => 'To your Bitcoin';
+  String get usdSendToYourBitcoin => 'Vers ton Bitcoin';
 
   @override
   String usdBitcoinBalanceLine(String amount) {
@@ -12020,6 +12111,23 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
+
+  @override
+  String get receiveOrSwapTitle => 'Recevoir ou échanger';
+
+  @override
+  String get receiveFromYourDollars => 'Depuis vos Dollars';
+
+  @override
+  String usdDollarsBalanceLine(String amount) {
+    return '$amount en Dollars';
+  }
+
+  @override
+  String get receiveFromAnotherAsset => 'Depuis un autre actif';
+
+  @override
+  String get receiveBitcoinAndLightning => 'Bitcoin et Lightning';
 
   @override
   String get sendRailBitcoinOnchain => 'Bitcoin · on-chain';
@@ -13735,6 +13843,18 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get sendToCryptoAddress => 'Vers une adresse crypto';
+
+  @override
+  String get sendMoreWaysToSend => 'Autres façons d’envoyer';
+
+  @override
+  String get sendWayCryptoAddress => 'Adresse crypto';
+
+  @override
+  String get sendWayPrediction => 'Prédiction';
+
+  @override
+  String get sendWayToDollars => 'Vers les Dollars';
 
   @override
   String get sendPickRowSub =>

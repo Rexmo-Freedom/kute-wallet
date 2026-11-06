@@ -3,11 +3,14 @@
 // overhaul of 4 November 2026 the one chart is the hero's and the P&L
 // section lists the venues). Six months of history at both venues
 // (Investing every six hours, Predictions daily with a 200-position
-// book): the screen's first frames on Positions (whose hero draws no
-// chart: no grid), the P&L section's first frame, a range switch, a scrub
-// frame, a venue square picked and a scrub on it, and a live price tick,
-// and how many P&L grids ([pnlSeries], up to 20,000 points each) each of
-// them lays. The numbers are printed (`PNL_PERF …`) and held to
+// book): the screen's first frames on Positions (whose hero draws the
+// open positions' P&L since each was opened: ten predictions and a perp
+// held for up to six months, their prices hourly and daily; one grid,
+// laid once), a scrub and live ticks on that chart, the P&L section's
+// first frame, a range switch, a scrub frame, a venue square picked and a
+// scrub on it, and a live price tick, and how many P&L grids
+// ([pnlSeries], [openPnlSeries], up to 20,000 points each) each of them
+// lays. The numbers are printed (`PNL_PERF …`) and held to
 // budgets well above what the screen needs now, so a regression to
 // per-frame recomputation fails.
 
@@ -21,6 +24,13 @@ import 'package:kute/providers/currency_conversions_provider.dart'
     show currentBtcUsdProvider;
 import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/models/hyperliquid_market.dart';
+import 'package:kute/models/hyperliquid_model.dart' show HyperliquidCandle;
+import 'package:kute/models/polymarket_model.dart' show PolymarketPricePoint;
+import 'package:kute/providers/hyperliquid_trading_provider.dart'
+    show HyperliquidTradingState;
+import 'package:kute/providers/open_pnl_history_provider.dart';
+import 'package:kute/providers/polymarket_browse_provider.dart'
+    show PolymarketPosition, polymarketActivePositionsProvider;
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
@@ -34,6 +44,8 @@ import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceUnknownProvider;
 import 'package:kute/providers/venue_sweeper_provider.dart';
 import 'package:kute/screens/portfolio/investments_portfolio.dart';
+import 'package:kute/screens/shared/charts/kute_trend_chart.dart'
+    show KuteTrendChart;
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -59,8 +71,12 @@ class _Prices extends LivePriceNotifier {
   @override
   void addTokens(List<String> tokenIds, {bool pin = true}) {}
 
-  void tick(String token, double price) =>
-      state = LivePriceState(prices: {...state.prices, token: price});
+  void tick(String token, double price) => state = LivePriceState(
+      prices: {...state.prices, token: price}, live: state.live);
+
+  /// The stream flowing, with [token] at [price].
+  void tickLive(String token, double price) => state =
+      LivePriceState(prices: {...state.prices, token: price}, live: true);
 }
 
 const _days = 180;
@@ -126,6 +142,102 @@ List<Override> _sixMonths() {
 /// The feed's notifier now (an auto-dispose provider: the latest one made).
 _Prices? _feed;
 
+/// What is open now: ten predictions bought up to six months back (their
+/// first entries, today's shares) and a BTC long opened four months back
+/// by one fill.
+List<PolymarketPosition> _openPredictions(DateTime now) => [
+      for (var i = 0; i < 10; i++)
+        PolymarketPosition(
+            marketId: 'm-$i',
+            marketQuestion: 'Will $i happen this year?',
+            outcome: 'Yes',
+            size: 20,
+            avgPrice: 0.4,
+            currentPrice: 0.45,
+            pnl: 0,
+            pnlPercent: 0,
+            isResolved: false,
+            createdAt: now.subtract(Duration(days: 5 + i * 17)),
+            tokenId: 'open-$i'),
+    ];
+
+const _btcLong = HlPerpPosition(
+    coin: 'BTC',
+    szi: 0.1,
+    entryPx: 60000,
+    positionValue: 6100,
+    unrealizedPnl: 100,
+    returnOnEquity: 0.016,
+    liquidationPx: null,
+    marginUsed: 6000,
+    leverageType: 'cross',
+    leverageValue: 1,
+    maxLeverage: 40);
+
+List<HlFill> _btcFills(DateTime now) => [
+      HlFill(
+        coin: 'BTC',
+        px: 60000,
+        sz: 0.1,
+        side: 'B',
+        time: now.subtract(const Duration(days: 120)).millisecondsSinceEpoch,
+        closedPnl: 0,
+        fee: 0,
+        feeToken: 'USDC',
+        oid: 1,
+        hash: '0xopen',
+        dir: 'Open Long',
+        cloid: null,
+        startPosition: 0,
+      ),
+    ];
+
+/// Every price the chart asks for, at the grain asked: BTC candles and
+/// each prediction's history, wandering.
+OpenPnlSources _sources(DateTime now) => OpenPnlSources(
+      activity: (_) async => const [],
+      candles: (_, wire, interval, window) async {
+        final step = switch (interval) {
+          '15m' => const Duration(minutes: 15),
+          '1h' => const Duration(hours: 1),
+          _ => const Duration(days: 1),
+        };
+        final out = <HyperliquidCandle>[];
+        var i = 0;
+        for (var t = now.subtract(window); t.isBefore(now); t = t.add(step)) {
+          final px = 60000 + ((i * 37) % 900) - 300.0;
+          out.add(HyperliquidCandle(
+              openTime: t,
+              closeTime: t.add(step),
+              open: px,
+              high: px,
+              low: px,
+              close: px,
+              volume: 1));
+          i++;
+        }
+        return out;
+      },
+      polyHistory: (_, token, interval) async {
+        final (back, step) = switch (interval) {
+          '1h' => (const Duration(hours: 1), const Duration(minutes: 1)),
+          '6h' => (const Duration(hours: 6), const Duration(minutes: 5)),
+          '1d' => (const Duration(days: 1), const Duration(minutes: 5)),
+          '1w' => (const Duration(days: 7), const Duration(hours: 1)),
+          '1m' => (const Duration(days: 30), const Duration(hours: 3)),
+          _ => (const Duration(days: 200), const Duration(hours: 12)),
+        };
+        final out = <PolymarketPricePoint>[];
+        var i = 0;
+        for (var t = now.subtract(back); t.isBefore(now); t = t.add(step)) {
+          out.add(PolymarketPricePoint(
+              timestamp: t, price: 0.3 + ((i * 7) % 30) / 100));
+          i++;
+        }
+        return out;
+      },
+    );
+
 /// Mounts the page on Positions; returns the grids the first frames laid
 /// (the hero's chart once its reads land).
 Future<int> _mount(WidgetTester tester) async {
@@ -133,9 +245,15 @@ Future<int> _mount(WidgetTester tester) async {
   tester.view.physicalSize = const Size(390, 1500) * 3;
   addTearDown(tester.view.reset);
   final before = debugPnlSeriesGrids;
+  final now = DateTime.now();
   await tester.pumpWidget(ProviderScope(
     overrides: [
-      ...portfolioOverrides(),
+      ...portfolioOverrides(
+          trading: const HyperliquidTradingState(
+              isInitialized: true, positions: [_btcLong]),
+          openPnlSources: _sources(now)),
+      polymarketActivePositionsProvider
+          .overrideWith((_) => _openPredictions(now)),
       // The Investments activity reads the price (no rates box here).
       currentBtcUsdProvider.overrideWithValue(100000),
       hyperliquidLiveMidProvider('BTC').overrideWith((_) => null),
@@ -157,7 +275,7 @@ Future<int> _mount(WidgetTester tester) async {
           )),
       usdBalanceUnknownProvider.overrideWithValue(false),
       venueSweeperProvider.overrideWith(_Sweeper.new),
-      hyperliquidActivityFillsProvider.overrideWithValue(const []),
+      hyperliquidActivityFillsProvider.overrideWithValue(_btcFills(now)),
       portfolioSectionProvider.overrideWith((_) => PortfolioSection.balances),
       livePriceProvider.overrideWith(() => _feed = _Prices()),
       ..._sixMonths(),
@@ -213,7 +331,8 @@ Future<({double ms, int grids, Map<String, int> built})> _frame(
 
 /// The heavy parts of the page: none of them may rebuild on a scrub
 /// frame or on another market's tick (a scrub frame rebuilds the hero's
-/// P&L line and the plot alone).
+/// P&L line and the plot alone; a tick of a position held, the open line
+/// and the Positions chart alone).
 const _heavy = [
   'PortfolioHero',
   'PortfolioHeroChart',
@@ -236,10 +355,92 @@ void main() {
   testWidgets('P&L: first chart, the section, range switch, scrub, live tick',
       (tester) async {
     final firstGrids = await _mount(tester);
-    // Positions: the hero reads the positions open now, no chart, so no
-    // P&L grid is laid for it.
+    // Positions: the hero draws the open positions' P&L since each was
+    // opened: its line laid ONCE (the P&L chart's series none).
     expect(find.byKey(const ValueKey('portfolio-hero-chart')), findsNothing);
-    expect(firstGrids, 0);
+    final openChart = find.byKey(const ValueKey('portfolio-hero-open-chart'));
+    expect(openChart, findsOneWidget);
+    expect(firstGrids, 1);
+
+    // A scrub on it: no grid, nothing heavy, not even the chart's own
+    // widget (the plot and the line's text alone).
+    final openPlot = find.descendant(
+        of: openChart, matching: find.byKey(const ValueKey('trend-chart-plot')));
+    final openBox = tester.getRect(openPlot);
+    final openGesture = await tester
+        .startGesture(Offset(openBox.left + 10, openBox.center.dy));
+    await tester.pump(const Duration(milliseconds: 16));
+    await openGesture.moveBy(const Offset(30, 0));
+    await tester.pump(const Duration(milliseconds: 16));
+    var openScrubMs = 0.0;
+    var openScrubGrids = 0;
+    var openScrubHeavy = 0;
+    const openMoves = 40;
+    final openStep = (openBox.width - 60) / openMoves;
+    for (var i = 0; i < openMoves; i++) {
+      await openGesture.moveBy(Offset(openStep, 0));
+      final f = await _frame(
+          tester, () => tester.pump(const Duration(milliseconds: 16)));
+      openScrubMs += f.ms;
+      openScrubGrids += f.grids;
+      openScrubHeavy += _heavyBuilt(f.built) + (f.built['_OpenPnlChart'] ?? 0);
+    }
+    expect(find.textContaining(' · Open P&L · '), findsOneWidget);
+    await openGesture.up();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(openScrubGrids, 0, reason: 'grids laid scrubbing Positions');
+    expect(openScrubHeavy, 0,
+        reason: 'hero, section or chart widget rebuilt scrubbing Positions');
+
+    // A live tick on a prediction held: the last point moves, no grid,
+    // the open line and the chart alone rebuild.
+    // The stream starts flowing (every live reader follows it once).
+    _feed!.tickLive('open-0', 0.45);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    final valuesBefore =
+        tester.widget<KuteTrendChart>(openChart).values;
+    final openTick = await _frame(tester, () async {
+      _feed!.tick('open-0', 0.8);
+      await tester.pump();
+    });
+    final valuesAfter = tester.widget<KuteTrendChart>(openChart).values;
+    expect(openTick.grids, 0, reason: 'grids laid on a tick on Positions');
+    // The hero stays put (the Positions rows below follow their prices,
+    // as they always did).
+    for (final heavy in const [
+      'PortfolioHero',
+      'PortfolioHeroChart',
+      '_HeroFigure',
+      '_HeroLine',
+    ]) {
+      expect(openTick.built[heavy], isNull,
+          reason: '$heavy rebuilt on a tick on Positions');
+    }
+    expect(openTick.built['_OpenPnlChart'] ?? 0, lessThanOrEqualTo(1));
+    expect(valuesAfter.length, valuesBefore.length);
+    // 20 shares of open-0 from 0.45 to 0.80: +$7.00 on the last point.
+    expect(valuesAfter.last - valuesBefore.last, closeTo(7, 1e-9));
+    expect(openTick.built['_OpenPnlChart'], 1);
+    expect(openTick.built['_HeroOpenLine'], 1);
+    expect(valuesAfter.sublist(0, valuesAfter.length - 1),
+        valuesBefore.sublist(0, valuesBefore.length - 1));
+    // Another market's tick: nothing.
+    final openOther = await _frame(tester, () async {
+      _feed!.tick('someone-else', 0.2);
+      await tester.pump();
+    });
+    expect(openOther.grids, 0);
+    expect(_heavyBuilt(openOther.built) + (openOther.built['_OpenPnlChart'] ?? 0),
+        0,
+        reason: 'another market\'s tick rebuilt the Positions chart');
+    // A Positions range: the window, no grid.
+    await tester.tap(find.descendant(of: openChart, matching: find.text('1W')));
+    final openRange = await _frame(tester, () => tester.pump());
+    expect(openRange.grids, 0, reason: 'grids laid on a Positions range');
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
 
     // The P&L section: the pill tapped, one frame (its venue squares, the
     // hero's series); the hero's chart unfolds over the next frames.
@@ -349,7 +550,10 @@ void main() {
     });
 
     // ignore: avoid_print
-    print('PNL_PERF mount=$firstGrids grids pick=${pick.ms.toStringAsFixed(1)}ms/${pick.grids} grids '
+    print('PNL_PERF mount=$firstGrids grids '
+        'openScrub=${(openScrubMs / openMoves).toStringAsFixed(2)}ms/frame '
+        'openTick=${openTick.ms.toStringAsFixed(1)}ms '
+        'openRange=${openRange.ms.toStringAsFixed(1)}ms pick=${pick.ms.toStringAsFixed(1)}ms/${pick.grids} grids '
         'section=${first.ms.toStringAsFixed(1)}ms/${first.grids} grids '
         'range=${range.ms.toStringAsFixed(1)}ms/${range.grids} grids '
         'idle=${idleMs.toStringAsFixed(2)}ms paint=${paintMs.toStringAsFixed(2)}ms '

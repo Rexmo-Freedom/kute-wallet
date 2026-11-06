@@ -55,6 +55,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/models/open_pnl_history.dart'
+    show openPnlKeyPerp, openPnlKeyPrediction, openPnlKeySpot;
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart'
@@ -530,9 +532,20 @@ typedef PortfolioOpenPnlPart = ({
 /// The open predictions' P&L at the live price, as their rows read it
 /// (PolyPositionRow: the shares at the live price, a resolved one at its
 /// last price, less what they cost), and what they cost. Rebuilds the
-/// caller only when the sum moves.
+/// caller only when the sum moves. [leaveOut]: positions left out by
+/// their key ([openPnlKeyPrediction]; the open P&L chart's pin leaves out
+/// the positions it could not chart).
 PortfolioOpenPnlPart portfolioPredictionsOpenPnl(
-    WidgetRef ref, List<PolymarketPosition> positions) {
+    WidgetRef ref, List<PolymarketPosition> positions,
+    {Set<String> leaveOut = const {}}) {
+  if (leaveOut.isNotEmpty) {
+    positions = [
+      for (final p in positions)
+        if (!leaveOut.contains(openPnlKeyPrediction(
+            tokenId: p.tokenId, marketId: p.marketId, outcome: p.outcome)))
+          p,
+    ];
+  }
   final usd = ref.watch(livePriceProvider.select((s) {
     var sum = 0.0;
     for (final p in positions) {
@@ -560,14 +573,17 @@ PortfolioOpenPnlPart portfolioPredictionsOpenPnl(
 /// mid against what the venue records as paid (HlSpotRow; a holding with
 /// no cost on record, or whose market is not known yet, shows no P&L and
 /// counts for none here); and what they cost (a perp's margin, a
-/// holding's recorded cost).
+/// holding's recorded cost). [leaveOut]: positions left out by their key
+/// ([openPnlKeyPerp], [openPnlKeySpot]).
 PortfolioOpenPnlPart portfolioInvestingOpenPnl(
-    WidgetRef ref, HyperliquidTradingState state) {
+    WidgetRef ref, HyperliquidTradingState state,
+    {Set<String> leaveOut = const {}}) {
   var usd = 0.0;
   var cost = 0.0;
   var count = 0;
   var costed = true;
   for (final p in state.positions) {
+    if (leaveOut.contains(openPnlKeyPerp(p.coin))) continue;
     usd += hlLivePnl(p, liveMid: ref.watch(hyperliquidLiveMidProvider(p.coin)));
     count++;
     final margin = hlPositionMargin(p);
@@ -578,7 +594,11 @@ PortfolioOpenPnlPart portfolioInvestingOpenPnl(
     }
   }
   final spot = state.spotBalances
-      .where((b) => b.coin != 'USDC' && b.total > 0 && b.costBasis != null)
+      .where((b) =>
+          b.coin != 'USDC' &&
+          b.total > 0 &&
+          b.costBasis != null &&
+          !leaveOut.contains(openPnlKeySpot(b.coin)))
       .toList();
   if (spot.isNotEmpty) {
     final markets = ref.watch(hyperliquidSpotMarketsProvider).valueOrNull ??
@@ -604,16 +624,20 @@ PortfolioOpenPnlPart portfolioInvestingOpenPnl(
 /// [portfolioInvestingOpenPnl]), so the figure is the rows' P&L added and
 /// the venues' P&L beside their names added. An open combo writes an
 /// estimate, not a P&L, and counts for none. Null with nothing open that
-/// writes one.
-PortfolioOpenPnlPart? portfolioOpenPnl(WidgetRef ref, PortfolioVenues venues) {
+/// writes one. [leaveOut]: positions left out by their key (the open P&L
+/// chart's pin: the positions it charts; with nothing left out, this very
+/// figure).
+PortfolioOpenPnlPart? portfolioOpenPnl(WidgetRef ref, PortfolioVenues venues,
+    {Set<String> leaveOut = const {}}) {
   final parts = <PortfolioOpenPnlPart>[
     if (venues.predictions)
       portfolioPredictionsOpenPnl(
-          ref, ref.watch(polymarketActivePositionsProvider)),
+          ref, ref.watch(polymarketActivePositionsProvider),
+          leaveOut: leaveOut),
     if (venues.trading)
       if (ref.watch(hyperliquidDisplayTradingProvider).valueOrNull
           case final state?)
-        portfolioInvestingOpenPnl(ref, state),
+        portfolioInvestingOpenPnl(ref, state, leaveOut: leaveOut),
   ];
   var usd = 0.0;
   var cost = 0.0;

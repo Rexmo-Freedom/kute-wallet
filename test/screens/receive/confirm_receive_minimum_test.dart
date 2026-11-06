@@ -7,8 +7,11 @@
 // Investments dollar balance; where the standing route cannot serve it,
 // the coin falls back to a one-time address delivering bitcoin
 // (spark:BTC), titled Bitcoin, its amount asked in the Lightning receive's
-// own "Request amount" sheet. The line lists only coins one of the two can
-// serve, and is gone when none can. The rails are stubbed.
+// own "Request amount" sheet. The other coins are "From another asset" on
+// the Bitcoin receive's first sheet, Receive or swap (the QR sheet's "Also
+// accepts" line is gone, founder 6 November 2026); the card lists only
+// coins one of the two can serve, and is gone when none can. The rails are
+// stubbed.
 
 import 'dart:io';
 
@@ -36,6 +39,9 @@ import 'package:kute/providers/orchestra_supported_routes_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show walletAddressProvider;
+import 'package:kute/providers/usd_account_provider.dart'
+    show usdBalanceProvider, usdBalanceUnknownProvider;
+import 'package:kute/screens/receive/bitcoin_receive_options.dart';
 import 'package:kute/screens/receive/components/confirm_receive.dart';
 import 'package:kute/screens/receive/components/request_amount_sheet.dart';
 import 'package:kute/screens/shared/account_switcher_pill.dart';
@@ -92,9 +98,11 @@ const _deposit = '0x52908400098527886E0F7030069857D2E4169EE7';
 
 final _wallet = WalletConfig(id: 'spending', name: 'Spending');
 
+/// [options]: Receive or swap, the first sheet, rather than the QR.
 Future<void> _pump(WidgetTester tester,
     {Set<String> standing = const {'spark:USDB'},
-    List<Map<String, dynamic>>? assets}) async {
+    List<Map<String, dynamic>>? assets,
+    bool options = false}) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -149,6 +157,8 @@ Future<void> _pump(WidgetTester tester,
       setupLnAddressProvider.overrideWith(
           (ref) async => Lnurl(lightningAddress: _lnAddress, lnurl: _lnurl)),
       breezSDKProvider.overrideWith((_) async => wrapper),
+      usdBalanceProvider.overrideWithValue(4.75),
+      usdBalanceUnknownProvider.overrideWithValue(false),
     ],
     child: ScreenUtilInit(
       designSize: const Size(430, 932),
@@ -163,10 +173,12 @@ Future<void> _pump(WidgetTester tester,
             extensions: [AppColorsExtension.light()]),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        home: const Scaffold(
+        home: Scaffold(
           body: Align(
             alignment: Alignment.bottomCenter,
-            child: ConfirmReceive(),
+            child: options
+                ? const BitcoinReceiveOptions()
+                : const ConfirmReceive(),
           ),
         ),
       ),
@@ -201,6 +213,9 @@ Future<void> _format(WidgetTester tester, String label) async {
 }
 
 final _minimum = find.byKey(const ValueKey('receive-minimum'));
+
+/// Receive or swap's "From another asset" card.
+final _fromAnother = find.byKey(const ValueKey('bitcoin-receive-from-another'));
 
 void main() {
   late List<(String, Map<String, Object>?)> events;
@@ -289,18 +304,19 @@ void main() {
   });
 
   testWidgets(
-      'other coins opens the sheet over this one, and a coin the standing '
-      'route serves gets the Dollars address with the Investments note',
-      (tester) async {
-    await _pump(tester);
-    await tester.tap(find.text(_l10n.receiveAlsoAccepts));
+      '"From another asset" opens the other coins sheet over Receive or '
+      'swap, and a coin the standing route serves gets the Dollars address '
+      'with the Investments note', (tester) async {
+    await _pump(tester, options: true);
+    await tester.tap(_fromAnother);
     await _settle(tester);
     expect(
         tester
             .widget<UsdReceiveScreen>(find.byType(UsdReceiveScreen))
             .destinationAsset,
         'BTC');
-    expect(find.byType(ConfirmReceive, skipOffstage: false), findsOneWidget);
+    expect(find.byType(BitcoinReceiveOptions, skipOffstage: false),
+        findsOneWidget);
     await tester.tap(find.widgetWithText(CoinAssetTile, 'USDT').first);
     await _settle(tester);
     await _settle(tester);
@@ -314,26 +330,28 @@ void main() {
     expect(find.text(_l10n.moveDestDollarsSubtitle), findsOneWidget);
     expect(find.byType(RequestAmountSheet), findsNothing);
     // The address is its own sheet over the coin sheet, which stays over
-    // the Bitcoin receive.
+    // Receive or swap.
     final address = find.byType(UsdStandingAddressSheet);
     expect(address, findsOneWidget);
     expect(find.byType(BottomSheet), findsNWidgets(2));
     expect(find.byType(UsdReceiveScreen), findsOneWidget);
-    expect(find.byType(ConfirmReceive, skipOffstage: false), findsOneWidget);
+    expect(find.byType(BitcoinReceiveOptions, skipOffstage: false),
+        findsOneWidget);
     final generated = addressEvents().last!;
     expect(generated['destination'], 'spark_usd');
     expect(generated['address_kind'], 'standing');
     expect(generated['entry_source'], 'bitcoin_receive');
     expect(generated.keys, isNot(contains('address')));
 
-    // Its close comes back to the coin sheet, over the Bitcoin receive.
+    // Its close comes back to the coin sheet, over Receive or swap.
     await tester.tap(
         find.descendant(of: address, matching: find.byType(KuteCloseButton)));
     await _settle(tester);
     expect(address, findsNothing);
     expect(find.byType(UsdReceiveScreen), findsOneWidget);
     expect(find.widgetWithText(CoinAssetTile, 'USDT'), findsWidgets);
-    expect(find.byType(ConfirmReceive, skipOffstage: false), findsOneWidget);
+    expect(find.byType(BitcoinReceiveOptions, skipOffstage: false),
+        findsOneWidget);
     await _unmount(tester);
   });
 
@@ -341,17 +359,18 @@ void main() {
       'other coins the standing route cannot serve open the Bitcoin one-time '
       'flow: titled Bitcoin, no Investments note, no Bitcoin row, and a coin '
       'opens the "Request amount" sheet', (tester) async {
-    await _pump(tester, standing: const {'bitcoin:BTC'});
-    expect(find.text(_l10n.receiveAlsoAccepts), findsOneWidget);
-    await tester.tap(find.text(_l10n.receiveAlsoAccepts));
+    await _pump(tester, standing: const {'bitcoin:BTC'}, options: true);
+    expect(_fromAnother, findsOneWidget);
+    await tester.tap(_fromAnother);
     await _settle(tester);
 
     final sheet =
         tester.widget<UsdReceiveScreen>(find.byType(UsdReceiveScreen));
     expect(sheet.destinationAsset, 'BTC');
-    // A bottom sheet over the Bitcoin receive, which stays underneath.
+    // A bottom sheet over Receive or swap, which stays underneath.
     expect(find.byType(BottomSheet), findsOneWidget);
-    expect(find.byType(ConfirmReceive, skipOffstage: false), findsOneWidget);
+    expect(find.byType(BitcoinReceiveOptions, skipOffstage: false),
+        findsOneWidget);
     expect(
         find.descendant(
             of: find.byType(AccountSwitcherPill),
@@ -362,8 +381,13 @@ void main() {
     expect(
         find.byKey(const ValueKey('usd-receive-from-bitcoin')), findsNothing);
     expect(names(events), isNot(contains('usd_receive_opened')));
-    expect(events.where((e) => e.$1 == 'receive_also_accepts_opened'),
-        hasLength(1));
+    expect(
+        events
+            .where((e) => e.$1 == 'receive_also_accepts_opened')
+            .map((e) => e.$2),
+        [
+          {'source': 'receive_options', 'coins': 1},
+        ]);
 
     // A coin picked there asks its amount in the Lightning request sheet,
     // in the receive unit with its picker, and the route's minimum once
@@ -411,28 +435,34 @@ void main() {
 
   testWidgets(
       'only coins the standing route or a one-time quote can serve are '
-      'listed, and with none left the line is gone', (tester) async {
+      'listed, and with none left the card is gone', (tester) async {
     // Neither the standing rail nor a one-time quote takes these.
-    await _pump(tester, assets: [
+    await _pump(tester, options: true, assets: [
       _row('spark', 'BTC', decimals: 8),
       _row('spark', 'USDB'),
       _row('litecoin', 'LTC', decimals: 8),
       _row('ton', 'USDT'),
     ]);
-    expect(find.text(_l10n.receiveAlsoAccepts), findsNothing);
+    expect(_fromAnother, findsNothing);
     await _unmount(tester);
 
     // One-time addresses off: the standing coins are still taken...
     final off = runtimePolicyFixture(blocked: {'orchestra.onetime_addresses'});
     expect(await off.refresh(), isTrue);
     RuntimeCapabilitiesService.debugInstance = off;
-    await _pump(tester);
-    expect(find.text(_l10n.receiveAlsoAccepts), findsOneWidget);
+    await _pump(tester, options: true);
+    expect(_fromAnother, findsOneWidget);
     await _unmount(tester);
 
     // ...and with no standing spark:USDB destination either, nothing is.
-    await _pump(tester, standing: const {'bitcoin:BTC'});
+    await _pump(tester, standing: const {'bitcoin:BTC'}, options: true);
+    expect(_fromAnother, findsNothing);
+    await _unmount(tester);
+
+    // The QR sheet itself never lists them (no "Also accepts").
+    await _pump(tester);
     expect(find.text(_l10n.receiveAlsoAccepts), findsNothing);
+    expect(find.byType(CoinMarksLine), findsNothing);
     await _unmount(tester);
     off.dispose();
   });

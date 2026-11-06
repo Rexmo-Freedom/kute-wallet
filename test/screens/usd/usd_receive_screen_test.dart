@@ -428,14 +428,12 @@ void main() {
         ProviderScope.containerOf(tester.element(find.byType(UsdReceiveScreen)));
     expect(kuteBarTop(container.read(kuteBarContextProvider))?.hidden, isTrue);
 
-    // The sheet's title names the balance the money lands in,
-    // "Investments", never the spending wallet; no step bar.
+    // The sheet's title is "Receive or swap" (founder, 6 November 2026),
+    // as on the Bitcoin receive's first sheet: no balance pill, never the
+    // spending wallet; no step bar.
     expect(find.text(_l10n.usdReceiveTitle), findsNothing);
-    expect(
-        find.descendant(
-            of: find.byType(AccountSwitcherPill),
-            matching: find.text(_l10n.assetDollars)),
-        findsOneWidget);
+    expect(find.text(_l10n.receiveOrSwapTitle), findsOneWidget);
+    expect(find.byType(AccountSwitcherPill), findsNothing);
     expect(find.textContaining('spending wallet'), findsNothing);
     expect(find.byType(StepperProgress), findsNothing);
 

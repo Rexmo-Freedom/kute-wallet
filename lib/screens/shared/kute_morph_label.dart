@@ -41,9 +41,17 @@ const double kMorphWordsTravel = 0.6;
 /// it says: a new key slides, the same key stays put (only its style
 /// changes, as a busy button under the same label).
 class KuteMorphLabel extends StatelessWidget {
-  const KuteMorphLabel({super.key, required this.child});
+  const KuteMorphLabel(
+      {super.key, required this.child, this.leavingInside = false});
 
   final Widget child;
+
+  /// Whether the leaving words lay out inside the label's own width: off
+  /// for the Sal pill (they overflow it as they go); on for the primary
+  /// button, which holds their room until they are gone, so words cut
+  /// short at rest leave cut short too, inside it (kute_shell_bar.dart,
+  /// THE WORDS NEVER CLIP).
+  final bool leavingInside;
 
   @override
   Widget build(BuildContext context) {
@@ -65,7 +73,7 @@ class KuteMorphLabel extends StatelessWidget {
             Positioned.fill(
               child: OverflowBox(
                 alignment: Alignment.centerLeft,
-                maxWidth: double.infinity,
+                maxWidth: leavingInside ? null : double.infinity,
                 minHeight: 0,
                 maxHeight: double.infinity,
                 child: p,

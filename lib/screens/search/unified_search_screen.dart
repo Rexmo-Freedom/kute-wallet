@@ -308,17 +308,21 @@ Future<void> showKuteSearch(
         _kSearchSheetKey,
         () => showAppBottomSheet<void>(
               context: context,
-              builder: (_) => UnifiedSearchSurface(
-                initialCategory: effectiveCategory,
-                searchFirst: searchFirst || ledgerMarkets,
-                lockCategory: walletId != null || ledgerMarkets || lockCategory,
-                scopedTabs:
-                    walletId == null && !ledgerMarkets ? scopedTabs : null,
-                walletId: walletId,
-                searchHint: searchHint,
-                barContext: barContext,
-                initialQuestion: initialQuestion,
-                composerKey: composerKey,
+              // The sheet's route, for the bar (kuteSearchSheetCovered).
+              builder: (_) => _SearchSheetRouteProbe(
+                child: UnifiedSearchSurface(
+                  initialCategory: effectiveCategory,
+                  searchFirst: searchFirst || ledgerMarkets,
+                  lockCategory:
+                      walletId != null || ledgerMarkets || lockCategory,
+                  scopedTabs:
+                      walletId == null && !ledgerMarkets ? scopedTabs : null,
+                  walletId: walletId,
+                  searchHint: searchHint,
+                  barContext: barContext,
+                  initialQuestion: initialQuestion,
+                  composerKey: composerKey,
+                ),
               ),
             ));
   } finally {
@@ -345,11 +349,43 @@ Future<void> showKuteSearch(
     }
     kuteSearchSheetOpen.value = false;
     kuteSearchLoading.value = false;
+    _searchSheetRoute = null;
     endKuteSearchSession(container);
   }
 }
 
 const _kSearchSheetKey = 'kute_search';
+
+/// The open search sheet's route, read by the bar; null while none is up
+/// (or before it has built).
+Route<dynamic>? _searchSheetRoute;
+
+/// Whether a page or a sheet the bar shows over stands on the open search
+/// sheet (KuteBarRouteObserver.covered): a result's market page, its
+/// slip, a transaction's detail. The sheet holds the bar only while it is
+/// on top (kute_bar_context.dart, THE SEARCH SHEET ONLY HOLDS THE BAR
+/// WHILE IT IS ON TOP): covered, the bar is the covering surface's own
+/// (its trade row, its primary and round share button), whether the pill
+/// travelled to the composer or the sheet hid the bar (Reduce Motion).
+bool kuteSearchSheetCovered() {
+  final route = _searchSheetRoute;
+  return route != null && KuteBarRouteObserver.covered(route);
+}
+
+/// Records the search sheet's route as the sheet builds. Only this probe
+/// depends on the route's status; the surface under it is the same
+/// widget and is not rebuilt.
+class _SearchSheetRouteProbe extends StatelessWidget {
+  const _SearchSheetRouteProbe({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    _searchSheetRoute = ModalRoute.of(context) ?? _searchSheetRoute;
+    return child;
+  }
+}
 
 /// True while the search sheet is up. The dock's "Search or manage with
 /// AI" pill shrinks and fades while it is (kute_bottom_action_bar.dart), and

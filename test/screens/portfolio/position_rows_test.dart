@@ -3,8 +3,10 @@
 // title (the held outcome's own name, the asset's name), "event · side"
 // or "Long · 0.0125 BTC" (never a leverage figure), a Predictions row's
 // chance bar for the held side (none once settled), the value with its
-// P&L % in a tinted pill (quiet when under a cent), and the taps of the
-// old cards.
+// P&L in money and as a % under it (quiet when under a cent; founder, 6
+// November 2026: "say how much I am actually winning in dollars"), the
+// squares' corner writing the money over its %, and the taps of the old
+// cards.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -30,6 +32,7 @@ import 'package:kute/screens/portfolio/components/position_rows.dart';
 import 'package:kute/screens/portfolio/poly_position_events.dart'
     show polyPositionEventProvider;
 import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
+import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -372,7 +375,10 @@ void main() {
     expect(bar.chance, closeTo(0.718, 1e-9));
     expect(_figure(tester, 'portfolio-row-value').text, r'$3.58');
     final pnl = _figure(tester, 'portfolio-row-pnl');
-    // The % alone: the $ P&L is on the position screen.
+    // The money first, then the %: (0.718 − 0.72) × 4.99 = −$0.01, −0.3 %.
+    expect(_figure(tester, 'portfolio-row-pnl-usd').text, r'$0.01');
+    expect(_figure(tester, 'portfolio-row-pnl-usd').style.color,
+        AppColors.marketDown);
     expect(pnl.text, '0.3%');
     expect(pnl.style.color, AppColors.marketDown);
     expect(_pillColor(tester), AppColors.marketDown);
@@ -398,6 +404,8 @@ void main() {
                 find.byKey(const ValueKey('portfolio-row-chance')))
             .chance,
         0.81);
+    // 0.09 × 4.99 = +$0.45, +12.5 %.
+    expect(_figure(tester, 'portfolio-row-pnl-usd').text, r'$0.45');
     expect(_figure(tester, 'portfolio-row-pnl').text, '12.5%');
     expect(_pillColor(tester), AppColors.marketUp);
   });
@@ -417,6 +425,7 @@ void main() {
         tokenId: 'f-no');
     await _pump(tester, const PolyPositionRow(position: flat));
     final pnl = _figure(tester, 'portfolio-row-pnl');
+    expect(_figure(tester, 'portfolio-row-pnl-usd').text, r'$0.00');
     expect(pnl.text, '0.0%');
     expect(pnl.style.color, AppColorsExtension.light().textSecondary);
     expect(_pillColor(tester), AppColorsExtension.light().textSecondary);
@@ -456,8 +465,128 @@ void main() {
     expect(find.textContaining('3x'), findsNothing);
     expect(find.textContaining('Liq'), findsNothing);
     final pnl = _figure(tester, 'portfolio-row-pnl');
+    expect(_figure(tester, 'portfolio-row-pnl-usd').text, r'$0.40');
     expect(pnl.text, '3.7%');
     expect(pnl.style.color, AppColors.marketUp);
+  });
+
+  group('the P&L in money on every shape (founder, 6 November 2026)', () {
+    Widget scoped(PortfolioRowLayout layout, Widget row, {double? width}) =>
+        PortfolioRowLayoutScope(
+          layout: layout,
+          child: width == null ? row : SizedBox(width: width, child: row),
+        );
+
+    for (final scale in [1.0, 1.3]) {
+      testWidgets(
+          'a square at 375 pt and ${(scale * 100).round()} % text: the '
+          'corner reads the money over its %, in the result\'s colour, '
+          'tabular, clear of the logo and inside the square; the big number '
+          'stays the value', (tester) async {
+        // Two squares to a row at 375 pt: 16 gutters, a 10 gap.
+        final side = (375 - 32 - 10) / 2 * 375 / 430;
+        await _pump(
+            tester,
+            width: 375,
+            textScale: scale,
+            scoped(PortfolioRowLayout.square, const HlPositionRow(position: _nvda),
+                width: side));
+        expect(tester.takeException(), isNull);
+        final usd = _figure(tester, 'portfolio-row-pnl-usd');
+        final percent = _figure(tester, 'portfolio-row-pnl');
+        // −3 × (186.1 − 182.4) at no live mid: the venue's −$11.10, on its
+        // $558.30 margin: −2.0 %.
+        expect(usd.text, r'▼ $11.10');
+        expect(percent.text, '2.0%');
+        expect(usd.style.color, AppColors.marketDown);
+        expect(percent.style.color, AppColors.marketDown);
+        for (final f in [usd, percent]) {
+          expect(f.style.fontFeatures,
+              contains(const FontFeature.tabularFigures()));
+        }
+        // The money over the %, right-aligned, inside the square, right
+        // of the logo.
+        final square = tester.getRect(find.byKey(const ValueKey('portfolio-square')));
+        final usdRect =
+            tester.getRect(find.byKey(const ValueKey('portfolio-row-pnl-usd')));
+        final pctRect =
+            tester.getRect(find.byKey(const ValueKey('portfolio-row-pnl')));
+        final logo = tester.getRect(find.byType(HlCoinIcon));
+        expect(usdRect.bottom, lessThanOrEqualTo(pctRect.top + 0.5));
+        expect(usdRect.right, moreOrLessEquals(pctRect.right, epsilon: 0.5));
+        expect(usdRect.left, greaterThan(logo.right));
+        expect(pctRect.left, greaterThan(logo.right));
+        expect(usdRect.right, lessThanOrEqualTo(square.right));
+        expect(pctRect.bottom, lessThan(
+            tester.getRect(find.byKey(const ValueKey('portfolio-row-title'))).top));
+        // The big number is still what the position is worth.
+        expect(_figure(tester, 'portfolio-row-value').text, r'$547.20');
+      });
+    }
+
+    testWidgets('a square with a long name and a wide P&L: nothing overflows',
+        (tester) async {
+      const whale = HlPerpPosition(
+          coin: 'BTC',
+          szi: 12.5,
+          entryPx: 60000,
+          positionValue: 1312500,
+          unrealizedPnl: 562500.55,
+          returnOnEquity: 0.75,
+          liquidationPx: null,
+          marginUsed: 750000,
+          leverageType: 'cross',
+          leverageValue: 1,
+          maxLeverage: 40);
+      await _pump(
+          tester,
+          width: 375,
+          scoped(PortfolioRowLayout.square, const HlPositionRow(position: whale),
+              width: (375 - 32 - 10) / 2 * 375 / 430));
+      expect(tester.takeException(), isNull);
+      expect(_figure(tester, 'portfolio-row-pnl-usd').text, r'▲ $562,500.55');
+      final square = tester.getRect(find.byKey(const ValueKey('portfolio-square')));
+      final usd = tester.getRect(find.byKey(const ValueKey('portfolio-row-pnl-usd')));
+      expect(usd.right, lessThanOrEqualTo(square.right));
+      expect(usd.left,
+          greaterThan(tester.getRect(find.byType(HlCoinIcon)).right));
+    });
+
+    testWidgets('a flat square: "\$0.00" over "0.0%", quietly, no arrow',
+        (tester) async {
+      const flat = PolymarketPosition(
+          marketId: 'f',
+          marketQuestion: 'Flat?',
+          outcome: 'No',
+          size: 10,
+          avgPrice: 0.5,
+          currentPrice: 0.5003,
+          pnl: 0,
+          pnlPercent: 0,
+          isResolved: false,
+          tokenId: 'f-no');
+      await _pump(
+          tester,
+          width: 375,
+          scoped(PortfolioRowLayout.square,
+              const PolyPositionRow(position: flat),
+              width: 160));
+      expect(_figure(tester, 'portfolio-row-pnl-usd').text, r'$0.00');
+      expect(_figure(tester, 'portfolio-row-pnl').text, '0.0%');
+      expect(_figure(tester, 'portfolio-row-pnl-usd').style.color,
+          AppColorsExtension.light().textSecondary);
+    });
+
+    testWidgets('the Investing list\'s row: "▲ \$0.40 · 3.7%" under the value',
+        (tester) async {
+      await _pump(tester,
+          scoped(PortfolioRowLayout.market, const HlPositionRow(position: _btc)));
+      final change = tester.widget<RollingNumberText>(find.descendant(
+          of: find.byKey(const ValueKey('portfolio-row-pnl')),
+          matching: find.byType(RollingNumberText)));
+      expect(change.text, r'▲ $0.40 · 3.7%');
+      expect(change.style.color, AppColors.marketUp);
+    });
   });
 
   testWidgets('a HIP-3 short: the ticker without its dex, the name, the logo',

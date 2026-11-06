@@ -5,11 +5,20 @@
 // no address to paste: a link they claim with Kute. Three steps in one
 // sheet, each built from the send flows' own pieces:
 //
-//   1. Amount: the send hero (SendTypedAmountHero, the unit pill) over the
-//      app keypad (AmountKeypad). Dollars are typed as dollars; bitcoin is
-//      typed in the user's currency and converted to sats by the bitcoin
-//      send's own conversion (inputToSatsProvider), with the sats shown
-//      under the figure.
+//   1. Amount: THE SEND AMOUNT STEP'S OWN PIECES (founder, 6 November
+//      2026: "this one must have the sats and such, like here";
+//      send_flow_widgets.dart). Bitcoin opens in the Bitcoin unit from
+//      Settings, as the Bitcoin Send does: the big figure in the chosen
+//      unit (₿ sats, ₿ BTC or a fiat; SendBitcoinAmountHero,
+//      SendTypedAmountHero), the other unit's figure with the ⇅ swap
+//      under it, "328,686 sats available · $248.82" (the spending
+//      wallet's bitcoin, which pays the link), the unit pill "[sats] Sats
+//      ⌄" opening the Send's unit sheet, and 25% · 50% · 100% over the
+//      app keypad (AmountKeypad). Dollars keep the dollar unit only (the
+//      pill names it), "$12.00 available" (the Dollars balance) and the
+//      same percent row. An amount over the balance turns red, says so
+//      and keeps Continue off, as the Send does; a balance not known yet
+//      is never judged.
 //   2. Who is it for? One text field, the first name, optional, under THE
 //      SHARE CARD live at about 60% (founder, 1 November 2026: "the card
 //      makes it feel like a gift"; cards/share_cards.dart): "{Name}, I
@@ -60,6 +69,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -68,10 +78,23 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/affiliate_model.dart' show AffiliateService;
 import 'package:kute/models/share_link_model.dart';
 import 'package:kute/providers/asset_icon_provider.dart'
-    show kBitcoinMarkAsset, kUsdMarkAsset;
+    show kUsdMarkAsset;
+import 'package:kute/helpers/formatters/currency_formatter.dart';
+import 'package:kute/providers/address_receive_provider.dart'
+    show bitcoinEntryUnit;
+import 'package:kute/providers/balance_provider.dart'
+    show walletBalanceCacheProvider;
 import 'package:kute/providers/currency_conversions_provider.dart'
-    show conversionProvider, conversionToFiatProvider, inputToSatsProvider;
+    show
+        conversionProvider,
+        conversionToFiatProvider,
+        inputToSatsProvider,
+        satsToTargetCurrencyProvider;
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/providers/usd_account_provider.dart'
+    show usdBalanceProvider;
+import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
+    show pickSpendingWallet;
 import 'package:kute/screens/share/cards/share_card_copy.dart'
     show shareCardChance, shareCardMessage, shareCardOutcome;
 import 'package:kute/screens/share/cards/share_card_data.dart';
@@ -81,13 +104,29 @@ import 'package:kute/screens/share/pending_share_links.dart';
 import 'package:kute/screens/share/share_challenge.dart';
 import 'package:kute/screens/share/share_link_copy.dart';
 import 'package:kute/screens/share/share_link_resend.dart';
-import 'package:kute/screens/shared/amount_keypad_panel.dart' show AmountKeypad;
+import 'package:kute/screens/shared/amount_keypad_panel.dart'
+    show AmountKeypad, AmountPercentChips, canonicalDecimalText;
+import 'package:kute/screens/shared/amount_unit_picker.dart'
+    show showAmountUnitPicker;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/app_text_field.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
-    show SendAmountUnitPill, SendToListCard, SendTypedAmountHero;
+    show
+        SendAmountAvailableLine,
+        SendAmountConversionLine,
+        SendAmountUnitPill,
+        SendAmountWarningLine,
+        SendBitcoinAmountHero,
+        SendToListCard,
+        SendTypedAmountHero,
+        sendAtmDigits,
+        sendAtmDigitsOf,
+        sendCurrencyIcon,
+        sendCurrencyPrefix,
+        sendFiatFlipUnit,
+        sendIsBitcoinUnit;
 import 'package:kute/services/api/share_links_api.dart';
 import 'package:kute/services/share_link_events.dart';
 import 'package:kute/services/share_links_store.dart';
@@ -186,10 +225,29 @@ class SendToAnyoneSheet extends ConsumerStatefulWidget {
 
 enum _Step { amount, name, done }
 
-class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
+class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet>
+    with SingleTickerProviderStateMixin {
   // A pick arrives with its amount (a slip's): straight to who it is for.
   late _Step _step = widget.hasAmount ? _Step.name : _Step.amount;
+
+  /// The typed figure in dollars, or in a fiat unit of a bitcoin link.
   String _typed = '';
+
+  /// A bitcoin link's figure in a Bitcoin unit: whole sats, typed ATM
+  /// style (the Send amount step's accumulator).
+  String _digits = '';
+
+  /// The entry unit: 'USD' for dollars; for bitcoin 'Sats', 'BTC' or a
+  /// fiat, opening in the Bitcoin unit from Settings as the Send does.
+  late String _unit =
+      _dollars ? 'USD' : bitcoinEntryUnit(ref.read(settingsProvider).btcFormat);
+
+  /// The fiat last typed in, the one the ⇅ swap goes back to.
+  String? _lastFiat;
+
+  /// The Send's per-keystroke "digit lands" bounce.
+  late final AnimationController _amountPulse = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 220));
   late final TextEditingController _name =
       TextEditingController(text: widget.senderLabel?.trim() ?? '');
   bool _creating = false;
@@ -224,25 +282,119 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
 
   @override
   void dispose() {
+    _amountPulse.dispose();
     _name.dispose();
     super.dispose();
   }
 
+  bool get _bitcoinUnit => !_dollars && sendIsBitcoinUnit(_unit);
+
   /// The link's minor units: the amount handed over, else the typed
-  /// figure as cents, or sats through the bitcoin send's conversion. Zero
-  /// while nothing usable is typed.
+  /// figure as cents, the sats typed, or a fiat figure in sats through
+  /// the bitcoin send's conversion. Zero while nothing usable is typed.
   int _amountMinor() {
     if (widget.hasAmount) return widget.amountMinor!;
+    if (_bitcoinUnit) return _digits.isEmpty ? 0 : int.tryParse(_digits) ?? 0;
     final value = double.tryParse(_typed) ?? 0;
     if (value <= 0) return 0;
     if (_dollars) return (value * 100).round();
     try {
-      final currency = ref.read(settingsProvider).currency;
-      return ref
-          .read(inputToSatsProvider((amount: _typed, currency: currency)));
+      return ref.read(inputToSatsProvider((amount: _typed, currency: _unit)));
     } catch (_) {
       return 0;
     }
+  }
+
+  /// What pays the link, in its minor units: the spending wallet's
+  /// bitcoin (sats) or the Dollars balance (cents, floored). Zero while
+  /// unknown: then the amount is never judged.
+  int _poolMinor() {
+    try {
+      if (_dollars) return (ref.watch(usdBalanceProvider) * 100).floor();
+      final spending = pickSpendingWallet(ref.watch(settingsProvider));
+      if (spending == null) return 0;
+      return ref
+              .watch(walletBalanceCacheProvider)[spending.id]
+              ?.sparkBitcoinbalance ??
+          0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// [minor] (sats or cents) written into the entry, in its unit.
+  void _setAmountMinor(int minor) {
+    if (_dollars) {
+      _typed = minor <= 0 ? '' : (minor / 100).toStringAsFixed(2);
+    } else if (_bitcoinUnit) {
+      _digits = sendAtmDigitsOf(minor);
+    } else {
+      _typed = minor <= 0 ? '' : _fiatText(minor, _unit);
+    }
+  }
+
+  /// [sats] in [fiat] as the keypad's plain text ("12.50", never "12,50").
+  String _fiatText(int sats, String fiat) {
+    try {
+      return canonicalDecimalText(ref.read(
+          satsToTargetCurrencyProvider((sats: sats, currency: fiat))));
+    } catch (_) {
+      return '';
+    }
+  }
+
+  void _pulse() {
+    if (!(MediaQuery.maybeOf(context)?.disableAnimations ?? false)) {
+      _amountPulse.forward(from: 0.0);
+    }
+  }
+
+  /// The ⇅ swap: Bitcoin to the fiat last typed in (else Settings'), fiat
+  /// back to the Bitcoin unit from Settings, the amount kept.
+  void _flipUnit() {
+    final sats = _amountMinor();
+    final wasBitcoin = _bitcoinUnit;
+    HapticFeedback.selectionClick();
+    setState(() {
+      if (wasBitcoin) {
+        _unit = sendFiatFlipUnit(
+            lastFiat: _lastFiat,
+            settingsCurrency: ref.read(settingsProvider).currency);
+      } else {
+        _lastFiat = _unit;
+        _unit = bitcoinEntryUnit(ref.read(settingsProvider).btcFormat);
+      }
+      _setAmountMinor(sats);
+    });
+  }
+
+  /// The Send's unit sheet; a new unit starts the entry over, as on the
+  /// Send.
+  void _pickUnit() {
+    showAmountUnitPicker(
+      context,
+      selected: _unit,
+      iconBuilder: (code, size) => sendCurrencyIcon(code, size: size),
+      onSelected: (code) {
+        if (!mounted) return;
+        setState(() {
+          _unit = code;
+          if (!sendIsBitcoinUnit(code)) _lastFiat = code;
+          _typed = '';
+          _digits = '';
+        });
+      },
+    );
+  }
+
+  /// 25% / 50% / 100% of what pays the link (100% is all of it).
+  void _onPercent(double ratio) {
+    final pool = _poolMinor();
+    if (pool <= 0) return;
+    final target = ratio >= 1.0 ? pool : (pool * ratio).floor();
+    if (target <= 0) return;
+    HapticFeedback.selectionClick();
+    setState(() => _setAmountMinor(target));
   }
 
   Future<void> _create() async {
@@ -418,66 +570,128 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
   }
 
   Widget _amountStep() {
-    final c = context.colors;
     final l10n = context.l10n;
     final amountMinor = _amountMinor();
+    final pool = _poolMinor();
+    // Judged at typing time, as the Send does; an unknown balance (0) is
+    // never judged.
+    final overBalance = pool > 0 && amountMinor > pool;
     final settings = ref.watch(settingsProvider);
-    // Dollars type as dollars; bitcoin types in the user's currency with
-    // the sats it comes to under the figure.
-    final unit = _dollars ? 'USD' : settings.currency;
-    String? under;
-    if (!_dollars && amountMinor > 0) {
+    final btcFormat = settings.btcFormat;
+    final Widget hero;
+    final Widget pill;
+    String? secondary;
+    final String available;
+    if (_dollars) {
+      hero = SendTypedAmountHero(
+          prefix: '\$', typed: _typed, overBalance: overBalance);
+      // Dollars only: the pill names the unit and has nothing to switch
+      // to (the dollar send's own pill).
+      pill = SendAmountUnitPill(
+        code: 'USD',
+        icon: SvgPicture.asset(kUsdMarkAsset, width: 20.sp, height: 20.sp),
+      );
+      available = l10n.hlYieldAvailableLine(
+          '\$${(pool / 100).toStringAsFixed(2)}');
+    } else {
+      hero = _bitcoinUnit
+          ? SendBitcoinAmountHero(
+              digits: _digits, unit: _unit, overBalance: overBalance)
+          : SendTypedAmountHero(
+              prefix: sendCurrencyPrefix(_unit),
+              typed: _typed,
+              overBalance: overBalance);
+      pill = SendAmountUnitPill(
+        key: const ValueKey('share-amount-unit'),
+        code: _unit,
+        icon: sendCurrencyIcon(_unit, size: 20.sp),
+        onTap: _pickUnit,
+      );
       try {
-        under = '≈ ${ref.watch(conversionProvider(amountMinor))}';
+        if (_bitcoinUnit) {
+          final fiat = sendFiatFlipUnit(
+              lastFiat: _lastFiat, settingsCurrency: settings.currency);
+          secondary = '${sendCurrencyPrefix(fiat)}'
+              '${ref.watch(satsToTargetCurrencyProvider((sats: amountMinor, currency: fiat)))}';
+        } else {
+          secondary = '₿${amountMinor.toFormattedString(btcFormat)}';
+        }
       } catch (_) {
-        under = null;
+        secondary = null;
       }
+      String poolFiat;
+      try {
+        poolFiat = ref.watch(conversionToFiatProvider(pool));
+      } catch (_) {
+        poolFiat = '';
+      }
+      available = l10n.sendAmountUnitAvailableWithFiat(
+          pool.toFormattedString(btcFormat), btcFormat, poolFiat);
     }
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SizedBox(height: 6.h),
-        Row(
+        // The Send amount step's hero: the figure with its unit pill, the
+        // other unit with the ⇅ swap, the balance (send_flow_widgets.dart).
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: SendTypedAmountHero(prefix: '\$', typed: _typed),
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: AnimatedBuilder(
+                    animation: _amountPulse,
+                    builder: (context, child) => Transform.scale(
+                      scale: 0.94 +
+                          Curves.easeOutBack.transform(_amountPulse.value) *
+                              0.06,
+                      child: child,
+                    ),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: hero,
+                    ),
+                  ),
+                ),
+                SizedBox(width: 10.w),
+                pill,
+              ],
             ),
-            SizedBox(width: 10.w),
-            SendAmountUnitPill(
-              code: unit,
-              icon: SvgPicture.asset(
-                _dollars ? kUsdMarkAsset : kBitcoinMarkAsset,
-                width: 20.sp,
-                height: 20.sp,
-              ),
-            ),
+            if (secondary != null) ...[
+              SizedBox(height: 10.h),
+              SendAmountConversionLine(
+                  secondary: secondary, onSwap: _flipUnit),
+            ],
+            if (overBalance) ...[
+              SizedBox(height: 8.h),
+              SendAmountWarningLine(l10n.sendMoreThanAvailable),
+            ],
+            SizedBox(height: 10.h),
+            SendAmountAvailableLine(available),
           ],
         ),
-        if (under != null) ...[
-          SizedBox(height: 8.h),
-          Text(
-            under,
-            style: TextStyle(
-              color: c.textTertiary,
-              fontSize: 14.sp,
-              fontWeight: FontWeight.w500,
-              letterSpacing: -0.1,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-          ),
-        ],
         SizedBox(height: 16.h),
+        AmountPercentChips(onPercent: _onPercent),
+        SizedBox(height: 12.h),
         MediaQuery.withClampedTextScaling(
           maxScaleFactor: 1.3,
           child: AmountKeypad(
-            value: _typed,
-            maxDecimals: 2,
-            onChanged: (v) => setState(() => _typed = v),
+            value: _bitcoinUnit ? _digits : _typed,
+            // Whole sats in a Bitcoin unit; cents in dollars or a fiat.
+            maxDecimals: _bitcoinUnit ? 0 : 2,
+            onChanged: (v) {
+              setState(() {
+                if (_bitcoinUnit) {
+                  _digits = sendAtmDigits(v);
+                } else {
+                  _typed = v;
+                }
+              });
+              _pulse();
+            },
           ),
         ),
         // THE BAR IS THE BUTTON (kute_bar_context.dart): Continue is the
@@ -486,9 +700,10 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
           barContext: KuteBarContext.primary(
             label: l10n.continueLabel,
             onPrimary: () => setState(() => _step = _Step.name),
-            enabled: amountMinor > 0,
+            enabled: amountMinor > 0 && !overBalance,
             source: 'share_amount',
-            disabledLabel: l10n.barNeedAmount,
+            disabledLabel:
+                overBalance ? l10n.barNeedLowerAmount : l10n.barNeedAmount,
           ),
           child: SizedBox(height: kuteBarScrollClearance.h),
         ),
