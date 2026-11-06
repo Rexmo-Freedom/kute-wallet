@@ -143,6 +143,8 @@ import 'package:kute/screens/hyperliquid/components/hl_browse_labels.dart';
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 import 'package:kute/screens/polymarket/components/poly_browse_bar.dart'
     show polyPillLabel, polySubLabel, polySubsFor;
+import 'package:kute/screens/polymarket/components/poly_category_icons.dart'
+    show polyCategoryTint;
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/screens/portfolio/investments_portfolio.dart'
     show PortfolioSection, portfolioSectionProvider;
@@ -467,11 +469,30 @@ mixin _CategoryData<T extends ConsumerStatefulWidget> on ConsumerState<T> {
     return count == null || count <= 0 ? null : _StatLine(count: count);
   }
 
-  List<Widget> _polyLogos(List<PolymarketEvent> events) => [
-        for (final e in events)
-          if (e.imageUrl != null && e.imageUrl!.isNotEmpty)
-            PolyCrestImage(url: e.imageUrl!, size: _kLogo, radius: _kLogo / 2),
-      ].take(_kLogos).toList();
+  /// The top markets' images for a Predictions tile, each on its
+  /// category's soft tint (Investing's letter discs) while it loads, and
+  /// the market's initials there if it fails: never a blank ring.
+  List<Widget> _polyLogos(List<PolymarketEvent> events) {
+    final fallback = Theme.of(context).colorScheme.onSurfaceVariant;
+    return [
+      for (final e in events)
+        if (e.imageUrl != null && e.imageUrl!.isNotEmpty)
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: polyCategoryTint(e.category, fallback)
+                  .withValues(alpha: 0.16),
+              shape: BoxShape.circle,
+            ),
+            child: PolyCrestImage(
+              url: e.imageUrl!,
+              size: _kLogo,
+              radius: _kLogo / 2,
+              label: e.title,
+              category: e.category,
+            ),
+          ),
+    ].take(_kLogos).toList();
+  }
 
   List<PolySub> _polySubs(PolyPill p) {
     var subs = polySubsFor(ref, p);
@@ -541,11 +562,10 @@ class _InvestmentsCategorySheetState
       });
     }
 
-    if (!hold) return close();
-    final wait = kuteReduceMotion(context)
-        ? Duration.zero
-        : const Duration(milliseconds: 140);
-    Future<void>.delayed(wait, close);
+    // Under Reduce Motion no hold: the sheet goes and the pick is written
+    // in the tap itself.
+    if (!hold || kuteReduceMotion(context)) return close();
+    Future<void>.delayed(const Duration(milliseconds: 140), close);
   }
 
   /// This sheet closes: popped while it is on top, else (the Sal sheet
