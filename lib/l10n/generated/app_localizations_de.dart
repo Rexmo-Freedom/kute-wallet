@@ -10160,6 +10160,12 @@ class AppLocalizationsDe extends AppLocalizations {
   String get hlPillTrending => 'Im Trend';
 
   @override
+  String get hlMarketMapTitle => 'Marktkarte';
+
+  @override
+  String get hlMarketMapWindow => '24h';
+
+  @override
   String get hlKindAll => 'Alle';
 
   @override

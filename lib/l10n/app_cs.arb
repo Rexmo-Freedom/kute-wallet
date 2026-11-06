@@ -2871,6 +2871,8 @@
   "livestreamOnHost": "Živě na {host}",
   "livestreamNowPlaying": "Právě hraje: {title}",
   "hlPillTrending": "Trendy",
+  "hlMarketMapTitle": "Mapa trhu",
+  "hlMarketMapWindow": "24 h",
   "hlKindAll": "Vše",
   "comboCombineTitle": "Spojit do jedné predikce",
   "comboCombineSubtitle": "Jedna částka. Vyhrát musí každá část, za vyšší výplatu.",

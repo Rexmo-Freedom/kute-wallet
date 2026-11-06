@@ -2871,6 +2871,8 @@
   "livestreamOnHost": "Otse: {host}",
   "livestreamNowPlaying": "Praegu mängib: {title}",
   "hlPillTrending": "Populaarne",
+  "hlMarketMapTitle": "Turukaart",
+  "hlMarketMapWindow": "24 h",
   "hlKindAll": "Kõik",
   "comboCombineTitle": "Ühenda üheks ennustuseks",
   "comboCombineSubtitle": "Üks summa. Iga osa peab võitma, et saada suurem väljamakse.",

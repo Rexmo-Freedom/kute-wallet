@@ -6338,6 +6338,14 @@
     }
   },
   "hlPillTrending": "Trending",
+  "hlMarketMapTitle": "Market map",
+  "@hlMarketMapTitle": {
+    "description": "Title of the Investing card under the Trending list: a treemap of the markets, each tile sized by its 24h volume and coloured red (down) or green (up) by its 24h change."
+  },
+  "hlMarketMapWindow": "24h",
+  "@hlMarketMapWindow": {
+    "description": "Quiet caption at the right of the market map card's title: the window the tiles' colours and changes are measured over, the last 24 hours. Keep it as short as the language allows."
+  },
   "hlKindAll": "All",
   "comboCombineTitle": "Combine into one prediction",
   "@comboCombineTitle": {

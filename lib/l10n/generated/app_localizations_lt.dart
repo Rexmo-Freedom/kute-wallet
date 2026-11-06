@@ -10137,6 +10137,12 @@ class AppLocalizationsLt extends AppLocalizations {
   String get hlPillTrending => 'Populiaru';
 
   @override
+  String get hlMarketMapTitle => 'Rinkos žemėlapis';
+
+  @override
+  String get hlMarketMapWindow => '24 val.';
+
+  @override
   String get hlKindAll => 'Visi';
 
   @override

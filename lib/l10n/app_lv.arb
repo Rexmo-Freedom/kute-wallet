@@ -2871,6 +2871,8 @@
   "livestreamOnHost": "Tiešraidē {host}",
   "livestreamNowPlaying": "Tagad atskaņo: {title}",
   "hlPillTrending": "Populāri",
+  "hlMarketMapTitle": "Tirgus karte",
+  "hlMarketMapWindow": "24 h",
   "hlKindAll": "Visi",
   "comboCombineTitle": "Apvienot vienā prognozē",
   "comboCombineSubtitle": "Viena summa. Jāuzvar katram notikumam, lai saņemtu lielāku izmaksu.",

@@ -2871,6 +2871,8 @@
   "livestreamOnHost": "Élőben itt: {host}",
   "livestreamNowPlaying": "Most megy: {title}",
   "hlPillTrending": "Felkapott",
+  "hlMarketMapTitle": "Piaci térkép",
+  "hlMarketMapWindow": "24 óra",
   "hlKindAll": "Összes",
   "comboCombineTitle": "Összevonás egy előrejelzésbe",
   "comboCombineSubtitle": "Egy összeg. Minden tételnek nyernie kell, a nagyobb kifizetésért.",

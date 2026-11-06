@@ -10137,6 +10137,12 @@ class AppLocalizationsEs extends AppLocalizations {
   String get hlPillTrending => 'Tendencia';
 
   @override
+  String get hlMarketMapTitle => 'Mapa del mercado';
+
+  @override
+  String get hlMarketMapWindow => '24 h';
+
+  @override
   String get hlKindAll => 'Todo';
 
   @override

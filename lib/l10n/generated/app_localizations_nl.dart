@@ -10122,6 +10122,12 @@ class AppLocalizationsNl extends AppLocalizations {
   String get hlPillTrending => 'Trending';
 
   @override
+  String get hlMarketMapTitle => 'Marktkaart';
+
+  @override
+  String get hlMarketMapWindow => '24u';
+
+  @override
   String get hlKindAll => 'Alles';
 
   @override

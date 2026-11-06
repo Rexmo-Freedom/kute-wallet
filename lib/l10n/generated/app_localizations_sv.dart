@@ -10085,6 +10085,12 @@ class AppLocalizationsSv extends AppLocalizations {
   String get hlPillTrending => 'Trendar';
 
   @override
+  String get hlMarketMapTitle => 'Marknadskarta';
+
+  @override
+  String get hlMarketMapWindow => '24 h';
+
+  @override
   String get hlKindAll => 'Alla';
 
   @override

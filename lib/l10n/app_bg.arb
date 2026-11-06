@@ -2871,6 +2871,8 @@
   "livestreamOnHost": "На живо в {host}",
   "livestreamNowPlaying": "Сега: {title}",
   "hlPillTrending": "Популярни",
+  "hlMarketMapTitle": "Пазарна карта",
+  "hlMarketMapWindow": "24ч",
   "hlKindAll": "Всички",
   "comboCombineTitle": "Обедини в една прогноза",
   "comboCombineSubtitle": "Една сума. Всяка част трябва да спечели, за по-голямо изплащане.",
