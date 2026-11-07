@@ -2232,6 +2232,7 @@
   "searchYourWallet": "Szukaj w portfelu",
   "searchNoMatchingActivity": "Brak pasującej aktywności",
   "searchYourPosition": "Twoja pozycja · {outcome}",
+  "searchMoreWaysToTrade": "{count, plural, =1{Jeszcze 1 sposób handlu {ticker}} few{Jeszcze {count} sposoby handlu {ticker}} many{Jeszcze {count} sposobów handlu {ticker}} other{Jeszcze {count} sposobu handlu {ticker}}}",
   "searchSearchingMarkets": "Wyszukiwanie rynków…",
   "searchFilterAll": "Wszystko",
   "searchSearching": "Wyszukiwanie…",

@@ -2232,6 +2232,7 @@
   "searchYourWallet": "ウォレットを検索",
   "searchNoMatchingActivity": "一致するアクティビティはありません",
   "searchYourPosition": "あなたのポジション · {outcome}",
+  "searchMoreWaysToTrade": "{count, plural, other{{ticker}のほかの取引方法（{count}件）}}",
   "searchSearchingMarkets": "マーケットを検索中…",
   "searchFilterAll": "すべて",
   "searchSearching": "検索中…",

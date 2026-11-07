@@ -2232,6 +2232,7 @@
   "searchYourWallet": "Zoek in je wallet",
   "searchNoMatchingActivity": "Geen bijpassende activiteit",
   "searchYourPosition": "Je positie · {outcome}",
+  "searchMoreWaysToTrade": "{count, plural, =1{Nog 1 manier om {ticker} te verhandelen} other{Nog {count} manieren om {ticker} te verhandelen}}",
   "searchSearchingMarkets": "Markten zoeken…",
   "searchFilterAll": "Alles",
   "searchSearching": "Zoeken…",

@@ -33,6 +33,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/hyperliquid_model.dart';
+import 'package:kute/screens/hyperliquid/components/hl_format.dart'
+    show hlPrimaryListings;
 
 /// Shared thin HTTP client for the trading read paths. Stateless — one
 /// instance app-wide is fine (also imported by the account/orderbook/
@@ -95,12 +97,15 @@ const kHlCommoditySymbols = <String>{
 };
 
 /// True when [market] should surface under the Stocks pill (real equities
-/// ONLY — indices + commodities have their own pills).
-bool isHlStockMarket(HlMarket market) => kHlStockSymbols.contains(market.coin);
+/// ONLY — indices + commodities have their own pills). A token that holds
+/// a stock (NVDAX) is read by that stock's ticker.
+bool isHlStockMarket(HlMarket market) =>
+    kHlStockSymbols.contains(market.underlyingTicker);
 
 /// True when [market] should surface under the Indices pill (broad-market
 /// index trackers — the S&P 500, Nasdaq 100, Dow, Russell).
-bool isHlIndexMarket(HlMarket market) => kHlIndexSymbols.contains(market.coin);
+bool isHlIndexMarket(HlMarket market) =>
+    kHlIndexSymbols.contains(market.underlyingTicker);
 
 /// A stock-linked perpetual: a derivative on an equity, not a share. The
 /// venue's own annotation wins; the symbol set catches a market the venue
@@ -139,7 +144,7 @@ List<HlMarket> hlMarketsOfferedUnderPolicy(
 /// True when [market] should surface under the Commodities pill (tokenized
 /// gold/silver trackers).
 bool isHlCommodityMarket(HlMarket market) =>
-    kHlCommoditySymbols.contains(market.coin);
+    kHlCommoditySymbols.contains(market.underlyingTicker);
 
 /// Coarse classification of a SPOT market into the Trading tab's browse
 /// buckets. Perps are never passed here (they carry their own annotation
@@ -424,8 +429,11 @@ List<HlMarket> _hlTabMarkets(HlBrowseTab tab, List<HlMarket> universe,
     case HlBrowseTab.watchlist:
       return hlWatchlistMarkets(watchlist, universe);
     case HlBrowseTab.trending:
-      // The most traded markets: pure volume.
-      return ([...universe]..sort(_byVolume)).take(kHlTrendingCount).toList();
+      // The most traded underlyings: pure volume, each by its primary
+      // listing.
+      return hlPrimaryListings([...universe]..sort(_byVolume))
+          .take(kHlTrendingCount)
+          .toList();
     default:
       return [
         for (final m in universe)
@@ -465,6 +473,11 @@ HlBrowseSub hlEffectiveSub(HlBrowseSub selected, List<HlBrowseSub> subs) {
 /// The browse list for [tab] and its subcategory [sub], derived
 /// CLIENT-SIDE from the in-memory [universe] (no network pagination).
 ///
+/// One row per underlying ([hlPrimaryListings]): of the listings of one
+/// underlying in the list, its primary (a perp before a token, then the
+/// most traded), as in search, the big squares and the market map. The
+/// Watchlist is the exception: it lists exactly what was starred.
+///
 /// Order: the Watchlist as starred, newest first; Trending by 24 h
 /// volume. Every other list puts the perps first, most traded first,
 /// then the spot tokens: the ones Hyperliquid's own app verifies
@@ -487,6 +500,7 @@ List<HlMarket> hlBrowseListForTab(
   final list = _hlTabMarkets(tab, universe).where(sub.matches).toList();
   if (tab == HlBrowseTab.trending) {
     list.sort(_byVolume);
+    // Already one per underlying (_hlTabMarkets).
     return _preferOwnership(list, universe);
   }
   int rank(HlMarket m) => !m.isSpot ? 0 : (hlSpotIsVerified(m) ? 1 : 2);
@@ -494,7 +508,10 @@ List<HlMarket> hlBrowseListForTab(
     final r = rank(a).compareTo(rank(b));
     return r != 0 ? r : _byVolume(a, b);
   });
-  return list;
+  // One row per underlying: Nvidia on two builder dexes and as two tokens
+  // is one row, its primary listing (hlListingGroups); search offers the
+  // others under it.
+  return hlPrimaryListings(list);
 }
 
 /// Ownership is the default landing on Trending: when an underlying is
@@ -873,7 +890,9 @@ List<HlMarket> resolveHlBrowseUniverse(
   }
   HlMarket classifyAndIconSpot(HlMarket m) {
     var classified = _classifyDirectSpot(m);
-    final base = classified.coin.toUpperCase();
+    // A token that holds a stock (NVDAX, EQNVDA) borrows from that
+    // stock's perps: its class, its logo, its name and keywords.
+    final base = classified.underlyingTicker.toUpperCase();
     final perpCategory = perpCategoryByBase[base];
     // Only a spot token the symbol sets left as plain crypto borrows.
     if (classified.category == 'crypto' &&

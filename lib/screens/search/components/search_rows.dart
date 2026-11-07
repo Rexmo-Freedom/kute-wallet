@@ -21,6 +21,12 @@
 //     venue's own logo and figures: a prediction keeps its chance gauge
 //     ([SearchPredictionRow], [SearchChanceGauge]), an Investing market
 //     its 48 by 20 sparkline ([SearchInvestingRow]);
+//   * an Investing market that trades more than one way (Nvidia on two
+//     builders' exchanges and as two tokens) is ONE row with a quiet
+//     "2 more ways to trade NVDA ›" under it ([SearchMoreWaysRow], the
+//     header action's style at the text's inset); tapped, the other
+//     listings open in place under it, each row saying what sets it
+//     apart ("NVDA · EntropyIO", "NVDAX · Spot");
 //   * "MOVING NOW" is a two-column grid of six flat rows, the ticker and
 //     the day's move ([SearchMoverGrid], [SearchMoverRow]);
 //   * the EMPTY state is Sal's `sad` face at 40 over one small centred
@@ -36,7 +42,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/l10n/l10n.dart';
-import 'package:kute/models/hyperliquid_market.dart' show HlMarket, HlMarketKind;
+import 'package:kute/models/hyperliquid_market.dart'
+    show HlDexNames, HlMarket, HlMarketKind;
 import 'package:kute/models/polymarket_model.dart' show PolymarketEvent;
 import 'package:kute/providers/hyperliquid_search_provider.dart'
     show HlMarketSearchResult;
@@ -50,7 +57,8 @@ import 'package:kute/screens/hyperliquid/components/hl_format.dart'
     show formatHlPrice, formatHlPct, formatHlUsd;
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/screens/shared/kute_dog_scenes.dart' show KuteDogGlance;
-import 'package:kute/screens/shared/kute_motion.dart' show KutePressable;
+import 'package:kute/screens/shared/kute_motion.dart'
+    show KutePressable, kuteMotion;
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/services/hyperliquid/hl_sparkline_cache.dart'
     show hlSparklineWithLivePrice;
@@ -130,11 +138,16 @@ class SearchBlockAction extends StatelessWidget {
       {super.key,
       required this.label,
       required this.onTap,
-      this.chevron = false});
+      this.chevron = false,
+      this.expanded});
 
   final String label;
   final VoidCallback onTap;
   final bool chevron;
+
+  /// For an action that opens rows in place: whether they are open. The
+  /// chevron then turns down, and assistive tech hears the state.
+  final bool? expanded;
 
   @override
   Widget build(BuildContext context) {
@@ -142,6 +155,7 @@ class SearchBlockAction extends StatelessWidget {
     return Semantics(
       button: true,
       label: label,
+      expanded: expanded,
       child: KutePressable(
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
@@ -159,8 +173,14 @@ class SearchBlockAction extends StatelessWidget {
               children: [
                 Text(label, style: SearchBlockHeader.actionStyle(context)),
                 if (chevron)
-                  Icon(Icons.chevron_right_rounded,
-                      size: 16.sp, color: c.textSecondary),
+                  AnimatedRotation(
+                    turns: expanded == true ? 0.25 : 0,
+                    duration:
+                        kuteMotion(context, const Duration(milliseconds: 200)),
+                    curve: Curves.easeOutCubic,
+                    child: Icon(Icons.chevron_right_rounded,
+                        size: 16.sp, color: c.textSecondary),
+                  ),
               ],
             ),
           ),
@@ -439,10 +459,35 @@ class SearchPredictionRow extends StatelessWidget {
 /// at the right, the price in 16 w600 over the day's move.
 class SearchInvestingRow extends ConsumerWidget {
   const SearchInvestingRow(
-      {super.key, required this.result, required this.onTap});
+      {super.key,
+      required this.result,
+      required this.onTap,
+      this.alternative = false});
 
   final HlMarketSearchResult result;
   final VoidCallback onTap;
+
+  /// One of the other listings under a result's [SearchMoreWaysRow]: its
+  /// line says what sets it apart, the exchange a perp trades on ("NVDA ·
+  /// EntropyIO") or that it is a token ("NVDAX · Spot"), always with its
+  /// own ticker.
+  final bool alternative;
+
+  /// The line under the name: the ticker when it is not the name, "Spot"
+  /// for a token, and for an [alternative] perp its exchange
+  /// ([HlDexNames.venueOf]).
+  static String tickerLine(BuildContext context, HlMarketSearchResult r,
+      {bool alternative = false}) {
+    final name =
+        (r.name?.trim().isNotEmpty ?? false) ? r.name!.trim() : r.coin;
+    final spot = r.kind == HlMarketKind.spot;
+    final market = r.market;
+    return [
+      if (name != r.coin || alternative) r.coin,
+      if (spot) context.l10n.investingSpot,
+      if (alternative && !spot && market != null) HlDexNames.venueOf(market),
+    ].join(' · ');
+  }
 
   /// The sparkline's size.
   static const double sparklineWidth = 48;
@@ -453,11 +498,7 @@ class SearchInvestingRow extends ConsumerWidget {
     final c = context.colors;
     final r = result;
     final name = (r.name?.trim().isNotEmpty ?? false) ? r.name!.trim() : r.coin;
-    final spot = r.kind == HlMarketKind.spot;
-    final ticker = [
-      if (name != r.coin) r.coin,
-      if (spot) context.l10n.investingSpot,
-    ].join(' · ');
+    final ticker = tickerLine(context, r, alternative: alternative);
     final change = r.dayChangePct;
     final changeColor = change == 0
         ? c.textSecondary
@@ -507,6 +548,45 @@ class SearchInvestingRow extends ConsumerWidget {
       onTap: onTap,
     );
   }
+}
+
+/// Under an Investing result that trades more than one way: "2 more ways
+/// to trade NVDA ›" in the header action's style ([SearchBlockAction]),
+/// at the row's text inset. Tapped, [onTap] opens the other listings in
+/// place under it and the chevron turns down; tapped again, they close.
+class SearchMoreWaysRow extends StatelessWidget {
+  const SearchMoreWaysRow({
+    super.key,
+    required this.count,
+    required this.ticker,
+    required this.expanded,
+    required this.onTap,
+  });
+
+  /// How many other listings there are.
+  final int count;
+
+  /// The ticker they trade ([HlMarketSearchResult.groupTicker]).
+  final String ticker;
+  final bool expanded;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        // The row's text column, less the action's own 4 of padding, so
+        // the words start under the name.
+        padding: EdgeInsetsDirectional.only(
+            start: math.max(0, kSearchRowLogo + 12.w - 4.w)),
+        child: Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: SearchBlockAction(
+            label: context.l10n.searchMoreWaysToTrade(count, ticker),
+            chevron: true,
+            expanded: expanded,
+            onTap: onTap,
+          ),
+        ),
+      );
 }
 
 /// One of the person's own prediction positions: the market's picture,

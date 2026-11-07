@@ -2232,6 +2232,7 @@
   "searchYourWallet": "Ieškoti piniginėje",
   "searchNoMatchingActivity": "Atitinkančios veiklos nėra",
   "searchYourPosition": "Jūsų pozicija · {outcome}",
+  "searchMoreWaysToTrade": "{count, plural, one{Dar {count} būdas prekiauti {ticker}} few{Dar {count} būdai prekiauti {ticker}} many{Dar {count} būdo prekiauti {ticker}} other{Dar {count} būdų prekiauti {ticker}}}",
   "searchSearchingMarkets": "Ieškoma rinkų…",
   "searchFilterAll": "Visi",
   "searchSearching": "Ieškoma…",

@@ -2232,6 +2232,7 @@
   "searchYourWallet": "Keresés a tárcádban",
   "searchNoMatchingActivity": "Nincs egyező tevékenység",
   "searchYourPosition": "A pozíciód · {outcome}",
+  "searchMoreWaysToTrade": "{count, plural, =1{{ticker}: még 1 kereskedési mód} other{{ticker}: még {count} kereskedési mód}}",
   "searchSearchingMarkets": "Piacok keresése…",
   "searchFilterAll": "Összes",
   "searchSearching": "Keresés…",

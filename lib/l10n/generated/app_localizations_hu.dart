@@ -7827,6 +7827,17 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
+  String searchMoreWaysToTrade(int count, String ticker) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$ticker: még $count kereskedési mód',
+      one: '$ticker: még 1 kereskedési mód',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get searchSearchingMarkets => 'Piacok keresése…';
 
   @override

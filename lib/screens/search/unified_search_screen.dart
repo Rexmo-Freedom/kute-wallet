@@ -73,6 +73,8 @@ import 'package:kute/services/search_recent_store.dart';
 import 'package:kute/screens/search/components/search_composer.dart';
 import 'package:kute/screens/search/components/search_morph.dart';
 import 'package:kute/screens/search/components/search_rows.dart';
+import 'package:kute/screens/shared/components/sheet_detail_row.dart'
+    show SheetAnimatedSize;
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart'
@@ -82,6 +84,8 @@ import 'package:kute/screens/shared/kute_share_actions.dart'
     show KuteBarPreview, KuteMarketBarAction, KuteMarketBarContext;
 import 'package:kute/screens/shared/kute_dog_scenes.dart' show KuteDogGlance;
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
+import 'package:kute/screens/hyperliquid/components/hl_format.dart'
+    show hlPrimaryListings;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -1558,16 +1562,66 @@ class _GlobalMarketRow extends ConsumerWidget {
 /// [HlMarket] and opens the Investing detail sheet on the root navigator
 /// (so it stacks ON TOP of search); if the universe hasn't loaded yet it
 /// falls back to the Investing tab.
-class _HlMarketRow extends ConsumerWidget {
+///
+/// A market that trades more than one way carries its other listings
+/// ([HlMarketSearchResult.alternatives]): "2 more ways to trade NVDA ›"
+/// under the row ([SearchMoreWaysRow]) opens them in place, each a row of
+/// its own that opens its own market. A tap on one is the same
+/// `search_result_tapped` as the row's, at the row's position.
+class _HlMarketRow extends ConsumerStatefulWidget {
   final HlMarketSearchResult result;
   final int? position;
   const _HlMarketRow({super.key, required this.result, this.position});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) =>
-      SearchInvestingRow(result: result, onTap: () => _open(context, ref));
+  ConsumerState<_HlMarketRow> createState() => _HlMarketRowState();
+}
 
-  void _open(BuildContext context, WidgetRef ref) {
+class _HlMarketRowState extends ConsumerState<_HlMarketRow> {
+  /// Whether the other listings are open under the row.
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final r = widget.result;
+    final row = SearchInvestingRow(result: r, onTap: () => _open(r));
+    if (r.alternatives.isEmpty) return row;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        row,
+        SearchMoreWaysRow(
+          key: ValueKey('hl-more-${r.kind.name}-${r.wireCoin}'),
+          count: r.alternatives.length,
+          ticker: r.groupTicker ?? r.coin,
+          expanded: _expanded,
+          onTap: () => setState(() => _expanded = !_expanded),
+        ),
+        SheetAnimatedSize(
+          child: !_expanded
+              ? const SizedBox(width: double.infinity)
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  spacing: kSearchRowGap.h,
+                  children: [
+                    for (final alt in r.alternatives)
+                      SearchInvestingRow(
+                        key: ValueKey('hl-alt-${alt.kind.name}-${alt.wireCoin}'),
+                        result: alt,
+                        alternative: true,
+                        onTap: () => _open(alt),
+                      ),
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
+
+  void _open(HlMarketSearchResult result) {
+    final position = widget.position;
     // Re-resolve the full descriptor (order-wire ids, book) from the loaded
     // universe. Keep search OPEN — the detail sheet pushes on the root
     // navigator so it stacks on top and closing it returns here.
@@ -1811,20 +1865,23 @@ class _SearchHome extends ConsumerWidget {
       );
     }
 
-    // Moving now: the biggest moves, liquid markets only.
+    // Moving now: the biggest moves, liquid markets only, one per
+    // underlying (its primary listing, as the results and the Investing
+    // lists show it: Nvidia moving on two exchanges is one row).
     final universe =
         ref.watch(hyperliquidBrowseUniverseProvider).valueOrNull ?? const [];
-    final movers = [
-      for (final m in universe)
-        if (m.prevDayPx > 0 &&
-            m.markPx > 0 &&
-            m.dayNtlVlm >= kHlLowLiquidityDayVolumeUsd)
-          m,
-    ]..sort((a, b) => (b.markPx / b.prevDayPx - 1)
-        .abs()
-        .compareTo((a.markPx / a.prevDayPx - 1).abs()));
     final moving = showInvesting
-        ? movers.take(SearchMoverGrid.count).toList()
+        ? hlPrimaryListings([
+            for (final m in universe)
+              if (m.prevDayPx > 0 &&
+                  m.markPx > 0 &&
+                  m.dayNtlVlm >= kHlLowLiquidityDayVolumeUsd)
+                m,
+          ]..sort((a, b) => (b.markPx / b.prevDayPx - 1)
+                .abs()
+                .compareTo((a.markPx / a.prevDayPx - 1).abs())))
+            .take(SearchMoverGrid.count)
+            .toList()
         : const <HlMarket>[];
 
     // Trending predictions: the trending feed as it is loaded. While it

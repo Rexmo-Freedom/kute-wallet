@@ -2505,6 +2505,7 @@
   "searchYourWallet": "Pesquisar na sua carteira",
   "searchNoMatchingActivity": "Nenhuma atividade corresponde",
   "searchYourPosition": "A sua posição · {outcome}",
+  "searchMoreWaysToTrade": "{count, plural, =1{Mais 1 forma de negociar {ticker}} other{Mais {count} formas de negociar {ticker}}}",
   "searchSearchingMarkets": "A pesquisar mercados…",
   "searchFilterAll": "Tudo",
   "searchSearching": "A pesquisar…",

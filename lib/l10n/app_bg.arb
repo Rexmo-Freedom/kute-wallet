@@ -2232,6 +2232,7 @@
   "searchYourWallet": "Търси в портфейла си",
   "searchNoMatchingActivity": "Няма съвпадаща активност",
   "searchYourPosition": "Твоята позиция · {outcome}",
+  "searchMoreWaysToTrade": "{count, plural, =1{Още 1 начин да търгуваш {ticker}} other{Още {count} начина да търгуваш {ticker}}}",
   "searchSearchingMarkets": "Търсене на пазари…",
   "searchFilterAll": "Всички",
   "searchSearching": "Търсене…",

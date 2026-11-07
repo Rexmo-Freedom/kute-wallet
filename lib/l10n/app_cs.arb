@@ -2232,6 +2232,7 @@
   "searchYourWallet": "Hledat v peněžence",
   "searchNoMatchingActivity": "Žádná odpovídající aktivita",
   "searchYourPosition": "Tvoje pozice · {outcome}",
+  "searchMoreWaysToTrade": "{count, plural, =1{Ještě 1 způsob, jak obchodovat {ticker}} few{Ještě {count} způsoby, jak obchodovat {ticker}} other{Ještě {count} způsobů, jak obchodovat {ticker}}}",
   "searchSearchingMarkets": "Hledají se trhy…",
   "searchFilterAll": "Vše",
   "searchSearching": "Hledání…",

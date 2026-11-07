@@ -2232,6 +2232,7 @@
   "searchYourWallet": "Αναζήτηση στο πορτοφόλι σου",
   "searchNoMatchingActivity": "Καμία δραστηριότητα δεν ταιριάζει",
   "searchYourPosition": "Η θέση σου · {outcome}",
+  "searchMoreWaysToTrade": "{count, plural, =1{Ακόμη 1 τρόπος για συναλλαγές σε {ticker}} other{Ακόμη {count} τρόποι για συναλλαγές σε {ticker}}}",
   "searchSearchingMarkets": "Αναζήτηση αγορών…",
   "searchFilterAll": "Όλα",
   "searchSearching": "Αναζήτηση…",

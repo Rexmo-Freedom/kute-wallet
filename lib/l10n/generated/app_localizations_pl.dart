@@ -7834,6 +7834,19 @@ class AppLocalizationsPl extends AppLocalizations {
   }
 
   @override
+  String searchMoreWaysToTrade(int count, String ticker) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Jeszcze $count sposobu handlu $ticker',
+      many: 'Jeszcze $count sposobów handlu $ticker',
+      few: 'Jeszcze $count sposoby handlu $ticker',
+      one: 'Jeszcze 1 sposób handlu $ticker',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get searchSearchingMarkets => 'Wyszukiwanie rynków…';
 
   @override

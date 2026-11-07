@@ -2232,6 +2232,7 @@
   "searchYourWallet": "Meklēt maciņā",
   "searchNoMatchingActivity": "Nav atbilstošas aktivitātes",
   "searchYourPosition": "Tava pozīcija · {outcome}",
+  "searchMoreWaysToTrade": "{count, plural, =1{Vēl 1 veids, kā tirgot {ticker}} other{Vēl {count} veidi, kā tirgot {ticker}}}",
   "searchSearchingMarkets": "Meklē tirgus…",
   "searchFilterAll": "Visi",
   "searchSearching": "Meklē…",

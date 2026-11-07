@@ -2232,6 +2232,7 @@
   "searchYourWallet": "Hae lompakostasi",
   "searchNoMatchingActivity": "Ei vastaavaa toimintaa",
   "searchYourPosition": "Positiosi · {outcome}",
+  "searchMoreWaysToTrade": "{count, plural, =1{{ticker}: vielä 1 tapa käydä kauppaa} other{{ticker}: vielä {count} tapaa käydä kauppaa}}",
   "searchSearchingMarkets": "Haetaan markkinoita…",
   "searchFilterAll": "Kaikki",
   "searchSearching": "Haetaan…",
