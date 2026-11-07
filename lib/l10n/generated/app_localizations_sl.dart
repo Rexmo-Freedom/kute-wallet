@@ -3189,7 +3189,7 @@ class AppLocalizationsSl extends AppLocalizations {
       'Bitcoin, Lightning ali Spark naslov';
 
   @override
-  String get sendAutoSwapFromBitcoin => 'Samodejna zamenjava iz Bitcoina';
+  String get sendAutoSwapFromBitcoin => 'Iz vašega Bitcoina';
 
   @override
   String get sendAddressNotIdentified => 'Naslov ni prepoznan';
@@ -3699,7 +3699,7 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String activitySwapLegs(String from, String to) {
-    return 'Zamenjava · $from → $to';
+    return '$from → $to';
   }
 
   @override
@@ -4193,6 +4193,11 @@ class AppLocalizationsSl extends AppLocalizations {
   @override
   String confirmationSentToWallet(String walletName) {
     return 'Poslano v $walletName';
+  }
+
+  @override
+  String confirmationMovedToWallet(String walletName) {
+    return 'Premaknjeno v $walletName';
   }
 
   @override
@@ -6175,6 +6180,12 @@ class AppLocalizationsSl extends AppLocalizations {
   String get moveTransfer => 'Premakni denar';
 
   @override
+  String get moveVerb => 'Premakni';
+
+  @override
+  String get moveToBitcoin => 'Premaknite v Bitcoin';
+
+  @override
   String get moveAdd => 'Dodaj';
 
   @override
@@ -6709,9 +6720,6 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get assetDollars => 'Investments';
-
-  @override
-  String get moveSourceInvestments => 'Naložbe';
 
   @override
   String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
@@ -11067,7 +11075,7 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String multiMovePurchaseWaiting(String amount, String balance) {
-    return 'Vaših $amount je v $balance. Tapnite za nakup Bitcoina';
+    return 'Vaših $amount je v $balance. Tapnite, da jih prenesete v Bitcoin';
   }
 
   @override
@@ -11303,12 +11311,12 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String moneyStepBuying(String amount) {
-    return 'Nakup Bitcoina za $amount';
+    return 'Prenašanje $amount v Bitcoin';
   }
 
   @override
   String moneyStepBought(String amount) {
-    return 'Kupljen Bitcoin za $amount';
+    return 'Preneseno $amount v Bitcoin';
   }
 
   @override
@@ -12066,10 +12074,7 @@ class AppLocalizationsSl extends AppLocalizations {
   }
 
   @override
-  String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
-
-  @override
-  String get receiveOrSwapTitle => 'Prejmi ali zamenjaj';
+  String get usdReceiveFromYourBitcoin => 'Iz vašega Bitcoina';
 
   @override
   String get receiveFromYourDollars => 'Iz vaših Dolarjev';
@@ -12078,9 +12083,6 @@ class AppLocalizationsSl extends AppLocalizations {
   String usdDollarsBalanceLine(String amount) {
     return '$amount v Dolarjih';
   }
-
-  @override
-  String get receiveFromAnotherAsset => 'Iz drugega sredstva';
 
   @override
   String get receiveBitcoinAndLightning => 'Bitcoin in Lightning';
@@ -13790,10 +13792,10 @@ class AppLocalizationsSl extends AppLocalizations {
   String get sendWayCryptoAddress => 'Kripto naslov';
 
   @override
-  String get sendWayPrediction => 'Napoved';
+  String get sendWayPrediction => 'Napoved ali naložba';
 
   @override
-  String get sendWayToDollars => 'V Dolarje';
+  String get sendWayToDollars => 'Na tvoje Dolarje';
 
   @override
   String get sendPickRowSub => 'Ali naložbo. Poiščite trg, izberite stran';

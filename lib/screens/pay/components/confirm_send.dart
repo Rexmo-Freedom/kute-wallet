@@ -108,7 +108,7 @@ import 'package:kute/screens/share/send_pick_market_sheet.dart'
 import 'package:kute/screens/search/components/search_rows.dart'
     show SearchChanceGauge;
 import 'package:kute/screens/shared/money_movement_sheet.dart'
-    show MoneyMovementAccount, showMoneyMovementSheet;
+    show MoneyMovementAccount, showOwnMoneyMove;
 import 'package:kute/services/runtime_capabilities_service.dart'
     show runtimeCapabilitiesProvider;
 import 'package:kute/models/share_link_model.dart' show ShareLinkKind;
@@ -7753,13 +7753,13 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   /// send_recipient_step.dart): under the "More ways to send" label,
   /// three small equal chips, clearly under the people above them:
   ///
-  ///   * "To Dollars": the Move money sheet, Bitcoin to Dollars, pinned
-  ///     (as the Dollars Send's "To your Bitcoin" pins the other way);
+  ///   * "To your Dollars": Move money, Bitcoin to Dollars, pinned (as
+  ///     the Dollars Send's "To your Bitcoin" pins the other way);
   ///   * "Crypto address": the coins this bitcoin can land as, in the
   ///     destination sheet (the coins stacked as its icon);
-  ///   * "Prediction": Send an investment or prediction, the market
-  ///     search the Dollars Send opens (send_pick_market_sheet.dart). A
-  ///     prediction link is paid from Dollars wherever it is sent from
+  ///   * "Prediction or investment": Send an investment or prediction,
+  ///     the market search the Dollars Send opens
+  ///     (send_pick_market_sheet.dart). A prediction link is paid from Dollars wherever it is sent from
   ///     (slip_share.dart: ShareLinkKind.dollars), so the Bitcoin Send
   ///     opens the very same flow; the chip goes where neither venue is
   ///     open to this person (sendPickOffered).
@@ -7812,8 +7812,8 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     );
   }
 
-  /// "To Dollars": the Move money sheet from Bitcoin to Dollars, pinned
-  /// (nothing to pick), over this send.
+  /// "To your Dollars": Move money straight on the amount, Bitcoin to
+  /// Dollars, pinned (nothing to pick; showOwnMoneyMove), over this send.
   void _openToDollars() {
     final open = ConfirmSend.debugMoveSheetOpener;
     if (open != null) {
@@ -7821,13 +7821,9 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
       unawaited(open(context));
       return;
     }
-    unawaited(showMoneyMovementSheet(
-      context,
-      initialSource: MoneyMovementAccount.bitcoin,
-      initialDestination: MoneyMovementAccount.dollars,
-      entrySource: kBitcoinSendToDollarsSource,
-      pinned: true,
-    ));
+    unawaited(showOwnMoneyMove(context,
+        from: MoneyMovementAccount.bitcoin,
+        entrySource: kBitcoinSendToDollarsSource));
   }
 
   /// "Prediction": the market search; a market's slip sends it. A link

@@ -453,7 +453,8 @@ int get _railCalls =>
 Future<ProviderContainer> _open(WidgetTester tester, MoneyMovementRoute route,
     {Completer<String?>? hlAddress,
     OrchestraRoutesCatalog? catalog,
-    bool pinned = false}) async {
+    bool pinned = false,
+    double? initialTargetUsd}) async {
   tester.view.physicalSize = const Size(430, 932);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -509,7 +510,8 @@ Future<ProviderContainer> _open(WidgetTester tester, MoneyMovementRoute route,
   unawaited(showMoneyMovementSheet(_nav.currentContext!,
       initialSource: route.from,
       initialDestination: route.to,
-      pinned: pinned));
+      pinned: pinned,
+      initialTargetUsd: initialTargetUsd));
   await _frames(tester, 12);
   container.read(sparkHypercoreFundingServiceProvider);
   return container;
@@ -627,21 +629,38 @@ void main() {
   });
 
   testWidgets(
-      'the withdrawal door pins the route: Investments to Bitcoin, no '
-      'pickers, no flip, and the move still runs', (tester) async {
+      'an own-account door pins the route: Dollars to Bitcoin, each end by '
+      'its account\'s name, "Move money" over "Move \$5", no pickers, no '
+      'flip, and the move still runs', (tester) async {
     final c = await _open(tester, const MoneyMovementRoute(_d, _b),
         pinned: true);
-    expect(find.text('Investments'), findsOneWidget);
+    expect(find.text('Dollars'), findsOneWidget);
+    expect(find.text('Investments'), findsNothing);
     expect(find.text('Bitcoin'), findsOneWidget);
+    expect(find.text('Move money'), findsOneWidget);
+    expect(find.textContaining('Swap'), findsNothing);
+    expect(find.textContaining('Buy'), findsNothing);
     expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsNothing);
     expect(find.byIcon(Icons.swap_vert_rounded), findsNothing);
     // Tapping an end picks nothing.
-    await tester.tap(find.text('Investments').first);
+    await tester.tap(find.text('Dollars').first);
     await _frames(tester);
     expect(find.text('Move from'), findsNothing);
     await _type(tester, '5');
+    expect(_button(tester).text, r'Move $5');
     await _confirm(tester);
     expect(_railCalls, 1);
+    await _close(tester, c);
+  });
+
+  testWidgets(
+      'the Goals nudge\'s door: Bitcoin to Dollars, pinned, the dollars it '
+      'asked for filled in once the price is up', (tester) async {
+    final c = await _open(tester, const MoneyMovementRoute(_b, _d),
+        pinned: true, initialTargetUsd: 5);
+    expect(find.text('Move money'), findsOneWidget);
+    expect(find.byIcon(Icons.swap_vert_rounded), findsNothing);
+    expect(_button(tester).text, r'Move $5');
     await _close(tester, c);
   });
 
@@ -1316,7 +1335,8 @@ void main() {
       await tester.tap(_cta);
       await _frames(tester, 12);
       expect(restricted(), findsNothing);
-      expect(_button(tester).text, r'Move money $10');
+      // The person's own money moves: "Move $10", never "Buy".
+      expect(_button(tester).text, r'Move $10');
       await _confirm(tester);
       expect(_hypercore.deposits, hasLength(1));
       await _close(tester, c);

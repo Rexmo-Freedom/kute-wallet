@@ -17,11 +17,11 @@
 //   * THE WAYS AS ONE ROW OF CHIPS (founder, 6 November 2026, the approved
 //     hierarchy, "one question per level, people first";
 //     send_recipient_step.dart): under a small "More ways to send" label,
-//     three small equal chips (SendWaysRow), clearly under the people
-//     above: "To your Bitcoin" (the Move money sheet, Dollars to
-//     Bitcoin), "Crypto address" (the coins it can land as, in the coin
-//     sheet, exactly as the Bitcoin send's chip opens its own) and
-//     "Prediction" (Send an investment or prediction: the market search,
+//     small equal chips sharing the row (SendWaysRow), clearly under the
+//     people above: "To your Bitcoin" (Move money straight on the amount,
+//     Dollars to Bitcoin), "Crypto address" (the coins it can land as, in
+//     the coin sheet, exactly as the Bitcoin send's chip opens its own)
+//     and "Prediction or investment" (the market search,
 //     send_pick_market_sheet.dart, a market's page, its slip sends; the
 //     chip goes where neither venue is open to this person,
 //     sendPickOffered). No big "Send to" card grid any more, and no "Send
@@ -70,7 +70,7 @@ import 'package:kute/screens/shared/coin_asset_grid.dart';
 import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/money_movement_sheet.dart'
-    show MoneyMovementAccount, showMoneyMovementSheet;
+    show MoneyMovementAccount, showOwnMoneyMove;
 import 'package:kute/screens/shared/receive_surface.dart';
 import 'package:kute/screens/shared/send/send_contacts_list.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart';
@@ -170,15 +170,11 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
       unawaited(open(context));
       return;
     }
-    // Pinned: Investments to Bitcoin, nothing to pick, as Purchase Bitcoin
-    // pins its ends (founder, 1 November 2026).
-    unawaited(showMoneyMovementSheet(
-      context,
-      initialSource: MoneyMovementAccount.dollars,
-      initialDestination: MoneyMovementAccount.bitcoin,
-      entrySource: kUsdWithdrawBitcoinRowSource,
-      pinned: true,
-    ));
+    // Straight on the amount, Dollars to Bitcoin, nothing to pick
+    // (showOwnMoneyMove).
+    unawaited(showOwnMoneyMove(context,
+        from: MoneyMovementAccount.dollars,
+        entrySource: kUsdWithdrawBitcoinRowSource));
   }
 
   /// "Send an investment or prediction": the market search, a pick on a
@@ -431,8 +427,8 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
   }
 
   /// LEVEL 2, ONE ROW OF CHIPS (founder, 6 November 2026; see the file
-  /// header): "To your Bitcoin" (the Move money sheet), "Crypto address"
-  /// (the coin sheet) and "Prediction" (the market search), small and
+  /// header): "To your Bitcoin" (Move money), "Crypto address" (the coin
+  /// sheet) and "Prediction or investment" (the market search), small and
   /// equal under the "More ways to send" label. No "Send to anyone"
   /// (founder, 5 November 2026: a contact or a typed phone number sends by
   /// link). With no coin offered the address chip goes and the unavailable

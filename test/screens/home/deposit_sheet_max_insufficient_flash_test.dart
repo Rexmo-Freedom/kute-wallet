@@ -213,9 +213,11 @@ void main() {
     SharedHttpClient.debugOverride = null;
   });
 
-  // Door, and the verb its button states.
+  // Door, and the verb its button states. Bitcoin into Dollars is the
+  // person's own money moving: "Move", never "Buy" (founder, 7 November
+  // 2026: buy is only for money from outside).
   const doors = {
-    'Dollars': (MoveLockedSide.depositToUsd, 'Buy'),
+    'Dollars': (MoveLockedSide.depositToUsd, 'Move'),
     'Investing': (MoveLockedSide.depositToHyperliquid, 'Add'),
     'Predictions': (MoveLockedSide.depositToPredictions, 'Add'),
   };

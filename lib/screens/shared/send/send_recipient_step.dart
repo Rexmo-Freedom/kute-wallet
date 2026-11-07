@@ -19,13 +19,17 @@
 //       [ 🔍 Name, phone, address or @user   📋 ⌗ ]
 //       Frequent                 (P) (J) (A)          ← level 1: people
 //       More ways to send
-//       [₿ To your Bitcoin] [⛓ Crypto address] [📈 Prediction]  ← level 2
+//       [₿ To your Bitcoin] [⛓ Crypto address] [📈 Prediction or
+//        investment]                                 ← level 2
 //       All contacts             A Anna Haro …        ← level 3
 //
 //     Level 2 is ONE row of small, equal chips ([SendWaysRow] of
 //     [SendWayChip]: the big cards' surface, smaller; the icon at the
 //     top left, a short label under it), clearly under the people above
-//     it. Three fit across a 375 pt phone in every shipped language; a
+//     it. They share the row's width evenly (founder, 7 November 2026:
+//     two chips, Prediction hidden, take half each, no empty third slot);
+//     a label wraps to two lines and the chips of the row stay equally
+//     tall. Three fit across a 375 pt phone in every shipped language; a
 //     label that cannot fit (a very large text) turns the row into a
 //     horizontal scroll, never a cut word. No big "Send to" card grid any
 //     more;
@@ -984,10 +988,6 @@ const double kSendWayChipIconSlot = 24;
 /// The coin marks' side in the Crypto address chip's stack.
 const double kSendWayChipCoinMark = 20;
 
-/// How many chips share the row's width: three always, so two chips are
-/// as small as three (equal weight, whatever the screen offers).
-const int kSendWayChipSlots = 3;
-
 /// One way to send on the level-2 row (see the file header): the big
 /// cards' surface (kute_action_cards.dart), smaller. [icon] at the top
 /// left in its 24 box, [label] under it (13, w600, up to two lines,
@@ -1070,11 +1070,11 @@ class SendWayChip extends StatelessWidget {
   }
 }
 
-/// Level 2 of the Send step (see the file header): ONE row of [chips],
-/// each a third of the width (two chips stay that size, left aligned),
-/// equally tall. When a label cannot fit its third (a very large text)
-/// the row scrolls sideways, the chips as wide as the longest label
-/// needs, all alike.
+/// Level 2 of the Send step (see the file header): ONE row of [chips]
+/// sharing the width evenly (three a third each, two half each: never an
+/// empty slot), equally tall. When a label cannot fit its share (a very
+/// large text) the row scrolls sideways, the chips as wide as the longest
+/// label needs, all alike.
 class SendWaysRow extends StatelessWidget {
   const SendWaysRow({super.key, required this.chips});
 
@@ -1087,8 +1087,8 @@ class SendWaysRow extends StatelessWidget {
   /// Whether every chip's label fits a chip [chipWidth] wide: no word
   /// wider than the chip (it would break mid-word) and no more than
   /// [SendWayChip.maxLines] lines. A word may break after its hyphen
-  /// ("Krypto-Adresse"); Japanese breaks between characters, so only its
-  /// lines count.
+  /// ("Krypto-Adresse") or its slash ("Forudsigelse/investering");
+  /// Japanese breaks between characters, so only its lines count.
   static bool labelsFit(
       BuildContext context, List<SendWayChip> chips, double chipWidth) {
     final inner = _inner(chipWidth);
@@ -1113,7 +1113,7 @@ class SendWaysRow extends StatelessWidget {
     for (final chip in chips) {
       for (final word in chip.label.split(RegExp(r'\s+'))) {
         if (word.isEmpty || cjk.hasMatch(word)) continue;
-        for (final part in word.split(RegExp(r'(?<=[-‐])'))) {
+        for (final part in word.split(RegExp(r'(?<=[-‐/])'))) {
           if (width(part) > inner) return false;
         }
       }
@@ -1135,8 +1135,7 @@ class SendWaysRow extends StatelessWidget {
     if (chips.isEmpty) return const SizedBox.shrink();
     return LayoutBuilder(builder: (context, constraints) {
       final g = kSendWayChipGap.w;
-      final slots =
-          chips.length > kSendWayChipSlots ? chips.length : kSendWayChipSlots;
+      final slots = chips.length;
       final total = constraints.hasBoundedWidth
           ? constraints.maxWidth
           : MediaQuery.sizeOf(context).width;

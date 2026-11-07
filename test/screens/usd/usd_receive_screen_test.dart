@@ -36,8 +36,7 @@ import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/providers/orchestra_supported_routes_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/shared/account_switcher_pill.dart';
-import 'package:kute/screens/home/components/deposit_sheet.dart'
-    show MoveLockedSide;
+import 'package:kute/screens/shared/money_movement_sheet.dart';
 import 'package:kute/screens/shared/asset_network_picker.dart' show PickerRow;
 import 'package:kute/screens/shared/coin_asset_grid.dart';
 import 'package:kute/screens/shared/custom_button.dart'
@@ -234,7 +233,7 @@ void main() {
   tearDown(() {
     RuntimeCapabilitiesService.debugInstance = null;
     TrackingService.debugTrackObserver = null;
-    UsdReceiveScreen.debugDepositSheetOpener = null;
+    debugMoneyMovementSheetOpener = null;
   });
 
   Iterable<String> names() => events.map((e) => e.$1);
@@ -292,15 +291,20 @@ void main() {
   });
 
   testWidgets(
-      'tapping "From your Bitcoin" opens the Investments deposit from the '
-      'spending bitcoin', (tester) async {
-    final opened = <MoveLockedSide>[];
-    UsdReceiveScreen.debugDepositSheetOpener =
-        (_, {required lockedSide}) async => opened.add(lockedSide);
+      'tapping "From your Bitcoin" opens Move money straight on the amount, '
+      'Bitcoin to Dollars, pinned: no source picker in between',
+      (tester) async {
+    final opened = <MoneyMovementRequest>[];
+    debugMoneyMovementSheetOpener = (_, request) => opened.add(request);
     await _pump(tester, spendingSats: 100000);
     await tester.tap(find.byKey(_bitcoinRow));
     await tester.pump();
-    expect(opened, [MoveLockedSide.depositToUsd]);
+    expect(opened, hasLength(1));
+    expect(opened.single.route,
+        const MoneyMovementRoute(MoneyMovementAccount.bitcoin,
+            MoneyMovementAccount.dollars));
+    expect(opened.single.pinned, isTrue);
+    expect(opened.single.entrySource, kUsdReceiveBitcoinRowSource);
     expect(TrackingService.takeEntrySource('move'), 'usd_receive_bitcoin_row');
     await _unmount(tester);
   });
@@ -428,11 +432,12 @@ void main() {
         ProviderScope.containerOf(tester.element(find.byType(UsdReceiveScreen)));
     expect(kuteBarTop(container.read(kuteBarContextProvider))?.hidden, isTrue);
 
-    // The sheet's title is "Receive or swap" (founder, 6 November 2026),
-    // as on the Bitcoin receive's first sheet: no balance pill, never the
-    // spending wallet; no step bar.
+    // The sheet's title is "Receive" (founder, 7 November 2026: the word
+    // swap appears nowhere), as on the Bitcoin receive's first sheet: no
+    // balance pill, never the spending wallet; no step bar.
     expect(find.text(_l10n.usdReceiveTitle), findsNothing);
-    expect(find.text(_l10n.receiveOrSwapTitle), findsOneWidget);
+    expect(find.text(_l10n.receive), findsOneWidget);
+    expect(find.textContaining('swap'), findsNothing);
     expect(find.byType(AccountSwitcherPill), findsNothing);
     expect(find.textContaining('spending wallet'), findsNothing);
     expect(find.byType(StepperProgress), findsNothing);

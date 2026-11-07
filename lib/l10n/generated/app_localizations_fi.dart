@@ -3182,7 +3182,7 @@ class AppLocalizationsFi extends AppLocalizations {
       'Bitcoin-, Lightning- tai Spark-osoite';
 
   @override
-  String get sendAutoSwapFromBitcoin => 'Automaattinen vaihto Bitcoinista';
+  String get sendAutoSwapFromBitcoin => 'Bitcoinistasi';
 
   @override
   String get sendAddressNotIdentified => 'Osoitetta ei tunnistettu';
@@ -3691,7 +3691,7 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String activitySwapLegs(String from, String to) {
-    return 'Vaihto · $from → $to';
+    return '$from → $to';
   }
 
   @override
@@ -4183,6 +4183,11 @@ class AppLocalizationsFi extends AppLocalizations {
   @override
   String confirmationSentToWallet(String walletName) {
     return 'Lähetetty lompakkoon $walletName';
+  }
+
+  @override
+  String confirmationMovedToWallet(String walletName) {
+    return 'Siirretty kohteeseen $walletName';
   }
 
   @override
@@ -6161,6 +6166,12 @@ class AppLocalizationsFi extends AppLocalizations {
   String get moveTransfer => 'Siirrä rahaa';
 
   @override
+  String get moveVerb => 'Siirrä';
+
+  @override
+  String get moveToBitcoin => 'Siirrä Bitcoiniin';
+
+  @override
   String get moveAdd => 'Lisää';
 
   @override
@@ -6691,9 +6702,6 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get assetDollars => 'Investments';
-
-  @override
-  String get moveSourceInvestments => 'Sijoitukset';
 
   @override
   String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
@@ -11044,7 +11052,7 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String multiMovePurchaseWaiting(String amount, String balance) {
-    return '$amount on kohteessa $balance. Osta Bitcoinia napauttamalla';
+    return '$amount on kohteessa $balance. Siirrä se Bitcoiniin napauttamalla';
   }
 
   @override
@@ -11280,12 +11288,12 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String moneyStepBuying(String amount) {
-    return 'Ostetaan Bitcoinia $amount arvosta';
+    return 'Siirretään $amount Bitcoiniin';
   }
 
   @override
   String moneyStepBought(String amount) {
-    return 'Ostettu Bitcoinia $amount arvosta';
+    return 'Siirretty $amount Bitcoiniin';
   }
 
   @override
@@ -12040,10 +12048,7 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
-  String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
-
-  @override
-  String get receiveOrSwapTitle => 'Vastaanota tai vaihda';
+  String get usdReceiveFromYourBitcoin => 'Bitcoinistasi';
 
   @override
   String get receiveFromYourDollars => 'Dollareistasi';
@@ -12052,9 +12057,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String usdDollarsBalanceLine(String amount) {
     return '$amount Dollareissa';
   }
-
-  @override
-  String get receiveFromAnotherAsset => 'Toisesta varasta';
 
   @override
   String get receiveBitcoinAndLightning => 'Bitcoin ja Lightning';
@@ -13777,10 +13779,10 @@ class AppLocalizationsFi extends AppLocalizations {
   String get sendWayCryptoAddress => 'Kryptoosoite';
 
   @override
-  String get sendWayPrediction => 'Ennuste';
+  String get sendWayPrediction => 'Ennuste tai sijoitus';
 
   @override
-  String get sendWayToDollars => 'Dollareihin';
+  String get sendWayToDollars => 'Dollareihisi';
 
   @override
   String get sendPickRowSub => 'Tai sijoitus. Hae markkina, valitse puoli';

@@ -48,6 +48,12 @@ import 'package:kute/screens/search/components/search_rows.dart'
 import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show SendToListCard;
+import 'package:kute/screens/shared/money_movement_sheet.dart'
+    show
+        MoneyMovementAccount,
+        MoneyMovementRequest,
+        MoneyMovementRoute,
+        debugMoneyMovementSheetOpener;
 import 'package:kute/screens/shared/send/send_recipient_step.dart'
     show
         SendAlsoSendsToRow,
@@ -552,7 +558,7 @@ void main() {
     expect(row.chips.map((c) => c.key), [_dollarsChip, _addressChip, _pickChip]);
     SendWayChip chip(Key key) => tester.widget<SendWayChip>(find.byKey(key));
     expect(chip(_dollarsChip).label, _l10n.sendWayToDollars);
-    expect(chip(_dollarsChip).label, 'To Dollars');
+    expect(chip(_dollarsChip).label, 'To your Dollars');
     expect(chip(_dollarsChip).icon, isA<SvgPicture>());
     expect(chip(_addressChip).label, _l10n.sendWayCryptoAddress);
     expect(chip(_addressChip).icon, isA<SendCoinStack>());
@@ -669,7 +675,7 @@ void main() {
 
   testWidgets(
       'Predictions and Investing closed to this person: no Prediction chip; '
-      'To Dollars and Crypto address stay, the same small size',
+      'To your Dollars and Crypto address share the row, half each',
       (tester) async {
     await tester.runAsync(_loadInter);
     final closed = runtimePolicyFixture(
@@ -688,9 +694,43 @@ void main() {
         [_dollarsChip, _addressChip]);
     final field =
         tester.getRect(find.byKey(const ValueKey('send-recipient-search')));
-    expect(tester.getRect(find.byKey(_addressChip)).width,
-        moreOrLessEquals((field.width - 2 * kSendWayChipGap.w) / 3,
-            epsilon: 0.5));
+    final half = (field.width - kSendWayChipGap.w) / 2;
+    final dollars = tester.getRect(find.byKey(_dollarsChip));
+    final address = tester.getRect(find.byKey(_addressChip));
+    expect(dollars.width, moreOrLessEquals(half, epsilon: 0.5));
+    expect(address.width, moreOrLessEquals(half, epsilon: 0.5));
+    expect(dollars.height, moreOrLessEquals(address.height));
+    expect(dollars.left, moreOrLessEquals(field.left, epsilon: 0.5));
+    expect(address.right, moreOrLessEquals(field.right, epsilon: 0.5));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'To your Dollars opens Move money straight on the amount: Bitcoin to '
+      'Dollars, pinned, under the chip\'s entry source', (tester) async {
+    AffiliateService.debugSessionToken = 'test-session';
+    final policy = runtimePolicyFixture();
+    RuntimeCapabilitiesService.debugInstance = policy;
+    final moves = <MoneyMovementRequest>[];
+    debugMoneyMovementSheetOpener = (_, request) => moves.add(request);
+    addTearDown(() {
+      RuntimeCapabilitiesService.debugInstance = null;
+      AffiliateService.debugSessionToken = null;
+      debugMoneyMovementSheetOpener = null;
+    });
+    await tester.runAsync(policy.refresh);
+    await _pump(tester, catalog: true);
+    await tester.tap(find.byKey(_dollarsChip));
+    await tester.pumpAndSettle();
+    expect(moves, hasLength(1));
+    expect(moves.single.route,
+        const MoneyMovementRoute(MoneyMovementAccount.bitcoin,
+            MoneyMovementAccount.dollars));
+    expect(moves.single.pinned, isTrue);
+    expect(moves.single.entrySource, kBitcoinSendToDollarsSource);
+    expect(TrackingService.takeEntrySource('move'),
+        kBitcoinSendToDollarsSource);
+    expect(find.byType(ConfirmSend), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
