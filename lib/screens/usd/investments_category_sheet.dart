@@ -124,6 +124,13 @@
 // The Portfolio section (three tiles, no numbers) is here for the
 // Portfolio's own screen (portfolio_screen.dart); the page's pill row no
 // longer offers Portfolio.
+//
+// BROWSING WITHHELD (runtime policy, `hyperliquid.browse` /
+// `polymarket.browse`; [investmentsBrowseCapability]): the venue's page
+// lists no markets and shows its notice (InvestmentDiscoveryNotice), so
+// this sheet lists no categories, logos or numbers either: the same
+// notice stands in for the tiles, and the bar over it offers no grid.
+// The policy alone decides; the Portfolio sections never answer to it.
 
 import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
 import 'package:kute/screens/shared/kute_bar_context.dart';
@@ -149,14 +156,31 @@ import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/screens/portfolio/investments_portfolio.dart'
     show PortfolioSection, portfolioSectionProvider;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
+import 'package:kute/screens/shared/investment_balance_header.dart'
+    show InvestmentDiscoveryNotice;
 import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/kute_motion.dart'
     show KutePressable, KuteStaggerIn, kuteReduceMotion;
 import 'package:kute/screens/usd/usd_account_screen.dart' show InvestmentsTab;
+import 'package:kute/services/polymarket/polymarket_category_gate.dart'
+    show polymarketCategoryGates;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/theme/kute_motion.dart';
+
+/// The Predictions selection as the browser shows it: a pick whose
+/// category the policy no longer offers (`polymarket.sports`,
+/// `polymarket.politics`; [polyPillOffered]) reads as Trending, the list
+/// the browser falls back to, so the pill never names a hidden category.
+/// Listens to the two category gates only.
+PolyBrowseSelection polyShownSelection(WidgetRef ref) {
+  final sel = ref.watch(polyBrowseSelectionProvider);
+  ref.watch(runtimeCapabilitiesProvider.select(polymarketCategoryGates));
+  return polyPillOffered(sel.pill, ref.read(runtimeCapabilitiesProvider))
+      ? sel
+      : sel.copyWith(pill: PolyPill.trending);
+}
 
 /// The picked pill's sub-context, for its label: the category on screen
 /// (and its subcategory when one is picked), or the Portfolio section.
@@ -177,7 +201,7 @@ String investmentsCategoryLabel(
           ? sel.tab.localizedLabel(l10n)
           : '${sel.tab.localizedLabel(l10n)} · ${sub.localizedLabel(l10n)}';
     case InvestmentsTab.predictions:
-      final sel = ref.watch(polyBrowseSelectionProvider);
+      final sel = polyShownSelection(ref);
       final pill = sel.pill;
       final subKey = sel.subOf(pill);
       if (pill == PolyPill.trending && subKey == pill.defaultSub) {
@@ -204,7 +228,7 @@ String? investmentsCategoryShortLabel(
       final sub = ref.watch(hlBrowseSelectionProvider).sub;
       return sub == HlBrowseSub.all ? null : sub.localizedLabel(l10n);
     case InvestmentsTab.predictions:
-      final sel = ref.watch(polyBrowseSelectionProvider);
+      final sel = polyShownSelection(ref);
       final pill = sel.pill;
       final subKey = sel.subOf(pill);
       if (subKey == pill.defaultSub) return null;
@@ -279,6 +303,22 @@ List<HlMarket> hlTileMovers(List<HlMarket> markets, Set<String> shown,
   }
   shown.addAll(taken);
   return out;
+}
+
+/// The browse capability [tab]'s categories answer to, or null for the
+/// Portfolio sections (the person's own positions, never withheld).
+String? investmentsBrowseCapability(InvestmentsTab tab) => switch (tab) {
+      InvestmentsTab.investing => 'hyperliquid.browse',
+      InvestmentsTab.predictions => 'polymarket.browse',
+      InvestmentsTab.activity || InvestmentsTab.positions => null,
+    };
+
+/// The browse capability the policy withholds from [tab]'s categories
+/// (see the file header), or null when they may be listed.
+String? investmentsBrowseWithheld(
+    RuntimeCapabilitiesService policy, InvestmentsTab tab) {
+  final id = investmentsBrowseCapability(tab);
+  return id == null || policy.allows(id) ? null : id;
 }
 
 /// Opens the categories of [tab] for a pick.
@@ -429,7 +469,7 @@ mixin _CategoryData<T extends ConsumerStatefulWidget> on ConsumerState<T> {
   /// is Investing's (founder, 6 November 2026); any other feed that does
   /// not exist is left alone and the tile shows its glyph.
   List<PolymarketEvent> _polyLoaded(PolyPill p, [String? sub]) {
-    final sel = ref.watch(polyBrowseSelectionProvider);
+    final sel = polyShownSelection(ref);
     final query = p == PolyPill.live
         ? const PolyFeedQuery(pill: PolyPill.live)
         : PolyFeedQuery(pill: p, sub: sub ?? sel.subOf(p));
@@ -629,27 +669,36 @@ class _InvestmentsCategorySheetState
     final l10n = context.l10n;
     final reduce = kuteReduceMotion(context);
     final group = _group;
+    // Browsing withheld: the venue page's own notice, no tiles.
+    final withheld = investmentsBrowseWithheld(
+        ref.watch(runtimeCapabilitiesProvider), widget.tab);
     final page = KeyedSubtree(
       key: ValueKey<Object?>(group),
       child: ListView(
         shrinkWrap: true,
         // The grid's foot scrolls clear of the floating bar.
         padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, kuteBarScrollClearance.h),
-        children: switch (widget.tab) {
-          InvestmentsTab.investing => group == null
-              ? _investing(context)
-              : _investingSubs(context, group as HlBrowseTab),
-          InvestmentsTab.predictions => group == null
-              ? _predictions(context)
-              : _predictionsSubs(context, group as PolyPill),
-          InvestmentsTab.activity ||
-          InvestmentsTab.positions =>
-            _portfolio(context),
-        },
+        children: withheld != null
+            ? [
+                InvestmentDiscoveryNotice(
+                    key: const ValueKey('category-sheet-browse-withheld'),
+                    capability: withheld),
+              ]
+            : switch (widget.tab) {
+                InvestmentsTab.investing => group == null
+                    ? _investing(context)
+                    : _investingSubs(context, group as HlBrowseTab),
+                InvestmentsTab.predictions => group == null
+                    ? _predictions(context)
+                    : _predictionsSubs(context, group as PolyPill),
+                InvestmentsTab.activity ||
+                InvestmentsTab.positions =>
+                  _portfolio(context),
+              },
       ),
     );
     return KuteBarContextScope(
-      barContext: _barContext(context),
+      barContext: _barContext(context, grid: withheld == null),
       child: AppBottomSheetContainer(
       maxHeight: 0.9,
       child: Column(
@@ -715,13 +764,15 @@ class _InvestmentsCategorySheetState
   /// sheet's own tiles ([_SalCategoryGrid]; founder, 1 November 2026:
   /// "user has clicked, so show the market categories"), never generic
   /// recommendation cards.
-  KuteBarContext _barContext(BuildContext context) {
+  KuteBarContext _barContext(BuildContext context, {bool grid = true}) {
     final l10n = context.l10n;
     return KuteBarContext(
       label: l10n.barPickMarketGroup,
       sublabel: l10n.barPickMarketGroupSub,
-      sheetHome: (_) =>
-          _SalCategoryGrid(tab: widget.tab, onPick: _pickFromSal),
+      // No grid while browsing is withheld (see the file header).
+      sheetHome: grid
+          ? (_) => _SalCategoryGrid(tab: widget.tab, onPick: _pickFromSal)
+          : null,
       category: widget.tab == InvestmentsTab.predictions
           ? SearchCategory.predictions
           : SearchCategory.perpetuals,
@@ -896,7 +947,7 @@ class _InvestmentsCategorySheetState
   List<Widget> _predictions(BuildContext context) {
     final l10n = context.l10n;
     final c = context.colors;
-    final sel = ref.watch(polyBrowseSelectionProvider);
+    final sel = polyShownSelection(ref);
     final policy = ref.watch(runtimeCapabilitiesProvider);
     final watchlist = ref.watch(polyWatchlistProvider);
     final pills = [
@@ -1112,7 +1163,7 @@ class _SalCategoryGridState extends ConsumerState<_SalCategoryGrid>
   /// The sheet's own Predictions cards: Trending and the Watchlist with
   /// their stacks, every topic its glyph, each with its numbers.
   List<_Tile> _predictions(AppLocalizations l10n, AppColorsExtension c) {
-    final sel = ref.watch(polyBrowseSelectionProvider);
+    final sel = polyShownSelection(ref);
     final policy = ref.watch(runtimeCapabilitiesProvider);
     final watchlist = ref.watch(polyWatchlistProvider);
     return [
@@ -1158,6 +1209,12 @@ class _SalCategoryGridState extends ConsumerState<_SalCategoryGrid>
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final c = context.colors;
+    // Browsing withheld: no categories (see the file header).
+    if (investmentsBrowseWithheld(
+            ref.watch(runtimeCapabilitiesProvider), widget.tab) !=
+        null) {
+      return const SizedBox.shrink(key: ValueKey('sal-category-grid'));
+    }
     final tiles = switch (widget.tab) {
       InvestmentsTab.investing => _investing(l10n, c),
       InvestmentsTab.predictions => _predictions(l10n, c),

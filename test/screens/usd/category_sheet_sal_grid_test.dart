@@ -79,6 +79,10 @@ Future<void> _pump(WidgetTester tester, InvestmentsTab tab,
   await pumpInvestments(
     tester,
     size: size,
+    // The policy lets this person browse both venues: with browsing
+    // withheld the sheet lists no categories (the venue's notice).
+    browseInvesting: true,
+    browsePredictions: true,
     overrides: [
       advisorSessionProvider.overrideWith(_Advisor.new),
       sportsLiveProvider.overrideWith(_Sports.new),
