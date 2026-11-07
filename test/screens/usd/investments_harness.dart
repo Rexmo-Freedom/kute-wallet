@@ -176,6 +176,10 @@ Future<RecordingRewardsApi> pumpInvestments(
   /// Where the open positions' P&L chart reads trades and prices; none by
   /// default.
   OpenPnlSources? openPnlSources,
+
+  /// A policy of the test's own (a backend fixture) in place of
+  /// [InvestmentsTestPolicy]; [earn] and the browse flags are then unused.
+  RuntimeCapabilitiesService? policy,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -194,9 +198,11 @@ Future<RecordingRewardsApi> pumpInvestments(
     activeWalletId: 'spending',
     wallets: [WalletConfig(id: 'spending', name: 'Spending')],
   );
-  final policy = InvestmentsTestPolicy(earn,
-      browseInvesting: browseInvesting, browsePredictions: browsePredictions);
-  RuntimeCapabilitiesService.debugInstance = policy;
+  final shown = policy ??
+      InvestmentsTestPolicy(earn,
+          browseInvesting: browseInvesting,
+          browsePredictions: browsePredictions);
+  RuntimeCapabilitiesService.debugInstance = shown;
   addTearDown(() => RuntimeCapabilitiesService.debugInstance = null);
   await tester.pumpWidget(ProviderScope(
     overrides: [
@@ -207,7 +213,7 @@ Future<RecordingRewardsApi> pumpInvestments(
       // The Investments activity reads the price (no rates box here).
       currentBtcUsdProvider.overrideWithValue(100000),
       settingsProvider.overrideWith((_) => SettingsModel(settings)),
-      runtimeCapabilitiesProvider.overrideWithValue(policy),
+      runtimeCapabilitiesProvider.overrideWithValue(shown),
       oneBalanceProvider.overrideWithValue(balance),
       usdBalanceProvider.overrideWithValue(balance.dollarsUsd),
       sparkIdentityPubkeyProvider.overrideWith((_) async => 'pub'),

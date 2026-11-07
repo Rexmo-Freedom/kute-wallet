@@ -45,7 +45,13 @@ import 'package:kute/models/polymarket_model.dart' show Activity;
 import 'package:kute/models/transactions_model.dart';
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart'
-    show PolyPill, PolyPillX;
+    show
+        PolyFeedNotifier,
+        PolyFeedQuery,
+        PolyFeedState,
+        PolyPill,
+        PolyPillX,
+        polyBrowseFeedProvider;
 import 'package:kute/providers/polymarket_open_orders_provider.dart';
 import 'package:kute/providers/polymarket_order_metadata_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
@@ -95,6 +101,7 @@ import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:polybrainz_polymarket/polybrainz_polymarket.dart' show Order;
 
+import '../../helpers/offline_venue_overrides.dart';
 import '../../helpers/portfolio_overrides.dart' show PortfolioTestTrading;
 import 'investments_harness.dart';
 
@@ -197,6 +204,12 @@ Widget _routed([WidgetBuilder? page]) {
   );
 }
 
+/// Every Predictions list empty and read: nothing goes to the network.
+class _EmptyFeed extends PolyFeedNotifier {
+  @override
+  PolyFeedState build(PolyFeedQuery arg) => const PolyFeedState(done: true);
+}
+
 /// [pumpInvestments] with the page under [_routed].
 Future<void> pumpRouted(
   WidgetTester tester, {
@@ -204,11 +217,13 @@ Future<void> pumpRouted(
   Transaction? history,
   Size size = const Size(390, 844),
   WidgetBuilder? page,
+  bool browsePredictions = false,
 }) =>
     pumpInvestments(tester,
         overrides: overrides,
         history: history,
         size: size,
+        browsePredictions: browsePredictions,
         child: _routed(page));
 
 /// One prediction placed, a minute apart by [id]'s order.
@@ -593,7 +608,12 @@ void main() {
       'a re-tap opens the category sheet; the Activity pill\'s bar '
       'pushes the Portfolio screen on Activity', (tester) async {
     final events = recordEvents();
-    await pumpRouted(tester);
+    // Predictions browsable: with browsing withheld the category sheet
+    // lists no topics (the venue's notice). Its feeds answer empty.
+    await pumpRouted(tester, browsePredictions: true, overrides: [
+      ...offlineVenueOverrides,
+      polyBrowseFeedProvider.overrideWith(_EmptyFeed.new),
+    ]);
     final l10n = _l10n(tester);
 
     await _tapPill(tester, l10n.predictions);
