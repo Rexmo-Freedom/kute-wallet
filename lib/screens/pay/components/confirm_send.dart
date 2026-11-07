@@ -7649,11 +7649,11 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   }
 
   /// A person (a phone contact, or a typed number no contact has: "Send a
-  /// link to +351…"), asked What (send_what_step.dart, the From toggle on
-  /// Bitcoin): money from Bitcoin to someone on Kute is paid at their Kute
-  /// address, here; any other money is the claim link in that account's
-  /// money; a prediction or investment opens the search in send mode with
-  /// them. A link created closes the send: the money is on the link now.
+  /// link to +351…"), asked What (send_what_step.dart: this Send's
+  /// Bitcoin, or a gift): Bitcoin to someone on Kute is paid at their Kute
+  /// address, here; to anyone else it is the claim link in bitcoin; a
+  /// prediction or investment opens the search in send mode with them. A
+  /// link created closes the send: the money is on the link now.
   Future<void> _sendToPerson({SendContact? contact, String? phone}) async {
     trackSendRecipientPicked(contact != null ? 'contact' : 'phone');
     final label = contact?.firstName;

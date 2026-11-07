@@ -9165,17 +9165,9 @@
   "@sendWhatSubtitle": {
     "description": "Send's What step: the line under the title, asking whether the person sends money or a prediction or investment."
   },
-  "sendWhatMoney": "Money",
-  "@sendWhatMoney": {
-    "description": "Send's What step: the option to send money (bitcoin or dollars, chosen by the From toggle under it)."
-  },
   "sendWhatGift": "A prediction or investment",
   "@sendWhatGift": {
     "description": "Send's What step: the option to send a prediction or an investment as a gift link they claim with Kute."
-  },
-  "sendWhatFrom": "From",
-  "@sendWhatFrom": {
-    "description": "Send's What step: the label before the toggle that picks which account the money leaves from (Bitcoin or Dollars)."
   },
   "usdSendRecipientSearchHint": "Name, address or ENS",
   "sendDollarsTitle": "Send dollars",

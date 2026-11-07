@@ -10,8 +10,9 @@
 // decides the rail: an address the dollar send takes opens it on its
 // amount (a paste at once, a typed one through Continue), one several
 // networks take asks which, one only bitcoin pays goes to the Bitcoin
-// Send. A person (a contact, a typed number) is asked What, From on
-// Dollars. A send that went out, or a link created, closes the sheet.
+// Send. A person (a contact, a typed number) is asked What: this Send's
+// Dollars (no toggle) or a gift. A send that went out, or a link created,
+// closes the sheet.
 // Nothing here reaches a money call: every door is a test seam.
 
 import 'package:flutter/material.dart';
@@ -36,13 +37,15 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/shared/asset_network_picker.dart' show PickerRow;
 import 'package:kute/screens/shared/coin_asset_grid.dart';
 import 'package:kute/screens/shared/kute_action_cards.dart';
+import 'package:kute/providers/usd_account_provider.dart'
+    show usdBalanceProvider, usdBalanceUnknownProvider;
 import 'package:kute/screens/shared/kute_pill_tabs.dart' show KutePillTabs;
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show SendToListCard;
 import 'package:kute/screens/shared/send/send_recipient_step.dart'
     show SendCoinStack, SendCryptoHint;
 import 'package:kute/screens/shared/send/send_what_step.dart'
-    show SendWhatSheet, kSendWhatFromKey, kSendWhatGiftKey, kSendWhatMoneyKey;
+    show SendWhatSheet, kSendWhatGiftKey, kSendWhatMoneyKey;
 import 'package:kute/services/contacts/send_contacts_service.dart';
 import 'package:kute/screens/shared/money_movement_sheet.dart'
     show
@@ -174,6 +177,7 @@ Future<void> _pump(WidgetTester tester,
     {bool coins = true,
     bool wide = false,
     int? spendingSats,
+    double? dollars,
     bool dark = false,
     Size size = const Size(390, 844),
     Locale? locale,
@@ -208,6 +212,11 @@ Future<void> _pump(WidgetTester tester,
               'spending': WalletBalance(
                   onChainBtcBalance: 0, sparkBitcoinbalance: spendingSats),
           })),
+      // The Dollars balance, as the SDK answered it, only when given.
+      if (dollars != null) ...[
+        usdBalanceProvider.overrideWithValue(dollars),
+        usdBalanceUnknownProvider.overrideWithValue(false),
+      ],
     ],
     child: ScreenUtilInit(
       designSize: const Size(430, 932),
@@ -488,22 +497,37 @@ void main() {
   });
 
   testWidgets(
-      'a typed number is a person: What, From on Dollars (the Dollars '
-      'home), Money the dollar link to it; a link created closes the sheet',
+      'a typed number is a person: What, this Send\'s Dollars (its mark, '
+      '"Dollars", "\$12.34 available"; no toggle, no Bitcoin), the dollar '
+      'link to it; a link created closes the sheet',
       (tester) async {
     linkResult = true;
-    await _pump(tester);
+    await _pump(tester, dollars: 12.349, spendingSats: 400000);
     await type(tester, '+351 999 888 777');
     final row = find.byKey(const ValueKey('send-phone-link-row'));
     expect(row, findsOneWidget);
     await tester.ensureVisible(row);
     await tester.tap(row);
     await tester.pumpAndSettle();
-    expect(find.byType(SendWhatSheet), findsOneWidget);
+    final sheet = find.byType(SendWhatSheet);
+    expect(sheet, findsOneWidget);
+    expect(find.descendant(of: sheet, matching: find.byType(KutePillTabs)),
+        findsNothing);
+    expect(find.descendant(of: sheet, matching: find.text(_l10n.bitcoin)),
+        findsNothing);
+    expect(find.descendant(of: sheet, matching: find.byType(KuteActionCard)),
+        findsNWidgets(2));
+    final money = find.byKey(kSendWhatMoneyKey);
     expect(
-        tester.widget<KutePillTabs>(find.byKey(kSendWhatFromKey)).selectedIndex,
-        1);
-    await tester.tap(find.byKey(kSendWhatMoneyKey));
+        find.descendant(
+            of: money, matching: find.text(_l10n.portfolioBalanceDollars)),
+        findsOneWidget);
+    expect(
+        find.descendant(
+            of: money,
+            matching: find.text(_l10n.hlYieldAvailableLine('\$12.34'))),
+        findsOneWidget);
+    await tester.tap(money);
     await tester.pumpAndSettle();
     expect(linksOpened, [(ShareLinkKind.dollars, null, '+351999888777')]);
     expect(paramsOf('send_recipient_picked').single,
@@ -516,7 +540,7 @@ void main() {
 
   testWidgets(
       'a contact: What\'s gift opens the search in send mode with them; '
-      'Money from Bitcoin to a non-Kute contact is a bitcoin link',
+      'Dollars is the dollar link, never a bitcoin one',
       (tester) async {
     _gateway.permission = SendContactsPermission.granted;
     await _pump(tester);
@@ -530,19 +554,18 @@ void main() {
 
     await tester.tap(maria);
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('send-what-from-bitcoin')));
-    await tester.pumpAndSettle();
     await tester.tap(find.byKey(kSendWhatMoneyKey));
     await tester.pumpAndSettle();
-    expect(linksOpened, [(ShareLinkKind.bitcoin, 'Maria', null)]);
+    expect(linksOpened, [(ShareLinkKind.dollars, 'Maria', null)]);
+    expect(paramsOf('send_what_picked').last,
+        {'what': 'money', 'home': 'dollars', 'from': 'dollars'});
     expect(bitcoinSends, isEmpty);
     await _unmount(tester);
   });
 
   testWidgets(
-      'a Kute contact: Money from Dollars is a dollar link (a Kute address '
-      'takes no dollars); from Bitcoin it is the Bitcoin Send on their '
-      'address', (tester) async {
+      'a Kute contact: Dollars is a dollar link (a Kute address takes no '
+      'dollars), never the Bitcoin Send on their address', (tester) async {
     _gateway
       ..permission = SendContactsPermission.granted
       ..contacts = [
@@ -560,15 +583,7 @@ void main() {
     await tester.tap(find.byKey(kSendWhatMoneyKey));
     await tester.pumpAndSettle();
     expect(linksOpened, [(ShareLinkKind.dollars, 'Joana', null)]);
-
-    await tester.tap(joana);
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('send-what-from-bitcoin')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(kSendWhatMoneyKey));
-    await tester.pumpAndSettle();
-    expect(bitcoinSends, ['joana@paykute.com']);
-    expect(TrackingService.takeEntrySource('send'), kUsdWithdrawSheetSource);
+    expect(bitcoinSends, isEmpty);
     await _unmount(tester);
   });
 

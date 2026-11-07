@@ -12126,13 +12126,7 @@ class AppLocalizationsLt extends AppLocalizations {
   String get sendWhatSubtitle => 'Ką siunti?';
 
   @override
-  String get sendWhatMoney => 'Pinigai';
-
-  @override
   String get sendWhatGift => 'Prognozė ar investicija';
-
-  @override
-  String get sendWhatFrom => 'Iš';
 
   @override
   String get usdSendRecipientSearchHint => 'Vardas, adresas arba ENS';

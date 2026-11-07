@@ -12149,13 +12149,7 @@ class AppLocalizationsEl extends AppLocalizations {
   String get sendWhatSubtitle => 'Τι στέλνεις;';
 
   @override
-  String get sendWhatMoney => 'Χρήματα';
-
-  @override
   String get sendWhatGift => 'Μια πρόβλεψη ή επένδυση';
-
-  @override
-  String get sendWhatFrom => 'Από';
 
   @override
   String get usdSendRecipientSearchHint => 'Όνομα, διεύθυνση ή ENS';

@@ -12066,13 +12066,7 @@ class AppLocalizationsSv extends AppLocalizations {
   String get sendWhatSubtitle => 'Vad skickar du?';
 
   @override
-  String get sendWhatMoney => 'Pengar';
-
-  @override
   String get sendWhatGift => 'En prognos eller investering';
-
-  @override
-  String get sendWhatFrom => 'Från';
 
   @override
   String get usdSendRecipientSearchHint => 'Namn, adress eller ENS';

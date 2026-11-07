@@ -12113,13 +12113,7 @@ class AppLocalizationsPl extends AppLocalizations {
   String get sendWhatSubtitle => 'Co wysyłasz?';
 
   @override
-  String get sendWhatMoney => 'Pieniądze';
-
-  @override
   String get sendWhatGift => 'Prognoza lub inwestycja';
-
-  @override
-  String get sendWhatFrom => 'Z';
 
   @override
   String get usdSendRecipientSearchHint => 'Imię, adres lub ENS';

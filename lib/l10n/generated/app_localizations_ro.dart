@@ -12130,13 +12130,7 @@ class AppLocalizationsRo extends AppLocalizations {
   String get sendWhatSubtitle => 'Ce trimiți?';
 
   @override
-  String get sendWhatMoney => 'Bani';
-
-  @override
   String get sendWhatGift => 'O predicție sau o investiție';
-
-  @override
-  String get sendWhatFrom => 'Din';
 
   @override
   String get usdSendRecipientSearchHint => 'Nume, adresă sau ENS';

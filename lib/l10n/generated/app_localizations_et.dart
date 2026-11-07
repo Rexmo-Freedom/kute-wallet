@@ -12057,13 +12057,7 @@ class AppLocalizationsEt extends AppLocalizations {
   String get sendWhatSubtitle => 'Mida sa saadad?';
 
   @override
-  String get sendWhatMoney => 'Raha';
-
-  @override
   String get sendWhatGift => 'Ennustus või investeering';
-
-  @override
-  String get sendWhatFrom => 'Kust';
 
   @override
   String get usdSendRecipientSearchHint => 'Nimi, aadress või ENS';

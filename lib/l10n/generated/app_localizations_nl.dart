@@ -12108,13 +12108,7 @@ class AppLocalizationsNl extends AppLocalizations {
   String get sendWhatSubtitle => 'Wat verstuur je?';
 
   @override
-  String get sendWhatMoney => 'Geld';
-
-  @override
   String get sendWhatGift => 'Een voorspelling of belegging';
-
-  @override
-  String get sendWhatFrom => 'Van';
 
   @override
   String get usdSendRecipientSearchHint => 'Naam, adres of ENS';

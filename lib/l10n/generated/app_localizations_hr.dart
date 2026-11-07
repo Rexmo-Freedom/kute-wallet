@@ -12099,13 +12099,7 @@ class AppLocalizationsHr extends AppLocalizations {
   String get sendWhatSubtitle => 'Što šalješ?';
 
   @override
-  String get sendWhatMoney => 'Novac';
-
-  @override
   String get sendWhatGift => 'Predviđanje ili ulaganje';
-
-  @override
-  String get sendWhatFrom => 'Iz';
 
   @override
   String get usdSendRecipientSearchHint => 'Ime, adresa ili ENS';

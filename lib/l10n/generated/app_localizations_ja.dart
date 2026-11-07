@@ -11642,13 +11642,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get sendWhatSubtitle => '何を送りますか？';
 
   @override
-  String get sendWhatMoney => 'お金';
-
-  @override
   String get sendWhatGift => '予測または投資';
-
-  @override
-  String get sendWhatFrom => '送金元';
 
   @override
   String get usdSendRecipientSearchHint => '名前、アドレス、ENS';

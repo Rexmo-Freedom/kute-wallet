@@ -12097,13 +12097,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get sendWhatSubtitle => 'Mit küldesz?';
 
   @override
-  String get sendWhatMoney => 'Pénz';
-
-  @override
   String get sendWhatGift => 'Előrejelzés vagy befektetés';
-
-  @override
-  String get sendWhatFrom => 'Innen';
 
   @override
   String get usdSendRecipientSearchHint => 'Név, cím vagy ENS';

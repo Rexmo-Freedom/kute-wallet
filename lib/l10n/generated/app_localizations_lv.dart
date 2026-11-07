@@ -12039,13 +12039,7 @@ class AppLocalizationsLv extends AppLocalizations {
   String get sendWhatSubtitle => 'Ko tu sūti?';
 
   @override
-  String get sendWhatMoney => 'Nauda';
-
-  @override
   String get sendWhatGift => 'Prognoze vai investīcija';
-
-  @override
-  String get sendWhatFrom => 'No';
 
   @override
   String get usdSendRecipientSearchHint => 'Vārds, adrese vai ENS';

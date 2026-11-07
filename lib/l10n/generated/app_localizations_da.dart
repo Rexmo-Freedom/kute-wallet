@@ -12066,13 +12066,7 @@ class AppLocalizationsDa extends AppLocalizations {
   String get sendWhatSubtitle => 'Hvad sender du?';
 
   @override
-  String get sendWhatMoney => 'Penge';
-
-  @override
   String get sendWhatGift => 'En forudsigelse eller investering';
-
-  @override
-  String get sendWhatFrom => 'Fra';
 
   @override
   String get usdSendRecipientSearchHint => 'Navn, adresse eller ENS';

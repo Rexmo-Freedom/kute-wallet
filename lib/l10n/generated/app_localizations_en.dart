@@ -12025,13 +12025,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sendWhatSubtitle => 'What are you sending?';
 
   @override
-  String get sendWhatMoney => 'Money';
-
-  @override
   String get sendWhatGift => 'A prediction or investment';
-
-  @override
-  String get sendWhatFrom => 'From';
 
   @override
   String get usdSendRecipientSearchHint => 'Name, address or ENS';
