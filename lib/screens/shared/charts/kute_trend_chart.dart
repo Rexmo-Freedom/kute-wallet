@@ -598,7 +598,7 @@ class _KuteTrendPainter extends CustomPainter {
     // over the line's RIGHT end on a backing in the surface colour, above
     // the line (below it when the top has no room); it never reads as a
     // row of the header. Should that put it over the line's last point
-    // (the goal just above or below it), it goes to the left end.
+    // (the goal just above or below it), it ends just short of the point.
     if (g != null && g.value.isFinite) {
       final yGoal = yOf(g.value);
       final dash = Paint()
@@ -621,7 +621,9 @@ class _KuteTrendPainter extends CustomPainter {
         var x = size.width - tp.width;
         final last = Offset(xOf(n - 1, n), yOf(values.last));
         final tag = Rect.fromLTWH(x - 4, y - 1, tp.width + 4, tp.height + 2);
-        if (tag.inflate(6).contains(last)) x = 0;
+        if (tag.inflate(6).contains(last)) {
+          x = math.max(0, last.dx - 12 - tp.width);
+        }
         canvas.drawRect(
             Rect.fromLTWH(x - 4, y - 1, tp.width + 8, tp.height + 2),
             Paint()..color = surfaceColor);

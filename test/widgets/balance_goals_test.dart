@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:coingecko_api/data/market_chart_data.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,6 +26,7 @@ import 'package:kute/screens/analytics/components/home_analytics_widget.dart';
 import 'package:kute/screens/home/components/deposit_sheet.dart';
 import 'package:kute/screens/shared/charts/kute_trend_chart.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
+import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/services/balance_milestones.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -214,8 +218,14 @@ void main() {
   KuteTrendChart chart(WidgetTester tester) =>
       tester.widget<KuteTrendChart>(find.byType(KuteTrendChart));
 
-  double ringFill(WidgetTester tester) =>
-      tester.widget<BalanceGoalRing>(find.byType(BalanceGoalRing)).fraction;
+  double barFill(WidgetTester tester) =>
+      tester.widget<BalanceGoalBar>(find.byType(BalanceGoalBar)).fraction;
+
+  /// The still Sal wears in a square ('balance-goal-level-sal', ...).
+  String sal(WidgetTester tester, String key) => tester
+      .widget<SalSprite>(find.descendant(
+          of: find.byKey(ValueKey(key)), matching: find.byType(SalSprite)))
+      .clip;
 
   Rect rectOf(WidgetTester tester, String key) =>
       tester.getRect(find.byKey(ValueKey(key)));
@@ -232,10 +242,18 @@ void main() {
     expect(text(tester, 'balance-goal-level'), 'Level 2');
     expect(text(tester, 'balance-goal-level-name'), 'Pocket money');
     expect(text(tester, 'balance-goal-progress'), r'99% to $250');
-    expect(ringFill(tester), closeTo(0.994, 0.01));
+    expect(barFill(tester), closeTo(0.994, 0.01));
     expect(text(tester, 'balance-goal-next-label'), 'Next goal');
     expect(text(tester, 'balance-goal-next'), r'$250');
     expect(text(tester, 'balance-goal-to-go'), r'$1.50 to go');
+    // Sal in both: the level's still (Pocket money: one coin) over the
+    // bar, and the next goal's, squinting up at a flag.
+    expect(sal(tester, 'balance-goal-level-sal'), 'level_2');
+    expect(sal(tester, 'balance-goal-next-sal'), 'goal_next');
+    final salRect = rectOf(tester, 'balance-goal-level-sal');
+    final bar = tester.getRect(find.byType(BalanceGoalBar));
+    expect(bar.top, greaterThan(salRect.bottom));
+    expect(bar.width, closeTo(salRect.width, 0.5));
 
     // Nothing of the goals inside the card: they start under it.
     final card = rectOf(tester, 'balance-card');
@@ -369,6 +387,8 @@ void main() {
         findsNothing);
     expect(text(tester, 'balance-goal-level'), 'Level 3');
     expect(text(tester, 'balance-goal-level-name'), 'Stacker');
+    // Sal moved up with the level, in place.
+    expect(sal(tester, 'balance-goal-level-sal'), 'level_3');
     expect(text(tester, 'balance-goal-progress'), r'50% to $500');
     expect(text(tester, 'balance-goal-next'), r'$500');
 
@@ -402,10 +422,10 @@ void main() {
     await settle(tester);
   });
 
-  testWidgets('Reduce Motion: Sal and the line, no confetti, the ring at once',
+  testWidgets('Reduce Motion: Sal and the line, no confetti, the bar at once',
       (tester) async {
     final container = await pump(tester, input(), reduceMotion: true);
-    expect(ringFill(tester), closeTo(0.994, 0.01));
+    expect(barFill(tester), closeTo(0.994, 0.01));
     await tester.pump(kBalanceMilestoneSettle);
     await tester.pump(const Duration(milliseconds: 100));
     container.read(_input.notifier).state = input(sats: 360000);
@@ -418,7 +438,7 @@ void main() {
   });
 
   testWidgets(
-      'balances hidden: dots, the ring empty, no goal line, the nudge without '
+      'balances hidden: dots, the bar empty, no goal line, the nudge without '
       'its amount, and no celebration until the figures are back',
       (tester) async {
     final container = await pump(tester, input(), privacy: 1);
@@ -428,7 +448,10 @@ void main() {
     expect(text(tester, 'balance-goal-next'), '••••••');
     expect(text(tester, 'balance-goal-to-go'), '••••');
     expect(text(tester, 'balance-goal-next-label'), 'Next goal');
-    expect(ringFill(tester), 0);
+    expect(barFill(tester), 0);
+    // Sal names no level while the figures are hidden.
+    expect(sal(tester, 'balance-goal-level-sal'), kBalanceGoalHiddenClip);
+    expect(sal(tester, 'balance-goal-next-sal'), 'goal_next');
     expect(chart(tester).goal, isNull);
     expect(text(tester, 'balance-goal-nudge-label'), 'Move to Dollars');
     expect(find.textContaining(r'$'), findsNothing);
@@ -532,6 +555,43 @@ void main() {
         child: const HomeAnalyticsWidget(surface: 'wallet_detail'));
     expect(find.byKey(const ValueKey('balance-goals')), findsNothing);
     await settle(tester);
+  });
+
+  test('a Sal still per level name, then the last one for every level past it',
+      () {
+    expect([for (var i = 0; i < kBalanceLevelNames; i++) balanceLevelClip(i)],
+        [for (var i = 1; i <= 12; i++) 'level_$i']);
+    expect(balanceLevelClip(kBalanceLevelNames + 5), 'level_12');
+    expect(balanceLevelClip(-1), 'level_1');
+    final ladder = BalanceMilestoneLadder.forCurrency('USD');
+    expect(balanceLevelClip(ladder.progress(50).nameIndex), 'level_1');
+    expect(balanceLevelClip(ladder.progress(1e9).nameIndex), 'level_12');
+  });
+
+  test(
+      'every Sal still the goals draw is in the manifest, one 64 cell, with '
+      'both sheets bundled', () {
+    final m = jsonDecode(File('lib/assets/sal/manifest.json')
+        .readAsStringSync()) as Map<String, dynamic>;
+    for (final clip in balanceGoalClips) {
+      final entry = m[clip] as Map<String, dynamic>?;
+      expect(entry, isNotNull, reason: clip);
+      expect(entry!['frames'], 1, reason: clip);
+      expect(entry['framing'], 'body', reason: clip);
+      final files = entry['files'] as Map<String, dynamic>;
+      expect(files.keys.toSet(), {'2x', '3x'}, reason: clip);
+      for (final f in files.values) {
+        final file = File('lib/assets/sal/${(f as Map)['file']}');
+        expect(file.existsSync(), isTrue, reason: '$clip ${f['file']}');
+        // Small: a still, never a sheet.
+        expect(file.lengthSync(), lessThan(16 * 1024), reason: f['file']);
+      }
+    }
+    for (var i = 1; i <= 12; i++) {
+      expect((m['level_$i'] as Map)['group'], 'level');
+      expect((m['level_$i'] as Map)['cell'], 64);
+    }
+    expect((m['goal_next'] as Map)['group'], 'goal');
   });
 
   group('the card hugs its chart, with the goals under it', () {
