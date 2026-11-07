@@ -21,9 +21,11 @@
 //     gone while neither venue may take a new position (the swap cascade
 //     shuts both).
 //   * Bitcoin Send chips: "To Dollars" (a swap) always drawn, the Move
-//     sheet says why; "Crypto address" always drawn (its sheet keeps the
-//     Bitcoin Network row and says why the coins went), its coin stack
-//     only the coins the policy offers; "Prediction" as on Dollars.
+//     sheet says why; "Crypto address" as on Dollars: kept by a region
+//     block (the coins listed, a coin's tap names the regions), gone for
+//     any other swap refusal (its sheet has no Bitcoin Network row, plain
+//     bitcoin being the send's own default, so it would open empty);
+//     "Prediction" as on Dollars.
 
 import 'dart:async';
 import 'dart:io';
@@ -67,7 +69,7 @@ import 'package:kute/screens/shared/money_movement_sheet.dart'
         debugMoneyMovementSheetOpener;
 import 'package:kute/screens/shared/sal_sprite.dart' show SalSpriteCache;
 import 'package:kute/screens/shared/send/send_recipient_step.dart'
-    show SendCoinStack, SendWayChip, SendWaysRow;
+    show SendCoinStack, SendWaysRow;
 import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/screens/usd/usd_withdraw_screen.dart';
 import 'package:kute/services/api/share_links_api.dart';
@@ -539,35 +541,61 @@ void main() {
       await tester.pumpAndSettle();
       // A swap, pinned: the Move sheet says why (its own test).
       expectPinned(moves, bitcoinToDollars);
-      // The coins stay listed; a coin's tap names the regions
-      // (coin_asset_picker_policy_test.dart).
+      // The coins stay listed, and only the coins: no Bitcoin Network row
+      // (plain bitcoin is this send's own default); a coin's tap names
+      // the regions (coin_asset_picker_policy_test.dart).
       await tester.tap(find.byKey(_btcCrypto));
       await tester.pumpAndSettle();
+      expect(find.text(_l10n.sendWhereTo), findsOneWidget);
       expect(find.byType(CoinAssetTile), findsWidgets);
-      expect(find.text(_l10n.bitcoinNetwork), findsOneWidget);
+      expect(find.text(_l10n.bitcoinNetwork), findsNothing);
+      expect(find.text(_l10n.bitcoinLightningSpark), findsNothing);
     });
 
     for (final how in _nonRegion) {
       testWidgets(
-          '${how.label} on the swap master: To Dollars and Crypto address '
-          'stay, the chip stacks no coin it cannot offer; its sheet keeps '
-          'the Bitcoin Network row and says why', (tester) async {
+          '${how.label} on the swap master: no coin to offer and no Bitcoin '
+          'Network row on its sheet, so Crypto address goes rather than '
+          'open an empty sheet; To Dollars and Prediction stay',
+          (tester) async {
         await install(tester, how, targets: {kSwapMaster});
         await _pumpBitcoinSend(tester);
-        expect(chips(tester), [_btcToDollars, _btcCrypto, _btcPick]);
-        expect(
-            find.descendant(
-                of: find.byKey(_btcCrypto),
-                matching: find.byType(SendCoinStack)),
-            findsNothing);
-        final crypto = tester.widget<SendWayChip>(find.byKey(_btcCrypto));
-        expect(crypto.semanticsLabel, _l10n.sendToCryptoAddress);
-        await tester.tap(find.byKey(_btcCrypto));
-        await tester.pumpAndSettle();
-        expect(find.byType(CoinAssetTile), findsNothing);
-        expect(find.text(_l10n.bitcoinNetwork), findsOneWidget);
-        expect(find.text(how.message), findsOneWidget);
+        expect(chips(tester), [_btcToDollars, _btcPick]);
+        expect(find.byKey(_btcCrypto), findsNothing);
+        expect(find.byType(SendCoinStack), findsNothing);
+        expect(find.text(_l10n.sendWhereTo), findsNothing);
+        // Plain bitcoin is untouched: the field still takes an address.
+        expect(find.byKey(const ValueKey('send-recipient-search')),
+            findsOneWidget);
       });
     }
+
+    for (final how in _nonRegion) {
+      testWidgets(
+          '${how.label} on the swap master, an address that needs a network '
+          'pasted: its highlighted row\'s sheet says why, with no coin and '
+          'no Bitcoin Network row', (tester) async {
+        await install(tester, how, targets: {kSwapMaster});
+        await _pumpBitcoinSend(tester);
+        await tester.enterText(find.byType(TextField).first,
+            '0x742d35cc6634c0532925a3b844bc454e4438f44e');
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(_l10n.sendWhichNetworkIsThisAddressOn));
+        await tester.pumpAndSettle();
+        expect(find.text(_l10n.sendWhereTo), findsOneWidget);
+        expect(find.text(how.message), findsOneWidget);
+        expect(find.byType(CoinAssetTile), findsNothing);
+        expect(find.text(_l10n.bitcoinNetwork), findsNothing);
+      });
+    }
+
+    testWidgets(
+        'crypto.deposit off never touches a send: all three Bitcoin Send '
+        'chips stay', (tester) async {
+      await install(tester, MarketDenial.masterOff,
+          targets: {'crypto.deposit'});
+      await _pumpBitcoinSend(tester);
+      expect(chips(tester), [_btcToDollars, _btcCrypto, _btcPick]);
+    });
   });
 }

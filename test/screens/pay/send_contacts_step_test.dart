@@ -43,6 +43,7 @@ import 'package:kute/providers/spark_contacts_provider.dart';
 import 'package:kute/screens/pay/components/confirm_send.dart';
 import 'package:kute/screens/share/send_to_anyone_sheet.dart';
 import 'package:kute/screens/shared/coin_asset_grid.dart' show CoinAssetTile;
+import 'package:kute/screens/shared/asset_network_picker.dart' show PickerRow;
 import 'package:kute/screens/search/components/search_rows.dart'
     show SearchChanceGauge;
 import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
@@ -305,6 +306,16 @@ void main() {
       'people first: search < Frequent < the More ways to send chips < All '
       'contacts; typing hides Frequent', (tester) async {
     await tester.runAsync(_loadInter);
+    // A loaded policy: with none the swap gates fail closed and the
+    // Crypto address chip goes (it has no coin to open on).
+    AffiliateService.debugSessionToken = 'test-session';
+    final policy = runtimePolicyFixture();
+    RuntimeCapabilitiesService.debugInstance = policy;
+    addTearDown(() {
+      RuntimeCapabilitiesService.debugInstance = null;
+      AffiliateService.debugSessionToken = null;
+    });
+    await tester.runAsync(policy.refresh);
     await _pump(tester, recents: true);
     const frequent = ValueKey('send-frequent-section');
     expect(find.byKey(frequent), findsOneWidget);
@@ -686,6 +697,40 @@ void main() {
     await tester.pumpAndSettle();
     expect(picks, 2);
     expect(find.byType(ConfirmSend), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'Where to? from Crypto address lists only the coins, USDC first: no '
+      'Bitcoin Network row (founder, 7 November 2026: plain bitcoin, '
+      'Lightning and Spark are this send\'s own default)', (tester) async {
+    AffiliateService.debugSessionToken = 'test-session';
+    final policy = runtimePolicyFixture();
+    RuntimeCapabilitiesService.debugInstance = policy;
+    addTearDown(() {
+      RuntimeCapabilitiesService.debugInstance = null;
+      AffiliateService.debugSessionToken = null;
+    });
+    await tester.runAsync(policy.refresh);
+    await _pump(tester, catalog: true);
+    await tester.tap(find.byKey(_addressChip));
+    await tester.pumpAndSettle();
+    expect(find.text(_l10n.sendWhereTo), findsOneWidget);
+    expect(find.text(_l10n.sendWhereShouldTheMoneyLand), findsOneWidget);
+    expect(find.text(_l10n.bitcoinNetwork), findsNothing);
+    expect(find.text(_l10n.bitcoinLightningSpark), findsNothing);
+    expect(find.byType(PickerRow), findsNothing);
+    final tiles = tester
+        .widgetList<CoinAssetTile>(find.byType(CoinAssetTile))
+        .map((t) => t.label)
+        .toList();
+    expect(tiles, ['USDC', 'USD', 'USDT']);
+    // The grid opens the sheet, right under its heading: nothing above
+    // the first coin.
+    final first = tester.getRect(find.widgetWithText(CoinAssetTile, 'USDC'));
+    final subtitle =
+        tester.getRect(find.text(_l10n.sendWhereShouldTheMoneyLand));
+    expect(first.top - subtitle.bottom, lessThan(40));
     expect(tester.takeException(), isNull);
   });
 

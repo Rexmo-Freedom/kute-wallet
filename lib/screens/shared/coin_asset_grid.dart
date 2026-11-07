@@ -449,11 +449,6 @@ class CoinAssetPickerSheet extends StatefulWidget {
   /// coin and its network wear the check.
   final String? selectedOptionId;
 
-  /// Pinned above the grid: the same-rail destination a send already
-  /// has (the plain bitcoin send), which is meaningful on send and
-  /// meaningless on receive.
-  final Widget? pinned;
-
   /// Which flow this is, for the analytics event only.
   final String flow;
 
@@ -491,7 +486,6 @@ class CoinAssetPickerSheet extends StatefulWidget {
     required this.onPicked,
     this.initialAssetCode,
     this.selectedOptionId,
-    this.pinned,
     this.otherLegAsset = 'BTC',
     this.depositAddress = false,
     this.reusableLegAsset,
@@ -580,7 +574,6 @@ class _CoinAssetPickerSheetState extends State<CoinAssetPickerSheet> {
     final offered = _offered();
     final group = _openGroup;
     final selected = widget.selectedOptionId;
-    final pinned = widget.pinned;
     final hiddenReason = offered.hiddenReason;
     final close = KuteCloseButton(
       onPressed: () => Navigator.of(context).pop(),
@@ -662,10 +655,6 @@ class _CoinAssetPickerSheetState extends State<CoinAssetPickerSheet> {
               ],
             ),
             SizedBox(height: 16.h),
-            if (group == null && pinned != null) ...[
-              pinned,
-              SizedBox(height: 14.h),
-            ],
             Expanded(
               child: group == null
                   ? CoinAssetGrid(
