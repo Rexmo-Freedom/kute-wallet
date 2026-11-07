@@ -14,7 +14,11 @@
 //     unavailable line.
 //   * Bitcoin Receive or swap: "From your Dollars" is an exit (Dollars
 //     into Bitcoin) and "Bitcoin" is plain bitcoin: both always there.
-//     "From another asset" follows the cross-chain rule above.
+//     Its figure is all the dollar money that can move to Bitcoin (fw46):
+//     the venues' cash stays in under a swap country block (their
+//     withdraws are exits too) and goes only for a venue whose own
+//     withdraw a platform rule or a switch withholds. "From another
+//     asset" follows the cross-chain rule above.
 //   * Dollars Send chips: "To your Bitcoin" (an exit) always there;
 //     "Crypto address" (a cross-chain send: never `crypto.deposit`) kept
 //     by a region block, gone for any other swap refusal; "Prediction"
@@ -74,6 +78,12 @@ import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/screens/usd/usd_withdraw_screen.dart';
 import 'package:kute/services/api/share_links_api.dart';
 import 'package:kute/services/contacts/send_contacts_service.dart';
+import 'package:kute/services/one_balance/investments_spendable.dart'
+    show venueCashLastReadProvider;
+import 'package:kute/services/one_balance/one_balance_state.dart'
+    show OneBalanceVenue;
+import 'package:kute/services/one_balance/venue_cash_source.dart'
+    show kVenuePullEta;
 import 'package:kute/services/orchestra/receive_minimums.dart';
 import 'package:kute/services/orchestra/reusable_deposit_address.dart'
     show standingDestinationsProvider;
@@ -181,13 +191,13 @@ List<Override> _overrides() => [
 const _underneath = 'open';
 
 /// Opens [open] as a sheet over a screen, the way the dock does.
-Future<void> _pumpSheet(
-    WidgetTester tester, void Function(BuildContext) open) async {
+Future<void> _pumpSheet(WidgetTester tester, void Function(BuildContext) open,
+    {List<Override> extra = const []}) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(ProviderScope(
-    overrides: _overrides(),
+    overrides: [..._overrides(), ...extra],
     child: ScreenUtilInit(
       designSize: const Size(430, 932),
       builder: (_, __) => MaterialApp(
@@ -434,6 +444,55 @@ void main() {
         expect(find.byKey(_btcFromAnother), findsNothing);
         expect(find.byKey(_btcFromDollars), findsOneWidget);
         expect(find.byKey(_btcBitcoin), findsOneWidget);
+        await _unmount(tester);
+      });
+    }
+
+    // $4.75 of Dollars, $20 on Predictions and $40 on Investing, as the
+    // engine last read them.
+    final venueCash = venueCashLastReadProvider.overrideWith((_) => (
+          walletId: 'spending',
+          candidates: [
+            (
+              venue: OneBalanceVenue.predictions,
+              availableUsd: 20.0,
+              eta: kVenuePullEta[OneBalanceVenue.predictions]!,
+              minimumUsd: 1.0,
+            ),
+            (
+              venue: OneBalanceVenue.investing,
+              availableUsd: 40.0,
+              eta: kVenuePullEta[OneBalanceVenue.investing]!,
+              minimumUsd: 5.0,
+            ),
+          ],
+        ));
+    String? fromDollarsLine(WidgetTester tester) =>
+        tester.widget<KuteActionCard>(find.byKey(_btcFromDollars)).subtitle;
+
+    testWidgets(
+        'swap country block: From your Dollars still counts both venues\' '
+        'cash (their withdraws are exits, as Dollars into Bitcoin is)',
+        (tester) async {
+      await install(tester, MarketDenial.swapCountryBlock);
+      await _pumpSheet(tester, showBitcoinReceiveSheet, extra: [venueCash]);
+      // 4.75 + 20 x 0.98 + (40 x 0.98 - 0.30).
+      expect(fromDollarsLine(tester), _l10n.hlYieldAvailableLine(r'$63.25'));
+      await _unmount(tester);
+    });
+
+    for (final how in _nonRegion) {
+      testWidgets(
+          '${how.label} on hyperliquid.withdraw: Investing\'s cash leaves '
+          'the From your Dollars figure; the card stays and opens the move',
+          (tester) async {
+        await install(tester, how, targets: {'hyperliquid.withdraw'});
+        final moves = recordMoves();
+        await _pumpSheet(tester, showBitcoinReceiveSheet, extra: [venueCash]);
+        expect(fromDollarsLine(tester), _l10n.hlYieldAvailableLine(r'$24.35'));
+        await tester.tap(find.byKey(_btcFromDollars));
+        await tester.pump();
+        expectPinned(moves, dollarsToBitcoin);
         await _unmount(tester);
       });
     }

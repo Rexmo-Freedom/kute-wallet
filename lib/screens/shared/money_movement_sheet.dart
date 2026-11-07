@@ -92,6 +92,15 @@ Future<void> showMoneyMovementSheet(
 /// [from] the one account to the other: no picker sheet in between, no
 /// account to choose, no flip. Buys (Purchase, Buy dollars) never come
 /// here.
+///
+/// From Dollars it spends ALL the person's dollar money (founder, 7
+/// November 2026: "From your Dollars should and must be all the available
+/// balances, not just the Dollars balance"): Dollars first, then the
+/// Predictions and Investing cash in reach, exactly as the Investments'
+/// Buy bitcoin did (`dollarsToBitcoinSpendableProvider` for the figure and
+/// Max, the venue-cash purchase for the funding). Both Dollars → Bitcoin
+/// doors ("From your Dollars", "To your Bitcoin") come through here, so
+/// they cannot differ.
 Future<void> showOwnMoneyMove(
   BuildContext context, {
   required MoneyMovementAccount from,

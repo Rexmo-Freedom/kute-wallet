@@ -14,12 +14,17 @@
 //                       "Bitcoin and Lightning"; the QR receive ("Spending
 //                       Wallet", the paykute address, Unified / Bitcoin
 //                       only / Lightning only).
-//   From your Dollars   under it, a square: the Dollars mark, the Dollars
-//                       balance ("$4.75 in Dollars"); Move money straight
-//                       on the amount, Dollars to Bitcoin, pinned
-//                       (showOwnMoneyMove), as the Dollars Send's "To your
-//                       Bitcoin" opens it. Only where the wallet has a
-//                       Dollars account (the spending wallet).
+//   From your Dollars   under it, a square: the Dollars mark, what can
+//                       move to Bitcoin ("$24.35 available": Dollars plus
+//                       the Predictions and Investing cash in reach, as
+//                       the Investments' Buy bitcoin spent it; founder, 7
+//                       November 2026, "all the available balances");
+//                       Move money straight on the amount, Dollars to
+//                       Bitcoin, pinned (showOwnMoneyMove), as the Dollars
+//                       Send's "To your Bitcoin" opens it, whose From row
+//                       and Max show the same figure. Only where the
+//                       wallet has a Dollars account (the spending
+//                       wallet).
 //   Another wallet      the square beside it: the coins stacked, "Or an
 //                       exchange · USDC, USDT, ETH +18" (the Dollars
 //                       receive's card for the same door); the Bitcoin
@@ -58,7 +63,7 @@ import 'package:kute/providers/asset_icon_provider.dart'
 import 'package:kute/providers/orchestra_supported_routes_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/usd_account_provider.dart'
-    show usdBalanceProvider, usdBalanceUnknownProvider;
+    show usdBalanceUnknownProvider;
 import 'package:kute/screens/receive/receive_sheet.dart'
     show showBitcoinQrReceiveSheet, showOtherCoinsReceiveSheet;
 import 'package:kute/screens/shared/coin_asset_grid.dart';
@@ -68,6 +73,8 @@ import 'package:kute/screens/shared/money_movement_sheet.dart';
 import 'package:kute/screens/shared/receive_surface.dart';
 import 'package:kute/screens/shared/send/send_recipient_step.dart'
     show SendStepTitle, receiveAnotherWalletCard;
+import 'package:kute/services/one_balance/investments_spendable.dart'
+    show dollarsToBitcoinSpendableProvider;
 import 'package:kute/services/orchestra/reusable_deposit_address.dart'
     show standingDestinationsProvider;
 import 'package:kute/services/orchestra_routes.dart'
@@ -81,13 +88,16 @@ const String kBitcoinReceiveDollarsSource = 'bitcoin_receive_dollars';
 /// the QR receive's `entry_source`.
 const String kReceiveOptionsSource = 'receive_options';
 
-/// The Dollars balance as the card prints it (floored to the cent, as the
-/// Bitcoin card on the Dollars sheets prints the bitcoin), or null while
-/// the figure is a guess (the SDK has not answered).
-String? watchDollarsBalance(WidgetRef ref) {
+/// What "From your Dollars" can move to Bitcoin, as the card prints it:
+/// Dollars plus the venue cash in reach net of the planned move costs
+/// ([dollarsToBitcoinSpendableProvider], the figure the Move sheet's From
+/// row and Max show), floored to the cent as that row floors it; null
+/// while the Dollars figure is a guess (the SDK has not answered). From
+/// the last known values: the venues are not woken for it.
+String? watchDollarsToBitcoinAvailable(WidgetRef ref) {
   try {
     if (ref.watch(usdBalanceUnknownProvider)) return null;
-    final usd = ref.watch(usdBalanceProvider);
+    final usd = ref.watch(dollarsToBitcoinSpendableProvider).maxUsd;
     return '\$${((usd * 100).floor() / 100).toStringAsFixed(2)}';
   } catch (_) {
     return null;
@@ -168,7 +178,8 @@ class _BitcoinReceiveOptionsState extends ConsumerState<BitcoinReceiveOptions> {
     final l10n = context.l10n;
     final onSpending = _onSpending();
     final groups = _otherCoins(onSpending: onSpending);
-    final dollars = onSpending ? watchDollarsBalance(ref) : null;
+    final available =
+        onSpending ? watchDollarsToBitcoinAvailable(ref) : null;
     final mark = kKuteActionCardVisualSize.sp;
     final lead = kKuteActionCardLeadVisualSize.sp;
     return ReceiveSheetFrame(
@@ -201,8 +212,11 @@ class _BitcoinReceiveOptionsState extends ConsumerState<BitcoinReceiveOptions> {
                 visual: SvgPicture.asset(kUsdMarkAsset,
                     width: mark, height: mark),
                 title: l10n.receiveFromYourDollars,
-                subtitle:
-                    dollars == null ? null : l10n.usdDollarsBalanceLine(dollars),
+                // All the dollar money that can move to Bitcoin, the
+                // Dollars Send's own available line ("$24.35 available").
+                subtitle: available == null
+                    ? null
+                    : l10n.hlYieldAvailableLine(available),
                 onTap: _openFromDollars,
               ),
             if (groups.isNotEmpty)

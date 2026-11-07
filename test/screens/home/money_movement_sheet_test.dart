@@ -65,6 +65,35 @@ import 'package:kute/services/hyperliquid/hypercore_activation_fee.dart'
 import 'package:kute/services/one_balance/bitcoin_to_dollars_leg.dart'
     show BitcoinLegSent;
 import 'package:kute/services/one_balance/dollars_to_bitcoin_minimum.dart';
+import 'package:kute/screens/receive/bitcoin_receive_options.dart'
+    show kBitcoinReceiveDollarsSource;
+import 'package:kute/screens/usd/usd_withdraw_screen.dart'
+    show kUsdWithdrawBitcoinRowSource;
+import 'package:kute/services/one_balance/buy_bitcoin_fanout.dart'
+    show BitcoinPurchaseFanout, bitcoinPurchaseFanoutProvider;
+import 'package:kute/services/one_balance/dollars_to_bitcoin_purchase.dart'
+    show DollarsToBitcoinSent;
+import 'package:kute/services/one_balance/investments_spendable.dart'
+    show investmentsSpendable, venueCashLastReadProvider;
+import 'package:kute/services/one_balance/multi_source_move.dart'
+    show MultiSourceMoveStore;
+import 'package:kute/services/one_balance/one_balance_state.dart'
+    show OneBalanceVenue;
+import 'package:kute/services/one_balance/pending_bitcoin_purchase.dart'
+    show
+        BitcoinPurchaseFinisher,
+        PendingBitcoinPurchaseStore,
+        bitcoinPurchaseFinisherProvider;
+import 'package:kute/services/one_balance/venue_cash_source.dart'
+    show
+        VenueCashCandidate,
+        VenueCashPuller,
+        VenueCashSource,
+        kVenuePullEta,
+        planDollarsShortfall,
+        venueCashPullerProvider;
+import 'package:kute/services/one_balance/venue_funder.dart'
+    show VenueMoveResult;
 import 'package:kute/services/orchestra/orchestra_quote_gate.dart'
     show OrchestraQuoteFailure;
 import 'package:kute/models/orchestra_route_limits.dart';
@@ -449,13 +478,63 @@ int get _railCalls =>
     _cctp.moves.length +
     _btcToDollars.length;
 
+/// Venue cash the test sets, recording each pull home to Dollars (fw46).
+class _VenueCash implements VenueCashSource {
+  _VenueCash(this.venue);
+
+  @override
+  final OneBalanceVenue venue;
+  double available = 0;
+  final pulls = <double>[];
+
+  @override
+  Duration get estimatedArrival => kVenuePullEta[venue]!;
+
+  @override
+  Future<double> availableUsd() async => available;
+
+  @override
+  Future<VenueMoveResult> pull(double usd, {required String purpose}) async {
+    pulls.add(usd);
+    return VenueMoveResult(
+        quoteId: 'q-${venue.name}',
+        sentUsd: usd,
+        arrivingUsdEstimate: usd * 0.99);
+  }
+}
+
+/// Each venue's route minimum, as the engine reads it here.
+double _venueMinimum(OneBalanceVenue venue) =>
+    venue == OneBalanceVenue.investing ? 5 : 1;
+
+/// The venues' free cash as the engine reads it: [p] on Predictions, [i]
+/// on Investing.
+List<VenueCashCandidate> _venueCash({double p = 0, double i = 0}) => [
+      if (p > 0)
+        (
+          venue: OneBalanceVenue.predictions,
+          availableUsd: p,
+          eta: kVenuePullEta[OneBalanceVenue.predictions]!,
+          minimumUsd: _venueMinimum(OneBalanceVenue.predictions),
+        ),
+      if (i > 0)
+        (
+          venue: OneBalanceVenue.investing,
+          availableUsd: i,
+          eta: kVenuePullEta[OneBalanceVenue.investing]!,
+          minimumUsd: _venueMinimum(OneBalanceVenue.investing),
+        ),
+    ];
+
 // ─── harness ────────────────────────────────────────────────────────
 
 Future<ProviderContainer> _open(WidgetTester tester, MoneyMovementRoute route,
     {Completer<String?>? hlAddress,
     OrchestraRoutesCatalog? catalog,
     bool pinned = false,
-    double? initialTargetUsd}) async {
+    double? initialTargetUsd,
+    List<Override> overrides = const [],
+    String? ownMoveEntrySource}) async {
   tester.view.physicalSize = const Size(430, 932);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -485,6 +564,7 @@ Future<ProviderContainer> _open(WidgetTester tester, MoneyMovementRoute route,
         .overrideWith((_) => DollarsToBitcoinMinimum(fetch: (_) async => null)),
     if (catalog != null)
       orchestraSupportedRoutesProvider.overrideWith((_) => _Routes(catalog)),
+    ...overrides,
   ]);
   _setSats(container, 20000); // $20.00 at the sample price.
   SharedHttpClient.debugOverride = _orchestra();
@@ -508,11 +588,16 @@ Future<ProviderContainer> _open(WidgetTester tester, MoneyMovementRoute route,
     )),
     _orchestra,
   );
-  unawaited(showMoneyMovementSheet(_nav.currentContext!,
-      initialSource: route.from,
-      initialDestination: route.to,
-      pinned: pinned,
-      initialTargetUsd: initialTargetUsd));
+  // An own-account door's own call (showOwnMoneyMove), or the Portfolio's.
+  final entrySource = ownMoveEntrySource;
+  unawaited(entrySource != null
+      ? showOwnMoneyMove(_nav.currentContext!,
+          from: route.from, entrySource: entrySource)
+      : showMoneyMovementSheet(_nav.currentContext!,
+          initialSource: route.from,
+          initialDestination: route.to,
+          pinned: pinned,
+          initialTargetUsd: initialTargetUsd));
   await _frames(tester, 12);
   container.read(sparkHypercoreFundingServiceProvider);
   return container;
@@ -1545,5 +1630,227 @@ void main() {
         }
       });
     }
+  });
+
+  // ─── fw46: the own-account doors spend all the dollar money ─────────
+  //
+  // Founder, 7 November 2026: "from your Dollars should and must be all
+  // the available balances, not just the Dollars balance, it is the same
+  // behaviour we had before on Investments buy Bitcoin". Both Dollars →
+  // Bitcoin doors (the Bitcoin Receive's "From your Dollars", the Dollars
+  // Send's "To your Bitcoin") open this one pinned move by the same call
+  // (showOwnMoneyMove): its From row and Max are Dollars plus the venue
+  // cash in reach, and it pays Dollars first, then the venues, under one
+  // approval, as the Investments' Buy bitcoin did. The Portfolio's
+  // unpinned Move money still spends only the account picked.
+  group(
+      'From your Dollars and To your Bitcoin spend all the dollar money, '
+      "as the Investments' Buy bitcoin (fw46)", () {
+    late _VenueCash predictions;
+    late _VenueCash investing;
+    late List<double> initialBuys;
+    late List<double> finished;
+    late bool finisherStopped;
+
+    setUp(() {
+      predictions = _VenueCash(OneBalanceVenue.predictions);
+      investing = _VenueCash(OneBalanceVenue.investing);
+      initialBuys = [];
+      finished = [];
+      finisherStopped = false;
+      MultiSourceMoveStore.reset();
+      PendingBitcoinPurchaseStore.reset();
+    });
+
+    /// The venues holding [p] (Predictions) and [i] (Investing), as the
+    /// engine last read them and as they answer now, with the sheet's
+    /// puller over them, the multi-source purchase's Dollars leg and the
+    /// background finisher recorded instead of sent.
+    List<Override> venues({double p = 0, double i = 0}) {
+      predictions.available = p;
+      investing.available = i;
+      final puller = VenueCashPuller(
+        walletId: () => 'spending',
+        sources: [predictions, investing],
+        readDollars: () => _dollars,
+        minimumUsd: (venue) async => _venueMinimum(venue),
+      );
+      return [
+        venueCashPullerProvider.overrideWith((_) => puller),
+        venueCashLastReadProvider.overrideWith(
+            (_) => (walletId: 'spending', candidates: _venueCash(p: p, i: i))),
+        bitcoinPurchaseFanoutProvider.overrideWith((_) => BitcoinPurchaseFanout(
+                buy: (usd, grant, id, onFunding) async {
+              initialBuys.add(usd);
+              onFunding();
+              _dollars -= usd;
+              return DollarsToBitcoinSent(
+                  sentUsd: usd, registered: true, operationId: 'initial_$id');
+            })),
+        bitcoinPurchaseFinisherProvider.overrideWith((_) =>
+            BitcoinPurchaseFinisher(
+              readDollars: () => _dollars,
+              buy: (usd, stepUp, {required moveId, required onFunding}) async {
+                finished.add(usd);
+                onFunding();
+              },
+              sleep: (_) async {
+                if (finisherStopped) throw StateError('test over');
+                await Future<void>.delayed(const Duration(milliseconds: 100));
+              },
+            )),
+      ];
+    }
+
+    Future<void> done(WidgetTester tester, ProviderContainer c) async {
+      finisherStopped = true;
+      await _close(tester, c);
+    }
+
+    for (final (door, source) in [
+      ('From your Dollars', kBitcoinReceiveDollarsSource),
+      ('To your Bitcoin', kUsdWithdrawBitcoinRowSource),
+    ]) {
+      testWidgets(
+          '$door: the From row and Max are Dollars plus the venue cash in '
+          'reach (net of the move costs), and an amount past Dollars is '
+          'not insufficient', (tester) async {
+        _dollars = 10;
+        final c = await _open(tester, const MoneyMovementRoute(_d, _b),
+            overrides: venues(p: 60), ownMoveEntrySource: source);
+        expect(_last('move_sheet_opened')['entry_source'], source);
+        expect(find.text('Move money'), findsOneWidget);
+        // $10 of Dollars and $60 of Predictions cash: 10 + 60 x 0.98, the
+        // figure the engine's plan covers, the card's figure too.
+        final reach = investmentsSpendable(
+                dollarsUsd: 10, sources: _venueCash(p: 60))
+            .maxUsd;
+        expect(reach, closeTo(68.80, 1e-9));
+        expect(find.text(r'$68.80'), findsOneWidget);
+        expect(find.text(r'$10.00'), findsNothing);
+
+        await tester.tap(find.text('Max').last);
+        await _frames(tester);
+        expect(_button(tester).text, r'Move $68.80');
+        expect(find.text('Insufficient balance'), findsNothing);
+        expect(_button(tester).onPressed, isNotNull);
+        expect(_railCalls, 0);
+        await done(tester, c);
+      });
+    }
+
+    testWidgets(
+        'it pays as the Investments\' Buy bitcoin did: one approval before '
+        'anything moves, Dollars first in full, then Predictions, then '
+        'Investing for the rest; the sheet closes once every leg is '
+        'submitted and the rest is bought as it lands', (tester) async {
+      _dollars = 10;
+      final c = await _open(tester, const MoneyMovementRoute(_d, _b),
+          overrides: venues(p: 15, i: 40),
+          ownMoveEntrySource: kBitcoinReceiveDollarsSource);
+      await _type(tester, '40');
+      expect(find.text('Insufficient balance'), findsNothing);
+      expect(_button(tester).text, r'Move $40');
+      await _confirm(tester);
+      await _frames(tester, 8);
+
+      // One approval, for the whole purchase into the own Bitcoin, asked
+      // before any venue cash moved.
+      expect(_approvals.intents, hasLength(1));
+      expect(_approvals.intents.single.action, SensitiveAction.moveTransfer);
+      expect(_approvals.intents.single.destination, _ownSpark);
+      // The plan the Investments' Buy bitcoin always made: Dollars first,
+      // then the venues fastest first, each only for what is missing.
+      final plan = planDollarsShortfall(
+          neededUsd: 40, dollarsUsd: 10, sources: _venueCash(p: 15, i: 40));
+      expect(plan.pulls.map((leg) => leg.venue),
+          [OneBalanceVenue.predictions, OneBalanceVenue.investing]);
+      expect(initialBuys, [10], reason: 'Dollars first, in full');
+      expect(
+          predictions.pulls, [plan.pullFrom(OneBalanceVenue.predictions)!.usd]);
+      expect(predictions.pulls, [15]);
+      expect(investing.pulls, [plan.pullFrom(OneBalanceVenue.investing)!.usd]);
+      // No single-source purchase ran beside it.
+      expect(_runner.plans, isEmpty);
+      // One move, its Activity row, with the Dollars leg on it.
+      final move = MultiSourceMoveStore.all().single;
+      expect(move.isParallelPurchase, isTrue);
+      expect(move.initialDollarsSentUsd, 10);
+      // Submitted: the band snaps and the sheet is gone; the rest is
+      // bought once it lands.
+      await tester.pump(const Duration(milliseconds: 600));
+      await _frames(tester);
+      expect(find.byKey(const ValueKey('money-movement-sheet')), findsNothing);
+      final completed = _last('move_completed');
+      expect(completed['outcome'], 'purchase_queued');
+      expect(completed['surface'], 'money_movement');
+      expect(completed['from'], 'dollars');
+      expect(completed['to'], 'bitcoin');
+      expect(_last('move_submitted')['amount_usd'], closeTo(40, 1e-9));
+      await done(tester, c);
+    });
+
+    testWidgets(
+        'a venue whose withdraw a platform rule withholds is left out: not '
+        'in the From row, no leg from it, the other venue covers the rest',
+        (tester) async {
+      RuntimeCapabilitiesService.debugInstance?.dispose();
+      RuntimeCapabilitiesService.debugInstance = null;
+      await tester.runAsync(() => installMarketGatingPolicy(
+          MarketDenial.platform,
+          targets: {'polymarket.withdraw'}));
+      _dollars = 10;
+      final c = await _open(tester, const MoneyMovementRoute(_d, _b),
+          overrides: venues(p: 60, i: 40),
+          ownMoveEntrySource: kUsdWithdrawBitcoinRowSource);
+      // 10 + 40 x 0.98 - 0.30: Investing only.
+      expect(find.text(r'$48.90'), findsOneWidget);
+      await _type(tester, '30');
+      await _confirm(tester);
+      await _frames(tester, 8);
+      expect(predictions.pulls, isEmpty);
+      expect(investing.pulls, [
+        planDollarsShortfall(
+                neededUsd: 30, dollarsUsd: 10, sources: _venueCash(i: 40))
+            .pullFrom(OneBalanceVenue.investing)!
+            .usd
+      ]);
+      expect(initialBuys, [10]);
+      await done(tester, c);
+    });
+
+    testWidgets(
+        'with Dollars enough it buys from Dollars alone, as before: no '
+        'venue leg, no venue approval', (tester) async {
+      _dollars = 10;
+      final c = await _open(tester, const MoneyMovementRoute(_d, _b),
+          overrides: venues(p: 60),
+          ownMoveEntrySource: kBitcoinReceiveDollarsSource);
+      await _type(tester, '5');
+      await _confirm(tester);
+      expect(predictions.pulls, isEmpty);
+      expect(initialBuys, isEmpty);
+      // The single purchase from Dollars, on its own rail.
+      expect(_runner.plans.single.flow, SettlementFlow.moveDollarsToBtc);
+      expect(_runner.plans.single.amountUsd, closeTo(5, 1e-9));
+      await done(tester, c);
+    });
+
+    testWidgets(
+        "the Portfolio's Move money (unpinned) still spends only the "
+        'account picked: Dollars alone, and past it is insufficient',
+        (tester) async {
+      _dollars = 10;
+      final c = await _open(tester, const MoneyMovementRoute(_d, _b),
+          overrides: venues(p: 60));
+      expect(find.text(r'$10.00'), findsOneWidget);
+      expect(find.text(r'$68.80'), findsNothing);
+      await _type(tester, '30');
+      expect(find.text('Insufficient balance'), findsOneWidget);
+      expect(_button(tester).onPressed, isNull);
+      expect(predictions.pulls, isEmpty);
+      expect(_approvals.intents, isEmpty);
+      await done(tester, c);
+    });
   });
 }
