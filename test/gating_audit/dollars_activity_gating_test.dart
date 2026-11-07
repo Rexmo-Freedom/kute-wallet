@@ -106,6 +106,12 @@ void main() {
         ]);
         final container = ProviderScope.containerOf(
             tester.element(find.byType(InvestmentsBody, skipOffstage: false)));
+        // The page opens on Investing while it browses (founder, 7
+        // November 2026), on Activity with both venues' browsing withheld
+        // (investmentsDefaultTab); Activity is a tap away either way.
+        expect(container.read(investmentsTabProvider),
+            browse ? InvestmentsTab.investing : InvestmentsTab.activity);
+        if (browse) await tapPill(tester, 'Activity');
         expect(container.read(investmentsTabProvider), InvestmentsTab.activity);
         final squares = find.byKey(const ValueKey('dollars-activity-squares'));
         expect(squares, findsOneWidget);

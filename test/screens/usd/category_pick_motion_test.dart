@@ -424,7 +424,16 @@ void main() {
         browseInvesting: true,
         overrides: _investingOverrides(),
         child: _page);
+    // The page opens on Investing, at rest (founder, 7 November 2026).
     expect(_body(tester), (1.0, 0.0));
+
+    // Investing → Activity (to the left): from the left.
+    await tester.tap(investmentsPill(_l10n.activity));
+    await tester.pump();
+    expect(_body(tester), (0.0, -KuteMotion.switchSlide));
+    await _frames8(tester);
+    expect(_body(tester).$1, 1);
+    expect(_body(tester).$2, closeTo(0, 0.01));
 
     // Activity → Investing (to the right): from the right.
     await tester.tap(investmentsPill(_l10n.trading));
@@ -437,12 +446,6 @@ void main() {
     await _frames8(tester);
     expect(_body(tester).$1, 1);
     expect(_body(tester).$2, closeTo(0, 0.01));
-
-    // Investing → Activity (to the left): from the left.
-    await tester.tap(investmentsPill(_l10n.activity));
-    await tester.pump();
-    expect(_body(tester), (0.0, -KuteMotion.switchSlide));
-    await _frames8(tester);
     expect(tester.takeException(), isNull);
     await unmountInvestments(tester);
   });
@@ -458,7 +461,8 @@ void main() {
         child: _page);
     final container = ProviderScope.containerOf(
         tester.element(find.byType(UsdAccountScreen)));
-    await tapAndPump(tester, investmentsPill(_l10n.trading));
+    // The page opens on Investing (founder, 7 November 2026).
+    expect(container.read(investmentsTabProvider), InvestmentsTab.investing);
     await _frames8(tester);
     final filter = '${_l10n.trading} · ${_l10n.categoryFilterPrompt}';
     final perps =
@@ -553,7 +557,8 @@ void main() {
         child: _page);
     final container = ProviderScope.containerOf(
         tester.element(find.byType(UsdAccountScreen)));
-    await tapAndPump(tester, investmentsPill(_l10n.trading));
+    // The page opens on Investing (founder, 7 November 2026), at rest.
+    expect(container.read(investmentsTabProvider), InvestmentsTab.investing);
     expect(_body(tester), (1.0, 0.0));
     await tapAndPump(tester, investmentsPill(_l10n.trading));
     await tester.tap(_tile(HlBrowseTab.perps.key));

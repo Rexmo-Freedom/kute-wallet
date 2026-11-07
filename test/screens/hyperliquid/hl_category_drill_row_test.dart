@@ -202,18 +202,26 @@ void main() {
       for (final row in tester.widgetList<HlMarketCard>(rows)) {
         expect(onStrip, isNot(contains(row.market.wireCoin)));
       }
-      // On Trending the strip comes straight under the pills, and the
-      // list straight under the strip (no title between them). A picked
-      // category has no strip: the list comes straight under the pills.
+      // On Trending the strip comes straight under the pills, the market
+      // map straight under the strip (the second item, founder 7 November
+      // 2026) and the list straight under the map (no title between
+      // them). A picked category has no strip and no map: the list comes
+      // straight under the pills.
       final pills = _inBrowser(find.byType(PolyDrillRow));
       final strip = _inBrowser(find.byType(HlMovingNowStrip));
+      final map = _inBrowser(find.byKey(const ValueKey('hl-market-map')));
       if (pill == 'Trending') {
         expect(strip, findsOneWidget);
+        expect(map, findsOneWidget);
         expect(tester.getRect(strip).top - tester.getRect(pills).bottom,
             lessThan(20));
-        expect(tester.getRect(rows.first).top - tester.getRect(strip).bottom,
+        expect(tester.getRect(map).top - tester.getRect(strip).bottom,
             lessThan(20));
+        // The map's own 4 and the list's 8 (on this tall test screen).
+        expect(tester.getRect(rows.first).top - tester.getRect(map).bottom,
+            lessThan(28));
       } else {
+        expect(map, findsNothing);
         expect(strip, findsNothing);
         expect(tester.getRect(rows.first).top - tester.getRect(pills).bottom,
             lessThan(28));

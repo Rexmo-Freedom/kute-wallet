@@ -1,11 +1,12 @@
 // lib/screens/hyperliquid/components/hl_market_map.dart
 //
-// The market map: a card under the Investing list (founder, 6 November
-// 2026, with a stock heatmap for reference: "add another card on
-// Investing, we must make a graph like this for the stocks and stuff,
-// like the red or green ones"). A squarified treemap
-// (squarified_treemap.dart) of the markets the app lists, red for down and
-// green for up.
+// The market map: a card on Investing (founder, 6 November 2026, with a
+// stock heatmap for reference: "add another card on Investing, we must
+// make a graph like this for the stocks and stuff, like the red or green
+// ones"), the tab's second item since 7 November 2026 ("put this as
+// second item on investing"): under the four squares, over the list. A
+// squarified treemap (squarified_treemap.dart) of the markets the app
+// lists, red for down and green for up.
 //
 // What it shows (hlMarketMapEntries):
 //   * the markets of the browse universe in four asset classes, Stocks
@@ -810,8 +811,8 @@ Rect _tileRect(Rect cell) {
 
 // ─────────────────────────────── the card ─────────────────────────────
 
-/// The market map card (see the file header): "Market map" and the
-/// window over the map of [universe]. [loading] while the builder
+/// The market map card (see the file header): the map of [universe] on
+/// the grouped card's ground, no title. [loading] while the builder
 /// markets are still to be read, a skeleton in the map's shape (the
 /// card's height, so nothing moves when the map lands); nothing at all
 /// with under [kHlMarketMapMinTiles] markets to show, until it has been
@@ -821,11 +822,17 @@ class HlMarketMapCard extends ConsumerStatefulWidget {
     super.key,
     required this.universe,
     this.loading = false,
+    this.margin = EdgeInsets.zero,
     this.onTap,
   });
 
   final List<HlMarket> universe;
   final bool loading;
+
+  /// Around the card and its skeleton, never around nothing: a map with
+  /// too few markets leaves no gap where it would be (the Investing list
+  /// sits it between the squares and the rows).
+  final EdgeInsetsGeometry margin;
 
   /// Account-scoped callers supply their own navigation. The default
   /// opens the spending account's market sheet, as a list row does.
@@ -940,11 +947,14 @@ class _HlMarketMapCardState extends ConsumerState<HlMarketMapCard> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    if (widget.loading) return const _HlMarketMapSkeleton();
+    if (widget.loading) {
+      return Padding(
+          padding: widget.margin, child: const _HlMarketMapSkeleton());
+    }
     _syncEntries();
     // Shown from [kHlMarketMapMinTiles] markets; once on screen it stays
     // while it has one, so a short re-read never takes the card's height
-    // from under a list scrolled past it.
+    // from under the list (under it, or scrolled past it).
     if (_entries.length < (_shown ? 1 : kHlMarketMapMinTiles)) {
       return const SizedBox.shrink();
     }
@@ -954,7 +964,7 @@ class _HlMarketMapCardState extends ConsumerState<HlMarketMapCard> {
     // labels, never clipped ones).
     final scale =
         (MediaQuery.textScalerOf(context).scale(100) / 100).clamp(1.0, 1.3);
-    return _HlMarketMapFrame(
+    final card = _HlMarketMapFrame(
       key: const ValueKey('hl-market-map'),
       map: LayoutBuilder(builder: (context, constraints) {
         final width = constraints.maxWidth;
@@ -1010,6 +1020,7 @@ class _HlMarketMapCardState extends ConsumerState<HlMarketMapCard> {
         });
       }),
     );
+    return Padding(padding: widget.margin, child: card);
   }
 
   Widget _logo(
