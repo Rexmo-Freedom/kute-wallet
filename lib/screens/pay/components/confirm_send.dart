@@ -7688,8 +7688,8 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   }
 
   /// The cross-chain working states of the Send to step, under the field
-  /// (null at rest: the field takes any crypto address, and the crypto
-  /// hint under it is the browse way in, [_openCryptoHint]). They keep
+  /// (null at rest: the field takes any crypto address, and Another
+  /// crypto under it is the browse way in, [_openAnotherCrypto]). They keep
   /// their words: an address we cannot
   /// identify, an address that still needs a network, and a coin already
   /// chosen, all of which have something specific to say.
@@ -7776,11 +7776,11 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
 
   /// The coins this send can land as for what the field holds, folded one
   /// per coin — the same fold the destination sheet itself uses, less what
-  /// the runtime policy withdraws (the sheet's own filter), so the crypto
-  /// hint's coins and the sheet can never be a different set. A region
+  /// the runtime policy withdraws (the sheet's own filter), so Another
+  /// crypto's coins and the sheet can never be a different set. A region
   /// block withdraws nothing (the coin's tap says why); a swap switched
   /// off, a platform rule or coming soon leaves no coin, and with no
-  /// Bitcoin Network row on the sheet there is nothing for the hint to
+  /// Bitcoin Network row on the sheet there is nothing for the card to
   /// open: it goes, as the Dollars Send's does (fw45).
   List<CoinAssetGroup> _sendDestGroups() {
     final catalog = ref.watch(orchestraSupportedRoutesProvider);
@@ -7809,10 +7809,11 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
         entrySource: kBitcoinSendSearchSource));
   }
 
-  /// The crypto hint (send_recipient_step.dart, SendCryptoHint): the
+  /// Another crypto (send_recipient_step.dart, SendAnotherCryptoCard): the
   /// "Where to?" sheet as a browse list of the coins this bitcoin can land
-  /// as; a coin picked turns the field into its address field.
-  void _openCryptoHint() {
+  /// as; a coin picked turns the field into its address field. Tracked
+  /// under the source the hint it replaced used ('crypto_hint').
+  void _openAnotherCrypto() {
     TrackingService.sendAssetShortcutTapped('other', source: 'crypto_hint');
     _showDestinationPicker(context);
   }
@@ -7858,7 +7859,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   /// The Who step (send_recipient_step.dart): the search field (Lightning
   /// addresses of any domain, LNURL, invoices, bitcoin and Spark
   /// addresses, any crypto address the "Where to?" sheet lists, a name, a
-  /// number; Paste and Scan), the crypto hint under it while it is empty,
+  /// number; Paste and Scan), Another crypto under it while it is empty,
   /// the destination it holds resolved as one card FIRST, the own-account
   /// moves the text names, then the people: Frequent (the recents as
   /// circles) and All contacts A–Z filtered by the text
@@ -7936,7 +7937,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     // short screen or at a large text scale; the end clears the floating
     // bar.
     // Order (founder, 7 November 2026: Who, then What): the field, the
-    // crypto hint or the recipient card (or the network question, or the
+    // Another crypto or the recipient card (or the network question, or the
     // chosen coin), the own-account moves the text names, Frequent, All
     // contacts.
     // ONE scroll view to the sheet's bottom edge (the frame reserves
@@ -7953,7 +7954,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     final crossChain = hot && !resolved && !bitcoinDestination
         ? _crossChainOption(c, looksLikeAddress ? addr : '')
         : null;
-    // The crypto hint (founder, 7 November 2026: "make sure that people
+    // Another crypto (founder, 7 November 2026: "make sure that people
     // realise they can send to different cryptos also"): under the empty
     // field only, hot sources only (a cold wallet sends bitcoin on-chain
     // and nothing else), and only while a coin can be offered.
@@ -8044,13 +8045,12 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
               ),
             ),
           ],
-          // What else the field takes, one quiet line under it while it
-          // is empty; a tap browses the coins ("Where to?").
+          // Another crypto, the Receive sheets' card, under the field
+          // while it is empty; a tap browses the coins ("Where to?").
           if (hintGroups.isNotEmpty)
-            SendCryptoHint(
+            SendAnotherCryptoCard(
               groups: hintGroups,
-              background: c.background,
-              onTap: _openCryptoHint,
+              onTap: _openAnotherCrypto,
             ),
           // An own account's name typed ("dollars", "my bitcoin"): the
           // move into it, the search's escape hatch.

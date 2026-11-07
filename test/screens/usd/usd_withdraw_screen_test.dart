@@ -1,12 +1,14 @@
 // The Dollars Send: the same Who step as the Bitcoin Send (founder, 7
 // November 2026, the approved Send: "ok do it, just make sure that people
 // realise they can send to different cryptos also"): "Send dollars", the
-// search field ("Name, phone or any crypto address"), the crypto hint
-// under it while it is empty (the coins the dollar send offers, opening
-// the coin sheet as a browse list; a coin picked turns the field into its
-// address field), Frequent and the Contacts. NO CHIPS: no "To your
-// Bitcoin", no "Crypto address", no "Prediction or investment". Typed, an
-// own account's name finds the move ("Move to your Bitcoin"). The input
+// search field ("Name, phone or any crypto address"), "Another crypto"
+// under it while it is empty (the Receive sheets' card, compact and full
+// width: "USDC and USDT" or "USDC, ETH and more", from the coins the dollar
+// send offers, opening the coin sheet as a browse list; a coin picked
+// turns the field into its address field), Frequent and the Contacts. NO
+// CHIPS: no "To your Bitcoin", no "Crypto address", no "Prediction or
+// investment". Typed, an own account's name finds the move ("Move to your
+// Bitcoin"). The input
 // decides the rail: an address the dollar send takes opens it on its
 // amount (a paste at once, a typed one through Continue), one several
 // networks take asks which, one only bitcoin pays goes to the Bitcoin
@@ -29,6 +31,7 @@ import 'package:kute/models/orchestra_routes_model.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/models/share_link_model.dart' show ShareLinkKind;
 import 'package:kute/models/swap_order_model.dart';
+import 'package:kute/providers/asset_icon_provider.dart' show AssetIcon;
 import 'package:kute/providers/balance_provider.dart';
 import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/providers/orchestra_supported_routes_provider.dart';
@@ -40,7 +43,7 @@ import 'package:kute/screens/shared/kute_pill_tabs.dart' show KutePillTabs;
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show SendToListCard;
 import 'package:kute/screens/shared/send/send_recipient_step.dart'
-    show SendCoinStack, SendCryptoHint;
+    show AnotherCryptoMarks, SendAnotherCryptoCard, kSendAnotherCryptoKey;
 import 'package:kute/screens/shared/send/send_what_step.dart'
     show SendWhatSheet, kSendWhatFromKey, kSendWhatGiftKey, kSendWhatMoneyKey;
 import 'package:kute/services/contacts/send_contacts_service.dart';
@@ -148,7 +151,7 @@ Future<void> _loadInter() async {
 
 late FakeSendContactsGateway _gateway;
 const _underneath = 'open withdraw';
-const _hint = ValueKey('send-crypto-hint');
+const _another = kSendAnotherCryptoKey;
 const _field = ValueKey('send-recipient-search');
 const _evm = '0x742d35cc6634c0532925a3b844bc454e4438f44e';
 const _tron = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
@@ -341,8 +344,8 @@ void main() {
   for (final dark in [false, true]) {
     testWidgets(
         'the Who step: "Send dollars", the search field saying it takes any '
-        'crypto address, the crypto hint under it, then the Contacts; no '
-        'chips, no "Send to" grid, no Send to anyone '
+        'crypto address, Another crypto under it (the one card), then the '
+        'Contacts; no chips, no Send to anyone '
         '(${dark ? 'dark' : 'light'})', (tester) async {
       await _pump(tester, spendingSats: 100000, dark: dark);
       final screen = find.byType(UsdWithdrawScreen);
@@ -360,22 +363,34 @@ void main() {
         expect(find.text(words), findsNothing, reason: words);
       }
       expect(find.text(_l10n.sendToLabel), findsNothing);
-      expect(find.byType(KuteActionCardGrid), findsNothing);
-      expect(find.byType(KuteActionCard), findsNothing);
       expect(find.byType(CoinAssetGrid), findsNothing);
       expect(find.byKey(const ValueKey('send-to-friend-row')), findsNothing);
 
-      // The hint: the dollar send's coins, stacked and named.
-      final hint = find.byKey(_hint);
+      // Another crypto: the one card on the step, alone in its grid (the
+      // compact full-width card), the dollar send's coins named and shown
+      // side by side, whole.
+      final hint = find.byKey(_another);
       expect(hint, findsOneWidget);
-      expect(find.descendant(of: hint, matching: find.byType(SendCoinStack)),
-          findsOneWidget);
-      expect(
-          tester
-              .widget<Text>(find.byKey(const ValueKey('send-crypto-hint-line')))
-              .data,
-          'Send to Bitcoin, USDC and USDT');
-      // Top to bottom: the field, the hint, the Contacts.
+      expect(find.byType(KuteActionCardGrid), findsOneWidget);
+      expect(find.byType(KuteActionCard), findsOneWidget);
+      final card = tester.widget<KuteActionCard>(hint);
+      expect(card.title, 'Another crypto');
+      expect(card.subtitle, 'USDC and USDT');
+      final coins = find.descendant(
+          of: find.descendant(
+              of: hint, matching: find.byType(AnotherCryptoMarks)),
+          matching: find.byType(AssetIcon));
+      expect(coins, findsNWidgets(2));
+      final a = tester.getRect(coins.at(0));
+      final b = tester.getRect(coins.at(1));
+      expect(a.right, lessThanOrEqualTo(b.left));
+      for (final r in [a, b]) {
+        expect(tester.getRect(hint).contains(r.center), isTrue);
+        expect(r.right, lessThanOrEqualTo(tester.getRect(hint).right));
+      }
+      expect(tester.getRect(hint).width,
+          moreOrLessEquals(tester.getRect(find.byKey(_field)).width));
+      // Top to bottom: the field, the card, the Contacts.
       double top(Finder f) => tester.getTopLeft(f).dy;
       expect(tester.getBottomLeft(find.byKey(_field)).dy,
           lessThanOrEqualTo(top(hint) + 0.01));
@@ -391,11 +406,12 @@ void main() {
   }
 
   testWidgets(
-      'nothing offered: no hint (it would open an empty sheet), the '
+      'nothing offered: no Another crypto (it would open an empty sheet), the '
       'unavailable line under the field instead', (tester) async {
     await _pump(tester, coins: false);
-    expect(find.byKey(_hint), findsNothing);
-    expect(find.byType(SendCryptoHint), findsNothing);
+    expect(find.byKey(_another), findsNothing);
+    expect(find.byType(SendAnotherCryptoCard), findsNothing);
+    expect(find.byType(KuteActionCard), findsNothing);
     expect(find.text(_l10n.usdSendDestinationsUnavailable), findsOneWidget);
     expect(
         tester.getTopLeft(find.text(_l10n.usdSendDestinationsUnavailable)).dy,
@@ -406,7 +422,7 @@ void main() {
 
   testWidgets(
       'people first: search < Frequent < All contacts; a recent opens the '
-      'send on its coin and address; typing hides Frequent and the hint',
+      'send on its coin and address; typing hides Frequent and the card',
       (tester) async {
     await _pump(tester, spendingSats: 100000, orders: [
       SwapOrder(
@@ -448,7 +464,7 @@ void main() {
 
     await type(tester, 'ana');
     expect(find.byKey(frequent), findsNothing);
-    expect(find.byKey(_hint), findsNothing);
+    expect(find.byKey(_another), findsNothing);
     expect(tester.takeException(), isNull);
     await _unmount(tester);
   });
@@ -590,12 +606,13 @@ void main() {
   });
 
   testWidgets(
-      'the hint opens the coin sheet as a browse list; a coin picked turns '
-      'the field into its address field ("USDT on tron address", the coin '
-      'with Change); its address resolves and Continue opens the send on it',
+      'Another crypto opens the coin sheet as a browse list; a coin picked '
+      'turns the field into its address field ("USDT on tron address", the '
+      'coin with Change); its address resolves and Continue opens the send '
+      'on it',
       (tester) async {
     await _pump(tester);
-    await tester.tap(find.byKey(_hint));
+    await tester.tap(find.byKey(_another));
     await _settle(tester);
     expect(find.byType(CoinAssetPickerSheet), findsOneWidget);
     expect(paramsOf('usd_withdraw_coin_sheet_opened').single,
@@ -609,7 +626,7 @@ void main() {
     expect(find.text(hintText), findsOneWidget);
     expect(
         find.byKey(const ValueKey('usd-withdraw-coin-card')), findsOneWidget);
-    expect(find.byKey(_hint), findsNothing);
+    expect(find.byKey(_another), findsNothing);
     expect(find.byKey(const ValueKey('send-contacts-section')), findsNothing);
 
     // Another network's address is refused for this coin.
@@ -624,19 +641,19 @@ void main() {
     expect(
         TrackingService.takeEntrySource('usd_send'), kUsdWithdrawSheetSource);
 
-    // Change drops the coin: the plain field and the hint come back.
+    // Change drops the coin: the plain field and the card come back.
     await type(tester, '');
     await tester.tap(find.byKey(const ValueKey('usd-withdraw-coin-change')));
     await _settle(tester);
     expect(find.text(_l10n.sendRecipientSearchHint), findsOneWidget);
-    expect(find.byKey(_hint), findsOneWidget);
+    expect(find.byKey(_another), findsOneWidget);
     await _unmount(tester);
   });
 
   testWidgets('a coin on several networks asks which one in the browse list',
       (tester) async {
     await _pump(tester);
-    await tester.tap(find.byKey(_hint));
+    await tester.tap(find.byKey(_another));
     await _settle(tester);
     await tester.tap(_tile('USDC'));
     await _settle(tester);
@@ -658,7 +675,7 @@ void main() {
     await type(tester, _tron);
     expect(find.byKey(const ValueKey('send-recipient-card')), findsOneWidget);
     expect(find.text(_l10n.sendRecipientSendingTo), findsOneWidget);
-    expect(find.byKey(_hint), findsNothing);
+    expect(find.byKey(_another), findsNothing);
     expect(_primaryScopes(), hasLength(1));
     expect(kuteBarPrimaryEnabled(tester), isTrue);
     // Typed: nothing opens until Continue.
@@ -672,14 +689,14 @@ void main() {
   });
 
   testWidgets(
-      'Change on the recipient card empties the field and brings the hint '
-      'back', (tester) async {
+      'Change on the recipient card empties the field and brings Another '
+      'crypto back', (tester) async {
     await _pump(tester);
     await type(tester, _tron);
     await tester.tap(find.byKey(const ValueKey('send-recipient-change')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('send-recipient-card')), findsNothing);
-    expect(find.byKey(_hint), findsOneWidget);
+    expect(find.byKey(_another), findsOneWidget);
     await _unmount(tester);
   });
 
@@ -755,8 +772,9 @@ void main() {
   });
 
   testWidgets(
-      'at 375 pt, in Inter, in every shipped language: the crypto hint is '
-      'one line, never cut, and the placeholder is whole', (tester) async {
+      'at 375 pt, in Inter, in every shipped language: Another crypto\'s '
+      'title and line are one line each, never cut, and the placeholder is '
+      'whole', (tester) async {
     await tester.runAsync(_loadInter);
     final cut = <String>[];
     for (final locale in AppLocalizations.supportedLocales) {
@@ -766,13 +784,25 @@ void main() {
           wide: true, size: const Size(375, 812), locale: locale);
       await tester.pump();
       expect(tester.takeException(), isNull, reason: why);
-      final line = find.byKey(const ValueKey('send-crypto-hint-line'));
-      expect(tester.widget<Text>(line).data,
-          l10n.sendCryptoHintMore('${l10n.bitcoin}, USDC, USDT, ETH', 18),
+      final another = find.byKey(_another);
+      final card = tester.widget<KuteActionCard>(another);
+      expect(card.subtitle, l10n.anotherCryptoCoinsAndMore('USDC, ETH'),
           reason: why);
-      final p = tester.renderObject<RenderParagraph>(
-          find.descendant(of: line, matching: find.byType(RichText)));
-      if (p.didExceedMaxLines) cut.add('$why hint');
+      for (final text in [card.title, card.subtitle!]) {
+        final p = tester.renderObject<RenderParagraph>(find.descendant(
+            of: find.descendant(of: another, matching: find.text(text)),
+            matching: find.byType(RichText)));
+        final painter = TextPainter(
+          text: p.text,
+          textDirection: p.textDirection,
+          textScaler: p.textScaler,
+          locale: p.locale,
+        )..layout(maxWidth: p.constraints.maxWidth);
+        if (painter.computeLineMetrics().length != 1) cut.add('$why: $text');
+        painter.dispose();
+      }
+      expect(tester.getRect(another).right, lessThanOrEqualTo(375),
+          reason: why);
       final placeholder = tester.renderObject<RenderParagraph>(find.descendant(
           of: find.byKey(_field),
           matching: find.text(l10n.sendRecipientSearchHint)));

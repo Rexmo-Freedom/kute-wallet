@@ -22,13 +22,13 @@
 //   * The Sends have no chips any more (fw50, founder 7 November 2026: one
 //     verb per intent). Their doors, by the same rules:
 //   * Dollars Send: "Move to your Bitcoin" (the search's escape hatch, an
-//     exit) always there; the crypto hint (a cross-chain send: never
-//     `crypto.deposit`) kept by a region block, gone for any other swap
-//     refusal, with the unavailable line; the What step's gift ("A
+//     exit) always there; "Another crypto" under the field (a cross-chain
+//     send: never `crypto.deposit`) kept by a region block, gone for any
+//     other swap refusal, with the unavailable line; the What step's gift ("A
 //     prediction or investment") gone while neither venue may take a new
 //     position (the swap cascade shuts both).
 //   * Bitcoin Send: "Move to your Dollars" (a swap) always drawn, the Move
-//     sheet says why; the crypto hint as on Dollars: kept by a region
+//     sheet says why; Another crypto as on Dollars: kept by a region
 //     block (the coins listed, a coin's tap names the regions), gone for
 //     any other swap refusal (its sheet has no Bitcoin Network row, plain
 //     bitcoin being the send's own default, so it would open empty); the
@@ -77,7 +77,7 @@ import 'package:kute/screens/shared/money_movement_sheet.dart'
         debugMoneyMovementSheetOpener;
 import 'package:kute/screens/shared/sal_sprite.dart' show SalSpriteCache;
 import 'package:kute/screens/shared/send/send_recipient_step.dart'
-    show SendCoinStack;
+    show AnotherCryptoMarks, kSendAnotherCryptoKey;
 import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/screens/shared/send/send_what_step.dart'
     show kSendWhatGiftKey, kSendWhatMoneyKey;
@@ -297,10 +297,10 @@ const _usdFromAnother = ValueKey('usd-receive-from-another');
 const _btcFromDollars = ValueKey('bitcoin-receive-from-dollars');
 const _btcFromAnother = ValueKey('bitcoin-receive-from-another');
 const _btcBitcoin = ValueKey('bitcoin-receive-bitcoin');
-// The Sends' doors: the search's own-account moves and the crypto hint.
+// The Sends' doors: the search's own-account moves and Another crypto.
 const _moveToBitcoin = ValueKey('send-move-to-bitcoin');
 const _moveToDollars = ValueKey('send-move-to-dollars');
-const _cryptoHint = ValueKey('send-crypto-hint');
+const _cryptoHint = kSendAnotherCryptoKey;
 
 /// The refusals of the swap master that are not a region block.
 const _nonRegion = [
@@ -543,7 +543,7 @@ void main() {
 
   group('Dollars Send doors', () {
     testWidgets(
-        'swap country block: Move to your Bitcoin and the crypto hint stay; '
+        'swap country block: Move to your Bitcoin and Another crypto stay; '
         'no gift (the cascade shuts both venues); Move to your Bitcoin '
         'opens the Move sheet', (tester) async {
       await install(tester, MarketDenial.swapCountryBlock);
@@ -563,13 +563,13 @@ void main() {
 
     for (final how in _nonRegion) {
       testWidgets(
-          '${how.label} on the swap master: the crypto hint goes with the '
+          '${how.label} on the swap master: Another crypto goes with the '
           'unavailable line; Move to your Bitcoin and the gift stay',
           (tester) async {
         await install(tester, how, targets: {kSwapMaster});
         await _pumpSheet(tester, showUsdWithdrawSheet);
         expect(find.byKey(_cryptoHint), findsNothing);
-        expect(find.byType(SendCoinStack), findsNothing);
+        expect(find.byType(AnotherCryptoMarks), findsNothing);
         expect(find.text(_l10n.usdSendDestinationsUnavailable), findsOneWidget);
         expect(await giftOffered(tester), isTrue);
         await typeIn(tester, 'bitcoin');
@@ -579,8 +579,8 @@ void main() {
     }
 
     testWidgets(
-        'crypto.deposit off never touches a send: the hint, the move and '
-        'the gift all stay', (tester) async {
+        'crypto.deposit off never touches a send: Another crypto, the move '
+        'and the gift all stay', (tester) async {
       await install(tester, MarketDenial.masterOff,
           targets: {'crypto.deposit'});
       await _pumpSheet(tester, showUsdWithdrawSheet);
@@ -615,8 +615,8 @@ void main() {
 
   group('Bitcoin Send doors', () {
     testWidgets(
-        'swap country block: Move to your Dollars and the crypto hint stay, '
-        'the coins stacked (a region block hides nothing); no gift',
+        'swap country block: Move to your Dollars and Another crypto stay, '
+        'its coins shown (a region block hides nothing); no gift',
         (tester) async {
       await install(tester, MarketDenial.swapCountryBlock);
       final moves = recordMoves();
@@ -624,7 +624,7 @@ void main() {
       expect(
           find.descendant(
               of: find.byKey(_cryptoHint),
-              matching: find.byType(SendCoinStack)),
+              matching: find.byType(AnotherCryptoMarks)),
           findsOneWidget);
       expect(await giftOffered(tester), isFalse);
       await typeIn(tester, 'dollars');
@@ -647,13 +647,13 @@ void main() {
     for (final how in _nonRegion) {
       testWidgets(
           '${how.label} on the swap master: no coin to offer and no Bitcoin '
-          'Network row on its sheet, so the crypto hint goes rather than '
+          'Network row on its sheet, so Another crypto goes rather than '
           'open an empty sheet; Move to your Dollars and the gift stay; '
           'plain bitcoin is untouched', (tester) async {
         await install(tester, how, targets: {kSwapMaster});
         await _pumpBitcoinSend(tester);
         expect(find.byKey(_cryptoHint), findsNothing);
-        expect(find.byType(SendCoinStack), findsNothing);
+        expect(find.byType(AnotherCryptoMarks), findsNothing);
         expect(find.text(_l10n.sendWhereTo), findsNothing);
         expect(await giftOffered(tester), isTrue);
         await typeIn(tester, 'dollars');
@@ -686,8 +686,8 @@ void main() {
     }
 
     testWidgets(
-        'crypto.deposit off never touches a send: the hint, the move and '
-        'the gift all stay on the Bitcoin Send', (tester) async {
+        'crypto.deposit off never touches a send: Another crypto, the move '
+        'and the gift all stay on the Bitcoin Send', (tester) async {
       await install(tester, MarketDenial.masterOff,
           targets: {'crypto.deposit'});
       await _pumpBitcoinSend(tester);

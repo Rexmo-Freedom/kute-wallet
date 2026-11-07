@@ -26,10 +26,11 @@
 //                       wallet has a Dollars account (the spending
 //                       wallet).
 //   Another crypto      the square beside it (founder, 7 November 2026:
-//                       "Another crypto", was "Another wallet"): the coins
-//                       stacked, "Wallet or exchange · USDC, USDT, ETH
-//                       +18" (the Dollars receive's card for the same
-//                       door); the Bitcoin receive's "other coins" sheet
+//                       "Another crypto", was "Another wallet"): the two
+//                       best-known coins' marks side by side and "USDC,
+//                       ETH and more" (anotherCryptoCard, the Dollars
+//                       receive's and the Sends' card for the same door);
+//                       the Bitcoin receive's "other coins" sheet
 //                       (showOtherCoinsReceiveSheet). Only while a coin can
 //                       be offered (the spending wallet, an account that
 //                       may be offered swaps, a coin the standing route or
@@ -73,7 +74,7 @@ import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/money_movement_sheet.dart';
 import 'package:kute/screens/shared/receive_surface.dart';
 import 'package:kute/screens/shared/send/send_recipient_step.dart'
-    show SendStepTitle, receiveAnotherCryptoCard;
+    show SendStepTitle, anotherCryptoCard;
 import 'package:kute/services/one_balance/investments_spendable.dart'
     show dollarsToBitcoinSpendableProvider;
 import 'package:kute/services/orchestra/reusable_deposit_address.dart'
@@ -222,7 +223,7 @@ class _BitcoinReceiveOptionsState extends ConsumerState<BitcoinReceiveOptions> {
               ),
             if (groups.isNotEmpty)
               // The Dollars receive's card for the same door.
-              receiveAnotherCryptoCard(
+              anotherCryptoCard(
                 l10n,
                 key: const ValueKey('bitcoin-receive-from-another'),
                 groups: groups,

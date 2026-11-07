@@ -11110,8 +11110,13 @@ class AppLocalizationsHr extends AppLocalizations {
   String get receiveAnotherCrypto => 'Druga kriptovaluta';
 
   @override
-  String receiveWalletOrExchangeLine(String coins) {
-    return 'Novčanik ili burza · $coins';
+  String anotherCryptoCoinsAndMore(String coins) {
+    return '$coins i druge';
+  }
+
+  @override
+  String anotherCryptoCoinsPair(String first, String second) {
+    return '$first i $second';
   }
 
   @override
@@ -12075,16 +12080,6 @@ class AppLocalizationsHr extends AppLocalizations {
       'Ime, telefon ili bilo koja kripto adresa';
 
   @override
-  String sendCryptoHint(String coins) {
-    return 'Pošalji na $coins';
-  }
-
-  @override
-  String sendCryptoHintMore(String coins, int count) {
-    return 'Pošalji na $coins i još $count';
-  }
-
-  @override
   String get sendMoveToYourDollars => 'Premjesti u tvoje Dolare';
 
   @override
@@ -12199,21 +12194,6 @@ class AppLocalizationsHr extends AppLocalizations {
   @override
   String usdSendResolvedRail(String network, String asset) {
     return '$network · $asset';
-  }
-
-  @override
-  String sendAlsoSendsToMore(String names, int count) {
-    return '$names i još $count';
-  }
-
-  @override
-  String coinsSummaryShort(String names, int count) {
-    return '$names +$count';
-  }
-
-  @override
-  String sendAlsoSendsToList(String names, String last) {
-    return '$names i $last';
   }
 
   @override
@@ -13899,9 +13879,6 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get sendToAFriendLabel => 'Prijatelju';
-
-  @override
-  String get sendToCryptoAddress => 'Na kripto adresu';
 
   @override
   String get sendPickRowSub => 'Ili ulaganje. Potraži tržište, odaberi stranu';

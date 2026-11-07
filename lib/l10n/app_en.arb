@@ -7616,13 +7616,25 @@
   },
   "receiveAnotherCrypto": "Another crypto",
   "@receiveAnotherCrypto": {
-    "description": "Receive sheets (Bitcoin and Dollars), card title beside \"From your Dollars\" / \"From your Bitcoin\", and the Investments deposit picker's row for the same door: receive another cryptocurrency (USDC, USDT, ETH…) sent from a wallet or an exchange. \"Crypto\" as people say it, short: one line on a card half the screen wide."
+    "description": "Card title on the Receive sheets (Bitcoin and Dollars, beside \"From your Dollars\" / \"From your Bitcoin\") and on the Send sheets (Bitcoin and Dollars, under the search field), and the Investments deposit picker's row for the same door: a cryptocurrency other than bitcoin (USDC, ETH…), received from or sent to a wallet or an exchange. Neither \"from\" nor \"to\": the same words serve both. \"Crypto\" as people say it, short: one line on a card half the screen wide."
   },
-  "receiveWalletOrExchangeLine": "Wallet or exchange · {coins}",
-  "@receiveWalletOrExchangeLine": {
-    "description": "Under \"Another crypto\" on the Receive sheets: where it is sent from (a wallet or an exchange), then the coins it accepts ({coins}: \"USDC, USDT, ETH +18\").",
+  "anotherCryptoCoinsAndMore": "{coins} and more",
+  "@anotherCryptoCoinsAndMore": {
+    "description": "Under \"Another crypto\" (the Receive sheets' card and the Send sheets' card under the search field): the coins it takes, short, ONE line on a card half the screen wide. {coins} is the two best-known coin tickers offered, already joined, e.g. \"USDC, ETH\"; 'and more' says there are other coins too, without a count.",
     "placeholders": {
       "coins": {
+        "type": "String"
+      }
+    }
+  },
+  "anotherCryptoCoinsPair": "{first} and {second}",
+  "@anotherCryptoCoinsPair": {
+    "description": "Under \"Another crypto\" when exactly two coins are offered: both tickers, e.g. \"USDC and ETH\". ONE line on a card half the screen wide.",
+    "placeholders": {
+      "first": {
+        "type": "String"
+      },
+      "second": {
         "type": "String"
       }
     }
@@ -9123,27 +9135,6 @@
   "@sendRecipientSearchHint": {
     "description": "Send (Bitcoin and Dollars): the search field's placeholder on the Who step. It says the field takes a person (a name, a phone number) and any crypto address (founder: people must realise they can send to other cryptos). One line in the field beside two small buttons: keep it short."
   },
-  "sendCryptoHint": "Send to {coins}",
-  "@sendCryptoHint": {
-    "description": "Send (Bitcoin and Dollars): the quiet line under the empty search field, beside a stack of coin marks, naming what the field can send to when there are no more coins to count. {coins} is the list already joined, e.g. 'Bitcoin, USDC and USDT'. Must fit ONE line on a 375 pt phone.",
-    "placeholders": {
-      "coins": {
-        "type": "String"
-      }
-    }
-  },
-  "sendCryptoHintMore": "Send to {coins} and {count} more",
-  "@sendCryptoHintMore": {
-    "description": "Send (Bitcoin and Dollars): the quiet line under the empty search field, beside a stack of coin marks: what the field can send to. {coins} is 'Bitcoin, USDC, USDT, ETH' (Bitcoin and three coin tickers), {count} how many more coins can be picked. Tapping it opens the list. Must fit ONE line on a 375 pt phone with a two-digit count: use a compact form where needed.",
-    "placeholders": {
-      "coins": {
-        "type": "String"
-      },
-      "count": {
-        "type": "int"
-      }
-    }
-  },
   "sendMoveToYourDollars": "Move to your Dollars",
   "@sendMoveToYourDollars": {
     "description": "Send's search result when the person types the name of their own Dollars account ('dollars', 'my dollars'): opens Move money from their Bitcoin into their Dollars. Dollars is the account name."
@@ -9272,40 +9263,6 @@
         "type": "String"
       },
       "asset": {
-        "type": "String"
-      }
-    }
-  },
-  "sendAlsoSendsToMore": "{names} and {count} more",
-  "@sendAlsoSendsToMore": {
-    "placeholders": {
-      "names": {
-        "type": "String"
-      },
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "coinsSummaryShort": "{names} +{count}",
-  "@coinsSummaryShort": {
-    "description": "The coins a card accepts, short: the first few by symbol and how many more, e.g. \"USDC, USDT, ETH +18\".",
-    "placeholders": {
-      "names": {
-        "type": "String"
-      },
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "sendAlsoSendsToList": "{names} and {last}",
-  "@sendAlsoSendsToList": {
-    "placeholders": {
-      "names": {
-        "type": "String"
-      },
-      "last": {
         "type": "String"
       }
     }
@@ -11821,10 +11778,6 @@
   "sendToAFriendLabel": "To a friend",
   "@sendToAFriendLabel": {
     "description": "Section label over the Send screens' friend card (Send to anyone, Send a prediction or investment)."
-  },
-  "sendToCryptoAddress": "To a crypto address",
-  "@sendToCryptoAddress": {
-    "description": "The Dollars Send's row for the coins dollars can land as (opens the coin sheet); the coins are listed under it."
   },
   "sendPickRowSub": "Or an investment. Search a market, pick the side",
   "@sendPickRowSub": {

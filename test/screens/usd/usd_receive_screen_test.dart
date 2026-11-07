@@ -3,8 +3,9 @@
 // (founder, 5 November 2026: "Here should be big cards, square"), in a
 // sheet as tall as they are, the floating bar away: "From your Bitcoin"
 // (the Bitcoin mark and its balance, opening the Investments deposit from
-// the spending bitcoin) and "Another crypto" (the coins stacked) opening
-// the coin sheet. No inline grid. Into Bitcoin (the Bitcoin
+// the spending bitcoin) and "Another crypto" (the coins it names side by
+// side, whole, over one short line: here "USDC and USDT") opening the
+// coin sheet. No inline grid. Into Bitcoin (the Bitcoin
 // receive's "other coins") it is the grid alone. Nothing is
 // picked for the person. Here the standing route serves no coin, so a
 // coin they tap falls back to the one-time flow and asks its amount in
@@ -18,6 +19,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/flutter_svg.dart' show SvgPicture;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart'
@@ -33,6 +35,7 @@ import 'package:kute/providers/balance_provider.dart';
 import 'package:kute/providers/breez_config_provider.dart'
     show breezSDKProvider;
 import 'package:kute/providers/currency_conversions_provider.dart';
+import 'package:kute/providers/asset_icon_provider.dart' show AssetIcon;
 import 'package:kute/providers/orchestra_supported_routes_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/shared/account_switcher_pill.dart';
@@ -55,7 +58,7 @@ import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart'
     show kuteBarContextProvider, kuteBarTop;
 import 'package:kute/screens/shared/send/send_recipient_step.dart'
-    show SendCoinStack;
+    show AnotherCryptoMarks;
 import 'package:kute/screens/usd/usd_receive_screen.dart';
 import 'package:kute/services/orchestra/reusable_deposit_address.dart'
     show standingDestinationsProvider;
@@ -237,27 +240,34 @@ int _lines(WidgetTester tester, Finder card, String title) {
   return lines;
 }
 
-/// Every coin of the stack under [card] lies whole inside the stack's box
-/// and the card: nothing clipped.
+/// The coins of the "Another crypto" [card] lie whole, side by side and
+/// inside the card, none over another, each a circle as tall as the From
+/// your Bitcoin card's mark (the other visual of the pair).
 void _expectCoinsWhole(WidgetTester tester, Finder card) {
-  final stack = find.descendant(of: card, matching: find.byType(SendCoinStack));
-  final box = tester.getRect(stack);
-  final coins = find.descendant(
-      of: stack,
-      matching: find.byWidgetPredicate((w) =>
-          w is Container &&
-          w.decoration is BoxDecoration &&
-          (w.decoration! as BoxDecoration).shape == BoxShape.circle));
-  expect(coins, findsWidgets);
-  for (final coin in coins.evaluate()) {
-    final r = tester.getRect(find.byWidget(coin.widget));
-    expect(r.left, greaterThanOrEqualTo(box.left - 0.01));
-    expect(r.top, greaterThanOrEqualTo(box.top - 0.01));
-    expect(r.right, lessThanOrEqualTo(box.right + 0.01),
-        reason: 'a coin is cut at the right');
-    expect(r.bottom, lessThanOrEqualTo(box.bottom + 0.01));
-    expect(r.right, lessThanOrEqualTo(tester.getRect(card).right));
+  final marks =
+      find.descendant(of: card, matching: find.byType(AnotherCryptoMarks));
+  expect(marks, findsOneWidget);
+  final coins = find.descendant(of: marks, matching: find.byType(AssetIcon));
+  expect(coins, findsNWidgets(2));
+  final box = tester.getRect(card);
+  final neighbour = tester.getSize(find
+      .descendant(
+          of: find.byKey(_bitcoinRow),
+          matching: find.byWidgetPredicate((w) => w is SvgPicture))
+      .first);
+  final rects = [for (var i = 0; i < 2; i++) tester.getRect(coins.at(i))];
+  for (final r in rects) {
+    expect(r.left, greaterThanOrEqualTo(box.left));
+    expect(r.top, greaterThanOrEqualTo(box.top));
+    expect(r.right, lessThanOrEqualTo(box.right), reason: 'a coin is cut');
+    expect(r.bottom, lessThanOrEqualTo(box.bottom));
+    expect(r.width, moreOrLessEquals(r.height));
+    expect(r.height, moreOrLessEquals(neighbour.height),
+        reason: 'as tall as the other card\'s mark');
   }
+  expect(rects[0].right, lessThanOrEqualTo(rects[1].left),
+      reason: 'one coin over another');
+  expect(rects[0].top, moreOrLessEquals(rects[1].top));
 }
 
 void main() {
@@ -282,9 +292,9 @@ void main() {
 
   testWidgets(
       'opens on two big square cards side by side: "From your Bitcoin" and '
-      '"Another crypto" ("Wallet or exchange", the coins stacked, none cut), '
-      'both titles on one line; no list rows, no inline grid, nothing '
-      'picked', (tester) async {
+      '"Another crypto" (one short line, the coins it names side by side, '
+      'none cut), both titles on one line; no list rows, no inline grid, '
+      'nothing picked', (tester) async {
     // The app's own font: the one-line rule measures real glyphs.
     await tester.runAsync(_loadInter);
     await _pump(tester);
@@ -300,14 +310,22 @@ void main() {
     final another = tester.widget<KuteActionCard>(receiveFromAnotherRow);
     expect(another.title, _l10n.receiveAnotherCrypto);
     expect(another.title, 'Another crypto');
-    expect(another.subtitle, _l10n.receiveWalletOrExchangeLine('USDC, USDT'));
-    expect(another.subtitle, 'Wallet or exchange · USDC, USDT');
-    expect(another.visual, isA<SendCoinStack>());
+    // The two coins offered here, both named: no "and more", no count,
+    // no "Wallet or exchange".
+    expect(another.subtitle, _l10n.anotherCryptoCoinsPair('USDC', 'USDT'));
+    expect(another.subtitle, 'USDC and USDT');
+    expect(another.visual, isA<AnotherCryptoMarks>());
+    expect(
+        (another.visual as AnotherCryptoMarks)
+            .coins
+            .map((g) => g.displaySymbol),
+        ['USDC', 'USDT']);
     expect(tester.widget<KuteActionCardGrid>(grid).oneLineTitles, isTrue);
     _expectCoinsWhole(tester, receiveFromAnotherRow);
     for (final (card, title) in [
       (row, bitcoin.title),
       (receiveFromAnotherRow, another.title),
+      (receiveFromAnotherRow, another.subtitle!),
     ]) {
       expect(_lines(tester, card, title), 1, reason: title);
     }
@@ -623,6 +641,10 @@ void main() {
       expect(
           _lines(tester, receiveFromAnotherRow, l10n.receiveAnotherCrypto), 1,
           reason: why);
+      final line =
+          tester.widget<KuteActionCard>(receiveFromAnotherRow).subtitle!;
+      expect(_lines(tester, receiveFromAnotherRow, line), 1,
+          reason: '$why: $line');
       _expectCoinsWhole(tester, receiveFromAnotherRow);
       for (final (card, box) in [(bitcoin, a), (receiveFromAnotherRow, b)]) {
         final texts =

@@ -18745,17 +18745,23 @@ abstract class AppLocalizations {
   /// **'From another wallet or exchange'**
   String get usdReceiveFromAnotherWallet;
 
-  /// Receive sheets (Bitcoin and Dollars), card title beside "From your Dollars" / "From your Bitcoin", and the Investments deposit picker's row for the same door: receive another cryptocurrency (USDC, USDT, ETH…) sent from a wallet or an exchange. "Crypto" as people say it, short: one line on a card half the screen wide.
+  /// Card title on the Receive sheets (Bitcoin and Dollars, beside "From your Dollars" / "From your Bitcoin") and on the Send sheets (Bitcoin and Dollars, under the search field), and the Investments deposit picker's row for the same door: a cryptocurrency other than bitcoin (USDC, ETH…), received from or sent to a wallet or an exchange. Neither "from" nor "to": the same words serve both. "Crypto" as people say it, short: one line on a card half the screen wide.
   ///
   /// In en, this message translates to:
   /// **'Another crypto'**
   String get receiveAnotherCrypto;
 
-  /// Under "Another crypto" on the Receive sheets: where it is sent from (a wallet or an exchange), then the coins it accepts ({coins}: "USDC, USDT, ETH +18").
+  /// Under "Another crypto" (the Receive sheets' card and the Send sheets' card under the search field): the coins it takes, short, ONE line on a card half the screen wide. {coins} is the two best-known coin tickers offered, already joined, e.g. "USDC, ETH"; 'and more' says there are other coins too, without a count.
   ///
   /// In en, this message translates to:
-  /// **'Wallet or exchange · {coins}'**
-  String receiveWalletOrExchangeLine(String coins);
+  /// **'{coins} and more'**
+  String anotherCryptoCoinsAndMore(String coins);
+
+  /// Under "Another crypto" when exactly two coins are offered: both tickers, e.g. "USDC and ETH". ONE line on a card half the screen wide.
+  ///
+  /// In en, this message translates to:
+  /// **'{first} and {second}'**
+  String anotherCryptoCoinsPair(String first, String second);
 
   /// Section label on the first step of the Investments (dollars) withdraw sheet, above the card that moves money home to the person's own spending bitcoin.
   ///
@@ -20197,18 +20203,6 @@ abstract class AppLocalizations {
   /// **'Name, phone or any crypto address'**
   String get sendRecipientSearchHint;
 
-  /// Send (Bitcoin and Dollars): the quiet line under the empty search field, beside a stack of coin marks, naming what the field can send to when there are no more coins to count. {coins} is the list already joined, e.g. 'Bitcoin, USDC and USDT'. Must fit ONE line on a 375 pt phone.
-  ///
-  /// In en, this message translates to:
-  /// **'Send to {coins}'**
-  String sendCryptoHint(String coins);
-
-  /// Send (Bitcoin and Dollars): the quiet line under the empty search field, beside a stack of coin marks: what the field can send to. {coins} is 'Bitcoin, USDC, USDT, ETH' (Bitcoin and three coin tickers), {count} how many more coins can be picked. Tapping it opens the list. Must fit ONE line on a 375 pt phone with a two-digit count: use a compact form where needed.
-  ///
-  /// In en, this message translates to:
-  /// **'Send to {coins} and {count} more'**
-  String sendCryptoHintMore(String coins, int count);
-
   /// Send's search result when the person types the name of their own Dollars account ('dollars', 'my dollars'): opens Move money from their Bitcoin into their Dollars. Dollars is the account name.
   ///
   /// In en, this message translates to:
@@ -20412,24 +20406,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{network} · {asset}'**
   String usdSendResolvedRail(String network, String asset);
-
-  /// No description provided for @sendAlsoSendsToMore.
-  ///
-  /// In en, this message translates to:
-  /// **'{names} and {count} more'**
-  String sendAlsoSendsToMore(String names, int count);
-
-  /// The coins a card accepts, short: the first few by symbol and how many more, e.g. "USDC, USDT, ETH +18".
-  ///
-  /// In en, this message translates to:
-  /// **'{names} +{count}'**
-  String coinsSummaryShort(String names, int count);
-
-  /// No description provided for @sendAlsoSendsToList.
-  ///
-  /// In en, this message translates to:
-  /// **'{names} and {last}'**
-  String sendAlsoSendsToList(String names, String last);
 
   /// No description provided for @sendPickMarket.
   ///
@@ -23331,12 +23307,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'To a friend'**
   String get sendToAFriendLabel;
-
-  /// The Dollars Send's row for the coins dollars can land as (opens the coin sheet); the coins are listed under it.
-  ///
-  /// In en, this message translates to:
-  /// **'To a crypto address'**
-  String get sendToCryptoAddress;
 
   /// Under Send a prediction on the Dollars Send's To a friend card: the row opens the market search (predictions and investing).
   ///

@@ -11113,8 +11113,13 @@ class AppLocalizationsHu extends AppLocalizations {
   String get receiveAnotherCrypto => 'Másik kripto';
 
   @override
-  String receiveWalletOrExchangeLine(String coins) {
-    return 'Tárca vagy tőzsde · $coins';
+  String anotherCryptoCoinsAndMore(String coins) {
+    return '$coins és mások';
+  }
+
+  @override
+  String anotherCryptoCoinsPair(String first, String second) {
+    return '$first és $second';
   }
 
   @override
@@ -12073,16 +12078,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get sendRecipientSearchHint => 'Név, telefon vagy bármilyen kriptocím';
 
   @override
-  String sendCryptoHint(String coins) {
-    return 'Küldés ide: $coins';
-  }
-
-  @override
-  String sendCryptoHintMore(String coins, int count) {
-    return 'Küldés ide: $coins és még $count';
-  }
-
-  @override
   String get sendMoveToYourDollars => 'Áthelyezés a Dollárodba';
 
   @override
@@ -12198,21 +12193,6 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String usdSendResolvedRail(String network, String asset) {
     return '$network · $asset';
-  }
-
-  @override
-  String sendAlsoSendsToMore(String names, int count) {
-    return '$names és még $count';
-  }
-
-  @override
-  String coinsSummaryShort(String names, int count) {
-    return '$names +$count';
-  }
-
-  @override
-  String sendAlsoSendsToList(String names, String last) {
-    return '$names és $last';
   }
 
   @override
@@ -13900,9 +13880,6 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get sendToAFriendLabel => 'Barátnak';
-
-  @override
-  String get sendToCryptoAddress => 'Kriptocímre';
 
   @override
   String get sendPickRowSub => 'Vagy befektetés. Keress piacot, válassz oldalt';

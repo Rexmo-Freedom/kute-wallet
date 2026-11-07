@@ -10,13 +10,15 @@
 //
 //   * the title "Send dollars" and the same search field, "Name, phone or
 //     any crypto address", Paste and Scan inside;
-//   * while it is empty, the crypto hint under it: the coins stacked and
-//     "Send to Bitcoin, USDC, USDT, ETH and 18 more" from the very coins the
-//     dollar send offers under the policy; a tap opens the coin sheet as a
-//     browse list, and a coin picked turns the field into that coin's
-//     address field ("USDC on Base address", the coin with Change under
-//     it). With no coin offered the hint is not there and the unavailable
-//     line says why;
+//   * while it is empty, "Another crypto" under it (founder, 7 November
+//     2026, on the hint line it replaced: "this send to bitcoin usdc is
+//     strange still idk"): the Receive sheets' card (anotherCryptoCard),
+//     alone so compact and full width, "USDC, ETH and more" from the very
+//     coins the dollar send offers under the policy; a tap opens the coin
+//     sheet as a browse list, and a coin picked turns the field into that
+//     coin's address field ("USDC on Base address", the coin with Change
+//     under it). With no coin offered the card is not there and the
+//     unavailable line says why;
 //   * THE INPUT DECIDES THE RAIL: an address the dollar send takes on one
 //     network resolves as the recipient card (the coin on its network) and
 //     Continue opens the dollar send straight on its amount; one several
@@ -169,7 +171,7 @@ class UsdWithdrawScreen extends ConsumerStatefulWidget {
 class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
   final TextEditingController _search = TextEditingController();
 
-  /// The coin picked from the crypto hint's browse list: the field is its
+  /// The coin picked from Another crypto's browse list: the field is its
   /// address field until Change drops it.
   UsdSendDestination? _coin;
 
@@ -323,7 +325,7 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
   }
 
   /// What [text] means here (see the file header): with a coin picked from
-  /// the hint, an address for that coin's network only; otherwise the
+  /// Another crypto, an address for that coin's network only; otherwise the
   /// dollar destinations it can land on, or bitcoin's own rails.
   _UsdWho _who(String text, List<UsdSendDestination> offered,
       AppLocalizations l10n,
@@ -402,7 +404,7 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
     final resolved = auto != null ? who.address : null;
     final recents = _recentPeople(offered);
     final background = context.isDark ? c.surface : Colors.white;
-    // The coins the hint names and its browse list offers: the dollar
+    // The coins Another crypto names and its browse list offers: the dollar
     // send's own destinations, less what the policy withdraws.
     final loading = ref.watch(orchestraRoutesReadyProvider).isLoading;
     final groups = coinGroupsOfferedUnderPolicy(
@@ -497,8 +499,8 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
                         ],
                       ),
                     ],
-                    // The coin picked from the hint, Change at its right:
-                    // back to the plain field.
+                    // The coin picked from Another crypto, Change at its
+                    // right: back to the plain field.
                     if (coin != null && auto == null) ...[
                       SizedBox(height: 12.h),
                       SendToListCard(
@@ -523,14 +525,13 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
                       SizedBox(height: 10.h),
                       SendInlineError(message: who.error!),
                     ],
-                    // What else the field takes, under it while empty; with
-                    // no coin offered, the line that says why instead.
+                    // Another crypto, under the field while it is empty;
+                    // with no coin offered, the line that says why instead.
                     if (atRest)
                       groups.isNotEmpty
-                          ? SendCryptoHint(
+                          ? SendAnotherCryptoCard(
                               groups: groups,
-                              background: background,
-                              onTap: _openCryptoHint,
+                              onTap: _openAnotherCrypto,
                             )
                           : Padding(
                               padding: EdgeInsets.only(top: 12.h),
@@ -599,24 +600,25 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
     }
   }
 
-  /// The crypto hint: the coin sheet as a browse list; a coin picked turns
-  /// the field into its address field.
-  void _openCryptoHint() {
+  /// Another crypto: the coin sheet as a browse list; a coin picked turns
+  /// the field into its address field. Tracked under the source the hint
+  /// it replaced used ('crypto_hint'), so the series runs on.
+  void _openAnotherCrypto() {
     TrackingService.track('usd_withdraw_coin_sheet_opened',
         params: {'source': 'crypto_hint'});
     _openCoinPicker(browse: true, tracked: true);
   }
 
-  /// "Change" on the recipient card: the field empties and the hint and
-  /// the whole Contacts list come back.
+  /// "Change" on the recipient card: the field empties and Another crypto
+  /// and the whole Contacts list come back.
   void _clearRecipient() {
     HapticFeedback.selectionClick();
     _search.clear();
     setState(() {});
   }
 
-  /// "Change" beside the coin picked from the hint: back to the plain
-  /// field, the Contacts with it.
+  /// "Change" beside the coin picked from Another crypto: back to the
+  /// plain field, the Contacts with it.
   void _clearCoin() {
     HapticFeedback.selectionClick();
     setState(() => _coin = null);
@@ -653,8 +655,8 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
     unawaited(_openSend(recent.destination, recipient: recent.address));
   }
 
-  /// The coin sheet of the dollar send: every offered coin ([browse], the
-  /// crypto hint's list: a pick becomes the field's coin), or only [only]
+  /// The coin sheet of the dollar send: every offered coin ([browse],
+  /// Another crypto's list: a pick becomes the field's coin), or only [only]
   /// for an address several networks take (a pick opens the send on it
   /// with [recipient]).
   void _openCoinPicker(

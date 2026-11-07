@@ -7,14 +7,15 @@
 //   * a search-style field at the top ("Name, phone or any crypto
 //     address"), a magnifier at its left and Paste and Scan inside at its
 //     right ([SendRecipientSearchField]);
-//   * while it is empty, ONE QUIET LINE under it saying what else it takes
-//     ([SendCryptoHint]; founder, 7 November 2026: "just make sure that
-//     people realise they can send to different cryptos also"): the coins
-//     stacked as the Receive sheets' "Another crypto" card stacks them and
-//     "Send to Bitcoin, USDC, USDT, ETH and 18 more" from the same coin
-//     set the send's "Where to?" sheet lists. A tap opens that sheet as a
+//   * while it is empty, "ANOTHER CRYPTO" under it ([SendAnotherCryptoCard];
+//     founder, 7 November 2026: "just make sure that people realise they
+//     can send to different cryptos also", and of the floating line that
+//     said so first, "this send to bitcoin usdc is strange still idk"): the
+//     Receive sheets' card ([anotherCryptoCard]), alone in its grid so the
+//     compact full-width one, "USDC, ETH and more" from the same coin set
+//     the send's "Where to?" sheet lists. A tap opens that sheet as a
 //     browse list; a coin picked turns the field into that coin's address
-//     field. With no coin offered under the policy the line is not there
+//     field. With no coin offered under the policy the card is not there
 //     (it never opens an empty sheet);
 //   * a pasted or typed destination the flow recognises as one recipient
 //     card (send_contacts_list.dart, SendRecipientCard); a paste or a scan
@@ -27,10 +28,10 @@
 // is money leaving for someone else, so there are no "More ways to send"
 // chips any more: no "To your Dollars" / "To your Bitcoin" (moving between
 // your own accounts is the Receive of the account to fill), no "Crypto
-// address" (the field takes it, the hint says so) and no "Prediction or
-// investment" (a gift is a What: send_what_step.dart). Typed, an own
-// account's name ("dollars", "my bitcoin") still finds the move
-// ([SendMoveToOwnRows]): the escape hatch, never a door of its own.
+// address" (the field takes it, Another crypto says so) and no
+// "Prediction or investment" (a gift is a What: send_what_step.dart).
+// Typed, an own account's name ("dollars", "my bitcoin") still finds the
+// move ([SendMoveToOwnRows]): the escape hatch, never a door of its own.
 //
 // No step bar: the sheet's title says where the person is. The floating
 // Sal bar is the step's Continue (kute_bar_context.dart; the plain
@@ -853,130 +854,139 @@ class SendPickMarketRow extends StatelessWidget {
   }
 }
 
-/// "USDC, USDT, ETH +18": [sendAlsoSendsToSummary] for a card's short
-/// line (the Receive sheets' "Another crypto").
-String sendCoinsShortSummary(
-    AppLocalizations l10n, List<CoinAssetGroup> groups) {
-  final shown = groups.take(SendCoinStack.stack).toList();
-  final rest = groups.length - shown.length;
-  final names = [for (final g in shown) g.displaySymbol].join(', ');
-  if (names.isEmpty) return '';
-  return rest > 0 ? l10n.coinsSummaryShort(names, rest) : names;
+/// The coins "Another crypto" names first, the best known first (founder,
+/// 7 November 2026: "USDC, ETH and more"): the dollar coin, then the
+/// best-known coin that is not a dollar, then the next of each.
+const List<String> kAnotherCryptoNamedFirst = ['USDC', 'ETH', 'USDT', 'SOL'];
+
+/// The coins the "Another crypto" card names and shows (see
+/// [anotherCryptoCard]): the two best known of [groups]
+/// ([kAnotherCryptoNamedFirst], then the list's own order), never bitcoin,
+/// which every sheet the card sits on offers by itself.
+List<CoinAssetGroup> anotherCryptoNamedCoins(List<CoinAssetGroup> groups) {
+  final coins = [
+    for (final g in groups)
+      if (g.key.toUpperCase() != 'BTC') g
+  ];
+  int rank(CoinAssetGroup g) {
+    final i = kAnotherCryptoNamedFirst.indexOf(g.key.toUpperCase());
+    return i < 0 ? kAnotherCryptoNamedFirst.length : i;
+  }
+
+  final ranked = [
+    for (var i = 0; i < coins.length; i++) (rank: rank(coins[i]), at: i)
+  ]..sort((a, b) =>
+      a.rank != b.rank ? a.rank.compareTo(b.rank) : a.at.compareTo(b.at));
+  return [for (final r in ranked.take(2)) coins[r.at]];
 }
 
-/// "USDC, USDT, ETH and 16 more": the first [SendCoinStack.stack] coins of
-/// [groups] by symbol and how many more (the Also sends to row's and
-/// card's line); empty with no coins.
-String sendAlsoSendsToSummary(
-    AppLocalizations l10n, List<CoinAssetGroup> groups) {
-  final shown = groups.take(SendCoinStack.stack).toList();
-  final rest = groups.length - shown.length;
-  final names = [for (final g in shown) g.displaySymbol];
-  if (names.isEmpty) return '';
-  if (rest > 0) return l10n.sendAlsoSendsToMore(names.join(', '), rest);
+/// The "Another crypto" card's one line: "USDC, ETH and more"; "USDC and
+/// ETH" when those are all there is, the one coin alone, empty with none.
+String anotherCryptoLine(AppLocalizations l10n, List<CoinAssetGroup> groups) {
+  final named = anotherCryptoNamedCoins(groups);
+  if (named.isEmpty) return '';
+  final names = [for (final g in named) g.displaySymbol];
+  if (groups.length > named.length) {
+    return l10n.anotherCryptoCoinsAndMore(names.join(', '));
+  }
   if (names.length == 1) return names.first;
-  return l10n.sendAlsoSendsToList(
-      names.sublist(0, names.length - 1).join(', '), names.last);
+  return l10n.anotherCryptoCoinsPair(names.first, names.last);
 }
 
-/// The first [stack] coin marks of [groups], [mark] each, overlapping by
-/// a little over half: the Also sends to row's leading glyph and card's
-/// visual.
-class SendCoinStack extends StatelessWidget {
-  const SendCoinStack(
-      {super.key, required this.groups, this.mark = 22, this.ringColor});
+/// The "Another crypto" card's visual: the marks of the coins its line
+/// names ([anotherCryptoNamedCoins]), each a whole circle, side by side
+/// in the card's visual box (see [anotherCryptoCard]).
+class AnotherCryptoMarks extends StatelessWidget {
+  const AnotherCryptoMarks({super.key, required this.coins});
 
-  final List<CoinAssetGroup> groups;
+  /// The coins shown, in the line's order.
+  final List<CoinAssetGroup> coins;
 
-  /// One mark's side (scaled by sp).
-  final double mark;
+  /// One mark's side: the other cards' visual size.
+  static const double mark = kKuteActionCardVisualSize;
 
-  /// The colour of the ring each mark wears: the surface the stack sits
-  /// on (a card's by default).
-  final Color? ringColor;
-
-  /// How many marks it shows.
-  static const int stack = 3;
-
-  /// The ring each mark wears, in the card's colour, so the overlap reads.
-  static const double ring = 1.5;
+  /// The space between two marks.
+  static const double gap = 4;
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
-    final shown = groups.take(stack).toList();
-    final step = mark * 9 / 22;
-    // The box holds every mark with its ring (founder, 7 November 2026:
-    // the last coin was cut at the right): a mark is [mark] plus the ring
-    // on both sides.
-    return SizedBox(
-      width: (mark + (shown.length - 1) * step).sp + 2 * ring,
-      height: mark.sp + 2 * ring,
-      child: Stack(
-        children: [
-          for (var i = 0; i < shown.length; i++)
-            Positioned(
-              left: (i * step).sp,
-              child: Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: ringColor ?? c.surfaceLight,
-                  border:
-                      Border.all(color: ringColor ?? c.surfaceLight, width: ring),
-                ),
-                child: AssetIcon(assetCode: shown[i].assetCode, size: mark.sp),
-              ),
-            ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 0; i < coins.length; i++) ...[
+          if (i > 0) SizedBox(width: gap.sp),
+          AssetIcon(assetCode: coins[i].assetCode, size: mark.sp),
         ],
-      ),
+      ],
     );
   }
 }
 
-/// The coin marks' side on a big square card ([sendAlsoSendsToCard]).
-const double kSendCoinStackCardMark = 30;
-
-/// "Also sends to" (or [title]: "To a crypto address") as the app's big
-/// square card (kute_action_cards.dart; founder, 5 November 2026: the
-/// Send recipient options "should be cards like squares"): the coin marks
-/// stacked at the top left, the title, "USDC, USDT, ETH and 16 more"
-/// under it; keyed `send-also-sends-to-row` as the row was, unless [key]
-/// names it (the Receive sheets' "Another crypto").
-KuteActionCard sendAlsoSendsToCard(
-  AppLocalizations l10n, {
-  required List<CoinAssetGroup> groups,
-  required VoidCallback onTap,
-  String? title,
-  String? subtitle,
-  Key? key,
-}) =>
-    KuteActionCard(
-      key: key ?? const ValueKey('send-also-sends-to-row'),
-      visual: SendCoinStack(groups: groups, mark: kSendCoinStackCardMark),
-      title: title ?? l10n.sendToCryptoAddress,
-      subtitle: subtitle ?? sendAlsoSendsToSummary(l10n, groups),
-      onTap: onTap,
-    );
-
-/// The Receive sheets' "Another crypto" card (founder, 7 November 2026:
-/// one-line titles; "Another crypto" for what was "Another wallet"), "Wallet
-/// or exchange · USDC, USDT, ETH +18" under it, the coins stacked, keyed
-/// [key].
-KuteActionCard receiveAnotherCryptoCard(
+/// THE "ANOTHER CRYPTO" CARD, one for the Receive sheets and both Sends
+/// (founder, 7 November 2026, on the old one, three overlapping coins over
+/// "Wallet or exchange · USDC, USDT, ETH +12": "this another crypto i do
+/// not like it is still confusing, too much text just strange and ugly"):
+/// the app's big card (kute_action_cards.dart), titled "Another crypto",
+/// ONE short line naming the two best-known coins offered, "USDC, ETH and
+/// more" ([anotherCryptoLine]), and those two coins' marks side by side,
+/// each whole, at the other cards' visual size ([AnotherCryptoMarks]).
+/// [groups] is what its tap lists, under the policy; keyed [key].
+KuteActionCard anotherCryptoCard(
   AppLocalizations l10n, {
   required List<CoinAssetGroup> groups,
   required VoidCallback onTap,
   required Key key,
 }) =>
-    sendAlsoSendsToCard(
-      l10n,
+    KuteActionCard(
       key: key,
-      groups: groups,
+      visual: AnotherCryptoMarks(coins: anotherCryptoNamedCoins(groups)),
       title: l10n.receiveAnotherCrypto,
-      subtitle: l10n
-          .receiveWalletOrExchangeLine(sendCoinsShortSummary(l10n, groups)),
+      subtitle: anotherCryptoLine(l10n, groups),
       onTap: onTap,
     );
+
+/// The key of the Sends' "Another crypto" card.
+const ValueKey<String> kSendAnotherCryptoKey =
+    ValueKey('send-another-crypto');
+
+/// The Sends' "Another crypto" (see the file header): [anotherCryptoCard]
+/// alone in its grid, so the compact full-width card, under the empty
+/// field; a tap opens the send's coin sheet ([onTap]). Nothing when
+/// [groups] holds no coin but bitcoin: the sheet would offer nothing the
+/// field does not already take.
+class SendAnotherCryptoCard extends StatelessWidget {
+  const SendAnotherCryptoCard({
+    super.key,
+    required this.groups,
+    required this.onTap,
+  });
+
+  final List<CoinAssetGroup> groups;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    if (anotherCryptoNamedCoins(groups).isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: EdgeInsets.only(top: 12.h),
+      child: KuteActionCardGrid(
+        cards: [
+          anotherCryptoCard(
+            context.l10n,
+            key: kSendAnotherCryptoKey,
+            groups: groups,
+            onTap: () {
+              HapticFeedback.lightImpact();
+              onTap();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 /// Whether [text] is a destination plain bitcoin pays (the Bitcoin Send's
 /// own rails): a bitcoin or Spark address, a Lightning invoice or offer, an
@@ -1002,101 +1012,6 @@ bool sendIsBitcoinRail(String text) {
   if (family == 'bitcoin' || family == 'spark') return true;
   return RegExp(r'^[a-z0-9._+\-]+@[a-z0-9\-]+(\.[a-z0-9\-]+)+$')
       .hasMatch(bare);
-}
-
-/// The coin marks' side in the crypto hint's stack.
-const double kSendCryptoHintMark = 18;
-
-/// The coins the crypto hint names: [groups] less bitcoin, which the line
-/// names itself, first.
-List<CoinAssetGroup> sendCryptoHintCoins(List<CoinAssetGroup> groups) => [
-      for (final g in groups)
-        if (g.key.toUpperCase() != 'BTC') g
-    ];
-
-/// "Send to Bitcoin, USDC, USDT, ETH and 18 more": Bitcoin, the first
-/// [SendCoinStack.stack] coins of [groups] by symbol and how many more;
-/// empty with no coin (the hint is then not shown).
-String sendCryptoHintLine(AppLocalizations l10n, List<CoinAssetGroup> groups) {
-  final coins = sendCryptoHintCoins(groups);
-  if (coins.isEmpty) return '';
-  final shown = coins.take(SendCoinStack.stack).toList();
-  final rest = coins.length - shown.length;
-  final names = [l10n.bitcoin, for (final g in shown) g.displaySymbol];
-  if (rest > 0) return l10n.sendCryptoHintMore(names.join(', '), rest);
-  return l10n.sendCryptoHint(l10n.sendAlsoSendsToList(
-      names.sublist(0, names.length - 1).join(', '), names.last));
-}
-
-/// THE CRYPTO HINT (see the file header): one quiet line under the empty
-/// field, the coins stacked and "Send to Bitcoin, USDC, USDT, ETH and 18
-/// more"; a tap opens the send's "Where to?" sheet as a browse list
-/// ([onTap]). Nothing when [groups] holds no coin: the sheet would open
-/// empty. [background] is the surface it sits on (the marks' rings).
-class SendCryptoHint extends StatelessWidget {
-  const SendCryptoHint({
-    super.key,
-    required this.groups,
-    required this.onTap,
-    this.background,
-  });
-
-  final List<CoinAssetGroup> groups;
-  final VoidCallback onTap;
-  final Color? background;
-
-  /// The line's style (shared with the fit test's measure).
-  static TextStyle lineStyle(AppColorsExtension c) => TextStyle(
-        color: c.textSecondary,
-        fontSize: 13.sp,
-        fontWeight: FontWeight.w500,
-        letterSpacing: -0.1,
-      );
-
-  @override
-  Widget build(BuildContext context) {
-    final coins = sendCryptoHintCoins(groups);
-    if (coins.isEmpty) return const SizedBox.shrink();
-    final c = context.colors;
-    final line = sendCryptoHintLine(context.l10n, groups);
-    void tap() {
-      HapticFeedback.selectionClick();
-      onTap();
-    }
-
-    return Semantics(
-      key: const ValueKey('send-crypto-hint'),
-      button: true,
-      label: line,
-      onTap: tap,
-      excludeSemantics: true,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: tap,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(4.w, 12.h, 4.w, 4.h),
-          child: Row(
-            children: [
-              SendCoinStack(
-                  groups: coins,
-                  mark: kSendCryptoHintMark,
-                  ringColor: background ?? c.background),
-              SizedBox(width: 8.w),
-              Flexible(
-                child: Text(
-                  line,
-                  key: const ValueKey('send-crypto-hint-line'),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: lineStyle(c),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 /// One of your own accounts, as the Send field's search finds it.

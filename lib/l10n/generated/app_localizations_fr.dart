@@ -11165,8 +11165,13 @@ class AppLocalizationsFr extends AppLocalizations {
   String get receiveAnotherCrypto => 'Autre crypto';
 
   @override
-  String receiveWalletOrExchangeLine(String coins) {
-    return 'Wallet ou plateforme · $coins';
+  String anotherCryptoCoinsAndMore(String coins) {
+    return '$coins et d\'autres';
+  }
+
+  @override
+  String anotherCryptoCoinsPair(String first, String second) {
+    return '$first et $second';
   }
 
   @override
@@ -12128,16 +12133,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get sendRecipientSearchHint => 'Nom, téléphone ou adresse crypto';
 
   @override
-  String sendCryptoHint(String coins) {
-    return 'Envoyer vers $coins';
-  }
-
-  @override
-  String sendCryptoHintMore(String coins, int count) {
-    return 'Envoyer vers $coins et $count de plus';
-  }
-
-  @override
   String get sendMoveToYourDollars => 'Transférer vers tes Dollars';
 
   @override
@@ -12254,21 +12249,6 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String usdSendResolvedRail(String network, String asset) {
     return '$network · $asset';
-  }
-
-  @override
-  String sendAlsoSendsToMore(String names, int count) {
-    return '$names et $count de plus';
-  }
-
-  @override
-  String coinsSummaryShort(String names, int count) {
-    return '$names +$count';
-  }
-
-  @override
-  String sendAlsoSendsToList(String names, String last) {
-    return '$names et $last';
   }
 
   @override
@@ -13971,9 +13951,6 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get sendToAFriendLabel => 'À un ami';
-
-  @override
-  String get sendToCryptoAddress => 'Vers une adresse crypto';
 
   @override
   String get sendPickRowSub =>
