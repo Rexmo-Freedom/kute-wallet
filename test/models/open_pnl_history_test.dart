@@ -273,8 +273,8 @@ void main() {
     });
 
     test(
-        'the ranges clip it, ending now; it opens on the shortest that '
-        'covers the oldest entry', () {
+        'the ranges clip it, ending now; the row offers the fixed ranges '
+        'shorter than the history, then ALL', () {
       final series = openPnlSeries(legs, _now)!;
       final week = kuteTrendWindow(series, series.spanFor(BalanceRange.week));
       expect(week.times.first.isBefore(_ago(const Duration(days: 7))),
@@ -287,15 +287,31 @@ void main() {
       final all = kuteTrendWindow(series, series.spanFor(BalanceRange.all));
       expect(all.times.first, series.times.first);
       expect(all.values.first, 0);
-      // The oldest entry 20 days back: a month covers it.
-      expect(openPnlDefaultRange(_ago(const Duration(days: 20)), _now),
-          BalanceRange.month);
-      expect(openPnlDefaultRange(_ago(const Duration(days: 3)), _now),
-          BalanceRange.week);
-      expect(openPnlDefaultRange(_ago(const Duration(days: 60)), _now),
-          BalanceRange.threeMonths);
-      expect(openPnlDefaultRange(_ago(const Duration(days: 400)), _now),
-          BalanceRange.all);
+      // Founder, 7 November 2026: the ranges up to the first that covers
+      // the history are offered, that one (it would draw ALL's window) and
+      // the longer ones are not; ALL always.
+      List<String> offered(int days) => [
+            for (final r in openPnlRanges(_ago(Duration(days: days)), _now))
+              r.label
+          ];
+      expect(offered(10), ['1W', 'ALL']);
+      expect(offered(50), ['1W', '1M', 'ALL']);
+      expect(offered(20), ['1W', 'ALL']);
+      expect(offered(60), ['1W', '1M', 'ALL']);
+      expect(offered(100), ['1W', '1M', '3M', 'ALL']);
+      expect(offered(400), ['1W', '1M', '3M', '1Y', 'ALL']);
+      // Under a week, nothing charted, or a range exactly as long as the
+      // history: nothing to pick but ALL.
+      expect(offered(3), ['ALL']);
+      expect(offered(7), ['ALL']);
+      expect(offered(30), ['1W', 'ALL']);
+      expect(openPnlRanges(null, _now), [BalanceRange.all]);
+      // A range not offered draws as ALL; one offered as itself.
+      final young = openPnlRanges(_ago(const Duration(days: 10)), _now);
+      expect(openPnlRangeShown(BalanceRange.year, young), BalanceRange.all);
+      expect(openPnlRangeShown(BalanceRange.month, young), BalanceRange.all);
+      expect(openPnlRangeShown(BalanceRange.week, young), BalanceRange.week);
+      expect(openPnlRangeShown(BalanceRange.all, young), BalanceRange.all);
     });
   });
 
@@ -538,47 +554,81 @@ void main() {
     });
 
     test(
-        'every range its own reach: a range older than the line is laid '
-        'again from its own start, zero before; ALL the whole line', () {
+        'a range longer than the history is ALL: the whole line from its '
+        'lead-in, never a flat stretch before it; a range inside the line '
+        'is its own window', () {
+      // Founder, 7 November 2026 (1Y on positions two days old: a long
+      // flat line, a spike at the end): "use ALL like it was before".
       final legs = [
         OpenPnlLeg(
             key: 'a',
             steps: [OpenPnlStep(_ago(const Duration(days: 2)), 1, 10)],
             prices: _hourly(3, (_) => 12)),
       ];
-      final changes = openPnlChanges(legs, _now);
+      final oldest = openPnlOldest(legs, _now);
       final series = openPnlSeries(legs, _now)!;
-      final firsts = <DateTime>{};
+      final all = openPnlRangeWindow(
+          series: series, oldest: oldest, now: _now, range: BalanceRange.all);
+      expect(all.times.first, series.times.first);
+      expect(all.values.first, 0);
+      expect(all.values.last, closeTo(2, 1e-9));
+      // The lead-in alone before the oldest entry: a twelfth of the line.
+      expect(
+          all.times.first.isAfter(_ago(const Duration(days: 2, hours: 5))),
+          isTrue);
       for (final r in BalanceRange.values) {
         final w = openPnlRangeWindow(
-            series: series, changes: changes, now: _now, range: r);
-        expect(w.values.last, closeTo(2, 1e-9), reason: r.label);
-        firsts.add(w.times.first);
-        if (r.duration case final back?) {
-          expect(w.times.first, _now.subtract(back), reason: r.label);
-          expect(w.values.first, 0, reason: r.label);
-        } else {
-          expect(w.times.first, series.times.first);
-        }
+            series: series, oldest: oldest, now: _now, range: r);
+        expect(w.times, all.times, reason: r.label);
+        expect(w.values, all.values, reason: r.label);
+        expect(w.daily, all.daily, reason: r.label);
       }
-      expect(firsts, hasLength(BalanceRange.values.length));
-      // A range inside the line is its window, nothing laid again.
+      expect(openPnlRanges(oldest, _now), [BalanceRange.all]);
+
+      // Forty days: 1W and 1M are their own windows (as the Balance
+      // charts clip them), 3M and 1Y are ALL's, the whole line.
       final long = [
         OpenPnlLeg(
             key: 'b',
             steps: [OpenPnlStep(_ago(const Duration(days: 40)), 1, 10)],
-            prices: _hourly(41, (_) => 12)),
+            prices: _hourly(41, (t) => 10 + t.hour / 10)),
       ];
+      final longOldest = openPnlOldest(long, _now);
       final longSeries = openPnlSeries(long, _now)!;
-      final week = openPnlRangeWindow(
-          series: longSeries,
-          changes: openPnlChanges(long, _now),
-          now: _now,
-          range: BalanceRange.week);
-      final clipped =
-          kuteTrendWindow(longSeries, longSeries.spanFor(BalanceRange.week));
-      expect(week.values, clipped.values);
-      expect(week.times, clipped.times);
+      ({List<double> values, List<DateTime> times, bool daily}) window(
+              BalanceRange r) =>
+          openPnlRangeWindow(
+              series: longSeries, oldest: longOldest, now: _now, range: r);
+      for (final r in const [BalanceRange.week, BalanceRange.month]) {
+        final clipped =
+            kuteTrendWindow(longSeries, longSeries.spanFor(r));
+        expect(window(r).values, clipped.values, reason: r.label);
+        expect(window(r).times, clipped.times, reason: r.label);
+        expect(
+            window(r)
+                .times
+                .first
+                .difference(_now.subtract(r.duration!))
+                .inHours
+                .abs(),
+            lessThanOrEqualTo(24),
+            reason: r.label);
+      }
+      final longAll = window(BalanceRange.all);
+      expect(longAll.times.first, longSeries.times.first);
+      for (final r in const [BalanceRange.threeMonths, BalanceRange.year]) {
+        expect(window(r).times, longAll.times, reason: r.label);
+        expect(window(r).values, longAll.values, reason: r.label);
+      }
+      expect(openPnlRanges(longOldest, _now),
+          [BalanceRange.week, BalanceRange.month, BalanceRange.all]);
+      // Each range offered a window of its own.
+      expect(
+          {
+            for (final r in openPnlRanges(longOldest, _now))
+              window(r).times.first
+          },
+          hasLength(3));
     });
   });
 }

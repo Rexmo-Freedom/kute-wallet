@@ -45,8 +45,10 @@
 //     line in place: no morph.
 //   * GOAL ([KuteTrendChart.goal], the Bitcoin home's next milestone,
 //     founder 6 November 2026): a 1 px dashed line at the goal in
-//     textTertiary, its label ("Next $500") in 11 sp over the line's left
-//     end on a surface-coloured backing, the goal counted in the scale.
+//     textTertiary, its label ("Next $500") a quiet 10 sp tag over the
+//     line's right end on a surface-coloured backing (founder, 7 November
+//     2026: over the left end it read as one more row of a header "too
+//     dense still"), the goal counted in the scale.
 //     The host decides when a goal is close enough to draw.
 //
 // Painters here never read Theme — the widget resolves colours once per
@@ -446,8 +448,8 @@ class _KuteTrendChartState extends State<KuteTrendChart>
               // The app's face (a painter's text has no inherited style).
               goalLabelStyle: DefaultTextStyle.of(context).style.copyWith(
                 color: c.textTertiary,
-                fontSize: 11.sp,
-                fontWeight: FontWeight.w600,
+                fontSize: 10.sp,
+                fontWeight: FontWeight.w500,
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
@@ -592,9 +594,11 @@ class _KuteTrendPainter extends CustomPainter {
           Offset(math.min(x + 3, size.width), yStart), hair);
     }
 
-    // The goal: a dashed line in textTertiary, its label over the left
-    // end on a backing in the surface colour, above the line (below it
-    // when the top has no room).
+    // The goal: a dashed line in textTertiary, its small label as a tag
+    // over the line's RIGHT end on a backing in the surface colour, above
+    // the line (below it when the top has no room); it never reads as a
+    // row of the header. Should that put it over the line's last point
+    // (the goal just above or below it), it ends just short of the point.
     if (g != null && g.value.isFinite) {
       final yGoal = yOf(g.value);
       final dash = Paint()
@@ -614,9 +618,16 @@ class _KuteTrendPainter extends CustomPainter {
         const gap = 3.0;
         final above = yGoal - gap - tp.height;
         final y = above >= 0 ? above : yGoal + gap;
-        canvas.drawRect(Rect.fromLTWH(0, y - 1, tp.width + 6, tp.height + 2),
+        var x = size.width - tp.width;
+        final last = Offset(xOf(n - 1, n), yOf(values.last));
+        final tag = Rect.fromLTWH(x - 4, y - 1, tp.width + 4, tp.height + 2);
+        if (tag.inflate(6).contains(last)) {
+          x = math.max(0, last.dx - 12 - tp.width);
+        }
+        canvas.drawRect(
+            Rect.fromLTWH(x - 4, y - 1, tp.width + 8, tp.height + 2),
             Paint()..color = surfaceColor);
-        tp.paint(canvas, Offset(0, y));
+        tp.paint(canvas, Offset(x, y));
       }
     }
 

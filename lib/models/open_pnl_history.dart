@@ -766,59 +766,59 @@ BalanceSeries openPnlGrid({
   );
 }
 
+/// THE RANGES A LINE OFFERS (founder, 7 November 2026, the Positions
+/// chart on 1Y with its positions opened lately: a long flat line, then a
+/// spike at the end, "use ALL like it was before"): every fixed range
+/// shorter than the line's history (from the oldest position, [oldest], to
+/// [now]), then ALL. A range as long as the history or longer would draw
+/// the whole line, ALL's window, so it is not offered (10 days: 1W and
+/// ALL; 50 days: 1W, 1M and ALL; under a week, or nothing charted: ALL
+/// alone). Shortest first, ALL last.
+List<BalanceRange> openPnlRanges(DateTime? oldest, DateTime now) {
+  final age = oldest == null ? Duration.zero : now.difference(oldest);
+  return [
+    for (final r in BalanceRange.values)
+      if (r.duration == null || r.duration! < age) r,
+  ];
+}
+
+/// [range] as a line offering [ranges] ([openPnlRanges]) draws it: itself
+/// when offered; else ALL, the whole line, which is what a range reaching
+/// back past the history shows (never a flat stretch before it).
+BalanceRange openPnlRangeShown(BalanceRange range, List<BalanceRange> ranges) =>
+    ranges.contains(range) ? range : BalanceRange.all;
+
 /// The points [range] draws of a line ([series], laid from its lead-in by
-/// [openPnlGrid] out of [changes]) ending [now]: EVERY RANGE
-/// SHOWS ITS OWN REACH (founder, 6 November 2026: "the Positions chart
-/// ignores the 1W/1M/3M/1Y/ALL buttons": a line younger than a range drew
-/// the same whole line on every range longer than it). A range that
-/// reaches back past the line's start is laid again from the range's
-/// start, held at 0 before the first position (nothing was open or
-/// realised then); ALL is the whole line from its lead-in; a range inside
-/// the line is its window ([BalanceSeries.spanFor]). The buckets are the
-/// range's own ([kuteTrendWindow]'s rule). With [daily] whether a bucket
-/// is a day or more, so a moment is written as a day.
+/// [openPnlGrid]) whose oldest position opened at [oldest], ending [now]:
+/// a range shorter than the history is its own window, ending now
+/// ([BalanceSeries.spanFor]); one as long or longer is ALL
+/// ([openPnlRangeShown]): the whole line from its lead-in, so the line
+/// always fills the width. The buckets are the window's own
+/// ([kuteTrendWindow]'s rule). With [daily] whether a bucket is a day or
+/// more, so a moment is written as a day.
 ({List<double> values, List<DateTime> times, bool daily}) openPnlRangeWindow({
   required BalanceSeries series,
-  required List<(DateTime, double)> changes,
+  required DateTime? oldest,
   required DateTime now,
   required BalanceRange range,
 }) {
-  final back = range.duration;
-  var grid = series;
-  var span = series.spanFor(range);
-  if (back != null && series.length > 0) {
-    final from = now.toLocal().subtract(back);
-    if (series.times.first.isAfter(from)) {
-      grid = openPnlGrid(changes: changes, first: from, now: now.toLocal());
-      span = grid.extent;
-    }
-  }
-  final n = grid.length;
+  final n = series.length;
   if (n == 0) return (values: const [], times: const [], daily: false);
-  final start = (grid.extent - span).ceil().clamp(0, n - 1).toInt();
-  final stride = grid.strideFor(span);
+  final shown = openPnlRangeShown(range, openPnlRanges(oldest, now));
+  final span = series.spanFor(shown);
+  final start = (series.extent - span).ceil().clamp(0, n - 1).toInt();
+  final stride = series.strideFor(span);
   final values = <double>[];
   final times = <DateTime>[];
   for (var i = start; i < n; i++) {
-    if (i == start || grid.isDrawn(i, stride)) {
-      values.add(grid.values[i]);
-      times.add(grid.times[i]);
+    if (i == start || series.isDrawn(i, stride)) {
+      values.add(series.values[i]);
+      times.add(series.times[i]);
     }
   }
   return (
     values: values,
     times: times,
-    daily: grid.strideFor(span) * grid.cellMinutes >= 1440,
+    daily: stride * series.cellMinutes >= 1440,
   );
-}
-
-/// The range the chart opens on: the shortest whose reach covers the
-/// oldest open position's entry ([oldestOpen]), ALL past a year.
-BalanceRange openPnlDefaultRange(DateTime oldestOpen, DateTime now) {
-  final age = now.difference(oldestOpen);
-  for (final r in BalanceRange.values) {
-    final d = r.duration;
-    if (d == null || age <= d) return r;
-  }
-  return BalanceRange.all;
 }
