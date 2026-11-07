@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/screens/shared/fitted_title.dart';
 import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
@@ -50,6 +52,7 @@ import 'package:kute/screens/polymarket/components/game_side_button.dart';
 import 'package:kute/screens/polymarket/components/live_token_scope.dart';
 import 'package:kute/screens/polymarket/components/poly_watch_star.dart';
 import 'package:kute/screens/shared/kute_motion.dart';
+import 'package:kute/theme/kute_motion.dart' show KuteMotion;
 import 'package:kute/screens/polymarket/polymarket_screen.dart'
     show CryptoPredictBanner;
 
@@ -688,6 +691,10 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
                         // your map", one market per state) or its races
                         // split by party, above its outcomes; nothing for
                         // any other event (special_event_section.dart).
+                        // Send mode's bar brings the outcomes up to here.
+                        if (!event.isBinary)
+                          SliverToBoxAdapter(
+                              child: SizedBox(key: _outcomesAnchor)),
                         if (!event.isBinary)
                           PolySpecialEventSection.sliver(event,
                               onPickOutcome: _openCandidateDetail),
@@ -745,7 +752,28 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   /// "Send to a friend", folding into that same round button while the
   /// page scrolls down (kute_shell_bar.dart). Either sends the market at
   /// once (kute_share_actions.dart); a prediction is sent from its slip.
+  ///
+  /// A candidate opened as its own Yes / No page (the ↑76,000 row of an
+  /// event, [_openCandidateDetail]) shares that market alone, its card and
+  /// its link, by the candidate's name on the event (founder, 7 November
+  /// 2026: "sharing here should be just the yes or no. only here is the
+  /// full market"); the event's page shares the whole event.
+  ///
+  /// SEND MODE never offers the look-only link (send_pick_session.dart):
+  /// an event's bar says "Pick an outcome · You're buying it for Ana", a
+  /// tap bringing the outcomes into view; a Yes / No page's trade row
+  /// sends ([_buildTradeBar]).
   KuteBarContext _barContext() {
+    if (widget.sendPick case final send?) {
+      return sendPickInfoBar(
+        context,
+        send,
+        onTap: _showOutcomes,
+        category: SearchCategory.predictions,
+        searchHint: context.l10n.searchPredictionsHint,
+        source: 'predictions',
+      );
+    }
     return marketBarContext(
       context,
       title: event.displayTitle,
@@ -757,7 +785,24 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       category: SearchCategory.predictions,
       searchHint: context.l10n.searchPredictionsHint,
       source: 'predictions',
+      candidate: event.isSyntheticBinary ? event.title : null,
     );
+  }
+
+  /// Where the outcomes start on an event's page: send mode's bar brings
+  /// them into view ([_showOutcomes]).
+  final GlobalKey _outcomesAnchor = GlobalKey();
+
+  /// Send mode's bar on an event: the outcomes to the top of the page
+  /// (eased; at once under Reduce Motion), where one is picked.
+  void _showOutcomes() {
+    final target = _outcomesAnchor.currentContext;
+    if (target == null) return;
+    unawaited(Scrollable.ensureVisible(
+      target,
+      duration: kuteMotion(context, KuteMotion.sheetInDuration),
+      curve: KuteMotion.settle,
+    ));
   }
 
   /// Close, the event's image and title (up to two lines) and the
@@ -2510,11 +2555,18 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       }();
       // YES / NO outcome tokens keep their localized display labels; any
       // other side label (teams, Over/Under, Up/Down) passes through.
-      String displayFor(String l) => l.toUpperCase() == 'YES'
+      String side(String l) => l.toUpperCase() == 'YES'
           ? context.l10n.yes
           : l.toUpperCase() == 'NO'
               ? context.l10n.betNo
               : l;
+      // SEND MODE (send_pick_session.dart): each pill says it sends
+      // ("Send Yes 18.5%"), the green and red kept, and the round Sal
+      // button is away: no look-only link while sending.
+      final sending = widget.sendPick != null;
+      String displayFor(String l) => sending
+          ? sendPickTradeLabel(context.l10n, side(l))
+          : side(l);
       return KuteBarContextScope(
         barContext: KuteBarContext.trade(
           trades: [
@@ -2533,7 +2585,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
               onTap: () => _openBetSlip('no'),
             ),
           ],
-          share: KuteBarShare(barContext: bar),
+          share: sending ? null : KuteBarShare(barContext: bar),
           category: SearchCategory.predictions,
           searchHint: context.l10n.searchPredictionsHint,
           source: 'predictions',

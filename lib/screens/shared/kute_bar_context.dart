@@ -325,10 +325,12 @@ class KuteBarContext {
   /// the round Sal button, at the row's end. The page draws no row of its
   /// own and scrolls its content clear of the bar
   /// ([kuteBarScrollClearance]). Sal's `share` clip: the bar arrives on
-  /// the page as a market's does (its intro), but never folds.
+  /// the page as a market's does (its intro), but never folds. A page in
+  /// send mode passes no [share]: the pills alone, no look-only link
+  /// (screens/share/send_pick_session.dart).
   const KuteBarContext.trade({
     required this.trades,
-    required KuteBarShare this.share,
+    required this.share,
     this.category = SearchCategory.all,
     this.searchHint,
     this.source = 'bar',
@@ -483,7 +485,7 @@ class KuteBarContext {
   KuteBarContext boundTo(Route<dynamic>? route) => isTrade
       ? KuteBarContext.trade(
           trades: trades,
-          share: share!,
+          share: share,
           category: category,
           searchHint: searchHint,
           source: source,

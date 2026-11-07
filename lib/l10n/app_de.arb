@@ -3959,5 +3959,10 @@
   "slipSendCta": "{amount} senden · {side}",
   "slipSendYesOnly": "Nur Ja auf {outcome} kann gesendet werden",
   "sendPickChipFriend": "An eine Freundin oder einen Freund",
-  "sendPickSearchHint": "Markt zum Senden suchen"
+  "sendPickSearchHint": "Markt zum Senden suchen",
+  "sendPickChipForNamed": "Für {name}",
+  "sendPickTradeSide": "{side} senden",
+  "sendPickBarPickOutcome": "Wähle ein Ergebnis",
+  "sendPickBarBuyingFor": "Du kaufst es für {name}",
+  "sendPickBarBuyingForFriend": "Du kaufst es als Geschenk"
 }

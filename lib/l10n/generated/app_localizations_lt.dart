@@ -1,5 +1,6 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
+
 import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
@@ -3260,7 +3261,10 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String sendAmountUnitAvailableWithFiat(
-      String amount, String unit, String fiat) {
+    String amount,
+    String unit,
+    String fiat,
+  ) {
     return 'Prieinama $amount $unit · $fiat';
   }
 
@@ -5608,7 +5612,8 @@ class AppLocalizationsLt extends AppLocalizations {
   String get feeUiBehindHoldingBitcoin => 'Prasčiau nei laikant Bitcoin.';
 
   @override
-  String get feeUiIncludedInTheConversionNetworkFeesAndExchangeRateSpreadMayAlsoApply =>
+  String
+  get feeUiIncludedInTheConversionNetworkFeesAndExchangeRateSpreadMayAlsoApply =>
       'Įskaičiuota į konvertavimą. Taip pat gali būti taikomi tinklo mokesčiai ir valiutos kurso skirtumas.';
 
   @override
@@ -6892,7 +6897,11 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String betLimitSellPartial(
-      String sold, String total, String price, String remaining) {
+    String sold,
+    String total,
+    String price,
+    String remaining,
+  ) {
     return 'Parduota $sold iš $total vnt. po $price. $remaining vnt. vis dar parduodama jūsų kaina.';
   }
 
@@ -7024,7 +7033,10 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String stepUpReasonWithdrawWithSourceFee(
-      String amount, String fee, String total) {
+    String amount,
+    String fee,
+    String total,
+  ) {
     return 'Patvirtinkite $amount išėmimą su iki $fee tinklo mokesčiu. Maksimali nurašoma suma: $total.';
   }
 
@@ -8659,7 +8671,12 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String slipExplainScale(
-      int count, String start, String end, String action, String extra) {
+    int count,
+    String start,
+    String end,
+    String action,
+    String extra,
+  ) {
     return 'Pateikia $count limitinius pavedimus tarp $start ir $end; kiekvienas $action.$extra';
   }
 
@@ -8670,25 +8687,43 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String slipExplainStopMarket(
-      String coin, String trigger, String action, String extra) {
+    String coin,
+    String trigger,
+    String action,
+    String extra,
+  ) {
     return 'Laukia, kol $coin kaina pasieks $trigger, tada siunčia rinkos pavedimą, kuris $action.$extra';
   }
 
   @override
   String slipExplainStopLimit(
-      String coin, String trigger, String limit, String action, String extra) {
+    String coin,
+    String trigger,
+    String limit,
+    String action,
+    String extra,
+  ) {
     return 'Laukia, kol $coin kaina pasieks $trigger, tada pateikia limitinį pavedimą ties $limit, kuris $action.$extra';
   }
 
   @override
   String slipExplainTakeMarket(
-      String coin, String trigger, String action, String extra) {
+    String coin,
+    String trigger,
+    String action,
+    String extra,
+  ) {
     return 'Fiksuoja pelną: kai $coin pasiekia $trigger, rinkos pavedimas $action.$extra';
   }
 
   @override
   String slipExplainTakeLimit(
-      String coin, String trigger, String limit, String action, String extra) {
+    String coin,
+    String trigger,
+    String limit,
+    String action,
+    String extra,
+  ) {
     return 'Fiksuoja pelną: kai $coin pasiekia $trigger, limitinis pavedimas ties $limit $action.$extra';
   }
 
@@ -10806,151 +10841,123 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String slipCtaAddTo(String side, String amount) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Didinti long poziciją · $amount',
-        'other': 'Didinti short poziciją · $amount',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Didinti long poziciją · $amount',
+      'other': 'Didinti short poziciją · $amount',
+    });
     return '$_temp0';
   }
 
   @override
   String slipCtaReduce(String side, String amount) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Mažinti long poziciją · $amount',
-        'other': 'Mažinti short poziciją · $amount',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Mažinti long poziciją · $amount',
+      'other': 'Mažinti short poziciją · $amount',
+    });
     return '$_temp0';
   }
 
   @override
   String slipCtaClose(String side) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Uždaryti long poziciją',
-        'other': 'Uždaryti short poziciją',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Uždaryti long poziciją',
+      'other': 'Uždaryti short poziciją',
+    });
     return '$_temp0';
   }
 
   @override
   String slipCtaFlip(String side, String amount) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Apversti į long · $amount',
-        'other': 'Apversti į short · $amount',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Apversti į long · $amount',
+      'other': 'Apversti į short · $amount',
+    });
     return '$_temp0';
   }
 
   @override
   String slipPositionAdds(String side, String size, String coin) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Turite long poziciją: $size $coin — tai ją padidins',
-        'other': 'Turite short poziciją: $size $coin — tai ją padidins',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Turite long poziciją: $size $coin — tai ją padidins',
+      'other': 'Turite short poziciją: $size $coin — tai ją padidins',
+    });
     return '$_temp0';
   }
 
   @override
   String slipPositionReduces(
-      String side, String size, String remaining, String coin) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long':
-            'Turite long poziciją: $size $coin — tai ją sumažins iki $remaining $coin',
-        'other':
-            'Turite short poziciją: $size $coin — tai ją sumažins iki $remaining $coin',
-      },
-    );
+    String side,
+    String size,
+    String remaining,
+    String coin,
+  ) {
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long':
+          'Turite long poziciją: $size $coin — tai ją sumažins iki $remaining $coin',
+      'other':
+          'Turite short poziciją: $size $coin — tai ją sumažins iki $remaining $coin',
+    });
     return '$_temp0';
   }
 
   @override
   String slipPositionCloses(String side, String size, String coin) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Turite long poziciją: $size $coin — tai ją uždarys',
-        'other': 'Turite short poziciją: $size $coin — tai ją uždarys',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Turite long poziciją: $size $coin — tai ją uždarys',
+      'other': 'Turite short poziciją: $size $coin — tai ją uždarys',
+    });
     return '$_temp0';
   }
 
   @override
   String slipPositionFlips(
-      String side, String size, String remainder, String coin) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long':
-            'Turite long poziciją: $size $coin — tai ją uždarys ir atidarys short poziciją: $remainder $coin',
-        'other':
-            'Turite short poziciją: $size $coin — tai ją uždarys ir atidarys long poziciją: $remainder $coin',
-      },
-    );
+    String side,
+    String size,
+    String remainder,
+    String coin,
+  ) {
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long':
+          'Turite long poziciją: $size $coin — tai ją uždarys ir atidarys short poziciją: $remainder $coin',
+      'other':
+          'Turite short poziciją: $size $coin — tai ją uždarys ir atidarys long poziciją: $remainder $coin',
+    });
     return '$_temp0';
   }
 
   @override
   String hlReceiptAddedTo(String side) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Long pozicija padidinta',
-        'other': 'Short pozicija padidinta',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Long pozicija padidinta',
+      'other': 'Short pozicija padidinta',
+    });
     return '$_temp0';
   }
 
   @override
   String hlReceiptReduced(String side, String size, String coin) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Long pozicija sumažinta · $size $coin',
-        'other': 'Short pozicija sumažinta · $size $coin',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Long pozicija sumažinta · $size $coin',
+      'other': 'Short pozicija sumažinta · $size $coin',
+    });
     return '$_temp0';
   }
 
   @override
   String hlReceiptClosed(String side) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Long pozicija uždaryta',
-        'other': 'Short pozicija uždaryta',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Long pozicija uždaryta',
+      'other': 'Short pozicija uždaryta',
+    });
     return '$_temp0';
   }
 
   @override
   String hlReceiptFlipped(String side, String size, String coin) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Apversta į long · $size $coin',
-        'other': 'Apversta į short · $size $coin',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Apversta į long · $size $coin',
+      'other': 'Apversta į short · $size $coin',
+    });
     return '$_temp0';
   }
 
@@ -11019,13 +11026,10 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String slipAddsToYourPosition(String side) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Didina tavo Long poziciją',
-        'other': 'Didina tavo Short poziciją',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Didina tavo Long poziciją',
+      'other': 'Didina tavo Short poziciją',
+    });
     return '$_temp0';
   }
 
@@ -11245,13 +11249,19 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String moneyStepMovingFromTo(
-      String amount, String source, String destination) {
+    String amount,
+    String source,
+    String destination,
+  ) {
     return 'Perkeliama $amount: $source → $destination';
   }
 
   @override
   String moneyStepMovedFromTo(
-      String amount, String source, String destination) {
+    String amount,
+    String source,
+    String destination,
+  ) {
     return 'Perkelta $amount: $source → $destination';
   }
 
@@ -11315,7 +11325,11 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String moneyStepMovingTwo(
-      String amount1, String source1, String amount2, String source2) {
+    String amount1,
+    String source1,
+    String amount2,
+    String source2,
+  ) {
     return 'Perkeliama $amount1 iš $source1 ir $amount2 iš $source2';
   }
 
@@ -11863,25 +11877,43 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String shareMessagePredictionNamed(
-      String name, String outcome, String title, String amount, String url) {
+    String name,
+    String outcome,
+    String title,
+    String amount,
+    String url,
+  ) {
     return '$name, siunčiu tau prognozę per Kute: $title: $outcome, $amount. Atsiimk: $url';
   }
 
   @override
   String shareMessagePredictionUnnamed(
-      String outcome, String title, String amount, String url) {
+    String outcome,
+    String title,
+    String amount,
+    String url,
+  ) {
     return 'Siunčiu tau prognozę per Kute: $title: $outcome, $amount. Atsiimk: $url';
   }
 
   @override
   String shareMessageInvestmentNamed(
-      String name, String outcome, String title, String amount, String url) {
+    String name,
+    String outcome,
+    String title,
+    String amount,
+    String url,
+  ) {
     return '$name, siunčiu tau investiciją per Kute: $title: $outcome, $amount. Atsiimk: $url';
   }
 
   @override
   String shareMessageInvestmentUnnamed(
-      String outcome, String title, String amount, String url) {
+    String outcome,
+    String title,
+    String amount,
+    String url,
+  ) {
     return 'Siunčiu tau investiciją per Kute: $title: $outcome, $amount. Atsiimk: $url';
   }
 
@@ -12680,7 +12712,10 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String shareCardHeadlineSportsVs(
-      String outcome, String chance, String opponent) {
+    String outcome,
+    String chance,
+    String opponent,
+  ) {
     return 'Favoritas: $outcome ($chance) vs $opponent';
   }
 
@@ -13779,13 +13814,22 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String shareMessageChallengeNamed(
-      String name, String outcome, String title, String amount, String url) {
+    String name,
+    String outcome,
+    String title,
+    String amount,
+    String url,
+  ) {
     return '$name, mano pasirinkimas: $outcome rinkoje $title. Rinkis kitą pusę arba prisijunk. $amount aš vaišinu: $url';
   }
 
   @override
   String shareMessageChallengeUnnamed(
-      String outcome, String title, String amount, String url) {
+    String outcome,
+    String title,
+    String amount,
+    String url,
+  ) {
     return 'Mano pasirinkimas: $outcome rinkoje $title. Rinkis kitą pusę arba prisijunk. $amount aš vaišinu: $url';
   }
 
@@ -14081,4 +14125,25 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get sendPickSearchHint => 'Ieškoti rinkos siuntimui';
+
+  @override
+  String sendPickChipForNamed(String name) {
+    return 'Gavėjas: $name';
+  }
+
+  @override
+  String sendPickTradeSide(String side) {
+    return 'Siųsti $side';
+  }
+
+  @override
+  String get sendPickBarPickOutcome => 'Pasirinkite baigtį';
+
+  @override
+  String sendPickBarBuyingFor(String name) {
+    return 'Perkate jūs, gauna $name';
+  }
+
+  @override
+  String get sendPickBarBuyingForFriend => 'Perkate draugui';
 }

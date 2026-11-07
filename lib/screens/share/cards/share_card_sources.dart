@@ -17,7 +17,11 @@
 //     colours, and their real histories over the range the page opens on
 //     (polyChartAutoRange, the same history provider and cache); left out
 //     (the speedometer) until two of them have landed, never a made-up
-//     line.
+//     line. ONE MARKET OF A GROUPED EVENT shared from its own Yes / No
+//     page (`candidate`, the ↑76,000 row of "What price will Bitcoin hit
+//     November 2-8?"): that market alone, as a Yes / No market's card,
+//     its question, its Yes chance and its own week, never the event's
+//     other outcomes or their chart.
 //   * An Investing market ([investmentCardFor]): the market by its coin
 //     (hyperliquidAccountMarketProvider), the live mid, today's change
 //     against the previous day's price, and the last 30 daily closes
@@ -220,6 +224,8 @@ List<ShareCardOutcomeLine>? shareCardMarketLines(
 /// A prediction market's card (see the file header). [outcome] is the pick
 /// sent (null: the market shared, its leading outcome); [chance] (0–100)
 /// and [imageUrl] are what the page had, used until the event lands.
+/// [candidate] (the market shared, no pick): the one market of the event
+/// the page was about, by its name on the event; its own Yes / No card.
 PredictionCardData predictionCardFor(
   ShareCardWatch watch, {
   required String? slug,
@@ -233,6 +239,7 @@ PredictionCardData predictionCardFor(
   String? recipient,
   String? referralCode,
   ShareCardAudience audience = ShareCardAudience.sender,
+  String? candidate,
 }) {
   final dare = picked && challenge;
   final s = slug?.trim() ?? '';
@@ -263,6 +270,16 @@ PredictionCardData predictionCardFor(
     );
   }
   final e = event;
+  final one = picked ? '' : candidate?.trim().toLowerCase() ?? '';
+  if (one.isNotEmpty) {
+    return _candidateCard(watch, e, one,
+        title: title,
+        chance: chance,
+        imageUrl: imageUrl,
+        referralCode: referralCode,
+        recipient: recipient,
+        audience: audience);
+  }
   final binary = e.isBinary;
   final outcomes = e.outcomes;
   // The outcome the card is about and its chance now.
@@ -363,6 +380,74 @@ PredictionCardData predictionCardFor(
     lines: lines,
     recipient: recipient,
     referralCode: referralCode,
+    audience: audience,
+  );
+}
+
+/// One market of the grouped event [e] as its own Yes / No card (see the
+/// file header): [name] is the candidate's name on the event, lowercased.
+/// Its question, its Yes chance now, its own week of history, its own
+/// picture; never another outcome. A candidate the event no longer lists
+/// keeps what the page handed over ([title], [chance], [imageUrl]).
+PredictionCardData _candidateCard(
+  ShareCardWatch watch,
+  PolymarketEvent e,
+  String name, {
+  required String title,
+  double? chance,
+  String? imageUrl,
+  String? referralCode,
+  String? recipient,
+  required ShareCardAudience audience,
+}) {
+  final index =
+      e.outcomes.indexWhere((o) => o.name.trim().toLowerCase() == name);
+  if (index < 0) {
+    return PredictionCardData(
+      question: title,
+      outcome: 'Yes',
+      chance: chance,
+      topic: shareCardTopicOf(e),
+      leading: chance == null || chance >= 50,
+      imageUrl: imageUrl,
+      referralCode: referralCode,
+      recipient: recipient,
+      audience: audience,
+    );
+  }
+  final o = e.outcomes[index];
+  final pct = o.price.clamp(0.0, 1.0) * 100;
+  List<double>? series;
+  final t = o.tokenId;
+  if (t != null && t.isNotEmpty) {
+    try {
+      final points =
+          watch(polymarketMarketHistoryProvider((tokenId: t, interval: '1w')))
+              .valueOrNull;
+      if (points != null && points.length >= 2) {
+        series = shareCardThin([for (final p in points) p.price]);
+      }
+    } catch (_) {
+      series = null;
+    }
+  }
+  // The page's own picture (the candidate's crest or portrait), else the
+  // candidate's, else the event's.
+  final crest = PolymarketEvent.logoFromTeams(e.teams, o.name);
+  final picture = [imageUrl, crest, o.imageUrl, e.imageUrl]
+      .firstWhere((u) => u != null && u.isNotEmpty, orElse: () => null);
+  return PredictionCardData(
+    question: polyMarketDisplayTitle(e.title,
+        question: o.question, itemTitle: o.name),
+    // The Yes side, as the page's own figure ("Yes chance 94%").
+    outcome: 'Yes',
+    chance: pct,
+    topic: shareCardTopicOf(e),
+    leading: pct >= 50,
+    imageUrl: picture,
+    series: series,
+    referralCode: referralCode,
+    recipient: recipient,
     audience: audience,
   );
 }

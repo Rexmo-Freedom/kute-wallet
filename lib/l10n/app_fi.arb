@@ -3959,5 +3959,10 @@
   "slipSendCta": "Lähetä {amount} · {side}",
   "slipSendYesOnly": "Vain Kyllä kohteeseen {outcome} voidaan lähettää",
   "sendPickChipFriend": "Lähetetään ystävälle",
-  "sendPickSearchHint": "Hae lähetettävä markkina"
+  "sendPickSearchHint": "Hae lähetettävä markkina",
+  "sendPickChipForNamed": "Saaja: {name}",
+  "sendPickTradeSide": "Lähetä {side}",
+  "sendPickBarPickOutcome": "Valitse lopputulos",
+  "sendPickBarBuyingFor": "Ostat sen, ja {name} saa sen",
+  "sendPickBarBuyingForFriend": "Ostat sen ystävälle"
 }

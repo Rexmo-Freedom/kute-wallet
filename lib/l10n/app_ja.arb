@@ -3959,5 +3959,10 @@
   "slipSendCta": "{amount}を送る · {side}",
   "slipSendYesOnly": "{outcome}は「はい」だけ送れます",
   "sendPickChipFriend": "友だちに送る",
-  "sendPickSearchHint": "送るマーケットを検索"
+  "sendPickSearchHint": "送るマーケットを検索",
+  "sendPickChipForNamed": "{name}さんへ",
+  "sendPickTradeSide": "{side}を送る",
+  "sendPickBarPickOutcome": "結果を選んでください",
+  "sendPickBarBuyingFor": "{name}さんのために購入します",
+  "sendPickBarBuyingForFriend": "友だちのために購入します"
 }

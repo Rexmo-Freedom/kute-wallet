@@ -23,12 +23,36 @@
 // down the search sheet's own tree through [SendPickScope].
 //
 // [SendPickChip] says it on every surface of the flow, at the top: "For
-// Ana", "Sending to a friend" (the search sheet's scope chip look).
+// Ana", "Sending to a friend", with the gift glyph. Founder, 7 November
+// 2026 ("the sending to a friend should be more clear"): the search
+// sheet's scope chip shape in the app's primary ink (the primary
+// button's own fill and contrast), so it reads as the state the page is
+// in, not as one more grey control; its "For Ana" is the sender's
+// ([sendPickChipForNamed]), never the card's "Ana, for you".
+//
+// A MARKET PAGE IN SEND MODE NEVER OFFERS THE LOOK-ONLY LINK (founder, 7
+// November 2026: "the link to look at it should say you are buying this
+// for your friend as an info"; "same here"). The page's bar says what is
+// happening instead of "Send to a friend · They get a link to look at
+// it":
+//
+//   * an event of several outcomes (a game's board too):
+//     [sendPickInfoBar], the Sal pill reading "Pick an outcome · You're
+//     buying it for Ana" ("... for your friend" with no contact); a tap
+//     brings the outcomes into view, and nothing on it sends anything;
+//   * one Yes / No market, or an Investing market: the trade row stays
+//     the bar, in its green and red, each pill saying it sends
+//     ([sendPickTradeLabel]: "Send Yes 18.5%", "Send Long", "Send
+//     Short"), and the round Sal share button is away. Each pill opens the
+//     slip in send mode, whose primary is the send (slip_share.dart).
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/providers/unified_search_provider.dart'
+    show SearchCategory;
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/services/runtime_capabilities_service.dart'
     show RuntimeCapabilitiesService;
 import 'package:kute/theme/app_theme.dart';
@@ -134,9 +158,10 @@ class SendPickScope extends InheritedWidget {
 }
 
 /// The small chip at the top of every send-mode surface: "For Ana" when a
-/// contact was picked, else "Sending to a friend". The search sheet's
-/// scope chip look (28 high, the light surface, 13 w500), a gift glyph
-/// before the words.
+/// contact was picked, else "Sending to a friend" (see the file header).
+/// The search sheet's scope chip shape (28 high, 13 sp), in the primary
+/// button's ink: its fill, the words and the gift glyph in its contrast,
+/// w600.
 class SendPickChip extends StatelessWidget {
   const SendPickChip({super.key, required this.session});
 
@@ -147,13 +172,15 @@ class SendPickChip extends StatelessWidget {
     final name = session.recipientName;
     return name == null
         ? context.l10n.sendPickChipFriend
-        : context.l10n.shareCardForNamed(name);
+        : context.l10n.sendPickChipForNamed(name);
   }
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final text = label(context, session);
+    final fill = c.textPrimary;
+    final ink = contrastingOnColor(fill);
     return Semantics(
       label: text,
       excludeSemantics: true,
@@ -162,14 +189,16 @@ class SendPickChip extends StatelessWidget {
         height: 28,
         padding: EdgeInsets.symmetric(horizontal: 10.w),
         decoration: BoxDecoration(
-          color: c.surfaceLight,
+          color: fill,
           borderRadius: BorderRadius.circular(14),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.card_giftcard_rounded,
-                size: 15, color: c.textSecondary),
+                key: const ValueKey('send-pick-chip-gift'),
+                size: 15,
+                color: ink),
             SizedBox(width: 6.w),
             Flexible(
               child: Text(
@@ -177,9 +206,9 @@ class SendPickChip extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: c.textPrimary,
+                  color: ink,
                   fontSize: 13.sp,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w600,
                   letterSpacing: -0.2,
                 ),
               ),
@@ -189,4 +218,68 @@ class SendPickChip extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The bar's words under "Pick an outcome" in send mode: who the pick is
+/// bought for, by the contact's name when Send had one.
+String sendPickBuyingFor(AppLocalizations l10n, SendPickSession session) {
+  final name = session.recipientName;
+  return name == null
+      ? l10n.sendPickBarBuyingForFriend
+      : l10n.sendPickBarBuyingFor(name);
+}
+
+/// A trade pill's words in send mode (see the file header): "Send Yes",
+/// "Send Short"; [side] is the pill's own word.
+String sendPickTradeLabel(AppLocalizations l10n, String side) =>
+    l10n.sendPickTradeSide(side);
+
+/// The bar of a market page in send mode with no Yes / No pair (see the
+/// file header): "Pick an outcome · You're buying it for Ana". [onTap]
+/// is all a tap does (the page brings its outcomes into view): never the
+/// Sal sheet, never a link. The `share` clip keeps the market page's
+/// movement (the pill folds while the page scrolls down).
+KuteBarContext sendPickInfoBar(
+  BuildContext context,
+  SendPickSession session, {
+  required VoidCallback onTap,
+  required SearchCategory category,
+  String? searchHint,
+  required String source,
+}) =>
+    _SendPickInfoBar(
+      label: context.l10n.sendPickBarPickOutcome,
+      sublabel: sendPickBuyingFor(context.l10n, session),
+      category: category,
+      searchHint: searchHint,
+      source: source,
+      onTap: onTap,
+    );
+
+class _SendPickInfoBar extends KuteBarContext {
+  const _SendPickInfoBar({
+    required super.label,
+    required super.sublabel,
+    required super.category,
+    required super.searchHint,
+    required super.source,
+    required this.onTap,
+    super.route,
+  }) : super(clip: 'share');
+
+  final VoidCallback onTap;
+
+  @override
+  VoidCallback? get directAction => onTap;
+
+  @override
+  KuteBarContext boundTo(Route<dynamic>? route) => _SendPickInfoBar(
+        label: label,
+        sublabel: sublabel,
+        category: category,
+        searchHint: searchHint,
+        source: source,
+        onTap: onTap,
+        route: route,
+      );
 }

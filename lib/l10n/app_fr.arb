@@ -3959,5 +3959,10 @@
   "slipSendCta": "Envoyer {amount} · {side}",
   "slipSendYesOnly": "Seul Oui sur {outcome} peut être envoyé",
   "sendPickChipFriend": "Envoi à un ami",
-  "sendPickSearchHint": "Chercher un marché à envoyer"
+  "sendPickSearchHint": "Chercher un marché à envoyer",
+  "sendPickChipForNamed": "Pour {name}",
+  "sendPickTradeSide": "Envoyer {side}",
+  "sendPickBarPickOutcome": "Choisissez une issue",
+  "sendPickBarBuyingFor": "Vous l'achetez pour {name}",
+  "sendPickBarBuyingForFriend": "Vous l'achetez pour un ami"
 }

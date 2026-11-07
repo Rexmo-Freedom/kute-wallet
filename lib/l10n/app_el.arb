@@ -3959,5 +3959,10 @@
   "slipSendCta": "Αποστολή {amount} · {side}",
   "slipSendYesOnly": "Μόνο το Ναι στο {outcome} μπορεί να σταλεί",
   "sendPickChipFriend": "Αποστολή σε φίλο",
-  "sendPickSearchHint": "Αναζήτηση αγοράς για αποστολή"
+  "sendPickSearchHint": "Αναζήτηση αγοράς για αποστολή",
+  "sendPickChipForNamed": "Για: {name}",
+  "sendPickTradeSide": "Αποστολή {side}",
+  "sendPickBarPickOutcome": "Διάλεξε ένα αποτέλεσμα",
+  "sendPickBarBuyingFor": "Το αγοράζεις για: {name}",
+  "sendPickBarBuyingForFriend": "Το αγοράζεις για έναν φίλο"
 }

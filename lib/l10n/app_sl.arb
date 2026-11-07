@@ -3959,5 +3959,10 @@
   "slipSendCta": "Pošlji {amount} · {side}",
   "slipSendYesOnly": "Poslati je mogoče le Da na {outcome}",
   "sendPickChipFriend": "Pošiljaš prijatelju",
-  "sendPickSearchHint": "Poišči trg za pošiljanje"
+  "sendPickSearchHint": "Poišči trg za pošiljanje",
+  "sendPickChipForNamed": "Prejemnik: {name}",
+  "sendPickTradeSide": "Pošlji {side}",
+  "sendPickBarPickOutcome": "Izberite izid",
+  "sendPickBarBuyingFor": "Kupite vi, prejme {name}",
+  "sendPickBarBuyingForFriend": "Kupujete za prijatelja"
 }

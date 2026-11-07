@@ -634,27 +634,41 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
   /// the trades route through LedgerActions, which hands the SAME order
   /// slip that wallet id: one ticket, signed by the device instead of the
   /// hot account.
+  ///
+  /// SEND MODE (send_pick_session.dart; founder, 7 November 2026): the
+  /// pills say they send, by the side the slip sends ("Send Long", "Send
+  /// Short", as its primary reads "Send $50 · Long Bitcoin"), in their
+  /// green and red, side by side at even widths; a spot token's Sell is
+  /// away (a sale is no investment to send), and so is the round Sal
+  /// button: no look-only link while sending.
   KuteBarContext _tradeBar(HlMarket m, double spotHeld, KuteBarContext bar) {
     final l10n = context.l10n;
-    final showOtherSide = !m.isSpot || spotHeld > 0;
+    final sending = widget.sendPick != null;
+    final showOtherSide = sending ? !m.isSpot : !m.isSpot || spotHeld > 0;
     return KuteBarContext.trade(
       trades: [
         KuteBarTrade(
           id: 'invest',
-          label: l10n.hlMarketInvestCta,
+          label: sending
+              ? sendPickTradeLabel(l10n, l10n.longLabel)
+              : l10n.hlMarketInvestCta,
           fill: AppColors.marketUp,
-          flex: 2,
+          flex: sending ? 1 : 2,
           onTap: () => _openOrderSlip(m, isLong: true),
         ),
         if (showOtherSide)
           KuteBarTrade(
             id: m.isSpot ? 'sell' : 'short',
-            label: m.isSpot ? l10n.sell : l10n.shortLabel,
+            label: m.isSpot
+                ? l10n.sell
+                : sending
+                    ? sendPickTradeLabel(l10n, l10n.shortLabel)
+                    : l10n.shortLabel,
             fill: m.isSpot ? null : AppColors.marketDown,
             onTap: () => _openOrderSlip(m, isLong: false),
           ),
       ],
-      share: KuteBarShare(barContext: bar),
+      share: sending ? null : KuteBarShare(barContext: bar),
       category: SearchCategory.perpetuals,
       searchHint: l10n.searchInvestmentsHint,
       source: 'trading',

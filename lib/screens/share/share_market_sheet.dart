@@ -23,6 +23,12 @@
 // also send the actual prediction, just the card"). The sheet never
 // carries a pick or money: a prediction is sent only from Send.
 //
+// ONE MARKET OF AN EVENT (founder, 7 November 2026: "sharing here should
+// be just the yes or no. only here is the full market"): a candidate's
+// own Yes / No page hands over [ShareMarketSheet.candidate], and the card
+// is that market alone (its question, its Yes chance), never the event's
+// other outcomes; the event page shares the whole event.
+//
 // THE CARD IS A BUTTON TOO (founder, 4 November 2026: "I click and
 // nothing happens"): a tap on the card shares it, as the bar does.
 //
@@ -57,6 +63,8 @@ const String kShareMarketRouteName = 'share_market';
 /// [imageUrl] is a prediction market's picture; [ticker], [wireCoin],
 /// [coinCategory] and [coinIconUrl] an Investing market's logo and
 /// ticker, for the card until the providers have the market.
+/// [candidate] names the one market of the event [marketSlug] the share
+/// is about (see the file header); null: the whole event.
 Future<void> openShareForMarket(
   BuildContext context, {
   required String title,
@@ -71,6 +79,7 @@ Future<void> openShareForMarket(
   String? wireCoin,
   String? coinCategory,
   String? coinIconUrl,
+  String? candidate,
 }) {
   ShareLinkEvents.marketOpened(marketSlug: marketSlug);
   return showAppBottomSheet<void>(
@@ -89,6 +98,7 @@ Future<void> openShareForMarket(
       wireCoin: wireCoin,
       coinCategory: coinCategory,
       coinIconUrl: coinIconUrl,
+      candidate: candidate,
     ),
   );
 }
@@ -119,6 +129,7 @@ class ShareMarketSheet extends ConsumerStatefulWidget {
     this.wireCoin,
     this.coinCategory,
     this.coinIconUrl,
+    this.candidate,
   });
 
   final String title;
@@ -137,6 +148,10 @@ class ShareMarketSheet extends ConsumerStatefulWidget {
   final String? wireCoin;
   final String? coinCategory;
   final String? coinIconUrl;
+
+  /// The one market of the event the share is about: a candidate by its
+  /// name on the event (see the file header); null: the whole event.
+  final String? candidate;
 
   bool get investing => venue == 'hyperliquid';
 
@@ -157,7 +172,8 @@ class ShareMarketSheet extends ConsumerStatefulWidget {
         referralCode: code,
       );
     }
-    // Shared without a pick: the market's leading outcome. The chance the
+    // Shared without a pick: the market's leading outcome, or the one
+    // market of the event the page was about ([candidate]). The chance the
     // page had is the Yes side's on a binary market.
     return predictionCardFor(
       watch,
@@ -166,6 +182,7 @@ class ShareMarketSheet extends ConsumerStatefulWidget {
       chance: chance,
       imageUrl: imageUrl,
       referralCode: code,
+      candidate: candidate,
     );
   }
 

@@ -1,5 +1,6 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
+
 import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
@@ -3252,7 +3253,10 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String sendAmountUnitAvailableWithFiat(
-      String amount, String unit, String fiat) {
+    String amount,
+    String unit,
+    String fiat,
+  ) {
     return 'K dispozici $amount $unit · $fiat';
   }
 
@@ -5219,8 +5223,7 @@ class AppLocalizationsCs extends AppLocalizations {
           'Máš $count otevřených predikcí. Nelze je vybrat. Nejdřív je prodej nebo vyzvedni.',
       few:
           'Máš $count otevřené predikce. Nelze je vybrat. Nejdřív je prodej nebo vyzvedni.',
-      one:
-          'Máš 1 otevřenou predikci. Nelze ji vybrat. Nejdřív ji prodej nebo vyzvedni.',
+      one: 'Máš 1 otevřenou predikci. Nelze ji vybrat. Nejdřív ji prodej nebo vyzvedni.',
     );
     return '$_temp0';
   }
@@ -5577,7 +5580,8 @@ class AppLocalizationsCs extends AppLocalizations {
   String get feeUiBehindHoldingBitcoin => 'Horší než držení Bitcoinu.';
 
   @override
-  String get feeUiIncludedInTheConversionNetworkFeesAndExchangeRateSpreadMayAlsoApply =>
+  String
+  get feeUiIncludedInTheConversionNetworkFeesAndExchangeRateSpreadMayAlsoApply =>
       'Zahrnuto v převodu. Mohou se uplatnit i síťové poplatky a kurzový rozdíl.';
 
   @override
@@ -6856,7 +6860,11 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String betLimitSellPartial(
-      String sold, String total, String price, String remaining) {
+    String sold,
+    String total,
+    String price,
+    String remaining,
+  ) {
     return 'Prodáno $sold z $total podílů za $price. $remaining podílů je stále na prodej za tvou cenu.';
   }
 
@@ -6988,7 +6996,10 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String stepUpReasonWithdrawWithSourceFee(
-      String amount, String fee, String total) {
+    String amount,
+    String fee,
+    String total,
+  ) {
     return 'Potvrď výběr $amount se síťovým poplatkem až $fee. Maximální stržená částka: $total.';
   }
 
@@ -8615,7 +8626,12 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String slipExplainScale(
-      int count, String start, String end, String action, String extra) {
+    int count,
+    String start,
+    String end,
+    String action,
+    String extra,
+  ) {
     return 'Zadá $count limitních pokynů rozložených mezi $start a $end. Každý $action.$extra';
   }
 
@@ -8626,25 +8642,43 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String slipExplainStopMarket(
-      String coin, String trigger, String action, String extra) {
+    String coin,
+    String trigger,
+    String action,
+    String extra,
+  ) {
     return 'Počká, až se $coin bude obchodovat za $trigger, a pak pošle tržní pokyn, který $action.$extra';
   }
 
   @override
   String slipExplainStopLimit(
-      String coin, String trigger, String limit, String action, String extra) {
+    String coin,
+    String trigger,
+    String limit,
+    String action,
+    String extra,
+  ) {
     return 'Počká, až se $coin bude obchodovat za $trigger, a pak zadá limitní pokyn za $limit, který $action.$extra';
   }
 
   @override
   String slipExplainTakeMarket(
-      String coin, String trigger, String action, String extra) {
+    String coin,
+    String trigger,
+    String action,
+    String extra,
+  ) {
     return 'Vybere zisk: jakmile $coin dosáhne $trigger, tržní pokyn $action.$extra';
   }
 
   @override
   String slipExplainTakeLimit(
-      String coin, String trigger, String limit, String action, String extra) {
+    String coin,
+    String trigger,
+    String limit,
+    String action,
+    String extra,
+  ) {
     return 'Vybere zisk: jakmile $coin dosáhne $trigger, limitní pokyn za $limit $action.$extra';
   }
 
@@ -10751,154 +10785,124 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String slipCtaAddTo(String side, String amount) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Navýšit pozici long · $amount',
-        'other': 'Navýšit pozici short · $amount',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Navýšit pozici long · $amount',
+      'other': 'Navýšit pozici short · $amount',
+    });
     return '$_temp0';
   }
 
   @override
   String slipCtaReduce(String side, String amount) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Snížit pozici long · $amount',
-        'other': 'Snížit pozici short · $amount',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Snížit pozici long · $amount',
+      'other': 'Snížit pozici short · $amount',
+    });
     return '$_temp0';
   }
 
   @override
   String slipCtaClose(String side) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Zavřít pozici long',
-        'other': 'Zavřít pozici short',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Zavřít pozici long',
+      'other': 'Zavřít pozici short',
+    });
     return '$_temp0';
   }
 
   @override
   String slipCtaFlip(String side, String amount) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Otočit na long · $amount',
-        'other': 'Otočit na short · $amount',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Otočit na long · $amount',
+      'other': 'Otočit na short · $amount',
+    });
     return '$_temp0';
   }
 
   @override
   String slipPositionAdds(String side, String size, String coin) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long':
-            'Držíte pozici long o velikosti $size $coin — tímto ji navýšíte',
-        'other':
-            'Držíte pozici short o velikosti $size $coin — tímto ji navýšíte',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Držíte pozici long o velikosti $size $coin — tímto ji navýšíte',
+      'other':
+          'Držíte pozici short o velikosti $size $coin — tímto ji navýšíte',
+    });
     return '$_temp0';
   }
 
   @override
   String slipPositionReduces(
-      String side, String size, String remaining, String coin) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long':
-            'Držíte pozici long o velikosti $size $coin — tímto ji snížíte na $remaining $coin',
-        'other':
-            'Držíte pozici short o velikosti $size $coin — tímto ji snížíte na $remaining $coin',
-      },
-    );
+    String side,
+    String size,
+    String remaining,
+    String coin,
+  ) {
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long':
+          'Držíte pozici long o velikosti $size $coin — tímto ji snížíte na $remaining $coin',
+      'other':
+          'Držíte pozici short o velikosti $size $coin — tímto ji snížíte na $remaining $coin',
+    });
     return '$_temp0';
   }
 
   @override
   String slipPositionCloses(String side, String size, String coin) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Držíte pozici long o velikosti $size $coin — tímto ji zavřete',
-        'other':
-            'Držíte pozici short o velikosti $size $coin — tímto ji zavřete',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Držíte pozici long o velikosti $size $coin — tímto ji zavřete',
+      'other': 'Držíte pozici short o velikosti $size $coin — tímto ji zavřete',
+    });
     return '$_temp0';
   }
 
   @override
   String slipPositionFlips(
-      String side, String size, String remainder, String coin) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long':
-            'Držíte pozici long o velikosti $size $coin — tímto ji zavřete a otevřete pozici short o velikosti $remainder $coin',
-        'other':
-            'Držíte pozici short o velikosti $size $coin — tímto ji zavřete a otevřete pozici long o velikosti $remainder $coin',
-      },
-    );
+    String side,
+    String size,
+    String remainder,
+    String coin,
+  ) {
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long':
+          'Držíte pozici long o velikosti $size $coin — tímto ji zavřete a otevřete pozici short o velikosti $remainder $coin',
+      'other':
+          'Držíte pozici short o velikosti $size $coin — tímto ji zavřete a otevřete pozici long o velikosti $remainder $coin',
+    });
     return '$_temp0';
   }
 
   @override
   String hlReceiptAddedTo(String side) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Navýšena pozice long',
-        'other': 'Navýšena pozice short',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Navýšena pozice long',
+      'other': 'Navýšena pozice short',
+    });
     return '$_temp0';
   }
 
   @override
   String hlReceiptReduced(String side, String size, String coin) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Snížena pozice long · $size $coin',
-        'other': 'Snížena pozice short · $size $coin',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Snížena pozice long · $size $coin',
+      'other': 'Snížena pozice short · $size $coin',
+    });
     return '$_temp0';
   }
 
   @override
   String hlReceiptClosed(String side) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Zavřena pozice long',
-        'other': 'Zavřena pozice short',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Zavřena pozice long',
+      'other': 'Zavřena pozice short',
+    });
     return '$_temp0';
   }
 
   @override
   String hlReceiptFlipped(String side, String size, String coin) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Otočeno na long · $size $coin',
-        'other': 'Otočeno na short · $size $coin',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Otočeno na long · $size $coin',
+      'other': 'Otočeno na short · $size $coin',
+    });
     return '$_temp0';
   }
 
@@ -10967,13 +10971,10 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String slipAddsToYourPosition(String side) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Navyšuje tvůj Long',
-        'other': 'Navyšuje tvůj Short',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Navyšuje tvůj Long',
+      'other': 'Navyšuje tvůj Short',
+    });
     return '$_temp0';
   }
 
@@ -11193,13 +11194,19 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String moneyStepMovingFromTo(
-      String amount, String source, String destination) {
+    String amount,
+    String source,
+    String destination,
+  ) {
     return 'Přesouváme $amount: $source → $destination';
   }
 
   @override
   String moneyStepMovedFromTo(
-      String amount, String source, String destination) {
+    String amount,
+    String source,
+    String destination,
+  ) {
     return 'Přesunuto $amount: $source → $destination';
   }
 
@@ -11263,7 +11270,11 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String moneyStepMovingTwo(
-      String amount1, String source1, String amount2, String source2) {
+    String amount1,
+    String source1,
+    String amount2,
+    String source2,
+  ) {
     return 'Přesouváme $amount1 z $source1 a $amount2 z $source2';
   }
 
@@ -11809,25 +11820,43 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String shareMessagePredictionNamed(
-      String name, String outcome, String title, String amount, String url) {
+    String name,
+    String outcome,
+    String title,
+    String amount,
+    String url,
+  ) {
     return '$name, posílám ti predikci na Kute: $title: $outcome, $amount. Vyzvedni si ji: $url';
   }
 
   @override
   String shareMessagePredictionUnnamed(
-      String outcome, String title, String amount, String url) {
+    String outcome,
+    String title,
+    String amount,
+    String url,
+  ) {
     return 'Posílám ti predikci na Kute: $title: $outcome, $amount. Vyzvedni si ji: $url';
   }
 
   @override
   String shareMessageInvestmentNamed(
-      String name, String outcome, String title, String amount, String url) {
+    String name,
+    String outcome,
+    String title,
+    String amount,
+    String url,
+  ) {
     return '$name, posílám ti investici na Kute: $title: $outcome, $amount. Vyzvedni si ji: $url';
   }
 
   @override
   String shareMessageInvestmentUnnamed(
-      String outcome, String title, String amount, String url) {
+    String outcome,
+    String title,
+    String amount,
+    String url,
+  ) {
     return 'Posílám ti investici na Kute: $title: $outcome, $amount. Vyzvedni si ji: $url';
   }
 
@@ -12624,7 +12653,10 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String shareCardHeadlineSportsVs(
-      String outcome, String chance, String opponent) {
+    String outcome,
+    String chance,
+    String opponent,
+  ) {
     return 'Favorit: $outcome ($chance) vs $opponent';
   }
 
@@ -13716,13 +13748,22 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String shareMessageChallengeNamed(
-      String name, String outcome, String title, String amount, String url) {
+    String name,
+    String outcome,
+    String title,
+    String amount,
+    String url,
+  ) {
     return '$name, můj tip: $outcome na $title. Vezmi opačnou stranu, nebo se přidej. $amount platím já: $url';
   }
 
   @override
   String shareMessageChallengeUnnamed(
-      String outcome, String title, String amount, String url) {
+    String outcome,
+    String title,
+    String amount,
+    String url,
+  ) {
     return 'Můj tip: $outcome na $title. Vezmi opačnou stranu, nebo se přidej. $amount platím já: $url';
   }
 
@@ -14017,4 +14058,25 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get sendPickSearchHint => 'Najdi trh k poslání';
+
+  @override
+  String sendPickChipForNamed(String name) {
+    return 'Příjemce: $name';
+  }
+
+  @override
+  String sendPickTradeSide(String side) {
+    return 'Poslat $side';
+  }
+
+  @override
+  String get sendPickBarPickOutcome => 'Vyber výsledek';
+
+  @override
+  String sendPickBarBuyingFor(String name) {
+    return 'Koupíš to a dostane to $name';
+  }
+
+  @override
+  String get sendPickBarBuyingForFriend => 'Kupuješ to pro kamaráda';
 }

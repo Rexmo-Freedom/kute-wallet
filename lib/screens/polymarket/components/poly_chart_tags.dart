@@ -89,16 +89,29 @@ String polyChartOutcomeName(String label) {
   return '';
 }
 
+/// A date as a grouped event's deadlines name their markets ("March 31,
+/// 2027", "December 31, 2026", "June 30"): the month, the day, the year
+/// if any.
+final RegExp _kDateName = RegExp(
+  r'^(January|February|March|April|May|June|July|August|September|'
+  r'October|November|December)\s+(\d{1,2}(?:,?\s+\d{4})?)$',
+  caseSensitive: false,
+);
+
 /// An outcome's name as the chart's own labels write it short: a name of
 /// up to twelve characters as it is ("Draw", "Yes", "Real Madrid"), a
 /// longer one without its first word, which for a person is the surname
 /// ("Himeno Sakatsume" -> "Sakatsume", "Los Angeles Lakers" -> "Angeles
-/// Lakers"). A market question writes the candidate it asks about
-/// ([polyChartOutcomeName]). Not fitted to a width: [polyTagStyle] does
-/// that.
+/// Lakers"). A longer DATE keeps its month, shortened to three letters
+/// ("March 31, 2027" -> "Mar 31, 2027"; founder, 7 November 2026: the
+/// month was dropped, "31, 2027 18.5%"). A market question writes the
+/// candidate it asks about ([polyChartOutcomeName]). Not fitted to a
+/// width: [polyTagStyle] does that.
 String polyChartShortName(String label) {
   final trimmed = polyChartOutcomeName(label);
   if (trimmed.length <= 12) return trimmed;
+  final date = _kDateName.firstMatch(trimmed);
+  if (date != null) return '${date[1]!.substring(0, 3)} ${date[2]}';
   final words = trimmed.split(RegExp(r'\s+'));
   return words.length > 1 ? words.sublist(1).join(' ') : trimmed;
 }

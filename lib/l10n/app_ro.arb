@@ -3959,5 +3959,10 @@
   "slipSendCta": "Trimite {amount} · {side}",
   "slipSendYesOnly": "Se poate trimite doar Da pe {outcome}",
   "sendPickChipFriend": "Trimiți unui prieten",
-  "sendPickSearchHint": "Caută o piață de trimis"
+  "sendPickSearchHint": "Caută o piață de trimis",
+  "sendPickChipForNamed": "Pentru {name}",
+  "sendPickTradeSide": "Trimite {side}",
+  "sendPickBarPickOutcome": "Alege un rezultat",
+  "sendPickBarBuyingFor": "Îl cumperi pentru {name}",
+  "sendPickBarBuyingForFriend": "Îl cumperi pentru un prieten"
 }

@@ -1,5 +1,6 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
+
 import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
@@ -3262,7 +3263,10 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String sendAmountUnitAvailableWithFiat(
-      String amount, String unit, String fiat) {
+    String amount,
+    String unit,
+    String fiat,
+  ) {
     return 'Dostępne: $amount $unit · $fiat';
   }
 
@@ -5235,8 +5239,7 @@ class AppLocalizationsPl extends AppLocalizations {
           'Masz $count otwartych prognoz. Nie można ich wypłacić. Najpierw je sprzedaj lub odbierz.',
       few:
           'Masz $count otwarte prognozy. Nie można ich wypłacić. Najpierw je sprzedaj lub odbierz.',
-      one:
-          'Masz 1 otwartą prognozę. Nie można jej wypłacić. Najpierw ją sprzedaj lub odbierz.',
+      one: 'Masz 1 otwartą prognozę. Nie można jej wypłacić. Najpierw ją sprzedaj lub odbierz.',
     );
     return '$_temp0';
   }
@@ -5595,7 +5598,8 @@ class AppLocalizationsPl extends AppLocalizations {
   String get feeUiBehindHoldingBitcoin => 'Gorzej niż trzymanie Bitcoin.';
 
   @override
-  String get feeUiIncludedInTheConversionNetworkFeesAndExchangeRateSpreadMayAlsoApply =>
+  String
+  get feeUiIncludedInTheConversionNetworkFeesAndExchangeRateSpreadMayAlsoApply =>
       'Wliczona w wymianę. Mogą też obowiązywać opłaty sieciowe i spread kursowy.';
 
   @override
@@ -6883,7 +6887,11 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String betLimitSellPartial(
-      String sold, String total, String price, String remaining) {
+    String sold,
+    String total,
+    String price,
+    String remaining,
+  ) {
     return 'Sprzedano $sold z $total udziałów po $price. $remaining udziałów nadal czeka na sprzedaż po Twojej cenie.';
   }
 
@@ -7015,7 +7023,10 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String stepUpReasonWithdrawWithSourceFee(
-      String amount, String fee, String total) {
+    String amount,
+    String fee,
+    String total,
+  ) {
     return 'Potwierdź wypłatę $amount z opłatą sieciową do $fee. Maksymalne obciążenie: $total.';
   }
 
@@ -8649,7 +8660,12 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String slipExplainScale(
-      int count, String start, String end, String action, String extra) {
+    int count,
+    String start,
+    String end,
+    String action,
+    String extra,
+  ) {
     return 'Składa $count zleceń z limitem rozłożonych między $start a $end. Każde $action.$extra';
   }
 
@@ -8660,25 +8676,43 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String slipExplainStopMarket(
-      String coin, String trigger, String action, String extra) {
+    String coin,
+    String trigger,
+    String action,
+    String extra,
+  ) {
     return 'Czeka, aż $coin osiągnie $trigger, a potem wysyła zlecenie rynkowe, które $action.$extra';
   }
 
   @override
   String slipExplainStopLimit(
-      String coin, String trigger, String limit, String action, String extra) {
+    String coin,
+    String trigger,
+    String limit,
+    String action,
+    String extra,
+  ) {
     return 'Czeka, aż $coin osiągnie $trigger, a potem składa zlecenie z limitem $limit, które $action.$extra';
   }
 
   @override
   String slipExplainTakeMarket(
-      String coin, String trigger, String action, String extra) {
+    String coin,
+    String trigger,
+    String action,
+    String extra,
+  ) {
     return 'Realizacja zysku: gdy $coin osiągnie $trigger, zlecenie rynkowe $action.$extra';
   }
 
   @override
   String slipExplainTakeLimit(
-      String coin, String trigger, String limit, String action, String extra) {
+    String coin,
+    String trigger,
+    String limit,
+    String action,
+    String extra,
+  ) {
     return 'Realizacja zysku: gdy $coin osiągnie $trigger, zlecenie z limitem $limit $action.$extra';
   }
 
@@ -10794,151 +10828,123 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String slipCtaAddTo(String side, String amount) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Zwiększ pozycję long · $amount',
-        'other': 'Zwiększ pozycję short · $amount',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Zwiększ pozycję long · $amount',
+      'other': 'Zwiększ pozycję short · $amount',
+    });
     return '$_temp0';
   }
 
   @override
   String slipCtaReduce(String side, String amount) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Zmniejsz pozycję long · $amount',
-        'other': 'Zmniejsz pozycję short · $amount',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Zmniejsz pozycję long · $amount',
+      'other': 'Zmniejsz pozycję short · $amount',
+    });
     return '$_temp0';
   }
 
   @override
   String slipCtaClose(String side) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Zamknij pozycję long',
-        'other': 'Zamknij pozycję short',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Zamknij pozycję long',
+      'other': 'Zamknij pozycję short',
+    });
     return '$_temp0';
   }
 
   @override
   String slipCtaFlip(String side, String amount) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Odwróć na long · $amount',
-        'other': 'Odwróć na short · $amount',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Odwróć na long · $amount',
+      'other': 'Odwróć na short · $amount',
+    });
     return '$_temp0';
   }
 
   @override
   String slipPositionAdds(String side, String size, String coin) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Masz pozycję long o wielkości $size $coin — to ją zwiększy',
-        'other': 'Masz pozycję short o wielkości $size $coin — to ją zwiększy',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Masz pozycję long o wielkości $size $coin — to ją zwiększy',
+      'other': 'Masz pozycję short o wielkości $size $coin — to ją zwiększy',
+    });
     return '$_temp0';
   }
 
   @override
   String slipPositionReduces(
-      String side, String size, String remaining, String coin) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long':
-            'Masz pozycję long o wielkości $size $coin — to zmniejszy ją do $remaining $coin',
-        'other':
-            'Masz pozycję short o wielkości $size $coin — to zmniejszy ją do $remaining $coin',
-      },
-    );
+    String side,
+    String size,
+    String remaining,
+    String coin,
+  ) {
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long':
+          'Masz pozycję long o wielkości $size $coin — to zmniejszy ją do $remaining $coin',
+      'other':
+          'Masz pozycję short o wielkości $size $coin — to zmniejszy ją do $remaining $coin',
+    });
     return '$_temp0';
   }
 
   @override
   String slipPositionCloses(String side, String size, String coin) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Masz pozycję long o wielkości $size $coin — to ją zamknie',
-        'other': 'Masz pozycję short o wielkości $size $coin — to ją zamknie',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Masz pozycję long o wielkości $size $coin — to ją zamknie',
+      'other': 'Masz pozycję short o wielkości $size $coin — to ją zamknie',
+    });
     return '$_temp0';
   }
 
   @override
   String slipPositionFlips(
-      String side, String size, String remainder, String coin) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long':
-            'Masz pozycję long o wielkości $size $coin — to ją zamknie i otworzy pozycję short o wielkości $remainder $coin',
-        'other':
-            'Masz pozycję short o wielkości $size $coin — to ją zamknie i otworzy pozycję long o wielkości $remainder $coin',
-      },
-    );
+    String side,
+    String size,
+    String remainder,
+    String coin,
+  ) {
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long':
+          'Masz pozycję long o wielkości $size $coin — to ją zamknie i otworzy pozycję short o wielkości $remainder $coin',
+      'other':
+          'Masz pozycję short o wielkości $size $coin — to ją zamknie i otworzy pozycję long o wielkości $remainder $coin',
+    });
     return '$_temp0';
   }
 
   @override
   String hlReceiptAddedTo(String side) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Zwiększono pozycję long',
-        'other': 'Zwiększono pozycję short',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Zwiększono pozycję long',
+      'other': 'Zwiększono pozycję short',
+    });
     return '$_temp0';
   }
 
   @override
   String hlReceiptReduced(String side, String size, String coin) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Zmniejszono pozycję long · $size $coin',
-        'other': 'Zmniejszono pozycję short · $size $coin',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Zmniejszono pozycję long · $size $coin',
+      'other': 'Zmniejszono pozycję short · $size $coin',
+    });
     return '$_temp0';
   }
 
   @override
   String hlReceiptClosed(String side) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Zamknięto pozycję long',
-        'other': 'Zamknięto pozycję short',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Zamknięto pozycję long',
+      'other': 'Zamknięto pozycję short',
+    });
     return '$_temp0';
   }
 
   @override
   String hlReceiptFlipped(String side, String size, String coin) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Odwrócono na long · $size $coin',
-        'other': 'Odwrócono na short · $size $coin',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Odwrócono na long · $size $coin',
+      'other': 'Odwrócono na short · $size $coin',
+    });
     return '$_temp0';
   }
 
@@ -11007,13 +11013,10 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String slipAddsToYourPosition(String side) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Zwiększa twoją pozycję Long',
-        'other': 'Zwiększa twoją pozycję Short',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Zwiększa twoją pozycję Long',
+      'other': 'Zwiększa twoją pozycję Short',
+    });
     return '$_temp0';
   }
 
@@ -11233,13 +11236,19 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String moneyStepMovingFromTo(
-      String amount, String source, String destination) {
+    String amount,
+    String source,
+    String destination,
+  ) {
     return 'Przenoszenie $amount: $source → $destination';
   }
 
   @override
   String moneyStepMovedFromTo(
-      String amount, String source, String destination) {
+    String amount,
+    String source,
+    String destination,
+  ) {
     return 'Przeniesiono $amount: $source → $destination';
   }
 
@@ -11303,7 +11312,11 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String moneyStepMovingTwo(
-      String amount1, String source1, String amount2, String source2) {
+    String amount1,
+    String source1,
+    String amount2,
+    String source2,
+  ) {
     return 'Przenosimy $amount1 z $source1 i $amount2 z $source2';
   }
 
@@ -11850,25 +11863,43 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String shareMessagePredictionNamed(
-      String name, String outcome, String title, String amount, String url) {
+    String name,
+    String outcome,
+    String title,
+    String amount,
+    String url,
+  ) {
     return '$name, wysyłam ci prognozę w Kute: $title: $outcome, $amount. Odbierz: $url';
   }
 
   @override
   String shareMessagePredictionUnnamed(
-      String outcome, String title, String amount, String url) {
+    String outcome,
+    String title,
+    String amount,
+    String url,
+  ) {
     return 'Wysyłam ci prognozę w Kute: $title: $outcome, $amount. Odbierz: $url';
   }
 
   @override
   String shareMessageInvestmentNamed(
-      String name, String outcome, String title, String amount, String url) {
+    String name,
+    String outcome,
+    String title,
+    String amount,
+    String url,
+  ) {
     return '$name, wysyłam ci inwestycję w Kute: $title: $outcome, $amount. Odbierz: $url';
   }
 
   @override
   String shareMessageInvestmentUnnamed(
-      String outcome, String title, String amount, String url) {
+    String outcome,
+    String title,
+    String amount,
+    String url,
+  ) {
     return 'Wysyłam ci inwestycję w Kute: $title: $outcome, $amount. Odbierz: $url';
   }
 
@@ -12664,7 +12695,10 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String shareCardHeadlineSportsVs(
-      String outcome, String chance, String opponent) {
+    String outcome,
+    String chance,
+    String opponent,
+  ) {
     return 'Faworyt: $outcome ($chance) vs $opponent';
   }
 
@@ -13766,13 +13800,22 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String shareMessageChallengeNamed(
-      String name, String outcome, String title, String amount, String url) {
+    String name,
+    String outcome,
+    String title,
+    String amount,
+    String url,
+  ) {
     return '$name, mój typ: $outcome na $title. Wybierz drugą stronę albo dołącz. $amount ja funduję: $url';
   }
 
   @override
   String shareMessageChallengeUnnamed(
-      String outcome, String title, String amount, String url) {
+    String outcome,
+    String title,
+    String amount,
+    String url,
+  ) {
     return 'Mój typ: $outcome na $title. Wybierz drugą stronę albo dołącz. $amount ja funduję: $url';
   }
 
@@ -14067,4 +14110,25 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get sendPickSearchHint => 'Szukaj rynku do wysłania';
+
+  @override
+  String sendPickChipForNamed(String name) {
+    return 'Odbiorca: $name';
+  }
+
+  @override
+  String sendPickTradeSide(String side) {
+    return 'Wyślij $side';
+  }
+
+  @override
+  String get sendPickBarPickOutcome => 'Wybierz wynik';
+
+  @override
+  String sendPickBarBuyingFor(String name) {
+    return 'Kupujesz ty, a dostaje $name';
+  }
+
+  @override
+  String get sendPickBarBuyingForFriend => 'Kupujesz dla znajomego';
 }

@@ -3959,5 +3959,10 @@
   "slipSendCta": "Skicka {amount} · {side}",
   "slipSendYesOnly": "Bara Ja på {outcome} kan skickas",
   "sendPickChipFriend": "Skickas till en vän",
-  "sendPickSearchHint": "Sök en marknad att skicka"
+  "sendPickSearchHint": "Sök en marknad att skicka",
+  "sendPickChipForNamed": "Till {name}",
+  "sendPickTradeSide": "Skicka {side}",
+  "sendPickBarPickOutcome": "Välj ett utfall",
+  "sendPickBarBuyingFor": "Du köper den till {name}",
+  "sendPickBarBuyingForFriend": "Du köper den till en vän"
 }

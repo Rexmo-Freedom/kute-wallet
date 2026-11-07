@@ -1,5 +1,6 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
+
 import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
@@ -3286,7 +3287,10 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String sendAmountUnitAvailableWithFiat(
-      String amount, String unit, String fiat) {
+    String amount,
+    String unit,
+    String fiat,
+  ) {
     return '$amount $unit διαθέσιμα · $fiat';
   }
 
@@ -5269,8 +5273,7 @@ class AppLocalizationsEl extends AppLocalizations {
       locale: localeName,
       other:
           'Έχεις $count ανοιχτές προβλέψεις. Δεν μπορούν να αναληφθούν. Πούλησέ τες ή εισέπραξέ τες πρώτα.',
-      one:
-          'Έχεις 1 ανοιχτή πρόβλεψη. Δεν μπορεί να αναληφθεί. Πούλησέ την ή εισέπραξέ την πρώτα.',
+      one: 'Έχεις 1 ανοιχτή πρόβλεψη. Δεν μπορεί να αναληφθεί. Πούλησέ την ή εισέπραξέ την πρώτα.',
     );
     return '$_temp0';
   }
@@ -5630,7 +5633,8 @@ class AppLocalizationsEl extends AppLocalizations {
       'Χειρότερα από τη διακράτηση Bitcoin.';
 
   @override
-  String get feeUiIncludedInTheConversionNetworkFeesAndExchangeRateSpreadMayAlsoApply =>
+  String
+  get feeUiIncludedInTheConversionNetworkFeesAndExchangeRateSpreadMayAlsoApply =>
       'Περιλαμβάνεται στη μετατροπή. Μπορεί να ισχύουν επίσης χρεώσεις δικτύου και spread συναλλαγματικής ισοτιμίας.';
 
   @override
@@ -6913,7 +6917,11 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String betLimitSellPartial(
-      String sold, String total, String price, String remaining) {
+    String sold,
+    String total,
+    String price,
+    String remaining,
+  ) {
     return 'Πουλήθηκαν $sold από $total μερίδια στα $price. $remaining μερίδια πωλούνται ακόμα στην τιμή σου.';
   }
 
@@ -7045,7 +7053,10 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String stepUpReasonWithdrawWithSourceFee(
-      String amount, String fee, String total) {
+    String amount,
+    String fee,
+    String total,
+  ) {
     return 'Επιβεβαίωσε την ανάληψη $amount, με χρέωση δικτύου έως $fee. Μέγιστη χρέωση λογαριασμού: $total.';
   }
 
@@ -8690,7 +8701,12 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String slipExplainScale(
-      int count, String start, String end, String action, String extra) {
+    int count,
+    String start,
+    String end,
+    String action,
+    String extra,
+  ) {
     return 'Καταχωρεί $count εντολές ορίου κατανεμημένες μεταξύ $start και $end. Η καθεμία $action.$extra';
   }
 
@@ -8701,25 +8717,43 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String slipExplainStopMarket(
-      String coin, String trigger, String action, String extra) {
+    String coin,
+    String trigger,
+    String action,
+    String extra,
+  ) {
     return 'Περιμένει μέχρι το $coin να διαπραγματευτεί στα $trigger και μετά στέλνει εντολή market που $action.$extra';
   }
 
   @override
   String slipExplainStopLimit(
-      String coin, String trigger, String limit, String action, String extra) {
+    String coin,
+    String trigger,
+    String limit,
+    String action,
+    String extra,
+  ) {
     return 'Περιμένει μέχρι το $coin να διαπραγματευτεί στα $trigger και μετά καταχωρεί εντολή ορίου στα $limit που $action.$extra';
   }
 
   @override
   String slipExplainTakeMarket(
-      String coin, String trigger, String action, String extra) {
+    String coin,
+    String trigger,
+    String action,
+    String extra,
+  ) {
     return 'Κατοχύρωση κέρδους: μόλις το $coin φτάσει τα $trigger, μια εντολή market $action.$extra';
   }
 
   @override
   String slipExplainTakeLimit(
-      String coin, String trigger, String limit, String action, String extra) {
+    String coin,
+    String trigger,
+    String limit,
+    String action,
+    String extra,
+  ) {
     return 'Κατοχύρωση κέρδους: μόλις το $coin φτάσει τα $trigger, μια εντολή ορίου στα $limit $action.$extra';
   }
 
@@ -10833,151 +10867,123 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String slipCtaAddTo(String side, String amount) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Αύξηση θέσης long · $amount',
-        'other': 'Αύξηση θέσης short · $amount',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Αύξηση θέσης long · $amount',
+      'other': 'Αύξηση θέσης short · $amount',
+    });
     return '$_temp0';
   }
 
   @override
   String slipCtaReduce(String side, String amount) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Μείωση θέσης long · $amount',
-        'other': 'Μείωση θέσης short · $amount',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Μείωση θέσης long · $amount',
+      'other': 'Μείωση θέσης short · $amount',
+    });
     return '$_temp0';
   }
 
   @override
   String slipCtaClose(String side) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Κλείσιμο θέσης long',
-        'other': 'Κλείσιμο θέσης short',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Κλείσιμο θέσης long',
+      'other': 'Κλείσιμο θέσης short',
+    });
     return '$_temp0';
   }
 
   @override
   String slipCtaFlip(String side, String amount) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Αναστροφή σε long · $amount',
-        'other': 'Αναστροφή σε short · $amount',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Αναστροφή σε long · $amount',
+      'other': 'Αναστροφή σε short · $amount',
+    });
     return '$_temp0';
   }
 
   @override
   String slipPositionAdds(String side, String size, String coin) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Έχετε θέση long $size $coin — αυτό την αυξάνει',
-        'other': 'Έχετε θέση short $size $coin — αυτό την αυξάνει',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Έχετε θέση long $size $coin — αυτό την αυξάνει',
+      'other': 'Έχετε θέση short $size $coin — αυτό την αυξάνει',
+    });
     return '$_temp0';
   }
 
   @override
   String slipPositionReduces(
-      String side, String size, String remaining, String coin) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long':
-            'Έχετε θέση long $size $coin — αυτό τη μειώνει σε $remaining $coin',
-        'other':
-            'Έχετε θέση short $size $coin — αυτό τη μειώνει σε $remaining $coin',
-      },
-    );
+    String side,
+    String size,
+    String remaining,
+    String coin,
+  ) {
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long':
+          'Έχετε θέση long $size $coin — αυτό τη μειώνει σε $remaining $coin',
+      'other':
+          'Έχετε θέση short $size $coin — αυτό τη μειώνει σε $remaining $coin',
+    });
     return '$_temp0';
   }
 
   @override
   String slipPositionCloses(String side, String size, String coin) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Έχετε θέση long $size $coin — αυτό την κλείνει',
-        'other': 'Έχετε θέση short $size $coin — αυτό την κλείνει',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Έχετε θέση long $size $coin — αυτό την κλείνει',
+      'other': 'Έχετε θέση short $size $coin — αυτό την κλείνει',
+    });
     return '$_temp0';
   }
 
   @override
   String slipPositionFlips(
-      String side, String size, String remainder, String coin) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long':
-            'Έχετε θέση long $size $coin — αυτό την κλείνει και ανοίγει θέση short $remainder $coin',
-        'other':
-            'Έχετε θέση short $size $coin — αυτό την κλείνει και ανοίγει θέση long $remainder $coin',
-      },
-    );
+    String side,
+    String size,
+    String remainder,
+    String coin,
+  ) {
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long':
+          'Έχετε θέση long $size $coin — αυτό την κλείνει και ανοίγει θέση short $remainder $coin',
+      'other':
+          'Έχετε θέση short $size $coin — αυτό την κλείνει και ανοίγει θέση long $remainder $coin',
+    });
     return '$_temp0';
   }
 
   @override
   String hlReceiptAddedTo(String side) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Αυξήθηκε η θέση long',
-        'other': 'Αυξήθηκε η θέση short',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Αυξήθηκε η θέση long',
+      'other': 'Αυξήθηκε η θέση short',
+    });
     return '$_temp0';
   }
 
   @override
   String hlReceiptReduced(String side, String size, String coin) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Μειώθηκε η θέση long · $size $coin',
-        'other': 'Μειώθηκε η θέση short · $size $coin',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Μειώθηκε η θέση long · $size $coin',
+      'other': 'Μειώθηκε η θέση short · $size $coin',
+    });
     return '$_temp0';
   }
 
   @override
   String hlReceiptClosed(String side) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Έκλεισε η θέση long',
-        'other': 'Έκλεισε η θέση short',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Έκλεισε η θέση long',
+      'other': 'Έκλεισε η θέση short',
+    });
     return '$_temp0';
   }
 
   @override
   String hlReceiptFlipped(String side, String size, String coin) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Αναστράφηκε σε long · $size $coin',
-        'other': 'Αναστράφηκε σε short · $size $coin',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Αναστράφηκε σε long · $size $coin',
+      'other': 'Αναστράφηκε σε short · $size $coin',
+    });
     return '$_temp0';
   }
 
@@ -11046,13 +11052,10 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String slipAddsToYourPosition(String side) {
-    String _temp0 = intl.Intl.selectLogic(
-      side,
-      {
-        'long': 'Αυξάνει το Long σου',
-        'other': 'Αυξάνει το Short σου',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(side, {
+      'long': 'Αυξάνει το Long σου',
+      'other': 'Αυξάνει το Short σου',
+    });
     return '$_temp0';
   }
 
@@ -11273,13 +11276,19 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String moneyStepMovingFromTo(
-      String amount, String source, String destination) {
+    String amount,
+    String source,
+    String destination,
+  ) {
     return 'Μεταφορά $amount από $source → $destination';
   }
 
   @override
   String moneyStepMovedFromTo(
-      String amount, String source, String destination) {
+    String amount,
+    String source,
+    String destination,
+  ) {
     return 'Μεταφέρθηκαν $amount από $source → $destination';
   }
 
@@ -11343,7 +11352,11 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String moneyStepMovingTwo(
-      String amount1, String source1, String amount2, String source2) {
+    String amount1,
+    String source1,
+    String amount2,
+    String source2,
+  ) {
     return 'Μεταφορά $amount1 από $source1 και $amount2 από $source2';
   }
 
@@ -11888,25 +11901,43 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String shareMessagePredictionNamed(
-      String name, String outcome, String title, String amount, String url) {
+    String name,
+    String outcome,
+    String title,
+    String amount,
+    String url,
+  ) {
     return '$name, σου έστειλα μια πρόβλεψη στο Kute: $outcome στο $title, $amount. Εισέπραξέ την: $url';
   }
 
   @override
   String shareMessagePredictionUnnamed(
-      String outcome, String title, String amount, String url) {
+    String outcome,
+    String title,
+    String amount,
+    String url,
+  ) {
     return 'Σου έστειλα μια πρόβλεψη στο Kute: $outcome στο $title, $amount. Εισέπραξέ την: $url';
   }
 
   @override
   String shareMessageInvestmentNamed(
-      String name, String outcome, String title, String amount, String url) {
+    String name,
+    String outcome,
+    String title,
+    String amount,
+    String url,
+  ) {
     return '$name, σου έστειλα μια επένδυση στο Kute: $outcome στο $title, $amount. Εισέπραξέ την: $url';
   }
 
   @override
   String shareMessageInvestmentUnnamed(
-      String outcome, String title, String amount, String url) {
+    String outcome,
+    String title,
+    String amount,
+    String url,
+  ) {
     return 'Σου έστειλα μια επένδυση στο Kute: $outcome στο $title, $amount. Εισέπραξέ την: $url';
   }
 
@@ -12707,7 +12738,10 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String shareCardHeadlineSportsVs(
-      String outcome, String chance, String opponent) {
+    String outcome,
+    String chance,
+    String opponent,
+  ) {
     return 'Φαβορί: $outcome με $chance έναντι $opponent';
   }
 
@@ -13815,13 +13849,22 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String shareMessageChallengeNamed(
-      String name, String outcome, String title, String amount, String url) {
+    String name,
+    String outcome,
+    String title,
+    String amount,
+    String url,
+  ) {
     return '$name, η επιλογή μου: $outcome στο $title. Πάρε την άλλη πλευρά ή έλα μαζί μου. $amount κερνάω εγώ: $url';
   }
 
   @override
   String shareMessageChallengeUnnamed(
-      String outcome, String title, String amount, String url) {
+    String outcome,
+    String title,
+    String amount,
+    String url,
+  ) {
     return 'Η επιλογή μου: $outcome στο $title. Πάρε την άλλη πλευρά ή έλα μαζί μου. $amount κερνάω εγώ: $url';
   }
 
@@ -14118,4 +14161,25 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get sendPickSearchHint => 'Αναζήτηση αγοράς για αποστολή';
+
+  @override
+  String sendPickChipForNamed(String name) {
+    return 'Για: $name';
+  }
+
+  @override
+  String sendPickTradeSide(String side) {
+    return 'Αποστολή $side';
+  }
+
+  @override
+  String get sendPickBarPickOutcome => 'Διάλεξε ένα αποτέλεσμα';
+
+  @override
+  String sendPickBarBuyingFor(String name) {
+    return 'Το αγοράζεις για: $name';
+  }
+
+  @override
+  String get sendPickBarBuyingForFriend => 'Το αγοράζεις για έναν φίλο';
 }

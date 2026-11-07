@@ -3959,5 +3959,10 @@
   "slipSendCta": "Изпрати {amount} · {side}",
   "slipSendYesOnly": "Може да се изпрати само „Да“ за {outcome}",
   "sendPickChipFriend": "Изпращаш на приятел",
-  "sendPickSearchHint": "Търси пазар за изпращане"
+  "sendPickSearchHint": "Търси пазар за изпращане",
+  "sendPickChipForNamed": "За {name}",
+  "sendPickTradeSide": "Изпрати {side}",
+  "sendPickBarPickOutcome": "Избери изход",
+  "sendPickBarBuyingFor": "Купуваш го за {name}",
+  "sendPickBarBuyingForFriend": "Купуваш го за приятел"
 }

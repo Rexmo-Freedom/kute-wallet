@@ -12048,5 +12048,40 @@
   "sendPickSearchHint": "Search a market to send",
   "@sendPickSearchHint": {
     "description": "The search line's hint on the search sheet in send mode (Send's 'Send a prediction or investment')."
+  },
+  "sendPickChipForNamed": "For {name}",
+  "@sendPickChipForNamed": {
+    "description": "The send-mode chip at the top of the search sheet, market page and slip once Send picked a contact: who the sender is buying the pick for, seen by the SENDER ('For Ana'). Not the card's 'Ana, for you'. Keep {name} uninflected (use 'Recipient: {name}' where the language would inflect it).",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sendPickTradeSide": "Send {side}",
+  "@sendPickTradeSide": {
+    "description": "A trade pill of a market page in send mode (opened from Send's 'Send a prediction or investment'): opens the slip that sends this side to a friend, never places it. {side} is the pill's own word ('Yes', 'No', 'Gen.G', 'Long', 'Short'); its live chance follows after it. Short. Never 'bet'.",
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "sendPickBarPickOutcome": "Pick an outcome",
+  "@sendPickBarPickOutcome": {
+    "description": "The floating bar's first line on an event page of several outcomes in send mode (opened from Send): pick one of the outcomes listed to send it to a friend. Short. Never 'bet'."
+  },
+  "sendPickBarBuyingFor": "You're buying it for {name}",
+  "@sendPickBarBuyingFor": {
+    "description": "The floating bar's second line on an event page in send mode, under 'Pick an outcome': the sender is buying this prediction for the contact picked on Send. {name} is a first name; keep it uninflected.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sendPickBarBuyingForFriend": "You're buying it for your friend",
+  "@sendPickBarBuyingForFriend": {
+    "description": "The floating bar's second line on an event page in send mode, under 'Pick an outcome', when no contact was picked yet: the sender is buying this prediction for a friend."
   }
 }

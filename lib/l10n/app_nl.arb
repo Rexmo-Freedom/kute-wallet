@@ -3959,5 +3959,10 @@
   "slipSendCta": "{amount} sturen · {side}",
   "slipSendYesOnly": "Alleen Ja op {outcome} kan worden verstuurd",
   "sendPickChipFriend": "Naar een vriend",
-  "sendPickSearchHint": "Zoek een markt om te sturen"
+  "sendPickSearchHint": "Zoek een markt om te sturen",
+  "sendPickChipForNamed": "Voor {name}",
+  "sendPickTradeSide": "{side} sturen",
+  "sendPickBarPickOutcome": "Kies een uitkomst",
+  "sendPickBarBuyingFor": "Je koopt het voor {name}",
+  "sendPickBarBuyingForFriend": "Je koopt het voor een vriend"
 }
