@@ -3640,11 +3640,6 @@ class AppLocalizationsRo extends AppLocalizations {
   }
 
   @override
-  String activityRowClosed(String coin) {
-    return 'Închis · $coin';
-  }
-
-  @override
   String activityRowReduced(String coin) {
     return 'Redus · $coin';
   }
@@ -11761,10 +11756,58 @@ class AppLocalizationsRo extends AppLocalizations {
   }
 
   @override
-  String get pnlStatRealised => 'Realised';
+  String portfolioHeroUp(String amount) {
+    return 'Creștere $amount';
+  }
 
   @override
-  String get pnlStatUnrealised => 'Unrealised';
+  String portfolioHeroDown(String amount) {
+    return 'Scădere $amount';
+  }
+
+  @override
+  String portfolioPnlYoureUp(String amount) {
+    return 'Ești pe plus cu $amount';
+  }
+
+  @override
+  String portfolioPnlYoureDown(String amount) {
+    return 'Ești pe minus cu $amount';
+  }
+
+  @override
+  String get portfolioPnlFromClosed => 'Din poziții închise';
+
+  @override
+  String get portfolioPnlOnOpen => 'Pe poziții deschise';
+
+  @override
+  String get portfolioPnlByProduct => 'După produs';
+
+  @override
+  String get portfolioClosedPositions => 'Poziții închise';
+
+  @override
+  String get portfolioBrowseInvesting => 'Explorează investițiile';
+
+  @override
+  String get activityFilterTrades => 'Tranzacții';
+
+  @override
+  String get activityFilterPayouts => 'Plăți';
+
+  @override
+  String get activityFilterTransfers => 'Transferuri';
+
+  @override
+  String activityRowClosedLong(String coin) {
+    return 'Închis · $coin Long';
+  }
+
+  @override
+  String activityRowClosedShort(String coin) {
+    return 'Închis · $coin Short';
+  }
 
   @override
   String get pnlStatRealisedAllTime => 'All time realised';

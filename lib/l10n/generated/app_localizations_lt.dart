@@ -3633,11 +3633,6 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
-  String activityRowClosed(String coin) {
-    return 'Uždaryta · $coin';
-  }
-
-  @override
   String activityRowReduced(String coin) {
     return 'Sumažinta · $coin';
   }
@@ -11759,10 +11754,58 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
-  String get pnlStatRealised => 'Realised';
+  String portfolioHeroUp(String amount) {
+    return 'Pakilo $amount';
+  }
 
   @override
-  String get pnlStatUnrealised => 'Unrealised';
+  String portfolioHeroDown(String amount) {
+    return 'Nukrito $amount';
+  }
+
+  @override
+  String portfolioPnlYoureUp(String amount) {
+    return 'Esi pliuse $amount';
+  }
+
+  @override
+  String portfolioPnlYoureDown(String amount) {
+    return 'Esi minuse $amount';
+  }
+
+  @override
+  String get portfolioPnlFromClosed => 'Iš uždarytų pozicijų';
+
+  @override
+  String get portfolioPnlOnOpen => 'Atvirose pozicijose';
+
+  @override
+  String get portfolioPnlByProduct => 'Pagal produktą';
+
+  @override
+  String get portfolioClosedPositions => 'Uždarytos pozicijos';
+
+  @override
+  String get portfolioBrowseInvesting => 'Naršyti investavimą';
+
+  @override
+  String get activityFilterTrades => 'Sandoriai';
+
+  @override
+  String get activityFilterPayouts => 'Išmokos';
+
+  @override
+  String get activityFilterTransfers => 'Pervedimai';
+
+  @override
+  String activityRowClosedLong(String coin) {
+    return 'Uždaryta · $coin Long';
+  }
+
+  @override
+  String activityRowClosedShort(String coin) {
+    return 'Uždaryta · $coin Short';
+  }
 
   @override
   String get pnlStatRealisedAllTime => 'All time realised';

@@ -6501,12 +6501,6 @@ abstract class AppLocalizations {
   /// **'Short {coin}'**
   String activityRowShort(String coin);
 
-  /// Activity row title for an Investing fill that closed a position fully. coin is the symbol.
-  ///
-  /// In en, this message translates to:
-  /// **'Closed {coin}'**
-  String activityRowClosed(String coin);
-
   /// Activity row title for an Investing fill that made a position smaller without closing it. coin is the symbol.
   ///
   /// In en, this message translates to:
@@ -19647,17 +19641,89 @@ abstract class AppLocalizations {
   /// **'{count, plural, =1{1 position not charted (history unavailable)} other{{count} positions not charted (history unavailable)}}'**
   String portfolioOpenPnlNotCharted(int count);
 
-  /// Portfolio P&L Charts stats strip: label over the P&L made by closed positions.
+  /// Portfolio screen hero, while a finger scrubs the P&L chart: the gain from the range's start to the point under the finger, before the date ("Up $4.10 · Oct 12"). amount is money, already formatted.
   ///
   /// In en, this message translates to:
-  /// **'Realised'**
-  String get pnlStatRealised;
+  /// **'Up {amount}'**
+  String portfolioHeroUp(String amount);
 
-  /// Portfolio P&L Charts stats strip: label over the P&L of positions still open.
+  /// Portfolio screen hero, while a finger scrubs the P&L chart: the loss from the range's start to the point under the finger, before the date ("Down $1.20 · Oct 12"). amount is money, already formatted, unsigned.
   ///
   /// In en, this message translates to:
-  /// **'Unrealised'**
-  String get pnlStatUnrealised;
+  /// **'Down {amount}'**
+  String portfolioHeroDown(String amount);
+
+  /// Portfolio screen, P&L tab: the headline when the account made money over the range picked on the chart ("You're up $7.55"); the range is written under it. amount is money, already formatted. Never says 'P&L'.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re up {amount}'**
+  String portfolioPnlYoureUp(String amount);
+
+  /// Portfolio screen, P&L tab: the headline when the account lost money over the range picked on the chart ("You're down $2.10"). amount is money, already formatted, unsigned.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re down {amount}'**
+  String portfolioPnlYoureDown(String amount);
+
+  /// Portfolio screen, P&L tab: a row under the headline, what closed, sold and redeemed positions made or lost over the range (its figure at the row's end). With 'On open positions' it adds up to the headline.
+  ///
+  /// In en, this message translates to:
+  /// **'From closed positions'**
+  String get portfolioPnlFromClosed;
+
+  /// Portfolio screen, P&L tab: a row under the headline, what the positions still open made or lost over the range (its figure at the row's end).
+  ///
+  /// In en, this message translates to:
+  /// **'On open positions'**
+  String get portfolioPnlOnOpen;
+
+  /// Portfolio screen, P&L tab: small heading over one row per product (Predictions, Investing), each with its P&L over the range. A row tapped draws that product alone.
+  ///
+  /// In en, this message translates to:
+  /// **'By product'**
+  String get portfolioPnlByProduct;
+
+  /// Portfolio screen, P&L tab: small heading over the list of positions closed in the range, each with its result; Date and Amount sort it.
+  ///
+  /// In en, this message translates to:
+  /// **'Closed positions'**
+  String get portfolioClosedPositions;
+
+  /// Portfolio screen, Positions tab: a small pill under 'No open positions' that opens the Investing markets. 'Investing' is the name of the app's investing tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Browse Investing'**
+  String get portfolioBrowseInvesting;
+
+  /// Portfolio screen, Activity tab: filter chip listing the trades only (Investing opens and closes, predictions placed or sold).
+  ///
+  /// In en, this message translates to:
+  /// **'Trades'**
+  String get activityFilterTrades;
+
+  /// Portfolio screen, Activity tab: filter chip listing prediction results only (won, lost, redeemed).
+  ///
+  /// In en, this message translates to:
+  /// **'Payouts'**
+  String get activityFilterPayouts;
+
+  /// Portfolio screen, Activity tab: filter chip listing money moving into or out of Investing and Predictions only.
+  ///
+  /// In en, this message translates to:
+  /// **'Transfers'**
+  String get activityFilterTransfers;
+
+  /// Activity row title for an Investing fill that closed a long position fully. coin is the symbol. 'long' is the trading side (kept as the app's Long label).
+  ///
+  /// In en, this message translates to:
+  /// **'Closed {coin} long'**
+  String activityRowClosedLong(String coin);
+
+  /// Activity row title for an Investing fill that closed a short position fully. coin is the symbol. 'short' is the trading side (kept as the app's Short label).
+  ///
+  /// In en, this message translates to:
+  /// **'Closed {coin} short'**
+  String activityRowClosedShort(String coin);
 
   /// Portfolio P&L Charts stats card: label over the P&L made by closed positions since the account began (it does not follow the chart's range).
   ///

@@ -3620,11 +3620,6 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
-  String activityRowClosed(String coin) {
-    return 'Uzavřeno · $coin';
-  }
-
-  @override
   String activityRowReduced(String coin) {
     return 'Sníženo · $coin';
   }
@@ -11704,10 +11699,58 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
-  String get pnlStatRealised => 'Realised';
+  String portfolioHeroUp(String amount) {
+    return 'Nahoru o $amount';
+  }
 
   @override
-  String get pnlStatUnrealised => 'Unrealised';
+  String portfolioHeroDown(String amount) {
+    return 'Dolů o $amount';
+  }
+
+  @override
+  String portfolioPnlYoureUp(String amount) {
+    return 'Jsi v plusu $amount';
+  }
+
+  @override
+  String portfolioPnlYoureDown(String amount) {
+    return 'Jsi v minusu $amount';
+  }
+
+  @override
+  String get portfolioPnlFromClosed => 'Z uzavřených pozic';
+
+  @override
+  String get portfolioPnlOnOpen => 'Na otevřených pozicích';
+
+  @override
+  String get portfolioPnlByProduct => 'Podle produktu';
+
+  @override
+  String get portfolioClosedPositions => 'Uzavřené pozice';
+
+  @override
+  String get portfolioBrowseInvesting => 'Procházet Investování';
+
+  @override
+  String get activityFilterTrades => 'Obchody';
+
+  @override
+  String get activityFilterPayouts => 'Výplaty';
+
+  @override
+  String get activityFilterTransfers => 'Převody';
+
+  @override
+  String activityRowClosedLong(String coin) {
+    return 'Uzavřeno · $coin Long';
+  }
+
+  @override
+  String activityRowClosedShort(String coin) {
+    return 'Uzavřeno · $coin Short';
+  }
 
   @override
   String get pnlStatRealisedAllTime => 'All time realised';

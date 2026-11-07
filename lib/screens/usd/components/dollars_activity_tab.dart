@@ -24,12 +24,12 @@
 //     "No open positions";
 //   * OPEN P&L under the squares ([DollarsPnlStrip]; founder, 6 November
 //     2026: the card is the open positions' P&L): what the positions open
-//     now made or lost so far (the Portfolio Positions hero's figure, at
-//     the live prices) in one soft card, compact, over the open positions'
-//     P&L since each was opened (the Positions chart's own series and
-//     range, its last point that figure; the split fill, the dashed line
-//     at zero, no scrub, no range row). A tap opens the Portfolio on
-//     Positions. Nothing open: no card;
+//     now made or lost so far (the Portfolio's Positions rows' P&L added,
+//     and its P&L tab's "On open positions" over ALL, at the live prices)
+//     in one soft card, compact, over the open positions' P&L since each
+//     was opened (the open P&L engine's series, its last point that
+//     figure; the split fill, the dashed line at zero, no scrub, no range
+//     row). A tap opens the Portfolio on Positions. Nothing open: no card;
 //   * LATEST: the newest [kDollarsActivityRows] actions of the
 //     Investments activity (all_activity.dart, [ActivityScope.investments]:
 //     bets placed, sold, won or lost, Investing opens and closes, money
@@ -293,13 +293,15 @@ class _SquaresSkeleton extends StatelessWidget {
 /// The OPEN P&L under the squares (see the file header; founder, 6
 /// November 2026: the card is the open positions' P&L, "Open P&L"): what
 /// the positions open now made or lost so far at both venues, at the live
-/// prices (portfolioOpenPnl, the Portfolio Positions hero's own figure),
-/// signed and rolling in its result colour, over the open positions' P&L
-/// since each was opened (the Positions chart's own series,
+/// prices (portfolioOpenPnl: the Portfolio's Positions rows' P&L added, its
+/// P&L tab's "On open positions" over ALL), signed and rolling in its
+/// result colour, over the open positions' P&L since each was opened (the
+/// open P&L engine's series,
 /// [openPnlWindowProvider] on its range [openPnlShownRangeProvider], its
 /// last point the figure with the positions it cannot chart left out) with
 /// the split fill and the dashed line at zero, short and still. A tap opens
-/// the Portfolio on Positions, where that chart is. Nothing open: no card.
+/// the Portfolio on Positions, where those positions are. Nothing open: no
+/// card.
 /// The history on its way: the card's skeleton; nothing it can chart: the
 /// figure alone.
 class DollarsPnlStrip extends ConsumerWidget {
@@ -326,7 +328,7 @@ class DollarsPnlStrip extends ConsumerWidget {
         ? '••••••'
         : '${kuteChangeSign(usd)}${formatPolyAmount(ref, usd.abs())}';
 
-    // The Positions chart's line on its range, its last point the open
+    // The open P&L engine's line on its range, its last point the open
     // P&L of what it charts.
     List<double>? values;
     List<DateTime>? times;

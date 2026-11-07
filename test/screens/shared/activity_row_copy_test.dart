@@ -229,9 +229,12 @@ void main() {
           'Long BTC');
     });
 
-    test('closing and reducing say so', () {
+    test('closing says the side it closed, reducing says so', () {
+      // "Closed BTC long" (the Portfolio's Activity: verb, asset, side).
       expect(hlFillRowTitle(_fill('BTC', 'A', start: 1), 'BTC', _en),
-          'Closed BTC');
+          'Closed BTC long');
+      expect(hlFillRowTitle(_fill('BTC', 'B', start: -1), 'BTC', _en),
+          'Closed BTC short');
       expect(hlFillRowTitle(_fill('BTC', 'A', sz: 0.5, start: 1), 'BTC', _en),
           'Reduced BTC');
       expect(

@@ -3611,11 +3611,6 @@ class AppLocalizationsLv extends AppLocalizations {
   }
 
   @override
-  String activityRowClosed(String coin) {
-    return 'Slēgts · $coin';
-  }
-
-  @override
   String activityRowReduced(String coin) {
     return 'Samazināts · $coin';
   }
@@ -11675,10 +11670,58 @@ class AppLocalizationsLv extends AppLocalizations {
   }
 
   @override
-  String get pnlStatRealised => 'Realised';
+  String portfolioHeroUp(String amount) {
+    return 'Kāpums $amount';
+  }
 
   @override
-  String get pnlStatUnrealised => 'Unrealised';
+  String portfolioHeroDown(String amount) {
+    return 'Kritums $amount';
+  }
+
+  @override
+  String portfolioPnlYoureUp(String amount) {
+    return 'Tu esi plusā par $amount';
+  }
+
+  @override
+  String portfolioPnlYoureDown(String amount) {
+    return 'Tu esi mīnusā par $amount';
+  }
+
+  @override
+  String get portfolioPnlFromClosed => 'No slēgtām pozīcijām';
+
+  @override
+  String get portfolioPnlOnOpen => 'Atvērtajās pozīcijās';
+
+  @override
+  String get portfolioPnlByProduct => 'Pēc produkta';
+
+  @override
+  String get portfolioClosedPositions => 'Slēgtās pozīcijas';
+
+  @override
+  String get portfolioBrowseInvesting => 'Pārlūkot investēšanu';
+
+  @override
+  String get activityFilterTrades => 'Darījumi';
+
+  @override
+  String get activityFilterPayouts => 'Izmaksas';
+
+  @override
+  String get activityFilterTransfers => 'Pārskaitījumi';
+
+  @override
+  String activityRowClosedLong(String coin) {
+    return 'Slēgts · $coin Long';
+  }
+
+  @override
+  String activityRowClosedShort(String coin) {
+    return 'Slēgts · $coin Short';
+  }
 
   @override
   String get pnlStatRealisedAllTime => 'All time realised';

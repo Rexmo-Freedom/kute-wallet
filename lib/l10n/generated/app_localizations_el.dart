@@ -3658,11 +3658,6 @@ class AppLocalizationsEl extends AppLocalizations {
   }
 
   @override
-  String activityRowClosed(String coin) {
-    return 'Κλείσιμο · $coin';
-  }
-
-  @override
   String activityRowReduced(String coin) {
     return 'Μείωση · $coin';
   }
@@ -11781,10 +11776,58 @@ class AppLocalizationsEl extends AppLocalizations {
   }
 
   @override
-  String get pnlStatRealised => 'Realised';
+  String portfolioHeroUp(String amount) {
+    return 'Άνοδος $amount';
+  }
 
   @override
-  String get pnlStatUnrealised => 'Unrealised';
+  String portfolioHeroDown(String amount) {
+    return 'Πτώση $amount';
+  }
+
+  @override
+  String portfolioPnlYoureUp(String amount) {
+    return 'Είσαι σε κέρδος $amount';
+  }
+
+  @override
+  String portfolioPnlYoureDown(String amount) {
+    return 'Είσαι σε ζημιά $amount';
+  }
+
+  @override
+  String get portfolioPnlFromClosed => 'Από κλειστές θέσεις';
+
+  @override
+  String get portfolioPnlOnOpen => 'Σε ανοιχτές θέσεις';
+
+  @override
+  String get portfolioPnlByProduct => 'Ανά προϊόν';
+
+  @override
+  String get portfolioClosedPositions => 'Κλειστές θέσεις';
+
+  @override
+  String get portfolioBrowseInvesting => 'Εξερεύνησε τις Επενδύσεις';
+
+  @override
+  String get activityFilterTrades => 'Συναλλαγές';
+
+  @override
+  String get activityFilterPayouts => 'Πληρωμές';
+
+  @override
+  String get activityFilterTransfers => 'Μεταφορές';
+
+  @override
+  String activityRowClosedLong(String coin) {
+    return 'Κλείσιμο · $coin Long';
+  }
+
+  @override
+  String activityRowClosedShort(String coin) {
+    return 'Κλείσιμο · $coin Short';
+  }
 
   @override
   String get pnlStatRealisedAllTime => 'All time realised';

@@ -406,12 +406,7 @@ class PortfolioBalanceBreakdown extends ConsumerStatefulWidget {
     this.sharesHeader = false,
     this.venuesOnly = false,
     this.refreshOnOpen = true,
-    this.squareIds = const [],
   });
-
-  /// The venues' positions drawn as squares over their groups, biggest
-  /// first (BalancesOverview.squareIds).
-  final List<String> squareIds;
 
   final bool trading;
   final bool predictions;
@@ -743,7 +738,6 @@ class _PortfolioBalanceBreakdownState
         firstReadDone: _firstReadDone,
         sharesHeader: widget.sharesHeader,
         venuesOnly: widget.venuesOnly,
-        squareIds: widget.squareIds,
         wrap: (part, row) => switch (part) {
           BalancesPart.dollars => _ArrivalCatch(
               key: const ValueKey('portfolio-band-dollars'),

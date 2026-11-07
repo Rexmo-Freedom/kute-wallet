@@ -38,18 +38,22 @@
 // (the Activity rows' rule), and scales down past that: never cut at the
 // card's edge, at 375 pt and at large text alike.
 //
-// THE PORTFOLIO SCREEN'S POSITIONS (founder, 2 November 2026: "maybe the
-// biggest investments get the squares and the others just get a normal
-// line"; [PortfolioRowLayoutScope]): the same row widgets drawn two other
-// ways. The biggest open positions are SQUARES ([PortfolioRowLayout
-// .square], the Bitcoin home's Latest squares and the Investing grid's:
-// the logo 40, the P&L top-right in colour, in money over its % ("▲
-// $0.61" over "5.4%"), the name and the line under it quiet, the value
-// 22 sp); the rest are the INVESTING LIST'S OWN ROW ([PortfolioRowLayout
-// .market], HlListRow in hl_market_card.dart: the logo, the name alone,
-// the value over the P&L as "▲ $0.61 · 5.4%"; no line under the name and
-// no chance bar, the position screen has them). The Dollars Activity
-// tab's open-position squares are these squares. A tap opens the position in every shape.
+// THE PORTFOLIO SCREEN'S POSITIONS (the redesign of 7 November 2026,
+// [PortfolioRowLayout.position]): the same row widgets as one plain row
+// each under their venue's heading: the picture, the name with the side
+// held as a small neutral chip after it ("Long", "Short", "Yes", "No";
+// HlMetaChip), a quiet note under it only where there is one (the event,
+// a state), and at the end the value over the P&L since it was opened,
+// "+$1.20 (+8.0%)" in its colour ([portfolioSignedPnl]); no size, no
+// leverage, no mark price, no return on equity (the position screen has
+// the entry, the size, what was put in and the liquidation, or what a
+// prediction pays if it wins). The same figures as every other shape and
+// as the brag card (hlLivePnl on the margin, the shares at the live
+// price). The P&L tab's closed positions are drawn the same
+// ([PortfolioClosedRow]). The biggest positions as SQUARES
+// ([PortfolioRowLayout.square], [PortfolioPositionSquares]) and the
+// Investing list's own row ([PortfolioRowLayout.market]) are the Dollars
+// Activity tab's and the Investing list's.
 // Every row is its own widget watching only what it needs, so a price
 // tick repaints one row. Taps open the same screens the cards opened,
 // with the same `open_investments_position_tapped` event.
@@ -63,6 +67,8 @@ import 'package:intl/intl.dart' show DateFormat;
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart';
+import 'package:kute/models/portfolio_performance.dart' show PredictionRecord;
+import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/models/polymarket_model.dart' show PolymarketEvent;
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart'
@@ -220,11 +226,16 @@ class PortfolioCardList extends StatelessWidget {
       required this.rows,
       this.after,
       this.afterHairline = true,
-      this.hairlines = true});
+      this.hairlines = true,
+      this.indent});
 
   final List<Widget> rows;
   final Widget? after;
   final bool afterHairline;
+
+  /// Where the hairline starts, logical pixels; null: [hairlineIndent],
+  /// the rows' text (rows with no picture start theirs at the inset).
+  final double? indent;
 
   /// The inset hairline between rows; false for the Investing list's
   /// rows ([PortfolioRowLayout.market]), which draw none.
@@ -236,7 +247,7 @@ class PortfolioCardList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final indent = hairlineIndent();
+    final indent = this.indent ?? hairlineIndent();
     return DecoratedBox(
       decoration: PremiumGroupContainer.decorationOf(context),
       child: ClipRRect(
@@ -267,9 +278,12 @@ class PortfolioCardList extends StatelessWidget {
 
 /// How a [PortfolioPositionRow] is drawn (see the file header): the
 /// Portfolio's own row ([list]), the Investing list's row ([market]), a
-/// big square ([square]) or the full-width compact card an odd last
-/// square becomes ([wide], [PortfolioPositionSquares]).
-enum PortfolioRowLayout { list, market, square, wide }
+/// big square ([square]), the full-width compact card an odd last
+/// square becomes ([wide], [PortfolioPositionSquares]), or the Portfolio
+/// screen's Positions row ([position]: the name and its side chip, a
+/// quiet note under it where there is one, the value over the P&L since
+/// it was opened, "+$1.20 (+8.0%)").
+enum PortfolioRowLayout { list, market, square, wide, position }
 
 /// The [PortfolioRowLayout] of the position rows under it; none above:
 /// [PortfolioRowLayout.list].
@@ -641,6 +655,30 @@ String polyPositionRowLine(PolyRowNames names, String side, {String? status}) {
   return parts.isEmpty ? (status ?? side) : parts.join(' · ');
 }
 
+/// The quiet note under a Predictions row's name on the Portfolio
+/// screen's Positions ([PortfolioRowLayout.position], whose side chip
+/// says the side): the event where it is not the title, then the
+/// [status] where there is one ("Brazil Presidential Election",
+/// "Settled"); null with neither.
+String? polyPositionRowNote(PolyRowNames names, {String? status}) {
+  final ctx = names.context.isNotEmpty &&
+          names.context.toLowerCase() != names.title.toLowerCase()
+      ? names.context
+      : '';
+  final parts = [if (ctx.isNotEmpty) ctx, if (status != null) status];
+  return parts.isEmpty ? null : parts.join(' · ');
+}
+
+/// The side chip of a Predictions row ([PortfolioRowLayout.position]):
+/// the side held ("Yes", "No", an outcome's name), none where the title
+/// already is the side ("Verstappen").
+String? polyPositionRowChip(PolyRowNames names, String side) {
+  final held = side.trim();
+  if (names.titleIsSide || held.isEmpty) return null;
+  if (held.toLowerCase() == names.title.trim().toLowerCase()) return null;
+  return held;
+}
+
 /// A Predictions position's name where nothing goes under it (the
 /// Investing list's row): the title with the side held after
 /// it ("Lakers · No", "Bitcoin Up or Down · Up"), the title alone when it
@@ -890,10 +928,26 @@ class PortfolioPositionRow extends StatelessWidget {
     this.detail,
     this.onTap,
     this.listName,
+    this.chip,
+    this.note,
+    this.valueColor,
   });
+
+  /// The value's colour on the Positions layout (a closed position's
+  /// result in its colour); null: the text colour.
+  final Color? valueColor;
 
   final Widget leading;
   final String title;
+
+  /// The side held, as a small chip after the name on the Portfolio
+  /// screen's Positions ([PortfolioRowLayout.position]): "Long", "Short",
+  /// "Yes", "No"; null: none.
+  final String? chip;
+
+  /// The quiet line under the name there (the event, a state); null:
+  /// none, the name alone.
+  final String? note;
 
   /// The name the Investing list's row ([PortfolioRowLayout.market])
   /// writes, which has no line under it to say the side held (a
@@ -961,6 +1015,19 @@ class PortfolioPositionRow extends StatelessWidget {
           change: under == null
               ? null
               : portfolioCornerPnl(context, under, amount: pnlAmount),
+          detail: detail,
+          onTap: onTap,
+        );
+      case PortfolioRowLayout.position:
+        return _PositionLine(
+          leading: leading,
+          name: title,
+          chip: chip,
+          note: note,
+          value: value,
+          valueColor: valueColor,
+          pnl: under,
+          pnlAmount: pnlAmount,
           detail: detail,
           onTap: onTap,
         );
@@ -1056,6 +1123,155 @@ class PortfolioPositionRow extends StatelessWidget {
               ],
             );
           }),
+        ),
+      ),
+    );
+  }
+}
+
+/// "+$1.20 (+8.0%)": a P&L as the Positions rows write it, the money
+/// signed and its percent after it; "$0.00 (0.0%)" when flat. [amount] is
+/// the money unsigned; without it the percent alone.
+String portfolioSignedPnl(
+    ({String text, PortfolioPnlTone tone}) pnl, String? amount) {
+  final sign = switch (pnl.tone) {
+    PortfolioPnlTone.up => '+',
+    PortfolioPnlTone.down => '−',
+    PortfolioPnlTone.flat => '',
+  };
+  return amount == null ? pnl.text : '$sign$amount (${pnl.text})';
+}
+
+/// One position on the Portfolio screen's Positions
+/// ([PortfolioRowLayout.position]): the picture, the name with its side
+/// chip after it (HlMetaChip, the app's neutral chip; the name takes two
+/// lines rather than being cut), the [note] quiet under it where there is
+/// one; at the end the value (15 w600, rolling) over the P&L since it was
+/// opened in its colour ([portfolioSignedPnl]), or the quiet [detail].
+/// No leverage, no mark price, no return on equity: the position screen
+/// has the rest. The row's padding is [PortfolioRowInset]'s, inside its
+/// ink.
+class _PositionLine extends StatelessWidget {
+  const _PositionLine({
+    required this.leading,
+    required this.name,
+    required this.chip,
+    required this.note,
+    required this.value,
+    required this.pnl,
+    required this.pnlAmount,
+    required this.detail,
+    required this.onTap,
+    this.valueColor,
+  });
+
+  final Widget leading;
+  final String name;
+  final String? chip;
+  final String? note;
+  final String value;
+  final Color? valueColor;
+  final ({String text, PortfolioPnlTone tone})? pnl;
+  final String? pnlAmount;
+  final String? detail;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final secondary = portfolioRowSubStyle(context);
+    final under = pnl;
+    final chip = this.chip;
+    final note = this.note;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+              horizontal: PortfolioRowInset.of(context),
+              vertical: PortfolioRowInset.verticalOf(context)),
+          child: LayoutBuilder(
+            builder: (context, box) => Row(
+              children: [
+                SizedBox.square(
+                    dimension: kPortfolioRowImage.w, child: leading),
+                SizedBox(width: kPortfolioRowGap.w),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text.rich(
+                        TextSpan(children: [
+                          TextSpan(text: name),
+                          if (chip != null)
+                            WidgetSpan(
+                              alignment: PlaceholderAlignment.middle,
+                              child: Padding(
+                                padding:
+                                    EdgeInsetsDirectional.only(start: 6.w),
+                                child: HlMetaChip(
+                                    key: const ValueKey('portfolio-row-chip'),
+                                    text: chip),
+                              ),
+                            ),
+                        ]),
+                        key: const ValueKey('portfolio-row-title'),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: portfolioRowTitleStyle(context),
+                      ),
+                      if (note != null) ...[
+                        SizedBox(height: 2.h),
+                        Text(note,
+                            key: const ValueKey('portfolio-row-subtitle'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: secondary),
+                      ],
+                    ],
+                  ),
+                ),
+                SizedBox(width: 12.w),
+                // The figures take what they need, at most
+                // kPortfolioRowFiguresShare of the row, each scaled down
+                // past that, never cut at the card's edge.
+                ConstrainedBox(
+                  key: const ValueKey('portfolio-row-figures'),
+                  constraints: BoxConstraints(
+                      maxWidth: box.maxWidth * kPortfolioRowFiguresShare),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _figureFit(RollingFigure(
+                        key: const ValueKey('portfolio-row-value'),
+                        text: value,
+                        style: portfolioRowFigureStyle(context,
+                            color: valueColor),
+                      )),
+                      if (under != null) ...[
+                        SizedBox(height: 2.h),
+                        _figureFit(RollingFigure(
+                          key: const ValueKey('portfolio-row-pnl'),
+                          text: portfolioSignedPnl(under, pnlAmount),
+                          style: portfolioRowChangeStyle(
+                              PortfolioPnlPill.colorsFor(context, under.tone)
+                                  .foreground),
+                        )),
+                      ] else if (detail case final word?) ...[
+                        SizedBox(height: 2.h),
+                        _figureFit(Text(word,
+                            key: const ValueKey('portfolio-row-detail'),
+                            maxLines: 1,
+                            style: secondary)),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -1518,6 +1734,8 @@ class PolyPositionRow extends ConsumerWidget {
             question: event == null ? p.marketQuestion : null,
             date: _rowDate(context)),
         subtitle: polyPositionRowLine(names, p.outcome, status: status),
+        chip: polyPositionRowChip(names, p.outcome),
+        note: polyPositionRowNote(names, status: status),
         value: money(value),
         chance: p.isResolved ? null : price,
         entry: p.isResolved ? null : p.avgPrice,
@@ -1557,6 +1775,11 @@ class ComboPositionRow extends StatelessWidget {
       leading: _polyImage(title, firstImage),
       title: title,
       subtitle: lost
+          ? l10n.comboLegLost
+          : settled != null
+              ? l10n.activitySettled
+              : '${l10n.comboStake} ${formatHlUsd(p.stakeUsd)}',
+      note: lost
           ? l10n.comboLegLost
           : settled != null
               ? l10n.activitySettled
@@ -1602,6 +1825,8 @@ class PlacingBetRow extends ConsumerWidget {
       listName: polyPositionListName(names, p.outcomeName,
           question: p.marketQuestion, date: _rowDate(context)),
       subtitle: polyPositionRowLine(names, p.outcomeName, status: step),
+      chip: polyPositionRowChip(names, p.outcomeName),
+      note: polyPositionRowNote(names, status: step),
       value: formatPolyAmount(ref, p.amount),
     );
   }
@@ -1659,6 +1884,9 @@ class HlPositionRow extends ConsumerWidget {
           coin,
       subtitle: '${p.isLong ? l10n.longLabel : l10n.shortLabel} · '
           '${formatHlSize(p.szi.abs())} ${_ticker(coin)}',
+      // Positions: the side alone; the size and the entry are on the
+      // position screen.
+      chip: p.isLong ? l10n.longLabel : l10n.shortLabel,
       value: money(hlCloseValue(p, liveMid: mid)),
       pnl: portfolioPnlPill(pnl, percent: roe * 100),
       pnlAmount: money(pnl.abs()),
@@ -1715,6 +1943,101 @@ class HlSpotRow extends ConsumerWidget {
                   params: {'product': 'trading', 'kind': 'spot'});
               HlMarketDetailSheet.show(context, market: market);
             },
+    );
+  }
+}
+
+/// A closed position on the Portfolio screen's P&L ("Closed positions"):
+/// a prediction decided ([prediction]: closed, or resolved and waiting to
+/// be claimed) or an Investing position closed, reduced or sold ([fill],
+/// its order's last fill; [long] the side it closed, null for a holding
+/// sold), drawn as a Positions row ([PortfolioRowLayout.position]): the
+/// picture, the name and its side chip, the day it closed under it, and
+/// its result ([resultUsd], what closing it realised net of the fees in
+/// dollars) signed in its colour at the end. Masked with balances hidden.
+class PortfolioClosedRow extends ConsumerWidget {
+  const PortfolioClosedRow({
+    super.key,
+    required this.at,
+    required this.resultUsd,
+    this.prediction,
+    this.fill,
+    this.long,
+  }) : assert((prediction == null) != (fill == null));
+
+  final DateTime at;
+  final double resultUsd;
+  final PredictionRecord? prediction;
+  final HlFill? fill;
+  final bool? long;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final c = context.colors;
+    final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
+    final usd = resultUsd.abs() < 0.005 ? 0.0 : resultUsd;
+    final value = !visible
+        ? '••••••'
+        : '${usd > 0 ? '+' : usd < 0 ? '−' : ''}'
+            '${formatPolyAmount(ref, usd.abs())}';
+    final color = !visible || usd == 0
+        ? c.textPrimary
+        : usd > 0
+            ? AppColors.marketUp
+            : AppColors.marketDown;
+    final day = _rowDate(context)(at.toLocal());
+    final Widget leading;
+    final String title;
+    final String? chip;
+    final p = prediction;
+    final f = fill;
+    if (p != null) {
+      final names = polyPositionRowNames(
+        question: p.title,
+        side: p.outcome,
+        marketId: p.conditionId,
+        tokenId: p.tokenId,
+        date: _rowDate(context),
+      );
+      leading = _polyImage(p.title, p.icon.isEmpty ? null : p.icon);
+      // A record without its question: the side held, else the venue.
+      title = names.title.trim().isNotEmpty
+          ? names.title
+          : p.outcome.trim().isNotEmpty
+              ? p.outcome
+              : l10n.predictions;
+      chip = polyPositionRowChip(names, p.outcome);
+    } else {
+      final market = ref.watch(hyperliquidAccountMarketProvider(f!.coin));
+      final coin = market?.coin ?? f.coin;
+      leading = _hlImage(
+          coin: coin,
+          wireCoin: market?.wireCoin ?? f.coin,
+          iconUrl: market?.iconUrl,
+          category: market?.category);
+      final symbol = hlBaseCoin(coin);
+      title = hlFriendlyName(symbol) ??
+          hlFriendlyName(coin) ??
+          market?.unitAssetName ??
+          symbol;
+      chip = switch (long) {
+        true => l10n.longLabel,
+        false => l10n.shortLabel,
+        null => null,
+      };
+    }
+    return PortfolioRowLayoutScope(
+      layout: PortfolioRowLayout.position,
+      child: PortfolioPositionRow(
+        leading: leading,
+        title: title,
+        subtitle: day,
+        chip: chip,
+        note: day,
+        value: value,
+        valueColor: color,
+      ),
     );
   }
 }

@@ -1037,10 +1037,22 @@ final pnlWindowProvider = Provider.autoDispose.family<OpenPnlWindow?,
   return history == null ? null : _windowOf(history, key.range);
 });
 
+/// The ranges the Portfolio screen's whole P&L line offers at most (the
+/// redesign of 7 November 2026: 1W 1M 3M ALL, no 1Y), shortest first.
+const List<BalanceRange> kPnlHistoryRanges = [
+  BalanceRange.week,
+  BalanceRange.month,
+  BalanceRange.threeMonths,
+  BalanceRange.all,
+];
+
 /// The ranges [venue]'s whole P&L line (null: both) offers in its row
-/// ([openPnlRanges]: the fixed ones shorter than its history, then ALL);
-/// every range while it is read or with nothing charted.
+/// ([openPnlRanges]: the fixed ones of [kPnlHistoryRanges] shorter than
+/// its history, then ALL); all of them while it is read or with nothing
+/// charted.
 final pnlRangesProvider = Provider.autoDispose
-    .family<List<BalanceRange>, PortfolioPerformanceVenue?>((ref, venue) =>
-        openPnlRangesOf(ref.watch(pnlHistoryProvider(venue)
-            .select((read) => read.valueOrNull?.rangesOffered))));
+    .family<List<BalanceRange>, PortfolioPerformanceVenue?>((ref, venue) => [
+          for (final r in openPnlRangesOf(ref.watch(pnlHistoryProvider(venue)
+              .select((read) => read.valueOrNull?.rangesOffered))))
+            if (kPnlHistoryRanges.contains(r)) r,
+        ]);

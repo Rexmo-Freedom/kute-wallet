@@ -3629,11 +3629,6 @@ class AppLocalizationsSl extends AppLocalizations {
   }
 
   @override
-  String activityRowClosed(String coin) {
-    return 'Zaprto · $coin';
-  }
-
-  @override
   String activityRowReduced(String coin) {
     return 'Zmanjšano · $coin';
   }
@@ -11745,10 +11740,58 @@ class AppLocalizationsSl extends AppLocalizations {
   }
 
   @override
-  String get pnlStatRealised => 'Realised';
+  String portfolioHeroUp(String amount) {
+    return 'Gor za $amount';
+  }
 
   @override
-  String get pnlStatUnrealised => 'Unrealised';
+  String portfolioHeroDown(String amount) {
+    return 'Dol za $amount';
+  }
+
+  @override
+  String portfolioPnlYoureUp(String amount) {
+    return 'Si v plusu $amount';
+  }
+
+  @override
+  String portfolioPnlYoureDown(String amount) {
+    return 'Si v minusu $amount';
+  }
+
+  @override
+  String get portfolioPnlFromClosed => 'Iz zaprtih pozicij';
+
+  @override
+  String get portfolioPnlOnOpen => 'Na odprtih pozicijah';
+
+  @override
+  String get portfolioPnlByProduct => 'Po izdelku';
+
+  @override
+  String get portfolioClosedPositions => 'Zaprte pozicije';
+
+  @override
+  String get portfolioBrowseInvesting => 'Prebrskaj naložbe';
+
+  @override
+  String get activityFilterTrades => 'Posli';
+
+  @override
+  String get activityFilterPayouts => 'Izplačila';
+
+  @override
+  String get activityFilterTransfers => 'Prenosi';
+
+  @override
+  String activityRowClosedLong(String coin) {
+    return 'Zaprto · $coin Long';
+  }
+
+  @override
+  String activityRowClosedShort(String coin) {
+    return 'Zaprto · $coin Short';
+  }
 
   @override
   String get pnlStatRealisedAllTime => 'All time realised';

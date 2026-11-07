@@ -3629,11 +3629,6 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
-  String activityRowClosed(String coin) {
-    return 'Lezárva · $coin';
-  }
-
-  @override
   String activityRowReduced(String coin) {
     return 'Csökkentve · $coin';
   }
@@ -11729,10 +11724,58 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
-  String get pnlStatRealised => 'Realised';
+  String portfolioHeroUp(String amount) {
+    return '$amount plusz';
+  }
 
   @override
-  String get pnlStatUnrealised => 'Unrealised';
+  String portfolioHeroDown(String amount) {
+    return '$amount mínusz';
+  }
+
+  @override
+  String portfolioPnlYoureUp(String amount) {
+    return '$amount pluszban vagy';
+  }
+
+  @override
+  String portfolioPnlYoureDown(String amount) {
+    return '$amount mínuszban vagy';
+  }
+
+  @override
+  String get portfolioPnlFromClosed => 'Lezárt pozíciókból';
+
+  @override
+  String get portfolioPnlOnOpen => 'Nyitott pozíciókon';
+
+  @override
+  String get portfolioPnlByProduct => 'Termékenként';
+
+  @override
+  String get portfolioClosedPositions => 'Lezárt pozíciók';
+
+  @override
+  String get portfolioBrowseInvesting => 'Befektetések böngészése';
+
+  @override
+  String get activityFilterTrades => 'Ügyletek';
+
+  @override
+  String get activityFilterPayouts => 'Kifizetések';
+
+  @override
+  String get activityFilterTransfers => 'Átvezetések';
+
+  @override
+  String activityRowClosedLong(String coin) {
+    return 'Lezárva · $coin Long';
+  }
+
+  @override
+  String activityRowClosedShort(String coin) {
+    return 'Lezárva · $coin Short';
+  }
 
   @override
   String get pnlStatRealisedAllTime => 'All time realised';

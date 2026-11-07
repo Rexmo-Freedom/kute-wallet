@@ -561,7 +561,7 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
       'from_tab': current.key,
       'surface': 'investments',
       if (next == InvestmentsTab.positions)
-        'sub': ref.read(portfolioSectionProvider).key,
+        'sub': ref.read(portfolioSectionProvider).eventName,
     });
     // The venue tabs' own open events, from the pills that open them now.
     switch (next) {

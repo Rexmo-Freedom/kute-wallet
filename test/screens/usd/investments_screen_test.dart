@@ -983,28 +983,25 @@ void main() {
     expect(_sectionOn(tester), 'balances');
     expect(find.byKey(const ValueKey('portfolio-balance-breakdown')),
         findsOneWidget);
-    expect(find.byKey(const ValueKey('portfolio-activity-squares')),
-        findsNothing);
+    expect(find.byKey(const ValueKey('portfolio-activity')), findsNothing);
     expect(find.byKey(const ValueKey('statistics-overview')), findsNothing);
-    // The hero (founder, 4 November 2026: the ring "means nothing"):
-    // "Invested" over the figure, the line under it, the strip under
-    // that; no ring, no allocation tiles and no Move money anywhere
-    // (money moves from Add and Send).
+    // The hero (the redesign of 7 November 2026): the total, no
+    // "Invested" caption over it, "Invested $X · Available $Y" under the
+    // chart, the strip under that; no ring, no allocation tiles and no
+    // Move money anywhere (money moves from Add and Send).
     final hero = find.byKey(const ValueKey('portfolio-hero'));
     expect(hero, findsOneWidget);
     expect(
         find.byKey(const ValueKey('portfolio-balance-ring')), findsNothing);
-    expect(
-        tester
-            .widget<Text>(find.byKey(const ValueKey('portfolio-hero-caption')))
-            .data,
-        l10n.portfolioInvestedLabel);
-    // Nothing open in the harness: "Available $25.00" alone, the Dollars
-    // cash (the venues' own cash is not read here).
+    expect(find.byKey(const ValueKey('portfolio-hero-caption')), findsNothing);
+    // Nothing open in the harness: "Invested $0.00 · Available $25.00",
+    // the Dollars cash (the venues' own cash is not read here).
     final line = find.byKey(const ValueKey('portfolio-hero-line'));
     expect(line, findsOneWidget);
-    expect(find.byKey(const ValueKey('portfolio-hero-positions')),
-        findsNothing);
+    expect(
+        find.descendant(
+            of: line, matching: find.text('${l10n.portfolioInvestedLabel} ')),
+        findsOneWidget);
     expect(
         tester
             .widget<BalancesLiveFigure>(
@@ -1021,7 +1018,9 @@ void main() {
             .top,
         greaterThan(tester.getRect(line).bottom));
     // The hero is ONE widget, at the same place on every section at the
-    // same scroll; it scrolls with the page.
+    // same scroll (its reads landed: nothing traded, the total and its
+    // line alone); it scrolls with the page.
+    await _pumpFrames(tester, 10);
     final heroRect = tester.getRect(hero);
     final strip = find.byKey(const ValueKey('portfolio-strip'));
     final stripRect = tester.getRect(strip);
@@ -1040,8 +1039,8 @@ void main() {
       'tab': 'positions',
       'from_tab': 'positions',
       'surface': 'investments',
-      'sub': 'charts',
-      'from_sub': 'balances'
+      'sub': 'pnl',
+      'from_sub': 'positions'
     });
     expect(find.byKey(const ValueKey('statistics-overview')), findsOneWidget);
     expect(find.byKey(const ValueKey('statistics-active')), findsNothing);
@@ -1049,8 +1048,7 @@ void main() {
     expect(find.byKey(const ValueKey('statistics-pnl-chart')), findsNothing);
     expect(find.byKey(const ValueKey('portfolio-section-balances')),
         findsNothing);
-    expect(find.byKey(const ValueKey('portfolio-activity-squares')),
-        findsNothing);
+    expect(find.byKey(const ValueKey('portfolio-activity')), findsNothing);
 
     // Activity, last: the two predictions placed, as the home's squares.
     await pickSection(tester, 'activity');
@@ -1060,11 +1058,11 @@ void main() {
       'from_tab': 'positions',
       'surface': 'investments',
       'sub': 'activity',
-      'from_sub': 'charts'
+      'from_sub': 'pnl'
     });
     expect(
         find.descendant(
-            of: find.byKey(const ValueKey('portfolio-activity-squares')),
+            of: find.byKey(const ValueKey('portfolio-activity')),
             matching: find.text('Prediction · Yes')),
         findsNWidgets(2));
     expect(find.byKey(const ValueKey('statistics-overview')), findsNothing);
@@ -1103,8 +1101,7 @@ void main() {
     await closePortfolio(tester);
     await openPortfolio(tester);
     expect(_sectionOn(tester), 'activity');
-    expect(find.byKey(const ValueKey('portfolio-activity-squares')),
-        findsOneWidget);
+    expect(find.byKey(const ValueKey('portfolio-activity')), findsOneWidget);
     expect(events.where((e) => e.$1 == 'analytics_tab_selected').length,
         before);
     expect(find.byType(OpenInvestmentsScreen), findsNothing);
@@ -1138,9 +1135,9 @@ void main() {
   });
 
   testWidgets(
-      'Balances lists what is held, the Positions list\'s rows, under the '
-      'shares: one position alone is one full-width square, no venue group '
-      'left under it', (tester) async {
+      'Positions lists what is held, the Positions list\'s rows, under '
+      'their venue\'s plain heading: one position alone is one row in the '
+      'Investing card, no squares', (tester) async {
     await pumpRouted(tester, overrides: [
       hyperliquidTradingProvider.overrideWith(() => PortfolioTestTrading(
           const HyperliquidTradingState(
@@ -1154,11 +1151,18 @@ void main() {
         findsOneWidget);
     expect(
         find.descendant(
-            of: find.byKey(const ValueKey('portfolio-balance-squares')),
+            of: find.byKey(
+                const ValueKey('portfolio-balance-investing-positions')),
             matching: find.byType(HlPositionRow)),
         findsOneWidget);
-    expect(find.byKey(const ValueKey('portfolio-balance-investing-positions')),
+    expect(find.byKey(const ValueKey('portfolio-balance-squares')),
         findsNothing);
+    expect(
+        find.descendant(
+            of: find.byKey(
+                const ValueKey('portfolio-balance-category-investing')),
+            matching: find.text(l10n.trading)),
+        findsOneWidget);
     expect(find.byKey(const ValueKey('portfolio-positions-heading')),
         findsNothing);
     // "Positions" is the section's pill alone, no heading in the list.
@@ -1176,7 +1180,7 @@ void main() {
       'venue\'s under its small heading, Predictions then Investing, with no '
       'Orders title and no count; one quiet Cancel all after the last; a '
       'row\'s Cancel runs the venue\'s cancel; Balances lists none; the '
-      'switch is reported with sub: charts', (tester) async {
+      'switch is reported with sub: pnl', (tester) async {
     final events = recordEvents();
     final cancelled = <String>[];
     await pumpRouted(tester, overrides: [
@@ -1201,8 +1205,8 @@ void main() {
       'tab': 'positions',
       'from_tab': 'positions',
       'surface': 'investments',
-      'sub': 'charts',
-      'from_sub': 'balances'
+      'sub': 'pnl',
+      'from_sub': 'positions'
     });
     expect(find.byKey(const ValueKey('statistics-overview')), findsOneWidget);
     // No Orders heading, no count, no button.

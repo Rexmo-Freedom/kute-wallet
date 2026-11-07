@@ -3631,11 +3631,6 @@ class AppLocalizationsBg extends AppLocalizations {
   }
 
   @override
-  String activityRowClosed(String coin) {
-    return 'Затворена · $coin';
-  }
-
-  @override
   String activityRowReduced(String coin) {
     return 'Намалена · $coin';
   }
@@ -11723,10 +11718,58 @@ class AppLocalizationsBg extends AppLocalizations {
   }
 
   @override
-  String get pnlStatRealised => 'Realised';
+  String portfolioHeroUp(String amount) {
+    return 'Нагоре с $amount';
+  }
 
   @override
-  String get pnlStatUnrealised => 'Unrealised';
+  String portfolioHeroDown(String amount) {
+    return 'Надолу с $amount';
+  }
+
+  @override
+  String portfolioPnlYoureUp(String amount) {
+    return 'Печелиш $amount';
+  }
+
+  @override
+  String portfolioPnlYoureDown(String amount) {
+    return 'Губиш $amount';
+  }
+
+  @override
+  String get portfolioPnlFromClosed => 'От затворени позиции';
+
+  @override
+  String get portfolioPnlOnOpen => 'От отворени позиции';
+
+  @override
+  String get portfolioPnlByProduct => 'По продукт';
+
+  @override
+  String get portfolioClosedPositions => 'Затворени позиции';
+
+  @override
+  String get portfolioBrowseInvesting => 'Разгледай Инвестиране';
+
+  @override
+  String get activityFilterTrades => 'Сделки';
+
+  @override
+  String get activityFilterPayouts => 'Изплащания';
+
+  @override
+  String get activityFilterTransfers => 'Преводи';
+
+  @override
+  String activityRowClosedLong(String coin) {
+    return 'Затворена · $coin Long';
+  }
+
+  @override
+  String activityRowClosedShort(String coin) {
+    return 'Затворена · $coin Short';
+  }
 
   @override
   String get pnlStatRealisedAllTime => 'All time realised';

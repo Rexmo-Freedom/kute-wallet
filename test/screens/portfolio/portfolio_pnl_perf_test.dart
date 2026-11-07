@@ -1,20 +1,19 @@
 // The Portfolio screen's P&L, measured (founder, 2 November 2026:
-// "Portfolio P&L chart is super slow. Make it decent."; since the
-// overhaul of 4 November 2026 the one chart is the hero's and the P&L
-// section lists the venues). Six months of history at both venues
-// (Investing every six hours, Predictions daily with a 200-position
-// book): the screen's first frames on Positions (whose hero draws the
-// open positions' P&L since each was opened: ten predictions and a perp
-// held for up to six months, their prices hourly and daily; one grid,
-// laid once), a scrub and live ticks on that chart, the P&L section's
-// first frame (its hero and venue squares drawn from the whole P&L
-// engine, openPnlGrid, laid once per venue and range), a range switch, a
-// scrub frame, a venue square picked and a scrub on it, and a live price
-// tick (the engine's pinned last point alone: no grid), and how many P&L
-// grids ([pnlSeries], [openPnlGrid], up to 20,000 points each) each of
-// them lays. The numbers are printed (`PNL_PERF …`) and held to
-// budgets well above what the screen needs now, so a regression to
-// per-frame recomputation fails.
+// "Portfolio P&L chart is super slow. Make it decent."; since the redesign
+// of 7 November 2026 one hero on every section draws the account's P&L
+// from the whole engine, and the P&L tab lists the headline, its rows and
+// "By product"). Six months of history at both venues (Investing every
+// six hours, Predictions daily with a 200-position book, ten predictions
+// and a perp held): the screen's first frames on Positions (the engine's
+// lines laid a bounded number of times), a scrub and live ticks on the
+// hero's chart there, a range there, the P&L tab's first frame (each
+// venue's line for its "By product" row), a range switch, a scrub frame,
+// a row picked and a scrub on it, and a live price tick (the engine's
+// pinned last point alone: no grid), and how many P&L grids
+// ([pnlSeries], [openPnlGrid], up to 20,000 points each) each of them
+// lays. The numbers are printed (`PNL_PERF …`) and held to budgets well
+// above what the screen needs now, so a regression to per-frame
+// recomputation fails.
 
 import 'dart:ui' as ui;
 
@@ -363,11 +362,8 @@ const _heavy = [
   '_HeroFigure',
   '_HeroLine',
   'PortfolioStatisticsOverview',
-  'PnlBreakdown',
+  'PortfolioPnlBreakdown',
   'PnlVenueRow',
-  'PnlVenueSquare',
-  'PnlStatsStrip',
-  'PnlStatTiles',
   'PortfolioBalanceBreakdown',
   'PortfolioActivitySection',
 ];
@@ -379,19 +375,18 @@ void main() {
   testWidgets('P&L: first chart, the section, range switch, scrub, live tick',
       (tester) async {
     final firstGrids = await _mount(tester);
-    // Positions: the hero draws the open positions' P&L since each was
-    // opened: its line laid ONCE (the P&L chart's series none).
-    expect(find.byKey(const ValueKey('portfolio-hero-chart')), findsNothing);
-    final openChart = find.byKey(const ValueKey('portfolio-hero-open-chart'));
-    expect(openChart, findsOneWidget);
-    // Its line once: a range reaching back past it is ALL's window of the
-    // same line, nothing laid again.
-    expect(firstGrids, 1);
+    // Positions: the hero draws the account's P&L from the whole engine
+    // (one hero on every section since the redesign of 7 November 2026);
+    // the engine's lines laid a bounded number of times, never per frame.
+    final heroOnPositions = find.byKey(const ValueKey('portfolio-hero-chart'));
+    expect(heroOnPositions, findsOneWidget);
+    expect(firstGrids, lessThanOrEqualTo(6));
 
-    // A scrub on it: no grid, nothing heavy, not even the chart's own
-    // widget (the plot and the line's text alone).
+    // A scrub on it: no grid, nothing heavy (the plot and the line's text
+    // alone).
     final openPlot = find.descendant(
-        of: openChart, matching: find.byKey(const ValueKey('trend-chart-plot')));
+        of: heroOnPositions,
+        matching: find.byKey(const ValueKey('trend-chart-plot')));
     final openBox = tester.getRect(openPlot);
     final openGesture = await tester
         .startGesture(Offset(openBox.left + 10, openBox.center.dy));
@@ -409,46 +404,43 @@ void main() {
           tester, () => tester.pump(const Duration(milliseconds: 16)));
       openScrubMs += f.ms;
       openScrubGrids += f.grids;
-      openScrubHeavy += _heavyBuilt(f.built) + (f.built['_OpenPnlChart'] ?? 0);
+      openScrubHeavy += _heavyBuilt(f.built);
     }
-    expect(find.textContaining(' · Open P&L · '), findsOneWidget);
+    expect(
+        tester
+            .widget<Text>(find.byKey(const ValueKey('portfolio-hero-change')))
+            .textSpan!
+            .toPlainText(),
+        matches(RegExp(r'^(Up|Down|No change)')));
     await openGesture.up();
     await tester.pump(const Duration(milliseconds: 100));
     expect(openScrubGrids, 0, reason: 'grids laid scrubbing Positions');
     expect(openScrubHeavy, 0,
-        reason: 'hero, section or chart widget rebuilt scrubbing Positions');
+        reason: 'hero or section rebuilt scrubbing Positions');
 
-    // A live tick on a prediction held: the last point moves, no grid,
-    // the open line and the chart alone rebuild.
-    // The stream starts flowing (every live reader follows it once).
+    // A live tick on a prediction held: the hero's last point moves, no
+    // grid; the total, its line and the page stay put.
     _feed!.tickLive('open-0', 0.45);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
-    final valuesBefore =
-        tester.widget<KuteTrendChart>(openChart).values;
+    final valuesBefore = tester.widget<KuteTrendChart>(heroOnPositions).values;
     final openTick = await _frame(tester, () async {
       _feed!.tick('open-0', 0.8);
       await tester.pump();
     });
-    final valuesAfter = tester.widget<KuteTrendChart>(openChart).values;
+    final valuesAfter = tester.widget<KuteTrendChart>(heroOnPositions).values;
     expect(openTick.grids, 0, reason: 'grids laid on a tick on Positions');
-    // The hero stays put (the Positions rows below follow their prices,
-    // as they always did).
     for (final heavy in const [
       'PortfolioHero',
-      'PortfolioHeroChart',
       '_HeroFigure',
       '_HeroLine',
+      'PortfolioBalanceBreakdown',
     ]) {
       expect(openTick.built[heavy], isNull,
           reason: '$heavy rebuilt on a tick on Positions');
     }
-    expect(openTick.built['_OpenPnlChart'] ?? 0, lessThanOrEqualTo(1));
     expect(valuesAfter.length, valuesBefore.length);
-    // 20 shares of open-0 from 0.45 to 0.80: +$7.00 on the last point.
-    expect(valuesAfter.last - valuesBefore.last, closeTo(7, 1e-9));
-    expect(openTick.built['_OpenPnlChart'], 1);
-    expect(openTick.built['_HeroOpenLine'], 1);
+    expect(valuesAfter.last, isNot(valuesBefore.last));
     expect(valuesAfter.sublist(0, valuesAfter.length - 1),
         valuesBefore.sublist(0, valuesBefore.length - 1));
     // Another market's tick: nothing.
@@ -457,19 +449,19 @@ void main() {
       await tester.pump();
     });
     expect(openOther.grids, 0);
-    expect(_heavyBuilt(openOther.built) + (openOther.built['_OpenPnlChart'] ?? 0),
-        0,
-        reason: 'another market\'s tick rebuilt the Positions chart');
-    // A Positions range: the window, no grid.
-    await tester.tap(find.descendant(of: openChart, matching: find.text('1W')));
+    expect(_heavyBuilt(openOther.built), 0,
+        reason: 'another market\'s tick rebuilt the page');
+    // A range: the window, no grid.
+    await tester
+        .tap(find.descendant(of: heroOnPositions, matching: find.text('1W')));
     final openRange = await _frame(tester, () => tester.pump());
-    expect(openRange.grids, 0, reason: 'grids laid on a Positions range');
+    expect(openRange.grids, 0, reason: 'grids laid on a range');
     for (var i = 0; i < 10; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
 
-    // The P&L section: the pill tapped, one frame (its venue squares, the
-    // hero's series); the hero's chart unfolds over the next frames.
+    // The P&L section: the pill tapped, one frame (its headline, the
+    // "By product" rows, the closed positions).
     final sectionBefore = debugPnlSeriesGrids;
     await tester
         .tap(find.byKey(const ValueKey('portfolio-section-pill-charts')));
@@ -478,9 +470,8 @@ void main() {
     for (var i = 0; i < 10; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
-    // The whole P&L engine (the hero's and the venue squares'): each
-    // venue's line and both venues' once (and the venues' own published
-    // lines the squares draw while it is read).
+    // The whole P&L engine (the hero's and the "By product" rows'): each
+    // venue's line once (both venues' is the hero's, laid already).
     final sectionGrids = debugPnlSeriesGrids - sectionBefore;
     expect(sectionGrids, lessThanOrEqualTo(6),
         reason: 'grids laid opening the P&L section');
@@ -547,8 +538,8 @@ void main() {
     await gesture.up();
     await tester.pump(const Duration(milliseconds: 100));
 
-    // A venue square picked: one frame lays its series once; a scrub on it
-    // is as light as on both.
+    // A "By product" row picked: its line is its row's already; a scrub
+    // on it is as light as on both.
     final pick = await _frame(tester, () async {
       await tester.tap(find.byKey(const ValueKey('pnl-venue-predictions')));
       await tester.pump();
@@ -572,7 +563,7 @@ void main() {
     }
     await venueGesture.up();
     await tester.pump(const Duration(milliseconds: 100));
-    // The venue's window is its square's already: nothing laid.
+    // The venue's window is its row's already: nothing laid.
     expect(pick.grids, 0, reason: 'grids on a pick');
     expect(venueScrubGrids, 0, reason: 'grids laid scrubbing a venue');
     expect(venueScrubHeavy, 0,
@@ -591,9 +582,9 @@ void main() {
 
     // ignore: avoid_print
     print('PNL_PERF mount=$firstGrids grids sectionSettle=$sectionGrids grids '
-        'openScrub=${(openScrubMs / openMoves).toStringAsFixed(2)}ms/frame '
-        'openTick=${openTick.ms.toStringAsFixed(1)}ms '
-        'openRange=${openRange.ms.toStringAsFixed(1)}ms pick=${pick.ms.toStringAsFixed(1)}ms/${pick.grids} grids '
+        'positionsScrub=${(openScrubMs / openMoves).toStringAsFixed(2)}ms/frame '
+        'positionsTick=${openTick.ms.toStringAsFixed(1)}ms '
+        'positionsRange=${openRange.ms.toStringAsFixed(1)}ms pick=${pick.ms.toStringAsFixed(1)}ms/${pick.grids} grids '
         'section=${first.ms.toStringAsFixed(1)}ms/${first.grids} grids '
         'range=${range.ms.toStringAsFixed(1)}ms/${range.grids} grids '
         'idle=${idleMs.toStringAsFixed(2)}ms paint=${paintMs.toStringAsFixed(2)}ms '

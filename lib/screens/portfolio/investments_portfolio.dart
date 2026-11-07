@@ -1,44 +1,39 @@
 // lib/screens/portfolio/investments_portfolio.dart
 //
-// THE PORTFOLIO SCREEN'S PAGE (portfolio_screen.dart), redone on 4
-// November 2026 (founder: "the top chart means nothing, it's super
-// confusing … the portfolio screen when users click there must be
-// completely overhauled to have a much, much, much better fintech design
-// comparable to the rest of the app"). One scroll, top down:
+// THE PORTFOLIO SCREEN'S PAGE (portfolio_screen.dart), redesigned on 7
+// November 2026 after the Robinhood / Public / Webull / Polymarket /
+// Kalshi review (founder: "yes build this"). One scroll, top down:
 //
-//   * THE HERO (components/portfolio_hero.dart): "Invested" over what the
-//     open positions are worth now, the P&L over the range picked under
-//     it, ONE P&L chart with the app's range row, and "3 positions ·
-//     Available $17.64". The allocation ring that adapted to each section
-//     is gone; the hero is one instance whatever the section, and reads
-//     it (founder, 5 November 2026): on Positions only the positions open
-//     now (their P&L now and its chart since each was opened, founder 6
-//     November 2026), on P&L the venue square picked alone (portfolioPnlVenueProvider, dropped when P&L is left);
+//   * THE HERO (components/portfolio_hero.dart), one instance whatever the
+//     section: the total (the open positions' worth plus Available), the
+//     P&L over the range picked under it ("▲ $7.55 (+12.0%) · Past
+//     month"), ONE P&L chart with its range row (1W 1M 3M ALL), and
+//     "Invested $X · Available $Y". On P&L a "By product" row picked
+//     draws that venue alone (portfolioPnlVenueProvider, dropped when P&L
+//     is left);
 //   * the section switch, pinned under the app bar once it reaches it
 //     ([_StripHeader]): Positions | P&L | Activity (KutePillTabs at the
 //     app's switch size, equal thirds, the one white pill sliding);
 //   * the section ([PortfolioSection], shared state kept for the
-//     session, Positions first and the default; founder, 6 November 2026:
-//     "Activity should be the last, Positions first"):
-//       - POSITIONS (the `balances` section, its key kept for links and
-//         analytics): the biggest open positions as squares, the rest as
-//         the Investing list's rows under their venue
-//         (PortfolioBalanceBreakdown.venuesOnly, components/
-//         balances_overview.dart);
-//       - P&L (the `charts` section): each venue's P&L ("By venue", two
-//         big squares side by side, each venue's P&L over the hero's range
-//         with its sparkline across the bottom), the all-time stats
-//         (realised, unrealised, win rate) as compact tiles in one row,
-//         and the resting orders, each row with its own cancel
-//         (PortfolioStatisticsOverview without its chart,
-//         portfolio_statistics.dart). The chart is the hero's;
+//     session, Positions first and the default):
+//       - POSITIONS (the `balances` section, its key kept for links): the
+//         open positions by value under plain "Investing" and
+//         "Predictions" headings, each row its value with the P&L since it
+//         was opened under it (PortfolioBalanceBreakdown.venuesOnly,
+//         components/balances_overview.dart); nothing open: "No open
+//         positions" with Browse Investing;
+//       - P&L (the `charts` section): "You're up $7.55" over the hero's
+//         range, the two rows that add up to it (from closed positions, on
+//         open positions), "By product" (Predictions, Investing; a row
+//         tapped draws that venue in the hero), the closed positions with
+//         their results, and the resting orders, each row with its own
+//         cancel (PortfolioStatisticsOverview without its chart,
+//         portfolio_statistics.dart, portfolio_pnl_section.dart);
 //       - ACTIVITY (portfolio_activity.dart, PortfolioActivitySection):
-//         the bets placed, sold, won or lost and the Investing opens and
-//         closes, the newest four as the home's Latest squares, the next
-//         two as its Earlier rows. No See all button under them: once
-//         Activity is on screen its pill reads "→ See all" and a second
-//         tap opens the whole Investments activity (the Bitcoin home's
-//         mechanism, [_SectionPills]).
+//         the investments' feed by day with All / Trades / Payouts /
+//         Transfers chips. Once Activity is on screen its pill reads "→ See
+//         all" and a second tap opens the whole Investments activity (the
+//         Bitcoin home's mechanism, [_SectionPills]).
 //
 // Every section starts [kPortfolioSectionEmptyTop] under the strip, its
 // empty state the one treatment (Sal, portfolio_empty_state.dart), and
@@ -68,10 +63,8 @@ import 'package:kute/screens/home/components/kute_dock_host.dart'
 import 'package:kute/screens/portfolio/components/portfolio_hero.dart';
 import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart'
     show portfolioPnlVenueProvider;
-import 'package:kute/screens/portfolio/components/position_rows.dart'
-    show portfolioSquareCount;
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
-    show portfolioOpenRanked, portfolioVenueLists;
+    show portfolioVenueLists;
 import 'package:kute/screens/portfolio/portfolio_activity.dart'
     show PortfolioActivitySection;
 import 'package:kute/screens/activity/activity_history_screen.dart'
@@ -90,19 +83,22 @@ import 'package:kute/screens/shared/kute_pill_tabs.dart'
 
 /// The Portfolio screen's sections, in pill order: Positions, P&L,
 /// Activity (founder, 6 November 2026: "Activity should be the last,
-/// Positions first"). [key] is the analytics value (`sub` on
-/// `analytics_tab_selected`) and the link vocabulary, fixed English and
-/// unchanged by the order: Positions keeps `balances` and P&L keeps
-/// `charts`, the names they had when the pills read Portfolio and P&L
-/// Charts.
+/// Positions first"). [key] is the link vocabulary and the widgets' keys,
+/// fixed English and unchanged by the order: Positions keeps `balances`
+/// and P&L keeps `charts`, the names they had when the pills read
+/// Portfolio and P&L Charts. [eventName] is what analytics calls the
+/// section (`sub` and `from_sub` on `analytics_tab_selected`): positions,
+/// pnl, activity, the sections as the pills name them since the redesign
+/// of 7 November 2026.
 enum PortfolioSection {
-  balances('balances'),
-  charts('charts'),
-  activity('activity');
+  balances('balances', 'positions'),
+  charts('charts', 'pnl'),
+  activity('activity', 'activity');
 
-  const PortfolioSection(this.key);
+  const PortfolioSection(this.key, this.eventName);
 
   final String key;
+  final String eventName;
 
   /// The section an Investments link lands on (`/usd?tab=…`), or null
   /// when the link names no Portfolio section (a venue pill, nothing).
@@ -215,10 +211,9 @@ class _PortfolioPageState extends ConsumerState<_PortfolioPage> {
               padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 0),
               child: KeyedSubtree(
                 key: const ValueKey('portfolio-top'),
-                // Section-aware: Positions reads only the positions open
-                // now (their own P&L chart), P&L the venue square picked.
+                // One hero over every section; on P&L the "By product" row
+                // picked draws that venue alone.
                 child: PortfolioHero(
-                  open: section == PortfolioSection.balances,
                   venue: section == PortfolioSection.charts ? picked : null,
                 ),
               ),
@@ -347,16 +342,15 @@ class _ActivityBox extends StatelessWidget {
       );
 }
 
-/// Positions: the biggest open positions as squares, then the rest under
-/// their venues (PortfolioBalanceBreakdown.venuesOnly, no refresh of its
-/// own: the hero's read already runs), then the bar's clearance.
+/// Positions: the open positions by value under their venue's heading
+/// (PortfolioBalanceBreakdown.venuesOnly, no refresh of its own: the
+/// hero's read already runs), then the bar's clearance.
 class _BalancesBox extends ConsumerWidget {
   const _BalancesBox();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final venues = ref.watch(portfolioVenuesProvider);
-    final ranked = portfolioOpenRanked(ref, venues);
     return Padding(
       padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 0),
       child: Column(
@@ -369,9 +363,6 @@ class _BalancesBox extends ConsumerWidget {
               sharesHeader: true,
               venuesOnly: true,
               refreshOnOpen: false,
-              squareIds: ranked
-                  .take(portfolioSquareCount(ranked.length))
-                  .toList(growable: false),
               venues: portfolioVenueLists(context, ref, venues)),
           SizedBox(height: _portfolioScrollEnd(context)),
         ],
@@ -380,7 +371,8 @@ class _BalancesBox extends ConsumerWidget {
   }
 }
 
-/// P&L: each venue's P&L, the all-time stats and the resting orders
+/// P&L: the headline over the hero's range and the rows that add up to it,
+/// "By product", the closed positions and the resting orders
 /// (PortfolioStatisticsOverview without its chart: the hero has it), its
 /// empty state the sections' one.
 class _ChartsBox extends ConsumerWidget {

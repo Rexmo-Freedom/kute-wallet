@@ -8,15 +8,13 @@
 // full screen, over the shell (route `/portfolio`, app_router.dart), with
 // the app's standard back. No dock: Add and Send are not repeated here.
 //
-// Overhauled on 4 November 2026 (founder: "the top chart means nothing,
-// it's super confusing … much, much, much better fintech design
-// comparable to the rest of the app"), the page is investments_portfolio
-// .dart's, top down: the hero ("Invested", the figure, the P&L over the
-// range, ONE P&L chart with its ranges, "3 positions · Available $17.64";
-// components/portfolio_hero.dart), the Positions | P&L | Activity switch
-// (Positions first and the default since 6 November 2026)
-// pinned under the app bar once it reaches it, then the section. The
-// allocation ring that read each section is gone.
+// Redesigned on 7 November 2026 (founder: "yes build this", after the
+// Robinhood / Public / Webull / Polymarket / Kalshi review), the page is
+// investments_portfolio.dart's, top down: the hero (the total, the P&L
+// over the range with its percent, ONE P&L chart with 1W 1M 3M ALL,
+// "Invested $X · Available $Y"; components/portfolio_hero.dart), the
+// Positions | P&L | Activity switch (Positions first and the default)
+// pinned under the app bar once it reaches it, then the section.
 //
 // A deep link naming a Portfolio section (`/usd?tab=portfolio|positions|
 // orders…`, PortfolioSection.forLink) opens this screen on that section
@@ -31,16 +29,18 @@
 // card (Positions, the screen's first section, and Activity, its last);
 // on P&L, with a P&L drawn, "Share P&L" opens the P&L card for the
 // range the hero's chart draws (its pill lit, pnlShownRangeProvider: ALL
-// when the pick reaches past the history), of the venue square picked
+// when the pick reaches past the history), of the "By product" row picked
 // alone when one is (portfolioPnlVenueProvider; both venues otherwise;
-// brag_preview_sheet.dart). The label
+// brag_preview_sheet.dart), its figure the hero's own
+// (portfolio_pnl_period.dart). The label
 // morphs on a switch like every bar label (kute_morph_label.dart).
 // Nothing to share: the default bar.
 //
 // Analytics: the existing `analytics_tab_selected` on a section pill
-// (surface investments, tab positions, sub / from_sub: balances |
-// charts | activity, the keys unchanged by the pills' order), as the Investments page sent it; the screen itself
-// adds no event.
+// (surface investments, tab positions, sub / from_sub: positions | pnl |
+// activity, the sections as their pills name them since the redesign of
+// 7 November 2026, PortfolioSection.eventName); the screen itself adds no
+// event.
 
 import 'dart:async';
 
@@ -79,8 +79,8 @@ class PortfolioScreen extends ConsumerWidget {
       'tab': 'positions',
       'from_tab': 'positions',
       'surface': 'investments',
-      'sub': next.key,
-      'from_sub': current.key,
+      'sub': next.eventName,
+      'from_sub': current.eventName,
     });
     ref.read(portfolioSectionProvider.notifier).state = next;
   }
@@ -105,7 +105,7 @@ class PortfolioScreen extends ConsumerWidget {
                   // The range as the hero draws it (its pill lit).
                   range: ref.read(pnlShownRangeProvider(
                       ref.read(portfolioPnlVenueProvider))),
-                  // The venue square picked: its card alone.
+                  // The "By product" row picked: its card alone.
                   venue: ref.read(portfolioPnlVenueProvider))),
             )
           : null,

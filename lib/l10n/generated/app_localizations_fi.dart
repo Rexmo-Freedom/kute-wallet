@@ -3621,11 +3621,6 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
-  String activityRowClosed(String coin) {
-    return 'Suljettu · $coin';
-  }
-
-  @override
   String activityRowReduced(String coin) {
     return 'Pienennetty · $coin';
   }
@@ -11716,10 +11711,58 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
-  String get pnlStatRealised => 'Realised';
+  String portfolioHeroUp(String amount) {
+    return 'Nousu $amount';
+  }
 
   @override
-  String get pnlStatUnrealised => 'Unrealised';
+  String portfolioHeroDown(String amount) {
+    return 'Lasku $amount';
+  }
+
+  @override
+  String portfolioPnlYoureUp(String amount) {
+    return 'Olet $amount plussalla';
+  }
+
+  @override
+  String portfolioPnlYoureDown(String amount) {
+    return 'Olet $amount miinuksella';
+  }
+
+  @override
+  String get portfolioPnlFromClosed => 'Suljetuista positioista';
+
+  @override
+  String get portfolioPnlOnOpen => 'Avoimissa positioissa';
+
+  @override
+  String get portfolioPnlByProduct => 'Tuotteittain';
+
+  @override
+  String get portfolioClosedPositions => 'Suljetut positiot';
+
+  @override
+  String get portfolioBrowseInvesting => 'Selaa sijoituskohteita';
+
+  @override
+  String get activityFilterTrades => 'Kaupat';
+
+  @override
+  String get activityFilterPayouts => 'Voitonmaksut';
+
+  @override
+  String get activityFilterTransfers => 'Siirrot';
+
+  @override
+  String activityRowClosedLong(String coin) {
+    return 'Suljettu · $coin long';
+  }
+
+  @override
+  String activityRowClosedShort(String coin) {
+    return 'Suljettu · $coin short';
+  }
 
   @override
   String get pnlStatRealisedAllTime => 'All time realised';

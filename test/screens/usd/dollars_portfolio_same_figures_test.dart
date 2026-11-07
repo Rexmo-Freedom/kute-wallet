@@ -1,9 +1,11 @@
 // One Invested and one Available across the app (founder, 4 November
 // 2026: "Balance wrong in dollars … show invested and available in a good
 // way"): for the same one-balance state, the Dollars header's "Invested $X
-// · Available $Y" and the Portfolio hero's figure and "Available $Y" print
-// the same amounts, to the cent, whatever is on a rail; and the two add up
-// to the Dollars total, less what its in-flight lines name.
+// · Available $Y" and the Portfolio hero's "Invested $X · Available $Y"
+// print the same amounts, to the cent, whatever is on a rail; the two add
+// up to the Dollars total less what its in-flight lines name, and that is
+// the Portfolio hero's total (the redesign of 7 November 2026: the open
+// positions' worth plus Available).
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -73,8 +75,11 @@ void main() {
         balance: _state,
         child: const Scaffold(
             body: SingleChildScrollView(child: PortfolioHero())));
-    expect(_live(tester, 'portfolio-hero-value'), dollarsInvested);
+    expect(_live(tester, 'portfolio-hero-invested'), dollarsInvested);
     expect(_live(tester, 'portfolio-hero-available'), dollarsAvailable);
+    // The total: Invested and Available added, as written ($12.35 +
+    // $24.44); the Dollars total less the $2.50 on its line.
+    expect(_live(tester, 'portfolio-hero-value'), r'$36.79');
     expect(tester.takeException(), isNull);
     await unmountInvestments(tester);
   });

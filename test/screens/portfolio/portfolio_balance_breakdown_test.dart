@@ -53,6 +53,8 @@ import 'package:kute/screens/portfolio/portfolio_balance_breakdown.dart';
 import 'package:kute/screens/shared/charts/kute_donut_chart.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
+import 'package:kute/screens/hyperliquid/components/hl_format.dart'
+    show HlMetaChip;
 import 'package:kute/screens/shared/kute_pill_tabs.dart'
     show KutePill, KutePillSize;
 import 'package:kute/screens/shared/rubber_band_progress.dart';
@@ -1633,10 +1635,10 @@ void main() {
     for (final scale in [1.0, 1.3]) {
       testWidgets(
           'the Portfolio screen at 375 pt and ${(scale * 100).round()} % '
-          'text: each venue ONE soft card under its title (the home '
-          'Activity list\'s), its rows the Investing list\'s own (the name '
-          'alone, the value over its change, no hairline, no line under '
-          'the name and no chance bar), every figure whole inside the card',
+          'text: each venue ONE soft card under its plain heading (the home '
+          'Activity list\'s), its rows the Positions rows (the name with its '
+          'side chip, the value over "+\$1.20 (+8.0%)", the hairline between '
+          'them, no chance bar), every figure whole inside the card',
           (tester) async {
         final c = await _pump(tester,
             home: sharesBreakdown,
@@ -1699,8 +1701,8 @@ void main() {
 
         final inset = 16 * 375 / 430;
         for (final (venue, title, rows) in [
-          ('investing', 'Investing · 1', 1),
-          ('predictions', 'Predictions · 2', 2),
+          ('investing', 'Investing', 1),
+          ('predictions', 'Predictions', 2),
         ]) {
           final group =
               find.byKey(ValueKey('portfolio-balance-$venue-positions'));
@@ -1725,14 +1727,14 @@ void main() {
               AppColorsExtension.light().textSecondary);
           expect(cardRect.top - tester.getRect(find.text(title)).bottom,
               closeTo(8 * 1000 / 932, 0.5));
-          // The Investing list's rows: no hairline between them.
+          // The Positions rows: the card's hairline between them.
           expect(find.descendant(of: card, matching: find.byType(Divider)),
-              findsNothing);
+              findsNWidgets(rows - 1));
           final rowFinder = find.descendant(
               of: card, matching: find.byType(PortfolioPositionRow));
           expect(rowFinder, findsNWidgets(rows));
           expect(find.descendant(of: card, matching: find.byType(HlListRow)),
-              findsNWidgets(rows));
+              findsNothing);
           for (var i = 0; i < rows; i++) {
             final row = rowFinder.at(i);
             Rect inRow(String key) => tester.getRect(find
@@ -1756,17 +1758,29 @@ void main() {
             expect(title.right, lessThanOrEqualTo(value.left));
           }
         }
-        // No line under the name, no chance bar, no dot: the position
-        // screen has them.
+        // No size, no chance bar, no dot, no leverage: the position screen
+        // has them.
         for (final key in [
-          'portfolio-row-subtitle',
           'portfolio-row-chance',
           'portfolio-row-dot',
         ]) {
           expect(find.byKey(ValueKey(key)), findsNothing, reason: key);
         }
-        // A side other than Yes is in the name.
-        expect(find.textContaining('· No'), findsOneWidget);
+        expect(find.textContaining('0.1 BTC'), findsNothing);
+        expect(find.textContaining('1x'), findsNothing);
+        // The side is the chip after the name: Long, No, Yes.
+        final chips = [
+          for (final w in tester.widgetList<HlMetaChip>(find.descendant(
+              of: find.byType(PortfolioCardList),
+              matching: find.byType(HlMetaChip))))
+            w.text
+        ];
+        expect(chips, containsAll(['Long', 'No', 'Yes']));
+        // The P&L since it was opened: "+$0.40 (+0.0%)" style, signed.
+        for (final t in tester.widgetList<RollingFigure>(
+            find.byKey(const ValueKey('portfolio-row-pnl')))) {
+          expect(t.text, matches(RegExp(r'^[+−]?\$[\d,.]+ \([+−]?[\d.]+%\)$')));
+        }
         expect(tester.takeException(), isNull);
       });
     }

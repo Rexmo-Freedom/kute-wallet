@@ -32,11 +32,11 @@
 //     loss, an open position or a win with no profit (bought at a dollar)
 //     is never a won card ([canBragWin]);
 //   * the P&L ([BragPnl], founder, 2 November 2026: the P&L Charts
-//     section shares its own card, "Share P&L"): what the P&L chart shows
-//     for the range picked, the P&L over the range (its figure,
-//     pnlRangeChange), the range ("1M", "Past month") and the line over
-//     it, of the series the chart draws (both venues, or the one picked
-//     in "By venue"). No percent: no provider gives a base for a P&L (the
+//     section shares its own card, "Share P&L"): what the Portfolio hero
+//     shows for the range picked, the P&L over the range (the hero's own
+//     figure, portfolio_pnl_period.dart), the range ("1M", "Past month")
+//     and the line over it, of the series the hero draws (both venues, or
+//     the one picked in "By product"). No percent: no provider gives a base for a P&L (the
 //     chart writes none either), so none is invented. It is a
 //     BragPortfolio, so the card's switch stays whole; its own card is
 //     pnl_share_card.dart.
@@ -98,6 +98,8 @@ import 'package:kute/screens/polymarket/components/price_format.dart'
     show formatPolyCents;
 import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart'
     show pnlRangeChange;
+import 'package:kute/screens/portfolio/components/portfolio_pnl_period.dart'
+    show portfolioPnlPeriod;
 import 'package:kute/screens/portfolio/components/position_rows.dart'
     show polyPositionRowNames;
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
@@ -871,10 +873,14 @@ BragPortfolio bragPortfolio(WidgetRef ref,
 
 /// The P&L Charts card for the spending account over [range], of the
 /// series the chart draws: [venue] alone when picked, else the venues on
-/// the account added (PortfolioPerformance.combine), each with the
-/// predictions at the live prices, as the chart reads them. From a build
-/// ([ref] watches, so the preview follows the live figures). Unknown (a
-/// venue not read yet): no figure and no line.
+/// the account added. ITS FIGURE IS THE PORTFOLIO HERO'S (the redesign of
+/// 7 November 2026; portfolio_pnl_period.dart): the whole P&L history's
+/// line over [range], its last point the P&L now (the venues' own, the
+/// predictions at the live prices), so the card says what the hero says to
+/// the cent; while that line is read, the venues' own published line, as
+/// the chart reads it. From a build ([ref] watches, so the preview follows
+/// the live figures). Unknown (a venue not read yet): no figure and no
+/// line.
 BragPnl bragPnl(WidgetRef ref,
     {required String title,
     required BalanceRange range,
@@ -912,9 +918,19 @@ BragPnl bragPnl(WidgetRef ref,
   BragResult? result;
   List<double>? series;
   if (charted != null && charted.hasMovement) {
-    final grid = pnlSeries(charted, now ?? DateTime.now());
-    final values = kuteTrendWindow(grid, grid.spanFor(range)).values;
-    final change = pnlRangeChange(values, range) ?? grid.values.last;
+    // The hero's own period figure and line.
+    final period =
+        portfolioPnlPeriod(ref, venue: picked, range: range, now: now);
+    final List<double> values;
+    final double change;
+    if (period.ready) {
+      values = period.values;
+      change = period.change;
+    } else {
+      final grid = pnlSeries(charted, now ?? DateTime.now());
+      values = kuteTrendWindow(grid, grid.spanFor(range)).values;
+      change = pnlRangeChange(values, range) ?? grid.values.last;
+    }
     result = bragResult(ref.watch, change);
     final line = [
       for (final v in values)

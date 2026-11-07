@@ -18,12 +18,20 @@
 //     yet", "No open positions", "No P&L yet", each section starting the
 //     shared taglines
 //     at its own line). No pixel Sal.
+//   * [PortfolioBrowseInvesting]: under Positions' empty state, the one
+//     way on from nothing open (the redesign of 7 November 2026): the
+//     app's link pill, "Browse Investing", to the Investing markets.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
+import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/home/components/kute_dock_host.dart'
     show KuteDockClearance;
+import 'package:kute/screens/shared/kute_pill_tabs.dart' show KutePill;
 import 'package:kute/screens/shared/no_activity_state.dart';
+import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
 /// An empty Portfolio tab (Open, Orders, Activity, Statistics): the app's
@@ -89,5 +97,29 @@ class PortfolioSectionEmpty extends StatelessWidget {
         subtitleSize: 15,
         subtitleColor: context.colors.textSecondary,
         taglineStart: tagline.start,
+      );
+}
+
+/// Under Positions' empty state: "Browse Investing →", the app's link
+/// pill (the Activity's See all), centred; a tap opens the Investing
+/// markets (`/hyperliquid`, the Investments tab on Investing) and sends
+/// `portfolio_browse_investing_tapped`.
+class PortfolioBrowseInvesting extends StatelessWidget {
+  const PortfolioBrowseInvesting({super.key});
+
+  @override
+  Widget build(BuildContext context) => Center(
+        child: KutePill(
+          key: const ValueKey('portfolio-browse-investing'),
+          label: context.l10n.portfolioBrowseInvesting,
+          icon: Icons.arrow_forward_rounded,
+          selected: true,
+          link: true,
+          onTap: () {
+            HapticFeedback.selectionClick();
+            TrackingService.track('portfolio_browse_investing_tapped');
+            context.go('/hyperliquid');
+          },
+        ),
       );
 }

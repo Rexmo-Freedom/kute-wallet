@@ -3642,11 +3642,6 @@ class AppLocalizationsPt extends AppLocalizations {
   }
 
   @override
-  String activityRowClosed(String coin) {
-    return 'Fechou $coin';
-  }
-
-  @override
   String activityRowReduced(String coin) {
     return 'Reduziu $coin';
   }
@@ -11744,10 +11739,58 @@ class AppLocalizationsPt extends AppLocalizations {
   }
 
   @override
-  String get pnlStatRealised => 'Realised';
+  String portfolioHeroUp(String amount) {
+    return 'A subir $amount';
+  }
 
   @override
-  String get pnlStatUnrealised => 'Unrealised';
+  String portfolioHeroDown(String amount) {
+    return 'A descer $amount';
+  }
+
+  @override
+  String portfolioPnlYoureUp(String amount) {
+    return 'Está a ganhar $amount';
+  }
+
+  @override
+  String portfolioPnlYoureDown(String amount) {
+    return 'Está a perder $amount';
+  }
+
+  @override
+  String get portfolioPnlFromClosed => 'De posições fechadas';
+
+  @override
+  String get portfolioPnlOnOpen => 'Em posições abertas';
+
+  @override
+  String get portfolioPnlByProduct => 'Por produto';
+
+  @override
+  String get portfolioClosedPositions => 'Posições fechadas';
+
+  @override
+  String get portfolioBrowseInvesting => 'Explorar investimentos';
+
+  @override
+  String get activityFilterTrades => 'Negociações';
+
+  @override
+  String get activityFilterPayouts => 'Pagamentos';
+
+  @override
+  String get activityFilterTransfers => 'Transferências';
+
+  @override
+  String activityRowClosedLong(String coin) {
+    return 'Fechou $coin Long';
+  }
+
+  @override
+  String activityRowClosedShort(String coin) {
+    return 'Fechou $coin Short';
+  }
 
   @override
   String get pnlStatRealisedAllTime => 'All time realised';

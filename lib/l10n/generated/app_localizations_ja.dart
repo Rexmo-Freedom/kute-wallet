@@ -3523,11 +3523,6 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String activityRowClosed(String coin) {
-    return '決済 · $coin';
-  }
-
-  @override
   String activityRowReduced(String coin) {
     return '縮小 · $coin';
   }
@@ -11281,10 +11276,58 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get pnlStatRealised => 'Realised';
+  String portfolioHeroUp(String amount) {
+    return '$amount 上昇';
+  }
 
   @override
-  String get pnlStatUnrealised => 'Unrealised';
+  String portfolioHeroDown(String amount) {
+    return '$amount 下落';
+  }
+
+  @override
+  String portfolioPnlYoureUp(String amount) {
+    return '$amount のプラス';
+  }
+
+  @override
+  String portfolioPnlYoureDown(String amount) {
+    return '$amount のマイナス';
+  }
+
+  @override
+  String get portfolioPnlFromClosed => '決済済みポジションから';
+
+  @override
+  String get portfolioPnlOnOpen => '保有中のポジションで';
+
+  @override
+  String get portfolioPnlByProduct => '商品別';
+
+  @override
+  String get portfolioClosedPositions => '決済済みポジション';
+
+  @override
+  String get portfolioBrowseInvesting => '投資を見る';
+
+  @override
+  String get activityFilterTrades => '取引';
+
+  @override
+  String get activityFilterPayouts => '払い戻し';
+
+  @override
+  String get activityFilterTransfers => '振替';
+
+  @override
+  String activityRowClosedLong(String coin) {
+    return '決済 · $coin ロング';
+  }
+
+  @override
+  String activityRowClosedShort(String coin) {
+    return '決済 · $coin ショート';
+  }
 
   @override
   String get pnlStatRealisedAllTime => 'All time realised';

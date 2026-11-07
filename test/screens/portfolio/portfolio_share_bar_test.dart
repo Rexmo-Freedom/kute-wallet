@@ -99,7 +99,7 @@ List<Override> _history() {
 }
 
 /// [_history] with Predictions' book (one prediction closed for +$7.61),
-/// so its venue square has figures and can be picked.
+/// so its "By product" row has figures and can be picked.
 List<Override> _historyBooked() {
   final now = DateTime.now().toUtc();
   return [
@@ -426,7 +426,7 @@ void main() {
   });
 
   testWidgets(
-      'a venue square picked: "Share P&L" opens that venue\'s card, its P&L '
+      'a "By product" row picked: "Share P&L" opens that venue\'s card, its P&L '
       'the hero\'s; P&L left and opened again, both venues\' card',
       (tester) async {
     await _mount(tester, extra: _historyBooked());
@@ -497,8 +497,6 @@ void main() {
         r.title: (r.pnlAmount, r.pnl?.tone)
     };
     expect(rows, hasLength(5));
-    // The Positions hero adds them up: the five at the live prices.
-    expect(find.textContaining(r'$2.63', findRichText: true), findsWidgets);
     final data = await openPortfolioCard(tester);
     expect(data.openCount, 5);
     expect(data.top.map((p) => p.title),

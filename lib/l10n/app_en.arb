@@ -1991,15 +1991,6 @@
       }
     }
   },
-  "activityRowClosed": "Closed {coin}",
-  "@activityRowClosed": {
-    "description": "Activity row title for an Investing fill that closed a position fully. coin is the symbol.",
-    "placeholders": {
-      "coin": {
-        "type": "String"
-      }
-    }
-  },
   "activityRowReduced": "Reduced {coin}",
   "@activityRowReduced": {
     "description": "Activity row title for an Investing fill that made a position smaller without closing it. coin is the symbol.",
@@ -8644,13 +8635,91 @@
       }
     }
   },
-  "pnlStatRealised": "Realised",
-  "@pnlStatRealised": {
-    "description": "Portfolio P&L Charts stats strip: label over the P&L made by closed positions."
+  "portfolioHeroUp": "Up {amount}",
+  "@portfolioHeroUp": {
+    "description": "Portfolio screen hero, while a finger scrubs the P&L chart: the gain from the range's start to the point under the finger, before the date (\"Up $4.10 · Oct 12\"). amount is money, already formatted.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
   },
-  "pnlStatUnrealised": "Unrealised",
-  "@pnlStatUnrealised": {
-    "description": "Portfolio P&L Charts stats strip: label over the P&L of positions still open."
+  "portfolioHeroDown": "Down {amount}",
+  "@portfolioHeroDown": {
+    "description": "Portfolio screen hero, while a finger scrubs the P&L chart: the loss from the range's start to the point under the finger, before the date (\"Down $1.20 · Oct 12\"). amount is money, already formatted, unsigned.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "portfolioPnlYoureUp": "You're up {amount}",
+  "@portfolioPnlYoureUp": {
+    "description": "Portfolio screen, P&L tab: the headline when the account made money over the range picked on the chart (\"You're up $7.55\"); the range is written under it. amount is money, already formatted. Never says 'P&L'.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "portfolioPnlYoureDown": "You're down {amount}",
+  "@portfolioPnlYoureDown": {
+    "description": "Portfolio screen, P&L tab: the headline when the account lost money over the range picked on the chart (\"You're down $2.10\"). amount is money, already formatted, unsigned.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "portfolioPnlFromClosed": "From closed positions",
+  "@portfolioPnlFromClosed": {
+    "description": "Portfolio screen, P&L tab: a row under the headline, what closed, sold and redeemed positions made or lost over the range (its figure at the row's end). With 'On open positions' it adds up to the headline."
+  },
+  "portfolioPnlOnOpen": "On open positions",
+  "@portfolioPnlOnOpen": {
+    "description": "Portfolio screen, P&L tab: a row under the headline, what the positions still open made or lost over the range (its figure at the row's end)."
+  },
+  "portfolioPnlByProduct": "By product",
+  "@portfolioPnlByProduct": {
+    "description": "Portfolio screen, P&L tab: small heading over one row per product (Predictions, Investing), each with its P&L over the range. A row tapped draws that product alone."
+  },
+  "portfolioClosedPositions": "Closed positions",
+  "@portfolioClosedPositions": {
+    "description": "Portfolio screen, P&L tab: small heading over the list of positions closed in the range, each with its result; Date and Amount sort it."
+  },
+  "portfolioBrowseInvesting": "Browse Investing",
+  "@portfolioBrowseInvesting": {
+    "description": "Portfolio screen, Positions tab: a small pill under 'No open positions' that opens the Investing markets. 'Investing' is the name of the app's investing tab."
+  },
+  "activityFilterTrades": "Trades",
+  "@activityFilterTrades": {
+    "description": "Portfolio screen, Activity tab: filter chip listing the trades only (Investing opens and closes, predictions placed or sold)."
+  },
+  "activityFilterPayouts": "Payouts",
+  "@activityFilterPayouts": {
+    "description": "Portfolio screen, Activity tab: filter chip listing prediction results only (won, lost, redeemed)."
+  },
+  "activityFilterTransfers": "Transfers",
+  "@activityFilterTransfers": {
+    "description": "Portfolio screen, Activity tab: filter chip listing money moving into or out of Investing and Predictions only."
+  },
+  "activityRowClosedLong": "Closed {coin} long",
+  "@activityRowClosedLong": {
+    "description": "Activity row title for an Investing fill that closed a long position fully. coin is the symbol. 'long' is the trading side (kept as the app's Long label).",
+    "placeholders": {
+      "coin": {
+        "type": "String"
+      }
+    }
+  },
+  "activityRowClosedShort": "Closed {coin} short",
+  "@activityRowClosedShort": {
+    "description": "Activity row title for an Investing fill that closed a short position fully. coin is the symbol. 'short' is the trading side (kept as the app's Short label).",
+    "placeholders": {
+      "coin": {
+        "type": "String"
+      }
+    }
   },
   "pnlStatRealisedAllTime": "All time realised",
   "@pnlStatRealisedAllTime": {
