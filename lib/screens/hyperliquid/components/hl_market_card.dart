@@ -138,8 +138,11 @@ class _HlMarketCardState extends ConsumerState<HlMarketCard> {
 
     // What the market is called: the asset's own name, and a Unit-bridged
     // token reads as the asset it holds (UBTC: Bitcoin), the way
-    // Hyperliquid's own app names it. The ticker when no name is known.
-    final name = hlFriendlyName(m.coin) ?? m.unitAssetName ?? m.coin;
+    // Hyperliquid's own app names it, and a token that holds a stock
+    // reads as that stock (NVDAX: Nvidia). The ticker when no name is
+    // known.
+    final name =
+        hlFriendlyName(m.underlyingTicker) ?? m.unitAssetName ?? m.coin;
     // Two venues can list a perp under one symbol (ANTH on two builder
     // dexes): the logo then carries the venue's monogram, so the two rows
     // never read the same.

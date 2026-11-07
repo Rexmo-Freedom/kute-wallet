@@ -13512,6 +13512,12 @@ abstract class AppLocalizations {
   /// **'Your position · {outcome}'**
   String searchYourPosition(String outcome);
 
+  /// Search, Investing results: a quiet line under a market that trades more than one way (the same stock on another exchange, or a token that holds it). Tapped, the other listings open under it. {ticker} is the market's ticker, e.g. 'NVDA'.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 more way to trade {ticker}} other{{count} more ways to trade {ticker}}}'**
+  String searchMoreWaysToTrade(int count, String ticker);
+
   /// No description provided for @searchSearchingMarkets.
   ///
   /// In en, this message translates to:

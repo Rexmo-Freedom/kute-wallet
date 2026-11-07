@@ -2235,6 +2235,7 @@
   "searchYourWallet": "Sök i din plånbok",
   "searchNoMatchingActivity": "Ingen matchande aktivitet",
   "searchYourPosition": "Din position · {outcome}",
+  "searchMoreWaysToTrade": "{count, plural, =1{Ytterligare 1 sätt att handla {ticker}} other{Ytterligare {count} sätt att handla {ticker}}}",
   "searchSearchingMarkets": "Söker marknader…",
   "searchFilterAll": "Alla",
   "searchSearching": "Söker…",

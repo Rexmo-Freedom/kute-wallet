@@ -21,6 +21,16 @@
 // short forms / natural names ("snp"→S&P/SPY, "tesla"→TSLA, "gold"→GLD), and
 // a subsequence pass tolerates minor typos. Ranked exact-symbol → alias →
 // prefix → substring → subsequence → 24h notional volume desc, capped at 8.
+//
+// ONE RESULT PER UNDERLYING (founder, 7 November 2026, "nv" listing Nvidia
+// twice and its two tokens: "why on search there are many things the
+// same?"). The hits are grouped by what they trade ([hlListingGroups]:
+// xyz:NVDA and io:NVDA, the NVDAX and EQNVDA tokens are all Nvidia). A
+// group is one result: the listing that answers the query best leads it
+// (on a tie its primary, the most liquid perp), and its other listings
+// ride along as [HlMarketSearchResult.alternatives], which the row offers
+// behind "2 more ways to trade NVDA". So "nv" shows Nvidia once, and
+// "nvdax" shows the NVDAX token itself, with the rest under it.
 
 import 'dart:async';
 
@@ -29,6 +39,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/helpers/search_debounce.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
+import 'package:kute/screens/hyperliquid/components/hl_format.dart'
+    show HlListingGroup, hlListingGroups, hlUnderlyingKey;
 import 'package:kute/services/runtime_capabilities_service.dart';
 
 /// A lightweight Hyperliquid market hit for the search surface. Carries
@@ -85,6 +97,15 @@ class HlMarketSearchResult {
   /// Investing tab's own card. Null when built without one (tests).
   final HlMarket? market;
 
+  /// The other listings of the same underlying ([hlListingGroups]), best
+  /// first: another builder's perp, the tokens that hold it. Shown behind
+  /// the row's "more ways to trade" disclosure; empty when it trades once.
+  final List<HlMarketSearchResult> alternatives;
+
+  /// The ticker the group trades ([HlListingGroup.ticker]: NVDA for every
+  /// Nvidia listing), named by that disclosure. Null outside a group.
+  final String? groupTicker;
+
   const HlMarketSearchResult({
     required this.coin,
     required this.wireCoin,
@@ -99,9 +120,33 @@ class HlMarketSearchResult {
     this.pxDecimalCap,
     this.unitAssetName,
     this.market,
+    this.alternatives = const [],
+    this.groupTicker,
   });
 
   bool get isPerp => kind == HlMarketKind.perp;
+
+  /// This hit as the projection of [m] (what [hlSearchMarkets] returns).
+  factory HlMarketSearchResult.of(HlMarket m,
+          {List<HlMarketSearchResult> alternatives = const [],
+          String? groupTicker}) =>
+      HlMarketSearchResult(
+        coin: m.coin,
+        wireCoin: m.wireCoin,
+        kind: m.kind,
+        isStock: isHlStockMarket(m),
+        name: _kHlSymbolNames[m.underlyingTicker.toUpperCase()],
+        category: m.category,
+        iconUrl: m.iconUrl,
+        markPx: m.markPx,
+        dayChangePct: m.dayChangePct,
+        maxLeverage: m.isSpot ? null : m.offeredMaxLeverage,
+        pxDecimalCap: m.pxDecimalCap,
+        unitAssetName: m.unitAssetName,
+        market: m,
+        alternatives: alternatives,
+        groupTicker: groupTicker,
+      );
 }
 
 /// Cap on how many hits either leg returns.
@@ -158,6 +203,18 @@ Future<List<HlMarketSearchResult>> _fallbackResults(
   }
 
   if (isDisposed()) return const [];
+  return hlSearchMarkets(all, q, isDisposed: isDisposed);
+}
+
+/// The Investing search over [all] (the browse universe, already under
+/// the policy): FUZZY, alias-aware, ranked exact → alias → prefix →
+/// substring → subsequence → volume desc, ONE RESULT PER UNDERLYING (see
+/// the file header), at most [_kHlSearchCap]. Yields every 64 markets and
+/// stops, empty, once [isDisposed] says the query was superseded.
+Future<List<HlMarketSearchResult>> hlSearchMarkets(
+    List<HlMarket> all, String q,
+    {bool Function()? isDisposed}) async {
+  bool cancelled() => isDisposed?.call() ?? false;
   final normQ = _normalizeToken(q);
   if (normQ.isEmpty) return const [];
   final aliasTargets = _aliasTargets(q, normQ);
@@ -166,8 +223,9 @@ Future<List<HlMarketSearchResult>> _fallbackResults(
   const int kNoMatch = 99;
   int rankOf(HlMarket m) {
     final normCoin = _normalizeToken(m.coin);
-    final normName =
-        _normalizeToken(_kHlSymbolNames[m.coin.toUpperCase()] ?? '');
+    // A token that holds a stock is named as the stock (NVDAX: Nvidia).
+    final normName = _normalizeToken(
+        _kHlSymbolNames[m.underlyingTicker.toUpperCase()] ?? '');
     // The venue's own friendly name (io:OAI → OPENAI, xyz:CL → WTIOIL)
     // ranks like ours; its keywords (nasdaq, crude) like a substring.
     final normVenueName = _normalizeToken(m.annotatedName ?? '');
@@ -200,45 +258,61 @@ Future<List<HlMarketSearchResult>> _fallbackResults(
     return kNoMatch;
   }
 
-  final ranked = <MapEntry<HlMarket, int>>[];
+  // Every market that answers the query, with its rank.
+  final hits = <(HlMarket, int)>[];
   var visited = 0;
-  int compareHits(MapEntry<HlMarket, int> a, MapEntry<HlMarket, int> b) {
-    if (a.value != b.value) return a.value.compareTo(b.value);
-    return b.key.dayNtlVlm.compareTo(a.key.dayNtlVlm);
-  }
-
   for (final m in all) {
     if (++visited % 64 == 0) {
       await Future<void>.delayed(Duration.zero);
-      if (isDisposed()) return const [];
+      if (cancelled()) return const [];
     }
     final r = rankOf(m);
-    if (r != kNoMatch) {
-      ranked.add(MapEntry(m, r));
-      ranked.sort(compareHits);
-      if (ranked.length > _kHlSearchCap) ranked.removeLast();
+    if (r != kNoMatch) hits.add((m, r));
+  }
+  if (hits.isEmpty) return const [];
+
+  // One result per underlying: the hit that answers best leads its group,
+  // the group's own order (its primary first) breaking a tie, so "nv"
+  // leads with xyz:NVDA and "nvdax" with the NVDAX token.
+  final groups = _hlSearchGroups[all] ??= {
+    for (final g in hlListingGroups(all)) g.key: g,
+  };
+  final leads = <String, (HlMarket, int, int)>{};
+  for (final (m, r) in hits) {
+    final key = hlUnderlyingKey(m);
+    final order = groups[key]?.listings.indexOf(m) ?? 0;
+    final held = leads[key];
+    if (held == null || r < held.$2 || (r == held.$2 && order < held.$3)) {
+      leads[key] = (m, r, order);
     }
   }
+  final ranked = leads.entries.toList()
+    ..sort((a, b) {
+      final r = a.value.$2.compareTo(b.value.$2);
+      return r != 0 ? r : b.value.$1.dayNtlVlm.compareTo(a.value.$1.dayNtlVlm);
+    });
 
   return [
     for (final e in ranked.take(_kHlSearchCap))
-      HlMarketSearchResult(
-        coin: e.key.coin,
-        wireCoin: e.key.wireCoin,
-        kind: e.key.kind,
-        isStock: isHlStockMarket(e.key),
-        name: _kHlSymbolNames[e.key.coin.toUpperCase()],
-        category: e.key.category,
-        iconUrl: e.key.iconUrl,
-        markPx: e.key.markPx,
-        dayChangePct: e.key.dayChangePct,
-        maxLeverage: e.key.isSpot ? null : e.key.offeredMaxLeverage,
-        pxDecimalCap: e.key.pxDecimalCap,
-        unitAssetName: e.key.unitAssetName,
-        market: e.key,
-      ),
+      if (groups[e.key] case final g?)
+        HlMarketSearchResult.of(
+          e.value.$1,
+          groupTicker: g.ticker,
+          alternatives: [
+            for (final other in g.listings)
+              if (!identical(other, e.value.$1))
+                HlMarketSearchResult.of(other, groupTicker: g.ticker),
+          ],
+        )
+      else
+        HlMarketSearchResult.of(e.value.$1),
   ];
 }
+
+/// [hlListingGroups] of a universe by key, built once per universe (a new
+/// list lands every 30 s; every keystroke in between reuses it).
+final Expando<Map<String, HlListingGroup>> _hlSearchGroups =
+    Expando<Map<String, HlListingGroup>>();
 
 /// Lowercase [s] and strip every non-alphanumeric char, so "S&P 500" →
 /// "sp500" and "s&p" → "sp". Applied to the query, coin symbols and friendly

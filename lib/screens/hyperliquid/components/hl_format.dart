@@ -292,14 +292,23 @@ String hlNormalizeName(String s) =>
 /// venue's display name or the Unit asset; anything else is its display
 /// name ([hlFriendlyName], the Unit asset, else the ticker), folded. The
 /// asset class leads the key, so a crypto token that borrows a tradfi
-/// name is never taken for the tradfi market.
-String hlUnderlyingKey(HlMarket m) {
+/// name is never taken for the tradfi market. A token that holds a stock
+/// (NVDAX, EQNVDA: [HlMarket.wrappedTicker]) is read by the stock's
+/// ticker, so it is on that stock.
+String hlUnderlyingKey(HlMarket m) => _hlUnderlyingKeys[m] ??= _keyOf(m);
+
+/// Each market's key, computed once: the lists group the whole universe
+/// on every build, and a market never changes.
+final Expando<String> _hlUnderlyingKeys = Expando<String>();
+
+String _keyOf(HlMarket m) {
   final tradfi = _kHlAliasedCategories.contains(m.category) ||
       m.category == 'fx';
-  final friendly = hlFriendlyName(m.coin);
+  final ticker = m.underlyingTicker;
+  final friendly = hlFriendlyName(ticker);
   if (_kHlAliasedCategories.contains(m.category)) {
     for (final n in [
-      m.coin,
+      ticker,
       friendly,
       m.annotatedName,
       m.unitAssetName,
@@ -309,8 +318,76 @@ String hlUnderlyingKey(HlMarket m) {
       if (alias != null) return 't:$alias';
     }
   }
-  final name = hlNormalizeName(friendly ?? m.unitAssetName ?? m.coin);
-  return '${tradfi ? 't' : 'c'}:${name.isEmpty ? m.coin : name}';
+  final name = hlNormalizeName(friendly ?? m.unitAssetName ?? ticker);
+  return '${tradfi ? 't' : 'c'}:${name.isEmpty ? ticker : name}';
+}
+
+/// The order one underlying's listings are ranked in, best first: a perp
+/// before a spot token, then the most traded in 24 h, then the larger
+/// open interest in dollars, then the wire id, so the pick never flips
+/// between two equal listings. The best is the PRIMARY listing.
+int hlCompareListings(HlMarket a, HlMarket b) {
+  if (a.isSpot != b.isSpot) return a.isSpot ? 1 : -1;
+  final v = b.dayNtlVlm.compareTo(a.dayNtlVlm);
+  if (v != 0) return v;
+  double oi(HlMarket m) => (m.openInterest ?? 0) * m.markPx;
+  final o = oi(b).compareTo(oi(a));
+  if (o != 0) return o;
+  return a.wireCoin.compareTo(b.wireCoin);
+}
+
+/// One underlying's listings ([hlUnderlyingKey]) among a list of markets:
+/// the [primary] ([hlCompareListings]' best) and the [alternatives], best
+/// first. Nvidia trades as xyz:NVDA and io:NVDA and as the NVDAX and
+/// EQNVDA tokens: one group, xyz:NVDA its primary.
+class HlListingGroup {
+  const HlListingGroup({
+    required this.key,
+    required this.primary,
+    this.alternatives = const [],
+  });
+
+  final String key;
+  final HlMarket primary;
+  final List<HlMarket> alternatives;
+
+  /// Every listing, the primary first.
+  List<HlMarket> get listings => [primary, ...alternatives];
+
+  /// The ticker the group trades, as its primary is read
+  /// ([HlMarket.underlyingTicker]): NVDA for Nvidia, even where only its
+  /// tokens are offered.
+  String get ticker => primary.underlyingTicker;
+}
+
+/// [markets] grouped by underlying ([HlListingGroup]), the groups in the
+/// order their primaries stand in [markets]. THE one grouping search,
+/// the Investing lists, the big squares and the market map share, so they
+/// agree on which listing stands for an underlying.
+List<HlListingGroup> hlListingGroups(Iterable<HlMarket> markets) {
+  final byKey = <String, List<HlMarket>>{};
+  for (final m in markets) {
+    (byKey[hlUnderlyingKey(m)] ??= <HlMarket>[]).add(m);
+  }
+  final byPrimary = <HlMarket, HlListingGroup>{};
+  for (final e in byKey.entries) {
+    final ranked = [...e.value]..sort(hlCompareListings);
+    byPrimary[ranked.first] = HlListingGroup(
+        key: e.key, primary: ranked.first, alternatives: ranked.sublist(1));
+  }
+  return [
+    for (final m in markets)
+      if (byPrimary.remove(m) case final HlListingGroup g) g,
+  ];
+}
+
+/// [markets] with one listing per underlying: each underlying's primary
+/// ([hlListingGroups]), at its own place in [markets]. A list with no
+/// underlying twice comes back as it is (the same list).
+List<HlMarket> hlPrimaryListings(List<HlMarket> markets) {
+  final keys = <String>{};
+  if (markets.every((m) => keys.add(hlUnderlyingKey(m)))) return markets;
+  return [for (final g in hlListingGroups(markets)) g.primary];
 }
 
 /// Deterministic per-symbol tint for the letter badge (same HSL trick as

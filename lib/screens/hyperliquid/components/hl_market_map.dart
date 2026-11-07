@@ -181,23 +181,20 @@ class HlMarketMapEntry {
 }
 
 /// The map's markets from [universe], most traded first (ties by key):
-/// the candidates ([hlMarketMapCandidate]), one per underlying (the most
-/// traded), the top [max] by 24 h volume, and of the markets in
-/// [previous] (the map on screen) those still in the top [stay] as well.
+/// the candidates ([hlMarketMapCandidate]), one per underlying (its
+/// primary listing, [hlPrimaryListings], the one search and the lists
+/// show), the top [max] by 24 h volume, and of the markets in [previous]
+/// (the map on screen) those still in the top [stay] as well.
 List<HlMarketMapEntry> hlMarketMapEntries(
   List<HlMarket> universe, {
   Set<String> previous = const {},
   int max = kHlMarketMapMaxTiles,
   int stay = kHlMarketMapStayTiles,
 }) {
-  final best = <String, HlMarket>{};
-  for (final m in universe) {
-    if (!hlMarketMapCandidate(m)) continue;
-    final key = hlUnderlyingKey(m);
-    final held = best[key];
-    if (held == null || m.dayNtlVlm > held.dayNtlVlm) best[key] = m;
-  }
-  final ranked = best.values.toList()
+  final ranked = hlPrimaryListings([
+    for (final m in universe)
+      if (hlMarketMapCandidate(m)) m,
+  ])
     ..sort((a, b) {
       final v = b.dayNtlVlm.compareTo(a.dayNtlVlm);
       return v != 0 ? v : hlMarketMapId(a).compareTo(hlMarketMapId(b));

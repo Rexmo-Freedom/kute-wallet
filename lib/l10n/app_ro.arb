@@ -2235,6 +2235,7 @@
   "searchYourWallet": "Caută în portofel",
   "searchNoMatchingActivity": "Nicio activitate potrivită",
   "searchYourPosition": "Poziția ta · {outcome}",
+  "searchMoreWaysToTrade": "{count, plural, =1{Încă 1 mod de a tranzacționa {ticker}} few{Încă {count} moduri de a tranzacționa {ticker}} other{Încă {count} de moduri de a tranzacționa {ticker}}}",
   "searchSearchingMarkets": "Se caută piețe…",
   "searchFilterAll": "Toate",
   "searchSearching": "Se caută…",

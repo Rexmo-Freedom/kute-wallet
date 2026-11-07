@@ -7803,6 +7803,18 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
+  String searchMoreWaysToTrade(int count, String ticker) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Ještě $count způsobů, jak obchodovat $ticker',
+      few: 'Ještě $count způsoby, jak obchodovat $ticker',
+      one: 'Ještě 1 způsob, jak obchodovat $ticker',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get searchSearchingMarkets => 'Hledají se trhy…';
 
   @override

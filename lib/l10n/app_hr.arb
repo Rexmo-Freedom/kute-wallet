@@ -2235,6 +2235,7 @@
   "searchYourWallet": "Pretraži novčanik",
   "searchNoMatchingActivity": "Nema odgovarajuće aktivnosti",
   "searchYourPosition": "Tvoja pozicija · {outcome}",
+  "searchMoreWaysToTrade": "{count, plural, one{Još {count} način trgovanja za {ticker}} few{Još {count} načina trgovanja za {ticker}} other{Još {count} načina trgovanja za {ticker}}}",
   "searchSearchingMarkets": "Pretraživanje tržišta…",
   "searchFilterAll": "Sve",
   "searchSearching": "Pretraživanje…",

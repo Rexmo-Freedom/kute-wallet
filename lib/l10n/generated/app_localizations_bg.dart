@@ -7820,6 +7820,17 @@ class AppLocalizationsBg extends AppLocalizations {
   }
 
   @override
+  String searchMoreWaysToTrade(int count, String ticker) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Още $count начина да търгуваш $ticker',
+      one: 'Още 1 начин да търгуваш $ticker',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get searchSearchingMarkets => 'Търсене на пазари…';
 
   @override

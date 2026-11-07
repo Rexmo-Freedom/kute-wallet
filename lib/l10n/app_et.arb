@@ -2235,6 +2235,7 @@
   "searchYourWallet": "Otsi oma rahakotist",
   "searchNoMatchingActivity": "Sobivaid tegevusi pole",
   "searchYourPosition": "Sinu positsioon · {outcome}",
+  "searchMoreWaysToTrade": "{count, plural, =1{{ticker}: veel 1 viis kauplemiseks} other{{ticker}: veel {count} viisi kauplemiseks}}",
   "searchSearchingMarkets": "Turgude otsimine…",
   "searchFilterAll": "Kõik",
   "searchSearching": "Otsimine…",

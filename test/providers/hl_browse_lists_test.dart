@@ -70,9 +70,10 @@ void main() {
   });
 
   test('Perps and Spot are the two kinds', () {
-    // Most traded first. A thinly traded market still lists.
+    // Most traded first. A thinly traded market still lists. Tesla on two
+    // builders' exchanges is one row, the more traded (xyz).
     expect(wires(hlBrowseListForTab(HlBrowseTab.perps, universe)), [
-      'BTC', 'HYPE', 'xyz:TSLA', 'km:NVDA', 'flx:GOLD', 'flx:TSLA', 'km:EUR', //
+      'BTC', 'HYPE', 'xyz:TSLA', 'km:NVDA', 'flx:GOLD', 'km:EUR', //
     ]);
     expect(wires(hlBrowseListForTab(HlBrowseTab.spot, universe)),
         ['@107', '@590']);
@@ -93,10 +94,10 @@ void main() {
     final all = [
       ...universe, spcx, tenYear, sp500, unclassified, builderCrypto //
     ];
-    // The stock's spot token (@590) follows the perps.
+    // One row per underlying: flx:TSLA stands behind xyz:TSLA, and the
+    // SpaceX token (@590) behind the SpaceX perp.
     expect(wires(hlBrowseListForTab(HlBrowseTab.tradfi, all)), [
-      'xyz:TSLA', 'km:NVDA', 'flx:GOLD', 'flx:TSLA', 'xyz:SPCX', 'xyz:SP500',
-      'km:EUR', '@590', //
+      'xyz:TSLA', 'km:NVDA', 'flx:GOLD', 'xyz:SPCX', 'xyz:SP500', 'km:EUR', //
     ]);
     // The site's sub-pills, in its order, with no All; one with no market
     // is hidden.
@@ -114,7 +115,8 @@ void main() {
     ]);
     List<String> sub(HlBrowseSub s) =>
         wires(hlBrowseListForTab(HlBrowseTab.tradfi, all, sub: s));
-    expect(sub(HlBrowseSub.stocks), ['xyz:TSLA', 'km:NVDA', 'flx:TSLA', '@590']);
+    // Under Stocks the token is SpaceX's only listing: it shows.
+    expect(sub(HlBrowseSub.stocks), ['xyz:TSLA', 'km:NVDA', '@590']);
     expect(sub(HlBrowseSub.indices), ['xyz:SP500']);
     expect(sub(HlBrowseSub.commodities), ['flx:GOLD']);
     expect(sub(HlBrowseSub.fx), ['km:EUR']);
@@ -242,7 +244,7 @@ void main() {
         wires(hlBrowseListForTab(HlBrowseTab.tradfi,
             hlMarketsOfferedUnderPolicy(universe, open),
             sub: HlBrowseSub.stocks)),
-        ['xyz:TSLA', 'km:NVDA', 'flx:TSLA', '@590']);
+        ['xyz:TSLA', 'km:NVDA', '@590']);
     final blocked = runtimePolicyFixture(blocked: {'hyperliquid.stocks'});
     addTearDown(blocked.dispose);
     expect(await blocked.refresh(), isTrue);

@@ -2235,6 +2235,7 @@
   "searchYourWallet": "Iskanje po denarnici",
   "searchNoMatchingActivity": "Ni ustrezne dejavnosti",
   "searchYourPosition": "Vaša pozicija · {outcome}",
+  "searchMoreWaysToTrade": "{count, plural, one{{ticker}: še {count} način trgovanja} two{{ticker}: še {count} načina trgovanja} few{{ticker}: še {count} načini trgovanja} other{{ticker}: še {count} načinov trgovanja}}",
   "searchSearchingMarkets": "Iskanje trgov …",
   "searchFilterAll": "Vse",
   "searchSearching": "Iskanje…",

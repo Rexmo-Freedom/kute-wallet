@@ -95,21 +95,11 @@ double? _snapshotChange(HlMarket m) =>
     m.dayChangeAtOrNull(m.midPx > 0 ? m.midPx : m.markPx);
 
 /// [ranked] (best first) with one market per underlying
-/// ([hlUnderlyingKey]): of the markets on one underlying, the most traded
-/// stays, at its own place in [ranked].
-List<HlMarket> _onePerUnderlying(List<HlMarket> ranked) {
-  final best = <String, HlMarket>{};
-  for (final m in ranked) {
-    final key = hlUnderlyingKey(m);
-    final held = best[key];
-    if (held == null || m.dayNtlVlm > held.dayNtlVlm) best[key] = m;
-  }
-  final keep = best.values.toSet();
-  return [
-    for (final m in ranked)
-      if (keep.contains(m)) m
-  ];
-}
+/// ([hlUnderlyingKey]): of the markets on one underlying, its primary
+/// listing stays ([hlPrimaryListings], the one search and the lists
+/// show), at its own place in [ranked].
+List<HlMarket> _onePerUnderlying(List<HlMarket> ranked) =>
+    hlPrimaryListings(ranked);
 
 /// The markets the strip shows for [markets] (a category's list): the
 /// [max] with the largest absolute 24h change, ties broken by 24h
@@ -393,7 +383,8 @@ class _HlMovingNowCardState extends ConsumerState<HlMovingNowCard> {
             ? greenColor
             : redColor;
 
-    final name = hlFriendlyName(m.coin) ?? m.unitAssetName ?? m.coin;
+    final name =
+        hlFriendlyName(m.underlyingTicker) ?? m.unitAssetName ?? m.coin;
 
     final decoration = PremiumGroupContainer.decorationOf(context);
     final radius = decoration.borderRadius as BorderRadius?;
