@@ -148,8 +148,10 @@ void main() {
     }
   }
 
-  /// The slip open over a page, the bar mounted as in the app.
-  Future<void> pumpSlip(WidgetTester tester) async {
+  /// The slip open over a page, the bar mounted as in the app; with
+  /// [settleSlip] false, only two frames after the slip opens, the bar
+  /// still cross-fading from the pill to the slip's button.
+  Future<void> pumpSlip(WidgetTester tester, {bool settleSlip = true}) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -177,7 +179,12 @@ void main() {
       backgroundColor: Colors.transparent,
       builder: (_) => const _Slip(),
     );
-    await settle(tester);
+    if (settleSlip) {
+      await settle(tester);
+    } else {
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pump(const Duration(milliseconds: 50));
+    }
   }
 
   /// The slip's Place on the bar, with the amount raised to $6 first.
@@ -249,11 +256,43 @@ void main() {
           of: find.byType(PinGateSheet), matching: find.text(d)));
       await tester.pump();
     }
+    // The moment the approval is in, the bar is the slip's again: Cancel
+    // never outlives the PIN sheet.
+    for (var i = 0; i < 30 && _placed == 0; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(_placed, 1);
+    await tester.pump();
+    // What the bar draws as its button now (its words may still be
+    // morphing from Cancel).
+    expect(barPrimaryLabel(tester), 'Place prediction · \$6.00');
     await settle(tester);
+    expect(barPrimaryText('Cancel'), findsNothing);
 
     expect(find.byType(PinGateSheet), findsNothing);
     expect(_placed, 1);
     expect(_declined, 0);
     expect(barPrimaryText('Place prediction · \$6.00'), findsOneWidget);
+  });
+
+  testWidgets(
+      'Place tapped while the bar still cross-fades from the pill: the '
+      'pill\'s one frame before Cancel lands never doubles a key',
+      (tester) async {
+    await pumpSlip(tester, settleSlip: false);
+    expect(barPrimaryText('Place prediction · \$5.00'), findsOneWidget);
+    await tester.tap(findBarPrimary());
+    for (var i = 0;
+        i < 20 && find.byType(PinGateSheet).evaluate().isEmpty;
+        i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(tester.takeException(), isNull);
+    }
+    for (var i = 0; i < 30; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(tester.takeException(), isNull);
+    }
+    expect(find.byType(PinGateSheet), findsOneWidget);
+    expect(barPrimaryText('Cancel'), findsOneWidget);
   });
 }

@@ -369,7 +369,10 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
       switchOutCurve: KuteMotion.settle,
       layoutBuilder: (current, previous) => Stack(
         alignment: collapsed ? Alignment.centerRight : Alignment.center,
-        children: [...previous, if (current != null) current],
+        children: [
+          ..._outgoingOnce(previous),
+          if (current != null) current
+        ],
       ),
       child: ctx.isTrade
           // A market page's trade pills and the round Sal button.
@@ -501,6 +504,27 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
       ),
     );
   }
+}
+
+/// The outgoing children of the bar's [AnimatedSwitcher], at most one per
+/// key: the newest. The switcher keys each child by its kind (the pill,
+/// the primary row, the trade row) and drops an outgoing one only when it
+/// shares the INCOMING child's key, so a quick pill → button → pill →
+/// button inside one cross-fade left two pills fading out under one key
+/// (Flutter's "Duplicate keys found"): a slip whose Place opens the PIN
+/// sheet within the cross-fade of the bar becoming Place, the pill
+/// showing for the one frame before the sheet's Cancel lands on the
+/// stack, then Cancel. The older of two is near the end of its fade and
+/// simply goes.
+List<Widget> _outgoingOnce(List<Widget> previous) {
+  final seen = <Key>{};
+  final kept = <Widget>[];
+  for (final w in previous.reversed) {
+    final key = w.key;
+    if (key != null && !seen.add(key)) continue;
+    kept.add(w);
+  }
+  return kept.reversed.toList();
 }
 
 /// Opens the Sal sheet with [ctx] over the root navigator. With [source]
