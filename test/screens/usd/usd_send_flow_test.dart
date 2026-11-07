@@ -1213,6 +1213,70 @@ void main() {
       _cta(tester, _l10n.withdraw).onPressed != null;
 
   testWidgets(
+      'Review: From and To are two squares side by side, as on the Bitcoin '
+      'Send (founder: "the square cards we have now"); To says the address '
+      'in its middle form and nothing under it (the coin chip names the coin '
+      'and its network); a tap shows the whole address with Copy, never '
+      'the address in analytics', (tester) async {
+    final events = <(String, Map<String, Object>?)>[];
+    TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+    addTearDown(() => TrackingService.debugTrackObserver = null);
+    await withClipboard(tester);
+    await _pump(tester);
+    await toReview(tester, '20');
+
+    final from = find.byKey(const ValueKey('send-review-from'));
+    final to = find.byKey(const ValueKey('send-review-to'));
+    Finder inside(Finder card, Finder f) =>
+        find.descendant(of: card, matching: f);
+    expect(tester.getRect(from).top, tester.getRect(to).top);
+    expect(tester.getRect(from).height, tester.getRect(to).height);
+    expect(tester.getRect(to).left, greaterThan(tester.getRect(from).right));
+    expect(inside(from, find.text(_l10n.from)), findsOneWidget);
+    expect(inside(from, find.text(_l10n.assetDollars)), findsOneWidget);
+    expect(
+        inside(from,
+            find.textContaining(_l10n.sendAvailableBalanceSubtitle(''))),
+        findsOneWidget);
+    expect(inside(to, find.text(_l10n.to)), findsOneWidget);
+    final shown = tester
+        .widget<Text>(inside(
+            find.byKey(const ValueKey('send-review-to-address')),
+            find.byType(Text)))
+        .data!;
+    expect(shown.startsWith('0x'), isTrue);
+    expect(shown.endsWith(_evm.substring(_evm.length - 4)), isTrue);
+    expect(inside(to, find.textContaining('Arbitrum')), findsNothing);
+    expect(_chipLabel(tester), label('arbitrum', 'USDC'));
+    final route = find.byKey(const ValueKey('send-review-route'));
+    expect(inside(route, find.byIcon(Icons.chevron_right_rounded)),
+        findsNothing);
+    expect(inside(route, find.byIcon(Icons.keyboard_arrow_down_rounded)),
+        findsNothing);
+
+    await tester.tap(to);
+    await tester.pumpAndSettle();
+    final full = find.byKey(const ValueKey('send-review-full-address'));
+    expect(inside(full, find.text(_evm)), findsOneWidget);
+    final copy = inside(full, find.text(_l10n.copy));
+    await tester.ensureVisible(copy);
+    await tester.pumpAndSettle();
+    await tester.tap(copy);
+    await tester.pump();
+    final copied =
+        events.where((e) => e.$1 == 'pay_review_address_copied').single.$2;
+    expect(copied, {'address_type': 'usd_recipient'});
+    await tester.pump(const Duration(seconds: 5));
+    // Back to the top of the short test view's scroll.
+    await tester.drag(inside(full, find.text(_evm)), const Offset(0, 400));
+    await tester.pumpAndSettle();
+    await tester.tap(to);
+    await tester.pumpAndSettle();
+    expect(full, findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
       'Review: an amount under the route\'s minimum is said once under the '
       'card, never as the fee, and Send stays off', (tester) async {
     _estimator = _refused(code: 'amount_too_small', status: 400);

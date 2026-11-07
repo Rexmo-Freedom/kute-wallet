@@ -104,6 +104,10 @@ import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/transaction_modal.dart'
     show PaymentTransactionOverlay;
 import 'package:kute/screens/shared/rubber_band_progress.dart';
+import 'package:kute/screens/shared/kute_action_cards.dart'
+    show KuteActionCardIcon, kKuteActionCardVisualSize;
+import 'package:kute/screens/shared/send/send_contacts_list.dart'
+    show SendReviewRoute;
 import 'package:kute/screens/shared/send/send_flow_widgets.dart';
 import 'package:kute/screens/shared/send/send_recipient_step.dart';
 import 'package:kute/screens/shared/send/send_sheet.dart';
@@ -1732,63 +1736,30 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
                   Center(child: _destinationChip(destination)),
                 ],
                 SizedBox(height: 20.h),
-                // ─── From → To card ───
-                SendReviewCard(
-                  child: Column(
-                    children: [
-                      SendReviewSummaryRow(
-                        label: l10n.from,
-                        title: l10n.assetDollars,
-                        subtitle: l10n.sendAvailableBalanceSubtitle(
-                            '\$${available.toStringAsFixed(2)}'),
-                        // The dollar balance as a source row wears the
-                        // Investments arrow, never the USDB coin.
-                        icon: Icon(kInvestmentsIcon,
-                            size: 24.sp, color: c.textPrimary),
-                      ),
-                      Divider(
-                          height: 1,
-                          thickness: 1,
-                          color: c.borderSubtle,
-                          indent: 14.w),
-                      InkWell(
-                        onTap: addr.isEmpty
-                            ? null
-                            : () {
-                                HapticFeedback.selectionClick();
-                                setState(() =>
-                                    _reviewToExpanded = !_reviewToExpanded);
-                              },
-                        borderRadius: BorderRadius.vertical(
-                            bottom: Radius.circular(18.r)),
-                        child: SendReviewSummaryRow(
-                          label: l10n.to,
-                          title: addr.isEmpty ? '…' : sendShortAddress(addr),
-                          subtitle: destination == null
-                              ? ''
-                              : '${destination.displaySymbol} · ${destination.chainDisplayName}',
-                          icon: destination == null
-                              ? const SizedBox.shrink()
-                              : _destinationMark(destination, size: 24),
-                          trailing: addr.isEmpty
-                              ? null
-                              : Icon(
-                                  _reviewToExpanded
-                                      ? Icons.keyboard_arrow_up_rounded
-                                      : Icons.keyboard_arrow_down_rounded,
-                                  size: 18.sp,
-                                  color: c.textTertiary),
-                        ),
-                      ),
-                      if (_reviewToExpanded && addr.isNotEmpty)
-                        SendReviewFullAddress(
-                          address: addr,
-                          onCopied: () => TrackingService.track(
-                              'pay_review_address_copied',
-                              params: {'address_type': 'usd_recipient'}),
-                        ),
-                    ],
-                  ),
+                // ─── From and To, two squares (the Bitcoin Send's
+                // Review layout, send_contacts_list.dart) ───
+                SendReviewRoute(
+                  // The dollar balance as a source wears the Investments
+                  // arrow, never the USDB coin.
+                  fromVisual: KuteActionCardIcon(kInvestmentsIcon,
+                      size: SendReviewRoute.visualSize),
+                  fromTitle: l10n.assetDollars,
+                  fromLine: l10n.sendAvailableBalanceSubtitle(
+                      '\$${available.toStringAsFixed(2)}'),
+                  toVisual: destination == null
+                      ? const SizedBox.shrink()
+                      : _destinationMark(destination,
+                          size: kKuteActionCardVisualSize),
+                  address: addr,
+                  // No line under the address: the coin chip over the
+                  // squares already names the coin and its network, and
+                  // the mark wears the network's badge.
+                  expanded: _reviewToExpanded,
+                  onToggle: () =>
+                      setState(() => _reviewToExpanded = !_reviewToExpanded),
+                  onCopied: () => TrackingService.track(
+                      'pay_review_address_copied',
+                      params: {'address_type': 'usd_recipient'}),
                 ),
                 if (feeRows.isNotEmpty) ...[
                   SizedBox(height: 14.h),

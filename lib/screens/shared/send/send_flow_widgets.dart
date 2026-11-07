@@ -27,6 +27,7 @@ import 'package:kute/helpers/formatters/currency_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart'
     show groupTypedAmount;
+import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/shared/rubber_band_progress.dart';
@@ -1208,7 +1209,9 @@ class SendClipboardNudge extends StatelessWidget {
   }
 }
 
-/// The card the Review rows sit on.
+/// The card the Review's fee rows sit on: the app's one soft card
+/// (kute_action_cards.dart; founder, 7 November 2026: the grey bordered
+/// boxes are the old style), the From and To squares' own surface.
 class SendReviewCard extends StatelessWidget {
   const SendReviewCard({super.key, required this.child, this.padding});
 
@@ -1217,94 +1220,10 @@ class SendReviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
     return Container(
       padding: padding,
-      decoration: BoxDecoration(
-        color: c.surfaceLight,
-        borderRadius: BorderRadius.circular(18.r),
-        border: Border.all(color: c.borderSubtle, width: 1.0),
-      ),
+      decoration: PremiumGroupContainer.decorationOf(context),
       child: child,
-    );
-  }
-}
-
-/// A From or To row of the Review card. The label rides on the same
-/// line as the value, the mark sits in a 28.sp slot.
-class SendReviewSummaryRow extends StatelessWidget {
-  const SendReviewSummaryRow({
-    super.key,
-    required this.label,
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    this.trailing,
-  });
-
-  final String label;
-  final String title;
-  final String subtitle;
-  final Widget icon;
-  final Widget? trailing;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
-      child: Row(
-        children: [
-          // Bare icon, no tinted halo: the mark IS the identity here.
-          SizedBox(
-            width: 28.sp,
-            height: 28.sp,
-            child: Center(child: icon),
-          ),
-          SizedBox(width: 10.w),
-          Text(label,
-              style: TextStyle(
-                color: c.textTertiary,
-                fontSize: 13.sp,
-                fontWeight: FontWeight.w600,
-                letterSpacing: -0.1,
-              )),
-          SizedBox(width: 10.w),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(title,
-                    style: TextStyle(
-                      color: c.textPrimary,
-                      fontSize: 15.sp,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.2,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis),
-                if (subtitle.isNotEmpty) ...[
-                  SizedBox(height: 2.h),
-                  Text(subtitle,
-                      style: TextStyle(
-                        color: c.textTertiary,
-                        fontSize: 12.5.sp,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: -0.1,
-                      ),
-                      textAlign: TextAlign.end,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
-                ],
-              ],
-            ),
-          ),
-          if (trailing != null) ...[
-            SizedBox(width: 6.w),
-            trailing!,
-          ],
-        ],
-      ),
     );
   }
 }
@@ -1425,8 +1344,9 @@ class SendReviewNote extends StatelessWidget {
   }
 }
 
-/// Full destination string under the Review "To" row, wrapped so every
-/// character is readable, with a Copy action.
+/// The whole destination under the Review's From and To squares, once the
+/// To square is tapped: wrapped so every character is readable, with a
+/// Copy action, on the same soft card.
 class SendReviewFullAddress extends StatelessWidget {
   const SendReviewFullAddress({
     super.key,
@@ -1443,20 +1363,17 @@ class SendReviewFullAddress extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 14.h),
-      child: Container(
-        width: double.infinity,
-        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
-        decoration: BoxDecoration(
-          color: c.surface,
-          borderRadius: BorderRadius.circular(12.r),
-          border: Border.all(color: c.borderSubtle, width: 0.5),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
+    return Container(
+      key: const ValueKey('send-review-full-address'),
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(16.w, 14.h, 10.w, 8.h),
+      decoration: PremiumGroupContainer.decorationOf(context),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: EdgeInsets.only(right: 6.w),
+            child: Text(
               address,
               style: TextStyle(
                 color: c.textSecondary,
@@ -1466,42 +1383,41 @@ class SendReviewFullAddress extends StatelessWidget {
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
-            SizedBox(height: 6.h),
-            Align(
-              alignment: Alignment.centerRight,
-              child: InkWell(
-                onTap: () async {
-                  await Clipboard.setData(ClipboardData(text: address));
-                  onCopied?.call();
-                  if (!context.mounted) return;
-                  showMessageSnackBarInfo(
-                      context: context, message: context.l10n.copied);
-                },
-                borderRadius: BorderRadius.circular(8.r),
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 4.h),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.copy_rounded,
-                          size: 14.sp, color: c.textPrimary),
-                      SizedBox(width: 4.w),
-                      Text(
-                        context.l10n.copy,
-                        style: TextStyle(
-                          color: c.textPrimary,
-                          fontSize: 13.sp,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.1,
-                        ),
+          ),
+          SizedBox(height: 4.h),
+          Align(
+            alignment: Alignment.centerRight,
+            child: InkWell(
+              onTap: () async {
+                await Clipboard.setData(ClipboardData(text: address));
+                onCopied?.call();
+                if (!context.mounted) return;
+                showMessageSnackBarInfo(
+                    context: context, message: context.l10n.copied);
+              },
+              borderRadius: BorderRadius.circular(8.r),
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 4.h),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.copy_rounded, size: 14.sp, color: c.textPrimary),
+                    SizedBox(width: 4.w),
+                    Text(
+                      context.l10n.copy,
+                      style: TextStyle(
+                        color: c.textPrimary,
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.1,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
