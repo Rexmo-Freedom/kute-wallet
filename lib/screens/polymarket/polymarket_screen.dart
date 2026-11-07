@@ -1140,7 +1140,7 @@ class _PolyFeedCard extends ConsumerWidget {
         child: MarketCard(
           inGroup: inGroup,
           title: roundAsset == null
-              ? market.title
+              ? market.displayTitle
               : '$roundAsset · '
                   '${polyRoundWindowLabel(context.l10n, round!.window)}',
           round: roundAsset == null
@@ -1179,7 +1179,7 @@ class _PolyFeedCard extends ConsumerWidget {
                   Navigator.of(context, rootNavigator: true).push(
                     KutePageRoute(
                       builder: (_) => GroupLandingScreen.events(
-                        title: market.title,
+                        title: market.displayTitle,
                         events: matchSiblings,
                         slug: market.category,
                       ),
@@ -3107,7 +3107,7 @@ class HeroEventCardState extends ConsumerState<HeroEventCard> {
                   SizedBox(width: 12.w),
                   Expanded(
                     child: Text(
-                      event.title,
+                      event.displayTitle,
                       style: TextStyle(
                         color: c.textPrimary,
                         fontSize: 17.sp,

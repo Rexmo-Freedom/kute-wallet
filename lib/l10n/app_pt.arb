@@ -3432,6 +3432,7 @@
   "bragMyPnl": "O meu P&L",
   "bragShareText": "{title} no Kute {link}",
   "bragMyPortfolio": "O meu portefólio",
+  "bragHoldingsMore": "{count, plural, =1{+{count} mais} other{+{count} mais}}",
   "bragCodeLabel": "Código",
   "bragSinceYouBought": "Desde a compra",
   "bragAboutIt": "Gabe-se disso",

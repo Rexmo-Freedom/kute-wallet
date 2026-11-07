@@ -3159,6 +3159,7 @@
   "bragMyPnl": "私の損益",
   "bragShareText": "Kuteで{title} {link}",
   "bragMyPortfolio": "私のポートフォリオ",
+  "bragHoldingsMore": "{count, plural, other{他{count}件}}",
   "bragCodeLabel": "コード",
   "bragSinceYouBought": "購入時から",
   "bragAboutIt": "自慢しよう",

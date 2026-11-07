@@ -212,7 +212,7 @@ class PredictionBrowseCard extends ConsumerWidget {
       tokens: tokens,
       child: MarketCard(
         inGroup: inGroup,
-        title: event.title,
+        title: event.displayTitle,
         imageUrl: event.imageUrl,
         outcomes: event.outcomes,
         volume: event.volume,
