@@ -7734,18 +7734,23 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   }
 
   /// The coins this send can land as for what the field holds, folded one
-  /// per coin — the same fold the destination sheet itself uses, so the
-  /// chip's coins and the sheet can never be a different set.
+  /// per coin — the same fold the destination sheet itself uses, less what
+  /// the runtime policy withdraws (the sheet's own filter), so the chip's
+  /// coins and the sheet can never be a different set. A region block
+  /// withdraws nothing (the coin's tap says why); a swap switched off, a
+  /// platform rule or coming soon leaves no coin to stack, and the chip's
+  /// sheet says why under its Bitcoin Network row.
   List<CoinAssetGroup> _sendDestGroups() {
     final catalog = ref.watch(orchestraSupportedRoutesProvider);
+    ref.watch(runtimeCapabilitiesProvider);
     final eligible =
         _eligibleNetworksForFamily[_addressRailFamily(addressController.text)];
     final all = _sendDestOptions(catalog, context.l10n);
-    return groupCoinsByAsset([
+    return coinGroupsOfferedUnderPolicy(groupCoinsByAsset([
       for (final o in all)
         if (eligible == null || eligible.contains(o.chain))
           _sendDestPickerRow(o),
-    ]);
+    ])).groups;
   }
 
   /// LEVEL 2, ONE ROW OF CHIPS (founder, 6 November 2026, the approved
