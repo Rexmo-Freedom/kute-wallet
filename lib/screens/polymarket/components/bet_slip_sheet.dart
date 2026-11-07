@@ -5542,9 +5542,11 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     if (selected == null) {
       sideLabel = widget.marketQuestion;
     } else if (candidatePage) {
-      // The candidate, by its name on the event (the link resolves it).
-      sideLabel = widget.marketQuestion;
-      outcome = index == _positiveIndex ? widget.marketQuestion : null;
+      // The candidate, by its name on the event (the link resolves it):
+      // the page's own title, not the question the slip is titled by.
+      final name = widget.event!.title;
+      sideLabel = name;
+      outcome = index == _positiveIndex ? name : null;
     } else if (_isCandidatePicker) {
       sideLabel = selected.name;
       outcome = _buyNo ? null : selected.name;

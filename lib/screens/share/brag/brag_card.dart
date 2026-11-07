@@ -10,11 +10,20 @@
 // ([bragPalette]: green for a win, red for a loss, navy when flat):
 //
 //   * PORTFOLIO: "MY PORTFOLIO", the all-time P&L huge, "All time", then
-//     the all-time P&L line filling the space when there is one
-//     (BragPortfolio.series, the stock card's chart), else the top three
-//     open positions as rows spread over it (the REAL logo 28 through the
-//     app's widgets, HlCoinIcon or PolyCrestImage; the name 17; the
-//     percent 17 w600 at the right in its colour). No ring.
+//     the all-time P&L line (BragPortfolio.series, the stock card's
+//     chart) and the HOLDINGS under it (founder, 7 November 2026: "how
+//     much i made on each?"): the open positions with the largest P&L
+//     either way as rows ([_Holdings]: the REAL logo through the app's
+//     widgets, HlCoinIcon or PolyCrestImage; the Portfolio's short name
+//     with the side held quieter after it, "Anthropic · Short", "Lakers ·
+//     Yes"; the P&L in money at the right in its colour, "+$12.40"), then
+//     a quiet "+2 more" for the ones not listed. The line takes what the
+//     rows leave ([bragHoldingsPlan]: the rows under it 18 / 15, at least
+//     [kBragChartMin] of line; as many of the three as fit, the rest in
+//     the "+N more"); without a line the rows spread over the middle at
+//     28 / 17 when they fit; with nothing open the line fills it, as
+//     before. Perps, holdings and predictions: never "stocks" or
+//     "shares". No ring.
 //   * INVESTING POSITION: the stock card with the P&L as the hero: "MY
 //     POSITION", the market's logo, title and the side held ("Long"), the
 //     P&L huge, "Since you bought · +42.1%", the line since the buy filling
@@ -42,6 +51,8 @@
 //
 // The card never reads a provider or the screen's scale: the same pixels
 // at every size, so the preview is exactly the image.
+
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' show DateFormat;
@@ -100,38 +111,132 @@ String bragWonDate(AppLocalizations l10n, DateTime at) {
   }
 }
 
-/// A row's logo in the portfolio card.
-const double kBragRowLogo = 28;
+/// A holdings row's sizes on the portfolio card: the logo, the text (the
+/// name, the side and the P&L), the least the name steps down to before
+/// it is cut, the row's height and the gap after the logo.
+typedef BragRowStyle = ({
+  double logo,
+  double text,
+  double minText,
+  double height,
+  double gap,
+});
 
-/// The least height a row of the portfolio card takes, and a row whose
-/// name takes two lines.
-const double kBragRowHeight = 32;
-const double kBragRowHeightTwoLines = 44;
+/// The rows alone in the middle (no line over them): the logo 28, the
+/// text 17, as the rows were before the line joined them.
+const BragRowStyle kBragRowRoomy =
+    (logo: 28, text: 17, minText: 15, height: 32, gap: 12);
 
-/// A row's name and result sizes, and the smaller size a long name steps
-/// down to on two lines.
-const double kBragRowNameSize = 17;
-const double kBragRowNameSmall = 15;
+/// The rows under the line: the logo 18, the text 15.
+const BragRowStyle kBragRowDense =
+    (logo: 18, text: 15, minText: 13, height: 20, gap: 10);
 
-/// A row's name set in [width]: one line at [kBragRowNameSize] when it
-/// fits, else two at [kBragRowNameSmall] (cut only after those two).
-({double size, int lines}) bragRowNameFit(String name, double width) {
-  if (!width.isFinite || width <= 0) {
-    return (size: kBragRowNameSize, lines: 1);
+/// The quiet "+N more" row under the rows: 13 w600 muted (the caps line's
+/// size, no smaller text on a card), and its height.
+const double kBragMoreSize = 13;
+const double kBragMoreHeight = 15;
+
+/// The line over the rows: its least height, and the space under it.
+const double kBragChartMin = 20;
+const double kBragChartGap = 6;
+
+/// The space between a row's name and its P&L.
+const double kBragRowFigureGap = 12;
+
+/// How the holdings sit in the card's middle ([BragPortfolio.top]).
+typedef BragHoldingsPlan = ({int rows, int more, BragRowStyle style});
+
+/// The holdings in a middle [height] tall: [listed] rows to pick from
+/// ([BragPortfolio.top]), [open] positions open in all, under the line
+/// when [chart]. As many rows as fit, the line keeping at least
+/// [kBragChartMin]; the roomy rows when there is no line and they fit,
+/// else the dense ones; [BragHoldingsPlan.more] the open positions not
+/// listed ("+N more"). No row at all when not even one fits.
+BragHoldingsPlan bragHoldingsPlan({
+  required double height,
+  required int listed,
+  required int open,
+  required bool chart,
+}) {
+  final total = math.max(open, listed);
+  final room = height.isFinite ? height : double.infinity;
+  for (var n = math.min(listed, kBragTopHoldings); n >= 1; n--) {
+    final more = total - n;
+    for (final style in [if (!chart) kBragRowRoomy, kBragRowDense]) {
+      final need = n * style.height +
+          (more > 0 ? kBragMoreHeight : 0) +
+          (chart ? kBragChartGap + kBragChartMin : 0);
+      // Half a pixel of slack for the layout's rounding.
+      if (need <= room + 0.5) return (rows: n, more: more, style: style);
+    }
   }
-  TextPainter measure(double size) => TextPainter(
-        text: TextSpan(
-            text: name,
-            style: shareCardText(size, FontWeight.w500, Colors.white,
-                spacing: -0.2)),
-        textDirection: TextDirection.ltr,
-      )..layout(maxWidth: width);
-  final one = measure(kBragRowNameSize);
-  final fits = one.computeLineMetrics().length <= 1;
-  one.dispose();
-  return fits
-      ? (size: kBragRowNameSize, lines: 1)
-      : (size: kBragRowNameSmall, lines: 2);
+  return (rows: 0, more: 0, style: kBragRowDense);
+}
+
+/// The side a holdings row writes after its name: "Long" or "Short" on a
+/// perp, a prediction's outcome ("Yes" / "No" in the app's language, a
+/// named one as it is); null on a holding (spot), or when the name
+/// already is the side.
+String? bragHoldingSide(AppLocalizations l10n, BragTopPosition row) {
+  final long = row.long;
+  if (long != null) return long ? l10n.longLabel : l10n.shortLabel;
+  final side = row.side?.trim() ?? '';
+  if (side.isEmpty || row.titleIsSide) return null;
+  if (side.toLowerCase() == row.title.trim().toLowerCase()) return null;
+  return shareCardOutcome(l10n, side);
+}
+
+/// What separates a row's name from its side: "Anthropic · Short".
+const String kBragSideJoin = ' · ';
+
+/// [text]'s width in one line at [style].
+double _textWidth(String text, TextStyle style) {
+  final tp = TextPainter(
+    text: TextSpan(text: text, style: style),
+    maxLines: 1,
+    textDirection: TextDirection.ltr,
+  )..layout();
+  final w = tp.width;
+  tp.dispose();
+  return w;
+}
+
+/// A row's name size for [label] (the name and its side) in [width]:
+/// [BragRowStyle.text] when it fits, else shrunk to fit, never under
+/// [BragRowStyle.minText] (the name is cut after that, its side kept).
+double bragRowNameSize(String label, double width, BragRowStyle style) {
+  if (!width.isFinite || width <= 0) return style.text;
+  final w = _textWidth(label,
+      shareCardText(style.text, FontWeight.w500, Colors.white, spacing: -0.2));
+  if (w <= width) return style.text;
+  return math.max(style.minText, style.text * width / w);
+}
+
+/// The edgy line [BragCard] draws for [data] at [seed] ([bragEdge]); on
+/// a portfolio card that lists its holdings, the first line from the
+/// seed's on that sets on ONE line at the card's width, so the rows keep
+/// their room (three and the "+N more" under the line); the seed's own
+/// when none does.
+String bragCardEdge(AppLocalizations l10n, BragData data, int seed) {
+  final pick = bragEdge(l10n, data, seed);
+  if (data is! BragPortfolio || data.top.isEmpty) return pick;
+  final pool = bragEdges(l10n, data);
+  final start = pool.indexOf(pick);
+  final style = shareCardText(kShareCardLineSize, FontWeight.w700, Colors.white,
+      spacing: -0.5, height: 1.12);
+  final width = kShareCardSize.width - 2 * kShareCardPadding;
+  for (var i = 0; i < pool.length; i++) {
+    final line = pool[(start + i) % pool.length];
+    final tp = TextPainter(
+      text: TextSpan(text: line, style: style),
+      maxLines: 1,
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: width);
+    final one = !tp.didExceedMaxLines;
+    tp.dispose();
+    if (one) return line;
+  }
+  return pick;
 }
 
 class BragCard extends StatelessWidget {
@@ -148,7 +253,7 @@ class BragCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final line = bragEdge(l10n, data, lineSeed);
+    final line = bragCardEdge(l10n, data, lineSeed);
     final p = bragPalette(data);
     final pose = bragPose(data);
     switch (data) {
@@ -156,59 +261,23 @@ class BragCard extends StatelessWidget {
         final r = d.allTime;
         final series = d.series;
         final hasChart = series != null && series.length >= 2;
+        final chart = hasChart
+            ? ShareCardSparkline(
+                key: const ValueKey('brag-card-chart'),
+                points: series,
+                color: r != null && (r.up || r.down) ? _signed(p, r) : p.ink,
+              )
+            : null;
         return ShareCardFrame(
           palette: p,
           keyPrefix: 'brag-card',
           caps: d.title,
           number: r?.text ?? '—',
           fact: l10n.portfolioAllTime,
-          graphic: hasChart
-              ? ShareCardSparkline(
-                  key: const ValueKey('brag-card-chart'),
-                  points: series,
-                  color: r != null && (r.up || r.down) ? _signed(p, r) : p.ink,
-                )
-              : d.top.isEmpty
-                  ? null
-                  // As many of the top three as the space holds (a
-                  // two-line edgy line leaves room for two).
-                  : LayoutBuilder(
-                      builder: (context, box) {
-                        // Each row as tall as its name needs (a long
-                        // market title on two lines, never cut while it
-                        // can be read), as many as fit.
-                        var n = 0;
-                        var used = 0.0;
-                        for (final row in d.top) {
-                          final h = bragRowNameFit(
-                                          _TopRow.nameOf(row),
-                                          _TopRow.nameWidth(
-                                              row, box.maxWidth))
-                                      .lines >
-                                  1
-                              ? kBragRowHeightTwoLines
-                              : kBragRowHeight;
-                          if (n > 0 &&
-                              box.maxHeight.isFinite &&
-                              used + h > box.maxHeight) {
-                            break;
-                          }
-                          used += h;
-                          n++;
-                        }
-                        return Column(
-                          key: const ValueKey('brag-card-rows'),
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            for (var i = 0; i < n; i++)
-                              _TopRow(
-                                  key: ValueKey('brag-card-top-$i'),
-                                  row: d.top[i],
-                                  palette: p),
-                          ],
-                        );
-                      },
-                    ),
+          // Nothing open: the line alone fills the middle, as before.
+          graphic: d.top.isEmpty
+              ? chart
+              : _Holdings(data: d, palette: p, chart: chart),
           graphicFills: hasChart || d.top.isNotEmpty,
           line: line,
           code: d.referralCode,
@@ -334,63 +403,130 @@ class BragCard extends StatelessWidget {
   }
 }
 
-/// One of the top positions as a row: its real logo (28), its name (a
-/// prediction's named outcome, else the market, 17) and its result (the
-/// percent, else the amount, 17 w600) at the right in the result's colour.
-class _TopRow extends StatelessWidget {
-  const _TopRow({super.key, required this.row, required this.palette});
+/// The portfolio card's holdings ([bragHoldingsPlan]): the line over the
+/// rows when there is one, taking what they leave; the rows alone spread
+/// over the middle otherwise; then the quiet "+N more".
+class _Holdings extends StatelessWidget {
+  const _Holdings({required this.data, required this.palette, this.chart});
+
+  final BragPortfolio data;
+  final ShareCardPalette palette;
+
+  /// The all-time line over the rows; null: the rows alone.
+  final Widget? chart;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return LayoutBuilder(builder: (context, box) {
+      final plan = bragHoldingsPlan(
+        height: box.maxHeight,
+        listed: data.top.length,
+        open: data.openCount,
+        chart: chart != null,
+      );
+      final style = plan.style;
+      final more = data.moreThan(plan.rows);
+      final rows = <Widget>[
+        for (var i = 0; i < plan.rows; i++)
+          SizedBox(
+            height: style.height,
+            child: _HoldingRow(
+                key: ValueKey('brag-card-top-$i'),
+                row: data.top[i],
+                palette: palette,
+                style: style),
+          ),
+        if (plan.rows > 0 && more > 0)
+          SizedBox(
+            height: kBragMoreHeight,
+            child: Padding(
+              // Under the names, where the list's text starts.
+              padding:
+                  EdgeInsetsDirectional.only(start: style.logo + style.gap),
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: Text(
+                  l10n.bragHoldingsMore(more),
+                  key: const ValueKey('brag-card-more'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: shareCardText(
+                      kBragMoreSize, FontWeight.w600, palette.muted,
+                      spacing: -0.1, height: 1.15),
+                ),
+              ),
+            ),
+          ),
+      ];
+      final line = chart;
+      if (line == null) {
+        return Column(
+          key: const ValueKey('brag-card-rows'),
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: rows,
+        );
+      }
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(child: line),
+          if (rows.isNotEmpty) ...[
+            const SizedBox(height: kBragChartGap),
+            Column(
+              key: const ValueKey('brag-card-rows'),
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: rows,
+            ),
+          ],
+        ],
+      );
+    });
+  }
+}
+
+/// One open position as a row: its real logo, its short name in the ink
+/// with the side held quieter after it ("Anthropic · Short"), and its P&L
+/// in money at the right in the result's colour ("+$12.40"). A long name
+/// steps down a size, then is cut; the side and the P&L stay whole.
+class _HoldingRow extends StatelessWidget {
+  const _HoldingRow({
+    super.key,
+    required this.row,
+    required this.palette,
+    required this.style,
+  });
 
   final BragTopPosition row;
   final ShareCardPalette palette;
-
-  /// A named outcome ("Gen.G") says more than the long question; a Yes
-  /// or No does not.
-  static bool _named(BragTopPosition row) {
-    final side = row.side;
-    return side != null &&
-        side.isNotEmpty &&
-        !row.investing &&
-        !const {'yes', 'no'}.contains(side.trim().toLowerCase());
-  }
-
-  /// The name the row writes.
-  static String nameOf(BragTopPosition row) =>
-      _named(row) ? row.side! : row.title;
-
-  /// The result the row writes at the right.
-  static String resultOf(BragTopPosition row) {
-    final pct = row.result.percent;
-    return pct != null ? bragPercent(pct) : row.result.text;
-  }
-
-  /// The name's width in a row [width] wide: less the logo, the gaps and
-  /// the result.
-  static double nameWidth(BragTopPosition row, double width) {
-    final tp = TextPainter(
-      text: TextSpan(
-          text: resultOf(row),
-          style: shareCardText(kBragRowNameSize, FontWeight.w600, Colors.white,
-              spacing: -0.2, tabular: true)),
-      textDirection: TextDirection.ltr,
-      maxLines: 1,
-    )..layout();
-    final w = width - kBragRowLogo - 24 - tp.width;
-    tp.dispose();
-    return w;
-  }
+  final BragRowStyle style;
 
   @override
   Widget build(BuildContext context) {
     final p = palette;
     final r = row.result;
-    final name = nameOf(row);
+    final side = bragHoldingSide(context.l10n, row);
+    final figureStyle = shareCardText(
+        style.text, FontWeight.w600, _signed(p, r),
+        spacing: -0.2, tabular: true);
     return LayoutBuilder(builder: (context, box) {
-      final fit = bragRowNameFit(name, nameWidth(row, box.maxWidth));
+      final room = box.maxWidth -
+          style.logo -
+          style.gap -
+          kBragRowFigureGap -
+          _textWidth(r.text, figureStyle);
+      final size = bragRowNameSize(
+          side == null ? row.title : '${row.title}$kBragSideJoin$side',
+          room,
+          style);
+      final nameStyle =
+          shareCardText(size, FontWeight.w500, p.ink, spacing: -0.2);
       return Row(
         children: [
           ShareCardLogo(
-            size: kBragRowLogo,
-            title: name,
+            size: style.logo,
+            title: row.title,
             investing: row.investing,
             palette: p,
             coin: row.coin,
@@ -399,26 +535,53 @@ class _TopRow extends StatelessWidget {
             category: row.category,
             imageUrl: row.imageUrl,
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: style.gap),
           Expanded(
-            child: Text(
-              name,
-              maxLines: fit.lines,
-              overflow: TextOverflow.ellipsis,
-              style: shareCardText(fit.size, FontWeight.w500, p.ink,
-                  spacing: -0.2, height: fit.lines > 1 ? 1.15 : 1.2),
+            child: Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    row.title,
+                    key: ValueKey('$_key-name'),
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.ellipsis,
+                    style: nameStyle,
+                  ),
+                ),
+                if (side != null)
+                  ConstrainedBox(
+                    // A long named side never pushes the name out.
+                    constraints:
+                        BoxConstraints(maxWidth: math.max(0, room * 0.5)),
+                    child: Text(
+                      '$kBragSideJoin$side',
+                      key: ValueKey('$_key-side'),
+                      maxLines: 1,
+                      softWrap: false,
+                      overflow: TextOverflow.ellipsis,
+                      style: nameStyle.copyWith(color: p.muted),
+                    ),
+                  ),
+              ],
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: kBragRowFigureGap),
           Text(
-            resultOf(row),
+            r.text,
+            key: ValueKey('$_key-pnl'),
             maxLines: 1,
-            style: shareCardText(kBragRowNameSize, FontWeight.w600,
-                _signed(p, r),
-                spacing: -0.2, tabular: true),
+            softWrap: false,
+            style: figureStyle,
           ),
         ],
       );
     });
+  }
+
+  /// The row's own key ("brag-card-top-0"), its parts keyed after it.
+  String get _key {
+    final k = key;
+    return k is ValueKey<String> ? k.value : 'brag-card-top';
   }
 }

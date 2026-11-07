@@ -23,9 +23,14 @@ import 'package:kute/providers/viewed_wallet_provider.dart';
 import 'package:kute/screens/analytics/components/balance_goals.dart';
 import 'package:kute/screens/analytics/components/balance_history_chart.dart';
 import 'package:kute/screens/analytics/components/home_analytics_widget.dart';
-import 'package:kute/screens/home/components/deposit_sheet.dart';
 import 'package:kute/screens/shared/charts/kute_trend_chart.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
+import 'package:kute/screens/shared/money_movement_sheet.dart'
+    show
+        MoneyMovementAccount,
+        MoneyMovementRequest,
+        MoneyMovementRoute,
+        debugMoneyMovementSheetOpener;
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/services/balance_milestones.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -109,7 +114,6 @@ void main() {
 
   tearDown(() {
     TrackingService.debugTrackObserver = null;
-    BalanceGoals.debugMoveOpener = null;
   });
 
   List<Override> overrides(
@@ -511,17 +515,26 @@ void main() {
   });
 
   testWidgets(
-      r'the Next goal square: "Move $25 to Dollars" opens the Move sheet '
-      'locked to Dollars with \$25 filled in', (tester) async {
-    final opened = <(MoveLockedSide, double)>[];
-    BalanceGoals.debugMoveOpener =
-        (context, side, usd) => opened.add((side, usd));
+      r'the Next goal square is the move: "Move $25 to Dollars" opens Move '
+      r'money straight on the amount, Bitcoin to Dollars, pinned (no account '
+      r'to pick), $25 filled in', (tester) async {
+    final moves = <MoneyMovementRequest>[];
+    debugMoneyMovementSheetOpener = (_, request) => moves.add(request);
+    addTearDown(() => debugMoneyMovementSheetOpener = null);
     await pump(tester, input());
     expect(text(tester, 'balance-goal-nudge-label'), r'Move $25 to Dollars');
     // Anywhere on the square: here, its figure.
     await tester.tap(find.byKey(const ValueKey('balance-goal-next')));
     await tester.pump(const Duration(milliseconds: 200));
-    expect(opened, [(MoveLockedSide.depositToUsd, 25.0)]);
+    expect(moves, hasLength(1));
+    expect(
+        moves.single.route,
+        const MoneyMovementRoute(
+            MoneyMovementAccount.bitcoin, MoneyMovementAccount.dollars));
+    expect(moves.single.pinned, isTrue);
+    expect(moves.single.entrySource, kBalanceGoalSource);
+    expect(moves.single.initialTargetUsd, 25.0);
+    expect(TrackingService.takeEntrySource('move'), kBalanceGoalSource);
     final tapped =
         events.where((e) => e.$1 == 'balance_goal_cta_tapped').toList();
     expect(tapped, hasLength(1));
@@ -534,9 +547,9 @@ void main() {
       'the move names no venue; the square is the move while either is live, '
       'and a plain goal, not tappable, where the move or both venues are not',
       (tester) async {
-    final opened = <(MoveLockedSide, double)>[];
-    BalanceGoals.debugMoveOpener =
-        (context, side, usd) => opened.add((side, usd));
+    final opened = <MoneyMovementRequest>[];
+    debugMoneyMovementSheetOpener = (_, request) => opened.add(request);
+    addTearDown(() => debugMoneyMovementSheetOpener = null);
     final container = await pump(tester, input(investing: false));
     expect(text(tester, 'balance-goal-nudge-label'), r'Move $25 to Dollars');
     container.read(_input.notifier).state = input(predictions: false);

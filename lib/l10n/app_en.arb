@@ -1668,7 +1668,10 @@
   "depositPickHowYouWantToPay": "Pick how you want to pay.",
   "homeNavConversionStarted": "Conversion started",
   "sendBitcoinLightningOrSparkAddressHint": "Bitcoin, Lightning or Spark address",
-  "sendAutoSwapFromBitcoin": "Auto-swap from Bitcoin",
+  "sendAutoSwapFromBitcoin": "From your Bitcoin",
+  "@sendAutoSwapFromBitcoin": {
+    "description": "Bitcoin Send, under a picked coin and network (USDC · Base): the coin is paid for from the user's own Bitcoin. Never the word swap."
+  },
   "sendAddressNotIdentified": "Address not identified",
   "sendChooseANetworkFromTheSheetToContinue": "Choose a network from the sheet to continue",
   "sendOtherCrypto": "Other crypto",
@@ -2060,8 +2063,9 @@
     }
   },
   "activityUnclaimed": "Unclaimed",
-  "activitySwapLegs": "Swap · {from} → {to}",
+  "activitySwapLegs": "{from} → {to}",
   "@activitySwapLegs": {
+    "description": "Activity detail of a move between the user's own accounts: from where to where, e.g. \"Dollars → Bitcoin\". Never the word swap.",
     "placeholders": {
       "from": {
         "type": "String"
@@ -2372,6 +2376,15 @@
   "confirmationWalletRecovered": "Wallet recovered",
   "confirmationSentToWallet": "Sent to {walletName}",
   "@confirmationSentToWallet": {
+    "placeholders": {
+      "walletName": {
+        "type": "String"
+      }
+    }
+  },
+  "confirmationMovedToWallet": "Moved to {walletName}",
+  "@confirmationMovedToWallet": {
+    "description": "The confirmation after Move money: the money went between the person's own accounts. {walletName} is the account it landed in (Dollars, Bitcoin, Predictions...).",
     "placeholders": {
       "walletName": {
         "type": "String"
@@ -3381,6 +3394,14 @@
   },
   "moveSellBitcoin": "Sell bitcoin",
   "moveTransfer": "Move money",
+  "moveVerb": "Move",
+  "@moveVerb": {
+    "description": "The Move money button's verb, before the amount (\"Move $50\"): money between the person's own accounts (Bitcoin, Dollars, Investing, Predictions). Never \"Buy\": buying is only for money from outside (Cash App, a card, a bank)."
+  },
+  "moveToBitcoin": "Move to Bitcoin",
+  "@moveToBitcoin": {
+    "description": "Activity: the button that finishes a move of Dollars into Bitcoin waiting on the person (the money is in Dollars; one tap moves it into Bitcoin). Bitcoin is the account name."
+  },
   "moveAdd": "Add",
   "moveWithdraw": "Withdraw",
   "moveBuy": "Buy",
@@ -3673,10 +3694,6 @@
   "searchInvestmentsHint": "Search investments",
   "searchPredictionsHint": "Search predictions",
   "assetDollars": "Dollars",
-  "moveSourceInvestments": "Investments",
-  "@moveSourceInvestments": {
-    "description": "The pinned source row of the withdrawal sheet (Investments to Bitcoin): the Investments balance by the name of its tab."
-  },
   "@assetDollars": {
     "description": "Name of the dollar balance (Investments) as a source or destination row: the cross asset pickers, the Move route card, the move overlays. Its row wears the Investments arrow, never the USDB coin."
   },
@@ -6976,6 +6993,15 @@
   "@bragMyPortfolio": {
     "description": "Portfolio brag card: its title, and the title in the share text."
   },
+  "bragHoldingsMore": "{count, plural, =1{+{count} more} other{+{count} more}}",
+  "@bragHoldingsMore": {
+    "description": "Portfolio brag card: the quiet last row under the open positions it lists, counting the ones it does not list ('+2 more'). Positions (perps, holdings, predictions), never 'stocks' or 'shares'.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "bragCodeLabel": "Code",
   "@bragCodeLabel": {
     "description": "Share card footer: the word before the sharer's referral code, drawn uppercase ('CODE JOAO42')."
@@ -7531,9 +7557,9 @@
       }
     }
   },
-  "multiMovePurchaseWaiting": "Your {amount} is in {balance}. Tap to buy Bitcoin",
+  "multiMovePurchaseWaiting": "Your {amount} is in {balance}. Tap to move it to Bitcoin",
   "@multiMovePurchaseWaiting": {
-    "description": "Activity row of a Buy bitcoin whose money came home first and whose purchase now waits on the person (the approval ran out or the app restarted): the money is in the spending dollar balance and one tap buys the bitcoin. {amount} is a formatted dollar amount, {balance} the dollar balance's display name.",
+    "description": "Activity row of a move of Dollars into Bitcoin whose money came home first and which now waits on the person (the approval ran out or the app restarted): the money is in the spending dollar balance and one tap moves it into Bitcoin. Never \"buy\": the money is the user's own. {amount} is a formatted dollar amount, {balance} the dollar balance's display name.",
     "placeholders": {
       "amount": {
         "type": "String"
@@ -7566,6 +7592,19 @@
   "usdReceiveFromAnotherWallet": "From another wallet or exchange",
   "@usdReceiveFromAnotherWallet": {
     "description": "Section label on the first step of the Investments (dollars) receive sheet, above the grid of coins that can be sent in from another wallet or an exchange."
+  },
+  "receiveAnotherWallet": "Another wallet",
+  "@receiveAnotherWallet": {
+    "description": "Receive sheets (Bitcoin and Dollars), card title beside \"From your Bitcoin\" / \"From your Dollars\": receive another coin from another wallet or an exchange. Short: one line on a card half the screen wide."
+  },
+  "receiveOrAnExchangeLine": "Or an exchange · {coins}",
+  "@receiveOrAnExchangeLine": {
+    "description": "Under \"Another wallet\" on the Receive sheets: an exchange works too, then the coins it accepts ({coins}: \"USDC, USDT, ETH +18\").",
+    "placeholders": {
+      "coins": {
+        "type": "String"
+      }
+    }
   },
   "usdWithdrawToYourWallet": "To your wallet",
   "@usdWithdrawToYourWallet": {
@@ -7987,18 +8026,18 @@
   "@moneyStepCredited": {
     "description": "The same sub-step once done (shown with a check)."
   },
-  "moneyStepBuying": "Buying {amount} of Bitcoin",
+  "moneyStepBuying": "Moving {amount} to Bitcoin",
   "@moneyStepBuying": {
-    "description": "A Buy bitcoin step running: Dollars buying bitcoin. {amount} formatted dollars.",
+    "description": "A move of Dollars into Bitcoin, running. {amount} formatted dollars. Never \"buy\": the money is the user's own.",
     "placeholders": {
       "amount": {
         "type": "String"
       }
     }
   },
-  "moneyStepBought": "Bought {amount} of Bitcoin",
+  "moneyStepBought": "Moved {amount} to Bitcoin",
   "@moneyStepBought": {
-    "description": "The same step once done (shown with a check). {amount} formatted dollars.",
+    "description": "A move of Dollars into Bitcoin, done. {amount} formatted dollars. Never \"bought\": the money is the user's own.",
     "placeholders": {
       "amount": {
         "type": "String"
@@ -8530,7 +8569,7 @@
   },
   "balanceGoalMove": "Move {amount} to Dollars",
   "@balanceGoalMove": {
-    "description": "Bitcoin home, Balance tab: the title of the card under the goals that opens the Move to Dollars sheet with this amount filled in (bitcoin into the Dollars account). Never imply growth or returns.",
+    "description": "Bitcoin home, Balance tab: the line of the Next goal square, with a chevron, where the square itself opens Move money (bitcoin into the Dollars account) with this amount filled in. One short line in a half-width square. Never imply growth or returns.",
     "placeholders": {
       "amount": {
         "type": "String"
@@ -8540,10 +8579,6 @@
   "balanceGoalMovePlain": "Move to Dollars",
   "@balanceGoalMovePlain": {
     "description": "Same row as balanceGoalMove while balances are hidden (no amount)."
-  },
-  "balanceGoalMoveWhy": "Your money, more places to go in Dollars.",
-  "@balanceGoalMoveWhy": {
-    "description": "The line under 'Move $25 to Dollars'. Ambition and control, never returns: Dollars (the app's dollar account) open more places for the money. Names no product or venue. One short line."
   },
   "balanceMilestonePassed": "You passed {amount}",
   "@balanceMilestonePassed": {
@@ -9052,15 +9087,11 @@
   },
   "usdReceiveFromYourBitcoin": "From your Bitcoin",
   "@usdReceiveFromYourBitcoin": {
-    "description": "Dollars Add first step: deposit into Dollars from the user's own Bitcoin."
-  },
-  "receiveOrSwapTitle": "Receive or swap",
-  "@receiveOrSwapTitle": {
-    "description": "Title of the first sheet the Receive button opens on the Bitcoin and Dollars tabs: receive from another wallet, or swap (convert) from your own Bitcoin, Dollars or another asset. Short; one line at 375 pt."
+    "description": "Dollars Receive sheet, card title: move money from the user's own Bitcoin into Dollars. Bitcoin is the account name."
   },
   "receiveFromYourDollars": "From your Dollars",
   "@receiveFromYourDollars": {
-    "description": "Bitcoin Receive or swap sheet, card title: move money from the user's own Dollars balance into Bitcoin. Dollars is the account name."
+    "description": "Bitcoin Receive sheet, card title: move money from the user's own Dollars balance into Bitcoin. Dollars is the account name."
   },
   "usdDollarsBalanceLine": "{amount} in Dollars",
   "@usdDollarsBalanceLine": {
@@ -9071,13 +9102,9 @@
       }
     }
   },
-  "receiveFromAnotherAsset": "From another asset",
-  "@receiveFromAnotherAsset": {
-    "description": "Bitcoin Receive or swap sheet, card title: receive another coin (USDC, USDT, ETH...) that arrives as bitcoin."
-  },
   "receiveBitcoinAndLightning": "Bitcoin and Lightning",
   "@receiveBitcoinAndLightning": {
-    "description": "Bitcoin Receive or swap sheet, under the Bitcoin card: the networks its QR code accepts."
+    "description": "Bitcoin Receive sheet, under the Bitcoin card: the networks its QR code accepts."
   },
   "sendRailBitcoinOnchain": "Bitcoin · on-chain",
   "sendRailLightning": "Lightning",
@@ -9103,6 +9130,18 @@
   },
   "sendAlsoSendsToMore": "{names} and {count} more",
   "@sendAlsoSendsToMore": {
+    "placeholders": {
+      "names": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "coinsSummaryShort": "{names} +{count}",
+  "@coinsSummaryShort": {
+    "description": "The coins a card accepts, short: the first few by symbol and how many more, e.g. \"USDC, USDT, ETH +18\".",
     "placeholders": {
       "names": {
         "type": "String"
@@ -11613,13 +11652,13 @@
   "@sendWayCryptoAddress": {
     "description": "Send (Bitcoin and Dollars): the short chip label that opens the coins this money can land as on another chain. Keep it short: three chips share a phone's width."
   },
-  "sendWayPrediction": "Prediction",
+  "sendWayPrediction": "Prediction or investment",
   "@sendWayPrediction": {
-    "description": "Send (Bitcoin and Dollars): the short chip label that opens the market search to send a prediction or an investment. Keep it short."
+    "description": "Send (Bitcoin and Dollars): the chip label that opens the market search to send a prediction or an investment. Up to two lines on a chip a third of the screen wide."
   },
-  "sendWayToDollars": "To Dollars",
+  "sendWayToDollars": "To your Dollars",
   "@sendWayToDollars": {
-    "description": "Bitcoin Send: the short chip label that moves bitcoin into the user's own Dollars account (the Move money sheet). Keep it short."
+    "description": "Bitcoin Send: the chip that moves bitcoin into the user's own Dollars (mirrors the Dollars Send's \"To your Bitcoin\"). Dollars is the account name. Up to two lines on a chip a third of the screen wide."
   },
   "sendPickRowSub": "Or an investment. Search a market, pick the side",
   "@sendPickRowSub": {

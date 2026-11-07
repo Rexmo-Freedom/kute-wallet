@@ -9,7 +9,10 @@
 //     in (a fade and 24 px from the right on the sheet spring), never an
 //     instant swap; the Dollars body moves the same way on a pill switch.
 //   * The two sheets are one design: Predictions topics are Investing's
-//     96 px cards (glyph, name, numbers where a count is at hand),
+//     compact 60 px cards (founder, 7 November 2026: "cards here ae too
+//     big"; the glyph at the left, the name and the numbers where a count
+//     is at hand beside it, German included), every tile the app's soft
+//     card,
 //     Predictions' Trending carries its top markets' images and its
 //     numbers, and an odd last card is full width (no orphan).
 //   * Reduce Motion: everything at once.
@@ -40,6 +43,8 @@ import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/providers/polymarket_sports_provider.dart';
 import 'package:kute/screens/hyperliquid/components/hl_browse_labels.dart';
 import 'package:kute/screens/hyperliquid/hyperliquid_screen.dart';
+import 'package:kute/screens/polymarket/components/poly_browse_bar.dart'
+    show polyPillLabel;
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/screens/portfolio/investments_portfolio.dart'
     show PortfolioSection;
@@ -181,10 +186,14 @@ Future<void> _frames8(WidgetTester tester) async {
 Future<void> _openSheet(WidgetTester tester, InvestmentsTab tab,
     {required List<Override> overrides,
     bool browse = false,
-    bool dark = false}) async {
+    bool dark = false,
+    Locale? locale,
+    Size size = const Size(390, 844)}) async {
   await pumpInvestments(
     tester,
     dark: dark,
+    locale: locale,
+    size: size,
     browseInvesting: browse,
     browsePredictions: browse,
     overrides: overrides,
@@ -257,6 +266,13 @@ Future<void> _shot(WidgetTester tester, String name) async {
         () => Future<void>.delayed(const Duration(milliseconds: 120)));
     await tester.pump();
   }
+  // The cards' soft shadows drawn as on a phone (flutter_test paints
+  // them flat), then flat again for the binding's check.
+  debugDisableShadows = false;
+  for (final o in tester.allRenderObjects) {
+    o.markNeedsPaint();
+  }
+  await tester.pump();
   await tester.runAsync(() async {
     final view = tester.binding.renderViews.first;
     final layer = view.debugLayer! as OffsetLayer;
@@ -265,6 +281,8 @@ Future<void> _shot(WidgetTester tester, String name) async {
     Directory(_frames).createSync(recursive: true);
     File('$_frames/$name.png').writeAsBytesSync(png!.buffer.asUint8List());
   });
+  debugDisableShadows = true;
+  await tester.pump();
 }
 
 void main() {
@@ -367,7 +385,8 @@ void main() {
         .widget<AnimatedContainer>(
             find.descendant(of: tile, matching: find.byType(AnimatedContainer)))
         .decoration! as BoxDecoration;
-    expect(box.color, Colors.white, reason: 'the pick springs on');
+    expect((box.border! as Border).top.width, 1.5,
+        reason: 'the pick springs on: the CTA ring');
     await tester.pump(const Duration(milliseconds: 100));
     expect(container.read(hlBrowseSelectionProvider).tab,
         HlBrowseTab.trending, reason: 'held, not yet written');
@@ -435,7 +454,7 @@ void main() {
 
   testWidgets(
       'the Predictions sheet is the Investing sheet: Trending with its '
-      'markets\' images stacked and its numbers, every topic a 96 px card '
+      'markets\' images stacked and its numbers, every topic a compact card '
       'with its glyph, numbers where a count is at hand, no orphan',
       (tester) async {
     await _openSheet(tester, InvestmentsTab.predictions,
@@ -472,11 +491,22 @@ void main() {
             matching: find.textContaining('vol today', findRichText: true)),
         findsOneWidget);
 
-    // The topics: 96 px cards, two columns, Polymarket's glyph each.
+    // The topics: compact cards, two columns, Polymarket's glyph each at
+    // the left of the name, a little shorter than the Trending row.
     final politics = _tile(PolyPill.politics.key);
     final card = find.descendant(
         of: politics, matching: find.byType(AnimatedContainer));
-    expect(tester.getSize(card).height, 96);
+    expect(tester.getSize(card).height, 60);
+    expect(tester.getSize(card).height,
+        lessThan(tester.getSize(trending).height));
+    final glyph = find.descendant(
+        of: politics,
+        matching: find.byKey(const ValueKey('category-tile-icon-politics')));
+    final name = find.descendant(
+        of: politics, matching: find.text(_l10n.polyPillPolitics));
+    expect(tester.getCenter(glyph).dy, closeTo(tester.getCenter(name).dy, 1),
+        reason: 'the glyph and the name on one row');
+    expect(tester.getRect(glyph).right, lessThan(tester.getRect(name).left));
     expect(
         find.descendant(
             of: politics,
@@ -515,13 +545,52 @@ void main() {
         expect(rect.height, closeTo(64, 0.01), reason: '$key: the wide row');
       } else {
         expect(rect.width, lessThan(width / 2), reason: key);
-        expect(rect.height, 96, reason: key);
+        expect(rect.height, 60, reason: key);
       }
     }
     await _shot(tester, 'predictions_sheet_light');
     expect(tester.takeException(), isNull);
     await unmountInvestments(tester);
   });
+
+  // The compact topic cards on a 375 pt phone in every shipped language
+  // (German's long words first): every name whole on its card (one line,
+  // or two with the numbers dropped; never an ellipsis), nothing overflows.
+  for (final lang in ['de', 'bg', 'cs', 'da', 'el', 'es', 'et', 'fi', 'fr',
+      'hr', 'hu', 'it', 'ja', 'lt', 'lv', 'nl', 'pl', 'pt', 'ro', 'sk', 'sl',
+      'sv']) {
+    testWidgets('compact topic cards fit at 375 pt in $lang', (tester) async {
+      await _openSheet(tester, InvestmentsTab.predictions,
+          overrides: _predictionsOverrides(),
+          browse: true,
+          locale: Locale(lang),
+          size: const Size(375, 812));
+      final l10n = l10nForLanguage(lang);
+      final keys = [
+        for (final p in PolyPill.values)
+          if (p != PolyPill.trending &&
+              p != PolyPill.watchlist &&
+              _tile(p.key).evaluate().isNotEmpty)
+            p,
+      ];
+      expect(keys.length, greaterThan(6));
+      for (final p in keys) {
+        final card = tester.getRect(find.descendant(
+            of: _tile(p.key), matching: find.byType(AnimatedContainer)));
+        final name = find.descendant(
+            of: _tile(p.key), matching: find.text(polyPillLabel(l10n, p)));
+        expect(name, findsOneWidget, reason: '$lang ${p.key}');
+        final paragraph = tester.renderObject<RenderParagraph>(name);
+        expect(paragraph.didExceedMaxLines, isFalse,
+            reason: '$lang ${p.key}: the name whole');
+        final text = tester.getRect(name);
+        expect(text.top, greaterThanOrEqualTo(card.top), reason: p.key);
+        expect(text.bottom, lessThanOrEqualTo(card.bottom), reason: p.key);
+      }
+      expect(tester.takeException(), isNull);
+      await unmountInvestments(tester);
+    });
+  }
 
   testWidgets('no orphan: three Portfolio sections are two cards over one row',
       (tester) async {
@@ -536,7 +605,7 @@ void main() {
     // Two squares side by side…
     expect(cards[1].top, cards[0].top);
     expect(cards[1].left, greaterThan(cards[0].right));
-    expect(cards[0].height, 96);
+    expect(cards[0].height, 60);
     // …and the third across the whole width under them, as the wide row.
     expect(cards[2].top, greaterThan(cards[0].bottom));
     expect(cards[2].left, closeTo(cards[0].left, 0.5));
@@ -558,6 +627,15 @@ void main() {
       await _openSheet(tester, InvestmentsTab.predictions,
           overrides: _predictionsOverrides(), browse: true, dark: dark);
       await _shot(tester, 'predictions_sheet_$suffix');
+      await unmountInvestments(tester);
+      // German, the long words, on a 375 pt phone.
+      await _openSheet(tester, InvestmentsTab.predictions,
+          overrides: _predictionsOverrides(),
+          browse: true,
+          dark: dark,
+          locale: const Locale('de'),
+          size: const Size(375, 812));
+      await _shot(tester, 'predictions_sheet_de_$suffix');
       await unmountInvestments(tester);
     }
     // A pick on the Dollars page, frame by frame.

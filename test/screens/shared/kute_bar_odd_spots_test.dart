@@ -83,8 +83,8 @@ void main() {
     (Size(375, 667), 1.4),
   ]) {
     testWidgets(
-        'the PIN gate (every step-up approval) never shows the pill: '
-        'not over its keypad or its Cancel (${size.width.toInt()} x '
+        'the PIN gate (every step-up approval) never shows the pill: the '
+        'bar is its Cancel, clear of its keypad (${size.width.toInt()} x '
         '${size.height.toInt()}, text x$scale)', (tester) async {
       await _pump(tester, size: size, textScale: scale);
       // ignore: unawaited_futures
@@ -92,10 +92,23 @@ void main() {
           title: 'Approve', onVerified: () {});
       await _settle(tester);
       expect(find.byType(PinGateSheet), findsOneWidget);
-      expect(_up(tester), isFalse);
-      // Cancel is there to tap, nothing over it.
-      expect(find.text('Cancel').hitTestable(), findsOneWidget);
-      await tester.tap(find.text('Cancel'));
+      // Short or tall, the bar is up as the sheet's one button: Cancel,
+      // never the search pill, and the sheet draws no Cancel of its own.
+      expect(_up(tester), isTrue);
+      expect(find.byType(KuteSalPill), findsNothing);
+      final bar = find.byKey(const ValueKey('kute-bar-primary-button'));
+      expect(find.descendant(of: bar, matching: find.text('Cancel')),
+          findsOneWidget);
+      expect(find.text('Cancel'), findsOneWidget);
+      // The keypad's last row sits above the bar, every key tappable.
+      final keypadBottom = tester
+          .getRect(find.descendant(
+              of: find.byType(PinGateSheet), matching: find.text('0')))
+          .bottom;
+      expect(keypadBottom, lessThanOrEqualTo(tester.getRect(bar).top));
+      expect(find.text('0').hitTestable(), findsOneWidget);
+      expect(bar.hitTestable(), findsOneWidget);
+      await tester.tap(bar);
       await _settle(tester);
       expect(find.byType(PinGateSheet), findsNothing);
     });

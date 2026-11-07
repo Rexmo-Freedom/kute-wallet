@@ -3209,7 +3209,7 @@ class AppLocalizationsFr extends AppLocalizations {
       'Adresse Bitcoin, Lightning ou Spark';
 
   @override
-  String get sendAutoSwapFromBitcoin => 'Conversion auto depuis Bitcoin';
+  String get sendAutoSwapFromBitcoin => 'Depuis votre Bitcoin';
 
   @override
   String get sendAddressNotIdentified => 'Adresse non identifiée';
@@ -3720,7 +3720,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String activitySwapLegs(String from, String to) {
-    return 'Échange · $from → $to';
+    return '$from → $to';
   }
 
   @override
@@ -4219,6 +4219,11 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String confirmationSentToWallet(String walletName) {
     return 'Envoyé à $walletName';
+  }
+
+  @override
+  String confirmationMovedToWallet(String walletName) {
+    return 'Transféré vers $walletName';
   }
 
   @override
@@ -6208,6 +6213,12 @@ class AppLocalizationsFr extends AppLocalizations {
   String get moveTransfer => 'Transférer';
 
   @override
+  String get moveVerb => 'Transférer';
+
+  @override
+  String get moveToBitcoin => 'Déplacer vers Bitcoin';
+
+  @override
   String get moveAdd => 'Ajouter';
 
   @override
@@ -6742,9 +6753,6 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get assetDollars => 'Investments';
-
-  @override
-  String get moveSourceInvestments => 'Investissements';
 
   @override
   String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
@@ -10700,6 +10708,17 @@ class AppLocalizationsFr extends AppLocalizations {
   String get bragMyPortfolio => 'Mon portefeuille';
 
   @override
+  String bragHoldingsMore(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '+$count autres',
+      one: '+$count autre',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get bragCodeLabel => 'Code';
 
   @override
@@ -11110,7 +11129,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String multiMovePurchaseWaiting(String amount, String balance) {
-    return 'Vos $amount sont dans $balance. Touchez pour acheter du Bitcoin';
+    return 'Vos $amount sont dans $balance. Touchez pour les transférer vers Bitcoin';
   }
 
   @override
@@ -11127,6 +11146,14 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get usdReceiveFromAnotherWallet =>
       'Depuis un autre portefeuille ou une plateforme';
+
+  @override
+  String get receiveAnotherWallet => 'Autre portefeuille';
+
+  @override
+  String receiveOrAnExchangeLine(String coins) {
+    return 'Ou une plateforme · $coins';
+  }
 
   @override
   String get usdWithdrawToYourWallet => 'Vers votre portefeuille';
@@ -11348,12 +11375,12 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String moneyStepBuying(String amount) {
-    return 'Achat de $amount de Bitcoin';
+    return 'Transfert de $amount vers Bitcoin';
   }
 
   @override
   String moneyStepBought(String amount) {
-    return '$amount de Bitcoin achetés';
+    return '$amount transférés vers Bitcoin';
   }
 
   @override
@@ -11708,9 +11735,6 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get balanceGoalMovePlain => 'Déplacer vers Dollars';
-
-  @override
-  String get balanceGoalMoveWhy => 'Votre argent, plus d\'horizons en dollars.';
 
   @override
   String balanceMilestonePassed(String amount) {
@@ -12108,14 +12132,11 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String usdBitcoinBalanceLine(String amount) {
-    return '$amount in Bitcoin';
+    return '$amount en Bitcoin';
   }
 
   @override
-  String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
-
-  @override
-  String get receiveOrSwapTitle => 'Recevoir ou échanger';
+  String get usdReceiveFromYourBitcoin => 'Depuis ton Bitcoin';
 
   @override
   String get receiveFromYourDollars => 'Depuis vos Dollars';
@@ -12124,9 +12145,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String usdDollarsBalanceLine(String amount) {
     return '$amount en Dollars';
   }
-
-  @override
-  String get receiveFromAnotherAsset => 'Depuis un autre actif';
 
   @override
   String get receiveBitcoinAndLightning => 'Bitcoin et Lightning';
@@ -12153,6 +12171,11 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String sendAlsoSendsToMore(String names, int count) {
     return '$names et $count de plus';
+  }
+
+  @override
+  String coinsSummaryShort(String names, int count) {
+    return '$names +$count';
   }
 
   @override
@@ -13853,10 +13876,10 @@ class AppLocalizationsFr extends AppLocalizations {
   String get sendWayCryptoAddress => 'Adresse crypto';
 
   @override
-  String get sendWayPrediction => 'Prédiction';
+  String get sendWayPrediction => 'Prédiction ou placement';
 
   @override
-  String get sendWayToDollars => 'Vers les Dollars';
+  String get sendWayToDollars => 'Vers tes Dollars';
 
   @override
   String get sendPickRowSub =>

@@ -19,13 +19,17 @@
 //       [ 🔍 Name, phone, address or @user   📋 ⌗ ]
 //       Frequent                 (P) (J) (A)          ← level 1: people
 //       More ways to send
-//       [₿ To your Bitcoin] [⛓ Crypto address] [📈 Prediction]  ← level 2
+//       [₿ To your Bitcoin] [⛓ Crypto address] [📈 Prediction or
+//        investment]                                 ← level 2
 //       All contacts             A Anna Haro …        ← level 3
 //
 //     Level 2 is ONE row of small, equal chips ([SendWaysRow] of
-//     [SendWayChip]: the big cards' surface, smaller; the icon at the
+//     [SendWayChip]: the big cards' soft card, smaller; the icon at the
 //     top left, a short label under it), clearly under the people above
-//     it. Three fit across a 375 pt phone in every shipped language; a
+//     it. They share the row's width evenly (founder, 7 November 2026:
+//     two chips, Prediction hidden, take half each, no empty third slot);
+//     a label wraps to two lines and the chips of the row stay equally
+//     tall. Three fit across a 375 pt phone in every shipped language; a
 //     label that cannot fit (a very large text) turns the row into a
 //     horizontal scroll, never a cut word. No big "Send to" card grid any
 //     more;
@@ -857,6 +861,17 @@ class SendPickMarketRow extends StatelessWidget {
   }
 }
 
+/// "USDC, USDT, ETH +18": [sendAlsoSendsToSummary] for a card's short
+/// line (the Receive sheets' "Another wallet").
+String sendCoinsShortSummary(
+    AppLocalizations l10n, List<CoinAssetGroup> groups) {
+  final shown = groups.take(SendCoinStack.stack).toList();
+  final rest = groups.length - shown.length;
+  final names = [for (final g in shown) g.displaySymbol].join(', ');
+  if (names.isEmpty) return '';
+  return rest > 0 ? l10n.coinsSummaryShort(names, rest) : names;
+}
+
 /// "USDC, USDT, ETH and 16 more": the first [SendCoinStack.stack] coins of
 /// [groups] by symbol and how many more (the Also sends to row's and
 /// card's line); empty with no coins.
@@ -886,14 +901,20 @@ class SendCoinStack extends StatelessWidget {
   /// How many marks it shows.
   static const int stack = 3;
 
+  /// The ring each mark wears, in the card's colour, so the overlap reads.
+  static const double ring = 1.5;
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final shown = groups.take(stack).toList();
     final step = mark * 9 / 22;
+    // The box holds every mark with its ring (founder, 7 November 2026:
+    // the last coin was cut at the right): a mark is [mark] plus the ring
+    // on both sides.
     return SizedBox(
-      width: (mark + (shown.length - 1) * step).sp,
-      height: mark.sp,
+      width: (mark + (shown.length - 1) * step).sp + 2 * ring,
+      height: mark.sp + 2 * ring,
       child: Stack(
         children: [
           for (var i = 0; i < shown.length; i++)
@@ -903,7 +924,7 @@ class SendCoinStack extends StatelessWidget {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: c.surfaceLight,
-                  border: Border.all(color: c.surfaceLight, width: 1.5),
+                  border: Border.all(color: c.surfaceLight, width: ring),
                 ),
                 child: AssetIcon(assetCode: shown[i].assetCode, size: mark.sp),
               ),
@@ -960,13 +981,33 @@ KuteActionCard sendAlsoSendsToCard(
   required List<CoinAssetGroup> groups,
   required VoidCallback onTap,
   String? title,
+  String? subtitle,
   Key? key,
 }) =>
     KuteActionCard(
       key: key ?? const ValueKey('send-also-sends-to-row'),
       visual: SendCoinStack(groups: groups, mark: kSendCoinStackCardMark),
       title: title ?? l10n.sendToCryptoAddress,
-      subtitle: sendAlsoSendsToSummary(l10n, groups),
+      subtitle: subtitle ?? sendAlsoSendsToSummary(l10n, groups),
+      onTap: onTap,
+    );
+
+/// The Receive sheets' "Another wallet" card (founder, 7 November 2026:
+/// one-line titles, "Or an exchange · USDC, USDT, ETH +18" under it), the
+/// coins stacked, keyed [key].
+KuteActionCard receiveAnotherWalletCard(
+  AppLocalizations l10n, {
+  required List<CoinAssetGroup> groups,
+  required VoidCallback onTap,
+  required Key key,
+}) =>
+    sendAlsoSendsToCard(
+      l10n,
+      key: key,
+      groups: groups,
+      title: l10n.receiveAnotherWallet,
+      subtitle:
+          l10n.receiveOrAnExchangeLine(sendCoinsShortSummary(l10n, groups)),
       onTap: onTap,
     );
 
@@ -983,10 +1024,6 @@ const double kSendWayChipIconSlot = 24;
 
 /// The coin marks' side in the Crypto address chip's stack.
 const double kSendWayChipCoinMark = 20;
-
-/// How many chips share the row's width: three always, so two chips are
-/// as small as three (equal weight, whatever the screen offers).
-const int kSendWayChipSlots = 3;
 
 /// One way to send on the level-2 row (see the file header): the big
 /// cards' surface (kute_action_cards.dart), smaller. [icon] at the top
@@ -1022,7 +1059,6 @@ class SendWayChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final isLight = Theme.of(context).brightness == Brightness.light;
     return Semantics(
       button: true,
       label: semanticsLabel ?? label,
@@ -1038,14 +1074,10 @@ class SendWayChip extends StatelessWidget {
             padding: EdgeInsets.symmetric(
                 horizontal: kSendWayChipPadding.w,
                 vertical: kSendWayChipPadding.h),
-            // The big cards' surface: surface-1 (the dark surface in dark
-            // mode) and the hairline, a smaller radius.
-            decoration: BoxDecoration(
-              color: isLight ? c.surfaceLight : c.surface,
-              borderRadius: BorderRadius.circular(16.r),
-              border: Border.all(
-                  color: isLight ? c.border : c.borderSubtle, width: 1),
-            ),
+            // The big cards' soft card (KuteActionCard.surfaceOf), a
+            // smaller radius.
+            decoration: KuteActionCard.surfaceOf(context)
+                .copyWith(borderRadius: BorderRadius.circular(16.r)),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1070,11 +1102,11 @@ class SendWayChip extends StatelessWidget {
   }
 }
 
-/// Level 2 of the Send step (see the file header): ONE row of [chips],
-/// each a third of the width (two chips stay that size, left aligned),
-/// equally tall. When a label cannot fit its third (a very large text)
-/// the row scrolls sideways, the chips as wide as the longest label
-/// needs, all alike.
+/// Level 2 of the Send step (see the file header): ONE row of [chips]
+/// sharing the width evenly (three a third each, two half each: never an
+/// empty slot), equally tall. When a label cannot fit its share (a very
+/// large text) the row scrolls sideways, the chips as wide as the longest
+/// label needs, all alike.
 class SendWaysRow extends StatelessWidget {
   const SendWaysRow({super.key, required this.chips});
 
@@ -1087,8 +1119,8 @@ class SendWaysRow extends StatelessWidget {
   /// Whether every chip's label fits a chip [chipWidth] wide: no word
   /// wider than the chip (it would break mid-word) and no more than
   /// [SendWayChip.maxLines] lines. A word may break after its hyphen
-  /// ("Krypto-Adresse"); Japanese breaks between characters, so only its
-  /// lines count.
+  /// ("Krypto-Adresse") or its slash ("Forudsigelse/investering");
+  /// Japanese breaks between characters, so only its lines count.
   static bool labelsFit(
       BuildContext context, List<SendWayChip> chips, double chipWidth) {
     final inner = _inner(chipWidth);
@@ -1113,7 +1145,7 @@ class SendWaysRow extends StatelessWidget {
     for (final chip in chips) {
       for (final word in chip.label.split(RegExp(r'\s+'))) {
         if (word.isEmpty || cjk.hasMatch(word)) continue;
-        for (final part in word.split(RegExp(r'(?<=[-‐])'))) {
+        for (final part in word.split(RegExp(r'(?<=[-‐/])'))) {
           if (width(part) > inner) return false;
         }
       }
@@ -1135,8 +1167,7 @@ class SendWaysRow extends StatelessWidget {
     if (chips.isEmpty) return const SizedBox.shrink();
     return LayoutBuilder(builder: (context, constraints) {
       final g = kSendWayChipGap.w;
-      final slots =
-          chips.length > kSendWayChipSlots ? chips.length : kSendWayChipSlots;
+      final slots = chips.length;
       final total = constraints.hasBoundedWidth
           ? constraints.maxWidth
           : MediaQuery.sizeOf(context).width;

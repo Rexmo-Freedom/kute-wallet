@@ -36,6 +36,7 @@ import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/pending_polymarket_bet_provider.dart';
 import 'package:kute/services/polymarket/hot_order_guard.dart';
+import 'package:kute/services/polymarket/market_display_title.dart';
 import 'package:kute/screens/home/components/action_pill.dart'
     show greenColor, redColor;
 import 'package:kute/screens/home/components/deposit_sheet.dart';
@@ -538,7 +539,7 @@ class _PortfolioBuilderScreenState
     if (e.isBinary || e.outcomes.isEmpty) {
       return PredictionBuilderLeg(
         slug: e.slug,
-        title: e.title,
+        title: e.displayTitle,
         imageUrl: e.imageUrl,
         conditionId: e.conditionId,
         marketEndAt: e.endDate,
@@ -553,7 +554,12 @@ class _PortfolioBuilderScreenState
     final isPlainYes = top.name.toLowerCase() == 'yes';
     return PredictionBuilderLeg(
       slug: e.slug,
-      title: isPlainYes ? e.title : '${e.title}: ${top.name}',
+      // The picked market's own question, never "by...?" or its bare
+      // name (polyMarketDisplayTitle).
+      title: isPlainYes
+          ? e.displayTitle
+          : polyMarketDisplayTitle(e.title,
+              question: top.question, itemTitle: top.name),
       imageUrl: top.imageUrl ?? e.imageUrl,
       conditionId: top.conditionId,
       marketEndAt: e.endDate,

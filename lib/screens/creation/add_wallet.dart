@@ -195,7 +195,13 @@ class _AddWalletState extends ConsumerState<AddWallet> {
       final denial = await addWalletOptionDenial(
           ref.read(runtimeCapabilitiesProvider), type);
       if (denial == null) return true;
-      if (mounted) await showCapabilityDecisionSheet(context, denial);
+      // Named, so "Check connection" asks this capability again (not every
+      // region denial the policy holds, a swap block included) and
+      // `capability_region_blocked` names it.
+      if (mounted) {
+        await showCapabilityDecisionSheet(context, denial,
+            capability: addWalletOptionCapability(type));
+      }
       return false;
     } finally {
       _checkingOption = false;
@@ -536,8 +542,8 @@ class _OptionGrid extends StatelessWidget {
 }
 
 /// One option on Add wallet: the action cards' square
-/// (kute_action_cards.dart) with the same surface-1, hairline, radius 20
-/// and 16 padding, the 40 mark at the top left, the title (16, w600, two
+/// (kute_action_cards.dart) on the same soft card
+/// ([KuteActionCard.surfaceOf]) and 16 padding, the 40 mark at the top left, the title (16, w600, two
 /// lines), its line (13, textSecondary, two lines), the "Soon" pill and
 /// the press spring, but as tall as what it holds rather than the sheets'
 /// 170 (founder, 5 November 2026: the squares read tall and empty here).
@@ -584,7 +590,6 @@ class _OptionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final isLight = Theme.of(context).brightness == Brightness.light;
     final enabled = onTap != null;
     final line = subtitle;
     final pill = badge;
@@ -605,14 +610,10 @@ class _OptionCard extends StatelessWidget {
         ),
       ],
     ];
+    final surface = KuteActionCard.surfaceOf(context);
     final card = Container(
-      padding: const EdgeInsets.all(kKuteActionCardPadding),
-      decoration: BoxDecoration(
-        color: isLight ? c.surfaceLight : c.surface,
-        borderRadius: BorderRadius.circular(20),
-        border:
-            Border.all(color: isLight ? c.border : c.borderSubtle, width: 1),
-      ),
+      padding: KuteActionCard.paddingIn(surface, kKuteActionCardPadding),
+      decoration: surface,
       child: wide
           ? Row(
               children: [

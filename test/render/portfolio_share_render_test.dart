@@ -8,6 +8,12 @@
 // light. portfolio_section.png and pnl_section.png are the screen with the
 // bar over it; pnl_share_sheet.png the preview sheet; pnl_share_card.png
 // the shared image itself (1080 × 1350).
+//
+// The portfolio card with its holdings (founder, 7 November 2026: "how
+// much i made on each?"), +$3.43 all time, with none, two and five
+// positions open, in English and German: holdings_{n}_{lang}_sheet.png
+// the preview sheet over the Portfolio, holdings_{n}_{lang}_export.png
+// the PNG Share hands the OS (the export path itself, 1080 × 1350).
 
 import 'dart:convert';
 import 'dart:io';
@@ -28,6 +34,9 @@ import 'package:kute/providers/hyperliquid_sats_pnl_provider.dart'
     show hyperliquidActivityFillsProvider;
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
 import 'package:kute/providers/one_balance_provider.dart';
+import 'package:kute/providers/polymarket_browse_provider.dart'
+    show PolymarketPosition, polymarketActivePositionsProvider;
+import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/providers/portfolio_performance_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/usd_account_provider.dart'
@@ -138,9 +147,9 @@ Future<void> _assets(WidgetTester tester) async {
     final icons = FontLoader('MaterialIcons')
       ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
     await icons.load();
-    SalSpriteCache.debugSetManifest(jsonDecode(
-            await rootBundle.loadString('$kSalSpriteDir/manifest.json'))
-        as Map<String, dynamic>);
+    SalSpriteCache.debugSetManifest(
+        jsonDecode(await rootBundle.loadString('$kSalSpriteDir/manifest.json'))
+            as Map<String, dynamic>);
     for (final clip in ['idle', 'curious', 'think', 'happy', 'share']) {
       await SalSpriteCache.clip(clip, 3);
     }
@@ -166,6 +175,123 @@ Future<void> _frames(WidgetTester tester, [int n = 12]) async {
   }
 }
 
+/// The live prices, quiet: no socket, the prices given.
+class _Prices extends LivePriceNotifier {
+  _Prices(this.prices);
+  final Map<String, double> prices;
+  @override
+  LivePriceState build() => LivePriceState(live: true, prices: prices);
+  @override
+  void acquire() {}
+  @override
+  void release() {}
+  @override
+  void pause() {}
+  @override
+  void resume() {}
+  @override
+  void subscribeTokens(List<String> tokenIds) {}
+  @override
+  void addTokens(List<String> tokenIds, {bool pin = true}) {}
+  @override
+  void registerCardTokens(List<String> tokenIds) {}
+  @override
+  void unregisterCardTokens(List<String> tokenIds) {}
+  @override
+  void removeTokens(List<String> tokenIds) {}
+  @override
+  void unsubscribeAll() {}
+}
+
+/// The founder's all time: +$2.10 Investing and +$1.33 Predictions.
+List<Override> _founderHistory() {
+  final now = DateTime.now().toUtc();
+  PortfolioPerformance perf(List<(int, double)> points, String source) =>
+      PortfolioPerformance(
+          points: [
+            for (final (days, pnl) in points)
+              PortfolioPnlPoint(
+                  timestamp: now.subtract(Duration(days: days)), pnlUsd: pnl)
+          ],
+          totalPnlUsd: points.last.$2,
+          realizedPnlUsd: points.last.$2,
+          openPnlUsd: 0,
+          asOf: now.subtract(Duration(days: points.last.$1)),
+          sourceLabel: source,
+          basisLabel: 'P&L',
+          coverageLabel: 'All time');
+  return [
+    portfolioPerformanceProvider(const PortfolioPerformanceRequest(
+            venue: PortfolioPerformanceVenue.trading))
+        .overrideWith((_) async => perf([
+              (60, 0),
+              (45, 0.4),
+              (30, -0.9),
+              (20, 0.6),
+              (12, 1.4),
+              (6, 1.1),
+              (2, 1.8),
+              (1, 2.1)
+            ], 'Hyperliquid')),
+    portfolioPerformanceProvider(const PortfolioPerformanceRequest(
+            venue: PortfolioPerformanceVenue.predictions))
+        .overrideWith((_) async => perf(
+            [(40, 0), (25, -0.4), (14, 0.5), (5, 0.9), (1, 1.33)],
+            'Polymarket')),
+  ];
+}
+
+HlPerpPosition _perp(String coin, double szi, double entry, double pnl) =>
+    HlPerpPosition(
+        coin: coin,
+        szi: szi,
+        entryPx: entry,
+        positionValue: (szi * entry).abs() + pnl,
+        unrealizedPnl: pnl,
+        returnOnEquity: pnl / 40,
+        liquidationPx: null,
+        marginUsed: 40 + pnl,
+        leverageType: 'isolated',
+        leverageValue: 3,
+        maxLeverage: 10);
+
+/// [n] open positions (0, 2 or 5): Anthropic short +$2.61, Fed No
+/// −$1.12, then Ethereum long +$0.84, Lakers Yes +$0.20, Verstappen +$0.10.
+({List<HlPerpPosition> perps, List<PolymarketPosition> predictions})
+    _founderHoldings(int n) {
+  final perps = [
+    _perp('ANTH', -0.5, 240, 2.61),
+    _perp('ETH', 0.01, 3000, 0.84),
+  ];
+  PolymarketPosition poly(String token, String q, String outcome, double size,
+          double avg, double price) =>
+      PolymarketPosition(
+          marketId: token,
+          marketQuestion: q,
+          outcome: outcome,
+          size: size,
+          avgPrice: avg,
+          currentPrice: price,
+          pnl: 0,
+          pnlPercent: 0,
+          isResolved: false,
+          tokenId: token);
+  final predictions = [
+    poly('fed-no', 'Fed cuts rates in December?', 'No', 10, 0.5, 0.388),
+    poly('lakers-yes', 'Will the Lakers win the 2026 NBA Finals?', 'Yes', 4,
+        0.25, 0.3),
+    poly('f1-ver', 'F1 Drivers Champion 2026', 'Verstappen', 2, 0.3, 0.35),
+  ];
+  return switch (n) {
+    0 => (perps: const [], predictions: const []),
+    2 => (
+        perps: perps.take(1).toList(),
+        predictions: predictions.take(1).toList()
+      ),
+    _ => (perps: perps, predictions: predictions),
+  };
+}
+
 void main() {
   testWidgets('the share bars and the P&L card, light', (tester) async {
     Directory(_dir!).createSync(recursive: true);
@@ -184,10 +310,8 @@ void main() {
         ...portfolioOverrides(trading: _btcHeld),
         hyperliquidLiveMidProvider('BTC').overrideWith((_) => null),
         hyperliquidAccountMarketProvider('BTC').overrideWith((_) => null),
-        hyperliquidPerpMarketsProvider
-            .overrideWith((_) async => <HlMarket>[]),
-        hyperliquidSpotMarketsProvider
-            .overrideWith((_) async => <HlMarket>[]),
+        hyperliquidPerpMarketsProvider.overrideWith((_) async => <HlMarket>[]),
+        hyperliquidSpotMarketsProvider.overrideWith((_) async => <HlMarket>[]),
         settingsProvider.overrideWith((_) => SettingsModel(Settings(
             currency: 'USD',
             language: 'en',
@@ -201,8 +325,7 @@ void main() {
         usdBalanceUnknownProvider.overrideWithValue(false),
         venueSweeperProvider.overrideWith(_Sweeper.new),
         hyperliquidActivityFillsProvider.overrideWithValue(const []),
-        portfolioSectionProvider
-            .overrideWith((_) => PortfolioSection.balances),
+        portfolioSectionProvider.overrideWith((_) => PortfolioSection.balances),
         ..._history(),
       ],
       child: RepaintBoundary(
@@ -247,4 +370,98 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 1));
   }, skip: _dir == null);
+
+  for (final lang in const ['en', 'de']) {
+    for (final n in const [0, 2, 5]) {
+      testWidgets('the portfolio card with $n open, $lang: sheet and export',
+          (tester) async {
+        Directory(_dir!).createSync(recursive: true);
+        await _assets(tester);
+        addTearDown(() => SalSpriteCache.debugSetManifest(null));
+        addTearDown(ShareCardSal.debugReset);
+        BragPreviewSheet.debugLineSeed = 0;
+        addTearDown(() => BragPreviewSheet.debugLineSeed = null);
+        final exported = <List<int>>[];
+        BragPreviewSheet.debugSharer =
+            (file, _) async => exported.add(await file.readAsBytes());
+        addTearDown(() => BragPreviewSheet.debugSharer = null);
+        tester.view.devicePixelRatio = 3;
+        tester.view.physicalSize = const Size(390, 844) * 3;
+        addTearDown(tester.view.reset);
+        final holdings = _founderHoldings(n);
+        final screen = GlobalKey();
+        final base = buildLightTheme();
+        await tester.pumpWidget(ProviderScope(
+          overrides: [
+            ...portfolioOverrides(
+                trading: HyperliquidTradingState(
+                    isInitialized: true, positions: holdings.perps)),
+            for (final coin in const ['ANTH', 'ETH']) ...[
+              hyperliquidLiveMidProvider(coin).overrideWith((_) => null),
+              hyperliquidAccountMarketProvider(coin).overrideWith((_) => null),
+            ],
+            hyperliquidPerpMarketsProvider
+                .overrideWith((_) async => <HlMarket>[]),
+            hyperliquidSpotMarketsProvider
+                .overrideWith((_) async => <HlMarket>[]),
+            polymarketActivePositionsProvider
+                .overrideWith((_) => holdings.predictions),
+            livePriceProvider.overrideWith(() => _Prices({
+                  for (final p in holdings.predictions)
+                    p.tokenId!: p.currentPrice
+                })),
+            settingsProvider.overrideWith((_) => SettingsModel(Settings(
+                currency: 'USD',
+                language: lang,
+                btcFormat: 'sats',
+                backup: false,
+                biometricsEnabled: false,
+                bitcoinElectrumNode: '',
+                nodeType: '',
+                reviewDone: true))),
+            oneBalanceProvider.overrideWith((ref) => _bothAtWork),
+            usdBalanceUnknownProvider.overrideWithValue(false),
+            venueSweeperProvider.overrideWith(_Sweeper.new),
+            hyperliquidActivityFillsProvider.overrideWithValue(const []),
+            portfolioSectionProvider
+                .overrideWith((_) => PortfolioSection.balances),
+            ..._founderHistory(),
+          ],
+          child: RepaintBoundary(
+            key: screen,
+            child: ScreenUtilInit(
+              designSize: const Size(430, 932),
+              builder: (_, __) => MaterialApp(
+                debugShowCheckedModeBanner: false,
+                locale: Locale(lang),
+                theme: base.copyWith(
+                    textTheme: base.textTheme.apply(fontFamily: 'Inter')),
+                builder: withKuteShellBar,
+                localizationsDelegates: AppLocalizations.localizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                home: const PortfolioScreen(),
+              ),
+            ),
+          ),
+        ));
+        await _frames(tester);
+        await tester.tap(kuteBarPrimary);
+        await _frames(tester);
+        expect(tester.takeException(), isNull);
+        await _write(tester, find.byKey(screen), 'holdings_${n}_${lang}_sheet');
+        // Share: the export path's own PNG (toImage at 3x).
+        await tester.runAsync(() async {
+          await tester.tap(kuteBarPrimary);
+          for (var i = 0; i < 100 && exported.isEmpty; i++) {
+            await Future<void>.delayed(const Duration(milliseconds: 50));
+          }
+        });
+        expect(exported, hasLength(1));
+        File('$_dir/holdings_${n}_${lang}_export.png')
+            .writeAsBytesSync(exported.single);
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump(const Duration(seconds: 1));
+      }, skip: _dir == null);
+    }
+  }
 }

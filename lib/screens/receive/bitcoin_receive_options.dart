@@ -1,33 +1,39 @@
 // lib/screens/receive/bitcoin_receive_options.dart
 //
-// THE BITCOIN RECEIVE'S FIRST SHEET, "Receive or swap" (founder, 6
-// November 2026: "On Bitcoin it needs that first screen: From your
-// Dollars, From another asset, or Bitcoin with a subtitle saying Bitcoin
-// and Lightning"). The Bitcoin tab's Receive opens it; it is the Dollars
-// receive's first step turned around (usd_receive_screen.dart): the
-// app's big square cards (kute_action_cards.dart) in a sheet as tall as
-// they are, which, being short, hides the floating bar while it is up.
+// THE BITCOIN RECEIVE'S FIRST SHEET, "Receive" (founder, 6 November 2026:
+// "On Bitcoin it needs that first screen"; 7 November 2026: "Bitcoin
+// should be on top, more prevalent here", and the word swap appears
+// nowhere: the sheet is titled Receive). The Bitcoin tab's Receive opens
+// it; it is the Dollars receive's first step turned around
+// (usd_receive_screen.dart): the app's big cards (kute_action_cards.dart)
+// in a sheet as tall as they are, which, being short, hides the floating
+// bar while it is up.
 //
-//   From your Dollars   the Dollars mark, the Dollars balance ("$4.75 in
-//                       Dollars"); the Move money sheet, Dollars to
-//                       Bitcoin, pinned, as the Dollars Send's "To your
+//   Bitcoin             the main action, on top, full width and larger
+//                       (the grid's lead card): the bitcoin mark,
+//                       "Bitcoin and Lightning"; the QR receive ("Spending
+//                       Wallet", the paykute address, Unified / Bitcoin
+//                       only / Lightning only).
+//   From your Dollars   under it, a square: the Dollars mark, the Dollars
+//                       balance ("$4.75 in Dollars"); Move money straight
+//                       on the amount, Dollars to Bitcoin, pinned
+//                       (showOwnMoneyMove), as the Dollars Send's "To your
 //                       Bitcoin" opens it. Only where the wallet has a
 //                       Dollars account (the spending wallet).
-//   From another asset  the coins stacked, "USDC, USDT, ETH and N more";
-//                       the Bitcoin receive's "other coins" sheet
-//                       (showOtherCoinsReceiveSheet), the door the QR
-//                       sheet's "Also accepts" line used to be. Only while
-//                       a coin can be offered (the spending wallet, an
-//                       account that may be offered swaps, a coin the
-//                       standing route or a one-time quote can serve).
-//   Bitcoin             the bitcoin mark, "Bitcoin and Lightning"; the QR
-//                       receive ("Spending Wallet", the paykute address,
-//                       Unified / Bitcoin only / Lightning only).
+//   Another wallet      the square beside it: the coins stacked, "Or an
+//                       exchange · USDC, USDT, ETH +18" (the Dollars
+//                       receive's card for the same door); the Bitcoin
+//                       receive's "other coins" sheet
+//                       (showOtherCoinsReceiveSheet). Only while a coin can
+//                       be offered (the spending wallet, an account that
+//                       may be offered swaps, a coin the standing route or
+//                       a one-time quote can serve).
 //
-// The grid's own rule lays them out: three across where every title and
-// line fits a third of the sheet, else two squares over the Bitcoin card
-// full width and compact; with one card hidden, two squares. Each card's
-// sheet opens over this one, and closing it comes back here.
+// The grid's own rule lays the two under Bitcoin out: two squares side by
+// side where both titles read on one line (oneLineTitles), else two
+// compact full-width cards; with one hidden, the other full width and
+// compact; with both hidden, Bitcoin alone. Each card's sheet opens over this one, and
+// closing it comes back here.
 //
 // Tracking keeps the events the doors already send: the Move sheet's
 // `move_sheet_opened` with `entry_source` [kBitcoinReceiveDollarsSource],
@@ -61,7 +67,7 @@ import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/money_movement_sheet.dart';
 import 'package:kute/screens/shared/receive_surface.dart';
 import 'package:kute/screens/shared/send/send_recipient_step.dart'
-    show SendStepTitle, sendAlsoSendsToCard;
+    show SendStepTitle, receiveAnotherWalletCard;
 import 'package:kute/services/orchestra/reusable_deposit_address.dart'
     show standingDestinationsProvider;
 import 'package:kute/services/orchestra_routes.dart'
@@ -88,14 +94,9 @@ String? watchDollarsBalance(WidgetRef ref) {
   }
 }
 
-/// The Bitcoin tab's "Receive or swap" sheet (see the file header).
+/// The Bitcoin tab's "Receive" sheet (see the file header).
 class BitcoinReceiveOptions extends ConsumerStatefulWidget {
   const BitcoinReceiveOptions({super.key});
-
-  /// Test seam: what "From your Dollars" opens. Null opens the Move money
-  /// sheet, Dollars to Bitcoin ([showMoneyMovementSheet]).
-  @visibleForTesting
-  static Future<void> Function(BuildContext context)? debugMoveSheetOpener;
 
   @override
   ConsumerState<BitcoinReceiveOptions> createState() =>
@@ -125,7 +126,7 @@ class _BitcoinReceiveOptionsState extends ConsumerState<BitcoinReceiveOptions> {
     return spending != null && spending.id == picked;
   }
 
-  /// The coins "From another asset" offers: exactly the set the other
+  /// The coins "Another wallet" offers: exactly the set the other
   /// coins sheet lists (a reusable standing address where that route may
   /// serve the coin, else a one-time address into `spark:BTC` while the
   /// policy allows them). Empty off the spending wallet and for accounts
@@ -144,23 +145,11 @@ class _BitcoinReceiveOptionsState extends ConsumerState<BitcoinReceiveOptions> {
     ).groups;
   }
 
-  void _openFromDollars() {
-    final open = BitcoinReceiveOptions.debugMoveSheetOpener;
-    if (open != null) {
-      TrackingService.markEntrySource('move', kBitcoinReceiveDollarsSource);
-      unawaited(open(context));
-      return;
-    }
-    // Pinned: Dollars to Bitcoin, nothing to pick, as the Dollars Send's
-    // "To your Bitcoin" opens it.
-    unawaited(showMoneyMovementSheet(
-      context,
-      initialSource: MoneyMovementAccount.dollars,
-      initialDestination: MoneyMovementAccount.bitcoin,
-      entrySource: kBitcoinReceiveDollarsSource,
-      pinned: true,
-    ));
-  }
+  /// Move money straight on the amount, Dollars to Bitcoin, nothing to
+  /// pick, as the Dollars Send's "To your Bitcoin" opens it.
+  void _openFromDollars() => unawaited(showOwnMoneyMove(context,
+      from: MoneyMovementAccount.dollars,
+      entrySource: kBitcoinReceiveDollarsSource));
 
   void _openOtherCoins(int coins) {
     HapticFeedback.lightImpact();
@@ -181,16 +170,30 @@ class _BitcoinReceiveOptionsState extends ConsumerState<BitcoinReceiveOptions> {
     final groups = _otherCoins(onSpending: onSpending);
     final dollars = onSpending ? watchDollarsBalance(ref) : null;
     final mark = kKuteActionCardVisualSize.sp;
+    final lead = kKuteActionCardLeadVisualSize.sp;
     return ReceiveSheetFrame(
       leading: KuteCloseButton(
           onPressed: () => Navigator.of(context).maybePop()),
-      title: SendStepTitle(l10n.receiveOrSwapTitle),
-      semanticTitle: l10n.receiveOrSwapTitle,
+      title: SendStepTitle(l10n.receive),
+      semanticTitle: l10n.receive,
       fitContent: true,
       child: Padding(
         padding: EdgeInsets.fromLTRB(20.w, 18.h, 20.w, 8.h),
         child: KuteActionCardGrid(
           key: const ValueKey('bitcoin-receive-options'),
+          // Squares only where both titles read on one line (founder, 7
+          // November 2026: "sizes are strange here").
+          oneLineTitles: true,
+          // Bitcoin on top, the main action (founder, 7 November 2026).
+          lead: KuteActionCard(
+            key: const ValueKey('bitcoin-receive-bitcoin'),
+            visual: SvgPicture.asset(kBitcoinMarkAsset,
+                width: lead, height: lead),
+            title: l10n.bitcoin,
+            subtitle: l10n.receiveBitcoinAndLightning,
+            visualSlot: kKuteActionCardLeadVisualSlot,
+            onTap: _openBitcoin,
+          ),
           cards: [
             if (onSpending)
               KuteActionCard(
@@ -203,21 +206,13 @@ class _BitcoinReceiveOptionsState extends ConsumerState<BitcoinReceiveOptions> {
                 onTap: _openFromDollars,
               ),
             if (groups.isNotEmpty)
-              sendAlsoSendsToCard(
+              // The Dollars receive's card for the same door.
+              receiveAnotherWalletCard(
                 l10n,
                 key: const ValueKey('bitcoin-receive-from-another'),
-                title: l10n.receiveFromAnotherAsset,
                 groups: groups,
                 onTap: () => _openOtherCoins(groups.length),
               ),
-            KuteActionCard(
-              key: const ValueKey('bitcoin-receive-bitcoin'),
-              visual: SvgPicture.asset(kBitcoinMarkAsset,
-                  width: mark, height: mark),
-              title: l10n.bitcoin,
-              subtitle: l10n.receiveBitcoinAndLightning,
-              onTap: _openBitcoin,
-            ),
           ],
         ),
       ),

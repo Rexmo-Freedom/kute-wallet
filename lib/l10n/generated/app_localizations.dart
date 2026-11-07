@@ -5792,10 +5792,10 @@ abstract class AppLocalizations {
   /// **'Bitcoin, Lightning or Spark address'**
   String get sendBitcoinLightningOrSparkAddressHint;
 
-  /// No description provided for @sendAutoSwapFromBitcoin.
+  /// Bitcoin Send, under a picked coin and network (USDC · Base): the coin is paid for from the user's own Bitcoin. Never the word swap.
   ///
   /// In en, this message translates to:
-  /// **'Auto-swap from Bitcoin'**
+  /// **'From your Bitcoin'**
   String get sendAutoSwapFromBitcoin;
 
   /// No description provided for @sendAddressNotIdentified.
@@ -6615,10 +6615,10 @@ abstract class AppLocalizations {
   /// **'Unclaimed'**
   String get activityUnclaimed;
 
-  /// No description provided for @activitySwapLegs.
+  /// Activity detail of a move between the user's own accounts: from where to where, e.g. "Dollars → Bitcoin". Never the word swap.
   ///
   /// In en, this message translates to:
-  /// **'Swap · {from} → {to}'**
+  /// **'{from} → {to}'**
   String activitySwapLegs(String from, String to);
 
   /// No description provided for @activityYourWallet.
@@ -7448,6 +7448,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Sent to {walletName}'**
   String confirmationSentToWallet(String walletName);
+
+  /// The confirmation after Move money: the money went between the person's own accounts. {walletName} is the account it landed in (Dollars, Bitcoin, Predictions...).
+  ///
+  /// In en, this message translates to:
+  /// **'Moved to {walletName}'**
+  String confirmationMovedToWallet(String walletName);
 
   /// No description provided for @confirmationOrderFilled.
   ///
@@ -10804,6 +10810,18 @@ abstract class AppLocalizations {
   /// **'Move money'**
   String get moveTransfer;
 
+  /// The Move money button's verb, before the amount ("Move $50"): money between the person's own accounts (Bitcoin, Dollars, Investing, Predictions). Never "Buy": buying is only for money from outside (Cash App, a card, a bank).
+  ///
+  /// In en, this message translates to:
+  /// **'Move'**
+  String get moveVerb;
+
+  /// Activity: the button that finishes a move of Dollars into Bitcoin waiting on the person (the money is in Dollars; one tap moves it into Bitcoin). Bitcoin is the account name.
+  ///
+  /// In en, this message translates to:
+  /// **'Move to Bitcoin'**
+  String get moveToBitcoin;
+
   /// No description provided for @moveAdd.
   ///
   /// In en, this message translates to:
@@ -11697,12 +11715,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Dollars'**
   String get assetDollars;
-
-  /// The pinned source row of the withdrawal sheet (Investments to Bitcoin): the Investments balance by the name of its tab.
-  ///
-  /// In en, this message translates to:
-  /// **'Investments'**
-  String get moveSourceInvestments;
 
   /// Second line on the Investments row in the move sheet source picker, where the dollar balance funds a venue deposit or a bitcoin buy.
   ///
@@ -18191,6 +18203,12 @@ abstract class AppLocalizations {
   /// **'My portfolio'**
   String get bragMyPortfolio;
 
+  /// Portfolio brag card: the quiet last row under the open positions it lists, counting the ones it does not list ('+2 more'). Positions (perps, holdings, predictions), never 'stocks' or 'shares'.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{+{count} more} other{+{count} more}}'**
+  String bragHoldingsMore(int count);
+
   /// Share card footer: the word before the sharer's referral code, drawn uppercase ('CODE JOAO42').
   ///
   /// In en, this message translates to:
@@ -18679,10 +18697,10 @@ abstract class AppLocalizations {
   /// **'{amount} is still in {place}'**
   String multiMoveStillIn(String amount, String place);
 
-  /// Activity row of a Buy bitcoin whose money came home first and whose purchase now waits on the person (the approval ran out or the app restarted): the money is in the spending dollar balance and one tap buys the bitcoin. {amount} is a formatted dollar amount, {balance} the dollar balance's display name.
+  /// Activity row of a move of Dollars into Bitcoin whose money came home first and which now waits on the person (the approval ran out or the app restarted): the money is in the spending dollar balance and one tap moves it into Bitcoin. Never "buy": the money is the user's own. {amount} is a formatted dollar amount, {balance} the dollar balance's display name.
   ///
   /// In en, this message translates to:
-  /// **'Your {amount} is in {balance}. Tap to buy Bitcoin'**
+  /// **'Your {amount} is in {balance}. Tap to move it to Bitcoin'**
   String multiMovePurchaseWaiting(String amount, String balance);
 
   /// Activity row and detail of a send that took money from more than one place whose money came home to the spending dollar balance but whose send never went: the money is in that balance. {amount} is a formatted dollar amount, {balance} the dollar balance's display name.
@@ -18708,6 +18726,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'From another wallet or exchange'**
   String get usdReceiveFromAnotherWallet;
+
+  /// Receive sheets (Bitcoin and Dollars), card title beside "From your Bitcoin" / "From your Dollars": receive another coin from another wallet or an exchange. Short: one line on a card half the screen wide.
+  ///
+  /// In en, this message translates to:
+  /// **'Another wallet'**
+  String get receiveAnotherWallet;
+
+  /// Under "Another wallet" on the Receive sheets: an exchange works too, then the coins it accepts ({coins}: "USDC, USDT, ETH +18").
+  ///
+  /// In en, this message translates to:
+  /// **'Or an exchange · {coins}'**
+  String receiveOrAnExchangeLine(String coins);
 
   /// Section label on the first step of the Investments (dollars) withdraw sheet, above the card that moves money home to the person's own spending bitcoin.
   ///
@@ -18993,16 +19023,16 @@ abstract class AppLocalizations {
   /// **'Credited to trading balance'**
   String get moneyStepCredited;
 
-  /// A Buy bitcoin step running: Dollars buying bitcoin. {amount} formatted dollars.
+  /// A move of Dollars into Bitcoin, running. {amount} formatted dollars. Never "buy": the money is the user's own.
   ///
   /// In en, this message translates to:
-  /// **'Buying {amount} of Bitcoin'**
+  /// **'Moving {amount} to Bitcoin'**
   String moneyStepBuying(String amount);
 
-  /// The same step once done (shown with a check). {amount} formatted dollars.
+  /// A move of Dollars into Bitcoin, done. {amount} formatted dollars. Never "bought": the money is the user's own.
   ///
   /// In en, this message translates to:
-  /// **'Bought {amount} of Bitcoin'**
+  /// **'Moved {amount} to Bitcoin'**
   String moneyStepBought(String amount);
 
   /// The last step of a move to Bitcoin: the bitcoin landing in the wallet. Running.
@@ -19545,7 +19575,7 @@ abstract class AppLocalizations {
   /// **'Next {goal}'**
   String balanceGoalChartLabel(String goal);
 
-  /// Bitcoin home, Balance tab: the title of the card under the goals that opens the Move to Dollars sheet with this amount filled in (bitcoin into the Dollars account). Never imply growth or returns.
+  /// Bitcoin home, Balance tab: the line of the Next goal square, with a chevron, where the square itself opens Move money (bitcoin into the Dollars account) with this amount filled in. One short line in a half-width square. Never imply growth or returns.
   ///
   /// In en, this message translates to:
   /// **'Move {amount} to Dollars'**
@@ -19556,12 +19586,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Move to Dollars'**
   String get balanceGoalMovePlain;
-
-  /// The line under 'Move $25 to Dollars'. Ambition and control, never returns: Dollars (the app's dollar account) open more places for the money. Names no product or venue. One short line.
-  ///
-  /// In en, this message translates to:
-  /// **'Your money, more places to go in Dollars.'**
-  String get balanceGoalMoveWhy;
 
   /// Bitcoin home, Balance tab: shown once, large, with Sal and confetti in place of the goal squares when the Bitcoin + Dollars total passes a round goal ('You passed $250').
   ///
@@ -20203,19 +20227,13 @@ abstract class AppLocalizations {
   /// **'{amount} in Bitcoin'**
   String usdBitcoinBalanceLine(String amount);
 
-  /// Dollars Add first step: deposit into Dollars from the user's own Bitcoin.
+  /// Dollars Receive sheet, card title: move money from the user's own Bitcoin into Dollars. Bitcoin is the account name.
   ///
   /// In en, this message translates to:
   /// **'From your Bitcoin'**
   String get usdReceiveFromYourBitcoin;
 
-  /// Title of the first sheet the Receive button opens on the Bitcoin and Dollars tabs: receive from another wallet, or swap (convert) from your own Bitcoin, Dollars or another asset. Short; one line at 375 pt.
-  ///
-  /// In en, this message translates to:
-  /// **'Receive or swap'**
-  String get receiveOrSwapTitle;
-
-  /// Bitcoin Receive or swap sheet, card title: move money from the user's own Dollars balance into Bitcoin. Dollars is the account name.
+  /// Bitcoin Receive sheet, card title: move money from the user's own Dollars balance into Bitcoin. Dollars is the account name.
   ///
   /// In en, this message translates to:
   /// **'From your Dollars'**
@@ -20227,13 +20245,7 @@ abstract class AppLocalizations {
   /// **'{amount} in Dollars'**
   String usdDollarsBalanceLine(String amount);
 
-  /// Bitcoin Receive or swap sheet, card title: receive another coin (USDC, USDT, ETH...) that arrives as bitcoin.
-  ///
-  /// In en, this message translates to:
-  /// **'From another asset'**
-  String get receiveFromAnotherAsset;
-
-  /// Bitcoin Receive or swap sheet, under the Bitcoin card: the networks its QR code accepts.
+  /// Bitcoin Receive sheet, under the Bitcoin card: the networks its QR code accepts.
   ///
   /// In en, this message translates to:
   /// **'Bitcoin and Lightning'**
@@ -20274,6 +20286,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{names} and {count} more'**
   String sendAlsoSendsToMore(String names, int count);
+
+  /// The coins a card accepts, short: the first few by symbol and how many more, e.g. "USDC, USDT, ETH +18".
+  ///
+  /// In en, this message translates to:
+  /// **'{names} +{count}'**
+  String coinsSummaryShort(String names, int count);
 
   /// No description provided for @sendAlsoSendsToList.
   ///
@@ -23176,16 +23194,16 @@ abstract class AppLocalizations {
   /// **'Crypto address'**
   String get sendWayCryptoAddress;
 
-  /// Send (Bitcoin and Dollars): the short chip label that opens the market search to send a prediction or an investment. Keep it short.
+  /// Send (Bitcoin and Dollars): the chip label that opens the market search to send a prediction or an investment. Up to two lines on a chip a third of the screen wide.
   ///
   /// In en, this message translates to:
-  /// **'Prediction'**
+  /// **'Prediction or investment'**
   String get sendWayPrediction;
 
-  /// Bitcoin Send: the short chip label that moves bitcoin into the user's own Dollars account (the Move money sheet). Keep it short.
+  /// Bitcoin Send: the chip that moves bitcoin into the user's own Dollars (mirrors the Dollars Send's "To your Bitcoin"). Dollars is the account name. Up to two lines on a chip a third of the screen wide.
   ///
   /// In en, this message translates to:
-  /// **'To Dollars'**
+  /// **'To your Dollars'**
   String get sendWayToDollars;
 
   /// Under Send a prediction on the Dollars Send's To a friend card: the row opens the market search (predictions and investing).

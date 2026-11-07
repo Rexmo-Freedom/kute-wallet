@@ -79,7 +79,7 @@ mixin PolyLivestreamHost<T extends ConsumerStatefulWidget> on ConsumerState<T> {
         });
         ref.read(floatingStreamProvider.notifier).show(
               source: source,
-              title: event.title,
+              title: event.displayTitle,
               eventSlug: event.slug,
               forBetSlip: true,
             );
@@ -152,7 +152,7 @@ mixin PolyLivestreamHost<T extends ConsumerStatefulWidget> on ConsumerState<T> {
         });
         ref.read(floatingStreamProvider.notifier).show(
               source: source,
-              title: event.title,
+              title: event.displayTitle,
               eventSlug: event.slug,
             );
         // Close the screen so the user is back in the app with the stream

@@ -251,7 +251,8 @@ void main() {
       note: 'Arriving in ~2 min',
     );
     await tester.pumpAndSettle();
-    expect(find.text('Sent to Savings'), findsOneWidget);
+    // Own money moved between accounts: "Moved to", never "Sent to".
+    expect(find.text('Moved to Savings'), findsOneWidget);
     expect(find.text('Arriving in ~2 min'), findsOneWidget);
     // The amount is the hero again (the old wrapper dropped it).
     expect(find.text('0.001 BTC'), findsOneWidget);
