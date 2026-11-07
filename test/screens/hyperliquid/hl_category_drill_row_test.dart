@@ -7,6 +7,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/models/hyperliquid_market.dart';
@@ -202,11 +203,12 @@ void main() {
       for (final row in tester.widgetList<HlMarketCard>(rows)) {
         expect(onStrip, isNot(contains(row.market.wireCoin)));
       }
-      // On Trending the strip comes straight under the pills, the market
-      // map straight under the strip (the second item, founder 7 November
-      // 2026) and the list straight under the map (no title between
-      // them). A picked category has no strip and no map: the list comes
-      // straight under the pills.
+      // On Trending the strip comes straight under the pills, the list
+      // straight under the strip (no title between them) and the market
+      // map, the last item, 16 under the list (founder, 7 November 2026:
+      // "bring the list back as the second item please and this thing to
+      // the last item"). A picked category has no strip and no map: the
+      // list comes straight under the pills.
       final pills = _inBrowser(find.byType(PolyDrillRow));
       final strip = _inBrowser(find.byType(HlMovingNowStrip));
       final map = _inBrowser(find.byKey(const ValueKey('hl-market-map')));
@@ -215,11 +217,15 @@ void main() {
         expect(map, findsOneWidget);
         expect(tester.getRect(strip).top - tester.getRect(pills).bottom,
             lessThan(20));
-        expect(tester.getRect(map).top - tester.getRect(strip).bottom,
+        expect(tester.getRect(rows.first).top - tester.getRect(strip).bottom,
             lessThan(20));
-        // The map's own 4 and the list's 8 (on this tall test screen).
-        expect(tester.getRect(rows.first).top - tester.getRect(map).bottom,
-            lessThan(28));
+        // 16 under the last row (on this tall test screen, the whole
+        // list is on it).
+        final lastRow = tester
+            .widgetList(rows)
+            .map((r) => tester.getRect(find.byWidget(r)).bottom)
+            .reduce((a, b) => a > b ? a : b);
+        expect(tester.getRect(map).top - lastRow, closeTo(16.h, 1));
       } else {
         expect(map, findsNothing);
         expect(strip, findsNothing);

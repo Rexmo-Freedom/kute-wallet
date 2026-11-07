@@ -3,8 +3,9 @@
 // The market map: a card on Investing (founder, 6 November 2026, with a
 // stock heatmap for reference: "add another card on Investing, we must
 // make a graph like this for the stocks and stuff, like the red or green
-// ones"), the tab's second item since 7 November 2026 ("put this as
-// second item on investing"): under the four squares, over the list. A
+// ones"), the tab's last item: under the four squares and the list (7
+// November 2026, hours after it was made the second item: "bring the list
+// back as the second item please and this thing to the last item"). A
 // squarified treemap (squarified_treemap.dart) of the markets the app
 // lists, red for down and green for up.
 //
@@ -828,7 +829,7 @@ class HlMarketMapCard extends ConsumerStatefulWidget {
 
   /// Around the card and its skeleton, never around nothing: a map with
   /// too few markets leaves no gap where it would be (the Investing list
-  /// sits it between the squares and the rows).
+  /// sets it 16 under its rows).
   final EdgeInsetsGeometry margin;
 
   /// Account-scoped callers supply their own navigation. The default
@@ -951,7 +952,7 @@ class _HlMarketMapCardState extends ConsumerState<HlMarketMapCard> {
     _syncEntries();
     // Shown from [kHlMarketMapMinTiles] markets; once on screen it stays
     // while it has one, so a short re-read never takes the card's height
-    // from under the list (under it, or scrolled past it).
+    // from under a list scrolled past it.
     if (_entries.length < (_shown ? 1 : kHlMarketMapMinTiles)) {
       return const SizedBox.shrink();
     }

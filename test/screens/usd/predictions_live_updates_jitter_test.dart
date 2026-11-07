@@ -327,8 +327,8 @@ Map<String, double> _layout(WidgetTester tester) {
     out['squares top'] = tester.getTopLeft(strip).dy;
     out['squares height'] = tester.getSize(strip).height;
   }
-  // The market map, Investing's second item (under the squares, over the
-  // rows, founder 7 November 2026).
+  // The market map, Investing's last item (under the rows, founder 7
+  // November 2026), once scrolled to.
   final map = find.byKey(const ValueKey('hl-market-map'));
   if (map.evaluate().isNotEmpty) {
     out['map top'] = tester.getTopLeft(map).dy;
@@ -532,14 +532,13 @@ void main() {
           await tester.pump(const Duration(milliseconds: 100));
         }
       }
-      // At the top the squares and the market map (the tab's second
-      // item) fill the screen; scrolled into the list, the rows.
-      if (scrolled) {
-        expect(find.byType(HlMarketCard), findsWidgets);
-      } else {
+      // At the top the squares and the list under them (the market map,
+      // the tab's last item, below the screen); scrolled into the list,
+      // the rows.
+      if (!scrolled) {
         expect(find.byType(HlMovingNowStrip), findsOneWidget);
-        expect(find.byKey(const ValueKey('hl-market-map')), findsOneWidget);
       }
+      expect(find.byType(HlMarketCard), findsWidgets);
       final mids = container.read(hyperliquidLivePricesProvider.notifier)
           as _HlPrices;
       final coins = [for (final m in hlTrendingFixture) m.coin];

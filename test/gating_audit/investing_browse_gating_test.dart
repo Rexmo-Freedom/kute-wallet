@@ -17,7 +17,7 @@
 //     named-region copy carrying only the VPN sentence. A pick the policy
 //     no longer offers reads as Trending on the page's pill.
 //   * The Dollars page opens on Investing (founder, 7 November 2026), the
-//     market map its second item, under the squares: with
+//     market map its last item, under the squares and the list: with
 //     `hyperliquid.browse` withheld it opens on Predictions (or Activity
 //     with Predictions' browsing withheld too), and the Investing tab has
 //     no map, no skeleton and no squares, only its notice. With
@@ -41,6 +41,8 @@ import 'package:kute/providers/hyperliquid_sparkline_provider.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/providers/polymarket_sports_provider.dart';
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
+import 'package:kute/screens/hyperliquid/components/hl_market_card.dart'
+    show HlMarketCard;
 import 'package:kute/screens/hyperliquid/components/hl_market_map.dart';
 import 'package:kute/screens/hyperliquid/components/hl_moving_now_strip.dart';
 import 'package:kute/screens/shared/investment_balance_header.dart'
@@ -311,15 +313,21 @@ void main() {
 
   group('the Dollars page and its market map', () {
     testWidgets(
-        'everything allowed: the page opens on Investing, the map second '
-        'under the squares', (tester) async {
+        'everything allowed: the page opens on Investing, the map last, '
+        'under the squares and the list', (tester) async {
       final policy = auditPolicy();
       expect(await policy.refresh(), isTrue);
       expect(await _pumpDollars(tester, policy), InvestmentsTab.investing);
       expect(_squares, findsOneWidget);
       expect(_map, findsOneWidget);
-      expect(tester.getTopLeft(_map).dy,
+      final rows = find.byType(HlMarketCard, skipOffstage: false);
+      expect(rows, findsWidgets);
+      expect(tester.getTopLeft(rows.first).dy,
           greaterThanOrEqualTo(tester.getBottomLeft(_squares).dy));
+      for (final row in rows.evaluate()) {
+        expect(tester.getTopLeft(_map).dy,
+            greaterThan(tester.getBottomLeft(find.byWidget(row.widget)).dy));
+      }
       await unmountInvestments(tester);
       policy.dispose();
     });
@@ -359,7 +367,7 @@ void main() {
 
       testWidgets(
           'hyperliquid.stocks ${denial.name}: the page still opens on '
-          'Investing, the map second with no stock-linked tile',
+          'Investing, the map last with no stock-linked tile',
           (tester) async {
         final policy = auditDenying(const ['hyperliquid.stocks'], denial);
         expect(await policy.refresh(), isTrue);

@@ -114,8 +114,8 @@
 // left. With Investing's browsing withheld it opens on Predictions while
 // that is live, else on Activity ([investmentsDefaultTab]). A link that
 // names a pill keeps opening that pill (`?tab=activity` among them). On
-// Investing the four moving squares lead, the market map is the second
-// item and the list follows (hyperliquid_screen.dart).
+// Investing the four moving squares lead, the list is the second item
+// and the market map the last (hyperliquid_screen.dart).
 //
 // THE PILL IS SHARED STATE ([investmentsTabProvider]) so a deep link, a
 // placed bet or Sal can open a pill from anywhere: `/hyperliquid` and

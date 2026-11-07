@@ -1,4 +1,4 @@
-// The market map, Investing's second item (hl_market_map.dart): which
+// The market map, Investing's last item (hl_market_map.dart): which
 // markets it shows (four classes, one per underlying, the most traded,
 // thin and unverified ones left out, a hysteresis at the edge), its layout
 // (one scale, blocks with their labels, no overlaps, the same markets
@@ -587,18 +587,23 @@ void main() {
         find.byKey(const ValueKey('hl-market-map'), skipOffstage: false);
 
     testWidgets(
-        'the second item: under the squares, over the Trending list; not '
-        'on a picked category', (tester) async {
+        'the last item: under the squares and the Trending list; not on a '
+        'picked category', (tester) async {
       await pumpScreen(tester, hlMarketMapFixture);
       expect(map, findsOneWidget);
-      // Founder, 7 November 2026: "put this as second item on investing".
+      // Founder, 7 November 2026, hours after the map went second:
+      // "bring the list back as the second item please and this thing to
+      // the last item".
       final squares = find.byType(HlMovingNowStrip, skipOffstage: false);
       expect(squares, findsOneWidget);
-      final firstRow = find.byType(HlMarketCard, skipOffstage: false).first;
-      expect(tester.getTopLeft(map).dy,
+      final rows = find.byType(HlMarketCard, skipOffstage: false);
+      expect(rows, findsWidgets);
+      expect(tester.getTopLeft(rows.first).dy,
           greaterThanOrEqualTo(tester.getBottomLeft(squares).dy));
-      expect(tester.getBottomLeft(map).dy,
-          lessThanOrEqualTo(tester.getTopLeft(firstRow).dy));
+      for (final row in rows.evaluate()) {
+        expect(tester.getTopLeft(map).dy,
+            greaterThan(tester.getBottomLeft(find.byWidget(row.widget)).dy));
+      }
       // The map is the whole universe, not the six rows over it.
       expect(_painter(tester).layout.tiles.length, greaterThan(30));
 

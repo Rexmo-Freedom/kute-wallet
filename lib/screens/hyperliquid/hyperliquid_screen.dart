@@ -640,32 +640,6 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                                           tab, sub, markets, universe)),
                                 ),
                               ),
-                            // The market map, the second item (founder,
-                            // 7 November 2026: "put this as second item
-                            // on investing"): under the squares, over the
-                            // list, on the default view only, as the
-                            // squares. A treemap of the whole universe,
-                            // sized by 24 h volume, red and green by the
-                            // day's change (hl_market_map.dart). Its
-                            // skeleton, in the map's own height, until
-                            // the builder-dex markets (the stocks,
-                            // indices and commodities) are in, so the
-                            // list under it never moves when it lands;
-                            // with too few markets, nothing at all, its
-                            // margin included. The squares' rhythm: 12
-                            // over it (their 4 and this 8), 12 under it
-                            // (its 4 and the list's 8).
-                            if (hlBrowseIsDefaultView(tab, sub))
-                              SliverToBoxAdapter(
-                                child: HlMarketMapCard(
-                                  universe: universe,
-                                  margin: EdgeInsets.only(
-                                      top: 8.h, bottom: 4.h),
-                                  loading: buildersMissing ||
-                                      (!perpsLanded &&
-                                          !universe.any((m) => m.isHip3)),
-                                ),
-                              ),
                             SliverToBoxAdapter(child: SizedBox(height: 8.h)),
                             // The whole list is in memory, in ONE grouped
                             // card like Home's Activity (founder, October
@@ -687,6 +661,30 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                                 ),
                               ),
                             ),
+                            // The market map, the last item (founder,
+                            // 7 November 2026, hours after it went second:
+                            // "bring the list back as the second item
+                            // please and this thing to the last item"):
+                            // the squares, the list, then the map, on the
+                            // default view only, as the squares. A treemap
+                            // of the whole universe, sized by 24 h volume,
+                            // red and green by the day's change
+                            // (hl_market_map.dart); its skeleton, in the
+                            // map's own height, until the builder-dex
+                            // markets (the stocks, indices and
+                            // commodities) are in; with too few markets,
+                            // nothing at all, its margin included. 16
+                            // under the list's card.
+                            if (hlBrowseIsDefaultView(tab, sub))
+                              SliverToBoxAdapter(
+                                child: HlMarketMapCard(
+                                  universe: universe,
+                                  margin: EdgeInsets.only(top: 16.h),
+                                  loading: buildersMissing ||
+                                      (!perpsLanded &&
+                                          !universe.any((m) => m.isHip3)),
+                                ),
+                              ),
                           ],
                         ],
                       ),

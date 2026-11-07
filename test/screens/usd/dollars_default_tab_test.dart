@@ -1,8 +1,9 @@
 // The Dollars page opens on Investing, the middle pill (founder, 7
 // November 2026: "when stiching to dollars open up in th einvesting in the
-// middle one, not in the activity right?"), and on Investing the market
-// map is the second item, under the four moving squares and over the list
-// ("put this as second item on investng"):
+// middle one, not in the activity right?"), and on Investing the list is
+// the second item, under the four moving squares, and the market map the
+// last ("bring the list back as the second item please and this thing to
+// the last item", hours after the map went second):
 //
 //   * the first open and every Bitcoin | Dollars switch land on Investing
 //     (investmentsDefaultTab, openInvestmentsOnDefaultTab), the switch put
@@ -10,9 +11,11 @@
 //     a link naming a pill keeps it (`?tab=activity`);
 //   * with Investing's browsing withheld, Predictions while it is live,
 //     else Activity (the gating audit runs every denial on the page);
-//   * on Investing: the squares, the map, the list, at the cards' width
-//     and the squares' rhythm; the map's skeleton holds its height, so
-//     the list never moves when the map lands; a tile opens its market;
+//   * on Investing: the squares, the list, the map, at the cards' width,
+//     12 from the squares' grid to the list (their 4 and the list's 8)
+//     and 16 from the list to the map; the map's skeleton in its place
+//     and height under the list, which never moves when the map lands; a
+//     tile, scrolled to, opens its market;
 //   * a pull on the page it opened on reports `tab: investing`.
 
 import 'package:flutter/material.dart';
@@ -30,6 +33,8 @@ import 'package:kute/providers/hyperliquid_sats_pnl_provider.dart'
     show hyperliquidActivityFillsProvider;
 import 'package:kute/providers/hyperliquid_sparkline_provider.dart';
 import 'package:kute/providers/refresh_everything_provider.dart';
+import 'package:kute/screens/home/components/kute_dock_host.dart'
+    show kuteDockScrollClearance;
 import 'package:kute/screens/hyperliquid/components/hl_market_card.dart';
 import 'package:kute/screens/hyperliquid/components/hl_market_map.dart';
 import 'package:kute/screens/hyperliquid/components/hl_moving_now_strip.dart';
@@ -110,6 +115,26 @@ final _rows = find.byType(HlMarketCard);
 /// The map's card itself (inside its margin): the clip on its ground.
 Rect _cardOf(WidgetTester tester, Finder frame) => tester.getRect(
     find.descendant(of: frame, matching: find.byType(ClipRRect)).first);
+
+/// The list's rows on screen, top to bottom.
+List<Rect> _rowRects(WidgetTester tester) => [
+      for (final e in _rows.evaluate()) tester.getRect(find.byWidget(e.widget))
+    ]..sort((a, b) => a.top.compareTo(b.top));
+
+/// Drags the page up until it stops moving, each drag's bounce let to
+/// settle: the end of the tab, where the map is.
+Future<void> _scrollToEnd(WidgetTester tester) async {
+  double? at;
+  for (var i = 0; i < 30; i++) {
+    await tester.drag(find.byType(NestedScrollView), const Offset(0, -300));
+    for (var f = 0; f < 20; f++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    final now = _map.evaluate().isEmpty ? null : tester.getTopLeft(_map).dy;
+    if (now != null && now == at) return;
+    at = now;
+  }
+}
 
 /// The body's fade: 1 at rest.
 double _bodyOpacity(WidgetTester tester) => tester
@@ -239,22 +264,25 @@ void main() {
 
   group('the market map on Investing', () {
     testWidgets(
-        'the second item: the squares, then the map, then the list, at the '
-        'cards\' width and the squares\' rhythm', (tester) async {
+        'the last item: the squares, then the list, then the map, at the '
+        'cards\' width; 12 from the squares to the list, 16 from the list '
+        'to the map', (tester) async {
       await _pump(tester);
       expect(_squares, findsOneWidget);
       expect(_map, findsOneWidget);
       expect(_rows, findsWidgets);
-      // In this order down the tab, and nothing of the tab's before the
-      // squares.
+      // In this order down the tab: nothing of the tab's before the
+      // squares, every row between them and the map, nothing after it.
       final items = <(String, double)>[
         ('squares', tester.getTopLeft(_squares).dy),
         ('map', tester.getTopLeft(_map).dy),
         for (final e in _rows.evaluate())
           ('row', tester.getTopLeft(find.byWidget(e.widget)).dy),
       ]..sort((a, b) => a.$2.compareTo(b.$2));
-      expect(items.take(3).map((i) => i.$1), ['squares', 'map', 'row']);
-      expect(items.skip(2).map((i) => i.$1), everyElement('row'));
+      expect(items.first.$1, 'squares');
+      expect(items.last.$1, 'map');
+      expect(items.sublist(1, items.length - 1).map((i) => i.$1),
+          everyElement('row'));
 
       // The map's card spans the squares' grid, edge to edge.
       final grid = tester.getRect(find.descendant(
@@ -264,21 +292,23 @@ void main() {
       expect(card.right, closeTo(grid.right, 0.5));
       // Square, as it always was.
       expect(card.height, closeTo(card.width, 1));
-      // 12 from the squares to the map, 12 from the map to the list (to
-      // the pixel: the grid and the map round their own heights).
-      final firstRow = items[2].$2;
-      expect(card.top - grid.bottom, closeTo(12.h, 1));
-      expect(firstRow - card.bottom, closeTo(12.h, 1));
+      // 12 from the squares' grid to the list (their 4 and the list's 8),
+      // 16 from the list's last row to the map (to the pixel: the grid
+      // and the rows round their own heights).
+      final rows = _rowRects(tester);
+      expect(rows.first.top - grid.bottom, closeTo(12.h, 1));
+      expect(card.top - rows.last.bottom, closeTo(16.h, 1));
       expect(tester.takeException(), isNull);
       await unmountInvestments(tester);
     });
 
     testWidgets(
-        'loading, its skeleton holds the map\'s place: the list does not '
-        'move when the map lands', (tester) async {
+        'loading, its skeleton in the map\'s place and height under the '
+        'list: the list does not move when the map lands', (tester) async {
       final container = await _pump(tester);
-      final rowTop = tester.getTopLeft(_rows.first).dy;
-      final mapHeight = tester.getSize(_map).height;
+      final squares = tester.getRect(_squares);
+      final rows = _rowRects(tester);
+      final map = tester.getRect(_map);
 
       container.read(_buildersMissing.notifier).state = true;
       for (var i = 0; i < 6; i++) {
@@ -286,17 +316,22 @@ void main() {
       }
       expect(_map, findsNothing);
       expect(_mapBones, findsOneWidget);
-      expect(tester.getSize(_mapBones).height, mapHeight);
-      expect(tester.getTopLeft(_mapBones).dy,
-          greaterThan(tester.getBottomLeft(_squares).dy));
-      expect(tester.getTopLeft(_rows.first).dy, rowTop);
+      // Where the map is, at its height, under the list's last row.
+      expect(tester.getRect(_mapBones), map);
+      expect(tester.getTopLeft(_mapBones).dy, greaterThan(rows.last.bottom));
+      expect(tester.getRect(_squares), squares);
+      expect(_rowRects(tester), rows);
 
+      // The map lands under the list: nothing over it moves.
       container.read(_buildersMissing.notifier).state = false;
       for (var i = 0; i < 6; i++) {
         await tester.pump(const Duration(milliseconds: 100));
       }
       expect(_map, findsOneWidget);
-      expect(tester.getTopLeft(_rows.first).dy, rowTop);
+      expect(_mapBones, findsNothing);
+      expect(tester.getRect(_map), map);
+      expect(tester.getRect(_squares), squares);
+      expect(_rowRects(tester), rows);
       expect(tester.takeException(), isNull);
       await unmountInvestments(tester);
     });
@@ -319,11 +354,12 @@ void main() {
     });
 
     testWidgets(
-        'a tile at its new place opens its market, with the map as the '
-        'source', (tester) async {
+        'a tile at its place, the end of the tab, scrolled to, opens its '
+        'market, with the map as the source', (tester) async {
       final events = recordEvents();
       final zec = hlMarketMapFixture.firstWhere((m) => m.coin == 'ZEC');
-      await _pump(tester, overrides: [
+      // A phone's height: the map, under the list, is below the screen.
+      await _pump(tester, size: const Size(390, 844), overrides: [
         // The sheet's own reads (no network in a test).
         hyperliquidExactMarketProvider.overrideWith((ref, key) => zec),
         hyperliquidActiveAssetCtxProvider
@@ -338,14 +374,29 @@ void main() {
         hyperliquidTradeFlowProvider.overrideWith(
             (ref, coin) => Stream.value(const HlTradeFlowState())),
       ]);
+      expect(_squares, findsOneWidget);
+      expect(_rows, findsWidgets);
+      expect(_map, findsNothing);
+
+      await _scrollToEnd(tester);
+      expect(_map, findsOneWidget);
+      // Under the list's last row, and only the dock's clearance under it.
+      final card = _cardOf(tester, _map);
+      final lastRow = _rowRects(tester).last;
+      expect(card.top - lastRow.bottom, closeTo(16.h, 1));
+      final view = tester.getRect(
+          find.ancestor(of: _map, matching: find.byType(Scrollable)).first);
+      expect(view.bottom - card.bottom,
+          closeTo(kuteDockScrollClearance(tester.element(_map)), 1));
+
       final paint = find.byWidgetPredicate(
           (w) => w is CustomPaint && w.painter is HlMarketMapPainter);
       final painter = tester.widget<CustomPaint>(paint).painter!
           as HlMarketMapPainter;
       final tile = painter.layout.tiles.firstWhere((t) => t.id == 'perp:ZEC');
       final at = tester.getTopLeft(paint) + tile.rect.center;
-      expect(at.dy, greaterThan(tester.getBottomLeft(_squares).dy));
-      expect(at.dy, lessThan(tester.getTopLeft(_rows.first).dy));
+      expect(at.dy, greaterThan(lastRow.bottom));
+      expect(at.dy, lessThan(card.bottom));
       await tester.tapAt(at);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 600));
