@@ -27,7 +27,9 @@ KuteActionCard _card(String title, {String? sub, VoidCallback? onTap,
     );
 
 Future<void> _pump(WidgetTester tester, List<KuteActionCard> cards,
-    {bool compactLone = false}) async {
+    {bool compactLone = false,
+    KuteActionCard? lead,
+    bool oneLineTitles = false}) async {
   tester.view.physicalSize = const Size(430, 932);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -39,7 +41,11 @@ Future<void> _pump(WidgetTester tester, List<KuteActionCard> cards,
         body: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            KuteActionCardGrid(cards: cards, compactLone: compactLone)
+            KuteActionCardGrid(
+                cards: cards,
+                compactLone: compactLone,
+                lead: lead,
+                oneLineTitles: oneLineTitles)
           ],
         ),
       ),
@@ -148,6 +154,62 @@ void main() {
     expect(a.width, moreOrLessEquals(b.width));
     expect(a.height, b.height);
     expect(b.left - a.right, moreOrLessEquals(12));
+  });
+
+  testWidgets(
+      'a lead card goes on top, full width, larger than the cards under it '
+      '(a larger title, its chevron); two under it are squares, one is '
+      'compact full width, none leaves it alone', (tester) async {
+    await _pump(tester, [_card('Dollars'), _card('Wallet')],
+        lead: _card('Bitcoin', sub: 'Bitcoin and Lightning'));
+    final top = _r(tester, 'Bitcoin');
+    expect(top.width, moreOrLessEquals(390));
+    expect(chevronOf('Bitcoin'), findsOneWidget);
+    final a = _r(tester, 'Dollars'), b = _r(tester, 'Wallet');
+    expect(a.top, greaterThan(top.bottom));
+    expect(a.top, moreOrLessEquals(b.top));
+    expect(a.width, moreOrLessEquals(b.width));
+    expect(chevronOf('Dollars'), findsNothing);
+    double size(String title) =>
+        tester.widget<Text>(find.text(title)).style!.fontSize!;
+    expect(size('Bitcoin'), greaterThan(size('Dollars')));
+
+    await _pump(tester, [_card('Dollars')], lead: _card('Bitcoin'));
+    expect(_r(tester, 'Dollars').width, moreOrLessEquals(390));
+    expect(chevronOf('Dollars'), findsOneWidget);
+    expect(_r(tester, 'Dollars').height,
+        lessThan(_r(tester, 'Bitcoin').height));
+
+    await _pump(tester, const [], lead: _card('Bitcoin'));
+    expect(_r(tester, 'Bitcoin').width, moreOrLessEquals(390));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'oneLineTitles: two squares where both titles read on one line, else '
+      'two compact full-width cards, never a squeezed font', (tester) async {
+    await _pump(tester, [_card('Bitcoin'), _card('Wallet')],
+        oneLineTitles: true);
+    expect(_r(tester, 'Bitcoin').top, moreOrLessEquals(_r(tester, 'Wallet').top));
+    expect(_r(tester, 'Bitcoin').right, lessThan(_r(tester, 'Wallet').left));
+
+    const long = 'From another wallet or exchange';
+    await _pump(tester, [_card('Bitcoin'), _card(long)], oneLineTitles: true);
+    final a = _r(tester, 'Bitcoin'), b = _r(tester, long);
+    expect(b.top, greaterThan(a.bottom));
+    for (final r in [a, b]) {
+      expect(r.width, moreOrLessEquals(390));
+    }
+    expect(chevronOf('Bitcoin'), findsOneWidget);
+    expect(chevronOf(long), findsOneWidget);
+    // The same title size as ever.
+    expect(tester.widget<Text>(find.text(long)).style!.fontSize,
+        tester.widget<Text>(find.text('Bitcoin')).style!.fontSize);
+
+    // Without the rule the long title wraps in its square, as before.
+    await _pump(tester, [_card('Bitcoin'), _card(long)]);
+    expect(_r(tester, 'Bitcoin').top, moreOrLessEquals(_r(tester, long).top));
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('three short labels sit three across', (tester) async {
