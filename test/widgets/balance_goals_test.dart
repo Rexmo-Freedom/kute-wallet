@@ -227,6 +227,12 @@ void main() {
           of: find.byKey(ValueKey(key)), matching: find.byType(SalSprite)))
       .clip;
 
+  /// The on-screen gate around a square's Sal.
+  dynamic motion(WidgetTester tester, String key) =>
+      tester.state(find.descendant(
+          of: find.byKey(ValueKey(key)),
+          matching: find.byType(BalanceGoalSalMotion)));
+
   Rect rectOf(WidgetTester tester, String key) =>
       tester.getRect(find.byKey(ValueKey(key)));
 
@@ -234,8 +240,8 @@ void main() {
 
   testWidgets(
       r'under the card: "Goals", the Level and Next goal squares side by '
-      'side, then the nudge; the goal line on the plot while it is in reach',
-      (tester) async {
+      'side, the Next goal the move to Dollars, nothing under them; the '
+      'goal line on the plot while it is in reach', (tester) async {
     // ₿355,000 at $70,000: $248.50, the next goal $250.
     await pump(tester, input());
     expect(text(tester, 'balance-goals-heading'), 'Goals');
@@ -245,7 +251,14 @@ void main() {
     expect(barFill(tester), closeTo(0.994, 0.01));
     expect(text(tester, 'balance-goal-next-label'), 'Next goal');
     expect(text(tester, 'balance-goal-next'), r'$250');
-    expect(text(tester, 'balance-goal-to-go'), r'$1.50 to go');
+    // The move is allowed here: the Next goal square is its entry, its
+    // line the move with a chevron in place of the gap.
+    expect(text(tester, 'balance-goal-nudge-label'), r'Move $25 to Dollars');
+    expect(find.byKey(const ValueKey('balance-goal-move-chevron')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('balance-goal-to-go')), findsNothing);
+    expect(
+        find.text('Your money, more places to go in Dollars.'), findsNothing);
     // Sal in both: the level's still (Pocket money: one coin) over the
     // bar, and the next goal's, squinting up at a flag.
     expect(sal(tester, 'balance-goal-level-sal'), 'level_2');
@@ -262,10 +275,10 @@ void main() {
             of: find.byKey(const ValueKey('balance-card')),
             matching: find.byKey(const ValueKey('balance-goals'))),
         findsNothing);
-    expect(rectOf(tester, 'balance-goals').top,
-        greaterThanOrEqualTo(card.bottom));
-    // The two squares side by side, as tall as each other, the nudge
-    // under them across both.
+    expect(
+        rectOf(tester, 'balance-goals').top, greaterThanOrEqualTo(card.bottom));
+    // The two squares side by side, as tall as each other; the move is the
+    // Next goal square itself, and nothing stands under them.
     final level = tester.getRect(find
         .ancestor(
             of: find.byKey(const ValueKey('balance-goal-level')),
@@ -280,9 +293,10 @@ void main() {
     expect(level.height, next.height);
     expect(next.left, greaterThan(level.right));
     final nudge = rectOf(tester, 'balance-goal-nudge');
-    expect(nudge.top, greaterThan(level.bottom));
-    expect(nudge.left, closeTo(level.left, 0.5));
-    expect(nudge.right, closeTo(next.right, 0.5));
+    expect(nudge.top, closeTo(next.top, 0.5));
+    expect(nudge.height, closeTo(level.height, 0.5));
+    expect(nudge.left, closeTo(next.left, 0.5));
+    expect(rectOf(tester, 'balance-goals').bottom, closeTo(level.bottom, 0.5));
 
     // The goal line: the bitcoin now plus the gap at today's price.
     final goal = chart(tester).goal;
@@ -295,7 +309,7 @@ void main() {
   testWidgets('a goal far above the line is not drawn; the squares still are',
       (tester) async {
     // $105 of bitcoin, $250 to go for: the line would be squashed.
-    await pump(tester, input(sats: 150000));
+    await pump(tester, input(sats: 150000, swap: false));
     expect(chart(tester).goal, isNull);
     expect(text(tester, 'balance-goal-progress'), r'42% to $250');
     expect(text(tester, 'balance-goal-to-go'), r'$145 to go');
@@ -305,11 +319,11 @@ void main() {
   testWidgets(
       'Dollars count: moving bitcoin to Dollars never lowers the progress',
       (tester) async {
-    final container = await pump(tester, input());
+    final container = await pump(tester, input(swap: false));
     expect(text(tester, 'balance-goal-progress'), r'99% to $250');
     // Half the bitcoin is now $124.25 of Dollars.
     container.read(_input.notifier).state =
-        input(sats: 177500, cashUsd: 124.25);
+        input(sats: 177500, cashUsd: 124.25, swap: false);
     await tester.pump(const Duration(milliseconds: 600));
     expect(text(tester, 'balance-goal-progress'), r'99% to $250');
     expect(text(tester, 'balance-goal-level'), 'Level 2');
@@ -343,7 +357,7 @@ void main() {
       'place, once, nothing under it moving; then the next goal',
       (tester) async {
     final container = await pump(tester, input());
-    final nudgeTop = rectOf(tester, 'balance-goal-nudge').top;
+    final goalsBottom = rectOf(tester, 'balance-goals').bottom;
     // The first reading is history: recorded, nothing celebrated.
     await tester.pump(kBalanceMilestoneSettle);
     await tester.pump(const Duration(milliseconds: 100));
@@ -366,10 +380,11 @@ void main() {
             'nothing.'),
         findsOneWidget);
     expect(confetti(), findsOneWidget);
-    // In the squares' place at their height: the nudge has not moved.
+    // In the squares' place at their height: nothing under it moves.
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.byKey(const ValueKey('balance-goal-squares')), findsNothing);
-    expect(rectOf(tester, 'balance-goal-nudge').top, closeTo(nudgeTop, 0.5));
+    expect(find.byKey(const ValueKey('balance-goal-nudge')), findsNothing);
+    expect(rectOf(tester, 'balance-goals').bottom, closeTo(goalsBottom, 0.5));
     // No goal line while it celebrates.
     expect(chart(tester).goal, isNull);
     final reached =
@@ -402,6 +417,35 @@ void main() {
         findsNothing);
     expect(
         events.where((e) => e.$1 == 'balance_milestone_reached'), hasLength(1));
+    await settle(tester);
+  });
+
+  testWidgets(
+      'the loops play only while the squares are on screen; Reduce Motion '
+      'holds them', (tester) async {
+    await pump(
+      tester,
+      input(),
+      child: const Column(children: [
+        SizedBox(height: 2400),
+        HomeAnalyticsWidget(surface: 'home', balanceGoals: true),
+      ]),
+    );
+    expect(motion(tester, 'balance-goal-level-sal').debugPlaying, isFalse);
+    expect(motion(tester, 'balance-goal-next-sal').debugPlaying, isFalse);
+    // Scrolled to: they play.
+    final position =
+        tester.state<ScrollableState>(find.byType(Scrollable).first).position;
+    position.jumpTo(position.maxScrollExtent);
+    await tester.pump();
+    await tester.pump();
+    expect(motion(tester, 'balance-goal-level-sal').debugPlaying, isTrue);
+    expect(motion(tester, 'balance-goal-next-sal').debugPlaying, isTrue);
+    // Away again: held.
+    position.jumpTo(0);
+    await tester.pump();
+    await tester.pump();
+    expect(motion(tester, 'balance-goal-level-sal').debugPlaying, isFalse);
     await settle(tester);
   });
 
@@ -438,20 +482,21 @@ void main() {
   });
 
   testWidgets(
-      'balances hidden: dots, the bar empty, no goal line, the nudge without '
-      'its amount, and no celebration until the figures are back',
+      'balances hidden: dots, the bar empty, no goal line, the move without '
+      'its amount, Sal held, and no celebration until the figures are back',
       (tester) async {
     final container = await pump(tester, input(), privacy: 1);
     expect(text(tester, 'balance-goal-level'), '••••••');
     expect(text(tester, 'balance-goal-level-name'), '••••');
     expect(text(tester, 'balance-goal-progress'), '••••');
     expect(text(tester, 'balance-goal-next'), '••••••');
-    expect(text(tester, 'balance-goal-to-go'), '••••');
     expect(text(tester, 'balance-goal-next-label'), 'Next goal');
     expect(barFill(tester), 0);
     // Sal names no level while the figures are hidden.
     expect(sal(tester, 'balance-goal-level-sal'), kBalanceGoalHiddenClip);
     expect(sal(tester, 'balance-goal-next-sal'), 'goal_next');
+    // The Next goal's loop holds its first frame while hidden.
+    expect(motion(tester, 'balance-goal-next-sal').debugPlaying, isFalse);
     expect(chart(tester).goal, isNull);
     expect(text(tester, 'balance-goal-nudge-label'), 'Move to Dollars');
     expect(find.textContaining(r'$'), findsNothing);
@@ -466,16 +511,15 @@ void main() {
   });
 
   testWidgets(
-      r'the nudge: "Move $25 to Dollars" opens the Move sheet locked to '
-      'Dollars with \$25 filled in', (tester) async {
+      r'the Next goal square: "Move $25 to Dollars" opens the Move sheet '
+      'locked to Dollars with \$25 filled in', (tester) async {
     final opened = <(MoveLockedSide, double)>[];
     BalanceGoals.debugMoveOpener =
         (context, side, usd) => opened.add((side, usd));
     await pump(tester, input());
     expect(text(tester, 'balance-goal-nudge-label'), r'Move $25 to Dollars');
-    expect(text(tester, 'balance-goal-nudge-line'),
-        'Your money, more places to go in Dollars.');
-    await tester.tap(find.byKey(const ValueKey('balance-goal-nudge')));
+    // Anywhere on the square: here, its figure.
+    await tester.tap(find.byKey(const ValueKey('balance-goal-next')));
     await tester.pump(const Duration(milliseconds: 200));
     expect(opened, [(MoveLockedSide.depositToUsd, 25.0)]);
     final tapped =
@@ -487,14 +531,17 @@ void main() {
   });
 
   testWidgets(
-      'the nudge names no venue; it is there while either is live, and gone '
-      'where the move or both venues are not', (tester) async {
-    const line = 'Your money, more places to go in Dollars.';
+      'the move names no venue; the square is the move while either is live, '
+      'and a plain goal, not tappable, where the move or both venues are not',
+      (tester) async {
+    final opened = <(MoveLockedSide, double)>[];
+    BalanceGoals.debugMoveOpener =
+        (context, side, usd) => opened.add((side, usd));
     final container = await pump(tester, input(investing: false));
-    expect(text(tester, 'balance-goal-nudge-line'), line);
+    expect(text(tester, 'balance-goal-nudge-label'), r'Move $25 to Dollars');
     container.read(_input.notifier).state = input(predictions: false);
     await tester.pump(const Duration(milliseconds: 100));
-    expect(text(tester, 'balance-goal-nudge-line'), line);
+    expect(text(tester, 'balance-goal-nudge-label'), r'Move $25 to Dollars');
     expect(find.textContaining('Investing'), findsNothing);
     expect(find.textContaining('Predictions'), findsNothing);
     container.read(_input.notifier).state =
@@ -504,6 +551,14 @@ void main() {
     container.read(_input.notifier).state = input(swap: false);
     await tester.pump(const Duration(milliseconds: 100));
     expect(find.byKey(const ValueKey('balance-goal-nudge')), findsNothing);
+    // A plain goal: the gap, no chevron, and a tap does nothing.
+    expect(text(tester, 'balance-goal-to-go'), r'$1.50 to go');
+    expect(
+        find.byKey(const ValueKey('balance-goal-move-chevron')), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('balance-goal-next')));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(opened, isEmpty);
+    expect(events.where((e) => e.$1 == 'balance_goal_cta_tapped'), isEmpty);
     // Nothing worth moving: under a dollar of bitcoin.
     container.read(_input.notifier).state = input(sats: 1000, cashUsd: 300);
     await tester.pump(const Duration(milliseconds: 100));
@@ -541,8 +596,8 @@ void main() {
   testWidgets('nothing ever held: the empty state alone, nothing recorded',
       (tester) async {
     await pump(tester, input(cashUsd: 300), held: false);
-    expect(find.byKey(const ValueKey('balance-chart-no-history')),
-        findsOneWidget);
+    expect(
+        find.byKey(const ValueKey('balance-chart-no-history')), findsOneWidget);
     expect(find.byKey(const ValueKey('balance-goals')), findsNothing);
     await tester.pump(kBalanceMilestoneSettle);
     await tester.pump(const Duration(milliseconds: 100));
@@ -569,29 +624,47 @@ void main() {
   });
 
   test(
-      'every Sal still the goals draw is in the manifest, one 64 cell, with '
-      'both sheets bundled', () {
-    final m = jsonDecode(File('lib/assets/sal/manifest.json')
-        .readAsStringSync()) as Map<String, dynamic>;
+      'every Sal clip the goals draw is in the manifest with both sheets '
+      'bundled; the level and next-goal loops play 4 s at 12 fps over their '
+      'distinct cells, from the still as frame 0', () {
+    final m =
+        jsonDecode(File('lib/assets/sal/manifest.json').readAsStringSync())
+            as Map<String, dynamic>;
+    var bytes = 0;
     for (final clip in balanceGoalClips) {
       final entry = m[clip] as Map<String, dynamic>?;
       expect(entry, isNotNull, reason: clip);
-      expect(entry!['frames'], 1, reason: clip);
-      expect(entry['framing'], 'body', reason: clip);
+      expect(entry!['framing'], 'body', reason: clip);
       final files = entry['files'] as Map<String, dynamic>;
       expect(files.keys.toSet(), {'2x', '3x'}, reason: clip);
       for (final f in files.values) {
         final file = File('lib/assets/sal/${(f as Map)['file']}');
         expect(file.existsSync(), isTrue, reason: '$clip ${f['file']}');
-        // Small: a still, never a sheet.
-        expect(file.lengthSync(), lessThan(16 * 1024), reason: f['file']);
+        if (clip != kBalanceGoalHiddenClip) bytes += file.lengthSync();
       }
     }
-    for (var i = 1; i <= 12; i++) {
-      expect((m['level_$i'] as Map)['group'], 'level');
-      expect((m['level_$i'] as Map)['cell'], 64);
+    for (final clip in [
+      for (var i = 1; i <= 12; i++) 'level_$i',
+      kBalanceGoalNextClip,
+    ]) {
+      final e = m[clip] as Map<String, dynamic>;
+      expect(e['group'], clip == kBalanceGoalNextClip ? 'goal' : 'level');
+      expect(e['cell'], 64, reason: clip);
+      expect(e['loop'], isTrue, reason: clip);
+      expect(e['fps'], 12, reason: clip);
+      expect(e['frames'], 48, reason: clip);
+      final cells = e['cells'] as int;
+      final seq = (e['sequence'] as List).cast<int>();
+      expect(seq, hasLength(48), reason: clip);
+      expect(seq.first, 0, reason: '$clip: the still is frame 0');
+      expect(seq.every((c) => c >= 0 && c < cells), isTrue, reason: clip);
+      expect(seq.toSet(), hasLength(cells), reason: '$clip: no unused cell');
+      expect(cells, lessThan(48), reason: clip);
     }
-    expect((m['goal_next'] as Map)['group'], 'goal');
+    // The thirteen loops, both densities: well under 2.5 MB.
+    expect(bytes, lessThan(2500 * 1024));
+    // The hidden Level square's still.
+    expect((m[kBalanceGoalHiddenClip] as Map)['frames'], 1);
   });
 
   group('the card hugs its chart, with the goals under it', () {
@@ -601,7 +674,7 @@ void main() {
 
     final pad = 16 * 393 / 430;
 
-    testWidgets('16 under the range row, the goals and the nudge outside',
+    testWidgets('16 under the range row, the goals and the move outside',
         (tester) async {
       await pump(tester, input());
       expect(bottomGap(tester), closeTo(pad, 0.5));

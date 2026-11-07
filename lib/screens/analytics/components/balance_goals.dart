@@ -39,14 +39,24 @@
 //     eyes shut on a wide stack; Off the charts, the crown on a tower that
 //     leaves the frame. The squares are taller than the position squares
 //     by Sal's room over their 40 logo;
-//   * THE NUDGE, one full-width soft card under the squares: the Dollars
-//     mark, "Move $25 to Dollars" over "Your money, more places to go in
-//     Dollars.", a chevron. It opens the Move sheet locked to Dollars with
-//     that amount filled in (a round tenth of the goal, never more than
-//     the bitcoin is worth). Shown only where the move is allowed
-//     (the route classifier's gates) and Investing or Predictions is live in the
-//     person's country; it names neither. It never says the money grows:
-//     places to go, not returns;
+//   * THE LOOPS (founder, 7 November 2026, of the squares: "animate
+//     this"): each level's Sal is a calm 4 s idle loop from its still (a
+//     breath, a dry blink, an ear or tail flick, a side-eye; the crown
+//     catching the light; Warming up dozing), and the Next goal's flag
+//     waves while Sal looks from it to the viewer and back. They play only
+//     while the square is on screen ([BalanceGoalSalMotion]); under Reduce
+//     Motion, and in the Next goal square while balances are hidden, the
+//     first frame holds (the hidden Level square's flat card is a still);
+//   * THE NEXT GOAL IS THE MOVE (founder, 7 November 2026, of the separate
+//     "Move $50 to Dollars" card under the squares: "the next goal should
+//     have the move to dollars not this"): where the move is allowed (the
+//     route classifier's gates) and Investing or Predictions is live in
+//     the person's country, the Next goal square itself taps through: its
+//     line reads "Move $25 to Dollars" with a chevron in place of "$250 to
+//     go", and it opens the Move sheet locked to Dollars with that amount
+//     filled in (a round tenth of the goal, never more than the bitcoin is
+//     worth). Elsewhere it is a plain goal, not tappable. No card under
+//     the squares; it names no venue and never says the money grows;
 //   * A RUNG PASSED: once, after the figure has held for 1.5 s, one card
 //     takes the squares' place at their height (nothing moves): Sal
 //     cheering (`body_cheer`, once) beside "You passed $250" large and
@@ -59,7 +69,7 @@
 //   * BALANCES HIDDEN: the squares' figures and the level's name are dots,
 //     the bar is its track alone, the Level's Sal is a still that names no
 //     level (the share cards' flat side-eye), the goal line is not drawn,
-//     the nudge drops its amount;
+//     the Next goal's move drops its amount;
 //   * NOTHING EVER HELD (the card's empty state): no goals, nothing
 //     recorded or celebrated.
 //
@@ -70,7 +80,7 @@
 //
 // Analytics: `balance_milestone_reached` {milestone, currency} when a
 // rung is celebrated; `balance_goal_cta_tapped` {milestone, amount,
-// currency} on the nudge (milestone: the goal, display currency; amount:
+// currency} on the Next goal's move (milestone: the goal, display currency; amount:
 // the dollars filled in). Exact values; nothing else.
 
 import 'package:kute/services/orchestra/orchestra_capability_requirements.dart'
@@ -85,7 +95,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 
 import 'package:kute/l10n/l10n.dart';
-import 'package:kute/providers/asset_icon_provider.dart' show AssetIcon;
 import 'package:kute/providers/balance_provider.dart';
 import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/providers/one_balance_provider.dart';
@@ -436,7 +445,6 @@ class _BalanceGoalsState extends ConsumerState<BalanceGoals> {
                           decimalDigits: suggestion % 1 == 0 ? 0 : 2)
                       .format(suggestion))
                   : l10n.balanceGoalMovePlain,
-              line: l10n.balanceGoalMoveWhy,
               onTap: () => _move(suggestion, progress.next, input.currency),
             )
           : null;
@@ -460,14 +468,13 @@ class _BalanceGoalsState extends ConsumerState<BalanceGoals> {
   }
 }
 
-/// The nudge's words and its tap.
+/// The Next goal square's move: its line ("Move $25 to Dollars") and its
+/// tap.
 @immutable
 class BalanceGoalNudge {
-  const BalanceGoalNudge(
-      {required this.label, required this.line, required this.onTap});
+  const BalanceGoalNudge({required this.label, required this.onTap});
 
   final String label;
-  final String line;
   final VoidCallback onTap;
 }
 
@@ -476,9 +483,9 @@ class BalanceGoalNudge {
 /// "Goals", then two squares side by side, the Level (the level's Sal over
 /// the progress bar, the level's name, "50% to $500", "Level 3" large) and
 /// the Next goal (Sal and the flag, "Next goal", "$250 to go", "$500"
-/// large), or for a moment
-/// the celebration in their place at their height; then the nudge as one
-/// full-width soft card.
+/// large; where the move is allowed, "Move $25 to Dollars" with a chevron
+/// in place of the gap, and the square taps through), or for a moment the
+/// celebration in their place at their height.
 class BalanceGoalsSection extends StatelessWidget {
   const BalanceGoalsSection({
     super.key,
@@ -510,7 +517,6 @@ class BalanceGoalsSection extends StatelessWidget {
     final reduce = KuteMotion.reduce(context);
     // Figures hidden mid-celebration: the squares' dots at once.
     final rung = visible ? celebrating : null;
-    final n = nudge;
     return Column(
       key: const ValueKey('balance-goals'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -546,7 +552,8 @@ class BalanceGoalsSection extends StatelessWidget {
                         _NextGoalSquare(
                             progress: progress,
                             currency: currency,
-                            visible: visible),
+                            visible: visible,
+                            nudge: nudge),
                       ],
                     ),
             ),
@@ -559,10 +566,6 @@ class BalanceGoalsSection extends StatelessWidget {
             ),
           ],
         ),
-        if (n != null) ...[
-          SizedBox(height: 10.w),
-          _NudgeCard(nudge: n),
-        ],
       ],
     );
   }
@@ -609,7 +612,12 @@ class _GoalSquare extends StatelessWidget {
     required this.labelKey,
     required this.lineKey,
     required this.figureKey,
+    this.action = false,
   });
+
+  /// The line is the square's tap ("Move $25 to Dollars"): a touch
+  /// stronger than the quiet line, with a chevron after it.
+  final bool action;
 
   final Widget leading;
   final String label;
@@ -651,16 +659,28 @@ class _GoalSquare extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: quiet),
             SizedBox(height: 2.h),
-            Text(line,
-                key: lineKey,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: quiet.copyWith(
-                  color: c.textTertiary,
-                  fontSize: 12.sp,
-                  height: 1.3,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                )),
+            Row(
+              children: [
+                Flexible(
+                  child: Text(line,
+                      key: lineKey,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: quiet.copyWith(
+                        color: action ? c.textSecondary : c.textTertiary,
+                        fontSize: 12.sp,
+                        fontWeight: action ? FontWeight.w600 : null,
+                        height: 1.3,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      )),
+                ),
+                if (action)
+                  Icon(Icons.chevron_right_rounded,
+                      key: const ValueKey('balance-goal-move-chevron'),
+                      size: 14.sp,
+                      color: c.textSecondary),
+              ],
+            ),
             SizedBox(height: 4.h),
             // A figure too wide for the square shrinks rather than
             // overflow it.
@@ -748,62 +768,188 @@ class _LevelSquare extends StatelessWidget {
   }
 }
 
-/// The Next goal square: Sal squinting up at a flag, "Next goal", "$250
-/// to go", and the goal large. Hidden: the figures are dots.
+/// The Next goal square: Sal and the waving flag, "Next goal", "$250 to
+/// go", and the goal large. With [nudge] (the move allowed) the line is
+/// "Move $25 to Dollars" with a chevron and the whole square taps through
+/// on the press spring; without, a plain goal. Hidden: the figures are
+/// dots, the move drops its amount, Sal holds his first frame.
 class _NextGoalSquare extends StatelessWidget {
   const _NextGoalSquare({
     required this.progress,
     required this.currency,
     required this.visible,
+    this.nudge,
   });
 
   final BalanceMilestoneProgress progress;
   final String currency;
   final bool visible;
+  final BalanceGoalNudge? nudge;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return _GoalSquare(
-      leading: const _GoalSal(
-        key: ValueKey('balance-goal-next-sal'),
+    final n = nudge;
+    final square = _GoalSquare(
+      leading: _GoalSal(
+        key: const ValueKey('balance-goal-next-sal'),
         clip: kBalanceGoalNextClip,
         fallback: Icons.flag_rounded,
+        still: !visible,
       ),
       label: l10n.balanceGoalNext,
-      line: visible
-          ? l10n.balanceGoalToGo(formatBalanceGoal(progress.gap, currency))
-          : _shortDots,
+      line: n != null
+          ? n.label
+          : visible
+              ? l10n.balanceGoalToGo(formatBalanceGoal(progress.gap, currency))
+              : _shortDots,
+      action: n != null,
       figure: visible ? formatBalanceGoal(progress.next, currency) : _dots,
       labelKey: const ValueKey('balance-goal-next-label'),
-      lineKey: const ValueKey('balance-goal-to-go'),
+      lineKey: ValueKey(
+          n != null ? 'balance-goal-nudge-label' : 'balance-goal-to-go'),
       figureKey: const ValueKey('balance-goal-next'),
+    );
+    if (n == null) return square;
+    return Semantics(
+      button: true,
+      child: KutePressable(
+        child: GestureDetector(
+          key: const ValueKey('balance-goal-nudge'),
+          behavior: HitTestBehavior.opaque,
+          onTap: n.onTap,
+          child: square,
+        ),
+      ),
     );
   }
 }
 
-/// Sal's still in a goal square ([kBalanceGoalSal]): one frame, a level
-/// changing switches it in place (a short dissolve). Without a sheet (not
-/// bundled, a test) the icon the square wore before.
+/// Sal in a goal square ([kBalanceGoalSal]): his loop for the level (or
+/// the next goal), played only while the square is on screen
+/// ([BalanceGoalSalMotion]); [still] holds its first frame. A level
+/// changing switches the loop in place (a short dissolve). Without a sheet
+/// (not bundled, a test) the icon the square wore before.
 class _GoalSal extends StatelessWidget {
-  const _GoalSal({super.key, required this.clip, required this.fallback});
+  const _GoalSal({
+    super.key,
+    required this.clip,
+    required this.fallback,
+    this.still = false,
+  });
 
   final String clip;
   final IconData fallback;
+  final bool still;
 
   @override
   Widget build(BuildContext context) {
     final size = kBalanceGoalSal.w;
-    return SizedBox.square(
-      dimension: size,
-      child: SalSprite(
-        clip: clip,
-        size: size,
-        loop: false,
-        fallback: Center(
-          child: Icon(fallback, size: 24.w, color: context.colors.textPrimary),
+    return BalanceGoalSalMotion(
+      hold: still,
+      child: SizedBox.square(
+        dimension: size,
+        child: SalSprite(
+          clip: clip,
+          size: size,
+          fallback: Center(
+            child:
+                Icon(fallback, size: 24.w, color: context.colors.textPrimary),
+          ),
         ),
       ),
+    );
+  }
+}
+
+/// Lets the Sal under it move only while it is on screen and [hold] is
+/// off: otherwise its first frame holds (it reads as Reduce Motion to
+/// him: [SalSprite] then shows frame 0 and stops its ticker). On screen
+/// means inside every scrolling viewport around it, checked as they
+/// scroll; a tab off screen is already muted by its TickerMode.
+class BalanceGoalSalMotion extends StatefulWidget {
+  const BalanceGoalSalMotion(
+      {super.key, required this.child, this.hold = false});
+
+  final Widget child;
+  final bool hold;
+
+  @override
+  State<BalanceGoalSalMotion> createState() => _BalanceGoalSalMotionState();
+}
+
+class _BalanceGoalSalMotionState extends State<BalanceGoalSalMotion> {
+  final List<ScrollPosition> _positions = [];
+  bool _onScreen = true;
+  bool _checkQueued = false;
+
+  /// Tests: whether the Sal under it may move now.
+  @visibleForTesting
+  bool get debugPlaying => _onScreen && !widget.hold;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _listen();
+    _queueCheck();
+  }
+
+  void _listen() {
+    for (final p in _positions) {
+      p.removeListener(_queueCheck);
+    }
+    _positions.clear();
+    // Every scrolling viewport around the square (the home's page, a
+    // pager around it), nearest first.
+    var scrollable = Scrollable.maybeOf(context);
+    while (scrollable != null && _positions.length < 4) {
+      final position = scrollable.position;
+      position.addListener(_queueCheck);
+      _positions.add(position);
+      scrollable = Scrollable.maybeOf(scrollable.context);
+    }
+  }
+
+  void _queueCheck() {
+    if (_checkQueued) return;
+    _checkQueued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkQueued = false;
+      if (mounted) _check();
+    });
+  }
+
+  void _check() {
+    final box = context.findRenderObject();
+    if (box is! RenderBox || !box.hasSize || !box.attached) return;
+    final rect = box.localToGlobal(Offset.zero) & box.size;
+    var visible = true;
+    var scrollable = Scrollable.maybeOf(context);
+    while (scrollable != null && visible) {
+      final port = scrollable.context.findRenderObject();
+      if (port is RenderBox && port.hasSize && port.attached) {
+        final view = port.localToGlobal(Offset.zero) & port.size;
+        visible = view.overlaps(rect);
+      }
+      scrollable = Scrollable.maybeOf(scrollable.context);
+    }
+    if (visible != _onScreen) setState(() => _onScreen = visible);
+  }
+
+  @override
+  void dispose() {
+    for (final p in _positions) {
+      p.removeListener(_queueCheck);
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_onScreen && !widget.hold) return widget.child;
+    return MediaQuery(
+      data: MediaQuery.of(context).copyWith(disableAnimations: true),
+      child: widget.child,
     );
   }
 }
@@ -933,81 +1079,6 @@ class _Celebration extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// The nudge as one full-width soft card (the home Activity's "Earlier"
-/// card, one row): the Dollars mark, "Move $25 to Dollars" over its line,
-/// and a chevron. The whole card taps through on the press spring.
-class _NudgeCard extends StatelessWidget {
-  const _NudgeCard({required this.nudge});
-
-  final BalanceGoalNudge nudge;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    return Semantics(
-      button: true,
-      child: KutePressable(
-        child: GestureDetector(
-          key: const ValueKey('balance-goal-nudge'),
-          behavior: HitTestBehavior.opaque,
-          onTap: nudge.onTap,
-          child: DecoratedBox(
-            decoration: PremiumGroupContainer.decorationOf(context),
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(14.w, 12.h, 12.w, 12.h),
-              child: Row(
-                children: [
-                  ExcludeSemantics(
-                    child: AssetIcon(assetCode: 'USD', size: 36.sp),
-                  ),
-                  SizedBox(width: 12.w),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          nudge.label,
-                          key: const ValueKey('balance-goal-nudge-label'),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: c.textPrimary,
-                            fontSize: 15.sp,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: -0.2,
-                            height: 1.25,
-                          ),
-                        ),
-                        SizedBox(height: 2.h),
-                        Text(
-                          nudge.line,
-                          key: const ValueKey('balance-goal-nudge-line'),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: c.textSecondary,
-                            fontSize: 13.sp,
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: -0.1,
-                            height: 1.3,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(width: 8.w),
-                  Icon(Icons.chevron_right_rounded,
-                      color: c.textTertiary, size: 18.sp),
-                ],
-              ),
-            ),
-          ),
         ),
       ),
     );
