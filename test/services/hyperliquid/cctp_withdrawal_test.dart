@@ -684,7 +684,10 @@ void main() {
                   (e) => e.reason, 'reason', CctpUnavailableReason.capability)
               .having((e) => e.decision?.allowed, 'decision.allowed', false)
               .having(
-                  (e) => e.decision?.reason, 'decision.reason', 'disabled')));
+                  (e) => e.decision?.reason, 'decision.reason', 'disabled')
+              // Named, so the shared sheet's Check connection asks it.
+              .having((e) => e.capability, 'capability',
+                  'hyperliquid.withdraw')));
       expect(await normalRoute(), isA<CapabilityUnavailableException>(),
           reason: 'the normal route refuses too');
       expect(orchestra.quotes, isEmpty);

@@ -364,13 +364,18 @@ enum CctpUnavailableReason {
 /// The fallback cannot run. Thrown before anything is posted (a signed
 /// action that was never POSTed left nothing).
 class CctpUnavailable implements Exception {
-  const CctpUnavailable(this.reason, {this.decision});
+  const CctpUnavailable(this.reason, {this.decision, this.capability});
   final CctpUnavailableReason reason;
 
   /// The policy's denial when [reason] is
   /// [CctpUnavailableReason.capability], so a screen can show it the way
   /// every other withheld capability is shown.
   final CapabilityDecision? decision;
+
+  /// The capability [decision] refuses (a fixed id), when known: the
+  /// shared sheet's "Check connection" asks it again rather than every
+  /// region denial the policy holds.
+  final String? capability;
 
   @override
   String toString() => 'CctpUnavailable(${reason.code})';
@@ -783,10 +788,10 @@ class HypercoreCctpWithdrawal {
   static String rowIdFor(String operationId) => '$kCctpRowPrefix$operationId';
 
   Never _unavailable(CctpUnavailableReason reason, double usd,
-      {CapabilityDecision? decision}) {
+      {CapabilityDecision? decision, String? capability}) {
     TrackingService.hyperliquidCctpUnavailable(
         reason: reason.code, amountUsd: usd);
-    throw CctpUnavailable(reason, decision: decision);
+    throw CctpUnavailable(reason, decision: decision, capability: capability);
   }
 
   /// Brings [usd] of Investing cash home to Dollars by CCTP. [stepUp]
@@ -869,7 +874,8 @@ class HypercoreCctpWithdrawal {
       await _policy().ensureAllAllowed(cctpCapabilitiesFor(destination),
           maxAge: kCctpPolicyMaxAge);
     } on CapabilityUnavailableException catch (e) {
-      _unavailable(CctpUnavailableReason.capability, usd, decision: e.decision);
+      _unavailable(CctpUnavailableReason.capability, usd,
+          decision: e.decision, capability: e.capability);
     }
     wallet.ensureSpending(walletId);
 
@@ -1134,12 +1140,12 @@ class HypercoreCctpWithdrawal {
             idempotencyKey: OrchestraService.generateIdempotencyKey());
       } on CapabilityUnavailableException catch (e) {
         _unavailable(CctpUnavailableReason.capability, usd,
-            decision: e.decision);
+            decision: e.decision, capability: e.capability);
       } on OrchestraQuoteFailure catch (e) {
         final denial = e.denial;
         if (denial is CapabilityUnavailableException) {
           _unavailable(CctpUnavailableReason.capability, usd,
-              decision: denial.decision);
+              decision: denial.decision, capability: denial.capability);
         }
         _unavailable(CctpUnavailableReason.quoteUnavailable, usd);
       } on WalletGuardException catch (e) {
