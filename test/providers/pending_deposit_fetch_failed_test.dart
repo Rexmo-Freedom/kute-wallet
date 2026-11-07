@@ -43,7 +43,12 @@ void main() {
     Hive.init(dir.path);
     await Hive.openBox<String>('polymarket_optimistic_activity');
   });
-  tearDownAll(() => dir.delete(recursive: true));
+  // Hive closed first: a box still flushing as the folder goes leaves it
+  // "not empty" (errno 66), a flake seen in the full suite on 7 Nov 2026.
+  tearDownAll(() async {
+    await Hive.close();
+    await dir.delete(recursive: true);
+  });
 
   test('a failed mempool read keeps the receive that is confirming',
       () async {
