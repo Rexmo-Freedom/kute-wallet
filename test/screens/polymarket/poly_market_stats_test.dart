@@ -212,47 +212,62 @@ void main() {
   });
 
   group('rules and resolution', () {
-    testWidgets('alone, the option card takes the full width: when the '
-        'market ends, the first line of its rules, a chevron; it opens the '
-        'sheet', (tester) async {
-      var opened = 0;
+    testWidgets('alone, the card is one compact full-width row (founder, '
+        '7 November 2026: "way too much"): the gavel, the title over when '
+        'the market ends, a chevron, no preview of the rules; a tap opens '
+        'the rules sheet', (tester) async {
+      const rules = 'This market will resolve to "Yes" if it happens by the '
+          'date.\n\nThe resolution source is the official record.';
+      final event =
+          _event(description: rules, endDate: DateTime(2027, 4, 1, 12));
+      final l10n = await _l10n();
       await _pump(
         tester,
         Builder(
           builder: (context) => KuteActionCardGrid(cards: [
             polyRulesCard(context,
-                subtitle: 'Ends Nov 5',
-                detail: polyRulesCardDetail(
-                    'Resolves to Yes if it happens by the date.\n\nThe '
-                    'resolution source is the official record.'),
-                onTap: () => opened++),
+                subtitle: polyRulesCardLine(l10n,
+                    endDate: event.endDate,
+                    ended: false,
+                    now: DateTime(2026, 11, 7, 12)),
+                onTap: () => showPolyRulesSheet(context, event)),
           ]),
         ),
       );
       final card = find.byKey(kPolyRulesCardKey);
       expect(card, findsOneWidget);
       expect(tester.widget<KuteActionCard>(card).compact, isTrue);
-      // The sheet's width, inside its 16 margins.
-      expect(tester.getRect(card).width, moreOrLessEquals(375 - 32));
       Finder inCard(Finder f) => find.descendant(of: card, matching: f);
+      final rect = tester.getRect(card);
+      // The sheet's width, inside its 16 margins.
+      expect(rect.width, moreOrLessEquals(375 - 32));
       expect(inCard(find.text('Rules and resolution')), findsOneWidget);
-      expect(inCard(find.text('Ends Nov 5')), findsOneWidget);
-      expect(inCard(find.text('Resolves to Yes if it happens by the date.')),
-          findsOneWidget);
-      expect(inCard(find.byIcon(Icons.gavel_rounded)), findsOneWidget);
-      expect(inCard(find.byIcon(Icons.chevron_right_rounded)), findsOneWidget);
+      expect(inCard(find.text('Ends Apr 1, 2027')), findsOneWidget);
+      // No preview of the rules on the card: the sheet holds them.
+      expect(find.textContaining('This market will resolve'), findsNothing);
+      // One row: the gavel at the left, the text beside it, the chevron at
+      // the right, all level; a list row's height.
+      final gavel = tester.getRect(inCard(find.byIcon(Icons.gavel_rounded)));
+      final title = tester.getRect(find.text('Rules and resolution'));
+      final date = tester.getRect(find.text('Ends Apr 1, 2027'));
+      final chevron =
+          tester.getRect(inCard(find.byIcon(Icons.chevron_right_rounded)));
+      expect(gavel.width, kKuteOptionCardIconSize);
+      expect(title.left, greaterThan(gavel.right));
+      expect(date.top, greaterThanOrEqualTo(title.bottom));
+      expect(chevron.left, greaterThan(title.right));
+      expect(gavel.center.dy, moreOrLessEquals(rect.center.dy, epsilon: 1));
+      expect(chevron.center.dy, moreOrLessEquals(rect.center.dy, epsilon: 1));
+      expect(rect.height, lessThan(kKuteOptionCardMinHeight));
       await tester.tap(card);
-      expect(opened, 1);
-    });
-
-    test('the card\'s rules line: the first paragraph, its spaces '
-        'collapsed; none without rules text', () {
+      await tester.pumpAndSettle();
+      expect(find.byType(PolyRulesSheet), findsOneWidget);
       expect(
-          polyRulesCardDetail('\n  This market will resolve to "Yes"  if\t'
-              'it happens.\nThe resolution source is X.'),
-          'This market will resolve to "Yes" if it happens.');
-      expect(polyRulesCardDetail(null), isNull);
-      expect(polyRulesCardDetail(' \n \n'), isNull);
+          find.descendant(
+              of: find.byType(PolyRulesSheet),
+              matching: find.textContaining('This market will resolve')),
+          findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
 
     test('the card\'s line: the end in the current year, with the year '

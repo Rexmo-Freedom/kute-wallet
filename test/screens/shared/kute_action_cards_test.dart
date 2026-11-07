@@ -3,8 +3,8 @@
 // lone card or an odd last one full width and compact, the visual at its
 // left and a chevron at its right), a disabled card's badge, and the
 // smaller option cards under a market's or a position's chart, never one
-// alone in half the width: the lone card full width with more presence, an
-// odd last one full width under the squares.
+// alone in half the width: the lone card and an odd last one alike one
+// compact full-width row, as tall as a list row, with no preview.
 
 import 'dart:math' as math;
 
@@ -27,9 +27,7 @@ KuteActionCard _card(String title, {String? sub, VoidCallback? onTap,
     );
 
 Future<void> _pump(WidgetTester tester, List<KuteActionCard> cards,
-    {bool compactLone = false,
-    KuteActionCard? lead,
-    bool oneLineTitles = false}) async {
+    {KuteActionCard? lead, bool oneLineTitles = false}) async {
   tester.view.physicalSize = const Size(430, 932);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -42,10 +40,7 @@ Future<void> _pump(WidgetTester tester, List<KuteActionCard> cards,
           padding: const EdgeInsets.all(20),
           children: [
             KuteActionCardGrid(
-                cards: cards,
-                compactLone: compactLone,
-                lead: lead,
-                oneLineTitles: oneLineTitles)
+                cards: cards, lead: lead, oneLineTitles: oneLineTitles)
           ],
         ),
       ),
@@ -318,111 +313,92 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    const rules = 'This market will resolve to "Yes" if the President of '
-        'the United States, or an official US government agency, publicly '
-        'confirms the existence of extraterrestrial life by December 31, '
-        '2026. Otherwise, this market will resolve to "No".';
-    KuteActionCard rulesCard({String? detail = rules}) =>
-        KuteActionCard.option(
+    KuteActionCard rulesCard() => KuteActionCard.option(
           key: const ValueKey('card-Rules and resolution'),
           icon: Icons.gavel_rounded,
           title: 'Rules and resolution',
-          subtitle: 'Ends Jan 1, 2027',
-          detail: detail,
+          subtitle: 'Ends Apr 1, 2027',
           onTap: () {},
         );
     Finder chevronIn(String title) => find.descendant(
         of: find.byKey(ValueKey('card-$title')),
         matching: find.byIcon(Icons.chevron_right_rounded));
 
-    testWidgets('a lone option card takes the full width with more '
-        'presence: a larger icon and title, its value, the rules\' first '
-        'line on two lines, a chevron at its right; as tall as that',
+    /// [title]'s card is one compact full-width row (founder, 7 November
+    /// 2026, the lone rules card: "way too much"): the icon at its left
+    /// at the squares' size, the title over its value beside it, the
+    /// chevron at its right, all level with the card's middle; as tall as
+    /// a list row.
+    void expectRow(WidgetTester tester, String title, String value,
+        IconData iconData) {
+      final card = _r(tester, title);
+      expect(card.left, moreOrLessEquals(20));
+      expect(card.width, moreOrLessEquals(390));
+      final icon = tester.getRect(find.descendant(
+          of: find.byKey(ValueKey('card-$title')),
+          matching: find.byIcon(iconData)));
+      final text = tester.getRect(find.text(title));
+      final line = tester.getRect(find.text(value));
+      final chevron = tester.getRect(chevronIn(title));
+      expect(icon.width, kKuteOptionCardIconSize);
+      expect(icon.left - card.left,
+          moreOrLessEquals(kKuteOptionCardPadding + 1));
+      expect(icon.center.dy, moreOrLessEquals(card.center.dy, epsilon: 1));
+      expect(text.left, greaterThan(icon.right));
+      expect(line.left, moreOrLessEquals(text.left));
+      expect(line.top, greaterThanOrEqualTo(text.bottom));
+      expect(tester.widget<Text>(find.text(title)).style!.fontSize, 15);
+      expect(tester.widget<Text>(find.text(value)).maxLines, 1);
+      expect(card.right - chevron.right,
+          moreOrLessEquals(kKuteOptionCardPadding + 1));
+      expect(chevron.center.dy, moreOrLessEquals(card.center.dy, epsilon: 1));
+      expect(text.right, lessThanOrEqualTo(chevron.left));
+      // The title over its value and the padding, nothing more: a list
+      // row's height (the real page's is checked with Inter loaded, in
+      // market_send_cards_test.dart), far under a square's floor.
+      expect(card.height,
+          moreOrLessEquals(
+              line.bottom - text.top + 2 * (kKuteOptionCardPadding + 1),
+              epsilon: 1));
+      expect(card.height, lessThan(kKuteOptionCardMinHeight));
+    }
+
+    testWidgets('a lone option card is one compact full-width row: the '
+        'icon at its left, the title over its date, a chevron; no preview',
         (tester) async {
       await _pump(tester, [rulesCard()]);
-      final lone = _r(tester, 'Rules and resolution');
-      expect(lone.left, moreOrLessEquals(20));
-      expect(lone.width, moreOrLessEquals(390));
-      final icon = tester.getRect(find.byIcon(Icons.gavel_rounded));
-      expect(icon.width, kKuteOptionCardLoneIconSize);
-      expect(icon.left - lone.left,
-          moreOrLessEquals(kKuteOptionCardLonePadding + 1));
-      final title = tester.widget<Text>(find.text('Rules and resolution'));
-      expect(title.style!.fontSize, greaterThan(15));
-      expect(find.text('Ends Jan 1, 2027'), findsOneWidget);
-      final detail = tester.widget<Text>(find.text(rules));
-      expect(detail.maxLines, 2);
-      expect(detail.overflow, TextOverflow.ellipsis);
-      // The chevron at the right, level with the card's middle.
-      final chevron = tester.getRect(chevronIn('Rules and resolution'));
-      expect(lone.right - chevron.right,
-          moreOrLessEquals(kKuteOptionCardLonePadding + 1));
-      expect(chevron.center.dy, moreOrLessEquals(lone.center.dy, epsilon: 1));
-      // The text runs clear of the chevron.
-      expect(tester.getRect(find.text(rules)).right,
-          lessThanOrEqualTo(chevron.left));
-      // As tall as its content, no empty block under it.
-      expect(lone.bottom - tester.getRect(find.text(rules)).bottom,
-          moreOrLessEquals(kKuteOptionCardLonePadding + 1));
+      expectRow(tester, 'Rules and resolution', 'Ends Apr 1, 2027',
+          Icons.gavel_rounded);
       expect(
           tester.getSemantics(find.byKey(
               const ValueKey('card-Rules and resolution'))),
           matchesSemantics(
-              label: 'Rules and resolution, Ends Jan 1, 2027, $rules',
+              label: 'Rules and resolution, Ends Apr 1, 2027',
               isButton: true));
-      expect(tester.takeException(), isNull);
-
-      // Without a detail: the title and the value, nothing under them.
-      await _pump(tester, [rulesCard(detail: null)]);
-      final plain = _r(tester, 'Rules and resolution');
-      expect(plain.width, moreOrLessEquals(390));
-      expect(chevronIn('Rules and resolution'), findsOneWidget);
-      expect(plain.bottom - tester.getRect(find.text('Ends Jan 1, 2027')).bottom,
-          moreOrLessEquals(kKuteOptionCardLonePadding + 1, epsilon: 1));
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('compactLone (a position\'s actions row): the lone card full '
-        'width at the squares\' size, the chevron at its right', (tester) async {
-      await _pump(tester, [option('Protect it', sub: 'Sell at your price')],
-          compactLone: true);
-      final card = _r(tester, 'Protect it');
-      expect(card.left, moreOrLessEquals(20));
-      expect(card.width, moreOrLessEquals(390));
-      final icon = tester.getRect(find.byIcon(Icons.shield_outlined));
-      expect(icon.width, kKuteOptionCardIconSize);
-      expect(icon.left - card.left,
-          moreOrLessEquals(kKuteOptionCardPadding + 1));
-      expect(tester.widget<Text>(find.text('Protect it')).style!.fontSize,
-          15);
-      expect(chevronOf('Protect it'), findsOneWidget);
-      // Two cards are still squares side by side.
-      await _pump(tester, [option('Add margin'), option('Protect it')],
-          compactLone: true);
+    testWidgets('a position\'s lone action is the same row; two are still '
+        'squares side by side', (tester) async {
+      await _pump(tester, [option('Protect it', sub: 'Sell at your price')]);
+      expectRow(
+          tester, 'Protect it', 'Sell at your price', Icons.shield_outlined);
+      await _pump(tester, [option('Add margin'), option('Protect it')]);
       expect(_r(tester, 'Add margin').top, _r(tester, 'Protect it').top);
       expect(chevronOf('Protect it'), findsNothing);
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('three: two squares over one full-width card, which shows '
-        'its detail and a chevron at the squares\' sizes; a square shows '
-        'neither', (tester) async {
+    testWidgets('three: two squares over one full-width row, at the '
+        'squares\' sizes, with a chevron; a square has none', (tester) async {
       await _pump(tester, [
         option('View market', sub: 'Chart and odds'),
-        KuteActionCard.option(
-          key: const ValueKey('card-Details'),
-          icon: Icons.receipt_long_rounded,
-          title: 'Details',
-          subtitle: 'Shares and price paid',
-          detail: 'Never on a square',
-          onTap: () {},
-        ),
+        option('Details', sub: 'Shares and price paid'),
         KuteActionCard.option(
           key: const ValueKey('card-Closing conditions'),
           icon: Icons.gavel_rounded,
           title: 'Closing conditions',
           subtitle: 'How it resolves',
-          detail: rules,
           onTap: () {},
         ),
       ]);
@@ -433,18 +409,14 @@ void main() {
       expect(a.height, b.height);
       expect(a.width, moreOrLessEquals((390 - 12) / 2));
       expect(c.top - a.bottom, moreOrLessEquals(12));
-      expect(c.left, moreOrLessEquals(a.left));
-      expect(c.width, moreOrLessEquals(390));
-      expect(find.text('Never on a square'), findsNothing);
       expect(chevronIn('View market'), findsNothing);
       expect(chevronIn('Details'), findsNothing);
-      expect(chevronIn('Closing conditions'), findsOneWidget);
-      expect(find.text(rules), findsOneWidget);
+      expectRow(tester, 'Closing conditions', 'How it resolves',
+          Icons.gavel_rounded);
       // The squares' sizes: one family under the chart.
-      expect(tester.getRect(find.byIcon(Icons.gavel_rounded)).width,
-          kKuteOptionCardIconSize);
       expect(tester.widget<Text>(find.text('Closing conditions')).style,
           tester.widget<Text>(find.text('View market')).style);
+      expect(c.height, lessThan(a.height));
       expect(tester.takeException(), isNull);
     });
 

@@ -236,8 +236,9 @@ void main() {
           find.descendant(
               of: protect, matching: find.byIcon(Icons.chevron_right_rounded)),
           findsOneWidget);
-      // View market and Details side by side, the rules full width under
-      // them with their first line.
+      // View market and Details side by side, the rules one compact
+      // full-width row under them: no preview of the rules text, a
+      // chevron, less tall than the squares (founder, 7 November 2026).
       expect(first.top, details.top);
       expect(first.right, lessThan(details.left));
       expect(tester.getRect(rules).top, greaterThan(first.bottom));
@@ -247,7 +248,12 @@ void main() {
               of: rules,
               matching:
                   find.text('Resolves to the winner of the 2026 election.')),
+          findsNothing);
+      expect(
+          find.descendant(
+              of: rules, matching: find.byIcon(Icons.chevron_right_rounded)),
           findsOneWidget);
+      expect(tester.getRect(rules).height, lessThan(first.height));
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     }, () => MockClient((_) async => http.Response('{}', 404)));
@@ -263,8 +269,8 @@ void main() {
   });
 
   testWidgets('a settled position keeps the row: View market and Details '
-      'side by side, Closing Conditions full width under them with the '
-      'first line of the rules and a chevron (never a lone half-width card)',
+      'side by side, Closing Conditions a compact full-width row under them '
+      'with a chevron, no rules preview (never a lone half-width card)',
       (tester) async {
     await http.runWithClient(() async {
       await _pump(
@@ -312,11 +318,12 @@ void main() {
               of: rules,
               matching:
                   find.text('Resolves to the winner of the 2026 election.')),
-          findsOneWidget);
+          findsNothing);
       expect(
           find.descendant(
               of: rules, matching: find.byIcon(Icons.chevron_right_rounded)),
           findsOneWidget);
+      expect(tester.getRect(rules).height, lessThan(view.height));
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     }, () => MockClient((_) async => http.Response('{}', 404)));

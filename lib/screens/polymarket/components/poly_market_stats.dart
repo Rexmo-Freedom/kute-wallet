@@ -77,16 +77,16 @@ const kPolyRulesCardKey = ValueKey('poly-rules');
 
 /// The "Rules and resolution" option card (kute_action_cards.dart),
 /// opening [showPolyRulesSheet] through [onTap], its [subtitle] the line
-/// [polyRulesCardLine] writes and its [detail] the one
-/// [polyRulesCardDetail] writes (read when the card has the full width).
-/// [title] names another sheet opened the same way (the open position's
-/// "Closing conditions").
+/// [polyRulesCardLine] writes. Full width (the market page's only card,
+/// a position's odd last one) it is one compact row: the gavel, the title
+/// over its date, a chevron; never a preview of the rules, which the sheet
+/// holds (founder, 7 November 2026: "way too much"). [title] names another
+/// sheet opened the same way (the open position's "Closing conditions").
 KuteActionCard polyRulesCard(
   BuildContext context, {
   Key key = kPolyRulesCardKey,
   String? title,
   required String subtitle,
-  String? detail,
   required VoidCallback onTap,
 }) =>
     KuteActionCard.option(
@@ -94,23 +94,8 @@ KuteActionCard polyRulesCard(
       icon: Icons.gavel_rounded,
       title: title ?? context.l10n.polyRulesAndResolution,
       subtitle: subtitle,
-      detail: detail,
       onTap: onTap,
     );
-
-/// The rules card's helpful line when it has the full width (founder, 5
-/// November 2026: "it can be Rules and resolution bigger"): the first
-/// paragraph of the market's rules ([description]), its spaces collapsed;
-/// the card cuts it at two lines and the sheet holds the rest. Null when
-/// the market has no rules text.
-String? polyRulesCardDetail(String? description) {
-  if (description == null) return null;
-  for (final line in description.split('\n')) {
-    final text = line.replaceAll(RegExp(r'\s+'), ' ').trim();
-    if (text.isNotEmpty) return text;
-  }
-  return null;
-}
 
 /// The market's [stats], its rules, how it resolves and what people wrote
 /// under it, on the app's shared bottom sheet. The comments are read only
