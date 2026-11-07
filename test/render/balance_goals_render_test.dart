@@ -5,7 +5,8 @@
 // goal (the goal line drawn) with the Goals squares and the nudge under
 // it, far from one (no line), a rung just passed (Sal and the line in the
 // squares' place, the confetti mid-burst), the same under Reduce Motion,
-// with balances hidden, and in German (the longest words).
+// with balances hidden, and in German (the longest words); and the whole
+// ladder, the Goals squares at every level with Sal's still for each.
 
 import 'dart:convert';
 import 'dart:io';
@@ -103,6 +104,9 @@ Future<void> _assets(WidgetTester tester) async {
             as Map<String, dynamic>;
     SalSpriteCache.debugSetManifest(manifest);
     await SalSpriteCache.clip('body_cheer', 3);
+    for (final clip in balanceGoalClips) {
+      await SalSpriteCache.clip(clip, 3);
+    }
   });
 }
 
@@ -273,6 +277,60 @@ void main() {
       await _show(tester, key,
           dark: dark, sats: 240000, cash: 120, locale: const Locale('de'));
       await _save(tester, key, 'goals_de_$mode');
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 3));
+    });
+
+    testWidgets('the ladder $mode', (tester) async {
+      await _assets(tester);
+      tester.view.physicalSize = const Size(390 * 3, 3300 * 3);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      final key = GlobalKey();
+      final ladder = BalanceMilestoneLadder.forCurrency('USD');
+      await tester.pumpWidget(ScreenUtilInit(
+        designSize: const Size(430, 932),
+        builder: (_, __) => MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: _theme(dark),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: RepaintBoundary(
+              key: key,
+              child: Builder(
+                builder: (context) => ColoredBox(
+                  color: context.colors.background,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (var i = 0; i < 12; i++)
+                          BalanceGoalsSection(
+                            // Two thirds of the way from one rung to the
+                            // next: level i + 1.
+                            progress: ladder.progress(i == 0
+                                ? 60
+                                : ladder.rung(i - 1) +
+                                    (ladder.rung(i) - ladder.rung(i - 1)) *
+                                        0.66),
+                            currency: 'USD',
+                            visible: true,
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ));
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      await _save(tester, key, 'goals_ladder_$mode');
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 3));
     });

@@ -45,8 +45,8 @@ void main() {
       // João's Dollars case: $5.02 arriving three hours ago, nothing
       // before. The line rises from nothing, never from the left edge.
       final deposit = now.subtract(const Duration(hours: 3));
-      final h = BalanceHistory(
-          opening: 0, changes: [(deposit, 5.02)], current: 5.02);
+      final h =
+          BalanceHistory(opening: 0, changes: [(deposit, 5.02)], current: 5.02);
       final s = balanceSeries(h, now);
       expect(s.cellMinutes, 15);
       expect(s.times.first, deposit.subtract(kBalanceMinLeadIn));
@@ -61,8 +61,8 @@ void main() {
     });
 
     test('a deposit this very second still rises from nothing', () {
-      final h = BalanceHistory(
-          opening: 0, changes: [(now, 17520)], current: 17520);
+      final h =
+          BalanceHistory(opening: 0, changes: [(now, 17520)], current: 17520);
       final s = balanceSeries(h, now);
       expect(s.values.first, 0);
       expect(s.values.last, 17520);
@@ -83,8 +83,8 @@ void main() {
       final s = balanceSeries(h, now);
       expect(s.cellMinutes, 60);
       expect(s.length, lessThanOrEqualTo(kBalanceMaxCells + 2));
-      expect(s.times.first,
-          first.subtract(const Duration(days: 22, hours: 12)));
+      expect(
+          s.times.first, first.subtract(const Duration(days: 22, hours: 12)));
       expect(s.values.first, 0);
       expect(s.values.last, 690400);
       // Grid points sit on whole hours after the first one.
@@ -108,8 +108,7 @@ void main() {
       expect(s.times.first.isBefore(stay), isTrue);
     });
 
-    test('a balance held under an hour never shows; for hours, it does',
-        () {
+    test('a balance held under an hour never shows; for hours, it does', () {
       // Steady at 7,000 for weeks. 110,000 in and on to Investments in 20
       // minutes, straddling an hour; later 50,000 in for three hours.
       final quick = DateTime(2026, 10, 3, 15, 55);
@@ -130,7 +129,8 @@ void main() {
       expect(s.values.contains(57000), isTrue);
     });
 
-    test('money held for hours but gone the same day does not start the '
+    test(
+        'money held for hours but gone the same day does not start the '
         'history', () {
       final morning = DateTime(2026, 9, 20, 9);
       final stay = DateTime(2026, 10, 1, 9);
@@ -149,8 +149,8 @@ void main() {
 
     test('money held before the first change: a short lead-in on it', () {
       final c0 = now.subtract(const Duration(days: 12));
-      final h = BalanceHistory(
-          opening: 100, changes: [(c0, 150)], current: 150);
+      final h =
+          BalanceHistory(opening: 100, changes: [(c0, 150)], current: 150);
       final s = balanceSeries(h, now);
       expect(s.times.first, c0.subtract(const Duration(days: 1)));
       expect(s.values.first, 100);
@@ -159,13 +159,11 @@ void main() {
     test('no change on record: the last week, flat at the balance', () {
       const h = BalanceHistory(opening: 0, changes: [], current: 1200);
       final s = balanceSeries(h, now);
-      expect(s.times.last.difference(s.times.first),
-          const Duration(days: 7));
+      expect(s.times.last.difference(s.times.first), const Duration(days: 7));
       expect(s.values.every((v) => v == 1200), isTrue);
     });
 
-    test('each range reaches back its length from now; ALL is everything',
-        () {
+    test('each range reaches back its length from now; ALL is everything', () {
       final h = BalanceHistory(
         opening: 0,
         changes: [(now.subtract(const Duration(days: 500)), 50000)],
@@ -180,8 +178,8 @@ void main() {
           final cut = now.subtract(r.duration!);
           expect(start.isBefore(cut), isFalse, reason: '$r');
           // Within a grid step (and a clock change) of the cut.
-          expect(start.difference(cut).inMinutes,
-              lessThan(s.cellMinutes + 61), reason: '$r');
+          expect(start.difference(cut).inMinutes, lessThan(s.cellMinutes + 61),
+              reason: '$r');
         }
       }
       expect([for (final r in BalanceRange.values) r.label],
@@ -197,8 +195,8 @@ void main() {
     });
 
     test('a stepped line is drawn flat, then straight up or down', () {
-      final path = kuteStepPath(
-          const [Offset(0, 10), Offset(10, 10), Offset(20, 2)]);
+      final path =
+          kuteStepPath(const [Offset(0, 10), Offset(10, 10), Offset(20, 2)]);
       expect(path.getBounds(), const Rect.fromLTRB(0, 2, 20, 10));
     });
   });
@@ -229,8 +227,8 @@ void main() {
           ),
         );
 
-    Future<void> pump(WidgetTester tester, Widget child,
-        List<Override> overrides) async {
+    Future<void> pump(
+        WidgetTester tester, Widget child, List<Override> overrides) async {
       tester.view.physicalSize = const Size(393, 852) * 2;
       tester.view.devicePixelRatio = 2;
       addTearDown(tester.view.resetPhysicalSize);
@@ -317,8 +315,9 @@ void main() {
     }
 
     testWidgets(
-        'Dollars: the headline, the range row (1M) under the plot, the '
-        'change from zero without a percent', (tester) async {
+        'Dollars: the headline, the range row (1M) under the plot; a change '
+        'from zero is the whole balance, so the line under it says nothing',
+        (tester) async {
       await pump(tester, const UsdBalanceChart(), dollars());
       expect(find.byType(KuteChartRangeRow), findsOneWidget);
       for (final r in ['1W', '1M', '3M', '1Y', 'ALL']) {
@@ -328,11 +327,14 @@ void main() {
       expect(chart.selectedRange, BalanceRange.month.index);
       expect(chart.values.last, 5.02);
       // Up over the month: the result colour.
-      expect(kuteTrendResultColor(AppColorsExtension.light(),
-          chart.values.first, chart.values.last), AppColors.marketUp);
+      expect(
+          kuteTrendResultColor(AppColorsExtension.light(), chart.values.first,
+              chart.values.last),
+          AppColors.marketUp);
       expect(headline(tester), r'$5.02');
-      expect(header(tester), '▲ \$5.02 · Past month');
+      expect(find.byKey(const ValueKey('balance-chart-header')), findsNothing);
       expect(find.textContaining('%'), findsNothing);
+      expect(find.textContaining('Past month'), findsNothing);
       // The range row 16 px under the plot.
       expect(tester.getTopLeft(find.byType(KuteChartRangeRow)).dy,
           closeTo(tester.getBottomLeft(plot()).dy + 16 * 393 / 430, 1));
@@ -345,19 +347,22 @@ void main() {
       await pump(tester, bare(rising), plain());
       expect(chartOf(tester).values,
           kuteTrendWindow(s, s.spanFor(BalanceRange.month)).values);
-      expect(header(tester), '▲ \$50.00 (+50.0%) · Past month');
+      // One quiet line: the change as a percent, the period left to the
+      // range row.
+      expect(header(tester), '▲ 50.0%');
 
       await tester.tap(find.text('1W'));
       await tester.pump(const Duration(milliseconds: 400));
       expect(chartOf(tester).values,
           kuteTrendWindow(s, s.spanFor(BalanceRange.week)).values);
-      expect(header(tester), '▲ \$50.00 (+50.0%) · Past week');
+      expect(header(tester), '▲ 50.0%');
 
       await tester.tap(find.text('ALL'));
       await tester.pump(const Duration(milliseconds: 400));
       expect(chartOf(tester).values.first, 0);
-      // From the lead-in's nothing: no percent.
-      expect(header(tester), '▲ \$150.00 · All time');
+      // From the lead-in's nothing the change is the whole balance:
+      // nothing said.
+      expect(find.byKey(const ValueKey('balance-chart-header')), findsNothing);
       await settle(tester);
     });
 
@@ -397,36 +402,41 @@ void main() {
             ],
             current: end,
           );
+      Finder line() => find.byKey(const ValueKey('balance-chart-header'));
       await pump(tester, bare(to(200, 150)), plain());
-      expect(header(tester), '▼ \$50.00 (−25.0%) · Past month');
+      expect(header(tester), '▼ 25.0%');
       expect(chartOf(tester).lineColor, isNull);
       await pump(tester, bare(to(100, 0)), plain());
-      // An account emptied: the amount, never "-100.0%".
-      expect(header(tester), '▼ \$100.00 · Past month');
+      // An account emptied: the change is the whole balance, never
+      // "-100.0%".
+      expect(line(), findsNothing);
       expect(find.textContaining('100.0%'), findsNothing);
+      // A first deposit next to a crumb: still the whole balance.
+      await pump(tester, bare(to(5, 150)), plain());
+      expect(line(), findsNothing);
       await pump(tester, bare(to(100, 100)), plain());
-      expect(header(tester), 'No change · Past month');
+      expect(line(), findsNothing);
+      expect(find.text('No change'), findsNothing);
       await settle(tester);
     });
 
     testWidgets(
         'a scrub writes the balance under the finger in the headline and '
-        'its change and moment in the change line; release puts now back',
-        (tester) async {
+        'its moment in the quiet line; release puts now back', (tester) async {
       await pump(tester, bare(rising), plain());
       final rect = tester.getRect(plot());
       final touch = await scrub(tester, rect.centerRight.translate(-8, 0));
       expect(headline(tester), r'$150.00');
-      expect(header(tester), startsWith('▲ \$50.00 (+50.0%) · '));
+      expect(header(tester), isNot(contains('%')));
       // Back to the left: the older balance and its own day.
       await touch.moveTo(rect.centerLeft.translate(2, 0));
       await tester.pump(const Duration(milliseconds: 150));
       expect(headline(tester), r'$100.00');
-      expect(header(tester), startsWith('No change · Sep '));
+      expect(header(tester), startsWith('Sep '));
       await touch.up();
       await tester.pump(const Duration(milliseconds: 150));
       expect(headline(tester), r'$150.00');
-      expect(header(tester), '▲ \$50.00 (+50.0%) · Past month');
+      expect(header(tester), '▲ 50.0%');
       await settle(tester);
     });
 
@@ -436,8 +446,8 @@ void main() {
       const history = BalanceHistory(opening: 0, changes: [], current: 0);
       await pump(tester, bare(history), plain());
       expectNoHistory(tester);
-      expect(find.byKey(const ValueKey('balance-chart-headline')),
-          findsNothing);
+      expect(
+          find.byKey(const ValueKey('balance-chart-headline')), findsNothing);
       expect(find.byKey(const ValueKey('balance-chart-empty')), findsNothing);
       expect(plot(), findsNothing);
       expect(find.byType(KuteChartRangeRow), findsNothing);
@@ -445,11 +455,12 @@ void main() {
       await settle(tester);
     });
 
-    testWidgets('balances hidden: dots for every figure, no percent',
+    testWidgets('balances hidden: dots for every figure, no change',
         (tester) async {
       await pump(tester, bare(rising), plain(privacy: 1));
       expect(headline(tester), '••••••');
-      expect(header(tester), '•••••• · Past month');
+      expect(find.byKey(const ValueKey('balance-chart-header')), findsNothing);
+      expect(find.textContaining('▲'), findsNothing);
       expect(find.textContaining(r'$'), findsNothing);
       await settle(tester);
     });
@@ -479,8 +490,8 @@ void main() {
         viewedWalletBalanceProvider.overrideWithValue(WalletBalance(
             onChainBtcBalance: 0, sparkBitcoinbalance: current.round())),
         polymarketBalanceProvider.overrideWith((_) => 0),
-        selectedCurrencyProvider.overrideWith((ref, code) =>
-            Money.fromNumWithCurrency(70000, AppCurrencies.usd)),
+        selectedCurrencyProvider.overrideWith(
+            (ref, code) => Money.fromNumWithCurrency(70000, AppCurrencies.usd)),
         selectedCurrencyProviderFromUSD.overrideWith(
             (ref, code) => Money.fromNumWithCurrency(1, AppCurrencies.usd)),
         viewedWalletProvider.overrideWithValue(null),
@@ -504,13 +515,17 @@ void main() {
               .text,
           // 17,520 sats at $70,000.
           r'$12.26');
-      expect(header(tester), '▲ ₿17,520 · Past month');
+      // The first deposit is inside the month: the change would be the
+      // whole balance, so the quiet line is the worth alone.
+      expect(find.byKey(const ValueKey('balance-chart-header')), findsNothing);
+      expect(find.textContaining('Past month'), findsNothing);
       expect(chartOf(tester).values.last, 17520);
       final rect = tester.getRect(plot());
       final touch = await scrub(tester, rect.centerRight.translate(-8, 0));
       expect(headline(tester), '₿17,520');
-      expect(header(tester), startsWith('▲ ₿17,520 · '));
-      expect(header(tester), isNot(contains('Past month')));
+      // Scrubbing: the worth, then the moment under the finger.
+      expect(header(tester), startsWith(' · '));
+      expect(header(tester), isNot(contains('₿')));
       await touch.up();
       for (var i = 0; i < 10; i++) {
         await tester.pump(const Duration(milliseconds: 100));
@@ -559,7 +574,7 @@ void main() {
       final rect = tester.getRect(plot());
       final touch = await scrub(tester, rect.centerRight.translate(-8, 0));
       expect(headline(tester), '₿17,520');
-      expect(header(tester), startsWith('▲ ₿17,520 · '));
+      expect(header(tester), startsWith(' · '));
       await touch.up();
       await settle(tester);
     });
