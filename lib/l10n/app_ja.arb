@@ -3326,7 +3326,6 @@
   "sendLinkToPhone": "Send a link to {phone}",
   "sendBadgeKute": "On Kute",
   "sendBadgeLightning": "Lightning address",
-  "usdBitcoinBalanceLine": "ビットコイン残高 {amount}",
   "usdReceiveFromYourBitcoin": "ビットコインから",
   "receiveFromYourDollars": "ドルから",
   "usdDollarsBalanceLine": "ドル残高 {amount}",

@@ -439,9 +439,9 @@ void main() {
     expect(find.byType(UsdStandingAddressSheet), findsNothing);
     expect(line, findsNothing);
     expect(find.byType(UsdReceiveScreen), findsOneWidget);
-    // The Dollars Add as it was: its "Another crypto" card (the coins
+    // The Dollars Receive as it was: "Dollars" on top (its dollar coins
     // live in the coin sheet).
-    expect(receiveFromAnotherRow, findsOneWidget);
+    expect(receiveDollarsLead, findsOneWidget);
     expect(named('usd_receive_abandoned'), isEmpty,
         reason: 'the Dollars receive is still open underneath');
     expect(tester.takeException(), isNull);
@@ -477,7 +477,7 @@ void main() {
 
       expect(sheet, findsNothing);
       expect(find.byType(UsdReceiveScreen), findsOneWidget);
-      expect(receiveFromAnotherRow, findsOneWidget);
+      expect(receiveDollarsLead, findsOneWidget);
       expect(find.byType(RequestAmountSheet), findsNothing);
       expect(named('receive_address_failed'), isEmpty);
       expect(named('receive_address_generated'), isEmpty);

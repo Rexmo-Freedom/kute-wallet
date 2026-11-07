@@ -3326,7 +3326,6 @@
   "sendLinkToPhone": "Send a link to {phone}",
   "sendBadgeKute": "On Kute",
   "sendBadgeLightning": "Lightning address",
-  "usdBitcoinBalanceLine": "{amount} σε Bitcoin",
   "usdReceiveFromYourBitcoin": "Από το Bitcoin σου",
   "receiveFromYourDollars": "Από τα Δολάρια",
   "usdDollarsBalanceLine": "{amount} σε Δολάρια",

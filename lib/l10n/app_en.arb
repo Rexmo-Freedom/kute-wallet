@@ -3654,7 +3654,7 @@
   "portfolioTabStatistics": "Statistics",
   "portfolioBalanceDollars": "Dollars",
   "@portfolioBalanceDollars": {
-    "description": "Title of the Dollars (USDB) row in the Portfolio's balance breakdown, above the Investing (Hyperliquid) and Predictions (Polymarket) rows."
+    "description": "Title of the Dollars (USDB) row in the Portfolio's balance breakdown, above the Investing (Hyperliquid) and Predictions (Polymarket) rows. Also the title of the money card on the Send's \"What are you sending?\" sheet and of the large top card on the Dollars Receive sheet (dollars received from any wallet or exchange as USDC or USDT)."
   },
   "portfolioRebalance": "Rebalance",
   "@portfolioRebalance": {
@@ -7620,7 +7620,7 @@
   },
   "anotherCryptoCoinsAndMore": "{coins} and more",
   "@anotherCryptoCoinsAndMore": {
-    "description": "Under \"Another crypto\" (the Receive sheets' card and the Send sheets' card under the search field): the coins it takes, short, ONE line on a card half the screen wide. {coins} is the two best-known coin tickers offered, already joined, e.g. \"USDC, ETH\"; 'and more' says there are other coins too, without a count.",
+    "description": "Under \"Another crypto\" (the Receive sheets' card and the Send sheets' card under the search field), and under \"Dollars\" on the Dollars Receive (the dollar coins it takes): the coins it takes, short, ONE line on a card half the screen wide. {coins} is the two best-known coin tickers offered, already joined, e.g. \"USDC, ETH\"; 'and more' says there are other coins too, without a count.",
     "placeholders": {
       "coins": {
         "type": "String"
@@ -7629,7 +7629,7 @@
   },
   "anotherCryptoCoinsPair": "{first} and {second}",
   "@anotherCryptoCoinsPair": {
-    "description": "Under \"Another crypto\" when exactly two coins are offered: both tickers, e.g. \"USDC and ETH\". ONE line on a card half the screen wide.",
+    "description": "Under \"Another crypto\" (or under \"Dollars\" on the Dollars Receive) when exactly two coins are offered: both tickers, e.g. \"USDC and ETH\", \"USDC and USDT\". ONE line on a card half the screen wide.",
     "placeholders": {
       "first": {
         "type": "String"
@@ -9206,15 +9206,6 @@
   "sendBadgeLightning": "Lightning address",
   "@sendBadgeLightning": {
     "description": "Accessibility label of the small lightning badge on a contact's avatar."
-  },
-  "usdBitcoinBalanceLine": "{amount} in Bitcoin",
-  "@usdBitcoinBalanceLine": {
-    "description": "Under To your Bitcoin / From your Bitcoin: the user's Bitcoin balance in dollars.",
-    "placeholders": {
-      "amount": {
-        "type": "String"
-      }
-    }
   },
   "usdReceiveFromYourBitcoin": "From your Bitcoin",
   "@usdReceiveFromYourBitcoin": {

@@ -11695,11 +11695,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get sendBadgeLightning => 'Lightning address';
 
   @override
-  String usdBitcoinBalanceLine(String amount) {
-    return 'ビットコイン残高 $amount';
-  }
-
-  @override
   String get usdReceiveFromYourBitcoin => 'ビットコインから';
 
   @override

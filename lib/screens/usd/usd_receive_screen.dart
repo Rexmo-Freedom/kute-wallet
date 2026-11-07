@@ -1,8 +1,29 @@
 // Receiving another coin from another network, a sheet over the current
-// screen: the Dollars receive (into `spark:USDB`: two big square cards,
-// "From your Bitcoin" and "Another crypto" (from a wallet or an exchange)
-// opening the coin sheet, in a sheet as tall as they are) and the Bitcoin
-// receive's "other coins" (the coin grid).
+// screen: the Dollars receive and the Bitcoin receive's "other coins" (the
+// coin grid).
+//
+// THE DOLLARS RECEIVE IS THE BITCOIN RECEIVE TURNED AROUND (founder, 7
+// November 2026: "these receive and send from dollars seem too small and
+// strange"; bitcoin_receive_options.dart), into `spark:USDB`, the app's
+// big cards in a sheet as tall as they are:
+//
+//   Dollars             the main action, on top, full width and larger
+//                       (the grid's lead card), as Bitcoin leads the
+//                       Bitcoin Receive: this account's own money from any
+//                       wallet or exchange. The Dollars mark, the dollar
+//                       coins offered ("USDC and USDT"); the coin sheet
+//                       with those coins (one coin: straight to its
+//                       networks or its address). Only while a dollar
+//                       coin can be offered under the policy.
+//   From your Bitcoin   under it, a square: the Bitcoin mark, what it
+//                       holds ("$74.07 available", as "From your Dollars"
+//                       says it there); Move money, Bitcoin to Dollars.
+//   Another crypto      the square beside it: every other coin, never a
+//                       dollar coin the lead names ("ETH, SOL and more");
+//                       the coin sheet with those coins.
+//
+// No inline grid. With no coin offered, From your Bitcoin alone and the
+// line that says why.
 //
 // REUSABLE FIRST (founder, 2026-10-19; reusable_deposit_address.dart): a
 // picked coin the standing route may serve shows its reusable standing
@@ -42,7 +63,7 @@ import 'package:kute/providers/currency_conversions_provider.dart'
     show selectedCurrencyProvider;
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kute/providers/asset_icon_provider.dart'
-    show AssetIcon, kBitcoinMarkAsset;
+    show AssetIcon, kBitcoinMarkAsset, kUsdMarkAsset;
 import 'package:kute/providers/orchestra_supported_routes_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
@@ -64,10 +85,16 @@ import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show SendToSectionHeader;
 import 'package:kute/screens/shared/send/send_recipient_step.dart'
-    show SendStepTitle, anotherCryptoCard;
+    show
+        SendStepTitle,
+        anotherCryptoCard,
+        anotherCryptoLine,
+        anotherCryptoNamedCoins;
 import 'package:kute/screens/usd/flow/usd_flow_widgets.dart';
 import 'package:kute/services/orchestra/bitcoin_receive_marks.dart'
     show BitcoinReceiveMarks;
+import 'package:kute/services/orchestra/onetime_receive.dart'
+    show isOneDollarCoin;
 import 'package:kute/services/orchestra/receive_minimums.dart';
 import 'package:kute/services/orchestra/reusable_deposit_address.dart';
 import 'package:kute/services/orchestra/standing_deposit_store.dart';
@@ -89,6 +116,9 @@ const String kUsdReceiveBitcoinRowSource = 'usd_receive_bitcoin_row';
 /// The `entry_source` on the events of the Bitcoin receive's "other
 /// coins" (this screen into `BTC`).
 const String kUsdReceiveFromBitcoinReceiveSource = 'bitcoin_receive';
+
+/// The Dollars Receive's lead card, "Dollars" (see the file header).
+const ValueKey<String> kUsdReceiveDollarsKey = ValueKey('usd-receive-dollars');
 
 /// The `chain:asset` id the coin sheet selects by.
 String usdReceiveCoinId(OrchestraReceiveOption o) =>
@@ -117,10 +147,11 @@ String? watchSpendingBitcoinUsd(WidgetRef ref) {
 /// (`showUsdReceiveSheet` / `showOtherCoinsReceiveSheet`, or the
 /// `receiveDollars` route's sheet page).
 ///
-/// Into Dollars ([destinationAsset] `USDB`, the default) it opens on two
-/// big square cards in a content-sized sheet: "From your Bitcoin" (the
+/// Into Dollars ([destinationAsset] `USDB`, the default) it opens on the
+/// big cards in a content-sized sheet (see the file header): "Dollars" on
+/// top (the coin sheet's dollar coins), then "From your Bitcoin" (the
 /// Move sheet's way in from the spending bitcoin) and "Another crypto"
-/// (the coin sheet). Into Bitcoin (`BTC`, the Bitcoin
+/// (the coin sheet's other coins). Into Bitcoin (`BTC`, the Bitcoin
 /// receive's "other coins") it is the coin grid alone. A picked coin shows
 /// its reusable address in a sheet over this one, or, where only a
 /// one-time address serves it, asks its amount and shows that the same
@@ -213,24 +244,48 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
       from: MoneyMovementAccount.bitcoin,
       entrySource: kUsdReceiveBitcoinRowSource));
 
-  /// The Dollars Add (founder, 1 November 2026: the quiet treatment of
-  /// the Bitcoin receive; 5 November 2026: "Here should be big cards,
-  /// square"; 7 November 2026: "sizes are strange here"): TWO big square
-  /// cards side by side (kute_action_cards.dart), "From your Bitcoin" (the
-  /// Bitcoin mark, its balance; Move money from the spending bitcoin) and
-  /// "Another crypto" (anotherCryptoCard: two coins' marks side by side,
-  /// "USDC, ETH and more"), opening the coin sheet as the Bitcoin
-  /// receive's own card does. Squares only where both titles read on one
-  /// line, else two compact full-width cards. With no coin offered the
-  /// Bitcoin card is alone, full width and compact. No inline grid.
+  /// The Dollars Receive (see the file header): the Bitcoin Receive's
+  /// structure (bitcoin_receive_options.dart) for Dollars. DOLLARS ON TOP:
+  /// the grid's lead card, as Bitcoin leads the Bitcoin Receive, is this
+  /// account's own money arriving from any wallet or exchange: the Dollars
+  /// mark, "Dollars", the dollar coins it takes ("USDC and USDT",
+  /// [anotherCryptoLine]), opening them ([_openDollarCoins]). Under it, as
+  /// under Bitcoin, "From your Bitcoin" (the Bitcoin mark, what it holds:
+  /// "$74.07 available", the Bitcoin Receive's "From your Dollars" line;
+  /// Move money from the spending bitcoin) and "Another crypto"
+  /// (anotherCryptoCard: the other coins, never a dollar coin the lead
+  /// names), opening those. Squares only where both titles read on one
+  /// line, else two compact full-width cards; with one of them, it alone,
+  /// compact. No dollar coin offered: no lead.
   Widget _dollarsCard(BuildContext context, List<CoinAssetGroup> groups) {
     final l10n = context.l10n;
     final balance = watchSpendingBitcoinUsd(ref);
+    final dollars = [
+      for (final g in groups)
+        if (isOneDollarCoin(g.key)) g
+    ];
+    final others = [
+      for (final g in groups)
+        if (!isOneDollarCoin(g.key)) g
+    ];
+    final lead = kKuteActionCardLeadVisualSize.sp;
     return KuteActionCardGrid(
       key: const ValueKey('usd-receive-card'),
       // Squares only where both titles read on one line (founder, 7
       // November 2026: "sizes are strange here"), else two compact rows.
       oneLineTitles: true,
+      // Dollars on top, the main action (see the file header).
+      lead: dollars.isEmpty
+          ? null
+          : KuteActionCard(
+              key: kUsdReceiveDollarsKey,
+              visual:
+                  SvgPicture.asset(kUsdMarkAsset, width: lead, height: lead),
+              title: l10n.portfolioBalanceDollars,
+              subtitle: anotherCryptoLine(l10n, dollars),
+              visualSlot: kKuteActionCardLeadVisualSlot,
+              onTap: () => _openDollarCoins(dollars),
+            ),
       cards: [
         KuteActionCard(
           key: const ValueKey('usd-receive-from-bitcoin'),
@@ -239,18 +294,30 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
               height: kKuteActionCardVisualSize.sp),
           title: l10n.usdReceiveFromYourBitcoin,
           subtitle:
-              balance == null ? null : l10n.usdBitcoinBalanceLine(balance),
+              balance == null ? null : l10n.hlYieldAvailableLine(balance),
           onTap: _openFromBitcoin,
         ),
-        if (groups.isNotEmpty)
+        if (anotherCryptoNamedCoins(others).isNotEmpty)
           anotherCryptoCard(
             l10n,
             key: const ValueKey('usd-receive-from-another'),
-            groups: groups,
-            onTap: _openCoinPicker,
+            groups: others,
+            onTap: () =>
+                _openCoinPicker(only: {for (final g in others) g.key}),
           ),
       ],
     );
+  }
+
+  /// The lead "Dollars": its one coin straight to its networks (or to its
+  /// address, on one network), as a coin tapped on a grid goes; several,
+  /// the coin sheet with those coins alone.
+  void _openDollarCoins(List<CoinAssetGroup> dollars) {
+    if (dollars.length == 1) {
+      _pickGroup(dollars.single);
+      return;
+    }
+    _openCoinPicker(only: {for (final g in dollars) g.key});
   }
 
   @override
@@ -297,7 +364,7 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
             ),
       semanticTitle:
           _dollars ? l10n.receive : l10n.receiveBitcoin,
-      // The Dollars Add is two cards: the sheet is as tall as they are
+      // The Dollars Add is its cards: the sheet is as tall as they are
       // (founder, 5 November 2026: no "big empty area"), and being short
       // it hides the floating bar while it is up. The other coins' grid
       // keeps the tall sheet.
@@ -332,8 +399,8 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
         depositAddress: true,
       ).groups;
 
-  /// Into Dollars: two big cards, "From your Bitcoin" and "From another
-  /// wallet or exchange" opening the coin sheet ([_dollarsCard]). Into
+  /// Into Dollars: the big cards, "Dollars" on top, then "From your
+  /// Bitcoin" and "Another crypto" ([_dollarsCard]). Into
   /// Bitcoin (the Bitcoin receive's other coins): "From another wallet or
   /// exchange" over the coin grid, asked ASSET FIRST as every money screen
   /// asks it: a coin on one network goes straight to its address (or
@@ -433,8 +500,10 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
     await _pick(option);
   }
 
-  /// The sheet itself, open on [initialGroupKey]'s networks.
-  void _openCoinPicker({String? initialGroupKey}) {
+  /// The sheet itself, open on [initialGroupKey]'s networks; [only]
+  /// keeps those coins alone (the lead's dollar coins, Another crypto's
+  /// others).
+  void _openCoinPicker({String? initialGroupKey, Set<String>? only}) {
     if (_dollars) TrackingService.track('usd_receive_coin_picker_opened');
     final closed = showAppBottomSheet<void>(
       context: context,
@@ -452,12 +521,15 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
             reusableLegAsset: kOrchestraUsdAssetCode,
             depositAddress: true,
             closeOnLeft: true,
-            groups: receiveCoinGroups(
-              catalog,
-              ctx.l10n,
-              destinationAsset: widget.destinationAsset,
-              standingDestinations: destinations,
-            ),
+            groups: [
+              for (final g in receiveCoinGroups(
+                catalog,
+                ctx.l10n,
+                destinationAsset: widget.destinationAsset,
+                standingDestinations: destinations,
+              ))
+                if (only == null || only.contains(g.key)) g
+            ],
             title: ctx.l10n.usdFlowStepCoin,
             subtitle: _dollars
                 ? ctx.l10n.usdReceivePickCoin

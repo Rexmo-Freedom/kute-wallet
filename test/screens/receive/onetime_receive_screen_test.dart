@@ -907,9 +907,10 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
       expect(find.byType(QuotedReceiveSheet), findsNothing);
       expect(addressLineOf(_deposit), findsNothing);
-      // Back on the Dollars Add as it was.
+      // Back on the Dollars Receive as it was: "Dollars" on top (its one
+      // coin, USDT, went straight to its amount).
       expect(find.byType(UsdReceiveScreen), findsOneWidget);
-      expect(receiveFromAnotherRow, findsOneWidget);
+      expect(receiveDollarsLead, findsOneWidget);
       // Persisted before it was shown; nothing more written on close.
       expect(recorded, hasLength(1));
       expect(quoted, hasLength(1));
