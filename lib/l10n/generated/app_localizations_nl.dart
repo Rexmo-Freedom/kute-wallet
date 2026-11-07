@@ -12081,7 +12081,40 @@ class AppLocalizationsNl extends AppLocalizations {
   }
 
   @override
-  String get sendRecipientSearchHint => 'Naam, adres, Lightning of @gebruiker';
+  String get sendRecipientSearchHint => 'Naam, telefoon of elk crypto-adres';
+
+  @override
+  String sendCryptoHint(String coins) {
+    return 'Verstuur naar $coins';
+  }
+
+  @override
+  String sendCryptoHintMore(String coins, int count) {
+    return 'Verstuur naar $coins en nog $count';
+  }
+
+  @override
+  String get sendMoveToYourDollars => 'Verplaats naar je Dollars';
+
+  @override
+  String get sendMoveToYourBitcoin => 'Verplaats naar je Bitcoin';
+
+  @override
+  String sendWhatTitle(String name) {
+    return 'Versturen naar $name';
+  }
+
+  @override
+  String get sendWhatSubtitle => 'Wat verstuur je?';
+
+  @override
+  String get sendWhatMoney => 'Geld';
+
+  @override
+  String get sendWhatGift => 'Een voorspelling of belegging';
+
+  @override
+  String get sendWhatFrom => 'Van';
 
   @override
   String get usdSendRecipientSearchHint => 'Naam, adres of ENS';
@@ -12138,12 +12171,6 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get sendBadgeLightning => 'Lightning address';
-
-  @override
-  String get usdSendSearchHint => 'Name, address or phone';
-
-  @override
-  String get usdSendToYourBitcoin => 'Naar je Bitcoin';
 
   @override
   String usdBitcoinBalanceLine(String amount) {
@@ -13896,18 +13923,6 @@ class AppLocalizationsNl extends AppLocalizations {
   String get sendToCryptoAddress => 'Naar een crypto-adres';
 
   @override
-  String get sendMoreWaysToSend => 'Meer manieren om te sturen';
-
-  @override
-  String get sendWayCryptoAddress => 'Crypto-adres';
-
-  @override
-  String get sendWayPrediction => 'Voorspelling of belegging';
-
-  @override
-  String get sendWayToDollars => 'Naar je Dollars';
-
-  @override
   String get sendPickRowSub => 'Of een belegging. Zoek een markt, kies de kant';
 
   @override
@@ -14069,10 +14084,6 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get sendPickCardSub => 'Kies een markt, kant en bedrag';
-
-  @override
-  String get sendAnInvestmentOrPrediction =>
-      'Stuur een belegging of voorspelling';
 
   @override
   String get sendPredictionCta => 'Voorspelling versturen';

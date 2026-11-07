@@ -12122,8 +12122,40 @@ class AppLocalizationsEl extends AppLocalizations {
   }
 
   @override
-  String get sendRecipientSearchHint =>
-      'Όνομα, διεύθυνση, Lightning ή @χρήστης';
+  String get sendRecipientSearchHint => 'Όνομα, κινητό ή διεύθυνση κρύπτο';
+
+  @override
+  String sendCryptoHint(String coins) {
+    return 'Αποστολή σε $coins';
+  }
+
+  @override
+  String sendCryptoHintMore(String coins, int count) {
+    return 'Αποστολή σε $coins και $count ακόμα';
+  }
+
+  @override
+  String get sendMoveToYourDollars => 'Μεταφορά στα Δολάριά σου';
+
+  @override
+  String get sendMoveToYourBitcoin => 'Μεταφορά στο Bitcoin σου';
+
+  @override
+  String sendWhatTitle(String name) {
+    return 'Αποστολή σε $name';
+  }
+
+  @override
+  String get sendWhatSubtitle => 'Τι στέλνεις;';
+
+  @override
+  String get sendWhatMoney => 'Χρήματα';
+
+  @override
+  String get sendWhatGift => 'Μια πρόβλεψη ή επένδυση';
+
+  @override
+  String get sendWhatFrom => 'Από';
 
   @override
   String get usdSendRecipientSearchHint => 'Όνομα, διεύθυνση ή ENS';
@@ -12181,12 +12213,6 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get sendBadgeLightning => 'Lightning address';
-
-  @override
-  String get usdSendSearchHint => 'Name, address or phone';
-
-  @override
-  String get usdSendToYourBitcoin => 'Στο Bitcoin σου';
 
   @override
   String usdBitcoinBalanceLine(String amount) {
@@ -13941,18 +13967,6 @@ class AppLocalizationsEl extends AppLocalizations {
   String get sendToCryptoAddress => 'Σε διεύθυνση κρυπτονομισμάτων';
 
   @override
-  String get sendMoreWaysToSend => 'Περισσότεροι τρόποι αποστολής';
-
-  @override
-  String get sendWayCryptoAddress => 'Διεύθυνση crypto';
-
-  @override
-  String get sendWayPrediction => 'Πρόβλεψη ή επένδυση';
-
-  @override
-  String get sendWayToDollars => 'Στα Δολάριά σου';
-
-  @override
   String get sendPickRowSub => 'Ή μια επένδυση. Βρες αγορά, διάλεξε πλευρά';
 
   @override
@@ -14114,9 +14128,6 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get sendPickCardSub => 'Διάλεξε αγορά, πλευρά και ποσό';
-
-  @override
-  String get sendAnInvestmentOrPrediction => 'Στείλε μια επένδυση ή πρόβλεψη';
 
   @override
   String get sendPredictionCta => 'Στείλε πρόβλεψη';

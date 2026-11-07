@@ -12103,8 +12103,40 @@ class AppLocalizationsRo extends AppLocalizations {
   }
 
   @override
-  String get sendRecipientSearchHint =>
-      'Nume, adresă, Lightning sau @utilizator';
+  String get sendRecipientSearchHint => 'Nume, telefon sau orice adresă cripto';
+
+  @override
+  String sendCryptoHint(String coins) {
+    return 'Trimite către $coins';
+  }
+
+  @override
+  String sendCryptoHintMore(String coins, int count) {
+    return 'Trimite către $coins și încă $count';
+  }
+
+  @override
+  String get sendMoveToYourDollars => 'Mută în Dolarii tăi';
+
+  @override
+  String get sendMoveToYourBitcoin => 'Mută în Bitcoin-ul tău';
+
+  @override
+  String sendWhatTitle(String name) {
+    return 'Trimite către $name';
+  }
+
+  @override
+  String get sendWhatSubtitle => 'Ce trimiți?';
+
+  @override
+  String get sendWhatMoney => 'Bani';
+
+  @override
+  String get sendWhatGift => 'O predicție sau o investiție';
+
+  @override
+  String get sendWhatFrom => 'Din';
 
   @override
   String get usdSendRecipientSearchHint => 'Nume, adresă sau ENS';
@@ -12161,12 +12193,6 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get sendBadgeLightning => 'Lightning address';
-
-  @override
-  String get usdSendSearchHint => 'Name, address or phone';
-
-  @override
-  String get usdSendToYourBitcoin => 'În Bitcoin-ul tău';
 
   @override
   String usdBitcoinBalanceLine(String amount) {
@@ -13913,18 +13939,6 @@ class AppLocalizationsRo extends AppLocalizations {
   String get sendToCryptoAddress => 'Către o adresă crypto';
 
   @override
-  String get sendMoreWaysToSend => 'Alte moduri de trimitere';
-
-  @override
-  String get sendWayCryptoAddress => 'Adresă crypto';
-
-  @override
-  String get sendWayPrediction => 'Predicție sau investiție';
-
-  @override
-  String get sendWayToDollars => 'În Dolarii tăi';
-
-  @override
   String get sendPickRowSub => 'Sau o investiție. Caută o piață, alege partea';
 
   @override
@@ -14088,10 +14102,6 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get sendPickCardSub => 'Alege o piață, partea și suma';
-
-  @override
-  String get sendAnInvestmentOrPrediction =>
-      'Trimite o investiție sau o predicție';
 
   @override
   String get sendPredictionCta => 'Trimite predicția';

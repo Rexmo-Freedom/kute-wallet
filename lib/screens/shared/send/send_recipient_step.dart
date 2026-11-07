@@ -2,46 +2,35 @@
 //
 // THE RECIPIENT-FIRST SEND STEP (founder, 31 October 2026: the old step
 // "looked very 2019 fintech"). Both sends, bitcoin (confirm_send.dart)
-// and dollars (usd/usd_send_screen.dart), open on the same shape:
+// and dollars (usd/usd_withdraw_screen.dart), open on the same Who step:
 //
-//   * a search-style field at the top ("Name, address, Lightning or
-//     @user"), a magnifier at its left and Paste and Scan inside at its
+//   * a search-style field at the top ("Name, phone or any crypto
+//     address"), a magnifier at its left and Paste and Scan inside at its
 //     right ([SendRecipientSearchField]);
-//   * a pasted or typed destination the flow recognises as one resolved
-//     row under it: the rail's mark, the shortened address, the rail in
-//     words ([SendResolvedRow]); the bar's Continue acts on it;
-//   * "Frequent" under it (founder, 2 November 2026: "Frequent stays on
-//     top"): the recents as circles, hidden while typing and once a
-//     recipient is chosen (send_contacts_list.dart, SendFrequentSection);
-//   * ONE QUESTION PER LEVEL, PEOPLE FIRST (founder, 6 November 2026,
-//     the approved Send hierarchy, on the Bitcoin and the Dollars Send):
+//   * while it is empty, ONE QUIET LINE under it saying what else it takes
+//     ([SendCryptoHint]; founder, 7 November 2026: "just make sure that
+//     people realise they can send to different cryptos also"): the coins
+//     stacked as the Receive sheets' "Another crypto" card stacks them and
+//     "Send to Bitcoin, USDC, USDT, ETH and 18 more" from the same coin
+//     set the send's "Where to?" sheet lists. A tap opens that sheet as a
+//     browse list; a coin picked turns the field into that coin's address
+//     field. With no coin offered under the policy the line is not there
+//     (it never opens an empty sheet);
+//   * a pasted or typed destination the flow recognises as one recipient
+//     card (send_contacts_list.dart, SendRecipientCard); a paste or a scan
+//     the send can pay goes straight on to the amount, and an address that
+//     could land on several networks asks which in the coin sheet;
+//   * "Frequent" (the recents as circles, hidden while typing) and All
+//     contacts A-Z under it (send_contacts_list.dart).
 //
-//       [ 🔍 Name, phone, address or @user   📋 ⌗ ]
-//       Frequent                 (P) (J) (A)          ← level 1: people
-//       More ways to send
-//       [₿ To your Bitcoin] [⛓ Crypto address] [📈 Prediction or
-//        investment]                                 ← level 2
-//       All contacts             A Anna Haro …        ← level 3
-//
-//     Level 2 is ONE row of small, equal chips ([SendWaysRow] of
-//     [SendWayChip]: the big cards' soft card, smaller; the icon at the
-//     top left, a short label under it), clearly under the people above
-//     it. They share the row's width evenly (founder, 7 November 2026:
-//     two chips, Prediction hidden, take half each, no empty third slot);
-//     a label wraps to two lines and the chips of the row stay equally
-//     tall. Three fit across a 375 pt phone in every shipped language; a
-//     label that cannot fit (a very large text) turns the row into a
-//     horizontal scroll, never a cut word. No big "Send to" card grid any
-//     more;
-//   * All contacts A–Z under the chips (founder, 1 November 2026,
-//     Revolut's one list: send_contacts_list.dart): the recents and the
-//     phone's contacts, filtered by what is typed, badged Kute or ⚡, the
-//     resolved destination always first above it.
-//
-// There is no "Send to a friend" row on the Bitcoin or Dollars Send any
-// more: a plain contact in the list IS the friend link. [SendToFriendRow],
-// [SendContactMatches] and the contacts picker stay for the dollar send's
-// own coin step (usd_send_screen.dart, reached from a deep link).
+// ONE VERB PER INTENT (founder, 7 November 2026, the approved Send): Send
+// is money leaving for someone else, so there are no "More ways to send"
+// chips any more: no "To your Dollars" / "To your Bitcoin" (moving between
+// your own accounts is the Receive of the account to fill), no "Crypto
+// address" (the field takes it, the hint says so) and no "Prediction or
+// investment" (a gift is a What: send_what_step.dart). Typed, an own
+// account's name ("dollars", "my bitcoin") still finds the move
+// ([SendMoveToOwnRows]): the escape hatch, never a door of its own.
 //
 // No step bar: the sheet's title says where the person is. The floating
 // Sal bar is the step's Continue (kute_bar_context.dart; the plain
@@ -57,17 +46,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import 'package:kute/l10n/l10n.dart';
-import 'package:kute/providers/asset_icon_provider.dart' show AssetIcon;
+import 'package:kute/providers/asset_icon_provider.dart'
+    show AssetIcon, kBitcoinMarkAsset, kUsdMarkAsset;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_action_cards.dart';
-import 'package:kute/screens/shared/kute_motion.dart' show KutePressable;
 import 'package:kute/screens/shared/coin_asset_grid.dart'
     show CoinAssetGroup;
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart';
 import 'package:kute/services/contacts/send_contacts_service.dart';
+import 'package:kute/services/security/address_guard.dart'
+    show orchestraAddressFamily;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -891,12 +883,17 @@ String sendAlsoSendsToSummary(
 /// a little over half: the Also sends to row's leading glyph and card's
 /// visual.
 class SendCoinStack extends StatelessWidget {
-  const SendCoinStack({super.key, required this.groups, this.mark = 22});
+  const SendCoinStack(
+      {super.key, required this.groups, this.mark = 22, this.ringColor});
 
   final List<CoinAssetGroup> groups;
 
   /// One mark's side (scaled by sp).
   final double mark;
+
+  /// The colour of the ring each mark wears: the surface the stack sits
+  /// on (a card's by default).
+  final Color? ringColor;
 
   /// How many marks it shows.
   static const int stack = 3;
@@ -923,45 +920,15 @@ class SendCoinStack extends StatelessWidget {
               child: Container(
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: c.surfaceLight,
-                  border: Border.all(color: c.surfaceLight, width: ring),
+                  color: ringColor ?? c.surfaceLight,
+                  border:
+                      Border.all(color: ringColor ?? c.surfaceLight, width: ring),
                 ),
                 child: AssetIcon(assetCode: shown[i].assetCode, size: mark.sp),
               ),
             ),
         ],
       ),
-    );
-  }
-}
-
-/// "Also sends to": the coin marks stacked, "USDC, USDT, ETH and 16
-/// more" and the chevron, opening the rails sheet.
-class SendAlsoSendsToRow extends StatelessWidget {
-  const SendAlsoSendsToRow({
-    super.key,
-    required this.groups,
-    required this.onTap,
-    this.title,
-  });
-
-  final List<CoinAssetGroup> groups;
-  final VoidCallback onTap;
-
-  /// The row's words; null reads "Also sends to".
-  final String? title;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    // Three marks overlapping by half, in the row's 40 px leading slot.
-    return SendToListRow(
-      key: const ValueKey('send-also-sends-to-row'),
-      colors: context.colors,
-      leading: SendCoinStack(groups: groups),
-      title: title ?? l10n.sendToCryptoAddress,
-      subtitle: sendAlsoSendsToSummary(l10n, groups),
-      onTap: onTap,
     );
   }
 }
@@ -1011,90 +978,120 @@ KuteActionCard receiveAnotherCryptoCard(
       onTap: onTap,
     );
 
-/// The space between the chips of a [SendWaysRow] (design units, scaled
-/// by width).
-const double kSendWayChipGap = 8;
+/// Whether [text] is a destination plain bitcoin pays (the Bitcoin Send's
+/// own rails): a bitcoin or Spark address, a Lightning invoice or offer, an
+/// LNURL or a Lightning address. The input decides the rail: the Dollars
+/// Send hands these to the Bitcoin Send when no dollar route takes them.
+bool sendIsBitcoinRail(String text) {
+  var t = text.trim();
+  if (t.isEmpty || t.contains(' ')) return false;
+  final lower = t.toLowerCase();
+  if (lower.startsWith('lightning:') || lower.startsWith('spark:')) {
+    return true;
+  }
+  if (lower.startsWith('bitcoin:')) {
+    t = t.substring('bitcoin:'.length).split('?').first;
+  }
+  final bare = t.toLowerCase();
+  if (RegExp(r'^ln(bc|tb|bcrt|tbs)[0-9a-z]{20,}$').hasMatch(bare) ||
+      bare.startsWith('lnurl') ||
+      bare.startsWith('lno1')) {
+    return true;
+  }
+  final family = orchestraAddressFamily(t);
+  if (family == 'bitcoin' || family == 'spark') return true;
+  return RegExp(r'^[a-z0-9._+\-]+@[a-z0-9\-]+(\.[a-z0-9\-]+)+$')
+      .hasMatch(bare);
+}
 
-/// A chip's inner padding (design units).
-const double kSendWayChipPadding = 12;
+/// The coin marks' side in the crypto hint's stack.
+const double kSendCryptoHintMark = 18;
 
-/// The height of a chip's icon box (scaled by sp); a 20 to 24 mark sits
-/// in it, centred on its left edge.
-const double kSendWayChipIconSlot = 24;
+/// The coins the crypto hint names: [groups] less bitcoin, which the line
+/// names itself, first.
+List<CoinAssetGroup> sendCryptoHintCoins(List<CoinAssetGroup> groups) => [
+      for (final g in groups)
+        if (g.key.toUpperCase() != 'BTC') g
+    ];
 
-/// The coin marks' side in the Crypto address chip's stack.
-const double kSendWayChipCoinMark = 20;
+/// "Send to Bitcoin, USDC, USDT, ETH and 18 more": Bitcoin, the first
+/// [SendCoinStack.stack] coins of [groups] by symbol and how many more;
+/// empty with no coin (the hint is then not shown).
+String sendCryptoHintLine(AppLocalizations l10n, List<CoinAssetGroup> groups) {
+  final coins = sendCryptoHintCoins(groups);
+  if (coins.isEmpty) return '';
+  final shown = coins.take(SendCoinStack.stack).toList();
+  final rest = coins.length - shown.length;
+  final names = [l10n.bitcoin, for (final g in shown) g.displaySymbol];
+  if (rest > 0) return l10n.sendCryptoHintMore(names.join(', '), rest);
+  return l10n.sendCryptoHint(l10n.sendAlsoSendsToList(
+      names.sublist(0, names.length - 1).join(', '), names.last));
+}
 
-/// One way to send on the level-2 row (see the file header): the big
-/// cards' surface (kute_action_cards.dart), smaller. [icon] at the top
-/// left in its 24 box, [label] under it (13, w600, up to two lines,
-/// never a word cut: [SendWaysRow] measures). [semanticsLabel] says what
-/// the short label stands for ("Send an investment or prediction").
-class SendWayChip extends StatelessWidget {
-  const SendWayChip({
+/// THE CRYPTO HINT (see the file header): one quiet line under the empty
+/// field, the coins stacked and "Send to Bitcoin, USDC, USDT, ETH and 18
+/// more"; a tap opens the send's "Where to?" sheet as a browse list
+/// ([onTap]). Nothing when [groups] holds no coin: the sheet would open
+/// empty. [background] is the surface it sits on (the marks' rings).
+class SendCryptoHint extends StatelessWidget {
+  const SendCryptoHint({
     super.key,
-    required this.icon,
-    required this.label,
+    required this.groups,
     required this.onTap,
-    this.semanticsLabel,
+    this.background,
   });
 
-  final Widget icon;
-  final String label;
+  final List<CoinAssetGroup> groups;
   final VoidCallback onTap;
-  final String? semanticsLabel;
+  final Color? background;
 
-  /// The label's style (shared with the row's fit measurement).
-  static TextStyle labelStyle(AppColorsExtension c) => TextStyle(
-        color: c.textPrimary,
+  /// The line's style (shared with the fit test's measure).
+  static TextStyle lineStyle(AppColorsExtension c) => TextStyle(
+        color: c.textSecondary,
         fontSize: 13.sp,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w500,
         letterSpacing: -0.1,
-        height: 1.2,
       );
-
-  /// The lines a label may take.
-  static const int maxLines = 2;
 
   @override
   Widget build(BuildContext context) {
+    final coins = sendCryptoHintCoins(groups);
+    if (coins.isEmpty) return const SizedBox.shrink();
     final c = context.colors;
+    final line = sendCryptoHintLine(context.l10n, groups);
+    void tap() {
+      HapticFeedback.selectionClick();
+      onTap();
+    }
+
     return Semantics(
+      key: const ValueKey('send-crypto-hint'),
       button: true,
-      label: semanticsLabel ?? label,
+      label: line,
+      onTap: tap,
       excludeSemantics: true,
-      child: KutePressable(
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () {
-            HapticFeedback.selectionClick();
-            onTap();
-          },
-          child: Container(
-            padding: EdgeInsets.symmetric(
-                horizontal: kSendWayChipPadding.w,
-                vertical: kSendWayChipPadding.h),
-            // The big cards' soft card (KuteActionCard.surfaceOf), a
-            // smaller radius.
-            decoration: KuteActionCard.surfaceOf(context)
-                .copyWith(borderRadius: BorderRadius.circular(16.r)),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  height: kSendWayChipIconSlot.sp,
-                  child: Align(alignment: Alignment.centerLeft, child: icon),
-                ),
-                SizedBox(height: 8.h),
-                Text(
-                  label,
-                  maxLines: maxLines,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: tap,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(4.w, 12.h, 4.w, 4.h),
+          child: Row(
+            children: [
+              SendCoinStack(
+                  groups: coins,
+                  mark: kSendCryptoHintMark,
+                  ringColor: background ?? c.background),
+              SizedBox(width: 8.w),
+              Flexible(
+                child: Text(
+                  line,
+                  key: const ValueKey('send-crypto-hint-line'),
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: labelStyle(c),
+                  style: lineStyle(c),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -1102,101 +1099,112 @@ class SendWayChip extends StatelessWidget {
   }
 }
 
-/// Level 2 of the Send step (see the file header): ONE row of [chips]
-/// sharing the width evenly (three a third each, two half each: never an
-/// empty slot), equally tall. When a label cannot fit its share (a very
-/// large text) the row scrolls sideways, the chips as wide as the longest
-/// label needs, all alike.
-class SendWaysRow extends StatelessWidget {
-  const SendWaysRow({super.key, required this.chips});
+/// One of your own accounts, as the Send field's search finds it.
+enum SendOwnAccount { dollars, bitcoin }
 
-  final List<SendWayChip> chips;
-
-  /// The text a chip [chipWidth] wide has for its label.
-  static double _inner(double chipWidth) =>
-      chipWidth - 2 * kSendWayChipPadding.w - 2;
-
-  /// Whether every chip's label fits a chip [chipWidth] wide: no word
-  /// wider than the chip (it would break mid-word) and no more than
-  /// [SendWayChip.maxLines] lines. A word may break after its hyphen
-  /// ("Krypto-Adresse") or its slash ("Forudsigelse/investering");
-  /// Japanese breaks between characters, so only its lines count.
-  static bool labelsFit(
-      BuildContext context, List<SendWayChip> chips, double chipWidth) {
-    final inner = _inner(chipWidth);
-    if (inner <= 0) return false;
-    final style =
-        DefaultTextStyle.of(context).style.merge(SendWayChip.labelStyle(context.colors));
-    final scaler = MediaQuery.textScalerOf(context);
-    final direction = Directionality.of(context);
-    final cjk = RegExp(r'[　-鿿＀-￯]');
-    double width(String text) {
-      final p = TextPainter(
-        text: TextSpan(text: text, style: style),
-        textDirection: direction,
-        textScaler: scaler,
-        maxLines: 1,
-      )..layout();
-      final w = p.width;
-      p.dispose();
-      return w;
-    }
-
-    for (final chip in chips) {
-      for (final word in chip.label.split(RegExp(r'\s+'))) {
-        if (word.isEmpty || cjk.hasMatch(word)) continue;
-        for (final part in word.split(RegExp(r'(?<=[-‐/])'))) {
-          if (width(part) > inner) return false;
-        }
-      }
-      final p = TextPainter(
-        text: TextSpan(text: chip.label, style: style),
-        textDirection: direction,
-        textScaler: scaler,
-        maxLines: SendWayChip.maxLines,
-      )..layout(maxWidth: inner);
-      final over = p.didExceedMaxLines;
-      p.dispose();
-      if (over) return false;
-    }
-    return true;
+/// [s] lower-cased with the accents of the shipped Latin and Greek
+/// alphabets folded, so "dólares" finds "Dolares" and "δολάρια" finds
+/// "Δολάρια".
+String _sendFold(String s) {
+  const folds = {
+    'á': 'a', 'à': 'a', 'â': 'a', 'ã': 'a', 'ä': 'a', 'å': 'a', 'ā': 'a',
+    'ă': 'a', 'ą': 'a', 'ç': 'c', 'ć': 'c', 'č': 'c', 'ď': 'd', 'é': 'e',
+    'è': 'e', 'ê': 'e', 'ë': 'e', 'ē': 'e', 'ė': 'e', 'ę': 'e', 'ě': 'e',
+    'í': 'i', 'ì': 'i', 'î': 'i', 'ï': 'i', 'ī': 'i', 'į': 'i', 'ľ': 'l',
+    'ĺ': 'l', 'ł': 'l', 'ļ': 'l', 'ñ': 'n', 'ń': 'n', 'ň': 'n', 'ņ': 'n',
+    'ó': 'o', 'ò': 'o', 'ô': 'o', 'õ': 'o', 'ö': 'o', 'ø': 'o', 'ō': 'o',
+    'ő': 'o', 'ŕ': 'r', 'ř': 'r', 'ś': 's', 'š': 's', 'ș': 's', 'ş': 's',
+    'ť': 't', 'ț': 't', 'ú': 'u', 'ù': 'u', 'û': 'u', 'ü': 'u', 'ū': 'u',
+    'ů': 'u', 'ű': 'u', 'ų': 'u', 'ý': 'y', 'ÿ': 'y', 'ž': 'z', 'ź': 'z',
+    'ż': 'z', 'ģ': 'g', 'ķ': 'k', 'ά': 'α', 'έ': 'ε', 'ή': 'η', 'ί': 'ι',
+    'ό': 'ο', 'ύ': 'υ', 'ώ': 'ω', 'ϊ': 'ι', 'ϋ': 'υ',
+  };
+  final lower = s.toLowerCase();
+  final out = StringBuffer();
+  for (final ch in lower.split('')) {
+    out.write(folds[ch] ?? ch);
   }
+  return out.toString();
+}
+
+/// The own accounts [query] names (the escape hatch, see the file header):
+/// a word of it that starts an account's name ("dol", "my dollars",
+/// "bitcoin", "btc", the localized "Dólares"); nothing for an address, a
+/// number or a word of under three letters.
+List<SendOwnAccount> sendOwnAccountMatches(
+    AppLocalizations l10n, String query) {
+  final q = query.trim();
+  if (q.isEmpty || sendTextLooksLikeAddress(q)) return const [];
+  final cjk = RegExp(r'[\u3000-\u9fff\uff00-\uffef]');
+  final words = [
+    for (final w in _sendFold(q).split(RegExp(r'\s+')))
+      if (w.isNotEmpty && (w.length >= 3 || cjk.hasMatch(w))) w
+  ];
+  bool names(Set<String> terms) =>
+      words.any((w) => terms.any((t) => t.startsWith(w) || w == '${t}s'));
+  final dollars = {
+    'dollar',
+    'dollars',
+    'usd',
+    _sendFold(l10n.portfolioBalanceDollars),
+  };
+  final bitcoin = {'bitcoin', 'btc', 'sats', _sendFold(l10n.bitcoin)};
+  return [
+    if (names(dollars)) SendOwnAccount.dollars,
+    if (names(bitcoin)) SendOwnAccount.bitcoin,
+  ];
+}
+
+/// The row key of the move into [account].
+ValueKey<String> sendMoveToKey(SendOwnAccount account) => ValueKey(
+    account == SendOwnAccount.dollars
+        ? 'send-move-to-dollars'
+        : 'send-move-to-bitcoin');
+
+/// The escape hatch's results (see the file header): "Move to your
+/// Dollars" (from your Bitcoin) and "Move to your Bitcoin" (from your
+/// Dollars) for what [query] names ([sendOwnAccountMatches]), in the
+/// field's results card; [onMove] opens Move money into that account.
+/// Nothing when the text names neither.
+class SendMoveToOwnRows extends StatelessWidget {
+  const SendMoveToOwnRows(
+      {super.key, required this.query, required this.onMove});
+
+  final String query;
+  final ValueChanged<SendOwnAccount> onMove;
 
   @override
   Widget build(BuildContext context) {
-    if (chips.isEmpty) return const SizedBox.shrink();
-    return LayoutBuilder(builder: (context, constraints) {
-      final g = kSendWayChipGap.w;
-      final slots = chips.length;
-      final total = constraints.hasBoundedWidth
-          ? constraints.maxWidth
-          : MediaQuery.sizeOf(context).width;
-      final third = (total - g * (slots - 1)) / slots;
-      Widget row(double chipWidth) => IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (var i = 0; i < chips.length; i++) ...[
-                  if (i > 0) SizedBox(width: g),
-                  SizedBox(width: chipWidth, child: chips[i]),
-                ],
-              ],
+    final l10n = context.l10n;
+    final c = context.colors;
+    final matches = sendOwnAccountMatches(l10n, query);
+    if (matches.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: EdgeInsets.only(top: 12.h),
+      child: SendToListCard(
+        key: const ValueKey('send-move-results'),
+        colors: c,
+        rows: [
+          for (final account in matches)
+            SendToListRow(
+              key: sendMoveToKey(account),
+              colors: c,
+              leading: SvgPicture.asset(
+                  account == SendOwnAccount.dollars
+                      ? kUsdMarkAsset
+                      : kBitcoinMarkAsset,
+                  width: 28.sp,
+                  height: 28.sp),
+              title: account == SendOwnAccount.dollars
+                  ? l10n.sendMoveToYourDollars
+                  : l10n.sendMoveToYourBitcoin,
+              subtitle: account == SendOwnAccount.dollars
+                  ? l10n.usdReceiveFromYourBitcoin
+                  : l10n.receiveFromYourDollars,
+              onTap: () => onMove(account),
             ),
-          );
-      if (labelsFit(context, chips, third)) {
-        return Align(alignment: Alignment.centerLeft, child: row(third));
-      }
-      // Wider chips, all alike, scrolling sideways: never a cut word.
-      var wide = third;
-      while (wide < total && !labelsFit(context, chips, wide)) {
-        wide += 8;
-      }
-      return SingleChildScrollView(
-        key: const ValueKey('send-ways-scroll'),
-        scrollDirection: Axis.horizontal,
-        clipBehavior: Clip.none,
-        child: row(wide),
-      );
-    });
+        ],
+      ),
+    );
   }
 }

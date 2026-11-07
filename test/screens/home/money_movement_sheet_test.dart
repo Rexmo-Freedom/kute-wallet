@@ -68,7 +68,7 @@ import 'package:kute/services/one_balance/dollars_to_bitcoin_minimum.dart';
 import 'package:kute/screens/receive/bitcoin_receive_options.dart'
     show kBitcoinReceiveDollarsSource;
 import 'package:kute/screens/usd/usd_withdraw_screen.dart'
-    show kUsdWithdrawBitcoinRowSource;
+    show kUsdWithdrawSearchSource;
 import 'package:kute/services/one_balance/buy_bitcoin_fanout.dart'
     show BitcoinPurchaseFanout, bitcoinPurchaseFanoutProvider;
 import 'package:kute/services/one_balance/dollars_to_bitcoin_purchase.dart'
@@ -1709,7 +1709,7 @@ void main() {
 
     for (final (door, source) in [
       ('From your Dollars', kBitcoinReceiveDollarsSource),
-      ('To your Bitcoin', kUsdWithdrawBitcoinRowSource),
+      ('Move to your Bitcoin', kUsdWithdrawSearchSource),
     ]) {
       testWidgets(
           '$door: the From row and Max are Dollars plus the venue cash in '
@@ -1802,7 +1802,7 @@ void main() {
       _dollars = 10;
       final c = await _open(tester, const MoneyMovementRoute(_d, _b),
           overrides: venues(p: 60, i: 40),
-          ownMoveEntrySource: kUsdWithdrawBitcoinRowSource);
+          ownMoveEntrySource: kUsdWithdrawSearchSource);
       // 10 + 40 x 0.98 - 0.30: Investing only.
       expect(find.text(r'$48.90'), findsOneWidget);
       await _type(tester, '30');

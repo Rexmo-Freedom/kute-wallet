@@ -12086,7 +12086,40 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get sendRecipientSearchHint =>
-      'Imię, adres, Lightning lub @użytkownik';
+      'Imię, telefon lub dowolny adres krypto';
+
+  @override
+  String sendCryptoHint(String coins) {
+    return 'Wyślij do $coins';
+  }
+
+  @override
+  String sendCryptoHintMore(String coins, int count) {
+    return 'Wyślij do $coins i jeszcze $count';
+  }
+
+  @override
+  String get sendMoveToYourDollars => 'Przenieś na twoje Dolary';
+
+  @override
+  String get sendMoveToYourBitcoin => 'Przenieś na twój Bitcoin';
+
+  @override
+  String sendWhatTitle(String name) {
+    return 'Odbiorca: $name';
+  }
+
+  @override
+  String get sendWhatSubtitle => 'Co wysyłasz?';
+
+  @override
+  String get sendWhatMoney => 'Pieniądze';
+
+  @override
+  String get sendWhatGift => 'Prognoza lub inwestycja';
+
+  @override
+  String get sendWhatFrom => 'Z';
 
   @override
   String get usdSendRecipientSearchHint => 'Imię, adres lub ENS';
@@ -12143,12 +12176,6 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get sendBadgeLightning => 'Lightning address';
-
-  @override
-  String get usdSendSearchHint => 'Name, address or phone';
-
-  @override
-  String get usdSendToYourBitcoin => 'Na twój Bitcoin';
 
   @override
   String usdBitcoinBalanceLine(String amount) {
@@ -13894,18 +13921,6 @@ class AppLocalizationsPl extends AppLocalizations {
   String get sendToCryptoAddress => 'Na adres krypto';
 
   @override
-  String get sendMoreWaysToSend => 'Więcej sposobów wysyłki';
-
-  @override
-  String get sendWayCryptoAddress => 'Adres krypto';
-
-  @override
-  String get sendWayPrediction => 'Prognoza lub inwestycja';
-
-  @override
-  String get sendWayToDollars => 'Na twoje Dolary';
-
-  @override
   String get sendPickRowSub => 'Lub inwestycję. Wyszukaj rynek, wybierz stronę';
 
   @override
@@ -14066,9 +14081,6 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get sendPickCardSub => 'Wybierz rynek, stronę i kwotę';
-
-  @override
-  String get sendAnInvestmentOrPrediction => 'Wyślij inwestycję lub prognozę';
 
   @override
   String get sendPredictionCta => 'Wyślij prognozę';

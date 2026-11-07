@@ -40,12 +40,14 @@
 // the floating bar with the bar's clearance at the scroll's end (the
 // Dollars Send reference), never in a clipped box of its own.
 //
-// A tap hands the entry to the flow ([SendContactsSection.onPerson]): an
-// entry with an address is paid directly (as a recent always was); a
-// plain contact starts the claim link (Send to anyone with the first name
-// and the number kept in the local row). What is typed in the field
-// filters the list by name, number or address, and a typed phone number
-// no contact has offers "Send a link to +351…" ([onPhoneLink]).
+// A tap hands the entry to the flow ([SendContactsSection.onPerson]): a
+// recent (an address) is paid directly, on to the amount; a person (a
+// phone contact, a typed number no contact has: "Send a link to +351…",
+// [onPhoneLink]) asks What first (send_what_step.dart: Money from Bitcoin
+// or Dollars, or a prediction or investment as a gift), and a person not
+// on Kute gets it as a claim link (Send to anyone with the first name and
+// the number kept in the local row). What is typed in the field filters
+// the list by name, number or address.
 //
 // THE FIELD KEEPS EVERYTHING IT DOES (founder): this list is added UNDER
 // it and never stands in for address entry.
@@ -55,10 +57,12 @@
 // destination the flows show [SendRecipientCard], "Sending to": the
 // person's avatar with its badge (the rail's mark when nobody known), the
 // name (the contact's, else the recent's label, else the shortened
-// address, [sendRecipientName]), the full address under it and the rail
-// as a chip; "Change" clears it. The person is never listed twice: the
-// list below drops them ([SendContactsSection.excludeAddress]) and, with
-// anyone left, reads "Other contacts".
+// address, [sendRecipientName]), the full address under it and, where the
+// person chose a coin, that coin on its network as a chip (the rail of a
+// plain bitcoin send waits for Review); "Change" clears it. The person is
+// never listed twice: the list below drops them
+// ([SendContactsSection.excludeAddress]) and, with anyone left, reads
+// "Other contacts".
 //
 // Until the contacts are granted, "All contacts" holds the ask row (and,
 // while typing, the matching recents). Everything is local: numbers never
@@ -942,21 +946,24 @@ class SendSalFaceStill extends StatelessWidget {
 
 /// "Sending to": the one recipient card a resolved destination shows (see
 /// the file header). [railMark] stands in for the avatar when nobody known
-/// has the address; [rail] reads on the chip ("Lightning", "Bitcoin ·
-/// on-chain"); [onChange] clears the field. [onTap] is the bar's Continue.
+/// has the address; [rail] reads on the chip ("USDT on Base", "From your
+/// Bitcoin"), and none is drawn without one: a network the person did not
+/// choose waits for Review (founder, 7 November 2026, progressive
+/// disclosure: Lightning or on-chain is said there); [onChange] clears the
+/// field. [onTap] is the bar's Continue.
 class SendRecipientCard extends ConsumerWidget {
   const SendRecipientCard({
     super.key,
     required this.address,
-    required this.rail,
     required this.railMark,
     required this.recents,
     required this.onChange,
+    this.rail,
     this.onTap,
   });
 
   final String address;
-  final String rail;
+  final String? rail;
   final Widget railMark;
   final List<SendPerson> recents;
   final VoidCallback onChange;
@@ -1042,30 +1049,32 @@ class SendRecipientCard extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  SizedBox(width: 8.w),
-                  ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: 120.w),
-                    child: Container(
-                      key: const ValueKey('send-recipient-rail'),
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
-                      decoration: BoxDecoration(
-                        color: c.textPrimary.withValues(alpha: 0.06),
-                        borderRadius: BorderRadius.circular(8.r),
-                      ),
-                      child: Text(
-                        rail,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: c.textSecondary,
-                          fontSize: 12.sp,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: -0.1,
+                  if (rail != null && rail!.isNotEmpty) ...[
+                    SizedBox(width: 8.w),
+                    ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: 120.w),
+                      child: Container(
+                        key: const ValueKey('send-recipient-rail'),
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                        decoration: BoxDecoration(
+                          color: c.textPrimary.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(8.r),
+                        ),
+                        child: Text(
+                          rail!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: c.textSecondary,
+                            fontSize: 12.sp,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -0.1,
+                          ),
                         ),
                       ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),

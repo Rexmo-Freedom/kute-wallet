@@ -11615,7 +11615,40 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get sendRecipientSearchHint => '名前、アドレス、Lightning、@ユーザー';
+  String get sendRecipientSearchHint => '名前、電話番号、各種暗号資産アドレス';
+
+  @override
+  String sendCryptoHint(String coins) {
+    return '$coinsに送金';
+  }
+
+  @override
+  String sendCryptoHintMore(String coins, int count) {
+    return '$coinsほか$count件に送金';
+  }
+
+  @override
+  String get sendMoveToYourDollars => 'ドルへ移動';
+
+  @override
+  String get sendMoveToYourBitcoin => 'ビットコインへ移動';
+
+  @override
+  String sendWhatTitle(String name) {
+    return '$nameさんに送金';
+  }
+
+  @override
+  String get sendWhatSubtitle => '何を送りますか？';
+
+  @override
+  String get sendWhatMoney => 'お金';
+
+  @override
+  String get sendWhatGift => '予測または投資';
+
+  @override
+  String get sendWhatFrom => '送金元';
 
   @override
   String get usdSendRecipientSearchHint => '名前、アドレス、ENS';
@@ -11671,12 +11704,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get sendBadgeLightning => 'Lightning address';
-
-  @override
-  String get usdSendSearchHint => 'Name, address or phone';
-
-  @override
-  String get usdSendToYourBitcoin => 'ビットコインへ';
 
   @override
   String usdBitcoinBalanceLine(String amount) {
@@ -13406,18 +13433,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get sendToCryptoAddress => '暗号資産アドレスへ';
 
   @override
-  String get sendMoreWaysToSend => 'その他の送金方法';
-
-  @override
-  String get sendWayCryptoAddress => '暗号アドレス';
-
-  @override
-  String get sendWayPrediction => '予測または投資';
-
-  @override
-  String get sendWayToDollars => 'ドルへ';
-
-  @override
   String get sendPickRowSub => '投資も可。マーケットを検索してサイドを選択';
 
   @override
@@ -13578,9 +13593,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get sendPickCardSub => 'マーケット、サイド、金額を選びます';
-
-  @override
-  String get sendAnInvestmentOrPrediction => '投資または予測を送る';
 
   @override
   String get sendPredictionCta => '予測を送る';

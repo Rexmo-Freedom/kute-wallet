@@ -12070,7 +12070,40 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
-  String get sendRecipientSearchHint => 'Név, cím, Lightning vagy @felhasználó';
+  String get sendRecipientSearchHint => 'Név, telefon vagy bármilyen kriptocím';
+
+  @override
+  String sendCryptoHint(String coins) {
+    return 'Küldés ide: $coins';
+  }
+
+  @override
+  String sendCryptoHintMore(String coins, int count) {
+    return 'Küldés ide: $coins és még $count';
+  }
+
+  @override
+  String get sendMoveToYourDollars => 'Áthelyezés a Dollárodba';
+
+  @override
+  String get sendMoveToYourBitcoin => 'Áthelyezés a Bitcoinodba';
+
+  @override
+  String sendWhatTitle(String name) {
+    return 'Címzett: $name';
+  }
+
+  @override
+  String get sendWhatSubtitle => 'Mit küldesz?';
+
+  @override
+  String get sendWhatMoney => 'Pénz';
+
+  @override
+  String get sendWhatGift => 'Előrejelzés vagy befektetés';
+
+  @override
+  String get sendWhatFrom => 'Innen';
 
   @override
   String get usdSendRecipientSearchHint => 'Név, cím vagy ENS';
@@ -12128,12 +12161,6 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get sendBadgeLightning => 'Lightning address';
-
-  @override
-  String get usdSendSearchHint => 'Name, address or phone';
-
-  @override
-  String get usdSendToYourBitcoin => 'A Bitcoinodba';
 
   @override
   String usdBitcoinBalanceLine(String amount) {
@@ -13878,18 +13905,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get sendToCryptoAddress => 'Kriptocímre';
 
   @override
-  String get sendMoreWaysToSend => 'További küldési módok';
-
-  @override
-  String get sendWayCryptoAddress => 'Kriptocím';
-
-  @override
-  String get sendWayPrediction => 'Előrejelzés/befektetés';
-
-  @override
-  String get sendWayToDollars => 'A Dollárodba';
-
-  @override
   String get sendPickRowSub => 'Vagy befektetés. Keress piacot, válassz oldalt';
 
   @override
@@ -14050,10 +14065,6 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get sendPickCardSub => 'Válassz piacot, oldalt és összeget';
-
-  @override
-  String get sendAnInvestmentOrPrediction =>
-      'Befektetés vagy előrejelzés küldése';
 
   @override
   String get sendPredictionCta => 'Előrejelzés küldése';

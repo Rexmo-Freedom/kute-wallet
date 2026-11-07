@@ -188,9 +188,10 @@ void main() {
   });
 
   testWidgets(
-      'a recipient expands it and moves on to Amount; past Send to a drag '
-      'does not close it, system back steps back, and the funnel says it '
-      'is a sheet', (tester) async {
+      'a pasted recipient expands it and goes straight on to Amount (the '
+      'input decides the rail); past Send to a drag does not close it, '
+      'system back steps back, and the funnel says it is a sheet',
+      (tester) async {
     final events = <(String, Map<String, Object>?)>[];
     TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
     addTearDown(() => TrackingService.debugTrackObserver = null);
@@ -204,8 +205,6 @@ void main() {
     await tester.tap(find.byTooltip(_l10n.paste));
     await tester.pumpAndSettle();
     expect(tester.getSize(_sheet).height, moreOrLessEquals(_full));
-    await tester.tap(find.text(_l10n.continueLabel));
-    await tester.pumpAndSettle();
     expect(_step(_l10n.amount), findsOneWidget);
     expect(events.where((e) => e.$1 == 'send_step').map((e) => e.$2?['step']),
         contains('amount'));
@@ -258,8 +257,9 @@ void main() {
     expect(_cameras.last.disposed, isTrue);
   });
 
-  testWidgets('the scanner opens over the sheet and fills its recipient',
-      (tester) async {
+  testWidgets(
+      'the scanner opens over the sheet, fills its recipient and goes '
+      'straight on to Amount', (tester) async {
     _clipboard(tester, null);
     await _pump(tester);
     await tester.tap(find.text('Open send'));
@@ -274,8 +274,12 @@ void main() {
     expect(find.byType(ScannerSheet), findsNothing);
     expect(_cameras.last.disposed, isTrue);
     expect(find.byType(ConfirmSend), findsOneWidget);
-    expect(tester.widget<TextField>(find.byType(TextField)).controller!.text,
+    expect(
+        ProviderScope.containerOf(tester.element(find.byType(ConfirmSend)))
+            .read(sendTxProvider)
+            .address,
         _btc);
+    expect(_step(_l10n.amount), findsOneWidget);
     expect(tester.getSize(_sheet).height, moreOrLessEquals(_full));
   });
 

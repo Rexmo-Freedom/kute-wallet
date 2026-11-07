@@ -12084,8 +12084,40 @@ class AppLocalizationsPt extends AppLocalizations {
   }
 
   @override
-  String get sendRecipientSearchHint =>
-      'Nome, endereço, Lightning ou @utilizador';
+  String get sendRecipientSearchHint => 'Nome, telefone ou endereço cripto';
+
+  @override
+  String sendCryptoHint(String coins) {
+    return 'Enviar para $coins';
+  }
+
+  @override
+  String sendCryptoHintMore(String coins, int count) {
+    return 'Enviar para $coins e mais $count';
+  }
+
+  @override
+  String get sendMoveToYourDollars => 'Mover para os teus Dólares';
+
+  @override
+  String get sendMoveToYourBitcoin => 'Mover para o teu Bitcoin';
+
+  @override
+  String sendWhatTitle(String name) {
+    return 'Enviar a $name';
+  }
+
+  @override
+  String get sendWhatSubtitle => 'O que vais enviar?';
+
+  @override
+  String get sendWhatMoney => 'Dinheiro';
+
+  @override
+  String get sendWhatGift => 'Uma previsão ou investimento';
+
+  @override
+  String get sendWhatFrom => 'De';
 
   @override
   String get usdSendRecipientSearchHint => 'Nome, endereço ou ENS';
@@ -12143,12 +12175,6 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get sendBadgeLightning => 'Lightning address';
-
-  @override
-  String get usdSendSearchHint => 'Name, address or phone';
-
-  @override
-  String get usdSendToYourBitcoin => 'Para o teu Bitcoin';
 
   @override
   String usdBitcoinBalanceLine(String amount) {
@@ -13904,18 +13930,6 @@ class AppLocalizationsPt extends AppLocalizations {
   String get sendToCryptoAddress => 'Para um endereço cripto';
 
   @override
-  String get sendMoreWaysToSend => 'Mais formas de enviar';
-
-  @override
-  String get sendWayCryptoAddress => 'Endereço cripto';
-
-  @override
-  String get sendWayPrediction => 'Previsão ou investimento';
-
-  @override
-  String get sendWayToDollars => 'Para os teus Dólares';
-
-  @override
   String get sendPickRowSub =>
       'Ou um investimento. Pesquise um mercado, escolha o lado';
 
@@ -14078,10 +14092,6 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get sendPickCardSub => 'Escolha um mercado, o lado e o valor';
-
-  @override
-  String get sendAnInvestmentOrPrediction =>
-      'Enviar um investimento ou previsão';
 
   @override
   String get sendPredictionCta => 'Enviar previsão';

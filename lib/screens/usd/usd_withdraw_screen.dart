@@ -2,46 +2,49 @@
 // Send; it was the Investments Withdraw, the Deposit's sheet turned
 // around).
 //
-// THE BITCOIN SEND'S LAYOUT (founder, 1 November 2026: "Send on Dollars
-// does three main things and it must be clear"; the first step reads like
-// the Bitcoin send's Send to step, confirm_send.dart):
+// THE SAME WHO STEP AS THE BITCOIN SEND (founder, 7 November 2026, the
+// approved Send: "ok do it, just make sure that people realise they can
+// send to different cryptos also"; send_recipient_step.dart): Who, then
+// What, then Review. Only the home differs: here the money leaves from
+// Dollars unless the person or the address says otherwise.
 //
-//   * the title "Send dollars" and the same search field, "Name, address
-//     or phone", Paste and Scan inside. A typed or pasted address the
-//     dollar send recognises shows its resolved row first (the coin on its
-//     network) and the bar's Continue opens the dollar send on it; one
-//     that could land on several networks asks which in the coin sheet;
-//   * "Frequent" directly under the field (founder, 2 November 2026:
-//     "Frequent stays on top"), the recent recipients as circles, hidden
-//     while typing and once a recipient is chosen;
-//   * THE WAYS AS ONE ROW OF CHIPS (founder, 6 November 2026, the approved
-//     hierarchy, "one question per level, people first";
-//     send_recipient_step.dart): under a small "More ways to send" label,
-//     small equal chips sharing the row (SendWaysRow), clearly under the
-//     people above: "To your Bitcoin" (Move money straight on the amount,
-//     Dollars to Bitcoin), "Crypto address" (the coins it can land as, in
-//     the coin sheet, exactly as the Bitcoin send's chip opens its own)
-//     and "Prediction or investment" (the market search,
-//     send_pick_market_sheet.dart, a market's page, its slip sends; the
-//     chip goes where neither venue is open to this person,
-//     sendPickOffered). No big "Send to" card grid any more, and no "Send
-//     to anyone" (founder, 5 November 2026: "makes no sense since we have
-//     phone numbers"): a contact or a typed phone number sends by link;
-//   * All contacts A–Z under them, the friends themselves
-//     (send_contacts_list.dart; founder: a growing list never hides the
-//     chips): the recent dollar recipients (paid directly: the send opens
-//     on that coin and address) and the phone's contacts (a claim link for
-//     dollars to their number), filtered by the text, "Send a link to
-//     +351…" for a typed number.
+//   * the title "Send dollars" and the same search field, "Name, phone or
+//     any crypto address", Paste and Scan inside;
+//   * while it is empty, the crypto hint under it: the coins stacked and
+//     "Send to Bitcoin, USDC, USDT, ETH and 18 more" from the very coins the
+//     dollar send offers under the policy; a tap opens the coin sheet as a
+//     browse list, and a coin picked turns the field into that coin's
+//     address field ("USDC on Base address", the coin with Change under
+//     it). With no coin offered the hint is not there and the unavailable
+//     line says why;
+//   * THE INPUT DECIDES THE RAIL: an address the dollar send takes on one
+//     network resolves as the recipient card (the coin on its network) and
+//     Continue opens the dollar send straight on its amount; one several
+//     networks take asks which in the coin sheet, filtered to it; a
+//     destination only bitcoin pays (a Lightning invoice or address, a
+//     Spark address, a bitcoin address no dollar route takes) is handed to
+//     the Bitcoin Send, preset, on its amount ("From your Bitcoin" says so
+//     on the card). A paste or a scan goes straight on, a typed address
+//     waits for Continue;
+//   * an own account's name typed ("bitcoin", "my dollars") offers "Move
+//     to your Bitcoin" / "Move to your Dollars", Move money straight on the
+//     amount (showOwnMoneyMove): the escape hatch, never a chip;
+//   * "Frequent" (the recent dollar recipients, paid directly: the send
+//     opens on that coin and address, on its amount) and All contacts A-Z
+//     (send_contacts_list.dart). A contact, or a typed number no contact
+//     has, is a person: What first (send_what_step.dart, the From toggle on
+//     Dollars), then the existing flow: the claim link in that account's
+//     money, Bitcoin paid at a Kute contact's own address (the Bitcoin
+//     Send), or a prediction or investment from the search in send mode.
 //
-// An address several networks take asks which one in the highlighted row
-// under the field, as before.
+// No chips any more (founder, 7 November 2026: one verb per intent): no
+// "To your Bitcoin" (the Bitcoin Receive's "From your Dollars" fills it),
+// no "Crypto address", no "Prediction or investment".
 //
-// No big Bitcoin card and no inline coin grid any more. The bar is the default
-// "Search or Manage with AI" (the rows are the actions), Continue while the
-// field holds a destination. A send that went out, or a link created, closes
-// this sheet. Nothing here moves money: every door is an existing flow,
-// unchanged.
+// The bar is the default "Search or Manage with AI", Continue while the
+// field holds a destination. A send that went out, or a link created,
+// closes this sheet. Nothing here moves money: every door is an existing
+// flow, unchanged.
 
 import 'dart:async';
 
@@ -50,16 +53,18 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 
+import 'package:kute/helpers/scanned_address.dart'
+    show bareRecipientAddress, evmPaymentChainId;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/share_link_model.dart' show ShareLinkKind;
 import 'package:kute/providers/asset_icon_provider.dart' show kBitcoinMarkAsset;
 import 'package:kute/providers/orchestra_supported_routes_provider.dart';
+import 'package:kute/providers/send_tx_provider.dart';
 import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
 import 'package:kute/screens/scanner/scanner_sheet.dart' show showScannerSheet;
-import 'package:kute/screens/search/components/search_rows.dart'
-    show SearchChanceGauge;
 import 'package:kute/services/runtime_capabilities_service.dart'
     show runtimeCapabilitiesProvider;
 import 'package:kute/screens/share/send_pick_market_sheet.dart'
@@ -76,8 +81,7 @@ import 'package:kute/screens/shared/send/send_contacts_list.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart';
 import 'package:kute/screens/shared/send/send_recipient_step.dart';
 import 'package:kute/screens/shared/send/send_sheet.dart' show showSendSheet;
-import 'package:kute/screens/usd/usd_receive_screen.dart'
-    show watchSpendingBitcoinUsd;
+import 'package:kute/screens/shared/send/send_what_step.dart';
 import 'package:kute/screens/usd/usd_send_screen.dart';
 import 'package:kute/services/contacts/send_contacts_service.dart'
     show SendContact, sendContactsProvider;
@@ -90,11 +94,12 @@ import 'package:kute/theme/app_theme.dart';
 /// The route name the Withdraw sheet carries.
 const String kUsdWithdrawRouteName = 'withdrawDollars';
 
-/// The Move sheet's `entry_source` when the Bitcoin card ("To your
-/// wallet") at the top of this sheet opens it.
-const String kUsdWithdrawBitcoinRowSource = 'usd_withdraw_bitcoin_row';
+/// The Move sheet's `entry_source` when this sheet's search finds an own
+/// account ("Move to your Bitcoin", send_recipient_step.dart).
+const String kUsdWithdrawSearchSource = 'usd_withdraw_search';
 
-/// The dollar send's `entry_source` when a coin on this sheet opens it.
+/// The dollar send's `entry_source` when a destination on this sheet opens
+/// it (and the Bitcoin Send's, for one only bitcoin pays).
 const String kUsdWithdrawSheetSource = 'usd_withdraw_sheet';
 
 /// Send to anyone's `entry_source` for a contact or a typed number on
@@ -109,32 +114,53 @@ Future<void> showUsdWithdrawSheet(BuildContext context) =>
       builder: (_) => const UsdWithdrawScreen(),
     );
 
+/// What the field holds, read against what the dollar send offers: the
+/// dollar [destination] it settles by itself, the bare [address], the
+/// [candidates] it could land on (several: the network question), whether
+/// only bitcoin pays it ([bitcoinRail]: the Bitcoin Send takes it), and
+/// what is wrong with it ([error], said under the field).
+typedef _UsdWho = ({
+  UsdSendDestination? destination,
+  String address,
+  List<UsdSendDestination> candidates,
+  bool bitcoinRail,
+  String? error,
+});
+
 /// The Dollars Send's first step (see the file header).
 class UsdWithdrawScreen extends ConsumerStatefulWidget {
   const UsdWithdrawScreen({super.key});
 
-  /// Test seam: what "To your Bitcoin" opens. Null opens the real Move
-  /// money sheet, Dollars to Bitcoin.
-  @visibleForTesting
-  static Future<void> Function(BuildContext context)? debugMoveSheetOpener;
-
-  /// Test seam: what a destination opens (a coin from the sheet, a
-  /// resolved address, a recent). Null opens the dollar send over this
-  /// sheet; the answer is whether the send went out.
+  /// Test seam: what a destination opens (a coin's address, a resolved
+  /// address, a recent). Null opens the dollar send over this sheet, on
+  /// its amount when the address is known; the answer is whether the send
+  /// went out.
   @visibleForTesting
   static Future<bool?> Function(BuildContext context,
       UsdSendDestination destination, String? recipient)? debugSendOpener;
 
-  /// Test seam: what "Send an investment or prediction" opens. Null opens
-  /// the market search; the answer is whether a link was created.
-  @visibleForTesting
-  static Future<bool?> Function(BuildContext context)? debugPickOpener;
-
-  /// Test seam: the claim link for a contact or a typed number. Null opens
-  /// Send to anyone for dollars, with the contact's name or the number.
+  /// Test seam: what the What step's "A prediction or investment" opens,
+  /// with the person picked. Null opens the market search in send mode;
+  /// the answer is whether a link was created.
   @visibleForTesting
   static Future<bool?> Function(BuildContext context,
-      {SendContact? contact, String? phone})? debugLinkOpener;
+      {String? senderLabel, String? recipientPhone})? debugPickOpener;
+
+  /// Test seam: the claim link in [kind]'s money for a contact or a typed
+  /// number. Null opens Send to anyone, with the contact's name or the
+  /// number.
+  @visibleForTesting
+  static Future<bool?> Function(BuildContext context,
+      {required ShareLinkKind kind,
+      SendContact? contact,
+      String? phone})? debugLinkOpener;
+
+  /// Test seam: the Bitcoin Send for an address (a destination only
+  /// bitcoin pays, or a Kute contact paid from Bitcoin). Null closes this
+  /// sheet and opens the Bitcoin Send, the address preset, on its amount.
+  @visibleForTesting
+  static void Function(BuildContext context, String address)?
+      debugBitcoinSendOpener;
 
   @override
   ConsumerState<UsdWithdrawScreen> createState() => _UsdWithdrawScreenState();
@@ -142,6 +168,10 @@ class UsdWithdrawScreen extends ConsumerStatefulWidget {
 
 class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
   final TextEditingController _search = TextEditingController();
+
+  /// The coin picked from the crypto hint's browse list: the field is its
+  /// address field until Change drops it.
+  UsdSendDestination? _coin;
 
   @override
   void initState() {
@@ -162,53 +192,80 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
     super.dispose();
   }
 
-  /// "To your Bitcoin": the Move money sheet from Dollars to Bitcoin.
-  void _openToBitcoin() {
-    final open = UsdWithdrawScreen.debugMoveSheetOpener;
+  /// "Move to your Bitcoin" / "Move to your Dollars" (the search's escape
+  /// hatch): Move money straight on the amount into that account, pinned
+  /// (showOwnMoneyMove). Dollars to Bitcoin spends all the dollar money
+  /// (Dollars, then venue cash) as the Bitcoin Receive's "From your
+  /// Dollars" does.
+  void _openOwnMove(SendOwnAccount into) {
+    HapticFeedback.selectionClick();
+    unawaited(showOwnMoneyMove(context,
+        from: into == SendOwnAccount.bitcoin
+            ? MoneyMovementAccount.dollars
+            : MoneyMovementAccount.bitcoin,
+        entrySource: kUsdWithdrawSearchSource));
+  }
+
+  /// A person (a contact, or a typed number no contact has), asked What
+  /// (send_what_step.dart, the From toggle on Dollars), then the existing
+  /// flow. A link created closes this sheet, as a send that went out does.
+  Future<void> _sendToPerson({SendContact? contact, String? phone}) async {
+    trackSendRecipientPicked(contact != null ? 'contact' : 'phone');
+    final label = contact?.firstName;
+    final number = contact?.phone ?? phone;
+    final created = await sendToPerson(
+      context,
+      contact: contact,
+      phone: phone,
+      home: SendFrom.dollars,
+      giftOffered: sendPickOffered(ref.read(runtimeCapabilitiesProvider)),
+      openLink: (kind) {
+        final open = UsdWithdrawScreen.debugLinkOpener;
+        return open != null
+            ? open(context, kind: kind, contact: contact, phone: phone)
+            : showSendToAnyoneSheet(
+                context,
+                kind: kind,
+                senderLabel: label,
+                recipientPhone: number,
+                entrySource: kUsdWithdrawContactSource,
+              );
+      },
+      openGift: () {
+        final open = UsdWithdrawScreen.debugPickOpener;
+        return open != null
+            ? open(context, senderLabel: label, recipientPhone: number)
+            : showSendPickMarketSheet(context,
+                entrySource: kUsdWithdrawSheetSource,
+                senderLabel: label,
+                recipientPhone: number);
+      },
+      payDirect: _openBitcoinSend,
+    );
+    if (created && mounted) _closeSelf();
+  }
+
+  /// The Bitcoin Send for [address], preset: it opens on its amount (a
+  /// native rail answers its Send to step). This sheet closes under it.
+  void _openBitcoinSend(String address) {
+    TrackingService.markEntrySource('send', kUsdWithdrawSheetSource);
+    final open = UsdWithdrawScreen.debugBitcoinSendOpener;
     if (open != null) {
-      TrackingService.markEntrySource('move', kUsdWithdrawBitcoinRowSource);
-      unawaited(open(context));
+      open(context, address);
       return;
     }
-    // Straight on the amount, Dollars to Bitcoin, nothing to pick
-    // (showOwnMoneyMove): the Bitcoin Receive's "From your Dollars" move,
-    // all the dollar money (Dollars, then venue cash) in its figure, Max
-    // and funding.
-    unawaited(showOwnMoneyMove(context,
-        from: MoneyMovementAccount.dollars,
-        entrySource: kUsdWithdrawBitcoinRowSource));
-  }
-
-  /// "Send an investment or prediction": the market search, a pick on a
-  /// link.
-  Future<void> _openPick() {
-    final open = UsdWithdrawScreen.debugPickOpener;
-    return _afterLink(open != null
-        ? open(context)
-        : showSendPickMarketSheet(context,
-            entrySource: kUsdWithdrawSheetSource));
-  }
-
-  /// The claim link for dollars: to a contact (its first name, its number
-  /// kept in the local row) or to a typed number.
-  Future<void> _openLink({SendContact? contact, String? phone}) {
-    trackSendRecipientPicked(contact != null ? 'contact' : 'phone');
-    final open = UsdWithdrawScreen.debugLinkOpener;
-    return _afterLink(open != null
-        ? open(context, contact: contact, phone: phone)
-        : showSendToAnyoneSheet(
-            context,
-            kind: ShareLinkKind.dollars,
-            senderLabel: contact?.firstName,
-            recipientPhone: contact?.phone ?? phone,
-            entrySource: kUsdWithdrawContactSource,
-          ));
-  }
-
-  /// A link created closes this sheet, as a send that went out does.
-  Future<void> _afterLink(Future<bool?> created) async {
-    final done = await created;
-    if (done == true && mounted) _closeSelf();
+    final router = GoRouter.maybeOf(context);
+    if (router == null) return;
+    // Kept alive until the Bitcoin Send reads it (the provider disposes
+    // with no listener): this sheet's subscription closes with it.
+    ref.listenManual(sendTxProvider, (_, __) {});
+    final notifier = ref.read(sendTxProvider.notifier);
+    notifier.resetToDefault();
+    notifier.updateAddress(address);
+    unawaited(router.pushNamed('pay_send'));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _closeSelf();
+    });
   }
 
   void _closeSelf() {
@@ -226,7 +283,7 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
       final data = await Clipboard.getData(Clipboard.kTextPlain);
       final raw = data?.text?.trim() ?? '';
       if (!mounted || raw.isEmpty) return;
-      _setText(raw);
+      _setText(raw, goOn: true);
     } catch (_) {
       // No clipboard access is the same as an empty clipboard.
     }
@@ -235,13 +292,96 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
   Future<void> _scan() async {
     final scanned = await showScannerSheet(context);
     if (!mounted || scanned == null) return;
-    _setText(scanned.trim());
+    _setText(scanned.trim(), goOn: true);
   }
 
-  void _setText(String text) {
+  /// [text] into the field; a paste or a scan ([goOn]) goes straight on:
+  /// a destination to its amount, an address several networks take to the
+  /// network question, one only bitcoin pays to the Bitcoin Send.
+  void _setText(String text, {bool goOn = false}) {
     _search.value = TextEditingValue(
         text: text, selection: TextSelection.collapsed(offset: text.length));
     setState(() {});
+    if (!goOn) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _search.text != text) return;
+      final offered =
+          usdSendOfferedDestinations(ref.read(orchestraSupportedRoutesProvider))
+              .offered;
+      final who = _who(text.trim(), offered, context.l10n);
+      final destination = who.destination;
+      if (destination != null) {
+        trackSendRecipientPicked('address');
+        unawaited(_openSend(destination, recipient: who.address));
+      } else if (who.bitcoinRail) {
+        trackSendRecipientPicked('address');
+        _openBitcoinSend(text.trim());
+      } else if (who.candidates.length > 1) {
+        _openCoinPicker(only: who.candidates, recipient: who.address);
+      }
+    });
+  }
+
+  /// What [text] means here (see the file header): with a coin picked from
+  /// the hint, an address for that coin's network only; otherwise the
+  /// dollar destinations it can land on, or bitcoin's own rails.
+  _UsdWho _who(String text, List<UsdSendDestination> offered,
+      AppLocalizations l10n,
+      {String? hiddenReason}) {
+    final coin = _pickedCoin(offered);
+    if (text.isEmpty) {
+      return (
+        destination: null,
+        address: '',
+        candidates: const <UsdSendDestination>[],
+        bitcoinRail: false,
+        error: null,
+      );
+    }
+    if (coin != null) {
+      final address = bareRecipientAddress(text);
+      final accepted = usdSendDestinationAccepts(coin, address,
+          chainId: evmPaymentChainId(text));
+      final looksLikeAddress = usdSendAddressFamily(address) != 'unknown' ||
+          sendTextLooksLikeAddress(text);
+      return (
+        destination: accepted ? coin : null,
+        address: address,
+        candidates: accepted ? [coin] : const <UsdSendDestination>[],
+        bitcoinRail: false,
+        error: !accepted && looksLikeAddress
+            ? l10n.usdSendNotNetworkAddress(coin.chainDisplayName)
+            : null,
+      );
+    }
+    final match = matchUsdRecipient(text, offered);
+    // A destination: an address the dollar send takes, on a network it
+    // settles by itself ([UsdRecipientMatch.autoPick]).
+    final auto =
+        usdSendPaymentRequestDestination(text, offered) ?? match.autoPick;
+    final bitcoinRail = match.candidates.isEmpty && sendIsBitcoinRail(text);
+    final looksLikeAddress =
+        match.recognised || sendTextLooksLikeAddress(text);
+    String? error;
+    if (!bitcoinRail && looksLikeAddress && match.candidates.isEmpty) {
+      error = match.recognised
+          ? hiddenReason ?? l10n.usdSendAddressUnsupported
+          : l10n.sendAddressNotIdentified;
+    }
+    return (
+      destination: auto,
+      address: match.address,
+      candidates: match.candidates,
+      bitcoinRail: bitcoinRail,
+      error: error,
+    );
+  }
+
+  /// The picked coin while the dollar send still offers it.
+  UsdSendDestination? _pickedCoin(List<UsdSendDestination> offered) {
+    final coin = _coin;
+    if (coin == null) return null;
+    return offered.where((d) => d.id == coin.id).firstOrNull;
   }
 
   @override
@@ -250,30 +390,31 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
     final c = context.colors;
     final text = _search.text.trim();
     final catalog = ref.watch(orchestraSupportedRoutesProvider);
+    ref.watch(runtimeCapabilitiesProvider);
     final offeredResult = usdSendOfferedDestinations(catalog);
     final offered = offeredResult.offered;
-    final match = text.isEmpty ? null : matchUsdRecipient(text, offered);
-    // A destination: the field holds an address the dollar send takes,
-    // on a network it settles by itself ([UsdRecipientMatch.autoPick])
-    // or one the person picks in the coin sheet.
-    final auto = match == null
-        ? null
-        : usdSendPaymentRequestDestination(text, offered) ?? match.autoPick;
-    final recognised = match != null && match.recognised;
-    final looksLikeAddress = recognised || sendTextLooksLikeAddress(text);
-    String? error;
-    if (looksLikeAddress && (match?.candidates.isEmpty ?? true)) {
-      error = recognised
-          ? offeredResult.hiddenReason ?? l10n.usdSendAddressUnsupported
-          : l10n.sendAddressNotIdentified;
-    }
-    final resolved = auto != null ? match!.address : null;
+    final coin = _pickedCoin(offered);
+    final who =
+        _who(text, offered, l10n, hiddenReason: offeredResult.hiddenReason);
+    final auto = who.destination;
+    // A recipient chosen: a dollar destination, or one only bitcoin pays.
+    final chosen = auto != null || who.bitcoinRail;
+    final resolved = auto != null ? who.address : null;
     final recents = _recentPeople(offered);
+    final background = context.isDark ? c.surface : Colors.white;
+    // The coins the hint names and its browse list offers: the dollar
+    // send's own destinations, less what the policy withdraws.
+    final loading = ref.watch(orchestraRoutesReadyProvider).isLoading;
+    final groups = coinGroupsOfferedUnderPolicy(
+      groupCoinsByAsset([for (final d in offered) usdSendDestinationOption(d)]),
+      otherLegAsset: kOrchestraUsdAssetCode,
+    ).groups;
+    final atRest = text.isEmpty && coin == null;
 
-    final bar = auto != null
+    final bar = chosen
         ? KuteBarContext.primary(
             label: l10n.continueLabel,
-            onPrimary: () => unawaited(_openSend(auto, recipient: resolved)),
+            onPrimary: _continue,
             // Only built once a destination is resolved: never off.
             disabledLabel: null,
             category: SearchCategory.all,
@@ -290,7 +431,7 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
             KuteCloseButton(onPressed: () => Navigator.of(context).maybePop()),
         title: SendStepTitle(l10n.sendDollarsTitle),
         semanticTitle: l10n.sendDollarsTitle,
-        // ONE scroll: the field and the cards, then the Contacts as
+        // ONE scroll: the field and its results, then the Contacts as
         // slivers (sticky letter headers), the bar's clearance at the end.
         child: CustomScrollView(
           key: const ValueKey('usd-withdraw-scroll'),
@@ -299,87 +440,138 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
               padding: EdgeInsets.fromLTRB(20.w, 18.h, 20.w, 0),
               sliver: SliverToBoxAdapter(
                 child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SendRecipientSearchField(
-                controller: _search,
-                hintText: l10n.usdSendSearchHint,
-                onChanged: (_) => setState(() {}),
-                onPaste: () => unawaited(_paste()),
-                onScan: () => unawaited(_scan()),
-              ),
-              // One recipient card (founder: "more fintech"), the person
-              // never listed again below.
-              if (auto != null) ...[
-                SizedBox(height: 20.h),
-                SendRecipientCard(
-                  railMark: usdSendDestinationMark(auto, size: 28),
-                  address: resolved!,
-                  rail: l10n.usdSendResolvedRail(
-                      auto.chainDisplayName, auto.displaySymbol),
-                  recents: recents,
-                  onChange: _clearRecipient,
-                  onTap: () => unawaited(_openSend(auto, recipient: resolved)),
-                ),
-              ] else if (match != null && match.candidates.length > 1) ...[
-                // An address several networks take: which one.
-                SizedBox(height: 12.h),
-                SendToListCard(
-                  colors: c,
-                  emphasized: true,
-                  rows: [
-                    SendToListRow(
-                      key: const ValueKey('usd-withdraw-pick-network'),
-                      colors: c,
-                      leading: Icon(Icons.swap_horiz_rounded,
-                          color: c.textSecondary, size: 20.sp),
-                      title: l10n.sendWhichNetworkIsThisAddressOn,
-                      subtitle: l10n.sendTapToChoose,
-                      onTap: () => _openCoinPicker(
-                          only: match.candidates, recipient: match.address),
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SendRecipientSearchField(
+                      controller: _search,
+                      hintText: coin != null
+                          ? l10n.sendAssetOnNetworkAddressHint(
+                              coin.displaySymbol, coin.chainDisplayName)
+                          : l10n.sendRecipientSearchHint,
+                      onChanged: (_) => setState(() {}),
+                      onPaste: () => unawaited(_paste()),
+                      onScan: () => unawaited(_scan()),
                     ),
+                    if (auto != null) ...[
+                      // One recipient card, the person never listed again.
+                      SizedBox(height: 20.h),
+                      SendRecipientCard(
+                        railMark: usdSendDestinationMark(auto, size: 28),
+                        address: resolved!,
+                        rail: l10n.usdSendResolvedRail(
+                            auto.chainDisplayName, auto.displaySymbol),
+                        recents: recents,
+                        onChange: _clearRecipient,
+                        onTap: _continue,
+                      ),
+                    ] else if (who.bitcoinRail) ...[
+                      // Only bitcoin pays it: the card says the money
+                      // leaves from Bitcoin (the Bitcoin Send takes it).
+                      SizedBox(height: 20.h),
+                      SendRecipientCard(
+                        railMark: SvgPicture.asset(kBitcoinMarkAsset,
+                            width: 28.sp, height: 28.sp),
+                        address: text,
+                        rail: l10n.usdReceiveFromYourBitcoin,
+                        recents: recents,
+                        onChange: _clearRecipient,
+                        onTap: _continue,
+                      ),
+                    ] else if (coin == null && who.candidates.length > 1) ...[
+                      // An address several networks take: which one.
+                      SizedBox(height: 12.h),
+                      SendToListCard(
+                        colors: c,
+                        emphasized: true,
+                        rows: [
+                          SendToListRow(
+                            key: const ValueKey('usd-withdraw-pick-network'),
+                            colors: c,
+                            leading: Icon(Icons.swap_horiz_rounded,
+                                color: c.textSecondary, size: 20.sp),
+                            title: l10n.sendWhichNetworkIsThisAddressOn,
+                            subtitle: l10n.sendTapToChoose,
+                            onTap: () => _openCoinPicker(
+                                only: who.candidates, recipient: who.address),
+                          ),
+                        ],
+                      ),
+                    ],
+                    // The coin picked from the hint, Change at its right:
+                    // back to the plain field.
+                    if (coin != null && auto == null) ...[
+                      SizedBox(height: 12.h),
+                      SendToListCard(
+                        key: const ValueKey('usd-withdraw-coin-card'),
+                        colors: c,
+                        rows: [
+                          SendToListRow(
+                            colors: c,
+                            leading: usdSendDestinationMark(coin, size: 28),
+                            title: '${coin.displaySymbol} · '
+                                '${coin.chainDisplayName}',
+                            trailing: SendChangeButton(
+                              key: const ValueKey('usd-withdraw-coin-change'),
+                              onTap: _clearCoin,
+                            ),
+                            onTap: () => _openCoinPicker(browse: true),
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (who.error != null) ...[
+                      SizedBox(height: 10.h),
+                      SendInlineError(message: who.error!),
+                    ],
+                    // What else the field takes, under it while empty; with
+                    // no coin offered, the line that says why instead.
+                    if (atRest)
+                      groups.isNotEmpty
+                          ? SendCryptoHint(
+                              groups: groups,
+                              background: background,
+                              onTap: _openCryptoHint,
+                            )
+                          : Padding(
+                              padding: EdgeInsets.only(top: 12.h),
+                              child: ReceiveCaption(
+                                text: loading
+                                    ? l10n.usdSendRoutesUnavailable
+                                    : l10n.usdSendDestinationsUnavailable,
+                              ),
+                            ),
+                    // An own account's name typed: the move into it.
+                    if (coin == null && !chosen && who.candidates.isEmpty)
+                      SendMoveToOwnRows(query: text, onMove: _openOwnMove),
+                    // The people: Frequent directly under the field, hidden
+                    // while typing and once a recipient is chosen.
+                    if (coin == null)
+                      SendFrequentSection(
+                        query: text,
+                        excludeAddress: resolved,
+                        recents: recents,
+                        onPerson: (p) => _onPerson(p, offered),
+                      ),
                   ],
                 ),
-              ] else if (error != null) ...[
-                SizedBox(height: 10.h),
-                SendInlineError(message: error),
-              ],
-              // Level 1, people (founder, 2 November 2026: "Frequent stays
-              // on top"): directly under the field. Hidden while typing and
-              // once a recipient is chosen.
-              SendFrequentSection(
-                query: text,
-                excludeAddress: resolved,
-                recents: recents,
-                onPerson: (p) => _onPerson(p, offered),
               ),
-              // Level 2, the other ways, one row of chips before Contacts:
-              // a growing list never pushes them out of sight; Contacts
-              // scroll on to the bar's clearance. Hidden while a recipient
-              // is chosen: the card above is the choice.
-              if (auto == null) ...[
-                SizedBox(height: 20.h),
-                SendSectionLabel(l10n.sendMoreWaysToSend),
-                _waysRow(offered),
-              ],
-            ],
+            ),
+            if (coin == null && !who.bitcoinRail)
+              SliverPadding(
+                padding: EdgeInsets.symmetric(horizontal: 20.w),
+                sliver: SendContactsSection(
+                  query: text,
+                  excludeAddress: resolved,
+                  recents: recents,
+                  // Frequent sits above, under the field.
+                  showFrequent: false,
+                  onPerson: (p) => _onPerson(p, offered),
+                  onPhoneLink: (phone) =>
+                      unawaited(_sendToPerson(phone: phone)),
+                  // The sheet's own white (its dark surface in dark mode).
+                  background: background,
                 ),
               ),
-            ),
-            SliverPadding(
-              padding: EdgeInsets.symmetric(horizontal: 20.w),
-              sliver: SendContactsSection(
-                query: text,
-                excludeAddress: resolved,
-                recents: recents,
-                // Frequent sits above the chips.
-                showFrequent: false,
-                onPerson: (p) => _onPerson(p, offered),
-                onPhoneLink: (phone) => unawaited(_openLink(phone: phone)),
-                // The sheet's own white (its dark surface in dark mode).
-                background: context.isDark ? c.surface : Colors.white,
-              ),
-            ),
             SliverToBoxAdapter(
                 child: SizedBox(height: kuteBarScrollClearance.h)),
           ],
@@ -388,12 +580,46 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
     );
   }
 
-  /// "Change" on the recipient card: the field empties and the Send to
-  /// card and the whole Contacts list come back.
+  /// The bar's Continue (and a tap on the recipient card): the dollar send
+  /// on the destination, on its amount, or the Bitcoin Send for one only
+  /// bitcoin pays.
+  void _continue() {
+    final offered =
+        usdSendOfferedDestinations(ref.read(orchestraSupportedRoutesProvider))
+            .offered;
+    final text = _search.text.trim();
+    final who = _who(text, offered, context.l10n);
+    final destination = who.destination;
+    if (destination != null) {
+      trackSendRecipientPicked('address');
+      unawaited(_openSend(destination, recipient: who.address));
+    } else if (who.bitcoinRail) {
+      trackSendRecipientPicked('address');
+      _openBitcoinSend(text);
+    }
+  }
+
+  /// The crypto hint: the coin sheet as a browse list; a coin picked turns
+  /// the field into its address field.
+  void _openCryptoHint() {
+    TrackingService.track('usd_withdraw_coin_sheet_opened',
+        params: {'source': 'crypto_hint'});
+    _openCoinPicker(browse: true, tracked: true);
+  }
+
+  /// "Change" on the recipient card: the field empties and the hint and
+  /// the whole Contacts list come back.
   void _clearRecipient() {
     HapticFeedback.selectionClick();
     _search.clear();
     setState(() {});
+  }
+
+  /// "Change" beside the coin picked from the hint: back to the plain
+  /// field, the Contacts with it.
+  void _clearCoin() {
+    HapticFeedback.selectionClick();
+    setState(() => _coin = null);
   }
 
   /// The recent dollar recipients as Contacts entries: the short address
@@ -410,12 +636,11 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
       ];
 
   /// A Contacts entry tapped: a recent opens the send on its coin and
-  /// address; a contact gets a claim link for dollars (a Kute Lightning
-  /// address cannot take dollars directly).
+  /// address, on its amount; a contact is a person, asked What first.
   void _onPerson(SendPerson person, List<UsdSendDestination> offered) {
     final contact = person.contact;
     if (contact != null) {
-      unawaited(_openLink(contact: contact));
+      unawaited(_sendToPerson(contact: contact));
       return;
     }
     final address = person.address;
@@ -428,83 +653,16 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
     unawaited(_openSend(recent.destination, recipient: recent.address));
   }
 
-  /// LEVEL 2, ONE ROW OF CHIPS (founder, 6 November 2026; see the file
-  /// header): "To your Bitcoin" (Move money), "Crypto address" (the coin
-  /// sheet) and "Prediction or investment" (the market search), small and
-  /// equal under the "More ways to send" label. No "Send to anyone"
-  /// (founder, 5 November 2026: a contact or a typed phone number sends by
-  /// link). With no coin offered the address chip goes and the unavailable
-  /// line sits under the row.
-  Widget _waysRow(List<UsdSendDestination> offered) {
-    final l10n = context.l10n;
-    final loading = ref.watch(orchestraRoutesReadyProvider).isLoading;
-    final groups = coinGroupsOfferedUnderPolicy(
-      groupCoinsByAsset([for (final d in offered) usdSendDestinationOption(d)]),
-      otherLegAsset: kOrchestraUsdAssetCode,
-    ).groups;
-    final balance = watchSpendingBitcoinUsd(ref);
-    // A prediction (an investment) is composed on a slip that can send it:
-    // with both venues closed to this person the chip goes
-    // (send_pick_market_sheet.dart; founder, 5 November 2026).
-    final pickOffered = sendPickOffered(ref.watch(runtimeCapabilitiesProvider));
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        SendWaysRow(
-          key: const ValueKey('usd-withdraw-options'),
-          chips: [
-            SendWayChip(
-              key: const ValueKey('usd-withdraw-to-bitcoin'),
-              icon: SvgPicture.asset(kBitcoinMarkAsset,
-                  width: kSendWayChipIconSlot.sp,
-                  height: kSendWayChipIconSlot.sp),
-              label: l10n.usdSendToYourBitcoin,
-              // The balance read out, as the card showed it.
-              semanticsLabel: balance == null
-                  ? null
-                  : '${l10n.usdSendToYourBitcoin}, '
-                      '${l10n.usdBitcoinBalanceLine(balance)}',
-              onTap: _openToBitcoin,
-            ),
-            if (groups.isNotEmpty)
-              SendWayChip(
-                key: const ValueKey('send-also-sends-to-row'),
-                icon: SendCoinStack(
-                    groups: groups, mark: kSendWayChipCoinMark),
-                label: l10n.sendWayCryptoAddress,
-                // "USDC, USDT, ETH and 16 more" read out after the label.
-                semanticsLabel: '${l10n.sendToCryptoAddress}, '
-                    '${sendAlsoSendsToSummary(l10n, groups)}',
-                onTap: _openCoinPicker,
-              ),
-            if (pickOffered)
-              SendWayChip(
-                key: const ValueKey('usd-withdraw-pick'),
-                // The predictions' own gauge (the search rows' half ring).
-                icon: const SearchChanceGauge(chance: 0.64),
-                label: l10n.sendWayPrediction,
-                semanticsLabel: l10n.sendAnInvestmentOrPrediction,
-                onTap: () => unawaited(_openPick()),
-              ),
-          ],
-        ),
-        if (groups.isEmpty) ...[
-          SizedBox(height: 12.h),
-          ReceiveCaption(
-            text: loading
-                ? l10n.usdSendRoutesUnavailable
-                : l10n.usdSendDestinationsUnavailable,
-          ),
-        ],
-      ],
-    );
-  }
-
-  /// The coin sheet the dollar send opens (every offered coin, or only
-  /// [only] for an address several networks take); a pick opens the send
-  /// on it, with [recipient] when the field held one.
-  void _openCoinPicker({List<UsdSendDestination>? only, String? recipient}) {
-    TrackingService.track('usd_withdraw_coin_sheet_opened');
+  /// The coin sheet of the dollar send: every offered coin ([browse], the
+  /// crypto hint's list: a pick becomes the field's coin), or only [only]
+  /// for an address several networks take (a pick opens the send on it
+  /// with [recipient]).
+  void _openCoinPicker(
+      {List<UsdSendDestination>? only,
+      String? recipient,
+      bool browse = false,
+      bool tracked = false}) {
+    if (!tracked) TrackingService.track('usd_withdraw_coin_sheet_opened');
     final closed = showAppBottomSheet<void>(
       context: context,
       builder: (sheetCtx) => Consumer(
@@ -528,12 +686,17 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
                 ? ctx.l10n.usdSendRoutesUnavailable
                 : ctx.l10n.usdSendDestinationsUnavailable,
             flow: 'usd_withdraw',
+            selectedOptionId: browse ? _coin?.id : null,
             onPicked: (row) {
               final picked = choices
                   .where((d) => d.id == '${row.chain}:${row.assetCode}')
                   .firstOrNull;
               if (picked == null) return;
               Navigator.of(sheetCtx).pop();
+              if (browse) {
+                setState(() => _coin = picked);
+                return;
+              }
               unawaited(_openSend(picked, recipient: recipient));
             },
           );
@@ -543,9 +706,9 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
     unawaited(closed);
   }
 
-  /// The dollar send over this sheet, the coin already picked (and the
-  /// address, when there is one). A send that went out closes this sheet
-  /// behind its success screen.
+  /// The dollar send over this sheet, the coin already picked and, with
+  /// [recipient], on its amount (the Who step answered here). A send that
+  /// went out closes this sheet behind its success screen.
   Future<void> _openSend(UsdSendDestination destination,
       {String? recipient}) async {
     TrackingService.markEntrySource('usd_send', kUsdWithdrawSheetSource);
@@ -555,7 +718,10 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
         : await showSendSheet<bool>(
             context,
             builder: (_) => UsdSendScreen(
-                initialDestination: destination, initialRecipient: recipient),
+              initialDestination: destination,
+              initialRecipient: recipient,
+              startOnAmount: recipient != null,
+            ),
           );
     if (sent != true || !mounted) return;
     _closeSelf();

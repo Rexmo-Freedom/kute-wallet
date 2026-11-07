@@ -2,8 +2,9 @@
 //
 // SEND A PREDICTION OR AN INVESTMENT FROM SEND (founder, 31 October 2026:
 // people must be able to send a pick from the Send screen, not only from
-// a market page). The Dollars Send's "Send a prediction or investment"
-// row (and the Bitcoin Send's, and the Withdraw sheet's) opens it.
+// a market page). Both Sends' What step opens it: a person picked, then
+// "A prediction or investment" (send_what_step.dart; founder, 7 November
+// 2026: a gift is a What, never a chip).
 //
 // IT IS THE SEARCH SHEET, IN SEND MODE (founder, 7 November 2026: "too
 // much text here, and this is still not the search one just adapted to
@@ -27,8 +28,8 @@
 // to anyone's "Who is it for?" with the pick, the contact picked on Send
 // prefilled. A link created closes the slip, the pages and this sheet,
 // and the future resolves to true: the Send screen closes as a send that
-// went out. The Send screen hides its row when neither venue is open
-// (sendPickOffered).
+// went out. The What step hides its gift option when neither venue is
+// open (sendPickOffered).
 //
 // `send_pick_market_opened {source: send}` once per open,
 // `send_pick_market_picked {venue, searched}` per market opened.

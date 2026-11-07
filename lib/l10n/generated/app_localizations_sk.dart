@@ -12060,8 +12060,40 @@ class AppLocalizationsSk extends AppLocalizations {
   }
 
   @override
-  String get sendRecipientSearchHint =>
-      'Meno, adresa, Lightning alebo @používateľ';
+  String get sendRecipientSearchHint => 'Meno, telefón či krypto adresa';
+
+  @override
+  String sendCryptoHint(String coins) {
+    return 'Poslať na $coins';
+  }
+
+  @override
+  String sendCryptoHintMore(String coins, int count) {
+    return 'Poslať na $coins a ešte $count';
+  }
+
+  @override
+  String get sendMoveToYourDollars => 'Presunúť na tvoje Doláre';
+
+  @override
+  String get sendMoveToYourBitcoin => 'Presunúť na tvoj Bitcoin';
+
+  @override
+  String sendWhatTitle(String name) {
+    return 'Príjemca: $name';
+  }
+
+  @override
+  String get sendWhatSubtitle => 'Čo posielaš?';
+
+  @override
+  String get sendWhatMoney => 'Peniaze';
+
+  @override
+  String get sendWhatGift => 'Predpoveď alebo investícia';
+
+  @override
+  String get sendWhatFrom => 'Z účtu';
 
   @override
   String get usdSendRecipientSearchHint => 'Meno, adresa alebo ENS';
@@ -12118,12 +12150,6 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String get sendBadgeLightning => 'Lightning address';
-
-  @override
-  String get usdSendSearchHint => 'Name, address or phone';
-
-  @override
-  String get usdSendToYourBitcoin => 'Na tvoj Bitcoin';
 
   @override
   String usdBitcoinBalanceLine(String amount) {
@@ -13868,18 +13894,6 @@ class AppLocalizationsSk extends AppLocalizations {
   String get sendToCryptoAddress => 'Na kryptoadresu';
 
   @override
-  String get sendMoreWaysToSend => 'Ďalšie spôsoby odoslania';
-
-  @override
-  String get sendWayCryptoAddress => 'Kryptoadresa';
-
-  @override
-  String get sendWayPrediction => 'Predpoveď alebo investícia';
-
-  @override
-  String get sendWayToDollars => 'Na tvoje Doláre';
-
-  @override
   String get sendPickRowSub => 'Alebo investíciu. Vyhľadaj trh, vyber stranu';
 
   @override
@@ -14040,10 +14054,6 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String get sendPickCardSub => 'Vyber trh, stranu a sumu';
-
-  @override
-  String get sendAnInvestmentOrPrediction =>
-      'Poslať investíciu alebo predpoveď';
 
   @override
   String get sendPredictionCta => 'Poslať predpoveď';

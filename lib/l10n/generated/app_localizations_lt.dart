@@ -12099,8 +12099,40 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
-  String get sendRecipientSearchHint =>
-      'Vardas, adresas, Lightning arba @naudotojas';
+  String get sendRecipientSearchHint => 'Vardas, telefonas ar kripto adresas';
+
+  @override
+  String sendCryptoHint(String coins) {
+    return 'Siųsti: $coins';
+  }
+
+  @override
+  String sendCryptoHintMore(String coins, int count) {
+    return 'Siųsti: $coins ir dar $count';
+  }
+
+  @override
+  String get sendMoveToYourDollars => 'Perkelti į tavo Dolerius';
+
+  @override
+  String get sendMoveToYourBitcoin => 'Perkelti į tavo Bitcoin';
+
+  @override
+  String sendWhatTitle(String name) {
+    return 'Gavėjas: $name';
+  }
+
+  @override
+  String get sendWhatSubtitle => 'Ką siunti?';
+
+  @override
+  String get sendWhatMoney => 'Pinigai';
+
+  @override
+  String get sendWhatGift => 'Prognozė ar investicija';
+
+  @override
+  String get sendWhatFrom => 'Iš';
 
   @override
   String get usdSendRecipientSearchHint => 'Vardas, adresas arba ENS';
@@ -12157,12 +12189,6 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get sendBadgeLightning => 'Lightning address';
-
-  @override
-  String get usdSendSearchHint => 'Name, address or phone';
-
-  @override
-  String get usdSendToYourBitcoin => 'Į tavo Bitcoin';
 
   @override
   String usdBitcoinBalanceLine(String amount) {
@@ -13907,18 +13933,6 @@ class AppLocalizationsLt extends AppLocalizations {
   String get sendToCryptoAddress => 'Į kripto adresą';
 
   @override
-  String get sendMoreWaysToSend => 'Daugiau siuntimo būdų';
-
-  @override
-  String get sendWayCryptoAddress => 'Kripto adresas';
-
-  @override
-  String get sendWayPrediction => 'Prognozė ar investicija';
-
-  @override
-  String get sendWayToDollars => 'Į tavo Dolerius';
-
-  @override
   String get sendPickRowSub =>
       'Arba investiciją. Raskite rinką, pasirinkite pusę';
 
@@ -14080,9 +14094,6 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get sendPickCardSub => 'Pasirinkite rinką, pusę ir sumą';
-
-  @override
-  String get sendAnInvestmentOrPrediction => 'Siųsti investiciją arba prognozę';
 
   @override
   String get sendPredictionCta => 'Siųsti prognozę';

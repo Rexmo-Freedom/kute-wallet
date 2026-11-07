@@ -45,7 +45,7 @@ import 'package:kute/screens/usd/usd_send_screen.dart';
 import 'package:kute/screens/usd/usd_withdraw_screen.dart'
     show UsdWithdrawScreen, kUsdWithdrawRouteName;
 import 'package:kute/screens/shared/kute_back_button.dart'
-    show KuteCloseButton;
+    show KuteCircleBackButton, KuteCloseButton;
 import 'package:kute/services/continuous_haptics.dart';
 import 'package:kute/services/kute_haptics.dart';
 import 'package:kute/services/orchestra_usd_send_routes.dart';
@@ -910,9 +910,10 @@ void main() {
   // ─── The send sheet ───────────────────────────────────────────────
 
   testWidgets(
-      'the Investments row\'s Send opens the Add sheet turned '
-      'around; a coin on it opens the send sheet at medium height on Send '
-      'to, the coin picked, and closing it comes back', (tester) async {
+      'the Investments row\'s Send opens the Dollars Send (the Who step, no '
+      'chips); a coin from its crypto hint and that coin\'s address pasted '
+      'open the send sheet straight on the amount, the coin picked; back '
+      'reaches Send to, and closing it comes back', (tester) async {
     final events = <(String, Map<String, Object>?)>[];
     TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
     addTearDown(() => TrackingService.debugTrackObserver = null);
@@ -926,38 +927,40 @@ void main() {
     await tester.tap(find.text(_l10n.send));
     await tester.pumpAndSettle();
 
-    // The Dollars Send sheet (the Bitcoin send's layout): "Send dollars",
-    // the search field, the Send to card with To your Bitcoin, A stock or
-    // prediction and Also sends to. No send yet.
+    // The Dollars Send sheet (the Bitcoin Send's Who step): "Send
+    // dollars", the search field and the crypto hint under it. No chips,
+    // no send yet.
     final withdraw = find.byType(UsdWithdrawScreen);
     expect(withdraw, findsOneWidget);
     final route = ModalRoute.of(tester.element(withdraw));
     expect(route, isA<ModalBottomSheetRoute<void>>());
     expect(route!.settings.name, kUsdWithdrawRouteName);
     expect(find.text(_l10n.sendDollarsTitle), findsOneWidget);
-    expect(
-        find.byKey(const ValueKey('usd-withdraw-to-bitcoin')), findsOneWidget);
-    expect(find.byKey(const ValueKey('usd-withdraw-pick')), findsOneWidget);
-    final also = find.byKey(const ValueKey('send-also-sends-to-row'));
-    expect(also, findsOneWidget);
+    expect(find.byKey(const ValueKey('usd-withdraw-to-bitcoin')), findsNothing);
+    expect(find.byKey(const ValueKey('usd-withdraw-pick')), findsNothing);
+    final hint = find.byKey(const ValueKey('send-crypto-hint'));
+    expect(hint, findsOneWidget);
     expect(find.byType(UsdSendScreen), findsNothing);
 
-    // Also sends to opens the coin sheet; USDC is on several networks:
-    // its networks, then the send.
-    await tester.tap(also);
+    // The hint opens the coin sheet; USDC is on several networks: its
+    // networks. The field is that coin's address field now.
+    await tester.tap(hint);
     await tester.pumpAndSettle();
-    await _tapCoin(tester, find.byType(CoinAssetPickerSheet), 'arbitrum', 'USDC');
+    await _tapCoin(
+        tester, find.byType(CoinAssetPickerSheet), 'arbitrum', 'USDC');
+    expect(find.byType(UsdSendScreen), findsNothing);
+    final d = _dest('arbitrum', 'USDC');
+    expect(
+        find.text(_l10n.sendAssetOnNetworkAddressHint(
+            d.displaySymbol, d.chainDisplayName)),
+        findsOneWidget);
 
+    // Its address pasted: the send at once, on its amount (Who answered).
+    await _paste(tester, _evm);
     expect(find.byType(UsdSendScreen), findsOneWidget);
-    expect(_step(_l10n.sendTo), findsOneWidget);
-    expect(_sheetHeight(tester), moreOrLessEquals(_medium(tester)));
-    // The coin is picked: its chip over the field, no grid.
+    expect(_step(_l10n.amount), findsOneWidget);
     expect(_chipLabel(tester), label('arbitrum', 'USDC'));
     expect(_grid, findsNothing);
-    expect(
-        find.descendant(
-            of: find.byType(UsdSendScreen), matching: find.byType(TextField)),
-        findsOneWidget);
     // The screen it came from stays behind the scrim.
     expect(find.byType(UsdAccountActionRow), findsOneWidget);
     final opened = events.where((e) => e.$1 == 'usd_send_opened').single.$2;
@@ -965,7 +968,20 @@ void main() {
     expect(events.where((e) => e.$1 == 'usd_send_coin_selected').single.$2,
         containsPair('preselected', true));
 
-    // Closing the send comes back to the Withdraw sheet as it was.
+    // Back reaches Send to, the address in.
+    await tester.tap(find.byType(KuteCircleBackButton).last);
+    await tester.pumpAndSettle();
+    expect(_step(_l10n.sendTo), findsOneWidget);
+    expect(
+        tester
+            .widget<TextField>(find.descendant(
+                of: find.byType(UsdSendScreen),
+                matching: find.byType(TextField)))
+            .controller!
+            .text,
+        _evm);
+
+    // Closing the send comes back to the Withdraw sheet.
     await tester.tap(find.byType(KuteCloseButton).last);
     await tester.pumpAndSettle();
     expect(find.byType(UsdSendScreen), findsNothing);

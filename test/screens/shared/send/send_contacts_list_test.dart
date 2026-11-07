@@ -496,7 +496,7 @@ void main() {
     });
 
     Future<void> pumpCard(WidgetTester tester, String address,
-        {String rail = 'Lightning'}) async {
+        {String? rail = 'Lightning'}) async {
       GoogleFonts.config.allowRuntimeFetching = false;
       tester.view.physicalSize = const Size(375, 900);
       tester.view.devicePixelRatio = 1;
@@ -550,6 +550,17 @@ void main() {
               of: find.byKey(const ValueKey('send-recipient-rail')),
               matching: find.text('Lightning')),
           findsOneWidget);
+      expect(find.byKey(const ValueKey('send-recipient-change')),
+          findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'with no rail the card draws no chip (progressive disclosure: '
+        'Lightning or on-chain waits for Review)', (tester) async {
+      await pumpCard(tester, 'joana@paykute.com', rail: null);
+      expect(name(tester), 'Joana Kute');
+      expect(find.byKey(const ValueKey('send-recipient-rail')), findsNothing);
       expect(find.byKey(const ValueKey('send-recipient-change')),
           findsOneWidget);
       expect(tester.takeException(), isNull);

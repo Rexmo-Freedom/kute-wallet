@@ -20191,11 +20191,65 @@ abstract class AppLocalizations {
   /// **'{chance}% chance'**
   String shareMarketChance(String chance);
 
-  /// No description provided for @sendRecipientSearchHint.
+  /// Send (Bitcoin and Dollars): the search field's placeholder on the Who step. It says the field takes a person (a name, a phone number) and any crypto address (founder: people must realise they can send to other cryptos). One line in the field beside two small buttons: keep it short.
   ///
   /// In en, this message translates to:
-  /// **'Name, address, Lightning or @user'**
+  /// **'Name, phone or any crypto address'**
   String get sendRecipientSearchHint;
+
+  /// Send (Bitcoin and Dollars): the quiet line under the empty search field, beside a stack of coin marks, naming what the field can send to when there are no more coins to count. {coins} is the list already joined, e.g. 'Bitcoin, USDC and USDT'. Must fit ONE line on a 375 pt phone.
+  ///
+  /// In en, this message translates to:
+  /// **'Send to {coins}'**
+  String sendCryptoHint(String coins);
+
+  /// Send (Bitcoin and Dollars): the quiet line under the empty search field, beside a stack of coin marks: what the field can send to. {coins} is 'Bitcoin, USDC, USDT, ETH' (Bitcoin and three coin tickers), {count} how many more coins can be picked. Tapping it opens the list. Must fit ONE line on a 375 pt phone with a two-digit count: use a compact form where needed.
+  ///
+  /// In en, this message translates to:
+  /// **'Send to {coins} and {count} more'**
+  String sendCryptoHintMore(String coins, int count);
+
+  /// Send's search result when the person types the name of their own Dollars account ('dollars', 'my dollars'): opens Move money from their Bitcoin into their Dollars. Dollars is the account name.
+  ///
+  /// In en, this message translates to:
+  /// **'Move to your Dollars'**
+  String get sendMoveToYourDollars;
+
+  /// Send's search result when the person types the name of their own Bitcoin account ('bitcoin', 'my bitcoin'): opens Move money from their Dollars into their Bitcoin. Bitcoin is the account name.
+  ///
+  /// In en, this message translates to:
+  /// **'Move to your Bitcoin'**
+  String get sendMoveToYourBitcoin;
+
+  /// Send's What step: the title of the small sheet asked after picking a person, {name} the contact's name or a typed phone number.
+  ///
+  /// In en, this message translates to:
+  /// **'Send to {name}'**
+  String sendWhatTitle(String name);
+
+  /// Send's What step: the line under the title, asking whether the person sends money or a prediction or investment.
+  ///
+  /// In en, this message translates to:
+  /// **'What are you sending?'**
+  String get sendWhatSubtitle;
+
+  /// Send's What step: the option to send money (bitcoin or dollars, chosen by the From toggle under it).
+  ///
+  /// In en, this message translates to:
+  /// **'Money'**
+  String get sendWhatMoney;
+
+  /// Send's What step: the option to send a prediction or an investment as a gift link they claim with Kute.
+  ///
+  /// In en, this message translates to:
+  /// **'A prediction or investment'**
+  String get sendWhatGift;
+
+  /// Send's What step: the label before the toggle that picks which account the money leaves from (Bitcoin or Dollars).
+  ///
+  /// In en, this message translates to:
+  /// **'From'**
+  String get sendWhatFrom;
 
   /// No description provided for @usdSendRecipientSearchHint.
   ///
@@ -20298,18 +20352,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Lightning address'**
   String get sendBadgeLightning;
-
-  /// Dollars Send first step: the search field's placeholder.
-  ///
-  /// In en, this message translates to:
-  /// **'Name, address or phone'**
-  String get usdSendSearchHint;
-
-  /// Dollars Send, the chip under Frequent (keep it short: three chips share a phone's width): move dollars to the user's own Bitcoin.
-  ///
-  /// In en, this message translates to:
-  /// **'To your Bitcoin'**
-  String get usdSendToYourBitcoin;
 
   /// Under To your Bitcoin / From your Bitcoin: the user's Bitcoin balance in dollars.
   ///
@@ -23296,30 +23338,6 @@ abstract class AppLocalizations {
   /// **'To a crypto address'**
   String get sendToCryptoAddress;
 
-  /// Send (Bitcoin and Dollars): the small header over the one row of chips between Frequent and All contacts (To your Bitcoin or To Dollars, Crypto address, Prediction).
-  ///
-  /// In en, this message translates to:
-  /// **'More ways to send'**
-  String get sendMoreWaysToSend;
-
-  /// Send (Bitcoin and Dollars): the short chip label that opens the coins this money can land as on another chain. Keep it short: three chips share a phone's width.
-  ///
-  /// In en, this message translates to:
-  /// **'Crypto address'**
-  String get sendWayCryptoAddress;
-
-  /// Send (Bitcoin and Dollars): the chip label that opens the market search to send a prediction or an investment. Up to two lines on a chip a third of the screen wide.
-  ///
-  /// In en, this message translates to:
-  /// **'Prediction or investment'**
-  String get sendWayPrediction;
-
-  /// Bitcoin Send: the chip that moves bitcoin into the user's own Dollars (mirrors the Dollars Send's "To your Bitcoin"). Dollars is the account name. Up to two lines on a chip a third of the screen wide.
-  ///
-  /// In en, this message translates to:
-  /// **'To your Dollars'**
-  String get sendWayToDollars;
-
   /// Under Send a prediction on the Dollars Send's To a friend card: the row opens the market search (predictions and investing).
   ///
   /// In en, this message translates to:
@@ -23607,12 +23625,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Pick a market, side and amount'**
   String get sendPickCardSub;
-
-  /// The Dollars Send recipient step's card title (founder, 5 November 2026): send an investment or a prediction on a link, the market search first.
-  ///
-  /// In en, this message translates to:
-  /// **'Send an investment or prediction'**
-  String get sendAnInvestmentOrPrediction;
 
   /// The floating bar on Send this prediction's last step: creates the prediction's link.
   ///

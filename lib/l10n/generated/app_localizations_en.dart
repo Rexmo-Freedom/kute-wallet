@@ -11998,7 +11998,40 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get sendRecipientSearchHint => 'Name, address, Lightning or @user';
+  String get sendRecipientSearchHint => 'Name, phone or any crypto address';
+
+  @override
+  String sendCryptoHint(String coins) {
+    return 'Send to $coins';
+  }
+
+  @override
+  String sendCryptoHintMore(String coins, int count) {
+    return 'Send to $coins and $count more';
+  }
+
+  @override
+  String get sendMoveToYourDollars => 'Move to your Dollars';
+
+  @override
+  String get sendMoveToYourBitcoin => 'Move to your Bitcoin';
+
+  @override
+  String sendWhatTitle(String name) {
+    return 'Send to $name';
+  }
+
+  @override
+  String get sendWhatSubtitle => 'What are you sending?';
+
+  @override
+  String get sendWhatMoney => 'Money';
+
+  @override
+  String get sendWhatGift => 'A prediction or investment';
+
+  @override
+  String get sendWhatFrom => 'From';
 
   @override
   String get usdSendRecipientSearchHint => 'Name, address or ENS';
@@ -12055,12 +12088,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get sendBadgeLightning => 'Lightning address';
-
-  @override
-  String get usdSendSearchHint => 'Name, address or phone';
-
-  @override
-  String get usdSendToYourBitcoin => 'To your Bitcoin';
 
   @override
   String usdBitcoinBalanceLine(String amount) {
@@ -13805,18 +13832,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sendToCryptoAddress => 'To a crypto address';
 
   @override
-  String get sendMoreWaysToSend => 'More ways to send';
-
-  @override
-  String get sendWayCryptoAddress => 'Crypto address';
-
-  @override
-  String get sendWayPrediction => 'Prediction or investment';
-
-  @override
-  String get sendWayToDollars => 'To your Dollars';
-
-  @override
   String get sendPickRowSub =>
       'Or an investment. Search a market, pick the side';
 
@@ -13978,9 +13993,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get sendPickCardSub => 'Pick a market, side and amount';
-
-  @override
-  String get sendAnInvestmentOrPrediction => 'Send an investment or prediction';
 
   @override
   String get sendPredictionCta => 'Send prediction';

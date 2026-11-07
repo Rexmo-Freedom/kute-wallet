@@ -12063,7 +12063,40 @@ class AppLocalizationsBg extends AppLocalizations {
   }
 
   @override
-  String get sendRecipientSearchHint => 'Име, адрес, Lightning или @потребител';
+  String get sendRecipientSearchHint => 'Име, телефон или крипто адрес';
+
+  @override
+  String sendCryptoHint(String coins) {
+    return 'Изпрати до $coins';
+  }
+
+  @override
+  String sendCryptoHintMore(String coins, int count) {
+    return 'Изпрати до $coins и още $count';
+  }
+
+  @override
+  String get sendMoveToYourDollars => 'Премести в твоите Долари';
+
+  @override
+  String get sendMoveToYourBitcoin => 'Премести в твоя Bitcoin';
+
+  @override
+  String sendWhatTitle(String name) {
+    return 'Изпрати на $name';
+  }
+
+  @override
+  String get sendWhatSubtitle => 'Какво изпращаш?';
+
+  @override
+  String get sendWhatMoney => 'Пари';
+
+  @override
+  String get sendWhatGift => 'Прогноза или инвестиция';
+
+  @override
+  String get sendWhatFrom => 'От';
 
   @override
   String get usdSendRecipientSearchHint => 'Име, адрес или ENS';
@@ -12120,12 +12153,6 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get sendBadgeLightning => 'Lightning address';
-
-  @override
-  String get usdSendSearchHint => 'Name, address or phone';
-
-  @override
-  String get usdSendToYourBitcoin => 'Към твоя Bitcoin';
 
   @override
   String usdBitcoinBalanceLine(String amount) {
@@ -13864,18 +13891,6 @@ class AppLocalizationsBg extends AppLocalizations {
   String get sendToCryptoAddress => 'Към крипто адрес';
 
   @override
-  String get sendMoreWaysToSend => 'Още начини за изпращане';
-
-  @override
-  String get sendWayCryptoAddress => 'Крипто адрес';
-
-  @override
-  String get sendWayPrediction => 'Прогноза или инвестиция';
-
-  @override
-  String get sendWayToDollars => 'Към твоите Долари';
-
-  @override
   String get sendPickRowSub => 'Или инвестиция. Потърси пазар, избери страна';
 
   @override
@@ -14037,9 +14052,6 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get sendPickCardSub => 'Избери пазар, страна и сума';
-
-  @override
-  String get sendAnInvestmentOrPrediction => 'Изпрати инвестиция или прогноза';
 
   @override
   String get sendPredictionCta => 'Изпрати прогнозата';

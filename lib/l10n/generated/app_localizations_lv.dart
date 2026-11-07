@@ -12012,8 +12012,40 @@ class AppLocalizationsLv extends AppLocalizations {
   }
 
   @override
-  String get sendRecipientSearchHint =>
-      'Vārds, adrese, Lightning vai @lietotājs';
+  String get sendRecipientSearchHint => 'Vārds, tālrunis vai kripto adrese';
+
+  @override
+  String sendCryptoHint(String coins) {
+    return 'Sūtīt uz $coins';
+  }
+
+  @override
+  String sendCryptoHintMore(String coins, int count) {
+    return 'Sūtīt uz $coins un vēl $count';
+  }
+
+  @override
+  String get sendMoveToYourDollars => 'Pārvietot uz taviem Dolāriem';
+
+  @override
+  String get sendMoveToYourBitcoin => 'Pārvietot uz tavu Bitcoin';
+
+  @override
+  String sendWhatTitle(String name) {
+    return 'Saņēmējs: $name';
+  }
+
+  @override
+  String get sendWhatSubtitle => 'Ko tu sūti?';
+
+  @override
+  String get sendWhatMoney => 'Nauda';
+
+  @override
+  String get sendWhatGift => 'Prognoze vai investīcija';
+
+  @override
+  String get sendWhatFrom => 'No';
 
   @override
   String get usdSendRecipientSearchHint => 'Vārds, adrese vai ENS';
@@ -12070,12 +12102,6 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get sendBadgeLightning => 'Lightning address';
-
-  @override
-  String get usdSendSearchHint => 'Name, address or phone';
-
-  @override
-  String get usdSendToYourBitcoin => 'Uz tavu Bitcoin';
 
   @override
   String usdBitcoinBalanceLine(String amount) {
@@ -13820,18 +13846,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String get sendToCryptoAddress => 'Uz kripto adresi';
 
   @override
-  String get sendMoreWaysToSend => 'Citi sūtīšanas veidi';
-
-  @override
-  String get sendWayCryptoAddress => 'Kripto adrese';
-
-  @override
-  String get sendWayPrediction => 'Prognoze vai investīcija';
-
-  @override
-  String get sendWayToDollars => 'Uz taviem Dolāriem';
-
-  @override
   String get sendPickRowSub => 'Vai investīciju. Atrodi tirgu, izvēlies pusi';
 
   @override
@@ -13993,9 +14007,6 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get sendPickCardSub => 'Izvēlies tirgu, pusi un summu';
-
-  @override
-  String get sendAnInvestmentOrPrediction => 'Sūtīt investīciju vai prognozi';
 
   @override
   String get sendPredictionCta => 'Sūtīt prognozi';

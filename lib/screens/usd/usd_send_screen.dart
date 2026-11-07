@@ -209,8 +209,12 @@ const int _kReviewStep = 2;
 /// Typed over what can be sent, the amount step says "more than
 /// available" and Continue stays dead; nothing is offered to top it up.
 class UsdSendScreen extends ConsumerStatefulWidget {
-  const UsdSendScreen(
-      {super.key, this.initialRecipient, this.initialDestination});
+  const UsdSendScreen({
+    super.key,
+    this.initialRecipient,
+    this.initialDestination,
+    this.startOnAmount = false,
+  });
 
   /// A recipient handed over on open (a deep link or a scanner
   /// hand-off), raw. A payment request that names its own network
@@ -223,6 +227,12 @@ class UsdSendScreen extends ConsumerStatefulWidget {
   /// (usd_withdraw_screen.dart): Send to opens on its recipient field,
   /// the coin as the chip that reopens the picker.
   final UsdSendDestination? initialDestination;
+
+  /// The Withdraw sheet's Who step already answered Send to (the coin and
+  /// an address it accepts, [initialDestination] and [initialRecipient]):
+  /// the send opens on its amount (founder, 7 November 2026: Who, then
+  /// What). Back still reaches Send to.
+  final bool startOnAmount;
 
   @override
   ConsumerState<UsdSendScreen> createState() => _UsdSendScreenState();
@@ -474,6 +484,13 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
             selection: 'withdraw_sheet', preselected: true);
       }
       _applyInitialRecipient();
+      // The Who step answered on the Withdraw sheet: on to the amount.
+      if (widget.startOnAmount && _recipientReady && _pageCtrl.hasClients) {
+        _completedSteps.add(_kSendToStep);
+        TrackingService.moneyFlowStep('usd_send', 'amount',
+            props: _flowInputs());
+        _pageCtrl.jumpToPage(_kAmountStep);
+      }
     });
     // A dollar send is a money decision on a live route, so nudge the
     // catalog rather than waiting for its 6 h cadence. Fire and forget:

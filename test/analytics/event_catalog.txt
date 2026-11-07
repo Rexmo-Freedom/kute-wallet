@@ -624,6 +624,7 @@ send_review_shown
 send_route_details_opened
 send_step
 send_submitted
+send_what_picked
 settings_action_tapped
 settings_advanced_toggled
 settings_changed
