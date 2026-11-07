@@ -3155,6 +3155,7 @@
   "bragMyPnl": "Моят P&L",
   "bragShareText": "{title} в Kute {link}",
   "bragMyPortfolio": "Моето портфолио",
+  "bragHoldingsMore": "{count, plural, =1{+{count} още} other{+{count} още}}",
   "bragCodeLabel": "Код",
   "bragSinceYouBought": "От покупката",
   "bragAboutIt": "Похвали се",

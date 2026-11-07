@@ -10699,6 +10699,17 @@ class AppLocalizationsEl extends AppLocalizations {
   String get bragMyPortfolio => 'Το χαρτοφυλάκιό μου';
 
   @override
+  String bragHoldingsMore(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '+$count ακόμα',
+      one: '+$count ακόμα',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get bragCodeLabel => 'Κωδικός';
 
   @override

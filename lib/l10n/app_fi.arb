@@ -3155,6 +3155,7 @@
   "bragMyPnl": "Oma P&L",
   "bragShareText": "{title} Kutessa {link}",
   "bragMyPortfolio": "Oma salkku",
+  "bragHoldingsMore": "{count, plural, =1{+{count} lisää} other{+{count} lisää}}",
   "bragCodeLabel": "Koodi",
   "bragSinceYouBought": "Ostosta lähtien",
   "bragAboutIt": "Leveile sillä",

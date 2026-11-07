@@ -3155,6 +3155,7 @@
   "bragMyPnl": "Meine GuV",
   "bragShareText": "{title} auf Kute {link}",
   "bragMyPortfolio": "Mein Portfolio",
+  "bragHoldingsMore": "{count, plural, =1{+{count} weitere} other{+{count} weitere}}",
   "bragCodeLabel": "Code",
   "bragSinceYouBought": "Seit dem Kauf",
   "bragAboutIt": "Damit angeben",

@@ -3155,6 +3155,7 @@
   "bragMyPnl": "Min P&L",
   "bragShareText": "{title} på Kute {link}",
   "bragMyPortfolio": "Min portefølje",
+  "bragHoldingsMore": "{count, plural, =1{+{count} mere} other{+{count} mere}}",
   "bragCodeLabel": "Kode",
   "bragSinceYouBought": "Siden køb",
   "bragAboutIt": "Prål med det",

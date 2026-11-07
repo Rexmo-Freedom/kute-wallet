@@ -3155,6 +3155,7 @@
   "bragMyPnl": "Az én P&L-em",
   "bragShareText": "{title} a Kute-ban {link}",
   "bragMyPortfolio": "Az én portfólióm",
+  "bragHoldingsMore": "{count, plural, =1{+{count} további} other{+{count} további}}",
   "bragCodeLabel": "Kód",
   "bragSinceYouBought": "Vétel óta",
   "bragAboutIt": "Dicsekedj vele",

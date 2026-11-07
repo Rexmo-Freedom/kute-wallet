@@ -18191,6 +18191,12 @@ abstract class AppLocalizations {
   /// **'My portfolio'**
   String get bragMyPortfolio;
 
+  /// Portfolio brag card: the quiet last row under the open positions it lists, counting the ones it does not list ('+2 more'). Positions (perps, holdings, predictions), never 'stocks' or 'shares'.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{+{count} more} other{+{count} more}}'**
+  String bragHoldingsMore(int count);
+
   /// Share card footer: the word before the sharer's referral code, drawn uppercase ('CODE JOAO42').
   ///
   /// In en, this message translates to:

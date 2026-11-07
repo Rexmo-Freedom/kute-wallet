@@ -3155,6 +3155,7 @@
   "bragMyPnl": "Το P&L μου",
   "bragShareText": "{title} στο Kute {link}",
   "bragMyPortfolio": "Το χαρτοφυλάκιό μου",
+  "bragHoldingsMore": "{count, plural, =1{+{count} ακόμα} other{+{count} ακόμα}}",
   "bragCodeLabel": "Κωδικός",
   "bragSinceYouBought": "Από την αγορά",
   "bragAboutIt": "Κάνε φιγούρα",

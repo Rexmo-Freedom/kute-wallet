@@ -3155,6 +3155,7 @@
   "bragMyPnl": "Mi P&L",
   "bragShareText": "{title} en Kute {link}",
   "bragMyPortfolio": "Mi cartera de inversión",
+  "bragHoldingsMore": "{count, plural, =1{+{count} más} other{+{count} más}}",
   "bragCodeLabel": "Código",
   "bragSinceYouBought": "Desde la compra",
   "bragAboutIt": "Presúmelo",

@@ -3155,6 +3155,7 @@
   "bragMyPnl": "Môj P&L",
   "bragShareText": "{title} na Kute {link}",
   "bragMyPortfolio": "Moje portfólio",
+  "bragHoldingsMore": "{count, plural, =1{+{count} ďalšia} few{+{count} ďalšie} other{+{count} ďalších}}",
   "bragCodeLabel": "Kód",
   "bragSinceYouBought": "Od nákupu",
   "bragAboutIt": "Pochváľ sa tým",

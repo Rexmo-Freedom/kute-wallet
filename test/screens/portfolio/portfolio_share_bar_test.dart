@@ -4,7 +4,11 @@
 // portfolio" on Activity and Positions, "Share P&L" on P&L, the label
 // morphing on a switch like every bar label; "Share P&L" opens the P&L
 // card for the range picked on the hero's chart, and `brag_shared` says
-// which card and which range.
+// which card and which range. "Share portfolio" opens the portfolio card
+// with its holdings (founder, 7 November 2026: "how much i made on
+// each?"): the three open positions with the largest P&L either way,
+// each figure the Portfolio's own row's, "+N more" for the rest, the real
+// amounts whatever the hide-balances setting (as the card's hero).
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,15 +25,25 @@ import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/hyperliquid_sats_pnl_provider.dart'
     show hyperliquidActivityFillsProvider;
 import 'package:kute/providers/one_balance_provider.dart';
+import 'package:kute/providers/polymarket_browse_provider.dart'
+    show PolymarketPosition, polymarketActivePositionsProvider;
+import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/providers/portfolio_performance_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceUnknownProvider;
+import 'package:kute/providers/hyperliquid_trading_provider.dart'
+    show HyperliquidTradingState;
 import 'package:kute/providers/venue_sweeper_provider.dart';
 import 'package:kute/screens/home/components/kute_shell_bar.dart'
     show KuteBarPrimaryButton;
+import 'package:kute/screens/portfolio/components/position_rows.dart'
+    show PortfolioPnlTone, PortfolioPositionRow;
 import 'package:kute/screens/portfolio/investments_portfolio.dart';
 import 'package:kute/screens/portfolio/portfolio_screen.dart';
+import 'package:kute/screens/share/brag/brag_card.dart';
+import 'package:kute/screens/share/brag/brag_data.dart'
+    show BragPortfolio, bragTopHoldings;
 import 'package:kute/screens/share/brag/brag_preview_sheet.dart';
 import 'package:kute/screens/share/brag/pnl_share_card.dart';
 import 'package:kute/screens/shared/kute_morph_label.dart';
@@ -79,8 +93,8 @@ List<Override> _history() {
             ], 'Hyperliquid')),
     portfolioPerformanceProvider(const PortfolioPerformanceRequest(
             venue: PortfolioPerformanceVenue.predictions))
-        .overrideWith((_) async =>
-            perf([(45, 0), (20, 2.5), (2, 7.61)], 'Polymarket')),
+        .overrideWith(
+            (_) async => perf([(45, 0), (20, 2.5), (2, 7.61)], 'Polymarket')),
   ];
 }
 
@@ -93,18 +107,18 @@ List<Override> _historyBooked() {
     portfolioPerformanceProvider(const PortfolioPerformanceRequest(
             venue: PortfolioPerformanceVenue.predictions))
         .overrideWith((_) async => PortfolioPerformance(
-                points: [
+                    points: [
                   for (final (days, pnl) in [(45, 0.0), (20, 2.5), (2, 7.61)])
                     PortfolioPnlPoint(
                         timestamp: now.subtract(Duration(days: days)),
                         pnlUsd: pnl)
                 ],
-                totalPnlUsd: 7.61,
-                asOf: now.subtract(const Duration(days: 2)),
-                sourceLabel: 'Polymarket',
-                basisLabel: 'P&L',
-                coverageLabel: 'All time')
-            .withPredictions(PredictionsBook(records: [
+                    totalPnlUsd: 7.61,
+                    asOf: now.subtract(const Duration(days: 2)),
+                    sourceLabel: 'Polymarket',
+                    basisLabel: 'P&L',
+                    coverageLabel: 'All time')
+                .withPredictions(PredictionsBook(records: [
               PredictionRecord(
                 tokenId: 'won',
                 open: false,
@@ -130,13 +144,118 @@ List<Override> _none() => [
             .overrideWith((_) async => kPortfolioNoPerformance),
     ];
 
-Future<void> _mount(WidgetTester tester, {required List<Override> extra}) async {
+/// The live prices, quiet: no socket, the prices given.
+class _Prices extends LivePriceNotifier {
+  _Prices(this.prices);
+  final Map<String, double> prices;
+  @override
+  LivePriceState build() => LivePriceState(live: true, prices: prices);
+  @override
+  void acquire() {}
+  @override
+  void release() {}
+  @override
+  void pause() {}
+  @override
+  void resume() {}
+  @override
+  void subscribeTokens(List<String> tokenIds) {}
+  @override
+  void addTokens(List<String> tokenIds, {bool pin = true}) {}
+  @override
+  void registerCardTokens(List<String> tokenIds) {}
+  @override
+  void unregisterCardTokens(List<String> tokenIds) {}
+  @override
+  void removeTokens(List<String> tokenIds) {}
+  @override
+  void unsubscribeAll() {}
+}
+
+/// Five open positions: Anthropic short +$2.61 and Ethereum long +$0.84
+/// (on $40 of margin each); Fed No −$1.12, Lakers Yes +$0.20 and
+/// Verstappen +$0.10 at the live prices (each list price stale, so a card
+/// on the list price would differ from the Portfolio's rows).
+const _perpCoins = ['ANTH', 'ETH'];
+const _fivePredictions = [
+  // (token, question, outcome, size, avg, list price, live price)
+  ('fed-no', 'Fed cuts rates in December?', 'No', 10.0, 0.5, 0.45, 0.388),
+  (
+    'lakers-yes',
+    'Will the Lakers win the 2026 NBA Finals?',
+    'Yes',
+    4.0,
+    0.25,
+    0.2,
+    0.3
+  ),
+  ('f1-ver', 'F1 Drivers Champion 2026', 'Verstappen', 2.0, 0.3, 0.4, 0.35),
+];
+
+List<Override> _holdings() => [
+      polymarketActivePositionsProvider.overrideWith((_) => [
+            for (final (token, q, outcome, size, avg, list, _)
+                in _fivePredictions)
+              PolymarketPosition(
+                  marketId: token,
+                  marketQuestion: q,
+                  outcome: outcome,
+                  size: size,
+                  avgPrice: avg,
+                  currentPrice: list,
+                  pnl: 0,
+                  pnlPercent: 0,
+                  isResolved: false,
+                  tokenId: token),
+          ]),
+      livePriceProvider.overrideWith(() => _Prices({
+            for (final (token, _, _, _, _, _, live) in _fivePredictions)
+              token: live
+          })),
+      for (final coin in _perpCoins) ...[
+        hyperliquidLiveMidProvider(coin).overrideWith((_) => null),
+        hyperliquidAccountMarketProvider(coin).overrideWith((_) => null),
+      ],
+    ];
+
+/// The two perps, isolated, $40 of margin each.
+const _fiveTrading = HyperliquidTradingState(isInitialized: true, positions: [
+  HlPerpPosition(
+      coin: 'ANTH',
+      szi: -0.5,
+      entryPx: 240,
+      positionValue: 122.61,
+      unrealizedPnl: 2.61,
+      returnOnEquity: 0.06525,
+      liquidationPx: null,
+      marginUsed: 42.61,
+      leverageType: 'isolated',
+      leverageValue: 3,
+      maxLeverage: 10),
+  HlPerpPosition(
+      coin: 'ETH',
+      szi: 0.01,
+      entryPx: 3000,
+      positionValue: 30.84,
+      unrealizedPnl: 0.84,
+      returnOnEquity: 0.021,
+      liquidationPx: null,
+      marginUsed: 40.84,
+      leverageType: 'isolated',
+      leverageValue: 3,
+      maxLeverage: 10),
+]);
+
+Future<void> _mount(WidgetTester tester,
+    {required List<Override> extra,
+    HyperliquidTradingState trading = const HyperliquidTradingState(),
+    int balancePrivacy = 0}) async {
   tester.view.devicePixelRatio = 3;
   tester.view.physicalSize = const Size(390, 1400) * 3;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(ProviderScope(
     overrides: [
-      ...portfolioOverrides(),
+      ...portfolioOverrides(trading: trading),
       // The Investments activity reads the price (no rates box here).
       currentBtcUsdProvider.overrideWithValue(100000),
       hyperliquidLiveMidProvider('BTC').overrideWith((_) => null),
@@ -148,6 +267,7 @@ Future<void> _mount(WidgetTester tester, {required List<Override> extra}) async 
           language: 'en',
           btcFormat: 'sats',
           backup: false,
+          balancePrivacy: balancePrivacy,
           biometricsEnabled: false,
           bitcoinElectrumNode: '',
           nodeType: '',
@@ -222,8 +342,7 @@ void main() {
     expect(find.byType(KuteMorphLabel), findsWidgets);
     expect(kuteBarPrimaryWithText('Share P&L'), findsOneWidget);
     expect(kuteBarPrimaryWithText('Share portfolio'), findsOneWidget);
-    expect(tester.state(find.byType(KuteBarPrimaryButton)),
-        same(button));
+    expect(tester.state(find.byType(KuteBarPrimaryButton)), same(button));
     await _settle(tester);
     expect(kuteBarPrimaryWithText('Share P&L'), findsOneWidget);
     expect(kuteBarPrimaryWithText('Share portfolio'), findsNothing);
@@ -300,10 +419,9 @@ void main() {
     });
     await _settle(tester);
     expect(sent.single, startsWith('My P&L on Kute '));
-    expect(events.where((e) => e.$1 == 'brag_shared').map((e) => e.$2),
-        [
-          {'kind': 'portfolio', 'card': 'pnl', 'range': '3M'}
-        ]);
+    expect(events.where((e) => e.$1 == 'brag_shared').map((e) => e.$2), [
+      {'kind': 'portfolio', 'card': 'pnl', 'range': '3M'}
+    ]);
     await _unmount(tester);
   });
 
@@ -347,6 +465,130 @@ void main() {
     await _settle(tester);
     card = tester.widget<PnlShareCard>(find.byType(PnlShareCard));
     expect(card.data.venue, isNull);
+    await _unmount(tester);
+  });
+
+  /// Opens "Share portfolio" and returns the card's data.
+  Future<BragPortfolio> openPortfolioCard(WidgetTester tester) async {
+    expect(kuteBarPrimaryWithText('Share portfolio'), findsOneWidget);
+    await tester.tap(kuteBarPrimary);
+    await _settle(tester);
+    return tester.widget<BragCard>(find.byType(BragCard)).data as BragPortfolio;
+  }
+
+  String? cardRow(WidgetTester tester, int i, String part) {
+    final f = find.byKey(ValueKey('brag-card-top-$i-$part'));
+    return f.evaluate().isEmpty ? null : tester.widget<Text>(f).data;
+  }
+
+  testWidgets(
+      '"Share portfolio": the three open positions with the largest P&L '
+      'either way, each the figure its Portfolio row shows at the live '
+      'price, "+2 more", and holdings_count 5 when shared', (tester) async {
+    BragPreviewSheet.debugLineSeed = 0;
+    BragPreviewSheet.debugSharer = (_, __) async {};
+    await _mount(tester,
+        trading: _fiveTrading, extra: [..._history(), ..._holdings()]);
+    // What each of the Portfolio's own rows shows: its name and its P&L
+    // in money (at the live price, not the stale list price).
+    final rows = {
+      for (final r in tester
+          .widgetList<PortfolioPositionRow>(find.byType(PortfolioPositionRow)))
+        r.title: (r.pnlAmount, r.pnl?.tone)
+    };
+    expect(rows, hasLength(5));
+    // The Positions hero adds them up: the five at the live prices.
+    expect(find.textContaining(r'$2.63', findRichText: true), findsWidgets);
+    final data = await openPortfolioCard(tester);
+    expect(data.openCount, 5);
+    expect(data.top.map((p) => p.title),
+        ['Anthropic', 'Fed cuts rates in December', 'Ethereum']);
+    for (final (p, usd) in [
+      for (final (i, usd) in const [2.61, -1.12, 0.84].indexed)
+        (data.top[i], usd)
+    ]) {
+      expect(p.result.usd, closeTo(usd, 1e-9), reason: p.title);
+    }
+    // Each card row is its Portfolio row's own figure, with the sign.
+    for (var i = 0; i < 3; i++) {
+      final name = cardRow(tester, i, 'name')!;
+      final (amount, tone) = rows[name]!;
+      final sign = tone == PortfolioPnlTone.down ? '−' : '+';
+      expect(cardRow(tester, i, 'pnl'), '$sign$amount', reason: name);
+    }
+    expect([
+      for (var i = 0; i < 3; i++)
+        (
+          cardRow(tester, i, 'name'),
+          cardRow(tester, i, 'side'),
+          cardRow(tester, i, 'pnl')
+        )
+    ], [
+      ('Anthropic', ' · Short', r'+$2.61'),
+      ('Fed cuts rates in December', ' · No', '−\$1.12'),
+      ('Ethereum', ' · Long', r'+$0.84'),
+    ]);
+    expect(
+        tester.widget<Text>(find.byKey(const ValueKey('brag-card-more'))).data,
+        '+2 more');
+    // The ranking is the pure one.
+    expect(bragTopHoldings(data.top).map((p) => p.title),
+        data.top.map((p) => p.title));
+    // Perps and predictions, never "stocks" or "shares".
+    expect(
+        find.descendant(
+            of: find.byType(BragCard),
+            matching: find.textContaining(
+                RegExp(r'\bstocks?\b|\bshares\b', caseSensitive: false))),
+        findsNothing);
+
+    await tester.runAsync(() async {
+      await tester.tap(kuteBarPrimary);
+      for (var i = 0;
+          i < 100 && !events.any((e) => e.$1 == 'brag_shared');
+          i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      }
+    });
+    await _settle(tester);
+    expect(events.where((e) => e.$1 == 'brag_shared').map((e) => e.$2), [
+      {'kind': 'portfolio', 'card': 'portfolio', 'holdings_count': 5}
+    ]);
+    await _unmount(tester);
+  });
+
+  testWidgets(
+      'balances hidden: the card still shows the real amounts, the rows as '
+      'the all-time figure (the share card never hides them)', (tester) async {
+    await _mount(tester,
+        trading: _fiveTrading,
+        balancePrivacy: 2,
+        extra: [..._history(), ..._holdings()]);
+    final data = await openPortfolioCard(tester);
+    final hero = tester
+        .widget<Text>(find.byKey(const ValueKey('brag-card-number')))
+        .data!;
+    expect(hero, data.allTime!.text);
+    expect(hero, contains(r'$'));
+    expect(hero, isNot(contains('•')));
+    expect(cardRow(tester, 0, 'pnl'), r'+$2.61');
+    expect(cardRow(tester, 1, 'pnl'), '−\$1.12');
+    expect(
+        find.descendant(
+            of: find.byType(BragCard), matching: find.textContaining('•')),
+        findsNothing);
+    await _unmount(tester);
+  });
+
+  testWidgets('nothing open: the portfolio card lists no row, its line alone',
+      (tester) async {
+    await _mount(tester, extra: _history());
+    final data = await openPortfolioCard(tester);
+    expect(data.top, isEmpty);
+    expect(data.openCount, 0);
+    expect(find.byKey(const ValueKey('brag-card-rows')), findsNothing);
+    expect(find.byKey(const ValueKey('brag-card-more')), findsNothing);
+    expect(find.byKey(const ValueKey('brag-card-chart')), findsOneWidget);
     await _unmount(tester);
   });
 }

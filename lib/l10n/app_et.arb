@@ -3155,6 +3155,7 @@
   "bragMyPnl": "Minu P&L",
   "bragShareText": "{title} Kute'is {link}",
   "bragMyPortfolio": "Minu portfell",
+  "bragHoldingsMore": "{count, plural, =1{+{count} veel} other{+{count} veel}}",
   "bragCodeLabel": "Kood",
   "bragSinceYouBought": "Ostust saati",
   "bragAboutIt": "Uhkelda sellega",

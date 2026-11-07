@@ -3155,6 +3155,7 @@
   "bragMyPnl": "Mano P&L",
   "bragShareText": "{title} – Kute {link}",
   "bragMyPortfolio": "Mano portfelis",
+  "bragHoldingsMore": "{count, plural, =1{Dar +{count}} other{Dar +{count}}}",
   "bragCodeLabel": "Kodas",
   "bragSinceYouBought": "Nuo pirkimo",
   "bragAboutIt": "Pasigirkite",
