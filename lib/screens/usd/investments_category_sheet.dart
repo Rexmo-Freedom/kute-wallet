@@ -141,7 +141,10 @@
 
 import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
 import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -706,6 +709,32 @@ class _InvestmentsCategorySheetState
               },
       ),
     );
+    final switcher = AnimatedSwitcher(
+      duration: reduce ? Duration.zero : KuteMotion.switchDuration,
+      switchInCurve: reduce ? Curves.linear : KuteMotion.switchIn,
+      switchOutCurve: reduce ? Curves.linear : KuteMotion.switchOut,
+      layoutBuilder: (current, previous) => Stack(
+        alignment: Alignment.topCenter,
+        children: [...previous, if (current != null) current],
+      ),
+      transitionBuilder: (child, animation) {
+        final incoming = child.key == page.key;
+        final dir = _forward ? 1.0 : -1.0;
+        final from = (incoming ? dir : -dir) * KuteMotion.switchSlide;
+        return FadeTransition(
+          opacity: animation,
+          child: AnimatedBuilder(
+            animation: animation,
+            builder: (context, child) => Transform.translate(
+              offset: Offset(from * (1 - animation.value), 0),
+              child: child,
+            ),
+            child: child,
+          ),
+        );
+      },
+      child: page,
+    );
     return KuteBarContextScope(
       barContext: _barContext(context, grid: withheld == null),
       child: AppBottomSheetContainer(
@@ -728,38 +757,18 @@ class _InvestmentsCategorySheetState
             // switch rides; see the file header); the box they share
             // eases between their heights on the same spring, so the sheet
             // never jumps.
-            child: AnimatedSize(
-              duration: reduce ? Duration.zero : KuteMotion.switchDuration,
-              curve: reduce ? Curves.linear : KuteMotion.switchIn,
-              alignment: Alignment.topCenter,
-              child: AnimatedSwitcher(
-              duration: reduce ? Duration.zero : KuteMotion.switchDuration,
-              switchInCurve: reduce ? Curves.linear : KuteMotion.switchIn,
-              switchOutCurve: reduce ? Curves.linear : KuteMotion.switchOut,
-              layoutBuilder: (current, previous) => Stack(
-                alignment: Alignment.topCenter,
-                children: [...previous, if (current != null) current],
-              ),
-              transitionBuilder: (child, animation) {
-                final incoming = child.key == page.key;
-                final dir = _forward ? 1.0 : -1.0;
-                final from =
-                    (incoming ? dir : -dir) * KuteMotion.switchSlide;
-                return FadeTransition(
-                  opacity: animation,
-                  child: AnimatedBuilder(
-                    animation: animation,
-                    builder: (context, child) => Transform.translate(
-                      offset: Offset(from * (1 - animation.value), 0),
-                      child: child,
-                    ),
-                    child: child,
+            // Under Reduce Motion no AnimatedSize at all: at a zero
+            // duration it would restart, and finish, inside its own layout
+            // whenever the page's height changed (a card's numbers
+            // arriving), which Flutter refuses.
+            child: reduce
+                ? switcher
+                : AnimatedSize(
+                    duration: KuteMotion.switchDuration,
+                    curve: KuteMotion.switchIn,
+                    alignment: Alignment.topCenter,
+                    child: switcher,
                   ),
-                );
-              },
-              child: page,
-              ),
-            ),
           ),
         ],
       ),
@@ -1444,45 +1453,127 @@ class _StatLine extends StatelessWidget {
   }
 }
 
-/// The two shapes a tile takes: the compact 60 px grid card and the
-/// full-width 64 px row, both with the art at the left and the name and
-/// numbers beside it; the row is also a grid's odd last card.
+/// The two shapes a tile takes: the compact grid card (at least 60 px)
+/// and the full-width row (at least 64 px), both with the art at the left
+/// and the name and numbers beside it; the row is also a grid's odd last
+/// card. Both are AT LEAST their height, never fixed (founder, 7 November
+/// 2026: "Stocks and shares", "Mobile Legends: Bang Bang" overflowed the
+/// fixed card by 2 px): a name that wraps to its second line, at any text
+/// size, makes the card taller, never cut short or overflowing; past two
+/// lines it ends in an ellipsis.
 enum _TileShape { grid, wide }
 
-/// The sheets' grid (see the file header): two columns of 60 px cards, 8
-/// apart, and an odd last card full width as the wide row, never a card
+/// The sheets' grid (see the file header): two columns of compact cards,
+/// 8 apart, and an odd last card full width as the wide row, never a card
 /// alone in half the width (the app's no-orphan rule, kute_action_cards
-/// .dart). Shrink-wrapped: it sits in a list and never scrolls on its own.
-/// [arrive] wraps each tile ([index] in reading order) for its rise in.
+/// .dart). Each pair is as tall as its taller card ([_TilePair]): a card
+/// whose name (live data from the venue, any length) wraps grows, and its
+/// neighbour with it, so the two sit level. Shrink-wrapped: it sits in a
+/// list and never scrolls on its own. [arrive] wraps each tile ([index] in
+/// reading order) for its rise in.
 Widget _tileGrid(List<_Tile> tiles,
     {required Widget Function(int index, Widget tile) arrive, Key? key}) {
+  const gap = 8.0;
   final pairs = tiles.length.isOdd ? tiles.length - 1 : tiles.length;
   return Column(
     key: key,
     mainAxisSize: MainAxisSize.min,
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      if (pairs > 0)
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          padding: EdgeInsets.zero,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            mainAxisSpacing: 8,
-            crossAxisSpacing: 8,
-            mainAxisExtent: _Tile.gridHeight,
-          ),
-          itemCount: pairs,
-          itemBuilder: (_, i) => arrive(i, tiles[i]),
+      for (var i = 0; i < pairs; i += 2) ...[
+        if (i > 0) const SizedBox(height: gap),
+        _TilePair(
+          gap: gap,
+          children: [arrive(i, tiles[i]), arrive(i + 1, tiles[i + 1])],
         ),
+      ],
       if (pairs < tiles.length)
         Padding(
-          padding: EdgeInsets.only(top: pairs > 0 ? 8 : 0),
+          padding: EdgeInsets.only(top: pairs > 0 ? gap : 0),
           child: arrive(pairs, tiles.last.asLone()),
         ),
     ],
   );
+}
+
+/// Two cards side by side, [gap] apart, each half the width; the pair as
+/// tall as the taller card's own height and both cards stretched to it
+/// (see [_tileGrid]). Each card is laid out at its natural height first,
+/// then at the pair's: nothing is measured by hand, so no text size or
+/// name can make a card overflow.
+class _TilePair extends MultiChildRenderObjectWidget {
+  const _TilePair({required this.gap, required super.children});
+
+  final double gap;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) => _RenderTilePair(gap);
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderTilePair renderObject) =>
+      renderObject.gap = gap;
+}
+
+class _TilePairData extends ContainerBoxParentData<RenderBox> {}
+
+class _RenderTilePair extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, _TilePairData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, _TilePairData> {
+  _RenderTilePair(this._gap);
+
+  double _gap;
+  set gap(double value) {
+    if (value == _gap) return;
+    _gap = value;
+    markNeedsLayout();
+  }
+
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! _TilePairData) {
+      child.parentData = _TilePairData();
+    }
+  }
+
+  @override
+  void performLayout() {
+    final count = childCount;
+    final width = constraints.maxWidth;
+    final each = count == 0 ? 0.0 : (width - _gap * (count - 1)) / count;
+    // Each card at its own height, then all at the tallest.
+    var height = 0.0;
+    var child = firstChild;
+    while (child != null) {
+      child.layout(BoxConstraints.tightFor(width: each), parentUsesSize: true);
+      height = math.max(height, child.size.height);
+      child = childAfter(child);
+    }
+    // Stretched to the tallest by a least height, not a tight one: a tight
+    // box would be its own relayout boundary, and a card whose content
+    // later changes (its numbers arriving, a name now on two lines) would
+    // lay itself out inside the old height without the pair measuring
+    // again. This way any change inside a card lays the pair out anew.
+    var x = 0.0;
+    child = firstChild;
+    while (child != null) {
+      child.layout(
+          BoxConstraints(minWidth: each, maxWidth: each, minHeight: height),
+          parentUsesSize: true);
+      (child.parentData! as _TilePairData).offset = Offset(x, 0);
+      x += each + _gap;
+      child = childAfter(child);
+    }
+    size = constraints.constrain(Size(width, height));
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) =>
+      defaultPaint(context, offset);
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      defaultHitTestChildren(result, position: position);
 }
 
 /// A tile: the venue's logos (or a Predictions topic's glyph on its
@@ -1561,8 +1652,9 @@ class _Tile extends StatelessWidget {
   final bool lone;
   final VoidCallback onTap;
 
-  /// The grid card's height and the wide row's: the grid card a little
-  /// shorter than the Trending row (see the file header).
+  /// The grid card's least height and the wide row's: the grid card a
+  /// little shorter than the Trending row (see the file header). A card
+  /// whose content needs more is taller ([_TileShape]).
   static const double gridHeight = 60;
   static const double wideHeight = 64;
 
@@ -1655,7 +1747,9 @@ class _Tile extends StatelessWidget {
             duration: reduce ? Duration.zero : KuteMotion.chipDuration,
             curve: reduce ? Curves.linear : KuteMotion.chip,
             width: double.infinity,
-            height: _height,
+            // At least its height, taller when its name wraps (see
+            // [_TileShape]); a grid's pair stretches it to its neighbour.
+            constraints: BoxConstraints(minHeight: _height),
             margin: EdgeInsets.only(
                 bottom: shape == _TileShape.wide && !lone ? 12.h : 0),
             padding: EdgeInsets.symmetric(

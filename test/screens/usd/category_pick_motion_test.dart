@@ -22,6 +22,7 @@
 //   CATEGORY_SHEET_FRAMES=<dir> flutter test test/screens/usd/category_pick_motion_test.dart
 
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 // ignore: depend_on_referenced_packages
@@ -42,6 +43,7 @@ import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/providers/polymarket_sports_provider.dart';
 import 'package:kute/screens/hyperliquid/components/hl_browse_labels.dart';
+import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 import 'package:kute/screens/hyperliquid/hyperliquid_screen.dart';
 import 'package:kute/screens/polymarket/components/poly_browse_bar.dart'
     show polyPillLabel;
@@ -166,9 +168,9 @@ List<Override> _predictionsOverrides() => [
           ])),
     ];
 
-List<Override> _investingOverrides() => [
+List<Override> _investingOverrides([List<HlMarket>? universe]) => [
       hyperliquidBrowseUniverseProvider
-          .overrideWithValue(AsyncValue.data(_universe)),
+          .overrideWithValue(AsyncValue.data(universe ?? _universe)),
       hyperliquidBuilderMarketsMissingProvider.overrideWithValue(false),
     ];
 
@@ -283,6 +285,124 @@ Future<void> _shot(WidgetTester tester, String name) async {
   });
   debugDisableShadows = true;
   await tester.pump();
+}
+
+/// The shipped languages, German's long words first.
+const _kLanguages = [
+  'en',
+  'de',
+  'bg',
+  'cs',
+  'da',
+  'el',
+  'es',
+  'et',
+  'fi',
+  'fr',
+  'hr',
+  'hu',
+  'it',
+  'ja',
+  'lt',
+  'lv',
+  'nl',
+  'pl',
+  'pt',
+  'ro',
+  'sk',
+  'sl',
+  'sv'
+];
+
+/// The compact card's least height (investments_category_sheet.dart).
+abstract final class _Compact {
+  static const double height = 60;
+}
+
+/// The universe with three stocks, so the traditional group's card carries
+/// its full three-logo stack beside "Stocks and shares".
+final _kThreeStocks = [
+  ..._universe,
+  _market('xyz:TSLA', category: 'stocks', isHip3: true, prev: 97),
+  _market('xyz:NVDA', category: 'stocks', isHip3: true, prev: 103),
+];
+
+/// Esports' live subcategories, the founder's two and longer.
+const _kLongEsports = [
+  PolySub('all'),
+  PolySub('mlbb', label: 'Mobile Legends: Bang Bang'),
+  PolySub('sc', label: 'StarCraft: Brood War'),
+  PolySub('cs2', label: 'CS2'),
+  PolySub('long',
+      label: 'The Extraordinarily Long International Championship Series '
+          'Grand Finals Presented By Somebody'),
+  PolySub('word', label: 'Supercalifragilisticexpialidociousleague'),
+  PolySub('dota', label: 'Dota 2'),
+];
+
+String _hlName(AppLocalizations l10n, HlBrowseTab t) =>
+    t == HlBrowseTab.watchlist
+        ? l10n.polyPillWatchlist
+        : t.localizedLabel(l10n);
+
+/// Every card of [keys] whole: at least the compact height, its words
+/// inside it (a name in [names] never cut short), and the cards that
+/// share a row equally tall.
+void _expectCardsWhole(WidgetTester tester, List<String> keys,
+    {Map<String, String> names = const {}, required String reason}) {
+  Rect cardOf(String key) => tester.getRect(find
+      .descendant(of: _tile(key), matching: find.byType(AnimatedContainer))
+      .first);
+  final rects = <String, Rect>{};
+  for (final key in keys) {
+    final card = cardOf(key);
+    rects[key] = card;
+    expect(card.height, greaterThanOrEqualTo(_Compact.height - 0.01),
+        reason: '$reason $key');
+    for (final words in tester.renderObjectList<RenderParagraph>(
+        find.descendant(of: _tile(key), matching: find.byType(RichText)))) {
+      final box = MatrixUtils.transformRect(
+          words.getTransformTo(null), Offset.zero & words.size);
+      expect(box.top, greaterThanOrEqualTo(card.top - 0.01),
+          reason: '$reason $key: its words inside the card');
+      expect(box.bottom, lessThanOrEqualTo(card.bottom + 0.01),
+          reason: '$reason $key: its words inside the card');
+      expect(box.right, lessThanOrEqualTo(card.right + 0.01),
+          reason: '$reason $key: its words inside the card');
+    }
+    final name = names[key];
+    if (name != null) {
+      final text = find.descendant(of: _tile(key), matching: find.text(name));
+      expect(text, findsOneWidget, reason: '$reason $key');
+      expect(
+          tester.renderObject<RenderParagraph>(text).didExceedMaxLines, isFalse,
+          reason: '$reason $key: the name whole');
+    }
+  }
+  for (final a in rects.entries) {
+    for (final b in rects.entries) {
+      if ((a.value.top - b.value.top).abs() < 0.5) {
+        expect(a.value.height, closeTo(b.value.height, 0.01),
+            reason: '$reason ${a.key} / ${b.key}: one row, one height');
+      }
+    }
+  }
+}
+
+/// The sheet's gutters are equal: the content as far from the sheet's left
+/// edge as from its right ([key]'s row is checked against the screen,
+/// the sheet spanning it).
+void _expectSymmetricGutters(WidgetTester tester, String key) {
+  final screen = tester.view.physicalSize / tester.view.devicePixelRatio;
+  final rows = [
+    for (final e in find.byType(AnimatedContainer).evaluate())
+      tester.getRect(find.byWidget(e.widget)),
+  ];
+  final left = rows.map((r) => r.left).reduce(math.min);
+  final right = rows.map((r) => r.right).reduce(math.max);
+  expect(left, greaterThan(0));
+  expect(screen.width - right, closeTo(left, 0.5),
+      reason: 'the same gutter on both sides');
 }
 
 void main() {
@@ -553,44 +673,157 @@ void main() {
     await unmountInvestments(tester);
   });
 
-  // The compact topic cards on a 375 pt phone in every shipped language
-  // (German's long words first): every name whole on its card (one line,
-  // or two with the numbers dropped; never an ellipsis), nothing overflows.
-  for (final lang in ['de', 'bg', 'cs', 'da', 'el', 'es', 'et', 'fi', 'fr',
-      'hr', 'hu', 'it', 'ja', 'lt', 'lv', 'nl', 'pl', 'pt', 'ro', 'sk', 'sl',
-      'sv']) {
-    testWidgets('compact topic cards fit at 375 pt in $lang', (tester) async {
-      await _openSheet(tester, InvestmentsTab.predictions,
-          overrides: _predictionsOverrides(),
-          browse: true,
-          locale: Locale(lang),
-          size: const Size(375, 812));
-      final l10n = l10nForLanguage(lang);
-      final keys = [
-        for (final p in PolyPill.values)
-          if (p != PolyPill.trending &&
-              p != PolyPill.watchlist &&
-              _tile(p.key).evaluate().isNotEmpty)
-            p,
-      ];
-      expect(keys.length, greaterThan(6));
-      for (final p in keys) {
-        final card = tester.getRect(find.descendant(
-            of: _tile(p.key), matching: find.byType(AnimatedContainer)));
-        final name = find.descendant(
-            of: _tile(p.key), matching: find.text(polyPillLabel(l10n, p)));
-        expect(name, findsOneWidget, reason: '$lang ${p.key}');
-        final paragraph = tester.renderObject<RenderParagraph>(name);
-        expect(paragraph.didExceedMaxLines, isFalse,
-            reason: '$lang ${p.key}: the name whole');
-        final text = tester.getRect(name);
-        expect(text.top, greaterThanOrEqualTo(card.top), reason: p.key);
-        expect(text.bottom, lessThanOrEqualTo(card.bottom), reason: p.key);
-      }
-      expect(tester.takeException(), isNull);
-      await unmountInvestments(tester);
-    });
+  // THE CARDS NEVER OVERFLOW (founder, 7 November 2026: "Stocks and
+  // shares" beside its three logos, "Mobile Legends: Bang Bang" and
+  // "StarCraft: Brood War" in Esports overflowed the fixed card by 2 px).
+  // Every grid is checked on the real sheet, the real cards with their
+  // logo stacks, in every shipped language at 375 and 402 pt: nothing
+  // overflows, every name whole inside its card, the two cards of a row
+  // equally tall. Names that are live data (Polymarket's subcategories)
+  // are checked with long synthetic ones at larger text sizes too.
+  for (final width in [375.0, 402.0]) {
+    for (final lang in _kLanguages) {
+      testWidgets(
+          'the cards fit at ${width.toInt()} pt in $lang, Investing '
+          'and Predictions', (tester) async {
+        final l10n = l10nForLanguage(lang);
+        await _openSheet(tester, InvestmentsTab.investing,
+            overrides: _investingOverrides(_kThreeStocks),
+            browse: true,
+            locale: Locale(lang),
+            size: Size(width, 1800));
+        expect(tester.takeException(), isNull, reason: 'Investing $lang');
+        final groups = [
+          for (final t in HlBrowseTab.values)
+            if (_tile(t.key).evaluate().isNotEmpty) t,
+        ];
+        expect(groups.length, greaterThan(2));
+        // The traditional group carries its three logos.
+        expect(
+            find.descendant(
+                of: _tile(HlBrowseTab.tradfi.key),
+                matching: find.byType(HlCoinIcon)),
+            findsNWidgets(3));
+        _expectCardsWhole(tester, [for (final t in groups) t.key],
+            names: {for (final t in groups) t.key: _hlName(l10n, t)},
+            reason: 'Investing $lang ${width.toInt()}');
+        await unmountInvestments(tester);
+
+        await _openSheet(tester, InvestmentsTab.predictions,
+            overrides: _predictionsOverrides(),
+            browse: true,
+            locale: Locale(lang),
+            size: Size(width, 1800));
+        expect(tester.takeException(), isNull, reason: 'Predictions $lang');
+        final topics = [
+          for (final p in PolyPill.values)
+            if (_tile(p.key).evaluate().isNotEmpty) p,
+        ];
+        expect(topics.length, greaterThan(6));
+        _expectCardsWhole(tester, [for (final p in topics) p.key],
+            names: {
+              for (final p in topics)
+                p.key: p == PolyPill.watchlist
+                    ? l10n.polyPillWatchlist
+                    : polyPillLabel(l10n, p),
+            },
+            reason: 'Predictions $lang ${width.toInt()}');
+        _expectSymmetricGutters(tester, topics.first.key);
+        expect(tester.takeException(), isNull);
+        await unmountInvestments(tester);
+      });
+    }
   }
+
+  for (final scale in [1.0, 1.3, 1.6]) {
+    for (final width in [375.0, 402.0]) {
+      testWidgets(
+          'live subcategory names of any length grow their card, '
+          'never overflow: Esports at ${width.toInt()} pt, text x$scale',
+          (tester) async {
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await _openSheet(tester, InvestmentsTab.predictions,
+            overrides: [
+              ..._predictionsOverrides(),
+              polyEsportsSubsProvider
+                  .overrideWith((ref) => Stream.value(_kLongEsports)),
+            ],
+            browse: true,
+            size: Size(width, 2400));
+        await tester.ensureVisible(_tile(PolyPill.esports.key));
+        await tester.pump();
+        await tester.tap(_tile(PolyPill.esports.key));
+        await _frames8(tester);
+        final keys = [
+          for (final sub in _kLongEsports)
+            if (sub.key != 'all' && _tile(sub.key).evaluate().isNotEmpty)
+              sub.key,
+        ];
+        expect(keys, hasLength(_kLongEsports.length - 1));
+        _expectCardsWhole(tester, keys,
+            reason: 'Esports ${width.toInt()} x$scale');
+        // At the default size the founder's names run onto their second
+        // line, inside the card (checked above), never cut short. Larger
+        // text, or a name longer than two lines can hold, ends in an
+        // ellipsis on the second line: the card grows, it never overflows.
+        for (final name in [
+          if (scale == 1.0) ...[
+            'Mobile Legends: Bang Bang',
+            'StarCraft: Brood War',
+          ],
+        ]) {
+          final words = tester.renderObject<RenderParagraph>(find.text(name));
+          final lines = {
+            for (final box in words.getBoxesForSelection(
+                TextSelection(baseOffset: 0, extentOffset: name.length)))
+              box.top.round(),
+          };
+          expect(lines, hasLength(2), reason: name);
+          expect(words.didExceedMaxLines, isFalse, reason: name);
+        }
+        _expectSymmetricGutters(tester, 'mlbb');
+        expect(tester.takeException(), isNull);
+        await unmountInvestments(tester);
+      });
+    }
+  }
+
+  testWidgets(
+      'the Investing sheet and the Portfolio section at text x1.6: the '
+      'cards grow, never overflow', (tester) async {
+    tester.platformDispatcher.textScaleFactorTestValue = 1.6;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await _openSheet(tester, InvestmentsTab.investing,
+        overrides: _investingOverrides(_kThreeStocks),
+        browse: true,
+        size: const Size(402, 1800));
+    final groups = [
+      for (final t in HlBrowseTab.values)
+        if (_tile(t.key).evaluate().isNotEmpty) t.key,
+    ];
+    _expectCardsWhole(tester, groups, reason: 'Investing x1.6');
+    expect(tester.takeException(), isNull);
+    await unmountInvestments(tester);
+
+    // The Portfolio section's three cards: two over one, at x1.6 too.
+    await _openSheet(tester, InvestmentsTab.positions,
+        overrides: const [], size: const Size(375, 1800));
+    final cards = [
+      for (final section in PortfolioSection.values)
+        tester.getRect(find
+            .ancestor(
+                of: find.text(portfolioSectionLabel(_l10n, section)),
+                matching: find.byType(AnimatedContainer))
+            .first),
+    ];
+    expect(cards[0].height, greaterThanOrEqualTo(_Compact.height));
+    expect(cards[1].height, closeTo(cards[0].height, 0.01),
+        reason: 'one row, one height');
+    expect(cards[2].top, greaterThan(cards[0].bottom));
+    expect(tester.takeException(), isNull);
+    await unmountInvestments(tester);
+  });
 
   testWidgets('no orphan: three Portfolio sections are two cards over one row',
       (tester) async {
@@ -636,6 +869,30 @@ void main() {
           locale: const Locale('de'),
           size: const Size(375, 812));
       await _shot(tester, 'predictions_sheet_de_$suffix');
+      await unmountInvestments(tester);
+      // The founder's phone (402 pt): "Stocks and shares" beside its three
+      // logos on two lines, its row grown to it; Esports' long live names.
+      await _openSheet(tester, InvestmentsTab.investing,
+          overrides: _investingOverrides(_kThreeStocks),
+          browse: true,
+          dark: dark,
+          size: const Size(402, 874));
+      await _shot(tester, 'investing_sheet_402_$suffix');
+      await unmountInvestments(tester);
+      await _openSheet(tester, InvestmentsTab.predictions,
+          overrides: [
+            ..._predictionsOverrides(),
+            polyEsportsSubsProvider
+                .overrideWith((ref) => Stream.value(_kLongEsports)),
+          ],
+          browse: true,
+          dark: dark,
+          size: const Size(402, 874));
+      await tester.ensureVisible(_tile(PolyPill.esports.key));
+      await tester.pump();
+      await tester.tap(_tile(PolyPill.esports.key));
+      await _frames8(tester);
+      await _shot(tester, 'esports_sheet_402_$suffix');
       await unmountInvestments(tester);
     }
     // A pick on the Dollars page, frame by frame.
