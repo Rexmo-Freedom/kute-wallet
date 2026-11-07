@@ -567,6 +567,33 @@ class KuteActionCard extends StatelessWidget {
   }
 }
 
+/// A big card's visual where the action has an icon rather than a logo:
+/// the icon (primary text) on the ink-tinted rounded square (6% in light
+/// mode, 10% in dark), [size] square, the icon at 55% of it (22 in the 40
+/// box). Settings' four cards and the Financial hub's cards wear it.
+class KuteActionCardIcon extends StatelessWidget {
+  const KuteActionCardIcon(this.icon,
+      {super.key, this.size = kKuteActionCardVisualSize});
+
+  final IconData icon;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: c.textPrimary.withValues(alpha: context.isDark ? 0.10 : 0.06),
+        borderRadius: BorderRadius.circular(size * 0.3),
+      ),
+      child: Icon(icon, color: c.textPrimary, size: size * 0.55),
+    );
+  }
+}
+
 /// An option card's icon, at the left of its box; larger on the lone card.
 class _KuteOptionIcon extends StatelessWidget {
   const _KuteOptionIcon(this.icon);

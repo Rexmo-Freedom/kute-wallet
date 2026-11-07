@@ -8694,15 +8694,17 @@ class _DirectionToggle extends ConsumerWidget {
               onPickSpendingBitcoin();
             },
           ),
-        // Another wallet or exchange, under the bitcoin, on the
-        // Investments deposit door only: the Dollars receive screen the
+        // Another crypto (from a wallet or an exchange: the Receive
+        // sheets' card for the same door, founder 7 November 2026), under
+        // the bitcoin, on the Investments deposit door only: the Dollars
+        // receive screen the
         // dock's Receive used to open. It wears the dock's inflow arrow;
         // it is a way in, not a source to pay from, so it never reads
         // "selected".
         if (onPickReceive != null)
           MovePickerRow(
             icon: Icons.south_west_rounded,
-            title: context.l10n.depositFromAnotherWallet,
+            title: context.l10n.receiveAnotherCrypto,
             subtitle: context.l10n.depositFromAnotherWalletSubtitle,
             onTap: () {
               Navigator.of(sheetCtx).pop();

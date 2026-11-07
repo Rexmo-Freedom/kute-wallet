@@ -439,8 +439,8 @@ void main() {
     expect(find.byType(UsdStandingAddressSheet), findsNothing);
     expect(line, findsNothing);
     expect(find.byType(UsdReceiveScreen), findsOneWidget);
-    // The Dollars Add as it was: its "From another wallet or exchange"
-    // row (the coins live in the coin sheet).
+    // The Dollars Add as it was: its "Another crypto" card (the coins
+    // live in the coin sheet).
     expect(receiveFromAnotherRow, findsOneWidget);
     expect(named('usd_receive_abandoned'), isEmpty,
         reason: 'the Dollars receive is still open underneath');

@@ -251,7 +251,7 @@ void main() {
                       ).toCard(),
                       MovePickerRow(
                         icon: Icons.south_west_rounded,
-                        title: l10n.depositFromAnotherWallet,
+                        title: l10n.receiveAnotherCrypto,
                         subtitle: l10n.depositFromAnotherWalletSubtitle,
                         onTap: () {},
                       ).toCard(),

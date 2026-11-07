@@ -862,7 +862,7 @@ class SendPickMarketRow extends StatelessWidget {
 }
 
 /// "USDC, USDT, ETH +18": [sendAlsoSendsToSummary] for a card's short
-/// line (the Receive sheets' "Another wallet").
+/// line (the Receive sheets' "Another crypto").
 String sendCoinsShortSummary(
     AppLocalizations l10n, List<CoinAssetGroup> groups) {
   final shown = groups.take(SendCoinStack.stack).toList();
@@ -948,8 +948,7 @@ class SendAlsoSendsToRow extends StatelessWidget {
   final List<CoinAssetGroup> groups;
   final VoidCallback onTap;
 
-  /// The row's words; null reads "Also sends to" (the Dollars Add says
-  /// "From another wallet or exchange").
+  /// The row's words; null reads "Also sends to".
   final String? title;
 
   @override
@@ -975,7 +974,7 @@ const double kSendCoinStackCardMark = 30;
 /// Send recipient options "should be cards like squares"): the coin marks
 /// stacked at the top left, the title, "USDC, USDT, ETH and 16 more"
 /// under it; keyed `send-also-sends-to-row` as the row was, unless [key]
-/// names it (the Dollars Add's "From another wallet or exchange").
+/// names it (the Receive sheets' "Another crypto").
 KuteActionCard sendAlsoSendsToCard(
   AppLocalizations l10n, {
   required List<CoinAssetGroup> groups,
@@ -992,10 +991,11 @@ KuteActionCard sendAlsoSendsToCard(
       onTap: onTap,
     );
 
-/// The Receive sheets' "Another wallet" card (founder, 7 November 2026:
-/// one-line titles, "Or an exchange · USDC, USDT, ETH +18" under it), the
-/// coins stacked, keyed [key].
-KuteActionCard receiveAnotherWalletCard(
+/// The Receive sheets' "Another crypto" card (founder, 7 November 2026:
+/// one-line titles; "Another crypto" for what was "Another wallet"), "Wallet
+/// or exchange · USDC, USDT, ETH +18" under it, the coins stacked, keyed
+/// [key].
+KuteActionCard receiveAnotherCryptoCard(
   AppLocalizations l10n, {
   required List<CoinAssetGroup> groups,
   required VoidCallback onTap,
@@ -1005,9 +1005,9 @@ KuteActionCard receiveAnotherWalletCard(
       l10n,
       key: key,
       groups: groups,
-      title: l10n.receiveAnotherWallet,
-      subtitle:
-          l10n.receiveOrAnExchangeLine(sendCoinsShortSummary(l10n, groups)),
+      title: l10n.receiveAnotherCrypto,
+      subtitle: l10n
+          .receiveWalletOrExchangeLine(sendCoinsShortSummary(l10n, groups)),
       onTap: onTap,
     );
 

@@ -2321,6 +2321,21 @@
   "settingsPickLightOrDarkBelow": "Pick light or dark below",
   "settingsReferralProgram": "Referral program",
   "hubReferrals": "Referrals",
+  "@hubReferrals": {
+    "description": "Financial hub: the title of the referral program card (one of its three big cards, with Support and Settings)."
+  },
+  "hubReferralsSubtitle": "Invite friends",
+  "@hubReferralsSubtitle": {
+    "description": "Financial hub: the line under \"Referrals\" on its card. Short: one line on a card half the screen wide."
+  },
+  "hubSupportSubtitle": "Get help",
+  "@hubSupportSubtitle": {
+    "description": "Financial hub: the line under \"Support\" on its card, which opens the support chat. Short: one line on a card half the screen wide."
+  },
+  "hubSettingsSubtitle": "Security and more",
+  "@hubSettingsSubtitle": {
+    "description": "Financial hub: the line under \"Settings\" on its card (backup, PIN, security, preferences and the rest of Settings). Short: one line."
+  },
   "settingsEarnAShareOfFees": "Earn a share of what Kute makes from your friends",
   "settingsExportTransactions": "Export transactions",
   "settingsGeneratingReport": "Generating report",
@@ -6937,7 +6952,7 @@
   },
   "walletActionsTitle": "Financial hub",
   "@walletActionsTitle": {
-    "description": "Title of the Financial hub sheet opened from the + at the top right of the shell's top bar (and from a wallet screen's name): the wallet list, switch wallet, Add wallet, Notifications in its header and a labelled Settings row last. Also the + button's screen-reader label."
+    "description": "Title of the Financial hub sheet opened from the + at the top right of the shell's top bar (and from a wallet screen's name): three big cards (Settings on top, then Referrals and Support), then the wallet list and Add account. Also the screen-reader label of a wallet screen's name, which opens it."
   },
   "portfolioCategoryShare": "{percent} of total",
   "@portfolioCategoryShare": {
@@ -7497,7 +7512,6 @@
       }
     }
   },
-  "depositFromAnotherWallet": "Another wallet or exchange",
   "depositFromAnotherWalletSubtitle": "Get an address to send dollars to",
   "portfolioStatOpenPnl": "Open P&L",
   "@portfolioStatOpenPnl": {
@@ -7597,13 +7611,13 @@
   "@usdReceiveFromAnotherWallet": {
     "description": "Section label on the first step of the Investments (dollars) receive sheet, above the grid of coins that can be sent in from another wallet or an exchange."
   },
-  "receiveAnotherWallet": "Another wallet",
-  "@receiveAnotherWallet": {
-    "description": "Receive sheets (Bitcoin and Dollars), card title beside \"From your Bitcoin\" / \"From your Dollars\": receive another coin from another wallet or an exchange. Short: one line on a card half the screen wide."
+  "receiveAnotherCrypto": "Another crypto",
+  "@receiveAnotherCrypto": {
+    "description": "Receive sheets (Bitcoin and Dollars), card title beside \"From your Dollars\" / \"From your Bitcoin\", and the Investments deposit picker's row for the same door: receive another cryptocurrency (USDC, USDT, ETH…) sent from a wallet or an exchange. \"Crypto\" as people say it, short: one line on a card half the screen wide."
   },
-  "receiveOrAnExchangeLine": "Or an exchange · {coins}",
-  "@receiveOrAnExchangeLine": {
-    "description": "Under \"Another wallet\" on the Receive sheets: an exchange works too, then the coins it accepts ({coins}: \"USDC, USDT, ETH +18\").",
+  "receiveWalletOrExchangeLine": "Wallet or exchange · {coins}",
+  "@receiveWalletOrExchangeLine": {
+    "description": "Under \"Another crypto\" on the Receive sheets: where it is sent from (a wallet or an exchange), then the coins it accepts ({coins}: \"USDC, USDT, ETH +18\").",
     "placeholders": {
       "coins": {
         "type": "String"

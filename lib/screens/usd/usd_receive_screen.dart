@@ -1,8 +1,8 @@
 // Receiving another coin from another network, a sheet over the current
 // screen: the Dollars receive (into `spark:USDB`: two big square cards,
-// "From your Bitcoin" and "From another wallet or exchange" opening the
-// coin sheet, in a sheet as tall as they are) and the Bitcoin receive's
-// "other coins" (the coin grid).
+// "From your Bitcoin" and "Another crypto" (from a wallet or an exchange)
+// opening the coin sheet, in a sheet as tall as they are) and the Bitcoin
+// receive's "other coins" (the coin grid).
 //
 // REUSABLE FIRST (founder, 2026-10-19; reusable_deposit_address.dart): a
 // picked coin the standing route may serve shows its reusable standing
@@ -64,7 +64,7 @@ import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show SendToSectionHeader;
 import 'package:kute/screens/shared/send/send_recipient_step.dart'
-    show SendStepTitle, receiveAnotherWalletCard;
+    show SendStepTitle, receiveAnotherCryptoCard;
 import 'package:kute/screens/usd/flow/usd_flow_widgets.dart';
 import 'package:kute/services/orchestra/bitcoin_receive_marks.dart'
     show BitcoinReceiveMarks;
@@ -119,8 +119,8 @@ String? watchSpendingBitcoinUsd(WidgetRef ref) {
 ///
 /// Into Dollars ([destinationAsset] `USDB`, the default) it opens on two
 /// big square cards in a content-sized sheet: "From your Bitcoin" (the
-/// Move sheet's way in from the spending bitcoin) and "From another wallet
-/// or exchange" (the coin sheet). Into Bitcoin (`BTC`, the Bitcoin
+/// Move sheet's way in from the spending bitcoin) and "Another crypto"
+/// (the coin sheet). Into Bitcoin (`BTC`, the Bitcoin
 /// receive's "other coins") it is the coin grid alone. A picked coin shows
 /// its reusable address in a sheet over this one, or, where only a
 /// one-time address serves it, asks its amount and shows that the same
@@ -218,9 +218,9 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
   /// square"; 7 November 2026: "sizes are strange here"): TWO big square
   /// cards side by side (kute_action_cards.dart), "From your Bitcoin" (the
   /// Bitcoin mark, its balance; Move money from the spending bitcoin) and
-  /// "Another wallet" (the coins stacked, "Or an exchange · USDC, USDT,
-  /// ETH +18"), opening the coin sheet as the Bitcoin receive's own card
-  /// does. Squares only where both titles read on one line, else two
+  /// "Another crypto" (the coins stacked, "Wallet or exchange · USDC,
+  /// USDT, ETH +18"), opening the coin sheet as the Bitcoin receive's own
+  /// card does. Squares only where both titles read on one line, else two
   /// compact full-width cards. With no coin offered the Bitcoin card is
   /// alone, full width and compact. No inline grid.
   Widget _dollarsCard(BuildContext context, List<CoinAssetGroup> groups) {
@@ -243,7 +243,7 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
           onTap: _openFromBitcoin,
         ),
         if (groups.isNotEmpty)
-          receiveAnotherWalletCard(
+          receiveAnotherCryptoCard(
             l10n,
             key: const ValueKey('usd-receive-from-another'),
             groups: groups,

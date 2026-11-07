@@ -25,10 +25,11 @@
 //                       and Max show the same figure. Only where the
 //                       wallet has a Dollars account (the spending
 //                       wallet).
-//   Another wallet      the square beside it: the coins stacked, "Or an
-//                       exchange · USDC, USDT, ETH +18" (the Dollars
-//                       receive's card for the same door); the Bitcoin
-//                       receive's "other coins" sheet
+//   Another crypto      the square beside it (founder, 7 November 2026:
+//                       "Another crypto", was "Another wallet"): the coins
+//                       stacked, "Wallet or exchange · USDC, USDT, ETH
+//                       +18" (the Dollars receive's card for the same
+//                       door); the Bitcoin receive's "other coins" sheet
 //                       (showOtherCoinsReceiveSheet). Only while a coin can
 //                       be offered (the spending wallet, an account that
 //                       may be offered swaps, a coin the standing route or
@@ -72,7 +73,7 @@ import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/money_movement_sheet.dart';
 import 'package:kute/screens/shared/receive_surface.dart';
 import 'package:kute/screens/shared/send/send_recipient_step.dart'
-    show SendStepTitle, receiveAnotherWalletCard;
+    show SendStepTitle, receiveAnotherCryptoCard;
 import 'package:kute/services/one_balance/investments_spendable.dart'
     show dollarsToBitcoinSpendableProvider;
 import 'package:kute/services/orchestra/reusable_deposit_address.dart'
@@ -136,7 +137,7 @@ class _BitcoinReceiveOptionsState extends ConsumerState<BitcoinReceiveOptions> {
     return spending != null && spending.id == picked;
   }
 
-  /// The coins "Another wallet" offers: exactly the set the other
+  /// The coins "Another crypto" offers: exactly the set the other
   /// coins sheet lists (a reusable standing address where that route may
   /// serve the coin, else a one-time address into `spark:BTC` while the
   /// policy allows them). Empty off the spending wallet and for accounts
@@ -221,7 +222,7 @@ class _BitcoinReceiveOptionsState extends ConsumerState<BitcoinReceiveOptions> {
               ),
             if (groups.isNotEmpty)
               // The Dollars receive's card for the same door.
-              receiveAnotherWalletCard(
+              receiveAnotherCryptoCard(
                 l10n,
                 key: const ValueKey('bitcoin-receive-from-another'),
                 groups: groups,

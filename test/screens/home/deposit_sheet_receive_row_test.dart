@@ -211,7 +211,7 @@ void main() {
 
   testWidgets(
       'the Investments deposit\'s picker reads "Add money to Investments": '
-      'the spending bitcoin first, then another wallet or exchange, which '
+      'the spending bitcoin first, then Another crypto, which '
       'closes the sheet and opens the Dollars receive screen from the sheet',
       (tester) async {
     final container = await _open(tester, MoveLockedSide.depositToUsd);
@@ -230,7 +230,7 @@ void main() {
     // Then the way in from outside, in the picker's own card style (big
     // squares, founder 1 November 2026): the inflow arrow, what it is and
     // what it does.
-    final other = find.text(l10n.depositFromAnotherWallet);
+    final other = find.text(l10n.receiveAnotherCrypto);
     expect(other, findsOneWidget);
     expect(find.text(l10n.depositFromAnotherWalletSubtitle), findsOneWidget);
     expect(find.byIcon(Icons.south_west_rounded), findsOneWidget);
@@ -272,7 +272,7 @@ void main() {
     final l10n = AppLocalizations.of(tester.element(find.byType(DepositSheet)));
     await _openFromPicker(tester);
     expect(find.text('Bitcoin'), findsWidgets);
-    expect(find.text(l10n.depositFromAnotherWallet), findsNothing);
+    expect(find.text(l10n.receiveAnotherCrypto), findsNothing);
     // Venue doors keep their "Move from" picker and its wording.
     expect(find.text(l10n.moveMoveFrom), findsOneWidget);
     expect(find.text(l10n.spending), findsOneWidget);

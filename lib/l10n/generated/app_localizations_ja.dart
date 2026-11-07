@@ -1,6 +1,5 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
-
 import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
@@ -3168,10 +3167,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String sendAmountUnitAvailableWithFiat(
-    String amount,
-    String unit,
-    String fiat,
-  ) {
+      String amount, String unit, String fiat) {
     return '$amount $unit 利用可能 · $fiat';
   }
 
@@ -3966,6 +3962,15 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get hubReferrals => '紹介';
+
+  @override
+  String get hubReferralsSubtitle => '友達を招待';
+
+  @override
+  String get hubSupportSubtitle => 'お問い合わせ';
+
+  @override
+  String get hubSettingsSubtitle => 'セキュリティなど';
 
   @override
   String get settingsEarnAShareOfFees => '友達からKuteが得る収益の一部を受け取れます';
@@ -5380,8 +5385,8 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String
-  get feeUiIncludedInTheConversionNetworkFeesAndExchangeRateSpreadMayAlsoApply =>
-      '変換に含まれます。ネットワーク手数料と為替スプレッドが別途かかる場合があります。';
+      get feeUiIncludedInTheConversionNetworkFeesAndExchangeRateSpreadMayAlsoApply =>
+          '変換に含まれます。ネットワーク手数料と為替スプレッドが別途かかる場合があります。';
 
   @override
   String get feeUiIfFilledAsATakerMakerFeesMayBeLower =>
@@ -6598,11 +6603,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String betLimitSellPartial(
-    String sold,
-    String total,
-    String price,
-    String remaining,
-  ) {
+      String sold, String total, String price, String remaining) {
     return '$totalシェア中$soldシェアを$priceで売却しました。残り$remainingシェアは指定価格で売り出し中です。';
   }
 
@@ -6728,10 +6729,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String stepUpReasonWithdrawWithSourceFee(
-    String amount,
-    String fee,
-    String total,
-  ) {
+      String amount, String fee, String total) {
     return '$amountの出金を確定します。ネットワーク手数料は最大$feeです。最大引落額：$total。';
   }
 
@@ -8276,12 +8274,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String slipExplainScale(
-    int count,
-    String start,
-    String end,
-    String action,
-    String extra,
-  ) {
+      int count, String start, String end, String action, String extra) {
     return '$startから$endの間に$count件の指値注文を分散して出し、それぞれ$action。$extra';
   }
 
@@ -8292,43 +8285,25 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String slipExplainStopMarket(
-    String coin,
-    String trigger,
-    String action,
-    String extra,
-  ) {
+      String coin, String trigger, String action, String extra) {
     return '$coinが$triggerで取引されるまで待ち、成行注文を出して$action。$extra';
   }
 
   @override
   String slipExplainStopLimit(
-    String coin,
-    String trigger,
-    String limit,
-    String action,
-    String extra,
-  ) {
+      String coin, String trigger, String limit, String action, String extra) {
     return '$coinが$triggerで取引されるまで待ち、$limitで指値注文を出して$action。$extra';
   }
 
   @override
   String slipExplainTakeMarket(
-    String coin,
-    String trigger,
-    String action,
-    String extra,
-  ) {
+      String coin, String trigger, String action, String extra) {
     return '利益確定：$coinが$triggerに達すると、成行注文で$action。$extra';
   }
 
   @override
   String slipExplainTakeLimit(
-    String coin,
-    String trigger,
-    String limit,
-    String action,
-    String extra,
-  ) {
+      String coin, String trigger, String limit, String action, String extra) {
     return '利益確定：$coinが$triggerに達すると、$limitの指値注文で$action。$extra';
   }
 
@@ -10388,119 +10363,147 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String slipCtaAddTo(String side, String amount) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'ロングを追加 · $amount',
-      'other': 'ショートを追加 · $amount',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'ロングを追加 · $amount',
+        'other': 'ショートを追加 · $amount',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String slipCtaReduce(String side, String amount) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'ロングを縮小 · $amount',
-      'other': 'ショートを縮小 · $amount',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'ロングを縮小 · $amount',
+        'other': 'ショートを縮小 · $amount',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String slipCtaClose(String side) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'ロングを決済',
-      'other': 'ショートを決済',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'ロングを決済',
+        'other': 'ショートを決済',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String slipCtaFlip(String side, String amount) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'ロングに転換 · $amount',
-      'other': 'ショートに転換 · $amount',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'ロングに転換 · $amount',
+        'other': 'ショートに転換 · $amount',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String slipPositionAdds(String side, String size, String coin) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': '$size $coinのロングを保有中 — この注文で追加します',
-      'other': '$size $coinのショートを保有中 — この注文で追加します',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': '$size $coinのロングを保有中 — この注文で追加します',
+        'other': '$size $coinのショートを保有中 — この注文で追加します',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String slipPositionReduces(
-    String side,
-    String size,
-    String remaining,
-    String coin,
-  ) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': '$size $coinのロングを保有中 — この注文で$remaining $coinに縮小します',
-      'other': '$size $coinのショートを保有中 — この注文で$remaining $coinに縮小します',
-    });
+      String side, String size, String remaining, String coin) {
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': '$size $coinのロングを保有中 — この注文で$remaining $coinに縮小します',
+        'other': '$size $coinのショートを保有中 — この注文で$remaining $coinに縮小します',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String slipPositionCloses(String side, String size, String coin) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': '$size $coinのロングを保有中 — この注文で決済します',
-      'other': '$size $coinのショートを保有中 — この注文で決済します',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': '$size $coinのロングを保有中 — この注文で決済します',
+        'other': '$size $coinのショートを保有中 — この注文で決済します',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String slipPositionFlips(
-    String side,
-    String size,
-    String remainder,
-    String coin,
-  ) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': '$size $coinのロングを保有中 — この注文で決済し、$remainder $coinのショートを建てます',
-      'other': '$size $coinのショートを保有中 — この注文で決済し、$remainder $coinのロングを建てます',
-    });
+      String side, String size, String remainder, String coin) {
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': '$size $coinのロングを保有中 — この注文で決済し、$remainder $coinのショートを建てます',
+        'other': '$size $coinのショートを保有中 — この注文で決済し、$remainder $coinのロングを建てます',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String hlReceiptAddedTo(String side) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'ロングを追加しました',
-      'other': 'ショートを追加しました',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'ロングを追加しました',
+        'other': 'ショートを追加しました',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String hlReceiptReduced(String side, String size, String coin) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'ロングを縮小しました · $size $coin',
-      'other': 'ショートを縮小しました · $size $coin',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'ロングを縮小しました · $size $coin',
+        'other': 'ショートを縮小しました · $size $coin',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String hlReceiptClosed(String side) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'ロングを決済しました',
-      'other': 'ショートを決済しました',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'ロングを決済しました',
+        'other': 'ショートを決済しました',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String hlReceiptFlipped(String side, String size, String coin) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'ロングに転換しました · $size $coin',
-      'other': 'ショートに転換しました · $size $coin',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'ロングに転換しました · $size $coin',
+        'other': 'ショートに転換しました · $size $coin',
+      },
+    );
     return '$_temp0';
   }
 
@@ -10569,10 +10572,13 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String slipAddsToYourPosition(String side) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'ロングに追加',
-      'other': 'ショートに追加',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'ロングに追加',
+        'other': 'ショートに追加',
+      },
+    );
     return '$_temp0';
   }
 
@@ -10606,9 +10612,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String depositFromSpendingWalletWithBalance(String amount) {
     return '支払い用ウォレット · $amount';
   }
-
-  @override
-  String get depositFromAnotherWallet => '別のウォレットまたは取引所';
 
   @override
   String get depositFromAnotherWalletSubtitle => 'ドルを送るアドレスを取得';
@@ -10664,11 +10667,11 @@ class AppLocalizationsJa extends AppLocalizations {
   String get usdReceiveFromAnotherWallet => '別のウォレットまたは取引所から';
 
   @override
-  String get receiveAnotherWallet => '別のウォレット';
+  String get receiveAnotherCrypto => '他の暗号資産';
 
   @override
-  String receiveOrAnExchangeLine(String coins) {
-    return 'または取引所 · $coins';
+  String receiveWalletOrExchangeLine(String coins) {
+    return 'ウォレットまたは取引所 · $coins';
   }
 
   @override
@@ -10789,19 +10792,13 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String moneyStepMovingFromTo(
-    String amount,
-    String source,
-    String destination,
-  ) {
+      String amount, String source, String destination) {
     return '$amountを移動中：$source → $destination';
   }
 
   @override
   String moneyStepMovedFromTo(
-    String amount,
-    String source,
-    String destination,
-  ) {
+      String amount, String source, String destination) {
     return '$amountを移動しました：$source → $destination';
   }
 
@@ -10865,11 +10862,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String moneyStepMovingTwo(
-    String amount1,
-    String source1,
-    String amount2,
-    String source2,
-  ) {
+      String amount1, String source1, String amount2, String source2) {
     return '$source1から$amount1、$source2から$amount2を移動中';
   }
 
@@ -11403,43 +11396,25 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String shareMessagePredictionNamed(
-    String name,
-    String outcome,
-    String title,
-    String amount,
-    String url,
-  ) {
+      String name, String outcome, String title, String amount, String url) {
     return '$nameさん、Kuteで予測を送りました：$titleで$outcome、$amount。受け取りはこちら：$url';
   }
 
   @override
   String shareMessagePredictionUnnamed(
-    String outcome,
-    String title,
-    String amount,
-    String url,
-  ) {
+      String outcome, String title, String amount, String url) {
     return 'Kuteで予測を送りました：$titleで$outcome、$amount。受け取りはこちら：$url';
   }
 
   @override
   String shareMessageInvestmentNamed(
-    String name,
-    String outcome,
-    String title,
-    String amount,
-    String url,
-  ) {
+      String name, String outcome, String title, String amount, String url) {
     return '$nameさん、Kuteで投資を送りました：$titleで$outcome、$amount。受け取りはこちら：$url';
   }
 
   @override
   String shareMessageInvestmentUnnamed(
-    String outcome,
-    String title,
-    String amount,
-    String url,
-  ) {
+      String outcome, String title, String amount, String url) {
     return 'Kuteで投資を送りました：$titleで$outcome、$amount。受け取りはこちら：$url';
   }
 
@@ -12226,10 +12201,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String shareCardHeadlineSportsVs(
-    String outcome,
-    String chance,
-    String opponent,
-  ) {
+      String outcome, String chance, String opponent) {
     return '$outcomeが$opponentに対し$chanceで優勢';
   }
 
@@ -13318,22 +13290,13 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String shareMessageChallengeNamed(
-    String name,
-    String outcome,
-    String title,
-    String amount,
-    String url,
-  ) {
+      String name, String outcome, String title, String amount, String url) {
     return '$nameさん、私の予想は$titleで$outcome。逆を選ぶか、同じ側に乗るか。$amountは私のおごり：$url';
   }
 
   @override
   String shareMessageChallengeUnnamed(
-    String outcome,
-    String title,
-    String amount,
-    String url,
-  ) {
+      String outcome, String title, String amount, String url) {
     return '私の予想は$titleで$outcome。逆を選ぶか、同じ側に乗るか。$amountは私のおごり：$url';
   }
 

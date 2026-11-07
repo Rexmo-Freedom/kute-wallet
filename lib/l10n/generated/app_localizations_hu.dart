@@ -1,6 +1,5 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
-
 import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
@@ -3262,10 +3261,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String sendAmountUnitAvailableWithFiat(
-    String amount,
-    String unit,
-    String fiat,
-  ) {
+      String amount, String unit, String fiat) {
     return '$amount $unit elérhető · $fiat';
   }
 
@@ -4084,6 +4080,15 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get hubReferrals => 'Ajánlások';
+
+  @override
+  String get hubReferralsSubtitle => 'Hívd meg a barátaidat';
+
+  @override
+  String get hubSupportSubtitle => 'Kérj segítséget';
+
+  @override
+  String get hubSettingsSubtitle => 'Biztonság és egyebek';
 
   @override
   String get settingsEarnAShareOfFees =>
@@ -5240,7 +5245,8 @@ class AppLocalizationsHu extends AppLocalizations {
       locale: localeName,
       other:
           '$count nyitott előrejelzésed van. Ezek nem vehetők ki. Előbb add el vagy vedd át őket.',
-      one: '1 nyitott előrejelzésed van. Ez nem vehető ki. Előbb add el vagy vedd át.',
+      one:
+          '1 nyitott előrejelzésed van. Ez nem vehető ki. Előbb add el vagy vedd át.',
     );
     return '$_temp0';
   }
@@ -5597,8 +5603,7 @@ class AppLocalizationsHu extends AppLocalizations {
       'Rosszabbul áll, mint a Bitcoin tartása.';
 
   @override
-  String
-  get feeUiIncludedInTheConversionNetworkFeesAndExchangeRateSpreadMayAlsoApply =>
+  String get feeUiIncludedInTheConversionNetworkFeesAndExchangeRateSpreadMayAlsoApply =>
       'Benne van az átváltásban. Hálózati díjak és árfolyamrés is felmerülhetnek.';
 
   @override
@@ -6879,11 +6884,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String betLimitSellPartial(
-    String sold,
-    String total,
-    String price,
-    String remaining,
-  ) {
+      String sold, String total, String price, String remaining) {
     return '$total egységből $sold eladva $price áron. $remaining egység továbbra is eladó a te áradon.';
   }
 
@@ -7015,10 +7016,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String stepUpReasonWithdrawWithSourceFee(
-    String amount,
-    String fee,
-    String total,
-  ) {
+      String amount, String fee, String total) {
     return '$amount kivételének megerősítése, legfeljebb $fee hálózati díjjal. Maximális terhelés: $total.';
   }
 
@@ -8660,12 +8658,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String slipExplainScale(
-    int count,
-    String start,
-    String end,
-    String action,
-    String extra,
-  ) {
+      int count, String start, String end, String action, String extra) {
     return '$count limitáras megbízást helyez el $start és $end között elosztva. Mindegyik: $action.$extra';
   }
 
@@ -8676,43 +8669,25 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String slipExplainStopMarket(
-    String coin,
-    String trigger,
-    String action,
-    String extra,
-  ) {
+      String coin, String trigger, String action, String extra) {
     return 'Megvárja, amíg a(z) $coin ára eléri a(z) $trigger szintet, majd piaci megbízást küld. Művelet: $action.$extra';
   }
 
   @override
   String slipExplainStopLimit(
-    String coin,
-    String trigger,
-    String limit,
-    String action,
-    String extra,
-  ) {
+      String coin, String trigger, String limit, String action, String extra) {
     return 'Megvárja, amíg a(z) $coin ára eléri a(z) $trigger szintet, majd limitáras megbízást ad le $limit áron. Művelet: $action.$extra';
   }
 
   @override
   String slipExplainTakeMarket(
-    String coin,
-    String trigger,
-    String action,
-    String extra,
-  ) {
+      String coin, String trigger, String action, String extra) {
     return 'Nyereségrealizálás: amint a(z) $coin eléri a(z) $trigger szintet, piaci megbízás jön létre. Művelet: $action.$extra';
   }
 
   @override
   String slipExplainTakeLimit(
-    String coin,
-    String trigger,
-    String limit,
-    String action,
-    String extra,
-  ) {
+      String coin, String trigger, String limit, String action, String extra) {
     return 'Nyereségrealizálás: amint a(z) $coin eléri a(z) $trigger szintet, limitáras megbízás jön létre $limit áron. Művelet: $action.$extra';
   }
 
@@ -10820,123 +10795,151 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String slipCtaAddTo(String side, String amount) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'long pozíció növelése · $amount',
-      'other': 'short pozíció növelése · $amount',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'long pozíció növelése · $amount',
+        'other': 'short pozíció növelése · $amount',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String slipCtaReduce(String side, String amount) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'long pozíció csökkentése · $amount',
-      'other': 'short pozíció csökkentése · $amount',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'long pozíció csökkentése · $amount',
+        'other': 'short pozíció csökkentése · $amount',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String slipCtaClose(String side) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'long pozíció zárása',
-      'other': 'short pozíció zárása',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'long pozíció zárása',
+        'other': 'short pozíció zárása',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String slipCtaFlip(String side, String amount) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'Átfordítás long irányba · $amount',
-      'other': 'Átfordítás short irányba · $amount',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'Átfordítás long irányba · $amount',
+        'other': 'Átfordítás short irányba · $amount',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String slipPositionAdds(String side, String size, String coin) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'Van egy $size $coin long pozíciód — ez növeli',
-      'other': 'Van egy $size $coin short pozíciód — ez növeli',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'Van egy $size $coin long pozíciód — ez növeli',
+        'other': 'Van egy $size $coin short pozíciód — ez növeli',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String slipPositionReduces(
-    String side,
-    String size,
-    String remaining,
-    String coin,
-  ) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long':
-          'Van egy $size $coin long pozíciód — ez $remaining $coin méretre csökkenti',
-      'other':
-          'Van egy $size $coin short pozíciód — ez $remaining $coin méretre csökkenti',
-    });
+      String side, String size, String remaining, String coin) {
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long':
+            'Van egy $size $coin long pozíciód — ez $remaining $coin méretre csökkenti',
+        'other':
+            'Van egy $size $coin short pozíciód — ez $remaining $coin méretre csökkenti',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String slipPositionCloses(String side, String size, String coin) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'Van egy $size $coin long pozíciód — ez lezárja',
-      'other': 'Van egy $size $coin short pozíciód — ez lezárja',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'Van egy $size $coin long pozíciód — ez lezárja',
+        'other': 'Van egy $size $coin short pozíciód — ez lezárja',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String slipPositionFlips(
-    String side,
-    String size,
-    String remainder,
-    String coin,
-  ) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long':
-          'Van egy $size $coin long pozíciód — ez lezárja, és nyit egy $remainder $coin short pozíciót',
-      'other':
-          'Van egy $size $coin short pozíciód — ez lezárja, és nyit egy $remainder $coin long pozíciót',
-    });
+      String side, String size, String remainder, String coin) {
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long':
+            'Van egy $size $coin long pozíciód — ez lezárja, és nyit egy $remainder $coin short pozíciót',
+        'other':
+            'Van egy $size $coin short pozíciód — ez lezárja, és nyit egy $remainder $coin long pozíciót',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String hlReceiptAddedTo(String side) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'long pozíció növelve',
-      'other': 'short pozíció növelve',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'long pozíció növelve',
+        'other': 'short pozíció növelve',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String hlReceiptReduced(String side, String size, String coin) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'long pozíció csökkentve · $size $coin',
-      'other': 'short pozíció csökkentve · $size $coin',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'long pozíció csökkentve · $size $coin',
+        'other': 'short pozíció csökkentve · $size $coin',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String hlReceiptClosed(String side) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'long pozíció zárva',
-      'other': 'short pozíció zárva',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'long pozíció zárva',
+        'other': 'short pozíció zárva',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String hlReceiptFlipped(String side, String size, String coin) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'Átfordítva long irányba · $size $coin',
-      'other': 'Átfordítva short irányba · $size $coin',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'Átfordítva long irányba · $size $coin',
+        'other': 'Átfordítva short irányba · $size $coin',
+      },
+    );
     return '$_temp0';
   }
 
@@ -11005,10 +11008,13 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String slipAddsToYourPosition(String side) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'Növeli a Long pozíciódat',
-      'other': 'Növeli a Short pozíciódat',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'Növeli a Long pozíciódat',
+        'other': 'Növeli a Short pozíciódat',
+      },
+    );
     return '$_temp0';
   }
 
@@ -11042,9 +11048,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String depositFromSpendingWalletWithBalance(String amount) {
     return 'A költési tárcád · $amount';
   }
-
-  @override
-  String get depositFromAnotherWallet => 'Másik tárca vagy tőzsde';
 
   @override
   String get depositFromAnotherWalletSubtitle =>
@@ -11101,11 +11104,11 @@ class AppLocalizationsHu extends AppLocalizations {
   String get usdReceiveFromAnotherWallet => 'Másik tárcából vagy tőzsdéről';
 
   @override
-  String get receiveAnotherWallet => 'Másik tárca';
+  String get receiveAnotherCrypto => 'Másik kripto';
 
   @override
-  String receiveOrAnExchangeLine(String coins) {
-    return 'Vagy tőzsde · $coins';
+  String receiveWalletOrExchangeLine(String coins) {
+    return 'Tárca vagy tőzsde · $coins';
   }
 
   @override
@@ -11228,19 +11231,13 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String moneyStepMovingFromTo(
-    String amount,
-    String source,
-    String destination,
-  ) {
+      String amount, String source, String destination) {
     return '$amount áthelyezése: $source → $destination';
   }
 
   @override
   String moneyStepMovedFromTo(
-    String amount,
-    String source,
-    String destination,
-  ) {
+      String amount, String source, String destination) {
     return '$amount áthelyezve: $source → $destination';
   }
 
@@ -11304,11 +11301,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String moneyStepMovingTwo(
-    String amount1,
-    String source1,
-    String amount2,
-    String source2,
-  ) {
+      String amount1, String source1, String amount2, String source2) {
     return '$amount1 mozgatása innen: $source1, és $amount2 innen: $source2';
   }
 
@@ -11853,43 +11846,25 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String shareMessagePredictionNamed(
-    String name,
-    String outcome,
-    String title,
-    String amount,
-    String url,
-  ) {
+      String name, String outcome, String title, String amount, String url) {
     return '$name, küldtem neked egy előrejelzést a Kute-ban: $title: $outcome, $amount. Itt veheted át: $url';
   }
 
   @override
   String shareMessagePredictionUnnamed(
-    String outcome,
-    String title,
-    String amount,
-    String url,
-  ) {
+      String outcome, String title, String amount, String url) {
     return 'Küldtem neked egy előrejelzést a Kute-ban: $title: $outcome, $amount. Itt veheted át: $url';
   }
 
   @override
   String shareMessageInvestmentNamed(
-    String name,
-    String outcome,
-    String title,
-    String amount,
-    String url,
-  ) {
+      String name, String outcome, String title, String amount, String url) {
     return '$name, küldtem neked egy befektetést a Kute-ban: $title: $outcome, $amount. Itt veheted át: $url';
   }
 
   @override
   String shareMessageInvestmentUnnamed(
-    String outcome,
-    String title,
-    String amount,
-    String url,
-  ) {
+      String outcome, String title, String amount, String url) {
     return 'Küldtem neked egy befektetést a Kute-ban: $title: $outcome, $amount. Itt veheted át: $url';
   }
 
@@ -12687,10 +12662,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String shareCardHeadlineSportsVs(
-    String outcome,
-    String chance,
-    String opponent,
-  ) {
+      String outcome, String chance, String opponent) {
     return 'Favorit: $outcome ($chance) vs $opponent';
   }
 
@@ -13787,22 +13759,13 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String shareMessageChallengeNamed(
-    String name,
-    String outcome,
-    String title,
-    String amount,
-    String url,
-  ) {
+      String name, String outcome, String title, String amount, String url) {
     return '$name, a tippem: $outcome, $title. Válaszd a másik oldalt, vagy tarts velem. $amount én állom: $url';
   }
 
   @override
   String shareMessageChallengeUnnamed(
-    String outcome,
-    String title,
-    String amount,
-    String url,
-  ) {
+      String outcome, String title, String amount, String url) {
     return 'A tippem: $outcome, $title. Válaszd a másik oldalt, vagy tarts velem. $amount én állom: $url';
   }
 

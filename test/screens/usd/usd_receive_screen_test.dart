@@ -3,8 +3,8 @@
 // (founder, 5 November 2026: "Here should be big cards, square"), in a
 // sheet as tall as they are, the floating bar away: "From your Bitcoin"
 // (the Bitcoin mark and its balance, opening the Investments deposit from
-// the spending bitcoin) and "From another wallet or exchange" (the coins
-// stacked) opening the coin sheet. No inline grid. Into Bitcoin (the Bitcoin
+// the spending bitcoin) and "Another crypto" (the coins stacked) opening
+// the coin sheet. No inline grid. Into Bitcoin (the Bitcoin
 // receive's "other coins") it is the grid alone. Nothing is
 // picked for the person. Here the standing route serves no coin, so a
 // coin they tap falls back to the one-time flow and asks its amount in
@@ -282,7 +282,7 @@ void main() {
 
   testWidgets(
       'opens on two big square cards side by side: "From your Bitcoin" and '
-      '"Another wallet" ("Or an exchange", the coins stacked, none cut), '
+      '"Another crypto" ("Wallet or exchange", the coins stacked, none cut), '
       'both titles on one line; no list rows, no inline grid, nothing '
       'picked', (tester) async {
     // The app's own font: the one-line rule measures real glyphs.
@@ -298,10 +298,10 @@ void main() {
     expect(bitcoin.compact, isFalse);
     expect(receiveFromAnotherRow, findsOneWidget);
     final another = tester.widget<KuteActionCard>(receiveFromAnotherRow);
-    expect(another.title, _l10n.receiveAnotherWallet);
-    expect(another.title, 'Another wallet');
-    expect(another.subtitle, _l10n.receiveOrAnExchangeLine('USDC, USDT'));
-    expect(another.subtitle, 'Or an exchange · USDC, USDT');
+    expect(another.title, _l10n.receiveAnotherCrypto);
+    expect(another.title, 'Another crypto');
+    expect(another.subtitle, _l10n.receiveWalletOrExchangeLine('USDC, USDT'));
+    expect(another.subtitle, 'Wallet or exchange · USDC, USDT');
     expect(another.visual, isA<SendCoinStack>());
     expect(tester.widget<KuteActionCardGrid>(grid).oneLineTitles, isTrue);
     _expectCoinsWhole(tester, receiveFromAnotherRow);
@@ -365,7 +365,7 @@ void main() {
   });
 
   testWidgets(
-      '"From another wallet or exchange" opens the coin sheet, as the '
+      '"Another crypto" opens the coin sheet, as the '
       'Bitcoin receive\'s "Also accepts" does', (tester) async {
     await _pump(tester);
     await openReceiveCoins(tester);
@@ -613,7 +613,7 @@ void main() {
       expect(
           find.descendant(
               of: receiveFromAnotherRow,
-              matching: find.text(l10n.receiveAnotherWallet)),
+              matching: find.text(l10n.receiveAnotherCrypto)),
           findsOneWidget,
           reason: why);
       // Both titles on one line (founder, 7 November 2026: "sizes are
@@ -621,7 +621,7 @@ void main() {
       expect(_lines(tester, bitcoin, l10n.usdReceiveFromYourBitcoin), 1,
           reason: why);
       expect(
-          _lines(tester, receiveFromAnotherRow, l10n.receiveAnotherWallet), 1,
+          _lines(tester, receiveFromAnotherRow, l10n.receiveAnotherCrypto), 1,
           reason: why);
       _expectCoinsWhole(tester, receiveFromAnotherRow);
       for (final (card, box) in [(bitcoin, a), (receiveFromAnotherRow, b)]) {

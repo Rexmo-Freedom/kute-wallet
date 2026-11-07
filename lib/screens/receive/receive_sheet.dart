@@ -58,7 +58,7 @@ Widget _usdBody(BuildContext context) =>
     ReceiveSheets.debugUsdBody?.call(context) ?? const UsdReceiveScreen();
 
 /// The Bitcoin tab's Receive: "Receive", Bitcoin on top, then From your
-/// Dollars and From another wallet or exchange, as big cards
+/// Dollars and Another crypto, as big cards
 /// (bitcoin_receive_options.dart), in a sheet over the current screen.
 Future<void> showBitcoinReceiveSheet(BuildContext context) =>
     showAppBottomSheet<void>(
@@ -79,7 +79,7 @@ Future<void> showBitcoinQrReceiveSheet(BuildContext context) =>
     );
 
 /// The Investments tab's Receive: "Receive", "From your Bitcoin"
-/// and "From another wallet or exchange" (each coin through its reusable
+/// and "Another crypto" (each coin through its reusable
 /// address, a one-time address where that cannot serve it), in a sheet
 /// over the current screen.
 Future<void> showUsdReceiveSheet(BuildContext context) =>
@@ -89,8 +89,8 @@ Future<void> showUsdReceiveSheet(BuildContext context) =>
       builder: _usdBody,
     );
 
-/// The Bitcoin receive's "other coins" ("From another wallet or exchange"
-/// on Receive): the coin sheet over it. A coin gets the reusable Dollars
+/// The Bitcoin receive's "other coins" ("Another crypto" on Receive): the
+/// coin sheet over it. A coin gets the reusable Dollars
 /// address (landing in Investments, said under it), or, where that cannot
 /// serve it, a one-time address delivering bitcoin (`spark:BTC`). Closing
 /// it returns to Receive as it was.

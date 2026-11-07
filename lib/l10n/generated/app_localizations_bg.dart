@@ -1,6 +1,5 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
-
 import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
@@ -3266,10 +3265,7 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String sendAmountUnitAvailableWithFiat(
-    String amount,
-    String unit,
-    String fiat,
-  ) {
+      String amount, String unit, String fiat) {
     return '$amount $unit налични · $fiat';
   }
 
@@ -4084,6 +4080,15 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get hubReferrals => 'Покани';
+
+  @override
+  String get hubReferralsSubtitle => 'Покани приятели';
+
+  @override
+  String get hubSupportSubtitle => 'Получи помощ';
+
+  @override
+  String get hubSettingsSubtitle => 'Сигурност и още';
 
   @override
   String get settingsEarnAShareOfFees =>
@@ -5237,7 +5242,8 @@ class AppLocalizationsBg extends AppLocalizations {
       locale: localeName,
       other:
           'Имаш $count отворени прогнози. Те не могат да се изтеглят. Първо ги продай или вземи.',
-      one: 'Имаш 1 отворена прогноза. Тя не може да се изтегли. Първо я продай или вземи.',
+      one:
+          'Имаш 1 отворена прогноза. Тя не може да се изтегли. Първо я продай или вземи.',
     );
     return '$_temp0';
   }
@@ -5594,8 +5600,7 @@ class AppLocalizationsBg extends AppLocalizations {
   String get feeUiBehindHoldingBitcoin => 'По-зле от държане на Bitcoin.';
 
   @override
-  String
-  get feeUiIncludedInTheConversionNetworkFeesAndExchangeRateSpreadMayAlsoApply =>
+  String get feeUiIncludedInTheConversionNetworkFeesAndExchangeRateSpreadMayAlsoApply =>
       'Включена в конвертирането. Може да има и мрежови такси и разлика в обменния курс.';
 
   @override
@@ -6874,11 +6879,7 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String betLimitSellPartial(
-    String sold,
-    String total,
-    String price,
-    String remaining,
-  ) {
+      String sold, String total, String price, String remaining) {
     return 'Продадени $sold от $total дяла по $price. $remaining дяла все още се продават на твоята цена.';
   }
 
@@ -7010,10 +7011,7 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String stepUpReasonWithdrawWithSourceFee(
-    String amount,
-    String fee,
-    String total,
-  ) {
+      String amount, String fee, String total) {
     return 'Потвърди теглене на $amount с мрежова такса до $fee. Максимално дебитиране: $total.';
   }
 
@@ -8654,12 +8652,7 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String slipExplainScale(
-    int count,
-    String start,
-    String end,
-    String action,
-    String extra,
-  ) {
+      int count, String start, String end, String action, String extra) {
     return 'Пуска $count лимитни поръчки, разпределени между $start и $end. Всяка $action.$extra';
   }
 
@@ -8670,43 +8663,25 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String slipExplainStopMarket(
-    String coin,
-    String trigger,
-    String action,
-    String extra,
-  ) {
+      String coin, String trigger, String action, String extra) {
     return 'Изчаква $coin да се търгува на $trigger, после изпраща пазарна поръчка, която $action.$extra';
   }
 
   @override
   String slipExplainStopLimit(
-    String coin,
-    String trigger,
-    String limit,
-    String action,
-    String extra,
-  ) {
+      String coin, String trigger, String limit, String action, String extra) {
     return 'Изчаква $coin да се търгува на $trigger, после пуска лимитна поръчка на $limit, която $action.$extra';
   }
 
   @override
   String slipExplainTakeMarket(
-    String coin,
-    String trigger,
-    String action,
-    String extra,
-  ) {
+      String coin, String trigger, String action, String extra) {
     return 'Взима печалба: щом $coin достигне $trigger, пазарна поръчка $action.$extra';
   }
 
   @override
   String slipExplainTakeLimit(
-    String coin,
-    String trigger,
-    String limit,
-    String action,
-    String extra,
-  ) {
+      String coin, String trigger, String limit, String action, String extra) {
     return 'Взима печалба: щом $coin достигне $trigger, лимитна поръчка на $limit $action.$extra';
   }
 
@@ -10815,123 +10790,151 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String slipCtaAddTo(String side, String amount) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'Увеличи long позицията · $amount',
-      'other': 'Увеличи short позицията · $amount',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'Увеличи long позицията · $amount',
+        'other': 'Увеличи short позицията · $amount',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String slipCtaReduce(String side, String amount) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'Намали long позицията · $amount',
-      'other': 'Намали short позицията · $amount',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'Намали long позицията · $amount',
+        'other': 'Намали short позицията · $amount',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String slipCtaClose(String side) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'Затвори long позицията',
-      'other': 'Затвори short позицията',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'Затвори long позицията',
+        'other': 'Затвори short позицията',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String slipCtaFlip(String side, String amount) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'Обърни в long · $amount',
-      'other': 'Обърни в short · $amount',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'Обърни в long · $amount',
+        'other': 'Обърни в short · $amount',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String slipPositionAdds(String side, String size, String coin) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'Държите long позиция от $size $coin — това я увеличава',
-      'other': 'Държите short позиция от $size $coin — това я увеличава',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'Държите long позиция от $size $coin — това я увеличава',
+        'other': 'Държите short позиция от $size $coin — това я увеличава',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String slipPositionReduces(
-    String side,
-    String size,
-    String remaining,
-    String coin,
-  ) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long':
-          'Държите long позиция от $size $coin — това я намалява до $remaining $coin',
-      'other':
-          'Държите short позиция от $size $coin — това я намалява до $remaining $coin',
-    });
+      String side, String size, String remaining, String coin) {
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long':
+            'Държите long позиция от $size $coin — това я намалява до $remaining $coin',
+        'other':
+            'Държите short позиция от $size $coin — това я намалява до $remaining $coin',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String slipPositionCloses(String side, String size, String coin) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'Държите long позиция от $size $coin — това я затваря',
-      'other': 'Държите short позиция от $size $coin — това я затваря',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'Държите long позиция от $size $coin — това я затваря',
+        'other': 'Държите short позиция от $size $coin — това я затваря',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String slipPositionFlips(
-    String side,
-    String size,
-    String remainder,
-    String coin,
-  ) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long':
-          'Държите long позиция от $size $coin — това я затваря и отваря short позиция от $remainder $coin',
-      'other':
-          'Държите short позиция от $size $coin — това я затваря и отваря long позиция от $remainder $coin',
-    });
+      String side, String size, String remainder, String coin) {
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long':
+            'Държите long позиция от $size $coin — това я затваря и отваря short позиция от $remainder $coin',
+        'other':
+            'Държите short позиция от $size $coin — това я затваря и отваря long позиция от $remainder $coin',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String hlReceiptAddedTo(String side) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'Увеличена long позиция',
-      'other': 'Увеличена short позиция',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'Увеличена long позиция',
+        'other': 'Увеличена short позиция',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String hlReceiptReduced(String side, String size, String coin) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'Намалена long позиция · $size $coin',
-      'other': 'Намалена short позиция · $size $coin',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'Намалена long позиция · $size $coin',
+        'other': 'Намалена short позиция · $size $coin',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String hlReceiptClosed(String side) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'Затворена long позиция',
-      'other': 'Затворена short позиция',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'Затворена long позиция',
+        'other': 'Затворена short позиция',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String hlReceiptFlipped(String side, String size, String coin) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'Обърната в long · $size $coin',
-      'other': 'Обърната в short · $size $coin',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'Обърната в long · $size $coin',
+        'other': 'Обърната в short · $size $coin',
+      },
+    );
     return '$_temp0';
   }
 
@@ -11000,10 +11003,13 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String slipAddsToYourPosition(String side) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'Добавя към твоя Long',
-      'other': 'Добавя към твоя Short',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'Добавя към твоя Long',
+        'other': 'Добавя към твоя Short',
+      },
+    );
     return '$_temp0';
   }
 
@@ -11037,9 +11043,6 @@ class AppLocalizationsBg extends AppLocalizations {
   String depositFromSpendingWalletWithBalance(String amount) {
     return 'Вашият портфейл за харчене · $amount';
   }
-
-  @override
-  String get depositFromAnotherWallet => 'Друг портфейл или борса';
 
   @override
   String get depositFromAnotherWalletSubtitle =>
@@ -11096,11 +11099,11 @@ class AppLocalizationsBg extends AppLocalizations {
   String get usdReceiveFromAnotherWallet => 'От друг портфейл или борса';
 
   @override
-  String get receiveAnotherWallet => 'Друг портфейл';
+  String get receiveAnotherCrypto => 'Друга крипто';
 
   @override
-  String receiveOrAnExchangeLine(String coins) {
-    return 'Или борса · $coins';
+  String receiveWalletOrExchangeLine(String coins) {
+    return 'Портфейл или борса · $coins';
   }
 
   @override
@@ -11223,19 +11226,13 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String moneyStepMovingFromTo(
-    String amount,
-    String source,
-    String destination,
-  ) {
+      String amount, String source, String destination) {
     return 'Прехвърляне на $amount от $source → $destination';
   }
 
   @override
   String moneyStepMovedFromTo(
-    String amount,
-    String source,
-    String destination,
-  ) {
+      String amount, String source, String destination) {
     return '$amount прехвърлени от $source → $destination';
   }
 
@@ -11299,11 +11296,7 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String moneyStepMovingTwo(
-    String amount1,
-    String source1,
-    String amount2,
-    String source2,
-  ) {
+      String amount1, String source1, String amount2, String source2) {
     return 'Преместване на $amount1 от $source1 и $amount2 от $source2';
   }
 
@@ -11845,43 +11838,25 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String shareMessagePredictionNamed(
-    String name,
-    String outcome,
-    String title,
-    String amount,
-    String url,
-  ) {
+      String name, String outcome, String title, String amount, String url) {
     return '$name, изпратих ти прогноза в Kute: $outcome за $title, $amount. Вземи я: $url';
   }
 
   @override
   String shareMessagePredictionUnnamed(
-    String outcome,
-    String title,
-    String amount,
-    String url,
-  ) {
+      String outcome, String title, String amount, String url) {
     return 'Изпратих ти прогноза в Kute: $outcome за $title, $amount. Вземи я: $url';
   }
 
   @override
   String shareMessageInvestmentNamed(
-    String name,
-    String outcome,
-    String title,
-    String amount,
-    String url,
-  ) {
+      String name, String outcome, String title, String amount, String url) {
     return '$name, изпратих ти инвестиция в Kute: $outcome за $title, $amount. Вземи я: $url';
   }
 
   @override
   String shareMessageInvestmentUnnamed(
-    String outcome,
-    String title,
-    String amount,
-    String url,
-  ) {
+      String outcome, String title, String amount, String url) {
     return 'Изпратих ти инвестиция в Kute: $outcome за $title, $amount. Вземи я: $url';
   }
 
@@ -12676,10 +12651,7 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String shareCardHeadlineSportsVs(
-    String outcome,
-    String chance,
-    String opponent,
-  ) {
+      String outcome, String chance, String opponent) {
     return 'Фаворит: $outcome с $chance срещу $opponent';
   }
 
@@ -13775,22 +13747,13 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String shareMessageChallengeNamed(
-    String name,
-    String outcome,
-    String title,
-    String amount,
-    String url,
-  ) {
+      String name, String outcome, String title, String amount, String url) {
     return '$name, моят избор: $outcome за $title. Избери другата страна или се присъедини. $amount от мен: $url';
   }
 
   @override
   String shareMessageChallengeUnnamed(
-    String outcome,
-    String title,
-    String amount,
-    String url,
-  ) {
+      String outcome, String title, String amount, String url) {
     return 'Моят избор: $outcome за $title. Избери другата страна или се присъедини. $amount от мен: $url';
   }
 

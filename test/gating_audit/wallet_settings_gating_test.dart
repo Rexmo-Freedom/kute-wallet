@@ -11,6 +11,8 @@
 //     is allowed; withheld in any way (a region, a platform, off, coming
 //     soon, no policy readable) Rate the app takes its card. A block on
 //     swaps never touches it.
+//   * The Financial hub's big cards (fw49): the same rule for its referral
+//     card, Rate the app taking its place; Settings and Support always.
 
 import 'dart:async';
 import 'dart:convert';
@@ -33,6 +35,8 @@ import 'package:kute/screens/creation/add_wallet.dart';
 import 'package:kute/screens/creation/bitcoin_wallet_setup.dart';
 import 'package:kute/screens/settings/settings.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
+import 'package:kute/screens/shared/open_once.dart';
+import 'package:kute/screens/shared/wallet_money_actions.dart';
 import 'package:kute/services/add_wallet_capabilities.dart';
 import 'package:kute/services/investment_provider_availability.dart';
 import 'package:kute/services/region_freshness.dart';
@@ -216,6 +220,64 @@ Future<void> _release(WidgetTester tester) async {
 
 Finder _card(String id) => find.byKey(ValueKey('settings-card-$id'));
 
+/// Opens the Financial hub over a plain screen, as the top bar's + does.
+Future<void> _pumpHub(WidgetTester tester) async {
+  OpenOnce.reset();
+  tester.view.physicalSize = const Size(430, 932);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+  await tester.pumpWidget(ProviderScope(
+    overrides: [
+      settingsProvider
+          .overrideWith((_) => _MemorySettings(settings_model.Settings(
+                currency: 'USD',
+                language: 'en',
+                btcFormat: 'sats',
+                backup: false,
+                biometricsEnabled: false,
+                bitcoinElectrumNode: '',
+                nodeType: 'Blockstream',
+                reviewDone: false,
+                wallets: [WalletConfig(id: 'spending', name: 'Spending')],
+                activeWalletId: 'spending',
+              ))),
+    ],
+    child: ScreenUtilInit(
+      designSize: const Size(430, 932),
+      builder: (_, __) => MaterialApp(
+        theme: ThemeData(
+          fontFamily: 'Inter',
+          extensions: [AppColorsExtension.light()],
+        ),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => Center(
+              child: TextButton(
+                onPressed: () =>
+                    showWalletMoneyActions(context, source: 'home_plus'),
+                child: const Text('open hub'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  ));
+  await tester.tap(find.text('open hub'));
+  await tester.pumpAndSettle();
+  expect(find.text(_en.walletActionsTitle), findsOneWidget);
+}
+
+Finder _hubCard(String id) => find.byKey(ValueKey('hub-card-$id'));
+
+/// Settings and Support are always in the hub, whatever the policy says.
+void _expectHubDoorsAlways() {
+  expect(_hubCard('settings'), findsOneWidget);
+  expect(_hubCard('support'), findsOneWidget);
+}
+
 void main() {
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
@@ -270,6 +332,51 @@ void main() {
       await _pumpSettings(tester, policy);
       expect(_card('referral'), findsOneWidget);
       expect(_card('rate'), findsNothing);
+    });
+  });
+
+  group('Financial hub: the referral card', () {
+    testWidgets('allowed: the referral card, no Rate the app card',
+        (tester) async {
+      await _install(tester);
+      await _pumpHub(tester);
+      expect(_hubCard('referral'), findsOneWidget);
+      expect(_hubCard('rate'), findsNothing);
+      _expectHubDoorsAlways();
+    });
+
+    for (final how in MarketDenial.values) {
+      testWidgets(
+          'affiliate.program withheld (${how == MarketDenial.swapCountryBlock ? 'its own region block' : how.label}): '
+          'Rate the app takes its card, no reason shown', (tester) async {
+        await _install(tester, decisions: {'affiliate.program': _denial(how)});
+        await _pumpHub(tester);
+        expect(_hubCard('referral'), findsNothing);
+        expect(find.text(_en.hubReferrals), findsNothing);
+        expect(_hubCard('rate'), findsOneWidget);
+        expect(find.text(_en.settingsRateTheApp), findsOneWidget);
+        expect(find.textContaining('Not available'), findsNothing);
+        _expectHubDoorsAlways();
+      });
+    }
+
+    testWidgets('no policy readable: the referral card waits (Rate the app)',
+        (tester) async {
+      final policy = await _install(tester, reachable: false);
+      expect(policy.allows('affiliate.program'), isFalse);
+      await _pumpHub(tester);
+      expect(_hubCard('rate'), findsOneWidget);
+      expect(_hubCard('referral'), findsNothing);
+      _expectHubDoorsAlways();
+    });
+
+    testWidgets('a swap country block never touches the referral card',
+        (tester) async {
+      await _install(tester, decisions: _swapBlock);
+      await _pumpHub(tester);
+      expect(_hubCard('referral'), findsOneWidget);
+      expect(_hubCard('rate'), findsNothing);
+      _expectHubDoorsAlways();
     });
   });
 

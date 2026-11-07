@@ -74,6 +74,21 @@ const kReferralCapability = 'affiliate.program';
 const kExportCapability = 'export.transactions';
 const kAdvancedCapability = 'settings.advanced';
 
+/// Rate the app: the store's in-app review where the platform offers it,
+/// else the app's store listing; either way the review counts as done.
+/// Settings' Rate the app and the Financial hub's card (where the referral
+/// program is withheld) both ask through it, each tracking its own tap.
+Future<void> requestAppReview(WidgetRef ref) async {
+  final settingsNotifier = ref.read(settingsProvider.notifier);
+  final inAppReview = InAppReview.instance;
+  if (await inAppReview.isAvailable()) {
+    await inAppReview.requestReview();
+  } else {
+    await inAppReview.openStoreListing(appStoreId: dotenv.env['APP_STORE_ID']!);
+  }
+  settingsNotifier.setReviewDone(true);
+}
+
 /// The app version as Settings → Advanced shows it: the exact string the
 /// app sends to the backend policy request (`appVersion`, the pubspec
 /// version without the build number), then the build number.
@@ -765,17 +780,7 @@ class _SettingsState extends ConsumerState<Settings> {
 
   Future<void> _rateApp(BuildContext context, WidgetRef ref) async {
     TrackingService.settingsActionTapped('rate_app');
-    final settingsNotifier = ref.read(settingsProvider.notifier);
-    final inAppReview = InAppReview.instance;
-
-    if (await inAppReview.isAvailable()) {
-      await inAppReview.requestReview();
-      settingsNotifier.setReviewDone(true);
-    } else {
-      await inAppReview.openStoreListing(
-          appStoreId: dotenv.env['APP_STORE_ID']!);
-      settingsNotifier.setReviewDone(true);
-    }
+    await requestAppReview(ref);
   }
 
   Widget _buildTransactionExportSection(BuildContext context, WidgetRef ref) {
@@ -2724,19 +2729,10 @@ abstract final class _SettingsCard {
     required String subtitle,
     required VoidCallback onTap,
   }) {
-    final c = context.colors;
     return KuteActionCard(
       key: key,
-      visual: Container(
-        width: kKuteActionCardVisualSize,
-        height: kKuteActionCardVisualSize,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: c.textPrimary.withValues(alpha: context.isDark ? 0.10 : 0.06),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Icon(icon, color: c.textPrimary, size: 22),
-      ),
+      // The Financial hub's cards wear the same tile.
+      visual: KuteActionCardIcon(icon),
       title: title,
       subtitle: subtitle,
       onTap: onTap,

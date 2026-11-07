@@ -2,8 +2,9 @@
 // November 2026: "Bitcoin should be on top, more prevalent here"; the
 // word swap appears nowhere): the Bitcoin tab's Receive opens Bitcoin
 // ("Bitcoin and Lightning") on top, full width and larger, then two
-// squares under it, From your Dollars (its balance) and Another wallet
-// ("Or an exchange", the coins stacked, none cut), both titles on one
+// squares under it, From your Dollars (its balance) and Another crypto
+// ("Wallet or exchange", the coins stacked, none cut; founder, 7 November
+// 2026: "Another crypto", was "Another wallet"), both titles on one
 // line, in a sheet as tall as they
 // are, the floating bar away. Each card opens its sheet over this one:
 // the QR receive, Move money straight on the amount (Dollars to Bitcoin,
@@ -11,8 +12,8 @@
 // money that can move to Bitcoin (fw46: Dollars plus the venue cash in
 // reach, net of the move costs, the Move sheet's From row and Max), less
 // any venue whose withdraw the policy withholds. From your Dollars is only on the
-// spending wallet (a watch-only or hardware wallet has no Dollars); From
-// another wallet or exchange only while a coin can be offered; with one
+// spending wallet (a watch-only or hardware wallet has no Dollars);
+// Another crypto only while a coin can be offered; with one
 // hidden the other is full width and compact under Bitcoin. Nothing here
 // reaches a money call.
 
@@ -290,7 +291,7 @@ void main() {
   testWidgets(
       'the spending wallet: "Receive" over Bitcoin ("Bitcoin and '
       'Lightning") on top, full width and larger, then From your Dollars '
-      '(its balance) and Another wallet (or an exchange, the coins stacked '
+      '(its balance) and Another crypto (wallet or exchange, the coins stacked '
       'whole) as two squares, titles on one line; a short sheet with the '
       'bar away',
       (tester) async {
@@ -318,16 +319,17 @@ void main() {
     expect(_card(tester, _fromDollars).title, 'From your Dollars');
     // Dollars alone here: what can move to Bitcoin.
     expect(_card(tester, _fromDollars).subtitle, r'$4.75 available');
-    expect(_card(tester, _fromAnother).title, 'Another wallet');
-    expect(_card(tester, _fromAnother).title, _l10n.receiveAnotherWallet);
-    // An exchange too; three coins named, the rest counted ("USDC, USDT,
-    // ETH +1").
+    expect(_card(tester, _fromAnother).title, 'Another crypto');
+    expect(_card(tester, _fromAnother).title, _l10n.receiveAnotherCrypto);
+    expect(find.text('Another wallet'), findsNothing);
+    // From a wallet or an exchange; three coins named, the rest counted
+    // ("USDC, USDT, ETH +1").
     expect(_card(tester, _fromAnother).subtitle,
-        matches(RegExp(r'^Or an exchange · \w+, \w+, \w+ \+1$')));
+        matches(RegExp(r'^Wallet or exchange · \w+, \w+, \w+ \+1$')));
     expect(grid.oneLineTitles, isTrue);
     for (final (key, title) in [
       (_fromDollars, 'From your Dollars'),
-      (_fromAnother, 'Another wallet'),
+      (_fromAnother, 'Another crypto'),
     ]) {
       expect(_lines(tester, find.byKey(key), title), 1, reason: title);
     }
@@ -400,7 +402,7 @@ void main() {
   });
 
   testWidgets(
-      'Another wallet opens the other coins sheet over this one, '
+      'Another crypto opens the other coins sheet over this one, '
       'delivering bitcoin', (tester) async {
     await _pump(tester);
     await tester.tap(find.byKey(_fromAnother));
@@ -571,7 +573,7 @@ void main() {
       expect(_lines(tester, find.byKey(_fromDollars), l10n.receiveFromYourDollars),
           1,
           reason: why);
-      expect(_lines(tester, find.byKey(_fromAnother), l10n.receiveAnotherWallet),
+      expect(_lines(tester, find.byKey(_fromAnother), l10n.receiveAnotherCrypto),
           1,
           reason: why);
       _expectCoinsWhole(tester, find.byKey(_fromAnother));

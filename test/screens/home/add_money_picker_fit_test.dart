@@ -1,6 +1,6 @@
 // The "Add money to Dollars" picker's two big cards (founder, 5 November
 // 2026: "this is cut"): "Bitcoin · Your spending wallet · $285.48" and
-// "Another wallet or exchange · Get an address to send dollars to". On a
+// "Another crypto · Get an address to send dollars to". On a
 // 375 pt phone, in Inter, in every shipped language, no word of either
 // card is cut: a line wraps to the lines it needs and the two cards of the
 // row grow together, equally tall.
@@ -60,7 +60,7 @@ Widget _picker(Locale locale, String balance) => ScreenUtilInit(
                       MovePickerRow(
                         key: const ValueKey('card-other'),
                         icon: Icons.south_west_rounded,
-                        title: l10n.depositFromAnotherWallet,
+                        title: l10n.receiveAnotherCrypto,
                         subtitle: l10n.depositFromAnotherWalletSubtitle,
                         onTap: () {},
                       ).toCard(),
@@ -105,7 +105,7 @@ void main() {
           (
             const ValueKey('card-other'),
             [
-              l10n.depositFromAnotherWallet,
+              l10n.receiveAnotherCrypto,
               l10n.depositFromAnotherWalletSubtitle,
             ],
           ),

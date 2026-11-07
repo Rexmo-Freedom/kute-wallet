@@ -84,7 +84,7 @@ import 'app_localizations_sv.dart';
 /// property.
 abstract class AppLocalizations {
   AppLocalizations(String locale)
-    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+      : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
@@ -107,11 +107,11 @@ abstract class AppLocalizations {
   /// of delegates is preferred or required.
   static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
       <LocalizationsDelegate<dynamic>>[
-        delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-      ];
+    delegate,
+    GlobalMaterialLocalizations.delegate,
+    GlobalCupertinoLocalizations.delegate,
+    GlobalWidgetsLocalizations.delegate,
+  ];
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
@@ -137,7 +137,7 @@ abstract class AppLocalizations {
     Locale('ro'),
     Locale('sk'),
     Locale('sl'),
-    Locale('sv'),
+    Locale('sv')
   ];
 
   /// No description provided for @totalBalance.
@@ -5917,10 +5917,7 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{amount} {unit} available · {fiat}'**
   String sendAmountUnitAvailableWithFiat(
-    String amount,
-    String unit,
-    String fiat,
-  );
+      String amount, String unit, String fiat);
 
   /// No description provided for @sendCalculatingEllipsis.
   ///
@@ -7254,11 +7251,29 @@ abstract class AppLocalizations {
   /// **'Referral program'**
   String get settingsReferralProgram;
 
-  /// No description provided for @hubReferrals.
+  /// Financial hub: the title of the referral program card (one of its three big cards, with Support and Settings).
   ///
   /// In en, this message translates to:
   /// **'Referrals'**
   String get hubReferrals;
+
+  /// Financial hub: the line under "Referrals" on its card. Short: one line on a card half the screen wide.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite friends'**
+  String get hubReferralsSubtitle;
+
+  /// Financial hub: the line under "Support" on its card, which opens the support chat. Short: one line on a card half the screen wide.
+  ///
+  /// In en, this message translates to:
+  /// **'Get help'**
+  String get hubSupportSubtitle;
+
+  /// Financial hub: the line under "Settings" on its card (backup, PIN, security, preferences and the rest of Settings). Short: one line.
+  ///
+  /// In en, this message translates to:
+  /// **'Security and more'**
+  String get hubSettingsSubtitle;
 
   /// No description provided for @settingsEarnAShareOfFees.
   ///
@@ -9749,7 +9764,7 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Included in the conversion. Network fees and exchange-rate spread may also apply.'**
   String
-  get feeUiIncludedInTheConversionNetworkFeesAndExchangeRateSpreadMayAlsoApply;
+      get feeUiIncludedInTheConversionNetworkFeesAndExchangeRateSpreadMayAlsoApply;
 
   /// No description provided for @feeUiIfFilledAsATakerMakerFeesMayBeLower.
   ///
@@ -11976,11 +11991,7 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Sold {sold} of {total} shares at {price}. {remaining} shares are still for sale at your price.'**
   String betLimitSellPartial(
-    String sold,
-    String total,
-    String price,
-    String remaining,
-  );
+      String sold, String total, String price, String remaining);
 
   /// Quiet line on the Position sold receipt when the sale matched but the chain had not shown it yet within the wait.
   ///
@@ -12197,10 +12208,7 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Confirm withdrawal of {amount}, with up to {fee} network fee. Maximum debit: {total}.'**
   String stepUpReasonWithdrawWithSourceFee(
-    String amount,
-    String fee,
-    String total,
-  );
+      String amount, String fee, String total);
 
   /// No description provided for @errorCopyActivationFeeUnavailable.
   ///
@@ -14907,12 +14915,7 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Places {count} limit orders spread between {start} and {end}; each {action}.{extra}'**
   String slipExplainScale(
-    int count,
-    String start,
-    String end,
-    String action,
-    String extra,
-  );
+      int count, String start, String end, String action, String extra);
 
   /// No description provided for @slipExplainTwap.
   ///
@@ -14925,46 +14928,28 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Waits until {coin} trades at {trigger}, then sends a market order that {action}.{extra}'**
   String slipExplainStopMarket(
-    String coin,
-    String trigger,
-    String action,
-    String extra,
-  );
+      String coin, String trigger, String action, String extra);
 
   /// No description provided for @slipExplainStopLimit.
   ///
   /// In en, this message translates to:
   /// **'Waits until {coin} trades at {trigger}, then places a limit order at {limit} that {action}.{extra}'**
   String slipExplainStopLimit(
-    String coin,
-    String trigger,
-    String limit,
-    String action,
-    String extra,
-  );
+      String coin, String trigger, String limit, String action, String extra);
 
   /// No description provided for @slipExplainTakeMarket.
   ///
   /// In en, this message translates to:
   /// **'Takes profit: once {coin} reaches {trigger}, a market order {action}.{extra}'**
   String slipExplainTakeMarket(
-    String coin,
-    String trigger,
-    String action,
-    String extra,
-  );
+      String coin, String trigger, String action, String extra);
 
   /// No description provided for @slipExplainTakeLimit.
   ///
   /// In en, this message translates to:
   /// **'Takes profit: once {coin} reaches {trigger}, a limit order at {limit} {action}.{extra}'**
   String slipExplainTakeLimit(
-    String coin,
-    String trigger,
-    String limit,
-    String action,
-    String extra,
-  );
+      String coin, String trigger, String limit, String action, String extra);
 
   /// No description provided for @slipPositionValue.
   ///
@@ -18170,7 +18155,7 @@ abstract class AppLocalizations {
   /// **'Predictions deposit'**
   String get predictionsDeposit;
 
-  /// Title of the Financial hub sheet opened from the + at the top right of the shell's top bar (and from a wallet screen's name): the wallet list, switch wallet, Add wallet, Notifications in its header and a labelled Settings row last. Also the + button's screen-reader label.
+  /// Title of the Financial hub sheet opened from the + at the top right of the shell's top bar (and from a wallet screen's name): three big cards (Settings on top, then Referrals and Support), then the wallet list and Add account. Also the screen-reader label of a wallet screen's name, which opens it.
   ///
   /// In en, this message translates to:
   /// **'Financial hub'**
@@ -18505,11 +18490,7 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{side, select, long{You hold a long of {size} {coin} — this reduces it to {remaining} {coin}} other{You hold a short of {size} {coin} — this reduces it to {remaining} {coin}}}'**
   String slipPositionReduces(
-    String side,
-    String size,
-    String remaining,
-    String coin,
-  );
+      String side, String size, String remaining, String coin);
 
   /// Quiet line under the Investing amount when an opposite-side order closes the held perp position. {side} is the HELD side (select), {size} the held size, {coin} the market's symbol.
   ///
@@ -18522,11 +18503,7 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{side, select, long{You hold a long of {size} {coin} — this closes it and opens a short of {remainder} {coin}} other{You hold a short of {size} {coin} — this closes it and opens a long of {remainder} {coin}}}'**
   String slipPositionFlips(
-    String side,
-    String size,
-    String remainder,
-    String coin,
-  );
+      String side, String size, String remainder, String coin);
 
   /// Chip on the Investing order-filled receipt when the order added to a perp position already held on its side. {side} is the side, 'long' or 'short' (select).
   ///
@@ -18690,12 +18667,6 @@ abstract class AppLocalizations {
   /// **'Your spending wallet · {amount}'**
   String depositFromSpendingWalletWithBalance(String amount);
 
-  /// No description provided for @depositFromAnotherWallet.
-  ///
-  /// In en, this message translates to:
-  /// **'Another wallet or exchange'**
-  String get depositFromAnotherWallet;
-
   /// No description provided for @depositFromAnotherWalletSubtitle.
   ///
   /// In en, this message translates to:
@@ -18774,17 +18745,17 @@ abstract class AppLocalizations {
   /// **'From another wallet or exchange'**
   String get usdReceiveFromAnotherWallet;
 
-  /// Receive sheets (Bitcoin and Dollars), card title beside "From your Bitcoin" / "From your Dollars": receive another coin from another wallet or an exchange. Short: one line on a card half the screen wide.
+  /// Receive sheets (Bitcoin and Dollars), card title beside "From your Dollars" / "From your Bitcoin", and the Investments deposit picker's row for the same door: receive another cryptocurrency (USDC, USDT, ETH…) sent from a wallet or an exchange. "Crypto" as people say it, short: one line on a card half the screen wide.
   ///
   /// In en, this message translates to:
-  /// **'Another wallet'**
-  String get receiveAnotherWallet;
+  /// **'Another crypto'**
+  String get receiveAnotherCrypto;
 
-  /// Under "Another wallet" on the Receive sheets: an exchange works too, then the coins it accepts ({coins}: "USDC, USDT, ETH +18").
+  /// Under "Another crypto" on the Receive sheets: where it is sent from (a wallet or an exchange), then the coins it accepts ({coins}: "USDC, USDT, ETH +18").
   ///
   /// In en, this message translates to:
-  /// **'Or an exchange · {coins}'**
-  String receiveOrAnExchangeLine(String coins);
+  /// **'Wallet or exchange · {coins}'**
+  String receiveWalletOrExchangeLine(String coins);
 
   /// Section label on the first step of the Investments (dollars) withdraw sheet, above the card that moves money home to the person's own spending bitcoin.
   ///
@@ -18953,10 +18924,7 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Moving {amount} from {source} → {destination}'**
   String moneyStepMovingFromTo(
-    String amount,
-    String source,
-    String destination,
-  );
+      String amount, String source, String destination);
 
   /// The same step once it landed (shown with a check). {amount} formatted dollars, {source} and {destination} balance names.
   ///
@@ -19029,11 +18997,7 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Moving {amount1} from {source1} and {amount2} from {source2}'**
   String moneyStepMovingTwo(
-    String amount1,
-    String source1,
-    String amount2,
-    String source2,
-  );
+      String amount1, String source1, String amount2, String source2);
 
   /// The money journey's status line while three or more funding legs run at the same time: {amount} (formatted dollars, all of them together) leaving {count} balances.
   ///
@@ -19898,46 +19862,28 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{name}, I sent you a prediction on Kute: {outcome} on {title}, {amount}. Claim it: {url}'**
   String shareMessagePredictionNamed(
-    String name,
-    String outcome,
-    String title,
-    String amount,
-    String url,
-  );
+      String name, String outcome, String title, String amount, String url);
 
   /// The OS share text for a prediction link when the sender gave no name.
   ///
   /// In en, this message translates to:
   /// **'I sent you a prediction on Kute: {outcome} on {title}, {amount}. Claim it: {url}'**
   String shareMessagePredictionUnnamed(
-    String outcome,
-    String title,
-    String amount,
-    String url,
-  );
+      String outcome, String title, String amount, String url);
 
   /// The OS share text for an Investing link when the sender named the recipient.
   ///
   /// In en, this message translates to:
   /// **'{name}, I sent you an investment on Kute: {outcome} on {title}, {amount}. Claim it: {url}'**
   String shareMessageInvestmentNamed(
-    String name,
-    String outcome,
-    String title,
-    String amount,
-    String url,
-  );
+      String name, String outcome, String title, String amount, String url);
 
   /// The OS share text for an Investing link when the sender gave no name.
   ///
   /// In en, this message translates to:
   /// **'I sent you an investment on Kute: {outcome} on {title}, {amount}. Claim it: {url}'**
   String shareMessageInvestmentUnnamed(
-    String outcome,
-    String title,
-    String amount,
-    String url,
-  );
+      String outcome, String title, String amount, String url);
 
   /// No description provided for @shareLinkSentWaiting.
   ///
@@ -21252,10 +21198,7 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{outcome} are {chance} favourites vs {opponent}'**
   String shareCardHeadlineSportsVs(
-    String outcome,
-    String chance,
-    String opponent,
-  );
+      String outcome, String chance, String opponent);
 
   /// Sports prediction card headline: the leading team, no opponent known.
   ///
@@ -23176,23 +23119,14 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{name}, my pick: {outcome} on {title}. Take the other side or join me. {amount} on me: {url}'**
   String shareMessageChallengeNamed(
-    String name,
-    String outcome,
-    String title,
-    String amount,
-    String url,
-  );
+      String name, String outcome, String title, String amount, String url);
 
   /// The share text of a challenge link without a name. Never 'bet'.
   ///
   /// In en, this message translates to:
   /// **'My pick: {outcome} on {title}. Take the other side or join me. {amount} on me: {url}'**
   String shareMessageChallengeUnnamed(
-    String outcome,
-    String title,
-    String amount,
-    String url,
-  );
+      String outcome, String title, String amount, String url);
 
   /// Claim screen of a challenge, once the money is in: the button that opens the slip on the side opposite to the sender's.
   ///
@@ -23746,30 +23680,30 @@ class _AppLocalizationsDelegate
 
   @override
   bool isSupported(Locale locale) => <String>[
-    'bg',
-    'cs',
-    'da',
-    'de',
-    'el',
-    'en',
-    'es',
-    'et',
-    'fi',
-    'fr',
-    'hr',
-    'hu',
-    'it',
-    'ja',
-    'lt',
-    'lv',
-    'nl',
-    'pl',
-    'pt',
-    'ro',
-    'sk',
-    'sl',
-    'sv',
-  ].contains(locale.languageCode);
+        'bg',
+        'cs',
+        'da',
+        'de',
+        'el',
+        'en',
+        'es',
+        'et',
+        'fi',
+        'fr',
+        'hr',
+        'hu',
+        'it',
+        'ja',
+        'lt',
+        'lv',
+        'nl',
+        'pl',
+        'pt',
+        'ro',
+        'sk',
+        'sl',
+        'sv'
+      ].contains(locale.languageCode);
 
   @override
   bool shouldReload(_AppLocalizationsDelegate old) => false;
@@ -23827,9 +23761,8 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   }
 
   throw FlutterError(
-    'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
-    'an issue with the localizations generation tool. Please file an issue '
-    'on GitHub with a reproducible sample app and the gen-l10n configuration '
-    'that was used.',
-  );
+      'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
+      'an issue with the localizations generation tool. Please file an issue '
+      'on GitHub with a reproducible sample app and the gen-l10n configuration '
+      'that was used.');
 }

@@ -3,7 +3,7 @@
 // "rows": the Bitcoin and Dollars action rows at 375 pt, the moving
 // Receive arrow at rest beside the other icons, and large; "bitcoin": the
 // Bitcoin receive's first sheet (Bitcoin on top, then From your Dollars
-// and From another wallet or exchange) at 375 pt and at 430 pt;
+// and Another crypto) at 375 pt and at 430 pt;
 // "dollars": the Dollars receive's first sheet, titled Receive. One render
 // per run, so:
 //   for v in 'rows light' 'rows dark' 'bitcoin light' 'bitcoin dark' \

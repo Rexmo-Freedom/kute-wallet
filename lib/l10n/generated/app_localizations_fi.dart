@@ -1,6 +1,5 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
-
 import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
@@ -3254,10 +3253,7 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String sendAmountUnitAvailableWithFiat(
-    String amount,
-    String unit,
-    String fiat,
-  ) {
+      String amount, String unit, String fiat) {
     return '$amount $unit käytettävissä · $fiat';
   }
 
@@ -4072,6 +4068,15 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get hubReferrals => 'Suosittelut';
+
+  @override
+  String get hubReferralsSubtitle => 'Kutsu ystäviä';
+
+  @override
+  String get hubSupportSubtitle => 'Pyydä apua';
+
+  @override
+  String get hubSettingsSubtitle => 'Turvallisuus ja muuta';
 
   @override
   String get settingsEarnAShareOfFees =>
@@ -5227,7 +5232,8 @@ class AppLocalizationsFi extends AppLocalizations {
       locale: localeName,
       other:
           'Sinulla on $count avointa ennustetta. Niitä ei voi nostaa. Myy tai lunasta ne ensin.',
-      one: 'Sinulla on 1 avoin ennuste. Sitä ei voi nostaa. Myy tai lunasta se ensin.',
+      one:
+          'Sinulla on 1 avoin ennuste. Sitä ei voi nostaa. Myy tai lunasta se ensin.',
     );
     return '$_temp0';
   }
@@ -5582,8 +5588,7 @@ class AppLocalizationsFi extends AppLocalizations {
   String get feeUiBehindHoldingBitcoin => 'Jäljessä Bitcoinin pitämisestä.';
 
   @override
-  String
-  get feeUiIncludedInTheConversionNetworkFeesAndExchangeRateSpreadMayAlsoApply =>
+  String get feeUiIncludedInTheConversionNetworkFeesAndExchangeRateSpreadMayAlsoApply =>
       'Sisältyy muunnokseen. Myös verkkomaksuja ja valuuttakurssin marginaalia voi tulla.';
 
   @override
@@ -6862,11 +6867,7 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String betLimitSellPartial(
-    String sold,
-    String total,
-    String price,
-    String remaining,
-  ) {
+      String sold, String total, String price, String remaining) {
     return 'Myyty $sold/$total osuutta hintaan $price. $remaining osuutta on yhä myynnissä hinnallasi.';
   }
 
@@ -6998,10 +6999,7 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String stepUpReasonWithdrawWithSourceFee(
-    String amount,
-    String fee,
-    String total,
-  ) {
+      String amount, String fee, String total) {
     return 'Vahvista nosto $amount, verkkomaksu enintään $fee. Enimmäisveloitus: $total.';
   }
 
@@ -8642,12 +8640,7 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String slipExplainScale(
-    int count,
-    String start,
-    String end,
-    String action,
-    String extra,
-  ) {
+      int count, String start, String end, String action, String extra) {
     return 'Tekee $count limiittitoimeksiantoa välille $start ja $end. Jokainen $action.$extra';
   }
 
@@ -8658,43 +8651,25 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String slipExplainStopMarket(
-    String coin,
-    String trigger,
-    String action,
-    String extra,
-  ) {
+      String coin, String trigger, String action, String extra) {
     return 'Odottaa, kunnes $coin on hinnassa $trigger, ja lähettää sitten markkinatoimeksiannon, joka $action.$extra';
   }
 
   @override
   String slipExplainStopLimit(
-    String coin,
-    String trigger,
-    String limit,
-    String action,
-    String extra,
-  ) {
+      String coin, String trigger, String limit, String action, String extra) {
     return 'Odottaa, kunnes $coin on hinnassa $trigger, ja tekee sitten limiittitoimeksiannon hintaan $limit, joka $action.$extra';
   }
 
   @override
   String slipExplainTakeMarket(
-    String coin,
-    String trigger,
-    String action,
-    String extra,
-  ) {
+      String coin, String trigger, String action, String extra) {
     return 'Kotiuttaa voiton: kun $coin saavuttaa hinnan $trigger, markkinatoimeksianto $action.$extra';
   }
 
   @override
   String slipExplainTakeLimit(
-    String coin,
-    String trigger,
-    String limit,
-    String action,
-    String extra,
-  ) {
+      String coin, String trigger, String limit, String action, String extra) {
     return 'Kotiuttaa voiton: kun $coin saavuttaa hinnan $trigger, limiittitoimeksianto hintaan $limit $action.$extra';
   }
 
@@ -10806,123 +10781,151 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String slipCtaAddTo(String side, String amount) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'Kasvata long-positiota · $amount',
-      'other': 'Kasvata short-positiota · $amount',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'Kasvata long-positiota · $amount',
+        'other': 'Kasvata short-positiota · $amount',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String slipCtaReduce(String side, String amount) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'Pienennä long-positiota · $amount',
-      'other': 'Pienennä short-positiota · $amount',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'Pienennä long-positiota · $amount',
+        'other': 'Pienennä short-positiota · $amount',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String slipCtaClose(String side) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'Sulje long-positio',
-      'other': 'Sulje short-positio',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'Sulje long-positio',
+        'other': 'Sulje short-positio',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String slipCtaFlip(String side, String amount) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'Käännä long-positioksi · $amount',
-      'other': 'Käännä short-positioksi · $amount',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'Käännä long-positioksi · $amount',
+        'other': 'Käännä short-positioksi · $amount',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String slipPositionAdds(String side, String size, String coin) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'Sinulla on long-positio, $size $coin — tämä kasvattaa sitä',
-      'other': 'Sinulla on short-positio, $size $coin — tämä kasvattaa sitä',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'Sinulla on long-positio, $size $coin — tämä kasvattaa sitä',
+        'other': 'Sinulla on short-positio, $size $coin — tämä kasvattaa sitä',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String slipPositionReduces(
-    String side,
-    String size,
-    String remaining,
-    String coin,
-  ) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long':
-          'Sinulla on long-positio, $size $coin — tämä pienentää sen kokoon $remaining $coin',
-      'other':
-          'Sinulla on short-positio, $size $coin — tämä pienentää sen kokoon $remaining $coin',
-    });
+      String side, String size, String remaining, String coin) {
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long':
+            'Sinulla on long-positio, $size $coin — tämä pienentää sen kokoon $remaining $coin',
+        'other':
+            'Sinulla on short-positio, $size $coin — tämä pienentää sen kokoon $remaining $coin',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String slipPositionCloses(String side, String size, String coin) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'Sinulla on long-positio, $size $coin — tämä sulkee sen',
-      'other': 'Sinulla on short-positio, $size $coin — tämä sulkee sen',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'Sinulla on long-positio, $size $coin — tämä sulkee sen',
+        'other': 'Sinulla on short-positio, $size $coin — tämä sulkee sen',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String slipPositionFlips(
-    String side,
-    String size,
-    String remainder,
-    String coin,
-  ) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long':
-          'Sinulla on long-positio, $size $coin — tämä sulkee sen ja avaa short-position, $remainder $coin',
-      'other':
-          'Sinulla on short-positio, $size $coin — tämä sulkee sen ja avaa long-position, $remainder $coin',
-    });
+      String side, String size, String remainder, String coin) {
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long':
+            'Sinulla on long-positio, $size $coin — tämä sulkee sen ja avaa short-position, $remainder $coin',
+        'other':
+            'Sinulla on short-positio, $size $coin — tämä sulkee sen ja avaa long-position, $remainder $coin',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String hlReceiptAddedTo(String side) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'Long-positiota kasvatettu',
-      'other': 'Short-positiota kasvatettu',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'Long-positiota kasvatettu',
+        'other': 'Short-positiota kasvatettu',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String hlReceiptReduced(String side, String size, String coin) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'Long-positiota pienennetty · $size $coin',
-      'other': 'Short-positiota pienennetty · $size $coin',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'Long-positiota pienennetty · $size $coin',
+        'other': 'Short-positiota pienennetty · $size $coin',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String hlReceiptClosed(String side) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'Long-positio suljettu',
-      'other': 'Short-positio suljettu',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'Long-positio suljettu',
+        'other': 'Short-positio suljettu',
+      },
+    );
     return '$_temp0';
   }
 
   @override
   String hlReceiptFlipped(String side, String size, String coin) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'Käännetty long-positioksi · $size $coin',
-      'other': 'Käännetty short-positioksi · $size $coin',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'Käännetty long-positioksi · $size $coin',
+        'other': 'Käännetty short-positioksi · $size $coin',
+      },
+    );
     return '$_temp0';
   }
 
@@ -10991,10 +10994,13 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String slipAddsToYourPosition(String side) {
-    String _temp0 = intl.Intl.selectLogic(side, {
-      'long': 'Kasvattaa Long-positiotasi',
-      'other': 'Kasvattaa Short-positiotasi',
-    });
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'Kasvattaa Long-positiotasi',
+        'other': 'Kasvattaa Short-positiotasi',
+      },
+    );
     return '$_temp0';
   }
 
@@ -11028,9 +11034,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String depositFromSpendingWalletWithBalance(String amount) {
     return 'Käyttölompakkosi · $amount';
   }
-
-  @override
-  String get depositFromAnotherWallet => 'Toinen lompakko tai pörssi';
 
   @override
   String get depositFromAnotherWalletSubtitle =>
@@ -11087,11 +11090,11 @@ class AppLocalizationsFi extends AppLocalizations {
   String get usdReceiveFromAnotherWallet => 'Toisesta lompakosta tai pörssistä';
 
   @override
-  String get receiveAnotherWallet => 'Toinen lompakko';
+  String get receiveAnotherCrypto => 'Muu krypto';
 
   @override
-  String receiveOrAnExchangeLine(String coins) {
-    return 'Tai pörssi · $coins';
+  String receiveWalletOrExchangeLine(String coins) {
+    return 'Lompakko tai pörssi · $coins';
   }
 
   @override
@@ -11214,19 +11217,13 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String moneyStepMovingFromTo(
-    String amount,
-    String source,
-    String destination,
-  ) {
+      String amount, String source, String destination) {
     return 'Siirretään $amount: $source → $destination';
   }
 
   @override
   String moneyStepMovedFromTo(
-    String amount,
-    String source,
-    String destination,
-  ) {
+      String amount, String source, String destination) {
     return 'Siirretty $amount: $source → $destination';
   }
 
@@ -11290,11 +11287,7 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String moneyStepMovingTwo(
-    String amount1,
-    String source1,
-    String amount2,
-    String source2,
-  ) {
+      String amount1, String source1, String amount2, String source2) {
     return 'Siirretään $amount1 kohteesta $source1 ja $amount2 kohteesta $source2';
   }
 
@@ -11838,43 +11831,25 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String shareMessagePredictionNamed(
-    String name,
-    String outcome,
-    String title,
-    String amount,
-    String url,
-  ) {
+      String name, String outcome, String title, String amount, String url) {
     return '$name, lähetin sinulle ennusteen Kutessa: $title: $outcome, $amount. Lunasta se: $url';
   }
 
   @override
   String shareMessagePredictionUnnamed(
-    String outcome,
-    String title,
-    String amount,
-    String url,
-  ) {
+      String outcome, String title, String amount, String url) {
     return 'Lähetin sinulle ennusteen Kutessa: $title: $outcome, $amount. Lunasta se: $url';
   }
 
   @override
   String shareMessageInvestmentNamed(
-    String name,
-    String outcome,
-    String title,
-    String amount,
-    String url,
-  ) {
+      String name, String outcome, String title, String amount, String url) {
     return '$name, lähetin sinulle sijoituksen Kutessa: $title: $outcome, $amount. Lunasta se: $url';
   }
 
   @override
   String shareMessageInvestmentUnnamed(
-    String outcome,
-    String title,
-    String amount,
-    String url,
-  ) {
+      String outcome, String title, String amount, String url) {
     return 'Lähetin sinulle sijoituksen Kutessa: $title: $outcome, $amount. Lunasta se: $url';
   }
 
@@ -12672,10 +12647,7 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String shareCardHeadlineSportsVs(
-    String outcome,
-    String chance,
-    String opponent,
-  ) {
+      String outcome, String chance, String opponent) {
     return 'Suosikki: $outcome ($chance) vs $opponent';
   }
 
@@ -13785,22 +13757,13 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String shareMessageChallengeNamed(
-    String name,
-    String outcome,
-    String title,
-    String amount,
-    String url,
-  ) {
+      String name, String outcome, String title, String amount, String url) {
     return '$name, valintani: $outcome, $title. Valitse toinen puoli tai liity mukaan. $amount minä tarjoan: $url';
   }
 
   @override
   String shareMessageChallengeUnnamed(
-    String outcome,
-    String title,
-    String amount,
-    String url,
-  ) {
+      String outcome, String title, String amount, String url) {
     return 'Valintani: $outcome, $title. Valitse toinen puoli tai liity mukaan. $amount minä tarjoan: $url';
   }
 
