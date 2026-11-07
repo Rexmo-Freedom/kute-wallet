@@ -3960,5 +3960,10 @@
   "slipSendCta": "Poslat {amount} · {side}",
   "slipSendYesOnly": "Poslat jde jen „Ano“ na {outcome}",
   "sendPickChipFriend": "Posíláš kamarádovi",
-  "sendPickSearchHint": "Najdi trh k poslání"
+  "sendPickSearchHint": "Najdi trh k poslání",
+  "sendPickChipForNamed": "Příjemce: {name}",
+  "sendPickTradeSide": "Poslat {side}",
+  "sendPickBarPickOutcome": "Vyber výsledek",
+  "sendPickBarBuyingFor": "Koupíš to a dostane to {name}",
+  "sendPickBarBuyingForFriend": "Kupuješ to pro kamaráda"
 }

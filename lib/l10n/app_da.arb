@@ -3960,5 +3960,10 @@
   "slipSendCta": "Send {amount} · {side}",
   "slipSendYesOnly": "Kun Ja på {outcome} kan sendes",
   "sendPickChipFriend": "Sendes til en ven",
-  "sendPickSearchHint": "Søg et marked at sende"
+  "sendPickSearchHint": "Søg et marked at sende",
+  "sendPickChipForNamed": "Til {name}",
+  "sendPickTradeSide": "Send {side}",
+  "sendPickBarPickOutcome": "Vælg et udfald",
+  "sendPickBarBuyingFor": "Du køber den til {name}",
+  "sendPickBarBuyingForFriend": "Du køber den til en ven"
 }

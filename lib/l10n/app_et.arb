@@ -3960,5 +3960,10 @@
   "slipSendCta": "Saada {amount} · {side}",
   "slipSendYesOnly": "Saata saab ainult valikut Jah: {outcome}",
   "sendPickChipFriend": "Saadad sõbrale",
-  "sendPickSearchHint": "Otsi turgu, mida saata"
+  "sendPickSearchHint": "Otsi turgu, mida saata",
+  "sendPickChipForNamed": "Saaja: {name}",
+  "sendPickTradeSide": "Saada {side}",
+  "sendPickBarPickOutcome": "Vali tulemus",
+  "sendPickBarBuyingFor": "Ostad selle, {name} saab selle",
+  "sendPickBarBuyingForFriend": "Ostad selle sõbrale"
 }

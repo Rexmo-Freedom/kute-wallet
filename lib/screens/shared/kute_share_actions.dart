@@ -38,6 +38,18 @@
 // [kKuteMarketLinkBase] + `/m/` + [venue] + `/` + [slug]; the referral
 // code is added as `?ref=CODE` by the share sheet.
 //
+// ONE MARKET OF AN EVENT (founder, 7 November 2026: "sharing here should
+// be just the yes or no. only here is the full market"). A candidate
+// opened as its own Yes / No page (the ↑76,000 row of "What price will
+// Bitcoin hit November 2-8?") shares THAT market: its card is the
+// market's question and its Yes chance (share_card_sources.dart,
+// predictionCardFor's `candidate`), and its link names it as a send-a-pick
+// link does, by the candidate's name on the event:
+//
+//     https://backend.kutewallet.com/m/predictions/{event slug}?outcome={name}
+//
+// The event page (all its outcomes) keeps sharing the whole event.
+//
 // A Sal sheet card runs from the market page's own context one microtask
 // after the tap: the Sal sheet pops itself right after a row's onTap, and
 // a sheet pushed inside onTap would be the one popped.
@@ -84,11 +96,18 @@ const String kShareVenueHyperliquid = 'hyperliquid';
 
 /// The link for one market: [venue] is [kMarketLinkPredictions] or
 /// [kMarketLinkInvesting], [slug] the event slug or the coin; without a
-/// slug the link opens the venue.
-String marketShareLink({required String venue, required String? slug}) {
+/// slug the link opens the venue. [outcome] names one market of the event
+/// (a candidate by its name on the event, see the file header): the link
+/// is then about that market alone.
+String marketShareLink(
+    {required String venue, required String? slug, String? outcome}) {
   final s = slug?.trim() ?? '';
   if (s.isEmpty) return '$kKuteMarketLinkBase/m/$venue';
-  return '$kKuteMarketLinkBase/m/$venue/${Uri.encodeComponent(s)}';
+  final base = '$kKuteMarketLinkBase/m/$venue/${Uri.encodeComponent(s)}';
+  final o = outcome?.trim() ?? '';
+  if (o.isEmpty) return base;
+  return Uri.parse(base)
+      .replace(queryParameters: {'outcome': o}).toString();
 }
 
 /// The share-link venue for a market-link venue segment.
@@ -210,6 +229,11 @@ class KuteMarketBarAction extends KuteBarAction {
 /// [outcome] and [outcomeChance] (0–100) are a position's own side, for
 /// the preview line ("Yes 64%", "Long"). [imageUrl] is the market's
 /// picture for the card (Investing draws the coin icon from [slug]).
+///
+/// [candidate]: the page is one market of the event [slug] names, opened
+/// as its own Yes / No page (the candidate by its name on the event): the
+/// share is that market alone, its card and its link (see the file
+/// header). Null: the whole event (or a plain market).
 KuteBarContext marketBarContext(
   BuildContext context, {
   required String title,
@@ -239,11 +263,16 @@ KuteBarContext marketBarContext(
   KuteBarPlacement placement = KuteBarPlacement.bottom,
   // An open position's brag card, built when asked (see the file header).
   BragData Function()? brag,
+  String? candidate,
 }) {
   final l10n = context.l10n;
   final cleanSlug = (slug?.trim().isEmpty ?? true) ? null : slug!.trim();
-  final deepLink = marketShareLink(venue: venue, slug: cleanSlug);
   final investing = venue == kMarketLinkInvesting;
+  final oneMarket = investing || (candidate?.trim().isEmpty ?? true)
+      ? null
+      : candidate!.trim();
+  final deepLink =
+      marketShareLink(venue: venue, slug: cleanSlug, outcome: oneMarket);
   final shareVenue = shareVenueFor(venue);
   // A position's side, for the preview line.
   final pickLabel = position
@@ -279,6 +308,7 @@ KuteBarContext marketBarContext(
       chance: chance,
       price: price,
       venue: shareVenue,
+      candidate: oneMarket,
       // The share card's picture until the providers have the market
       // (screens/share/cards/share_card_sources.dart).
       imageUrl: investing ? null : imageUrl,

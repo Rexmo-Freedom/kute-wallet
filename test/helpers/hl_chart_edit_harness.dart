@@ -26,6 +26,8 @@ import 'package:kute/providers/hyperliquid_sats_pnl_provider.dart'
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
 import 'package:kute/screens/hyperliquid/market_detail_sheet.dart'
     show HlMarketDetailSheet;
+import 'package:kute/screens/share/send_pick_session.dart'
+    show SendPickSession;
 import 'package:kute/theme/app_theme.dart';
 
 const hlEditBtc = HlMarket(
@@ -104,11 +106,13 @@ Future<void> pumpHlEditSheet(
   Widget Function(Widget child)? wrap,
   TransitionBuilder? appBuilder,
   List<HyperliquidCandle>? candles,
+  // The page opened from Send in send mode (send_pick_session.dart).
+  SendPickSession? sendPick,
 }) async {
   tester.view.physicalSize = Size(width, height) * tester.view.devicePixelRatio;
   addTearDown(tester.view.resetPhysicalSize);
   final tape = candles ?? hlEditCandles();
-  final sheet = const HlMarketDetailSheet(market: hlEditBtc);
+  final sheet = HlMarketDetailSheet(market: hlEditBtc, sendPick: sendPick);
   await tester.pumpWidget(ProviderScope(
     overrides: [
       hyperliquidLivePricesProvider.overrideWith(_LivePrices.new),

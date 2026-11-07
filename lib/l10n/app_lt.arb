@@ -3960,5 +3960,10 @@
   "slipSendCta": "Siųsti {amount} · {side}",
   "slipSendYesOnly": "Galima siųsti tik „Taip“: {outcome}",
   "sendPickChipFriend": "Siunčiama draugui",
-  "sendPickSearchHint": "Ieškoti rinkos siuntimui"
+  "sendPickSearchHint": "Ieškoti rinkos siuntimui",
+  "sendPickChipForNamed": "Gavėjas: {name}",
+  "sendPickTradeSide": "Siųsti {side}",
+  "sendPickBarPickOutcome": "Pasirinkite baigtį",
+  "sendPickBarBuyingFor": "Perkate jūs, gauna {name}",
+  "sendPickBarBuyingForFriend": "Perkate draugui"
 }

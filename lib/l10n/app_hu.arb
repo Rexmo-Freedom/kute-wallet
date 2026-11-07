@@ -3960,5 +3960,10 @@
   "slipSendCta": "{amount} küldése · {side}",
   "slipSendYesOnly": "Csak az Igen küldhető erre: {outcome}",
   "sendPickChipFriend": "Küldés egy barátnak",
-  "sendPickSearchHint": "Keress egy piacot a küldéshez"
+  "sendPickSearchHint": "Keress egy piacot a küldéshez",
+  "sendPickChipForNamed": "{name} részére",
+  "sendPickTradeSide": "{side} küldése",
+  "sendPickBarPickOutcome": "Válassz kimenetelt",
+  "sendPickBarBuyingFor": "Te veszed meg, {name} kapja",
+  "sendPickBarBuyingForFriend": "Egy barátodnak veszed"
 }

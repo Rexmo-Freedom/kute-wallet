@@ -3960,5 +3960,10 @@
   "slipSendCta": "Sūtīt {amount} · {side}",
   "slipSendYesOnly": "Var nosūtīt tikai “Jā”: {outcome}",
   "sendPickChipFriend": "Sūtīšana draugam",
-  "sendPickSearchHint": "Meklē tirgu, ko sūtīt"
+  "sendPickSearchHint": "Meklē tirgu, ko sūtīt",
+  "sendPickChipForNamed": "Saņēmējs: {name}",
+  "sendPickTradeSide": "Sūtīt {side}",
+  "sendPickBarPickOutcome": "Izvēlies iznākumu",
+  "sendPickBarBuyingFor": "Tu pērc, saņem {name}",
+  "sendPickBarBuyingForFriend": "Tu pērc draugam"
 }
