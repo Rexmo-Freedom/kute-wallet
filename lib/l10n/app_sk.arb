@@ -3228,7 +3228,6 @@
   "balanceGoalChartLabel": "Ďalší: {goal}",
   "balanceGoalMove": "Presunúť {amount} do Dolárov",
   "balanceGoalMovePlain": "Presunúť do Dolárov",
-  "balanceGoalMoveWhy": "Tvoje peniaze, viac možností v dolároch.",
   "balanceMilestonePassed": "Máš za sebou {amount}",
   "balanceMilestonePassedLine": "Bitcoin a doláre spolu. Sal robí, že o nič nejde.",
   "pnlNoHistoryTitle": "Zatiaľ žiadny zisk a strata",

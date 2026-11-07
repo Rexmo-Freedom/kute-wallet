@@ -3228,7 +3228,6 @@
   "balanceGoalChartLabel": "次: {goal}",
   "balanceGoalMove": "{amount}をドルへ移す",
   "balanceGoalMovePlain": "ドルへ移す",
-  "balanceGoalMoveWhy": "ドルで、お金の行き先が広がる。",
   "balanceMilestonePassed": "{amount}を突破",
   "balanceMilestonePassedLine": "ビットコインとドルの合計。Salは平静を装っています。",
   "pnlNoHistoryTitle": "損益はまだありません",

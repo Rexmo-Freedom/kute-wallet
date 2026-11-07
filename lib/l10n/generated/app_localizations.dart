@@ -19575,7 +19575,7 @@ abstract class AppLocalizations {
   /// **'Next {goal}'**
   String balanceGoalChartLabel(String goal);
 
-  /// Bitcoin home, Balance tab: the title of the card under the goals that opens the Move to Dollars sheet with this amount filled in (bitcoin into the Dollars account). Never imply growth or returns.
+  /// Bitcoin home, Balance tab: the line of the Next goal square, with a chevron, where the square itself opens Move money (bitcoin into the Dollars account) with this amount filled in. One short line in a half-width square. Never imply growth or returns.
   ///
   /// In en, this message translates to:
   /// **'Move {amount} to Dollars'**
@@ -19586,12 +19586,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Move to Dollars'**
   String get balanceGoalMovePlain;
-
-  /// The line under 'Move $25 to Dollars'. Ambition and control, never returns: Dollars (the app's dollar account) open more places for the money. Names no product or venue. One short line.
-  ///
-  /// In en, this message translates to:
-  /// **'Your money, more places to go in Dollars.'**
-  String get balanceGoalMoveWhy;
 
   /// Bitcoin home, Balance tab: shown once, large, with Sal and confetti in place of the goal squares when the Bitcoin + Dollars total passes a round goal ('You passed $250').
   ///

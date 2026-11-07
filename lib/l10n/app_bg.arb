@@ -3228,7 +3228,6 @@
   "balanceGoalChartLabel": "Следваща: {goal}",
   "balanceGoalMove": "Премести {amount} в Долари",
   "balanceGoalMovePlain": "Премести в Долари",
-  "balanceGoalMoveWhy": "Твоите пари, повече възможности в долари.",
   "balanceMilestonePassed": "Мина {amount}",
   "balanceMilestonePassedLine": "Биткойн и долари заедно. Сал се прави, че не е нищо.",
   "pnlNoHistoryTitle": "Още няма печалба / загуба",

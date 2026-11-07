@@ -11652,10 +11652,6 @@ class AppLocalizationsDa extends AppLocalizations {
   String get balanceGoalMovePlain => 'Flyt til Dollars';
 
   @override
-  String get balanceGoalMoveWhy =>
-      'Dine penge, flere steder at gå hen i dollars.';
-
-  @override
   String balanceMilestonePassed(String amount) {
     return 'Du passerede $amount';
   }

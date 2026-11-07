@@ -3228,7 +3228,6 @@
   "balanceGoalChartLabel": "Næste: {goal}",
   "balanceGoalMove": "Flyt {amount} til Dollars",
   "balanceGoalMovePlain": "Flyt til Dollars",
-  "balanceGoalMoveWhy": "Dine penge, flere steder at gå hen i dollars.",
   "balanceMilestonePassed": "Du passerede {amount}",
   "balanceMilestonePassedLine": "Bitcoin og dollars samlet. Sal lader, som om det ingenting er.",
   "pnlNoHistoryTitle": "Ingen gevinst / tab endnu",

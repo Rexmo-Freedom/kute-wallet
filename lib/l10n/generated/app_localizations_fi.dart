@@ -11667,10 +11667,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get balanceGoalMovePlain => 'Siirrä dollareihin';
 
   @override
-  String get balanceGoalMoveWhy =>
-      'Rahasi, enemmän mahdollisuuksia dollareissa.';
-
-  @override
   String balanceMilestonePassed(String amount) {
     return 'Ohitit $amount';
   }

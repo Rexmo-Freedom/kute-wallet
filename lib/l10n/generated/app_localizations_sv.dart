@@ -11651,9 +11651,6 @@ class AppLocalizationsSv extends AppLocalizations {
   String get balanceGoalMovePlain => 'Flytta till Dollar';
 
   @override
-  String get balanceGoalMoveWhy => 'Dina pengar, fler ställen att gå i dollar.';
-
-  @override
   String balanceMilestonePassed(String amount) {
     return 'Du passerade $amount';
   }

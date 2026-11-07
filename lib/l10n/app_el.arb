@@ -3228,7 +3228,6 @@
   "balanceGoalChartLabel": "Επόμενο: {goal}",
   "balanceGoalMove": "Μετακίνηση {amount} στα Δολάρια",
   "balanceGoalMovePlain": "Μετακίνηση στα Δολάρια",
-  "balanceGoalMoveWhy": "Τα χρήματά σου, περισσότερες επιλογές σε δολάρια.",
   "balanceMilestonePassed": "Ξεπέρασες τα {amount}",
   "balanceMilestonePassedLine": "Bitcoin και δολάρια μαζί. Ο Sal κάνει πως δεν είναι τίποτα.",
   "pnlNoHistoryTitle": "Δεν υπάρχει ακόμα κέρδος / ζημιά",

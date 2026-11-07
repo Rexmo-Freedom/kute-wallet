@@ -3228,7 +3228,6 @@
   "balanceGoalChartLabel": "Järgmine: {goal}",
   "balanceGoalMove": "Vii {amount} dollaritesse",
   "balanceGoalMovePlain": "Vii dollaritesse",
-  "balanceGoalMoveWhy": "Sinu raha, rohkem võimalusi dollarites.",
   "balanceMilestonePassed": "Sa ületasid {amount}",
   "balanceMilestonePassedLine": "Bitcoin ja dollarid kokku. Sal teeb näo, nagu poleks midagi.",
   "pnlNoHistoryTitle": "Kasumit/kahjumit veel pole",

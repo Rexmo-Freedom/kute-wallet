@@ -3228,7 +3228,6 @@
   "balanceGoalChartLabel": "Következő: {goal}",
   "balanceGoalMove": "{amount} áthelyezése Dollárba",
   "balanceGoalMovePlain": "Áthelyezés Dollárba",
-  "balanceGoalMoveWhy": "A pénzed, több lehetőség dollárban.",
   "balanceMilestonePassed": "Túl vagy rajta: {amount}",
   "balanceMilestonePassedLine": "Bitcoin és dollár együtt. Sal úgy tesz, mintha semmi sem történt volna.",
   "pnlNoHistoryTitle": "Még nincs eredmény",
