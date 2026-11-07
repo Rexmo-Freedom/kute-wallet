@@ -1839,9 +1839,9 @@ const List<String> kConnectOwnAiLogos = [
 
 /// CONNECT YOUR OWN AI (founder, 2 November 2026: "the option to connect
 /// the wallet with your own local AI ... shown as a bigger card ... on the
-/// search sheet", then "must be smaller"): one short full-width band in the
-/// big cards' surface (kute_action_cards.dart: surface-1, the 1 px
-/// hairline), radius 16, 12 padding: "Connect your own AI" (15, w600)
+/// search sheet", then "must be smaller"): one short full-width band on the
+/// big cards' soft card ([KuteActionCard.surfaceOf]), a smaller radius
+/// (16), 12 padding: "Connect your own AI" (15, w600)
 /// with the Claude, ChatGPT and Grok marks in overlapping white discs of
 /// [_disc] at its end, and "Let Claude, ChatGPT or Grok manage your
 /// wallet" (13, textSecondary) across the band's whole width under them,
@@ -1860,7 +1860,6 @@ class _ConnectOwnAiCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
     final l10n = context.l10n;
-    final isLight = Theme.of(context).brightness == Brightness.light;
     final count = kConnectOwnAiLogos.length;
     final logos = SizedBox(
       key: const ValueKey('search-home-connect-ai-logos'),
@@ -1891,12 +1890,8 @@ class _ConnectOwnAiCard extends ConsumerWidget {
     );
     final band = Container(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isLight ? c.surfaceLight : c.surface,
-        borderRadius: BorderRadius.circular(16),
-        border:
-            Border.all(color: isLight ? c.border : c.borderSubtle, width: 1),
-      ),
+      decoration: KuteActionCard.surfaceOf(context)
+          .copyWith(borderRadius: BorderRadius.circular(16)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,

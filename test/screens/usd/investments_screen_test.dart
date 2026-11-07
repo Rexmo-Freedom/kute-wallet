@@ -75,6 +75,7 @@ import 'package:kute/screens/shared/investment_action_bar.dart';
 import 'package:kute/screens/shared/investment_balance_header.dart';
 import 'package:kute/screens/activity/activity_history_screen.dart'
     show ActivityHistoryScreen;
+import 'package:kute/screens/shared/kute_action_cards.dart' show KuteActionCard;
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart'
     show KuteBarContext, kuteBarContextProvider, kuteBarTop;
@@ -628,10 +629,10 @@ void main() {
     expect(events.last.$1, 'category_sheet_opened');
     expect(events.last.$2, {'surface': 'investments', 'section': 'predictions'});
 
-    // The picked tile (Trending, the wide one) wears the app's own picked
-    // language, the strip's picked pill: white, the hairline border, the
-    // shadow, the name a step bolder; no check, no accent, nothing at a
-    // corner. Every other tile is flat surface-1 with no border.
+    // Every tile is the app's one soft card (founder, 7 November 2026: one
+    // card surface; KuteActionCard.surfaceOf). The picked tile (Trending,
+    // the wide one) keeps it and wears the CTA ring, the name a step
+    // bolder; no check, no accent, nothing at a corner.
     final light = AppColorsExtension.light();
     final trendingTile = find.byKey(ValueKey('category-tile-${PolyPill.trending.key}'));
     expect(trendingTile, findsOneWidget);
@@ -642,11 +643,12 @@ void main() {
         .widget<AnimatedContainer>(find.descendant(
             of: trendingTile, matching: find.byType(AnimatedContainer)))
         .decoration as BoxDecoration;
-    expect(trendingBox.color, Colors.white);
-    expect(trendingBox.border!.top.color, light.border);
-    expect(trendingBox.border!.top.width, 1.0);
-    expect(trendingBox.boxShadow!.single.color,
-        Colors.black.withValues(alpha: 0.04));
+    final soft = KuteActionCard.surfaceOf(tester.element(trendingTile));
+    expect(trendingBox.color, soft.color);
+    expect(trendingBox.boxShadow, soft.boxShadow);
+    expect(trendingBox.border!.top.color, light.textPrimary,
+        reason: 'the CTA ring');
+    expect(trendingBox.border!.top.width, 1.5);
     expect(
         tester
             .widget<Text>(find.descendant(
@@ -658,16 +660,17 @@ void main() {
         tester.getSemantics(trendingTile),
         isSemantics(isButton: true, isSelected: true));
 
-    // A topic whose feed is not loaded is Investing's 96 px card
-    // (founder, 6 November 2026: one design for both sheets): Polymarket's
-    // own glyph for it (an SVG, never a Material icon) on the surface-1
-    // square, the name at w500, no count while none is at hand, and the
-    // flat unpicked surface with no border and no shadow.
+    // A topic whose feed is not loaded is Investing's compact card
+    // (founder, 6 November 2026: one design for both sheets; 7 November:
+    // "cards here ae too big"): Polymarket's own glyph for it (an SVG,
+    // never a Material icon) on the surface-1 square, the name at w500
+    // beside it, no count while none is at hand, on the soft card with
+    // no ring.
     final politics =
         find.byKey(ValueKey('category-tile-${PolyPill.politics.key}'));
     final politicsBox = find.descendant(
         of: politics, matching: find.byType(AnimatedContainer));
-    expect(tester.getSize(politicsBox).height, 96);
+    expect(tester.getSize(politicsBox).height, 60);
     expect(
         find.descendant(
             of: politics,
@@ -688,9 +691,9 @@ void main() {
     final politicsDecoration =
         tester.widget<AnimatedContainer>(politicsBox).decoration
             as BoxDecoration;
-    expect(politicsDecoration.color, light.surfaceLight);
-    expect(politicsDecoration.border!.top.color, Colors.transparent);
-    expect(politicsDecoration.boxShadow!.single.color, Colors.transparent);
+    expect(politicsDecoration.color, soft.color);
+    expect(politicsDecoration.border, soft.border);
+    expect(politicsDecoration.boxShadow, soft.boxShadow);
     // Every topic carries its own Polymarket glyph; Elections its own.
     expect(
         find.descendant(

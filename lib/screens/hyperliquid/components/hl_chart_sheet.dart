@@ -40,6 +40,8 @@ import 'package:kute/screens/hyperliquid/components/hl_chart_indicator_series.da
 import 'package:kute/screens/hyperliquid/components/hl_chart_intervals.dart';
 import 'package:kute/screens/hyperliquid/components/hl_charts.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
+import 'package:kute/screens/shared/kute_action_cards.dart'
+    show KuteActionCard;
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show KutePressable;
 import 'package:kute/screens/shared/message_display.dart';
@@ -420,11 +422,12 @@ class _SectionLabel extends StatelessWidget {
 }
 
 /// A square card's box, in the app's big-square language (the option
-/// cards of kute_action_cards.dart: the sheet card's surface, a 1 px
-/// hairline, radius 18, 14 padding, at least 112 tall, the press spring).
-/// [picked] draws the selection the app's chips use: the CTA colour, here
-/// as the card's outline. The Interval sheet (hl_chart_interval_sheet.dart)
-/// uses the same box, a square at least [minHeight] tall.
+/// cards of kute_action_cards.dart: the app's one soft card,
+/// [KuteActionCard.surfaceOf], 14 padding, at least 112 tall, the press
+/// spring). [picked] draws the selection the app's chips use: the CTA
+/// colour, here as the card's 1.5 outline on the same soft card. The
+/// Interval sheet (hl_chart_interval_sheet.dart) uses the same box, a
+/// square at least [minHeight] tall.
 class HlSquareBox extends StatelessWidget {
   const HlSquareBox({
     super.key,
@@ -441,24 +444,19 @@ class HlSquareBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
-    final isLight = !context.isDark;
     final reduce = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    final soft = KuteActionCard.surfaceOf(context);
+    final ring = picked
+        ? Border.all(color: context.ctaFill, width: 1.5)
+        : soft.border as Border?;
     return KutePressable(
       child: AnimatedContainer(
         duration: reduce ? Duration.zero : const Duration(milliseconds: 150),
         constraints: BoxConstraints(minHeight: minHeight),
-        padding: EdgeInsets.all(picked ? 13.5 : 14),
-        decoration: BoxDecoration(
-          color: isLight ? c.surfaceLight : c.surface,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: picked
-                ? context.ctaFill
-                : (isLight ? c.border : c.borderSubtle),
-            width: picked ? 1.5 : 1,
-          ),
-        ),
+        // The content stays put as the ring thickens: the edge and the
+        // padding always make 15.
+        padding: EdgeInsets.all(15 - (ring?.top.width ?? 0)),
+        decoration: soft.copyWith(border: ring),
         child: child,
       ),
     );

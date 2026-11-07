@@ -14,9 +14,14 @@
 //
 //   * two WIDE tiles, Trending and Watchlist, then a small "Markets"
 //     (Investing) or "Topics" (Predictions) label and a real two-column
-//     grid (every card the same 96 px, 8 px apart; an odd last card full
-//     width as the wide row, never a card alone in half the width: the
-//     app's no-orphan rule, kute_action_cards.dart; [_tileGrid]). A tile
+//     grid (every card the same compact 60 px, 8 px apart; an odd last
+//     card full width as the wide row, never a card alone in half the
+//     width: the app's no-orphan rule, kute_action_cards.dart;
+//     [_tileGrid]). COMPACT (founder, 7 November 2026, the Predictions
+//     topics at 96 px, mostly empty: "cards here ae too big now i thnk"):
+//     a grid card is the wide row at half the width, its art at the left
+//     and its name (and numbers) beside it, a little shorter than the
+//     Trending row. A tile
 //     is THE VENUE'S OWN ARTWORK, never a
 //     generic icon (founder, 31 October 2026): a stack of up to three
 //     overlapping logos of the category's top markets (Hyperliquid's coin
@@ -25,12 +30,14 @@
 //     the name (w500) and the numbers line ("64 markets · ▲ 0.5%", "Most
 //     active · ▲ 1.8% today", "N markets · $12M vol today").
 //
-// The picked tile wears the app's own picked language, the strip's
-// picked pill: white with the hairline border and the pill shadow; every
-// other tile is flat surface-1 with no border (founder, 31 October 2026:
-// choice "A" in the app's own style, no accent fill, no check, no
-// tint). Its name is a step bolder (w600). Fill, border and shadow move
-// on the chip spring; at once under Reduce Motion. The group's tint shows
+// EVERY TILE IS THE APP'S ONE CARD (founder, 7 November 2026: one card
+// surface across the app): the soft card the Goals squares and the
+// action cards wear (KuteActionCard.surfaceOf), radius 16. The picked
+// tile keeps that card and wears the app's picked outline, the CTA colour
+// as a 1.5 ring (the chart pickers' squares, HlSquareBox), its name a
+// step bolder (w600); no accent fill, no check, no tint (founder, 31
+// October 2026: choice "A" in the app's own style). The ring moves on
+// the chip spring; at once under Reduce Motion. The group's tint shows
 // only on the placeholder. No chevrons anywhere. Every tile has the app's
 // press spring (KutePressable).
 //
@@ -43,15 +50,15 @@
 //
 // THE TWO SHEETS ARE ONE DESIGN (founder, 6 November 2026, the Investing
 // and Predictions sheets side by side). A Predictions topic is the same
-// 96 px card as an Investing market group: its visual POLYMARKET'S OWN
+// compact card as an Investing market group: its visual POLYMARKET'S OWN
 // GLYPH for the topic, 20 px, monochrome in textPrimary on a 28 px
 // surface-1 square (the Settings rows' icon tile, KuteListRow, a size
 // down; never a Material icon: the SVGs under lib/assets/polymarket_tags,
 // pulled from polymarket.com's icon set, see the folder's README; a topic
 // Polymarket draws no glyph for gets its closest one), never a logo stack
-// (founder, 31 October 2026); the name under it on its own line, so a
-// count never cuts it (the old 56 px rows cut "Breaking" to "Br…"); and
-// one quiet numbers line where a count is at hand ("12 markets · $3.4M
+// (founder, 31 October 2026); the name beside it with the numbers under
+// the name, so a count never cuts it (the old 56 px rows cut "Breaking"
+// to "Br…"); one quiet numbers line where a count is at hand ("12 markets · $3.4M
 // vol today" from a loaded feed, "48 markets" from the topic row's own
 // count), none where it is not. Predictions' Trending row is Investing's:
 // the stack of its top markets' images and "Most active · $12M vol today"
@@ -93,8 +100,8 @@
 // rise in (6 px, a fade) 16 ms apart on the settle easing, the wide tiles
 // first. A press is the app's press spring at the app's scale
 // (KutePressable, KuteMotion.pressScale: the pills' and cards' own). A
-// pick springs the tile's fill and ring on the chip spring (the switch's
-// white pill), holds 140 ms so the state is seen, then the sheet closes
+// pick springs the tile's ring on the chip spring (the switch's own
+// spring), holds 140 ms so the state is seen, then the sheet closes
 // on the settle and, once it has cleared the page
 // ([kCategoryPickWriteDelay], 30% into its close), the pick is written:
 // the page then moves exactly as a pill switch moves it, the pill's words
@@ -117,7 +124,7 @@
 // THE BAR OVER THIS SHEET reads "Pick a market group"; tapped, the Sal
 // sheet opens with every category of the venue under its composer, as
 // these same cards in the same two-column grid (an odd last one full
-// width), the picked one in the white-pill style (founder, 1 November 2026: "user has clicked, so show
+// width), the picked one with its ring (founder, 1 November 2026: "user has clicked, so show
 // the market categories"; [_SalCategoryGrid]). A tap there picks and
 // closes both sheets. Never generic recommendation cards.
 //
@@ -149,6 +156,8 @@ import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/screens/portfolio/investments_portfolio.dart'
     show PortfolioSection, portfolioSectionProvider;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
+import 'package:kute/screens/shared/kute_action_cards.dart'
+    show KuteActionCard;
 import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/kute_motion.dart'
     show KutePressable, KuteStaggerIn, kuteReduceMotion;
@@ -749,7 +758,7 @@ class _InvestmentsCategorySheetState
     );
   }
 
-  /// The sheet's two-column grid ([_tileGrid]): 96 px cards 8 apart, an
+  /// The sheet's two-column grid ([_tileGrid]): compact cards 8 apart, an
   /// odd last one full width. The tiles rise in after the wide tiles and
   /// the label ([first]).
   Widget _grid(List<_Tile> tiles, {int first = 3}) =>
@@ -1026,10 +1035,10 @@ class _InvestmentsCategorySheetState
 /// clicked, so show the market categories"). Tapping the bar while the
 /// category sheet is up opens the Sal sheet with EVERY category of the
 /// venue under its composer, as the sheet's own cards in its two-column
-/// grid ([_tileGrid], 96 px, 8 apart, an odd last one full width):
+/// grid ([_tileGrid], compact cards 8 apart, an odd last one full width):
 /// Investing's logo stacks with their numbers, Predictions' Polymarket
 /// glyphs with their names and numbers (Trending's stack), the Portfolio's
-/// sections; the picked one in the white-pill style. A group
+/// sections; the picked one with its ring. A group
 /// picks whole (its All). A tap springs the tile on, holds 140 ms (at
 /// once under Reduce Motion), then the Sal sheet and the category sheet
 /// close together and the pick is written as from the sheet itself.
@@ -1295,7 +1304,9 @@ const double _kGlyphArt = 28;
 
 /// A tile's second line: "[lead ·] N markets · ▲ 1.8% [· $12M vol today]
 /// [today]". The move's arrow and colour follow its sign; 0.0% is quiet
-/// with no arrow; a null [move] is left out.
+/// with no arrow; a null [move] is left out. On a compact card too narrow
+/// for the whole line the count goes first and the move stays ("▲ 1.8%"),
+/// never the move cut to an ellipsis.
 class _StatLine extends StatelessWidget {
   const _StatLine({this.lead, this.count, this.move, this.volume, this.tail});
 
@@ -1317,49 +1328,71 @@ class _StatLine extends StatelessWidget {
       height: 1.2,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
-    final parts = <InlineSpan>[];
-    void sep() {
-      if (parts.isNotEmpty) parts.add(TextSpan(text: ' · ', style: quiet));
+    List<InlineSpan> spans({required bool withCount}) {
+      final parts = <InlineSpan>[];
+      void sep() {
+        if (parts.isNotEmpty) parts.add(TextSpan(text: ' · ', style: quiet));
+      }
+
+      if (lead != null) parts.add(TextSpan(text: lead, style: quiet));
+      if (count != null && withCount) {
+        sep();
+        parts.add(
+            TextSpan(text: l10n.categoryStatMarkets(count!), style: quiet));
+      }
+      if (move != null) {
+        sep();
+        final pct = (move!.abs() * 100).toStringAsFixed(1);
+        final flat = double.parse(pct) == 0;
+        final up = move! > 0;
+        parts.add(TextSpan(
+          text: flat ? '$pct%' : '${up ? '▲' : '▼'} $pct%',
+          style: quiet.copyWith(
+            color: flat
+                ? c.textSecondary
+                : (up ? AppColors.marketUp : AppColors.marketDown),
+            fontWeight: FontWeight.w600,
+          ),
+        ));
+      }
+      if (volume != null) {
+        sep();
+        parts.add(TextSpan(
+            text: l10n.categoryStatVolToday(_compactUsd(volume!)),
+            style: quiet));
+      }
+      if (tail != null) parts.add(TextSpan(text: ' $tail', style: quiet));
+      return parts;
     }
 
-    if (lead != null) parts.add(TextSpan(text: lead, style: quiet));
-    if (count != null) {
-      sep();
-      parts.add(TextSpan(text: l10n.categoryStatMarkets(count!), style: quiet));
-    }
-    if (move != null) {
-      sep();
-      final pct = (move!.abs() * 100).toStringAsFixed(1);
-      final flat = double.parse(pct) == 0;
-      final up = move! > 0;
-      parts.add(TextSpan(
-        text: flat ? '$pct%' : '${up ? '▲' : '▼'} $pct%',
-        style: quiet.copyWith(
-          color: flat
-              ? c.textSecondary
-              : (up ? AppColors.marketUp : AppColors.marketDown),
-          fontWeight: FontWeight.w600,
-        ),
-      ));
-    }
-    if (volume != null) {
-      sep();
-      parts.add(TextSpan(
-          text: l10n.categoryStatVolToday(_compactUsd(volume!)), style: quiet));
-    }
-    if (tail != null) parts.add(TextSpan(text: ' $tail', style: quiet));
-    if (parts.isEmpty) return const SizedBox.shrink();
-    return Text.rich(TextSpan(children: parts),
-        maxLines: 1, overflow: TextOverflow.ellipsis);
+    final whole = spans(withCount: true);
+    if (whole.isEmpty) return const SizedBox.shrink();
+    Widget line(List<InlineSpan> parts) => Text.rich(
+        TextSpan(children: parts),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis);
+    if (count == null || move == null) return line(whole);
+    return LayoutBuilder(builder: (context, box) {
+      final painter = TextPainter(
+        text: TextSpan(
+            style: DefaultTextStyle.of(context).style, children: whole),
+        maxLines: 1,
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+      )..layout(maxWidth: box.maxWidth);
+      final fits = !painter.didExceedMaxLines;
+      painter.dispose();
+      return line(fits ? whole : spans(withCount: false));
+    });
   }
 }
 
-/// The two shapes a tile takes: the 96 px grid card (art top-left, name
-/// and numbers under it) and the full-width 64 px row (art at the left,
-/// name and numbers beside it), which is also a grid's odd last card.
+/// The two shapes a tile takes: the compact 60 px grid card and the
+/// full-width 64 px row, both with the art at the left and the name and
+/// numbers beside it; the row is also a grid's odd last card.
 enum _TileShape { grid, wide }
 
-/// The sheets' grid (see the file header): two columns of 96 px cards, 8
+/// The sheets' grid (see the file header): two columns of 60 px cards, 8
 /// apart, and an odd last card full width as the wide row, never a card
 /// alone in half the width (the app's no-orphan rule, kute_action_cards
 /// .dart). Shrink-wrapped: it sits in a list and never scrolls on its own.
@@ -1397,8 +1430,8 @@ Widget _tileGrid(List<_Tile> tiles,
 
 /// A tile: the venue's logos (or a Predictions topic's glyph on its
 /// square, or the tint's circle with a [glyph] in it), the name, the
-/// numbers. The picked one is filled and white with the hairline and the
-/// shadow, its name bolder. Pressed, it gives the app's press spring.
+/// numbers, on the app's soft card. The picked one wears the CTA ring, its
+/// name bolder. Pressed, it gives the app's press spring.
 class _Tile extends StatelessWidget {
   const _Tile({
     super.key,
@@ -1471,9 +1504,15 @@ class _Tile extends StatelessWidget {
   final bool lone;
   final VoidCallback onTap;
 
-  /// The grid card's height and the wide row's.
-  static const double gridHeight = 96;
+  /// The grid card's height and the wide row's: the grid card a little
+  /// shorter than the Trending row (see the file header).
+  static const double gridHeight = 60;
   static const double wideHeight = 64;
+
+  /// How far the content sits from the card's edge, its border included:
+  /// the same whether the ring is on or off, so nothing moves on a pick.
+  static const double _insetX = 13;
+  double get _insetY => shape == _TileShape.grid ? 11 : 13;
 
   double get _height => switch (shape) {
         _TileShape.grid => gridHeight,
@@ -1483,7 +1522,6 @@ class _Tile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final isLight = !context.isDark;
     final reduce = kuteReduceMotion(context);
     final Widget art;
     if (logos.isNotEmpty) {
@@ -1526,27 +1564,25 @@ class _Tile extends StatelessWidget {
       fontWeight: picked ? FontWeight.w600 : FontWeight.w500,
       letterSpacing: -0.2,
     );
-    // The picked tile wears the app's own picked language (the strip's
-    // picked pill: white, the hairline, the shadow); no check, no accent.
-    final body = switch (shape) {
-      _TileShape.wide => Row(
-          children: [
-            art,
-            SizedBox(width: 10.w),
-            Expanded(
-                child: _NameAndStat(name: name, style: nameStyle, stat: stat)),
-          ],
-        ),
-      _TileShape.grid => Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            art,
-            const Spacer(),
-            _NameAndStat(name: name, style: nameStyle, stat: stat),
-          ],
-        ),
-    };
-    final surface = isLight ? Colors.white : c.surface;
+    // Both shapes: the art at the left, the name and numbers beside it
+    // (the grid card is the wide row at half the width; see the file
+    // header).
+    final body = Row(
+      children: [
+        art,
+        SizedBox(width: 10.w),
+        Expanded(
+            child: _NameAndStat(name: name, style: nameStyle, stat: stat)),
+      ],
+    );
+    // The app's one soft card, a smaller radius; picked, the CTA ring on
+    // it (the chart pickers' squares), no check, no accent.
+    final soft = KuteActionCard.surfaceOf(context)
+        .copyWith(borderRadius: BorderRadius.circular(16));
+    final ring = picked
+        ? Border.all(color: context.ctaFill, width: 1.5)
+        : soft.border as Border?;
+    final edge = ring?.top.width ?? 0;
     return Semantics(
       button: true,
       selected: picked,
@@ -1565,31 +1601,12 @@ class _Tile extends StatelessWidget {
             height: _height,
             margin: EdgeInsets.only(
                 bottom: shape == _TileShape.wide && !lone ? 12.h : 0),
-            padding: const EdgeInsets.all(12),
-            // Picked: the strip's picked pill (white, hairline, shadow;
-            // founder, 31 October 2026: "A, in the app's own style").
-            // Unpicked: flat surface-1, no border. The shadow stays at
-            // the same blur, only transparent, so the chip spring's
-            // overshoot never lerps a blur negative.
-            decoration: BoxDecoration(
-              color: picked ? surface : c.surfaceLight,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: picked
-                    ? (isLight ? c.border : c.borderSubtle)
-                    : Colors.transparent,
-                width: isLight ? 1.0 : 0.5,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: picked && isLight
-                      ? Colors.black.withValues(alpha: 0.04)
-                      : Colors.transparent,
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
+            padding: EdgeInsets.symmetric(
+                horizontal: _insetX - edge, vertical: _insetY - edge),
+            // The soft card in both states (its shadow the same, so the
+            // chip spring's overshoot never lerps a blur negative); only
+            // the ring changes.
+            decoration: soft.copyWith(border: ring),
             child: body,
           ),
         ),

@@ -7,6 +7,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:kute/screens/shared/kute_action_cards.dart'
+    show KuteActionCard;
 import 'package:kute/screens/shared/slip_form_body.dart' show SlipDensity;
 
 import 'package:kute/screens/shared/side_tint_palette.dart' show isSideTinted;
@@ -93,8 +95,9 @@ TextStyle positionRowValueStyle(AppColorsExtension c, {Color? color}) =>
       fontFeatures: const [FontFeature.tabularFigures()],
     );
 
-/// One figure of a position on its own tile (the app's card): a quiet
-/// label, the figure large, and a quiet line under it. Two sit side by
+/// One figure of a position on its own tile (the app's one soft card, the
+/// option cards' beside it: [KuteActionCard.surfaceOf]): a quiet label,
+/// the figure large, and a quiet line under it. Two sit side by
 /// side in [PositionStatTiles], on the Predictions and Investing position
 /// screens and the market sheets' "Your investment" cards.
 class PositionStatTile extends StatelessWidget {
@@ -168,7 +171,7 @@ class PositionStatTile extends StatelessWidget {
               borderRadius: BorderRadius.circular(AppRadius.lg),
               border: Border.all(color: c.borderSubtle, width: 0.5),
             )
-          : AppDecorations.card(context),
+          : KuteActionCard.surfaceOf(context),
       child: body,
     );
   }

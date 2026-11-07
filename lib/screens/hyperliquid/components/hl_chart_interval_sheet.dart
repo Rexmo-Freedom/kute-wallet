@@ -3,8 +3,8 @@
 // The Advanced chart's Interval sheet, behind the interval button in its
 // top bar (founder, 5 November 2026: "Intervals should also be the
 // squares"). The intervals of [kHlCandleIntervals] (1m 5m 1h 1D 1W) as
-// the Chart sheet's square cards ([HlSquareBox]: the sheet card's
-// surface, a 1 px hairline, radius 18), three to a row and the last
+// the Chart sheet's square cards ([HlSquareBox]: the app's one soft
+// card, the action cards' own), three to a row and the last
 // row's two centred under them, no orphan: the interval big ("5m"), what
 // one bar spans ("5 minutes") and a line on what it is good for
 // ("Today's swings"). A tap picks the interval and closes the sheet; the
