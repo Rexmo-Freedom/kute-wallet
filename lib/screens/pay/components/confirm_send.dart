@@ -86,7 +86,6 @@ import 'package:kute/screens/pay/components/bitcoin_advanced_settings_sheet.dart
 import 'package:kute/screens/pay/components/watch_only_screen.dart';
 import 'package:kute/screens/shared/amount_unit_picker.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
-import 'package:kute/screens/shared/asset_network_picker.dart';
 import 'package:kute/screens/shared/coin_asset_grid.dart';
 import 'package:kute/providers/asset_icon_provider.dart'
     show SafeSvgNetwork, kInvestmentsIcon, kUsdMarkAsset;
@@ -2167,9 +2166,12 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   ///
   /// The [kOrchestraSendableChains] clip stays authoritative — it is
   /// applied where the rows are built, so only Orchestra-routable
-  /// destinations are offered — and the pinned native destination row
-  /// (Bitcoin Network) stays above the grid: it IS meaningful on send,
-  /// unlike receive.
+  /// destinations are offered. No Bitcoin Network row above the grid
+  /// (founder, 7 November 2026: "it is literally the default on sending
+  /// bitcoin"): plain bitcoin, Lightning and Spark are what the send
+  /// already does with an address or invoice in its field, so the sheet
+  /// lists only the coins the bitcoin can land as. A chosen coin goes
+  /// back to bitcoin through the coin row's Change ([_clearDestCoin]).
   ///
   /// [initialAssetCode] (USDC/USDT shortcuts, unified-search presets)
   /// opens the sheet straight on that coin's networks.
@@ -2230,34 +2232,6 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
 
         final l10n = sheetCtx.l10n;
 
-        // ── Pinned native destination row: the same-rail default,
-        // Bitcoin Network (Spark / Lightning / on-chain). Cold sources
-        // never reach this sheet, so the full "Bitcoin, Lightning &
-        // Spark" hint is always truthful here. It sits ABOVE the coin
-        // grid because it is not one of the coins the money would be
-        // converted to: it is the money staying as it is.
-        final Widget pinned = PickerGroupedList(
-          children: [
-            PickerRow(
-              // Bare Bitcoin SVG — recognisable on its own, no
-              // tinted halo / rounded disc.
-              leading: SvgPicture.asset('lib/assets/bitcoin-icon.svg',
-                  width: 36.sp, height: 36.sp),
-              title: l10n.bitcoinNetwork,
-              subtitle: l10n.bitcoinLightningSpark,
-              onTap: () {
-                Navigator.of(sheetCtx).pop();
-                if (!mounted) return;
-                setState(() {
-                  _selectedDestAsset = null;
-                  _selectedDestNetwork = null;
-                  _swapQuote = null;
-                });
-              },
-            ),
-          ],
-        );
-
         return CoinAssetPickerSheet(
           groups: groupCoinsByAsset(visible.map(_sendDestPickerRow).toList()),
           title: l10n.sendWhereTo,
@@ -2270,7 +2244,6 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
                   _selectedDestNetwork != null
               ? '${_selectedDestNetwork!.network}:${_selectedDestAsset!.code}'
               : null,
-          pinned: pinned,
           onPicked: (row) {
             Navigator.of(sheetCtx).pop();
             TrackingService.swapAssetSelected(
@@ -7738,8 +7711,9 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   /// the runtime policy withdraws (the sheet's own filter), so the chip's
   /// coins and the sheet can never be a different set. A region block
   /// withdraws nothing (the coin's tap says why); a swap switched off, a
-  /// platform rule or coming soon leaves no coin to stack, and the chip's
-  /// sheet says why under its Bitcoin Network row.
+  /// platform rule or coming soon leaves no coin, and with no Bitcoin
+  /// Network row on the sheet any more there is nothing for the chip to
+  /// open: it goes, as the Dollars Send's does ([_sendWaysRow]).
   List<CoinAssetGroup> _sendDestGroups() {
     final catalog = ref.watch(orchestraSupportedRoutesProvider);
     ref.watch(runtimeCapabilitiesProvider);
@@ -7761,7 +7735,12 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   ///   * "To your Dollars": Move money, Bitcoin to Dollars, pinned (as
   ///     the Dollars Send's "To your Bitcoin" pins the other way);
   ///   * "Crypto address": the coins this bitcoin can land as, in the
-  ///     destination sheet (the coins stacked as its icon);
+  ///     destination sheet (the coins stacked as its icon). The sheet has
+  ///     no Bitcoin Network row (plain bitcoin is this send's own
+  ///     default), so with no coin offered (the swap switched off, a
+  ///     platform rule, coming soon) the chip goes rather than open an
+  ///     empty sheet, as on the Dollars Send; a region block keeps every
+  ///     coin, and a coin's tap names the regions;
   ///   * "Prediction or investment": Send an investment or prediction,
   ///     the market search the Dollars Send opens
   ///     (send_pick_market_sheet.dart). A prediction link is paid from Dollars wherever it is sent from
@@ -7785,24 +7764,19 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
           label: l10n.sendWayToDollars,
           onTap: _openToDollars,
         ),
-        SendWayChip(
-          key: const ValueKey('send-also-sends-to-row'),
-          icon: groups.isEmpty
-              ? Icon(Icons.swap_horiz_rounded,
-                  color: context.colors.textPrimary,
-                  size: kSendWayChipIconSlot.sp)
-              : SendCoinStack(groups: groups, mark: kSendWayChipCoinMark),
-          label: l10n.sendWayCryptoAddress,
-          // "USDC, USDT, ETH and 16 more" read out after the label.
-          semanticsLabel: groups.isEmpty
-              ? l10n.sendToCryptoAddress
-              : '${l10n.sendToCryptoAddress}, '
-                  '${sendAlsoSendsToSummary(l10n, groups)}',
-          onTap: () {
-            TrackingService.sendAssetShortcutTapped('other');
-            _showDestinationPicker(context);
-          },
-        ),
+        if (groups.isNotEmpty)
+          SendWayChip(
+            key: const ValueKey('send-also-sends-to-row'),
+            icon: SendCoinStack(groups: groups, mark: kSendWayChipCoinMark),
+            label: l10n.sendWayCryptoAddress,
+            // "USDC, USDT, ETH and 16 more" read out after the label.
+            semanticsLabel: '${l10n.sendToCryptoAddress}, '
+                '${sendAlsoSendsToSummary(l10n, groups)}',
+            onTap: () {
+              TrackingService.sendAssetShortcutTapped('other');
+              _showDestinationPicker(context);
+            },
+          ),
         if (pickOffered)
           SendWayChip(
             key: const ValueKey('send-pick'),
