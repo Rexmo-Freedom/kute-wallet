@@ -42,7 +42,7 @@ import 'package:kute/screens/home/components/kute_top_nav_bar.dart';
 import 'package:kute/screens/home/shell_venue_tabs.dart'
     show shellDrawsPredictionsTab, shellDrawsTradingTab, shellShowsUsdTab;
 import 'package:kute/screens/usd/usd_account_screen.dart'
-    show InvestmentsTab, investmentsTabProvider;
+    show InvestmentsTab, investmentsTabProvider, openInvestmentsOnDefaultTab;
 import 'package:kute/services/once_flags_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -430,6 +430,7 @@ class _AppShellState extends ConsumerState<AppShell>
     } else {
       TrackingService.screenView('tab_${tab.name}');
       _trackTabChanged(tab, method: 'tap');
+      _openOnDefaultPill(tab);
     }
     widget.navigationShell.goBranch(
       index,
@@ -448,7 +449,18 @@ class _AppShellState extends ConsumerState<AppShell>
     // Swipe landings count as tab views too (taps go via _selectTab).
     TrackingService.screenView('tab_${tabs[index].name}');
     _trackTabChanged(tabs[index], method: 'swipe');
+    _openOnDefaultPill(tabs[index]);
     widget.navigationShell.goBranch(branch);
+  }
+
+  /// The switch landing on Dollars, by a tap or a swipe, opens the page on
+  /// its default pill, Investing (founder, 7 November 2026; see
+  /// [openInvestmentsOnDefaultTab]). Before the branch switch (and, for a
+  /// swipe, as the page first comes on screen: [_openDollarsOnReveal]),
+  /// so the page arrives on it. A link (`context.go('/usd?tab=…')`) never
+  /// comes through here and keeps the pill it names.
+  void _openOnDefaultPill(ActiveNavTab tab) {
+    if (tab == ActiveNavTab.usd) openInvestmentsOnDefaultTab(ref);
   }
 
   /// `shell_tab_changed`: the `$screen` view cannot say HOW the user got
@@ -476,6 +488,24 @@ class _AppShellState extends ConsumerState<AppShell>
     ++_pageTransition;
     if (_page.isAnimating) _page.stop();
     _page.value = (_page.value - d.primaryDelta! / width).clamp(0.0, _maxPage);
+    _openDollarsOnReveal();
+  }
+
+  /// Whether the drag in progress has Dollars partly on screen, coming in
+  /// from another tab.
+  bool _dollarsRevealed = false;
+
+  /// A drag that starts bringing Dollars on screen from another tab opens
+  /// it on its default pill ([_openOnDefaultPill]) before the frame that
+  /// first shows it, so the page slides in on Investing rather than on the
+  /// pill it was left on, swapped when the swipe lands. Once per reveal.
+  void _openDollarsOnReveal() {
+    final usdPage = _tabs.indexOf(ActiveNavTab.usd);
+    final revealed = usdPage >= 0 &&
+        (usdPage - _page.value).abs() < 1.0 &&
+        _kShellTabs[widget.navigationShell.currentIndex] != ActiveNavTab.usd;
+    if (revealed && !_dollarsRevealed) _openOnDefaultPill(ActiveNavTab.usd);
+    _dollarsRevealed = revealed;
   }
 
   void _onDragEnd(DragEndDetails d) {

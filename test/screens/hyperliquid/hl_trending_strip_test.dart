@@ -225,8 +225,11 @@ void main() {
 
   testWidgets('Trending shows the hyped strip over a list that repeats none '
       'of it', (tester) async {
+    // Tall enough for the rows under the squares and the market map (the
+    // tab's second item).
     await pumpInvestments(tester,
         browseInvesting: true,
+        size: const Size(390, 2000),
         child: const Scaffold(body: HyperliquidScreen()),
         overrides: [
           hyperliquidBrowseUniverseProvider

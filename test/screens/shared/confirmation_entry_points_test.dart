@@ -191,8 +191,8 @@ void main() {
       final container = ProviderScope.containerOf(
           tester.element(find.text('host', skipOffstage: false)));
       // The Portfolio is its own screen (31 October 2026): the Dollars
-      // pill stays where it was, Activity to start (4 November 2026).
-      expect(container.read(investmentsTabProvider), InvestmentsTab.activity);
+      // pill stays where it was, Investing to start (7 November 2026).
+      expect(container.read(investmentsTabProvider), InvestmentsTab.investing);
       expect(container.read(portfolioSectionProvider), PortfolioSection.charts);
       expect(
           events
@@ -232,8 +232,8 @@ void main() {
         product: 'predictions', orderKind: 'limit_sell');
     final container = ProviderScope.containerOf(context);
     // The Portfolio is its own screen (31 October 2026): the Dollars
-    // pill stays where it was, Activity to start (4 November 2026).
-    expect(container.read(investmentsTabProvider), InvestmentsTab.activity);
+    // pill stays where it was, Investing to start (7 November 2026).
+    expect(container.read(investmentsTabProvider), InvestmentsTab.investing);
     expect(container.read(portfolioSectionProvider), PortfolioSection.charts);
     expect(events.single.$1, 'order_confirmation_view_orders_tapped');
     expect(events.single.$2,

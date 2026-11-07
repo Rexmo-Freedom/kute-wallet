@@ -1,4 +1,4 @@
-// The market map under the Investing list (hl_market_map.dart): which
+// The market map, Investing's second item (hl_market_map.dart): which
 // markets it shows (four classes, one per underlying, the most traded,
 // thin and unverified ones left out, a hysteresis at the edge), its layout
 // (one scale, blocks with their labels, no overlaps, the same markets
@@ -26,6 +26,8 @@ import 'package:kute/providers/hyperliquid_sats_pnl_provider.dart'
 import 'package:kute/providers/hyperliquid_sparkline_provider.dart';
 import 'package:kute/screens/hyperliquid/components/hl_market_card.dart';
 import 'package:kute/screens/hyperliquid/components/hl_market_map.dart';
+import 'package:kute/screens/hyperliquid/components/hl_moving_now_strip.dart'
+    show HlMovingNowStrip;
 import 'package:kute/screens/hyperliquid/hyperliquid_screen.dart';
 import 'package:kute/screens/hyperliquid/market_detail_sheet.dart';
 import 'package:kute/services/hyperliquid/hl_sparkline_cache.dart';
@@ -64,6 +66,7 @@ Future<ProviderContainer> _pumpCard(
   bool loading = false,
   bool dark = false,
   void Function(HlMarket)? onTap,
+  EdgeInsetsGeometry margin = EdgeInsets.zero,
 }) async {
   tester.view.physicalSize = const Size(390, 700);
   tester.view.devicePixelRatio = 1;
@@ -86,7 +89,8 @@ Future<ProviderContainer> _pumpCard(
                 key: UniqueKey(),
                 universe: universe,
                 loading: loading,
-                onTap: onTap),
+                onTap: onTap,
+                margin: margin),
           ),
         ),
       ),
@@ -105,10 +109,15 @@ Future<void> _unmount(WidgetTester tester) async {
 /// Lets a test hand the card a new universe (a 30 s refresh).
 class _Universe extends StatefulWidget {
   const _Universe(
-      {super.key, required this.universe, this.loading = false, this.onTap});
+      {super.key,
+      required this.universe,
+      this.loading = false,
+      this.onTap,
+      this.margin = EdgeInsets.zero});
   final List<HlMarket> universe;
   final bool loading;
   final void Function(HlMarket)? onTap;
+  final EdgeInsetsGeometry margin;
 
   @override
   State<_Universe> createState() => _UniverseState();
@@ -121,7 +130,10 @@ class _UniverseState extends State<_Universe> {
 
   @override
   Widget build(BuildContext context) => HlMarketMapCard(
-      universe: universe, loading: widget.loading, onTap: widget.onTap);
+      universe: universe,
+      loading: widget.loading,
+      onTap: widget.onTap,
+      margin: widget.margin);
 }
 
 HlMarketMapPainter _painter(WidgetTester tester) => tester
@@ -526,6 +538,30 @@ void main() {
     });
   });
 
+  testWidgets(
+      'the margin is around the card and its skeleton, never around '
+      'nothing: too few markets leave no gap', (tester) async {
+    const margin = EdgeInsets.only(top: 8, bottom: 4);
+    final universe = find.byType(_Universe);
+    await _pumpCard(tester, hlMarketMapFixture, margin: margin);
+    final card = find.byKey(const ValueKey('hl-market-map'));
+    final height = tester.getSize(card).height;
+    expect(tester.getSize(universe).height, height + margin.vertical);
+    expect(tester.getTopLeft(card).dy - tester.getTopLeft(universe).dy, 8);
+
+    await _pumpCard(tester, hlMarketMapFixture, margin: margin, loading: true);
+    final bones = find.byKey(const ValueKey('hl-market-map-loading'));
+    expect(tester.getSize(universe).height,
+        tester.getSize(bones).height + margin.vertical);
+    // The skeleton is the map's own height: nothing moves when it lands.
+    expect(tester.getSize(bones).height, height);
+
+    await _pumpCard(tester, _ladder(kHlMarketMapMinTiles - 1), margin: margin);
+    expect(card, findsNothing);
+    expect(tester.getSize(universe).height, 0);
+    await _unmount(tester);
+  });
+
   group('on the Investing list', () {
     Future<void> pumpScreen(WidgetTester tester, List<HlMarket> universe,
         {List<Override> overrides = const []}) async {
@@ -550,13 +586,19 @@ void main() {
     final map =
         find.byKey(const ValueKey('hl-market-map'), skipOffstage: false);
 
-    testWidgets('under the Trending list; not under a picked category',
-        (tester) async {
+    testWidgets(
+        'the second item: under the squares, over the Trending list; not '
+        'on a picked category', (tester) async {
       await pumpScreen(tester, hlMarketMapFixture);
       expect(map, findsOneWidget);
-      final lastRow = find.byType(HlMarketCard, skipOffstage: false).last;
+      // Founder, 7 November 2026: "put this as second item on investing".
+      final squares = find.byType(HlMovingNowStrip, skipOffstage: false);
+      expect(squares, findsOneWidget);
+      final firstRow = find.byType(HlMarketCard, skipOffstage: false).first;
       expect(tester.getTopLeft(map).dy,
-          greaterThan(tester.getBottomLeft(lastRow).dy));
+          greaterThanOrEqualTo(tester.getBottomLeft(squares).dy));
+      expect(tester.getBottomLeft(map).dy,
+          lessThanOrEqualTo(tester.getTopLeft(firstRow).dy));
       // The map is the whole universe, not the six rows over it.
       expect(_painter(tester).layout.tiles.length, greaterThan(30));
 

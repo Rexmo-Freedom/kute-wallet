@@ -106,6 +106,17 @@
 // to it (investment_balance_header.dart, oneBalanceSplit). A
 // `?tab=activity` link opens this pill.
 //
+// 7 NOVEMBER 2026 (founder): "when switching to dollars open up in the
+// investing in the middle one, not in the activity". THE PAGE OPENS ON
+// INVESTING, the middle pill, on its first build and whenever the
+// Bitcoin | Dollars switch lands on Dollars (a tap or a swipe; the
+// shell calls [openInvestmentsOnDefaultTab]), wherever the pill was
+// left. With Investing's browsing withheld it opens on Predictions while
+// that is live, else on Activity ([investmentsDefaultTab]). A link that
+// names a pill keeps opening that pill (`?tab=activity` among them). On
+// Investing the four moving squares lead, the market map is the second
+// item and the list follows (hyperliquid_screen.dart).
+//
 // THE PILL IS SHARED STATE ([investmentsTabProvider]) so a deep link, a
 // placed bet or Sal can open a pill from anywhere: `/hyperliquid` and
 // `/polymarket` redirect here with `?tab=investing|predictions`
@@ -179,6 +190,7 @@ import 'package:kute/screens/shared/receive_arrow_glyph.dart'
     show receiveArrowGlyph;
 import 'package:kute/screens/usd/usd_withdraw_screen.dart'
     show showUsdWithdrawSheet;
+import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/theme/kute_motion.dart';
@@ -201,7 +213,8 @@ const double _kExpandedHeaderEstimate = 158;
 /// The Investments pills, in strip order. [key] is the analytics value
 /// and the `?tab=` query value, fixed English so a pill reads the same in
 /// PostHog and in a link in every app language. [activity] leads the
-/// strip and is where the tab opens (4 November 2026). [positions] is the
+/// strip (4 November 2026); the tab opens on [investing], the middle one
+/// (7 November 2026, [investmentsDefaultTab]). [positions] is the
 /// Portfolio, its own screen since 31 October 2026 and no pill: it
 /// still sends `positions`, so the dashboards keep counting it. [icon] is
 /// the pill's glyph: the one icon family the top tabs used (receipt,
@@ -266,15 +279,55 @@ void openInvestmentsOrders(BuildContext context,
   openInvestmentsPortfolio(context, PortfolioSection.charts);
 }
 
+/// The pill the Dollars page opens on (founder, 7 November 2026: "when
+/// switching to dollars open up in the investing in the middle one, not
+/// in the activity"): Investing, the middle pill. With Investing's
+/// browsing withheld (`hyperliquid.browse`, the venue page would be its
+/// notice alone), Predictions while its own browsing is live
+/// (`polymarket.browse`), else Activity. A link that names a pill
+/// (`/usd?tab=activity`, the venue routes' redirects) opens that pill
+/// instead ([UsdAccountScreen.initialTab]).
+InvestmentsTab investmentsDefaultTab(RuntimeCapabilitiesService policy) {
+  if (policy.allows('hyperliquid.browse')) return InvestmentsTab.investing;
+  if (policy.allows('polymarket.browse')) return InvestmentsTab.predictions;
+  return InvestmentsTab.activity;
+}
+
 /// The pill on screen. Shared so a deep link, a placed bet or Sal can
 /// open a pill from outside the screen; the screen writes it on a tap.
-/// Activity to start (founder, 4 November 2026: the first tab, as on the
-/// Bitcoin home).
-final investmentsTabProvider =
-    StateProvider<InvestmentsTab>((_) => InvestmentsTab.activity);
+/// [investmentsDefaultTab] to start, under the policy on hand when the
+/// page is first built; read, not watched, so a policy refresh never
+/// moves the pill under the person.
+final investmentsTabProvider = StateProvider<InvestmentsTab>(
+    (ref) => investmentsDefaultTab(ref.read(runtimeCapabilitiesProvider)));
+
+/// The Bitcoin | Dollars switch landed on Dollars (a tap on the strip or a
+/// swipe, app_shell.dart): the page opens on its default pill again
+/// ([investmentsDefaultTab], under the policy on hand now), wherever it
+/// was left. A link that names a pill never comes through here: it lands
+/// on that pill ([UsdAccountScreen.initialTab]). The pill is put back in
+/// place, with no switch motion: the shell's slide brings the page in
+/// ([_investmentsQuietPillProvider]). Writes no pill when it is already
+/// the default, so the shell's pill listener stays quiet. Called from an
+/// event handler, never while building.
+void openInvestmentsOnDefaultTab(WidgetRef ref) {
+  final tab = investmentsDefaultTab(ref.read(runtimeCapabilitiesProvider));
+  if (ref.read(investmentsTabProvider) == tab) return;
+  ref.read(_investmentsQuietPillProvider.notifier).state = tab;
+  ref.read(investmentsTabProvider.notifier).state = tab;
+}
+
+/// The pill [openInvestmentsOnDefaultTab] last put on the page, until a
+/// pick or a link moves it: that change is shown at once, not switched in
+/// (the page is coming on screen; its slide is the motion). Read, never
+/// watched.
+final _investmentsQuietPillProvider =
+    StateProvider<InvestmentsTab?>((_) => null);
 
 /// The pills of the Dollars switch, in order: Activity first (founder,
-/// 4 November 2026), then the two venues. The Portfolio is its own screen.
+/// 4 November 2026), then the two venues; the page opens on the middle
+/// one, Investing ([investmentsDefaultTab]). The Portfolio is its own
+/// screen.
 const List<InvestmentsTab> kInvestmentsPills = [
   InvestmentsTab.activity,
   InvestmentsTab.investing,
@@ -339,6 +392,7 @@ class _UsdAccountScreenState extends ConsumerState<UsdAccountScreen> {
       if (tab == InvestmentsTab.positions) {
         openPortfolioScreen(context);
       } else if (tab != null) {
+        ref.read(_investmentsQuietPillProvider.notifier).state = null;
         ref.read(investmentsTabProvider.notifier).state = tab;
       }
     });
@@ -497,6 +551,8 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
       return;
     }
     HapticFeedback.selectionClick();
+    // A pick switches in, as every switch does.
+    ref.read(_investmentsQuietPillProvider.notifier).state = null;
     // The strip's own event, as the Home pills and the old Balance | Earn
     // pair reported, so the existing tiles keep counting. The Portfolio
     // carries the section it opens on as `sub`.
@@ -704,9 +760,12 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
             // category picked for the pill moves its list the same way
             // (the venue list's SliverSelectionFade). At once under Reduce
             // Motion.
+            // The page put back on its default pill as the shell brings it
+            // on screen ([openInvestmentsOnDefaultTab]) shows it at once.
             body: SelectionFade(
               selection: selected,
               order: tabs.indexOf(selected),
+              animate: ref.read(_investmentsQuietPillProvider) != selected,
               child: IndexedStack(
               index: tabs.indexOf(selected),
               // Every pill keeps its state; only the one on screen ticks.
