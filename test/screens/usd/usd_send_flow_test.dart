@@ -911,9 +911,10 @@ void main() {
 
   testWidgets(
       'the Investments row\'s Send opens the Dollars Send (the Who step, no '
-      'chips); a coin from its Another crypto card and that coin\'s address '
-      'pasted open the send sheet straight on the amount, the coin picked; '
-      'back reaches Send to, and closing it comes back', (tester) async {
+      'chips, no Another crypto card); a 0x address pasted asks its network '
+      'and the network picked opens the send sheet straight on the amount, '
+      'the coin picked; back reaches Send to, and closing it comes back',
+      (tester) async {
     final events = <(String, Map<String, Object>?)>[];
     TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
     addTearDown(() => TrackingService.debugTrackObserver = null);
@@ -928,8 +929,9 @@ void main() {
     await tester.pumpAndSettle();
 
     // The Dollars Send sheet (the Bitcoin Send's Who step): "Send", as the
-    // Bitcoin Send says it, the search field and Another crypto under it.
-    // No chips, no send yet.
+    // Bitcoin Send says it, and the search field, nothing under it but the
+    // contacts ("another crypto should be implied not a button"). No chips,
+    // no send yet.
     final withdraw = find.byType(UsdWithdrawScreen);
     expect(withdraw, findsOneWidget);
     final route = ModalRoute.of(tester.element(withdraw));
@@ -941,25 +943,16 @@ void main() {
     expect(find.text(_l10n.sendDollarsTitle), findsNothing);
     expect(find.byKey(const ValueKey('usd-withdraw-to-bitcoin')), findsNothing);
     expect(find.byKey(const ValueKey('usd-withdraw-pick')), findsNothing);
-    final hint = find.byKey(const ValueKey('send-another-crypto'));
-    expect(hint, findsOneWidget);
+    expect(find.byKey(const ValueKey('send-another-crypto')), findsNothing);
     expect(find.byType(UsdSendScreen), findsNothing);
 
-    // The card opens the coin sheet; USDC is on several networks: its
-    // networks. The field is that coin's address field now.
-    await tester.tap(hint);
-    await tester.pumpAndSettle();
+    // A 0x address pasted: the coin sheet, filtered to the coins it takes;
+    // USDC on Arbitrum picked, the send at once, on its amount (Who
+    // answered).
+    await _paste(tester, _evm);
+    expect(find.byType(UsdSendScreen), findsNothing);
     await _tapCoin(
         tester, find.byType(CoinAssetPickerSheet), 'arbitrum', 'USDC');
-    expect(find.byType(UsdSendScreen), findsNothing);
-    final d = _dest('arbitrum', 'USDC');
-    expect(
-        find.text(_l10n.sendAssetOnNetworkAddressHint(
-            d.displaySymbol, d.chainDisplayName)),
-        findsOneWidget);
-
-    // Its address pasted: the send at once, on its amount (Who answered).
-    await _paste(tester, _evm);
     expect(find.byType(UsdSendScreen), findsOneWidget);
     expect(_step(_l10n.amount), findsOneWidget);
     expect(_chipLabel(tester), label('arbitrum', 'USDC'));

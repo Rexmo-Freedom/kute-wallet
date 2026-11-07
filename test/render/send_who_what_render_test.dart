@@ -1,8 +1,9 @@
 // A look by eye at the approved Send (founder, 7 November 2026: "ok do it,
 // just make sure that people realise they can send to different cryptos
-// also"): the Who step empty, Another crypto under the field; the Who
-// step after a 0x address is pasted, the network asked in the "Where to?"
-// sheet filtered to it; the What step over a contact (Bitcoin and the
+// also"; then "another crypto should be implied not a button"): the Who
+// step empty, the contacts right under the field; the Who step with a 0x
+// address typed (the network question under the field) and after one is
+// pasted, the network asked in the "Where to?" sheet filtered to it; the What step over a contact (Bitcoin and the
 // gift as two squares, the gift wearing Sal, the bar its Back); and the
 // Dollars Send's Who step and What step (Dollars and the gift), also in
 // German, Finnish, Hungarian and Portuguese. Light and dark, on a 375 pt
@@ -353,8 +354,18 @@ void main() {
 
     testWidgets('render: usd-send-who-empty-$theme', (tester) async {
       await pumpDollars(tester, dark: dark);
-      expect(find.byKey(const ValueKey('send-another-crypto')), findsOneWidget);
+      expect(find.byKey(const ValueKey('send-another-crypto')), findsNothing);
       await _capture(tester, 'usd-send-who-empty-$theme');
+    });
+
+    testWidgets('render: usd-send-who-typed-0x-$theme', (tester) async {
+      await pumpDollars(tester, dark: dark);
+      await tester.enterText(find.byType(TextField).first,
+          '0x742d35cc6634c0532925a3b844bc454e4438f44e');
+      await _settle(tester);
+      expect(find.byKey(const ValueKey('usd-withdraw-pick-network')),
+          findsOneWidget);
+      await _capture(tester, 'usd-send-who-typed-0x-$theme');
     });
 
     for (final language in ['en', 'de', 'fi', 'hu', 'pt']) {
@@ -371,8 +382,17 @@ void main() {
 
     testWidgets('render: send-who-empty-$theme', (tester) async {
       await pumpSend(tester, dark: dark);
-      expect(find.byKey(const ValueKey('send-another-crypto')), findsOneWidget);
+      expect(find.byKey(const ValueKey('send-another-crypto')), findsNothing);
       await _capture(tester, 'send-who-empty-$theme');
+    });
+
+    testWidgets('render: send-who-typed-0x-$theme', (tester) async {
+      await pumpSend(tester, dark: dark);
+      await tester.enterText(find.byType(TextField).first,
+          '0x742d35cc6634c0532925a3b844bc454e4438f44e');
+      await _settle(tester);
+      expect(find.text('Which network is this address on?'), findsOneWidget);
+      await _capture(tester, 'send-who-typed-0x-$theme');
     });
 
     testWidgets('render: send-who-pasted-0x-$theme', (tester) async {

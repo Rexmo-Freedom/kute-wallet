@@ -7255,6 +7255,27 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     _confirmStep(_kSendToPage);
   }
 
+  /// The keyboard's Done on a typed recipient (send_recipient_step.dart:
+  /// "another crypto should be implied not a button"): what a paste of the
+  /// same text does next. A destination this source can pay goes on to
+  /// the amount, as the bar's Continue does (tracked the same); an address
+  /// several networks take opens "Where to?" filtered to it, as after a
+  /// paste. Anything else stays put, its row saying what is wrong.
+  void _submitTypedRecipient() {
+    final addr = addressController.text;
+    if (_step != _kSendToPage || addr.isEmpty) return;
+    if (_sendToStepReady()) {
+      if (_addressEntryMethod != 'contacts') trackSendRecipientPicked('address');
+      _confirmStep(_kSendToPage);
+      return;
+    }
+    if (_needsNetworkPick(addr) &&
+        !_isColdSource &&
+        _addressRailFamily(addr) != 'unknown') {
+      _showDestinationPicker(context);
+    }
+  }
+
   /// Map `sendTxProvider.type` → the PostHog `payment_type` enum.
   /// Falls back to `'bitcoin'` for unrecognised values.
   String _trackingPaymentType() {
@@ -7643,11 +7664,11 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   }
 
   /// The cross-chain working states of the Send to step, under the field
-  /// (null at rest: the field takes any crypto address, and Another
-  /// crypto under it is the browse way in, [_openAnotherCrypto]). They keep
-  /// their words: an address we cannot
-  /// identify, an address that still needs a network, and a coin already
-  /// chosen, all of which have something specific to say.
+  /// (null at rest: the field takes any crypto address and recognises it
+  /// as it is typed, pasted or scanned; nothing under it offers a coin
+  /// list). They keep their words: an address we cannot identify, an
+  /// address that still needs a network, and a coin already chosen, all
+  /// of which have something specific to say.
   ///
   /// An address that still needs a network is the emphasized row: it is
   /// the one forward path, a question rather than an option, and its
@@ -7729,27 +7750,6 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     );
   }
 
-  /// The coins this send can land as for what the field holds, folded one
-  /// per coin — the same fold the destination sheet itself uses, less what
-  /// the runtime policy withdraws (the sheet's own filter), so Another
-  /// crypto's coins and the sheet can never be a different set. A region
-  /// block withdraws nothing (the coin's tap says why); a swap switched
-  /// off, a platform rule or coming soon leaves no coin, and with no
-  /// Bitcoin Network row on the sheet there is nothing for the card to
-  /// open: it goes, as the Dollars Send's does (fw45).
-  List<CoinAssetGroup> _sendDestGroups() {
-    final catalog = ref.watch(orchestraSupportedRoutesProvider);
-    ref.watch(runtimeCapabilitiesProvider);
-    final eligible =
-        _eligibleNetworksForFamily[_addressRailFamily(addressController.text)];
-    final all = _sendDestOptions(catalog, context.l10n);
-    return coinGroupsOfferedUnderPolicy(groupCoinsByAsset([
-      for (final o in all)
-        if (eligible == null || eligible.contains(o.chain))
-          _sendDestPickerRow(o),
-    ])).groups;
-  }
-
   /// "Move to your Dollars" / "Move to your Bitcoin", the search's escape
   /// hatch (send_recipient_step.dart, SendMoveToOwnRows): Move money
   /// straight on the amount into that account, pinned (showOwnMoneyMove),
@@ -7762,15 +7762,6 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
             ? MoneyMovementAccount.bitcoin
             : MoneyMovementAccount.dollars,
         entrySource: kBitcoinSendSearchSource));
-  }
-
-  /// Another crypto (send_recipient_step.dart, SendAnotherCryptoCard): the
-  /// "Where to?" sheet as a browse list of the coins this bitcoin can land
-  /// as; a coin picked turns the field into its address field. Tracked
-  /// under the source the hint it replaced used ('crypto_hint').
-  void _openAnotherCrypto() {
-    TrackingService.sendAssetShortcutTapped('other', source: 'crypto_hint');
-    _showDestinationPicker(context);
   }
 
   /// Whether [addr] still needs a network pick (a 0x… or base58 address
@@ -7814,12 +7805,13 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   /// The Who step (send_recipient_step.dart): the search field (Lightning
   /// addresses of any domain, LNURL, invoices, bitcoin and Spark
   /// addresses, any crypto address the "Where to?" sheet lists, a name, a
-  /// number; Paste and Scan), Another crypto under it while it is empty,
-  /// the destination it holds resolved as one card FIRST, the own-account
+  /// number; Paste and Scan), the destination it holds resolved as one
+  /// card FIRST (or the network question, as it is typed), the own-account
   /// moves the text names, then the people: Frequent (the recents as
   /// circles) and All contacts A–Z filtered by the text
   /// (send_contacts_list.dart). No chips (founder, 7 November 2026: one
-  /// verb per intent).
+  /// verb per intent) and no Another crypto card ("another crypto should
+  /// be implied not a button"): the field recognises the address.
   Widget _sendToPage(AppColorsExtension c) {
     final addr = addressController.text;
     // Hardware/watch-only wallets accept on-chain Bitcoin addresses.
@@ -7892,9 +7884,8 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     // short screen or at a large text scale; the end clears the floating
     // bar.
     // Order (founder, 7 November 2026: Who, then What): the field, the
-    // Another crypto or the recipient card (or the network question, or the
-    // chosen coin), the own-account moves the text names, Frequent, All
-    // contacts.
+    // recipient card (or the network question, or the chosen coin), the
+    // own-account moves the text names, Frequent, All contacts.
     // ONE scroll view to the sheet's bottom edge (the frame reserves
     // nothing under this page, SendStepperFrame.bleedPages), the Contacts
     // as slivers in it.
@@ -7909,13 +7900,6 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     final crossChain = hot && !resolved && !bitcoinDestination
         ? _crossChainOption(c, looksLikeAddress ? addr : '')
         : null;
-    // Another crypto (founder, 7 November 2026: "make sure that people
-    // realise they can send to different cryptos also"): under the empty
-    // field only, hot sources only (a cold wallet sends bitcoin on-chain
-    // and nothing else), and only while a coin can be offered.
-    final hintGroups = hot && addr.isEmpty && !coinChosen
-        ? _sendDestGroups()
-        : const <CoinAssetGroup>[];
     return CustomScrollView(
       key: const ValueKey('send-to-scroll'),
       slivers: [
@@ -7928,14 +7912,21 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
             hintText: hintText,
             onPaste: _pasteAddressFromClipboard,
             onScan: _scanAddress,
+            onSubmitted: (_) => _submitTypedRecipient(),
             onChanged: (val) {
               // A pasted `bitcoin:bc1…?amount=…` URI must be reduced to
               // the bare address — it's both what we show here and what
               // feeds the on-chain fee calc (the prefixed form is
-              // rejected).
+              // rejected). A cross-chain payment URI (`ethereum:0x…@8453`,
+              // `solana:…`) is reduced to its bare recipient, as the Paste
+              // button's commit does, once that recipient is an address
+              // (never half a scheme while it is being typed).
+              final bare = bareCrossChainRecipient(val);
               final norm = val.toLowerCase().startsWith('bitcoin:')
                   ? stripBitcoinAddress(val)
-                  : val;
+                  : bare != val.trim() && _detectAddressType(bare).valid
+                      ? bare
+                      : val;
               if (norm != val) {
                 addressController.value = TextEditingValue(
                   text: norm,
@@ -7998,13 +7989,6 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
               ),
             ),
           ],
-          // Another crypto, the Receive sheets' card, under the field
-          // while it is empty; a tap browses the coins ("Where to?").
-          if (hintGroups.isNotEmpty)
-            SendAnotherCryptoCard(
-              groups: hintGroups,
-              onTap: _openAnotherCrypto,
-            ),
           // An own account's name typed ("dollars", "my bitcoin"): the
           // move into it, the search's escape hatch.
           if (hot && !resolved && !needsPick && !coinChosen)

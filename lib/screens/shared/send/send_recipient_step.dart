@@ -7,20 +7,22 @@
 //   * a search-style field at the top ("Name, phone or any crypto
 //     address"), a magnifier at its left and Paste and Scan inside at its
 //     right ([SendRecipientSearchField]);
-//   * while it is empty, "ANOTHER CRYPTO" under it ([SendAnotherCryptoCard];
-//     founder, 7 November 2026: "just make sure that people realise they
-//     can send to different cryptos also", and of the floating line that
-//     said so first, "this send to bitcoin usdc is strange still idk"): the
-//     Receive sheets' card ([anotherCryptoCard]), alone in its grid so the
-//     compact full-width one, "USDC, ETH and more" from the same coin set
-//     the send's "Where to?" sheet lists. A tap opens that sheet as a
-//     browse list; a coin picked turns the field into that coin's address
-//     field. With no coin offered under the policy the card is not there
-//     (it never opens an empty sheet);
-//   * a pasted or typed destination the flow recognises as one recipient
-//     card (send_contacts_list.dart, SendRecipientCard); a paste or a scan
-//     the send can pay goes straight on to the amount, and an address that
-//     could land on several networks asks which in the coin sheet;
+//   * ANOTHER CRYPTO IS IMPLIED, NOT A BUTTON (founder, 7 November 2026:
+//     "another crypto should be implied not a button, we don't need it, it
+//     should just auto recognise"): no card under the field, the
+//     placeholder says it takes any crypto address and the field
+//     recognises one however it arrives. Typed, the destination shows as
+//     you type: one recipient card (send_contacts_list.dart,
+//     SendRecipientCard) for an address the send pays as it is, the
+//     network question right under the field for one several networks
+//     take, the step's own line for one no coin matches; the keyboard's
+//     Done then does what a paste does ([SendRecipientSearchField.
+//     onSubmitted]). A paste or a scan the send can pay goes straight on
+//     to the amount, and an address that could land on several networks
+//     asks which in the coin sheet, filtered to it: the coin list is
+//     reached only from that question. The Receive sheets keep their
+//     "Another crypto" card ([anotherCryptoCard]): receiving needs a coin
+//     chosen first;
 //   * "Frequent" (the recents as circles, hidden while typing) and All
 //     contacts A-Z under it (send_contacts_list.dart).
 //
@@ -28,7 +30,7 @@
 // is money leaving for someone else, so there are no "More ways to send"
 // chips any more: no "To your Dollars" / "To your Bitcoin" (moving between
 // your own accounts is the Receive of the account to fill), no "Crypto
-// address" (the field takes it, Another crypto says so) and no
+// address" (the field takes it, its placeholder says so) and no
 // "Prediction or investment" (a gift is a What: send_what_step.dart).
 // Typed, an own account's name ("dollars", "my bitcoin") still finds the
 // move ([SendMoveToOwnRows]): the escape hatch, never a door of its own.
@@ -108,6 +110,7 @@ class SendRecipientSearchField extends StatelessWidget {
     required this.onChanged,
     required this.onPaste,
     required this.onScan,
+    this.onSubmitted,
     this.autofocus = false,
   });
 
@@ -116,6 +119,10 @@ class SendRecipientSearchField extends StatelessWidget {
   final ValueChanged<String> onChanged;
   final VoidCallback onPaste;
   final VoidCallback onScan;
+
+  /// The keyboard's Done on what was typed: the send goes on as after a
+  /// paste (see the file header).
+  final ValueChanged<String>? onSubmitted;
   final bool autofocus;
 
   @override
@@ -161,6 +168,7 @@ class SendRecipientSearchField extends StatelessWidget {
               smartQuotesType: SmartQuotesType.disabled,
               scrollPadding: EdgeInsets.only(bottom: 120.h),
               onChanged: onChanged,
+              onSubmitted: onSubmitted,
               decoration: InputDecoration(
                 hintText: hintText,
                 hintMaxLines: 1,
@@ -923,8 +931,8 @@ class AnotherCryptoMarks extends StatelessWidget {
   }
 }
 
-/// THE "ANOTHER CRYPTO" CARD, one for the Receive sheets and both Sends
-/// (founder, 7 November 2026, on the old one, three overlapping coins over
+/// THE "ANOTHER CRYPTO" CARD of the Receive sheets (founder, 7 November
+/// 2026, on the old one, three overlapping coins over
 /// "Wallet or exchange · USDC, USDT, ETH +12": "this another crypto i do
 /// not like it is still confusing, too much text just strange and ugly"):
 /// the app's big card (kute_action_cards.dart), titled "Another crypto",
@@ -945,49 +953,6 @@ KuteActionCard anotherCryptoCard(
       subtitle: anotherCryptoLine(l10n, groups),
       onTap: onTap,
     );
-
-/// The key of the Sends' "Another crypto" card.
-const ValueKey<String> kSendAnotherCryptoKey =
-    ValueKey('send-another-crypto');
-
-/// The Sends' "Another crypto" (see the file header): [anotherCryptoCard]
-/// alone in its grid, so the compact full-width card, under the empty
-/// field; a tap opens the send's coin sheet ([onTap]). Nothing when
-/// [groups] holds no coin but bitcoin: the sheet would offer nothing the
-/// field does not already take.
-class SendAnotherCryptoCard extends StatelessWidget {
-  const SendAnotherCryptoCard({
-    super.key,
-    required this.groups,
-    required this.onTap,
-  });
-
-  final List<CoinAssetGroup> groups;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    if (anotherCryptoNamedCoins(groups).isEmpty) {
-      return const SizedBox.shrink();
-    }
-    return Padding(
-      padding: EdgeInsets.only(top: 12.h),
-      child: KuteActionCardGrid(
-        cards: [
-          anotherCryptoCard(
-            context.l10n,
-            key: kSendAnotherCryptoKey,
-            groups: groups,
-            onTap: () {
-              HapticFeedback.lightImpact();
-              onTap();
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 /// Whether [text] is a destination plain bitcoin pays (the Bitcoin Send's
 /// own rails): a bitcoin or Spark address, a Lightning invoice or offer, an
