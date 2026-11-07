@@ -3194,7 +3194,7 @@ class AppLocalizationsBg extends AppLocalizations {
       'Bitcoin, Lightning или Spark адрес';
 
   @override
-  String get sendAutoSwapFromBitcoin => 'Автоматична размяна от Bitcoin';
+  String get sendAutoSwapFromBitcoin => 'От твоя Bitcoin';
 
   @override
   String get sendAddressNotIdentified => 'Адресът не е разпознат';
@@ -3701,7 +3701,7 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String activitySwapLegs(String from, String to) {
-    return 'Размяна · $from → $to';
+    return '$from → $to';
   }
 
   @override
@@ -4193,6 +4193,11 @@ class AppLocalizationsBg extends AppLocalizations {
   @override
   String confirmationSentToWallet(String walletName) {
     return 'Изпратено до $walletName';
+  }
+
+  @override
+  String confirmationMovedToWallet(String walletName) {
+    return 'Преместено в $walletName';
   }
 
   @override
@@ -6173,6 +6178,12 @@ class AppLocalizationsBg extends AppLocalizations {
   String get moveTransfer => 'Прехвърли пари';
 
   @override
+  String get moveVerb => 'Премести';
+
+  @override
+  String get moveToBitcoin => 'Премести в Bitcoin';
+
+  @override
   String get moveAdd => 'Добави';
 
   @override
@@ -6703,9 +6714,6 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get assetDollars => 'Investments';
-
-  @override
-  String get moveSourceInvestments => 'Инвестиции';
 
   @override
   String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
@@ -11053,7 +11061,7 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String multiMovePurchaseWaiting(String amount, String balance) {
-    return 'Вашите $amount са в $balance. Докоснете, за да купите Bitcoin';
+    return 'Вашите $amount са в $balance. Докоснете, за да ги преместите в Bitcoin';
   }
 
   @override
@@ -11069,6 +11077,14 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get usdReceiveFromAnotherWallet => 'От друг портфейл или борса';
+
+  @override
+  String get receiveAnotherWallet => 'Друг портфейл';
+
+  @override
+  String receiveOrAnExchangeLine(String coins) {
+    return 'Или борса · $coins';
+  }
 
   @override
   String get usdWithdrawToYourWallet => 'Към твоя портфейл';
@@ -11289,12 +11305,12 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String moneyStepBuying(String amount) {
-    return 'Купуване на Bitcoin за $amount';
+    return 'Прехвърляне на $amount към Bitcoin';
   }
 
   @override
   String moneyStepBought(String amount) {
-    return 'Купен Bitcoin за $amount';
+    return '$amount прехвърлени към Bitcoin';
   }
 
   @override
@@ -12042,14 +12058,11 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String usdBitcoinBalanceLine(String amount) {
-    return '$amount in Bitcoin';
+    return '$amount в Bitcoin';
   }
 
   @override
-  String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
-
-  @override
-  String get receiveOrSwapTitle => 'Получаване или размяна';
+  String get usdReceiveFromYourBitcoin => 'От твоя Bitcoin';
 
   @override
   String get receiveFromYourDollars => 'От твоите Долари';
@@ -12058,9 +12071,6 @@ class AppLocalizationsBg extends AppLocalizations {
   String usdDollarsBalanceLine(String amount) {
     return '$amount в Долари';
   }
-
-  @override
-  String get receiveFromAnotherAsset => 'От друг актив';
 
   @override
   String get receiveBitcoinAndLightning => 'Bitcoin и Lightning';
@@ -12087,6 +12097,11 @@ class AppLocalizationsBg extends AppLocalizations {
   @override
   String sendAlsoSendsToMore(String names, int count) {
     return '$names и още $count';
+  }
+
+  @override
+  String coinsSummaryShort(String names, int count) {
+    return '$names +$count';
   }
 
   @override
@@ -13766,10 +13781,10 @@ class AppLocalizationsBg extends AppLocalizations {
   String get sendWayCryptoAddress => 'Крипто адрес';
 
   @override
-  String get sendWayPrediction => 'Прогноза';
+  String get sendWayPrediction => 'Прогноза или инвестиция';
 
   @override
-  String get sendWayToDollars => 'Към Долари';
+  String get sendWayToDollars => 'Към твоите Долари';
 
   @override
   String get sendPickRowSub => 'Или инвестиция. Потърси пазар, избери страна';

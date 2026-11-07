@@ -3190,7 +3190,7 @@ class AppLocalizationsHr extends AppLocalizations {
       'Bitcoin, Lightning ili Spark adresa';
 
   @override
-  String get sendAutoSwapFromBitcoin => 'Automatska zamjena iz Bitcoina';
+  String get sendAutoSwapFromBitcoin => 'Iz tvog Bitcoina';
 
   @override
   String get sendAddressNotIdentified => 'Adresa nije prepoznata';
@@ -3700,7 +3700,7 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String activitySwapLegs(String from, String to) {
-    return 'Zamjena · $from → $to';
+    return '$from → $to';
   }
 
   @override
@@ -4195,6 +4195,11 @@ class AppLocalizationsHr extends AppLocalizations {
   @override
   String confirmationSentToWallet(String walletName) {
     return 'Poslano u $walletName';
+  }
+
+  @override
+  String confirmationMovedToWallet(String walletName) {
+    return 'Premješteno u $walletName';
   }
 
   @override
@@ -6174,6 +6179,12 @@ class AppLocalizationsHr extends AppLocalizations {
   String get moveTransfer => 'Premjesti novac';
 
   @override
+  String get moveVerb => 'Premjesti';
+
+  @override
+  String get moveToBitcoin => 'Premjesti u Bitcoin';
+
+  @override
   String get moveAdd => 'Dodaj';
 
   @override
@@ -6706,9 +6717,6 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get assetDollars => 'Investments';
-
-  @override
-  String get moveSourceInvestments => 'Ulaganja';
 
   @override
   String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
@@ -11053,7 +11061,7 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String multiMovePurchaseWaiting(String amount, String balance) {
-    return 'Vaših $amount je u $balance. Dodirnite za kupnju Bitcoina';
+    return 'Vaših $amount je u $balance. Dodirnite da ih prebacite u Bitcoin';
   }
 
   @override
@@ -11070,6 +11078,14 @@ class AppLocalizationsHr extends AppLocalizations {
   @override
   String get usdReceiveFromAnotherWallet =>
       'Iz drugog novčanika ili mjenjačnice';
+
+  @override
+  String get receiveAnotherWallet => 'Drugi novčanik';
+
+  @override
+  String receiveOrAnExchangeLine(String coins) {
+    return 'Ili mjenjačnica · $coins';
+  }
 
   @override
   String get usdWithdrawToYourWallet => 'U tvoj novčanik';
@@ -11290,12 +11306,12 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String moneyStepBuying(String amount) {
-    return 'Kupnja Bitcoina za $amount';
+    return 'Prebacujemo $amount u Bitcoin';
   }
 
   @override
   String moneyStepBought(String amount) {
-    return 'Kupljen Bitcoin za $amount';
+    return 'Prebačeno $amount u Bitcoin';
   }
 
   @override
@@ -12049,14 +12065,11 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String usdBitcoinBalanceLine(String amount) {
-    return '$amount in Bitcoin';
+    return '$amount u Bitcoinu';
   }
 
   @override
-  String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
-
-  @override
-  String get receiveOrSwapTitle => 'Primi ili zamijeni';
+  String get usdReceiveFromYourBitcoin => 'Iz tvog Bitcoina';
 
   @override
   String get receiveFromYourDollars => 'Iz tvojih Dolara';
@@ -12065,9 +12078,6 @@ class AppLocalizationsHr extends AppLocalizations {
   String usdDollarsBalanceLine(String amount) {
     return '$amount u Dolarima';
   }
-
-  @override
-  String get receiveFromAnotherAsset => 'Iz druge kriptovalute';
 
   @override
   String get receiveBitcoinAndLightning => 'Bitcoin i Lightning';
@@ -12094,6 +12104,11 @@ class AppLocalizationsHr extends AppLocalizations {
   @override
   String sendAlsoSendsToMore(String names, int count) {
     return '$names i još $count';
+  }
+
+  @override
+  String coinsSummaryShort(String names, int count) {
+    return '$names +$count';
   }
 
   @override
@@ -13777,10 +13792,10 @@ class AppLocalizationsHr extends AppLocalizations {
   String get sendWayCryptoAddress => 'Kripto adresa';
 
   @override
-  String get sendWayPrediction => 'Predviđanje';
+  String get sendWayPrediction => 'Predviđanje ili ulaganje';
 
   @override
-  String get sendWayToDollars => 'U Dolare';
+  String get sendWayToDollars => 'U tvoje Dolare';
 
   @override
   String get sendPickRowSub => 'Ili ulaganje. Potraži tržište, odaberi stranu';

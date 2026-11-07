@@ -48,7 +48,9 @@ class MoveSentOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return KuteConfirmation(
-      message: l10n.confirmationSentToWallet(toWalletName),
+      // The person's own money moved between their accounts: "Moved to
+      // Dollars", never "Bought" (founder, 7 November 2026).
+      message: l10n.confirmationMovedToWallet(toWalletName),
       amount: amount.isEmpty ? null : amount,
       rows: {l10n.from: fromWalletName},
       detail: note,

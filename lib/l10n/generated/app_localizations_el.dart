@@ -3215,7 +3215,7 @@ class AppLocalizationsEl extends AppLocalizations {
       'Διεύθυνση Bitcoin, Lightning ή Spark';
 
   @override
-  String get sendAutoSwapFromBitcoin => 'Αυτόματη ανταλλαγή από Bitcoin';
+  String get sendAutoSwapFromBitcoin => 'Από το Bitcoin σου';
 
   @override
   String get sendAddressNotIdentified => 'Η διεύθυνση δεν αναγνωρίστηκε';
@@ -3728,7 +3728,7 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String activitySwapLegs(String from, String to) {
-    return 'Ανταλλαγή · $from → $to';
+    return '$from → $to';
   }
 
   @override
@@ -4226,6 +4226,11 @@ class AppLocalizationsEl extends AppLocalizations {
   @override
   String confirmationSentToWallet(String walletName) {
     return 'Στάλθηκε στο $walletName';
+  }
+
+  @override
+  String confirmationMovedToWallet(String walletName) {
+    return 'Μεταφέρθηκε στο $walletName';
   }
 
   @override
@@ -6211,6 +6216,12 @@ class AppLocalizationsEl extends AppLocalizations {
   String get moveTransfer => 'Μετακίνηση χρημάτων';
 
   @override
+  String get moveVerb => 'Μετακίνηση';
+
+  @override
+  String get moveToBitcoin => 'Μετακίνηση στο Bitcoin';
+
+  @override
   String get moveAdd => 'Προσθήκη';
 
   @override
@@ -6746,9 +6757,6 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get assetDollars => 'Investments';
-
-  @override
-  String get moveSourceInvestments => 'Επενδύσεις';
 
   @override
   String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
@@ -11108,7 +11116,7 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String multiMovePurchaseWaiting(String amount, String balance) {
-    return 'Τα $amount σας είναι στο $balance. Πατήστε για να αγοράσετε Bitcoin';
+    return 'Τα $amount σας είναι στο $balance. Πατήστε για να τα μεταφέρετε στο Bitcoin';
   }
 
   @override
@@ -11125,6 +11133,14 @@ class AppLocalizationsEl extends AppLocalizations {
   @override
   String get usdReceiveFromAnotherWallet =>
       'Από άλλο πορτοφόλι ή ανταλλακτήριο';
+
+  @override
+  String get receiveAnotherWallet => 'Άλλο πορτοφόλι';
+
+  @override
+  String receiveOrAnExchangeLine(String coins) {
+    return 'Ή ανταλλακτήριο · $coins';
+  }
 
   @override
   String get usdWithdrawToYourWallet => 'Στο πορτοφόλι σου';
@@ -11345,12 +11361,12 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String moneyStepBuying(String amount) {
-    return 'Αγορά Bitcoin αξίας $amount';
+    return 'Μεταφορά $amount στο Bitcoin';
   }
 
   @override
   String moneyStepBought(String amount) {
-    return 'Αγοράστηκε Bitcoin αξίας $amount';
+    return 'Μεταφέρθηκαν $amount στο Bitcoin';
   }
 
   @override
@@ -12104,25 +12120,19 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String usdBitcoinBalanceLine(String amount) {
-    return '$amount in Bitcoin';
+    return '$amount σε Bitcoin';
   }
 
   @override
-  String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
+  String get usdReceiveFromYourBitcoin => 'Από το Bitcoin σου';
 
   @override
-  String get receiveOrSwapTitle => 'Λήψη ή ανταλλαγή';
-
-  @override
-  String get receiveFromYourDollars => 'Από τα Δολάριά σου';
+  String get receiveFromYourDollars => 'Από τα Δολάρια';
 
   @override
   String usdDollarsBalanceLine(String amount) {
     return '$amount σε Δολάρια';
   }
-
-  @override
-  String get receiveFromAnotherAsset => 'Από άλλο κρυπτονόμισμα';
 
   @override
   String get receiveBitcoinAndLightning => 'Bitcoin και Lightning';
@@ -12149,6 +12159,11 @@ class AppLocalizationsEl extends AppLocalizations {
   @override
   String sendAlsoSendsToMore(String names, int count) {
     return '$names και $count ακόμα';
+  }
+
+  @override
+  String coinsSummaryShort(String names, int count) {
+    return '$names +$count';
   }
 
   @override
@@ -13844,10 +13859,10 @@ class AppLocalizationsEl extends AppLocalizations {
   String get sendWayCryptoAddress => 'Διεύθυνση crypto';
 
   @override
-  String get sendWayPrediction => 'Πρόβλεψη';
+  String get sendWayPrediction => 'Πρόβλεψη ή επένδυση';
 
   @override
-  String get sendWayToDollars => 'Στα Δολάρια';
+  String get sendWayToDollars => 'Στα Δολάριά σου';
 
   @override
   String get sendPickRowSub => 'Ή μια επένδυση. Βρες αγορά, διάλεξε πλευρά';

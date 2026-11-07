@@ -16,6 +16,8 @@ import 'package:kute/screens/shared/kute_blur.dart';
 import 'package:kute/screens/shared/kute_dog_scenes.dart';
 import 'package:kute/screens/shared/kute_morph_label.dart';
 import 'package:kute/screens/shared/kute_motion.dart';
+import 'package:kute/screens/shared/receive_arrow_glyph.dart'
+    show GlyphPressScope;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/theme/kute_motion.dart';
@@ -48,9 +50,10 @@ class KuteDockAction {
   /// The verb's icon; [glyph], when given, is drawn in its place.
   final IconData icon;
 
-  /// A glyph drawn in code instead of [icon] (the Receive arrow with its
-  /// swap badge, [ReceiveSwapGlyph]), given the colour and size the icon
-  /// would have had, so it follows the button's fill and theme.
+  /// A glyph drawn in code instead of [icon] (the moving Receive arrow,
+  /// [ReceiveArrowGlyph]), given the colour and size the icon would have
+  /// had, so it follows the button's fill and theme. The button pings it
+  /// on each press ([GlyphPressScope]).
   final Widget Function(Color color, double size)? glyph;
   final String trackingId;
   final VoidCallback? onTap;
@@ -326,7 +329,7 @@ class _CompactAction extends StatelessWidget {
         enabled: enabled,
         label: action.label,
         excludeSemantics: true,
-        child: KutePressable(
+        child: _glyphPress(action, enabled, KutePressable(
           enabled: enabled,
           child: Material(
           color: Colors.transparent,
@@ -417,11 +420,18 @@ class _CompactAction extends StatelessWidget {
             ),
           ),
         ),
-        ),
+        )),
       ),
     );
   }
 }
+
+/// [child] under a [GlyphPressScope] when [action] draws a glyph, so a
+/// press anywhere on the button plays the glyph's press.
+Widget _glyphPress(KuteDockAction action, bool enabled, Widget child) =>
+    action.glyph == null
+        ? child
+        : GlyphPressScope(enabled: enabled, child: child);
 
 /// A money verb in the dock, wearing the same neutral chrome as the search
 /// square so the three controls read as one row, or, when [KuteDockAction.solid],
@@ -451,7 +461,7 @@ class KuteDockActionButton extends StatelessWidget {
         : foreground;
     return Opacity(
       opacity: enabled ? 1 : (solid ? 0.35 : 0.45),
-      child: KutePressable(
+      child: _glyphPress(action, enabled, KutePressable(
         enabled: enabled,
         child: Container(
         height: 54,
@@ -524,7 +534,7 @@ class KuteDockActionButton extends StatelessWidget {
             ),
           ),
         ),
-        ),
+        )),
       ),
     );
   }

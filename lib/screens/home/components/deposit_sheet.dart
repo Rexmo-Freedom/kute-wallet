@@ -955,16 +955,15 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   Widget _movementRouteCard({required String? available, String? detail}) {
     final route = _movementRoute!;
     final editable = !_processing && !_movementSendLocked;
-    // A pinned route (the withdrawal door) picks nothing: the ends show
-    // no chevron and there is no flip, as on the Purchase Bitcoin sheet.
+    // A pinned route (the own-account doors: showOwnMoneyMove) picks
+    // nothing: the ends show no chevron and there is no flip, as on the
+    // Purchase Bitcoin sheet. Each end keeps its account's own name
+    // ("From Dollars", "To Bitcoin"), the words of the door that opened it
+    // ("From your Dollars", "To your Bitcoin").
     final pickable = editable && !widget.movementPinned;
     MoveRouteEndpoint endpoint(MoneyMovementAccount account, bool source) =>
         MoveRouteEndpoint(
-          name: widget.movementPinned &&
-                  source &&
-                  account == MoneyMovementAccount.dollars
-              ? context.l10n.moveSourceInvestments
-              : _movementName(account),
+          name: _movementName(account),
           asset: _movementAsset(account),
           available: source ? available : null,
           detail: source ? detail : null,
@@ -1421,11 +1420,27 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     TrackingService.track('fiat_coming_soon_viewed', params: {'side': side});
   }
 
+  /// Money between the person's own Bitcoin and Dollars, never a buy
+  /// (founder, 7 November 2026: "Buy should only be for fiat"): the
+  /// Dollars door paid from bitcoin, or Buy bitcoin paid from the dollar
+  /// balance. Like Move money itself it reads "Move money" over a "Move
+  /// $50" button; Buy is only for money from outside (Cash App, the
+  /// bank).
+  bool get _ownMoneyMove =>
+      !_isFiatMode &&
+      !_isLedgerMove &&
+      ((_buyingDollars && _fromBtc) ||
+          (_dollarsAreSource &&
+              !_destPredictions &&
+              !_destHyperliquid &&
+              !_destUsd));
+
   /// The sheet title, named after the live direction + surface rather
   /// than a flat "Exchange" (user decision): a selected venue or the
-  /// dollar balance first, otherwise the lock's own name.
+  /// dollar balance first, otherwise the lock's own name. A move of the
+  /// person's own money is "Move money" whichever door opened it.
   String get _sheetTitle {
-    if (_isMoneyMovement) return context.l10n.moveTransfer;
+    if (_isMoneyMovement || _ownMoneyMove) return context.l10n.moveTransfer;
     if (_destPredictions) return context.l10n.moveAddPredictions;
     if (_destHyperliquid) return context.l10n.moveAddInvesting;
     if (_buyingDollars) return context.l10n.dollarDeposit;
@@ -1451,11 +1466,14 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   }
 
   String get _actionVerb {
-    if (_isMoneyMovement) return context.l10n.moveTransfer;
+    // The person's own money moves ("Move $50"); only money from outside
+    // is bought.
+    if (_isMoneyMovement || _ownMoneyMove) return context.l10n.moveVerb;
     if (_sourceFiat || _sourceCashApp) return context.l10n.moveBuy;
     if (_destFiat) return context.l10n.moveSell;
-    // Dollars are bought, not added to a venue. A cash-out that lands
-    // in dollars is still a withdrawal, so it falls through below.
+    // Dollars from outside are bought, not added to a venue. A cash-out
+    // that lands in dollars is still a withdrawal, so it falls through
+    // below.
     if (_buyingDollars) return context.l10n.moveBuy;
     if (_destPredictions || _destHyperliquid) return context.l10n.moveAdd;
     if (_fromHyperliquid || (!_fromBtc && _sourceWalletId == null)) {
@@ -2933,14 +2951,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     // the amount, and the restriction stands in for the fee line.
     if (_isMoneyMovement && (!_fromBtc || _movementRestriction != null)) {
       // Stablecoin inputs are already USD. A BTC price only labels the
-      // optional output estimate; it never gates or sizes this source.
-      if (mounted) {
-        setState(() {
-          _loadingRate = false;
-          _usdPerBtc = _cachedUsdPerBtc() ?? 0;
-          _syncRatioFromTyped();
-        });
-      }
+      // optional output estimate; it never gates or sizes this source. A
+      // door's prefill (the Goals nudge's dollars) lands with it.
+      if (mounted) _applyRate(_cachedUsdPerBtc() ?? 0, prefill: true);
       return;
     }
     var showedHeld = false;

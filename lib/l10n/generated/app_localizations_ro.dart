@@ -3200,7 +3200,7 @@ class AppLocalizationsRo extends AppLocalizations {
       'Adresă Bitcoin, Lightning sau Spark';
 
   @override
-  String get sendAutoSwapFromBitcoin => 'Schimb automat din Bitcoin';
+  String get sendAutoSwapFromBitcoin => 'Din Bitcoin-ul tău';
 
   @override
   String get sendAddressNotIdentified => 'Adresă neidentificată';
@@ -3710,7 +3710,7 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String activitySwapLegs(String from, String to) {
-    return 'Schimb · $from → $to';
+    return '$from → $to';
   }
 
   @override
@@ -4206,6 +4206,11 @@ class AppLocalizationsRo extends AppLocalizations {
   @override
   String confirmationSentToWallet(String walletName) {
     return 'Trimis în $walletName';
+  }
+
+  @override
+  String confirmationMovedToWallet(String walletName) {
+    return 'Mutat în $walletName';
   }
 
   @override
@@ -6193,6 +6198,12 @@ class AppLocalizationsRo extends AppLocalizations {
   String get moveTransfer => 'Mută bani';
 
   @override
+  String get moveVerb => 'Mută';
+
+  @override
+  String get moveToBitcoin => 'Mută în Bitcoin';
+
+  @override
   String get moveAdd => 'Adaugă';
 
   @override
@@ -6728,9 +6739,6 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get assetDollars => 'Investments';
-
-  @override
-  String get moveSourceInvestments => 'Investiții';
 
   @override
   String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
@@ -11088,7 +11096,7 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String multiMovePurchaseWaiting(String amount, String balance) {
-    return 'Cei $amount sunt în $balance. Atinge pentru a cumpăra Bitcoin';
+    return 'Cei $amount sunt în $balance. Atinge pentru a-i muta în Bitcoin';
   }
 
   @override
@@ -11104,6 +11112,14 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get usdReceiveFromAnotherWallet => 'Din alt portofel sau exchange';
+
+  @override
+  String get receiveAnotherWallet => 'Alt portofel';
+
+  @override
+  String receiveOrAnExchangeLine(String coins) {
+    return 'Sau un exchange · $coins';
+  }
 
   @override
   String get usdWithdrawToYourWallet => 'În portofelul tău';
@@ -11324,12 +11340,12 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String moneyStepBuying(String amount) {
-    return 'Se cumpără Bitcoin de $amount';
+    return 'Se mută $amount în Bitcoin';
   }
 
   @override
   String moneyStepBought(String amount) {
-    return 'Cumpărat Bitcoin de $amount';
+    return 'Mutat $amount în Bitcoin';
   }
 
   @override
@@ -12083,14 +12099,11 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String usdBitcoinBalanceLine(String amount) {
-    return '$amount in Bitcoin';
+    return '$amount în Bitcoin';
   }
 
   @override
-  String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
-
-  @override
-  String get receiveOrSwapTitle => 'Primește sau schimbă';
+  String get usdReceiveFromYourBitcoin => 'Din Bitcoin-ul tău';
 
   @override
   String get receiveFromYourDollars => 'Din Dolarii tăi';
@@ -12099,9 +12112,6 @@ class AppLocalizationsRo extends AppLocalizations {
   String usdDollarsBalanceLine(String amount) {
     return '$amount în Dolari';
   }
-
-  @override
-  String get receiveFromAnotherAsset => 'Din alt activ';
 
   @override
   String get receiveBitcoinAndLightning => 'Bitcoin și Lightning';
@@ -12128,6 +12138,11 @@ class AppLocalizationsRo extends AppLocalizations {
   @override
   String sendAlsoSendsToMore(String names, int count) {
     return '$names și încă $count';
+  }
+
+  @override
+  String coinsSummaryShort(String names, int count) {
+    return '$names +$count';
   }
 
   @override
@@ -13815,10 +13830,10 @@ class AppLocalizationsRo extends AppLocalizations {
   String get sendWayCryptoAddress => 'Adresă crypto';
 
   @override
-  String get sendWayPrediction => 'Predicție';
+  String get sendWayPrediction => 'Predicție sau investiție';
 
   @override
-  String get sendWayToDollars => 'În Dolari';
+  String get sendWayToDollars => 'În Dolarii tăi';
 
   @override
   String get sendPickRowSub => 'Sau o investiție. Caută o piață, alege partea';

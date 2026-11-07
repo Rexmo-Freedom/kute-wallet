@@ -32,6 +32,22 @@
 // the compact one. The squares of one row are equally tall, so their foot
 // lines sit level.
 //
+// THE MAIN ACTION ON TOP (founder, 7 November 2026, the Bitcoin Receive:
+// "Bitcoin should be on top, more prevalent here"): a grid given a
+// [KuteActionCardGrid.lead] draws it first, full width and with more
+// presence than the compact full-width card (a larger visual box, title
+// and chevron, more padding), and lays the other cards out under it by
+// the rules above: two squares side by side, one compact full width, or
+// none at all.
+//
+// TITLES ON ONE LINE (founder, 7 November 2026, the Receive sheets: "sizes
+// are strange here"; one square's title on one line, the other's on two,
+// left one card half empty): a grid asked for [KuteActionCardGrid.
+// oneLineTitles] draws two big cards as squares only where both titles
+// read on one line at half the width, and otherwise as two compact
+// full-width cards, one over the other: the same layout as an odd last
+// card, never a squeezed font.
+//
 // OPTION CARDS, THE SAME SQUARES, SMALLER (founder, 4 November 2026: the
 // rows under a market's or a position's chart, "Add margin", "Rules and
 // resolution", "should be like big squares"; "little cards, square-ish"):
@@ -107,6 +123,18 @@ const double kKuteOptionCardLonePadding = 16;
 
 /// The space between a full-width big card's visual and its text.
 const double kKuteActionCardWideGap = 14;
+
+/// The visual box of a grid's lead card ([KuteActionCardGrid.lead]).
+const double kKuteActionCardLeadVisualSlot = 48;
+
+/// The size the sheets draw a lead card's visual at.
+const double kKuteActionCardLeadVisualSize = 48;
+
+/// A lead card's inner padding.
+const double kKuteActionCardLeadPadding = 18;
+
+/// The width of the card surface's hairline, inside its bounds.
+const double _kCardHairline = 1;
 
 /// One big action card (see the file header). A null [onTap] draws the
 /// card disabled (0.6 opacity, no press); [badge] then reads at its top
@@ -250,7 +278,7 @@ class KuteActionCard extends StatelessWidget {
     if (span != _CardSpan.square) {
       if (!compact) {
         return _interactive(
-          _wideCard(c, isLight),
+          _wideCard(c, isLight, lead: span == _CardSpan.lead),
           semanticsLabel ??
               [
                 title,
@@ -369,20 +397,34 @@ class KuteActionCard extends StatelessWidget {
         ),
       );
 
+  /// A lead card's title style ([KuteActionCardGrid.lead]).
+  static TextStyle leadTitleStyle(AppColorsExtension c) =>
+      titleStyle(c).copyWith(fontSize: 18.sp, letterSpacing: -0.3);
+
+  /// The style of a lead card's line under its title.
+  static TextStyle leadSubtitleStyle(AppColorsExtension c) =>
+      subtitleStyle(c).copyWith(fontSize: 14.sp);
+
   /// A full-width big card, the grid's only card or an odd last one (see
   /// the file header): the visual at the left in its box, the title, its
   /// lines and the foot beside it, wrapping as they need, then the chevron
-  /// (the badge on a disabled card) at the right; as tall as that.
-  Widget _wideCard(AppColorsExtension c, bool isLight) {
+  /// (the badge on a disabled card) at the right; as tall as that. [lead]
+  /// (the grid's main action on top) draws it with more presence.
+  Widget _wideCard(AppColorsExtension c, bool isLight, {bool lead = false}) {
     final badgeText = badge;
     final foot = footer;
     return Container(
-      padding: const EdgeInsets.all(kKuteActionCardPadding),
+      padding: EdgeInsets.all(
+          lead ? kKuteActionCardLeadPadding : kKuteActionCardPadding),
       decoration: _surface(c, isLight, 20),
       child: Row(
         children: [
           SizedBox(
-            height: visualSlot,
+            height: lead
+                ? (visualSlot > kKuteActionCardLeadVisualSlot
+                    ? visualSlot
+                    : kKuteActionCardLeadVisualSlot)
+                : visualSlot,
             child: Center(widthFactor: 1, child: visual),
           ),
           const SizedBox(width: kKuteActionCardWideGap),
@@ -391,10 +433,13 @@ class KuteActionCard extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: titleStyle(c)),
+                Text(title,
+                    style: lead ? leadTitleStyle(c) : titleStyle(c)),
                 if (subtitle != null) ...[
-                  const SizedBox(height: 2),
-                  Text(subtitle!, style: subtitleStyle(c)),
+                  SizedBox(height: lead ? 3 : 2),
+                  Text(subtitle!,
+                      style:
+                          lead ? leadSubtitleStyle(c) : subtitleStyle(c)),
                 ],
                 if (foot != null && foot.isNotEmpty) ...[
                   const SizedBox(height: 6),
@@ -418,7 +463,8 @@ class KuteActionCard extends StatelessWidget {
           if (badgeText != null)
             _badgePill(c, badgeText)
           else
-            Icon(Icons.chevron_right_rounded, size: 22, color: c.textTertiary),
+            Icon(Icons.chevron_right_rounded,
+                size: lead ? 24 : 22, color: c.textTertiary),
         ],
       ),
     );
@@ -525,10 +571,11 @@ class _KuteOptionIcon extends StatelessWidget {
 }
 
 /// How the grid lays a card out: a square of a row, full width under
-/// squares, or the grid's only card (see the file header). A big card
-/// draws wide and lone alike (compact, the visual at its left); an option
-/// card draws the lone one larger.
-enum _CardSpan { square, wide, lone }
+/// squares, the grid's only card, or its main action on top (see the file
+/// header). A big card draws wide and lone alike (compact, the visual at
+/// its left) and the lead larger; an option card draws the lone one
+/// larger.
+enum _CardSpan { square, wide, lone, lead }
 
 /// The [_CardSpan] [KuteActionCardGrid] gives the card under it; a card
 /// outside a grid is a square.
@@ -552,11 +599,18 @@ class KuteActionCardGrid extends StatelessWidget {
   const KuteActionCardGrid({
     super.key,
     required this.cards,
+    this.lead,
     this.gap = kKuteActionCardGap,
     this.compactLone = false,
+    this.oneLineTitles = false,
   });
 
   final List<KuteActionCard> cards;
+
+  /// The main action, drawn first, full width and with more presence; the
+  /// [cards] follow under it by the usual rules, a lone one compact (see
+  /// the file header). A big card, never an option card.
+  final KuteActionCard? lead;
 
   /// The space between cards, in design units (scaled by width).
   final double gap;
@@ -567,18 +621,27 @@ class KuteActionCardGrid extends StatelessWidget {
   /// (founder, 6 November 2026: full width and compact).
   final bool compactLone;
 
+  /// Two big cards are squares only where both titles fit on one line at
+  /// half the width; otherwise each is a compact full-width card (see the
+  /// file header).
+  final bool oneLineTitles;
+
   /// Whether every card's title and line fit a card [cardWidth] wide
-  /// without an ellipsis or a word broken across lines.
+  /// without an ellipsis or a word broken across lines, the title in at
+  /// most [titleLines] lines.
   static bool labelsFit(
     BuildContext context,
     List<KuteActionCard> cards,
-    double cardWidth,
-  ) {
+    double cardWidth, {
+    int titleLines = 2,
+  }) {
     final c = context.colors;
     final padding = cards.any((card) => !card.compact)
         ? kKuteActionCardPadding
         : kKuteOptionCardPadding;
-    final inner = cardWidth - 2 * padding;
+    // The surface's hairline sits inside the card too (a Container adds
+    // its border to its padding), so the text has that much less.
+    final inner = cardWidth - 2 * (padding + _kCardHairline);
     if (inner <= 0) return false;
     final base = DefaultTextStyle.of(context).style;
     final scaler = MediaQuery.textScalerOf(context);
@@ -610,7 +673,9 @@ class KuteActionCardGrid extends StatelessWidget {
     }
 
     for (final card in cards) {
-      if (!fits(card.title, card.titleStyleOf(c))) return false;
+      if (!fits(card.title, card.titleStyleOf(c), maxLines: titleLines)) {
+        return false;
+      }
       final sub = card.subtitle;
       if (sub != null &&
           !fits(sub, KuteActionCard.subtitleStyle(c),
@@ -646,7 +711,50 @@ class KuteActionCardGrid extends StatelessWidget {
           child: card,
         );
 
+    final first = lead;
+    if (first != null) {
+      assert(!first.compact, 'a lead card is a big card');
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _KuteCardSpan(span: _CardSpan.lead, child: first),
+          if (cards.isNotEmpty) ...[
+            space,
+            // Under the lead a lone card is the compact full-width one,
+            // never a second card with the lead's presence.
+            KuteActionCardGrid(
+                cards: cards,
+                gap: gap,
+                compactLone: true,
+                oneLineTitles: oneLineTitles),
+          ],
+        ],
+      );
+    }
     if (cards.isEmpty) return const SizedBox.shrink();
+    if (oneLineTitles &&
+        cards.length == 2 &&
+        !cards.every((card) => card.compact)) {
+      // Two squares where both titles read on one line at half the width,
+      // else two compact full-width cards (see the file header).
+      return LayoutBuilder(builder: (context, constraints) {
+        final half = (constraints.maxWidth - g) / 2;
+        final squares = constraints.hasBoundedWidth &&
+            labelsFit(context, cards, half, titleLines: 1);
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: squares
+              ? [row(cards)]
+              : [
+                  full(cards[0], lone: false),
+                  space,
+                  full(cards[1], lone: false),
+                ],
+        );
+      });
+    }
     if (cards.length == 3 && !cards.every((card) => card.compact)) {
       // Three big cards: three across where every label fits a third,
       // else two squares over one full-width card.

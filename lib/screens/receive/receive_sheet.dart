@@ -3,11 +3,11 @@
 // Both receives (the Bitcoin tab's and the Investments tab's) open as a
 // bottom sheet over whatever is on screen, with every step inside it.
 // The row calls [showBitcoinReceiveSheet] / [showUsdReceiveSheet]: each
-// opens on its "Receive or swap" cards (bitcoin_receive_options.dart,
+// opens on its "Receive" cards (bitcoin_receive_options.dart,
 // usd_receive_screen.dart), a sheet as tall as they are. The Bitcoin
 // card opens the QR receive over it ([showBitcoinQrReceiveSheet]); a
-// wallet with nothing to swap from (watch-only, hardware) opens the QR
-// straight away. The old `/receive` and `/receive_dollars` routes stay
+// wallet with nothing else to receive from (watch-only, hardware) opens
+// the QR straight away. The old `/receive` and `/receive_dollars` routes stay
 // for deep links and build a [ReceiveSheetPage], so a link opens the
 // very same sheet over the current screen rather than a second,
 // full-screen receive (`/receive` the QR itself).
@@ -30,7 +30,7 @@ const String kUsdReceiveRouteName = 'receiveDollars';
 /// The route name of the Bitcoin receive's "other coins" sheet.
 const String kOtherCoinsReceiveRouteName = 'receiveOtherCoins';
 
-/// The route name of the Bitcoin receive's first sheet, "Receive or swap".
+/// The route name of the Bitcoin receive's first sheet, "Receive".
 const String kBitcoinReceiveOptionsRouteName = 'receiveOptions';
 
 /// Test seams: what each sheet holds. Null builds the real receive.
@@ -39,7 +39,7 @@ abstract final class ReceiveSheets {
   @visibleForTesting
   static WidgetBuilder? debugBitcoinBody;
 
-  /// The Bitcoin receive's "Receive or swap" cards.
+  /// The Bitcoin receive's "Receive" cards.
   @visibleForTesting
   static WidgetBuilder? debugBitcoinOptionsBody;
 
@@ -57,9 +57,9 @@ Widget _bitcoinOptionsBody(BuildContext context) =>
 Widget _usdBody(BuildContext context) =>
     ReceiveSheets.debugUsdBody?.call(context) ?? const UsdReceiveScreen();
 
-/// The Bitcoin tab's Receive: "Receive or swap", From your Dollars, From
-/// another asset and Bitcoin as big cards (bitcoin_receive_options.dart),
-/// in a sheet over the current screen.
+/// The Bitcoin tab's Receive: "Receive", Bitcoin on top, then From your
+/// Dollars and From another wallet or exchange, as big cards
+/// (bitcoin_receive_options.dart), in a sheet over the current screen.
 Future<void> showBitcoinReceiveSheet(BuildContext context) =>
     showAppBottomSheet<void>(
       context: context,
@@ -69,8 +69,8 @@ Future<void> showBitcoinReceiveSheet(BuildContext context) =>
 
 /// The Bitcoin QR receive: the unified code (Bitcoin only, Lightning
 /// only) of the account the money lands in, in a sheet over the current
-/// screen: over "Receive or swap" from its Bitcoin card, or straight from
-/// the row of a wallet with nothing to swap from.
+/// screen: over "Receive" from its Bitcoin card, or straight from the row
+/// of a wallet with nothing else to receive from.
 Future<void> showBitcoinQrReceiveSheet(BuildContext context) =>
     showAppBottomSheet<void>(
       context: context,
@@ -78,7 +78,7 @@ Future<void> showBitcoinQrReceiveSheet(BuildContext context) =>
       builder: _bitcoinBody,
     );
 
-/// The Investments tab's Receive: "Receive or swap", "From your Bitcoin"
+/// The Investments tab's Receive: "Receive", "From your Bitcoin"
 /// and "From another wallet or exchange" (each coin through its reusable
 /// address, a one-time address where that cannot serve it), in a sheet
 /// over the current screen.
@@ -89,11 +89,11 @@ Future<void> showUsdReceiveSheet(BuildContext context) =>
       builder: _usdBody,
     );
 
-/// The Bitcoin receive's "other coins" ("From another asset" on Receive
-/// or swap): the coin sheet over it. A coin gets the reusable Dollars
+/// The Bitcoin receive's "other coins" ("From another wallet or exchange"
+/// on Receive): the coin sheet over it. A coin gets the reusable Dollars
 /// address (landing in Investments, said under it), or, where that cannot
 /// serve it, a one-time address delivering bitcoin (`spark:BTC`). Closing
-/// it returns to Receive or swap as it was.
+/// it returns to Receive as it was.
 Future<void> showOtherCoinsReceiveSheet(BuildContext context) =>
     showAppBottomSheet<void>(
       context: context,

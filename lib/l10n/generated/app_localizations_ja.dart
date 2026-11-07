@@ -3098,7 +3098,7 @@ class AppLocalizationsJa extends AppLocalizations {
       'ビットコイン、Lightning、Sparkのアドレス';
 
   @override
-  String get sendAutoSwapFromBitcoin => 'ビットコインから自動交換';
+  String get sendAutoSwapFromBitcoin => 'ビットコインから';
 
   @override
   String get sendAddressNotIdentified => 'アドレスを識別できません';
@@ -3593,7 +3593,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String activitySwapLegs(String from, String to) {
-    return '交換 · $from → $to';
+    return '$from → $to';
   }
 
   @override
@@ -4067,6 +4067,11 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String confirmationSentToWallet(String walletName) {
     return '$walletNameに送金しました';
+  }
+
+  @override
+  String confirmationMovedToWallet(String walletName) {
+    return '$walletNameへ移動しました';
   }
 
   @override
@@ -5936,6 +5941,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get moveTransfer => '資金を移動';
 
   @override
+  String get moveVerb => '移動';
+
+  @override
+  String get moveToBitcoin => 'ビットコインへ移す';
+
+  @override
   String get moveAdd => '追加';
 
   @override
@@ -6439,9 +6450,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get assetDollars => 'Investments';
-
-  @override
-  String get moveSourceInvestments => '投資';
 
   @override
   String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
@@ -10622,7 +10630,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String multiMovePurchaseWaiting(String amount, String balance) {
-    return '$amountは$balanceにあります。タップしてビットコインを購入';
+    return '$amountは$balanceにあります。タップしてビットコインへ移動';
   }
 
   @override
@@ -10638,6 +10646,14 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get usdReceiveFromAnotherWallet => '別のウォレットまたは取引所から';
+
+  @override
+  String get receiveAnotherWallet => '別のウォレット';
+
+  @override
+  String receiveOrAnExchangeLine(String coins) {
+    return 'または取引所 · $coins';
+  }
 
   @override
   String get usdWithdrawToYourWallet => 'あなたのウォレットへ';
@@ -10856,12 +10872,12 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String moneyStepBuying(String amount) {
-    return 'ビットコインを$amount分購入中';
+    return '$amountをビットコインへ移動中';
   }
 
   @override
   String moneyStepBought(String amount) {
-    return 'ビットコインを$amount分購入しました';
+    return '$amountをビットコインへ移動しました';
   }
 
   @override
@@ -11595,14 +11611,11 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String usdBitcoinBalanceLine(String amount) {
-    return '$amount in Bitcoin';
+    return 'ビットコイン残高 $amount';
   }
 
   @override
-  String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
-
-  @override
-  String get receiveOrSwapTitle => '受け取り・交換';
+  String get usdReceiveFromYourBitcoin => 'ビットコインから';
 
   @override
   String get receiveFromYourDollars => 'ドルから';
@@ -11611,9 +11624,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String usdDollarsBalanceLine(String amount) {
     return 'ドル残高 $amount';
   }
-
-  @override
-  String get receiveFromAnotherAsset => '他の暗号資産から';
 
   @override
   String get receiveBitcoinAndLightning => 'ビットコインとLightning';
@@ -11640,6 +11650,11 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String sendAlsoSendsToMore(String names, int count) {
     return '$names ほか$count件';
+  }
+
+  @override
+  String coinsSummaryShort(String names, int count) {
+    return '$names +$count';
   }
 
   @override
@@ -13310,7 +13325,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get sendWayCryptoAddress => '暗号アドレス';
 
   @override
-  String get sendWayPrediction => '予測';
+  String get sendWayPrediction => '予測または投資';
 
   @override
   String get sendWayToDollars => 'ドルへ';

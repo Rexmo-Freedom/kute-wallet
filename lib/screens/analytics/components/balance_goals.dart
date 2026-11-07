@@ -41,8 +41,9 @@
 //     by Sal's room over their 40 logo;
 //   * THE NUDGE, one full-width soft card under the squares: the Dollars
 //     mark, "Move $25 to Dollars" over "Your money, more places to go in
-//     Dollars.", a chevron. It opens the Move sheet locked to Dollars with
-//     that amount filled in (a round tenth of the goal, never more than
+//     Dollars.", a chevron. It opens Move money straight on the amount,
+//     Bitcoin to Dollars, pinned (showOwnMoneyMove), with that amount
+//     filled in (a round tenth of the goal, never more than
 //     the bitcoin is worth). Shown only where the move is allowed
 //     (the route classifier's gates) and Investing or Predictions is live in the
 //     person's country; it names neither. It never says the money grows:
@@ -91,7 +92,10 @@ import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/providers/one_balance_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/viewed_wallet_provider.dart';
-import 'package:kute/screens/home/components/deposit_sheet.dart';
+import 'package:kute/screens/home/components/deposit_sheet.dart'
+    show MoveLockedSide;
+import 'package:kute/screens/shared/money_movement_sheet.dart'
+    show MoneyMovementAccount, showOwnMoneyMove;
 import 'package:kute/screens/portfolio/components/position_rows.dart'
     show kPortfolioSquareIcon, portfolioSquareHeight;
 import 'package:kute/screens/shared/all_activity.dart'
@@ -297,7 +301,7 @@ class BalanceGoals extends ConsumerStatefulWidget {
   final bool hasHistory;
 
   /// Test seam: what the nudge opens. Null opens the Move sheet
-  /// ([showDepositSheet]).
+  /// ([showOwnMoneyMove], Bitcoin to Dollars).
   @visibleForTesting
   static void Function(BuildContext context, MoveLockedSide side, double usd)?
       debugMoveOpener;
@@ -393,8 +397,11 @@ class _BalanceGoalsState extends ConsumerState<BalanceGoals> {
     TrackingService.markEntrySource('move', kBalanceGoalSource);
     final open = BalanceGoals.debugMoveOpener;
     if (open != null) return open(context, MoveLockedSide.depositToUsd, usd);
-    unawaited(showDepositSheet(context,
-        lockedSide: MoveLockedSide.depositToUsd, initialTargetUsd: usd));
+    // An own-account move: the one Move money screen, nothing to pick.
+    unawaited(showOwnMoneyMove(context,
+        from: MoneyMovementAccount.bitcoin,
+        entrySource: kBalanceGoalSource,
+        initialTargetUsd: usd));
   }
 
   @override

@@ -26,6 +26,12 @@ import 'package:kute/screens/analytics/components/home_analytics_widget.dart';
 import 'package:kute/screens/home/components/deposit_sheet.dart';
 import 'package:kute/screens/shared/charts/kute_trend_chart.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
+import 'package:kute/screens/shared/money_movement_sheet.dart'
+    show
+        MoneyMovementAccount,
+        MoneyMovementRequest,
+        MoneyMovementRoute,
+        debugMoneyMovementSheetOpener;
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/services/balance_milestones.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -483,6 +489,26 @@ void main() {
     expect(tapped, hasLength(1));
     expect(
         tapped.single.$2, {'milestone': 250, 'amount': 25, 'currency': 'USD'});
+    await settle(tester);
+  });
+
+  testWidgets(
+      r'the nudge opens Move money straight on the amount: Bitcoin to '
+      r'Dollars, pinned (no account to pick), $25 filled in', (tester) async {
+    final moves = <MoneyMovementRequest>[];
+    debugMoneyMovementSheetOpener = (_, request) => moves.add(request);
+    addTearDown(() => debugMoneyMovementSheetOpener = null);
+    await pump(tester, input());
+    await tester.tap(find.byKey(const ValueKey('balance-goal-nudge')));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(moves, hasLength(1));
+    expect(moves.single.route,
+        const MoneyMovementRoute(MoneyMovementAccount.bitcoin,
+            MoneyMovementAccount.dollars));
+    expect(moves.single.pinned, isTrue);
+    expect(moves.single.entrySource, kBalanceGoalSource);
+    expect(moves.single.initialTargetUsd, 25.0);
+    expect(TrackingService.takeEntrySource('move'), kBalanceGoalSource);
     await settle(tester);
   });
 

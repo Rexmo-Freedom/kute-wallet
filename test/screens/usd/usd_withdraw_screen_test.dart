@@ -46,6 +46,12 @@ import 'package:kute/screens/shared/send/send_recipient_step.dart'
         SendWaysRow,
         kSendWayChipGap;
 import 'package:kute/services/contacts/send_contacts_service.dart';
+import 'package:kute/screens/shared/money_movement_sheet.dart'
+    show
+        MoneyMovementAccount,
+        MoneyMovementRequest,
+        MoneyMovementRoute,
+        debugMoneyMovementSheetOpener;
 import 'package:kute/screens/usd/usd_withdraw_screen.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -205,7 +211,8 @@ Future<void> _settle(WidgetTester tester) async {
 }
 
 /// Every line break of the [RichText]s under [of] falls at a space, after a
-/// hyphen or inside Japanese: never inside a word.
+/// hyphen or a slash ("Forudsigelse/investering") or inside Japanese: never
+/// inside a word.
 void _expectNoBrokenWord(WidgetTester tester, Finder of, String why) {
   final texts = find.descendant(of: of, matching: find.byType(RichText));
   final cjk = RegExp(r'[\u3000-\u9fff\uff00-\uffef]');
@@ -236,6 +243,7 @@ void _expectNoBrokenWord(WidgetTester tester, Finder of, String why) {
             before.trim().isEmpty ||
                 after.trim().isEmpty ||
                 before == '-' ||
+                before == '/' ||
                 cjk.hasMatch(before),
             isTrue,
             reason: '$why: "$text" breaks inside a word');
@@ -371,7 +379,7 @@ void main() {
       expect(chip(_alsoRow).semanticsLabel,
           '${_l10n.sendToCryptoAddress}, ${_l10n.sendAlsoSendsToList('USDC', 'USDT')}');
       expect(chip(_pickRow).label, _l10n.sendWayPrediction);
-      expect(chip(_pickRow).label, 'Prediction');
+      expect(chip(_pickRow).label, 'Prediction or investment');
       expect(chip(_pickRow).semanticsLabel, _l10n.sendAnInvestmentOrPrediction);
       expect(chip(_pickRow).icon, isA<SearchChanceGauge>());
 
@@ -424,8 +432,8 @@ void main() {
 
   testWidgets(
       'Predictions and Investing closed to this person: no Prediction chip '
-      '(its slip could only send the market\'s card); the other two stay, '
-      'the same small size, from the left', (tester) async {
+      '(its slip could only send the market\'s card); the other two share '
+      'the row, half each, no empty third slot', (tester) async {
     final closed = runtimePolicyFixture(
         blocked: const {'polymarket.trade', 'hyperliquid.trade'},
         also: const {'polymarket.browse', 'hyperliquid.browse'});
@@ -443,10 +451,14 @@ void main() {
     final field =
         tester.getRect(find.byKey(const ValueKey('send-recipient-search')));
     expect(a.top, moreOrLessEquals(b.top));
+    expect(a.height, moreOrLessEquals(b.height));
     expect(a.left, moreOrLessEquals(field.left, epsilon: 0.5));
-    expect(b.width,
-        moreOrLessEquals((field.width - 2 * kSendWayChipGap.w) / 3,
-            epsilon: 0.5));
+    expect(b.right, moreOrLessEquals(field.right, epsilon: 0.5));
+    for (final chip in [a, b]) {
+      expect(chip.width,
+          moreOrLessEquals((field.width - kSendWayChipGap.w) / 2,
+              epsilon: 0.5));
+    }
     expect(tester.takeException(), isNull);
     await _unmount(tester);
   });
@@ -529,6 +541,26 @@ void main() {
     await _settle(tester);
     expect(find.byKey(frequent), findsNothing);
     expect(tester.takeException(), isNull);
+    await _unmount(tester);
+  });
+
+  testWidgets(
+      'To your Bitcoin opens Move money straight on the amount: Dollars to '
+      'Bitcoin, pinned, nothing to pick in between', (tester) async {
+    UsdWithdrawScreen.debugMoveSheetOpener = null;
+    final moves = <MoneyMovementRequest>[];
+    debugMoneyMovementSheetOpener = (_, request) => moves.add(request);
+    addTearDown(() => debugMoneyMovementSheetOpener = null);
+    await _pump(tester, spendingSats: 100000);
+    await tester.tap(find.byKey(_bitcoinRow));
+    await tester.pump();
+    expect(moves, hasLength(1));
+    expect(moves.single.route,
+        const MoneyMovementRoute(MoneyMovementAccount.dollars,
+            MoneyMovementAccount.bitcoin));
+    expect(moves.single.pinned, isTrue);
+    expect(moves.single.entrySource, kUsdWithdrawBitcoinRowSource);
+    expect(find.byType(UsdWithdrawScreen), findsOneWidget);
     await _unmount(tester);
   });
 
@@ -697,8 +729,9 @@ void main() {
   });
 
   testWidgets(
-      'nothing offered: To your Bitcoin and Prediction stay, two small '
-      'chips, no address chip, the unavailable line under them',
+      'nothing offered: To your Bitcoin and Prediction or investment stay, '
+      'two chips sharing the row, no address chip, the unavailable line '
+      'under them',
       (tester) async {
     await _pump(tester, coins: false);
     expect(find.byKey(_bitcoinRow), findsOneWidget);
@@ -713,6 +746,10 @@ void main() {
         hasLength(2));
     expect(tester.getRect(find.byKey(_pickRow)).top,
         moreOrLessEquals(tester.getRect(find.byKey(_bitcoinRow)).top));
+    expect(tester.getRect(find.byKey(_pickRow)).width,
+        moreOrLessEquals(tester.getRect(find.byKey(_bitcoinRow)).width));
+    expect(tester.getRect(find.byKey(_pickRow)).height,
+        moreOrLessEquals(tester.getRect(find.byKey(_bitcoinRow)).height));
     expect(find.text(_l10n.usdSendDestinationsUnavailable), findsOneWidget);
     expect(
         tester.getTopLeft(find.text(_l10n.usdSendDestinationsUnavailable)).dy,
