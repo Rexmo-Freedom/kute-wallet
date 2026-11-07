@@ -11710,10 +11710,6 @@ class AppLocalizationsRo extends AppLocalizations {
   String get balanceGoalMovePlain => 'Mută în Dolari';
 
   @override
-  String get balanceGoalMoveWhy =>
-      'Banii tăi, mai multe locuri unde să meargă în dolari.';
-
-  @override
   String balanceMilestonePassed(String amount) {
     return 'Ai depășit $amount';
   }

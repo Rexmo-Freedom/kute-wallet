@@ -3228,7 +3228,6 @@
   "balanceGoalChartLabel": "Volgende: {goal}",
   "balanceGoalMove": "Zet {amount} naar Dollars",
   "balanceGoalMovePlain": "Naar Dollars zetten",
-  "balanceGoalMoveWhy": "Je geld, meer plekken om naartoe te gaan in dollars.",
   "balanceMilestonePassed": "Je bent voorbij {amount}",
   "balanceMilestonePassedLine": "Bitcoin en dollars samen. Sal doet alsof het niks is.",
   "pnlNoHistoryTitle": "Nog geen winst/verlies",

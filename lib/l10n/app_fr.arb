@@ -3228,7 +3228,6 @@
   "balanceGoalChartLabel": "Prochain : {goal}",
   "balanceGoalMove": "Déplacer {amount} vers Dollars",
   "balanceGoalMovePlain": "Déplacer vers Dollars",
-  "balanceGoalMoveWhy": "Votre argent, plus d'horizons en dollars.",
   "balanceMilestonePassed": "Vous avez dépassé {amount}",
   "balanceMilestonePassedLine": "Bitcoin et dollars réunis. Sal fait comme si de rien n'était.",
   "pnlNoHistoryTitle": "Pas encore de gains / pertes",

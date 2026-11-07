@@ -11669,9 +11669,6 @@ class AppLocalizationsSk extends AppLocalizations {
   String get balanceGoalMovePlain => 'Presunúť do Dolárov';
 
   @override
-  String get balanceGoalMoveWhy => 'Tvoje peniaze, viac možností v dolároch.';
-
-  @override
   String balanceMilestonePassed(String amount) {
     return 'Máš za sebou $amount';
   }

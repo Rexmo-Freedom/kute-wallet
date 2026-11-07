@@ -3228,7 +3228,6 @@
   "balanceGoalChartLabel": "Kitas: {goal}",
   "balanceGoalMove": "Perkelti {amount} į Dolerius",
   "balanceGoalMovePlain": "Perkelti į Dolerius",
-  "balanceGoalMoveWhy": "Jūsų pinigai, daugiau galimybių doleriais.",
   "balanceMilestonePassed": "Jūs viršijote {amount}",
   "balanceMilestonePassedLine": "Bitcoin ir doleriai kartu. Sal apsimeta, kad nieko tokio.",
   "pnlNoHistoryTitle": "P&L dar nėra",

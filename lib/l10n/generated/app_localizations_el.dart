@@ -11732,10 +11732,6 @@ class AppLocalizationsEl extends AppLocalizations {
   String get balanceGoalMovePlain => 'Μετακίνηση στα Δολάρια';
 
   @override
-  String get balanceGoalMoveWhy =>
-      'Τα χρήματά σου, περισσότερες επιλογές σε δολάρια.';
-
-  @override
   String balanceMilestonePassed(String amount) {
     return 'Ξεπέρασες τα $amount';
   }

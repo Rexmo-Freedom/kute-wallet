@@ -3228,7 +3228,6 @@
   "balanceGoalChartLabel": "Nākamais: {goal}",
   "balanceGoalMove": "Pārvietot {amount} uz Dolāriem",
   "balanceGoalMovePlain": "Pārvietot uz Dolāriem",
-  "balanceGoalMoveWhy": "Tava nauda, vairāk iespēju dolāros.",
   "balanceMilestonePassed": "Tu pārsniedzi {amount}",
   "balanceMilestonePassedLine": "Bitcoin un dolāri kopā. Sal izliekas, ka tas nav nekas.",
   "pnlNoHistoryTitle": "Vēl nav P&L",

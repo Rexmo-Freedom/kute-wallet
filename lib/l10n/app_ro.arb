@@ -3228,7 +3228,6 @@
   "balanceGoalChartLabel": "Următorul: {goal}",
   "balanceGoalMove": "Mută {amount} în Dolari",
   "balanceGoalMovePlain": "Mută în Dolari",
-  "balanceGoalMoveWhy": "Banii tăi, mai multe locuri unde să meargă în dolari.",
   "balanceMilestonePassed": "Ai depășit {amount}",
   "balanceMilestonePassedLine": "Bitcoin și dolari împreună. Sal se preface că nu e mare lucru.",
   "pnlNoHistoryTitle": "Încă nu ai P&L",

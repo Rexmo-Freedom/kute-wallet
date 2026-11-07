@@ -11680,9 +11680,6 @@ class AppLocalizationsHr extends AppLocalizations {
   String get balanceGoalMovePlain => 'Premjesti u Dolare';
 
   @override
-  String get balanceGoalMoveWhy => 'Tvoj novac, više mogućnosti u dolarima.';
-
-  @override
   String balanceMilestonePassed(String amount) {
     return 'Iza tebe je $amount';
   }

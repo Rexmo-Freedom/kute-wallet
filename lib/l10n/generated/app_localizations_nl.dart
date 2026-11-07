@@ -11693,10 +11693,6 @@ class AppLocalizationsNl extends AppLocalizations {
   String get balanceGoalMovePlain => 'Naar Dollars zetten';
 
   @override
-  String get balanceGoalMoveWhy =>
-      'Je geld, meer plekken om naartoe te gaan in dollars.';
-
-  @override
   String balanceMilestonePassed(String amount) {
     return 'Je bent voorbij $amount';
   }

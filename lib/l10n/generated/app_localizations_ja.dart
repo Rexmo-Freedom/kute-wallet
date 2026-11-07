@@ -11234,9 +11234,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get balanceGoalMovePlain => 'ドルへ移す';
 
   @override
-  String get balanceGoalMoveWhy => 'ドルで、お金の行き先が広がる。';
-
-  @override
   String balanceMilestonePassed(String amount) {
     return '$amountを突破';
   }

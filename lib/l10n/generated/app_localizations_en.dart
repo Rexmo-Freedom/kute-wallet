@@ -11612,9 +11612,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get balanceGoalMovePlain => 'Move to Dollars';
 
   @override
-  String get balanceGoalMoveWhy => 'Your money, more places to go in Dollars.';
-
-  @override
   String balanceMilestonePassed(String amount) {
     return 'You passed $amount';
   }

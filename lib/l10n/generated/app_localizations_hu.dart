@@ -11680,9 +11680,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get balanceGoalMovePlain => 'Áthelyezés Dollárba';
 
   @override
-  String get balanceGoalMoveWhy => 'A pénzed, több lehetőség dollárban.';
-
-  @override
   String balanceMilestonePassed(String amount) {
     return 'Túl vagy rajta: $amount';
   }

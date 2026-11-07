@@ -3228,7 +3228,6 @@
   "balanceGoalChartLabel": "Siguiente: {goal}",
   "balanceGoalMove": "Pasar {amount} a Dólares",
   "balanceGoalMovePlain": "Pasar a Dólares",
-  "balanceGoalMoveWhy": "Tu dinero, más sitios adonde ir en dólares.",
   "balanceMilestonePassed": "Has superado {amount}",
   "balanceMilestonePassedLine": "Bitcoin y dólares juntos. Sal hace como si nada.",
   "pnlNoHistoryTitle": "Aún no hay P&L",

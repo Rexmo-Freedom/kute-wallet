@@ -3501,7 +3501,6 @@
   "balanceGoalChartLabel": "Próximo: {goal}",
   "balanceGoalMove": "Mover {amount} para Dólares",
   "balanceGoalMovePlain": "Mover para Dólares",
-  "balanceGoalMoveWhy": "O seu dinheiro, mais sítios para ir em dólares.",
   "balanceMilestonePassed": "Ultrapassou {amount}",
   "balanceMilestonePassedLine": "Bitcoin e dólares juntos. O Sal finge que não é nada.",
   "pnlNoHistoryTitle": "Ainda sem resultado",

@@ -55,6 +55,12 @@
 // cannot be read says so once through [onUnavailable], so a director can
 // drop it from its pool and move on; the clip on screen stays.
 //
+// A LOOP THAT REPEATS ITSELF (the balance goals' level loops, 7 November
+// 2026) may store each distinct cell once: its entry then carries
+// `"cells"` (the sheet's cells) and `"sequence"` (the cell each played
+// frame shows; `frames` is its length), so a 4 s breath costs a dozen
+// cells, not 48. [SalClip.cell] reads through it; nothing else changes.
+//
 // THE SECOND CLIP BATCH (founder, 31 October 2026) adds a `group` to each
 // manifest entry, read through [SalSpriteCache.groups] / [SalSpriteCache.group]:
 //
@@ -108,10 +114,14 @@ class SalClip {
     required this.cellHeight,
     required this.loop,
     required this.body,
+    this.sequence,
   });
 
   final ui.Image image;
   final double fps;
+
+  /// The frames played, one per tick of [fps] (the [sequence]'s length
+  /// when there is one).
   final int frames;
   final int columns;
   final double cellWidth;
@@ -123,6 +133,11 @@ class SalClip {
   /// Body framing (the whole dog) rather than the face.
   final bool body;
 
+  /// The sheet's cell for each played frame, when the manifest gives one
+  /// (`"sequence"`): a loop whose frames repeat (a breath, a held look)
+  /// stores each distinct cell once. Null: frame i is cell i.
+  final List<int>? sequence;
+
   /// One pass through the clip at its own fps.
   Duration get duration =>
       Duration(microseconds: math.max(1, (frames / fps * 1e6).round()));
@@ -130,8 +145,10 @@ class SalClip {
   /// The source rectangle of [frame] in the sheet.
   Rect cell(int frame) {
     final f = frame.clamp(0, frames - 1);
-    final col = f % columns;
-    final row = f ~/ columns;
+    final seq = sequence;
+    final c = seq == null || seq.isEmpty ? f : seq[f % seq.length];
+    final col = c % columns;
+    final row = c ~/ columns;
     return Rect.fromLTWH(
         col * cellWidth, row * cellHeight, cellWidth, cellHeight);
   }
@@ -285,10 +302,24 @@ abstract final class SalSpriteCache {
       final frameInfo = await codec.getNextFrame();
       codec.dispose();
       final image = frameInfo.image;
-      final frames = ((entry['frames'] as num?)?.toInt() ?? 1).clamp(1, 1 << 16);
+      // A "sequence" names the cell each played frame shows ("cells"
+      // distinct cells in the sheet); without one, frame i is cell i.
+      final rawSequence = entry['sequence'];
+      final cellCount = (entry['cells'] as num?)?.toInt();
+      final sequence = rawSequence is List && rawSequence.isNotEmpty
+          ? [
+              for (final v in rawSequence)
+                ((v as num).toInt()).clamp(0, (cellCount ?? 1 << 16) - 1)
+            ]
+          : null;
+      final frames = (sequence?.length ??
+              (entry['frames'] as num?)?.toInt() ??
+              1)
+          .clamp(1, 1 << 16);
+      final cells = sequence == null ? frames : (cellCount ?? frames);
       final columns =
-          ((entry['columns'] as num?)?.toInt() ?? frames).clamp(1, 1 << 16);
-      final rows = (frames / columns).ceil().clamp(1, 1 << 16);
+          ((entry['columns'] as num?)?.toInt() ?? cells).clamp(1, 1 << 16);
+      final rows = (cells / columns).ceil().clamp(1, 1 << 16);
       final clip = SalClip(
         image: image,
         fps: (entry['fps'] as num?)?.toDouble() ?? 24,
@@ -300,6 +331,7 @@ abstract final class SalSpriteCache {
         cellHeight: image.height / rows,
         loop: entry['loop'] != false,
         body: entry['framing'] == 'body' || name.startsWith('body_'),
+        sequence: sequence,
       );
       _ready['$name@$density'] = clip;
       return clip;

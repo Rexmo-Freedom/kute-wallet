@@ -11626,9 +11626,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String get balanceGoalMovePlain => 'Pārvietot uz Dolāriem';
 
   @override
-  String get balanceGoalMoveWhy => 'Tava nauda, vairāk iespēju dolāros.';
-
-  @override
   String balanceMilestonePassed(String amount) {
     return 'Tu pārsniedzi $amount';
   }

@@ -3228,7 +3228,6 @@
   "balanceGoalChartLabel": "Seuraava: {goal}",
   "balanceGoalMove": "Siirrä {amount} dollareihin",
   "balanceGoalMovePlain": "Siirrä dollareihin",
-  "balanceGoalMoveWhy": "Rahasi, enemmän mahdollisuuksia dollareissa.",
   "balanceMilestonePassed": "Ohitit {amount}",
   "balanceMilestonePassedLine": "Bitcoin ja dollarit yhteensä. Sal esittää, ettei tämä ole mitään.",
   "pnlNoHistoryTitle": "Ei vielä voittoa / tappiota",

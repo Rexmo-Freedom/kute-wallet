@@ -11641,9 +11641,6 @@ class AppLocalizationsEt extends AppLocalizations {
   String get balanceGoalMovePlain => 'Vii dollaritesse';
 
   @override
-  String get balanceGoalMoveWhy => 'Sinu raha, rohkem võimalusi dollarites.';
-
-  @override
   String balanceMilestonePassed(String amount) {
     return 'Sa ületasid $amount';
   }

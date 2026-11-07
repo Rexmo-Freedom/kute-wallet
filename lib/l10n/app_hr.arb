@@ -3228,7 +3228,6 @@
   "balanceGoalChartLabel": "Sljedeće: {goal}",
   "balanceGoalMove": "Premjesti {amount} u Dolare",
   "balanceGoalMovePlain": "Premjesti u Dolare",
-  "balanceGoalMoveWhy": "Tvoj novac, više mogućnosti u dolarima.",
   "balanceMilestonePassed": "Iza tebe je {amount}",
   "balanceMilestonePassedLine": "Bitcoin i dolari zajedno. Sal se pravi da nije ništa.",
   "pnlNoHistoryTitle": "Još nema dobiti/gubitka",
