@@ -1,9 +1,11 @@
 // The bar as the primary button, an adaptive pill (kute_shell_bar.dart,
 // KuteBarPrimaryButton; founder, 1 November 2026): disabled it says the
-// step to take in the light pill look and takes no tap; enabled it is the
-// action in the black look and its tap runs the handler, the words
-// cross-sliding between the two; busy it says the busy label under a
-// shimmer and takes no tap; and it is only as wide as what it says.
+// step to take and takes no tap; enabled it is the action and its tap runs
+// the handler, the words cross-sliding between the two; busy it says the
+// busy label under a shimmer and takes no tap; and it is only as wide as
+// what it says. In light mode every state is on the one dark fill
+// (founder, 7 November 2026; kute_bar_surface.dart): the step to take in
+// the quieter disabled ink, the action in white.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -11,6 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/screens/home/components/kute_shell_bar.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/theme/kute_bar_surface.dart';
 
 final _button = find.byKey(const ValueKey('kute-bar-primary-button'));
 final _shimmer = find.byKey(const ValueKey('kute-bar-primary-shimmer'));
@@ -78,8 +81,8 @@ void main() {
   final light = AppColorsExtension.light();
 
   testWidgets(
-      'disabled: the step to take in the light pill look; a tap does nothing',
-      (tester) async {
+      'disabled: the step to take on the dark fill in the quieter ink; a '
+      'tap does nothing', (tester) async {
     var ran = 0;
     await _pump(
       tester,
@@ -93,9 +96,10 @@ void main() {
     expect(find.text('Enter an amount'), findsOneWidget);
     expect(find.text('Create request'), findsNothing);
     final d = _decoration(tester);
-    expect(d.color, Colors.white, reason: 'the light pill, never grey or black');
-    expect((d.border! as Border).top.color, light.border);
-    expect(_labelColor(tester, 'Enter an amount'), light.textSecondary);
+    expect(d.color, light.textPrimary,
+        reason: 'the bar\'s one dark fill in light mode, never white');
+    expect((d.border! as Border).top.color, KuteBarSurface.edge);
+    expect(_labelColor(tester, 'Enter an amount'), KuteBarSurface.disabledInk);
     await tester.tap(_button);
     await tester.pump(const Duration(milliseconds: 500));
     expect(ran, 0);
@@ -103,7 +107,7 @@ void main() {
 
   testWidgets(
       'disabled to enabled: the words slide (both on screen mid-way), the '
-      'black look, a tap runs the handler', (tester) async {
+      'fill stays dark throughout, a tap runs the handler', (tester) async {
     var ran = 0;
     KuteBarContext ctx(bool enabled) => KuteBarContext.primary(
           label: 'Create request',
@@ -114,7 +118,10 @@ void main() {
     final notifier = await _pump(tester, ctx(false));
     notifier.value = ctx(true);
     await tester.pump();
+    expect(_decoration(tester).color, light.textPrimary);
     await tester.pump(const Duration(milliseconds: 120));
+    expect(_decoration(tester).color, light.textPrimary,
+        reason: 'no lerp through white on the way to the action');
     expect(find.text('Enter an amount'), findsOneWidget,
         reason: 'the old words still leaving');
     expect(find.text('Create request'), findsOneWidget,

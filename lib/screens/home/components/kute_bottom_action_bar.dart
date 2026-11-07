@@ -20,6 +20,7 @@ import 'package:kute/screens/shared/receive_arrow_glyph.dart'
     show GlyphPressScope;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/theme/kute_bar_surface.dart';
 import 'package:kute/theme/kute_motion.dart';
 
 /// One money verb in the dock. Each dock host supplies its own pair, because
@@ -546,7 +547,9 @@ const double _kDockPillTallHeight = 56;
 
 /// THE FLOATING SAL PILL, the one chrome of the bar everywhere (the docks on
 /// Home and Dollars, the shell bar over everything else): Sal's clip, a label
-/// and an optional second line, in the pill's own frost. When the context
+/// and an optional second line, in the pill's own frost; in light mode the
+/// primary button's dark fill with white words, the second line quieter,
+/// white in dark mode (kute_bar_surface.dart). When the context
 /// changes ("Search investments or Manage with AI" ↔ "Search predictions or
 /// manage with AI" on the Dollars tab) it morphs EXACTLY as the bar's primary
 /// button does (kute_morph_label.dart): the width springs on the chip spring
@@ -601,10 +604,16 @@ class KuteSalPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.colors;
     final isLight = Theme.of(context).brightness == Brightness.light;
-    // White in both modes (founder, 2 November 2026: on dark the white pill
-    // reads far better than the surface grey), so its ink stays dark too.
-    final labelColor = isLight ? c.textPrimary : const Color(0xFF1D2024);
-    final sublabelColor = isLight ? c.textSecondary : const Color(0xFF6B7280);
+    // DARK IN LIGHT MODE (founder, 7 November 2026; kute_bar_surface.dart):
+    // the primary button's fill and white words, the second line quieter;
+    // a white pill blended into the white cards behind it. White in dark
+    // mode (founder, 2 November 2026: on dark the white pill reads far
+    // better than the surface grey), its ink dark there.
+    final fill = isLight ? KuteBarSurface.fill(context) : Colors.white;
+    final labelColor = isLight ? KuteBarSurface.ink : const Color(0xFF1D2024);
+    final sublabelColor =
+        isLight ? KuteBarSurface.quietInk : const Color(0xFF6B7280);
+    final glyphColor = isLight ? KuteBarSurface.ink : c.textPrimary;
     final reduce = kuteReduceMotion(context);
     final height = collapsed
         ? collapsedSize
@@ -654,26 +663,20 @@ class KuteSalPill extends StatelessWidget {
             curve: reduce ? Curves.linear : KuteMotion.chip,
             height: height,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: fill,
               borderRadius: BorderRadius.circular(_kDockPillTallHeight / 2),
+              // The light hairline keeps the dark pill apart from dark
+              // content (the black Purchase square, a dark share card).
               border: Border.all(
-                color: isLight ? c.border : Colors.white,
-                width: isLight ? 1.0 : 0.5,
+                color: isLight ? KuteBarSurface.edge : Colors.white,
+                width: isLight ? KuteBarSurface.edgeWidth : 0.5,
               ),
               // ONE shadow in both modes, at the same blur (transparent
               // in dark): the chip spring overshoots past 1, and a theme
               // switch lerping a shadow towards none scaled its blur
               // negative (the red "Text shadow blur radius should be
               // non-negative" screen on every light/dark toggle).
-              boxShadow: [
-                BoxShadow(
-                  color: isLight
-                      ? Colors.black.withValues(alpha: 0.05)
-                      : Colors.transparent,
-                  blurRadius: 12,
-                  offset: const Offset(0, 3),
-                ),
-              ],
+              boxShadow: [KuteBarSurface.shadow(visible: isLight)],
             ),
             child: Material(
               color: Colors.transparent,
@@ -697,7 +700,7 @@ class KuteSalPill extends StatelessWidget {
                     children: [
                       aiEnabled
                           ? _SalPillGlyph(
-                              lensColor: c.textPrimary,
+                              lensColor: glyphColor,
                               clip: clip,
                               cue: salCue,
                               size: salSize,
@@ -705,7 +708,7 @@ class KuteSalPill extends StatelessWidget {
                           : Padding(
                               padding: EdgeInsets.symmetric(horizontal: 6.w),
                               child: Icon(Icons.search_rounded,
-                                  size: 22, color: c.textPrimary),
+                                  size: 22, color: glyphColor),
                             ),
                       // The width follows the text on the chip spring;
                       // the text itself slides up and out, in from below

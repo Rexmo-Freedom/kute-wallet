@@ -133,8 +133,10 @@ class KuteBarAction {
 /// slip, on the red No slip), the trade lettered in the side colour or a
 /// neutral action in the contrast ([foreground]), the slip's [radius] and
 /// weight. Without a style the bar is the app's primary button
-/// (textPrimary fill). A disabled styled button fades whole, as the slip's
-/// did.
+/// (textPrimary fill). Off, a styled button wears the bar's disabled look
+/// (the dark fill in light mode), except a light [fill] (a tinted slip's
+/// white button), which keeps the light pill: never black on a tinted
+/// slip (kute_shell_bar.dart, KuteBarPrimaryButton).
 class KuteBarPrimaryStyle {
   const KuteBarPrimaryStyle({
     required this.fill,
@@ -171,8 +173,8 @@ class KuteBarPrimaryStyle {
 /// header, THE TRADE ROW): [label] ("Invest", "Yes") with the live
 /// [value] after it ("62%"), on [fill] (the market's colour, the words in
 /// its contrast ink, white on the up and down colours), or, with no fill,
-/// in the light pill look (white, a hairline, the primary ink: a spot
-/// token's Sell). [flex] is its share of the row's width (Invest 2 to
+/// on the bar's neutral surface (dark in light mode with white words, the
+/// surface grey in dark; kute_bar_surface.dart: a spot token's Sell). [flex] is its share of the row's width (Invest 2 to
 /// Short's 1, as the pinned pair was). [onTap] is the handler the pinned
 /// button had; [id] keys the pill (`kute-bar-trade-{id}`).
 class KuteBarTrade {
@@ -286,8 +288,9 @@ class KuteBarContext {
   /// THE DISABLED BUTTON SAYS WHAT TO DO (founder, 1 November 2026): while
   /// [enabled] is false the button reads [disabledLabel], the step the
   /// person has to take ("Enter an amount", "Add who to send to", "Paste
-  /// an address", "Tick the box to continue"), in the light pill look;
-  /// never the greyed action. EVERY call site sets it (an architecture
+  /// an address", "Tick the box to continue"), on the bar's dark fill in
+  /// its quieter disabled ink in light mode (the light pill in dark;
+  /// kute_bar_surface.dart); never the greyed action. EVERY call site sets it (an architecture
   /// test holds them to it); null only where the button is never disabled
   /// for want of input (it is then [label]).
   ///

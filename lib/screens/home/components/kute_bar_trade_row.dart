@@ -10,8 +10,9 @@
 //     (white on the up and down colours) and the live figure after the
 //     words ("Yes 62%"); the pinned pair's own fill, its top highlight and,
 //     in light mode, its quiet glow (marketPairDecoration). A spot token's
-//     Sell is the light pill (white, a hairline). The press spring of every
-//     button; a tap runs exactly what the pinned button ran;
+//     Sell is the bar's neutral surface (dark in light mode, a light
+//     hairline, white words; kute_bar_surface.dart). The press spring of
+//     every button; a tap runs exactly what the pinned button ran;
 //   * at the row's end the round Sal button ([KuteBarShareButton]): the
 //     Sal pill folded to its 52 circle (KuteSalPill.collapsed), Sal and
 //     the share badge, no words (founder: "just a share button on the
@@ -29,8 +30,9 @@
 // over its bottom right, past the edge like an app badge, the share badge
 // (kute_share_badge.dart): an ink disc in a white ring with the white iOS
 // share glyph, whose arrow bobs up out of the tray as Sal blinks (his
-// frames drive it; none under Reduce Motion, where he holds frame 0). The
-// same button for Brag.
+// frames drive it; none under Reduce Motion, where he holds frame 0). On
+// the dark circle of light mode it inverts: a white disc, the ink glyph, a
+// ring of the circle's dark fill. The same button for Brag.
 //
 // An open position's Close position or Sell keeps its own red primary
 // button and takes the same round button at its right ([KuteBarShareSlot]:
@@ -57,6 +59,7 @@ import 'package:kute/screens/shared/market_pair_button.dart'
     show marketPairDecoration;
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/theme/kute_bar_surface.dart';
 import 'package:kute/theme/kute_motion.dart';
 
 /// The air between the row's pills, and before the round Sal button.
@@ -121,7 +124,11 @@ class KuteBarTradePill extends StatelessWidget {
     final c = context.colors;
     final isLight = Theme.of(context).brightness == Brightness.light;
     final fill = trade.fill;
-    final ink = fill != null ? contrastingOnColor(fill) : c.textPrimary;
+    // No fill: the bar's neutral surface, dark in light mode
+    // (kute_bar_surface.dart).
+    final ink = fill != null
+        ? contrastingOnColor(fill)
+        : (isLight ? KuteBarSurface.ink : c.textPrimary);
     final reduce = kuteReduceMotion(context);
     final style =
         KuteBarPrimaryButton.labelStyle(context, weight: FontWeight.w800)
@@ -131,22 +138,15 @@ class KuteBarTradePill extends StatelessWidget {
         // The pinned pair's own slab, in the bar's pill shape.
         ? marketPairDecoration(fill,
             borderRadius: KuteBarPrimaryButton.radius, glow: isLight)
-        // The light pill (the Sal pill's surface and its one shadow).
+        // The bar's neutral surface (the Sal pill's and its one shadow):
+        // dark in light mode, the surface grey in dark.
         : BoxDecoration(
-            color: isLight ? Colors.white : c.surface,
+            color: isLight ? KuteBarSurface.fill(context) : c.surface,
             borderRadius: KuteBarPrimaryButton.radius,
             border: Border.all(
-                color: isLight ? c.border : c.borderSubtle,
-                width: isLight ? 1.0 : 0.5),
-            boxShadow: [
-              BoxShadow(
-                color: isLight
-                    ? Colors.black.withValues(alpha: 0.05)
-                    : Colors.transparent,
-                blurRadius: 12,
-                offset: const Offset(0, 3),
-              ),
-            ],
+                color: isLight ? KuteBarSurface.edge : c.borderSubtle,
+                width: isLight ? KuteBarSurface.edgeWidth : 0.5),
+            boxShadow: [KuteBarSurface.shadow(visible: isLight)],
           );
     return Semantics(
       button: true,
@@ -236,6 +236,9 @@ class _KuteBarShareButtonState extends State<KuteBarShareButton> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final share = widget.share;
+    // On the dark circle of light mode the badge inverts: a white disc, the
+    // ink glyph, a ring of the circle's own fill (kute_share_badge.dart).
+    final dark = KuteBarSurface.dark(context);
     return KeyedSubtree(
       key: const ValueKey('kute-bar-share'),
       child: KuteSalPill(
@@ -247,7 +250,14 @@ class _KuteBarShareButtonState extends State<KuteBarShareButton> {
         collapsed: true,
         salCue: widget.salCue,
         salSize: kSalShareButtonSalSize,
-        badge: KuteShareBadge(lift: _lift),
+        badge: dark
+            ? KuteShareBadge(
+                lift: _lift,
+                ringColor: KuteBarSurface.fill(context),
+                discColor: KuteBarSurface.ink,
+                glyphColor: kShareBadgeInk,
+              )
+            : KuteShareBadge(lift: _lift),
         onSalFrame: (frame) => _lift.value = kuteShareBadgeLift(frame),
         onTap: () => widget.onTap(context),
       ),

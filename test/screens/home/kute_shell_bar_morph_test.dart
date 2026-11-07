@@ -4,9 +4,14 @@
 // rect; closing travels back and the pill is itself again. A market
 // page's trade row: its round Sal button opens the market's sheet,
 // travelling too, the row held in place transparent; a header placement
-// keeps the pill away. Reduce Motion: a plain sheet, nothing travels.
+// keeps the pill away. Reduce Motion: a plain sheet, nothing travels. In
+// light mode the travelling pill leaves dark, as the pill is (founder, 7
+// November 2026): no white flash on the tap.
+
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderRepaintBoundary;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -34,6 +39,24 @@ class _Sports extends SportsLiveNotifier {
   Map<String, SportsMatchUpdate> build() => {};
   @override
   void connect() {}
+}
+
+const _boundary = Key('morph-boundary');
+
+/// The colour at [at] (logical px) of what the app painted last.
+Future<Color> _pixel(WidgetTester tester, Offset at) async {
+  final boundary =
+      tester.renderObject<RenderRepaintBoundary>(find.byKey(_boundary));
+  return (await tester.runAsync(() async {
+    final image = await boundary.toImage();
+    final bytes =
+        (await image.toByteData(format: ui.ImageByteFormat.rawRgba))!;
+    final i = (at.dy.round() * image.width + at.dx.round()) * 4;
+    final color = Color.fromARGB(bytes.getUint8(i + 3), bytes.getUint8(i),
+        bytes.getUint8(i + 1), bytes.getUint8(i + 2));
+    image.dispose();
+    return color;
+  }))!;
 }
 
 /// The app's layering with the app's own root navigator key (the bar
@@ -68,13 +91,16 @@ Future<void> _pump(WidgetTester tester, {bool reduce = false}) async {
         navigatorObservers: [KuteBarRouteObserver()],
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(context).copyWith(disableAnimations: reduce),
-          child: Stack(children: [
-            NotificationListener<ScrollNotification>(
-              onNotification: kuteBarScroll.report,
-              child: child!,
-            ),
-            const KuteShellBar(),
-          ]),
+          child: RepaintBoundary(
+            key: _boundary,
+            child: Stack(children: [
+              NotificationListener<ScrollNotification>(
+                onNotification: kuteBarScroll.report,
+                child: child!,
+              ),
+              const KuteShellBar(),
+            ]),
+          ),
         ),
         home: const Scaffold(body: SizedBox.expand()),
       ),
@@ -134,6 +160,14 @@ void main() {
 
     await tester.tap(find.byType(KuteSalPill));
     await tester.pump();
+    // The copy leaves the pill as the pill is in light mode, dark (founder,
+    // 7 November 2026; kute_bar_surface.dart): no white flash on the tap.
+    final leaving =
+        await _pixel(tester, Offset(pillRect.center.dx, pillRect.top + 7));
+    for (final channel in [leaving.r, leaving.g, leaving.b]) {
+      expect(channel, lessThan(0.4),
+          reason: 'the travelling pill starts dark: $leaving');
+    }
     // The copy is up, the pill is in place and transparent, the bar never
     // slid away.
     expect(KuteSearchMorph.running, isTrue);
