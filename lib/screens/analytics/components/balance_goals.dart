@@ -30,7 +30,7 @@
 //     Dollars.", a chevron. It opens the Move sheet locked to Dollars with
 //     that amount filled in (a round tenth of the goal, never more than
 //     the bitcoin is worth). Shown only where the move is allowed
-//     (`orchestra.swap`) and Investing or Predictions is live in the
+//     (the route classifier's gates) and Investing or Predictions is live in the
 //     person's country; it names neither. It never says the money grows:
 //     places to go, not returns;
 //   * A RUNG PASSED: once, after the figure has held for 1.5 s, one card
@@ -58,6 +58,8 @@
 // currency} on the nudge (milestone: the goal, display currency; amount:
 // the dollars filled in). Exact values; nothing else.
 
+import 'package:kute/services/orchestra/orchestra_capability_requirements.dart'
+    show orchestraCapabilityRequirements;
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -136,7 +138,7 @@ class BalanceGoalInput {
   /// money moving, owed back; never a position.
   final double cashUsd;
 
-  /// Bitcoin into Dollars is allowed here (`orchestra.swap`).
+  /// Bitcoin into Dollars is allowed here (the route classifier's gates).
   final bool canMoveToDollars;
 
   /// Investing / Predictions are live in the person's country.
@@ -187,7 +189,15 @@ final balanceGoalInputProvider = Provider<BalanceGoalInput?>((ref) {
     fiatPerBtc: fiatPerBtc,
     usdToDisplay: usdToDisplay,
     cashUsd: one.totalUsd - one.investedUsd,
-    canMoveToDollars: policy.allows('orchestra.swap'),
+    // Bitcoin into Dollars through the one route classifier, as the Move
+    // sheet asks (orchestra_capability_requirements.dart).
+    canMoveToDollars: orchestraCapabilityRequirements(
+      sourceChain: 'spark',
+      sourceAsset: 'BTC',
+      destinationChain: 'spark',
+      destinationAsset: 'USDB',
+      policy: policy,
+    ).every(policy.allows),
     investing: policy.allows('hyperliquid.browse'),
     predictions: policy.allows('polymarket.browse'),
   );
