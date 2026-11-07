@@ -271,9 +271,9 @@ void main() {
     }
 
     testWidgets(
-        'below the venue minimum under a block: the button only writes the '
-        'minimum, nothing is placed (issue for fw37: it should be disabled '
-        'like the trade button)', (tester) async {
+        'below the venue minimum under a block: the Minimum button is shut, '
+        'like the trade button; nothing is written or placed',
+        (tester) async {
       final policy = (await tester.runAsync(() => installMarketGatingPolicy(
           MarketDenial.masterOff,
           targets: {'hyperliquid.trade'})))!;
@@ -285,10 +285,12 @@ void main() {
           _hlOverrides);
       expect(_note(MarketDenial.masterOff.message), findsOneWidget);
       expect(barPrimaryLabel(tester), startsWith('Minimum'));
+      // Shut under the open gate, as the order button is.
+      expect(barPrimaryEnabled(tester), isFalse);
       await tapBarPrimary(tester, settle: false);
       await _frames(tester);
-      // The minimum is written; the order button that follows is shut.
-      expect(barPrimaryLabel(tester), isNot(startsWith('Minimum')));
+      // Nothing happened: still the Minimum, still shut, the reason shown.
+      expect(barPrimaryLabel(tester), startsWith('Minimum'));
       expect(barPrimaryEnabled(tester), isFalse);
       expect(_note(MarketDenial.masterOff.message), findsOneWidget);
       await _release(tester);

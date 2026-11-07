@@ -5194,11 +5194,12 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           context.l10n.amountMinimumInline(formatHlUsd(minAmountUsd));
       // Shut with the open gate (any refusal, not only a region one), as
       // the order button is: the minimum would only be refused again.
-      primaryAction = _isPlacing || _preparing || _ledgerBusy || openBlock != null
-          ? null
-          : netPlan.opposes
-              ? () => _fillAmountChip(minAmountUsd, 'min')
-              : () => _placeFilledMinimum(minAmountUsd);
+      primaryAction =
+          _isPlacing || _preparing || _ledgerBusy || openBlock != null
+              ? null
+              : netPlan.opposes
+                  ? () => _fillAmountChip(minAmountUsd, 'min')
+                  : () => _placeFilledMinimum(minAmountUsd);
       primaryNeutral = false;
     } else if (placesMinimum) {
       primaryKind = 'trade';

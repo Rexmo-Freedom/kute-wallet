@@ -110,7 +110,8 @@ import 'package:kute/screens/ledger/ledger_account_body.dart'
     show openLedgerInvestingSetup;
 import 'package:kute/screens/polymarket/market_detail_sheet.dart';
 import 'package:kute/screens/shared/animations/bouncy_touch.dart';
-import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton, kKuteNavButtonSize;
+import 'package:kute/screens/shared/kute_back_button.dart'
+    show KuteCloseButton, kKuteNavButtonSize;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart'
     show KuteSkeleton, SkeletonBar, SkeletonCircle, SkeletonRowList;

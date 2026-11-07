@@ -23,6 +23,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_ce/hive.dart';
@@ -30,13 +31,30 @@ import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/models/share_link_model.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
+import 'package:kute/providers/advisor_provider.dart' show aiEnabledProvider;
+import 'package:kute/providers/hyperliquid_search_provider.dart'
+    show HlMarketSearchResult;
+import 'package:kute/providers/hyperliquid_sparkline_provider.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart'
-    show polymarketEventDetailsProvider, polymarketMarketHistoryProvider;
+    show
+        PolyFeedNotifier,
+        PolyFeedQuery,
+        PolyFeedState,
+        polyBrowseFeedProvider,
+        polymarketEventDetailsProvider,
+        polymarketMarketHistoryProvider;
+import 'package:kute/providers/polymarket_sports_provider.dart';
+import 'package:kute/providers/unified_search_provider.dart';
 import 'package:kute/screens/hyperliquid/market_detail_sheet.dart'
     show HlMarketDetailSheet;
 import 'package:kute/screens/search/components/search_rows.dart';
 import 'package:kute/screens/share/claim_screen.dart';
+import 'package:kute/screens/search/unified_search_screen.dart'
+    show UnifiedSearchSurface;
 import 'package:kute/screens/share/send_pick_market_sheet.dart';
+import 'package:kute/screens/share/send_pick_session.dart';
+import 'package:kute/screens/shared/open_once.dart';
+import 'package:kute/services/hyperliquid/hl_sparkline_cache.dart';
 import 'package:kute/services/polymarket/polymarket_category_gate.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 
@@ -93,6 +111,38 @@ PolymarketEvent _event(String slug, String category) => PolymarketEvent(
 final _crypto = _event('btc-150k', 'crypto');
 final _sports = _event('lakers-win', 'sports');
 final _politics = _event('lula-wins', 'politics');
+
+class _Sports extends SportsLiveNotifier {
+  @override
+  Map<String, SportsMatchUpdate> build() => {};
+  @override
+  void connect() {}
+}
+
+class _Feed extends PolyFeedNotifier {
+  @override
+  PolyFeedState build(PolyFeedQuery arg) =>
+      PolyFeedState(events: [_crypto], done: true);
+}
+
+/// The send-mode search sheet's feeds: the trending prediction and the
+/// Investing mover, nothing searched.
+final _sendPickFeeds = <Override>[
+  aiEnabledProvider.overrideWith((_) async => true),
+  sportsLiveProvider.overrideWith(_Sports.new),
+  unifiedSearchResultsProvider
+      .overrideWith((_) async => UnifiedSearchResults.empty),
+  globalMarketResultsProvider.overrideWith(
+      (ref) => const AsyncValue.data(<GlobalMarketSearchResult>[])),
+  globalHyperliquidResultsProvider.overrideWith(
+      (ref) => const AsyncValue.data(<HlMarketSearchResult>[])),
+  hyperliquidAllMarketsProvider.overrideWith((_) => []),
+  hyperliquidBrowseUniverseProvider
+      .overrideWith((_) => const AsyncValue.data([_perp])),
+  hyperliquidSparklineStoreProvider.overrideWith(
+      (_) => HlSparklineStore(fetch: (_) async => const [1.0, 2.0, 3.0])),
+  polyBrowseFeedProvider.overrideWith(_Feed.new),
+];
 
 /// The targets each denial is aimed at when it is not the swap block: new
 /// positions on both venues.
@@ -227,14 +277,12 @@ void main() {
       late ShareTestEnv env;
       setUp(() {
         env = setUpShareTest();
-        SendPickMarketSheet.debugFeeds =
-            (predictions: [_crypto], investing: [_perp]);
-        SendPickMarketSheet.debugOpenMarket = (_) {};
+        OpenOnce.reset();
+        SendPickSession.debugOpenMarket = (_) {};
       });
       tearDown(() {
         tearDownShareTest();
-        SendPickMarketSheet.debugFeeds = null;
-        SendPickMarketSheet.debugOpenMarket = null;
+        SendPickSession.debugOpenMarket = null;
       });
 
       Future<void> open(WidgetTester tester) async {
@@ -249,10 +297,13 @@ void main() {
                   child: const Text('Pick'),
                 ),
               ),
-            ));
+            ),
+            overrides: _sendPickFeeds);
         await tester.tap(find.text('Pick'));
         await settle(tester);
-        expect(find.byType(SendPickMarketSheet), findsOneWidget);
+        await settle(tester);
+        // The search sheet in send mode.
+        expect(find.byType(UnifiedSearchSurface), findsOneWidget);
       }
 
       testWidgets(
@@ -268,7 +319,7 @@ void main() {
             }));
         await open(tester);
         expect(find.byType(SearchPredictionRow), findsOneWidget);
-        expect(find.byType(SearchInvestingRow), findsNothing);
+        expect(find.byType(SearchMoverGrid), findsNothing);
       });
 
       testWidgets('coming soon on Predictions: only Investing is listed',
@@ -278,7 +329,7 @@ void main() {
             targets: {'polymarket.trade'}));
         await open(tester);
         expect(find.byType(SearchPredictionRow), findsNothing);
-        expect(find.byType(SearchInvestingRow), findsOneWidget);
+        expect(find.byType(SearchMoverGrid), findsOneWidget);
       });
     });
   });
