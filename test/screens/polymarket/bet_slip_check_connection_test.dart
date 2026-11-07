@@ -3,6 +3,13 @@
 // dead one. A tap asks the venues and Kute's policy again; allowed now,
 // the refusal goes and the button is the bet, ready to place; still
 // restricted, the refusal stays with a soft failure tap.
+//
+// THE ROUND SAL BUTTON beside it (slip_share.dart; founder, 5 November
+// 2026): it stays on the slip whatever the button is. Allowed, it sends
+// THIS prediction (the side and the amount typed); nothing typed, it says
+// what to do; refused here, it sends the market's card only ("when the
+// user is blocked on Polymarket he cannot also send the actual
+// prediction, just the card").
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -26,6 +33,7 @@ import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceProvider;
 import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart';
 import 'package:kute/screens/polymarket/components/slip_chrome.dart';
+import 'package:kute/screens/share/slip_share.dart';
 import 'package:kute/screens/shared/capability_block_note.dart';
 import 'package:kute/services/continuous_haptics.dart';
 import 'package:kute/services/investment_provider_availability.dart';
@@ -163,7 +171,8 @@ void main() {
     }
   }
 
-  Future<void> pumpSlip(WidgetTester tester) async {
+  Future<void> pumpSlip(WidgetTester tester,
+      {double? amountUsd = 10}) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -194,14 +203,15 @@ void main() {
       ],
       // The bar over the slip is the slip's button (shell_bar_harness.dart).
       child: shellBarApp(
-        home: const Scaffold(
+        home: Scaffold(
           resizeToAvoidBottomInset: false,
           body: Align(
             alignment: Alignment.bottomCenter,
             child: BetSlipSheet(
                 marketQuestion: 'Will it rain?',
+                marketSlug: 'will-it-rain',
                 outcomes: _outcomes,
-                initialAmountUsd: 10),
+                initialAmountUsd: amountUsd),
           ),
         ),
       ),
@@ -284,5 +294,76 @@ void main() {
     await tapCheck(tester);
     expect(cta(tester).label, r'Place $10.00 on Yes');
     await release(tester);
+  });
+
+  group('the round Sal button', () {
+    late List<(SlipSendRoute, SlipSharePick)> sends;
+    setUp(() {
+      sends = [];
+      SlipShare.debugRoute = (r, p) => sends.add((r, p));
+      SlipShare.debugOpen = false;
+    });
+    tearDown(() {
+      SlipShare.debugRoute = null;
+      SlipShare.debugOpen = true;
+    });
+
+    final share = find.byKey(const ValueKey('kute-bar-share'));
+
+    testWidgets(
+        'allowed: beside Place, it sends THIS prediction, the side and the '
+        'amount', (tester) async {
+      blocked = false;
+      expect(await policy.refresh(), isTrue);
+      await pumpSlip(tester);
+      expect(barPrimaryLabel(tester), r'Place $10.00 on Yes');
+      expect(share, findsOneWidget);
+      // At the right of the floating primary.
+      expect(tester.getRect(share).left,
+          greaterThan(tester.getRect(find.byKey(const ValueKey('kute-bar-primary'))).left));
+      await tester.tap(share);
+      await frames(tester, 2);
+      final (route, pick) = sends.single;
+      expect(route, SlipSendRoute.pick);
+      expect(pick.investing, isFalse);
+      expect(pick.slug, 'will-it-rain');
+      expect(pick.title, 'Will it rain?');
+      expect(pick.outcome, 'Yes');
+      expect(pick.outcomeIndex, 0);
+      expect(pick.side, 'buy');
+      expect(pick.amountUsd, 10);
+      expect(pick.blocked, isFalse);
+      await release(tester);
+    });
+
+    testWidgets(
+        'nothing typed: the button stays, and a tap says to enter an amount',
+        (tester) async {
+      blocked = false;
+      expect(await policy.refresh(), isTrue);
+      await pumpSlip(tester, amountUsd: null);
+      expect(share, findsOneWidget);
+      await tester.tap(share);
+      await frames(tester, 2);
+      expect(sends.single.$1, SlipSendRoute.enterAmount);
+      expect(find.text('Enter an amount to send'), findsOneWidget);
+      await frames(tester, 50);
+      await release(tester);
+    });
+
+    testWidgets(
+        'refused here: the button still sends, the market\'s card only, no '
+        'money and no pick', (tester) async {
+      expect(await policy.refresh(), isTrue);
+      await pumpSlip(tester);
+      expect(barPrimaryLabel(tester), 'Check connection');
+      expect(share, findsOneWidget);
+      await tester.tap(share);
+      await frames(tester, 2);
+      final (route, pick) = sends.single;
+      expect(route, SlipSendRoute.market);
+      expect(pick.blocked, isTrue);
+      await release(tester);
+    });
   });
 }

@@ -9,13 +9,19 @@
 //   * [MoneyCardData]: a send-to-anyone link with no pick (bitcoin or
 //     dollars): "{Name}, I sent you" over the amount.
 //   * [PredictionCardData]: a prediction market, with the pick sent on a
-//     link ([PredictionCardData.picked]) or without (sharing the market:
+//     link ([PredictionCardData.picked]), as a dare when the sender
+//     challenges the friend to take the other side
+//     ([PredictionCardData.challenge]), or without (sharing the market:
 //     the leading outcome, and on a market of named outcomes its chart,
 //     [PredictionCardData.lines]: the market page's own lines, real
 //     history).
 //   * [InvestmentCardData]: an Investing market (a stock, an index, a
 //     commodity, a coin), with the side and amount sent on a link or
 //     without (sharing the market).
+//   * [ReceiptCardData]: a transaction's receipt (founder, 5 November
+//     2026): what was sent, received, moved or bought, a prediction
+//     placed, sold or lost, an Investing trade opened or closed
+//     ([ReceiptCardKind]); built by the receipt itself (receipt_share.dart).
 //
 // [ShareCardAudience.recipient] is the same card as the claim screen's
 // hero (claim_screen.dart): "{Name}, a friend sent you".
@@ -122,6 +128,7 @@ class PredictionCardData extends ShareCardData {
     this.opponentImageUrl,
     this.imageUrl,
     this.picked = false,
+    this.challenge = false,
     this.amount,
     this.series,
     this.lines,
@@ -167,6 +174,11 @@ class PredictionCardData extends ShareCardData {
   /// Kute"); false: the market shared ("Make your call on Kute").
   final bool picked;
 
+  /// A pick sent as a DARE (founder, 4 November 2026): the card shows both
+  /// sides, [outcome] marked as the sender's, and dares the friend to take
+  /// the other one ([otherChance], [opponent]). Only with [picked].
+  final bool challenge;
+
   /// What was put on the pick, formatted ("$10"); null: none.
   final String? amount;
 
@@ -198,7 +210,9 @@ class PredictionCardData extends ShareCardData {
   }
 
   @override
-  String get kind => picked ? 'send_prediction' : 'prediction_market';
+  String get kind => picked
+      ? (challenge ? 'send_challenge' : 'send_prediction')
+      : 'prediction_market';
 }
 
 /// An Investing market (see the file header).
@@ -255,4 +269,162 @@ class InvestmentCardData extends ShareCardData {
 
   @override
   String get kind => picked ? 'send_investment' : 'investment_market';
+}
+
+/// What a transaction's receipt shares (founder, 5 November 2026: "All
+/// these transactions, next to View on the blockchain, should have the
+/// share and a special share card"). One card per kind of receipt, drawn
+/// in the family's frame (receipt_card.dart):
+enum ReceiptCardKind {
+  /// Money out to someone: "SENT".
+  sent,
+
+  /// Money in: "RECEIVED".
+  received,
+
+  /// Money in that has not landed yet: "ON ITS WAY".
+  incoming,
+
+  /// Between the person's own accounts: "MOVED", "Dollars → Bitcoin".
+  moved,
+
+  /// A purchase: "BOUGHT · BITCOIN".
+  bought,
+
+  /// A sale of bitcoin: "SOLD · BITCOIN".
+  sold,
+
+  /// A prediction placed: "I'M ON YES", the speedometer at the entry.
+  predicted,
+
+  /// A prediction sold: "CASHED OUT", the result huge.
+  cashedOut,
+
+  /// A prediction lost: "NOT THIS TIME", dry, never sad.
+  lost,
+
+  /// A payout with no won card (no cost to measure it from): "PAID OUT".
+  paidOut,
+
+  /// An Investing trade opened (or a token bought): side, ticker, entry,
+  /// size.
+  opened,
+
+  /// An Investing trade closed (or a token sold): the result huge.
+  closed,
+}
+
+/// The money a receipt's card is about: its colour.
+enum ReceiptCardAsset { bitcoin, dollars, predictions, investing }
+
+/// A receipt's card (see [ReceiptCardKind]). Every figure is formatted by
+/// the receipt that built it, as its own hero and tiles show it; what the
+/// receipt does not have is null and the card leaves it out. Never an
+/// address, a transaction id or any other identifier.
+class ReceiptCardData extends ShareCardData {
+  const ReceiptCardData({
+    required this.type,
+    required this.asset,
+    this.amount,
+    this.bitcoin,
+    this.from,
+    this.to,
+    this.what,
+    this.title,
+    this.ticker,
+    this.side,
+    this.imageUrl,
+    this.coin,
+    this.wireCoin,
+    this.iconUrl,
+    this.category,
+    this.chance,
+    this.result,
+    this.pnl,
+    this.price,
+    this.size,
+    this.spot = false,
+    this.link,
+    super.referralCode,
+  });
+
+  final ReceiptCardKind type;
+  final ReceiptCardAsset asset;
+
+  /// The money figure: what was sent, received, moved or paid ("$9.40",
+  /// the bitcoin's value in the person's currency), a prediction's
+  /// stake, a sale's proceeds or a payout, a trade's size in money.
+  final String? amount;
+
+  /// The bitcoin that moved ("₿12,000"): under the money as "in bitcoin",
+  /// or the figure itself without the money.
+  final String? bitcoin;
+
+  /// A move's two accounts ("Dollars", "Bitcoin").
+  final String? from;
+  final String? to;
+
+  /// What was bought or sold ("Bitcoin").
+  final String? what;
+
+  /// The market: a prediction's question, an Investing market's name.
+  final String? title;
+
+  /// An Investing market's ticker ("TSLA"), when it is not the name.
+  final String? ticker;
+
+  /// The side: a prediction's outcome ("Yes", "Gen.G"); an Investing
+  /// trade's `long` | `short`.
+  final String? side;
+
+  /// The logo's sources: a prediction's picture; an Investing market's
+  /// coin (HlCoinIcon).
+  final String? imageUrl;
+  final String? coin;
+  final String? wireCoin;
+  final String? iconUrl;
+  final String? category;
+
+  /// A prediction's chance when placed (the price paid), 0–1.
+  final double? chance;
+
+  /// The result, signed and formatted ("+$4.20", "−$10.00"): the big
+  /// number of a sale, a loss, a payout, a closed trade.
+  final String? result;
+
+  /// [result] in dollars: the card's colour and Sal's mood.
+  final double? pnl;
+
+  /// An Investing trade's price ("$242.10"): the entry, or the exit.
+  final String? price;
+
+  /// An Investing trade's size in its units ("2.5 TSLA").
+  final String? size;
+
+  /// A token bought or sold (spot), not a position opened or closed.
+  final bool spot;
+
+  /// The market's link for the share message; null: the app's invite.
+  final String? link;
+
+  /// A prediction card, the market's picture and question at its top.
+  bool get prediction => switch (type) {
+        ReceiptCardKind.predicted ||
+        ReceiptCardKind.cashedOut ||
+        ReceiptCardKind.lost ||
+        ReceiptCardKind.paidOut =>
+          true,
+        _ => false,
+      };
+
+  /// An Investing trade's card.
+  bool get trade =>
+      type == ReceiptCardKind.opened || type == ReceiptCardKind.closed;
+
+  @override
+  String get kind => 'receipt_${switch (type) {
+        ReceiptCardKind.cashedOut => 'cashed_out',
+        ReceiptCardKind.paidOut => 'paid_out',
+        _ => type.name,
+      }}';
 }

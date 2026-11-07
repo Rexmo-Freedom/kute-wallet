@@ -1,10 +1,12 @@
 // Render harness for the Hyperliquid chart's Chart sheet and the Advanced
-// chart's polish (1 November 2026): the sheet over the market page (three
-// style cards, the indicator switches, Reset), light and dark; and the
-// Advanced chart with EMA 9/21 and RSI on, its legend and labelled pane,
-// at rest and with the long-press crosshair's price and time pills. The
-// Investing market sheet at 390 x 844 in the app's real theme and Inter.
-// Writes PNGs.
+// chart (4 November 2026): the sheet over the market page (the chart
+// types and the curated indicators as square cards, at its top and
+// scrolled to its foot), an indicator's settings, the Advanced chart's
+// Interval sheet (its intervals as the same squares), and the Advanced chart
+// with EMA, Supertrend, volume profile, RSI and MACD on (its O H L C
+// legend, the indicators' values and labelled panes), at rest and with
+// the long-press crosshair. The Investing market sheet at 390 x 844 in
+// the app's real theme and Inter, light and dark. Writes PNGs.
 //
 // Not part of the normal suite; it only runs when asked:
 //
@@ -19,6 +21,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:kute/models/hyperliquid_model.dart';
 import 'package:kute/providers/chart_drawings_provider.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -48,12 +51,35 @@ Future<void> _mount(WidgetTester tester, {required bool dark}) async {
   await pumpHlEditSheet(
     tester,
     theme: dark ? buildDarkTheme() : buildLightTheme(),
+    candles: _tape(),
     appBuilder: (context, child) => RepaintBoundary(
       key: _key,
       child: ColoredBox(color: context.colors.background, child: child),
     ),
   );
 }
+
+/// 400 bars of the harness tape, moved to end at its live price.
+List<HyperliquidCandle> _tape() {
+  final raw = hlEditCandles(count: 400);
+  final d = 66000 - raw.last.close;
+  return [
+    for (final k in raw)
+      HyperliquidCandle(
+        openTime: k.openTime,
+        closeTime: k.closeTime,
+        open: k.open + d,
+        high: k.high + d,
+        low: k.low + d,
+        close: k.close + d,
+        volume: k.volume,
+      ),
+  ];
+}
+
+void _seed(WidgetTester tester, List<String> keys) => hlEditContainer(tester)
+    .read(hlChartPreferencesProvider(hlEditBtcKey).notifier)
+    .setIndicators(keys);
 
 void main() {
   if (_out.isEmpty) {
@@ -93,30 +119,52 @@ void main() {
       tester.view.devicePixelRatio = _dpr;
       addTearDown(tester.view.reset);
       await _mount(tester, dark: dark);
-      hlEditContainer(tester)
-          .read(hlChartPreferencesProvider(hlEditBtcKey).notifier)
-          .setIndicators(['vol', 'ema']);
+      _seed(tester, ['vol', 'ema', 'rsi']);
       await tester.pump();
       await tester.tap(find.byKey(const ValueKey('hl-chart-sheet-button')));
       await _settle(tester);
       await _png(tester, 'chart_sheet_$mode');
+      await tester.drag(find.byKey(const ValueKey('hl-chart-sheet-scroll')),
+          const Offset(0, -2000));
+      await _settle(tester);
+      await _png(tester, 'chart_sheet_foot_$mode');
+      final tune =
+          find.byKey(const ValueKey('hl-chart-indicator-settings-rsi'));
+      await tester.drag(find.byKey(const ValueKey('hl-chart-sheet-scroll')),
+          const Offset(0, 2000));
+      await _settle(tester);
+      await tester.ensureVisible(tune);
+      await _settle(tester);
+      await tester.tap(tune);
+      await _settle(tester);
+      await _png(tester, 'indicator_settings_$mode');
     });
 
-    testWidgets('advanced chart with EMA and RSI, $mode', (tester) async {
+    testWidgets('interval sheet, $mode', (tester) async {
       tester.view.devicePixelRatio = _dpr;
       addTearDown(tester.view.reset);
       await _mount(tester, dark: dark);
-      hlEditContainer(tester)
-          .read(hlChartPreferencesProvider(hlEditBtcKey).notifier)
-          .setIndicators(['vol', 'ema', 'rsi']);
+      await enterHlEdit(tester);
+      await _settle(tester);
+      await tester
+          .tap(find.byKey(const ValueKey('hl-chart-edit-interval-button')));
+      await _settle(tester);
+      await _png(tester, 'interval_sheet_$mode');
+    });
+
+    testWidgets('advanced chart, $mode', (tester) async {
+      tester.view.devicePixelRatio = _dpr;
+      addTearDown(tester.view.reset);
+      await _mount(tester, dark: dark);
+      _seed(tester, ['vol', 'ema', 'st', 'vp', 'rsi', 'macd']);
       await tester.pump();
       await enterHlEdit(tester);
       await _settle(tester);
-      await _png(tester, 'advanced_ema_rsi_$mode');
+      await _png(tester, 'advanced_$mode');
 
       // The crosshair: a long press with Cursor in hand.
       final legend = find.byKey(const ValueKey('hl-chart-overlay-legend'));
-      final at = tester.getTopLeft(legend) + const Offset(170, 110);
+      final at = tester.getTopLeft(legend) + const Offset(170, 140);
       final g = await tester.startGesture(at);
       await tester.pump(const Duration(milliseconds: 600));
       await g.moveTo(at + const Offset(-30, 24));

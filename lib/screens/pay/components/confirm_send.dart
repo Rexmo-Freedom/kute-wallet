@@ -89,7 +89,7 @@ import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/asset_network_picker.dart';
 import 'package:kute/screens/shared/coin_asset_grid.dart';
 import 'package:kute/providers/asset_icon_provider.dart'
-    show SafeSvgNetwork, kInvestmentsIcon;
+    show SafeSvgNetwork, kInvestmentsIcon, kUsdMarkAsset;
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/shared/btc_amount_text.dart';
 import 'package:kute/screens/shared/custom_button.dart';
@@ -103,6 +103,14 @@ import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/services/contacts/send_contacts_service.dart'
     show SendContact, sendContactsProvider;
 import 'package:kute/screens/share/send_to_anyone_sheet.dart';
+import 'package:kute/screens/share/send_pick_market_sheet.dart'
+    show sendPickOffered, showSendPickMarketSheet;
+import 'package:kute/screens/search/components/search_rows.dart'
+    show SearchChanceGauge;
+import 'package:kute/screens/shared/money_movement_sheet.dart'
+    show MoneyMovementAccount, showMoneyMovementSheet;
+import 'package:kute/services/runtime_capabilities_service.dart'
+    show runtimeCapabilitiesProvider;
 import 'package:kute/models/share_link_model.dart' show ShareLinkKind;
 import 'package:kute/screens/shared/stepper/stepper_widgets.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
@@ -1136,8 +1144,26 @@ Future<bool> showConfirmationModal(
   return result ?? false;
 }
 
+/// The Move sheet's `entry_source` when the Bitcoin Send's "To Dollars"
+/// chip opens it.
+const String kBitcoinSendToDollarsSource = 'bitcoin_send_to_dollars';
+
+/// The market search's `entrySource` when the Bitcoin Send's "Prediction"
+/// chip opens it.
+const String kBitcoinSendPickSource = 'bitcoin_send_sheet';
+
 class ConfirmSend extends ConsumerStatefulWidget {
   const ConfirmSend({super.key});
+
+  /// Test seam: what "To Dollars" opens. Null opens the real Move money
+  /// sheet, Bitcoin to Dollars.
+  @visibleForTesting
+  static Future<void> Function(BuildContext context)? debugMoveSheetOpener;
+
+  /// Test seam: what "Prediction" opens. Null opens the market search;
+  /// the answer is whether a link was created.
+  @visibleForTesting
+  static Future<bool?> Function(BuildContext context)? debugPickOpener;
 
   @override
   _ConfirmSendState createState() => _ConfirmSendState();
@@ -1275,7 +1301,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   /// mode, where the existing decimal-entry TextField stays in
   /// charge.
   String _atmDigits = '';
-  static const int _atmMaxDigits = 10;
+  static const int _atmMaxDigits = kSendAtmMaxDigits;
 
   // Destination: null = Bitcoin/Lightning/Spark (default), otherwise cross-chain swap
   _DestAsset? _selectedDestAsset;
@@ -1808,45 +1834,6 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     _setDraining(false);
   }
 
-  /// Format the ATM accumulator for display. In 'Sats' mode the
-  /// amount renders as the bare integer ("550"). In 'BTC' mode the
-  /// sats value is rendered with the standard 8-decimal layout
-  /// ("0.00 000 550") so the user's keystrokes flow in from the
-  /// right.
-  String _formatAtmAmount(String digits, String inputCurrency) {
-    final sats = digits.isEmpty ? 0 : int.tryParse(digits) ?? 0;
-    if (inputCurrency == 'Sats') {
-      return sats.toString();
-    }
-    // BTC mode: render the spaced 8-decimal form via the shared
-    // formatter so the gap pattern matches the rest of the app.
-    return sats.toFormattedString('BTC');
-  }
-
-  /// Split a formatted BTC display string at the boundary between
-  /// the "user-typed" trailing digits and the leading-zero padding,
-  /// so the padding can be drawn in tertiary color and the typed
-  /// digits in primary. `userDigitCount` counts digit characters
-  /// (not spaces/decimal) from the right.
-  (String leading, String trailing) _splitAtmDisplay(
-      String formatted, int userDigitCount) {
-    if (userDigitCount <= 0) return (formatted, '');
-    int counted = 0;
-    int splitIdx = 0;
-    for (int i = formatted.length - 1; i >= 0; i--) {
-      final ch = formatted.codeUnitAt(i);
-      // ASCII '0'..'9'
-      if (ch >= 0x30 && ch <= 0x39) {
-        counted++;
-        if (counted >= userDigitCount) {
-          splitIdx = i;
-          break;
-        }
-      }
-    }
-    return (formatted.substring(0, splitIdx), formatted.substring(splitIdx));
-  }
-
   Future<void> _checkAndPopulateInvoiceAmount(String input) async {
     if (input.isEmpty) return;
     try {
@@ -1987,61 +1974,10 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     }
   }
 
-  String _getCurrencyPrefix(String code) {
-    switch (code) {
-      case 'USD':
-        return '\$';
-      case 'EUR':
-        return '€';
-      case 'GBP':
-        return '£';
-      case 'BRL':
-        return 'R\$';
-      case 'CHF':
-        return 'Fr';
-      case 'BTC':
-        return '₿';
-      case 'Sats':
-        return '₿';
-      default:
-        return '';
-    }
-  }
+  String _getCurrencyPrefix(String code) => sendCurrencyPrefix(code);
 
-  Widget _currencyIcon(String code, {double? size}) {
-    final s = size ?? 24.sp;
-    switch (code) {
-      case 'BTC':
-        return ClipRRect(
-            borderRadius: BorderRadius.circular(s * 0.3),
-            child: SvgPicture.asset('lib/assets/bitcoin-icon.svg',
-                width: s, height: s));
-      case 'Sats':
-        return ClipRRect(
-            borderRadius: BorderRadius.circular(s * 0.3),
-            child: SvgPicture.asset('lib/assets/sats-icon.svg',
-                width: s, height: s));
-      default:
-        return Text(_getCurrencyFlag(code), style: TextStyle(fontSize: s));
-    }
-  }
-
-  String _getCurrencyFlag(String code) {
-    switch (code) {
-      case 'USD':
-        return '🇺🇸';
-      case 'EUR':
-        return '🇪🇺';
-      case 'GBP':
-        return '🇬🇧';
-      case 'BRL':
-        return '🇧🇷';
-      case 'CHF':
-        return '🇨🇭';
-      default:
-        return '';
-    }
-  }
+  Widget _currencyIcon(String code, {double? size}) =>
+      sendCurrencyIcon(code, size: size ?? 24.sp);
 
   /// Resolve the wallet captured at entry, independently of the active
   /// spending account. A removed explicit source never falls back here.
@@ -5512,58 +5448,12 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   /// no TextField here, so the OS keyboard never opens on this step.
   Widget _buildAtmAmountInput(AppColorsExtension c, String currentInputCurrency,
       {bool overBalance = false}) {
-    final isSatsUnit = currentInputCurrency == 'Sats';
-    final hasDigits = _atmDigits.isNotEmpty;
-    final typedColor = overBalance ? AppColors.marketDown : c.textPrimary;
-    final formatted = _formatAtmAmount(_atmDigits, currentInputCurrency);
-    // Split the formatted display into (greyed-leading) + (typed-trailing).
-    // In sats mode there's no leading padding — everything the user
-    // typed is the whole string.
-    final (leading, trailing) = isSatsUnit || !hasDigits
-        ? (hasDigits ? '' : formatted, hasDigits ? formatted : '')
-        : _splitAtmDisplay(formatted, _atmDigits.length);
-    final amountTextStyle = TextStyle(
-      fontSize: 56.sp,
-      fontWeight: FontWeight.w800,
-      letterSpacing: -1.4,
-      height: 1.0,
-      fontFeatures: const [FontFeature.tabularFigures()],
-    );
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.baseline,
-      textBaseline: TextBaseline.alphabetic,
-      children: [
-        Text(_getCurrencyPrefix(currentInputCurrency),
-            style: amountTextStyle.copyWith(
-                color: hasDigits ? typedColor : c.textTertiary)),
-        SizedBox(width: 6.w),
-        // The amount itself — Text.rich so leading-zero padding (BTC
-        // mode) can fade to tertiary while the typed digits land in
-        // primary, making the right-to-left growth feel like an ATM
-        // keypad.
-        Text.rich(
-          TextSpan(
-            children: [
-              if (leading.isNotEmpty)
-                TextSpan(
-                  text: leading,
-                  style: amountTextStyle.copyWith(color: c.textTertiary),
-                ),
-              if (trailing.isNotEmpty)
-                TextSpan(
-                  text: trailing,
-                  style: amountTextStyle.copyWith(color: typedColor),
-                ),
-            ],
-          ),
-          maxLines: 1,
-        ),
-        // Sats mode no longer trails a "sats" label — the ₿
-        // prefix (BIP-177) already denotes the unit, matching the
-        // activity feed and balance headline.
-      ],
+    // Sats mode trails no "sats" label: the ₿ prefix (BIP-177) already
+    // denotes the unit, matching the activity feed and balance headline.
+    return SendBitcoinAmountHero(
+      digits: _atmDigits,
+      unit: currentInputCurrency,
+      overBalance: overBalance,
     );
   }
 
@@ -5603,13 +5493,8 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   /// Fiat unit the swap icon flips to from a Bitcoin unit: the one the
   /// user last typed in, else the settings currency when the unit
   /// sheet offers it, else USD.
-  String _fiatFlipUnit() {
-    const supported = {'USD', 'EUR', 'GBP', 'BRL', 'CHF'};
-    final last = _lastFiatUnit;
-    if (last != null && supported.contains(last)) return last;
-    final settingsCode = currency.toUpperCase();
-    return supported.contains(settingsCode) ? settingsCode : 'USD';
-  }
+  String _fiatFlipUnit() =>
+      sendFiatFlipUnit(lastFiat: _lastFiatUnit, settingsCurrency: currency);
 
   /// Flip the Amount entry unit between Bitcoin (sats / BTC per the
   /// display setting) and fiat, keeping the typed amount. The amount
@@ -5654,35 +5539,9 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     } else {
       secondary = '₿${amountSats.toFormattedString(btcFormat)}';
     }
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          secondary,
-          style: TextStyle(
-            color: c.textSecondary,
-            fontSize: 17.sp,
-            fontWeight: FontWeight.w700,
-            letterSpacing: -0.2,
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
-        ),
-        SizedBox(width: 4.w),
-        Material(
-          color: Colors.transparent,
-          shape: const CircleBorder(),
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: () => _flipAmountUnit(unit),
-            child: Padding(
-              padding: EdgeInsets.all(6.w),
-              child: Icon(Icons.swap_vert_rounded,
-                  size: 20.sp, color: c.textSecondary),
-            ),
-          ),
-        ),
-      ],
+    return SendAmountConversionLine(
+      secondary: secondary,
+      onSwap: () => _flipAmountUnit(unit),
     );
   }
 
@@ -5769,29 +5628,14 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
                 ],
                 if (overBalance) ...[
                   SizedBox(height: 8.h),
-                  Text(
-                    context.l10n.sendMoreThanAvailable,
-                    style: TextStyle(
-                      color: AppColors.marketDown,
-                      fontSize: 14.sp,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: -0.1,
-                    ),
-                  ),
+                  SendAmountWarningLine(context.l10n.sendMoreThanAvailable),
                 ],
                 SizedBox(height: 10.h),
-                Text(
+                SendAmountAvailableLine(
                   context.l10n.sendAmountUnitAvailableWithFiat(
                       btcSats.toFormattedString(btcFormat),
                       btcFormat,
                       selectedPoolFiat),
-                  style: TextStyle(
-                    color: c.textTertiary,
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: -0.1,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
                 ),
               ],
             ),
@@ -7803,17 +7647,22 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     if (created == true && mounted) _closeAndReset();
   }
 
-  /// The cross-chain row of the Send to card. AT REST IT IS A STATEMENT,
-  /// not a mode: "Also sends to" with the coins this money can land as,
-  /// exactly as the receive screen says what its address accepts. The
-  /// three working states are untouched: an address we cannot identify,
-  /// an address that still needs a network, and a destination already
-  /// chosen, all of which have something specific to say in the row.
+  /// The cross-chain working states of the Send to step, under the field
+  /// (null at rest: the "Crypto address" chip is the way in, see
+  /// [_sendWaysRow]). They keep their words: an address we cannot
+  /// identify, an address that still needs a network, and a coin already
+  /// chosen, all of which have something specific to say.
+  ///
+  /// An address that still needs a network is the emphasized row: it is
+  /// the one forward path, a question rather than an option, and its
+  /// border says so. A coin chosen ("USDC · Base", Auto-swap from bitcoin)
+  /// is one plain row with Change at its right, back to a bitcoin send;
+  /// a tap on it picks again.
   ///
   /// Hardware / watch-only sources get none of this: cross-chain sends
   /// are Orchestra deliveries from the Spark hot wallet, so cold
   /// wallets are bitcoin-on-chain-only (models/account.dart `canSwap`).
-  Widget _crossChainRow(AppColorsExtension c, String addr) {
+  Widget? _crossChainOption(AppColorsExtension c, String addr) {
     final detected = _detectAddressType(addr);
     final isNativeBtcRail = detected.label == 'Bitcoin on-chain' ||
         detected.label == 'Lightning invoice' ||
@@ -7826,52 +7675,170 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     final addressUnrecognized =
         addr.isNotEmpty && (detected.label == 'Unknown' || !detected.valid);
     final hasSelection = _selectedDestAsset != null;
+    if (!needsPick && !hasSelection) return null;
     final String otherTitle;
     final String otherSubtitle;
     if (hasSelection) {
       otherTitle =
           '${_selectedDestAsset!.code} · ${_selectedDestNetwork?.name ?? ''}';
       otherSubtitle = context.l10n.sendAutoSwapFromBitcoin;
-    } else if (addressUnrecognized && needsPick) {
+    } else if (addressUnrecognized) {
       otherTitle = context.l10n.sendAddressNotIdentified;
       otherSubtitle = context.l10n.sendChooseANetworkFromTheSheetToContinue;
-    } else if (needsPick) {
+    } else {
       otherTitle = context.l10n.sendWhichNetworkIsThisAddressOn;
       otherSubtitle = context.l10n.sendTapToChoose;
-    } else {
-      otherTitle = context.l10n.sendOtherCrypto;
-      otherSubtitle = '';
     }
     void open() {
       TrackingService.sendAssetShortcutTapped('other');
       _showDestinationPicker(context);
     }
 
-    // The coins this send can land as, folded one per coin — the same
-    // fold the sheet itself uses, so the row and the grid can never be a
-    // different set.
+    if (needsPick) {
+      return _SendToListCard(
+        colors: c,
+        // Attention reads through the border weight and copy, never an
+        // accent wash. The Continue gate is inactive while a pick is
+        // pending, so this row is the only forward path.
+        emphasized: true,
+        rows: [
+          _SendToListRow(
+            colors: c,
+            leading: Icon(Icons.swap_horiz_rounded,
+                color: c.textSecondary, size: 20.sp),
+            title: otherTitle,
+            subtitle: otherSubtitle,
+            onTap: open,
+          ),
+        ],
+      );
+    }
+    return _SendToListCard(
+      key: const ValueKey('send-to-coin-card'),
+      colors: c,
+      rows: [
+        _SendToListRow(
+          colors: c,
+          leading: _selectedDestAsset!.iconWidget(size: 28.sp),
+          title: otherTitle,
+          subtitle: otherSubtitle,
+          // The chosen coin can be dropped here, back to bitcoin.
+          trailing: SendChangeButton(
+            key: const ValueKey('send-to-coin-change'),
+            onTap: _clearDestCoin,
+          ),
+          onTap: open,
+        ),
+      ],
+    );
+  }
+
+  /// The coins this send can land as for what the field holds, folded one
+  /// per coin — the same fold the destination sheet itself uses, so the
+  /// chip's coins and the sheet can never be a different set.
+  List<CoinAssetGroup> _sendDestGroups() {
     final catalog = ref.watch(orchestraSupportedRoutesProvider);
     final eligible =
         _eligibleNetworksForFamily[_addressRailFamily(addressController.text)];
     final all = _sendDestOptions(catalog, context.l10n);
-    final groups = groupCoinsByAsset([
+    return groupCoinsByAsset([
       for (final o in all)
         if (eligible == null || eligible.contains(o.chain))
           _sendDestPickerRow(o),
     ]);
-    final atRest = !hasSelection && !needsPick;
-    if (atRest && groups.isNotEmpty) {
-      return SendAlsoSendsToRow(groups: groups, onTap: open);
-    }
-    return _SendToListRow(
-      colors: c,
-      leading: hasSelection
-          ? _selectedDestAsset!.iconWidget(size: 28.sp)
-          : Icon(Icons.swap_horiz_rounded, color: c.textSecondary, size: 20.sp),
-      title: otherTitle,
-      subtitle: otherSubtitle,
-      onTap: open,
+  }
+
+  /// LEVEL 2, ONE ROW OF CHIPS (founder, 6 November 2026, the approved
+  /// hierarchy, "one question per level, people first";
+  /// send_recipient_step.dart): under the "More ways to send" label,
+  /// three small equal chips, clearly under the people above them:
+  ///
+  ///   * "To Dollars": the Move money sheet, Bitcoin to Dollars, pinned
+  ///     (as the Dollars Send's "To your Bitcoin" pins the other way);
+  ///   * "Crypto address": the coins this bitcoin can land as, in the
+  ///     destination sheet (the coins stacked as its icon);
+  ///   * "Prediction": Send an investment or prediction, the market
+  ///     search the Dollars Send opens (send_pick_market_sheet.dart). A
+  ///     prediction link is paid from Dollars wherever it is sent from
+  ///     (slip_share.dart: ShareLinkKind.dollars), so the Bitcoin Send
+  ///     opens the very same flow; the chip goes where neither venue is
+  ///     open to this person (sendPickOffered).
+  ///
+  /// Hot sources only (the caller): a cold wallet sends bitcoin on-chain
+  /// and nothing else.
+  Widget _sendWaysRow() {
+    final l10n = context.l10n;
+    final groups = _sendDestGroups();
+    final pickOffered = sendPickOffered(ref.watch(runtimeCapabilitiesProvider));
+    return SendWaysRow(
+      key: const ValueKey('send-to-options'),
+      chips: [
+        SendWayChip(
+          key: const ValueKey('send-to-dollars'),
+          icon: SvgPicture.asset(kUsdMarkAsset,
+              width: kSendWayChipIconSlot.sp, height: kSendWayChipIconSlot.sp),
+          label: l10n.sendWayToDollars,
+          onTap: _openToDollars,
+        ),
+        SendWayChip(
+          key: const ValueKey('send-also-sends-to-row'),
+          icon: groups.isEmpty
+              ? Icon(Icons.swap_horiz_rounded,
+                  color: context.colors.textPrimary,
+                  size: kSendWayChipIconSlot.sp)
+              : SendCoinStack(groups: groups, mark: kSendWayChipCoinMark),
+          label: l10n.sendWayCryptoAddress,
+          // "USDC, USDT, ETH and 16 more" read out after the label.
+          semanticsLabel: groups.isEmpty
+              ? l10n.sendToCryptoAddress
+              : '${l10n.sendToCryptoAddress}, '
+                  '${sendAlsoSendsToSummary(l10n, groups)}',
+          onTap: () {
+            TrackingService.sendAssetShortcutTapped('other');
+            _showDestinationPicker(context);
+          },
+        ),
+        if (pickOffered)
+          SendWayChip(
+            key: const ValueKey('send-pick'),
+            // The predictions' own gauge (the search rows' half ring), as
+            // on the Dollars Send.
+            icon: const SearchChanceGauge(chance: 0.64),
+            label: l10n.sendWayPrediction,
+            semanticsLabel: l10n.sendAnInvestmentOrPrediction,
+            onTap: () => unawaited(_openPick()),
+          ),
+      ],
     );
+  }
+
+  /// "To Dollars": the Move money sheet from Bitcoin to Dollars, pinned
+  /// (nothing to pick), over this send.
+  void _openToDollars() {
+    final open = ConfirmSend.debugMoveSheetOpener;
+    if (open != null) {
+      TrackingService.markEntrySource('move', kBitcoinSendToDollarsSource);
+      unawaited(open(context));
+      return;
+    }
+    unawaited(showMoneyMovementSheet(
+      context,
+      initialSource: MoneyMovementAccount.bitcoin,
+      initialDestination: MoneyMovementAccount.dollars,
+      entrySource: kBitcoinSendToDollarsSource,
+      pinned: true,
+    ));
+  }
+
+  /// "Prediction": the market search; a market's slip sends it. A link
+  /// created closes the send, as a contact's link does.
+  Future<void> _openPick() async {
+    final open = ConfirmSend.debugPickOpener;
+    final created = open != null
+        ? await open(context)
+        : await showSendPickMarketSheet(context,
+            entrySource: kBitcoinSendPickSource);
+    if (created == true && mounted) _closeAndReset();
   }
 
   /// Whether [addr] still needs a network pick (a 0x… or base58 address
@@ -7916,9 +7883,10 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   /// search field (everything it took before: Lightning addresses of any
   /// domain, LNURL, invoices, bitcoin and Spark addresses, @user, Paste
   /// and Scan), the destination it holds resolved as one row FIRST, then
-  /// Frequent (the recents as circles, directly under the field: founder,
-  /// 2 November 2026, "Frequent stays on top"), the Send to card ("Also
-  /// sends to"), and All contacts A–Z filtered by the text
+  /// one question per level, people first (founder, 6 November 2026):
+  /// Frequent (the recents as circles, directly under the field), the
+  /// "More ways to send" chips (To Dollars, Crypto address, Prediction:
+  /// [_sendWaysRow]), and All contacts A–Z filtered by the text
   /// (send_contacts_list.dart: recents and the phone's contacts, one
   /// list).
   Widget _sendToPage(AppColorsExtension c) {
@@ -7984,14 +7952,13 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     // the Spark hot wallet, never from a cold source. A friend's link is
     // a Spark link: the same source.
     final hot = !_isColdSource;
-    // Hidden while a recipient is chosen: the card above is the choice.
-    final showSendToCard =
-        !resolved && !bitcoinDestination && (hot || needsPick);
-    // Scrollable so the matches, the card and the contacts never
+    // Scrollable so the matches, the chips and the contacts never
     // overflow on a short screen or at a large text scale; the end clears
     // the floating bar.
-    // Order: the field, the recipient card, Frequent, the Send to card,
-    // All contacts.
+    // Order (founder, 6 November 2026: one question per level, people
+    // first): the field, the recipient card (or the network question, or
+    // the chosen coin), Frequent, the "More ways to send" chips, All
+    // contacts.
     // ONE scroll view to the sheet's bottom edge (the frame reserves
     // nothing under this page, SendStepperFrame.bleedPages), the Contacts
     // as slivers in it.
@@ -8000,6 +7967,14 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     final coinChosen =
         _selectedDestAsset != null && _selectedDestNetwork != null;
     final showContacts = hot && !needsPick && !coinChosen;
+    // The working cross-chain row (the network question, the chosen
+    // coin), hidden once a recipient is chosen: the card above is the
+    // choice.
+    final crossChain = hot && !resolved && !bitcoinDestination
+        ? _crossChainOption(c, looksLikeAddress ? addr : '')
+        : null;
+    // The other ways, at rest only: nothing chosen, nothing to answer.
+    final showWays = hot && !resolved && !needsPick && !coinChosen;
     return CustomScrollView(
       key: const ValueKey('send-to-scroll'),
       slivers: [
@@ -8085,9 +8060,15 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
             SizedBox(height: 12.h),
             _clipboardNudgeChip(c, _clipboardCandidate!),
           ],
-          // Frequent stays on top (founder, 2 November 2026): under the
-          // field, above the Send to card; hidden while typing and once
-          // a recipient is chosen.
+          // The network question, or the chosen coin with Change, right
+          // under the field: the one forward path while it is there.
+          if (crossChain != null) ...[
+            SizedBox(height: 12.h),
+            crossChain,
+          ],
+          // Level 1, people (founder, 2 November 2026: "Frequent stays on
+          // top"): under the field; hidden while typing and once a
+          // recipient is chosen.
           if (showContacts)
             SendFrequentSection(
               query: query,
@@ -8095,35 +8076,21 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
               excludeAddress: resolved ? addr : null,
               onPerson: _onPerson,
             ),
-          if (showSendToCard) ...[
+          // Level 2, the other ways: one row of small chips.
+          if (showWays) ...[
             SizedBox(height: 20.h),
-            SendSectionLabel(
-              context.l10n.sendToLabel,
-              // A chosen coin can be dropped here, back to bitcoin.
-              trailing: _selectedDestAsset != null
-                  ? SendChangeButton(
-                      key: const ValueKey('send-to-coin-change'),
-                      onTap: _clearDestCoin,
-                    )
-                  : null,
-            ),
-            _SendToListCard(
-              colors: c,
-              // Attention reads through the border weight and copy, never
-              // an accent wash. The Continue gate is inactive while a pick
-              // is pending, so this card is the only forward path.
-              emphasized: needsPick,
-              rows: [
-                if (hot) _crossChainRow(c, looksLikeAddress ? addr : ''),
-              ],
-            ),
+            SendSectionLabel(context.l10n.sendMoreWaysToSend),
+            _sendWaysRow(),
           ],
+          // No "To a friend · Send to anyone" card on a bitcoin send
+          // (founder, 5 November 2026): a contact or a phone number typed
+          // in the field already sends by link.
         ],
           ),
         ),
-        // Contacts (founder, 1 November 2026): All contacts A–Z, filtered
-        // by what is typed, under the Send to card (a growing list never
-        // pushes it out of sight); Frequent sits above the card. A link
+        // Level 3, Contacts (founder, 1 November 2026): All contacts A–Z,
+        // filtered by what is typed, under the chips (a growing list never
+        // pushes them out of sight); Frequent sits above them. A link
         // needs the spending wallet: hot sources only; none once a coin
         // is chosen.
         if (showContacts)

@@ -39,6 +39,19 @@
 // greets the recipient by it; the link carries no sender name, so the
 // sender is "a friend". Claim is the bar.
 //
+// A CHALLENGE (founder, 4 November 2026; share_challenge.dart): a
+// prediction pick the sender sent as a dare, flagged by the link's URL
+// (`?challenge=1`, carried on by the route as [ClaimScreen.challenge]) or
+// by the backend (ShareLink.challenge). The hero is the dare ("ANA, A
+// FRIEND DARES YOU", both sides, the sender's marked); the pick card
+// after the claim names the friend's side ("Your friend is on Yes · $10");
+// and once the money is in, the screen offers two explicit choices:
+// "Take the other side" (the bar: the slip on the side opposite the
+// sender's) and "Same side as your friend" (a text button over it: the
+// slip on the sender's side). Nothing is preselected before a tap; a
+// market with no single other side (three or more outcomes) opens on its
+// page instead, nothing chosen. `share_challenge_answered` says which.
+//
 // A link opened before the wallet exists never reaches this screen: the
 // router parks the id (ShareLinksStore.parkClaim) and app_widget.dart
 // opens it once the session is unlocked.
@@ -70,6 +83,8 @@ import 'package:kute/screens/hyperliquid/market_detail_sheet.dart';
 import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart';
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/screens/polymarket/market_detail_sheet.dart';
+import 'package:kute/screens/share/share_challenge.dart'
+    show challengeOtherSideIndex;
 import 'package:kute/screens/share/share_link_copy.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
@@ -82,10 +97,19 @@ import 'package:kute/services/share_link_events.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
+/// What a pick's button opened (the test seam's record): the Predictions
+/// slip on [outcomeIndex], or the market with nothing preselected
+/// ([market]).
+typedef ClaimPickOpening = ({int? outcomeIndex, bool market});
+
 class ClaimScreen extends ConsumerStatefulWidget {
-  const ClaimScreen({super.key, required this.id});
+  const ClaimScreen({super.key, required this.id, this.challenge = false});
 
   final String id;
+
+  /// The link's URL said it is a challenge (`?challenge=1`); the backend
+  /// may say so too (ShareLink.challenge). See the file header.
+  final bool challenge;
 
   static const routeName = 'claim';
 
@@ -97,6 +121,11 @@ class ClaimScreen extends ConsumerStatefulWidget {
   /// Spark address.
   @visibleForTesting
   static Future<String> Function(WidgetRef ref)? debugDestination;
+
+  /// Test seam: what a prediction pick's button opens, instead of the
+  /// slip or the market page. Null opens them.
+  @visibleForTesting
+  static void Function(ClaimPickOpening opening)? debugOpenPick;
 
   @override
   ConsumerState<ClaimScreen> createState() => _ClaimScreenState();
@@ -136,6 +165,13 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
 
   bool get _investing => _link?.venue == 'hyperliquid';
 
+  /// A prediction pick sent as a dare (see the file header).
+  bool get _challenge {
+    final link = _link;
+    if (link == null || !link.hasPick || _investing) return false;
+    return widget.challenge || link.challenge;
+  }
+
   /// The hero card's capture key (never captured here).
   final GlobalKey _heroBoundary = GlobalKey();
 
@@ -164,6 +200,7 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
       bitcoinAmount: btc,
       bitcoinFiat: fiat,
       audience: ShareCardAudience.recipient,
+      challenge: _challenge,
     );
   }
 
@@ -339,10 +376,16 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
 
   /// "Place the prediction": the slip, prefilled with the pick and the
   /// amount, for the person to confirm. Falls back to opening the market
-  /// when the slip cannot be built here.
-  Future<void> _placePick() async {
+  /// when the slip cannot be built here. On a challenge, the side the
+  /// person chose: [otherSide] the one opposite the sender's (the market
+  /// itself, nothing preselected, when there is no single other side).
+  Future<void> _placePick({bool otherSide = false}) async {
     final link = _link;
     if (link == null || !link.hasPick) return;
+    if (_challenge) {
+      ShareLinkEvents.challengeAnswered(link.kind, link.amountMinor,
+          otherSide: otherSide, marketSlug: link.marketSlug);
+    }
     final amountUsd =
         link.kind == ShareLinkKind.dollars ? link.amountMinor / 100 : null;
     if (_investing) {
@@ -367,6 +410,17 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
         !polymarketEventOffered(event, RuntimeCapabilitiesService.instance)) {
       return _openMarket();
     }
+    final pick = _pickIndex(link, event);
+    final index = _challenge && otherSide
+        ? challengeOtherSideIndex(event.outcomes, pick)
+        : pick;
+    // No single other side: the market, nothing preselected.
+    if (index == null) return _openMarket();
+    final debug = ClaimScreen.debugOpenPick;
+    if (debug != null) {
+      debug((outcomeIndex: index, market: false));
+      return;
+    }
     await BetSlipSheet.show(
       context,
       event: event,
@@ -375,7 +429,7 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
       marketSlug: event.slug,
       marketImage: event.imageUrl,
       outcomes: event.outcomes,
-      initialOutcomeIndex: _pickIndex(link, event),
+      initialOutcomeIndex: index,
       initialAmountUsd: amountUsd,
       marketCategory: event.category,
       marketEndAt: event.endDate,
@@ -407,6 +461,11 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
   Future<void> _openMarket() async {
     final slug = _link?.marketSlug?.trim();
     ShareLinkEvents.marketOpened(marketSlug: slug);
+    final debug = ClaimScreen.debugOpenPick;
+    if (debug != null) {
+      debug((outcomeIndex: null, market: true));
+      return;
+    }
     if (slug == null || slug.isEmpty) {
       context.go('/polymarket');
       return;
@@ -598,6 +657,25 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                       busy: _phase == _Phase.claiming,
                       busyLabel: l10n.claimClaiming,
                     ),
+                  // A challenge, the money in: two explicit choices,
+                  // nothing preselected (see the file header).
+                  _Phase.claimed when pick && _challenge && _arrived =>
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        AppTextButton(
+                          key: const ValueKey('claim-same-side'),
+                          text: l10n.claimChallengeSameSide,
+                          onPressed: () => unawaited(_placePick()),
+                        ),
+                        _bar(
+                          label: l10n.claimChallengeOtherSide,
+                          onPrimary: () =>
+                              unawaited(_placePick(otherSide: true)),
+                        ),
+                      ],
+                    ),
                   _Phase.claimed when pick => Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -705,7 +783,11 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                 ),
                 SizedBox(height: 4.h),
                 Text(
-                  l10n.claimPickAmount(link.outcome!.trim(), amount),
+                  // A challenge names whose side it is.
+                  _challenge
+                      ? '${l10n.claimChallengeFriendOn(link.outcome!.trim())}'
+                          ' · $amount'
+                      : l10n.claimPickAmount(link.outcome!.trim(), amount),
                   key: const ValueKey('claim-pick-line'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

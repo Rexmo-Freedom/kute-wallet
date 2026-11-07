@@ -1,7 +1,8 @@
 // Receiving another coin from another network, a sheet over the current
-// screen: the Dollars receive (into `spark:USDB`: one card, "From your
-// Bitcoin" then "From another wallet or exchange" opening the coin sheet)
-// and the Bitcoin receive's "other coins" (the coin grid).
+// screen: the Dollars receive (into `spark:USDB`: two big square cards,
+// "From your Bitcoin" and "From another wallet or exchange" opening the
+// coin sheet, in a sheet as tall as they are) and the Bitcoin receive's
+// "other coins" (the coin grid).
 //
 // REUSABLE FIRST (founder, 2026-10-19; reusable_deposit_address.dart): a
 // picked coin the standing route may serve shows its reusable standing
@@ -40,7 +41,6 @@ import 'package:kute/providers/breez_config_provider.dart';
 import 'package:kute/providers/currency_conversions_provider.dart'
     show selectedCurrencyProvider;
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:kute/theme/app_theme.dart';
 import 'package:kute/providers/asset_icon_provider.dart'
     show AssetIcon, kBitcoinMarkAsset;
 import 'package:kute/providers/orchestra_supported_routes_provider.dart';
@@ -60,10 +60,11 @@ import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/shared/qr_code.dart';
 import 'package:kute/screens/shared/account_switcher_pill.dart';
 import 'package:kute/screens/shared/receive_surface.dart';
+import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
-    show SendToListCard, SendToListRow, SendToSectionHeader;
+    show SendToSectionHeader;
 import 'package:kute/screens/shared/send/send_recipient_step.dart'
-    show SendAlsoSendsToRow;
+    show SendStepTitle, sendAlsoSendsToCard;
 import 'package:kute/screens/usd/flow/usd_flow_widgets.dart';
 import 'package:kute/services/orchestra/bitcoin_receive_marks.dart'
     show BitcoinReceiveMarks;
@@ -117,9 +118,9 @@ String? watchSpendingBitcoinUsd(WidgetRef ref) {
 /// `receiveDollars` route's sheet page).
 ///
 /// Into Dollars ([destinationAsset] `USDB`, the default) it opens on two
-/// labelled choices: "From your wallet" over the Bitcoin card (the Move
-/// sheet's way in from the spending bitcoin), then "From another wallet or
-/// exchange" over the coin grid. Into Bitcoin (`BTC`, the Bitcoin
+/// big square cards in a content-sized sheet: "From your Bitcoin" (the
+/// Move sheet's way in from the spending bitcoin) and "From another wallet
+/// or exchange" (the coin sheet). Into Bitcoin (`BTC`, the Bitcoin
 /// receive's "other coins") it is the coin grid alone. A picked coin shows
 /// its reusable address in a sheet over this one, or, where only a
 /// one-time address serves it, asks its amount and shows that the same
@@ -219,31 +220,33 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
   }
 
   /// The Dollars Add (founder, 1 November 2026: the quiet treatment of
-  /// the Bitcoin receive): ONE card, "From your Bitcoin" (the Bitcoin
-  /// mark, its balance; the Move sheet from the spending bitcoin), then
-  /// "From another wallet or exchange" (the coins stacked, "USDC, USDT,
-  /// ETH and N more"), opening the coin sheet exactly as the Bitcoin
-  /// receive's "Also accepts" does. No inline grid.
+  /// the Bitcoin receive; 5 November 2026: "Here should be big cards,
+  /// square"): TWO big square cards side by side (kute_action_cards.dart),
+  /// "From your Bitcoin" (the Bitcoin mark, its balance; the Move sheet
+  /// from the spending bitcoin) and "From another wallet or exchange" (the
+  /// coins stacked, "USDC, USDT, ETH and N more"), opening the coin sheet
+  /// as the Bitcoin receive's "From another asset" does. With no coin
+  /// offered the Bitcoin card is alone, full width and compact. No inline
+  /// grid.
   Widget _dollarsCard(BuildContext context, List<CoinAssetGroup> groups) {
-    final c = context.colors;
     final l10n = context.l10n;
     final balance = watchSpendingBitcoinUsd(ref);
-    return SendToListCard(
+    return KuteActionCardGrid(
       key: const ValueKey('usd-receive-card'),
-      colors: c,
-      rows: [
-        SendToListRow(
+      cards: [
+        KuteActionCard(
           key: const ValueKey('usd-receive-from-bitcoin'),
-          colors: c,
-          leading: SvgPicture.asset(kBitcoinMarkAsset,
-              width: 40.sp, height: 40.sp),
+          visual: SvgPicture.asset(kBitcoinMarkAsset,
+              width: kKuteActionCardVisualSize.sp,
+              height: kKuteActionCardVisualSize.sp),
           title: l10n.usdReceiveFromYourBitcoin,
           subtitle:
               balance == null ? null : l10n.usdBitcoinBalanceLine(balance),
           onTap: _openFromBitcoin,
         ),
         if (groups.isNotEmpty)
-          SendAlsoSendsToRow(
+          sendAlsoSendsToCard(
+            l10n,
             key: const ValueKey('usd-receive-from-another'),
             title: l10n.usdReceiveFromAnotherWallet,
             groups: groups,
@@ -282,14 +285,25 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
     final l10n = context.l10n;
     return ReceiveSheetFrame(
       leading: KuteCloseButton(onPressed: _onBack),
-      // The balance the money lands in, read-only, where the bitcoin
+      // The Dollars Add is "Receive or swap" (founder, 6 November 2026),
+      // as the Bitcoin receive's first sheet is: money in from another
+      // wallet, or moved in from your own Bitcoin. The other coins' grid
+      // keeps the balance the money lands in, read-only, where the bitcoin
       // receive names its wallet. No step bar.
-      title: AccountSwitcherPill(
-        pickerTitle: l10n.receiveInto,
-        readOnly: true,
-        label: _dollars ? l10n.assetDollars : l10n.bitcoin,
-      ),
-      semanticTitle: _dollars ? l10n.usdReceiveTitle : l10n.receiveBitcoin,
+      title: _dollars
+          ? SendStepTitle(l10n.receiveOrSwapTitle)
+          : AccountSwitcherPill(
+              pickerTitle: l10n.receiveInto,
+              readOnly: true,
+              label: l10n.bitcoin,
+            ),
+      semanticTitle:
+          _dollars ? l10n.receiveOrSwapTitle : l10n.receiveBitcoin,
+      // The Dollars Add is two cards: the sheet is as tall as they are
+      // (founder, 5 November 2026: no "big empty area"), and being short
+      // it hides the floating bar while it is up. The other coins' grid
+      // keeps the tall sheet.
+      fitContent: _dollars,
       child: Padding(
         padding: EdgeInsets.fromLTRB(20.w, 6.h, 20.w, 0),
         child: !_spendingIsActive
@@ -320,7 +334,7 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
         depositAddress: true,
       ).groups;
 
-  /// Into Dollars: one card, "From your Bitcoin" then "From another
+  /// Into Dollars: two big cards, "From your Bitcoin" and "From another
   /// wallet or exchange" opening the coin sheet ([_dollarsCard]). Into
   /// Bitcoin (the Bitcoin receive's other coins): "From another wallet or
   /// exchange" over the coin grid, asked ASSET FIRST as every money screen
@@ -337,6 +351,9 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
     return Padding(
       padding: EdgeInsets.only(top: 12.h),
       child: Column(
+        // Content-sized on the Dollars Add (fitContent); the grid below
+        // fills the tall sheet.
+        mainAxisSize: _dollars ? MainAxisSize.min : MainAxisSize.max,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (_dollars) ...[
@@ -349,6 +366,7 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
                     : l10n.usdReceiveCoinsUnavailable,
               ),
             ],
+            SizedBox(height: 8.h),
           ] else if (groups.isEmpty)
             ReceiveCaption(
               text: loading

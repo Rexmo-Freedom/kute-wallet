@@ -12,6 +12,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/providers/advisor_provider.dart' show aiEnabledProvider;
@@ -31,6 +32,8 @@ import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/services/kute_haptics.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart'
+    show KuteBarContextScope, KuteBarPrimaryStyle;
 
 class _NoGames extends SportsLiveNotifier {
   @override
@@ -231,9 +234,9 @@ void main() {
     final dialRect =
         tester.getRect(find.byKey(PolyPositionSpeedometer.dialKey));
     expect(result.left, closeTo(dialRect.left, 1));
-    // The held line keeps inside the dial's width; no Share pill beside
-    // it (founder, 1 November 2026: the share is the card under the
-    // tiles).
+    // The held line keeps inside the dial's width; nothing to share
+    // beside it (founder, 4 November 2026: the round Sal button floats
+    // beside Sell).
     expect(heldRect.right, lessThanOrEqualTo(dialRect.right + 1));
     expect(find.byKey(const ValueKey('kute-sal-header-button')), findsNothing);
     expect(result.bottom, lessThanOrEqualTo(dialRect.top));
@@ -263,9 +266,9 @@ void main() {
         findsOneWidget);
     expect(_rolling(r'$13.20'), findsOneWidget);
     // No journey chart under the tiles any more (founder, 1 November
-    // 2026): the share card in its place.
+    // 2026), and no share card (4 November 2026: it floats beside Sell).
     expect(find.byType(PolyPositionJourneyLine), findsNothing);
-    expect(find.byKey(const ValueKey('position-share-card')), findsOneWidget);
+    expect(find.byKey(const ValueKey('position-share-card')), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -475,6 +478,115 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  group('when it ends, under the chance (founder, 6 November 2026)', () {
+    final end = DateTime.now().add(const Duration(days: 10));
+    PolymarketPosition endingAt(DateTime at) => PolymarketPosition(
+          marketId: _no.marketId,
+          marketQuestion: _no.marketQuestion,
+          outcome: _no.outcome,
+          size: _no.size,
+          avgPrice: _no.avgPrice,
+          currentPrice: _no.currentPrice,
+          pnl: _no.pnl,
+          pnlPercent: _no.pnlPercent,
+          isResolved: false,
+          tokenId: _no.tokenId,
+          eventSlug: _no.eventSlug,
+          endDateStr: at.toUtc().toIso8601String(),
+        );
+    final expiry = find.byKey(const ValueKey('poly-position-expiry'));
+    final figure = find.byKey(PolyPositionSpeedometer.figureKey);
+    final value = find.byKey(const ValueKey('poly-position-value'));
+
+    testWidgets('a quiet centred line right under the big %, no pill, over '
+        'the drag hint; the sell offer takes the slot while dragging and '
+        'nothing under it moves', (tester) async {
+      await _pump(tester, endingAt(end));
+      expect(expiry, findsOneWidget);
+      final text = tester.widget<Text>(expiry);
+      expect(text.data,
+          'Ends ${DateFormat('MMM d, HH:mm').format(end.toLocal())}');
+      expect(text.style?.color, AppColorsExtension.light().textSecondary);
+      expect(text.maxLines, 1);
+      // A line, not a pill: nothing bordered around it.
+      expect(
+          find.ancestor(
+              of: expiry,
+              matching: find.byWidgetPredicate((w) =>
+                  w is Container &&
+                  w.decoration is BoxDecoration &&
+                  (w.decoration! as BoxDecoration).border != null)),
+          findsNothing);
+      // Right under the chance, centred, over the hint and the tiles (the
+      // slot's few points over it read larger here: this tall test view
+      // scales .h by 1.29).
+      final hint = find.byKey(PositionDetailSheet.dialHintKey);
+      expect(tester.getRect(expiry).top,
+          greaterThan(tester.getRect(figure).bottom));
+      expect(tester.getRect(expiry).top - tester.getRect(figure).bottom,
+          lessThan(24));
+      expect(tester.getCenter(expiry).dx, closeTo(390 / 2, 1));
+      expect(tester.getRect(expiry).bottom,
+          lessThanOrEqualTo(tester.getRect(hint).top));
+      expect(tester.getRect(hint).bottom, lessThan(tester.getRect(value).top));
+      // Said once.
+      expect(find.textContaining('Ends '), findsOneWidget);
+      final tilesTop = tester.getRect(value).top;
+
+      final d = _dial(tester);
+      final g = await tester.startGesture(d.hub + const Offset(0, -10));
+      await tester.pump();
+      await g.moveTo(d.at(0.8));
+      await tester.pump(const Duration(milliseconds: 300));
+      // Dragging: the offer in its place, never on top of it.
+      expect(find.text('Set a sell at 80%'), findsOneWidget);
+      expect(expiry, findsNothing);
+      expect(tester.getRect(value).top, tilesTop);
+      await g.up();
+      await tester.pump(const Duration(seconds: 4));
+      await tester.pump(const Duration(milliseconds: 300));
+      // The offer over: the line is back where it was.
+      expect(expiry, findsOneWidget);
+      expect(tester.getRect(value).top, tilesTop);
+
+      // Opened again, the hint gone for good: the line alone under the
+      // chance, still right under it.
+      await tester.pumpWidget(const SizedBox.shrink());
+      await _pump(tester, endingAt(end));
+      expect(find.byKey(PositionDetailSheet.dialHintKey), findsNothing);
+      expect(expiry, findsOneWidget);
+      expect(tester.getRect(expiry).top - tester.getRect(figure).bottom,
+          lessThan(24));
+      expect(tester.getRect(expiry).bottom,
+          lessThan(tester.getRect(value).top));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('under a day to go: the countdown on the same line',
+        (tester) async {
+      await _pump(tester,
+          endingAt(DateTime.now().add(const Duration(hours: 2, minutes: 5))));
+      expect(
+          RegExp(r'^Ends in 2:0[45]:[0-9]{2}$')
+              .hasMatch(tester.widget<Text>(expiry).data ?? ''),
+          isTrue);
+      expect(tester.getRect(expiry).top,
+          greaterThan(tester.getRect(figure).bottom));
+      expect(tester.getRect(expiry).bottom,
+          lessThan(tester.getRect(value).top));
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    testWidgets('no end date: no line, the hint keeps the slot',
+        (tester) async {
+      await _pump(tester, _no);
+      expect(expiry, findsNothing);
+      expect(find.byKey(PositionDetailSheet.dialHintKey), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   testWidgets('"Set a sell at 85%" opens the limit sell at 85¢ and logs the '
       'what-if with the sell tapped', (tester) async {
     tester.view.physicalSize = const Size(390, 1200);
@@ -535,8 +647,9 @@ void main() {
     expect(polyWhatIfSellPrice(0.0), 0.01);
   });
 
-  testWidgets('under the tiles: no chart (founder, 1 November 2026), the '
-      'share card, "Brag about it" in profit', (tester) async {
+  testWidgets('under the tiles: no chart (founder, 1 November 2026) and no '
+      'share card; Sell carries the round Sal button, the brag card in '
+      'profit (4 November 2026)', (tester) async {
     final since = DateTime.now().subtract(const Duration(days: 9));
     await _pump(tester, _no, journey: (
       since: since,
@@ -550,16 +663,15 @@ void main() {
     ));
     expect(find.byType(PolyPositionJourneyLine), findsNothing);
     expect(find.text('Your avg 19¢'), findsNothing);
-    final card = find.byKey(const ValueKey('position-share-card'));
-    expect(card, findsOneWidget);
-    expect(
-        find.descendant(of: card, matching: find.text('Brag about it')),
-        findsOneWidget);
-    expect(
-        tester.getRect(card).top,
-        greaterThan(tester
-            .getRect(find.byKey(const ValueKey('poly-position-value')))
-            .bottom));
+    expect(find.byKey(const ValueKey('position-share-card')), findsNothing);
+    final sell = tester
+        .widget<KuteBarContextScope>(find.byWidgetPredicate(
+            (w) => w is KuteBarContextScope && w.barContext.isPrimary))
+        .barContext;
+    expect(sell.style, KuteBarPrimaryStyle.destructive);
+    expect(sell.share, isNotNull);
+    expect(sell.share!.barContext!.market, isTrue);
+    expect(sell.share!.brag, isNotNull, reason: 'in profit: the card');
     expect(tester.takeException(), isNull);
   });
 

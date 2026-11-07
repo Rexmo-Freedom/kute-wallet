@@ -31,6 +31,10 @@ class AppTextField extends StatelessWidget {
   final TextInputAction? textInputAction;
   final ValueChanged<String>? onSubmitted;
 
+  /// The room kept around the field when it scrolls into view (a sheet
+  /// whose floating bar rides above the keyboard keeps it clear of that).
+  final EdgeInsets scrollPadding;
+
   const AppTextField({
     super.key,
     this.controller,
@@ -53,6 +57,7 @@ class AppTextField extends StatelessWidget {
     this.errorText,
     this.textInputAction,
     this.onSubmitted,
+    this.scrollPadding = const EdgeInsets.all(20),
   });
 
   @override
@@ -72,6 +77,7 @@ class AppTextField extends StatelessWidget {
       onTap: onTap,
       textInputAction: textInputAction,
       onSubmitted: onSubmitted,
+      scrollPadding: scrollPadding,
       cursorColor: context.colors.accent,
       style: style ?? TextStyle(
         color: context.colors.textPrimary,

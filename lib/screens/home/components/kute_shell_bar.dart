@@ -33,16 +33,24 @@
 //     loops ([KuteSalPill.salCue]). No nudge on a price tick (founder, 31
 //     October 2026: jitter).
 //
-// IN THE HEADER INSTEAD (founder, 31 October 2026; KuteBarPlacement): on
-// the Hyperliquid and Polymarket market pages, the position pages and the
-// multi-outcome event page the floating pill is away, and the page draws
-// [KuteSalHeaderButton] beside its headline figure: a real button in the
-// primary look, Sal's `share` face and the words "Send to a friend"
-// (founder: it "should say share or send", then "should be more
-// evident", then, 1 November 2026, "don't say share, say send to a
-// friend"), opening
-// the same Sal sheet (the context variant). It travels to the composer
-// the way the pill does.
+// THE TRADE ROW (founder, 4 November 2026: "I do not like the Send to a
+// friend on the top right in Hyperliquid and Predictions. It must be a
+// floating button"; kute_bar_trade_row.dart): on a market page the bar is
+// the page's trade buttons, Invest | Short or Yes | No, as floating pills
+// with the round Sal button at the row's end. An open position's Close
+// or Sell primary carries the same round button at its right, and so does
+// a slip's Place (THIS prediction to a friend, screens/share/slip_share
+// .dart). The row never folds. A page with no trade pair (an event, a
+// game) has the Sal pill, "Send to a friend", which folds into that same
+// circle while the page scrolls (above). No page draws a header button
+// any more.
+//
+// STRAIGHT INTO THE SEND (founder, 5 November 2026: "the other shares are
+// just sharing the market, no picker"; "so we can take the user straight
+// into that"): a context with its own action
+// ([KuteBarContext.directAction], a market page's: the market send
+// sheet) runs it on a tap of the pill or the round button; no Sal sheet
+// in between. Only a context without one opens the Sal sheet.
 //
 // THE PILL BECOMES THE COMPOSER (founder, 31 October 2026;
 // search_morph.dart): a tap hands [showKuteSearch] the pill's rect
@@ -51,7 +59,12 @@
 // the sheet is up the bar keeps its place and draws the pill transparent
 // ([_morphed]; no slide, no hidden context, the keyboard inside the sheet
 // ignored), so the return lands exactly where the pill rests and the
-// pill is simply there again when it does.
+// pill is simply there again when it does. Only while the sheet is ON
+// TOP: a result's market page or its slip stacks over the sheet, and the
+// bar is theirs meanwhile (their trade row, the slip's primary with its
+// round share button), then holds the pill again when they close
+// ([_searchCovered]; founder, 6 November 2026: "Predictions on search
+// have no buy button on the bet slip").
 //
 // Reduce Motion: the full pill, still, above the action row; it still
 // slides in and out with the keyboard and the Sal sheet, at once, and the
@@ -66,13 +79,14 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
+import 'package:flutter/rendering.dart' show RenderProxyBox;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/app_router.dart' show AppRouter;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/advisor_provider.dart';
+import 'package:kute/screens/home/components/kute_bar_trade_row.dart';
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart'
     show KuteSalPill;
 import 'package:kute/screens/search/components/search_morph.dart';
@@ -80,7 +94,6 @@ import 'package:kute/screens/search/unified_search_screen.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_motion.dart'
     show KutePressable, kuteReduceMotion;
-import 'package:kute/screens/shared/kute_dog_scenes.dart' show KuteDogGlance;
 import 'package:kute/screens/shared/kute_morph_label.dart';
 import 'package:kute/screens/shared/sal_reactions.dart';
 import 'package:kute/screens/shared/sal_sprite.dart';
@@ -130,6 +143,15 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
   /// the file header).
   bool _morphed = false;
 
+  /// What the bar showed when it became the composer, its lift and
+  /// whether it was a market's: held while the sheet is on top, and given
+  /// back when a page or a slip opened over the sheet closes (meanwhile
+  /// the bar is theirs; see [_searchCovered]), so the way back still
+  /// lands on it.
+  KuteBarContext? _heldLast;
+  double _heldLift = 0;
+  bool _heldMarket = false;
+
   /// The entry from the bottom when a market context takes over a bar
   /// that was already up (0 → 1 on the sheet spring; 1 at rest).
   late final AnimationController _entry = AnimationController(
@@ -160,9 +182,10 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
   }
 
   /// The page's scroll (see the file header): only a market page folds
-  /// the pill, and never under Reduce Motion.
+  /// the pill (never its trade row), and never under Reduce Motion.
   void _onScroll() {
     if (!mounted || !_market || !_shown || kuteReduceMotion(context)) return;
+    if (_last?.kind != KuteBarKind.search) return;
     switch (kuteBarScroll.last) {
       case KuteBarScroll.down:
         _idle?.cancel();
@@ -186,15 +209,76 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
   /// back (search_morph.dart); the bar draws it transparent meanwhile.
   Future<void> _open(KuteBarContext ctx, [BuildContext? pillContext]) =>
       openKuteBarSheet(ctx, source: pillContext, travelling: (on) {
-        if (mounted && _morphed != on) setState(() => _morphed = on);
+        if (!mounted || _morphed == on) return;
+        setState(() {
+          _morphed = on;
+          _heldLast = on ? _last : null;
+          _heldLift = on ? _lift : 0;
+          _heldMarket = on && _market;
+        });
       });
+
+  /// THE SEARCH SHEET ONLY HOLDS THE BAR WHILE IT IS ON TOP
+  /// (kute_bar_context.dart): a result's market page or its slip stands
+  /// on the sheet (they stack on the root navigator), and the bar is
+  /// theirs, the trade row, the slip's primary and its round share
+  /// button, whether the pill travelled to the composer or the sheet hid
+  /// the bar. Founder, 6 November 2026: "Predictions on search have no
+  /// buy button on the bet slip, and Hyperliquid the same".
+  bool _searchCovered() => kuteSearchSheetCovered();
+
+  /// The stack's top as the bar reads it: the search sheet's hidden
+  /// context (the one with no route) gives way while the sheet is covered.
+  KuteBarContext? _top(List<KuteBarContext> stack, {required bool covered}) =>
+      kuteBarTop(covered
+          ? [
+              for (final c in stack)
+                if (!(c.hidden && c.route == null)) c
+            ]
+          : stack);
+
+  /// The round Sal button at the end of the bar's row (a trade row's, a
+  /// position's beside Close or Sell, a slip's beside its Place, a
+  /// receipt's beside its action): the brag card on an open position in
+  /// profit, a slip's own send (THIS prediction), a receipt's card
+  /// preview, else the page's own action (a market page sends the market,
+  /// no Sal sheet in between); only a context with none opens the Sal
+  /// sheet, the button travelling to the composer ([shareContext], its own
+  /// element).
+  void _shareTap(KuteBarShare share, BuildContext shareContext) {
+    final direct = share.brag ??
+        share.send ??
+        share.open ??
+        share.barContext?.directAction;
+    if (direct != null) {
+      HapticFeedback.lightImpact();
+      direct();
+      return;
+    }
+    final ctx = share.barContext;
+    if (ctx != null) _open(ctx, shareContext);
+  }
+
+  /// The pill: the context's own action when it has one (a market or an
+  /// event page sends the market at once; founder, 5 November 2026: "so
+  /// we can take the user straight into that"), else the Sal sheet.
+  void _pillTap(KuteBarContext ctx, BuildContext pillContext) {
+    final direct = ctx.directAction;
+    if (direct != null) {
+      HapticFeedback.lightImpact();
+      direct();
+      return;
+    }
+    _open(ctx, pillContext);
+  }
 
   /// A tap on the primary button acts on the LIVE top context, not the
   /// one drawn: a page that just enabled its action (the last digit typed)
   /// has written the stack, and the frame that redraws the bar may not
   /// have run yet. Nothing runs while the live action is off or busy.
   void _primaryTap() {
-    final live = kuteBarTop(ref.read(kuteBarContextProvider));
+    final live = _top(ref.read(kuteBarContextProvider),
+        covered: _searchCovered());
     if (live == null || !live.isPrimary || !live.current) return;
     if (!live.enabled || live.busy || live.onPrimary == null) return;
     HapticFeedback.lightImpact();
@@ -204,7 +288,12 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
   @override
   Widget build(BuildContext context) {
     final reduce = kuteReduceMotion(context);
-    final stackTop = kuteBarTop(ref.watch(kuteBarContextProvider));
+    // A page or a slip over the search sheet: the bar is theirs (see
+    // [_searchCovered]). The route observer's count and the stack both
+    // move when one is pushed or popped, so the bar rebuilds then.
+    final covered = _searchCovered();
+    final stackTop =
+        _top(ref.watch(kuteBarContextProvider), covered: covered);
     final over = KuteBarRouteObserver.over.value > 0;
     // The stack's top while its route is current; else the default: over
     // whatever is pushed, and on the tab roots themselves (the ONE pill of
@@ -219,8 +308,17 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
     // sheet pushes and its own context changes do not move it (the pill
     // is transparent; its return lands where it rests).
     // A context placed in the page's header (KuteBarPlacement.header)
-    // keeps the pill away: the page draws KuteSalHeaderButton instead.
-    final morphed = _morphed;
+    // keeps the pill away: the Investing position's market context, whose
+    // control is the round Sal button beside Close position.
+    // Only while the sheet is on top: covered, the bar is the covering
+    // page's; back on top, it holds what it showed when it became the
+    // composer, so the way back lands on it.
+    final morphed = _morphed && !covered;
+    if (morphed && _heldLast != null) {
+      _last = _heldLast;
+      _lift = _heldLift;
+      _market = _heldMarket;
+    }
     final inset = MediaQuery.viewInsetsOf(context).bottom;
     final keyboard = !morphed && inset > 0;
     // The primary button rides ABOVE the keyboard (founder, 31 October
@@ -258,7 +356,8 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
     _market = market;
 
     final aiEnabled = ref.watch(aiEnabledProvider).valueOrNull ?? true;
-    final collapsed = _collapsed && !reduce;
+    // Only the pill folds; a trade row or a button keeps its place.
+    final collapsed = _collapsed && !reduce && ctx.kind == KuteBarKind.search;
     // A primary action busy for 2 s: Sal thinks (sal_reactions.dart; the
     // pill's Sal plays it).
     SalReactions.loading(_KuteShellBarState, show && ctx.isPrimary && ctx.busy);
@@ -272,15 +371,39 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
         alignment: collapsed ? Alignment.centerRight : Alignment.center,
         children: [...previous, if (current != null) current],
       ),
-      child: ctx.isPrimary
-          ? KuteBarPrimaryButton(
-              key: const ValueKey('kute-bar-primary'),
+      child: ctx.isTrade
+          // A market page's trade pills and the round Sal button.
+          ? KuteBarTradeRow(
+              key: const ValueKey('kute-bar-trade-row'),
               barContext: ctx,
-              // The page's own Sal rows (Send to anyone on the Send to
-              // step) stay one long press away.
-              onAsk: () => _open(
-                  kuteBarAskContext(ref.read(kuteBarContextProvider), ctx)),
-              onPrimaryTap: _primaryTap,
+              salCue: _salCue,
+              onShare: (shareContext) => _shareTap(ctx.share!, shareContext),
+            )
+          : ctx.isPrimary
+          // The button, and a position's round Sal button at its right.
+          ? Row(
+              key: const ValueKey('kute-bar-primary'),
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: KuteBarPrimaryButton(
+                    barContext: ctx,
+                    // The page's own Sal rows (Send to anyone on the Send
+                    // to step) stay one long press away.
+                    onAsk: () => _open(kuteBarAskContext(
+                        ref.read(kuteBarContextProvider), ctx)),
+                    onPrimaryTap: _primaryTap,
+                  ),
+                ),
+                KuteBarShareSlot(
+                  share: ctx.share,
+                  salCue: _salCue,
+                  onTap: (shareContext) {
+                    final share = ctx.share;
+                    if (share != null) _shareTap(share, shareContext);
+                  },
+                ),
+              ],
             )
           // The Builder's element is the pill's own box: its rect is
           // where the travel to the composer starts.
@@ -293,7 +416,7 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
                 aiEnabled: aiEnabled,
                 collapsed: collapsed,
                 salCue: _salCue,
-                onTap: () => _open(ctx, pillContext),
+                onTap: () => _pillTap(ctx, pillContext),
               ),
             ),
     );
@@ -343,10 +466,13 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
                     duration:
                         reduce ? Duration.zero : KuteMotion.sheetInDuration,
                     curve: KuteMotion.sheetIn,
-                    // The pill's air; the primary button takes the
-                    // screen's 16 px gutters.
-                    padding: EdgeInsets.fromLTRB(ctx.isPrimary ? 16.w : 12.w, 0,
-                        ctx.isPrimary ? 16.w : 12.w, 2.h),
+                    // The pill's air; the primary button and the trade
+                    // row take the screen's 16 px gutters.
+                    padding: EdgeInsets.fromLTRB(
+                        ctx.isPrimary || ctx.isTrade ? 16.w : 12.w,
+                        0,
+                        ctx.isPrimary || ctx.isTrade ? 16.w : 12.w,
+                        2.h),
                     // Centred; docked right while folded. Pill to button
                     // and between the button's states the width springs
                     // on the chip spring (KuteMorphSize; the strip's own
@@ -378,8 +504,8 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
 }
 
 /// Opens the Sal sheet with [ctx] over the root navigator. With [source]
-/// (the element of the control that was tapped: the pill, the header
-/// circle) and motion on, the control travels to the sheet's composer and
+/// (the element of the control that was tapped: the pill, the round Sal
+/// button) and motion on, the control travels to the sheet's composer and
 /// back (search_morph.dart); [travelling] is told when the control should
 /// draw itself transparent (true) and when it is itself again (false).
 Future<void> openKuteBarSheet(
@@ -426,345 +552,6 @@ Future<void> openKuteBarSheet(
   }
 }
 
-/// THE FIGURE AND ITS SHARE BUTTON ON ONE ROW: [figure] in the width the
-/// button leaves it, [share] (a [KuteSalHeaderButton], in whatever box
-/// the page wraps it) at the row's end. The button is offered the room
-/// the figure does not need at its natural width, so it says "Send to a
-/// friend" where that fits beside the number and "Share" where it does
-/// not (KuteSalHeaderButton.fittingLabel); then the figure takes the
-/// rest, as the Expanded it was. [alignTop]: both at the row's top (the
-/// page centres the button on the figure's first line itself); else
-/// centred on each other.
-class KuteFigureShareRow extends MultiChildRenderObjectWidget {
-  KuteFigureShareRow({
-    super.key,
-    required Widget figure,
-    required Widget share,
-    this.gap = 8,
-    this.alignTop = false,
-  }) : super(children: [figure, share]);
-
-  final double gap;
-  final bool alignTop;
-
-  /// The least the button is offered: room for "Share" whole.
-  static double _minShare(BuildContext context) =>
-      KuteSalHeaderButton.widthFor(context, context.l10n.share);
-
-  @override
-  RenderObject createRenderObject(BuildContext context) =>
-      RenderKuteFigureShareRow(
-          gap: gap, alignTop: alignTop, minShare: _minShare(context));
-
-  @override
-  void updateRenderObject(
-      BuildContext context, RenderKuteFigureShareRow renderObject) {
-    renderObject
-      ..gap = gap
-      ..alignTop = alignTop
-      ..minShare = _minShare(context);
-  }
-}
-
-class _FigureShareParentData extends ContainerBoxParentData<RenderBox> {}
-
-/// The render object of [KuteFigureShareRow].
-class RenderKuteFigureShareRow extends RenderBox
-    with
-        ContainerRenderObjectMixin<RenderBox, _FigureShareParentData>,
-        RenderBoxContainerDefaultsMixin<RenderBox, _FigureShareParentData> {
-  RenderKuteFigureShareRow(
-      {required double gap, required bool alignTop, required double minShare})
-      : _gap = gap,
-        _alignTop = alignTop,
-        _minShare = minShare;
-
-  double _gap;
-  set gap(double value) {
-    if (value == _gap) return;
-    _gap = value;
-    markNeedsLayout();
-  }
-
-  bool _alignTop;
-  set alignTop(bool value) {
-    if (value == _alignTop) return;
-    _alignTop = value;
-    markNeedsLayout();
-  }
-
-  /// The least the button is offered, whatever the figure wants: room for
-  /// "Share" whole.
-  double _minShare;
-  set minShare(double value) {
-    if (value == _minShare) return;
-    _minShare = value;
-    markNeedsLayout();
-  }
-
-  @override
-  void setupParentData(RenderBox child) {
-    if (child.parentData is! _FigureShareParentData) {
-      child.parentData = _FigureShareParentData();
-    }
-  }
-
-  /// The figure's natural width; half the row when the figure cannot
-  /// say (a layout builder inside it has no intrinsic size).
-  double _figureNatural(RenderBox figure, double width) {
-    try {
-      return figure.getMaxIntrinsicWidth(double.infinity);
-    } on FlutterError {
-      return width / 2;
-    } on AssertionError {
-      return width / 2;
-    }
-  }
-
-  @override
-  void performLayout() {
-    final figure = firstChild!;
-    final share = childAfter(figure)!;
-    final width = constraints.maxWidth;
-    final natural = _figureNatural(figure, width);
-    final shareMax =
-        math.min(width, math.max(width - _gap - natural, _minShare));
-    share.layout(BoxConstraints(maxWidth: shareMax), parentUsesSize: true);
-    final figureWidth = math.max(0.0, width - _gap - share.size.width);
-    figure.layout(BoxConstraints.tightFor(width: figureWidth),
-        parentUsesSize: true);
-    final height = math.max(figure.size.height, share.size.height);
-    final figureData = figure.parentData! as _FigureShareParentData;
-    final shareData = share.parentData! as _FigureShareParentData;
-    figureData.offset =
-        Offset(0, _alignTop ? 0 : (height - figure.size.height) / 2);
-    shareData.offset = Offset(width - share.size.width,
-        _alignTop ? 0 : (height - share.size.height) / 2);
-    size = constraints.constrain(Size(width, height));
-  }
-
-  @override
-  void paint(PaintingContext context, Offset offset) =>
-      defaultPaint(context, offset);
-
-  @override
-  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
-      defaultHitTestChildren(result, position: position);
-}
-
-/// THE SHARE BUTTON BESIDE A PAGE'S BIG NUMBER (founder, 31 October 2026;
-/// see the file header): a real button in the app's primary look (the
-/// textPrimary fill, the mode's contrast ink), 40 tall, radius 20, 12
-/// before Sal's `share` face at 26 and 16 after the words "Send to a
-/// friend" (14, w600; founder, 1 November 2026), or "Share" where those
-/// do not fit beside the figure at the current text scale, never an
-/// ellipsis ([fittingLabel], [KuteFigureShareRow]); the press spring of
-/// every button. On the page's open it
-/// enters on the sheet spring and pulses once (1.0 → 1.06 → 1.0; none
-/// under Reduce Motion). Tapped, it opens the Sal sheet with
-/// [barContext] (the context variant: Send the market / Send this
-/// prediction) and travels to the composer as the pill does; transparent
-/// while it travels and while the sheet is up. The page mounts it on the
-/// headline figure's row, right-aligned and centred on the figure's first
-/// line, inside the same [KuteBarContextScope] that declares the `header`
-/// placement.
-class KuteSalHeaderButton extends StatefulWidget {
-  const KuteSalHeaderButton({super.key, required this.barContext});
-
-  final KuteBarContext barContext;
-
-  /// The button's height, Sal's side in it, and its padding before Sal
-  /// and after the word.
-  static const double height = 40;
-  static const double salSize = 26;
-  static const double paddingStart = 12;
-  static const double paddingEnd = 16;
-
-  /// The pulse on the page's open: once, to 1.06 and back.
-  static const double pulseScale = 1.06;
-  static const Duration pulseDuration = Duration(milliseconds: 360);
-
-  /// The words' style on the button.
-  static TextStyle labelStyle(Color ink) => TextStyle(
-        color: ink,
-        fontSize: 14.sp,
-        fontWeight: FontWeight.w600,
-        letterSpacing: -0.2,
-        height: 1.2,
-      );
-
-  /// The words the button says in [maxWidth] (founder, 1 November 2026):
-  /// "Send to a friend" where it fits whole beside the figure at the
-  /// current text scale, else "Share"; never an ellipsis. Unbounded: the
-  /// long words.
-  static String fittingLabel(BuildContext context, double maxWidth) {
-    final l10n = context.l10n;
-    final long = l10n.shareHeaderLabel;
-    if (!maxWidth.isFinite) return long;
-    return widthFor(context, long) <= maxWidth ? long : l10n.share;
-  }
-
-  /// The button's width saying [words] at the current text scale.
-  static double widthFor(BuildContext context, String words) {
-    final painter = TextPainter(
-      // The style the words inherit there (the theme's face) under the
-      // button's own.
-      text: TextSpan(
-          text: words,
-          style: DefaultTextStyle.of(context)
-              .style
-              .merge(labelStyle(Colors.black))),
-      textDirection: TextDirection.ltr,
-      textScaler: MediaQuery.textScalerOf(context),
-      maxLines: 1,
-    )..layout();
-    final width = KuteSalHeaderButton.paddingStart +
-        KuteSalHeaderButton.salSize +
-        8 +
-        painter.width +
-        KuteSalHeaderButton.paddingEnd;
-    painter.dispose();
-    // A hair over, so the words are never cut by a rounding.
-    return width.ceilToDouble() + 1;
-  }
-
-
-  @override
-  State<KuteSalHeaderButton> createState() => _KuteSalHeaderButtonState();
-}
-
-class _KuteSalHeaderButtonState extends State<KuteSalHeaderButton>
-    with TickerProviderStateMixin {
-  bool _travelling = false;
-
-  /// The entry (0 → 1 on the sheet spring), then the one pulse.
-  late final AnimationController _entry =
-      AnimationController(vsync: this, duration: KuteMotion.sheetInDuration);
-  late final AnimationController _pulse = AnimationController(
-      vsync: this, duration: KuteSalHeaderButton.pulseDuration);
-  late final Animation<double> _pulseScale = TweenSequence<double>([
-    TweenSequenceItem(
-        tween: Tween(begin: 1.0, end: KuteSalHeaderButton.pulseScale)
-            .chain(CurveTween(curve: Curves.easeOut)),
-        weight: 1),
-    TweenSequenceItem(
-        tween: Tween(begin: KuteSalHeaderButton.pulseScale, end: 1.0)
-            .chain(CurveTween(curve: KuteMotion.settle)),
-        weight: 1),
-  ]).animate(_pulse);
-  bool _started = false;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (_started) return;
-    _started = true;
-    if (kuteReduceMotion(context)) {
-      _entry.value = 1;
-      return;
-    }
-    // ignore: discarded_futures
-    _entry.forward().then((_) {
-      if (mounted) _pulse.forward(from: 0);
-    });
-  }
-
-  @override
-  void dispose() {
-    _entry.dispose();
-    _pulse.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => LayoutBuilder(
-      builder: (context, box) =>
-          _build(context, KuteSalHeaderButton.fittingLabel(context, box.maxWidth)));
-
-  Widget _build(BuildContext context, String words) {
-    final c = context.colors;
-    final isLight = Theme.of(context).brightness == Brightness.light;
-    final ctx = widget.barContext;
-    final ink = isLight ? Colors.white : c.background;
-    final Widget button = Container(
-      key: const ValueKey('kute-sal-header-button'),
-      height: KuteSalHeaderButton.height,
-      padding: const EdgeInsetsDirectional.only(
-        start: KuteSalHeaderButton.paddingStart,
-        end: KuteSalHeaderButton.paddingEnd,
-      ),
-      decoration: BoxDecoration(
-        color: c.textPrimary,
-        borderRadius: BorderRadius.circular(KuteSalHeaderButton.height / 2),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SalSprite(
-            clip: ctx.clip,
-            size: KuteSalHeaderButton.salSize,
-            fallback: SalSprite(
-                clip: 'happy',
-                size: KuteSalHeaderButton.salSize,
-                fallback: KuteDogGlance(size: 22, color: ink)),
-          ),
-          const SizedBox(width: 8),
-          // Loose in a min-size Row: the pill is its natural width wherever
-          // the page gives it room, and where a page bounds it (a game
-          // sheet's title row) the words shorten with an ellipsis instead
-          // of the row overflowing.
-          Flexible(
-            child: Text(
-              words,
-              key: const ValueKey('kute-sal-header-label'),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: KuteSalHeaderButton.labelStyle(ink),
-            ),
-          ),
-        ],
-      ),
-    );
-    return Semantics(
-      button: true,
-      label: ctx.label,
-      excludeSemantics: true,
-      child: KutePressable(
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: _travelling
-              ? null
-              : () => openKuteBarSheet(ctx, source: context, travelling: (on) {
-                    if (mounted && _travelling != on) {
-                      setState(() => _travelling = on);
-                    }
-                  }),
-          // The entry: from a touch below and small, on the sheet
-          // spring; then the pulse, once. ONE Opacity: the entry's fade
-          // and the travel's transparency (the morph test reads it).
-          child: AnimatedBuilder(
-            animation: Listenable.merge([_entry, _pulse]),
-            child: button,
-            builder: (context, child) {
-              final t = KuteMotion.sheetIn.transform(_entry.value);
-              return Opacity(
-                opacity: _travelling ? 0 : t.clamp(0.0, 1.0),
-                child: Transform.translate(
-                  offset: Offset(0, 8 * (1 - t)),
-                  child: Transform.scale(
-                    scale: (0.9 + 0.1 * t) * _pulseScale.value,
-                    child: child,
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// THE BAR AS THE PRIMARY BUTTON, AN ADAPTIVE PILL (founder, 1 November
 /// 2026; see KuteBarContext.primary). The button is only as wide as what
 /// it says, like the search pill: Sal's 28 px face, the label and the
@@ -772,7 +559,9 @@ class _KuteSalHeaderButtonState extends State<KuteSalHeaderButton>
 /// gutters, centred, [height] tall, fully rounded. It morphs from the
 /// search pill and between its states with the Dollars strip's motion
 /// (kute_pill_tabs.dart): the width springs on [KuteMotion.chip] (the
-/// shell bar's [KuteMorphSize]), the old words slide up and out and the
+/// button's own words' room, which the shell bar's [KuteMorphSize]
+/// tracks; never narrower than a word on it: THE WORDS NEVER CLIP, on
+/// the state class), the old words slide up and out and the
 /// new ones rise in from below ([KuteMorphLabel]), Sal's clip crossfades
 /// ([KuteMorphFace]), the fill and ink change on the settle. The Sal pill
 /// changes its words with the same pieces (kute_morph_label.dart). At once
@@ -786,7 +575,8 @@ class _KuteSalHeaderButtonState extends State<KuteSalHeaderButton>
 ///   * ENABLED is the action in the black look: textPrimary fill, the
 ///     mode's contrast label at w600, Sal `idle`. A tinted slip keeps its
 ///     own [KuteBarPrimaryStyle] (fill, ink, radius, weight).
-///   * BUSY keeps the size, says the busy label ("Sending…"), Sal plays
+///   * BUSY says the busy label ("Sending…"; longer words once the
+///     room has grown to them, never cut), Sal plays
 ///     `think` (`search` at 1.4x until that clip is there), and a thin
 ///     shimmer sweeps left to right across the fill ([shimmerBand] of the
 ///     width, [shimmerPeriod] a loop, the ink at 12%). Taps are ignored.
@@ -988,21 +778,88 @@ class KuteBarSecondaryPill extends StatelessWidget {
   }
 }
 
+/// Words leaving the button, and the room they lay out in: the button
+/// holds it until they are gone (see [_KuteBarPrimaryButtonState]).
+class _LeavingWords {
+  _LeavingWords(this.width);
+  final double width;
+  Timer? timer;
+}
+
+/// THE WORDS NEVER CLIP (founder, 6 November 2026: "text is clipping in
+/// Investing when thinking on the button, bet slip sometimes"). The busy
+/// words differ from the idle ones (the order slip's funded steps,
+/// "Preparing your order", "Opening $12.00 Long BTC"; the bet slip's
+/// "Placing order…"), and the width followed the words through the shell
+/// bar's AnimatedSize, which clips while it catches up: the new words,
+/// laid out whole at once, were cut at both ends while the box grew, and
+/// longer words leaving a shorter label overflowed the pill's end. The
+/// button now springs its own words' room ([_from] → [_to] on
+/// [KuteMotion.chip], which the AnimatedSize then tracks frame for frame)
+/// and orders the change so every word on the button has room:
+///
+///   * LONGER WORDS WAIT FOR THE ROOM: the room grows first and the words
+///     swap in once it has reached them (the spring's first crossing,
+///     about 120 ms); Sal's think and the shimmer start at once. A growth
+///     under [_snapGrowth] swaps at once: the room steps up by it, inside
+///     the pill's end padding.
+///   * SHORTER WORDS SWAP AT ONCE and the room holds the leaving ones'
+///     width until they are gone ([kMorphWordsOut]), then springs down.
+///   * The room is never narrower than any word on screen
+///     ([_roomNow]), whatever the spring does (its overshoot only adds
+///     air), and never wider than the bar allows beside the round share
+///     button: only words longer than that are cut short, with an
+///     ellipsis, the last resort, and they leave cut short too.
+///
+/// Reduce Motion: the words and the width at once.
 class _KuteBarPrimaryButtonState extends State<KuteBarPrimaryButton>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController _shimmer = AnimationController(
       vsync: this, duration: KuteBarPrimaryButton.shimmerPeriod);
+
+  /// The words' room on the chip spring, from [_from] to [_to].
+  late final AnimationController _room =
+      AnimationController(vsync: this, duration: KuteMotion.chipDuration)
+        ..value = 1
+        ..addListener(_onRoom)
+        ..addStatusListener((status) {
+          if (status == AnimationStatus.completed) _onRoom();
+        });
+  double _from = 0;
+  double _to = 0;
+
+  /// A growth this small swaps at once (see the class header): the room
+  /// steps up by it, half on each side, inside the 20 px end padding.
+  static const double _snapGrowth = 12;
+
+  /// The words on the button now, and the style they were measured in.
+  String? _shown;
+  TextStyle? _shownStyle;
+
+  /// Longer words waiting for the room (see the class header).
+  String? _pending;
+  TextStyle? _pendingStyle;
+
+  final List<_LeavingWords> _leaving = [];
+
+  /// The words' widest room: the bar's width less Sal, the gap and the
+  /// padding (beside the round share button when there is one), as the
+  /// last layout gave it.
+  double _roomMax = double.infinity;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _widths.clear();
     _syncShimmer();
+    _syncWords();
   }
 
   @override
   void didUpdateWidget(covariant KuteBarPrimaryButton old) {
     super.didUpdateWidget(old);
     _syncShimmer();
+    _syncWords();
   }
 
   /// The shimmer runs while busy, never under Reduce Motion.
@@ -1017,8 +874,152 @@ class _KuteBarPrimaryButtonState extends State<KuteBarPrimaryButton>
     }
   }
 
+  /// The words' style on the button (the ink is the build's).
+  TextStyle _style(KuteBarContext ctx) {
+    final live = ctx.actionable || ctx.busy;
+    return KuteOverlaySurface.textStyle(context).copyWith(
+      fontSize: 16.sp,
+      fontWeight: live
+          ? (ctx.style?.fontWeight ?? FontWeight.w600)
+          : FontWeight.w600,
+      letterSpacing: -0.2,
+      height: 1.2,
+    );
+  }
+
+  /// The words' own widths, by words, weight and size, measured once
+  /// (cleared when the text scale or the theme changes).
+  final Map<(String, FontWeight?, double?), double> _widths = {};
+
+  /// The room [words] take in [style], at most [_roomMax].
+  double _need(String words, TextStyle style) {
+    final width =
+        _widths.putIfAbsent((words, style.fontWeight, style.fontSize), () {
+      final painter = TextPainter(
+        text: TextSpan(text: words, style: style),
+        textDirection: Directionality.maybeOf(context) ?? TextDirection.ltr,
+        textScaler: MediaQuery.textScalerOf(context),
+        maxLines: 1,
+      )..layout();
+      final width = painter.width.ceilToDouble() + 1;
+      painter.dispose();
+      return width;
+    });
+    return math.min(width, _roomMax);
+  }
+
+  /// Where the spring has the room now.
+  double get _spring => _room.isCompleted
+      ? _to
+      : _from + (_to - _from) * KuteMotion.chip.transform(_room.value);
+
+  /// The room now: the spring's, never narrower than a word on screen.
+  double _roomNow() {
+    var room = _spring;
+    final shown = _shown;
+    if (shown != null) room = math.max(room, _need(shown, _shownStyle!));
+    for (final l in _leaving) {
+      room = math.max(room, l.width);
+    }
+    return math.min(room, _roomMax);
+  }
+
+  /// Springs the room to [to] from where it stands now.
+  void _springTo(double to) {
+    if (kuteReduceMotion(context)) {
+      _from = _to = to;
+      _room.value = 1;
+      return;
+    }
+    if (to == _to && (_room.isAnimating || _roomNow() == to)) return;
+    _from = _roomNow();
+    _to = to;
+    // ignore: discarded_futures
+    _room.forward(from: 0);
+  }
+
+  /// The words the context says now, swapped in as the class header has
+  /// it.
+  void _syncWords() {
+    final ctx = widget.barContext;
+    final words = ctx.primaryLabel;
+    final style = _style(ctx);
+    final shown = _shown;
+    if (shown == null || kuteReduceMotion(context)) {
+      // The first words, or Reduce Motion: at once.
+      _clearLeaving();
+      _pending = null;
+      _shown = words;
+      _shownStyle = style;
+      _from = _to = _need(words, style);
+      _room.value = 1;
+      return;
+    }
+    if (words == shown) {
+      // The same words (busy under the same label, a new ink or weight):
+      // they stay put; the room follows a weight's few pixels.
+      _pending = null;
+      _shownStyle = style;
+      if (_leaving.isEmpty) _springTo(_need(words, style));
+      return;
+    }
+    final need = _need(words, style);
+    if (need <= _roomNow() + _snapGrowth) {
+      _swap(words, style);
+    } else {
+      // Longer words wait for the room.
+      _pending = words;
+      _pendingStyle = style;
+      _springTo(need);
+    }
+  }
+
+  /// The spring moved: the waiting words swap in once the room has
+  /// reached them.
+  void _onRoom() {
+    final pending = _pending;
+    if (pending == null || !mounted) return;
+    if (_spring + 0.5 < _need(pending, _pendingStyle!) &&
+        !_room.isCompleted) {
+      return;
+    }
+    setState(() => _swap(pending, _pendingStyle!));
+  }
+
+  /// [words] on the button now; the old ones leave and keep their room
+  /// until they are gone.
+  void _swap(String words, TextStyle style) {
+    final old = _shown;
+    if (old != null) {
+      final leaving = _LeavingWords(_need(old, _shownStyle!));
+      leaving.timer = Timer(kMorphWordsOut, () {
+        if (!mounted) return;
+        setState(() {
+          _leaving.remove(leaving);
+          if (_leaving.isEmpty && _pending == null) {
+            _springTo(_need(_shown!, _shownStyle!));
+          }
+        });
+      });
+      _leaving.add(leaving);
+    }
+    _shown = words;
+    _shownStyle = style;
+    _pending = null;
+    _pendingStyle = null;
+  }
+
+  void _clearLeaving() {
+    for (final l in _leaving) {
+      l.timer?.cancel();
+    }
+    _leaving.clear();
+  }
+
   @override
   void dispose() {
+    _clearLeaving();
+    _room.dispose();
     _shimmer.dispose();
     super.dispose();
   }
@@ -1050,23 +1051,19 @@ class _KuteBarPrimaryButtonState extends State<KuteBarPrimaryButton>
       ink = isLight ? Colors.white : c.background;
       border = Colors.transparent;
     }
+    // What the button is (read out at once), and the words it shows (they
+    // may wait for the room; see the class header).
     final label = ctx.primaryLabel;
+    final words = _shown ?? label;
     final reduce = kuteReduceMotion(context);
     final duration = reduce ? Duration.zero : KuteMotion.chipDuration;
     final radius = live
         ? (style?.radius ?? KuteBarPrimaryButton.radius)
         : KuteBarPrimaryButton.radius;
-    final textStyle = KuteOverlaySurface.textStyle(context).copyWith(
-      color: ink,
-      fontSize: 16.sp,
-      fontWeight:
-          live ? (style?.fontWeight ?? FontWeight.w600) : FontWeight.w600,
-      letterSpacing: -0.2,
-      height: 1.2,
-    );
+    final textStyle = _style(ctx).copyWith(color: ink);
     // Keyed by the words alone: the same words in another state (busy
     // under the same label) stay put, only their ink changes.
-    final ValueKey<String> labelKey = ValueKey('primary-label|$label');
+    final ValueKey<String> labelKey = ValueKey('primary-label|$words');
 
     // Sal: curious while the step is the person's, idle on the action,
     // thinking while it runs (search at 1.4x until `think` is there).
@@ -1090,77 +1087,98 @@ class _KuteBarPrimaryButtonState extends State<KuteBarPrimaryButton>
             fallback: fallbackIcon,
           );
 
-    // The words: the old slide up and out, the new rise from below (the
-    // pill's and the strip's cross-slide, kute_morph_label.dart). Only the
-    // current words size the button; the leaving ones overflow it as they
-    // go.
-    final Widget words = KuteMorphLabel(
-      child: Text(
-        label,
-        key: labelKey,
-        maxLines: 1,
-        softWrap: false,
-        overflow: TextOverflow.ellipsis,
-        style: textStyle,
-      ),
-    );
+    // Sal, the gap, the padding and the hairline's inset on both sides (a
+    // Container pads by its decoration's border, at its widest).
+    final fixed = KuteBarPrimaryButton.paddingStart +
+        KuteBarPrimaryButton.salSize +
+        8.w +
+        KuteBarPrimaryButton.paddingEnd +
+        2;
 
-    final Widget content = Padding(
-      padding: const EdgeInsetsDirectional.only(
-        start: KuteBarPrimaryButton.paddingStart,
-        end: KuteBarPrimaryButton.paddingEnd,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          KuteMorphFace(child: sal),
-          SizedBox(width: 8.w),
-          Flexible(child: words),
-        ],
-      ),
-    );
-
-    final Widget capsule = AnimatedContainer(
-      key: const ValueKey('kute-bar-primary-button'),
-      duration: duration,
-      // The fill, the ink's ground and the hairline change on the settle:
-      // a decoration lerp never rides the spring (kute_motion.dart).
-      curve: reduce ? Curves.linear : KuteMotion.settle,
-      height: KuteBarPrimaryButton.height,
-      // Its own width, at least [KuteBarPrimaryButton.minWidth]; exactly
-      // the pair's width beside a page's own pill. The free width is
-      // capped at the screen's, never unbounded: a context that swaps
-      // paired for free (a sheet over the onboarding pair) lerps between
-      // two finite boxes (an unbounded one cannot be interpolated).
-      constraints: ctx.pairedWidth != null
-          ? BoxConstraints.tightFor(width: ctx.pairedWidth)
-          : BoxConstraints(
-              minWidth: KuteBarPrimaryButton.minWidth,
-              maxWidth: MediaQuery.sizeOf(context).width,
+    final screen = MediaQuery.sizeOf(context).width;
+    // Its own width, at least [KuteBarPrimaryButton.minWidth] and at most
+    // the bar's (the screen's, less the round share button beside it: the
+    // layout's, read by [_MaxWidthProbe]); exactly the pair's width beside
+    // a page's own pill.
+    final Widget button = _MaxWidthProbe(
+      onMaxWidth: (max) => _roomMax =
+          math.max(0, (ctx.pairedWidth ?? math.min(max, screen)) - fixed),
+      child: AnimatedBuilder(
+        animation: _room,
+        builder: (context, _) {
+          final room = _roomNow();
+          final width = ctx.pairedWidth ??
+              math.min(screen,
+                  math.max(KuteBarPrimaryButton.minWidth, fixed + room));
+          // The words: the old slide up and out, the new rise from below
+          // (the pill's and the strip's cross-slide, kute_morph_label
+          // .dart), in the room the button holds for them (the layout's
+          // own width caps both, the leaving words laid out inside it).
+          final Widget wordsBox = SizedBox(
+            width: room,
+            child: KuteMorphLabel(
+              leavingInside: true,
+              child: Text(
+                words,
+                key: labelKey,
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.ellipsis,
+                style: textStyle,
+              ),
             ),
-      decoration: BoxDecoration(
-        color: fill,
-        borderRadius: radius,
-        border: Border.all(color: border, width: isLight ? 1.0 : 0.5),
-      ),
-      child: ClipRRect(
-        borderRadius: radius,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            content,
-            if (busy && !reduce)
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: _Shimmer(
-                    animation: _shimmer,
-                    color: ink.withValues(alpha: 0.12),
-                  ),
+          );
+          final Widget content = Padding(
+            padding: const EdgeInsetsDirectional.only(
+              start: KuteBarPrimaryButton.paddingStart,
+              end: KuteBarPrimaryButton.paddingEnd,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                KuteMorphFace(child: sal),
+                SizedBox(width: 8.w),
+                Flexible(child: wordsBox),
+              ],
+            ),
+          );
+          return SizedBox(
+            width: width,
+            height: KuteBarPrimaryButton.height,
+            child: AnimatedContainer(
+              key: const ValueKey('kute-bar-primary-button'),
+              duration: duration,
+              // The fill, the ink's ground and the hairline change on the
+              // settle: a decoration lerp never rides the spring
+              // (kute_motion.dart). The width is the room's (above).
+              curve: reduce ? Curves.linear : KuteMotion.settle,
+              decoration: BoxDecoration(
+                color: fill,
+                borderRadius: radius,
+                border: Border.all(color: border, width: isLight ? 1.0 : 0.5),
+              ),
+              child: ClipRRect(
+                borderRadius: radius,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    content,
+                    if (busy && !reduce)
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: _Shimmer(
+                            animation: _shimmer,
+                            color: ink.withValues(alpha: 0.12),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
-          ],
-        ),
+            ),
+          );
+        },
       ),
     );
 
@@ -1185,11 +1203,41 @@ class _KuteBarPrimaryButtonState extends State<KuteBarPrimaryButton>
                       }
                     : null),
             onLongPress: widget.onAsk,
-            child: capsule,
+            child: button,
           ),
         ),
       ),
     );
+  }
+}
+
+/// Reports the width its parent allows ([onMaxWidth], during layout,
+/// nothing rebuilt) and is its child: the primary button's widest room
+/// without building its content during layout.
+class _MaxWidthProbe extends SingleChildRenderObjectWidget {
+  const _MaxWidthProbe({required this.onMaxWidth, required super.child});
+
+  final ValueChanged<double> onMaxWidth;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderMaxWidthProbe(onMaxWidth);
+
+  @override
+  void updateRenderObject(
+          BuildContext context, _RenderMaxWidthProbe renderObject) =>
+      renderObject.onMaxWidth = onMaxWidth;
+}
+
+class _RenderMaxWidthProbe extends RenderProxyBox {
+  _RenderMaxWidthProbe(this.onMaxWidth);
+
+  ValueChanged<double> onMaxWidth;
+
+  @override
+  void performLayout() {
+    onMaxWidth(constraints.maxWidth);
+    super.performLayout();
   }
 }
 

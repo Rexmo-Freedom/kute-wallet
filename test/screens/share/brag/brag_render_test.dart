@@ -1,7 +1,7 @@
 // The brag cards as images, for a look by eye: a big win (with its
 // all-time line, and without it: the top positions' rows), a small win, a
 // loss, flat, and the positions (a winning prediction, a losing Investing
-// position), the P&L card (pnl_share_card.dart, up and down), German and
+// position), a won prediction (resolved), the P&L card (pnl_share_card.dart, up and down), German and
 // Japanese, at 1080 × 1350 with Sal's real stills.
 // Every frame lays out without an overflow; the PNGs are written only
 // when asked:
@@ -122,6 +122,15 @@ void main() {
       ),
       'position_92_chars': (fakeBragPosition(title: kShareLongQuestion), en),
       'position_win_short': (fakeBragWinningShort(), en),
+      // A won prediction (founder, 4 November 2026: past wins brag too).
+      'won': (fakeBragWin(), en),
+      'won_named_long': (
+        fakeBragWin(title: 'LoL Worlds 2026 Final: Gen.G vs T1', side: 'Gen.G'),
+        en
+      ),
+      'de_won': (fakeBragWin(), const Locale('de')),
+      'ja_won': (fakeBragWin(), const Locale('ja')),
+      'fi_won': (fakeBragWin(), const Locale('fi')),
       'pnl_win': (pnl(), en),
       'pnl_loss': (pnl(usd: -42.1, text: '−\$42.10'), en),
       'de_position_win_short': (fakeBragWinningShort(), const Locale('de')),

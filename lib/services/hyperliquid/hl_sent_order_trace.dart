@@ -11,6 +11,15 @@
 //     "fail" in the slip and then find it placed; a close the same way.
 //     An answer the venue gave (a rejection) is authoritative and is never
 //     looked up.
+//
+// [hlSendReconciled] is that second use for every order send: opens,
+// spot orders, limits and closes, from the slip and from the queued
+// order. While it reads, the order's cloid is in
+// [hlConfirmingOrdersProvider] and the slip says "Confirming with the
+// exchange…". The order is reported placed when the account shows it,
+// not placed only when a whole window of readable reads shows it nowhere
+// ([hlReconcileSentOrder]), and unconfirmed otherwise: never "failed"
+// for an order nobody has heard back about.
 
 import 'dart:async';
 
@@ -25,7 +34,10 @@ import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart'
         HlOrderResultKind,
         HyperliquidApiException,
         HyperliquidExchangeService,
+        HyperliquidOrderNotPlacedException,
+        HyperliquidOrderUnconfirmedException,
         HyperliquidRejectedException;
+import 'package:kute/services/tracking_service.dart';
 
 /// Whether [e], thrown by an order send, leaves it UNKNOWN if the venue
 /// took the order: the request timed out or the connection broke (the
@@ -33,6 +45,8 @@ import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart'
 /// (a 5xx, a non-JSON 200). Anything the venue itself said (every
 /// [HyperliquidRejectedException], a 4xx) is a verdict: never unknown.
 bool hlOrderOutcomeUnknown(Object e) {
+  if (e is HyperliquidOrderUnconfirmedException) return true;
+  if (e is HyperliquidOrderNotPlacedException) return false;
   if (e is HyperliquidRejectedException) return false;
   if (e is TimeoutException) return true;
   if (e is HyperliquidApiException) {
@@ -69,6 +83,132 @@ Future<HlSentOrderTrace> hlTraceSentOrder(
     if (i + 1 < reads) await Future<void>.delayed(every);
   }
   return trace;
+}
+
+/// How long the account is read after an order send that got no verdict,
+/// before "it is nowhere" counts as "it was not placed". The send itself
+/// had 15 s; a request the venue was still working through when the app
+/// gave up has landed (or never will) well inside this.
+const Duration kHlReconcileWindow = Duration(seconds: 20);
+const Duration kHlReconcileEvery = Duration(seconds: 2);
+
+/// [cloids]' order read on [market] for [window], every [every]: found as
+/// soon as one read shows it; nowhere only when the window has passed and
+/// the last read answered (and showed it nowhere); unknown otherwise.
+/// [hlTraceSentOrder] believes the first "nowhere", which is right for a
+/// send the venue refused but not for one that went unanswered: the venue
+/// can still be taking that order when the first read comes back empty.
+/// Never throws.
+Future<HlSentOrderTrace> hlReconcileSentOrder(
+  Future<HlSentOrderTrace> Function(List<String> cloids, HlMarket market)
+      lookup,
+  List<String> cloids,
+  HlMarket market, {
+  Duration window = kHlReconcileWindow,
+  Duration every = kHlReconcileEvery,
+}) async {
+  // Reads `every` apart from the first one until `window` has gone by,
+  // counted in reads; and never much past the window when the reads are
+  // slow themselves (each may take seconds on a bad connection), so the
+  // slip's "Confirming…" is bounded either way.
+  final gaps = every <= Duration.zero
+      ? 1
+      : (window.inMicroseconds / every.inMicroseconds).ceil().clamp(1, 600);
+  final elapsed = Stopwatch()..start();
+  var last = const HlSentOrderTrace.unknown();
+  for (var i = 0; i <= gaps; i++) {
+    try {
+      last = await lookup(cloids, market);
+    } catch (_) {
+      last = const HlSentOrderTrace.unknown();
+    }
+    if (last.found != null) return last;
+    if (i == gaps || elapsed.elapsed >= window) break;
+    await Future<void>.delayed(every);
+  }
+  return last.known ? const HlSentOrderTrace.none() : last;
+}
+
+/// Cloids whose order is being looked up right now because its send got
+/// no verdict ([hlSendReconciled]); the order slip says "Confirming with
+/// the exchange…" while its own cloid is here.
+final hlConfirmingOrdersProvider =
+    StateProvider<Set<String>>((ref) => const <String>{});
+
+/// Sends an order with [send] and, when the send gets no verdict
+/// ([hlOrderOutcomeUnknown]: a timeout, a broken connection, a gateway
+/// error), looks it up by [cloid] before anything is said: found, the
+/// venue's order as it stands is returned (filled or resting, so the
+/// receipt and the order's analytics follow as for any answer); nowhere
+/// after the window, [HyperliquidOrderNotPlacedException]; unreadable,
+/// [HyperliquidOrderUnconfirmedException]. Nothing is ever sent again.
+/// A verdict the venue gave is rethrown as it is, never looked up.
+/// [onConfirming] is told when the lookup starts (true) and ends (false).
+Future<HlOrderResult> hlSendReconciled({
+  required Future<HlOrderResult> Function() send,
+  required String cloid,
+  required HlMarket market,
+  required Future<HlSentOrderTrace> Function(List<String> cloids, HlMarket m)
+      lookup,
+  required String action,
+  void Function(bool confirming)? onConfirming,
+  Duration window = kHlReconcileWindow,
+  Duration every = kHlReconcileEvery,
+}) async {
+  try {
+    return await send();
+  } catch (e) {
+    if (!hlOrderOutcomeUnknown(e) ||
+        e is HyperliquidOrderUnconfirmedException) {
+      rethrow;
+    }
+    final clock = Stopwatch()..start();
+    try {
+      onConfirming?.call(true);
+    } catch (_) {}
+    final HlSentOrderTrace trace;
+    try {
+      trace = await hlReconcileSentOrder(lookup, [cloid], market,
+          window: window, every: every);
+    } finally {
+      try {
+        onConfirming?.call(false);
+      } catch (_) {}
+    }
+    final found = trace.found;
+    final outcome = found != null
+        ? (found.isFilled ? 'filled' : 'resting')
+        : trace.known
+            ? 'not_placed'
+            : 'unconfirmed';
+    try {
+      // Categorical and durations only: never the cloid or the order.
+      TrackingService.track('hl_order_outcome_reconciled', params: {
+        'outcome': outcome,
+        'cause': hlUnknownCause(e),
+        'action': action,
+        'market_kind': market.isSpot ? 'spot' : 'perp',
+        'builder_dex': market.dex.isNotEmpty,
+        'ms': clock.elapsedMilliseconds,
+      });
+    } catch (_) {}
+    if (found != null) return found;
+    if (trace.known) throw HyperliquidOrderNotPlacedException(cause: e);
+    throw HyperliquidOrderUnconfirmedException(cause: e);
+  }
+}
+
+/// Why a send got no verdict, as one closed word.
+String hlUnknownCause(Object e) {
+  if (e is TimeoutException) return 'timeout';
+  if (e is HyperliquidApiException) {
+    if (e.statusCode == 0) return 'connection';
+    if (e.statusCode >= 500) return 'gateway';
+    if (e.statusCode == 200) return 'unrecognised_answer';
+    return 'http';
+  }
+  if (HyperliquidExchangeService.isOfflineError(e)) return 'connection';
+  return 'other';
 }
 
 /// What became of an order already sent: still resting on the book, or

@@ -2,8 +2,10 @@
 // into") is the top, with no "Receive" title under it; the QR plate is as
 // large as the sheet allows; the address and the Copy / Share row sit
 // right under it, above the fold on a 390x844 phone; request amount is a
-// quiet text action under the row; the format chips and "also accepts"
-// follow, reachable by scroll. The wallet never answers here, so nothing
+// quiet text action under the row; the format chips follow, and no "Also
+// accepts" line any more (founder, 6 November 2026: the other coins are
+// "From another asset" on Receive or swap, the sheet before this one).
+// The wallet never answers here, so nothing
 // reaches a money call: the address and the Lightning address are
 // stubbed.
 
@@ -226,14 +228,16 @@ void main() {
     expect(addressRect.bottom, lessThan(844));
     expect(shareRect.bottom, lessThan(844));
 
-    // Format chips and "also accepts" follow, reachable by scroll.
+    // Format chips follow; no "Also accepts" line under them, even with
+    // coins on offer.
     final chips = find.text(_l10n.receiveQrFormatUnified);
     expect(chips, findsOneWidget);
     expect(tester.getTopLeft(chips).dy, greaterThan(shareRect.bottom));
-    final accepts = find.byType(CoinMarksLine);
-    await tester.scrollUntilVisible(accepts, 200,
-        scrollable: find.byType(Scrollable).first);
-    expect(accepts, findsOneWidget);
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -600));
+    await tester.pump();
+    expect(find.byType(CoinMarksLine, skipOffstage: false), findsNothing);
+    expect(find.text(_l10n.receiveAlsoAccepts, skipOffstage: false),
+        findsNothing);
     expect(tester.takeException(), isNull);
     await _unmount(tester);
   });
@@ -290,7 +294,7 @@ void main() {
   testWidgets(
       'swaps blocked for a region (and the cascade): plain bitcoin is '
       'untouched (the on-chain address, the Lightning address and LNURL, '
-      'Share), and "also accepts" still lists its coins', (tester) async {
+      'Share)', (tester) async {
     const regions = {'label': 'the European Union, the UK and Switzerland'};
     const cascade = [
       'orchestra.swap.stablecoins',
@@ -348,10 +352,7 @@ void main() {
     await tester.pump();
     expect(copied.last, contains(_address));
 
-    final accepts = find.byType(CoinMarksLine);
-    await tester.scrollUntilVisible(accepts, 200,
-        scrollable: find.byType(Scrollable).first);
-    expect(accepts, findsOneWidget);
+    expect(find.byType(CoinMarksLine, skipOffstage: false), findsNothing);
     expect(tester.takeException(), isNull);
     await tester.pump(const Duration(milliseconds: 300));
     await _unmount(tester);
@@ -366,8 +367,8 @@ void main() {
     expect(side.width, closeTo(375 * 0.87, 0.5));
     expect(_button(_l10n.share), findsOneWidget);
     expect(_button(_l10n.copy), findsNothing);
-    await tester.scrollUntilVisible(find.byType(CoinMarksLine), 200,
-        scrollable: find.byType(Scrollable).first);
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -600));
+    await tester.pump();
     expect(tester.takeException(), isNull);
     await _unmount(tester);
   });

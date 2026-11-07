@@ -1,24 +1,28 @@
 // lib/screens/hyperliquid/components/hl_chart_sheet.dart
 //
-// The Hyperliquid chart's one picker sheet (founder, 1 November 2026: "we
-// have too many chart styles, this screen is too much; the indicators look
-// like slop"). Opened from the in-page chart button, and in the Advanced
-// editor from its style and Σ buttons (which show one half each):
+// The Hyperliquid chart's one picker sheet, opened from the chart's one
+// chart button: on the market chart beside the interval row, and in the
+// Advanced chart's top bar beside its interval (founder, 4 November 2026:
+// "the chart type and the indicators can be in only one button, exactly
+// like we do on the main chart"; "picker should be with big squares").
 //
-//   * STYLE: Line, Candles, Area as three side-by-side cards, each with a
-//     tiny thumbnail of the market's last ~30 bars drawn in that style.
-//     The picked card has the app's selection look (the range row's
-//     thumb); a pick applies at once and the sheet stays up.
-//   * INDICATORS: one soft card of six rows, each a plain name, a one-line
-//     explanation and a switch: Volume, Moving averages (EMA 9/21),
-//     Bollinger bands, RSI, MACD, VWAP. Volume, RSI and MACD sit below the
-//     price, and two of them fit: switching on a third turns the oldest
-//     off, with a short toast.
-//   * Reset (bottom left) puts back what a fresh install shows: Line, and
-//     Volume alone.
+//   * CHART TYPE: Line, Candles, Area, Heikin Ashi as big square cards, a
+//     tiny chart of the market's last bars drawn in each. A pick applies
+//     at once and the sheet stays up.
+//   * TREND · MOMENTUM · VOLATILITY · VOLUME: the curated indicators
+//     (hl_chart_indicator_catalog.dart) as the same square cards, two to a
+//     row: a mini chart of what it draws on this market (in its colours
+//     while on, grey while off), its name and one line on what it shows.
+//     A tap switches it (on: the CTA-coloured outline the app's chips
+//     use); on, a card with settings shows a tune button that opens
+//     [showHlIndicatorSettings]. Four fit on the price and two
+//     below it: one more turns the oldest of that kind off, with a toast.
+//   * Reset (pinned at the foot) puts back what a fresh install shows:
+//     Line, Volume alone, every setting at its default.
 //
 // A picker: the floating Sal bar hides while it is up.
 
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -30,68 +34,80 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart' show HlMarket;
 import 'package:kute/models/hyperliquid_model.dart';
 import 'package:kute/providers/chart_drawings_provider.dart';
+import 'package:kute/screens/hyperliquid/components/hl_chart_indicator_catalog.dart';
+import 'package:kute/screens/hyperliquid/components/hl_chart_indicator_frame.dart';
+import 'package:kute/screens/hyperliquid/components/hl_chart_indicator_series.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_intervals.dart';
 import 'package:kute/screens/hyperliquid/components/hl_charts.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/screens/shared/kute_motion.dart' show KutePressable;
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/venue_analytics.dart';
 import 'package:kute/theme/app_theme.dart';
 
-/// The rows of the indicators list, in order.
-const List<String> kHlSheetIndicators = [
-  'vol',
-  'ema',
-  'bb',
-  'rsi',
-  'macd',
-  'vwap',
-];
-
-/// The indicators drawn below the price (Volume's band counts as one).
-const Set<String> kHlBelowIndicators = {'vol', 'rsi', 'macd'};
-
-/// How many of [kHlBelowIndicators] can be on at once.
-const int kHlMaxBelowPanes = 2;
-
-/// What a fresh chart shows.
-const Set<String> kHlDefaultIndicators = {'vol'};
-
-/// Bars a style thumbnail draws.
+/// Bars a card's mini chart draws.
 const int kHlStyleThumbBars = 30;
+const int _kPreviewBars = 40;
 
-/// Switching [key] in [current] (its order is the order the indicators
-/// were switched on: the oldest first). Switching on a third pane below
-/// the chart turns the oldest one off; [replaced] names it.
-({List<String> next, String? replaced}) hlToggleSheetIndicator(
-  Iterable<String> current,
-  String key,
-) {
-  final next = [...current];
-  if (next.remove(key)) return (next: next, replaced: null);
-  String? replaced;
-  if (kHlBelowIndicators.contains(key)) {
-    final below = next.where(kHlBelowIndicators.contains).toList();
-    if (below.length >= kHlMaxBelowPanes) {
-      replaced = below.first;
-      next.remove(replaced);
-    }
+/// The chart button's glyph for [style].
+IconData hlChartStyleIcon(HlChartStyle style) => switch (style) {
+      HlChartStyle.line => Icons.show_chart_rounded,
+      HlChartStyle.area => Icons.area_chart_rounded,
+      HlChartStyle.heikinAshi => Icons.candlestick_chart_outlined,
+      _ => Icons.candlestick_chart_rounded,
+    };
+
+/// The chart's one button: the chart type's glyph and a chevron in a soft
+/// rounded box (the market chart's, beside its interval row; the Advanced
+/// top bar uses the same).
+class HlChartSheetButton extends StatelessWidget {
+  const HlChartSheetButton({
+    super.key,
+    required this.style,
+    required this.onTap,
+  });
+
+  final HlChartStyle style;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Tooltip(
+      message: context.l10n.chartSheetTitle,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 9.w, vertical: 7.h),
+          decoration: BoxDecoration(
+            color: c.textPrimary.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(9.r),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(hlChartStyleIcon(style), size: 16.sp, color: c.textPrimary),
+              SizedBox(width: 4.w),
+              Icon(Icons.expand_more_rounded,
+                  size: 14.sp, color: c.textTertiary),
+            ],
+          ),
+        ),
+      ),
+    );
   }
-  next.add(key);
-  return (next: next, replaced: replaced);
 }
 
-/// Opens the Chart sheet for [market]. [candles] feed the style
-/// thumbnails (the bars the chart shows). [showStyle] / [showIndicators]
-/// pick the halves (the Advanced editor opens one each).
+/// Opens the Chart sheet for [market]. [candles] (the bars the chart
+/// shows) draw the cards' mini charts.
 Future<void> showHlChartSheet(
   BuildContext context, {
   required HlMarket market,
   required String marketKey,
   required List<HyperliquidCandle> candles,
-  bool showStyle = true,
-  bool showIndicators = true,
 }) {
   HapticFeedback.selectionClick();
   return showAppBottomSheet<void>(
@@ -100,34 +116,86 @@ Future<void> showHlChartSheet(
       market: market,
       marketKey: marketKey,
       candles: candles,
-      showStyle: showStyle,
-      showIndicators: showIndicators,
     ),
   );
 }
 
-class HlChartSheet extends ConsumerWidget {
+/// An indicator's name on its card and in a toast.
+String hlIndicatorName(AppLocalizations l10n, String key) => switch (key) {
+      'vol' => l10n.chartVolume,
+      'bb' => l10n.chartIndBb,
+      'vp' => l10n.chartIndVp,
+      _ => hlIndSpec(key)?.short ?? key,
+    };
+
+String _note(AppLocalizations l10n, String key) => switch (key) {
+      'ema' => l10n.chartIndEmaNote,
+      'ma' => l10n.chartIndSmaNote,
+      'vwap' => l10n.chartIndVwapNote,
+      'st' => l10n.chartIndStNote,
+      'rsi' => l10n.chartIndRsiNote,
+      'macd' => l10n.chartIndMacdNote,
+      'srsi' => l10n.chartIndSrsiNote,
+      'bb' => l10n.chartIndBbNote,
+      'atr' => l10n.chartIndAtrNote,
+      'vol' => l10n.chartIndVolumeNote,
+      'obv' => l10n.chartIndObvNote,
+      'vp' => l10n.chartIndVpNote,
+      _ => '',
+    };
+
+String _groupName(AppLocalizations l10n, HlIndGroup g) => switch (g) {
+      HlIndGroup.trend => l10n.chartGroupTrend,
+      HlIndGroup.momentum => l10n.chartGroupMomentum,
+      HlIndGroup.volatility => l10n.chartGroupVolatility,
+      HlIndGroup.volume => l10n.chartVolume,
+    };
+
+String _styleName(AppLocalizations l10n, HlChartStyle style) => switch (style) {
+      HlChartStyle.line => l10n.chartStyleLine,
+      HlChartStyle.area => l10n.chartStyleArea,
+      HlChartStyle.heikinAshi => l10n.chartStyleHeikinAshi,
+      _ => l10n.chartStyleCandles,
+    };
+
+class HlChartSheet extends ConsumerStatefulWidget {
   const HlChartSheet({
     super.key,
     required this.market,
     required this.marketKey,
     required this.candles,
-    this.showStyle = true,
-    this.showIndicators = true,
   });
 
   final HlMarket market;
   final String marketKey;
   final List<HyperliquidCandle> candles;
-  final bool showStyle;
-  final bool showIndicators;
+
+  @override
+  ConsumerState<HlChartSheet> createState() => _HlChartSheetState();
+}
+
+class _HlChartSheetState extends ConsumerState<HlChartSheet> {
+  _HlPreviews? _previews;
+  Object? _previewsKey;
 
   Map<String, Object> get _assetParams => {
-        'coin': market.coin,
-        ...VenueAnalytics.hlAssetParams(market.coin),
+        'coin': widget.market.coin,
+        ...VenueAnalytics.hlAssetParams(widget.market.coin),
       };
 
-  void _pickStyle(WidgetRef ref, HlChartStyle style) {
+  ChartPreferencesNotifier get _prefs =>
+      ref.read(hlChartPreferencesProvider(widget.marketKey).notifier);
+
+  _HlPreviews _previewsFor(Map<String, List<num>> params) {
+    final key = (widget.candles, params);
+    if (key != _previewsKey || _previews == null) {
+      _previewsKey = key;
+      _previews = _HlPreviews.build(widget.candles, params);
+    }
+    return _previews!;
+  }
+
+  void _pickStyle(HlChartStyle style) {
     final current =
         HlChartStyle.fromName(ref.read(hlChartLayoutProvider).style);
     if (style == current) return;
@@ -143,144 +211,187 @@ class HlChartSheet extends ConsumerWidget {
     );
   }
 
-  void _toggle(BuildContext context, WidgetRef ref, String key) {
+  void _toggle(String key) {
     HapticFeedback.selectionClick();
     final l10n = context.l10n;
-    final current = ref.read(hlChartPreferencesProvider(marketKey)).indicators;
-    final r = hlToggleSheetIndicator(current, key);
-    ref
-        .read(hlChartPreferencesProvider(marketKey).notifier)
-        .setIndicators(r.next);
+    final current =
+        ref.read(hlChartPreferencesProvider(widget.marketKey)).indicators;
+    final r = hlToggleIndicator(current, key);
+    _prefs.setIndicators(r.next);
     TrackingService.track('indicator_toggled', params: {
       'indicator': key,
       'enabled': r.next.contains(key),
       ..._assetParams,
     });
     final replaced = r.replaced;
-    if (replaced != null) {
-      TrackingService.track('indicator_toggled', params: {
-        'indicator': replaced,
-        'enabled': false,
-        'via': 'pane_limit',
-        ..._assetParams,
-      });
-      showMessageSnackBarInfo(
-        context: context,
-        message: l10n.chartPaneLimit(hlSheetIndicatorName(l10n, replaced)),
-        duration: const Duration(seconds: 3),
-      );
-    }
+    if (replaced == null) return;
+    final pane = hlIndSpec(replaced)?.place == HlIndPlace.pane;
+    TrackingService.track('indicator_toggled', params: {
+      'indicator': replaced,
+      'enabled': false,
+      'via': pane ? 'pane_limit' : 'price_limit',
+      ..._assetParams,
+    });
+    final name = hlIndicatorName(l10n, replaced);
+    showMessageSnackBarInfo(
+      context: context,
+      message: pane ? l10n.chartPaneLimit(name) : l10n.chartPriceLimit(name),
+      duration: const Duration(seconds: 3),
+    );
   }
 
-  void _reset(WidgetRef ref) {
+  void _reset() {
     HapticFeedback.selectionClick();
-    if (showStyle) {
-      _pickStyle(ref, HlChartStyle.fromName(kHlDefaultChartStyle));
+    _pickStyle(HlChartStyle.fromName(kHlDefaultChartStyle));
+    final prefs = ref.read(hlChartPreferencesProvider(widget.marketKey));
+    for (final key in {...prefs.indicators, ...kHlDefaultIndicators}) {
+      final on = kHlDefaultIndicators.contains(key);
+      if (prefs.indicators.contains(key) == on) continue;
+      TrackingService.track('indicator_toggled', params: {
+        'indicator': key,
+        'enabled': on,
+        'via': 'reset',
+        ..._assetParams,
+      });
     }
-    if (showIndicators) {
-      final current =
-          ref.read(hlChartPreferencesProvider(marketKey)).indicators;
-      for (final key in {...current, ...kHlDefaultIndicators}) {
-        final on = kHlDefaultIndicators.contains(key);
-        if (current.contains(key) == on) continue;
-        TrackingService.track('indicator_toggled', params: {
-          'indicator': key,
-          'enabled': on,
-          'via': 'reset',
-          ..._assetParams,
-        });
-      }
-      ref
-          .read(hlChartPreferencesProvider(marketKey).notifier)
-          .setIndicators(kHlDefaultIndicators);
+    for (final key in prefs.params.keys) {
+      final spec = hlIndSpec(key);
+      if (spec == null) continue;
+      TrackingService.track('indicator_settings_changed', params: {
+        'indicator': key,
+        'via': 'reset',
+        for (final p in spec.params) p.id: p.defaultValue,
+        ..._assetParams,
+      });
     }
+    _prefs
+      ..setIndicators(kHlDefaultIndicators)
+      ..clearParams();
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final l10n = context.l10n;
     final c = context.colors;
     final style = HlChartStyle.fromName(ref.watch(hlChartLayoutProvider).style);
-    final on = ref.watch(hlChartPreferencesProvider(marketKey)).indicators;
-    final isDefault =
-        (!showStyle || style == HlChartStyle.fromName(kHlDefaultChartStyle)) &&
-            (!showIndicators ||
-                (on.length == kHlDefaultIndicators.length &&
-                    on.containsAll(kHlDefaultIndicators)));
-    final title = showStyle && showIndicators
-        ? l10n.chartSheetTitle
-        : (showStyle ? l10n.chartStyleTitle : l10n.chartIndicators);
+    final prefs = ref.watch(hlChartPreferencesProvider(widget.marketKey));
+    final on = prefs.indicators;
+    final isDefault = style == HlChartStyle.fromName(kHlDefaultChartStyle) &&
+        on.length == kHlDefaultIndicators.length &&
+        on.containsAll(kHlDefaultIndicators) &&
+        prefs.params.isEmpty;
+    final previews = _previewsFor(prefs.params);
+
+    Widget pairs(List<Widget> cards) => Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var i = 0; i < cards.length; i += 2) ...[
+              if (i > 0) const SizedBox(height: 10),
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(child: cards[i]),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: i + 1 < cards.length
+                          ? cards[i + 1]
+                          : const SizedBox.shrink(),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        );
+
+    final sections = <Widget>[
+      _SectionLabel(l10n.chartSheetChartType,
+          key: const ValueKey('hl-chart-group-type')),
+      pairs([
+        for (final s in HlChartStyle.picker)
+          _StyleCard(
+            style: s,
+            picked: s == style,
+            candles: widget.candles,
+            onTap: () => _pickStyle(s),
+          ),
+      ]),
+      for (final group in HlIndGroup.values) ...[
+        const SizedBox(height: 20),
+        _SectionLabel(_groupName(l10n, group),
+            key: ValueKey('hl-chart-group-${group.name}')),
+        pairs([
+          for (final spec in kHlIndicatorCatalog)
+            if (spec.group == group)
+              _IndicatorCard(
+                spec: spec,
+                on: on.contains(spec.key),
+                params: hlIndParams(spec.key, prefs.params),
+                previews: previews,
+                onTap: () => _toggle(spec.key),
+                onSettings: () => unawaited(showHlIndicatorSettings(
+                  context,
+                  market: widget.market,
+                  marketKey: widget.marketKey,
+                  indicator: spec.key,
+                )),
+              ),
+        ]),
+      ],
+      const SizedBox(height: 8),
+    ];
+
     // A picker: the floating bar is away while it is up.
     return KuteBarContextScope(
       barContext: const KuteBarContext.hidden(),
       child: AppBottomSheetContainer(
+        maxHeight: 0.9,
         child: Column(
           key: const ValueKey('hl-chart-sheet'),
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             AppBottomSheetHeader(
-              title: title,
+              title: l10n.chartSheetTitle,
               compact: true,
-              trailing: const _CircleClose(),
+              // The app's one close (kute_back_button.dart).
+              trailing: const AppBottomSheetCloseButton(
+                  key: ValueKey('hl-chart-sheet-close')),
             ),
+            Flexible(
+              child: SingleChildScrollView(
+                key: const ValueKey('hl-chart-sheet-scroll'),
+                padding: EdgeInsets.symmetric(horizontal: 20.w),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: sections,
+                ),
+              ),
+            ),
+            Container(height: 0.5, color: c.border),
             Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20.w),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (showStyle) ...[
-                    if (showIndicators) _SectionLabel(l10n.chartSheetStyle),
-                    Row(
-                      children: [
-                        for (var i = 0;
-                            i < HlChartStyle.picker.length;
-                            i++) ...[
-                          if (i > 0) SizedBox(width: 10.w),
-                          Expanded(
-                            child: _StyleCard(
-                              style: HlChartStyle.picker[i],
-                              picked: HlChartStyle.picker[i] == style,
-                              candles: candles,
-                              onTap: () =>
-                                  _pickStyle(ref, HlChartStyle.picker[i]),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                  if (showStyle && showIndicators) SizedBox(height: 20.h),
-                  if (showIndicators) ...[
-                    if (showStyle) _SectionLabel(l10n.chartIndicators),
-                    _IndicatorCard(
-                      on: on,
-                      onToggle: (key) => _toggle(context, ref, key),
-                    ),
-                  ],
-                  SizedBox(height: 6.h),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton(
-                      key: const ValueKey('hl-chart-sheet-reset'),
-                      onPressed: isDefault ? null : () => _reset(ref),
-                      style: TextButton.styleFrom(
-                        padding: EdgeInsets.symmetric(horizontal: 4.w),
-                        minimumSize: Size(0, 40.h),
-                        foregroundColor: c.textPrimary,
-                        disabledForegroundColor: c.textTertiary,
-                      ),
-                      child: Text(
-                        l10n.chartReset,
-                        style: TextStyle(
-                          fontSize: 15.sp,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+              padding: EdgeInsets.fromLTRB(16.w, 2, 16.w, 2),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  key: const ValueKey('hl-chart-sheet-reset'),
+                  onPressed: isDefault ? null : _reset,
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.symmetric(horizontal: 4.w),
+                    minimumSize: Size(0, 44.h),
+                    foregroundColor: c.textPrimary,
+                    disabledForegroundColor: c.textTertiary,
+                  ),
+                  child: Text(
+                    l10n.chartReset,
+                    style: TextStyle(
+                      fontSize: 15.sp,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                ],
+                ),
               ),
             ),
           ],
@@ -290,35 +401,8 @@ class HlChartSheet extends ConsumerWidget {
   }
 }
 
-/// A row's plain name.
-String hlSheetIndicatorName(AppLocalizations l10n, String key) => switch (key) {
-      'vol' => l10n.chartVolume,
-      'ema' => l10n.chartIndEma,
-      'bb' => l10n.chartIndBb,
-      'rsi' => l10n.chartIndRsi,
-      'macd' => l10n.chartIndMacd,
-      'vwap' => l10n.chartIndVwap,
-      _ => key,
-    };
-
-String _note(AppLocalizations l10n, String key) => switch (key) {
-      'vol' => l10n.chartIndVolumeNote,
-      'ema' => l10n.chartIndEmaNote,
-      'bb' => l10n.chartIndBbNote,
-      'rsi' => l10n.chartIndRsiNote,
-      'macd' => l10n.chartIndMacdNote,
-      'vwap' => l10n.chartIndVwapNote,
-      _ => '',
-    };
-
-String _styleName(AppLocalizations l10n, HlChartStyle style) => switch (style) {
-      HlChartStyle.line => l10n.chartStyleLine,
-      HlChartStyle.area => l10n.chartStyleArea,
-      _ => l10n.chartStyleCandles,
-    };
-
 class _SectionLabel extends StatelessWidget {
-  const _SectionLabel(this.text);
+  const _SectionLabel(this.text, {super.key});
   final String text;
 
   @override
@@ -335,45 +419,53 @@ class _SectionLabel extends StatelessWidget {
       );
 }
 
-/// The header's close, in a soft circle.
-class _CircleClose extends StatelessWidget {
-  const _CircleClose();
+/// A square card's box, in the app's big-square language (the option
+/// cards of kute_action_cards.dart: the sheet card's surface, a 1 px
+/// hairline, radius 18, 14 padding, at least 112 tall, the press spring).
+/// [picked] draws the selection the app's chips use: the CTA colour, here
+/// as the card's outline. The Interval sheet (hl_chart_interval_sheet.dart)
+/// uses the same box, a square at least [minHeight] tall.
+class HlSquareBox extends StatelessWidget {
+  const HlSquareBox({
+    super.key,
+    required this.picked,
+    required this.child,
+    this.minHeight = 112,
+  });
+
+  final bool picked;
+  final Widget child;
+
+  /// The least height (112, the option cards').
+  final double minHeight;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    return Semantics(
-      button: true,
-      label: MaterialLocalizations.of(context).closeButtonTooltip,
-      child: GestureDetector(
-        key: const ValueKey('hl-chart-sheet-close'),
-        behavior: HitTestBehavior.opaque,
-        onTap: () {
-          HapticFeedback.selectionClick();
-          Navigator.of(context).pop();
-        },
-        child: SizedBox(
-          width: 44,
-          height: 44,
-          child: Center(
-            child: Container(
-              width: 30,
-              height: 30,
-              decoration: BoxDecoration(
-                color: c.textPrimary.withValues(alpha: 0.07),
-                shape: BoxShape.circle,
-              ),
-              child:
-                  Icon(Icons.close_rounded, size: 18, color: c.textSecondary),
-            ),
+    final isLight = !context.isDark;
+    final reduce = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    return KutePressable(
+      child: AnimatedContainer(
+        duration: reduce ? Duration.zero : const Duration(milliseconds: 150),
+        constraints: BoxConstraints(minHeight: minHeight),
+        padding: EdgeInsets.all(picked ? 13.5 : 14),
+        decoration: BoxDecoration(
+          color: isLight ? c.surfaceLight : c.surface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: picked
+                ? context.ctaFill
+                : (isLight ? c.border : c.borderSubtle),
+            width: picked ? 1.5 : 1,
           ),
         ),
+        child: child,
       ),
     );
   }
 }
 
-/// One style card: the thumbnail and the name under it.
+/// One chart type: its mini chart and its name.
 class _StyleCard extends StatelessWidget {
   const _StyleCard({
     required this.style,
@@ -390,8 +482,6 @@ class _StyleCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final isLight = !context.isDark;
-    final reduce = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
     final thumb = candles.length > kHlStyleThumbBars
         ? candles.sublist(candles.length - kHlStyleThumbBars)
         : candles;
@@ -402,36 +492,14 @@ class _StyleCard extends StatelessWidget {
         key: ValueKey('hl-chart-style-${style.name}'),
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
-        child: AnimatedContainer(
-          duration: reduce ? Duration.zero : const Duration(milliseconds: 150),
-          height: 84,
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 9),
-          decoration: BoxDecoration(
-            // The range row's thumb when picked; flat otherwise.
-            color: picked
-                ? (isLight ? Colors.white : c.surfaceElevated)
-                : c.surfaceLight,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: picked
-                  ? (isLight ? c.border : c.borderSubtle)
-                  : Colors.transparent,
-              width: isLight ? 1.0 : 0.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: picked && isLight
-                    ? Colors.black.withValues(alpha: 0.04)
-                    : Colors.transparent,
-                blurRadius: 10,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
+        child: HlSquareBox(
+          picked: picked,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Expanded(
+              SizedBox(
+                height: 58,
                 child: CustomPaint(
                   painter: HlStyleThumbPainter(
                     style: style,
@@ -442,17 +510,17 @@ class _StyleCard extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 7),
+              const SizedBox(height: 10),
               Text(
                 _styleName(context.l10n, style),
-                textAlign: TextAlign.center,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: picked ? c.textPrimary : c.textSecondary,
-                  fontSize: 13.sp,
-                  fontWeight: picked ? FontWeight.w600 : FontWeight.w500,
-                  height: 1.1,
+                  color: c.textPrimary,
+                  fontSize: 15.sp,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.2,
+                  height: 1.2,
                 ),
               ),
             ],
@@ -479,38 +547,28 @@ class HlStyleThumbPainter extends CustomPainter {
   final Color up, down, muted;
 
   static const List<double> _placeholder = [
-    3,
-    4,
-    3.6,
-    5,
-    4.4,
-    5.6,
-    5.1,
-    6.2,
-    5.8,
-    6.8,
-    6.1,
-    7.2,
-    6.9,
-    7.8,
-    7.4,
+    3, 4, 3.6, 5, 4.4, 5.6, 5.1, 6.2, 5.8, 6.8, 6.1, 7.2, 6.9, 7.8, 7.4, //
     8.4,
   ];
 
   @override
   void paint(Canvas canvas, Size size) {
     if (size.width <= 0 || size.height <= 0) return;
-    final bars = candles
+    final valid = candles
         .where((k) =>
             k.open.isFinite &&
             k.close.isFinite &&
             k.high.isFinite &&
             k.low.isFinite)
         .toList();
+    final bars =
+        style == HlChartStyle.heikinAshi ? hlHeikinAshi(valid) : valid;
     final real = bars.length >= 2;
     final closes = real ? [for (final k in bars) k.close] : _placeholder;
+    final candleLike =
+        style == HlChartStyle.candles || style == HlChartStyle.heikinAshi;
     var lo = double.infinity, hi = double.negativeInfinity;
-    if (style == HlChartStyle.candles && real) {
+    if (candleLike && real) {
       for (final k in bars) {
         lo = math.min(lo, k.low);
         hi = math.max(hi, k.high);
@@ -526,7 +584,7 @@ class HlStyleThumbPainter extends CustomPainter {
     final rising = closes.last >= closes.first;
     final color = real ? (rising ? up : down) : muted;
 
-    if (style == HlChartStyle.candles) {
+    if (candleLike) {
       final n = real ? bars.length : closes.length;
       final slot = size.width / n;
       final body = math.max(1.2, slot * 0.6);
@@ -595,127 +653,747 @@ class HlStyleThumbPainter extends CustomPainter {
       old.muted != muted;
 }
 
-/// The soft card of indicator rows.
-class _IndicatorCard extends StatelessWidget {
-  const _IndicatorCard({required this.on, required this.onToggle});
+/// The cards' mini charts: every indicator over the market's own bars
+/// (a made-up tape when the market has too few), with the market's
+/// settings, cut to the newest [_kPreviewBars].
+class _HlPreviews {
+  _HlPreviews(this.tape, this.frame, this.profile);
 
-  final Set<String> on;
-  final ValueChanged<String> onToggle;
+  final List<HyperliquidCandle> tape;
+  final HlIndicatorFrame frame;
+  final HlVolumeProfile? profile;
+
+  HlIndSeries? series(String key) {
+    for (final s in [...frame.price, ...frame.panes]) {
+      if (s.key == key) return s;
+    }
+    return null;
+  }
+
+  static _HlPreviews build(
+      List<HyperliquidCandle> candles, Map<String, List<num>> params) {
+    final source = candles.length >= 120 ? candles : _madeUpTape();
+    final n = source.length;
+    final start = math.max(0, n - _kPreviewBars);
+    final frame = HlIndicatorComputer()
+        .compute(
+          source,
+          kHlIndicatorKeys,
+          params,
+          up: AppColors.marketUp,
+          down: AppColors.marketDown,
+        )
+        .slice(start, n);
+    final tape = source.sublist(start);
+    final rows = hlIndParams('vp', params).first.round();
+    return _HlPreviews(
+      tape,
+      frame,
+      hlVolumeProfile(tape, rows: math.min(rows, 16)),
+    );
+  }
+
+  /// A gently swinging 260-bar tape for a market with little history.
+  static List<HyperliquidCandle> _madeUpTape() {
+    final start = DateTime.utc(2026, 1, 1);
+    final out = <HyperliquidCandle>[];
+    var prev = 100.0;
+    for (var i = 0; i < 260; i++) {
+      final c = 100 + 8 * math.sin(i / 9) + 3 * math.cos(i / 2.7) + i * 0.04;
+      final o = prev;
+      out.add(HyperliquidCandle(
+        openTime: start.add(Duration(hours: i)),
+        closeTime: start.add(Duration(hours: i + 1)),
+        open: o,
+        high: math.max(o, c) + 0.6 + (i % 4) * 0.25,
+        low: math.min(o, c) - 0.5 - (i % 3) * 0.2,
+        close: c,
+        volume: 60 + (i * 37) % 50 + 30 * math.sin(i / 5).abs(),
+      ));
+      prev = c;
+    }
+    return out;
+  }
+}
+
+/// One indicator: its mini chart (and, on, its settings button), its name
+/// with its settings, and what it shows.
+class _IndicatorCard extends StatelessWidget {
+  const _IndicatorCard({
+    required this.spec,
+    required this.on,
+    required this.params,
+    required this.previews,
+    required this.onTap,
+    required this.onSettings,
+  });
+
+  final HlIndSpec spec;
+  final bool on;
+  final List<num> params;
+  final _HlPreviews previews;
+  final VoidCallback onTap;
+  final VoidCallback onSettings;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final l10n = context.l10n;
-    final isLight = !context.isDark;
-    return Container(
-      decoration: BoxDecoration(
-        color: isLight ? Colors.white : c.surfaceLight,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isLight ? c.border : c.borderSubtle,
-          width: isLight ? 1.0 : 0.5,
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (var i = 0; i < kHlSheetIndicators.length; i++) ...[
-            if (i > 0)
-              Padding(
-                padding: const EdgeInsets.only(left: 16),
-                child: Container(height: 0.5, color: c.border),
+    final tunable = on && spec.params.isNotEmpty;
+    return Semantics(
+      button: true,
+      toggled: on,
+      child: GestureDetector(
+        key: ValueKey('hl-chart-indicator-${spec.key}'),
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: HlSquareBox(
+          picked: on,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                height: 30,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: CustomPaint(
+                        painter: HlIndicatorPreviewPainter(
+                          keyName: spec.key,
+                          series: previews.series(spec.key),
+                          tape: previews.tape,
+                          profile: previews.profile,
+                          on: on,
+                          muted: c.textTertiary,
+                          up: AppColors.marketUp,
+                          down: AppColors.marketDown,
+                        ),
+                      ),
+                    ),
+                    if (tunable) ...[
+                      const SizedBox(width: 6),
+                      _TuneButton(
+                        key: ValueKey('hl-chart-indicator-settings-${spec.key}'),
+                        onTap: onSettings,
+                      ),
+                    ],
+                  ],
+                ),
               ),
-            _IndicatorRow(
-              keyName: kHlSheetIndicators[i],
-              name: hlSheetIndicatorName(l10n, kHlSheetIndicators[i]),
-              note: _note(l10n, kHlSheetIndicators[i]),
-              value: on.contains(kHlSheetIndicators[i]),
-              onToggle: () => onToggle(kHlSheetIndicators[i]),
-            ),
-          ],
-        ],
+              const SizedBox(height: 9),
+              Text.rich(
+                TextSpan(children: [
+                  TextSpan(text: hlIndicatorName(l10n, spec.key)),
+                  if (spec.params.isNotEmpty)
+                    TextSpan(
+                      text: '  ${params.map(hlParamText).join(' ')}',
+                      style: TextStyle(
+                        color: c.textTertiary,
+                        fontWeight: FontWeight.w500,
+                        fontSize: 12.sp,
+                      ),
+                    ),
+                ]),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: c.textPrimary,
+                  fontSize: 15.sp,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.2,
+                  height: 1.2,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                _note(l10n, spec.key),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: c.textSecondary,
+                  fontSize: 13.sp,
+                  fontWeight: FontWeight.w500,
+                  height: 1.3,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 }
 
-class _IndicatorRow extends StatelessWidget {
-  const _IndicatorRow({
-    required this.keyName,
-    required this.name,
-    required this.note,
-    required this.value,
-    required this.onToggle,
-  });
-
-  final String keyName;
-  final String name;
-  final String note;
-  final bool value;
-  final VoidCallback onToggle;
+class _TuneButton extends StatelessWidget {
+  const _TuneButton({super.key, required this.onTap});
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    return MergeSemantics(
-      child: InkWell(
-        key: ValueKey('hl-chart-indicator-$keyName'),
-        onTap: onToggle,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 52),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 6, 8, 6),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: c.textPrimary,
-                          fontSize: 15.sp,
-                          fontWeight: FontWeight.w500,
-                          height: 1.2,
-                        ),
-                      ),
-                      const SizedBox(height: 1),
-                      Text(
-                        note,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: c.textSecondary,
-                          fontSize: 13.sp,
-                          height: 1.25,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // The Settings switch's look.
-                Switch(
-                  key: ValueKey('hl-chart-indicator-switch-$keyName'),
-                  value: value,
-                  onChanged: (_) => onToggle(),
-                  activeThumbColor: context.ctaOnColor,
-                  activeTrackColor: context.ctaFill,
-                  inactiveThumbColor: c.textSecondary,
-                  inactiveTrackColor:
-                      context.isDark ? c.surfaceElevated : c.surfaceLight,
-                  trackOutlineColor: WidgetStateProperty.resolveWith(
-                    (states) => states.contains(WidgetState.selected)
-                        ? Colors.transparent
-                        : c.borderSubtle,
-                  ),
-                ),
-              ],
+    return Semantics(
+      button: true,
+      label: context.l10n.settings,
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
+        child: SizedBox(
+          width: 30,
+          height: 30,
+          child: Center(
+            child: Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: c.textPrimary.withValues(alpha: 0.06),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.tune_rounded, size: 15, color: c.textPrimary),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// An indicator card's mini chart: what it draws on the price (over a
+/// faint close line) or in its pane, in its colours while [on] and in
+/// [muted] grey while off.
+class HlIndicatorPreviewPainter extends CustomPainter {
+  HlIndicatorPreviewPainter({
+    required this.keyName,
+    required this.series,
+    required this.tape,
+    required this.profile,
+    required this.on,
+    required this.muted,
+    required this.up,
+    required this.down,
+  });
+
+  final String keyName;
+  final HlIndSeries? series;
+  final List<HyperliquidCandle> tape;
+  final HlVolumeProfile? profile;
+  final bool on;
+  final Color muted, up, down;
+
+  Color _tone(Color c) => on ? c : muted.withValues(alpha: 0.7);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.width <= 0 || size.height <= 0 || tape.length < 2) return;
+    final n = tape.length;
+    final slot = size.width / n;
+    double x(int i) => (i + 0.5) * slot;
+    final spec = hlIndSpec(keyName);
+    if (spec == null) return;
+
+    if (keyName == 'vol') {
+      var maxV = 0.0;
+      for (final k in tape) {
+        maxV = math.max(maxV, k.volume);
+      }
+      if (maxV <= 0) return;
+      final w = math.max(1.0, slot * 0.6);
+      for (var i = 0; i < n; i++) {
+        final k = tape[i];
+        final h = size.height * k.volume / maxV;
+        canvas.drawRect(
+          Rect.fromLTWH(x(i) - w / 2, size.height - h, w, h),
+          Paint()
+            ..color = _tone(k.close >= k.open ? up : down)
+                .withValues(alpha: on ? 0.7 : 0.45),
+        );
+      }
+      return;
+    }
+
+    final s = series;
+    if (spec.place == HlIndPlace.pane) {
+      if (s == null) return;
+      var lo = double.infinity, hi = double.negativeInfinity;
+      void take(List<double> v) {
+        for (final e in v) {
+          if (!e.isFinite) continue;
+          lo = math.min(lo, e);
+          hi = math.max(hi, e);
+        }
+      }
+
+      for (final l in s.lines) {
+        take(l.values);
+      }
+      take(s.histogram ?? const []);
+      final range = s.range;
+      if (range != null) {
+        lo = range.$1;
+        hi = range.$2;
+      }
+      if (!lo.isFinite || !hi.isFinite) return;
+      if (hi <= lo) hi = lo + 1;
+      double y(double v) =>
+          1 + (size.height - 2) * (1 - (v - lo) / (hi - lo));
+      final guide = Paint()
+        ..color = muted.withValues(alpha: 0.35)
+        ..strokeWidth = 0.6;
+      for (final level in s.levels) {
+        if (level < lo || level > hi) continue;
+        canvas.drawLine(
+            Offset(0, y(level)), Offset(size.width, y(level)), guide);
+      }
+      final hist = s.histogram;
+      if (hist != null) {
+        final w = math.max(1.0, slot * 0.6);
+        final zero = y(0).clamp(0.0, size.height);
+        for (var i = 0; i < math.min(n, hist.length); i++) {
+          final v = hist[i];
+          if (!v.isFinite) continue;
+          canvas.drawRect(
+            Rect.fromLTRB(x(i) - w / 2, math.min(y(v), zero), x(i) + w / 2,
+                math.max(y(v), zero)),
+            Paint()..color = _tone(v >= 0 ? up : down).withValues(alpha: 0.45),
+          );
+        }
+      }
+      for (final l in s.lines) {
+        _line(canvas, l.values, x, y, _tone(l.color), 1.4);
+      }
+      return;
+    }
+
+    // On the price: a faint close line, the indicator over it.
+    final closes = [for (final k in tape) k.close];
+    var lo = double.infinity, hi = double.negativeInfinity;
+    for (final v in closes) {
+      lo = math.min(lo, v);
+      hi = math.max(hi, v);
+    }
+    for (final l in s?.lines ?? const <HlIndLine>[]) {
+      for (final v in l.values) {
+        if (!v.isFinite) continue;
+        lo = math.min(lo, v);
+        hi = math.max(hi, v);
+      }
+    }
+    if (hi <= lo) hi = lo + 1;
+    double y(double v) => 1 + (size.height - 2) * (1 - (v - lo) / (hi - lo));
+    final band = s?.band;
+    if (band != null) {
+      final path = Path();
+      var started = false;
+      for (var i = 0; i < n && i < band.upper.length; i++) {
+        final u = band.upper[i];
+        if (!u.isFinite) continue;
+        started ? path.lineTo(x(i), y(u)) : path.moveTo(x(i), y(u));
+        started = true;
+      }
+      for (var i = math.min(n, band.lower.length) - 1; i >= 0; i--) {
+        final l = band.lower[i];
+        if (!l.isFinite) continue;
+        path.lineTo(x(i), y(l));
+      }
+      if (started) {
+        path.close();
+        canvas.drawPath(
+            path, Paint()..color = _tone(band.color).withValues(alpha: 0.12));
+      }
+    }
+    final p = profile;
+    if (keyName == 'vp' && p != null) {
+      final maxRow = p.maxRow;
+      if (maxRow > 0) {
+        for (var r = 0; r < p.rows; r++) {
+          final t = p.total(r);
+          if (t <= 0) continue;
+          final y0 = y(p.lo + (r + 1) * p.rowHeight) + 0.5;
+          final y1 = y(p.lo + r * p.rowHeight) - 0.5;
+          final len = size.width * 0.45 * t / maxRow;
+          final inArea = r >= p.vaLow && r <= p.vaHigh;
+          canvas.drawRect(
+            Rect.fromLTRB(size.width - len, math.min(y0, y1), size.width,
+                math.max(y0, y1)),
+            Paint()
+              ..color = _tone(r == p.poc ? const Color(0xFFF59E0B) : up)
+                  .withValues(alpha: inArea ? 0.45 : 0.22),
+          );
+        }
+      }
+    }
+    _line(canvas, closes, x, y, muted.withValues(alpha: on ? 0.55 : 0.4), 1.1);
+    for (final l in s?.lines ?? const <HlIndLine>[]) {
+      _line(canvas, l.values, x, y, _tone(l.color), 1.5);
+    }
+  }
+
+  static void _line(Canvas canvas, List<double> values, double Function(int) x,
+      double Function(double) y, Color color, double width) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = width
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    Path? path;
+    for (var i = 0; i < values.length; i++) {
+      final v = values[i];
+      if (!v.isFinite) {
+        if (path != null) canvas.drawPath(path, paint);
+        path = null;
+        continue;
+      }
+      if (path == null) {
+        path = Path()..moveTo(x(i), y(v));
+      } else {
+        path.lineTo(x(i), y(v));
+      }
+    }
+    if (path != null) canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant HlIndicatorPreviewPainter old) =>
+      old.keyName != keyName ||
+      !identical(old.series, series) ||
+      !identical(old.tape, tape) ||
+      !identical(old.profile, profile) ||
+      old.on != on ||
+      old.muted != muted ||
+      old.up != up ||
+      old.down != down;
+}
+
+// ─────────────────────────── settings ───────────────────────────
+
+String _paramLabel(AppLocalizations l10n, String id) => switch (id) {
+      'length' => l10n.chartParamLength,
+      'fast' => l10n.chartParamFast,
+      'slow' => l10n.chartParamSlow,
+      'signal' => l10n.chartParamSignal,
+      'multiplier' => l10n.chartParamMultiplier,
+      'rsiLength' => l10n.chartParamRsiLength,
+      'stochLength' => l10n.chartParamStochLength,
+      'smoothK' => l10n.chartParamSmoothK,
+      'smoothD' => l10n.chartParamSmoothD,
+      'rows' => l10n.chartParamRows,
+      _ => id,
+    };
+
+/// One indicator's settings on [market]: a stepper per setting (a hold
+/// repeats, faster after a moment) and Reset. Changes apply as they are
+/// made; closing the sheet sends one `indicator_settings_changed` with
+/// the values it was left at.
+Future<void> showHlIndicatorSettings(
+  BuildContext context, {
+  required HlMarket market,
+  required String marketKey,
+  required String indicator,
+}) {
+  return showAppBottomSheet<void>(
+    context: context,
+    builder: (_) => HlIndicatorSettingsSheet(
+      market: market,
+      marketKey: marketKey,
+      indicator: indicator,
+    ),
+  );
+}
+
+class HlIndicatorSettingsSheet extends ConsumerStatefulWidget {
+  const HlIndicatorSettingsSheet({
+    super.key,
+    required this.market,
+    required this.marketKey,
+    required this.indicator,
+  });
+
+  final HlMarket market;
+  final String marketKey;
+  final String indicator;
+
+  @override
+  ConsumerState<HlIndicatorSettingsSheet> createState() =>
+      _HlIndicatorSettingsSheetState();
+}
+
+class _HlIndicatorSettingsSheetState
+    extends ConsumerState<HlIndicatorSettingsSheet> {
+  late final List<num> _opened;
+  late final ChartPreferencesNotifier _notifier;
+  List<num> _last = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _notifier =
+        ref.read(hlChartPreferencesProvider(widget.marketKey).notifier);
+    _opened = hlIndParams(widget.indicator,
+        ref.read(hlChartPreferencesProvider(widget.marketKey)).params);
+    _last = _opened;
+  }
+
+  @override
+  void dispose() {
+    final spec = hlIndSpec(widget.indicator);
+    var changed = false;
+    for (var i = 0; i < _last.length; i++) {
+      if (i >= _opened.length || _last[i] != _opened[i]) changed = true;
+    }
+    if (spec != null && changed) {
+      TrackingService.track('indicator_settings_changed', params: {
+        'indicator': widget.indicator,
+        for (var i = 0; i < spec.params.length && i < _last.length; i++)
+          spec.params[i].id: _last[i],
+        'coin': widget.market.coin,
+        ...VenueAnalytics.hlAssetParams(widget.market.coin),
+      });
+    }
+    super.dispose();
+  }
+
+  void _set(int index, num value) {
+    final next = [..._last];
+    final spec = hlIndSpec(widget.indicator)!;
+    next[index] = spec.params[index].clamp(value);
+    if (next[index] == _last[index]) return;
+    _last = next;
+    _notifier.setParams(widget.indicator, next);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final c = context.colors;
+    final spec = hlIndSpec(widget.indicator);
+    if (spec == null) return const SizedBox.shrink();
+    final values = hlIndParams(widget.indicator,
+        ref.watch(hlChartPreferencesProvider(widget.marketKey)).params);
+    _last = values;
+    final isDefault = [
+      for (var i = 0; i < values.length; i++)
+        values[i] == spec.params[i].defaultValue,
+    ].every((v) => v);
+    return KuteBarContextScope(
+      barContext: const KuteBarContext.hidden(),
+      child: AppBottomSheetContainer(
+        child: Column(
+          key: ValueKey('hl-indicator-settings-${widget.indicator}'),
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AppBottomSheetHeader(
+              title: l10n.chartIndSettingsTitle(
+                  hlIndicatorName(l10n, widget.indicator)),
+              compact: true,
+              // The app's one close (kute_back_button.dart).
+              trailing: const AppBottomSheetCloseButton(
+                  key: ValueKey('hl-indicator-settings-close')),
+            ),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20.w),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: context.isDark ? c.surfaceLight : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: context.isDark ? c.borderSubtle : c.border,
+                    width: context.isDark ? 0.5 : 1,
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (var i = 0; i < spec.params.length; i++) ...[
+                      if (i > 0)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 16),
+                          child: Container(height: 0.5, color: c.border),
+                        ),
+                      _StepperRow(
+                        key: ValueKey(
+                            'hl-indicator-param-${spec.params[i].id}'),
+                        label: _paramLabel(l10n, spec.params[i].id),
+                        param: spec.params[i],
+                        value: values[i],
+                        onChanged: (v) => _set(i, v),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(16.w, 6, 16.w, 2),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  key: const ValueKey('hl-indicator-settings-reset'),
+                  onPressed: isDefault
+                      ? null
+                      : () {
+                          HapticFeedback.selectionClick();
+                          _last = spec.defaults;
+                          _notifier.setParams(widget.indicator, null);
+                        },
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.symmetric(horizontal: 4.w),
+                    minimumSize: Size(0, 44.h),
+                    foregroundColor: c.textPrimary,
+                    disabledForegroundColor: c.textTertiary,
+                  ),
+                  child: Text(
+                    l10n.chartReset,
+                    style:
+                        TextStyle(fontSize: 15.sp, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A setting's row: its name, then − value +. A hold on − or + repeats,
+/// five steps at a time after the first ten.
+class _StepperRow extends StatefulWidget {
+  const _StepperRow({
+    super.key,
+    required this.label,
+    required this.param,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String label;
+  final HlIndParam param;
+  final num value;
+  final ValueChanged<num> onChanged;
+
+  @override
+  State<_StepperRow> createState() => _StepperRowState();
+}
+
+class _StepperRowState extends State<_StepperRow> {
+  Timer? _repeat;
+  int _ticks = 0;
+  late num _value = widget.value;
+
+  @override
+  void didUpdateWidget(covariant _StepperRow old) {
+    super.didUpdateWidget(old);
+    if (_repeat == null) _value = widget.value;
+  }
+
+  @override
+  void dispose() {
+    _repeat?.cancel();
+    super.dispose();
+  }
+
+  void _step(int direction, {int times = 1}) {
+    final next = widget.param.clamp(_value + direction * widget.param.step * times);
+    if (next == _value) return;
+    setState(() => _value = next);
+    widget.onChanged(next);
+  }
+
+  void _startRepeat(int direction) {
+    _ticks = 0;
+    _repeat?.cancel();
+    _repeat = Timer.periodic(const Duration(milliseconds: 80), (_) {
+      _ticks++;
+      _step(direction, times: _ticks > 10 ? 5 : 1);
+    });
+  }
+
+  void _stopRepeat() {
+    _repeat?.cancel();
+    _repeat = null;
+  }
+
+  Widget _button(IconData icon, int direction, String id) {
+    final c = context.colors;
+    final atEnd = direction < 0
+        ? _value <= widget.param.min
+        : _value >= widget.param.max;
+    return GestureDetector(
+      key: ValueKey('hl-indicator-step-$id'),
+      behavior: HitTestBehavior.opaque,
+      onTap: atEnd
+          ? null
+          : () {
+              HapticFeedback.selectionClick();
+              _step(direction);
+            },
+      onLongPressStart: atEnd ? null : (_) => _startRepeat(direction),
+      onLongPressEnd: (_) => _stopRepeat(),
+      onLongPressCancel: _stopRepeat,
+      child: SizedBox(
+        width: 44,
+        height: 44,
+        child: Center(
+          child: Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: c.textPrimary.withValues(alpha: atEnd ? 0.03 : 0.07),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon,
+                size: 18,
+                color: atEnd ? c.textTertiary : c.textPrimary),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 56),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 6, 4),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                widget.label,
+                style: TextStyle(
+                  color: c.textPrimary,
+                  fontSize: 15.sp,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            _button(Icons.remove_rounded, -1, '${widget.param.id}-down'),
+            SizedBox(
+              width: 48,
+              child: Text(
+                hlParamText(_value),
+                key: ValueKey('hl-indicator-value-${widget.param.id}'),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: c.textPrimary,
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w700,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ),
+            _button(Icons.add_rounded, 1, '${widget.param.id}-up'),
+          ],
         ),
       ),
     );

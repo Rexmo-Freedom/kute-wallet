@@ -226,11 +226,13 @@ PredictionCardData predictionCardFor(
   double? chance,
   String? imageUrl,
   bool picked = false,
+  bool challenge = false,
   String? amount,
   String? recipient,
   String? referralCode,
   ShareCardAudience audience = ShareCardAudience.sender,
 }) {
+  final dare = picked && challenge;
   final s = slug?.trim() ?? '';
   PolymarketEvent? event;
   if (s.isNotEmpty) {
@@ -251,6 +253,7 @@ PredictionCardData predictionCardFor(
       binary: binary,
       imageUrl: imageUrl,
       picked: picked,
+      challenge: dare,
       amount: amount,
       recipient: recipient,
       referralCode: referralCode,
@@ -345,6 +348,7 @@ PredictionCardData predictionCardFor(
     opponentImageUrl: opponentImage,
     imageUrl: (image?.isNotEmpty ?? false) ? image : imageUrl,
     picked: picked,
+    challenge: dare,
     amount: amount,
     series: series,
     lines: lines,
@@ -453,6 +457,8 @@ InvestmentCardData investmentCardFor(
 /// slug), else the money card. [amountMinor] is cents for dollars, sats
 /// for bitcoin; [bitcoinAmount] and [bitcoinFiat] are the bitcoin send's
 /// own labels ("₿12,000", "$9.40"). [locale] formats the dollars.
+/// [challenge]: a prediction pick sent as a dare (an Investing pick and a
+/// money link ignore it).
 ShareCardData shareCardForLink(
   ShareCardWatch watch, {
   required String locale,
@@ -468,6 +474,7 @@ ShareCardData shareCardForLink(
   String? bitcoinFiat,
   String? referralCode,
   ShareCardAudience audience = ShareCardAudience.sender,
+  bool challenge = false,
 }) {
   final pickLabel = outcome?.trim() ?? '';
   final slug = marketSlug?.trim() ?? '';
@@ -497,6 +504,7 @@ ShareCardData shareCardForLink(
           : slug.replaceAll('-', ' '),
       outcome: pickLabel,
       picked: true,
+      challenge: challenge,
       amount: amount,
       recipient: name,
       referralCode: referralCode,

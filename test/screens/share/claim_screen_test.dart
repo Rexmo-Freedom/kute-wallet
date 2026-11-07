@@ -6,8 +6,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/models/share_link_model.dart';
-import 'package:kute/providers/usd_account_provider.dart'
-    show usdBalanceProvider;
 import 'package:kute/screens/share/claim_screen.dart';
 import 'package:kute/services/share_links_store.dart';
 
@@ -72,7 +70,7 @@ void main() {
     expect(find.byKey(const ValueKey('share-card-chip')), findsNothing);
     expect(find.byKey(const ValueKey('share-card-code')), findsNothing);
     expect(find.byKey(const ValueKey('share-card-sal')), findsOneWidget);
-    expect(find.text('to bet on will it rain in lisbon'), findsOneWidget);
+    expect(find.text('for a prediction on will it rain in lisbon'), findsOneWidget);
     expect(kuteBarPrimaryWithText('Claim'), findsOneWidget);
     expect(env.fake.callNames, ['read']);
   });
@@ -124,8 +122,7 @@ void main() {
         outcome: 'Yes',
         outcomeIndex: 0,
         side: 'buy'));
-    await pumpShareWidget(tester, env, const ClaimScreen(id: 'lnk_1'),
-        overrides: [usdBalanceProvider.overrideWithValue(0)]);
+    await pumpShareWidget(tester, env, const ClaimScreen(id: 'lnk_1'));
 
     // The hero: the pick's card. The slug's words until the event is
     // read; the outcome big and the amount on it.
@@ -135,7 +132,7 @@ void main() {
     expect(find.text('gemini carbon'), findsOneWidget);
     expect(find.text('Yes'), findsOneWidget);
     expect(find.text('\$12.50 on Yes'), findsOneWidget);
-    expect(find.text('to bet on gemini carbon'), findsNothing);
+    expect(find.text('for a prediction on gemini carbon'), findsNothing);
 
     await tester.tap(kuteBarPrimaryWithText('Claim'));
     await settle(tester);
@@ -171,8 +168,7 @@ void main() {
   testWidgets('an investment pick reads as an investment', (tester) async {
     env.fake.seed(_link(
         market: 'BTC', venue: 'hyperliquid', outcome: 'Long', side: 'long'));
-    await pumpShareWidget(tester, env, const ClaimScreen(id: 'lnk_1'),
-        overrides: [usdBalanceProvider.overrideWithValue(0)]);
+    await pumpShareWidget(tester, env, const ClaimScreen(id: 'lnk_1'));
     expect(find.byKey(const ValueKey('share-card-send_investment')),
         findsOneWidget);
     expect(find.text('ANA, A FRIEND SENT YOU A PICK'), findsOneWidget);

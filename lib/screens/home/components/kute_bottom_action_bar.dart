@@ -40,10 +40,18 @@ class KuteDockAction {
     this.solid = false,
     this.caption,
     this.soon = false,
+    this.glyph,
   });
 
   final String label;
+
+  /// The verb's icon; [glyph], when given, is drawn in its place.
   final IconData icon;
+
+  /// A glyph drawn in code instead of [icon] (the Receive arrow with its
+  /// swap badge, [ReceiveSwapGlyph]), given the colour and size the icon
+  /// would have had, so it follows the button's fill and theme.
+  final Widget Function(Color color, double size)? glyph;
   final String trackingId;
   final VoidCallback? onTap;
   final bool strongIcon;
@@ -364,12 +372,14 @@ class _CompactAction extends StatelessWidget {
                     // The bitcoin and dollar glyphs are thin letterforms
                     // next to the arrows and the ring, so they read a size
                     // up (founder, 1 and 2 November 2026).
-                    child: Icon(action.icon,
-                        size: action.icon == Icons.currency_bitcoin_rounded ||
-                                action.icon == Icons.attach_money_rounded
-                            ? 28
-                            : 22,
-                        color: foreground),
+                    child: action.glyph?.call(foreground, 22) ??
+                        Icon(action.icon,
+                            size: action.icon ==
+                                        Icons.currency_bitcoin_rounded ||
+                                    action.icon == Icons.attach_money_rounded
+                                ? 28
+                                : 22,
+                            color: foreground),
                   ),
                   SizedBox(height: 6.h),
                   Text(
@@ -492,7 +502,8 @@ class KuteDockActionButton extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(action.icon, size: 20.sp, color: iconColor),
+                    action.glyph?.call(iconColor, 20.sp) ??
+                        Icon(action.icon, size: 20.sp, color: iconColor),
                     SizedBox(width: 8.w),
                     Flexible(
                       child: Text(
@@ -541,6 +552,9 @@ class KuteSalPill extends StatelessWidget {
     this.aiEnabled = true,
     this.collapsed = false,
     this.salCue = 0,
+    this.salSize = kSalPillGlyphSize,
+    this.badge,
+    this.onSalFrame,
     required this.onTap,
   });
 
@@ -558,6 +572,17 @@ class KuteSalPill extends StatelessWidget {
   /// bar arriving on a market page); 0 plays it as it is.
   final int salCue;
   final VoidCallback onTap;
+
+  /// Sal's side in the pill ([kSalPillGlyphSize]); the round share button
+  /// draws him smaller, the whole head inside its circle.
+  final double salSize;
+
+  /// Drawn over the collapsed circle at its bottom right, past its edge
+  /// (the round share button's share badge), pressed with it; null: none.
+  final Widget? badge;
+
+  /// Every frame Sal's clip shows ([SalSprite.onFrame]): repaint from it.
+  final ValueChanged<SalSpriteFrame>? onSalFrame;
 
   /// The collapsed circle's side.
   static const double collapsedSize = 52;
@@ -613,7 +638,7 @@ class KuteSalPill extends StatelessWidget {
       excludeSemantics: true,
       child: _Frosted(
         child: KutePressable(
-          child: AnimatedContainer(
+          child: _withBadge(AnimatedContainer(
             key: const ValueKey('dock-search-pill'),
             duration: duration,
             curve: reduce ? Curves.linear : KuteMotion.chip,
@@ -650,11 +675,11 @@ class KuteSalPill extends StatelessWidget {
                 child: AnimatedPadding(
                   duration: duration,
                   curve: reduce ? Curves.linear : KuteMotion.settle,
-                  // Collapsed: the glyph (38) centred in the circle, the
-                  // border counted in its side.
+                  // Collapsed: the glyph ([salSize], 38) centred in the
+                  // circle, the border counted in its side.
                   padding: collapsed
                       ? EdgeInsets.symmetric(
-                          horizontal: (collapsedSize - 38) / 2 -
+                          horizontal: (collapsedSize - salSize) / 2 -
                               (isLight ? 1.0 : 0.5))
                       : EdgeInsets.fromLTRB(8.w, 0, 18.w, 0),
                   child: Row(
@@ -664,7 +689,9 @@ class KuteSalPill extends StatelessWidget {
                           ? _SalPillGlyph(
                               lensColor: c.textPrimary,
                               clip: clip,
-                              cue: salCue)
+                              cue: salCue,
+                              size: salSize,
+                              onFrame: onSalFrame)
                           : Padding(
                               padding: EdgeInsets.symmetric(horizontal: 6.w),
                               child: Icon(Icons.search_rounded,
@@ -687,7 +714,22 @@ class KuteSalPill extends StatelessWidget {
                                 : Padding(
                                     key: ValueKey('$label|$sublabel'),
                                     padding: EdgeInsets.only(left: 6.w),
-                                    child: text,
+                                    // The two lines are sized in .sp: on a
+                                    // tablet they outgrow the 56 pill, so
+                                    // they scale down there (never up),
+                                    // laid out in the pill's width as ever
+                                    // (a long label still fades at its end).
+                                    child: LayoutBuilder(
+                                      builder: (context, box) => FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        alignment: Alignment.centerLeft,
+                                        child: ConstrainedBox(
+                                          constraints: BoxConstraints(
+                                              maxWidth: box.maxWidth),
+                                          child: text,
+                                        ),
+                                      ),
+                                    ),
                                   ),
                           ),
                         ),
@@ -697,12 +739,38 @@ class KuteSalPill extends StatelessWidget {
                 ),
               ),
             ),
-          ),
+          )),
         ),
       ),
     );
   }
+
+  /// [pill] with [badge] over its bottom right, past the circle's edges
+  /// by [kSalPillBadgeOverhang]; the badge takes no taps of its own.
+  Widget _withBadge(Widget pill) {
+    final badge = this.badge;
+    if (badge == null) return pill;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        pill,
+        Positioned(
+          right: -kSalPillBadgeOverhang,
+          bottom: -kSalPillBadgeOverhang,
+          child: IgnorePointer(child: badge),
+        ),
+      ],
+    );
+  }
 }
+
+/// Sal's side in the Sal pill and its collapsed circle.
+const double kSalPillGlyphSize = 38;
+
+/// How far a [KuteSalPill.badge] (26 across with its ring) stands past
+/// the collapsed circle's right and bottom edges: its centre sits on the
+/// circle's 45 degree radius, 4 inside the edge.
+const double kSalPillBadgeOverhang = 2.5;
 
 /// Sal in the pill (see [KuteBottomActionBar]): the `search` clip, 1.8x
 /// while results load, `happy` for 600 ms when they land, then `search`
@@ -712,16 +780,27 @@ class KuteSalPill extends StatelessWidget {
 /// for money in, a wink for a fill, a shake for an error, a think for a
 /// long load) plays once over whatever he wears and crossfades back.
 class _SalPillGlyph extends StatefulWidget {
-  const _SalPillGlyph(
-      {required this.lensColor, this.clip = 'search', this.cue = 0});
+  const _SalPillGlyph({
+    required this.lensColor,
+    this.clip = 'search',
+    this.cue = 0,
+    this.size = kSalPillGlyphSize,
+    this.onFrame,
+  });
 
   final Color lensColor;
 
-  /// The context's clip at rest (`search`, `share`).
+  /// The context's clip at rest (`search`, `share`, `idle`).
   final String clip;
 
   /// See [KuteSalPill.salCue].
   final int cue;
+
+  /// See [KuteSalPill.salSize].
+  final double size;
+
+  /// See [KuteSalPill.onSalFrame].
+  final ValueChanged<SalSpriteFrame>? onFrame;
 
   @override
   State<_SalPillGlyph> createState() => _SalPillGlyphState();
@@ -797,8 +876,11 @@ class _SalPillGlyphState extends State<_SalPillGlyph> {
 
   @override
   Widget build(BuildContext context) {
+    final size = widget.size;
     final rig = KuteStillWhenCovered(
-        child: KuteDogMagnifier(size: 34, lensColor: widget.lensColor));
+        child: KuteDogMagnifier(
+            size: size * 34 / kSalPillGlyphSize,
+            lensColor: widget.lensColor));
     final reaction = _reaction;
     final clip = reaction != null
         ? reaction.clip
@@ -818,7 +900,7 @@ class _SalPillGlyphState extends State<_SalPillGlyph> {
             ? 'reaction-$clip#${reaction.seq}'
             : '$clip#${widget.cue}'),
         clip: clip,
-        size: 38,
+        size: size,
         speed: _loading && reaction == null ? 1.4 : (intro ? 1.3 : 1.0),
         loop: oneShot ? false : null,
         onComplete: reaction != null
@@ -830,10 +912,12 @@ class _SalPillGlyphState extends State<_SalPillGlyph> {
                 : null,
         // A reaction clip that is not there: back to the context's clip.
         onUnavailable: reaction != null ? () => _reactionDone(reaction) : null,
-        // `share` is still being rendered: `happy` stands in, the rig
-        // under that.
-        fallback: clip == 'share' || reaction != null
-            ? SalSprite(clip: 'happy', size: 38, fallback: rig)
+        onFrame: widget.onFrame,
+        // A clip that cannot be read: `happy` stands in for the share and
+        // idle faces and a reaction, the rig (the magnifier, search's
+        // glyph) under that and for search.
+        fallback: clip == 'share' || clip == 'idle' || reaction != null
+            ? SalSprite(clip: 'happy', size: size, fallback: rig)
             : rig,
       ),
     );

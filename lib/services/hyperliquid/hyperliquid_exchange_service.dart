@@ -108,6 +108,37 @@ class HyperliquidNonceRejectedException extends HyperliquidRejectedException {
   const HyperliquidNonceRejectedException(super.reason);
 }
 
+// The two outcomes of an order send that got no verdict and was then
+// looked up by its cloid on the account (hl_sent_order_trace.dart).
+
+/// An order send got no verdict (`hlOrderOutcomeUnknown`) and the
+/// account could not be read well enough, for the lookup's window, to say
+/// whether the exchange took it. It may be filled or resting: the slip
+/// says the result is not confirmed (never that it failed), keeps
+/// listening for the fill, and nothing is ever sent again for it.
+class HyperliquidOrderUnconfirmedException implements Exception {
+  const HyperliquidOrderUnconfirmedException({this.cause});
+
+  /// What the send threw (a timeout, a broken connection, a 5xx).
+  final Object? cause;
+
+  @override
+  String toString() => 'HyperliquidOrderUnconfirmedException';
+}
+
+/// An order send got no verdict, and the account, read for the whole
+/// lookup window, shows it nowhere: no fill and nothing resting.
+/// Nothing was placed (an IOC the book could not match also leaves no
+/// trace, and placed nothing either).
+class HyperliquidOrderNotPlacedException implements Exception {
+  const HyperliquidOrderNotPlacedException({this.cause});
+
+  final Object? cause;
+
+  @override
+  String toString() => 'HyperliquidOrderNotPlacedException';
+}
+
 /// A signed action about to be POSTed. Handed to `onBeforePost` after the
 /// signature exists and before any network request, so a caller can bind
 /// the payload to a reviewed intent and persist a submission record.

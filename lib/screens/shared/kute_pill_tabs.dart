@@ -27,6 +27,14 @@
 // ([KutePill.flat]) and only their labels change weight and colour. At
 // once under Reduce Motion.
 //
+// A PILL'S WORDS MORPH (founder, 6 November 2026: a category picked in
+// the category sheet moves as a pill switch does): when they change
+// ("Predictions" → "Predictions · Live"), their box eases to the new width
+// on the chip spring with the pill's own, the new words fading in from
+// the start of the line and the old fading out ([_PillWords]); never a
+// jump, never squeezed into a pill still on its way. At once under Reduce
+// Motion.
+//
 // A pill that holds more (the Investments pills, founder 31 October
 // 2026: "it should be more clear that we have much more context here")
 // carries its context after its name in the quieter weight ("Investing ·
@@ -47,10 +55,19 @@
 // widths moving on the same chip spring as the white pill. Still too long,
 // the picked pill reads its shorter context ([KutePillItem.shortDetail]),
 // and as a last resort its words shrink to fit rather than being clipped.
+//
+// THREE PILLS (the Dollars switch, Activity · Investing · Predictions,
+// founder 4 November 2026) leave the picked one less room: the others
+// always hug their own words (a long name, Greek's "Δραστηριότητα", is
+// never squeezed into an equal third), and a context that would still
+// shrink the picked pill's words below [kutePillMinTextScale] is left off
+// (the name and its chevron alone, "Investing ⌄"): never half-size words.
+// The category sheet the chevron opens names it.
 
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show OverflowBoxFit;
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/screens/shared/kute_motion.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -263,12 +280,37 @@ class KutePill extends StatelessWidget {
         1;
   }
 
+  /// The words' own width on one line ("Predictions · Live"), in [style]
+  /// with the context in [detailStyle], as a Text lays them out: the width
+  /// the words' box springs to ([_PillWords]).
+  double _wordsWidth(
+      BuildContext context, TextStyle style, TextStyle detailStyle) {
+    final painter = TextPainter(
+      text: TextSpan(style: style, children: [
+        TextSpan(text: label),
+        if (detail != null) TextSpan(text: ' · $detail', style: detailStyle),
+      ]),
+      textDirection: Directionality.maybeOf(context) ?? TextDirection.ltr,
+      textScaler: MediaQuery.maybeTextScalerOf(context) ?? TextScaler.noScaling,
+      maxLines: 1,
+    )..layout();
+    final width = painter.width;
+    painter.dispose();
+    return width;
+  }
+
   /// A pill sharing a row at a set width (fillWidth): its words shrink to
   /// that width rather than being clipped. A natural-width pill is as wide
   /// as its words already.
   Widget _shrinkToFit(Widget text) => fillWidth
       ? FittedBox(fit: BoxFit.scaleDown, child: text)
       : text;
+
+  /// The words in the label row: as they are inside the fitted box (which
+  /// lays them out unbounded), or flexible in a natural-width pill so a
+  /// long label still gives way to the chevron.
+  Widget _flexibleUnlessFitted(Widget words) =>
+      fillWidth ? words : Flexible(child: words);
 
   @override
   Widget build(BuildContext context) {
@@ -303,35 +345,66 @@ class KutePill extends StatelessWidget {
             leading!,
             SizedBox(width: 6.w),
           ],
+          // The words, and the chevron after them. Sharing a row at a set
+          // width (fillWidth) they shrink together, never past the pill:
+          // a pill that just became the picked one starts its spring at its
+          // old, narrower width with the chevron already on (three pills,
+          // Japanese "予測": the chevron alone was wider than the room).
           Flexible(
             child: _shrinkToFit(
-              AnimatedDefaultTextStyle(
-                duration: duration,
-                // A text-style lerp never rides the spring: past 1 it
-                // extrapolates (a shadow's blur negative); the settle.
-                curve: reduce ? Curves.linear : KuteMotion.textCurve,
-                style: textStyle,
-                child: Text.rich(
-                  TextSpan(children: [
-                    TextSpan(text: label),
-                    // The context after the name, quieter.
-                    if (detail != null)
-                      TextSpan(text: ' · $detail', style: detailStyle),
-                  ]),
-                  semanticsLabel: semanticLabel,
-                  maxLines: 1,
-                  overflow: TextOverflow.clip,
-                  softWrap: false,
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _flexibleUnlessFitted(
+                    AnimatedDefaultTextStyle(
+                      duration: duration,
+                      // A text-style lerp never rides the spring: past 1 it
+                      // extrapolates (a shadow's blur negative); the settle.
+                      curve: reduce ? Curves.linear : KuteMotion.textCurve,
+                      style: textStyle,
+                      // The words morph when they change (a category
+                      // picked, a pill picked or let go), with the pill's
+                      // width on the chip spring ([_PillWords]).
+                      child: _PillWords(
+                        reduce: reduce,
+                        width: _wordsWidth(context, textStyle, detailStyle),
+                        child: Text.rich(
+                          TextSpan(children: [
+                            TextSpan(text: label),
+                            // The context after the name, quieter.
+                            if (detail != null)
+                              TextSpan(text: ' · $detail', style: detailStyle),
+                          ]),
+                          key: ValueKey<String>('$label\u0000${detail ?? ''}'),
+                          semanticsLabel: semanticLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.clip,
+                          softWrap: false,
+                        ),
+                      ),
+                    ),
+                  ),
+                  // A small plain chevron (founder, 31 October 2026: no
+                  // circle). It takes the words' line, never more height:
+                  // a glyph a hair taller than the line would otherwise
+                  // shrink the words with it.
+                  if (menu) ...[
+                    SizedBox(width: 4.w),
+                    SizedBox(
+                      width: size.icon.sp,
+                      height: 0,
+                      child: OverflowBox(
+                        minHeight: 0,
+                        maxHeight: size.icon.sp,
+                        child: Icon(Icons.expand_more_rounded,
+                            size: size.icon.sp, color: c.textSecondary),
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
           ),
-          // A small plain chevron (founder, 31 October 2026: no circle).
-          if (menu) ...[
-            SizedBox(width: 4.w),
-            Icon(Icons.expand_more_rounded,
-                size: size.icon.sp, color: c.textSecondary),
-          ],
         ],
       ),
     );
@@ -357,6 +430,90 @@ class KutePill extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The length of a pill's words morph: the chip spring's, so the words
+/// and the pill's width (and the white pill under it) move as one.
+const Duration kutePillWordsMorphDuration = KuteMotion.chipDuration;
+
+/// A pill's words, morphing when they change ("Predictions" →
+/// "Predictions · Live" as a category is picked, or as the pill is picked;
+/// founder, 6 November 2026: a pick moves as a pill switch does). Their
+/// box eases from the old words' width to the new words' [width] (measured
+/// as [KutePill.naturalWidth] measures them) on the chip spring held to
+/// its end, from the same frame as the pill's own width ([_SwitchLayout]),
+/// so the words keep step with the pill and are never squeezed into a pill
+/// still on its way; the new words fade in from the start of the line as
+/// the box opens, the old fade out over them from the same start (the name
+/// they share does not move). Only the width clips, never a glyph above or
+/// below the line. At once under Reduce Motion. [child] is the words,
+/// keyed by what they say.
+class _PillWords extends StatelessWidget {
+  const _PillWords(
+      {required this.child, required this.width, required this.reduce});
+
+  final Widget child;
+  final double width;
+  final bool reduce;
+
+  @override
+  Widget build(BuildContext context) {
+    final duration = reduce ? Duration.zero : kutePillWordsMorphDuration;
+    return ClipRect(
+      clipper: const _ClipAcross(),
+      child: TweenAnimationBuilder<double>(
+        tween: Tween<double>(end: width),
+        duration: duration,
+        // The chip spring held to its end: the box never runs past the
+        // new words, so a pill growing into a tight fit never squeezes
+        // them at its overshoot (the pill's chrome still bounces).
+        curve: reduce ? Curves.linear : KuteMotion.clamped(KuteMotion.chip),
+        builder: (context, w, words) =>
+            SizedBox(width: math.max(0.0, w), child: words),
+        // The words at their own width whatever the box's; the box clips.
+        child: OverflowBox(
+          alignment: AlignmentDirectional.centerStart,
+          minWidth: 0,
+          maxWidth: double.infinity,
+          fit: OverflowBoxFit.deferToChild,
+          child: AnimatedSwitcher(
+            duration: duration,
+            // A fade never rides the spring (an opacity past 1); the settle.
+            switchInCurve: reduce ? Curves.linear : KuteMotion.textCurve,
+            switchOutCurve: reduce ? Curves.linear : KuteMotion.textCurve,
+            // Sized by the new words alone; the old ones sit at the same
+            // start while they fade.
+            layoutBuilder: (current, previous) => Stack(
+              clipBehavior: Clip.none,
+              alignment: AlignmentDirectional.centerStart,
+              children: [
+                for (final old in previous)
+                  PositionedDirectional(
+                      start: 0, top: 0, bottom: 0, child: old),
+                if (current != null) current,
+              ],
+            ),
+            transitionBuilder: (child, animation) =>
+                FadeTransition(opacity: animation, child: child),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Clips across only: the words' box at its width, with room above and
+/// below for the glyphs that rise or fall past a 1.0 line height.
+class _ClipAcross extends CustomClipper<Rect> {
+  const _ClipAcross();
+
+  @override
+  Rect getClip(Size size) =>
+      Rect.fromLTRB(-1, -size.height, size.width + 1, size.height * 2);
+
+  @override
+  bool shouldReclip(_ClipAcross oldClipper) => false;
 }
 
 /// A row of [KutePill]s, 34.h tall at the regular [size].
@@ -596,24 +753,45 @@ class _SwitchLayout {
         KutePill.naturalWidth(context,
             item: item, selected: sel, size: size, detail: d);
     final full = need(picked, true, detail);
-    if (full != null && full > equal) {
-      final others = <double>[
-        for (var i = 0; i < n; i++)
-          if (i == selected)
-            0
-          else
-            math.min(equal, need(items[i], false, items[i].detail) ?? equal),
-      ];
-      final rest = room - others.fold<double>(0, (a, b) => a + b);
+    // The others' own words. Two pills keep the old rule (the other never
+    // wider than its half); three or more never squeeze a long name into
+    // an equal share (see the file header).
+    final hug = <double>[
+      for (var i = 0; i < n; i++)
+        if (i == selected)
+          0
+        else if (n > 2)
+          need(items[i], false, items[i].detail) ?? equal
+        else
+          math.min(equal, need(items[i], false, items[i].detail) ?? equal),
+    ];
+    final othersFit = hug.every((w) => w <= equal);
+    if ((full != null && full > equal) || !othersFit) {
+      final rest = room - hug.fold<double>(0, (a, b) => a + b);
       widths = [
-        for (var i = 0; i < n; i++) i == selected ? rest : others[i],
+        for (var i = 0; i < n; i++) i == selected ? rest : hug[i],
       ];
-      if (full > rest && picked.shortDetail != null) {
+      if (full != null && full > rest && picked.shortDetail != null) {
         detail = picked.shortDetail;
         // The shorter context back in its half: the halves equal again.
         final short = need(picked, true, detail);
-        if (short != null && short <= equal) {
+        if (short != null && short <= equal && othersFit) {
           widths = List<double>.filled(n, equal);
+        }
+      }
+      // Three pills: a context still too long for the room left is left
+      // off rather than shrunk past [kutePillMinTextScale].
+      if (n > 2 && detail != null) {
+        final now = need(picked, true, detail);
+        // The words' own scale: the pill's chrome (padding, border,
+        // chevron) never shrinks.
+        final chrome = need(
+            KutePillItem(label: '', icon: picked.icon, menu: picked.menu),
+            true,
+            null);
+        if (now != null && chrome != null && now > chrome) {
+          final scale = (rest - chrome) / (now - chrome);
+          if (scale < kutePillMinTextScale) detail = null;
         }
       }
     }
@@ -629,6 +807,10 @@ class _SwitchLayout {
 
 /// The sliding white pill's key, for tests.
 const Key kutePillIndicatorKey = ValueKey('kute-pill-indicator');
+
+/// The least a switch's picked pill may shrink its words to fit its room
+/// before its context is left off ([_SwitchLayout]).
+const double kutePillMinTextScale = 0.9;
 
 /// The white pill under a tabs row of three or fewer: the selected chrome
 /// ([KutePill.chrome]) as one card that slides between the tabs. Its

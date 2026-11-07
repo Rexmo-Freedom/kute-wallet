@@ -1,19 +1,38 @@
-// The Portfolio screen's two sections under the pinned strip
-// (investments_portfolio.dart, sharesHeader; Activity moved to the
-// Bitcoin home): their empty states are ONE treatment at one place
-// (portfolio_empty_state.dart), both speak one language (titles in 13 sp
-// textSecondary, lists in soft cards), and P&L Charts never opens on a
-// blank frame.
+// The Portfolio screen after its overhaul (founder, 4 November 2026: "the
+// top chart means nothing, it's super confusing … much, much, much better
+// fintech design comparable to the rest of the app";
+// investments_portfolio.dart, components/portfolio_hero.dart):
+//
+//   * the hero: "Invested" over the Dollars header's figure, the P&L over
+//     the range in its colour, ONE P&L chart with the app's range row,
+//     "N positions · Available $X"; no ring anywhere, one hero on every
+//     section that reads it (founder, 5 November 2026): on Positions the
+//     open positions' P&L now and no chart, on P&L the venue square
+//     picked alone;
+//   * Positions | P&L | Activity, Positions first (founder, 6 November
+//     2026): the biggest positions as squares and the rest as the
+//     Investing list's rows, each venue's P&L and the all-time stats (the
+//     chart is the hero's), the home's squares and rows for the
+//     investments' actions;
+//   * one empty state at one place for all three, one scroll with the
+//     strip pinning, every last row clear of the bar.
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kute/providers/currency_conversions_provider.dart'
+    show currentBtcUsdProvider;
 import 'package:kute/l10n/generated/app_localizations.dart';
-import 'package:kute/models/settings_model.dart';
+import 'package:kute/models/balance_history.dart' show BalanceRange;
 import 'package:kute/models/hyperliquid_market.dart';
-import 'package:kute/models/balance_history.dart';
-import 'package:kute/models/portfolio_performance.dart';
+import 'package:kute/models/hyperliquid_model.dart' show HyperliquidCandle;
+import 'package:kute/models/polymarket_model.dart'
+    show Activity, PolymarketPricePoint;
+import 'package:kute/models/settings_model.dart';
+import 'package:kute/models/transactions_model.dart';
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/hyperliquid_sats_pnl_provider.dart'
@@ -22,32 +41,57 @@ import 'package:kute/providers/hyperliquid_trading_provider.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart'
     show PolymarketPosition, polymarketActivePositionsProvider;
 import 'package:kute/providers/one_balance_provider.dart';
+import 'package:kute/providers/open_pnl_history_provider.dart';
+import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/providers/portfolio_performance_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceUnknownProvider;
 import 'package:kute/providers/venue_sweeper_provider.dart';
-import 'package:kute/screens/portfolio/components/balances_overview.dart'
-    show BalancesCategory, kBalancesRingDimmed;
-import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart'
-    show pnlVenueRangeChange;
 import 'package:kute/screens/hyperliquid/components/hl_market_card.dart'
     show HlListRow;
+import 'package:kute/screens/portfolio/components/balances_overview.dart'
+    show BalancesLiveFigure;
+import 'package:kute/screens/portfolio/components/portfolio_hero.dart';
+import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart'
+    show PnlStatTiles, PnlVenueSquare, portfolioPnlVenueProvider;
 import 'package:kute/screens/portfolio/components/position_rows.dart'
-    show PortfolioCardList, PortfolioPositionRow;
-import 'package:kute/screens/shared/rolling_number_text.dart';
+    show HlPositionRow, PolyPositionRow, PortfolioCardList, PortfolioPositionRow;
 import 'package:kute/screens/portfolio/investments_portfolio.dart';
+import 'package:kute/screens/activity/activity_history_screen.dart'
+    show ActivityHistoryScreen;
+import 'package:kute/screens/portfolio/portfolio_empty_state.dart';
+import 'package:kute/screens/shared/all_activity.dart'
+    show ActivityScope, ActivitySquareGrid;
 import 'package:kute/screens/shared/charts/kute_donut_chart.dart';
+import 'package:kute/screens/shared/charts/kute_trend_chart.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart'
     show kuteBarScrollClearance;
-import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
-import 'package:kute/theme/kute_motion.dart';
-import 'package:kute/screens/portfolio/portfolio_empty_state.dart';
-import 'package:kute/screens/shared/sal_sprite.dart' show SalIdleDirector, SalSprite;
+import 'package:kute/screens/shared/kute_skeleton.dart' show KuteSkeleton;
+import 'package:kute/screens/shared/sal_sprite.dart'
+    show SalIdleDirector, SalSprite;
+import 'package:kute/screens/shared/transactions_builder.dart'
+    show ActivityRowLayout, ActivityRowShape;
 import 'package:kute/services/one_balance/one_balance_state.dart';
+import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
 import '../../helpers/portfolio_overrides.dart';
+
+/// The Predictions feed, live, ticked by hand.
+class _Prices extends LivePriceNotifier {
+  @override
+  LivePriceState build() => const LivePriceState(live: true);
+  @override
+  void acquire() {}
+  @override
+  void release() {}
+  @override
+  void addTokens(List<String> tokenIds, {bool pin = true}) {}
+
+  void tick(String token, double price) => state =
+      LivePriceState(prices: {...state.prices, token: price}, live: true);
+}
 
 class _Sweeper extends VenueSweeperNotifier {
   @override
@@ -70,27 +114,6 @@ const _nothingOpen = OneBalanceState(
   },
 );
 
-/// Predictions' P&L: nothing a month and a half ago, $7.61 now.
-List<Override> _predictionsHistory() {
-  final now = DateTime.now().toUtc();
-  return [
-    portfolioPerformanceProvider(const PortfolioPerformanceRequest(
-            venue: PortfolioPerformanceVenue.predictions))
-        .overrideWith((_) async => PortfolioPerformance(
-            points: [
-              for (final (days, pnl) in [(45, 0.0), (20, 2.5), (2, 7.61)])
-                PortfolioPnlPoint(
-                    timestamp: now.subtract(Duration(days: days)),
-                    pnlUsd: pnl)
-            ],
-            totalPnlUsd: 7.61,
-            asOf: now.subtract(const Duration(days: 2)),
-            sourceLabel: 'Polymarket',
-            basisLabel: 'P&L',
-            coverageLabel: 'All time')),
-  ];
-}
-
 /// Both venues at work: Investing $10.00, Predictions $4.24; $25.00 in
 /// Dollars.
 const _bothAtWork = OneBalanceState(
@@ -108,35 +131,160 @@ const _bothAtWork = OneBalanceState(
   },
 );
 
-/// A month of Investing P&L that dips under zero and ends above it.
-List<Override> _history() {
+PortfolioPerformance _perf(List<(int, double)> points, String source) {
   final now = DateTime.now().toUtc();
-  final points = [(30, 0.0), (22, -4.0), (15, -9.5), (8, 3.2), (1, 12.4)];
+  return PortfolioPerformance(
+      points: [
+        for (final (days, pnl) in points)
+          PortfolioPnlPoint(
+              timestamp: now.subtract(Duration(days: days)), pnlUsd: pnl)
+      ],
+      totalPnlUsd: points.last.$2,
+      asOf: now.subtract(Duration(days: points.last.$1)),
+      sourceLabel: source,
+      basisLabel: 'P&L',
+      coverageLabel: 'All time');
+}
+
+/// A month of Investing P&L that dips under zero and ends above it.
+List<Override> _history() => [
+      portfolioPerformanceProvider(const PortfolioPerformanceRequest(
+              venue: PortfolioPerformanceVenue.trading))
+          .overrideWith((_) async => _perf(
+              [(30, 0.0), (22, -4.0), (15, -9.5), (8, 3.2), (1, 12.4)],
+              'Hyperliquid')),
+    ];
+
+/// Predictions' P&L: nothing a month and a half ago, $7.61 now.
+List<Override> _predictionsHistory() => [
+      portfolioPerformanceProvider(const PortfolioPerformanceRequest(
+              venue: PortfolioPerformanceVenue.predictions))
+          .overrideWith((_) async =>
+              _perf([(45, 0.0), (20, 2.5), (2, 7.61)], 'Polymarket')),
+    ];
+
+/// Predictions' P&L with its book: one prediction closed for +$7.61, so
+/// its square has figures (and so can be picked).
+List<Override> _predictionsBooked() {
+  final now = DateTime.now().toUtc();
   return [
     portfolioPerformanceProvider(const PortfolioPerformanceRequest(
-            venue: PortfolioPerformanceVenue.trading))
-        .overrideWith((_) async => PortfolioPerformance(
-            points: [
-              for (final (days, pnl) in points)
-                PortfolioPnlPoint(
-                    timestamp: now.subtract(Duration(days: days)),
-                    pnlUsd: pnl)
-            ],
-            totalPnlUsd: 12.4,
-            asOf: now.subtract(const Duration(days: 1)),
-            sourceLabel: 'Hyperliquid',
-            basisLabel: 'P&L',
-            coverageLabel: 'All time')),
+            venue: PortfolioPerformanceVenue.predictions))
+        .overrideWith((_) async => _perf([(45, 0.0), (20, 2.5), (2, 7.61)],
+                'Polymarket')
+            .withPredictions(PredictionsBook(records: [
+              PredictionRecord(
+                tokenId: 'won',
+                open: false,
+                redeemable: false,
+                size: 0,
+                totalSize: 20,
+                avgPrice: 0.4,
+                entryCostUsd: 0,
+                currentPrice: 1,
+                realizedPnlUsd: 7.61,
+                unrealizedPnlUsd: 0,
+                firstEntryAt: now.subtract(const Duration(days: 40)),
+                lastEventAt: now.subtract(const Duration(days: 2)),
+              ),
+            ]))),
   ];
 }
+
+const _btcHeld = HyperliquidTradingState(isInitialized: true, positions: [
+  HlPerpPosition(
+      coin: 'BTC',
+      szi: 0.1,
+      entryPx: 60000,
+      positionValue: 10812.37,
+      unrealizedPnl: 0.4,
+      returnOnEquity: 0.004,
+      liquidationPx: null,
+      marginUsed: 10811.97,
+      leverageType: 'isolated',
+      leverageValue: 1,
+      maxLeverage: 40),
+]);
+
+/// Lots to scroll: open predictions, one per token.
+List<Override> _manyRows(
+        [List<String> tokens = const ['a', 'b', 'c', 'd', 'e', 'f']]) =>
+    [
+      polymarketActivePositionsProvider.overrideWith((_) => [
+            for (final t in tokens)
+              PolymarketPosition(
+                  marketId: 'm-$t',
+                  marketQuestion: 'Will $t happen this year?',
+                  outcome: 'Yes',
+                  size: 2,
+                  avgPrice: 0.5,
+                  currentPrice: 0.6,
+                  pnl: 0,
+                  pnlPercent: 0,
+                  isResolved: false,
+                  tokenId: t),
+          ]),
+    ];
+
+final _t0 = DateTime.now().toUtc().subtract(const Duration(hours: 1));
+
+PolymarketTransaction _bet(String id, Duration ago, {String side = 'BUY'}) =>
+    PolymarketTransaction(
+      id: id,
+      timestamp: _t0.subtract(ago),
+      activity: Activity(
+        proxyWallet: '0xself',
+        timestamp: _t0.subtract(ago).millisecondsSinceEpoch ~/ 1000,
+        conditionId: '0x$id',
+        type: 'TRADE',
+        size: 10,
+        usdcSize: 5,
+        transactionHash: '0x$id',
+        side: side,
+        asset: 'asset-$id',
+        outcomeIndex: 0,
+        title: 'Will $id happen?',
+        outcome: 'Yes',
+        eventSlug: '',
+      ),
+    );
+
+HlFill _fill(String coin, Duration ago, String dir) => HlFill(
+      coin: coin,
+      px: 60000,
+      sz: 0.01,
+      side: dir == 'Open Long' ? 'B' : 'A',
+      time: _t0.subtract(ago).millisecondsSinceEpoch,
+      closedPnl: 0,
+      fee: 0.1,
+      feeToken: 'USDC',
+      oid: ago.inMinutes,
+      hash: '0xfill-$coin-${ago.inMinutes}',
+      dir: dir,
+      cloid: null,
+    );
+
+Transaction _bets(int count) => Transaction(
+      bitcoinTransactions: const [],
+      sparkTransactions: const [],
+      sparkUnclaimedDeposits: const [],
+      polymarketTransactions: [
+        for (var i = 0; i < count; i++)
+          _bet('bet$i', Duration(hours: i * 2), side: i == 1 ? 'SELL' : 'BUY'),
+      ],
+    );
 
 Future<void> _mount(WidgetTester tester,
     {List<Override> extra = const [],
     OneBalanceState state = _nothingOpen,
     HyperliquidTradingState trading = const HyperliquidTradingState(),
+    Transaction? history,
+    List<HlFill> fills = const [],
+    PortfolioSection section = PortfolioSection.balances,
     Size size = const Size(390, 844),
-    bool reduceMotion = false,
-    double textScale = 1}) async {
+    double textScale = 1,
+    bool hidden = false,
+    OpenPnlSources? sources}) async {
   tester.view.devicePixelRatio = 3;
   tester.view.physicalSize = size * 3;
   tester.platformDispatcher.textScaleFactorTestValue = textScale;
@@ -144,7 +292,10 @@ Future<void> _mount(WidgetTester tester,
   addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
   await tester.pumpWidget(ProviderScope(
     overrides: [
-      ...portfolioOverrides(trading: trading),
+      ...portfolioOverrides(
+          trading: trading, history: history, openPnlSources: sources),
+      // The Investments activity reads the price (no rates box here).
+      currentBtcUsdProvider.overrideWithValue(100000),
       hyperliquidLiveMidProvider('BTC').overrideWith((_) => null),
       hyperliquidAccountMarketProvider('BTC').overrideWith((_) => null),
       hyperliquidPerpMarketsProvider.overrideWith((_) async => <HlMarket>[]),
@@ -157,12 +308,15 @@ Future<void> _mount(WidgetTester tester,
           biometricsEnabled: false,
           bitcoinElectrumNode: '',
           nodeType: '',
-          reviewDone: true))),
+          reviewDone: true,
+          balancePrivacy: hidden ? 1 : 0,
+          activeWalletId: 'spending',
+          wallets: [WalletConfig(id: 'spending', name: 'Spending')]))),
       oneBalanceProvider.overrideWith((ref) => state),
       usdBalanceUnknownProvider.overrideWithValue(false),
       venueSweeperProvider.overrideWith(_Sweeper.new),
-      hyperliquidActivityFillsProvider.overrideWithValue(const []),
-      portfolioSectionProvider.overrideWith((_) => PortfolioSection.balances),
+      hyperliquidActivityFillsProvider.overrideWithValue(fills),
+      portfolioSectionProvider.overrideWith((_) => section),
       ...extra,
     ],
     child: ScreenUtilInit(
@@ -171,16 +325,11 @@ Future<void> _mount(WidgetTester tester,
         theme: buildLightTheme(),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        builder: (context, child) => MediaQuery(
-            data: MediaQuery.of(context)
-                .copyWith(disableAnimations: reduceMotion),
-            child: child!),
         home: Scaffold(
           body: SafeArea(
             child: Material(
               child: Consumer(
                 builder: (context, ref, _) => InvestmentsPortfolio(
-                  sharesHeader: true,
                   onSection: (s) =>
                       ref.read(portfolioSectionProvider.notifier).state = s,
                 ),
@@ -224,210 +373,22 @@ Future<void> _unmount(WidgetTester tester) async {
   await tester.pump(const Duration(seconds: 1));
 }
 
-void main() {
-  testWidgets(
-      'both sections empty: one empty state, Sal and the title at the '
-      'same place, only the copy changes', (tester) async {
-    await _mount(tester);
-    final titles = {
-      PortfolioSection.balances: 'No open positions',
-      PortfolioSection.charts: 'No P&L yet',
-    };
-    final sal = <PortfolioSection, Rect>{};
-    final title = <PortfolioSection, Rect>{};
-    for (final section in [
-      PortfolioSection.balances,
-      PortfolioSection.charts,
-      PortfolioSection.balances,
-    ]) {
-      if (section != PortfolioSection.balances || sal.isNotEmpty) {
-        await _pick(tester, section);
-        await _settle(tester);
-      }
-      expect(find.byType(PortfolioSectionEmpty), findsOneWidget,
-          reason: '$section draws the sections\' one empty state');
-      expect(find.byType(SalIdleDirector), findsOneWidget);
-      // The hero Sal alone: no pixel Sal anywhere.
-      expect(find.byType(SalSprite), findsOneWidget);
-      final s = tester.getRect(find.byType(SalIdleDirector));
-      final t = tester.getRect(find.text(titles[section]!));
-      // Back on the first section: exactly where it was.
-      if (sal[section] case final before?) {
-        _expectSameRect(s, before, 'Sal back on $section');
-        _expectSameRect(t, title[section]!, 'title back on $section');
-      }
-      sal[section] = s;
-      title[section] = t;
-      // The title: 22 w600.
-      final text = tester.widget<Text>(find.text(titles[section]!));
-      expect(text.style?.fontWeight, FontWeight.w600);
-    }
-    final base = sal[PortfolioSection.balances]!;
-    for (final section in PortfolioSection.values) {
-      _expectSameRect(sal[section]!, base, 'Sal on $section');
-      final t0 = title[PortfolioSection.balances]!;
-      expect(title[section]!.top, moreOrLessEquals(t0.top, epsilon: 0.01),
-          reason: 'title top on $section');
-      expect(
-          title[section]!.height, moreOrLessEquals(t0.height, epsilon: 0.01),
-          reason: 'title height on $section');
-      expect(title[section]!.center.dx,
-          moreOrLessEquals(title[PortfolioSection.balances]!.center.dx),
-          reason: 'title centred on $section');
-    }
-    // The same size the P&L one had: the hero 160.
-    expect(base.width, moreOrLessEquals(160.sp));
-    await _unmount(tester);
-  });
-
-  testWidgets('P&L Charts, never traded: the first frame is the empty state',
-      (tester) async {
-    await _mount(tester);
-    await _pick(tester, PortfolioSection.charts);
-    await tester.pump();
-    expect(find.byKey(const ValueKey('statistics-chart-empty')),
-        findsOneWidget);
-    expect(find.byKey(const ValueKey('portfolio-performance-loading')),
-        findsNothing);
-    await _unmount(tester);
-  });
-
-  testWidgets('P&L Charts with history: the first frame is the chart',
-      (tester) async {
-    await _mount(tester, extra: _history());
-    await _pick(tester, PortfolioSection.charts);
-    await tester.pump();
-    expect(find.byKey(const ValueKey('statistics-pnl-chart')), findsOneWidget);
-    expect(find.byKey(const ValueKey('statistics-pnl-headline')),
-        findsOneWidget);
-    expect(find.byKey(const ValueKey('portfolio-performance-loading')),
-        findsNothing);
-    await _unmount(tester);
-  });
-
-  testWidgets(
-      'the strip is Portfolio | P&L Charts in two halves; no Activity',
-      (tester) async {
-    await _mount(tester);
-    final portfolio = find.byKey(const ValueKey('portfolio-section-pill-balances'));
-    final charts = find.byKey(const ValueKey('portfolio-section-pill-charts'));
-    expect(portfolio, findsOneWidget);
-    expect(charts, findsOneWidget);
-    expect(find.byKey(const ValueKey('portfolio-section-pill-activity')),
-        findsNothing);
-    expect(find.text('Activity'), findsNothing);
-    expect(tester.getSize(portfolio).width,
-        moreOrLessEquals(tester.getSize(charts).width, epsilon: 0.01));
-    expect(PortfolioSection.forLink('activity'), isNull);
-    await _unmount(tester);
-  });
-
-  testWidgets(
-      'one language: "Profit and loss" in the 13 sp textSecondary title '
-      'style, no card, its top where the empty state\'s Sal starts',
-      (tester) async {
-    await _mount(tester);
-    await _pick(tester, PortfolioSection.charts);
-    await _settle(tester);
-    final salTop = tester.getTopLeft(find.byType(SalIdleDirector)).dy;
-    await _unmount(tester);
-
-    await _mount(tester, extra: _history());
-    await _pick(tester, PortfolioSection.charts);
-    await _settle(tester);
-    final caption = find.byKey(const ValueKey('statistics-pnl-caption'));
-    final style = tester.widget<Text>(caption).style!;
-    expect(style.fontSize, moreOrLessEquals(13 * 390 / 430, epsilon: 0.01));
-    expect(style.color, AppColorsExtension.light().textSecondary);
-    expect(find.byKey(const ValueKey('statistics-pnl-card')), findsNothing);
-    // kPortfolioSectionEmptyTop under the section's top, as the Portfolio
-    // section's first title and the empty state's Sal.
-    expect(tester.getTopLeft(caption).dy, moreOrLessEquals(salTop, epsilon: 1));
-    await _unmount(tester);
-  });
-
-  _ringAndCardsMain();
-}
-
-/// The hero ring's slices as painted now (mid-morph included).
-List<KuteDonutArc> _arcs(WidgetTester tester) => tester
-    .widgetList<CustomPaint>(find.descendant(
-        of: find.byKey(const ValueKey('portfolio-balance-ring'),
-            skipOffstage: false),
-        matching: find.byType(CustomPaint),
-        skipOffstage: false))
-    .map((p) => p.painter)
-    .whereType<KuteDonutPainter>()
-    .first
-    .arcs;
-
-double _alphaOf(WidgetTester tester, Object id) =>
-    _arcs(tester).firstWhere((a) => a.id == id).color.a;
-
-String _centreCaption(WidgetTester tester) => tester
-    .widget<Text>(find.byKey(const ValueKey('portfolio-all-time-caption'),
-        skipOffstage: false))
-    .data!;
-
-String _centreAmount(WidgetTester tester) {
-  final w = tester.widget(find.byKey(const ValueKey('portfolio-all-time-amount'),
-      skipOffstage: false));
-  return w is Text ? w.data! : (w as dynamic).text as String;
-}
-
-/// The Portfolio screen's one scroll (the ring, the strip, the section).
+/// The Portfolio screen's one scroll (the hero, the strip, the section).
 final _pageScroll = find
     .descendant(
         of: find.byKey(const ValueKey('portfolio-page-scroll')),
         matching: find.byType(Scrollable))
     .first;
 
-/// The dot before a legend figure.
-Color _legendDot(WidgetTester tester, Finder figure) {
-  final dot = tester.widget<Container>(find
-      .descendant(
-          of: figure,
-          matching: find.byWidgetPredicate((w) =>
-              w is Container &&
-              w.decoration is BoxDecoration &&
-              (w.decoration! as BoxDecoration).shape == BoxShape.circle))
-      .first);
-  return (dot.decoration! as BoxDecoration).color!;
-}
+/// The hero's P&L line as written.
+String _change(WidgetTester tester) => tester
+    .widget<Text>(find.byKey(const ValueKey('portfolio-hero-change')))
+    .textSpan!
+    .toPlainText();
 
-/// Lots to scroll: an Investing position and six predictions (open them
-/// all with [_seeAll]).
-List<Override> _manyRows() => [
-      polymarketActivePositionsProvider.overrideWith((_) => [
-            for (final t in ['a', 'b', 'c', 'd', 'e', 'f'])
-              PolymarketPosition(
-                  marketId: 'm-$t',
-                  marketQuestion: 'Will $t happen this year?',
-                  outcome: 'Yes',
-                  size: 2,
-                  avgPrice: 0.5,
-                  currentPrice: 0.6,
-                  pnl: 0,
-                  pnlPercent: 0,
-                  isResolved: false,
-                  tokenId: t),
-          ]),
-    ];
-
-const _btcHeld = HyperliquidTradingState(isInitialized: true, positions: [
-  HlPerpPosition(
-      coin: 'BTC',
-      szi: 0.1,
-      entryPx: 60000,
-      positionValue: 10812.37,
-      unrealizedPnl: 0.4,
-      returnOnEquity: 0.004,
-      liquidationPx: null,
-      marginUsed: 10811.97,
-      leverageType: 'isolated',
-      leverageValue: 1,
-      maxLeverage: 40),
-]);
+/// A live figure's text (it rolls glyph by glyph).
+String _figure(WidgetTester tester, String key) =>
+    tester.widget<BalancesLiveFigure>(find.byKey(ValueKey(key))).figure.text;
 
 /// Opens the Predictions card past its first rows ("See all"), when the
 /// squares leave it more than it shows folded.
@@ -444,271 +405,428 @@ Future<void> _seeAll(WidgetTester tester) async {
   await _settle(tester);
 }
 
-Future<void> _tapVenue(WidgetTester tester, String venue) async {
-  final pick = find.byKey(ValueKey('pnl-venue-$venue-pick'));
-  await tester.ensureVisible(pick);
-  await tester.pump(const Duration(milliseconds: 300));
-  await tester.tap(pick);
-}
+/// The keys of the rows drawn as squares ("hl-BTC", "poly-a"), in order:
+/// each row's own widget carries its key, the square is drawn under it.
+List<String> _squareKeys(WidgetTester tester) => [
+      for (final e in find
+          .descendant(
+              of: find.byKey(const ValueKey('portfolio-balance-squares')),
+              matching: find.byType(PortfolioPositionRow))
+          .evaluate())
+        () {
+          String? key;
+          e.visitAncestorElements((a) {
+            final k = a.widget.key;
+            if (k is ValueKey<String> &&
+                (k.value.startsWith('hl-') || k.value.startsWith('poly-'))) {
+              key = k.value;
+              return false;
+            }
+            return true;
+          });
+          return key ?? '';
+        }(),
+    ];
 
-void _ringAndCardsMain() {
+void main() {
   testWidgets(
-      'P&L Charts: the ring is each venue\'s P&L over the range in its '
-      'result colour, the hole the range over its P&L; a venue picked in '
-      '"By venue" keeps its slice and dims the other to 30% on the settle '
-      'curve, the hole reads the venue, the line what it has at work; '
-      'picked again, the range again', (tester) async {
-    // Tall enough that the ring and the venue rows are both on screen.
-    await _mount(tester,
-        state: _bothAtWork,
-        size: const Size(390, 1600),
-        extra: [..._history(), ..._predictionsHistory()]);
-    await _pick(tester, PortfolioSection.charts);
-    await _settle(tester);
-    final donut = tester.widget<KuteDonutChart>(
-        find.byKey(const ValueKey('portfolio-balance-ring')));
-    expect(donut.morphCurve, KuteMotion.settle);
-    // Nothing picked: both venues up over the month, green, full colour;
-    // the hole the month over the account's P&L for it.
-    expect(_arcs(tester).map((a) => a.id).toSet(),
-        {BalancesCategory.investing, BalancesCategory.predictions});
-    for (final a in _arcs(tester)) {
-      expect(a.color.a, 1, reason: '${a.id}');
-      expect(a.color.withValues(alpha: 1), AppColors.marketUp,
-          reason: '${a.id}');
-    }
-    expect(_centreCaption(tester), 'Past month');
-    expect(_centreAmount(tester), startsWith('▲ \$'));
-    expect(find.byKey(const ValueKey('portfolio-legend-invested')),
-        findsOneWidget);
-    expect(find.byKey(const ValueKey('portfolio-legend-focus')), findsNothing);
-
-    await _tapVenue(tester, 'predictions');
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 120));
-    // Mid-morph: on its way down, not there yet.
-    final mid = _alphaOf(tester, BalancesCategory.investing);
-    expect(mid, lessThan(1));
-    expect(mid, greaterThan(kBalancesRingDimmed));
-    await _settle(tester);
-    expect(_alphaOf(tester, BalancesCategory.predictions), 1);
-    expect(_alphaOf(tester, BalancesCategory.investing),
-        moreOrLessEquals(kBalancesRingDimmed, epsilon: 0.01));
-    // The hole: the venue over its P&L for the range picked (1M).
-    final data = PortfolioPerformance(
-        points: [
-          for (final (days, pnl) in [(45, 0.0), (20, 2.5), (2, 7.61)])
-            PortfolioPnlPoint(
-                timestamp:
-                    DateTime.now().toUtc().subtract(Duration(days: days)),
-                pnlUsd: pnl)
-        ],
-        totalPnlUsd: 7.61,
-        sourceLabel: 'Polymarket',
-        basisLabel: 'P&L',
-        coverageLabel: 'All time');
-    final month =
-        pnlVenueRangeChange(data, BalanceRange.month, DateTime.now())!;
-    expect(month, greaterThan(0));
-    expect(_centreCaption(tester), 'Predictions');
-    expect(_centreAmount(tester), '▲ \$${month.toStringAsFixed(2)}');
-    // The line under the ring: what Predictions has at work.
-    final focus = find.byKey(const ValueKey('portfolio-legend-focus'));
-    expect(focus, findsOneWidget);
-    expect(find.descendant(of: focus, matching: find.text('Invested in Predictions')),
-        findsOneWidget);
-    expect(
-        find.descendant(
-            of: focus,
-            matching: find.byWidgetPredicate(
-                (w) => w is RollingFigure && w.text == r'$4.24')),
-        findsOneWidget);
-    expect(find.byKey(const ValueKey('portfolio-legend-available')),
-        findsNothing);
-    // Its dot is the venue's slice colour.
-    final slice = _arcs(tester)
-        .firstWhere((a) => a.id == BalancesCategory.predictions)
-        .color;
-    expect(_legendDot(tester, focus), slice);
-
-    // Picked again: All, the range again.
-    await _tapVenue(tester, 'predictions');
-    await _settle(tester);
-    for (final a in _arcs(tester)) {
-      expect(a.color.a, 1, reason: '${a.id}');
-    }
-    expect(_centreCaption(tester), 'Past month');
-    expect(find.byKey(const ValueKey('portfolio-legend-focus')), findsNothing);
-    await _unmount(tester);
-  });
-
-  testWidgets(
-      'Reduce Motion: the slices dim at once; leaving P&L Charts shows the '
-      'positions and clears the pick', (tester) async {
-    await _mount(tester,
-        state: _bothAtWork,
-        size: const Size(390, 1600),
-        reduceMotion: true,
-        extra: [..._history(), ..._predictionsHistory()]);
-    await _pick(tester, PortfolioSection.charts);
-    await _settle(tester);
-    await _tapVenue(tester, 'investing');
-    await tester.pump();
-    expect(_alphaOf(tester, BalancesCategory.investing), 1);
-    expect(_alphaOf(tester, BalancesCategory.predictions),
-        moreOrLessEquals(kBalancesRingDimmed, epsilon: 0.01));
-    expect(_centreCaption(tester), 'Investing');
-
-    await _pick(tester, PortfolioSection.balances);
-    await _settle(tester);
-    for (final a in _arcs(tester)) {
-      expect(a.color.a, 1, reason: '${a.id}');
-    }
-    expect(_centreCaption(tester), 'Invested');
-    await _pick(tester, PortfolioSection.charts);
-    await _settle(tester);
-    expect(_centreCaption(tester), 'Past month');
-    expect(find.byKey(const ValueKey('portfolio-legend-focus')), findsNothing);
-    await _unmount(tester);
-  });
-
-  for (final section in PortfolioSection.values) {
-    testWidgets(
-        '${section.key}: the last row scrolls clear of the bar '
-        '(kuteBarScrollClearance inside the scroll), at 375 pt and 130 % '
-        'text, its figures whole inside the card', (tester) async {
-      const size = Size(375, 560);
-      await _mount(tester,
-          state: _bothAtWork,
-          size: size,
-          textScale: 1.3,
-          trading: const HyperliquidTradingState(
-              isInitialized: true,
-              positions: [
-                HlPerpPosition(
-                    coin: 'BTC',
-                    szi: 0.1,
-                    entryPx: 60000,
-                    positionValue: 10812.37,
-                    unrealizedPnl: 0.4,
-                    returnOnEquity: 0.004,
-                    liquidationPx: null,
-                    marginUsed: 10811.97,
-                    leverageType: 'isolated',
-                    leverageValue: 1,
-                    maxLeverage: 40),
-              ]),
-          extra: [
-            ..._history(),
-            ..._predictionsHistory(),
-            // Enough rows that the Portfolio section scrolls: four
-            // squares, then two rows.
-            polymarketActivePositionsProvider.overrideWith((_) => [
-                  for (final t in ['a', 'b', 'c', 'd', 'e'])
-                    PolymarketPosition(
-                        marketId: 'm-$t',
-                        marketQuestion: 'Will $t happen this year?',
-                        outcome: 'Yes',
-                        size: 2,
-                        avgPrice: 0.5,
-                        currentPrice: 0.6,
-                        pnl: 0,
-                        pnlPercent: 0,
-                        isResolved: false,
-                        tokenId: t),
-                ]),
-          ]);
-      if (section == PortfolioSection.charts) {
+      'all three sections empty: one empty state, Sal and the title at the '
+      'same place, only the copy changes; the hero says nothing twice',
+      (tester) async {
+    await _mount(tester, section: PortfolioSection.activity);
+    final titles = {
+      PortfolioSection.activity: 'No activity yet',
+      PortfolioSection.balances: 'No open positions',
+      PortfolioSection.charts: 'No P&L yet',
+    };
+    final sal = <PortfolioSection, Rect>{};
+    final title = <PortfolioSection, Rect>{};
+    for (final section in [
+      PortfolioSection.activity,
+      PortfolioSection.balances,
+      PortfolioSection.charts,
+      PortfolioSection.activity,
+    ]) {
+      if (sal.isNotEmpty) {
         await _pick(tester, section);
         await _settle(tester);
       }
-      expect(tester.takeException(), isNull);
-      final list = _pageScroll;
-      await tester.drag(list, const Offset(0, -4000));
-      await _settle(tester);
-      final last = section == PortfolioSection.charts
-          ? find.byKey(const ValueKey('pnl-venue-investing'))
-          : find.byType(PortfolioPositionRow).last;
-      expect(last, findsOneWidget);
-      final bar = size.height - kuteBarScrollClearance * size.height / 932;
-      expect(tester.getRect(last).bottom, lessThanOrEqualTo(bar + 0.5),
-          reason: 'the last row under the bar');
-      // Everything in its card whole inside the card's 16 inset (the P&L
-      // venue rows' figures at 375 pt / 130 % are checked with real
-      // figures in portfolio_statistics_test.dart).
-      final inset = 16 * size.width / 430;
-      final card = section == PortfolioSection.charts
-          ? find.byKey(const ValueKey('statistics-figures'))
-          : find.byKey(
-              const ValueKey('portfolio-balance-predictions-positions'));
-      final right = tester.getRect(card).right - inset + 0.5;
-      final texts = find.descendant(of: card, matching: find.byType(Text));
-      expect(texts, findsWidgets);
-      for (final e in texts.evaluate()) {
-        expect(tester.getRect(find.byWidget(e.widget)).right,
-            lessThanOrEqualTo(right),
-            reason: (e.widget as Text).data);
+      expect(find.byType(PortfolioSectionEmpty), findsOneWidget,
+          reason: '$section draws the sections\' one empty state');
+      expect(find.byType(SalIdleDirector), findsOneWidget);
+      // The hero Sal alone: no pixel Sal anywhere.
+      expect(find.byType(SalSprite), findsOneWidget);
+      final s = tester.getRect(find.byType(SalIdleDirector));
+      final t = tester.getRect(find.text(titles[section]!));
+      if (sal[section] case final before?) {
+        _expectSameRect(s, before, 'Sal back on $section');
+        _expectSameRect(t, title[section]!, 'title back on $section');
       }
-      for (final key in ['portfolio-row-value', 'portfolio-row-pnl']) {
-        for (final e in find
-            .descendant(of: card, matching: find.byKey(ValueKey(key)))
-            .evaluate()) {
-          expect(tester.getRect(find.byWidget(e.widget)).right,
-              lessThanOrEqualTo(right),
-              reason: key);
-        }
-      }
-      expect(tester.takeException(), isNull);
-      await _unmount(tester);
-    });
-  }
-
-  testWidgets(
-      'a venue picked with no P&L over the range: no slice of its own, the '
-      'other dimmed, and the dot the quiet tertiary, never a colour no '
-      'slice has', (tester) async {
-    final now = DateTime.now().toUtc();
-    await _mount(tester, state: _bothAtWork, size: const Size(390, 1600), extra: [
-      ..._history(),
-      // Five dollars made two months ago, nothing since: it moved, but
-      // not this month.
-      portfolioPerformanceProvider(const PortfolioPerformanceRequest(
-              venue: PortfolioPerformanceVenue.predictions))
-          .overrideWith((_) async => PortfolioPerformance(
-              points: [
-                for (final (days, pnl) in [(60, 0.0), (45, 5.0), (1, 5.0)])
-                  PortfolioPnlPoint(
-                      timestamp: now.subtract(Duration(days: days)),
-                      pnlUsd: pnl)
-              ],
-              totalPnlUsd: 5,
-              sourceLabel: 'Polymarket',
-              basisLabel: 'P&L',
-              coverageLabel: 'All time')),
-    ]);
-    await _pick(tester, PortfolioSection.charts);
-    await _settle(tester);
-    await _tapVenue(tester, 'predictions');
-    await _settle(tester);
-    expect(_arcs(tester).any((a) => a.id == BalancesCategory.predictions),
-        isFalse);
-    for (final a in _arcs(tester)) {
-      expect(a.color.a, moreOrLessEquals(kBalancesRingDimmed, epsilon: 0.01),
-          reason: '${a.id}');
+      sal[section] = s;
+      title[section] = t;
+      expect(
+          tester.widget<Text>(find.text(titles[section]!)).style?.fontWeight,
+          FontWeight.w600);
     }
-    final focus = find.byKey(const ValueKey('portfolio-legend-focus'));
-    expect(find.descendant(of: focus, matching: find.text('Invested in Predictions')),
+    final base = sal[PortfolioSection.activity]!;
+    for (final section in PortfolioSection.values) {
+      _expectSameRect(sal[section]!, base, 'Sal on $section');
+      expect(title[section]!.top,
+          moreOrLessEquals(title[PortfolioSection.activity]!.top, epsilon: 0.01),
+          reason: 'title top on $section');
+    }
+    expect(base.width, moreOrLessEquals(160.sp));
+    // Never traded: the hero is the figure and its line; no P&L line, no
+    // chart, no caption repeating the sections' empty state.
+    expect(find.byKey(const ValueKey('portfolio-hero-no-history')),
         findsOneWidget);
-    expect(_legendDot(tester, focus), AppColorsExtension.light().textTertiary);
+    expect(find.byKey(const ValueKey('portfolio-hero-chart')), findsNothing);
+    expect(find.byKey(const ValueKey('portfolio-hero-change')), findsNothing);
+    expect(find.text('Your P&L shows up after your first position.'),
+        findsNothing);
+    // Nothing open: Available alone.
+    expect(find.byKey(const ValueKey('portfolio-hero-positions')),
+        findsNothing);
+    expect(_figure(tester, 'portfolio-hero-available'), r'$17.64');
     await _unmount(tester);
   });
 
   testWidgets(
-      'Portfolio: one slice per open position by its value in its palette '
-      'colour (the dot on its row the same), a grey slice for Available; '
-      'the hole "Invested" over what they are worth with the open P&L, the '
-      'line "7 positions · Available"; a long press shows one position '
-      '(its name, value and %), the others at 30%; again: cleared',
+      'the strip is Positions | P&L | Activity in equal thirds, Positions '
+      'first and the screen\'s default, Activity last', (tester) async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    expect(container.read(portfolioSectionProvider), PortfolioSection.balances);
+    // The keys (links, analytics) are unchanged; only the order moved.
+    expect(PortfolioSection.values.map((s) => s.key),
+        ['balances', 'charts', 'activity']);
+
+    await _mount(tester);
+    final pills = [
+      for (final s in PortfolioSection.values)
+        find.byKey(ValueKey('portfolio-section-pill-${s.key}'))
+    ];
+    for (final (pill, label) in [
+      (pills[0], 'Positions'),
+      (pills[1], 'P&L'),
+      (pills[2], 'Activity'),
+    ]) {
+      expect(pill, findsOneWidget);
+      expect(
+          find.descendant(of: pill, matching: find.text(label)), findsOneWidget);
+    }
+    expect(
+        tester.getRect(pills[0]).left, lessThan(tester.getRect(pills[1]).left));
+    expect(
+        tester.getRect(pills[1]).left, lessThan(tester.getRect(pills[2]).left));
+    for (final p in pills.skip(1)) {
+      expect(tester.getSize(p).width,
+          moreOrLessEquals(tester.getSize(pills[0]).width, epsilon: 0.01));
+    }
+    expect(find.text('P&L Charts'), findsNothing);
+    // Links: Positions is still `balances`, P&L `charts`; `?tab=activity`
+    // names no Portfolio section: it is the Dollars Activity pill
+    // (app_router.dart).
+    expect(PortfolioSection.forLink('positions'), PortfolioSection.balances);
+    expect(PortfolioSection.forLink('orders'), PortfolioSection.charts);
+    expect(PortfolioSection.forLink('activity'), isNull);
+    await _unmount(tester);
+  });
+
+  testWidgets(
+      'the hero: "Invested" over the Dollars header\'s figure, the P&L over '
+      'the range in its colour, ONE chart with the app\'s range row, the '
+      'positions and Available under it; no ring anywhere', (tester) async {
+    await _mount(tester,
+        state: _bothAtWork,
+        section: PortfolioSection.activity,
+        trading: _btcHeld,
+        extra: [..._history(), ..._predictionsHistory()]);
+    expect(
+        tester
+            .widget<Text>(find.byKey(const ValueKey('portfolio-hero-caption')))
+            .data,
+        'Invested');
+    expect(_figure(tester, 'portfolio-hero-value'), r'$14.24');
+    final change = _change(tester);
+    expect(change, startsWith('▲ \$'));
+    expect(change, endsWith(' · Past month'));
+    expect(change, isNot(contains('%')), reason: 'no base, no percent');
+    final line = tester
+        .widget<Text>(find.byKey(const ValueKey('portfolio-hero-change')))
+        .textSpan! as TextSpan;
+    expect((line.children!.first as TextSpan).style!.color, AppColors.marketUp);
+    // The one chart, the split fill, the range row 1W to ALL with 1M on.
+    final chart = tester.widget<KuteTrendChart>(
+        find.byKey(const ValueKey('portfolio-hero-chart')));
+    expect(chart.zeroSplit, isTrue);
+    expect(chart.rangeLabels, ['1W', '1M', '3M', '1Y', 'ALL']);
+    expect(chart.selectedRange, 1);
+    expect(find.byType(KuteTrendChart), findsOneWidget);
+    // "1 position · Available $42.64": the BTC perp; Dollars and the
+    // venues' spare cash.
+    expect(
+        find.descendant(
+            of: find.byKey(const ValueKey('portfolio-hero-line')),
+            matching: find.text('1 position')),
+        findsOneWidget);
+    expect(_figure(tester, 'portfolio-hero-available'), r'$42.64');
+    // The ring and its remnants are gone.
+    expect(find.byType(KuteDonutChart), findsNothing);
+    expect(find.byKey(const ValueKey('portfolio-shares-hero')), findsNothing);
+    expect(find.byKey(const ValueKey('portfolio-all-time')), findsNothing);
+    expect(find.byKey(const ValueKey('portfolio-row-dot')), findsNothing);
+    // Top down: caption, figure, P&L line, chart, the line, the strip.
+    double top(String key) => tester.getRect(find.byKey(ValueKey(key))).top;
+    final tops = [
+      top('portfolio-hero-caption'),
+      top('portfolio-hero-value'),
+      top('portfolio-hero-change'),
+      top('portfolio-hero-chart'),
+      top('portfolio-hero-line'),
+      top('portfolio-strip'),
+    ];
+    for (var i = 1; i < tops.length; i++) {
+      expect(tops[i], greaterThan(tops[i - 1]), reason: 'hero order $i');
+    }
+    await _unmount(tester);
+  });
+
+  testWidgets(
+      'one hero for every section: never rebuilt by a switch, at the same '
+      'place (Positions folds its chart away under the same figure); a '
+      'range picked moves the P&L line and the P&L section\'s venue squares '
+      'together', (tester) async {
+    await _mount(tester,
+        state: _bothAtWork,
+        section: PortfolioSection.activity,
+        size: const Size(390, 1400),
+        // Investing traded: its venue row has figures.
+        fills: [
+          _fill('BTC', const Duration(days: 10), 'Open Long'),
+          _fill('BTC', const Duration(days: 3), 'Close Long'),
+        ],
+        extra: [..._history(), ..._predictionsHistory()]);
+    final chart = find.byType(PortfolioHeroChart);
+    final state = tester.state(chart);
+    final rect = tester.getRect(find.byKey(const ValueKey('portfolio-hero')));
+    final figure =
+        tester.getRect(find.byKey(const ValueKey('portfolio-hero-value')));
+    for (final s in [PortfolioSection.balances, PortfolioSection.charts]) {
+      await _pick(tester, s);
+      await _settle(tester);
+      expect(tester.state(chart), same(state), reason: '$s');
+      final hero =
+          tester.getRect(find.byKey(const ValueKey('portfolio-hero')));
+      _expectSameRect(
+          tester.getRect(find.byKey(const ValueKey('portfolio-hero-value'))),
+          figure,
+          '$s figure');
+      if (s == PortfolioSection.balances) {
+        // The chart and its ranges folded away: the same top, shorter.
+        expect(hero.top, moreOrLessEquals(rect.top, epsilon: 0.01));
+        expect(hero.height, lessThan(rect.height - 150));
+        expect(find.byKey(const ValueKey('portfolio-hero-chart')),
+            findsNothing);
+      } else {
+        _expectSameRect(hero, rect, '$s');
+      }
+    }
+    // The venue square's P&L is over the hero's range, its corner names it.
+    Finder inInvesting(String key) => find.descendant(
+        of: find.byKey(const ValueKey('pnl-venue-investing')),
+        matching: find.byKey(ValueKey(key)));
+    final month = tester.widget<Text>(inInvesting('pnl-venue-figure')).data;
+    expect(tester.widget<Text>(inInvesting('pnl-venue-change')).data,
+        endsWith('Past month'));
+    await tester.tap(find.text('1W'));
+    await _settle(tester);
+    expect(_change(tester), endsWith(' · Past week'));
+    expect(tester.widget<Text>(inInvesting('pnl-venue-figure')).data,
+        isNot(month));
+    expect(tester.widget<Text>(inInvesting('pnl-venue-change')).data,
+        endsWith('Past week'));
+    await tester.tap(find.text('ALL'));
+    await _settle(tester);
+    // ALL: the P&L since the account began, both venues added.
+    expect(_change(tester), '▲ \$20.01 · All time');
+    await _unmount(tester);
+  });
+
+  testWidgets(
+      'scrubbed: the P&L line follows the finger (its P&L since the range\'s '
+      'start and its moment), the figure stays; released, the range again; '
+      'one scrub event', (tester) async {
+    final events = <(String, Map<String, Object>?)>[];
+    TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+    addTearDown(() => TrackingService.debugTrackObserver = null);
+    await _mount(tester,
+        state: _bothAtWork,
+        section: PortfolioSection.activity,
+        extra: [..._history(), ..._predictionsHistory()]);
+    final rest = _change(tester);
+    final plot = tester.getRect(find.byKey(const ValueKey('trend-chart-plot')));
+    final touch = await tester.startGesture(plot.center);
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump(const Duration(milliseconds: 150));
+    final scrubbed = _change(tester);
+    expect(scrubbed, isNot(rest));
+    expect(scrubbed, isNot(endsWith('Past month')));
+    expect(_figure(tester, 'portfolio-hero-value'), r'$14.24');
+    await touch.up();
+    await _settle(tester);
+    expect(_change(tester), rest);
+    expect(
+        events
+            .where((e) => e.$1 == 'portfolio_performance_chart_scrubbed')
+            .map((e) => e.$2),
+        [
+          {'venue': 'all'}
+        ]);
+    await _unmount(tester);
+  });
+
+  testWidgets(
+      'Activity: the four newest actions as the home\'s squares, the next '
+      'two as its Earlier rows, no See all button under them: the Activity '
+      'pill reads "→ See all" and its second tap opens the Activity screen '
+      'on the Investments activity',
+      (tester) async {
+    final events = <(String, Map<String, Object>?)>[];
+    TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+    addTearDown(() => TrackingService.debugTrackObserver = null);
+    await _mount(tester,
+        section: PortfolioSection.activity,
+        size: const Size(390, 1600),
+        history: _bets(5),
+        fills: [
+          _fill('BTC', const Duration(hours: 1), 'Open Long'),
+          _fill('ETH', const Duration(hours: 30), 'Close Short'),
+        ]);
+    final squares = find.byKey(const ValueKey('portfolio-activity-squares'));
+    expect(squares, findsOneWidget);
+    expect(tester.widget<ActivitySquareGrid>(squares).children, hasLength(4));
+    expect(
+        tester
+            .widget<ActivityRowLayout>(find
+                .ancestor(of: squares, matching: find.byType(ActivityRowLayout))
+                .first)
+            .shape,
+        ActivityRowShape.square);
+    final earlier = find.byKey(const ValueKey('portfolio-activity-earlier'));
+    expect(earlier, findsOneWidget);
+    expect(find.text('Earlier'), findsOneWidget);
+    expect(
+        tester
+            .widget<ActivityRowLayout>(find
+                .ancestor(of: earlier, matching: find.byType(ActivityRowLayout))
+                .first)
+            .shape,
+        ActivityRowShape.plain);
+    // The Investing open is among the newest.
+    expect(find.descendant(of: squares, matching: find.text('Long BTC')),
+        findsOneWidget);
+    // The section starts where every section does.
+    final strip = tester.getRect(find.byKey(const ValueKey('portfolio-strip')));
+    expect(tester.getRect(squares).top - strip.bottom,
+        moreOrLessEquals(kPortfolioSectionEmptyTop.h, epsilon: 0.5));
+    // No See all button of the section's own any more.
+    expect(find.byKey(const ValueKey('portfolio-activity-see-all')),
+        findsNothing);
+    // The Bitcoin home's mechanism: Activity on screen, its pill names
+    // what a second tap does, "→ See all".
+    final pill =
+        find.byKey(const ValueKey('portfolio-section-pill-activity'));
+    expect(find.descendant(of: pill, matching: find.text('See all')),
+        findsOneWidget);
+    expect(find.descendant(of: pill, matching: find.text('Activity')),
+        findsNothing);
+    expect(
+        find.descendant(
+            of: pill, matching: find.byIcon(Icons.arrow_forward_rounded)),
+        findsOneWidget);
+    expect(find.byType(ActivityHistoryScreen), findsNothing);
+    await tester.tap(pill);
+    await _settle(tester);
+    final screen = tester
+        .widget<ActivityHistoryScreen>(find.byType(ActivityHistoryScreen));
+    expect(screen.listedScope, ActivityScope.investments);
+    expect(
+        events.where((e) => e.$1 == 'activity_history_opened').single.$2,
+        {'entry_source': 'portfolio', 'scope': 'investments'});
+    await _unmount(tester);
+  });
+
+  testWidgets(
+      'P&L: each venue\'s P&L as two squares side by side and the all-time '
+      'stats as tiles, no chart of its own (the hero\'s is the one), its '
+      'first title where every section starts', (tester) async {
+    await _mount(tester,
+        state: _bothAtWork,
+        section: PortfolioSection.charts,
+        extra: [..._history(), ..._predictionsHistory()]);
+    expect(find.byKey(const ValueKey('statistics-pnl-chart')), findsNothing);
+    expect(
+        find.byKey(const ValueKey('statistics-pnl-headline')), findsNothing);
+    expect(find.byType(KuteTrendChart), findsOneWidget);
+    expect(find.byKey(const ValueKey('statistics-figures')), findsOneWidget);
+    expect(
+        find.byKey(const ValueKey('pnl-venue-predictions')), findsOneWidget);
+    expect(find.byKey(const ValueKey('pnl-venue-investing')), findsOneWidget);
+    // The Positions squares' grid: two side by side, no list card.
+    expect(
+        find.descendant(
+            of: find.byKey(const ValueKey('statistics-figures')),
+            matching: find.byType(ActivitySquareGrid)),
+        findsOneWidget);
+    expect(find.byType(PnlVenueSquare), findsNWidgets(2));
+    expect(
+        tester.getRect(find.byKey(const ValueKey('pnl-venue-predictions'))).top,
+        tester.getRect(find.byKey(const ValueKey('pnl-venue-investing'))).top);
+    expect(
+        find.descendant(
+            of: find.byKey(const ValueKey('statistics-pnl-section')),
+            matching: find.byType(PortfolioCardList)),
+        findsNothing);
+    // All time: one row of tiles.
+    expect(find.byType(PnlStatTiles), findsOneWidget);
+    // The squares chart nothing: no pick.
+    expect(find.byKey(const ValueKey('pnl-venue-investing-pick')),
+        findsNothing);
+    final byVenue = find.byKey(const ValueKey('statistics-pnl-by-venue'));
+    expect(tester.widget<Text>(byVenue).data, 'By venue');
+    final strip = tester.getRect(find.byKey(const ValueKey('portfolio-strip')));
+    expect(tester.getRect(byVenue).top - strip.bottom,
+        moreOrLessEquals(kPortfolioSectionEmptyTop.h, epsilon: 0.5));
+    await _unmount(tester);
+  });
+
+  testWidgets('P&L, never traded: the first frame is the empty state',
+      (tester) async {
+    await _mount(tester);
+    await _pick(tester, PortfolioSection.charts);
+    await tester.pump();
+    expect(
+        find.byKey(const ValueKey('statistics-chart-empty')), findsOneWidget);
+    expect(find.byKey(const ValueKey('portfolio-performance-loading')),
+        findsNothing);
+    await _unmount(tester);
+  });
+
+  testWidgets('P&L with history: the first frame is the venue rows',
+      (tester) async {
+    await _mount(tester, extra: _history());
+    await _pick(tester, PortfolioSection.charts);
+    await tester.pump();
+    expect(find.byKey(const ValueKey('statistics-figures')), findsOneWidget);
+    expect(find.byKey(const ValueKey('portfolio-performance-loading')),
+        findsNothing);
+    await _unmount(tester);
+  });
+
+  testWidgets(
+      'Positions: the four biggest are squares, biggest first, the rest the '
+      'Investing list\'s rows under their venue; no dot, no long press',
       (tester) async {
     await _mount(tester,
         state: _bothAtWork,
@@ -716,91 +834,34 @@ void _ringAndCardsMain() {
         trading: _btcHeld,
         extra: [..._history(), ..._predictionsHistory(), ..._manyRows()]);
     await _seeAll(tester);
-    final arcs = _arcs(tester);
-    final ids = arcs.map((a) => a.id).toList();
-    expect(ids, contains('hl-BTC'));
-    for (final t in ['a', 'b', 'c', 'd', 'e', 'f']) {
-      expect(ids, contains('poly-$t'));
-    }
-    // Available last, in the palette's grey.
-    final palette = AppColorsExtension.light().chartCategorical;
-    expect(ids.last, 'available');
-    expect(arcs.last.color, palette.last);
-    // The largest first (BTC, $10,811.97 + 0.4), the palette in order.
-    expect(ids.first, 'hl-BTC');
-    expect(arcs.first.color, palette.first);
-    // The four biggest are squares, each with its slice's colour on its
-    // logo; the other three the Investing list's rows, no dot.
-    final rows = find.byType(PortfolioPositionRow);
-    expect(rows, findsNWidgets(7));
-    final squares = find.descendant(
-        of: find.byKey(const ValueKey('portfolio-balance-squares')),
-        matching: find.byType(PortfolioPositionRow));
-    expect(squares, findsNWidgets(4));
-    expect(
-        squares
-            .evaluate()
-            .map((e) => (e.widget as PortfolioPositionRow).sliceId)
-            .toList(),
-        ids.take(4).toList());
-    for (final e in rows.evaluate()) {
-      final row = e.widget as PortfolioPositionRow;
-      final dots = find.descendant(
-          of: find.byWidget(row),
-          matching: find.byKey(const ValueKey('portfolio-row-dot')));
-      if (!squares.evaluate().contains(e)) {
-        expect(dots, findsNothing, reason: row.sliceId);
-        continue;
-      }
-      final dot = tester.widget<Container>(dots);
-      expect((dot.decoration! as BoxDecoration).color,
-          arcs.firstWhere((a) => a.id == row.sliceId).color,
-          reason: row.sliceId);
-    }
-    expect(_centreCaption(tester), 'Invested');
-    expect(_centreAmount(tester), r'$10,819.17');
-    expect(
-        tester.widget<Text>(find.byKey(const ValueKey('portfolio-hero-sub'))).data,
-        startsWith('▲ \$'));
-    final legend = find.byKey(const ValueKey('portfolio-shares-legend'));
-    expect(find.descendant(of: legend, matching: find.text('7 positions')),
-        findsOneWidget);
+    expect(find.byType(PortfolioPositionRow), findsNWidgets(7));
     expect(
         find.descendant(
-            of: legend,
-            matching: find.byKey(const ValueKey('portfolio-legend-available'))),
-        findsOneWidget);
-
-    // A long press on BTC's row: its slice, its name, value and %.
-    final btc = find.byWidgetPredicate(
-        (w) => w is PortfolioPositionRow && w.sliceId == 'hl-BTC');
-    await tester.longPress(btc);
-    await _settle(tester);
-    expect(_alphaOf(tester, 'hl-BTC'), 1);
-    for (final a in _arcs(tester).where((a) => a.id != 'hl-BTC')) {
-      expect(a.color.a, moreOrLessEquals(kBalancesRingDimmed, epsilon: 0.01),
-          reason: '${a.id}');
-    }
-    expect(_centreCaption(tester), 'Bitcoin');
-    expect(_centreAmount(tester), r'$10,811.97');
+            of: find.byKey(const ValueKey('portfolio-balance-squares')),
+            matching: find.byType(PortfolioPositionRow)),
+        findsNWidgets(4));
+    // BTC ($10,812) leads.
+    expect(_squareKeys(tester).first, 'hl-BTC');
+    expect(find.byKey(const ValueKey('portfolio-row-dot')), findsNothing);
+    final rest = find.descendant(
+        of: find.byKey(
+            const ValueKey('portfolio-balance-predictions-positions')),
+        matching: find.byType(HlListRow));
+    expect(rest, findsNWidgets(3));
+    expect(tester.widget<HlListRow>(rest.first).onLongPress, isNull);
+    // The hero counts what is open.
     expect(
-        tester.widget<Text>(find.byKey(const ValueKey('portfolio-hero-sub'))).data,
-        endsWith('%'));
-    // The tap still opens the position: the long press only shows it.
-    await tester.longPress(btc);
-    await _settle(tester);
-    for (final a in _arcs(tester)) {
-      expect(a.color.a, 1, reason: '${a.id}');
-    }
-    expect(_centreCaption(tester), 'Invested');
+        find.descendant(
+            of: find.byKey(const ValueKey('portfolio-hero-line')),
+            matching: find.text('7 positions')),
+        findsOneWidget);
     await _unmount(tester);
   });
 
   testWidgets(
-      'Portfolio with three positions: the two biggest are squares side by '
-      'side (each the position\'s own row drawn as a square), the third '
-      'the Investing list\'s row under its venue, counted as what it lists',
-      (tester) async {
+      'Positions with three: the two biggest are squares side by side, the '
+      'third the Investing list\'s row under its venue, counted as what it '
+      'lists', (tester) async {
     await _mount(tester,
         state: _bothAtWork,
         size: const Size(390, 1400),
@@ -829,102 +890,160 @@ void _ringAndCardsMain() {
     final right = tester.getRect(squares.at(1));
     expect(left.top, right.top);
     expect(left.width, moreOrLessEquals(right.width));
-    expect(
-        find
-            .descendant(of: block, matching: find.byType(PortfolioPositionRow))
-            .evaluate()
-            .map((e) => (e.widget as PortfolioPositionRow).sliceId),
-        ['hl-BTC', 'poly-a']);
-    // The rest: Predictions · 1, the Investing list's row; no Investing
-    // group (its one position is a square).
+    expect(_squareKeys(tester), ['hl-BTC', 'poly-a']);
     expect(find.text('Predictions · 1'), findsOneWidget);
     expect(find.byKey(const ValueKey('portfolio-balance-investing-positions')),
         findsNothing);
     final rest = find.descendant(
-        of: find.byKey(const ValueKey('portfolio-balance-predictions-positions')),
+        of: find.byKey(
+            const ValueKey('portfolio-balance-predictions-positions')),
         matching: find.byType(HlListRow));
     expect(rest, findsOneWidget);
     expect(tester.getRect(rest).top, greaterThan(left.bottom));
     await _unmount(tester);
   });
 
-  testWidgets(
-      'P&L Charts scrubbed: the hole follows the finger, the chart\'s '
-      'figure and its moment; released, the range again', (tester) async {
-    await _mount(tester,
-        state: _bothAtWork,
-        size: const Size(390, 1400),
-        extra: [..._history(), ..._predictionsHistory()]);
-    await _pick(tester, PortfolioSection.charts);
-    await _settle(tester);
-    expect(_centreCaption(tester), 'Past month');
-    final plot = tester.getRect(find.byKey(const ValueKey('trend-chart-plot')));
-    final touch = await tester.startGesture(plot.center);
-    await tester.pump(const Duration(milliseconds: 600));
-    await tester.pump(const Duration(milliseconds: 150));
-    final headline = tester
-        .widget<RollingNumberText>(
-            find.byKey(const ValueKey('statistics-pnl-headline')))
-        .text;
-    final moment = tester
-        .widget<Text>(find.byKey(const ValueKey('statistics-pnl-header')))
-        .textSpan!
-        .toPlainText();
-    expect(_centreCaption(tester), moment);
-    expect(_centreCaption(tester), isNot('Past month'));
-    // The same figure, written with the ring's arrow in place of a sign.
-    final digits = RegExp(r'[\d.,]+');
-    expect(digits.stringMatch(_centreAmount(tester)),
-        digits.stringMatch(headline));
-    await touch.up();
-    await tester.pump(const Duration(milliseconds: 300));
-    await _settle(tester);
-    expect(_centreCaption(tester), 'Past month');
-    await _unmount(tester);
+  group('the no-orphan rule on Positions: never a lone half square', () {
+    List<Override> predictions(int n) => [
+          polymarketActivePositionsProvider.overrideWith((_) => [
+                for (var i = 0; i < n; i++)
+                  PolymarketPosition(
+                      marketId: 'm-$i',
+                      marketQuestion: 'Will $i happen this year?',
+                      outcome: 'Yes',
+                      size: 10.0 - i,
+                      avgPrice: 0.5,
+                      currentPrice: 0.6,
+                      pnl: 0,
+                      pnlPercent: 0,
+                      isResolved: false,
+                      tokenId: 't$i'),
+              ]),
+        ];
+    final block = find.byKey(const ValueKey('portfolio-balance-squares'));
+    Finder inBlock(String key) =>
+        find.descendant(of: block, matching: find.byKey(ValueKey(key)));
+
+    testWidgets('one position: the full-width compact card, no square',
+        (tester) async {
+      await _mount(tester,
+          state: _bothAtWork, size: const Size(390, 1400), trading: _btcHeld);
+      expect(inBlock('portfolio-square'), findsNothing);
+      expect(inBlock('portfolio-wide'), findsOneWidget);
+      expect(_squareKeys(tester), ['hl-BTC']);
+      await _unmount(tester);
+    });
+
+    testWidgets(
+        'three: two squares, the third its venue\'s row; five: four squares, '
+        'the fifth its venue\'s row; no card either way', (tester) async {
+      for (final (n, squares) in [(2, 2), (4, 4)]) {
+        await _mount(tester,
+            state: _bothAtWork,
+            size: const Size(390, 1400),
+            trading: _btcHeld,
+            extra: predictions(n));
+        expect(inBlock('portfolio-square'), findsNWidgets(squares),
+            reason: '${n + 1} positions');
+        expect(inBlock('portfolio-wide'), findsNothing,
+            reason: '${n + 1} positions');
+        expect(
+            find.descendant(
+                of: find.byKey(
+                    const ValueKey('portfolio-balance-predictions-positions')),
+                matching: find.byType(HlListRow)),
+            findsOneWidget,
+            reason: '${n + 1} positions: the rest is a row');
+        await _unmount(tester);
+      }
+    });
   });
 
-  testWidgets(
-      'a switch morphs the same ring (one chart, never rebuilt) on the '
-      'settle curve', (tester) async {
-    await _mount(tester,
-        state: _bothAtWork,
-        trading: _btcHeld,
-        extra: [..._history(), ..._predictionsHistory()]);
-    final ring = find.byKey(const ValueKey('portfolio-balance-ring'));
-    final before = tester.state(ring);
-    expect(_arcs(tester).map((a) => a.id), contains('hl-BTC'));
-    await _pick(tester, PortfolioSection.charts);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 120));
-    expect(tester.state(ring), same(before));
-    // Mid-morph: the positions on their way out, the venues on their way
-    // in.
-    final mid = _arcs(tester).map((a) => a.id).toSet();
-    expect(mid, contains('hl-BTC'));
-    expect(mid, contains(BalancesCategory.investing));
-    await _settle(tester);
-    expect(_arcs(tester).map((a) => a.id),
-        isNot(contains('hl-BTC')));
-    await _unmount(tester);
-  });
+  for (final section in PortfolioSection.values) {
+    testWidgets(
+        '${section.key}: the last row scrolls clear of the bar '
+        '(kuteBarScrollClearance inside the scroll), at 375 pt and 130 % '
+        'text, its figures whole inside the card', (tester) async {
+      const size = Size(375, 560);
+      await _mount(tester,
+          state: _bothAtWork,
+          size: size,
+          textScale: 1.3,
+          section: section,
+          trading: _btcHeld,
+          history: _bets(8),
+          extra: [
+            ..._history(),
+            ..._predictionsHistory(),
+            ..._manyRows(const ['a', 'b', 'c', 'd', 'e']),
+          ]);
+      expect(tester.takeException(), isNull);
+      await tester.drag(_pageScroll, const Offset(0, -4000));
+      await _settle(tester);
+      final last = switch (section) {
+        PortfolioSection.activity =>
+          find.byKey(const ValueKey('portfolio-activity-earlier')),
+        PortfolioSection.balances => find.byType(PortfolioPositionRow).last,
+        PortfolioSection.charts =>
+          find.byKey(const ValueKey('statistics-pnl-stats-card')),
+      };
+      expect(last, findsOneWidget);
+      final bar = size.height - kuteBarScrollClearance * size.height / 932;
+      expect(tester.getRect(last).bottom, lessThanOrEqualTo(bar + 0.5),
+          reason: 'the last row under the bar');
+      // The list cards' 16 inset; the P&L squares' 14 padding.
+      final inset = (section == PortfolioSection.charts ? 14 : 16) *
+          size.width /
+          430;
+      final card = switch (section) {
+        PortfolioSection.activity =>
+          find.byKey(const ValueKey('portfolio-activity-earlier')),
+        PortfolioSection.balances => find
+            .byKey(const ValueKey('portfolio-balance-predictions-positions')),
+        PortfolioSection.charts =>
+          find.byKey(const ValueKey('statistics-figures')),
+      };
+      final right = tester.getRect(card).right - inset + 0.5;
+      final texts = find.descendant(of: card, matching: find.byType(Text));
+      expect(texts, findsWidgets);
+      for (final e in texts.evaluate()) {
+        expect(tester.getRect(find.byWidget(e.widget)).right,
+            lessThanOrEqualTo(right),
+            reason: (e.widget as Text).data);
+      }
+      expect(tester.takeException(), isNull);
+      await _unmount(tester);
+    });
+  }
 
   for (final width in [402.0, 375.0]) {
     testWidgets(
-        'at ${width.round()} pt and 130 % text in the one scroll: each '
-        'card inside the 16 gutters, every figure inside its padding',
+        'at ${width.round()} pt and 130 % text: the hero and every card '
+        'inside the 16 gutters, every figure inside its padding',
         (tester) async {
       await _mount(tester,
           state: _bothAtWork,
           size: Size(width, 1400),
           textScale: 1.3,
           trading: _btcHeld,
-          extra: [..._history(), ..._predictionsHistory(), ..._manyRows()]);
+          extra: [..._history(), ..._predictionsBooked(), ..._manyRows()]);
       expect(tester.takeException(), isNull);
       final gutter = 16 * width / 430;
-      // The squares (BTC and three predictions), then the Predictions
-      // card with the rest; nothing left for an Investing group.
-      expect(find.byKey(const ValueKey('portfolio-balance-investing-positions')),
-          findsNothing);
+      void heroInGutters(List<String> keys) {
+        for (final key in keys) {
+          final r = tester.getRect(find.byKey(ValueKey(key)));
+          expect(r.left, greaterThanOrEqualTo(gutter - 0.5), reason: key);
+          expect(r.right, lessThanOrEqualTo(width - gutter + 0.5),
+              reason: key);
+        }
+      }
+
+      // Positions: the open positions' P&L, no chart.
+      heroInGutters(const [
+        'portfolio-hero-value',
+        'portfolio-hero-open',
+        'portfolio-hero-line',
+      ]);
       for (final (name, block, pad) in [
         (
           'squares',
@@ -957,39 +1076,932 @@ void _ringAndCardsMain() {
       await _pick(tester, PortfolioSection.charts);
       await _settle(tester);
       expect(tester.takeException(), isNull);
-      final card = find.byKey(const ValueKey('statistics-figures'));
-      final r = tester.getRect(card);
-      expect(r.left, moreOrLessEquals(gutter, epsilon: 0.5));
-      expect(r.right, moreOrLessEquals(width - gutter, epsilon: 0.5));
-      for (final e in find
-          .descendant(of: card, matching: find.byType(Text))
-          .evaluate()) {
-        expect(tester.getRect(find.byWidget(e.widget)).right,
-            lessThanOrEqualTo(r.right - gutter + 0.5));
+      heroInGutters(const [
+        'portfolio-hero-value',
+        'portfolio-hero-change',
+        'portfolio-hero-line',
+        'portfolio-hero-chart',
+      ]);
+      // A venue picked: its logo and name in the line, "All" beside the
+      // figure, all of it inside the gutters.
+      await tester.tap(find.byKey(const ValueKey('pnl-venue-predictions')));
+      await _settle(tester);
+      expect(tester.takeException(), isNull);
+      heroInGutters(const [
+        'portfolio-hero-value',
+        'portfolio-hero-change',
+        'portfolio-hero-venue-logo',
+        'portfolio-hero-all',
+        'portfolio-hero-chart',
+      ]);
+      // The venue squares and the stat tiles on the gutters, every text
+      // inside the squares' 14 padding.
+      final squarePad = 14 * width / 430;
+      for (final key in ['statistics-figures', 'statistics-pnl-stats-card']) {
+        final card = find.byKey(ValueKey(key));
+        final r = tester.getRect(card);
+        expect(r.left, moreOrLessEquals(gutter, epsilon: 0.5), reason: key);
+        expect(r.right, moreOrLessEquals(width - gutter, epsilon: 0.5),
+            reason: key);
+        for (final e
+            in find.descendant(of: card, matching: find.byType(Text)).evaluate()) {
+          expect(tester.getRect(find.byWidget(e.widget)).right,
+              lessThanOrEqualTo(r.right - squarePad + 0.5),
+              reason: key);
+        }
       }
       await _unmount(tester);
     });
   }
 
+  group('P&L: a venue square picks what the hero shows', () {
+    Finder square(String venue) => find.byKey(ValueKey('pnl-venue-$venue'));
+    KuteTrendChart heroChart(WidgetTester tester) => tester.widget<KuteTrendChart>(
+        find.byKey(const ValueKey('portfolio-hero-chart')));
+    PnlVenueSquare squareOf(WidgetTester tester, String venue) =>
+        tester.widget<PnlVenueSquare>(square(venue));
+    String squareFigure(WidgetTester tester, String venue) => tester
+        .widget<Text>(find.descendant(
+            of: square(venue),
+            matching: find.byKey(const ValueKey('pnl-venue-figure'))))
+        .data!;
+    Object? picked(WidgetTester tester) =>
+        ProviderScope.containerOf(tester.element(find.byType(PortfolioHero)))
+            .read(portfolioPnlVenueProvider);
+
+    testWidgets(
+        'tapped: the hero\'s chart, P&L line and Invested are that venue\'s '
+        '(its name and logo first in the line), the square outlined and the '
+        'other dimmed; tapped again: both venues; one event each',
+        (tester) async {
+      final events = <(String, Map<String, Object>?)>[];
+      TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+      addTearDown(() => TrackingService.debugTrackObserver = null);
+      await _mount(tester,
+          state: _bothAtWork,
+          section: PortfolioSection.charts,
+          size: const Size(390, 1400),
+          fills: [
+            _fill('BTC', const Duration(days: 10), 'Open Long'),
+            _fill('BTC', const Duration(days: 3), 'Close Long'),
+          ],
+          extra: [..._history(), ..._predictionsBooked()]);
+      final both = heroChart(tester).values;
+      final bothChange = _change(tester);
+      // Both venues: the P&L now is theirs added (12.40 + 7.61).
+      expect(both.last, closeTo(20.01, 1e-9));
+      expect(_figure(tester, 'portfolio-hero-value'), r'$14.24');
+      expect(find.byKey(const ValueKey('portfolio-hero-all')), findsNothing);
+      expect(find.byKey(const ValueKey('pnl-venue-predictions-pick')),
+          findsOneWidget);
+
+      await tester.tap(square('predictions'));
+      await _settle(tester);
+      expect(picked(tester), PortfolioPerformanceVenue.predictions);
+      // The chart is Predictions' line alone: its P&L now, $7.61.
+      final alone = heroChart(tester).values;
+      expect(alone.last, closeTo(7.61, 1e-9));
+      expect(alone, isNot(both));
+      expect(heroChart(tester).onScrub, isNotNull);
+      // "Predictions · ▲ $X · Past month", X the square's own figure.
+      final figure = squareFigure(tester, 'predictions').replaceFirst('+', '');
+      expect(_change(tester), 'Predictions · ▲ $figure · Past month');
+      expect(find.byKey(const ValueKey('portfolio-hero-venue-logo')),
+          findsOneWidget);
+      // The venue's own Invested; "All" beside it.
+      expect(_figure(tester, 'portfolio-hero-value'), r'$4.24');
+      expect(find.byKey(const ValueKey('portfolio-hero-all')), findsOneWidget);
+      // The square outlined, the other stepped back.
+      expect(squareOf(tester, 'predictions').selected, isTrue);
+      expect(squareOf(tester, 'predictions').dimmed, isFalse);
+      expect(squareOf(tester, 'investing').dimmed, isTrue);
+      final box = tester.widget<Container>(find.descendant(
+          of: square('predictions'),
+          matching: find.byKey(const ValueKey('pnl-venue-square'))));
+      final outline = (box.foregroundDecoration! as BoxDecoration).border!
+          as Border;
+      expect(outline.top.width, 1.5);
+      expect(outline.top.color,
+          tester.element(square('predictions')).ctaFill);
+      expect(
+          tester
+              .widget<AnimatedOpacity>(find
+                  .descendant(
+                      of: square('investing'),
+                      matching: find.byType(AnimatedOpacity))
+                  .first)
+              .opacity,
+          0.55);
+
+      // Tapped again: both venues, the same line as before.
+      await tester.tap(square('predictions'));
+      await _settle(tester);
+      expect(picked(tester), isNull);
+      expect(heroChart(tester).values, both);
+      expect(_change(tester), bothChange);
+      expect(_figure(tester, 'portfolio-hero-value'), r'$14.24');
+      expect(find.byKey(const ValueKey('portfolio-hero-all')), findsNothing);
+      expect(squareOf(tester, 'investing').dimmed, isFalse);
+
+      // Investing, then "All".
+      await tester.tap(square('investing'));
+      await _settle(tester);
+      expect(heroChart(tester).values.last, closeTo(12.4, 1e-9));
+      expect(_change(tester), startsWith('Investing · '));
+      expect(_figure(tester, 'portfolio-hero-value'), r'$10.00');
+      await tester.tap(find.byKey(const ValueKey('portfolio-hero-all')));
+      await _settle(tester);
+      expect(picked(tester), isNull);
+      expect(heroChart(tester).values, both);
+      expect(
+          events
+              .where((e) => e.$1 == 'portfolio_statistics_venue_toggled')
+              .map((e) => e.$2!['venue']),
+          ['polymarket', 'all', 'hyperliquid', 'all']);
+      await _unmount(tester);
+    });
+
+    testWidgets(
+        'a scrub on a venue says which; leaving P&L drops the pick, and P&L '
+        'opens on both venues again', (tester) async {
+      final events = <(String, Map<String, Object>?)>[];
+      TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+      addTearDown(() => TrackingService.debugTrackObserver = null);
+      await _mount(tester,
+          state: _bothAtWork,
+          section: PortfolioSection.charts,
+          size: const Size(390, 1400),
+          fills: [
+            _fill('BTC', const Duration(days: 10), 'Open Long'),
+            _fill('BTC', const Duration(days: 3), 'Close Long'),
+          ],
+          extra: [..._history(), ..._predictionsBooked()]);
+      final both = heroChart(tester).values;
+      await tester.tap(square('investing'));
+      await _settle(tester);
+      final plot =
+          tester.getRect(find.byKey(const ValueKey('trend-chart-plot')));
+      final touch = await tester.startGesture(plot.center);
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump(const Duration(milliseconds: 150));
+      expect(_change(tester), startsWith('Investing · '));
+      await touch.up();
+      await _settle(tester);
+      expect(
+          events
+              .where((e) => e.$1 == 'portfolio_performance_chart_scrubbed')
+              .map((e) => e.$2),
+          [
+            {'venue': 'hyperliquid'}
+          ]);
+
+      for (final away in [PortfolioSection.activity, PortfolioSection.balances]) {
+        await _pick(tester, away);
+        await _settle(tester);
+        expect(picked(tester), isNull, reason: '$away');
+        if (away == PortfolioSection.activity) {
+          expect(_change(tester), isNot(contains('Investing')));
+          expect(heroChart(tester).values, both);
+        }
+        await _pick(tester, PortfolioSection.charts);
+        await _settle(tester);
+        expect(heroChart(tester).values, both, reason: '$away');
+        expect(squareOf(tester, 'investing').selected, isFalse);
+        expect(squareOf(tester, 'predictions').dimmed, isFalse);
+        await tester.tap(square('investing'));
+        await _settle(tester);
+        expect(picked(tester), PortfolioPerformanceVenue.trading);
+      }
+      await _unmount(tester);
+    });
+
+    testWidgets(
+        'one venue on the account, or a venue that never traded: nothing to '
+        'pick there', (tester) async {
+      // Investing never traded (no history, no fills): its square is quiet.
+      await _mount(tester,
+          state: _bothAtWork,
+          section: PortfolioSection.charts,
+          size: const Size(390, 1400),
+          extra: [
+            portfolioPerformanceProvider(const PortfolioPerformanceRequest(
+                    venue: PortfolioPerformanceVenue.trading))
+                .overrideWith((_) async => kPortfolioNoPerformance),
+            ..._predictionsBooked(),
+          ]);
+      expect(find.byKey(const ValueKey('pnl-venue-investing-pick')),
+          findsNothing);
+      expect(find.byKey(const ValueKey('pnl-venue-predictions-pick')),
+          findsOneWidget);
+      await tester.tap(square('investing'));
+      await _settle(tester);
+      expect(picked(tester), isNull);
+      await _unmount(tester);
+    });
+  });
+
+  test('the pick goes with the screen: with nothing watching it, both again',
+      () async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final page = container.listen(portfolioPnlVenueProvider, (_, __) {});
+    container.read(portfolioPnlVenueProvider.notifier).state =
+        PortfolioPerformanceVenue.trading;
+    expect(container.read(portfolioPnlVenueProvider),
+        PortfolioPerformanceVenue.trading);
+    page.close();
+    await Future<void>.delayed(Duration.zero);
+    expect(container.read(portfolioPnlVenueProvider), isNull);
+  });
+
+  group('Positions: the hero reads only the positions open now', () {
+    /// The open predictions: a, b, c ($1.00 each at 0.5, now 0.6: +$0.20
+    /// each), d and e ($2.00 each at 0.5, now 0.4: −$0.40 each).
+    List<Override> open() => [
+          polymarketActivePositionsProvider.overrideWith((_) => [
+                for (final (t, size, now) in [
+                  ('a', 2.0, 0.6),
+                  ('b', 2.0, 0.6),
+                  ('c', 2.0, 0.6),
+                  ('d', 4.0, 0.4),
+                  ('e', 4.0, 0.4),
+                ])
+                  PolymarketPosition(
+                      marketId: 'm-$t',
+                      marketQuestion: 'Will $t happen this year?',
+                      outcome: 'Yes',
+                      size: size,
+                      avgPrice: 0.5,
+                      currentPrice: now,
+                      pnl: 0,
+                      pnlPercent: 0,
+                      isResolved: false,
+                      tokenId: t),
+              ]),
+        ];
+
+    /// The hero's open P&L line as written.
+    String openLine(WidgetTester tester) => tester
+        .widget<Text>(find.byKey(const ValueKey('portfolio-hero-open')))
+        .textSpan!
+        .toPlainText();
+
+    /// What the rows Positions lists (its squares and the rows under
+    /// them) made or lost, each as its row reads it ([prices]: the live
+    /// feed; no live mid for a perp: its own figure).
+    double rowsPnl(WidgetTester tester, [Map<String, double> prices = const {}]) {
+      var sum = 0.0;
+      for (final row
+          in tester.widgetList<PolyPositionRow>(find.byType(PolyPositionRow))) {
+        final p = row.position;
+        sum += ((prices[p.tokenId] ?? p.currentPrice) - p.avgPrice) * p.size;
+      }
+      for (final row
+          in tester.widgetList<HlPositionRow>(find.byType(HlPositionRow))) {
+        sum += row.position.unrealizedPnl;
+      }
+      return sum;
+    }
+
+    testWidgets(
+        'the open P&L now, the squares\' and rows\' P&L added, its percent '
+        'of what they cost, in its colour; nothing closed; no history read '
+        '(no fills, no first entry): no chart', (tester) async {
+      await _mount(tester,
+          state: _bothAtWork,
+          trading: _btcHeld,
+          size: const Size(390, 1400),
+          extra: [..._history(), ..._predictionsHistory(), ...open()]);
+      await _seeAll(tester);
+      // BTC +0.40 on its 10,811.97 margin; a, b, c +0.20 each; d, e −0.40
+      // each: +0.20 on 10,819.97, 0.0 %.
+      expect(openLine(tester), r'▲ $0.20 (0.0%) · Open P&L');
+      // The squares and the rows under them: every open position, once.
+      expect(find.byType(PolyPositionRow), findsNWidgets(5));
+      expect(find.byType(HlPositionRow), findsOneWidget);
+      expect(rowsPnl(tester), closeTo(0.2, 1e-9));
+      final line = tester
+          .widget<Text>(find.byKey(const ValueKey('portfolio-hero-open')))
+          .textSpan! as TextSpan;
+      final amount = line.children!.first as TextSpan;
+      expect(amount.style!.color, AppColors.marketUp);
+      expect(
+          tester
+              .widget<Text>(find.byKey(const ValueKey('portfolio-hero-open')))
+              .style!
+              .fontFeatures,
+          contains(const FontFeature.tabularFigures()));
+      // Only what is open: no range P&L (the account's realised history);
+      // no position's open is known here, so nothing is charted.
+      expect(find.byKey(const ValueKey('portfolio-hero-change')),
+          findsNothing);
+      expect(find.byKey(const ValueKey('portfolio-hero-chart')), findsNothing);
+      expect(find.byType(KuteTrendChart), findsNothing);
+      expect(find.text('1M'), findsNothing);
+      await _unmount(tester);
+    });
+
+    testWidgets(
+        'predictions alone: the squares\' P&L added, with its percent of '
+        'their cost; a live tick moves the line alone, nothing jumps',
+        (tester) async {
+      late _Prices feed;
+      await _mount(tester,
+          state: _bothAtWork,
+          size: const Size(390, 1400),
+          extra: [
+            ..._predictionsHistory(),
+            ...open(),
+            livePriceProvider.overrideWith(() => feed = _Prices()),
+          ]);
+      // +0.60 − 0.80 = −0.20 on $7.00: −2.9 %.
+      expect(openLine(tester), r'▼ $0.20 (2.9%) · Open P&L');
+      expect(find.byType(PolyPositionRow), findsNWidgets(5));
+      expect(rowsPnl(tester), closeTo(-0.2, 1e-9));
+      final amount = (tester
+              .widget<Text>(find.byKey(const ValueKey('portfolio-hero-open')))
+              .textSpan! as TextSpan)
+          .children!
+          .first as TextSpan;
+      expect(amount.style!.color, AppColors.marketDown);
+      final hero = tester.getRect(find.byKey(const ValueKey('portfolio-hero')));
+      // a at 0.9: +0.80 on a, now +1.20 − 0.80 = +0.40 on $7.00, 5.7 %.
+      final built = <String, int>{};
+      debugOnRebuildDirtyWidget = (e, _) {
+        final k = e.widget.runtimeType.toString();
+        built[k] = (built[k] ?? 0) + 1;
+      };
+      feed.tick('a', 0.9);
+      await tester.pump();
+      debugOnRebuildDirtyWidget = null;
+      expect(openLine(tester), r'▲ $0.40 (5.7%) · Open P&L');
+      expect(rowsPnl(tester, {'a': 0.9}), closeTo(0.4, 1e-9));
+      expect(built['_HeroOpenLine'], 1);
+      for (final heavy in [
+        'PortfolioHero',
+        'PortfolioHeroChart',
+        '_HeroFigure',
+        '_HeroLine',
+      ]) {
+        expect(built[heavy], isNull, reason: heavy);
+      }
+      await _settle(tester);
+      _expectSameRect(
+          tester.getRect(find.byKey(const ValueKey('portfolio-hero'))),
+          hero,
+          'the hero after a tick');
+      await _unmount(tester);
+    });
+
+    testWidgets('hidden balances: dots, no arrow, no percent, no colour',
+        (tester) async {
+      await _mount(tester, state: _bothAtWork, hidden: true, extra: open());
+      expect(openLine(tester), '•••••• · Open P&L');
+      await _unmount(tester);
+    });
+
+    testWidgets('nothing open: no line, and no chart', (tester) async {
+      await _mount(tester,
+          state: _bothAtWork,
+          extra: [..._history(), ..._predictionsHistory()]);
+      expect(find.byKey(const ValueKey('portfolio-hero-open')), findsNothing);
+      expect(find.byKey(const ValueKey('portfolio-hero-open-none')),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('portfolio-hero-chart')), findsNothing);
+      await _unmount(tester);
+    });
+  });
+
+  group('Positions: the open positions\' P&L chart, each from its own entry',
+      () {
+    final now = DateTime.now();
+
+    /// The open predictions: a (2 shares at 0.5, now 0.6, first entry ten
+    /// days ago) and d (4 at 0.5, now 0.4, three days ago): +0.20 − 0.40.
+    List<Override> open() => [
+          polymarketActivePositionsProvider.overrideWith((_) => [
+                for (final (t, size, price, days) in [
+                  ('a', 2.0, 0.6, 10),
+                  ('d', 4.0, 0.4, 3),
+                ])
+                  PolymarketPosition(
+                      marketId: 'm-$t',
+                      marketQuestion: 'Will $t happen this year?',
+                      outcome: 'Yes',
+                      size: size,
+                      avgPrice: 0.5,
+                      currentPrice: price,
+                      pnl: 0,
+                      pnlPercent: 0,
+                      isResolved: false,
+                      createdAt: now.subtract(Duration(days: days)),
+                      tokenId: t),
+              ]),
+        ];
+
+    /// BTC long 0.1 at 60,000, opened by one fill six days ago.
+    final btcFills = [
+      HlFill(
+        coin: 'BTC',
+        px: 60000,
+        sz: 0.1,
+        side: 'B',
+        time: now.subtract(const Duration(days: 6)).millisecondsSinceEpoch,
+        closedPnl: 0,
+        fee: 0,
+        feeToken: 'USDC',
+        oid: 1,
+        hash: '0xopen',
+        dir: 'Open Long',
+        cloid: null,
+        startPosition: 0,
+      ),
+    ];
+
+    /// Hourly prices: a at 0.6, d at 0.4 throughout; BTC's candles at
+    /// 60,004 (+$0.40 on 0.1). [btc] false: BTC's candles cannot be read.
+    OpenPnlSources sources({bool btc = true}) => OpenPnlSources(
+          activity: (_) async => const [],
+          candles: (_, wire, interval, window) async {
+            if (!btc || wire != 'BTC') return null;
+            final step = interval == '15m'
+                ? const Duration(minutes: 15)
+                : const Duration(hours: 1);
+            final out = <HyperliquidCandle>[];
+            for (var t = now.subtract(window); t.isBefore(now); t = t.add(step)) {
+              out.add(HyperliquidCandle(
+                  openTime: t,
+                  closeTime: t.add(step),
+                  open: 60004,
+                  high: 60004,
+                  low: 60004,
+                  close: 60004,
+                  volume: 1));
+            }
+            return out;
+          },
+          polyHistory: (_, token, interval) async => [
+            for (var h = 24 * 15; h >= 0; h -= 1)
+              PolymarketPricePoint(
+                  timestamp: now.subtract(Duration(hours: h)),
+                  price: token == 'a' ? 0.6 : 0.4),
+          ],
+        );
+
+    KuteTrendChart chart(WidgetTester tester) => tester.widget<KuteTrendChart>(
+        find.byKey(const ValueKey('portfolio-hero-open-chart')));
+
+    String openLine(WidgetTester tester) => tester
+        .widget<Text>(find.byKey(const ValueKey('portfolio-hero-open')))
+        .textSpan!
+        .toPlainText();
+
+    testWidgets(
+        'the chart is back: its last point is the Open P&L figure itself, '
+        'zero before the oldest entry, green above zero, the dashed line at '
+        'zero, and the ranges open on the shortest covering the oldest '
+        'entry', (tester) async {
+      await _mount(tester,
+          state: _bothAtWork,
+          trading: _btcHeld,
+          fills: btcFills,
+          size: const Size(390, 1400),
+          sources: sources(),
+          extra: [..._history(), ..._predictionsHistory(), ...open()]);
+      // +0.40 (BTC) + 0.20 (a) − 0.40 (d) = +0.20.
+      expect(openLine(tester), startsWith(r'▲ $0.20'));
+      final c = chart(tester);
+      // The last point IS the line's figure: the rows' P&L added.
+      expect(c.values.last, closeTo(0.2, 1e-9));
+      final rows = tester
+              .widgetList<PolyPositionRow>(find.byType(PolyPositionRow))
+              .fold<double>(
+                  0,
+                  (t, r) =>
+                      t +
+                      (r.position.currentPrice - r.position.avgPrice) *
+                          r.position.size) +
+          tester
+              .widgetList<HlPositionRow>(find.byType(HlPositionRow))
+              .fold<double>(0, (t, r) => t + r.position.unrealizedPnl);
+      expect(c.values.last, rows);
+      // Ten days back at the oldest: a month covers it, and draws all of
+      // it, from the lead-in at zero.
+      expect(c.selectedRange, BalanceRange.month.index);
+      expect(c.rangeLabels, ['1W', '1M', '3M', '1Y', 'ALL']);
+      expect(c.values.first, 0);
+      expect(c.times!.first.isBefore(now.subtract(const Duration(days: 10))),
+          isTrue);
+      expect(c.zeroSplit, isTrue);
+      expect(c.baseline, 0);
+      expect(c.lineColor, AppColors.marketUp);
+      expect(c.height, kKuteTrendPlotHeightCompact.h);
+      // Every position charted: no note.
+      expect(find.byKey(const ValueKey('portfolio-hero-open-left-out')),
+          findsNothing);
+      // Before d was opened (three days back) the line is a and BTC alone:
+      // +0.40 + 0.20.
+      for (var i = 0; i < c.values.length - 1; i++) {
+        final t = c.times![i];
+        final expected = t.isBefore(now.subtract(const Duration(days: 10)))
+            ? 0.0
+            : t.isBefore(now.subtract(const Duration(days: 6)))
+                ? 0.2
+                : t.isBefore(now.subtract(const Duration(days: 3)))
+                    ? 0.6
+                    : 0.2;
+        expect(c.values[i], closeTo(expected, 1e-9), reason: '$t');
+      }
+
+      // A range picked: the past week, ending on the same figure.
+      await tester.tap(find.descendant(
+          of: find.byKey(const ValueKey('portfolio-hero-open-chart')),
+          matching: find.text('1W')));
+      await _settle(tester);
+      final week = chart(tester);
+      expect(week.selectedRange, BalanceRange.week.index);
+      expect(
+          week.times!.first
+              .isBefore(now.subtract(const Duration(days: 7, minutes: 1))),
+          isFalse);
+      expect(week.values.last, closeTo(0.2, 1e-9));
+      await _unmount(tester);
+    });
+
+    testWidgets(
+        'THE RANGES MOVE THE WINDOW (founder, 6 November 2026: "the Positions '
+        'chart ignores the 1W/1M/3M/1Y/ALL buttons"): every pill tapped '
+        'draws its own reach, zero before the oldest entry, the same figure '
+        'last', (tester) async {
+      await _mount(tester,
+          state: _bothAtWork,
+          trading: _btcHeld,
+          fills: btcFills,
+          size: const Size(390, 1400),
+          sources: sources(),
+          extra: [..._history(), ..._predictionsHistory(), ...open()]);
+      final firsts = <BalanceRange, DateTime>{};
+      // Out of order, so each tap is a change from another range.
+      for (final r in const [
+        BalanceRange.year,
+        BalanceRange.week,
+        BalanceRange.all,
+        BalanceRange.threeMonths,
+        BalanceRange.month,
+      ]) {
+        await tester.tap(find.descendant(
+            of: find.byKey(const ValueKey('portfolio-hero-open-chart')),
+            matching: find.text(r.label)));
+        await _settle(tester);
+        final c = chart(tester);
+        expect(c.selectedRange, r.index, reason: r.label);
+        expect(c.values.last, closeTo(0.2, 1e-9), reason: r.label);
+        final first = c.times!.first;
+        firsts[r] = first;
+        final back = r.duration;
+        if (back == null) {
+          // ALL: the whole line, from its lead-in before the oldest entry
+          // (ten days back).
+          expect(first.isBefore(now.subtract(const Duration(days: 10))),
+              isTrue,
+              reason: r.label);
+          expect(first.isAfter(now.subtract(const Duration(days: 12))),
+              isTrue,
+              reason: r.label);
+        } else {
+          // Its own reach, a month or a year past the line's start too.
+          expect(
+              first.difference(now.subtract(back)).inMinutes.abs(),
+              lessThanOrEqualTo(24 * 60),
+              reason: '${r.label} starts ${back.inDays} days back');
+        }
+        // Zero before the oldest entry, ten days back (a week starts after
+        // it: a alone held then, +0.20).
+        expect(c.values.first, r == BalanceRange.week ? closeTo(0.2, 1e-9) : 0,
+            reason: r.label);
+      }
+      expect(firsts.values.toSet(), hasLength(5),
+          reason: 'every range a window of its own');
+      await _unmount(tester);
+    });
+
+    testWidgets(
+        'a scrub writes the open P&L at that moment in the line, keeping '
+        '"Open P&L"; release puts the figure now back', (tester) async {
+      final events = <(String, Map<String, Object>?)>[];
+      TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+      addTearDown(() => TrackingService.debugTrackObserver = null);
+      await _mount(tester,
+          state: _bothAtWork,
+          trading: _btcHeld,
+          fills: btcFills,
+          size: const Size(390, 1400),
+          sources: sources(),
+          extra: [..._history(), ..._predictionsHistory(), ...open()]);
+      final rest = openLine(tester);
+      final plot = find.descendant(
+          of: find.byKey(const ValueKey('portfolio-hero-open-chart')),
+          matching: find.byKey(const ValueKey('trend-chart-plot')));
+      final box = tester.getRect(plot);
+      final gesture =
+          await tester.startGesture(Offset(box.left + 10, box.center.dy));
+      await tester.pump(const Duration(milliseconds: 16));
+      // Past the drag slop, to about a fifth across: between a's entry
+      // and BTC's.
+      final dx = box.width * 0.2;
+      await gesture.moveTo(Offset(box.left + dx, box.center.dy));
+      await tester.pump(const Duration(milliseconds: 16));
+      final c = chart(tester);
+      final n = c.values.length;
+      final i = (dx / (box.width - 6) * (n - 1)).round().clamp(0, n - 1);
+      final value = c.values[i];
+      final line = openLine(tester);
+      final arrow = value > 0.005
+          ? '▲ '
+          : value < -0.005
+              ? '▼ '
+              : '';
+      expect(line,
+          startsWith('$arrow\$${value.abs().toStringAsFixed(2)} · Open P&L · '));
+      expect(line, isNot(rest));
+      // No percent while scrubbing.
+      expect(line, isNot(contains('%')));
+      await gesture.up();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(openLine(tester), rest);
+      expect(
+          events
+              .where((e) => e.$1 == 'portfolio_performance_chart_scrubbed')
+              .map((e) => e.$2),
+          [
+            {'venue': 'open_positions'}
+          ]);
+      await _unmount(tester);
+    });
+
+    testWidgets(
+        'a position whose history cannot be read is left out and said so; '
+        'the line charts the rest, the figure still counts it',
+        (tester) async {
+      await _mount(tester,
+          state: _bothAtWork,
+          trading: _btcHeld,
+          fills: btcFills,
+          size: const Size(390, 1400),
+          sources: sources(btc: false),
+          extra: [..._history(), ..._predictionsHistory(), ...open()]);
+      expect(openLine(tester), startsWith(r'▲ $0.20'));
+      // a and d alone: +0.20 − 0.40.
+      expect(chart(tester).values.last, closeTo(-0.2, 1e-9));
+      expect(chart(tester).lineColor, AppColors.marketDown);
+      expect(
+          tester
+              .widget<Text>(
+                  find.byKey(const ValueKey('portfolio-hero-open-left-out')))
+              .data,
+          '1 position not charted (history unavailable)');
+      await _unmount(tester);
+    });
+
+    testWidgets(
+        'while the prices are read: the chart\'s shapes; with nothing '
+        'chartable: no chart', (tester) async {
+      final pending = <Completer<List<PolymarketPricePoint>?>>[];
+      await _mount(tester,
+          state: _bothAtWork,
+          size: const Size(390, 1400),
+          sources: OpenPnlSources(
+            activity: (_) async => const [],
+            candles: (_, __, ___, ____) async => null,
+            polyHistory: (_, __, ___) {
+              final c = Completer<List<PolymarketPricePoint>?>();
+              pending.add(c);
+              return c.future;
+            },
+          ),
+          extra: [..._predictionsHistory(), ...open()]);
+      final hero = find.byKey(const ValueKey('portfolio-hero'));
+      expect(find.descendant(of: hero, matching: find.byType(KuteSkeleton)),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('portfolio-hero-open-chart')),
+          findsNothing);
+      // The figure is known at once.
+      expect(openLine(tester), startsWith(r'▼ $0.20'));
+      // Neither history can be read: no chart, no shapes.
+      for (final c in pending) {
+        c.complete(null);
+      }
+      await _settle(tester);
+      expect(find.descendant(of: hero, matching: find.byType(KuteSkeleton)),
+          findsNothing);
+      expect(find.byKey(const ValueKey('portfolio-hero-open-chart')),
+          findsNothing);
+      expect(find.byType(KuteTrendChart), findsNothing);
+      await _unmount(tester);
+    });
+  });
+
+  group(
+      'P&L and Activity: the account\'s P&L from the Positions chart\'s '
+      'engine, realised steps and each position from its own entry, under '
+      'the venue\'s own figures', () {
+    final now = DateTime.now();
+    int ago(Duration d) => now.subtract(d).millisecondsSinceEpoch;
+    HlFill fill(String coin, double px, double sz, String side, Duration at,
+            double start, String dir) =>
+        HlFill(
+          coin: coin,
+          px: px,
+          sz: sz,
+          side: side,
+          time: ago(at),
+          closedPnl: 0,
+          fee: coin == 'ETH' ? 0.5 : 0,
+          feeToken: 'USDC',
+          oid: at.inMinutes,
+          hash: '0x$coin-${at.inMinutes}',
+          dir: dir,
+          cloid: null,
+          startPosition: start,
+        );
+
+    /// BTC long 0.1 at 60,000 six days back, held; ETH 1 bought at 2,000
+    /// five days back and sold at 2,100 four days back ($0.50 fee each:
+    /// +$99 realised).
+    final fills = [
+      fill('BTC', 60000, 0.1, 'B', const Duration(days: 6), 0, 'Open Long'),
+      fill('ETH', 2000, 1, 'B', const Duration(days: 5), 0, 'Open Long'),
+      fill('ETH', 2100, 1, 'A', const Duration(days: 4), 1, 'Close Long'),
+    ];
+
+    /// BTC's candles at 60,004 (+$0.40 on 0.1), ETH's at 2,050 (+$50 on
+    /// 1 while held); [btc] false: BTC's cannot be read.
+    OpenPnlSources sources({bool btc = true}) => OpenPnlSources(
+          activity: (_) async => const [],
+          candles: (_, wire, interval, window) async {
+            if (wire == 'BTC' && !btc) return null;
+            final px = wire == 'BTC' ? 60004.0 : 2050.0;
+            return [
+              for (var t = now.subtract(window);
+                  t.isBefore(now);
+                  t = t.add(const Duration(hours: 1)))
+                HyperliquidCandle(
+                    openTime: t,
+                    closeTime: t.add(const Duration(hours: 1)),
+                    open: px,
+                    high: px,
+                    low: px,
+                    close: px,
+                    volume: 1),
+            ];
+          },
+          polyHistory: (_, __, ___) async => null,
+        );
+
+    /// The venue's own P&L: $1.00 twenty days back that no fill carries
+    /// (funding, say), then everything: $100.40 two days back and now.
+    List<Override> venue() => [
+          portfolioPerformanceProvider(const PortfolioPerformanceRequest(
+                  venue: PortfolioPerformanceVenue.trading))
+              .overrideWith((_) async =>
+                  _perf([(30, 0.0), (20, 1.0), (2, 100.4)], 'Hyperliquid')),
+        ];
+
+    KuteTrendChart chart(WidgetTester tester) => tester.widget<KuteTrendChart>(
+        find.byKey(const ValueKey('portfolio-hero-chart')));
+
+    String line(WidgetTester tester) => tester
+        .widget<Text>(find.byKey(const ValueKey('portfolio-hero-change')))
+        .textSpan!
+        .toPlainText();
+
+    for (final section in const [
+      PortfolioSection.activity,
+      PortfolioSection.charts,
+    ]) {
+      testWidgets(
+          '${section.key}: the venue\'s figure before the fills, then BTC '
+          'from its entry, ETH marked while held and its +\$99 realised at '
+          'its sale, the last point the P&L now; the dashed line at zero',
+          (tester) async {
+        await _mount(tester,
+            state: _bothAtWork,
+            section: section,
+            trading: _btcHeld,
+            fills: fills,
+            size: const Size(390, 1600),
+            sources: sources(),
+            extra: venue());
+        final c = chart(tester);
+        // The past month (the default): from a month back, zero then.
+        expect(c.times!.first.difference(now.subtract(const Duration(days: 30)))
+                .inHours
+                .abs(),
+            lessThanOrEqualTo(24));
+        expect(c.values.first, 0);
+        expect(c.values.last, closeTo(100.4, 1e-9));
+        for (var i = 0; i < c.values.length - 1; i++) {
+          final t = c.times![i];
+          final expected = t.isBefore(now.subtract(const Duration(days: 20)))
+              ? 0.0
+              : t.isBefore(now.subtract(const Duration(days: 6)))
+                  ? 1.0
+                  : t.isBefore(now.subtract(const Duration(days: 5)))
+                      ? 1.4
+                      : t.isBefore(now.subtract(const Duration(days: 4)))
+                          // ETH held: +$50 at 2,050, its $0.50 fee paid.
+                          ? 1.4 + 49.5
+                          : 1.4 + 99;
+          expect(c.values[i], closeTo(expected, 1e-9), reason: '$t');
+        }
+        expect(c.baseline, 0);
+        expect(c.zeroSplit, isTrue);
+        expect(c.lineColor, AppColors.marketUp);
+        // The past month's P&L: all of it.
+        expect(line(tester), startsWith(r'▲ $100.40 · Past month'));
+        expect(find.byKey(const ValueKey('portfolio-hero-left-out')),
+            findsNothing);
+
+        // The past week: from its start (the $1.00 then) to now.
+        await tester.tap(find.descendant(
+            of: find.byKey(const ValueKey('portfolio-hero-chart')),
+            matching: find.text('1W')));
+        await _settle(tester);
+        expect(chart(tester).selectedRange, BalanceRange.week.index);
+        expect(line(tester), startsWith(r'▲ $99.40 · Past week'));
+        expect(chart(tester).values.last, closeTo(100.4, 1e-9));
+        await _unmount(tester);
+      });
+    }
+
+    testWidgets(
+        'a position held whose prices cannot be read: its realised steps '
+        'stay, its swings are left out and said so; the last point is still '
+        'the P&L now', (tester) async {
+      await _mount(tester,
+          state: _bothAtWork,
+          section: PortfolioSection.activity,
+          trading: _btcHeld,
+          fills: fills,
+          size: const Size(390, 1600),
+          sources: sources(btc: false),
+          extra: venue());
+      expect(chart(tester).values.last, closeTo(100.4, 1e-9));
+      expect(
+          tester
+              .widget<Text>(
+                  find.byKey(const ValueKey('portfolio-hero-left-out')))
+              .data,
+          '1 position not charted (history unavailable)');
+      await _unmount(tester);
+    });
+
+    testWidgets(
+        'a venue square picked: the hero draws that venue\'s engine line, '
+        'and the square says the hero\'s own range P&L', (tester) async {
+      await _mount(tester,
+          state: _bothAtWork,
+          section: PortfolioSection.charts,
+          trading: _btcHeld,
+          fills: fills,
+          size: const Size(390, 1600),
+          sources: sources(),
+          extra: [...venue(), ..._predictionsBooked()]);
+      await tester.tap(find.byKey(const ValueKey('pnl-venue-investing')));
+      await _settle(tester);
+      expect(chart(tester).values.last, closeTo(100.4, 1e-9));
+      expect(line(tester), contains(r'▲ $100.40 · Past month'));
+      expect(
+          tester
+              .widget<Text>(find.descendant(
+                  of: find.byKey(const ValueKey('pnl-venue-investing')),
+                  matching: find.byKey(const ValueKey('pnl-venue-figure'))))
+              .data,
+          r'+$100.40');
+      await _unmount(tester);
+    });
+  });
+
   group('the whole page scrolls', () {
-    // Short and at 130 % text, so the Portfolio section scrolls well past
+    // Short and at 130 % text, so the Positions section scrolls well past
     // the pin.
     const size = Size(375, 420);
-    final hero = find.byKey(const ValueKey('portfolio-shares-hero'));
+    final hero = find.byKey(const ValueKey('portfolio-hero'));
     final strip = find.byKey(const ValueKey('portfolio-strip'));
     double stripTop(WidgetTester tester) => tester.getRect(strip).top;
     // Off screen above the strip (a finder skips what is off stage).
     void heroAway(WidgetTester tester) {
-      final h = find.byKey(const ValueKey('portfolio-shares-hero'),
-          skipOffstage: false);
+      final h =
+          find.byKey(const ValueKey('portfolio-hero'), skipOffstage: false);
       if (h.evaluate().isEmpty) return;
       expect(tester.getRect(h).bottom, lessThanOrEqualTo(0.5));
     }
+
     ScrollPosition position(WidgetTester tester) =>
         tester.state<ScrollableState>(_pageScroll).position;
 
     testWidgets(
-        'one scroll: the ring scrolls away with the section, the strip '
+        'one scroll: the hero scrolls away with the section, the strip '
         'pins at the top once it gets there', (tester) async {
       await _mount(tester,
           state: _bothAtWork,
@@ -999,17 +2011,13 @@ void _ringAndCardsMain() {
           extra: [..._history(), ..._predictionsHistory(), ..._manyRows()]);
       await _seeAll(tester);
       final top0 = stripTop(tester);
-      expect(top0, greaterThan(tester.getRect(hero).bottom - 0.5));
-      // The ring, the line and the strip are in the same scroll as the
-      // section: no other scroll view.
+      // The hero, the strip and the section in one scroll.
       expect(find.byType(Scrollable), findsOneWidget);
       position(tester).jumpTo(60);
       await _settle(tester);
-      // Moved up with the content, not yet pinned.
       expect(stripTop(tester), moreOrLessEquals(top0 - 60, epsilon: 0.5));
-      await tester.drag(_pageScroll, const Offset(0, -2000));
+      await tester.drag(_pageScroll, const Offset(0, -3000));
       await _settle(tester);
-      // Pinned at the top, the ring off screen above it.
       expect(stripTop(tester), moreOrLessEquals(0, epsilon: 0.5));
       heroAway(tester);
       expect(position(tester).pixels, greaterThan(top0));
@@ -1017,7 +2025,7 @@ void _ringAndCardsMain() {
     });
 
     testWidgets(
-        'a switch keeps the top block\'s offset: half scrolled stays half '
+        'a switch keeps the hero\'s offset: half scrolled stays half '
         'scrolled; scrolled past the pin, the strip stays pinned and the '
         'next section opens at its top', (tester) async {
       await _mount(tester,
@@ -1027,6 +2035,7 @@ void _ringAndCardsMain() {
           trading: _btcHeld,
           extra: [..._history(), ..._predictionsHistory(), ..._manyRows()]);
       await _seeAll(tester);
+      // Positions: the hero without its chart.
       final pin = stripTop(tester);
       position(tester).jumpTo(40);
       await _settle(tester);
@@ -1034,13 +2043,18 @@ void _ringAndCardsMain() {
       final stripAt = stripTop(tester);
       await _pick(tester, PortfolioSection.charts);
       await _settle(tester);
-      expect(tester.getRect(hero), heroAt);
-      expect(stripTop(tester), stripAt);
+      // The hero stays where it is; its chart unfolds and the strip moves
+      // down by as much.
+      final grown = tester.getRect(hero).height - heroAt.height;
+      expect(grown, greaterThan(50));
+      expect(tester.getRect(hero).top,
+          moreOrLessEquals(heroAt.top, epsilon: 0.01));
+      expect(stripTop(tester), moreOrLessEquals(stripAt + grown, epsilon: 0.01));
       await _pick(tester, PortfolioSection.balances);
       await _settle(tester);
       expect(tester.getRect(hero), heroAt);
+      expect(stripTop(tester), moreOrLessEquals(stripAt, epsilon: 0.01));
 
-      // Past the pin, deep into the section.
       await tester.drag(_pageScroll, const Offset(0, -3000));
       await _settle(tester);
       expect(stripTop(tester), moreOrLessEquals(0, epsilon: 0.5));
@@ -1049,15 +2063,52 @@ void _ringAndCardsMain() {
       await _settle(tester);
       expect(stripTop(tester), moreOrLessEquals(0, epsilon: 0.5));
       heroAway(tester);
-      // At the pin exactly: the new section from its top.
+      // The next section at its top: the pin is the taller hero's now.
+      expect(position(tester).pixels,
+          moreOrLessEquals(pin + grown, epsilon: 0.5));
+      final top = tester.getRect(find.byKey(const ValueKey('statistics-pnl-by-venue')));
+
+      // Scrolled down P&L, back to Positions: the hero folds out of sight,
+      // and every frame of it the strip stays pinned and Positions opens
+      // at its top, still.
+      await tester.drag(_pageScroll, const Offset(0, -3000));
+      await _settle(tester);
+      await _pick(tester, PortfolioSection.balances);
+      await tester.pump();
+      final first = find.byKey(const ValueKey('portfolio-balance-squares'));
+      final at = tester.getRect(first).top;
+      for (var i = 0; i < 8; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+        expect(stripTop(tester), moreOrLessEquals(0, epsilon: 0.5));
+        expect(tester.getRect(first).top, moreOrLessEquals(at, epsilon: 0.5),
+            reason: 'frame $i');
+      }
+      await _settle(tester);
       expect(position(tester).pixels, moreOrLessEquals(pin, epsilon: 0.5));
+      // And back to P&L: the hero unfolds out of sight, P&L at its top.
+      await _pick(tester, PortfolioSection.charts);
+      await tester.pump();
+      for (var i = 0; i < 8; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+        expect(stripTop(tester), moreOrLessEquals(0, epsilon: 0.5));
+        expect(
+            tester
+                .getRect(
+                    find.byKey(const ValueKey('statistics-pnl-by-venue')))
+                .top,
+            moreOrLessEquals(top.top, epsilon: 0.5),
+            reason: 'frame $i');
+      }
+      await _settle(tester);
+      expect(position(tester).pixels,
+          moreOrLessEquals(pin + grown, epsilon: 0.5));
       await _unmount(tester);
     });
 
     testWidgets(
         'a short section never drops the strip: it is at least the '
         'viewport under the strip tall', (tester) async {
-      // Long Portfolio, P&L Charts empty (nothing ever charted).
+      // Long Positions, P&L empty (nothing ever charted).
       await _mount(tester,
           state: _bothAtWork,
           size: size,
@@ -1070,11 +2121,10 @@ void _ringAndCardsMain() {
       expect(stripTop(tester), moreOrLessEquals(0, epsilon: 0.5));
       await _pick(tester, PortfolioSection.charts);
       await _settle(tester);
-      expect(find.byKey(const ValueKey('statistics-chart-empty')),
-          findsOneWidget);
+      expect(
+          find.byKey(const ValueKey('statistics-chart-empty')), findsOneWidget);
       expect(stripTop(tester), moreOrLessEquals(0, epsilon: 0.5));
       heroAway(tester);
-      // And it stays there when dragged further.
       await tester.drag(_pageScroll, const Offset(0, -3000));
       await _settle(tester);
       expect(stripTop(tester), moreOrLessEquals(0, epsilon: 0.5));

@@ -271,10 +271,11 @@ Future<void> showKuteSearch(
   // place and draws the pill transparent (kute_shell_bar.dart reads
   // kuteSearchMorphing / kuteSearchSheetOpen), so the pill's return lands
   // exactly where it rests; a hidden context would slide the bar down and
-  // back and miss the landing. A context placed in the page's header
-  // travels from KuteSalHeaderButton instead and the bar's pill is away
-  // already, so the hidden context goes up as for any sheet (or the bar
-  // would rise behind the tall sheet with the default pill).
+  // back and miss the landing. A context placed in the page's header (the
+  // Investing position's) has no pill of its own, so the hidden context
+  // goes up as for any sheet (or the bar would rise behind the tall sheet
+  // with the default pill); when its round Sal button in the bar is the
+  // one travelling, the bar holds its place regardless.
   const hiddenBar = KuteBarContext.hidden();
   final overlay =
       morph == null ? null : Navigator.of(context, rootNavigator: true).overlay;
@@ -307,17 +308,21 @@ Future<void> showKuteSearch(
         _kSearchSheetKey,
         () => showAppBottomSheet<void>(
               context: context,
-              builder: (_) => UnifiedSearchSurface(
-                initialCategory: effectiveCategory,
-                searchFirst: searchFirst || ledgerMarkets,
-                lockCategory: walletId != null || ledgerMarkets || lockCategory,
-                scopedTabs:
-                    walletId == null && !ledgerMarkets ? scopedTabs : null,
-                walletId: walletId,
-                searchHint: searchHint,
-                barContext: barContext,
-                initialQuestion: initialQuestion,
-                composerKey: composerKey,
+              // The sheet's route, for the bar (kuteSearchSheetCovered).
+              builder: (_) => _SearchSheetRouteProbe(
+                child: UnifiedSearchSurface(
+                  initialCategory: effectiveCategory,
+                  searchFirst: searchFirst || ledgerMarkets,
+                  lockCategory:
+                      walletId != null || ledgerMarkets || lockCategory,
+                  scopedTabs:
+                      walletId == null && !ledgerMarkets ? scopedTabs : null,
+                  walletId: walletId,
+                  searchHint: searchHint,
+                  barContext: barContext,
+                  initialQuestion: initialQuestion,
+                  composerKey: composerKey,
+                ),
               ),
             ));
   } finally {
@@ -344,11 +349,43 @@ Future<void> showKuteSearch(
     }
     kuteSearchSheetOpen.value = false;
     kuteSearchLoading.value = false;
+    _searchSheetRoute = null;
     endKuteSearchSession(container);
   }
 }
 
 const _kSearchSheetKey = 'kute_search';
+
+/// The open search sheet's route, read by the bar; null while none is up
+/// (or before it has built).
+Route<dynamic>? _searchSheetRoute;
+
+/// Whether a page or a sheet the bar shows over stands on the open search
+/// sheet (KuteBarRouteObserver.covered): a result's market page, its
+/// slip, a transaction's detail. The sheet holds the bar only while it is
+/// on top (kute_bar_context.dart, THE SEARCH SHEET ONLY HOLDS THE BAR
+/// WHILE IT IS ON TOP): covered, the bar is the covering surface's own
+/// (its trade row, its primary and round share button), whether the pill
+/// travelled to the composer or the sheet hid the bar (Reduce Motion).
+bool kuteSearchSheetCovered() {
+  final route = _searchSheetRoute;
+  return route != null && KuteBarRouteObserver.covered(route);
+}
+
+/// Records the search sheet's route as the sheet builds. Only this probe
+/// depends on the route's status; the surface under it is the same
+/// widget and is not rebuilt.
+class _SearchSheetRouteProbe extends StatelessWidget {
+  const _SearchSheetRouteProbe({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    _searchSheetRoute = ModalRoute.of(context) ?? _searchSheetRoute;
+    return child;
+  }
+}
 
 /// True while the search sheet is up. The dock's "Search or manage with
 /// AI" pill shrinks and fades while it is (kute_bottom_action_bar.dart), and
@@ -2155,9 +2192,18 @@ const double kContextCardVisualSlot = 56;
 /// a card that sends a pick), the title (16, w600), two lines under it
 /// (13, textSecondary) and, at the foot, what is sent (13, w600,
 /// textPrimary): the market's name for the link, the pick ("Gen.G · 47%")
-/// for the pick. The press spring; a tap runs the action and the sheet
-/// closes. Always the market's own artwork or Sal: never a generic arrow
+/// for the pick. The press spring; a tap closes the sheet, then runs the
+/// action. Always the market's own artwork or Sal: never a generic arrow
 /// in a tinted circle.
+///
+/// CLOSE FIRST, THEN ACT (founder, 4 November 2026: "Card on search share
+/// not working. I click and nothing happens"). The card used to run the
+/// action and then `maybePop` the sheet. `maybePop` is asynchronous: the
+/// market rows open their sheet one microtask later (kute_share_actions
+/// .dart), that sheet landed on top before the pop resolved, and the pop
+/// gave up ("something happened to our history"): the Sal sheet stayed
+/// open under the new sheet, and closing that one landed back on it. The
+/// sheet is now popped synchronously and the action runs after.
 KuteActionCard _contextActionCard(
     BuildContext context, KuteBarAction a, KuteBarPreview p) {
   final c = context.colors;
@@ -2218,8 +2264,9 @@ KuteActionCard _contextActionCard(
     footer: sent,
     footerKey: ValueKey('context-action-sent-${a.label}'),
     onTap: () {
+      final navigator = Navigator.of(context);
+      if (navigator.canPop()) navigator.pop();
       a.onTap(context);
-      Navigator.of(context).maybePop();
     },
   );
 }

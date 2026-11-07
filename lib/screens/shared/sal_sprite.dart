@@ -469,6 +469,7 @@ class SalSprite extends StatefulWidget {
     this.switchAtBoundary = true,
     this.onComplete,
     this.onUnavailable,
+    this.onFrame,
     required this.fallback,
   });
 
@@ -526,6 +527,11 @@ class SalSprite extends StatefulWidget {
   /// Drawn when no sheet can be read (not rendered yet, not registered):
   /// the rig drawing the site wore before.
   final Widget fallback;
+
+  /// Called with every new frame the painter is handed (a layer timed to
+  /// Sal's beats, the share badge's arrow on his blink). It can come
+  /// during a build: repaint from it, never rebuild.
+  final ValueChanged<SalSpriteFrame>? onFrame;
 
   @override
   State<SalSprite> createState() => _SalSpriteState();
@@ -830,7 +836,10 @@ class _SalSpriteState extends State<SalSprite>
       outgoingFrame: _outFrame,
       fade: fade,
     );
-    if (next != _paint.value) _paint.value = next;
+    if (next != _paint.value) {
+      _paint.value = next;
+      widget.onFrame?.call(next);
+    }
   }
 
   /// Tests: what the painter draws now (null: nothing decoded yet).

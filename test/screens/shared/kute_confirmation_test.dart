@@ -8,6 +8,7 @@ import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_dog_rig.dart';
 import 'package:kute/screens/shared/kute_dog_scenes.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
+import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/screens/shared/trade_receipt.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -51,8 +52,26 @@ Finder _markPaint() => find.descendant(
 KuteStatusMark _mark(WidgetTester tester) =>
     tester.widget<KuteStatusMark>(find.byType(KuteStatusMark));
 
+/// The sheet's Sal: the 3D Sal (founder, 31 October 2026), never the
+/// bar's.
+Finder _salSprite() => find.descendant(
+    of: find.byType(KuteConfirmation), matching: find.byType(SalSprite));
+
+/// The clip the sheet's 3D Sal plays: happy, sad or the calm blink.
+String _salClip(WidgetTester tester) =>
+    tester.widget<SalSprite>(_salSprite()).clip;
+
+/// The rig Sal falls back to where his sheets cannot be read
+/// ([_rigOnly]).
 KuteDogConfirmation _sal(WidgetTester tester) =>
     tester.widget<KuteDogConfirmation>(find.byType(KuteDogConfirmation));
+
+/// No sprite sheets: the sheet draws the rig in Sal's place, with its own
+/// mood and wake (sal_sprite.dart's fallback).
+void _rigOnly() {
+  SalSpriteCache.debugSetManifest(null);
+  addTearDown(SalSpriteCache.debugReset);
+}
 
 /// The sheet surface: the keyed, decorated container around the content.
 Finder _sheet() => find
@@ -105,7 +124,8 @@ void main() {
 
     final mark = tester.getRect(find.byType(KuteStatusMark));
     final title = tester.getRect(find.text('Prediction placed'));
-    final sal = tester.getRect(find.byType(KuteDogConfirmation));
+    final sal = tester.getRect(_salSprite());
+    expect(_salClip(tester), 'happy');
     final amount = tester.getRect(find.text(r'$5.00 on Yes'));
     final context = tester.getRect(find.text('Will it rain?'));
     final shares = tester.getRect(find.text('Shares'));
@@ -147,10 +167,12 @@ void main() {
   testWidgets(
       'the check lands under 1.2 s: the haptic fires once as the stroke '
       'completes and Sal wakes just before it', (tester) async {
+    _rigOnly();
     await tester.pumpWidget(_app(
       home: KuteConfirmation(message: 'Order filled', onDone: () {}),
     ));
     await tester.pump();
+    expect(_salClip(tester), 'happy');
     expect(_sal(tester).awake, isFalse);
     expect(_sal(tester).mood, KuteDogMood.happy);
 
@@ -185,6 +207,7 @@ void main() {
   testWidgets(
       'failure: red "!", Sal sad with no wag, the failure tap once and no '
       'success haptic', (tester) async {
+    _rigOnly();
     await tester.pumpWidget(_app(
       home: KuteConfirmation(
         tone: KuteConfirmationTone.failure,
@@ -199,6 +222,7 @@ void main() {
     final colors = tester.element(find.byType(KuteStatusMark)).colors;
     expect(_mark(tester).tone, KuteConfirmationTone.failure);
     expect(_markPaint(), paints..circle(color: colors.error));
+    expect(_salClip(tester), 'sad');
     expect(_sal(tester).mood, KuteDogMood.sad);
     expect(failureHaptics, 1);
     expect(haptics, 0);
@@ -224,6 +248,7 @@ void main() {
   });
 
   testWidgets('pending: a neutral clock, Sal calm, no haptic', (tester) async {
+    _rigOnly();
     await tester.pumpWidget(_app(
       home: KuteConfirmation(
         tone: KuteConfirmationTone.pending,
@@ -237,6 +262,7 @@ void main() {
     await tester.pumpAndSettle();
     final colors = tester.element(find.byType(KuteStatusMark)).colors;
     expect(_markPaint(), paints..circle(color: colors.surfaceElevated));
+    expect(_salClip(tester), 'blink');
     expect(_sal(tester).mood, KuteDogMood.calm);
     expect(haptics, 0);
     expect(failureHaptics, 0);
@@ -244,6 +270,7 @@ void main() {
 
   testWidgets('celebrate: the gold token, Sal cheers, the success haptic',
       (tester) async {
+    _rigOnly();
     await tester.pumpWidget(_app(
       home: KuteConfirmation(
           message: 'Winnings claimed',
@@ -254,6 +281,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(_mark(tester).tone, KuteConfirmationTone.celebrate);
     expect(_markPaint(), paints..circle(color: AppColors.celebrate));
+    expect(_salClip(tester), 'happy');
     expect(_sal(tester).mood, KuteDogMood.cheer);
     expect(haptics, 1);
   });
@@ -261,6 +289,7 @@ void main() {
   testWidgets(
       'Reduce Motion: final mark at once with no ring, Sal static in his '
       'resting pose, nothing animating', (tester) async {
+    _rigOnly();
     await tester.pumpWidget(_app(
       reduceMotion: true,
       home: KuteConfirmation(message: 'Bitcoin sent', onDone: () {}),
@@ -269,6 +298,7 @@ void main() {
 
     expect(tester.hasRunningAnimations, isFalse);
     expect(_mark(tester).reduceMotion, isTrue);
+    expect(_salClip(tester), 'happy');
     expect(_markPaint(), paintsExactlyCountTimes(#drawCircle, 1));
     // Sal is one still painter, no AnimatedBuilder driving him.
     expect(

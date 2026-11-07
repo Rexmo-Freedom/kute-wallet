@@ -187,9 +187,12 @@ void main() {
       await tester.tap(view);
       await tester.pumpAndSettle();
       expect(find.byType(KuteConfirmation), findsNothing);
-      final container =
-          ProviderScope.containerOf(tester.element(find.text('host')));
-      expect(container.read(investmentsTabProvider), InvestmentsTab.positions);
+      // The Portfolio screen may be over the host now: look under it.
+      final container = ProviderScope.containerOf(
+          tester.element(find.text('host', skipOffstage: false)));
+      // The Portfolio is its own screen (31 October 2026): the Dollars
+      // pill stays where it was, Activity to start (4 November 2026).
+      expect(container.read(investmentsTabProvider), InvestmentsTab.activity);
       expect(container.read(portfolioSectionProvider), PortfolioSection.charts);
       expect(
           events
@@ -228,7 +231,9 @@ void main() {
     openInvestmentsOrders(context,
         product: 'predictions', orderKind: 'limit_sell');
     final container = ProviderScope.containerOf(context);
-    expect(container.read(investmentsTabProvider), InvestmentsTab.positions);
+    // The Portfolio is its own screen (31 October 2026): the Dollars
+    // pill stays where it was, Activity to start (4 November 2026).
+    expect(container.read(investmentsTabProvider), InvestmentsTab.activity);
     expect(container.read(portfolioSectionProvider), PortfolioSection.charts);
     expect(events.single.$1, 'order_confirmation_view_orders_tapped');
     expect(events.single.$2,

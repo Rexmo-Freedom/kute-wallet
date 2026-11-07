@@ -33,6 +33,10 @@ import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/home/components/deposit_sheet.dart';
+import 'package:kute/screens/shared/app_bottom_sheet.dart'
+    show KuteSheetBarFit, kuteBarShortSheetFraction;
+import 'package:kute/screens/shared/kute_bar_context.dart'
+    show kuteBarContextProvider, kuteBarTop;
 import 'package:kute/services/funding/spark_hypercore_funding_service.dart';
 import 'package:kute/services/http/shared_http_client.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -239,6 +243,19 @@ void main() {
         lessThan(tester.getTopLeft(other).dx));
     // A way in, not a source to pay from: never marked selected.
     expect(find.text(l10n.moveSelectedBadge), findsNothing);
+    // A short sheet: the floating Sal pill goes while it is up (founder,
+    // 5 November 2026: it sat over the cards, "this is cut"). The picker's
+    // own hidden context is the bar's top, over the page's Move money and
+    // its primary.
+    final sheet = tester.getRect(find
+        .ancestor(
+            of: find.byKey(const ValueKey('move-picker-cards')),
+            matching: find.byType(KuteSheetBarFit))
+        .first);
+    expect(sheet.height, lessThan(932 * kuteBarShortSheetFraction));
+    final bar = kuteBarTop(container.read(kuteBarContextProvider));
+    expect(bar, isNotNull);
+    expect(bar!.hidden, isTrue);
 
     await tester.tap(other);
     await tester.pumpAndSettle(const Duration(milliseconds: 50));

@@ -27,6 +27,7 @@ import 'package:kute/models/share_link_model.dart';
 abstract final class ShareLinksStore {
   static const String boxName = 'share_links';
   static const String _parkedClaimKey = '__parked_claim';
+  static const String _parkedChallengeKey = '__parked_claim_challenge';
 
   /// Bumps on every write, so a provider can rebuild.
   static final ValueNotifier<int> revision = ValueNotifier<int>(0);
@@ -52,7 +53,9 @@ abstract final class ShareLinksStore {
     if (box == null) return const [];
     final rows = <PendingShareLink>[];
     for (final entry in box.entries) {
-      if (entry.key == _parkedClaimKey) continue;
+      if (entry.key == _parkedClaimKey || entry.key == _parkedChallengeKey) {
+        continue;
+      }
       try {
         final row = PendingShareLink.fromJson(jsonDecode(entry.value));
         if (row != null) rows.add(row);
@@ -108,10 +111,19 @@ abstract final class ShareLinksStore {
     return raw == null || raw.isEmpty ? null : raw;
   }
 
-  static void parkClaim(String id) {
+  /// Whether the parked claim's link is a challenge (`?challenge=1`).
+  static bool get parkedClaimChallenge =>
+      _backing()?[_parkedChallengeKey] == '1';
+
+  static void parkClaim(String id, {bool challenge = false}) {
     final box = _backing();
     if (box == null) return;
     box[_parkedClaimKey] = id;
+    if (challenge) {
+      box[_parkedChallengeKey] = '1';
+    } else {
+      box.remove(_parkedChallengeKey);
+    }
     revision.value++;
   }
 
@@ -119,7 +131,9 @@ abstract final class ShareLinksStore {
   static String? takeParkedClaim() {
     final id = parkedClaimId;
     if (id == null) return null;
-    _backing()?.remove(_parkedClaimKey);
+    _backing()
+      ?..remove(_parkedClaimKey)
+      ..remove(_parkedChallengeKey);
     revision.value++;
     return id;
   }

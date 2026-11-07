@@ -20,10 +20,11 @@
 //     is blocked in the app; the entry price is on the position screen);
 //   * a Predictions row that is still open adds a thin bar, the held
 //     side's live chance ([PortfolioChanceBar]);
-//   * on the right what it is worth now (15 w600) with the P&L as a %
-//     under it (12, a caret, up or down); a P&L under a cent reads "0.0%"
-//     quietly, never a red minus ([portfolioPnlPill]). The $ P&L is on the
-//     position screen.
+//   * on the right what it is worth now (15 w600) with the P&L under it
+//     in money and as a % (12, a caret, up or down: "▲ $0.61 · 5.4%";
+//     founder, 6 November 2026: "on each open position say how much I am
+//     actually winning in dollars"); a P&L under a cent reads "$0.00 ·
+//     0.0%" quietly, never a red minus ([portfolioPnlPill]).
 //
 // The Portfolio's one row language ([kPortfolioRowPadV] and the styles
 // under it, founder 1 November 2026): the picture 32, the title 15 w500,
@@ -42,18 +43,17 @@
 // line"; [PortfolioRowLayoutScope]): the same row widgets drawn two other
 // ways. The biggest open positions are SQUARES ([PortfolioRowLayout
 // .square], the Bitcoin home's Latest squares and the Investing grid's:
-// the logo 40 with its ring slice's dot, the P&L % top-right in colour,
-// the name and the line under it quiet, the value 22 sp); the rest are
-// the INVESTING LIST'S OWN ROW ([PortfolioRowLayout.market], HlListRow in
-// hl_market_card.dart: the logo, the name alone, the value over the P&L
-// as "▲ 3.4%"; no line under the name, no dot and no chance bar, the
-// position screen has them). A tap opens the position in every shape; a
-// long press shows it in the ring.
+// the logo 40, the P&L top-right in colour, in money over its % ("▲
+// $0.61" over "5.4%"), the name and the line under it quiet, the value
+// 22 sp); the rest are the INVESTING LIST'S OWN ROW ([PortfolioRowLayout
+// .market], HlListRow in hl_market_card.dart: the logo, the name alone,
+// the value over the P&L as "▲ $0.61 · 5.4%"; no line under the name and
+// no chance bar, the position screen has them). The Dollars Activity
+// tab's open-position squares are these squares. A tap opens the position in every shape.
 // Every row is its own widget watching only what it needs, so a price
 // tick repaints one row. Taps open the same screens the cards opened,
 // with the same `open_investments_position_tapped` event.
 
-import 'package:flutter/foundation.dart' show mapEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -95,6 +95,8 @@ import 'package:kute/screens/polymarket/components/position_detail_sheet.dart'
     show PositionDetailSheet, polyPositionEnd;
 import 'package:kute/screens/portfolio/poly_position_events.dart'
     show polyPositionEventProvider;
+import 'package:kute/screens/shared/all_activity.dart'
+    show ActivitySquareGrid;
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/screens/shared/kute_motion.dart'
     show KutePressable, RollingFigure;
@@ -203,55 +205,6 @@ class PortfolioRowInset extends InheritedWidget {
       horizontal != oldWidget.horizontal || vertical != oldWidget.vertical;
 }
 
-/// One open position as the Portfolio screen's ring draws it: its slice
-/// id (the row's own key, "hl-BTC", "poly-" and its token), its name, what it is
-/// worth now, its open P&L and the slice's colour.
-@immutable
-class PortfolioSlice {
-  const PortfolioSlice({
-    required this.id,
-    required this.name,
-    required this.valueUsd,
-    required this.color,
-    this.pnlUsd,
-    this.pnlPercent,
-  });
-
-  final String id;
-  final String name;
-  final double valueUsd;
-  final Color color;
-  final double? pnlUsd;
-  final double? pnlPercent;
-}
-
-/// The Portfolio screen's slices above its rows: each row with a
-/// [PortfolioPositionRow.sliceId] here draws its slice's dot, and a long
-/// press on it toggles the position in the ring ([onToggle]).
-class PortfolioSliceScope extends InheritedWidget {
-  const PortfolioSliceScope({
-    super.key,
-    required this.colors,
-    required this.onToggle,
-    required super.child,
-  });
-
-  final Map<String, Color> colors;
-  final ValueChanged<String> onToggle;
-
-  static PortfolioSliceScope? maybeOf(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<PortfolioSliceScope>();
-
-  @override
-  bool updateShouldNotify(PortfolioSliceScope old) =>
-      !mapEquals(old.colors, colors) || old.onToggle != onToggle;
-}
-
-/// The Portfolio screen's highlighted position (a row long-pressed): its
-/// slice id, or null. Cleared once nothing watches it.
-final portfolioPositionFocusProvider =
-    StateProvider.autoDispose<String?>((ref) => null);
-
 /// The Portfolio's soft card list (founder, 1 November 2026: one style
 /// with the home Activity list): the Activity day card's surface, radius,
 /// border and soft shadow ([PremiumGroupContainer.decorationOf]), its rows
@@ -312,9 +265,10 @@ class PortfolioCardList extends StatelessWidget {
 }
 
 /// How a [PortfolioPositionRow] is drawn (see the file header): the
-/// Portfolio's own row ([list]), the Investing list's row ([market]) or a
-/// big square ([square]).
-enum PortfolioRowLayout { list, market, square }
+/// Portfolio's own row ([list]), the Investing list's row ([market]), a
+/// big square ([square]) or the full-width compact card an odd last
+/// square becomes ([wide], [PortfolioPositionSquares]).
+enum PortfolioRowLayout { list, market, square, wide }
 
 /// The [PortfolioRowLayout] of the position rows under it; none above:
 /// [PortfolioRowLayout.list].
@@ -335,8 +289,10 @@ class PortfolioRowLayoutScope extends InheritedWidget {
 }
 
 /// How many of [positions] open positions the Portfolio screen draws as
-/// squares: full rows of two only, two for two or three, four from four;
-/// a single position is one full-width square. Pure for the tests.
+/// squares: full rows of two only, two for two or three, four from four
+/// (the rest are their venue's rows); a single position is the one
+/// full-width compact card ([PortfolioPositionSquares]: never a lone
+/// half square). Pure for the tests.
 int portfolioSquareCount(int positions) => positions >= 4
     ? 4
     : positions >= 2
@@ -349,12 +305,60 @@ int portfolioSquareCount(int positions) => positions >= 4
 const double kPortfolioSquareIcon = 40;
 const double _kSquarePad = 14;
 
+/// The gap between squares, each way (ActivitySquareGrid's), and over the
+/// full-width card under them.
+const double kPortfolioSquareGap = 10;
+
+/// THE NO-ORPHAN RULE (founder, 6 November 2026, on three open positions
+/// on the Dollars Activity tab, the third a half square alone on its row:
+/// "should the 3rd one be rectangular and not with this disposition?"):
+/// [rows] (the positions' own rows, biggest first) as squares two by two
+/// (ActivitySquareGrid, [PortfolioRowLayout.square]), and an odd last one,
+/// one alone included, as one full-width compact card under them
+/// ([PortfolioRowLayout.wide]: the logo, the name over the side held, the
+/// value, the P&L in money over its %), never a lone half square. The
+/// Dollars Activity tab's squares (up to four) and the Portfolio's
+/// (portfolioSquareCount: whole rows of two, the rest as rows) both draw
+/// through it.
+class PortfolioPositionSquares extends StatelessWidget {
+  const PortfolioPositionSquares({super.key, required this.rows});
+
+  final List<Widget> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    final paired = rows.length - rows.length % 2;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (paired > 0)
+          PortfolioRowLayoutScope(
+            layout: PortfolioRowLayout.square,
+            child: ActivitySquareGrid(children: rows.sublist(0, paired)),
+          ),
+        if (rows.length.isOdd) ...[
+          if (paired > 0) SizedBox(height: kPortfolioSquareGap.w),
+          PortfolioRowLayoutScope(
+            layout: PortfolioRowLayout.wide,
+            child: rows.last,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 /// A P&L as the Investing rows write a change: "▲ 4.0%" / "▼ 4.0%" in the
 /// up / down colour, "0.0%" quietly when flat ([portfolioPnlPill]'s
-/// figure, its sign turned into the arrow).
+/// figure, its sign turned into the arrow). With its [amount] in money
+/// (unsigned, "$0.61"), the money first: "▲ $0.61 · 4.0%", "$0.00 · 0.0%"
+/// quietly when flat.
 ({String text, Color color}) portfolioArrowPnl(
-    BuildContext context, ({String text, PortfolioPnlTone tone}) pnl) {
-  final shown = pnl.text.replaceFirst(RegExp(r'^[+\u2212-]'), '');
+    BuildContext context, ({String text, PortfolioPnlTone tone}) pnl,
+    {String? amount}) {
+  final percent = pnl.text.replaceFirst(RegExp(r'^[+\u2212-]'), '');
+  final shown = amount == null ? percent : '$amount · $percent';
   return switch (pnl.tone) {
     PortfolioPnlTone.up => (text: '▲ $shown', color: greenColor),
     PortfolioPnlTone.down => (text: '▼ $shown', color: redColor),
@@ -365,13 +369,42 @@ const double _kSquarePad = 14;
   };
 }
 
+/// The P&L in a square's corner: the money with its arrow over the %
+/// ("▲ $0.61" over "5.4%"), both in the result's colour; without [amount],
+/// the % alone with its arrow, as before.
+typedef PortfolioCornerPnl = ({String? amount, String percent, Color color});
+
+/// [pnl] as a square's corner writes it ([PortfolioCornerPnl]).
+PortfolioCornerPnl portfolioCornerPnl(
+    BuildContext context, ({String text, PortfolioPnlTone tone}) pnl,
+    {String? amount}) {
+  final arrow = portfolioArrowPnl(context, pnl);
+  if (amount == null) {
+    return (amount: null, percent: arrow.text, color: arrow.color);
+  }
+  final lead = switch (pnl.tone) {
+    PortfolioPnlTone.up => '▲ ',
+    PortfolioPnlTone.down => '▼ ',
+    PortfolioPnlTone.flat => '',
+  };
+  return (
+    amount: '$lead$amount',
+    percent: pnl.text.replaceFirst(RegExp(r'^[+\u2212-]'), ''),
+    color: arrow.color,
+  );
+}
+
 /// A position square's height: [kActivitySquareHeight], or its content at
 /// the viewer's text size when that is taller (no overflow at an
 /// accessibility size).
 double portfolioSquareHeight(BuildContext context) {
   final scaler = MediaQuery.textScalerOf(context);
+  // The top row: the logo, or the corner's two lines (the P&L in money
+  // over its %) when they are taller at the viewer's text size.
+  final corner = scaler.scale(13.sp) * 1.2 + 1.h + scaler.scale(12.sp) * 1.3;
+  final top = corner > kPortfolioSquareIcon.w ? corner : kPortfolioSquareIcon.w;
   final content = _kSquarePad.w * 2 +
-      kPortfolioSquareIcon.w +
+      top +
       10.w +
       scaler.scale(13.sp) * 1.25 +
       2.h +
@@ -713,10 +746,15 @@ class PortfolioChanceBar extends StatelessWidget {
 /// The P&L % pill: the up or down colour on its own light tint, the quiet
 /// text on the neutral surface when flat.
 class PortfolioPnlPill extends StatelessWidget {
-  const PortfolioPnlPill({super.key, required this.text, required this.tone});
+  const PortfolioPnlPill(
+      {super.key, required this.text, required this.tone, this.amount});
 
   final String text;
   final PortfolioPnlTone tone;
+
+  /// The P&L in money, unsigned ("$0.61"), written before the %: "▲ $0.61
+  /// · 5.4%". Null: the % alone.
+  final String? amount;
 
   /// The pill's ground and text colours for [tone].
   static ({Color background, Color foreground}) colorsFor(
@@ -743,8 +781,11 @@ class PortfolioPnlPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = colorsFor(context, tone);
     // Plain figure, brokerage style: a small caret for the direction and
-    // the unsigned %, in the up/down colour; flat reads "0.0%" quietly.
+    // the unsigned money and %, in the up/down colour; flat reads "$0.00 ·
+    // 0.0%" quietly.
     final shown = text.replaceFirst(RegExp(r'^[+\u2212-]'), '');
+    final style = portfolioRowChangeStyle(colors.foreground);
+    final amount = this.amount;
     return Row(
       key: const ValueKey('portfolio-row-pnl-pill'),
       mainAxisSize: MainAxisSize.min,
@@ -757,10 +798,18 @@ class PortfolioPnlPill extends StatelessWidget {
           ),
           SizedBox(width: 4.w),
         ],
+        if (amount != null) ...[
+          RollingFigure(
+            key: const ValueKey('portfolio-row-pnl-usd'),
+            text: amount,
+            style: style,
+          ),
+          Text(' · ', style: style),
+        ],
         RollingFigure(
           key: const ValueKey('portfolio-row-pnl'),
           text: shown,
-          style: portfolioRowChangeStyle(colors.foreground),
+          style: style,
         ),
       ],
     );
@@ -806,9 +855,9 @@ class PortfolioPositionRow extends StatelessWidget {
     this.chance,
     this.entry,
     this.pnl,
+    this.pnlAmount,
     this.detail,
     this.onTap,
-    this.sliceId,
     this.listName,
   });
 
@@ -823,16 +872,15 @@ class PortfolioPositionRow extends StatelessWidget {
   final String value;
   final double? chance;
 
-  /// The position's slice of the Portfolio screen's ring
-  /// ([PortfolioSliceScope]): with a scope above that knows it, a small dot
-  /// in the slice's colour leads the line under the title, and a long
-  /// press shows the position in the ring (again: clears). Null: none.
-  final String? sliceId;
-
   /// The price the held side was bought at (0 to 1): a tick on the chance
   /// bar.
   final double? entry;
   final ({String text, PortfolioPnlTone tone})? pnl;
+
+  /// [pnl] in money, unsigned ("$0.61"): written before its % in every
+  /// shape (founder, 6 November 2026: "on each open position say how much
+  /// I am actually winning in dollars"). Null: the % alone.
+  final String? pnlAmount;
   final String? detail;
   final VoidCallback? onTap;
 
@@ -841,20 +889,11 @@ class PortfolioPositionRow extends StatelessWidget {
     final secondary = portfolioRowSubStyle(context);
     final under = pnl;
     final chance = this.chance;
-    final slices = PortfolioSliceScope.maybeOf(context);
-    final id = sliceId;
-    final dot = id == null ? null : slices?.colors[id];
-    // The ring shows this position (founder, 1 November 2026); the tap
-    // keeps opening it.
-    final VoidCallback? longPress = dot == null
-        ? null
-        : () {
-            HapticFeedback.selectionClick();
-            slices!.onToggle(id!);
-          };
     switch (PortfolioRowLayoutScope.of(context)) {
       case PortfolioRowLayout.market:
-        final change = under == null ? null : portfolioArrowPnl(context, under);
+        final change = under == null
+            ? null
+            : portfolioArrowPnl(context, under, amount: pnlAmount);
         return HlListRow(
           inGroup: true,
           leading: SizedBox.square(
@@ -868,7 +907,6 @@ class PortfolioPositionRow extends StatelessWidget {
           changeKey: ValueKey(
               change != null ? 'portfolio-row-pnl' : 'portfolio-row-detail'),
           onTap: onTap,
-          onLongPress: longPress,
         );
       case PortfolioRowLayout.square:
         // The line under the name says the side held: the title alone.
@@ -877,11 +915,23 @@ class PortfolioPositionRow extends StatelessWidget {
           name: title,
           subtitle: subtitle,
           value: value,
-          change: under == null ? null : portfolioArrowPnl(context, under),
+          change: under == null
+              ? null
+              : portfolioCornerPnl(context, under, amount: pnlAmount),
           detail: detail,
-          dot: dot,
           onTap: onTap,
-          onLongPress: longPress,
+        );
+      case PortfolioRowLayout.wide:
+        return _PositionWide(
+          leading: leading,
+          name: title,
+          subtitle: subtitle,
+          value: value,
+          change: under == null
+              ? null
+              : portfolioCornerPnl(context, under, amount: pnlAmount),
+          detail: detail,
+          onTap: onTap,
         );
       case PortfolioRowLayout.list:
         break;
@@ -890,7 +940,6 @@ class PortfolioPositionRow extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        onLongPress: longPress,
         child: Padding(
           padding: EdgeInsets.symmetric(
               horizontal: PortfolioRowInset.of(context),
@@ -922,28 +971,11 @@ class PortfolioPositionRow extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: portfolioRowTitleStyle(context)),
                       SizedBox(height: 2.h),
-                      Row(
-                        children: [
-                          // Its slice's colour in the ring above.
-                          if (dot != null) ...[
-                            Container(
-                              key: const ValueKey('portfolio-row-dot'),
-                              width: 6.w,
-                              height: 6.w,
-                              decoration: BoxDecoration(
-                                  color: dot, shape: BoxShape.circle),
-                            ),
-                            SizedBox(width: 5.w),
-                          ],
-                          Flexible(
-                            child: Text(subtitle,
-                                key: const ValueKey('portfolio-row-subtitle'),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: secondary),
-                          ),
-                        ],
-                      ),
+                      Text(subtitle,
+                          key: const ValueKey('portfolio-row-subtitle'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: secondary),
                       if (chance != null) ...[
                         SizedBox(height: 7.h),
                         // Under the title, from where it starts; never
@@ -980,7 +1012,9 @@ class PortfolioPositionRow extends StatelessWidget {
                       if (under != null) ...[
                         SizedBox(height: 2.h),
                         _figureFit(PortfolioPnlPill(
-                            text: under.text, tone: under.tone)),
+                            text: under.text,
+                            tone: under.tone,
+                            amount: pnlAmount)),
                       ] else if (detail case final word?) ...[
                         SizedBox(height: 4.h),
                         _figureFit(Text(word, maxLines: 1, style: secondary)),
@@ -1008,11 +1042,10 @@ Widget _figureFit(Widget figure) => FittedBox(
 /// One position as a big square (see the file header; drawn as the
 /// Investing grid's HlMovingNowCard and the home's Latest squares): the
 /// grouped card's ground, 14 padding, [portfolioSquareHeight] tall; the
-/// logo ([kPortfolioSquareIcon]) top-left with its ring slice's [dot] at
-/// its lower right, the P&L ([change], or the quiet [detail]) top-right,
-/// then the name and the line under it quiet over the value at 22 sp. The
-/// whole square taps through to the position on the press spring; a long
-/// press shows it in the ring.
+/// logo ([kPortfolioSquareIcon]) top-left, the P&L ([change]: in money
+/// over its %, or the quiet [detail]) top-right, then the name and the
+/// line under it quiet over the value at 22 sp. The whole square taps through to the position
+/// on the press spring.
 class _PositionSquare extends StatelessWidget {
   const _PositionSquare({
     required this.leading,
@@ -1021,20 +1054,16 @@ class _PositionSquare extends StatelessWidget {
     required this.value,
     required this.change,
     required this.detail,
-    required this.dot,
     required this.onTap,
-    required this.onLongPress,
   });
 
   final Widget leading;
   final String name;
   final String subtitle;
   final String value;
-  final ({String text, Color color})? change;
+  final PortfolioCornerPnl? change;
   final String? detail;
-  final Color? dot;
   final VoidCallback? onTap;
-  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -1049,9 +1078,15 @@ class _PositionSquare extends StatelessWidget {
       height: 1.25,
     );
     final change = this.change;
-    final corner = change?.text ?? detail;
+    final corner = change?.percent ?? detail;
     final icon = kPortfolioSquareIcon.w;
-    final dotSize = 12.w;
+    final cornerStyle = quiet.copyWith(
+      color: change?.color ?? c.textSecondary,
+      fontWeight: FontWeight.w600,
+      height: 1.2,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    final amount = change?.amount;
     return KutePressable(
       enabled: onTap != null,
       child: Container(
@@ -1063,7 +1098,6 @@ class _PositionSquare extends StatelessWidget {
           borderRadius: radius,
           child: InkWell(
             onTap: onTap,
-            onLongPress: onLongPress,
             borderRadius: radius,
             child: Padding(
               padding: EdgeInsets.all(_kSquarePad.w),
@@ -1073,56 +1107,48 @@ class _PositionSquare extends StatelessWidget {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // The row's picture, drawn at the square's size.
                       SizedBox.square(
                         dimension: icon,
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            // The row's picture, drawn at the square's size.
-                            Positioned.fill(
-                                child: FittedBox(child: leading)),
-                            // Its slice's colour in the ring above.
-                            if (dot != null)
-                              Positioned(
-                                right: -2.w,
-                                bottom: -2.w,
-                                child: Container(
-                                  key: const ValueKey('portfolio-row-dot'),
-                                  width: dotSize,
-                                  height: dotSize,
-                                  decoration: BoxDecoration(
-                                    color: dot,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                        color: decoration.color ?? c.surface,
-                                        width: 2),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
+                        child: FittedBox(child: leading),
                       ),
                       SizedBox(width: 8.w),
                       if (corner != null)
                         Expanded(
                           child: Align(
                             alignment: Alignment.topRight,
+                            // The money over its %, right-aligned; a wide
+                            // figure scales down rather than run into the
+                            // logo.
                             child: FittedBox(
                               fit: BoxFit.scaleDown,
                               alignment: Alignment.topRight,
-                              child: RollingFigure(
-                                key: ValueKey(change != null
-                                    ? 'portfolio-row-pnl'
-                                    : 'portfolio-row-detail'),
-                                text: corner,
-                                style: quiet.copyWith(
-                                  color: change?.color ?? c.textSecondary,
-                                  fontWeight: FontWeight.w600,
-                                  height: 1.2,
-                                  fontFeatures: const [
-                                    FontFeature.tabularFigures()
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (amount != null) ...[
+                                    RollingFigure(
+                                      key: const ValueKey(
+                                          'portfolio-row-pnl-usd'),
+                                      text: amount,
+                                      style: cornerStyle,
+                                    ),
+                                    SizedBox(height: 1.h),
                                   ],
-                                ),
+                                  RollingFigure(
+                                    key: ValueKey(change != null
+                                        ? 'portfolio-row-pnl'
+                                        : 'portfolio-row-detail'),
+                                    text: corner,
+                                    style: amount == null
+                                        ? cornerStyle
+                                        : cornerStyle.copyWith(
+                                            fontSize: 12.sp,
+                                            fontWeight: FontWeight.w500,
+                                            height: 1.3),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
@@ -1165,6 +1191,161 @@ class _PositionSquare extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One position as the full-width compact card an odd last square becomes
+/// ([PortfolioPositionSquares], the no-orphan rule): the square's ground
+/// and padding, one row: the logo ([kPortfolioSquareIcon]) on the left,
+/// the name over the side held quiet, then the value, and at the end the
+/// P&L as the square's corner writes it (the money over its %, or the
+/// quiet [detail]) in its colour. Its own content's height, never taller
+/// than it needs; the whole card taps through on the press spring.
+class _PositionWide extends StatelessWidget {
+  const _PositionWide({
+    required this.leading,
+    required this.name,
+    required this.subtitle,
+    required this.value,
+    required this.change,
+    required this.detail,
+    required this.onTap,
+  });
+
+  final Widget leading;
+  final String name;
+  final String subtitle;
+  final String value;
+  final PortfolioCornerPnl? change;
+  final String? detail;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final decoration = PremiumGroupContainer.decorationOf(context);
+    final radius = decoration.borderRadius as BorderRadius?;
+    final change = this.change;
+    final corner = change?.percent ?? detail;
+    final amount = change?.amount;
+    final cornerStyle = TextStyle(
+      color: change?.color ?? c.textSecondary,
+      fontSize: 13.sp,
+      fontWeight: FontWeight.w600,
+      letterSpacing: -0.1,
+      height: 1.2,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    return KutePressable(
+      enabled: onTap != null,
+      child: Container(
+        key: const ValueKey('portfolio-wide'),
+        decoration: decoration,
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: radius,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: radius,
+            child: Padding(
+              padding: EdgeInsets.all(_kSquarePad.w),
+              child: LayoutBuilder(builder: (context, box) {
+                return Row(
+                  children: [
+                    // The row's picture, drawn at the square's size.
+                    SizedBox.square(
+                      dimension: kPortfolioSquareIcon.w,
+                      child: FittedBox(child: leading),
+                    ),
+                    SizedBox(width: kPortfolioRowGap.w),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(name,
+                              key: const ValueKey('portfolio-row-title'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: portfolioRowTitleStyle(context)),
+                          SizedBox(height: 2.h),
+                          Text(subtitle,
+                              key: const ValueKey('portfolio-row-subtitle'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: portfolioRowSubStyle(context)),
+                        ],
+                      ),
+                    ),
+                    SizedBox(width: 12.w),
+                    // The figures take what they need, at most
+                    // kPortfolioRowFiguresShare of the card, scaled down
+                    // past that, never cut at its edge.
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                          maxWidth: box.maxWidth * kPortfolioRowFiguresShare),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: AlignmentDirectional.centerEnd,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            RollingFigure(
+                              key: const ValueKey('portfolio-row-value'),
+                              text: value,
+                              style: TextStyle(
+                                color: c.textPrimary,
+                                fontSize: 17.sp,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -0.4,
+                                height: 1.2,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures()
+                                ],
+                              ),
+                            ),
+                            if (corner != null) ...[
+                              SizedBox(width: 12.w),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (amount != null) ...[
+                                    RollingFigure(
+                                      key: const ValueKey(
+                                          'portfolio-row-pnl-usd'),
+                                      text: amount,
+                                      style: cornerStyle,
+                                    ),
+                                    SizedBox(height: 1.h),
+                                  ],
+                                  RollingFigure(
+                                    key: ValueKey(change != null
+                                        ? 'portfolio-row-pnl'
+                                        : 'portfolio-row-detail'),
+                                    text: corner,
+                                    style: amount == null
+                                        ? cornerStyle
+                                        : cornerStyle.copyWith(
+                                            fontSize: 12.sp,
+                                            fontWeight: FontWeight.w500,
+                                            height: 1.3),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }),
             ),
           ),
         ),
@@ -1310,7 +1491,7 @@ class PolyPositionRow extends ConsumerWidget {
         chance: p.isResolved ? null : price,
         entry: p.isResolved ? null : p.avgPrice,
         pnl: portfolioPnlPill(pnl, percent: pnlPercent),
-        sliceId: p.isResolved ? null : 'poly-${p.tokenId}',
+        pnlAmount: money(pnl.abs()),
         onTap: () {
           HapticFeedback.selectionClick();
           TrackingService.track('open_investments_position_tapped',
@@ -1354,8 +1535,8 @@ class ComboPositionRow extends StatelessWidget {
           ? portfolioPnlPill(pnl,
               percent: p.stakeUsd > 0 ? pnl / p.stakeUsd * 100 : null)
           : null,
+      pnlAmount: formatHlUsd(pnl.abs()),
       detail: l10n.comboEstimatedValue,
-      sliceId: lost || settled != null ? null : 'combo-${p.conditionId}',
       onTap: () {
         HapticFeedback.selectionClick();
         TrackingService.track('open_investments_position_tapped',
@@ -1449,7 +1630,7 @@ class HlPositionRow extends ConsumerWidget {
           '${formatHlSize(p.szi.abs())} ${_ticker(coin)}',
       value: money(hlCloseValue(p, liveMid: mid)),
       pnl: portfolioPnlPill(pnl, percent: roe * 100),
-      sliceId: 'hl-${p.coin}',
+      pnlAmount: money(pnl.abs()),
       onTap: () {
         HapticFeedback.selectionClick();
         TrackingService.track('open_investments_position_tapped',
@@ -1495,7 +1676,7 @@ class HlSpotRow extends ConsumerWidget {
           ? null
           : portfolioPnlPill(pnl,
               percent: cost != null && cost > 0 ? pnl / cost * 100 : null),
-      sliceId: 'hl-spot-${balance.coin}',
+      pnlAmount: pnl == null ? null : money(pnl.abs()),
       onTap: market == null
           ? null
           : () {

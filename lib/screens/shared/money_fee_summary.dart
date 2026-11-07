@@ -594,6 +594,8 @@ class _FeeBreakdownBody extends ConsumerWidget {
                           fontSize: 13.sp,
                           height: 1.4)),
                 ],
+                // The last rows scroll clear of the floating bar.
+                const KuteSheetBarSpace(),
               ],
             ),
           ),

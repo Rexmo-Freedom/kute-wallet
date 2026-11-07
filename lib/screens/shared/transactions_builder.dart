@@ -20,6 +20,8 @@ import 'package:kute/services/one_balance/multi_source_move.dart';
 import 'package:kute/services/one_balance/move_steps.dart' show MoveSteps;
 import 'package:kute/services/orchestra/own_spark_arrivals.dart';
 import 'package:kute/services/orchestra/own_bitcoin_deliveries.dart';
+import 'package:kute/services/orchestra/settlement_funding_legs.dart'
+    show fundingLegsOf;
 import 'package:kute/services/one_balance/venue_cash_source.dart'
     show
         VenueCashDestination,
@@ -89,6 +91,13 @@ import 'package:kute/providers/polymarket_browse_provider.dart'
     show activityCrestIcon;
 import 'package:kute/helpers/prediction_results.dart'
     show PredictionResult, predictionResults;
+import 'package:kute/screens/share/brag/brag_data.dart'
+    show bragWonPrediction;
+import 'package:kute/screens/share/cards/share_card_data.dart'
+    show ReceiptCardAsset, ReceiptCardKind;
+import 'package:kute/screens/share/receipt_share.dart';
+import 'package:kute/screens/share/brag/brag_win_entry.dart'
+    show BragWinEntry;
 import 'package:kute/screens/polymarket/market_detail_sheet.dart'
     show MarketDetailSheet;
 import 'package:kute/screens/portfolio/poly_position_events.dart'
@@ -346,6 +355,7 @@ class _TransactionListState extends ConsumerState<TransactionList> {
       // A move over with nothing delivered has no row; its legs show.
       dissolved: moves.isEmpty ? null : watchMultiSourceMovesDissolved(ref),
       bitcoinReceiveMarks: ref.watch(bitcoinReceiveMarksProvider),
+      receivedUsd: activityReceivedUsd(ref),
     );
 
     // A deposit waiting on the person (fee above the cap, a failed claim)
@@ -1230,6 +1240,19 @@ Set<String> activityOwnSettleAddresses(WidgetRef ref) {
   return own;
 }
 
+/// Each Spark receive's dollar value when it landed, for the Activity lists
+/// ([assembleActivityRows]): its fiat snapshot, else its sats at the
+/// current price (read, not watched: a price tick never rebuilds a list).
+ReceivedUsd activityReceivedUsd(WidgetRef ref) {
+  double price = 0;
+  try {
+    price = ref.read(currentBtcUsdProvider);
+  } catch (_) {
+    // No price yet: snapshots alone.
+  }
+  return snapshotReceivedUsd(currentBtcUsd: price);
+}
+
 /// Destination string of an outbound Spark payment, lowercased for
 /// address comparison. The Breez `PaymentDetails` variants carry
 /// "where did it go" in different fields:
@@ -1295,6 +1318,27 @@ bool orchestraTouchesBitcoin(SwapOrder order) {
   return swapAssetIsBitcoin(order.coinTo) || swapAssetIsBitcoin(order.coinFrom);
 }
 
+/// Whether the bitcoin ledger lists the conversion [d] (the Bitcoin home's
+/// Activity, all_activity.dart's [ActivityScope.bitcoin]): bitcoin moved
+/// at one end of it (bought, sold, converted to or from Dollars, paid into
+/// Investing or Predictions, withdrawn home, received from another coin),
+/// and it is not a send paid from Dollars ("All sends from Dollars should
+/// only show up in Dollars"). A Cash App purchase counts only when it
+/// delivers bitcoin. A coin received into Dollars through an address
+/// opened from the Bitcoin receive is listed too ([marks], founder
+/// decision). A move between Dollars and a venue moved no bitcoin.
+bool bitcoinLedgerListsSwap(
+  SwapOrder d, {
+  SwapActivityKind Function(SwapOrder order) classify = swapActivityFor,
+  List<BitcoinReceiveMark> marks = const [],
+}) {
+  if (shownFromBitcoinReceive(d, marks)) return true;
+  if (swapTouchesOnlyDollars(d)) return false;
+  if (d.isCashAppPurchase) return orchestraTouchesBitcoin(d);
+  if (!orchestraTouchesBitcoin(d)) return false;
+  return !_isDollarFundedSend(d, classify(d));
+}
+
 /// Whether [order] is a send to someone else paid from the dollar
 /// balance. The Dollars send screen pays every destination this way
 /// (bitcoin on-chain, Lightning, Spark, other dollars): the dollar token
@@ -1329,20 +1373,28 @@ bool _isDollarLegOf(UsdbTokenTransaction tx, SwapOrderTransaction ex) {
       30 * 60 * 1000;
 }
 
-/// How long after a venue withdrawal to Dollars started its dollars may
-/// still land and be linked to it. Orchestra can hold an order well past
-/// the 30 minutes [_isDollarLegOf] allows (the first Circle CCTP sweep
-/// landed 42 minutes after it left, held for screening); the link then
-/// rests on the record and the exact amount, not on the clock.
+/// How long after one of the wallet's own moves into Dollars started its
+/// dollars may still land and be linked to it. Orchestra can hold an
+/// order well past the 30 minutes [_isDollarLegOf] allows (the first
+/// Circle CCTP sweep landed 42 minutes after it left, held for
+/// screening); the link then rests on the record and the amount, not on
+/// the clock.
 const Duration kVenueWithdrawalArrivalWindow = Duration(hours: 24);
 
-/// Whether [d] is the wallet's own withdrawal from Investing or
-/// Predictions into Dollars (a sweep, the Circle CCTP fallback, a manual
-/// move) that can still deliver: a settlement-record row (its recipient
-/// is the wallet's own Spark address by construction) or one that settles
-/// to an address the wallet owns. Failed, refunded or expired orders never
+/// How far a delivery into Dollars may land from the figure of a move
+/// still under way: that figure is the quote's estimate (or, for a Circle
+/// CCTP move, what reached Orchestra before its fee) until the status
+/// poll writes what was delivered.
+const double kOwnDollarArrivalEstimateBand = 0.05;
+
+/// Whether [d] is the wallet's own move into Dollars that can still
+/// deliver: a withdrawal from Investing or Predictions (a sweep, the
+/// Circle CCTP fallback, a manual move) or a conversion of the wallet's
+/// own bitcoin into Dollars, with a settlement record (its recipient is
+/// the wallet's own Spark address by construction) or settling to an
+/// address the wallet owns. Failed, refunded or expired orders never
 /// deliver, so nothing links to them.
-bool _isOwnVenueWithdrawalToDollars(
+bool _isOwnMoveIntoDollars(
   SwapOrder d,
   SwapActivityKind kind, {
   required Set<String> ownAddresses,
@@ -1350,7 +1402,8 @@ bool _isOwnVenueWithdrawalToDollars(
   if (!d.isOrchestra) return false;
   if (d.coinTo.toUpperCase() != kOrchestraUsdAssetCode) return false;
   if (kind != SwapActivityKind.investingWithdrawal &&
-      kind != SwapActivityKind.predictionsWithdrawal) {
+      kind != SwapActivityKind.predictionsWithdrawal &&
+      kind != SwapActivityKind.dollarDeposit) {
     return false;
   }
   if (!d.isComplete && !d.isPending) return false;
@@ -1358,46 +1411,74 @@ bool _isOwnVenueWithdrawalToDollars(
       settlesToOwnAddress(d.withdrawalAddress, ownAddresses);
 }
 
-/// Whether the dollar receive [tx] can be the late arrival of the venue
-/// withdrawal [ex]: exactly the order's dollar amount (to the cent), and
-/// landing after the order started, within [kVenueWithdrawalArrivalWindow].
-bool _isLateArrivalOf(UsdbTokenTransaction tx, SwapOrderTransaction ex) {
-  if (tx.details.paymentType != breez.PaymentType.receive) return false;
+/// How far the dollar receive [tx] is from what the own move [ex] into
+/// Dollars said it would deliver, when it can be its late arrival: landing
+/// after the order started, within [kVenueWithdrawalArrivalWindow], and
+/// exactly the order's amount (to the cent) once the order is done, within
+/// [kOwnDollarArrivalEstimateBand] of its estimate while it is under way.
+/// Null when it cannot.
+double? _lateArrivalGap(UsdbTokenTransaction tx, SwapOrderTransaction ex) {
+  if (tx.details.paymentType != breez.PaymentType.receive) return null;
   final dollars = tx.amount.toInt() / 1e6;
   final amount = _exchangeUsdFieldToDollars(ex.details.withdrawalAmount);
-  if (dollars <= 0 || amount <= 0) return false;
-  if ((dollars - amount).abs() > 0.005 + 1e-9) return false;
+  if (dollars <= 0 || amount <= 0) return null;
+  final gap = (dollars - amount).abs();
+  final allowed = ex.details.isComplete
+      ? 0.005
+      : max(0.01, amount * kOwnDollarArrivalEstimateBand);
+  if (gap > allowed + 1e-9) return null;
   final delta = tx.timestamp.difference(ex.timestamp);
   // A small clock margin before the order (the row is stamped when the
   // app wrote it, the transfer by the network).
-  return delta >= const Duration(minutes: -2) &&
-      delta <= kVenueWithdrawalArrivalWindow;
+  if (delta < const Duration(minutes: -2) ||
+      delta > kVenueWithdrawalArrivalWindow) {
+    return null;
+  }
+  return gap;
 }
 
 /// The dollar transfers in [transfers] that settled one of [exchanges],
 /// so their own rows can go behind the move's row.
 ///
-/// Two links, the first one winning:
+/// Three links, the first one winning:
+///   * the payment the conversion's own settlement record names as its
+///     funding ([funding], settlement_funding_legs.dart): the Dollars
+///     token transfer that paid for a move out of Dollars, by its id;
 ///   * the near match ([_isDollarLegOf]): same side, the amount within
 ///     two percent, within 30 minutes of the order;
-///   * a late arrival into Dollars from the wallet's own venue withdrawal
-///     ([_isOwnVenueWithdrawalToDollars]) that has no near match: the
-///     receive of exactly its amount, after it started, within a day.
-///     One receive per withdrawal and one withdrawal per receive, the
-///     oldest withdrawal taking the first receive after it, so an
-///     unrelated transfer of the same amount (the next one, or one before
-///     the move) keeps its own row.
+///   * a late arrival into Dollars from the wallet's own move
+///     ([_isOwnMoveIntoDollars]: a venue withdrawal, or its own bitcoin
+///     converted) that has no near match: the receive of its amount
+///     ([_lateArrivalGap]: to the cent once done, within the estimate's
+///     band while under way), after it started, within a day. One
+///     receive per move and one move per receive, the oldest move taking
+///     the closest amount, then the first receive after it, so an
+///     unrelated transfer (the next one, or one before the move) keeps
+///     its own row.
 Set<String> _settledDollarLegIds(
   List<SwapOrderTransaction> exchanges,
   Iterable<UsdbTokenTransaction> transfers, {
   required Set<String> ownAddresses,
   required SwapActivityKind Function(SwapOrder order) classify,
+  Map<String, String> funding = const {},
 }) {
   final legs = <String>{};
   if (exchanges.isEmpty) return legs;
   final list = transfers.toList();
+  if (funding.isNotEmpty) {
+    final listed = {for (final ex in exchanges) ex.id};
+    for (final tx in list) {
+      final row = funding[tx.id];
+      if (row != null &&
+          listed.contains(row) &&
+          tx.details.paymentType == breez.PaymentType.send) {
+        legs.add(tx.id);
+      }
+    }
+  }
   final nearMatched = <String>{};
   for (final tx in list) {
+    if (legs.contains(tx.id)) continue;
     for (final ex in exchanges) {
       if (_isDollarLegOf(tx, ex)) {
         legs.add(tx.id);
@@ -1408,7 +1489,7 @@ Set<String> _settledDollarLegIds(
   final waiting = [
     for (final ex in exchanges)
       if (!nearMatched.contains(ex.id) &&
-          _isOwnVenueWithdrawalToDollars(ex.details, classify(ex.details),
+          _isOwnMoveIntoDollars(ex.details, classify(ex.details),
               ownAddresses: ownAddresses))
         ex,
   ]..sort((a, b) => a.timestamp.compareTo(b.timestamp));
@@ -1420,13 +1501,20 @@ Set<String> _settledDollarLegIds(
         tx,
   ]..sort((a, b) => a.timestamp.compareTo(b.timestamp));
   for (final ex in waiting) {
+    UsdbTokenTransaction? best;
+    var bestGap = 0.0;
     for (final tx in receives) {
       if (legs.contains(tx.id)) continue;
-      if (_isLateArrivalOf(tx, ex)) {
-        legs.add(tx.id);
-        break;
+      final gap = _lateArrivalGap(tx, ex);
+      if (gap == null) continue;
+      // The closest amount; the earliest of equals (the list is in time
+      // order).
+      if (best == null || gap < bestGap - 1e-9) {
+        best = tx;
+        bestGap = gap;
       }
     }
+    if (best != null) legs.add(best.id);
   }
   return legs;
 }
@@ -1486,6 +1574,16 @@ bool dollarSendDeliveredKnown(SwapOrder order) {
 /// (default: the stored ones): a linked receive folds into its row
 /// (own_bitcoin_deliveries.dart).
 ///
+/// [receivedUsd] is each Spark receive's dollar value when it landed
+/// (default: its fiat snapshot): the wallet's own moves to Bitcoin claim
+/// their delivery by it when no link or amount does (a CCTP leg with no
+/// bitcoin figure yet, a delivery the fees moved, a late one).
+///
+/// [fundingPaymentOf] names the payment a settlement operation was paid
+/// with (default: its record, settlement_funding_legs.dart): that Spark or
+/// Dollars transfer folds into its conversion's row by id, before any
+/// amount or time match.
+///
 /// [allAccounts] is the Bitcoin home's whole Activity (all_activity.dart):
 /// neither ledger's filter runs, so the bitcoin rows, the dollar ledger and
 /// every venue move are listed together, and the leg collapse that follows
@@ -1504,6 +1602,8 @@ List<BaseTransaction> assembleActivityRows(
   MultiSourceMoveDissolved? dissolved,
   List<BitcoinReceiveMark> bitcoinReceiveMarks = const [],
   Map<String, OrchestraDeliveryLink>? deliveryLinks,
+  ReceivedUsd? receivedUsd,
+  String? Function(String operationId)? fundingPaymentOf,
 }) {
   // Home activity is bitcoin-anchored (user decision): pool deposits
   // and withdrawals stay (they move wallet funds), but pool-internal
@@ -1613,17 +1713,22 @@ List<BaseTransaction> assembleActivityRows(
     if (dollarVenueMoves.isNotEmpty) {
       final legs = _settledDollarLegIds(
           dollarVenueMoves, rows.whereType<UsdbTokenTransaction>(),
-          ownAddresses: ownAddresses, classify: classify);
+          ownAddresses: ownAddresses,
+          classify: classify,
+          funding:
+              fundingLegsOf(dollarVenueMoves, paymentOf: fundingPaymentOf));
       rows = rows
           .where((tx) => tx is! UsdbTokenTransaction || !legs.contains(tx.id))
           .toList();
     }
     if (dollarSends.isNotEmpty) {
+      final funded = fundingLegsOf(dollarSends, paymentOf: fundingPaymentOf);
       rows = rows
           .where((tx) =>
               tx is! UsdbTokenTransaction ||
               tx.details.paymentType != breez.PaymentType.send ||
-              !dollarSends.any((ex) => _isDollarLegOf(tx, ex)))
+              (!funded.containsKey(tx.id) &&
+                  !dollarSends.any((ex) => _isDollarLegOf(tx, ex))))
           .toList();
     }
   }
@@ -1635,6 +1740,8 @@ List<BaseTransaction> assembleActivityRows(
     keepVenueMoves: keepVenueMoves,
     classify: classify,
     links: deliveryLinks,
+    receivedUsd: receivedUsd,
+    fundingPaymentOf: fundingPaymentOf,
   );
   // An action that took money from more than one place is one row too:
   // its legs fold into it (multi_source_move_activity.dart).
@@ -1663,8 +1770,11 @@ List<BaseTransaction> assembleActivityRows(
 ///     within ±30 min of it in [transactions]. A bet-flow tag alone no
 ///     longer hides one: the bet and claim rows it used to stand behind
 ///     are not on these surfaces, so the move must keep its own row.
-///   * Spark SENDS — hidden deterministically when the payment's own
-///     destination string equals ANY listed exchange's deposit address
+///   * Spark SENDS — hidden by id when a listed exchange's settlement
+///     record names it as the payment that funded it
+///     (settlement_funding_legs.dart); else deterministically when the
+///     payment's own destination string equals ANY listed exchange's
+///     deposit address
 ///     (it IS the swap-funding leg, whatever the provider), or the tx id
 ///     was tagged at send time AND a bitcoin-funded exchange it can stand
 ///     behind is listed within ±30 min. Only when no destination is
@@ -1679,7 +1789,10 @@ List<BaseTransaction> assembleActivityRows(
 ///     polled, ±2% otherwise) and time (10 min before to 90 min after an
 ///     own withdrawal or a row settling to an own address, the
 ///     reconciler's window; 30 min for a bet-flow tag alone; a linked
-///     receive whenever it landed). Fallback: a Spark-protocol receive within
+///     receive whenever it landed); else, for the wallet's own moves to
+///     Bitcoin only, the receive whose dollar value when it landed is what
+///     the dollars that left buy, less fees, within six hours (a day for a
+///     CCTP leg). Fallback: a Spark-protocol receive within
 ///     ±10 min of a Predictions withdraw row that has no receive yet.
 ///     Anything looser stays visible — money appearing in the wallet
 ///     must never vanish unless we're confident it's an internal leg.
@@ -1699,6 +1812,8 @@ List<BaseTransaction> _collapsePolymarketFlows(
   bool keepVenueMoves = false,
   SwapActivityKind Function(SwapOrder order) classify = swapActivityFor,
   Map<String, OrchestraDeliveryLink>? links,
+  ReceivedUsd? receivedUsd,
+  String? Function(String operationId)? fundingPaymentOf,
 }) {
   // Snapshot the Hive tag boxes once per pass, not per row.
   final betFlowOrderIds = PolymarketSparkTxsService.orchestraOrderSnapshot();
@@ -1725,6 +1840,9 @@ List<BaseTransaction> _collapsePolymarketFlows(
   if (exchanges.isEmpty && betFlowSparkIds.isEmpty) {
     return transactions;
   }
+  // The payments the listed conversions' own records name as their
+  // funding: payment id → row.
+  final funding = fundingLegsOf(exchanges, paymentOf: fundingPaymentOf);
 
   bool isPolymarketLeg(SwapOrder d) => classify(d).isPredictions;
 
@@ -1776,7 +1894,9 @@ List<BaseTransaction> _collapsePolymarketFlows(
   }
 
   bool hideSparkSend(SparkTransaction tx) {
-    // Deterministic first: the payment's own destination string. A
+    // The conversion's own record names this payment as what paid for it.
+    if (funding.containsKey(tx.id)) return true;
+    // Deterministic next: the payment's own destination string. A
     // match against an exchange deposit address means this send IS the
     // swap-funding leg — hide unconditionally.
     final dest = _sparkSendDestination(tx);
@@ -1829,6 +1949,7 @@ List<BaseTransaction> _collapsePolymarketFlows(
     classify: classify,
     betFlowOrderIds: betFlowOrderIds,
     links: deliveryLinks,
+    receivedUsd: receivedUsd ?? snapshotReceivedUsd(),
   );
   final deliveredRows = ownDeliveries.values.toSet();
 
@@ -1891,7 +2012,7 @@ List<BaseTransaction> _collapsePolymarketFlows(
   /// exact amount ([_settledDollarLegIds]).
   final dollarLegs = _settledDollarLegIds(
       exchanges, transactions.whereType<UsdbTokenTransaction>(),
-      ownAddresses: ownAddresses, classify: classify);
+      ownAddresses: ownAddresses, classify: classify, funding: funding);
   bool hideDollarLeg(UsdbTokenTransaction tx) => dollarLegs.contains(tx.id);
 
   return transactions.where((tx) {
@@ -2102,11 +2223,16 @@ void _showPolymarketUsdcReceiveDetails(
                 _sheetDetailRow(c, context.l10n.activityTxHash, hash,
                     copiable: true, isAddress: true, ctx: ctx),
               ]),
-              // The explorer is the bar's primary button.
+              // The explorer is the bar's primary button; the round Sal
+              // button beside it shares the card.
               ReceiptBarAction(
                 label: context.l10n.activityViewOnBlockchain,
                 onPrimary: () =>
                     _openExplorer(Uri.parse('https://polygonscan.com/tx/$hash')),
+                share: moneyReceiptShare(
+                    type: ReceiptCardKind.received,
+                    asset: ReceiptCardAsset.dollars,
+                    usd: tx.amount.toDouble()),
               ),
             ],
           ),
@@ -2170,6 +2296,10 @@ void _showNativeUsdcSendDetails(
                 label: context.l10n.activityViewOnBlockchain,
                 onPrimary: () => _openExplorer(Uri.parse(
                     'https://polygonscan.com/address/${details.withdrawalAddress}')),
+                share: moneyReceiptShare(
+                    type: ReceiptCardKind.sent,
+                    asset: ReceiptCardAsset.dollars,
+                    usd: double.tryParse(details.depositAmount)),
               ),
             ],
           ),
@@ -2440,12 +2570,43 @@ void _showOutlogicTxDetails(
                   _sheetDetailRow(c, context.l10n.orderId, order.id,
                       copiable: true, ctx: ctx),
                 ]),
-                const ReceiptBarAction.none(),
+                // A done purchase or sale shares its card (Done beside it);
+                // an order still waiting, or one that failed, does not.
+                ReceiptBarAction.none(
+                    share: statusColor == AppColors.success
+                        ? _outlogicShare(context, tx)
+                        : null),
               ],
             ),
           )),
     );
     },
+  );
+}
+
+/// A done bank order's card (receipt_share.dart): the bitcoin bought or
+/// sold, and the money paid or got in the order's own currency.
+ReceiptShare _outlogicShare(BuildContext context, OutlogicTransaction tx) {
+  final order = tx.details;
+  final trade = order.trade;
+  final isBuy = tx.isBuy;
+  final btc = isBuy ? trade?.toAmount : order.fromAmount;
+  final fiat = isBuy ? order.fromAmount : trade?.toAmount;
+  String? money;
+  if (fiat != null && fiat > 0) {
+    try {
+      money = NumberFormat.simpleCurrency(
+              locale: context.l10n.localeName, name: tx.fiatAsset)
+          .format(fiat);
+    } catch (_) {
+      money = '${fiat.toStringAsFixed(2)} ${tx.fiatAsset}';
+    }
+  }
+  return moneyReceiptShare(
+    type: isBuy ? ReceiptCardKind.bought : ReceiptCardKind.sold,
+    asset: ReceiptCardAsset.bitcoin,
+    amount: money,
+    sats: btc == null || btc <= 0 ? null : (btc * 100000000).round(),
   );
 }
 
@@ -2534,6 +2695,11 @@ void _showPendingUnclaimedSheet(
   TrackingService.transactionDetailViewed('spark_unclaimed_pending');
   final dateStr = activitySheetDate(context, tx.timestamp);
   final txid = tx.txid;
+  // On its way in: the round Sal button shares it.
+  final share = moneyReceiptShare(
+      type: ReceiptCardKind.incoming,
+      asset: ReceiptCardAsset.bitcoin,
+      sats: tx.amount.toInt());
 
   showAppBottomSheet(
     context: context,
@@ -2573,22 +2739,39 @@ void _showPendingUnclaimedSheet(
               if (tx.stage == SparkDepositStage.confirming) ...[
                 SizedBox(height: 16.h),
                 DepositSheetNote(context.l10n.depositAutoAfterConfirmations),
+                // Claim now, when offered, is the bar; View on blockchain
+                // the bar until then, a text button above it after.
                 DepositEarlyClaim(
-                    txid: txid,
-                    vout: tx.vout,
-                    amountSats: tx.amount.toInt()),
+                  txid: txid,
+                  vout: tx.vout,
+                  amountSats: tx.amount.toInt(),
+                  otherLabel: txid.isEmpty
+                      ? null
+                      : context.l10n.activityViewOnBlockchain,
+                  onOther: txid.isEmpty
+                      ? null
+                      : () {
+                          ctx.pop();
+                          _openExplorer(
+                              Uri.parse('https://mempool.space/tx/$txid'));
+                        },
+                  share: share,
+                ),
+              ] else ...[
+                SizedBox(height: 8.h),
+                if (txid.isNotEmpty)
+                  ReceiptBarAction(
+                    label: context.l10n.activityViewOnBlockchain,
+                    onPrimary: () {
+                      ctx.pop();
+                      _openExplorer(
+                          Uri.parse('https://mempool.space/tx/$txid'));
+                    },
+                    share: share,
+                  )
+                else
+                  ReceiptBarAction.none(share: share),
               ],
-              SizedBox(height: 8.h),
-              if (txid.isNotEmpty)
-                ReceiptBarAction(
-                  label: context.l10n.activityViewOnBlockchain,
-                  onPrimary: () {
-                    ctx.pop();
-                    _openExplorer(Uri.parse('https://mempool.space/tx/$txid'));
-                  },
-                )
-              else
-                const ReceiptBarAction.none(),
             ],
           ),
         ),
@@ -2720,6 +2903,14 @@ void _showTrackedBitcoinTxDetails(BuildContext context, WidgetRef ref,
                           Navigator.of(ctx).pop();
                           router.push('/search_modal');
                         },
+                        share: moneyReceiptShare(
+                            type: !isReceive
+                                ? ReceiptCardKind.sent
+                                : tx.isConfirmed
+                                    ? ReceiptCardKind.received
+                                    : ReceiptCardKind.incoming,
+                            asset: ReceiptCardAsset.bitcoin,
+                            sats: tx.details.balanceChange.abs()),
                       ),
                     ])),
               ));
@@ -2776,6 +2967,11 @@ void _showSparkPendingDepositDetails(
   final amountSats = tx.amount.toInt();
   final dateStr = activitySheetDate(context, tx.timestamp);
   final txid = tx.mempoolTx.txid;
+  // On its way in: the round Sal button shares it.
+  final share = moneyReceiptShare(
+      type: ReceiptCardKind.incoming,
+      asset: ReceiptCardAsset.bitcoin,
+      sats: amountSats);
 
   showAppBottomSheet(
     context: context,
@@ -2824,17 +3020,29 @@ void _showSparkPendingDepositDetails(
               // confirmations. Claim now is the optional, costlier one, and
               // shows only when the provider quotes an early claim.
               // Already being added: nothing to wait for or claim.
+              // Claim now, when offered, is the bar; View on blockchain
+              // the bar until then, a text button above it after.
               if (tx.confirmations < 3 && !tx.claimInProgress) ...[
                 DepositSheetNote(context.l10n.depositAutoAfterConfirmations),
-                DepositEarlyClaim(txid: txid, amountSats: amountSats),
-              ],
-              ReceiptBarAction(
-                label: context.l10n.activityViewOnBlockchain,
-                onPrimary: () {
-                  context.pop();
-                  _openExplorer(Uri.parse('https://mempool.space/tx/$txid'));
-                },
-              ),
+                DepositEarlyClaim(
+                  txid: txid,
+                  amountSats: amountSats,
+                  otherLabel: context.l10n.activityViewOnBlockchain,
+                  onOther: () {
+                    context.pop();
+                    _openExplorer(Uri.parse('https://mempool.space/tx/$txid'));
+                  },
+                  share: share,
+                ),
+              ] else
+                ReceiptBarAction(
+                  label: context.l10n.activityViewOnBlockchain,
+                  onPrimary: () {
+                    context.pop();
+                    _openExplorer(Uri.parse('https://mempool.space/tx/$txid'));
+                  },
+                  share: share,
+                ),
             ],
           ),
         ),
@@ -2967,7 +3175,8 @@ void _showUsdbTokenTxDetails(
                     isAddress: true,
                     ctx: ctx),
               ]),
-              // SparkScan is the bar's primary button.
+              // SparkScan is the bar's primary button; the round Sal
+              // button shares the card, unless the payment failed.
               ReceiptBarAction(
                 label: context.l10n.activityViewOnBlockchain,
                 onPrimary: () {
@@ -2977,6 +3186,16 @@ void _showUsdbTokenTxDetails(
                   _openExplorer(Uri.parse(
                       'https://sparkscan.io/tx/$cleanId?network=mainnet'));
                 },
+                share: payment.status == breez.PaymentStatus.failed
+                    ? null
+                    : moneyReceiptShare(
+                        type: isSend
+                            ? ReceiptCardKind.sent
+                            : payment.status == breez.PaymentStatus.pending
+                                ? ReceiptCardKind.incoming
+                                : ReceiptCardKind.received,
+                        asset: ReceiptCardAsset.dollars,
+                        usd: tx.amount.toInt() / 1e6),
               ),
             ],
           ),
@@ -3813,8 +4032,10 @@ class _SwapOrderDetailSheetState extends ConsumerState<_SwapOrderDetailSheet> {
 
                 if (isOrchestra) OrchestraSwapRefundAction(order: details),
 
-                // Track this exchange is the bar's primary button.
-                ..._orchestraTrackExchange(context, c, details, bar: true),
+                // Track this exchange is the bar's primary button, the
+                // round Sal button beside it sharing the receipt's card.
+                ..._orchestraTrackExchange(context, c, details,
+                    bar: true, share: _swapReceiptShare(context, details)),
               ],
             ),
           ),
@@ -3822,6 +4043,189 @@ class _SwapOrderDetailSheetState extends ConsumerState<_SwapOrderDetailSheet> {
       ),
     );
   }
+}
+
+/// What a swap order's receipt shares (receipt_share.dart), by what its
+/// row says it is: a purchase (Cash App) BOUGHT, once paid and done;
+/// dollars into bitcoin (Withdraw · from Dollars) or any conversion into
+/// bitcoin BOUGHT · BITCOIN, out of it SOLD · BITCOIN; another move between
+/// the person's own balances MOVED ("Bitcoin → Predictions"); a send to
+/// someone SENT; a receive RECEIVED (ON ITS WAY until it lands).
+/// Nothing for an order that failed, expired, was refunded or is held, a
+/// retired provider's order or a stuck deposit.
+ReceiptShare? _swapReceiptShare(BuildContext context, SwapOrder d) {
+  const stopped = {
+    'expired',
+    'overdue',
+    'unfulfilled',
+    'failed',
+    'emergency',
+    'settle_data_error',
+    'refunded',
+    'held',
+    'refund_requested',
+  };
+  if (d.isUntrackedLegacyOrder ||
+      d.isExpired ||
+      d.isStuckStandingDeposit ||
+      stopped.contains(d.status)) {
+    return null;
+  }
+  final l10n = context.l10n;
+  final activity = swapActivityFor(d);
+  double value(String raw, String coin) =>
+      d.isOrchestra ? orchestraRowAmount(raw, coin) : double.tryParse(raw) ?? 0;
+  int? satsOf(String raw, String coin) {
+    if (coin.toUpperCase() != 'BTC') return null;
+    final v = value(raw, coin);
+    return v > 0 ? (v * 100000000).round() : null;
+  }
+
+  double? usdOf(String raw, String coin) {
+    if (!_isDollarCoin(coin)) return null;
+    final v = value(raw, coin);
+    return v > 0 ? v : null;
+  }
+
+  final inSats = satsOf(d.depositAmount, d.coinFrom);
+  final outSats = satsOf(d.withdrawalAmount, d.coinTo);
+  final inUsd = usdOf(d.depositAmount, d.coinFrom);
+  final outUsd = usdOf(d.withdrawalAmount, d.coinTo);
+  String leg(String code, String network) =>
+      _swapSheetLegLabel(context, code, network);
+
+  // A dollar transfer on one chain (an older build's "Native" row): a send.
+  if (_isDollarCoin(d.coinFrom) &&
+      _isDollarCoin(d.coinTo) &&
+      d.networkFrom.toUpperCase() == d.networkTo.toUpperCase()) {
+    return inUsd == null
+        ? null
+        : moneyReceiptShare(
+            type: ReceiptCardKind.sent,
+            asset: ReceiptCardAsset.dollars,
+            usd: inUsd);
+  }
+
+  if (d.isCashAppPurchase) {
+    if (!d.isComplete) return null;
+    final asset = switch (cashAppDestination(d)) {
+      CashAppDestination.predictions => ReceiptCardAsset.predictions,
+      CashAppDestination.investing => ReceiptCardAsset.investing,
+      CashAppDestination.dollars => ReceiptCardAsset.dollars,
+      _ => ReceiptCardAsset.bitcoin,
+    };
+    return moneyReceiptShare(
+      type: ReceiptCardKind.bought,
+      asset: asset,
+      usd: double.tryParse(d.purchaseFiatUsd ?? '') ?? outUsd,
+      sats: outSats,
+      what: _cashAppDestinationLabel(context, d),
+    );
+  }
+
+  final venueBitcoinMove = (activity.isPredictions || activity.isInvesting) &&
+      orchestraTouchesBitcoin(d);
+  // Dollars into bitcoin is a purchase, bitcoin into dollars a sale.
+  if (activity.isDollars && outSats != null && inUsd != null) {
+    return moneyReceiptShare(
+        type: ReceiptCardKind.bought,
+        asset: ReceiptCardAsset.bitcoin,
+        usd: inUsd,
+        sats: outSats,
+        what: l10n.bitcoin);
+  }
+  if (activity.isDollars && inSats != null && outUsd != null) {
+    return moneyReceiptShare(
+        type: ReceiptCardKind.sold,
+        asset: ReceiptCardAsset.bitcoin,
+        usd: outUsd,
+        sats: inSats,
+        what: l10n.bitcoin);
+  }
+  if (activity.isPredictions ||
+      activity.isInvesting ||
+      activity.isDollars ||
+      venueBitcoinMove) {
+    // A move between the person's own balances.
+    final venue = activity.isPredictions && !venueBitcoinMove
+        ? l10n.predictions
+        : activity.isInvesting && !venueBitcoinMove
+            ? l10n.trading
+            : l10n.assetDollars;
+    final venueAsset = activity.isPredictions && !venueBitcoinMove
+        ? ReceiptCardAsset.predictions
+        : activity.isInvesting && !venueBitcoinMove
+            ? ReceiptCardAsset.investing
+            : ReceiptCardAsset.dollars;
+    final deposit = activity.isDeposit;
+    return moneyReceiptShare(
+      type: ReceiptCardKind.moved,
+      asset: deposit
+          ? venueAsset
+          : d.coinTo.toUpperCase() == 'BTC'
+              ? ReceiptCardAsset.bitcoin
+              : ReceiptCardAsset.dollars,
+      usd: inUsd ?? outUsd,
+      sats: deposit ? inSats : outSats ?? inSats,
+      from: deposit ? leg(d.coinFrom, d.networkFrom) : venue,
+      to: deposit ? venue : leg(d.coinTo, d.networkTo),
+    );
+  }
+
+  if (activity.isExternal) {
+    if (activity == SwapActivityKind.send) {
+      if (_isDollarFundedSend(d, activity) || inUsd != null) {
+        return moneyReceiptShare(
+            type: ReceiptCardKind.sent,
+            asset: ReceiptCardAsset.dollars,
+            usd: inUsd);
+      }
+      if (inSats == null) return null;
+      return moneyReceiptShare(
+          type: ReceiptCardKind.sent,
+          asset: ReceiptCardAsset.bitcoin,
+          sats: inSats);
+    }
+    final landed = d.isComplete && !OwnSparkArrivals.awaitingCredit(d.id);
+    final type = landed ? ReceiptCardKind.received : ReceiptCardKind.incoming;
+    if (outSats != null) {
+      return moneyReceiptShare(
+          type: type, asset: ReceiptCardAsset.bitcoin, sats: outSats);
+    }
+    if (outUsd != null || inUsd != null) {
+      return moneyReceiptShare(
+          type: type,
+          asset: ReceiptCardAsset.dollars,
+          usd: outUsd ?? inUsd);
+    }
+    return null;
+  }
+
+  // A conversion: into bitcoin is a purchase, out of it a sale.
+  if (outSats != null && inUsd != null) {
+    return moneyReceiptShare(
+        type: ReceiptCardKind.bought,
+        asset: ReceiptCardAsset.bitcoin,
+        usd: inUsd,
+        sats: outSats,
+        what: l10n.bitcoin);
+  }
+  if (inSats != null && outUsd != null) {
+    return moneyReceiptShare(
+        type: ReceiptCardKind.sold,
+        asset: ReceiptCardAsset.bitcoin,
+        usd: outUsd,
+        sats: inSats,
+        what: l10n.bitcoin);
+  }
+  if (outSats == null && inSats == null) return null;
+  return moneyReceiptShare(
+    type: ReceiptCardKind.moved,
+    asset: ReceiptCardAsset.bitcoin,
+    sats: outSats ?? inSats,
+    from: leg(d.coinFrom, d.networkFrom),
+    to: leg(d.coinTo, d.networkTo),
+  );
 }
 
 /// What became of a one-time receive's deposit that could not complete:
@@ -4018,10 +4422,13 @@ void Function(Uri uri)? debugOrchestraTrackLaunch;
 /// primary ([ReceiptBarAction]); with no order to track, the default bar
 /// and the room under the content. Otherwise (a leg's own Nerd data) the
 /// outlined button in place.
+/// [share]: the receipt's round Sal button beside the bar (with no order
+/// to track, beside Done).
 List<Widget> _orchestraTrackExchange(
     BuildContext context, AppColorsExtension c, SwapOrder details,
-    {bool bar = false}) {
-  final none = bar ? const [ReceiptBarAction.none()] : const <Widget>[];
+    {bool bar = false, ReceiptShare? share}) {
+  final none =
+      bar ? [ReceiptBarAction.none(share: share)] : const <Widget>[];
   if (details.id.isEmpty ||
       details.isStuckStandingDeposit ||
       !details.isOrchestra) {
@@ -4034,7 +4441,11 @@ List<Widget> _orchestraTrackExchange(
       !orchestraTrackResolvable(details)) {
     return none;
   }
-  if (bar) return [_OrchestraTrackExchangeButton(order: details, bar: true)];
+  if (bar) {
+    return [
+      _OrchestraTrackExchangeButton(order: details, bar: true, share: share)
+    ];
+  }
   return [
     SizedBox(height: 20.h),
     _OrchestraTrackExchangeButton(order: details),
@@ -4043,12 +4454,16 @@ List<Widget> _orchestraTrackExchange(
 }
 
 class _OrchestraTrackExchangeButton extends ConsumerStatefulWidget {
-  const _OrchestraTrackExchangeButton({required this.order, this.bar = false});
+  const _OrchestraTrackExchangeButton(
+      {required this.order, this.bar = false, this.share});
 
   final SwapOrder order;
 
   /// The receipt's action: the bar's primary button, not one in place.
   final bool bar;
+
+  /// The receipt's round Sal button beside the bar.
+  final ReceiptShare? share;
 
   @override
   ConsumerState<_OrchestraTrackExchangeButton> createState() =>
@@ -4152,6 +4567,7 @@ class _OrchestraTrackExchangeButtonState
         label: context.l10n.activityTrackExchange,
         onPrimary: _open,
         busy: _resolving,
+        share: widget.share,
       );
     }
     return SizedBox(
@@ -4468,6 +4884,29 @@ void _showPolymarketTxDetails(
                     _vsBitcoinFact(context, comparison, open: open),
                 ]);
               }),
+              // A won payout brags (founder, 4 November 2026): its won
+              // card, from the payout and the stake the tiles read
+              // (brag_win_entry.dart); nothing on a loss.
+              if (isRedeem && tx.usdcAmount > 0.001)
+                Consumer(
+                  builder: (context, ref, _) => BragWinEntry.maybe(
+                    bragWonPrediction(
+                      ref.watch,
+                      title: activity.title ?? '',
+                      side: activity.outcome ?? '',
+                      resolved: true,
+                      won: true,
+                      costUsd: predictionStakeOnMarket(
+                          _polymarketHistory(ref), activity),
+                      payoutUsd: tx.usdcAmount,
+                      shares: activity.size,
+                      eventSlug: activity.eventSlug,
+                      imageUrl: activityCrestIcon(ref, activity),
+                      resolvedAt: tx.timestamp,
+                    ),
+                    padding: EdgeInsets.only(top: 12.h),
+                  ),
+                ),
               // The market question on its own row, wrapping.
               if (activity.title != null && activity.title!.isNotEmpty)
                 ReceiptLongRow(
@@ -4505,17 +4944,22 @@ void _showPolymarketTxDetails(
               // The transaction hash is deliberately not shown on a trade
               // (owner decision); the explorer, the bar's primary button,
               // still opens it. A just-placed row keyed by its CLOB trade
-              // id has no chain hash yet, and keeps the default bar.
+              // id has no chain hash yet: Done is its primary. The round
+              // Sal button beside either shares the receipt's card.
               SizedBox(height: 8.h),
-              if (PolymarketOptimisticActivityService.isChainTxHash(
-                  activity.transactionHash))
-                ReceiptBarAction(
-                  label: context.l10n.activityViewOnBlockchain,
-                  onPrimary: () => _openExplorer(Uri.parse(
-                      'https://polygonscan.com/tx/${activity.transactionHash}')),
-                )
-              else
-                const ReceiptBarAction.none(),
+              Consumer(builder: (context, ref, _) {
+                final share =
+                    _polymarketShare(context, ref, tx, salePnl: resultPnl);
+                return PolymarketOptimisticActivityService.isChainTxHash(
+                        activity.transactionHash)
+                    ? ReceiptBarAction(
+                        label: context.l10n.activityViewOnBlockchain,
+                        onPrimary: () => _openExplorer(Uri.parse(
+                            'https://polygonscan.com/tx/${activity.transactionHash}')),
+                        share: share,
+                      )
+                    : ReceiptBarAction.none(share: share);
+              }),
             ],
           ),
         ),
@@ -4523,6 +4967,90 @@ void _showPolymarketTxDetails(
     );
     },
   );
+}
+
+/// What a Predictions receipt's round Sal button shares
+/// (receipt_share.dart): a prediction placed ("I'M ON YES" at the price
+/// paid), sold (its result, [salePnl], as the Result tile reads it), a
+/// payout (the won card when its cost is known, else "PAID OUT"), a lost
+/// prediction's redeem, money moved in or out of Predictions. A merge or
+/// a split shares nothing.
+ReceiptShare? _polymarketShare(BuildContext context, WidgetRef ref,
+    PolymarketTransaction tx, {double? salePnl}) {
+  final l10n = context.l10n;
+  final activity = tx.activity;
+  final title = (activity.title ?? '').trim();
+  final side = activity.outcome;
+  final slug = activity.eventSlug;
+  switch (tx.activityType) {
+    case ActivityType.trade:
+      if (title.isEmpty) return null;
+      final sell = activity.side?.toUpperCase() == 'SELL';
+      return predictionReceiptShare(
+        type: sell ? ReceiptCardKind.cashedOut : ReceiptCardKind.predicted,
+        title: title,
+        side: side,
+        imageUrl: activityCrestIcon(ref, activity),
+        eventSlug: slug,
+        chance: sell ? null : activity.price,
+        usd: tx.usdcAmount,
+        pnlUsd: sell ? salePnl : null,
+      );
+    case ActivityType.redeem:
+      if (title.isEmpty) return null;
+      final image = activityCrestIcon(ref, activity);
+      final stake = predictionStakeOnMarket(_polymarketHistory(ref), activity);
+      if (tx.usdcAmount > 0.001) {
+        final payout = tx.usdcAmount;
+        return predictionReceiptShare(
+          type: ReceiptCardKind.paidOut,
+          title: title,
+          side: side,
+          imageUrl: image,
+          eventSlug: slug,
+          usd: payout,
+          won: (watch) => bragWonPrediction(
+            watch,
+            title: title,
+            side: side ?? '',
+            resolved: true,
+            won: true,
+            costUsd: stake,
+            payoutUsd: payout,
+            shares: activity.size,
+            eventSlug: slug,
+            imageUrl: image,
+            resolvedAt: tx.timestamp,
+          ),
+        );
+      }
+      // A losing side redeemed for nothing: the stake it cost, when known.
+      if (stake <= 0) return null;
+      return predictionReceiptShare(
+        type: ReceiptCardKind.lost,
+        title: title,
+        side: side,
+        imageUrl: image,
+        eventSlug: slug,
+        usd: stake,
+      );
+    case ActivityType.deposit:
+      return moneyReceiptShare(
+          type: ReceiptCardKind.moved,
+          asset: ReceiptCardAsset.predictions,
+          usd: tx.usdcAmount,
+          from: l10n.activityYourWallet,
+          to: l10n.predictions);
+    case ActivityType.withdraw:
+      return moneyReceiptShare(
+          type: ReceiptCardKind.moved,
+          asset: ReceiptCardAsset.dollars,
+          usd: tx.usdcAmount,
+          from: l10n.predictions,
+          to: l10n.activityYourWallet);
+    default:
+      return null;
+  }
 }
 
 /// The receipt tile of how a prediction or a trade did against holding
@@ -4573,6 +5101,41 @@ void showPredictionResultDetails(BuildContext context, PredictionResult result,
             final pnl = result.pnlUsd;
             final event =
                 slug.isEmpty ? null : ref.watch(polyPositionEventProvider(slug));
+            final image = activityCrestIcon(ref, activity);
+            final share = title.isEmpty
+                ? null
+                : result.won
+                    ? predictionReceiptShare(
+                        type: ReceiptCardKind.paidOut,
+                        title: title,
+                        side: activity.outcome,
+                        imageUrl: image,
+                        eventSlug: slug,
+                        usd: result.payoutUsd,
+                        won: (watch) => bragWonPrediction(
+                          watch,
+                          title: title,
+                          side: activity.outcome ?? '',
+                          resolved: true,
+                          won: true,
+                          costUsd: result.stakeUsd,
+                          payoutUsd: result.payoutUsd,
+                          shares: activity.size,
+                          eventSlug: slug,
+                          imageUrl: image,
+                          resolvedAt: tx.timestamp,
+                        ),
+                      )
+                    : result.stakeUsd <= 0
+                        ? null
+                        : predictionReceiptShare(
+                            type: ReceiptCardKind.lost,
+                            title: title,
+                            side: activity.outcome,
+                            imageUrl: image,
+                            eventSlug: slug,
+                            usd: result.stakeUsd,
+                          );
             return Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -4598,11 +5161,30 @@ void showPredictionResultDetails(BuildContext context, PredictionResult result,
                         pnl >= 0 ? AppColors.marketUp : AppColors.marketDown,
                   ),
                 ]),
+                // A won result brags (founder, 4 November 2026): its won
+                // card from the figures above; nothing on a loss.
+                BragWinEntry.maybe(
+                  bragWonPrediction(
+                    ref.watch,
+                    title: title,
+                    side: activity.outcome ?? '',
+                    resolved: true,
+                    won: result.won,
+                    costUsd: result.stakeUsd,
+                    payoutUsd: result.payoutUsd,
+                    shares: activity.size,
+                    eventSlug: slug,
+                    imageUrl: activityCrestIcon(ref, activity),
+                    resolvedAt: tx.timestamp,
+                  ),
+                  padding: EdgeInsets.only(top: 12.h),
+                ),
                 if (title.isNotEmpty)
                   ReceiptLongRow(label: l.betMarketCategory, value: title),
                 SizedBox(height: 8.h),
                 // The market is the bar's primary button once its event is
-                // known.
+                // known (Done until then); the round Sal button beside it
+                // shares the result: the won card, or a loss's dry card.
                 if (event != null)
                   ReceiptBarAction(
                     label: l.salViewMarket,
@@ -4610,9 +5192,10 @@ void showPredictionResultDetails(BuildContext context, PredictionResult result,
                         event: event,
                         ledgerWalletId: ledgerWalletId,
                         source: 'activity'),
+                    share: share,
                   )
                 else
-                  const ReceiptBarAction.none(),
+                  ReceiptBarAction.none(share: share),
               ],
             );
           }),
@@ -4833,6 +5416,20 @@ void _showBitcoinTxDetails(
   // node) when > 0; cached entries have no fee and just skip the node.
   final feeSats = details?.fee?.toSat() ?? 0;
 
+  // The amount the hero shows (transactionAmount), for the share card.
+  final int shareSats;
+  if (details != null) {
+    final received = details.received.toSat();
+    final sent = details.sent.toSat();
+    shareSats = received == 0 && sent > 0
+        ? sent
+        : sent == 0 && received > 0
+            ? received
+            : (received - sent).abs();
+  } else {
+    shareSats = (tx.receivedSats - tx.sentSats).abs();
+  }
+
   // Technical
   final txid = details?.txid.toString() ?? tx.id;
   String? feeRate;
@@ -4955,7 +5552,8 @@ void _showBitcoinTxDetails(
                       // A Ledger funding transaction whose settlement is pending keeps
                       // its Ledger account one tap away (Phase 5 plan B13).
                       _LedgerSettlementLink(txid: txid),
-                      // The mempool explorer is the bar's primary button.
+                      // The mempool explorer is the bar's primary button; the
+                      // round Sal button beside it shares the card.
                       ReceiptBarAction(
                         label: context.l10n.activityViewOnBlockchain,
                         onPrimary: () {
@@ -4963,6 +5561,14 @@ void _showBitcoinTxDetails(
                           _openExplorer(
                               Uri.parse('https://mempool.space/tx/$txid'));
                         },
+                        share: moneyReceiptShare(
+                            type: !isReceive
+                                ? ReceiptCardKind.sent
+                                : isPending
+                                    ? ReceiptCardKind.incoming
+                                    : ReceiptCardKind.received,
+                            asset: ReceiptCardAsset.bitcoin,
+                            sats: shareSats),
                       ),
                     ],
                   ),
@@ -5191,7 +5797,8 @@ void _showSparkTxDetails(
                             isAddress: true,
                             ctx: ctx),
                       ]),
-                      // The explorer is the bar's primary button.
+                      // The explorer is the bar's primary button; the round
+                      // Sal button shares the card, unless it failed.
                       ReceiptBarAction(
                         label: context.l10n.activityViewOnBlockchain,
                         onPrimary: () {
@@ -5201,6 +5808,16 @@ void _showSparkTxDetails(
                           _openExplorer(Uri.parse(
                               'https://sparkscan.io/tx/$cleanId?network=mainnet'));
                         },
+                        share: payment?.status == breez.PaymentStatus.failed
+                            ? null
+                            : moneyReceiptShare(
+                                type: isSend
+                                    ? ReceiptCardKind.sent
+                                    : tx.isPending
+                                        ? ReceiptCardKind.incoming
+                                        : ReceiptCardKind.received,
+                                asset: ReceiptCardAsset.bitcoin,
+                                sats: amountSat),
                       ),
                     ],
                   ),
@@ -6505,6 +7122,43 @@ class _MultiSourceMoveDetailSheetState
         !primary &&
         finish == null;
 
+    // The round Sal button: what the move did, once it is done or on its
+    // way (never while a leg needs the person): a send SENT, any other
+    // move MOVED, in the colour of where it went.
+    final ReceiptShare? moveShare;
+    if (tx.partial || tx.stepFailed || waitingUsd != null) {
+      moveShare = null;
+    } else if (move.forAction == VenueCashFor.send) {
+      moveShare = moneyReceiptShare(
+          type: ReceiptCardKind.sent,
+          asset: ReceiptCardAsset.dollars,
+          usd: move.totalUsd);
+    } else {
+      final toBitcoin = move.destination == VenueCashDestination.bitcoin;
+      final coins = toBitcoin && multiSourceMoveBitcoinKnown(tx)
+          ? multiSourceMoveBitcoin(tx)
+          : 0.0;
+      final venues = {
+        for (final leg in move.legs) venueCashVenueName(l10n, leg.venue),
+      };
+      moveShare = moneyReceiptShare(
+        type: ReceiptCardKind.moved,
+        asset: switch (move.destination) {
+          VenueCashDestination.bitcoin => ReceiptCardAsset.bitcoin,
+          VenueCashDestination.predictions => ReceiptCardAsset.predictions,
+          VenueCashDestination.investing => ReceiptCardAsset.investing,
+          VenueCashDestination.dollars => ReceiptCardAsset.dollars,
+        },
+        usd: move.totalUsd,
+        sats: coins > 0 ? (coins * 100000000).round() : null,
+        from: move.destination == VenueCashDestination.dollars &&
+                venues.isNotEmpty
+            ? venues.join(' + ')
+            : l10n.assetDollars,
+        to: destination,
+      );
+    }
+
     String btc(double v) =>
         ref.watch(conversionProvider((v * 100000000).round()));
     String both(double usd, double coins) => [
@@ -6691,12 +7345,13 @@ class _MultiSourceMoveDetailSheetState
                 ),
               ],
               // One order to track: Track this exchange is the bar's
-              // primary button. Otherwise the default bar.
+              // primary button. Otherwise the default bar (Done beside the
+              // round Sal button when the move shares).
               if (trackBelow)
                 ..._orchestraTrackExchange(context, c, orders.single,
-                    bar: true)
+                    bar: true, share: moveShare)
               else
-                const ReceiptBarAction.none(),
+                ReceiptBarAction.none(share: moveShare),
             ],
           ),
         ),

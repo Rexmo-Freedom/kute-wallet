@@ -22,13 +22,28 @@ abstract final class ShareLinkEvents {
       };
 
   /// The sender created a link (the backend row exists; nothing moved).
-  /// [outcome] is the pick's label only ("Yes", "Long"), never an id.
+  /// [outcome] is the pick's label only ("Yes", "Long"), never an id;
+  /// [challenge] a prediction sent as a dare (`challenge: true`).
   static void created(ShareLinkKind kind, int amountMinor,
-      {String? marketSlug, String? outcome}) {
+      {String? marketSlug, String? outcome, bool challenge = false}) {
     TrackingService.track('share_link_created', params: {
       ..._money(kind, amountMinor),
       if (marketSlug != null && marketSlug.isNotEmpty) 'market': marketSlug,
       if (outcome != null && outcome.isNotEmpty) 'outcome': outcome,
+      if (challenge) 'challenge': true,
+    });
+  }
+
+  /// The recipient of a challenge picked a side on the Claim screen:
+  /// `other_side` (against the sender) or `same_side`, with the link's
+  /// amount and the market slug. Fired when the slip (or the market, when
+  /// no single other side exists) opens, before anything is placed.
+  static void challengeAnswered(ShareLinkKind kind, int amountMinor,
+      {required bool otherSide, String? marketSlug}) {
+    TrackingService.track('share_challenge_answered', params: {
+      ..._money(kind, amountMinor),
+      'choice': otherSide ? 'other_side' : 'same_side',
+      if (marketSlug != null && marketSlug.isNotEmpty) 'market': marketSlug,
     });
   }
 

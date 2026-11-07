@@ -10,6 +10,7 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/screens/polymarket/components/poly_market_stats.dart';
 import 'package:kute/screens/shared/components/sheet_detail_row.dart';
+import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/theme/app_theme.dart';
 
 String _money(double v) => '\$${v.round()}';
@@ -211,13 +212,81 @@ void main() {
   });
 
   group('rules and resolution', () {
-    testWidgets('the row opens the sheet', (tester) async {
+    testWidgets('alone, the option card takes the full width: when the '
+        'market ends, the first line of its rules, a chevron; it opens the '
+        'sheet', (tester) async {
       var opened = 0;
-      await _pump(tester, PolyRulesRow(onTap: () => opened++));
-      expect(find.text('Rules and resolution'), findsOneWidget);
-      expect(find.byIcon(Icons.chevron_right_rounded), findsOneWidget);
-      await tester.tap(find.text('Rules and resolution'));
+      await _pump(
+        tester,
+        Builder(
+          builder: (context) => KuteActionCardGrid(cards: [
+            polyRulesCard(context,
+                subtitle: 'Ends Nov 5',
+                detail: polyRulesCardDetail(
+                    'Resolves to Yes if it happens by the date.\n\nThe '
+                    'resolution source is the official record.'),
+                onTap: () => opened++),
+          ]),
+        ),
+      );
+      final card = find.byKey(kPolyRulesCardKey);
+      expect(card, findsOneWidget);
+      expect(tester.widget<KuteActionCard>(card).compact, isTrue);
+      // The sheet's width, inside its 16 margins.
+      expect(tester.getRect(card).width, moreOrLessEquals(375 - 32));
+      Finder inCard(Finder f) => find.descendant(of: card, matching: f);
+      expect(inCard(find.text('Rules and resolution')), findsOneWidget);
+      expect(inCard(find.text('Ends Nov 5')), findsOneWidget);
+      expect(inCard(find.text('Resolves to Yes if it happens by the date.')),
+          findsOneWidget);
+      expect(inCard(find.byIcon(Icons.gavel_rounded)), findsOneWidget);
+      expect(inCard(find.byIcon(Icons.chevron_right_rounded)), findsOneWidget);
+      await tester.tap(card);
       expect(opened, 1);
+    });
+
+    test('the card\'s rules line: the first paragraph, its spaces '
+        'collapsed; none without rules text', () {
+      expect(
+          polyRulesCardDetail('\n  This market will resolve to "Yes"  if\t'
+              'it happens.\nThe resolution source is X.'),
+          'This market will resolve to "Yes" if it happens.');
+      expect(polyRulesCardDetail(null), isNull);
+      expect(polyRulesCardDetail(' \n \n'), isNull);
+    });
+
+    test('the card\'s line: the end in the current year, with the year '
+        'otherwise, "How it resolves" with none', () async {
+      final l10n = await _l10n();
+      final now = DateTime(2026, 11, 4, 12);
+      expect(
+          polyRulesCardLine(l10n,
+              endDate: DateTime(2026, 11, 5, 12), ended: false, now: now),
+          'Ends Nov 5');
+      expect(
+          polyRulesCardLine(l10n,
+              endDate: DateTime(2027, 4, 5, 12), ended: false, now: now),
+          'Ends Apr 5, 2027');
+      expect(
+          polyRulesCardLine(l10n,
+              endDate: DateTime(2026, 11, 1, 12), ended: true, now: now),
+          'Ended Nov 1');
+      // A past date on a market still trading says nothing about it.
+      expect(
+          polyRulesCardLine(l10n,
+              endDate: DateTime(2026, 11, 1, 12), ended: false, now: now),
+          'How it resolves');
+      expect(polyRulesCardLine(l10n, endDate: null, ended: false, now: now),
+          'How it resolves');
+      // In the user's language, the date in its own format.
+      final de = await _l10n('de');
+      expect(
+          polyRulesCardLine(de,
+              endDate: DateTime(2026, 11, 5, 12),
+              ended: false,
+              locale: 'de',
+              now: now),
+          'Endet am 5. Nov.');
     });
 
     testWidgets('the sheet holds the rules text and how the market resolves',

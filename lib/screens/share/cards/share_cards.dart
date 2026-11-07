@@ -13,15 +13,23 @@
 //     "in bitcoin · ₿12,000" under it), Sal with his briefcase and coin
 //     standing on the rule beside it, the edgy line, "Claim it on Kute"
 //     quiet over the footer.
-//   * PREDICTION (blue): "ANA, A PICK FOR YOU", the market's picture (36)
+//   * PREDICTION (blue): "ANA, A PREDICTION FOR YOU", the market's picture (36)
 //     and question (18, wrapping, never cut while it can be read), then
 //     the open-position screen's speedometer with the outcome's chance huge
-//     under its hub and "Chance of Gen.G", "$10 on Gen.G" when sent as a
-//     pick, the edgy line; Sal looking up, weighing it. A MARKET of named
+//     under its hub and "Chance of Gen.G", "$10 on Gen.G" in big type when
+//     sent as a pick, the edgy line; Sal looking up, weighing it. A MARKET of named
 //     outcomes shared without a pick (Lula vs Bolsonaro) draws the market
 //     page's own chart instead (share_card_market_chart.dart): its top
 //     outcomes' real lines filling the card, each labelled "Lula da Silva
 //     41%"; the speedometer until the history is read.
+//   * CHALLENGE (blue, a pick sent as a dare; founder, 4 November 2026):
+//     "ANA, I DARE YOU", the market's picture and question, then BOTH
+//     SIDES (share_card_versus.dart): the sender's marked ("MY SIDE",
+//     "Yes", "62%"), the other open ("YOUR SIDE?", "No", "38%"), "VS"
+//     between; "$10 to play, on me", the dare as the edgy line
+//     (challengeEdges); Sal's side-eye ("and?").
+//   * RECEIPT (a transaction's own card, founder, 5 November 2026; its
+//     colour by kind): receipt_card.dart.
 //   * INVESTMENT (navy): THE ACTUAL STOCK: its real logo (HlCoinIcon, 36),
 //     name and ticker, the price huge, "+3.4% today" in the change's
 //     colour, the last 30 days' closes as the line filling the space,
@@ -43,11 +51,13 @@
 import 'package:flutter/material.dart';
 
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/screens/share/cards/receipt_card.dart';
 import 'package:kute/screens/share/cards/share_card_copy.dart';
 import 'package:kute/screens/share/cards/share_card_data.dart';
 import 'package:kute/screens/share/cards/share_card_frame.dart';
 import 'package:kute/screens/share/cards/share_card_market_chart.dart';
 import 'package:kute/screens/share/cards/share_card_speedometer.dart';
+import 'package:kute/screens/share/cards/share_card_versus.dart';
 import 'package:kute/screens/shared/sal_sprite.dart' show SalClip;
 
 /// The logo's side in the identity row.
@@ -65,6 +75,7 @@ ShareCardPalette shareCardPalette(ShareCardData data) => switch (data) {
         d.bitcoin ? ShareCardPalette.bitcoinClaim : ShareCardPalette.dollars,
       PredictionCardData() => ShareCardPalette.prediction,
       InvestmentCardData() => ShareCardPalette.investment,
+      final ReceiptCardData d => receiptCardPalette(d),
     };
 
 /// A stock up this much today (a fraction) gets Sal's big win.
@@ -72,11 +83,16 @@ const double kShareCardBigChange = 0.10;
 
 /// Sal's pose on the card: the briefcase on a dollars send, the coin
 /// balanced on her head on every bitcoin send, squinting at the odds
-/// on a prediction; on a stock, today's change: lounging up, eyes shut at
+/// on a prediction, the side-eye on a dare; on a stock, today's change:
+/// lounging up, eyes shut at
 /// [kShareCardBigChange] or more, a flop down, a side-eye flat.
 ShareCardPose shareCardPose(ShareCardData data) => switch (data) {
-      final MoneyCardData d =>
-        d.bitcoin ? ShareCardPose.claim : ShareCardPose.send,
+      MoneyCardData() =>
+        // Every money send has the coin on her head (founder, 5 November
+        // 2026: not the briefcase-and-glasses one).
+        ShareCardPose.claim,
+      // A dare: the slow side-eye, "and?".
+      PredictionCardData(challenge: true) => ShareCardPose.flat,
       PredictionCardData() => ShareCardPose.predict,
       final InvestmentCardData d => switch (d.change ?? 0) {
           final c when c >= kShareCardBigChange => ShareCardPose.bigWin,
@@ -84,6 +100,7 @@ ShareCardPose shareCardPose(ShareCardData data) => switch (data) {
           final c when c < -_kFlatChange => ShareCardPose.loss,
           _ => ShareCardPose.flat,
         },
+      final ReceiptCardData d => receiptCardPose(d),
     };
 
 class ShareCard extends StatelessWidget {
@@ -111,6 +128,9 @@ class ShareCard extends StatelessWidget {
     final p = shareCardPalette(data);
     final pose = shareCardPose(data);
     switch (data) {
+      // A transaction's receipt (receipt_card.dart).
+      case final ReceiptCardData d:
+        return ReceiptShareCard(data: d, caps: caps, line: line, mark: mark);
       case final MoneyCardData d:
         final sub = d.amountSub;
         final bitcoin = d.bitcoin;
@@ -126,6 +146,38 @@ class ShareCard extends StatelessWidget {
           numberBase: kShareCardMoneyHeroMax,
           line: line,
           quiet: recipient ? l10n.claimCardTapClaim : l10n.shareCardClaimOnKute,
+          code: code,
+          mark: mark,
+          pose: pose,
+        );
+      case final PredictionCardData d when d.challenge:
+        final sides = challengeSides(l10n, d);
+        return ShareCardFrame(
+          key: key,
+          palette: p,
+          caps: caps,
+          identity: ShareCardIdentity(
+            palette: p,
+            logo: ShareCardLogo(
+              key: const ValueKey('share-card-logo'),
+              size: kShareLogoSize,
+              title: d.question,
+              investing: false,
+              palette: p,
+              imageUrl: d.imageUrl,
+            ),
+            name: d.question,
+          ),
+          graphic: ShareCardVersus(
+            key: const ValueKey('share-card-odds'),
+            palette: p,
+            mine: sides.mine,
+            theirs: sides.theirs,
+          ),
+          graphicFills: true,
+          graphicBelowSal: true,
+          plain: d.amount == null ? null : l10n.challengeStake(d.amount!),
+          line: line,
           code: code,
           mark: mark,
           pose: pose,
@@ -177,6 +229,9 @@ class ShareCard extends StatelessWidget {
           plain: d.picked && d.amount != null
               ? l10n.shareCardAmountOn(d.amount!, outcome)
               : null,
+          // What was sent, as big as the rest (founder, 5 November 2026:
+          // "more clear we are sending the prediction").
+          plainStrong: d.picked,
           line: line,
           code: code,
           mark: mark,

@@ -526,12 +526,12 @@ void main() {
     expect(h.bet, isNull);
     final r = h.record;
     expect(r.reason, 'timeout');
-    // It lands in Dollars whenever it does: the money is in Investments.
+    // It lands in Dollars whenever it does: the line says so.
     expect(r.moneyAt, FundedMoneyAt.investments);
     expect(r.steps.byId('leg:investing:via_dollars')!.status,
         MoneyStepStatus.failed);
     expect(fundedStopLine(l10n, r, (usd) => '\$${usd.toStringAsFixed(2)}'),
-        contains('Investments'));
+        contains('is in Dollars'));
     // A transient refusal, said as one.
     expect(
         _lines(l10n, r.steps).first, 'Investing route busy, going via Dollars');

@@ -10144,11 +10144,71 @@ abstract class AppLocalizations {
   /// **'Chart style'**
   String get chartStyleTitle;
 
-  /// Row under a Hyperliquid chart (market screen, above About; position screen, above Details) that opens the chart in its editing mode: drawing tools and indicators.
+  /// Option card under a Hyperliquid chart (market screen, beside About; position screen, beside Details) that opens the chart in its editing mode: drawing tools and indicators.
   ///
   /// In en, this message translates to:
   /// **'Advanced chart'**
   String get hlAdvancedChart;
+
+  /// Option card under an Investing chart (market and position screens): the line under 'Advanced chart', what that mode has. Short, one line.
+  ///
+  /// In en, this message translates to:
+  /// **'Drawings and indicators'**
+  String get optionAdvancedChartSub;
+
+  /// Option card under an Investing market's chart: the line under 'About Bitcoin', what its sheet holds. Short, one line.
+  ///
+  /// In en, this message translates to:
+  /// **'Stats and order book'**
+  String get optionAboutMarketSub;
+
+  /// Option card on an Investing position screen: the line under 'Add margin'; adding margin moves the liquidation price further away. Short, one line.
+  ///
+  /// In en, this message translates to:
+  /// **'Further from liquidation'**
+  String get optionAddMarginSub;
+
+  /// Option card on an Investing position screen: the line under 'Details', what its sheet holds (position size, entry price, funding). Short, one line.
+  ///
+  /// In en, this message translates to:
+  /// **'Size, entry and funding'**
+  String get optionPositionDetailsSub;
+
+  /// Option card under a Predictions market's chart: the line under 'Rules and resolution' when the market is still open. {date} is a short date, e.g. 'Nov 5'. Short, one line.
+  ///
+  /// In en, this message translates to:
+  /// **'Ends {date}'**
+  String optionEndsOn(String date);
+
+  /// Option card under a Predictions market's chart: the line under 'Rules and resolution' once the market has ended. {date} is a short date, e.g. 'Nov 5'. Short, one line.
+  ///
+  /// In en, this message translates to:
+  /// **'Ended {date}'**
+  String optionEndedOn(String date);
+
+  /// Option card on Predictions screens: the line under 'Rules and resolution' (no end date known) and under 'Closing conditions' on a position. Short, one line.
+  ///
+  /// In en, this message translates to:
+  /// **'How it resolves'**
+  String get optionHowItResolves;
+
+  /// Option card on a Predictions position screen: the line under 'View market' (the market's screen, with its chart and the chances). Short, one line.
+  ///
+  /// In en, this message translates to:
+  /// **'Chart and odds'**
+  String get optionViewMarketSub;
+
+  /// Option card on a Predictions position screen: the line under 'Details', what its sheet holds (shares, the price paid). Short, one line.
+  ///
+  /// In en, this message translates to:
+  /// **'Shares and price paid'**
+  String get optionPredictionDetailsSub;
+
+  /// Option card on a Predictions position screen: the line under 'Protect it', which opens a limit sell at a price the user picks. Short, one line.
+  ///
+  /// In en, this message translates to:
+  /// **'Sell at your price'**
+  String get optionProtectSellSub;
 
   /// No description provided for @chartStyleCandles.
   ///
@@ -10348,12 +10408,6 @@ abstract class AppLocalizations {
   /// **'VWAP across the displayed candles'**
   String get chartVwapWindow;
 
-  /// No description provided for @chartRsiLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'RSI (14)'**
-  String get chartRsiLabel;
-
   /// No description provided for @chartIndicators.
   ///
   /// In en, this message translates to:
@@ -10365,6 +10419,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Interval'**
   String get chartInterval;
+
+  /// Advanced chart Interval sheet: what one bar of the 1m interval spans (under the big "1m").
+  ///
+  /// In en, this message translates to:
+  /// **'1 minute'**
+  String get chartIntervalMinute;
+
+  /// Advanced chart Interval sheet: what the 1m interval is good for (one short line, its chart opens on the last ~2 hours).
+  ///
+  /// In en, this message translates to:
+  /// **'Live moves'**
+  String get chartIntervalMinuteHint;
+
+  /// Advanced chart Interval sheet: what one bar of the 5m interval spans (under the big "5m").
+  ///
+  /// In en, this message translates to:
+  /// **'5 minutes'**
+  String get chartIntervalFiveMinutes;
+
+  /// Advanced chart Interval sheet: what the 5m interval is good for (one short line, its chart opens on the last ~8 hours).
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s swings'**
+  String get chartIntervalFiveMinutesHint;
+
+  /// Advanced chart Interval sheet: what one bar of the 1h interval spans (under the big "1h").
+  ///
+  /// In en, this message translates to:
+  /// **'1 hour'**
+  String get chartIntervalHour;
+
+  /// Advanced chart Interval sheet: what the 1h interval is good for (one short line, its chart opens on the last ~4 days).
+  ///
+  /// In en, this message translates to:
+  /// **'The last few days'**
+  String get chartIntervalHourHint;
+
+  /// Advanced chart Interval sheet: what one bar of the 1D interval spans (under the big "1D").
+  ///
+  /// In en, this message translates to:
+  /// **'1 day'**
+  String get chartIntervalDay;
+
+  /// Advanced chart Interval sheet: what the 1D interval is good for (one short line, its chart opens on the last ~3 months).
+  ///
+  /// In en, this message translates to:
+  /// **'The last months'**
+  String get chartIntervalDayHint;
+
+  /// Advanced chart Interval sheet: what one bar of the 1W interval spans (under the big "1W").
+  ///
+  /// In en, this message translates to:
+  /// **'1 week'**
+  String get chartIntervalWeek;
+
+  /// Advanced chart Interval sheet: what the 1W interval is good for (one short line, its chart opens on the last ~2 years).
+  ///
+  /// In en, this message translates to:
+  /// **'The long run'**
+  String get chartIntervalWeekHint;
 
   /// No description provided for @chartSelectTool.
   ///
@@ -10978,6 +11092,24 @@ abstract class AppLocalizations {
   /// **'The exchange has not confirmed the result. Check your orders and balance before trying again.'**
   String get investingSubmissionUnknown;
 
+  /// Prediction slip button and Portfolio card while the app looks the order up with Polymarket after an answer that proved nothing (a timeout, a dropped connection) or after the card waited a long time. Never a failure.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirming with Polymarket…'**
+  String get betConfirmingWithVenue;
+
+  /// Investing order slip button while the app looks the order up with the exchange (by its client order id) after an answer that proved nothing (a timeout, a dropped connection, a gateway error).
+  ///
+  /// In en, this message translates to:
+  /// **'Confirming with the exchange…'**
+  String get investingConfirmingWithExchange;
+
+  /// Investing order slip notice when the order's answer never came and the app then read the account for long enough to know the exchange took nothing: no fill, no resting order.
+  ///
+  /// In en, this message translates to:
+  /// **'This order did not go through. Nothing was placed.'**
+  String get investingOrderNotPlaced;
+
   /// No description provided for @investingApprovalExpired.
   ///
   /// In en, this message translates to:
@@ -11313,6 +11445,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Portfolio'**
   String get walletPortfolioAction;
+
+  /// Dollars tab, Activity pill: the floating bar's primary button, which opens the Portfolio screen with every position and the full activity. One line on a 375 pt phone.
+  ///
+  /// In en, this message translates to:
+  /// **'See full portfolio and activity'**
+  String get seeFullPortfolioAndActivity;
 
   /// No description provided for @walletActionsWalletChanged.
   ///
@@ -12761,6 +12899,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Other Wallet'**
   String get addWalletOther;
+
+  /// Add wallet, Hardware wallets: the line under the Other Wallet card (after Ledger and Blockstream Jade), the ways it imports any other signer's public key: scan its QR code, load its exported file, or paste the key.
+  ///
+  /// In en, this message translates to:
+  /// **'QR code, file or paste'**
+  String get addWalletOtherSubtitle;
 
   /// No description provided for @addWalletTrackSubtitle.
   ///
@@ -16871,6 +17015,102 @@ abstract class AppLocalizations {
   /// **'Now'**
   String get polyCountNow;
 
+  /// Predictions state map legend and a state's odds: the side of a state the Republican party wins.
+  ///
+  /// In en, this message translates to:
+  /// **'Republican'**
+  String get polyMapRepublican;
+
+  /// Predictions state map legend and a state's odds: the side of a state the Democratic party wins.
+  ///
+  /// In en, this message translates to:
+  /// **'Democratic'**
+  String get polyMapDemocratic;
+
+  /// Predictions state map legend and a state's odds: the side of a state an independent candidate wins.
+  ///
+  /// In en, this message translates to:
+  /// **'Independent'**
+  String get polyMapIndependent;
+
+  /// Predictions 'Build your map' legend: a state the Republican party does not win (whoever else wins it).
+  ///
+  /// In en, this message translates to:
+  /// **'Not Republican'**
+  String get polyMapNotRepublican;
+
+  /// Predictions 'Build your map' legend: a state the Democratic party does not win (whoever else wins it).
+  ///
+  /// In en, this message translates to:
+  /// **'Not Democratic'**
+  String get polyMapNotDemocratic;
+
+  /// Predictions state map summary above the map: in how many of the market's states the Republican party is more likely than not to win.
+  ///
+  /// In en, this message translates to:
+  /// **'Republicans favoured in {count} of {total} states'**
+  String polyMapRepublicansFavoured(int count, int total);
+
+  /// Predictions state map summary above the map: in how many of the market's states the Democratic party is more likely than not to win.
+  ///
+  /// In en, this message translates to:
+  /// **'Democrats favoured in {count} of {total} states'**
+  String polyMapDemocratsFavoured(int count, int total);
+
+  /// Predictions state map summary above a map of one Yes/No market per state: how many states are more likely Yes than No.
+  ///
+  /// In en, this message translates to:
+  /// **'Yes leads in {count} of {total} states'**
+  String polyMapYesLeads(int count, int total);
+
+  /// Predictions state map legend: the grey of a state with no open market in this event.
+  ///
+  /// In en, this message translates to:
+  /// **'No open market'**
+  String get polyMapNoMarket;
+
+  /// Predictions state map legend: the colour scale of each state's chance of Yes, from 0% to 100%.
+  ///
+  /// In en, this message translates to:
+  /// **'Chance of Yes'**
+  String get polyMapChanceOfYes;
+
+  /// Predictions 'Build your map': the hint under the map before a state is tapped. Tapping a state switches which side wins it on the user's map.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap the states to build your map'**
+  String get polyMapTapToBuild;
+
+  /// Predictions 'Build your map': the row naming the most likely combination of states, which opens that market.
+  ///
+  /// In en, this message translates to:
+  /// **'Most likely map'**
+  String get polyMapMostLikely;
+
+  /// Predictions 'Build your map': the row naming the combination of states the user picked, which opens that market.
+  ///
+  /// In en, this message translates to:
+  /// **'Your map'**
+  String get polyMapYourMap;
+
+  /// Predictions 'Build your map': the user's combination of states has no market to bet on in this event.
+  ///
+  /// In en, this message translates to:
+  /// **'No market for this map'**
+  String get polyMapNoSuchMap;
+
+  /// Predictions 'Build your map': resets the user's map to the most likely combination.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to the most likely map'**
+  String get polyMapBackToMostLikely;
+
+  /// Predictions 'Build your map', read by a screen reader for a state: the side the user's map gives it, e.g. 'Texas: Republican on your map'.
+  ///
+  /// In en, this message translates to:
+  /// **'{state}: {side} on your map'**
+  String polyMapStatePick(String state, String side);
+
   /// No description provided for @polyPillWatchlist.
   ///
   /// In en, this message translates to:
@@ -18831,16 +19071,16 @@ abstract class AppLocalizations {
   /// **'To move it, contact Support.'**
   String get cctpRefundContactSupport;
 
-  /// No description provided for @portfolioSectionPnlCharts.
+  /// Portfolio screen: the middle pill of the Positions | P&L | Activity switch, for each venue's profit and loss, the all-time stats and the resting orders (the chart is the screen's hero). Was "P&L Charts" until the overhaul of 4 November 2026.
   ///
   /// In en, this message translates to:
-  /// **'P&L Charts'**
+  /// **'P&L'**
   String get portfolioSectionPnlCharts;
 
-  /// Investments, Portfolio pill: the small pill (beside P&L charts and Activity) for the section with Available to invest, the Move money button and the Predictions and Investing positions. Reads the same as the Portfolio pill above it (founder, October 2026); was "Balances".
+  /// Portfolio screen: the first pill (and the screen's default) of the Positions | P&L | Activity switch, for the open positions (the biggest as squares, the rest under their venue). Was "Portfolio" until the screen's overhaul of 4 November 2026; the key keeps its old name.
   ///
   /// In en, this message translates to:
-  /// **'Portfolio'**
+  /// **'Positions'**
   String get portfolioSectionBalances;
 
   /// Balance chart (Bitcoin home, Dollars), header above the line for the 1W range: {change} is the signed amount, e.g. '+₿6,938' or '−$12.30', optionally followed by a small percent.
@@ -19113,10 +19353,10 @@ abstract class AppLocalizations {
   /// **'Send to a friend'**
   String get barShareWithFriends;
 
-  /// Second line of the floating Sal bar on a market page.
+  /// The line under Send to a friend on a single prediction's page.
   ///
   /// In en, this message translates to:
-  /// **'Send the market or your prediction'**
+  /// **'Send the market or a prediction'**
   String get barShareMarketSub;
 
   /// Second line of the floating Sal bar on a position page.
@@ -19131,10 +19371,10 @@ abstract class AppLocalizations {
   /// **'Send the market'**
   String get shareTheMarket;
 
-  /// Second line of the Share the market row.
+  /// Under Send the market on the Sal sheet's card: what happens.
   ///
   /// In en, this message translates to:
-  /// **'A link they can open, with your code'**
+  /// **'They get a link to look at it'**
   String get shareTheMarketSub;
 
   /// Action row on a position page: sends the market and how the position is doing. Founder: never "Share" on Predictions or Investing.
@@ -19197,6 +19437,144 @@ abstract class AppLocalizations {
   /// **'It starts with your first transaction.'**
   String get balanceNoHistorySub;
 
+  /// Bitcoin home, Balance tab, the Level square under the chart: the level on the milestone ladder (levels go up as the person's Bitcoin + Dollars total passes round figures), the square's large figure. The level's name is the quiet line above it. Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Level {level}'**
+  String balanceGoalLevel(int level);
+
+  /// Level name (level 1, below the first milestone, about $100). Deadpan, playful, never about returns. Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Warming up'**
+  String get balanceLevelName0;
+
+  /// Level name (level 2, past ~$100). Deadpan, short.
+  ///
+  /// In en, this message translates to:
+  /// **'Pocket money'**
+  String get balanceLevelName1;
+
+  /// Level name (level 3, past ~$250). 'Stacker' as in someone who stacks sats. Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Stacker'**
+  String get balanceLevelName2;
+
+  /// Level name (level 4, past ~$500). Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Regular'**
+  String get balanceLevelName3;
+
+  /// Level name (level 5, past ~$1,000). Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Grown-up'**
+  String get balanceLevelName4;
+
+  /// Level name (level 6, past ~$2,500). Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Serious'**
+  String get balanceLevelName5;
+
+  /// Level name (level 7, past ~$5,000). Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Steady hand'**
+  String get balanceLevelName6;
+
+  /// Level name (level 8, past ~$10,000). Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Heavyweight'**
+  String get balanceLevelName7;
+
+  /// Level name (level 9, past ~$25,000). Dog pun (Sal is a dog), means a big shot. Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Big dog'**
+  String get balanceLevelName8;
+
+  /// Level name (level 10, past ~$50,000). Dog pun, the one at the top. Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Top dog'**
+  String get balanceLevelName9;
+
+  /// Level name (level 11, past ~$100,000). Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Legend'**
+  String get balanceLevelName10;
+
+  /// Level name (level 12 and every level above). Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Off the charts'**
+  String get balanceLevelName11;
+
+  /// Bitcoin home, Balance tab, the Level square: the small line over 'Level 3', how far the Bitcoin + Dollars total is towards the next round goal ('62% to $500'). percent is a whole number; goal is a formatted amount. Short: it shares half the screen's width.
+  ///
+  /// In en, this message translates to:
+  /// **'{percent}% to {goal}'**
+  String balanceGoalProgress(int percent, String goal);
+
+  /// Bitcoin home, Balance tab: the small section heading under the chart, over the Level and Next goal squares (round balance milestones). One word.
+  ///
+  /// In en, this message translates to:
+  /// **'Goals'**
+  String get balanceGoalsHeading;
+
+  /// Bitcoin home, Balance tab, the Next goal square: its label, over the goal written large ('$500'). The goal is the next round figure for the person's Bitcoin + Dollars total. Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Next goal'**
+  String get balanceGoalNext;
+
+  /// Bitcoin home, Balance tab, the Next goal square: what is left to reach the goal ('$250 to go'). amount is a formatted amount. Short: it shares half the screen's width.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} to go'**
+  String balanceGoalToGo(String amount);
+
+  /// Bitcoin home, Balance chart: the small label on the dashed goal line ('Next $500'). Very short.
+  ///
+  /// In en, this message translates to:
+  /// **'Next {goal}'**
+  String balanceGoalChartLabel(String goal);
+
+  /// Bitcoin home, Balance tab: the title of the card under the goals that opens the Move to Dollars sheet with this amount filled in (bitcoin into the Dollars account). Never imply growth or returns.
+  ///
+  /// In en, this message translates to:
+  /// **'Move {amount} to Dollars'**
+  String balanceGoalMove(String amount);
+
+  /// Same row as balanceGoalMove while balances are hidden (no amount).
+  ///
+  /// In en, this message translates to:
+  /// **'Move to Dollars'**
+  String get balanceGoalMovePlain;
+
+  /// The line under 'Move $25 to Dollars'. Ambition and control, never returns: Dollars (the app's dollar account) open more places for the money. Names no product or venue. One short line.
+  ///
+  /// In en, this message translates to:
+  /// **'Your money, more places to go in Dollars.'**
+  String get balanceGoalMoveWhy;
+
+  /// Bitcoin home, Balance tab: shown once, large, with Sal and confetti in place of the goal squares when the Bitcoin + Dollars total passes a round goal ('You passed $250').
+  ///
+  /// In en, this message translates to:
+  /// **'You passed {amount}'**
+  String balanceMilestonePassed(String amount);
+
+  /// The deadpan line under balanceMilestonePassed: the total counts Bitcoin and Dollars, and Sal (the dog mascot) plays it cool. One short line.
+  ///
+  /// In en, this message translates to:
+  /// **'Bitcoin and Dollars together. Sal is acting like it\'s nothing.'**
+  String get balanceMilestonePassedLine;
+
   /// Portfolio P&L Charts, empty: the title over Sal.
   ///
   /// In en, this message translates to:
@@ -19208,6 +19586,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'By venue'**
   String get pnlByVenue;
+
+  /// Portfolio screen hero: the small chip beside the Invested figure, shown while one venue (Predictions or Investing) is picked on the P&L section; tapping it shows both venues together again. Short, one word.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get portfolioPnlAllVenues;
+
+  /// Portfolio screen, Positions: a quiet line under the open positions' P&L chart when some open positions could not be drawn on it (their opening fill or their market's price history could not be read). The chart draws the others; the Open P&L figure still counts every position.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 position not charted (history unavailable)} other{{count} positions not charted (history unavailable)}}'**
+  String portfolioOpenPnlNotCharted(int count);
 
   /// Portfolio P&L Charts stats strip: label over the P&L made by closed positions.
   ///
@@ -19564,7 +19954,7 @@ abstract class AppLocalizations {
   /// No description provided for @claimMarketLine.
   ///
   /// In en, this message translates to:
-  /// **'to bet on {market}'**
+  /// **'for a prediction on {market}'**
   String claimMarketLine(String market);
 
   /// No description provided for @claimButton.
@@ -19801,7 +20191,7 @@ abstract class AppLocalizations {
   /// **'Name, address or phone'**
   String get usdSendSearchHint;
 
-  /// Dollars Send, Send to card: move dollars to the user's own Bitcoin.
+  /// Dollars Send, the chip under Frequent (keep it short: three chips share a phone's width): move dollars to the user's own Bitcoin.
   ///
   /// In en, this message translates to:
   /// **'To your Bitcoin'**
@@ -19813,23 +20203,41 @@ abstract class AppLocalizations {
   /// **'{amount} in Bitcoin'**
   String usdBitcoinBalanceLine(String amount);
 
-  /// Dollars Send, Send to card: send a friend a stock or a prediction on a link.
-  ///
-  /// In en, this message translates to:
-  /// **'A stock or prediction'**
-  String get usdSendPickRow;
-
-  /// Under usdSendPickRow.
-  ///
-  /// In en, this message translates to:
-  /// **'They get your pick, ready to place'**
-  String get usdSendPickRowSub;
-
   /// Dollars Add first step: deposit into Dollars from the user's own Bitcoin.
   ///
   /// In en, this message translates to:
   /// **'From your Bitcoin'**
   String get usdReceiveFromYourBitcoin;
+
+  /// Title of the first sheet the Receive button opens on the Bitcoin and Dollars tabs: receive from another wallet, or swap (convert) from your own Bitcoin, Dollars or another asset. Short; one line at 375 pt.
+  ///
+  /// In en, this message translates to:
+  /// **'Receive or swap'**
+  String get receiveOrSwapTitle;
+
+  /// Bitcoin Receive or swap sheet, card title: move money from the user's own Dollars balance into Bitcoin. Dollars is the account name.
+  ///
+  /// In en, this message translates to:
+  /// **'From your Dollars'**
+  String get receiveFromYourDollars;
+
+  /// Under From your Dollars: the user's Dollars balance, e.g. "$4.75 in Dollars". Dollars is the account name.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} in Dollars'**
+  String usdDollarsBalanceLine(String amount);
+
+  /// Bitcoin Receive or swap sheet, card title: receive another coin (USDC, USDT, ETH...) that arrives as bitcoin.
+  ///
+  /// In en, this message translates to:
+  /// **'From another asset'**
+  String get receiveFromAnotherAsset;
+
+  /// Bitcoin Receive or swap sheet, under the Bitcoin card: the networks its QR code accepts.
+  ///
+  /// In en, this message translates to:
+  /// **'Bitcoin and Lightning'**
+  String get receiveBitcoinAndLightning;
 
   /// No description provided for @sendRailBitcoinOnchain.
   ///
@@ -19879,10 +20287,10 @@ abstract class AppLocalizations {
   /// **'Send a prediction or investment'**
   String get sendPickMarket;
 
-  /// No description provided for @sendPickMarketSub.
+  /// Under Send a prediction or investment: the market search sheet's subtitle and the Send row's second line.
   ///
   /// In en, this message translates to:
-  /// **'Pick a market, they get it ready to place'**
+  /// **'Search a market, then pick the side'**
   String get sendPickMarketSub;
 
   /// No description provided for @sendPickMarketSearchHint.
@@ -19897,16 +20305,10 @@ abstract class AppLocalizations {
   /// **'Nothing matches'**
   String get sendPickMarketNoResults;
 
-  /// No description provided for @sendPickSideTitle.
+  /// The send sheet's side step subtitle: two sides (Yes / No, Long / Short), none chosen.
   ///
   /// In en, this message translates to:
-  /// **'Which side?'**
-  String get sendPickSideTitle;
-
-  /// No description provided for @sendPickSideSub.
-  ///
-  /// In en, this message translates to:
-  /// **'What they get, ready to place'**
+  /// **'Pick the side they get'**
   String get sendPickSideSub;
 
   /// No description provided for @shareSendAgainWhatsApp.
@@ -20059,22 +20461,10 @@ abstract class AppLocalizations {
   /// **'Chart'**
   String get chartSheetTitle;
 
-  /// Section label above the three chart style cards.
+  /// One-line explanation of the EMA indicator (two exponential moving averages).
   ///
   /// In en, this message translates to:
-  /// **'Style'**
-  String get chartSheetStyle;
-
-  /// Indicator name: the EMA 9/21 trend lines.
-  ///
-  /// In en, this message translates to:
-  /// **'Moving averages'**
-  String get chartIndEma;
-
-  /// One-line explanation of the moving averages indicator.
-  ///
-  /// In en, this message translates to:
-  /// **'Short and long trend lines'**
+  /// **'Short-term trend, quick to turn'**
   String get chartIndEmaNote;
 
   /// Indicator name.
@@ -20089,23 +20479,11 @@ abstract class AppLocalizations {
   /// **'How far the price usually swings'**
   String get chartIndBbNote;
 
-  /// Indicator name (relative strength index).
-  ///
-  /// In en, this message translates to:
-  /// **'RSI'**
-  String get chartIndRsi;
-
   /// One-line explanation of RSI.
   ///
   /// In en, this message translates to:
   /// **'Whether buying or selling is overstretched'**
   String get chartIndRsiNote;
-
-  /// Indicator name.
-  ///
-  /// In en, this message translates to:
-  /// **'MACD'**
-  String get chartIndMacd;
 
   /// One-line explanation of MACD.
   ///
@@ -20113,16 +20491,10 @@ abstract class AppLocalizations {
   /// **'Momentum turning up or down'**
   String get chartIndMacdNote;
 
-  /// Indicator name (volume-weighted average price).
-  ///
-  /// In en, this message translates to:
-  /// **'VWAP'**
-  String get chartIndVwap;
-
   /// One-line explanation of VWAP.
   ///
   /// In en, this message translates to:
-  /// **'Average price weighted by volume'**
+  /// **'Average price paid, weighted by volume'**
   String get chartIndVwapNote;
 
   /// One-line explanation of the volume indicator.
@@ -20341,6 +20713,144 @@ abstract class AppLocalizations {
   /// **'What happened here?'**
   String get receiptAskWhatHappened;
 
+  /// Receipt share card of a prediction placed: the caps line at the top, e.g. 'I'm on Yes'. {side} is the outcome picked (Yes, No or a name). Shown uppercased. Never 'bet'.
+  ///
+  /// In en, this message translates to:
+  /// **'I\'m on {side}'**
+  String receiptCardOnSide(String side);
+
+  /// Receipt share card of a prediction placed: the caption under the chance on the speedometer, the market's chance when the prediction was placed.
+  ///
+  /// In en, this message translates to:
+  /// **'Chance when I got in'**
+  String get receiptCardEntryChance;
+
+  /// Receipt share card of a prediction sold: the caps line at the top. Shown uppercased.
+  ///
+  /// In en, this message translates to:
+  /// **'Cashed out'**
+  String get receiptCardCashedOut;
+
+  /// Receipt share card of a prediction sold: the line under the result, what it sold for. {amount} is formatted money.
+  ///
+  /// In en, this message translates to:
+  /// **'Sold for {amount}'**
+  String receiptCardSoldFor(String amount);
+
+  /// Receipt share card of a prediction lost: the caps line at the top, dry and classy, never sad. Shown uppercased.
+  ///
+  /// In en, this message translates to:
+  /// **'Not this time'**
+  String get receiptCardNotThisTime;
+
+  /// Receipt share card of a payout from a resolved prediction: the caps line at the top. Shown uppercased.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid out'**
+  String get receiptCardPaidOut;
+
+  /// Receipt share card of money moved between the person's own accounts: the caps line at the top. Shown uppercased.
+  ///
+  /// In en, this message translates to:
+  /// **'Moved'**
+  String get receiptCardMoved;
+
+  /// Receipt share card, the short deadpan line on a send. PG, no promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'No bank was harmed in this payment.'**
+  String get receiptEdgeNoBank;
+
+  /// Receipt share card, the short deadpan line on a send.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent. Next.'**
+  String get receiptEdgeSentNext;
+
+  /// Receipt share card, the short deadpan line on money received.
+  ///
+  /// In en, this message translates to:
+  /// **'Landed. No forms were filled.'**
+  String get receiptEdgeLanded;
+
+  /// Receipt share card, the short deadpan line on money still on its way in.
+  ///
+  /// In en, this message translates to:
+  /// **'On its way. Patience is a feature.'**
+  String get receiptEdgeIncoming;
+
+  /// Receipt share card, the short deadpan line on money moved between the person's own accounts.
+  ///
+  /// In en, this message translates to:
+  /// **'Same money. Better spot.'**
+  String get receiptEdgeMoved;
+
+  /// Receipt share card, the short deadpan line on bitcoin bought.
+  ///
+  /// In en, this message translates to:
+  /// **'Stacked a little more.'**
+  String get receiptEdgeStacked;
+
+  /// Receipt share card, the short deadpan line on bitcoin sold.
+  ///
+  /// In en, this message translates to:
+  /// **'Took some off the table.'**
+  String get receiptEdgeTookSome;
+
+  /// Receipt share card, the short deadpan line on a prediction placed. Never 'bet', no promise of a win.
+  ///
+  /// In en, this message translates to:
+  /// **'Locked in. Now we wait.'**
+  String get receiptEdgeLockedIn;
+
+  /// Receipt share card, the short deadpan line on a prediction placed or a trade opened: the call is on record.
+  ///
+  /// In en, this message translates to:
+  /// **'My call. On the record.'**
+  String get receiptEdgeOnRecord;
+
+  /// Receipt share card, the short deadpan line on a prediction sold or a trade closed in profit.
+  ///
+  /// In en, this message translates to:
+  /// **'Took the win and left.'**
+  String get receiptEdgeTookWin;
+
+  /// Receipt share card, the short deadpan line on a prediction sold or a trade closed at a loss.
+  ///
+  /// In en, this message translates to:
+  /// **'Cut it. Moved on.'**
+  String get receiptEdgeCutIt;
+
+  /// Receipt share card, the short deadpan line on a prediction sold or a trade closed with no result to speak of.
+  ///
+  /// In en, this message translates to:
+  /// **'In and out.'**
+  String get receiptEdgeInAndOut;
+
+  /// Receipt share card, the short deadpan line on a prediction lost. Dry, classy, never sad.
+  ///
+  /// In en, this message translates to:
+  /// **'Wrong today. Back tomorrow.'**
+  String get receiptEdgeWrongToday;
+
+  /// Receipt share card, the short deadpan line on a prediction lost. Dry, classy, never sad.
+  ///
+  /// In en, this message translates to:
+  /// **'Lesson paid in full.'**
+  String get receiptEdgeLesson;
+
+  /// Receipt share card, the short deadpan line on a payout from a prediction that won.
+  ///
+  /// In en, this message translates to:
+  /// **'Called it. Collected it.'**
+  String get receiptEdgeCollected;
+
+  /// Receipt share card, the short deadpan line on an Investing trade opened. No promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'In. Now it\'s up to the market.'**
+  String get receiptEdgeOpened;
+
   /// Activity receipt tile label: the realised profit or loss of a sale or payout.
   ///
   /// In en, this message translates to:
@@ -20476,7 +20986,7 @@ abstract class AppLocalizations {
   /// Edgy line on a prediction share card (deadpan, PG).
   ///
   /// In en, this message translates to:
-  /// **'Bet against me. I dare you.'**
+  /// **'Take the other side. I dare you.'**
   String get shareEdgePredictionDare;
 
   /// Edgy line on a politics prediction share card (deadpan, PG).
@@ -20714,6 +21224,1868 @@ abstract class AppLocalizations {
   /// **'It\'s yours. Tap claim.'**
   String get claimCardTapClaim;
 
+  /// Won prediction brag card: the small caps line at the top (drawn uppercase). Cocky, PG: the person called the result.
+  ///
+  /// In en, this message translates to:
+  /// **'Called it'**
+  String get bragWonCaps;
+
+  /// Won prediction brag card: the caption under the profit. {entry} is the average price paid per share, e.g. '41¢'. Followed on the card by ' · +143.9%'.
+  ///
+  /// In en, this message translates to:
+  /// **'Won from {entry}'**
+  String bragWonFrom(String entry);
+
+  /// Won prediction brag card: the plain line at the bottom. {paid} is what the prediction cost, {payout} what it paid out, e.g. 'Paid $12.30 · Paid out $30.00'.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid {paid} · Paid out {payout}'**
+  String bragWonPaidPayout(String paid, String payout);
+
+  /// Title of the brag preview sheet for a won (resolved) prediction.
+  ///
+  /// In en, this message translates to:
+  /// **'Show off this win'**
+  String get bragWonAction;
+
+  /// Edgy line on a won prediction brag card (cocky, deadpan, PG).
+  ///
+  /// In en, this message translates to:
+  /// **'Resolved. Receipts attached.'**
+  String get bragEdgeWonReceipts;
+
+  /// Edgy line on a won prediction brag card. {entry} is the average price paid per share, e.g. '41¢'.
+  ///
+  /// In en, this message translates to:
+  /// **'In at {entry}. Aged well.'**
+  String bragEdgeWonAgedWell(String entry);
+
+  /// Edgy line on a won prediction brag card. {amount} is the signed profit, e.g. '+$17.70'.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} for being right.'**
+  String bragEdgeWonRight(String amount);
+
+  /// Send a prediction to a friend: the switch that turns the card into a dare (the friend is invited to take the other side).
+  ///
+  /// In en, this message translates to:
+  /// **'Challenge them'**
+  String get challengeToggle;
+
+  /// Send a prediction to a friend: the quiet line under the Challenge switch.
+  ///
+  /// In en, this message translates to:
+  /// **'Dare them to take the other side'**
+  String get challengeToggleSub;
+
+  /// Challenge share card: the small caps line at the top without a name (drawn uppercase).
+  ///
+  /// In en, this message translates to:
+  /// **'I dare you'**
+  String get challengeCaps;
+
+  /// Challenge share card: the small caps line at the top (drawn uppercase). {name} is the friend's first name.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}, I dare you'**
+  String challengeCapsNamed(String name);
+
+  /// Claim screen hero card for a challenge, without a name (drawn uppercase).
+  ///
+  /// In en, this message translates to:
+  /// **'A friend dares you'**
+  String get challengeCapsRecipient;
+
+  /// Claim screen hero card for a challenge (drawn uppercase). {name} is the recipient's first name.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}, a friend dares you'**
+  String challengeCapsRecipientNamed(String name);
+
+  /// Challenge share card: the tag over the sender's own side (drawn uppercase).
+  ///
+  /// In en, this message translates to:
+  /// **'My side'**
+  String get challengeMySide;
+
+  /// Challenge card as the recipient sees it: the tag over the sender's side (drawn uppercase).
+  ///
+  /// In en, this message translates to:
+  /// **'Friend\'s side'**
+  String get challengeFriendSide;
+
+  /// Challenge share card: the tag over the other side, the one the friend is dared to take (drawn uppercase).
+  ///
+  /// In en, this message translates to:
+  /// **'Your side?'**
+  String get challengeYourSide;
+
+  /// Challenge share card: the plain line saying what the sender put on the link for the friend to play with, e.g. '$10 to play, on me'.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} to play, on me'**
+  String challengeStake(String amount);
+
+  /// Edgy line on a challenge card (a dare, deadpan, PG; never 'bet'). {side} is the sender's outcome, e.g. 'Yes', 'Gen.G'.
+  ///
+  /// In en, this message translates to:
+  /// **'I\'m on {side}. Think I\'m wrong? Take the other side.'**
+  String challengeEdgeWrong(String side);
+
+  /// Edgy line on a challenge card (a playful dare, PG). {side} is the sender's outcome.
+  ///
+  /// In en, this message translates to:
+  /// **'I say {side}. Wanna fight me?'**
+  String challengeEdgeFight(String side);
+
+  /// Edgy line on a challenge card (a dare, PG). {side} is the sender's outcome.
+  ///
+  /// In en, this message translates to:
+  /// **'{side}. Prove me wrong.'**
+  String challengeEdgeProve(String side);
+
+  /// Edgy line on a challenge card (a dare, PG). {side} is the sender's outcome.
+  ///
+  /// In en, this message translates to:
+  /// **'I picked {side}. Your move.'**
+  String challengeEdgeMove(String side);
+
+  /// Edgy line written on a send-money share card (a link sending bitcoin or dollars to a friend, and the friend's claim screen). The sender's voice, deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'No strings attached. I checked.'**
+  String get shareEdgeMoneyNoStrings;
+
+  /// Edgy line written on a send-money share card (a link sending bitcoin or dollars to a friend, and the friend's claim screen). The sender's voice, deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Money, but make it a text.'**
+  String get shareEdgeMoneyMakeItText;
+
+  /// Edgy line written on a send-money share card (a link sending bitcoin or dollars to a friend, and the friend's claim screen). The sender's voice, deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Faster than a bank. Low bar.'**
+  String get shareEdgeMoneyLowBar;
+
+  /// Edgy line written on a send-money share card (a link sending bitcoin or dollars to a friend, and the friend's claim screen). The sender's voice, deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'No forms. No small talk.'**
+  String get shareEdgeMoneyNoForms;
+
+  /// Edgy line written on a send-money share card (a link sending bitcoin or dollars to a friend, and the friend's claim screen). The sender's voice, deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Surprise. Act natural.'**
+  String get shareEdgeMoneyActNatural;
+
+  /// Edgy line written on a send-money share card (a link sending bitcoin or dollars to a friend, and the friend's claim screen). The sender's voice, deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re welcome, in advance.'**
+  String get shareEdgeMoneyInAdvance;
+
+  /// Edgy line written on a send-money share card (a link sending bitcoin or dollars to a friend, and the friend's claim screen). The sender's voice, deadpan, PG. {amount} is the amount on the card, formatted, e.g. '$10'.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount}, no questions asked.'**
+  String shareEdgeMoneyNoQuestions(String amount);
+
+  /// Edgy line written on a send-money share card (a link sending bitcoin or dollars to a friend, and the friend's claim screen). The sender's voice, deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'A gift. Not a loan. Probably.'**
+  String get shareEdgeMoneyNotALoan;
+
+  /// Edgy line written on a send-money share card (a link sending bitcoin or dollars to a friend, and the friend's claim screen). The sender's voice, deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Don\'t spend it all at once.'**
+  String get shareEdgeMoneyAllAtOnce;
+
+  /// Edgy line written on a send-money share card (a link sending bitcoin or dollars to a friend, and the friend's claim screen). The sender's voice, deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Don\'t get used to this.'**
+  String get shareEdgeMoneyGetUsed;
+
+  /// Edgy line written on a send-money share card (a link sending bitcoin or dollars to a friend, and the friend's claim screen). The sender's voice, deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent with love. And a little ego.'**
+  String get shareEdgeMoneyLittleEgo;
+
+  /// Edgy line written on a send-money share card (a link sending bitcoin or dollars to a friend, and the friend's claim screen). The sender's voice, deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'No bank was consulted.'**
+  String get shareEdgeMoneyNoBank;
+
+  /// Edgy line written on a send-BITCOIN share card (a link sending bitcoin to a friend). Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Bitcoin. Handle with patience.'**
+  String get shareEdgeMoneyHandlePatience;
+
+  /// Edgy line written on a send-BITCOIN share card (a link sending bitcoin to a friend). Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Stack responsibly.'**
+  String get shareEdgeMoneyStackResponsibly;
+
+  /// Edgy line written on a send-BITCOIN share card (a link sending bitcoin to a friend). Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Bitcoin. No lecture included.'**
+  String get shareEdgeMoneyNoLecture;
+
+  /// Edgy line written on a send-BITCOIN share card (a link sending bitcoin to a friend). Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Small sats. Big responsibility.'**
+  String get shareEdgeMoneyTinySats;
+
+  /// Edgy line written on a send-DOLLARS share card (a link sending digital dollars to a friend). Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Digital dollars. Same dollars.'**
+  String get shareEdgeMoneySameDollars;
+
+  /// Edgy line written on a send-DOLLARS share card (a link sending digital dollars to a friend). Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Cash, minus the envelope.'**
+  String get shareEdgeMoneyNoEnvelope;
+
+  /// Edgy line written on a send-DOLLARS share card (a link sending digital dollars to a friend). Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Dollars. No airport exchange rate.'**
+  String get shareEdgeMoneyNoExchange;
+
+  /// Edgy line on a prediction share card where the sender PICKED a side and sends it to a friend. The sender's voice, deadpan, PG; never 'bet', no promise of a win.
+  ///
+  /// In en, this message translates to:
+  /// **'My call. Screenshot this.'**
+  String get shareEdgePickScreenshot;
+
+  /// Edgy line on a prediction share card where the sender PICKED a side and sends it to a friend. The sender's voice, deadpan, PG; never 'bet', no promise of a win.
+  ///
+  /// In en, this message translates to:
+  /// **'Filed under: things I said first.'**
+  String get shareEdgePickSaidFirst;
+
+  /// Edgy line on a prediction share card where the sender PICKED a side and sends it to a friend. The sender's voice, deadpan, PG; never 'bet', no promise of a win. {side} is the side picked: 'Yes', 'No' (already translated) or a name, e.g. 'Gen.G'.
+  ///
+  /// In en, this message translates to:
+  /// **'{side}. Final answer.'**
+  String shareEdgePickFinalAnswer(String side);
+
+  /// Edgy line on a prediction share card where the sender PICKED a side and sends it to a friend. The sender's voice, deadpan, PG; never 'bet', no promise of a win.
+  ///
+  /// In en, this message translates to:
+  /// **'Not advice. Just a strong opinion.'**
+  String get shareEdgePickStrongOpinion;
+
+  /// Edgy line on a prediction share card where the sender PICKED a side and sends it to a friend. The sender's voice, deadpan, PG; never 'bet', no promise of a win.
+  ///
+  /// In en, this message translates to:
+  /// **'I did the reading. Mostly.'**
+  String get shareEdgePickDidReading;
+
+  /// Edgy line on a prediction share card where the sender PICKED a side and sends it to a friend. The sender's voice, deadpan, PG; never 'bet', no promise of a win.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving this for the told-you-so.'**
+  String get shareEdgePickToldYouSo;
+
+  /// Edgy line on a prediction share card where the sender PICKED a side and sends it to a friend. The sender's voice, deadpan, PG; never 'bet', no promise of a win.
+  ///
+  /// In en, this message translates to:
+  /// **'Conviction looks good on me.'**
+  String get shareEdgePickConviction;
+
+  /// Edgy line on a prediction share card where the sender PICKED a side and sends it to a friend. The sender's voice, deadpan, PG; never 'bet', no promise of a win.
+  ///
+  /// In en, this message translates to:
+  /// **'Opinions are free. This one isn\'t.'**
+  String get shareEdgePickNotFree;
+
+  /// Edgy line on a prediction share card where the sender PICKED a side and sends it to a friend. The sender's voice, deadpan, PG; never 'bet', no promise of a win. {amount} is the amount on the card, formatted, e.g. '$10'. {side} is the side picked: 'Yes', 'No' (already translated) or a name, e.g. 'Gen.G'.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} says {side}.'**
+  String shareEdgePickAmountSays(String amount, String side);
+
+  /// Edgy line on a prediction share card where the sender PICKED a side and sends it to a friend. The sender's voice, deadpan, PG; never 'bet', no promise of a win.
+  ///
+  /// In en, this message translates to:
+  /// **'Low drama. High conviction.'**
+  String get shareEdgePickLowDrama;
+
+  /// Edgy line on a prediction share card where the sender PICKED a side and sends it to a friend. The sender's voice, deadpan, PG; never 'bet', no promise of a win.
+  ///
+  /// In en, this message translates to:
+  /// **'I\'ll be insufferable if this hits.'**
+  String get shareEdgePickInsufferable;
+
+  /// Edgy line on a prediction pick share card when the pick is the FAVOURITE (50% or more). Sender's voice, deadpan, PG; never 'bet'.
+  ///
+  /// In en, this message translates to:
+  /// **'Backing the favourite. Revolutionary.'**
+  String get shareEdgePickRevolutionary;
+
+  /// Edgy line on a prediction pick share card when the pick is the FAVOURITE (50% or more). Sender's voice, deadpan, PG; never 'bet'. {chance} is the chance shown on the card, e.g. '47%'.
+  ///
+  /// In en, this message translates to:
+  /// **'{chance} agree. Smart crowd.'**
+  String shareEdgePickSmartCrowd(String chance);
+
+  /// Edgy line on a prediction pick share card when the pick is the FAVOURITE (50% or more). Sender's voice, deadpan, PG; never 'bet'.
+  ///
+  /// In en, this message translates to:
+  /// **'Safe pick. Still a pick.'**
+  String get shareEdgePickSafePick;
+
+  /// Edgy line on a prediction pick share card when the pick is the FAVOURITE (50% or more). Sender's voice, deadpan, PG; never 'bet'.
+  ///
+  /// In en, this message translates to:
+  /// **'Went with the odds. Shocking.'**
+  String get shareEdgePickWithOdds;
+
+  /// Edgy line on a prediction pick share card when the pick is the UNDERDOG (under 50%). Sender's voice, deadpan, PG; never 'bet'.
+  ///
+  /// In en, this message translates to:
+  /// **'Underdog. On purpose.'**
+  String get shareEdgePickOnPurpose;
+
+  /// Edgy line on a prediction pick share card when the pick is the UNDERDOG (under 50%). Sender's voice, deadpan, PG; never 'bet'. {chance} is the chance shown on the card, e.g. '47%'.
+  ///
+  /// In en, this message translates to:
+  /// **'Only {chance} see it. Fine by me.'**
+  String shareEdgePickOnlySee(String chance);
+
+  /// Edgy line on a prediction pick share card when the pick is the UNDERDOG (under 50%). Sender's voice, deadpan, PG; never 'bet'.
+  ///
+  /// In en, this message translates to:
+  /// **'Long shot. Short explanation.'**
+  String get shareEdgePickLongShot;
+
+  /// Edgy line on a prediction pick share card when the pick is the UNDERDOG (under 50%). Sender's voice, deadpan, PG; never 'bet'.
+  ///
+  /// In en, this message translates to:
+  /// **'Contrarian, not confused.'**
+  String get shareEdgePickContrarian;
+
+  /// Edgy line on a prediction share card for a market about politics, shown both on a pick and on a whole market shared. NEUTRAL: takes no side. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Debates are noise. Odds aren\'t.'**
+  String get shareEdgeTopicDebates;
+
+  /// Edgy line on a prediction share card for a market about sports/esports, shown both on a pick and on a whole market shared. NEUTRAL: takes no side. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Everyone\'s a coach today.'**
+  String get shareEdgeTopicCoach;
+
+  /// Edgy line on a prediction share card for a market about crypto, shown both on a pick and on a whole market shared. NEUTRAL: takes no side. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Volatility included. No extra charge.'**
+  String get shareEdgeTopicVolatility;
+
+  /// Edgy line on a prediction share card for a market about economics (central banks, rates, inflation), shown both on a pick and on a whole market shared. NEUTRAL: takes no side. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Read the minutes. All of them.'**
+  String get shareEdgeTopicMinutes;
+
+  /// Edgy line on a prediction share card for a WHOLE MARKET shared (no pick). Must be NEUTRAL: never implies the sharer is on a side or that anyone is wrong; about the question itself. Deadpan, PG; never 'bet'.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a side. Or just watch.'**
+  String get shareEdgeMarketPickOrWatch;
+
+  /// Edgy line on a prediction share card for a WHOLE MARKET shared (no pick). Must be NEUTRAL: never implies the sharer is on a side or that anyone is wrong; about the question itself. Deadpan, PG; never 'bet'.
+  ///
+  /// In en, this message translates to:
+  /// **'Opinions are free. This one has odds.'**
+  String get shareEdgeMarketHasOdds;
+
+  /// Edgy line on a prediction share card for a WHOLE MARKET shared (no pick). Must be NEUTRAL: never implies the sharer is on a side or that anyone is wrong; about the question itself. Deadpan, PG; never 'bet'.
+  ///
+  /// In en, this message translates to:
+  /// **'Everyone\'s an expert until it resolves.'**
+  String get shareEdgeMarketUntilResolves;
+
+  /// Edgy line on a prediction share card for a WHOLE MARKET shared (no pick). Must be NEUTRAL: never implies the sharer is on a side or that anyone is wrong; about the question itself. Deadpan, PG; never 'bet'.
+  ///
+  /// In en, this message translates to:
+  /// **'Group chat, meet the odds.'**
+  String get shareEdgeMarketGroupChat;
+
+  /// Edgy line on a prediction share card for a WHOLE MARKET shared (no pick). Must be NEUTRAL: never implies the sharer is on a side or that anyone is wrong; about the question itself. Deadpan, PG; never 'bet'.
+  ///
+  /// In en, this message translates to:
+  /// **'Hot takes welcome. Odds attached.'**
+  String get shareEdgeMarketHotTakes;
+
+  /// Edgy line on a prediction share card for a WHOLE MARKET shared (no pick). Must be NEUTRAL: never implies the sharer is on a side or that anyone is wrong; about the question itself. Deadpan, PG; never 'bet'.
+  ///
+  /// In en, this message translates to:
+  /// **'Not advice. Just the market.'**
+  String get shareEdgeMarketJustMarket;
+
+  /// Edgy line on a prediction share card for a WHOLE MARKET shared (no pick). Must be NEUTRAL: never implies the sharer is on a side or that anyone is wrong; about the question itself. Deadpan, PG; never 'bet'.
+  ///
+  /// In en, this message translates to:
+  /// **'The odds move. The question doesn\'t.'**
+  String get shareEdgeMarketOddsMove;
+
+  /// Edgy line on a prediction share card for a WHOLE MARKET shared (no pick). Must be NEUTRAL: never implies the sharer is on a side or that anyone is wrong; about the question itself. Deadpan, PG; never 'bet'.
+  ///
+  /// In en, this message translates to:
+  /// **'Your call. No pressure.'**
+  String get shareEdgeMarketYourCall;
+
+  /// Edgy line on a prediction share card for a WHOLE MARKET shared (no pick). Must be NEUTRAL: never implies the sharer is on a side or that anyone is wrong; about the question itself. Deadpan, PG; never 'bet'.
+  ///
+  /// In en, this message translates to:
+  /// **'Discuss. Calmly.'**
+  String get shareEdgeMarketDiscuss;
+
+  /// Edgy line on a prediction share card for a WHOLE MARKET shared (no pick). Must be NEUTRAL: never implies the sharer is on a side or that anyone is wrong; about the question itself. Deadpan, PG; never 'bet'.
+  ///
+  /// In en, this message translates to:
+  /// **'Where do you land?'**
+  String get shareEdgeMarketWhereLand;
+
+  /// Edgy line on a WHOLE yes/no prediction market shared (no pick). NEUTRAL, takes no side. Deadpan, PG. {chance} is the chance shown on the card, e.g. '47%'. {side} is the side picked: 'Yes', 'No' (already translated) or a name, e.g. 'Gen.G'.
+  ///
+  /// In en, this message translates to:
+  /// **'{chance} say {side}. Discuss.'**
+  String shareEdgeMarketSayDiscuss(String chance, String side);
+
+  /// Edgy line on a WHOLE yes/no prediction market shared (no pick). NEUTRAL, takes no side. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Yes or no. Harder than it sounds.'**
+  String get shareEdgeMarketHarder;
+
+  /// Edgy line on a WHOLE yes/no prediction market shared (no pick). NEUTRAL, takes no side. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'One question. Two answers.'**
+  String get shareEdgeMarketTwoAnswers;
+
+  /// Edgy line on a WHOLE yes/no prediction market shared (no pick). NEUTRAL, takes no side. Deadpan, PG. {chance} is the chance shown on the card, e.g. '47%'.
+  ///
+  /// In en, this message translates to:
+  /// **'{chance} isn\'t a guarantee.'**
+  String shareEdgeMarketNotGuarantee(String chance);
+
+  /// Edgy line on a WHOLE yes/no prediction market shared (no pick). NEUTRAL, takes no side. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Simple question. Complicated feelings.'**
+  String get shareEdgeMarketFeelings;
+
+  /// Edgy line on a WHOLE yes/no prediction market shared (no pick). NEUTRAL, takes no side. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Likely isn\'t certain.'**
+  String get shareEdgeMarketLikely;
+
+  /// Edgy line on a WHOLE prediction market of named outcomes (an election, a race) shared with its chart (no pick). NEUTRAL: about the race, never that the leader is wrong. Deadpan, PG. {leader} is the leading outcome's short name as the chart labels it, e.g. 'Vance'.
+  ///
+  /// In en, this message translates to:
+  /// **'{leader} leads. Nothing\'s settled.'**
+  String shareEdgeMarketLeads(String leader);
+
+  /// Edgy line on a WHOLE prediction market of named outcomes (an election, a race) shared with its chart (no pick). NEUTRAL: about the race, never that the leader is wrong. Deadpan, PG. {chance} is the chance shown on the card, e.g. '47%'.
+  ///
+  /// In en, this message translates to:
+  /// **'{chance} isn\'t a coronation.'**
+  String shareEdgeMarketCoronation(String chance);
+
+  /// Edgy line on a WHOLE prediction market of named outcomes (an election, a race) shared with its chart (no pick). NEUTRAL: about the race, never that the leader is wrong. Deadpan, PG. {leader} is the leading outcome's short name as the chart labels it, e.g. 'Vance'.
+  ///
+  /// In en, this message translates to:
+  /// **'The chart says {leader}. History says wait.'**
+  String shareEdgeMarketHistoryWait(String leader);
+
+  /// Edgy line on a WHOLE prediction market of named outcomes (an election, a race) shared with its chart (no pick). NEUTRAL: about the race, never that the leader is wrong. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Front-runner today. Ask again tomorrow.'**
+  String get shareEdgeMarketAskTomorrow;
+
+  /// Edgy line on a WHOLE prediction market of named outcomes (an election, a race) shared with its chart (no pick). NEUTRAL: about the race, never that the leader is wrong. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Crowded field. One answer.'**
+  String get shareEdgeMarketCrowdedField;
+
+  /// Edgy line on a WHOLE prediction market of named outcomes (an election, a race) shared with its chart (no pick). NEUTRAL: about the race, never that the leader is wrong. Deadpan, PG. {leader} is the leading outcome's short name as the chart labels it, e.g. 'Vance'. {chance} is the chance shown on the card, e.g. '47%'.
+  ///
+  /// In en, this message translates to:
+  /// **'{leader} at {chance}. Stay tuned.'**
+  String shareEdgeMarketStayTuned(String leader, String chance);
+
+  /// Edgy line on a WHOLE prediction market of named outcomes (an election, a race) shared with its chart (no pick). NEUTRAL: about the race, never that the leader is wrong. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Leading isn\'t winning.'**
+  String get shareEdgeMarketLeadingNotWinning;
+
+  /// Edgy line on a WHOLE prediction market of named outcomes (an election, a race) shared with its chart (no pick). NEUTRAL: about the race, never that the leader is wrong. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Favourite, not a sure thing.'**
+  String get shareEdgeMarketNotSureThing;
+
+  /// Edgy line on a WHOLE sports/esports match market shared (no pick). NEUTRAL, takes no side. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Upsets happen. So do favourites.'**
+  String get shareEdgeMarketUpsets;
+
+  /// Edgy line on a WHOLE sports/esports match market shared (no pick). NEUTRAL, takes no side. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'The game decides. Not the comments.'**
+  String get shareEdgeMarketGameDecides;
+
+  /// Edgy line on a WHOLE sports/esports match market shared (no pick). NEUTRAL, takes no side. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Odds don\'t play the match.'**
+  String get shareEdgeMarketOddsDontPlay;
+
+  /// Edgy line on a WHOLE sports/esports match market shared (no pick). NEUTRAL, takes no side. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Talk now. Scoreboard later.'**
+  String get shareEdgeMarketScoreboard;
+
+  /// Edgy line on a CHALLENGE card: the sender picked a side and dares the friend to take the other one. Playful dare, deadpan, PG; never 'bet', no wager talk. {side} is the side picked: 'Yes', 'No' (already translated) or a name, e.g. 'Gen.G'.
+  ///
+  /// In en, this message translates to:
+  /// **'{side}. Come at me.'**
+  String challengeEdgeComeAtMe(String side);
+
+  /// Edgy line on a CHALLENGE card: the sender picked a side and dares the friend to take the other one. Playful dare, deadpan, PG; never 'bet', no wager talk. {side} is the side picked: 'Yes', 'No' (already translated) or a name, e.g. 'Gen.G'.
+  ///
+  /// In en, this message translates to:
+  /// **'I\'m on {side}. You\'re on notice.'**
+  String challengeEdgeOnNotice(String side);
+
+  /// Edgy line on a CHALLENGE card: the sender picked a side and dares the friend to take the other one. Playful dare, deadpan, PG; never 'bet', no wager talk. {side} is the side picked: 'Yes', 'No' (already translated) or a name, e.g. 'Gen.G'.
+  ///
+  /// In en, this message translates to:
+  /// **'{side}. Talk is cheap. Pick a side.'**
+  String challengeEdgeTalkCheap(String side);
+
+  /// Edgy line on a CHALLENGE card: the sender picked a side and dares the friend to take the other one. Playful dare, deadpan, PG; never 'bet', no wager talk. {side} is the side picked: 'Yes', 'No' (already translated) or a name, e.g. 'Gen.G'.
+  ///
+  /// In en, this message translates to:
+  /// **'{side}. Scared? Understandable.'**
+  String challengeEdgeScared(String side);
+
+  /// Edgy line on a CHALLENGE card: the sender picked a side and dares the friend to take the other one. Playful dare, deadpan, PG; never 'bet', no wager talk. {side} is the side picked: 'Yes', 'No' (already translated) or a name, e.g. 'Gen.G'.
+  ///
+  /// In en, this message translates to:
+  /// **'{side}. Unless you know better.'**
+  String challengeEdgeKnowBetter(String side);
+
+  /// Edgy line on a CHALLENGE card: the sender picked a side and dares the friend to take the other one. Playful dare, deadpan, PG; never 'bet', no wager talk. {side} is the side picked: 'Yes', 'No' (already translated) or a name, e.g. 'Gen.G'.
+  ///
+  /// In en, this message translates to:
+  /// **'I\'m on {side}. Your turn to be wrong.'**
+  String challengeEdgeTurnWrong(String side);
+
+  /// Edgy line on a CHALLENGE card: the sender picked a side and dares the friend to take the other one. Playful dare, deadpan, PG; never 'bet', no wager talk. {side} is the side picked: 'Yes', 'No' (already translated) or a name, e.g. 'Gen.G'.
+  ///
+  /// In en, this message translates to:
+  /// **'{side}, and I\'m not sorry.'**
+  String challengeEdgeNotSorry(String side);
+
+  /// Edgy line on a CHALLENGE card: the sender picked a side and dares the friend to take the other one. Playful dare, deadpan, PG; never 'bet', no wager talk. {side} is the side picked: 'Yes', 'No' (already translated) or a name, e.g. 'Gen.G'.
+  ///
+  /// In en, this message translates to:
+  /// **'I took {side}. The other side\'s all yours.'**
+  String challengeEdgeAllYours(String side);
+
+  /// Edgy line on a CHALLENGE card: the sender picked a side and dares the friend to take the other one. Playful dare, deadpan, PG; never 'bet', no wager talk. {side} is the side picked: 'Yes', 'No' (already translated) or a name, e.g. 'Gen.G'.
+  ///
+  /// In en, this message translates to:
+  /// **'{side}. Convince me otherwise.'**
+  String challengeEdgeConvince(String side);
+
+  /// Edgy line on a CHALLENGE card: the sender picked a side and dares the friend to take the other one. Playful dare, deadpan, PG; never 'bet', no wager talk. {side} is the side picked: 'Yes', 'No' (already translated) or a name, e.g. 'Gen.G'.
+  ///
+  /// In en, this message translates to:
+  /// **'{side}. See you at resolution.'**
+  String challengeEdgeSeeYou(String side);
+
+  /// Edgy line on a CHALLENGE card: the sender picked a side and dares the friend to take the other one. Playful dare, deadpan, PG; never 'bet', no wager talk. {side} is the side picked: 'Yes', 'No' (already translated) or a name, e.g. 'Gen.G'.
+  ///
+  /// In en, this message translates to:
+  /// **'I\'m on {side}. Bring receipts.'**
+  String challengeEdgeReceipts(String side);
+
+  /// Edgy line on an Investing share card (a stock, index, commodity or coin), any day. Deadpan, PG; not advice, no promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'Not advice. Just a chart.'**
+  String get shareEdgeStockJustChart;
+
+  /// Edgy line on an Investing share card (a stock, index, commodity or coin), any day. Deadpan, PG; not advice, no promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'Charts don\'t care about feelings.'**
+  String get shareEdgeStockFeelings;
+
+  /// Edgy line on an Investing share card (a stock, index, commodity or coin), any day. Deadpan, PG; not advice, no promise of profit. {name} is the market's name, e.g. 'Tesla'.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}. You might\'ve heard of it.'**
+  String shareEdgeStockHeardOfIt(String name);
+
+  /// Edgy line on an Investing share card when the market is UP today (shared, or sent as a long pick). Deadpan, PG; no promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'Green day. Act normal.'**
+  String get shareEdgeStockActNormal;
+
+  /// Edgy line on an Investing share card when the market is UP today (shared, or sent as a long pick). Deadpan, PG; no promise of profit. {change} is today's change, unsigned, e.g. '3.4%'.
+  ///
+  /// In en, this message translates to:
+  /// **'Calm down. It\'s only {change}.'**
+  String shareEdgeStockJustChange(String change);
+
+  /// Edgy line on an Investing share card when the market is UP today (shared, or sent as a long pick). Deadpan, PG; no promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'Not saying I knew. But I knew.'**
+  String get shareEdgeStockIKnew;
+
+  /// Edgy line on an Investing share card when the market is UP today (shared, or sent as a long pick). Deadpan, PG; no promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'Up today. Tomorrow\'s not my problem.'**
+  String get shareEdgeStockTomorrow;
+
+  /// Edgy line on an Investing share card when the market is UP today (shared, or sent as a long pick). Deadpan, PG; no promise of profit. {name} is the market's name, e.g. 'Tesla'.
+  ///
+  /// In en, this message translates to:
+  /// **'Green looks good on {name}.'**
+  String shareEdgeStockGreenLooks(String name);
+
+  /// Edgy line on an Investing share card when the market is UP today (shared, or sent as a long pick). Deadpan, PG; no promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'Chart up. Ego steady.'**
+  String get shareEdgeStockEgoSteady;
+
+  /// Edgy line on an Investing share card when the market is UP today (shared, or sent as a long pick). Deadpan, PG; no promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'Don\'t clap. Just look.'**
+  String get shareEdgeStockDontClap;
+
+  /// Edgy line on an Investing share card when the market is up 10% or more today. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Double digits. I\'ll allow it.'**
+  String get shareEdgeStockDoubleDigits;
+
+  /// Edgy line on an Investing share card when the market is up 10% or more today. Deadpan, PG. {change} is today's change, unsigned, e.g. '3.4%'.
+  ///
+  /// In en, this message translates to:
+  /// **'Up {change}. Someone check on the shorts.'**
+  String shareEdgeStockCheckShorts(String change);
+
+  /// Edgy line on an Investing share card when the market is DOWN today (shared, or sent as a long pick). Unbothered, deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Red day. Calm as ever.'**
+  String get shareEdgeStockCalmAsEver;
+
+  /// Edgy line on an Investing share card when the market is DOWN today (shared, or sent as a long pick). Unbothered, deadpan, PG. {change} is today's change, unsigned, e.g. '3.4%'.
+  ///
+  /// In en, this message translates to:
+  /// **'Down {change}. Zoom out.'**
+  String shareEdgeStockZoomOut(String change);
+
+  /// Edgy line on an Investing share card when the market is DOWN today (shared, or sent as a long pick). Unbothered, deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Dips happen. Panic is optional.'**
+  String get shareEdgeStockPanicOptional;
+
+  /// Edgy line on an Investing share card when the market is DOWN today (shared, or sent as a long pick). Unbothered, deadpan, PG. {change} is today's change, unsigned, e.g. '3.4%'.
+  ///
+  /// In en, this message translates to:
+  /// **'Down {change}. Character arc.'**
+  String shareEdgeStockCharacterArc(String change);
+
+  /// Edgy line on an Investing share card when the market is DOWN today (shared, or sent as a long pick). Unbothered, deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'A dip, not a plot twist.'**
+  String get shareEdgeStockPlotTwist;
+
+  /// Edgy line on an Investing share card when the market is DOWN today (shared, or sent as a long pick). Unbothered, deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Down today. Still here.'**
+  String get shareEdgeStockStillHere;
+
+  /// Edgy line on an Investing share card when the market is DOWN today (shared, or sent as a long pick). Unbothered, deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Volatility: working as intended.'**
+  String get shareEdgeStockAsIntended;
+
+  /// Edgy line on an Investing share card when the market is DOWN today (shared, or sent as a long pick). Unbothered, deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Every chart has a bad day.'**
+  String get shareEdgeStockBadDay;
+
+  /// Edgy line on an Investing share card when the market is down 10% or more today. Unbothered, deadpan, PG. {change} is today's change, unsigned, e.g. '3.4%'.
+  ///
+  /// In en, this message translates to:
+  /// **'Down {change}. Deep breaths.'**
+  String shareEdgeStockDeepBreaths(String change);
+
+  /// Edgy line on an Investing share card when the market is FLAT today. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing happened. Riveting.'**
+  String get shareEdgeStockRiveting;
+
+  /// Edgy line on an Investing share card when the market is FLAT today. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Flat day. Boring is underrated.'**
+  String get shareEdgeStockBoringUnderrated;
+
+  /// Edgy line on an Investing share card when the market is FLAT today. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Sideways is a direction.'**
+  String get shareEdgeStockSideways;
+
+  /// Edgy line on an Investing share card when the market is FLAT today. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'No drama today. Suspicious.'**
+  String get shareEdgeStockSuspicious;
+
+  /// Edgy line on an Investing share card when the market is FLAT today. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'The chart took a nap.'**
+  String get shareEdgeStockNap;
+
+  /// Edgy line on an Investing share card when the market is FLAT today. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Watching paint dry, professionally.'**
+  String get shareEdgeStockPaintDry;
+
+  /// Edgy line on an Investing share card when the market is FLAT today. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Unchanged. Unbothered.'**
+  String get shareEdgeStockUnchanged;
+
+  /// Edgy line on an Investing share card sent as a SHORT pick (the sender expects it to go down). Deadpan, PG; no promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'Short and unbothered.'**
+  String get shareEdgeStockShortUnbothered;
+
+  /// Edgy line on an Investing share card sent as a SHORT pick (the sender expects it to go down). Deadpan, PG; no promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'Not everything goes up.'**
+  String get shareEdgeStockNotEverythingUp;
+
+  /// Edgy line on an Investing share card sent as a SHORT pick (the sender expects it to go down). Deadpan, PG; no promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'Gravity is a strategy too.'**
+  String get shareEdgeStockGravity;
+
+  /// Edgy line on an Investing share card sent as a SHORT pick (the sender expects it to go down). Deadpan, PG; no promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'Shorting the hype. Politely.'**
+  String get shareEdgeStockShortHype;
+
+  /// Edgy line on an Investing share card sent as a SHORT pick (the sender expects it to go down). Deadpan, PG; no promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'Contrarian, with a chart.'**
+  String get shareEdgeStockShortContrarian;
+
+  /// Edgy line on an Investing share card sent as a SHORT pick (the sender expects it to go down). Deadpan, PG; no promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'Someone has to take the other side.'**
+  String get shareEdgeStockFlipSide;
+
+  /// Edgy line on an Investing share card sent as a SHORT pick on a day the market is DOWN. Deadpan, PG. {change} is today's change, unsigned, e.g. '3.4%'.
+  ///
+  /// In en, this message translates to:
+  /// **'Down {change}. As planned.'**
+  String shareEdgeStockAsPlanned(String change);
+
+  /// Edgy line on an Investing share card sent as a SHORT pick on a day the market is UP (against the sender). Unbothered, deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Up today. I can wait.'**
+  String get shareEdgeStockICanWait;
+
+  /// Edgy line on a brag card (a position, the portfolio or the P&L chart) IN PROFIT. Cocky but deadpan, PG; never 'bet', no promise of more.
+  ///
+  /// In en, this message translates to:
+  /// **'Quietly in the green.'**
+  String get shareEdgeBragQuietlyGreen;
+
+  /// Edgy line on a brag card (a position, the portfolio or the P&L chart) IN PROFIT. Cocky but deadpan, PG; never 'bet', no promise of more.
+  ///
+  /// In en, this message translates to:
+  /// **'Green suits me.'**
+  String get shareEdgeBragGreenSuits;
+
+  /// Edgy line on a brag card (a position, the portfolio or the P&L chart) IN PROFIT. Cocky but deadpan, PG; never 'bet', no promise of more.
+  ///
+  /// In en, this message translates to:
+  /// **'I\'d explain, but you\'d copy me.'**
+  String get shareEdgeBragCopyMe;
+
+  /// Edgy line on a brag card (a position, the portfolio or the P&L chart) IN PROFIT. Cocky but deadpan, PG; never 'bet', no promise of more.
+  ///
+  /// In en, this message translates to:
+  /// **'Humble? Working on it.'**
+  String get shareEdgeBragHumbleWorking;
+
+  /// Edgy line on a brag card (a position, the portfolio or the P&L chart) IN PROFIT. Cocky but deadpan, PG; never 'bet', no promise of more.
+  ///
+  /// In en, this message translates to:
+  /// **'Results, not vibes.'**
+  String get shareEdgeBragNotVibes;
+
+  /// Edgy line on a brag card (a position, the portfolio or the P&L chart) IN PROFIT. Cocky but deadpan, PG; never 'bet', no promise of more.
+  ///
+  /// In en, this message translates to:
+  /// **'Not surprised. Mildly pleased.'**
+  String get shareEdgeBragMildlyPleased;
+
+  /// Edgy line on a brag card (a position, the portfolio or the P&L chart) IN PROFIT. Cocky but deadpan, PG; never 'bet', no promise of more.
+  ///
+  /// In en, this message translates to:
+  /// **'Past results. Not a promise.'**
+  String get shareEdgeBragNotAPromise;
+
+  /// Edgy line on a brag card (a position, the portfolio or the P&L chart) IN PROFIT. Cocky but deadpan, PG; never 'bet', no promise of more.
+  ///
+  /// In en, this message translates to:
+  /// **'Screenshot before it changes.'**
+  String get shareEdgeBragBeforeItChanges;
+
+  /// Edgy line on a brag card (a position, the portfolio or the P&L chart) IN PROFIT. Cocky but deadpan, PG; never 'bet', no promise of more.
+  ///
+  /// In en, this message translates to:
+  /// **'Main character energy.'**
+  String get shareEdgeBragMainCharacter;
+
+  /// Edgy line on a brag card with a BIG profit (10% or more). Cocky but deadpan, PG. {amount} is the signed result on the card, e.g. '+$412.35'.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount}. I\'ll be unbearable now.'**
+  String shareEdgeBragUnbearable(String amount);
+
+  /// Edgy line on a brag card with a BIG profit (10% or more). Cocky but deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'This is me being calm.'**
+  String get shareEdgeBragBeingCalm;
+
+  /// Edgy line on a brag card with a BIG profit (10% or more). Cocky but deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Big number. Small ego. Allegedly.'**
+  String get shareEdgeBragAllegedly;
+
+  /// Edgy line on a brag card with a SMALL profit (under 2%). Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Small win. Still a win.'**
+  String get shareEdgeBragStillAWin;
+
+  /// Edgy line on a brag card with a SMALL profit (under 2%). Deadpan, PG. {amount} is the signed result on the card, e.g. '+$412.35'.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount}. Rome wasn\'t built in a day.'**
+  String shareEdgeBragRome(String amount);
+
+  /// Edgy line on a brag card with a SMALL profit (under 2%). Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Modest. Like me.'**
+  String get shareEdgeBragModest;
+
+  /// Edgy line on a brag card AT A LOSS (the person chose to share it). Unbothered, dry, classy, never sad, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Temporarily humbled.'**
+  String get shareEdgeBragHumbled;
+
+  /// Edgy line on a brag card AT A LOSS (the person chose to share it). Unbothered, dry, classy, never sad, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Red is a phase.'**
+  String get shareEdgeBragRedPhase;
+
+  /// Edgy line on a brag card AT A LOSS (the person chose to share it). Unbothered, dry, classy, never sad, PG. {amount} is the loss without its sign, e.g. '$23.00'.
+  ///
+  /// In en, this message translates to:
+  /// **'Down {amount}. Lessons included.'**
+  String shareEdgeBragLessons(String amount);
+
+  /// Edgy line on a brag card AT A LOSS (the person chose to share it). Unbothered, dry, classy, never sad, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Down, not out.'**
+  String get shareEdgeBragNotOut;
+
+  /// Edgy line on a brag card AT A LOSS (the person chose to share it). Unbothered, dry, classy, never sad, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Posting my losses. Growth.'**
+  String get shareEdgeBragGrowth;
+
+  /// Edgy line on a brag card AT A LOSS (the person chose to share it). Unbothered, dry, classy, never sad, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'This is my humble era.'**
+  String get shareEdgeBragHumbleEra;
+
+  /// Edgy line on a brag card AT A LOSS (the person chose to share it). Unbothered, dry, classy, never sad, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Took it on the chin. Gracefully.'**
+  String get shareEdgeBragOnTheChin;
+
+  /// Edgy line on a brag card AT A LOSS (the person chose to share it). Unbothered, dry, classy, never sad, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Not my best. Not my last.'**
+  String get shareEdgeBragNotMyBest;
+
+  /// Edgy line on a brag card AT A LOSS (the person chose to share it). Unbothered, dry, classy, never sad, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Red, but make it dignified.'**
+  String get shareEdgeBragDignified;
+
+  /// Edgy line on a brag card AT A LOSS (the person chose to share it). Unbothered, dry, classy, never sad, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Losses are tuition.'**
+  String get shareEdgeBragTuition;
+
+  /// Edgy line on a brag card with a FLAT result (about zero). Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Net zero. Net calm.'**
+  String get shareEdgeBragNetCalm;
+
+  /// Edgy line on a brag card with a FLAT result (about zero). Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Flat. Perfectly balanced.'**
+  String get shareEdgeBragBalanced;
+
+  /// Edgy line on a brag card with a FLAT result (about zero). Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Didn\'t win. Didn\'t lose. Didn\'t panic.'**
+  String get shareEdgeBragDidntPanic;
+
+  /// Edgy line on a brag card with a FLAT result (about zero). Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Break-even is undefeated.'**
+  String get shareEdgeBragUndefeated;
+
+  /// Edgy line on a brag card with a FLAT result (about zero). Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Sideways, with style.'**
+  String get shareEdgeBragWithStyle;
+
+  /// Edgy line on a brag card with a FLAT result (about zero). Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing to see. Shared anyway.'**
+  String get shareEdgeBragSharedAnyway;
+
+  /// Edgy line on a brag card with a FLAT result (about zero). Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Flat line. Steady hands.'**
+  String get shareEdgeBragSteadyHands;
+
+  /// Edgy line on a brag card with a FLAT result (about zero). Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'The market blinked. I didn\'t.'**
+  String get shareEdgeBragBlinked;
+
+  /// Edgy line on a brag card with a FLAT result (about zero). Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Even. Like my temper.'**
+  String get shareEdgeBragEvenTemper;
+
+  /// Edgy line on a brag card with a FLAT result (about zero). Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Zero drama. Zero change.'**
+  String get shareEdgeBragNoDrama;
+
+  /// Edgy line on the WON prediction brag card (caps line 'Called it'; the market resolved in the person's favour). Cocky but deadpan, PG; never 'bet', no promise of a next win.
+  ///
+  /// In en, this message translates to:
+  /// **'Told you. Politely.'**
+  String get bragEdgeWonToldPolitely;
+
+  /// Edgy line on the WON prediction brag card (caps line 'Called it'; the market resolved in the person's favour). Cocky but deadpan, PG; never 'bet', no promise of a next win.
+  ///
+  /// In en, this message translates to:
+  /// **'I was right. I\'ll be normal about it.'**
+  String get bragEdgeWonNormal;
+
+  /// Edgy line on the WON prediction brag card (caps line 'Called it'; the market resolved in the person's favour). Cocky but deadpan, PG; never 'bet', no promise of a next win.
+  ///
+  /// In en, this message translates to:
+  /// **'Resolved in my favour.'**
+  String get bragEdgeWonMyFavour;
+
+  /// Edgy line on the WON prediction brag card (caps line 'Called it'; the market resolved in the person's favour). Cocky but deadpan, PG; never 'bet', no promise of a next win.
+  ///
+  /// In en, this message translates to:
+  /// **'Being right pays. Sometimes.'**
+  String get bragEdgeWonPaysSometimes;
+
+  /// Edgy line on the WON prediction brag card (caps line 'Called it'; the market resolved in the person's favour). Cocky but deadpan, PG; never 'bet', no promise of a next win.
+  ///
+  /// In en, this message translates to:
+  /// **'The market agreed. Eventually.'**
+  String get bragEdgeWonAgreed;
+
+  /// Edgy line on the WON prediction brag card (caps line 'Called it'; the market resolved in the person's favour). Cocky but deadpan, PG; never 'bet', no promise of a next win.
+  ///
+  /// In en, this message translates to:
+  /// **'My side came through.'**
+  String get bragEdgeWonMySide;
+
+  /// Edgy line on the WON prediction brag card (caps line 'Called it'; the market resolved in the person's favour). Cocky but deadpan, PG; never 'bet', no promise of a next win.
+  ///
+  /// In en, this message translates to:
+  /// **'Patience, then payout.'**
+  String get bragEdgeWonThenPayout;
+
+  /// Edgy line on the WON prediction brag card (caps line 'Called it'; the market resolved in the person's favour). Cocky but deadpan, PG; never 'bet', no promise of a next win.
+  ///
+  /// In en, this message translates to:
+  /// **'No notes.'**
+  String get bragEdgeWonNoNotes;
+
+  /// Edgy line on the WON prediction brag card (caps line 'Called it'; the market resolved in the person's favour). Cocky but deadpan, PG; never 'bet', no promise of a next win.
+  ///
+  /// In en, this message translates to:
+  /// **'Screenshot for my future self.'**
+  String get bragEdgeWonFutureSelf;
+
+  /// Edgy line on the WON prediction brag card (caps line 'Called it'; the market resolved in the person's favour). Cocky but deadpan, PG; never 'bet', no promise of a next win.
+  ///
+  /// In en, this message translates to:
+  /// **'Early, then right.'**
+  String get bragEdgeWonEarlyThenRight;
+
+  /// Edgy line on the WON prediction brag card (caps line 'Called it'; the market resolved in the person's favour). Cocky but deadpan, PG; never 'bet', no promise of a next win.
+  ///
+  /// In en, this message translates to:
+  /// **'Quietly collecting.'**
+  String get bragEdgeWonCollecting;
+
+  /// Edgy line on the WON prediction brag card (caps line 'Called it'; the market resolved in the person's favour). Cocky but deadpan, PG; never 'bet', no promise of a next win.
+  ///
+  /// In en, this message translates to:
+  /// **'I\'d act surprised. I\'m not.'**
+  String get bragEdgeWonNotSurprised;
+
+  /// Edgy line on a receipt share card: money SENT to someone. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent. No hold music.'**
+  String get receiptEdgeSentNoHold;
+
+  /// Edgy line on a receipt share card: money SENT to someone. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Done before the bank opened.'**
+  String get receiptEdgeSentBeforeBank;
+
+  /// Edgy line on a receipt share card: money SENT to someone. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Money moved. Drama didn\'t.'**
+  String get receiptEdgeSentDrama;
+
+  /// Edgy line on a receipt share card: money SENT to someone. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Seconds, not business days.'**
+  String get receiptEdgeSentBusinessDays;
+
+  /// Edgy line on a receipt share card: money SENT to someone. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent. Thank me later.'**
+  String get receiptEdgeSentThankLater;
+
+  /// Edgy line on a receipt share card: money SENT to someone. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Generous and efficient.'**
+  String get receiptEdgeSentEfficient;
+
+  /// Edgy line on a receipt share card: money SENT to someone. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'One tap. No forms.'**
+  String get receiptEdgeSentOneTap;
+
+  /// Edgy line on a receipt share card: money SENT to someone. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid up. Moving on.'**
+  String get receiptEdgeSentPaidUp;
+
+  /// Edgy line on a receipt share card: money SENT to someone. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Settled. Like an adult.'**
+  String get receiptEdgeSentAdult;
+
+  /// Edgy line on a receipt share card: money SENT to someone. Deadpan, PG. {amount} is the amount on the card, formatted, e.g. '$10'.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount}, gone in seconds.'**
+  String receiptEdgeSentGone(String amount);
+
+  /// Edgy line on a receipt share card: money SENT to someone. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Sending money shouldn\'t be a saga.'**
+  String get receiptEdgeSentSaga;
+
+  /// Edgy line on a receipt share card: money RECEIVED. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Got paid. Acting casual.'**
+  String get receiptEdgeReceivedCasual;
+
+  /// Edgy line on a receipt share card: money RECEIVED. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Received. Noted. Appreciated.'**
+  String get receiptEdgeReceivedNoted;
+
+  /// Edgy line on a receipt share card: money RECEIVED. Deadpan, PG. {amount} is the amount on the card, formatted, e.g. '$10'.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} richer. Unbothered.'**
+  String receiptEdgeReceivedRicher(String amount);
+
+  /// Edgy line on a receipt share card: money RECEIVED. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Landed before the thank-you text.'**
+  String get receiptEdgeReceivedThankYou;
+
+  /// Edgy line on a receipt share card: money RECEIVED. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Money in. Mood up.'**
+  String get receiptEdgeReceivedMoodUp;
+
+  /// Edgy line on a receipt share card: money RECEIVED. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Received with grace.'**
+  String get receiptEdgeReceivedGrace;
+
+  /// Edgy line on a receipt share card: money RECEIVED. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Didn\'t even have to ask twice.'**
+  String get receiptEdgeReceivedAskTwice;
+
+  /// Edgy line on a receipt share card: money RECEIVED. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Payday, unscheduled.'**
+  String get receiptEdgeReceivedUnscheduled;
+
+  /// Edgy line on a receipt share card: money RECEIVED. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Arrived. No bank in the middle.'**
+  String get receiptEdgeReceivedNoMiddle;
+
+  /// Edgy line on a receipt share card: money RECEIVED. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Accepting compliments and transfers.'**
+  String get receiptEdgeReceivedCompliments;
+
+  /// Edgy line on a receipt share card: money still ON ITS WAY in (not landed yet). Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Almost here. Don\'t hover.'**
+  String get receiptEdgeIncomingAlmost;
+
+  /// Edgy line on a receipt share card: money still ON ITS WAY in (not landed yet). Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading. Stay calm.'**
+  String get receiptEdgeIncomingLoading;
+
+  /// Edgy line on a receipt share card: money still ON ITS WAY in (not landed yet). Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'On its way. Refreshing won\'t help.'**
+  String get receiptEdgeIncomingRefreshing;
+
+  /// Edgy line on a receipt share card: money still ON ITS WAY in (not landed yet). Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'It\'s on its way. I\'m not checking.'**
+  String get receiptEdgeIncomingNotChecking;
+
+  /// Edgy line on a receipt share card: money still ON ITS WAY in (not landed yet). Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending. Like most good things.'**
+  String get receiptEdgeIncomingPending;
+
+  /// Edgy line on a receipt share card: money still ON ITS WAY in (not landed yet). Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Inbound. Patience mode on.'**
+  String get receiptEdgeIncomingPatienceMode;
+
+  /// Edgy line on a receipt share card: money still ON ITS WAY in (not landed yet). Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'En route. Snacks not included.'**
+  String get receiptEdgeIncomingSnacks;
+
+  /// Edgy line on a receipt share card: money still ON ITS WAY in (not landed yet). Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Good things take a minute.'**
+  String get receiptEdgeIncomingMinute;
+
+  /// Edgy line on a receipt share card: money still ON ITS WAY in (not landed yet). Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Money in motion.'**
+  String get receiptEdgeIncomingMotion;
+
+  /// Edgy line on a receipt share card: money still ON ITS WAY in (not landed yet). Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'A watched transfer never lands.'**
+  String get receiptEdgeIncomingWatched;
+
+  /// Edgy line on a receipt share card: money MOVED between the person's own accounts (e.g. Dollars to Bitcoin). Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Rearranging the furniture.'**
+  String get receiptEdgeMovedFurniture;
+
+  /// Edgy line on a receipt share card: money MOVED between the person's own accounts (e.g. Dollars to Bitcoin). Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Moved it. Didn\'t lose it.'**
+  String get receiptEdgeMovedDidntLose;
+
+  /// Edgy line on a receipt share card: money MOVED between the person's own accounts (e.g. Dollars to Bitcoin). Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Left pocket, right pocket.'**
+  String get receiptEdgeMovedPockets;
+
+  /// Edgy line on a receipt share card: money MOVED between the person's own accounts (e.g. Dollars to Bitcoin). Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Money, relocated.'**
+  String get receiptEdgeMovedRelocated;
+
+  /// Edgy line on a receipt share card: money MOVED between the person's own accounts (e.g. Dollars to Bitcoin). Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Same owner. New room.'**
+  String get receiptEdgeMovedNewRoom;
+
+  /// Edgy line on a receipt share card: money MOVED between the person's own accounts (e.g. Dollars to Bitcoin). Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Housekeeping, but for money.'**
+  String get receiptEdgeMovedHousekeeping;
+
+  /// Edgy line on a receipt share card: money MOVED between the person's own accounts (e.g. Dollars to Bitcoin). Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'A strategic shuffle.'**
+  String get receiptEdgeMovedShuffle;
+
+  /// Edgy line on a receipt share card: money MOVED between the person's own accounts (e.g. Dollars to Bitcoin). Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Moving money like a grown-up.'**
+  String get receiptEdgeMovedGrownUp;
+
+  /// Edgy line on a receipt share card: money MOVED between the person's own accounts (e.g. Dollars to Bitcoin). Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Organised. Briefly.'**
+  String get receiptEdgeMovedOrganised;
+
+  /// Edgy line on a receipt share card: money MOVED between the person's own accounts (e.g. Dollars to Bitcoin). Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Just tidying up.'**
+  String get receiptEdgeMovedTidying;
+
+  /// Edgy line on a receipt share card: money MOVED between the person's own accounts (e.g. Dollars to Bitcoin). Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Allocating. Very calmly.'**
+  String get receiptEdgeMovedAllocating;
+
+  /// Edgy line on a receipt share card: something BOUGHT (usually bitcoin). Deadpan, PG; no promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'Didn\'t overthink it.'**
+  String get receiptEdgeBoughtOverthink;
+
+  /// Edgy line on a receipt share card: something BOUGHT (usually bitcoin). Deadpan, PG; no promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'Added to the pile.'**
+  String get receiptEdgeBoughtPile;
+
+  /// Edgy line on a receipt share card: something BOUGHT (usually bitcoin). Deadpan, PG; no promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'Quiet accumulation.'**
+  String get receiptEdgeBoughtAccumulation;
+
+  /// Edgy line on a receipt share card: something BOUGHT (usually bitcoin). Deadpan, PG; no promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'Told no one. Until now.'**
+  String get receiptEdgeBoughtToldNoOne;
+
+  /// Edgy line on a receipt share card: something BOUGHT (usually bitcoin). Deadpan, PG; no promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'Buying, not timing.'**
+  String get receiptEdgeBoughtNotTiming;
+
+  /// Edgy line on a receipt share card: something BOUGHT (usually bitcoin). Deadpan, PG; no promise of profit. {amount} is the amount on the card, formatted, e.g. '$10'.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} of conviction.'**
+  String receiptEdgeBoughtConviction(String amount);
+
+  /// Edgy line on a receipt share card: something BOUGHT (usually bitcoin). Deadpan, PG; no promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'Step one: buy. Step two: patience.'**
+  String get receiptEdgeBoughtPatience;
+
+  /// Edgy line on a receipt share card: something BOUGHT (usually bitcoin). Deadpan, PG; no promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'Buying. Ignoring the noise.'**
+  String get receiptEdgeBoughtNoise;
+
+  /// Edgy line on a receipt share card: something BOUGHT (usually bitcoin). Deadpan, PG; no promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'Bought it. Back to my day.'**
+  String get receiptEdgeBoughtBackToDay;
+
+  /// Edgy line on a receipt share card: something BOUGHT (usually bitcoin). Deadpan, PG; no promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'Some people buy shoes.'**
+  String get receiptEdgeBoughtShoes;
+
+  /// Edgy line on a receipt share card: something SOLD (usually bitcoin); the result is not shown. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Sold some. Kept my cool.'**
+  String get receiptEdgeSoldKeptCool;
+
+  /// Edgy line on a receipt share card: something SOLD (usually bitcoin); the result is not shown. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Converted. No regrets. Yet.'**
+  String get receiptEdgeSoldNoRegrets;
+
+  /// Edgy line on a receipt share card: something SOLD (usually bitcoin); the result is not shown. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Sold. Not checking the price again.'**
+  String get receiptEdgeSoldDidntCheck;
+
+  /// Edgy line on a receipt share card: something SOLD (usually bitcoin); the result is not shown. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Liquidity, acquired.'**
+  String get receiptEdgeSoldLiquidity;
+
+  /// Edgy line on a receipt share card: something SOLD (usually bitcoin); the result is not shown. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Took the money. Left the drama.'**
+  String get receiptEdgeSoldLeftDrama;
+
+  /// Edgy line on a receipt share card: something SOLD (usually bitcoin); the result is not shown. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Sold. Sleeping fine.'**
+  String get receiptEdgeSoldSleeping;
+
+  /// Edgy line on a receipt share card: something SOLD (usually bitcoin); the result is not shown. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Cash is a position too.'**
+  String get receiptEdgeSoldCashPosition;
+
+  /// Edgy line on a receipt share card: something SOLD (usually bitcoin); the result is not shown. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Moved to cash. Deliberately.'**
+  String get receiptEdgeSoldDeliberately;
+
+  /// Edgy line on a receipt share card: something SOLD (usually bitcoin); the result is not shown. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Sell button: pressed. Calmly.'**
+  String get receiptEdgeSoldPressed;
+
+  /// Edgy line on a receipt share card: something SOLD (usually bitcoin); the result is not shown. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'A little cash never hurt.'**
+  String get receiptEdgeSoldLittleCash;
+
+  /// Edgy line on a receipt share card: a prediction PLACED (the person's own side). Deadpan, PG; never 'bet', no promise of a win.
+  ///
+  /// In en, this message translates to:
+  /// **'Committed. Mostly.'**
+  String get receiptEdgePredictedCommitted;
+
+  /// Edgy line on a receipt share card: a prediction PLACED (the person's own side). Deadpan, PG; never 'bet', no promise of a win.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting is the hard part.'**
+  String get receiptEdgePredictedHardPart;
+
+  /// Edgy line on a receipt share card: a prediction PLACED (the person's own side). Deadpan, PG; never 'bet', no promise of a win.
+  ///
+  /// In en, this message translates to:
+  /// **'An opinion, now with skin in it.'**
+  String get receiptEdgePredictedSkin;
+
+  /// Edgy line on a receipt share card: a prediction PLACED (the person's own side). Deadpan, PG; never 'bet', no promise of a win.
+  ///
+  /// In en, this message translates to:
+  /// **'Placed. Nails intact.'**
+  String get receiptEdgePredictedNails;
+
+  /// Edgy line on a receipt share card: a prediction PLACED (the person's own side). Deadpan, PG; never 'bet', no promise of a win.
+  ///
+  /// In en, this message translates to:
+  /// **'Took a side. Kept my cool.'**
+  String get receiptEdgePredictedTookSide;
+
+  /// Edgy line on a receipt share card: a prediction PLACED (the person's own side). Deadpan, PG; never 'bet', no promise of a win.
+  ///
+  /// In en, this message translates to:
+  /// **'Not advice. Just my side.'**
+  String get receiptEdgePredictedJustMySide;
+
+  /// Edgy line on a receipt share card: a prediction PLACED (the person's own side). Deadpan, PG; never 'bet', no promise of a win.
+  ///
+  /// In en, this message translates to:
+  /// **'See you at resolution.'**
+  String get receiptEdgePredictedResolution;
+
+  /// Edgy line on a receipt share card: a prediction PLACED (the person's own side). Deadpan, PG; never 'bet', no promise of a win. {amount} is the amount on the card, formatted, e.g. '$10'. {side} is the side picked: 'Yes', 'No' (already translated) or a name, e.g. 'Gen.G'.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} on {side}. That\'s the post.'**
+  String receiptEdgePredictedThatsThePost(String amount, String side);
+
+  /// Edgy line on a receipt share card: a prediction sold or an Investing trade closed IN PROFIT. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'In. Up. Out.'**
+  String get receiptEdgeUpInUpOut;
+
+  /// Edgy line on a receipt share card: a prediction sold or an Investing trade closed IN PROFIT. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Profit taken. Ego left behind.'**
+  String get receiptEdgeUpEgo;
+
+  /// Edgy line on a receipt share card: a prediction sold or an Investing trade closed IN PROFIT. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Left while it was green.'**
+  String get receiptEdgeUpWhileGreen;
+
+  /// Edgy line on a receipt share card: a prediction sold or an Investing trade closed IN PROFIT. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Knowing when to leave is a skill.'**
+  String get receiptEdgeUpWhenToLeave;
+
+  /// Edgy line on a receipt share card: a prediction sold or an Investing trade closed IN PROFIT. Deadpan, PG. {amount} is the signed result on the card, e.g. '+$412.35'.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount}. Done here.'**
+  String receiptEdgeUpDoneHere(String amount);
+
+  /// Edgy line on a receipt share card: a prediction sold or an Investing trade closed IN PROFIT. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Booked it.'**
+  String get receiptEdgeUpBooked;
+
+  /// Edgy line on a receipt share card: a prediction sold or an Investing trade closed IN PROFIT. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Green exit. No encore.'**
+  String get receiptEdgeUpNoEncore;
+
+  /// Edgy line on a receipt share card: a prediction sold or an Investing trade closed IN PROFIT. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Greed is not a strategy.'**
+  String get receiptEdgeUpGreed;
+
+  /// Edgy line on a receipt share card: a prediction sold or an Investing trade closed IN PROFIT. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Walked away up. Rare discipline.'**
+  String get receiptEdgeUpDiscipline;
+
+  /// Edgy line on a receipt share card: a prediction sold or an Investing trade closed IN PROFIT. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'A win is a win.'**
+  String get receiptEdgeUpWinIsWin;
+
+  /// Edgy line on a receipt share card: a prediction sold or an Investing trade closed AT A LOSS. Dry, classy, never sad, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Cut the loss. Kept the dignity.'**
+  String get receiptEdgeDownDignity;
+
+  /// Edgy line on a receipt share card: a prediction sold or an Investing trade closed AT A LOSS. Dry, classy, never sad, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Exits are a skill too.'**
+  String get receiptEdgeDownExits;
+
+  /// Edgy line on a receipt share card: a prediction sold or an Investing trade closed AT A LOSS. Dry, classy, never sad, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Wrong, then quick about it.'**
+  String get receiptEdgeDownQuick;
+
+  /// Edgy line on a receipt share card: a prediction sold or an Investing trade closed AT A LOSS. Dry, classy, never sad, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Out early. Lesson kept.'**
+  String get receiptEdgeDownLessonKept;
+
+  /// Edgy line on a receipt share card: a prediction sold or an Investing trade closed AT A LOSS. Dry, classy, never sad, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Better out than stubborn.'**
+  String get receiptEdgeDownStubborn;
+
+  /// Edgy line on a receipt share card: a prediction sold or an Investing trade closed AT A LOSS. Dry, classy, never sad, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Took the L. Kept the receipt.'**
+  String get receiptEdgeDownTookL;
+
+  /// Edgy line on a receipt share card: a prediction sold or an Investing trade closed AT A LOSS. Dry, classy, never sad, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Closed it. Not my day.'**
+  String get receiptEdgeDownNotMyDay;
+
+  /// Edgy line on a receipt share card: a prediction sold or an Investing trade closed AT A LOSS. Dry, classy, never sad, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Red exit. Zero tears.'**
+  String get receiptEdgeDownZeroTears;
+
+  /// Edgy line on a receipt share card: a prediction sold or an Investing trade closed AT A LOSS. Dry, classy, never sad, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Admitting it is half the skill.'**
+  String get receiptEdgeDownHalfSkill;
+
+  /// Edgy line on a receipt share card: a prediction sold or an Investing trade closed AT A LOSS. Dry, classy, never sad, PG. {amount} is the signed result on the card, e.g. '+$412.35'.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount}. Tuition paid.'**
+  String receiptEdgeDownTuition(String amount);
+
+  /// Edgy line on a receipt share card: a prediction sold or an Investing trade closed at about BREAK-EVEN. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Round trip. No souvenirs.'**
+  String get receiptEdgeFlatRoundTrip;
+
+  /// Edgy line on a receipt share card: a prediction sold or an Investing trade closed at about BREAK-EVEN. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Back where I started. Wiser.'**
+  String get receiptEdgeFlatWiser;
+
+  /// Edgy line on a receipt share card: a prediction sold or an Investing trade closed at about BREAK-EVEN. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Zero sum. Zero stress.'**
+  String get receiptEdgeFlatZeroStress;
+
+  /// Edgy line on a receipt share card: a prediction sold or an Investing trade closed at about BREAK-EVEN. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'No harm. No foul.'**
+  String get receiptEdgeFlatNoHarm;
+
+  /// Edgy line on a receipt share card: a prediction sold or an Investing trade closed at about BREAK-EVEN. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'The market shrugged. So did I.'**
+  String get receiptEdgeFlatShrugged;
+
+  /// Edgy line on a receipt share card: a prediction sold or an Investing trade closed at about BREAK-EVEN. Deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Net result: a story.'**
+  String get receiptEdgeFlatStory;
+
+  /// Edgy line on a receipt share card: a prediction LOST (caps line 'Not this time'; shared by choice). Dry, classy, never sad, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Next question.'**
+  String get receiptEdgeLostNextQuestion;
+
+  /// Edgy line on a receipt share card: a prediction LOST (caps line 'Not this time'; shared by choice). Dry, classy, never sad, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'The market disagreed. Rudely.'**
+  String get receiptEdgeLostRudely;
+
+  /// Edgy line on a receipt share card: a prediction LOST (caps line 'Not this time'; shared by choice). Dry, classy, never sad, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Lost one. Kept my sense of humour.'**
+  String get receiptEdgeLostHumour;
+
+  /// Edgy line on a receipt share card: a prediction LOST (caps line 'Not this time'; shared by choice). Dry, classy, never sad, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Wrong, but in good company.'**
+  String get receiptEdgeLostCompany;
+
+  /// Edgy line on a receipt share card: a prediction LOST (caps line 'Not this time'; shared by choice). Dry, classy, never sad, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'That one\'s on me.'**
+  String get receiptEdgeLostOnMe;
+
+  /// Edgy line on a receipt share card: a prediction LOST (caps line 'Not this time'; shared by choice). Dry, classy, never sad, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Lighter wallet. Same confidence.'**
+  String get receiptEdgeLostConfidence;
+
+  /// Edgy line on a receipt share card: a prediction LOST (caps line 'Not this time'; shared by choice). Dry, classy, never sad, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Called it. Wrongly.'**
+  String get receiptEdgeLostWrongly;
+
+  /// Edgy line on a receipt share card: a prediction LOST (caps line 'Not this time'; shared by choice). Dry, classy, never sad, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Losing gracefully is a flex.'**
+  String get receiptEdgeLostGraceful;
+
+  /// Edgy line on a receipt share card: a prediction LOST (caps line 'Not this time'; shared by choice). Dry, classy, never sad, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'The odds were the odds.'**
+  String get receiptEdgeLostOddsWereOdds;
+
+  /// Edgy line on a receipt share card: a prediction LOST (caps line 'Not this time'; shared by choice). Dry, classy, never sad, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Moving on. Already moved.'**
+  String get receiptEdgeLostAlreadyMoved;
+
+  /// Edgy line on a receipt share card: a prediction LOST (caps line 'Not this time'; shared by choice). Dry, classy, never sad, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Down one prediction. Up one lesson.'**
+  String get receiptEdgeLostUpLesson;
+
+  /// Edgy line on a receipt share card: a PAYOUT from a prediction that won. Cocky but deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Resolved. Received.'**
+  String get receiptEdgePaidResolved;
+
+  /// Edgy line on a receipt share card: a PAYOUT from a prediction that won. Cocky but deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Payout landed. Acting normal.'**
+  String get receiptEdgePaidNormal;
+
+  /// Edgy line on a receipt share card: a PAYOUT from a prediction that won. Cocky but deadpan, PG. {amount} is the amount on the card, formatted, e.g. '$10'.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount}, paid in full.'**
+  String receiptEdgePaidInFull(String amount);
+
+  /// Edgy line on a receipt share card: a PAYOUT from a prediction that won. Cocky but deadpan, PG.
+  ///
+  /// In en, this message translates to:
+  /// **'Payday, courtesy of being right.'**
+  String get receiptEdgePaidCourtesy;
+
+  /// Edgy line on a receipt share card: an Investing trade OPENED (or a token bought). Deadpan, PG; not advice, no promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'Position open. Pulse normal.'**
+  String get receiptEdgeOpenedPulse;
+
+  /// Edgy line on a receipt share card: an Investing trade OPENED (or a token bought). Deadpan, PG; not advice, no promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'Entered calmly. Will exit calmly.'**
+  String get receiptEdgeOpenedCalmly;
+
+  /// Edgy line on a receipt share card: an Investing trade OPENED (or a token bought). Deadpan, PG; not advice, no promise of profit. {price} is the entry price on the card, e.g. '$242.10'.
+  ///
+  /// In en, this message translates to:
+  /// **'In at {price}. Noted.'**
+  String receiptEdgeOpenedInAt(String price);
+
+  /// Edgy line on a receipt share card: an Investing trade OPENED (or a token bought). Deadpan, PG; not advice, no promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'In. Not refreshing every minute.'**
+  String get receiptEdgeOpenedNotRefreshing;
+
+  /// Edgy line on a receipt share card: an Investing trade OPENED (or a token bought). Deadpan, PG; not advice, no promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'Conviction, sized responsibly.'**
+  String get receiptEdgeOpenedSized;
+
+  /// Edgy line on a receipt share card: an Investing trade OPENED (or a token bought). Deadpan, PG; not advice, no promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'Not advice. Just my trade.'**
+  String get receiptEdgeOpenedJustMine;
+
+  /// Edgy line on a receipt share card: an Investing trade OPENED (or a token bought). Deadpan, PG; not advice, no promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'The chart and I have an understanding.'**
+  String get receiptEdgeOpenedUnderstanding;
+
+  /// Edgy line on a receipt share card: an Investing trade OPENED (or a token bought). Deadpan, PG; not advice, no promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'My entry. My problem.'**
+  String get receiptEdgeOpenedMyProblem;
+
+  /// Edgy line on a receipt share card: an Investing trade OPENED (or a token bought). Deadpan, PG; not advice, no promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready for either direction.'**
+  String get receiptEdgeOpenedEither;
+
+  /// The share text of a challenge link: the sender's outcome on the market, the dare and the amount, with the link. Never 'bet'.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}, my pick: {outcome} on {title}. Take the other side or join me. {amount} on me: {url}'**
+  String shareMessageChallengeNamed(
+      String name, String outcome, String title, String amount, String url);
+
+  /// The share text of a challenge link without a name. Never 'bet'.
+  ///
+  /// In en, this message translates to:
+  /// **'My pick: {outcome} on {title}. Take the other side or join me. {amount} on me: {url}'**
+  String shareMessageChallengeUnnamed(
+      String outcome, String title, String amount, String url);
+
+  /// Claim screen of a challenge, once the money is in: the button that opens the slip on the side opposite to the sender's.
+  ///
+  /// In en, this message translates to:
+  /// **'Take the other side'**
+  String get claimChallengeOtherSide;
+
+  /// Claim screen of a challenge, once the money is in: the button that opens the slip on the sender's own side.
+  ///
+  /// In en, this message translates to:
+  /// **'Same side as your friend'**
+  String get claimChallengeSameSide;
+
+  /// Claim screen of a challenge: the line on the pick card naming the sender's outcome, e.g. 'Your friend is on Yes'.
+  ///
+  /// In en, this message translates to:
+  /// **'Your friend is on {outcome}'**
+  String claimChallengeFriendOn(String outcome);
+
   /// Bitcoin home Activity: heading over the four newest actions, shown as square tiles.
   ///
   /// In en, this message translates to:
@@ -20743,6 +23115,444 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'below target'**
   String get predictBelowTarget;
+
+  /// A market page's Sal sheet card, the market share sheet's button and the send sheet's title: send a prediction on this market, the side still to pick.
+  ///
+  /// In en, this message translates to:
+  /// **'Send a prediction'**
+  String get sendAPrediction;
+
+  /// As sendAPrediction, on an Investing market.
+  ///
+  /// In en, this message translates to:
+  /// **'Send an investment'**
+  String get sendAnInvestment;
+
+  /// Under Send a prediction on the Sal sheet's card: what happens.
+  ///
+  /// In en, this message translates to:
+  /// **'They get the prediction you pick'**
+  String get sendAPredictionSub;
+
+  /// Under Send an investment on the Sal sheet's card: what happens.
+  ///
+  /// In en, this message translates to:
+  /// **'They get the investment you pick'**
+  String get sendAnInvestmentSub;
+
+  /// The send sheet's side step subtitle on a market of several outcomes (candidates).
+  ///
+  /// In en, this message translates to:
+  /// **'Pick the outcome they get'**
+  String get sendPickOutcomeSub;
+
+  /// The send sheet's amount step subtitle when a prediction or investment is sent.
+  ///
+  /// In en, this message translates to:
+  /// **'How much do they get?'**
+  String get sendPickAmountSub;
+
+  /// Section label over the Send screens' friend card (Send to anyone, Send a prediction or investment).
+  ///
+  /// In en, this message translates to:
+  /// **'To a friend'**
+  String get sendToAFriendLabel;
+
+  /// The Dollars Send's row for the coins dollars can land as (opens the coin sheet); the coins are listed under it.
+  ///
+  /// In en, this message translates to:
+  /// **'To a crypto address'**
+  String get sendToCryptoAddress;
+
+  /// Send (Bitcoin and Dollars): the small header over the one row of chips between Frequent and All contacts (To your Bitcoin or To Dollars, Crypto address, Prediction).
+  ///
+  /// In en, this message translates to:
+  /// **'More ways to send'**
+  String get sendMoreWaysToSend;
+
+  /// Send (Bitcoin and Dollars): the short chip label that opens the coins this money can land as on another chain. Keep it short: three chips share a phone's width.
+  ///
+  /// In en, this message translates to:
+  /// **'Crypto address'**
+  String get sendWayCryptoAddress;
+
+  /// Send (Bitcoin and Dollars): the short chip label that opens the market search to send a prediction or an investment. Keep it short.
+  ///
+  /// In en, this message translates to:
+  /// **'Prediction'**
+  String get sendWayPrediction;
+
+  /// Bitcoin Send: the short chip label that moves bitcoin into the user's own Dollars account (the Move money sheet). Keep it short.
+  ///
+  /// In en, this message translates to:
+  /// **'To Dollars'**
+  String get sendWayToDollars;
+
+  /// Under Send a prediction on the Dollars Send's To a friend card: the row opens the market search (predictions and investing).
+  ///
+  /// In en, this message translates to:
+  /// **'Or an investment. Search a market, pick the side'**
+  String get sendPickRowSub;
+
+  /// Chart sheet: section label above the chart type cards (Line, Candles, Area, Heikin Ashi).
+  ///
+  /// In en, this message translates to:
+  /// **'Chart type'**
+  String get chartSheetChartType;
+
+  /// Chart sheet: section label above the trend indicators (EMA, SMA, VWAP, Supertrend).
+  ///
+  /// In en, this message translates to:
+  /// **'Trend'**
+  String get chartGroupTrend;
+
+  /// Chart sheet: section label above the momentum indicators (RSI, MACD, Stoch RSI).
+  ///
+  /// In en, this message translates to:
+  /// **'Momentum'**
+  String get chartGroupMomentum;
+
+  /// Chart sheet: section label above the volatility indicators (Bollinger bands, ATR).
+  ///
+  /// In en, this message translates to:
+  /// **'Volatility'**
+  String get chartGroupVolatility;
+
+  /// One-line explanation of the SMA indicator (the 50 and 200 simple moving averages by default).
+  ///
+  /// In en, this message translates to:
+  /// **'Long-term trend, slow to turn'**
+  String get chartIndSmaNote;
+
+  /// One-line explanation of the Supertrend indicator.
+  ///
+  /// In en, this message translates to:
+  /// **'A trailing stop that flips with the trend'**
+  String get chartIndStNote;
+
+  /// One-line explanation of the Stochastic RSI indicator.
+  ///
+  /// In en, this message translates to:
+  /// **'Fast overbought and oversold swings'**
+  String get chartIndSrsiNote;
+
+  /// One-line explanation of the ATR (average true range) indicator.
+  ///
+  /// In en, this message translates to:
+  /// **'How far a bar usually moves'**
+  String get chartIndAtrNote;
+
+  /// One-line explanation of the OBV (on-balance volume) indicator.
+  ///
+  /// In en, this message translates to:
+  /// **'Whether volume is backing the move'**
+  String get chartIndObvNote;
+
+  /// Indicator name: the volume traded at each price over the bars on screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Volume profile'**
+  String get chartIndVp;
+
+  /// One-line explanation of the volume profile indicator.
+  ///
+  /// In en, this message translates to:
+  /// **'Prices where the most was traded'**
+  String get chartIndVpNote;
+
+  /// Toast when a fifth indicator on the price replaces the oldest one.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} is off: four fit on the price'**
+  String chartPriceLimit(String name);
+
+  /// Title of an indicator's settings sheet, e.g. "RSI settings".
+  ///
+  /// In en, this message translates to:
+  /// **'{name} settings'**
+  String chartIndSettingsTitle(String name);
+
+  /// Indicator settings: the name of one setting (a stepper row).
+  ///
+  /// In en, this message translates to:
+  /// **'Length'**
+  String get chartParamLength;
+
+  /// Indicator settings: the name of one setting (a stepper row).
+  ///
+  /// In en, this message translates to:
+  /// **'Fast'**
+  String get chartParamFast;
+
+  /// Indicator settings: the name of one setting (a stepper row).
+  ///
+  /// In en, this message translates to:
+  /// **'Slow'**
+  String get chartParamSlow;
+
+  /// Indicator settings: the name of one setting (a stepper row).
+  ///
+  /// In en, this message translates to:
+  /// **'Signal'**
+  String get chartParamSignal;
+
+  /// Indicator settings: the name of one setting (a stepper row).
+  ///
+  /// In en, this message translates to:
+  /// **'Multiplier'**
+  String get chartParamMultiplier;
+
+  /// Indicator settings: the name of one setting (a stepper row).
+  ///
+  /// In en, this message translates to:
+  /// **'RSI length'**
+  String get chartParamRsiLength;
+
+  /// Indicator settings: the name of one setting (a stepper row).
+  ///
+  /// In en, this message translates to:
+  /// **'Stochastic length'**
+  String get chartParamStochLength;
+
+  /// Indicator settings: the name of one setting (a stepper row).
+  ///
+  /// In en, this message translates to:
+  /// **'%K smoothing'**
+  String get chartParamSmoothK;
+
+  /// Indicator settings: the name of one setting (a stepper row).
+  ///
+  /// In en, this message translates to:
+  /// **'%D smoothing'**
+  String get chartParamSmoothD;
+
+  /// Indicator settings: the name of one setting (a stepper row).
+  ///
+  /// In en, this message translates to:
+  /// **'Rows'**
+  String get chartParamRows;
+
+  /// A game's More markets: the period chip for the markets about the whole match (esports series, tennis, football).
+  ///
+  /// In en, this message translates to:
+  /// **'Match'**
+  String get polyPeriodMatch;
+
+  /// A game's More markets: the period chip for the markets about the whole game, in a sport with quarters or innings (basketball, American football).
+  ///
+  /// In en, this message translates to:
+  /// **'Full game'**
+  String get polyPeriodFullGame;
+
+  /// Period chip: one game of an esports series (Game 2).
+  ///
+  /// In en, this message translates to:
+  /// **'Game {number}'**
+  String polyPeriodGame(int number);
+
+  /// Period chip: one map of an esports series (Map 1).
+  ///
+  /// In en, this message translates to:
+  /// **'Map {number}'**
+  String polyPeriodMap(int number);
+
+  /// Period chip: one set of a tennis match (Set 1).
+  ///
+  /// In en, this message translates to:
+  /// **'Set {number}'**
+  String polyPeriodSet(int number);
+
+  /// Period chip: the first half of a match.
+  ///
+  /// In en, this message translates to:
+  /// **'1st half'**
+  String get polyPeriodFirstHalf;
+
+  /// Period chip: the second half of a match.
+  ///
+  /// In en, this message translates to:
+  /// **'2nd half'**
+  String get polyPeriodSecondHalf;
+
+  /// Period chip: one quarter of a basketball or American football game (Q3).
+  ///
+  /// In en, this message translates to:
+  /// **'Q{number}'**
+  String polyPeriodQuarter(int number);
+
+  /// Period chip: one period of an ice hockey game.
+  ///
+  /// In en, this message translates to:
+  /// **'Period {number}'**
+  String polyPeriodPeriod(int number);
+
+  /// Period chip: the first five innings of a baseball game.
+  ///
+  /// In en, this message translates to:
+  /// **'First 5 innings'**
+  String get polyPeriodFirstFive;
+
+  /// Period chip: the first inning of a baseball game.
+  ///
+  /// In en, this message translates to:
+  /// **'1st inning'**
+  String get polyPeriodFirstInning;
+
+  /// A tennis match's More markets: heading of the handicap lines counted in sets (beside the handicap in games).
+  ///
+  /// In en, this message translates to:
+  /// **'Set handicap'**
+  String get polyLineSetHandicap;
+
+  /// A game's More markets: heading of the over/under lines on the number of games (or maps) played.
+  ///
+  /// In en, this message translates to:
+  /// **'Total games'**
+  String get polyLineTotalGames;
+
+  /// Heading of the over/under lines on the number of sets played.
+  ///
+  /// In en, this message translates to:
+  /// **'Total sets'**
+  String get polyLineTotalSets;
+
+  /// Heading of the over/under lines on the number of kills in an esports game.
+  ///
+  /// In en, this message translates to:
+  /// **'Total kills'**
+  String get polyLineTotalKills;
+
+  /// Heading of the over/under lines on the number of rounds in a map.
+  ///
+  /// In en, this message translates to:
+  /// **'Total rounds'**
+  String get polyLineTotalRounds;
+
+  /// Heading of the over/under lines on how long an esports game lasts.
+  ///
+  /// In en, this message translates to:
+  /// **'Duration'**
+  String get polyLineDuration;
+
+  /// Heading of the over/under lines on one team's own score.
+  ///
+  /// In en, this message translates to:
+  /// **'Team totals'**
+  String get polyLineTeamTotals;
+
+  /// Heading of the lines on one player's numbers (points, rebounds).
+  ///
+  /// In en, this message translates to:
+  /// **'Players'**
+  String get polyLinePlayers;
+
+  /// Collapsed group at the foot of a game's More markets: lines nobody has traded yet. {count} is how many.
+  ///
+  /// In en, this message translates to:
+  /// **'Not trading yet · {count}'**
+  String polyLinesNotTrading(int count);
+
+  /// Collapsed group at the foot of a game's More markets: lines already decided (over 99% or under 1%). {count} is how many.
+  ///
+  /// In en, this message translates to:
+  /// **'Settled · {count}'**
+  String polyLinesSettled(int count);
+
+  /// The Over side of an over/under line, on its button.
+  ///
+  /// In en, this message translates to:
+  /// **'Over'**
+  String get polySideOver;
+
+  /// The Under side of an over/under line, on its button.
+  ///
+  /// In en, this message translates to:
+  /// **'Under'**
+  String get polySideUnder;
+
+  /// The Dollars Send recipient step's Send an investment or prediction card: the line under the title, what the person does next (the market search, then the side, then the amount).
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a market, side and amount'**
+  String get sendPickCardSub;
+
+  /// The Dollars Send recipient step's card title (founder, 5 November 2026): send an investment or a prediction on a link, the market search first.
+  ///
+  /// In en, this message translates to:
+  /// **'Send an investment or prediction'**
+  String get sendAnInvestmentOrPrediction;
+
+  /// The floating bar on Send this prediction's last step: creates the prediction's link.
+  ///
+  /// In en, this message translates to:
+  /// **'Send prediction'**
+  String get sendPredictionCta;
+
+  /// As sendPredictionCta, for an investment.
+  ///
+  /// In en, this message translates to:
+  /// **'Send investment'**
+  String get sendInvestmentCta;
+
+  /// Send this prediction's last step: the subject of sendPickGets before a name is typed.
+  ///
+  /// In en, this message translates to:
+  /// **'Your friend'**
+  String get sendPickYourFriend;
+
+  /// Send this prediction's last step, under the card: what the friend gets. {who} is the typed first name or sendPickYourFriend, {amount} a formatted amount ('$5'), {market} the market's title, {side} the side, with its chance (sendPickSideAtChance) on a prediction. Never 'bet'.
+  ///
+  /// In en, this message translates to:
+  /// **'{who} gets {amount} on {market} — {side}'**
+  String sendPickGets(String who, String amount, String market, String side);
+
+  /// The side with its chance in sendPickGets, e.g. 'Yes at 62%'.
+  ///
+  /// In en, this message translates to:
+  /// **'{side} at {chance}'**
+  String sendPickSideAtChance(String side, String chance);
+
+  /// Send this prediction's last step: the subtitle saying the friend claims the money, then places the prediction with one tap.
+  ///
+  /// In en, this message translates to:
+  /// **'They claim it, then place it with one tap'**
+  String get sendPickHowItWorks;
+
+  /// Prediction share card sent with money: the small caps line at the top (drawn uppercase), 'A PREDICTION FOR YOU'.
+  ///
+  /// In en, this message translates to:
+  /// **'A prediction for you'**
+  String get shareCardPredictionForYou;
+
+  /// As shareCardPredictionForYou with the recipient's first name: 'ANA, A PREDICTION FOR YOU'.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}, a prediction for you'**
+  String shareCardPredictionForNamed(String name);
+
+  /// Toast when the slip's round Sal send button is tapped with no amount typed.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter an amount to send'**
+  String get slipShareEnterAmount;
+
+  /// Toast when the slip's send button is tapped under the market's minimum. {amount} is the minimum, formatted.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter at least {amount} to send'**
+  String slipShareMinimum(String amount);
+
+  /// Toast when the slip's send button is tapped on No for one candidate: a link can only carry Yes on a candidate. {outcome} is the candidate.
+  ///
+  /// In en, this message translates to:
+  /// **'Only Yes on {outcome} can be sent. Switch to Yes to send it.'**
+  String slipShareYesOnly(String outcome);
+
+  /// Subtitle of Send's market search for sending a prediction: open a market, pick the side and amount on its slip, then tap the round Sal button.
+  ///
+  /// In en, this message translates to:
+  /// **'Find a market, pick a side and amount, then tap Sal to send it'**
+  String get sendPickMarketHow;
 }
 
 class _AppLocalizationsDelegate

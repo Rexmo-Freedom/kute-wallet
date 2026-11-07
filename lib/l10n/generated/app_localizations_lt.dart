@@ -5828,6 +5828,40 @@ class AppLocalizationsLt extends AppLocalizations {
   String get hlAdvancedChart => 'Išplėstinis grafikas';
 
   @override
+  String get optionAdvancedChartSub => 'Piešiniai ir indikatoriai';
+
+  @override
+  String get optionAboutMarketSub => 'Statistika ir pavedimų knyga';
+
+  @override
+  String get optionAddMarginSub => 'Toliau nuo likvidavimo';
+
+  @override
+  String get optionPositionDetailsSub => 'Dydis, įėjimas ir finansavimas';
+
+  @override
+  String optionEndsOn(String date) {
+    return 'Baigiasi $date';
+  }
+
+  @override
+  String optionEndedOn(String date) {
+    return 'Baigėsi $date';
+  }
+
+  @override
+  String get optionHowItResolves => 'Kaip išsprendžiama';
+
+  @override
+  String get optionViewMarketSub => 'Grafikas ir tikimybės';
+
+  @override
+  String get optionPredictionDetailsSub => 'Vienetai ir sumokėta kaina';
+
+  @override
+  String get optionProtectSellSub => 'Parduok už savo kainą';
+
+  @override
   String get chartStyleCandles => 'Žvakės';
 
   @override
@@ -5936,13 +5970,40 @@ class AppLocalizationsLt extends AppLocalizations {
   String get chartVwapWindow => 'VWAP per rodomas žvakes';
 
   @override
-  String get chartRsiLabel => 'RSI (14)';
-
-  @override
   String get chartIndicators => 'Indikatoriai';
 
   @override
   String get chartInterval => 'Intervalas';
+
+  @override
+  String get chartIntervalMinute => '1 minutė';
+
+  @override
+  String get chartIntervalMinuteHint => 'Judėjimas tiesiogiai';
+
+  @override
+  String get chartIntervalFiveMinutes => '5 minutės';
+
+  @override
+  String get chartIntervalFiveMinutesHint => 'Šiandienos svyravimai';
+
+  @override
+  String get chartIntervalHour => '1 valanda';
+
+  @override
+  String get chartIntervalHourHint => 'Pastarosios kelios dienos';
+
+  @override
+  String get chartIntervalDay => '1 diena';
+
+  @override
+  String get chartIntervalDayHint => 'Pastarieji mėnesiai';
+
+  @override
+  String get chartIntervalWeek => '1 savaitė';
+
+  @override
+  String get chartIntervalWeekHint => 'Ilgalaikė perspektyva';
 
   @override
   String get chartSelectTool => 'Pasirinkti ir redaguoti piešinius';
@@ -6319,6 +6380,16 @@ class AppLocalizationsLt extends AppLocalizations {
       'Birža nepatvirtino rezultato. Prieš bandydami dar kartą, patikrinkite pavedimus ir likutį.';
 
   @override
+  String get betConfirmingWithVenue => 'Tikrinama su Polymarket…';
+
+  @override
+  String get investingConfirmingWithExchange => 'Tikrinama su birža…';
+
+  @override
+  String get investingOrderNotPlaced =>
+      'Šis pavedimas nebuvo įvykdytas. Niekas nepateikta.';
+
+  @override
   String get investingApprovalExpired =>
       'Patvirtinimas nebegalioja. Peržiūrėkite sandorį ir patvirtinkite jį dar kartą.';
 
@@ -6510,6 +6581,9 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get walletPortfolioAction => 'Portfelis';
+
+  @override
+  String get seeFullPortfolioAndActivity => 'Rodyti visą portfelį ir veiklą';
 
   @override
   String get walletActionsWalletChanged =>
@@ -7391,6 +7465,9 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get addWalletOther => 'Kita piniginė';
+
+  @override
+  String get addWalletOtherSubtitle => 'QR kodas, failas arba įklijavimas';
 
   @override
   String get addWalletTrackSubtitle =>
@@ -9859,6 +9936,63 @@ class AppLocalizationsLt extends AppLocalizations {
   String get polyCountNow => 'Dabar';
 
   @override
+  String get polyMapRepublican => 'Respublikonai';
+
+  @override
+  String get polyMapDemocratic => 'Demokratai';
+
+  @override
+  String get polyMapIndependent => 'Nepriklausomi';
+
+  @override
+  String get polyMapNotRepublican => 'Ne respublikonai';
+
+  @override
+  String get polyMapNotDemocratic => 'Ne demokratai';
+
+  @override
+  String polyMapRepublicansFavoured(int count, int total) {
+    return 'Respublikonai pirmauja $count iš $total valstijų';
+  }
+
+  @override
+  String polyMapDemocratsFavoured(int count, int total) {
+    return 'Demokratai pirmauja $count iš $total valstijų';
+  }
+
+  @override
+  String polyMapYesLeads(int count, int total) {
+    return '„Taip“ pirmauja $count iš $total valstijų';
+  }
+
+  @override
+  String get polyMapNoMarket => 'Nėra atviros rinkos';
+
+  @override
+  String get polyMapChanceOfYes => '„Taip“ tikimybė';
+
+  @override
+  String get polyMapTapToBuild =>
+      'Bakstelėkite valstijas ir sudarykite savo žemėlapį';
+
+  @override
+  String get polyMapMostLikely => 'Labiausiai tikėtinas žemėlapis';
+
+  @override
+  String get polyMapYourMap => 'Jūsų žemėlapis';
+
+  @override
+  String get polyMapNoSuchMap => 'Šiam žemėlapiui rinkos nėra';
+
+  @override
+  String get polyMapBackToMostLikely => 'Grįžti į labiausiai tikėtiną žemėlapį';
+
+  @override
+  String polyMapStatePick(String state, String side) {
+    return '$state: $side jūsų žemėlapyje';
+  }
+
+  @override
   String get polyPillWatchlist => 'Stebimi';
 
   @override
@@ -11239,10 +11373,10 @@ class AppLocalizationsLt extends AppLocalizations {
       'Norėdami juos perkelti, susisiekite su pagalba.';
 
   @override
-  String get portfolioSectionPnlCharts => 'P&L grafikai';
+  String get portfolioSectionPnlCharts => 'P&L';
 
   @override
-  String get portfolioSectionBalances => 'Portfelis';
+  String get portfolioSectionBalances => 'Pozicijos';
 
   @override
   String balanceChangePastWeek(String change) {
@@ -11430,7 +11564,7 @@ class AppLocalizationsLt extends AppLocalizations {
   String get barShareWithFriends => 'Siųsti draugui';
 
   @override
-  String get barShareMarketSub => 'Siųskite rinką arba savo prognozę';
+  String get barShareMarketSub => 'Siųskite rinką arba prognozę';
 
   @override
   String get barSharePositionSub => 'Siųskite rinką arba savo poziciją';
@@ -11439,8 +11573,7 @@ class AppLocalizationsLt extends AppLocalizations {
   String get shareTheMarket => 'Siųsti rinką';
 
   @override
-  String get shareTheMarketSub =>
-      'Nuoroda, kurią galima atidaryti, su jūsų kodu';
+  String get shareTheMarketSub => 'Gavėjas gauna nuorodą jai peržiūrėti';
 
   @override
   String get shareThisPosition => 'Siųsti šią poziciją';
@@ -11476,10 +11609,108 @@ class AppLocalizationsLt extends AppLocalizations {
   String get balanceNoHistorySub => 'Ji prasideda nuo pirmosios operacijos.';
 
   @override
+  String balanceGoalLevel(int level) {
+    return 'Lygis $level';
+  }
+
+  @override
+  String get balanceLevelName0 => 'Įšylama';
+
+  @override
+  String get balanceLevelName1 => 'Kišenpinigiai';
+
+  @override
+  String get balanceLevelName2 => 'Kaupėjas';
+
+  @override
+  String get balanceLevelName3 => 'Nuolatinis';
+
+  @override
+  String get balanceLevelName4 => 'Suaugęs';
+
+  @override
+  String get balanceLevelName5 => 'Rimtai';
+
+  @override
+  String get balanceLevelName6 => 'Tvirta ranka';
+
+  @override
+  String get balanceLevelName7 => 'Sunkiasvoris';
+
+  @override
+  String get balanceLevelName8 => 'Didelis šuo';
+
+  @override
+  String get balanceLevelName9 => 'Gaujos vadas';
+
+  @override
+  String get balanceLevelName10 => 'Legenda';
+
+  @override
+  String get balanceLevelName11 => 'Už skalės ribų';
+
+  @override
+  String balanceGoalProgress(int percent, String goal) {
+    return '$percent % iki $goal';
+  }
+
+  @override
+  String get balanceGoalsHeading => 'Tikslai';
+
+  @override
+  String get balanceGoalNext => 'Kitas tikslas';
+
+  @override
+  String balanceGoalToGo(String amount) {
+    return 'Liko $amount';
+  }
+
+  @override
+  String balanceGoalChartLabel(String goal) {
+    return 'Kitas: $goal';
+  }
+
+  @override
+  String balanceGoalMove(String amount) {
+    return 'Perkelti $amount į Dolerius';
+  }
+
+  @override
+  String get balanceGoalMovePlain => 'Perkelti į Dolerius';
+
+  @override
+  String get balanceGoalMoveWhy => 'Jūsų pinigai, daugiau galimybių doleriais.';
+
+  @override
+  String balanceMilestonePassed(String amount) {
+    return 'Jūs viršijote $amount';
+  }
+
+  @override
+  String get balanceMilestonePassedLine =>
+      'Bitcoin ir doleriai kartu. Sal apsimeta, kad nieko tokio.';
+
+  @override
   String get pnlNoHistoryTitle => 'P&L dar nėra';
 
   @override
   String get pnlByVenue => 'By venue';
+
+  @override
+  String get portfolioPnlAllVenues => 'Viskas';
+
+  @override
+  String portfolioOpenPnlNotCharted(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count pozicijų nerodoma grafike (istorija nepasiekiama)',
+      many: '$count pozicijos nerodoma grafike (istorija nepasiekiama)',
+      few: '$count pozicijos nerodomos grafike (istorija nepasiekiama)',
+      one: '$count pozicija nerodoma grafike (istorija nepasiekiama)',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get pnlStatRealised => 'Realised';
@@ -11698,7 +11929,7 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String claimMarketLine(String market) {
-    return 'statymui rinkoje $market';
+    return 'prognozei rinkoje $market';
   }
 
   @override
@@ -11842,7 +12073,7 @@ class AppLocalizationsLt extends AppLocalizations {
   String get usdSendSearchHint => 'Name, address or phone';
 
   @override
-  String get usdSendToYourBitcoin => 'To your Bitcoin';
+  String get usdSendToYourBitcoin => 'Į tavo Bitcoin';
 
   @override
   String usdBitcoinBalanceLine(String amount) {
@@ -11850,13 +12081,24 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
-  String get usdSendPickRow => 'A stock or prediction';
-
-  @override
-  String get usdSendPickRowSub => 'They get your pick, ready to place';
-
-  @override
   String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
+
+  @override
+  String get receiveOrSwapTitle => 'Gauti arba keisti';
+
+  @override
+  String get receiveFromYourDollars => 'Iš jūsų Dolerių';
+
+  @override
+  String usdDollarsBalanceLine(String amount) {
+    return '$amount Doleriuose';
+  }
+
+  @override
+  String get receiveFromAnotherAsset => 'Iš kito turto';
+
+  @override
+  String get receiveBitcoinAndLightning => 'Bitcoin ir Lightning';
 
   @override
   String get sendRailBitcoinOnchain => 'Bitcoin · grandinėje';
@@ -11891,8 +12133,7 @@ class AppLocalizationsLt extends AppLocalizations {
   String get sendPickMarket => 'Siųsti prognozę arba investiciją';
 
   @override
-  String get sendPickMarketSub =>
-      'Pasirinkite rinką, gavėjas gaus ją paruoštą pateikti';
+  String get sendPickMarketSub => 'Raskite rinką, tada pasirinkite pusę';
 
   @override
   String get sendPickMarketSearchHint => 'Ieškoti prognozių ir investicijų';
@@ -11901,10 +12142,7 @@ class AppLocalizationsLt extends AppLocalizations {
   String get sendPickMarketNoResults => 'Nieko nerasta';
 
   @override
-  String get sendPickSideTitle => 'Kuri pusė?';
-
-  @override
-  String get sendPickSideSub => 'Ką gaus gavėjas, paruošta pateikti';
+  String get sendPickSideSub => 'Pasirinkite pusę, kurią gaus gavėjas';
 
   @override
   String get shareSendAgainWhatsApp => 'Siųsti dar kartą per WhatsApp';
@@ -11987,104 +12225,90 @@ class AppLocalizationsLt extends AppLocalizations {
   String get sendOtherContacts => 'Other contacts';
 
   @override
-  String get chartSheetTitle => 'Chart';
+  String get chartSheetTitle => 'Grafikas';
 
   @override
-  String get chartSheetStyle => 'Style';
+  String get chartIndEmaNote => 'Trumpalaikė tendencija, greitai apsigręžia';
 
   @override
-  String get chartIndEma => 'Moving averages';
+  String get chartIndBb => 'Bollingerio juostos';
 
   @override
-  String get chartIndEmaNote => 'Short and long trend lines';
+  String get chartIndBbNote => 'Kiek kaina paprastai svyruoja';
 
   @override
-  String get chartIndBb => 'Bollinger bands';
+  String get chartIndRsiNote => 'Ar pirkimas ar pardavimas per didelis';
 
   @override
-  String get chartIndBbNote => 'How far the price usually swings';
+  String get chartIndMacdNote => 'Momentumas sukasi aukštyn ar žemyn';
 
   @override
-  String get chartIndRsi => 'RSI';
+  String get chartIndVwapNote =>
+      'Vidutinė sumokėta kaina, svertinė pagal apimtį';
 
   @override
-  String get chartIndRsiNote => 'Whether buying or selling is overstretched';
+  String get chartIndVolumeNote => 'Kiek prekiauta kiekvienu laikotarpiu';
 
   @override
-  String get chartIndMacd => 'MACD';
-
-  @override
-  String get chartIndMacdNote => 'Momentum turning up or down';
-
-  @override
-  String get chartIndVwap => 'VWAP';
-
-  @override
-  String get chartIndVwapNote => 'Average price weighted by volume';
-
-  @override
-  String get chartIndVolumeNote => 'How much traded each bar';
-
-  @override
-  String get chartReset => 'Reset';
+  String get chartReset => 'Atstatyti';
 
   @override
   String chartPaneLimit(String name) {
-    return '$name is off: two fit below the chart';
+    return '$name išjungta: po grafiku telpa du';
   }
 
   @override
-  String get chartToolCursor => 'Cursor';
+  String get chartToolCursor => 'Žymeklis';
 
   @override
-  String get chartToolHorizontalLine => 'Horizontal line';
+  String get chartToolHorizontalLine => 'Horizontali linija';
 
   @override
-  String get chartMoreTools => 'More';
+  String get chartMoreTools => 'Daugiau';
 
   @override
-  String get chartColor => 'Color';
+  String get chartColor => 'Spalva';
 
   @override
-  String get chartBlueColor => 'Blue';
+  String get chartBlueColor => 'Mėlyna';
 
   @override
-  String get chartLineSolid => 'Solid line';
+  String get chartLineSolid => 'Ištisinė linija';
 
   @override
-  String get chartLineDashed => 'Dashed line';
+  String get chartLineDashed => 'Brūkšninė linija';
 
   @override
-  String get chartExtendLine => 'Extend to the right';
+  String get chartExtendLine => 'Pratęsti į dešinę';
 
   @override
-  String get chartLock => 'Lock';
+  String get chartLock => 'Užrakinti';
 
   @override
-  String get chartUnlock => 'Unlock';
+  String get chartUnlock => 'Atrakinti';
 
   @override
-  String get chartDuplicate => 'Duplicate';
+  String get chartDuplicate => 'Dubliuoti';
 
   @override
   String chartHintTapFirstPoint(String tool) {
-    return 'Tap the first point: $tool';
+    return 'Bakstelėkite pirmą tašką: $tool';
   }
 
   @override
-  String get chartHintTapSecondPoint => 'Now tap the second point.';
+  String get chartHintTapSecondPoint => 'Dabar bakstelėkite antrą tašką.';
 
   @override
   String chartHintToolKept(String tool) {
-    return '$tool stays on. Tap it to stop.';
+    return '$tool lieka įjungtas. Bakstelėkite, kad sustabdytumėte.';
   }
 
   @override
-  String get chartHintLocked => 'Locked. Unlock it to move it.';
+  String get chartHintLocked => 'Užrakinta. Atrakinkite, kad perkeltumėte.';
 
   @override
   String get chartHintPickToolKeep =>
-      'Pick a tool. Double-tap one to keep it on.';
+      'Pasirinkite įrankį. Bakstelėkite dukart, kad liktų įjungtas.';
 
   @override
   String hlAboutTradedOn(String venue, String kind) {
@@ -12145,6 +12369,80 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get receiptAskWhatHappened => 'What happened here?';
+
+  @override
+  String receiptCardOnSide(String side) {
+    return 'Mano pasirinkimas: $side';
+  }
+
+  @override
+  String get receiptCardEntryChance => 'Tikimybė, kai įėjau';
+
+  @override
+  String get receiptCardCashedOut => 'Išgryninta';
+
+  @override
+  String receiptCardSoldFor(String amount) {
+    return 'Parduota už $amount';
+  }
+
+  @override
+  String get receiptCardNotThisTime => 'Ne šį kartą';
+
+  @override
+  String get receiptCardPaidOut => 'Išmokėta';
+
+  @override
+  String get receiptCardMoved => 'Perkelta';
+
+  @override
+  String get receiptEdgeNoBank =>
+      'Per šį mokėjimą nenukentėjo nė vienas bankas.';
+
+  @override
+  String get receiptEdgeSentNext => 'Išsiųsta. Kitas.';
+
+  @override
+  String get receiptEdgeLanded => 'Atkeliavo. Jokių formų.';
+
+  @override
+  String get receiptEdgeIncoming => 'Pakeliui. Kantrybė – irgi funkcija.';
+
+  @override
+  String get receiptEdgeMoved => 'Tie patys pinigai. Geresnė vieta.';
+
+  @override
+  String get receiptEdgeStacked => 'Sukaupiau dar truputį.';
+
+  @override
+  String get receiptEdgeTookSome => 'Šiek tiek nuėmiau nuo stalo.';
+
+  @override
+  String get receiptEdgeLockedIn => 'Nuspręsta. Dabar laukiam.';
+
+  @override
+  String get receiptEdgeOnRecord => 'Mano prognozė. Oficialiai.';
+
+  @override
+  String get receiptEdgeTookWin => 'Pasiėmiau pelną ir išėjau.';
+
+  @override
+  String get receiptEdgeCutIt => 'Nukirpau. Judam toliau.';
+
+  @override
+  String get receiptEdgeInAndOut => 'Įėjau ir išėjau.';
+
+  @override
+  String get receiptEdgeWrongToday => 'Šiandien neatspėjau. Rytoj vėl.';
+
+  @override
+  String get receiptEdgeLesson => 'Pamoka apmokėta pilnai.';
+
+  @override
+  String get receiptEdgeCollected => 'Atspėjau. Atsiėmiau.';
+
+  @override
+  String get receiptEdgeOpened => 'Viduje. Dabar rinkos eilė.';
 
   @override
   String get receiptResult => 'Result';
@@ -12235,7 +12533,7 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
-  String get shareEdgePredictionDare => 'Statyk prieš mane. Išdrįsk.';
+  String get shareEdgePredictionDare => 'Rinkis kitą pusę. Išdrįsk.';
 
   @override
   String get shareEdgePredictionPolitics =>
@@ -12410,6 +12708,1058 @@ class AppLocalizationsLt extends AppLocalizations {
   String get claimCardTapClaim => 'Tai jūsų. Bakstelėkite „Atsiimti“.';
 
   @override
+  String get bragWonCaps => 'Sakiau gi';
+
+  @override
+  String bragWonFrom(String entry) {
+    return 'Laimėta nuo $entry';
+  }
+
+  @override
+  String bragWonPaidPayout(String paid, String payout) {
+    return 'Sumokėta $paid · Išmokėta $payout';
+  }
+
+  @override
+  String get bragWonAction => 'Pasigirti šiuo laimėjimu';
+
+  @override
+  String get bragEdgeWonReceipts => 'Išspręsta. Įrodymai pridėti.';
+
+  @override
+  String bragEdgeWonAgedWell(String entry) {
+    return 'Įėjau po $entry. Pasiteisino.';
+  }
+
+  @override
+  String bragEdgeWonRight(String amount) {
+    return '$amount už teisingą spėjimą.';
+  }
+
+  @override
+  String get challengeToggle => 'Mesti iššūkį';
+
+  @override
+  String get challengeToggleSub => 'Mesk iššūkį pasirinkti kitą pusę';
+
+  @override
+  String get challengeCaps => 'Metu tau iššūkį';
+
+  @override
+  String challengeCapsNamed(String name) {
+    return '$name, metu tau iššūkį';
+  }
+
+  @override
+  String get challengeCapsRecipient => 'Draugas meta tau iššūkį';
+
+  @override
+  String challengeCapsRecipientNamed(String name) {
+    return '$name, iššūkis tau';
+  }
+
+  @override
+  String get challengeMySide => 'Mano pusė';
+
+  @override
+  String get challengeFriendSide => 'Draugo pusė';
+
+  @override
+  String get challengeYourSide => 'Tavo pusė?';
+
+  @override
+  String challengeStake(String amount) {
+    return '$amount žaidimui, aš vaišinu';
+  }
+
+  @override
+  String challengeEdgeWrong(String side) {
+    return 'Aš už $side. Manai, klystu? Rinkis kitą pusę.';
+  }
+
+  @override
+  String challengeEdgeFight(String side) {
+    return 'Sakau $side. Išdrįsi?';
+  }
+
+  @override
+  String challengeEdgeProve(String side) {
+    return '$side. Įrodyk, kad klystu.';
+  }
+
+  @override
+  String challengeEdgeMove(String side) {
+    return 'Pasirinkau $side. Tavo ėjimas.';
+  }
+
+  @override
+  String get shareEdgeMoneyNoStrings => 'Be jokių sąlygų. Patikrinau.';
+
+  @override
+  String get shareEdgeMoneyMakeItText => 'Pinigai, bet kaip žinutė.';
+
+  @override
+  String get shareEdgeMoneyLowBar => 'Greičiau nei bankas. Kartelė žema.';
+
+  @override
+  String get shareEdgeMoneyNoForms => 'Jokių formų. Jokių plepalų.';
+
+  @override
+  String get shareEdgeMoneyActNatural => 'Staigmena. Elkis natūraliai.';
+
+  @override
+  String get shareEdgeMoneyInAdvance => 'Prašom. Iš anksto.';
+
+  @override
+  String shareEdgeMoneyNoQuestions(String amount) {
+    return '$amount, be jokių klausimų.';
+  }
+
+  @override
+  String get shareEdgeMoneyNotALoan => 'Dovana. Ne paskola. Turbūt.';
+
+  @override
+  String get shareEdgeMoneyAllAtOnce => 'Neišleisk visko iškart.';
+
+  @override
+  String get shareEdgeMoneyGetUsed => 'Tik nepriprask.';
+
+  @override
+  String get shareEdgeMoneyLittleEgo => 'Su meile. Ir trupučiu ego.';
+
+  @override
+  String get shareEdgeMoneyNoBank => 'Bankų niekas neklausė.';
+
+  @override
+  String get shareEdgeMoneyHandlePatience => 'Bitcoinas. Laikyti kantriai.';
+
+  @override
+  String get shareEdgeMoneyStackResponsibly => 'Kaupk atsakingai.';
+
+  @override
+  String get shareEdgeMoneyNoLecture => 'Bitcoinas. Be paskaitos.';
+
+  @override
+  String get shareEdgeMoneyTinySats => 'Maži satai. Didelė atsakomybė.';
+
+  @override
+  String get shareEdgeMoneySameDollars => 'Skaitmeniniai doleriai. Tie patys.';
+
+  @override
+  String get shareEdgeMoneyNoEnvelope => 'Grynieji, tik be atviruko.';
+
+  @override
+  String get shareEdgeMoneyNoExchange => 'Doleriai. Be oro uosto kurso.';
+
+  @override
+  String get shareEdgePickScreenshot => 'Mano prognozė. Pasidaryk skrinšotą.';
+
+  @override
+  String get shareEdgePickSaidFirst => 'Skiltis: sakiau anksčiau už visus.';
+
+  @override
+  String shareEdgePickFinalAnswer(String side) {
+    return '$side. Galutinis atsakymas.';
+  }
+
+  @override
+  String get shareEdgePickStrongOpinion => 'Ne patarimas. Tik tvirta nuomonė.';
+
+  @override
+  String get shareEdgePickDidReading => 'Skaičiau. Beveik viską.';
+
+  @override
+  String get shareEdgePickToldYouSo => 'Saugau „juk sakiau“ progai.';
+
+  @override
+  String get shareEdgePickConviction => 'Užtikrintumas man tinka.';
+
+  @override
+  String get shareEdgePickNotFree => 'Nuomonės nemokamos. Ši – ne.';
+
+  @override
+  String shareEdgePickAmountSays(String amount, String side) {
+    return '$amount sako: $side.';
+  }
+
+  @override
+  String get shareEdgePickLowDrama => 'Mažai dramos. Daug tikrumo.';
+
+  @override
+  String get shareEdgePickInsufferable => 'Jei pasiteisins – manęs nepakęsi.';
+
+  @override
+  String get shareEdgePickRevolutionary => 'Renkuosi favoritą. Revoliucinga.';
+
+  @override
+  String shareEdgePickSmartCrowd(String chance) {
+    return '$chance sutinka. Protinga minia.';
+  }
+
+  @override
+  String get shareEdgePickSafePick => 'Saugus, bet vis tiek pasirinkimas.';
+
+  @override
+  String get shareEdgePickWithOdds => 'Ėjau pagal tikimybes. Netikėta.';
+
+  @override
+  String get shareEdgePickOnPurpose => 'Autsaideris. Sąmoningai.';
+
+  @override
+  String shareEdgePickOnlySee(String chance) {
+    return 'Tik $chance tiki. Man tinka.';
+  }
+
+  @override
+  String get shareEdgePickLongShot => 'Mažai šansų. Mažai aiškinsiu.';
+
+  @override
+  String get shareEdgePickContrarian => 'Prieš srovę. Ne per klaidą.';
+
+  @override
+  String get shareEdgeTopicDebates => 'Debatai – triukšmas. Tikimybės – ne.';
+
+  @override
+  String get shareEdgeTopicCoach => 'Šiandien visi treneriai.';
+
+  @override
+  String get shareEdgeTopicVolatility => 'Svyravimai įskaičiuoti. Nemokamai.';
+
+  @override
+  String get shareEdgeTopicMinutes => 'Skaityk protokolus. Visus.';
+
+  @override
+  String get shareEdgeMarketPickOrWatch => 'Rinkis pusę. Arba tiesiog stebėk.';
+
+  @override
+  String get shareEdgeMarketHasOdds => 'Nuomonė nemokama. Ši – su tikimybe.';
+
+  @override
+  String get shareEdgeMarketUntilResolves => 'Visi ekspertai, kol neišsispręs.';
+
+  @override
+  String get shareEdgeMarketGroupChat => 'Grupe, susipažink: tikimybės.';
+
+  @override
+  String get shareEdgeMarketHotTakes => 'Karštos nuomonės? Tikimybės pridėtos.';
+
+  @override
+  String get shareEdgeMarketJustMarket => 'Ne patarimas. Tik rinka.';
+
+  @override
+  String get shareEdgeMarketOddsMove => 'Tikimybės juda. Klausimas – ne.';
+
+  @override
+  String get shareEdgeMarketYourCall => 'Tu sprendi. Be spaudimo.';
+
+  @override
+  String get shareEdgeMarketDiscuss => 'Diskutuokit. Ramiai.';
+
+  @override
+  String get shareEdgeMarketWhereLand => 'O tu kurioje pusėje?';
+
+  @override
+  String shareEdgeMarketSayDiscuss(String chance, String side) {
+    return '$chance sako: $side. Diskutuokit.';
+  }
+
+  @override
+  String get shareEdgeMarketHarder => 'Taip ar ne. Sunkiau, nei atrodo.';
+
+  @override
+  String get shareEdgeMarketTwoAnswers => 'Vienas klausimas. Du atsakymai.';
+
+  @override
+  String shareEdgeMarketNotGuarantee(String chance) {
+    return '$chance – ne garantija.';
+  }
+
+  @override
+  String get shareEdgeMarketFeelings => 'Klausimas paprastas. Jausmai – ne.';
+
+  @override
+  String get shareEdgeMarketLikely => 'Tikėtina – dar ne tikra.';
+
+  @override
+  String shareEdgeMarketLeads(String leader) {
+    return 'Pirmauja $leader. Niekas neaišku.';
+  }
+
+  @override
+  String shareEdgeMarketCoronation(String chance) {
+    return '$chance – dar ne karūnacija.';
+  }
+
+  @override
+  String shareEdgeMarketHistoryWait(String leader) {
+    return 'Grafikas: $leader. Istorija: palauk.';
+  }
+
+  @override
+  String get shareEdgeMarketAskTomorrow =>
+      'Šiandien lyderis. Rytoj – klausk vėl.';
+
+  @override
+  String get shareEdgeMarketCrowdedField => 'Daug kandidatų. Vienas atsakymas.';
+
+  @override
+  String shareEdgeMarketStayTuned(String leader, String chance) {
+    return '$leader: $chance. Neperjunk.';
+  }
+
+  @override
+  String get shareEdgeMarketLeadingNotWinning => 'Pirmauti – dar ne laimėti.';
+
+  @override
+  String get shareEdgeMarketNotSureThing => 'Favoritas – dar ne faktas.';
+
+  @override
+  String get shareEdgeMarketUpsets => 'Staigmenos būna. Favoritai irgi.';
+
+  @override
+  String get shareEdgeMarketGameDecides => 'Sprendžia žaidimas. Ne komentarai.';
+
+  @override
+  String get shareEdgeMarketOddsDontPlay => 'Tikimybės aikštėje nežaidžia.';
+
+  @override
+  String get shareEdgeMarketScoreboard => 'Kalbos dabar. Rezultatas vėliau.';
+
+  @override
+  String challengeEdgeComeAtMe(String side) {
+    return '$side. Na, pabandyk.';
+  }
+
+  @override
+  String challengeEdgeOnNotice(String side) {
+    return 'Aš už $side. Laikyk tai įspėjimu.';
+  }
+
+  @override
+  String challengeEdgeTalkCheap(String side) {
+    return '$side. Kalbos pigios. Rinkis pusę.';
+  }
+
+  @override
+  String challengeEdgeScared(String side) {
+    return '$side. Bijai? Suprantama.';
+  }
+
+  @override
+  String challengeEdgeKnowBetter(String side) {
+    return '$side. Nebent žinai geriau.';
+  }
+
+  @override
+  String challengeEdgeTurnWrong(String side) {
+    return 'Aš už $side. Tavo eilė klysti.';
+  }
+
+  @override
+  String challengeEdgeNotSorry(String side) {
+    return '$side, ir nesigailiu.';
+  }
+
+  @override
+  String challengeEdgeAllYours(String side) {
+    return 'Aš už $side. Kita pusė – tavo.';
+  }
+
+  @override
+  String challengeEdgeConvince(String side) {
+    return '$side. Pabandyk perkalbėti.';
+  }
+
+  @override
+  String challengeEdgeSeeYou(String side) {
+    return '$side. Pasimatysim, kai išsispręs.';
+  }
+
+  @override
+  String challengeEdgeReceipts(String side) {
+    return 'Aš už $side. Atnešk įrodymų.';
+  }
+
+  @override
+  String get shareEdgeStockJustChart => 'Ne patarimas. Tik grafikas.';
+
+  @override
+  String get shareEdgeStockFeelings => 'Grafikams nerūpi jausmai.';
+
+  @override
+  String shareEdgeStockHeardOfIt(String name) {
+    return '$name. Gal girdėjai.';
+  }
+
+  @override
+  String get shareEdgeStockActNormal => 'Žalia diena. Elkis normaliai.';
+
+  @override
+  String shareEdgeStockJustChange(String change) {
+    return 'Nusiramink. Tik $change.';
+  }
+
+  @override
+  String get shareEdgeStockIKnew => 'Nesakau, kad žinojau. Bet žinojau.';
+
+  @override
+  String get shareEdgeStockTomorrow => 'Šiandien kyla. Rytoj – ne mano bėda.';
+
+  @override
+  String shareEdgeStockGreenLooks(String name) {
+    return '$name ir žalia. Puiki pora.';
+  }
+
+  @override
+  String get shareEdgeStockEgoSteady => 'Grafikas aukštyn. Ego vietoje.';
+
+  @override
+  String get shareEdgeStockDontClap => 'Neplok. Tiesiog žiūrėk.';
+
+  @override
+  String get shareEdgeStockDoubleDigits => 'Dviženklis. Leidžiu.';
+
+  @override
+  String shareEdgeStockCheckShorts(String change) {
+    return 'Kilo $change. Užjaučiam šortintojus.';
+  }
+
+  @override
+  String get shareEdgeStockCalmAsEver => 'Raudona diena. Ramybė kaip visada.';
+
+  @override
+  String shareEdgeStockZoomOut(String change) {
+    return 'Krito $change. Žiūrėk plačiau.';
+  }
+
+  @override
+  String get shareEdgeStockPanicOptional =>
+      'Kritimai būna. Panika – neprivaloma.';
+
+  @override
+  String shareEdgeStockCharacterArc(String change) {
+    return 'Krito $change. Charakteris grūdinasi.';
+  }
+
+  @override
+  String get shareEdgeStockPlotTwist => 'Kritimas, ne siužeto vingis.';
+
+  @override
+  String get shareEdgeStockStillHere => 'Šiandien žemyn. Vis dar čia.';
+
+  @override
+  String get shareEdgeStockAsIntended => 'Svyravimai: veikia, kaip numatyta.';
+
+  @override
+  String get shareEdgeStockBadDay => 'Ir grafikai turi blogų dienų.';
+
+  @override
+  String shareEdgeStockDeepBreaths(String change) {
+    return 'Krito $change. Giliai įkvėpk.';
+  }
+
+  @override
+  String get shareEdgeStockRiveting => 'Nieko neįvyko. Kvapą gniaužia.';
+
+  @override
+  String get shareEdgeStockBoringUnderrated =>
+      'Rami diena. Nuobodumas nuvertintas.';
+
+  @override
+  String get shareEdgeStockSideways => 'Į šoną – irgi kryptis.';
+
+  @override
+  String get shareEdgeStockSuspicious => 'Šiandien be dramų. Įtartina.';
+
+  @override
+  String get shareEdgeStockNap => 'Grafikas nusnūdo.';
+
+  @override
+  String get shareEdgeStockPaintDry => 'Dažai džiūsta. Stebiu profesionaliai.';
+
+  @override
+  String get shareEdgeStockUnchanged => 'Be pokyčių. Be nervų.';
+
+  @override
+  String get shareEdgeStockShortUnbothered => 'Šortinu ramiai.';
+
+  @override
+  String get shareEdgeStockNotEverythingUp => 'Ne viskas kyla.';
+
+  @override
+  String get shareEdgeStockGravity => 'Gravitacija – irgi strategija.';
+
+  @override
+  String get shareEdgeStockShortHype => 'Šortinu ažiotažą. Mandagiai.';
+
+  @override
+  String get shareEdgeStockShortContrarian => 'Prieš srovę, su grafiku.';
+
+  @override
+  String get shareEdgeStockFlipSide => 'Kažkas turi būti kitoje pusėje.';
+
+  @override
+  String shareEdgeStockAsPlanned(String change) {
+    return 'Krito $change. Kaip planuota.';
+  }
+
+  @override
+  String get shareEdgeStockICanWait => 'Šiandien kyla. Aš palauksiu.';
+
+  @override
+  String get shareEdgeBragQuietlyGreen => 'Tyliai žaliuoju.';
+
+  @override
+  String get shareEdgeBragGreenSuits => 'Žalia man tinka.';
+
+  @override
+  String get shareEdgeBragCopyMe => 'Paaiškinčiau, bet nukopijuotum.';
+
+  @override
+  String get shareEdgeBragHumbleWorking => 'Kuklumas? Dirbu prie to.';
+
+  @override
+  String get shareEdgeBragNotVibes => 'Rezultatai, ne vaibai.';
+
+  @override
+  String get shareEdgeBragMildlyPleased => 'Nenustebau. Truputį džiaugiuosi.';
+
+  @override
+  String get shareEdgeBragNotAPromise => 'Praeities rezultatai. Ne pažadas.';
+
+  @override
+  String get shareEdgeBragBeforeItChanges => 'Skrinšotas, kol nepasikeitė.';
+
+  @override
+  String get shareEdgeBragMainCharacter => 'Pagrindinio veikėjo energija.';
+
+  @override
+  String shareEdgeBragUnbearable(String amount) {
+    return '$amount. Dabar su manim bus sunku.';
+  }
+
+  @override
+  String get shareEdgeBragBeingCalm => 'Čia mano ramybės versija.';
+
+  @override
+  String get shareEdgeBragAllegedly => 'Didelis skaičius. Mažas ego. Neva.';
+
+  @override
+  String get shareEdgeBragStillAWin => 'Mažas pliusas. Bet pliusas.';
+
+  @override
+  String shareEdgeBragRome(String amount) {
+    return '$amount. Krokuva irgi ne iš karto.';
+  }
+
+  @override
+  String get shareEdgeBragModest => 'Kuklu. Kaip ir aš.';
+
+  @override
+  String get shareEdgeBragHumbled => 'Laikinas nuolankumas.';
+
+  @override
+  String get shareEdgeBragRedPhase => 'Raudona – tik etapas.';
+
+  @override
+  String shareEdgeBragLessons(String amount) {
+    return 'Minus $amount. Pamokos pridedamos.';
+  }
+
+  @override
+  String get shareEdgeBragNotOut => 'Kritau, bet ne iškritau.';
+
+  @override
+  String get shareEdgeBragGrowth => 'Skelbiu nuostolius. Augimas.';
+
+  @override
+  String get shareEdgeBragHumbleEra => 'Mano kuklumo era.';
+
+  @override
+  String get shareEdgeBragOnTheChin => 'Priėmiau smūgį. Grakščiai.';
+
+  @override
+  String get shareEdgeBragNotMyBest => 'Ne geriausias. Ne paskutinis.';
+
+  @override
+  String get shareEdgeBragDignified => 'Raudona, bet oriai.';
+
+  @override
+  String get shareEdgeBragTuition => 'Nuostoliai – mokslo kaina.';
+
+  @override
+  String get shareEdgeBragNetCalm => 'Grynasis nulis. Gryna ramybė.';
+
+  @override
+  String get shareEdgeBragBalanced => 'Lygu. Tobulas balansas.';
+
+  @override
+  String get shareEdgeBragDidntPanic =>
+      'Nelaimėjau. Nepralaimėjau. Nepanikavau.';
+
+  @override
+  String get shareEdgeBragUndefeated => 'Nulis niekada nepralaimi.';
+
+  @override
+  String get shareEdgeBragWithStyle => 'Į šoną, bet stilingai.';
+
+  @override
+  String get shareEdgeBragSharedAnyway =>
+      'Nėra ką žiūrėti. Vis tiek dalinuosi.';
+
+  @override
+  String get shareEdgeBragSteadyHands => 'Lygi linija. Tvirtos rankos.';
+
+  @override
+  String get shareEdgeBragBlinked => 'Rinka sumirksėjo. Aš – ne.';
+
+  @override
+  String get shareEdgeBragEvenTemper => 'Lygu. Kaip mano būdas.';
+
+  @override
+  String get shareEdgeBragNoDrama => 'Nulis dramos. Nulis pokyčių.';
+
+  @override
+  String get bragEdgeWonToldPolitely => 'Juk sakiau. Mandagiai.';
+
+  @override
+  String get bragEdgeWonNormal => 'Atspėjau. Elgsiuos normaliai.';
+
+  @override
+  String get bragEdgeWonMyFavour => 'Išsisprendė mano naudai.';
+
+  @override
+  String get bragEdgeWonPaysSometimes => 'Teisybė apsimoka. Kartais.';
+
+  @override
+  String get bragEdgeWonAgreed => 'Rinka sutiko. Galiausiai.';
+
+  @override
+  String get bragEdgeWonMySide => 'Mano pusė nenuvylė.';
+
+  @override
+  String get bragEdgeWonThenPayout => 'Pirma kantrybė, paskui išmoka.';
+
+  @override
+  String get bragEdgeWonNoNotes => 'Pastabų nėra.';
+
+  @override
+  String get bragEdgeWonFutureSelf => 'Skrinšotas ateities sau.';
+
+  @override
+  String get bragEdgeWonEarlyThenRight => 'Pirma anksti, paskui teisingai.';
+
+  @override
+  String get bragEdgeWonCollecting => 'Tyliai renku.';
+
+  @override
+  String get bragEdgeWonNotSurprised => 'Galėčiau apsimesti. Bet nenustebau.';
+
+  @override
+  String get receiptEdgeSentNoHold => 'Išsiųsta. Be laukimo muzikos.';
+
+  @override
+  String get receiptEdgeSentBeforeBank => 'Atlikta, dar bankui neatsidarius.';
+
+  @override
+  String get receiptEdgeSentDrama => 'Pinigai pajudėjo. Drama – ne.';
+
+  @override
+  String get receiptEdgeSentBusinessDays => 'Sekundės, ne darbo dienos.';
+
+  @override
+  String get receiptEdgeSentThankLater => 'Išsiųsta. Padėkosi vėliau.';
+
+  @override
+  String get receiptEdgeSentEfficient => 'Dosnu ir efektyvu.';
+
+  @override
+  String get receiptEdgeSentOneTap => 'Vienas paspaudimas. Jokių formų.';
+
+  @override
+  String get receiptEdgeSentPaidUp => 'Atsiskaičiau. Judu toliau.';
+
+  @override
+  String get receiptEdgeSentAdult => 'Sutvarkyta, kaip suaugusieji daro.';
+
+  @override
+  String receiptEdgeSentGone(String amount) {
+    return '$amount iškeliavo per sekundes.';
+  }
+
+  @override
+  String get receiptEdgeSentSaga => 'Pinigų siuntimas – ne epopėja.';
+
+  @override
+  String get receiptEdgeReceivedCasual => 'Gavau pinigų. Nieko tokio.';
+
+  @override
+  String get receiptEdgeReceivedNoted => 'Gauta. Užfiksuota. Įvertinta.';
+
+  @override
+  String receiptEdgeReceivedRicher(String amount) {
+    return 'Plius $amount. Ramiai.';
+  }
+
+  @override
+  String get receiptEdgeReceivedThankYou => 'Atkeliavo greičiau nei „ačiū“.';
+
+  @override
+  String get receiptEdgeReceivedMoodUp => 'Pinigai įėjo. Nuotaika pakilo.';
+
+  @override
+  String get receiptEdgeReceivedGrace => 'Priimta grakščiai.';
+
+  @override
+  String get receiptEdgeReceivedAskTwice => 'Net neteko prašyti dukart.';
+
+  @override
+  String get receiptEdgeReceivedUnscheduled => 'Algos diena, neplanuota.';
+
+  @override
+  String get receiptEdgeReceivedNoMiddle => 'Atkeliavo. Be banko per vidurį.';
+
+  @override
+  String get receiptEdgeReceivedCompliments =>
+      'Priimu komplimentus ir pervedimus.';
+
+  @override
+  String get receiptEdgeIncomingAlmost => 'Beveik čia. Nestovėk virš galvos.';
+
+  @override
+  String get receiptEdgeIncomingLoading => 'Kraunasi. Ramiai.';
+
+  @override
+  String get receiptEdgeIncomingRefreshing => 'Pakeliui. Atnaujinimas nepadės.';
+
+  @override
+  String get receiptEdgeIncomingNotChecking => 'Jau pakeliui. Aš netikrinu.';
+
+  @override
+  String get receiptEdgeIncomingPending =>
+      'Laukiama. Kaip ir visi geri dalykai.';
+
+  @override
+  String get receiptEdgeIncomingPatienceMode =>
+      'Atvyksta. Kantrybės režimas įjungtas.';
+
+  @override
+  String get receiptEdgeIncomingSnacks => 'Kelyje. Užkandžiai neįskaičiuoti.';
+
+  @override
+  String get receiptEdgeIncomingMinute => 'Geri dalykai užtrunka.';
+
+  @override
+  String get receiptEdgeIncomingMotion => 'Pinigai juda.';
+
+  @override
+  String get receiptEdgeIncomingWatched => 'Stebimas pervedimas neatkeliauja.';
+
+  @override
+  String get receiptEdgeMovedFurniture => 'Perstumdau baldus.';
+
+  @override
+  String get receiptEdgeMovedDidntLose => 'Perkėliau. Nepraradau.';
+
+  @override
+  String get receiptEdgeMovedPockets => 'Iš kairės kišenės į dešinę.';
+
+  @override
+  String get receiptEdgeMovedRelocated => 'Pinigai, perkelti.';
+
+  @override
+  String get receiptEdgeMovedNewRoom => 'Tas pats savininkas. Naujas kambarys.';
+
+  @override
+  String get receiptEdgeMovedHousekeeping => 'Namų ruoša, tik pinigams.';
+
+  @override
+  String get receiptEdgeMovedShuffle => 'Strateginis perstumdymas.';
+
+  @override
+  String get receiptEdgeMovedGrownUp => 'Pinigų tvarka, suaugusiųjų lygis.';
+
+  @override
+  String get receiptEdgeMovedOrganised => 'Sutvarkyta. Trumpam.';
+
+  @override
+  String get receiptEdgeMovedTidying => 'Tik susitvarkau.';
+
+  @override
+  String get receiptEdgeMovedAllocating => 'Paskirstau. Labai ramiai.';
+
+  @override
+  String get receiptEdgeBoughtOverthink => 'Per daug negalvojau.';
+
+  @override
+  String get receiptEdgeBoughtPile => 'Papildžiau krūvelę.';
+
+  @override
+  String get receiptEdgeBoughtAccumulation => 'Tylus kaupimas.';
+
+  @override
+  String get receiptEdgeBoughtToldNoOne => 'Niekam nesakiau. Iki dabar.';
+
+  @override
+  String get receiptEdgeBoughtNotTiming => 'Perku, o ne gaudau momentą.';
+
+  @override
+  String receiptEdgeBoughtConviction(String amount) {
+    return '$amount įsitikinimo.';
+  }
+
+  @override
+  String get receiptEdgeBoughtPatience => 'Pirma: pirk. Antra: kantrybė.';
+
+  @override
+  String get receiptEdgeBoughtNoise => 'Perku. Triukšmo negirdžiu.';
+
+  @override
+  String get receiptEdgeBoughtBackToDay => 'Nupirkau. Gyvenu toliau.';
+
+  @override
+  String get receiptEdgeBoughtShoes => 'Kiti perka batus.';
+
+  @override
+  String get receiptEdgeSoldKeptCool => 'Pardaviau dalį. Išlaikiau ramybę.';
+
+  @override
+  String get receiptEdgeSoldNoRegrets => 'Iškeista. Nesigailiu. Kol kas.';
+
+  @override
+  String get receiptEdgeSoldDidntCheck => 'Parduota. Kainos daugiau netikrinu.';
+
+  @override
+  String get receiptEdgeSoldLiquidity => 'Likvidumas įgytas.';
+
+  @override
+  String get receiptEdgeSoldLeftDrama => 'Pinigus pasiėmiau. Dramą palikau.';
+
+  @override
+  String get receiptEdgeSoldSleeping => 'Parduota. Miegu ramiai.';
+
+  @override
+  String get receiptEdgeSoldCashPosition => 'Grynieji – irgi pozicija.';
+
+  @override
+  String get receiptEdgeSoldDeliberately => 'Į grynuosius. Sąmoningai.';
+
+  @override
+  String get receiptEdgeSoldPressed => '„Parduoti“ paspausta. Ramiai.';
+
+  @override
+  String get receiptEdgeSoldLittleCash => 'Truputis grynųjų nepakenks.';
+
+  @override
+  String get receiptEdgePredictedCommitted => 'Apsisprendžiau. Beveik.';
+
+  @override
+  String get receiptEdgePredictedHardPart => 'Sunkiausia – laukti.';
+
+  @override
+  String get receiptEdgePredictedSkin => 'Nuomonė, dabar su savo pinigais.';
+
+  @override
+  String get receiptEdgePredictedNails => 'Prognozė pateikta. Nagų negraužiu.';
+
+  @override
+  String get receiptEdgePredictedTookSide =>
+      'Pasirinkau pusę. Išlaikiau ramybę.';
+
+  @override
+  String get receiptEdgePredictedJustMySide => 'Ne patarimas. Tik mano pusė.';
+
+  @override
+  String get receiptEdgePredictedResolution => 'Pasimatysim, kai išsispręs.';
+
+  @override
+  String receiptEdgePredictedThatsThePost(String amount, String side) {
+    return '$amount už $side. Ir tiek.';
+  }
+
+  @override
+  String get receiptEdgeUpInUpOut => 'Įėjau. Pakilo. Išėjau.';
+
+  @override
+  String get receiptEdgeUpEgo => 'Pelną pasiėmiau. Ego palikau.';
+
+  @override
+  String get receiptEdgeUpWhileGreen => 'Išėjau, kol buvo žalia.';
+
+  @override
+  String get receiptEdgeUpWhenToLeave => 'Žinoti, kada išeiti, – irgi įgūdis.';
+
+  @override
+  String receiptEdgeUpDoneHere(String amount) {
+    return '$amount. Čia baigta.';
+  }
+
+  @override
+  String get receiptEdgeUpBooked => 'Užfiksavau.';
+
+  @override
+  String get receiptEdgeUpNoEncore => 'Žalias išėjimas. Be biso.';
+
+  @override
+  String get receiptEdgeUpGreed => 'Godumas – ne strategija.';
+
+  @override
+  String get receiptEdgeUpDiscipline => 'Išėjau pliuse. Reta disciplina.';
+
+  @override
+  String get receiptEdgeUpWinIsWin => 'Pliusas yra pliusas.';
+
+  @override
+  String get receiptEdgeDownDignity => 'Nukirpau nuostolį. Orumą išsaugojau.';
+
+  @override
+  String get receiptEdgeDownExits => 'Išeiti – irgi įgūdis.';
+
+  @override
+  String get receiptEdgeDownQuick => 'Suklydau. Bet greitai.';
+
+  @override
+  String get receiptEdgeDownLessonKept => 'Išėjau anksti. Pamoka liko.';
+
+  @override
+  String get receiptEdgeDownStubborn => 'Geriau išeiti, nei užsispirti.';
+
+  @override
+  String get receiptEdgeDownTookL => 'Pralaimėjau. Kvitą pasilikau.';
+
+  @override
+  String get receiptEdgeDownNotMyDay => 'Uždariau. Ne mano diena.';
+
+  @override
+  String get receiptEdgeDownZeroTears => 'Raudonas išėjimas. Nulis ašarų.';
+
+  @override
+  String get receiptEdgeDownHalfSkill => 'Pripažinti – pusė įgūdžio.';
+
+  @override
+  String receiptEdgeDownTuition(String amount) {
+    return '$amount. Mokslai apmokėti.';
+  }
+
+  @override
+  String get receiptEdgeFlatRoundTrip => 'Kelionė pirmyn atgal. Be suvenyrų.';
+
+  @override
+  String get receiptEdgeFlatWiser => 'Grįžau į pradžią. Su patirtimi.';
+
+  @override
+  String get receiptEdgeFlatZeroStress => 'Nulinė suma. Nulis streso.';
+
+  @override
+  String get receiptEdgeFlatNoHarm => 'Nei žalos, nei pražangos.';
+
+  @override
+  String get receiptEdgeFlatShrugged => 'Rinka gūžtelėjo pečiais. Aš irgi.';
+
+  @override
+  String get receiptEdgeFlatStory => 'Grynasis rezultatas: istorija.';
+
+  @override
+  String get receiptEdgeLostNextQuestion => 'Kitas klausimas.';
+
+  @override
+  String get receiptEdgeLostRudely => 'Rinka nesutiko. Nemandagiai.';
+
+  @override
+  String get receiptEdgeLostHumour => 'Vieną praradau. Humoro jausmą – ne.';
+
+  @override
+  String get receiptEdgeLostCompany => 'Klydau, bet geroje kompanijoje.';
+
+  @override
+  String get receiptEdgeLostOnMe => 'Čia mano kaltė.';
+
+  @override
+  String get receiptEdgeLostConfidence => 'Lengvesnė piniginė. Tas pats ūpas.';
+
+  @override
+  String get receiptEdgeLostWrongly => 'Nuspėjau. Neteisingai.';
+
+  @override
+  String get receiptEdgeLostGraceful => 'Oriai pralaimėti – irgi flexas.';
+
+  @override
+  String get receiptEdgeLostOddsWereOdds => 'Tikimybės buvo tikimybės.';
+
+  @override
+  String get receiptEdgeLostAlreadyMoved => 'Einu toliau. Jau nuėjau.';
+
+  @override
+  String get receiptEdgeLostUpLesson => 'Minus prognozė. Plius pamoka.';
+
+  @override
+  String get receiptEdgePaidResolved => 'Išspręsta. Gauta.';
+
+  @override
+  String get receiptEdgePaidNormal => 'Išmoka atkeliavo. Elgiuosi normaliai.';
+
+  @override
+  String receiptEdgePaidInFull(String amount) {
+    return '$amount, išmokėta pilnai.';
+  }
+
+  @override
+  String get receiptEdgePaidCourtesy => 'Algos diena – už teisingą spėjimą.';
+
+  @override
+  String get receiptEdgeOpenedPulse => 'Pozicija atidaryta. Pulsas normalus.';
+
+  @override
+  String get receiptEdgeOpenedCalmly => 'Įėjau ramiai. Išeisiu ramiai.';
+
+  @override
+  String receiptEdgeOpenedInAt(String price) {
+    return 'Įėjau po $price. Užfiksuota.';
+  }
+
+  @override
+  String get receiptEdgeOpenedNotRefreshing =>
+      'Viduje. Neatnaujinu kas minutę.';
+
+  @override
+  String get receiptEdgeOpenedSized => 'Įsitikinimas, atsakingo dydžio.';
+
+  @override
+  String get receiptEdgeOpenedJustMine => 'Ne patarimas. Tik mano sandoris.';
+
+  @override
+  String get receiptEdgeOpenedUnderstanding => 'Mes su grafiku susitarę.';
+
+  @override
+  String get receiptEdgeOpenedMyProblem => 'Mano įėjimas. Mano problema.';
+
+  @override
+  String get receiptEdgeOpenedEither => 'Tinka bet kuri kryptis.';
+
+  @override
+  String shareMessageChallengeNamed(
+      String name, String outcome, String title, String amount, String url) {
+    return '$name, mano pasirinkimas: $outcome rinkoje $title. Rinkis kitą pusę arba prisijunk. $amount aš vaišinu: $url';
+  }
+
+  @override
+  String shareMessageChallengeUnnamed(
+      String outcome, String title, String amount, String url) {
+    return 'Mano pasirinkimas: $outcome rinkoje $title. Rinkis kitą pusę arba prisijunk. $amount aš vaišinu: $url';
+  }
+
+  @override
+  String get claimChallengeOtherSide => 'Rinktis kitą pusę';
+
+  @override
+  String get claimChallengeSameSide => 'Ta pati pusė kaip draugo';
+
+  @override
+  String claimChallengeFriendOn(String outcome) {
+    return 'Jūsų draugas už $outcome';
+  }
+
+  @override
   String get activityLatest => 'Latest';
 
   @override
@@ -12425,4 +13775,253 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get predictBelowTarget => 'below target';
+
+  @override
+  String get sendAPrediction => 'Siųsti prognozę';
+
+  @override
+  String get sendAnInvestment => 'Siųsti investiciją';
+
+  @override
+  String get sendAPredictionSub => 'Gavėjas gauna jūsų pasirinktą prognozę';
+
+  @override
+  String get sendAnInvestmentSub => 'Gavėjas gauna jūsų pasirinktą investiciją';
+
+  @override
+  String get sendPickOutcomeSub => 'Pasirinkite baigtį, kurią gaus gavėjas';
+
+  @override
+  String get sendPickAmountSub => 'Kiek gaus gavėjas?';
+
+  @override
+  String get sendToAFriendLabel => 'Draugui';
+
+  @override
+  String get sendToCryptoAddress => 'Į kripto adresą';
+
+  @override
+  String get sendMoreWaysToSend => 'Daugiau siuntimo būdų';
+
+  @override
+  String get sendWayCryptoAddress => 'Kripto adresas';
+
+  @override
+  String get sendWayPrediction => 'Prognozė';
+
+  @override
+  String get sendWayToDollars => 'Į Dolerius';
+
+  @override
+  String get sendPickRowSub =>
+      'Arba investiciją. Raskite rinką, pasirinkite pusę';
+
+  @override
+  String get chartSheetChartType => 'Grafiko tipas';
+
+  @override
+  String get chartGroupTrend => 'Tendencija';
+
+  @override
+  String get chartGroupMomentum => 'Momentumas';
+
+  @override
+  String get chartGroupVolatility => 'Kintamumas';
+
+  @override
+  String get chartIndSmaNote => 'Ilgalaikė tendencija, lėtai apsigręžia';
+
+  @override
+  String get chartIndStNote => 'Slenkantis stop, apsigręžiantis su tendencija';
+
+  @override
+  String get chartIndSrsiNote => 'Greiti perpirkimo ir perpardavimo svyravimai';
+
+  @override
+  String get chartIndAtrNote => 'Kiek paprastai pajuda vienas laikotarpis';
+
+  @override
+  String get chartIndObvNote => 'Ar apimtis palaiko judėjimą';
+
+  @override
+  String get chartIndVp => 'Apimties profilis';
+
+  @override
+  String get chartIndVpNote => 'Kainos, kuriomis prekiauta daugiausia';
+
+  @override
+  String chartPriceLimit(String name) {
+    return '$name išjungta: ant kainos telpa keturi';
+  }
+
+  @override
+  String chartIndSettingsTitle(String name) {
+    return '$name nustatymai';
+  }
+
+  @override
+  String get chartParamLength => 'Ilgis';
+
+  @override
+  String get chartParamFast => 'Greitoji';
+
+  @override
+  String get chartParamSlow => 'Lėtoji';
+
+  @override
+  String get chartParamSignal => 'Signalas';
+
+  @override
+  String get chartParamMultiplier => 'Daugiklis';
+
+  @override
+  String get chartParamRsiLength => 'RSI ilgis';
+
+  @override
+  String get chartParamStochLength => 'Stochastinio ilgis';
+
+  @override
+  String get chartParamSmoothK => '%K glodinimas';
+
+  @override
+  String get chartParamSmoothD => '%D glodinimas';
+
+  @override
+  String get chartParamRows => 'Eilutės';
+
+  @override
+  String get polyPeriodMatch => 'Rungtynės';
+
+  @override
+  String get polyPeriodFullGame => 'Visos rungtynės';
+
+  @override
+  String polyPeriodGame(int number) {
+    return '$number žaidimas';
+  }
+
+  @override
+  String polyPeriodMap(int number) {
+    return '$number žemėlapis';
+  }
+
+  @override
+  String polyPeriodSet(int number) {
+    return '$number setas';
+  }
+
+  @override
+  String get polyPeriodFirstHalf => '1 kėlinys';
+
+  @override
+  String get polyPeriodSecondHalf => '2 kėlinys';
+
+  @override
+  String polyPeriodQuarter(int number) {
+    return 'Q$number';
+  }
+
+  @override
+  String polyPeriodPeriod(int number) {
+    return '$number kėlinys';
+  }
+
+  @override
+  String get polyPeriodFirstFive => 'Pirmi 5 iningai';
+
+  @override
+  String get polyPeriodFirstInning => '1 iningas';
+
+  @override
+  String get polyLineSetHandicap => 'Setų fora';
+
+  @override
+  String get polyLineTotalGames => 'Iš viso žaidimų';
+
+  @override
+  String get polyLineTotalSets => 'Iš viso setų';
+
+  @override
+  String get polyLineTotalKills => 'Iš viso nužudymų';
+
+  @override
+  String get polyLineTotalRounds => 'Iš viso raundų';
+
+  @override
+  String get polyLineDuration => 'Trukmė';
+
+  @override
+  String get polyLineTeamTotals => 'Komandos sumos';
+
+  @override
+  String get polyLinePlayers => 'Žaidėjai';
+
+  @override
+  String polyLinesNotTrading(int count) {
+    return 'Dar neprekiaujama · $count';
+  }
+
+  @override
+  String polyLinesSettled(int count) {
+    return 'Išspręsta · $count';
+  }
+
+  @override
+  String get polySideOver => 'Daugiau';
+
+  @override
+  String get polySideUnder => 'Mažiau';
+
+  @override
+  String get sendPickCardSub => 'Pasirinkite rinką, pusę ir sumą';
+
+  @override
+  String get sendAnInvestmentOrPrediction => 'Siųsti investiciją arba prognozę';
+
+  @override
+  String get sendPredictionCta => 'Siųsti prognozę';
+
+  @override
+  String get sendInvestmentCta => 'Siųsti investiciją';
+
+  @override
+  String get sendPickYourFriend => 'Tavo draugas';
+
+  @override
+  String sendPickGets(String who, String amount, String market, String side) {
+    return '$who gauna $amount: $market — $side';
+  }
+
+  @override
+  String sendPickSideAtChance(String side, String chance) {
+    return '$side, tikimybė $chance';
+  }
+
+  @override
+  String get sendPickHowItWorks => 'Atsiima ir vienu palietimu pateikia';
+
+  @override
+  String get shareCardPredictionForYou => 'Prognozė tau';
+
+  @override
+  String shareCardPredictionForNamed(String name) {
+    return '$name, prognozė tau';
+  }
+
+  @override
+  String get slipShareEnterAmount => 'Įveskite siunčiamą sumą';
+
+  @override
+  String slipShareMinimum(String amount) {
+    return 'Norėdami siųsti, įveskite bent $amount';
+  }
+
+  @override
+  String slipShareYesOnly(String outcome) {
+    return 'Galima siųsti tik „Taip“: $outcome. Pasirinkite „Taip“, kad išsiųstumėte.';
+  }
+
+  @override
+  String get sendPickMarketHow =>
+      'Raskite rinką, pasirinkite pusę ir sumą, tada palieskite Sal, kad išsiųstumėte';
 }

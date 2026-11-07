@@ -23,6 +23,7 @@ import 'package:kute/screens/analytics/components/home_analytics_widget.dart';
 import 'package:kute/screens/shared/charts/kute_line_chart.dart';
 import 'package:kute/screens/shared/charts/kute_trend_chart.dart';
 import 'package:kute/screens/shared/charts/kute_trend_window.dart';
+import 'package:kute/screens/shared/no_activity_state.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/screens/usd/components/usd_balance_chart.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -33,7 +34,9 @@ import 'package:money2/money2.dart';
 /// start, remembered for the session), no scale or gridlines, a dotted
 /// baseline at the first value on screen, the neutral line colour, a
 /// quiet change line above the plot (never "-100.0%"), the scrubbed
-/// balance written there instead of on a card, and a calm empty state.
+/// balance written there instead of on a card, and with no history Sal's
+/// empty state, as Activity's (founder, 31 October 2026: "no balance
+/// should also show Sal").
 void main() {
   final now = DateTime(2026, 10, 5, 18, 0);
 
@@ -259,6 +262,16 @@ void main() {
 
     Finder plot() => find.byKey(const ValueKey('trend-chart-plot'));
 
+    /// Nothing ever on the balance: the Activity empty state, Sal centred
+    /// with "No balance history yet" and its line.
+    void expectNoHistory(WidgetTester tester) {
+      final empty = find.byKey(const ValueKey('balance-chart-no-history'));
+      expect(empty, findsOneWidget);
+      final state = tester.widget<NoActivityState>(empty);
+      expect(state.title, 'No balance history yet');
+      expect(state.subtitle, 'It starts with your first transaction.');
+    }
+
     /// A long press, then a slide: the scrub.
     Future<TestGesture> scrub(WidgetTester tester, Offset at) async {
       final touch = await tester.startGesture(at);
@@ -418,16 +431,14 @@ void main() {
     });
 
     testWidgets(
-        'no history: the headline and one quiet caption, no chart, no '
-        'range row', (tester) async {
+        'no history: Sal\'s empty state with its title and line, no '
+        'headline, no chart, no range row', (tester) async {
       const history = BalanceHistory(opening: 0, changes: [], current: 0);
       await pump(tester, bare(history), plain());
-      final caption = tester
-          .widget<Text>(find.byKey(const ValueKey('balance-chart-empty')));
-      expect(caption.data,
-          'Your balance history starts with your first transaction.');
-      expect(caption.style!.color, AppColorsExtension.light().textSecondary);
-      expect(headline(tester), r'$0.00');
+      expectNoHistory(tester);
+      expect(find.byKey(const ValueKey('balance-chart-headline')),
+          findsNothing);
+      expect(find.byKey(const ValueKey('balance-chart-empty')), findsNothing);
       expect(plot(), findsNothing);
       expect(find.byType(KuteChartRangeRow), findsNothing);
       expect(find.byKey(const ValueKey('balance-chart-header')), findsNothing);
@@ -518,10 +529,7 @@ void main() {
         (tester) async {
       await pump(tester, const HomeAnalyticsWidget(surface: 'home'),
           bitcoin(current: 0));
-      expect(
-          find.text(
-              'Your balance history starts with your first transaction.'),
-          findsOneWidget);
+      expectNoHistory(tester);
       expect(plot(), findsNothing);
       expect(find.byType(KuteChartRangeRow), findsNothing);
       await settle(tester);
@@ -535,10 +543,7 @@ void main() {
         usdBalanceStepsProvider.overrideWithValue(
             const BalanceHistory(opening: 0, changes: [], current: 0)),
       ]);
-      expect(
-          find.text(
-              'Your balance history starts with your first transaction.'),
-          findsOneWidget);
+      expectNoHistory(tester);
       expect(plot(), findsNothing);
       await settle(tester);
     });

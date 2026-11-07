@@ -1,6 +1,6 @@
 // A Buy bitcoin whose purchase waits on the person (its approval ran out,
 // or the app restarted while the money came home) never sits silently in
-// Dollars: its Activity row says "Your $X is in Investments. Tap to buy
+// Dollars: its Activity row says "Your $X is in Dollars. Tap to buy
 // Bitcoin" once the money is there, and the tap asks ONE fresh approval
 // for exactly that purchase and buys it. Declined: nothing moves.
 
@@ -96,7 +96,7 @@ void main() {
     expect(pendingPurchaseWaitingUsd(f, 'msm_1', 19.5), 19.5);
     final l10n = lookupAppLocalizations(const Locale('en'));
     expect(l10n.multiMovePurchaseWaiting(r'$20.23', l10n.assetDollars),
-        r'Your $20.23 is in Investments. Tap to buy Bitcoin');
+        r'Your $20.23 is in Dollars. Tap to buy Bitcoin');
 
     debugPendingPurchaseApproval = (intent) async {
       prompts.add(intent);

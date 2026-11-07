@@ -243,18 +243,27 @@ class AppsFlyerService {
       // A share-link claim installed the app: park the id for the Claim
       // screen (opened once the wallet exists) and bind no referral code.
       if (ShareLinkClaims.isClaimDeepLinkValue(raw)) {
-        _parkClaim(data['deep_link_sub1']?.toString());
+        _parkClaim(data['deep_link_sub1']?.toString(),
+            sub2: data['deep_link_sub2']?.toString());
         return;
       }
       _captureReferrerCode(raw);
     } catch (_) {/* no auto-bind on parse failure */}
   }
 
-  /// A deferred or direct claim link's id, parked for the Claim screen.
-  static void _parkClaim(String? raw) {
-    final id = ShareLinkClaims.claimIdFromLink(
-        Uri(queryParameters: {'deep_link_value': 'claim', 'deep_link_sub1': raw ?? ''}));
-    if (id != null) ShareLinksStore.parkClaim(id);
+  /// A deferred or direct claim link's id, parked for the Claim screen;
+  /// [sub2] `challenge` marks a challenge link.
+  static void _parkClaim(String? raw, {String? sub2}) {
+    final link = Uri(queryParameters: {
+      'deep_link_value': 'claim',
+      'deep_link_sub1': raw ?? '',
+      if (sub2 != null) 'deep_link_sub2': sub2,
+    });
+    final id = ShareLinkClaims.claimIdFromLink(link);
+    if (id != null) {
+      ShareLinksStore.parkClaim(id,
+          challenge: ShareLinkClaims.challengeFromLink(link));
+    }
   }
 
   /// The AppsFlyer conversion keys each install-attribution field is read
@@ -374,7 +383,8 @@ class AppsFlyerService {
       _linkWebVisitor(webVisitorIdFrom(dl.clickEvent));
       final value = dl.deepLinkValue ?? dl.afSub1;
       if (ShareLinkClaims.isClaimDeepLinkValue(value)) {
-        _parkClaim(dl.getStringValue('deep_link_sub1'));
+        _parkClaim(dl.getStringValue('deep_link_sub1'),
+            sub2: dl.getStringValue('deep_link_sub2'));
         return;
       }
       _captureReferrerCode(value ?? dl.getStringValue('referral_code'));

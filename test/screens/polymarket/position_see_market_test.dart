@@ -22,8 +22,6 @@ import 'package:kute/providers/polymarket_sats_pnl_provider.dart'
 import 'package:kute/providers/polymarket_sports_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/polymarket_watchlist_provider.dart';
-import 'package:kute/screens/polymarket/components/poly_market_stats.dart'
-    show PolyRulesRow;
 import 'package:kute/screens/polymarket/components/position_detail_sheet.dart';
 import 'package:kute/screens/polymarket/market_detail_sheet.dart';
 import 'package:kute/screens/shared/open_once.dart';
@@ -186,8 +184,10 @@ void main() {
   });
   tearDown(OpenOnce.reset);
 
-  testWidgets('"View market" is the first row, above Protect it and '
-      'Closing Conditions, with no leading glyph', (tester) async {
+  testWidgets('actions first (founder, 6 November 2026): Protect it alone, '
+      'full width at the squares\' size, over the tiles; then "View market" '
+      'first of the cards to read more, Details beside it, Closing '
+      'Conditions full width under them', (tester) async {
     await http.runWithClient(() async {
       await _pump(tester, const PositionDetailSheet(position: _position),
           event: _election);
@@ -195,20 +195,59 @@ void main() {
       expect(
           find.descendant(of: _row, matching: find.text('View market')),
           findsOneWidget);
-      // No leading glyph: the label alone, like the rows under it.
+      expect(find.descendant(of: _row, matching: find.text('Chart and odds')),
+          findsOneWidget);
+      // The option cards' look: an icon at the top left.
       expect(
           find.descendant(
               of: _row, matching: find.byIcon(Icons.show_chart_rounded)),
-          findsNothing);
-      final rules = find.byType(PolyRulesRow);
-      expect(rules, findsOneWidget);
-      expect(tester.getTopLeft(_row).dy,
-          lessThan(tester.getTopLeft(rules).dy));
+          findsOneWidget);
+      // Reading order: the action, the tiles, then View market at the top
+      // left of the cards to read more, the others after it.
       final protect = find.byKey(const ValueKey('poly-position-protect'));
-      if (protect.evaluate().isNotEmpty) {
-        expect(tester.getTopLeft(_row).dy,
-            lessThan(tester.getTopLeft(protect).dy));
-      }
+      expect(protect, findsOneWidget);
+      expect(
+          find.descendant(
+              of: find.byKey(const ValueKey('poly-position-actions')),
+              matching: protect),
+          findsOneWidget);
+      final tiles =
+          tester.getRect(find.byKey(const ValueKey('poly-position-value')));
+      final first = tester.getRect(_row);
+      final details =
+          tester.getRect(find.byKey(PositionDetailSheet.detailsRowKey));
+      final rules = find.byKey(PositionDetailSheet.closingConditionsKey);
+      expect(rules, findsOneWidget);
+      expect(tester.getRect(protect).bottom, lessThan(tiles.top));
+      expect(tiles.bottom, lessThan(first.top));
+      // Alone: the full width (View market's left to Details' right), at
+      // the squares' size (title 15, not the lone card's 17), with a
+      // chevron.
+      expect(tester.getRect(protect).left, moreOrLessEquals(first.left));
+      expect(tester.getRect(protect).right, moreOrLessEquals(details.right));
+      expect(
+          tester
+              .widget<Text>(find.descendant(
+                  of: protect, matching: find.text('Protect it')))
+              .style
+              ?.fontSize,
+          15.sp);
+      expect(
+          find.descendant(
+              of: protect, matching: find.byIcon(Icons.chevron_right_rounded)),
+          findsOneWidget);
+      // View market and Details side by side, the rules full width under
+      // them with their first line.
+      expect(first.top, details.top);
+      expect(first.right, lessThan(details.left));
+      expect(tester.getRect(rules).top, greaterThan(first.bottom));
+      expect(tester.getRect(rules).right, moreOrLessEquals(details.right));
+      expect(
+          find.descendant(
+              of: rules,
+              matching:
+                  find.text('Resolves to the winner of the 2026 election.')),
+          findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     }, () => MockClient((_) async => http.Response('{}', 404)));
@@ -223,7 +262,10 @@ void main() {
     }, () => MockClient((_) async => http.Response('{}', 404)));
   });
 
-  testWidgets('a settled position keeps the row', (tester) async {
+  testWidgets('a settled position keeps the row: View market and Details '
+      'side by side, Closing Conditions full width under them with the '
+      'first line of the rules and a chevron (never a lone half-width card)',
+      (tester) async {
     await http.runWithClient(() async {
       await _pump(
           tester,
@@ -245,6 +287,37 @@ void main() {
           ),
           event: _election);
       expect(_row, findsOneWidget);
+      final view = tester.getRect(_row);
+      final details =
+          tester.getRect(find.byKey(PositionDetailSheet.detailsRowKey));
+      final rules = find.byKey(PositionDetailSheet.closingConditionsKey);
+      expect(find.byKey(const ValueKey('poly-position-protect')),
+          findsNothing);
+      // Nothing left to do to it: no actions row, the tiles then the cards
+      // to read more.
+      expect(find.byKey(const ValueKey('poly-position-actions')),
+          findsNothing);
+      expect(
+          tester
+              .getRect(find.byKey(const ValueKey('poly-position-value')))
+              .bottom,
+          lessThan(view.top));
+      expect(view.top, details.top);
+      expect(view.right, lessThan(details.left));
+      expect(tester.getRect(rules).top, greaterThan(view.bottom));
+      expect(tester.getRect(rules).left, moreOrLessEquals(view.left));
+      expect(tester.getRect(rules).right, moreOrLessEquals(details.right));
+      expect(
+          find.descendant(
+              of: rules,
+              matching:
+                  find.text('Resolves to the winner of the 2026 election.')),
+          findsOneWidget);
+      expect(
+          find.descendant(
+              of: rules, matching: find.byIcon(Icons.chevron_right_rounded)),
+          findsOneWidget);
+      expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     }, () => MockClient((_) async => http.Response('{}', 404)));
   });

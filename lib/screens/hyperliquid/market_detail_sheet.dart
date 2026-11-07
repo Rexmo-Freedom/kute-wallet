@@ -2,12 +2,11 @@ import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/screens/shared/fitted_title.dart';
 import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
 import 'package:kute/screens/shared/kute_share_actions.dart';
-import 'package:kute/screens/home/components/kute_shell_bar.dart'
-    show KuteFigureShareRow, KuteSalHeaderButton;
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/open_once.dart';
-import 'package:kute/screens/shared/position_rows_card.dart' show PositionLinkRow;
-import 'package:kute/screens/shared/kute_blur.dart';
+import 'package:kute/screens/shared/kute_action_cards.dart';
+import 'package:kute/screens/shared/charts/kute_chart_core.dart'
+    show kKuteMarketChartHeight;
 import 'package:kute/screens/shared/kute_motion.dart' show KuteStillWhenCovered;
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
@@ -45,18 +44,19 @@ import 'package:kute/services/hyperliquid/insights/hl_flow_signals.dart';
 //
 // Content: the title row (back, logo, ticker, watchlist star), the live
 // price large under it (WS mid via HlTickPrice: primary colour, a brief
-// green/red flash on a tick) with Sal's Share pill at the end of its row
-// (founder, 31 October 2026: next to the big number, not in the title
-// row) and the change today under the price,
+// green/red flash on a tick), the whole width its own, and the change
+// today under the price,
 // HlCandleChart (TradingView model for every style: an interval row
 // 1m…1W, the user's pan and zoom, older bars loaded on demand, one global
 // style and interval for all markets — fed by WIRE coin, the one mapping
 // that must never leak), perp stats row (funding
 // with payer direction + annualized, open interest, 24h volume), a live order-book depth
 // ladder (hyperliquidOrderbookProvider, WIRE coin again), the user's
-// existing position/holding when any, and a pinned Invest CTA into the
-// order slip (the other side, Short or Sell, sits beside it as a quiet
-// secondary button).
+// existing position/holding when any. The trade buttons are the floating
+// bar (founder, 4 November 2026; kute_bar_context.dart, THE TRADE ROW):
+// Invest into the order slip, the other side (Short, or a held spot
+// token's Sell) beside it, and the round Sal button that sends the market
+// to a friend at the row's end.
 //
 // Stock tokens (kHlStockSymbols) carry the honest-labeling disclaimer:
 // these are Hyperliquid-listed tokens TRACKING an equity, not the
@@ -91,6 +91,7 @@ import 'package:kute/screens/hyperliquid/components/hl_charts.dart';
 import 'package:kute/screens/hyperliquid/components/hl_drawing_tools.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_history.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_intervals.dart';
+import 'package:kute/screens/hyperliquid/components/hl_chart_interval_sheet.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_sheet.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_opening.dart';
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
@@ -99,7 +100,6 @@ import 'package:kute/screens/hyperliquid/components/hl_market_description.dart';
 import 'package:kute/screens/hyperliquid/components/hl_market_stats.dart';
 import 'package:kute/screens/hyperliquid/components/hl_tick_price.dart';
 import 'package:kute/screens/hyperliquid/components/hl_watch_star.dart';
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/app_card.dart';
 import 'package:kute/screens/shared/components/sheet_detail_row.dart';
@@ -237,11 +237,12 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
   /// Consolidated "Details" expander gates the dense secondary sections
   /// (stats strip, funding line, stock disclaimer, order book). Closed by
   /// default so the primary view stays focused on the header + chart +
-  /// the user's own position + sticky CTAs — mirrors the Polymarket sheet.
+  /// the user's own position + the floating trade row — mirrors the
+  /// Polymarket sheet.
 
   /// Advanced chart mode (drawing tools + indicator toggles) is active:
   /// the chart expands to dominate the screen, the secondary sections
-  /// hide and the sticky CTAs go compact. Reported by HlCandleChart.
+  /// hide and the bar's trade row goes away. Reported by HlCandleChart.
   bool _advancedChart = false;
 
   /// The chart host keeps the editing state, and the body changes shape
@@ -322,9 +323,8 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
       }
     }
 
-    // The page's Sal context, placed in its header (no bottom bar): held
-    // by the scope around the watchlist star while the header is up; its
-    // control, the Share pill (KuteSalHeaderButton), sits beside the price.
+    // The page's Sal context (Send to a friend): the round Sal button at
+    // the end of the bar's trade row opens it ([_tradeBar]).
     final bar = marketBarContext(
       context,
       // As the header names it, the logo drawn as the header draws it
@@ -340,15 +340,10 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
       price: formatHlPrice(
           widget.market.midPx > 0 ? widget.market.midPx : widget.market.markPx,
           decimalCap: widget.market.pxDecimalCap),
-      // The pick: Long, the side this page opens on.
-      outcome: context.l10n.longLabel,
-      side: 'long',
-      actionRowHeight: _advancedChart ? 0 : _kInvestRowHeight,
       position: false,
       category: SearchCategory.perpetuals,
       searchHint: context.l10n.searchInvestmentsHint,
       source: 'trading',
-      placement: KuteBarPlacement.header,
     );
     return Scaffold(
       backgroundColor: context.isDark ? c.gradientBottom : c.background,
@@ -394,14 +389,9 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                           ),
                         ),
                       ),
-                      // The watchlist star; the page's bar context is held
-                      // here with its `header` placement. The Share pill
-                      // is beside the price, under this row.
-                      KuteBarContextScope(
-                        barContext: bar,
-                        child:
-                            HlWatchStar(market: m, size: 22, source: 'detail'),
-                      ),
+                      // The watchlist star. Send to a friend is the round
+                      // Sal button at the end of the bar's trade row.
+                      HlWatchStar(market: m, size: 22, source: 'detail'),
                     ],
                   ),
                 ),
@@ -421,32 +411,28 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                       // Smaller rather than cut on a long price. The
                       // primary text colour at rest; a tick flashes green
                       // or red and fades back, so the price never sits in
-                      // a colour that argues with the change. Sal's Share
-                      // pill at the end of the row, centred on the price
-                      // (founder, 31 October 2026: next to the big number).
-                      KuteFigureShareRow(
-                        gap: 8.w,
-                        figure: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: HlTickPrice(
-                            key: const ValueKey('hl-detail-price'),
-                            price: price,
-                            text: formatHlPrice(price,
-                                decimalCap: m.pxDecimalCap),
-                            style: TextStyle(
-                              color: c.textPrimary,
-                              fontSize: 38.sp,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -1.0,
-                              height: 1.1,
-                              fontFeatures: const [
-                                FontFeature.tabularFigures()
-                              ],
-                            ),
+                      // a colour that argues with the change. The row's
+                      // whole width (founder, 4 November 2026: no Send to
+                      // a friend pill beside it; it floats in the bar).
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: HlTickPrice(
+                          key: const ValueKey('hl-detail-price'),
+                          price: price,
+                          text: formatHlPrice(price,
+                              decimalCap: m.pxDecimalCap),
+                          style: TextStyle(
+                            color: c.textPrimary,
+                            fontSize: 38.sp,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -1.0,
+                            height: 1.1,
+                            fontFeatures: const [
+                              FontFeature.tabularFigures()
+                            ],
                           ),
                         ),
-                        share: KuteSalHeaderButton(barContext: bar),
                       ),
                       SizedBox(height: 4.h),
                       // Wrap (not Row) so the change and the optional
@@ -487,10 +473,12 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
               // ── Body ──────────────────────────────────────────────
               Expanded(
                 child: Builder(builder: (context) {
-                  // The reading chart: a 260 plot (design units;
-                  // HlCandleChart applies .h) starting 12 under the change
-                  // line, its interval row right under it, and the rows
-                  // below. Advanced mode grows it to the whole screen.
+                  // The reading chart: the market chart's plot
+                  // ([kKuteMarketChartHeight], design units; HlCandleChart
+                  // applies .h, as the Predictions charts do) starting 12
+                  // under the change line, its interval row right under
+                  // it, and the option cards below. Advanced mode grows it
+                  // to the whole screen.
                   if (_advancedChart) {
                     // Editing: the chart alone, the whole screen
                     // (HlChartEditBody, shared with the position screen).
@@ -513,7 +501,7 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                       ),
                     );
                   }
-                  const chartHeight = 260.0;
+                  const chartHeight = kKuteMarketChartHeight;
                   return SingleChildScrollView(
                     // Drawing on the chart must not scroll the sheet, so
                     // Advanced mode pins the body until it is switched off.
@@ -522,23 +510,23 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                         : const BouncingScrollPhysics(),
                     // Same 20.w gutter as the Polymarket detail so the chart
                     // sits inside a visible inset instead of edge to edge.
-                    // Editing mode has no pinned bar below, so the tool
-                    // row at the foot of the chart clears the home
-                    // indicator on its own.
                     padding: EdgeInsets.fromLTRB(
                         20.w,
                         12.h,
                         20.w,
-                        // The foot scrolls clear of the floating bar.
+                        // The foot scrolls clear of the floating trade
+                        // row, and of the home indicator: the body runs to
+                        // the screen's foot (the inset as seen below
+                        // PlatformSafeArea: none on Android, which padded
+                        // it already).
                         kuteBarScrollClearance.h +
-                            (_advancedChart
-                                ? MediaQuery.viewPaddingOf(context).bottom
-                                : 0)),
+                            MediaQuery.viewPaddingOf(context).bottom),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // The 260 plot (see chartHeight above); Advanced
-                        // mode expands it (animated inside the chart).
+                        // The market chart's plot (see chartHeight above);
+                        // Advanced mode expands it (animated inside the
+                        // chart).
                         HlCandleChart(
                           key: _chartHostKey,
                           market: m,
@@ -555,25 +543,31 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                         // 2026-10-20): the position has its own screen,
                         // and the chart already marks entry and
                         // liquidation.
-                        // The chart's editing mode (drawing tools,
-                        // indicators), first under the intervals, in
-                        // About's own row style.
-                        if (!_advancedChart)
-                          PositionLinkRow(
-                            key: const ValueKey('hl-advanced-chart'),
-                            label: context.l10n.hlAdvancedChart,
-                            icon: Icons.candlestick_chart_rounded,
-                            onTap: () =>
-                                HlCandleChart.openAdvanced(_chartHostKey),
-                          ),
+                        // The options under the chart, as two cards side
+                        // by side (founder, 4 November 2026: "big squares",
+                        // kute_action_cards.dart), as on the position
+                        // screen and the Predictions screens: the chart's
+                        // editing mode (drawing tools, indicators) and
+                        // About, whose sheet holds the stats and long-form
+                        // details, so the chart keeps the screen.
                         // (The "Why is it moving?" row is gone: that
                         // question is the first Ask Sal chip in the bar's
                         // Sal sheet; founder, 31 October 2026.)
-                        // About, whose sheet holds the stats and
-                        // long-form details, so the chart keeps the
-                        // screen.
                         if (!_advancedChart)
-                          _buildAboutRow(c, m, isStock, position),
+                          KuteActionCardGrid(
+                            key: const ValueKey('hl-market-options'),
+                            cards: [
+                              KuteActionCard.option(
+                                key: const ValueKey('hl-advanced-chart'),
+                                icon: Icons.candlestick_chart_rounded,
+                                title: context.l10n.hlAdvancedChart,
+                                subtitle: context.l10n.optionAdvancedChartSub,
+                                onTap: () =>
+                                    HlCandleChart.openAdvanced(_chartHostKey),
+                              ),
+                              _aboutCard(m, isStock, position),
+                            ],
+                          ),
                         SizedBox(height: 16.h),
                       ],
                     ),
@@ -581,55 +575,22 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                 }),
               ),
 
-              // ── Sticky CTAs ───────────────────────────────────────
-              // Blurred backdrop + top border + bottom SafeArea so the
-              // buttons clear the home indicator (mirrors PM's sticky bar).
-              // Rendered whenever the chart is not being edited, like PM's
-              // Yes/No pair: the order slip runs the capability / geo gate
-              // on tap and explains when investing is unavailable. Gating
-              // the whole bar on the runtime capability here hid it while
-              // the policy was still loading or denied, which read as
-              // "there is no Invest button". Advanced (editing) mode drops
-              // the bar so the chart takes the whole sheet; Done brings it
-              // back.
-              if (!_advancedChart)
-                ClipRect(
-                  child: KuteBlur(
-                    sigmaX: 18,
-                    sigmaY: 18,
-                    child: Container(
-                      padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 8.h),
-                      decoration: BoxDecoration(
-                        color: (context.isDark ? c.surface : c.background)
-                            .withValues(alpha: 0.55),
-                        border: Border(
-                          top: BorderSide(color: c.borderSubtle, width: 0.5),
-                        ),
-                      ),
-                      // The inset as seen below PlatformSafeArea, not the
-                      // screen's own context above it: Android's
-                      // PlatformSafeArea already padded the bottom (so this
-                      // reads zero there), iOS leaves it to the bar.
-                      // Reading it above the SafeArea added the navigation
-                      // bar twice on Android.
-                      child: Builder(
-                        builder: (context) => Padding(
-                          padding: EdgeInsets.only(
-                              bottom: math.max(
-                                  0.0,
-                                  MediaQuery.viewPaddingOf(context).bottom -
-                                      8.h)),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _buildInvestRow(m, spotHeld),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+              // ── The trade row: the floating bar ───────────────────
+              // THE BAR IS THE TRADE BUTTONS (founder, 4 November 2026:
+              // "On the Invest and Short ... it should be the same";
+              // kute_bar_context.dart, THE TRADE ROW): Invest and Short
+              // (or Sell) float at the foot with the round Sal button that
+              // sends the market to a friend, over the content, which
+              // scrolls clear of them. Shown whenever the chart is not
+              // being edited: the order slip runs the capability / geo
+              // gate on tap and explains when investing is unavailable.
+              // The chart editor takes them away (its hidden context
+              // above) and Done brings them back.
+              KuteBarContextScope(
+                active: !_advancedChart,
+                barContext: _tradeBar(m, spotHeld, bar),
+                child: const SizedBox.shrink(),
+              ),
             ],
           ),
         ),
@@ -637,51 +598,44 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
     );
   }
 
-  /// The pinned Invest row: ONE green door into the order slip (buy /
-  /// long, the same marketUp grammar as the Polymarket Yes button), with
-  /// the other side demoted to a quiet neutral button beside it so
-  /// shorting a perp, or selling a spot token the user holds, stays one
-  /// tap away without competing with Invest. The slip has no side toggle
-  /// (its side is fixed on open), so that second button is what keeps
-  /// Short / Sell reachable.
+  /// The bar's trade row (kute_bar_context.dart, THE TRADE ROW): ONE
+  /// green door into the order slip (buy / long, the same marketUp
+  /// grammar as the Polymarket Yes), twice the width of the other side
+  /// beside it, so shorting a perp, or selling a spot token the user
+  /// holds, stays one tap away without competing with Invest: Short in
+  /// the down colour, a spot Sell in the light pill. The slip has no side
+  /// toggle (its side is fixed on open), so that second pill is what keeps
+  /// Short / Sell reachable. At the row's end the round Sal button opens
+  /// [bar], the page's Send to a friend sheet.
   ///
   /// The Ledger Investing tab opens this sheet with a wallet pinned, so
-  /// the CTA routes through LedgerActions, which hands the SAME order slip
-  /// that wallet id: one ticket, signed by the device instead of the hot
-  /// account.
-  /// The pinned row's height for the bar to clear (kute_bar_context.dart,
-  /// actionRowHeight): its padding, the buttons and the hairline above.
-  double get _kInvestRowHeight => 12.h + 56.h + 8.h + 0.5;
-
-  Widget _buildInvestRow(HlMarket m, double spotHeld) {
+  /// the trades route through LedgerActions, which hands the SAME order
+  /// slip that wallet id: one ticket, signed by the device instead of the
+  /// hot account.
+  KuteBarContext _tradeBar(HlMarket m, double spotHeld, KuteBarContext bar) {
     final l10n = context.l10n;
     final showOtherSide = !m.isSpot || spotHeld > 0;
-    return Row(
-      children: [
-        Expanded(
+    return KuteBarContext.trade(
+      trades: [
+        KuteBarTrade(
+          id: 'invest',
+          label: l10n.hlMarketInvestCta,
+          fill: AppColors.marketUp,
           flex: 2,
-          child: AppButton(
-            text: l10n.hlMarketInvestCta,
-            color: AppColors.marketUp,
-            compact: _advancedChart,
-            onPressed: () => _openOrderSlip(m, isLong: true),
-          ),
+          onTap: () => _openOrderSlip(m, isLong: true),
         ),
-        if (showOtherSide) ...[
-          SizedBox(width: 10.w),
-          Expanded(
-            child: AppButton(
-              text: m.isSpot ? l10n.sell : l10n.shortLabel,
-              variant: m.isSpot
-                  ? AppButtonVariant.secondary
-                  : AppButtonVariant.primary,
-              color: m.isSpot ? null : AppColors.marketDown,
-              compact: _advancedChart,
-              onPressed: () => _openOrderSlip(m, isLong: false),
-            ),
+        if (showOtherSide)
+          KuteBarTrade(
+            id: m.isSpot ? 'sell' : 'short',
+            label: m.isSpot ? l10n.sell : l10n.shortLabel,
+            fill: m.isSpot ? null : AppColors.marketDown,
+            onTap: () => _openOrderSlip(m, isLong: false),
           ),
-        ],
       ],
+      share: KuteBarShare(barContext: bar),
+      category: SearchCategory.perpetuals,
+      searchHint: l10n.searchInvestmentsHint,
+      source: 'trading',
     );
   }
 
@@ -710,15 +664,18 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
     );
   }
 
-  /// "About Bitcoin": the one row under the chart, opening the sheet
-  /// with the market's Stats and everything the old Details expander
-  /// held.
-  Widget _buildAboutRow(AppColorsExtension c, HlMarket m, bool isStock,
-      HlPerpPosition? position) {
+  /// "About Bitcoin": the option card beside Advanced chart, opening the
+  /// sheet with the market's Stats and everything the old Details
+  /// expander held.
+  KuteActionCard _aboutCard(
+      HlMarket m, bool isStock, HlPerpPosition? position) {
     final name = hlFriendlyName(m.coin) ?? m.unitAssetName ?? m.coin;
-    return InkWell(
+    return KuteActionCard.option(
+      key: const ValueKey('hl-about'),
+      icon: Icons.info_outline_rounded,
+      title: context.l10n.investingAboutMarket(name),
+      subtitle: context.l10n.optionAboutMarketSub,
       onTap: () {
-        HapticFeedback.selectionClick();
         // The descriptions table is read while the sheet slides in.
         ref.read(hlMarketDescriptionsProvider);
         // Once: a second tap while it slides in does not stack another.
@@ -734,32 +691,6 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                   ),
                 )));
       },
-      child: Container(
-        padding: EdgeInsets.symmetric(vertical: 14.h),
-        decoration: BoxDecoration(
-          border: Border(
-            top: BorderSide(color: c.borderSubtle, width: 0.5),
-          ),
-        ),
-        child: Row(
-          children: [
-            // The same leading icon as the Advanced chart row above.
-            Icon(Icons.info_outline_rounded,
-                color: c.textSecondary, size: 20.sp),
-            SizedBox(width: 10.w),
-            Expanded(
-              child: Text(
-                context.l10n.investingAboutMarket(name),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTextStyles.settingsTitle(context),
-              ),
-            ),
-            Icon(Icons.chevron_right_rounded,
-                color: c.textTertiary, size: 22.sp),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -849,11 +780,7 @@ class _HlAboutSheet extends ConsumerWidget {
         children: [
           AppBottomSheetHeader(
             title: title,
-            trailing: IconButton(
-              tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-              onPressed: () => Navigator.of(context).pop(),
-              icon: const Icon(Icons.close_rounded),
-            ),
+            trailing: const AppBottomSheetCloseButton(),
           ),
           Flexible(
             child: SingleChildScrollView(
@@ -1065,18 +992,31 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
         _ => Icons.candlestick_chart_rounded,
       };
 
-  /// The Chart sheet (hl_chart_sheet.dart): the three style cards over
-  /// the indicators list. The Advanced editor opens one half from each of
-  /// its two buttons.
-  void _openChartSheet({bool style = true, bool indicators = true}) {
+  /// The Chart sheet (hl_chart_sheet.dart): the chart types and the
+  /// indicators, behind the chart's one button (the market chart's and
+  /// the Advanced top bar's alike).
+  void _openChartSheet() {
     unawaited(showHlChartSheet(
       context,
       market: widget.market,
       marketKey: _marketKey,
       candles: _shownCandles ?? const <HyperliquidCandle>[],
-      showStyle: style,
-      showIndicators: indicators,
     ));
+  }
+
+  /// The Advanced axes' corner "Log" switch.
+  void _setLogScale(bool on) {
+    _preferences.setLogScale(on);
+    VenueAnalytics.settingChanged(
+      'chart_log_scale_toggled',
+      setting: 'log_scale',
+      value: on,
+      scope: _marketKey,
+      extra: {
+        'coin': widget.market.coin,
+        ...VenueAnalytics.hlAssetParams(widget.market.coin),
+      },
+    );
   }
 
   /// Interval the live tape is actually painted at (the seed may refine a
@@ -2102,44 +2042,11 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     );
   }
 
-  /// The interval list behind the top bar's interval button.
+  /// The Interval sheet behind the top bar's interval button: the
+  /// intervals as square cards (hl_chart_interval_sheet.dart).
   Future<void> _pickInterval(HlCandleInterval current) async {
     HapticFeedback.selectionClick();
-    final picked = await showAppBottomSheet<HlCandleInterval>(
-      context: context,
-      builder: (sheetContext) => AppBottomSheetContainer(
-        maxHeight: 0.8,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            AppBottomSheetHeader(
-              title: context.l10n.chartInterval,
-              trailing: IconButton(
-                tooltip:
-                    MaterialLocalizations.of(sheetContext).closeButtonTooltip,
-                onPressed: () => Navigator.of(sheetContext).pop(),
-                icon: const Icon(Icons.close_rounded),
-              ),
-            ),
-            Flexible(
-              child: ListView(
-                shrinkWrap: true,
-                padding: EdgeInsets.only(bottom: 12.h),
-                children: [
-                  for (final iv in kHlCandleIntervals)
-                    AppBottomSheetListTile(
-                      title: iv.label,
-                      isSelected: iv.interval == current.interval,
-                      onTap: () => Navigator.of(sheetContext).pop(iv),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    final picked = await showHlIntervalSheet(context, current: current);
     if (picked == null || !mounted) return;
     _selectCandleInterval(picked);
   }
@@ -2184,13 +2091,9 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     setState(() => _selectedDrawingId = null);
   }
 
-  /// The slim top bar: the market, the interval and chart-style pickers,
-  /// indicators, undo / redo and Done (which leaves edit mode).
-  Widget _editTopBar(
-    AppColorsExtension c,
-    HlCandleInterval candleIv,
-    Set<String> indicators,
-  ) {
+  /// The slim top bar: the market, the interval, the chart button (chart
+  /// types and indicators), undo / redo and Done (which leaves edit mode).
+  Widget _editTopBar(AppColorsExtension c, HlCandleInterval candleIv) {
     final m = widget.market;
     final l10n = context.l10n;
     return SizedBox(
@@ -2221,6 +2124,7 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
           Tooltip(
             message: l10n.chartInterval,
             child: GestureDetector(
+              key: const ValueKey('hl-chart-edit-interval-button'),
               behavior: HitTestBehavior.opaque,
               onTap: () => unawaited(_pickInterval(candleIv)),
               child: Container(
@@ -2250,20 +2154,15 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
               ),
             ),
           ),
+          SizedBox(width: 6.w),
+          // The chart's one button, as on the market chart: the chart
+          // types and the indicators in one sheet.
+          HlChartSheetButton(
+            key: const ValueKey('hl-chart-edit-sheet-button'),
+            style: _style,
+            onTap: _openChartSheet,
+          ),
           SizedBox(width: 2.w),
-          _editIconButton(
-            c,
-            icon: _styleIcon(_style),
-            tip: l10n.chartStyleTitle,
-            onTap: () => _openChartSheet(indicators: false),
-          ),
-          _editIconButton(
-            c,
-            icon: Icons.functions_rounded,
-            tip: l10n.chartIndicators,
-            active: indicators.isNotEmpty,
-            onTap: () => _openChartSheet(style: false),
-          ),
           _editIconButton(
             c,
             icon: Icons.undo_rounded,
@@ -2447,7 +2346,6 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     required List<ChartDrawing> drawings,
     required String? selectedId,
     required HlCandleInterval candleIv,
-    required Set<String> indicators,
     required bool magnet,
   }) {
     final railShown = _railShown;
@@ -2500,7 +2398,7 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _editTopBar(c, candleIv, indicators),
+          _editTopBar(c, candleIv),
           SizedBox(height: 6.h),
           _flexed(body),
           Padding(
@@ -2781,7 +2679,9 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
               },
             ),
             indicators: indicators,
-            logScale: indicators.contains('log'),
+            indicatorParams: preferences.params,
+            logScale: preferences.logScale,
+            onLogScaleChanged: _drawingMode ? _setLogScale : null,
             fills: myFills,
             // The entry rides the trade lines now (with the
             // liquidation and every working order); the painter's own
@@ -2842,7 +2742,6 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
         drawings: drawings,
         selectedId: selectedId,
         candleIv: candleIv,
-        indicators: indicators,
         magnet: preferences.magnet,
       );
     }

@@ -4,50 +4,47 @@
 // only have 2 buttons on the top now, we should and must have the
 // portfolio part of the add and send on the top, maybe as a new screen?
 // and we have more space for everything there"). The Dollars tab's action
-// row is Add · Send · Portfolio; Portfolio pushes this, full screen, over
-// the shell (route `/portfolio`, app_router.dart), with the app's standard
-// back. NO BALANCE HERO and no Available to invest (founder, 31 October
-// 2026: "Portfolio is just open positions. On top, instead of the
-// balance, show the shares with the pie chart on the left"). Laid out on
-// the fintech pattern (Robinhood, Revolut, Wealthfront; the founder's
-// redo of the same day, after a card-with-rows draft "looked so bad"),
-// top down, no card around the top block: the HERO, the allocation ring
-// big and centred (150, a 14 stroke, the three share colours) with the
-// all-time P&L in its hole; under it one quiet legend line (Investing,
-// Predictions, Dollars: dot and name, no amounts; founder, 31 October
-// 2026: "only auto managed", no allocation tiles and no Move money
-// button, money moves from the Add and Send flows); the section switch
-// (Portfolio | P&L Charts | Activity, the home strip); then the open
-// positions by venue under small-caps labels, each venue one soft card
-// (BalancesOverview.sharesHeader, components/balances_overview.dart). No
-// total: the Dollars tab has it. The WHOLE page scrolls (founder, 1
-// November 2026): the ring block scrolls away with the section and the
-// strip pins under the app bar (investments_portfolio.dart,
-// _PortfolioPage). No dock: Add and Send are not repeated here.
+// row and its Activity tab's "See full portfolio and activity" push this,
+// full screen, over the shell (route `/portfolio`, app_router.dart), with
+// the app's standard back. No dock: Add and Send are not repeated here.
+//
+// Overhauled on 4 November 2026 (founder: "the top chart means nothing,
+// it's super confusing … much, much, much better fintech design
+// comparable to the rest of the app"), the page is investments_portfolio
+// .dart's, top down: the hero ("Invested", the figure, the P&L over the
+// range, ONE P&L chart with its ranges, "3 positions · Available $17.64";
+// components/portfolio_hero.dart), the Positions | P&L | Activity switch
+// (Positions first and the default since 6 November 2026)
+// pinned under the app bar once it reaches it, then the section. The
+// allocation ring that read each section is gone.
 //
 // A deep link naming a Portfolio section (`/usd?tab=portfolio|positions|
-// orders|activity…`, PortfolioSection.forLink) opens this screen on that
-// section (usd_account_screen.dart, openInvestmentsPortfolio), as do a
-// filled order's "View positions", a resting order's "View orders" and a
-// trade notification.
+// orders…`, PortfolioSection.forLink) opens this screen on that section
+// (usd_account_screen.dart, openInvestmentsPortfolio), as do a filled
+// order's "View positions", a resting order's "View orders" and a trade
+// notification.
 //
-// THE BAR SHARES WHAT THE SECTION SHOWS (founder, 2 November 2026: "On
+// THE BAR SHARES WHAT THE PAGE SHOWS (founder, 2 November 2026: "On
 // share and brag portfolio we should say share portfolio on the bottom.
-// PnL should say [something else]"): on Portfolio, with a position open
-// or a P&L off zero, "Share portfolio" opens the portfolio card; on P&L
-// Charts, with a P&L drawn, "Share P&L" opens the P&L card for the range
-// (and the venue) picked on the chart (brag_preview_sheet.dart). The
-// label morphs on a switch like every bar label (kute_morph_label.dart).
+// PnL should say [something else]"): on Activity and Positions, with a
+// position open or a P&L off zero, "Share portfolio" opens the portfolio
+// card (Positions, the screen's first section, and Activity, its last);
+// on P&L, with a P&L drawn, "Share P&L" opens the P&L card for the
+// range picked on the hero's chart, of the venue square picked alone when
+// one is (portfolioPnlVenueProvider; both venues otherwise;
+// brag_preview_sheet.dart). The label
+// morphs on a switch like every bar label (kute_morph_label.dart).
 // Nothing to share: the default bar.
 //
 // Analytics: the existing `analytics_tab_selected` on a section pill
-// (surface investments, tab positions, sub / from_sub), as the Investments
-// page sent it; the screen itself adds no event (experimental branch).
+// (surface investments, tab positions, sub / from_sub: balances |
+// charts | activity, the keys unchanged by the pills' order), as the Investments page sent it; the screen itself
+// adds no event.
 
 import 'dart:async';
 
 import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart'
-    show pnlChartRangeProvider, pnlChartVenueProvider;
+    show pnlChartRangeProvider, portfolioPnlVenueProvider;
 import 'package:kute/screens/share/brag/brag_data.dart'
     show bragPnlAvailableProvider, bragPortfolioAvailableProvider;
 import 'package:kute/screens/share/brag/brag_preview_sheet.dart'
@@ -92,6 +89,7 @@ class PortfolioScreen extends ConsumerWidget {
       BuildContext context, WidgetRef ref, PortfolioSection section) {
     final l10n = context.l10n;
     final share = switch (section) {
+      PortfolioSection.activity ||
       PortfolioSection.balances =>
         ref.watch(bragPortfolioAvailableProvider)
             ? (
@@ -104,7 +102,8 @@ class PortfolioScreen extends ConsumerWidget {
               l10n.bragPnlBarLabel,
               () => unawaited(showBragPnlPreviewSheet(context,
                   range: ref.read(pnlChartRangeProvider),
-                  venue: ref.read(pnlChartVenueProvider))),
+                  // The venue square picked: its card alone.
+                  venue: ref.read(portfolioPnlVenueProvider))),
             )
           : null,
     };
@@ -155,8 +154,8 @@ class PortfolioScreen extends ConsumerWidget {
             // money moves from the Add and Send flows).
             // Share (founder, 1 and 2 November 2026): with something to
             // share, the bar is the section's own share, "Share portfolio"
-            // or "Share P&L" ([barContext]); the Sal sheet stays a long
-            // press away.
+            // (Activity, Positions) or "Share P&L" (P&L) ([barContext]);
+            // the Sal sheet stays a long press away.
             child: KuteBarContextScope(
               barContext: barContext(context, ref, section),
               // The bar floats over the list (nothing reserves room); each
@@ -164,7 +163,6 @@ class PortfolioScreen extends ConsumerWidget {
               // (kuteBarScrollClearance, investments_portfolio.dart), so
               // the last row scrolls clear of the bar.
               child: InvestmentsPortfolio(
-                sharesHeader: true,
                 onSection: (section) => pickSection(ref, section),
               ),
             ),

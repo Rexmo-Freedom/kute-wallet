@@ -8,6 +8,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kute/providers/open_pnl_history_provider.dart'
+    show OpenPnlSources;
+import 'package:kute/providers/currency_conversions_provider.dart'
+    show currentBtcUsdProvider;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/settings_model.dart';
@@ -168,6 +172,10 @@ Future<RecordingRewardsApi> pumpInvestments(
 
   /// The spending account's history (the Portfolio's Activity rows).
   Transaction? history,
+
+  /// Where the open positions' P&L chart reads trades and prices; none by
+  /// default.
+  OpenPnlSources? openPnlSources,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -192,7 +200,12 @@ Future<RecordingRewardsApi> pumpInvestments(
   addTearDown(() => RuntimeCapabilitiesService.debugInstance = null);
   await tester.pumpWidget(ProviderScope(
     overrides: [
-      ...portfolioOverrides(dollars: balance.dollarsUsd, history: history),
+      ...portfolioOverrides(
+          dollars: balance.dollarsUsd,
+          history: history,
+          openPnlSources: openPnlSources),
+      // The Investments activity reads the price (no rates box here).
+      currentBtcUsdProvider.overrideWithValue(100000),
       settingsProvider.overrideWith((_) => SettingsModel(settings)),
       runtimeCapabilitiesProvider.overrideWithValue(policy),
       oneBalanceProvider.overrideWithValue(balance),

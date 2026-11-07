@@ -138,7 +138,8 @@ List<ActiveNavTab> _visibleTabsFor(WalletConfig? wallet) => [
 /// on screen is the pill, not the tab: the Investing pill is the Trading
 /// surface and the Predictions pill the Predictions surface, so the same
 /// sockets follow the pill there (re-applied on every pill change by the
-/// shell).
+/// shell). The Activity pill (4 November 2026) shows the open positions
+/// of both venues at their live prices: both sockets stay on under it.
 ///
 /// The `ref.exists` guards keep this from instantiating autoDispose
 /// providers nothing is watching yet (a cold read of the trading provider
@@ -148,10 +149,13 @@ List<ActiveNavTab> _visibleTabsFor(WalletConfig? wallet) => [
 void applyShellTabLivePolicy(WidgetRef ref, ActiveNavTab tab) {
   final pill =
       tab == ActiveNavTab.usd ? ref.read(investmentsTabProvider) : null;
-  final trading =
-      tab == ActiveNavTab.trading || pill == InvestmentsTab.investing;
-  final predictions =
-      tab == ActiveNavTab.predictions || pill == InvestmentsTab.predictions;
+  final activity = pill == InvestmentsTab.activity;
+  final trading = tab == ActiveNavTab.trading ||
+      pill == InvestmentsTab.investing ||
+      activity;
+  final predictions = tab == ActiveNavTab.predictions ||
+      pill == InvestmentsTab.predictions ||
+      activity;
   if (ref.exists(hyperliquidLivePricesProvider)) {
     final hl = ref.read(hyperliquidLivePricesProvider.notifier);
     if (trading) {

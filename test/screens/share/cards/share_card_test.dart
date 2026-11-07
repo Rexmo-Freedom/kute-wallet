@@ -18,6 +18,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/l10n/generated/app_localizations_de.dart';
 import 'package:kute/l10n/generated/app_localizations_en.dart';
 import 'package:kute/models/polymarket_model.dart';
@@ -332,7 +333,8 @@ void main() {
 
   group('cards', () {
     Future<void> pumpIn(
-        WidgetTester tester, ShareCardData data, Locale locale) async {
+        WidgetTester tester, ShareCardData data, Locale locale,
+        {int seed = 0}) async {
       await tester.runAsync(loadShareCardFonts);
       await pumpShareWidget(
           tester,
@@ -343,7 +345,7 @@ void main() {
                     locale: locale,
                     child: Align(
                         alignment: Alignment.topLeft,
-                        child: ShareCard(data: data)),
+                        child: ShareCard(data: data, lineSeed: seed)),
                   )));
     }
 
@@ -456,7 +458,8 @@ void main() {
       expectRestrained(tester, code: true);
       expect(background(tester), ShareCardPalette.prediction.background);
       expect(shareCardPose(fakePredictionPick()), ShareCardPose.predict);
-      expect(textOf(tester, 'share-card-caps'), 'ANA, A PICK FOR YOU');
+      // It says it is a prediction (founder, 5 November 2026).
+      expect(textOf(tester, 'share-card-caps'), 'ANA, A PREDICTION FOR YOU');
       expect(find.text('LoL Worlds 2026 Final: Gen.G vs T1'), findsOneWidget);
       expect(textOf(tester, 'share-card-number'), '47%');
       expect(textOf(tester, 'share-card-fact'), 'Chance of Gen.G');
@@ -480,6 +483,11 @@ void main() {
               .getBottomLeft(find.byKey(const ValueKey('share-card-logo')))
               .dy));
       expect(textOf(tester, 'share-card-plain'), r'$10 on Gen.G');
+      // What was sent, in big type, the full ink.
+      final plain = tester.widget<Text>(
+          find.byKey(const ValueKey('share-card-plain')));
+      expect(plain.style!.fontSize, kShareCardPlainStrongSize);
+      expect(plain.style!.fontWeight, FontWeight.w800);
       // The line is the stock card's graphic, never a second one here.
       expect(find.byKey(const ValueKey('share-card-chart')), findsNothing);
     });
@@ -609,7 +617,7 @@ void main() {
           ShareCardPalette.prediction);
       expect(shareCardPose(fakeBitcoinCard()), ShareCardPose.claim);
       expect(shareCardPose(fakeDollarsCard().asRecipient()),
-          ShareCardPose.send);
+          ShareCardPose.claim);
       expect(shareCardPose(fakeBitcoinCard().asRecipient()),
           ShareCardPose.claim);
       // The send card's amount is the orange hero too.
@@ -633,24 +641,48 @@ void main() {
       expect(find.byKey(const ValueKey('share-card-sal')), findsOneWidget);
     });
 
-    for (final locale in const [Locale('de'), Locale('ja')]) {
-      testWidgets('every card lays out in ${locale.languageCode}',
+    for (final locale in const [Locale('en'), Locale('de'), Locale('ja')]) {
+      testWidgets(
+          'every card and every line of its pool lays out in '
+          '${locale.languageCode}: no overflow, the line whole',
           (tester) async {
+        final l10n = lookupAppLocalizations(locale);
         for (final data in <ShareCardData>[
           fakeBitcoinCard(),
           fakeDollarsCard(),
           fakePredictionPick(),
+          fakeBinaryPick(),
           fakePredictionMarket(),
+          fakeMichiganMarket(),
+          const PredictionCardData(
+              question: r'Will Bitcoin hit $150k by March 2026?',
+              outcome: 'Yes',
+              chance: 62,
+              topic: ShareCardTopic.crypto),
           fakeTeslaPick(),
           fakeNasdaqMarket(),
           fakeOilMarket(),
+          const InvestmentCardData(
+              title: 'Tesla',
+              ticker: 'TSLA',
+              price: 242.1,
+              change: -0.124,
+              side: 'short',
+              amount: r'$25'),
           fakeBitcoinCard().asRecipient(),
           fakePredictionPick().asRecipient(),
           fakeTeslaPick().asRecipient(),
         ]) {
-          await pumpIn(tester, data, locale);
-          expect(tester.takeException(), isNull,
-              reason: '${data.kind} overflowed in ${locale.languageCode}');
+          final pool = shareCardEdges(l10n, data);
+          for (var seed = 0; seed < pool.length; seed++) {
+            await pumpIn(tester, data, locale, seed: seed);
+            expect(tester.takeException(), isNull,
+                reason: '${data.kind} overflowed in ${locale.languageCode}');
+            final edge = tester.renderObject<RenderParagraph>(
+                find.byKey(const ValueKey('share-card-edge')));
+            expect(edge.didExceedMaxLines, isFalse,
+                reason: '${locale.languageCode} ${data.kind}: ${pool[seed]}');
+          }
         }
       });
     }
@@ -662,7 +694,7 @@ void main() {
         "on every bitcoin send, weighing a prediction, a stock by today's "
         'change', () {
       expect(shareCardPose(fakeBitcoinCard()), ShareCardPose.claim);
-      expect(shareCardPose(fakeDollarsCard()), ShareCardPose.send);
+      expect(shareCardPose(fakeDollarsCard()), ShareCardPose.claim);
       expect(shareCardPose(fakePredictionPick()), ShareCardPose.predict);
       expect(shareCardPose(fakePredictionMarket()), ShareCardPose.predict);
       InvestmentCardData stock(double? change) => InvestmentCardData(
@@ -997,48 +1029,107 @@ void main() {
   });
 
   group('edgy line', () {
-    test('built from the card\'s own figures, a pool per sign and topic', () {
+    test(
+        'built from the card\'s own figures, a pool per state and topic, 12 '
+        'to 21 lines', () {
       // A stock up: today's change interpolated, the name.
-      expect(shareCardEdges(_en, fakeTeslaPick()), [
+      final up = shareCardEdges(_en, fakeTeslaPick());
+      expect(up.take(3), [
         'Some of us buy before the headlines.',
         "Up 3.4%. You're welcome.",
         'Told you Tesla.',
       ]);
+      expect(up,
+          containsAll(["Calm down. It's only 3.4%.", 'Green looks good on Tesla.']));
       // Down.
-      expect(shareCardEdges(_en, fakeNasdaqMarket()),
+      final down = shareCardEdges(_en, fakeNasdaqMarket());
+      expect(down.take(2),
           ['Discount, not disaster.', 'Buying while you panic.']);
-      // No change known.
+      expect(down, contains('Down 0.6%. Zoom out.'));
+      // No change known: nothing that names a direction.
       expect(
           shareCardEdges(
               _en, const InvestmentCardData(title: 'Crude oil', price: 102.5)),
-          ['Some of us buy before the headlines.', 'Patience is a position.']);
-      // A sports pick under 50%: early, the crowd, the dare, the team.
-      expect(shareCardEdges(_en, fakePredictionPick()), [
-        "47% says I'm early, not wrong.",
-        'The crowd is 53% wrong.',
-        'Bet against me. I dare you.',
-        'Gen.G or bust.',
-      ]);
-      // Politics.
-      expect(shareCardEdges(_en, fakePredictionMarket()),
-          contains('Polls are opinions. This is money.'));
-      // Money: bitcoin has its own.
-      expect(shareCardEdges(_en, fakeBitcoinCard()), [
+          [
+            'Some of us buy before the headlines.',
+            'Patience is a position.',
+            'Not advice. Just a chart.',
+            "Charts don't care about feelings.",
+            "Crude oil. You might've heard of it.",
+          ]);
+      // A short pick never buys.
+      final short = shareCardEdges(
+          _en,
+          const InvestmentCardData(
+              title: 'Tesla', change: -0.034, side: 'short'));
+      expect(short, isNot(contains('Buying while you panic.')));
+      expect(short, contains('Down 3.4%. As planned.'));
+      // A pick on the underdog: early, the crowd (from the card's own
+      // 47%), the dare, the team.
+      const dog = PredictionCardData(
+          question: 'LoL Worlds 2026 Final: Gen.G vs T1',
+          outcome: 'Gen.G',
+          chance: 47,
+          binary: false,
+          topic: ShareCardTopic.sports,
+          leading: false,
+          opponent: 'T1',
+          opponentChance: 53,
+          picked: true,
+          amount: r'$10');
+      expect(
+          shareCardEdges(_en, dog),
+          containsAll([
+            "47% says I'm early, not wrong.",
+            'The crowd is 53% wrong.',
+            'Take the other side. I dare you.',
+            r'$10 says Gen.G.',
+            'Gen.G or bust.',
+            "Everyone's a coach today.",
+          ]));
+      // The favourite: never early, the crowd never wrong.
+      final fav = shareCardEdges(_en, fakePredictionPick());
+      expect(fav,
+          containsAll(['Backing the favourite. Revolutionary.', 'Gen.G or bust.']));
+      expect(fav.where((l) => l.contains('early') || l.contains('wrong')),
+          isEmpty);
+      // A market shared whole: neutral, about the race (founder, 5
+      // November 2026: "it makes no sense to pick a side").
+      final market = shareCardEdges(_en, fakePredictionMarket());
+      expect(
+          market,
+          containsAll([
+            'Polls are opinions. This is money.',
+            "Lula leads. Nothing's settled.",
+            "41% isn't a coronation.",
+          ]));
+      expect(market, isNot(contains('Take the other side. I dare you.')));
+      expect(market.where((l) => l.contains('wrong')), isEmpty);
+      // Money: bitcoin has its own, the amount the card's.
+      final btc = shareCardEdges(_en, fakeBitcoinCard());
+      expect(btc.take(3), [
         "Spend it wisely. Or don't.",
         'Consider this a flex.',
         'Free bitcoin. Rare sight.',
       ]);
-      expect(shareCardEdges(_en, fakeDollarsCard()),
-          ["Spend it wisely. Or don't.", 'Consider this a flex.']);
+      expect(btc, contains('₿12,000, no questions asked.'));
+      final usd = shareCardEdges(_en, fakeDollarsCard());
+      expect(usd.take(2), ["Spend it wisely. Or don't.", 'Consider this a flex.']);
+      expect(usd, isNot(contains('Free bitcoin. Rare sight.')));
+      expect(usd, contains('Cash, minus the envelope.'));
+      for (final pool in [up, down, fav, market, btc, usd]) {
+        expect(pool.length, inInclusiveRange(12, 21));
+      }
       // German numbers.
       expect(shareCardEdges(_de, fakeTeslaPick())[1], contains('3,4'));
     });
 
     test('the seed picks one, any int', () {
       final pool = shareCardEdges(_en, fakeTeslaPick());
-      expect(
-          {for (var i = 0; i < 9; i++) shareCardEdge(_en, fakeTeslaPick(), i)},
-          pool.toSet());
+      expect({
+        for (var i = 0; i < pool.length; i++)
+          shareCardEdge(_en, fakeTeslaPick(), i)
+      }, pool.toSet());
       expect(shareCardEdge(_en, fakeTeslaPick(), -7), isIn(pool));
     });
 

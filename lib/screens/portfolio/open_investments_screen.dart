@@ -55,6 +55,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/models/open_pnl_history.dart'
+    show openPnlKeyPerp, openPnlKeyPrediction, openPnlKeySpot;
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart'
@@ -85,7 +87,7 @@ import 'package:kute/screens/portfolio/components/balances_overview.dart'
     show BalancesCategory, BalancesPnlText, BalancesVenueList;
 import 'package:kute/screens/portfolio/components/position_rows.dart';
 import 'package:kute/screens/portfolio/poly_position_events.dart'
-    show polyPortfolioEventsPrefetchProvider, polyPositionEventProvider;
+    show polyPortfolioEventsPrefetchProvider;
 import 'package:kute/screens/portfolio/portfolio_activity.dart';
 import 'package:kute/screens/portfolio/portfolio_balance_breakdown.dart';
 import 'package:kute/screens/portfolio/portfolio_empty_state.dart';
@@ -444,37 +446,22 @@ Map<BalancesCategory, BalancesVenueList> portfolioVenueLists(
   };
 }
 
-/// The Portfolio screen's ring slices (founder, 1 November 2026: "make it
-/// intelligent"): one per OPEN position, the same ones the rows list, by
-/// what it is worth now at the live price as its row reads it (a perp
-/// what closing it gives back, a holding at the mid, a prediction its
-/// shares at the live price, a combo its estimate), largest first, each
-/// coloured from the chart palette in that order (the palette's "other"
-/// grey is Available's). Settled positions and bets on their way have no
-/// slice. Each slice's id is its row's key ([PortfolioPositionRow.sliceId]).
-List<PortfolioSlice> portfolioOpenSlices(
-    BuildContext context, WidgetRef ref, PortfolioVenues venues) {
-  final l10n = context.l10n;
-  final raw = <(String, String, double, double?, double?)>[];
+/// The Positions section's open positions, biggest first (founder, 2
+/// November 2026: "maybe the biggest investments get the squares and the
+/// others just get a normal line"): the ids of their rows ("hl-BTC",
+/// "hl-spot-HYPE", "poly-" and its token, "combo-" and its condition), the
+/// same ones the rows list, by what each is worth now at the live price as
+/// its row reads it (a perp what closing it gives back, a holding at the
+/// mid, a prediction its shares at the live price, a combo its estimate).
+/// Settled positions and bets on their way are not open; a holding whose
+/// market is not known yet, or a position under a cent, is left out.
+List<String> portfolioOpenRanked(WidgetRef ref, PortfolioVenues venues) {
+  final raw = <(String, double)>[];
   if (venues.trading) {
     final state = ref.watch(hyperliquidDisplayTradingProvider).valueOrNull;
     for (final p in state?.positions ?? const <HlPerpPosition>[]) {
       final mid = ref.watch(hyperliquidLiveMidProvider(p.coin));
-      final descriptor = ref.watch(hyperliquidAccountMarketProvider(p.coin));
-      final coin = descriptor?.coin ?? p.coin;
-      final pnl = hlLivePnl(p, liveMid: mid);
-      final margin = hlPositionMargin(p);
-      final roe = margin > 0 ? pnl / margin : p.returnOnEquity;
-      raw.add((
-        'hl-${p.coin}',
-        hlFriendlyName(p.coin) ??
-            hlFriendlyName(coin) ??
-            descriptor?.unitAssetName ??
-            coin,
-        hlCloseValue(p, liveMid: mid),
-        pnl,
-        roe * 100,
-      ));
+      raw.add(('hl-${p.coin}', hlCloseValue(p, liveMid: mid)));
     }
     final spot = (state?.spotBalances ?? const <HlSpotBalance>[])
         .where((b) => b.coin != 'USDC' && b.total > 0)
@@ -485,16 +472,7 @@ List<PortfolioSlice> portfolioOpenSlices(
       for (final b in spot) {
         final market = markets.where((m) => m.coin == b.coin).firstOrNull;
         if (market == null || market.midPx <= 0) continue;
-        final value = b.total * market.midPx;
-        final cost = b.costBasis;
-        final pnl = cost == null ? null : value - cost;
-        raw.add((
-          'hl-spot-${b.coin}',
-          hlFriendlyName(b.coin) ?? market.unitAssetName ?? b.coin,
-          value,
-          pnl,
-          pnl != null && cost != null && cost > 0 ? pnl / cost * 100 : null,
-        ));
+        raw.add(('hl-spot-${b.coin}', b.total * market.midPx));
       }
     }
   }
@@ -503,46 +481,176 @@ List<PortfolioSlice> portfolioOpenSlices(
     for (final p in book.open) {
       final live = ref.watch(livePriceProvider
           .select((s) => s.live ? s.prices[p.tokenId] : null));
-      final price = live ?? p.currentPrice;
-      final slug = p.eventSlug;
-      final event = slug == null || slug.isEmpty
-          ? null
-          : ref.watch(polyPositionEventProvider(slug));
-      final pnl = (price - p.avgPrice) * p.size;
-      raw.add((
-        'poly-${p.tokenId}',
-        polyPositionRowTitle(context, p, event),
-        p.size * price,
-        pnl,
-        p.avgPrice > 0 ? (price / p.avgPrice - 1) * 100 : null,
-      ));
+      raw.add(('poly-${p.tokenId}', p.size * (live ?? p.currentPrice)));
     }
     for (final p in book.openCombos) {
-      raw.add((
-        'combo-${p.conditionId}',
-        l10n.comboLegsLabel(p.legsTotal),
-        p.estimatedValueUsd,
-        null,
-        null,
-      ));
+      raw.add(('combo-${p.conditionId}', p.estimatedValueUsd));
     }
   }
-  final shown = raw.where((r) => r.$3.isFinite && r.$3 >= 0.005).toList()
-    ..sort((a, b) => b.$3.compareTo(a.$3));
-  final palette = context.colors.chartCategorical;
-  // The palette's last colour is its "other" grey: Available's.
-  final colours = palette.sublist(0, palette.length - 1);
-  return [
-    for (var i = 0; i < shown.length; i++)
-      PortfolioSlice(
-        id: shown[i].$1,
-        name: shown[i].$2,
-        valueUsd: shown[i].$3,
-        pnlUsd: shown[i].$4,
-        pnlPercent: shown[i].$5,
-        color: colours[i % colours.length],
-      ),
+  final shown = raw.where((r) => r.$2.isFinite && r.$2 >= 0.005).toList()
+    ..sort((a, b) => b.$2.compareTo(a.$2));
+  return [for (final r in shown) r.$1];
+}
+
+/// How many positions are open at the venues on the account: Investing's
+/// perps and holdings (USDC is cash), Predictions' open positions and
+/// combos (the rows the Positions section lists as open). Reads no price:
+/// a tick never changes it.
+int portfolioOpenCount(WidgetRef ref, PortfolioVenues venues) {
+  var count = 0;
+  if (venues.trading) {
+    count += ref.watch(hyperliquidDisplayTradingProvider.select<int>((s) {
+      final hl = s.valueOrNull;
+      if (hl == null) return 0;
+      return hl.positions.length +
+          hl.spotBalances
+              .where((b) => b.coin != 'USDC' && b.total > 0)
+              .length;
+    }));
+  }
+  if (venues.predictions) {
+    count += ref.watch(polymarketActivePositionsProvider).length;
+    count += ref.watch(polymarketCombosProvider
+        .select<int>((s) => s.valueOrNull?.open.length ?? 0));
+  }
+  return count;
+}
+
+/// What a venue's open positions made or lost so far, as their rows read
+/// it ([portfolioPredictionsOpenPnl], [portfolioInvestingOpenPnl]):
+/// [usd] their P&L added, [costUsd] what they cost added (the base each
+/// row's percent divides by), [count] the positions counted and
+/// [costed] false when one of them has no cost of its own (no percent of
+/// the whole is written then).
+typedef PortfolioOpenPnlPart = ({
+  double usd,
+  double costUsd,
+  int count,
+  bool costed,
+});
+
+/// The open predictions' P&L at the live price, as their rows read it
+/// (PolyPositionRow: the shares at the live price, a resolved one at its
+/// last price, less what they cost), and what they cost. Rebuilds the
+/// caller only when the sum moves. [leaveOut]: positions left out by
+/// their key ([openPnlKeyPrediction]; the open P&L chart's pin leaves out
+/// the positions it could not chart).
+PortfolioOpenPnlPart portfolioPredictionsOpenPnl(
+    WidgetRef ref, List<PolymarketPosition> positions,
+    {Set<String> leaveOut = const {}}) {
+  if (leaveOut.isNotEmpty) {
+    positions = [
+      for (final p in positions)
+        if (!leaveOut.contains(openPnlKeyPrediction(
+            tokenId: p.tokenId, marketId: p.marketId, outcome: p.outcome)))
+          p,
+    ];
+  }
+  final usd = ref.watch(livePriceProvider.select((s) {
+    var sum = 0.0;
+    for (final p in positions) {
+      final live = s.live ? s.prices[p.tokenId] : null;
+      final price = p.isResolved ? p.currentPrice : live ?? p.currentPrice;
+      sum += (price - p.avgPrice) * p.size;
+    }
+    return sum;
+  }));
+  // What was paid, for the percentage, as each row divides by.
+  var cost = 0.0;
+  var costed = true;
+  for (final p in positions) {
+    if (p.avgPrice > 0 && p.size > 0) {
+      cost += p.avgPrice * p.size;
+    } else {
+      costed = false;
+    }
+  }
+  return (usd: usd, costUsd: cost, count: positions.length, costed: costed);
+}
+
+/// The open Investing positions' P&L, as their rows read it: each perp's
+/// at the live mid (HlPositionRow, on its margin), each holding's at the
+/// mid against what the venue records as paid (HlSpotRow; a holding with
+/// no cost on record, or whose market is not known yet, shows no P&L and
+/// counts for none here); and what they cost (a perp's margin, a
+/// holding's recorded cost). [leaveOut]: positions left out by their key
+/// ([openPnlKeyPerp], [openPnlKeySpot]).
+PortfolioOpenPnlPart portfolioInvestingOpenPnl(
+    WidgetRef ref, HyperliquidTradingState state,
+    {Set<String> leaveOut = const {}}) {
+  var usd = 0.0;
+  var cost = 0.0;
+  var count = 0;
+  var costed = true;
+  for (final p in state.positions) {
+    if (leaveOut.contains(openPnlKeyPerp(p.coin))) continue;
+    usd += hlLivePnl(p, liveMid: ref.watch(hyperliquidLiveMidProvider(p.coin)));
+    count++;
+    final margin = hlPositionMargin(p);
+    if (margin.isFinite && margin > 0) {
+      cost += margin;
+    } else {
+      costed = false;
+    }
+  }
+  final spot = state.spotBalances
+      .where((b) =>
+          b.coin != 'USDC' &&
+          b.total > 0 &&
+          b.costBasis != null &&
+          !leaveOut.contains(openPnlKeySpot(b.coin)))
+      .toList();
+  if (spot.isNotEmpty) {
+    final markets = ref.watch(hyperliquidSpotMarketsProvider).valueOrNull ??
+        const <HlMarket>[];
+    for (final b in spot) {
+      final mid =
+          markets.where((m) => m.coin == b.coin).firstOrNull?.midPx ?? 0;
+      if (mid > 0) {
+        usd += b.total * mid - b.costBasis!;
+        cost += b.costBasis!;
+        count++;
+        if (!(b.costBasis! > 0)) costed = false;
+      }
+    }
+  }
+  return (usd: usd, costUsd: cost, count: count, costed: costed);
+}
+
+/// What the open positions the Positions section lists made or lost so
+/// far, both venues added (founder, 5 November 2026: on Positions the hero
+/// shows "only the open ones"): every open position whose row writes a
+/// P&L, at the live prices ([portfolioPredictionsOpenPnl],
+/// [portfolioInvestingOpenPnl]), so the figure is the rows' P&L added and
+/// the venues' P&L beside their names added. An open combo writes an
+/// estimate, not a P&L, and counts for none. Null with nothing open that
+/// writes one. [leaveOut]: positions left out by their key (the open P&L
+/// chart's pin: the positions it charts; with nothing left out, this very
+/// figure).
+PortfolioOpenPnlPart? portfolioOpenPnl(WidgetRef ref, PortfolioVenues venues,
+    {Set<String> leaveOut = const {}}) {
+  final parts = <PortfolioOpenPnlPart>[
+    if (venues.predictions)
+      portfolioPredictionsOpenPnl(
+          ref, ref.watch(polymarketActivePositionsProvider),
+          leaveOut: leaveOut),
+    if (venues.trading)
+      if (ref.watch(hyperliquidDisplayTradingProvider).valueOrNull
+          case final state?)
+        portfolioInvestingOpenPnl(ref, state, leaveOut: leaveOut),
   ];
+  var usd = 0.0;
+  var cost = 0.0;
+  var count = 0;
+  var costed = true;
+  for (final p in parts) {
+    usd += p.usd;
+    cost += p.costUsd;
+    count += p.count;
+    costed = costed && p.costed;
+  }
+  if (count == 0) return null;
+  return (usd: usd, costUsd: cost, count: count, costed: costed);
 }
 
 /// The open predictions' P&L at the live price, as their rows read it.
@@ -556,22 +664,11 @@ class _PredictionsPnl extends ConsumerWidget {
     if (!ref.watch(settingsProvider.select((s) => s.balanceVisible))) {
       return const SizedBox.shrink();
     }
-    final pnl = ref.watch(livePriceProvider.select((s) {
-      var sum = 0.0;
-      for (final p in positions) {
-        final live = s.live ? s.prices[p.tokenId] : null;
-        final price = p.isResolved ? p.currentPrice : live ?? p.currentPrice;
-        sum += (price - p.avgPrice) * p.size;
-      }
-      return sum;
-    }));
-    // What was paid, for the percentage, as each row divides by.
-    var cost = 0.0;
-    for (final p in positions) {
-      if (p.avgPrice > 0 && p.size > 0) cost += p.avgPrice * p.size;
-    }
+    final pnl = portfolioPredictionsOpenPnl(ref, positions);
     return BalancesPnlText(
-        usd: pnl, costUsd: cost, money: (v) => formatPolyAmount(ref, v));
+        usd: pnl.usd,
+        costUsd: pnl.costUsd,
+        money: (v) => formatPolyAmount(ref, v));
   }
 }
 
@@ -588,33 +685,11 @@ class _InvestingPnl extends ConsumerWidget {
     if (!ref.watch(settingsProvider.select((s) => s.balanceVisible))) {
       return const SizedBox.shrink();
     }
-    var pnl = 0.0;
-    // What was put in, for the percentage, as each row divides by: a
-    // perp's margin (hlPositionMargin), a holding's recorded cost.
-    var cost = 0.0;
-    for (final p in state.positions) {
-      pnl +=
-          hlLivePnl(p, liveMid: ref.watch(hyperliquidLiveMidProvider(p.coin)));
-      final margin = hlPositionMargin(p);
-      if (margin.isFinite && margin > 0) cost += margin;
-    }
-    final spot = state.spotBalances
-        .where((b) => b.coin != 'USDC' && b.total > 0 && b.costBasis != null)
-        .toList();
-    if (spot.isNotEmpty) {
-      final markets = ref.watch(hyperliquidSpotMarketsProvider).valueOrNull ??
-          const <HlMarket>[];
-      for (final b in spot) {
-        final mid =
-            markets.where((m) => m.coin == b.coin).firstOrNull?.midPx ?? 0;
-        if (mid > 0) {
-          pnl += b.total * mid - b.costBasis!;
-          cost += b.costBasis!;
-        }
-      }
-    }
+    final pnl = portfolioInvestingOpenPnl(ref, state);
     return BalancesPnlText(
-        usd: pnl, costUsd: cost, money: (v) => formatPolyAmount(ref, v));
+        usd: pnl.usd,
+        costUsd: pnl.costUsd,
+        money: (v) => formatPolyAmount(ref, v));
   }
 }
 

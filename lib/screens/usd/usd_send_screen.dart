@@ -1230,21 +1230,24 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     );
   }
 
-  /// The Send to card of the coin step: a prediction or investment on a
-  /// link (send_pick_market_sheet.dart) and "Send to a friend" (the
-  /// contacts picker, "Someone else" at its top, then
-  /// send_to_anyone_sheet.dart). A contact picked before carries its label
-  /// into the prediction row.
+  /// The "To a friend" card of the coin step (the Dollars Send's words,
+  /// usd_withdraw_screen.dart): a prediction or investment on a link (the
+  /// market search, send_pick_market_sheet.dart) and "Send dollars to a
+  /// friend" (the contacts picker, "Someone else" at its top, then
+  /// send_to_anyone_sheet.dart). The prediction row is there only where a
+  /// slip can send one (sendPickOffered).
   Widget _sendToCard(AppColorsExtension c) {
     final l10n = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SendSectionLabel(l10n.sendToLabel),
+        SendSectionLabel(l10n.sendToAFriendLabel),
         SendToListCard(
           colors: c,
           rows: [
-            SendPickMarketRow(
+            // Only where a slip can send it (sendPickOffered).
+            if (sendPickOffered(ref.watch(runtimeCapabilitiesProvider)))
+              SendPickMarketRow(
               onTap: () => unawaited(_afterLink(showSendPickMarketSheet(
                 context,
                 entrySource: 'dollar_send',

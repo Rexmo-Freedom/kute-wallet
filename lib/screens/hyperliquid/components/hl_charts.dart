@@ -62,6 +62,9 @@ import 'package:kute/services/tracking_service.dart';
 import 'package:kute/helpers/hyperliquid_activity.dart'
     show HlFillEffect, HlFillKind, hlFillEffect, hlFillHeadline, hlFillTone;
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/screens/hyperliquid/components/hl_chart_advanced_layers.dart';
+import 'package:kute/screens/hyperliquid/components/hl_chart_indicator_catalog.dart';
+import 'package:kute/screens/hyperliquid/components/hl_chart_indicator_frame.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_indicator_series.dart';
 import 'package:kute/models/chart_drawing.dart';
 import 'package:kute/models/hyperliquid_market.dart' show HlFill, HlMarket;
@@ -1212,14 +1215,16 @@ enum HlChartStyle {
 
   bool get isLine => this == line || this == area || this == baseline;
 
-  /// The three styles the Chart sheet offers (founder, 1 November 2026:
-  /// "we have too many chart styles"). The others still paint, for a
-  /// caller that asks for them by value, but no saved layout opens on one.
-  static const List<HlChartStyle> picker = [line, candles, area];
+  /// The styles the Chart sheet offers (founder, 1 November 2026: "we
+  /// have too many chart styles"): Line, Candles and Area, and Heikin
+  /// Ashi for the Advanced chart's traders (4 November 2026), a 2 × 2 of
+  /// cards. The others still paint, for a caller that asks for them by
+  /// value, but no saved layout opens on one.
+  static const List<HlChartStyle> picker = [line, candles, area, heikinAshi];
 
   /// Area is the default everywhere a style is missing or unknown. A
   /// style the sheet no longer offers opens as its closest one: hollow
-  /// candles, bars and Heikin Ashi as candles, baseline as area.
+  /// candles and bars as candles, baseline as area.
   static HlChartStyle fromName(String? name) {
     for (final v in values) {
       if (v.name == name) return v.offered;
@@ -1229,7 +1234,7 @@ enum HlChartStyle {
 
   /// This style, or the closest of [picker].
   HlChartStyle get offered => switch (this) {
-        hollow || bars || heikinAshi => candles,
+        hollow || bars => candles,
         baseline => area,
         _ => this,
       };
@@ -1329,12 +1334,19 @@ class HlCandlestickChart extends StatefulWidget {
   /// dropped.
   final ValueChanged<bool>? onPlacementPendingChanged;
 
-  /// Active indicator keys ('ma' = SMA 20/50, 'ema' = EMA 9/21, 'bb' =
-  /// Bollinger 20,2). Other keys are ignored here — the host maps 'vol'
-  /// onto [showVolume] and 'log' onto [logScale]. Computed lazily and
-  /// memoized (see KuteIndicatorEngine); rendered as thin polylines in
-  /// the data painter layer using the documented shared palette.
+  /// Active indicator keys, in the order they were switched on (the
+  /// curated catalog, hl_chart_indicator_catalog.dart). 'vol' is the
+  /// host's [showVolume]. Computed over the whole tape and memoized per
+  /// indicator (HlIndicatorComputer); price lines are drawn in the data
+  /// painter, oscillators in panes under the plot.
   final Set<String> indicators;
+
+  /// The indicators' settings where they differ from the defaults
+  /// (ChartPreferences.params).
+  final Map<String, List<num>> indicatorParams;
+
+  /// Advanced: the axes' corner shows a "Log" switch that calls this.
+  final ValueChanged<bool>? onLogScaleChanged;
 
   /// Log price axis: y maps ln(price) instead of price. Flows through
   /// the ONE shared geometry, so candles/line, overlays, drawings,
@@ -1409,6 +1421,8 @@ class HlCandlestickChart extends StatefulWidget {
     this.drawingToolbarBuilder,
     this.onPlacementPendingChanged,
     this.indicators = const {},
+    this.indicatorParams = const {},
+    this.onLogScaleChanged,
     this.logScale = false,
     this.tradeLines = const [],
     this.onTradeLineMoved,
@@ -2044,33 +2058,26 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
   List<int>? _geomTimes;
   List<HyperliquidCandle>? _geomTimesSource;
 
-  // ── indicators (SMA/EMA/BB) ───────────────────────────────────────
-  /// Memoized indicator maths over the closes. Live ticks patch only
-  /// the tail; the derived overlay lists below rebuild only when the
-  /// engine's revision or the active indicator set changes, so the
-  /// painter's identity-based shouldRepaint keeps working.
-  final KuteIndicatorEngine _indEngine = KuteIndicatorEngine();
-  List<KuteIndicatorOverlay> _indOverlays = const [];
-  KuteIndicatorBand? _indBand;
-  List<double> _rsi = const [];
-  List<double> _volumeMa = const [];
-  ({List<double> macd, List<double> signal, List<double> histogram})? _macd;
-  List<double> _atr = const [];
-  ({List<double> k, List<double> d})? _stoch;
+  // ── indicators ─────────────────────────────────────────────────
+  /// The active indicators over the whole tape, memoized per indicator
+  /// (see HlIndicatorComputer), and the same cut to the bars on screen.
+  /// The painters get stable list identities between real changes, so
+  /// their identity-based shouldRepaint keeps working on every rebuild.
+  final HlIndicatorComputer _indComputer = HlIndicatorComputer();
+  HlIndicatorFrame _indFull = HlIndicatorFrame.empty;
+  HlIndicatorFrame _indVis = HlIndicatorFrame.empty;
+  Object? _indKey;
   int _indStamp = 0;
-
-  /// The same series cut to the bars on screen (see [_sliceIndicators]).
   Object? _sliceKey;
   List<KuteIndicatorOverlay> _visOverlays = const [];
   KuteIndicatorBand? _visBand;
-  List<double> _visRsi = const [];
-  List<double> _visVolumeMa = const [];
-  ({List<double> macd, List<double> signal, List<double> histogram})? _visMacd;
-  List<double> _visAtr = const [];
-  ({List<double> k, List<double> d})? _visStoch;
-  int _indBuiltRev = -1;
-  Set<String>? _indBuiltKeys;
-  List<HyperliquidCandle>? _indSyncedCandles;
+  HlVolumeProfile? _visProfile;
+
+  /// Older bars asked for so the indicators are warm at the first bar on
+  /// screen: the tape length asked at, how often, and when.
+  int _warmupAskedLen = -1;
+  int _warmupAsks = 0;
+  DateTime _warmupAskedAt = DateTime(0);
 
   /// Live endpoint pulse ring for line mode — same 1600ms loop as the
   /// Polymarket chart. Runs only while live + line mode + motion allowed.
@@ -2809,7 +2816,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
       _touchIndex = null;
       _geomTimes = null;
       _geomTimesSource = null;
-      _indSyncedCandles = null;
+      _indKey = null;
       _pendingMorphFrom = null;
       _morphFromRs = null;
       _morphToRs = null;
@@ -2915,154 +2922,80 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
   /// Indicators are computed over the WHOLE loaded tape (so a panned
   /// view never restarts their warm-up at its left edge) and then sliced
   /// to the bars on screen; the slices are what every layer paints and
-  /// what the panes autoscale to. VWAP stays a displayed-window measure.
+  /// what the panes autoscale to. Volume profile is the bars on screen's.
   void _syncIndicators(List<HyperliquidCandle> visible) {
     _syncFullIndicators(_styledFull);
     // A frozen gesture keeps the slices it started with, in step with
     // its frozen candles.
     if (_drawingCandles != null) return;
     _sliceIndicators(visible, _tapeStart);
+    _askForWarmup();
   }
 
-  /// (Re)build the indicator series for the active [widget.indicators]
-  /// over [candles] (the full tape). A no-op unless the closes content
-  /// (engine revision) or the set identity changed, so live rebuilds
-  /// reuse the exact same lists.
+  /// (Re)build the series for the active indicators over [candles] (the
+  /// full tape). A no-op unless the tape, the set or the settings changed.
   void _syncFullIndicators(List<HyperliquidCandle> candles) {
-    final wanted = widget.indicators;
-    if (identical(_indSyncedCandles, candles) &&
-        identical(_indBuiltKeys, wanted)) {
-      return;
-    }
-    _indSyncedCandles = candles;
-    const candleKeys = {'vwap', 'rsi', 'macd', 'atr', 'stoch', 'volma'};
-    final active = wanted.contains('ma') ||
-        wanted.contains('ema') ||
-        wanted.contains('bb') ||
-        wanted.any(candleKeys.contains);
-    if (!active || candles.isEmpty) {
-      _indOverlays = const [];
-      _indBand = null;
-      _rsi = const [];
-      _volumeMa = const [];
-      _macd = null;
-      _atr = const [];
-      _stoch = null;
-      _indBuiltKeys = wanted;
-      _indStamp++;
-      return;
-    }
-    _indEngine.sync([for (final k in candles) k.close]);
-    if (!wanted.any(candleKeys.contains) &&
-        _indEngine.revision == _indBuiltRev &&
-        identical(_indBuiltKeys, wanted)) {
-      return;
-    }
-    final overlays = <KuteIndicatorOverlay>[];
-    KuteIndicatorBand? band;
-    if (wanted.contains('bb')) {
-      final b = _indEngine.bollinger(20, 2);
-      band = KuteIndicatorBand(
-        upper: b.upper,
-        lower: b.lower,
-        color: kuteIndBbColor,
-      );
-      overlays
-        ..add(KuteIndicatorOverlay(values: b.upper, color: kuteIndBbColor))
-        ..add(KuteIndicatorOverlay(values: b.middle, color: kuteIndBbColor))
-        ..add(KuteIndicatorOverlay(values: b.lower, color: kuteIndBbColor));
-    }
-    if (wanted.contains('ma')) {
-      overlays
-        ..add(
-          KuteIndicatorOverlay(
-            values: _indEngine.sma(20),
-            color: kuteIndSma20Color,
-          ),
-        )
-        ..add(
-          KuteIndicatorOverlay(
-            values: _indEngine.sma(50),
-            color: kuteIndSma50Color,
-          ),
-        );
-    }
-    if (wanted.contains('ema')) {
-      overlays
-        ..add(
-          KuteIndicatorOverlay(
-            values: _indEngine.ema(9),
-            color: kuteIndEma9Color,
-          ),
-        )
-        ..add(
-          KuteIndicatorOverlay(
-            values: _indEngine.ema(21),
-            color: kuteIndEma21Color,
-          ),
-        );
-    }
-    _rsi = wanted.contains('rsi') ? hlWilderRsi(candles) : const [];
-    _volumeMa = wanted.contains('volma') ? hlVolumeSma(candles) : const [];
-    _macd = wanted.contains('macd') ? hlMacd(candles) : null;
-    _atr = wanted.contains('atr') ? hlAtr(candles) : const [];
-    _stoch = wanted.contains('stoch') ? hlStochastic(candles) : null;
-    _indOverlays = overlays;
-    _indBand = band;
-    _indBuiltRev = _indEngine.revision;
-    _indBuiltKeys = wanted;
+    final key = (candles, widget.indicators, widget.indicatorParams);
+    if (key == _indKey) return;
+    _indKey = key;
+    _indFull = widget.indicators.isEmpty
+        ? HlIndicatorFrame.empty
+        : _indComputer.compute(
+            candles,
+            widget.indicators,
+            widget.indicatorParams,
+            up: AppColors.marketUp,
+            down: AppColors.marketDown,
+          );
     _indStamp++;
   }
 
-  /// Cut the full-tape indicator series down to bars [start, start +
+  /// Cut the full-tape series down to bars [start, start +
   /// visible.length). Rebuilt only when the series or the window change.
   void _sliceIndicators(List<HyperliquidCandle> visible, int start) {
     final end = start + visible.length;
-    final wantVwap = widget.indicators.contains('vwap');
-    final key = (_indStamp, start, end, wantVwap ? visible : null);
+    final rows = _indFull.profileRows;
+    final key = (_indStamp, start, end, rows != null ? visible : null);
     if (key == _sliceKey) return;
     _sliceKey = key;
-    List<double> cut(List<double> v) {
-      if (start == 0 && end == v.length) return v;
-      if (start >= v.length) return const [];
-      return v.sublist(start, math.min(end, v.length));
+    _indVis = _indFull.slice(start, end);
+    _visOverlays = _indVis.overlays(kHlIndicatorStroke);
+    _visBand = _indVis.band;
+    if (rows == null) {
+      _visProfile = null;
+    } else {
+      // The real bars' volume at their real prices, whatever the style.
+      final real = widget.candles;
+      final bars = identical(_styledFull, real)
+          ? visible
+          : real.sublist(math.min(start, real.length),
+              math.min(end, real.length));
+      _visProfile = hlVolumeProfile(bars, rows: rows);
     }
+  }
 
-    _visOverlays = [
-      for (final o in _indOverlays)
-        KuteIndicatorOverlay(
-          values: cut(o.values),
-          color: o.color,
-          strokeWidth: kHlIndicatorStroke,
-        ),
-      if (wantVwap && visible.isNotEmpty)
-        KuteIndicatorOverlay(
-          values: hlWindowVwap(visible),
-          color: kHlVwapColor,
-          strokeWidth: kHlIndicatorStroke,
-        ),
-    ];
-    final band = _indBand;
-    _visBand = band == null
-        ? null
-        : KuteIndicatorBand(
-            upper: cut(band.upper),
-            lower: cut(band.lower),
-            color: band.color,
-          );
-    _visRsi = cut(_rsi);
-    _visVolumeMa = cut(_volumeMa);
-    final macd = _macd;
-    _visMacd = macd == null
-        ? null
-        : (
-            macd: cut(macd.macd),
-            signal: cut(macd.signal),
-            histogram: cut(macd.histogram),
-          );
-    _visAtr = cut(_atr);
-    final stoch = _stoch;
-    _visStoch = stoch == null ? null : (k: cut(stoch.k), d: cut(stoch.d));
+  /// A long indicator (SMA 200, MACD) needs bars before the first one on
+  /// screen; ask the host for older ones until it has them, a few times
+  /// per tape length at most (the venue may have nothing older).
+  void _askForWarmup() {
+    final want = _indFull.warmup;
+    if (want <= 0 || _tapeStart >= want) return;
+    if (widget.onMoreHistoryWanted == null) return;
+    final len = widget.candles.length;
+    if (len != _warmupAskedLen) {
+      _warmupAskedLen = len;
+      _warmupAsks = 0;
+    }
+    final now = DateTime.now();
+    if (_warmupAsks >= 3 ||
+        now.difference(_warmupAskedAt) < const Duration(seconds: 2)) {
+      return;
+    }
+    _warmupAsks++;
+    _warmupAskedAt = now;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _requestMoreHistory();
+    });
   }
 
   @override
@@ -3374,13 +3307,42 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                     band: _visBand,
                                     logScale: widget.logScale,
                                     style: widget.style,
-                                    volumeMa: _visVolumeMa,
                                     domain: domain,
                                     tagGutter: gutter,
                                   ),
                                 ),
                               ),
                             ),
+                            // ── Volume profile: the rows in from the
+                            // plot's right edge (not while a new interval
+                            // morphs in).
+                            if (_visProfile != null && morphSeries == null)
+                              Positioned(
+                                left: 0,
+                                top: 0,
+                                bottom: 0,
+                                width: plotW,
+                                child: IgnorePointer(
+                                  child: RepaintBoundary(
+                                    child: CustomPaint(
+                                      key: const ValueKey(
+                                          'hl-chart-volume-profile'),
+                                      painter: HlVolumeProfilePainter(
+                                        profile: _visProfile!,
+                                        lo: domain.lo,
+                                        hi: domain.hi,
+                                        log: domain.log,
+                                        priceH: _hlPriceAreaHeight(
+                                            chartSize.height,
+                                            widget.showVolume),
+                                        plotW: plotW,
+                                        up: AppColors.marketUp,
+                                        down: AppColors.marketDown,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
                             // ── Price scale (at most three labels in the
                             // tag column, no hairlines). Always on in the
                             // reading view and in Advanced mode; anywhere
@@ -3814,20 +3776,32 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                   ),
                                 ),
                               ),
-                            // ── Advanced: the overlays' legend at the
-                            // plot's top left.
+                            // ── Advanced: the legend at the plot's top
+                            // left: the bar under the crosshair (else the
+                            // newest) and the price indicators' values.
                             if (widget.drawingMode)
-                              if (_overlayLegend() case final rows
-                                  when rows.isNotEmpty)
-                                Positioned(
-                                  left: 4 + widget.legendLeftInset,
-                                  top: 4,
-                                  width: math.max(
-                                      0.0, plotW - 8 - widget.legendLeftInset),
-                                  child: IgnorePointer(
-                                    child: _legendRow(c, rows),
+                              Positioned(
+                                left: 4 + widget.legendLeftInset,
+                                top: 4,
+                                width: math.max(
+                                    0.0, plotW - 8 - widget.legendLeftInset),
+                                child: IgnorePointer(
+                                  child: Align(
+                                    alignment: Alignment.topLeft,
+                                    child: HlChartLegend(
+                                      candles: candles,
+                                      index: scrubbing ? ti : null,
+                                      price: _indVis.price,
+                                      profile: _visProfile,
+                                      profileTitle: hlIndTitle('vp',
+                                          hlIndParams('vp',
+                                              widget.indicatorParams)),
+                                      formatPrice: (v) => formatHlTagPrice(v,
+                                          decimalCap: widget.decimalCap),
+                                    ),
                                   ),
                                 ),
+                              ),
                             // ── Auto: the scale was set by hand; one tap
                             // (or a double tap on the plot) fits the
                             // visible bars again.
@@ -3888,61 +3862,21 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
         if (kuteSignalBandRows(widget.signals) > 0)
           _signalBand(c, isDark, candles),
         if (widget.drawingMode && candles.isNotEmpty) _dateAxis(c, candles),
-        if (widget.indicators.contains('rsi'))
+        // The oscillators, one pane each, in the order switched on.
+        for (final pane in _indVis.panes)
           _pane(
             c,
-            context.l10n.chartRsiLabel,
+            pane.title,
             (gutter) => _HlPanePainter(
-              series: [(_visRsi, kuteIndEma21Color)],
-              levels: const [30, 70],
-              fixedRange: (0, 100),
-              selectedIndex: _touchIndex,
-              labelColor: c.textTertiary,
-              gutter: gutter,
-            ),
-          ),
-        if (widget.indicators.contains('macd') && _visMacd != null)
-          _pane(
-            c,
-            'MACD 12/26/9',
-            (gutter) => _HlPanePainter(
-              series: [
-                (_visMacd!.macd, kuteIndEma9Color),
-                (_visMacd!.signal, kuteIndSma50Color),
-              ],
-              histogram: _visMacd!.histogram,
+              series: [for (final l in pane.lines) (l.values, l.color)],
+              histogram: pane.histogram,
               histogramUp: AppColors.marketUp,
               histogramDown: AppColors.marketDown,
-              levels: const [0],
+              levels: pane.levels,
+              fixedRange: pane.range,
               selectedIndex: _touchIndex,
               labelColor: c.textTertiary,
-              gutter: gutter,
-            ),
-          ),
-        if (widget.indicators.contains('stoch') && _visStoch != null)
-          _pane(
-            c,
-            'Stochastic 14/3/3',
-            (gutter) => _HlPanePainter(
-              series: [
-                (_visStoch!.k, kuteIndEma9Color),
-                (_visStoch!.d, kuteIndSma50Color),
-              ],
-              levels: const [20, 80],
-              fixedRange: (0, 100),
-              selectedIndex: _touchIndex,
-              labelColor: c.textTertiary,
-              gutter: gutter,
-            ),
-          ),
-        if (widget.indicators.contains('atr'))
-          _pane(
-            c,
-            'ATR 14',
-            (gutter) => _HlPanePainter(
-              series: [(_visAtr, kuteIndBbColor)],
-              selectedIndex: _touchIndex,
-              labelColor: c.textTertiary,
+              hairlineColor: widget.drawingMode ? c.textTertiary : c.border,
               gutter: gutter,
             ),
           ),
@@ -4202,6 +4136,18 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
           child: Text(text, textAlign: TextAlign.center, style: style),
         ));
       }
+      // The axes' corner, under the price column: the log switch.
+      final onLog = widget.onLogScaleChanged;
+      if (onLog != null && w - plotW > 24) {
+        labels.add(Positioned(
+          right: 0,
+          top: -1,
+          width: w - plotW,
+          child: Center(
+            child: HlLogScaleToggle(on: widget.logScale, onChanged: onLog),
+          ),
+        ));
+      }
       return SizedBox(
         height: 16.h,
         width: double.infinity,
@@ -4297,65 +4243,6 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
       if (values[i].isFinite) return values[i];
     }
     return null;
-  }
-
-  /// The price overlays' legend in Advanced: each line's name and value,
-  /// in its colour, at the plot's top left ("EMA 9  102.4  EMA 21
-  /// 101.9"). Follows the scrubbed bar while the crosshair is up.
-  List<(String, Color, double)> _overlayLegend() {
-    final wanted = widget.indicators;
-    final o = _visOverlays;
-    final out = <(String, Color, double)>[];
-    var i = 0;
-    void take(String name) {
-      if (i < o.length) {
-        final v = _valueAt(o[i].values);
-        if (v != null) out.add((name, o[i].color, v));
-      }
-      i++;
-    }
-
-    if (wanted.contains('bb')) {
-      take('BB');
-      i++; // the middle line: the band's two edges say it
-      take('');
-    }
-    if (wanted.contains('ma')) {
-      take('MA 20');
-      take('MA 50');
-    }
-    if (wanted.contains('ema')) {
-      take('EMA 9');
-      take('EMA 21');
-    }
-    if (wanted.contains('vwap')) take('VWAP');
-    return out;
-  }
-
-  Widget _legendRow(AppColorsExtension c, List<(String, Color, double)> rows) {
-    const tabular = [FontFeature.tabularFigures()];
-    return Text.rich(
-      TextSpan(children: [
-        for (var k = 0; k < rows.length; k++) ...[
-          // A nameless row continues the one before it (the band's
-          // lower edge after its upper one).
-          TextSpan(
-            text: rows[k].$1.isEmpty
-                ? '  '
-                : '${k == 0 ? '' : '    '}${rows[k].$1}  ',
-            style: TextStyle(color: c.textTertiary),
-          ),
-          TextSpan(
-            text: formatHlTagPrice(rows[k].$3, decimalCap: widget.decimalCap),
-            style: TextStyle(color: rows[k].$2, fontWeight: FontWeight.w600),
-          ),
-        ],
-      ]),
-      key: const ValueKey('hl-chart-overlay-legend'),
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: TextStyle(fontSize: 11.sp, height: 1.2, fontFeatures: tabular),
-    );
   }
 
   List<KutePulsePoint> _pulsePoints(
@@ -4599,10 +4486,6 @@ class _HlCandlePainter extends CustomPainter {
   /// Bar/line variant to paint.
   final HlChartStyle style;
 
-  /// Volume moving average on the volume scale, nan = warm-up; empty
-  /// when off.
-  final List<double> volumeMa;
-
   /// The shown (autoscaled or manual) price domain.
   final HlPriceDomain? domain;
 
@@ -4638,7 +4521,6 @@ class _HlCandlePainter extends CustomPainter {
     this.band,
     this.logScale = false,
     this.style = HlChartStyle.area,
-    this.volumeMa = const [],
     this.domain,
     this.tagGutter = 0,
     this.captions = const [],
@@ -4792,30 +4674,6 @@ class _HlCandlePainter extends CustomPainter {
           ),
           k.close >= k.open ? volUp : volDown,
         );
-      }
-      if (volumeMa.isNotEmpty) {
-        final ma = Path();
-        var on = false;
-        for (var i = 0; i < math.min(n, volumeMa.length); i++) {
-          final v = volumeMa[i];
-          if (!v.isFinite) {
-            on = false;
-            continue;
-          }
-          final p = Offset((i + 0.5) * slot, h - (v / maxVol) * volAreaH);
-          if (on) {
-            ma.lineTo(p.dx, p.dy);
-          } else {
-            ma.moveTo(p.dx, p.dy);
-            on = true;
-          }
-        }
-        canvas.drawPath(
-            ma,
-            Paint()
-              ..color = kuteIndSma20Color.withValues(alpha: 0.9)
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = 1.2);
       }
     }
 
@@ -5131,7 +4989,6 @@ class _HlCandlePainter extends CustomPainter {
       !_sameFills(old.fills, fills) ||
       old.entryPx != entryPx ||
       old.style != style ||
-      !identical(old.volumeMa, volumeMa) ||
       old.entryIsLong != entryIsLong ||
       old.leadingClose != leadingClose ||
       !_sameMorph(old.morphSeries, morphSeries) ||
@@ -5914,7 +5771,12 @@ class _HlPanePainter extends CustomPainter {
     this.levels = const [],
     this.fixedRange,
     this.gutter = 0,
+    this.hairlineColor,
   });
+
+  /// The crosshair's vertical line through the pane at [selectedIndex]
+  /// (none when null).
+  final Color? hairlineColor;
 
   /// The price chart's tag column, kept clear of the series here too, so
   /// the bars line up in time with the plot's.
@@ -6020,6 +5882,20 @@ class _HlPanePainter extends CustomPainter {
       }
     }
 
+    // The crosshair runs on through the pane at the scrubbed bar.
+    final hair = hairlineColor;
+    final si = selectedIndex;
+    if (hair != null && si != null && si >= 0 && si < n) {
+      final x = (si + 0.5) * slot;
+      canvas.drawLine(
+        Offset(x, 0),
+        Offset(x, size.height),
+        Paint()
+          ..color = hair.withValues(alpha: 0.6)
+          ..strokeWidth = 1,
+      );
+    }
+
     for (final (values, color) in series) {
       final path = Path();
       var connected = false;
@@ -6057,6 +5933,9 @@ class _HlPanePainter extends CustomPainter {
     return !identical(old.histogram, histogram) ||
         selectedIndex != old.selectedIndex ||
         labelColor != old.labelColor ||
+        hairlineColor != old.hairlineColor ||
+        !listEquals(levels, old.levels) ||
+        fixedRange != old.fixedRange ||
         gutter != old.gutter;
   }
 }

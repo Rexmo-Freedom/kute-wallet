@@ -188,6 +188,8 @@ class _NetworkSpeedSheetState extends ConsumerState<_NetworkSpeedSheet> {
               onPressed: () => Navigator.of(context).pop(),
             ),
             SizedBox(height: 8.h),
+            // The last rows scroll clear of the floating bar.
+            const KuteSheetBarSpace(),
           ],
         ),
       ),

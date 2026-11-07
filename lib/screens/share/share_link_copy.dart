@@ -59,7 +59,9 @@ String shareLinkStatusLabel(BuildContext context, PendingShareLink row) {
 
 /// The OS share sheet text for a created link. With a pick ([outcome] and
 /// [title]) it says what was sent: "a prediction" (an "investment" when
-/// [venue] is Hyperliquid), the outcome on the market and the amount.
+/// [venue] is Hyperliquid), the outcome on the market and the amount; a
+/// prediction sent as a dare ([challenge]) says the sender's side and
+/// dares the friend to take the other one or join.
 String shareLinkMessage(
   BuildContext context, {
   required String? name,
@@ -68,6 +70,7 @@ String shareLinkMessage(
   String? outcome,
   String? title,
   String? venue,
+  bool challenge = false,
 }) {
   final l10n = context.l10n;
   final n = name?.trim() ?? '';
@@ -75,6 +78,11 @@ String shareLinkMessage(
   final market = title?.trim() ?? '';
   if (pick.isNotEmpty && market.isNotEmpty) {
     final investing = venue == 'hyperliquid';
+    if (challenge && !investing) {
+      return n.isEmpty
+          ? l10n.shareMessageChallengeUnnamed(pick, market, amount, url)
+          : l10n.shareMessageChallengeNamed(n, pick, market, amount, url);
+    }
     if (n.isEmpty) {
       return investing
           ? l10n.shareMessageInvestmentUnnamed(pick, market, amount, url)

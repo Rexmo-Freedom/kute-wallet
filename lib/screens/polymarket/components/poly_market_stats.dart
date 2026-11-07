@@ -1,13 +1,14 @@
 // lib/screens/polymarket/components/poly_market_stats.dart
 //
 // What sits under a Predictions market's chart and outcomes: the "Rules
-// and resolution" row, which opens the app's shared bottom sheet with the
+// and resolution" option card (kute_action_cards.dart; founder, 4 November
+// 2026: "like squares, like the See resolution of the market"), which says
+// when the market ends and opens the app's shared bottom sheet with the
 // market's stats (24h volume, volume, liquidity), its rules text, how it
 // resolves and what people wrote under it. The stats live inside that
 // sheet (owner decision), not on the market screen.
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 
@@ -16,6 +17,7 @@ import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/screens/polymarket/components/market_comments.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/components/sheet_detail_row.dart';
+import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/theme/app_theme.dart';
 
 /// One label / value pair.
@@ -48,46 +50,66 @@ List<PolyStat> polyMarketStats(
             DateFormat.yMMMd(locale).format(endDate.toLocal())),
     ];
 
-/// The one row under the outcomes: "Rules and resolution", opening
-/// [showPolyRulesSheet]. [label] names another sheet opened the same way
-/// (the open position's "Closing conditions").
-class PolyRulesRow extends StatelessWidget {
-  final VoidCallback onTap;
-  final String? label;
-  const PolyRulesRow({super.key, required this.onTap, this.label});
+/// The line under the "Rules and resolution" card: when the market ends
+/// ("Ends Nov 5") or, once [ended], when it did ("Ended Nov 5"); the day
+/// alone in the current year, with the year otherwise. "How it resolves"
+/// with no end date, or with one already past on a market still trading
+/// (a market may keep an old date while it runs on).
+String polyRulesCardLine(
+  AppLocalizations l10n, {
+  required DateTime? endDate,
+  required bool ended,
+  String? locale,
+  DateTime? now,
+}) {
+  if (endDate == null) return l10n.optionHowItResolves;
+  final at = now ?? DateTime.now();
+  final local = endDate.toLocal();
+  if (!ended && local.isBefore(at)) return l10n.optionHowItResolves;
+  final date = local.year == at.toLocal().year
+      ? DateFormat.MMMd(locale).format(local)
+      : DateFormat.yMMMd(locale).format(local);
+  return ended ? l10n.optionEndedOn(date) : l10n.optionEndsOn(date);
+}
 
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    return InkWell(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        onTap();
-      },
-      child: Container(
-        padding: EdgeInsets.symmetric(vertical: 14.h),
-        decoration: BoxDecoration(
-          border: Border(
-            top: BorderSide(color: c.borderSubtle, width: 0.5),
-          ),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                label ?? context.l10n.polyRulesAndResolution,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTextStyles.settingsTitle(context),
-              ),
-            ),
-            Icon(Icons.chevron_right_rounded,
-                color: c.textTertiary, size: 22.sp),
-          ],
-        ),
-      ),
+/// The key of the market sheet's "Rules and resolution" card.
+const kPolyRulesCardKey = ValueKey('poly-rules');
+
+/// The "Rules and resolution" option card (kute_action_cards.dart),
+/// opening [showPolyRulesSheet] through [onTap], its [subtitle] the line
+/// [polyRulesCardLine] writes and its [detail] the one
+/// [polyRulesCardDetail] writes (read when the card has the full width).
+/// [title] names another sheet opened the same way (the open position's
+/// "Closing conditions").
+KuteActionCard polyRulesCard(
+  BuildContext context, {
+  Key key = kPolyRulesCardKey,
+  String? title,
+  required String subtitle,
+  String? detail,
+  required VoidCallback onTap,
+}) =>
+    KuteActionCard.option(
+      key: key,
+      icon: Icons.gavel_rounded,
+      title: title ?? context.l10n.polyRulesAndResolution,
+      subtitle: subtitle,
+      detail: detail,
+      onTap: onTap,
     );
+
+/// The rules card's helpful line when it has the full width (founder, 5
+/// November 2026: "it can be Rules and resolution bigger"): the first
+/// paragraph of the market's rules ([description]), its spaces collapsed;
+/// the card cuts it at two lines and the sheet holds the rest. Null when
+/// the market has no rules text.
+String? polyRulesCardDetail(String? description) {
+  if (description == null) return null;
+  for (final line in description.split('\n')) {
+    final text = line.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (text.isNotEmpty) return text;
   }
+  return null;
 }
 
 /// The market's [stats], its rules, how it resolves and what people wrote
@@ -138,11 +160,7 @@ class PolyRulesSheet extends StatelessWidget {
         children: [
           AppBottomSheetHeader(
             title: l10n.polyRulesAndResolution,
-            trailing: IconButton(
-              tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-              onPressed: () => Navigator.of(context).pop(),
-              icon: const Icon(Icons.close_rounded),
-            ),
+            trailing: const AppBottomSheetCloseButton(),
           ),
           Flexible(
             child: SingleChildScrollView(
@@ -192,6 +210,8 @@ class PolyRulesSheet extends StatelessWidget {
                     heading(l10n.predictNewsTab),
                     PolyMarketComments(eventId: eventId),
                   ],
+                  // The last rows scroll clear of the floating bar.
+                  const KuteSheetBarSpace(),
                 ],
               ),
             ),

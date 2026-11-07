@@ -55,7 +55,9 @@ backup_reveal_viewed
 backup_started
 backup_verified
 backup_verify_viewed
+balance_goal_cta_tapped
 balance_loaded_latency
+balance_milestone_reached
 balance_snapshot
 bdk_scan
 bet_slip_abandoned
@@ -111,6 +113,7 @@ change_pin_blocked
 chart_autoscale_toggled
 chart_drawing_redone
 chart_history_extended
+chart_log_scale_toggled
 chart_magnet_toggled
 chart_note_saved
 chart_timeframe_changed
@@ -138,6 +141,7 @@ crypto_window_changed
 custom_electrum_node_saved
 deep_link_opened
 deposit_claim_waiting_shown
+deposit_early_claim_unavailable
 deposit_quick_claim_failed
 deposit_quick_claim_started
 deposit_quick_claim_succeeded
@@ -180,6 +184,7 @@ hl_close_setting_changed
 hl_close_step
 hl_crowd_market_tapped
 hl_invest_cta_tapped
+hl_order_outcome_reconciled
 hl_order_slip_setting_changed
 hl_order_step
 hl_referrer_set
@@ -238,6 +243,7 @@ hyperliquid_withdraw_failed
 hyperliquid_withdraw_initiated
 hyperliquid_withdraw_step
 hyperliquid_withdraw_submitted
+indicator_settings_changed
 indicator_toggled
 investing_cash_pulled
 investing_close_available_tapped
@@ -446,6 +452,7 @@ polymarket_native_usdc_converted
 polymarket_order_cancel_failed
 polymarket_order_cancelled
 polymarket_order_outcome
+polymarket_order_outcome_reconciled
 polymarket_order_signed_without_builder_code
 polymarket_outcome_chip_tapped
 polymarket_placement_declined
@@ -509,6 +516,7 @@ qr_scanner_dismissed
 qr_scanner_torch_toggled
 quick_action_tapped
 quote_roundtrip_latency
+receipt_card_shared
 receive_abandoned
 receive_address_failed
 receive_address_generated
@@ -609,6 +617,7 @@ send_flow_started
 send_invoice_fastpath
 send_max_tapped
 send_pick_market_opened
+send_pick_market_picked
 send_recipient_picked
 send_review_shown
 send_route_details_opened
@@ -641,6 +650,7 @@ settlement_rereview_required
 settlement_route_unavailable
 settlement_submit_attempt
 settlement_terminal
+share_challenge_answered
 share_link_cancelled
 share_link_claimed
 share_link_created
@@ -655,6 +665,7 @@ shell_wallet_tab_selected
 slip_top_up_opened
 slip_top_up_returned
 spark_connect_latency
+spark_deposit_address_sdk_changed
 spark_deposit_auto_claimed
 spark_deposit_claim_failed
 spark_deposit_claim_fee_confirmed

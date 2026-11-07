@@ -36,7 +36,18 @@
 //     at 8% above zero and marketDown at 8% below it (one hard-stop
 //     gradient, [kuteZeroSplitGradient]) instead of the single-colour
 //     fade, and a 1 px zero line in textTertiary at 30% when the series
-//     crosses zero. A balance chart (never under zero) keeps the fade.
+//     crosses zero. A balance chart (never under zero) keeps the fade;
+//   * BASELINE ([KuteTrendChart.baseline], the Portfolio's open positions'
+//     P&L since their entry): the dashed hairline at that value instead of
+//     the period's first (zero: the dashed line is the zero line, and the
+//     scale always holds it);
+//   * A LIVE TICK (the same points, only the last one moved) repaints the
+//     line in place: no morph.
+//   * GOAL ([KuteTrendChart.goal], the Bitcoin home's next milestone,
+//     founder 6 November 2026): a 1 px dashed line at the goal in
+//     textTertiary, its label ("Next $500") in 11 sp over the line's left
+//     end on a surface-coloured backing, the goal counted in the scale.
+//     The host decides when a goal is close enough to draw.
 //
 // Painters here never read Theme — the widget resolves colours once per
 // build and hands them down.
@@ -102,6 +113,22 @@ class KuteTrendLine {
   const KuteTrendLine({required this.values, required this.color});
 }
 
+/// A goal on the chart's scale: a dashed line at [value] with [label].
+@immutable
+class KuteTrendGoal {
+  final double value;
+  final String label;
+
+  const KuteTrendGoal({required this.value, required this.label});
+
+  @override
+  bool operator ==(Object other) =>
+      other is KuteTrendGoal && other.value == value && other.label == label;
+
+  @override
+  int get hashCode => Object.hash(value, label);
+}
+
 /// The tint on each side of zero under a [KuteTrendChart.zeroSplit] line.
 const double kKuteZeroSplitAlpha = 0.08;
 
@@ -151,6 +178,10 @@ class KuteTrendChart extends StatefulWidget {
   /// Extra lines on the same scale ([KuteTrendLine]).
   final List<KuteTrendLine> lines;
 
+  /// A dashed goal line on the same scale ([KuteTrendGoal]); null draws
+  /// none.
+  final KuteTrendGoal? goal;
+
   /// The line's colour; null takes the period's result
   /// ([kuteTrendResultColor]).
   final Color? lineColor;
@@ -164,6 +195,10 @@ class KuteTrendChart extends StatefulWidget {
   /// The P&L fill: marketUp above zero, marketDown below, and the zero
   /// line when the series crosses it (see the file header).
   final bool zeroSplit;
+
+  /// The value the dashed hairline marks (and the scale holds); null: the
+  /// period's first value.
+  final double? baseline;
 
   /// The one caption drawn when there is no history ([values] empty).
   final String? emptyCaption;
@@ -195,10 +230,12 @@ class KuteTrendChart extends StatefulWidget {
     required this.values,
     this.times,
     this.lines = const [],
+    this.goal,
     this.lineColor,
     this.height = kKuteTrendPlotHeight,
     this.live = true,
     this.zeroSplit = false,
+    this.baseline,
     this.emptyCaption,
     this.onScrub,
     this.onScrubStart,
@@ -276,6 +313,9 @@ class _KuteTrendChartState extends State<KuteTrendChart>
         old.values.length == widget.values.length) {
       return;
     }
+    // A live tick: only the newest point moved; repainted in place (a
+    // morph on its way finishes on its own).
+    if (_onlyLastMoved(old.values, widget.values)) return;
     if (_reduceMotion || old.values.length < 2 || widget.values.length < 2) {
       if (_morphActive) _morph.value = 1.0;
       return;
@@ -385,7 +425,7 @@ class _KuteTrendChartState extends State<KuteTrendChart>
             size: Size(width, widget.height),
             painter: _KuteTrendPainter(
               values: morphed ?? values,
-              startValue: values.first,
+              startValue: widget.baseline ?? values.first,
               lines: morphed == null ? widget.lines : const [],
               lineColor: lineColor,
               hairlineColor: c.border,
@@ -397,8 +437,19 @@ class _KuteTrendChartState extends State<KuteTrendChart>
               scrubIndex: scrubbing ? ti : null,
               scrubHairline: c.textTertiary,
               zeroSplit: widget.zeroSplit,
+              // A zero baseline is the zero line already (dashed).
+              zeroLine: widget.zeroSplit && widget.baseline != 0,
               zeroLineColor:
                   c.textTertiary.withValues(alpha: kKuteZeroLineAlpha),
+              goal: widget.goal,
+              goalColor: c.textTertiary,
+              // The app's face (a painter's text has no inherited style).
+              goalLabelStyle: DefaultTextStyle.of(context).style.copyWith(
+                color: c.textTertiary,
+                fontSize: 11.sp,
+                fontWeight: FontWeight.w600,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
             ),
           );
         },
@@ -447,6 +498,15 @@ class _KuteTrendChartState extends State<KuteTrendChart>
 /// Inset on the right so the end dot (breathing) stays whole.
 const double _kRightInset = 6;
 
+/// Whether [b] is [a] with only its last point moved (a live tick).
+bool _onlyLastMoved(List<double> a, List<double> b) {
+  if (a.length != b.length || a.length < 2) return false;
+  for (var i = 0; i < a.length - 1; i++) {
+    if (a[i] != b[i]) return false;
+  }
+  return true;
+}
+
 class _KuteTrendPainter extends CustomPainter {
   final List<double> values;
   final double startValue;
@@ -459,7 +519,11 @@ class _KuteTrendPainter extends CustomPainter {
   final int? scrubIndex;
   final Color scrubHairline;
   final bool zeroSplit;
+  final bool zeroLine;
   final Color zeroLineColor;
+  final KuteTrendGoal? goal;
+  final Color goalColor;
+  final TextStyle goalLabelStyle;
 
   const _KuteTrendPainter({
     required this.values,
@@ -473,7 +537,11 @@ class _KuteTrendPainter extends CustomPainter {
     required this.scrubIndex,
     required this.scrubHairline,
     required this.zeroSplit,
+    this.zeroLine = true,
     required this.zeroLineColor,
+    required this.goal,
+    required this.goalColor,
+    required this.goalLabelStyle,
   });
 
   @override
@@ -493,6 +561,11 @@ class _KuteTrendPainter extends CustomPainter {
         if (v < lo) lo = v;
         if (v > hi) hi = v;
       }
+    }
+    final g = goal;
+    if (g != null && g.value.isFinite) {
+      if (g.value < lo) lo = g.value;
+      if (g.value > hi) hi = g.value;
     }
     if (hi - lo < 1e-9) {
       final pad = hi.abs() > 1e-9 ? hi.abs() * 0.1 : 1.0;
@@ -519,6 +592,34 @@ class _KuteTrendPainter extends CustomPainter {
           Offset(math.min(x + 3, size.width), yStart), hair);
     }
 
+    // The goal: a dashed line in textTertiary, its label over the left
+    // end on a backing in the surface colour, above the line (below it
+    // when the top has no room).
+    if (g != null && g.value.isFinite) {
+      final yGoal = yOf(g.value);
+      final dash = Paint()
+        ..color = goalColor
+        ..strokeWidth = 1
+        ..style = PaintingStyle.stroke;
+      for (var x = 0.0; x < size.width; x += 7) {
+        canvas.drawLine(
+            Offset(x, yGoal), Offset(math.min(x + 4, size.width), yGoal), dash);
+      }
+      if (g.label.isNotEmpty) {
+        final tp = TextPainter(
+          text: TextSpan(text: g.label, style: goalLabelStyle),
+          textDirection: TextDirection.ltr,
+          maxLines: 1,
+        )..layout(maxWidth: size.width * 0.6);
+        const gap = 3.0;
+        final above = yGoal - gap - tp.height;
+        final y = above >= 0 ? above : yGoal + gap;
+        canvas.drawRect(Rect.fromLTWH(0, y - 1, tp.width + 6, tp.height + 2),
+            Paint()..color = surfaceColor);
+        tp.paint(canvas, Offset(0, y));
+      }
+    }
+
     // The split chart's zero line, when the series crosses zero.
     var vMin = values.first, vMax = values.first;
     for (final v in values) {
@@ -526,7 +627,7 @@ class _KuteTrendPainter extends CustomPainter {
       if (v > vMax) vMax = v;
     }
     final yZero = yOf(0).clamp(0.0, size.height);
-    if (zeroSplit && vMin < 0 && vMax > 0) {
+    if (zeroSplit && zeroLine && vMin < 0 && vMax > 0) {
       canvas.drawLine(
           Offset(0, yZero),
           Offset(size.width, yZero),
@@ -625,7 +726,11 @@ class _KuteTrendPainter extends CustomPainter {
       old.breath != breath ||
       old.scrubIndex != scrubIndex ||
       old.zeroSplit != zeroSplit ||
-      old.zeroLineColor != zeroLineColor;
+      old.zeroLine != zeroLine ||
+      old.zeroLineColor != zeroLineColor ||
+      old.goal != goal ||
+      old.goalColor != goalColor ||
+      old.goalLabelStyle != goalLabelStyle;
 }
 
 /// The range row under a chart: small 12 sp text pills sharing the width,

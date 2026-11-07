@@ -1,15 +1,15 @@
-// A game sheet's "Send to a friend" pill (founder, 2 November 2026: "when
-// there is no space, the share with a friend button should be floating in
-// the bottom, and we allow the user to scroll of course"). The pill sits in
-// the title row only while the whole title (up to two lines at its own
-// size) and the whole pill fit there; otherwise it leaves the header and
-// the bar at the foot is the dark primary button every pinned action is
-// (founder, 2 November 2026: "make the button dark like the others"),
-// "Send to a friend" on one line, the same Sal sheet on a tap, with the
-// page's last rows scrolling clear of it.
+// A game sheet's Send to a friend (founder, 4 November 2026: "I do not
+// like the Send to a friend on the top right in Hyperliquid and
+// Predictions. It must be a floating button"). No pill in the title row,
+// whatever the title's length: the title has the row up to the star, and
+// the bar at the foot is the floating Sal pill, "Send to a friend", which
+// opens the market send sheet at once (founder, 5 November 2026: "the
+// other shares are just sharing the market, no picker") and which the
+// page's last rows scroll clear of. A game has no Yes / No pair, so no
+// trade row.
 //
-// On demand, light renders of both variants:
-//   flutter test test/screens/polymarket/game_header_share_fit_test.dart \
+// On demand, light renders:
+//   flutter test test/screens/polymarket/game_sheet_share_bar_test.dart \
 //     --dart-define=GAME_HEADER_OUT=<dir>
 
 import 'dart:async';
@@ -35,10 +35,14 @@ import 'package:kute/providers/polymarket_game_timeline_provider.dart';
 import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/providers/polymarket_sports_provider.dart';
 import 'package:kute/providers/polymarket_watchlist_provider.dart';
+import 'package:kute/screens/home/components/kute_bottom_action_bar.dart'
+    show KuteSalPill;
 import 'package:kute/screens/home/components/kute_shell_bar.dart';
+import 'package:kute/screens/polymarket/components/poly_watch_star.dart';
 import 'package:kute/screens/polymarket/components/poly_market_stats.dart'
-    show PolyRulesRow;
+    show kPolyRulesCardKey;
 import 'package:kute/screens/polymarket/market_detail_sheet.dart';
+import 'package:kute/screens/share/share_market_sheet.dart';
 import 'package:kute/screens/shared/kute_back_button.dart'
     show KuteCloseButton;
 import 'package:kute/screens/shared/kute_bar_context.dart';
@@ -123,7 +127,7 @@ const _long = (
   'Team Falcons',
 );
 
-final _shareButton = find.byKey(const ValueKey('kute-sal-header-button'));
+final _pill = find.byKey(const ValueKey('kute-bar-pill'));
 
 Future<void> _loadInter(WidgetTester tester) => tester.runAsync(() async {
       final inter = FontLoader('Inter');
@@ -208,93 +212,79 @@ void main() {
     OpenOnce.reset();
   });
 
-  for (final (game, width) in [(_short, 430.0), (_medium, 744.0)]) {
+  for (final (game, width) in [
+    (_short, 430.0),
+    (_medium, 744.0),
+    (_medium, 390.0),
+    (_long, 390.0),
+    (_long, 430.0),
+  ]) {
     testWidgets(
-        'at ${width.toInt()} wide "${game.$1}" fits: the whole "Send to a '
-        'friend" pill in the title row, the title whole at its own size, no '
-        'floating bar', (tester) async {
+        'at ${width.toInt()} wide "${game.$1}": nothing to share in the '
+        'title row, the title whole up to the star; the bar is the floating '
+        'Sal pill "Send to a friend", opening the market send sheet, and '
+        'the last rows scroll clear of it', (tester) async {
       await _loadInter(tester);
       await http.runWithClient(() async {
         await _pump(tester, game, width: width);
         final l10n = AppLocalizations.of(tester.element(_header));
-        expect(find.descendant(of: _header, matching: _shareButton),
-            findsOneWidget);
-        expect(
-            find.descendant(
-                of: _shareButton, matching: find.text(l10n.shareHeaderLabel)),
-            findsOneWidget);
-        final titleText = find.descendant(
-            of: find.byKey(const ValueKey('poly-detail-title')),
-            matching: find.byType(Text));
-        expect(tester.widget<Text>(titleText).style!.fontSize,
-            closeTo(18 * width / 430, 0.01));
+        expect(find.byKey(const ValueKey('kute-sal-header-button')),
+            findsNothing);
+        for (final words in [l10n.shareHeaderLabel, l10n.share]) {
+          expect(find.descendant(of: _header, matching: find.text(words)),
+              findsNothing);
+        }
+        final title = find.byKey(const ValueKey('poly-detail-title'));
+        final titleText =
+            find.descendant(of: title, matching: find.byType(Text));
         expect(tester.renderObject<RenderParagraph>(titleText)
             .didExceedMaxLines, isFalse);
-        expect(_top(tester)!.inHeader, isTrue);
-        final slide = tester.widget<AnimatedSlide>(
-            find.byKey(const ValueKey('kute-shell-bar-slide')));
-        expect(slide.offset, isNot(Offset.zero), reason: 'the bar is away');
-        await _shoot(tester, 'game_header_fits_${width.toInt()}');
-        expect(tester.takeException(), isNull);
-        await tester.pumpWidget(const SizedBox.shrink());
-      }, () => MockClient((_) async => http.Response('{}', 404)));
-    });
-  }
-
-  for (final (game, width) in [(_long, 390.0), (_long, 430.0), (_medium, 390.0)]) {
-    testWidgets(
-        'at ${width.toInt()} wide "${game.$1}" keeps its row: no pill in the '
-        'header, the bar is the dark "Send to a friend" button opening the '
-        'market\'s Sal sheet, and the last rows scroll clear of it',
-        (tester) async {
-      await _loadInter(tester);
-      await http.runWithClient(() async {
-        await _pump(tester, game, width: width);
-        final l10n = AppLocalizations.of(tester.element(_header));
-        expect(_shareButton, findsNothing);
+        expect(tester.widget<Text>(titleText).data, game.$1);
+        // The title runs to the star: nothing between them.
+        final star = find.descendant(
+            of: _header, matching: find.byType(PolyWatchStar));
+        expect(tester.getRect(star).left - tester.getRect(title).right,
+            lessThanOrEqualTo(8 * width / 430 + 0.5));
+        // The bar: the page's market context as the floating Sal pill.
         final top = _top(tester)!;
         expect(top.inHeader, isFalse);
-        // The primary button, as every pinned action: one line, the
-        // header pill's words, the same words if it were ever off.
-        expect(top.isPrimary, isTrue);
-        expect(top.actionable, isTrue);
-        expect(top.primaryLabel, l10n.shareHeaderLabel);
-        expect(top.disabledLabel, l10n.shareHeaderLabel);
-        expect(top.sublabel, isNull);
+        expect(top.isPrimary, isFalse);
+        expect(top.isTrade, isFalse);
+        expect(top.label, l10n.barShareWithFriends);
+        expect(_pill, findsOneWidget);
+        expect(
+            find.descendant(
+                of: _pill, matching: find.text(l10n.barShareWithFriends)),
+            findsOneWidget);
+        expect(find.byKey(const ValueKey('kute-bar-primary-button')),
+            findsNothing);
         final slide = find.byKey(const ValueKey('kute-shell-bar-slide'));
         expect(tester.widget<AnimatedSlide>(slide).offset, Offset.zero);
-        // Dark: the app's primary fill with white words, not the white
-        // two-line Sal pill.
-        final button = find.byKey(const ValueKey('kute-bar-primary-button'));
-        expect(button, findsOneWidget);
-        expect(find.byKey(const ValueKey('kute-bar-pill')), findsNothing);
-        final fill = tester.widget<AnimatedContainer>(button).decoration!
-            as BoxDecoration;
-        expect(fill.color, AppColorsExtension.light().textPrimary);
-        final words = find.descendant(
-            of: button, matching: find.text(l10n.shareHeaderLabel));
-        expect(words, findsOneWidget);
-        expect(tester.widget<Text>(words).style?.color, Colors.white);
-        expect(find.text(l10n.barShareMarketSub), findsNothing);
         await _shoot(tester,
-            'game_header_bar_${width.toInt()}_${game.$2.split(' ').first}');
-        // Scrolled to the very end, Rules sits above the floating bar.
+            'game_share_bar_${width.toInt()}_${game.$2.split(' ').first}');
+        expect(tester.takeException(), isNull);
+        // Scrolled to the very end, Rules sits above the floating pill.
         await tester.drag(
             find.byType(CustomScrollView).first, const Offset(0, -6000));
         for (var i = 0; i < 10; i++) {
           await tester.pump(const Duration(milliseconds: 100));
         }
-        final rules = find.byType(PolyRulesRow);
-        final barTop = tester.getRect(button).top;
-        expect(tester.getRect(rules).bottom, lessThan(barTop));
-        // A tap opens the Sal sheet with the market's send card, as the
-        // header pill does: a game is an event, so the market alone
-        // (founder, 2 November 2026).
-        await tester.tap(button);
+        expect(tester.widget<KuteSalPill>(find.byType(KuteSalPill)).collapsed,
+            isFalse,
+            reason: 'the scroll has been still: the full pill again');
+        final rules = find.byKey(kPolyRulesCardKey);
+        expect(tester.getRect(rules).bottom,
+            lessThan(tester.getRect(_pill).top));
+        expect(tester.takeException(), isNull);
+        // A tap opens the market send sheet at once: no Sal sheet, no
+        // picker (founder, 5 November 2026).
+        await tester.tap(_pill);
         for (var i = 0; i < 12; i++) {
           await tester.pump(const Duration(milliseconds: 100));
         }
-        expect(find.text(l10n.shareTheMarket), findsWidgets);
+        expect(find.byType(ShareMarketSheet), findsOneWidget);
+        expect(find.byKey(const ValueKey('context-actions-card')),
+            findsNothing);
         expect(find.text(l10n.sendThisPrediction), findsNothing);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox.shrink());

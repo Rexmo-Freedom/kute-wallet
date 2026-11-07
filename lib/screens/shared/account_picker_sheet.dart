@@ -18,7 +18,8 @@
 // `home_wallet_switcher.dart`'s `WalletSwitcherSheet` so the user
 // never has to relearn the layout.
 
-import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
+import 'package:kute/screens/shared/app_bottom_sheet.dart'
+    show KuteSheetBarFit, showKuteModalSheet;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -56,10 +57,14 @@ class AccountPickerSheet extends ConsumerWidget {
       isScrollControlled: true,
       isDismissible: true,
       enableDrag: true,
-      builder: (_) => AccountPickerSheet(
-        title: title,
-        filter: filter ?? ((_) => true),
-        selectedAccountId: selectedAccountId,
+      // Content-sized: a short list hides the floating bar while it is up,
+      // a long one keeps it (KuteSheetBarFit, the app's short-sheet rule).
+      builder: (_) => KuteSheetBarFit(
+        child: AccountPickerSheet(
+          title: title,
+          filter: filter ?? ((_) => true),
+          selectedAccountId: selectedAccountId,
+        ),
       ),
     );
   }

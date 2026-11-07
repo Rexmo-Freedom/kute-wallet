@@ -1,25 +1,32 @@
 // lib/screens/shared/kute_share_actions.dart
 //
 // The bar context of a market or position page (founder, 31 October
-// 2026): the bar reads "Send to a friend" with a line under it, and
-// its Sal sheet opens on a market preview card and two action rows,
-// "Send the market" (or "Send this position") and "Send this
-// prediction" ("Send this investment" on Investing), with the prompts
-// tuned to the page. (Founder, 1 November 2026: on Predictions and
-// Investing the word is never "Share", always send to a friend.) The
-// market row opens the market send sheet
-// (screens/share/share_market_sheet.dart: preview card, Send the link with
-// the sender's referral code, Send this prediction); the pick row opens
-// Send to anyone with THE PICK on the link: the market, the outcome
-// ("Yes", a candidate, Long / Short) and the side, so the recipient's
-// Claim screen can open the slip ready to place
-// (screens/share/send_to_anyone_sheet.dart, claim_screen.dart).
+// 2026): the bar reads "Send to a friend" with a line under it. (Founder,
+// 1 November 2026: on Predictions and Investing the word is never
+// "Share", always send to a friend.)
 //
-// THE PICK is the side the page shows: on a prediction market its leading
-// outcome ([polymarketLeadingPick]: Yes or No by the chance, the top
-// candidate of a multi-outcome event); on a prediction position the
-// position's outcome; on an Investing market Long; on an Investing
-// position its side.
+// STRAIGHT INTO SENDING THE MARKET (founder, 5 November 2026: "the other
+// shares are just sharing the market, no picker"; "so we can take the
+// user straight into that"). A tap on the page's round Sal button (a
+// trade row's, kute_bar_trade_row.dart) or on its Sal pill (an event, a
+// game) opens the market send sheet at once
+// ([KuteMarketBarContext.shareMarket], the context's
+// [KuteBarContext.directAction]; screens/share/share_market_sheet.dart:
+// the market's card, Share with the sender's referral code): no Sal sheet
+// and no "Send the market / Send a prediction" picker in between. On an
+// open position in profit the round button opens the brag card instead
+// (position_share_card.dart).
+//
+// A PREDICTION IS SENT FROM ITS SLIP ONLY (founder, 5 November 2026: "the
+// share button should be on this bet slip page actually, it carries all
+// the information, even the amount"): the slip's round Sal button sends
+// THAT prediction, its market, side and amount
+// (screens/share/slip_share.dart). Nothing here composes a pick any more.
+//
+// The Sal sheet still draws the market's preview and its one card ("Send
+// the market", or "Send this position"; "Show off this position" beside
+// it on an open position) where something opens it with this context
+// (a long press on a primary button).
 //
 // THE MARKET LINK. The app has no market deep link yet (incoming links are
 // referral codes and `/c/{id}` claims, app_router.dart), so a shared
@@ -29,56 +36,38 @@
 //     https://backend.kutewallet.com/m/investing/{coin}
 //
 // [kKuteMarketLinkBase] + `/m/` + [venue] + `/` + [slug]; the referral
-// code is added as `?ref=CODE` by the share sheet. Send to anyone gets
-// the same slug (a Predictions event slug, an Investing coin), which the
-// backend accepts as `[A-Za-z0-9][A-Za-z0-9_.:-]{0,119}`.
+// code is added as `?ref=CODE` by the share sheet.
 //
-// Both rows run from the market page's own context one microtask after
-// the tap: the Sal sheet pops itself right after a row's onTap, and a
-// sheet pushed inside onTap would be the one popped.
+// A Sal sheet card runs from the market page's own context one microtask
+// after the tap: the Sal sheet pops itself right after a row's onTap, and
+// a sheet pushed inside onTap would be the one popped.
 //
 // [KuteMarketBarContext] and [KuteMarketBarAction] extend the bar's plain
-// model (kute_bar_context.dart, untouched) with what the Sal sheet draws
-// for a market: the preview card and each row's leading glyph.
+// model (kute_bar_context.dart) with what the Sal sheet draws for a
+// market: the preview card and each row's leading glyph.
 //
 // BRAG (founder, 1 November 2026: "open positions and the portfolio should
 // also be shareable with a friend, to brag"). An OPEN position page passes
 // [marketBarContext]'s `brag`, the card's data built on demand
-// (screens/share/brag/brag_data.dart): the Sal sheet gets a third row,
-// "Show off this position", and [KuteMarketBarContext.primaryAction]
+// (screens/share/brag/brag_data.dart): [KuteMarketBarContext.primaryAction]
 // opens the brag preview at once, for the page's share card ("Brag about
 // it" in profit, screens/share/brag/position_share_card.dart). A settled
-// position passes none and keeps the send rows only.
+// position passes none.
 //
-// AN EVENT SENDS THE MARKET ALONE (founder, 2 November 2026: "on markets,
-// not the individual predictions, send a market should just be send the
-// market. Only on individual predictions we can send the prediction"). A
-// page that is not one prediction (a multi-outcome event, a game's board
-// of markets) passes `sendPick: false`: the Sal sheet holds the one
-// full-width "Send the market" card, the bar's line under it says what
-// that card does, and the market send sheet drops its Send this
-// prediction button. A Yes/No market, an outcome drilled into from an
-// event (its own Yes/No page), a position and an Investing market keep
-// both cards. The sheet stays (the pill is the page's only door to Sal:
-// the field to ask about the market sits over the card).
-//
-// SHARE CARDS (founder, 1 November 2026): the market row's sheet and the
-// pick row's link both end on a 4:5 share card (screens/share/cards/): the
-// market page hands over its picture and logo for it.
+// SHARE CARDS (founder, 1 November 2026): the market send sheet ends on a
+// 4:5 share card (screens/share/cards/): the market page hands over its
+// picture and logo for it.
 
 import 'dart:async';
 
 import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/widgets.dart';
 import 'package:kute/l10n/l10n.dart';
-import 'package:kute/models/polymarket_model.dart' show PolymarketEvent;
-import 'package:kute/models/share_link_model.dart' show ShareLinkKind;
 import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
 import 'package:kute/screens/share/brag/brag_data.dart' show BragData;
 import 'package:kute/screens/share/brag/brag_preview_sheet.dart'
     show showBragPreviewSheet;
-import 'package:kute/screens/share/send_to_anyone_sheet.dart';
 import 'package:kute/screens/share/share_market_sheet.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 
@@ -106,35 +95,6 @@ String marketShareLink({required String venue, required String? slug}) {
 String shareVenueFor(String linkVenue) => linkVenue == kMarketLinkInvesting
     ? kShareVenueHyperliquid
     : kShareVenuePolymarket;
-
-/// The leading outcome of a prediction event, the pick a market page
-/// shares by default: Yes or No by which is ahead on a binary market, the
-/// top candidate otherwise. [chance] is that outcome's chance, 0–100.
-({String label, int index, double chance})? polymarketLeadingPick(
-    PolymarketEvent event) {
-  final outcomes = event.outcomes;
-  if (outcomes.isEmpty) return null;
-  if (event.isBinary) {
-    final yes = event.yesPrice;
-    final pickYes = yes >= 0.5;
-    final index = outcomes
-        .indexWhere((o) => o.name.toLowerCase() == (pickYes ? 'yes' : 'no'));
-    return (
-      label: pickYes ? 'Yes' : 'No',
-      index: index < 0 ? 0 : index,
-      chance: (pickYes ? yes : 1 - yes).clamp(0.0, 1.0) * 100,
-    );
-  }
-  var best = 0;
-  for (var i = 1; i < outcomes.length; i++) {
-    if (outcomes[i].price > outcomes[best].price) best = i;
-  }
-  return (
-    label: outcomes[best].name,
-    index: best,
-    chance: outcomes[best].price.clamp(0.0, 1.0) * 100,
-  );
-}
 
 /// What the Sal sheet's preview card shows for the market under the bar:
 /// the title (two lines), one line under it ("Yes 62%", "$67,420.00",
@@ -189,13 +149,22 @@ class KuteMarketBarContext extends KuteBarContext {
     super.placement,
     required this.preview,
     this.primaryAction,
+    this.shareMarket,
   });
 
   final KuteBarPreview preview;
 
-  /// The page's direct action instead of the Sal sheet (an open
-  /// position: its brag preview, for the share card); null: none.
+  /// An open position's brag preview, for the share card (the round Sal
+  /// button runs it in profit, position_share_card.dart); null: none.
   final VoidCallback? primaryAction;
+
+  /// The market send sheet for this page's market (see the file header):
+  /// what a tap on the pill or the round Sal button opens, no Sal sheet in
+  /// between.
+  final VoidCallback? shareMarket;
+
+  @override
+  VoidCallback? get directAction => shareMarket;
 
   /// The scope binds the context to its route (kute_bar_context.dart);
   /// the preview rides along.
@@ -214,6 +183,7 @@ class KuteMarketBarContext extends KuteBarContext {
         placement: placement,
         preview: preview,
         primaryAction: primaryAction,
+        shareMarket: shareMarket,
       );
 }
 
@@ -235,17 +205,11 @@ class KuteMarketBarAction extends KuteBarAction {
 /// The bar context of a market ([position] false) or position page.
 /// [chance] is the Yes side's chance (0–100) of a prediction market,
 /// [price] the formatted price of a trading market; either feeds the share
-/// sheet's preview card when the page has it at hand.
+/// sheet's card when the page has it at hand.
 ///
-/// The pick: [outcome] is the label the page shows selected ("Yes", a
-/// candidate, "Long"; Investing defaults to Long), [outcomeIndex] its
-/// index in the event's outcomes (prediction markets; null when the page
-/// has only the label), [outcomeChance] its chance 0–100 for the preview
-/// line, [side] `buy` for a prediction outcome, `long` or `short` on
-/// Investing. [imageUrl] is the market's picture for the preview card
-/// (Investing draws the coin icon from [slug]). [sendPick] false: the
-/// page is an event, not one prediction, and sends the market alone (see
-/// the file header).
+/// [outcome] and [outcomeChance] (0–100) are a position's own side, for
+/// the preview line ("Yes 64%", "Long"). [imageUrl] is the market's
+/// picture for the card (Investing draws the coin icon from [slug]).
 KuteBarContext marketBarContext(
   BuildContext context, {
   required String title,
@@ -260,9 +224,7 @@ KuteBarContext marketBarContext(
   double? chance,
   String? price,
   String? outcome,
-  int? outcomeIndex,
   double? outcomeChance,
-  String? side,
   String? imageUrl,
   // An Investing market as its page header shows it: the display name
   // ([title] is then "Nasdaq 100") with the ticker under it, and the
@@ -277,15 +239,16 @@ KuteBarContext marketBarContext(
   KuteBarPlacement placement = KuteBarPlacement.bottom,
   // An open position's brag card, built when asked (see the file header).
   BragData Function()? brag,
-  bool sendPick = true,
 }) {
   final l10n = context.l10n;
   final cleanSlug = (slug?.trim().isEmpty ?? true) ? null : slug!.trim();
   final deepLink = marketShareLink(venue: venue, slug: cleanSlug);
   final investing = venue == kMarketLinkInvesting;
   final shareVenue = shareVenueFor(venue);
-  final pickSide = side ?? (investing ? 'long' : 'buy');
-  final pickLabel = outcome ?? (investing ? l10n.longLabel : null);
+  // A position's side, for the preview line.
+  final pickLabel = position
+      ? (outcome ?? (investing ? l10n.longLabel : null))
+      : null;
   final String? previewLine;
   if (pickLabel != null && outcomeChance != null) {
     previewLine = '$pickLabel ${outcomeChance.round()}%';
@@ -304,12 +267,33 @@ KuteBarContext marketBarContext(
     unawaited(showBragPreviewSheet(context, build()));
   }
 
+  // The market send sheet (see the file header).
+  void openMarketShare() {
+    if (!context.mounted) return;
+    unawaited(openShareForMarket(
+      context,
+      title: title,
+      subtitle: subtitle,
+      deepLink: deepLink,
+      marketSlug: cleanSlug,
+      chance: chance,
+      price: price,
+      venue: shareVenue,
+      // The share card's picture until the providers have the market
+      // (screens/share/cards/share_card_sources.dart).
+      imageUrl: investing ? null : imageUrl,
+      ticker: investing ? ticker : null,
+      wireCoin: investing ? wireCoin : null,
+      coinCategory: investing ? coinCategory : null,
+      coinIconUrl: investing ? coinIconUrl : null,
+    ));
+  }
+
   return KuteMarketBarContext(
     primaryAction: brag == null ? null : openBrag,
+    shareMarket: openMarketShare,
     label: l10n.barShareWithFriends,
-    sublabel: position
-        ? l10n.barSharePositionSub
-        : (sendPick ? l10n.barShareMarketSub : l10n.shareTheMarketSub),
+    sublabel: position ? l10n.barSharePositionSub : l10n.shareTheMarketSub,
     clip: 'share',
     category: category,
     searchHint: searchHint,
@@ -332,49 +316,8 @@ KuteBarContext marketBarContext(
         label: position ? l10n.shareThisPosition : l10n.shareTheMarket,
         sublabel: position ? l10n.shareThisPositionSub : l10n.shareTheMarketSub,
         icon: Icons.ios_share_rounded,
-        onTap: (_) => _afterSalSheet(context, () {
-          unawaited(openShareForMarket(
-            context,
-            title: title,
-            subtitle: subtitle,
-            deepLink: deepLink,
-            marketSlug: cleanSlug,
-            chance: chance,
-            price: price,
-            venue: shareVenue,
-            outcome: pickLabel,
-            outcomeIndex: outcomeIndex,
-            side: pickSide,
-            // The share card's picture until the providers have the
-            // market (screens/share/cards/share_card_sources.dart).
-            imageUrl: investing ? null : imageUrl,
-            ticker: investing ? ticker : null,
-            wireCoin: investing ? wireCoin : null,
-            coinCategory: investing ? coinCategory : null,
-            coinIconUrl: investing ? coinIconUrl : null,
-            sendPick: sendPick,
-          ));
-        }),
+        onTap: (_) => _afterSalSheet(context, openMarketShare),
       ),
-      if (sendPick)
-        KuteMarketBarAction(
-          label: investing ? l10n.sendThisInvestment : l10n.sendThisPrediction,
-          sublabel: l10n.sendThisPickSub,
-          salClip: 'share',
-          onTap: (_) => _afterSalSheet(context, () {
-            unawaited(showSendToAnyoneSheet(
-              context,
-              kind: ShareLinkKind.dollars,
-              marketSlug: cleanSlug,
-              marketTitle: title,
-              venue: shareVenue,
-              outcome: pickLabel,
-              outcomeIndex: outcomeIndex,
-              side: pickSide,
-              entrySource: 'market_bar',
-            ));
-          }),
-        ),
       if (brag != null)
         KuteMarketBarAction(
           label: l10n.bragPositionAction,

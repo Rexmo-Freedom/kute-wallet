@@ -25,9 +25,8 @@ import 'package:kute/screens/polymarket/components/game_header.dart';
 import 'package:kute/screens/polymarket/components/market_chart.dart'
     show MarketChart;
 import 'package:kute/screens/polymarket/components/market_livestream_view.dart';
-import 'package:kute/screens/polymarket/components/poly_market_stats.dart'
-    show PolyRulesRow;
 import 'package:kute/screens/polymarket/components/position_chance_bar.dart';
+import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/polymarket/components/position_awaiting.dart'
     show polyExpectedSettlementProvider;
 import 'package:kute/screens/polymarket/components/position_journey.dart';
@@ -362,7 +361,10 @@ void main() {
       expect(protect, findsOneWidget);
       expect(find.descendant(of: protect, matching: find.text('Protect it')),
           findsOneWidget);
-      expect(find.descendant(of: protect, matching: find.text('Sell at')),
+      // Its option card says what it sets: a sell at the user's price.
+      expect(
+          find.descendant(
+              of: protect, matching: find.text('Sell at your price')),
           findsOneWidget);
       expect(tester.takeException(), isNull);
     });
@@ -521,17 +523,16 @@ void main() {
       expect(find.byType(PositionSidePill), findsNothing);
       expect(tester.getRect(pill).bottom,
           lessThan(tester.getRect(find.byType(PolyPositionSpeedometer)).top));
-      // No Share pill beside the result (founder, 1 November 2026: it
-      // crowded the held side); the share is the card under the tiles.
+      // Nothing to share beside the result or under the tiles (founder,
+      // 4 November 2026): the round Sal button floats beside Sell.
       expect(
           find.byKey(const ValueKey('kute-sal-header-button')), findsNothing);
-      final share = find.byKey(const ValueKey('position-share-card'));
-      expect(share, findsOneWidget);
-      expect(
-          tester.getRect(share).top,
-          greaterThan(tester
-              .getRect(find.byKey(const ValueKey('poly-position-value')))
-              .bottom));
+      expect(find.byKey(const ValueKey('position-share-card')), findsNothing);
+      final sell = tester
+          .widget<KuteBarContextScope>(find.byWidgetPredicate(
+              (w) => w is KuteBarContextScope && w.barContext.isPrimary))
+          .barContext;
+      expect(sell.share!.barContext!.market, isTrue);
       expect(
           tester.getRect(find.byType(PolyPositionSpeedometer)).bottom,
           lessThan(tester
@@ -702,28 +703,32 @@ void main() {
         const PositionDetailSheet(position: position),
         overrides: overrides(event),
       );
-      // A row, not an expander: the text is not on the screen itself.
+      // An option card, not an expander: on the screen, only the card's
+      // first line of the rules (it is the odd last card, full width,
+      // under View market and Details).
       final row = find.text('Closing Conditions');
       await tester.pump();
       await tester.ensureVisible(row);
       await tester.pumpAndSettle();
       expect(row, findsOneWidget);
-      expect(find.text(conditions), findsNothing);
-      // Two taps inside one frame (the row's handler called twice before
+      final card = find.byKey(PositionDetailSheet.closingConditionsKey);
+      expect(find.descendant(of: card, matching: row), findsOneWidget);
+      expect(find.text(conditions), findsOneWidget);
+      expect(find.descendant(of: card, matching: find.text(conditions)),
+          findsOneWidget);
+      // Two taps inside one frame (the card's handler called twice before
       // the sheet's route is built): one sheet.
-      final onTap = tester
-          .widget<PolyRulesRow>(find.ancestor(
-              of: row, matching: find.byType(PolyRulesRow)))
-          .onTap;
+      final onTap = tester.widget<KuteActionCard>(card).onTap!;
       onTap();
       onTap();
       await tester.pumpAndSettle();
       expect(find.byType(AppBottomSheetHeader), findsOneWidget);
-      expect(find.text(conditions), findsOneWidget);
+      // The whole text on the sheet, over the card's first line.
+      expect(find.text(conditions), findsNWidgets(2));
       // Closed with its own button, then opened again.
       await tester.tap(find.descendant(
           of: find.byType(AppBottomSheetHeader),
-          matching: find.byIcon(Icons.close_rounded)));
+          matching: find.byType(AppBottomSheetCloseButton)));
       await tester.pumpAndSettle();
       expect(find.byType(AppBottomSheetHeader), findsNothing);
       await tester.tap(row);
@@ -881,7 +886,7 @@ void main() {
     });
 
     testWidgets('under a day to go: "Ends in 12:34" counted down on a '
-        'centred pill', (tester) async {
+        'quiet centred line', (tester) async {
       final end = DateTime.now().add(const Duration(minutes: 12, seconds: 40));
       await _pump(
         tester,
@@ -891,17 +896,14 @@ void main() {
         width: 375,
       );
       await tester.pump();
-      final pill = find.byKey(const ValueKey('poly-position-expiry'));
-      expect(pill, findsOneWidget);
+      final line = find.byKey(const ValueKey('poly-position-expiry'));
+      expect(line, findsOneWidget);
       expect(
-          find.descendant(
-              of: pill,
-              matching: find.byWidgetPredicate((w) =>
-                  w is Text &&
-                  RegExp(r'^Ends in 12:[0-9]{2}$').hasMatch(w.data ?? ''))),
-          findsOneWidget);
+          RegExp(r'^Ends in 12:[0-9]{2}$')
+              .hasMatch(tester.widget<Text>(line).data ?? ''),
+          isTrue);
       expect(find.textContaining('ENDS'), findsNothing);
-      expect(tester.getCenter(pill).dx, closeTo(375 / 2, 1));
+      expect(tester.getCenter(line).dx, closeTo(375 / 2, 1));
       expect(tester.takeException(), isNull);
     });
 

@@ -4,7 +4,12 @@
 // position_detail_sheet.dart, kute_bar_context.dart): Sell in the red its
 // pinned button had, Clear (a lost side) in the app's primary look and
 // thinking while the redeem runs; a won position has none. No pinned panel
-// is left at the foot, and the body scrolls clear of the bar.
+// is left at the foot, and the body scrolls clear of the bar. Sell and
+// Clear carry the round Sal button at their right (founder, 4 November
+// 2026: Send to a friend floats). A won position in profit is "Brag about
+// it" (its won card; founder, 4 November 2026: past wins brag too) with
+// the round Sal button; a win with no profit is the Sal pill, "Send to a
+// friend".
 //
 // Light and dark PNGs of the open position with its bar:
 // flutter test --dart-define=POLY_POSITION_SHOT_OUT=<dir>.
@@ -40,6 +45,9 @@ import 'package:kute/screens/shared/kute_bar_context.dart'
     show KuteBarPrimaryStyle, kuteBarScrollClearance;
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/sal_sprite.dart';
+import 'package:kute/screens/polymarket/components/position_speedometer.dart'
+    show PolyPositionSpeedometer;
+import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/theme/app_theme.dart';
 
 import '../../helpers/shell_bar_harness.dart';
@@ -153,6 +161,22 @@ const _won = PolymarketPosition(
   eventSlug: 'ceasefire-2026',
 );
 
+/// A win bought at a dollar a share: paid out what it cost, no profit.
+const _wonEven = PolymarketPosition(
+  marketId: 'c-cf',
+  marketQuestion: 'Ukraine x Russia ceasefire in 2026?',
+  outcome: 'No',
+  size: 20,
+  avgPrice: 1,
+  currentPrice: 1,
+  pnl: 0,
+  pnlPercent: 0,
+  isResolved: true,
+  won: true,
+  tokenId: 'cf-no',
+  eventSlug: 'ceasefire-2026',
+);
+
 Future<void> _loadAssets(WidgetTester tester) => tester.runAsync(() async {
       final inter = FontLoader('Inter');
       for (final f in ['Regular', 'SemiBold', 'Bold']) {
@@ -260,6 +284,17 @@ void main() {
     expect(ctx.style, same(KuteBarPrimaryStyle.destructive));
     expect(ctx.style!.fill, AppColors.marketDown);
     expect(barPrimaryInk(tester), const Color(0xFFFFFFFF));
+    // The round Sal button at Sell's right, both taking their taps.
+    final share = find.byKey(const ValueKey('kute-bar-share'));
+    expect(share, findsOneWidget);
+    expect(tester.getRect(share).left,
+        greaterThan(tester.getRect(findBarPrimary()).right));
+    expect(ctx.share!.barContext!.market, isTrue);
+    for (final f in [findBarPrimary(), share]) {
+      final hit = tester.hitTestOnBinding(tester.getCenter(f));
+      expect(hit.path.any((e) => e.target == tester.renderObject(f)), isTrue);
+    }
+    expect(find.byKey(const ValueKey('position-share-card')), findsNothing);
     // The body scrolls clear of the floating bar.
     final scroll = tester.widget<SingleChildScrollView>(find
         .ancestor(
@@ -287,6 +322,9 @@ void main() {
     expect(ctx.label, 'Clear position');
     expect(ctx.style, isNull);
     expect(barPrimaryEnabled(tester), isTrue);
+    // Settled: the round Sal button sends the market, never the brag.
+    expect(find.byKey(const ValueKey('kute-bar-share')), findsOneWidget);
+    expect(ctx.share!.brag, isNull);
 
     trading.hold = Completer<double?>();
     await tapBarPrimary(tester, settle: false);
@@ -311,11 +349,90 @@ void main() {
     await tester.pump(const Duration(seconds: 5));
   });
 
-  testWidgets('a won position has no action: the bar is not a button there',
-      (tester) async {
+  testWidgets(
+      'a won position in profit has no Sell: the bar is "Brag about it", '
+      'the round Sal button beside it', (tester) async {
     await _pump(tester, _won);
-    expect(barIsPrimary(tester), isFalse);
     expect(find.byType(AppButton), findsNothing);
+    expect(barIsUp(tester), isTrue);
+    final ctx = barPrimaryContext(tester);
+    expect(ctx.label, 'Brag about it');
+    expect(ctx.style, isNull);
+    expect(barPrimaryEnabled(tester), isTrue);
+    // The button is the brag; the round Sal button is the page's Sal
+    // sheet, never a second brag.
+    expect(find.byKey(const ValueKey('kute-bar-share')), findsOneWidget);
+    expect(ctx.share!.brag, isNull);
+    expect(find.byKey(const ValueKey('kute-bar-pill')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'a won position with no profit has no action: the bar is not a '
+      'button there but the Sal pill, "Send to a friend"', (tester) async {
+    await _pump(tester, _wonEven);
+    expect(barIsPrimary(tester), isFalse);
+    expect(barIsUp(tester), isTrue);
+    expect(find.byType(AppButton), findsNothing);
+    final pill = find.byKey(const ValueKey('kute-bar-pill'));
+    expect(pill, findsOneWidget);
+    expect(find.descendant(of: pill, matching: find.text('Send to a friend')),
+        findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final (name, settled) in [('won', _won), ('lost', _lost)]) {
+    testWidgets('settled ($name): "Settled" is the quiet line under the '
+        'bar\'s chance, as under the dial, over the tiles', (tester) async {
+      await _pump(tester, settled);
+      final line = find.byKey(const ValueKey('poly-position-expiry'));
+      expect(line, findsOneWidget);
+      expect(tester.widget<Text>(line).data, 'Settled');
+      expect(tester.widget<Text>(line).style?.color,
+          AppColorsExtension.light().textSecondary);
+      final chance = find.byWidgetPredicate(
+          (w) => w is RollingNumberText && w.text.endsWith('% chance'));
+      expect(tester.getRect(line).top,
+          greaterThanOrEqualTo(tester.getRect(chance).bottom));
+      expect(tester.getRect(line).bottom,
+          lessThan(tester
+              .getRect(find.byKey(const ValueKey('poly-position-value')))
+              .top));
+      expect(find.text('Settled'), findsOneWidget);
+      // Nothing to do to it any more: no actions row over the tiles.
+      expect(find.byKey(const ValueKey('poly-position-actions')),
+          findsNothing);
+      expect(find.byKey(const ValueKey('poly-position-protect')),
+          findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 5));
+    });
+  }
+
+  testWidgets('open: Protect it is the actions row between the dial and the '
+      'tiles (founder, 6 November 2026: actions first)', (tester) async {
+    await _pump(tester, _open);
+    final actions = find.byKey(const ValueKey('poly-position-actions'));
+    final protect = find.byKey(const ValueKey('poly-position-protect'));
+    expect(find.descendant(of: actions, matching: protect), findsOneWidget);
+    expect(
+        tester.getRect(actions).top,
+        greaterThan(tester
+            .getRect(find.byKey(PolyPositionSpeedometer.figureKey))
+            .bottom));
+    expect(
+        tester.getRect(actions).bottom,
+        lessThan(tester
+            .getRect(find.byKey(const ValueKey('poly-position-value')))
+            .top));
+    expect(
+        tester
+            .getRect(find.byKey(const ValueKey('poly-position-value')))
+            .bottom,
+        lessThan(tester
+            .getRect(find.byKey(PositionDetailSheet.detailsRowKey))
+            .top));
     expect(tester.takeException(), isNull);
   });
 

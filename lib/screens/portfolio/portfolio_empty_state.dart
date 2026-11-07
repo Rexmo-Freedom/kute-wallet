@@ -6,16 +6,17 @@
 //     (a Ledger's tabs, the Portfolio screen the Predictions card opens),
 //     the app's empty state centred clear of the dock.
 //   * [PortfolioSectionEmpty]: the Portfolio
-//     screen's sections under the pinned strip (Portfolio | P&L Charts;
-//     Activity moved to the Bitcoin home the same day). ONE treatment
-//     for both (founder, 1 November 2026: "empty states must be the same
+//     screen's sections under the pinned strip (Positions | P&L |
+//     Activity since 6 November 2026). ONE treatment
+//     for all three (founder, 1 November 2026: "empty states must be the same
 //     on all three sections"; the
 //     P&L one was the one he liked): the hero Sal ([NoActivityState]:
 //     `body_hero` with its idle director) at [kPortfolioSectionEmptySal],
 //     the title 22 sp w600, the rotating tagline 15 sp in textSecondary,
 //     [kPortfolioSectionEmptyTop] under the strip, so switching sections
-//     moves neither Sal nor the text; only the copy changes ("No open
-//     positions", "No P&L yet", each section starting the shared taglines
+//     moves neither Sal nor the text; only the copy changes ("No activity
+//     yet", "No open positions", "No P&L yet", each section starting the
+//     shared taglines
 //     at its own line). No pixel Sal.
 
 import 'package:flutter/material.dart';
@@ -50,14 +51,16 @@ class PortfolioEmptyState extends StatelessWidget {
 const double kPortfolioSectionEmptySal = 160;
 
 /// The room between the section's top (right under the pinned strip) and
-/// Sal, in design units. The Portfolio section reaches it as its list's 4
-/// top inset plus the overview's 18 gap (components/balances_overview.dart);
-/// P&L Charts pads by it directly (investments_portfolio.dart, _ChartsBox).
+/// Sal, in design units; every section's first title or square starts
+/// there too. Positions reaches it as its list's 4 top inset plus the
+/// overview's 18 gap (components/balances_overview.dart); Activity and P&L
+/// pad by it directly (portfolio_activity.dart, investments_portfolio.dart).
 const double kPortfolioSectionEmptyTop = 22;
 
 /// Where each section starts the shared taglines, so the three never open
 /// on the same line.
 enum PortfolioSectionTagline {
+  activity(8),
   portfolio(0),
   pnl(4);
 
