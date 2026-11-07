@@ -10,8 +10,8 @@
 //     it, and the date as a quiet line. Centred. No Sal circle.
 //  2. [ReceiptFactTiles]: the two to six facts that matter, as big square
 //     tiles two per row (the position page's "Worth now / If No wins"
-//     tiles; the Sal sheet's action cards' chassis: surface-1, radius 20,
-//     a hairline, 14 padding), equal widths, 10 apart.
+//     tiles; the action cards' soft card, KuteActionCard.surfaceOf, 14
+//     padding), equal widths, 10 apart.
 //  3. [ReceiptLongRow]: long text (a market question, a description, an
 //     address to pay) on its own full-width row, label above and the value
 //     wrapping under it, never squeezed into a value column.
@@ -37,6 +37,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/share/receipt_share.dart'
     show ReceiptShare, openReceiptShare;
+import 'package:kute/screens/shared/kute_action_cards.dart'
+    show KuteActionCard;
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/message_display.dart';
@@ -192,17 +194,13 @@ class ReceiptFactTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final light = Theme.of(context).brightness == Brightness.light;
     final copy = fact.copyValue;
     final tile = Container(
       key: ValueKey('receipt-tile-${fact.label}'),
       padding: EdgeInsets.all(14.w),
-      decoration: BoxDecoration(
-        // Surface-1 with a hairline: the Sal sheet's action cards.
-        color: light ? c.surfaceLight : c.surfaceLight.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: light ? c.border : c.borderSubtle, width: 1),
-      ),
+      // The app's one soft card, the action cards' own
+      // (KuteActionCard.surfaceOf).
+      decoration: KuteActionCard.surfaceOf(context),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,

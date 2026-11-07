@@ -38,9 +38,17 @@
 //     charted" under it for a position held whose line cannot be read, and
 //     the app's range row (1W 1M 3M 1Y ALL, [pnlChartRangeProvider], kept
 //     for the session and shared with the P&L section's venue squares and
-//     the "Share P&L" card; every range its own reach). The engine's
-//     shapes while it is read; nothing it can chart (every read failed):
-//     the venues' own published line ([pnlSeries]);
+//     the "Share P&L" card). THE ROW OFFERS WHAT THE HISTORY HAS (founder,
+//     7 November 2026: 1Y on a young history drew a long flat line and a
+//     spike at the end, "use ALL like it was before"): the fixed ranges
+//     shorter than the line's history, then ALL ([pnlRangesProvider]; 10
+//     days: 1W · ALL, 50 days: 1W · 1M · ALL); a pick it does not offer
+//     (1M, the start, on a three-week history) draws the whole line with
+//     ALL lit ([pnlShownRangeProvider]), so the line always fills the
+//     width; under a week there is nothing to pick and no row. The
+//     engine's shapes while it is read; nothing it can chart (every read
+//     failed): the venues' own published line ([pnlSeries]) with every
+//     range;
 //   * one quiet line: "3 positions · Available $17.64" (the open
 //     positions the Positions section lists). Nothing open: the Available
 //     alone.
@@ -85,9 +93,11 @@
 //     never today's sizes against prices from before a position. The same
 //     chart as P&L's (the compact plot, the split fill, the result colour
 //     of the figure now), the dashed hairline at zero, and its own range
-//     row (1W 1M 3M 1Y ALL, [openPnlShownRangeProvider]: the shortest that
-//     covers the oldest position's entry to start, the pick kept for the
-//     session). A scrub writes the open P&L at that moment in the line
+//     row (the fixed ranges shorter than the oldest position's age, then
+//     ALL, [openPnlRangesProvider]; no row under a week;
+//     [openPnlShownRangeProvider]: ALL, the whole history, to start, the
+//     pick kept for the session, ALL while the line does not offer it).
+//     A scrub writes the open P&L at that moment in the line
 //     ("▲ $0.40 · Open P&L · Oct 16 14:00"). The chart's shapes while the
 //     history is read; a position whose history cannot be read is left
 //     out of the line (a quiet "1 position not charted" under it; the
@@ -155,6 +165,7 @@ import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart'
         pnlEventVenue,
         pnlRangeChange,
         pnlResultColor,
+        pnlShownRangeProvider,
         portfolioPickPnlVenue;
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
     show InvestmentsProduct, portfolioOpenCount, portfolioOpenPnl;
@@ -588,7 +599,8 @@ class _PortfolioHeroChartState extends ConsumerState<PortfolioHeroChart> {
     final c = context.colors;
     final l10n = context.l10n;
     final venues = ref.watch(portfolioVenuesProvider);
-    final range = ref.watch(pnlChartRangeProvider);
+    // The range picked; the line may draw another ([pnlShownRangeProvider]).
+    final rangePicked = ref.watch(pnlChartRangeProvider);
     final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
     final open = widget.open;
 
@@ -692,10 +704,16 @@ class _PortfolioHeroChartState extends ConsumerState<PortfolioHeroChart> {
     final List<DateTime> times;
     final bool daily;
     var leftOut = const <String>{};
-    final window = status == OpenPnlChartStatus.chart
-        ? ref.watch(
-            pnlWindowProvider((range: range, venue: engineVenue)))
-        : null;
+    // The ranges the line offers (the fixed ones shorter than its history,
+    // then ALL) and the range as it draws it: the pick, else ALL.
+    var ranges = BalanceRange.values;
+    var range = rangePicked;
+    OpenPnlWindow? window;
+    if (status == OpenPnlChartStatus.chart) {
+      ranges = ref.watch(pnlRangesProvider(engineVenue));
+      range = ref.watch(pnlShownRangeProvider(engineVenue));
+      window = ref.watch(pnlWindowProvider((range: range, venue: engineVenue)));
+    }
     if (window != null && window.values.isNotEmpty) {
       values = [...window.values];
       values[values.length - 1] = live;
@@ -703,6 +721,9 @@ class _PortfolioHeroChartState extends ConsumerState<PortfolioHeroChart> {
       daily = window.daily;
       leftOut = ref.watch(pnlLeftOutProvider(engineVenue));
     } else {
+      // The venues' own line: every range, the pick as it is.
+      ranges = BalanceRange.values;
+      range = rangePicked;
       final series = pnlSeries(data, widget.now ?? DateTime.now());
       final shown = kuteTrendWindow(series, series.spanFor(range));
       values = shown.values;
@@ -806,11 +827,10 @@ class _PortfolioHeroChartState extends ConsumerState<PortfolioHeroChart> {
             onScrubStart: () => TrackingService.track(
                 'portfolio_performance_chart_scrubbed',
                 params: {'venue': pnlEventVenue(picked)}),
-            rangeLabels: [for (final r in BalanceRange.values) r.label],
-            selectedRange: range.index,
-            onRangeSelected: (i) => ref
-                .read(pnlChartRangeProvider.notifier)
-                .state = BalanceRange.values[i],
+            rangeLabels: _rangeLabels(ranges),
+            selectedRange: ranges.indexOf(range),
+            onRangeSelected: (i) =>
+                ref.read(pnlChartRangeProvider.notifier).state = ranges[i],
           ),
           if (leftOut.isNotEmpty) _NotCharted(count: leftOut.length),
         ],
@@ -818,6 +838,11 @@ class _PortfolioHeroChartState extends ConsumerState<PortfolioHeroChart> {
     );
   }
 }
+
+/// The range row for [ranges] (shortest first, ALL last): their labels;
+/// none with ALL alone (a history under a week: nothing to pick).
+List<String>? _rangeLabels(List<BalanceRange> ranges) =>
+    ranges.length < 2 ? null : [for (final r in ranges) r.label];
 
 /// "1 position not charted (history unavailable)" under a chart: a
 /// position held now whose line could not be read (the figure still
@@ -938,6 +963,7 @@ class _OpenPnlChart extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
     final l10n = context.l10n;
+    final ranges = ref.watch(openPnlRangesProvider);
     final range = ref.watch(openPnlShownRangeProvider);
     final window = ref.watch(openPnlWindowProvider(range));
     final leftOut = ref.watch(openPnlHistoryProvider
@@ -983,11 +1009,10 @@ class _OpenPnlChart extends ConsumerWidget {
           onScrubStart: () => TrackingService.track(
               'portfolio_performance_chart_scrubbed',
               params: {'venue': 'open_positions'}),
-          rangeLabels: [for (final r in BalanceRange.values) r.label],
-          selectedRange: range.index,
-          onRangeSelected: (i) => ref
-              .read(openPnlRangeProvider.notifier)
-              .state = BalanceRange.values[i],
+          rangeLabels: _rangeLabels(ranges),
+          selectedRange: ranges.indexOf(range),
+          onRangeSelected: (i) =>
+              ref.read(openPnlRangeProvider.notifier).state = ranges[i],
         ),
         if (leftOut.isNotEmpty) ...[
           SizedBox(height: 10.h),

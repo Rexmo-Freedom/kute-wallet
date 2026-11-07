@@ -595,7 +595,10 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
         ref.read(runtimeCapabilitiesProvider), 'generic');
     if (!mounted) return;
     if (denial != null) {
-      await showCapabilityDecisionSheet(context, denial);
+      // Named, so "Check connection" asks this switch again, not every
+      // region denial the policy holds (a swap block included).
+      await showCapabilityDecisionSheet(context, denial,
+          capability: kHardwareWalletCapability);
       if (!mounted) return;
       setState(() => _isProcessing = false);
       _safeStart();

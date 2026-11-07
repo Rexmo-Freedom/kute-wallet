@@ -374,11 +374,13 @@ void main() {
   });
 
   testWidgets(
-      'a conversion into bitcoin: Track this exchange, BOUGHT · '
-      'BITCOIN; an expired one shares nothing', (tester) async {
+      'a conversion into bitcoin, the person\'s own money: Track this '
+      'exchange, MOVED, never BOUGHT; an expired one shares nothing',
+      (tester) async {
     await open(tester, _conversion());
     final card = await tapShare(tester, primary: 'Track this exchange');
-    expect(card.type, ReceiptCardKind.bought);
+    expect(card.type, ReceiptCardKind.moved);
+    expect(card.to, 'Bitcoin');
     expect(card.amount, r'$20.00');
     expect(card.bitcoin, '₿30,000');
 

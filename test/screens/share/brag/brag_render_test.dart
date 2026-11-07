@@ -1,5 +1,7 @@
 // The brag cards as images, for a look by eye: a big win (with its
-// all-time line, and without it: the top positions' rows), a small win, a
+// all-time line over its holdings, and without it: the holdings' rows
+// alone), the founder's card (+$3.43 on the line, with none, two and five
+// positions open, in English and German), a small win, a
 // loss, flat, and the positions (a winning prediction, a losing Investing
 // position), a won prediction (resolved), the P&L card (pnl_share_card.dart, up and down), German and
 // Japanese, at 1080 × 1350 with Sal's real stills.
@@ -99,8 +101,35 @@ void main() {
         );
     const en = Locale('en');
     final frames = <String, (BragData, Locale)>{
-      'portfolio_series':
-          (fakeBragPortfolio(series: kFakeBragPortfolioSeries), en),
+      'portfolio_series': (
+        fakeBragPortfolio(series: kFakeBragPortfolioSeries),
+        en
+      ),
+      'portfolio_series_more': (
+        fakeBragPortfolio(series: kFakeBragPortfolioSeries, open: 7),
+        en
+      ),
+      // The founder's card (7 November 2026): none, two and five open.
+      'portfolio_0': (fakeBragFounderPortfolio(holdings: 0, open: 0), en),
+      'portfolio_2': (fakeBragFounderPortfolio(holdings: 2, open: 2), en),
+      'portfolio_5': (fakeBragFounderPortfolio(), en),
+      'portfolio_5_no_line': (fakeBragFounderPortfolio(series: false), en),
+      'de_portfolio_0': (
+        fakeBragFounderPortfolio(holdings: 0, open: 0, title: 'Mein Portfolio'),
+        const Locale('de')
+      ),
+      'de_portfolio_2': (
+        fakeBragFounderPortfolio(holdings: 2, open: 2, title: 'Mein Portfolio'),
+        const Locale('de')
+      ),
+      'de_portfolio_5': (
+        fakeBragFounderPortfolio(title: 'Mein Portfolio'),
+        const Locale('de')
+      ),
+      'big_win_more': (
+        fakeBragPortfolio(gengImage: geng, fedImage: fed, open: 6),
+        en
+      ),
       'big_win': (fakeBragPortfolio(gengImage: geng, fedImage: fed), en),
       'small_win': (fakeBragSmallWinPortfolio(), en),
       'loss': (fakeBragLosingPortfolio(), en),
@@ -140,7 +169,12 @@ void main() {
         const Locale('ja')
       ),
     };
+    // A seed whose own line takes two lines: a card listing its holdings
+    // takes the next one that sets on one (bragCardEdge).
+    final seeds = <String, int>{'portfolio_5_seed1': 1};
+    frames['portfolio_5_seed1'] = (fakeBragFounderPortfolio(), en);
     for (final MapEntry(key: name, value: (data, locale)) in frames.entries) {
+      final seed = seeds[name] ?? 0;
       final key = GlobalKey();
       final app = ScreenUtilInit(
           designSize: const Size(430, 932),
@@ -158,7 +192,10 @@ void main() {
                     key: key,
                     child: data is BragPnl
                         ? PnlShareCard(data: data, mark: ShareCardSal.peek())
-                        : BragCard(data: data, mark: ShareCardSal.peek()),
+                        : BragCard(
+                            data: data,
+                            mark: ShareCardSal.peek(),
+                            lineSeed: seed),
                   ),
                 ),
               ));

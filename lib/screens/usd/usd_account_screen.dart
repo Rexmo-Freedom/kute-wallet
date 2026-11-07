@@ -175,8 +175,8 @@ import 'package:kute/screens/usd/investments_category_sheet.dart'
         showInvestmentsCategorySheet;
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart'
     show showCapabilityUnavailableSheet;
-import 'package:kute/screens/shared/receive_swap_glyph.dart'
-    show receiveSwapGlyph;
+import 'package:kute/screens/shared/receive_arrow_glyph.dart'
+    show receiveArrowGlyph;
 import 'package:kute/screens/usd/usd_withdraw_screen.dart'
     show showUsdWithdrawSheet;
 import 'package:kute/services/tracking_service.dart';
@@ -1265,11 +1265,11 @@ class UsdAccountActionBar extends ConsumerWidget {
           solid: true,
           onTap: () => buyDollars(context),
         ),
-        // The arrow with the swap badge (founder, 6 November 2026): the
-        // sheet behind it is "Receive or swap"; the label stays Receive.
+        // The plain receive arrow, moving as the hub's "+" does (founder,
+        // 7 November 2026; receive_arrow_glyph.dart).
         KuteDockAction(
           icon: Icons.south_west_rounded,
-          glyph: receiveSwapGlyph,
+          glyph: receiveArrowGlyph,
           label: context.l10n.receive,
           trackingId: 'receive',
           onTap: () => receive(context),

@@ -1234,7 +1234,7 @@ void main() {
           dollars: 10,
           orders: [hlLanded().copyWith(status: 'exchanging'), pmRow()]);
       expect(find.text('Retry'), findsOneWidget);
-      expect(find.text('Buy bitcoin'), findsNothing);
+      expect(find.text('Move to Bitcoin'), findsNothing);
       expect(find.text('Exchange ID'), findsNothing);
     });
 
@@ -1398,7 +1398,7 @@ void main() {
       expect(kuteBarPrimaryContext(tester).label, 'Track this exchange');
       expect(find.text('Track this exchange'), findsNothing);
       expect(find.text('Retry'), findsNothing);
-      expect(find.text('Buy bitcoin'), findsNothing);
+      expect(find.text('Move to Bitcoin'), findsNothing);
       await openNerd(tester);
       // Not repeated inside.
       expect(find.text('Track this exchange'), findsNothing);
@@ -1866,7 +1866,7 @@ void main() {
 
       await pump(tester, tx);
       expect(text('Needs attention'), findsOneWidget);
-      expect(text(r'Your $20.23 is in Dollars. Tap to buy Bitcoin'),
+      expect(text(r'Your $20.23 is in Dollars. Tap to move it to Bitcoin'),
           findsOneWidget);
       expect(text('Pending'), findsNothing);
 
@@ -1903,14 +1903,14 @@ void main() {
       expect(find.textContaining('Investing → Investments'), findsNothing);
       expect(find.text('Needs attention'), findsOneWidget);
       expect(find.text('Pending'), findsNothing);
-      expect(find.text(r'Your $20.23 is in Dollars. Tap to buy Bitcoin'),
+      expect(find.text(r'Your $20.23 is in Dollars. Tap to move it to Bitcoin'),
           findsOneWidget);
       // The leg's cost reads as the swap sheets' plain Fee, never a Kute
       // fee.
       expect(find.textContaining('Kute'), findsNothing);
-      await tester.ensureVisible(find.text('Buy bitcoin'));
+      await tester.ensureVisible(find.text('Move to Bitcoin'));
       await tester.pump(const Duration(milliseconds: 100));
-      await tester.tap(find.text('Buy bitcoin'));
+      await tester.tap(find.text('Move to Bitcoin'));
       await frames(tester);
       expect(prompts, hasLength(1));
       expect(bought, [20.23]);
@@ -2016,7 +2016,7 @@ void main() {
               surface(context, ref, onlyUsdb: true, move: move, rows: [leg]));
       expect(listed.single, isA<MultiSourceMoveTransaction>());
       expect(text('Needs attention'), findsOneWidget);
-      expect(text(r'Your $20.23 is in Dollars. Tap to buy Bitcoin'),
+      expect(text(r'Your $20.23 is in Dollars. Tap to move it to Bitcoin'),
           findsOneWidget);
       await pump(tester, tx,
           orders: [hlHome()],
@@ -2075,7 +2075,7 @@ void main() {
       // No purchase for a send: the tap opens the detail.
       expect(prompts, isEmpty);
       expect(findMoneyStep(r'Investing → Dollars · $20.69'), findsOneWidget);
-      expect(find.text('Buy bitcoin'), findsNothing);
+      expect(find.text('Move to Bitcoin'), findsNothing);
       expect(find.text('Needs attention'), findsWidgets);
 
       dollars = 5;

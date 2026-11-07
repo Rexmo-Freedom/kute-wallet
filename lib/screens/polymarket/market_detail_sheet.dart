@@ -32,6 +32,7 @@ import 'package:kute/screens/polymarket/components/poly_livestream_host.dart';
 import 'package:kute/providers/polymarket_game_lines_provider.dart';
 import 'package:kute/services/polymarket/crypto_round.dart';
 import 'package:kute/services/polymarket/event_trading_over.dart';
+import 'package:kute/services/polymarket/market_display_title.dart';
 import 'package:kute/screens/polymarket/components/fast_bet_scope.dart';
 import 'package:kute/services/polymarket/fast_bet_window.dart';
 import 'package:kute/services/polymarket/live_game/game_sides.dart'
@@ -747,7 +748,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   KuteBarContext _barContext() {
     return marketBarContext(
       context,
-      title: event.title,
+      title: event.displayTitle,
       venue: kMarketLinkPredictions,
       slug: event.slug,
       chance: event.isBinary ? event.yesPrice * 100 : null,
@@ -801,7 +802,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
           Expanded(
             // The whole title: smaller rather than cut.
             child: FittedTitle(
-              event.title,
+              event.displayTitle,
               key: const ValueKey('poly-detail-title'),
               style: titleStyle,
             ),
@@ -1402,7 +1403,9 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       negRisk: event.negRisk,
       marketSlug: event.slug,
       event: event,
-      marketQuestion: question ?? '${event.title}: ${market.name}',
+      marketQuestion: question ??
+          polyMarketDisplayTitle(event.title,
+              question: market.question, itemTitle: market.name),
       marketImage: PolymarketEvent.logoFromTeams(
               event.teams.isNotEmpty ? event.teams : _fetchedTeams,
               market.name) ??
@@ -1460,7 +1463,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       context,
       event: event,
       negRisk: event.negRisk,
-      marketQuestion: event.title,
+      marketQuestion: event.displayTitle,
       marketSlug: event.slug,
       marketImage: event.imageUrl,
       outcomes: [
@@ -2571,7 +2574,12 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     final binaryEvent = PolymarketEvent(
       id: '${event.id}-${cand.name}',
       slug: event.slug,
+      // The candidate by its name on the event (a share link names it so);
+      // the page, its slip and its cards are titled by the market's own
+      // question, never the bare name ("December 31, 2026").
       title: cand.name,
+      marketQuestion: polyMarketDisplayTitle(event.title,
+          question: cand.question, itemTitle: cand.name),
       imageUrl: crest ?? cand.imageUrl ?? event.imageUrl,
       volume: cand.volume ?? 0,
       liquidity: event.liquidity,
@@ -2669,7 +2677,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       context,
       event: event,
       negRisk: event.negRisk,
-      marketQuestion: event.title,
+      marketQuestion: event.displayTitle,
       marketSlug: event.slug,
       marketImage: event.imageUrl,
       outcomes: event.outcomes,

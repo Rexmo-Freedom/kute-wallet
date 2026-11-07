@@ -64,6 +64,7 @@ import 'package:kute/screens/portfolio/portfolio_category_donut.dart';
 import 'package:kute/screens/shared/kute_motion.dart';
 import 'package:kute/screens/shared/components/sheet_detail_row.dart'
     show SheetAnimatedSize;
+import 'package:kute/services/polymarket/market_display_title.dart';
 import 'package:kute/services/portfolio/portfolio_categories.dart'
     show kPortfolioOtherCategory, predictionLiveValueUsd;
 import 'package:kute/services/portfolio/portfolio_category_items.dart';
@@ -686,8 +687,9 @@ class _EventTitle extends ConsumerWidget {
     final event = item.eventSlug.isEmpty
         ? null
         : ref.watch(polyPositionEventProvider(item.eventSlug));
+    // The event's name heads its markets: never its blank ("by...?").
     final title = (event?.title ?? '').trim().isNotEmpty
-        ? event!.title.trim()
+        ? polyMarketDisplayTitle(event!.title)
         : item.title.isNotEmpty
             ? item.title
             : context.l10n.betGroupOther;

@@ -3531,7 +3531,9 @@ Widget _buildSwapOrderItem(
     final to = details.coinTo == 'BTC' && details.networkTo == 'LIGHTNING'
         ? 'Lightning'
         : _swapLegLabel(context, details.coinTo);
-    title = context.l10n.swap;
+    // The person's own money moved ("Moved · To Bitcoin"); the word swap
+    // appears nowhere (founder, 7 November 2026).
+    title = context.l10n.receiptCardMoved;
     where = context.l10n.activityRowTo(to);
   }
 
@@ -4125,22 +4127,27 @@ ReceiptShare? _swapReceiptShare(BuildContext context, SwapOrder d) {
 
   final venueBitcoinMove = (activity.isPredictions || activity.isInvesting) &&
       orchestraTouchesBitcoin(d);
-  // Dollars into bitcoin is a purchase, bitcoin into dollars a sale.
+  // Dollars into bitcoin, or bitcoin into dollars, is the person's own
+  // money moving: "Moved", from the one to the other, never "Bought" or
+  // "Sold" (founder, 7 November 2026: buy is only for money from
+  // outside).
   if (activity.isDollars && outSats != null && inUsd != null) {
     return moneyReceiptShare(
-        type: ReceiptCardKind.bought,
+        type: ReceiptCardKind.moved,
         asset: ReceiptCardAsset.bitcoin,
         usd: inUsd,
         sats: outSats,
-        what: l10n.bitcoin);
+        from: l10n.assetDollars,
+        to: l10n.bitcoin);
   }
   if (activity.isDollars && inSats != null && outUsd != null) {
     return moneyReceiptShare(
-        type: ReceiptCardKind.sold,
-        asset: ReceiptCardAsset.bitcoin,
+        type: ReceiptCardKind.moved,
+        asset: ReceiptCardAsset.dollars,
         usd: outUsd,
         sats: inSats,
-        what: l10n.bitcoin);
+        from: l10n.bitcoin,
+        to: l10n.assetDollars);
   }
   if (activity.isPredictions ||
       activity.isInvesting ||
@@ -4201,22 +4208,25 @@ ReceiptShare? _swapReceiptShare(BuildContext context, SwapOrder d) {
     return null;
   }
 
-  // A conversion: into bitcoin is a purchase, out of it a sale.
+  // A conversion between the person's own balances: moved, into bitcoin
+  // or out of it, never bought or sold.
   if (outSats != null && inUsd != null) {
     return moneyReceiptShare(
-        type: ReceiptCardKind.bought,
+        type: ReceiptCardKind.moved,
         asset: ReceiptCardAsset.bitcoin,
         usd: inUsd,
         sats: outSats,
-        what: l10n.bitcoin);
+        from: leg(d.coinFrom, d.networkFrom),
+        to: leg(d.coinTo, d.networkTo));
   }
   if (inSats != null && outUsd != null) {
     return moneyReceiptShare(
-        type: ReceiptCardKind.sold,
-        asset: ReceiptCardAsset.bitcoin,
+        type: ReceiptCardKind.moved,
+        asset: ReceiptCardAsset.dollars,
         usd: outUsd,
         sats: inSats,
-        what: l10n.bitcoin);
+        from: leg(d.coinFrom, d.networkFrom),
+        to: leg(d.coinTo, d.networkTo));
   }
   if (outSats == null && inSats == null) return null;
   return moneyReceiptShare(
@@ -7279,7 +7289,8 @@ class _MultiSourceMoveDetailSheetState
                             borderRadius: AppRadius.buttonBorder),
                       ),
                       child: Text(
-                        l10n.moveBuyBitcoin,
+                        // Dollars into Bitcoin is a move, never a buy.
+                        l10n.moveToBitcoin,
                         style: TextStyle(
                             fontSize: 16.sp, fontWeight: FontWeight.w600),
                       ),

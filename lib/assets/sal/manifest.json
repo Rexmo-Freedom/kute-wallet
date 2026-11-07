@@ -1249,5 +1249,317 @@
       }
     },
     "group": "card"
+  },
+  "level_1": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 64,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "level_1@2x.webp",
+        "cell": 128,
+        "width": 128,
+        "height": 128
+      },
+      "3x": {
+        "file": "level_1@3x.webp",
+        "cell": 192,
+        "width": 192,
+        "height": 192
+      }
+    },
+    "group": "level"
+  },
+  "level_2": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 64,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "level_2@2x.webp",
+        "cell": 128,
+        "width": 128,
+        "height": 128
+      },
+      "3x": {
+        "file": "level_2@3x.webp",
+        "cell": 192,
+        "width": 192,
+        "height": 192
+      }
+    },
+    "group": "level"
+  },
+  "level_3": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 64,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "level_3@2x.webp",
+        "cell": 128,
+        "width": 128,
+        "height": 128
+      },
+      "3x": {
+        "file": "level_3@3x.webp",
+        "cell": 192,
+        "width": 192,
+        "height": 192
+      }
+    },
+    "group": "level"
+  },
+  "level_4": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 64,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "level_4@2x.webp",
+        "cell": 128,
+        "width": 128,
+        "height": 128
+      },
+      "3x": {
+        "file": "level_4@3x.webp",
+        "cell": 192,
+        "width": 192,
+        "height": 192
+      }
+    },
+    "group": "level"
+  },
+  "level_5": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 64,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "level_5@2x.webp",
+        "cell": 128,
+        "width": 128,
+        "height": 128
+      },
+      "3x": {
+        "file": "level_5@3x.webp",
+        "cell": 192,
+        "width": 192,
+        "height": 192
+      }
+    },
+    "group": "level"
+  },
+  "level_6": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 64,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "level_6@2x.webp",
+        "cell": 128,
+        "width": 128,
+        "height": 128
+      },
+      "3x": {
+        "file": "level_6@3x.webp",
+        "cell": 192,
+        "width": 192,
+        "height": 192
+      }
+    },
+    "group": "level"
+  },
+  "level_7": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 64,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "level_7@2x.webp",
+        "cell": 128,
+        "width": 128,
+        "height": 128
+      },
+      "3x": {
+        "file": "level_7@3x.webp",
+        "cell": 192,
+        "width": 192,
+        "height": 192
+      }
+    },
+    "group": "level"
+  },
+  "level_8": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 64,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "level_8@2x.webp",
+        "cell": 128,
+        "width": 128,
+        "height": 128
+      },
+      "3x": {
+        "file": "level_8@3x.webp",
+        "cell": 192,
+        "width": 192,
+        "height": 192
+      }
+    },
+    "group": "level"
+  },
+  "level_9": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 64,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "level_9@2x.webp",
+        "cell": 128,
+        "width": 128,
+        "height": 128
+      },
+      "3x": {
+        "file": "level_9@3x.webp",
+        "cell": 192,
+        "width": 192,
+        "height": 192
+      }
+    },
+    "group": "level"
+  },
+  "level_10": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 64,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "level_10@2x.webp",
+        "cell": 128,
+        "width": 128,
+        "height": 128
+      },
+      "3x": {
+        "file": "level_10@3x.webp",
+        "cell": 192,
+        "width": 192,
+        "height": 192
+      }
+    },
+    "group": "level"
+  },
+  "level_11": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 64,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "level_11@2x.webp",
+        "cell": 128,
+        "width": 128,
+        "height": 128
+      },
+      "3x": {
+        "file": "level_11@3x.webp",
+        "cell": 192,
+        "width": 192,
+        "height": 192
+      }
+    },
+    "group": "level"
+  },
+  "level_12": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 64,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "level_12@2x.webp",
+        "cell": 128,
+        "width": 128,
+        "height": 128
+      },
+      "3x": {
+        "file": "level_12@3x.webp",
+        "cell": 192,
+        "width": 192,
+        "height": 192
+      }
+    },
+    "group": "level"
+  },
+  "goal_next": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 64,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "goal_next@2x.webp",
+        "cell": 128,
+        "width": 128,
+        "height": 128
+      },
+      "3x": {
+        "file": "goal_next@3x.webp",
+        "cell": 192,
+        "width": 192,
+        "height": 192
+      }
+    },
+    "group": "goal"
   }
 }

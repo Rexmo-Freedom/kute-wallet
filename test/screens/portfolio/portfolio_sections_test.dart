@@ -550,17 +550,20 @@ void main() {
     expect(_figure(tester, 'portfolio-hero-value'), r'$14.24');
     final change = _change(tester);
     expect(change, startsWith('▲ \$'));
-    expect(change, endsWith(' · Past month'));
+    // Three weeks of P&L (the first off zero 22 days back): the month the
+    // hero starts on would be its whole line, so it draws ALL.
+    expect(change, endsWith(' · All time'));
     expect(change, isNot(contains('%')), reason: 'no base, no percent');
     final line = tester
         .widget<Text>(find.byKey(const ValueKey('portfolio-hero-change')))
         .textSpan! as TextSpan;
     expect((line.children!.first as TextSpan).style!.color, AppColors.marketUp);
-    // The one chart, the split fill, the range row 1W to ALL with 1M on.
+    // The one chart, the split fill, the range row: what the three weeks
+    // offer (1W, then ALL), ALL on.
     final chart = tester.widget<KuteTrendChart>(
         find.byKey(const ValueKey('portfolio-hero-chart')));
     expect(chart.zeroSplit, isTrue);
-    expect(chart.rangeLabels, ['1W', '1M', '3M', '1Y', 'ALL']);
+    expect(chart.rangeLabels, ['1W', 'ALL']);
     expect(chart.selectedRange, 1);
     expect(find.byType(KuteTrendChart), findsOneWidget);
     // "1 position · Available $42.64": the BTC perp; Dollars and the
@@ -632,24 +635,28 @@ void main() {
         _expectSameRect(hero, rect, '$s');
       }
     }
-    // The venue square's P&L is over the hero's range, its corner names it.
+    // The venue square's P&L is over the hero's range as the hero draws
+    // it, its corner names it: three weeks of history, so the month (the
+    // start) is ALL there too.
     Finder inInvesting(String key) => find.descendant(
         of: find.byKey(const ValueKey('pnl-venue-investing')),
         matching: find.byKey(ValueKey(key)));
-    final month = tester.widget<Text>(inInvesting('pnl-venue-figure')).data;
+    final whole = tester.widget<Text>(inInvesting('pnl-venue-figure')).data;
     expect(tester.widget<Text>(inInvesting('pnl-venue-change')).data,
-        endsWith('Past month'));
+        endsWith('All time'));
+    // ALL: the P&L since the account began, both venues added.
+    expect(_change(tester), '▲ \$20.01 · All time');
     await tester.tap(find.text('1W'));
     await _settle(tester);
     expect(_change(tester), endsWith(' · Past week'));
     expect(tester.widget<Text>(inInvesting('pnl-venue-figure')).data,
-        isNot(month));
+        isNot(whole));
     expect(tester.widget<Text>(inInvesting('pnl-venue-change')).data,
         endsWith('Past week'));
     await tester.tap(find.text('ALL'));
     await _settle(tester);
-    // ALL: the P&L since the account began, both venues added.
     expect(_change(tester), '▲ \$20.01 · All time');
+    expect(tester.widget<Text>(inInvesting('pnl-venue-figure')).data, whole);
     await _unmount(tester);
   });
 
@@ -1163,9 +1170,10 @@ void main() {
       expect(alone.last, closeTo(7.61, 1e-9));
       expect(alone, isNot(both));
       expect(heroChart(tester).onScrub, isNotNull);
-      // "Predictions · ▲ $X · Past month", X the square's own figure.
+      // "Predictions · ▲ $X · All time" (three weeks of P&L: the month
+      // reaches past it, so ALL), X the square's own figure.
       final figure = squareFigure(tester, 'predictions').replaceFirst('+', '');
-      expect(_change(tester), 'Predictions · ▲ $figure · Past month');
+      expect(_change(tester), 'Predictions · ▲ $figure · All time');
       expect(find.byKey(const ValueKey('portfolio-hero-venue-logo')),
           findsOneWidget);
       // The venue's own Invested; "All" beside it.
@@ -1478,10 +1486,11 @@ void main() {
 
     /// The open predictions: a (2 shares at 0.5, now 0.6, first entry ten
     /// days ago) and d (4 at 0.5, now 0.4, three days ago): +0.20 − 0.40.
-    List<Override> open() => [
+    /// [aDays]: a opened that many days ago instead.
+    List<Override> open({int aDays = 10}) => [
           polymarketActivePositionsProvider.overrideWith((_) => [
                 for (final (t, size, price, days) in [
-                  ('a', 2.0, 0.6, 10),
+                  ('a', 2.0, 0.6, aDays),
                   ('d', 4.0, 0.4, 3),
                 ])
                   PolymarketPosition(
@@ -1518,9 +1527,11 @@ void main() {
       ),
     ];
 
-    /// Hourly prices: a at 0.6, d at 0.4 throughout; BTC's candles at
-    /// 60,004 (+$0.40 on 0.1). [btc] false: BTC's candles cannot be read.
-    OpenPnlSources sources({bool btc = true}) => OpenPnlSources(
+    /// Hourly prices: a at 0.6, d at 0.4 throughout (the last
+    /// [priceDays]); BTC's candles at 60,004 (+$0.40 on 0.1). [btc] false:
+    /// BTC's candles cannot be read.
+    OpenPnlSources sources({bool btc = true, int priceDays = 15}) =>
+        OpenPnlSources(
           activity: (_) async => const [],
           candles: (_, wire, interval, window) async {
             if (!btc || wire != 'BTC') return null;
@@ -1541,7 +1552,7 @@ void main() {
             return out;
           },
           polyHistory: (_, token, interval) async => [
-            for (var h = 24 * 15; h >= 0; h -= 1)
+            for (var h = 24 * priceDays; h >= 0; h -= 1)
               PolymarketPricePoint(
                   timestamp: now.subtract(Duration(hours: h)),
                   price: token == 'a' ? 0.6 : 0.4),
@@ -1559,8 +1570,7 @@ void main() {
     testWidgets(
         'the chart is back: its last point is the Open P&L figure itself, '
         'zero before the oldest entry, green above zero, the dashed line at '
-        'zero, and the ranges open on the shortest covering the oldest '
-        'entry', (tester) async {
+        'zero, and the ranges open on ALL, the whole history', (tester) async {
       await _mount(tester,
           state: _bothAtWork,
           trading: _btcHeld,
@@ -1585,12 +1595,15 @@ void main() {
               .widgetList<HlPositionRow>(find.byType(HlPositionRow))
               .fold<double>(0, (t, r) => t + r.position.unrealizedPnl);
       expect(c.values.last, rows);
-      // Ten days back at the oldest: a month covers it, and draws all of
-      // it, from the lead-in at zero.
-      expect(c.selectedRange, BalanceRange.month.index);
-      expect(c.rangeLabels, ['1W', '1M', '3M', '1Y', 'ALL']);
+      // Ten days back at the oldest: the row offers the week and ALL (a
+      // month would draw all of it, ALL's window), ALL on: the whole line
+      // from its short lead-in at zero.
+      expect(c.rangeLabels, ['1W', 'ALL']);
+      expect(c.selectedRange, 1);
       expect(c.values.first, 0);
       expect(c.times!.first.isBefore(now.subtract(const Duration(days: 10))),
+          isTrue);
+      expect(c.times!.first.isAfter(now.subtract(const Duration(days: 12))),
           isTrue);
       expect(c.zeroSplit, isTrue);
       expect(c.baseline, 0);
@@ -1629,59 +1642,105 @@ void main() {
     });
 
     testWidgets(
-        'THE RANGES MOVE THE WINDOW (founder, 6 November 2026: "the Positions '
-        'chart ignores the 1W/1M/3M/1Y/ALL buttons"): every pill tapped '
-        'draws its own reach, zero before the oldest entry, the same figure '
-        'last', (tester) async {
+        'THE ROW OFFERS WHAT THE HISTORY HAS (founder, 7 November 2026: 1Y '
+        'on positions opened lately drew a long flat line and a spike, "use '
+        'ALL like it was before"): the fixed ranges shorter than the oldest '
+        'entry, then ALL, ALL to start; every pill tapped moves the window '
+        '(a window of its own, never a flat stretch before the line), the '
+        'same figure last', (tester) async {
+      final openChart = find.byKey(const ValueKey('portfolio-hero-open-chart'));
+      for (final (aDays, offered) in const [
+        (10, ['1W', 'ALL']),
+        (50, ['1W', '1M', 'ALL']),
+        (100, ['1W', '1M', '3M', 'ALL']),
+      ]) {
+        await _mount(tester,
+            state: _bothAtWork,
+            trading: _btcHeld,
+            fills: btcFills,
+            size: const Size(390, 1400),
+            sources: sources(priceDays: aDays + 2),
+            extra: [
+              ..._history(),
+              ..._predictionsHistory(),
+              ...open(aDays: aDays),
+            ]);
+        final oldest = now.subtract(Duration(days: aDays));
+        var c = chart(tester);
+        expect(c.rangeLabels, offered, reason: '$aDays days');
+        // ALL to start: the whole history.
+        expect(c.selectedRange, offered.length - 1, reason: '$aDays days');
+        for (final r in BalanceRange.values) {
+          if (offered.contains(r.label)) continue;
+          expect(find.descendant(of: openChart, matching: find.text(r.label)),
+              findsNothing,
+              reason: '${r.label} on $aDays days');
+        }
+        final firsts = <String, DateTime>{};
+        // The longest first, ALL last, so each tap is a change.
+        for (final label in [
+          ...offered.reversed.skip(1),
+          'ALL',
+        ]) {
+          await tester.tap(
+              find.descendant(of: openChart, matching: find.text(label)));
+          await _settle(tester);
+          c = chart(tester);
+          final why = '$label on $aDays days';
+          expect(c.selectedRange, offered.indexOf(label), reason: why);
+          expect(c.values.last, closeTo(0.2, 1e-9), reason: why);
+          final first = c.times!.first;
+          firsts[label] = first;
+          final range = BalanceRange.values.firstWhere((r) => r.label == label);
+          if (range.duration case final back?) {
+            // Its own window, ending now, inside the line: what was open
+            // then (a alone, +0.20), never zero.
+            expect(first.difference(now.subtract(back)).inMinutes.abs(),
+                lessThanOrEqualTo(24 * 60),
+                reason: why);
+            expect(c.values.first, closeTo(0.2, 1e-9), reason: why);
+          } else {
+            // ALL: the whole line, from its lead-in (a twelfth of it) at
+            // zero before the oldest entry.
+            expect(first.isBefore(oldest), isTrue, reason: why);
+            expect(
+                first.isAfter(oldest.subtract(
+                    Duration(hours: aDays * 2 + 25))),
+                isTrue,
+                reason: why);
+            expect(c.values.first, 0, reason: why);
+          }
+        }
+        expect(firsts.values.toSet(), hasLength(offered.length),
+            reason: 'every pill a window of its own on $aDays days');
+        await _unmount(tester);
+      }
+    });
+
+    testWidgets(
+        'under a week of history: nothing to pick, no range row; the whole '
+        'line', (tester) async {
+      // a five days back, BTC six, d three: the oldest under a week.
       await _mount(tester,
           state: _bothAtWork,
           trading: _btcHeld,
           fills: btcFills,
           size: const Size(390, 1400),
           sources: sources(),
-          extra: [..._history(), ..._predictionsHistory(), ...open()]);
-      final firsts = <BalanceRange, DateTime>{};
-      // Out of order, so each tap is a change from another range.
-      for (final r in const [
-        BalanceRange.year,
-        BalanceRange.week,
-        BalanceRange.all,
-        BalanceRange.threeMonths,
-        BalanceRange.month,
-      ]) {
-        await tester.tap(find.descendant(
-            of: find.byKey(const ValueKey('portfolio-hero-open-chart')),
-            matching: find.text(r.label)));
-        await _settle(tester);
-        final c = chart(tester);
-        expect(c.selectedRange, r.index, reason: r.label);
-        expect(c.values.last, closeTo(0.2, 1e-9), reason: r.label);
-        final first = c.times!.first;
-        firsts[r] = first;
-        final back = r.duration;
-        if (back == null) {
-          // ALL: the whole line, from its lead-in before the oldest entry
-          // (ten days back).
-          expect(first.isBefore(now.subtract(const Duration(days: 10))),
-              isTrue,
-              reason: r.label);
-          expect(first.isAfter(now.subtract(const Duration(days: 12))),
-              isTrue,
-              reason: r.label);
-        } else {
-          // Its own reach, a month or a year past the line's start too.
-          expect(
-              first.difference(now.subtract(back)).inMinutes.abs(),
-              lessThanOrEqualTo(24 * 60),
-              reason: '${r.label} starts ${back.inDays} days back');
-        }
-        // Zero before the oldest entry, ten days back (a week starts after
-        // it: a alone held then, +0.20).
-        expect(c.values.first, r == BalanceRange.week ? closeTo(0.2, 1e-9) : 0,
-            reason: r.label);
-      }
-      expect(firsts.values.toSet(), hasLength(5),
-          reason: 'every range a window of its own');
+          extra: [..._history(), ..._predictionsHistory(), ...open(aDays: 5)]);
+      final c = chart(tester);
+      expect(c.rangeLabels, isNull);
+      expect(
+          find.descendant(
+              of: find.byKey(const ValueKey('portfolio-hero-open-chart')),
+              matching: find.byKey(const ValueKey('trend-chart-ranges'))),
+          findsNothing);
+      expect(c.values.last, closeTo(0.2, 1e-9));
+      expect(c.values.first, 0);
+      expect(c.times!.first.isBefore(now.subtract(const Duration(days: 6))),
+          isTrue);
+      expect(c.times!.first.isAfter(now.subtract(const Duration(days: 7))),
+          isTrue);
       await _unmount(tester);
     });
 
@@ -1893,11 +1952,15 @@ void main() {
             sources: sources(),
             extra: venue());
         final c = chart(tester);
-        // The past month (the default): from a month back, zero then.
-        expect(c.times!.first.difference(now.subtract(const Duration(days: 30)))
-                .inHours
-                .abs(),
-            lessThanOrEqualTo(24));
+        // The past month (the start) reaches past the history (the venue's
+        // first P&L twenty days back): ALL, the whole line from its short
+        // lead-in, zero then; the row offers 1W and ALL.
+        expect(c.rangeLabels, ['1W', 'ALL']);
+        expect(c.selectedRange, 1);
+        expect(c.times!.first.isBefore(now.subtract(const Duration(days: 20))),
+            isTrue);
+        expect(c.times!.first.isAfter(now.subtract(const Duration(days: 23))),
+            isTrue);
         expect(c.values.first, 0);
         expect(c.values.last, closeTo(100.4, 1e-9));
         for (var i = 0; i < c.values.length - 1; i++) {
@@ -1917,8 +1980,8 @@ void main() {
         expect(c.baseline, 0);
         expect(c.zeroSplit, isTrue);
         expect(c.lineColor, AppColors.marketUp);
-        // The past month's P&L: all of it.
-        expect(line(tester), startsWith(r'▲ $100.40 · Past month'));
+        // ALL's P&L: all of it, live less the window's start (zero).
+        expect(line(tester), startsWith(r'▲ $100.40 · All time'));
         expect(find.byKey(const ValueKey('portfolio-hero-left-out')),
             findsNothing);
 
@@ -1927,12 +1990,72 @@ void main() {
             of: find.byKey(const ValueKey('portfolio-hero-chart')),
             matching: find.text('1W')));
         await _settle(tester);
-        expect(chart(tester).selectedRange, BalanceRange.week.index);
+        expect(chart(tester).selectedRange, 0);
         expect(line(tester), startsWith(r'▲ $99.40 · Past week'));
         expect(chart(tester).values.last, closeTo(100.4, 1e-9));
         await _unmount(tester);
       });
     }
+
+    testWidgets(
+        'the row offers what the history has (a hundred days: 1W 1M 3M '
+        'ALL, 1Y not); every pill a window of its own, its P&L the P&L now '
+        'less the window\'s start, ALL all of it', (tester) async {
+      await _mount(tester,
+          state: _bothAtWork,
+          section: PortfolioSection.charts,
+          trading: _btcHeld,
+          fills: fills,
+          size: const Size(390, 1600),
+          sources: sources(),
+          extra: [
+            portfolioPerformanceProvider(const PortfolioPerformanceRequest(
+                    venue: PortfolioPerformanceVenue.trading))
+                .overrideWith((_) async => _perf(
+                    [(120, 0.0), (100, 1.0), (2, 100.4)], 'Hyperliquid')),
+          ]);
+      var c = chart(tester);
+      expect(c.rangeLabels, ['1W', '1M', '3M', 'ALL']);
+      // The month to start: offered here.
+      expect(c.selectedRange, 1);
+      expect(line(tester), startsWith(r'▲ $99.40 · Past month'));
+      final firsts = <String, DateTime>{};
+      for (final (label, period) in const [
+        ('3M', 'Past 3 months'),
+        ('1W', 'Past week'),
+        ('ALL', 'All time'),
+        ('1M', 'Past month'),
+      ]) {
+        await tester.tap(find.descendant(
+            of: find.byKey(const ValueKey('portfolio-hero-chart')),
+            matching: find.text(label)));
+        await _settle(tester);
+        c = chart(tester);
+        expect(c.rangeLabels![c.selectedRange], label);
+        expect(c.values.last, closeTo(100.4, 1e-9), reason: label);
+        firsts[label] = c.times!.first;
+        // The P&L over the window: the figure now less its first point
+        // (ALL's is the lead-in at zero: all of it).
+        final pnl = (100.4 - c.values.first).toStringAsFixed(2);
+        expect(line(tester), startsWith('▲ \$$pnl · $period'), reason: label);
+        if (label == 'ALL') {
+          expect(c.values.first, 0);
+          expect(
+              c.times!.first.isBefore(now.subtract(const Duration(days: 100))),
+              isTrue);
+        } else {
+          expect(c.values.first, closeTo(1, 1e-9), reason: label);
+        }
+      }
+      expect(firsts.values.toSet(), hasLength(4),
+          reason: 'every pill a window of its own');
+      expect(
+          find.descendant(
+              of: find.byKey(const ValueKey('portfolio-hero-chart')),
+              matching: find.text('1Y')),
+          findsNothing);
+      await _unmount(tester);
+    });
 
     testWidgets(
         'a position held whose prices cannot be read: its realised steps '
@@ -1970,7 +2093,8 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('pnl-venue-investing')));
       await _settle(tester);
       expect(chart(tester).values.last, closeTo(100.4, 1e-9));
-      expect(line(tester), contains(r'▲ $100.40 · Past month'));
+      // The month (the start) reaches past its twenty days: ALL.
+      expect(line(tester), contains(r'▲ $100.40 · All time'));
       expect(
           tester
               .widget<Text>(find.descendant(

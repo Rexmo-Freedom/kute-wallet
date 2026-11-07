@@ -79,6 +79,7 @@ import 'package:money2/money2.dart' show Fixed;
 
 import '../../helpers/runtime_policy_fixture.dart';
 import '../../helpers/kute_bar_test_support.dart';
+import '../../gating_audit/market_gating_fixtures.dart';
 
 const _usdPerBtc = 100000.0;
 const _ownSpark =
@@ -453,7 +454,8 @@ int get _railCalls =>
 Future<ProviderContainer> _open(WidgetTester tester, MoneyMovementRoute route,
     {Completer<String?>? hlAddress,
     OrchestraRoutesCatalog? catalog,
-    bool pinned = false}) async {
+    bool pinned = false,
+    double? initialTargetUsd}) async {
   tester.view.physicalSize = const Size(430, 932);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -509,7 +511,8 @@ Future<ProviderContainer> _open(WidgetTester tester, MoneyMovementRoute route,
   unawaited(showMoneyMovementSheet(_nav.currentContext!,
       initialSource: route.from,
       initialDestination: route.to,
-      pinned: pinned));
+      pinned: pinned,
+      initialTargetUsd: initialTargetUsd));
   await _frames(tester, 12);
   container.read(sparkHypercoreFundingServiceProvider);
   return container;
@@ -627,21 +630,38 @@ void main() {
   });
 
   testWidgets(
-      'the withdrawal door pins the route: Investments to Bitcoin, no '
-      'pickers, no flip, and the move still runs', (tester) async {
+      'an own-account door pins the route: Dollars to Bitcoin, each end by '
+      'its account\'s name, "Move money" over "Move \$5", no pickers, no '
+      'flip, and the move still runs', (tester) async {
     final c = await _open(tester, const MoneyMovementRoute(_d, _b),
         pinned: true);
-    expect(find.text('Investments'), findsOneWidget);
+    expect(find.text('Dollars'), findsOneWidget);
+    expect(find.text('Investments'), findsNothing);
     expect(find.text('Bitcoin'), findsOneWidget);
+    expect(find.text('Move money'), findsOneWidget);
+    expect(find.textContaining('Swap'), findsNothing);
+    expect(find.textContaining('Buy'), findsNothing);
     expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsNothing);
     expect(find.byIcon(Icons.swap_vert_rounded), findsNothing);
     // Tapping an end picks nothing.
-    await tester.tap(find.text('Investments').first);
+    await tester.tap(find.text('Dollars').first);
     await _frames(tester);
     expect(find.text('Move from'), findsNothing);
     await _type(tester, '5');
+    expect(_button(tester).text, r'Move $5');
     await _confirm(tester);
     expect(_railCalls, 1);
+    await _close(tester, c);
+  });
+
+  testWidgets(
+      'the Goals nudge\'s door: Bitcoin to Dollars, pinned, the dollars it '
+      'asked for filled in once the price is up', (tester) async {
+    final c = await _open(tester, const MoneyMovementRoute(_b, _d),
+        pinned: true, initialTargetUsd: 5);
+    expect(find.text('Move money'), findsOneWidget);
+    expect(find.byIcon(Icons.swap_vert_rounded), findsNothing);
+    expect(_button(tester).text, r'Move $5');
     await _close(tester, c);
   });
 
@@ -1316,7 +1336,8 @@ void main() {
       await tester.tap(_cta);
       await _frames(tester, 12);
       expect(restricted(), findsNothing);
-      expect(_button(tester).text, r'Move money $10');
+      // The person's own money moves: "Move $10", never "Buy".
+      expect(_button(tester).text, r'Move $10');
       await _confirm(tester);
       expect(_hypercore.deposits, hasLength(1));
       await _close(tester, c);
@@ -1401,5 +1422,128 @@ void main() {
       expect(failed['capability'], 'polymarket.deposit');
       await _close(tester, c);
     });
+  });
+
+  // Gating audit (fw36, v2.2): the Send chips and Receive cards that open
+  // this sheet pinned, read against a real backend policy. "To Dollars"
+  // (Bitcoin Send) and "From your Bitcoin" (Dollars Receive) are a swap:
+  // a swap block stops them, a region block naming its regions over the
+  // one VPN sentence. "To your Bitcoin" (Dollars Send) and "From your
+  // Dollars" (Bitcoin Receive or swap) are an exit: a COUNTRY block on
+  // the swap master never stops them (the backend exempts the route from
+  // country rules); the master off, a platform rule or coming soon still
+  // does, exactly as the backend's operation guard refuses it then.
+  group('Send chips and Receive cards under a backend block (fw36)', () {
+    late InvestmentProviderAvailability venues;
+
+    setUp(() {
+      venues = InvestmentProviderAvailability(
+        client: MockClient((request) async => request.url.host ==
+                'api.hyperliquid.xyz'
+            ? http.Response(
+                '{"acceptedTerms":true,"userAllowed":true,"restrictions":"n"}',
+                200)
+            : http.Response('{"blocked":false}', 200)),
+        report: ({
+          required String venue,
+          required String trigger,
+          required bool changed,
+          required String result,
+        }) {},
+      );
+      RegionFreshness.debugVenues = venues;
+    });
+    tearDown(() {
+      RegionFreshness.debugVenues = null;
+      venues.dispose();
+    });
+
+    Future<void> install(WidgetTester tester, MarketDenial how,
+        {Set<String> targets = const {}}) async {
+      RuntimeCapabilitiesService.debugInstance?.dispose();
+      RuntimeCapabilitiesService.debugInstance = null;
+      await tester
+          .runAsync(() => installMarketGatingPolicy(how, targets: targets));
+    }
+
+    Finder restricted() =>
+        find.byKey(const ValueKey('money-movement-restricted'));
+
+    testWidgets(
+        'swap country block: To Dollars / From your Bitcoin (Bitcoin → '
+        'Dollars) names the regions over the VPN sentence, Check '
+        'connection, nothing sent', (tester) async {
+      await install(tester, MarketDenial.swapCountryBlock);
+      final c =
+          await _open(tester, const MoneyMovementRoute(_b, _d), pinned: true);
+      await _type(tester, '5');
+      await _frames(tester, 12);
+      expect(restricted(), findsOneWidget);
+      expect(
+          find.text('$kGatingNamedTitle\n$kGatingVpnSentence'), findsOneWidget);
+      expect(find.textContaining('use a VPN'), findsNothing);
+      expect(_button(tester).text, 'Check connection');
+      await tester.tap(_cta);
+      await _frames(tester, 12);
+      expect(_btcToDollars, isEmpty);
+      expect(_railCalls, 0);
+      await _close(tester, c);
+    });
+
+    testWidgets(
+        'swap country block: To your Bitcoin / From your Dollars (Dollars → '
+        'Bitcoin) is an exit and moves', (tester) async {
+      await install(tester, MarketDenial.swapCountryBlock);
+      final c =
+          await _open(tester, const MoneyMovementRoute(_d, _b), pinned: true);
+      await _type(tester, '5');
+      await _frames(tester, 12);
+      expect(restricted(), findsNothing);
+      expect(_button(tester).onPressed, isNotNull);
+      await _confirm(tester);
+      expect(_railCalls, 1);
+      await _close(tester, c);
+    });
+
+    testWidgets(
+        'swap country block: Investing → Bitcoin (the withdrawal door) '
+        'still moves', (tester) async {
+      await install(tester, MarketDenial.swapCountryBlock);
+      final c =
+          await _open(tester, const MoneyMovementRoute(_i, _b), pinned: true);
+      await _type(tester, '5');
+      await _frames(tester, 12);
+      expect(restricted(), findsNothing);
+      await _confirm(tester);
+      expect(_hypercore.withdrawals.single.usd, 5);
+      await _close(tester, c);
+    });
+
+    for (final how in [
+      MarketDenial.masterOff,
+      MarketDenial.platform,
+      MarketDenial.comingSoon,
+    ]) {
+      testWidgets(
+          '${how.label} on the swap master: Bitcoin → Dollars and Dollars → '
+          'Bitcoin both say why, the button cannot move', (tester) async {
+        await install(tester, how, targets: {kSwapMaster});
+        for (final route in const [
+          MoneyMovementRoute(_b, _d),
+          MoneyMovementRoute(_d, _b),
+        ]) {
+          final c = await _open(tester, route, pinned: true);
+          await _type(tester, '5');
+          await _frames(tester, 12);
+          expect(restricted(), findsOneWidget, reason: '$route');
+          expect(find.text(how.message), findsOneWidget, reason: '$route');
+          expect(_button(tester).onPressed, isNull, reason: '$route');
+          expect(_button(tester).text, isNot('Check connection'));
+          expect(_railCalls, 0);
+          expect(_btcToDollars, isEmpty);
+          await _close(tester, c);
+        }
+      });
+    }
   });
 }

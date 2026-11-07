@@ -95,8 +95,9 @@ import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/balance_history.dart';
 import 'package:kute/models/portfolio_performance.dart';
+import 'package:kute/models/open_pnl_history.dart' show openPnlRangeShown;
 import 'package:kute/providers/open_pnl_history_provider.dart'
-    show pnlWindowProvider;
+    show pnlRangesProvider, pnlWindowProvider;
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/portfolio/components/position_rows.dart'
     show
@@ -112,6 +113,8 @@ import 'package:kute/screens/portfolio/components/position_rows.dart'
 import 'package:kute/screens/portfolio/components/balances_overview.dart'
     show balancesFlatSectionTitle, kBalancesGroupGap, kBalancesTitleGap;
 import 'package:kute/screens/portfolio/portfolio_empty_state.dart';
+import 'package:kute/screens/portfolio/portfolio_filters.dart'
+    show portfolioVenuesProvider;
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/screens/shared/charts/kute_chart_core.dart';
 import 'package:kute/screens/shared/charts/kute_chart_format.dart';
@@ -165,6 +168,29 @@ Color pnlResultColor(AppColorsExtension c, double change) => change > 0
 /// "Share P&L" card alike.
 final pnlChartRangeProvider =
     StateProvider<BalanceRange>((ref) => BalanceRange.month);
+
+/// The range the Portfolio screen's P&L engine draws for [venue]'s line
+/// (null: both venues; with one venue on, its own line, as the hero
+/// draws it): the one picked ([pnlChartRangeProvider]) when the line
+/// offers it ([pnlRangesProvider]: the fixed ranges shorter than its
+/// history, then ALL), else ALL, the whole line (founder, 7 November
+/// 2026: a range reaching back past the history drew a long flat line,
+/// "use ALL like it was before"). The hero, its P&L section's venue
+/// squares and the "Share P&L" card alike, so the pill lit, the line's
+/// words and the card agree. The pick itself is kept: a longer history
+/// (another venue picked) shows it again.
+final pnlShownRangeProvider = Provider.autoDispose
+    .family<BalanceRange, PortfolioPerformanceVenue?>((ref, venue) {
+  final venues = ref.watch(portfolioVenuesProvider);
+  final line = venue ??
+      (venues.trading == venues.predictions
+          ? null
+          : venues.trading
+              ? PortfolioPerformanceVenue.trading
+              : PortfolioPerformanceVenue.predictions);
+  return openPnlRangeShown(
+      ref.watch(pnlChartRangeProvider), ref.watch(pnlRangesProvider(line)));
+});
 
 /// The venue picked in "By venue" under the older Portfolio page's P&L
 /// chart (portfolio_statistics.dart, OpenInvestmentsScreen): the chart
@@ -749,9 +775,10 @@ double pnlVenueSquareHeight(BuildContext context) {
 ///     its own, so none is invented), else the arrow and the range the
 ///     figure is over ("▲ Past month"), never the amount a second time;
 ///   * the venue's name quiet (13) over where the money is (12, tertiary);
-///   * the venue's P&L over the hero's range ([pnlChartRangeProvider],
-///     [pnlRangeChange]: the line's end less the range's start, ALL the
-///     P&L now) ONCE, 22 sp w700 tabular, signed, in its colour;
+///   * the venue's P&L over the hero's range as the hero shows it
+///     ([pnlShownRangeProvider], [pnlRangeChange]: the line's end less the
+///     range's start, ALL the P&L now) ONCE, 22 sp w700 tabular, signed,
+///     in its colour;
 ///   * its sparkline across the bottom ([PnlSparkline.wide]).
 ///
 /// [quiet] (the venue's "No … yet") stands as the line under the name and
@@ -782,7 +809,8 @@ class PnlVenueSquare extends ConsumerWidget {
   });
 
   /// The venue the square is (the Portfolio screen's P&L): its figure and
-  /// sparkline from the whole P&L engine, the hero's own line when the
+  /// sparkline from the whole P&L engine over the hero's range as the hero
+  /// shows it ([pnlShownRangeProvider]), the hero's own line when the
   /// square is picked ([pnlWindowProvider], its last point the venue's
   /// P&L now); null, or while the engine is read: the venue's published
   /// line ([pnlSeries]).
@@ -815,7 +843,12 @@ class PnlVenueSquare extends ConsumerWidget {
     final c = context.colors;
     final l10n = context.l10n;
     final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
-    final range = ref.watch(pnlChartRangeProvider);
+    // On the Portfolio screen the hero's range as the hero shows it (its
+    // pill lit); else the range picked.
+    final range = venue != null
+        ? ref.watch(
+            pnlShownRangeProvider(ref.watch(portfolioPnlVenueProvider)))
+        : ref.watch(pnlChartRangeProvider);
     final quietText = quiet;
     final List<double> values;
     final engine = quietText == null && venue != null

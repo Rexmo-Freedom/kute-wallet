@@ -1,15 +1,15 @@
-// A look by eye at the Receive or swap work (founder, 6 November 2026),
-// light and dark, written only when asked: RECEIVE_SWAP_RENDER=<dir>.
-// "rows": the Bitcoin and Dollars action rows at 375 pt, the Receive
-// arrow with its swap badge beside the plain arrow and the other icons,
-// and the glyph large over the icon it redraws; "bitcoin": the Bitcoin
-// receive's first sheet (From your Dollars, From another asset, Bitcoin)
-// at 375 pt and at 430 pt; "dollars": the Dollars receive's first sheet,
-// titled Receive or swap. One render per run, so:
+// A look by eye at the Receive work (founder, 6 and 7 November 2026),
+// light and dark, written only when asked: RECEIVE_RENDER=<dir>.
+// "rows": the Bitcoin and Dollars action rows at 375 pt, the moving
+// Receive arrow at rest beside the other icons, and large; "bitcoin": the
+// Bitcoin receive's first sheet (Bitcoin on top, then From your Dollars
+// and From another wallet or exchange) at 375 pt and at 430 pt;
+// "dollars": the Dollars receive's first sheet, titled Receive. One render
+// per run, so:
 //   for v in 'rows light' 'rows dark' 'bitcoin light' 'bitcoin dark' \
 //       'dollars light' 'dollars dark'; do
-//     RECEIVE_SWAP_RENDER=<dir> flutter test \
-//       test/render/receive_swap_render_test.dart --plain-name "$v"; done
+//     RECEIVE_RENDER=<dir> flutter test \
+//       test/render/receive_render_test.dart --plain-name "$v"; done
 
 import 'dart:async';
 import 'dart:io';
@@ -41,7 +41,7 @@ import 'package:kute/providers/usd_account_provider.dart'
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart';
 import 'package:kute/screens/receive/receive_sheet.dart';
 import 'package:kute/screens/shared/bitcoin_wallet_actions.dart';
-import 'package:kute/screens/shared/receive_swap_glyph.dart';
+import 'package:kute/screens/shared/receive_arrow_glyph.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart'
     show UsdAccountActionBar;
 import 'package:kute/services/orchestra/receive_minimums.dart';
@@ -54,7 +54,7 @@ import 'package:money2/money2.dart';
 
 import '../helpers/runtime_policy_fixture.dart';
 
-final _dir = Platform.environment['RECEIVE_SWAP_RENDER'];
+final _dir = Platform.environment['RECEIVE_RENDER'];
 
 class _Routes extends OrchestraSupportedRoutesNotifier {
   _Routes(OrchestraRoutesCatalog catalog) {
@@ -250,28 +250,21 @@ void main() {
               KuteCompactActions(
                   source: 'usd',
                   actions: UsdAccountActionBar.moneyActions(context)),
-              _label(context, 'Plain arrow (before) and the glyph, 22 pt'),
+              _label(context, 'The Receive glyph at rest beside the icons'),
               Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Icon(Icons.south_west_rounded, size: 22, color: c.textPrimary),
-                const SizedBox(width: 24),
-                ReceiveSwapGlyph(color: c.textPrimary, size: 22),
+                ReceiveArrowGlyph(color: c.textPrimary, size: 22),
                 const SizedBox(width: 24),
                 Icon(Icons.north_east_rounded, size: 22, color: c.textPrimary),
                 const SizedBox(width: 24),
                 Icon(Icons.qr_code_scanner_rounded,
                     size: 22, color: c.textPrimary),
               ]),
-              _label(context, 'Large: the icon it redraws, then the glyph'),
-              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Container(
+              _label(context, 'Large'),
+              Center(
+                child: Container(
                     color: c.textPrimary.withValues(alpha: 0.05),
-                    child: Icon(Icons.south_west_rounded,
-                        size: 140, color: c.textPrimary)),
-                const SizedBox(width: 16),
-                Container(
-                    color: c.textPrimary.withValues(alpha: 0.05),
-                    child: ReceiveSwapGlyph(color: c.textPrimary, size: 140)),
-              ]),
+                    child: ReceiveArrowGlyph(color: c.textPrimary, size: 140)),
+              ),
             ]);
           }),
         ),

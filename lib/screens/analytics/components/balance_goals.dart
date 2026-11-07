@@ -19,16 +19,31 @@
 //     in the Bitcoin home Activity's language (its "Latest" heading and
 //     two-by-two squares, its "Earlier" soft card):
 //   * "GOALS", then two squares side by side, drawn as the Dollars
-//     Activity's position squares: the LEVEL (a ring filling towards the
-//     goal, the chance gauge's track and fill; the level's name; "50% to
-//     $500"; "Level 3" large) and the NEXT GOAL (a flag; "Next goal";
-//     "$250 to go"; "$500" large). The ring fills from empty when first
-//     drawn and eases to each new value on the settle curve. The total is
-//     never written: with no Dollars it would repeat the headline's worth;
+//     Activity's position squares: the LEVEL (Sal's still for the level;
+//     a slim bar under him filling towards the goal, the chance gauge's
+//     track and fill; the level's name; "50% to $500"; "Level 3" large)
+//     and the NEXT GOAL (Sal squinting up at a flag; "Next goal"; "$250 to
+//     go"; "$500" large). The bar fills from empty when first drawn and
+//     eases to each new value on the settle curve. The total is never
+//     written: with no Dollars it would repeat the headline's worth;
+//   * SAL PER LEVEL (founder, 7 November 2026: "use Sal for the next goal
+//     and naming the levels, and use Sal Blender"): one 3D still per level
+//     name, his attitude and props growing with it, always deadpan
+//     (level_1 .. level_12 in lib/assets/sal, render_level_stills.py in
+//     Kute Assets): Warming up, lying, lids nearly shut; Pocket money, one
+//     coin, looked down at; Stacker, a paw on a short stack; Regular, on a
+//     low podium of coins; Grown-up, reading glasses and the briefcase;
+//     Serious, lying on a vault, paws crossed; Steady hand, chin up on a
+//     tall stack; Heavyweight, on gold bars; Big dog, lying on a heap of
+//     them; Top dog, a small crown on a gold plinth; Legend, the crown,
+//     eyes shut on a wide stack; Off the charts, the crown on a tower that
+//     leaves the frame. The squares are taller than the position squares
+//     by Sal's room over their 40 logo;
 //   * THE NUDGE, one full-width soft card under the squares: the Dollars
 //     mark, "Move $25 to Dollars" over "Your money, more places to go in
-//     Dollars.", a chevron. It opens the Move sheet locked to Dollars with
-//     that amount filled in (a round tenth of the goal, never more than
+//     Dollars.", a chevron. It opens Move money straight on the amount,
+//     Bitcoin to Dollars, pinned (showOwnMoneyMove), with that amount
+//     filled in (a round tenth of the goal, never more than
 //     the bitcoin is worth). Shown only where the move is allowed
 //     (the route classifier's gates) and Investing or Predictions is live in the
 //     person's country; it names neither. It never says the money grows:
@@ -43,8 +58,9 @@
 //     while balances are hidden: the celebration waits until the figures
 //     are shown;
 //   * BALANCES HIDDEN: the squares' figures and the level's name are dots,
-//     the ring is its track alone, the goal line is not drawn, the nudge
-//     drops its amount;
+//     the bar is its track alone, the Level's Sal is a still that names no
+//     level (the share cards' flat side-eye), the goal line is not drawn,
+//     the nudge drops its amount;
 //   * NOTHING EVER HELD (the card's empty state): no goals, nothing
 //     recorded or celebrated.
 //
@@ -76,7 +92,10 @@ import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/providers/one_balance_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/viewed_wallet_provider.dart';
-import 'package:kute/screens/home/components/deposit_sheet.dart';
+import 'package:kute/screens/home/components/deposit_sheet.dart'
+    show MoveLockedSide;
+import 'package:kute/screens/shared/money_movement_sheet.dart'
+    show MoneyMovementAccount, showOwnMoneyMove;
 import 'package:kute/screens/portfolio/components/position_rows.dart'
     show kPortfolioSquareIcon, portfolioSquareHeight;
 import 'package:kute/screens/shared/all_activity.dart'
@@ -224,6 +243,38 @@ String balanceLevelName(AppLocalizations l10n, int index) => switch (index) {
       _ => l10n.balanceLevelName11,
     };
 
+/// The level's Sal still ([BalanceMilestoneProgress.nameIndex]): `level_1`
+/// (Warming up) to `level_12` (Off the charts).
+String balanceLevelClip(int nameIndex) =>
+    'level_${nameIndex.clamp(0, kBalanceLevelNames - 1) + 1}';
+
+/// The Next goal square's Sal: squinting up at a flag.
+const String kBalanceGoalNextClip = 'goal_next';
+
+/// The Level square's Sal while balances are hidden: a still that names
+/// no level (the share cards' flat side-eye).
+const String kBalanceGoalHiddenClip = 'card_flat';
+
+/// Every Sal still the goals draw.
+List<String> get balanceGoalClips => [
+      for (var i = 0; i < kBalanceLevelNames; i++) balanceLevelClip(i),
+      kBalanceGoalNextClip,
+      kBalanceGoalHiddenClip,
+    ];
+
+/// Sal's still in a goal square, design units, and the Level's slim bar
+/// under him (its gap and its thickness).
+const double kBalanceGoalSal = 64;
+const double _kBarGap = 6;
+const double _kBarHeight = 3;
+
+/// The goal squares' height: the position squares' ([portfolioSquareHeight])
+/// grown by Sal and the bar's room over their 40 logo. The celebration
+/// takes the same, so nothing under it moves.
+double balanceGoalSquareHeight(BuildContext context) =>
+    portfolioSquareHeight(context) +
+    (kBalanceGoalSal + _kBarGap + _kBarHeight - kPortfolioSquareIcon).w;
+
 /// A goal as the app writes a round figure: "$500", "€2,500".
 String formatBalanceGoal(double value, String currency) {
   final whole = (value - value.roundToDouble()).abs() < 1e-9;
@@ -250,7 +301,7 @@ class BalanceGoals extends ConsumerStatefulWidget {
   final bool hasHistory;
 
   /// Test seam: what the nudge opens. Null opens the Move sheet
-  /// ([showDepositSheet]).
+  /// ([showOwnMoneyMove], Bitcoin to Dollars).
   @visibleForTesting
   static void Function(BuildContext context, MoveLockedSide side, double usd)?
       debugMoveOpener;
@@ -346,8 +397,11 @@ class _BalanceGoalsState extends ConsumerState<BalanceGoals> {
     TrackingService.markEntrySource('move', kBalanceGoalSource);
     final open = BalanceGoals.debugMoveOpener;
     if (open != null) return open(context, MoveLockedSide.depositToUsd, usd);
-    unawaited(showDepositSheet(context,
-        lockedSide: MoveLockedSide.depositToUsd, initialTargetUsd: usd));
+    // An own-account move: the one Move money screen, nothing to pick.
+    unawaited(showOwnMoneyMove(context,
+        from: MoneyMovementAccount.bitcoin,
+        entrySource: kBalanceGoalSource,
+        initialTargetUsd: usd));
   }
 
   @override
@@ -426,9 +480,10 @@ class BalanceGoalNudge {
 
 /// The goals under the Balance card, in the Bitcoin home Activity's
 /// language (its "Latest" heading and squares, its "Earlier" soft card):
-/// "Goals", then two squares side by side, the Level (the progress ring,
-/// the level's name, "50% to $500", "Level 3" large) and the Next goal
-/// (the flag, "Next goal", "$250 to go", "$500" large), or for a moment
+/// "Goals", then two squares side by side, the Level (the level's Sal over
+/// the progress bar, the level's name, "50% to $500", "Level 3" large) and
+/// the Next goal (Sal and the flag, "Next goal", "$250 to go", "$500"
+/// large), or for a moment
 /// the celebration in their place at their height; then the nudge as one
 /// full-width soft card.
 class BalanceGoalsSection extends StatelessWidget {
@@ -549,8 +604,8 @@ const String _dots = '••••••';
 const String _shortDots = '••••';
 
 /// One goal square, drawn as the Dollars Activity's position squares
-/// (position_rows.dart): the grouped card's ground, 14 padding, the
-/// squares' height; the picture top-left, then the name and the line
+/// (position_rows.dart): the grouped card's ground, 14 padding; Sal
+/// top-left (with the Level's bar under him), then the name and the line
 /// under it quiet over the figure at 22 sp.
 class _GoalSquare extends StatelessWidget {
   const _GoalSquare({
@@ -583,15 +638,18 @@ class _GoalSquare extends StatelessWidget {
     );
     return MergeSemantics(
       child: Container(
-        height: portfolioSquareHeight(context),
+        height: balanceGoalSquareHeight(context),
         padding: EdgeInsets.all(14.w),
         decoration: PremiumGroupContainer.decorationOf(context),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ExcludeSemantics(
-              child: SizedBox.square(
-                  dimension: kPortfolioSquareIcon.w, child: leading),
+              child: SizedBox(
+                width: kBalanceGoalSal.w,
+                height: (kBalanceGoalSal + _kBarGap + _kBarHeight).w,
+                child: Align(alignment: Alignment.topLeft, child: leading),
+              ),
             ),
             const Spacer(),
             Text(label,
@@ -636,9 +694,9 @@ class _GoalSquare extends StatelessWidget {
   }
 }
 
-/// The Level square: the ring filling towards the goal, the level's
-/// name, "50% to $500", and "Level 3" large. Hidden: dots and the ring's
-/// track alone.
+/// The Level square: the level's Sal over the bar filling towards the
+/// goal, the level's name, "50% to $500", and "Level 3" large. Hidden:
+/// dots, a Sal that names no level, and the bar's track alone.
 class _LevelSquare extends StatelessWidget {
   const _LevelSquare({
     required this.progress,
@@ -655,14 +713,34 @@ class _LevelSquare extends StatelessWidget {
     final l10n = context.l10n;
     final reduce = KuteMotion.reduce(context);
     return _GoalSquare(
-      // Fills from empty the first time it is drawn, then eases to each
-      // new value on the settle curve; at once under Reduce Motion.
-      leading: TweenAnimationBuilder<double>(
-        tween: Tween(begin: 0, end: visible ? progress.fraction : 0),
-        duration: reduce ? Duration.zero : const Duration(milliseconds: 700),
-        curve: KuteMotion.settle,
-        builder: (context, f, _) => BalanceGoalRing(
-            key: const ValueKey('balance-goal-ring'), fraction: f),
+      leading: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _GoalSal(
+            key: const ValueKey('balance-goal-level-sal'),
+            clip: visible
+                ? balanceLevelClip(progress.nameIndex)
+                : kBalanceGoalHiddenClip,
+            fallback: Icons.star_rounded,
+          ),
+          SizedBox(height: _kBarGap.w),
+          // Fills from empty the first time it is drawn, then eases to
+          // each new value on the settle curve; at once under Reduce
+          // Motion.
+          SizedBox(
+            width: kBalanceGoalSal.w,
+            height: _kBarHeight.w,
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: visible ? progress.fraction : 0),
+              duration:
+                  reduce ? Duration.zero : const Duration(milliseconds: 700),
+              curve: KuteMotion.settle,
+              builder: (context, f, _) => BalanceGoalBar(
+                  key: const ValueKey('balance-goal-bar'), fraction: f),
+            ),
+          ),
+        ],
       ),
       label: visible ? balanceLevelName(l10n, progress.nameIndex) : _shortDots,
       line: visible
@@ -677,8 +755,8 @@ class _LevelSquare extends StatelessWidget {
   }
 }
 
-/// The Next goal square: the flag, "Next goal", "$250 to go", and the
-/// goal large. Hidden: the figures are dots.
+/// The Next goal square: Sal squinting up at a flag, "Next goal", "$250
+/// to go", and the goal large. Hidden: the figures are dots.
 class _NextGoalSquare extends StatelessWidget {
   const _NextGoalSquare({
     required this.progress,
@@ -692,17 +770,12 @@ class _NextGoalSquare extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
     final l10n = context.l10n;
     return _GoalSquare(
-      // The icon on the ring's soft ground (the Portfolio ring's track).
-      leading: DecoratedBox(
-        decoration: BoxDecoration(
-          color: context.isDark ? c.surfaceLight : c.surfaceElevated,
-          shape: BoxShape.circle,
-        ),
-        child: Icon(Icons.flag_rounded,
-            size: 20.w, color: c.textPrimary),
+      leading: const _GoalSal(
+        key: ValueKey('balance-goal-next-sal'),
+        clip: kBalanceGoalNextClip,
+        fallback: Icons.flag_rounded,
       ),
       label: l10n.balanceGoalNext,
       line: visible
@@ -716,11 +789,37 @@ class _NextGoalSquare extends StatelessWidget {
   }
 }
 
-/// The Level square's ring: the whole track, and the fill from the top,
-/// clockwise, for [fraction] of it (the Predictions chance gauge's look:
-/// the border colour's track, a textPrimary fill, 4 px, round ends).
-class BalanceGoalRing extends StatelessWidget {
-  const BalanceGoalRing({super.key, required this.fraction});
+/// Sal's still in a goal square ([kBalanceGoalSal]): one frame, a level
+/// changing switches it in place (a short dissolve). Without a sheet (not
+/// bundled, a test) the icon the square wore before.
+class _GoalSal extends StatelessWidget {
+  const _GoalSal({super.key, required this.clip, required this.fallback});
+
+  final String clip;
+  final IconData fallback;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = kBalanceGoalSal.w;
+    return SizedBox.square(
+      dimension: size,
+      child: SalSprite(
+        clip: clip,
+        size: size,
+        loop: false,
+        fallback: Center(
+          child: Icon(fallback, size: 24.w, color: context.colors.textPrimary),
+        ),
+      ),
+    );
+  }
+}
+
+/// The Level's slim bar under Sal: the whole track, and the fill from the
+/// left for [fraction] of it (the Predictions chance gauge's look: the
+/// border colour's track, a textPrimary fill, round ends).
+class BalanceGoalBar extends StatelessWidget {
+  const BalanceGoalBar({super.key, required this.fraction});
 
   /// 0 to 1.
   final double fraction;
@@ -728,58 +827,46 @@ class BalanceGoalRing extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    // A star in the hole: a level, never a spinner.
     return CustomPaint(
       size: Size.infinite,
-      painter: _RingPainter(
+      painter: _BarPainter(
         fraction: fraction.clamp(0.0, 1.0),
         track: c.border,
         fill: c.textPrimary,
-        stroke: 4,
-      ),
-      child: Center(
-        child: Icon(Icons.star_rounded, size: 18.w, color: c.textPrimary),
       ),
     );
   }
 }
 
-class _RingPainter extends CustomPainter {
-  const _RingPainter({
+class _BarPainter extends CustomPainter {
+  const _BarPainter({
     required this.fraction,
     required this.track,
     required this.fill,
-    required this.stroke,
   });
 
   final double fraction;
   final Color track;
   final Color fill;
-  final double stroke;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final r = (size.shortestSide - stroke) / 2;
-    if (r <= 0) return;
-    final rect = Rect.fromCircle(center: size.center(Offset.zero), radius: r);
-    Paint paint(Color color) => Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = stroke
-      ..strokeCap = StrokeCap.round;
-    canvas.drawCircle(rect.center, r, paint(track));
-    final sweep = 2 * math.pi * fraction;
-    if (sweep > 0) {
-      canvas.drawArc(rect, -math.pi / 2, sweep, false, paint(fill));
+    if (size.isEmpty) return;
+    final r = Radius.circular(size.height / 2);
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(Offset.zero & size, r), Paint()..color = track);
+    if (fraction > 0) {
+      // Never thinner than its own height, so a sliver still reads round.
+      final w = math.max(size.height, size.width * fraction);
+      canvas.drawRRect(
+          RRect.fromRectAndRadius(Rect.fromLTWH(0, 0, w, size.height), r),
+          Paint()..color = fill);
     }
   }
 
   @override
-  bool shouldRepaint(covariant _RingPainter old) =>
-      old.fraction != fraction ||
-      old.track != track ||
-      old.fill != fill ||
-      old.stroke != stroke;
+  bool shouldRepaint(covariant _BarPainter old) =>
+      old.fraction != fraction || old.track != track || old.fill != fill;
 }
 
 /// A rung passed: one card the squares' width and height in their place,
@@ -798,7 +885,7 @@ class _Celebration extends StatelessWidget {
     return Semantics(
       liveRegion: true,
       child: Container(
-        height: portfolioSquareHeight(context),
+        height: balanceGoalSquareHeight(context),
         padding: EdgeInsets.fromLTRB(8.w, 8.w, 16.w, 8.w),
         decoration: PremiumGroupContainer.decorationOf(context),
         child: Row(

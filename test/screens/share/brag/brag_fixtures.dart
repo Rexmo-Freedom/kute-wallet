@@ -61,12 +61,16 @@ BragPosition fakeBragWinningShort() => const BragPosition(
       nowText: '223.53',
     );
 
-/// A big win: the open positions' combined return is over 10%.
+/// A big win: the open positions' combined return is over 10%. Its
+/// holdings, the largest P&L either way first: a long perp, a named
+/// outcome (the name is the side), a prediction held on Yes at a loss;
+/// [open] positions open in all (more than three: "+N more").
 BragPortfolio fakeBragPortfolio(
         {String? code = kBragTestCode,
         String? gengImage,
         String? fedImage,
-        List<double>? series}) =>
+        List<double>? series,
+        int open = 3}) =>
     BragPortfolio(
       title: 'My portfolio',
       link: 'https://backend.kutewallet.com/m/investing',
@@ -80,24 +84,84 @@ BragPortfolio fakeBragPortfolio(
       returnPercent: 24.6,
       top: [
         const BragTopPosition(
-            title: 'BTC',
+            title: 'Bitcoin',
+            long: true,
             investing: true,
             coin: 'BTC',
             result: BragResult(usd: 92.1, text: r'+$92.10', percent: 18.4)),
         BragTopPosition(
-            title: 'LoL Worlds 2026: Gen.G vs T1',
+            title: 'Gen.G',
             side: 'Gen.G',
+            titleIsSide: true,
             imageUrl: gengImage,
             result:
                 const BragResult(usd: 36.9, text: r'+$36.90', percent: 42.1)),
         BragTopPosition(
-            title: 'Fed cuts rates in December?',
+            title: 'Fed cuts in December',
             side: 'Yes',
             imageUrl: fedImage,
-            result: const BragResult(usd: 8.2, text: r'+$8.20', percent: 12.5)),
+            result:
+                const BragResult(usd: -8.2, text: '−\$8.20', percent: -12.5)),
       ],
+      openCount: open,
       series: series,
     );
+
+/// The founder's card (7 November 2026): +$3.43 all time on the line,
+/// a short in profit, a prediction and a perp, [open] positions open in
+/// all.
+BragPortfolio fakeBragFounderPortfolio(
+        {int open = 5,
+        bool series = true,
+        int holdings = 3,
+        String title = 'My portfolio'}) =>
+    BragPortfolio(
+      title: title,
+      link: 'https://backend.kutewallet.com/m/investing',
+      referralCode: 'EKVGUY',
+      allTime: const BragResult(usd: 3.43, text: r'+$3.43'),
+      returnPercent: 4.1,
+      top: const [
+        BragTopPosition(
+            title: 'Anthropic',
+            long: false,
+            investing: true,
+            coin: 'ANTH',
+            result: BragResult(usd: 2.61, text: r'+$2.61', percent: 6.5)),
+        BragTopPosition(
+            title: 'Fed cuts in December',
+            side: 'No',
+            result: BragResult(usd: -1.12, text: '−\$1.12', percent: -9.3)),
+        BragTopPosition(
+            title: 'Ethereum',
+            long: true,
+            investing: true,
+            coin: 'ETH',
+            result: BragResult(usd: 0.84, text: r'+$0.84', percent: 2.1)),
+      ].take(holdings).toList(),
+      openCount: open,
+      series: series ? kFakeBragFounderSeries : null,
+    );
+
+/// The founder's all-time P&L line: small, up to +$3.43.
+const List<double> kFakeBragFounderSeries = [
+  0,
+  0.4,
+  0.2,
+  -0.6,
+  -1.1,
+  -0.4,
+  0.3,
+  1.2,
+  0.9,
+  1.8,
+  2.6,
+  2.1,
+  2.9,
+  3.6,
+  3.1,
+  3.43,
+];
 
 /// The all-time P&L line of [fakeBragPortfolio] (made up, realistic):
 /// a dip, then the climb to +$412.35.
@@ -148,15 +212,17 @@ BragPortfolio fakeBragSmallWinPortfolio() => const BragPortfolio(
       returnPercent: 1.2,
       top: [
         BragTopPosition(
-            title: 'ETH',
+            title: 'Ethereum',
+            long: true,
             investing: true,
             coin: 'ETH',
             result: BragResult(usd: 5.1, text: r'+$5.10', percent: 1.9)),
         BragTopPosition(
-            title: 'Fed cuts rates in December?',
+            title: 'Fed cuts in December',
             side: 'Yes',
             result: BragResult(usd: 2.47, text: r'+$2.47', percent: 0.8)),
       ],
+      openCount: 2,
     );
 
 /// A loss.
@@ -172,16 +238,19 @@ BragPortfolio fakeBragLosingPortfolio() => const BragPortfolio(
       returnPercent: -8.1,
       top: [
         BragTopPosition(
-            title: 'SOL',
-            investing: true,
-            coin: 'SOL',
-            result: BragResult(usd: 3.2, text: r'+$3.20', percent: 2.4)),
-        BragTopPosition(
-            title: 'ETH',
+            title: 'Ethereum',
+            long: true,
             investing: true,
             coin: 'ETH',
             result: BragResult(usd: -26.6, text: '−\$26.60', percent: -11.3)),
+        BragTopPosition(
+            title: 'Solana',
+            long: false,
+            investing: true,
+            coin: 'SOL',
+            result: BragResult(usd: 3.2, text: r'+$3.20', percent: 2.4)),
       ],
+      openCount: 2,
     );
 
 /// Flat: nothing made, nothing lost.
@@ -200,6 +269,7 @@ BragPortfolio fakeBragFlatPortfolio() => const BragPortfolio(
             side: 'No',
             result: BragResult(usd: 0, text: r'$0.00', percent: 0)),
       ],
+      openCount: 1,
     );
 
 /// A won prediction: 30 Yes shares bought at 41¢ ($12.30), resolved Yes

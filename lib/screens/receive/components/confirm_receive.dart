@@ -1044,8 +1044,8 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
                 ],
                 // No "Also accepts" line here any more (founder, 6
                 // November 2026: "get rid of it"): the other coins are
-                // "From another asset" on Receive or swap, the sheet this
-                // one opens from (bitcoin_receive_options.dart).
+                // "From another wallet or exchange" on Receive, the sheet
+                // this one opens from (bitcoin_receive_options.dart).
 
                 // 2b. Lightning address shimmer (Spark wallets,
                 // unified view only). The actual lightning row is

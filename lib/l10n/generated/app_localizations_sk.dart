@@ -3186,7 +3186,7 @@ class AppLocalizationsSk extends AppLocalizations {
       'Bitcoin, Lightning alebo Spark adresa';
 
   @override
-  String get sendAutoSwapFromBitcoin => 'Automatická výmena z Bitcoinu';
+  String get sendAutoSwapFromBitcoin => 'Z tvojho Bitcoinu';
 
   @override
   String get sendAddressNotIdentified => 'Adresa nerozpoznaná';
@@ -3695,7 +3695,7 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String activitySwapLegs(String from, String to) {
-    return 'Výmena · $from → $to';
+    return '$from → $to';
   }
 
   @override
@@ -4188,6 +4188,11 @@ class AppLocalizationsSk extends AppLocalizations {
   @override
   String confirmationSentToWallet(String walletName) {
     return 'Odoslané do peňaženky $walletName';
+  }
+
+  @override
+  String confirmationMovedToWallet(String walletName) {
+    return 'Presunuté do $walletName';
   }
 
   @override
@@ -6166,6 +6171,12 @@ class AppLocalizationsSk extends AppLocalizations {
   String get moveTransfer => 'Presunúť peniaze';
 
   @override
+  String get moveVerb => 'Presunúť';
+
+  @override
+  String get moveToBitcoin => 'Presunúť do Bitcoinu';
+
+  @override
   String get moveAdd => 'Pridať';
 
   @override
@@ -6697,9 +6708,6 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String get assetDollars => 'Investments';
-
-  @override
-  String get moveSourceInvestments => 'Investície';
 
   @override
   String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
@@ -10631,6 +10639,18 @@ class AppLocalizationsSk extends AppLocalizations {
   String get bragMyPortfolio => 'Moje portfólio';
 
   @override
+  String bragHoldingsMore(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '+$count ďalších',
+      few: '+$count ďalšie',
+      one: '+$count ďalšia',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get bragCodeLabel => 'Kód';
 
   @override
@@ -11044,7 +11064,7 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String multiMovePurchaseWaiting(String amount, String balance) {
-    return 'Vašich $amount je v $balance. Ťuknutím kúpite Bitcoin';
+    return 'Vašich $amount je v $balance. Ťuknutím ich presuniete do Bitcoinu';
   }
 
   @override
@@ -11060,6 +11080,14 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String get usdReceiveFromAnotherWallet => 'Z inej peňaženky alebo burzy';
+
+  @override
+  String get receiveAnotherWallet => 'Iná peňaženka';
+
+  @override
+  String receiveOrAnExchangeLine(String coins) {
+    return 'Alebo burza · $coins';
+  }
 
   @override
   String get usdWithdrawToYourWallet => 'Do tvojej peňaženky';
@@ -11280,12 +11308,12 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String moneyStepBuying(String amount) {
-    return 'Kupujeme Bitcoin za $amount';
+    return 'Presúvame $amount do Bitcoinu';
   }
 
   @override
   String moneyStepBought(String amount) {
-    return 'Kúpený Bitcoin za $amount';
+    return 'Presunuté $amount do Bitcoinu';
   }
 
   @override
@@ -12038,14 +12066,11 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String usdBitcoinBalanceLine(String amount) {
-    return '$amount in Bitcoin';
+    return '$amount v Bitcoine';
   }
 
   @override
-  String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
-
-  @override
-  String get receiveOrSwapTitle => 'Prijať alebo vymeniť';
+  String get usdReceiveFromYourBitcoin => 'Z tvojho Bitcoinu';
 
   @override
   String get receiveFromYourDollars => 'Z tvojich Dolárov';
@@ -12054,9 +12079,6 @@ class AppLocalizationsSk extends AppLocalizations {
   String usdDollarsBalanceLine(String amount) {
     return '$amount v Dolároch';
   }
-
-  @override
-  String get receiveFromAnotherAsset => 'Z iného aktíva';
 
   @override
   String get receiveBitcoinAndLightning => 'Bitcoin a Lightning';
@@ -12083,6 +12105,11 @@ class AppLocalizationsSk extends AppLocalizations {
   @override
   String sendAlsoSendsToMore(String names, int count) {
     return '$names a ešte $count';
+  }
+
+  @override
+  String coinsSummaryShort(String names, int count) {
+    return '$names +$count';
   }
 
   @override
@@ -13786,10 +13813,10 @@ class AppLocalizationsSk extends AppLocalizations {
   String get sendWayCryptoAddress => 'Kryptoadresa';
 
   @override
-  String get sendWayPrediction => 'Predpoveď';
+  String get sendWayPrediction => 'Predpoveď alebo investícia';
 
   @override
-  String get sendWayToDollars => 'Do Dolárov';
+  String get sendWayToDollars => 'Na tvoje Doláre';
 
   @override
   String get sendPickRowSub => 'Alebo investíciu. Vyhľadaj trh, vyber stranu';

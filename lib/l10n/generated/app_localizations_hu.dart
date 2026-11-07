@@ -3191,7 +3191,7 @@ class AppLocalizationsHu extends AppLocalizations {
       'Bitcoin-, Lightning- vagy Spark-cím';
 
   @override
-  String get sendAutoSwapFromBitcoin => 'Automatikus váltás Bitcoinból';
+  String get sendAutoSwapFromBitcoin => 'A Bitcoinodból';
 
   @override
   String get sendAddressNotIdentified => 'Ismeretlen cím';
@@ -3699,7 +3699,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String activitySwapLegs(String from, String to) {
-    return 'Váltás · $from → $to';
+    return '$from → $to';
   }
 
   @override
@@ -4194,6 +4194,11 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String confirmationSentToWallet(String walletName) {
     return 'Elküldve ide: $walletName';
+  }
+
+  @override
+  String confirmationMovedToWallet(String walletName) {
+    return 'Áthelyezve ide: $walletName';
   }
 
   @override
@@ -6176,6 +6181,12 @@ class AppLocalizationsHu extends AppLocalizations {
   String get moveTransfer => 'Pénz mozgatása';
 
   @override
+  String get moveVerb => 'Áthelyezés';
+
+  @override
+  String get moveToBitcoin => 'Áthelyezés Bitcoinba';
+
+  @override
   String get moveAdd => 'Hozzáadás';
 
   @override
@@ -6708,9 +6719,6 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get assetDollars => 'Investments';
-
-  @override
-  String get moveSourceInvestments => 'Befektetések';
 
   @override
   String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
@@ -10649,6 +10657,17 @@ class AppLocalizationsHu extends AppLocalizations {
   String get bragMyPortfolio => 'Az én portfólióm';
 
   @override
+  String bragHoldingsMore(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '+$count további',
+      one: '+$count további',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get bragCodeLabel => 'Kód';
 
   @override
@@ -11058,7 +11077,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String multiMovePurchaseWaiting(String amount, String balance) {
-    return '$amount a(z) $balance egyenlegeden van. Koppints a Bitcoin vásárlásához';
+    return '$amount a(z) $balance egyenlegeden van. Koppints, hogy áthelyezd Bitcoinba';
   }
 
   @override
@@ -11074,6 +11093,14 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get usdReceiveFromAnotherWallet => 'Másik tárcából vagy tőzsdéről';
+
+  @override
+  String get receiveAnotherWallet => 'Másik tárca';
+
+  @override
+  String receiveOrAnExchangeLine(String coins) {
+    return 'Vagy tőzsde · $coins';
+  }
 
   @override
   String get usdWithdrawToYourWallet => 'A tárcádba';
@@ -11294,12 +11321,12 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String moneyStepBuying(String amount) {
-    return '$amount értékű Bitcoin vásárlása';
+    return '$amount áthelyezése Bitcoinba';
   }
 
   @override
   String moneyStepBought(String amount) {
-    return '$amount értékű Bitcoin megvéve';
+    return '$amount áthelyezve Bitcoinba';
   }
 
   @override
@@ -12050,14 +12077,11 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String usdBitcoinBalanceLine(String amount) {
-    return '$amount in Bitcoin';
+    return '$amount Bitcoinban';
   }
 
   @override
-  String get usdReceiveFromYourBitcoin => 'From your Bitcoin';
-
-  @override
-  String get receiveOrSwapTitle => 'Fogadás vagy csere';
+  String get usdReceiveFromYourBitcoin => 'A Bitcoinodból';
 
   @override
   String get receiveFromYourDollars => 'A Dollárodból';
@@ -12066,9 +12090,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String usdDollarsBalanceLine(String amount) {
     return '$amount Dollárban';
   }
-
-  @override
-  String get receiveFromAnotherAsset => 'Másik eszközből';
 
   @override
   String get receiveBitcoinAndLightning => 'Bitcoin és Lightning';
@@ -12095,6 +12116,11 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String sendAlsoSendsToMore(String names, int count) {
     return '$names és még $count';
+  }
+
+  @override
+  String coinsSummaryShort(String names, int count) {
+    return '$names +$count';
   }
 
   @override
@@ -13798,10 +13824,10 @@ class AppLocalizationsHu extends AppLocalizations {
   String get sendWayCryptoAddress => 'Kriptocím';
 
   @override
-  String get sendWayPrediction => 'Előrejelzés';
+  String get sendWayPrediction => 'Előrejelzés/befektetés';
 
   @override
-  String get sendWayToDollars => 'Dollárba';
+  String get sendWayToDollars => 'A Dollárodba';
 
   @override
   String get sendPickRowSub => 'Vagy befektetés. Keress piacot, válassz oldalt';

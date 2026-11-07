@@ -28,11 +28,13 @@
 // brag_win_entry.dart); its sheet reads "Show off this win".
 //
 // Analytics: `brag_shared {kind: position | portfolio, card: position |
-// won | portfolio | pnl, range}` once the OS share sheet has been opened
-// and not dismissed: `card` says which card went (the P&L card is a
-// portfolio kind, a won prediction's a position kind), `range` the P&L
-// card's range as its pill reads ("1W", "1M", "3M", "1Y", "ALL"). No
-// market, no id, no figure.
+// won | portfolio | pnl, range, holdings_count}` once the OS share sheet
+// has been opened and not dismissed: `card` says which card went (the P&L
+// card is a portfolio kind, a won prediction's a position kind), `range`
+// the P&L card's range as its pill reads ("1W", "1M", "3M", "1Y", "ALL"),
+// `holdings_count` on the portfolio card how many positions are open in
+// all (an integer; the card lists up to three). No market, no name, no
+// id, no figure.
 
 import 'dart:async';
 import 'dart:math' as math;
@@ -42,6 +44,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderRepaintBoundary;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:intl/intl.dart' show DateFormat;
 import 'package:share_plus/share_plus.dart';
 
 import 'package:kute/l10n/l10n.dart';
@@ -146,7 +149,22 @@ class _BragPreviewSheetState extends ConsumerState<BragPreviewSheet> {
                 title: context.l10n.bragMyPnl,
                 range: pnl.range,
                 venue: pnl.venue)
-            : bragPortfolio(ref, title: context.l10n.bragMyPortfolio));
+            : bragPortfolio(ref,
+                title: context.l10n.bragMyPortfolio, date: _rowDate(context)));
+  }
+
+  /// Writes an ISO date found in a market's title in the app's language
+  /// ("Oct 25"), as the Portfolio's rows do.
+  static String Function(DateTime) _rowDate(BuildContext context) {
+    final locale = Localizations.localeOf(context).toString();
+    return (d) {
+      try {
+        return DateFormat.MMMd(locale).format(d);
+      } catch (_) {
+        // Date symbols not loaded for the locale (a test, an early start).
+        return DateFormat.MMMd('en').format(d);
+      }
+    };
   }
 
   Future<void> _share(BragData data) async {
@@ -185,6 +203,8 @@ class _BragPreviewSheetState extends ConsumerState<BragPreviewSheet> {
                   ? 'won'
                   : data.kind.name,
           if (data is BragPnl) 'range': data.range.label,
+          if (data is BragPortfolio && data is! BragPnl)
+            'holdings_count': math.max(data.openCount, data.top.length),
         });
       }
     } catch (_) {

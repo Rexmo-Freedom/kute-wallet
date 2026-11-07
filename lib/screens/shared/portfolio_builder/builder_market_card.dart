@@ -286,7 +286,7 @@ class _BuilderMarketCardState extends ConsumerState<BuilderMarketCard> {
         Expanded(
           child: Text(
             // Written whole: the card grows with its title.
-            e.title,
+            e.displayTitle,
             style: TextStyle(
               color: c.textPrimary,
               fontSize: 17.sp,
