@@ -384,9 +384,9 @@ void main() {
     expect(find.byKey(const ValueKey('portfolio-hero-chart')), findsNothing);
     final openChart = find.byKey(const ValueKey('portfolio-hero-open-chart'));
     expect(openChart, findsOneWidget);
-    // Its line once, and its range's own reach once (the oldest position
-    // four months back: 1Y, older than the line, laid from a year back).
-    expect(firstGrids, lessThanOrEqualTo(2));
+    // Its line once: a range reaching back past it is ALL's window of the
+    // same line, nothing laid again.
+    expect(firstGrids, 1);
 
     // A scrub on it: no grid, nothing heavy, not even the chart's own
     // widget (the plot and the line's text alone).
@@ -479,7 +479,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     }
     // The whole P&L engine (the hero's and the venue squares'): each
-    // venue's line and both venues' once, their range's own reach once.
+    // venue's line and both venues' once (and the venues' own published
+    // lines the squares draw while it is read).
     final sectionGrids = debugPnlSeriesGrids - sectionBefore;
     expect(sectionGrids, lessThanOrEqualTo(6),
         reason: 'grids laid opening the P&L section');
@@ -489,8 +490,10 @@ void main() {
     expect(tester.widget<KuteTrendChart>(heroChart).values.last,
         closeTo(_hlNow + _pmNow, 1e-6));
 
-    // A range switch: 1Y tapped, one frame.
-    await tester.tap(find.text('1Y'));
+    // A range switch: 3M tapped (half a year of history: 1Y would be ALL's
+    // window, so it is not offered), one frame.
+    expect(find.text('1Y'), findsNothing);
+    await tester.tap(find.text('3M'));
     final range = await _frame(tester, () => tester.pump());
     for (var i = 0; i < 10; i++) {
       await tester.pump(const Duration(milliseconds: 100));

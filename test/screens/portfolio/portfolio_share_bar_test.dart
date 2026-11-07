@@ -253,7 +253,7 @@ void main() {
 
   testWidgets(
       '"Share P&L" opens the P&L card for the range picked on the hero '
-      '(1Y): the hero\'s P&L, the range, its line; Share sends card pnl and '
+      '(3M): the hero\'s P&L, the range, its line; Share sends card pnl and '
       'the range', (tester) async {
     BragPreviewSheet.debugLineSeed = 0;
     final sent = <String>[];
@@ -261,9 +261,12 @@ void main() {
     await _mount(tester, extra: _history());
     await _pick(tester, PortfolioSection.charts);
     await _settle(tester);
-    await tester.tap(find.text('1Y'));
+    // Ten months of history (Investing's first P&L 300 days back): 1Y
+    // would draw all of it, ALL's window, so the row does not offer it.
+    expect(find.text('1Y'), findsNothing);
+    await tester.tap(find.text('3M'));
     await _settle(tester);
-    // The hero's P&L over the year ("▲ $12.40 · Past year").
+    // The hero's P&L over three months ("▲ $X · Past 3 months").
     final headline = tester
         .widget<Text>(find.byKey(const ValueKey('portfolio-hero-change')))
         .textSpan!
@@ -274,15 +277,15 @@ void main() {
     await tester.tap(kuteBarPrimary);
     await _settle(tester);
     final card = tester.widget<PnlShareCard>(find.byType(PnlShareCard));
-    expect(card.data.range, BalanceRange.year);
+    expect(card.data.range, BalanceRange.threeMonths);
     expect(card.data.venue, isNull);
     // The card's figure is the hero's, the range its pill's.
     expect(card.data.result!.text.replaceAll(RegExp(r'[^\d.,]'), ''),
         headline.replaceAll(RegExp(r'[^\d.,]'), ''));
     Finder onCard(Finder f) =>
         find.descendant(of: find.byType(PnlShareCard), matching: f);
-    expect(onCard(find.text('MY P&L · 1Y')), findsOneWidget);
-    expect(onCard(find.text('Past year')), findsOneWidget);
+    expect(onCard(find.text('MY P&L · 3M')), findsOneWidget);
+    expect(onCard(find.text('Past 3 months')), findsOneWidget);
     expect(find.byKey(const ValueKey('pnl-card-chart')), findsOneWidget);
     expect(card.data.series, isNotNull);
     // The sheet's title and its own Share.
@@ -299,7 +302,7 @@ void main() {
     expect(sent.single, startsWith('My P&L on Kute '));
     expect(events.where((e) => e.$1 == 'brag_shared').map((e) => e.$2),
         [
-          {'kind': 'portfolio', 'card': 'pnl', 'range': '1Y'}
+          {'kind': 'portfolio', 'card': 'pnl', 'range': '3M'}
         ]);
     await _unmount(tester);
   });
@@ -313,7 +316,8 @@ void main() {
     await _settle(tester);
     await tester.tap(find.byKey(const ValueKey('pnl-venue-predictions')));
     await _settle(tester);
-    // "Predictions · ▲ $X · Past month": the venue's P&L over the month.
+    // "Predictions · ▲ $X · All time": the month (the start) reaches past
+    // the venue's three weeks of P&L, so the hero draws all of it, ALL lit.
     final parts = tester
         .widget<Text>(find.byKey(const ValueKey('portfolio-hero-change')))
         .textSpan!
@@ -325,8 +329,10 @@ void main() {
     await tester.tap(kuteBarPrimary);
     await _settle(tester);
     var card = tester.widget<PnlShareCard>(find.byType(PnlShareCard));
+    expect(parts.last, 'All time');
     expect(card.data.venue, PortfolioPerformanceVenue.predictions);
-    expect(card.data.range, BalanceRange.month);
+    // The card's range is the one the hero draws, its pill lit.
+    expect(card.data.range, BalanceRange.all);
     expect(card.data.result!.text.replaceAll(RegExp(r'[^\d.,]'), ''),
         headline.replaceAll(RegExp(r'[^\d.,]'), ''));
     Navigator.of(tester.element(find.byType(PnlShareCard))).pop();

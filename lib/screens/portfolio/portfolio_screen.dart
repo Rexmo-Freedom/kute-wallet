@@ -30,8 +30,9 @@
 // position open or a P&L off zero, "Share portfolio" opens the portfolio
 // card (Positions, the screen's first section, and Activity, its last);
 // on P&L, with a P&L drawn, "Share P&L" opens the P&L card for the
-// range picked on the hero's chart, of the venue square picked alone when
-// one is (portfolioPnlVenueProvider; both venues otherwise;
+// range the hero's chart draws (its pill lit, pnlShownRangeProvider: ALL
+// when the pick reaches past the history), of the venue square picked
+// alone when one is (portfolioPnlVenueProvider; both venues otherwise;
 // brag_preview_sheet.dart). The label
 // morphs on a switch like every bar label (kute_morph_label.dart).
 // Nothing to share: the default bar.
@@ -44,7 +45,7 @@
 import 'dart:async';
 
 import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart'
-    show pnlChartRangeProvider, portfolioPnlVenueProvider;
+    show pnlShownRangeProvider, portfolioPnlVenueProvider;
 import 'package:kute/screens/share/brag/brag_data.dart'
     show bragPnlAvailableProvider, bragPortfolioAvailableProvider;
 import 'package:kute/screens/share/brag/brag_preview_sheet.dart'
@@ -101,7 +102,9 @@ class PortfolioScreen extends ConsumerWidget {
           ? (
               l10n.bragPnlBarLabel,
               () => unawaited(showBragPnlPreviewSheet(context,
-                  range: ref.read(pnlChartRangeProvider),
+                  // The range as the hero draws it (its pill lit).
+                  range: ref.read(pnlShownRangeProvider(
+                      ref.read(portfolioPnlVenueProvider))),
                   // The venue square picked: its card alone.
                   venue: ref.read(portfolioPnlVenueProvider))),
             )

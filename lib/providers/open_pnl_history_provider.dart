@@ -19,9 +19,12 @@
 //     Kept five minutes after the chart goes (another section and back
 //     draws at once), read again every five minutes while it is up;
 //   * [openPnlWindowProvider]: the points a range draws, per range;
+//   * [openPnlRangesProvider]: the ranges the line offers (every fixed
+//     range shorter than its history, then ALL: [openPnlRanges]);
 //   * [openPnlShownRangeProvider]: the range picked ([openPnlRangeProvider],
-//     kept for the session), else the shortest that covers the oldest open
-//     position's entry.
+//     kept for the session), else ALL, the whole history; a range picked
+//     that the line does not offer (as long as its history or longer) is
+//     ALL.
 //
 // The live figure is not here: the chart puts the open P&L now
 // (portfolioOpenPnl, the hero's own figure, the left-out positions left
@@ -339,7 +342,6 @@ class OpenPnlHistory {
     required this.legs,
     required this.leftOut,
     required this.series,
-    this.changes = const [],
   });
 
   /// When it was laid: the line's end.
@@ -355,14 +357,22 @@ class OpenPnlHistory {
   /// The line on the Balance charts' grid; null with nothing charted.
   final BalanceSeries? series;
 
-  /// The moments the line moved ([openPnlChanges]): what a range
-  /// reaching back past the line's start is laid from again
-  /// ([openPnlRangeWindow]).
-  final List<(DateTime, double)> changes;
-
   /// When the oldest position charted was opened.
   DateTime? get oldestOpen => openPnlOldest(legs, asOf);
+
+  /// How many ranges the line offers ([openPnlRanges]: the fixed ones
+  /// shorter than its history, then ALL); null with nothing charted.
+  int? get rangesOffered =>
+      series == null ? null : openPnlRanges(oldestOpen, asOf).length;
 }
+
+/// The ranges a line offering [count] of them ([OpenPnlHistory
+/// .rangesOffered]) shows in its row: the [count] - 1 shortest, then ALL
+/// ([openPnlRanges] keeps them in that order); every range while the line
+/// is read or with nothing charted.
+List<BalanceRange> openPnlRangesOf(int? count) => count == null
+    ? BalanceRange.values
+    : [...BalanceRange.values.take(count - 1), BalanceRange.all];
 
 /// [future] or null once it fails or takes longer than [kOpenPnlReadCap].
 Future<T?> _capped<T>(Future<T?> future) => future
@@ -539,16 +549,16 @@ final openPnlHistoryProvider =
   }
   final end = now.toLocal();
   final oldest = openPnlOldest(legs, end);
-  final changes = openPnlChanges(legs, end);
   return OpenPnlHistory(
     asOf: now,
     legs: List.unmodifiable(legs),
     leftOut: Set.unmodifiable(leftOut),
-    changes: List.unmodifiable(changes),
     series: oldest == null
         ? null
         : openPnlGrid(
-            changes: changes, first: openPnlLeadIn(oldest, end), now: end),
+            changes: openPnlChanges(legs, end),
+            first: openPnlLeadIn(oldest, end),
+            now: end),
   );
 });
 
@@ -590,9 +600,9 @@ class OpenPnlWindow {
   final bool daily;
 }
 
-/// [range]'s points of the line (the Balance charts' bucket closes,
-/// every range its own reach: [openPnlRangeWindow]), computed once per
-/// range and history.
+/// [range]'s points of the line (the Balance charts' bucket closes; a
+/// range the line does not offer is ALL's whole line:
+/// [openPnlRangeWindow]), computed once per range and history.
 final openPnlWindowProvider = Provider.autoDispose
     .family<OpenPnlWindow?, BalanceRange>((ref, range) {
   final history = ref.watch(openPnlHistoryProvider.select((read) {
@@ -604,32 +614,29 @@ final openPnlWindowProvider = Provider.autoDispose
 
 OpenPnlWindow _windowOf(OpenPnlHistory h, BalanceRange range) {
   final shown = openPnlRangeWindow(
-      series: h.series!,
-      changes: h.changes,
-      now: h.asOf,
-      range: range);
+      series: h.series!, oldest: h.oldestOpen, now: h.asOf, range: range);
   return OpenPnlWindow(
       values: shown.values, times: shown.times, daily: shown.daily);
 }
 
 /// The range picked on the Positions chart, kept for the session; null
-/// until one is picked ([openPnlShownRangeProvider] then picks).
+/// until one is picked ([openPnlShownRangeProvider] then shows ALL).
 final openPnlRangeProvider = StateProvider<BalanceRange?>((ref) => null);
 
-/// The range the Positions chart shows: the one picked, else the shortest
-/// that covers the oldest open position's entry ([openPnlDefaultRange]).
-final openPnlShownRangeProvider = Provider.autoDispose<BalanceRange>((ref) {
-  final picked = ref.watch(openPnlRangeProvider);
-  if (picked != null) return picked;
-  final at = ref.watch(openPnlHistoryProvider.select((read) {
-    final h = read.valueOrNull;
-    return h == null ? null : (oldest: h.oldestOpen, asOf: h.asOf);
-  }));
-  final oldest = at?.oldest;
-  return oldest == null
-      ? BalanceRange.all
-      : openPnlDefaultRange(oldest, at!.asOf);
-});
+/// The ranges the Positions chart's row offers ([openPnlRanges]: the
+/// fixed ones shorter than the line's history, then ALL); every range
+/// while the history is read.
+final openPnlRangesProvider = Provider.autoDispose<List<BalanceRange>>(
+    (ref) => openPnlRangesOf(ref.watch(openPnlHistoryProvider
+        .select((read) => read.valueOrNull?.rangesOffered))));
+
+/// The range the Positions chart shows (and the Dollars Open P&L card):
+/// the one picked, else ALL, the whole history (founder, 7 November 2026:
+/// "use ALL like it was before"); a pick the line does not offer (as long
+/// as its history or longer, [openPnlRangeShown]) is ALL.
+final openPnlShownRangeProvider = Provider.autoDispose<BalanceRange>((ref) =>
+    openPnlRangeShown(ref.watch(openPnlRangeProvider) ?? BalanceRange.all,
+        ref.watch(openPnlRangesProvider)));
 
 // ─────────────────────── the whole P&L history ───────────────────────
 //
@@ -659,8 +666,9 @@ final openPnlShownRangeProvider = Provider.autoDispose<BalanceRange>((ref) {
 //     book, a closed prediction's swings before it was decided) held from
 //     there to the next; with nothing of a venue's charted, its own line;
 //     and the line on the grid;
-//   * [pnlWindowProvider]: the points a range draws, per range and venue,
-//     every range its own reach (openPnlRangeWindow).
+//   * [pnlWindowProvider]: the points a range draws, per range and venue
+//     (a range the line does not offer is ALL's whole line:
+//     openPnlRangeWindow); [pnlRangesProvider]: the ranges it offers.
 //
 // The live figure is not here: the hero pins the line's last point to the
 // P&L now it writes (the venues' own, the predictions at the live prices),
@@ -978,7 +986,6 @@ final pnlHistoryProvider = Provider.autoDispose
   }
   final end = asOf.toLocal();
   final oldest = openPnlOldest(legs, end);
-  final changes = openPnlChanges(legs, end);
   return AsyncData(OpenPnlHistory(
     asOf: asOf,
     legs: List.unmodifiable(legs),
@@ -986,11 +993,12 @@ final pnlHistoryProvider = Provider.autoDispose
       for (final key in engine?.leftOut ?? const <String>{})
         if (scope.contains(_venueOfKey(key))) key,
     },
-    changes: List.unmodifiable(changes),
     series: oldest == null
         ? null
         : openPnlGrid(
-            changes: changes, first: openPnlLeadIn(oldest, end), now: end),
+            changes: openPnlChanges(legs, end),
+            first: openPnlLeadIn(oldest, end),
+            now: end),
   ));
 });
 
@@ -1028,3 +1036,11 @@ final pnlWindowProvider = Provider.autoDispose.family<OpenPnlWindow?,
   }));
   return history == null ? null : _windowOf(history, key.range);
 });
+
+/// The ranges [venue]'s whole P&L line (null: both) offers in its row
+/// ([openPnlRanges]: the fixed ones shorter than its history, then ALL);
+/// every range while it is read or with nothing charted.
+final pnlRangesProvider = Provider.autoDispose
+    .family<List<BalanceRange>, PortfolioPerformanceVenue?>((ref, venue) =>
+        openPnlRangesOf(ref.watch(pnlHistoryProvider(venue)
+            .select((read) => read.valueOrNull?.rangesOffered))));

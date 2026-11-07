@@ -410,12 +410,18 @@ void main() {
         r'+$4.00');
     final chart = tester.widget<KuteTrendChart>(
         find.byKey(const ValueKey('dollars-pnl-chart')));
-    // The Positions chart's line on its range (ten days back: 1M, from a
-    // month back): zero before the opens, +$4 since, the figure last.
+    // The Positions chart's line on its range (ALL, the whole history:
+    // from its lead-in a little before the opens ten days back, never a
+    // flat month): zero before the opens, +$4 since, the figure last.
     expect(chart.values.first, 0);
     expect(chart.values.last, closeTo(4, 1e-9));
-    expect(chart.times!.first.isBefore(now.subtract(const Duration(days: 29))),
+    expect(chart.times!.first.isBefore(now.subtract(const Duration(days: 10))),
         isTrue);
+    expect(chart.times!.first.isAfter(now.subtract(const Duration(days: 12))),
+        isTrue);
+    expect(chart.values.where((v) => v == 0).length,
+        lessThan(chart.values.length ~/ 4),
+        reason: 'the flat lead-in is a short stretch, not most of the line');
     expect(chart.baseline, 0);
     expect(chart.zeroSplit, isTrue);
     expect(chart.live, isFalse);
