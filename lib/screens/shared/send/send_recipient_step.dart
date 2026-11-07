@@ -24,7 +24,7 @@
 //       All contacts             A Anna Haro …        ← level 3
 //
 //     Level 2 is ONE row of small, equal chips ([SendWaysRow] of
-//     [SendWayChip]: the big cards' surface, smaller; the icon at the
+//     [SendWayChip]: the big cards' soft card, smaller; the icon at the
 //     top left, a short label under it), clearly under the people above
 //     it. They share the row's width evenly (founder, 7 November 2026:
 //     two chips, Prediction hidden, take half each, no empty third slot);
@@ -1059,7 +1059,6 @@ class SendWayChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final isLight = Theme.of(context).brightness == Brightness.light;
     return Semantics(
       button: true,
       label: semanticsLabel ?? label,
@@ -1075,14 +1074,10 @@ class SendWayChip extends StatelessWidget {
             padding: EdgeInsets.symmetric(
                 horizontal: kSendWayChipPadding.w,
                 vertical: kSendWayChipPadding.h),
-            // The big cards' surface: surface-1 (the dark surface in dark
-            // mode) and the hairline, a smaller radius.
-            decoration: BoxDecoration(
-              color: isLight ? c.surfaceLight : c.surface,
-              borderRadius: BorderRadius.circular(16.r),
-              border: Border.all(
-                  color: isLight ? c.border : c.borderSubtle, width: 1),
-            ),
+            // The big cards' soft card (KuteActionCard.surfaceOf), a
+            // smaller radius.
+            decoration: KuteActionCard.surfaceOf(context)
+                .copyWith(borderRadius: BorderRadius.circular(16.r)),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,

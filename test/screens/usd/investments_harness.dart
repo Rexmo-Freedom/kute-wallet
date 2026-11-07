@@ -170,6 +170,9 @@ Future<RecordingRewardsApi> pumpInvestments(
   /// The dark theme (the on-demand renders).
   bool dark = false,
 
+  /// The app's language; the device's (English) when null.
+  Locale? locale,
+
   /// The spending account's history (the Portfolio's Activity rows).
   Transaction? history,
 
@@ -244,6 +247,7 @@ Future<RecordingRewardsApi> pumpInvestments(
             dark ? AppColorsExtension.dark() : AppColorsExtension.light()
           ],
         ),
+        locale: locale,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: child ?? const UsdAccountScreen(),

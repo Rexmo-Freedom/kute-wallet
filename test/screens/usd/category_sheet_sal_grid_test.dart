@@ -3,8 +3,9 @@
 // 1 November 2026: "user has clicked, so show the market categories"):
 // the Sal sheet opens with EVERY category of the venue under its
 // composer, as the category grid's own cards in a two-column grid (the
-// same 96 px card for both venues since 6 November 2026, an odd last one
-// full width), the picked one in the white-pill style; never the generic
+// same compact 60 px card for both venues, an odd last one full width),
+// every tile the app's soft card and the picked one with the CTA ring;
+// never the generic
 // arrow cards. A tap on a tile picks it and closes both sheets.
 
 import 'package:flutter/material.dart';
@@ -142,6 +143,13 @@ BoxDecoration _box(WidgetTester tester, Finder tile) => tester
         find.descendant(of: tile, matching: find.byType(AnimatedContainer)))
     .decoration! as BoxDecoration;
 
+/// The picked tile's CTA ring on the soft card (the light CTA is the
+/// primary text colour).
+bool _ringed(BoxDecoration d) {
+  final edge = (d.border! as Border).top;
+  return edge.width == 1.5 && edge.color == AppColorsExtension.light().textPrimary;
+}
+
 void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
 
@@ -157,7 +165,7 @@ void main() {
 
     // The grid under the composer: every topic on offer, each with
     // Polymarket's own glyph and its name, in two columns of Investing's
-    // 96 px cards.
+    // compact cards.
     expect(_grid, findsOneWidget);
     final policy = _container(tester).read(runtimeCapabilitiesProvider);
     final offered = [
@@ -178,16 +186,16 @@ void main() {
     final second = tester.getRect(_salTile(offered[1].key));
     expect(second.top, first.top, reason: 'two columns');
     expect(second.left, greaterThan(first.right));
-    expect(first.height, 96);
+    expect(first.height, 60);
     expect(tester.getRect(_salTile(offered[2].key)).left, first.left);
 
-    // The picked one in the white-pill style, the others flat.
+    // Every tile on the soft card; the picked one with the CTA ring, the
+    // others without.
     final light = AppColorsExtension.light();
-    expect(_box(tester, _salTile(PolyPill.trending.key)).color, Colors.white);
-    expect(_box(tester, _salTile(PolyPill.trending.key)).border!.top.color,
-        light.border);
-    expect(_box(tester, _salTile(PolyPill.politics.key)).color,
-        light.surfaceLight);
+    expect(_box(tester, _salTile(PolyPill.trending.key)).color, light.surface);
+    expect(_ringed(_box(tester, _salTile(PolyPill.trending.key))), isTrue);
+    expect(_box(tester, _salTile(PolyPill.politics.key)).color, light.surface);
+    expect(_ringed(_box(tester, _salTile(PolyPill.politics.key))), isFalse);
 
     // Never the generic arrow cards.
     expect(find.byKey(const ValueKey('context-actions-card')), findsNothing);
@@ -197,7 +205,7 @@ void main() {
     await tester.ensureVisible(_salTile(PolyPill.politics.key));
     await tester.tap(_salTile(PolyPill.politics.key));
     await tester.pump();
-    expect(_box(tester, _salTile(PolyPill.politics.key)).color, Colors.white,
+    expect(_ringed(_box(tester, _salTile(PolyPill.politics.key))), isTrue,
         reason: 'the pick springs on before the sheets go');
     for (var i = 0; i < 12; i++) {
       await tester.pump(const Duration(milliseconds: 100));
@@ -224,9 +232,8 @@ void main() {
     expect(_salTile(HlBrowseTab.trending.key), findsOneWidget);
     expect(_salTile(HlBrowseTab.perps.key), findsOneWidget);
     expect(_salTile(HlBrowseTab.spot.key), findsOneWidget);
-    expect(tester.getSize(_salTile(HlBrowseTab.trending.key)).height, 96);
-    expect(_box(tester, _salTile(HlBrowseTab.trending.key)).color,
-        Colors.white);
+    expect(tester.getSize(_salTile(HlBrowseTab.trending.key)).height, 60);
+    expect(_ringed(_box(tester, _salTile(HlBrowseTab.trending.key))), isTrue);
     expect(find.byKey(const ValueKey('context-actions-card')), findsNothing);
 
     await tester.ensureVisible(_salTile(HlBrowseTab.spot.key));

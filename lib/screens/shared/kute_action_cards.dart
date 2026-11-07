@@ -4,8 +4,13 @@
 // possible, instead of a list, big squares like modern fintech apps"). A
 // sheet whose content is two to four actions or choices shows them as
 // cards, in the style the Sal sheet's send cards set (commit 6dcf960f):
-// surface-1 (the dark surface in dark mode), radius 20, a 1 px hairline,
-// 16 padding; a large visual at the top left (a logo, Sal, an icon), the
+// THE APP'S ONE CARD (founder, 7 November 2026, the position page's grey
+// bordered cards beside its soft tiles: "dofferent cards than this"): the
+// soft card the Goals squares, the Dollars position squares and the
+// activity squares wear ([PremiumGroupContainer.decorationOf]: the card
+// surface, radius 20, the soft shadow under it, no visible border), on a
+// screen and on a sheet alike, light and dark; 16 padding; a large
+// visual at the top left (a logo, Sal, an icon), the
 // title (16, w600), the lines under it (13, textSecondary) and,
 // optionally, the foot (13, w600, two lines); the press spring. The title
 // and its lines are never cut (founder, 5 November 2026: "this is cut"):
@@ -53,8 +58,8 @@
 // resolution", "should be like big squares"; "little cards, square-ish"):
 // [KuteActionCard.option] is the card for a screen rather than a sheet,
 // the options under the chart of the Investing and Predictions market
-// and position screens, alike on both venues. The same surface, hairline
-// and press spring; radius 18, 14 padding, at least 112 tall; an icon (22,
+// and position screens, alike on both venues. The same soft card and
+// press spring; 14 padding, at least 112 tall; an icon (22,
 // primary text) at the top left, the title under it (15, w600, two lines)
 // and, when the option has one, its value on one line (13, textSecondary:
 // "Stop loss", "Ends Nov 5"). The text sits at the top, so the titles of
@@ -86,6 +91,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show KutePressable;
 import 'package:kute/theme/app_theme.dart';
 
@@ -260,25 +266,29 @@ class KuteActionCard extends StatelessWidget {
     return line == null || line.isEmpty ? null : line;
   }
 
-  /// The card's surface: surface-1, the hairline, [radius] round.
-  BoxDecoration _surface(AppColorsExtension c, bool isLight, double radius) =>
-      BoxDecoration(
-        color: isLight ? c.surfaceLight : c.surface,
-        borderRadius: BorderRadius.circular(radius),
-        border:
-            Border.all(color: isLight ? c.border : c.borderSubtle, width: 1),
-      );
+  /// The card's surface: the app's one soft card (see the file header),
+  /// the Goals and position squares' own, never a surface of its own.
+  static BoxDecoration surfaceOf(BuildContext context) =>
+      PremiumGroupContainer.decorationOf(context);
+
+  /// [padding] inside [surface], measured as the cards always measured it:
+  /// from a 1 px edge. The soft card's hairline is thinner in light mode,
+  /// so the padding takes up the difference and the content sits exactly
+  /// where it did.
+  static EdgeInsets paddingIn(BoxDecoration surface, double padding) =>
+      EdgeInsets.all(
+          padding + 1 - ((surface.border as Border?)?.top.width ?? 0));
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final isLight = Theme.of(context).brightness == Brightness.light;
+    final surface = surfaceOf(context);
     final span = _KuteCardSpan.of(context);
     final badgeText = badge;
     if (span != _CardSpan.square) {
       if (!compact) {
         return _interactive(
-          _wideCard(c, isLight, lead: span == _CardSpan.lead),
+          _wideCard(c, surface, lead: span == _CardSpan.lead),
           semanticsLabel ??
               [
                 title,
@@ -290,7 +300,7 @@ class KuteActionCard extends StatelessWidget {
       }
       final more = _detailLine;
       return _interactive(
-        _wideOption(c, isLight, lone: span == _CardSpan.lone),
+        _wideOption(c, surface, lone: span == _CardSpan.lone),
         semanticsLabel ??
             [title, if (subtitle != null) subtitle!, if (more != null) more]
                 .join(', '),
@@ -303,9 +313,9 @@ class KuteActionCard extends StatelessWidget {
       constraints: compact
           ? const BoxConstraints(minHeight: kKuteOptionCardMinHeight)
           : null,
-      padding: EdgeInsets.all(
+      padding: paddingIn(surface,
           compact ? kKuteOptionCardPadding : kKuteActionCardPadding),
-      decoration: _surface(c, isLight, compact ? 18 : 20),
+      decoration: surface,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -410,13 +420,14 @@ class KuteActionCard extends StatelessWidget {
   /// lines and the foot beside it, wrapping as they need, then the chevron
   /// (the badge on a disabled card) at the right; as tall as that. [lead]
   /// (the grid's main action on top) draws it with more presence.
-  Widget _wideCard(AppColorsExtension c, bool isLight, {bool lead = false}) {
+  Widget _wideCard(AppColorsExtension c, BoxDecoration surface,
+      {bool lead = false}) {
     final badgeText = badge;
     final foot = footer;
     return Container(
-      padding: EdgeInsets.all(
+      padding: paddingIn(surface,
           lead ? kKuteActionCardLeadPadding : kKuteActionCardPadding),
-      decoration: _surface(c, isLight, 20),
+      decoration: surface,
       child: Row(
         children: [
           SizedBox(
@@ -473,13 +484,13 @@ class KuteActionCard extends StatelessWidget {
   /// A full-width option card (see the file header): the icon, the title,
   /// the value and the [detail] at the left, the chevron at the right;
   /// [lone] (the grid's only card) draws them larger.
-  Widget _wideOption(AppColorsExtension c, bool isLight,
+  Widget _wideOption(AppColorsExtension c, BoxDecoration surface,
       {required bool lone}) {
     final more = _detailLine;
     return Container(
-      padding: EdgeInsets.all(
-          lone ? kKuteOptionCardLonePadding : kKuteOptionCardPadding),
-      decoration: _surface(c, isLight, 18),
+      padding: paddingIn(
+          surface, lone ? kKuteOptionCardLonePadding : kKuteOptionCardPadding),
+      decoration: surface,
       child: Row(
         children: [
           Expanded(
