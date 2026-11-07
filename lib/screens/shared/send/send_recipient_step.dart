@@ -534,7 +534,8 @@ class SendInitialsCircle extends StatelessWidget {
 }
 
 /// Sal's `share` face at 32, the glyph of the link rows (Send to a friend,
-/// Send a prediction or investment).
+/// Send a prediction or investment); at 40, the What step's gift
+/// (send_what_step.dart).
 class SendSalShareGlyph extends StatelessWidget {
   const SendSalShareGlyph({super.key, this.size = 32});
 

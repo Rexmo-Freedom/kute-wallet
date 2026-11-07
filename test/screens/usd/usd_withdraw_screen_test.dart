@@ -543,6 +543,13 @@ void main() {
     expect(find.descendant(of: sheet, matching: find.byType(KuteActionCard)),
         findsNWidgets(2));
     final money = find.byKey(kSendWhatMoneyKey);
+    // Dollars and the gift: two equal squares side by side.
+    final gift = find.byKey(kSendWhatGiftKey);
+    expect(tester.getSize(money), tester.getSize(gift));
+    expect(tester.getTopLeft(gift).dy,
+        moreOrLessEquals(tester.getTopLeft(money).dy));
+    expect(tester.getTopLeft(gift).dx,
+        greaterThan(tester.getTopRight(money).dx));
     expect(
         find.descendant(
             of: money, matching: find.text(_l10n.portfolioBalanceDollars)),

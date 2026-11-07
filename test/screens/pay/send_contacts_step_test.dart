@@ -29,6 +29,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/flutter_svg.dart' show SvgPicture;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -62,9 +63,18 @@ import 'package:kute/screens/shared/money_movement_sheet.dart'
         MoneyMovementRoute,
         debugMoneyMovementSheetOpener;
 import 'package:kute/screens/shared/send/send_recipient_step.dart'
-    show AnotherCryptoMarks, SendAnotherCryptoCard, kSendAnotherCryptoKey;
+    show
+        AnotherCryptoMarks,
+        SendAnotherCryptoCard,
+        SendSalShareGlyph,
+        kSendAnotherCryptoKey;
 import 'package:kute/screens/shared/send/send_what_step.dart'
-    show SendWhatSheet, kSendWhatGiftKey, kSendWhatMoneyKey;
+    show
+        SendWhatSal,
+        SendWhatSheet,
+        kSendWhatGiftKey,
+        kSendWhatMoneyKey,
+        kSendWhatSalSize;
 import 'package:kute/screens/shared/kute_pill_tabs.dart' show KutePillTabs;
 import 'package:kute/screens/shared/kute_action_cards.dart'
     show KuteActionCard, KuteActionCardGrid, KuteActionCardIcon;
@@ -664,8 +674,9 @@ void main() {
   testWidgets(
       'the What step on the Bitcoin Send: no toggle and no Dollars, the '
       'Bitcoin card (its mark, "Bitcoin", the sats available line) and the '
-      'gift on the app\'s cards, the gift glyph not the gauge; the bar is '
-      'Back, which closes it with no answer', (tester) async {
+      'gift as two squares side by side, the gift wearing Sal at the mark\'s '
+      'size, no box and no gauge; the bar is Back, which closes it with no '
+      'answer', (tester) async {
     _gateway.permission = SendContactsPermission.granted;
     await policy(tester);
     await _pump(tester, spendingSats: 328686);
@@ -697,19 +708,33 @@ void main() {
         find.descendant(
             of: gift, matching: find.text(_l10n.sendToAFriendSub)),
         findsOneWidget);
+    // Sal's share face, in the Bitcoin mark's box, no grey box.
+    final sal =
+        find.descendant(of: gift, matching: find.byType(SendSalShareGlyph));
+    expect(sal, findsOneWidget);
+    expect(tester.widget<SendSalShareGlyph>(sal).size, kSendWhatSalSize);
+    final mark = find.descendant(
+        of: money, matching: find.byType(SvgPicture));
     expect(
-        tester
-            .widget<KuteActionCardIcon>(find.descendant(
-                of: gift, matching: find.byType(KuteActionCardIcon)))
-            .icon,
-        Icons.card_giftcard_rounded);
+        tester.getSize(find.descendant(
+            of: gift, matching: find.byType(SendWhatSal))),
+        tester.getSize(mark));
+    expect(find.descendant(of: gift, matching: find.byType(KuteActionCardIcon)),
+        findsNothing);
+    expect(find.descendant(of: gift, matching: find.byIcon(Icons.card_giftcard_rounded)),
+        findsNothing);
     expect(inSheet(find.byType(SearchChanceGauge)), findsNothing);
-    // "A prediction or investment" never reads on one line at half the
-    // width: two compact full-width cards, one over the other.
+    // Two equal squares side by side (founder: "here should be the
+    // squares"), even with the gift's title on two lines; no chevrons.
     expect(tester.getSize(money).width,
         moreOrLessEquals(tester.getSize(gift).width));
+    expect(tester.getSize(money).height,
+        moreOrLessEquals(tester.getSize(gift).height));
     expect(tester.getTopLeft(gift).dy,
-        greaterThan(tester.getBottomLeft(money).dy));
+        moreOrLessEquals(tester.getTopLeft(money).dy));
+    expect(tester.getTopLeft(gift).dx,
+        greaterThan(tester.getTopRight(money).dx));
+    expect(inSheet(find.byIcon(Icons.chevron_right_rounded)), findsNothing);
 
     // The bar is the sheet's Back (Sal's face on it), clear of the cards.
     expect(kuteBarPrimaryWithText(_l10n.back), findsOneWidget);
@@ -758,14 +783,23 @@ void main() {
 
   testWidgets(
       'Predictions and Investing closed to this person: the What step has '
-      'no gift, Money only', (tester) async {
+      'no gift, Money only, the grid\'s lone card: full width, compact, '
+      'its chevron', (tester) async {
     _gateway.permission = SendContactsPermission.granted;
     await policy(tester,
         blocked: const {'polymarket.trade', 'hyperliquid.trade'});
     await _pump(tester);
     await tapPerson(tester, 'c2');
-    expect(find.byKey(kSendWhatMoneyKey), findsOneWidget);
+    final money = find.byKey(kSendWhatMoneyKey);
+    expect(money, findsOneWidget);
     expect(find.byKey(kSendWhatGiftKey), findsNothing);
+    expect(tester.getSize(money).width,
+        moreOrLessEquals(
+            tester.getSize(find.byKey(const ValueKey('send-what-cards'))).width));
+    expect(
+        find.descendant(
+            of: money, matching: find.byIcon(Icons.chevron_right_rounded)),
+        findsOneWidget);
   });
 
   testWidgets(

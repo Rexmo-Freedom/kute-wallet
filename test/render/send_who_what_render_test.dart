@@ -3,13 +3,15 @@
 // also"): the Who step empty, Another crypto under the field; the Who
 // step after a 0x address is pasted, the network asked in the "Where to?"
 // sheet filtered to it; the What step over a contact (Bitcoin and the
-// gift on the app's cards, the bar its Back); and the Dollars Send's Who
-// step and What step (Dollars and the gift). Light and dark, on a 375 pt
-// phone. Every frame lays out without an overflow; the PNGs are
-// written only when asked:
+// gift as two squares, the gift wearing Sal, the bar its Back); and the
+// Dollars Send's Who step and What step (Dollars and the gift), also in
+// German, Finnish, Hungarian and Portuguese. Light and dark, on a 375 pt
+// phone, Sal's sheets loaded. Every frame lays out without an overflow;
+// the PNGs are written only when asked:
 //
 //   SEND_WHO_RENDER=<dir> flutter test test/render/send_who_what_render_test.dart
 
+import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -36,7 +38,8 @@ import 'package:kute/providers/spark_contacts_provider.dart';
 import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceProvider, usdBalanceUnknownProvider;
 import 'package:kute/screens/pay/components/confirm_send.dart';
-import 'package:kute/screens/shared/sal_sprite.dart' show SalSpriteCache;
+import 'package:kute/screens/shared/sal_sprite.dart'
+    show SalSpriteCache, kSalSpriteDir;
 import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/screens/shared/send/send_what_step.dart'
     show SendWhatSheet;
@@ -152,6 +155,15 @@ Settings _settings() => Settings(
       wallets: [WalletConfig(id: 'spending', name: 'Spending')],
     );
 
+/// Sal's sheets, read for real: the What step's gift wears his face.
+Future<void> _sal(WidgetTester tester) => tester.runAsync(() async {
+      SalSpriteCache.debugSetManifest(jsonDecode(await rootBundle
+          .loadString('$kSalSpriteDir/manifest.json')) as Map<String, dynamic>);
+      for (final density in [2, 3]) {
+        await SalSpriteCache.clip('share', density);
+      }
+    });
+
 Future<void> _settle(WidgetTester tester) async {
   for (var i = 0; i < 8; i++) {
     await tester.pump(const Duration(milliseconds: 100));
@@ -211,8 +223,10 @@ void main() {
     WidgetsApp.debugAllowBannerOverride = true;
   });
 
-  Future<void> pumpSend(WidgetTester tester, {required bool dark}) async {
+  Future<void> pumpSend(WidgetTester tester,
+      {required bool dark, Locale? locale}) async {
     await tester.runAsync(loadShareCardFonts);
+    await _sal(tester);
     AffiliateService.debugSessionToken = 'test-session';
     final policy = runtimePolicyFixture(
         also: const {'polymarket.browse', 'hyperliquid.browse'});
@@ -266,6 +280,7 @@ void main() {
         builder: (_, __) => MaterialApp.router(
           builder: withKuteShellBar,
           routerConfig: router,
+          locale: locale,
           theme: base.copyWith(
               textTheme: base.textTheme.apply(fontFamily: 'Inter')),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -278,8 +293,10 @@ void main() {
     await _settle(tester);
   }
 
-  Future<void> pumpDollars(WidgetTester tester, {required bool dark}) async {
+  Future<void> pumpDollars(WidgetTester tester,
+      {required bool dark, Locale? locale}) async {
     await tester.runAsync(loadShareCardFonts);
+    await _sal(tester);
     AffiliateService.debugSessionToken = 'test-session';
     final policy = runtimePolicyFixture(
         also: const {'polymarket.browse', 'hyperliquid.browse'});
@@ -308,6 +325,7 @@ void main() {
         designSize: const Size(430, 932),
         builder: (_, __) => MaterialApp(
           builder: withKuteShellBar,
+          locale: locale,
           theme: base.copyWith(
               textTheme: base.textTheme.apply(fontFamily: 'Inter')),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -339,13 +357,17 @@ void main() {
       await _capture(tester, 'usd-send-who-empty-$theme');
     });
 
-    testWidgets('render: usd-send-what-$theme', (tester) async {
-      await pumpDollars(tester, dark: dark);
-      await tester.tap(find.byKey(const ValueKey('send-person-contact:c2')));
-      await _settle(tester);
-      expect(find.byType(SendWhatSheet), findsOneWidget);
-      await _capture(tester, 'usd-send-what-$theme');
-    });
+    for (final language in ['en', 'de', 'fi', 'hu', 'pt']) {
+      final suffix = language == 'en' ? '' : '-$language';
+      testWidgets('render: usd-send-what$suffix-$theme', (tester) async {
+        await pumpDollars(tester, dark: dark, locale: Locale(language));
+        await tester
+            .tap(find.byKey(const ValueKey('send-person-contact:c2')));
+        await _settle(tester);
+        expect(find.byType(SendWhatSheet), findsOneWidget);
+        await _capture(tester, 'usd-send-what$suffix-$theme');
+      });
+    }
 
     testWidgets('render: send-who-empty-$theme', (tester) async {
       await pumpSend(tester, dark: dark);

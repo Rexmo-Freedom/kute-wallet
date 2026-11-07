@@ -51,7 +51,10 @@
 // oneLineTitles] draws two big cards as squares only where both titles
 // read on one line at half the width, and otherwise as two compact
 // full-width cards, one over the other: the same layout as an odd last
-// card, never a squeezed font.
+// card, never a squeezed font. The Send's What sheet is not asked for it
+// (founder, 7 November 2026, of its money and gift cards as two rows:
+// "here should be the squares"): there two squares are wanted even with
+// "A prediction or investment" on two lines.
 //
 // OPTION CARDS, THE SAME SQUARES, SMALLER (founder, 4 November 2026: the
 // rows under a market's or a position's chart, "Add margin", "Rules and

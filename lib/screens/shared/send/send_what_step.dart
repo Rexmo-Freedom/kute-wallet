@@ -14,10 +14,10 @@
 //
 //   Send to Maria
 //   What are you sending?
-//   [₿  Bitcoin                          ›]   the money, of the Send it
-//   [   328,686 sats available · $248.82  ]   was opened on
-//   [🎁 A prediction or investment        ›]   only where a slip can send
-//   [   They claim it with Kute, no wallet ]   one (sendPickOffered)
+//   [₿                ] [Sal              ]   the money, of the Send it
+//   [Bitcoin          ] [A prediction or  ]   was opened on; the gift
+//   [328,686 sats     ] [investment       ]   only where a slip can send
+//   [available · $248 ] [They claim it... ]   one (sendPickOffered)
 //   ( Sal  Back )                             the floating bar
 //
 // THE SEND ALREADY SAYS WHOSE MONEY (founder, 7 November 2026, over the
@@ -29,13 +29,25 @@
 // "Bitcoin", the line the link's amount step prints: "328,686 sats
 // available · $248.82", the spending wallet's bitcoin that pays the link)
 // or the Dollars Send's Dollars (the mark, "Dollars", "$12.00
-// available"). A figure not known yet prints no line. The gift wears the
-// gift glyph the send mode's chip wears on the search sheet it opens
-// (send_pick_session.dart), never the predictions' gauge (its half ring
-// read as a stuck spinner). The grid lays the two out (oneLineTitles):
-// two squares where both titles read on one line at half the width, else
-// two compact full-width cards, as on a phone; the money card alone, full
-// width and compact, where no gift can be offered.
+// available"). A figure not known yet prints no line.
+//
+// THE SQUARES (founder, 7 November 2026, of the two full-width rows the
+// cards were: "here should be the squares"). The grid lays the two out as
+// two equal squares side by side, whatever the language: "A prediction or
+// investment" wraps to the lines it needs at half a phone's width and the
+// money card grows with it (the grid's square rules,
+// kute_action_cards.dart). The money card alone, full width and compact,
+// where no gift can be offered (the grid's lone card).
+//
+// SAL IS THE GIFT (founder, 7 November 2026, of its grey-boxed gift glyph:
+// "a prediction or investment should be like the icon much better, maybe
+// sal"): the gift wears Sal's `share` face ([SendSalShareGlyph], the face
+// the send mode's bar and the link rows wear), no box, in the same 40 box
+// as the money's round mark. He is drawn at his face's own cell, 48
+// ([kSendWhatSalSize]): the cell keeps a margin round him, so at 48 his
+// drawing, ear to scarf, is as wide and as tall as the Bitcoin or Dollars
+// disc beside him (at 40 he read a size smaller), in light and dark; never
+// the predictions' gauge (its half ring read as a stuck spinner).
 //
 // THE BAR IS ITS BACK (the PIN sheet's Cancel, pin_gate_sheet.dart): the
 // sheet is the Send's second step over its first, so while it is up the
@@ -85,6 +97,8 @@ import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/screens/shared/send/send_recipient_step.dart'
+    show SendSalShareGlyph;
 import 'package:kute/services/contacts/send_contacts_service.dart'
     show SendContact;
 import 'package:kute/services/tracking_service.dart';
@@ -125,6 +139,33 @@ Future<SendWhat?> showSendWhatSheet(
         giftOffered: giftOffered,
       ),
     );
+
+/// The size Sal's face is drawn at on the gift card: his face's own cell
+/// (see the file header).
+const double kSendWhatSalSize = 48;
+
+/// The gift card's visual (see the file header): Sal's `share` face at
+/// [kSendWhatSalSize] in the card's 40 visual box, standing on its foot,
+/// so his drawing covers the box as the money's round mark covers its own.
+class SendWhatSal extends StatelessWidget {
+  const SendWhatSal({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final sal = kSendWhatSalSize.sp;
+    return SizedBox.square(
+      dimension: kKuteActionCardVisualSize.sp,
+      child: OverflowBox(
+        minWidth: 0,
+        maxWidth: sal,
+        minHeight: 0,
+        maxHeight: sal,
+        alignment: Alignment.bottomCenter,
+        child: const SendSalShareGlyph(size: kSendWhatSalSize),
+      ),
+    );
+  }
+}
 
 /// What the Bitcoin card says is there: the spending wallet's bitcoin
 /// (the pool the link pays from, as Send to anyone reads it) in the
@@ -207,9 +248,9 @@ class SendWhatSheet extends ConsumerWidget {
             padding: EdgeInsets.symmetric(horizontal: 20.w),
             child: KuteActionCardGrid(
               key: const ValueKey('send-what-cards'),
-              // Squares only where both titles read on one line, else two
-              // compact full-width cards (see the file header).
-              oneLineTitles: true,
+              // Two squares, the gift's title on two lines where it needs
+              // them; the money card alone where no gift is offered (see
+              // the file header).
               cards: [
                 KuteActionCard(
                   key: kSendWhatMoneyKey,
@@ -226,9 +267,9 @@ class SendWhatSheet extends ConsumerWidget {
                 if (giftOffered)
                   KuteActionCard(
                     key: kSendWhatGiftKey,
-                    // The send mode chip's gift (send_pick_session.dart).
-                    visual: const KuteActionCardIcon(
-                        Icons.card_giftcard_rounded),
+                    // Sal's share face, as big as the money's mark, no
+                    // box (see the file header).
+                    visual: const SendWhatSal(),
                     title: l10n.sendWhatGift,
                     subtitle: l10n.sendToAFriendSub,
                     onTap: () => pick(SendWhatKind.gift),
