@@ -2,9 +2,10 @@
 // just make sure that people realise they can send to different cryptos
 // also"): the Who step empty, the crypto hint under the field; the Who
 // step after a 0x address is pasted, the network asked in the "Where to?"
-// sheet filtered to it; the What step over a contact; and the Dollars
-// Send's Who step and What step (the From toggle on Dollars). Light and
-// dark, on a 375 pt phone. Every frame lays out without an overflow; the PNGs are
+// sheet filtered to it; the What step over a contact (Bitcoin and the
+// gift on the app's cards, the bar its Back); and the Dollars Send's Who
+// step and What step (Dollars and the gift). Light and dark, on a 375 pt
+// phone. Every frame lays out without an overflow; the PNGs are
 // written only when asked:
 //
 //   SEND_WHO_RENDER=<dir> flutter test test/render/send_who_what_render_test.dart
@@ -24,11 +25,16 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/affiliate_model.dart' show AffiliateService;
+import 'package:kute/models/balance_model.dart' show WalletBalance;
 import 'package:kute/models/orchestra_routes_model.dart';
 import 'package:kute/models/settings_model.dart';
+import 'package:kute/providers/balance_provider.dart'
+    show WalletBalanceCacheNotifier, walletBalanceCacheProvider;
 import 'package:kute/providers/orchestra_supported_routes_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/spark_contacts_provider.dart';
+import 'package:kute/providers/usd_account_provider.dart'
+    show usdBalanceProvider, usdBalanceUnknownProvider;
 import 'package:kute/screens/pay/components/confirm_send.dart';
 import 'package:kute/screens/shared/sal_sprite.dart' show SalSpriteCache;
 import 'package:kute/screens/shared/send/send_sheet.dart';
@@ -103,6 +109,16 @@ OrchestraRoutesCatalog _catalog() => OrchestraRoutesCatalog.fromJson(
       fetchedAt: DateTime(2026, 11, 7),
     );
 
+/// The spending wallet's bitcoin, for the What step's Bitcoin card.
+class _Balances extends WalletBalanceCacheNotifier {
+  _Balances() {
+    state = {
+      'spending':
+          WalletBalance(onChainBtcBalance: 0, sparkBitcoinbalance: 328686),
+    };
+  }
+}
+
 class _Routes extends OrchestraSupportedRoutesNotifier {
   _Routes(OrchestraRoutesCatalog catalog) {
     state = catalog;
@@ -147,6 +163,13 @@ Future<void> _capture(WidgetTester tester, String name) async {
   expect(error, isNull, reason: '$name overflowed: $error');
   final dir = _dir;
   if (dir == null) return;
+  // The cards' soft shadows drawn as on a phone for the shot (a test
+  // draws them unblurred), then flat again.
+  debugDisableShadows = false;
+  for (final o in tester.allRenderObjects) {
+    o.markNeedsPaint();
+  }
+  await tester.pump();
   final view = tester.binding.renderViews.first;
   final layer = view.debugLayer! as OffsetLayer;
   await tester.runAsync(() async {
@@ -156,6 +179,8 @@ Future<void> _capture(WidgetTester tester, String name) async {
     Directory(dir).createSync(recursive: true);
     File('$dir/$name.png').writeAsBytesSync(png!.buffer.asUint8List());
   });
+  debugDisableShadows = true;
+  await tester.pump();
 }
 
 void main() {
@@ -231,6 +256,7 @@ void main() {
             contacts: fakeContacts())),
         shareLinksApiProvider.overrideWithValue(FakeShareLinksApi()),
         sparkContactsProvider.overrideWith(_Paid.new),
+        walletBalanceCacheProvider.overrideWith((_) => _Balances()),
         orchestraSupportedRoutesProvider
             .overrideWith((_) => _Routes(_catalog())),
         orchestraRoutesReadyProvider.overrideWith((_) async {}),
@@ -272,6 +298,8 @@ void main() {
         sendContactsGatewayProvider.overrideWithValue(FakeSendContactsGateway(
             permission: SendContactsPermission.granted,
             contacts: fakeContacts())),
+        usdBalanceProvider.overrideWithValue(12.34),
+        usdBalanceUnknownProvider.overrideWithValue(false),
         orchestraSupportedRoutesProvider
             .overrideWith((_) => _Routes(_catalog())),
         orchestraRoutesReadyProvider.overrideWith((_) async {}),

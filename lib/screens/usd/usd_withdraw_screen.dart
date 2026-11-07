@@ -32,10 +32,10 @@
 //   * "Frequent" (the recent dollar recipients, paid directly: the send
 //     opens on that coin and address, on its amount) and All contacts A-Z
 //     (send_contacts_list.dart). A contact, or a typed number no contact
-//     has, is a person: What first (send_what_step.dart, the From toggle on
-//     Dollars), then the existing flow: the claim link in that account's
-//     money, Bitcoin paid at a Kute contact's own address (the Bitcoin
-//     Send), or a prediction or investment from the search in send mode.
+//     has, is a person: What first (send_what_step.dart: this Send's
+//     Dollars, or a gift), then the existing flow: the claim link in
+//     dollars (a Kute address takes none), or a prediction or investment
+//     from the search in send mode.
 //
 // No chips any more (founder, 7 November 2026: one verb per intent): no
 // "To your Bitcoin" (the Bitcoin Receive's "From your Dollars" fills it),
@@ -207,8 +207,9 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
   }
 
   /// A person (a contact, or a typed number no contact has), asked What
-  /// (send_what_step.dart, the From toggle on Dollars), then the existing
-  /// flow. A link created closes this sheet, as a send that went out does.
+  /// (send_what_step.dart: this Send's Dollars, or a gift), then the
+  /// existing flow. A link created closes this sheet, as a send that went
+  /// out does.
   Future<void> _sendToPerson({SendContact? contact, String? phone}) async {
     trackSendRecipientPicked(contact != null ? 'contact' : 'phone');
     final label = contact?.firstName;

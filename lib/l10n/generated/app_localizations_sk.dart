@@ -12087,13 +12087,7 @@ class AppLocalizationsSk extends AppLocalizations {
   String get sendWhatSubtitle => 'Čo posielaš?';
 
   @override
-  String get sendWhatMoney => 'Peniaze';
-
-  @override
   String get sendWhatGift => 'Predpoveď alebo investícia';
-
-  @override
-  String get sendWhatFrom => 'Z účtu';
 
   @override
   String get usdSendRecipientSearchHint => 'Meno, adresa alebo ENS';

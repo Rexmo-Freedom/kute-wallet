@@ -12113,13 +12113,7 @@ class AppLocalizationsSl extends AppLocalizations {
   String get sendWhatSubtitle => 'Kaj pošiljaš?';
 
   @override
-  String get sendWhatMoney => 'Denar';
-
-  @override
   String get sendWhatGift => 'Napoved ali naložba';
-
-  @override
-  String get sendWhatFrom => 'Iz';
 
   @override
   String get usdSendRecipientSearchHint => 'Ime, naslov ali ENS';

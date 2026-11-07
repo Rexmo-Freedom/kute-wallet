@@ -15,9 +15,10 @@
 //   * a paste goes straight on: a bitcoin address to the amount, a 0x
 //     address to the network question ("Where to?" filtered to it);
 //   * a person (a contact, a typed number) is asked What (send_what_step
-//     .dart): Money with the From toggle on Bitcoin (a Kute contact paid at
-//     their address, anyone else by link), or a prediction or investment
-//     (the search in send mode, the person prefilled).
+//     .dart), on the app's cards with no toggle: this Send's Bitcoin (a
+//     Kute contact paid at their address, anyone else by link), or a
+//     prediction or investment (the search in send mode, the person
+//     prefilled); the floating bar is the sheet's Back.
 
 import 'dart:io';
 
@@ -35,8 +36,11 @@ import 'package:hive_ce/hive.dart';
 import 'package:kute/l10n/generated/app_localizations_en.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/affiliate_model.dart' show AffiliateService;
+import 'package:kute/models/balance_model.dart' show WalletBalance;
 import 'package:kute/models/orchestra_routes_model.dart';
 import 'package:kute/models/share_link_model.dart' show ShareLinkKind;
+import 'package:kute/providers/balance_provider.dart'
+    show WalletBalanceCacheNotifier, walletBalanceCacheProvider;
 import 'package:kute/providers/orchestra_supported_routes_provider.dart';
 import 'package:kute/providers/send_tx_provider.dart';
 import 'package:kute/services/runtime_capabilities_service.dart'
@@ -60,10 +64,12 @@ import 'package:kute/screens/shared/money_movement_sheet.dart'
 import 'package:kute/screens/shared/send/send_recipient_step.dart'
     show SendCoinStack, SendCryptoHint;
 import 'package:kute/screens/shared/send/send_what_step.dart'
-    show SendWhatSheet, kSendWhatGiftKey, kSendWhatMoneyKey, kSendWhatFromKey;
+    show SendWhatSheet, kSendWhatGiftKey, kSendWhatMoneyKey;
 import 'package:kute/screens/shared/kute_pill_tabs.dart' show KutePillTabs;
 import 'package:kute/screens/shared/kute_action_cards.dart'
-    show KuteActionCardGrid;
+    show KuteActionCard, KuteActionCardGrid, KuteActionCardIcon;
+import 'package:kute/screens/search/components/search_rows.dart'
+    show SearchChanceGauge;
 import 'package:kute/screens/shared/sal_sprite.dart' show SalSpriteCache;
 import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/screens/shared/stepper/stepper_widgets.dart'
@@ -165,6 +171,13 @@ class _Routes extends OrchestraSupportedRoutesNotifier {
   Future<bool> refresh() async => false;
 }
 
+/// The spending wallet's balances, as given.
+class _Balances extends WalletBalanceCacheNotifier {
+  _Balances(Map<String, WalletBalance> values) {
+    state = values;
+  }
+}
+
 /// Lightning addresses this wallet paid (the Frequent row).
 class _Paid extends SparkContactsNotifier {
   @override
@@ -178,6 +191,7 @@ Future<void> _pump(WidgetTester tester,
     {bool catalog = false,
     bool wide = false,
     bool recents = false,
+    int? spendingSats,
     Locale? locale,
     Size size = const Size(375, 812)}) async {
   tester.view.physicalSize = size * 3;
@@ -212,6 +226,11 @@ Future<void> _pump(WidgetTester tester,
       sendContactsGatewayProvider.overrideWithValue(_gateway),
       shareLinksApiProvider.overrideWithValue(_api),
       if (recents) sparkContactsProvider.overrideWith(_Paid.new),
+      if (spendingSats != null)
+        walletBalanceCacheProvider.overrideWith((_) => _Balances({
+              'spending': WalletBalance(
+                  onChainBtcBalance: 0, sparkBitcoinbalance: spendingSats),
+            })),
       if (catalog || wide) ...[
         orchestraSupportedRoutesProvider
             .overrideWith((_) => _Routes(_catalog(wide: wide))),
@@ -568,9 +587,9 @@ void main() {
 
   testWidgets(
       'a non-Kute contact becomes a link: the text filters by name and by '
-      'number; the contact asks What, From on Bitcoin (the Bitcoin home), '
-      'and Money opens Send to anyone in bitcoin with the first name, the '
-      'number staying on the phone', (tester) async {
+      'number; the contact asks What, this Send\'s Bitcoin, and Bitcoin '
+      'opens Send to anyone in bitcoin with the first name, the number '
+      'staying on the phone', (tester) async {
     _gateway.permission = SendContactsPermission.granted;
     await policy(tester);
     await _pump(tester);
@@ -610,27 +629,68 @@ void main() {
   });
 
   testWidgets(
-      'the From toggle defaults by home: Bitcoin here; Dollars picked, Money '
-      'is a dollar link', (tester) async {
+      'the What step on the Bitcoin Send: no toggle and no Dollars, the '
+      'Bitcoin card (its mark, "Bitcoin", the sats available line) and the '
+      'gift on the app\'s cards, the gift glyph not the gauge; the bar is '
+      'Back, which closes it with no answer', (tester) async {
     _gateway.permission = SendContactsPermission.granted;
     await policy(tester);
-    await _pump(tester);
+    await _pump(tester, spendingSats: 328686);
     await tapPerson(tester, 'c2');
-    final from = tester.widget<KutePillTabs>(find.byKey(kSendWhatFromKey));
-    expect(from.selectedIndex, 0);
-    expect(from.items.map((i) => i.label),
-        [_l10n.bitcoin, _l10n.portfolioBalanceDollars]);
-    await tester.tap(find.byKey(const ValueKey('send-what-from-dollars')));
-    await tester.pumpAndSettle();
-    expect(tester.widget<KutePillTabs>(find.byKey(kSendWhatFromKey)).selectedIndex,
-        1);
-    await tester.tap(find.byKey(kSendWhatMoneyKey));
-    await tester.pumpAndSettle();
+    final sheet = find.byType(SendWhatSheet);
+    expect(sheet, findsOneWidget);
+    Finder inSheet(Finder f) => find.descendant(of: sheet, matching: f);
+    // The money is the Send's own: no From, no toggle, no Dollars, no
+    // "Money".
+    expect(inSheet(find.byType(KutePillTabs)), findsNothing);
+    expect(inSheet(find.text(_l10n.portfolioBalanceDollars)), findsNothing);
+    expect(inSheet(find.text('Money')), findsNothing);
+    expect(inSheet(find.text('From')), findsNothing);
+    // Two of the app's cards, laid out by the grid.
+    expect(inSheet(find.byType(KuteActionCardGrid)), findsOneWidget);
+    expect(inSheet(find.byType(KuteActionCard)), findsNWidgets(2));
+    final money = find.byKey(kSendWhatMoneyKey);
     expect(
-        tester.widget<SendToAnyoneSheet>(find.byType(SendToAnyoneSheet)).kind,
-        ShareLinkKind.dollars);
-    expect(_paramsOf('send_what_picked').single,
-        {'what': 'money', 'home': 'bitcoin', 'from': 'dollars'});
+        find.descendant(of: money, matching: find.text(_l10n.bitcoin)),
+        findsOneWidget);
+    expect(
+        find.descendant(
+            of: money, matching: find.textContaining('328,686 sats available')),
+        findsOneWidget);
+    final gift = find.byKey(kSendWhatGiftKey);
+    expect(find.descendant(of: gift, matching: find.text(_l10n.sendWhatGift)),
+        findsOneWidget);
+    expect(
+        find.descendant(
+            of: gift, matching: find.text(_l10n.sendToAFriendSub)),
+        findsOneWidget);
+    expect(
+        tester
+            .widget<KuteActionCardIcon>(find.descendant(
+                of: gift, matching: find.byType(KuteActionCardIcon)))
+            .icon,
+        Icons.card_giftcard_rounded);
+    expect(inSheet(find.byType(SearchChanceGauge)), findsNothing);
+    // "A prediction or investment" never reads on one line at half the
+    // width: two compact full-width cards, one over the other.
+    expect(tester.getSize(money).width,
+        moreOrLessEquals(tester.getSize(gift).width));
+    expect(tester.getTopLeft(gift).dy,
+        greaterThan(tester.getBottomLeft(money).dy));
+
+    // The bar is the sheet's Back (Sal's face on it), clear of the cards.
+    expect(kuteBarPrimaryWithText(_l10n.back), findsOneWidget);
+    expect(kuteBarPrimaryEnabled(tester), isTrue);
+    expect(tester.getRect(gift).bottom,
+        lessThanOrEqualTo(tester.getRect(kuteBarPrimary).top));
+    await tester.tap(kuteBarPrimary);
+    await tester.pumpAndSettle();
+    expect(find.byType(SendWhatSheet), findsNothing);
+    expect(find.byType(SendToAnyoneSheet), findsNothing);
+    expect(find.byType(ConfirmSend), findsOneWidget);
+    expect(_paramsOf('send_what_picked'), isEmpty);
+    expect(kuteBarPrimaryWithText(_l10n.back), findsNothing);
+    expect(_page(tester), moreOrLessEquals(0));
   });
 
   testWidgets(

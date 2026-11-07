@@ -12111,13 +12111,7 @@ class AppLocalizationsPt extends AppLocalizations {
   String get sendWhatSubtitle => 'O que vais enviar?';
 
   @override
-  String get sendWhatMoney => 'Dinheiro';
-
-  @override
   String get sendWhatGift => 'Uma previsão ou investimento';
-
-  @override
-  String get sendWhatFrom => 'De';
 
   @override
   String get usdSendRecipientSearchHint => 'Nome, endereço ou ENS';

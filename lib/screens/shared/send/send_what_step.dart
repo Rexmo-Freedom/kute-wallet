@@ -9,15 +9,40 @@
 //
 // An ADDRESS needs no What: the input decides the rail and the send goes
 // on to its amount. A PERSON (a phone contact, a typed number no contact
-// has) is asked What, in one small sheet over the Send ([showSendWhatSheet]):
+// has) is asked What, in one small sheet over the Send ([showSendWhatSheet]),
+// on the app's big cards (kute_action_cards.dart):
 //
 //   Send to Maria
 //   What are you sending?
-//   [₿  Money                         ›]
-//   [   From  ( Bitcoin | Dollars )    ]   the From toggle, the home's
-//                                          account first
-//   [◔  A prediction or investment    ›]   only where a slip can send one
-//                                          (sendPickOffered)
+//   [₿  Bitcoin                          ›]   the money, of the Send it
+//   [   328,686 sats available · $248.82  ]   was opened on
+//   [🎁 A prediction or investment        ›]   only where a slip can send
+//   [   They claim it with Kute, no wallet ]   one (sendPickOffered)
+//   ( Sal  Back )                             the floating bar
+//
+// THE SEND ALREADY SAYS WHOSE MONEY (founder, 7 November 2026, over the
+// Money card with its From toggle: "here we should have a sal button,
+// this is still confusing here"; then "choosing bitcoin or dollars should
+// [not need to] be decided from here, because we already know from the
+// button we click"). No toggle and no Bitcoin / Dollars choice: the money
+// card is the Send's own account, the Bitcoin Send's Bitcoin (the mark,
+// "Bitcoin", the line the link's amount step prints: "328,686 sats
+// available · $248.82", the spending wallet's bitcoin that pays the link)
+// or the Dollars Send's Dollars (the mark, "Dollars", "$12.00
+// available"). A figure not known yet prints no line. The gift wears the
+// gift glyph the send mode's chip wears on the search sheet it opens
+// (send_pick_session.dart), never the predictions' gauge (its half ring
+// read as a stuck spinner). The grid lays the two out (oneLineTitles):
+// two squares where both titles read on one line at half the width, else
+// two compact full-width cards, as on a phone; the money card alone, full
+// width and compact, where no gift can be offered.
+//
+// THE BAR IS ITS BACK (the PIN sheet's Cancel, pin_gate_sheet.dart): the
+// sheet is the Send's second step over its first, so while it is up the
+// floating Sal bar is its one button, Back ([KuteBarContext.primary],
+// beating the short sheet's hidden context), Sal's face on it and the
+// Sal sheet a long press away; a tap closes the sheet, the Who step
+// under it as it was: no answer, no event.
 //
 // [sendToPerson] then runs the existing flow, nothing new moves money:
 //
@@ -35,25 +60,34 @@
 //     claim screen places it.
 //
 // `send_what_picked {what, from, home}` once per answer (the From only
-// for money); never the person, the number or an address.
+// for money, the home's account); never the person, the number or an
+// address.
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import 'package:kute/helpers/formatters/currency_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/share_link_model.dart' show ShareLinkKind;
 import 'package:kute/providers/asset_icon_provider.dart'
     show kBitcoinMarkAsset, kUsdMarkAsset;
-import 'package:kute/screens/search/components/search_rows.dart'
-    show SearchChanceGauge;
+import 'package:kute/providers/balance_provider.dart'
+    show walletBalanceCacheProvider;
+import 'package:kute/providers/currency_conversions_provider.dart'
+    show conversionToFiatProvider;
+import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/providers/usd_account_provider.dart'
+    show usdBalanceProvider, usdBalanceUnknownProvider;
+import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
+    show pickSpendingWallet;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
-import 'package:kute/screens/shared/kute_pill_tabs.dart';
-import 'package:kute/screens/shared/send/send_flow_widgets.dart';
+import 'package:kute/screens/shared/kute_action_cards.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/services/contacts/send_contacts_service.dart'
     show SendContact;
 import 'package:kute/services/tracking_service.dart';
-import 'package:kute/theme/app_theme.dart';
 
 /// The account money leaves from.
 enum SendFrom { bitcoin, dollars }
@@ -65,21 +99,21 @@ enum SendWhatKind { money, gift }
 /// [from].
 typedef SendWhat = ({SendWhatKind what, SendFrom from});
 
-/// The What sheet's route name, for the route observers.
+/// The What sheet's route name, for the route observers; also the bar's
+/// `search_opened` source while it is up.
 const String kSendWhatRouteName = 'send_what';
 
-/// The What sheet's rows and its From toggle.
+/// The What sheet's cards: the money, and the gift.
 const ValueKey<String> kSendWhatMoneyKey = ValueKey('send-what-money');
 const ValueKey<String> kSendWhatGiftKey = ValueKey('send-what-gift');
-const ValueKey<String> kSendWhatFromKey = ValueKey('send-what-from');
 
-/// Asks What for [name] (see the file header): Money with the From toggle
-/// on [initialFrom] (the home the Send was opened from), or a prediction
-/// or investment where [giftOffered]. Null when the sheet is closed.
+/// Asks What for [name] (see the file header): the money of [from] (the
+/// Send it was opened on), or a prediction or investment where
+/// [giftOffered]. Null when the sheet is closed.
 Future<SendWhat?> showSendWhatSheet(
   BuildContext context, {
   required String name,
-  required SendFrom initialFrom,
+  required SendFrom from,
   required bool giftOffered,
 }) =>
     showAppBottomSheet<SendWhat>(
@@ -87,143 +121,134 @@ Future<SendWhat?> showSendWhatSheet(
       routeSettings: const RouteSettings(name: kSendWhatRouteName),
       builder: (_) => SendWhatSheet(
         name: name,
-        initialFrom: initialFrom,
+        from: from,
         giftOffered: giftOffered,
       ),
     );
 
+/// What the Bitcoin card says is there: the spending wallet's bitcoin
+/// (the pool the link pays from, as Send to anyone reads it) in the
+/// Bitcoin unit from Settings with its fiat, the link's amount step's own
+/// line ("328,686 sats available · $248.82"); "328,686 sats available"
+/// while no fiat figure can be read (no rate yet); null while the balance
+/// is unknown.
+String? watchSendWhatBitcoinAvailable(WidgetRef ref, AppLocalizations l10n) {
+  try {
+    final settings = ref.watch(settingsProvider);
+    final spending = pickSpendingWallet(settings);
+    if (spending == null) return null;
+    final sats =
+        ref.watch(walletBalanceCacheProvider)[spending.id]?.sparkBitcoinbalance;
+    if (sats == null) return null;
+    final unit = settings.btcFormat;
+    final amount = sats.toFormattedString(unit);
+    String fiat;
+    try {
+      fiat = ref.watch(conversionToFiatProvider(sats));
+    } catch (_) {
+      fiat = '';
+    }
+    // No rate yet reads as zero: a balance is never "· $0.00".
+    if (sats > 0 && !RegExp('[1-9]').hasMatch(fiat)) fiat = '';
+    return fiat.isEmpty
+        ? l10n.hlYieldAvailableLine('$amount $unit')
+        : l10n.sendAmountUnitAvailableWithFiat(amount, unit, fiat);
+  } catch (_) {
+    return null;
+  }
+}
+
+/// What the Dollars card says is there: the Dollars balance floored to
+/// the cent, as Send to anyone's dollar amount step prints it ("$12.00
+/// available"); null while the SDK has not answered.
+String? watchSendWhatDollarsAvailable(WidgetRef ref, AppLocalizations l10n) {
+  try {
+    if (ref.watch(usdBalanceUnknownProvider)) return null;
+    final cents = (ref.watch(usdBalanceProvider) * 100).floor();
+    return l10n.hlYieldAvailableLine('\$${(cents / 100).toStringAsFixed(2)}');
+  } catch (_) {
+    return null;
+  }
+}
+
 /// The What step's sheet (see the file header).
-class SendWhatSheet extends StatefulWidget {
+class SendWhatSheet extends ConsumerWidget {
   const SendWhatSheet({
     super.key,
     required this.name,
-    required this.initialFrom,
+    required this.from,
     required this.giftOffered,
   });
 
   final String name;
-  final SendFrom initialFrom;
+
+  /// The account the money leaves from: the Send's own.
+  final SendFrom from;
   final bool giftOffered;
 
   @override
-  State<SendWhatSheet> createState() => _SendWhatSheetState();
-}
-
-class _SendWhatSheetState extends State<SendWhatSheet> {
-  late SendFrom _from = widget.initialFrom;
-
-  void _pick(SendWhatKind what) =>
-      Navigator.of(context).pop<SendWhat>((what: what, from: _from));
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
-    final c = context.colors;
-    final name = widget.name.trim();
-    final bitcoin = _from == SendFrom.bitcoin;
-    final mark = 28.sp;
-    // The Send to card's surface (SendToListCard), the Money row and its
-    // From toggle in one card: the toggle is Money's, never the gift's.
-    final card = BoxDecoration(
-      color: c.surfaceLight,
-      borderRadius: BorderRadius.circular(16.r),
-      border: Border.all(color: c.borderSubtle, width: 0.5),
-    );
+    final who = name.trim();
+    final bitcoin = from == SendFrom.bitcoin;
+    final mark = kKuteActionCardVisualSize.sp;
+    void pick(SendWhatKind what) =>
+        Navigator.of(context).pop<SendWhat>((what: what, from: from));
     return AppBottomSheetContainer(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           AppBottomSheetHeader(
-            title: name.isEmpty ? l10n.sendTo : l10n.sendWhatTitle(name),
+            title: who.isEmpty ? l10n.sendTo : l10n.sendWhatTitle(who),
             subtitle: l10n.sendWhatSubtitle,
           ),
           Padding(
-            padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 24.h),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(
-                  clipBehavior: Clip.antiAlias,
-                  decoration: card,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      SendToListRow(
-                        key: kSendWhatMoneyKey,
-                        colors: c,
-                        leading: SvgPicture.asset(
-                            bitcoin ? kBitcoinMarkAsset : kUsdMarkAsset,
-                            width: mark,
-                            height: mark),
-                        // The account's mark says where it leaves from;
-                        // the toggle under it says it in words.
-                        title: l10n.sendWhatMoney,
-                        onTap: () => _pick(SendWhatKind.money),
-                      ),
-                      Padding(
-                        padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 14.h),
-                        child: Row(
-                          children: [
-                            Text(
-                              l10n.sendWhatFrom,
-                              style: TextStyle(
-                                color: c.textSecondary,
-                                fontSize: 13.sp,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: -0.1,
-                              ),
-                            ),
-                            SizedBox(width: 12.w),
-                            Expanded(
-                              child: KutePillTabs(
-                                key: kSendWhatFromKey,
-                                horizontalPadding: 0,
-                                size: KutePillSize.regular,
-                                items: [
-                                  KutePillItem(
-                                    key: const ValueKey(
-                                        'send-what-from-bitcoin'),
-                                    label: l10n.bitcoin,
-                                  ),
-                                  KutePillItem(
-                                    key: const ValueKey(
-                                        'send-what-from-dollars'),
-                                    label: l10n.portfolioBalanceDollars,
-                                  ),
-                                ],
-                                selectedIndex: bitcoin ? 0 : 1,
-                                onTap: (i) => setState(() => _from = i == 0
-                                    ? SendFrom.bitcoin
-                                    : SendFrom.dollars),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+            padding: EdgeInsets.symmetric(horizontal: 20.w),
+            child: KuteActionCardGrid(
+              key: const ValueKey('send-what-cards'),
+              // Squares only where both titles read on one line, else two
+              // compact full-width cards (see the file header).
+              oneLineTitles: true,
+              cards: [
+                KuteActionCard(
+                  key: kSendWhatMoneyKey,
+                  visual: SvgPicture.asset(
+                      bitcoin ? kBitcoinMarkAsset : kUsdMarkAsset,
+                      width: mark,
+                      height: mark),
+                  title: bitcoin ? l10n.bitcoin : l10n.portfolioBalanceDollars,
+                  subtitle: bitcoin
+                      ? watchSendWhatBitcoinAvailable(ref, l10n)
+                      : watchSendWhatDollarsAvailable(ref, l10n),
+                  onTap: () => pick(SendWhatKind.money),
                 ),
-                if (widget.giftOffered) ...[
-                  SizedBox(height: 12.h),
-                  SendToListCard(
-                    colors: c,
-                    rows: [
-                      SendToListRow(
-                        key: kSendWhatGiftKey,
-                        colors: c,
-                        // The predictions' own gauge (the search rows' half
-                        // ring), as the old Send chip wore it.
-                        leading: const SearchChanceGauge(chance: 0.64),
-                        title: l10n.sendWhatGift,
-                        subtitle: l10n.sendToAFriendSub,
-                        onTap: () => _pick(SendWhatKind.gift),
-                      ),
-                    ],
+                if (giftOffered)
+                  KuteActionCard(
+                    key: kSendWhatGiftKey,
+                    // The send mode chip's gift (send_pick_session.dart).
+                    visual: const KuteActionCardIcon(
+                        Icons.card_giftcard_rounded),
+                    title: l10n.sendWhatGift,
+                    subtitle: l10n.sendToAFriendSub,
+                    onTap: () => pick(SendWhatKind.gift),
                   ),
-                ],
               ],
             ),
+          ),
+          // THE BAR IS ITS BACK (see the file header): the sheet keeps
+          // the bar's room under its cards.
+          KuteBarContextScope(
+            barContext: KuteBarContext.primary(
+              label: l10n.back,
+              onPrimary: () {
+                if (context.mounted) Navigator.of(context).pop();
+              },
+              source: kSendWhatRouteName,
+              // Never waits on input.
+              disabledLabel: null,
+            ),
+            child: SizedBox(height: kuteBarScrollClearance.h),
           ),
         ],
       ),
@@ -233,11 +258,12 @@ class _SendWhatSheetState extends State<SendWhatSheet> {
 
 /// A person picked on a Send's Who step: [contact] (a phone contact) or
 /// [phone] (a typed number no contact has). Asks What ([showSendWhatSheet],
-/// the From toggle on [home]) and runs the existing flow for the answer
-/// (see the file header): [payDirect] with the Kute address for money from
-/// Bitcoin to someone on Kute, [openLink] with the link's money otherwise,
-/// [openGift] for a prediction or investment. Resolves to true when a link
-/// was created: the Send closes, as after a send that went out.
+/// the money of [home], the Send it was opened on) and runs the existing
+/// flow for the answer (see the file header): [payDirect] with the Kute
+/// address for money from Bitcoin to someone on Kute, [openLink] with the
+/// link's money otherwise, [openGift] for a prediction or investment.
+/// Resolves to true when a link was created: the Send closes, as after a
+/// send that went out.
 Future<bool> sendToPerson(
   BuildContext context, {
   SendContact? contact,
@@ -252,7 +278,7 @@ Future<bool> sendToPerson(
       ? contact!.displayName
       : (phone ?? contact?.phone ?? '');
   final what = await showSendWhatSheet(context,
-      name: name, initialFrom: home, giftOffered: giftOffered);
+      name: name, from: home, giftOffered: giftOffered);
   if (what == null || !context.mounted) return false;
   TrackingService.track('send_what_picked', params: {
     'what': what.what.name,

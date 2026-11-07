@@ -20233,23 +20233,11 @@ abstract class AppLocalizations {
   /// **'What are you sending?'**
   String get sendWhatSubtitle;
 
-  /// Send's What step: the option to send money (bitcoin or dollars, chosen by the From toggle under it).
-  ///
-  /// In en, this message translates to:
-  /// **'Money'**
-  String get sendWhatMoney;
-
   /// Send's What step: the option to send a prediction or an investment as a gift link they claim with Kute.
   ///
   /// In en, this message translates to:
   /// **'A prediction or investment'**
   String get sendWhatGift;
-
-  /// Send's What step: the label before the toggle that picks which account the money leaves from (Bitcoin or Dollars).
-  ///
-  /// In en, this message translates to:
-  /// **'From'**
-  String get sendWhatFrom;
 
   /// No description provided for @usdSendRecipientSearchHint.
   ///

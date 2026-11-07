@@ -12153,13 +12153,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get sendWhatSubtitle => 'Was sendest du?';
 
   @override
-  String get sendWhatMoney => 'Geld';
-
-  @override
   String get sendWhatGift => 'Eine Prognose oder Investition';
-
-  @override
-  String get sendWhatFrom => 'Von';
 
   @override
   String get usdSendRecipientSearchHint => 'Name, Adresse oder ENS';

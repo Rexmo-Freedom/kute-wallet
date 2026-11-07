@@ -12071,13 +12071,7 @@ class AppLocalizationsCs extends AppLocalizations {
   String get sendWhatSubtitle => 'Co posíláš?';
 
   @override
-  String get sendWhatMoney => 'Peníze';
-
-  @override
   String get sendWhatGift => 'Predikce nebo investice';
-
-  @override
-  String get sendWhatFrom => 'Z účtu';
 
   @override
   String get usdSendRecipientSearchHint => 'Jméno, adresa nebo ENS';

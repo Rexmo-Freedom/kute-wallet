@@ -12090,13 +12090,7 @@ class AppLocalizationsBg extends AppLocalizations {
   String get sendWhatSubtitle => 'Какво изпращаш?';
 
   @override
-  String get sendWhatMoney => 'Пари';
-
-  @override
   String get sendWhatGift => 'Прогноза или инвестиция';
-
-  @override
-  String get sendWhatFrom => 'От';
 
   @override
   String get usdSendRecipientSearchHint => 'Име, адрес или ENS';

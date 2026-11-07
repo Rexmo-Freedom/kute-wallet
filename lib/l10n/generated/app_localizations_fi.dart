@@ -12083,13 +12083,7 @@ class AppLocalizationsFi extends AppLocalizations {
   String get sendWhatSubtitle => 'Mitä lähetät?';
 
   @override
-  String get sendWhatMoney => 'Rahaa';
-
-  @override
   String get sendWhatGift => 'Ennuste tai sijoitus';
-
-  @override
-  String get sendWhatFrom => 'Mistä';
 
   @override
   String get usdSendRecipientSearchHint => 'Nimi, osoite tai ENS';
