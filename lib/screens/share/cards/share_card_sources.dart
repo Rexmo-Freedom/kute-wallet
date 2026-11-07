@@ -62,6 +62,8 @@ import 'package:kute/services/hyperliquid/hl_sparkline_cache.dart'
     show hlSparklineWithLivePrice;
 import 'package:kute/services/polymarket/event_trading_over.dart'
     show polyTradingOver;
+import 'package:kute/services/polymarket/market_display_title.dart'
+    show polyMarketDisplayTitle;
 import 'package:kute/services/polymarket/thin_history.dart'
     show polyTokenIsThin, smoothThinHistory;
 
@@ -272,6 +274,9 @@ PredictionCardData predictionCardFor(
   double? opponentChance;
   String? outcomeImage;
   String? opponentImage;
+  // The card's title: the page's own (one market's question, never
+  // "by...?"); a pick on one market of a grouped event, that market's.
+  var question = e.title.isEmpty ? title : e.displayTitle;
   if (binary) {
     final yes = e.yesPrice.clamp(0.0, 1.0);
     final want = outcome?.trim().toLowerCase();
@@ -291,6 +296,10 @@ PredictionCardData predictionCardFor(
         : outcomes.indexWhere((o) => o.name.trim().toLowerCase() == want);
     if (index < 0) index = best;
     final o = outcomes[index];
+    if (picked && want != null && o.question != null) {
+      question = polyMarketDisplayTitle(e.title,
+          question: o.question, itemTitle: o.name);
+    }
     label = o.name.trim();
     pct = o.price.clamp(0.0, 1.0) * 100;
     tokenId = o.tokenId;
@@ -336,7 +345,7 @@ PredictionCardData predictionCardFor(
   final image = e.displayIconUrl;
   final lines = picked ? null : shareCardMarketLines(watch, e);
   return PredictionCardData(
-    question: e.title.isEmpty ? title : e.title,
+    question: question,
     outcome: label,
     chance: pct,
     binary: binary,

@@ -96,7 +96,7 @@ void polyCardOpenSlip(
     context,
     event: event,
     negRisk: event.negRisk,
-    marketQuestion: event.title,
+    marketQuestion: event.displayTitle,
     marketSlug: event.slug,
     marketImage: event.imageUrl,
     outcomes: event.outcomes,

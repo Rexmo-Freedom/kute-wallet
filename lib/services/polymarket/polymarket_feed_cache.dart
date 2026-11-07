@@ -268,6 +268,7 @@ class PolymarketFeedCache {
         'tags': e.tags,
         'oneDayPriceChange': e.oneDayPriceChange,
         'seriesId': e.seriesId,
+        if (e.marketQuestion != null) 'marketQuestion': e.marketQuestion,
       };
 
   static PolymarketEvent eventFromJson(Map<String, dynamic> j) =>
@@ -309,6 +310,7 @@ class PolymarketFeedCache {
         tags: [for (final t in (j['tags'] as List?) ?? const []) '$t'],
         oneDayPriceChange: (j['oneDayPriceChange'] as num?)?.toDouble(),
         seriesId: j['seriesId'] as String?,
+        marketQuestion: j['marketQuestion'] as String?,
       );
 
   static DateTime? _date(Object? v) =>
@@ -324,6 +326,7 @@ class PolymarketFeedCache {
         'volume': o.volume,
         'conditionId': o.conditionId,
         if (o.unpriced) 'unpriced': true,
+        if (o.question != null) 'question': o.question,
       };
 
   static PolymarketOutcome _outcomeFromJson(Map<String, dynamic> j) =>
@@ -337,6 +340,7 @@ class PolymarketFeedCache {
         volume: (j['volume'] as num?)?.toDouble(),
         conditionId: j['conditionId'] as String?,
         unpriced: j['unpriced'] == true,
+        question: j['question'] as String?,
       );
 
   static Map<String, dynamic> _teamToJson(PolymarketTeam t) => {

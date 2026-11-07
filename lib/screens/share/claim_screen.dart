@@ -425,7 +425,7 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
       context,
       event: event,
       negRisk: event.negRisk,
-      marketQuestion: event.title,
+      marketQuestion: event.displayTitle,
       marketSlug: event.slug,
       marketImage: event.imageUrl,
       outcomes: event.outcomes,
@@ -503,7 +503,7 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
   /// the slug's words.
   String _pickTitle(ShareLink link) {
     final event = _event;
-    if (event != null) return event.title;
+    if (event != null) return event.displayTitle;
     final slug = link.marketSlug?.trim() ?? '';
     return _investing ? slug.toUpperCase() : slug.replaceAll('-', ' ');
   }
