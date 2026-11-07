@@ -12496,6 +12496,24 @@ class AppLocalizationsEs extends AppLocalizations {
   String get shareCardPickForYou => 'Una jugada para ti';
 
   @override
+  String get shareCardInvestmentForYou => 'Una inversión para ti';
+
+  @override
+  String shareCardInvestmentForNamed(String name) {
+    return '$name, una inversión para ti';
+  }
+
+  @override
+  String shareCardPositionInvest(String side, String asset) {
+    return '$side $asset';
+  }
+
+  @override
+  String shareCardOutcomeToWin(String outcome) {
+    return 'Gana $outcome';
+  }
+
+  @override
   String shareCardInBitcoin(String amount) {
     return 'en bitcoin · $amount';
   }

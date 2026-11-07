@@ -13,11 +13,23 @@
 //     "in bitcoin · ₿12,000" under it), Sal with his briefcase and coin
 //     standing on the rule beside it, the edgy line, "Claim it on Kute"
 //     quiet over the footer.
-//   * PREDICTION (blue): "ANA, A PREDICTION FOR YOU", the market's picture (36)
+//   * A PICK SENT, A GIFT (founder, 7 November 2026, of the investment
+//     card with Bitcoin's price huge: "Make this more clear we are
+//     sending"; share_card_gift.dart): read as the money cards, the gift
+//     first. "ANA, AN INVESTMENT FOR YOU" / "ANA, A PREDICTION FOR YOU"
+//     (two lines beside Sal rather than cut), THE AMOUNT SENT huge beside
+//     Sal with the coin on his head, the position right under it in big
+//     type, its side word in its colour ("Short Bitcoin", "Long Tesla",
+//     "Yes · Lula to win", "Yes"), then the context smaller: the logo and
+//     the name (an investment's ticker, price and "−0.2% today" at the
+//     right, the last 30 days' line under them; a prediction's question,
+//     its speedometer small with "47%" and "Chance of Gen.G" beside it),
+//     the edgy line. Navy for an investment, blue for a prediction.
+//   * PREDICTION (blue): "PREDICTIONS", the market's picture (36)
 //     and question (18, wrapping, never cut while it can be read), then
 //     the open-position screen's speedometer with the outcome's chance huge
-//     under its hub and "Chance of Gen.G", "$10 on Gen.G" in big type when
-//     sent as a pick, the edgy line; Sal looking up, weighing it. A MARKET of named
+//     under its hub and "Chance of Gen.G", the edgy line; Sal looking up,
+//     weighing it. A MARKET of named
 //     outcomes shared without a pick (Lula vs Bolsonaro) draws the market
 //     page's own chart instead (share_card_market_chart.dart): its top
 //     outcomes' real lines filling the card, each labelled "Lula da Silva
@@ -30,11 +42,11 @@
 //     (challengeEdges); Sal's side-eye ("and?").
 //   * RECEIPT (a transaction's own card, founder, 5 November 2026; its
 //     colour by kind): receipt_card.dart.
-//   * INVESTMENT (navy): THE ACTUAL STOCK: its real logo (HlCoinIcon, 36),
-//     name and ticker, the price huge, "+3.4% today" in the change's
-//     colour, the last 30 days' closes as the line filling the space,
-//     "Long · $25" when sent as a pick, the edgy line; Sal lounging on a
-//     day up (eyes shut at +10%), flopped on a day down.
+//   * INVESTMENT (navy, a market shared): THE ACTUAL STOCK: its real logo
+//     (HlCoinIcon, 36), name and ticker, the price huge, "+3.4% today" in
+//     the change's colour, the last 30 days' closes as the line filling
+//     the space, the edgy line; Sal lounging on a day up (eyes shut at
+//     +10%), flopped on a day down.
 //
 // Sal ([shareCardPose]) sits at the top right over a graphic, else stands
 // on the rule; the footer is the wordmark and the sharer's code. The headline sentence leads the share
@@ -42,8 +54,8 @@
 // the card only.
 //
 // The RECIPIENT's version ([ShareCardAudience.recipient]) is the claim
-// screen's hero: "DANIEL, A FRIEND SENT YOU", "It's yours. Tap claim." on
-// a money card, no code.
+// screen's hero: "DANIEL, A FRIEND SENT YOU" over any gift, money or a
+// pick, "It's yours. Tap claim." on a money card, no code.
 //
 // Real data only: what is null is left out. The card never reads a
 // provider or the screen's scale: the preview is exactly the image.
@@ -55,6 +67,7 @@ import 'package:kute/screens/share/cards/receipt_card.dart';
 import 'package:kute/screens/share/cards/share_card_copy.dart';
 import 'package:kute/screens/share/cards/share_card_data.dart';
 import 'package:kute/screens/share/cards/share_card_frame.dart';
+import 'package:kute/screens/share/cards/share_card_gift.dart';
 import 'package:kute/screens/share/cards/share_card_market_chart.dart';
 import 'package:kute/screens/share/cards/share_card_speedometer.dart';
 import 'package:kute/screens/share/cards/share_card_versus.dart';
@@ -81,11 +94,11 @@ ShareCardPalette shareCardPalette(ShareCardData data) => switch (data) {
 /// A stock up this much today (a fraction) gets Sal's big win.
 const double kShareCardBigChange = 0.10;
 
-/// Sal's pose on the card: the briefcase on a dollars send, the coin
-/// balanced on her head on every bitcoin send, squinting at the odds
-/// on a prediction, the side-eye on a dare; on a stock, today's change:
-/// lounging up, eyes shut at
-/// [kShareCardBigChange] or more, a flop down, a side-eye flat.
+/// Sal's pose on the card: the coin balanced on her head on every gift
+/// (money, a pick sent), squinting at the odds on a prediction market,
+/// the side-eye on a dare; on a stock shared, today's change: lounging
+/// up, eyes shut at [kShareCardBigChange] or more, a flop down, a
+/// side-eye flat.
 ShareCardPose shareCardPose(ShareCardData data) => switch (data) {
       MoneyCardData() =>
         // Every money send has the coin on her head (founder, 5 November
@@ -93,7 +106,10 @@ ShareCardPose shareCardPose(ShareCardData data) => switch (data) {
         ShareCardPose.claim,
       // A dare: the slow side-eye, "and?".
       PredictionCardData(challenge: true) => ShareCardPose.flat,
+      // A pick sent is a gift: the coin, as money's.
+      PredictionCardData(picked: true) => ShareCardPose.claim,
       PredictionCardData() => ShareCardPose.predict,
+      InvestmentCardData(picked: true) => ShareCardPose.claim,
       final InvestmentCardData d => switch (d.change ?? 0) {
           final c when c >= kShareCardBigChange => ShareCardPose.bigWin,
           final c when c > _kFlatChange => ShareCardPose.win,
@@ -182,6 +198,46 @@ class ShareCard extends StatelessWidget {
           mark: mark,
           pose: pose,
         );
+      // A pick sent: the gift first (share_card_gift.dart).
+      case final PredictionCardData d when d.picked:
+        final outcome = shareCardOutcome(l10n, d.outcome);
+        final chance = d.chance;
+        return ShareCardFrame(
+          key: key,
+          palette: p,
+          caps: caps,
+          capsLines: 2,
+          number: d.amount,
+          numberBase: kShareCardMoneyHeroMax,
+          numberBesideSal: true,
+          position: _positionLine(l10n, d, p),
+          graphic: ShareCardGiftContext(
+            palette: p,
+            logo: ShareCardLogo(
+              key: const ValueKey('share-card-logo'),
+              size: kShareLogoSize,
+              title: d.question,
+              investing: false,
+              palette: p,
+              imageUrl: d.imageUrl,
+            ),
+            name: d.question,
+            below: chance == null
+                ? null
+                : ShareCardSpeedometerRow(
+                    key: const ValueKey('share-card-odds'),
+                    palette: p,
+                    fraction: chance / 100,
+                    figure: shareCardChance(loc, chance),
+                    caption: l10n.shareCardChanceOf(outcome),
+                  ),
+          ),
+          graphicFills: true,
+          line: line,
+          code: code,
+          mark: mark,
+          pose: pose,
+        );
       case final PredictionCardData d:
         final outcome = shareCardOutcome(l10n, d.outcome);
         final chance = d.chance;
@@ -226,12 +282,6 @@ class ShareCard extends StatelessWidget {
                     ),
           graphicFills: d.charted || chance != null,
           graphicBelowSal: d.charted,
-          plain: d.picked && d.amount != null
-              ? l10n.shareCardAmountOn(d.amount!, outcome)
-              : null,
-          // What was sent, as big as the rest (founder, 5 November 2026:
-          // "more clear we are sending the prediction").
-          plainStrong: d.picked,
           line: line,
           code: code,
           mark: mark,
@@ -242,57 +292,83 @@ class ShareCard extends StatelessWidget {
         final change = d.change;
         final series = d.series;
         final ticker = d.ticker;
-        final side = d.side;
-        final sideLabel = side == null
-            ? null
-            : side == 'short'
-                ? l10n.shortLabel
-                : l10n.longLabel;
         final accent = p.signed(change, flat: _kFlatChange);
+        final flat = change == null || change.abs() <= _kFlatChange;
         final hasChart = series != null && series.length >= 2;
+        final priceText = price == null || price <= 0 || !price.isFinite
+            ? null
+            : shareCardPrice(loc, price, decimalCap: d.decimalCap);
+        final changeText = change == null
+            ? null
+            : l10n.shareCardToday(shareCardChangeSigned(loc, change));
+        final logo = ShareCardLogo(
+          key: const ValueKey('share-card-logo'),
+          size: kShareLogoSize,
+          title: d.title,
+          investing: true,
+          palette: p,
+          coin: d.coin,
+          wireCoin: d.wireCoin,
+          iconUrl: d.iconUrl,
+          category: d.category,
+        );
+        final meta = ticker != null && ticker != d.title ? ticker : null;
+        final chart = hasChart
+            ? ShareCardSparkline(
+                key: const ValueKey('share-card-chart'),
+                points: series,
+                color: flat ? p.ink : accent,
+              )
+            : null;
+        // A pick sent: the gift first, the market as its context
+        // (share_card_gift.dart).
+        if (d.picked) {
+          return ShareCardFrame(
+            key: key,
+            palette: p,
+            caps: caps,
+            capsLines: 2,
+            number: d.amount,
+            numberBase: kShareCardMoneyHeroMax,
+            numberBesideSal: true,
+            position: _positionLine(l10n, d, p),
+            graphic: ShareCardGiftContext(
+              palette: p,
+              logo: logo,
+              name: d.title,
+              meta: meta,
+              trailing: priceText == null && changeText == null
+                  ? null
+                  : ShareCardPriceColumn(
+                      palette: p,
+                      price: priceText,
+                      change: changeText,
+                      changeColor: flat ? null : accent,
+                    ),
+              below: chart,
+            ),
+            graphicFills: true,
+            line: line,
+            code: code,
+            mark: mark,
+            pose: pose,
+          );
+        }
         return ShareCardFrame(
           key: key,
           palette: p,
           caps: caps,
           identity: ShareCardIdentity(
             palette: p,
-            logo: ShareCardLogo(
-              key: const ValueKey('share-card-logo'),
-              size: kShareLogoSize,
-              title: d.title,
-              investing: true,
-              palette: p,
-              coin: d.coin,
-              wireCoin: d.wireCoin,
-              iconUrl: d.iconUrl,
-              category: d.category,
-            ),
+            logo: logo,
             name: d.title,
-            meta: ticker != null && ticker != d.title ? ticker : null,
+            meta: meta,
           ),
-          number: price == null || price <= 0 || !price.isFinite
-              ? null
-              : shareCardPrice(loc, price, decimalCap: d.decimalCap),
-          fact: change == null
-              ? null
-              : l10n.shareCardToday(shareCardChangeSigned(loc, change)),
-          factColor:
-              change == null || change.abs() <= _kFlatChange ? null : accent,
-          graphic: hasChart
-              ? ShareCardSparkline(
-                  key: const ValueKey('share-card-chart'),
-                  points: series,
-                  color: change == null || change.abs() <= _kFlatChange
-                      ? p.ink
-                      : accent,
-                )
-              : null,
+          number: priceText,
+          fact: changeText,
+          factColor: flat ? null : accent,
+          graphic: chart,
           graphicFills: hasChart,
-          plain: sideLabel == null
-              ? null
-              : d.amount == null
-                  ? sideLabel
-                  : '$sideLabel · ${d.amount}',
           line: line,
           code: code,
           mark: mark,
@@ -300,4 +376,16 @@ class ShareCard extends StatelessWidget {
         );
     }
   }
+}
+
+/// A gift's position line under the amount ([shareCardPosition]).
+Widget? _positionLine(
+    AppLocalizations l10n, ShareCardData d, ShareCardPalette p) {
+  final position = shareCardPosition(l10n, d);
+  if (position == null) return null;
+  return ShareCardPositionLine(
+    textKey: const ValueKey('share-card-position'),
+    position: position,
+    palette: p,
+  );
 }

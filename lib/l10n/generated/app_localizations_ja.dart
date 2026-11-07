@@ -12011,6 +12011,24 @@ class AppLocalizationsJa extends AppLocalizations {
   String get shareCardPickForYou => 'あなたへのおすすめ';
 
   @override
+  String get shareCardInvestmentForYou => 'あなたへの投資';
+
+  @override
+  String shareCardInvestmentForNamed(String name) {
+    return '$nameさんへの投資';
+  }
+
+  @override
+  String shareCardPositionInvest(String side, String asset) {
+    return '$asset $side';
+  }
+
+  @override
+  String shareCardOutcomeToWin(String outcome) {
+    return '$outcomeの勝利';
+  }
+
+  @override
   String shareCardInBitcoin(String amount) {
     return 'ビットコインで · $amount';
   }

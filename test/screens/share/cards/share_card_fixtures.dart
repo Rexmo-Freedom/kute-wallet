@@ -265,6 +265,30 @@ InvestmentCardData fakeTeslaPick({String? name = 'Ana'}) => InvestmentCardData(
       referralCode: kShareTestCode,
     );
 
+/// The founder's screenshot (7 November 2026): Bitcoin sent Short with
+/// $50, a slow day down (made up for the test, as every figure here).
+InvestmentCardData fakeBitcoinShortPick({String? name = 'Ana'}) =>
+    InvestmentCardData(
+      title: 'Bitcoin',
+      ticker: 'BTC',
+      coin: 'BTC',
+      wireCoin: 'BTC',
+      category: 'crypto',
+      price: 75966.5,
+      change: -0.002,
+      series: _bitcoinSeries,
+      side: 'short',
+      amount: r'$50',
+      recipient: name,
+      referralCode: kShareTestCode,
+    );
+
+const List<double> _bitcoinSeries = [
+  78120, 77800, 78400, 77650, 76900, 77300, 76800, 77550, 78100, 77400, //
+  76650, 76200, 76900, 77300, 76700, 76100, 75800, 76400, 76900, 76300,
+  75700, 76200, 76650, 76100, 75600, 76050, 76400, 75900, 76120, 75966.5,
+];
+
 InvestmentCardData fakeNasdaqMarket() => const InvestmentCardData(
       title: 'Nasdaq 100',
       ticker: 'XYZ100',

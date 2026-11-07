@@ -12480,6 +12480,24 @@ class AppLocalizationsNl extends AppLocalizations {
   String get shareCardPickForYou => 'Een tip voor jou';
 
   @override
+  String get shareCardInvestmentForYou => 'Een investering voor jou';
+
+  @override
+  String shareCardInvestmentForNamed(String name) {
+    return '$name, een investering voor jou';
+  }
+
+  @override
+  String shareCardPositionInvest(String side, String asset) {
+    return '$side $asset';
+  }
+
+  @override
+  String shareCardOutcomeToWin(String outcome) {
+    return '$outcome wint';
+  }
+
+  @override
   String shareCardInBitcoin(String amount) {
     return 'in bitcoin · $amount';
   }

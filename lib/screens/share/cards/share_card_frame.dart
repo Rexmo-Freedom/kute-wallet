@@ -38,7 +38,7 @@
 //     white tops out at 3.1:1 on the dollars green and 4.2:1 on the loss
 //     red, so there it is near the full ink), no 12 px text.
 //   * THREE BANDS. TOP: the caps line (13 w700, tracked 0.1 em, muted:
-//     "ANA, A PICK FOR YOU", "FOR DANIEL", "MY PORTFOLIO"), then the
+//     "ANA, AN INVESTMENT FOR YOU", "FOR DANIEL", "MY PORTFOLIO"), then the
 //     identity row ([ShareCardIdentity]: the logo 36 as a rounded square,
 //     the name 18 w600, a muted meta "TSLA"). MIDDLE: the hero block, ONE
 //     huge number ([ShareCardHeroNumber]: 64–80 by its length, a money
@@ -135,7 +135,21 @@ class ShareCardPalette {
     this.dot = AppColors.accent,
     this.hairline,
     this.salShadow = const Color(0x2E000000),
+    this.sideUp,
+    this.sideDown,
   });
+
+  /// A gift's side word ("Yes", "Long") and the other ("No", "Short"),
+  /// where [up] and [down] are the plain ink (a card whose colour already
+  /// says it): a tint the ground still reads at 3:1 as large type; null:
+  /// [up] and [down].
+  final Color? sideUp;
+  final Color? sideDown;
+
+  /// The side word's colour on a gift: [sideUp] for a Yes or a Long,
+  /// [sideDown] for a No or a Short.
+  Color side({required bool up}) =>
+      up ? (sideUp ?? this.up) : (sideDown ?? down);
 
   final Color background;
   final Color ink;
@@ -252,7 +266,8 @@ class ShareCardPalette {
     salShadow: Color(0x38003A1A),
   );
 
-  /// Predictions: blue, white ink.
+  /// Predictions: blue, white ink; a gift's Yes in mint (4.1:1 on the
+  /// blue), its No in pink (3.7:1).
   static const ShareCardPalette prediction = ShareCardPalette(
     background: Color(0xFF2D5BE3),
     ink: Color(0xFFFFFFFF),
@@ -262,6 +277,8 @@ class ShareCardPalette {
     track: Color(0x38FFFFFF),
     mutedAlpha: 0.85,
     salShadow: Color(0x38001060),
+    sideUp: Color(0xFF7DF2B0),
+    sideDown: Color(0xFFFFC2CC),
   );
 
   /// Investing: deep navy, white ink, the market's green and red.
@@ -516,6 +533,9 @@ class ShareCardFrame extends StatelessWidget {
     this.code,
     this.mark,
     this.pose,
+    this.numberBesideSal = false,
+    this.position,
+    this.capsLines = 1,
     this.keyPrefix = 'share-card',
   });
 
@@ -523,6 +543,19 @@ class ShareCardFrame extends StatelessWidget {
 
   /// The small caps line at the top (uppercased here).
   final String caps;
+
+  /// The caps line's lines at most (a gift's "ANA, AN INVESTMENT FOR
+  /// YOU" may take two beside Sal rather than be cut).
+  final int capsLines;
+
+  /// A GIFT (a pick sent): the big number follows the caps line at once,
+  /// set beside Sal at the top right (its width clear of him), with no
+  /// band under him; the graphic then fills the rest.
+  final bool numberBesideSal;
+
+  /// One line under the big number in the hero block, the full width (a
+  /// gift's position: "Short Bitcoin"); null: none.
+  final Widget? position;
 
   /// The logo, the name and the meta.
   final ShareCardIdentity? identity;
@@ -604,6 +637,13 @@ class ShareCardFrame extends StatelessWidget {
     // the middle (a money card, a card without a chart); over a chart, the
     // rows or the speedometer he stays at the top right.
     final salOnFloor = sal != null && !graphicFills && graphic == null;
+    final salTop = sal != null && !salOnFloor;
+    final salSize = salTop
+        ? shareCardSalTopSize(identity?.name,
+            direction: Directionality.of(context))
+        : kShareCardSalSize;
+    // A gift's number beside Sal at the top right, clear of him.
+    final besideSalTop = numberBesideSal && salTop;
     final textAlign = center ? TextAlign.center : TextAlign.start;
     // Without a graphic the plain fact joins the hero block.
     final plainInHero = graphic == null && plain != null;
@@ -616,8 +656,8 @@ class ShareCardFrame extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             textAlign: textAlign,
             style: plainStrong
-                ? shareCardText(kShareCardPlainStrongSize, FontWeight.w800,
-                    p.ink,
+                ? shareCardText(
+                    kShareCardPlainStrongSize, FontWeight.w800, p.ink,
                     spacing: -0.4, tabular: true)
                 : shareCardText(16, FontWeight.w600, p.ink,
                     spacing: -0.2, tabular: true),
@@ -633,7 +673,10 @@ class ShareCardFrame extends StatelessWidget {
                 alignment: AlignmentDirectional.centerStart,
                 child: child))
         : child;
-    final hero = (number == null && fact == null && !plainInHero)
+    final hero = (number == null &&
+            fact == null &&
+            !plainInHero &&
+            position == null)
         ? null
         : Column(
             key: ValueKey('$keyPrefix-hero'),
@@ -642,18 +685,26 @@ class ShareCardFrame extends StatelessWidget {
                 center ? CrossAxisAlignment.center : CrossAxisAlignment.stretch,
             children: [
               if (number != null)
-                SizedBox(
-                  key: ValueKey('$keyPrefix-number-box'),
-                  width: double.infinity,
-                  child: ShareCardHeroNumber(
-                    textKey: ValueKey('$keyPrefix-number'),
-                    text: number!,
-                    color: p.hero ?? p.ink,
-                    max: numberMax,
-                    base: numberBase,
-                    center: center,
+                Padding(
+                  padding: EdgeInsetsDirectional.only(
+                      end: besideSalTop ? shareCardSalFloat(salSize).width : 0),
+                  child: SizedBox(
+                    key: ValueKey('$keyPrefix-number-box'),
+                    width: double.infinity,
+                    child: ShareCardHeroNumber(
+                      textKey: ValueKey('$keyPrefix-number'),
+                      text: number!,
+                      color: p.hero ?? p.ink,
+                      max: numberMax,
+                      base: numberBase,
+                      center: center,
+                    ),
                   ),
                 ),
+              if (position != null) ...[
+                SizedBox(height: number != null ? 2 : 0),
+                position!,
+              ],
               if (fact != null) ...[
                 SizedBox(height: number != null ? 6 : 0),
                 besideSal(Text(
@@ -681,19 +732,25 @@ class ShareCardFrame extends StatelessWidget {
     // width; he sits smaller when the title needs his room, see
     // shareCardSalTopSize); a big number right under them starts below
     // him.
-    final salTop = sal != null && !salOnFloor;
-    final salSize = salTop
-        ? shareCardSalTopSize(identity?.name,
-            direction: Directionality.of(context))
-        : kShareCardSalSize;
-    final capsText = Text(
-      caps.toUpperCase(),
-      key: ValueKey('$keyPrefix-caps'),
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: shareCardText(kShareCardCapsSize, FontWeight.w700, p.muted,
-          spacing: kShareCardCapsSize * 0.1, height: 1.2),
-    );
+    final capsStyle = shareCardText(
+        kShareCardCapsSize, FontWeight.w700, p.muted,
+        spacing: kShareCardCapsSize * 0.1, height: 1.2);
+    // Over two lines, set even ("ANA, AN / INVESTMENT FOR YOU"), never an
+    // orphan.
+    final Widget capsText = capsLines > 1
+        ? ShareCardBalancedText(
+            caps.toUpperCase(),
+            textKey: ValueKey('$keyPrefix-caps'),
+            maxLines: capsLines,
+            style: capsStyle,
+          )
+        : Text(
+            caps.toUpperCase(),
+            key: ValueKey('$keyPrefix-caps'),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: capsStyle,
+          );
     Widget top = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
@@ -722,7 +779,8 @@ class ShareCardFrame extends StatelessWidget {
     final salBand = salTop &&
         (number != null || graphicBelowSal) &&
         !center &&
-        graphicFills;
+        graphicFills &&
+        !besideSalTop;
     if (salTop) {
       if (salBand) {
         top = ConstrainedBox(
@@ -741,7 +799,7 @@ class ShareCardFrame extends StatelessWidget {
           if (hero != null) ...[
             // Under Sal's band the band itself is the air.
             SizedBox(
-                height: salBand
+                height: salBand || besideSalTop
                     ? 8
                     : identity != null
                         ? 16
@@ -761,9 +819,8 @@ class ShareCardFrame extends StatelessWidget {
           // under it at the right), or centred in the space left.
           Expanded(
             child: LayoutBuilder(builder: (context, box) {
-              final heroTop = salOnFloor
-                  ? (identity != null ? 20.0 : 24.0)
-                  : 12.0;
+              final heroTop =
+                  salOnFloor ? (identity != null ? 20.0 : 24.0) : 12.0;
               // Sal as big as the room between the number and the rule
               // holds (his ears clear of it), within his floor sizes.
               var salSize = kShareCardSalFloorSize;
@@ -777,10 +834,10 @@ class ShareCardFrame extends StatelessWidget {
                 final feet = box.maxHeight +
                     (hasBottom ? kShareCardRuleAbove : 0) +
                     kShareCardSalFeet;
-                salSize = ((feet - numberBottom - 6) /
-                        (1 - kShareCardSalHeadroom))
-                    .clamp(kShareCardSalFloorMin, kShareCardSalFloorSize)
-                    .toDouble();
+                salSize =
+                    ((feet - numberBottom - 6) / (1 - kShareCardSalHeadroom))
+                        .clamp(kShareCardSalFloorMin, kShareCardSalFloorSize)
+                        .toDouble();
               }
               return Stack(
                 clipBehavior: Clip.none,
@@ -828,13 +885,10 @@ class ShareCardFrame extends StatelessWidget {
         ],
         if (hasBottom) ...[
           SizedBox(
-              height: plain != null && !plainInHero
-                  ? 10
-                  : kShareCardRuleAbove),
+              height: plain != null && !plainInHero ? 10 : kShareCardRuleAbove),
           SizedBox(
             height: 1,
-            child:
-                ColoredBox(key: ValueKey('$keyPrefix-rule'), color: p.rule),
+            child: ColoredBox(key: ValueKey('$keyPrefix-rule'), color: p.rule),
           ),
           const SizedBox(height: kShareCardRuleGap),
         ],
@@ -853,8 +907,7 @@ class ShareCardFrame extends StatelessWidget {
             key: ValueKey('$keyPrefix-quiet'),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: shareCardText(
-                kShareCardQuietSize, FontWeight.w600, p.muted,
+            style: shareCardText(kShareCardQuietSize, FontWeight.w600, p.muted,
                 spacing: -0.2),
           ),
         ],
@@ -974,10 +1027,8 @@ const double kShareCardSalTitleGap = 8;
       size * (1 - kShareCardSalDogLeft);
   return (
     height: math.max(0, bottom - rowTop),
-    width: kShareCardSize.width -
-        kShareCardPadding -
-        left +
-        kShareCardSalTitleGap,
+    width:
+        kShareCardSize.width - kShareCardPadding - left + kShareCardSalTitleGap,
   );
 }
 
@@ -1206,9 +1257,10 @@ ShareCardTitleFit shareCardTitleFit(
   required double wide,
   double floatHeight = 0,
   TextDirection direction = TextDirection.ltr,
+  List<(double, int)> steps = kShareCardTitleSteps,
 }) {
   ShareCardTitleFit? last;
-  for (final (size, maxLines) in kShareCardTitleSteps) {
+  for (final (size, maxLines) in steps) {
     final style = shareCardTitleStyle(size, const Color(0xFFFFFFFF));
     final lh = size * kShareCardTitleHeight;
     final beside = floatHeight <= 0 || narrow >= wide
@@ -1578,17 +1630,15 @@ class ShareCardFooter extends StatelessWidget {
                         TextSpan(children: [
                           TextSpan(
                               text: context.l10n.bragCodeLabel.toUpperCase(),
-                              style: shareCardText(
-                                  kShareCardCodeSize, FontWeight.w600,
-                                  palette.muted,
+                              style: shareCardText(kShareCardCodeSize,
+                                  FontWeight.w600, palette.muted,
                                   spacing: kShareCardCodeSize * 0.08,
                                   height: 1.0)),
                           const TextSpan(text: '  '),
                           TextSpan(
                               text: c.toUpperCase(),
-                              style: shareCardText(
-                                  kShareCardCodeSize, FontWeight.w700,
-                                  palette.ink,
+                              style: shareCardText(kShareCardCodeSize,
+                                  FontWeight.w700, palette.ink,
                                   spacing: kShareCardCodeSize * 0.08,
                                   height: 1.0,
                                   tabular: true)),

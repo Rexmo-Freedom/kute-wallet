@@ -32,9 +32,10 @@
 // ShareCardAudience.recipient), the share cards' restrained language at
 // screen scale: "{NAME}, A FRIEND SENT YOU" over the amount big (a
 // bitcoin send's value, "in bitcoin · ₿12,000" under it, or "$50.00"),
-// "It's yours. Tap claim.", Sal's small mark; a pick's card ("{NAME}, A
-// FRIEND SENT YOU A PICK": the market's picture, the chance big, the odds
-// bar, "$10 on Gen.G"; or the actual stock, "Long · $10"). The link's `senderLabel` is the first
+// "It's yours. Tap claim.", Sal's small mark; a pick's card, a gift too
+// ("{NAME}, A FRIEND SENT YOU" over "$10" huge and "Yes · Gen.G to win"
+// or "Long Tesla", the market small under them; cards/share_card_gift
+// .dart). The link's `senderLabel` is the first
 // name the SENDER typed for the recipient ("Who is it for?"), so the card
 // greets the recipient by it; the link carries no sender name, so the
 // sender is "a friend". Claim is the bar.

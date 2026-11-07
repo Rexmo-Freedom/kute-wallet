@@ -34,9 +34,15 @@
 //     own subject, never "bet", never a promise of profit. The share
 //     message does not repeat it.
 //   * THE CAPS LINE at the top of the card ([shareCardTopLine]): "For
-//     Daniel", "Ana, a prediction for you" (an investment: "Ana, a pick
-//     for you"), the recipient's "Daniel, a friend sent you", or the venue
-//     on a market shared without a link.
+//     Daniel", "Ana, a prediction for you", "Ana, an investment for you"
+//     (founder, 7 November 2026: "make this more clear we are sending"),
+//     the recipient's "Daniel, a friend sent you" over any gift, money or
+//     pick, or the venue on a market shared without a link.
+//   * A GIFT'S POSITION ([shareCardPosition]; share_card_gift.dart): what
+//     was sent, under the amount: "Short Bitcoin", "Long Tesla" (the
+//     language's own order, shareCardPositionInvest), "Yes · Lula to win"
+//     on a race or a match (shareCardOutcomeToWin; never a draw), "Yes ·
+//     25 bps cut" on any other named outcome, a yes/no pick "Yes".
 //   * A CHALLENGE (founder, 4 November 2026: "I think Bitcoin will win,
 //     wanna fight me?"; PredictionCardData.challenge): the caps line dares
 //     ("Ana, I dare you", the recipient's "Ana, a friend dares you"), the
@@ -63,6 +69,8 @@ import 'package:kute/screens/share/cards/receipt_card.dart'
 import 'package:kute/screens/hyperliquid/components/hl_format.dart'
     show hlListPriceDecimals;
 import 'package:kute/screens/share/cards/share_card_data.dart';
+import 'package:kute/screens/share/cards/share_card_gift.dart'
+    show ShareCardPosition;
 import 'package:kute/screens/share/cards/share_card_versus.dart'
     show ShareCardVersusSide;
 
@@ -97,15 +105,15 @@ String shareCardPrice(String locale, double price, {int? decimalCap}) =>
 
 /// Dollars from cents: "$10" when whole, else "$10.50".
 String shareCardUsdCents(String locale, int cents) => NumberFormat.currency(
-            locale: _locale(locale),
-            symbol: r'$',
-            decimalDigits: cents % 100 == 0 ? 0 : 2)
-        .format(cents / 100);
+        locale: _locale(locale),
+        symbol: r'$',
+        decimalDigits: cents % 100 == 0 ? 0 : 2)
+    .format(cents / 100);
 
 /// Dollars from cents with the cents always: "$10.00".
 String shareCardUsdCentsFull(String locale, int cents) => NumberFormat.currency(
         locale: _locale(locale), symbol: r'$', decimalDigits: 2)
-        .format(cents / 100);
+    .format(cents / 100);
 
 String _locale(String locale) {
   try {
@@ -370,8 +378,8 @@ List<String> _marketEdges(AppLocalizations l10n, PredictionCardData d) {
   final c = chance == null ? null : shareCardChance(loc, chance);
   final side = shareCardOutcome(l10n, d.outcome);
   final leader = polyChartShortName(d.outcome);
-  final draw = const {'draw', 'tie', 'empate'}
-      .contains(d.outcome.trim().toLowerCase());
+  final draw =
+      const {'draw', 'tie', 'empate'}.contains(d.outcome.trim().toLowerCase());
   final leaderFits = !draw && _nameFits(leader);
   return [
     l10n.shareEdgeMarketPickOrWatch,
@@ -572,9 +580,8 @@ List<String> challengeEdges(AppLocalizations l10n, PredictionCardData d) {
     theirs: ShareCardVersusSide(
       tag: l10n.challengeYourSide,
       name: other,
-      chance: theirs == null || other == '?'
-          ? null
-          : shareCardChance(loc, theirs),
+      chance:
+          theirs == null || other == '?' ? null : shareCardChance(loc, theirs),
       imageUrl: yesNo ? null : d.opponentImageUrl,
     ),
   );
@@ -617,17 +624,74 @@ String shareCardTopLine(AppLocalizations l10n, ShareCardData data) {
     }
     return n.isEmpty ? l10n.challengeCaps : l10n.challengeCapsNamed(n);
   }
+  // A pick sent is a gift: the recipient's hero reads as money's, "Daniel,
+  // a friend sent you" over the amount and the position.
   if (recipient) {
-    return n.isEmpty ? l10n.claimCardPick : l10n.claimCardPickNamed(n);
+    return n.isEmpty
+        ? l10n.claimCardFromFriend
+        : l10n.claimCardFromFriendNamed(n);
   }
   // A prediction says it is one (founder, 5 November 2026: "more clear we
-  // are sending the prediction").
+  // are sending the prediction"); an investment too (7 November 2026).
   if (data is PredictionCardData) {
     return n.isEmpty
         ? l10n.shareCardPredictionForYou
         : l10n.shareCardPredictionForNamed(n);
   }
-  return n.isEmpty ? l10n.shareCardPickForYou : l10n.shareCardPickForNamed(n);
+  return n.isEmpty
+      ? l10n.shareCardInvestmentForYou
+      : l10n.shareCardInvestmentForNamed(n);
+}
+
+/// The draws a match names (never "to win").
+const Set<String> _kDraws = {'draw', 'tie', 'empate'};
+
+/// A gift's position (see the file header): the side word split out, so
+/// the card draws it in its colour; null on anything but a pick sent (a
+/// dare draws both sides instead).
+ShareCardPosition? shareCardPosition(
+    AppLocalizations l10n, ShareCardData data) {
+  switch (data) {
+    case final InvestmentCardData d when d.picked:
+      final up = d.side != 'short';
+      final side = up ? l10n.longLabel : l10n.shortLabel;
+      // The language's own order, the side found by a mark in its place.
+      const mark = '\u0001';
+      final full = l10n.shareCardPositionInvest(mark, d.title.trim());
+      final at = full.indexOf(mark);
+      if (at < 0) return (before: '', side: side, after: ' ${d.title}', up: up);
+      return (
+        before: full.substring(0, at),
+        side: side,
+        after: full.substring(at + mark.length),
+        up: up,
+      );
+    case final PredictionCardData d when d.picked && !d.challenge:
+      final label = d.outcome.trim();
+      final lower = label.toLowerCase();
+      if (d.binary || lower == 'yes' || lower == 'no') {
+        return (
+          before: '',
+          side: shareCardOutcome(l10n, label),
+          after: '',
+          up: lower != 'no',
+        );
+      }
+      // A named outcome is sent on its Yes: "Yes · Lula to win".
+      final race = d.topic == ShareCardTopic.politics ||
+          d.topic == ShareCardTopic.sports;
+      final subject = race && !_kDraws.contains(lower)
+          ? l10n.shareCardOutcomeToWin(label)
+          : label;
+      return (
+        before: '',
+        side: l10n.shareCardOutcomeYes,
+        after: ' · $subject',
+        up: true,
+      );
+    default:
+      return null;
+  }
 }
 
 /// The headline of [data] (see the file header); null on a money card, a

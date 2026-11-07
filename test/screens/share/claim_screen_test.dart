@@ -124,14 +124,19 @@ void main() {
         side: 'buy'));
     await pumpShareWidget(tester, env, const ClaimScreen(id: 'lnk_1'));
 
-    // The hero: the pick's card. The slug's words until the event is
-    // read; the outcome big and the amount on it.
+    // The hero: the pick's card, a gift (founder, 7 November 2026). The
+    // amount big, the side under it, the slug's words until the event is
+    // read.
     expect(find.byKey(const ValueKey('share-card-send_prediction')),
         findsOneWidget);
-    expect(find.text('ANA, A FRIEND SENT YOU A PICK'), findsOneWidget);
+    expect(find.text('ANA, A FRIEND SENT YOU'), findsOneWidget);
     expect(find.text('gemini carbon'), findsOneWidget);
+    expect(
+        tester
+            .widget<Text>(find.byKey(const ValueKey('share-card-number')))
+            .data,
+        '\$12.50');
     expect(find.text('Yes'), findsOneWidget);
-    expect(find.text('\$12.50 on Yes'), findsOneWidget);
     expect(find.text('for a prediction on gemini carbon'), findsNothing);
 
     await tester.tap(kuteBarPrimaryWithText('Claim'));
@@ -171,10 +176,15 @@ void main() {
     await pumpShareWidget(tester, env, const ClaimScreen(id: 'lnk_1'));
     expect(find.byKey(const ValueKey('share-card-send_investment')),
         findsOneWidget);
-    expect(find.text('ANA, A FRIEND SENT YOU A PICK'), findsOneWidget);
+    expect(find.text('ANA, A FRIEND SENT YOU'), findsOneWidget);
+    expect(
+        tester
+            .widget<Text>(find.byKey(const ValueKey('share-card-number')))
+            .data,
+        '\$12.50');
+    expect(find.text('Long Bitcoin'), findsOneWidget);
     expect(find.text('Bitcoin'), findsOneWidget);
     expect(find.text('BTC'), findsOneWidget);
-    expect(find.text('Long · \$12.50'), findsOneWidget);
   });
 
   testWidgets('without a market the claimed state offers Done', (tester) async {

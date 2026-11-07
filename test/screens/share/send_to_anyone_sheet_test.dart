@@ -283,7 +283,17 @@ void main() {
     expect(find.byKey(const ValueKey('share-card-send_prediction')),
         findsOneWidget);
     expect(find.text('A PREDICTION FOR YOU'), findsOneWidget);
-    expect(find.text(r'$20 on Yes'), findsOneWidget);
+    // A gift: the amount sent is the hero, the side under it.
+    expect(
+        tester
+            .widget<Text>(find.byKey(const ValueKey('share-card-number')))
+            .data,
+        r'$20');
+    expect(
+        find.descendant(
+            of: find.byKey(const ValueKey('share-card-preview')),
+            matching: find.text('Yes')),
+        findsOneWidget);
     // What the friend gets, in words, the chance read off the market.
     expect(find.byKey(const ValueKey('send-pick-gets')), findsOneWidget);
     expect(find.text('Your friend gets \$20 on Gemini Carbon — Yes at 62%'),
@@ -357,9 +367,10 @@ void main() {
           polymarketEventDetailsProvider
               .overrideWith((ref, slug) async => _election),
         ]);
-    // The card names the event; the candidate is the chance and the side.
+    // The card names the event; the candidate is the chance and the side
+    // (a gift: the amount, then "Yes · Jon Ossoff to win").
     expect(find.text('Chance of Jon Ossoff'), findsOneWidget);
-    expect(find.text(r'$5 on Jon Ossoff'), findsOneWidget);
+    expect(find.text('Yes · Jon Ossoff to win'), findsOneWidget);
     expect(
         find.text('Your friend gets \$5 on Presidential Election Winner '
             '2028 — Jon Ossoff at 21%'),
@@ -389,7 +400,13 @@ void main() {
     expect(find.text('Send this investment'), findsOneWidget);
     expect(find.byKey(const ValueKey('share-card-send_investment')),
         findsOneWidget);
-    expect(find.text(r'Long · $5'), findsOneWidget);
+    expect(find.text('AN INVESTMENT FOR YOU'), findsOneWidget);
+    expect(
+        tester
+            .widget<Text>(find.byKey(const ValueKey('share-card-number')))
+            .data,
+        r'$5');
+    expect(find.text('Long Bitcoin'), findsOneWidget);
     expect(find.text(r'Your friend gets $5 on Bitcoin — Long'), findsOneWidget);
     // No dare on an investment.
     expect(find.byKey(const ValueKey('share-challenge-toggle')), findsNothing);

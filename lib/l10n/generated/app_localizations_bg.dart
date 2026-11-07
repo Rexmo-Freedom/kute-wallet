@@ -12460,6 +12460,24 @@ class AppLocalizationsBg extends AppLocalizations {
   String get shareCardPickForYou => 'Избор за теб';
 
   @override
+  String get shareCardInvestmentForYou => 'Инвестиция за теб';
+
+  @override
+  String shareCardInvestmentForNamed(String name) {
+    return '$name, инвестиция за теб';
+  }
+
+  @override
+  String shareCardPositionInvest(String side, String asset) {
+    return '$side $asset';
+  }
+
+  @override
+  String shareCardOutcomeToWin(String outcome) {
+    return '$outcome да спечели';
+  }
+
+  @override
   String shareCardInBitcoin(String amount) {
     return 'в биткойн · $amount';
   }

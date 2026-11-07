@@ -20929,6 +20929,30 @@ abstract class AppLocalizations {
   /// **'A pick for you'**
   String get shareCardPickForYou;
 
+  /// A sent investment's share card (a gift): the small caps line at the top when the recipient has no name (drawn uppercase): 'AN INVESTMENT FOR YOU'.
+  ///
+  /// In en, this message translates to:
+  /// **'An investment for you'**
+  String get shareCardInvestmentForYou;
+
+  /// As shareCardInvestmentForYou with the recipient's first name: 'ANA, AN INVESTMENT FOR YOU'.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}, an investment for you'**
+  String shareCardInvestmentForNamed(String name);
+
+  /// A sent investment's share card: the position under the amount sent, in big type: 'Short Bitcoin', 'Long Tesla'. {side} is longLabel or shortLabel (drawn in the side's colour), {asset} the market's name. Order the two as the language reads a position.
+  ///
+  /// In en, this message translates to:
+  /// **'{side} {asset}'**
+  String shareCardPositionInvest(String side, String asset);
+
+  /// A sent prediction's share card, on a race or a match: the outcome picked as one short phrase after 'Yes ·' ('Yes · Lula to win', 'Yes · Gen.G to win'). {outcome} is the candidate's or team's name. Never 'bet', no promise.
+  ///
+  /// In en, this message translates to:
+  /// **'{outcome} to win'**
+  String shareCardOutcomeToWin(String outcome);
+
   /// Bitcoin send share card: the muted line under the big amount (its value in the person's currency), e.g. 'in bitcoin · ₿12,000'. {amount} is the bitcoin amount.
   ///
   /// In en, this message translates to:

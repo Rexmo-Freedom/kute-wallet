@@ -12468,6 +12468,24 @@ class AppLocalizationsHr extends AppLocalizations {
   String get shareCardPickForYou => 'Tip za tebe';
 
   @override
+  String get shareCardInvestmentForYou => 'Ulaganje za tebe';
+
+  @override
+  String shareCardInvestmentForNamed(String name) {
+    return '$name, ulaganje za tebe';
+  }
+
+  @override
+  String shareCardPositionInvest(String side, String asset) {
+    return '$side $asset';
+  }
+
+  @override
+  String shareCardOutcomeToWin(String outcome) {
+    return '$outcome pobjeđuje';
+  }
+
+  @override
   String shareCardInBitcoin(String amount) {
     return 'u bitcoinu · $amount';
   }

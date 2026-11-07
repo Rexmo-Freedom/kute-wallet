@@ -32,6 +32,7 @@ import 'package:kute/screens/polymarket/components/position_speedometer.dart'
 import 'package:kute/screens/share/cards/share_card_copy.dart';
 import 'package:kute/screens/share/cards/share_card_data.dart';
 import 'package:kute/screens/share/cards/share_card_frame.dart';
+import 'package:kute/screens/share/cards/share_card_gift.dart';
 import 'package:kute/screens/share/cards/share_card_market_chart.dart';
 import 'package:kute/screens/share/cards/share_card_preview.dart';
 import 'package:kute/screens/share/cards/share_card_sources.dart';
@@ -451,19 +452,57 @@ void main() {
       expect(find.byKey(const ValueKey('share-card-sal-plate')), findsNothing);
     });
 
+    /// A gift's position line: its plain text and its side word's colour.
+    ({String text, Color? side}) position(WidgetTester tester) {
+      final t = tester
+          .widget<Text>(find.byKey(const ValueKey('share-card-position')));
+      final span = t.textSpan! as TextSpan;
+      final side = span.children!
+          .cast<TextSpan>()
+          .firstWhere((c) => c.style?.color != span.style?.color);
+      return (text: span.toPlainText(), side: side.style!.color);
+    }
+
+    double fontOf(WidgetTester tester, String key) => tester
+        .widget<Text>(find.byKey(ValueKey(key)))
+        .style!
+        .fontSize!;
+
     testWidgets(
-        'a prediction pick: blue, the question, the speedometer with the '
-        'chance big under its hub, the amount on the pick', (tester) async {
+        'a prediction pick is a GIFT (founder, 7 November 2026: "make this '
+        'more clear we are sending"): blue, the amount huge beside Sal with '
+        'the coin, "Yes · Gen.G to win" under it, the question and the '
+        'speedometer small', (tester) async {
       await pumpIn(tester, fakePredictionPick(), const Locale('en'));
       expectRestrained(tester, code: true);
       expect(background(tester), ShareCardPalette.prediction.background);
-      expect(shareCardPose(fakePredictionPick()), ShareCardPose.predict);
+      expect(shareCardPose(fakePredictionPick()), ShareCardPose.claim);
       // It says it is a prediction (founder, 5 November 2026).
       expect(textOf(tester, 'share-card-caps'), 'ANA, A PREDICTION FOR YOU');
+      // The hero is what was sent, the money card's size.
+      expect(textOf(tester, 'share-card-number'), r'$10');
+      expect(fontOf(tester, 'share-card-number'), kShareCardMoneyHeroMax);
+      // The position right under it, the side word in its mint.
+      final pos = position(tester);
+      expect(pos.text, 'Yes · Gen.G to win');
+      expect(pos.side, ShareCardPalette.prediction.sideUp);
+      expect(fontOf(tester, 'share-card-number'),
+          greaterThan(kShareCardPositionSize * 3));
+      final number =
+          tester.getRect(find.byKey(const ValueKey('share-card-number')));
+      final line =
+          tester.getRect(find.byKey(const ValueKey('share-card-position')));
+      expect(line.top, greaterThanOrEqualTo(number.bottom - 1));
+      expect(line.top - number.bottom, lessThan(12));
+      // Then the context, smaller: the question, the speedometer.
       expect(find.text('LoL Worlds 2026 Final: Gen.G vs T1'), findsOneWidget);
-      expect(textOf(tester, 'share-card-number'), '47%');
-      expect(textOf(tester, 'share-card-fact'), 'Chance of Gen.G');
-      expect(find.byKey(const ValueKey('share-card-odds')), findsOneWidget);
+      expect(
+          tester.getTopLeft(find.byKey(const ValueKey('share-card-logo'))).dy,
+          greaterThan(line.bottom));
+      expect(textOf(tester, 'share-card-chance'), '47%');
+      expect(textOf(tester, 'share-card-chance-caption'), 'Chance of Gen.G');
+      expect(fontOf(tester, 'share-card-chance'),
+          lessThan(fontOf(tester, 'share-card-number') / 2));
       expect(find.byKey(const ValueKey('share-card-speedometer')),
           findsOneWidget);
       // The open-position screen's own painters, the needle at 47%.
@@ -476,33 +515,31 @@ void main() {
           .single;
       expect(needle.needle.value, closeTo(0.47, 1e-9));
       expect(needle.color, ShareCardPalette.prediction.ink);
-      // The figure under the hub.
-      expect(
-          tester.getTopLeft(find.byKey(const ValueKey('share-card-number'))).dy,
-          greaterThan(tester
-              .getBottomLeft(find.byKey(const ValueKey('share-card-logo')))
-              .dy));
-      expect(textOf(tester, 'share-card-plain'), r'$10 on Gen.G');
-      // What was sent, in big type, the full ink.
-      final plain = tester.widget<Text>(
-          find.byKey(const ValueKey('share-card-plain')));
-      expect(plain.style!.fontSize, kShareCardPlainStrongSize);
-      expect(plain.style!.fontWeight, FontWeight.w800);
-      // The line is the stock card's graphic, never a second one here.
+      // Said once: no "$10 on Gen.G" line any more.
+      expect(find.byKey(const ValueKey('share-card-plain')), findsNothing);
       expect(find.byKey(const ValueKey('share-card-chart')), findsNothing);
     });
 
     testWidgets(
-        'a stock pick: logo, name, ticker, the price big, today in '
-        'colour, the line, Long · amount', (tester) async {
+        'a stock pick is a GIFT: navy, AN INVESTMENT FOR YOU, the amount '
+        'huge, "Long Tesla" in green, then the logo, name, ticker, price, '
+        'today and the line, smaller', (tester) async {
       await pumpIn(tester, fakeTeslaPick(), const Locale('en'));
       expectRestrained(tester, code: true);
       expect(background(tester), ShareCardPalette.investment.background);
-      expect(shareCardPose(fakeTeslaPick()), ShareCardPose.win);
-      expect(textOf(tester, 'share-card-caps'), 'ANA, A PICK FOR YOU');
+      expect(shareCardPose(fakeTeslaPick()), ShareCardPose.claim);
+      expect(textOf(tester, 'share-card-caps'), 'ANA, AN INVESTMENT FOR YOU');
+      expect(textOf(tester, 'share-card-number'), r'$25');
+      expect(fontOf(tester, 'share-card-number'), kShareCardMoneyHeroMax);
+      final pos = position(tester);
+      expect(pos.text, 'Long Tesla');
+      expect(pos.side, ShareCardPalette.investment.up);
       expect(find.text('Tesla'), findsOneWidget);
       expect(find.text('TSLA'), findsOneWidget);
-      expect(textOf(tester, 'share-card-number'), r'$242.10');
+      // The price is context now, never the hero.
+      expect(textOf(tester, 'share-card-price'), r'$242.10');
+      expect(fontOf(tester, 'share-card-price'),
+          lessThan(fontOf(tester, 'share-card-number') / 4));
       expect(textOf(tester, 'share-card-fact'), '+3.4% today');
       expect(
           tester
@@ -511,8 +548,7 @@ void main() {
               .color,
           ShareCardPalette.investment.up);
       expect(find.byKey(const ValueKey('share-card-chart')), findsOneWidget);
-      expect(textOf(tester, 'share-card-plain'), r'Long · $25');
-      expect(find.text('Long'), findsNothing, reason: 'the side once');
+      expect(find.byKey(const ValueKey('share-card-plain')), findsNothing);
       expect(textOf(tester, 'share-card-edge'),
           'Some of us buy before the headlines.');
       // The logo is the real coin icon, 36.
@@ -520,6 +556,107 @@ void main() {
           const Size.square(kShareLogoSize));
       expect(
           find.byKey(const ValueKey('share-card-logo-coin')), findsOneWidget);
+    });
+
+    testWidgets(
+        'the founder\'s Bitcoin short: \$50 huge, "Short Bitcoin" in red, '
+        '\$75,966.50 and −0.2% today small', (tester) async {
+      await pumpIn(tester, fakeBitcoinShortPick(), const Locale('en'));
+      expect(textOf(tester, 'share-card-number'), r'$50');
+      final pos = position(tester);
+      expect(pos.text, 'Short Bitcoin');
+      expect(pos.side, ShareCardPalette.investment.down);
+      expect(textOf(tester, 'share-card-price'), r'$75,966.50');
+      expect(textOf(tester, 'share-card-fact'), '−0.2% today');
+      expect(
+          tester
+              .widget<Text>(find.byKey(const ValueKey('share-card-fact')))
+              .style!
+              .color,
+          ShareCardPalette.investment.down);
+      // Without a name: "AN INVESTMENT FOR YOU".
+      await pumpIn(
+          tester, fakeBitcoinShortPick(name: null), const Locale('en'));
+      expect(textOf(tester, 'share-card-caps'), 'AN INVESTMENT FOR YOU');
+    });
+
+    testWidgets(
+        'a gift\'s claim hero: DANIEL, A FRIEND SENT YOU over the amount and '
+        'the position, no code', (tester) async {
+      for (final data in [
+        fakeBitcoinShortPick(name: 'Daniel').asRecipient(),
+        fakePredictionPick(name: 'Daniel').asRecipient(),
+      ]) {
+        await pumpIn(tester, data, const Locale('en'));
+        expectRestrained(tester, code: false);
+        expect(textOf(tester, 'share-card-caps'), 'DANIEL, A FRIEND SENT YOU',
+            reason: data.kind);
+        expect(find.byKey(const ValueKey('share-card-position')),
+            findsOneWidget);
+        expect(shareCardPose(data), ShareCardPose.claim);
+      }
+      expect(textOf(tester, 'share-card-number'), r'$10');
+    });
+
+    test(
+        'a gift\'s position: the side, then what it is on, in the '
+        'language\'s order; "to win" only on a race or a match', () {
+      final ja = lookupAppLocalizations(const Locale('ja'));
+      String text(ShareCardPosition p) => '${p.before}${p.side}${p.after}';
+      ShareCardPosition pos(ShareCardData d, [AppLocalizations? l10n]) =>
+          shareCardPosition(l10n ?? _en, d)!;
+      expect(text(pos(fakeTeslaPick())), 'Long Tesla');
+      expect(pos(fakeTeslaPick()).up, isTrue);
+      expect(text(pos(fakeBitcoinShortPick())), 'Short Bitcoin');
+      expect(pos(fakeBitcoinShortPick()).side, 'Short');
+      expect(pos(fakeBitcoinShortPick()).up, isFalse);
+      expect(text(pos(fakeBitcoinShortPick(), _de)), 'Short Bitcoin');
+      // Japanese puts the market first; the side is still split out.
+      final j = pos(fakeBitcoinShortPick(), ja);
+      expect(text(j), 'Bitcoin ${ja.shortLabel}');
+      expect(j.side, ja.shortLabel);
+      // A yes/no pick: the side alone; No is down.
+      expect(text(pos(fakeBinaryPick())), 'Yes');
+      final no = PredictionCardData(
+          question: 'Will it rain?',
+          outcome: 'No',
+          chance: 40,
+          picked: true,
+          amount: r'$5');
+      expect(text(pos(no)), 'No');
+      expect(pos(no).up, isFalse);
+      expect(text(pos(no, _de)), 'Nein');
+      // A race: "Yes · Lula to win"; a match too; never a draw.
+      PredictionCardData named(String outcome, ShareCardTopic topic) =>
+          PredictionCardData(
+              question: 'Q',
+              outcome: outcome,
+              chance: 41,
+              binary: false,
+              topic: topic,
+              picked: true,
+              amount: r'$5');
+      expect(text(pos(named('Lula', ShareCardTopic.politics))),
+          'Yes · Lula to win');
+      expect(text(pos(named('Lula', ShareCardTopic.politics), _de)),
+          'Ja · Lula gewinnt');
+      expect(text(pos(named('Gen.G', ShareCardTopic.sports))),
+          'Yes · Gen.G to win');
+      expect(text(pos(named('Draw', ShareCardTopic.sports))), 'Yes · Draw');
+      expect(text(pos(named('25 bps decrease', ShareCardTopic.economy))),
+          'Yes · 25 bps decrease');
+      // Not a gift: no position (a market shared, a dare).
+      expect(shareCardPosition(_en, fakePredictionMarket()), isNull);
+      expect(shareCardPosition(_en, fakeChallenge()), isNull);
+      expect(shareCardPosition(_en, fakeNasdaqMarket()), isNull);
+      // The side colours read on the blue as large type (3:1).
+      for (final c in [
+        ShareCardPalette.prediction.side(up: true),
+        ShareCardPalette.prediction.side(up: false),
+      ]) {
+        expect(shareCardContrast(c, ShareCardPalette.prediction.background),
+            greaterThanOrEqualTo(3));
+      }
     });
 
     testWidgets(
@@ -672,6 +809,10 @@ void main() {
           fakeBitcoinCard().asRecipient(),
           fakePredictionPick().asRecipient(),
           fakeTeslaPick().asRecipient(),
+          fakeBitcoinShortPick(),
+          fakeBitcoinShortPick(name: 'Maximilian'),
+          fakeBitcoinShortPick().asRecipient(),
+          fakePredictionPick(question: kShareLongQuestion),
         ]) {
           final pool = shareCardEdges(l10n, data);
           for (var seed = 0; seed < pool.length; seed++) {
@@ -695,7 +836,9 @@ void main() {
         'change', () {
       expect(shareCardPose(fakeBitcoinCard()), ShareCardPose.claim);
       expect(shareCardPose(fakeDollarsCard()), ShareCardPose.claim);
-      expect(shareCardPose(fakePredictionPick()), ShareCardPose.predict);
+      // A pick sent is a gift: the coin, as money's.
+      expect(shareCardPose(fakePredictionPick()), ShareCardPose.claim);
+      expect(shareCardPose(fakeTeslaPick()), ShareCardPose.claim);
       expect(shareCardPose(fakePredictionMarket()), ShareCardPose.predict);
       InvestmentCardData stock(double? change) => InvestmentCardData(
             title: 'Tesla',
@@ -819,29 +962,51 @@ void main() {
 
     testWidgets('stock: the chart fills the bottom band, nothing empty',
         (tester) async {
-      await pump(tester, fakeTeslaPick());
+      await pump(tester, fakeNasdaqMarket());
       expectBalanced(tester, 'stock');
       final chart =
           tester.getRect(find.byKey(const ValueKey('share-card-chart')));
-      // A pick: "Long · \$25", the rule and a two-line edgy line under it.
       expect(chart.height, greaterThan(50));
+      // A gift: the amount and the position over it, the line smaller
+      // (two caps lines, a two-line edgy line under it), still a line.
+      for (final data in [fakeTeslaPick(), fakeBitcoinShortPick()]) {
+        await pump(tester, data);
+        expectBalanced(tester, data.kind);
+        final mini =
+            tester.getRect(find.byKey(const ValueKey('share-card-chart')));
+        expect(mini.height, greaterThan(36), reason: data.title);
+      }
       expect(tester.takeException(), isNull);
     });
 
     testWidgets(
         'prediction: the speedometer fills the band between the identity '
         'and the bottom, nothing empty', (tester) async {
+      await pump(tester, fakePredictionMarket(chart: false));
+      expectBalanced(tester, 'market');
+      final dial = tester
+          .getRect(find.byKey(const ValueKey('share-card-speedometer')));
+      expect(dial.height, greaterThan(150));
+      // A gift: the speedometer small beside its chance, under the
+      // question, whatever the question's length.
       for (final data in [
         fakePredictionPick(),
-        fakePredictionMarket(chart: false)
+        fakePredictionPick(question: kShareLongQuestion),
+        fakeBinaryPick(),
       ]) {
         await pump(tester, data);
-        expectBalanced(tester, data.kind);
-        final dial = tester
+        expectBalanced(tester, data.question);
+        final small = tester
             .getRect(find.byKey(const ValueKey('share-card-speedometer')));
-        expect(dial.height, greaterThan(150), reason: data.kind);
-        expect(tester.takeException(), isNull);
+        expect(small.height, greaterThanOrEqualTo(kShareCardRingSize.height),
+            reason: data.question);
+        expect(small.height, lessThan(80), reason: data.question);
+        final rule =
+            tester.getRect(find.byKey(const ValueKey('share-card-rule')));
+        expect(small.bottom, lessThanOrEqualTo(rule.top),
+            reason: data.question);
       }
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets(
@@ -1001,6 +1166,16 @@ void main() {
         fakePredictionPick(question: kShareLongQuestion),
         fakeBinaryPick(),
         fakeMichiganMarket(),
+        fakeBitcoinShortPick(),
+        fakeBitcoinShortPick(name: 'Maximilian').asRecipient(),
+        fakePredictionPick().asRecipient(),
+        InvestmentCardData(
+            title: 'Bitcoin',
+            side: 'long',
+            amount: r'$1,250.50',
+            recipient: 'Ana',
+            price: 75966.5,
+            change: 0.01),
       ]) {
         await pump(tester, data);
         // The dog inside his cell (the render's transparent margin off).
@@ -1018,6 +1193,9 @@ void main() {
           'share-card-meta',
           'share-card-number',
           'share-card-fact',
+          'share-card-position',
+          'share-card-price',
+          'share-card-chance',
         ]) {
           final f = find.byKey(ValueKey(k));
           if (f.evaluate().isEmpty) continue;

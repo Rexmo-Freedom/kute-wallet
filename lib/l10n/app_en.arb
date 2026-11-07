@@ -9583,6 +9583,40 @@
   "@shareCardPickForYou": {
     "description": "Pick share card: the small caps line at the top when the recipient has no name (drawn uppercase)."
   },
+  "shareCardInvestmentForYou": "An investment for you",
+  "@shareCardInvestmentForYou": {
+    "description": "A sent investment's share card (a gift): the small caps line at the top when the recipient has no name (drawn uppercase): 'AN INVESTMENT FOR YOU'."
+  },
+  "shareCardInvestmentForNamed": "{name}, an investment for you",
+  "@shareCardInvestmentForNamed": {
+    "description": "As shareCardInvestmentForYou with the recipient's first name: 'ANA, AN INVESTMENT FOR YOU'.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "shareCardPositionInvest": "{side} {asset}",
+  "@shareCardPositionInvest": {
+    "description": "A sent investment's share card: the position under the amount sent, in big type: 'Short Bitcoin', 'Long Tesla'. {side} is longLabel or shortLabel (drawn in the side's colour), {asset} the market's name. Order the two as the language reads a position.",
+    "placeholders": {
+      "side": {
+        "type": "String"
+      },
+      "asset": {
+        "type": "String"
+      }
+    }
+  },
+  "shareCardOutcomeToWin": "{outcome} to win",
+  "@shareCardOutcomeToWin": {
+    "description": "A sent prediction's share card, on a race or a match: the outcome picked as one short phrase after 'Yes ·' ('Yes · Lula to win', 'Yes · Gen.G to win'). {outcome} is the candidate's or team's name. Never 'bet', no promise.",
+    "placeholders": {
+      "outcome": {
+        "type": "String"
+      }
+    }
+  },
   "shareCardInBitcoin": "in bitcoin · {amount}",
   "@shareCardInBitcoin": {
     "description": "Bitcoin send share card: the muted line under the big amount (its value in the person's currency), e.g. 'in bitcoin · ₿12,000'. {amount} is the bitcoin amount.",

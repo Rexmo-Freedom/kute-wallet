@@ -247,6 +247,18 @@ void main() {
       '1_send_dollars': (fakeDollarsCard(), const Locale('en')),
       '2_send_prediction': (pickCard, const Locale('en')),
       '3_send_stock_tesla': (fakeTeslaPick(), const Locale('en')),
+      // A pick sent is a gift (founder, 7 November 2026): the amount
+      // huge, the position under it, the market as its context.
+      '3_send_bitcoin_short': (fakeBitcoinShortPick(), const Locale('en')),
+      '3_send_bitcoin_short_unnamed':
+          (fakeBitcoinShortPick(name: null), const Locale('en')),
+      'de_send_bitcoin_short': (fakeBitcoinShortPick(), const Locale('de')),
+      'ja_send_bitcoin_short': (fakeBitcoinShortPick(), const Locale('ja')),
+      'ja_send_stock_tesla': (fakeTeslaPick(), const Locale('ja')),
+      'claim_hero_investment': (
+        fakeBitcoinShortPick(name: 'Daniel').asRecipient(),
+        const Locale('en')
+      ),
       '3_market_nasdaq100': (fakeNasdaqMarket(), const Locale('en')),
       '3_market_crude_oil': (fakeOilMarket(), const Locale('en')),
       '4_market_prediction': (marketCard, const Locale('en')),

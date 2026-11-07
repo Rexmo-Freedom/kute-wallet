@@ -246,7 +246,8 @@ void main() {
       expect(fakeChallenge().kind, 'send_challenge');
       expect(fakeBinaryPick().kind, 'send_prediction');
       expect(shareCardPose(fakeChallenge()), ShareCardPose.flat);
-      expect(shareCardPose(fakeBinaryPick()), ShareCardPose.predict);
+      // A plain pick sent is a gift: the coin, as money's.
+      expect(shareCardPose(fakeBinaryPick()), ShareCardPose.claim);
       expect(shareCardPalette(fakeChallenge()), ShareCardPalette.prediction);
       // Only a pick dares.
       expect(
@@ -757,7 +758,7 @@ void main() {
         (tester) async {
       env.fake.seed(_link(challenge: false));
       await pump(tester);
-      expect(find.text('ANA, A FRIEND SENT YOU A PICK'), findsOneWidget);
+      expect(find.text('ANA, A FRIEND SENT YOU'), findsOneWidget);
       await claimAndArrive(
           tester, _link(challenge: false, status: ShareLinkStatus.paid));
       expect(kuteBarPrimaryWithText('Place the prediction'), findsOneWidget);
