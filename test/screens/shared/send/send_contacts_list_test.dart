@@ -6,9 +6,13 @@
 // address, and the layout: the recents as circles while there is no book,
 // one list once there is. The recipient card: who a resolved destination
 // is (a contact first, then a recent, else the shortened address), and
-// the list never repeating them ("Other contacts").
+// the list never repeating them ("Other contacts"). The Review's From and
+// To (SendReviewRoute): two squares, the same face as the card, the
+// address on one line in its middle form, the rail only when given, a tap
+// on To showing the whole address with Copy.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -585,4 +589,221 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   });
+
+  // The Review's From and To (founder, 7 November 2026: "make this more
+  // with the square cards we have now"), both Sends alike.
+  group('the review', () {
+    const ln = 'pipinho@walletofsatoshi.com';
+    const btc = 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq';
+    const from = ValueKey('send-review-from');
+    const to = ValueKey('send-review-to');
+
+    Future<List<String>> pump(WidgetTester tester, String address,
+        {String? toLine,
+        bool dark = false,
+        double width = 375,
+        double textScale = 1,
+        bool withToggle = true}) async {
+      GoogleFonts.config.allowRuntimeFetching = false;
+      // The app's own type: the squares' fit is measured in it.
+      await tester.runAsync(() async {
+        final inter = FontLoader('Inter');
+        for (final f in ['Regular', 'SemiBold', 'Bold']) {
+          inter.addFont(rootBundle.load('lib/assets/fonts/Inter-$f.ttf'));
+        }
+        await inter.load();
+      });
+      tester.view.physicalSize = Size(width, 900);
+      tester.view.devicePixelRatio = 1;
+      tester.platformDispatcher.textScaleFactorTestValue = textScale;
+      addTearDown(tester.view.reset);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      tester.binding.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, (_) async => null);
+      addTearDown(() => tester.binding.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null));
+      final calls = <String>[];
+      final gateway = FakeSendContactsGateway(
+          permission: SendContactsPermission.granted,
+          contacts: [...fakeContacts(), _kuteContact]);
+      var expanded = false;
+      await tester.pumpWidget(ProviderScope(
+        overrides: [sendContactsGatewayProvider.overrideWithValue(gateway)],
+        child: ScreenUtilInit(
+          designSize: const Size(430, 932),
+          builder: (_, __) => MaterialApp(
+            theme: ThemeData(fontFamily: 'Inter', extensions: [
+              dark ? AppColorsExtension.dark() : AppColorsExtension.light()
+            ]),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Scaffold(
+              body: StatefulBuilder(
+                builder: (context, setState) => ListView(
+                  padding: const EdgeInsets.all(20),
+                  children: [
+                    SendReviewRoute(
+                      fromVisual: const Icon(Icons.pets_rounded, size: 36),
+                      fromTitle: 'Bitcoin',
+                      fromLine: 'Available · 361,694 sats',
+                      toVisual: SendRecipientAvatar(
+                        address: address,
+                        railMark: const Icon(Icons.alternate_email_rounded),
+                        recents: _recents(),
+                      ),
+                      address: address,
+                      toLine: toLine,
+                      expanded: expanded,
+                      onToggle: withToggle
+                          ? () {
+                              calls.add('toggle');
+                              setState(() => expanded = !expanded);
+                            }
+                          : null,
+                      onCopied: () => calls.add('copied'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ));
+      final container = ProviderScope.containerOf(
+          tester.element(find.byType(SendReviewRoute)));
+      await container.read(sendContactsProvider.notifier).refresh();
+      await tester.pump();
+      return calls;
+    }
+
+    Finder inCard(ValueKey<String> card, Finder matching) =>
+        find.descendant(of: find.byKey(card), matching: matching);
+
+    String shownAddress(WidgetTester tester) => tester
+        .widget<Text>(find.descendant(
+            of: find.byKey(const ValueKey('send-review-to-address')),
+            matching: find.byType(Text)))
+        .data!;
+
+    testWidgets(
+        'From and To are two squares side by side, equally tall, no '
+        'chevrons: the label over the main line, the address on ONE line in '
+        'its middle form, the rail under it', (tester) async {
+      await pump(tester, ln, toLine: 'Lightning');
+      final a = tester.getRect(find.byKey(from));
+      final b = tester.getRect(find.byKey(to));
+      expect(a.top, b.top);
+      expect(a.height, b.height);
+      expect(b.left, greaterThan(a.right));
+      expect(inCard(from, find.text('From')), findsOneWidget);
+      expect(inCard(from, find.text('Bitcoin')), findsOneWidget);
+      expect(inCard(from, find.text('Available · 361,694 sats')),
+          findsOneWidget);
+      expect(inCard(to, find.text('To')), findsOneWidget);
+      expect(inCard(to, find.text('Lightning')), findsOneWidget);
+      final shown = shownAddress(tester);
+      expect(shown, contains('…'));
+      expect(shown.startsWith('pipinho'), isTrue);
+      expect(shown.endsWith('.com'), isTrue);
+      final line = tester.getRect(find.descendant(
+          of: find.byKey(const ValueKey('send-review-to-address')),
+          matching: find.byType(Text)));
+      expect(line.height,
+          lessThan(1.5 * tester.getRect(find.text('Bitcoin')).height));
+      // A Lightning address nobody known has: the rail's mark, the ⚡.
+      expect(inCard(to, find.byIcon(Icons.alternate_email_rounded)),
+          findsOneWidget);
+      expect(inCard(to, find.byKey(const ValueKey('send-badge-lightning'))),
+          findsOneWidget);
+      expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
+      expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'a plain bitcoin address has no line under it (the default network '
+        'says nothing)', (tester) async {
+      await pump(tester, btc);
+      expect(inCard(to, find.text('To')), findsOneWidget);
+      expect(shownAddress(tester).startsWith('bc1q'), isTrue);
+      expect(shownAddress(tester).endsWith('mdq'), isTrue);
+      expect(inCard(to, find.byType(Text)), findsNWidgets(2),
+          reason: 'the label and the address, nothing under them');
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a contact\'s address wears the contact\'s face and badge',
+        (tester) async {
+      await pump(tester, 'joana@paykute.com', toLine: 'Lightning');
+      expect(inCard(to, find.text('JK')), findsOneWidget);
+      expect(inCard(to, find.byKey(const ValueKey('send-badge-kute'))),
+          findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'a tap on To shows the whole address with Copy under the pair, Copy '
+        'reports, a second tap hides it; From only states', (tester) async {
+      final calls = await pump(tester, btc);
+      expect(
+          tester.getSemantics(find.byKey(from)),
+          isSemantics(
+              label: 'From, Bitcoin, Available · 361,694 sats',
+              isButton: false));
+      expect(tester.getSemantics(find.byKey(to)),
+          isSemantics(label: 'To, $btc', isButton: true));
+      await tester.tap(find.byKey(from));
+      await tester.pumpAndSettle();
+      expect(calls, isEmpty);
+      expect(
+          find.byKey(const ValueKey('send-review-full-address')), findsNothing);
+
+      await tester.tap(find.byKey(to));
+      await tester.pumpAndSettle();
+      final full = find.byKey(const ValueKey('send-review-full-address'));
+      expect(full, findsOneWidget);
+      expect(find.descendant(of: full, matching: find.text(btc)),
+          findsOneWidget);
+      expect(tester.getRect(full).top,
+          greaterThan(tester.getRect(find.byKey(to)).bottom));
+      await tester.tap(find.text(_l10n.copy));
+      await tester.pump();
+      expect(calls, ['toggle', 'copied']);
+      await tester.pump(const Duration(seconds: 5));
+
+      await tester.tap(find.byKey(to));
+      await tester.pumpAndSettle();
+      expect(full, findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('with nothing to show, To only states', (tester) async {
+      final calls = await pump(tester, btc, withToggle: false);
+      expect(tester.getSemantics(find.byKey(to)),
+          isSemantics(isButton: false));
+      await tester.tap(find.byKey(to));
+      await tester.pumpAndSettle();
+      expect(calls, isEmpty);
+      expect(tester.takeException(), isNull);
+    });
+
+    for (final dark in [false, true]) {
+      testWidgets(
+          '${dark ? 'dark' : 'light'}, 320 pt at 1.3x: nothing cut or '
+          'overflowing; the pair stays squares or goes full width, never '
+          'a chevron on From', (tester) async {
+        await pump(tester, ln,
+            toLine: 'Lightning', dark: dark, width: 320, textScale: 1.3);
+        final title = tester.widget<Text>(find.text('Bitcoin'));
+        expect(title.maxLines, isNull);
+        expect(title.overflow, isNull);
+        expect(inCard(from, find.byIcon(Icons.chevron_right_rounded)),
+            findsNothing);
+        expect(shownAddress(tester), contains('…'));
+        expect(tester.takeException(), isNull);
+      });
+    }
+  });
 }
+
+final _l10n = lookupAppLocalizations(const Locale('en'));

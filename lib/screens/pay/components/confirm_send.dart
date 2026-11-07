@@ -89,6 +89,8 @@ import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/coin_asset_grid.dart';
 import 'package:kute/providers/asset_icon_provider.dart'
     show SafeSvgNetwork, kInvestmentsIcon;
+import 'package:kute/screens/shared/kute_action_cards.dart'
+    show kKuteActionCardVisualSize;
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/shared/btc_amount_text.dart';
 import 'package:kute/screens/shared/custom_button.dart';
@@ -5893,9 +5895,6 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
 
   Widget _reviewBody(AppColorsExtension c, String btcFormat) {
     final addr = addressController.text;
-    final shortAddr = addr.length > 22
-        ? '${addr.substring(0, 10)}…${addr.substring(addr.length - 8)}'
-        : addr;
     // Review's "From · Available" subtitle reflects the SELECTED
     // source wallet's pool. See `_selectedSpendableSats` for the
     // hot-vs-cold routing — bypassing this here showed the spending
@@ -6031,15 +6030,6 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
       enabled:
           isSparkOnchainSend || isSparkInternalSend || isSparkLightningSend,
     );
-    // Icons sized at 24.sp: the bare SVG sits in a 28.sp slot on the
-    // compact From / To rows, so anything larger crowds the row and
-    // pushes the card back to the height this pass took out of it.
-    final assetIcon = _selectedDestAsset != null
-        ? _selectedDestAsset!.iconWidget(size: 24.sp)
-        : SvgPicture.asset('lib/assets/bitcoin-icon.svg',
-            width: 24.sp, height: 24.sp);
-    final assetIconBg = (_selectedDestAsset?.color ?? const Color(0xFFF7931A))
-        .withValues(alpha: 0.18);
     const sourceLabel = 'Bitcoin';
     final sourceBalance = '${btcSats.toFormattedString(btcFormat)} $btcFormat';
     // Source icon: prefer the wallet's brand SVG (Ledger /
@@ -6064,8 +6054,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
           )
         : null;
     final sourceIcon = visual?.svgAsset ?? 'lib/assets/bitcoin-icon.svg';
-    final sourceIconBg =
-        (visual?.color ?? const Color(0xFFF7931A)).withValues(alpha: 0.18);
+    final detected = _detectAddressType(addr);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -6144,62 +6133,35 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
           ),
         ),
         SizedBox(height: 20.h),
-        // ─── From → To card ──────────────────────────────────────
-        Container(
-          decoration: BoxDecoration(
-            color: c.surfaceLight,
-            borderRadius: BorderRadius.circular(18.r),
-            border: Border.all(color: c.borderSubtle, width: 1.0),
+        // ─── From and To, two squares (send_contacts_list.dart) ──
+        //
+        // The To square wears the Who step's face for the recipient and
+        // says the rail only where it is not the default. A tap shows the
+        // whole destination with a Copy under the pair: the middle-
+        // ellipsis form alone gives a hardware user nothing to compare
+        // against the device screen.
+        SendReviewRoute(
+          fromVisual: SvgPicture.asset(sourceIcon,
+              width: SendReviewRoute.visualSize,
+              height: SendReviewRoute.visualSize),
+          fromTitle: sourceLabel,
+          fromLine: context.l10n.sendAvailableBalanceSubtitle(sourceBalance),
+          toVisual: SendRecipientAvatar(
+            address: addr,
+            railMark:
+                _recipientRailMark(detected, avatar: kKuteActionCardVisualSize),
+            recents: _recentPeople(_recentRecipients()),
+            size: kKuteActionCardVisualSize,
           ),
-          child: Column(
-            children: [
-              _reviewSummaryRow(
-                c: c,
-                label: context.l10n.from,
-                title: sourceLabel,
-                subtitle:
-                    context.l10n.sendAvailableBalanceSubtitle(sourceBalance),
-                iconChild:
-                    SvgPicture.asset(sourceIcon, width: 24.sp, height: 24.sp),
-                iconBg: sourceIconBg,
-              ),
-              Divider(
-                  height: 1, thickness: 1, color: c.borderSubtle, indent: 14.w),
-              // Tap to reveal the full destination string with a copy
-              // action; the shortened form alone gives a hardware user
-              // nothing to compare against the device screen.
-              InkWell(
-                onTap: addr.isEmpty
-                    ? null
-                    : () {
-                        HapticFeedback.selectionClick();
-                        setState(() => _reviewToExpanded = !_reviewToExpanded);
-                      },
-                borderRadius:
-                    BorderRadius.vertical(bottom: Radius.circular(18.r)),
-                child: _reviewSummaryRow(
-                  c: c,
-                  label: context.l10n.to,
-                  title: shortAddr.isNotEmpty ? shortAddr : '…',
-                  subtitle: _selectedDestAsset != null
-                      ? '${_selectedDestAsset!.name} · ${_selectedDestNetwork?.name ?? ''}'
-                      : context.l10n.bitcoinNetwork,
-                  iconChild: assetIcon,
-                  iconBg: assetIconBg,
-                  trailing: addr.isEmpty
-                      ? null
-                      : Icon(
-                          _reviewToExpanded
-                              ? Icons.keyboard_arrow_up_rounded
-                              : Icons.keyboard_arrow_down_rounded,
-                          size: 18.sp,
-                          color: c.textTertiary),
-                ),
-              ),
-              if (_reviewToExpanded && addr.isNotEmpty)
-                _reviewFullAddressBlock(c, addr),
-            ],
-          ),
+          address: addr,
+          toLine: _reviewRailLine(detected),
+          expanded: _reviewToExpanded,
+          onToggle: () =>
+              setState(() => _reviewToExpanded = !_reviewToExpanded),
+          onCopied: () =>
+              TrackingService.track('pay_review_address_copied', params: {
+            'address_type': _trackingAddressType(detected),
+          }),
         ),
         if (isSoftwareWallet ||
             hasSparkBtcDestRow ||
@@ -6215,18 +6177,16 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
         // never fee-less. The speed / UTXO controls stay on the Sign
         // step (Bug 44), where the exact fee of the built PSBT is the
         // one the user signs on-device.
+        //
+        // On the soft card the squares wear (founder, 7 November 2026: no
+        // grey bordered box).
         if (isSoftwareWallet ||
             hasSparkBtcDestRow ||
             fees != null ||
             isCrossChainSend ||
             isHwBtcSend)
-          Container(
+          SendReviewCard(
             padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
-            decoration: BoxDecoration(
-              color: c.surfaceLight,
-              borderRadius: BorderRadius.circular(18.r),
-              border: Border.all(color: c.borderSubtle, width: 1.0),
-            ),
             child: Column(
               children: [
                 if (isSoftwareWallet) ...[
@@ -6381,37 +6341,36 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     );
   }
 
-  /// Full destination string under the Review "To" row, wrapped so
-  /// every character is readable, with a Copy action.
-  Widget _reviewFullAddressBlock(AppColorsExtension c, String addr) {
-    return SendReviewFullAddress(
-      address: addr,
-      onCopied: () =>
-          TrackingService.track('pay_review_address_copied', params: {
-        'address_type': _trackingAddressType(_detectAddressType(addr)),
-      }),
-    );
+  /// The Review To square's line (SendReviewRoute): the rail or the
+  /// network when it tells the person something: the coin on its network
+  /// for a cross-chain address ("USDC on Base"), "Lightning", "Spark".
+  /// Null for a plain bitcoin address: the Bitcoin network is the default
+  /// (founder, 7 November 2026: "it is literally the default on sending
+  /// bitcoin"), and the fee card under it says on-chain by its speed.
+  String? _reviewRailLine(_DetectedAddressInfo detected) {
+    if (_selectedDestAsset != null && _selectedDestNetwork != null) {
+      return _resolvedRailLabel(detected);
+    }
+    switch (detected.label) {
+      case 'Lightning invoice':
+      case 'Lightning address':
+      case 'LNURL':
+      case 'Spark address':
+        return _resolvedRailLabel(detected);
+      default:
+        return null;
+    }
   }
 
-  Widget _reviewSummaryRow({
-    required AppColorsExtension c,
-    required String label,
-    required String title,
-    required String subtitle,
-    required Widget iconChild,
-    required Color iconBg,
-    Widget? trailing,
-  }) {
-    // `iconBg` stays on the signature so old callers compile; the
-    // tinted disc it fed is gone (the brand SVG is the identity).
-    return SendReviewSummaryRow(
-      label: label,
-      title: title,
-      subtitle: subtitle,
-      icon: iconChild,
-      trailing: trailing,
-    );
-  }
+  /// The rail's mark inside a recipient's avatar [avatar] across, the Who
+  /// step's card (44) and the Review's To square alike: the chosen coin,
+  /// else the address kind's glyph.
+  Widget _recipientRailMark(_DetectedAddressInfo detected,
+          {required double avatar}) =>
+      _selectedDestAsset != null
+          ? _selectedDestAsset!.iconWidget(size: (avatar * 28 / 44).sp)
+          : Icon(detected.icon,
+              color: detected.color, size: (avatar * 24 / 44).sp);
 
   /// Fee in sats for a prepared Spark payment: the selected speed's
   /// total for an on-chain withdrawal, the transfer fee for a Spark
@@ -6718,13 +6677,9 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
           };
     return AbsorbPointer(
       absorbing: isProcessing || _paymentAuthInFlight,
-      child: Container(
+      // The fee card's soft card, under it.
+      child: SendReviewCard(
         padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-        decoration: BoxDecoration(
-          color: c.surfaceLight,
-          borderRadius: BorderRadius.circular(18.r),
-          border: Border.all(color: c.borderSubtle, width: 1.0),
-        ),
         child: Column(
           children: [
             SheetDetailRow(
@@ -8000,9 +7955,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
           if (resolved) ...[
             SizedBox(height: 20.h),
             SendRecipientCard(
-              railMark: _selectedDestAsset != null
-                  ? _selectedDestAsset!.iconWidget(size: 28.sp)
-                  : Icon(detected.icon, color: detected.color, size: 24.sp),
+              railMark: _recipientRailMark(detected, avatar: 44),
               address: addr,
               // Progressive disclosure (founder, 7 November 2026):
               // Lightning or on-chain is said on Review; a coin the person

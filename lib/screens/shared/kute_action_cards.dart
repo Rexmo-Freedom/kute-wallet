@@ -81,6 +81,18 @@
 // on one line), the icon at its left, the title over its value beside it,
 // the chevron at its right; as tall as a list row ([KuteListRow]), never
 // a preview of what the option opens. A square never shows a chevron.
+//
+// A CARD THAT STATES (founder, 7 November 2026, the Bitcoin Send's Review:
+// "make this more with the square cards we have now"): the Review's From
+// and To are two of these squares side by side ([KuteActionCard.fact]),
+// the same card with a small label over the title ("From", "To"; 13,
+// w600, textTertiary). A fact never shows a chevron, full width or not:
+// it opens nothing. With no tap it is plain: no press and never dimmed,
+// since it is not a choice that is switched off; with a tap (the To
+// square shows the whole address under the pair) it presses as any card
+// does. A title that is an address ([KuteActionCard.oneLineTitle])
+// keeps to one line in its middle-ellipsis form, its head and its tail
+// whole, so an address never stands a pair's titles on two lines.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -149,7 +161,10 @@ class KuteActionCard extends StatelessWidget {
     this.semanticsLabel,
     this.visualSlot = kKuteActionCardVisualSlot,
     required this.onTap,
-  }) : compact = false;
+  })  : compact = false,
+        fact = false,
+        label = null,
+        oneLineTitle = null;
 
   /// An option card (see the file header): [icon] at the top left, the
   /// [title] and, when the option has one, its value ([subtitle]) on one
@@ -166,11 +181,44 @@ class KuteActionCard extends StatelessWidget {
         footerKey = null,
         badge = null,
         visualSlot = kKuteOptionCardVisualSlot,
-        compact = true;
+        compact = true,
+        fact = false,
+        label = null,
+        oneLineTitle = null;
+
+  /// A card that states rather than offers (see the file header: the
+  /// Send Review's From and To): [label] over the [title], the line under
+  /// it; never a chevron. Without [onTap] it is plain, never dimmed; with
+  /// one it presses as any card does.
+  const KuteActionCard.fact({
+    super.key,
+    required this.visual,
+    required String this.label,
+    required this.title,
+    this.subtitle,
+    this.oneLineTitle,
+    this.semanticsLabel,
+    this.onTap,
+  })  : footer = null,
+        footerKey = null,
+        badge = null,
+        visualSlot = kKuteActionCardVisualSlot,
+        compact = false,
+        fact = true;
 
   /// The large visual at the top left.
   final Widget visual;
+
+  /// The small line over the title of a fact card ("From", "To").
+  final String? label;
   final String title;
+
+  /// Draws the title on ONE line that shapes itself to the card's width
+  /// (an address in its middle-ellipsis form, head and tail kept), given
+  /// the title's style; [title] stays what is read out. Such a title
+  /// always fits its line, so it never moves a grid from squares to full
+  /// width cards ([KuteActionCardGrid.oneLineTitles]).
+  final Widget Function(TextStyle style)? oneLineTitle;
 
   /// Up to two lines under the title.
   final String? subtitle;
@@ -197,7 +245,14 @@ class KuteActionCard extends StatelessWidget {
   /// top, the value on one line.
   final bool compact;
 
+  /// A card that states ([KuteActionCard.fact]): without a tap it is
+  /// plain, never disabled.
+  final bool fact;
+
   bool get enabled => onTap != null;
+
+  /// A fact with nothing to do on a tap: drawn plain.
+  bool get _plain => fact && onTap == null;
 
   /// The title's style (shared with the grid's fit measurement).
   static TextStyle titleStyle(AppColorsExtension c) => TextStyle(
@@ -213,6 +268,15 @@ class KuteActionCard extends StatelessWidget {
         color: c.textSecondary,
         fontSize: 13.sp,
         fontWeight: FontWeight.w500,
+        height: 1.3,
+      );
+
+  /// The style of a fact card's label over its title ("From", "To").
+  static TextStyle labelStyle(AppColorsExtension c) => TextStyle(
+        color: c.textTertiary,
+        fontSize: 13.sp,
+        fontWeight: FontWeight.w600,
+        letterSpacing: -0.1,
         height: 1.3,
       );
 
@@ -251,12 +315,14 @@ class KuteActionCard extends StatelessWidget {
     final surface = surfaceOf(context);
     final span = _KuteCardSpan.of(context);
     final badgeText = badge;
+    final factLabel = label;
     if (span != _CardSpan.square) {
       if (!compact) {
         return _interactive(
-          _wideCard(c, surface, lead: span == _CardSpan.lead),
+          _wideCard(context, c, surface, lead: span == _CardSpan.lead),
           semanticsLabel ??
               [
+                if (factLabel != null) factLabel,
                 title,
                 if (subtitle != null) subtitle!,
                 if (footer != null && footer!.isNotEmpty) footer!,
@@ -300,14 +366,18 @@ class KuteActionCard extends StatelessWidget {
             ),
           ),
           SizedBox(height: compact ? 10 : 12),
+          if (factLabel != null) ...[
+            Text(factLabel, style: labelStyle(c)),
+            const SizedBox(height: 2),
+          ],
           // A big card's title wraps whole too (French "Un autre
           // portefeuille ou une plateforme" took three lines at 375 pt); an
           // option card's keeps its two.
-          Text(
-            title,
+          _title(
+            context,
+            titleStyleOf(c),
             maxLines: compact ? 2 : null,
             overflow: compact ? TextOverflow.ellipsis : null,
-            style: titleStyleOf(c),
           ),
           if (subtitle != null) ...[
             SizedBox(height: compact ? 2 : 4),
@@ -347,8 +417,37 @@ class KuteActionCard extends StatelessWidget {
     return _interactive(
       card,
       semanticsLabel ??
-          [title, if (subtitle != null) subtitle!, if (badgeText != null) badgeText]
-              .join(', '),
+          [
+            if (factLabel != null) factLabel,
+            title,
+            if (subtitle != null) subtitle!,
+            if (badgeText != null) badgeText,
+          ].join(', '),
+    );
+  }
+
+  /// The title in [style]: the text, or, for [oneLineTitle], the line it
+  /// shapes itself, its height fixed from the style so a grid row can
+  /// ask the card its height (IntrinsicHeight) without laying it out.
+  Widget _title(BuildContext context, TextStyle style,
+      {int? maxLines, TextOverflow? overflow}) {
+    final shaped = oneLineTitle;
+    if (shaped == null) {
+      return Text(title, maxLines: maxLines, overflow: overflow, style: style);
+    }
+    final line = TextPainter(
+      text: TextSpan(
+          text: title, style: DefaultTextStyle.of(context).style.merge(style)),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+    final height = line.height;
+    line.dispose();
+    return SizedBox(
+      width: double.infinity,
+      height: height,
+      child: shaped(style),
     );
   }
 
@@ -382,12 +481,15 @@ class KuteActionCard extends StatelessWidget {
   /// A full-width big card, the grid's only card or an odd last one (see
   /// the file header): the visual at the left in its box, the title, its
   /// lines and the foot beside it, wrapping as they need, then the chevron
-  /// (the badge on a disabled card) at the right; as tall as that. [lead]
-  /// (the grid's main action on top) draws it with more presence.
-  Widget _wideCard(AppColorsExtension c, BoxDecoration surface,
+  /// (the badge on a disabled card; nothing on a fact) at the right;
+  /// as tall as that. [lead] (the grid's main action on top) draws it with
+  /// more presence.
+  Widget _wideCard(
+      BuildContext context, AppColorsExtension c, BoxDecoration surface,
       {bool lead = false}) {
     final badgeText = badge;
     final foot = footer;
+    final factLabel = label;
     return Container(
       padding: paddingIn(surface,
           lead ? kKuteActionCardLeadPadding : kKuteActionCardPadding),
@@ -408,8 +510,11 @@ class KuteActionCard extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    style: lead ? leadTitleStyle(c) : titleStyle(c)),
+                if (factLabel != null) ...[
+                  Text(factLabel, style: labelStyle(c)),
+                  const SizedBox(height: 2),
+                ],
+                _title(context, lead ? leadTitleStyle(c) : titleStyle(c)),
                 if (subtitle != null) ...[
                   SizedBox(height: lead ? 3 : 2),
                   Text(subtitle!,
@@ -434,12 +539,14 @@ class KuteActionCard extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 12),
-          if (badgeText != null)
-            _badgePill(c, badgeText)
-          else
+          if (badgeText != null) ...[
+            const SizedBox(width: 12),
+            _badgePill(c, badgeText),
+          ] else if (!fact) ...[
+            const SizedBox(width: 12),
             Icon(Icons.chevron_right_rounded,
                 size: lead ? 24 : 22, color: c.textTertiary),
+          ],
         ],
       ),
     );
@@ -489,14 +596,22 @@ class KuteActionCard extends StatelessWidget {
     );
   }
 
-  /// [card] as a button: its [label] read out, the press spring, a
+  /// [card] as a button: [readOut] read out, the press spring, a
   /// disabled card at 0.6 opacity; an option card's tap gives the
-  /// selection click.
-  Widget _interactive(Widget card, String label) {
+  /// selection click. A plain fact is read out and nothing more.
+  Widget _interactive(Widget card, String readOut) {
+    if (_plain) {
+      return Semantics(
+        container: true,
+        label: readOut,
+        excludeSemantics: true,
+        child: card,
+      );
+    }
     return Semantics(
       button: true,
       enabled: enabled ? null : false,
-      label: label,
+      label: readOut,
       excludeSemantics: true,
       child: Opacity(
         opacity: enabled ? 1 : 0.6,
@@ -650,7 +765,14 @@ class KuteActionCardGrid extends StatelessWidget {
     }
 
     for (final card in cards) {
-      if (!fits(card.title, card.titleStyleOf(c), maxLines: titleLines)) {
+      final cardLabel = card.label;
+      if (cardLabel != null &&
+          !fits(cardLabel, KuteActionCard.labelStyle(c), maxLines: 1)) {
+        return false;
+      }
+      // A title that shapes itself to its one line always fits it.
+      if (card.oneLineTitle == null &&
+          !fits(card.title, card.titleStyleOf(c), maxLines: titleLines)) {
         return false;
       }
       final sub = card.subtitle;

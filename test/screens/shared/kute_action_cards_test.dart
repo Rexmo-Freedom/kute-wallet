@@ -269,6 +269,120 @@ void main() {
     expect(taps, 1);
   });
 
+  group('fact cards (the Send Review\'s From and To)', () {
+    KuteActionCard fact(String label, String title,
+            {String? sub,
+            VoidCallback? onTap,
+            Widget Function(TextStyle style)? oneLine}) =>
+        KuteActionCard.fact(
+          key: ValueKey('card-$title'),
+          visual: const Icon(Icons.star_rounded, size: 40),
+          label: label,
+          title: title,
+          subtitle: sub,
+          oneLineTitle: oneLine,
+          onTap: onTap,
+        );
+
+    Iterable<double> opacities(WidgetTester tester, String title) => tester
+        .widgetList<Opacity>(find.descendant(
+            of: find.byKey(ValueKey('card-$title')),
+            matching: find.byType(Opacity)))
+        .map((o) => o.opacity);
+
+    testWidgets(
+        'two squares side by side, the label over the title; without a tap '
+        'a fact is plain (read out, never a button, never dimmed), with one '
+        'it presses; neither shows a chevron', (tester) async {
+      var taps = 0;
+      await _pump(tester, [
+        fact('From', 'Bitcoin', sub: 'Available · 361 sats'),
+        fact('To', 'alice', sub: 'Lightning', onTap: () => taps++),
+      ], oneLineTitles: true);
+      final a = _r(tester, 'Bitcoin'), b = _r(tester, 'alice');
+      expect(a.top, b.top);
+      expect(a.height, b.height);
+      expect(b.left - a.right, moreOrLessEquals(12));
+      expect(tester.getRect(find.text('From')).bottom,
+          lessThanOrEqualTo(tester.getRect(find.text('Bitcoin')).top));
+      expect(tester.getRect(find.text('From')).left,
+          moreOrLessEquals(tester.getRect(find.text('Bitcoin')).left));
+      expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
+
+      expect(opacities(tester, 'Bitcoin'), isEmpty);
+      expect(opacities(tester, 'alice'), everyElement(1.0));
+      expect(
+          tester.getSemantics(find.byKey(const ValueKey('card-Bitcoin'))),
+          isSemantics(
+              label: 'From, Bitcoin, Available · 361 sats',
+              isButton: false));
+      expect(
+          tester.getSemantics(find.byKey(const ValueKey('card-alice'))),
+          isSemantics(label: 'To, alice, Lightning', isButton: true));
+      await tester.tap(find.byKey(const ValueKey('card-Bitcoin')));
+      await tester.tap(find.byKey(const ValueKey('card-alice')));
+      await tester.pumpAndSettle();
+      expect(taps, 1);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'a title that shapes itself keeps to one line at the square\'s width '
+        '(laid out under the row\'s IntrinsicHeight) and keeps the pair '
+        'squares', (tester) async {
+      const addr = 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq';
+      double? width;
+      await _pump(tester, [
+        fact('From', 'Bitcoin', sub: 'Available · 361 sats'),
+        fact('To', addr,
+            onTap: () {},
+            oneLine: (style) => LayoutBuilder(builder: (context, c) {
+                  width = c.maxWidth;
+                  return Text('bc1qar0…f5mdq', maxLines: 1, style: style);
+                })),
+      ], oneLineTitles: true);
+      final a = _r(tester, 'Bitcoin'), b = _r(tester, addr);
+      expect(a.top, b.top, reason: 'still two squares');
+      expect(a.height, b.height);
+      // The square's text width: its width less the padding and the
+      // hairline on both sides.
+      expect(width,
+          moreOrLessEquals(b.width - 2 * (kKuteActionCardPadding + 1)));
+      final line = tester.getRect(find.text('bc1qar0…f5mdq'));
+      expect(line.height,
+          lessThan(1.5 * tester.getRect(find.text('Bitcoin')).height));
+      expect(find.text(addr), findsNothing, reason: 'read out, not drawn');
+      expect(tester.getSemantics(find.byKey(const ValueKey('card-$addr'))),
+          isSemantics(label: 'To, $addr'));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'a pair that cannot stay squares goes full width, compact; a fact '
+        'opens nothing, so neither shows a chevron, with a tap or without',
+        (tester) async {
+      const long = 'A balance whose name runs long';
+      var taps = 0;
+      await _pump(tester, [
+        fact('From', long, sub: 'Available · 361 sats'),
+        fact('To', 'alice', onTap: () => taps++),
+      ], oneLineTitles: true);
+      final a = _r(tester, long), b = _r(tester, 'alice');
+      expect(b.top, greaterThan(a.bottom));
+      expect(a.width, moreOrLessEquals(390));
+      expect(b.width, moreOrLessEquals(390));
+      expect(chevronOf(long), findsNothing);
+      expect(chevronOf('alice'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('card-alice')));
+      await tester.pumpAndSettle();
+      expect(taps, 1);
+      expect(tester.getRect(find.text('From')).bottom,
+          lessThanOrEqualTo(tester.getRect(find.text(long)).top));
+      expect(opacities(tester, long), isEmpty);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   group('option cards', () {
     KuteActionCard option(String title, {String? sub, VoidCallback? onTap}) =>
         KuteActionCard.option(

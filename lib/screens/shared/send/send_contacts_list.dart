@@ -64,18 +64,25 @@
 // ([SendContactsSection.excludeAddress]) and, with anyone left, reads
 // "Other contacts".
 //
+// THE SAME FACE ON REVIEW (founder, 7 November 2026: "make this more with
+// the square cards we have now"): both Sends' Review shows From and To as
+// two squares ([SendReviewRoute]), the To square wearing this card's
+// avatar ([SendRecipientAvatar]) over the address in its middle-ellipsis
+// form, and the rail or network under it only where it says something.
+//
 // Until the contacts are granted, "All contacts" holds the ask row (and,
 // while typing, the matching recents). Everything is local: numbers never
 // leave the phone.
 
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart';
 import 'package:kute/screens/shared/send/send_recipient_step.dart';
 import 'package:kute/services/contacts/send_contacts_service.dart';
@@ -978,18 +985,7 @@ class SendRecipientCard extends ConsumerWidget {
     final match =
         sendMatchingPerson(address, recents: recents, contacts: contacts);
     final name = sendRecipientName(match, address);
-    // The person's own avatar when it has a face (a photo, initials, a
-    // coin mark); otherwise the rail's mark, with the badge either way.
-    final hasFace = match != null &&
-        (match.photo != null || match.initials.isNotEmpty || match.mark != null);
-    final avatar = hasFace
-        ? match
-        : SendPerson(
-            id: 'recipient',
-            name: name,
-            mark: railMark,
-            badge: match?.badge ?? sendBadgeFor(address),
-          );
+    final avatar = sendRecipientAvatarPerson(match, address, railMark: railMark);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1080,6 +1076,162 @@ class SendRecipientCard extends ConsumerWidget {
             ),
           ),
         ),
+      ],
+    );
+  }
+}
+
+/// The face a recipient wears on the Who step's card and on the Review's
+/// To square: the person's own avatar when it has one (a photo, initials,
+/// a coin mark), otherwise [railMark], with the Kute or ⚡ badge either
+/// way.
+SendPerson sendRecipientAvatarPerson(SendPerson? match, String address,
+    {required Widget railMark}) {
+  if (match != null &&
+      (match.photo != null || match.initials.isNotEmpty || match.mark != null)) {
+    return match;
+  }
+  return SendPerson(
+    id: 'recipient',
+    name: sendRecipientName(match, address),
+    mark: railMark,
+    badge: match?.badge ?? sendBadgeFor(address),
+  );
+}
+
+/// The recipient's avatar [size] across, the very one the Who step's card
+/// drew ([sendRecipientAvatarPerson]): the person known by [address] in
+/// [recents] or the granted contacts, else [railMark].
+class SendRecipientAvatar extends ConsumerWidget {
+  const SendRecipientAvatar({
+    super.key,
+    required this.address,
+    required this.railMark,
+    required this.recents,
+    this.size = 40,
+  });
+
+  final String address;
+  final Widget railMark;
+  final List<SendPerson> recents;
+  final double size;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(sendContactsProvider);
+    final contacts = state.granted ? state.contacts : const <SendContact>[];
+    final match =
+        sendMatchingPerson(address, recents: recents, contacts: contacts);
+    return SendPersonAvatar(
+      person: sendRecipientAvatarPerson(match, address, railMark: railMark),
+      size: size,
+    );
+  }
+}
+
+/// THE REVIEW'S FROM AND TO (founder, 7 November 2026, the Bitcoin Send's
+/// Review: "make this more with the square cards we have now"), one
+/// layout for the Bitcoin Send and the Dollars Send: two squares side by
+/// side, the app's one card ([KuteActionCard.fact], kute_action_cards
+/// .dart), each with its visual at the top left, "From" or "To" over the
+/// main line and a line under it:
+///
+///   * From: the balance's mark ([fromVisual], Sal or the wallet's own,
+///     the Dollars' arrow), its name, "Available · …";
+///   * To: the recipient's face or the rail's mark ([toVisual]), the
+///     address on one line in its middle-ellipsis form (head and tail
+///     whole, [SendMiddleEllipsisText]) and, only when it says something
+///     the page does not ([toLine]), the rail or the network: "Lightning",
+///     "Spark", "USDC on Base". A plain bitcoin address has none: the
+///     Bitcoin network is the default there (founder, 7 November 2026, the
+///     "Where to?" row: "it is literally the default on sending bitcoin").
+///
+/// The squares never show a chevron and never stand on two different
+/// title heights (the grid's one-line titles: a pair that cannot read on
+/// one line each becomes two full-width cards). From only states. A tap on
+/// To ([onToggle]) shows or hides the whole address with its Copy under
+/// the pair ([SendReviewFullAddress]); with no address it only states.
+class SendReviewRoute extends StatelessWidget {
+  const SendReviewRoute({
+    super.key,
+    required this.fromVisual,
+    required this.fromTitle,
+    required this.fromLine,
+    required this.toVisual,
+    required this.address,
+    this.toLine,
+    this.expanded = false,
+    this.onToggle,
+    this.onCopied,
+  });
+
+  /// The size the squares draw their visuals at (the cards' 40 box).
+  static double get visualSize => kKuteActionCardVisualSize.sp;
+
+  final Widget fromVisual;
+  final String fromTitle;
+  final String fromLine;
+  final Widget toVisual;
+  final String address;
+
+  /// The To square's line: the rail or the network, only where it tells
+  /// the person something; null draws none.
+  final String? toLine;
+
+  /// The whole address is showing under the squares.
+  final bool expanded;
+  final VoidCallback? onToggle;
+
+  /// The address was copied (analytics; never the address itself).
+  final VoidCallback? onCopied;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final addr = address.trim();
+    final toggle = onToggle;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        KuteActionCardGrid(
+          key: const ValueKey('send-review-route'),
+          oneLineTitles: true,
+          cards: [
+            KuteActionCard.fact(
+              key: const ValueKey('send-review-from'),
+              visual: fromVisual,
+              label: l10n.from,
+              title: fromTitle,
+              subtitle: fromLine,
+            ),
+            KuteActionCard.fact(
+              key: const ValueKey('send-review-to'),
+              visual: toVisual,
+              label: l10n.to,
+              title: addr.isEmpty ? '…' : addr,
+              oneLineTitle: addr.isEmpty
+                  ? null
+                  : (style) => SendMiddleEllipsisText(
+                        addr,
+                        key: const ValueKey('send-review-to-address'),
+                        style: style,
+                        maxLines: 1,
+                      ),
+              subtitle: toLine == null || toLine!.isEmpty ? null : toLine,
+              onTap: addr.isEmpty || toggle == null
+                  ? null
+                  : () {
+                      HapticFeedback.selectionClick();
+                      toggle();
+                    },
+            ),
+          ],
+        ),
+        if (expanded && addr.isNotEmpty) ...[
+          SizedBox(height: kKuteActionCardGap.w),
+          SendReviewFullAddress(address: addr, onCopied: onCopied),
+        ],
       ],
     );
   }

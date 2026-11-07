@@ -1109,4 +1109,98 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  // REVIEW IN SQUARES (founder, 7 November 2026: "make this more with the
+  // square cards we have now"): From and To side by side, the To square
+  // wearing the Who step's face and the rail only where it is not the
+  // default ("Bitcoin Network" under a bitcoin address said nothing).
+  for (final (what, text, line, badge) in [
+    (
+      'a Kute contact\'s Lightning address',
+      'joana@paykute.com',
+      'Lightning',
+      'send-badge-kute'
+    ),
+    ('a bitcoin address', _btc, null, null),
+  ]) {
+    testWidgets(
+        'Review to $what: From and To are two squares, the address in its '
+        'middle form, ${line ?? 'no line'} under it, no chevrons',
+        (tester) async {
+      _gateway
+        ..permission = SendContactsPermission.granted
+        ..contacts = [
+          ...fakeContacts(),
+          const SendContact(
+              id: 'k1',
+              displayName: 'Joana Kute',
+              firstName: 'Joana',
+              phone: '+351 914 444 444',
+              lightningAddress: 'joana@paykute.com'),
+        ];
+      await policy(tester);
+      await _pump(tester);
+      await type(tester, text);
+      await tester.tap(kuteBarPrimary);
+      await tester.pumpAndSettle();
+      expect(_page(tester), moreOrLessEquals(1));
+      for (final d in '50'.split('')) {
+        await tester.tap(find.text(d).last);
+        await tester.pump();
+      }
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.tap(kuteBarPrimary);
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(_page(tester), moreOrLessEquals(2));
+
+      final from = find.byKey(const ValueKey('send-review-from'));
+      final to = find.byKey(const ValueKey('send-review-to'));
+      Finder inside(Finder card, Finder f) =>
+          find.descendant(of: card, matching: f);
+      expect(tester.getRect(from).top, tester.getRect(to).top);
+      expect(tester.getRect(from).height, tester.getRect(to).height);
+      expect(inside(from, find.text(_l10n.from)), findsOneWidget);
+      expect(inside(from, find.text('Bitcoin')), findsOneWidget);
+      expect(
+          inside(from,
+              find.textContaining(_l10n.sendAvailableBalanceSubtitle(''))),
+          findsOneWidget);
+      expect(inside(to, find.text(_l10n.to)), findsOneWidget);
+      final shown = tester
+          .widget<Text>(inside(
+              find.byKey(const ValueKey('send-review-to-address')),
+              find.byType(Text)))
+          .data!;
+      expect(shown.startsWith(text.substring(0, 4)), isTrue);
+      expect(shown.endsWith(text.substring(text.length - 3)), isTrue);
+      expect(inside(to, find.text(_l10n.bitcoinNetwork)), findsNothing);
+      if (line != null) {
+        expect(inside(to, find.text(line)), findsOneWidget);
+      }
+      if (badge != null) {
+        expect(inside(to, find.byKey(ValueKey(badge))), findsOneWidget);
+        expect(inside(to, find.text('JK')), findsOneWidget);
+      } else {
+        expect(inside(to, find.text(_l10n.sendRailLightning)), findsNothing);
+        expect(inside(to, find.text(_l10n.sendRailBitcoinOnchain)),
+            findsNothing);
+      }
+      final route = find.byKey(const ValueKey('send-review-route'));
+      expect(inside(route, find.byIcon(Icons.chevron_right_rounded)),
+          findsNothing);
+      expect(inside(route, find.byIcon(Icons.keyboard_arrow_down_rounded)),
+          findsNothing);
+
+      // A tap on To shows the whole destination with Copy.
+      await tester.tap(to);
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(
+          inside(find.byKey(const ValueKey('send-review-full-address')),
+              find.text(text)),
+          findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
 }
