@@ -13,8 +13,14 @@
 //   * the PORTFOLIO ([BragPortfolio]): the allocation as shares only, the
 //     all-time P&L (each venue's PortfolioPerformance.totalPnlUsd, the
 //     predictions at the live prices, as the Portfolio ring's hole reads
-//     it), and the three open positions with the best result, each with
-//     its logo;
+//     it), and its HOLDINGS (founder, 7 November 2026: "how much i made
+//     on each?"): the three open positions with the largest P&L either
+//     way ([bragTopHoldings]), each as the Portfolio's own row reads it
+//     (position_rows.dart: the logo, the short name, the side held, the
+//     P&L in money at the live price, so the card agrees with the app),
+//     and how many are open in all ([BragPortfolio.openCount], the
+//     Portfolio's count), the card writing the rest as "+N more". They
+//     are perps, holdings and predictions, never "stocks and shares";
 //   * a WON PREDICTION ([BragWin], founder, 4 November 2026: "Able to
 //     share past prediction brags also, won ones"): a prediction held to
 //     its resolved market whose side won, from the figures the venue
@@ -49,12 +55,17 @@
 // a cost base exists. The allocation stays shares only (no balance). A
 // figure the providers do not have is left out, never estimated.
 
+import 'dart:math' as math;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import 'package:kute/models/affiliate_model.dart' show AffiliateService;
 import 'package:kute/models/balance_history.dart' show BalanceRange;
-import 'package:kute/models/hyperliquid_market.dart' show HlPerpPosition;
+import 'package:kute/models/hyperliquid_market.dart'
+    show HlMarket, HlPerpPosition, HlSpotBalance;
+import 'package:kute/models/polymarket_model.dart'
+    show PolymarketEvent, PolymarketTeam;
 import 'package:kute/models/portfolio_performance.dart';
 import 'package:kute/providers/currency_conversions_provider.dart'
     show selectedCurrencyProviderFromUSD;
@@ -63,23 +74,20 @@ import 'package:kute/providers/hyperliquid_account_provider.dart'
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart'
     show hyperliquidLiveMidProvider;
 import 'package:kute/providers/hyperliquid_markets_provider.dart'
-    show hyperliquidAccountMarketProvider;
+    show hyperliquidAccountMarketProvider, hyperliquidSpotMarketsProvider;
+import 'package:kute/providers/hyperliquid_trading_provider.dart'
+    show hyperliquidDisplayTradingProvider;
 import 'package:kute/providers/one_balance_provider.dart'
     show oneBalanceProvider;
 import 'package:kute/providers/polymarket_browse_provider.dart'
-    show
-        PolymarketPosition,
-        polymarketActivePositionsProvider,
-        positionCrestImage;
-import 'package:kute/providers/polymarket_cost_basis_provider.dart'
-    show polymarketPositionCostBasis;
+    show PolymarketPosition, polymarketActivePositionsProvider;
 import 'package:kute/providers/polymarket_live_prices_provider.dart'
     show livePriceProvider;
 import 'package:kute/providers/portfolio_performance_provider.dart'
     show portfolioPerformanceDisplayProvider;
 import 'package:kute/providers/settings_provider.dart' show settingsProvider;
 import 'package:kute/screens/hyperliquid/components/hl_format.dart'
-    show formatHlPrice;
+    show formatHlPrice, hlFriendlyName;
 import 'package:kute/screens/hyperliquid/components/hl_isolated_margin.dart'
     show hlLivePnl, hlPositionMargin;
 import 'package:kute/screens/polymarket/components/market_chart.dart'
@@ -90,6 +98,12 @@ import 'package:kute/screens/polymarket/components/price_format.dart'
     show formatPolyCents;
 import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart'
     show pnlRangeChange;
+import 'package:kute/screens/portfolio/components/position_rows.dart'
+    show polyPositionRowNames;
+import 'package:kute/screens/portfolio/open_investments_screen.dart'
+    show portfolioOpenCount;
+import 'package:kute/screens/portfolio/poly_position_events.dart'
+    show polyPositionEventProvider;
 import 'package:kute/screens/portfolio/portfolio_filters.dart'
     show portfolioVenuesProvider;
 import 'package:kute/screens/shared/charts/kute_trend_window.dart'
@@ -295,12 +309,20 @@ class BragSlice {
 
 enum BragSlicePart { dollars, investing, predictions }
 
-/// One of the top positions on the portfolio card.
+/// The most open positions the portfolio card lists.
+const int kBragTopHoldings = 3;
+
+/// One of the open positions on the portfolio card, as the Portfolio's
+/// row reads it (position_rows.dart: HlPositionRow, HlSpotRow,
+/// PolyPositionRow): its short name ("Anthropic", "Lakers", "Verstappen"),
+/// the side held, and its P&L in money at the live price.
 class BragTopPosition {
   const BragTopPosition({
     required this.title,
     required this.result,
     this.side,
+    this.long,
+    this.titleIsSide = false,
     this.investing = false,
     this.coin,
     this.wireCoin,
@@ -309,8 +331,23 @@ class BragTopPosition {
     this.imageUrl,
   });
 
+  /// The row's short name, the Portfolio's.
   final String title;
+
+  /// A prediction's outcome held, as the market names it ("Yes",
+  /// "Gen.G"; the card writes Yes and No in the app's language); null on
+  /// Investing.
   final String? side;
+
+  /// An Investing perp: held long (true) or short (false), written "Long"
+  /// or "Short"; null on a holding (spot) and a prediction.
+  final bool? long;
+
+  /// The title already is the side held (a named outcome, "Verstappen"):
+  /// the card does not write it twice.
+  final bool titleIsSide;
+
+  /// The P&L in money (the row's own figure) and its percent.
   final BragResult result;
 
   /// An Investing position: its logo is the coin icon ([coin], [wireCoin],
@@ -333,6 +370,7 @@ class BragPortfolio extends BragData {
     this.allTime,
     this.returnPercent,
     this.top = const [],
+    this.openCount = 0,
     this.series,
   });
 
@@ -346,13 +384,22 @@ class BragPortfolio extends BragData {
   /// what they cost), for the tone only; null without an open position.
   final double? returnPercent;
 
-  /// Up to three open positions, best result first.
+  /// Up to [kBragTopHoldings] open positions, the largest P&L either way
+  /// first ([bragTopHoldings]).
   final List<BragTopPosition> top;
+
+  /// How many positions are open in all (the Portfolio's count: perps and
+  /// holdings, predictions and combos); the card writes the ones it does
+  /// not list as "+N more". Never taken as less than [top]'s length.
+  final int openCount;
+
+  /// The open positions the card leaves unlisted when it lists [shown].
+  int moreThan(int shown) => math.max(openCount, top.length) - shown;
 
   /// The all-time P&L line (both venues as one account, the Statistics
   /// tab's PortfolioPerformance.combine), thinned; null while any venue
-  /// is unknown or when it never moved. The card draws it in place of
-  /// the rows.
+  /// is unknown or when it never moved. With open positions the card
+  /// draws it over their rows, as tall as they leave room for.
   final List<double>? series;
 
   @override
@@ -676,53 +723,138 @@ List<BragSlice> bragSlices(OneBalanceState s) {
   ];
 }
 
+/// The open positions with the largest P&L either way, largest first (a
+/// tie keeps the order they came in, the Portfolio's), at most
+/// [kBragTopHoldings]. A P&L that is not a number is never listed.
+List<BragTopPosition> bragTopHoldings(Iterable<BragTopPosition> all) {
+  final ranked = [
+    for (final (i, p) in all.indexed)
+      if (p.result.usd.isFinite) (i, p)
+  ]..sort((a, b) {
+      final by = b.$2.result.usd.abs().compareTo(a.$2.result.usd.abs());
+      return by != 0 ? by : a.$1.compareTo(b.$1);
+    });
+  return [for (final (_, p) in ranked.take(kBragTopHoldings)) p];
+}
+
 /// The portfolio card for the spending account, from a build ([ref]
-/// watches, so the preview follows the live prices).
-BragPortfolio bragPortfolio(WidgetRef ref, {required String title}) {
+/// watches, so the preview follows the live prices). Its holdings are the
+/// Portfolio's open rows at the venues on the account, each figure as its
+/// row reads it (position_rows.dart): a perp's P&L at the live mid on its
+/// margin (HlPositionRow), a holding's at the mid against what the venue
+/// records as paid (HlSpotRow; one with no cost on record has no P&L and
+/// is only counted), a prediction's shares at the live price less what
+/// they cost at the average price (PolyPositionRow). [date] writes an ISO
+/// date found in a market's title, as the rows do (the app's language).
+/// The hide-balances setting does not touch the card: like its all-time
+/// figure, the rows always show the real amounts (founder, 1 November
+/// 2026: "don't even give the option").
+BragPortfolio bragPortfolio(WidgetRef ref,
+    {required String title, String Function(DateTime)? date}) {
   final watch = ref.watch;
-  final top = <BragTopPosition>[];
-  // The open positions' combined return (the tone's, never drawn).
+  final venues = ref.watch(portfolioVenuesProvider);
+  final holdings = <BragTopPosition>[];
+  // The open positions' combined return (the tone's, never drawn): their
+  // P&L over what they cost, as the Positions hero adds them
+  // (portfolioOpenPnl).
   double openPnl = 0, openBase = 0;
-  for (final p in ref.watch(hyperliquidPerpPositionsProvider)) {
-    final pnl =
-        hlLivePnl(p, liveMid: ref.watch(hyperliquidLiveMidProvider(p.coin)));
-    final margin = hlPositionMargin(p);
-    final m = ref.watch(hyperliquidAccountMarketProvider(p.coin));
-    if (margin > 0 && pnl.isFinite) {
-      openPnl += pnl;
-      openBase += margin;
-    }
-    top.add(BragTopPosition(
-      title: m?.coin ?? p.coin,
-      side: null,
-      result: bragResult(watch, pnl,
-          percent: margin > 0 ? pnl / margin * 100 : null),
-      investing: true,
-      coin: m?.coin ?? p.coin,
-      wireCoin: m?.wireCoin ?? p.coin,
-      iconUrl: m?.iconUrl,
-      category: m?.category,
-    ));
+  void add(double pnl, double base) {
+    if (!pnl.isFinite || !base.isFinite || base <= 0) return;
+    openPnl += pnl;
+    openBase += base;
   }
-  final live = ref.watch(livePriceProvider).prices;
-  for (final p in ref.watch(polymarketActivePositionsProvider)) {
-    final price =
-        (p.tokenId != null ? live[p.tokenId] : null) ?? p.currentPrice;
-    final cost = polymarketPositionCostBasis(ref, p);
-    final pnl = price * p.size - cost;
-    if (cost > 0 && pnl.isFinite) {
-      openPnl += pnl;
-      openBase += cost;
+
+  if (venues.trading) {
+    final state = ref.watch(hyperliquidDisplayTradingProvider).valueOrNull;
+    for (final p in state?.positions ?? const <HlPerpPosition>[]) {
+      final pnl =
+          hlLivePnl(p, liveMid: ref.watch(hyperliquidLiveMidProvider(p.coin)));
+      final margin = hlPositionMargin(p);
+      final m = ref.watch(hyperliquidAccountMarketProvider(p.coin));
+      final coin = m?.coin ?? p.coin;
+      add(pnl, margin);
+      holdings.add(BragTopPosition(
+        title: hlFriendlyName(p.coin) ??
+            hlFriendlyName(coin) ??
+            m?.unitAssetName ??
+            coin,
+        long: p.isLong,
+        result: bragResult(watch, pnl,
+            percent: margin > 0 ? pnl / margin * 100 : p.returnOnEquity * 100),
+        investing: true,
+        coin: coin,
+        wireCoin: m?.wireCoin ?? p.coin,
+        iconUrl: m?.iconUrl,
+        category: m?.category,
+      ));
     }
-    top.add(BragTopPosition(
-      title: p.marketQuestion,
-      side: p.outcome,
-      result:
-          bragResult(watch, pnl, percent: cost > 0 ? pnl / cost * 100 : null),
-      imageUrl: positionCrestImage(ref, p),
-    ));
+    final spot = [
+      for (final b in state?.spotBalances ?? const <HlSpotBalance>[])
+        if (b.coin != 'USDC' && b.total > 0 && b.costBasis != null) b
+    ];
+    if (spot.isNotEmpty) {
+      final markets = ref.watch(hyperliquidSpotMarketsProvider).valueOrNull ??
+          const <HlMarket>[];
+      for (final b in spot) {
+        final market = markets.where((m) => m.coin == b.coin).firstOrNull;
+        final mid = market?.midPx ?? 0;
+        if (mid <= 0) continue;
+        final cost = b.costBasis!;
+        final pnl = b.total * mid - cost;
+        add(pnl, cost);
+        holdings.add(BragTopPosition(
+          title: hlFriendlyName(b.coin) ?? market?.unitAssetName ?? b.coin,
+          result: bragResult(watch, pnl,
+              percent: cost > 0 ? pnl / cost * 100 : null),
+          investing: true,
+          coin: b.coin,
+          wireCoin: market?.wireCoin,
+          iconUrl: market?.iconUrl,
+          category: market?.category,
+        ));
+      }
+    }
   }
-  top.sort((a, b) => b.result.usd.compareTo(a.result.usd));
+  if (venues.predictions) {
+    for (final p in ref.watch(polymarketActivePositionsProvider)) {
+      final live = ref.watch(
+          livePriceProvider.select((s) => s.live ? s.prices[p.tokenId] : null));
+      final price = p.isResolved ? p.currentPrice : live ?? p.currentPrice;
+      final pnl = (price - p.avgPrice) * p.size;
+      add(pnl, p.avgPrice * p.size);
+      final slug = p.eventSlug;
+      final event = slug == null || slug.isEmpty
+          ? null
+          : ref.watch(polyPositionEventProvider(slug));
+      final names = polyPositionRowNames(
+        question: p.marketQuestion,
+        side: p.outcome,
+        marketId: p.marketId,
+        tokenId: p.tokenId,
+        event: event,
+        date: date,
+      );
+      // The row's picture: the held team's crest first (a sports market's
+      // own image is the league's ball), a bare Yes / No never matched
+      // against a name.
+      final teams = event?.teams ?? const <PolymarketTeam>[];
+      final held = p.outcome.trim().toLowerCase();
+      final image = (held == 'yes' || held == 'no'
+              ? null
+              : PolymarketEvent.logoFromTeams(teams, p.outcome)) ??
+          PolymarketEvent.logoForText(teams, p.marketQuestion) ??
+          p.marketImage;
+      holdings.add(BragTopPosition(
+        title: names.title,
+        side: p.outcome,
+        titleIsSide: names.titleIsSide,
+        result: bragResult(watch, pnl,
+            percent: p.avgPrice > 0 ? (price / p.avgPrice - 1) * 100 : null),
+        imageUrl: image,
+      ));
+    }
+  }
+  final top = bragTopHoldings(holdings);
   final pnl = bragPortfolioPnl(watch);
   return BragPortfolio(
     title: title,
@@ -731,7 +863,8 @@ BragPortfolio bragPortfolio(WidgetRef ref, {required String title}) {
     slices: bragSlices(ref.watch(oneBalanceProvider)),
     allTime: pnl == null ? null : bragResult(watch, pnl),
     returnPercent: openBase > 0 ? openPnl / openBase * 100 : null,
-    top: top.take(3).toList(growable: false),
+    top: top,
+    openCount: math.max(portfolioOpenCount(ref, venues), holdings.length),
     series: bragPortfolioSeries(watch),
   );
 }
@@ -832,7 +965,8 @@ final bragPnlAvailableProvider = Provider.autoDispose<bool>((ref) {
                 (s) => HeldPredictionPrices.of(data.predictions, s.prices)))
             .prices)
         : data;
-    final now = p.totalPnlUsd ?? (p.points.isEmpty ? 0.0 : p.points.last.pnlUsd);
+    final now =
+        p.totalPnlUsd ?? (p.points.isEmpty ? 0.0 : p.points.last.pnlUsd);
     if (p.hasMovement || now.abs() >= kBragCentUsd) return true;
   }
   return false;

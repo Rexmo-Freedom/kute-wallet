@@ -3159,6 +3159,7 @@
   "bragMyPnl": "Moj P&L",
   "bragShareText": "{title} na Kuteu {link}",
   "bragMyPortfolio": "Moj portfelj",
+  "bragHoldingsMore": "{count, plural, =1{+{count} više} other{+{count} više}}",
   "bragCodeLabel": "Kod",
   "bragSinceYouBought": "Od kupnje",
   "bragAboutIt": "Pohvali se",

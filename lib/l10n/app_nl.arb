@@ -3159,6 +3159,7 @@
   "bragMyPnl": "Mijn W&V",
   "bragShareText": "{title} op Kute {link}",
   "bragMyPortfolio": "Mijn portfolio",
+  "bragHoldingsMore": "{count, plural, =1{+{count} meer} other{+{count} meer}}",
   "bragCodeLabel": "Code",
   "bragSinceYouBought": "Sinds aankoop",
   "bragAboutIt": "Schep erover op",

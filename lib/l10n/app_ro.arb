@@ -3159,6 +3159,7 @@
   "bragMyPnl": "P&L-ul meu",
   "bragShareText": "{title} în Kute {link}",
   "bragMyPortfolio": "Portofoliul meu",
+  "bragHoldingsMore": "{count, plural, =1{+{count} în plus} other{+{count} în plus}}",
   "bragCodeLabel": "Cod",
   "bragSinceYouBought": "De la cumpărare",
   "bragAboutIt": "Laudă-te",

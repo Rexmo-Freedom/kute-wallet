@@ -10708,6 +10708,17 @@ class AppLocalizationsFr extends AppLocalizations {
   String get bragMyPortfolio => 'Mon portefeuille';
 
   @override
+  String bragHoldingsMore(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '+$count autres',
+      one: '+$count autre',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get bragCodeLabel => 'Code';
 
   @override
