@@ -7,7 +7,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show RenderRepaintBoundary;
+import 'package:flutter/rendering.dart' show RenderRepaintBoundary, debugDisableShadows;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -909,6 +909,13 @@ void main() {
           await tester.pump(const Duration(seconds: 1));
           expect(tester.takeException(), isNull);
           if (shotOut.isEmpty) return;
+          // The cards' soft shadows drawn as on a phone (flutter_test
+          // paints them flat), then flat again for the binding's check.
+          debugDisableShadows = false;
+          for (final o in tester.allRenderObjects) {
+            o.markNeedsPaint();
+          }
+          await tester.pump();
           final boundary = tester.renderObject<RenderRepaintBoundary>(
               find.byKey(const ValueKey('shot')));
           await tester.runAsync(() async {
@@ -919,6 +926,8 @@ void main() {
             File('$shotOut/position_$name.png')
                 .writeAsBytesSync(data!.buffer.asUint8List());
           });
+          debugDisableShadows = true;
+          await tester.pump();
         });
       }
     }
