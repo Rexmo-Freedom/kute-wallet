@@ -911,9 +911,9 @@ void main() {
 
   testWidgets(
       'the Investments row\'s Send opens the Dollars Send (the Who step, no '
-      'chips); a coin from its crypto hint and that coin\'s address pasted '
-      'open the send sheet straight on the amount, the coin picked; back '
-      'reaches Send to, and closing it comes back', (tester) async {
+      'chips); a coin from its Another crypto card and that coin\'s address '
+      'pasted open the send sheet straight on the amount, the coin picked; '
+      'back reaches Send to, and closing it comes back', (tester) async {
     final events = <(String, Map<String, Object>?)>[];
     TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
     addTearDown(() => TrackingService.debugTrackObserver = null);
@@ -928,7 +928,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // The Dollars Send sheet (the Bitcoin Send's Who step): "Send
-    // dollars", the search field and the crypto hint under it. No chips,
+    // dollars", the search field and Another crypto under it. No chips,
     // no send yet.
     final withdraw = find.byType(UsdWithdrawScreen);
     expect(withdraw, findsOneWidget);
@@ -938,11 +938,11 @@ void main() {
     expect(find.text(_l10n.sendDollarsTitle), findsOneWidget);
     expect(find.byKey(const ValueKey('usd-withdraw-to-bitcoin')), findsNothing);
     expect(find.byKey(const ValueKey('usd-withdraw-pick')), findsNothing);
-    final hint = find.byKey(const ValueKey('send-crypto-hint'));
+    final hint = find.byKey(const ValueKey('send-another-crypto'));
     expect(hint, findsOneWidget);
     expect(find.byType(UsdSendScreen), findsNothing);
 
-    // The hint opens the coin sheet; USDC is on several networks: its
+    // The card opens the coin sheet; USDC is on several networks: its
     // networks. The field is that coin's address field now.
     await tester.tap(hint);
     await tester.pumpAndSettle();

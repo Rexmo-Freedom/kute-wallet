@@ -64,7 +64,7 @@ import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show SendToSectionHeader;
 import 'package:kute/screens/shared/send/send_recipient_step.dart'
-    show SendStepTitle, receiveAnotherCryptoCard;
+    show SendStepTitle, anotherCryptoCard;
 import 'package:kute/screens/usd/flow/usd_flow_widgets.dart';
 import 'package:kute/services/orchestra/bitcoin_receive_marks.dart'
     show BitcoinReceiveMarks;
@@ -218,11 +218,11 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
   /// square"; 7 November 2026: "sizes are strange here"): TWO big square
   /// cards side by side (kute_action_cards.dart), "From your Bitcoin" (the
   /// Bitcoin mark, its balance; Move money from the spending bitcoin) and
-  /// "Another crypto" (the coins stacked, "Wallet or exchange · USDC,
-  /// USDT, ETH +18"), opening the coin sheet as the Bitcoin receive's own
-  /// card does. Squares only where both titles read on one line, else two
-  /// compact full-width cards. With no coin offered the Bitcoin card is
-  /// alone, full width and compact. No inline grid.
+  /// "Another crypto" (anotherCryptoCard: two coins' marks side by side,
+  /// "USDC, ETH and more"), opening the coin sheet as the Bitcoin
+  /// receive's own card does. Squares only where both titles read on one
+  /// line, else two compact full-width cards. With no coin offered the
+  /// Bitcoin card is alone, full width and compact. No inline grid.
   Widget _dollarsCard(BuildContext context, List<CoinAssetGroup> groups) {
     final l10n = context.l10n;
     final balance = watchSpendingBitcoinUsd(ref);
@@ -243,7 +243,7 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
           onTap: _openFromBitcoin,
         ),
         if (groups.isNotEmpty)
-          receiveAnotherCryptoCard(
+          anotherCryptoCard(
             l10n,
             key: const ValueKey('usd-receive-from-another'),
             groups: groups,

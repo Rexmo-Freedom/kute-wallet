@@ -1,9 +1,10 @@
 // The Who step's own rules (send_recipient_step.dart, fw50): which inputs
 // only bitcoin pays (the input decides the rail), which words name an own
 // account (the search's escape hatch, "Move to your Dollars"), and the
-// crypto hint's line ("Send to Bitcoin, USDC, USDT, ETH and 18 more"),
-// counted from the coins the send's sheet lists.
+// "Another crypto" card's one line ("USDC, ETH and more"; founder, 7
+// November 2026), from the coins the sheet behind it lists.
 
+import 'package:flutter/widgets.dart' show ValueKey;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/l10n/generated/app_localizations_en.dart';
 import 'package:kute/l10n/l10n.dart';
@@ -99,25 +100,66 @@ void main() {
     });
   });
 
-  group('sendCryptoHintLine', () {
-    test('Bitcoin first, three coins and how many more', () {
-      final groups = [
-        for (final s in ['USDC', 'USDT', 'ETH', 'SOL', 'BNB']) _coin(s)
-      ];
-      expect(sendCryptoHintLine(_l10n, groups),
-          'Send to Bitcoin, USDC, USDT, ETH and 2 more');
+  group('the Another crypto card', () {
+    List<CoinAssetGroup> coins(List<String> symbols) =>
+        [for (final s in symbols) _coin(s)];
+
+    test('names the two best known, USDC then ETH, wherever they sit, and '
+        'says there are more without a count', () {
+      final groups = coins(['USDT', 'SOL', 'ETH', 'BNB', 'USDC', 'XRP']);
+      expect(
+          anotherCryptoNamedCoins(groups).map((g) => g.displaySymbol),
+          ['USDC', 'ETH']);
+      expect(anotherCryptoLine(_l10n, groups), 'USDC, ETH and more');
+      expect(anotherCryptoLine(_l10n, groups), isNot(contains('+')));
     });
 
-    test('a short list names them all; bitcoin is never counted twice', () {
-      expect(sendCryptoHintLine(_l10n, [_coin('BTC'), _coin('USDC')]),
-          'Send to Bitcoin and USDC');
-      expect(sendCryptoHintLine(_l10n, [_coin('USDC'), _coin('USDT')]),
-          'Send to Bitcoin, USDC and USDT');
+    test('without USDC or ETH, the next best known, then the list\'s own '
+        'order', () {
+      expect(anotherCryptoLine(_l10n, coins(['BNB', 'USDT', 'XRP'])),
+          'USDT, BNB and more');
+      expect(anotherCryptoLine(_l10n, coins(['BNB', 'XRP', 'TRX'])),
+          'BNB, XRP and more');
     });
 
-    test('no coin: no line (the hint is not shown)', () {
-      expect(sendCryptoHintLine(_l10n, const []), isEmpty);
-      expect(sendCryptoHintLine(_l10n, [_coin('BTC')]), isEmpty);
+    test('only what there is: two coins both named, one alone; bitcoin is '
+        'never named but counts as more', () {
+      expect(anotherCryptoLine(_l10n, coins(['ETH', 'USDC'])), 'USDC and ETH');
+      expect(anotherCryptoLine(_l10n, coins(['USDT'])), 'USDT');
+      expect(anotherCryptoLine(_l10n, coins(['BTC', 'USDC'])),
+          'USDC and more');
+      expect(anotherCryptoLine(_l10n, coins(['BTC', 'USDC', 'ETH'])),
+          'USDC, ETH and more');
+    });
+
+    test('no coin but bitcoin: no line and no coin to show', () {
+      expect(anotherCryptoLine(_l10n, const []), isEmpty);
+      expect(anotherCryptoLine(_l10n, coins(['BTC'])), isEmpty);
+      expect(anotherCryptoNamedCoins(coins(['BTC'])), isEmpty);
+    });
+
+    test('the card: "Another crypto", the line, the named coins\' marks',
+        () {
+      final card = anotherCryptoCard(_l10n,
+          key: const ValueKey('another'),
+          groups: coins(['USDT', 'ETH', 'USDC', 'SOL']),
+          onTap: () {});
+      expect(card.title, 'Another crypto');
+      expect(card.subtitle, 'USDC, ETH and more');
+      final marks = card.visual as AnotherCryptoMarks;
+      expect(marks.coins.map((g) => g.displaySymbol), ['USDC', 'ETH']);
+    });
+
+    test('every language says it in one short line', () {
+      final groups = coins(['USDC', 'USDT', 'ETH', 'SOL']);
+      for (final locale in AppLocalizations.supportedLocales) {
+        final l10n = l10nForLanguage(locale.languageCode);
+        final line = anotherCryptoLine(l10n, groups);
+        expect(line, contains('USDC'), reason: locale.languageCode);
+        expect(line, contains('ETH'), reason: locale.languageCode);
+        expect(line.length, lessThanOrEqualTo(24),
+            reason: '${locale.languageCode}: $line');
+      }
     });
   });
 }

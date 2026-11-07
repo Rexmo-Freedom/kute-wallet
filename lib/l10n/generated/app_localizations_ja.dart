@@ -10675,8 +10675,13 @@ class AppLocalizationsJa extends AppLocalizations {
   String get receiveAnotherCrypto => '他の暗号資産';
 
   @override
-  String receiveWalletOrExchangeLine(String coins) {
-    return 'ウォレットまたは取引所 · $coins';
+  String anotherCryptoCoinsAndMore(String coins) {
+    return '$coinsなど';
+  }
+
+  @override
+  String anotherCryptoCoinsPair(String first, String second) {
+    return '$firstと$second';
   }
 
   @override
@@ -11618,16 +11623,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get sendRecipientSearchHint => '名前、電話番号、各種暗号資産アドレス';
 
   @override
-  String sendCryptoHint(String coins) {
-    return '$coinsに送金';
-  }
-
-  @override
-  String sendCryptoHintMore(String coins, int count) {
-    return '$coinsほか$count件に送金';
-  }
-
-  @override
   String get sendMoveToYourDollars => 'ドルへ移動';
 
   @override
@@ -11735,21 +11730,6 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String usdSendResolvedRail(String network, String asset) {
     return '$network · $asset';
-  }
-
-  @override
-  String sendAlsoSendsToMore(String names, int count) {
-    return '$names ほか$count件';
-  }
-
-  @override
-  String coinsSummaryShort(String names, int count) {
-    return '$names +$count';
-  }
-
-  @override
-  String sendAlsoSendsToList(String names, String last) {
-    return '$namesと$last';
   }
 
   @override
@@ -13422,9 +13402,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get sendToAFriendLabel => '友達へ';
-
-  @override
-  String get sendToCryptoAddress => '暗号資産アドレスへ';
 
   @override
   String get sendPickRowSub => '投資も可。マーケットを検索してサイドを選択';

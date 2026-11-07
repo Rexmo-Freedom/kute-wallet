@@ -1,6 +1,6 @@
 // A look by eye at the approved Send (founder, 7 November 2026: "ok do it,
 // just make sure that people realise they can send to different cryptos
-// also"): the Who step empty, the crypto hint under the field; the Who
+// also"): the Who step empty, Another crypto under the field; the Who
 // step after a 0x address is pasted, the network asked in the "Where to?"
 // sheet filtered to it; the What step over a contact (Bitcoin and the
 // gift on the app's cards, the bar its Back); and the Dollars Send's Who
@@ -335,7 +335,7 @@ void main() {
 
     testWidgets('render: usd-send-who-empty-$theme', (tester) async {
       await pumpDollars(tester, dark: dark);
-      expect(find.byKey(const ValueKey('send-crypto-hint')), findsOneWidget);
+      expect(find.byKey(const ValueKey('send-another-crypto')), findsOneWidget);
       await _capture(tester, 'usd-send-who-empty-$theme');
     });
 
@@ -349,7 +349,7 @@ void main() {
 
     testWidgets('render: send-who-empty-$theme', (tester) async {
       await pumpSend(tester, dark: dark);
-      expect(find.byKey(const ValueKey('send-crypto-hint')), findsOneWidget);
+      expect(find.byKey(const ValueKey('send-another-crypto')), findsOneWidget);
       await _capture(tester, 'send-who-empty-$theme');
     });
 

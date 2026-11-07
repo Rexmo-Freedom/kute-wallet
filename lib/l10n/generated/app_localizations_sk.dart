@@ -11101,8 +11101,13 @@ class AppLocalizationsSk extends AppLocalizations {
   String get receiveAnotherCrypto => 'Iné krypto';
 
   @override
-  String receiveWalletOrExchangeLine(String coins) {
-    return 'Peňaženka či burza · $coins';
+  String anotherCryptoCoinsAndMore(String coins) {
+    return '$coins a ďalšie';
+  }
+
+  @override
+  String anotherCryptoCoinsPair(String first, String second) {
+    return '$first a $second';
   }
 
   @override
@@ -12063,16 +12068,6 @@ class AppLocalizationsSk extends AppLocalizations {
   String get sendRecipientSearchHint => 'Meno, telefón či krypto adresa';
 
   @override
-  String sendCryptoHint(String coins) {
-    return 'Poslať na $coins';
-  }
-
-  @override
-  String sendCryptoHintMore(String coins, int count) {
-    return 'Poslať na $coins a ešte $count';
-  }
-
-  @override
   String get sendMoveToYourDollars => 'Presunúť na tvoje Doláre';
 
   @override
@@ -12181,21 +12176,6 @@ class AppLocalizationsSk extends AppLocalizations {
   @override
   String usdSendResolvedRail(String network, String asset) {
     return '$network · $asset';
-  }
-
-  @override
-  String sendAlsoSendsToMore(String names, int count) {
-    return '$names a ešte $count';
-  }
-
-  @override
-  String coinsSummaryShort(String names, int count) {
-    return '$names +$count';
-  }
-
-  @override
-  String sendAlsoSendsToList(String names, String last) {
-    return '$names a $last';
   }
 
   @override
@@ -13883,9 +13863,6 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String get sendToAFriendLabel => 'Kamarátovi';
-
-  @override
-  String get sendToCryptoAddress => 'Na kryptoadresu';
 
   @override
   String get sendPickRowSub => 'Alebo investíciu. Vyhľadaj trh, vyber stranu';
