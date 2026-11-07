@@ -14053,4 +14053,20 @@ class AppLocalizationsRo extends AppLocalizations {
   @override
   String get sendPickMarketHow =>
       'Găsește o piață, alege partea și suma, apoi atinge Sal ca să trimiți';
+
+  @override
+  String slipSendCta(String amount, String side) {
+    return 'Trimite $amount · $side';
+  }
+
+  @override
+  String slipSendYesOnly(String outcome) {
+    return 'Se poate trimite doar Da pe $outcome';
+  }
+
+  @override
+  String get sendPickChipFriend => 'Trimiți unui prieten';
+
+  @override
+  String get sendPickSearchHint => 'Caută o piață de trimis';
 }

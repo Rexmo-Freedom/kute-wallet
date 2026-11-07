@@ -3952,5 +3952,9 @@
   "slipShareEnterAmount": "Unesi iznos za slanje",
   "slipShareMinimum": "Unesi barem {amount} za slanje",
   "slipShareYesOnly": "Može se poslati samo Da na {outcome}. Prebaci na Da da ga pošalješ.",
-  "sendPickMarketHow": "Pronađi tržište, odaberi stranu i iznos, pa dodirni Sala za slanje"
+  "sendPickMarketHow": "Pronađi tržište, odaberi stranu i iznos, pa dodirni Sala za slanje",
+  "slipSendCta": "Pošalji {amount} · {side}",
+  "slipSendYesOnly": "Može se poslati samo Da na {outcome}",
+  "sendPickChipFriend": "Šalješ prijatelju",
+  "sendPickSearchHint": "Pretraži tržište za slanje"
 }

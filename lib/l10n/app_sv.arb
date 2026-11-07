@@ -3952,5 +3952,9 @@
   "slipShareEnterAmount": "Ange ett belopp att skicka",
   "slipShareMinimum": "Ange minst {amount} för att skicka",
   "slipShareYesOnly": "Bara Ja på {outcome} kan skickas. Byt till Ja för att skicka.",
-  "sendPickMarketHow": "Hitta en marknad, välj sida och belopp och tryck sedan på Sal för att skicka"
+  "sendPickMarketHow": "Hitta en marknad, välj sida och belopp och tryck sedan på Sal för att skicka",
+  "slipSendCta": "Skicka {amount} · {side}",
+  "slipSendYesOnly": "Bara Ja på {outcome} kan skickas",
+  "sendPickChipFriend": "Skickas till en vän",
+  "sendPickSearchHint": "Sök en marknad att skicka"
 }

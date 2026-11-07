@@ -13976,4 +13976,20 @@ class AppLocalizationsEt extends AppLocalizations {
   @override
   String get sendPickMarketHow =>
       'Leia turg, vali pool ja summa ning puuduta saatmiseks Sali';
+
+  @override
+  String slipSendCta(String amount, String side) {
+    return 'Saada $amount · $side';
+  }
+
+  @override
+  String slipSendYesOnly(String outcome) {
+    return 'Saata saab ainult valikut Jah: $outcome';
+  }
+
+  @override
+  String get sendPickChipFriend => 'Saadad sõbrale';
+
+  @override
+  String get sendPickSearchHint => 'Otsi turgu, mida saata';
 }

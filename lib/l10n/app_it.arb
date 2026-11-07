@@ -3952,5 +3952,9 @@
   "slipShareEnterAmount": "Inserisci un importo da inviare",
   "slipShareMinimum": "Inserisci almeno {amount} per inviare",
   "slipShareYesOnly": "Si può inviare solo Sì su {outcome}. Passa a Sì per inviarlo.",
-  "sendPickMarketHow": "Trova un mercato, scegli lato e importo, poi tocca Sal per inviarlo"
+  "sendPickMarketHow": "Trova un mercato, scegli lato e importo, poi tocca Sal per inviarlo",
+  "slipSendCta": "Invia {amount} · {side}",
+  "slipSendYesOnly": "Si può inviare solo Sì su {outcome}",
+  "sendPickChipFriend": "Invio a un amico",
+  "sendPickSearchHint": "Cerca un mercato da inviare"
 }

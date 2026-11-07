@@ -1,44 +1,45 @@
 // lib/screens/share/slip_share.dart
 //
-// SEND THIS PREDICTION FROM ITS SLIP (founder, 5 November 2026: "we are
-// still not sending the prediction. I think the share button should be on
-// this bet slip page actually, it carries all the information, even the
-// amount. It's the best place to have the share"). The one place a
-// prediction (or an investment) is composed for a friend is the slip
-// itself: the bet slip (polymarket/components/bet_slip_sheet.dart) and the
-// Investing order slip (hyperliquid/components/order_slip_sheet.dart) put
-// the round Sal button at the right of their floating primary
-// ([KuteBarShare.send], kute_bar_context.dart; the button itself is
-// kute_bar_trade_row.dart's). A tap ([sendFromSlip]):
+// SEND A PREDICTION OR AN INVESTMENT, FROM A SLIP IN SEND MODE (founder,
+// 7 November 2026, superseding the slips' round Sal button: "This share
+// here should only be for sharing the market. Don't have the share on the
+// slip, only in Send should it be to send to someone"; "just get rid of
+// the button to share the actual prediction on the buy, just keep it on
+// the send"). A slip has no share button. A pick is sent only from Send:
+// the search sheet in send mode opens a market page in send mode, and its
+// slip (polymarket/components/bet_slip_sheet.dart, hyperliquid/components
+// /order_slip_sheet.dart) runs in send mode (send_pick_session.dart): its
+// PRIMARY is the send itself ([slipSendCta]), never an order:
 //
+//   * "Send $50 · Short AMD", "Send $10 · Yes": a tap ([sendFromSlip])
+//     opens Send to anyone (send_to_anyone_sheet.dart) on its last step,
+//     THIS pick prefilled: the market, the outcome, the side and the
+//     amount, the gift card as the hero, the name (the contact picked on
+//     Send, if any), Challenge them, the bar "Send prediction". The link
+//     created closes the slip, the market pages and the search sheet, and
+//     the Send screen reads it as a send that went out.
+//   * DISABLED, saying what to do (as the slip's own button does): nothing
+//     typed "Enter an amount to send", under the market's minimum "Enter
+//     at least $1 to send", a side no link can carry (No on one candidate:
+//     a link names an outcome of the event, and the Claim screen opens the
+//     slip on its Yes) "Only Yes on {candidate} can be sent".
 //   * THE VENUE CLOSED TO THIS PERSON (the slip's own open gate: the
 //     region refusal and "Check connection", or any other policy refusal;
 //     founder, 5 November 2026: "when the user is blocked on Polymarket he
-//     cannot also send the actual prediction, just the card"): the market
-//     send sheet (share_market_sheet.dart), the market's card and its link
-//     only, no money and no pick. Same on Investing.
-//   * NOTHING TYPED: a toast, "Enter an amount to send" (never a silent
-//     no-op; the button stays where it is).
-//   * UNDER THE MARKET'S MINIMUM: "Enter at least $1 to send".
-//   * A SIDE NO LINK CAN CARRY (No on one candidate: a link names an
-//     outcome of the event, and the Claim screen opens the slip on its
-//     Yes): "Only Yes on {candidate} can be sent".
-//   * Else Send to anyone (send_to_anyone_sheet.dart) on its last step,
-//     THIS pick prefilled: the market, the outcome, the side and the
-//     amount, the card as the hero, "Your friend gets $5 on Apple — Yes
-//     at 62%", the name, Challenge them, the bar "Send prediction".
-//
-// The slip stays open under it: closing the send returns to the slip.
-
-import 'dart:async';
+//     cannot also send the actual prediction, just the card"): "Send the
+//     market", the market send sheet (share_market_sheet.dart), the
+//     market's card and its link only, no money and no pick. Same on
+//     Investing (and a spot sale, no investment to send).
 
 import 'package:flutter/widgets.dart';
 
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/share_link_model.dart' show ShareLinkKind;
+import 'package:kute/screens/share/cards/share_card_copy.dart'
+    show shareCardUsdCents;
+import 'package:kute/screens/share/send_pick_session.dart';
 import 'package:kute/screens/share/send_to_anyone_sheet.dart';
 import 'package:kute/screens/share/share_market_sheet.dart';
-import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_share_actions.dart'
     show
         kMarketLinkInvesting,
@@ -52,7 +53,7 @@ import 'package:kute/screens/shared/message_display.dart'
 /// Where a slip's send went (the test seam's record).
 enum SlipSendRoute { pick, market, enterAmount, minimum, yesOnly }
 
-/// What a slip hands its round Sal button, read at the tap.
+/// What a slip in send mode sends, read at the tap.
 @immutable
 class SlipSharePick {
   const SlipSharePick({
@@ -75,7 +76,7 @@ class SlipSharePick {
     this.wireCoin,
     this.coinCategory,
     this.coinIconUrl,
-    this.entrySource = 'slip',
+    this.entrySource = kSendModeSlipSource,
   });
 
   /// An Investing order slip's pick; else a prediction's.
@@ -128,6 +129,9 @@ class SlipSharePick {
 
   /// Send to anyone's entry source (analytics).
   final String entrySource;
+
+  /// The amount in cents, as the link carries it.
+  int get amountMinor => (amountUsd * 100).round();
 }
 
 /// The test seam: every send's route and the pick it was made with; the
@@ -140,72 +144,139 @@ abstract final class SlipShare {
   static bool debugOpen = true;
 }
 
-/// The slip's round Sal button: [pick] is read at the tap.
-KuteBarShare slipShareButton(
-        BuildContext context, SlipSharePick Function() pick) =>
-    KuteBarShare(send: () => unawaited(sendFromSlip(context, pick())));
-
-/// A tap on a slip's round Sal button (see the file header).
-Future<void> sendFromSlip(BuildContext context, SlipSharePick pick) async {
-  final l10n = context.l10n;
-  void route(SlipSendRoute r) => SlipShare.debugRoute?.call(r, pick);
+/// Where a send with [pick] goes (see the file header).
+SlipSendRoute slipSendRoute(SlipSharePick pick) {
   final slug = pick.slug?.trim() ?? '';
-  if (pick.blocked || slug.isEmpty) {
-    // The market's card only: no money, no pick (a market the link cannot
-    // name goes the same way).
-    route(SlipSendRoute.market);
-    if (!SlipShare.debugOpen) return;
-    await openShareForMarket(
-      context,
-      title: pick.title,
-      subtitle: null,
-      deepLink: marketShareLink(
-          venue: pick.investing ? kMarketLinkInvesting : kMarketLinkPredictions,
-          slug: pick.marketLinkSlug ?? pick.slug),
-      marketSlug: pick.marketLinkSlug ?? pick.slug,
-      chance: pick.investing ? null : pick.marketChance,
-      price: pick.investing ? pick.price : null,
-      venue: pick.investing ? kShareVenueHyperliquid : kShareVenuePolymarket,
-      imageUrl: pick.investing ? null : pick.imageUrl,
-      ticker: pick.investing ? pick.ticker : null,
-      wireCoin: pick.investing ? pick.wireCoin : null,
-      coinCategory: pick.investing ? pick.coinCategory : null,
-      coinIconUrl: pick.investing ? pick.coinIconUrl : null,
-    );
-    return;
-  }
+  if (pick.blocked || slug.isEmpty) return SlipSendRoute.market;
   final amount = pick.amountUsd;
-  if (!amount.isFinite || amount <= 0) {
-    route(SlipSendRoute.enterAmount);
-    showMessageSnackBarInfo(
-        context: context, message: l10n.slipShareEnterAmount);
-    return;
+  if (!amount.isFinite || amount <= 0) return SlipSendRoute.enterAmount;
+  if (amount + 1e-9 < pick.minUsd) return SlipSendRoute.minimum;
+  if ((pick.outcome?.trim() ?? '').isEmpty) return SlipSendRoute.yesOnly;
+  return SlipSendRoute.pick;
+}
+
+/// A slip's primary in send mode (see the file header): its [label],
+/// whether it is [enabled], and while it is not, what to do
+/// ([disabledLabel]).
+typedef SlipSendCta = ({
+  String label,
+  bool enabled,
+  String? disabledLabel,
+  SlipSendRoute route,
+});
+
+/// The primary of a slip in send mode for [pick]: "Send $50 · Short AMD",
+/// "Send $10 · Yes"; "Send the market" where the venue is closed to this
+/// person; disabled with the step to take otherwise.
+SlipSendCta slipSendCta(AppLocalizations l10n, SlipSharePick pick) {
+  final route = slipSendRoute(pick);
+  final side = pick.investing
+      ? l10n.shareCardPositionInvest(pick.sideLabel, pick.title)
+      : pick.sideLabel;
+  final amount = pick.amountUsd.isFinite && pick.amountUsd > 0
+      ? shareCardUsdCents(l10n.localeName, pick.amountMinor)
+      : null;
+  final send = amount == null ? side : l10n.slipSendCta(amount, side);
+  return switch (route) {
+    SlipSendRoute.market => (
+        label: l10n.shareTheMarket,
+        enabled: true,
+        disabledLabel: null,
+        route: route,
+      ),
+    SlipSendRoute.pick => (
+        label: send,
+        enabled: true,
+        disabledLabel: null,
+        route: route,
+      ),
+    SlipSendRoute.enterAmount => (
+        label: send,
+        enabled: false,
+        disabledLabel: l10n.slipShareEnterAmount,
+        route: route,
+      ),
+    SlipSendRoute.minimum => (
+        label: send,
+        enabled: false,
+        disabledLabel: l10n.slipShareMinimum(pick.minLabel),
+        route: route,
+      ),
+    SlipSendRoute.yesOnly => (
+        label: send,
+        enabled: false,
+        disabledLabel: l10n.slipSendYesOnly(pick.sideLabel),
+        route: route,
+      ),
+  };
+}
+
+/// A tap on a slip's primary in send mode (see the file header). [session]
+/// is the send it belongs to: the contact picked on Send prefills the
+/// name, and the link created closes the flow ([SendPickSession.finish]).
+/// The primary is disabled while the amount or the side cannot be sent;
+/// a tap that still gets here says so in a toast.
+Future<void> sendFromSlip(BuildContext context, SlipSharePick pick,
+    {SendPickSession? session}) async {
+  final l10n = context.l10n;
+  final route = slipSendRoute(pick);
+  SlipShare.debugRoute?.call(route, pick);
+  final slug = pick.slug?.trim() ?? '';
+  switch (route) {
+    case SlipSendRoute.market:
+      // The market's card only: no money, no pick (a market the link
+      // cannot name goes the same way).
+      if (!SlipShare.debugOpen) return;
+      return openShareForMarket(
+        context,
+        title: pick.title,
+        subtitle: null,
+        deepLink: marketShareLink(
+            venue:
+                pick.investing ? kMarketLinkInvesting : kMarketLinkPredictions,
+            slug: pick.marketLinkSlug ?? pick.slug),
+        marketSlug: pick.marketLinkSlug ?? pick.slug,
+        chance: pick.investing ? null : pick.marketChance,
+        price: pick.investing ? pick.price : null,
+        venue: pick.investing ? kShareVenueHyperliquid : kShareVenuePolymarket,
+        imageUrl: pick.investing ? null : pick.imageUrl,
+        ticker: pick.investing ? pick.ticker : null,
+        wireCoin: pick.investing ? pick.wireCoin : null,
+        coinCategory: pick.investing ? pick.coinCategory : null,
+        coinIconUrl: pick.investing ? pick.coinIconUrl : null,
+      );
+    case SlipSendRoute.enterAmount:
+      showMessageSnackBarInfo(
+          context: context, message: l10n.slipShareEnterAmount);
+      return;
+    case SlipSendRoute.minimum:
+      showMessageSnackBarInfo(
+          context: context, message: l10n.slipShareMinimum(pick.minLabel));
+      return;
+    case SlipSendRoute.yesOnly:
+      showMessageSnackBarInfo(
+          context: context, message: l10n.slipShareYesOnly(pick.sideLabel));
+      return;
+    case SlipSendRoute.pick:
+      break;
   }
-  if (amount + 1e-9 < pick.minUsd) {
-    route(SlipSendRoute.minimum);
-    showMessageSnackBarInfo(
-        context: context, message: l10n.slipShareMinimum(pick.minLabel));
-    return;
-  }
-  final outcome = pick.outcome?.trim() ?? '';
-  if (outcome.isEmpty) {
-    route(SlipSendRoute.yesOnly);
-    showMessageSnackBarInfo(
-        context: context, message: l10n.slipShareYesOnly(pick.sideLabel));
-    return;
-  }
-  route(SlipSendRoute.pick);
   if (!SlipShare.debugOpen) return;
-  await showSendToAnyoneSheet(
+  final navigator = Navigator.of(context, rootNavigator: true);
+  final created = await showSendToAnyoneSheet(
     context,
     kind: ShareLinkKind.dollars,
     marketSlug: slug,
     marketTitle: pick.title,
     venue: pick.investing ? kShareVenueHyperliquid : kShareVenuePolymarket,
-    outcome: outcome,
+    outcome: pick.outcome!.trim(),
     outcomeIndex: pick.outcomeIndex,
     side: pick.side,
-    amountMinor: (amount * 100).round(),
+    amountMinor: pick.amountMinor,
+    senderLabel: session?.recipientName,
+    recipientPhone: session?.recipientPhone,
     entrySource: pick.entrySource,
   );
+  if (created == true && session != null && navigator.mounted) {
+    session.finish(navigator);
+  }
 }

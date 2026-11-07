@@ -3952,5 +3952,9 @@
   "slipShareEnterAmount": "Въведи сума за изпращане",
   "slipShareMinimum": "Въведи поне {amount}, за да изпратиш",
   "slipShareYesOnly": "Може да се изпрати само „Да“ за {outcome}. Избери „Да“, за да изпратиш.",
-  "sendPickMarketHow": "Намери пазар, избери страна и сума, после докосни Sal, за да изпратиш"
+  "sendPickMarketHow": "Намери пазар, избери страна и сума, после докосни Sal, за да изпратиш",
+  "slipSendCta": "Изпрати {amount} · {side}",
+  "slipSendYesOnly": "Може да се изпрати само „Да“ за {outcome}",
+  "sendPickChipFriend": "Изпращаш на приятел",
+  "sendPickSearchHint": "Търси пазар за изпращане"
 }

@@ -4,12 +4,14 @@
 // the refusal goes and the button is the bet, ready to place; still
 // restricted, the refusal stays with a soft failure tap.
 //
-// THE ROUND SAL BUTTON beside it (slip_share.dart; founder, 5 November
-// 2026): it stays on the slip whatever the button is. Allowed, it sends
-// THIS prediction (the side and the amount typed); nothing typed, it says
-// what to do; refused here, it sends the market's card only ("when the
-// user is blocked on Polymarket he cannot also send the actual
-// prediction, just the card").
+// NO SHARE BUTTON ON THE SLIP (founder, 7 November 2026: "just get rid of
+// the button to share the actual prediction on the buy, just keep it on
+// the send"). In SEND MODE (opened from Send; slip_share.dart,
+// send_pick_session.dart) the slip's one primary is the send: "Send $10 ·
+// Yes" sends THIS prediction (the side and the amount typed), never an
+// order; nothing typed, it is disabled and says what to do; refused here,
+// "Send the market", the market's card only ("when the user is blocked on
+// Polymarket he cannot also send the actual prediction, just the card").
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -33,6 +35,7 @@ import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceProvider;
 import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart';
 import 'package:kute/screens/polymarket/components/slip_chrome.dart';
+import 'package:kute/screens/share/send_pick_session.dart';
 import 'package:kute/screens/share/slip_share.dart';
 import 'package:kute/screens/shared/capability_block_note.dart';
 import 'package:kute/services/continuous_haptics.dart';
@@ -172,7 +175,7 @@ void main() {
   }
 
   Future<void> pumpSlip(WidgetTester tester,
-      {double? amountUsd = 10}) async {
+      {double? amountUsd = 10, SendPickSession? sendPick}) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -211,7 +214,8 @@ void main() {
                 marketQuestion: 'Will it rain?',
                 marketSlug: 'will-it-rain',
                 outcomes: _outcomes,
-                initialAmountUsd: amountUsd),
+                initialAmountUsd: amountUsd,
+                sendPick: sendPick),
           ),
         ),
       ),
@@ -296,7 +300,21 @@ void main() {
     await release(tester);
   });
 
-  group('the round Sal button', () {
+  final share = find.byKey(const ValueKey('kute-bar-share'));
+
+  testWidgets(
+      'the ordinary slip has no share button: Place alone, allowed or '
+      'refused here', (tester) async {
+    blocked = false;
+    expect(await policy.refresh(), isTrue);
+    await pumpSlip(tester);
+    expect(barPrimaryLabel(tester), r'Place $10.00 on Yes');
+    expect(share, findsNothing);
+    expect(find.byKey(const ValueKey('send-pick-chip')), findsNothing);
+    await release(tester);
+  });
+
+  group('send mode', () {
     late List<(SlipSendRoute, SlipSharePick)> sends;
     setUp(() {
       sends = [];
@@ -308,20 +326,22 @@ void main() {
       SlipShare.debugOpen = true;
     });
 
-    final share = find.byKey(const ValueKey('kute-bar-share'));
+    SendPickSession session({String? name}) =>
+        SendPickSession(entrySource: 'dollar_send', recipientName: name);
 
     testWidgets(
-        'allowed: beside Place, it sends THIS prediction, the side and the '
-        'amount', (tester) async {
+        'the primary is the send: "Send \$10 · Yes" sends THIS prediction, '
+        'the side and the amount; the chip says who it is for; no share '
+        'button, nothing placed', (tester) async {
       blocked = false;
       expect(await policy.refresh(), isTrue);
-      await pumpSlip(tester);
-      expect(barPrimaryLabel(tester), r'Place $10.00 on Yes');
-      expect(share, findsOneWidget);
-      // At the right of the floating primary.
-      expect(tester.getRect(share).left,
-          greaterThan(tester.getRect(find.byKey(const ValueKey('kute-bar-primary'))).left));
-      await tester.tap(share);
+      await pumpSlip(tester, sendPick: session(name: 'Ana'));
+      expect(barPrimaryLabel(tester), r'Send $10 · Yes');
+      expect(barPrimaryEnabled(tester), isTrue);
+      expect(share, findsNothing);
+      expect(find.byKey(const ValueKey('send-pick-chip')), findsOneWidget);
+      expect(find.text('For Ana'), findsOneWidget);
+      await tapBarPrimary(tester, settle: false);
       await frames(tester, 2);
       final (route, pick) = sends.single;
       expect(route, SlipSendRoute.pick);
@@ -333,32 +353,32 @@ void main() {
       expect(pick.side, 'buy');
       expect(pick.amountUsd, 10);
       expect(pick.blocked, isFalse);
+      expect(pick.entrySource, kSendModeSlipSource);
       await release(tester);
     });
 
     testWidgets(
-        'nothing typed: the button stays, and a tap says to enter an amount',
-        (tester) async {
+        'nothing typed: disabled, it says to enter an amount; no contact '
+        'picked, the chip says a friend', (tester) async {
       blocked = false;
       expect(await policy.refresh(), isTrue);
-      await pumpSlip(tester, amountUsd: null);
-      expect(share, findsOneWidget);
-      await tester.tap(share);
-      await frames(tester, 2);
-      expect(sends.single.$1, SlipSendRoute.enterAmount);
-      expect(find.text('Enter an amount to send'), findsOneWidget);
-      await frames(tester, 50);
+      await pumpSlip(tester, amountUsd: null, sendPick: session());
+      expect(barPrimaryEnabled(tester), isFalse);
+      expect(barPrimaryContext(tester).disabledLabel,
+          'Enter an amount to send');
+      expect(find.text('Sending to a friend'), findsOneWidget);
+      expect(sends, isEmpty);
       await release(tester);
     });
 
     testWidgets(
-        'refused here: the button still sends, the market\'s card only, no '
-        'money and no pick', (tester) async {
+        'refused here: "Send the market", the market\'s card only, no money '
+        'and no pick', (tester) async {
       expect(await policy.refresh(), isTrue);
-      await pumpSlip(tester);
-      expect(barPrimaryLabel(tester), 'Check connection');
-      expect(share, findsOneWidget);
-      await tester.tap(share);
+      await pumpSlip(tester, sendPick: session());
+      expect(barPrimaryLabel(tester), 'Send the market');
+      expect(share, findsNothing);
+      await tapBarPrimary(tester, settle: false);
       await frames(tester, 2);
       final (route, pick) = sends.single;
       expect(route, SlipSendRoute.market);

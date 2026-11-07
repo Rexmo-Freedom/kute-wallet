@@ -13543,4 +13543,20 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get sendPickMarketHow => 'マーケットを探し、サイドと金額を選んでSalをタップすると送れます';
+
+  @override
+  String slipSendCta(String amount, String side) {
+    return '$amountを送る · $side';
+  }
+
+  @override
+  String slipSendYesOnly(String outcome) {
+    return '$outcomeは「はい」だけ送れます';
+  }
+
+  @override
+  String get sendPickChipFriend => '友だちに送る';
+
+  @override
+  String get sendPickSearchHint => '送るマーケットを検索';
 }

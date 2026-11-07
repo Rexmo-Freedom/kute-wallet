@@ -17,11 +17,11 @@
 // open position in profit the round button opens the brag card instead
 // (position_share_card.dart).
 //
-// A PREDICTION IS SENT FROM ITS SLIP ONLY (founder, 5 November 2026: "the
-// share button should be on this bet slip page actually, it carries all
-// the information, even the amount"): the slip's round Sal button sends
-// THAT prediction, its market, side and amount
-// (screens/share/slip_share.dart). Nothing here composes a pick any more.
+// A PREDICTION IS SENT FROM SEND ONLY (founder, 7 November 2026: "only in
+// Send should it be to send to someone"): Send's market search opens the
+// market in send mode, and its slip's primary sends THAT prediction, its
+// market, side and amount (screens/share/slip_share.dart). Nothing here
+// composes a pick any more.
 //
 // The Sal sheet still draws the market's preview and its one card ("Send
 // the market", or "Send this position"; "Show off this position" beside

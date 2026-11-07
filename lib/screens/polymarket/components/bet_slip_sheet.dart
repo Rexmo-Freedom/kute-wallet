@@ -42,6 +42,7 @@ import 'package:kute/providers/polymarket_browse_provider.dart'
 import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
 import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/screens/share/send_pick_session.dart';
 import 'package:kute/screens/share/slip_share.dart';
 
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
@@ -414,6 +415,12 @@ class BetSlipSheet extends ConsumerStatefulWidget {
   /// not "Yes" (screens/share/slip_share.dart).
   final PolymarketEvent? event;
 
+  /// SEND MODE (screens/share/send_pick_session.dart): the slip opened
+  /// from Send's market search. Its primary sends this pick to a friend
+  /// ("Send $10 · Yes", slip_share.dart) and nothing is ever placed;
+  /// null: the ordinary slip.
+  final SendPickSession? sendPick;
+
   final _BetSlipDraft? _sharedDraft;
   final bool _advanced;
 
@@ -437,6 +444,7 @@ class BetSlipSheet extends ConsumerStatefulWidget {
     this.negRisk = false,
     this.source = 'unknown',
     this.event,
+    this.sendPick,
   })  : _sharedDraft = null,
         _advanced = false;
 
@@ -459,6 +467,7 @@ class BetSlipSheet extends ConsumerStatefulWidget {
         negRisk = source.negRisk,
         source = source.source,
         event = source.event,
+        sendPick = source.sendPick,
         _sharedDraft = draft,
         _advanced = true;
 
@@ -486,6 +495,7 @@ class BetSlipSheet extends ConsumerStatefulWidget {
     bool negRisk = false,
     String source = 'unknown',
     PolymarketEvent? event,
+    SendPickSession? sendPick,
   }) async {
     // A Ledger bet answers to Ledger Predictions (`ledger.polymarket`)
     // first, wherever the slip was opened from (the Ledger Predictions
@@ -617,6 +627,7 @@ class BetSlipSheet extends ConsumerStatefulWidget {
         negRisk: negRisk,
         source: source,
         event: event,
+        sendPick: ledgerWalletId == null ? sendPick : null,
       )),
     );
   }
@@ -1960,10 +1971,16 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// already shown to the user. Read at tap time, not watched: a refusal
   /// is asked again before it is shown ([confirmCapability]).
   Future<String?> _refuseBlockedDeposit() async {
+    const capability = 'polymarket.deposit';
     final decision = await confirmCapability(
-        ref.read(runtimeCapabilitiesProvider), 'polymarket.deposit');
+        ref.read(runtimeCapabilitiesProvider), capability);
     if (decision.allowed && !decision.comingSoon) return null;
-    if (mounted) unawaited(showCapabilityDecisionSheet(context, decision));
+    // Named, so "Check connection" asks this capability again (not every
+    // region denial the policy holds) and the region event names it.
+    if (mounted) {
+      unawaited(showCapabilityDecisionSheet(context, decision,
+          capability: capability));
+    }
     return decision.message;
   }
 
@@ -5459,15 +5476,13 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           ),
         );
 
-    // The round Sal button beside the slip's primary: THIS prediction to a
-    // friend (screens/share/slip_share.dart).
-    final share = slipShareButton(context, _slipSharePick);
+    // No share button on the slip (founder, 7 November 2026): a pick is
+    // sent only from Send, where the slip runs in send mode and its primary
+    // is the send (screens/share/slip_share.dart).
     if (widget._advanced) {
       // The full-screen Advanced page keeps the app palette (user
       // decision: only sheets wear the side colour).
-      return PolySlipShareScope(
-        share: share,
-        child: PopScope(
+      return PopScope(
         canPop: !_buyInFlight && !_draft.ledgerBusy && !activelyPlacing,
         child: Builder(
           builder: (context) => PolySlipAdvancedScaffold(
@@ -5477,14 +5492,11 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
             body: KeyboardDismissOnTap(child: ticket(fullscreen: true)),
           ),
         ),
-        ),
       );
     }
     // Flipping side inside the sheet (Yes↔No, candidate Yes↔No) slides the
     // whole sheet to the other colour rather than cutting to it.
-    return PolySlipShareScope(
-      share: share,
-      child: PopScope(
+    return PopScope(
       canPop: !_buyInFlight && !_draft.ledgerBusy && !activelyPlacing,
       child: KeyboardDismissOnTap(
         child: tinted(
@@ -5520,11 +5532,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           ),
         ),
       ),
-      ),
     );
   }
 
-  /// What the round Sal button sends, read at the tap
+  /// What the slip sends in send mode, read at each build and at the tap
   /// (screens/share/slip_share.dart): this market, the side picked, the
   /// amount typed, and whether the slip's open gate refuses this person
   /// (then the market's card only). A candidate's own Yes / No page sends
@@ -5572,7 +5583,27 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       blocked: _capabilityBlockMessage != null,
       marketChance: yesChance,
       imageUrl: widget.marketImage,
-      entrySource: 'bet_slip',
+    );
+  }
+
+  /// SEND MODE's one primary (screens/share/slip_share.dart): "Send $10 ·
+  /// Yes", disabled with the step to take, "Send the market" where the
+  /// venue is closed to this person. Never an order: nothing here places,
+  /// funds or deposits.
+  Widget _buildSendAction(Color selectedColor, SendPickSession session) {
+    final pick = _slipSharePick();
+    final cta = slipSendCta(context.l10n, pick);
+    return PolySlipCta(
+      key: const ValueKey('bet-slip-send'),
+      color: selectedColor,
+      // Dark on the white button, never the side colour (founder).
+      neutral: true,
+      isBusy: false,
+      enabled: cta.enabled,
+      onTap: () => unawaited(
+          sendFromSlip(context, _slipSharePick(), session: session)),
+      label: cta.label,
+      disabledLabel: cta.disabledLabel,
     );
   }
 
@@ -6027,6 +6058,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       required bool failed,
       required String busyLabel,
       bool stepsUnder = false}) {
+    // Send mode: the send is the one primary (never an order).
+    final send = widget.sendPick;
+    if (send != null) return _buildSendAction(selectedColor, send);
     // Taken once, by this build: the minimum the under-the-floor button
     // wrote is placed only by the bet button below, never later.
     final placeFilledMinimum = _placeMinimumOnBuild;
@@ -6676,9 +6710,12 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   Widget _buildHeader(AppColorsExtension c, Color accentColor) {
     // The shared ticket header (market thumb + question + close X). No
     // Sal here: the slip is the moment of decision.
+    final send = widget.sendPick;
     return PolySlipHeader(
       marketQuestion: widget.marketQuestion,
       marketImage: widget.marketImage,
+      // Send mode says it at the top (send_pick_session.dart).
+      chip: send == null ? null : SendPickChip(session: send),
     );
   }
 

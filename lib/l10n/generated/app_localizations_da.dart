@@ -13988,4 +13988,20 @@ class AppLocalizationsDa extends AppLocalizations {
   @override
   String get sendPickMarketHow =>
       'Find et marked, vælg side og beløb, og tryk så på Sal for at sende';
+
+  @override
+  String slipSendCta(String amount, String side) {
+    return 'Send $amount · $side';
+  }
+
+  @override
+  String slipSendYesOnly(String outcome) {
+    return 'Kun Ja på $outcome kan sendes';
+  }
+
+  @override
+  String get sendPickChipFriend => 'Sendes til en ven';
+
+  @override
+  String get sendPickSearchHint => 'Søg et marked at sende';
 }

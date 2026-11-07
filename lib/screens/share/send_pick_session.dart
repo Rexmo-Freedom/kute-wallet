@@ -1,0 +1,192 @@
+// lib/screens/share/send_pick_session.dart
+//
+// SEND MODE (founder, 7 November 2026: "This share here should only be
+// for sharing the market. Don't have the share on the slip, only in Send
+// should it be to send to someone"; then "just get rid of the button to
+// share the actual prediction on the buy, just keep it on the send"). A
+// prediction or an investment is sent ONLY from Send: Dollars Send's
+// "Send a prediction or investment" (or the Bitcoin Send's, or the
+// Withdraw sheet's) opens the search sheet in send mode
+// (send_pick_market_sheet.dart, unified_search_screen.dart), a result
+// opens its market page in send mode, and that page's slip runs in send
+// mode: its primary is the send itself ("Send $50 · Short AMD"), which
+// opens Send to anyone's "Who is it for?" step with the pick and the
+// amount (slip_share.dart). Nothing is ever placed from a slip in send
+// mode.
+//
+// [SendPickSession] is that one send: who it is for (the contact picked
+// on the Send screen, if any), where it started (analytics), and the
+// search sheet's route, so a gift that went out closes the market pages,
+// the slip and the sheet in one go and the Send screen closes as a send
+// that went out ([SendPickSession.finish]). It travels as a parameter
+// into the market pages and the slips (they are separate routes), and
+// down the search sheet's own tree through [SendPickScope].
+//
+// [SendPickChip] says it on every surface of the flow, at the top: "For
+// Ana", "Sending to a friend" (the search sheet's scope chip look).
+
+import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+
+import 'package:kute/l10n/l10n.dart';
+import 'package:kute/services/runtime_capabilities_service.dart'
+    show RuntimeCapabilitiesService;
+import 'package:kute/theme/app_theme.dart';
+
+/// Send to anyone's entry source for a pick sent from a slip in send
+/// mode (analytics; it was `bet_slip` / `order_slip` while the slips had
+/// their own share button).
+const String kSendModeSlipSource = 'send_mode_slip';
+
+/// The market pages' `source` for a market opened from the search sheet
+/// in send mode (analytics, as `search` is for the plain sheet).
+const String kSendPickMarketSource = 'send_pick';
+
+/// The venues a pick can be sent from: offered in this region AND open to
+/// this person for a prediction (an investment). A slip on any other
+/// could only send the market's card, so send mode leaves it out.
+({bool predictions, bool investing}) sendPickVenues(
+        RuntimeCapabilitiesService policy) =>
+    (
+      predictions: policy.allows('polymarket.browse') &&
+          policy.allows('polymarket.trade'),
+      investing: policy.allows('hyperliquid.browse') &&
+          policy.allows('hyperliquid.trade'),
+    );
+
+/// One send of a prediction or an investment (see the file header).
+class SendPickSession {
+  SendPickSession({
+    required this.entrySource,
+    String? recipientName,
+    String? recipientPhone,
+  })  : recipientName = _clean(recipientName),
+        recipientPhone = _clean(recipientPhone);
+
+  /// Where the send started (`dollar_send`, `bitcoin_send`, …).
+  final String entrySource;
+
+  /// The first name of the contact picked on the Send screen; null:
+  /// nobody yet (the "Who is it for?" step asks).
+  final String? recipientName;
+
+  /// That contact's number, kept in the local row only (never posted,
+  /// never tracked).
+  final String? recipientPhone;
+
+  /// Whether the gift went out (a link was created).
+  bool get sent => _sent;
+  bool _sent = false;
+
+  Route<dynamic>? _sheetRoute;
+
+  /// Test seam: what a result tapped in the send-mode search opens (a
+  /// PolymarketEvent or an HlMarket) instead of its page.
+  @visibleForTesting
+  static void Function(Object market)? debugOpenMarket;
+
+  /// Hands [market] to [debugOpenMarket] when a test set it: true when it
+  /// did (the page is then not opened).
+  static bool debugOpened(Object market) {
+    final open = debugOpenMarket;
+    if (open == null) return false;
+    open(market);
+    return true;
+  }
+
+  static String? _clean(String? s) {
+    final t = s?.trim() ?? '';
+    return t.isEmpty ? null : t;
+  }
+
+  /// The search sheet's route, recorded as it builds.
+  void attach(Route<dynamic>? route) {
+    if (route != null) _sheetRoute = route;
+  }
+
+  /// The gift went out: closes everything stacked over the search sheet
+  /// (the slip, the market pages) and the sheet itself, so the Send screen
+  /// reads the send as done ([sent]).
+  void finish(NavigatorState navigator) {
+    _sent = true;
+    final route = _sheetRoute;
+    if (route == null || !route.isActive) return;
+    navigator.popUntil((r) => r == route || r.isFirst);
+    if (route.isCurrent) navigator.pop();
+  }
+}
+
+/// The send-mode session for the search sheet's own tree (its rows open
+/// their markets in send mode).
+class SendPickScope extends InheritedWidget {
+  const SendPickScope({super.key, required this.session, required super.child});
+
+  final SendPickSession session;
+
+  /// The session over [context]; null outside send mode. A sheet's
+  /// session never changes, so this registers no dependency (it is read
+  /// from taps too).
+  static SendPickSession? maybeOf(BuildContext context) =>
+      context.getInheritedWidgetOfExactType<SendPickScope>()?.session;
+
+  @override
+  bool updateShouldNotify(SendPickScope old) => old.session != session;
+}
+
+/// The small chip at the top of every send-mode surface: "For Ana" when a
+/// contact was picked, else "Sending to a friend". The search sheet's
+/// scope chip look (28 high, the light surface, 13 w500), a gift glyph
+/// before the words.
+class SendPickChip extends StatelessWidget {
+  const SendPickChip({super.key, required this.session});
+
+  final SendPickSession session;
+
+  /// The chip's words for [session].
+  static String label(BuildContext context, SendPickSession session) {
+    final name = session.recipientName;
+    return name == null
+        ? context.l10n.sendPickChipFriend
+        : context.l10n.shareCardForNamed(name);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final text = label(context, session);
+    return Semantics(
+      label: text,
+      excludeSemantics: true,
+      child: Container(
+        key: const ValueKey('send-pick-chip'),
+        height: 28,
+        padding: EdgeInsets.symmetric(horizontal: 10.w),
+        decoration: BoxDecoration(
+          color: c.surfaceLight,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.card_giftcard_rounded,
+                size: 15, color: c.textSecondary),
+            SizedBox(width: 6.w),
+            Flexible(
+              child: Text(
+                text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: c.textPrimary,
+                  fontSize: 13.sp,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: -0.2,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

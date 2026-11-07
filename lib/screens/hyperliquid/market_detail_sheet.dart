@@ -107,6 +107,7 @@ import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_websocket.dart'
     show HlTrade;
 import 'package:kute/screens/hyperliquid/components/order_slip_sheet.dart';
+import 'package:kute/screens/share/send_pick_session.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/ledger/ledger_actions.dart';
 import 'package:kute/services/venue_analytics.dart';
@@ -127,18 +128,27 @@ class HlMarketDetailSheet extends ConsumerStatefulWidget {
   /// portfolio | ledger | deep_link …). Analytics only.
   final String source;
 
+  /// SEND MODE (screens/share/send_pick_session.dart): the page opened
+  /// from Send's market search. Its ticket runs in send mode (its primary
+  /// sends the investment, nothing is placed) and the page says so at the
+  /// top; its round Sal button still shares the market. Null: the
+  /// ordinary page.
+  final SendPickSession? sendPick;
+
   const HlMarketDetailSheet(
       {super.key,
       required this.market,
       this.ledgerWalletId,
-      this.source = 'market_list'});
+      this.source = 'market_list',
+      this.sendPick});
 
   static const routeName = 'hyperliquid-market-detail-sheet';
 
   static void show(BuildContext context,
       {required HlMarket market,
       String? ledgerWalletId,
-      String source = 'market_list'}) {
+      String source = 'market_list',
+      SendPickSession? sendPick}) {
     VenueAnalytics.rememberHlMarkets([market]);
     TrackingService.hyperliquidMarketViewed(
       coin: market.coin,
@@ -161,7 +171,10 @@ class HlMarketDetailSheet extends ConsumerStatefulWidget {
         // animations never share the frames of the slip being scrolled.
         builder: (_) => KuteStillWhenCovered(
           child: HlMarketDetailSheet(
-              market: market, ledgerWalletId: ledgerWalletId, source: source),
+              market: market,
+              ledgerWalletId: ledgerWalletId,
+              source: source,
+              sendPick: ledgerWalletId == null ? sendPick : null),
         ),
       ),
     );
@@ -393,6 +406,15 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                       // Sal button at the end of the bar's trade row.
                       HlWatchStar(market: m, size: 22, source: 'detail'),
                     ],
+                  ),
+                ),
+              // Send mode says it at the top (send_pick_session.dart).
+              if (!_advancedChart && widget.sendPick != null)
+                Padding(
+                  padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 0),
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: SendPickChip(session: widget.sendPick!),
                   ),
                 ),
 
@@ -661,6 +683,7 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
       isLong: isLong,
       source: 'market_detail',
       entrySource: widget.source,
+      sendPick: widget.sendPick,
     );
   }
 

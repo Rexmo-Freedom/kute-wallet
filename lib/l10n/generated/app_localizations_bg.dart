@@ -14002,4 +14002,20 @@ class AppLocalizationsBg extends AppLocalizations {
   @override
   String get sendPickMarketHow =>
       'Намери пазар, избери страна и сума, после докосни Sal, за да изпратиш';
+
+  @override
+  String slipSendCta(String amount, String side) {
+    return 'Изпрати $amount · $side';
+  }
+
+  @override
+  String slipSendYesOnly(String outcome) {
+    return 'Може да се изпрати само „Да“ за $outcome';
+  }
+
+  @override
+  String get sendPickChipFriend => 'Изпращаш на приятел';
+
+  @override
+  String get sendPickSearchHint => 'Търси пазар за изпращане';
 }

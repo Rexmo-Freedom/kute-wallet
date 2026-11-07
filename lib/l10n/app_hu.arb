@@ -3952,5 +3952,9 @@
   "slipShareEnterAmount": "Add meg a küldendő összeget",
   "slipShareMinimum": "A küldéshez legalább {amount} kell",
   "slipShareYesOnly": "Csak az Igen küldhető erre: {outcome}. Válts Igenre a küldéshez.",
-  "sendPickMarketHow": "Keress egy piacot, válassz oldalt és összeget, majd koppints Salra a küldéshez"
+  "sendPickMarketHow": "Keress egy piacot, válassz oldalt és összeget, majd koppints Salra a küldéshez",
+  "slipSendCta": "{amount} küldése · {side}",
+  "slipSendYesOnly": "Csak az Igen küldhető erre: {outcome}",
+  "sendPickChipFriend": "Küldés egy barátnak",
+  "sendPickSearchHint": "Keress egy piacot a küldéshez"
 }

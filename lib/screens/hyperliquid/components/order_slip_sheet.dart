@@ -64,6 +64,7 @@ import 'package:flutter/material.dart';
 import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
 import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/screens/share/send_pick_session.dart';
 import 'package:kute/screens/share/slip_share.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
@@ -317,6 +318,12 @@ class HlOrderSlipSheet extends ConsumerStatefulWidget {
   /// (a claimed share link's pick, claim_screen.dart). Null opens empty.
   final double? initialUsd;
 
+  /// SEND MODE (screens/share/send_pick_session.dart): the ticket opened
+  /// from Send's market search. Its primary sends this investment to a
+  /// friend ("Send $50 · Short AMD", slip_share.dart) and nothing is ever
+  /// placed; null: the ordinary ticket.
+  final SendPickSession? sendPick;
+
   const HlOrderSlipSheet({
     super.key,
     required this.market,
@@ -325,6 +332,7 @@ class HlOrderSlipSheet extends ConsumerStatefulWidget {
     this.entrySource,
     this.ledgerWalletId,
     this.initialUsd,
+    this.sendPick,
   });
 
   /// Route name used to pop back down to the host after a fill — see
@@ -340,6 +348,7 @@ class HlOrderSlipSheet extends ConsumerStatefulWidget {
     String? entrySource,
     String? ledgerWalletId,
     double? initialUsd,
+    SendPickSession? sendPick,
   }) async {
     // The ticket always opens: markets and their tickets stay browsable,
     // and a policy that withholds new positions disables the one confirm
@@ -403,6 +412,7 @@ class HlOrderSlipSheet extends ConsumerStatefulWidget {
         entrySource: entrySource,
         ledgerWalletId: ledgerWalletId,
         initialUsd: initialUsd,
+        sendPick: ledgerWalletId == null ? sendPick : null,
       ),
     );
   }
@@ -912,8 +922,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
 
   HlMarket get market => widget.market;
 
-  /// What the round Sal button sends, read at the tap
-  /// (screens/share/slip_share.dart): this market by the wire coin the
+  /// What the ticket sends in send mode, read at each build and at the
+  /// tap (screens/share/slip_share.dart): this market by the wire coin the
   /// Claim screen resolves, Long or Short, the amount typed. A spot sale
   /// is no investment to send: the market's card alone.
   SlipSharePick _slipSharePick({required double minUsd, required bool blocked}) {
@@ -939,7 +949,27 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       wireCoin: market.wireCoin,
       coinCategory: market.category,
       coinIconUrl: market.iconUrl,
-      entrySource: 'order_slip',
+    );
+  }
+
+  /// SEND MODE's one primary (screens/share/slip_share.dart): "Send $50 ·
+  /// Short AMD", disabled with the step to take, "Send the market" where
+  /// the venue is closed to this person. Never an order.
+  KuteBarContext _sendBarContext(SendPickSession session,
+      {required double minUsd, required bool blocked}) {
+    final cta = slipSendCta(
+        context.l10n, _slipSharePick(minUsd: minUsd, blocked: blocked));
+    return KuteBarContext.primary(
+      label: cta.label,
+      onPrimary: cta.enabled
+          ? () => unawaited(sendFromSlip(
+              context, _slipSharePick(minUsd: minUsd, blocked: blocked),
+              session: session))
+          : null,
+      enabled: cta.enabled,
+      category: SearchCategory.perpetuals,
+      source: 'order_slip',
+      disabledLabel: cta.disabledLabel,
     );
   }
   bool get isSpot => market.isSpot;
@@ -5162,7 +5192,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       primaryKind = 'trade';
       primaryLabel =
           context.l10n.amountMinimumInline(formatHlUsd(minAmountUsd));
-      primaryAction = _isPlacing || _preparing || _ledgerBusy
+      // Shut with the open gate (any refusal, not only a region one), as
+      // the order button is: the minimum would only be refused again.
+      primaryAction = _isPlacing || _preparing || _ledgerBusy || openBlock != null
           ? null
           : netPlan.opposes
               ? () => _fillAmountChip(minAmountUsd, 'min')
@@ -5294,9 +5326,15 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                 liveRegion: bitcoinStep != null,
                 // THE BAR IS THE BUTTON (kute_shell_bar.dart): the ticket
                 // declares its primary action and draws no button of its
-                // own.
+                // own. In send mode the send is the one primary, never
+                // an order (screens/share/slip_share.dart).
                 child: KuteBarContextScope(
-                  barContext: KuteBarContext.primary(
+                  barContext: widget.sendPick != null
+                      ? _sendBarContext(widget.sendPick!,
+                          minUsd: minAmountUsd,
+                          blocked: _openGateMessage != null ||
+                              ledgerRegionBlocked)
+                      : KuteBarContext.primary(
                     label: funded != null &&
                         funded.failed &&
                         !belowMin &&
@@ -5332,15 +5370,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                     category: SearchCategory.perpetuals,
                     source: 'order_slip',
                     disabledLabel: primaryKind == 'trade' && _marginUsd <= 0 && !placesMinimum ? context.l10n.barNeedAmount : null,
-                    // The round Sal button: THIS investment to a friend
-                    // (screens/share/slip_share.dart); the market's card
-                    // alone while the open gate refuses this person.
-                    share: slipShareButton(
-                        context,
-                        () => _slipSharePick(
-                            minUsd: minAmountUsd,
-                            blocked: _openGateMessage != null ||
-                                ledgerRegionBlocked)),
                   ),
                   child: SizedBox(height: kuteBarScrollClearance.h),
                 ),
@@ -7145,7 +7174,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
 
   Widget _headerRow(BuildContext context, AppColorsExtension c) {
     final pad = SlipDensity.tight(context) ? 9.h : 14.h;
-    return Padding(
+    final row = Padding(
       padding: EdgeInsets.fromLTRB(20.w, pad, 20.w, pad),
       child: Row(
         children: [
@@ -7179,6 +7208,20 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           const KuteCloseButton(),
         ],
       ),
+    );
+    // Send mode says it at the top (send_pick_session.dart).
+    final send = widget.sendPick;
+    if (send == null) return row;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: EdgeInsets.fromLTRB(20.w, pad, 20.w, 0),
+          child: SendPickChip(session: send),
+        ),
+        row,
+      ],
     );
   }
 

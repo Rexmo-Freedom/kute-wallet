@@ -4,8 +4,11 @@
 // the refusal goes and the button is the order, ready to place; still
 // restricted, the refusal stays with a soft failure tap.
 //
-// THE ROUND SAL BUTTON beside it (slip_share.dart): allowed, it sends THIS
-// investment (Long, the amount); refused here, the market's card only.
+// NO SHARE BUTTON ON THE TICKET (founder, 7 November 2026: "just keep it
+// on the send"). In SEND MODE (opened from Send; slip_share.dart,
+// send_pick_session.dart) the ticket's one primary is the send: "Send $25
+// · Long Bitcoin" sends THIS investment (Long, the amount), never an
+// order; refused here, "Send the market", the market's card only.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -25,6 +28,7 @@ import 'package:kute/screens/hyperliquid/components/order_slip_sheet.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:kute/screens/shared/capability_block_note.dart';
+import 'package:kute/screens/share/send_pick_session.dart';
 import 'package:kute/screens/share/slip_share.dart';
 import 'package:kute/services/continuous_haptics.dart';
 import 'package:kute/services/investment_provider_availability.dart';
@@ -118,7 +122,7 @@ const _market = HlMarket(
 );
 
 Future<void> _pumpSlip(WidgetTester tester, Future<HlAccountSnapshot> account,
-    _Policy policy, {double? initialUsd}) async {
+    _Policy policy, {double? initialUsd, SendPickSession? sendPick}) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -153,7 +157,10 @@ Future<void> _pumpSlip(WidgetTester tester, Future<HlAccountSnapshot> account,
         body: Align(
           alignment: Alignment.bottomCenter,
           child: HlOrderSlipSheet(
-              market: _market, initialIsLong: true, initialUsd: initialUsd),
+              market: _market,
+              initialIsLong: true,
+              initialUsd: initialUsd,
+              sendPick: sendPick),
         ),
       ),
     ),
@@ -257,7 +264,19 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  group('the round Sal button', () {
+  final share = find.byKey(const ValueKey('kute-bar-share'));
+
+  testWidgets('the ordinary ticket has no share button', (tester) async {
+    policy.blocked = false;
+    await _pumpSlip(tester, Future.value(_snapshot(500)), policy,
+        initialUsd: 25);
+    expect(share, findsNothing);
+    expect(find.byKey(const ValueKey('send-pick-chip')), findsNothing);
+    expect(barPrimaryLabel(tester), isNot(startsWith('Send ')));
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  group('send mode', () {
     late List<(SlipSendRoute, SlipSharePick)> sends;
     setUp(() {
       sends = [];
@@ -269,15 +288,20 @@ void main() {
       SlipShare.debugOpen = true;
     });
 
-    final share = find.byKey(const ValueKey('kute-bar-share'));
+    SendPickSession session() =>
+        SendPickSession(entrySource: 'dollar_send', recipientName: 'Ana');
 
-    testWidgets('allowed: it sends THIS investment, Long and the amount',
-        (tester) async {
+    testWidgets(
+        'the primary is the send: it sends THIS investment, Long and the '
+        'amount; the chip says who it is for', (tester) async {
       policy.blocked = false;
       await _pumpSlip(tester, Future.value(_snapshot(500)), policy,
-          initialUsd: 25);
-      expect(share, findsOneWidget);
-      await tester.tap(share);
+          initialUsd: 25, sendPick: session());
+      expect(barPrimaryLabel(tester), r'Send $25 · Long Bitcoin');
+      expect(barPrimaryEnabled(tester), isTrue);
+      expect(share, findsNothing);
+      expect(find.text('For Ana'), findsOneWidget);
+      await tapBarPrimary(tester, settle: false);
       await _frames(tester, 2);
       final (route, pick) = sends.single;
       expect(route, SlipSendRoute.pick);
@@ -287,15 +311,27 @@ void main() {
       expect(pick.side, 'long');
       expect(pick.amountUsd, 25);
       expect(pick.blocked, isFalse);
+      expect(pick.entrySource, kSendModeSlipSource);
       await tester.pumpWidget(const SizedBox.shrink());
     });
 
-    testWidgets('refused here: the market\'s card only', (tester) async {
+    testWidgets('nothing typed: disabled, it says to enter an amount',
+        (tester) async {
+      policy.blocked = false;
       await _pumpSlip(tester, Future.value(_snapshot(500)), policy,
-          initialUsd: 25);
-      expect(barPrimaryLabel(tester), 'Check connection');
-      expect(share, findsOneWidget);
-      await tester.tap(share);
+          sendPick: session());
+      expect(barPrimaryEnabled(tester), isFalse);
+      expect(barPrimaryContext(tester).disabledLabel,
+          'Enter an amount to send');
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    testWidgets('refused here: "Send the market", the market\'s card only',
+        (tester) async {
+      await _pumpSlip(tester, Future.value(_snapshot(500)), policy,
+          initialUsd: 25, sendPick: session());
+      expect(barPrimaryLabel(tester), 'Send the market');
+      await tapBarPrimary(tester, settle: false);
       await _frames(tester, 2);
       expect(sends.single.$1, SlipSendRoute.market);
       expect(sends.single.$2.investing, isTrue);

@@ -3952,5 +3952,9 @@
   "slipShareEnterAmount": "Įveskite siunčiamą sumą",
   "slipShareMinimum": "Norėdami siųsti, įveskite bent {amount}",
   "slipShareYesOnly": "Galima siųsti tik „Taip“: {outcome}. Pasirinkite „Taip“, kad išsiųstumėte.",
-  "sendPickMarketHow": "Raskite rinką, pasirinkite pusę ir sumą, tada palieskite Sal, kad išsiųstumėte"
+  "sendPickMarketHow": "Raskite rinką, pasirinkite pusę ir sumą, tada palieskite Sal, kad išsiųstumėte",
+  "slipSendCta": "Siųsti {amount} · {side}",
+  "slipSendYesOnly": "Galima siųsti tik „Taip“: {outcome}",
+  "sendPickChipFriend": "Siunčiama draugui",
+  "sendPickSearchHint": "Ieškoti rinkos siuntimui"
 }

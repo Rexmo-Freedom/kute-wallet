@@ -4,12 +4,14 @@
 // its composer), a typed query lists an Investing market, its row opens
 // the market page OVER the sheet, Invest opens the order slip over that,
 // and the slip's one action is the bar: visible, enabled once an amount
-// is typed, taking the tap, with the round share button beside it. The
-// sheet stays under all of it and gets its pill back when they close
-// (kute_bar_context.dart, THE SEARCH SHEET ONLY HOLDS THE BAR WHILE IT IS
-// ON TOP). The same slips opened straight from a market page, and from
-// the Dollars Send's "Send an investment or prediction" pick sheet, keep
-// their button too.
+// is typed, taking the tap, with NO share button beside it (founder, 7
+// November 2026: "just keep it on the send"). The sheet stays under all
+// of it and gets its pill back when they close (kute_bar_context.dart,
+// THE SEARCH SHEET ONLY HOLDS THE BAR WHILE IT IS ON TOP). The same slips
+// opened straight from a market page keep their button too; from the
+// Dollars Send's "Send an investment or prediction" (the search sheet in
+// send mode) the page and its slip run in send mode, the slip's primary
+// the send ("Send $10 · …").
 
 import 'dart:async';
 import 'dart:io';
@@ -352,9 +354,9 @@ Future<void> _search(WidgetTester tester, String query, Finder row) async {
 }
 
 /// The Investing market page is up (from wherever): its trade row, then
-/// Invest's order slip, whose primary takes an amount and the tap,
-/// beside the round share button; back down to the page.
-Future<void> _investingSlip(WidgetTester tester) async {
+/// Invest's order slip, whose primary takes an amount and the tap (the
+/// send itself in send mode, [send]); back down to the page.
+Future<void> _investingSlip(WidgetTester tester, {bool send = false}) async {
   expect(find.byType(HlMarketDetailSheet), findsOneWidget);
   // The page has its own bar: Invest | Short and Sal.
   expect(_morphed, findsNothing);
@@ -366,7 +368,7 @@ Future<void> _investingSlip(WidgetTester tester) async {
   await tester.tap(invest);
   await _frames(tester, 15);
   expect(find.byType(HlOrderSlipSheet), findsOneWidget);
-  await _expectSlipPrimary(tester, ['1', '2'], '12');
+  await _expectSlipPrimary(tester, ['1', '2'], '12', send: send);
 
   _nav().pop();
   await _frames(tester);
@@ -374,9 +376,9 @@ Future<void> _investingSlip(WidgetTester tester) async {
 }
 
 /// The prediction's page is up: Yes | No, then Yes's bet slip, whose
-/// primary takes an amount and the tap, beside the round share button;
+/// primary takes an amount and the tap (no share button beside it);
 /// back down to the page.
-Future<void> _predictionSlip(WidgetTester tester) async {
+Future<void> _predictionSlip(WidgetTester tester, {bool send = false}) async {
   expect(find.byType(MarketDetailSheet), findsOneWidget);
   expect(_morphed, findsNothing);
   expect(_barUp(tester), isTrue);
@@ -387,22 +389,25 @@ Future<void> _predictionSlip(WidgetTester tester) async {
   await tester.tap(yes);
   await _frames(tester, 15);
   expect(find.byType(BetSlipSheet), findsOneWidget);
-  await _expectSlipPrimary(tester, ['1', '0'], '10');
+  await _expectSlipPrimary(tester, ['1', '0'], '10', send: send);
 
   _nav().pop();
   await _frames(tester);
   expect(yes, findsOneWidget);
 }
 
-/// The slip's one action is the bar: up, the round share button beside
-/// it, and once [keys] are typed on the slip's keypad, enabled with the
-/// amount and taking the tap.
+/// The slip's one action is the bar: up, no share button beside it, and
+/// once [keys] are typed on the slip's keypad, enabled with the amount and
+/// taking the tap. In send mode ([send]) the action is the send ("Send
+/// $10 · …") and the chip says so.
 Future<void> _expectSlipPrimary(
-    WidgetTester tester, List<String> keys, String amount) async {
+    WidgetTester tester, List<String> keys, String amount,
+    {bool send = false}) async {
   expect(_barUp(tester), isTrue);
   expect(_primary, findsOneWidget);
-  expect(_share, findsOneWidget);
-  expect(_tapLands(tester, _share), isTrue);
+  expect(_share, findsNothing);
+  expect(find.byKey(const ValueKey('send-pick-chip')),
+      send ? findsWidgets : findsNothing);
   final pad = find.byType(AmountKeypad);
   for (final k in keys) {
     await tester.tap(find.descendant(of: pad, matching: find.text(k)));
@@ -414,6 +419,7 @@ Future<void> _expectSlipPrimary(
       .barContext;
   expect(ctx.actionable, isTrue, reason: ctx.primaryLabel);
   expect(ctx.primaryLabel, contains(amount));
+  if (send) expect(ctx.primaryLabel, startsWith('Send \$$amount · '));
   expect(_tapLands(tester, _primary), isTrue);
 }
 
@@ -468,7 +474,7 @@ void main() {
   testWidgets(
       'Investing from search: the market page has its trade row, Invest '
       'opens the order slip and its primary is there, enabled with an '
-      'amount and taking the tap, beside the round share button',
+      'amount and taking the tap, no share button beside it',
       (tester) async {
     await _withPolicy(() async {
       await _pump(tester);
@@ -486,7 +492,7 @@ void main() {
   testWidgets(
       'a prediction from search: the market page has Yes | No, Yes opens '
       'the bet slip and its primary is there, enabled with an amount and '
-      'taking the tap, beside the round share button', (tester) async {
+      'taking the tap, no share button beside it', (tester) async {
     await _withPolicy(() async {
       await _pump(tester);
       await _search(tester, 'fed', find.byType(SearchPredictionRow));
@@ -521,30 +527,43 @@ void main() {
   });
 
   testWidgets(
-      'the Dollars Send\'s "Send an investment or prediction": a market '
-      'picked opens its page over the pick sheet, and its slip keeps its '
-      'primary and the round share button', (tester) async {
-    SendPickMarketSheet.debugFeeds =
-        (predictions: [_fed], investing: [hlEditBtc]);
-    addTearDown(() => SendPickMarketSheet.debugFeeds = null);
+      'the Dollars Send\'s "Send an investment or prediction": the search '
+      'sheet in send mode; a market picked opens its page over it in send '
+      'mode, and its slip\'s primary is the send', (tester) async {
     await _withPolicy(() async {
       await _pump(tester);
-      unawaited(showSendPickMarketSheet(_nav().context, entrySource: 'test'));
+      unawaited(showSendPickMarketSheet(_nav().context,
+          entrySource: 'test', senderLabel: 'Ana'));
       await _frames(tester, 8);
-      expect(find.byType(SendPickMarketSheet), findsOneWidget);
+      expect(find.byType(UnifiedSearchSurface), findsOneWidget);
+      expect(find.text('For Ana'), findsOneWidget);
+      await tester.enterText(find.byType(TextField), 'bitcoin');
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await _frames(tester, 6);
 
       await tester.tap(find.byType(SearchPredictionRow).first);
       await _frames(tester);
-      await _predictionSlip(tester);
+      expect(
+          tester
+              .widget<MarketDetailSheet>(find.byType(MarketDetailSheet))
+              .sendPick,
+          isNotNull);
+      await _predictionSlip(tester, send: true);
       _nav().pop();
       await _frames(tester);
 
       await tester.tap(find.byType(SearchInvestingRow).first);
       await _frames(tester);
-      await _investingSlip(tester);
+      expect(
+          tester
+              .widget<HlMarketDetailSheet>(find.byType(HlMarketDetailSheet))
+              .sendPick,
+          isNotNull);
+      await _investingSlip(tester, send: true);
       _nav().pop();
       await _frames(tester);
-      expect(find.byType(SendPickMarketSheet), findsOneWidget);
+      expect(find.byType(UnifiedSearchSurface), findsOneWidget);
       await _end(tester);
     });
   });

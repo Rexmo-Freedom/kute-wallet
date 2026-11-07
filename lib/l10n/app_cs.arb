@@ -3952,5 +3952,9 @@
   "slipShareEnterAmount": "Zadej částku k odeslání",
   "slipShareMinimum": "Pro odeslání zadej aspoň {amount}",
   "slipShareYesOnly": "Poslat jde jen „Ano“ na {outcome}. Přepni na „Ano“ a pošli to.",
-  "sendPickMarketHow": "Najdi trh, vyber stranu a částku a pak klepni na Sal a pošli to"
+  "sendPickMarketHow": "Najdi trh, vyber stranu a částku a pak klepni na Sal a pošli to",
+  "slipSendCta": "Poslat {amount} · {side}",
+  "slipSendYesOnly": "Poslat jde jen „Ano“ na {outcome}",
+  "sendPickChipFriend": "Posíláš kamarádovi",
+  "sendPickSearchHint": "Najdi trh k poslání"
 }

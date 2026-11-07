@@ -3952,5 +3952,9 @@
   "slipShareEnterAmount": "送る金額を入力してください",
   "slipShareMinimum": "{amount}以上を入力してください",
   "slipShareYesOnly": "{outcome}は「はい」だけ送れます。「はい」に切り替えて送ってください。",
-  "sendPickMarketHow": "マーケットを探し、サイドと金額を選んでSalをタップすると送れます"
+  "sendPickMarketHow": "マーケットを探し、サイドと金額を選んでSalをタップすると送れます",
+  "slipSendCta": "{amount}を送る · {side}",
+  "slipSendYesOnly": "{outcome}は「はい」だけ送れます",
+  "sendPickChipFriend": "友だちに送る",
+  "sendPickSearchHint": "送るマーケットを検索"
 }

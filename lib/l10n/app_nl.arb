@@ -3952,5 +3952,9 @@
   "slipShareEnterAmount": "Vul een bedrag in om te versturen",
   "slipShareMinimum": "Vul minstens {amount} in om te versturen",
   "slipShareYesOnly": "Alleen Ja op {outcome} kan worden verstuurd. Kies Ja om het te versturen.",
-  "sendPickMarketHow": "Zoek een markt, kies een kant en bedrag en tik dan op Sal om te versturen"
+  "sendPickMarketHow": "Zoek een markt, kies een kant en bedrag en tik dan op Sal om te versturen",
+  "slipSendCta": "{amount} sturen · {side}",
+  "slipSendYesOnly": "Alleen Ja op {outcome} kan worden verstuurd",
+  "sendPickChipFriend": "Naar een vriend",
+  "sendPickSearchHint": "Zoek een markt om te sturen"
 }

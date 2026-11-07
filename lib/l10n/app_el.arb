@@ -3952,5 +3952,9 @@
   "slipShareEnterAmount": "Βάλε ποσό για αποστολή",
   "slipShareMinimum": "Βάλε τουλάχιστον {amount} για αποστολή",
   "slipShareYesOnly": "Μόνο το Ναι στο {outcome} μπορεί να σταλεί. Άλλαξε σε Ναι για να το στείλεις.",
-  "sendPickMarketHow": "Βρες μια αγορά, διάλεξε πλευρά και ποσό και πάτα τον Sal για αποστολή"
+  "sendPickMarketHow": "Βρες μια αγορά, διάλεξε πλευρά και ποσό και πάτα τον Sal για αποστολή",
+  "slipSendCta": "Αποστολή {amount} · {side}",
+  "slipSendYesOnly": "Μόνο το Ναι στο {outcome} μπορεί να σταλεί",
+  "sendPickChipFriend": "Αποστολή σε φίλο",
+  "sendPickSearchHint": "Αναζήτηση αγοράς για αποστολή"
 }

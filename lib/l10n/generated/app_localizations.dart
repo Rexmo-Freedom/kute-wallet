@@ -23577,6 +23577,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Find a market, pick a side and amount, then tap Sal to send it'**
   String get sendPickMarketHow;
+
+  /// A slip's primary in send mode (opened from Send: Dollars Send's 'Send a prediction or investment'): sends this pick to a friend, never places it. {amount} is the dollars sent ('$50'), {side} the side ('Yes', 'Gen.G', 'Short AMD'). Never 'bet'.
+  ///
+  /// In en, this message translates to:
+  /// **'Send {amount} · {side}'**
+  String slipSendCta(String amount, String side);
+
+  /// A slip's disabled primary in send mode on No for one candidate: a link can only carry Yes on a candidate. {outcome} is the candidate.
+  ///
+  /// In en, this message translates to:
+  /// **'Only Yes on {outcome} can be sent'**
+  String slipSendYesOnly(String outcome);
+
+  /// The small chip at the top of the send-mode search sheet, market page and slip when no contact was picked yet: the pick goes to a friend.
+  ///
+  /// In en, this message translates to:
+  /// **'Sending to a friend'**
+  String get sendPickChipFriend;
+
+  /// The search line's hint on the search sheet in send mode (Send's 'Send a prediction or investment').
+  ///
+  /// In en, this message translates to:
+  /// **'Search a market to send'**
+  String get sendPickSearchHint;
 }
 
 class _AppLocalizationsDelegate

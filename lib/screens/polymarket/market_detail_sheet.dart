@@ -20,6 +20,7 @@ import 'package:kute/providers/polymarket_sports_provider.dart'
 import 'package:kute/providers/polymarket_provider.dart'
     show kCryptoPredictAssets, CryptoAssetConfig;
 import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart';
+import 'package:kute/screens/share/send_pick_session.dart';
 import 'package:kute/screens/polymarket/components/market_chart.dart';
 import 'package:kute/screens/polymarket/components/poly_chart_history.dart';
 import 'package:kute/screens/polymarket/components/poly_market_stats.dart';
@@ -161,12 +162,20 @@ class MarketDetailSheet extends ConsumerStatefulWidget {
   /// slip so polymarket_bet_placed.entry_source keeps the original entry.
   final String source;
 
+  /// SEND MODE (screens/share/send_pick_session.dart): the page opened
+  /// from Send's market search. Its slips run in send mode (their primary
+  /// sends the pick, nothing is placed) and the page says so at the top;
+  /// its round Sal button still shares the market. Null: the ordinary
+  /// page.
+  final SendPickSession? sendPick;
+
   const MarketDetailSheet({
     super.key,
     required this.event,
     this.onDeposit,
     this.ledgerWalletId,
     this.source = 'unknown',
+    this.sendPick,
   });
 
   static const routeName = 'polymarket-market-detail-sheet';
@@ -177,6 +186,7 @@ class MarketDetailSheet extends ConsumerStatefulWidget {
     VoidCallback? onDeposit,
     String? ledgerWalletId,
     String source = 'unknown',
+    SendPickSession? sendPick,
   }) {
     trackViewed(event, source: source, ledgerWalletId: ledgerWalletId);
     // Drop the active focus before we push the detail route. The
@@ -194,8 +204,10 @@ class MarketDetailSheet extends ConsumerStatefulWidget {
     // draws the five-minute round in play of the app's own assets and
     // nothing else, so every other Up/Down market (15 minutes, an hour,
     // four hours, a day, another asset) opens below as the market it is.
-    if (polyOpensRoundSheet(
-        event.slug, [for (final c in kCryptoPredictAssets) c.asset])) {
+    // In send mode every market opens as its page, whose slip sends.
+    if (sendPick == null &&
+        polyOpensRoundSheet(
+            event.slug, [for (final c in kCryptoPredictAssets) c.asset])) {
       FiveMinMarketDetailSheet.show(
         context,
         event: event,
@@ -220,6 +232,7 @@ class MarketDetailSheet extends ConsumerStatefulWidget {
             onDeposit: onDeposit,
             ledgerWalletId: ledgerWalletId,
             source: source,
+            sendPick: ledgerWalletId == null ? sendPick : null,
           ),
         ),
       ),
@@ -585,6 +598,15 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
             mainAxisSize: MainAxisSize.max,
             children: [
               _buildHeader(c, bar),
+              // Send mode says it at the top (send_pick_session.dart).
+              if (widget.sendPick case final send?)
+                Padding(
+                  padding: EdgeInsets.fromLTRB(16.w, 2.h, 16.w, 6.h),
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: SendPickChip(session: send),
+                  ),
+                ),
               Expanded(
                 // Slivers, so a long outcome list ("More markets" of a game
                 // with 300 markets) builds only the rows in view.
@@ -1411,6 +1433,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       sideLabelNeg: neg,
       outcomeColors: colors.any((c) => c != null) ? colors : null,
       source: widget.source,
+      sendPick: widget.sendPick,
     );
   }
 
@@ -1461,6 +1484,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       marketEndAt: event.endDate,
       outcomeColors: colors.any((c) => c != null) ? colors : null,
       source: widget.source,
+      sendPick: widget.sendPick,
     );
   }
 
@@ -2585,6 +2609,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       onDeposit: widget.onDeposit,
       ledgerWalletId: widget.ledgerWalletId,
       source: widget.source,
+      sendPick: widget.sendPick,
     );
   }
 
@@ -2657,6 +2682,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       sideLabelNeg: labels.neg,
       outcomeColors: outcomeColors,
       source: widget.source,
+      sendPick: widget.sendPick,
     );
   }
 }

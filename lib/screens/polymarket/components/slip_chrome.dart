@@ -74,6 +74,7 @@ class PolySlipHeader extends StatelessWidget {
     this.trailing,
     this.leading,
     this.maxLines = 5,
+    this.chip,
   });
 
   final String marketQuestion;
@@ -87,6 +88,10 @@ class PolySlipHeader extends StatelessWidget {
   /// How many lines the title may take before it ellipsizes.
   final int maxLines;
 
+  /// A small chip over the title (send mode's "For Ana",
+  /// screens/share/send_pick_session.dart); null: none.
+  final Widget? chip;
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
@@ -96,7 +101,7 @@ class PolySlipHeader extends StatelessWidget {
     final tight = SlipDensity.tight(context);
     final maxLines = tight ? math.min(this.maxLines, 2) : this.maxLines;
     final pad = tight ? 9.h : 14.h;
-    return Padding(
+    final row = Padding(
       padding: EdgeInsets.fromLTRB(20.w, pad, 12.w, pad),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -145,6 +150,19 @@ class PolySlipHeader extends StatelessWidget {
           const KuteCloseButton(),
         ],
       ),
+    );
+    final top = chip;
+    if (top == null) return row;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: EdgeInsets.fromLTRB(20.w, pad, 20.w, 0),
+          child: top,
+        ),
+        row,
+      ],
     );
   }
 }
@@ -303,25 +321,6 @@ class PolySlipFigureRow extends StatelessWidget {
   }
 }
 
-/// The round Sal button a slip puts beside its primary (founder, 5
-/// November 2026: the share belongs on the slip, "it carries all the
-/// information, even the amount"; screens/share/slip_share.dart): every
-/// [PolySlipCta] under it carries [share] into the bar, whatever the
-/// button is at the moment (the bet, the deposit door, Check connection).
-class PolySlipShareScope extends InheritedWidget {
-  const PolySlipShareScope(
-      {super.key, required this.share, required super.child});
-
-  final KuteBarShare? share;
-
-  static KuteBarShare? maybeOf(BuildContext context) => context
-      .dependOnInheritedWidgetOfExactType<PolySlipShareScope>()
-      ?.share;
-
-  @override
-  bool updateShouldNotify(PolySlipShareScope old) => old.share != share;
-}
-
 /// The ticket's single primary action.
 ///
 /// On a side-tinted sheet the CTA inverts: the sheet's ink becomes the
@@ -427,8 +426,6 @@ class PolySlipCta extends StatelessWidget {
         category: SearchCategory.predictions,
         source: 'slip',
         disabledLabel: disabledLabel,
-        // The slip's round Sal button, where the slip has one.
-        share: PolySlipShareScope.maybeOf(context),
       ),
       child: SizedBox(
           key: const ValueKey('poly-slip-cta-room'),

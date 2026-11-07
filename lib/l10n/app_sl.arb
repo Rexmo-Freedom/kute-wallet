@@ -3952,5 +3952,9 @@
   "slipShareEnterAmount": "Vnesite znesek za pošiljanje",
   "slipShareMinimum": "Za pošiljanje vnesite vsaj {amount}",
   "slipShareYesOnly": "Poslati je mogoče le Da na {outcome}. Preklopite na Da, da pošljete.",
-  "sendPickMarketHow": "Poiščite trg, izberite stran in znesek, nato tapnite Sal za pošiljanje"
+  "sendPickMarketHow": "Poiščite trg, izberite stran in znesek, nato tapnite Sal za pošiljanje",
+  "slipSendCta": "Pošlji {amount} · {side}",
+  "slipSendYesOnly": "Poslati je mogoče le Da na {outcome}",
+  "sendPickChipFriend": "Pošiljaš prijatelju",
+  "sendPickSearchHint": "Poišči trg za pošiljanje"
 }

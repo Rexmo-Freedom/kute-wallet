@@ -14065,4 +14065,20 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get sendPickMarketHow =>
       'Busca un mercado, elige el lado y el importe, y toca Sal para enviarlo';
+
+  @override
+  String slipSendCta(String amount, String side) {
+    return 'Enviar $amount · $side';
+  }
+
+  @override
+  String slipSendYesOnly(String outcome) {
+    return 'Solo se puede enviar Sí en $outcome';
+  }
+
+  @override
+  String get sendPickChipFriend => 'Para enviar a un amigo';
+
+  @override
+  String get sendPickSearchHint => 'Busca un mercado para enviar';
 }

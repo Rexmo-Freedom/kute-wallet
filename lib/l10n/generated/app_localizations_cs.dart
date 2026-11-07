@@ -13977,4 +13977,20 @@ class AppLocalizationsCs extends AppLocalizations {
   @override
   String get sendPickMarketHow =>
       'Najdi trh, vyber stranu a částku a pak klepni na Sal a pošli to';
+
+  @override
+  String slipSendCta(String amount, String side) {
+    return 'Poslat $amount · $side';
+  }
+
+  @override
+  String slipSendYesOnly(String outcome) {
+    return 'Poslat jde jen „Ano“ na $outcome';
+  }
+
+  @override
+  String get sendPickChipFriend => 'Posíláš kamarádovi';
+
+  @override
+  String get sendPickSearchHint => 'Najdi trh k poslání';
 }

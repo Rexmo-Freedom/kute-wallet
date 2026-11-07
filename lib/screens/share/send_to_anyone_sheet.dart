@@ -32,15 +32,16 @@
 //      Claim it here: {url}". Sharing always shows the card first; Done
 //      is a text button.
 //
-// A PREDICTION (or an investment) IS SENT FROM ITS SLIP (founder, 5
-// November 2026: "the share button should be on this bet slip page
-// actually, it carries all the information, even the amount";
-// slip_share.dart). The slip's round Sal button hands the sheet THE PICK
-// and the amount: the market slug and title, the venue, the outcome
-// ("Yes", a candidate, "Long"), its index and the side, the dollars. The
-// sheet then opens on its last step at once, made unmistakable ("here,
-// sending the prediction must actually be better, more clear we are
-// sending the prediction"):
+// A PREDICTION (or an investment) IS SENT FROM SEND, THROUGH ITS SLIP
+// IN SEND MODE (founder, 7 November 2026: "only in Send should it be to
+// send to someone"; slip_share.dart, send_pick_session.dart). The slip's
+// primary ("Send $50 · Short AMD") hands the sheet THE PICK and the
+// amount: the market slug and title, the venue, the outcome ("Yes", a
+// candidate, "Long"), its index and the side, the dollars, and the
+// contact picked on Send, if any, as the name. The sheet then opens on
+// its last step at once, made unmistakable ("here, sending the
+// prediction must actually be better, more clear we are sending the
+// prediction"):
 //
 //   * the title "Send this prediction" ("Send this investment"), with
 //     what happens under it: they claim it, then place it with one tap

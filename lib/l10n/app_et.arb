@@ -3952,5 +3952,9 @@
   "slipShareEnterAmount": "Sisesta saadetav summa",
   "slipShareMinimum": "Saatmiseks sisesta vähemalt {amount}",
   "slipShareYesOnly": "Saata saab ainult valikut Jah: {outcome}. Saatmiseks vali Jah.",
-  "sendPickMarketHow": "Leia turg, vali pool ja summa ning puuduta saatmiseks Sali"
+  "sendPickMarketHow": "Leia turg, vali pool ja summa ning puuduta saatmiseks Sali",
+  "slipSendCta": "Saada {amount} · {side}",
+  "slipSendYesOnly": "Saata saab ainult valikut Jah: {outcome}",
+  "sendPickChipFriend": "Saadad sõbrale",
+  "sendPickSearchHint": "Otsi turgu, mida saata"
 }

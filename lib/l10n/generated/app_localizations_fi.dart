@@ -14012,4 +14012,20 @@ class AppLocalizationsFi extends AppLocalizations {
   @override
   String get sendPickMarketHow =>
       'Etsi markkina, valitse puoli ja summa ja napauta sitten Salia lähettääksesi';
+
+  @override
+  String slipSendCta(String amount, String side) {
+    return 'Lähetä $amount · $side';
+  }
+
+  @override
+  String slipSendYesOnly(String outcome) {
+    return 'Vain Kyllä kohteeseen $outcome voidaan lähettää';
+  }
+
+  @override
+  String get sendPickChipFriend => 'Lähetetään ystävälle';
+
+  @override
+  String get sendPickSearchHint => 'Hae lähetettävä markkina';
 }

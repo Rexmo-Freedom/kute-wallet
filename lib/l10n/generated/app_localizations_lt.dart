@@ -14042,4 +14042,20 @@ class AppLocalizationsLt extends AppLocalizations {
   @override
   String get sendPickMarketHow =>
       'Raskite rinką, pasirinkite pusę ir sumą, tada palieskite Sal, kad išsiųstumėte';
+
+  @override
+  String slipSendCta(String amount, String side) {
+    return 'Siųsti $amount · $side';
+  }
+
+  @override
+  String slipSendYesOnly(String outcome) {
+    return 'Galima siųsti tik „Taip“: $outcome';
+  }
+
+  @override
+  String get sendPickChipFriend => 'Siunčiama draugui';
+
+  @override
+  String get sendPickSearchHint => 'Ieškoti rinkos siuntimui';
 }

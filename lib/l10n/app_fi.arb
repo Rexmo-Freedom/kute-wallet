@@ -3952,5 +3952,9 @@
   "slipShareEnterAmount": "Syötä lähetettävä summa",
   "slipShareMinimum": "Syötä vähintään {amount} lähettääksesi",
   "slipShareYesOnly": "Vain Kyllä kohteeseen {outcome} voidaan lähettää. Vaihda Kyllä lähettääksesi.",
-  "sendPickMarketHow": "Etsi markkina, valitse puoli ja summa ja napauta sitten Salia lähettääksesi"
+  "sendPickMarketHow": "Etsi markkina, valitse puoli ja summa ja napauta sitten Salia lähettääksesi",
+  "slipSendCta": "Lähetä {amount} · {side}",
+  "slipSendYesOnly": "Vain Kyllä kohteeseen {outcome} voidaan lähettää",
+  "sendPickChipFriend": "Lähetetään ystävälle",
+  "sendPickSearchHint": "Hae lähetettävä markkina"
 }

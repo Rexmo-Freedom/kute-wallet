@@ -14015,4 +14015,20 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get sendPickMarketHow =>
       'Keress egy piacot, válassz oldalt és összeget, majd koppints Salra a küldéshez';
+
+  @override
+  String slipSendCta(String amount, String side) {
+    return '$amount küldése · $side';
+  }
+
+  @override
+  String slipSendYesOnly(String outcome) {
+    return 'Csak az Igen küldhető erre: $outcome';
+  }
+
+  @override
+  String get sendPickChipFriend => 'Küldés egy barátnak';
+
+  @override
+  String get sendPickSearchHint => 'Keress egy piacot a küldéshez';
 }

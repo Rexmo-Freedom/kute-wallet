@@ -14011,4 +14011,20 @@ class AppLocalizationsHr extends AppLocalizations {
   @override
   String get sendPickMarketHow =>
       'Pronađi tržište, odaberi stranu i iznos, pa dodirni Sala za slanje';
+
+  @override
+  String slipSendCta(String amount, String side) {
+    return 'Pošalji $amount · $side';
+  }
+
+  @override
+  String slipSendYesOnly(String outcome) {
+    return 'Može se poslati samo Da na $outcome';
+  }
+
+  @override
+  String get sendPickChipFriend => 'Šalješ prijatelju';
+
+  @override
+  String get sendPickSearchHint => 'Pretraži tržište za slanje';
 }

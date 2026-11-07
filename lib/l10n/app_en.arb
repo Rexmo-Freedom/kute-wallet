@@ -11980,5 +11980,34 @@
   "sendPickMarketHow": "Find a market, pick a side and amount, then tap Sal to send it",
   "@sendPickMarketHow": {
     "description": "Subtitle of Send's market search for sending a prediction: open a market, pick the side and amount on its slip, then tap the round Sal button."
+  },
+  "slipSendCta": "Send {amount} · {side}",
+  "@slipSendCta": {
+    "description": "A slip's primary in send mode (opened from Send: Dollars Send's 'Send a prediction or investment'): sends this pick to a friend, never places it. {amount} is the dollars sent ('$50'), {side} the side ('Yes', 'Gen.G', 'Short AMD'). Never 'bet'.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "slipSendYesOnly": "Only Yes on {outcome} can be sent",
+  "@slipSendYesOnly": {
+    "description": "A slip's disabled primary in send mode on No for one candidate: a link can only carry Yes on a candidate. {outcome} is the candidate.",
+    "placeholders": {
+      "outcome": {
+        "type": "String"
+      }
+    }
+  },
+  "sendPickChipFriend": "Sending to a friend",
+  "@sendPickChipFriend": {
+    "description": "The small chip at the top of the send-mode search sheet, market page and slip when no contact was picked yet: the pick goes to a friend."
+  },
+  "sendPickSearchHint": "Search a market to send",
+  "@sendPickSearchHint": {
+    "description": "The search line's hint on the search sheet in send mode (Send's 'Send a prediction or investment')."
   }
 }

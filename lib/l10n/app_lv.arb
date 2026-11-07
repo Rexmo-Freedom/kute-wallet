@@ -3952,5 +3952,9 @@
   "slipShareEnterAmount": "Ievadi sūtāmo summu",
   "slipShareMinimum": "Lai nosūtītu, ievadi vismaz {amount}",
   "slipShareYesOnly": "Var nosūtīt tikai “Jā”: {outcome}. Pārslēdz uz “Jā”, lai nosūtītu.",
-  "sendPickMarketHow": "Atrodi tirgu, izvēlies pusi un summu, tad pieskaries Sal, lai nosūtītu"
+  "sendPickMarketHow": "Atrodi tirgu, izvēlies pusi un summu, tad pieskaries Sal, lai nosūtītu",
+  "slipSendCta": "Sūtīt {amount} · {side}",
+  "slipSendYesOnly": "Var nosūtīt tikai “Jā”: {outcome}",
+  "sendPickChipFriend": "Sūtīšana draugam",
+  "sendPickSearchHint": "Meklē tirgu, ko sūtīt"
 }

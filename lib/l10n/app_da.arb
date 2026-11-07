@@ -3952,5 +3952,9 @@
   "slipShareEnterAmount": "Indtast et beløb at sende",
   "slipShareMinimum": "Indtast mindst {amount} for at sende",
   "slipShareYesOnly": "Kun Ja på {outcome} kan sendes. Skift til Ja for at sende den.",
-  "sendPickMarketHow": "Find et marked, vælg side og beløb, og tryk så på Sal for at sende"
+  "sendPickMarketHow": "Find et marked, vælg side og beløb, og tryk så på Sal for at sende",
+  "slipSendCta": "Send {amount} · {side}",
+  "slipSendYesOnly": "Kun Ja på {outcome} kan sendes",
+  "sendPickChipFriend": "Sendes til en ven",
+  "sendPickSearchHint": "Søg et marked at sende"
 }

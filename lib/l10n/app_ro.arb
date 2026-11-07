@@ -3952,5 +3952,9 @@
   "slipShareEnterAmount": "Introdu o sumă de trimis",
   "slipShareMinimum": "Introdu cel puțin {amount} ca să trimiți",
   "slipShareYesOnly": "Se poate trimite doar Da pe {outcome}. Treci pe Da ca să trimiți.",
-  "sendPickMarketHow": "Găsește o piață, alege partea și suma, apoi atinge Sal ca să trimiți"
+  "sendPickMarketHow": "Găsește o piață, alege partea și suma, apoi atinge Sal ca să trimiți",
+  "slipSendCta": "Trimite {amount} · {side}",
+  "slipSendYesOnly": "Se poate trimite doar Da pe {outcome}",
+  "sendPickChipFriend": "Trimiți unui prieten",
+  "sendPickSearchHint": "Caută o piață de trimis"
 }

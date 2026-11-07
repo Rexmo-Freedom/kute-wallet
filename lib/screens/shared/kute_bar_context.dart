@@ -90,9 +90,10 @@
 // sheet itself, push a [hidden] context: the bar slides away.
 //
 // Share links: the market goes through the market send sheet
-// (screens/share/share_market_sheet.dart), a prediction through its slip's
-// round Sal button and Send to anyone (screens/share/slip_share.dart); see
-// kute_share_actions.dart for the link they carry.
+// (screens/share/share_market_sheet.dart), a prediction only through Send:
+// a slip in send mode, whose primary is the send, and Send to anyone
+// (screens/share/slip_share.dart); see kute_share_actions.dart for the
+// link they carry.
 //
 // The page's scroll reaches the bar through [kuteBarScroll]: the
 // NotificationListener around the router (app_widget.dart) reports every
@@ -194,8 +195,8 @@ class KuteBarTrade {
 
 /// The round Sal button at the end of a page's bar row (see the file
 /// header). A tap runs, in this order: [brag] (an open position in
-/// profit: its brag preview), [send] (a slip: THIS prediction or
-/// investment to a friend, screens/share/slip_share.dart), [open] (a
+/// profit: its brag preview), [send] (a plain callback; the slips no
+/// longer carry the button, screens/share/slip_share.dart), [open] (a
 /// receipt's card preview, screens/share/receipt_share.dart; founder, 5
 /// November 2026: "All these transactions, next to View on the
 /// blockchain, should have the share and a special share card"), else

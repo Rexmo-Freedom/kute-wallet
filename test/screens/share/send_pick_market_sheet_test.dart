@@ -1,27 +1,39 @@
-// Send a prediction or an investment from the dollar send (send_pick
-// _market_sheet.dart; founder, 4 November 2026: "search the prediction
-// you want and open it, use the stuff and design we already have"): the
-// search sheet's line and rows, Trending predictions and Moving now while
-// nothing is typed, the venues' own searches under Predictions and
-// Investing once something is, Sal's sad face when nothing matches. A
-// market tapped opens ITS PAGE (founder, 5 November 2026: the slip is the
-// one place a prediction is composed; it sends with its round Sal
-// button): the side is picked there, nothing chosen for the person, and
-// the header says how it sends. A venue closed to this person is left
-// out (the slip there could only send the market's card).
+// Send a prediction or an investment from Send (send_pick_market_sheet.dart;
+// founder, 7 November 2026: "this is still not the search one just adapted
+// to sending, should be basically the same"). It IS the search sheet
+// (unified_search_screen.dart) in send mode: one small chip at the top in
+// place of a title ("For Maria", "Sending to a friend"), the composer with
+// Sal reading "Search a market to send", no Connect your own AI card, the
+// same Moving now grid and Trending predictions with their gauges, the
+// same results (markets only, never Transactions). A market tapped opens
+// ITS PAGE in send mode (its slip's primary sends the pick; slip_share
+// .dart, its own tests): the side is picked there, nothing chosen for the
+// person. A venue closed to this person is left out (its slip could only
+// send the market's card).
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/l10n/generated/app_localizations_en.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/polymarket_model.dart';
+import 'package:kute/providers/advisor_provider.dart';
+import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/hyperliquid_search_provider.dart';
-import 'package:kute/providers/polymarket_browse_provider.dart'
-    show polymarketSearchProvider;
+import 'package:kute/providers/hyperliquid_sparkline_provider.dart';
+import 'package:kute/providers/polymarket_browse_provider.dart';
+import 'package:kute/providers/polymarket_sports_provider.dart';
+import 'package:kute/providers/unified_search_provider.dart';
 import 'package:kute/screens/search/components/search_composer.dart';
 import 'package:kute/screens/search/components/search_rows.dart';
+import 'package:kute/screens/search/unified_search_screen.dart';
 import 'package:kute/screens/share/send_pick_market_sheet.dart';
+import 'package:kute/screens/share/send_pick_session.dart';
+import 'package:kute/screens/shared/open_once.dart';
+import 'package:kute/services/advisor/advisor_input_guard.dart';
+import 'package:kute/services/hyperliquid/hl_sparkline_cache.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
+import 'package:kute/services/search_recent_store.dart';
 
 import '../../helpers/runtime_policy_fixture.dart';
 import 'share_test_harness.dart';
@@ -71,41 +83,71 @@ const _market = HlMarket(
   dayNtlVlm: 1e9,
 );
 
-/// The venues' searches: "lula" finds the Lula market, "tsla" a stock,
-/// anything else nothing.
-final _searches = [
-  polymarketSearchProvider.overrideWith((ref, q) async =>
-      q.toLowerCase().contains('lula') ? const [_lula] : const []),
-  hyperliquidMarketSearchProvider.overrideWith((ref, q) async =>
-      q.toLowerCase().contains('tsla')
-          ? const [
-              HlMarketSearchResult(
-                coin: 'TSLA',
-                wireCoin: 'xyz:TSLA',
-                kind: HlMarketKind.perp,
-                isStock: true,
-                name: 'Tesla',
-                category: 'stocks',
-                iconUrl: null,
-                markPx: 250,
-                dayChangePct: 0.01,
-              ),
-            ]
-          : const <HlMarketSearchResult>[]),
+const _tesla = HlMarketSearchResult(
+  coin: 'TSLA',
+  wireCoin: 'xyz:TSLA',
+  kind: HlMarketKind.perp,
+  isStock: true,
+  name: 'Tesla',
+  category: 'stocks',
+  iconUrl: null,
+  markPx: 250,
+  dayChangePct: 0.01,
+);
+
+class _Sports extends SportsLiveNotifier {
+  @override
+  Map<String, SportsMatchUpdate> build() => {};
+  @override
+  void connect() {}
+}
+
+class _Feed extends PolyFeedNotifier {
+  @override
+  PolyFeedState build(PolyFeedQuery arg) =>
+      const PolyFeedState(events: [_event], done: true);
+}
+
+/// The sheet's providers: the trending feed and the universe while nothing
+/// is typed; "lula" finds the Lula market, "tsla" a stock, anything else
+/// nothing.
+final _overrides = <Override>[
+  aiEnabledProvider.overrideWith((_) async => true),
+  sportsLiveProvider.overrideWith(_Sports.new),
+  unifiedSearchResultsProvider
+      .overrideWith((_) async => UnifiedSearchResults.empty),
+  globalMarketResultsProvider.overrideWith((ref) =>
+      ref.watch(searchQueryProvider).toLowerCase().contains('lula')
+          ? const AsyncValue.data([GlobalMarketSearchResult(_lula)])
+          : const AsyncValue.data(<GlobalMarketSearchResult>[])),
+  globalHyperliquidResultsProvider.overrideWith((ref) =>
+      ref.watch(searchQueryProvider).toLowerCase().contains('tsla')
+          ? const AsyncValue.data([_tesla])
+          : const AsyncValue.data(<HlMarketSearchResult>[])),
+  hyperliquidAllMarketsProvider.overrideWith((_) => []),
+  hyperliquidBrowseUniverseProvider
+      .overrideWith((_) => const AsyncValue.data([_market])),
+  hyperliquidSparklineStoreProvider.overrideWith(
+      (_) => HlSparklineStore(fetch: (_) async => const [1.0, 2.0, 3.0])),
+  polyBrowseFeedProvider.overrideWith(_Feed.new),
 ];
 
 class _Launcher extends StatelessWidget {
-  const _Launcher({this.senderLabel, this.recipientPhone});
+  const _Launcher({this.senderLabel, this.onResult});
   final String? senderLabel;
-  final String? recipientPhone;
+  final ValueChanged<bool?>? onResult;
 
   @override
   Widget build(BuildContext context) => Center(
         child: TextButton(
-          onPressed: () => showSendPickMarketSheet(context,
-              entrySource: 'dollar_send',
-              senderLabel: senderLabel,
-              recipientPhone: recipientPhone),
+          onPressed: () async {
+            final sent = await showSendPickMarketSheet(context,
+                entrySource: 'dollar_send',
+                senderLabel: senderLabel,
+                recipientPhone:
+                    senderLabel == null ? null : '+351 912 345 678');
+            onResult?.call(sent);
+          },
           child: const Text('Pick'),
         ),
       );
@@ -123,59 +165,79 @@ void main() {
     expect(await service.refresh(), isTrue);
   }
 
+  setUpAll(
+      () async => expect(await AdvisorInputGuard.isSafe('lula'), isTrue));
+
   setUp(() async {
     env = setUpShareTest();
     opened = [];
     await policy();
-    SendPickMarketSheet.debugFeeds =
-        (predictions: [_event], investing: [_market]);
-    SendPickMarketSheet.debugOpenMarket = opened.add;
+    SendPickSession.debugOpenMarket = opened.add;
+    SearchRecentStore.entries.value = const [];
+    // A sheet a test left open never closed its OpenOnce slot.
+    OpenOnce.reset();
   });
 
   tearDown(() {
     tearDownShareTest();
     RuntimeCapabilitiesService.debugInstance = null;
-    SendPickMarketSheet.debugFeeds = null;
-    SendPickMarketSheet.debugOpenMarket = null;
+    SendPickSession.debugOpenMarket = null;
+    SearchRecentStore.entries.value = const [];
   });
 
   Future<void> open(WidgetTester tester,
-      {String? senderLabel, String? recipientPhone}) async {
+      {String? senderLabel, ValueChanged<bool?>? onResult}) async {
     await pumpShareWidget(
-        tester,
-        env,
-        _Launcher(senderLabel: senderLabel, recipientPhone: recipientPhone),
-        overrides: _searches);
+        tester, env, _Launcher(senderLabel: senderLabel, onResult: onResult),
+        overrides: _overrides);
     await tester.tap(find.text('Pick'));
     await settle(tester);
-    expect(find.byType(SendPickMarketSheet), findsOneWidget);
+    await settle(tester);
+    expect(find.byType(UnifiedSearchSurface), findsOneWidget);
   }
 
   Future<void> search(WidgetTester tester, String text) async {
     await tester.enterText(
-        find.byKey(const ValueKey('send-pick-market-search')), text);
-    await settle(tester);
+        find.descendant(
+            of: find.byType(KuteSearchComposer),
+            matching: find.byType(TextField)),
+        text);
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    for (var i = 0; i < 12; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
   }
 
   testWidgets(
-      'the search sheet\'s line and rows: Trending predictions and Moving '
-      'now while nothing is typed; typing runs the venues\' searches under '
-      'Predictions and Investing; nothing found is the empty state',
+      'the search sheet in send mode: the chip for a title, the composer '
+      'with Sal, no Connect your own AI; Moving now and Trending predictions '
+      'while nothing is typed; typing runs the same searches, markets only',
       (tester) async {
     await open(tester);
     expect(env.paramsOf('send_pick_market_opened').single,
         containsPair('source', 'send'));
-    expect(find.byType(KuteSearchComposer), findsOneWidget);
-    expect(find.text(_l10n.sendPickMarketSearchHint), findsOneWidget);
-    expect(find.text(_l10n.searchHomeTrendingPredictions), findsOneWidget);
+    // No title, no subtitle: one chip.
+    expect(find.byKey(const ValueKey('send-pick-chip')), findsOneWidget);
+    expect(find.text(_l10n.sendPickChipFriend), findsOneWidget);
+    expect(find.text(_l10n.sendPickMarket), findsNothing);
+    expect(find.text(_l10n.sendPickMarketHow), findsNothing);
+    // The search sheet's own composer, Sal in it, the hint adapted.
+    final composer =
+        tester.widget<KuteSearchComposer>(find.byType(KuteSearchComposer));
+    expect(composer.aiEnabled, isTrue);
+    expect(composer.hint, _l10n.sendPickSearchHint);
+    expect(find.byKey(const ValueKey('search-home-connect-ai')), findsNothing);
     expect(find.text(_l10n.searchHomeMovingNow), findsOneWidget);
+    expect(find.byType(SearchMoverGrid), findsOneWidget);
+    // No way out of the send to Investing.
+    expect(find.text(_l10n.seeAll), findsNothing);
+    expect(find.text(_l10n.searchHomeTrendingPredictions), findsOneWidget);
     expect(find.widgetWithText(SearchPredictionRow, 'BTC 100k'),
         findsOneWidget);
-    expect(find.byType(SearchInvestingRow), findsOneWidget);
 
     // A market the trending feed does not hold: the venue's search.
     await search(tester, 'lula');
-    expect(find.text(_l10n.predictions), findsOneWidget);
     expect(
         find.widgetWithText(
             SearchPredictionRow, 'Will Lula win the 2026 election?'),
@@ -183,40 +245,40 @@ void main() {
     expect(find.text('BTC 100k'), findsNothing);
 
     await search(tester, 'tsla');
-    expect(find.text(_l10n.trading), findsOneWidget);
     expect(find.widgetWithText(SearchInvestingRow, 'Tesla'), findsOneWidget);
 
     await search(tester, 'zzz');
-    expect(find.text(_l10n.sendPickMarketNoResults), findsOneWidget);
     expect(find.byType(SearchEmptyState), findsOneWidget);
   });
 
   testWidgets(
-      'a prediction found by search opens its page, where the side is '
-      'picked (nothing chosen here); the header says the slip sends it',
+      'a prediction found by search opens its page in send mode, where the '
+      'side is picked (nothing chosen here); the chip names the contact',
       (tester) async {
-    await open(tester,
-        senderLabel: 'Maria', recipientPhone: '+351 912 345 678');
-    expect(find.text(_l10n.sendPickMarketHow), findsOneWidget);
+    await open(tester, senderLabel: 'Maria');
+    expect(find.text('For Maria'), findsOneWidget);
     await search(tester, 'lula');
     await tester.tap(find.text('Will Lula win the 2026 election?'));
     await settle(tester);
     expect(env.paramsOf('send_pick_market_picked').single,
         {'venue': 'polymarket', 'searched': true});
     expect(opened.single, same(_lula));
-    // No send of its own: the slip is where it is composed.
-    expect(find.byKey(const ValueKey('send-pick-side-step')), findsNothing);
     expect(env.fake.calls, isEmpty);
     // Nothing identifying reaches an event.
     for (final e in env.events) {
-      expect(e.$2?.values.map((v) => '$v').join(' ') ?? '',
-          isNot(contains('912')));
+      final values = e.$2?.values.map((v) => '$v').join(' ') ?? '';
+      expect(values, isNot(contains('912')));
+      expect(values, isNot(contains('Maria')));
     }
   });
 
-  testWidgets('an investment opens its own page', (tester) async {
+  testWidgets('an investment from Moving now opens its own page',
+      (tester) async {
     await open(tester);
-    await tester.tap(find.byType(SearchInvestingRow));
+    await tester.tap(find
+        .descendant(
+            of: find.byType(SearchMoverGrid), matching: find.text('ETH'))
+        .first);
     await settle(tester);
     expect(env.paramsOf('send_pick_market_picked').single,
         {'venue': 'hyperliquid', 'searched': false});
@@ -231,7 +293,18 @@ void main() {
     await open(tester);
     expect(find.text(_l10n.searchHomeTrendingPredictions), findsNothing);
     expect(find.byType(SearchPredictionRow), findsNothing);
-    expect(find.byType(SearchInvestingRow), findsOneWidget);
+    expect(find.byType(SearchMoverGrid), findsOneWidget);
+    await search(tester, 'lula');
+    expect(find.byType(SearchPredictionRow), findsNothing);
+  });
+
+  testWidgets('closed without a send: the Send screen stays (false)',
+      (tester) async {
+    bool? result;
+    await open(tester, onResult: (r) => result = r);
+    Navigator.of(tester.element(find.byType(UnifiedSearchSurface))).pop();
+    await settle(tester);
+    expect(result, isFalse);
   });
 
   test('both venues closed: nothing to send a prediction on', () async {
