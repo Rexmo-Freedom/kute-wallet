@@ -202,7 +202,7 @@ Future<bool> checkHyperliquidGeoblock(BuildContext context, WidgetRef ref,
     return false;
   } on CapabilityUnavailableException catch (error) {
     message = error.decision.bodyIn(l10n);
-    regionBlocked = error.decision.regionRestricted;
+    regionBlocked = error.decision.regionBlocked;
     denial = (capability: error.capability, decision: error.decision);
   } on ProviderAvailabilityException catch (error) {
     message = error.availability.messageIn(l10n);
@@ -757,7 +757,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           .ensureAllAllowed(hlOpenCapabilities(market));
     } on CapabilityUnavailableException catch (error) {
       message = error.decision.message;
-      regionBlocked = error.decision.regionRestricted;
+      regionBlocked = error.decision.regionBlocked;
       denial = error;
     } on ProviderAvailabilityException catch (error) {
       message = error.availability.message;
@@ -4407,7 +4407,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         ref
             .watch(runtimeCapabilitiesProvider)
             .decision('hyperliquid.browse')
-            .regionRestricted;
+            .regionBlocked;
 
     final lev = isSpot ? 1 : _leverage;
     final entry = _entryPx(mid);

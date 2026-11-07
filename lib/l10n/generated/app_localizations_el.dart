@@ -7302,6 +7302,9 @@ class AppLocalizationsEl extends AppLocalizations {
   String get capabilityRegionTitle => 'Μη διαθέσιμο στην περιοχή σου';
 
   @override
+  String get capabilityNotAvailableNow => 'Μη διαθέσιμο αυτή τη στιγμή';
+
+  @override
   String capabilityRegionTitleNamed(String regions) {
     return 'Μη διαθέσιμο: $regions';
   }

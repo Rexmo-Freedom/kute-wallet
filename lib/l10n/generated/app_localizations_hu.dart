@@ -7264,6 +7264,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get capabilityRegionTitle => 'A régiódban nem érhető el';
 
   @override
+  String get capabilityNotAvailableNow => 'Jelenleg nem érhető el';
+
+  @override
   String capabilityRegionTitleNamed(String regions) {
     return 'Nem érhető el: $regions';
   }

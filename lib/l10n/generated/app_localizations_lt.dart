@@ -7277,6 +7277,9 @@ class AppLocalizationsLt extends AppLocalizations {
   String get capabilityRegionTitle => 'Jūsų regione negalima';
 
   @override
+  String get capabilityNotAvailableNow => 'Šiuo metu negalima';
+
+  @override
   String capabilityRegionTitleNamed(String regions) {
     return 'Nepasiekiama: $regions';
   }

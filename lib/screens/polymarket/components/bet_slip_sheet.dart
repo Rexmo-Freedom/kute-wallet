@@ -1095,7 +1095,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     } on CapabilityUnavailableException catch (error) {
       final decision = error.decision;
       message = decision.message;
-      regionBlocked = decision.regionRestricted;
+      regionBlocked = decision.regionBlocked;
       if (decision.reason.isNotEmpty) reason = decision.reason;
       offline = decision.offline;
       denial = error;

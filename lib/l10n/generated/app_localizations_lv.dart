@@ -7230,6 +7230,9 @@ class AppLocalizationsLv extends AppLocalizations {
   String get capabilityRegionTitle => 'Nav pieejams tavā reģionā';
 
   @override
+  String get capabilityNotAvailableNow => 'Pašlaik nav pieejams';
+
+  @override
   String capabilityRegionTitleNamed(String regions) {
     return 'Nav pieejams: $regions';
   }

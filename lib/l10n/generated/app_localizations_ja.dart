@@ -6959,6 +6959,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get capabilityRegionTitle => 'お住まいの地域では利用できません';
 
   @override
+  String get capabilityNotAvailableNow => '現在利用できません';
+
+  @override
   String capabilityRegionTitleNamed(String regions) {
     return '$regionsではご利用いただけません';
   }

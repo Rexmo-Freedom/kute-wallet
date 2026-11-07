@@ -7246,6 +7246,9 @@ class AppLocalizationsFi extends AppLocalizations {
   String get capabilityRegionTitle => 'Ei saatavilla alueellasi';
 
   @override
+  String get capabilityNotAvailableNow => 'Ei saatavilla juuri nyt';
+
+  @override
   String capabilityRegionTitleNamed(String regions) {
     return 'Ei saatavilla: $regions';
   }

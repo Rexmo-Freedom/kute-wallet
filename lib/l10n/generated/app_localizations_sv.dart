@@ -7242,6 +7242,9 @@ class AppLocalizationsSv extends AppLocalizations {
   String get capabilityRegionTitle => 'Inte tillgängligt i din region';
 
   @override
+  String get capabilityNotAvailableNow => 'Inte tillgängligt just nu';
+
+  @override
   String capabilityRegionTitleNamed(String regions) {
     return 'Inte tillgängligt i $regions';
   }

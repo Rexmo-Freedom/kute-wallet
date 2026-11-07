@@ -2082,6 +2082,7 @@
   "gatePredictionsUnavailable": "Prédictions indisponibles",
   "gateInvestingUnavailable": "Investir indisponible",
   "capabilityRegionTitle": "Indisponible dans votre région",
+  "capabilityNotAvailableNow": "Indisponible pour le moment",
   "capabilityRegionTitleNamed": "Indisponible dans {regions}",
   "capabilityRegionCheckVpn": "Si vous n'êtes pas là-bas, vérifiez vos réglages VPN.",
   "checkConnection": "Vérifier la connexion",

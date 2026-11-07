@@ -2082,6 +2082,7 @@
   "gatePredictionsUnavailable": "Οι Προβλέψεις δεν είναι διαθέσιμες",
   "gateInvestingUnavailable": "Οι Επενδύσεις δεν είναι διαθέσιμες",
   "capabilityRegionTitle": "Μη διαθέσιμο στην περιοχή σου",
+  "capabilityNotAvailableNow": "Μη διαθέσιμο αυτή τη στιγμή",
   "capabilityRegionTitleNamed": "Μη διαθέσιμο: {regions}",
   "capabilityRegionCheckVpn": "Αν δεν είσαι εκεί, έλεγξε τις ρυθμίσεις VPN.",
   "checkConnection": "Έλεγχος σύνδεσης",

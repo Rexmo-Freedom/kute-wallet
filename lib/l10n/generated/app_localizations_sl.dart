@@ -7264,6 +7264,9 @@ class AppLocalizationsSl extends AppLocalizations {
   String get capabilityRegionTitle => 'Ni na voljo v vaši regiji';
 
   @override
+  String get capabilityNotAvailableNow => 'Trenutno ni na voljo';
+
+  @override
   String capabilityRegionTitleNamed(String regions) {
     return 'Ni na voljo v $regions';
   }

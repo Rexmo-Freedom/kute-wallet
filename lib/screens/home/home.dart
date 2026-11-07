@@ -1337,7 +1337,7 @@ class _HomeActions extends ConsumerWidget {
       if (!decision.allowed) {
         TrackingService.track('feature_unavailable_shown', params: {
           'feature': deposit ? 'predictions_deposit' : 'predictions_withdraw',
-          'reason': decision.regionRestricted
+          'reason': decision.regionBlocked
               ? 'region_restricted'
               : 'capability_disabled',
           'surface': 'home_dock',

@@ -7272,6 +7272,9 @@ class AppLocalizationsIt extends AppLocalizations {
   String get capabilityRegionTitle => 'Non disponibile nella tua regione';
 
   @override
+  String get capabilityNotAvailableNow => 'Non disponibile al momento';
+
+  @override
   String capabilityRegionTitleNamed(String regions) {
     return 'Non disponibile in $regions';
   }

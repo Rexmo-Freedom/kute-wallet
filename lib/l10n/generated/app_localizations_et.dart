@@ -7230,6 +7230,9 @@ class AppLocalizationsEt extends AppLocalizations {
   String get capabilityRegionTitle => 'Sinu piirkonnas pole saadaval';
 
   @override
+  String get capabilityNotAvailableNow => 'Praegu pole saadaval';
+
+  @override
   String capabilityRegionTitleNamed(String regions) {
     return 'Pole saadaval: $regions';
   }

@@ -2082,6 +2082,7 @@
   "gatePredictionsUnavailable": "Prognoser är inte tillgängligt",
   "gateInvestingUnavailable": "Investera är inte tillgängligt",
   "capabilityRegionTitle": "Inte tillgängligt i din region",
+  "capabilityNotAvailableNow": "Inte tillgängligt just nu",
   "capabilityRegionTitleNamed": "Inte tillgängligt i {regions}",
   "capabilityRegionCheckVpn": "Om du inte är där, kontrollera dina VPN-inställningar.",
   "checkConnection": "Kontrollera anslutningen",

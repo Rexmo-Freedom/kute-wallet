@@ -2082,6 +2082,7 @@
   "gatePredictionsUnavailable": "Prognozes nav pieejamas",
   "gateInvestingUnavailable": "Investēšana nav pieejama",
   "capabilityRegionTitle": "Nav pieejams tavā reģionā",
+  "capabilityNotAvailableNow": "Pašlaik nav pieejams",
   "capabilityRegionTitleNamed": "Nav pieejams: {regions}",
   "capabilityRegionCheckVpn": "Ja tu neesi tur, pārbaudi VPN iestatījumus.",
   "checkConnection": "Pārbaudīt savienojumu",

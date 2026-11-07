@@ -2082,6 +2082,7 @@
   "gatePredictionsUnavailable": "Ennusteet ei saatavilla",
   "gateInvestingUnavailable": "Sijoita ei saatavilla",
   "capabilityRegionTitle": "Ei saatavilla alueellasi",
+  "capabilityNotAvailableNow": "Ei saatavilla juuri nyt",
   "capabilityRegionTitleNamed": "Ei saatavilla: {regions}",
   "capabilityRegionCheckVpn": "Jos et ole siellä, tarkista VPN-asetuksesi.",
   "checkConnection": "Tarkista yhteys",

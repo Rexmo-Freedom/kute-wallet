@@ -2082,6 +2082,7 @@
   "gatePredictionsUnavailable": "Predicții indisponibile",
   "gateInvestingUnavailable": "Investiții indisponibile",
   "capabilityRegionTitle": "Indisponibil în regiunea ta",
+  "capabilityNotAvailableNow": "Indisponibil momentan",
   "capabilityRegionTitleNamed": "Indisponibil în {regions}",
   "capabilityRegionCheckVpn": "Dacă nu ești acolo, verifică setările VPN.",
   "checkConnection": "Verifică conexiunea",

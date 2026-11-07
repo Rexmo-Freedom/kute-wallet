@@ -2082,6 +2082,7 @@
   "gatePredictionsUnavailable": "Az Előrejelzések nem érhetők el",
   "gateInvestingUnavailable": "A Befektetés nem érhető el",
   "capabilityRegionTitle": "A régiódban nem érhető el",
+  "capabilityNotAvailableNow": "Jelenleg nem érhető el",
   "capabilityRegionTitleNamed": "Nem érhető el: {regions}",
   "capabilityRegionCheckVpn": "Ha nem ott vagy, ellenőrizd a VPN-beállításaidat.",
   "checkConnection": "Kapcsolat ellenőrzése",

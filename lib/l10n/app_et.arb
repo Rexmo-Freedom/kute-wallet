@@ -2082,6 +2082,7 @@
   "gatePredictionsUnavailable": "Ennustused pole saadaval",
   "gateInvestingUnavailable": "Investeerimine pole saadaval",
   "capabilityRegionTitle": "Sinu piirkonnas pole saadaval",
+  "capabilityNotAvailableNow": "Praegu pole saadaval",
   "capabilityRegionTitleNamed": "Pole saadaval: {regions}",
   "capabilityRegionCheckVpn": "Kui sa seal ei asu, kontrolli VPN-i seadeid.",
   "checkConnection": "Kontrolli ühendust",

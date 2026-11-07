@@ -2082,6 +2082,7 @@
   "gatePredictionsUnavailable": "Forudsigelser er ikke tilgængelige",
   "gateInvestingUnavailable": "Investering er ikke tilgængelig",
   "capabilityRegionTitle": "Ikke tilgængelig i din region",
+  "capabilityNotAvailableNow": "Ikke tilgængelig lige nu",
   "capabilityRegionTitleNamed": "Ikke tilgængelig i {regions}",
   "capabilityRegionCheckVpn": "Hvis det ikke er der, du er, så tjek dine VPN-indstillinger.",
   "checkConnection": "Tjek forbindelsen",

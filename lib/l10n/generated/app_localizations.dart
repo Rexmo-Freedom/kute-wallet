@@ -12594,6 +12594,12 @@ abstract class AppLocalizations {
   /// **'Not available in your region'**
   String get capabilityRegionTitle;
 
+  /// Title of the unavailable sheet, and the inline note, when a feature is offered only in certain places and the person is not in one of them (an allow-list rule, e.g. Cash App is US only). Names no place and says nothing about a VPN (founder, 7 November 2026).
+  ///
+  /// In en, this message translates to:
+  /// **'Not available right now'**
+  String get capabilityNotAvailableNow;
+
   /// Title of a region block whose regions the backend policy names, e.g. Not available in the European Union, the UK and Switzerland. {regions} is the backend's own phrase for this language.
   ///
   /// In en, this message translates to:

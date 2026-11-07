@@ -7252,6 +7252,9 @@ class AppLocalizationsSk extends AppLocalizations {
   String get capabilityRegionTitle => 'Vo tvojom regióne nie je dostupné';
 
   @override
+  String get capabilityNotAvailableNow => 'Momentálne nedostupné';
+
+  @override
   String capabilityRegionTitleNamed(String regions) {
     return 'Nie je dostupné v $regions';
   }

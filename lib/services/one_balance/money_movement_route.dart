@@ -340,7 +340,9 @@ String moneyMovementFailureReason(Object e, {required bool fundingStarted}) {
 /// `venue_restricted` for a venue's own location answer), [blockedBy]
 /// the capability a cascaded block inherits (empty for its own). A region
 /// block the backend named reads "Not available in …" over the VPN
-/// sentence ([CapabilityDecision.messageIn]).
+/// sentence ([CapabilityDecision.messageIn]). An allow list's refusal
+/// ([CapabilityDecision.notOfferedHere]) is not a [region] one: it reads
+/// "Not available right now", the button disabled.
 class MoneyMovementRestriction {
   const MoneyMovementRestriction(
       {required this.capability,
@@ -365,7 +367,7 @@ class MoneyMovementRestriction {
       MoneyMovementRestriction(
           capability: capability,
           message: decision.message,
-          region: decision.regionRestricted,
+          region: decision.regionBlocked,
           reason: decision.reason,
           blockedBy: decision.blockedBy);
 

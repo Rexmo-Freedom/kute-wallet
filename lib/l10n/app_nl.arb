@@ -2082,6 +2082,7 @@
   "gatePredictionsUnavailable": "Voorspellingen niet beschikbaar",
   "gateInvestingUnavailable": "Beleggen niet beschikbaar",
   "capabilityRegionTitle": "Niet beschikbaar in je regio",
+  "capabilityNotAvailableNow": "Op dit moment niet beschikbaar",
   "capabilityRegionTitleNamed": "Niet beschikbaar in {regions}",
   "capabilityRegionCheckVpn": "Ben je daar niet? Controleer je VPN-instellingen.",
   "checkConnection": "Verbinding controleren",

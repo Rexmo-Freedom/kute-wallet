@@ -4,8 +4,11 @@
 // on the spending wallet and on a savings wallet, open the Cash App
 // purchase while `onramp.cashapp` is on offer, and the shared Unavailable
 // sheet otherwise, never another flow (not the Dollars into Bitcoin move).
-// A region refusal names the region and is counted on `bitcoin_purchase`.
-// The door is always drawn and follows the policy live.
+// Outside Cash App's allow list (US only) the sheet reads just "Not
+// available right now" (founder, 7 November 2026: "not avaliable in usa?
+// my vpn is in lisbon"), naming no region and counting nothing; a block
+// list's region refusal names the region and is counted on
+// `bitcoin_purchase`. The door is always drawn and follows the policy live.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,14 +28,25 @@ import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
+import '../../helpers/kute_bar_test_support.dart';
+
 class _Policy extends ChangeNotifier implements RuntimeCapabilitiesService {
-  _Policy({this.cashApp = true, this.reason = 'disabled'});
+  _Policy(
+      {this.cashApp = true,
+      this.reason = 'disabled',
+      this.regions,
+      this.blockedBy = ''});
 
   /// Whether `onramp.cashapp` is on offer.
   bool cashApp;
 
   /// The refusal's reason while it is not.
   String reason;
+
+  /// The places the backend names with a country refusal, as it sends
+  /// them (`regions`), and the capability a cascaded block inherits.
+  final Map<String, Object?>? regions;
+  final String blockedBy;
 
   /// Every capability asked about again ([confirmCapability]).
   final asked = <String>[];
@@ -44,7 +58,12 @@ class _Policy extends ChangeNotifier implements RuntimeCapabilitiesService {
 
   @override
   CapabilityDecision decision(String id) => id == kOnrampCashApp && !cashApp
-      ? CapabilityDecision(allowed: false, reason: reason)
+      ? CapabilityDecision.fromJson({
+          'allowed': false,
+          'reason': reason,
+          if (regions != null) 'regions': regions,
+          if (blockedBy.isNotEmpty) 'blockedBy': blockedBy,
+        })
       : const CapabilityDecision(allowed: true);
 
   @override
@@ -193,10 +212,56 @@ void main() {
   }
 
   testWidgets(
-      'a region refusal (Cash App is US-only) names the region over the VPN '
-      'sentence and is counted once on bitcoin_purchase', (tester) async {
+      'outside Cash App\'s allow list (US only, asked from Portugal) the '
+      'sheet reads just "Not available right now": no country, no VPN '
+      'sentence, Got it, nothing counted as a region block', (tester) async {
+    final policy = _Policy(
+        cashApp: false,
+        reason: 'country_not_allowed',
+        // What the backend sends with an allow list's refusal: where the
+        // feature IS offered.
+        regions: {
+          'label': 'the United States',
+          'countries': ['US'],
+        });
+    await _pump(tester, policy, _spending);
+    await tester.tap(_doors['the big button']!);
+    await tester.pumpAndSettle();
+    final sheet = tester.widget<CapabilityUnavailableSheet>(
+        find.byType(CapabilityUnavailableSheet));
+    expect(sheet.regionRestricted, isFalse);
+    expect(sheet.title, _l10n.capabilityNotAvailableNow);
+    expect(sheet.message, isEmpty);
+    expect(find.text('Not available right now'), findsOneWidget);
+    expect(find.textContaining('United States'), findsNothing);
+    expect(find.textContaining('VPN'), findsNothing);
+    expect(find.text(_l10n.capabilityRegionTitle), findsNothing);
+    expect(find.text(_l10n.buyUnavailableTitle), findsNothing);
+    expect(find.text(_l10n.buyUnavailableBody), findsNothing);
+    // The plain dismiss, never "Check connection".
+    expect(kuteBarPrimaryContext(tester).label, _l10n.gotIt);
+    expect(find.text(_l10n.checkConnection), findsNothing);
+    expect(policy.asked, [kOnrampCashApp]);
+    expect(events.where((e) => e.$1 == 'capability_region_blocked'), isEmpty);
+    expect(purchases, isEmpty);
+    expect(moves, isEmpty);
+  });
+
+  testWidgets(
+      'a block list\'s region refusal (the swap cascade) still names the '
+      'regions over the VPN sentence, offers Check connection and is '
+      'counted once on bitcoin_purchase', (tester) async {
     await _pump(
-        tester, _Policy(cashApp: false, reason: 'country_not_allowed'),
+        tester,
+        _Policy(
+            cashApp: false,
+            reason: 'country_blocked',
+            blockedBy: 'orchestra.swap',
+            regions: {
+              'label': 'the European Union, the UK and Switzerland',
+              'groups': ['EU', 'UK'],
+              'countries': ['CH'],
+            }),
         _spending);
     await tester.tap(_doors['the big button']!);
     await tester.pumpAndSettle();
@@ -204,8 +269,13 @@ void main() {
         find.byType(CapabilityUnavailableSheet));
     expect(sheet.regionRestricted, isTrue);
     expect(sheet.capabilities, [kOnrampCashApp]);
-    expect(find.text(_l10n.capabilityRegionTitle), findsOneWidget);
-    expect(find.text(_l10n.capabilityRegionRestricted), findsOneWidget);
+    expect(
+        find.text(
+            'Not available in the European Union, the UK and Switzerland'),
+        findsOneWidget);
+    expect(find.text(_l10n.capabilityRegionCheckVpn), findsOneWidget);
+    expect(kuteBarPrimaryContext(tester).label, _l10n.checkConnection);
+    expect(find.text(_l10n.capabilityNotAvailableNow), findsNothing);
     expect(
         events
             .where((e) => e.$1 == 'capability_region_blocked')
@@ -213,7 +283,7 @@ void main() {
         [
           {
             'capability': kOnrampCashApp,
-            'blocked_by': 'none',
+            'blocked_by': 'orchestra.swap',
             'surface': kBitcoinPurchaseSurface,
           },
         ]);

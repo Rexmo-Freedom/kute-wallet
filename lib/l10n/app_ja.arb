@@ -2082,6 +2082,7 @@
   "gatePredictionsUnavailable": "予測は利用できません",
   "gateInvestingUnavailable": "投資は利用できません",
   "capabilityRegionTitle": "お住まいの地域では利用できません",
+  "capabilityNotAvailableNow": "現在利用できません",
   "capabilityRegionTitleNamed": "{regions}ではご利用いただけません",
   "capabilityRegionCheckVpn": "実際の所在地と異なる場合は、VPNの設定を確認してください。",
   "checkConnection": "接続を確認",

@@ -112,11 +112,16 @@ void Function(BuildContext context, {String? fiatDepositWalletId})?
 ///     or the savings wallet whose button it is;
 ///   * otherwise: the shared Unavailable sheet, never another flow (not
 ///     the Dollars into Bitcoin move, which is Receive's "From your
-///     Dollars"). A region refusal names the region over the VPN sentence
-///     and offers "Check connection" (counted once as
-///     `capability_region_blocked` on [kBitcoinPurchaseSurface]); found
-///     allowed there, the purchase opens after all. Any other refusal
-///     reads "Buy unavailable".
+///     Dollars"). Outside the United States, Cash App's allow list
+///     (`country_not_allowed`) reads just "Not available right now" over
+///     "Got it" (founder, 7 November 2026: "not avaliable in usa? my vpn
+///     is in lisbon. please just say not avaliable right now"): no region,
+///     no VPN sentence, nothing counted as a region block
+///     ([CapabilityDecision.notOfferedHere]). A block-list region refusal
+///     names the region over the VPN sentence and offers "Check
+///     connection" (counted once as `capability_region_blocked` on
+///     [kBitcoinPurchaseSurface]); found allowed there, the purchase opens
+///     after all. Any other refusal reads "Buy unavailable".
 /// The policy is asked again first ([confirmCapability]), so a refusal
 /// from an older network or minute never shuts a rail open now. Both
 /// Purchase doors (the compact row's square and the big button) open it;
@@ -128,7 +133,9 @@ Future<void> openBitcoinPurchase(
   if (!context.mounted) return;
   if (!decision.allowed || decision.comingSoon) {
     final l10n = context.l10n;
-    final region = decision.regionRestricted;
+    // The sheet reads an allow list's refusal as "Not available right
+    // now" by itself ([showCapabilityUnavailableSheet]).
+    final region = decision.regionBlocked;
     final allowedNow = await showCapabilityUnavailableSheet(
       context,
       title: l10n.buyUnavailableTitle,

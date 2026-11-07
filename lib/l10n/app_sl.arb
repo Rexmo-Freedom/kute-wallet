@@ -2082,6 +2082,7 @@
   "gatePredictionsUnavailable": "Napovedi niso na voljo",
   "gateInvestingUnavailable": "Investiranje ni na voljo",
   "capabilityRegionTitle": "Ni na voljo v vaši regiji",
+  "capabilityNotAvailableNow": "Trenutno ni na voljo",
   "capabilityRegionTitleNamed": "Ni na voljo v {regions}",
   "capabilityRegionCheckVpn": "Če niste tam, preverite nastavitve VPN.",
   "checkConnection": "Preveri povezavo",

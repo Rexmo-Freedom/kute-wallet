@@ -22,6 +22,15 @@
 // the generic "Unavailable") for anything else. A block a capability
 // inherits (`blockedBy`) reads the same.
 //
+// An allow list is not a region block (founder, 7 November 2026: "not
+// avaliable in usa? my vpn is in lisbon. please just say not avaliable
+// right now"). A policy denial because the person is outside the places a
+// feature is offered (`country_not_allowed`,
+// [CapabilityDecision.notOfferedHere]; Cash App is US-only) reads just
+// "Not available right now": no region (the backend's list is where it IS
+// offered), no VPN sentence, no body, the plain "Got it", and nothing
+// counted as `capability_region_blocked`, whatever the caller passed.
+//
 // A region block's one button is "Check connection" instead of "Got it"
 // (founder decision, October 2026; lib/services/region_freshness.dart):
 // it asks both venues and Kute's policy again, the button busy
@@ -67,7 +76,8 @@ class CapabilityUnavailableSheet extends StatefulWidget {
   });
 
   /// The sentence that says why: [CapabilityDecision.messageIn] (or the
-  /// provider's own region sentence).
+  /// provider's own region sentence). Empty for none: the title alone
+  /// (an allow list's "Not available right now").
   final String message;
 
   /// A region block: the title names the region, whatever [title] says,
@@ -152,7 +162,7 @@ class _CapabilityUnavailableSheetState
             title: region
                 ? (widget.regionTitle ?? l10n.capabilityRegionTitle)
                 : (widget.title ?? l10n.gateUnavailableTitle),
-            subtitle: widget.message,
+            subtitle: widget.message.isEmpty ? null : widget.message,
           ),
           SizedBox(height: 8.h),
           // THE BAR IS THE BUTTON (founder, 31 October 2026; kute_bar_context
@@ -204,7 +214,11 @@ bool _opening = false;
 /// [denial] is Kute's policy refusal behind the sheet, when there is one
 /// (the capability and its decision): a region block names its regions in
 /// the title when the backend did, and is counted once as
-/// `capability_region_blocked` on [surface].
+/// `capability_region_blocked` on [surface]. A denial by an allow list
+/// ([CapabilityDecision.notOfferedHere]) is not one: whatever [title],
+/// [message] and [regionRestricted] say, the sheet reads just "Not
+/// available right now" over "Got it", and nothing is counted, as for any
+/// refusal that is not about the region.
 Future<bool> showCapabilityUnavailableSheet(
   BuildContext context, {
   required String message,
@@ -219,7 +233,12 @@ Future<bool> showCapabilityUnavailableSheet(
   if (_opening || _openSheet?.mounted == true || !context.mounted) {
     return false;
   }
-  if (denial != null && denial.decision.regionRestricted) {
+  if (denial != null && denial.decision.notOfferedHere) {
+    title = context.l10n.capabilityNotAvailableNow;
+    message = '';
+    regionRestricted = false;
+    regionTitle = null;
+  } else if (denial != null && denial.decision.regionBlocked) {
     regionTitle ??= denial.decision.regionTitleIn(context.l10n);
     TrackingService.capabilityRegionBlocked(denial.capability,
         blockedBy: denial.decision.blockedBy, surface: surface);
@@ -260,7 +279,8 @@ Future<void> showBuyUnavailableSheet(BuildContext context) {
 /// The shared sheet for a policy [decision] that denies [capability]
 /// (when the caller knows it: "Check connection" reads it again). True
 /// when "Check connection" found it allowed now. A region block names
-/// the backend's regions in the title, over the VPN sentence.
+/// the backend's regions in the title, over the VPN sentence; an allow
+/// list's refusal reads "Not available right now".
 Future<bool> showCapabilityDecisionSheet(
   BuildContext context,
   CapabilityDecision decision, {
@@ -271,7 +291,7 @@ Future<bool> showCapabilityDecisionSheet(
     showCapabilityUnavailableSheet(
       context,
       message: decision.bodyIn(context.l10n),
-      regionRestricted: decision.regionRestricted,
+      regionRestricted: decision.regionBlocked,
       title: title,
       capabilities: capability == null ? null : [capability],
       denial: (capability: capability ?? 'unknown', decision: decision),

@@ -2082,6 +2082,7 @@
   "gatePredictionsUnavailable": "Прогнозите не са достъпни",
   "gateInvestingUnavailable": "Инвестиране не е достъпно",
   "capabilityRegionTitle": "Не е достъпно в твоя регион",
+  "capabilityNotAvailableNow": "В момента не е достъпно",
   "capabilityRegionTitleNamed": "Не е достъпно в {regions}",
   "capabilityRegionCheckVpn": "Ако не си там, провери настройките на VPN.",
   "checkConnection": "Провери връзката",

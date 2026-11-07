@@ -127,15 +127,36 @@ class CapabilityDecision {
   final CapabilityRegions? regions;
 
   /// A region block whose regions the backend named.
-  bool get regionNamed => regionRestricted && (regions?.named ?? false);
+  bool get regionNamed => regionBlocked && (regions?.named ?? false);
 
-  /// A region block: this capability's own (`country_blocked`,
-  /// `country_not_allowed`), or one inherited ([blockedBy]) from a
-  /// capability blocked for named regions.
+  /// A denial by where the connection appears to be: this capability's own
+  /// (`country_blocked`, `country_not_allowed`), or one inherited
+  /// ([blockedBy]) from a capability refused for named regions. The answer
+  /// belongs to the network it was asked on, so the trust and re-check
+  /// logic reads every one of them; what the person is shown follows
+  /// [regionBlocked] and [notOfferedHere].
   bool get regionRestricted =>
       reason == 'country_blocked' ||
       reason == 'country_not_allowed' ||
       (blockedBy.isNotEmpty && (regions?.named ?? false));
+
+  /// Not offered where the person is: an allow list ("only in" these
+  /// places, as `onramp.cashapp` is US-only) leaves their country out
+  /// (`country_not_allowed`, the capability's own rule or one inherited
+  /// through [blockedBy]). The backend's regions then name where the
+  /// feature IS offered, so Kute names none and asks nothing about a VPN
+  /// (founder, 7 November 2026: "not avaliable in usa? my vpn is in
+  /// lisbon. please just say not avaliable right now"): it reads "Not
+  /// available right now" with the plain "Got it", and is never counted
+  /// as a region block.
+  bool get notOfferedHere => reason == 'country_not_allowed';
+
+  /// A region block shown as one: a block list covers where the person
+  /// is (`country_blocked`, or the same inherited, as the `orchestra.swap`
+  /// cascade). The named regions over the one VPN sentence, "Check
+  /// connection", and `capability_region_blocked`. Every
+  /// [regionRestricted] denial but [notOfferedHere].
+  bool get regionBlocked => regionRestricted && !notOfferedHere;
 
   bool get updateRequired =>
       reason == 'app_update_required' ||
@@ -180,10 +201,13 @@ class CapabilityDecision {
 
   /// The whole explanation where there is no title to put it under (an
   /// inline note beside a disabled control, a picker row, an error line):
-  /// a named region block reads as its title over the VPN sentence; else
-  /// the operator's own words when the policy carries some, otherwise
-  /// Kute's wording for the reason code, in [l10n]'s language.
+  /// a denial by an allow list ([notOfferedHere]) reads "Not available
+  /// right now" and nothing more; a named region block reads as its title
+  /// over the VPN sentence; else the operator's own words when the policy
+  /// carries some, otherwise Kute's wording for the reason code, in
+  /// [l10n]'s language.
   String messageIn(AppLocalizations l10n) {
+    if (notOfferedHere) return l10n.capabilityNotAvailableNow;
     if (regionTitleIn(l10n) case final title?) {
       return '$title\n${l10n.capabilityRegionCheckVpn}';
     }

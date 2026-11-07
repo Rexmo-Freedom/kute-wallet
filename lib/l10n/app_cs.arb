@@ -2082,6 +2082,7 @@
   "gatePredictionsUnavailable": "Predikce nedostupné",
   "gateInvestingUnavailable": "Investování nedostupné",
   "capabilityRegionTitle": "Ve tvém regionu nedostupné",
+  "capabilityNotAvailableNow": "Momentálně nedostupné",
   "capabilityRegionTitleNamed": "Není dostupné v {regions}",
   "capabilityRegionCheckVpn": "Pokud tam nejsi, zkontroluj nastavení VPN.",
   "checkConnection": "Zkontrolovat připojení",

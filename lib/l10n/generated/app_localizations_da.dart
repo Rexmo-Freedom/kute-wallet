@@ -7249,6 +7249,9 @@ class AppLocalizationsDa extends AppLocalizations {
   String get capabilityRegionTitle => 'Ikke tilgængelig i din region';
 
   @override
+  String get capabilityNotAvailableNow => 'Ikke tilgængelig lige nu';
+
+  @override
   String capabilityRegionTitleNamed(String regions) {
     return 'Ikke tilgængelig i $regions';
   }

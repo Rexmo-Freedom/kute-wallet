@@ -2082,6 +2082,7 @@
   "gatePredictionsUnavailable": "Prognozės negalimos",
   "gateInvestingUnavailable": "Investavimas negalimas",
   "capabilityRegionTitle": "Jūsų regione negalima",
+  "capabilityNotAvailableNow": "Šiuo metu negalima",
   "capabilityRegionTitleNamed": "Nepasiekiama: {regions}",
   "capabilityRegionCheckVpn": "Jei esate ne ten, patikrinkite VPN nustatymus.",
   "checkConnection": "Patikrinti ryšį",

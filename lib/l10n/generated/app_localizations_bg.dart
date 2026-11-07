@@ -7258,6 +7258,9 @@ class AppLocalizationsBg extends AppLocalizations {
   String get capabilityRegionTitle => 'Не е достъпно в твоя регион';
 
   @override
+  String get capabilityNotAvailableNow => 'В момента не е достъпно';
+
+  @override
   String capabilityRegionTitleNamed(String regions) {
     return 'Не е достъпно в $regions';
   }

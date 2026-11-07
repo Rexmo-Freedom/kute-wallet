@@ -290,7 +290,7 @@ class _PortfolioBuilderScreenState
           error.availability.status == ProviderAvailabilityStatus.restricted;
     } on CapabilityUnavailableException catch (error) {
       message = error.decision.message;
-      region = error.decision.regionRestricted;
+      region = error.decision.regionBlocked;
       capability = error.capability;
     } catch (_) {
       // A check that could not be made allows nothing.
@@ -359,7 +359,7 @@ class _PortfolioBuilderScreenState
       if (!decision.allowed || decision.comingSoon) {
         return (
           message: decision.message,
-          region: decision.regionRestricted,
+          region: decision.regionBlocked,
           capability: id,
         );
       }
@@ -376,7 +376,7 @@ class _PortfolioBuilderScreenState
       TrackingService.polymarketGeoblockedShown();
       final decision =
           ref.read(runtimeCapabilitiesProvider).decision(block.capability);
-      if (decision.regionRestricted) {
+      if (decision.regionBlocked) {
         TrackingService.capabilityRegionBlocked(block.capability,
             blockedBy: decision.blockedBy, surface: 'portfolio_builder');
       }

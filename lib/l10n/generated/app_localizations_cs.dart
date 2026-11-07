@@ -7244,6 +7244,9 @@ class AppLocalizationsCs extends AppLocalizations {
   String get capabilityRegionTitle => 'Ve tvém regionu nedostupné';
 
   @override
+  String get capabilityNotAvailableNow => 'Momentálně nedostupné';
+
+  @override
   String capabilityRegionTitleNamed(String regions) {
     return 'Není dostupné v $regions';
   }
