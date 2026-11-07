@@ -103,6 +103,10 @@ mixin _SelectionFadeController<T extends StatefulWidget>
     }
   }
 
+  /// The selection changed with no switch to show: the content at rest at
+  /// once, any switch in flight finished.
+  void selectionSettled() => _fade.value = 1;
+
   /// Which side the new selection comes from: its [order] against the old
   /// one's, from the right when either is unknown or they are equal.
   static double direction(int? from, int? to) =>
@@ -184,8 +188,18 @@ class SelectionFade extends StatefulWidget {
   final int? order;
   final Widget child;
 
+  /// False: a change of [selection] shows the new content at once, with
+  /// no switch (the Dollars page put back on its default pill as the
+  /// shell brings it on screen, where the shell's own slide is the
+  /// motion).
+  final bool animate;
+
   const SelectionFade(
-      {super.key, required this.selection, required this.child, this.order});
+      {super.key,
+      required this.selection,
+      required this.child,
+      this.order,
+      this.animate = true});
 
   @override
   State<SelectionFade> createState() => _SelectionFadeState();
@@ -198,11 +212,11 @@ class _SelectionFadeState extends State<SelectionFade>
   @override
   void didUpdateWidget(SelectionFade oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.selection != widget.selection) {
-      selectionChanged(
-          from: _SelectionFadeController.direction(
-              oldWidget.order, widget.order));
-    }
+    if (oldWidget.selection == widget.selection) return;
+    if (!widget.animate) return selectionSettled();
+    selectionChanged(
+        from: _SelectionFadeController.direction(
+            oldWidget.order, widget.order));
   }
 
   @override

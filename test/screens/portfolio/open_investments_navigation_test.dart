@@ -580,9 +580,9 @@ void main() {
                       child: const Text('View positions')))));
       final container =
           ProviderScope.containerOf(tester.element(find.byType(TextButton)));
-      // The page's pill stays where it was: Activity, the default (4
+      // The page's pill stays where it was: Investing, the default (7
       // November 2026).
-      expect(container.read(investmentsTabProvider), InvestmentsTab.activity);
+      expect(container.read(investmentsTabProvider), InvestmentsTab.investing);
       await tester.tap(find.text('View positions'));
       await tester.pumpAndSettle();
       // The Portfolio is its own screen (portfolio_screen.dart, founder,
@@ -590,9 +590,9 @@ void main() {
       expect(find.byType(PortfolioScreen), findsOneWidget);
       expect(
           container.read(portfolioSectionProvider), PortfolioSection.balances);
-      // The page's pill stays where it was: Activity, the default (4
+      // The page's pill stays where it was: Investing, the default (7
       // November 2026).
-      expect(container.read(investmentsTabProvider), InvestmentsTab.activity);
+      expect(container.read(investmentsTabProvider), InvestmentsTab.investing);
       expect(find.byType(OpenInvestmentsScreen), findsNothing);
       expect(tester.takeException(), isNull);
     });
@@ -840,9 +840,9 @@ void main() {
         await tester.tap(find.text('Portfolio'));
         await tester.pumpAndSettle();
         expect(find.byType(OpenInvestmentsScreen), findsOneWidget);
-        // The page's pill stays at its default, Activity.
+        // The page's pill stays at its default, Investing.
         expect(
-            container.read(investmentsTabProvider), InvestmentsTab.activity);
+            container.read(investmentsTabProvider), InvestmentsTab.investing);
         expect(events.where((e) => e.$1 == 'portfolio_opened').single.$2, {
           'source': product == InvestmentsProduct.predictions
               ? 'dock_predictions'

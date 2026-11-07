@@ -361,15 +361,18 @@ void main() {
   });
 
   testWidgets(
-      'three pills in order, Activity · Investing · Predictions, Activity '
-      'picked to start, a step bigger, over the Activity page and the '
-      'embedded browsers; the Portfolio is no pill', (tester) async {
+      'three pills in order, Activity · Investing · Predictions, a step '
+      'bigger, over the Activity page and the embedded browsers; with '
+      'neither venue browsable Activity is picked to start; the Portfolio '
+      'is no pill', (tester) async {
     await pumpInvestments(tester, earn: kEarnOn);
     final l10n = _l10n(tester);
     final strip = _strip(tester);
-    // Three names share the row, Activity first and picked (founder, 4
-    // November 2026: "like we do on the Bitcoin screen, have the first tab
-    // be the Activity screen"). Activity holds no category: its name
+    // Three names share the row, Activity first (founder, 4 November
+    // 2026: "like we do on the Bitcoin screen, have the first tab be the
+    // Activity screen"). The page opens on Investing (7 November 2026);
+    // the harness withholds both venues' browsing, so it falls back to
+    // Activity (investmentsDefaultTab). Activity holds no category: its name
     // alone; a venue carries its category once picked. One row, nothing
     // under it.
     expect(strip.items.map((i) => i.label),
@@ -616,6 +619,19 @@ void main() {
       polyBrowseFeedProvider.overrideWith(_EmptyFeed.new),
     ]);
     final l10n = _l10n(tester);
+
+    // Investing's browsing withheld, Predictions live: the page opens on
+    // Predictions (investmentsDefaultTab, founder 7 November 2026), which
+    // is no pick.
+    expect(_container(tester).read(investmentsTabProvider),
+        InvestmentsTab.predictions);
+    expect(events.where((e) => e.$1 == 'analytics_tab_selected'), isEmpty);
+    await _tapPill(tester, l10n.activity);
+    expect(events.where((e) => e.$1 == 'analytics_tab_selected').last.$2, {
+      'tab': 'activity',
+      'from_tab': 'predictions',
+      'surface': 'investments'
+    });
 
     await _tapPill(tester, l10n.predictions);
     expect(_container(tester).read(investmentsTabProvider),
