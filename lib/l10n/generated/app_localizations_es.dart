@@ -11114,6 +11114,14 @@ class AppLocalizationsEs extends AppLocalizations {
   String get usdReceiveFromAnotherWallet => 'Desde otra billetera o exchange';
 
   @override
+  String get receiveAnotherWallet => 'Otra billetera';
+
+  @override
+  String receiveOrAnExchangeLine(String coins) {
+    return 'O un exchange · $coins';
+  }
+
+  @override
   String get usdWithdrawToYourWallet => 'A tu billetera';
 
   @override
@@ -12086,7 +12094,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String usdBitcoinBalanceLine(String amount) {
-    return '$amount in Bitcoin';
+    return '$amount en Bitcoin';
   }
 
   @override
@@ -12125,6 +12133,11 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String sendAlsoSendsToMore(String names, int count) {
     return '$names y $count más';
+  }
+
+  @override
+  String coinsSummaryShort(String names, int count) {
+    return '$names +$count';
   }
 
   @override

@@ -40,6 +40,14 @@
 // the rules above: two squares side by side, one compact full width, or
 // none at all.
 //
+// TITLES ON ONE LINE (founder, 7 November 2026, the Receive sheets: "sizes
+// are strange here"; one square's title on one line, the other's on two,
+// left one card half empty): a grid asked for [KuteActionCardGrid.
+// oneLineTitles] draws two big cards as squares only where both titles
+// read on one line at half the width, and otherwise as two compact
+// full-width cards, one over the other: the same layout as an odd last
+// card, never a squeezed font.
+//
 // OPTION CARDS, THE SAME SQUARES, SMALLER (founder, 4 November 2026: the
 // rows under a market's or a position's chart, "Add margin", "Rules and
 // resolution", "should be like big squares"; "little cards, square-ish"):
@@ -124,6 +132,9 @@ const double kKuteActionCardLeadVisualSize = 48;
 
 /// A lead card's inner padding.
 const double kKuteActionCardLeadPadding = 18;
+
+/// The width of the card surface's hairline, inside its bounds.
+const double _kCardHairline = 1;
 
 /// One big action card (see the file header). A null [onTap] draws the
 /// card disabled (0.6 opacity, no press); [badge] then reads at its top
@@ -591,6 +602,7 @@ class KuteActionCardGrid extends StatelessWidget {
     this.lead,
     this.gap = kKuteActionCardGap,
     this.compactLone = false,
+    this.oneLineTitles = false,
   });
 
   final List<KuteActionCard> cards;
@@ -609,18 +621,27 @@ class KuteActionCardGrid extends StatelessWidget {
   /// (founder, 6 November 2026: full width and compact).
   final bool compactLone;
 
+  /// Two big cards are squares only where both titles fit on one line at
+  /// half the width; otherwise each is a compact full-width card (see the
+  /// file header).
+  final bool oneLineTitles;
+
   /// Whether every card's title and line fit a card [cardWidth] wide
-  /// without an ellipsis or a word broken across lines.
+  /// without an ellipsis or a word broken across lines, the title in at
+  /// most [titleLines] lines.
   static bool labelsFit(
     BuildContext context,
     List<KuteActionCard> cards,
-    double cardWidth,
-  ) {
+    double cardWidth, {
+    int titleLines = 2,
+  }) {
     final c = context.colors;
     final padding = cards.any((card) => !card.compact)
         ? kKuteActionCardPadding
         : kKuteOptionCardPadding;
-    final inner = cardWidth - 2 * padding;
+    // The surface's hairline sits inside the card too (a Container adds
+    // its border to its padding), so the text has that much less.
+    final inner = cardWidth - 2 * (padding + _kCardHairline);
     if (inner <= 0) return false;
     final base = DefaultTextStyle.of(context).style;
     final scaler = MediaQuery.textScalerOf(context);
@@ -652,7 +673,9 @@ class KuteActionCardGrid extends StatelessWidget {
     }
 
     for (final card in cards) {
-      if (!fits(card.title, card.titleStyleOf(c))) return false;
+      if (!fits(card.title, card.titleStyleOf(c), maxLines: titleLines)) {
+        return false;
+      }
       final sub = card.subtitle;
       if (sub != null &&
           !fits(sub, KuteActionCard.subtitleStyle(c),
@@ -700,12 +723,38 @@ class KuteActionCardGrid extends StatelessWidget {
             space,
             // Under the lead a lone card is the compact full-width one,
             // never a second card with the lead's presence.
-            KuteActionCardGrid(cards: cards, gap: gap, compactLone: true),
+            KuteActionCardGrid(
+                cards: cards,
+                gap: gap,
+                compactLone: true,
+                oneLineTitles: oneLineTitles),
           ],
         ],
       );
     }
     if (cards.isEmpty) return const SizedBox.shrink();
+    if (oneLineTitles &&
+        cards.length == 2 &&
+        !cards.every((card) => card.compact)) {
+      // Two squares where both titles read on one line at half the width,
+      // else two compact full-width cards (see the file header).
+      return LayoutBuilder(builder: (context, constraints) {
+        final half = (constraints.maxWidth - g) / 2;
+        final squares = constraints.hasBoundedWidth &&
+            labelsFit(context, cards, half, titleLines: 1);
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: squares
+              ? [row(cards)]
+              : [
+                  full(cards[0], lone: false),
+                  space,
+                  full(cards[1], lone: false),
+                ],
+        );
+      });
+    }
     if (cards.length == 3 && !cards.every((card) => card.compact)) {
       // Three big cards: three across where every label fits a third,
       // else two squares over one full-width card.

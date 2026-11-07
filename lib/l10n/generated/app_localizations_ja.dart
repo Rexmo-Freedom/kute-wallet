@@ -10648,6 +10648,14 @@ class AppLocalizationsJa extends AppLocalizations {
   String get usdReceiveFromAnotherWallet => '別のウォレットまたは取引所から';
 
   @override
+  String get receiveAnotherWallet => '別のウォレット';
+
+  @override
+  String receiveOrAnExchangeLine(String coins) {
+    return 'または取引所 · $coins';
+  }
+
+  @override
   String get usdWithdrawToYourWallet => 'あなたのウォレットへ';
 
   @override
@@ -11603,7 +11611,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String usdBitcoinBalanceLine(String amount) {
-    return '$amount in Bitcoin';
+    return 'ビットコイン残高 $amount';
   }
 
   @override
@@ -11642,6 +11650,11 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String sendAlsoSendsToMore(String names, int count) {
     return '$names ほか$count件';
+  }
+
+  @override
+  String coinsSummaryShort(String names, int count) {
+    return '$names +$count';
   }
 
   @override

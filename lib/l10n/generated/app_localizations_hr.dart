@@ -11080,6 +11080,14 @@ class AppLocalizationsHr extends AppLocalizations {
       'Iz drugog novčanika ili mjenjačnice';
 
   @override
+  String get receiveAnotherWallet => 'Drugi novčanik';
+
+  @override
+  String receiveOrAnExchangeLine(String coins) {
+    return 'Ili mjenjačnica · $coins';
+  }
+
+  @override
   String get usdWithdrawToYourWallet => 'U tvoj novčanik';
 
   @override
@@ -12057,7 +12065,7 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String usdBitcoinBalanceLine(String amount) {
-    return '$amount in Bitcoin';
+    return '$amount u Bitcoinu';
   }
 
   @override
@@ -12096,6 +12104,11 @@ class AppLocalizationsHr extends AppLocalizations {
   @override
   String sendAlsoSendsToMore(String names, int count) {
     return '$names i još $count';
+  }
+
+  @override
+  String coinsSummaryShort(String names, int count) {
+    return '$names +$count';
   }
 
   @override

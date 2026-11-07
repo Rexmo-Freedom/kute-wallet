@@ -11084,6 +11084,14 @@ class AppLocalizationsHu extends AppLocalizations {
   String get usdReceiveFromAnotherWallet => 'Másik tárcából vagy tőzsdéről';
 
   @override
+  String get receiveAnotherWallet => 'Másik tárca';
+
+  @override
+  String receiveOrAnExchangeLine(String coins) {
+    return 'Vagy tőzsde · $coins';
+  }
+
+  @override
   String get usdWithdrawToYourWallet => 'A tárcádba';
 
   @override
@@ -12058,7 +12066,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String usdBitcoinBalanceLine(String amount) {
-    return '$amount in Bitcoin';
+    return '$amount Bitcoinban';
   }
 
   @override
@@ -12097,6 +12105,11 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String sendAlsoSendsToMore(String names, int count) {
     return '$names és még $count';
+  }
+
+  @override
+  String coinsSummaryShort(String names, int count) {
+    return '$names +$count';
   }
 
   @override

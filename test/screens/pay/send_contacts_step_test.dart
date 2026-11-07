@@ -562,6 +562,22 @@ void main() {
     expect(chip(_dollarsChip).icon, isA<SvgPicture>());
     expect(chip(_addressChip).label, _l10n.sendWayCryptoAddress);
     expect(chip(_addressChip).icon, isA<SendCoinStack>());
+    // Every coin whole inside the stack's box (founder, 7 November 2026:
+    // the last coin was cut at the right).
+    final stack = find.descendant(
+        of: find.byKey(_addressChip), matching: find.byType(SendCoinStack));
+    final coins = find.descendant(
+        of: stack,
+        matching: find.byWidgetPredicate((w) =>
+            w is Container &&
+            w.decoration is BoxDecoration &&
+            (w.decoration! as BoxDecoration).shape == BoxShape.circle));
+    expect(coins, findsWidgets);
+    for (final coin in coins.evaluate()) {
+      final r = tester.getRect(find.byWidget(coin.widget));
+      expect(r.right, lessThanOrEqualTo(tester.getRect(stack).right + 0.01));
+      expect(r.bottom, lessThanOrEqualTo(tester.getRect(stack).bottom + 0.01));
+    }
     expect(chip(_addressChip).semanticsLabel,
         '${_l10n.sendToCryptoAddress}, ${_l10n.sendAlsoSendsToList('USDC, USD', 'USDT')}');
     expect(chip(_pickChip).label, _l10n.sendWayPrediction);

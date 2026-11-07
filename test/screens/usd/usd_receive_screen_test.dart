@@ -218,6 +218,48 @@ Future<void> _loadInter() async {
   await inter.load();
 }
 
+/// How many lines [title] takes inside [card].
+int _lines(WidgetTester tester, Finder card, String title) {
+  final p = tester.renderObject<RenderParagraph>(find.descendant(
+      of: find.descendant(of: card, matching: find.text(title)),
+      matching: find.byType(RichText)));
+  final painter = TextPainter(
+    text: p.text,
+    textDirection: p.textDirection,
+    textScaler: p.textScaler,
+    maxLines: p.maxLines,
+    locale: p.locale,
+    strutStyle: p.strutStyle,
+    textWidthBasis: p.textWidthBasis,
+  )..layout(maxWidth: p.constraints.maxWidth);
+  final lines = painter.computeLineMetrics().length;
+  painter.dispose();
+  return lines;
+}
+
+/// Every coin of the stack under [card] lies whole inside the stack's box
+/// and the card: nothing clipped.
+void _expectCoinsWhole(WidgetTester tester, Finder card) {
+  final stack = find.descendant(of: card, matching: find.byType(SendCoinStack));
+  final box = tester.getRect(stack);
+  final coins = find.descendant(
+      of: stack,
+      matching: find.byWidgetPredicate((w) =>
+          w is Container &&
+          w.decoration is BoxDecoration &&
+          (w.decoration! as BoxDecoration).shape == BoxShape.circle));
+  expect(coins, findsWidgets);
+  for (final coin in coins.evaluate()) {
+    final r = tester.getRect(find.byWidget(coin.widget));
+    expect(r.left, greaterThanOrEqualTo(box.left - 0.01));
+    expect(r.top, greaterThanOrEqualTo(box.top - 0.01));
+    expect(r.right, lessThanOrEqualTo(box.right + 0.01),
+        reason: 'a coin is cut at the right');
+    expect(r.bottom, lessThanOrEqualTo(box.bottom + 0.01));
+    expect(r.right, lessThanOrEqualTo(tester.getRect(card).right));
+  }
+}
+
 void main() {
   late List<(String, Map<String, Object>?)> events;
 
@@ -240,8 +282,11 @@ void main() {
 
   testWidgets(
       'opens on two big square cards side by side: "From your Bitcoin" and '
-      '"From another wallet or exchange" with the coins stacked; no list '
-      'rows, no inline grid, nothing picked', (tester) async {
+      '"Another wallet" ("Or an exchange", the coins stacked, none cut), '
+      'both titles on one line; no list rows, no inline grid, nothing '
+      'picked', (tester) async {
+    // The app's own font: the one-line rule measures real glyphs.
+    await tester.runAsync(_loadInter);
     await _pump(tester);
     final row = find.byKey(_bitcoinRow);
     expect(row, findsOneWidget);
@@ -253,9 +298,19 @@ void main() {
     expect(bitcoin.compact, isFalse);
     expect(receiveFromAnotherRow, findsOneWidget);
     final another = tester.widget<KuteActionCard>(receiveFromAnotherRow);
-    expect(another.title, _l10n.usdReceiveFromAnotherWallet);
-    expect(another.subtitle, _l10n.sendAlsoSendsToList('USDC', 'USDT'));
+    expect(another.title, _l10n.receiveAnotherWallet);
+    expect(another.title, 'Another wallet');
+    expect(another.subtitle, _l10n.receiveOrAnExchangeLine('USDC, USDT'));
+    expect(another.subtitle, 'Or an exchange · USDC, USDT');
     expect(another.visual, isA<SendCoinStack>());
+    expect(tester.widget<KuteActionCardGrid>(grid).oneLineTitles, isTrue);
+    _expectCoinsWhole(tester, receiveFromAnotherRow);
+    for (final (card, title) in [
+      (row, bitcoin.title),
+      (receiveFromAnotherRow, another.title),
+    ]) {
+      expect(_lines(tester, card, title), 1, reason: title);
+    }
     // Side by side, equally wide and tall, 12 apart; squares, no chevron.
     final a = tester.getRect(row);
     final b = tester.getRect(receiveFromAnotherRow);
@@ -558,9 +613,17 @@ void main() {
       expect(
           find.descendant(
               of: receiveFromAnotherRow,
-              matching: find.text(l10n.usdReceiveFromAnotherWallet)),
+              matching: find.text(l10n.receiveAnotherWallet)),
           findsOneWidget,
           reason: why);
+      // Both titles on one line (founder, 7 November 2026: "sizes are
+      // strange here"), the coins whole in their box.
+      expect(_lines(tester, bitcoin, l10n.usdReceiveFromYourBitcoin), 1,
+          reason: why);
+      expect(
+          _lines(tester, receiveFromAnotherRow, l10n.receiveAnotherWallet), 1,
+          reason: why);
+      _expectCoinsWhole(tester, receiveFromAnotherRow);
       for (final (card, box) in [(bitcoin, a), (receiveFromAnotherRow, b)]) {
         final texts =
             find.descendant(of: card, matching: find.byType(RichText));

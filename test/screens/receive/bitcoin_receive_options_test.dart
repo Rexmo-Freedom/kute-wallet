@@ -2,8 +2,9 @@
 // November 2026: "Bitcoin should be on top, more prevalent here"; the
 // word swap appears nowhere): the Bitcoin tab's Receive opens Bitcoin
 // ("Bitcoin and Lightning") on top, full width and larger, then two
-// squares under it, From your Dollars (its balance) and From another
-// wallet or exchange (the coins stacked), in a sheet as tall as they
+// squares under it, From your Dollars (its balance) and Another wallet
+// ("Or an exchange", the coins stacked, none cut), both titles on one
+// line, in a sheet as tall as they
 // are, the floating bar away. Each card opens its sheet over this one:
 // the QR receive, Move money straight on the amount (Dollars to Bitcoin,
 // pinned), the other coins sheet. From your Dollars is only on the
@@ -191,6 +192,48 @@ Future<void> _loadInter() async {
 KuteActionCard _card(WidgetTester tester, Key key) =>
     tester.widget<KuteActionCard>(find.byKey(key));
 
+/// How many lines [title] takes inside [card].
+int _lines(WidgetTester tester, Finder card, String title) {
+  final p = tester.renderObject<RenderParagraph>(find.descendant(
+      of: find.descendant(of: card, matching: find.text(title)),
+      matching: find.byType(RichText)));
+  final painter = TextPainter(
+    text: p.text,
+    textDirection: p.textDirection,
+    textScaler: p.textScaler,
+    maxLines: p.maxLines,
+    locale: p.locale,
+    strutStyle: p.strutStyle,
+    textWidthBasis: p.textWidthBasis,
+  )..layout(maxWidth: p.constraints.maxWidth);
+  final lines = painter.computeLineMetrics().length;
+  painter.dispose();
+  return lines;
+}
+
+/// Every coin of the stack under [card] lies whole inside the stack's box
+/// and the card: nothing clipped.
+void _expectCoinsWhole(WidgetTester tester, Finder card) {
+  final stack = find.descendant(of: card, matching: find.byType(SendCoinStack));
+  final box = tester.getRect(stack);
+  final coins = find.descendant(
+      of: stack,
+      matching: find.byWidgetPredicate((w) =>
+          w is Container &&
+          w.decoration is BoxDecoration &&
+          (w.decoration! as BoxDecoration).shape == BoxShape.circle));
+  expect(coins, findsWidgets);
+  for (final coin in coins.evaluate()) {
+    final r = tester.getRect(find.byWidget(coin.widget));
+    expect(r.left, greaterThanOrEqualTo(box.left - 0.01));
+    expect(r.top, greaterThanOrEqualTo(box.top - 0.01));
+    expect(r.right, lessThanOrEqualTo(box.right + 0.01),
+        reason: 'a coin is cut at the right');
+    expect(r.bottom, lessThanOrEqualTo(box.bottom + 0.01));
+    expect(r.right, lessThanOrEqualTo(tester.getRect(card).right));
+  }
+}
+
 void main() {
   late List<(String, Map<String, Object>?)> events;
 
@@ -213,9 +256,12 @@ void main() {
   testWidgets(
       'the spending wallet: "Receive" over Bitcoin ("Bitcoin and '
       'Lightning") on top, full width and larger, then From your Dollars '
-      '(its balance) and From another wallet or exchange (the coins '
-      'stacked) as two squares; a short sheet with the bar away',
+      '(its balance) and Another wallet (or an exchange, the coins stacked '
+      'whole) as two squares, titles on one line; a short sheet with the '
+      'bar away',
       (tester) async {
+    // The app's own font: the one-line rule measures real glyphs.
+    await tester.runAsync(_loadInter);
     await _pump(tester);
     final sheet = ModalRoute.of(tester.element(find.byKey(_bitcoin)));
     expect(sheet, isA<ModalBottomSheetRoute<void>>());
@@ -237,13 +283,20 @@ void main() {
     expect(_card(tester, _bitcoin).subtitle, 'Bitcoin and Lightning');
     expect(_card(tester, _fromDollars).title, 'From your Dollars');
     expect(_card(tester, _fromDollars).subtitle, r'$4.75 in Dollars');
-    expect(_card(tester, _fromAnother).title,
-        'From another wallet or exchange');
-    expect(_card(tester, _fromAnother).title,
-        _l10n.usdReceiveFromAnotherWallet);
-    // Three coins named, the rest counted ("USDC, USDT, ETH and N more").
+    expect(_card(tester, _fromAnother).title, 'Another wallet');
+    expect(_card(tester, _fromAnother).title, _l10n.receiveAnotherWallet);
+    // An exchange too; three coins named, the rest counted ("USDC, USDT,
+    // ETH +1").
     expect(_card(tester, _fromAnother).subtitle,
-        matches(RegExp(r'^\w+, \w+, \w+ and 1 more$')));
+        matches(RegExp(r'^Or an exchange · \w+, \w+, \w+ \+1$')));
+    expect(grid.oneLineTitles, isTrue);
+    for (final (key, title) in [
+      (_fromDollars, 'From your Dollars'),
+      (_fromAnother, 'Another wallet'),
+    ]) {
+      expect(_lines(tester, find.byKey(key), title), 1, reason: title);
+    }
+    _expectCoinsWhole(tester, find.byKey(_fromAnother));
     expect(
         find.descendant(
             of: find.byKey(_fromAnother), matching: find.byType(SendCoinStack)),
@@ -312,8 +365,8 @@ void main() {
   });
 
   testWidgets(
-      'From another wallet or exchange opens the other coins sheet over '
-      'this one, delivering bitcoin', (tester) async {
+      'Another wallet opens the other coins sheet over this one, '
+      'delivering bitcoin', (tester) async {
     await _pump(tester);
     await tester.tap(find.byKey(_fromAnother));
     await tester.pump();
@@ -415,8 +468,9 @@ void main() {
 
   testWidgets(
       'at 375 pt, in Inter, in every shipped language: Bitcoin across the '
-      'top, the two squares side by side under it, every word whole inside '
-      'its card, nothing overflowing; the sheet short', (tester) async {
+      'top, the two squares side by side under it, their titles on one '
+      'line, every word whole inside its card, the coins whole, nothing '
+      'overflowing; the sheet short', (tester) async {
     await tester.runAsync(_loadInter);
     for (final locale in AppLocalizations.supportedLocales) {
       final l10n = l10nForLanguage(locale.languageCode);
@@ -438,6 +492,13 @@ void main() {
       expect(rects[1].top, moreOrLessEquals(rects[2].top), reason: why);
       expect(rects[0].left, moreOrLessEquals(rects[1].left), reason: why);
       expect(rects[0].right, moreOrLessEquals(rects[2].right), reason: why);
+      expect(_lines(tester, find.byKey(_fromDollars), l10n.receiveFromYourDollars),
+          1,
+          reason: why);
+      expect(_lines(tester, find.byKey(_fromAnother), l10n.receiveAnotherWallet),
+          1,
+          reason: why);
+      _expectCoinsWhole(tester, find.byKey(_fromAnother));
       for (var c = 0; c < cards.length; c++) {
         final box = rects[c];
         expect(box.left, greaterThanOrEqualTo(0), reason: why);

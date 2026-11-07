@@ -7584,6 +7584,19 @@
   "@usdReceiveFromAnotherWallet": {
     "description": "Section label on the first step of the Investments (dollars) receive sheet, above the grid of coins that can be sent in from another wallet or an exchange."
   },
+  "receiveAnotherWallet": "Another wallet",
+  "@receiveAnotherWallet": {
+    "description": "Receive sheets (Bitcoin and Dollars), card title beside \"From your Bitcoin\" / \"From your Dollars\": receive another coin from another wallet or an exchange. Short: one line on a card half the screen wide."
+  },
+  "receiveOrAnExchangeLine": "Or an exchange · {coins}",
+  "@receiveOrAnExchangeLine": {
+    "description": "Under \"Another wallet\" on the Receive sheets: an exchange works too, then the coins it accepts ({coins}: \"USDC, USDT, ETH +18\").",
+    "placeholders": {
+      "coins": {
+        "type": "String"
+      }
+    }
+  },
   "usdWithdrawToYourWallet": "To your wallet",
   "@usdWithdrawToYourWallet": {
     "description": "Section label on the first step of the Investments (dollars) withdraw sheet, above the card that moves money home to the person's own spending bitcoin."
@@ -9112,6 +9125,18 @@
   },
   "sendAlsoSendsToMore": "{names} and {count} more",
   "@sendAlsoSendsToMore": {
+    "placeholders": {
+      "names": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "coinsSummaryShort": "{names} +{count}",
+  "@coinsSummaryShort": {
+    "description": "The coins a card accepts, short: the first few by symbol and how many more, e.g. \"USDC, USDT, ETH +18\".",
     "placeholders": {
       "names": {
         "type": "String"

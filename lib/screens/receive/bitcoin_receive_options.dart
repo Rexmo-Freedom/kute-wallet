@@ -20,17 +20,19 @@
 //                       (showOwnMoneyMove), as the Dollars Send's "To your
 //                       Bitcoin" opens it. Only where the wallet has a
 //                       Dollars account (the spending wallet).
-//   From another wallet the square beside it: the coins stacked, "USDC,
-//   or exchange         USDT, ETH and N more" (the Dollars receive's words
-//                       for the same door); the Bitcoin receive's "other
-//                       coins" sheet (showOtherCoinsReceiveSheet). Only
-//                       while a coin can be offered (the spending wallet,
-//                       an account that may be offered swaps, a coin the
-//                       standing route or a one-time quote can serve).
+//   Another wallet      the square beside it: the coins stacked, "Or an
+//                       exchange · USDC, USDT, ETH +18" (the Dollars
+//                       receive's card for the same door); the Bitcoin
+//                       receive's "other coins" sheet
+//                       (showOtherCoinsReceiveSheet). Only while a coin can
+//                       be offered (the spending wallet, an account that
+//                       may be offered swaps, a coin the standing route or
+//                       a one-time quote can serve).
 //
 // The grid's own rule lays the two under Bitcoin out: two squares side by
-// side, or, with one hidden, the other full width and compact; with both
-// hidden, Bitcoin alone. Each card's sheet opens over this one, and
+// side where both titles read on one line (oneLineTitles), else two
+// compact full-width cards; with one hidden, the other full width and
+// compact; with both hidden, Bitcoin alone. Each card's sheet opens over this one, and
 // closing it comes back here.
 //
 // Tracking keeps the events the doors already send: the Move sheet's
@@ -65,7 +67,7 @@ import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/money_movement_sheet.dart';
 import 'package:kute/screens/shared/receive_surface.dart';
 import 'package:kute/screens/shared/send/send_recipient_step.dart'
-    show SendStepTitle, sendAlsoSendsToCard;
+    show SendStepTitle, receiveAnotherWalletCard;
 import 'package:kute/services/orchestra/reusable_deposit_address.dart'
     show standingDestinationsProvider;
 import 'package:kute/services/orchestra_routes.dart'
@@ -124,7 +126,7 @@ class _BitcoinReceiveOptionsState extends ConsumerState<BitcoinReceiveOptions> {
     return spending != null && spending.id == picked;
   }
 
-  /// The coins "From another wallet or exchange" offers: exactly the set the other
+  /// The coins "Another wallet" offers: exactly the set the other
   /// coins sheet lists (a reusable standing address where that route may
   /// serve the coin, else a one-time address into `spark:BTC` while the
   /// policy allows them). Empty off the spending wallet and for accounts
@@ -179,6 +181,9 @@ class _BitcoinReceiveOptionsState extends ConsumerState<BitcoinReceiveOptions> {
         padding: EdgeInsets.fromLTRB(20.w, 18.h, 20.w, 8.h),
         child: KuteActionCardGrid(
           key: const ValueKey('bitcoin-receive-options'),
+          // Squares only where both titles read on one line (founder, 7
+          // November 2026: "sizes are strange here").
+          oneLineTitles: true,
           // Bitcoin on top, the main action (founder, 7 November 2026).
           lead: KuteActionCard(
             key: const ValueKey('bitcoin-receive-bitcoin'),
@@ -201,11 +206,10 @@ class _BitcoinReceiveOptionsState extends ConsumerState<BitcoinReceiveOptions> {
                 onTap: _openFromDollars,
               ),
             if (groups.isNotEmpty)
-              sendAlsoSendsToCard(
+              // The Dollars receive's card for the same door.
+              receiveAnotherWalletCard(
                 l10n,
                 key: const ValueKey('bitcoin-receive-from-another'),
-                // The Dollars receive's words for the same door.
-                title: l10n.usdReceiveFromAnotherWallet,
                 groups: groups,
                 onTap: () => _openOtherCoins(groups.length),
               ),

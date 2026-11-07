@@ -11107,6 +11107,14 @@ class AppLocalizationsLt extends AppLocalizations {
   String get usdReceiveFromAnotherWallet => 'Iš kitos piniginės ar biržos';
 
   @override
+  String get receiveAnotherWallet => 'Kita piniginė';
+
+  @override
+  String receiveOrAnExchangeLine(String coins) {
+    return 'Arba birža · $coins';
+  }
+
+  @override
   String get usdWithdrawToYourWallet => 'Į jūsų piniginę';
 
   @override
@@ -12085,7 +12093,7 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String usdBitcoinBalanceLine(String amount) {
-    return '$amount in Bitcoin';
+    return '$amount Bitcoine';
   }
 
   @override
@@ -12124,6 +12132,11 @@ class AppLocalizationsLt extends AppLocalizations {
   @override
   String sendAlsoSendsToMore(String names, int count) {
     return '$names ir dar $count';
+  }
+
+  @override
+  String coinsSummaryShort(String names, int count) {
+    return '$names +$count';
   }
 
   @override

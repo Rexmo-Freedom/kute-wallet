@@ -11135,6 +11135,14 @@ class AppLocalizationsEl extends AppLocalizations {
       'Από άλλο πορτοφόλι ή ανταλλακτήριο';
 
   @override
+  String get receiveAnotherWallet => 'Άλλο πορτοφόλι';
+
+  @override
+  String receiveOrAnExchangeLine(String coins) {
+    return 'Ή ανταλλακτήριο · $coins';
+  }
+
+  @override
   String get usdWithdrawToYourWallet => 'Στο πορτοφόλι σου';
 
   @override
@@ -12112,14 +12120,14 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String usdBitcoinBalanceLine(String amount) {
-    return '$amount in Bitcoin';
+    return '$amount σε Bitcoin';
   }
 
   @override
   String get usdReceiveFromYourBitcoin => 'Από το Bitcoin σου';
 
   @override
-  String get receiveFromYourDollars => 'Από τα Δολάριά σου';
+  String get receiveFromYourDollars => 'Από τα Δολάρια';
 
   @override
   String usdDollarsBalanceLine(String amount) {
@@ -12151,6 +12159,11 @@ class AppLocalizationsEl extends AppLocalizations {
   @override
   String sendAlsoSendsToMore(String names, int count) {
     return '$names και $count ακόμα';
+  }
+
+  @override
+  String coinsSummaryShort(String names, int count) {
+    return '$names +$count';
   }
 
   @override

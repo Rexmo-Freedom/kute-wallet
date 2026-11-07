@@ -11137,6 +11137,14 @@ class AppLocalizationsFr extends AppLocalizations {
       'Depuis un autre portefeuille ou une plateforme';
 
   @override
+  String get receiveAnotherWallet => 'Autre portefeuille';
+
+  @override
+  String receiveOrAnExchangeLine(String coins) {
+    return 'Ou une plateforme · $coins';
+  }
+
+  @override
   String get usdWithdrawToYourWallet => 'Vers votre portefeuille';
 
   @override
@@ -12116,11 +12124,11 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String usdBitcoinBalanceLine(String amount) {
-    return '$amount in Bitcoin';
+    return '$amount en Bitcoin';
   }
 
   @override
-  String get usdReceiveFromYourBitcoin => 'Depuis votre Bitcoin';
+  String get usdReceiveFromYourBitcoin => 'Depuis ton Bitcoin';
 
   @override
   String get receiveFromYourDollars => 'Depuis vos Dollars';
@@ -12155,6 +12163,11 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String sendAlsoSendsToMore(String names, int count) {
     return '$names et $count de plus';
+  }
+
+  @override
+  String coinsSummaryShort(String names, int count) {
+    return '$names +$count';
   }
 
   @override

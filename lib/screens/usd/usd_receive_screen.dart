@@ -64,7 +64,7 @@ import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show SendToSectionHeader;
 import 'package:kute/screens/shared/send/send_recipient_step.dart'
-    show SendStepTitle, sendAlsoSendsToCard;
+    show SendStepTitle, receiveAnotherWalletCard;
 import 'package:kute/screens/usd/flow/usd_flow_widgets.dart';
 import 'package:kute/services/orchestra/bitcoin_receive_marks.dart'
     show BitcoinReceiveMarks;
@@ -215,18 +215,22 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
 
   /// The Dollars Add (founder, 1 November 2026: the quiet treatment of
   /// the Bitcoin receive; 5 November 2026: "Here should be big cards,
-  /// square"): TWO big square cards side by side (kute_action_cards.dart),
-  /// "From your Bitcoin" (the Bitcoin mark, its balance; the Move sheet
-  /// from the spending bitcoin) and "From another wallet or exchange" (the
-  /// coins stacked, "USDC, USDT, ETH and N more"), opening the coin sheet
-  /// as the Bitcoin receive's own "From another wallet or exchange" does. With no coin
-  /// offered the Bitcoin card is alone, full width and compact. No inline
-  /// grid.
+  /// square"; 7 November 2026: "sizes are strange here"): TWO big square
+  /// cards side by side (kute_action_cards.dart), "From your Bitcoin" (the
+  /// Bitcoin mark, its balance; Move money from the spending bitcoin) and
+  /// "Another wallet" (the coins stacked, "Or an exchange · USDC, USDT,
+  /// ETH +18"), opening the coin sheet as the Bitcoin receive's own card
+  /// does. Squares only where both titles read on one line, else two
+  /// compact full-width cards. With no coin offered the Bitcoin card is
+  /// alone, full width and compact. No inline grid.
   Widget _dollarsCard(BuildContext context, List<CoinAssetGroup> groups) {
     final l10n = context.l10n;
     final balance = watchSpendingBitcoinUsd(ref);
     return KuteActionCardGrid(
       key: const ValueKey('usd-receive-card'),
+      // Squares only where both titles read on one line (founder, 7
+      // November 2026: "sizes are strange here"), else two compact rows.
+      oneLineTitles: true,
       cards: [
         KuteActionCard(
           key: const ValueKey('usd-receive-from-bitcoin'),
@@ -239,10 +243,9 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
           onTap: _openFromBitcoin,
         ),
         if (groups.isNotEmpty)
-          sendAlsoSendsToCard(
+          receiveAnotherWalletCard(
             l10n,
             key: const ValueKey('usd-receive-from-another'),
-            title: l10n.usdReceiveFromAnotherWallet,
             groups: groups,
             onTap: _openCoinPicker,
           ),

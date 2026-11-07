@@ -18721,6 +18721,18 @@ abstract class AppLocalizations {
   /// **'From another wallet or exchange'**
   String get usdReceiveFromAnotherWallet;
 
+  /// Receive sheets (Bitcoin and Dollars), card title beside "From your Bitcoin" / "From your Dollars": receive another coin from another wallet or an exchange. Short: one line on a card half the screen wide.
+  ///
+  /// In en, this message translates to:
+  /// **'Another wallet'**
+  String get receiveAnotherWallet;
+
+  /// Under "Another wallet" on the Receive sheets: an exchange works too, then the coins it accepts ({coins}: "USDC, USDT, ETH +18").
+  ///
+  /// In en, this message translates to:
+  /// **'Or an exchange · {coins}'**
+  String receiveOrAnExchangeLine(String coins);
+
   /// Section label on the first step of the Investments (dollars) withdraw sheet, above the card that moves money home to the person's own spending bitcoin.
   ///
   /// In en, this message translates to:
@@ -20274,6 +20286,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{names} and {count} more'**
   String sendAlsoSendsToMore(String names, int count);
+
+  /// The coins a card accepts, short: the first few by symbol and how many more, e.g. "USDC, USDT, ETH +18".
+  ///
+  /// In en, this message translates to:
+  /// **'{names} +{count}'**
+  String coinsSummaryShort(String names, int count);
 
   /// No description provided for @sendAlsoSendsToList.
   ///

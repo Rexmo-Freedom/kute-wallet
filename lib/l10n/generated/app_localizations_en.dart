@@ -11018,6 +11018,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get usdReceiveFromAnotherWallet => 'From another wallet or exchange';
 
   @override
+  String get receiveAnotherWallet => 'Another wallet';
+
+  @override
+  String receiveOrAnExchangeLine(String coins) {
+    return 'Or an exchange · $coins';
+  }
+
+  @override
   String get usdWithdrawToYourWallet => 'To your wallet';
 
   @override
@@ -12024,6 +12032,11 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String sendAlsoSendsToMore(String names, int count) {
     return '$names and $count more';
+  }
+
+  @override
+  String coinsSummaryShort(String names, int count) {
+    return '$names +$count';
   }
 
   @override

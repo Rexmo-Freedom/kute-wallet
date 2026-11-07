@@ -861,6 +861,17 @@ class SendPickMarketRow extends StatelessWidget {
   }
 }
 
+/// "USDC, USDT, ETH +18": [sendAlsoSendsToSummary] for a card's short
+/// line (the Receive sheets' "Another wallet").
+String sendCoinsShortSummary(
+    AppLocalizations l10n, List<CoinAssetGroup> groups) {
+  final shown = groups.take(SendCoinStack.stack).toList();
+  final rest = groups.length - shown.length;
+  final names = [for (final g in shown) g.displaySymbol].join(', ');
+  if (names.isEmpty) return '';
+  return rest > 0 ? l10n.coinsSummaryShort(names, rest) : names;
+}
+
 /// "USDC, USDT, ETH and 16 more": the first [SendCoinStack.stack] coins of
 /// [groups] by symbol and how many more (the Also sends to row's and
 /// card's line); empty with no coins.
@@ -890,14 +901,20 @@ class SendCoinStack extends StatelessWidget {
   /// How many marks it shows.
   static const int stack = 3;
 
+  /// The ring each mark wears, in the card's colour, so the overlap reads.
+  static const double ring = 1.5;
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final shown = groups.take(stack).toList();
     final step = mark * 9 / 22;
+    // The box holds every mark with its ring (founder, 7 November 2026:
+    // the last coin was cut at the right): a mark is [mark] plus the ring
+    // on both sides.
     return SizedBox(
-      width: (mark + (shown.length - 1) * step).sp,
-      height: mark.sp,
+      width: (mark + (shown.length - 1) * step).sp + 2 * ring,
+      height: mark.sp + 2 * ring,
       child: Stack(
         children: [
           for (var i = 0; i < shown.length; i++)
@@ -907,7 +924,7 @@ class SendCoinStack extends StatelessWidget {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: c.surfaceLight,
-                  border: Border.all(color: c.surfaceLight, width: 1.5),
+                  border: Border.all(color: c.surfaceLight, width: ring),
                 ),
                 child: AssetIcon(assetCode: shown[i].assetCode, size: mark.sp),
               ),
@@ -964,13 +981,33 @@ KuteActionCard sendAlsoSendsToCard(
   required List<CoinAssetGroup> groups,
   required VoidCallback onTap,
   String? title,
+  String? subtitle,
   Key? key,
 }) =>
     KuteActionCard(
       key: key ?? const ValueKey('send-also-sends-to-row'),
       visual: SendCoinStack(groups: groups, mark: kSendCoinStackCardMark),
       title: title ?? l10n.sendToCryptoAddress,
-      subtitle: sendAlsoSendsToSummary(l10n, groups),
+      subtitle: subtitle ?? sendAlsoSendsToSummary(l10n, groups),
+      onTap: onTap,
+    );
+
+/// The Receive sheets' "Another wallet" card (founder, 7 November 2026:
+/// one-line titles, "Or an exchange · USDC, USDT, ETH +18" under it), the
+/// coins stacked, keyed [key].
+KuteActionCard receiveAnotherWalletCard(
+  AppLocalizations l10n, {
+  required List<CoinAssetGroup> groups,
+  required VoidCallback onTap,
+  required Key key,
+}) =>
+    sendAlsoSendsToCard(
+      l10n,
+      key: key,
+      groups: groups,
+      title: l10n.receiveAnotherWallet,
+      subtitle:
+          l10n.receiveOrAnExchangeLine(sendCoinsShortSummary(l10n, groups)),
       onTap: onTap,
     );
 
