@@ -8,7 +8,10 @@
 //   * [KuteShareBadge]: a solid ink disc ([kShareBadgeInk], #1D2024)
 //     [kShareBadgeDisc] across inside a [kShareBadgeRing] ring of the
 //     button's own white, so it cuts cleanly out of the circle and Sal,
-//     and outlines it on the dark page; [kShareBadgeSize] in all;
+//     and outlines it on the dark page; [kShareBadgeSize] in all. On the
+//     dark button of light mode (founder, 7 November 2026;
+//     kute_bar_surface.dart) it inverts: a white disc with the ink glyph
+//     in a ring of the button's dark fill, outlining it on the light page;
 //   * [KuteShareGlyphPainter]: the iOS share symbol drawn in code, a
 //     rounded tray open at the top (two short stubs) and an up arrow, round
 //     caps, in white; [lift] raises the arrow out of the tray (0..1, at most
@@ -23,14 +26,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:kute/screens/shared/sal_sprite.dart' show SalSpriteFrame;
 
-/// The badge's disc colour: Kute's ink, in both modes (the button it sits
-/// on is white in both).
+/// The badge's disc colour on the white button (dark mode), and its
+/// glyph's on the dark one (light mode).
 const Color kShareBadgeInk = Color(0xFF1D2024);
 
 /// The ink disc's side.
 const double kShareBadgeDisc = 22;
 
-/// The ring around the disc, in the button's white.
+/// The ring around the disc, in the button's own fill.
 const double kShareBadgeRing = 2;
 
 /// The badge's side, ring included.
@@ -63,10 +66,20 @@ class KuteShareBadge extends StatelessWidget {
     super.key,
     this.lift,
     this.ringColor = const Color(0xFFFFFFFF),
+    this.discColor = kShareBadgeInk,
+    this.glyphColor = const Color(0xFFFFFFFF),
   });
 
   final ValueListenable<double>? lift;
+
+  /// The ring: the button's own fill, so the badge cuts cleanly out of it.
   final Color ringColor;
+
+  /// The disc and the glyph on it: the ink disc with the white glyph on
+  /// the white button (dark mode), inverted on the dark one (light mode;
+  /// kute_bar_surface.dart).
+  final Color discColor;
+  final Color glyphColor;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -76,12 +89,10 @@ class KuteShareBadge extends StatelessWidget {
         padding: const EdgeInsets.all(kShareBadgeRing),
         decoration: BoxDecoration(color: ringColor, shape: BoxShape.circle),
         child: DecoratedBox(
-          decoration: const BoxDecoration(
-              color: kShareBadgeInk, shape: BoxShape.circle),
+          decoration: BoxDecoration(color: discColor, shape: BoxShape.circle),
           child: CustomPaint(
             size: const Size.square(kShareBadgeDisc),
-            painter: KuteShareGlyphPainter(
-                color: const Color(0xFFFFFFFF), lift: lift),
+            painter: KuteShareGlyphPainter(color: glyphColor, lift: lift),
           ),
         ),
       );

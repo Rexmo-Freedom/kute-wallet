@@ -19,6 +19,7 @@ import 'package:kute/screens/home/components/kute_bottom_action_bar.dart'
 import 'package:kute/screens/home/components/kute_shell_bar.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/theme/kute_bar_surface.dart';
 
 final _navKey = GlobalKey<NavigatorState>();
 
@@ -178,7 +179,8 @@ void main() {
   });
 
   testWidgets(
-      'a trade with no fill is the light pill; a value follows the words',
+      'a trade with no fill is the bar\'s neutral surface, dark in light '
+      'mode with white words; a value follows the words',
       (tester) async {
     await _pump(tester);
     await _push(
@@ -195,16 +197,18 @@ void main() {
           ],
           share: const KuteBarShare(barContext: _market),
         )));
-    final light =
+    // Dark in light mode (founder, 7 November 2026; kute_bar_surface.dart).
+    final neutral =
         tester.widget<Container>(_trade('sell')).decoration! as BoxDecoration;
-    expect(light.color, Colors.white);
+    expect(neutral.color, AppColorsExtension.light().textPrimary);
+    expect((neutral.border! as Border).top.color, KuteBarSurface.edge);
     expect(
         tester
             .widget<Text>(find.descendant(
                 of: _trade('sell'), matching: find.text('Sell')))
             .style!
             .color,
-        AppColorsExtension.light().textPrimary);
+        KuteBarSurface.ink);
     final yes = tester.getRect(
         find.descendant(of: _trade('yes'), matching: find.text('Yes')));
     final value = tester.getRect(

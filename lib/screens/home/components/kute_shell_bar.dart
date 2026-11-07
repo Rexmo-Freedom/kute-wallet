@@ -66,6 +66,14 @@
 // ([_searchCovered]; founder, 6 November 2026: "Predictions on search
 // have no buy button on the bet slip").
 //
+// DARK IN LIGHT MODE, IN EVERY STATE (founder, 7 November 2026: "shoudn
+// tthe button be black idk"; kute_bar_surface.dart): the pill, one line or
+// two, the folded circle, the round share button, the primary button
+// enabled, busy or disabled and a trade row's neutral pill all wear the
+// primary's near-black fill with white words, a light hairline and a soft
+// shadow, so a cross-fade between them never shows white; only a coloured
+// button keeps its own colours. Dark mode keeps its white pill.
+//
 // Reduce Motion: the full pill, still, above the action row; it still
 // slides in and out with the keyboard and the Sal sheet, at once, and the
 // sheet opens plain: no travel.
@@ -98,6 +106,7 @@ import 'package:kute/screens/shared/kute_morph_label.dart';
 import 'package:kute/screens/shared/sal_reactions.dart';
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/theme/kute_bar_surface.dart';
 import 'package:kute/theme/kute_motion.dart';
 import 'package:kute/theme/kute_overlay_surface.dart';
 
@@ -591,14 +600,21 @@ Future<void> openKuteBarSheet(
 /// changes its words with the same pieces (kute_morph_label.dart). At once
 /// under Reduce Motion.
 ///
-/// THREE STATES:
+/// THREE STATES, ON THE ONE DARK FILL IN LIGHT MODE (founder, 7 November
+/// 2026; kute_bar_surface.dart: the fill, its light hairline and its soft
+/// shadow in every state):
 ///   * DISABLED says the step to take ([KuteBarContext.disabledLabel]:
-///     "Enter an amount", "Add who to send to") in the LIGHT pill look:
-///     white (surface in dark), a hairline, the textSecondary label, Sal
-///     `curious`. Never a black or grey-filled bar. Taps do nothing.
-///   * ENABLED is the action in the black look: textPrimary fill, the
-///     mode's contrast label at w600, Sal `idle`. A tinted slip keeps its
-///     own [KuteBarPrimaryStyle] (fill, ink, radius, weight).
+///     "Enter an amount", "Add who to send to"): in light mode on the dark
+///     fill in the quieter disabled ink (white at 60%, still AA), Sal
+///     `curious`; in dark mode the light pill look (surface, a hairline,
+///     the textSecondary label). A tinted slip's own white button keeps
+///     the light pill while off (never black on a tinted slip). Never the
+///     greyed action. Taps do nothing.
+///   * ENABLED is the action in the black look: textPrimary fill, white
+///     words at w600 (dark mode: the white fill, the background's ink),
+///     Sal `idle`. A tinted slip keeps its own [KuteBarPrimaryStyle]
+///     (fill, ink, radius, weight), and so does every coloured action
+///     (Close position's red, a claim's green).
 ///   * BUSY says the busy label ("Sending…"; longer words once the
 ///     room has grown to them, never cut), Sal plays
 ///     `think` (`search` at 1.4x until that clip is there), and a thin
@@ -1058,11 +1074,25 @@ class _KuteBarPrimaryButtonState extends State<KuteBarPrimaryButton>
     // Live: the action, or the action running. Else the step to take.
     final live = enabled || busy;
     final style = ctx.style;
+    // DARK IN LIGHT MODE IN EVERY STATE (founder, 7 November 2026;
+    // kute_bar_surface.dart): the action, busy or not, and the step to take
+    // all wear the one dark fill and its light hairline; only a style's own
+    // colours differ. A tinted slip's own white button stays in the light
+    // family while off (never black on a tinted slip; founder, 31 October
+    // 2026), as dark mode does.
+    final lightStyle = style != null && style.fill.computeLuminance() > 0.5;
+    final darkSurface = KuteBarSurface.dark(context) &&
+        (live ? style == null : !lightStyle);
     final Color fill;
     final Color ink;
     final Color border;
-    if (!live) {
-      // The light pill (the search pill's own surface), never filled grey.
+    if (darkSurface) {
+      fill = KuteBarSurface.fill(context);
+      ink = live ? KuteBarSurface.ink : KuteBarSurface.disabledInk;
+      border = KuteBarSurface.edge;
+    } else if (!live) {
+      // The light pill (the search pill's own surface in dark mode), never
+      // filled grey.
       fill = isLight ? Colors.white : c.surface;
       ink = c.textSecondary;
       border = isLight ? c.border : c.borderSubtle;
@@ -1071,8 +1101,9 @@ class _KuteBarPrimaryButtonState extends State<KuteBarPrimaryButton>
       ink = style.foreground;
       border = Colors.transparent;
     } else {
+      // Dark mode's action: the white fill, the background's ink.
       fill = c.textPrimary;
-      ink = isLight ? Colors.white : c.background;
+      ink = c.background;
       border = Colors.transparent;
     }
     // What the button is (read out at once), and the words it shows (they
@@ -1181,6 +1212,9 @@ class _KuteBarPrimaryButtonState extends State<KuteBarPrimaryButton>
                 color: fill,
                 borderRadius: radius,
                 border: Border.all(color: border, width: isLight ? 1.0 : 0.5),
+                // The dark surface's lift; the same shadow, transparent,
+                // on every other look (kute_bar_surface.dart).
+                boxShadow: [KuteBarSurface.shadow(visible: darkSurface)],
               ),
               child: ClipRRect(
                 borderRadius: radius,

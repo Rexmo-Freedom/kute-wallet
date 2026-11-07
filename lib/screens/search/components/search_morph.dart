@@ -38,6 +38,7 @@ import 'package:kute/screens/search/components/search_rows.dart'
     show kSearchSheetFraction, kSearchSheetHandleRow;
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/theme/kute_bar_surface.dart';
 import 'package:kute/theme/kute_motion.dart';
 import 'package:kute/theme/kute_overlay_surface.dart';
 
@@ -205,8 +206,11 @@ class _MorphBoxState extends State<_MorphBox>
     const pillRadius = 28.0; // _kDockPillTallHeight / 2
     const pillSprite = 38.0;
     final pillLead = 8.w;
+    // The pill is dark in light mode (kute_bar_surface.dart): it leaves
+    // and lands dark, its words white, never a white flash on the tap.
+    final isLight = Theme.of(context).brightness == Brightness.light;
     final pillLabel = TextStyle(
-      color: c.textPrimary,
+      color: isLight ? KuteBarSurface.ink : c.textPrimary,
       fontSize: 15.sp,
       fontWeight: FontWeight.w600,
       letterSpacing: -0.2,
@@ -230,25 +234,17 @@ class _MorphBoxState extends State<_MorphBox>
     );
     final hairlineColor = c.border;
     const hairline = KuteSearchComposer.hairline;
-    // The pill's surface (kute_bottom_action_bar.dart): white over a
-    // hairline with a soft shadow in light, one step up in dark.
-    final isLight = Theme.of(context).brightness == Brightness.light;
+    // The pill's surface (kute_bottom_action_bar.dart): the bar's dark
+    // fill, its light hairline and its soft shadow in light, one step up
+    // in dark.
     final pillDecoration = BoxDecoration(
-      color: isLight ? Colors.white : c.surface,
+      color: isLight ? KuteBarSurface.fill(context) : c.surface,
       borderRadius: BorderRadius.circular(pillRadius),
       border: Border.all(
-        color: isLight ? c.border : c.borderSubtle,
-        width: isLight ? 1.0 : 0.5,
+        color: isLight ? KuteBarSurface.edge : c.borderSubtle,
+        width: isLight ? KuteBarSurface.edgeWidth : 0.5,
       ),
-      boxShadow: isLight
-          ? [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 12,
-                offset: const Offset(0, 3),
-              ),
-            ]
-          : null,
+      boxShadow: isLight ? [KuteBarSurface.shadow(visible: true)] : null,
     );
     final opening = widget.opening;
     final rectTween = RectTween(begin: widget.from, end: widget.to);

@@ -3,7 +3,9 @@
 // clear, kinda hides behind Sal"): Sal's deadpan `idle` face whole inside
 // the 52 circle (32, centred, no corner near the edge), and the vector
 // share badge (kute_share_badge.dart) over the circle's bottom right, past
-// its edge: an ink disc in a white ring. The badge's arrow bobs up on
+// its edge: an ink disc in a white ring on the white circle, inverted (a
+// white disc, the ink glyph, a dark ring) on the dark circle of light
+// mode (founder, 7 November 2026). The badge's arrow bobs up on
 // Sal's blink, driven by his frames, and never under Reduce Motion. A tap
 // on the badge is the button's. Labels: "Send to a friend", "Brag about
 // it".
@@ -136,8 +138,10 @@ void main() {
   });
 
   testWidgets(
-      'Sal whole inside the circle, the ink badge over its bottom right '
-      'past the edge, in a white ring; read aloud as Send to a friend',
+      'Sal whole inside the circle, the badge over its bottom right past '
+      'the edge, inverted on the dark circle of light mode (a white disc, '
+      'the ink glyph, a ring of the circle\'s fill); read aloud as Send to '
+      'a friend',
       (tester) async {
     await _pumpButton(tester);
     final circle = tester.getRect(_circle);
@@ -170,12 +174,21 @@ void main() {
         d.distance, inInclusiveRange(circle.width / 2 - 6, circle.width / 2));
     expect(badge.right - circle.right, inInclusiveRange(1, 4));
     expect(badge.bottom - circle.bottom, inInclusiveRange(1, 4));
+    // The circle is the bar's dark fill in light mode (founder, 7 November
+    // 2026; kute_bar_surface.dart), and the badge inverts on it.
+    final fill = AppColorsExtension.light().textPrimary;
+    expect(
+        (tester.widget<AnimatedContainer>(_circle).decoration! as BoxDecoration)
+            .color,
+        fill);
     final ring = tester.widget<Container>(_badge).decoration! as BoxDecoration;
-    expect(ring.color, Colors.white);
+    expect(ring.color, fill);
     expect(ring.shape, BoxShape.circle);
     final disc = tester.widget<DecoratedBox>(
         find.descendant(of: _badge, matching: find.byType(DecoratedBox)).last);
-    expect((disc.decoration as BoxDecoration).color, kShareBadgeInk);
+    expect((disc.decoration as BoxDecoration).color, Colors.white);
+    expect(tester.widget<KuteShareBadge>(find.byType(KuteShareBadge)).glyphColor,
+        kShareBadgeInk);
     expect(_lift(tester), 0);
 
     expect(find.bySemanticsLabel('Send to a friend'), findsOneWidget);
