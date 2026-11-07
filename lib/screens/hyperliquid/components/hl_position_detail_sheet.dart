@@ -555,9 +555,8 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                             if (actions.isNotEmpty) ...[
                               KuteActionCardGrid(
                                 key: const ValueKey('hl-position-actions'),
-                                // Alone (a cross position's Protect it),
-                                // full width at the squares' size.
-                                compactLone: true,
+                                // Alone (a cross position's Protect it):
+                                // one compact full-width row.
                                 cards: actions,
                               ),
                               SizedBox(height: 12.h),

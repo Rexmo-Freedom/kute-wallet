@@ -52,7 +52,7 @@ import 'package:kute/screens/polymarket/market_detail_sheet.dart'
     show MarketDetailSheet;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/polymarket/components/poly_market_stats.dart'
-    show polyRulesCard, polyRulesCardDetail;
+    show polyRulesCard;
 import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -872,9 +872,8 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                       if (!pos.isResolved && pos.size > 0) ...[
                         KuteActionCardGrid(
                           key: const ValueKey('poly-position-actions'),
-                          // Alone, full width at the squares' size: it
-                          // never outweighs the tiles under it.
-                          compactLone: true,
+                          // Alone: one compact full-width row, never
+                          // outweighing the tiles under it.
                           cards: [
                             // How to protect it: the closest protective
                             // order Predictions has, a limit sell, set on
@@ -1075,17 +1074,15 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                             ]),
                           ),
                           // The market's closing conditions (its
-                          // description), once the event is read.
+                          // description), once the event is read: the odd
+                          // last card, one compact full-width row under
+                          // the two squares, the text itself on its sheet.
                           if (event?.description?.isNotEmpty == true)
                             polyRulesCard(
                               context,
                               key: PositionDetailSheet.closingConditionsKey,
                               title: context.l10n.betClosingConditions,
                               subtitle: context.l10n.optionHowItResolves,
-                              // Read when it is the odd last card, full
-                              // width (a settled position's three).
-                              detail:
-                                  polyRulesCardDetail(event?.description),
                               onTap: () =>
                                   _showClosingConditions(event!.description!),
                             ),

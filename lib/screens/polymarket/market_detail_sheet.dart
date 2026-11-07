@@ -2013,9 +2013,10 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
 
   /// Under the chart and the outcomes: the market's option card, as the
   /// Investing screens' (founder, 4 November 2026: "like squares";
-  /// kute_action_cards.dart), alone, so full width (founder, 5 November
-  /// 2026: "it can be Rules and resolution bigger"), saying when the
-  /// market ends, how its rules begin, and opening its rules, how it resolves, its stats and what people wrote under it.
+  /// kute_action_cards.dart), alone, so one compact full-width row
+  /// (founder, 7 November 2026, the big card with the rules' first lines:
+  /// "way too much"), saying when the market ends and opening its rules,
+  /// how it resolves, its stats and what people wrote under it.
   /// The stats (24h volume, volume, liquidity) go in with the sheet
   /// rather than sitting on this screen (owner decision); when the market
   /// closes is already one of the sheet's own rows, so the end date is not
@@ -2034,9 +2035,6 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
                   ended: over,
                   locale: Localizations.localeOf(context).toString(),
                 ),
-                // The card is alone under the outcomes: full width, with
-                // the first line of the rules under its date.
-                detail: polyRulesCardDetail(event.description),
                 onTap: () => showPolyRulesSheet(
                   context,
                   event,

@@ -314,9 +314,18 @@ void main() {
       final rules = tester.getRect(find.byKey(kPolyRulesCardKey));
       expect(rules.bottom, lessThan(tester.getRect(_trade('yes')).top));
       // Rules and resolution is the page's only option card: the full
-      // width, never half of it (founder, 5 November 2026).
+      // width, never half of it (founder, 5 November 2026), one compact
+      // row as tall as a list row (KuteListRow: 68), saying when the
+      // market ends, with no preview of its rules (founder, 7 November
+      // 2026: "way too much").
       expect(rules.center.dx, moreOrLessEquals(390 / 2, epsilon: 1));
       expect(rules.width, greaterThan(390 * 0.85));
+      expect(rules.height, lessThan(72));
+      expect(
+          find.descendant(
+              of: find.byKey(kPolyRulesCardKey),
+              matching: find.textContaining('Ends Nov 3')),
+          findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 6));

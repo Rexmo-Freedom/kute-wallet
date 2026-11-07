@@ -1,12 +1,12 @@
 // A look by eye at the option cards under a chart (kute_action_cards.dart),
 // light and dark, written only when asked: OPTION_CARDS_RENDER=<dir>.
-// The Yes/No market page holds the lone, full-width "Rules and resolution"
-// card (founder, 5 November 2026: "Here there is more space, it can be
-// Rules and resolution bigger"); the gallery shows the grid with the
-// cards each screen builds: the Investing market's two, a cross
-// position's three, an isolated position's four, a settled prediction's
-// three (Closing conditions full width, with its rules' first line) and
-// five. One render per run, so:
+// The Yes/No market page holds the lone "Rules and resolution" card, one
+// compact full-width row (founder, 7 November 2026, the big card with the
+// rules' first lines: "way too much"); the gallery shows the grid with the
+// cards each screen builds: a position's lone action, the Investing
+// market's two, a cross position's three, an isolated position's four, a
+// settled prediction's three (Closing conditions a full-width row under
+// two squares) and five. One render per run, so:
 //   for v in 'market light' 'market dark' 'gallery light' 'gallery dark'; do
 //     OPTION_CARDS_RENDER=<dir> flutter test \
 //       test/render/option_cards_render_test.dart --plain-name "$v"; done
@@ -144,9 +144,9 @@ Widget _section(
       ),
     );
 
-KuteActionCard _o(IconData icon, String title, String sub, {String? detail}) =>
+KuteActionCard _o(IconData icon, String title, String sub) =>
     KuteActionCard.option(
-        icon: icon, title: title, subtitle: sub, detail: detail, onTap: () {});
+        icon: icon, title: title, subtitle: sub, onTap: () {});
 
 void main() {
   setUp(() {
@@ -239,6 +239,7 @@ void main() {
               return ListView(
                 padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
                 children: [
+                  _section(context, 'Position action: 1', [protect]),
                   _section(context, 'Investing market: 2', [
                     chart,
                     _o(
@@ -256,8 +257,7 @@ void main() {
                     _o(Icons.receipt_long_rounded, l10n.details,
                         l10n.optionPredictionDetailsSub),
                     _o(Icons.gavel_rounded, l10n.betClosingConditions,
-                        l10n.optionHowItResolves,
-                        detail: polyRulesCardDetail(_rules)),
+                        l10n.optionHowItResolves),
                   ]),
                   _section(context, 'Five', [
                     margin,
