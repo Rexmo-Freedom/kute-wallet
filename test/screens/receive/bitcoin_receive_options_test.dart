@@ -7,7 +7,10 @@
 // line, in a sheet as tall as they
 // are, the floating bar away. Each card opens its sheet over this one:
 // the QR receive, Move money straight on the amount (Dollars to Bitcoin,
-// pinned), the other coins sheet. From your Dollars is only on the
+// pinned), the other coins sheet. From your Dollars reads all the dollar
+// money that can move to Bitcoin (fw46: Dollars plus the venue cash in
+// reach, net of the move costs, the Move sheet's From row and Max), less
+// any venue whose withdraw the policy withholds. From your Dollars is only on the
 // spending wallet (a watch-only or hardware wallet has no Dollars); From
 // another wallet or exchange only while a coin can be offered; with one
 // hidden the other is full width and compact under Bitcoin. Nothing here
@@ -50,6 +53,12 @@ import 'package:kute/screens/shared/receive_surface.dart'
 import 'package:kute/screens/shared/send/send_recipient_step.dart'
     show SendCoinStack;
 import 'package:kute/screens/usd/usd_receive_screen.dart';
+import 'package:kute/services/one_balance/investments_spendable.dart'
+    show VenueCashLastRead, investmentsSpendable, venueCashLastReadProvider;
+import 'package:kute/services/one_balance/one_balance_state.dart'
+    show OneBalanceVenue;
+import 'package:kute/services/one_balance/venue_cash_source.dart'
+    show VenueCashCandidate, kVenuePullEta;
 import 'package:kute/services/orchestra/receive_minimums.dart';
 import 'package:kute/services/orchestra/reusable_deposit_address.dart'
     show standingDestinationsProvider;
@@ -108,6 +117,28 @@ const _fromAnother = ValueKey('bitcoin-receive-from-another');
 const _bitcoin = ValueKey('bitcoin-receive-bitcoin');
 const _underneath = 'open receive';
 
+/// The venues' free cash as the engine last read it: [p] on Predictions,
+/// [i] on Investing.
+List<VenueCashCandidate> _venues({double p = 0, double i = 0}) => [
+      if (p > 0)
+        (
+          venue: OneBalanceVenue.predictions,
+          availableUsd: p,
+          eta: kVenuePullEta[OneBalanceVenue.predictions]!,
+          minimumUsd: 1.0,
+        ),
+      if (i > 0)
+        (
+          venue: OneBalanceVenue.investing,
+          availableUsd: i,
+          eta: kVenuePullEta[OneBalanceVenue.investing]!,
+          minimumUsd: 5.0,
+        ),
+    ];
+
+VenueCashLastRead _lastRead({double p = 0, double i = 0}) =>
+    (walletId: 'spending', candidates: _venues(p: p, i: i));
+
 /// Opens Receive or swap the way the Bitcoin row does, over a screen.
 Future<void> _pump(WidgetTester tester,
     {Size size = const Size(390, 844),
@@ -115,6 +146,7 @@ Future<void> _pump(WidgetTester tester,
     bool coins = true,
     bool swaps = true,
     double? dollars = 4.75,
+    VenueCashLastRead? venueCash,
     Account? account}) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -144,6 +176,8 @@ Future<void> _pump(WidgetTester tester,
           .overrideWithValue(ReceiveMinimums(fetch: (_) async => null)),
       usdBalanceProvider.overrideWithValue(dollars ?? 0),
       usdBalanceUnknownProvider.overrideWithValue(dollars == null),
+      if (venueCash != null)
+        venueCashLastReadProvider.overrideWith((_) => venueCash),
       // The wallet never answers: no address is ever asked for.
       breezSDKProvider.overrideWith((_) => Completer<BreezSdkSpark>().future),
     ],
@@ -282,7 +316,8 @@ void main() {
     expect(_card(tester, _bitcoin).title, 'Bitcoin');
     expect(_card(tester, _bitcoin).subtitle, 'Bitcoin and Lightning');
     expect(_card(tester, _fromDollars).title, 'From your Dollars');
-    expect(_card(tester, _fromDollars).subtitle, r'$4.75 in Dollars');
+    // Dollars alone here: what can move to Bitcoin.
+    expect(_card(tester, _fromDollars).subtitle, r'$4.75 available');
     expect(_card(tester, _fromAnother).title, 'Another wallet');
     expect(_card(tester, _fromAnother).title, _l10n.receiveAnotherWallet);
     // An exchange too; three coins named, the rest counted ("USDC, USDT,
@@ -459,6 +494,44 @@ void main() {
     }
   });
 
+  testWidgets(
+      'From your Dollars reads all the dollar money that can move to '
+      'Bitcoin: Dollars plus the Predictions and Investing cash in reach, '
+      "net of the move costs, the Move sheet's From row and Max",
+      (tester) async {
+    await _pump(tester, venueCash: _lastRead(p: 20, i: 40));
+    // 4.75 + 20 x 0.98 + (40 x 0.98 - 0.30).
+    final reach = investmentsSpendable(
+            dollarsUsd: 4.75, sources: _venues(p: 20, i: 40))
+        .maxUsd;
+    expect(reach, closeTo(63.25, 1e-9));
+    expect(_card(tester, _fromDollars).subtitle, r'$63.25 available');
+    expect(_card(tester, _fromDollars).subtitle,
+        _l10n.hlYieldAvailableLine(r'$63.25'));
+    expect(find.textContaining('in Dollars'), findsNothing);
+    await _unmount(tester);
+  });
+
+  for (final (blocked, reason, figure) in [
+    ({'hyperliquid.withdraw'}, 'platform_not_allowed', r'$24.35'),
+    ({'polymarket.withdraw'}, 'disabled', r'$43.65'),
+    ({'hyperliquid.withdraw', 'polymarket.withdraw'}, 'disabled', r'$4.75'),
+  ]) {
+    testWidgets(
+        '${blocked.join(' and ')} withheld ($reason): that venue\'s cash is '
+        'out of the figure, the card stays', (tester) async {
+      final policy = runtimePolicyFixture(
+          blocked: blocked, reasons: {for (final id in blocked) id: reason});
+      RuntimeCapabilitiesService.debugInstance = policy;
+      expect(await tester.runAsync(policy.refresh), isTrue);
+      await _pump(tester, venueCash: _lastRead(p: 20, i: 40));
+      expect(find.byKey(_fromDollars), findsOneWidget);
+      expect(_card(tester, _fromDollars).subtitle, '$figure available');
+      await _unmount(tester);
+      policy.dispose();
+    });
+  }
+
   testWidgets('a Dollars figure not known yet: no balance line',
       (tester) async {
     await _pump(tester, dollars: null);
@@ -476,7 +549,10 @@ void main() {
       final l10n = l10nForLanguage(locale.languageCode);
       final why = locale.languageCode;
       await _pump(tester,
-          size: const Size(375, 812), locale: locale, dollars: 1234.56);
+          size: const Size(375, 812),
+          locale: locale,
+          dollars: 1234.56,
+          venueCash: _lastRead(p: 8000));
       await tester.pump();
       expect(tester.takeException(), isNull, reason: why);
       expect(find.text(l10n.receive), findsOneWidget, reason: why);

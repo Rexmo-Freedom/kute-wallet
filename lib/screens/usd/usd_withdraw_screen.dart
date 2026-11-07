@@ -171,7 +171,9 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
       return;
     }
     // Straight on the amount, Dollars to Bitcoin, nothing to pick
-    // (showOwnMoneyMove).
+    // (showOwnMoneyMove): the Bitcoin Receive's "From your Dollars" move,
+    // all the dollar money (Dollars, then venue cash) in its figure, Max
+    // and funding.
     unawaited(showOwnMoneyMove(context,
         from: MoneyMovementAccount.dollars,
         entrySource: kUsdWithdrawBitcoinRowSource));

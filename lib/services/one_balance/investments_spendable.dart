@@ -19,6 +19,13 @@
 //    Dollars alone (a cold start). [venueCashRefreshProvider] reads the
 //    venues again in the background while a screen shows the figure and
 //    the number follows when it changes: no spinner, no loading text.
+//  * Dollars into Bitcoin ([dollarsToBitcoinSpendableProvider]) spends
+//    the same money (founder, 7 November 2026: "From your Dollars" is
+//    all the available balances, as the Investments' Buy bitcoin was):
+//    Dollars plus the venue cash whose own withdraw the runtime policy
+//    leaves open ([venueCashClosed]). A venue whose withdraw a platform
+//    rule or a switch withholds is left out of the figure and out of the
+//    plan, so neither promises cash a leg would only be refused.
 //
 // Nothing here moves money.
 
@@ -37,6 +44,10 @@ import 'package:kute/services/one_balance/route_minimums.dart'
 import 'package:kute/services/one_balance/venue_cash_source.dart';
 import 'package:kute/services/funding/owned_address_resolver.dart'
     show ProviderReader;
+import 'package:kute/services/orchestra/orchestra_capability_requirements.dart'
+    show orchestraCapabilityRequirements;
+import 'package:kute/services/runtime_capabilities_service.dart'
+    show CapabilityDecision, runtimeCapabilitiesProvider;
 
 /// What Investments can spend, split the way the From row needs it.
 @immutable
@@ -366,6 +377,75 @@ final investmentsSpendableExcludingProvider = Provider.autoDispose
     sources: [
       for (final s in sources)
         if (s.venue != venue) s,
+    ],
+  );
+});
+
+// ─── Dollars into Bitcoin ──────────────────────────────────────────
+
+/// The runtime-policy capabilities [venue]'s cash answers to on its way
+/// out, straight to Bitcoin or home to Dollars first: the venue's own
+/// withdraw, exactly as the route classifier names it for the quote.
+List<String> venueCashExitCapabilities(OneBalanceVenue venue) =>
+    switch (venue) {
+      OneBalanceVenue.investing => orchestraCapabilityRequirements(
+          sourceChain: 'hypercore',
+          sourceAsset: 'USDC',
+          destinationChain: 'spark',
+          destinationAsset: 'BTC'),
+      OneBalanceVenue.predictions => orchestraCapabilityRequirements(
+          sourceChain: 'polygon',
+          sourceAsset: 'USDC.e',
+          destinationChain: 'spark',
+          destinationAsset: 'BTC'),
+    };
+
+/// The venues whose cash may not leave now: [decide] (the runtime
+/// policy's) withholds one of [venueCashExitCapabilities], by a platform
+/// rule, a switch or coming soon, exactly the refusal the leg's own quote
+/// would meet. A venue withdraw is an exit (the backend never shuts one by
+/// country), and with no policy on hand the offline table keeps it open.
+/// Pure.
+Set<OneBalanceVenue> venueCashClosed(
+        CapabilityDecision Function(String id) decide) =>
+    {
+      for (final venue in OneBalanceVenue.values)
+        if (venueCashExitCapabilities(venue).any((id) {
+          final decision = decide(id);
+          return !decision.allowed || decision.comingSoon;
+        }))
+          venue,
+    };
+
+/// [venueCashClosed] under the app's runtime policy, followed live.
+final venueCashClosedProvider =
+    Provider.autoDispose<Set<OneBalanceVenue>>((ref) =>
+        venueCashClosed(ref.watch(runtimeCapabilitiesProvider).decision));
+
+/// What Dollars into Bitcoin can spend right now: Dollars plus the venue
+/// cash the engine can reach, net of the planned move costs (the Max),
+/// from the same last known values as [investmentsSpendableProvider],
+/// less the venues whose withdraw is closed ([venueCashClosedProvider]).
+/// The one figure every Dollars → Bitcoin surface shows and sizes by: the
+/// Bitcoin Receive's "From your Dollars" card, and the Move money sheet
+/// both own-account doors open (that card and the Dollars Send's "To your
+/// Bitcoin"), its From row, Max and over-balance check. Synchronous, never
+/// loading.
+final dollarsToBitcoinSpendableProvider =
+    Provider.autoDispose<InvestmentsSpendable>((ref) {
+  final dollars = ref.watch(usdBalanceProvider);
+  final walletId =
+      ref.watch(settingsProvider.select((s) => pickSpendingWallet(s)?.id));
+  final last = ref.watch(venueCashLastReadProvider);
+  final sources = last != null && last.walletId == walletId
+      ? last.candidates
+      : ref.watch(venueCashSeedProvider);
+  final closed = ref.watch(venueCashClosedProvider);
+  return investmentsSpendable(
+    dollarsUsd: dollars,
+    sources: [
+      for (final s in sources)
+        if (!closed.contains(s.venue)) s,
     ],
   );
 });

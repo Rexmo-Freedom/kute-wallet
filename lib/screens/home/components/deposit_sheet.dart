@@ -152,7 +152,10 @@ import 'package:kute/services/one_balance/venue_cash_source.dart'
         VenueCashPullOutcome,
         venueCashPullerProvider;
 import 'package:kute/services/one_balance/investments_spendable.dart'
-    show investmentsSpendableProvider, venueCashRefreshProvider;
+    show
+        dollarsToBitcoinSpendableProvider,
+        venueCashClosed,
+        venueCashRefreshProvider;
 import 'package:kute/services/one_balance/bitcoin_to_dollars_leg.dart'
     show BitcoinLegSent, BitcoinToDollarsLeg;
 import 'package:kute/services/one_balance/multi_source_move.dart'
@@ -566,7 +569,9 @@ class DepositSheet extends ConsumerStatefulWidget {
   final MoneyMovementRoute? movementRoute;
 
   /// [movementRoute] fixed: no account pickers, no flip; the source reads
-  /// as the Investments balance (showMoneyMovementSheet's `pinned`).
+  /// as the Investments balance (showMoneyMovementSheet's `pinned`). Pinned
+  /// Dollars → Bitcoin spends all the dollar money, Dollars first and
+  /// then the venue cash, as the Investments' Buy bitcoin.
   final bool movementPinned;
   final String? fiatDepositWalletId;
   final String? venueWalletId;
@@ -1231,9 +1236,11 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
 
   /// Dollars buying spending bitcoin also reach venue cash: Dollars
   /// first, the rest pulled home from Predictions and Investing before
-  /// the purchase (lib/services/one_balance/venue_cash_source.dart).
+  /// the purchase (lib/services/one_balance/venue_cash_source.dart). In
+  /// Move money only on [_ownDollarsToBitcoin], the own-account doors'
+  /// pinned move; a route picked in the pickers spends its one account.
   bool get _dollarsReachVenueCash =>
-      !_isMoneyMovement &&
+      (!_isMoneyMovement || _ownDollarsToBitcoin) &&
       _dollarsAreSource &&
       !_destPredictions &&
       !_destHyperliquid &&
@@ -1243,10 +1250,28 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       _sourceWalletId == null &&
       _destWalletId == null;
 
+  /// "From your Dollars" and "To your Bitcoin" (founder, 7 November 2026:
+  /// "from your Dollars should and must be all the available balances,
+  /// not just the Dollars balance, it is the same behaviour we had before
+  /// on Investments buy Bitcoin"): Move money pinned Dollars → Bitcoin
+  /// (showOwnMoneyMove) has no account to pick, so "your Dollars" is all
+  /// the person's dollar money. Its figure, Max and funding are the
+  /// Investments' Buy bitcoin's: Dollars first, then the venue cash, one
+  /// approval, the same steps and the same move row. The Portfolio's Move
+  /// money, unpinned, lists each account on its own and spends only the
+  /// one picked.
+  bool get _ownDollarsToBitcoin =>
+      _isMoneyMovement &&
+      widget.movementPinned &&
+      _movementRoute ==
+          const MoneyMovementRoute(
+              MoneyMovementAccount.dollars, MoneyMovementAccount.bitcoin);
+
   /// What the dollar source can pay: Dollars, plus the venue cash the
   /// engine can bring into a purchase, net of the planned move costs (the
-  /// Max, never less than Dollars). Read from the last known values
-  /// ([investmentsSpendableProvider]): never loading.
+  /// Max, never less than Dollars), less any venue whose withdraw the
+  /// policy withholds. Read from the last known values
+  /// ([dollarsToBitcoinSpendableProvider]): never loading.
   ///
   /// It is also the From row's figure (founder decision 13 October 2026):
   /// the row shows what can actually be bought, so any amount up to the
@@ -1254,7 +1279,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   double get _dollarsSourceUsd {
     final dollars = _availableUsd;
     if (!_dollarsReachVenueCash) return dollars;
-    final max = ref.read(investmentsSpendableProvider).maxUsd;
+    final max = ref.read(dollarsToBitcoinSpendableProvider).maxUsd;
     return max > dollars ? max : dollars;
   }
 
@@ -2587,7 +2612,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       final dollarsLead = !widget.cashAppSource &&
           widget.fiatDepositWalletId == null &&
           (ref.read(usdBalanceProvider) > 0 ||
-              ref.read(investmentsSpendableProvider).totalUsd > 0);
+              ref.read(dollarsToBitcoinSpendableProvider).totalUsd > 0);
       _sourceUsd = dollarsLead;
       _sourceFiat = !dollarsLead;
       _sourceWalletId = null;
@@ -4419,8 +4444,13 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       final earlier =
           _moveId == null ? null : MultiSourceMoveStore.get(_moveId!);
       final needed = math.max(0.0, usd - (earlier?.directDeliveredUsd ?? 0));
+      // A venue whose withdraw the policy withholds takes no leg: its
+      // cash is out of the figure too ([dollarsToBitcoinSpendableProvider]).
       final plan = await puller.plan(
-          neededUsd: needed, destination: VenueCashDestination.bitcoin);
+          neededUsd: needed,
+          destination: VenueCashDestination.bitcoin,
+          closed:
+              venueCashClosed(ref.read(runtimeCapabilitiesProvider).decision));
       if (!mounted) return null;
       if (!plan.covers) {
         outcome = VenueCashPullOutcome(
@@ -4445,6 +4475,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
             }
             return null;
           }
+          // Move money follows the wallet it opened on: a switch while
+          // the approval was up sends nothing (no-op outside Move money).
+          _ensureMovementPinned(grant.walletId);
           // Approved: the band takes the step.
           _bandStep(0.5);
         }
@@ -4514,6 +4547,13 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         grant = ran.grant;
         initialDollarsStopped = ran.initialDollarsStopped;
       }
+    } on MoneyMovementDetailsChanged catch (e) {
+      // Move money's wallet changed under the approval: nothing moved.
+      grant?.revoke();
+      if (!mounted) return null;
+      _trackMoveFailed(e);
+      _endStoppedMove(e);
+      return null;
     } catch (_) {
       outcome = null;
     }
@@ -4824,8 +4864,11 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   Future<void> _dispatchUsdToBtc(double usd) async {
     if (_processing) return;
     // A Buy bitcoin's earlier multi-source purchase is never what Move
-    // money retries.
-    final parallel = _isMoneyMovement ? null : _parallelPurchase;
+    // money retries, unless this is the own-account doors' move, which
+    // pays the same way.
+    final parallel = _isMoneyMovement && !_dollarsReachVenueCash
+        ? null
+        : _parallelPurchase;
     if (parallel != null) {
       await _retryParallelPurchase(parallel);
       return;
@@ -4835,8 +4878,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     // cash in reach) is sent exactly as chosen.
     final pullsVenueCash = usd > _availableUsd + 0.005;
     // A manual move spends exactly its chosen account, never another
-    // venue when Dollars dropped between rendering and confirmation.
-    if (_isMoneyMovement && pullsVenueCash) {
+    // venue when Dollars dropped between rendering and confirmation. The
+    // own-account doors' move spends all the dollar money, as Buy bitcoin.
+    if (_isMoneyMovement && pullsVenueCash && !_dollarsReachVenueCash) {
       setState(() => _error = context.l10n.insufficientBalance);
       _moveFailedFeedback();
       return;
@@ -7449,7 +7493,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         if (_dollarsReachVenueCash) {
           // The last known figure is on screen at once; the venues are
           // read again in the background and the number follows.
-          ref.watch(investmentsSpendableProvider);
+          ref.watch(dollarsToBitcoinSpendableProvider);
           ref.watch(venueCashRefreshProvider);
         }
       } else if (_fromHyperliquid) {

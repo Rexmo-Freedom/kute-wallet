@@ -957,12 +957,14 @@ class VenueCashPuller {
     return _pending.fold(0.0, (sum, p) => sum + p.usd);
   }
 
-  /// Every source's free cash and minimum, read in parallel.
+  /// Every source's free cash and minimum, read in parallel. [closed]
+  /// venues are not read at all (their cash may not leave now).
   Future<List<VenueCashCandidate>> candidates(
-      {OneBalanceVenue? exclude}) async {
+      {OneBalanceVenue? exclude,
+      Set<OneBalanceVenue> closed = const {}}) async {
     final reads = await Future.wait([
       for (final s in _sources)
-        if (s.venue != exclude)
+        if (s.venue != exclude && !closed.contains(s.venue))
           () async {
             final available = await s.availableUsd();
             double minimum;
@@ -992,18 +994,21 @@ class VenueCashPuller {
   /// [kVenueCashOnwardMinimumUsd] are left alone when the venues can cover
   /// the whole amount, so the onward step is never too small to go.
   /// [useDollars] false plans the venues alone (a Retry of a remainder).
+  /// [closed] venues take no leg: the runtime policy withholds their
+  /// withdraw (`venueCashClosed`), so a leg would only be refused.
   Future<VenueCashPlan> plan({
     required double neededUsd,
     OneBalanceVenue? exclude,
     VenueCashDestination destination = VenueCashDestination.dollars,
     bool useDollars = true,
+    Set<OneBalanceVenue> closed = const {},
   }) async {
     final dollars = useDollars ? _readDollars() + pendingUsd : 0.0;
     if (dollars + 0.000001 >= _ceilCents(neededUsd)) {
       return planDollarsShortfall(
           neededUsd: neededUsd, dollarsUsd: dollars, sources: const []);
     }
-    final sources = await candidates(exclude: exclude);
+    final sources = await candidates(exclude: exclude, closed: closed);
     if (destination != VenueCashDestination.dollars &&
         dollars > 0 &&
         dollars < kVenueCashOnwardMinimumUsd) {
