@@ -11,8 +11,8 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/auth_model.dart';
 import 'package:kute/providers/auth_provider.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/custom_keypad.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -30,6 +30,20 @@ import 'package:kute/theme/app_theme.dart';
 ///
 /// Wrong PINs count through [PinAttemptGuard]. At the threshold the sheet
 /// locks the app and calls [onLocked] (or [onCancelled]); it never wipes.
+///
+/// THE BAR IS ITS CANCEL (founder, 7 November 2026, over a prediction's
+/// "Confirm a $5.00 prediction": "when i dont want to send, the button
+/// should be to cancel"). Every step-up approval of a money action
+/// (a prediction, an order, a close, margin, a send, a withdrawal, Move
+/// money; require_fresh_auth.dart) opens this sheet, and while it is up
+/// the floating Sal bar is its one button, Cancel
+/// ([KuteBarContext.primary], kute_bar_context.dart), never the search
+/// pill; the sheet draws no Cancel of its own and keeps the bar's room
+/// under its keypad. A tap runs [onCancelled], exactly what the drawn
+/// Cancel did: the sheet closes, the step-up reads as declined (the
+/// `pin_gate_result` cancelled and `step_up_auth_denied` pin_cancelled
+/// events), nothing is sent, and the surface under it (the slip with its
+/// amount and side) is as it was, its own button back on the bar.
 class PinGateSheet extends ConsumerStatefulWidget {
   final String title;
 
@@ -295,12 +309,18 @@ class _PinGateSheetState extends ConsumerState<PinGateSheet>
               ),
             ),
           ),
-          SizedBox(height: 16.h),
-          AppTextButton(
-            text: context.l10n.cancel,
-            onPressed: widget.onCancelled,
+          // THE BAR IS THE BUTTON (see the class): Cancel, with the handler
+          // the drawn button had, open through a lockout too; the sheet
+          // keeps the room under its keypad for the bar.
+          KuteBarContextScope(
+            barContext: KuteBarContext.primary(
+              label: context.l10n.cancel,
+              onPrimary: widget.onCancelled,
+              source: 'pin_gate',
+              disabledLabel: null,
+            ),
+            child: SizedBox(height: kuteBarScrollClearance.h),
           ),
-          SizedBox(height: 8.h),
         ],
       ),
     );
