@@ -1273,13 +1273,19 @@ class _BitcoinBalanceHistory extends ConsumerWidget {
     final currency = ref.watch(settingsProvider.select((s) => s.currency));
     final fiatPerBtc = ref.watch(selectedCurrencyProvider(currency)).toDouble();
     final fiat = NumberFormat.simpleCurrency(name: currency, decimalDigits: 2);
+    // As the app writes a bitcoin amount: "₿17,520", "₿0.00017520"; its
+    // worth in the display currency at today's price.
+    String btc(double sats) => '₿${sats.round().toFormattedString(btcFormat)}';
+    String? worth(double sats) =>
+        fiatPerBtc > 0 ? fiat.format(sats / 1e8 * fiatPerBtc) : null;
+    // The figure in the person's hero unit (Settings.mainDenomination),
+    // the other unit in the quiet line under it.
+    final fiatFirst = fiatPerBtc > 0 &&
+        ref.watch(settingsProvider.select((s) => s.mainDenomination)) == 'fiat';
     return BalanceHistoryChart(
       history: history,
-      // As the app writes a bitcoin amount: "₿17,520", "₿0.00017520".
-      format: (sats) => '₿${sats.round().toFormattedString(btcFormat)}',
-      // Its worth in the display currency at today's price, under it.
-      secondary:
-          fiatPerBtc > 0 ? (sats) => fiat.format(sats / 1e8 * fiatPerBtc) : null,
+      format: fiatFirst ? (sats) => worth(sats)! : btc,
+      secondary: fiatFirst ? btc : (fiatPerBtc > 0 ? worth : null),
       rangeKey: 'bitcoin',
       trackingChart: 'valuation',
       goal: goal,

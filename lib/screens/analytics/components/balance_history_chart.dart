@@ -4,15 +4,17 @@
 // Ledger) and of the Dollars account, drawn through the modern line chart
 // ([KuteTrendChart], founder, 31 October 2026: "make the graph modern"):
 //
-//   * a header the chart owns: the balance as the headline (the balance
-//     now, or the balance under a scrubbing finger), an optional second
-//     line under it ([BalanceHistoryChart.secondary]: the fiat worth of a
-//     bitcoin balance), then one quiet change line "▲ ₿6,938 (12.4%) ·
-//     Past month": the arrow, the amount and a small percent in the
-//     change's colour (no percent from a start of zero or for a change of
-//     100% or more), the period after a middle dot; while a finger scrubs
-//     the change is to the point under it and the tail is its moment
-//     ("Oct 16 14:00"); flat: "No change · Past month";
+//   * a header the chart owns, calm (founder, 7 November 2026: "This part
+//     on top in Balance is too dense still, too much information"): ONE
+//     figure, the balance (now, or under a scrubbing finger), and ONE
+//     quiet line under it: the other unit ([BalanceHistoryChart.secondary]:
+//     the fiat worth of a bitcoin balance), then, at rest, what the line
+//     did over the range as "▲ 12.4%" in the change's colour, only when
+//     that says something ([balanceChartChange]: never flat, never when
+//     the change is the whole balance, a first deposit inside the range or
+//     an account emptied); the range row under the plot names the period.
+//     While a finger scrubs, the moment under it ("Oct 16 14:00") instead
+//     of the change;
 //   * the plot: the closing balance of each bucket the range calls for (a
 //     quarter hour to a week), so money passing through within a bucket
 //     never spikes it; ONE line in the result colour of the range (up,
@@ -162,56 +164,57 @@ class _BalanceHistoryChartState extends ConsumerState<BalanceHistoryChart> {
       fontFeatures: const [FontFeature.tabularFigures()],
     );
 
-    Widget changeLine() {
-      if (values.length < 2) return const SizedBox.shrink();
-      final base = values.first;
-      final to = scrubbing ? scrub.value : values.last;
-      final delta = to - base;
-      final percent = base != 0 ? delta / base.abs() * 100 : null;
-      final tail = scrubbing
-          ? timeOf(scrub.time ?? times.last)
-          : kuteTrendPeriodLabel(l10n, range);
-      final color = delta > 0
-          ? AppColors.marketUp
-          : delta < 0
-              ? AppColors.marketDown
-              : c.textSecondary;
-      return Padding(
-        padding: EdgeInsets.only(top: 4.h),
-        child: Text.rich(
-          TextSpan(children: [
-            if (delta == 0 && visible)
-              TextSpan(text: l10n.chartNoChange)
-            else ...[
-              TextSpan(
-                // Hidden: dots alone, no arrow to read a direction from.
-                text: visible
-                    ? '${kuteTrendArrow(delta)}${amount(delta.abs())}'
-                    : amount(delta.abs()),
-                style: TextStyle(
-                    color: visible ? color : c.textPrimary,
-                    fontWeight: FontWeight.w700),
-              ),
-              // A small percent, only where it means something: never
-              // from zero, never "-100.0%" for an account emptied.
-              if (visible && percent != null && percent.abs() < 100)
-                TextSpan(
-                  text: ' (${kuteSignedPercent(percent)})',
-                  style: TextStyle(
-                      color: color,
-                      fontSize: 11.sp,
-                      fontWeight: FontWeight.w600),
-                ),
-            ],
-            TextSpan(text: ' · $tail'),
-          ]),
-          key: const ValueKey('balance-chart-header'),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: quiet,
-        ),
-      );
+    // ONE quiet line under the figure (founder, 7 November 2026: "This
+    // part on top in Balance is too dense still"): the other unit, then,
+    // at rest, what the line did over the range when that says something
+    // ("▲ 12.4%", the range row under the plot names the period); while a
+    // finger scrubs, the moment under it. Hidden: the other unit's dots.
+    String? tail;
+    Color? tailColor;
+    if (visible && scrubbing) {
+      tail = timeOf(scrub.time ?? times.last);
+    } else if (visible) {
+      final move = balanceChartChange(values);
+      if (move != null) {
+        tail =
+            '${kuteTrendArrow(move)}${kuteSignedPercent(move).replaceFirst(RegExp(r'^[+\u2212-]'), '')}';
+        tailColor = move > 0 ? AppColors.marketUp : AppColors.marketDown;
+      }
     }
+    final line = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (secondaryText != null)
+          RollingNumberText(
+            key: const ValueKey('balance-chart-secondary'),
+            text: visible ? secondaryText : '••••••',
+            duration: Duration(milliseconds: scrubbing ? 120 : 350),
+            style: quiet,
+          ),
+        if (tail != null)
+          Flexible(
+            child: Text.rich(
+              TextSpan(children: [
+                if (secondaryText != null) const TextSpan(text: ' · '),
+                TextSpan(
+                  text: tail,
+                  style: tailColor == null
+                      ? null
+                      : TextStyle(
+                          color: tailColor, fontWeight: FontWeight.w600),
+                ),
+              ]),
+              key: const ValueKey('balance-chart-header'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: quiet,
+            ),
+          ),
+        // Nothing to say: the line keeps its height, so the plot never
+        // moves under a finger.
+        if (secondaryText == null && tail == null) Text('\u00A0', style: quiet),
+      ],
+    );
 
     final header = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -224,27 +227,13 @@ class _BalanceHistoryChartState extends ConsumerState<BalanceHistoryChart> {
           dimColor: c.textTertiary,
           style: TextStyle(
             color: c.textPrimary,
-            fontSize: 18.sp,
+            fontSize: 22.sp,
             fontWeight: FontWeight.w700,
-            letterSpacing: -0.5,
+            letterSpacing: -0.6,
             height: 1.0,
           ),
         ),
-        if (secondaryText != null) ...[
-          SizedBox(height: 2.h),
-          RollingNumberText(
-            key: const ValueKey('balance-chart-secondary'),
-            text: visible ? secondaryText : '••••••',
-            duration: Duration(milliseconds: scrubbing ? 120 : 350),
-            style: TextStyle(
-              color: c.textTertiary,
-              fontSize: 14.sp,
-              fontWeight: FontWeight.w600,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-          ),
-        ],
-        if (hasHistory) changeLine(),
+        if (hasHistory) ...[SizedBox(height: 6.h), line],
         if (!hasHistory)
           Padding(
             padding: EdgeInsets.only(top: 4.h),
@@ -296,4 +285,19 @@ class _BalanceHistoryChartState extends ConsumerState<BalanceHistoryChart> {
       ],
     );
   }
+}
+
+/// What the line did over [values] as a percent of where it started, or
+/// null when that says nothing: fewer than two points, a flat line (under
+/// a tenth of a percent), or a range whose smaller end is under a tenth of
+/// the larger, a first deposit inside the range or an account emptied,
+/// where the change is the whole balance (founder, 7 November 2026).
+double? balanceChartChange(List<double> values) {
+  if (values.length < 2) return null;
+  final base = values.first, to = values.last;
+  if (!(base > 0) || !(to > 0) || !base.isFinite || !to.isFinite) return null;
+  final lo = base < to ? base : to, hi = base < to ? to : base;
+  if (lo < hi * 0.1) return null;
+  final percent = (to - base) / base * 100;
+  return kutePercentDirection(percent) == 0 ? null : percent;
 }
