@@ -9,6 +9,7 @@
 // arrow cards. A tap on a tile picks it and closes both sheets.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -21,6 +22,7 @@ import 'package:kute/providers/polymarket_sports_provider.dart';
 import 'package:kute/providers/unified_search_provider.dart';
 import 'package:kute/screens/search/unified_search_screen.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/usd/investments_category_sheet.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart' show InvestmentsTab;
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -250,4 +252,58 @@ void main() {
     expect(tester.takeException(), isNull);
     await unmountInvestments(tester);
   });
+
+  // The Sal sheet's grid is the category sheet's own (founder, 7 November
+  // 2026: names that wrap overflowed the fixed card): at a larger text
+  // size every card grows to its words, the two of a row equally tall,
+  // nothing overflows.
+  for (final tab in [InvestmentsTab.predictions, InvestmentsTab.investing]) {
+    testWidgets('${tab.name} at text x1.6: every card grows to its words, '
+        'never overflows', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 1.6;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      // The Sal sheet is left open when the test ends: its one-at-a-time
+      // guard is cleared after it.
+      addTearDown(OpenOnce.reset);
+      // Investing's sheet is short: on a tall screen it would hide the
+      // bar (a short sheet does), so a shorter one, as above.
+      await _pump(tester, tab,
+          size: Size(402, tab == InvestmentsTab.investing ? 560 : 1600));
+      await _tapBar(tester);
+      expect(_grid, findsOneWidget);
+      final tiles = find.descendant(
+          of: _grid,
+          matching: find.byWidgetPredicate((w) =>
+              w.key is ValueKey<String> &&
+              (w.key! as ValueKey<String>)
+                  .value
+                  .startsWith('sal-category-tile-')));
+      expect(tiles.evaluate().length, greaterThan(2));
+      final cards = <Rect>[];
+      for (final tile in tiles.evaluate()) {
+        final of = find.byWidget(tile.widget);
+        final card = tester.getRect(find
+            .descendant(of: of, matching: find.byType(AnimatedContainer))
+            .first);
+        cards.add(card);
+        expect(card.height, greaterThanOrEqualTo(60));
+        for (final words in tester.renderObjectList<RenderParagraph>(
+            find.descendant(of: of, matching: find.byType(RichText)))) {
+          final box = MatrixUtils.transformRect(
+              words.getTransformTo(null), Offset.zero & words.size);
+          expect(box.bottom, lessThanOrEqualTo(card.bottom + 0.01));
+          expect(box.top, greaterThanOrEqualTo(card.top - 0.01));
+        }
+      }
+      for (final a in cards) {
+        for (final b in cards) {
+          if ((a.top - b.top).abs() < 0.5) {
+            expect(a.height, closeTo(b.height, 0.01));
+          }
+        }
+      }
+      expect(tester.takeException(), isNull);
+      await unmountInvestments(tester);
+    });
+  }
 }
