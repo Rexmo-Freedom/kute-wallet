@@ -12137,11 +12137,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get sendBadgeLightning => 'Lightning address';
 
   @override
-  String usdBitcoinBalanceLine(String amount) {
-    return '$amount Bitcoinissa';
-  }
-
-  @override
   String get usdReceiveFromYourBitcoin => 'Bitcoinistasi';
 
   @override

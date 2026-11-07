@@ -927,15 +927,18 @@ void main() {
     await tester.tap(find.text(_l10n.send));
     await tester.pumpAndSettle();
 
-    // The Dollars Send sheet (the Bitcoin Send's Who step): "Send
-    // dollars", the search field and Another crypto under it. No chips,
-    // no send yet.
+    // The Dollars Send sheet (the Bitcoin Send's Who step): "Send", as the
+    // Bitcoin Send says it, the search field and Another crypto under it.
+    // No chips, no send yet.
     final withdraw = find.byType(UsdWithdrawScreen);
     expect(withdraw, findsOneWidget);
     final route = ModalRoute.of(tester.element(withdraw));
     expect(route, isA<ModalBottomSheetRoute<void>>());
     expect(route!.settings.name, kUsdWithdrawRouteName);
-    expect(find.text(_l10n.sendDollarsTitle), findsOneWidget);
+    expect(
+        find.descendant(of: withdraw, matching: find.text(_l10n.send)),
+        findsOneWidget);
+    expect(find.text(_l10n.sendDollarsTitle), findsNothing);
     expect(find.byKey(const ValueKey('usd-withdraw-to-bitcoin')), findsNothing);
     expect(find.byKey(const ValueKey('usd-withdraw-pick')), findsNothing);
     final hint = find.byKey(const ValueKey('send-another-crypto'));

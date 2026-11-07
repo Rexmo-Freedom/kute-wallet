@@ -12208,11 +12208,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get sendBadgeLightning => 'Lightning address';
 
   @override
-  String usdBitcoinBalanceLine(String amount) {
-    return '$amount en Bitcoin';
-  }
-
-  @override
   String get usdReceiveFromYourBitcoin => 'Depuis ton Bitcoin';
 
   @override

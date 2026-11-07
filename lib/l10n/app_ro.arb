@@ -3326,7 +3326,6 @@
   "sendLinkToPhone": "Send a link to {phone}",
   "sendBadgeKute": "On Kute",
   "sendBadgeLightning": "Lightning address",
-  "usdBitcoinBalanceLine": "{amount} în Bitcoin",
   "usdReceiveFromYourBitcoin": "Din Bitcoin-ul tău",
   "receiveFromYourDollars": "Din Dolarii tăi",
   "usdDollarsBalanceLine": "{amount} în Dolari",

@@ -8,8 +8,10 @@
 // What, then Review. Only the home differs: here the money leaves from
 // Dollars unless the person or the address says otherwise.
 //
-//   * the title "Send dollars" and the same search field, "Name, phone or
-//     any crypto address", Paste and Scan inside;
+//   * the title "Send", as the Bitcoin Send's (founder, 7 November 2026:
+//     "these receive and send from dollars seem too small and strange";
+//     both Receives say "Receive"), and the same search field, "Name,
+//     phone or any crypto address", Paste and Scan inside;
 //   * while it is empty, "Another crypto" under it (founder, 7 November
 //     2026, on the hint line it replaced: "this send to bitcoin usdc is
 //     strange still idk"): the Receive sheets' card (anotherCryptoCard),
@@ -43,10 +45,10 @@
 // "To your Bitcoin" (the Bitcoin Receive's "From your Dollars" fills it),
 // no "Crypto address", no "Prediction or investment".
 //
-// The bar is the default "Search or Manage with AI", Continue while the
-// field holds a destination. A send that went out, or a link created,
-// closes this sheet. Nothing here moves money: every door is an existing
-// flow, unchanged.
+// The bar is the step's Continue, as on the Bitcoin Send: off, it says
+// what to do ("Add who to send to", "Pick a network", "Check the
+// address"). A send that went out, or a link created, closes this sheet.
+// Nothing here moves money: every door is an existing flow, unchanged.
 
 import 'dart:async';
 
@@ -414,26 +416,31 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
     ).groups;
     final atRest = text.isEmpty && coin == null;
 
-    final bar = chosen
-        ? KuteBarContext.primary(
-            label: l10n.continueLabel,
-            onPrimary: _continue,
-            // Only built once a destination is resolved: never off.
-            disabledLabel: null,
-            category: SearchCategory.all,
-            source: kUsdWithdrawSheetSource,
-          )
-        : KuteBarContext(
-            label: l10n.searchOrManageAi,
-            source: kUsdWithdrawSheetSource,
-          );
+    // The step's Continue, as on the Bitcoin Send's Who step: while no
+    // recipient is chosen it says what to do (founder, 1 November 2026):
+    // who to send to, the network an address several take needs, or a
+    // look at an address no dollar route takes.
+    final bar = KuteBarContext.primary(
+      label: l10n.continueLabel,
+      onPrimary: _continue,
+      enabled: chosen,
+      disabledLabel: coin == null && who.candidates.length > 1
+          ? l10n.barNeedNetwork
+          : who.error != null
+              ? l10n.barNeedValidAddress
+              : l10n.barNeedRecipient,
+      category: SearchCategory.all,
+      source: kUsdWithdrawSheetSource,
+    );
     return KuteBarContextScope(
       barContext: bar,
       child: ReceiveSheetFrame(
         leading:
             KuteCloseButton(onPressed: () => Navigator.of(context).maybePop()),
-        title: SendStepTitle(l10n.sendDollarsTitle),
-        semanticTitle: l10n.sendDollarsTitle,
+        // "Send", as the Bitcoin Send says it (and both Receives say
+        // "Receive"): the money it leaves from is named on What and Review.
+        title: SendStepTitle(l10n.send),
+        semanticTitle: l10n.send,
         // ONE scroll: the field and its results, then the Contacts as
         // slivers (sticky letter headers), the bar's clearance at the end.
         child: CustomScrollView(

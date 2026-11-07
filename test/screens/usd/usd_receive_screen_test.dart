@@ -1,11 +1,14 @@
 // The receive of another coin: every way into the Dollars receive (the
-// dock's Receive included) opens on two big square cards side by side
-// (founder, 5 November 2026: "Here should be big cards, square"), in a
-// sheet as tall as they are, the floating bar away: "From your Bitcoin"
-// (the Bitcoin mark and its balance, opening the Investments deposit from
-// the spending bitcoin) and "Another crypto" (the coins it names side by
-// side, whole, over one short line: here "USDC and USDT") opening the
-// coin sheet. No inline grid. Into Bitcoin (the Bitcoin
+// dock's Receive included) opens on the Bitcoin Receive's structure
+// (founder, 7 November 2026: "these receive and send from dollars seem
+// too small and strange"), in a sheet as tall as its cards, the floating
+// bar away: "Dollars" on top, the lead card (the Dollars mark, the dollar
+// coins it takes: here "USDC and USDT", opening the coin sheet with those
+// alone), then two big squares side by side: "From your Bitcoin" (the
+// Bitcoin mark and what it holds, "$60.00 available", opening Move money
+// from the spending bitcoin) and "Another crypto" (the other coins it
+// names side by side, whole, over one short line: here "ETH and SOL")
+// opening the coin sheet with those. No inline grid. Into Bitcoin (the Bitcoin
 // receive's "other coins") it is the grid alone. Nothing is
 // picked for the person. Here the standing route serves no coin, so a
 // coin they tap falls back to the one-time flow and asks its amount in
@@ -86,7 +89,8 @@ Map<String, dynamic> _row(String chain, String asset, {int decimals = 6}) => {
       'route': {'to': 'all', 'fixedTo': [], 'exactOutTo': []},
     };
 
-OrchestraRoutesCatalog _catalog({bool stables = true}) =>
+OrchestraRoutesCatalog _catalog(
+        {bool stables = true, bool usdt = true, bool others = true}) =>
     OrchestraRoutesCatalog.fromJson(
       {
         'assets': [
@@ -97,7 +101,11 @@ OrchestraRoutesCatalog _catalog({bool stables = true}) =>
             _row('base', 'USDC'),
             _row('polygon', 'USDC'),
             _row('solana', 'USDC'),
-            _row('ethereum', 'USDT'),
+            if (usdt) _row('ethereum', 'USDT'),
+          ],
+          if (others) ...[
+            _row('ethereum', 'ETH', decimals: 18),
+            _row('solana', 'SOL', decimals: 9),
           ],
         ],
       },
@@ -125,6 +133,8 @@ const _bitcoinRow = ValueKey('usd-receive-from-bitcoin');
 /// 390pt-wide phone unless [size] says otherwise.
 Future<void> _pump(WidgetTester tester,
     {bool stables = true,
+    bool usdt = true,
+    bool others = true,
     int? spendingSats,
     Size size = const Size(390, 844),
     double? textScale,
@@ -152,7 +162,9 @@ Future<void> _pump(WidgetTester tester,
             wallets: [WalletConfig(id: 'spending', name: 'Spending')],
           ))),
       orchestraSupportedRoutesProvider
-          .overrideWith((_) => _Routes(_catalog(stables: stables))),
+          .overrideWith(
+              (_) => _Routes(
+                  _catalog(stables: stables, usdt: usdt, others: others))),
       orchestraRoutesReadyProvider.overrideWith((_) async {}),
       // spark:USDB is not a standing destination here: every coin is
       // served by a one-time address (usd_receive_standing_test.dart has
@@ -291,18 +303,30 @@ void main() {
   Iterable<String> names() => events.map((e) => e.$1);
 
   testWidgets(
-      'opens on two big square cards side by side: "From your Bitcoin" and '
-      '"Another crypto" (one short line, the coins it names side by side, '
-      'none cut), both titles on one line; no list rows, no inline grid, '
-      'nothing picked', (tester) async {
+      'opens as the Bitcoin Receive does: "Dollars" on top, full width and '
+      'larger (the Dollars mark, the dollar coins it takes), then two big '
+      'squares side by side, "From your Bitcoin" and "Another crypto" (the '
+      'other coins, side by side, none cut), every title on one line; no '
+      'list rows, no inline grid, nothing picked', (tester) async {
     // The app's own font: the one-line rule measures real glyphs.
     await tester.runAsync(_loadInter);
     await _pump(tester);
     final row = find.byKey(_bitcoinRow);
     expect(row, findsOneWidget);
     final grid = find.byKey(const ValueKey('usd-receive-card'));
-    expect(tester.widget<KuteActionCardGrid>(grid).cards.map((c) => c.key),
+    final cards = tester.widget<KuteActionCardGrid>(grid);
+    // Dollars on top, the lead, as Bitcoin on the Bitcoin Receive.
+    expect(cards.lead?.key, kUsdReceiveDollarsKey);
+    expect(cards.cards.map((c) => c.key),
         [_bitcoinRow, const ValueKey('usd-receive-from-another')]);
+    final dollars = tester.widget<KuteActionCard>(receiveDollarsLead);
+    expect(dollars.title, _l10n.portfolioBalanceDollars);
+    expect(dollars.title, 'Dollars');
+    // The dollar coins it takes, named as Another crypto names its coins.
+    expect(dollars.subtitle, _l10n.anotherCryptoCoinsPair('USDC', 'USDT'));
+    expect(dollars.subtitle, 'USDC and USDT');
+    expect(dollars.visual, isA<SvgPicture>());
+    expect(dollars.visualSlot, kKuteActionCardLeadVisualSlot);
     final bitcoin = tester.widget<KuteActionCard>(row);
     expect(bitcoin.title, _l10n.usdReceiveFromYourBitcoin);
     expect(bitcoin.compact, isFalse);
@@ -310,33 +334,46 @@ void main() {
     final another = tester.widget<KuteActionCard>(receiveFromAnotherRow);
     expect(another.title, _l10n.receiveAnotherCrypto);
     expect(another.title, 'Another crypto');
-    // The two coins offered here, both named: no "and more", no count,
-    // no "Wallet or exchange".
-    expect(another.subtitle, _l10n.anotherCryptoCoinsPair('USDC', 'USDT'));
-    expect(another.subtitle, 'USDC and USDT');
+    // The other coins, both named, never a dollar coin the lead names: no
+    // "and more", no count, no "Wallet or exchange".
+    expect(another.subtitle, _l10n.anotherCryptoCoinsPair('ETH', 'SOL'));
+    expect(another.subtitle, 'ETH and SOL');
     expect(another.visual, isA<AnotherCryptoMarks>());
     expect(
         (another.visual as AnotherCryptoMarks)
             .coins
             .map((g) => g.displaySymbol),
-        ['USDC', 'USDT']);
-    expect(tester.widget<KuteActionCardGrid>(grid).oneLineTitles, isTrue);
+        ['ETH', 'SOL']);
+    expect(cards.oneLineTitles, isTrue);
     _expectCoinsWhole(tester, receiveFromAnotherRow);
     for (final (card, title) in [
+      (receiveDollarsLead, dollars.title),
+      (receiveDollarsLead, dollars.subtitle!),
       (row, bitcoin.title),
       (receiveFromAnotherRow, another.title),
       (receiveFromAnotherRow, another.subtitle!),
     ]) {
       expect(_lines(tester, card, title), 1, reason: title);
     }
-    // Side by side, equally wide and tall, 12 apart; squares, no chevron.
+    // The lead across the width over the squares, taller than a compact
+    // card, its chevron at its right; the squares side by side, equally
+    // wide and tall, 12 apart, no chevron.
+    final lead = tester.getRect(receiveDollarsLead);
     final a = tester.getRect(row);
     final b = tester.getRect(receiveFromAnotherRow);
+    expect(lead.left, moreOrLessEquals(a.left));
+    expect(lead.right, moreOrLessEquals(b.right));
+    expect(lead.bottom, lessThan(a.top));
     expect(a.top, moreOrLessEquals(b.top));
     expect(a.height, moreOrLessEquals(b.height));
     expect(a.width, moreOrLessEquals(b.width));
     expect(a.right, lessThan(b.left));
-    expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
+    expect(find.byIcon(Icons.chevron_right_rounded), findsOneWidget);
+    expect(
+        find.descendant(
+            of: receiveDollarsLead,
+            matching: find.byIcon(Icons.chevron_right_rounded)),
+        findsOneWidget);
     // The old labels and the inline grid are gone.
     expect(find.text(_l10n.usdReceiveFromYourWallet), findsNothing);
     expect(find.byType(CoinAssetGrid), findsNothing);
@@ -354,11 +391,13 @@ void main() {
   });
 
   testWidgets(
-      '"From your Bitcoin" says the Bitcoin balance in dollars, never the '
-      'spending wallet', (tester) async {
+      '"From your Bitcoin" says what it holds in dollars, as "From your '
+      'Dollars" says it on the Bitcoin Receive; never the spending wallet',
+      (tester) async {
     await _pump(tester, spendingSats: 100000);
     final row = tester.widget<KuteActionCard>(find.byKey(_bitcoinRow));
-    expect(row.subtitle, _l10n.usdBitcoinBalanceLine('\$60.00'));
+    expect(row.subtitle, _l10n.hlYieldAvailableLine('\$60.00'));
+    expect(row.subtitle, '\$60.00 available');
     expect(find.textContaining('spending wallet'), findsNothing);
     await _unmount(tester);
   });
@@ -383,15 +422,68 @@ void main() {
   });
 
   testWidgets(
-      '"Another crypto" opens the coin sheet, as the '
-      'Bitcoin receive\'s "Also accepts" does', (tester) async {
+      '"Dollars" opens the coin sheet with the dollar coins alone',
+      (tester) async {
     await _pump(tester);
-    await openReceiveCoins(tester);
+    await tester.tap(receiveDollarsLead);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
     expect(find.byType(CoinAssetPickerSheet), findsOneWidget);
     expect(names(), contains('usd_receive_coin_picker_opened'));
     expect(_tile('USDC'), findsOneWidget);
     expect(_tile('USDT'), findsOneWidget);
+    expect(find.widgetWithText(CoinAssetTile, 'ETH'), findsNothing);
+    expect(find.widgetWithText(CoinAssetTile, 'SOL'), findsNothing);
     expect(names(), isNot(contains('usd_receive_coin_selected')));
+    await _unmount(tester);
+  });
+
+  testWidgets(
+      '"Another crypto" opens the coin sheet with the other coins, as the '
+      'Bitcoin receive\'s own card does', (tester) async {
+    await _pump(tester);
+    await openReceiveCoins(tester, symbol: 'ETH');
+    expect(find.byType(CoinAssetPickerSheet), findsOneWidget);
+    expect(names(), contains('usd_receive_coin_picker_opened'));
+    expect(_tile('ETH'), findsOneWidget);
+    expect(_tile('SOL'), findsOneWidget);
+    expect(find.widgetWithText(CoinAssetTile, 'USDC'), findsNothing);
+    expect(find.widgetWithText(CoinAssetTile, 'USDT'), findsNothing);
+    expect(names(), isNot(contains('usd_receive_coin_selected')));
+    await _unmount(tester);
+  });
+
+  testWidgets(
+      'one dollar coin and no other: "Dollars" names it alone and goes '
+      'straight to its networks, as a coin tapped on a grid does; no '
+      'Another crypto, From your Bitcoin alone under the lead, compact',
+      (tester) async {
+    await _pump(tester, usdt: false, others: false);
+    expect(receiveFromAnotherRow, findsNothing);
+    expect(tester.widget<KuteActionCard>(receiveDollarsLead).subtitle, 'USDC');
+    // Under the lead, From your Bitcoin alone: full width and compact.
+    final lone = tester.getRect(find.byKey(_bitcoinRow));
+    final lead = tester.getRect(receiveDollarsLead);
+    expect(lone.width, moreOrLessEquals(lead.width));
+    expect(lone.height, lessThan(lead.height));
+    expect(
+        find.descendant(
+            of: find.byKey(_bitcoinRow),
+            matching: find.byIcon(Icons.chevron_right_rounded)),
+        findsOneWidget);
+
+    await tester.tap(receiveDollarsLead);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    // Open on USDC's networks, never a grid of one coin.
+    expect(find.byType(CoinAssetPickerSheet), findsOneWidget);
+    expect(find.byType(PickerRow), findsNWidgets(4));
+    expect(find.byType(CoinAssetTile), findsNothing);
+    final picked =
+        events.where((e) => e.$1 == 'coin_picker_coin_picked').single.$2;
+    expect(picked, {'flow': 'usd_receive', 'asset': 'USDC', 'networks': 4});
+    expect(names(), isNot(contains('usd_receive_coin_selected')));
+    expect(tester.takeException(), isNull);
     await _unmount(tester);
   });
 
@@ -404,6 +496,7 @@ void main() {
     final card = tester.getRect(find.byKey(const ValueKey('usd-receive-card')));
     expect(card.left, greaterThanOrEqualTo(0));
     expect(card.right, lessThanOrEqualTo(375));
+    expect(receiveDollarsLead, findsOneWidget);
     expect(find.byKey(_bitcoinRow), findsOneWidget);
     expect(receiveFromAnotherRow, findsOneWidget);
     await _unmount(tester);
@@ -560,8 +653,9 @@ void main() {
   testWidgets(
       'nothing offered: the Bitcoin card alone, full width and compact (a '
       'chevron at its right), then the note', (tester) async {
-    await _pump(tester, stables: false);
+    await _pump(tester, stables: false, others: false);
     expect(find.byKey(_bitcoinRow), findsOneWidget);
+    expect(receiveDollarsLead, findsNothing);
     expect(receiveFromAnotherRow, findsNothing);
     final lone = tester.getRect(find.byKey(_bitcoinRow));
     expect(lone.width, moreOrLessEquals(390 - 2 * 20 * 390 / 430, epsilon: 1));
@@ -607,9 +701,10 @@ void main() {
   });
 
   testWidgets(
-      'at 375 pt, in Inter, in every shipped language: the two cards side '
-      'by side, equally tall, every word whole inside its card, nothing '
-      'overflowing; the sheet short and the bar away', (tester) async {
+      'at 375 pt, in Inter, in every shipped language: Dollars on top, the '
+      'two squares side by side under it, equally tall, every word whole '
+      'inside its card, nothing overflowing; the sheet short and the bar '
+      'away', (tester) async {
     await tester.runAsync(_loadInter);
     for (final locale in AppLocalizations.supportedLocales) {
       final l10n = l10nForLanguage(locale.languageCode);
@@ -621,8 +716,13 @@ void main() {
       await tester.pump();
       expect(tester.takeException(), isNull, reason: why);
       final bitcoin = find.byKey(_bitcoinRow);
+      final lead = tester.getRect(receiveDollarsLead);
       final a = tester.getRect(bitcoin);
       final b = tester.getRect(receiveFromAnotherRow);
+      expect(lead.bottom, lessThan(a.top), reason: why);
+      expect(_lines(tester, receiveDollarsLead, l10n.portfolioBalanceDollars),
+          1,
+          reason: why);
       expect(a.top, moreOrLessEquals(b.top), reason: why);
       expect(a.height, moreOrLessEquals(b.height), reason: why);
       expect(a.right, lessThan(b.left), reason: why);
@@ -646,7 +746,11 @@ void main() {
       expect(_lines(tester, receiveFromAnotherRow, line), 1,
           reason: '$why: $line');
       _expectCoinsWhole(tester, receiveFromAnotherRow);
-      for (final (card, box) in [(bitcoin, a), (receiveFromAnotherRow, b)]) {
+      for (final (card, box) in [
+        (receiveDollarsLead, lead),
+        (bitcoin, a),
+        (receiveFromAnotherRow, b),
+      ]) {
         final texts =
             find.descendant(of: card, matching: find.byType(RichText));
         expect(texts, findsWidgets, reason: why);

@@ -4,8 +4,11 @@
 // Receive arrow at rest beside the other icons, and large; "bitcoin": the
 // Bitcoin receive's first sheet (Bitcoin on top, then From your Dollars
 // and Another crypto) at 375 pt and at 430 pt;
-// "dollars": the Dollars receive's first sheet, titled Receive. One render
-// per run, so:
+// "dollars": the Dollars receive's first sheet (Dollars on top, then From
+// your Bitcoin and Another crypto) at 375 pt, at 430 pt and in German, and
+// the coin sheet its "Dollars" opens. The
+// cards' soft shadows are drawn as on a phone (a test draws them
+// unblurred, a hard grey band under every card). One render per run, so:
 //   for v in 'rows light' 'rows dark' 'bitcoin light' 'bitcoin dark' \
 //       'dollars light' 'dollars dark'; do
 //     RECEIVE_RENDER=<dir> flutter test \
@@ -44,6 +47,8 @@ import 'package:kute/screens/shared/bitcoin_wallet_actions.dart';
 import 'package:kute/screens/shared/receive_arrow_glyph.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart'
     show UsdAccountActionBar;
+import 'package:kute/screens/usd/usd_receive_screen.dart'
+    show kUsdReceiveDollarsKey;
 import 'package:kute/services/orchestra/receive_minimums.dart';
 import 'package:kute/services/orchestra/reusable_deposit_address.dart'
     show standingDestinationsProvider;
@@ -96,6 +101,12 @@ Future<void> _fonts(WidgetTester tester) => tester.runAsync(() async {
     });
 
 Future<void> _shoot(WidgetTester tester, String name) async {
+  // The soft shadows as on a phone for the shot, then flat again.
+  debugDisableShadows = false;
+  for (final o in tester.allRenderObjects) {
+    o.markNeedsPaint();
+  }
+  await tester.pump();
   final boundary = tester
       .renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('shot')));
   final image = (await tester.runAsync(() => boundary.toImage(pixelRatio: 3)))!;
@@ -104,6 +115,8 @@ Future<void> _shoot(WidgetTester tester, String name) async {
     Directory(_dir!).createSync(recursive: true);
     File('$_dir/$name.png').writeAsBytesSync(data!.buffer.asUint8List());
   });
+  debugDisableShadows = true;
+  await tester.pump();
 }
 
 ThemeData _theme(bool dark) {
@@ -296,10 +309,30 @@ void main() {
 
     testWidgets('render: dollars $mode', skip: _dir == null, (tester) async {
       await _fonts(tester);
+      for (final (w, h) in [(375.0, 812.0), (430.0, 932.0)]) {
+        await _app(tester, dark, Size(w, h), _opener(showUsdReceiveSheet));
+        await _openSheet(tester);
+        await _shoot(tester, 'dollars_receive_${w.toInt()}_$mode');
+        expect(tester.takeException(), isNull);
+        if (w == 375) {
+          // "Dollars" opens the coin sheet with the dollar coins alone.
+          await tester.tap(find.byKey(kUsdReceiveDollarsKey));
+          for (var i = 0; i < 8; i++) {
+            await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+          await _shoot(tester, 'dollars_receive_coins_375_$mode');
+          expect(tester.takeException(), isNull);
+        }
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump(const Duration(seconds: 1));
+      }
+      // A longer language at 375 pt.
       await _app(
-          tester, dark, const Size(375, 812), _opener(showUsdReceiveSheet));
+          tester, dark, const Size(375, 812), _opener(showUsdReceiveSheet),
+          locale: const Locale('de'));
       await _openSheet(tester);
-      await _shoot(tester, 'dollars_receive_375_$mode');
+      await _shoot(tester, 'dollars_receive_375_de_$mode');
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 1));

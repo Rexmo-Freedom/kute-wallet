@@ -78,10 +78,11 @@ Future<void> showBitcoinQrReceiveSheet(BuildContext context) =>
       builder: _bitcoinBody,
     );
 
-/// The Investments tab's Receive: "Receive", "From your Bitcoin"
-/// and "Another crypto" (each coin through its reusable
-/// address, a one-time address where that cannot serve it), in a sheet
-/// over the current screen.
+/// The Dollars tab's Receive: "Receive", Dollars on top (the dollar
+/// coins), then From your Bitcoin and Another crypto, as big cards
+/// (usd_receive_screen.dart; each coin through its reusable address, a
+/// one-time address where that cannot serve it), in a sheet over the
+/// current screen.
 Future<void> showUsdReceiveSheet(BuildContext context) =>
     showAppBottomSheet<void>(
       context: context,

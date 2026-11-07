@@ -1,7 +1,8 @@
 // The Dollars Send: the same Who step as the Bitcoin Send (founder, 7
 // November 2026, the approved Send: "ok do it, just make sure that people
-// realise they can send to different cryptos also"): "Send dollars", the
-// search field ("Name, phone or any crypto address"), "Another crypto"
+// realise they can send to different cryptos also"): "Send", as the
+// Bitcoin Send says it (7 November 2026: "these receive and send from
+// dollars seem too small and strange"), the search field ("Name, phone or any crypto address"), "Another crypto"
 // under it while it is empty (the Receive sheets' card, compact and full
 // width: "USDC and USDT" or "USDC, ETH and more", from the coins the dollar
 // send offers, opening the coin sheet as a browse list; a coin picked
@@ -13,8 +14,9 @@
 // amount (a paste at once, a typed one through Continue), one several
 // networks take asks which, one only bitcoin pays goes to the Bitcoin
 // Send. A person (a contact, a typed number) is asked What: this Send's
-// Dollars (no toggle) or a gift. A send that went out, or a link created,
-// closes the sheet.
+// Dollars (no toggle) or a gift. The bar is the step's Continue, as on the
+// Bitcoin Send: off, it says what to do ("Add who to send to"). A send
+// that went out, or a link created, closes the sheet.
 // Nothing here reaches a money call: every door is a test seam.
 
 import 'package:flutter/material.dart';
@@ -352,7 +354,7 @@ void main() {
 
   for (final dark in [false, true]) {
     testWidgets(
-        'the Who step: "Send dollars", the search field saying it takes any '
+        'the Who step: "Send", the search field saying it takes any '
         'crypto address, Another crypto under it (the one card), then the '
         'Contacts; no chips, no Send to anyone '
         '(${dark ? 'dark' : 'light'})', (tester) async {
@@ -360,7 +362,10 @@ void main() {
       final screen = find.byType(UsdWithdrawScreen);
       expect(ModalRoute.of(tester.element(screen))!.settings.name,
           kUsdWithdrawRouteName);
-      expect(find.text(_l10n.sendDollarsTitle), findsOneWidget);
+      expect(
+          find.descendant(of: screen, matching: find.text(_l10n.send)),
+          findsOneWidget);
+      expect(find.text(_l10n.sendDollarsTitle), findsNothing);
       expect(find.byKey(_field), findsOneWidget);
       expect(find.text(_l10n.sendRecipientSearchHint), findsOneWidget);
       expect(
@@ -406,8 +411,12 @@ void main() {
       expect(tester.getBottomLeft(hint).dy,
           lessThan(top(find.byKey(const ValueKey('send-contacts-ask-row')))));
 
-      // The bar: the default search, not a button.
-      expect(_primaryScopes(), isEmpty);
+      // The bar: the step's Continue, as on the Bitcoin Send's Who step,
+      // off and saying what to do.
+      expect(_primaryScopes(), hasLength(1));
+      expect(kuteBarPrimaryEnabled(tester), isFalse);
+      expect(kuteBarPrimaryContext(tester).primaryLabel,
+          _l10n.barNeedRecipient);
       expect(sendsOpened, isEmpty);
       expect(tester.takeException(), isNull);
       await _unmount(tester);
@@ -729,6 +738,9 @@ void main() {
                 find.ancestor(of: pick, matching: find.byType(SendToListCard)))
             .emphasized,
         isTrue);
+    // The bar says the step to take, as on the Bitcoin Send.
+    expect(kuteBarPrimaryEnabled(tester), isFalse);
+    expect(kuteBarPrimaryContext(tester).primaryLabel, _l10n.barNeedNetwork);
     await tester.tap(pick);
     await _settle(tester);
     expect(find.byType(CoinAssetPickerSheet), findsOneWidget);

@@ -11584,7 +11584,7 @@ abstract class AppLocalizations {
   /// **'Statistics'**
   String get portfolioTabStatistics;
 
-  /// Title of the Dollars (USDB) row in the Portfolio's balance breakdown, above the Investing (Hyperliquid) and Predictions (Polymarket) rows.
+  /// Title of the Dollars (USDB) row in the Portfolio's balance breakdown, above the Investing (Hyperliquid) and Predictions (Polymarket) rows. Also the title of the money card on the Send's "What are you sending?" sheet and of the large top card on the Dollars Receive sheet (dollars received from any wallet or exchange as USDC or USDT).
   ///
   /// In en, this message translates to:
   /// **'Dollars'**
@@ -18751,13 +18751,13 @@ abstract class AppLocalizations {
   /// **'Another crypto'**
   String get receiveAnotherCrypto;
 
-  /// Under "Another crypto" (the Receive sheets' card and the Send sheets' card under the search field): the coins it takes, short, ONE line on a card half the screen wide. {coins} is the two best-known coin tickers offered, already joined, e.g. "USDC, ETH"; 'and more' says there are other coins too, without a count.
+  /// Under "Another crypto" (the Receive sheets' card and the Send sheets' card under the search field), and under "Dollars" on the Dollars Receive (the dollar coins it takes): the coins it takes, short, ONE line on a card half the screen wide. {coins} is the two best-known coin tickers offered, already joined, e.g. "USDC, ETH"; 'and more' says there are other coins too, without a count.
   ///
   /// In en, this message translates to:
   /// **'{coins} and more'**
   String anotherCryptoCoinsAndMore(String coins);
 
-  /// Under "Another crypto" when exactly two coins are offered: both tickers, e.g. "USDC and ETH". ONE line on a card half the screen wide.
+  /// Under "Another crypto" (or under "Dollars" on the Dollars Receive) when exactly two coins are offered: both tickers, e.g. "USDC and ETH", "USDC and USDT". ONE line on a card half the screen wide.
   ///
   /// In en, this message translates to:
   /// **'{first} and {second}'**
@@ -20334,12 +20334,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Lightning address'**
   String get sendBadgeLightning;
-
-  /// Under To your Bitcoin / From your Bitcoin: the user's Bitcoin balance in dollars.
-  ///
-  /// In en, this message translates to:
-  /// **'{amount} in Bitcoin'**
-  String usdBitcoinBalanceLine(String amount);
 
   /// Dollars Receive sheet, card title: move money from the user's own Bitcoin into Dollars. Bitcoin is the account name.
   ///
