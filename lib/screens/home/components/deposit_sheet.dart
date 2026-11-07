@@ -5613,7 +5613,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           _processing = false;
           _movementRetry = _isMoneyMovement;
         });
-        unawaited(showCapabilityDecisionSheet(context, e.decision!));
+        unawaited(showCapabilityDecisionSheet(context, e.decision!,
+            capability: e.capability));
         return;
       }
       _endStoppedMove(e);
@@ -5777,7 +5778,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           _processing = false;
           _movementRetry = _isMoneyMovement;
         });
-        unawaited(showCapabilityDecisionSheet(context, e.decision!));
+        unawaited(showCapabilityDecisionSheet(context, e.decision!,
+            capability: e.capability));
         return;
       }
       _endStoppedMove(e);

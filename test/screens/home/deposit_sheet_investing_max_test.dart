@@ -35,6 +35,8 @@ import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/screens/shared/capability_unavailable_sheet.dart'
+    show CapabilityUnavailableSheet;
 import 'package:kute/screens/home/components/deposit_sheet.dart';
 import 'package:kute/services/funding/settlement_runner.dart'
     show SettlementStepUpHook;
@@ -457,7 +459,7 @@ void main() {
     const decision = CapabilityDecision(allowed: false, reason: 'disabled');
     final cctp = _Cctp()
       ..error = const CctpUnavailable(CctpUnavailableReason.capability,
-          decision: decision);
+          decision: decision, capability: 'hyperliquid.withdraw');
     final (container, hypercore) =
         await _open(tester, _snapshot(perp: 10), cctp: cctp);
     await _pickDollars(tester);
@@ -471,6 +473,13 @@ void main() {
     // decision, with the policy's own sentence; no banner on the sheet.
     expect(find.text(l10n.gateUnavailableTitle), findsOneWidget);
     expect(find.text(decision.messageIn(l10n)), findsOneWidget);
+    // The sheet knows what it was opened for (Check connection asks it).
+    expect(
+        tester
+            .widget<CapabilityUnavailableSheet>(
+                find.byType(CapabilityUnavailableSheet))
+            .capabilities,
+        ['hyperliquid.withdraw']);
     expect(find.text(_refusedCopy), findsNothing);
     expect(find.text(_generic), findsNothing);
     expect(kuteBarPrimaryProbe(tester).isLoading,

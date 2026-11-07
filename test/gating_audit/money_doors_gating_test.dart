@@ -55,18 +55,20 @@ import 'package:kute/providers/spark_contacts_provider.dart';
 import 'package:kute/providers/swap_orders_provider.dart';
 import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceProvider, usdBalanceUnknownProvider;
-import 'package:kute/screens/home/components/deposit_sheet.dart'
-    show MoveLockedSide;
 import 'package:kute/screens/pay/components/confirm_send.dart';
-import 'package:kute/screens/receive/bitcoin_receive_options.dart';
 import 'package:kute/screens/receive/receive_sheet.dart';
 import 'package:kute/screens/shared/coin_asset_grid.dart' show CoinAssetTile;
 import 'package:kute/screens/shared/kute_action_cards.dart';
+import 'package:kute/screens/shared/money_movement_sheet.dart'
+    show
+        MoneyMovementAccount,
+        MoneyMovementRequest,
+        MoneyMovementRoute,
+        debugMoneyMovementSheetOpener;
 import 'package:kute/screens/shared/sal_sprite.dart' show SalSpriteCache;
 import 'package:kute/screens/shared/send/send_recipient_step.dart'
     show SendCoinStack, SendWayChip, SendWaysRow;
 import 'package:kute/screens/shared/send/send_sheet.dart';
-import 'package:kute/screens/usd/usd_receive_screen.dart';
 import 'package:kute/screens/usd/usd_withdraw_screen.dart';
 import 'package:kute/services/api/share_links_api.dart';
 import 'package:kute/services/contacts/send_contacts_service.dart';
@@ -317,11 +319,28 @@ void main() {
     SalSpriteCache.debugReset();
     ShareLinksStore.debugMemory = null;
     TrackingService.setDisabled(false);
-    ConfirmSend.debugMoveSheetOpener = null;
-    UsdWithdrawScreen.debugMoveSheetOpener = null;
-    BitcoinReceiveOptions.debugMoveSheetOpener = null;
-    UsdReceiveScreen.debugDepositSheetOpener = null;
+    debugMoneyMovementSheetOpener = null;
   });
+
+  /// Every own-account door opens Move money straight on the amount,
+  /// pinned in its direction (showOwnMoneyMove): recorded here; what the
+  /// sheet then allows is money_movement_sheet_test.dart's fw36 group.
+  List<MoneyMovementRequest> recordMoves() {
+    final moves = <MoneyMovementRequest>[];
+    debugMoneyMovementSheetOpener = (_, request) => moves.add(request);
+    return moves;
+  }
+
+  const bitcoinToDollars = MoneyMovementRoute(
+      MoneyMovementAccount.bitcoin, MoneyMovementAccount.dollars);
+  const dollarsToBitcoin = MoneyMovementRoute(
+      MoneyMovementAccount.dollars, MoneyMovementAccount.bitcoin);
+
+  void expectPinned(List<MoneyMovementRequest> moves, MoneyMovementRoute r) {
+    expect(moves, hasLength(1));
+    expect(moves.single.route, r);
+    expect(moves.single.pinned, isTrue);
+  }
 
   Future<void> install(WidgetTester tester, MarketDenial? how,
           {Set<String> targets = const {}}) =>
@@ -343,9 +362,7 @@ void main() {
         'From your Bitcoin opens the Move sheet, which says why',
         (tester) async {
       await install(tester, MarketDenial.swapCountryBlock);
-      final opened = <MoveLockedSide>[];
-      UsdReceiveScreen.debugDepositSheetOpener =
-          (_, {required lockedSide}) async => opened.add(lockedSide);
+      final moves = recordMoves();
       await _pumpSheet(tester, showUsdReceiveSheet);
       expect(find.byKey(_usdFromBitcoin), findsOneWidget);
       expect(find.byKey(_usdFromAnother), findsOneWidget,
@@ -353,7 +370,9 @@ void main() {
       expect(find.text(_l10n.usdReceiveCoinsUnavailable), findsNothing);
       await tester.tap(find.byKey(_usdFromBitcoin));
       await tester.pump();
-      expect(opened, [MoveLockedSide.depositToUsd]);
+      // A swap: Bitcoin into Dollars, pinned; the sheet refuses it with
+      // the named regions and Check connection.
+      expectPinned(moves, bitcoinToDollars);
       await _unmount(tester);
     });
 
@@ -390,19 +409,17 @@ void main() {
         'asset (kept by a region block) and Bitcoin; From your Dollars '
         'opens the Move sheet, Dollars to Bitcoin', (tester) async {
       await install(tester, MarketDenial.swapCountryBlock);
-      var moves = 0;
-      BitcoinReceiveOptions.debugMoveSheetOpener = (_) async => moves++;
+      final moves = recordMoves();
       await _pumpSheet(tester, showBitcoinReceiveSheet);
-      expect(
-          tester
-              .widget<KuteActionCardGrid>(
-                  find.byKey(const ValueKey('bitcoin-receive-options')))
-              .cards
-              .map((c) => c.key),
-          [_btcFromDollars, _btcFromAnother, _btcBitcoin]);
+      final grid = tester.widget<KuteActionCardGrid>(
+          find.byKey(const ValueKey('bitcoin-receive-options')));
+      // Bitcoin leads (plain bitcoin, never gated), the two doors under it.
+      expect(grid.lead?.key, _btcBitcoin);
+      expect(grid.cards.map((c) => c.key), [_btcFromDollars, _btcFromAnother]);
       await tester.tap(find.byKey(_btcFromDollars));
       await tester.pump();
-      expect(moves, 1);
+      // An exit: Dollars into Bitcoin, pinned; the sheet moves it.
+      expectPinned(moves, dollarsToBitcoin);
       await _unmount(tester);
     });
 
@@ -444,14 +461,14 @@ void main() {
         'Prediction (the cascade shuts both venues); To your Bitcoin opens '
         'the Move sheet', (tester) async {
       await install(tester, MarketDenial.swapCountryBlock);
-      var moves = 0;
-      UsdWithdrawScreen.debugMoveSheetOpener = (_) async => moves++;
+      final moves = recordMoves();
       await _pumpSheet(tester, showUsdWithdrawSheet);
       expect(chips(tester), [_usdToBitcoin, _usdCrypto]);
       expect(find.text(_l10n.usdSendDestinationsUnavailable), findsNothing);
       await tester.tap(find.byKey(_usdToBitcoin));
       await tester.pump();
-      expect(moves, 1);
+      // An exit: Dollars into Bitcoin, pinned; the sheet moves it.
+      expectPinned(moves, dollarsToBitcoin);
       await _unmount(tester);
     });
 
@@ -511,8 +528,7 @@ void main() {
         'stacked (a region block hides nothing); no Prediction',
         (tester) async {
       await install(tester, MarketDenial.swapCountryBlock);
-      var moves = 0;
-      ConfirmSend.debugMoveSheetOpener = (_) async => moves++;
+      final moves = recordMoves();
       await _pumpBitcoinSend(tester);
       expect(chips(tester), [_btcToDollars, _btcCrypto]);
       expect(
@@ -521,7 +537,8 @@ void main() {
           findsOneWidget);
       await tester.tap(find.byKey(_btcToDollars));
       await tester.pumpAndSettle();
-      expect(moves, 1, reason: 'the Move sheet says why (its own test)');
+      // A swap, pinned: the Move sheet says why (its own test).
+      expectPinned(moves, bitcoinToDollars);
       // The coins stay listed; a coin's tap names the regions
       // (coin_asset_picker_policy_test.dart).
       await tester.tap(find.byKey(_btcCrypto));
