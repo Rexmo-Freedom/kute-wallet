@@ -267,7 +267,7 @@ class _GroupFeedCard extends ConsumerWidget {
       tokens: tokenIds,
       child: MarketCard(
         inGroup: inGroup,
-        title: market.title,
+        title: market.displayTitle,
         imageUrl: market.imageUrl,
         outcomes: market.outcomes,
         volume: market.volume,

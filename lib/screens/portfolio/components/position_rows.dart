@@ -104,6 +104,7 @@ import 'package:kute/screens/shared/market_groups.dart' show marketGroupDivider;
 import 'package:kute/screens/shared/transactions_builder.dart'
     show kActivitySquareHeight;
 import 'package:kute/services/polymarket/combos/combo_models.dart';
+import 'package:kute/services/polymarket/market_display_title.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -521,6 +522,20 @@ String? _subMarketName(
   return null;
 }
 
+/// A sub-market's own name that says nothing without its question: a
+/// date ("December 31, 2026", "June"), a number or a range ("100-119",
+/// "↑ 110,000"). A row is never titled by one alone (founder, 7 November
+/// 2026, a page titled only "December 31, 2026"); a person's or a team's
+/// name is ("Lula da Silva", over the event's name).
+bool _bareItemTitle(String name) {
+  final n = name.trim().toLowerCase();
+  if (RegExp(r'\d').hasMatch(n)) return true;
+  return RegExp(r'^(?:january|february|march|april|may|june|july|august|'
+          r'september|october|november|december|jan|feb|mar|apr|jun|jul|'
+          r'aug|sept?|oct|nov|dec)\.?$')
+      .hasMatch(n);
+}
+
 /// What a "Will X win the 2026 Ballon d'Or?" question asks after its
 /// candidate [named], for a row with no event yet: "Win 2026 Ballon
 /// d'Or", "Win Oct 25".
@@ -553,13 +568,22 @@ PolyRowNames polyPositionRowNames({
   String Function(DateTime)? date,
 }) {
   final held = side.trim();
-  final eventName =
-      event == null ? '' : polyRowShortText(event.title, date: date);
+  // The event's name, its blank ("by...?") taken out.
+  final eventName = event == null
+      ? ''
+      : polyRowShortText(polyMarketDisplayTitle(event.title), date: date);
   final candidate =
       event == null ? null : _subMarketName(event, question, marketId, tokenId);
-  if (candidate != null) {
+  if (candidate != null && !_bareItemTitle(candidate)) {
     return (title: candidate, context: eventName, titleIsSide: false);
   }
+  // One market of a grouped event (a deadline of "… by...?", the one it
+  // has left open): the event's name alone never says which, so the row
+  // is titled by the market's own question.
+  final grouped = event != null &&
+      (candidate != null ||
+          event.marketQuestion != null ||
+          polyTitleHasPlaceholder(event.title));
   final binary = held.toLowerCase() == 'yes' || held.toLowerCase() == 'no';
   if (!binary &&
       held.isNotEmpty &&
@@ -573,7 +597,9 @@ PolyRowNames polyPositionRowNames({
       titleIsSide: true,
     );
   }
-  if (eventName.isNotEmpty && eventName.length <= kPolyRowShortTitle) {
+  if (!grouped &&
+      eventName.isNotEmpty &&
+      eventName.length <= kPolyRowShortTitle) {
     return (title: eventName, context: '', titleIsSide: false);
   }
   if (event == null) {
@@ -588,9 +614,14 @@ PolyRowNames polyPositionRowNames({
       );
     }
   }
+  final title = polyRowShortText(question, date: date);
   return (
-    title: polyRowShortText(question, date: date),
-    context: eventName,
+    title: title,
+    // The event's name says nothing the grouped market's question does not.
+    context: grouped &&
+            title.toLowerCase().contains(eventName.toLowerCase())
+        ? ''
+        : eventName,
     titleIsSide: false,
   );
 }

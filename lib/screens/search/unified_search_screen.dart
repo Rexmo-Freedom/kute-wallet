@@ -1423,7 +1423,7 @@ class _GlobalMarketRow extends ConsumerWidget {
         SearchRecentStore.record(SearchRecentEntry(
             kind: SearchRecentKind.prediction,
             id: e.slug,
-            label: e.title,
+            label: e.displayTitle,
             image: e.imageUrl));
         MarketDetailSheet.show(context,
             event: e, ledgerWalletId: ledgerWalletId, source: 'search');

@@ -412,7 +412,7 @@ class SearchPredictionRow extends StatelessWidget {
     final chance = chanceOf(event);
     return SearchListRow(
       leading: searchEventLogo(context, event.imageUrl),
-      title: event.title,
+      title: event.displayTitle,
       titleLines: titleLines,
       padding: padding,
       trailing: fraction == null || chance == null
@@ -425,7 +425,9 @@ class SearchPredictionRow extends StatelessWidget {
                 Text(chance, style: SearchListRow.figureStyle(context)),
               ],
             ),
-      semanticLabel: chance == null ? event.title : '${event.title}, $chance',
+      semanticLabel: chance == null
+          ? event.displayTitle
+          : '${event.displayTitle}, $chance',
       onTap: onTap,
     );
   }

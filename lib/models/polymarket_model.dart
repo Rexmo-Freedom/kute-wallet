@@ -4,6 +4,7 @@ import 'package:kute/services/polymarket/livestream_source.dart';
 import 'package:kute/services/polymarket/market_buy_quote.dart';
 import 'package:kute/services/polymarket/event_trading_over.dart';
 import 'package:kute/services/polymarket/market_protocol.dart';
+import 'package:kute/services/polymarket/market_display_title.dart';
 import 'package:kute/services/polymarket/search_aliases.dart';
 import 'package:kute/services/polymarket/shown_price.dart';
 import 'package:kute/services/polymarket/polymarket_price_source.dart'
@@ -111,6 +112,12 @@ class PolymarketOutcome {
   /// The sub-market's sports type and line, on a game's markets only.
   final PolymarketMarketLine? marketLine;
 
+  /// The market's own question (Gamma `question`: "Will Russia invade a
+  /// NATO country by December 31, 2026?"), on an outcome that is one
+  /// market of a grouped event: what a page, slip or card about this one
+  /// outcome is titled by, never its bare [name] ([polyMarketDisplayTitle]).
+  final String? question;
+
   /// Its book is wider than 10¢ and it has never traded, so Polymarket
   /// shows no chance for it ([polyGammaShownPrice]): a list writes "—"
   /// and puts it last. [price] is then Gamma's own figure, kept as the
@@ -128,6 +135,7 @@ class PolymarketOutcome {
     this.conditionId,
     this.marketLine,
     this.unpriced = false,
+    this.question,
   });
 
   /// True when this outcome came from a binary YES/NO sub-market (i.e. a
@@ -334,6 +342,20 @@ class PolymarketEvent {
   /// reads them.
   final List<PolymarketOutcome> hiddenOutcomes;
 
+  /// The question of the one market this event is about, when Gamma
+  /// groups it with others: a grouped event with one open market left
+  /// ("Will Russia invade a NATO country by December 31, 2026?" under
+  /// "... by...?"), or one outcome opened as its own Yes / No page. Null
+  /// for a plain single-market event and for an event that lists several.
+  final String? marketQuestion;
+
+  /// The title this event is shown under ([polyMarketDisplayTitle]): the
+  /// one market's question when it is about one ([marketQuestion]), else
+  /// [title] with Polymarket's blank ("by...?") taken out. [title] stays
+  /// Gamma's own, for the logic that reads it (teams, rounds, analytics).
+  String get displayTitle =>
+      polyMarketDisplayTitle(title, question: marketQuestion);
+
   const PolymarketEvent({
     required this.id,
     required this.slug,
@@ -370,6 +392,7 @@ class PolymarketEvent {
     this.seriesId,
     this.tweetCount,
     this.hiddenOutcomes = const [],
+    this.marketQuestion,
   });
 
   /// This event with the [hiddenOutcomes] whose Yes or No token is in
@@ -423,6 +446,7 @@ class PolymarketEvent {
         for (final o in hiddenOutcomes)
           if (!held.contains(o)) o,
       ],
+      marketQuestion: marketQuestion,
     );
   }
 
@@ -2074,6 +2098,7 @@ class PolymarketModel {
       volume: (m['volumeNum'] as num?)?.toDouble(),
       conditionId: m['conditionId'] as String?,
       gammaMarketId: m['id']?.toString(),
+      question: question == 'Unknown' ? null : question,
       marketLine: kind.isEmpty
           ? null
           : PolymarketMarketLine(
@@ -2323,6 +2348,7 @@ class PolymarketModel {
     final primaryMarket =
         markets.isNotEmpty ? markets.first as Map<String, dynamic> : null;
     final outcomes = _buildOutcomesFromRaw(markets);
+    final eventTitle = (e['title'] as String?) ?? 'Unknown Event';
     // Placeholder seats ("Person O", "Other") are not listed, but kept for
     // a holding in one (PolymarketEvent.withHeldOutcomes).
     final hiddenOutcomes = markets.length > 1
@@ -2453,7 +2479,8 @@ class PolymarketModel {
     return PolymarketEvent(
       id: (e['id'] ?? '').toString(),
       slug: (e['slug'] as String?) ?? '',
-      title: (e['title'] as String?) ?? 'Unknown Event',
+      title: eventTitle,
+      marketQuestion: _soleMarketQuestion(markets, allMarkets, eventTitle),
       imageUrl: imageUrl,
       volume: totalVolume,
       volume24hr: (e['volume24hr'] as num?)?.toDouble() ?? 0,
@@ -2502,6 +2529,24 @@ class PolymarketModel {
       tweetCount: (e['tweetCount'] as num?)?.toInt(),
       hiddenOutcomes: hiddenOutcomes,
     );
+  }
+
+  /// The question of the one market a grouped event still shows (its
+  /// other markets settled: "Will Russia invade a NATO country by
+  /// December 31, 2026?" under "... by...?"), the event's
+  /// [PolymarketEvent.marketQuestion]. Null when it shows several, when
+  /// it only ever had the one and its title has no blank (a plain market,
+  /// titled by the event), and on a game's line, which the game's own
+  /// title names.
+  static String? _soleMarketQuestion(
+      List<dynamic> shown, List<dynamic> all, String eventTitle) {
+    if (shown.length != 1) return null;
+    final m = shown.first;
+    if (m is! Map) return null;
+    if ('${m['sportsMarketType'] ?? ''}'.trim().isNotEmpty) return null;
+    if (all.length < 2 && !polyTitleHasPlaceholder(eventTitle)) return null;
+    final q = '${m['question'] ?? ''}'.trim();
+    return q.isEmpty ? null : q;
   }
 
   /// The largest 24 h move among an event's markets (Gamma's
