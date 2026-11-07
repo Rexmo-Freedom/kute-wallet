@@ -195,7 +195,13 @@ class _AddWalletState extends ConsumerState<AddWallet> {
       final denial = await addWalletOptionDenial(
           ref.read(runtimeCapabilitiesProvider), type);
       if (denial == null) return true;
-      if (mounted) await showCapabilityDecisionSheet(context, denial);
+      // Named, so "Check connection" asks this capability again (not every
+      // region denial the policy holds, a swap block included) and
+      // `capability_region_blocked` names it.
+      if (mounted) {
+        await showCapabilityDecisionSheet(context, denial,
+            capability: addWalletOptionCapability(type));
+      }
       return false;
     } finally {
       _checkingOption = false;
