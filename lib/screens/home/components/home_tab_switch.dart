@@ -8,14 +8,14 @@
 // the same width; each keeps its glyph and label, the selected one in the
 // primary text colour, the other secondary.
 //
-// THE THUMB IS THE PAGER. The shell's page position ([position], the
-// [AppShell]'s continuous page controller) places it on every frame, and it
-// has no animation of its own: a swipe drags it under the finger, a tap
-// slides it on the shell's own tab-switch spring, a link moves it the same
-// way, and Reduce Motion (which makes the shell's switch instant) moves it at
-// once. The labels' colours ride the same value. Mounted without a pager (a
-// test, a standalone use) it springs to the active tab on the chip spring,
-// at once under Reduce Motion.
+// THE THUMB MOVES AS THE PILLS DO (founder, 8 November 2026: "the same
+// elastic"). Under the finger it follows the shell's page position
+// ([position]); when the active tab changes, by a tap, a link or a swipe
+// landing, it runs there on the chip spring (KuteMotion.chip), overshooting a
+// little and pressing against the track's end, and hands back to the pager
+// once that has arrived ([_ThumbPlace]). At once under Reduce Motion. The
+// labels' colours ride the same value. With no pager (a test, a standalone
+// use) it is the spring alone.
 //
 // It sizes itself to its words: its natural width, at least
 // [_kMinWidth], up to whatever the bar leaves it; past that (a long locale, a
@@ -139,26 +139,97 @@ class HomeTabSwitch extends StatelessWidget {
     );
   }
 
-  /// Rebuilds [builder] with the thumb's place: the pager's position, or
-  /// the spring to the active tab with no pager.
+  /// Rebuilds [builder] with the thumb's place (see the file header).
   Widget _thumbPosition(
-      BuildContext context, Widget Function(double place) builder) {
-    final last = (tabs.length - 1).toDouble();
-    final pager = position;
-    if (pager != null) {
-      return AnimatedBuilder(
-        animation: pager,
-        builder: (_, __) => builder(pager.value.clamp(0.0, last)),
+          BuildContext context, Widget Function(double place) builder) =>
+      _ThumbPlace(
+        active: _activeIndex,
+        last: (tabs.length - 1).toDouble(),
+        position: position,
+        builder: builder,
       );
+}
+
+/// The thumb's place in items. It follows [position] under the finger; when
+/// the active tab changes it runs to it on the chip spring, as the pills do,
+/// overshooting a little, and hands back to [position] once the pager has
+/// arrived too.
+class _ThumbPlace extends StatefulWidget {
+  const _ThumbPlace({
+    required this.active,
+    required this.last,
+    required this.position,
+    required this.builder,
+  });
+
+  final int active;
+  final double last;
+  final Animation<double>? position;
+  final Widget Function(double place) builder;
+
+  @override
+  State<_ThumbPlace> createState() => _ThumbPlaceState();
+}
+
+class _ThumbPlaceState extends State<_ThumbPlace>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _spring = AnimationController(
+    vsync: this,
+    duration: KuteMotion.chipDuration,
+    value: 1,
+  );
+
+  /// Where the running spring started.
+  late double _from = widget.active.toDouble();
+
+  /// False from a change of tab until the pager has arrived at it.
+  bool _following = true;
+
+  double get _target => widget.active.toDouble();
+
+  double _place() {
+    final pager = widget.position?.value;
+    if (_spring.isAnimating) {
+      final t = KuteMotion.chip.transform(_spring.value);
+      return _from + (_target - _from) * t;
     }
-    final reduce = KuteMotion.reduce(context);
-    return TweenAnimationBuilder<double>(
-      tween: Tween<double>(end: _activeIndex.toDouble()),
-      duration: reduce ? Duration.zero : KuteMotion.chipDuration,
-      curve: reduce ? Curves.linear : KuteMotion.chip,
-      builder: (_, value, __) => builder(value.clamp(0.0, last)),
-    );
+    if (pager == null) return _target;
+    if (!_following && (pager - _target).abs() < 0.02) _following = true;
+    return _following ? pager.clamp(0.0, widget.last) : _target;
   }
+
+  @override
+  void didUpdateWidget(_ThumbPlace old) {
+    super.didUpdateWidget(old);
+    if (old.active == widget.active) return;
+    final pager = widget.position?.value;
+    if (KuteMotion.reduce(context)) {
+      _spring.value = 1;
+      _following = true;
+      return;
+    }
+    // From where it stands: mid-spring, or where the finger left it. A
+    // pager already on the new tab has no further to go.
+    final t = KuteMotion.chip.transform(_spring.value);
+    _from = _spring.isAnimating
+        ? _from + (old.active - _from) * t
+        : (_following && pager != null ? pager : old.active.toDouble());
+    _following = false;
+    _spring.forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _spring.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+        animation: Listenable.merge(
+            [_spring, if (widget.position != null) widget.position!]),
+        builder: (_, __) => widget.builder(_place()),
+      );
 }
 
 class _SwitchBody extends StatelessWidget {
@@ -182,6 +253,8 @@ class _SwitchBody extends StatelessWidget {
     final dark = context.isDark;
     final inset = _kThumbInset.w;
     final span = tabs.length - 1;
+    final resting = place.clamp(0.0, span.toDouble());
+    final overshoot = (place - resting).abs().clamp(0.0, 0.5);
     return Stack(
       alignment: Alignment.center,
       children: [
@@ -199,9 +272,10 @@ class _SwitchBody extends StatelessWidget {
           ),
           child: Align(
             alignment: AlignmentDirectional(
-                span == 0 ? 0 : -1 + 2 * place / span, 0),
+                span == 0 ? 0 : -1 + 2 * resting / span, 0),
             child: FractionallySizedBox(
-              widthFactor: 1 / tabs.length,
+              // Past either end the thumb presses against the wall.
+              widthFactor: (1 - overshoot * 0.6) / tabs.length,
               heightFactor: 1,
               child: DecoratedBox(
                 key: const ValueKey('home-tab-switch-thumb'),
