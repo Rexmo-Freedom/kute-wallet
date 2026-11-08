@@ -339,7 +339,7 @@ void main() {
   });
 
   /// Every own-account door opens Move money straight on the amount,
-  /// pinned in its direction (showOwnMoneyMove): recorded here; what the
+  /// on Swap in its direction (showOwnMoneyMove): recorded here; what the
   /// sheet then allows is money_movement_sheet_test.dart's fw36 group.
   List<MoneyMovementRequest> recordMoves() {
     final moves = <MoneyMovementRequest>[];
@@ -352,10 +352,10 @@ void main() {
   const dollarsToBitcoin = MoneyMovementRoute(
       MoneyMovementAccount.dollars, MoneyMovementAccount.bitcoin);
 
-  void expectPinned(List<MoneyMovementRequest> moves, MoneyMovementRoute r) {
+  void expectSwap(List<MoneyMovementRequest> moves, MoneyMovementRoute r) {
     expect(moves, hasLength(1));
     expect(moves.single.route, r);
-    expect(moves.single.pinned, isTrue);
+    expect(moves.single.swap, isTrue);
   }
 
   Future<void> install(WidgetTester tester, MarketDenial? how,
@@ -519,7 +519,7 @@ void main() {
       await tester.tap(find.byKey(_moveToBitcoin));
       await tester.pump();
       // An exit: Dollars into Bitcoin, pinned; the sheet moves it.
-      expectPinned(moves, dollarsToBitcoin);
+      expectSwap(moves, dollarsToBitcoin);
       await _unmount(tester);
     });
 
@@ -598,7 +598,7 @@ void main() {
       await tester.tap(find.byKey(_moveToDollars));
       await tester.pumpAndSettle();
       // A swap, pinned: the Move sheet says why (its own test).
-      expectPinned(moves, bitcoinToDollars);
+      expectSwap(moves, bitcoinToDollars);
       // The coins stay listed, and only the coins: no Bitcoin Network row
       // (plain bitcoin is this send's own default); a coin's tap names
       // the regions (coin_asset_picker_policy_test.dart).

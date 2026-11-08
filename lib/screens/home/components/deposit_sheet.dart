@@ -28,11 +28,16 @@ import 'package:kute/screens/shared/orchestra_fee_summary.dart';
 //
 // Move money (the Portfolio's button, [DepositSheet.movementRoute]) is
 // this sheet with both ends editable: Bitcoin, Dollars, Investing and
-// Predictions, any one to any other (lib/services/one_balance/
-// money_movement_route.dart). Pinned to the person's own Bitcoin and
-// Dollars (showOwnMoneyMove: the Dollars home's Swap, the own-account
-// doors) it is Swap: the same screen, its ends fixed, reversed by the
-// swap circle between its From and To squares. Both lay out as Send's
+// Predictions, any one to any other that is offered (lib/services/
+// one_balance/money_movement_route.dart). Swap (showOwnMoneyMove: the
+// Dollars home's Swap, the own-account doors) is the same screen with
+// the same pickers, the same circle and the same rails (founder, 8
+// November 2026: "here i need to be able to choose predictions and
+// investments also right? so user can manually swap"). It differs in
+// three things only: it opens on the door's own Bitcoin and Dollars
+// direction, its words are Swap ("Swap", "Swap $50", "Swapped to …"), and
+// its Dollars → Bitcoin spends all the dollar money
+// ([_DepositSheetState._ownDollarsToBitcoin]). Both lay out as Send's
 // amount step: Send's header, the hero centred, the squares, the chips
 // over the keypad's keys.
 //
@@ -580,11 +585,11 @@ class DepositSheet extends ConsumerStatefulWidget {
   /// Explicit movement of one selected cash balance, with both ends editable.
   final MoneyMovementRoute? movementRoute;
 
-  /// [movementRoute] fixed: no account pickers (showMoneyMovementSheet's
-  /// `pinned`). Bitcoin and Dollars still swap (the Swap screen). Pinned
-  /// Dollars → Bitcoin spends all the dollar money, Dollars first and
-  /// then the venue cash, as the Investments' Buy bitcoin.
-  final bool movementPinned;
+  /// [movementRoute] on the Swap screen (showMoneyMovementSheet's `swap`):
+  /// Swap's words over the same pickers and rails. Swap's Dollars → Bitcoin
+  /// spends all the dollar money, Dollars first and then the venue cash, as
+  /// the Investments' Buy bitcoin.
+  final bool movementSwap;
   final String? fiatDepositWalletId;
   final String? venueWalletId;
   final String? ledgerWalletId;
@@ -605,7 +610,7 @@ class DepositSheet extends ConsumerStatefulWidget {
     this.initialSourceAsset,
     required this.lockedSide,
     this.movementRoute,
-    this.movementPinned = false,
+    this.movementSwap = false,
     this.fiatDepositWalletId,
     this.venueWalletId,
     this.ledgerWalletId,
@@ -644,6 +649,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// nothing left ([moneyMovementProvesNothingSent]).
   bool _movementFundingStarted = false;
 
+  /// The surface this sheet was opened from (`move_sheet_opened`'s
+  /// `entry_source`), for the pickers' own events.
+  String? _moveEntrySource;
+
   /// Analytics for the move in flight: the rail it went by (a CCTP
   /// fallback changes it), the fee where the route states one, the time
   /// since the tap, and whether it was a Retry.
@@ -662,8 +671,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   // (`CapabilityBlockNote`), in place of the fee line and any error, before
   // any estimate or move is asked; its one button is "Check connection" on
   // a region refusal and disabled otherwise. The pickers still list every
-  // account (gating is emergency-only): only the withheld direction shows
-  // it, and a withdrawal answers to its own withdraw capability alone.
+  // account (gating is emergency-only), on Swap as on Move money: only the
+  // withheld direction shows it, and a withdrawal answers to its own
+  // withdraw capability alone.
 
   /// The venue's own location refusal for [_movementVenueBlockRoute]
   /// (Kute's policy is read live, see [_movementRestriction]).
@@ -913,76 +923,100 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         MoneyMovementAccount.predictions => 'lib/assets/polymarket-logo.svg',
       };
 
-  /// What the picker row says under an account's name.
-  String _movementSubtitle(MoneyMovementAccount account,
-          {required bool source}) =>
-      switch (account) {
-        MoneyMovementAccount.bitcoin => context.l10n.spending,
-        MoneyMovementAccount.dollars => source
-            ? context.l10n.moveSourceDollarsSubtitle
-            : context.l10n.moveDestDollarsSubtitle,
-        MoneyMovementAccount.investing => 'Hyperliquid',
-        MoneyMovementAccount.predictions => 'Polymarket',
-      };
+  /// What a picker row says under an account's name: what it has to move
+  /// on [next], the route picking it makes, as the From square will say it
+  /// once it is picked (only free cash: venue money in positions is never
+  /// in these figures). A balance still loading says so in its place.
+  String _movementAccountLine(
+      MoneyMovementAccount account, MoneyMovementRoute next) {
+    final allDollarMoney = _spendsAllDollarMoney(next) && next.from == account;
+    final state =
+        _accountBalanceState(account, allDollarMoney: allDollarMoney);
+    if (state != null) return state;
+    final String figure;
+    switch (account) {
+      case MoneyMovementAccount.bitcoin:
+        final sats = _liveAvailableSats;
+        final price = _usdPerBtc > 0 ? _usdPerBtc : _cachedUsdPerBtc();
+        // No price to value it with: the sats are still true.
+        if (price == null || price <= 0) {
+          final format = ref.read(settingsProvider).btcFormat;
+          figure = '${sats.toFormattedString(format)} '
+              '${format == 'sats' ? 'sats' : 'BTC'}';
+        } else {
+          figure = _usdFigure((sats / 1e8) * price);
+        }
+      case MoneyMovementAccount.dollars:
+        figure = _usdFigure(_dollarMoneyUsd(allDollarMoney: allDollarMoney));
+      case MoneyMovementAccount.investing:
+        figure = _usdFigure(_investingAvailableUsd);
+      case MoneyMovementAccount.predictions:
+        figure = _usdFigure(ref.read(polymarketBalanceProvider));
+    }
+    return context.l10n.hlYieldAvailableLine(figure);
+  }
 
-  /// One end's picker, in the chrome every picker of this sheet wears.
-  /// The other end is not offered; the account already chosen reads
-  /// SELECTED. Picking only changes the route: nothing is sent.
+  /// One end's picker, in the chrome every picker of this sheet wears: the
+  /// accounts it may hold, each with what it has to move, the one chosen
+  /// reading SELECTED. An account the policy withholds is listed like any
+  /// other and says why once it is on screen (the restriction note and the
+  /// bar's own state), never here. The other end's account swaps the two.
+  /// Picking only changes the route: nothing is sent.
   Future<void> _pickMovementAccount({required bool source}) async {
     if (_processing || _movementSendLocked) return;
     HapticFeedback.selectionClick();
     final route = _movementRoute!;
-    final current = source ? route.from : route.to;
+    final side = source ? 'from' : 'to';
+    TrackingService.track('move_account_picker_opened', params: {
+      'side': side,
+      'source': _moveEntrySource ?? widget.lockedSide.name,
+    });
     final selected = await _showMovePickerSheet<MoneyMovementAccount>(
       context,
       title: source ? context.l10n.moveMoveFrom : context.l10n.moveMoveTo,
       hint: (_) => '',
+      // The figures below follow the venues while the picker is up.
+      watch: (sheetRef) {
+        sheetRef.watch(usdBalanceProvider);
+        sheetRef.watch(usdSdkBalanceProvider);
+        sheetRef.watch(walletBalanceCacheProvider);
+        sheetRef.watch(sparkBitcoinBalanceProvider);
+        sheetRef.watch(hyperliquidAccountProvider);
+        sheetRef.watch(polymarketTradingProvider);
+        sheetRef.watch(polymarketBalanceProvider);
+        if (widget.movementSwap) {
+          sheetRef.watch(dollarsToBitcoinSpendableProvider);
+        }
+      },
       rows: (sheetCtx, _) => [
         for (final account in MoneyMovementAccount.values)
-          // The other end is never offered; nor is a destination the
-          // source has no door to (out of Predictions, only Bitcoin).
-          if (account != (source ? route.to : route.from) &&
-              (source || MoneyMovementRoute(route.from, account).isOffered))
+          if (route.afterPicking(account, source: source) case final next?)
             MovePickerRow(
               key: ValueKey('movement-account-${account.name}'),
               asset: _movementAsset(account),
               title: _movementName(account),
-              subtitle: _movementSubtitle(account, source: source),
-              disabled: account == current ||
-                  kMoneyMovementDisabledRoutes.containsKey(MoneyMovementRoute(
-                      source ? account : route.from,
-                      source ? route.to : account)),
-              disabledLabel: account == current
-                  ? context.l10n.moveSelectedBadge
-                  : 'SOON',
+              subtitle: _movementAccountLine(account, next),
+              disabled: next == route ||
+                  kMoneyMovementDisabledRoutes.containsKey(next),
+              disabledLabel:
+                  next == route ? context.l10n.moveSelectedBadge : 'SOON',
               onTap: () => Navigator.of(sheetCtx).pop(account),
             ),
       ],
     );
-    if (selected == null || selected == current || !mounted) return;
+    if (selected == null || !mounted) return;
     if (_processing || _movementSendLocked) return;
-    // A source whose door to the chosen destination is not offered
-    // (Predictions picked while Dollars or Investing is the destination)
-    // takes its one offered destination along.
-    _changeMovementRoute(MoneyMovementRoute(
-            source ? selected : route.from, source ? route.to : selected)
-        .offeredOrNearest);
+    final next = route.afterPicking(selected, source: source);
+    if (next == null || next == route) return;
+    TrackingService.track('move_account_picked',
+        params: {'side': side, 'account': selected.name});
+    _changeMovementRoute(next, reversed: next == route.reversed);
   }
 
-  /// The two-way screen between the person's own Bitcoin and Dollars
-  /// (showOwnMoneyMove; founder, 7 November 2026: "a button in a
-  /// reversible way"): its ends are those two accounts, never picked, and
-  /// the swap circle reverses them. Titled "Swap".
-  bool get _ownMoneySwap {
-    final route = _movementRoute;
-    return _isMoneyMovement &&
-        widget.movementPinned &&
-        route != null &&
-        {route.from, route.to}.containsAll(const {
-          MoneyMovementAccount.bitcoin,
-          MoneyMovementAccount.dollars,
-        });
-  }
+  /// The Swap screen (showOwnMoneyMove; founder, 7 November 2026: "a button
+  /// in a reversible way"), whichever accounts are on it now: titled "Swap"
+  /// over a "Swap $50" bar, closing into "Swapped to …".
+  bool get _ownMoneySwap => _isMoneyMovement && widget.movementSwap;
 
   /// From and To as two squares, the swap circle on their shared edge
   /// (deposit_route_card.dart, MoveRouteSquares). [available] is what the
@@ -991,16 +1025,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   Widget _movementRouteCard({required String? available}) {
     final route = _movementRoute!;
     final editable = !_processing && !_movementSendLocked;
-    // A pinned route (the own-account doors: showOwnMoneyMove) picks
-    // nothing: the ends show no chevron, as on the Purchase Bitcoin sheet.
-    // Each end keeps its account's own name ("From Dollars", "To
-    // Bitcoin"), the words of the door that opened it ("From your
-    // Dollars", "To your Bitcoin"). The Portfolio's Move money picks
-    // either end.
-    final pickable = editable && !widget.movementPinned;
-    // Bitcoin and Dollars swap from every door; another pinned pair has no
-    // way back on this screen.
-    final showSwap = !widget.movementPinned || _ownMoneySwap;
+    // Each end keeps its account's own name ("From Dollars", "To Bitcoin"),
+    // the words of the door that opened it ("From your Dollars", "To your
+    // Bitcoin"), and wears the picker's chevron.
     final state = _sourceBalanceState;
     final line = state ??
         (available == null ? null : context.l10n.hlYieldAvailableLine(available));
@@ -1009,18 +1036,18 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           name: _movementName(account),
           asset: _movementAsset(account),
           line: source ? line : null,
-          onTap: pickable ? () => _pickMovementAccount(source: source) : null,
+          onTap: editable ? () => _pickMovementAccount(source: source) : null,
         );
-    // The swap is never held back by the policy: a direction the policy
-    // withholds says so once it is on screen (the restriction note and
-    // the bar's own state), as when a door opens on it.
+    // The circle is off only for a pair with no way back on this screen
+    // (into Predictions from Dollars or Investing). It is never held back
+    // by the policy: a direction the policy withholds says so once it is on
+    // screen (the restriction note and the bar's own state), as when a door
+    // opens on it.
     return MoveRouteSquares(
       key: const ValueKey('money-movement-route'),
       from: end(route.from, true),
       to: end(route.to, false),
-      showSwap: showSwap,
       onSwap: editable &&
-              showSwap &&
               route.reversed.isOffered &&
               !kMoneyMovementDisabledRoutes.containsKey(route.reversed)
           ? () => _changeMovementRoute(route.reversed, reversed: true)
@@ -1274,8 +1301,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// Dollars buying spending bitcoin also reach venue cash: Dollars
   /// first, the rest pulled home from Predictions and Investing before
   /// the purchase (lib/services/one_balance/venue_cash_source.dart). In
-  /// Move money only on [_ownDollarsToBitcoin], the own-account doors'
-  /// pinned move; a route picked in the pickers spends its one account.
+  /// Move money only on [_ownDollarsToBitcoin], Swap's Dollars → Bitcoin;
+  /// any other route spends its one account.
   bool get _dollarsReachVenueCash =>
       (!_isMoneyMovement || _ownDollarsToBitcoin) &&
       _dollarsAreSource &&
@@ -1290,17 +1317,22 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// "From your Dollars" and "To your Bitcoin" (founder, 7 November 2026:
   /// "from your Dollars should and must be all the available balances,
   /// not just the Dollars balance, it is the same behaviour we had before
-  /// on Investments buy Bitcoin"): Move money pinned Dollars → Bitcoin
-  /// (showOwnMoneyMove) has no account to pick, so "your Dollars" is all
-  /// the person's dollar money. Its figure, Max and funding are the
+  /// on Investments buy Bitcoin"): on Swap (showOwnMoneyMove), "your
+  /// Dollars" going to Bitcoin is all the person's dollar money. Its figure, Max and funding are the
   /// Investments' Buy bitcoin's: Dollars first, then the venue cash, one
   /// approval, the same steps and the same move row. The Portfolio's Move
-  /// money, unpinned, lists each account on its own and spends only the
-  /// one picked.
+  /// money lists each account on its own and spends only the one picked,
+  /// and so does any other pair on Swap (Dollars → Predictions spends
+  /// Dollars).
   bool get _ownDollarsToBitcoin =>
       _isMoneyMovement &&
-      widget.movementPinned &&
-      _movementRoute ==
+      _movementRoute != null &&
+      _spendsAllDollarMoney(_movementRoute!);
+
+  /// [route] on this sheet spends all the dollar money.
+  bool _spendsAllDollarMoney(MoneyMovementRoute route) =>
+      widget.movementSwap &&
+      route ==
           const MoneyMovementRoute(
               MoneyMovementAccount.dollars, MoneyMovementAccount.bitcoin);
 
@@ -1313,9 +1345,13 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// It is also the From row's figure (founder decision 13 October 2026):
   /// the row shows what can actually be bought, so any amount up to the
   /// shown number goes through and "insufficient" starts a cent above it.
-  double get _dollarsSourceUsd {
+  double get _dollarsSourceUsd =>
+      _dollarMoneyUsd(allDollarMoney: _dollarsReachVenueCash);
+
+  /// The dollar source's figure, with or without the venue cash in reach.
+  double _dollarMoneyUsd({required bool allDollarMoney}) {
     final dollars = _availableUsd;
-    if (!_dollarsReachVenueCash) return dollars;
+    if (!allDollarMoney) return dollars;
     final max = ref.read(dollarsToBitcoinSpendableProvider).maxUsd;
     return max > dollars ? max : dollars;
   }
@@ -1501,12 +1537,11 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// than a flat "Exchange" (user decision): a selected venue or the
   /// dollar balance first, otherwise the lock's own name. A move of the
   /// person's own money is "Move money" whichever door opened it, except
-  /// the two-way Bitcoin ↔ Dollars screen, which is "Swap".
+  /// the Swap screen, which is "Swap".
   String get _sheetTitle {
     // Swap (founder, 7 November 2026: "Move money or swap money whatever
-    // is more common in crypto lingo. or just 'swap'"): the two-way screen
-    // between Bitcoin and Dollars. The Portfolio's Move money, any
-    // account to any other, keeps its name.
+    // is more common in crypto lingo. or just 'swap'"), whichever accounts
+    // are picked on it. The Portfolio's Move money keeps its name.
     if (_ownMoneySwap) return context.l10n.swap;
     if (_isMoneyMovement || _ownMoneyMove) return context.l10n.moveTransfer;
     if (_destPredictions) return context.l10n.moveAddPredictions;
@@ -1535,11 +1570,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
 
   String get _actionVerb {
     // Swap's bar says what its title says ("Swap $50"; founder, 7 November
-    // 2026), in each language's swap word. The Portfolio's Move money
-    // keeps "Move $50": its title and its door say Move money, and its
-    // ends reach Predictions and Investing, where a swap is not what
-    // happens; a verb that changed with the picked pair would not match
-    // the title over it.
+    // 2026), in each language's swap word, on every pair. The Portfolio's
+    // Move money keeps "Move $50": its title and its door say Move money,
+    // and a verb that changed with the picked pair would not match the
+    // title over it.
     if (_ownMoneySwap) return context.l10n.swap;
     // The person's own money moves ("Move $50"); only money from outside
     // is bought.
@@ -1995,12 +2029,15 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     if (_dollarsAreSource) return _dollarsSourceUsd;
     // HyperCore refunds arrive in spot. Native funding spends that cash
     // first, then transfers any shortfall from withdrawable perp cash.
-    if (_fromHyperliquid) {
-      final account = ref.read(hyperliquidAccountProvider).valueOrNull;
-      if (account == null) return 0;
-      return hypercoreAvailableUsdc(account.withdrawable, account.spotBalances);
-    }
+    if (_fromHyperliquid) return _investingAvailableUsd;
     return ref.read(polymarketBalanceProvider);
+  }
+
+  /// What Investing can move: its free cash, never what backs a position.
+  double get _investingAvailableUsd {
+    final account = ref.read(hyperliquidAccountProvider).valueOrNull;
+    if (account == null) return 0;
+    return hypercoreAvailableUsdc(account.withdrawable, account.spotBalances);
   }
 
   double? get _ledgerAvailableUsdc {
@@ -2067,8 +2104,27 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       }
       return null;
     }
-    if (!_fromBtc) {
-      if (_dollarsAreSource) {
+    return _accountBalanceState(
+        _fromBtc
+            ? MoneyMovementAccount.bitcoin
+            : _dollarsAreSource
+                ? MoneyMovementAccount.dollars
+                : _fromHyperliquid
+                    ? MoneyMovementAccount.investing
+                    : MoneyMovementAccount.predictions,
+        allDollarMoney: _dollarsReachVenueCash);
+  }
+
+  /// Whether [account]'s balance can be read yet: null when it can, else
+  /// what to say in its place. Read off the live providers, so a picker can
+  /// ask about an account that is not the source.
+  String? _accountBalanceState(MoneyMovementAccount account,
+      {required bool allDollarMoney}) {
+    final l10n = context.l10n;
+    String say(bool failed) =>
+        failed ? l10n.feeUiBalanceUnavailable : l10n.feeUiUpdatingBalance;
+    switch (account) {
+      case MoneyMovementAccount.dollars:
         // The dollar balance answers from the SDK, with a settled-ledger
         // fallback while that is connecting, so it always has a number.
         final balance = ref.read(usdSdkBalanceProvider);
@@ -2076,26 +2132,24 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         // Buying bitcoin from Investments shows the last known balance at
         // once (the settled ledger stands in) and follows the SDK when it
         // answers: no loading text.
-        if (_dollarsReachVenueCash && !balance.hasError) return null;
-        return balance.hasError ? 'Balance unavailable' : 'Updating balance';
-      }
-      if (_fromHyperliquid) {
+        if (allDollarMoney && !balance.hasError) return null;
+        return say(balance.hasError);
+      case MoneyMovementAccount.investing:
         final balance = ref.read(hyperliquidAccountProvider);
-        if (balance.hasValue) return null;
-        return balance.hasError ? 'Balance unavailable' : 'Updating balance';
-      }
-      final balance = ref.read(polymarketTradingProvider);
-      if (balance.valueOrNull?.usdcBalance != null) return null;
-      return balance.hasError ? 'Balance unavailable' : 'Updating balance';
+        return balance.hasValue ? null : say(balance.hasError);
+      case MoneyMovementAccount.predictions:
+        final balance = ref.read(polymarketTradingProvider);
+        if (balance.valueOrNull?.usdcBalance != null) return null;
+        return say(balance.hasError);
+      case MoneyMovementAccount.bitcoin:
+        final source = pickSpendingWallet(ref.read(settingsProvider))?.id;
+        if (source != null &&
+            ref.read(walletBalanceCacheProvider).containsKey(source)) {
+          return null;
+        }
+        final balance = ref.read(sparkBitcoinBalanceProvider);
+        return balance.hasValue ? null : say(balance.hasError);
     }
-    final source = pickSpendingWallet(ref.read(settingsProvider))?.id;
-    if (source != null &&
-        ref.read(walletBalanceCacheProvider).containsKey(source)) {
-      return null;
-    }
-    final balance = ref.read(sparkBitcoinBalanceProvider);
-    if (balance.hasValue) return null;
-    return balance.hasError ? 'Balance unavailable' : 'Updating balance';
   }
 
   bool get _sourceHasFunds {
@@ -2366,6 +2420,11 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     _onTypedAmountChanged(moveQuickAmountTyped(usd));
   }
 
+  /// A balance as the From square says it: rounded down, so it never
+  /// promises a cent that is not there.
+  static String _usdFigure(double usd) =>
+      '\$${((usd * 100).floor() / 100).toStringAsFixed(2)}';
+
   /// Writes a fraction of the spendable source into the amount.
   ///
   /// The ceiling is the convertible maximum, which already has the live
@@ -2587,6 +2646,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       _movementWalletId = pickSpendingWallet(ref.read(settingsProvider))?.id;
       _installMovementRoute(widget.movementRoute!.offeredOrNearest);
       unawaited(_resolveMovementGate());
+      // Both venues' cash is read for the sheet's life, so the pickers have
+      // their figures when they open, without a rebuild per poll here.
+      ref.listenManual(hyperliquidAccountProvider, (_, __) {});
+      ref.listenManual(polymarketTradingProvider, (_, __) {});
       // A refusal worked out on one network is asked again after a
       // network change or resume ([RegionFreshness]).
       RegionFreshness.answers.addListener(_onRegionAnswers);
@@ -2785,7 +2848,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       'move',
       event: 'move_sheet_opened',
       abandonEvent: 'move_sheet_abandoned',
-      entrySource: TrackingService.takeEntrySource('move',
+      entrySource: _moveEntrySource = TrackingService.takeEntrySource('move',
           fallback: widget.lockedSide.name),
       walletKind: _isLedgerMove ? 'ledger' : null,
       props: {
@@ -3782,9 +3845,16 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         amount: dollars || investing
             ? '\$${estOut.toStringAsFixed(2)}'
             : '₿${outSats.toFormattedString(btcFormat)}',
-        fromWalletName: 'Predictions',
-        toWalletName: investing ? l10n.trading : dollars ? l10n.assetDollars : spendingName,
+        fromWalletName: l10n.predictions,
+        toWalletName: investing
+            ? l10n.trading
+            : dollars
+                ? l10n.assetDollars
+                : _ownMoneySwap
+                    ? _movementName(MoneyMovementAccount.bitcoin)
+                    : spendingName,
         note: l10n.moveConversionOngoing,
+        swapped: _ownMoneySwap,
       );
     } catch (e) {
       // Once the USDC left, the order's real outcome comes from the
@@ -4241,8 +4311,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       pushMoveSentOverlay(
         navigator: navigator,
         amount: '₿${sats.toFormattedString(btcFormat)}',
-        fromWalletName: fromName,
-        toWalletName: 'Predictions',
+        fromWalletName:
+            _ownMoneySwap ? _movementName(MoneyMovementAccount.bitcoin) : fromName,
+        toWalletName: context.l10n.predictions,
+        swapped: _ownMoneySwap,
         // Orchestra credits the Safe in 1–3 min, then the wrap → pUSD
         // happens. Surface that to the user so the home tile bumping
         // ~minute later doesn't feel like a surprise.
@@ -5315,7 +5387,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         navigator: navigator,
         amount: '\$${sentUsd.toStringAsFixed(2)}',
         fromWalletName: l10n.assetDollars,
-        toWalletName: 'Predictions',
+        toWalletName: l10n.predictions,
+        swapped: _ownMoneySwap,
         note: settled.registered
             ? l10n.moveConversionOngoing
             : context.l10n.settlementRegistering,
@@ -5461,6 +5534,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         amount: '\$${(result.amountIn.toDouble() / 1e6).toStringAsFixed(2)}',
         fromWalletName: l10n.assetDollars,
         toWalletName: l10n.trading,
+        swapped: _ownMoneySwap,
         note: result.registered
             ? l10n.moveConversionOngoing
             : l10n.settlementRegistering,
@@ -5547,8 +5621,11 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         navigator: navigator,
         amount:
             '₿${result.amountIn.toInt().toFormattedString(settings.btcFormat)}',
-        fromWalletName: settings.activeWallet?.name ?? l10n.spending,
+        fromWalletName: _ownMoneySwap
+            ? _movementName(MoneyMovementAccount.bitcoin)
+            : settings.activeWallet?.name ?? l10n.spending,
         toWalletName: l10n.trading,
+        swapped: _ownMoneySwap,
         note: result.registered
             ? l10n.moveConversionOngoing
             : l10n.settlementRegistering,
@@ -5696,6 +5773,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         amount: '\$${sentUsd.toStringAsFixed(2)}',
         fromWalletName: l10n.trading,
         toWalletName: l10n.predictions,
+        swapped: _ownMoneySwap,
         note: l10n.moveConversionOngoing,
       );
     } catch (e) {
@@ -5857,7 +5935,12 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         navigator: navigator,
         amount: '\$${sentUsd.toStringAsFixed(2)}',
         fromWalletName: l10n.trading,
-        toWalletName: dollars ? l10n.assetDollars : name,
+        toWalletName: dollars
+            ? l10n.assetDollars
+            : _ownMoneySwap
+                ? _movementName(MoneyMovementAccount.bitcoin)
+                : name,
+        swapped: _ownMoneySwap,
         note: l10n.moveConversionOngoing,
       );
     } catch (e) {
@@ -7664,16 +7747,14 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       // down, so the figure never promises a cent that is not there. A
       // balance that is still loading shows its state instead.
       if (_sourceBalanceState == null) {
-        String dollars(double usd) =>
-            '\$${((usd * 100).floor() / 100).toStringAsFixed(2)}';
         if (!_fromBtc) {
           // Buying bitcoin from Investments: the Max, what the purchase
           // can actually spend (held while a purchase spends it).
-          availableValue = dollars(_availableUsdc);
+          availableValue = _usdFigure(_availableUsdc);
         } else {
           final sats = _isLedgerMove ? _maxConvertibleSats : _availableSats;
           if (_usdPerBtc > 0) {
-            availableValue = dollars((sats / 1e8) * _usdPerBtc);
+            availableValue = _usdFigure((sats / 1e8) * _usdPerBtc);
           } else if (!_loadingRate) {
             // No rate to value it with: the sats are still true.
             availableValue = '${sats.toFormattedString(btcFormat)} $btcUnit';
@@ -8181,7 +8262,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                             feeInputState !=
                                 context.l10n.feeUiCalculating
                         : feeInputState ==
-                            'Balance unavailable')
+                            context.l10n.feeUiBalanceUnavailable)
                     ? _retrySourceBalance
                     : null),
           if (!_isFiatMode &&
@@ -9353,6 +9434,7 @@ Future<T?> _showMovePickerSheet<T>(
   required List<Widget> Function(
           BuildContext sheetCtx, RuntimeCapabilitiesService policy)
       rows,
+  void Function(WidgetRef sheetRef)? watch,
 }) {
   return showKuteModalSheet<T>(
     context: context,
@@ -9362,6 +9444,8 @@ Future<T?> _showMovePickerSheet<T>(
     // live: an onramp withdrawn while it is open leaves the list.
     builder: (_) => Consumer(builder: (sheetCtx, sheetRef, _) {
       final policy = sheetRef.watch(runtimeCapabilitiesProvider);
+      // Whatever else the rows' figures follow while it is up.
+      watch?.call(sheetRef);
       // Every colour in this sheet must come from the UNTINTED palette.
       // The body was already untinted, but the title, the hint and the
       // handle were reading `c`, captured from the tinted sheet that
