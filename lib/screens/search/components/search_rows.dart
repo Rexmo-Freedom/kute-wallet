@@ -415,13 +415,18 @@ class SearchPredictionRow extends StatelessWidget {
   /// The row's inset ([SearchListRow.padding]).
   final EdgeInsetsGeometry? padding;
 
-  /// The leading chance, 0 to 1 (null without prices).
+  /// The chance the row shows, 0 to 1 (null without prices): a Yes/No
+  /// question's Yes, even when No leads, as the list's own cards do
+  /// (founder, 8 November 2026: "we should show the yes"; a row reading 85%
+  /// over a market page saying Yes 15.5% was the No); otherwise the leading
+  /// outcome.
   static double? chanceFractionOf(PolymarketEvent event) {
     if (event.outcomes.isEmpty) return null;
+    if (event.isBinary) return event.yesPrice;
     return event.outcomes.map((o) => o.price).reduce(math.max);
   }
 
-  /// The leading chance ("62%"), null without prices.
+  /// The chance the row shows ("15%"), null without prices.
   static String? chanceOf(PolymarketEvent event) {
     final fraction = chanceFractionOf(event);
     return fraction == null ? null : '${(fraction * 100).round()}%';
