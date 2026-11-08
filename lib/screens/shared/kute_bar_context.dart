@@ -50,7 +50,7 @@
 // .dart): Swap, opaque, parks the tab and the context goes; Swap popped in
 // the same tick its result sheet is pushed, the tab wakes and pushes its
 // context AFTER the sheet's, on top of it, so the bar read "Search
-// investments or Manage with AI" (or the Activity pill's "See full
+// investments or Manage with AI" (or the Overview pill's "See full
 // portfolio and activity") over the sheet, with its Done gone. So "current"
 // means on top across navigators ([KuteBarRouteObserver.onTop]), for where
 // a context lands on the stack and for whether the bar honours it: under a

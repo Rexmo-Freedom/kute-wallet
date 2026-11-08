@@ -4,14 +4,16 @@
 // currency; only Bitcoin's conversion follows Settings
 // (polymarket_amount_formatter.dart).
 //
-// THE DOLLARS ACTIVITY TAB (founder, 4 November 2026: "On Dollars, like we
-// do on the Bitcoin screen, have the first tab be the Activity screen. It
-// must have all the open bets and such … It must have the P&L below the 4
-// squares with the highest predictions and Hyperliquid bets."). The first
-// pill of the Dollars switch, Activity · Investing · Predictions, and the
-// one the tab opens on (usd_account_screen.dart). Top down, in the Bitcoin
-// home's language (all_activity.dart) and the Portfolio's
-// (position_rows.dart), nothing new:
+// THE DOLLARS OVERVIEW TAB. The file and its classes keep the name
+// "activity", as do the `?tab=activity` link and the `activity` analytics
+// value (InvestmentsTab.activity); the pill reads Overview (founder, 8
+// November 2026), and `?tab=overview` opens it too. The first pill of the
+// Dollars switch, Overview · Investing · Predictions, and the one the page
+// opens on (usd_account_screen.dart). It began as the Activity screen
+// (founder, 4 November 2026: "It must have all the open bets and such … It
+// must have the P&L below the 4 squares with the highest predictions and
+// Hyperliquid bets."). Top down, in the Bitcoin home's language
+// (all_activity.dart) and the Portfolio's (position_rows.dart), nothing new:
 //
 //   * OPEN POSITIONS: the biggest open positions at both venues together,
 //     biggest first ([dollarsActivitySquareIds], the Portfolio's own
@@ -24,8 +26,8 @@
 //     6 November 2026), as on the Portfolio. Each square IS the position's
 //     own row (portfolioVenueLists), so a tap opens the position exactly
 //     as the Portfolio's row does. Still reading with nothing listed: the
-//     squares' skeletons (PortfolioSquaresSkeleton). Nothing open: the app's empty state, Sal over
-//     "No open positions";
+//     squares' skeletons (PortfolioSquaresSkeleton). Nothing open: nothing
+//     here, the map leads the tab;
 //   * OPEN P&L under the squares ([DollarsPnlStrip]; founder, 6 November
 //     2026: the card is the open positions' P&L): what the positions open
 //     now made or lost so far (the Portfolio's Positions rows' P&L added,
@@ -34,29 +36,44 @@
 //     was opened (the open P&L engine's series, its last point that
 //     figure; the split fill, the dashed line at zero, no scrub, no range
 //     row). A tap opens the Portfolio on Positions. Nothing open: no card;
-//   * LATEST: the newest [kDollarsActivityRows] actions of the
-//     Investments activity (all_activity.dart, [ActivityScope.investments]:
-//     bets placed, sold, won or lost, Investing opens and closes, money
-//     into or out of the venues, each funding chain folded into the order
-//     it paid for), never the money moving between the person's own
-//     accounts on its own (homeActivityEntries, as the home's preview of
-//     a scope), as the home's plain rows on one soft card (its "Earlier"
-//     card).
+//   * THE MARKET MAP ([HlMarketMapCard], hl_market_map.dart; moved here from
+//     Investing, founder, 8 November 2026): the treemap of the browse
+//     universe, a tile opening its market. Always the whole map: Investing's
+//     picked category has no say here. Its skeleton until the builder-dex
+//     markets are in.
+//
+// The newest actions no longer list here (the "Latest" card, gone 8
+// November 2026): the full activity is the Portfolio's, which the bar opens.
+//
+// THE MAP'S DATA ([_OverviewMarketMap]): this tab watches the browse universe
+// itself, so the map loads and refreshes with Investing unbuilt. The universe
+// and its lists are the one shared set of providers Investing reads (30 s
+// timers, one read whoever listens), so a second listener makes no second
+// read. Its prices are the one allMids socket: the shell keeps it on under
+// this pill (applyShellTabLivePolicy) and off wherever nothing it feeds is on
+// screen. Behind another pill or tab the card does no work of its own (see
+// HlMarketMapCard).
+//
+// NOTHING TO SHOW: nothing open and no map, whether the policy withholds
+// Investing's browsing (`hyperliquid.browse`, the map hides with it) or the
+// venue's lists could not be read: the app's empty state, Sal over "No open
+// positions", which is true either way. Anything open and no map: the
+// positions and the P&L alone.
 //
 // ONE EDGE FOR EVERY BLOCK (founder, 5 November 2026: "different size
-// here"): the squares, the P&L card and the Latest card all stand on the
-// page's 16 gutters, the Latest card drawn with the group card's face
-// alone (PremiumGroupContainer.decorationOf), never its own 16 margin on
-// top of the page's; the headings sit 12 inside that edge, as the Bitcoin
-// home's "Latest" and "Earlier" do.
+// here"): the squares, the P&L card and the map all stand on the page's 16
+// gutters, the map's group card bringing its own 16 margin, so it sits
+// outside the padding the other two share; the heading sits 12 inside that
+// edge, as the Bitcoin home's "Latest" and "Earlier" do.
 //
 // The bar on this tab is "See full portfolio and activity", which pushes
 // the Portfolio screen (usd_account_screen.dart), so there is no See all
-// here, and the Activity pill always reads Activity (founder, 5 November
+// here, and the Overview pill always reads Overview (founder, 5 November
 // 2026: "it's on the bottom button").
 //
 // Analytics: nothing new. A square's tap sends the Portfolio row's own
-// `open_investments_position_tapped`, a row's tap its receipt's events.
+// `open_investments_position_tapped`; a tile's tap opens the market's sheet,
+// whose `hyperliquid_market_viewed` says `market_map` as its entry source.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -64,8 +81,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
-import 'package:kute/helpers/swap_activity.dart' show swapActivityFor;
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/models/hyperliquid_market.dart';
+import 'package:kute/providers/hyperliquid_markets_provider.dart'
+    show
+        hyperliquidBrowseUniverseProvider,
+        hyperliquidBuilderMarketsMissingProvider,
+        hyperliquidPerpMarketsProvider;
 import 'package:kute/providers/open_pnl_history_provider.dart'
     show
         OpenPnlChartStatus,
@@ -76,6 +98,8 @@ import 'package:kute/providers/open_pnl_history_provider.dart'
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/home/components/kute_dock_host.dart'
     show kuteDockScrollClearance;
+import 'package:kute/screens/hyperliquid/components/hl_market_map.dart'
+    show HlMarketMapCard;
 import 'package:kute/screens/portfolio/components/balances_overview.dart'
     show BalancesCategory, BalancesVenueList, kBalancesCentUsd;
 import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart'
@@ -88,30 +112,21 @@ import 'package:kute/screens/portfolio/open_investments_screen.dart'
     show portfolioOpenPnl, portfolioOpenRanked, portfolioVenueLists;
 import 'package:kute/screens/portfolio/portfolio_filters.dart'
     show portfolioVenuesProvider;
-import 'package:kute/screens/shared/activity_curation.dart'
-    show homeActivityEntries;
-import 'package:kute/screens/shared/all_activity.dart'
-    show ActivityScope, AllActivityEntry, watchAllActivity;
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/screens/shared/charts/kute_chart_format.dart'
     show kuteChangeSign;
 import 'package:kute/screens/shared/charts/kute_trend_chart.dart';
-import 'package:kute/screens/shared/hyperliquid_fill_activity.dart';
-import 'package:kute/screens/shared/kute_motion.dart'
-    show KutePressable, KuteStaggerIn;
+import 'package:kute/screens/shared/kute_motion.dart' show KutePressable;
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/shared/no_activity_state.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
-import 'package:kute/screens/shared/transactions_builder.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart'
     show openInvestmentsPortfolio;
+import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
 /// The open positions drawn as squares, at most.
 const int kDollarsActivitySquares = 4;
-
-/// The Investments actions listed under "Latest".
-const int kDollarsActivityRows = 5;
 
 /// The compact P&L line's height, design units.
 const double kDollarsPnlPlotHeight = 64;
@@ -137,9 +152,9 @@ List<Widget> dollarsActivitySquareRows(
   ];
 }
 
-/// The Activity pill's page (see the file header). One scroll, the
-/// nested scroll's inner list, so the Dollars header collapses over it as
-/// over the venues' lists.
+/// The Overview pill's page (see the file header). One scroll, the nested
+/// scroll's inner list, so the Dollars header collapses over it as over the
+/// venues' lists.
 class DollarsActivityTab extends ConsumerWidget {
   const DollarsActivityTab({super.key});
 
@@ -156,44 +171,7 @@ class DollarsActivityTab extends ConsumerWidget {
         dollarsActivitySquareIds(ranked), lists.values);
     final loading =
         squares.isEmpty && lists.values.any((list) => list.loading);
-
-    final activity = watchAllActivity(ref, scope: ActivityScope.investments);
-    final latest = homeActivityEntries(activity.curated,
-        limit: kDollarsActivityRows, classify: swapActivityFor);
-    var index = 0;
-    Widget rowOf(AllActivityEntry e) => KuteStaggerIn(
-          index: index++,
-          child: e.fill != null
-              ? HyperliquidFillActivityRow(
-                  fill: e.fill!, compareWithSpendingWallet: true)
-              : buildUnifiedTransactionItem(e.tx!, context, ref),
-        );
-
-    final Widget positions;
-    if (squares.isNotEmpty) {
-      // Two by two, an odd last one (one alone included) the full-width
-      // compact card: never a lone half square (the no-orphan rule).
-      positions = PortfolioPositionSquares(
-          key: const ValueKey('dollars-activity-squares'), rows: squares);
-    } else if (loading) {
-      positions = const PortfolioSquaresSkeleton(
-          key: ValueKey('dollars-activity-loading'));
-    } else {
-      positions = Padding(
-        key: const ValueKey('dollars-activity-empty'),
-        padding: EdgeInsets.only(top: 8.h, bottom: 4.h),
-        child: NoActivityState(
-          padding: EdgeInsets.symmetric(horizontal: 24.w),
-          title: l10n.portfolioNoOpenPositions,
-          cycles: 3,
-          salSize: 140,
-          titleSize: 22,
-          titleWeight: FontWeight.w600,
-          subtitleSize: 15,
-          subtitleColor: context.colors.textSecondary,
-        ),
-      );
-    }
+    final held = squares.isNotEmpty || loading;
 
     return CustomScrollView(
       key: const ValueKey('dollars-activity-list'),
@@ -202,48 +180,88 @@ class DollarsActivityTab extends ConsumerWidget {
           padding: EdgeInsets.symmetric(horizontal: 16.w),
           sliver: SliverList(
             delegate: SliverChildListDelegate([
-              if (squares.isNotEmpty || loading)
+              if (held)
                 _Heading(l10n.accountOpenPositions,
                     key: const ValueKey('dollars-activity-positions-heading')),
-              positions,
+              if (squares.isNotEmpty)
+                // Two by two, an odd last one (one alone included) the
+                // full-width compact card: never a lone half square (the
+                // no-orphan rule).
+                PortfolioPositionSquares(
+                    key: const ValueKey('dollars-activity-squares'),
+                    rows: squares)
+              else if (loading)
+                const PortfolioSquaresSkeleton(
+                    key: ValueKey('dollars-activity-loading')),
               const DollarsPnlStrip(),
-              if (latest.isNotEmpty) ...[
-                _Heading(l10n.activityLatest,
-                    key: const ValueKey('dollars-activity-latest-heading')),
-                ActivityRowStyle(
-                  compact: true,
-                  child: ActivityRowLayout(
-                    shape: ActivityRowShape.plain,
-                    // The group card's own face on the page's gutters:
-                    // PremiumGroupContainer adds a 16 margin of its own,
-                    // which inset this card 16 inside the squares and the
-                    // P&L card (founder, 5 November 2026: "different size
-                    // here"). Every block on the tab shares one edge.
-                    child: DecoratedBox(
-                      key: const ValueKey('dollars-activity-rows'),
-                      decoration: PremiumGroupContainer.decorationOf(context),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(
-                            PremiumGroupContainer.radius),
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(vertical: 4.h),
-                          child: Column(
-                            children: [for (final e in latest) rowOf(e)],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
             ]),
           ),
         ),
-        // The last row clear of the dock and the bar over it.
+        // Outside the gutters: the group card brings its own 16 margin.
+        SliverToBoxAdapter(
+          child: _OverviewMarketMap(
+            // The P&L card's 12 under what is held; at the top of the tab
+            // the 8 Investing's squares stand under the pills.
+            margin: EdgeInsets.only(top: held ? 12.h : 8.h),
+            nothing: held
+                ? null
+                : Padding(
+                    key: const ValueKey('dollars-activity-empty'),
+                    padding: EdgeInsets.only(top: 8.h, bottom: 4.h),
+                    child: NoActivityState(
+                      padding: EdgeInsets.symmetric(horizontal: 24.w),
+                      title: l10n.portfolioNoOpenPositions,
+                      cycles: 3,
+                      salSize: 140,
+                      titleSize: 22,
+                      titleWeight: FontWeight.w600,
+                      subtitleSize: 15,
+                      subtitleColor: context.colors.textSecondary,
+                    ),
+                  ),
+          ),
+        ),
+        // The last block clear of the dock and the bar over it.
         SliverToBoxAdapter(
           child: SizedBox(height: 24.h + kuteDockScrollClearance(context)),
         ),
       ],
+    );
+  }
+}
+
+/// The market map on this tab (see the file header), hidden when the policy
+/// withholds Investing's browsing, as Investing's own list is. Its own widget
+/// so the universe's 30 s refresh rebuilds the map alone. [nothing] stands in
+/// when there is no map to draw.
+class _OverviewMarketMap extends ConsumerWidget {
+  const _OverviewMarketMap({required this.margin, this.nothing});
+
+  final EdgeInsetsGeometry margin;
+  final Widget? nothing;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final canBrowse =
+        ref.watch(runtimeCapabilitiesProvider).allows('hyperliquid.browse');
+    if (!canBrowse) return nothing ?? const SizedBox.shrink();
+    final universe = ref.watch(hyperliquidBrowseUniverseProvider).valueOrNull ??
+        const <HlMarket>[];
+    final buildersMissing = ref.watch(hyperliquidBuilderMarketsMissingProvider);
+    final perps = ref.watch(hyperliquidPerpMarketsProvider.select((read) =>
+        (landed: read.valueOrNull != null, failed: read.hasError)));
+    // The skeleton until the builder-dex markets (the stocks, indices and
+    // commodities) are in. A perp list that could not be read is no wait:
+    // this tab has nothing else to fall back on, so what was read is drawn,
+    // or [nothing], until the next 30 s read lands.
+    final waiting = !perps.landed &&
+        !perps.failed &&
+        !universe.any((m) => m.isHip3);
+    return HlMarketMapCard(
+      universe: universe,
+      margin: margin,
+      loading: buildersMissing || waiting,
+      nothing: nothing,
     );
   }
 }

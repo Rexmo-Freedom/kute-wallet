@@ -2,8 +2,8 @@
 //
 // Which standing `spark:USDB` addresses the person opened from the Bitcoin
 // receive's "other coins" line, so the deposits to them also show in the
-// Bitcoin Activity (founder decision), and not only in the Investments and
-// Dollars Activity where every dollar receive lives.
+// Bitcoin Activity (founder decision), and not only in the Portfolio's
+// Activity, where every dollar receive lives.
 //
 // The Bitcoin ledger otherwise leaves out a conversion that only touches
 // dollars ("Bitcoin history excludes unrelated stable-only swaps"); this is

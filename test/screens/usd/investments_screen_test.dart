@@ -155,14 +155,14 @@ KuteBarContext? _barTop(WidgetTester tester) =>
     kuteBarTop(_container(tester).read(kuteBarContextProvider));
 
 /// Opens the Portfolio the way the page offers it (founder, 4 November
-/// 2026): on the Activity pill the bar is "See full portfolio and
+/// 2026): on the Overview pill the bar is "See full portfolio and
 /// activity", and its tap pushes the Portfolio screen over the page. The
 /// shell bar is not mounted here, so its tap is the context's own handler.
 Future<void> openPortfolio(WidgetTester tester) async {
   final l10n = _l10n(tester);
   if (_container(tester).read(investmentsTabProvider) !=
       InvestmentsTab.activity) {
-    await _tapPill(tester, l10n.activity);
+    await _tapPill(tester, l10n.overview);
   }
   final bar = _barTop(tester);
   expect(bar?.label, l10n.seeFullPortfolioAndActivity);
@@ -361,30 +361,26 @@ void main() {
   });
 
   testWidgets(
-      'three pills in order, Activity · Investing · Predictions, a step '
-      'bigger, over the Activity page and the embedded browsers; with '
-      'neither venue browsable Activity is picked to start; the Portfolio '
-      'is no pill', (tester) async {
+      'three pills in order, Overview · Investing · Predictions, a step '
+      'bigger, over the Overview page and the embedded browsers; Overview is '
+      'picked to start; the Portfolio is no pill', (tester) async {
     await pumpInvestments(tester, earn: kEarnOn);
     final l10n = _l10n(tester);
     final strip = _strip(tester);
-    // Three names share the row, Activity first (founder, 4 November
-    // 2026: "like we do on the Bitcoin screen, have the first tab be the
-    // Activity screen"). The page opens on Investing (7 November 2026);
-    // the harness withholds both venues' browsing, so it falls back to
-    // Activity (investmentsDefaultTab). Activity holds no category: its name
+    // Three names share the row, Overview first, and the page opens on it
+    // (founder, 8 November 2026). Overview holds no category: its name
     // alone; a venue carries its category once picked. One row, nothing
     // under it.
     expect(strip.items.map((i) => i.label),
-        [l10n.activity, l10n.trading, l10n.predictions]);
+        [l10n.overview, l10n.trading, l10n.predictions]);
     expect(strip.items.map((i) => i.label),
-        ['Activity', 'Investing', 'Predictions']);
+        ['Overview', 'Investing', 'Predictions']);
     expect(strip.selectedIndex, 0);
     for (final item in strip.items) {
       expect(item.detail, isNull, reason: item.label);
       expect(item.menu, isFalse, reason: item.label);
     }
-    // The Portfolio is no pill (the Activity pill's bar opens its
+    // The Portfolio is no pill (the Overview pill's bar opens its
     // screen), nothing on the page reads Portfolio any more, and nothing
     // reads Positions.
     expect(_pill(l10n.walletPortfolioAction), findsNothing);
@@ -405,7 +401,7 @@ void main() {
     // The compact bar is not on screen at the top of the page.
     expect(_compactTotal, findsNothing);
     expect(_chevron, findsNothing);
-    expect(tester.widget<KutePill>(_pill(l10n.activity)).selected, isTrue);
+    expect(tester.widget<KutePill>(_pill(l10n.overview)).selected, isTrue);
     expect(_container(tester).read(investmentsTabProvider),
         InvestmentsTab.activity);
     expect(find.byType(DollarsActivityTab), findsOneWidget);
@@ -613,8 +609,8 @@ void main() {
 
   testWidgets(
       'a pill tap reports analytics_tab_selected and the venue open event; '
-      'a re-tap opens the category sheet; the Activity pill\'s bar '
-      'pushes the Portfolio screen on Activity', (tester) async {
+      'a re-tap opens the category sheet; the Overview pill\'s bar '
+      'pushes the Portfolio screen', (tester) async {
     final events = recordEvents();
     // Predictions browsable: with browsing withheld the category sheet
     // lists no topics (the venue's notice). Its feeds answer empty.
@@ -624,18 +620,11 @@ void main() {
     ]);
     final l10n = _l10n(tester);
 
-    // Investing's browsing withheld, Predictions live: the page opens on
-    // Predictions (investmentsDefaultTab, founder 7 November 2026), which
-    // is no pick.
+    // The page opens on Overview whatever the policy withholds (founder, 8
+    // November 2026), which is no pick. The analytics value stays `activity`.
     expect(_container(tester).read(investmentsTabProvider),
-        InvestmentsTab.predictions);
+        InvestmentsTab.activity);
     expect(events.where((e) => e.$1 == 'analytics_tab_selected'), isEmpty);
-    await _tapPill(tester, l10n.activity);
-    expect(events.where((e) => e.$1 == 'analytics_tab_selected').last.$2, {
-      'tab': 'activity',
-      'from_tab': 'predictions',
-      'surface': 'investments'
-    });
 
     await _tapPill(tester, l10n.predictions);
     expect(_container(tester).read(investmentsTabProvider),
@@ -746,13 +735,13 @@ void main() {
     await tapAndPump(tester, find.byType(KuteCloseButton));
     expect(find.text(l10n.polyPillPolitics), findsNothing);
 
-    // The Portfolio: on the Activity pill the bar is "See full portfolio
+    // The Portfolio: on the Overview pill the bar is "See full portfolio
     // and activity" (founder, 4 November 2026); its tap sends the Home
     // card's key under this surface and pushes the Portfolio screen, which
     // mounts on Positions (its first section and default, founder 6
     // November 2026) with the app's standard back; no pill event, no extra
     // event of its own.
-    await _tapPill(tester, l10n.activity);
+    await _tapPill(tester, l10n.overview);
     expect(events.where((e) => e.$1 == 'analytics_tab_selected').last.$2, {
       'tab': 'activity',
       'from_tab': 'predictions',
@@ -895,7 +884,7 @@ void main() {
     // The old Positions links (the section, the old Portfolio pill and its
     // Open tab) land on Balances, where the positions are; the old Orders
     // and Statistics tabs open P&L charts, where the orders are; Activity
-    // is no Portfolio section any more: it is the Dollars Activity pill
+    // is no Portfolio section any more: it is the Dollars Overview pill
     // (4 November 2026). `positions` stays the Portfolio's key (the
     // screen's link and its analytics `tab`).
     for (final key in ['positions', 'portfolio', 'open']) {
@@ -1460,10 +1449,10 @@ void main() {
     expect(tester.widgetList<KutePill>(_sectionPills).map((p) => p.selected),
         [false, false, true]);
 
-    // Back: the page, Activity still picked, no Portfolio left mounted.
+    // Back: the page, Overview still picked, no Portfolio left mounted.
     await closePortfolio(tester);
     expect(find.byType(KutePillTabs), findsWidgets);
-    expect(tester.widget<KutePill>(_pill(l10n.activity)).selected, isTrue);
+    expect(tester.widget<KutePill>(_pill(l10n.overview)).selected, isTrue);
     expect(_container(tester).read(investmentsTabProvider),
         InvestmentsTab.activity);
     expect(find.byType(InvestmentsPortfolio, skipOffstage: false),
@@ -1614,7 +1603,7 @@ void main() {
       expect(shown.left, greaterThanOrEqualTo(box.left - 0.5), reason: plain);
       expect(shown.right, lessThanOrEqualTo(box.right + 0.5), reason: plain);
     }
-    expect(tester.widget<KutePill>(pills.at(0)).label, l10n.activity);
+    expect(tester.widget<KutePill>(pills.at(0)).label, l10n.overview);
     expect(tester.widget<KutePill>(pills.at(0)).detail, isNull);
     // The picked venue offers its category; on screen it reads it whole,
     // or its name and chevron alone when the row leaves too little room
@@ -1637,7 +1626,7 @@ void main() {
       await pumpInvestments(tester, earn: kEarnOn);
       final l10n = _l10n(tester);
       final label = switch (tab) {
-        InvestmentsTab.activity => l10n.activity,
+        InvestmentsTab.activity => l10n.overview,
         InvestmentsTab.investing => l10n.trading,
         InvestmentsTab.predictions => l10n.predictions,
         InvestmentsTab.positions => l10n.walletPortfolioAction,

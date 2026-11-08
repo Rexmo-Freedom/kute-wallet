@@ -327,8 +327,7 @@ Map<String, double> _layout(WidgetTester tester) {
     out['squares top'] = tester.getTopLeft(strip).dy;
     out['squares height'] = tester.getSize(strip).height;
   }
-  // The market map, Investing's last item (under the rows, founder 7
-  // November 2026), once scrolled to.
+  // The market map, on the Overview pill (founder, 8 November 2026).
   final map = find.byKey(const ValueKey('hl-market-map'));
   if (map.evaluate().isNotEmpty) {
     out['map top'] = tester.getTopLeft(map).dy;
@@ -532,9 +531,8 @@ void main() {
           await tester.pump(const Duration(milliseconds: 100));
         }
       }
-      // At the top the squares and the list under them (the market map,
-      // the tab's last item, below the screen); scrolled into the list,
-      // the rows.
+      // At the top the squares and the list under them; scrolled into the
+      // list, the rows.
       if (!scrolled) {
         expect(find.byType(HlMovingNowStrip), findsOneWidget);
       }

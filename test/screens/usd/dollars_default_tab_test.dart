@@ -1,28 +1,27 @@
-// The Dollars page opens on Investing, the middle pill (founder, 7
-// November 2026: "when stiching to dollars open up in th einvesting in the
-// middle one, not in the activity right?"), and on Investing the list is
-// the second item, under the four moving squares, and the market map the
-// last ("bring the list back as the second item please and this thing to
-// the last item", hours after the map went second):
+// The Dollars page opens on Overview, the first pill (founder, 8 November
+// 2026, reversing the 7 November opening on Investing), and the market map
+// lives on Overview, moved from Investing:
 //
-//   * the first open and every Bitcoin | Dollars switch land on Investing
-//     (investmentsDefaultTab, openInvestmentsOnDefaultTab), the switch put
-//     back in place with no motion of its own; a pick still switches in;
-//     a link naming a pill keeps it (`?tab=activity`);
-//   * with Investing's browsing withheld, Predictions while it is live,
-//     else Activity (the gating audit runs every denial on the page);
-//   * on Investing: the squares, the list, the map, at the cards' width,
-//     12 from the squares' grid to the list (their 4 and the list's 8)
-//     and 16 from the list to the map; the map's skeleton in its place
-//     and height under the list, which never moves when the map lands; a
-//     tile, scrolled to, opens its market;
-//   * a pull on the page it opened on reports `tab: investing`.
+//   * the first open and every Bitcoin | Dollars switch land on Overview
+//     (kInvestmentsDefaultTab, openInvestmentsOnDefaultTab), whatever the
+//     policy withholds, the switch put back in place with no motion of its
+//     own; a pick still switches in; a link naming a pill keeps it
+//     (`?tab=predictions`), `?tab=activity` and `?tab=overview` name Overview;
+//   * on Overview: the open positions, the open P&L, then the map, at the
+//     cards' width; with nothing held the map is the first thing on the tab;
+//     its skeleton in its place; a tile, scrolled to, opens its market, the
+//     page clearing the bar; no category picked on Investing touches it;
+//   * Investing is its plain list: no map, on any category;
+//   * the map reads its own data: a new universe lands on Overview with the
+//     pill on screen, and a pull re-reads the market lists, reporting
+//     `tab: activity`.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart';
 import 'package:kute/providers/hyperliquid_candles_provider.dart';
 import 'package:kute/providers/hyperliquid_insights_provider.dart';
@@ -32,13 +31,17 @@ import 'package:kute/providers/hyperliquid_orderbook_provider.dart';
 import 'package:kute/providers/hyperliquid_sats_pnl_provider.dart'
     show hyperliquidActivityFillsProvider;
 import 'package:kute/providers/hyperliquid_sparkline_provider.dart';
+import 'package:kute/providers/hyperliquid_trading_provider.dart';
 import 'package:kute/providers/refresh_everything_provider.dart';
 import 'package:kute/screens/home/components/kute_dock_host.dart'
     show kuteDockScrollClearance;
 import 'package:kute/screens/hyperliquid/components/hl_market_card.dart';
 import 'package:kute/screens/hyperliquid/components/hl_market_map.dart';
 import 'package:kute/screens/hyperliquid/components/hl_moving_now_strip.dart';
+import 'package:kute/screens/hyperliquid/hyperliquid_screen.dart';
 import 'package:kute/screens/hyperliquid/market_detail_sheet.dart';
+import 'package:kute/screens/portfolio/investments_portfolio.dart'
+    show PortfolioSection;
 import 'package:kute/screens/shared/all_activity.dart'
     show ActivitySquareGrid;
 import 'package:kute/screens/shared/kute_motion.dart' show SelectionFade;
@@ -47,6 +50,7 @@ import 'package:kute/screens/usd/components/dollars_activity_tab.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart';
 import 'package:kute/services/hyperliquid/hl_sparkline_cache.dart';
 
+import '../../helpers/portfolio_overrides.dart' show PortfolioTestTrading;
 import '../hyperliquid/hl_market_map_fixture.dart';
 import 'investments_harness.dart';
 
@@ -69,14 +73,34 @@ class _LivePrices extends HlLivePricesNotifier {
 /// skeleton), switchable mid-test.
 final _buildersMissing = StateProvider<bool>((_) => false);
 
-/// The Dollars page over the market map's universe (its squares, its map
-/// and its rows), tall enough to hold the three; [link] is the pill a
-/// link names (`/usd?tab=…`).
+/// The browse universe, switchable mid-test.
+final _universe = StateProvider<List<HlMarket>>((_) => hlMarketMapFixture);
+
+Override _holding(List<HlPerpPosition> positions) =>
+    hyperliquidTradingProvider.overrideWith(() => PortfolioTestTrading(
+        HyperliquidTradingState(isInitialized: true, positions: positions)));
+
+HlPerpPosition _perp(String coin, double margin) => HlPerpPosition(
+    coin: coin,
+    szi: 1,
+    entryPx: 100,
+    positionValue: margin * 2,
+    unrealizedPnl: 3,
+    returnOnEquity: 0.03,
+    liquidationPx: null,
+    marginUsed: margin,
+    leverageType: 'cross',
+    leverageValue: 2,
+    maxLeverage: 40);
+
+/// The Dollars page over the market map's universe, tall enough to hold what
+/// is on it; [link] is the pill a link names (`/usd?tab=…`).
 Future<ProviderContainer> _pump(WidgetTester tester,
     {InvestmentsTab? link,
     bool browseInvesting = true,
     bool browsePredictions = false,
     Size size = const Size(390, 2400),
+    AsyncValue<List<HlMarket>>? universe,
     List<Override> overrides = const []}) async {
   await pumpInvestments(tester,
       browseInvesting: browseInvesting,
@@ -84,8 +108,11 @@ Future<ProviderContainer> _pump(WidgetTester tester,
       size: size,
       child: link == null ? null : UsdAccountScreen(initialTab: link),
       overrides: [
-        hyperliquidBrowseUniverseProvider
-            .overrideWithValue(AsyncValue.data(hlMarketMapFixture)),
+        if (universe == null)
+          hyperliquidBrowseUniverseProvider.overrideWith(
+              (ref) => AsyncValue.data(ref.watch(_universe)))
+        else
+          hyperliquidBrowseUniverseProvider.overrideWithValue(universe),
         hyperliquidBuilderMarketsMissingProvider
             .overrideWith((ref) => ref.watch(_buildersMissing)),
         hyperliquidLivePricesProvider.overrideWith(_LivePrices.new),
@@ -93,11 +120,15 @@ Future<ProviderContainer> _pump(WidgetTester tester,
             HlSparklineStore(fetch: (_) async => const [1, 2, 3])),
         ...overrides,
       ]);
-  for (var i = 0; i < 6; i++) {
-    await tester.pump(const Duration(milliseconds: 100));
-  }
+  await _frames(tester);
   return ProviderScope.containerOf(
       tester.element(find.byType(InvestmentsBody, skipOffstage: false)));
+}
+
+Future<void> _frames(WidgetTester tester, [int n = 6]) async {
+  for (var i = 0; i < n; i++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
 }
 
 /// The page's own [WidgetRef] (its body's element), as the shell's.
@@ -107,34 +138,25 @@ WidgetRef _ref(WidgetTester tester) =>
 KutePillTabs _strip(WidgetTester tester) =>
     tester.widget<KutePillTabs>(find.byType(KutePillTabs).first);
 
-final _squares = find.byType(HlMovingNowStrip);
+final _overview = find.byType(DollarsActivityTab);
 final _map = find.byKey(const ValueKey('hl-market-map'));
 final _mapBones = find.byKey(const ValueKey('hl-market-map-loading'));
-final _rows = find.byType(HlMarketCard);
+final _empty = find.byKey(const ValueKey('dollars-activity-empty'));
+final _squares = find.byKey(const ValueKey('dollars-activity-squares'));
+final _pnl = find.byKey(const ValueKey('dollars-pnl-strip'));
+final _paint = find.byWidgetPredicate(
+    (w) => w is CustomPaint && w.painter is HlMarketMapPainter,
+    skipOffstage: false);
 
-/// The map's card itself (inside its margin): the clip on its ground.
-Rect _cardOf(WidgetTester tester, Finder frame) => tester.getRect(
-    find.descendant(of: frame, matching: find.byType(ClipRRect)).first);
+HlMarketMapPainter _painter(WidgetTester tester) =>
+    tester.widget<CustomPaint>(_paint).painter! as HlMarketMapPainter;
 
-/// The list's rows on screen, top to bottom.
-List<Rect> _rowRects(WidgetTester tester) => [
-      for (final e in _rows.evaluate()) tester.getRect(find.byWidget(e.widget))
-    ]..sort((a, b) => a.top.compareTo(b.top));
-
-/// Drags the page up until it stops moving, each drag's bounce let to
-/// settle: the end of the tab, where the map is.
-Future<void> _scrollToEnd(WidgetTester tester) async {
-  double? at;
-  for (var i = 0; i < 30; i++) {
-    await tester.drag(find.byType(NestedScrollView), const Offset(0, -300));
-    for (var f = 0; f < 20; f++) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
-    final now = _map.evaluate().isEmpty ? null : tester.getTopLeft(_map).dy;
-    if (now != null && now == at) return;
-    at = now;
-  }
-}
+/// The map's card itself, inside its margin: the clip on its ground and the
+/// card's 1 px border around it.
+Rect _cardOf(WidgetTester tester, Finder frame) => tester
+    .getRect(
+        find.descendant(of: frame, matching: find.byType(ClipRRect)).first)
+    .inflate(1);
 
 /// The body's fade: 1 at rest.
 double _bodyOpacity(WidgetTester tester) => tester
@@ -150,50 +172,68 @@ void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
 
   group('the pill the page opens on', () {
-    test(
-        'Investing; with its browsing withheld Predictions while live, '
-        'else Activity', () {
-      InvestmentsTab tabFor({required bool investing, required bool poly}) =>
-          investmentsDefaultTab(InvestmentsTestPolicy(kEarnOff,
-              browseInvesting: investing, browsePredictions: poly));
-      expect(tabFor(investing: true, poly: true), InvestmentsTab.investing);
-      expect(tabFor(investing: true, poly: false), InvestmentsTab.investing);
-      expect(tabFor(investing: false, poly: true), InvestmentsTab.predictions);
-      expect(tabFor(investing: false, poly: false), InvestmentsTab.activity);
-      // The middle pill of the switch.
-      expect(kInvestmentsPills.indexOf(InvestmentsTab.investing), 1);
+    test('Overview, the first pill', () {
+      expect(kInvestmentsDefaultTab, InvestmentsTab.activity);
+      expect(kInvestmentsPills.first, InvestmentsTab.activity);
+    });
+
+    test('links: activity and overview name the pill, its key stays', () {
+      expect(InvestmentsTab.activity.key, 'activity');
+      expect(investmentsTabLocation(InvestmentsTab.activity),
+          '/usd?tab=activity');
+      expect(InvestmentsTab.fromKey('activity'), InvestmentsTab.activity);
+      expect(InvestmentsTab.fromKey('overview'), InvestmentsTab.activity);
+      expect(InvestmentsTab.fromKey('investing'), InvestmentsTab.investing);
+      expect(InvestmentsTab.fromKey('predictions'), InvestmentsTab.predictions);
+      // Neither is a Portfolio section: the Portfolio does not open over it.
+      expect(PortfolioSection.forLink('activity'), isNull);
+      expect(PortfolioSection.forLink('overview'), isNull);
     });
 
     testWidgets(
-        'first open: Investing, the middle pill, picked and on screen, with '
-        'no pick reported', (tester) async {
+        'first open: Overview, the first pill, picked and on screen, with no '
+        'pick reported', (tester) async {
       final events = recordEvents();
       final container = await _pump(tester);
-      expect(container.read(investmentsTabProvider), InvestmentsTab.investing);
-      expect(_strip(tester).selectedIndex, 1);
-      expect(_strip(tester).items[1].label, 'Investing');
-      expect(_squares, findsOneWidget);
+      expect(container.read(investmentsTabProvider), InvestmentsTab.activity);
+      expect(_strip(tester).selectedIndex, 0);
+      expect(_strip(tester).items[0].label, 'Overview');
+      expect(_overview, findsOneWidget);
       expect(_map, findsOneWidget);
-      expect(find.byType(DollarsActivityTab), findsNothing,
+      expect(find.byType(HyperliquidScreen), findsNothing,
           reason: 'mounted behind the stack, not on screen');
       expect(events.where((e) => e.$1 == 'analytics_tab_selected'), isEmpty);
       expect(tester.takeException(), isNull);
       await unmountInvestments(tester);
     });
 
-    testWidgets('a link naming Activity still opens Activity',
-        (tester) async {
-      final container = await _pump(tester, link: InvestmentsTab.activity);
+    testWidgets(
+        'both venues\' browsing withheld: still Overview, first open and after '
+        'the switch', (tester) async {
+      final container = await _pump(tester, browseInvesting: false);
       expect(container.read(investmentsTabProvider), InvestmentsTab.activity);
-      expect(_strip(tester).selectedIndex, 0);
-      expect(find.byType(DollarsActivityTab), findsOneWidget);
+      await tapPill(tester, 'Predictions');
+      openInvestmentsOnDefaultTab(_ref(tester));
+      await tester.pump();
+      expect(container.read(investmentsTabProvider), InvestmentsTab.activity);
       expect(tester.takeException(), isNull);
       await unmountInvestments(tester);
     });
 
+    for (final tab in [InvestmentsTab.investing, InvestmentsTab.predictions]) {
+      testWidgets('a link naming ${tab.key} still opens it', (tester) async {
+        final container = await _pump(tester, link: tab);
+        expect(container.read(investmentsTabProvider), tab);
+        expect(_strip(tester).selectedIndex, kInvestmentsPills.indexOf(tab));
+        expect(_overview, findsNothing);
+        expect(tester.takeException(), isNull);
+        await unmountInvestments(tester);
+      });
+    }
+
     testWidgets(
-        'every Bitcoin | Dollars switch lands on Investing again, in place; '
-        'a pick still switches in', (tester) async {
+        'every Bitcoin | Dollars switch lands on Overview again, in place; a '
+        'pick still switches in', (tester) async {
       final container = await _pump(tester);
       await tapPill(tester, 'Predictions');
       expect(
@@ -202,8 +242,8 @@ void main() {
       // The shell's switch to Dollars (app_shell.dart, a tap or a swipe).
       openInvestmentsOnDefaultTab(_ref(tester));
       await tester.pump();
-      expect(container.read(investmentsTabProvider), InvestmentsTab.investing);
-      expect(_strip(tester).selectedIndex, 1);
+      expect(container.read(investmentsTabProvider), InvestmentsTab.activity);
+      expect(_strip(tester).selectedIndex, 0);
       // At rest on its first frame: the shell's slide is the motion.
       expect(tester.widget<SelectionFade>(find.byType(SelectionFade)).animate,
           isFalse);
@@ -216,150 +256,260 @@ void main() {
       expect(_bodyOpacity(tester), 1);
 
       // A pick switches in as every switch does.
-      await tester.tap(investmentsPill('Activity'));
+      await tester.tap(investmentsPill('Investing'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 16));
       expect(tester.widget<SelectionFade>(find.byType(SelectionFade)).animate,
           isTrue);
       expect(_bodyOpacity(tester), lessThan(1));
-      for (var i = 0; i < 6; i++) {
-        await tester.pump(const Duration(milliseconds: 100));
-      }
-      expect(container.read(investmentsTabProvider), InvestmentsTab.activity);
-      // And back on Investing by a pick: switched in too.
-      await tester.tap(investmentsPill('Investing'));
+      await _frames(tester);
+      expect(container.read(investmentsTabProvider), InvestmentsTab.investing);
+      // And back on Overview by a pick: switched in too.
+      await tester.tap(investmentsPill('Overview'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 16));
       expect(_bodyOpacity(tester), lessThan(1));
-      for (var i = 0; i < 6; i++) {
-        await tester.pump(const Duration(milliseconds: 100));
-      }
+      await _frames(tester);
       expect(tester.takeException(), isNull);
       await unmountInvestments(tester);
     });
 
-    testWidgets('a pull on the page it opened on reports tab investing',
-        (tester) async {
+    testWidgets(
+        'a pull on the page it opened on reports tab activity and re-reads '
+        'the market lists the map is drawn from', (tester) async {
       final events = recordEvents();
+      var reads = 0;
       // A phone's height: the pull arms at a share of it.
-      final container = await _pump(tester, size: const Size(390, 844));
+      final container = await _pump(tester,
+          size: const Size(390, 844),
+          overrides: [
+            hyperliquidPerpMarketsProvider.overrideWith((_) async {
+              reads++;
+              return const <HlMarket>[];
+            }),
+          ]);
+      final before = reads;
       await tester.drag(find.byType(NestedScrollView), const Offset(0, 300));
       await tester.pump();
-      for (var i = 0; i < 15; i++) {
-        await tester.pump(const Duration(milliseconds: 100));
-      }
+      await _frames(tester, 15);
       expect(
           events.where((e) =>
               e.$1 == 'pull_to_refresh_executed' &&
               e.$2?['screen'] == 'usd' &&
-              e.$2?['tab'] == 'investing'),
+              e.$2?['tab'] == 'activity'),
           hasLength(1));
       final refresh =
           container.read(refreshEverythingProvider) as RecordingRefresh;
-      expect(refresh.triggers.map((t) => t.tab), everyElement('investing'));
+      expect(refresh.triggers.map((t) => t.tab), everyElement('activity'));
+      expect(reads, greaterThan(before));
       expect(tester.takeException(), isNull);
       await unmountInvestments(tester);
     });
   });
 
-  group('the market map on Investing', () {
+  group('the market map on Overview', () {
     testWidgets(
-        'the last item: the squares, then the list, then the map, at the '
-        'cards\' width; 12 from the squares to the list, 16 from the list '
-        'to the map', (tester) async {
-      await _pump(tester);
+        'positions held: the squares, the open P&L, then the map, at the '
+        'cards\' width, 12 under the P&L', (tester) async {
+      await _pump(tester, overrides: [
+        _holding([_perp('BTC', 100), _perp('ETH', 500)]),
+      ]);
       expect(_squares, findsOneWidget);
+      expect(_pnl, findsOneWidget);
       expect(_map, findsOneWidget);
-      expect(_rows, findsWidgets);
-      // In this order down the tab: nothing of the tab's before the
-      // squares, every row between them and the map, nothing after it.
-      final items = <(String, double)>[
-        ('squares', tester.getTopLeft(_squares).dy),
-        ('map', tester.getTopLeft(_map).dy),
-        for (final e in _rows.evaluate())
-          ('row', tester.getTopLeft(find.byWidget(e.widget)).dy),
-      ]..sort((a, b) => a.$2.compareTo(b.$2));
-      expect(items.first.$1, 'squares');
-      expect(items.last.$1, 'map');
-      expect(items.sublist(1, items.length - 1).map((i) => i.$1),
-          everyElement('row'));
-
-      // The map's card spans the squares' grid, edge to edge.
+      expect(_empty, findsNothing);
       final grid = tester.getRect(find.descendant(
           of: _squares, matching: find.byType(ActivitySquareGrid)));
+      final pnl = tester.getRect(_pnl);
       final card = _cardOf(tester, _map);
+      expect(grid.bottom, lessThanOrEqualTo(pnl.top));
+      expect(card.top - pnl.bottom, closeTo(12.h, 1));
       expect(card.left, closeTo(grid.left, 0.5));
       expect(card.right, closeTo(grid.right, 0.5));
+      expect(pnl.left, closeTo(grid.left, 0.5));
       // Square, as it always was.
       expect(card.height, closeTo(card.width, 1));
-      // 12 from the squares' grid to the list (their 4 and the list's 8),
-      // 16 from the list's last row to the map (to the pixel: the grid
-      // and the rows round their own heights).
-      final rows = _rowRects(tester);
-      expect(rows.first.top - grid.bottom, closeTo(12.h, 1));
-      expect(card.top - rows.last.bottom, closeTo(16.h, 1));
       expect(tester.takeException(), isNull);
       await unmountInvestments(tester);
     });
 
     testWidgets(
-        'loading, its skeleton in the map\'s place and height under the '
-        'list: the list does not move when the map lands', (tester) async {
+        'nothing held and no P&L: the map is the first thing on the tab, no '
+        'heading, no empty state', (tester) async {
+      await _pump(tester);
+      expect(_map, findsOneWidget);
+      expect(_squares, findsNothing);
+      expect(_pnl, findsNothing);
+      expect(_empty, findsNothing);
+      expect(find.text('No open positions'), findsNothing);
+      expect(find.byKey(const ValueKey('dollars-activity-positions-heading')),
+          findsNothing);
+      final list =
+          tester.getRect(find.byKey(const ValueKey('dollars-activity-list')));
+      expect(_cardOf(tester, _map).top - list.top, closeTo(8.h, 1));
+      expect(tester.takeException(), isNull);
+      await unmountInvestments(tester);
+    });
+
+    testWidgets(
+        'Investing\'s browsing withheld, nothing held: Sal over "No open '
+        'positions", no map, no skeleton', (tester) async {
+      await _pump(tester, browseInvesting: false);
+      expect(_map, findsNothing);
+      expect(_mapBones, findsNothing);
+      expect(_empty, findsOneWidget);
+      expect(find.text('No open positions'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await unmountInvestments(tester);
+    });
+
+    testWidgets(
+        'Investing\'s browsing withheld, a position held: the square and the '
+        'P&L, no map, no empty state', (tester) async {
+      await _pump(tester, browseInvesting: false, overrides: [
+        _holding([_perp('BTC', 100)]),
+      ]);
+      expect(_squares, findsOneWidget);
+      expect(_pnl, findsOneWidget);
+      expect(_map, findsNothing);
+      expect(_empty, findsNothing);
+      expect(tester.takeException(), isNull);
+      await unmountInvestments(tester);
+    });
+
+    testWidgets('too few markets, nothing held: the empty state stands in',
+        (tester) async {
+      await _pump(tester, universe: const AsyncValue.data(<HlMarket>[]));
+      expect(_map, findsNothing);
+      expect(_mapBones, findsNothing);
+      expect(_empty, findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await unmountInvestments(tester);
+    });
+
+    testWidgets(
+        'the venue\'s lists could not be read, nothing held: the empty state, '
+        'never a skeleton for ever', (tester) async {
+      await _pump(tester,
+          universe: AsyncValue<List<HlMarket>>.error('down', StackTrace.empty),
+          overrides: [
+            hyperliquidPerpMarketsProvider
+                .overrideWith((_) async => throw StateError('down')),
+          ]);
+      expect(_mapBones, findsNothing);
+      expect(_empty, findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await unmountInvestments(tester);
+    });
+
+    testWidgets(
+        'loading, its skeleton in the map\'s place and height: it does not '
+        'move when the map lands', (tester) async {
       final container = await _pump(tester);
-      final squares = tester.getRect(_squares);
-      final rows = _rowRects(tester);
       final map = tester.getRect(_map);
 
       container.read(_buildersMissing.notifier).state = true;
-      for (var i = 0; i < 6; i++) {
-        await tester.pump(const Duration(milliseconds: 100));
-      }
+      await _frames(tester);
       expect(_map, findsNothing);
       expect(_mapBones, findsOneWidget);
-      // Where the map is, at its height, under the list's last row.
+      expect(_empty, findsNothing);
       expect(tester.getRect(_mapBones), map);
-      expect(tester.getTopLeft(_mapBones).dy, greaterThan(rows.last.bottom));
-      expect(tester.getRect(_squares), squares);
-      expect(_rowRects(tester), rows);
 
-      // The map lands under the list: nothing over it moves.
       container.read(_buildersMissing.notifier).state = false;
-      for (var i = 0; i < 6; i++) {
-        await tester.pump(const Duration(milliseconds: 100));
-      }
+      await _frames(tester);
       expect(_map, findsOneWidget);
       expect(_mapBones, findsNothing);
       expect(tester.getRect(_map), map);
-      expect(tester.getRect(_squares), squares);
-      expect(_rowRects(tester), rows);
-      expect(tester.takeException(), isNull);
-      await unmountInvestments(tester);
-    });
-
-    testWidgets('a picked category is the plain list: no squares, no map',
-        (tester) async {
-      final container = await _pump(tester);
-      container.read(hlBrowseSelectionProvider.notifier).state = container
-          .read(hlBrowseSelectionProvider)
-          .copyWith(tab: HlBrowseTab.perps);
-      for (var i = 0; i < 8; i++) {
-        await tester.pump(const Duration(milliseconds: 100));
-      }
-      expect(_squares, findsNothing);
-      expect(_map, findsNothing);
-      expect(_mapBones, findsNothing);
-      expect(_rows, findsWidgets);
       expect(tester.takeException(), isNull);
       await unmountInvestments(tester);
     });
 
     testWidgets(
-        'a tile at its place, the end of the tab, scrolled to, opens its '
-        'market, with the map as the source', (tester) async {
+        'a category picked on Investing leaves the map whole; Investing has '
+        'no map on any category', (tester) async {
+      final container = await _pump(tester);
+      final tiles = _painter(tester).layout.tiles.map((t) => t.id).toList();
+      await tapPill(tester, 'Investing');
+      expect(_map, findsNothing);
+      expect(find.byType(HlMovingNowStrip), findsOneWidget);
+      expect(find.byType(HlMarketCard), findsWidgets);
+      expect(
+          find.descendant(
+              of: find.byType(HyperliquidScreen),
+              matching: find.byKey(const ValueKey('hl-market-map'),
+                  skipOffstage: false)),
+          findsNothing);
+
+      container.read(hlBrowseSelectionProvider.notifier).state = container
+          .read(hlBrowseSelectionProvider)
+          .copyWith(tab: HlBrowseTab.perps);
+      await _frames(tester, 8);
+      expect(_map, findsNothing);
+      expect(_mapBones, findsNothing);
+
+      await tapPill(tester, 'Overview');
+      expect(_map, findsOneWidget);
+      expect(_painter(tester).layout.tiles.map((t) => t.id), tiles);
+      expect(tester.takeException(), isNull);
+      await unmountInvestments(tester);
+    });
+
+    testWidgets('a new universe lands on the map while Overview is on screen',
+        (tester) async {
+      final container = await _pump(tester);
+      final before = _painter(tester).layout.tiles.length;
+      container.read(_universe.notifier).state =
+          hlMarketMapFixture.take(20).toList();
+      await _frames(tester);
+      expect(_painter(tester).layout.tiles.length, lessThan(before));
+      expect(tester.takeException(), isNull);
+      await unmountInvestments(tester);
+    });
+
+    testWidgets(
+        'the tab on its own, with Investing never built: the map still reads '
+        'its data', (tester) async {
+      await pumpInvestments(tester,
+          browseInvesting: true,
+          size: const Size(390, 1200),
+          child: const Scaffold(body: DollarsActivityTab()),
+          overrides: [
+            hyperliquidBrowseUniverseProvider
+                .overrideWithValue(AsyncValue.data(hlMarketMapFixture)),
+            hyperliquidLivePricesProvider.overrideWith(_LivePrices.new),
+          ]);
+      await _frames(tester);
+      expect(find.byType(HyperliquidScreen, skipOffstage: false), findsNothing);
+      expect(_map, findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await unmountInvestments(tester);
+    });
+
+    testWidgets(
+        'behind another pill the card keeps still: a new universe waits until '
+        'Overview is back', (tester) async {
+      final container = await _pump(tester);
+      await tapPill(tester, 'Predictions');
+      final tiles = _painter(tester).layout.tiles.length;
+      container.read(_universe.notifier).state =
+          hlMarketMapFixture.take(20).toList();
+      await _frames(tester);
+      expect(_painter(tester).layout.tiles.length, tiles);
+      await tapPill(tester, 'Overview');
+      await _frames(tester);
+      expect(_painter(tester).layout.tiles.length, lessThan(tiles));
+      expect(tester.takeException(), isNull);
+      await unmountInvestments(tester);
+    });
+
+    testWidgets(
+        'a tile, scrolled to, opens its market with the map as the source; '
+        'the page scrolls clear of the bar', (tester) async {
       final events = recordEvents();
       final zec = hlMarketMapFixture.firstWhere((m) => m.coin == 'ZEC');
-      // A phone's height: the map, under the list, is below the screen.
-      await _pump(tester, size: const Size(390, 844), overrides: [
+      // A small phone, positions over the map: it runs below the screen.
+      await _pump(tester, size: const Size(375, 640), overrides: [
+        _holding([_perp('BTC', 100), _perp('ETH', 500), _perp('HYPE', 300)]),
         // The sheet's own reads (no network in a test).
         hyperliquidExactMarketProvider.overrideWith((ref, key) => zec),
         hyperliquidActiveAssetCtxProvider
@@ -374,30 +524,26 @@ void main() {
         hyperliquidTradeFlowProvider.overrideWith(
             (ref, coin) => Stream.value(const HlTradeFlowState())),
       ]);
-      expect(_squares, findsOneWidget);
-      expect(_rows, findsWidgets);
-      expect(_map, findsNothing);
-
-      await _scrollToEnd(tester);
+      // To the end of the tab: drags until it stops moving.
+      double? at;
+      for (var i = 0; i < 20; i++) {
+        await tester.drag(find.byType(NestedScrollView), const Offset(0, -300));
+        await _frames(tester, 20);
+        final now = _map.evaluate().isEmpty ? null : tester.getTopLeft(_map).dy;
+        if (now != null && now == at) break;
+        at = now;
+      }
       expect(_map, findsOneWidget);
-      // Under the list's last row, and only the dock's clearance under it.
+      // Only the clearance under it: the dock and 24 more, nothing cut.
       final card = _cardOf(tester, _map);
-      final lastRow = _rowRects(tester).last;
-      expect(card.top - lastRow.bottom, closeTo(16.h, 1));
       final view = tester.getRect(
           find.ancestor(of: _map, matching: find.byType(Scrollable)).first);
       expect(view.bottom - card.bottom,
-          closeTo(kuteDockScrollClearance(tester.element(_map)), 1));
+          closeTo(24.h + kuteDockScrollClearance(tester.element(_map)), 1));
 
-      final paint = find.byWidgetPredicate(
-          (w) => w is CustomPaint && w.painter is HlMarketMapPainter);
-      final painter = tester.widget<CustomPaint>(paint).painter!
-          as HlMarketMapPainter;
-      final tile = painter.layout.tiles.firstWhere((t) => t.id == 'perp:ZEC');
-      final at = tester.getTopLeft(paint) + tile.rect.center;
-      expect(at.dy, greaterThan(lastRow.bottom));
-      expect(at.dy, lessThan(card.bottom));
-      await tester.tapAt(at);
+      final tile =
+          _painter(tester).layout.tiles.firstWhere((t) => t.id == 'perp:ZEC');
+      await tester.tapAt(tester.getTopLeft(_paint) + tile.rect.center);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 600));
 
@@ -407,6 +553,7 @@ void main() {
       expect(sheet.source, kHlMarketMapSource);
       final viewed =
           events.where((e) => e.$1 == 'hyperliquid_market_viewed').single;
+      expect(viewed.$2?['coin'], 'ZEC');
       expect(viewed.$2?['entry_source'], 'market_map');
       expect(tester.takeException(), isNull);
     });

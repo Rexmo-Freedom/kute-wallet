@@ -4,7 +4,7 @@
 // Treemaps", 2000): a rectangle cut into one tile per weight, each tile's
 // area in proportion to its weight, the tiles kept as close to squares as
 // the greedy row rule allows. Pure geometry, no Flutter widgets: the
-// Investing market map (hl_market_map.dart) lays its groups and its tiles
+// market map (hl_market_map.dart) lays its groups and its tiles
 // with it.
 //
 // The rule: the weights, largest first, are laid in rows along the
