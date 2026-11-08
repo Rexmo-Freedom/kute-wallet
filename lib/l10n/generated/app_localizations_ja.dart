@@ -1722,12 +1722,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get referrerFriendInvitedYou => '友達から招待されました';
 
   @override
-  String accountYouEarnRate(String rate) {
-    return 'あなたの報酬率は$rate%です';
-  }
-
-  @override
-  String accountInviteMoreForRate(int count, int rate) {
+  String accountInviteMoreForRate(int count, String rate) {
     return 'あと$count人の友達を招待すると$rate%になります';
   }
 
@@ -2592,9 +2587,6 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get accountUsersWithYourCode => 'あなたのコードを使ったユーザー';
-
-  @override
   String get accountPendingPayout => '支払い予定額';
 
   @override
@@ -2612,16 +2604,6 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String accountRuleEarnings(String rate) {
-    return '友達が支払った手数料の$rateを受け取れます。';
-  }
-
-  @override
-  String accountRuleEarningsLadder(String rate, String ladder) {
-    return '友達が支払った手数料の$rateを受け取れます（$ladder）。';
-  }
-
-  @override
   String accountRuleEarningsStep(String rate, int count) {
     return '友達$count人で$rate';
   }
@@ -2629,6 +2611,52 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String accountRuleFriendDiscount(String discount) {
     return '友達は、あなたの紹介が有効な間、Kuteの手数料が$discount割引になります。';
+  }
+
+  @override
+  String referralHeroTitle(String rate) {
+    return '友達の手数料の$rateを獲得';
+  }
+
+  @override
+  String referralHeroLine(String discount) {
+    return '友達はKuteの手数料が$discount割引';
+  }
+
+  @override
+  String get referralShareInvite => '招待をシェア';
+
+  @override
+  String get referralFriendsJoined => '参加した友達';
+
+  @override
+  String get referralYourRate => 'あなたの報酬率';
+
+  @override
+  String get referralTopRate => '最高の報酬率です';
+
+  @override
+  String referralTierFriends(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '友達$count人',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get referralStepShare => 'リンクをシェア';
+
+  @override
+  String get referralStepShareLine => 'リンクかコードを友達に送ります。';
+
+  @override
+  String get referralStepJoin => '友達が参加して取引';
+
+  @override
+  String referralStepEarn(String rate) {
+    return '友達の手数料の$rateを受け取れます';
   }
 
   @override

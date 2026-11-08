@@ -749,14 +749,6 @@
     "description": "Shown in place of the instruction on the confirm PIN screen when the two entries differ."
   },
   "referrerFriendInvitedYou": "A friend invited you",
-  "accountYouEarnRate": "You earn {rate}%",
-  "@accountYouEarnRate": {
-    "placeholders": {
-      "rate": {
-        "type": "String"
-      }
-    }
-  },
   "accountInviteMoreForRate": "Invite {count} more friends to earn {rate}%",
   "@accountInviteMoreForRate": {
     "placeholders": {
@@ -764,7 +756,7 @@
         "type": "int"
       },
       "rate": {
-        "type": "int"
+        "type": "String"
       }
     }
   },
@@ -1258,7 +1250,6 @@
       }
     }
   },
-  "accountUsersWithYourCode": "Users with your code",
   "accountPendingPayout": "Pending payout",
   "accountPaidToDate": "Paid to date",
   "accountEarnings": "Earnings",
@@ -1268,25 +1259,6 @@
     "placeholders": {
       "days": {
         "type": "int"
-      }
-    }
-  },
-  "accountRuleEarnings": "You earn {rate} of the fees your friends generate.",
-  "@accountRuleEarnings": {
-    "placeholders": {
-      "rate": {
-        "type": "String"
-      }
-    }
-  },
-  "accountRuleEarningsLadder": "You earn {rate} of the fees your friends generate, {ladder}.",
-  "@accountRuleEarningsLadder": {
-    "placeholders": {
-      "rate": {
-        "type": "String"
-      },
-      "ladder": {
-        "type": "String"
       }
     }
   },
@@ -1305,6 +1277,70 @@
   "@accountRuleFriendDiscount": {
     "placeholders": {
       "discount": {
+        "type": "String"
+      }
+    }
+  },
+  "referralHeroTitle": "Earn {rate} of your friends' fees",
+  "@referralHeroTitle": {
+    "description": "Referral program screen: the hero headline, what the person earns. {rate} is the person's commission rate, formatted with its percent sign (e.g. '5%').",
+    "placeholders": {
+      "rate": {
+        "type": "String"
+      }
+    }
+  },
+  "referralHeroLine": "They get {discount} off Kute fees",
+  "@referralHeroLine": {
+    "description": "Referral program screen: the line under the hero headline, what an invited friend gets. {discount} is the friend's discount on Kute fees, formatted with its percent sign (e.g. '20%').",
+    "placeholders": {
+      "discount": {
+        "type": "String"
+      }
+    }
+  },
+  "referralShareInvite": "Share invite",
+  "@referralShareInvite": {
+    "description": "Referral program screen: the Sal bar's primary button, opening the share sheet with the invite link."
+  },
+  "referralFriendsJoined": "Friends joined",
+  "@referralFriendsJoined": {
+    "description": "Referral program screen: the label over the number of friends who joined with the person's code."
+  },
+  "referralYourRate": "Your rate",
+  "@referralYourRate": {
+    "description": "Referral program screen: the label over the person's current commission rate."
+  },
+  "referralTopRate": "You're on the top rate",
+  "@referralTopRate": {
+    "description": "Referral program screen: shown in the progress card once nothing on the ladder pays more than the person's rate."
+  },
+  "referralTierFriends": "{count, plural, =1{1 friend} other{{count} friends}}",
+  "@referralTierFriends": {
+    "description": "Referral program screen: the caption under each rate on the ladder, the friends that rate needs (e.g. '50 friends').",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "referralStepShare": "Share your link",
+  "@referralStepShare": {
+    "description": "Referral program screen, How it works: step 1's title."
+  },
+  "referralStepShareLine": "Send your link or code to friends.",
+  "@referralStepShareLine": {
+    "description": "Referral program screen, How it works: the line under step 1."
+  },
+  "referralStepJoin": "They join and trade",
+  "@referralStepJoin": {
+    "description": "Referral program screen, How it works: step 2's title (the friend's discount sentence goes under it)."
+  },
+  "referralStepEarn": "You earn {rate} of their fees",
+  "@referralStepEarn": {
+    "description": "Referral program screen, How it works: step 3's title. {rate} is the program's base commission rate with its percent sign (e.g. '5%'); the higher rates follow under it.",
+    "placeholders": {
+      "rate": {
         "type": "String"
       }
     }

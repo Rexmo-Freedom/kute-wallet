@@ -5159,9 +5159,13 @@ class TrackingService {
         if (surface != null) 'surface': surface,
       });
 
-  static void affiliateCodeCopied({String? surface}) =>
+  /// [source]: what was tapped on the surface (the Referral program's
+  /// code card: `code_card` for the card, `copy_button` for its copy
+  /// square). Never the code or the link.
+  static void affiliateCodeCopied({String? surface, String? source}) =>
       track('affiliate_code_copied', params: {
         if (surface != null) 'surface': surface,
+        if (source != null) 'source': source,
       });
 
   // ── Affiliate v2 (Earn screen) ──

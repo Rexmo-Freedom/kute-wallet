@@ -1751,12 +1751,7 @@ class AppLocalizationsSv extends AppLocalizations {
   String get referrerFriendInvitedYou => 'En vän bjöd in dig';
 
   @override
-  String accountYouEarnRate(String rate) {
-    return 'Du tjänar $rate %';
-  }
-
-  @override
-  String accountInviteMoreForRate(int count, int rate) {
+  String accountInviteMoreForRate(int count, String rate) {
     return 'Bjud in $count vänner till för att tjäna $rate %';
   }
 
@@ -2667,9 +2662,6 @@ class AppLocalizationsSv extends AppLocalizations {
   }
 
   @override
-  String get accountUsersWithYourCode => 'Användare med din kod';
-
-  @override
   String get accountPendingPayout => 'Väntande utbetalning';
 
   @override
@@ -2687,16 +2679,6 @@ class AppLocalizationsSv extends AppLocalizations {
   }
 
   @override
-  String accountRuleEarnings(String rate) {
-    return 'Du tjänar $rate av avgifterna dina vänner genererar.';
-  }
-
-  @override
-  String accountRuleEarningsLadder(String rate, String ladder) {
-    return 'Du tjänar $rate av avgifterna dina vänner genererar, $ladder.';
-  }
-
-  @override
   String accountRuleEarningsStep(String rate, int count) {
     return '$rate vid $count vänner';
   }
@@ -2704,6 +2686,53 @@ class AppLocalizationsSv extends AppLocalizations {
   @override
   String accountRuleFriendDiscount(String discount) {
     return 'Vänner får $discount rabatt på Kutes avgifter så länge de är med dig.';
+  }
+
+  @override
+  String referralHeroTitle(String rate) {
+    return 'Tjäna $rate av dina vänners avgifter';
+  }
+
+  @override
+  String referralHeroLine(String discount) {
+    return 'De får $discount rabatt på Kutes avgifter';
+  }
+
+  @override
+  String get referralShareInvite => 'Dela inbjudan';
+
+  @override
+  String get referralFriendsJoined => 'Vänner som gått med';
+
+  @override
+  String get referralYourRate => 'Din andel';
+
+  @override
+  String get referralTopRate => 'Du har den högsta andelen';
+
+  @override
+  String referralTierFriends(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count vänner',
+      one: '1 vän',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get referralStepShare => 'Dela din länk';
+
+  @override
+  String get referralStepShareLine => 'Skicka din länk eller kod till vänner.';
+
+  @override
+  String get referralStepJoin => 'De går med och handlar';
+
+  @override
+  String referralStepEarn(String rate) {
+    return 'Du tjänar $rate av deras avgifter';
   }
 
   @override

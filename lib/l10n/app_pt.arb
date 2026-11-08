@@ -581,14 +581,6 @@
   "coinMapAgeShortYears": "{count}a",
   "pinsDoNotMatchRetry": "Não coincidiu. Introduza novamente.",
   "referrerFriendInvitedYou": "Um amigo convidou-o",
-  "accountYouEarnRate": "Ganha {rate}%",
-  "@accountYouEarnRate": {
-    "placeholders": {
-      "rate": {
-        "type": "String"
-      }
-    }
-  },
   "accountInviteMoreForRate": "Convide mais {count} amigos para ganhar {rate}%",
   "@accountInviteMoreForRate": {
     "placeholders": {
@@ -596,7 +588,7 @@
         "type": "int"
       },
       "rate": {
-        "type": "int"
+        "type": "String"
       }
     }
   },
@@ -917,16 +909,24 @@
   "accountCodeCopied": "Código copiado",
   "accountShareTextWithLink": "Estou a usar a Kute. Junta-te com o meu link e ganha {discount} de desconto nas taxas Kute: {link}",
   "accountShareTextWithCode": "Estou a usar a Kute. Junta-te com o meu código {code} e ganha {discount} de desconto nas taxas Kute.",
-  "accountUsersWithYourCode": "Utilizadores com o seu código",
   "accountPendingPayout": "Pagamento pendente",
   "accountPaidToDate": "Pago até à data",
   "accountEarnings": "Ganhos",
   "accountNotEnoughDataYet": "Ainda não há dados suficientes",
   "accountDaysAbbrev": "{days}d",
-  "accountRuleEarnings": "Ganha {rate} das taxas que os seus amigos geram.",
-  "accountRuleEarningsLadder": "Ganha {rate} das taxas que os seus amigos geram, {ladder}.",
   "accountRuleEarningsStep": "{rate} com {count} amigos",
   "accountRuleFriendDiscount": "Os amigos têm {discount} de desconto nas taxas Kute enquanto estiverem consigo.",
+  "referralHeroTitle": "Ganhe {rate} das taxas dos seus amigos",
+  "referralHeroLine": "Eles têm {discount} de desconto nas taxas Kute",
+  "referralShareInvite": "Partilhar convite",
+  "referralFriendsJoined": "Amigos registados",
+  "referralYourRate": "A sua percentagem",
+  "referralTopRate": "Está na percentagem máxima",
+  "referralTierFriends": "{count, plural, =1{1 amigo} other{{count} amigos}}",
+  "referralStepShare": "Partilhe o seu link",
+  "referralStepShareLine": "Envie o seu link ou código aos amigos.",
+  "referralStepJoin": "Registam-se e negoceiam",
+  "referralStepEarn": "Ganha {rate} das taxas deles",
   "accountPayments": "Pagamentos",
   "accountYourFriends": "Os seus amigos",
   "accountUserNumber": "Utilizador #{number}",

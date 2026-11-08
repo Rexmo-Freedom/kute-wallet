@@ -1755,12 +1755,7 @@ class AppLocalizationsPl extends AppLocalizations {
   String get referrerFriendInvitedYou => 'Znajomy cię zaprosił';
 
   @override
-  String accountYouEarnRate(String rate) {
-    return 'Zarabiasz $rate%';
-  }
-
-  @override
-  String accountInviteMoreForRate(int count, int rate) {
+  String accountInviteMoreForRate(int count, String rate) {
     return 'Zaproś jeszcze $count znajomych, aby zarabiać $rate%';
   }
 
@@ -2677,9 +2672,6 @@ class AppLocalizationsPl extends AppLocalizations {
   }
 
   @override
-  String get accountUsersWithYourCode => 'Użytkownicy z twoim kodem';
-
-  @override
   String get accountPendingPayout => 'Oczekująca wypłata';
 
   @override
@@ -2697,16 +2689,6 @@ class AppLocalizationsPl extends AppLocalizations {
   }
 
   @override
-  String accountRuleEarnings(String rate) {
-    return 'Zarabiasz $rate opłat generowanych przez znajomych.';
-  }
-
-  @override
-  String accountRuleEarningsLadder(String rate, String ladder) {
-    return 'Zarabiasz $rate opłat generowanych przez znajomych, $ladder.';
-  }
-
-  @override
   String accountRuleEarningsStep(String rate, int count) {
     return '$rate przy $count znajomych';
   }
@@ -2714,6 +2696,55 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String accountRuleFriendDiscount(String discount) {
     return 'Znajomi mają $discount zniżki na opłaty Kute, dopóki są z tobą.';
+  }
+
+  @override
+  String referralHeroTitle(String rate) {
+    return 'Zarabiaj $rate opłat swoich znajomych';
+  }
+
+  @override
+  String referralHeroLine(String discount) {
+    return 'Oni mają $discount zniżki na opłaty Kute';
+  }
+
+  @override
+  String get referralShareInvite => 'Udostępnij zaproszenie';
+
+  @override
+  String get referralFriendsJoined => 'Dołączeni znajomi';
+
+  @override
+  String get referralYourRate => 'Twoja stawka';
+
+  @override
+  String get referralTopRate => 'Masz najwyższą stawkę';
+
+  @override
+  String referralTierFriends(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count znajomych',
+      many: '$count znajomych',
+      few: '$count znajomych',
+      one: '1 znajomy',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get referralStepShare => 'Udostępnij swój link';
+
+  @override
+  String get referralStepShareLine => 'Wyślij znajomym swój link lub kod.';
+
+  @override
+  String get referralStepJoin => 'Dołączają i handlują';
+
+  @override
+  String referralStepEarn(String rate) {
+    return 'Zarabiasz $rate ich opłat';
   }
 
   @override

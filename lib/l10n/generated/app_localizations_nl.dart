@@ -1761,12 +1761,7 @@ class AppLocalizationsNl extends AppLocalizations {
   String get referrerFriendInvitedYou => 'Een vriend heeft je uitgenodigd';
 
   @override
-  String accountYouEarnRate(String rate) {
-    return 'Je verdient $rate%';
-  }
-
-  @override
-  String accountInviteMoreForRate(int count, int rate) {
+  String accountInviteMoreForRate(int count, String rate) {
     return 'Nodig nog $count vrienden uit om $rate% te verdienen';
   }
 
@@ -2681,9 +2676,6 @@ class AppLocalizationsNl extends AppLocalizations {
   }
 
   @override
-  String get accountUsersWithYourCode => 'Gebruikers met je code';
-
-  @override
   String get accountPendingPayout => 'Uitbetaling in behandeling';
 
   @override
@@ -2701,16 +2693,6 @@ class AppLocalizationsNl extends AppLocalizations {
   }
 
   @override
-  String accountRuleEarnings(String rate) {
-    return 'Je verdient $rate van de kosten die je vrienden opleveren.';
-  }
-
-  @override
-  String accountRuleEarningsLadder(String rate, String ladder) {
-    return 'Je verdient $rate van de kosten die je vrienden opleveren, $ladder.';
-  }
-
-  @override
   String accountRuleEarningsStep(String rate, int count) {
     return '$rate bij $count vrienden';
   }
@@ -2718,6 +2700,53 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String accountRuleFriendDiscount(String discount) {
     return 'Vrienden krijgen $discount korting op Kute-kosten zolang ze bij jou horen.';
+  }
+
+  @override
+  String referralHeroTitle(String rate) {
+    return 'Verdien $rate van de kosten van je vrienden';
+  }
+
+  @override
+  String referralHeroLine(String discount) {
+    return 'Zij krijgen $discount korting op Kute-kosten';
+  }
+
+  @override
+  String get referralShareInvite => 'Uitnodiging delen';
+
+  @override
+  String get referralFriendsJoined => 'Aangemelde vrienden';
+
+  @override
+  String get referralYourRate => 'Jouw percentage';
+
+  @override
+  String get referralTopRate => 'Je zit op het hoogste percentage';
+
+  @override
+  String referralTierFriends(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count vrienden',
+      one: '1 vriend',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get referralStepShare => 'Deel je link';
+
+  @override
+  String get referralStepShareLine => 'Stuur je link of code naar vrienden.';
+
+  @override
+  String get referralStepJoin => 'Ze melden zich aan en handelen';
+
+  @override
+  String referralStepEarn(String rate) {
+    return 'Je verdient $rate van hun kosten';
   }
 
   @override

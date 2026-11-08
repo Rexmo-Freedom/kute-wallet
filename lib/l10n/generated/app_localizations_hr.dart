@@ -1756,12 +1756,7 @@ class AppLocalizationsHr extends AppLocalizations {
   String get referrerFriendInvitedYou => 'Prijatelj te pozvao';
 
   @override
-  String accountYouEarnRate(String rate) {
-    return 'Zarađuješ $rate%';
-  }
-
-  @override
-  String accountInviteMoreForRate(int count, int rate) {
+  String accountInviteMoreForRate(int count, String rate) {
     return 'Pozovi još $count prijatelja i zarađuj $rate%';
   }
 
@@ -2674,9 +2669,6 @@ class AppLocalizationsHr extends AppLocalizations {
   }
 
   @override
-  String get accountUsersWithYourCode => 'Korisnici s tvojim kodom';
-
-  @override
   String get accountPendingPayout => 'Isplata na čekanju';
 
   @override
@@ -2694,16 +2686,6 @@ class AppLocalizationsHr extends AppLocalizations {
   }
 
   @override
-  String accountRuleEarnings(String rate) {
-    return 'Zarađuješ $rate naknada koje generiraju tvoji prijatelji.';
-  }
-
-  @override
-  String accountRuleEarningsLadder(String rate, String ladder) {
-    return 'Zarađuješ $rate naknada koje generiraju tvoji prijatelji, $ladder.';
-  }
-
-  @override
   String accountRuleEarningsStep(String rate, int count) {
     return '$rate uz $count prijatelja';
   }
@@ -2711,6 +2693,55 @@ class AppLocalizationsHr extends AppLocalizations {
   @override
   String accountRuleFriendDiscount(String discount) {
     return 'Prijatelji dobivaju $discount popusta na Kute naknade dok su s tobom.';
+  }
+
+  @override
+  String referralHeroTitle(String rate) {
+    return 'Zarađuj $rate od naknada svojih prijatelja';
+  }
+
+  @override
+  String referralHeroLine(String discount) {
+    return 'Oni dobivaju $discount popusta na Kute naknade';
+  }
+
+  @override
+  String get referralShareInvite => 'Podijeli pozivnicu';
+
+  @override
+  String get referralFriendsJoined => 'Pridruženi prijatelji';
+
+  @override
+  String get referralYourRate => 'Tvoja stopa';
+
+  @override
+  String get referralTopRate => 'Imaš najvišu stopu';
+
+  @override
+  String referralTierFriends(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count prijatelja',
+      few: '$count prijatelja',
+      one: '$count prijatelj',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get referralStepShare => 'Podijeli svoju poveznicu';
+
+  @override
+  String get referralStepShareLine =>
+      'Pošalji prijateljima svoju poveznicu ili kod.';
+
+  @override
+  String get referralStepJoin => 'Pridruže se i trguju';
+
+  @override
+  String referralStepEarn(String rate) {
+    return 'Zarađuješ $rate od njihovih naknada';
   }
 
   @override

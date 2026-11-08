@@ -3398,17 +3398,11 @@ abstract class AppLocalizations {
   /// **'A friend invited you'**
   String get referrerFriendInvitedYou;
 
-  /// No description provided for @accountYouEarnRate.
-  ///
-  /// In en, this message translates to:
-  /// **'You earn {rate}%'**
-  String accountYouEarnRate(String rate);
-
   /// No description provided for @accountInviteMoreForRate.
   ///
   /// In en, this message translates to:
   /// **'Invite {count} more friends to earn {rate}%'**
-  String accountInviteMoreForRate(int count, int rate);
+  String accountInviteMoreForRate(int count, String rate);
 
   /// No description provided for @restoreReconnectDeviceRow.
   ///
@@ -4934,12 +4928,6 @@ abstract class AppLocalizations {
   /// **'I\'m using Kute. Join with my code {code} and get {discount} off Kute fees.'**
   String accountShareTextWithCode(String code, String discount);
 
-  /// No description provided for @accountUsersWithYourCode.
-  ///
-  /// In en, this message translates to:
-  /// **'Users with your code'**
-  String get accountUsersWithYourCode;
-
   /// No description provided for @accountPendingPayout.
   ///
   /// In en, this message translates to:
@@ -4970,18 +4958,6 @@ abstract class AppLocalizations {
   /// **'{days}d'**
   String accountDaysAbbrev(int days);
 
-  /// No description provided for @accountRuleEarnings.
-  ///
-  /// In en, this message translates to:
-  /// **'You earn {rate} of the fees your friends generate.'**
-  String accountRuleEarnings(String rate);
-
-  /// No description provided for @accountRuleEarningsLadder.
-  ///
-  /// In en, this message translates to:
-  /// **'You earn {rate} of the fees your friends generate, {ladder}.'**
-  String accountRuleEarningsLadder(String rate, String ladder);
-
   /// No description provided for @accountRuleEarningsStep.
   ///
   /// In en, this message translates to:
@@ -4993,6 +4969,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Friends get {discount} off Kute fees while they\'re with you.'**
   String accountRuleFriendDiscount(String discount);
+
+  /// Referral program screen: the hero headline, what the person earns. {rate} is the person's commission rate, formatted with its percent sign (e.g. '5%').
+  ///
+  /// In en, this message translates to:
+  /// **'Earn {rate} of your friends\' fees'**
+  String referralHeroTitle(String rate);
+
+  /// Referral program screen: the line under the hero headline, what an invited friend gets. {discount} is the friend's discount on Kute fees, formatted with its percent sign (e.g. '20%').
+  ///
+  /// In en, this message translates to:
+  /// **'They get {discount} off Kute fees'**
+  String referralHeroLine(String discount);
+
+  /// Referral program screen: the Sal bar's primary button, opening the share sheet with the invite link.
+  ///
+  /// In en, this message translates to:
+  /// **'Share invite'**
+  String get referralShareInvite;
+
+  /// Referral program screen: the label over the number of friends who joined with the person's code.
+  ///
+  /// In en, this message translates to:
+  /// **'Friends joined'**
+  String get referralFriendsJoined;
+
+  /// Referral program screen: the label over the person's current commission rate.
+  ///
+  /// In en, this message translates to:
+  /// **'Your rate'**
+  String get referralYourRate;
+
+  /// Referral program screen: shown in the progress card once nothing on the ladder pays more than the person's rate.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re on the top rate'**
+  String get referralTopRate;
+
+  /// Referral program screen: the caption under each rate on the ladder, the friends that rate needs (e.g. '50 friends').
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 friend} other{{count} friends}}'**
+  String referralTierFriends(int count);
+
+  /// Referral program screen, How it works: step 1's title.
+  ///
+  /// In en, this message translates to:
+  /// **'Share your link'**
+  String get referralStepShare;
+
+  /// Referral program screen, How it works: the line under step 1.
+  ///
+  /// In en, this message translates to:
+  /// **'Send your link or code to friends.'**
+  String get referralStepShareLine;
+
+  /// Referral program screen, How it works: step 2's title (the friend's discount sentence goes under it).
+  ///
+  /// In en, this message translates to:
+  /// **'They join and trade'**
+  String get referralStepJoin;
+
+  /// Referral program screen, How it works: step 3's title. {rate} is the program's base commission rate with its percent sign (e.g. '5%'); the higher rates follow under it.
+  ///
+  /// In en, this message translates to:
+  /// **'You earn {rate} of their fees'**
+  String referralStepEarn(String rate);
 
   /// No description provided for @accountPayments.
   ///

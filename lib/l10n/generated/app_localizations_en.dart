@@ -1752,12 +1752,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get referrerFriendInvitedYou => 'A friend invited you';
 
   @override
-  String accountYouEarnRate(String rate) {
-    return 'You earn $rate%';
-  }
-
-  @override
-  String accountInviteMoreForRate(int count, int rate) {
+  String accountInviteMoreForRate(int count, String rate) {
     return 'Invite $count more friends to earn $rate%';
   }
 
@@ -2661,9 +2656,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get accountUsersWithYourCode => 'Users with your code';
-
-  @override
   String get accountPendingPayout => 'Pending payout';
 
   @override
@@ -2681,16 +2673,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String accountRuleEarnings(String rate) {
-    return 'You earn $rate of the fees your friends generate.';
-  }
-
-  @override
-  String accountRuleEarningsLadder(String rate, String ladder) {
-    return 'You earn $rate of the fees your friends generate, $ladder.';
-  }
-
-  @override
   String accountRuleEarningsStep(String rate, int count) {
     return '$rate at $count friends';
   }
@@ -2698,6 +2680,53 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String accountRuleFriendDiscount(String discount) {
     return 'Friends get $discount off Kute fees while they\'re with you.';
+  }
+
+  @override
+  String referralHeroTitle(String rate) {
+    return 'Earn $rate of your friends\' fees';
+  }
+
+  @override
+  String referralHeroLine(String discount) {
+    return 'They get $discount off Kute fees';
+  }
+
+  @override
+  String get referralShareInvite => 'Share invite';
+
+  @override
+  String get referralFriendsJoined => 'Friends joined';
+
+  @override
+  String get referralYourRate => 'Your rate';
+
+  @override
+  String get referralTopRate => 'You\'re on the top rate';
+
+  @override
+  String referralTierFriends(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count friends',
+      one: '1 friend',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get referralStepShare => 'Share your link';
+
+  @override
+  String get referralStepShareLine => 'Send your link or code to friends.';
+
+  @override
+  String get referralStepJoin => 'They join and trade';
+
+  @override
+  String referralStepEarn(String rate) {
+    return 'You earn $rate of their fees';
   }
 
   @override
