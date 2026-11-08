@@ -1228,6 +1228,7 @@
   "confirmationWalletRecovered": "Портфейлът е възстановен",
   "confirmationSentToWallet": "Изпратено до {walletName}",
   "confirmationMovedToWallet": "Преместено в {walletName}",
+  "confirmationSwappedToWallet": "Разменено за {walletName}",
   "confirmationOrderFilled": "Поръчката е изпълнена",
   "confirmationWinningsClaimed": "Печалбата е взета",
   "guardQuoteRejected": "Не успяхме да проверим този превод, затова нищо не е изпратено. Опитай отново.",

@@ -1228,6 +1228,7 @@
   "confirmationWalletRecovered": "Novčanik oporavljen",
   "confirmationSentToWallet": "Poslano u {walletName}",
   "confirmationMovedToWallet": "Premješteno u {walletName}",
+  "confirmationSwappedToWallet": "Zamijenjeno za {walletName}",
   "confirmationOrderFilled": "Nalog izvršen",
   "confirmationWinningsClaimed": "Dobitak preuzet",
   "guardQuoteRejected": "Nismo mogli provjeriti ovaj prijenos, pa ništa nije poslano. Pokušaj ponovno.",

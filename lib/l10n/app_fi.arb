@@ -1228,6 +1228,7 @@
   "confirmationWalletRecovered": "Lompakko palautettu",
   "confirmationSentToWallet": "Lähetetty lompakkoon {walletName}",
   "confirmationMovedToWallet": "Siirretty kohteeseen {walletName}",
+  "confirmationSwappedToWallet": "Vaihdettu kohteeseen {walletName}",
   "confirmationOrderFilled": "Toimeksianto toteutui",
   "confirmationWinningsClaimed": "Voitot lunastettu",
   "guardQuoteRejected": "Emme voineet vahvistaa tätä siirtoa, joten mitään ei lähetetty. Yritä uudelleen.",

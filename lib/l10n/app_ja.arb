@@ -1228,6 +1228,7 @@
   "confirmationWalletRecovered": "ウォレットを復元しました",
   "confirmationSentToWallet": "{walletName}に送金しました",
   "confirmationMovedToWallet": "{walletName}へ移動しました",
+  "confirmationSwappedToWallet": "{walletName}にスワップしました",
   "confirmationOrderFilled": "注文が約定しました",
   "confirmationWinningsClaimed": "払い戻しを受け取りました",
   "guardQuoteRejected": "この送金を確認できなかったため、何も送金されていません。もう一度お試しください。",

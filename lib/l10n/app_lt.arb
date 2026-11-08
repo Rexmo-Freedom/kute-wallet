@@ -1228,6 +1228,7 @@
   "confirmationWalletRecovered": "Piniginė atkurta",
   "confirmationSentToWallet": "Išsiųsta į {walletName}",
   "confirmationMovedToWallet": "Perkelta į {walletName}",
+  "confirmationSwappedToWallet": "Iškeista į {walletName}",
   "confirmationOrderFilled": "Pavedimas įvykdytas",
   "confirmationWinningsClaimed": "Laimėjimas atsiimtas",
   "guardQuoteRejected": "Nepavyko patikrinti šio pervedimo, todėl niekas neišsiųsta. Bandykite dar kartą.",

@@ -4201,6 +4201,11 @@ class AppLocalizationsDa extends AppLocalizations {
   }
 
   @override
+  String confirmationSwappedToWallet(String walletName) {
+    return 'Byttet til $walletName';
+  }
+
+  @override
   String get confirmationOrderFilled => 'Ordre udført';
 
   @override

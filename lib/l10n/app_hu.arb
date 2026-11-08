@@ -1228,6 +1228,7 @@
   "confirmationWalletRecovered": "Tárca helyreállítva",
   "confirmationSentToWallet": "Elküldve ide: {walletName}",
   "confirmationMovedToWallet": "Áthelyezve ide: {walletName}",
+  "confirmationSwappedToWallet": "Cserélve ide: {walletName}",
   "confirmationOrderFilled": "Megbízás teljesült",
   "confirmationWinningsClaimed": "Nyeremény átvéve",
   "guardQuoteRejected": "Nem tudtuk ellenőrizni ezt az átutalást, ezért semmi sem lett elküldve. Próbáld újra.",

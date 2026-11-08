@@ -1228,6 +1228,7 @@
   "confirmationWalletRecovered": "Tegnebog gendannet",
   "confirmationSentToWallet": "Sendt til {walletName}",
   "confirmationMovedToWallet": "Flyttet til {walletName}",
+  "confirmationSwappedToWallet": "Byttet til {walletName}",
   "confirmationOrderFilled": "Ordre udført",
   "confirmationWinningsClaimed": "Gevinst indløst",
   "guardQuoteRejected": "Vi kunne ikke bekræfte denne overførsel, så intet blev sendt. Prøv igen.",

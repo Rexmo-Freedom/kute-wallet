@@ -4195,6 +4195,11 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
+  String confirmationSwappedToWallet(String walletName) {
+    return 'Směněno za $walletName';
+  }
+
+  @override
   String get confirmationOrderFilled => 'Pokyn vyplněn';
 
   @override

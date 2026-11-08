@@ -4186,6 +4186,11 @@ class AppLocalizationsEt extends AppLocalizations {
   }
 
   @override
+  String confirmationSwappedToWallet(String walletName) {
+    return 'Vahetatud: $walletName';
+  }
+
+  @override
   String get confirmationOrderFilled => 'Tellimus täidetud';
 
   @override

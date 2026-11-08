@@ -4197,6 +4197,11 @@ class AppLocalizationsSv extends AppLocalizations {
   }
 
   @override
+  String confirmationSwappedToWallet(String walletName) {
+    return 'Växlat till $walletName';
+  }
+
+  @override
   String get confirmationOrderFilled => 'Order fylld';
 
   @override

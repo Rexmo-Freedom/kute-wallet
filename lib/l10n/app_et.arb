@@ -1228,6 +1228,7 @@
   "confirmationWalletRecovered": "Rahakott taastatud",
   "confirmationSentToWallet": "Saadetud: {walletName}",
   "confirmationMovedToWallet": "Liigutatud: {walletName}",
+  "confirmationSwappedToWallet": "Vahetatud: {walletName}",
   "confirmationOrderFilled": "Tellimus täidetud",
   "confirmationWinningsClaimed": "Võidud kätte saadud",
   "guardQuoteRejected": "Me ei saanud seda ülekannet kontrollida, seega midagi ei saadetud. Proovi uuesti.",

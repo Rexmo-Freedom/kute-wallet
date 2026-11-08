@@ -4195,6 +4195,11 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
+  String confirmationSwappedToWallet(String walletName) {
+    return 'Vaihdettu kohteeseen $walletName';
+  }
+
+  @override
   String get confirmationOrderFilled => 'Toimeksianto toteutui';
 
   @override

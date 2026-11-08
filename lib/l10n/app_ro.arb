@@ -1228,6 +1228,7 @@
   "confirmationWalletRecovered": "Portofel recuperat",
   "confirmationSentToWallet": "Trimis în {walletName}",
   "confirmationMovedToWallet": "Mutat în {walletName}",
+  "confirmationSwappedToWallet": "Schimbat în {walletName}",
   "confirmationOrderFilled": "Ordin executat",
   "confirmationWinningsClaimed": "Câștiguri revendicate",
   "guardQuoteRejected": "Nu am putut verifica acest transfer, așa că nu s-a trimis nimic. Încearcă din nou.",

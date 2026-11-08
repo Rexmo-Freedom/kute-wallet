@@ -2400,6 +2400,15 @@
       }
     }
   },
+  "confirmationSwappedToWallet": "Swapped to {walletName}",
+  "@confirmationSwappedToWallet": {
+    "description": "The confirmation after Swap, the two-way screen between the person's own Bitcoin and Dollars (the Dollars home's Swap button). {walletName} is the account it landed in (Bitcoin or Dollars). Founder, 7 November 2026: \"Move money or swap money whatever is more common in crypto lingo. or just 'swap'\". Use the same word as the 'swap' label in each language.",
+    "placeholders": {
+      "walletName": {
+        "type": "String"
+      }
+    }
+  },
   "confirmationOrderFilled": "Order filled",
   "confirmationWinningsClaimed": "Winnings claimed",
   "guardQuoteRejected": "We couldn't verify this transfer, so nothing was sent. Please try again.",

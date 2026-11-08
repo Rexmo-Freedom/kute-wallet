@@ -11,12 +11,15 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/services/tracking_service.dart';
 
+/// [swapped]: the move came from Swap, the two-way screen between the
+/// person's own Bitcoin and Dollars, and reads "Swapped to …".
 void pushMoveSentOverlay({
   required NavigatorState navigator,
   required String amount,
   required String fromWalletName,
   required String toWalletName,
   String? note,
+  bool swapped = false,
 }) {
   TrackingService.screenView('move_sent_overlay');
   pushKuteSuccessOverlay(
@@ -26,6 +29,7 @@ void pushMoveSentOverlay({
       fromWalletName: fromWalletName,
       toWalletName: toWalletName,
       note: note,
+      swapped: swapped,
     ),
   );
 }
@@ -42,7 +46,12 @@ class MoveSentOverlay extends StatelessWidget {
     required this.fromWalletName,
     required this.toWalletName,
     this.note,
+    this.swapped = false,
   });
+
+  /// Swap's own word for it ("Swapped to Dollars"; founder, 7 November
+  /// 2026, the screen is "Swap").
+  final bool swapped;
 
   @override
   Widget build(BuildContext context) {
@@ -50,7 +59,9 @@ class MoveSentOverlay extends StatelessWidget {
     return KuteConfirmation(
       // The person's own money moved between their accounts: "Moved to
       // Dollars", never "Bought" (founder, 7 November 2026).
-      message: l10n.confirmationMovedToWallet(toWalletName),
+      message: swapped
+          ? l10n.confirmationSwappedToWallet(toWalletName)
+          : l10n.confirmationMovedToWallet(toWalletName),
       amount: amount.isEmpty ? null : amount,
       rows: {l10n.from: fromWalletName},
       detail: note,

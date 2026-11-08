@@ -7467,6 +7467,12 @@ abstract class AppLocalizations {
   /// **'Moved to {walletName}'**
   String confirmationMovedToWallet(String walletName);
 
+  /// The confirmation after Swap, the two-way screen between the person's own Bitcoin and Dollars (the Dollars home's Swap button). {walletName} is the account it landed in (Bitcoin or Dollars). Founder, 7 November 2026: "Move money or swap money whatever is more common in crypto lingo. or just 'swap'". Use the same word as the 'swap' label in each language.
+  ///
+  /// In en, this message translates to:
+  /// **'Swapped to {walletName}'**
+  String confirmationSwappedToWallet(String walletName);
+
   /// No description provided for @confirmationOrderFilled.
   ///
   /// In en, this message translates to:

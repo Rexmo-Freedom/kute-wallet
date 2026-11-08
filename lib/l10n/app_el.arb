@@ -1228,6 +1228,7 @@
   "confirmationWalletRecovered": "Το πορτοφόλι ανακτήθηκε",
   "confirmationSentToWallet": "Στάλθηκε στο {walletName}",
   "confirmationMovedToWallet": "Μεταφέρθηκε στο {walletName}",
+  "confirmationSwappedToWallet": "Ανταλλάχθηκε με {walletName}",
   "confirmationOrderFilled": "Η εντολή εκτελέστηκε",
   "confirmationWinningsClaimed": "Τα κέρδη εισπράχθηκαν",
   "guardQuoteRejected": "Δεν μπορέσαμε να επαληθεύσουμε αυτή τη μεταφορά, οπότε δεν στάλθηκε τίποτα. Δοκίμασε ξανά.",

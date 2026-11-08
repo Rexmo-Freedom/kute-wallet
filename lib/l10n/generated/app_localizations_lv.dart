@@ -4185,6 +4185,11 @@ class AppLocalizationsLv extends AppLocalizations {
   }
 
   @override
+  String confirmationSwappedToWallet(String walletName) {
+    return 'Apmainīts pret $walletName';
+  }
+
+  @override
   String get confirmationOrderFilled => 'Rīkojums izpildīts';
 
   @override

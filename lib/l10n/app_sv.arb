@@ -1228,6 +1228,7 @@
   "confirmationWalletRecovered": "Plånbok återställd",
   "confirmationSentToWallet": "Skickat till {walletName}",
   "confirmationMovedToWallet": "Flyttat till {walletName}",
+  "confirmationSwappedToWallet": "Växlat till {walletName}",
   "confirmationOrderFilled": "Order fylld",
   "confirmationWinningsClaimed": "Vinst hämtad",
   "guardQuoteRejected": "Vi kunde inte verifiera överföringen, så inget skickades. Försök igen.",

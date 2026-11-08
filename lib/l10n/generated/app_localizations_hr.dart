@@ -4207,6 +4207,11 @@ class AppLocalizationsHr extends AppLocalizations {
   }
 
   @override
+  String confirmationSwappedToWallet(String walletName) {
+    return 'Zamijenjeno za $walletName';
+  }
+
+  @override
   String get confirmationOrderFilled => 'Nalog izvršen';
 
   @override

@@ -1228,6 +1228,7 @@
   "confirmationWalletRecovered": "Denarnica obnovljena",
   "confirmationSentToWallet": "Poslano v {walletName}",
   "confirmationMovedToWallet": "Premaknjeno v {walletName}",
+  "confirmationSwappedToWallet": "Zamenjano za {walletName}",
   "confirmationOrderFilled": "Naročilo izvršeno",
   "confirmationWinningsClaimed": "Dobitek prevzet",
   "guardQuoteRejected": "Tega prenosa nismo mogli preveriti, zato ni bilo poslano nič. Poskusite znova.",

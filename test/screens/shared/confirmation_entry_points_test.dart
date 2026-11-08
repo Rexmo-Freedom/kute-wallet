@@ -240,6 +240,25 @@ void main() {
         {'product': 'predictions', 'order_kind': 'limit_sell'});
   });
 
+  testWidgets(
+      "Swap's confirmation says Swapped (founder, 7 November 2026: the "
+      'screen is Swap)', (tester) async {
+    await pumpHost(tester);
+    pushMoveSentOverlay(
+      navigator: nav(),
+      amount: r'$25.00',
+      fromWalletName: 'Bitcoin',
+      toWalletName: 'Dollars',
+      note: 'Conversion ongoing',
+      swapped: true,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Swapped to Dollars'), findsOneWidget);
+    expect(find.text('Moved to Dollars'), findsNothing);
+    expect(find.text(r'$25.00'), findsOneWidget);
+    await tapDoneAndExpectHost(tester);
+  });
+
   testWidgets('pushMoveSentOverlay shows the destination and the pending note',
       (tester) async {
     await pumpHost(tester);

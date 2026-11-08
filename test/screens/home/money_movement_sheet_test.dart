@@ -713,6 +713,9 @@ void main() {
     expect(_last('move_direction_changed')['reversed'], true);
 
     await _type(tester, '5');
+    // The Portfolio's Move money keeps its title and its verb.
+    expect(find.text('Move money'), findsOneWidget);
+    expect(_button(tester).text, startsWith('Move \$'));
     expect(_railCalls, 0);
     expect(_approvals.intents, isEmpty);
     await _close(tester, c);
@@ -720,15 +723,14 @@ void main() {
 
   testWidgets(
       'an own-account door pins the route: Dollars to Bitcoin, each end by '
-      'its account\'s name, "Swap" over "Move \$5", no pickers, the swap '
+      'its account\'s name, "Swap" over "Swap \$5", no pickers, the swap '
       'circle, and the move still runs', (tester) async {
     final c = await _open(tester, const MoneyMovementRoute(_d, _b),
         pinned: true);
     expect(find.text('Dollars'), findsOneWidget);
     expect(find.text('Investments'), findsNothing);
     expect(find.text('Bitcoin'), findsOneWidget);
-    // Swap (founder, 7 November 2026), the title alone; its verb is
-    // still the person's own money moving.
+    // Swap (founder, 7 November 2026): the title, and the bar's verb.
     expect(find.text('Swap'), findsOneWidget);
     expect(find.text('Move money'), findsNothing);
     expect(find.textContaining('Buy'), findsNothing);
@@ -739,7 +741,7 @@ void main() {
     await _frames(tester);
     expect(find.text('Move from'), findsNothing);
     await _type(tester, '5');
-    expect(_button(tester).text, r'Move $5');
+    expect(_button(tester).text, r'Swap $5');
     await _confirm(tester);
     expect(_railCalls, 1);
     await _close(tester, c);
@@ -752,7 +754,7 @@ void main() {
         pinned: true, initialTargetUsd: 5);
     expect(find.text('Swap'), findsOneWidget);
     expect(find.byKey(const ValueKey('money-movement-swap')), findsOneWidget);
-    expect(_button(tester).text, r'Move $5');
+    expect(_button(tester).text, r'Swap $5');
     await _close(tester, c);
   });
 
@@ -1624,7 +1626,7 @@ void main() {
       await _type(tester, '5');
       await _frames(tester, 12);
       expect(restricted(), findsNothing);
-      expect(_button(tester).text, r'Move $5');
+      expect(_button(tester).text, r'Swap $5');
       expect(tester.widget<KuteCircleButton>(swap).enabled, isTrue);
 
       // Into the blocked direction: the swap goes through, the screen says
@@ -1651,7 +1653,7 @@ void main() {
       expect(restricted(), findsNothing);
       await _type(tester, '5');
       await _frames(tester, 12);
-      expect(_button(tester).text, r'Move $5');
+      expect(_button(tester).text, r'Swap $5');
       expect(_button(tester).onPressed, isNotNull);
       await _close(tester, c);
     });
@@ -1783,7 +1785,7 @@ void main() {
 
         await tester.tap(find.text('Max').last);
         await _frames(tester);
-        expect(_button(tester).text, r'Move $68.80');
+        expect(_button(tester).text, r'Swap $68.80');
         expect(find.text('Insufficient balance'), findsNothing);
         expect(_button(tester).onPressed, isNotNull);
         expect(_railCalls, 0);
@@ -1802,7 +1804,7 @@ void main() {
           ownMoveEntrySource: kBitcoinReceiveDollarsSource);
       await _type(tester, '40');
       expect(find.text('Insufficient balance'), findsNothing);
-      expect(_button(tester).text, r'Move $40');
+      expect(_button(tester).text, r'Swap $40');
       await _confirm(tester);
       await _frames(tester, 8);
 
@@ -1897,6 +1899,13 @@ void main() {
           overrides: venues(p: 60));
       expect(find.text(r'$10.00 available'), findsOneWidget);
       expect(find.textContaining(r'$68.80'), findsNothing);
+      // Bitcoin and Dollars here too, yet still Move money: its title and
+      // its verb (the Swap screen is the own-account doors').
+      expect(find.text('Move money'), findsOneWidget);
+      await _type(tester, '5');
+      expect(_button(tester).text, r'Move $5');
+      await tester.tap(find.byIcon(Icons.backspace_rounded));
+      await _frames(tester);
       await _type(tester, '30');
       expect(find.text('Insufficient balance'), findsOneWidget);
       expect(_button(tester).onPressed, isNull);
@@ -1933,7 +1942,7 @@ void main() {
           .map((e) => (e.widget as Text).data)
           .any((t) => t == r'$19.99 available' || t == r'$20.00 available');
       bool bitcoinMax() =>
-          {r'Move $19.99', r'Move $20'}.contains(_button(tester).text);
+          {r'Swap $19.99', r'Swap $20'}.contains(_button(tester).text);
       String typed() => tester
           .widget<BigAmountDisplay>(find.byType(BigAmountDisplay))
           .amountText;
@@ -1963,7 +1972,7 @@ void main() {
       expect(typed(), '');
       await tester.tap(find.text('Max').last);
       await _frames(tester);
-      expect(_button(tester).text, r'Move $68.80');
+      expect(_button(tester).text, r'Swap $68.80');
       // $50 is past Dollars ($10) but within reach: not insufficient.
       await tester.tap(find.text(r'$50').last);
       await _frames(tester);

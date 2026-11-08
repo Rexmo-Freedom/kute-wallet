@@ -1228,6 +1228,7 @@
   "confirmationWalletRecovered": "Peněženka obnovena",
   "confirmationSentToWallet": "Odesláno do {walletName}",
   "confirmationMovedToWallet": "Přesunuto do {walletName}",
+  "confirmationSwappedToWallet": "Směněno za {walletName}",
   "confirmationOrderFilled": "Pokyn vyplněn",
   "confirmationWinningsClaimed": "Výhra vyzvednuta",
   "guardQuoteRejected": "Tento převod jsme nemohli ověřit, takže se nic neodeslalo. Zkus to znovu.",

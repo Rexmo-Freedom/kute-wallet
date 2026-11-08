@@ -1228,6 +1228,7 @@
   "confirmationWalletRecovered": "Wallet wiederhergestellt",
   "confirmationSentToWallet": "An {walletName} gesendet",
   "confirmationMovedToWallet": "Zu {walletName} verschoben",
+  "confirmationSwappedToWallet": "Gegen {walletName} getauscht",
   "confirmationOrderFilled": "Auftrag ausgeführt",
   "confirmationWinningsClaimed": "Gewinn abgeholt",
   "guardQuoteRejected": "Wir konnten diese Überweisung nicht prüfen, daher wurde nichts gesendet. Bitte versuche es erneut.",

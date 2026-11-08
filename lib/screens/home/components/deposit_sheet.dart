@@ -1536,6 +1536,13 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   }
 
   String get _actionVerb {
+    // Swap's bar says what its title says ("Swap $50"; founder, 7 November
+    // 2026), in each language's swap word. The Portfolio's Move money
+    // keeps "Move $50": its title and its door say Move money, and its
+    // ends reach Predictions and Investing, where a swap is not what
+    // happens; a verb that changed with the picked pair would not match
+    // the title over it.
+    if (_ownMoneySwap) return context.l10n.swap;
     // The person's own money moves ("Move $50"); only money from outside
     // is bought.
     if (_isMoneyMovement || _ownMoneyMove) return context.l10n.moveVerb;
@@ -4396,14 +4403,19 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       final l10n = context.l10n;
       navigator.pop();
       _trackMoveCompleted();
+      final swapped = _ownMoneySwap;
       pushMoveSentOverlay(
         navigator: navigator,
         amount: '\$${estOut.toStringAsFixed(2)}',
-        fromWalletName: settings.activeWallet?.name ?? l10n.spending,
+        // Swap names the ends as its squares do.
+        fromWalletName: swapped
+            ? _movementName(MoneyMovementAccount.bitcoin)
+            : settings.activeWallet?.name ?? l10n.spending,
         toWalletName: l10n.assetDollars,
         note: settled.registered
             ? l10n.moveConversionOngoing
             : l10n.settlementRegistering,
+        swapped: swapped,
       );
     } catch (e) {
       // Once the sats left, the order's real outcome comes from the
@@ -4795,12 +4807,17 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     // purchase from Dollars finishes in the background once what came
     // home lands (`move_purchase_finished` reports it).
     _trackMoveCompleted(outcome: queued ? 'purchase_queued' : 'submitted');
+    final swapped = _ownMoneySwap;
     pushMoveSentOverlay(
       navigator: navigator,
       amount: '\$${usd.toStringAsFixed(2)}',
       fromWalletName: l10n.assetDollars,
-      toWalletName: settings.activeWallet?.name ?? l10n.spending,
+      // Swap names the ends as its squares do.
+      toWalletName: swapped
+          ? _movementName(MoneyMovementAccount.bitcoin)
+          : settings.activeWallet?.name ?? l10n.spending,
       note: l10n.moveConversionOngoing,
+      swapped: swapped,
     );
   }
 
@@ -5033,14 +5050,19 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       final l10n = context.l10n;
       navigator.pop();
       _trackMoveCompleted();
+      final swapped = _ownMoneySwap;
       pushMoveSentOverlay(
         navigator: navigator,
         amount: '\$${sent.sentUsd.toStringAsFixed(2)}',
         fromWalletName: l10n.assetDollars,
-        toWalletName: settings.activeWallet?.name ?? l10n.spending,
+        // Swap names the ends as its squares do.
+        toWalletName: swapped
+            ? _movementName(MoneyMovementAccount.bitcoin)
+            : settings.activeWallet?.name ?? l10n.spending,
         note: sent.registered
             ? l10n.moveConversionOngoing
             : l10n.settlementRegistering,
+        swapped: swapped,
       );
     } catch (e) {
       if (!usdSent && e is DollarsToBitcoinBelowMinimum && _moveId != null) {
@@ -7671,9 +7693,13 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           if (sats <= 0 && _usdPerBtc > 0) {
             sats = (_typedAmountValue / _usdPerBtc * 1e8).round();
           }
-          conversionLabel =
-              context.l10n.moveAmountFrom(
-                  '${sats.toFormattedString(btcFormat)} $btcUnit', sourceName);
+          final figure = '${sats.toFormattedString(btcFormat)} $btcUnit';
+          // Move money's From square already names the account (founder,
+          // 7 November 2026: too many words and numbers under the
+          // amount): the sats alone.
+          conversionLabel = _isMoneyMovement
+              ? figure
+              : context.l10n.moveAmountFrom(figure, sourceName);
         } else if (_dollarsAreSource || _destUsd) {
           // Dollars at either end: both sides are dollars, so there is
           // no second denomination to show. A sats line here would be a
@@ -7989,6 +8015,265 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     // wide as the keypad's keys), the keypad and the bar. Every other door
     // of this sheet keeps its own header and layout.
     final movement = _isMoneyMovement;
+
+    // The figure, its lines and the fee: one block over the route.
+    final amountBlock = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (_isFiatMode)
+          // Typed fiat amount (fiat has no in-app balance,
+          // so the number is what a bank leg would move).
+          // Currency selector rides next to the number;
+          // the live BTC estimate sits beneath.
+          BigAmountDisplay(
+            prefix: _fiatSymbol(_fiatCurrency),
+            amountText: _typedFiatAmountController.text,
+            // The sats estimate only where the purchase
+            // lands in bitcoin: a buy into a venue or the
+            // Dollars arrives in dollars, and its fee
+            // block states what arrives.
+            conversionLabel: !_destHyperliquid &&
+                    !_destPredictions &&
+                    !_destUsd &&
+                    fiatEstSats > 0
+                ? (_destFiat
+                    ? 'Sells ≈ ${fiatEstSats.toFormattedString(btcFormat)} $btcUnit'
+                    : '≈ ${fiatEstSats.toFormattedString(btcFormat)} $btcUnit')
+                : null,
+            // The available balance reads on the From
+            // row of the route card, not twice.
+            trailing: AmountCurrencyPill(
+              flag: _fiatFlag(_fiatCurrency),
+              code: _fiatCurrency,
+              // Cash App settles USD fiat only (the
+              // Flashnet onramp is USD-denominated) —
+              // the currency is locked there. The bank
+              // rail is locked too while it offers a
+              // single currency (EUR for now).
+              onTap: (_processing ||
+                      _sourceCashApp ||
+                      _kBankFiatCurrencies.length < 2)
+                  ? null
+                  : _showFiatCurrencyPicker,
+            ),
+          )
+        else
+          BigAmountDisplay(
+            prefix: '\$',
+            amountText: _typedAmount,
+            loading: _loadingRate,
+            conversionLabel: conversionLabel,
+            centered: movement,
+            // The available balance reads on the From
+            // row of the route card, not twice.
+          ),
+        // More than the source has: said under the figure
+        // in the error ink, as the Send amount step says
+        // it; the From square keeps its figure.
+        if (movement &&
+            _sourceBalanceState == null &&
+            _typedExceedsAvailable &&
+            sourceState != null)
+          Padding(
+            padding: EdgeInsets.only(top: 8.h),
+            child: Text(
+              sourceState,
+              key: const ValueKey(
+                  'money-movement-insufficient'),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.marketDown,
+                fontSize: 14.sp,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.1,
+              ),
+            ),
+          ),
+        // One quiet caption line under the big number,
+        // only when there is something to act on: the
+        // Flashnet band edge the typed Cash App amount
+        // broke, or the bank rail's coming-soon line. An
+        // in-band Cash App amount shows no caption (user
+        // decision: no explanatory copy under the amount).
+        if (_isFiatMode)
+          Builder(builder: (context) {
+            final l10n = context.l10n;
+            String? caption;
+            var over = false;
+            if (_sourceCashApp) {
+              final usd = _typedFiatAmount;
+              if (usd > _cashAppMaxFiat) {
+                over = true;
+                caption = l10n.cashAppMaxPerOrder(
+                    _fmtUsdLimit(_cashAppMaxFiat));
+              } else if (usd > 0 && usd < _cashAppMinFiat) {
+                caption = l10n.cashAppMinPerOrder(
+                    _fmtUsdLimit(_cashAppMinFiat));
+              }
+            } else {
+              caption = context.l10n.moveBankComingSoon;
+            }
+            if (caption == null) {
+              return const SizedBox.shrink();
+            }
+            return Padding(
+              padding: EdgeInsets.only(top: 10.h),
+              child: Text(
+                caption,
+                style: TextStyle(
+                  color: over
+                      ? AppColors.marketDown
+                      : c.textSecondary,
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w500,
+                  height: 1.35,
+                ),
+              ),
+            );
+          }),
+        // A withheld route says so in the bet slip's own
+        // words and chrome, where the fee and any error
+        // would read; no estimate is asked for it.
+        if (restriction != null)
+          CapabilityBlockNote(
+            restriction.message,
+            key: const ValueKey('money-movement-restricted'),
+            padding: EdgeInsets.only(top: 10.h),
+          ),
+        // A failure reads on the same quiet line as the
+        // fee, in the error ink: no tinted box on this
+        // screen. The button keeps its own state.
+        if (_error != null && restriction == null)
+          Padding(
+            padding: EdgeInsets.only(top: 10.h),
+            child: Text(
+              _error!,
+              textAlign:
+                  movement ? TextAlign.center : null,
+              style: TextStyle(
+                color: AppColors.marketDown,
+                fontSize: 12.sp,
+                fontWeight: FontWeight.w500,
+                height: 1.35,
+              ),
+            ),
+          ),
+        // What the move costs, as one caption line under
+        // the amount ("Fee about $0.12"); nothing at all
+        // while there is no fee to speak of. Provider
+        // splits and the estimate caveats stay one tap
+        // inside. No arrival time: the sheet has no
+        // estimate of one to state.
+        if (restriction == null)
+        MoneyFeeCaption(
+            centered: movement,
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+          if (!_isFiatMode &&
+              _isSupportedSwap &&
+              feeInputState != null)
+            MoneyFeeSummary(
+                state: feeInputState,
+                onRetry: (_isLedgerMove
+                        ? _sourceBalanceState != null &&
+                            feeInputState !=
+                                context.l10n.feeUiCalculating
+                        : feeInputState ==
+                            'Balance unavailable')
+                    ? _retrySourceBalance
+                    : null),
+          if (!_isFiatMode &&
+              !_isLedgerMove &&
+              _isSupportedSwap &&
+              feeInputState == null) ...[
+            if (_isMoneyMovement)
+              _movementFeeSummary()
+            else if (!_fromHyperliquid && !_destHyperliquid)
+              OrchestraFeeSummary(
+                  bitcoinFirst: false,
+                  recipient: _estimateRecipientFor(
+                      _destPredictions
+                          ? 'polygon'
+                          : (_destUsd
+                              ? kOrchestraUsdChain
+                              : 'spark'),
+                      read: ref.watch),
+                  route: (
+                    fromChain: _sourceFeeChain,
+                    fromAsset: _sourceFeeAsset,
+                    toChain: _destHyperliquid
+                        ? 'hypercore'
+                        : (_destPredictions
+                            ? 'polygon'
+                            : (_destUsd
+                                ? kOrchestraUsdChain
+                                : 'spark')),
+                    toAsset: _destHyperliquid
+                        ? 'USDC'
+                        : (_destPredictions
+                            ? 'USDC.e'
+                            : (_destUsd
+                                ? kOrchestraUsdAssetCode
+                                : 'BTC')),
+                    amount: _fromBtc
+                        ? _selectedSats.toString()
+                        : doubleToOrchestraAmount(
+                            _selectedSourceUsd,
+                            _sourceFeeAsset,
+                            chain: _sourceFeeChain),
+                  )),
+            if (!_isMoneyMovement &&
+                (_fromHyperliquid || _destHyperliquid))
+              MoveHyperliquidFees(
+                  deposit: _destHyperliquid,
+                  // A dollar-funded Investing deposit pays
+                  // out of the dollar balance, not out of
+                  // spending bitcoin, so the estimate has
+                  // to ask about the leg that will run.
+                  fromDollars: _dollarsAreSource,
+                  // The mirror on the withdraw side: a
+                  // cash-out into dollars prices the leg
+                  // that will run, not the bitcoin one.
+                  toDollars: _destUsd,
+                  sats: _selectedSats,
+                  usd: _selectedSourceUsd,
+                  bitcoinFirst: false),
+          ],
+          // A Cash App purchase that lands in dollars (a
+          // venue or the Dollars): created as an onramp
+          // order, so estimated at the rule that order is
+          // charged, with the Kute fee and what arrives
+          // shown before Continue.
+          if (_sourceCashApp &&
+              _cashAppDestination.deliversDollars)
+            OrchestraFeeSummary(
+                bitcoinFirst: false,
+                onramp: true,
+                showReceive: true,
+                recipient: _estimateRecipientFor(
+                    _cashAppDestination.chain,
+                    read: ref.watch),
+                recipientPending: _estimateRecipientPending(
+                    _cashAppDestination.chain),
+                route: (
+              fromChain: 'lightning',
+              fromAsset: 'BTC',
+              toChain: _cashAppDestination.chain,
+              toAsset: _cashAppDestination.asset,
+              amount: fiatEstSats.toString(),
+            )),
+          if (_sourceCashApp &&
+              !_cashAppDestination.deliversDollars)
+            const MoneyFeeSummary(
+                label: 'Purchase fee',
+                state: 'Shown in Cash App'),
+        ])),
+      ],
+    );
+
     return Scaffold(
       key: movement ? const ValueKey('money-movement-sheet') : null,
       backgroundColor: c.background,
@@ -8027,282 +8312,55 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
               ],
               // ── Middle: the one big typed number ─────────────────────
               Expanded(
-                child: Align(
-                  // Move money's hero and squares sit high, as Send's
-                  // hero does: a quarter of the room left over goes above
-                  // them, the rest under the squares, over the chips.
-                  alignment: movement
-                      ? const Alignment(0, -0.5)
-                      : Alignment.centerLeft,
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (_isFiatMode)
-                          // Typed fiat amount (fiat has no in-app balance,
-                          // so the number is what a bank leg would move).
-                          // Currency selector rides next to the number;
-                          // the live BTC estimate sits beneath.
-                          BigAmountDisplay(
-                            prefix: _fiatSymbol(_fiatCurrency),
-                            amountText: _typedFiatAmountController.text,
-                            // The sats estimate only where the purchase
-                            // lands in bitcoin: a buy into a venue or the
-                            // Dollars arrives in dollars, and its fee
-                            // block states what arrives.
-                            conversionLabel: !_destHyperliquid &&
-                                    !_destPredictions &&
-                                    !_destUsd &&
-                                    fiatEstSats > 0
-                                ? (_destFiat
-                                    ? 'Sells ≈ ${fiatEstSats.toFormattedString(btcFormat)} $btcUnit'
-                                    : '≈ ${fiatEstSats.toFormattedString(btcFormat)} $btcUnit')
-                                : null,
-                            // The available balance reads on the From
-                            // row of the route card, not twice.
-                            trailing: AmountCurrencyPill(
-                              flag: _fiatFlag(_fiatCurrency),
-                              code: _fiatCurrency,
-                              // Cash App settles USD fiat only (the
-                              // Flashnet onramp is USD-denominated) —
-                              // the currency is locked there. The bank
-                              // rail is locked too while it offers a
-                              // single currency (EUR for now).
-                              onTap: (_processing ||
-                                      _sourceCashApp ||
-                                      _kBankFiatCurrencies.length < 2)
-                                  ? null
-                                  : _showFiatCurrencyPicker,
-                            ),
-                          )
-                        else
-                          BigAmountDisplay(
-                            prefix: '\$',
-                            amountText: _typedAmount,
-                            loading: _loadingRate,
-                            conversionLabel: conversionLabel,
-                            centered: movement,
-                            // The available balance reads on the From
-                            // row of the route card, not twice.
-                          ),
-                        // More than the source has: said under the figure
-                        // in the error ink, as the Send amount step says
-                        // it; the From square keeps its figure.
-                        if (movement &&
-                            _sourceBalanceState == null &&
-                            _typedExceedsAvailable &&
-                            sourceState != null)
-                          Padding(
-                            padding: EdgeInsets.only(top: 8.h),
-                            child: Text(
-                              sourceState,
-                              key: const ValueKey(
-                                  'money-movement-insufficient'),
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: AppColors.marketDown,
-                                fontSize: 14.sp,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: -0.1,
-                              ),
-                            ),
-                          ),
-                        // One quiet caption line under the big number,
-                        // only when there is something to act on: the
-                        // Flashnet band edge the typed Cash App amount
-                        // broke, or the bank rail's coming-soon line. An
-                        // in-band Cash App amount shows no caption (user
-                        // decision: no explanatory copy under the amount).
-                        if (_isFiatMode)
-                          Builder(builder: (context) {
-                            final l10n = context.l10n;
-                            String? caption;
-                            var over = false;
-                            if (_sourceCashApp) {
-                              final usd = _typedFiatAmount;
-                              if (usd > _cashAppMaxFiat) {
-                                over = true;
-                                caption = l10n.cashAppMaxPerOrder(
-                                    _fmtUsdLimit(_cashAppMaxFiat));
-                              } else if (usd > 0 && usd < _cashAppMinFiat) {
-                                caption = l10n.cashAppMinPerOrder(
-                                    _fmtUsdLimit(_cashAppMinFiat));
-                              }
-                            } else {
-                              caption = context.l10n.moveBankComingSoon;
-                            }
-                            if (caption == null) {
-                              return const SizedBox.shrink();
-                            }
-                            return Padding(
-                              padding: EdgeInsets.only(top: 10.h),
-                              child: Text(
-                                caption,
-                                style: TextStyle(
-                                  color: over
-                                      ? AppColors.marketDown
-                                      : c.textSecondary,
-                                  fontSize: 12.sp,
-                                  fontWeight: FontWeight.w500,
-                                  height: 1.35,
-                                ),
-                              ),
-                            );
-                          }),
-                        // A withheld route says so in the bet slip's own
-                        // words and chrome, where the fee and any error
-                        // would read; no estimate is asked for it.
-                        if (restriction != null)
-                          CapabilityBlockNote(
-                            restriction.message,
-                            key: const ValueKey('money-movement-restricted'),
-                            padding: EdgeInsets.only(top: 10.h),
-                          ),
-                        // A failure reads on the same quiet line as the
-                        // fee, in the error ink: no tinted box on this
-                        // screen. The button keeps its own state.
-                        if (_error != null && restriction == null)
-                          Padding(
-                            padding: EdgeInsets.only(top: 10.h),
-                            child: Text(
-                              _error!,
-                              textAlign:
-                                  movement ? TextAlign.center : null,
-                              style: TextStyle(
-                                color: AppColors.marketDown,
-                                fontSize: 12.sp,
-                                fontWeight: FontWeight.w500,
-                                height: 1.35,
-                              ),
-                            ),
-                          ),
-                        // What the move costs, as one caption line under
-                        // the amount ("Fee about $0.12"); nothing at all
-                        // while there is no fee to speak of. Provider
-                        // splits and the estimate caveats stay one tap
-                        // inside. No arrival time: the sheet has no
-                        // estimate of one to state.
-                        if (restriction == null)
-                        MoneyFeeCaption(
-                            centered: movement,
+                child: movement
+                    // Move money in three even bands of the room left over
+                    // (founder, 7 November 2026: no one large empty band
+                    // between the squares and the chips): over the figure,
+                    // between it and the squares, under the squares. With
+                    // no room left over it scrolls.
+                    ? LayoutBuilder(
+                        builder: (context, box) => SingleChildScrollView(
+                          child: ConstrainedBox(
+                            constraints:
+                                BoxConstraints(minHeight: box.maxHeight),
                             child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                          if (!_isFiatMode &&
-                              _isSupportedSwap &&
-                              feeInputState != null)
-                            MoneyFeeSummary(
-                                state: feeInputState,
-                                onRetry: (_isLedgerMove
-                                        ? _sourceBalanceState != null &&
-                                            feeInputState !=
-                                                context.l10n.feeUiCalculating
-                                        : feeInputState ==
-                                            'Balance unavailable')
-                                    ? _retrySourceBalance
-                                    : null),
-                          if (!_isFiatMode &&
-                              !_isLedgerMove &&
-                              _isSupportedSwap &&
-                              feeInputState == null) ...[
-                            if (_isMoneyMovement)
-                              _movementFeeSummary()
-                            else if (!_fromHyperliquid && !_destHyperliquid)
-                              OrchestraFeeSummary(
-                                  bitcoinFirst: false,
-                                  recipient: _estimateRecipientFor(
-                                      _destPredictions
-                                          ? 'polygon'
-                                          : (_destUsd
-                                              ? kOrchestraUsdChain
-                                              : 'spark'),
-                                      read: ref.watch),
-                                  route: (
-                                    fromChain: _sourceFeeChain,
-                                    fromAsset: _sourceFeeAsset,
-                                    toChain: _destHyperliquid
-                                        ? 'hypercore'
-                                        : (_destPredictions
-                                            ? 'polygon'
-                                            : (_destUsd
-                                                ? kOrchestraUsdChain
-                                                : 'spark')),
-                                    toAsset: _destHyperliquid
-                                        ? 'USDC'
-                                        : (_destPredictions
-                                            ? 'USDC.e'
-                                            : (_destUsd
-                                                ? kOrchestraUsdAssetCode
-                                                : 'BTC')),
-                                    amount: _fromBtc
-                                        ? _selectedSats.toString()
-                                        : doubleToOrchestraAmount(
-                                            _selectedSourceUsd,
-                                            _sourceFeeAsset,
-                                            chain: _sourceFeeChain),
-                                  )),
-                            if (!_isMoneyMovement &&
-                                (_fromHyperliquid || _destHyperliquid))
-                              MoveHyperliquidFees(
-                                  deposit: _destHyperliquid,
-                                  // A dollar-funded Investing deposit pays
-                                  // out of the dollar balance, not out of
-                                  // spending bitcoin, so the estimate has
-                                  // to ask about the leg that will run.
-                                  fromDollars: _dollarsAreSource,
-                                  // The mirror on the withdraw side: a
-                                  // cash-out into dollars prices the leg
-                                  // that will run, not the bitcoin one.
-                                  toDollars: _destUsd,
-                                  sats: _selectedSats,
-                                  usd: _selectedSourceUsd,
-                                  bitcoinFirst: false),
-                          ],
-                          // A Cash App purchase that lands in dollars (a
-                          // venue or the Dollars): created as an onramp
-                          // order, so estimated at the rule that order is
-                          // charged, with the Kute fee and what arrives
-                          // shown before Continue.
-                          if (_sourceCashApp &&
-                              _cashAppDestination.deliversDollars)
-                            OrchestraFeeSummary(
-                                bitcoinFirst: false,
-                                onramp: true,
-                                showReceive: true,
-                                recipient: _estimateRecipientFor(
-                                    _cashAppDestination.chain,
-                                    read: ref.watch),
-                                recipientPending: _estimateRecipientPending(
-                                    _cashAppDestination.chain),
-                                route: (
-                              fromChain: 'lightning',
-                              fromAsset: 'BTC',
-                              toChain: _cashAppDestination.chain,
-                              toAsset: _cashAppDestination.asset,
-                              amount: fiatEstSats.toString(),
-                            )),
-                          if (_sourceCashApp &&
-                              !_cashAppDestination.deliversDollars)
-                            const MoneyFeeSummary(
-                                label: 'Purchase fee',
-                                state: 'Shown in Cash App'),
-                        ])),
-                        SizedBox(height: movement ? 20.h : 18.h),
-                        // No percent row and no To row (user decision):
-                        // the destination is the sheet's own subject, so
-                        // only the source needs picking. That leaves the
-                        // amount and one From row, and a lot of space.
-                        // Move money shows both ends, as two squares.
-                        if (movement)
-                          _movementRouteCard(available: availableValue)
-                        else
-                          legacyRouteCard,
-                      ],
-                    ),
-                  ),
-                ),
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                amountBlock,
+                                // Move money shows both ends, as two
+                                // squares. The least gap over them when
+                                // there is no room to share; otherwise the
+                                // even bands set it.
+                                Padding(
+                                  padding: EdgeInsets.only(top: 12.h),
+                                  child: _movementRouteCard(
+                                      available: availableValue),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      )
+                    : Align(
+                        alignment: Alignment.centerLeft,
+                        child: SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              amountBlock,
+                              SizedBox(height: 18.h),
+                              // No percent row and no To row (user
+                              // decision): the destination is the sheet's
+                              // own subject, so only the source needs
+                              // picking. That leaves the amount and one
+                              // From row, and a lot of space.
+                              legacyRouteCard,
+                            ],
+                          ),
+                        ),
+                      ),
               ),
               // ── Bottom, pinned: chips + keypad + CTA ─────
               // On every amount screen, in every state, so the layout

@@ -1228,6 +1228,7 @@
   "confirmationWalletRecovered": "Maciņš atgūts",
   "confirmationSentToWallet": "Nosūtīts uz {walletName}",
   "confirmationMovedToWallet": "Pārvietots uz {walletName}",
+  "confirmationSwappedToWallet": "Apmainīts pret {walletName}",
   "confirmationOrderFilled": "Rīkojums izpildīts",
   "confirmationWinningsClaimed": "Laimests saņemts",
   "guardQuoteRejected": "Mēs nevarējām pārbaudīt šo pārskaitījumu, tāpēc nekas netika nosūtīts. Mēģini vēlreiz.",

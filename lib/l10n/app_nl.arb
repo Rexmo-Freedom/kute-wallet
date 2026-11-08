@@ -1228,6 +1228,7 @@
   "confirmationWalletRecovered": "Wallet hersteld",
   "confirmationSentToWallet": "Verstuurd naar {walletName}",
   "confirmationMovedToWallet": "Verplaatst naar {walletName}",
+  "confirmationSwappedToWallet": "Gewisseld naar {walletName}",
   "confirmationOrderFilled": "Order uitgevoerd",
   "confirmationWinningsClaimed": "Winst geclaimd",
   "guardQuoteRejected": "We konden deze overboeking niet verifiëren, dus er is niets verstuurd. Probeer het opnieuw.",

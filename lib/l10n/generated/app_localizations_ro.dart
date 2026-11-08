@@ -4218,6 +4218,11 @@ class AppLocalizationsRo extends AppLocalizations {
   }
 
   @override
+  String confirmationSwappedToWallet(String walletName) {
+    return 'Schimbat în $walletName';
+  }
+
+  @override
   String get confirmationOrderFilled => 'Ordin executat';
 
   @override

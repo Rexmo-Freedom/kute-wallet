@@ -4209,6 +4209,11 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
+  String confirmationSwappedToWallet(String walletName) {
+    return 'Iškeista į $walletName';
+  }
+
+  @override
   String get confirmationOrderFilled => 'Pavedimas įvykdytas';
 
   @override

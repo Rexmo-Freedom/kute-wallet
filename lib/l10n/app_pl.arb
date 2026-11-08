@@ -1228,6 +1228,7 @@
   "confirmationWalletRecovered": "Portfel odzyskany",
   "confirmationSentToWallet": "Wysłano do {walletName}",
   "confirmationMovedToWallet": "Przeniesiono do {walletName}",
+  "confirmationSwappedToWallet": "Zamieniono na {walletName}",
   "confirmationOrderFilled": "Zlecenie zrealizowane",
   "confirmationWinningsClaimed": "Wygrana odebrana",
   "guardQuoteRejected": "Nie udało się zweryfikować tego przelewu, więc nic nie zostało wysłane. Spróbuj ponownie.",

@@ -4188,6 +4188,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String confirmationSwappedToWallet(String walletName) {
+    return 'Swapped to $walletName';
+  }
+
+  @override
   String get confirmationOrderFilled => 'Order filled';
 
   @override

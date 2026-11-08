@@ -1228,6 +1228,7 @@
   "confirmationWalletRecovered": "Cartera recuperada",
   "confirmationSentToWallet": "Enviado a {walletName}",
   "confirmationMovedToWallet": "Movido a {walletName}",
+  "confirmationSwappedToWallet": "Intercambiado a {walletName}",
   "confirmationOrderFilled": "Orden ejecutada",
   "confirmationWinningsClaimed": "Ganancias reclamadas",
   "guardQuoteRejected": "No hemos podido verificar esta transferencia, así que no se ha enviado nada. Inténtalo de nuevo.",

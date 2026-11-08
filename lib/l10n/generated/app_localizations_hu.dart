@@ -4206,6 +4206,11 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
+  String confirmationSwappedToWallet(String walletName) {
+    return 'Cserélve ide: $walletName';
+  }
+
+  @override
   String get confirmationOrderFilled => 'Megbízás teljesült';
 
   @override

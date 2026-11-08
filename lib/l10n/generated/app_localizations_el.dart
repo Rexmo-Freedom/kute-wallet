@@ -4238,6 +4238,11 @@ class AppLocalizationsEl extends AppLocalizations {
   }
 
   @override
+  String confirmationSwappedToWallet(String walletName) {
+    return 'Ανταλλάχθηκε με $walletName';
+  }
+
+  @override
   String get confirmationOrderFilled => 'Η εντολή εκτελέστηκε';
 
   @override

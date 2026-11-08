@@ -131,7 +131,7 @@ class MoneyFeeCaption extends InheritedWidget {
   final bool enabled;
 
   /// The line centred under a centred figure (Swap's hero) rather than
-  /// at the start.
+  /// at the start, in the quieter tertiary ink.
   final bool centered;
 
   static bool of(BuildContext context) =>
@@ -466,20 +466,23 @@ class _MoneyFeeSummaryState extends ConsumerState<MoneyFeeSummary> {
         : _captionLabelledStates.contains(state)
             ? '${feeCopy(context, widget.label)} · ${feeCopy(context, state)}'
             : feeCopy(context, state);
+    final centered = MoneyFeeCaption.centeredOf(context);
+    // Under a centred figure (Swap) the line is the quietest thing on the
+    // screen: the tertiary ink, as the figure's own second line.
+    final ink = centered ? c.textTertiary : c.textSecondary;
     final style = TextStyle(
-      color: c.textSecondary,
+      color: ink,
       fontSize: 12.sp,
       fontWeight: FontWeight.w500,
       height: 1.35,
     );
-    final centered = MoneyFeeCaption.centeredOf(context);
     final line = Row(mainAxisSize: MainAxisSize.min, children: [
       Flexible(
           child: Text(text,
               textAlign: centered ? TextAlign.center : null, style: style)),
       if (canExpand) ...[
         SizedBox(width: 2.w),
-        Icon(Icons.chevron_right_rounded, size: 16.sp, color: c.textSecondary),
+        Icon(Icons.chevron_right_rounded, size: 16.sp, color: ink),
       ],
     ]);
     return Padding(

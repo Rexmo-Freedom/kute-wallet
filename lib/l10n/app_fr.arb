@@ -1228,6 +1228,7 @@
   "confirmationWalletRecovered": "Portefeuille récupéré",
   "confirmationSentToWallet": "Envoyé à {walletName}",
   "confirmationMovedToWallet": "Transféré vers {walletName}",
+  "confirmationSwappedToWallet": "Échangé contre {walletName}",
   "confirmationOrderFilled": "Ordre exécuté",
   "confirmationWinningsClaimed": "Gains récupérés",
   "guardQuoteRejected": "Nous n'avons pas pu vérifier ce transfert, rien n'a donc été envoyé. Réessayez.",

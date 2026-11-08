@@ -4079,6 +4079,11 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String confirmationSwappedToWallet(String walletName) {
+    return '$walletNameにスワップしました';
+  }
+
+  @override
   String get confirmationOrderFilled => '注文が約定しました';
 
   @override
