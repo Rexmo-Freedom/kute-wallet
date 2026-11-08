@@ -4003,5 +4003,15 @@
   "shareEdgeInviteChainLetter": "Ei ketjukirje. Vähän parempi.",
   "shareEdgeInviteCut": "Minä saan osuuden. Sinä alennuksen. Kaikilla on hyvin.",
   "shareEdgeInviteFees": "Pienemmät maksut. Yhtä monta mielipidettä.",
-  "shareEdgeInviteDog": "Alennus on aito. Koira on välinpitämätön."
+  "shareEdgeInviteDog": "Alennus on aito. Koira on välinpitämätön.",
+  "balanceGoalShareMyLevel": "Jaa tasoni",
+  "goalCardCaps": "Tasoni",
+  "shareEdgeGoalNotFlex": "Ei kehuskelua. Pelkkä taso.",
+  "shareEdgeGoalUnimpressed": "Sal tarkisti. Ei vieläkään vaikuttunut.",
+  "shareEdgeGoalNoRush": "Taso kerrallaan. Ei kiirettä.",
+  "shareEdgeGoalNobodyAsked": "Kukaan ei kysynyt. Jaan silti.",
+  "shareEdgeGoalSaysNothing": "Sal sanoo, ettei tämä ole mitään. Sanoo niin usein.",
+  "shareEdgeGoalOnPurpose": "Hidas nousu. Tahallaan.",
+  "shareEdgeGoalNoTrophy": "Ei pokaalia. Vain koira ja taso.",
+  "shareEdgeGoalYourTurn": "Sinun vuorosi. Sal odottaa."
 }

@@ -4003,5 +4003,15 @@
   "shareEdgeInviteChainLetter": "Nem lánclevél. Kicsit jobb annál.",
   "shareEdgeInviteCut": "Én részesedést kapok. Te kedvezményt. Mindenki jól jár.",
   "shareEdgeInviteFees": "Alacsonyabb díjak. Ugyanannyi vélemény.",
-  "shareEdgeInviteDog": "A kedvezmény valódi. A kutya rezzenéstelen."
+  "shareEdgeInviteDog": "A kedvezmény valódi. A kutya rezzenéstelen.",
+  "balanceGoalShareMyLevel": "A szintem megosztása",
+  "goalCardCaps": "A szintem",
+  "shareEdgeGoalNotFlex": "Nem hencegés. Csak egy szint.",
+  "shareEdgeGoalUnimpressed": "Sal megnézte. Továbbra sem hatódott meg.",
+  "shareEdgeGoalNoRush": "Szintről szintre. Semmi sietség.",
+  "shareEdgeGoalNobodyAsked": "Senki nem kérdezte. Mégis megosztom.",
+  "shareEdgeGoalSaysNothing": "Sal szerint ez semmiség. Ezt gyakran mondja.",
+  "shareEdgeGoalOnPurpose": "Lassú emelkedés. Szándékosan.",
+  "shareEdgeGoalNoTrophy": "Nincs trófea. Csak egy kutya és egy szint.",
+  "shareEdgeGoalYourTurn": "Te jössz. Sal megvár."
 }

@@ -4003,5 +4003,15 @@
   "shareEdgeInviteChainLetter": "No es una cadena. Es un poco mejor.",
   "shareEdgeInviteCut": "Yo me llevo una parte. Tú, un descuento. Todos contentos.",
   "shareEdgeInviteFees": "Menos comisiones. Las mismas opiniones.",
-  "shareEdgeInviteDog": "El descuento es real. Al perro le da igual."
+  "shareEdgeInviteDog": "El descuento es real. Al perro le da igual.",
+  "balanceGoalShareMyLevel": "Compartir mi nivel",
+  "goalCardCaps": "Mi nivel",
+  "shareEdgeGoalNotFlex": "No es presumir. Solo es un nivel.",
+  "shareEdgeGoalUnimpressed": "Sal lo ha mirado. Sigue sin impresionarse.",
+  "shareEdgeGoalNoRush": "Nivel a nivel. Sin prisa.",
+  "shareEdgeGoalNobodyAsked": "Nadie preguntó. Lo comparto igual.",
+  "shareEdgeGoalSaysNothing": "Sal dice que no es nada. Lo dice mucho.",
+  "shareEdgeGoalOnPurpose": "Subida lenta. A propósito.",
+  "shareEdgeGoalNoTrophy": "Sin trofeo. Solo un perro y un nivel.",
+  "shareEdgeGoalYourTurn": "Te toca. Sal espera."
 }

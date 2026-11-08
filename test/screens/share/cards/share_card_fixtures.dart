@@ -7,6 +7,19 @@ import 'package:kute/screens/share/cards/share_card_data.dart';
 
 const String kShareTestCode = 'JOAO42';
 
+/// A level's card: Stacker unless told otherwise.
+GoalCardData fakeGoalCard(
+        {int level = 3,
+        String name = 'Stacker',
+        String? still,
+        String? code = kShareTestCode}) =>
+    GoalCardData(
+      level: level,
+      name: name,
+      still: still ?? 'level_card_${level.clamp(1, 12)}',
+      referralCode: code,
+    );
+
 InviteCardData fakeInviteCard({String? discount = '20%'}) =>
     InviteCardData(discount: discount, referralCode: 'EKVGUY');
 
@@ -351,6 +364,8 @@ extension ShareCardRecipientCopy on ShareCardData {
   ShareCardData asRecipient() => switch (this) {
         // The invite has no recipient's version.
         final InviteCardData d => d,
+        // Nor has a level.
+        final GoalCardData d => d,
         final MoneyCardData d => MoneyCardData(
             bitcoin: d.bitcoin,
             amount: d.amount,

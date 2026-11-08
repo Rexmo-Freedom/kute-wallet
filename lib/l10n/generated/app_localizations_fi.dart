@@ -14228,4 +14228,36 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get shareEdgeInviteDog => 'Alennus on aito. Koira on välinpitämätön.';
+
+  @override
+  String get balanceGoalShareMyLevel => 'Jaa tasoni';
+
+  @override
+  String get goalCardCaps => 'Tasoni';
+
+  @override
+  String get shareEdgeGoalNotFlex => 'Ei kehuskelua. Pelkkä taso.';
+
+  @override
+  String get shareEdgeGoalUnimpressed =>
+      'Sal tarkisti. Ei vieläkään vaikuttunut.';
+
+  @override
+  String get shareEdgeGoalNoRush => 'Taso kerrallaan. Ei kiirettä.';
+
+  @override
+  String get shareEdgeGoalNobodyAsked => 'Kukaan ei kysynyt. Jaan silti.';
+
+  @override
+  String get shareEdgeGoalSaysNothing =>
+      'Sal sanoo, ettei tämä ole mitään. Sanoo niin usein.';
+
+  @override
+  String get shareEdgeGoalOnPurpose => 'Hidas nousu. Tahallaan.';
+
+  @override
+  String get shareEdgeGoalNoTrophy => 'Ei pokaalia. Vain koira ja taso.';
+
+  @override
+  String get shareEdgeGoalYourTurn => 'Sinun vuorosi. Sal odottaa.';
 }

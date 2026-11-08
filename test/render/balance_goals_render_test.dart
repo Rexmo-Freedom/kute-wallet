@@ -12,7 +12,11 @@
 // Reduce Motion, with balances hidden (no goal line), in German (the
 // longest words); the whole ladder, the Goals squares at every level with
 // Sal's still for each; and the ladder sheet at levels 1, 5 and 12 (the
-// passed levels checked, the current one marked, Done as the bar).
+// passed levels checked, the current one marked, "Share my level" as the bar,
+// Done when hidden); with the real shell bar over them, the Goals tab reading
+// "Share my level" and the Levels sheet at rest and scrolled to its end, the
+// last row clear of the bar, on an iPhone's 393 x 852 with its home indicator
+// and on the tightest phone.
 
 import 'dart:convert';
 import 'dart:io';
@@ -41,6 +45,12 @@ import 'package:kute/providers/transactions_provider.dart';
 import 'package:kute/providers/viewed_wallet_provider.dart';
 import 'package:kute/screens/analytics/components/balance_goals.dart';
 import 'package:kute/screens/analytics/components/home_analytics_widget.dart';
+import 'package:kute/screens/home/components/kute_shell_bar.dart'
+    show KuteShellBar;
+import 'package:kute/screens/share/cards/share_card_frame.dart'
+    show ShareCardSal;
+import 'package:kute/screens/shared/kute_bar_context.dart'
+    show KuteBarRouteObserver, kuteShellMounted;
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/services/balance_milestones.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -110,6 +120,10 @@ Future<void> _assets(WidgetTester tester) async {
             as Map<String, dynamic>;
     SalSpriteCache.debugSetManifest(manifest);
     await SalSpriteCache.clip('body_cheer', 3);
+    // The bar's Sal, and the cards' stills for the preview.
+    await SalSpriteCache.clip('idle', 3);
+    await ShareCardSal.load();
+    await ShareCardSal.loadStill(balanceLevelCardClip(1));
     for (final clip in balanceGoalClips) {
       await SalSpriteCache.clip(clip, 3);
     }
@@ -121,10 +135,16 @@ ThemeData _theme(bool dark) {
   return base.copyWith(textTheme: base.textTheme.apply(fontFamily: 'Inter'));
 }
 
-Widget _app(bool dark, Widget home, {Locale? locale}) => ScreenUtilInit(
+Widget _app(bool dark, Widget home, {Locale? locale, bool bar = false}) =>
+    ScreenUtilInit(
       designSize: const Size(430, 932),
       builder: (_, __) => MaterialApp(
         debugShowCheckedModeBanner: false,
+        navigatorObservers: bar ? [KuteBarRouteObserver()] : const [],
+        builder: bar
+            ? (context, child) =>
+                Stack(children: [child!, const KuteShellBar()])
+            : null,
         locale: locale,
         theme: _theme(dark),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -145,9 +165,12 @@ Future<ProviderContainer> _show(
   Locale? locale,
   double width = 375,
   double height = 900,
+  double inset = 0,
+  bool bar = false,
 }) async {
   tester.view.physicalSize = Size(width * 3, height * 3);
   tester.view.devicePixelRatio = 3;
+  tester.view.padding = FakeViewPadding(top: inset > 0 ? 59 * 3 : 20 * 3, bottom: inset * 3);
   addTearDown(tester.view.reset);
   final prices = [
     for (var ago = 90; ago >= 0; ago--)
@@ -190,6 +213,7 @@ Future<ProviderContainer> _show(
     child: _app(
       dark,
       locale: locale,
+      bar: bar,
       Builder(
         builder: (context) => MediaQuery(
           data:
@@ -272,6 +296,20 @@ Future<void> _save(WidgetTester tester, GlobalKey key, String name) async {
   });
 }
 
+/// The whole view, the shell bar over the page too.
+Future<void> _saveView(WidgetTester tester, String name) async {
+  Directory(_dir!).createSync(recursive: true);
+  await tester.runAsync(() async {
+    final view = tester.binding.renderViews.first;
+    final layer = view.debugLayer! as OffsetLayer;
+    // The root layer already carries the device's 3x.
+    final image =
+        await layer.toImage(Offset.zero & tester.view.physicalSize);
+    final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+    File('$_dir/$name.png').writeAsBytesSync(bytes!.buffer.asUint8List());
+  });
+}
+
 Future<void> _away(WidgetTester tester) async {
   await tester.pumpWidget(const SizedBox());
   await tester.pump(const Duration(seconds: 3));
@@ -287,6 +325,62 @@ void main() {
 
   for (final dark in [false, true]) {
     final mode = dark ? 'dark' : 'light';
+
+    // The bar over the tab and the sheet (goal_share.dart).
+    for (final (name, width, height, inset, privacy, sats) in [
+      ('393', 393.0, 852.0, 34.0, 0, 328686),
+      ('375', 375.0, 812.0, 34.0, 0, 328686),
+      ('320', 320.0, 568.0, 0.0, 0, 328686),
+      ('hidden', 393.0, 852.0, 34.0, 1, 328686),
+    ]) {
+      testWidgets('the Goals tab and the Levels sheet under the bar $mode $name',
+          (tester) async {
+        KuteBarRouteObserver.reset();
+        kuteShellMounted.value = true;
+        addTearDown(() => kuteShellMounted.value = false);
+        await _assets(tester);
+        final key = GlobalKey();
+        await _show(tester, key,
+            dark: dark,
+            sats: sats,
+            privacy: privacy,
+            width: width,
+            height: height,
+            inset: inset,
+            bar: true);
+        await _saveView(tester, 'bar_goals_${mode}_$name');
+        if (privacy == 0) {
+          // The bar opens the card's preview.
+          await tester.tap(find.byKey(const ValueKey('kute-bar-primary-button')));
+          for (var i = 0; i < 10; i++) {
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+          await _saveView(tester, 'bar_preview_${mode}_$name');
+          Navigator.of(tester.element(find.byKey(const ValueKey('share-card-preview'))))
+              .pop();
+          for (var i = 0; i < 10; i++) {
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+        }
+        await tester.tap(find.byKey(const ValueKey('balance-goal-ladder')));
+        for (var i = 0; i < 10; i++) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        await _saveView(tester, 'bar_ladder_rest_${mode}_$name');
+        final sheet = find.byKey(const ValueKey('balance-ladder-sheet'));
+        final position = tester
+            .state<ScrollableState>(find
+                .descendant(of: sheet, matching: find.byType(Scrollable))
+                .first)
+            .position;
+        position.jumpTo(position.maxScrollExtent);
+        for (var i = 0; i < 4; i++) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        await _saveView(tester, 'bar_ladder_end_${mode}_$name');
+        await _away(tester);
+      });
+    }
 
     for (final width in [375.0, 320.0]) {
       final w = width.round();

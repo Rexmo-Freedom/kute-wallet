@@ -14228,4 +14228,36 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get shareEdgeInviteDog => 'Popust je stvaran. Pas je nezainteresiran.';
+
+  @override
+  String get balanceGoalShareMyLevel => 'Podijeli moju razinu';
+
+  @override
+  String get goalCardCaps => 'Moja razina';
+
+  @override
+  String get shareEdgeGoalNotFlex => 'Nije hvalisanje. Samo razina.';
+
+  @override
+  String get shareEdgeGoalUnimpressed =>
+      'Sal je provjerio. I dalje nije impresioniran.';
+
+  @override
+  String get shareEdgeGoalNoRush => 'Razinu po razinu. Bez žurbe.';
+
+  @override
+  String get shareEdgeGoalNobodyAsked => 'Nitko nije pitao. Dijelim svejedno.';
+
+  @override
+  String get shareEdgeGoalSaysNothing =>
+      'Sal kaže da to nije ništa. Često to kaže.';
+
+  @override
+  String get shareEdgeGoalOnPurpose => 'Spor uspon. Namjerno.';
+
+  @override
+  String get shareEdgeGoalNoTrophy => 'Nema trofeja. Samo pas i razina.';
+
+  @override
+  String get shareEdgeGoalYourTurn => 'Ti si na redu. Sal će čekati.';
 }

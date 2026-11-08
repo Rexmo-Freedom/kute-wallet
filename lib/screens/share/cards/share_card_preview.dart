@@ -125,6 +125,13 @@ class _ShareCardPreviewBoxState extends State<ShareCardPreviewBox> {
         if (mounted) setState(() {});
       }));
     }
+    // A card with a Sal of its own (a level's): that still too.
+    final data = widget.data;
+    if (data is GoalCardData && ShareCardSal.still(data.still) == null) {
+      unawaited(ShareCardSal.loadStill(data.still).then((_) {
+        if (mounted) setState(() {});
+      }));
+    }
   }
 
   @override

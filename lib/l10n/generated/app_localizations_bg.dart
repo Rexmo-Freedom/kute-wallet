@@ -14220,4 +14220,35 @@ class AppLocalizationsBg extends AppLocalizations {
   @override
   String get shareEdgeInviteDog =>
       'Отстъпката е истинска. Кучето е невъзмутимо.';
+
+  @override
+  String get balanceGoalShareMyLevel => 'Сподели нивото ми';
+
+  @override
+  String get goalCardCaps => 'Моето ниво';
+
+  @override
+  String get shareEdgeGoalNotFlex => 'Не се хваля. Просто ниво.';
+
+  @override
+  String get shareEdgeGoalUnimpressed => 'Сал провери. Пак не е впечатлен.';
+
+  @override
+  String get shareEdgeGoalNoRush => 'Ниво по ниво. Без бързане.';
+
+  @override
+  String get shareEdgeGoalNobodyAsked => 'Никой не пита. Споделям все пак.';
+
+  @override
+  String get shareEdgeGoalSaysNothing =>
+      'Сал казва, че е нищо. Често го казва.';
+
+  @override
+  String get shareEdgeGoalOnPurpose => 'Бавно изкачване. Нарочно.';
+
+  @override
+  String get shareEdgeGoalNoTrophy => 'Без трофей. Само куче и ниво.';
+
+  @override
+  String get shareEdgeGoalYourTurn => 'Твой ред е. Сал ще чака.';
 }

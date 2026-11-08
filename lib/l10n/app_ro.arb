@@ -4003,5 +4003,15 @@
   "shareEdgeInviteChainLetter": "Nu e un lanț. E puțin mai bine.",
   "shareEdgeInviteCut": "Eu primesc o parte. Tu o reducere. Toată lumea e bine.",
   "shareEdgeInviteFees": "Comisioane mai mici. Același număr de păreri.",
-  "shareEdgeInviteDog": "Reducerea e reală. Câinele e impasibil."
+  "shareEdgeInviteDog": "Reducerea e reală. Câinele e impasibil.",
+  "balanceGoalShareMyLevel": "Distribuie nivelul meu",
+  "goalCardCaps": "Nivelul meu",
+  "shareEdgeGoalNotFlex": "Nu mă laud. E doar un nivel.",
+  "shareEdgeGoalUnimpressed": "Sal a verificat. Tot nu e impresionat.",
+  "shareEdgeGoalNoRush": "Câte un nivel. Fără grabă.",
+  "shareEdgeGoalNobodyAsked": "N-a întrebat nimeni. Distribui oricum.",
+  "shareEdgeGoalSaysNothing": "Sal zice că nu e nimic. Zice asta des.",
+  "shareEdgeGoalOnPurpose": "Urcare lentă. Intenționat.",
+  "shareEdgeGoalNoTrophy": "Fără trofeu. Doar un câine și un nivel.",
+  "shareEdgeGoalYourTurn": "E rândul tău. Sal așteaptă."
 }

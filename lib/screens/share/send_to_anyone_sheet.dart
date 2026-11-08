@@ -685,6 +685,7 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet>
       case MoneyCardData():
       case ReceiptCardData():
       case InviteCardData():
+      case GoalCardData():
         return null;
     }
   }

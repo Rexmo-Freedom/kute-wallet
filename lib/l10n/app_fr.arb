@@ -4003,5 +4003,15 @@
   "shareEdgeInviteChainLetter": "Pas une chaîne. Un peu mieux.",
   "shareEdgeInviteCut": "J'ai une part. Toi une réduction. Tout le monde va bien.",
   "shareEdgeInviteFees": "Moins de frais. Autant d'avis.",
-  "shareEdgeInviteDog": "La réduction est réelle. Le chien reste de marbre."
+  "shareEdgeInviteDog": "La réduction est réelle. Le chien reste de marbre.",
+  "balanceGoalShareMyLevel": "Partager mon niveau",
+  "goalCardCaps": "Mon niveau",
+  "shareEdgeGoalNotFlex": "Pas pour frimer. Juste un niveau.",
+  "shareEdgeGoalUnimpressed": "Sal a vérifié. Toujours pas impressionné.",
+  "shareEdgeGoalNoRush": "Un niveau à la fois. Aucune urgence.",
+  "shareEdgeGoalNobodyAsked": "Personne n'a demandé. Je partage quand même.",
+  "shareEdgeGoalSaysNothing": "Sal dit que ce n'est rien. Sal dit ça souvent.",
+  "shareEdgeGoalOnPurpose": "Montée lente. Exprès.",
+  "shareEdgeGoalNoTrophy": "Pas de trophée. Juste un chien et un niveau.",
+  "shareEdgeGoalYourTurn": "À toi. Sal attendra."
 }

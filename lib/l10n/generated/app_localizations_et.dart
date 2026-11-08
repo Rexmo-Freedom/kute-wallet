@@ -14188,4 +14188,36 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get shareEdgeInviteDog => 'Soodustus on päris. Koer ei tee väljagi.';
+
+  @override
+  String get balanceGoalShareMyLevel => 'Jaga minu taset';
+
+  @override
+  String get goalCardCaps => 'Minu tase';
+
+  @override
+  String get shareEdgeGoalNotFlex => 'Mitte kiitlemine. Lihtsalt tase.';
+
+  @override
+  String get shareEdgeGoalUnimpressed =>
+      'Sal vaatas üle. Ikka pole muljet avaldanud.';
+
+  @override
+  String get shareEdgeGoalNoRush => 'Üks tase korraga. Pole kiiret.';
+
+  @override
+  String get shareEdgeGoalNobodyAsked => 'Keegi ei küsinud. Jagan ikkagi.';
+
+  @override
+  String get shareEdgeGoalSaysNothing =>
+      'Sal ütleb, et see pole midagi. Ütleb seda tihti.';
+
+  @override
+  String get shareEdgeGoalOnPurpose => 'Aeglane tõus. Meelega.';
+
+  @override
+  String get shareEdgeGoalNoTrophy => 'Karikat pole. Ainult koer ja tase.';
+
+  @override
+  String get shareEdgeGoalYourTurn => 'Sinu kord. Sal ootab.';
 }

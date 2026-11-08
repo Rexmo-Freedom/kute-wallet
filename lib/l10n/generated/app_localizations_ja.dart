@@ -13753,4 +13753,34 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get shareEdgeInviteDog => '割引は本物。犬は動じない。';
+
+  @override
+  String get balanceGoalShareMyLevel => 'レベルをシェア';
+
+  @override
+  String get goalCardCaps => 'マイレベル';
+
+  @override
+  String get shareEdgeGoalNotFlex => '自慢じゃない。ただのレベル。';
+
+  @override
+  String get shareEdgeGoalUnimpressed => 'Salが確認。まだ感心してない。';
+
+  @override
+  String get shareEdgeGoalNoRush => '一歩ずつ。急がない。';
+
+  @override
+  String get shareEdgeGoalNobodyAsked => '誰も聞いてない。でもシェアする。';
+
+  @override
+  String get shareEdgeGoalSaysNothing => 'Salは「大したことない」と言う。いつも言う。';
+
+  @override
+  String get shareEdgeGoalOnPurpose => 'ゆっくり登る。わざと。';
+
+  @override
+  String get shareEdgeGoalNoTrophy => 'トロフィーなし。犬とレベルだけ。';
+
+  @override
+  String get shareEdgeGoalYourTurn => '次は君の番。Salは待ってる。';
 }

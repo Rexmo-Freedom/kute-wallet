@@ -14170,4 +14170,36 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get shareEdgeInviteDog => 'Atlaide ir īsta. Sunim vienalga.';
+
+  @override
+  String get balanceGoalShareMyLevel => 'Kopīgot manu līmeni';
+
+  @override
+  String get goalCardCaps => 'Mans līmenis';
+
+  @override
+  String get shareEdgeGoalNotFlex => 'Nav lielīšanās. Tikai līmenis.';
+
+  @override
+  String get shareEdgeGoalUnimpressed =>
+      'Sal pārbaudīja. Joprojām bez iespaida.';
+
+  @override
+  String get shareEdgeGoalNoRush => 'Pa vienam līmenim. Bez steigas.';
+
+  @override
+  String get shareEdgeGoalNobodyAsked => 'Neviens neprasīja. Tāpat kopīgoju.';
+
+  @override
+  String get shareEdgeGoalSaysNothing =>
+      'Sal saka, ka tas ir nieks. Saka to bieži.';
+
+  @override
+  String get shareEdgeGoalOnPurpose => 'Lēns kāpums. Ar nodomu.';
+
+  @override
+  String get shareEdgeGoalNoTrophy => 'Nav trofejas. Tikai suns un līmenis.';
+
+  @override
+  String get shareEdgeGoalYourTurn => 'Tava kārta. Sal pagaidīs.';
 }

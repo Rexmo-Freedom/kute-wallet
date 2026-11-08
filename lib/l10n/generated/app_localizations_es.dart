@@ -14279,4 +14279,36 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get shareEdgeInviteDog =>
       'El descuento es real. Al perro le da igual.';
+
+  @override
+  String get balanceGoalShareMyLevel => 'Compartir mi nivel';
+
+  @override
+  String get goalCardCaps => 'Mi nivel';
+
+  @override
+  String get shareEdgeGoalNotFlex => 'No es presumir. Solo es un nivel.';
+
+  @override
+  String get shareEdgeGoalUnimpressed =>
+      'Sal lo ha mirado. Sigue sin impresionarse.';
+
+  @override
+  String get shareEdgeGoalNoRush => 'Nivel a nivel. Sin prisa.';
+
+  @override
+  String get shareEdgeGoalNobodyAsked => 'Nadie preguntó. Lo comparto igual.';
+
+  @override
+  String get shareEdgeGoalSaysNothing =>
+      'Sal dice que no es nada. Lo dice mucho.';
+
+  @override
+  String get shareEdgeGoalOnPurpose => 'Subida lenta. A propósito.';
+
+  @override
+  String get shareEdgeGoalNoTrophy => 'Sin trofeo. Solo un perro y un nivel.';
+
+  @override
+  String get shareEdgeGoalYourTurn => 'Te toca. Sal espera.';
 }

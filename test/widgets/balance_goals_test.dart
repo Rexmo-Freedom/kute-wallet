@@ -23,11 +23,15 @@ import 'package:kute/providers/viewed_wallet_provider.dart';
 import 'package:kute/screens/analytics/components/balance_goals.dart';
 import 'package:kute/screens/analytics/components/balance_history_chart.dart';
 import 'package:kute/screens/analytics/components/home_analytics_widget.dart';
+import 'package:kute/screens/home/components/kute_shell_bar.dart'
+    show KuteShellBar;
+import 'package:kute/screens/share/cards/share_card_preview.dart'
+    show ShareCardShare;
 import 'package:kute/screens/shared/app_bottom_sheet.dart'
     show AppBottomSheetCloseButton;
 import 'package:kute/screens/shared/charts/kute_trend_chart.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart'
-    show KuteBarContextScope;
+    show KuteBarContextScope, KuteBarRouteObserver, kuteShellMounted;
 import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
 import 'package:kute/screens/shared/money_movement_sheet.dart'
     show
@@ -40,6 +44,8 @@ import 'package:kute/services/balance_milestones.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:money2/money2.dart';
+
+import '../helpers/kute_bar_test_support.dart';
 
 class _MapFlags implements BalanceMilestoneFlags {
   final Set<String> claimed = {};
@@ -70,8 +76,9 @@ final _input = StateProvider<BalanceGoalInput?>((_) => null);
 /// current one marked); a once-only celebration with Sal and confetti in
 /// the squares' place when a round figure is passed; the nudge opening the
 /// Move sheet locked to Dollars with a suggested amount; all of it dots
-/// (or nothing) with balances hidden; and the Balance card hugging its
-/// chart, with nothing of the goals inside it.
+/// (or nothing) with balances hidden; the Balance card hugging its chart,
+/// with nothing of the goals inside it; and the bar reading "Share my level"
+/// on the Goals pill, the Levels sheet and a rung passed (goal_share.dart).
 void main() {
   const price = 70000.0;
 
@@ -163,10 +170,17 @@ void main() {
     ];
   }
 
-  Widget app(Widget child, {bool reduceMotion = false}) => ScreenUtilInit(
+  Widget app(Widget child, {bool reduceMotion = false, bool bar = false}) =>
+      ScreenUtilInit(
         designSize: const Size(430, 932),
         builder: (_, __) => MaterialApp(
           locale: const Locale('en'),
+          // The shell bar over the page, as app_widget.dart mounts it.
+          navigatorObservers: bar ? [KuteBarRouteObserver()] : const [],
+          builder: bar
+              ? (context, child) =>
+                  Stack(children: [child!, const KuteShellBar()])
+              : null,
           theme: buildLightTheme(),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
@@ -189,6 +203,7 @@ void main() {
     int privacy = 0,
     bool reduceMotion = false,
     bool held = true,
+    bool bar = false,
     Widget child =
         const HomeAnalyticsWidget(surface: 'home', balanceGoals: true),
   }) async {
@@ -205,7 +220,7 @@ void main() {
     container.read(_input.notifier).state = first;
     await tester.pumpWidget(UncontrolledProviderScope(
       container: container,
-      child: app(child, reduceMotion: reduceMotion),
+      child: app(child, reduceMotion: reduceMotion, bar: bar),
     ));
     for (var i = 0; i < 10; i++) {
       await tester.pump(const Duration(milliseconds: 100));
@@ -347,7 +362,8 @@ void main() {
   testWidgets(
       'the Level square opens the ladder: all twelve levels with Sal, the '
       'name and the figure each starts at, the passed ones checked, the '
-      'current one marked and written with its progress; Done is the bar; '
+      'current one marked and written with its progress; "Share my level" is '
+      'the bar; '
       'one event with the level', (tester) async {
     await pump(tester, input());
     await tester.tap(find.byKey(const ValueKey('balance-goal-ladder')));
@@ -379,11 +395,17 @@ void main() {
     expect(find.byKey(const ValueKey('balance-ladder-passed-2')), findsNothing);
     expect(find.byKey(const ValueKey('balance-ladder-current-3')), findsNothing);
     expect(find.byKey(const ValueKey('balance-ladder-passed-3')), findsNothing);
-    // Done is the bar.
+    // Share my level is the bar, in place of Done: the X closes the sheet.
+    expect(
+        find.byWidgetPredicate((w) =>
+            w is KuteBarContextScope &&
+            w.barContext.label == 'Share my level' &&
+            w.barContext.source == 'balance_goals_ladder'),
+        findsOneWidget);
     expect(
         find.byWidgetPredicate(
             (w) => w is KuteBarContextScope && w.barContext.label == 'Done'),
-        findsOneWidget);
+        findsNothing);
     final opened =
         events.where((e) => e.$1 == 'balance_goals_ladder_opened').toList();
     expect(opened, hasLength(1));
@@ -549,6 +571,275 @@ void main() {
     await settle(tester);
   });
 
+  group('share my level', () {
+    const searchLabel = 'Search or Manage with AI';
+    const shareLabel = 'Share my level';
+
+    /// The Bitcoin home's strip: Activity and the Goals pill.
+    const home = HomeAnalyticsWidget(
+      surface: 'home',
+      balanceGoals: true,
+      showPrice: false,
+      activityChild: SizedBox(height: 100, key: ValueKey('the-activity')),
+    );
+
+    List<Map<String, Object>?> shared() => [
+          for (final e in events)
+            if (e.$1 == 'balance_goal_card_shared') e.$2
+        ];
+
+    Future<void> frames(WidgetTester tester) async {
+      for (var i = 0; i < 8; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+    }
+
+    Future<void> goalsPill(WidgetTester tester) async {
+      await tester.tap(find.text('Goals'));
+      await frames(tester);
+      expect(find.byKey(const ValueKey('balance-goals')), findsOneWidget);
+    }
+
+    setUp(() {
+      KuteBarRouteObserver.reset();
+      kuteShellMounted.value = true;
+    });
+    tearDown(() {
+      kuteShellMounted.value = false;
+      ShareCardShare.debugSharer = null;
+    });
+
+    testWidgets(
+        'the bar is "Share my level" on the Goals pill only; the Activity pill '
+        'has the default back', (tester) async {
+      await pump(tester, input(), bar: true, child: home);
+      // The home opens on Activity: the default.
+      expect(find.byKey(const ValueKey('the-activity')), findsOneWidget);
+      expect(kuteBarPrimaryWithText(shareLabel), findsNothing);
+      expect(find.text(searchLabel), findsOneWidget);
+
+      await goalsPill(tester);
+      expect(kuteBarPrimaryWithText(shareLabel), findsOneWidget);
+      expect(find.text(searchLabel), findsNothing);
+      // The bar's own long press still asks Sal (kute_shell_bar.dart): it is
+      // an ordinary primary context with its search source.
+      final ctx = kuteBarPrimaryContext(tester);
+      expect(ctx.isPrimary, isTrue);
+      expect(ctx.source, 'balance_goals_tab');
+      expect(ctx.actionable, isTrue);
+
+      await tester.tap(find.text('Activity'));
+      await frames(tester);
+      expect(kuteBarPrimaryWithText(shareLabel), findsNothing);
+      expect(find.text(searchLabel), findsOneWidget);
+      await settle(tester);
+    });
+
+    testWidgets(
+        'a tap opens the card\'s preview over the tab, the level only; shared, '
+        'one event from the goals tab', (tester) async {
+      final sent = <String>[];
+      ShareCardShare.debugSharer = (image, text) async {
+        sent.add(text);
+        return 'dismissed';
+      };
+      await pump(tester, input(), bar: true, child: home);
+      await goalsPill(tester);
+      await tester.tap(kuteBarPrimaryWithText(shareLabel));
+      await frames(tester);
+      expect(find.text('Your card is ready'), findsOneWidget);
+      // Level 2, $248.50: the level and its name, and no figure of the money.
+      expect(
+          find.descendant(
+              of: find.byKey(const ValueKey('share-card-preview')),
+              matching: find.text('Level 2')),
+          findsOneWidget);
+      expect(
+          find.descendant(
+              of: find.byKey(const ValueKey('share-card-preview')),
+              matching: find.text('Pocket money')),
+          findsOneWidget);
+      expect(
+          find.descendant(
+              of: find.byKey(const ValueKey('share-card-preview')),
+              matching: find.textContaining(RegExp(r'[$%]'))),
+          findsNothing);
+      // The bar is the preview's own now.
+      expect(kuteBarPrimaryWithText('Share'), findsOneWidget);
+      expect(kuteBarPrimaryWithText(shareLabel), findsNothing);
+
+      await tester.runAsync(() async {
+        await tester.tap(kuteBarPrimaryWithText('Share'));
+        for (var i = 0; i < 100 && sent.isEmpty; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+        }
+      });
+      await frames(tester);
+      expect(sent, hasLength(1));
+      expect(sent.single, isNot(contains(r'$')));
+      expect(shared(), [
+        {'level': 2, 'result': 'dismissed', 'source': 'goals_tab'}
+      ]);
+      await settle(tester);
+    });
+
+    testWidgets('balances hidden: the default bar, no share', (tester) async {
+      await pump(tester, input(), privacy: 1, bar: true);
+      expect(find.byKey(const ValueKey('balance-goals')), findsOneWidget);
+      expect(kuteBarPrimaryWithText(shareLabel), findsNothing);
+      expect(find.text(searchLabel), findsOneWidget);
+      await settle(tester);
+    });
+
+    testWidgets('no level to share: nothing ever held, not ready, not the '
+        'spending wallet: the default bar', (tester) async {
+      await pump(tester, input(), held: false, bar: true);
+      expect(kuteBarPrimaryWithText(shareLabel), findsNothing);
+      expect(find.text(searchLabel), findsOneWidget);
+      await settle(tester);
+
+      await pump(tester, input(ready: false), bar: true);
+      expect(kuteBarPrimaryWithText(shareLabel), findsNothing);
+      await settle(tester);
+
+      await pump(tester, null, bar: true);
+      expect(kuteBarPrimaryWithText(shareLabel), findsNothing);
+      await settle(tester);
+    });
+
+    testWidgets('the tab parked (the Dollars tab up): the bar is not its',
+        (tester) async {
+      final on = ValueNotifier(false);
+      addTearDown(on.dispose);
+      await pump(tester, input(),
+          bar: true,
+          child: ValueListenableBuilder<bool>(
+            valueListenable: on,
+            builder: (_, enabled, child) =>
+                TickerMode(enabled: enabled, child: child!),
+            child: const HomeAnalyticsWidget(
+                surface: 'home', balanceGoals: true),
+          ));
+      expect(kuteBarPrimaryWithText(shareLabel), findsNothing);
+      on.value = true;
+      await frames(tester);
+      expect(kuteBarPrimaryWithText(shareLabel), findsOneWidget);
+      on.value = false;
+      await frames(tester);
+      expect(kuteBarPrimaryWithText(shareLabel), findsNothing);
+      await settle(tester);
+    });
+
+    testWidgets('a rung passed: the bar shares it, for its 6 s, as celebration',
+        (tester) async {
+      final sent = <String>[];
+      ShareCardShare.debugSharer = (image, text) async {
+        sent.add(text);
+        return 'success';
+      };
+      final container = await pump(tester, input(), bar: true);
+      await tester.pump(kBalanceMilestoneSettle);
+      await tester.pump(const Duration(milliseconds: 100));
+      container.read(_input.notifier).state = input(sats: 360000);
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(kBalanceMilestoneSettle);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.byKey(const ValueKey('balance-goal-celebration-title')),
+          findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 100));
+      // No button of its own on the card: the bar is the share.
+      expect(kuteBarPrimaryWithText(shareLabel), findsOneWidget);
+      await tester.tap(kuteBarPrimaryWithText(shareLabel));
+      await frames(tester);
+      expect(find.text('Your card is ready'), findsOneWidget);
+      await tester.runAsync(() async {
+        await tester.tap(kuteBarPrimaryWithText('Share'));
+        for (var i = 0; i < 100 && sent.isEmpty; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+        }
+      });
+      await frames(tester);
+      expect(shared(), [
+        {'level': 3, 'result': 'success', 'source': 'celebration'}
+      ]);
+      await settle(tester);
+    });
+
+    Future<void> openLadder(WidgetTester tester, {int privacy = 0}) async {
+      await pump(tester, input(), privacy: privacy, bar: true);
+      await tester.tap(find.byKey(const ValueKey('balance-goal-ladder')));
+      await frames(tester);
+    }
+
+    testWidgets(
+        'the Levels sheet: its bar is "Share my level", no round button beside '
+        'it, one way to share; the card opens from the sheet as ladder',
+        (tester) async {
+      final sent = <String>[];
+      ShareCardShare.debugSharer = (image, text) async {
+        sent.add(text);
+        return 'success';
+      };
+      await openLadder(tester);
+      expect(kuteBarPrimaryWithText(shareLabel), findsOneWidget);
+      expect(kuteBarPrimaryContext(tester).share, isNull);
+      await tester.tap(kuteBarPrimaryWithText(shareLabel));
+      await frames(tester);
+      expect(find.text('Your card is ready'), findsOneWidget);
+      await tester.runAsync(() async {
+        await tester.tap(kuteBarPrimaryWithText('Share'));
+        for (var i = 0; i < 100 && sent.isEmpty; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+        }
+      });
+      await frames(tester);
+      expect(shared(), [
+        {'level': 2, 'result': 'success', 'source': 'ladder'}
+      ]);
+      await settle(tester);
+    });
+
+    testWidgets('the Levels sheet with balances hidden: Done, nothing to share',
+        (tester) async {
+      await openLadder(tester, privacy: 1);
+      expect(kuteBarPrimaryWithText('Done'), findsOneWidget);
+      expect(kuteBarPrimaryWithText(shareLabel), findsNothing);
+      await settle(tester);
+    });
+
+    for (final (w, h, top, inset) in [
+      (393.0, 852.0, 59.0, 34.0),
+      (375.0, 812.0, 50.0, 34.0),
+      (320.0, 568.0, 20.0, 0.0),
+      (430.0, 932.0, 59.0, 34.0),
+    ]) {
+      testWidgets(
+          'the Levels sheet\'s last row scrolls clear of the bar at '
+          '${w.round()}x${h.round()}', (tester) async {
+        await openLadder(tester);
+        tester.view.physicalSize = Size(w, h) * 2;
+        tester.view.padding = FakeViewPadding(top: top * 2, bottom: inset * 2);
+        addTearDown(tester.view.resetPadding);
+        await frames(tester);
+        final sheet = find.byKey(const ValueKey('balance-ladder-sheet'));
+        final scrollable = find
+            .descendant(of: sheet, matching: find.byType(Scrollable))
+            .first;
+        final position = tester.state<ScrollableState>(scrollable).position;
+        await tester.drag(scrollable, const Offset(0, -2000));
+        await frames(tester);
+        expect(position.pixels, closeTo(position.maxScrollExtent, 0.01),
+            reason: 'a drag reaches the end');
+        final last = tester
+            .getRect(find.byKey(const ValueKey('balance-ladder-level-12')));
+        final barTop = tester.getTopLeft(kuteBarPrimary).dy;
+        expect(last.bottom, lessThanOrEqualTo(barTop),
+            reason: 'last row ${last.bottom}, the bar\'s top $barTop');
+        await settle(tester);
+      });
+    }
+  });
+
   testWidgets('a figure that does not hold for the settle is not celebrated',
       (tester) async {
     final container = await pump(tester, input());
@@ -613,6 +904,17 @@ void main() {
     expect(find.textContaining('%'), findsNothing);
     expect(events.where((e) => e.$1 == 'balance_goals_ladder_opened'),
         hasLength(1));
+    // The level is hidden: nothing to share, the bar is Done.
+    expect(
+        find.byWidgetPredicate(
+            (w) => w is KuteBarContextScope && w.barContext.label == 'Done'),
+        findsOneWidget);
+    expect(
+        find.byWidgetPredicate((w) =>
+            w is KuteBarContextScope &&
+            w.barContext.label == 'Share my level' &&
+            w.barContext.source == 'balance_goals_ladder'),
+        findsNothing);
     await tester.tap(find.byType(AppBottomSheetCloseButton));
     await tester.pump(const Duration(milliseconds: 600));
     // Nothing is recorded over hidden figures.
