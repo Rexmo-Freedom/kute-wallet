@@ -51,6 +51,65 @@ void main() {
         isFalse);
   });
 
+  group('picking an account on one end of a route', () {
+    test('never yields the same account twice, and only an offered route', () {
+      for (final route in MoneyMovementRoute.offered) {
+        for (final account in MoneyMovementAccount.values) {
+          for (final source in [true, false]) {
+            final next = route.afterPicking(account, source: source);
+            if (next == null) continue;
+            expect(next.from, isNot(next.to));
+            expect(next.isOffered, isTrue, reason: '$route + $account');
+            // The end picked holds the account picked.
+            expect(source ? next.from : next.to, account,
+                reason: '$route + $account');
+          }
+        }
+      }
+    });
+
+    test('the account already there changes nothing', () {
+      for (final route in MoneyMovementRoute.offered) {
+        expect(route.afterPicking(route.from, source: true), route);
+        expect(route.afterPicking(route.to, source: false), route);
+      }
+    });
+
+    test('the other end\'s account swaps the two', () {
+      const route = MoneyMovementRoute(_b, _d);
+      expect(route.afterPicking(_d, source: true), route.reversed);
+      expect(route.afterPicking(_b, source: false), route.reversed);
+    });
+
+    test('every offered source is reachable from every offered route', () {
+      for (final route in MoneyMovementRoute.offered) {
+        for (final account in MoneyMovementAccount.values) {
+          expect(route.afterPicking(account, source: true), isNotNull);
+        }
+      }
+    });
+
+    test('a source with no door to the destination takes Bitcoin along', () {
+      expect(const MoneyMovementRoute(_i, _d).afterPicking(_p, source: true),
+          const MoneyMovementRoute(_p, _b));
+      // The swap of Dollars → Predictions would be hidden Predictions →
+      // Dollars.
+      expect(const MoneyMovementRoute(_d, _p).afterPicking(_p, source: true),
+          const MoneyMovementRoute(_p, _b));
+    });
+
+    test('a destination the source has no door to is not listed', () {
+      expect(const MoneyMovementRoute(_p, _b).afterPicking(_d, source: false),
+          isNull);
+      expect(const MoneyMovementRoute(_p, _b).afterPicking(_i, source: false),
+          isNull);
+      expect(const MoneyMovementRoute(_d, _p).afterPicking(_d, source: false),
+          isNull);
+      expect(const MoneyMovementRoute(_i, _p).afterPicking(_i, source: false),
+          isNull);
+    });
+  });
+
   test('every route is enabled: each has a safe rail today', () {
     expect(kMoneyMovementDisabledRoutes, isEmpty);
   });

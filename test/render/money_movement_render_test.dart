@@ -10,7 +10,10 @@
 // large one. And the result sheet Swap closes into, from over the Dollars
 // home holding its own bar context (founder, 8 November 2026: "swapped
 // should say ok, not with the search sal"): the bar is its Done. Every
-// frame lays out without an overflow; the PNGs are written only when asked:
+// frame lays out without an overflow. And Swap's account pickers (founder,
+// 8 November 2026): each pair picked by hand, the picker open on each end, a
+// pair the policy withholds, Finnish and Hungarian for the long words. The
+// PNGs are written only when asked:
 //
 //   MOVE_RENDER=<dir> flutter test test/render/money_movement_render_test.dart
 
@@ -458,6 +461,102 @@ void main() {
           });
         }
       }
+    }
+  }
+
+  // Swap's squares choose any account (founder, 8 November 2026): each pair
+  // by hand, its picker open on each end, and a pair the policy withholds.
+  // Finnish (`fi`) and Hungarian (`hu`) are the longest names and lines.
+  Future<void> pickEnd(WidgetTester tester, MoneyMovementAccount account,
+      {required bool from}) async {
+    await tester
+        .tap(find.byKey(ValueKey('money-movement-${from ? 'from' : 'to'}')));
+    await _frames(tester, 12);
+    await tester.tap(find.byKey(ValueKey('movement-account-${account.name}')));
+    await _frames(tester, 16);
+  }
+
+  for (final width in [320.0, 375.0]) {
+    for (final dark in [false, true]) {
+      final mode = dark ? 'dark' : 'light';
+      for (final route in MoneyMovementRoute.offered) {
+        final name = 'pick_${route.code}_${width.round()}_$mode';
+        testWidgets(name, (tester) async {
+          final c = await _pump(tester, const Scaffold(body: SizedBox()),
+              width: width, dark: dark);
+          unawaited(showOwnMoneyMove(_nav.currentContext!,
+              from: MoneyMovementAccount.bitcoin,
+              entrySource: 'usd_home_swap'));
+          await _frames(tester, 16);
+          var at = const MoneyMovementRoute(
+              MoneyMovementAccount.bitcoin, MoneyMovementAccount.dollars);
+          if (at.from != route.from) {
+            await pickEnd(tester, route.from, from: true);
+            at = at.afterPicking(route.from, source: true)!;
+          }
+          if (at != route) await pickEnd(tester, route.to, from: false);
+          for (final key in ['2', '5']) {
+            await tester.tap(find.text(key).last);
+            await tester.pump();
+          }
+          await _frames(tester, 12);
+          await _capture(tester, name);
+          await _close(tester, c);
+        });
+      }
+      for (final from in [true, false]) {
+        final name =
+            'picker_${from ? 'from' : 'to'}_${width.round()}_$mode';
+        testWidgets(name, (tester) async {
+          final c = await _pump(tester, const Scaffold(body: SizedBox()),
+              width: width, dark: dark);
+          unawaited(showOwnMoneyMove(_nav.currentContext!,
+              from: MoneyMovementAccount.bitcoin,
+              entrySource: 'usd_home_swap'));
+          await _frames(tester, 16);
+          await tester.tap(
+              find.byKey(ValueKey('money-movement-${from ? 'from' : 'to'}')));
+          await _frames(tester, 16);
+          await _capture(tester, name);
+          await _close(tester, c);
+        });
+      }
+      final blocked = 'blocked_investing_${width.round()}_$mode';
+      testWidgets(blocked, (tester) async {
+        final c = await _pump(tester, const Scaffold(body: SizedBox()),
+            width: width, dark: dark);
+        final policy = runtimePolicyFixture(
+            blocked: {'hyperliquid.deposit'},
+            reasons: const {'hyperliquid.deposit': 'country_blocked'});
+        RuntimeCapabilitiesService.debugInstance?.dispose();
+        RuntimeCapabilitiesService.debugInstance = policy;
+        await tester.runAsync(policy.refresh);
+        unawaited(showOwnMoneyMove(_nav.currentContext!,
+            from: MoneyMovementAccount.bitcoin, entrySource: 'usd_home_swap'));
+        await _frames(tester, 16);
+        await pickEnd(tester, MoneyMovementAccount.investing, from: false);
+        await _capture(tester, blocked);
+        await _close(tester, c);
+      });
+    }
+    for (final lang in ['fi', 'hu']) {
+      final name = 'picker_from_${width.round()}_light_$lang';
+      testWidgets(name, (tester) async {
+        final c = await _pump(tester, const Scaffold(body: SizedBox()),
+            width: width, dark: false, locale: Locale(lang));
+        unawaited(showOwnMoneyMove(_nav.currentContext!,
+            from: MoneyMovementAccount.bitcoin, entrySource: 'usd_home_swap'));
+        await _frames(tester, 16);
+        await _capture(tester, 'swap_${width.round()}_light_$lang');
+        await tester.tap(find.byKey(const ValueKey('money-movement-from')));
+        await _frames(tester, 16);
+        await _capture(tester, name);
+        await tester.tapAt(const Offset(40, 40));
+        await _frames(tester, 16);
+        await pickEnd(tester, MoneyMovementAccount.predictions, from: false);
+        await _capture(tester, 'pick_bitcoin_to_predictions_${width.round()}_$lang');
+        await _close(tester, c);
+      });
     }
   }
 

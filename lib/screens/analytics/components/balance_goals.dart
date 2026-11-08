@@ -54,7 +54,7 @@
 //     the person's country, the Next goal square itself taps through: its
 //     line reads "Move $25 to Dollars" with a chevron in place of "$250 to
 //     go", and it opens Move money straight on the amount, Bitcoin to
-//     Dollars, pinned (showOwnMoneyMove), with that amount filled in (a
+//     Dollars (Swap, showOwnMoneyMove), with that amount filled in (a
 //     round tenth of the goal, never more than the bitcoin is worth).
 //     Elsewhere it is a plain goal, not tappable. No card under the
 //     squares; it names no venue and never says the money grows;

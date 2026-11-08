@@ -531,7 +531,7 @@ void main() {
         moves.single.route,
         const MoneyMovementRoute(
             MoneyMovementAccount.bitcoin, MoneyMovementAccount.dollars));
-    expect(moves.single.pinned, isTrue);
+    expect(moves.single.swap, isTrue);
     expect(moves.single.entrySource, kBalanceGoalSource);
     expect(moves.single.initialTargetUsd, 25.0);
     expect(TrackingService.takeEntrySource('move'), kBalanceGoalSource);

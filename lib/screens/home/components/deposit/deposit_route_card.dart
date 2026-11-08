@@ -19,10 +19,11 @@
 // ([KuteActionCard.fact], kute_action_cards.dart): each end's mark at the
 // top left, "From" / "To" over the account's name and, on From, what it
 // has to move ("$273.44 available"). To says no figure: what the
-// destination holds is not what this screen spends, and the Dollars a
-// person moves from are all their dollar money (Dollars, Predictions and
+// destination holds is not what this screen spends, and the Dollars Swap
+// moves to Bitcoin are all the dollar money (Dollars, Predictions and
 // Investing cash), so a Dollars balance on To would read as a second,
-// smaller "Dollars". The swap circle ([KuteCircleButton]) rides the edge
+// smaller "Dollars". Each end is a choice (founder, 8 November 2026), and
+// says so with the picker's chevron after its name. The swap circle ([KuteCircleButton]) rides the edge
 // the two share, centred on it; a tap reverses the move: the circle turns
 // half a turn on the chip spring and the pair switches in as every
 // switch does (KuteMotion.switchIn, [SelectionFade]), from the right,
@@ -405,29 +406,25 @@ class MoveRouteSquareEnd {
   /// none.
   final String? line;
 
-  /// Opens the account picker (the Portfolio's Move money, whose ends are
-  /// a choice); the name then wears the picker's chevron. Null: the end
-  /// only states.
+  /// Opens the account picker; the name then wears the picker's chevron.
+  /// Null: the end only states (a move on its way).
   final VoidCallback? onTap;
 }
 
 /// Move money's two ends as two squares side by side with the swap circle
 /// on their shared edge (see the file header). [onSwap] null draws the
-/// circle quiet (a busy sheet, a pair with no way back); [showSwap] false
-/// draws none at all.
+/// circle quiet (a busy sheet, a pair with no way back).
 class MoveRouteSquares extends StatefulWidget {
   const MoveRouteSquares({
     super.key,
     required this.from,
     required this.to,
     this.onSwap,
-    this.showSwap = true,
   });
 
   final MoveRouteSquareEnd from;
   final MoveRouteSquareEnd to;
   final VoidCallback? onSwap;
-  final bool showSwap;
 
   /// The circle's diameter in design units: a step under the header's 40,
   /// so it rides the gap without reaching the cards' text.
@@ -494,7 +491,6 @@ class _MoveRouteSquaresState extends State<MoveRouteSquares> {
         ],
       ),
     );
-    if (!widget.showSwap) return pair;
     final swap = widget.onSwap;
     return Stack(
       alignment: Alignment.center,

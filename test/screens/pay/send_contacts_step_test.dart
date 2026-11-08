@@ -979,7 +979,7 @@ void main() {
     expect(moves.single.route,
         const MoneyMovementRoute(
             MoneyMovementAccount.bitcoin, MoneyMovementAccount.dollars));
-    expect(moves.single.pinned, isTrue);
+    expect(moves.single.swap, isTrue);
     expect(moves.single.entrySource, kBitcoinSendSearchSource);
     expect(TrackingService.takeEntrySource('move'), kBitcoinSendSearchSource);
     expect(find.byType(ConfirmSend), findsOneWidget);

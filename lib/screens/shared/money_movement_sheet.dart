@@ -6,23 +6,23 @@ import 'package:kute/services/tracking_service.dart';
 export 'package:kute/services/one_balance/money_movement_route.dart';
 
 /// What a door asked Move money for: the route it opens on, whether the
-/// route is [pinned], the `entry_source` and the prefilled dollars.
+/// screen is [swap], the `entry_source` and the prefilled dollars.
 @immutable
 class MoneyMovementRequest {
   const MoneyMovementRequest({
     required this.route,
-    required this.pinned,
+    required this.swap,
     required this.entrySource,
     this.initialTargetUsd,
   });
 
   final MoneyMovementRoute route;
-  final bool pinned;
+  final bool swap;
   final String entrySource;
   final double? initialTargetUsd;
 
   @override
-  String toString() => 'MoneyMovementRequest($route, pinned: $pinned, '
+  String toString() => 'MoneyMovementRequest($route, swap: $swap, '
       'entrySource: $entrySource, initialTargetUsd: $initialTargetUsd)';
 }
 
@@ -36,11 +36,8 @@ void Function(BuildContext context, MoneyMovementRequest request)?
 /// editable. Opening it, or changing its accounts, never submits a move.
 /// [entrySource] is the categorical surface it was opened from
 /// (`move_sheet_opened`'s `entry_source`).
-/// [pinned]: the ends are fixed, so the sheet offers no account pickers,
-/// as the Purchase Bitcoin sheet pins its ends (founder, 1 November 2026:
-/// "the withdrawal doesn't give the option to choose"). Bitcoin and
-/// Dollars still swap: the screen is "Swap", and its circle reverses the
-/// two (founder, 7 November 2026: "a button in a reversible way").
+/// [swap]: the screen is "Swap" (founder, 7 November 2026: "a button in a
+/// reversible way"), Move money's pickers and rails under Swap's words.
 /// [initialTargetUsd] prefills the typed dollars once the price is up
 /// (the Goals nudge's "Move $50 to Dollars"), as every door's prefill.
 Future<void> showMoneyMovementSheet(
@@ -48,7 +45,7 @@ Future<void> showMoneyMovementSheet(
   MoneyMovementAccount initialSource = MoneyMovementAccount.dollars,
   MoneyMovementAccount initialDestination = MoneyMovementAccount.bitcoin,
   String entrySource = 'portfolio',
-  bool pinned = false,
+  bool swap = false,
   double? initialTargetUsd,
 }) async {
   final destination = initialSource == initialDestination
@@ -66,7 +63,7 @@ Future<void> showMoneyMovementSheet(
         context,
         MoneyMovementRequest(
             route: route,
-            pinned: pinned,
+            swap: swap,
             entrySource: entrySource,
             initialTargetUsd: initialTargetUsd));
     return;
@@ -77,7 +74,7 @@ Future<void> showMoneyMovementSheet(
       builder: (_) => DepositSheet(
         lockedSide: MoveLockedSide.depositToUsd,
         movementRoute: route,
-        movementPinned: pinned,
+        movementSwap: swap,
         initialTargetUsd: initialTargetUsd,
       ),
     ),
@@ -91,9 +88,9 @@ Future<void> showMoneyMovementSheet(
 /// accounts). Every own-account door ("Move to your Dollars" and "Move to
 /// your Bitcoin" on the Sends' search, the Goals nudge, the Dollars home's
 /// Swap; the Receives' own doors are gone, founder, 7 November 2026)
-/// opens Move money straight on the amount, pinned [from] the one account
-/// to the other: no picker sheet in between and no account to choose.
-/// Buys (Purchase, Buy dollars) never come here.
+/// opens Swap straight on the amount, aimed [from] the one account to the
+/// other: no picker sheet in between. Buys (Purchase, Buy dollars) never
+/// come here.
 ///
 /// SWAP (founder, 7 November 2026: "ideally is to have a move button ...
 /// Only on dollars"; "Move money or swap money whatever is more common in
@@ -104,7 +101,15 @@ Future<void> showMoneyMovementSheet(
 /// a direction the policy withholds says so once it is on screen. Each
 /// door still opens on its own direction.
 ///
-/// From Dollars it spends ALL the person's dollar money (founder, 7
+/// ANY ACCOUNT BY HAND (founder, 8 November 2026: "here i need to be able
+/// to choose predictions and investments also right? so user can manually
+/// swap. It happens mostly automatic but we should allow for this"): a tap
+/// on From or To opens the account picker, the Portfolio's Move money's
+/// own, over its own rails, from every door that shows this screen: one
+/// screen, one behaviour. The pairs Move money does not offer stay out
+/// ([kMoneyMovementHiddenRoutes]).
+///
+/// From Dollars to Bitcoin it spends ALL the person's dollar money (founder, 7
 /// November 2026: "From your Dollars should and must be all the available
 /// balances, not just the Dollars balance"): Dollars first, then the
 /// Predictions and Investing cash in reach, exactly as the Investments'
@@ -126,7 +131,7 @@ Future<void> showOwnMoneyMove(
         ? MoneyMovementAccount.dollars
         : MoneyMovementAccount.bitcoin,
     entrySource: entrySource,
-    pinned: true,
+    swap: true,
     initialTargetUsd: initialTargetUsd,
   );
 }
