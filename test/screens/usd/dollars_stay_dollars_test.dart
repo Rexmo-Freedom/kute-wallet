@@ -1,7 +1,7 @@
 // "Portfolio also do not translate to euros or whatever, keep it in dollars"
 // (founder, 8 November 2026). With euros in Settings and a rate far from 1:
 // the Dollars header, the Portfolio's hero and positions, the Dollars
-// Activity (the squares, the Open P&L, Latest) read the USD figures, each
+// Overview (the squares, the Open P&L) read the USD figures, each
 // equal to the USD input, with no euro on screen. Bitcoin's own conversion
 // still follows Settings.
 
@@ -13,7 +13,6 @@ import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/models/currency_conversions.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/settings_model.dart';
-import 'package:kute/models/transactions_model.dart';
 import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
 import 'package:kute/providers/open_pnl_history_provider.dart'
@@ -30,7 +29,6 @@ import 'package:kute/screens/shared/pool_balance_header.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:money2/money2.dart';
-import 'package:polybrainz_polymarket/polybrainz_polymarket.dart' show Activity;
 
 import '../../helpers/euro_settings.dart';
 import '../../helpers/portfolio_overrides.dart' show PortfolioTestTrading;
@@ -76,29 +74,6 @@ HlFill _opened(String coin, DateTime now) => HlFill(
       cloid: null,
       startPosition: 0,
     );
-
-PolymarketTransaction _bet() {
-  final at = DateTime.utc(2026, 11, 4, 12);
-  return PolymarketTransaction(
-    id: 'bet1',
-    timestamp: at,
-    activity: Activity(
-      proxyWallet: '0xself',
-      timestamp: at.millisecondsSinceEpoch ~/ 1000,
-      conditionId: '0xrain',
-      type: 'TRADE',
-      size: 10,
-      usdcSize: 5.25,
-      transactionHash: '0xbet1',
-      side: 'BUY',
-      asset: 'yes',
-      outcomeIndex: 0,
-      title: 'Will it rain tomorrow?',
-      outcome: 'Yes',
-      eventSlug: '',
-    ),
-  );
-}
 
 String _rolling(WidgetTester tester, String key) => tester
     .widget<RollingNumberText>(find.descendant(
@@ -174,18 +149,12 @@ void main() {
   });
 
   testWidgets(
-      'the founder\'s screenshot, the Dollars Activity: the position squares, '
-      'the Open P&L and Latest read the real dollars', (tester) async {
+      'the founder\'s screenshot, the Dollars Overview: the position squares '
+      'and the Open P&L read the real dollars', (tester) async {
     final now = DateTime.now();
     await pumpInvestments(tester,
         size: const Size(390, 1400),
         currency: 'EUR',
-        history: Transaction(
-          bitcoinTransactions: const [],
-          sparkTransactions: const [],
-          sparkUnclaimedDeposits: const [],
-          polymarketTransactions: [_bet()],
-        ),
         openPnlSources: OpenPnlSources(
           activity: (_) async => const [],
           candles: (_, wire, interval, window) async => const [],
@@ -219,11 +188,6 @@ void main() {
                 find.byKey(const ValueKey('dollars-pnl-figure')))
             .text,
         r'−$0.02');
-    expect(
-        find.descendant(
-            of: find.byKey(const ValueKey('dollars-activity-rows')),
-            matching: find.text(r'$5.25')),
-        findsOneWidget);
     expectNoEuroOnScreen(tester);
     expect(tester.takeException(), isNull);
     await unmountInvestments(tester);

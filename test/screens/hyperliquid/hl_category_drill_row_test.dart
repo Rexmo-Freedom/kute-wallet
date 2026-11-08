@@ -7,7 +7,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/models/hyperliquid_market.dart';
@@ -203,35 +202,26 @@ void main() {
       for (final row in tester.widgetList<HlMarketCard>(rows)) {
         expect(onStrip, isNot(contains(row.market.wireCoin)));
       }
-      // On Trending the strip comes straight under the pills, the list
-      // straight under the strip (no title between them) and the market
-      // map, the last item, 16 under the list (founder, 7 November 2026:
-      // "bring the list back as the second item please and this thing to
-      // the last item"). A picked category has no strip and no map: the
-      // list comes straight under the pills.
+      // On Trending the strip comes straight under the pills and the list
+      // straight under the strip (no title between them). A picked category
+      // has no strip: the list comes straight under the pills. Never a
+      // market map: it lives on the Dollars Overview (founder, 8 November
+      // 2026).
       final pills = _inBrowser(find.byType(PolyDrillRow));
       final strip = _inBrowser(find.byType(HlMovingNowStrip));
       final map = _inBrowser(find.byKey(const ValueKey('hl-market-map')));
       if (pill == 'Trending') {
         expect(strip, findsOneWidget);
-        expect(map, findsOneWidget);
         expect(tester.getRect(strip).top - tester.getRect(pills).bottom,
             lessThan(20));
         expect(tester.getRect(rows.first).top - tester.getRect(strip).bottom,
             lessThan(20));
-        // 16 under the last row (on this tall test screen, the whole
-        // list is on it).
-        final lastRow = tester
-            .widgetList(rows)
-            .map((r) => tester.getRect(find.byWidget(r)).bottom)
-            .reduce((a, b) => a > b ? a : b);
-        expect(tester.getRect(map).top - lastRow, closeTo(16.h, 1));
       } else {
-        expect(map, findsNothing);
         expect(strip, findsNothing);
         expect(tester.getRect(rows.first).top - tester.getRect(pills).bottom,
             lessThan(28));
       }
+      expect(map, findsNothing);
 
       // ONE grouped card, Home Activity's, holds every row: no card per
       // market, Home's inset hairline between rows.

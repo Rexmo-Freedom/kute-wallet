@@ -1,13 +1,12 @@
 // lib/screens/hyperliquid/components/hl_market_map.dart
 //
-// The market map: a card on Investing (founder, 6 November 2026, with a
-// stock heatmap for reference: "add another card on Investing, we must
-// make a graph like this for the stocks and stuff, like the red or green
-// ones"), the tab's last item: under the four squares and the list (7
-// November 2026, hours after it was made the second item: "bring the list
-// back as the second item please and this thing to the last item"). A
-// squarified treemap (squarified_treemap.dart) of the markets the app
-// lists, red for down and green for up.
+// The market map: a card on the Dollars Overview tab, under the open
+// positions and the open P&L, the first thing on the tab with neither
+// (dollars_activity_tab.dart; founder, 8 November 2026, moved from
+// Investing, where it was made on 6 November with a stock heatmap for
+// reference: "we must make a graph like this for the stocks and stuff, like
+// the red or green ones"). A squarified treemap (squarified_treemap.dart) of
+// the markets the app lists, red for down and green for up.
 //
 // What it shows (hlMarketMapEntries):
 //   * the markets of the browse universe in four asset classes, Stocks
@@ -56,12 +55,14 @@
 // the layout. A tile opens its market's sheet, the list rows' handler,
 // with 'market_map' as the entry source.
 //
-// On the default view only (Trending at its default list), as the big
-// squares: a category the person picks is the full plain list (founder,
-// 1 November 2026), and a card under a list of a hundred rows would never
-// be seen. No 24h / today switch: the venue's numbers carry the previous
-// day's price and nothing for today's open, so the header names the
-// window, 24h, in the quiet weight.
+// Off screen (behind another pill or tab, [TickerMode] off) the card does no
+// work: it reads no universe (so draws nothing until it has first been on
+// screen, and then keeps what it drew), registers no coins and does not
+// rebuild on the live prices. It catches up the moment it is back on screen.
+//
+// No 24h / today switch: the venue's numbers carry the previous day's price
+// and nothing for today's open, so the header names the window, 24h, in the
+// quiet weight.
 
 import 'dart:async';
 import 'dart:math' as math;
@@ -814,7 +815,7 @@ Rect _tileRect(Rect cell) {
 /// markets are still to be read, a skeleton in the map's shape (the
 /// card's height, so nothing moves when the map lands); nothing at all
 /// with under [kHlMarketMapMinTiles] markets to show, until it has been
-/// shown.
+/// shown ([nothing] in its place when given).
 class HlMarketMapCard extends ConsumerStatefulWidget {
   const HlMarketMapCard({
     super.key,
@@ -822,19 +823,23 @@ class HlMarketMapCard extends ConsumerStatefulWidget {
     this.loading = false,
     this.margin = EdgeInsets.zero,
     this.onTap,
+    this.nothing,
   });
 
   final List<HlMarket> universe;
   final bool loading;
 
   /// Around the card and its skeleton, never around nothing: a map with
-  /// too few markets leaves no gap where it would be (the Investing list
-  /// sets it 16 under its rows).
+  /// too few markets leaves no gap where it would be.
   final EdgeInsetsGeometry margin;
 
   /// Account-scoped callers supply their own navigation. The default
   /// opens the spending account's market sheet, as a list row does.
   final void Function(HlMarket market)? onTap;
+
+  /// What stands in when there is no map to draw; no margin of the card's
+  /// around it. Null: nothing at all.
+  final Widget? nothing;
 
   @override
   ConsumerState<HlMarketMapCard> createState() => _HlMarketMapCardState();
@@ -875,8 +880,8 @@ class _HlMarketMapCardState extends ConsumerState<HlMarketMapCard> {
     _watchCoins();
   }
 
-  /// Registers the tiles' coins with the live prices (additive; the
-  /// screen releases the socket).
+  /// Registers the tiles' coins with the live prices (additive; Investing's
+  /// screen, mounted for the shell's life, releases the socket).
   void _watchCoins() {
     final ids = _markets.keys.toSet();
     if (ids.length == _watched.length && ids.containsAll(_watched)) return;
@@ -949,12 +954,13 @@ class _HlMarketMapCardState extends ConsumerState<HlMarketMapCard> {
       return Padding(
           padding: widget.margin, child: const _HlMarketMapSkeleton());
     }
-    _syncEntries();
+    // Off screen: see the file header.
+    if (TickerMode.valuesOf(context).enabled) _syncEntries();
     // Shown from [kHlMarketMapMinTiles] markets; once on screen it stays
     // while it has one, so a short re-read never takes the card's height
     // from under a list scrolled past it.
     if (_entries.length < (_shown ? 1 : kHlMarketMapMinTiles)) {
-      return const SizedBox.shrink();
+      return widget.nothing ?? const SizedBox.shrink();
     }
     _shown = true;
 
@@ -973,10 +979,14 @@ class _HlMarketMapCardState extends ConsumerState<HlMarketMapCard> {
         final dark = context.isDark;
         final c = context.colors;
         return Consumer(builder: (context, ref, _) {
-          // Repaints only when one of the tiles' own mids moves.
-          final coins = [for (final m in _markets.values) m.coin];
-          ref.watch(hyperliquidLivePricesProvider.select(
-              (s) => Object.hashAll([for (final k in coins) s.mids[k]])));
+          // Repaints only when one of the tiles' own mids moves, and only
+          // on screen: the socket stays on under Investing, this tab behind
+          // it, and back on screen the tiles read the latest.
+          if (TickerMode.valuesOf(context).enabled) {
+            final coins = [for (final m in _markets.values) m.coin];
+            ref.watch(hyperliquidLivePricesProvider.select(
+                (s) => Object.hashAll([for (final k in coins) s.mids[k]])));
+          }
           final mids = ref.read(hyperliquidLivePricesProvider).mids;
           final painter = HlMarketMapPainter(
             layout: layout,

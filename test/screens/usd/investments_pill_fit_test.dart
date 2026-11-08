@@ -7,8 +7,8 @@
 // then shrinks its words: never in English, a little in the longer
 // languages (Greek's "★ Λίστα παρακολούθησης" the most, to 85%).
 //
-// Three pills (founder, 4 November 2026: Activity · Investing ·
-// Predictions on Dollars): Activity and the other venue keep their words
+// Three pills (founder, 4 November 2026: Overview · Investing ·
+// Predictions on Dollars): Overview and the other venue keep their words
 // whole at full size, and the picked venue's context is left off (its
 // name and chevron alone) rather than shrunk below kutePillMinTextScale.
 //
@@ -115,10 +115,10 @@ List<KutePillItem> _items(AppLocalizations l10n, int selected, _Case c) => [
             : KutePillItem(label: name),
     ];
 
-/// The Dollars switch since 4 November 2026: Activity first, then the two
-/// venues ([selected] 1 or 2 is a venue, carrying its category).
+/// The Dollars switch since 4 November 2026: Overview first (its name since
+/// 8 November 2026), then the two venues ([selected] 1 or 2 is a venue, carrying its category).
 List<KutePillItem> _items3(AppLocalizations l10n, int selected, _Case c) => [
-      KutePillItem(label: l10n.activity),
+      KutePillItem(label: l10n.overview),
       for (final (i, name) in [l10n.trading, l10n.predictions].indexed)
         i + 1 == selected
             ? KutePillItem(
@@ -234,8 +234,8 @@ void main() {
   });
 
   testWidgets(
-      'three pills, Activity · Investing · Predictions: the picked venue '
-      'never cuts its category at 375 pt in every language, Activity and '
+      'three pills, Overview · Investing · Predictions: the picked venue '
+      'never cuts its category at 375 pt in every language, Overview and '
       'the other venue never shrink', (tester) async {
     await tester.runAsync(_loadInter);
     tester.view.physicalSize = const Size(375, 812) * 3;
@@ -271,7 +271,7 @@ void main() {
                 shownDetail == null ? name : '$name · $shownDetail',
                 why);
             for (final other in [
-              l10n.activity,
+              l10n.overview,
               selected == 1 ? l10n.predictions : l10n.trading,
             ]) {
               expect(_checkWhole(tester, other, why), closeTo(1, 0.001),
@@ -285,12 +285,15 @@ void main() {
         }
       }
     }
-    // In English only the three longest contexts are left off; the rest
-    // read whole at full size.
+    // In English only the longest contexts are left off; the rest read
+    // whole at full size. The row's room is "Overview"'s since 8 November
+    // 2026, a little wider in Inter than "Activity" was.
     expect(dropped.where((d) => d.startsWith('en')).toSet(), {
       'en: Stocks and shares',
       'en compact: Stocks and shares',
+      'en: Stocks and shares · Commodities',
       'en: Crypto · Protocol Metrics',
+      'en compact: Crypto · Protocol Metrics',
       'en: Finance · Prediction Markets',
       'en compact: Finance · Prediction Markets',
     });

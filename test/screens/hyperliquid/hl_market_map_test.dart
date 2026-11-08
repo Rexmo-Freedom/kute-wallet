@@ -1,4 +1,4 @@
-// The market map, Investing's last item (hl_market_map.dart): which
+// The market map, on the Dollars Overview tab (hl_market_map.dart): which
 // markets it shows (four classes, one per underlying, the most traded,
 // thin and unverified ones left out, a hysteresis at the edge), its layout
 // (one scale, blocks with their labels, no overlaps, the same markets
@@ -6,7 +6,7 @@
 // of a change (neutral at 0.0 %, full from 5 %, the market pair), the
 // labels a tile can carry, and the card: header, tap to the market,
 // colours following the live price with the layout untouched, the loading
-// state and no card at all with too few markets.
+// state, no card at all with too few markets, and no work off screen.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,23 +15,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart';
-import 'package:kute/providers/hyperliquid_account_provider.dart';
-import 'package:kute/providers/hyperliquid_candles_provider.dart';
-import 'package:kute/providers/hyperliquid_insights_provider.dart';
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
-import 'package:kute/providers/hyperliquid_markets_provider.dart';
-import 'package:kute/providers/hyperliquid_orderbook_provider.dart';
-import 'package:kute/providers/hyperliquid_sats_pnl_provider.dart'
-    show hyperliquidActivityFillsProvider;
-import 'package:kute/providers/hyperliquid_sparkline_provider.dart';
-import 'package:kute/screens/hyperliquid/components/hl_market_card.dart';
 import 'package:kute/screens/hyperliquid/components/hl_market_map.dart';
-import 'package:kute/screens/hyperliquid/components/hl_moving_now_strip.dart'
-    show HlMovingNowStrip;
-import 'package:kute/screens/hyperliquid/hyperliquid_screen.dart';
-import 'package:kute/screens/hyperliquid/market_detail_sheet.dart';
-import 'package:kute/services/hyperliquid/hl_sparkline_cache.dart';
-import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
 import '../usd/investments_harness.dart';
@@ -52,6 +37,21 @@ class _LivePrices extends HlLivePricesNotifier {
   void acquire() {}
   @override
   void release() {}
+}
+
+/// Live prices that note which coins were registered, alive for the test as
+/// the real ones are while anything is watched.
+class _WatchingPrices extends _LivePrices {
+  final watched = <String>{};
+  @override
+  HlLivePriceState build() {
+    ref.keepAlive();
+    return super.build();
+  }
+
+  @override
+  void watchCoins(List<String> coins, {Map<String, String>? wire}) =>
+      watched.addAll(coins);
 }
 
 /// [n] crypto markets, the first most traded.
@@ -562,111 +562,123 @@ void main() {
     await _unmount(tester);
   });
 
-  group('on the Investing list', () {
-    Future<void> pumpScreen(WidgetTester tester, List<HlMarket> universe,
-        {List<Override> overrides = const []}) async {
+  testWidgets(
+      'nothing to draw: what stands in for it, no margin of the card\'s '
+      'around it; drawn, or loading, the map itself', (tester) async {
+    await pumpInvestments(tester,
+        browseInvesting: true,
+        child: const Scaffold(
+            body: Column(mainAxisSize: MainAxisSize.min, children: [
+          HlMarketMapCard(
+              universe: [],
+              margin: EdgeInsets.only(top: 40),
+              nothing: Text('stand-in')),
+        ])),
+        overrides: [hyperliquidLivePricesProvider.overrideWith(_LivePrices.new)]);
+    expect(find.text('stand-in'), findsOneWidget);
+    expect(tester.getTopLeft(find.text('stand-in')).dy, 0);
+    await unmountInvestments(tester);
+    await pumpInvestments(tester,
+        browseInvesting: true,
+        child: const Scaffold(
+            body: HlMarketMapCard(
+                universe: [], loading: true, nothing: Text('stand-in'))),
+        overrides: [hyperliquidLivePricesProvider.overrideWith(_LivePrices.new)]);
+    expect(find.text('stand-in'), findsNothing);
+    expect(find.byKey(const ValueKey('hl-market-map-loading')), findsOneWidget);
+    await unmountInvestments(tester);
+  });
+
+  group('off screen ([TickerMode] off)', () {
+    Widget card(
+            {required bool on,
+            required List<HlMarket> universe}) =>
+        Scaffold(
+            body: TickerMode(
+                enabled: on,
+                child: SingleChildScrollView(
+                    child: HlMarketMapCard(universe: universe))));
+
+    Future<ProviderContainer> pump(WidgetTester tester, Widget child,
+        _WatchingPrices Function() prices) async {
       await pumpInvestments(tester,
           browseInvesting: true,
-          size: const Size(390, 3000),
-          child: const Scaffold(body: HyperliquidScreen()),
+          child: child,
           overrides: [
-            hyperliquidBrowseUniverseProvider
-                .overrideWithValue(AsyncValue.data(universe)),
-            hyperliquidBuilderMarketsMissingProvider.overrideWithValue(false),
-            hyperliquidLivePricesProvider.overrideWith(_LivePrices.new),
-            hyperliquidSparklineStoreProvider.overrideWithValue(
-                HlSparklineStore(fetch: (_) async => const [1, 2, 3])),
-            ...overrides,
+            hyperliquidLivePricesProvider.overrideWith(prices),
           ]);
-      for (var i = 0; i < 6; i++) {
-        await tester.pump(const Duration(milliseconds: 100));
-      }
+      return ProviderScope.containerOf(tester.element(find.byType(Scaffold)));
     }
 
-    final map =
-        find.byKey(const ValueKey('hl-market-map'), skipOffstage: false);
+    testWidgets(
+        'never on screen yet: nothing built, no coin registered; on screen, '
+        'the map and its coins', (tester) async {
+      final toggle = ValueNotifier(false);
+      addTearDown(toggle.dispose);
+      await pump(
+          tester,
+          ValueListenableBuilder<bool>(
+              valueListenable: toggle,
+              builder: (_, on, __) =>
+                  card(on: on, universe: hlMarketMapFixture)),
+          _WatchingPrices.new);
+      final prices = ProviderScope.containerOf(
+              tester.element(find.byType(Scaffold)))
+          .read(hyperliquidLivePricesProvider.notifier) as _WatchingPrices;
+      expect(find.byKey(const ValueKey('hl-market-map')), findsNothing);
+      expect(prices.watched, isEmpty);
+
+      toggle.value = true;
+      await tester.pump();
+      await tester.pump();
+      expect(find.byKey(const ValueKey('hl-market-map')), findsOneWidget);
+      expect(prices.watched, contains('BTC'));
+      await unmountInvestments(tester);
+    });
 
     testWidgets(
-        'the last item: under the squares and the Trending list; not on a '
-        'picked category', (tester) async {
-      await pumpScreen(tester, hlMarketMapFixture);
-      expect(map, findsOneWidget);
-      // Founder, 7 November 2026, hours after the map went second:
-      // "bring the list back as the second item please and this thing to
-      // the last item".
-      final squares = find.byType(HlMovingNowStrip, skipOffstage: false);
-      expect(squares, findsOneWidget);
-      final rows = find.byType(HlMarketCard, skipOffstage: false);
-      expect(rows, findsWidgets);
-      expect(tester.getTopLeft(rows.first).dy,
-          greaterThanOrEqualTo(tester.getBottomLeft(squares).dy));
-      for (final row in rows.evaluate()) {
-        expect(tester.getTopLeft(map).dy,
-            greaterThan(tester.getBottomLeft(find.byWidget(row.widget)).dy));
-      }
-      // The map is the whole universe, not the six rows over it.
-      expect(_painter(tester).layout.tiles.length, greaterThan(30));
-
-      final container = ProviderScope.containerOf(
-          tester.element(find.byType(HyperliquidScreen)));
-      container.read(hlBrowseSelectionProvider.notifier).state = container
-          .read(hlBrowseSelectionProvider)
-          .copyWith(tab: HlBrowseTab.perps);
-      for (var i = 0; i < 8; i++) {
-        await tester.pump(const Duration(milliseconds: 100));
-      }
-      expect(map, findsNothing);
-      expect(tester.takeException(), isNull);
-      await unmountInvestments(tester);
-    });
-
-    testWidgets('its loading state while the builder markets are missing',
-        (tester) async {
-      await pumpScreen(tester, hlMarketMapFixture, overrides: [
-        hyperliquidBuilderMarketsMissingProvider.overrideWithValue(true),
-      ]);
-      expect(
-          find.byKey(const ValueKey('hl-market-map-loading'),
-              skipOffstage: false),
-          findsOneWidget);
-      expect(map, findsNothing);
-      await unmountInvestments(tester);
-    });
-
-    testWidgets('a tile opens the market sheet with the map as its source',
-        (tester) async {
-      final events = <(String, Map<String, Object>?)>[];
-      TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
-      addTearDown(() => TrackingService.debugTrackObserver = null);
-      final zec = hlMarketMapFixture.firstWhere((m) => m.coin == 'ZEC');
-      await pumpScreen(tester, hlMarketMapFixture, overrides: [
-        // The sheet's own reads (no network in a test).
-        hyperliquidExactMarketProvider.overrideWith((ref, key) => zec),
-        hyperliquidActiveAssetCtxProvider
-            .overrideWith((ref, wire) => const Stream.empty()),
-        hyperliquidOrderbookProvider
-            .overrideWith((ref, wire) => const Stream.empty()),
-        hyperliquidPerpPositionsProvider.overrideWith((_) => const []),
-        hyperliquidSpotBalancesProvider.overrideWith((_) => const []),
-        hyperliquidActivityFillsProvider.overrideWith((_) => const []),
-        hyperliquidLiveCandlesProvider.overrideWith(
-            (ref, key) => Stream.value(const HlLiveCandlesState(candles: []))),
-        hyperliquidTradeFlowProvider.overrideWith(
-            (ref, coin) => Stream.value(const HlTradeFlowState())),
-      ]);
-      await tester.tapAt(_tileCenter(tester, 'perp:ZEC'));
+        'once drawn it keeps what it drew: a tick does not rebuild it, a new '
+        'universe is not read; back on screen it has both', (tester) async {
+      final on = ValueNotifier(true);
+      final universe = ValueNotifier<List<HlMarket>>(hlMarketMapFixture);
+      addTearDown(on.dispose);
+      addTearDown(universe.dispose);
+      await pump(
+          tester,
+          ListenableBuilder(
+              listenable: Listenable.merge([on, universe]),
+              builder: (_, __) => card(on: on.value, universe: universe.value)),
+          _WatchingPrices.new);
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 600));
+      final prices = ProviderScope.containerOf(
+              tester.element(find.byType(Scaffold)))
+          .read(hyperliquidLivePricesProvider.notifier) as _WatchingPrices;
+      final tiles = _painter(tester).layout.tiles.length;
 
-      final sheet =
-          tester.widget<HlMarketDetailSheet>(find.byType(HlMarketDetailSheet));
-      expect(sheet.market.coin, 'ZEC');
-      expect(sheet.source, kHlMarketMapSource);
-      final viewed =
-          events.where((e) => e.$1 == 'hyperliquid_market_viewed').single;
-      expect(viewed.$2?['coin'], 'ZEC');
-      expect(viewed.$2?['entry_source'], 'market_map');
-      expect(tester.takeException(), isNull);
+      on.value = false;
+      await tester.pump();
+      final hidden = _painter(tester);
+      prices.watched.clear();
+
+      prices.set({'BTC': 12345});
+      await tester.pump();
+      expect(identical(_painter(tester), hidden), isTrue,
+          reason: 'a tick behind the stack rebuilds nothing');
+
+      universe.value = _ladder(kHlMarketMapMinTiles);
+      await tester.pump();
+      await tester.pump();
+      expect(_painter(tester).layout.tiles, hasLength(tiles),
+          reason: 'the new universe waits for the screen');
+      expect(prices.watched, isEmpty, reason: 'no coin registered off screen');
+
+      on.value = true;
+      await tester.pump();
+      await tester.pump();
+      expect(_painter(tester).mids['BTC'], 12345);
+      expect(_painter(tester).layout.tiles.length, lessThan(tiles));
+      expect(prices.watched, contains('C0'));
+      await unmountInvestments(tester);
     });
   });
 }

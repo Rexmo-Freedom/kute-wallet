@@ -1,11 +1,11 @@
-// The Dollars Activity pill (founder, 4 November 2026: "On Dollars, like
+// The Dollars Overview pill (founder, 4 November 2026: "On Dollars, like
 // we do on the Bitcoin screen, have the first tab be the Activity screen …
 // It must have the P&L below the 4 squares with the highest predictions and
-// Hyperliquid bets."): the biggest open positions as squares, biggest
-// first, four at most; the P&L under them; the latest Investments actions
-// (fw2's ActivityScope.investments); the
-// empty state with nothing open; and the bar, "See full portfolio and
-// activity", pushing the Portfolio screen.
+// Hyperliquid bets."; renamed Overview on 8 November 2026): the biggest open
+// positions as squares, biggest first, four at most; the P&L under them; the
+// market map under that (dollars_default_tab_test.dart drives it); no list of
+// actions; the empty state with nothing open and no map; and the bar, "See
+// full portfolio and activity", pushing the Portfolio screen.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,8 +15,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/models/hyperliquid_market.dart'
     show HlFill, HlPerpPosition;
 import 'package:kute/models/hyperliquid_model.dart' show HyperliquidCandle;
+import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
+import 'package:kute/providers/hyperliquid_markets_provider.dart';
+import 'package:kute/providers/hyperliquid_sparkline_provider.dart';
 import 'package:kute/providers/open_pnl_history_provider.dart'
     show OpenPnlSources;
+import 'package:kute/services/hyperliquid/hl_sparkline_cache.dart';
 import 'package:kute/screens/shared/charts/kute_trend_chart.dart'
     show KuteTrendChart;
 import 'package:kute/screens/shared/rolling_number_text.dart'
@@ -42,7 +46,23 @@ import 'package:polybrainz_polymarket/polybrainz_polymarket.dart'
     show Activity;
 
 import '../../helpers/portfolio_overrides.dart' show PortfolioTestTrading;
+import '../hyperliquid/hl_market_map_fixture.dart';
 import 'investments_harness.dart';
+
+class _LivePrices extends HlLivePricesNotifier {
+  @override
+  HlLivePriceState build() => const HlLivePriceState();
+  @override
+  void watchCoins(List<String> coins, {Map<String, String>? wire}) {}
+  @override
+  void focus(String coin, {String? wire}) {}
+  @override
+  void unfocus(String coin) {}
+  @override
+  void acquire() {}
+  @override
+  void release() {}
+}
 
 HlPerpPosition _perp(String coin, double margin) => HlPerpPosition(
     coin: coin,
@@ -117,42 +137,27 @@ void main() {
   });
 
   testWidgets(
-      'Latest: the newest Investments actions, five at most, newest first, '
-      'never a Bitcoin payment', (tester) async {
+      'no Latest: the Investments actions are not listed here, they are the '
+      'Portfolio\'s', (tester) async {
     await pumpInvestments(tester,
         history: Transaction(
-          bitcoinTransactions: [
-            BitcoinTransaction.fromCache(
-                id: 'btc1',
-                timestamp: DateTime.utc(2026, 11, 4, 13),
-                isConfirmed: true,
-                receivedSats: 1000,
-                sentSats: 0),
-          ],
+          bitcoinTransactions: const [],
           sparkTransactions: const [],
           sparkUnclaimedDeposits: const [],
           polymarketTransactions: [
             for (var i = 1; i <= 7; i++) _bet('bet$i'),
           ],
         ));
-    final card = find.byKey(const ValueKey('dollars-activity-rows'));
-    expect(card, findsOneWidget);
-    expect(find.byKey(const ValueKey('dollars-activity-latest-heading')),
-        findsOneWidget);
-    expect(kDollarsActivityRows, 5);
-    // Every row a prediction placed, five of the seven; the bitcoin
-    // receive is not an Investments action.
-    expect(
-        find.descendant(of: card, matching: find.text('Prediction · Yes')),
-        findsNWidgets(5));
-    expect(find.descendant(of: card, matching: find.text(r'$5.00')),
-        findsNWidgets(5));
+    expect(find.byType(DollarsActivityTab), findsOneWidget);
+    expect(find.text('Latest'), findsNothing);
+    expect(find.text('Prediction · Yes'), findsNothing);
+    expect(find.text(r'$5.00'), findsNothing);
     expect(tester.takeException(), isNull);
     await unmountInvestments(tester);
   });
 
   testWidgets(
-      'the Activity pill: the four biggest positions as squares, biggest '
+      'the Overview pill: the four biggest positions as squares, biggest '
       'first, two by two, then the P&L card, and the bar opens the '
       'Portfolio', (tester) async {
     final events = recordEvents();
@@ -216,7 +221,7 @@ void main() {
     expect(find.byKey(const ValueKey('dollars-pnl-chart')), findsNothing);
     expect(find.byKey(const ValueKey('dollars-activity-empty')), findsNothing);
 
-    // The bar on Activity: "See full portfolio and activity", the
+    // The bar on Overview: "See full portfolio and activity", the
     // Portfolio's own key under this surface.
     final bar = kuteBarTop(_container(tester).read(kuteBarContextProvider));
     expect(bar!.isPrimary, isTrue);
@@ -237,26 +242,24 @@ void main() {
     await unmountInvestments(tester);
   });
 
+
   testWidgets(
-      'one edge for every block: the squares, the P&L card and the Latest '
-      'card share the page\'s gutters, the headings one line 12 inside',
-      (tester) async {
-    // Founder, 5 November 2026 ("different size here"): the Latest card
-    // stood 16 inside the squares and the P&L card. Dark, as the screenshot.
+      'one edge for every block: the squares, the P&L card and the map '
+      'share the page\'s gutters, the heading 12 inside', (tester) async {
+    // Founder, 5 November 2026 ("different size here"): a group card stood
+    // 16 inside the squares and the P&L card. Dark, as the screenshot.
     final now = DateTime.now();
     await pumpInvestments(tester,
         dark: true,
-        // Tall enough that the Latest card is laid out.
+        // Tall enough that the map is laid out.
         size: const Size(390, 2000),
-        history: Transaction(
-          bitcoinTransactions: const [],
-          sparkTransactions: const [],
-          sparkUnclaimedDeposits: const [],
-          polymarketTransactions: [
-            for (var i = 1; i <= 3; i++) _bet('bet$i'),
-          ],
-        ),
+        browseInvesting: true,
         overrides: [
+          hyperliquidBrowseUniverseProvider
+              .overrideWithValue(AsyncValue.data(hlMarketMapFixture)),
+          hyperliquidLivePricesProvider.overrideWith(_LivePrices.new),
+          hyperliquidSparklineStoreProvider.overrideWithValue(
+              HlSparklineStore(fetch: (_) async => const [1, 2, 3])),
           hyperliquidTradingProvider.overrideWith(() => PortfolioTestTrading(
                   HyperliquidTradingState(isInitialized: true, positions: [
                 _perp('BTC', 100),
@@ -285,27 +288,31 @@ void main() {
         of: find.byKey(const ValueKey('dollars-activity-squares')),
         matching: find.byType(ActivitySquareGrid)));
     final pnl = tester.getRect(find.byKey(const ValueKey('dollars-pnl-strip')));
-    // The card's face (its clip), never a margin around it: a Container's
-    // rect counts its margin.
-    final latest = tester.getRect(find
-        .descendant(
-            of: find.byKey(const ValueKey('dollars-activity-rows')),
-            matching: find.byType(ClipRRect))
-        .first);
+    // The card's face (its clip and the 1 px border around it), never a
+    // margin around it: a Container's rect counts its margin.
+    final map = tester
+        .getRect(find
+            .descendant(
+                of: find.byKey(const ValueKey('hl-market-map')),
+                matching: find.byType(ClipRRect))
+            .first)
+        .inflate(1);
     // The page's 16 gutters, one each side, for every block.
     final gutter = 16.w;
     for (final (name, r) in [
       ('squares', squares),
       ('P&L card', pnl),
-      ('Latest card', latest),
+      ('map', map),
     ]) {
       expect(r.left - list.left, moreOrLessEquals(gutter, epsilon: 0.5),
           reason: '$name left');
       expect(list.right - r.right, moreOrLessEquals(gutter, epsilon: 0.5),
           reason: '$name right');
     }
-    expect(latest.left, moreOrLessEquals(squares.left, epsilon: 0.5));
-    expect(latest.right, moreOrLessEquals(squares.right, epsilon: 0.5));
+    expect(map.left, moreOrLessEquals(squares.left, epsilon: 0.5));
+    expect(map.right, moreOrLessEquals(squares.right, epsilon: 0.5));
+    // 12 under the P&L card, as the P&L card is under the squares.
+    expect(map.top - pnl.bottom, moreOrLessEquals(12.h, epsilon: 1));
     expect(pnl.left, moreOrLessEquals(squares.left, epsilon: 0.5));
     expect(pnl.right, moreOrLessEquals(squares.right, epsilon: 0.5));
     // The squares' own cells reach the grid's edges.
@@ -316,19 +323,13 @@ void main() {
         moreOrLessEquals(squares.left, epsilon: 0.5));
     expect(tester.getRect(cells.at(1)).right,
         moreOrLessEquals(squares.right, epsilon: 0.5));
-    // Both headings on one line, 12 inside the blocks' edge (the Bitcoin
-    // home's "Latest" and "Earlier"), each over its block.
-    Rect heading(String key) => tester.getRect(find.descendant(
-        of: find.byKey(ValueKey(key)), matching: find.byType(Text)));
-    final positionsHeading = heading('dollars-activity-positions-heading');
-    final latestHeading = heading('dollars-activity-latest-heading');
-    expect(positionsHeading.left,
-        moreOrLessEquals(latestHeading.left, epsilon: 0.5));
-    expect(positionsHeading.left - squares.left,
-        moreOrLessEquals(12.w, epsilon: 0.5));
-    expect(positionsHeading.bottom, lessThanOrEqualTo(squares.top));
-    expect(latestHeading.bottom, lessThanOrEqualTo(latest.top));
-    expect(latestHeading.top, greaterThanOrEqualTo(pnl.bottom));
+    // The heading 12 inside the blocks' edge (the Bitcoin home's "Latest"
+    // and "Earlier"), over its block.
+    final heading = tester.getRect(find.descendant(
+        of: find.byKey(const ValueKey('dollars-activity-positions-heading')),
+        matching: find.byType(Text)));
+    expect(heading.left - squares.left, moreOrLessEquals(12.w, epsilon: 0.5));
+    expect(heading.bottom, lessThanOrEqualTo(squares.top));
     expect(tester.takeException(), isNull);
     await unmountInvestments(tester);
   });
@@ -430,7 +431,7 @@ void main() {
     await unmountInvestments(tester);
   });
 
-  testWidgets('nothing open: one Sal "No open positions", no P&L card',
+  testWidgets('nothing open and no map: one Sal "No open positions", no P&L card',
       (tester) async {
     await pumpInvestments(tester);
     expect(find.byKey(const ValueKey('dollars-activity-empty')), findsOneWidget);

@@ -138,8 +138,9 @@ List<ActiveNavTab> _visibleTabsFor(WalletConfig? wallet) => [
 /// on screen is the pill, not the tab: the Investing pill is the Trading
 /// surface and the Predictions pill the Predictions surface, so the same
 /// sockets follow the pill there (re-applied on every pill change by the
-/// shell). The Activity pill (4 November 2026) shows the open positions
-/// of both venues at their live prices: both sockets stay on under it.
+/// shell). The Overview pill ([InvestmentsTab.activity]) shows the open
+/// positions of both venues at their live prices and the market map at
+/// Investing's: both sockets stay on under it.
 ///
 /// The `ref.exists` guards keep this from instantiating autoDispose
 /// providers nothing is watching yet (a cold read of the trading provider
@@ -454,7 +455,7 @@ class _AppShellState extends ConsumerState<AppShell>
   }
 
   /// The switch landing on Dollars, by a tap or a swipe, opens the page on
-  /// its default pill, Investing (founder, 7 November 2026; see
+  /// its default pill, Overview (founder, 8 November 2026; see
   /// [openInvestmentsOnDefaultTab]). Before the branch switch (and, for a
   /// swipe, as the page first comes on screen: [_openDollarsOnReveal]),
   /// so the page arrives on it. A link (`context.go('/usd?tab=…')`) never
@@ -497,7 +498,7 @@ class _AppShellState extends ConsumerState<AppShell>
 
   /// A drag that starts bringing Dollars on screen from another tab opens
   /// it on its default pill ([_openOnDefaultPill]) before the frame that
-  /// first shows it, so the page slides in on Investing rather than on the
+  /// first shows it, so the page slides in on Overview rather than on the
   /// pill it was left on, swapped when the swipe lands. Once per reveal.
   void _openDollarsOnReveal() {
     final usdPage = _tabs.indexOf(ActiveNavTab.usd);

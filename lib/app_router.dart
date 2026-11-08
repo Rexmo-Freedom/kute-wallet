@@ -648,10 +648,11 @@ class AppRouter {
                 GoRoute(
                   path: '/usd',
                   name: 'usd',
-                  // `?tab=activity` opens the Dollars Activity pill
-                  // (founder, 4 November 2026: Dollars leads with its own
-                  // Activity, as the Bitcoin home does); it went to the
-                  // Bitcoin home's Activity from 1 November.
+                  // `?tab=activity` or `?tab=overview` opens the Dollars
+                  // Overview pill (founder, 4 November 2026: Dollars leads
+                  // with its own, as the Bitcoin home does; it read Activity
+                  // until 8 November); it went to the Bitcoin home's Activity
+                  // from 1 November.
                   // `?tab=activity|investing|predictions|positions` (what
                   // the venue routes redirect to) or `extra: {'tab': …}`
                   // picks the

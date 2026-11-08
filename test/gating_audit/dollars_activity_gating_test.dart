@@ -1,4 +1,4 @@
-// Gating audit (fw36, v2.2): the Dollars Activity pill under a backend
+// Gating audit (fw36, v2.2): the Dollars Overview pill under a backend
 // policy that withholds new positions. What is already held is never
 // gated (founder: exits and existing positions always open): the open
 // positions' squares, the Open P&L card and the bar's "See full portfolio
@@ -106,12 +106,8 @@ void main() {
         ]);
         final container = ProviderScope.containerOf(
             tester.element(find.byType(InvestmentsBody, skipOffstage: false)));
-        // The page opens on Investing while it browses (founder, 7
-        // November 2026), on Activity with both venues' browsing withheld
-        // (investmentsDefaultTab); Activity is a tap away either way.
-        expect(container.read(investmentsTabProvider),
-            browse ? InvestmentsTab.investing : InvestmentsTab.activity);
-        if (browse) await tapPill(tester, 'Activity');
+        // The page opens on Overview whatever the policy says (founder, 8
+        // November 2026).
         expect(container.read(investmentsTabProvider), InvestmentsTab.activity);
         final squares = find.byKey(const ValueKey('dollars-activity-squares'));
         expect(squares, findsOneWidget);

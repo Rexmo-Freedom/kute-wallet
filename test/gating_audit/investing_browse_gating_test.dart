@@ -6,7 +6,7 @@
 // and under the swap cascade (a region block on swaps reaching the
 // venues' trading and deposits).
 //
-//   * The Investing market map and the moving-now strip are drawn from
+//   * The market map and Investing's moving-now strip are drawn from
 //     the browse universe, which the stock gate filters: no stock-linked
 //     perpetual is a tile or a big card while `hyperliquid.stocks` denies.
 //     The swap cascade withholds trading, not browsing: the map stays
@@ -16,13 +16,13 @@
 //     sheet lists nothing and shows the venue page's own notice, the
 //     named-region copy carrying only the VPN sentence. A pick the policy
 //     no longer offers reads as Trending on the page's pill.
-//   * The Dollars page opens on Investing (founder, 7 November 2026), the
-//     market map its last item, under the squares and the list: with
-//     `hyperliquid.browse` withheld it opens on Predictions (or Activity
-//     with Predictions' browsing withheld too), and the Investing tab has
-//     no map, no skeleton and no squares, only its notice. With
-//     `hyperliquid.stocks` denied it still opens on Investing, the map in
-//     its place with no stock-linked tile.
+//   * The Dollars page opens on Overview whatever the policy withholds
+//     (founder, 8 November 2026), the market map on it, under what is held
+//     and the first thing with nothing held. With `hyperliquid.browse`
+//     withheld there is no map, no skeleton: nothing held reads Sal over "No
+//     open positions" (Overview's own, true either way), and the Investing
+//     tab has no squares, only its notice. With `hyperliquid.stocks` denied
+//     the map stays, with no stock-linked tile.
 //   * Special US election events (the maps) and game markets reach the
 //     market page only through the feeds the category gates filter, and
 //     a bet on any of their lines still asks the category gate.
@@ -38,15 +38,18 @@ import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/hyperliquid_sparkline_provider.dart';
+import 'package:kute/providers/hyperliquid_trading_provider.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/providers/polymarket_sports_provider.dart';
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
-import 'package:kute/screens/hyperliquid/components/hl_market_card.dart'
-    show HlMarketCard;
 import 'package:kute/screens/hyperliquid/components/hl_market_map.dart';
 import 'package:kute/screens/hyperliquid/components/hl_moving_now_strip.dart';
+import 'package:kute/screens/hyperliquid/hyperliquid_screen.dart'
+    show HyperliquidScreen;
 import 'package:kute/screens/shared/investment_balance_header.dart'
     show InvestmentDiscoveryNotice;
+import 'package:kute/screens/usd/components/dollars_activity_tab.dart'
+    show DollarsActivityTab;
 import 'package:kute/screens/usd/investments_category_sheet.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart'
     show InvestmentsBody, InvestmentsTab, investmentsTabProvider;
@@ -56,6 +59,7 @@ import 'package:kute/services/polymarket/special_event_map.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 
 import '../helpers/offline_venue_overrides.dart';
+import '../helpers/portfolio_overrides.dart' show PortfolioTestTrading;
 import '../screens/hyperliquid/hl_market_map_fixture.dart';
 import '../screens/hyperliquid/hl_trending_strip_fixture.dart'
     show hlFixtureMarket;
@@ -202,7 +206,8 @@ class _LivePrices extends HlLivePricesNotifier {
 /// universe as [policy] filters it, Predictions' feeds empty. Returns the
 /// pill it opened on.
 Future<InvestmentsTab> _pumpDollars(
-    WidgetTester tester, RuntimeCapabilitiesService policy) async {
+    WidgetTester tester, RuntimeCapabilitiesService policy,
+    {List<Override> overrides = const []}) async {
   final universe = await _browseUniverse(policy);
   await pumpInvestments(
     tester,
@@ -218,6 +223,7 @@ Future<InvestmentsTab> _pumpDollars(
       hyperliquidLivePricesProvider.overrideWith(_LivePrices.new),
       hyperliquidSparklineStoreProvider.overrideWithValue(
           HlSparklineStore(fetch: (_) async => const [1, 2, 3])),
+      ...overrides,
     ],
   );
   for (var i = 0; i < 6; i++) {
@@ -313,37 +319,42 @@ void main() {
 
   group('the Dollars page and its market map', () {
     testWidgets(
-        'everything allowed: the page opens on Investing, the map last, '
-        'under the squares and the list', (tester) async {
+        'everything allowed: the page opens on Overview, the map on it; '
+        'Investing holds the squares and the list, no map', (tester) async {
       final policy = auditPolicy();
       expect(await policy.refresh(), isTrue);
-      expect(await _pumpDollars(tester, policy), InvestmentsTab.investing);
-      expect(_squares, findsOneWidget);
+      expect(await _pumpDollars(tester, policy), InvestmentsTab.activity);
       expect(_map, findsOneWidget);
-      final rows = find.byType(HlMarketCard, skipOffstage: false);
-      expect(rows, findsWidgets);
-      expect(tester.getTopLeft(rows.first).dy,
-          greaterThanOrEqualTo(tester.getBottomLeft(_squares).dy));
-      for (final row in rows.evaluate()) {
-        expect(tester.getTopLeft(_map).dy,
-            greaterThan(tester.getBottomLeft(find.byWidget(row.widget)).dy));
-      }
+      expect(
+          find.descendant(
+              of: find.byType(HyperliquidScreen, skipOffstage: false),
+              matching: _map),
+          findsNothing);
+      expect(
+          find.descendant(
+              of: find.byType(DollarsActivityTab, skipOffstage: false),
+              matching: _map),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('dollars-activity-empty')), findsNothing);
       await unmountInvestments(tester);
       policy.dispose();
     });
 
     for (final denial in AuditDenial.values) {
       testWidgets(
-          'hyperliquid.browse ${denial.name}: the page opens on '
-          'Predictions; Investing has no map, no skeleton, no squares, '
-          'only its notice', (tester) async {
+          'hyperliquid.browse ${denial.name}: the page still opens on '
+          'Overview, Sal over "No open positions", no map, no skeleton; '
+          'Investing has no squares, only its notice', (tester) async {
         final policy = auditDenying(const ['hyperliquid.browse'], denial);
         expect(await policy.refresh(), isTrue);
         expect(policy.allows('polymarket.browse'), isTrue);
-        expect(await _pumpDollars(tester, policy), InvestmentsTab.predictions);
+        expect(await _pumpDollars(tester, policy), InvestmentsTab.activity);
         expect(_map, findsNothing);
         expect(_mapBones, findsNothing);
         expect(_squares, findsNothing);
+        expect(find.byKey(const ValueKey('dollars-activity-empty')),
+            findsOneWidget);
+        expect(find.text('No open positions'), findsOneWidget);
         final notices = tester.widgetList<InvestmentDiscoveryNotice>(
             find.byType(InvestmentDiscoveryNotice, skipOffstage: false));
         expect(notices.map((n) => n.capability),
@@ -354,24 +365,24 @@ void main() {
 
       testWidgets(
           'both venues\' browsing ${denial.name}: the page opens on '
-          'Activity, no map anywhere', (tester) async {
+          'Overview, no map anywhere', (tester) async {
         final policy = auditDenying(
             const ['hyperliquid.browse', 'polymarket.browse'], denial);
         expect(await policy.refresh(), isTrue);
         expect(await _pumpDollars(tester, policy), InvestmentsTab.activity);
         expect(_map, findsNothing);
         expect(_mapBones, findsNothing);
+        expect(find.text('No open positions'), findsOneWidget);
         await unmountInvestments(tester);
         policy.dispose();
       });
 
       testWidgets(
-          'hyperliquid.stocks ${denial.name}: the page still opens on '
-          'Investing, the map last with no stock-linked tile',
-          (tester) async {
+          'hyperliquid.stocks ${denial.name}: the page opens on Overview, the '
+          'map with no stock-linked tile', (tester) async {
         final policy = auditDenying(const ['hyperliquid.stocks'], denial);
         expect(await policy.refresh(), isTrue);
-        expect(await _pumpDollars(tester, policy), InvestmentsTab.investing);
+        expect(await _pumpDollars(tester, policy), InvestmentsTab.activity);
         expect(_map, findsOneWidget);
         final painter = tester
             .widgetList<CustomPaint>(
@@ -387,6 +398,39 @@ void main() {
         final tiles = {for (final t in painter.layout.tiles) t.id};
         expect(tiles.intersection(stocks), isEmpty);
         expect(painter.layout.tiles, isNotEmpty);
+        await unmountInvestments(tester);
+        policy.dispose();
+      });
+
+      testWidgets(
+          'hyperliquid.browse ${denial.name}, a position held: its square and '
+          'Open P&L stay, no empty state and no map', (tester) async {
+        final policy = auditDenying(const ['hyperliquid.browse'], denial);
+        expect(await policy.refresh(), isTrue);
+        await _pumpDollars(tester, policy, overrides: [
+          hyperliquidTradingProvider.overrideWith(() => PortfolioTestTrading(
+                  const HyperliquidTradingState(
+                      isInitialized: true,
+                      positions: [
+                    HlPerpPosition(
+                        coin: 'BTC',
+                        szi: 1,
+                        entryPx: 100,
+                        positionValue: 200,
+                        unrealizedPnl: 3,
+                        returnOnEquity: 0.03,
+                        liquidationPx: null,
+                        marginUsed: 100,
+                        leverageType: 'cross',
+                        leverageValue: 2,
+                        maxLeverage: 40),
+                  ]))),
+        ]);
+        expect(find.byKey(const ValueKey('dollars-activity-squares')),
+            findsOneWidget);
+        expect(find.byKey(const ValueKey('dollars-pnl-strip')), findsOneWidget);
+        expect(find.byKey(const ValueKey('dollars-activity-empty')), findsNothing);
+        expect(_map, findsNothing);
         await unmountInvestments(tester);
         policy.dispose();
       });

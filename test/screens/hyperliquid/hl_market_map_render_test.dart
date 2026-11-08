@@ -1,9 +1,9 @@
 // On demand: renders the market map from a fake universe shaped on the
 // venue's own lists (hl_market_map_fixture.dart) into PNGs for a look by
-// eye: the card alone at a phone's width (390), light and dark, its
-// loading state, and the bottom of the Investing default view with the
-// card under the list. Logos are not fetched, so the big tiles show their
-// category glyph or letter tile.
+// eye: the card alone at a phone's width (390), light and dark, and its
+// loading state. Logos are not fetched, so the big tiles show their
+// category glyph or letter tile. The tab it stands on renders in
+// test/screens/usd/dollars_overview_render_test.dart.
 //
 //   flutter test test/screens/hyperliquid/hl_market_map_render_test.dart \
 //     --dart-define=HL_MAP_RENDER_OUT=<dir>
@@ -22,14 +22,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
-import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/hyperliquid_sparkline_provider.dart';
 import 'package:kute/screens/hyperliquid/components/hl_market_map.dart';
-import 'package:kute/screens/hyperliquid/hyperliquid_screen.dart';
 import 'package:kute/services/hyperliquid/hl_sparkline_cache.dart';
 import 'package:kute/theme/app_theme.dart';
 
-import '../usd/investments_harness.dart';
 import 'hl_market_map_fixture.dart';
 
 const _out = String.fromEnvironment('HL_MAP_RENDER_OUT');
@@ -164,32 +161,6 @@ void main() {
     testWidgets('loading $mode', (tester) async {
       await _renderCard(tester,
           dark: dark, name: 'map_loading_$mode', loading: true);
-    });
-    testWidgets('investing bottom $mode', (tester) async {
-      await pumpInvestments(tester,
-          browseInvesting: true,
-          dark: dark,
-          size: const Size(390, 844),
-          child: RepaintBoundary(
-            key: _shotKey,
-            child: const Scaffold(body: HyperliquidScreen()),
-          ),
-          overrides: [
-            hyperliquidBrowseUniverseProvider
-                .overrideWithValue(AsyncValue.data(hlMarketMapFixture)),
-            hyperliquidBuilderMarketsMissingProvider.overrideWithValue(false),
-            ..._overrides,
-          ]);
-      for (var i = 0; i < 8; i++) {
-        await tester.pump(const Duration(milliseconds: 100));
-      }
-      await tester.drag(
-          find.byType(CustomScrollView).first, const Offset(0, -600));
-      for (var i = 0; i < 10; i++) {
-        await tester.pump(const Duration(milliseconds: 100));
-      }
-      await _shot(tester, 'investing_bottom_$mode');
-      await unmountInvestments(tester);
     });
   }
 }

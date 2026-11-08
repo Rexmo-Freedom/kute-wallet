@@ -11524,7 +11524,7 @@ abstract class AppLocalizations {
   /// **'Portfolio'**
   String get walletPortfolioAction;
 
-  /// Dollars tab, Activity pill: the floating bar's primary button, which opens the Portfolio screen with every position and the full activity. One line on a 375 pt phone.
+  /// Dollars tab, Overview pill: the floating bar's primary button, which opens the Portfolio screen with every position and the full activity. One line on a 375 pt phone.
   ///
   /// In en, this message translates to:
   /// **'See full portfolio and activity'**

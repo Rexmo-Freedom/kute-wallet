@@ -424,18 +424,10 @@ void main() {
         browseInvesting: true,
         overrides: _investingOverrides(),
         child: _page);
-    // The page opens on Investing, at rest (founder, 7 November 2026).
+    // The page opens on Overview, at rest (founder, 8 November 2026).
     expect(_body(tester), (1.0, 0.0));
 
-    // Investing → Activity (to the left): from the left.
-    await tester.tap(investmentsPill(_l10n.activity));
-    await tester.pump();
-    expect(_body(tester), (0.0, -KuteMotion.switchSlide));
-    await _frames8(tester);
-    expect(_body(tester).$1, 1);
-    expect(_body(tester).$2, closeTo(0, 0.01));
-
-    // Activity → Investing (to the right): from the right.
+    // Overview → Investing (to the right): from the right.
     await tester.tap(investmentsPill(_l10n.trading));
     await tester.pump();
     expect(_body(tester), (0.0, KuteMotion.switchSlide));
@@ -443,6 +435,14 @@ void main() {
     final (opacity, shift) = _body(tester);
     expect(opacity, inExclusiveRange(0, 1));
     expect(shift, inExclusiveRange(0, KuteMotion.switchSlide));
+    await _frames8(tester);
+    expect(_body(tester).$1, 1);
+    expect(_body(tester).$2, closeTo(0, 0.01));
+
+    // Investing → Overview (to the left): from the left.
+    await tester.tap(investmentsPill(_l10n.overview));
+    await tester.pump();
+    expect(_body(tester), (0.0, -KuteMotion.switchSlide));
     await _frames8(tester);
     expect(_body(tester).$1, 1);
     expect(_body(tester).$2, closeTo(0, 0.01));
@@ -461,8 +461,10 @@ void main() {
         child: _page);
     final container = ProviderScope.containerOf(
         tester.element(find.byType(UsdAccountScreen)));
-    // The page opens on Investing (founder, 7 November 2026).
-    expect(container.read(investmentsTabProvider), InvestmentsTab.investing);
+    // The page opens on Overview (founder, 8 November 2026): Investing is
+    // a pick away.
+    expect(container.read(investmentsTabProvider), InvestmentsTab.activity);
+    await tapAndPump(tester, investmentsPill(_l10n.trading));
     await _frames8(tester);
     final filter = '${_l10n.trading} · ${_l10n.categoryFilterPrompt}';
     final perps =
@@ -557,8 +559,11 @@ void main() {
         child: _page);
     final container = ProviderScope.containerOf(
         tester.element(find.byType(UsdAccountScreen)));
-    // The page opens on Investing (founder, 7 November 2026), at rest.
-    expect(container.read(investmentsTabProvider), InvestmentsTab.investing);
+    // The page opens on Overview (founder, 8 November 2026), at rest;
+    // Investing is a pick away, and under Reduce Motion it arrives at rest.
+    expect(container.read(investmentsTabProvider), InvestmentsTab.activity);
+    expect(_body(tester), (1.0, 0.0));
+    await tapAndPump(tester, investmentsPill(_l10n.trading));
     expect(_body(tester), (1.0, 0.0));
     await tapAndPump(tester, investmentsPill(_l10n.trading));
     await tester.tap(_tile(HlBrowseTab.perps.key));
