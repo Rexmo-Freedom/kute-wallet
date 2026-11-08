@@ -480,7 +480,9 @@ void main() {
         find.byWidgetPredicate(
             (w) => w is ReceiveAddressLine && w.address == _deposit),
         findsOneWidget);
-    expect(find.byType(ReceiveActionPills), findsNothing);
+    expect(find.descendant(
+        of: find.byType(QuotedReceiveSheet), matching: find.text(_l10n.share)),
+        findsNothing);
     expect(kuteBarPrimaryWithText(_l10n.share), findsOneWidget);
     // No exact-amount caption: the amount is on its square ("You send").
     expect(find.byKey(const ValueKey('onetime-receive-exact-amount')),

@@ -14,7 +14,7 @@
 // barriers and sheets.
 //
 // EVERY SHEET AND PAGE SHOWS THE BAR (founder, 31 October 2026): a surface with
-// no context of its own, a Receive sheet, the scanner, a slip, a receipt,
+// no context of its own, the scanner, a slip, a receipt,
 // Settings, gets the default ("Search or Manage with AI"). The bar knows
 // something is over the tabs through [KuteBarRouteObserver], one on the root
 // navigator and one on each tab's navigator (app_router.dart): every page route

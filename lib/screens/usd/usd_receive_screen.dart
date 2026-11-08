@@ -76,8 +76,6 @@ import 'package:kute/screens/receive/orchestra_deposit_poller.dart';
 import 'package:kute/screens/receive/quoted_receive_screen.dart'
     show openOneTimeReceive, prefetchOneTimeReceiveMinimums;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
-import 'package:kute/screens/shared/custom_button.dart'
-    show AppButton, AppButtonVariant;
 import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/shared/qr_code.dart';
@@ -877,19 +875,53 @@ class _UsdStandingAddressSheetState
           // The coin sheet's body inset plus its address step's, as the
           // Bitcoin receive opens on its code.
           padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 0),
-          child: !_spendingIsActive
-              ? Padding(
-                  padding: EdgeInsets.only(top: 12.h),
-                  child:
-                      ReceiveCaption(text: l10n.receiveOtherCoinsSpendingOnly),
-                )
-              : _buildAddressStep(context),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: !_spendingIsActive
+                    ? Padding(
+                        padding: EdgeInsets.only(top: 12.h),
+                        child: ReceiveCaption(
+                            text: l10n.receiveOtherCoinsSpendingOnly),
+                      )
+                    : _buildAddressStep(context),
+              ),
+              _buildAction(),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  /// Uses the same QR, address and action sizing as Bitcoin receive.
+  /// The bar, in every state of the sheet, as on the Bitcoin receive and the
+  /// one-time address: Share in place of the page's button (busy while the
+  /// address is set up), Try again when it could not be, Done when this coin
+  /// or wallet has none to give. Never the default search.
+  Widget _buildAction() {
+    final l10n = context.l10n;
+    final display = _display;
+    final routeRetired = display != null && !_reusableRouteSupported;
+    if (!_spendingIsActive || widget.unavailable != null || routeRetired) {
+      return UsdFlowAction(label: l10n.done, onPressed: _close);
+    }
+    if (display != null) {
+      return UsdFlowAction(
+        label: l10n.share,
+        onPressed: () => unawaited(_share(display.depositAddress)),
+      );
+    }
+    if (_error != null) {
+      return UsdFlowAction(
+        label: l10n.tryAgain,
+        onPressed: () => unawaited(_createReusableAddress(_option)),
+      );
+    }
+    return UsdFlowAction(label: l10n.share, onPressed: null, loading: true);
+  }
+
+  /// Uses the same QR and address sizing as Bitcoin receive.
   Widget _buildAddressStep(BuildContext context) {
     final l10n = context.l10n;
     final option = _option;
@@ -899,25 +931,11 @@ class _UsdStandingAddressSheetState
     final unavailable = widget.unavailable != null || routeRetired;
     if ((_error != null && display == null) || unavailable) {
       return SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: EdgeInsets.only(top: 12.h),
-              child: ReceiveCaption(
-                text:
-                    unavailable ? l10n.receiveCoinNetworkUnavailable : _error!,
-              ),
-            ),
-            SizedBox(height: ReceiveGaps.block),
-            // Back to the coin sheet, as the close X does.
-            AppButton(
-              text: l10n.back,
-              variant: AppButtonVariant.secondary,
-              compact: true,
-              onPressed: _close,
-            ),
-          ],
+        child: Padding(
+          padding: EdgeInsets.only(top: 12.h),
+          child: ReceiveCaption(
+            text: unavailable ? l10n.receiveCoinNetworkUnavailable : _error!,
+          ),
         ),
       );
     }
@@ -972,10 +990,6 @@ class _UsdStandingAddressSheetState
                 key: const ValueKey('usd-receive-from-bitcoin-note'),
                 text: l10n.moveDestDollarsSubtitle),
           ],
-          SizedBox(height: ReceiveGaps.addressToActions),
-          ReceiveActionPills(
-            onShare: () => _share(payload),
-          ),
           SizedBox(height: ReceiveGaps.block),
           // No Kute fee line: the fee is charged, never shown under a
           // receive address.

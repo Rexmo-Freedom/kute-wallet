@@ -16,10 +16,10 @@
 
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -44,7 +44,6 @@ import 'package:kute/screens/receive/receive_sheet.dart'
     show showOtherCoinsReceiveSheet, showUsdReceiveSheet;
 import 'package:kute/screens/shared/account_switcher_pill.dart';
 import 'package:kute/screens/shared/asset_network_picker.dart' show PickerRow;
-import 'package:kute/screens/shared/custom_button.dart' show AppButton;
 import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/receive_surface.dart';
 import 'package:kute/screens/shared/stepper/stepper_widgets.dart'
@@ -68,6 +67,7 @@ import 'package:kute/theme/app_theme.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:money2/money2.dart';
 
+import '../../helpers/kute_bar_test_support.dart' show kuteBarPrimaryContext;
 import '../../helpers/runtime_policy_fixture.dart';
 import '../../helpers/receive_coin_tap.dart';
 
@@ -579,9 +579,10 @@ void main() {
     expect(named('receive_address_failed'), isEmpty);
     expect(named('receive_address_generated'), isEmpty);
 
-    // Back to the coin grid, as the X does.
-    await tester.tap(find.descendant(
-        of: sheet, matching: find.widgetWithText(AppButton, _l10n.back)));
+    // Nothing to share: the bar is Done, back to the coin grid, as the X does.
+    final bar = kuteBarPrimaryContext(tester);
+    expect(bar.label, _l10n.done);
+    bar.onPrimary!();
     await _settle(tester);
     expect(sheet, findsNothing);
     expect(find.byType(UsdReceiveScreen), findsOneWidget);
@@ -670,6 +671,80 @@ void main() {
     expect(amount.fixedCurrency, isNull);
     expect(find.byKey(_note), findsNothing);
     expect(BitcoinReceiveMarks.current, isEmpty);
+    await _unmount(tester);
+  });
+
+  testWidgets(
+      'the reusable address\'s Share is the bar: busy while it is set up, Try '
+      'again when it could not be (asking again), then the address at the '
+      'share sheet with the same events, and no button in the page',
+      (tester) async {
+    final shared = <String>[];
+    const channel = MethodChannel('dev.fluttercommunity.plus/share');
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel,
+        (call) async {
+      shared.add((call.arguments as Map)['text'] as String);
+      return 'dev.fluttercommunity.plus/share/unavailable';
+    });
+    addTearDown(() => tester.binding.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, null));
+    var gate = Completer<void>();
+    var failing = true;
+    ReusableDepositAddressService.debugResolver = (
+        {required sourceChain,
+        required sourceAsset,
+        required destinationAsset}) async {
+      await gate.future;
+      if (failing) throw StateError('the rail is down');
+      return const ReusableDepositAddress(
+          address: _solanaDeposit,
+          id: 'sda_bar',
+          kuteFeeBps: 50,
+          model: DepositAddressModel.standing);
+    };
+    addTearDown(() => ReusableDepositAddressService.debugResolver = null);
+    await _pump(tester);
+    await _pickSolanaUsdc(tester);
+
+    final sheet = find.byType(UsdStandingAddressSheet);
+    expect(sheet, findsOneWidget);
+    expect(kuteBarPrimaryContext(tester).label, _l10n.share);
+    expect(kuteBarPrimaryContext(tester).busy, isTrue);
+    expect(kuteBarPrimaryContext(tester).enabled, isFalse);
+
+    gate.complete();
+    await _settle(tester);
+    expect(find.byType(ReceiveAddressLine), findsNothing);
+    expect(kuteBarPrimaryContext(tester).label, _l10n.tryAgain);
+    expect(kuteBarPrimaryContext(tester).busy, isFalse);
+    expect(named('receive_address_failed'), hasLength(1));
+
+    gate = Completer<void>();
+    failing = false;
+    kuteBarPrimaryContext(tester).onPrimary!();
+    await _settle(tester);
+    expect(kuteBarPrimaryContext(tester).label, _l10n.share);
+    expect(kuteBarPrimaryContext(tester).busy, isTrue);
+
+    gate.complete();
+    await _settle(tester);
+    expect(
+        find.byWidgetPredicate(
+            (w) => w is ReceiveAddressLine && w.address == _solanaDeposit),
+        findsOneWidget);
+    final bar = kuteBarPrimaryContext(tester);
+    expect(bar.label, _l10n.share);
+    expect(bar.busy, isFalse);
+    expect(
+        find.descendant(of: sheet, matching: find.text(_l10n.share)),
+        findsNothing);
+    bar.onPrimary!();
+    await tester.pump();
+    expect(shared, [_solanaDeposit]);
+    final event = named('usd_receive_address_shared').single;
+    expect(event['chain'], 'solana');
+    expect(event['address_kind'], 'standing');
+    expect(tester.takeException(), isNull);
     await _unmount(tester);
   });
 }

@@ -397,10 +397,14 @@ class UsdFlowAction extends StatelessWidget {
     this.secondaryLabel,
     this.onSecondary,
     this.disabledLabel,
+    this.source = 'usd_flow',
   });
 
   final String label;
   final VoidCallback? onPressed;
+
+  /// The screen the bar's Sal sheet says it was opened from.
+  final String source;
 
   /// What the bar says while [onPressed] is null (KuteBarContext
   /// .disabledLabel): "Paste an address".
@@ -423,7 +427,7 @@ class UsdFlowAction extends StatelessWidget {
             onPrimary: onPressed,
             enabled: onPressed != null && !loading,
             busy: loading,
-            source: 'usd_flow',
+            source: source,
             disabledLabel: disabledLabel,
           ),
           child: SizedBox(height: kuteBarScrollClearance.h),

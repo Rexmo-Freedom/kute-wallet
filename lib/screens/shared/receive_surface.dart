@@ -10,7 +10,9 @@
 // one and an unsized code on the other, a chromeless monospace address
 // with its own copy button on one and a bordered plate with a plain
 // glyph on the other, an action row under the address on one and a
-// stacked pair pinned to the floor on the other.
+// stacked pair pinned to the floor on the other. Their Share is the bar now
+// (KuteBarContext.primary, founder, 8 November 2026): each screen says what the
+// bar reads in each of its states, so no button lives here.
 //
 // The bitcoin screen is the reference. Everything it does that the other
 // one should do too lives here, as a widget rather than as a number
@@ -19,8 +21,7 @@
 //
 // The one-time receive of another coin (`screens/receive/
 // quoted_receive_screen.dart`) wears the plate and the address line too,
-// but its Share is the bar and it fits its plate to the room left
-// ([ReceiveQrPlate.side]).
+// and fits its plate to the room left ([ReceiveQrPlate.side]).
 //
 // Presentation only. Nothing here knows about a rail, a provider or a
 // balance: the screens resolve their own payloads and pass finished
@@ -39,7 +40,6 @@ import 'package:kute/screens/shared/app_bottom_sheet.dart'
         AppBottomSheetCloseButton,
         AppBottomSheetContainer,
         AppBottomSheetHeader;
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_back_button.dart'
     show kKuteNavHitSize, kuteNavTitleLift;
 import 'package:kute/theme/app_theme.dart';
@@ -320,7 +320,7 @@ abstract final class ReceiveGaps {
   /// QR plate to the address under it.
   static double get qrToAddress => 24.h;
 
-  /// Address to the Share button.
+  /// Address to what stands under it.
   static double get addressToActions => 14.h;
 
   /// Between any two blocks below the actions.
@@ -333,9 +333,8 @@ abstract final class ReceiveGaps {
 /// The QR plate's side: as large as the receive sheet allows, 87% of
 /// its width, never under 260 nor over 380 points. The sheet spans the
 /// screen, so the screen's width is the sheet's. At 390pt that is about
-/// 339pt, which still leaves the address and the Share button above
-/// the fold on a 390x844 phone, and still fits inside both screens'
-/// side padding.
+/// 339pt, which still leaves the address above the fold on a 390x844
+/// phone, and still fits inside both screens' side padding.
 double receiveQrSide(BuildContext context) =>
     (MediaQuery.sizeOf(context).width * 0.87).clamp(260.0, 380.0);
 
@@ -670,39 +669,6 @@ class ReceiveAddressIconButton extends StatelessWidget {
         ),
         child: Icon(icon, size: iconSize, color: c.textPrimary),
       ),
-    );
-  }
-}
-
-/// Share, full width, directly under the address. Copy lives on the
-/// address line itself (the row and its copy button), so the row under
-/// it is Share alone (founder decision October 2026: a second Copy was
-/// redundant).
-///
-/// It sits in the page rather than pinned to the floor because it acts
-/// on the thing above it: the exact payload the QR encodes. A pinned
-/// button reads as "finish the flow", which is the wrong promise on a
-/// screen where the job is done the moment the code is on screen.
-///
-/// Anything else the receive can do with that code (the bitcoin
-/// screen's request amount) sits under it as a quiet text action, never
-/// as a second button beside it.
-class ReceiveActionPills extends StatelessWidget {
-  const ReceiveActionPills({
-    super.key,
-    required this.onShare,
-  });
-
-  final VoidCallback? onShare;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppButton(
-      onPressed: onShare,
-      text: context.l10n.share,
-      icon: Icons.ios_share_rounded,
-      compact: true,
-      fontSize: 15.sp,
     );
   }
 }
