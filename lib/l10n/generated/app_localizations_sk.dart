@@ -9710,7 +9710,23 @@ class AppLocalizationsSk extends AppLocalizations {
   String get usdSendConvertedFromDollars => 'Zmenené z tvojich dolárov';
 
   @override
-  String get polyPillInstant => 'Okamžité';
+  String get predictionsInstant => 'Okamžité';
+
+  @override
+  String get categoryInstantLengths => '5 min · 15 min · 1 hodina · 4 hodiny';
+
+  @override
+  String predictRoundNow(String time) {
+    return 'Teraz · $time';
+  }
+
+  @override
+  String get predictRoundNoPricesYet => 'Zatiaľ bez cien';
+
+  @override
+  String predictUpOrDownLength(String asset, String length) {
+    return '$asset Hore alebo Dole · $length';
+  }
 
   @override
   String get polyPillTrending => 'Trendy';
@@ -11584,16 +11600,6 @@ class AppLocalizationsSk extends AppLocalizations {
       one: '1 trh',
     );
     return '$_temp0';
-  }
-
-  @override
-  String categoryInstantAssets(String first, String second) {
-    return '$first, $second a ďalšie';
-  }
-
-  @override
-  String categoryInstantNext(String time) {
-    return 'Ďalšie kolo o $time';
   }
 
   @override

@@ -6,6 +6,8 @@ import 'package:kute/providers/active_shell_tab_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart'
     show polymarketTradingProvider;
 import 'package:kute/services/binance_btc_live_feed.dart';
+import 'package:kute/services/polymarket/crypto_round.dart'
+    show polyRoundStartAt;
 import 'package:kute/services/polymarket/crypto_window_results.dart';
 import 'package:kute/services/polymarket/polybolt_price_socket.dart';
 import 'package:kute/services/polymarket/polymarket_price_source.dart';
@@ -569,6 +571,17 @@ mixin _CryptoPriceFeed<A>
   CryptoPriceFeed _feed = CryptoPriceFeed.chainlink;
   List<BtcPriceSnapshot>? _shownSeries;
 
+  /// Points from before the shared feed's snapshot reaches (Binance klines
+  /// read once for a round longer than five minutes, [CryptoRoundNotifier]),
+  /// so the chart draws the round from its start. Only the points older
+  /// than the live series' first are kept in front of it: the live feed is
+  /// never overwritten, and the join is at most one point apart.
+  List<BtcPriceSnapshot> _backfill = const [];
+
+  List<BtcPriceSnapshot> _withBackfill(List<BtcPriceSnapshot> series) =>
+      cryptoSeriesWithBackfill(_backfill, series,
+          at: (p) => p.timestamp);
+
   // Fallback plumbing. [_fallbackGen] invalidates in-flight answers
   // after every switch.
   int _fallbackGen = 0;
@@ -625,7 +638,7 @@ mixin _CryptoPriceFeed<A>
         _shownSeries = series;
         state = AsyncData(prev.copyWith(
           currentPrice: series.last.price,
-          priceHistory: _recent(series),
+          priceHistory: _recent(_withBackfill(series)),
           feed: CryptoPriceFeed.chainlink,
         ));
       }
@@ -676,9 +689,9 @@ mixin _CryptoPriceFeed<A>
       if (_feedDisposed || gen != _fallbackGen) return;
       final feed = seed.points.isEmpty ? CryptoPriceFeed.binance : seed.feed;
       _feed = feed;
-      final history = _recent([
+      final history = _recent(_withBackfill([
         for (final p in seed.points) BtcPriceSnapshot(timestamp: p.t, price: p.p),
-      ]);
+      ]));
       final prev = state.asData?.value;
       if (prev != null) {
         state = AsyncData(prev.copyWith(
@@ -996,6 +1009,143 @@ class CryptoPredictNotifier
 final cryptoPredictProvider = AutoDisposeAsyncNotifierProvider.family<
     CryptoPredictNotifier, CryptoPredictState, String>(
   () => CryptoPredictNotifier(),
+);
+
+/// One asset at one round length (minutes: 5, 15, 60 or 240), the Instant
+/// screen's card ([cryptoRoundProvider]).
+typedef CryptoRoundKey = ({String asset, int minutes});
+
+/// The live round of one asset at one length, for Predictions › Instant
+/// (instant_screen.dart): [CryptoPredictNotifier] with the length in its
+/// key instead of the Crypto chips' shared choice, so a 15-minute, hourly
+/// or 4-hour card reads its own series (`btc-updown-15m-…`, the hourly
+/// `bitcoin-up-or-down-…-1pm-et`, `btc-updown-4h-…`, crypto_round.dart).
+///
+/// THE CHART FROM THE ROUND'S START. The shared Chainlink feed seeds two
+/// minutes, enough for a five-minute card. For the longer rounds the
+/// series is backfilled once, from Binance's public klines for
+/// `<ASSET>USDT` (1-second candles for 15 minutes, 1-minute candles for
+/// the hour and the four hours), from a minute before the round opened to
+/// now; the live Chainlink points then take over where the snapshot
+/// starts ([_CryptoPriceFeed._withBackfill]). The hourly rounds RESOLVE on
+/// Binance's BTC/USDT candle (Gamma `resolutionSource`), so for them this
+/// is the market's own series; the 15-minute and 4-hour rounds resolve on
+/// Chainlink's USD TWAP, which Binance's USDT spot tracks within a few
+/// dollars on BTC, so the join can show a small step. A coin Binance does
+/// not list draws from the snapshot alone, as before.
+class CryptoRoundNotifier extends AutoDisposeFamilyAsyncNotifier<
+        CryptoPredictState, CryptoRoundKey>
+    with _CryptoPriceFeed<CryptoRoundKey> {
+  @override
+  PolymarketModel? _model;
+  Timer? _countdownTimer;
+  Timer? _marketTimer;
+
+  @override
+  int get _minutes => arg.minutes;
+
+  @override
+  CryptoAssetConfig get _config =>
+      kCryptoRoundAssets.firstWhere((c) => c.asset == arg.asset,
+          orElse: () => CryptoAssetConfig(
+                asset: arg.asset,
+                priceSymbol: arg.asset,
+                displayName: arg.asset,
+                logoPath: '',
+                brandColor: const Color(0xFFF7931A),
+              ));
+
+  @override
+  Future<CryptoPredictState> build(CryptoRoundKey arg) async {
+    _model = PolymarketModel();
+    final config = _config;
+    ref.onDispose(() {
+      _countdownTimer?.cancel();
+      _marketTimer?.cancel();
+      _model?.dispose();
+    });
+    // See [CryptoPredictNotifier.build]: the state at once, every read in
+    // parallel.
+    _startPriceFeed();
+    _startCountdown();
+    // ignore: unawaited_futures
+    _refreshMarket(config);
+    if (arg.minutes > 5) {
+      // ignore: unawaited_futures
+      _readBackfill(config);
+    }
+    _marketTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      _refreshMarket(config);
+    });
+    return CryptoPredictState(
+      asset: config.asset,
+      currentPrice: null,
+      priceToBeat: null,
+      event: null,
+      priceHistory: const [],
+      secondsRemaining: arg.minutes * 60,
+    );
+  }
+
+  void _startCountdown() {
+    _countdownTimer?.cancel();
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      final prev = state.asData?.value;
+      if (prev == null) return;
+      final remaining = prev.event?.secondsRemaining ?? 0;
+      if (remaining <= 0) _refreshMarket(_config);
+      state = AsyncData(prev.copyWith(secondsRemaining: remaining));
+      _syncPriceFeed();
+    });
+  }
+
+  Future<void> _refreshMarket(CryptoAssetConfig config) async {
+    try {
+      final event = await _model!
+          .getCryptoUpdown5MinEvent(config.asset, minutes: arg.minutes);
+      final prev = state.asData?.value;
+      if (prev == null || event == null) return;
+      final isFirstLand = prev.event == null;
+      final isNewWindow = !isFirstLand && prev.event?.slug != event.slug;
+      state = AsyncData(prev.copyWith(
+        event: event,
+        secondsRemaining: event.secondsRemaining,
+        priceToBeat: isNewWindow ? null : prev.priceToBeat,
+      ));
+      _resolveStrike();
+    } catch (_) {}
+  }
+
+  /// Binance's candles from a minute before the round in play opened.
+  Future<void> _readBackfill(CryptoAssetConfig config) async {
+    final model = _model;
+    if (model == null) return;
+    final start = polyRoundStartAt(DateTime.now(), arg.minutes);
+    final fine = arg.minutes <= 15;
+    final points = await model.fetchBinanceKlines(
+      config.asset,
+      interval: fine ? '1s' : '1m',
+      limit: fine ? 1000 : arg.minutes + 2,
+      startMs: (start - 60) * 1000,
+    );
+    if (_feedDisposed || points.isEmpty) return;
+    _backfill = [
+      for (final p in points) BtcPriceSnapshot(timestamp: p.t, price: p.p),
+    ];
+    final prev = state.asData?.value;
+    if (prev == null) return;
+    final history = _recent(_withBackfill(prev.priceHistory));
+    state = AsyncData(prev.copyWith(
+      priceHistory: history,
+      currentPrice: prev.currentPrice ?? history.last.price,
+    ));
+    _resolveStrike();
+  }
+}
+
+final cryptoRoundProvider = AutoDisposeAsyncNotifierProvider.family<
+    CryptoRoundNotifier, CryptoPredictState, CryptoRoundKey>(
+  () => CryptoRoundNotifier(),
 );
 
 /// Family key for [cryptoPredictAtWindowProvider]. `epochSeconds` is the

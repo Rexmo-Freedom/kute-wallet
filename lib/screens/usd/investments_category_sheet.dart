@@ -73,11 +73,14 @@
 // on top, the name and its lines under it, the row as tall as the taller
 // card, [_TileShape.square]) on the topics' 8 px gap, so they line up with
 // the grid under the label. Trending keeps its stack and its numbers;
-// Instant wears the first coins and "BTC, ETH and more" over the clock to
-// the next five-minute round ([_InstantStat]: a clock, never a read). The
-// picked ring goes to whichever is the list on screen. Instant reads like
-// any pick: the sheet closes, the pill reads "Predictions · Instant" and the
-// page switches to its own filter and live cards (polymarket_screen.dart).
+// Instant wears the first coins and the lengths it runs, "5 min · 15 min ·
+// 1 hour · 4 hours", one line that shrinks to fit ([_InstantLengths]; the
+// founder, later that day, of the coin names and the clock: "no need for
+// this subtitles, just the 5 min and such"). Instant is NOT a category of
+// the list: the tap closes the sheet and pushes its own full screen
+// (instant_screen.dart), the pill on the Dollars home stays whatever it was,
+// so the ring never goes to Instant. The Sal grid's Instant tile does the
+// same.
 //
 // NAMES NEVER TRUNCATE (founder, 31 October 2026): a wide or grid tile
 // whose name does not fit on one line sets it on two and drops its stat
@@ -178,6 +181,7 @@ import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 import 'package:kute/screens/polymarket/components/crypto_asset_logo.dart';
 import 'package:kute/screens/polymarket/components/poly_browse_bar.dart'
     show polyPillLabel, polySubLabel, polySubsFor;
+import 'package:kute/screens/polymarket/instant_screen.dart';
 import 'package:kute/screens/polymarket/components/poly_category_icons.dart'
     show polyCategoryTint;
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
@@ -192,8 +196,6 @@ import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/kute_motion.dart'
     show KutePressable, KuteStaggerIn, kuteReduceMotion;
 import 'package:kute/screens/usd/usd_account_screen.dart' show InvestmentsTab;
-import 'package:kute/services/polymarket/instant_rounds.dart'
-    show polyNextFiveMinuteRoundIn;
 import 'package:kute/services/polymarket/polymarket_category_gate.dart'
     show polymarketCategoryGates;
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -425,7 +427,6 @@ Color _hlTint(AppColorsExtension c, HlBrowseTab t) => switch (t) {
 Color _polyTint(AppColorsExtension c, PolyPill p) => switch (p) {
       PolyPill.watchlist => c.chartCategorical[2],
       PolyPill.trending => c.chartCategorical[0],
-      PolyPill.instant => _kBitcoinOrange,
       PolyPill.breaking => c.chartCategorical[3],
       PolyPill.newest => c.chartCategorical[4],
       PolyPill.live => c.chartCategorical[2],
@@ -447,6 +448,14 @@ Color _polyTint(AppColorsExtension c, PolyPill p) => switch (p) {
 /// one SVG per pill key; see the folder's README for where each comes
 /// from), for its card (and for Trending's row until its images land).
 String _polyIconAsset(PolyPill p) => 'lib/assets/polymarket_tags/${p.key}.svg';
+
+/// The Instant card's glyph: the set's stopwatch
+/// (lib/assets/polymarket_tags/README.md).
+const String kInstantIconAsset = 'lib/assets/polymarket_tags/instant.svg';
+
+/// The Instant card's key among the tiles' (group, sub) pairs: no group of
+/// the list, a screen of its own.
+const (String, String) _kInstantKey = ('instant', 'instant');
 
 IconData _portfolioIcon(PortfolioSection s) => switch (s) {
       PortfolioSection.activity => Icons.receipt_long_rounded,
@@ -672,7 +681,20 @@ class _InvestmentsCategorySheetState
         _pickPoly(p, PolySub(s), hold: false);
       case (final PortfolioSection s, _):
         _pickPortfolio(s, hold: false);
+      case _kInstantKey:
+        _pickInstant(hold: false, source: 'sal');
     }
+  }
+
+  /// The Instant card (see the file header): the sheet closes as on any
+  /// pick, then the Instant screen is pushed over the app; the list's
+  /// selection is left alone.
+  void _pickInstant({bool hold = true, String source = 'sheet'}) {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    _pick(_kInstantKey, hold: hold, (_) {
+      if (!navigator.mounted) return;
+      unawaited(PolyInstantScreen.push(navigator, source: source));
+    });
   }
 
   void _open(Object group) {
@@ -1019,19 +1041,28 @@ class _InvestmentsCategorySheetState
           onTap: () => _pickPoly(p, PolySub(p.defaultSub)),
         );
 
-    // Trending or Instant, one of the two square cards on top (see the
-    // file header).
-    _Tile square(PolyPill p, {required Widget? stat, List<Widget>? logos}) =>
-        _Tile.square(
+    // Trending, one of the two square cards on top (see the file header).
+    _Tile square(PolyPill p, {required Widget? stat}) => _Tile.square(
           key: ValueKey('category-tile-${p.key}'),
           tint: _polyTint(c, p),
           name: polyPillLabel(l10n, p),
           stat: stat,
-          logos: logos ?? _polyLogos(_polyLoaded(p)),
+          logos: _polyLogos(_polyLoaded(p)),
           asset: _polyIconAsset(p),
           picked: _picked(p, p.defaultSub, sel.pill == p),
           onTap: () => _pickPoly(p, PolySub(p.defaultSub)),
         );
+    // Instant, the other: its own screen, never the list's pick.
+    final instant = _Tile.square(
+      key: const ValueKey('category-tile-instant'),
+      tint: _kBitcoinOrange,
+      name: l10n.predictionsInstant,
+      stat: const _InstantLengths(),
+      logos: _instantLogos(),
+      asset: kInstantIconAsset,
+      picked: _picked(_kInstantKey.$1, _kInstantKey.$2, false),
+      onTap: _pickInstant,
+    );
 
     // A topic: Investing's card, Polymarket's glyph for the topic, its
     // name and the numbers at hand (see the file header).
@@ -1057,10 +1088,7 @@ class _InvestmentsCategorySheetState
               square(PolyPill.trending,
                   stat: _polyStat(PolyPill.trending,
                       lead: l10n.categoryStatMostActive, wrap: true))),
-          _rise(
-              1,
-              square(PolyPill.instant,
-                  stat: const _InstantStat(), logos: _instantLogos())),
+          _rise(1, instant),
         ],
       ),
       if (pills.contains(PolyPill.watchlist)) ...[
@@ -1070,10 +1098,7 @@ class _InvestmentsCategorySheetState
       _rise(3, _label(context, l10n.categoryGroupTopics)),
       _grid(first: 4, [
         for (final p in pills)
-          if (p != PolyPill.trending &&
-              p != PolyPill.instant &&
-              p != PolyPill.watchlist)
-            tile(p),
+          if (p != PolyPill.trending && p != PolyPill.watchlist) tile(p),
       ]),
     ];
   }
@@ -1240,36 +1265,46 @@ class _SalCategoryGridState extends ConsumerState<_SalCategoryGrid>
   }
 
   /// The sheet's own Predictions cards: Trending and the Watchlist with
-  /// their stacks, every topic its glyph, each with its numbers.
+  /// their stacks, Instant with its coins right after Trending (its own
+  /// screen, see the file header), every topic its glyph, each with its
+  /// numbers.
   List<_Tile> _predictions(AppLocalizations l10n, AppColorsExtension c) {
     final sel = polyShownSelection(ref);
     final policy = ref.watch(runtimeCapabilitiesProvider);
     final watchlist = ref.watch(polyWatchlistProvider);
+    final instant = _Tile(
+      key: const ValueKey('sal-category-tile-instant'),
+      logos: _instantLogos(),
+      asset: kInstantIconAsset,
+      tint: _kBitcoinOrange,
+      name: l10n.predictionsInstant,
+      stat: const _InstantLengths(),
+      picked: _picked(_kInstantKey.$1, _kInstantKey.$2, false),
+      onTap: () => _tap(_kInstantKey.$1, _kInstantKey.$2),
+    );
     return [
       for (final p in PolyPill.values)
         if (polyPillOffered(p, policy) &&
-            (p != PolyPill.watchlist || watchlist.isNotEmpty))
+            (p != PolyPill.watchlist || watchlist.isNotEmpty)) ...[
           _Tile(
             key: ValueKey('sal-category-tile-${p.key}'),
-            logos: p == PolyPill.instant
-                ? _instantLogos()
-                : p == PolyPill.trending || p == PolyPill.watchlist
-                    ? _polyLogos(_polyLoaded(p))
-                    : const [],
+            logos: p == PolyPill.trending || p == PolyPill.watchlist
+                ? _polyLogos(_polyLoaded(p))
+                : const [],
             asset: _polyIconAsset(p),
             tint: _polyTint(c, p),
             name: p == PolyPill.watchlist
                 ? l10n.polyPillWatchlist
                 : polyPillLabel(l10n, p),
-            stat: p == PolyPill.instant
-                ? const _InstantStat(clock: false)
-                : _polyStat(p,
-                    lead: p == PolyPill.trending
-                        ? l10n.categoryStatMostActive
-                        : null),
+            stat: _polyStat(p,
+                lead: p == PolyPill.trending
+                    ? l10n.categoryStatMostActive
+                    : null),
             picked: _picked(p, p.defaultSub, sel.pill == p),
             onTap: () => _tap(p, p.defaultSub),
           ),
+          if (p == PolyPill.trending) instant,
+        ],
     ];
   }
 
@@ -1527,72 +1562,32 @@ class _StatLine extends StatelessWidget {
   }
 }
 
-/// Instant's second line: "BTC, ETH and more" over the clock to the next
-/// five-minute round. They start on every five minutes of the clock, so
-/// this reads nothing and ticks only while the sheet is open.
-class _InstantStat extends StatefulWidget {
-  const _InstantStat({this.clock = true});
-
-  /// The second line; off on a compact card, which has room for one.
-  final bool clock;
+/// Instant's line: the lengths it runs, "5 min · 15 min · 1 hour · 4
+/// hours", one line on a half-width card, shrunk to fit on a narrow phone
+/// rather than cut. No coin names, no clock, no read (see the file header).
+class _InstantLengths extends StatelessWidget {
+  const _InstantLengths();
 
   @override
-  State<_InstantStat> createState() => _InstantStatState();
-}
-
-class _InstantStatState extends State<_InstantStat> {
-  Timer? _tick;
-
-  @override
-  void initState() {
-    super.initState();
-    if (!widget.clock) return;
-    _tick = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() {});
-    });
-  }
-
-  @override
-  void dispose() {
-    _tick?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final style = TextStyle(
-      color: context.colors.textSecondary,
-      fontSize: 12.5.sp,
-      fontWeight: FontWeight.w500,
-      letterSpacing: -0.1,
-      height: 1.2,
-      fontFeatures: const [FontFeature.tabularFigures()],
-    );
-    final left = polyNextFiveMinuteRoundIn(DateTime.now()).inSeconds;
-    final clock = '${left ~/ 60}:${(left % 60).toString().padLeft(2, '0')}';
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          l10n.categoryInstantAssets(
-              kCryptoRoundAssets[0].asset, kCryptoRoundAssets[1].asset),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: style,
-        ),
-        if (widget.clock)
-          Text(
-            key: const ValueKey('category-instant-next'),
-            l10n.categoryInstantNext(clock),
+  Widget build(BuildContext context) => Align(
+        alignment: Alignment.centerLeft,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            context.l10n.categoryInstantLengths,
+            key: const ValueKey('category-instant-lengths'),
             maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: style,
+            style: TextStyle(
+              color: context.colors.textSecondary,
+              fontSize: 12.5.sp,
+              fontWeight: FontWeight.w500,
+              letterSpacing: -0.1,
+              height: 1.2,
+            ),
           ),
-      ],
-    );
-  }
+        ),
+      );
 }
 
 /// The shapes a tile takes: the compact grid card (at least 60 px) and the

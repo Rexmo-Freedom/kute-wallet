@@ -3,7 +3,8 @@
 // The filter of Predictions › Instant, remembered on this device: a
 // convenience, so a failed read or save only means Bitcoin's five minutes
 // again. Asset and length only (instant_rounds.dart), in their own Hive box
-// as the watchlist is.
+// as the watchlist is. And the round the person picked on the card's strip
+// (instant_strip.dart), which lives only while that card is on screen.
 
 import 'dart:convert';
 
@@ -15,6 +16,14 @@ import 'package:kute/services/polymarket/instant_rounds.dart';
 final polyInstantChoiceProvider =
     NotifierProvider<PolyInstantChoiceNotifier, PolyInstantChoice>(
         PolyInstantChoiceNotifier.new);
+
+/// The start (UTC seconds) of the round the person tapped on the strip of
+/// the card showing this asset at this length; null while the buttons
+/// follow the roll. Per asset and length, so a new pick on the filter
+/// starts clean; gone with the card (instant_strip.dart decides how long a
+/// pick stands).
+final polyInstantPickedRoundProvider =
+    StateProvider.autoDispose.family<int?, PolyInstantChoice>((_, __) => null);
 
 class PolyInstantChoiceNotifier extends Notifier<PolyInstantChoice> {
   static const boxName = 'polymarket_instant';

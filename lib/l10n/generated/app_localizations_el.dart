@@ -9771,7 +9771,23 @@ class AppLocalizationsEl extends AppLocalizations {
   String get usdSendConvertedFromDollars => 'Μετατροπή από τα δολάριά σου';
 
   @override
-  String get polyPillInstant => 'Άμεσες';
+  String get predictionsInstant => 'Άμεσες';
+
+  @override
+  String get categoryInstantLengths => '5 λεπτά · 15 λεπτά · 1 ώρα · 4 ώρες';
+
+  @override
+  String predictRoundNow(String time) {
+    return 'Τώρα · $time';
+  }
+
+  @override
+  String get predictRoundNoPricesYet => 'Χωρίς τιμές ακόμα';
+
+  @override
+  String predictUpOrDownLength(String asset, String length) {
+    return '$asset Πάνω ή Κάτω · $length';
+  }
 
   @override
   String get polyPillTrending => 'Τάσεις';
@@ -11645,16 +11661,6 @@ class AppLocalizationsEl extends AppLocalizations {
       one: '1 αγορά',
     );
     return '$_temp0';
-  }
-
-  @override
-  String categoryInstantAssets(String first, String second) {
-    return '$first, $second και άλλα';
-  }
-
-  @override
-  String categoryInstantNext(String time) {
-    return 'Επόμενος γύρος σε $time';
   }
 
   @override

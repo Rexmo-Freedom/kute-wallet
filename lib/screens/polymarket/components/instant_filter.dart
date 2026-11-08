@@ -1,11 +1,11 @@
 // lib/screens/polymarket/components/instant_filter.dart
 //
-// The filter on top of Predictions › Instant: which asset leads and how
-// long a round runs, in the app's own side-scrolling rows of pills
-// (poly_browse_bar.dart). Two rows, since these are two questions: picking
-// one never changes the other's row. The rows offer what the venue runs
-// (see polymarket_screen.dart); the pick is remembered
-// (polymarket_instant_provider.dart).
+// The filter on top of the Instant screen (instant_screen.dart): which
+// coin's card is on screen and how long a round runs, in the app's own
+// side-scrolling rows of pills (poly_browse_bar.dart). Two rows, since
+// these are two questions: picking one never changes the other's row. The
+// rows offer what the venue runs (the screen reads that); the pick is
+// remembered (polymarket_instant_provider.dart).
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';

@@ -9756,7 +9756,23 @@ class AppLocalizationsRo extends AppLocalizations {
   String get usdSendConvertedFromDollars => 'Convertit din dolarii tăi';
 
   @override
-  String get polyPillInstant => 'Instant';
+  String get predictionsInstant => 'Instant';
+
+  @override
+  String get categoryInstantLengths => '5 min · 15 min · 1 oră · 4 ore';
+
+  @override
+  String predictRoundNow(String time) {
+    return 'Acum · $time';
+  }
+
+  @override
+  String get predictRoundNoPricesYet => 'Încă fără prețuri';
+
+  @override
+  String predictUpOrDownLength(String asset, String length) {
+    return '$asset Sus sau Jos · $length';
+  }
 
   @override
   String get polyPillTrending => 'În tendințe';
@@ -11626,16 +11642,6 @@ class AppLocalizationsRo extends AppLocalizations {
       one: '1 piață',
     );
     return '$_temp0';
-  }
-
-  @override
-  String categoryInstantAssets(String first, String second) {
-    return '$first, $second și altele';
-  }
-
-  @override
-  String categoryInstantNext(String time) {
-    return 'Runda următoare în $time';
   }
 
   @override

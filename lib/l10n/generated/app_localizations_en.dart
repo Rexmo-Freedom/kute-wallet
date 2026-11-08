@@ -9661,7 +9661,23 @@ class AppLocalizationsEn extends AppLocalizations {
   String get usdSendConvertedFromDollars => 'Converted from your dollars';
 
   @override
-  String get polyPillInstant => 'Instant';
+  String get predictionsInstant => 'Instant';
+
+  @override
+  String get categoryInstantLengths => '5 min · 15 min · 1 hour · 4 hours';
+
+  @override
+  String predictRoundNow(String time) {
+    return 'Now · $time';
+  }
+
+  @override
+  String get predictRoundNoPricesYet => 'No prices yet';
+
+  @override
+  String predictUpOrDownLength(String asset, String length) {
+    return '$asset up or down · $length';
+  }
 
   @override
   String get polyPillTrending => 'Trending';
@@ -11525,16 +11541,6 @@ class AppLocalizationsEn extends AppLocalizations {
       one: '1 market',
     );
     return '$_temp0';
-  }
-
-  @override
-  String categoryInstantAssets(String first, String second) {
-    return '$first, $second and more';
-  }
-
-  @override
-  String categoryInstantNext(String time) {
-    return 'Next round in $time';
   }
 
   @override

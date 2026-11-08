@@ -7,6 +7,8 @@ import 'package:kute/services/polymarket/market_protocol.dart';
 import 'package:kute/services/polymarket/market_display_title.dart';
 import 'package:kute/services/polymarket/search_aliases.dart';
 import 'package:kute/services/polymarket/shown_price.dart';
+import 'package:kute/services/polymarket/crypto_round.dart'
+    show polyCryptoRoundOf, polyCryptoRoundSlug;
 import 'package:kute/services/polymarket/polymarket_price_source.dart'
     show CryptoPriceFeed, kCryptoTwapLookbackSeconds;
 // lib/models/polymarket_model.dart
@@ -3042,7 +3044,7 @@ class PolymarketModel {
     final span = minutes * 60;
     final epoch = DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000;
     final windowStart = ((epoch ~/ span) - windowsBack) * span;
-    return '${asset.toLowerCase()}-updown-${minutes}m-$windowStart';
+    return polyCryptoRoundSlug(asset, minutes, windowStart);
   }
 
   /// The live Up-or-Down market for [asset] in the [minutes] window: the
@@ -3117,9 +3119,8 @@ class PolymarketModel {
     if (_disposed) return null;
     try {
       if (targetWindowEpoch != null) {
-        final slug =
-            '${asset.toLowerCase()}-updown-${minutes}m-$targetWindowEpoch';
-        return await _fetchCryptoWindowEvent(slug);
+        return await _fetchCryptoWindowEvent(
+            polyCryptoRoundSlug(asset, minutes, targetWindowEpoch));
       }
       return await getCryptoWindowEvent(asset, minutes);
     } catch (e) {
@@ -3195,13 +3196,27 @@ class PolymarketModel {
   Future<List<({DateTime t, double p})>> fetchBinanceRecentPrices(
     String asset, {
     int seconds = 360,
+  }) =>
+      fetchBinanceKlines(asset, interval: '1s', limit: seconds);
+
+  /// Binance's public klines for `<ASSET>USDT` at [interval] (`1s`, `1m`,
+  /// …), the last [limit] (at most 1000) or, with [startMs], from that
+  /// time on. Close prices with their close times, oldest first; empty on
+  /// any failure. Backs the chart of a 15-minute, hourly or 4-hour round
+  /// from its start (the Chainlink snapshot holds two minutes).
+  Future<List<({DateTime t, double p})>> fetchBinanceKlines(
+    String asset, {
+    required String interval,
+    required int limit,
+    int? startMs,
   }) async {
     if (_disposed) return const [];
     try {
       final symbol = '${asset.toUpperCase()}USDT';
       final uri = Uri.parse(
           'https://api.binance.com/api/v3/klines?symbol=$symbol'
-          '&interval=1s&limit=${seconds.clamp(1, 1000)}');
+          '&interval=$interval&limit=${limit.clamp(1, 1000)}'
+          '${startMs == null ? '' : '&startTime=$startMs'}');
       final res = await http.get(uri).timeout(const Duration(seconds: 6));
       if (res.statusCode != 200) return const [];
       final decoded = jsonDecode(res.body);
@@ -3446,7 +3461,10 @@ class Btc5MinEvent {
       title: event.title ?? 'BTC 5 Min Up or Down',
       startDate: event.startDate,
       endDate: event.endDate,
-      windowStartTime: _parseWindowStart(event.slug),
+      // The epoch off the slug; an hourly round's slug has none, its
+      // window is the hour before its end (crypto_round.dart).
+      windowStartTime: _parseWindowStart(event.slug) ??
+          polyCryptoRoundOf(event.slug ?? '', endDate: event.endDate)?.start,
       upPrice: (upIdx >= 0 && upIdx < prices.length) ? prices[upIdx] : 0.50,
       downPrice:
           (downIdx >= 0 && downIdx < prices.length) ? prices[downIdx] : 0.50,

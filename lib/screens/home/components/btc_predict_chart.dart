@@ -9,6 +9,9 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:kute/screens/shared/kute_skeleton.dart';
 
+/// The sliding window the live crypto chart shows by default.
+const Duration kBtcPredictChartWindow = Duration(seconds: 60);
+
 class BtcPredictChart extends ConsumerStatefulWidget {
   final double height;
 
@@ -43,6 +46,13 @@ class BtcPredictChart extends ConsumerStatefulWidget {
   /// plot clipped at its edges) and the curve runs to the card's edge.
   final bool showTargetBadge;
 
+  /// The most of the series on screen, back from the latest tick: a
+  /// sliding minute for the five-minute cards ([kBtcPredictChartWindow],
+  /// see [_ChartGeometry]); a 15-minute, hourly or 4-hour round on the
+  /// Instant screen passes its own length, so the whole round is drawn
+  /// from [roundStart].
+  final Duration maxWindow;
+
   const BtcPredictChart({
     super.key,
     this.height = 140,
@@ -52,6 +62,7 @@ class BtcPredictChart extends ConsumerStatefulWidget {
     this.showLiveIndicator = false,
     this.showHeader = true,
     this.showTargetBadge = true,
+    this.maxWindow = kBtcPredictChartWindow,
   });
 
   @override
@@ -248,6 +259,7 @@ class _BtcPredictChartState extends ConsumerState<BtcPredictChart>
                               isDark: context.isDark,
                               tweenedLeadingPrice: tweenedPrice,
                               roundStart: widget.roundStart,
+                              maxWindow: widget.maxWindow,
                               rightMargin: rightMargin,
                             ),
                           ),
@@ -271,6 +283,7 @@ class _BtcPredictChartState extends ConsumerState<BtcPredictChart>
                               tweenedLeadingPrice: tweenedPrice,
                               tick: _tickCtrl,
                               roundStart: widget.roundStart,
+                              maxWindow: widget.maxWindow,
                               rightMargin: rightMargin,
                               showTargetBadge: widget.showTargetBadge,
                             ),
@@ -321,11 +334,11 @@ class _ChartGeometry {
 
   // Cap on the plotted span, not a fixed width: the window covers the
   // round's elapsed time so far, capped to a SLIDING recent window.
-  // 60s (not the full 5-minute round): with the whole round on screen
-  // the late-round tape crawled and dense live ticks still bunched at
-  // the right edge (user report, twice) — a one-minute window keeps
-  // the sweep visibly moving all round long.
-  static const _maxWindow = Duration(seconds: 60);
+  // 60s by default (not the full 5-minute round): with the whole round on
+  // screen the late-round tape crawled and dense live ticks still bunched
+  // at the right edge (user report, twice) — a one-minute window keeps
+  // the sweep visibly moving all round long. The longer rounds pass their
+  // own length ([BtcPredictChart.maxWindow]).
 
   const _ChartGeometry._({
     required this.visible,
@@ -345,6 +358,7 @@ class _ChartGeometry {
     required Size size,
     DateTime? roundStart,
     double rightInset = _ChartGeometry.rightMargin,
+    Duration maxWindow = kBtcPredictChartWindow,
   }) {
     if (snapshots.length < 2) return null;
 
@@ -353,7 +367,7 @@ class _ChartGeometry {
     if (chartW <= 0 || chartH <= 0) return null;
 
     // Time window: right edge = latest snapshot, left edge = the round
-    // start (or the earliest snapshot), capped at [_maxWindow] back —
+    // start (or the earliest snapshot), capped at [maxWindow] back —
     // a sliding recent window once the round is older than that. The
     // window spans only ELAPSED time, so the curve always fills the
     // full drawn width — a fixed full-round width bunched dense live
@@ -361,7 +375,8 @@ class _ChartGeometry {
     // rather than DateTime.now() so a quiet stretch costs zero
     // repaints; the trade-off is that the curve scrolls per provider
     // tick instead of per frame.
-    final windowStart = effectiveWindowStart(snapshots, roundStart);
+    final windowStart =
+        effectiveWindowStart(snapshots, roundStart, maxWindow: maxWindow);
     // Floor at 1s: sub-second spans (first ticks after a rollover
     // wipe) would otherwise thrash points across the full width.
     final windowMs = math.max(
@@ -423,14 +438,15 @@ class _ChartGeometry {
 
   /// Left edge of the plotted time window: the round start when it is
   /// known and already holds at least two ticks, otherwise the
-  /// earliest snapshot — never more than [_maxWindow] before the
+  /// earliest snapshot — never more than [maxWindow] before the
   /// latest tick. Right after a rollover (or for a pre-staged future
   /// round) the round itself has fewer than two ticks, so fall back
   /// to the trailing data span rather than paint a blank plot.
   /// Requires `snapshots.length >= 2`.
   static DateTime effectiveWindowStart(
-      List<BtcPriceSnapshot> snapshots, DateTime? roundStart) {
-    final cap = snapshots.last.timestamp.subtract(_maxWindow);
+      List<BtcPriceSnapshot> snapshots, DateTime? roundStart,
+      {Duration maxWindow = kBtcPredictChartWindow}) {
+    final cap = snapshots.last.timestamp.subtract(maxWindow);
     var start = snapshots.first.timestamp;
     if (start.isBefore(cap)) start = cap;
     if (roundStart != null && roundStart.isAfter(start)) {
@@ -463,6 +479,7 @@ class _BtcLiveChartPainter extends CustomPainter {
   final Color labelColor;
   final bool isDark;
   final DateTime? roundStart;
+  final Duration maxWindow;
 
   /// The right margin beside the plot ([_ChartGeometry.rightMargin]).
   final double rightMargin;
@@ -490,6 +507,7 @@ class _BtcLiveChartPainter extends CustomPainter {
     required this.isDark,
     required this.tweenedLeadingPrice,
     this.roundStart,
+    this.maxWindow = kBtcPredictChartWindow,
     this.rightMargin = _ChartGeometry.rightMargin,
   });
 
@@ -502,6 +520,7 @@ class _BtcLiveChartPainter extends CustomPainter {
       size: size,
       roundStart: roundStart,
       rightInset: rightMargin,
+      maxWindow: maxWindow,
     );
     if (geom == null) return;
     final chartW = geom.chartW;
@@ -635,6 +654,7 @@ class _BtcLiveChartPainter extends CustomPainter {
         old.labelColor != labelColor ||
         old.isDark != isDark ||
         old.roundStart != roundStart ||
+        old.maxWindow != maxWindow ||
         old.rightMargin != rightMargin;
   }
 }
@@ -651,6 +671,7 @@ class _BtcChartDecorPainter extends CustomPainter {
   final Color labelColor;
   final bool isDark;
   final DateTime? roundStart;
+  final Duration maxWindow;
 
   /// Same tweened leading price the data painter draws toward, so
   /// the dot rides the exact same right-edge vertex as the curve.
@@ -694,6 +715,7 @@ class _BtcChartDecorPainter extends CustomPainter {
     required this.tweenedLeadingPrice,
     required this.tick,
     this.roundStart,
+    this.maxWindow = kBtcPredictChartWindow,
     this.rightMargin = _ChartGeometry.rightMargin,
     this.showTargetBadge = true,
   }) : super(repaint: tick);
@@ -709,6 +731,7 @@ class _BtcChartDecorPainter extends CustomPainter {
         size: size,
         roundStart: roundStart,
         rightInset: rightMargin,
+        maxWindow: maxWindow,
       );
     }
     final geom = _geom;
@@ -812,6 +835,7 @@ class _BtcChartDecorPainter extends CustomPainter {
         old.isDark != isDark ||
         old.tweenedLeadingPrice != tweenedLeadingPrice ||
         old.roundStart != roundStart ||
+        old.maxWindow != maxWindow ||
         old.rightMargin != rightMargin ||
         old.showTargetBadge != showTargetBadge;
   }
