@@ -16,8 +16,10 @@
 //      paid here, shows the pay prompt (screens/share/claimed_prompt_sheet
 //      .dart) one at a time. The prompt runs the normal Spark or Lightning
 //      send behind the app's PIN/biometric step-up and reports the
-//      payment. A declined or failed prompt leaves the claim as it is; the
-//      next pass asks again.
+//      payment, funding Dollars first when they fall short
+//      (one_balance/gift_funding.dart). A declined or failed prompt leaves
+//      the claim as it is; the next pass asks again. A claim whose funding
+//      is still running is not asked about: that run pays it.
 //
 // Also opens the PARKED CLAIM (ShareLinksStore.parkedClaimId): a `/c/{id}`
 // link that arrived while the session was locked or before the wallet
@@ -40,6 +42,8 @@ import 'package:go_router/go_router.dart';
 import 'package:kute/models/share_link_model.dart';
 import 'package:kute/screens/share/claimed_prompt_sheet.dart';
 import 'package:kute/services/api/share_links_api.dart';
+import 'package:kute/services/one_balance/gift_funding.dart'
+    show GiftFundingRunner;
 import 'package:kute/services/share_links_store.dart';
 
 typedef ProviderReader = T Function<T>(ProviderListenable<T> provider);
@@ -82,6 +86,9 @@ abstract final class ShareLinkClaims {
       for (final claim in claims) {
         final local = ShareLinksStore.byId(claim.id);
         if (local?.paymentId != null) continue; // paid here already
+        // Its funding is still running from an earlier prompt, which pays
+        // it when the money lands. Asking again would only show a twin.
+        if (GiftFundingRunner.isRunning(claim.id)) continue;
         ShareLinksStore.put((local ??
                 PendingShareLink(
                   id: claim.id,

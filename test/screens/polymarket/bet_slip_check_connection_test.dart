@@ -22,6 +22,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:kute/screens/shared/amount_keypad_panel.dart'
+    show AmountMaxChip;
+import 'package:kute/services/one_balance/gift_funding.dart'
+    show giftSpendableProvider;
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/models/currency_conversions.dart';
 import 'package:kute/models/polymarket_model.dart';
@@ -180,7 +184,9 @@ void main() {
   }
 
   Future<void> pumpSlip(WidgetTester tester,
-      {double? amountUsd = 10, SendPickSession? sendPick}) async {
+      {double? amountUsd = 10,
+      SendPickSession? sendPick,
+      double? giftReach}) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -208,6 +214,8 @@ void main() {
         usdBalanceProvider.overrideWithValue(0),
         polymarketFeeTermsProvider
             .overrideWith((ref, _) async => PolymarketFeeTerms.worstCase),
+        if (giftReach != null)
+          giftSpendableProvider.overrideWith((ref) => giftReach),
       ],
       // The bar over the slip is the slip's button (shell_bar_harness.dart).
       child: shellBarApp(
@@ -333,6 +341,40 @@ void main() {
 
     SendPickSession session({String? name}) =>
         SendPickSession(entrySource: 'dollar_send', recipientName: name);
+
+    testWidgets(
+        'over what the person can reach: refused like an order, no link; Max '
+        'and Available are the reach', (tester) async {
+      blocked = false;
+      expect(await policy.refresh(), isTrue);
+      await pumpSlip(tester, sendPick: session(), giftReach: 7.5);
+      expect(barPrimaryEnabled(tester), isFalse);
+      expect(find.textContaining('Lower the amount'), findsWidgets);
+      expect(find.textContaining(r'$7.50'), findsWidgets);
+      expect(sends, isEmpty);
+      await tester.tap(find.byType(AmountMaxChip));
+      await frames(tester, 2);
+      expect(barPrimaryLabel(tester), r'Send $7.50 · Yes');
+      expect(barPrimaryEnabled(tester), isTrue);
+      await tapBarPrimary(tester, settle: false);
+      await frames(tester, 2);
+      final (route, pick) = sends.single;
+      expect(route, SlipSendRoute.pick);
+      expect(pick.amountUsd, 7.5);
+      expect(pick.reachUsd, 7.5);
+      await release(tester);
+    });
+
+    testWidgets('within reach, Dollars short: it goes; nothing moves here',
+        (tester) async {
+      blocked = false;
+      expect(await policy.refresh(), isTrue);
+      await pumpSlip(tester, sendPick: session(), giftReach: 200);
+      expect(barPrimaryEnabled(tester), isTrue);
+      // No move fee on a slip that moves nothing.
+      expect(find.text('Move fee'), findsNothing);
+      await release(tester);
+    });
 
     testWidgets(
         'the primary is the send: "Send \$10 · Yes" sends THIS prediction, '

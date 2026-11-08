@@ -2,7 +2,7 @@
 //
 // Bitcoin → Dollars on the spending wallet, headless: the Orchestra leg
 // `spark:BTC → spark:USDB` whose recipient AND refund are the wallet's own
-// Spark address. Two callers, one code path:
+// Spark address. Three callers, one code path:
 //
 //   * the Move sheet's Bitcoin → Investments door (`_dispatchBtcToUsd`),
 //     which supplies its own quote (the typed figure grossed up) and its
@@ -10,7 +10,9 @@
 //   * an order slip short of the whole Investments balance, which tops
 //     Dollars up from Bitcoin under the order's ONE approval
 //     (`BitcoinLegGrants.stepUp`), then funds and places the order
-//     (`bitcoin_funded_order.dart`).
+//     (`bitcoin_funded_order.dart`);
+//   * a claimed gift's "Send now" short of Dollars, under the send's one
+//     approval the same way (`gift_funding.dart`).
 //
 // [BitcoinToDollarsLeg.send] runs the settlement (quote gate, ownership,
 // step-up, payment, registration in the background) and the bookkeeping
@@ -108,7 +110,8 @@ abstract final class BitcoinToDollarsLeg {
   /// to the quote's deposit address. [onSending] runs right before the
   /// payment call (funds may leave from then on). [read] is used during
   /// the run; [appRead] must outlive the caller (the background
-  /// registration moves the Activity row with it).
+  /// registration moves the Activity row with it). [purpose] tags the
+  /// `convert_success` of a leg its parent flow counts (`conversion_leg`).
   ///
   /// Throws whatever the runner throws: a `SettlementStopped`, a quote
   /// failure or a wallet guard before anything moved, a
@@ -123,6 +126,7 @@ abstract final class BitcoinToDollarsLeg {
     required Future<SettlementQuoteResult> Function(String idempotencyKey)
         requestQuote,
     void Function()? onSending,
+    String? purpose,
   }) async {
     final runner = await HotSettlement.runner();
     final settled = await runner.run(HotSettlement.plan(
@@ -227,6 +231,7 @@ abstract final class BitcoinToDollarsLeg {
         ...TrackingService.exactUsd('amount_usd', estOut),
         'order_id': orderId,
         'provider': 'orchestra',
+        if (purpose != null) 'purpose': purpose,
       });
     });
     return BitcoinLegSent(
@@ -250,6 +255,7 @@ abstract final class BitcoinToDollarsLeg {
     required String sparkAddress,
     required String idempotencyKey,
     bool requireFullTarget = false,
+    String flow = 'order_funding_bitcoin',
   }) async {
     Future<SettlementQuoteResult> quoteFor(int amountSats, String key) {
       final request = OrchestraQuoteRequest(
@@ -267,7 +273,7 @@ abstract final class BitcoinToDollarsLeg {
         tag: kManualMoveQuoteTag,
       );
       return HotSettlement.quote(read, request,
-          flow: 'order_funding_bitcoin', idempotencyKey: key);
+          flow: flow, idempotencyKey: key);
     }
 
     final first = math.min(sats, maxSats);

@@ -140,6 +140,8 @@ import 'package:kute/services/one_balance/order_funding.dart';
 import 'package:kute/services/one_balance/bitcoin_funded_order.dart';
 import 'package:kute/services/one_balance/investments_spendable.dart'
     show investmentsSpendableExcludingProvider, venueCashRefreshProvider;
+import 'package:kute/services/one_balance/gift_funding.dart'
+    show giftSpendableProvider;
 import 'package:kute/services/one_balance/bitcoin_to_dollars_leg.dart'
     show BitcoinLegPlan, BitcoinLegRules;
 import 'package:kute/services/one_balance/funded_orders.dart';
@@ -953,6 +955,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       wireCoin: market.wireCoin,
       coinCategory: market.category,
       coinIconUrl: market.iconUrl,
+      reachUsd: ref.read(giftSpendableProvider),
     );
   }
 
@@ -4481,12 +4484,20 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     // Bitcoin can land, since funded orders draw on it too (founder,
     // 27 October 2026). The line only: Max and the minimum keep
     // [shownAvailable].
-    final availableLineUsd = buysFromInvestments
-        ? slipAvailableUsd(
-            venueUsd: available,
-            otherSpendableUsd: otherSpendableUsd,
-            bitcoinUsd: ref.watch(spendingBitcoinLandingUsdProvider))
-        : available;
+    // Send mode: an amount is judged against what the person can really
+    // reach for a gift, whose destination is Dollars
+    // (one_balance/gift_funding.dart): this line, Max below, and the send's
+    // refusal.
+    final giftReach = widget.sendPick != null && !(isSpot && !_isLong)
+        ? ref.watch(giftSpendableProvider)
+        : null;
+    final availableLineUsd = giftReach ??
+        (buysFromInvestments
+            ? slipAvailableUsd(
+                venueUsd: available,
+                otherSpendableUsd: otherSpendableUsd,
+                bitcoinUsd: ref.watch(spendingBitcoinLandingUsdProvider))
+            : available);
 
     // Spread guard from the order book (market orders only).
     final spreadPct = ref
@@ -4818,6 +4829,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         },
       );
     }
+    // Nothing is placed in send mode: Max is the gift's reach.
+    if (giftReach != null) fundedMaxUsd = giftReach;
     _slipInvestmentsUsd = investmentsUsd;
     var dollarsShort = fundPlan == null
         ? 0.0
@@ -6285,7 +6298,11 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                   leverage: isSpot ? 1 : _leverage,
                   slippagePct: _mode == _OrderMode.market ? _slippagePct : 0,
                 );
-      final maxUsd = math.max(venueMaxUsd, maxUsdOverride ?? 0);
+      // Send mode's Max is its override alone (no order is fitted to this
+      // venue's cash).
+      final maxUsd = widget.sendPick != null && maxUsdOverride != null
+          ? maxUsdOverride
+          : math.max(venueMaxUsd, maxUsdOverride ?? 0);
       // One small Max chip beside the figure (and the Advanced pill after
       // it), and under it one quiet line
       // with the balance and the venue minimum. An empty account has
@@ -6786,6 +6803,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   /// once), each leg its own line ([estimateOrderFundingFees]). Null while
   /// no move is needed or its plan is still being read.
   ({double usd, List<MoneyFeeLeg> legs})? _moveFee() {
+    // Send mode moves nothing here: "Send now" names its own fee.
+    if (widget.sendPick != null) return null;
     final plan = _fundPlan;
     final fees = _fundingFeesNow();
     if (plan == null || fees == null) return null;

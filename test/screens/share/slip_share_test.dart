@@ -37,8 +37,10 @@ SlipSharePick _pick({
   double amountUsd = 5,
   bool blocked = false,
   bool cardOnly = false,
+  double? reachUsd,
 }) =>
     SlipSharePick(
+      reachUsd: reachUsd,
       investing: investing,
       slug: investing ? 'BTC' : 'will-it-rain',
       title: investing ? 'Bitcoin' : 'Will it rain?',
@@ -56,6 +58,39 @@ SlipSharePick _pick({
     );
 
 void main() {
+  group('the amount against what the person can reach', () {
+    test('over it: refused, the primary says to lower it', () {
+      final pick = _pick(amountUsd: 50, reachUsd: 49.99);
+      expect(slipSendRoute(pick), SlipSendRoute.overReach);
+      final cta = slipSendCta(_en, pick);
+      expect(cta.enabled, isFalse);
+      expect(cta.disabledLabel, _en.barNeedLowerAmount);
+    });
+
+    test('up to it: the send', () {
+      final pick = _pick(amountUsd: 50, reachUsd: 50);
+      expect(slipSendRoute(pick), SlipSendRoute.pick);
+      expect(slipSendCta(_en, pick).enabled, isTrue);
+    });
+
+    test('a reach not known yet is never judged', () {
+      expect(slipSendRoute(_pick(amountUsd: 5000)), SlipSendRoute.pick);
+    });
+
+    test('nothing to reach, known: refused', () {
+      expect(slipSendRoute(_pick(amountUsd: 5, reachUsd: 0)),
+          SlipSendRoute.overReach);
+    });
+
+    test('a market refused here says so first, and a spot sale is only a card',
+        () {
+      expect(slipSendRoute(_pick(amountUsd: 50, reachUsd: 1, blocked: true)),
+          SlipSendRoute.refused);
+      expect(slipSendRoute(_pick(amountUsd: 50, reachUsd: 1, cardOnly: true)),
+          SlipSendRoute.market);
+    });
+  });
+
   late ShareTestEnv env;
   late List<SlipSendRoute> routes;
 
