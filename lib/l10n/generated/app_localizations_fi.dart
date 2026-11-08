@@ -11707,6 +11707,22 @@ class AppLocalizationsFi extends AppLocalizations {
   String get balanceGoalsHeading => 'Tavoitteet';
 
   @override
+  String get balanceGoalsTab => 'Tavoitteet';
+
+  @override
+  String get balanceLadderTitle => 'Tasot';
+
+  @override
+  String balanceLadderFrom(String amount) {
+    return 'Alkaen $amount';
+  }
+
+  @override
+  String balanceLadderUnder(String amount) {
+    return 'Alle $amount';
+  }
+
+  @override
   String get balanceGoalNext => 'Seuraava tavoite';
 
   @override

@@ -11692,6 +11692,22 @@ class AppLocalizationsDa extends AppLocalizations {
   String get balanceGoalsHeading => 'Mål';
 
   @override
+  String get balanceGoalsTab => 'Mål';
+
+  @override
+  String get balanceLadderTitle => 'Niveauer';
+
+  @override
+  String balanceLadderFrom(String amount) {
+    return 'Fra $amount';
+  }
+
+  @override
+  String balanceLadderUnder(String amount) {
+    return 'Under $amount';
+  }
+
+  @override
   String get balanceGoalNext => 'Næste mål';
 
   @override

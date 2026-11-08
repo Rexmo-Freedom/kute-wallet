@@ -143,9 +143,9 @@ class HomeAnalyticsWidget extends ConsumerStatefulWidget {
   final bool showBalanceHeadline;
 
   /// The Bitcoin home's milestones on the Balance tab (balance_goals.dart):
-  /// the goal line on the plot; under the card, the Level and Next goal
-  /// squares and the Move to Dollars nudge. Only the Bitcoin home's
-  /// spending wallet passes true.
+  /// the pill reads "Goals"; the goal line on the plot; under the card,
+  /// the Next goal square (the Move to Dollars) and the Level square (the
+  /// ladder sheet). Only the Bitcoin home's spending wallet passes true.
   final bool balanceGoals;
 
   const HomeAnalyticsWidget({
@@ -417,7 +417,17 @@ class _HomeAnalyticsWidgetState extends ConsumerState<HomeAnalyticsWidget> {
         // Spending balance over time → piggy bank reads as "savings/
         // balance" without the asset-specific connotation a BTC mark
         // would carry. Both legacy enum cases map here so existing
-        // settings/tracking keep working.
+        // settings/tracking keep working. On the Bitcoin home the tab
+        // climbs the milestones and the pill reads "Goals" with the flag
+        // (founder, 8 November 2026: the hero above already shows the
+        // balance); the tab's key and its analytics value ('valuation')
+        // and the `?tab=` links are unchanged.
+        if (widget.balanceGoals) {
+          return KutePillItem(
+            label: context.l10n.balanceGoalsTab,
+            icon: Icons.flag_rounded,
+          );
+        }
         return KutePillItem(
           label: context.l10n.balance,
           icon: Icons.savings_rounded,

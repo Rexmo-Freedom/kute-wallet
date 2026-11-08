@@ -11710,6 +11710,22 @@ class AppLocalizationsSk extends AppLocalizations {
   String get balanceGoalsHeading => 'Ciele';
 
   @override
+  String get balanceGoalsTab => 'Ciele';
+
+  @override
+  String get balanceLadderTitle => 'Úrovne';
+
+  @override
+  String balanceLadderFrom(String amount) {
+    return 'Od $amount';
+  }
+
+  @override
+  String balanceLadderUnder(String amount) {
+    return 'Pod $amount';
+  }
+
+  @override
   String get balanceGoalNext => 'Ďalší cieľ';
 
   @override

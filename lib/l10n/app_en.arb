@@ -8636,6 +8636,32 @@
   "@balanceGoalsHeading": {
     "description": "Bitcoin home, Balance tab: the small section heading under the chart, over the Level and Next goal squares (round balance milestones). One word."
   },
+  "balanceGoalsTab": "Goals",
+  "@balanceGoalsTab": {
+    "description": "Bitcoin home, the pill strip over the chart: the tab with the balance chart and its goals (the hero above already shows the balance). One word, the same as balanceGoalsHeading."
+  },
+  "balanceLadderTitle": "Levels",
+  "@balanceLadderTitle": {
+    "description": "Bitcoin home, Goals tab: the title of the sheet opened by the Level square, listing all twelve levels of the milestone ladder with Sal's still, the level's name and the round figure it starts at. One word."
+  },
+  "balanceLadderFrom": "From {amount}",
+  "@balanceLadderFrom": {
+    "description": "Levels sheet: the round figure a level starts at ('From $250'). amount is a formatted amount. Very short.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "balanceLadderUnder": "Under {amount}",
+  "@balanceLadderUnder": {
+    "description": "Levels sheet: the first level, below the first round figure ('Under $100'). amount is a formatted amount. Very short.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "balanceGoalNext": "Next goal",
   "@balanceGoalNext": {
     "description": "Bitcoin home, Balance tab, the Next goal square: its label, over the goal written large ('$500'). The goal is the next round figure for the person's Bitcoin + Dollars total. Short."

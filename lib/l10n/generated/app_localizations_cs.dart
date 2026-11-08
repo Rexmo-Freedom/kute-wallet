@@ -11694,6 +11694,22 @@ class AppLocalizationsCs extends AppLocalizations {
   String get balanceGoalsHeading => 'Cíle';
 
   @override
+  String get balanceGoalsTab => 'Cíle';
+
+  @override
+  String get balanceLadderTitle => 'Úrovně';
+
+  @override
+  String balanceLadderFrom(String amount) {
+    return 'Od $amount';
+  }
+
+  @override
+  String balanceLadderUnder(String amount) {
+    return 'Pod $amount';
+  }
+
+  @override
   String get balanceGoalNext => 'Další cíl';
 
   @override

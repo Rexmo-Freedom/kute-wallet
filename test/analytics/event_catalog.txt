@@ -56,6 +56,7 @@ backup_started
 backup_verified
 backup_verify_viewed
 balance_goal_cta_tapped
+balance_goals_ladder_opened
 balance_loaded_latency
 balance_milestone_reached
 balance_snapshot

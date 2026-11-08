@@ -11720,6 +11720,22 @@ class AppLocalizationsHu extends AppLocalizations {
   String get balanceGoalsHeading => 'Célok';
 
   @override
+  String get balanceGoalsTab => 'Célok';
+
+  @override
+  String get balanceLadderTitle => 'Szintek';
+
+  @override
+  String balanceLadderFrom(String amount) {
+    return 'Legalább $amount';
+  }
+
+  @override
+  String balanceLadderUnder(String amount) {
+    return '$amount alatt';
+  }
+
+  @override
   String get balanceGoalNext => 'Következő cél';
 
   @override
