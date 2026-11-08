@@ -7,8 +7,10 @@
 // the swap circle on their shared edge, the hero centred, the chips as
 // wide as the keypad; and the Dollars home's action row with its Swap.
 // Light and dark, at 320, 375 and 430 pt, at the default text size and a
-// large one. Every frame lays out without an overflow; the PNGs are
-// written only when asked:
+// large one. And the result sheet Swap closes into, from over the Dollars
+// home holding its own bar context (founder, 8 November 2026: "swapped
+// should say ok, not with the search sal"): the bar is its Done. Every
+// frame lays out without an overflow; the PNGs are written only when asked:
 //
 //   MOVE_RENDER=<dir> flutter test test/render/money_movement_render_test.dart
 
@@ -19,6 +21,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -46,7 +49,12 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/spark_address_provider.dart';
 import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceProvider, usdSdkBalanceProvider;
+import 'package:kute/screens/home/components/move_sent_overlay.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/screens/shared/kute_success_overlay.dart'
+    show KuteConfirmation;
 import 'package:kute/screens/shared/money_movement_sheet.dart';
+import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/screens/shared/orchestra_fee_summary.dart'
     show orchestraFeeEstimateProvider;
 import 'package:kute/screens/usd/usd_account_screen.dart'
@@ -297,6 +305,7 @@ Future<ProviderContainer> _pump(WidgetTester tester, Widget home,
           debugShowCheckedModeBanner: false,
           builder: withKuteShellBar,
           navigatorKey: _nav,
+          navigatorObservers: [KuteBarRouteObserver()],
           locale: locale,
           theme: base.copyWith(
               splashFactory: NoSplash.splashFactory,
@@ -329,7 +338,70 @@ void main() {
     RuntimeCapabilitiesService.debugInstance?.dispose();
     RuntimeCapabilitiesService.debugInstance = null;
     AffiliateService.debugSessionToken = null;
+    KuteBarRouteObserver.reset();
   });
+
+  // The result sheet, as Swap closes into it over the Dollars home (a tab's
+  // navigator nested in the root's, holding the Investing pill's context
+  // while its tickers run): Swap popped and the sheet pushed in one tick.
+  for (final dark in [false, true]) {
+    for (final (from, name, to) in [
+      (MoneyMovementAccount.bitcoin, 'Bitcoin', 'Dollars'),
+      (MoneyMovementAccount.dollars, 'Dollars', 'Bitcoin'),
+    ]) {
+      final shot = 'swapped_to_${to.toLowerCase()}_375_'
+          '${dark ? 'dark' : 'light'}';
+      testWidgets(shot, (tester) async {
+        KuteConfirmation.debugFeedbackOverride = () async {};
+        addTearDown(() => KuteConfirmation.debugFeedbackOverride = null);
+        // Sal's face on the bar, for the shot.
+        if (_dir != null) {
+          await tester.runAsync(() async {
+            SalSpriteCache.debugSetManifest(jsonDecode(await rootBundle
+                .loadString('$kSalSpriteDir/manifest.json')) as Map<String, dynamic>);
+            // The density the sprite picks for this harness's view (1 px).
+            for (final density in [1, 2, 3]) {
+              await SalSpriteCache.clip('happy', density);
+            }
+          });
+        }
+        final c = await _pump(
+            tester,
+            Navigator(
+              observers: [KuteBarRouteObserver()],
+              onGenerateRoute: (_) => PageRouteBuilder<void>(
+                pageBuilder: (context, _, __) => KuteBarContextScope(
+                  active: TickerMode.valuesOf(context).enabled,
+                  barContext: KuteBarContext(
+                      label: context.l10n.searchInvestmentsOrManageAi),
+                  child: const Scaffold(body: SizedBox()),
+                ),
+              ),
+            ),
+            width: 375,
+            dark: dark);
+        unawaited(showOwnMoneyMove(_nav.currentContext!,
+            from: from, entrySource: 'usd_home_swap'));
+        await _frames(tester, 16);
+        final navigator = _nav.currentState!;
+        final l10n = navigator.context.l10n;
+        navigator.pop();
+        pushMoveSentOverlay(
+          navigator: navigator,
+          amount: r'$4.99',
+          fromWalletName: name,
+          toWalletName: to,
+          note: l10n.settlementRegistering,
+          swapped: true,
+        );
+        await _frames(tester, 24);
+        expect(find.text(l10n.done), findsOneWidget);
+        expect(find.text(l10n.searchInvestmentsOrManageAi), findsNothing);
+        await _capture(tester, shot);
+        await _close(tester, c);
+      });
+    }
+  }
 
   // A short phone too (375 × 667): the screen scrolls rather than cut.
   for (final dark in [false, true]) {
