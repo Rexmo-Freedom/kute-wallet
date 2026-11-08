@@ -6044,10 +6044,22 @@ class AppLocalizationsFr extends AppLocalizations {
   String get chartIntervalFiveMinutesHint => 'Les variations du jour';
 
   @override
+  String get chartIntervalFifteenMinutes => '15 minutes';
+
+  @override
+  String get chartIntervalFifteenMinutesHint => 'La dernière journée';
+
+  @override
   String get chartIntervalHour => '1 heure';
 
   @override
   String get chartIntervalHourHint => 'Les derniers jours';
+
+  @override
+  String get chartIntervalFourHours => '4 heures';
+
+  @override
+  String get chartIntervalFourHoursHint => 'Les dernières semaines';
 
   @override
   String get chartIntervalDay => '1 jour';

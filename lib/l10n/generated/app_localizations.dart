@@ -10504,6 +10504,18 @@ abstract class AppLocalizations {
   /// **'Today\'s swings'**
   String get chartIntervalFiveMinutesHint;
 
+  /// Advanced chart Interval sheet: what one bar of the 15m interval spans (under the big "15m").
+  ///
+  /// In en, this message translates to:
+  /// **'15 minutes'**
+  String get chartIntervalFifteenMinutes;
+
+  /// Advanced chart Interval sheet: what the 15m interval is good for (one short line, its chart opens on the last ~25 hours).
+  ///
+  /// In en, this message translates to:
+  /// **'The last day'**
+  String get chartIntervalFifteenMinutesHint;
+
   /// Advanced chart Interval sheet: what one bar of the 1h interval spans (under the big "1h").
   ///
   /// In en, this message translates to:
@@ -10515,6 +10527,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The last few days'**
   String get chartIntervalHourHint;
+
+  /// Advanced chart Interval sheet: what one bar of the 4h interval spans (under the big "4h").
+  ///
+  /// In en, this message translates to:
+  /// **'4 hours'**
+  String get chartIntervalFourHours;
+
+  /// Advanced chart Interval sheet: what the 4h interval is good for (one short line, its chart opens on the last ~2 weeks).
+  ///
+  /// In en, this message translates to:
+  /// **'The last few weeks'**
+  String get chartIntervalFourHoursHint;
 
   /// Advanced chart Interval sheet: what one bar of the 1D interval spans (under the big "1D").
   ///

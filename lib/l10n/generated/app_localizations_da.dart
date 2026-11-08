@@ -6004,10 +6004,22 @@ class AppLocalizationsDa extends AppLocalizations {
   String get chartIntervalFiveMinutesHint => 'Dagens udsving';
 
   @override
+  String get chartIntervalFifteenMinutes => '15 minutter';
+
+  @override
+  String get chartIntervalFifteenMinutesHint => 'Det seneste døgn';
+
+  @override
   String get chartIntervalHour => '1 time';
 
   @override
   String get chartIntervalHourHint => 'De sidste par dage';
+
+  @override
+  String get chartIntervalFourHours => '4 timer';
+
+  @override
+  String get chartIntervalFourHoursHint => 'De seneste uger';
 
   @override
   String get chartIntervalDay => '1 dag';

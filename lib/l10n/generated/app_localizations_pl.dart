@@ -6016,10 +6016,22 @@ class AppLocalizationsPl extends AppLocalizations {
   String get chartIntervalFiveMinutesHint => 'Dzisiejsze wahania';
 
   @override
+  String get chartIntervalFifteenMinutes => '15 minut';
+
+  @override
+  String get chartIntervalFifteenMinutesHint => 'Ostatni dzień';
+
+  @override
   String get chartIntervalHour => '1 godzina';
 
   @override
   String get chartIntervalHourHint => 'Ostatnie kilka dni';
+
+  @override
+  String get chartIntervalFourHours => '4 godziny';
+
+  @override
+  String get chartIntervalFourHoursHint => 'Ostatnie tygodnie';
 
   @override
   String get chartIntervalDay => '1 dzień';

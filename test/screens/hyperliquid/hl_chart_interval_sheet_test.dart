@@ -1,8 +1,8 @@
 // The Advanced chart's Interval sheet (hl_chart_interval_sheet.dart),
 // behind the interval button in its top bar (founder, 5 November 2026:
-// "Intervals should also be the squares"): the five intervals as the
-// Chart sheet's square cards, three to a row and the last two centred
-// under them; each card the interval big, what one bar spans and what it
+// "Intervals should also be the squares"): the seven intervals as the
+// Chart sheet's square cards, 3 + 2 + 2 with the short rows centred (no
+// orphan); each card the interval big, what one bar spans and what it
 // is good for; the chosen one selected. A tap sets the interval and
 // closes the sheet; the market chart's own interval row stays pills.
 // Every language's lines fit their card in Inter on a 375 pt phone: the
@@ -27,7 +27,7 @@ import 'package:kute/theme/app_theme.dart';
 import '../../helpers/hl_chart_edit_harness.dart';
 
 const _sheet = ValueKey('hl-interval-sheet');
-const _labels = ['1m', '5m', '1h', '1D', '1W'];
+const _labels = ['1m', '5m', '15m', '1h', '4h', '1D', '1W'];
 
 Finder _card(String interval) =>
     find.byKey(ValueKey('hl-interval-card-$interval'));
@@ -83,8 +83,12 @@ void main() {
       'Live moves',
       '5 minutes',
       "Today's swings",
+      '15 minutes',
+      'The last day',
       '1 hour',
       'The last few days',
+      '4 hours',
+      'The last few weeks',
       '1 day',
       'The last months',
       '1 week',
@@ -96,7 +100,7 @@ void main() {
     }
     expect(_interval(tester), '1h');
     expect(_picked(tester, '1h'), isTrue);
-    for (final other in ['1m', '5m', '1d', '1w']) {
+    for (final other in ['1m', '5m', '15m', '4h', '1d', '1w']) {
       expect(_picked(tester, other), isFalse, reason: other);
     }
     // A picker: the floating bar is away.
@@ -104,15 +108,27 @@ void main() {
     expect(bar?.hidden ?? false, isTrue);
   });
 
+  test('rows never leave one card alone', () {
+    expect(hlIntervalRows(7), [3, 2, 2]);
+    expect(hlIntervalRows(6), [3, 3]);
+    expect(hlIntervalRows(5), [3, 2]);
+    expect(hlIntervalRows(4), [2, 2]);
+    for (var n = 2; n <= 12; n++) {
+      final rows = hlIntervalRows(n);
+      expect(rows.reduce((a, b) => a + b), n);
+      expect(rows.contains(1), isFalse, reason: '$n');
+    }
+  });
+
   testWidgets(
-      'three to a row, the last two centred under them (no orphan), every '
-      'card the same square', (tester) async {
+      '3 + 2 + 2, the short rows centred under the full one (no orphan), '
+      'every card the same square', (tester) async {
     await pumpHlEditSheet(tester);
     await enterHlEdit(tester);
     await _open(tester);
 
     final rects = {
-      for (final iv in ['1m', '5m', '1h', '1d', '1w'])
+      for (final iv in ['1m', '5m', '15m', '1h', '4h', '1d', '1w'])
         iv: tester.getRect(_card(iv)),
     };
     final first = rects['1m']!;
@@ -122,19 +138,20 @@ void main() {
       // Square, or taller only when text needs it.
       expect(r.height, greaterThanOrEqualTo(r.width - 0.5));
     }
-    // Row one: 1m 5m 1h side by side.
+    // Row one: 1m 5m 15m side by side.
     expect(rects['5m']!.top, rects['1m']!.top);
-    expect(rects['1h']!.top, rects['1m']!.top);
+    expect(rects['15m']!.top, rects['1m']!.top);
     expect(rects['5m']!.left, greaterThan(rects['1m']!.right));
-    expect(rects['1h']!.left, greaterThan(rects['5m']!.right));
-    // Row two: 1D 1W under them, centred on the row above.
-    expect(rects['1d']!.top, greaterThan(rects['1m']!.bottom));
+    expect(rects['15m']!.left, greaterThan(rects['5m']!.right));
+    final rowOneCentre = (rects['1m']!.left + rects['15m']!.right) / 2;
+    // Rows two and three: pairs, centred on the row above.
+    double centre(String a, String b) => (rects[a]!.left + rects[b]!.right) / 2;
+    expect(rects['1h']!.top, greaterThan(rects['1m']!.bottom));
+    expect(rects['4h']!.top, rects['1h']!.top);
+    expect(centre('1h', '4h'), moreOrLessEquals(rowOneCentre, epsilon: 0.5));
+    expect(rects['1d']!.top, greaterThan(rects['1h']!.bottom));
     expect(rects['1w']!.top, rects['1d']!.top);
-    final rowOneCentre = (rects['1m']!.left + rects['1h']!.right) / 2;
-    final rowTwoCentre = (rects['1d']!.left + rects['1w']!.right) / 2;
-    expect(rowTwoCentre, moreOrLessEquals(rowOneCentre, epsilon: 0.5));
-    expect(rects['1d']!.left, greaterThan(rects['1m']!.left));
-    expect(rects['1w']!.right, lessThan(rects['1h']!.right));
+    expect(centre('1d', '1w'), moreOrLessEquals(rowOneCentre, epsilon: 0.5));
   });
 
   testWidgets('a tap sets the interval for the chart and closes the sheet',
@@ -173,6 +190,28 @@ void main() {
     expect(find.byKey(const ValueKey('hl-chart-edit-interval-button')),
         findsNothing);
   });
+
+  for (final width in [320.0, 375.0]) {
+    testWidgets('seven pills stay whole beside the chart button at $width',
+        (tester) async {
+      await pumpHlEditSheet(tester, width: width, height: 700);
+      final row = find.byKey(const ValueKey('hl-interval-row'));
+      for (final label in _labels) {
+        final text = find.descendant(of: row, matching: find.text(label));
+        expect(text, findsOneWidget, reason: label);
+        final p = tester.renderObject<RenderParagraph>(text);
+        final natural = TextPainter(
+          text: p.text,
+          textDirection: TextDirection.ltr,
+          textScaler: p.textScaler,
+          maxLines: 1,
+        )..layout();
+        expect(natural.width, lessThanOrEqualTo(p.constraints.maxWidth),
+            reason: '$label is cut');
+        natural.dispose();
+      }
+    });
+  }
 
   group('every language', () {
     setUpAll(() async {

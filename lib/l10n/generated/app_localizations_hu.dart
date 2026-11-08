@@ -6013,10 +6013,22 @@ class AppLocalizationsHu extends AppLocalizations {
   String get chartIntervalFiveMinutesHint => 'A mai kilengések';
 
   @override
+  String get chartIntervalFifteenMinutes => '15 perc';
+
+  @override
+  String get chartIntervalFifteenMinutesHint => 'Az elmúlt nap';
+
+  @override
   String get chartIntervalHour => '1 óra';
 
   @override
   String get chartIntervalHourHint => 'Az elmúlt néhány nap';
+
+  @override
+  String get chartIntervalFourHours => '4 óra';
+
+  @override
+  String get chartIntervalFourHoursHint => 'Az elmúlt hetek';
 
   @override
   String get chartIntervalDay => '1 nap';

@@ -5982,10 +5982,22 @@ class AppLocalizationsEt extends AppLocalizations {
   String get chartIntervalFiveMinutesHint => 'Tänased kõikumised';
 
   @override
+  String get chartIntervalFifteenMinutes => '15 minutit';
+
+  @override
+  String get chartIntervalFifteenMinutesHint => 'Viimane päev';
+
+  @override
   String get chartIntervalHour => '1 tund';
 
   @override
   String get chartIntervalHourHint => 'Viimased päevad';
+
+  @override
+  String get chartIntervalFourHours => '4 tundi';
+
+  @override
+  String get chartIntervalFourHoursHint => 'Viimased nädalad';
 
   @override
   String get chartIntervalDay => '1 päev';

@@ -5994,10 +5994,22 @@ class AppLocalizationsCs extends AppLocalizations {
   String get chartIntervalFiveMinutesHint => 'Dnešní výkyvy';
 
   @override
+  String get chartIntervalFifteenMinutes => '15 minut';
+
+  @override
+  String get chartIntervalFifteenMinutesHint => 'Poslední den';
+
+  @override
   String get chartIntervalHour => '1 hodina';
 
   @override
   String get chartIntervalHourHint => 'Posledních pár dní';
+
+  @override
+  String get chartIntervalFourHours => '4 hodiny';
+
+  @override
+  String get chartIntervalFourHoursHint => 'Posledních pár týdnů';
 
   @override
   String get chartIntervalDay => '1 den';

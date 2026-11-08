@@ -5998,10 +5998,22 @@ class AppLocalizationsFi extends AppLocalizations {
   String get chartIntervalFiveMinutesHint => 'Päivän heilahtelut';
 
   @override
+  String get chartIntervalFifteenMinutes => '15 minuuttia';
+
+  @override
+  String get chartIntervalFifteenMinutesHint => 'Viime päivä';
+
+  @override
   String get chartIntervalHour => '1 tunti';
 
   @override
   String get chartIntervalHourHint => 'Viime päivät';
+
+  @override
+  String get chartIntervalFourHours => '4 tuntia';
+
+  @override
+  String get chartIntervalFourHoursHint => 'Viime viikot';
 
   @override
   String get chartIntervalDay => '1 päivä';

@@ -2623,7 +2623,7 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     final pillRow =
         Row(
           children: [
-            // The five intervals share the width (the home strip's range
+            // The seven intervals share the width (the home strip's range
             // row, KuteChartRangeRow), so every pill is whole beside the
             // chart-type button pinned on the right.
             Expanded(

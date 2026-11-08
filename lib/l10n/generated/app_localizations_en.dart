@@ -5979,10 +5979,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chartIntervalFiveMinutesHint => 'Today\'s swings';
 
   @override
+  String get chartIntervalFifteenMinutes => '15 minutes';
+
+  @override
+  String get chartIntervalFifteenMinutesHint => 'The last day';
+
+  @override
   String get chartIntervalHour => '1 hour';
 
   @override
   String get chartIntervalHourHint => 'The last few days';
+
+  @override
+  String get chartIntervalFourHours => '4 hours';
+
+  @override
+  String get chartIntervalFourHoursHint => 'The last few weeks';
 
   @override
   String get chartIntervalDay => '1 day';

@@ -6029,10 +6029,22 @@ class AppLocalizationsLt extends AppLocalizations {
   String get chartIntervalFiveMinutesHint => 'Šiandienos svyravimai';
 
   @override
+  String get chartIntervalFifteenMinutes => '15 minučių';
+
+  @override
+  String get chartIntervalFifteenMinutesHint => 'Paskutinė diena';
+
+  @override
   String get chartIntervalHour => '1 valanda';
 
   @override
   String get chartIntervalHourHint => 'Pastarosios kelios dienos';
+
+  @override
+  String get chartIntervalFourHours => '4 valandos';
+
+  @override
+  String get chartIntervalFourHoursHint => 'Pastarosios savaitės';
 
   @override
   String get chartIntervalDay => '1 diena';

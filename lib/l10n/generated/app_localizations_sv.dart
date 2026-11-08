@@ -5995,10 +5995,22 @@ class AppLocalizationsSv extends AppLocalizations {
   String get chartIntervalFiveMinutesHint => 'Dagens svängningar';
 
   @override
+  String get chartIntervalFifteenMinutes => '15 minuter';
+
+  @override
+  String get chartIntervalFifteenMinutesHint => 'Det senaste dygnet';
+
+  @override
   String get chartIntervalHour => '1 timme';
 
   @override
   String get chartIntervalHourHint => 'De senaste dagarna';
+
+  @override
+  String get chartIntervalFourHours => '4 timmar';
+
+  @override
+  String get chartIntervalFourHoursHint => 'De senaste veckorna';
 
   @override
   String get chartIntervalDay => '1 dag';

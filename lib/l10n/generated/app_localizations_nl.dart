@@ -6020,10 +6020,22 @@ class AppLocalizationsNl extends AppLocalizations {
   String get chartIntervalFiveMinutesHint => 'Bewegingen vandaag';
 
   @override
+  String get chartIntervalFifteenMinutes => '15 minuten';
+
+  @override
+  String get chartIntervalFifteenMinutesHint => 'De laatste dag';
+
+  @override
   String get chartIntervalHour => '1 uur';
 
   @override
   String get chartIntervalHourHint => 'De afgelopen dagen';
+
+  @override
+  String get chartIntervalFourHours => '4 uur';
+
+  @override
+  String get chartIntervalFourHoursHint => 'De laatste weken';
 
   @override
   String get chartIntervalDay => '1 dag';

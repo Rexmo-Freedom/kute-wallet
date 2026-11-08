@@ -6008,10 +6008,22 @@ class AppLocalizationsBg extends AppLocalizations {
   String get chartIntervalFiveMinutesHint => 'Колебанията днес';
 
   @override
+  String get chartIntervalFifteenMinutes => '15 минути';
+
+  @override
+  String get chartIntervalFifteenMinutesHint => 'Последният ден';
+
+  @override
   String get chartIntervalHour => '1 час';
 
   @override
   String get chartIntervalHourHint => 'Последните няколко дни';
+
+  @override
+  String get chartIntervalFourHours => '4 часа';
+
+  @override
+  String get chartIntervalFourHoursHint => 'Последните седмици';
 
   @override
   String get chartIntervalDay => '1 ден';

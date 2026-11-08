@@ -5980,10 +5980,22 @@ class AppLocalizationsLv extends AppLocalizations {
   String get chartIntervalFiveMinutesHint => 'Šodienas svārstības';
 
   @override
+  String get chartIntervalFifteenMinutes => '15 minūtes';
+
+  @override
+  String get chartIntervalFifteenMinutesHint => 'Pēdējā diena';
+
+  @override
   String get chartIntervalHour => '1 stunda';
 
   @override
   String get chartIntervalHourHint => 'Pēdējās dienas';
+
+  @override
+  String get chartIntervalFourHours => '4 stundas';
+
+  @override
+  String get chartIntervalFourHoursHint => 'Pēdējās nedēļas';
 
   @override
   String get chartIntervalDay => '1 diena';

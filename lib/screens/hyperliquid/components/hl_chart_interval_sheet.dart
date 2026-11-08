@@ -2,12 +2,12 @@
 //
 // The Advanced chart's Interval sheet, behind the interval button in its
 // top bar (founder, 5 November 2026: "Intervals should also be the
-// squares"). The intervals of [kHlCandleIntervals] (1m 5m 1h 1D 1W) as
-// the Chart sheet's square cards ([HlSquareBox]: the app's one soft
-// card, the action cards' own), three to a row and the last
-// row's two centred under them, no orphan: the interval big ("5m"), what
-// one bar spans ("5 minutes") and a line on what it is good for
-// ("Today's swings"). A tap picks the interval and closes the sheet; the
+// squares"). The seven intervals of [kHlCandleIntervals] as the Chart
+// sheet's square cards ([HlSquareBox]: the app's one soft card, the action
+// cards' own), up to three to a row and shorter rows centred, no orphan
+// ([hlIntervalRows]: 1m 5m 15m, then 1h 4h, then 1D 1W): the interval big
+// ("5m"), what one bar spans ("5 minutes") and a line on what it is good
+// for ("Today's swings"). A tap picks the interval and closes the sheet; the
 // chosen one wears the CTA-coloured outline. The market chart's own
 // interval row (KuteChartRangeRow) is inline pills, not a sheet.
 //
@@ -26,8 +26,25 @@ import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/theme/app_theme.dart';
 
-/// Cards in a row of the Interval sheet.
+/// Cards in a full row of the Interval sheet.
 const int kHlIntervalColumns = 3;
+
+/// How [count] cards fill the rows: threes, the end kept from leaving one
+/// card alone by making its last two rows twos (seven: 3 2 2).
+List<int> hlIntervalRows(int count) {
+  final twos = count % kHlIntervalColumns == 1 && count > kHlIntervalColumns
+      ? 2
+      : count % kHlIntervalColumns == 2
+          ? 1
+          : 0;
+  final threes = (count - twos * 2) ~/ kHlIntervalColumns;
+  final rest = count - twos * 2 - threes * kHlIntervalColumns;
+  return [
+    for (var i = 0; i < threes; i++) kHlIntervalColumns,
+    for (var i = 0; i < twos; i++) 2,
+    if (rest > 0) rest,
+  ];
+}
 
 const double _kGap = 10;
 
@@ -47,6 +64,8 @@ String hlIntervalMeaning(AppLocalizations l10n, HlCandleInterval iv) =>
     switch (iv.interval) {
       '1m' => l10n.chartIntervalMinute,
       '5m' => l10n.chartIntervalFiveMinutes,
+      '15m' => l10n.chartIntervalFifteenMinutes,
+      '4h' => l10n.chartIntervalFourHours,
       '1d' => l10n.chartIntervalDay,
       '1w' => l10n.chartIntervalWeek,
       _ => l10n.chartIntervalHour,
@@ -57,6 +76,8 @@ String hlIntervalHint(AppLocalizations l10n, HlCandleInterval iv) =>
     switch (iv.interval) {
       '1m' => l10n.chartIntervalMinuteHint,
       '5m' => l10n.chartIntervalFiveMinutesHint,
+      '15m' => l10n.chartIntervalFifteenMinutesHint,
+      '4h' => l10n.chartIntervalFourHoursHint,
       '1d' => l10n.chartIntervalDayHint,
       '1w' => l10n.chartIntervalWeekHint,
       _ => l10n.chartIntervalHourHint,
@@ -103,8 +124,8 @@ class HlIntervalSheet extends StatelessWidget {
   }
 }
 
-/// [kHlCandleIntervals] in rows of [kHlIntervalColumns] equal squares; a
-/// short last row keeps the cards' width and sits centred.
+/// [kHlCandleIntervals] in the rows of [hlIntervalRows], equal squares; a
+/// short row keeps the cards' width and sits centred.
 class _IntervalGrid extends StatelessWidget {
   const _IntervalGrid({required this.current, required this.onPick});
 
@@ -128,9 +149,10 @@ class _IntervalGrid extends StatelessWidget {
           ),
       ];
       final rows = <Widget>[];
-      for (var i = 0; i < cards.length; i += kHlIntervalColumns) {
-        final row =
-            cards.sublist(i, math.min(i + kHlIntervalColumns, cards.length));
+      var at = 0;
+      for (final length in hlIntervalRows(cards.length)) {
+        final row = cards.sublist(at, at + length);
+        at += length;
         if (rows.isNotEmpty) rows.add(const SizedBox(height: _kGap));
         rows.add(IntrinsicHeight(
           child: Row(

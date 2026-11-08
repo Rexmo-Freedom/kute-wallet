@@ -6012,10 +6012,22 @@ class AppLocalizationsHr extends AppLocalizations {
   String get chartIntervalFiveMinutesHint => 'Današnja kolebanja';
 
   @override
+  String get chartIntervalFifteenMinutes => '15 minuta';
+
+  @override
+  String get chartIntervalFifteenMinutesHint => 'Zadnji dan';
+
+  @override
   String get chartIntervalHour => '1 sat';
 
   @override
   String get chartIntervalHourHint => 'Zadnjih nekoliko dana';
+
+  @override
+  String get chartIntervalFourHours => '4 sata';
+
+  @override
+  String get chartIntervalFourHoursHint => 'Zadnjih par tjedana';
 
   @override
   String get chartIntervalDay => '1 dan';

@@ -6031,10 +6031,22 @@ class AppLocalizationsRo extends AppLocalizations {
   String get chartIntervalFiveMinutesHint => 'Fluctuațiile de azi';
 
   @override
+  String get chartIntervalFifteenMinutes => '15 minute';
+
+  @override
+  String get chartIntervalFifteenMinutesHint => 'Ultima zi';
+
+  @override
   String get chartIntervalHour => '1 oră';
 
   @override
   String get chartIntervalHourHint => 'Ultimele zile';
+
+  @override
+  String get chartIntervalFourHours => '4 ore';
+
+  @override
+  String get chartIntervalFourHoursHint => 'Ultimele săptămâni';
 
   @override
   String get chartIntervalDay => '1 zi';

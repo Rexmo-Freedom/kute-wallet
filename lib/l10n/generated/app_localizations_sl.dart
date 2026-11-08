@@ -6013,10 +6013,22 @@ class AppLocalizationsSl extends AppLocalizations {
   String get chartIntervalFiveMinutesHint => 'Današnja nihanja';
 
   @override
+  String get chartIntervalFifteenMinutes => '15 minut';
+
+  @override
+  String get chartIntervalFifteenMinutesHint => 'Zadnji dan';
+
+  @override
   String get chartIntervalHour => '1 ura';
 
   @override
   String get chartIntervalHourHint => 'Zadnjih nekaj dni';
+
+  @override
+  String get chartIntervalFourHours => '4 ure';
+
+  @override
+  String get chartIntervalFourHoursHint => 'Zadnji tedni';
 
   @override
   String get chartIntervalDay => '1 dan';

@@ -6048,10 +6048,22 @@ class AppLocalizationsEl extends AppLocalizations {
   String get chartIntervalFiveMinutesHint => 'Οι κινήσεις της ημέρας';
 
   @override
+  String get chartIntervalFifteenMinutes => '15 λεπτά';
+
+  @override
+  String get chartIntervalFifteenMinutesHint => 'Η τελευταία μέρα';
+
+  @override
   String get chartIntervalHour => '1 ώρα';
 
   @override
   String get chartIntervalHourHint => 'Οι τελευταίες μέρες';
+
+  @override
+  String get chartIntervalFourHours => '4 ώρες';
+
+  @override
+  String get chartIntervalFourHoursHint => 'Οι τελευταίες εβδομάδες';
 
   @override
   String get chartIntervalDay => '1 ημέρα';
