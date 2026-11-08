@@ -54,11 +54,10 @@
 // screen. Behind another pill or tab the card does no work of its own (see
 // HlMarketMapCard).
 //
-// NOTHING TO SHOW: nothing open and no map, whether the policy withholds
-// Investing's browsing (`hyperliquid.browse`, the map hides with it) or the
-// venue's lists could not be read: the app's empty state, Sal over "No open
-// positions", which is true either way. Anything open and no map: the
-// positions and the P&L alone.
+// NOTHING OPEN: the tab shows nothing under the pills (founder, 8 November
+// 2026: of the map alone on an empty tab, "maybe we cut it from overview if
+// nothing open, then we show nothing there"). No map, no empty state. The
+// map hides with the policy too (`hyperliquid.browse`), leaving what is held.
 //
 // ONE EDGE FOR EVERY BLOCK (founder, 5 November 2026: "different size
 // here"): the squares, the P&L card and the map all stand on the page's 16
@@ -118,7 +117,6 @@ import 'package:kute/screens/shared/charts/kute_chart_format.dart'
 import 'package:kute/screens/shared/charts/kute_trend_chart.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show KutePressable;
 import 'package:kute/screens/shared/kute_skeleton.dart';
-import 'package:kute/screens/shared/no_activity_state.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart'
     show openInvestmentsPortfolio;
@@ -198,29 +196,12 @@ class DollarsActivityTab extends ConsumerWidget {
           ),
         ),
         // Outside the gutters: the group card brings its own 16 margin.
-        SliverToBoxAdapter(
-          child: _OverviewMarketMap(
-            // The P&L card's 12 under what is held; at the top of the tab
-            // the 8 Investing's squares stand under the pills.
-            margin: EdgeInsets.only(top: held ? 12.h : 8.h),
-            nothing: held
-                ? null
-                : Padding(
-                    key: const ValueKey('dollars-activity-empty'),
-                    padding: EdgeInsets.only(top: 8.h, bottom: 4.h),
-                    child: NoActivityState(
-                      padding: EdgeInsets.symmetric(horizontal: 24.w),
-                      title: l10n.portfolioNoOpenPositions,
-                      cycles: 3,
-                      salSize: 140,
-                      titleSize: 22,
-                      titleWeight: FontWeight.w600,
-                      subtitleSize: 15,
-                      subtitleColor: context.colors.textSecondary,
-                    ),
-                  ),
+        // Nothing open: no map, nothing (see the file header).
+        if (held)
+          SliverToBoxAdapter(
+            // The P&L card's 12 under what is held.
+            child: _OverviewMarketMap(margin: EdgeInsets.only(top: 12.h)),
           ),
-        ),
         // The last block clear of the dock and the bar over it.
         SliverToBoxAdapter(
           child: SizedBox(height: 24.h + kuteDockScrollClearance(context)),
@@ -232,19 +213,17 @@ class DollarsActivityTab extends ConsumerWidget {
 
 /// The market map on this tab (see the file header), hidden when the policy
 /// withholds Investing's browsing, as Investing's own list is. Its own widget
-/// so the universe's 30 s refresh rebuilds the map alone. [nothing] stands in
-/// when there is no map to draw.
+/// so the universe's 30 s refresh rebuilds the map alone.
 class _OverviewMarketMap extends ConsumerWidget {
-  const _OverviewMarketMap({required this.margin, this.nothing});
+  const _OverviewMarketMap({required this.margin});
 
   final EdgeInsetsGeometry margin;
-  final Widget? nothing;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final canBrowse =
         ref.watch(runtimeCapabilitiesProvider).allows('hyperliquid.browse');
-    if (!canBrowse) return nothing ?? const SizedBox.shrink();
+    if (!canBrowse) return const SizedBox.shrink();
     final universe = ref.watch(hyperliquidBrowseUniverseProvider).valueOrNull ??
         const <HlMarket>[];
     final buildersMissing = ref.watch(hyperliquidBuilderMarketsMissingProvider);
@@ -252,8 +231,8 @@ class _OverviewMarketMap extends ConsumerWidget {
         (landed: read.valueOrNull != null, failed: read.hasError)));
     // The skeleton until the builder-dex markets (the stocks, indices and
     // commodities) are in. A perp list that could not be read is no wait:
-    // this tab has nothing else to fall back on, so what was read is drawn,
-    // or [nothing], until the next 30 s read lands.
+    // this tab has nothing else to fall back on, so what was read is drawn
+    // until the next 30 s read lands.
     final waiting = !perps.landed &&
         !perps.failed &&
         !universe.any((m) => m.isHip3);
@@ -261,7 +240,6 @@ class _OverviewMarketMap extends ConsumerWidget {
       universe: universe,
       margin: margin,
       loading: buildersMissing || waiting,
-      nothing: nothing,
     );
   }
 }

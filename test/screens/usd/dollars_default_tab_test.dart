@@ -8,8 +8,8 @@
 //     own; a pick still switches in; a link naming a pill keeps it
 //     (`?tab=predictions`), `?tab=activity` and `?tab=overview` name Overview;
 //   * on Overview: the open positions, the open P&L, then the map, at the
-//     cards' width; with nothing held the map is the first thing on the tab;
-//     its skeleton in its place; a tile, scrolled to, opens its market, the
+//     cards' width; with nothing open the tab shows nothing under the pills; the map's
+//     skeleton in its place; a tile, scrolled to, opens its market, the
 //     page clearing the bar; no category picked on Investing touches it;
 //   * Investing is its plain list: no map, on any category;
 //   * the map reads its own data: a new universe lands on Overview with the
@@ -95,6 +95,21 @@ HlPerpPosition _perp(String coin, double margin) => HlPerpPosition(
 
 /// The Dollars page over the market map's universe, tall enough to hold what
 /// is on it; [link] is the pill a link names (`/usd?tab=…`).
+/// [_pump] with a position open, as the map needs (nothing open: no map).
+Future<ProviderContainer> _pumpHeld(WidgetTester tester,
+        {bool browseInvesting = true,
+        AsyncValue<List<HlMarket>>? universe,
+        Size size = const Size(390, 2400),
+        List<Override> overrides = const []}) =>
+    _pump(tester,
+        browseInvesting: browseInvesting,
+        universe: universe,
+        size: size,
+        overrides: [
+          _holding([_perp('BTC', 100)]),
+          ...overrides
+        ]);
+
 Future<ProviderContainer> _pump(WidgetTester tester,
     {InvestmentsTab? link,
     bool browseInvesting = true,
@@ -194,7 +209,7 @@ void main() {
         'first open: Overview, the first pill, picked and on screen, with no '
         'pick reported', (tester) async {
       final events = recordEvents();
-      final container = await _pump(tester);
+      final container = await _pumpHeld(tester);
       expect(container.read(investmentsTabProvider), InvestmentsTab.activity);
       expect(_strip(tester).selectedIndex, 0);
       expect(_strip(tester).items[0].label, 'Overview');
@@ -234,7 +249,7 @@ void main() {
     testWidgets(
         'every Bitcoin | Dollars switch lands on Overview again, in place; a '
         'pick still switches in', (tester) async {
-      final container = await _pump(tester);
+      final container = await _pumpHeld(tester);
       await tapPill(tester, 'Predictions');
       expect(
           container.read(investmentsTabProvider), InvestmentsTab.predictions);
@@ -311,7 +326,7 @@ void main() {
     testWidgets(
         'positions held: the squares, the open P&L, then the map, at the '
         'cards\' width, 12 under the P&L', (tester) async {
-      await _pump(tester, overrides: [
+      await _pumpHeld(tester, overrides: [
         _holding([_perp('BTC', 100), _perp('ETH', 500)]),
       ]);
       expect(_squares, findsOneWidget);
@@ -334,31 +349,26 @@ void main() {
     });
 
     testWidgets(
-        'nothing held and no P&L: the map is the first thing on the tab, no '
-        'heading, no empty state', (tester) async {
+        'nothing open: nothing under the pills, no map, no heading, no empty '
+        'state', (tester) async {
       await _pump(tester);
-      expect(_map, findsOneWidget);
+      expect(_map, findsNothing);
+      expect(_mapBones, findsNothing);
       expect(_squares, findsNothing);
       expect(_pnl, findsNothing);
-      expect(_empty, findsNothing);
       expect(find.text('No open positions'), findsNothing);
       expect(find.byKey(const ValueKey('dollars-activity-positions-heading')),
           findsNothing);
-      final list =
-          tester.getRect(find.byKey(const ValueKey('dollars-activity-list')));
-      expect(_cardOf(tester, _map).top - list.top, closeTo(8.h, 1));
       expect(tester.takeException(), isNull);
       await unmountInvestments(tester);
     });
 
-    testWidgets(
-        'Investing\'s browsing withheld, nothing held: Sal over "No open '
-        'positions", no map, no skeleton', (tester) async {
+    testWidgets('Investing\'s browsing withheld, nothing open: nothing',
+        (tester) async {
       await _pump(tester, browseInvesting: false);
       expect(_map, findsNothing);
       expect(_mapBones, findsNothing);
-      expect(_empty, findsOneWidget);
-      expect(find.text('No open positions'), findsOneWidget);
+      expect(find.text('No open positions'), findsNothing);
       expect(tester.takeException(), isNull);
       await unmountInvestments(tester);
     });
@@ -377,27 +387,12 @@ void main() {
       await unmountInvestments(tester);
     });
 
-    testWidgets('too few markets, nothing held: the empty state stands in',
+    testWidgets('too few markets, a position held: no map, the square stays',
         (tester) async {
-      await _pump(tester, universe: const AsyncValue.data(<HlMarket>[]));
+      await _pumpHeld(tester, universe: const AsyncValue.data(<HlMarket>[]));
       expect(_map, findsNothing);
       expect(_mapBones, findsNothing);
-      expect(_empty, findsOneWidget);
-      expect(tester.takeException(), isNull);
-      await unmountInvestments(tester);
-    });
-
-    testWidgets(
-        'the venue\'s lists could not be read, nothing held: the empty state, '
-        'never a skeleton for ever', (tester) async {
-      await _pump(tester,
-          universe: AsyncValue<List<HlMarket>>.error('down', StackTrace.empty),
-          overrides: [
-            hyperliquidPerpMarketsProvider
-                .overrideWith((_) async => throw StateError('down')),
-          ]);
-      expect(_mapBones, findsNothing);
-      expect(_empty, findsOneWidget);
+      expect(_squares, findsOneWidget);
       expect(tester.takeException(), isNull);
       await unmountInvestments(tester);
     });
@@ -405,7 +400,7 @@ void main() {
     testWidgets(
         'loading, its skeleton in the map\'s place and height: it does not '
         'move when the map lands', (tester) async {
-      final container = await _pump(tester);
+      final container = await _pumpHeld(tester);
       final map = tester.getRect(_map);
 
       container.read(_buildersMissing.notifier).state = true;
@@ -427,7 +422,7 @@ void main() {
     testWidgets(
         'a category picked on Investing leaves the map whole; Investing has '
         'no map on any category', (tester) async {
-      final container = await _pump(tester);
+      final container = await _pumpHeld(tester);
       final tiles = _painter(tester).layout.tiles.map((t) => t.id).toList();
       await tapPill(tester, 'Investing');
       expect(_map, findsNothing);
@@ -456,7 +451,7 @@ void main() {
 
     testWidgets('a new universe lands on the map while Overview is on screen',
         (tester) async {
-      final container = await _pump(tester);
+      final container = await _pumpHeld(tester);
       final before = _painter(tester).layout.tiles.length;
       container.read(_universe.notifier).state =
           hlMarketMapFixture.take(20).toList();
@@ -474,6 +469,7 @@ void main() {
           size: const Size(390, 1200),
           child: const Scaffold(body: DollarsActivityTab()),
           overrides: [
+            _holding([_perp('BTC', 100)]),
             hyperliquidBrowseUniverseProvider
                 .overrideWithValue(AsyncValue.data(hlMarketMapFixture)),
             hyperliquidLivePricesProvider.overrideWith(_LivePrices.new),
@@ -488,7 +484,7 @@ void main() {
     testWidgets(
         'behind another pill the card keeps still: a new universe waits until '
         'Overview is back', (tester) async {
-      final container = await _pump(tester);
+      final container = await _pumpHeld(tester);
       await tapPill(tester, 'Predictions');
       final tiles = _painter(tester).layout.tiles.length;
       container.read(_universe.notifier).state =
@@ -508,7 +504,7 @@ void main() {
       final events = recordEvents();
       final zec = hlMarketMapFixture.firstWhere((m) => m.coin == 'ZEC');
       // A small phone, positions over the map: it runs below the screen.
-      await _pump(tester, size: const Size(375, 640), overrides: [
+      await _pumpHeld(tester, size: const Size(375, 640), overrides: [
         _holding([_perp('BTC', 100), _perp('ETH', 500), _perp('HYPE', 300)]),
         // The sheet's own reads (no network in a test).
         hyperliquidExactMarketProvider.overrideWith((ref, key) => zec),
