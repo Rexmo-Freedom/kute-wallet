@@ -2,10 +2,10 @@
 // light and dark, written only when asked: RECEIVE_RENDER=<dir>.
 // "rows": the Bitcoin and Dollars action rows at 375 pt, the moving
 // Receive arrow at rest beside the other icons, and large; "bitcoin": the
-// Bitcoin receive's first sheet (Bitcoin on top, then From your Dollars
-// and Another crypto) at 375 pt and at 430 pt;
-// "dollars": the Dollars receive's first sheet (Dollars on top, then From
-// your Bitcoin and Another crypto) at 375 pt, at 430 pt and in German, and
+// Bitcoin receive's first sheet (two squares, Bitcoin and Another crypto)
+// at 375 pt, at 430 pt and in the longer languages;
+// "dollars": the Dollars receive's first sheet (two squares, Dollars and
+// Another crypto) at 375 pt, at 430 pt and in the longer languages, and
 // the coin sheet its "Dollars" opens. The
 // cards' soft shadows are drawn as on a phone (a test draws them
 // unblurred, a hard grey band under every card). One render per run, so:
@@ -60,6 +60,9 @@ import 'package:money2/money2.dart';
 import '../helpers/runtime_policy_fixture.dart';
 
 final _dir = Platform.environment['RECEIVE_RENDER'];
+
+/// The languages whose Receive squares are worth a look at 375 pt.
+const _longLanguages = ['de', 'fi', 'lt', 'ja'];
 
 class _Routes extends OrchestraSupportedRoutesNotifier {
   _Routes(OrchestraRoutesCatalog catalog) {
@@ -297,14 +300,18 @@ void main() {
         await tester.pumpWidget(const SizedBox());
         await tester.pump(const Duration(seconds: 1));
       }
-      // A longer language at 375 pt.
-      await _app(tester, dark, const Size(375, 812),
-          _opener(showBitcoinReceiveSheet),
-          locale: const Locale('de'));
-      await _openSheet(tester);
-      await _shoot(tester, 'bitcoin_options_375_de_$mode');
-      await tester.pumpWidget(const SizedBox());
-      await tester.pump(const Duration(seconds: 1));
+      // Longer languages at 375 pt (Lithuanian's title takes two lines; the
+      // test's Inter draws no Japanese, so ja shows widths, not its glyphs).
+      for (final lang in _longLanguages) {
+        await _app(tester, dark, const Size(375, 812),
+            _opener(showBitcoinReceiveSheet),
+            locale: Locale(lang));
+        await _openSheet(tester);
+        await _shoot(tester, 'bitcoin_options_375_${lang}_$mode');
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump(const Duration(seconds: 1));
+      }
     });
 
     testWidgets('render: dollars $mode', skip: _dir == null, (tester) async {
@@ -327,15 +334,17 @@ void main() {
         await tester.pumpWidget(const SizedBox());
         await tester.pump(const Duration(seconds: 1));
       }
-      // A longer language at 375 pt.
-      await _app(
-          tester, dark, const Size(375, 812), _opener(showUsdReceiveSheet),
-          locale: const Locale('de'));
-      await _openSheet(tester);
-      await _shoot(tester, 'dollars_receive_375_de_$mode');
-      expect(tester.takeException(), isNull);
-      await tester.pumpWidget(const SizedBox());
-      await tester.pump(const Duration(seconds: 1));
+      // Longer languages at 375 pt.
+      for (final lang in _longLanguages) {
+        await _app(
+            tester, dark, const Size(375, 812), _opener(showUsdReceiveSheet),
+            locale: Locale(lang));
+        await _openSheet(tester);
+        await _shoot(tester, 'dollars_receive_375_${lang}_$mode');
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump(const Duration(seconds: 1));
+      }
     });
   }
 }

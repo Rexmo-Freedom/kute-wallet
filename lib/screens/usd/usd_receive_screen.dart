@@ -7,20 +7,25 @@
 // strange"; bitcoin_receive_options.dart), into `spark:USDB`, the app's
 // big cards in a sheet as tall as they are, under the first steps' header
 // ("Receive" big on the left, the compact X at the top right:
-// receive_surface.dart, SheetTitleHeader):
+// receive_surface.dart, SheetTitleHeader).
 //
-//   Dollars             the main action, on top, full width and larger
-//                       (the grid's lead card), as Bitcoin leads the
-//                       Bitcoin Receive: this account's own money from any
-//                       wallet or exchange. The Dollars mark, the dollar
-//                       coins offered ("USDC and USDT"); the coin sheet
-//                       with those coins (one coin: straight to its
-//                       networks or its address). Only while a dollar
-//                       coin can be offered under the policy.
-//   Another crypto      under it, the grid's lone card, compact and full
-//                       width: every other coin, never a dollar coin the
-//                       lead names ("ETH, SOL and more"); the coin sheet
+// TWO SQUARES (founder, 8 November 2026, of the two full-width rows: "here
+// on receive make it two square cards"), the grid's two equal squares side
+// by side:
+//
+//   Dollars             this account's own money from any wallet or
+//                       exchange. The Dollars mark, the dollar coins
+//                       offered ("USDC and USDT"); the coin sheet with
+//                       those coins (one coin: straight to its networks or
+//                       its address). Only while a dollar coin can be
+//                       offered under the policy.
+//   Another crypto      every other coin, never a dollar coin the Dollars
+//                       card names ("ETH, SOL and more"); the coin sheet
 //                       with those coins.
+//
+// One of them alone is never a square in half the width: Dollars alone is
+// the grid's lead card, full width and larger; Another crypto alone the
+// grid's lone card, compact and full width.
 //
 // NOT YOUR OWN MONEY (founder, 7 November 2026: "On bitcoin receive we get
 // rid of from your dollars. On dollars receive we get rid of from your
@@ -206,15 +211,15 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
   }
 
   /// The Dollars Receive (see the file header): the Bitcoin Receive's
-  /// structure (bitcoin_receive_options.dart) for Dollars. DOLLARS ON TOP:
-  /// the grid's lead card, as Bitcoin leads the Bitcoin Receive, is this
-  /// account's own money arriving from any wallet or exchange: the Dollars
-  /// mark, "Dollars", the dollar coins it takes ("USDC and USDT",
-  /// [anotherCryptoLine]), opening them ([_openDollarCoins]). Under it, as
-  /// under Bitcoin, "Another crypto" (anotherCryptoCard: the other coins,
-  /// never a dollar coin the lead names) alone, the grid's lone card,
-  /// opening those. No "From your Bitcoin" (see the file header). No dollar
-  /// coin offered: no lead.
+  /// structure (bitcoin_receive_options.dart) for Dollars, two squares.
+  /// DOLLARS is this account's own money arriving from any wallet or
+  /// exchange: the Dollars mark, "Dollars", the dollar coins it takes
+  /// ("USDC and USDT", [anotherCryptoLine]), opening them
+  /// ([_openDollarCoins]). Beside it, as beside Bitcoin, "Another crypto"
+  /// (anotherCryptoCard: the other coins, never a dollar coin Dollars
+  /// names), opening those. No "From your Bitcoin" (see the file header).
+  /// One alone is the grid's lead (Dollars) or its lone card (Another
+  /// crypto), never a square in half the width.
   Widget _dollarsCard(BuildContext context, List<CoinAssetGroup> groups) {
     final l10n = context.l10n;
     final dollars = [
@@ -225,23 +230,30 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
       for (final g in groups)
         if (!isOneDollarCoin(g.key)) g
     ];
-    final lead = kKuteActionCardLeadVisualSize.sp;
+    final hasOthers = anotherCryptoNamedCoins(others).isNotEmpty;
+    final mark = (hasOthers
+            ? kKuteActionCardVisualSize
+            : kKuteActionCardLeadVisualSize)
+        .sp;
+    final dollarsCard = dollars.isEmpty
+        ? null
+        : KuteActionCard(
+            key: kUsdReceiveDollarsKey,
+            visual: SvgPicture.asset(kUsdMarkAsset, width: mark, height: mark),
+            title: l10n.portfolioBalanceDollars,
+            subtitle: anotherCryptoLine(l10n, dollars),
+            visualSlot: hasOthers
+                ? kKuteActionCardVisualSlot.sp
+                : kKuteActionCardLeadVisualSlot,
+            onTap: () => _openDollarCoins(dollars),
+          );
     return KuteActionCardGrid(
       key: const ValueKey('usd-receive-card'),
-      // Dollars on top, the main action (see the file header).
-      lead: dollars.isEmpty
-          ? null
-          : KuteActionCard(
-              key: kUsdReceiveDollarsKey,
-              visual:
-                  SvgPicture.asset(kUsdMarkAsset, width: lead, height: lead),
-              title: l10n.portfolioBalanceDollars,
-              subtitle: anotherCryptoLine(l10n, dollars),
-              visualSlot: kKuteActionCardLeadVisualSlot,
-              onTap: () => _openDollarCoins(dollars),
-            ),
+      // Dollars alone, or two squares (see the file header).
+      lead: hasOthers ? null : dollarsCard,
       cards: [
-        if (anotherCryptoNamedCoins(others).isNotEmpty)
+        if (hasOthers && dollarsCard != null) dollarsCard,
+        if (hasOthers)
           anotherCryptoCard(
             l10n,
             key: const ValueKey('usd-receive-from-another'),

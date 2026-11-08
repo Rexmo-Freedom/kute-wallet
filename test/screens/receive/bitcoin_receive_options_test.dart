@@ -191,12 +191,15 @@ Future<void> _loadInter() async {
   await inter.load();
 }
 
+/// The two squares together, as wide as the sheet's content.
+final Finder _grid = find.byKey(const ValueKey('bitcoin-receive-options'));
+
 KuteActionCard _card(WidgetTester tester, Key key) =>
     tester.widget<KuteActionCard>(find.byKey(key));
 
 /// The coins of the "Another crypto" [card] lie whole, side by side and
-/// inside the card, none over another, each a circle at the grid's visual
-/// size (the Bitcoin lead's mark is the lead's larger one: 40 to its 48).
+/// inside the card's padding and its width, none over another, each a
+/// circle at the size of the Bitcoin square's mark.
 void _expectCoinsWhole(WidgetTester tester, Finder card) {
   final marks =
       find.descendant(of: card, matching: find.byType(AnotherCryptoMarks));
@@ -204,7 +207,7 @@ void _expectCoinsWhole(WidgetTester tester, Finder card) {
   final coins = find.descendant(of: marks, matching: find.byType(AssetIcon));
   expect(coins, findsNWidgets(2));
   final box = tester.getRect(card);
-  final lead = tester.getSize(find
+  final mark = tester.getSize(find
       .descendant(
           of: find.byKey(_bitcoin),
           matching: find.byWidgetPredicate((w) => w is SvgPicture))
@@ -216,7 +219,7 @@ void _expectCoinsWhole(WidgetTester tester, Finder card) {
     expect(r.right, lessThanOrEqualTo(box.right), reason: 'a coin is cut');
     expect(r.bottom, lessThanOrEqualTo(box.bottom));
     expect(r.width, moreOrLessEquals(r.height));
-    expect(r.height, moreOrLessEquals(lead.height * 40 / 48),
+    expect(r.height, moreOrLessEquals(mark.height),
         reason: 'the grid\'s visual size');
   }
   expect(rects[0].right, lessThanOrEqualTo(rects[1].left),
@@ -269,11 +272,10 @@ void main() {
 
   testWidgets(
       'the spending wallet: "Receive" big on the left with the compact X at '
-      'the top right, Bitcoin ("Bitcoin and Lightning") on top, full width '
-      'and larger, then Another crypto ("USDC, ETH and more", those two '
-      'coins side by side, whole) under it, the grid\'s lone card, compact '
-      'and full width; no From your Dollars; a short sheet with the bar '
-      'away', (tester) async {
+      'the top right, two equal squares: Bitcoin ("Bitcoin and Lightning") '
+      'and Another crypto ("USDC, ETH and more", those two coins side by '
+      'side, whole); no From your Dollars; a short sheet with the bar away',
+      (tester) async {
     await tester.runAsync(_loadInter);
     await _pump(tester);
     final sheet = ModalRoute.of(tester.element(find.byKey(_bitcoin)));
@@ -284,15 +286,15 @@ void main() {
     expect(find.textContaining('Swap'), findsNothing);
     expect(find.byType(AccountSwitcherPill), findsNothing);
     expect(find.byType(KuteCloseButton), findsOneWidget);
-    expectSheetTitleHeader(tester, 'Receive', find.byKey(_bitcoin));
+    expectSheetTitleHeader(tester, 'Receive', _grid);
     expect(
         tester.getSemantics(find.text('Receive')),
         matchesSemantics(label: 'Receive', isHeader: true));
 
     final grid = tester.widget<KuteActionCardGrid>(
         find.byKey(const ValueKey('bitcoin-receive-options')));
-    expect(grid.lead?.key, _bitcoin);
-    expect(grid.cards.map((c) => c.key), [_fromAnother]);
+    expect(grid.lead, isNull);
+    expect(grid.cards.map((c) => c.key), [_bitcoin, _fromAnother]);
     expect(find.byKey(_fromDollars), findsNothing);
     expect(find.text(_l10n.receiveFromYourDollars), findsNothing);
     expect(_card(tester, _bitcoin).title, 'Bitcoin');
@@ -303,21 +305,15 @@ void main() {
     expect(_card(tester, _fromAnother).subtitle, 'USDC, ETH and more');
     _expectCoinsWhole(tester, find.byKey(_fromAnother));
 
-    // Bitcoin on top across the whole width, then Another crypto across
-    // it too, compact (shorter than the lead), both with their chevron.
-    final top = tester.getRect(find.byKey(_bitcoin));
-    final under = tester.getRect(find.byKey(_fromAnother));
-    expect(top.bottom, lessThan(under.top));
-    expect(top.left, moreOrLessEquals(under.left));
-    expect(top.right, moreOrLessEquals(under.right));
-    expect(under.height, lessThan(top.height));
-    for (final card in [_bitcoin, _fromAnother]) {
-      expect(
-          find.descendant(
-              of: find.byKey(card),
-              matching: find.byIcon(Icons.chevron_right_rounded)),
-          findsOneWidget);
-    }
+    // Two equal squares side by side, Bitcoin first; a square shows no
+    // chevron.
+    final left = tester.getRect(find.byKey(_bitcoin));
+    final right = tester.getRect(find.byKey(_fromAnother));
+    expect(left.right, lessThan(right.left));
+    expect(left.top, moreOrLessEquals(right.top));
+    expect(left.size.width, moreOrLessEquals(right.size.width));
+    expect(left.size.height, moreOrLessEquals(right.size.height));
+    expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
 
     // As tall as the cards: short, so the floating bar goes while it is up.
     final frame = tester.getRect(find.byType(ReceiveSheetFrame));
@@ -419,9 +415,8 @@ void main() {
 
   testWidgets(
       'at 375 pt, in Inter, in every shipped language: the title whole on '
-      'the left and the X at the right, Bitcoin across the top, Another '
-      'crypto under it across the width, every word whole inside its card, '
-      'the coins whole, nothing overflowing; the sheet short',
+      'the left and the X at the right, two equal squares, every word whole '
+      'inside its card, the coins whole, nothing overflowing; the sheet short',
       (tester) async {
     await tester.runAsync(_loadInter);
     for (final locale in AppLocalizations.supportedLocales) {
@@ -437,12 +432,13 @@ void main() {
           .first);
       expect(title.didExceedMaxLines, isFalse,
           reason: '$why: the title is cut');
-      expectSheetTitleHeader(tester, l10n.receive, find.byKey(_bitcoin));
+      expectSheetTitleHeader(tester, l10n.receive, _grid);
       final cards = [_bitcoin, _fromAnother];
       final rects = [for (final k in cards) tester.getRect(find.byKey(k))];
-      expect(rects[1].top, greaterThan(rects[0].bottom), reason: why);
-      expect(rects[0].left, moreOrLessEquals(rects[1].left), reason: why);
-      expect(rects[0].right, moreOrLessEquals(rects[1].right), reason: why);
+      expect(rects[1].left, greaterThan(rects[0].right), reason: why);
+      expect(rects[0].top, moreOrLessEquals(rects[1].top), reason: why);
+      expect(rects[0].width, moreOrLessEquals(rects[1].width), reason: why);
+      expect(rects[0].height, moreOrLessEquals(rects[1].height), reason: why);
       _expectCoinsWhole(tester, find.byKey(_fromAnother));
       for (var c = 0; c < cards.length; c++) {
         final box = rects[c];
@@ -463,6 +459,18 @@ void main() {
       final frame = tester.getRect(find.byType(ReceiveSheetFrame));
       expect(frame.height, lessThan(812 * kuteBarShortSheetFraction),
           reason: why);
+      await _unmount(tester);
+    }
+  });
+
+  testWidgets(
+      'on a phone larger than the design and on a tablet the coins stay whole '
+      'circles: the visual box grows with its marks', (tester) async {
+    for (final size in const [Size(440, 956), Size(768, 1024)]) {
+      await _pump(tester, size: size);
+      await tester.pump();
+      _expectCoinsWhole(tester, find.byKey(_fromAnother));
+      expect(tester.takeException(), isNull, reason: '$size');
       await _unmount(tester);
     }
   });

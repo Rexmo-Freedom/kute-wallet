@@ -9,7 +9,7 @@
 //     dollars receive we get rid of from your bitcoin."): moving between
 //     your own accounts is the Dollars home's Move money, and the Sends'
 //     own-account moves below.
-//   * Dollars Receive: "Dollars" on top (the dollar coins) and "Another
+//   * Dollars Receive: "Dollars" (the dollar coins) and "Another
 //     crypto" (the others) are cross-chain receives: a REGION block keeps
 //     them (the coin's tap names the regions,
 //     coin_asset_picker_policy_test.dart); any other refusal of the swap
@@ -364,8 +364,8 @@ void main() {
 
   group('Dollars Receive or swap', () {
     testWidgets(
-        'nothing withheld: Dollars on top (the dollar coins) and Another '
-        'crypto; no From your Bitcoin', (tester) async {
+        'nothing withheld: Dollars (the dollar coins) and Another crypto; no '
+        'From your Bitcoin', (tester) async {
       await install(tester, null);
       await _pumpSheet(tester, showUsdReceiveSheet);
       expect(find.byKey(_usdDollars), findsOneWidget);
@@ -418,15 +418,15 @@ void main() {
 
   group('Bitcoin Receive or swap', () {
     testWidgets(
-        'swap country block: Bitcoin on top (plain bitcoin, never gated) and '
-        'Another crypto under it (kept by a region block); no From your '
-        'Dollars', (tester) async {
+        'swap country block: Bitcoin (plain bitcoin, never gated) and Another '
+        'crypto (kept by a region block), two squares; no From your Dollars',
+        (tester) async {
       await install(tester, MarketDenial.swapCountryBlock);
       await _pumpSheet(tester, showBitcoinReceiveSheet);
       final grid = tester.widget<KuteActionCardGrid>(
           find.byKey(const ValueKey('bitcoin-receive-options')));
-      expect(grid.lead?.key, _btcBitcoin);
-      expect(grid.cards.map((c) => c.key), [_btcFromAnother]);
+      expect(grid.lead, isNull);
+      expect(grid.cards.map((c) => c.key), [_btcBitcoin, _btcFromAnother]);
       expect(find.byKey(_btcFromDollars), findsNothing);
       await _unmount(tester);
     });

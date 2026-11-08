@@ -938,7 +938,10 @@ class AnotherCryptoMarks extends StatelessWidget {
 /// the app's big card (kute_action_cards.dart), titled "Another crypto",
 /// ONE short line naming the two best-known coins offered, "USDC, ETH and
 /// more" ([anotherCryptoLine]), and those two coins' marks side by side,
-/// each whole, at the other cards' visual size ([AnotherCryptoMarks]).
+/// each whole, at the other cards' visual size ([AnotherCryptoMarks]), in
+/// a visual box scaled as they are, so on a large phone a mark is never
+/// squeezed by a box that did not grow with it. A square beside the sheet's
+/// own card, or the lone card where it is alone.
 /// [groups] is what its tap lists, under the policy; keyed [key].
 KuteActionCard anotherCryptoCard(
   AppLocalizations l10n, {
@@ -951,6 +954,7 @@ KuteActionCard anotherCryptoCard(
       visual: AnotherCryptoMarks(coins: anotherCryptoNamedCoins(groups)),
       title: l10n.receiveAnotherCrypto,
       subtitle: anotherCryptoLine(l10n, groups),
+      visualSlot: kKuteActionCardVisualSlot.sp,
       onTap: onTap,
     );
 

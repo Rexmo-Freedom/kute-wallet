@@ -57,9 +57,9 @@ Widget _bitcoinOptionsBody(BuildContext context) =>
 Widget _usdBody(BuildContext context) =>
     ReceiveSheets.debugUsdBody?.call(context) ?? const UsdReceiveScreen();
 
-/// The Bitcoin tab's Receive: "Receive", Bitcoin on top, then From your
-/// Dollars and Another crypto, as big cards
-/// (bitcoin_receive_options.dart), in a sheet over the current screen.
+/// The Bitcoin tab's Receive: "Receive", Bitcoin and Another crypto, two
+/// squares side by side (bitcoin_receive_options.dart), in a sheet over the
+/// current screen.
 Future<void> showBitcoinReceiveSheet(BuildContext context) =>
     showAppBottomSheet<void>(
       context: context,
@@ -78,8 +78,8 @@ Future<void> showBitcoinQrReceiveSheet(BuildContext context) =>
       builder: _bitcoinBody,
     );
 
-/// The Dollars tab's Receive: "Receive", Dollars on top (the dollar
-/// coins), then Another crypto, as big cards
+/// The Dollars tab's Receive: "Receive", Dollars (the dollar coins) and
+/// Another crypto, two squares side by side
 /// (usd_receive_screen.dart; each coin through its reusable address, a
 /// one-time address where that cannot serve it), in a sheet over the
 /// current screen.

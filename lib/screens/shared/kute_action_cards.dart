@@ -43,7 +43,9 @@
 // presence than the compact full-width card (a larger visual box, title
 // and chevron, more padding), and lays the other cards out under it by
 // the rules above: two squares side by side, one compact full width, or
-// none at all.
+// none at all. The Receive sheets have since gone to two squares (founder,
+// 8 November 2026: "here on receive make it two square cards"): there the
+// lead is only the main action alone, when nothing else can be offered.
 //
 // TITLES ON ONE LINE (founder, 7 November 2026, the Receive sheets: "sizes
 // are strange here"; one square's title on one line, the other's on two,

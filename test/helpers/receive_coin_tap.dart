@@ -13,7 +13,8 @@ import 'package:kute/screens/usd/usd_receive_screen.dart'
 import 'package:kute/services/orchestra/onetime_receive.dart'
     show isOneDollarCoin;
 
-/// The Dollars Receive's lead card, "Dollars".
+/// The Dollars Receive's "Dollars" card (a square beside Another crypto,
+/// the grid's lead alone).
 final Finder receiveDollarsLead = find.byKey(kUsdReceiveDollarsKey);
 
 /// The Dollars Receive's "Another crypto" card.

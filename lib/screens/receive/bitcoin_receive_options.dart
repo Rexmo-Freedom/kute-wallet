@@ -1,31 +1,34 @@
 // lib/screens/receive/bitcoin_receive_options.dart
 //
 // THE BITCOIN RECEIVE'S FIRST SHEET, "Receive" (founder, 6 November 2026:
-// "On Bitcoin it needs that first screen"; 7 November 2026: "Bitcoin
-// should be on top, more prevalent here", and the word swap appears
-// nowhere: the sheet is titled Receive, in the first steps' header, big on
-// the left with the compact X at the top right: receive_surface.dart,
+// "On Bitcoin it needs that first screen"; the word swap appears nowhere:
+// the sheet is titled Receive, in the first steps' header, big on the left
+// with the compact X at the top right: receive_surface.dart,
 // SheetTitleHeader). The Bitcoin tab's Receive opens it; it is the Dollars
 // receive's first step turned around (usd_receive_screen.dart): the app's
 // big cards (kute_action_cards.dart) in a sheet as tall as they are,
 // which, being short, hides the floating bar while it is up.
 //
-//   Bitcoin             the main action, on top, full width and larger
-//                       (the grid's lead card): the bitcoin mark,
-//                       "Bitcoin and Lightning"; the QR receive ("Spending
-//                       Wallet", the paykute address, Unified / Bitcoin
-//                       only / Lightning only).
-//   Another crypto      under it, the grid's lone card, compact and full
-//                       width (founder, 7 November 2026: "Another crypto",
-//                       was "Another wallet"): the two best-known coins'
-//                       marks side by side and "USDC, ETH and more"
+// TWO SQUARES (founder, 8 November 2026, of the two full-width rows: "here
+// on receive make it two square cards"), the grid's two equal squares side
+// by side, as the Send's What step (send_what_step.dart); a title wraps to
+// the lines it needs and the other square grows with it:
+//
+//   Bitcoin             the bitcoin mark, "Bitcoin and Lightning"; the QR
+//                       receive ("Spending Wallet", the paykute address,
+//                       Unified / Bitcoin only / Lightning only).
+//   Another crypto      (founder, 7 November 2026: "Another crypto", was
+//                       "Another wallet"): the two best-known coins' marks
+//                       side by side and "USDC, ETH and more"
 //                       (anotherCryptoCard, the Dollars receive's card for
 //                       the same door); the Bitcoin receive's "other
 //                       coins" sheet (showOtherCoinsReceiveSheet). Only
 //                       while a coin can be offered (the spending wallet,
 //                       an account that may be offered swaps, a coin the
-//                       standing route or a one-time quote can serve);
-//                       without one, Bitcoin alone.
+//                       standing route or a one-time quote can serve).
+//
+// With no coin to offer, Bitcoin alone: the grid's lead card, full width
+// and larger, never a square alone in half the width.
 //
 // NOT YOUR OWN MONEY (founder, 7 November 2026: "On bitcoin receive we get
 // rid of from your dollars. On dollars receive we get rid of from your
@@ -139,7 +142,17 @@ class _BitcoinReceiveOptionsState extends ConsumerState<BitcoinReceiveOptions> {
     final l10n = context.l10n;
     final onSpending = _onSpending();
     final groups = _otherCoins(onSpending: onSpending);
-    final lead = kKuteActionCardLeadVisualSize.sp;
+    final alone = groups.isEmpty;
+    final mark =
+        (alone ? kKuteActionCardLeadVisualSize : kKuteActionCardVisualSize).sp;
+    final bitcoin = KuteActionCard(
+      key: const ValueKey('bitcoin-receive-bitcoin'),
+      visual: SvgPicture.asset(kBitcoinMarkAsset, width: mark, height: mark),
+      title: l10n.bitcoin,
+      subtitle: l10n.receiveBitcoinAndLightning,
+      visualSlot: alone ? kKuteActionCardLeadVisualSlot : kKuteActionCardVisualSlot.sp,
+      onTap: _openBitcoin,
+    );
     return ReceiveSheetFrame.titled(
       heading: l10n.receive,
       onClose: () => Navigator.of(context).maybePop(),
@@ -148,20 +161,12 @@ class _BitcoinReceiveOptionsState extends ConsumerState<BitcoinReceiveOptions> {
         padding: EdgeInsets.fromLTRB(20.w, sheetStepContentTop, 20.w, 8.h),
         child: KuteActionCardGrid(
           key: const ValueKey('bitcoin-receive-options'),
-          // Bitcoin on top, the main action (founder, 7 November 2026).
-          lead: KuteActionCard(
-            key: const ValueKey('bitcoin-receive-bitcoin'),
-            visual: SvgPicture.asset(kBitcoinMarkAsset,
-                width: lead, height: lead),
-            title: l10n.bitcoin,
-            subtitle: l10n.receiveBitcoinAndLightning,
-            visualSlot: kKuteActionCardLeadVisualSlot,
-            onTap: _openBitcoin,
-          ),
-          // Under it Another crypto alone, the grid's lone card (no "From
-          // your Dollars": see the file header).
+          // Bitcoin alone, or two squares (no "From your Dollars": see the
+          // file header).
+          lead: alone ? bitcoin : null,
           cards: [
-            if (groups.isNotEmpty)
+            if (!alone) ...[
+              bitcoin,
               // The Dollars receive's card for the same door.
               anotherCryptoCard(
                 l10n,
@@ -169,6 +174,7 @@ class _BitcoinReceiveOptionsState extends ConsumerState<BitcoinReceiveOptions> {
                 groups: groups,
                 onTap: () => _openOtherCoins(groups.length),
               ),
+            ],
           ],
         ),
       ),

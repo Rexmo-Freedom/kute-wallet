@@ -3,12 +3,13 @@
 // (founder, 7 November 2026: "these receive and send from dollars seem
 // too small and strange"), in a sheet as tall as its cards, the floating
 // bar away, under the first steps' header ("Receive" big on the left, the
-// compact X at the top right): "Dollars" on top, the lead card (the
-// Dollars mark, the dollar coins it takes: here "USDC and USDT", opening
-// the coin sheet with those alone), then "Another crypto" under it, the
-// grid's lone card, compact and full width (the other coins it names side
-// by side, whole, over one short line: here "ETH and SOL") opening the
-// coin sheet with those. No "From your Bitcoin" (founder, 7 November 2026:
+// compact X at the top right): two equal squares side by side (founder, 8
+// November 2026: "here on receive make it two square cards"), "Dollars"
+// (the Dollars mark, the dollar coins it takes: here "USDC and USDT",
+// opening the coin sheet with those alone) and "Another crypto" (the other
+// coins it names side by side, whole, over one short line: here "ETH and
+// SOL") opening the coin sheet with those; one alone is the grid's lead or
+// lone card. No "From your Bitcoin" (founder, 7 November 2026:
 // "On dollars receive we get rid of from your bitcoin"). No inline grid. Into Bitcoin (the Bitcoin
 // receive's "other coins") it is the grid alone. Nothing is
 // picked for the person. Here the standing route serves no coin, so a
@@ -254,8 +255,8 @@ int _lines(WidgetTester tester, Finder card, String title) {
 }
 
 /// The coins of the "Another crypto" [card] lie whole, side by side and
-/// inside the card, none over another, each a circle at the grid's visual
-/// size (the Dollars lead's mark is the lead's larger one: 40 to its 48).
+/// inside the card, none over another, each a circle at the size of the
+/// Dollars square's mark.
 void _expectCoinsWhole(WidgetTester tester, Finder card) {
   final marks =
       find.descendant(of: card, matching: find.byType(AnotherCryptoMarks));
@@ -263,7 +264,7 @@ void _expectCoinsWhole(WidgetTester tester, Finder card) {
   final coins = find.descendant(of: marks, matching: find.byType(AssetIcon));
   expect(coins, findsNWidgets(2));
   final box = tester.getRect(card);
-  final lead = tester.getSize(find
+  final mark = tester.getSize(find
       .descendant(
           of: receiveDollarsLead,
           matching: find.byWidgetPredicate((w) => w is SvgPicture))
@@ -275,7 +276,7 @@ void _expectCoinsWhole(WidgetTester tester, Finder card) {
     expect(r.right, lessThanOrEqualTo(box.right), reason: 'a coin is cut');
     expect(r.bottom, lessThanOrEqualTo(box.bottom));
     expect(r.width, moreOrLessEquals(r.height));
-    expect(r.height, moreOrLessEquals(lead.height * 40 / 48),
+    expect(r.height, moreOrLessEquals(mark.height),
         reason: 'the grid\'s visual size');
   }
   expect(rects[0].right, lessThanOrEqualTo(rects[1].left),
@@ -304,10 +305,9 @@ void main() {
 
   testWidgets(
       'opens as the Bitcoin Receive does: "Receive" big on the left with the '
-      'compact X at the top right, "Dollars" on top, full width and larger '
-      '(the Dollars mark, the dollar coins it takes), then "Another crypto" '
-      'under it, the lone card, compact and full width (the other coins, '
-      'side by side, none cut); no From your Bitcoin, no list rows, no '
+      'compact X at the top right, two equal squares: "Dollars" (the Dollars '
+      'mark, the dollar coins it takes) and "Another crypto" (the other '
+      'coins, side by side, none cut); no From your Bitcoin, no list rows, no '
       'inline grid, nothing picked', (tester) async {
     // The app's own font: the one-line rule measures real glyphs.
     await tester.runAsync(_loadInter);
@@ -325,10 +325,10 @@ void main() {
         moreOrLessEquals(title.center.dy, epsilon: 1.5));
     final grid = find.byKey(const ValueKey('usd-receive-card'));
     final cards = tester.widget<KuteActionCardGrid>(grid);
-    // Dollars on top, the lead, as Bitcoin on the Bitcoin Receive.
-    expect(cards.lead?.key, kUsdReceiveDollarsKey);
+    // Two squares, Dollars first, as Bitcoin on the Bitcoin Receive.
+    expect(cards.lead, isNull);
     expect(cards.cards.map((c) => c.key),
-        [const ValueKey('usd-receive-from-another')]);
+        [kUsdReceiveDollarsKey, const ValueKey('usd-receive-from-another')]);
     final dollars = tester.widget<KuteActionCard>(receiveDollarsLead);
     expect(dollars.title, _l10n.portfolioBalanceDollars);
     expect(dollars.title, 'Dollars');
@@ -336,7 +336,6 @@ void main() {
     expect(dollars.subtitle, _l10n.anotherCryptoCoinsPair('USDC', 'USDT'));
     expect(dollars.subtitle, 'USDC and USDT');
     expect(dollars.visual, isA<SvgPicture>());
-    expect(dollars.visualSlot, kKuteActionCardLeadVisualSlot);
     expect(receiveFromAnotherRow, findsOneWidget);
     final another = tester.widget<KuteActionCard>(receiveFromAnotherRow);
     expect(another.title, _l10n.receiveAnotherCrypto);
@@ -360,15 +359,14 @@ void main() {
     ]) {
       expect(_lines(tester, card, title), 1, reason: title);
     }
-    // The lead across the width, taller than the compact card under it;
-    // both across the width with their chevron.
-    final lead = tester.getRect(receiveDollarsLead);
+    // Two equal squares side by side; a square shows no chevron.
+    final a = tester.getRect(receiveDollarsLead);
     final b = tester.getRect(receiveFromAnotherRow);
-    expect(lead.left, moreOrLessEquals(b.left));
-    expect(lead.right, moreOrLessEquals(b.right));
-    expect(lead.bottom, lessThan(b.top));
-    expect(b.height, lessThan(lead.height));
-    expect(find.byIcon(Icons.chevron_right_rounded), findsNWidgets(2));
+    expect(a.right, lessThan(b.left));
+    expect(a.top, moreOrLessEquals(b.top));
+    expect(a.width, moreOrLessEquals(b.width));
+    expect(a.height, moreOrLessEquals(b.height));
+    expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
     // The old labels and the inline grid are gone.
     expect(find.text(_l10n.usdReceiveFromYourWallet), findsNothing);
     expect(find.byType(CoinAssetGrid), findsNothing);
@@ -645,9 +643,8 @@ void main() {
 
   testWidgets(
       'at 375 pt, in Inter, in every shipped language: the title whole on '
-      'the left and the X at the right, Dollars on top, Another crypto '
-      'under it across the width, every word whole inside its card, '
-      'nothing overflowing; the sheet short and the bar away',
+      'the left and the X at the right, two equal squares, every word whole '
+      'inside its card, nothing overflowing; the sheet short and the bar away',
       (tester) async {
     await tester.runAsync(_loadInter);
     for (final locale in AppLocalizations.supportedLocales) {
@@ -659,14 +656,15 @@ void main() {
           locale: locale);
       await tester.pump();
       expect(tester.takeException(), isNull, reason: why);
-      final lead = tester.getRect(receiveDollarsLead);
+      final a = tester.getRect(receiveDollarsLead);
       final b = tester.getRect(receiveFromAnotherRow);
-      expect(lead.bottom, lessThan(b.top), reason: why);
+      expect(a.right, lessThan(b.left), reason: why);
       expect(_lines(tester, receiveDollarsLead, l10n.portfolioBalanceDollars),
           1,
           reason: why);
-      expect(b.left, moreOrLessEquals(lead.left), reason: why);
-      expect(b.right, moreOrLessEquals(lead.right), reason: why);
+      expect(a.top, moreOrLessEquals(b.top), reason: why);
+      expect(a.width, moreOrLessEquals(b.width), reason: why);
+      expect(a.height, moreOrLessEquals(b.height), reason: why);
       expect(b.right, lessThanOrEqualTo(375), reason: why);
       final heading = tester.renderObject<RenderParagraph>(find
           .descendant(
@@ -682,17 +680,11 @@ void main() {
               matching: find.text(l10n.receiveAnotherCrypto)),
           findsOneWidget,
           reason: why);
-      // Its title on one line, the coins whole in their box.
-      expect(
-          _lines(tester, receiveFromAnotherRow, l10n.receiveAnotherCrypto), 1,
-          reason: why);
-      final line =
-          tester.widget<KuteActionCard>(receiveFromAnotherRow).subtitle!;
-      expect(_lines(tester, receiveFromAnotherRow, line), 1,
-          reason: '$why: $line');
+      // A title may wrap in a square, never cut (the loop below); the coins
+      // whole in their box.
       _expectCoinsWhole(tester, receiveFromAnotherRow);
       for (final (card, box) in [
-        (receiveDollarsLead, lead),
+        (receiveDollarsLead, a),
         (receiveFromAnotherRow, b),
       ]) {
         final texts =
