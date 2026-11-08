@@ -68,6 +68,8 @@ import 'package:kute/services/one_balance/bitcoin_to_dollars_leg.dart'
 import 'package:kute/services/one_balance/dollars_to_bitcoin_minimum.dart';
 import 'package:kute/screens/shared/kute_back_button.dart'
     show KuteCircleButton;
+import 'package:kute/screens/shared/bitcoin_wallet_actions.dart'
+    show kBitcoinHomeSwapSource;
 import 'package:kute/screens/usd/usd_account_screen.dart'
     show kUsdHomeSwapSource;
 import 'package:kute/screens/usd/usd_withdraw_screen.dart'
@@ -1615,6 +1617,33 @@ void main() {
       expect(restricted(), findsNothing);
       await _confirm(tester);
       expect(_hypercore.withdrawals.single.usd, 5);
+      await _close(tester, c);
+    });
+
+    testWidgets(
+        'the Bitcoin home\'s Swap under a swap country block: opens as the '
+        'Dollars home\'s does, says why on Bitcoin → Dollars, nothing sent, '
+        'and its circle turns it to the open exit', (tester) async {
+      await install(tester, MarketDenial.swapCountryBlock);
+      final c = await _open(tester, const MoneyMovementRoute(_b, _d),
+          ownMoveEntrySource: kBitcoinHomeSwapSource);
+      expect(_last('move_sheet_opened')['entry_source'], 'bitcoin_home_swap');
+      final swap = find.byKey(const ValueKey('money-movement-swap'));
+      await _type(tester, '5');
+      await _frames(tester, 12);
+      expect(restricted(), findsOneWidget);
+      expect(
+          find.text('$kGatingNamedTitle\n$kGatingVpnSentence'), findsOneWidget);
+      expect(_button(tester).text, 'Check connection');
+      expect(tester.widget<KuteCircleButton>(swap).enabled, isTrue);
+      await tester.tap(_cta);
+      await _frames(tester, 12);
+      expect(_railCalls, 0);
+      expect(_btcToDollars, isEmpty);
+
+      await tester.tap(swap);
+      await _frames(tester, 12);
+      expect(restricted(), findsNothing);
       await _close(tester, c);
     });
 

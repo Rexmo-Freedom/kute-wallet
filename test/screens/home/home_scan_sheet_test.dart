@@ -1,8 +1,9 @@
-// Home's scan button (beside "Purchase Bitcoin") opens the scanner as a
-// bottom sheet over Home, not a full-screen route. Closing it (X or a
-// swipe) comes back to Home and releases the camera; a payment code
-// closes it and opens Send with what was read, as the full-screen scanner
-// did.
+// A cold wallet's scan button (beside "Purchase Bitcoin", or Scan in the
+// row under its balance on Home; the spending wallet has Swap there since
+// 8 November 2026) opens the scanner as a bottom sheet over the screen,
+// not a full-screen route. Closing it (X or a swipe) comes back and
+// releases the camera; a payment code closes it and opens Send with what
+// was read, as the full-screen scanner did.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,6 +17,8 @@ import 'package:kute/models/settings_model.dart';
 import 'package:kute/models/send_tx_model.dart';
 import 'package:kute/providers/send_tx_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/screens/home/components/kute_bottom_action_bar.dart'
+    show KuteCompactActions;
 import 'package:kute/screens/scanner/scanner_sheet.dart';
 import 'package:kute/screens/shared/bitcoin_wallet_actions.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -57,7 +60,8 @@ class _SendStub extends ConsumerWidget {
   }
 }
 
-Future<(FakeScannerCameras, GoRouter)> _pump(WidgetTester tester) async {
+Future<(FakeScannerCameras, GoRouter)> _pump(WidgetTester tester,
+    {Widget? body}) async {
   tester.view.physicalSize = const Size(430, 932);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -66,7 +70,8 @@ Future<(FakeScannerCameras, GoRouter)> _pump(WidgetTester tester) async {
     GoRoute(
       path: '/',
       builder: (_, __) => Scaffold(
-        body: BitcoinWalletPrimaryActions(wallet: _savings, source: 'home'),
+        body: body ??
+            BitcoinWalletPrimaryActions(wallet: _savings, source: 'home'),
       ),
     ),
     GoRoute(
@@ -166,6 +171,22 @@ void main() {
     await tester.pump();
     expect(cameras.last.torchToggles, 1);
     expect(find.byIcon(Icons.flash_on_rounded), findsOneWidget);
+  });
+
+  testWidgets(
+      'a cold wallet on Home keeps Scan in its row (no Swap to offer), and it '
+      'opens this scanner', (tester) async {
+    final (cameras, _) = await _pump(tester,
+        body: Consumer(
+            builder: (context, ref, _) => KuteCompactActions(
+                source: 'home',
+                actions: bitcoinHomeDockActions(context, ref, _savings,
+                    source: 'home'))));
+    expect(find.text(_l10n.swap), findsNothing);
+    await tester.tap(find.text(_l10n.scan));
+    await tester.pumpAndSettle();
+    expect(find.byType(ScannerSheet), findsOneWidget);
+    expect(cameras.opened, hasLength(1));
   });
 
   testWidgets('the X closes it back to Home and releases the camera',

@@ -1381,14 +1381,15 @@ class _HomeActions extends ConsumerWidget {
     }
     if (activeWallet == null) return const SizedBox.shrink();
     // ONE compact row under the balance, every action once: Purchase ·
-    // Scan · Receive · Send (founder, 31 October 2026: "all in one row and
-    // shrink the button"). The dock is search alone.
+    // Swap · Receive · Send, the Dollars home's columns (founder, 31 October
+    // 2026: "all in one row and shrink the button"; 8 November 2026: Swap in
+    // place of Scan). A cold wallet shown here keeps Scan, having nothing to
+    // swap from. The dock is search alone.
     if (!isUsdc) {
-      return KuteCompactActions(source: source, actions: [
-        bitcoinPurchaseDockAction(context, ref, activeWallet, source: source),
-        bitcoinScanDockAction(context, ref, activeWallet),
-        ...bitcoinWalletDockActions(context, ref, activeWallet),
-      ]);
+      return KuteCompactActions(
+          source: source,
+          actions:
+              bitcoinHomeDockActions(context, ref, activeWallet, source: source));
     }
     // The Predictions (USDC) card: Deposit · Portfolio · Withdraw.
     return KuteCompactActions(source: source, actions: [

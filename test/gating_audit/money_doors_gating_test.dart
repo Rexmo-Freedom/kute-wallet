@@ -7,8 +7,11 @@
 //   * Neither Receive has an own-money door any more (founder, 7 November
 //     2026: "On bitcoin receive we get rid of from your dollars. On
 //     dollars receive we get rid of from your bitcoin."): moving between
-//     your own accounts is the Dollars home's Move money, and the Sends'
-//     own-account moves below.
+//     your own accounts is the two homes' Swap, and the Sends' own-account
+//     moves below.
+//   * The Bitcoin home's row: Swap is always live and opens the Swap screen
+//     as the Dollars home's does, which says why under a block (money_
+//     movement_sheet_test.dart); Purchase, Receive and Send stay open.
 //   * Dollars Receive: "Dollars" (the dollar coins) and "Another
 //     crypto" (the others) are cross-chain receives: a REGION block keeps
 //     them (the coin's tap names the regions,
@@ -68,7 +71,13 @@ import 'package:kute/providers/swap_orders_provider.dart';
 import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceProvider, usdBalanceUnknownProvider;
 import 'package:kute/screens/pay/components/confirm_send.dart';
+import 'package:kute/screens/home/components/kute_bottom_action_bar.dart'
+    show KuteCompactActions, KuteDockAction;
 import 'package:kute/screens/receive/receive_sheet.dart';
+import 'package:kute/screens/shared/bitcoin_wallet_actions.dart'
+    show bitcoinHomeDockActions, kBitcoinHomeSwapSource;
+import 'package:kute/screens/shared/capability_unavailable_sheet.dart'
+    show CapabilityUnavailableSheet;
 import 'package:kute/screens/shared/coin_asset_grid.dart' show CoinAssetTile;
 import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/shared/money_movement_sheet.dart'
@@ -414,6 +423,74 @@ void main() {
       expect(find.text(_l10n.usdReceiveCoinsUnavailable), findsOneWidget);
       await _unmount(tester);
     });
+  });
+
+  group('The Bitcoin home\'s row', () {
+    /// Home's row, under a real policy, recording what it offers.
+    Future<List<KuteDockAction>> pumpRow(WidgetTester tester) async {
+      late List<KuteDockAction> actions;
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(ProviderScope(
+        overrides: _overrides(),
+        child: ScreenUtilInit(
+          designSize: const Size(430, 932),
+          builder: (_, __) => MaterialApp(
+            builder: withKuteShellBar,
+            theme: ThemeData(
+                splashFactory: NoSplash.splashFactory,
+                fontFamily: 'Inter',
+                extensions: [AppColorsExtension.light()]),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Scaffold(
+              body: Consumer(builder: (context, ref, _) {
+                actions = bitcoinHomeDockActions(context, ref, _spending,
+                    source: 'home');
+                return KuteCompactActions(source: 'home', actions: actions);
+              }),
+            ),
+          ),
+        ),
+      ));
+      await tester.pump();
+      return actions;
+    }
+
+    for (final (label, how, targets) in <(String, MarketDenial?, Set<String>)>[
+      ('nothing withheld', null, const {}),
+      ('swap country block', MarketDenial.swapCountryBlock, const {}),
+      for (final how in _nonRegion)
+        ('${how.label} on the swap master', how, const {kSwapMaster}),
+    ]) {
+      testWidgets(
+          '$label: every button live; Swap opens the Swap screen pinned to '
+          'Bitcoin → Dollars, no sheet in front of it (the screen says why, '
+          'money_movement_sheet_test.dart); Receive opens', (tester) async {
+        await install(tester, how, targets: targets);
+        final moves = recordMoves();
+        final actions = await pumpRow(tester);
+        expect(actions.map((a) => a.trackingId),
+            ['purchase', 'swap', 'receive', 'send']);
+        for (final action in actions) {
+          expect(action.onTap, isNotNull, reason: action.trackingId);
+          expect(action.soon, isFalse, reason: action.trackingId);
+        }
+        await tester.tap(find.text(_l10n.swap));
+        await tester.pump();
+        expectPinned(moves, bitcoinToDollars);
+        expect(moves.single.entrySource, kBitcoinHomeSwapSource);
+        expect(find.byType(CapabilityUnavailableSheet), findsNothing);
+
+        // Plain bitcoin is never gated.
+        await tester.tap(find.text(_l10n.receive));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(find.byKey(_btcBitcoin), findsOneWidget);
+        await _unmount(tester);
+      });
+    }
   });
 
   group('Bitcoin Receive or swap', () {

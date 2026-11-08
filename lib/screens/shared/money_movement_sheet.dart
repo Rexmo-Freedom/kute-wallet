@@ -89,15 +89,16 @@ Future<void> showMoneyMovementSheet(
 /// it's not a buy"; and "hide the swap": it reads as moving your own
 /// money, so it keeps the Move money title and names both ends by their
 /// accounts). Every own-account door ("Move to your Dollars" and "Move to
-/// your Bitcoin" on the Sends' search, the Goals nudge, the Dollars home's
-/// Swap; the Receives' own doors are gone, founder, 7 November 2026)
+/// your Bitcoin" on the Sends' search, the Goals nudge, both homes' Swap;
+/// the Receives' own doors are gone, founder, 7 November 2026)
 /// opens Move money straight on the amount, pinned [from] the one account
 /// to the other: no picker sheet in between and no account to choose.
 /// Buys (Purchase, Buy dollars) never come here.
 ///
 /// SWAP (founder, 7 November 2026: "ideally is to have a move button ...
 /// Only on dollars"; "Move money or swap money whatever is more common in
-/// crypto lingo. or just 'swap'"): the screen is titled Swap and is
+/// crypto lingo. or just 'swap'"; on the Bitcoin home too since 8 November
+/// 2026, in place of Scan): the screen is titled Swap and is
 /// reversible. The swap circle between its From and To squares turns
 /// Bitcoin → Dollars into Dollars → Bitcoin and back; the amount, Max,
 /// the chips, the fee and the checks follow the direction on screen, and

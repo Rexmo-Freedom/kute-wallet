@@ -5,7 +5,8 @@
 // it with the squares"; renamed "Swap" the same day): the real sheet
 // (showOwnMoneyMove) in both directions, From and To as two squares with
 // the swap circle on their shared edge, the hero centred, the chips as
-// wide as the keypad; and the Dollars home's action row with its Swap.
+// wide as the keypad; and both homes' action rows with their Swap, the
+// Bitcoin home's also on a cold wallet, which keeps Scan.
 // Light and dark, at 320, 375 and 430 pt, at the default text size and a
 // large one. And the result sheet Swap closes into, from over the Dollars
 // home holding its own bar context (founder, 8 November 2026: "swapped
@@ -50,6 +51,10 @@ import 'package:kute/providers/spark_address_provider.dart';
 import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceProvider, usdSdkBalanceProvider;
 import 'package:kute/screens/home/components/move_sent_overlay.dart';
+import 'package:kute/screens/home/components/kute_bottom_action_bar.dart'
+    show KuteCompactActions;
+import 'package:kute/screens/shared/bitcoin_wallet_actions.dart'
+    show bitcoinHomeDockActions;
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart'
     show KuteConfirmation;
@@ -459,6 +464,91 @@ void main() {
         }
       }
     }
+  }
+
+  // The Bitcoin home's row, in the same columns: the spending wallet's Swap
+  // in English and in the languages whose Swap is the longest, and a cold
+  // wallet's Scan.
+  final spendingWallet = WalletConfig(id: 'spending', name: 'Spending');
+  final coldWallet = WalletConfig(id: 'cold', name: 'Cold', isHardware: true);
+  for (final (width, dark, lang, wallet) in [
+    (320.0, false, 'en', spendingWallet),
+    (320.0, true, 'en', spendingWallet),
+    (375.0, false, 'en', spendingWallet),
+    (375.0, true, 'en', spendingWallet),
+    (320.0, false, 'es', spendingWallet),
+    (320.0, false, 'el', spendingWallet),
+    (320.0, false, 'en', coldWallet),
+    (320.0, true, 'en', coldWallet),
+    (375.0, false, 'en', coldWallet),
+    (375.0, true, 'en', coldWallet),
+  ]) {
+    final mode = dark ? 'dark' : 'light';
+    final name = 'bitcoin_home_actions_'
+        '${wallet.isSparkWallet ? '' : 'cold_'}${width.round()}_$mode'
+        '${lang == 'en' ? '' : '_$lang'}';
+    testWidgets(name, (tester) async {
+      // The row as Home lays it out under the balance.
+      final c = await _pump(
+          tester,
+          Consumer(
+            builder: (context, ref, _) => Scaffold(
+              backgroundColor: context.colors.background,
+              body: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+                  child: KuteCompactActions(
+                      source: 'home',
+                      actions: bitcoinHomeDockActions(context, ref, wallet,
+                          source: 'home')),
+                ),
+              ),
+            ),
+          ),
+          width: width,
+          dark: dark,
+          locale: Locale(lang));
+      tester.view.physicalSize = Size(width, 160);
+      await _frames(tester, 4);
+      await _capture(tester, name);
+      await _close(tester, c);
+    });
+  }
+
+  // And its Swap, tapped for real: the Swap screen, on Bitcoin → Dollars.
+  for (final dark in [false, true]) {
+    final name = 'bitcoin_home_swap_opened_375_${dark ? 'dark' : 'light'}';
+    testWidgets(name, (tester) async {
+      final c = await _pump(
+          tester,
+          Consumer(
+            builder: (context, ref, _) => Scaffold(
+              body: SafeArea(
+                child: KuteCompactActions(
+                    source: 'home',
+                    actions: bitcoinHomeDockActions(
+                        context, ref, spendingWallet,
+                        source: 'home')),
+              ),
+            ),
+          ),
+          width: 375,
+          dark: dark);
+      await tester.tap(find.byIcon(Icons.swap_horiz_rounded));
+      await _frames(tester, 16);
+      expect(
+          find.descendant(
+              of: find.byKey(const ValueKey('money-movement-from')),
+              matching: find.text('Bitcoin')),
+          findsOneWidget);
+      expect(
+          find.descendant(
+              of: find.byKey(const ValueKey('money-movement-to')),
+              matching: find.text('Dollars')),
+          findsOneWidget);
+      await _capture(tester, name);
+      await _close(tester, c);
+    });
   }
 
   // The row in English, and in Spanish and Greek, whose Swap and Buy

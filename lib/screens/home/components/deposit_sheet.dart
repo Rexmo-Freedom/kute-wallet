@@ -30,7 +30,7 @@ import 'package:kute/screens/shared/orchestra_fee_summary.dart';
 // this sheet with both ends editable: Bitcoin, Dollars, Investing and
 // Predictions, any one to any other (lib/services/one_balance/
 // money_movement_route.dart). Pinned to the person's own Bitcoin and
-// Dollars (showOwnMoneyMove: the Dollars home's Swap, the own-account
+// Dollars (showOwnMoneyMove: both homes' Swap, the own-account
 // doors) it is Swap: the same screen, its ends fixed, reversed by the
 // swap circle between its From and To squares. Both lay out as Send's
 // amount step: Send's header, the hero centred, the squares, the chips

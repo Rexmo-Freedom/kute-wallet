@@ -256,12 +256,10 @@ void main() {
             final c = context.colors;
             return ListView(children: [
               _label(context, 'Bitcoin home row'),
-              KuteCompactActions(source: 'home', actions: [
-                bitcoinPurchaseDockAction(context, ref, _spending,
-                    source: 'home'),
-                bitcoinScanDockAction(context, ref, _spending),
-                ...bitcoinWalletDockActions(context, ref, _spending),
-              ]),
+              KuteCompactActions(
+                  source: 'home',
+                  actions: bitcoinHomeDockActions(context, ref, _spending,
+                      source: 'home')),
               _label(context, 'Dollars home row'),
               KuteCompactActions(
                   source: 'usd',
