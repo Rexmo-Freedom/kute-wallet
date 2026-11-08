@@ -536,7 +536,7 @@ void main() {
           entrySource: 'test', senderLabel: 'Ana'));
       await _frames(tester, 8);
       expect(find.byType(UnifiedSearchSurface), findsOneWidget);
-      expect(find.text('For Ana'), findsOneWidget);
+      expect(find.text('Pick a gift for Ana'), findsOneWidget);
       await tester.enterText(find.byType(TextField), 'bitcoin');
       await tester.pump(const Duration(milliseconds: 200));
       await tester.runAsync(() => Future<void>.delayed(Duration.zero));

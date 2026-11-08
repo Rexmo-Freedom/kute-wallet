@@ -14145,7 +14145,15 @@ class AppLocalizationsPl extends AppLocalizations {
   String get sendPickChipFriend => 'Wysyłasz znajomemu';
 
   @override
-  String get sendPickSearchHint => 'Szukaj rynku do wysłania';
+  String get sendPickSearchHint => 'Szukaj prognoz i inwestycji';
+
+  @override
+  String get sendPickSheetTitle => 'Wybierz prezent';
+
+  @override
+  String sendPickSheetTitleNamed(String name) {
+    return 'Wybierz prezent dla odbiorcy: $name';
+  }
 
   @override
   String sendPickChipForNamed(String name) {

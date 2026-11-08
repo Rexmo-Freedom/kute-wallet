@@ -11,11 +11,11 @@
 // sending, should be basically the same"). [showSendPickMarketSheet]
 // opens the Sal bar's own search sheet (unified_search_screen.dart,
 // showKuteSearch) with a [SendPickSession] (send_pick_session.dart): the
-// same composer with Sal ("Search a market to send"), the same Recent,
-// Moving now and Trending predictions with their gauges, the same
-// results; only a small chip at the top says who it is for ("For Ana",
-// "Sending to a friend"), the Connect your own AI card stays out, and the
-// results are markets only. A venue where this person cannot place a
+// same composer with Sal ("Search predictions and investments"), the same
+// Recent, Moving now and Trending predictions with their gauges, the same
+// results; only the heading says what it is for and for whom ("Pick a
+// gift for Ana", "Pick a gift"), the Connect your own AI card stays out,
+// and the results are markets only. A venue where this person cannot place a
 // prediction (an investment) is left out (sendPickVenues): its slip could
 // only send the market's card.
 //
@@ -52,8 +52,8 @@ bool sendPickOffered(RuntimeCapabilitiesService policy) {
 
 /// Opens the search sheet in send mode over the send (see the file
 /// header). [senderLabel] and [recipientPhone] are the contact picked
-/// before the row, if any: the chip names them and Send to anyone opens
-/// with them. Resolves to true when a link was created.
+/// before the row, if any: the heading names them and Send to anyone
+/// opens with them. Resolves to true when a link was created.
 Future<bool?> showSendPickMarketSheet(
   BuildContext context, {
   required String entrySource,

@@ -23710,19 +23710,31 @@ abstract class AppLocalizations {
   /// **'Only Yes on {outcome} can be sent'**
   String slipSendYesOnly(String outcome);
 
-  /// The small chip at the top of the send-mode search sheet, market page and slip when no contact was picked yet: the pick goes to a friend.
+  /// The small chip at the top of a market page and slip in send mode when no contact was picked yet: the pick goes to a friend.
   ///
   /// In en, this message translates to:
   /// **'Sending to a friend'**
   String get sendPickChipFriend;
 
-  /// The search line's hint on the search sheet in send mode (Send's 'Send a prediction or investment').
+  /// The search line's hint on the search sheet in send mode (Send's 'A prediction or investment'), under the sheet's title 'Pick a gift for Ana'.
   ///
   /// In en, this message translates to:
-  /// **'Search a market to send'**
+  /// **'Search predictions and investments'**
   String get sendPickSearchHint;
 
-  /// The send-mode chip at the top of the search sheet, market page and slip once Send picked a contact: who the sender is buying the pick for, seen by the SENDER ('For Ana'). Not the card's 'Ana, for you'. Keep {name} uninflected (use 'Recipient: {name}' where the language would inflect it).
+  /// The big title of the search sheet in send mode when no contact was picked: the sender is choosing a prediction or an investment to send someone as a gift. Friendly and plain; never a word for betting or gambling.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a gift'**
+  String get sendPickSheetTitle;
+
+  /// The big title of the search sheet in send mode once Send picked a contact: the sender is choosing a prediction or an investment to send {name} as a gift ('Pick a gift for Ana'). Friendly and plain; never a word for betting or gambling. Keep {name} uninflected (use '... recipient: {name}' where the language would inflect it).
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a gift for {name}'**
+  String sendPickSheetTitleNamed(String name);
+
+  /// The send-mode chip at the top of a market page and slip once Send picked a contact: who the sender is buying the pick for, seen by the SENDER ('For Ana'). Not the card's 'Ana, for you'. Keep {name} uninflected (use 'Recipient: {name}' where the language would inflect it).
   ///
   /// In en, this message translates to:
   /// **'For {name}'**

@@ -14159,7 +14159,15 @@ class AppLocalizationsLt extends AppLocalizations {
   String get sendPickChipFriend => 'Siunčiama draugui';
 
   @override
-  String get sendPickSearchHint => 'Ieškoti rinkos siuntimui';
+  String get sendPickSearchHint => 'Ieškoti prognozių ir investicijų';
+
+  @override
+  String get sendPickSheetTitle => 'Pasirinkite dovaną';
+
+  @override
+  String sendPickSheetTitleNamed(String name) {
+    return 'Pasirinkite dovaną gavėjui: $name';
+  }
 
   @override
   String sendPickChipForNamed(String name) {

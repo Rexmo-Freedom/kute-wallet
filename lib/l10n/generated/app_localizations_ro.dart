@@ -14166,7 +14166,15 @@ class AppLocalizationsRo extends AppLocalizations {
   String get sendPickChipFriend => 'Trimiți unui prieten';
 
   @override
-  String get sendPickSearchHint => 'Caută o piață de trimis';
+  String get sendPickSearchHint => 'Caută predicții și investiții';
+
+  @override
+  String get sendPickSheetTitle => 'Alege un cadou';
+
+  @override
+  String sendPickSheetTitleNamed(String name) {
+    return 'Alege un cadou pentru $name';
+  }
 
   @override
   String sendPickChipForNamed(String name) {

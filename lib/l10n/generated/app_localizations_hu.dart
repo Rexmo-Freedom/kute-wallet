@@ -14128,7 +14128,15 @@ class AppLocalizationsHu extends AppLocalizations {
   String get sendPickChipFriend => 'Küldés egy barátnak';
 
   @override
-  String get sendPickSearchHint => 'Keress egy piacot a küldéshez';
+  String get sendPickSearchHint => 'Előrejelzések és befektetések keresése';
+
+  @override
+  String get sendPickSheetTitle => 'Válassz ajándékot';
+
+  @override
+  String sendPickSheetTitleNamed(String name) {
+    return 'Válassz ajándékot $name részére';
+  }
 
   @override
   String sendPickChipForNamed(String name) {

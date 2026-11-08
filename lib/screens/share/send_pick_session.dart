@@ -22,13 +22,19 @@
 // into the market pages and the slips (they are separate routes), and
 // down the search sheet's own tree through [SendPickScope].
 //
-// [SendPickChip] says it on every surface of the flow, at the top: "For
-// Ana", "Sending to a friend", with the gift glyph. Founder, 7 November
-// 2026 ("the sending to a friend should be more clear"): the search
-// sheet's scope chip shape in the app's primary ink (the primary
-// button's own fill and contrast), so it reads as the state the page is
-// in, not as one more grey control; its "For Ana" is the sender's
-// ([sendPickChipForNamed]), never the card's "Ana, for you".
+// THE SEARCH SHEET SAYS IT ONCE, BIG (founder, 8 November 2026, on the
+// small chip it wore: "i still think for anna should be more clear and
+// better"): the first steps' own heading (SheetTitleHeader), "Pick a gift
+// for Ana", "Pick a gift" with no contact ([sendPickSheetTitle]), so the
+// person arriving there sees what they are doing and for whom.
+//
+// Past it, [SendPickChip] carries that on, at the top of the market page
+// and the slip: "For Ana", "Sending to a friend", with the gift glyph.
+// Founder, 7 November 2026 ("the sending to a friend should be more
+// clear"): the search sheet's scope chip shape in the app's primary ink
+// (the primary button's own fill and contrast), so it reads as the state
+// the page is in, not as one more grey control; its "For Ana" is the
+// sender's ([sendPickChipForNamed]), never the card's "Ana, for you".
 //
 // A MARKET PAGE IN SEND MODE NEVER OFFERS THE LOOK-ONLY LINK (founder, 7
 // November 2026: "the link to look at it should say you are buying this
@@ -157,8 +163,18 @@ class SendPickScope extends InheritedWidget {
   bool updateShouldNotify(SendPickScope old) => old.session != session;
 }
 
-/// The small chip at the top of every send-mode surface: "For Ana" when a
-/// contact was picked, else "Sending to a friend" (see the file header).
+/// The search sheet's big title in send mode (see the file header): "Pick
+/// a gift for Ana" when a contact was picked, else "Pick a gift".
+String sendPickSheetTitle(AppLocalizations l10n, SendPickSession session) {
+  final name = session.recipientName;
+  return name == null
+      ? l10n.sendPickSheetTitle
+      : l10n.sendPickSheetTitleNamed(name);
+}
+
+/// The small chip at the top of a market page and a slip in send mode:
+/// "For Ana" when a contact was picked, else "Sending to a friend" (see
+/// the file header).
 /// The search sheet's scope chip shape (28 high, 13 sp), in the primary
 /// button's ink: its fill, the words and the gift glyph in its contrast,
 /// w600.

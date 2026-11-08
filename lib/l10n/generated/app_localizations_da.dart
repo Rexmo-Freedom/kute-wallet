@@ -14099,7 +14099,15 @@ class AppLocalizationsDa extends AppLocalizations {
   String get sendPickChipFriend => 'Sendes til en ven';
 
   @override
-  String get sendPickSearchHint => 'Søg et marked at sende';
+  String get sendPickSearchHint => 'Søg forudsigelser og investeringer';
+
+  @override
+  String get sendPickSheetTitle => 'Vælg en gave';
+
+  @override
+  String sendPickSheetTitleNamed(String name) {
+    return 'Vælg en gave til $name';
+  }
 
   @override
   String sendPickChipForNamed(String name) {

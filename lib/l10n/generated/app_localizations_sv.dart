@@ -14094,7 +14094,15 @@ class AppLocalizationsSv extends AppLocalizations {
   String get sendPickChipFriend => 'Skickas till en vän';
 
   @override
-  String get sendPickSearchHint => 'Sök en marknad att skicka';
+  String get sendPickSearchHint => 'Sök prognoser och investeringar';
+
+  @override
+  String get sendPickSheetTitle => 'Välj en present';
+
+  @override
+  String sendPickSheetTitleNamed(String name) {
+    return 'Välj en present till $name';
+  }
 
   @override
   String sendPickChipForNamed(String name) {
