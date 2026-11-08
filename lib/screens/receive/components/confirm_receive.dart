@@ -1,3 +1,27 @@
+// The Bitcoin QR receive: the unified code (Bitcoin only, Lightning only) of
+// the account the money lands in. Every wallet's Receive is this sheet: the
+// spending wallet's from the "Receive" cards, a hardware (Ledger, Jade),
+// watch-only, tracked or software wallet's straight from its row
+// (bitcoin_wallet_actions.dart), and the `/receive` deep link.
+//
+// SHARE IS THE BAR (founder, 8 November 2026: "the share button should be the
+// sal on the bottom"), as on the one-time receive (quoted_receive_screen.dart):
+// the page draws no Share, and the code, the address, Request amount and the
+// chips scroll clear of the bar, with the plate at its usual side.
+//
+// THE BAR IS NEVER THE DEFAULT SEARCH HERE ([_buildAction]):
+//   * a code on the plate, on any tab, amount or no amount, hot wallet or
+//     cold: Share, handing out exactly what the code encodes;
+//   * the invoice or the address still loading (a cold wallet's first sync
+//     too): Share, busy;
+//   * the address could not be fetched: Try again, which asks for what failed
+//     again ([_dropFailedAddress]; the page says it failed);
+//   * no address to come (a signer, a tracked wallet with none stored, no
+//     wallet): Done.
+// The sheets opened over this one (Request amount, the Lightning address
+// edit, a device picker) hold their own bars; this one comes back with them
+// closed.
+
 import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
 import 'dart:async';
 
@@ -43,7 +67,7 @@ import 'package:kute/screens/shared/ledger_device_picker.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/shared/qr_code.dart';
 import 'package:kute/screens/shared/receive_surface.dart';
-import 'package:kute/screens/shared/stepper/stepper_widgets.dart';
+import 'package:kute/screens/usd/flow/usd_flow_widgets.dart' show UsdFlowAction;
 import 'package:kute/services/background_sync_service.dart';
 import 'package:kute/services/jade_service.dart';
 import 'package:kute/services/ledger_service.dart';
@@ -75,10 +99,9 @@ enum _FallbackAddress { bitcoin, unified, lightning, usdc }
 ///   1 — Share         (unified BIP21 QR + amount input + fallback rows
 ///                      ported from the prior `receive_bitcoin_widget`)
 ///
-/// The Share step owns its own action buttons (`Generate invoice`,
-/// `Update QR`, `Share`, hardware verify, etc.) so the shared CTA
-/// row is hidden there. The "Receive into" step auto-advances on
-/// tile tap, so the shared Continue button never surfaces.
+/// The Share step's Share is the bar (see the file header); request
+/// amount and hardware verify stay in the page. The "Receive into" step
+/// auto-advances on tile tap, so it needs no button.
 class ConfirmReceive extends ConsumerStatefulWidget {
   const ConfirmReceive({super.key});
 
@@ -296,27 +319,7 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
         ref.invalidate(getSparkBitcoinAddressProvider);
         ref.invalidate(initialAddressesProvider);
       }
-      final pickedId = _pickedReceiveWalletId;
-      if (pickedId != null) {
-        var pickedUsesBdk = false;
-        for (final w in ref.read(settingsProvider).wallets) {
-          if (w.id == pickedId) {
-            pickedUsesBdk = w.usesBdk;
-            break;
-          }
-        }
-        if (pickedUsesBdk) {
-          if (ref.read(walletReceiveInfoProvider(pickedId)).hasError ||
-              ref.read(walletAddressProvider(pickedId)).hasError) {
-            ref.invalidate(walletReceiveInfoProvider(pickedId));
-            ref.invalidate(walletAddressProvider(pickedId));
-          }
-          if (ref.read(bitcoinModelForWalletProvider(pickedId)).hasError) {
-            // Cascades through restore, wallet, model and address.
-            ref.invalidate(bitcoinConfigForWalletProvider(pickedId));
-          }
-        }
-      }
+      _dropFailedAddress();
       _primeReceiveRefresh();
       _balanceWatchTimer?.cancel();
       // Periodic kick to ensure the cache catches a late-arriving
@@ -346,6 +349,50 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
   // the detail screen. The receive address is read from the wallet's
   // last-synced state; pull-to-refresh there advances it past any newly
   // used scriptPubKeys.
+
+  /// Drops a failed address of the picked wallet so it is fetched again: on
+  /// open (a cached failure) and from the bar's Try again. An address that
+  /// loaded is never touched. A Spark wallet's failure is an empty address,
+  /// not an error (walletAddressProvider), and neither provider is
+  /// autoDispose, so it stays cached the same way.
+  void _dropFailedAddress() {
+    final pickedId = _pickedReceiveWalletId;
+    if (pickedId == null) return;
+    final picked = ref
+        .read(settingsProvider)
+        .wallets
+        .where((w) => w.id == pickedId)
+        .firstOrNull;
+    if (picked == null) return;
+    final address = ref.read(walletAddressProvider(pickedId));
+    final addressFailed =
+        address.hasError || address.valueOrNull?.isEmpty == true;
+    if (picked.isSparkWallet) {
+      if (addressFailed) {
+        ref.invalidate(getSparkBitcoinAddressProvider);
+        ref.invalidate(walletAddressProvider(pickedId));
+      }
+    } else if (picked.usesBdk) {
+      if (ref.read(walletReceiveInfoProvider(pickedId)).hasError ||
+          addressFailed) {
+        ref.invalidate(walletReceiveInfoProvider(pickedId));
+        ref.invalidate(walletAddressProvider(pickedId));
+      }
+      if (ref.read(bitcoinModelForWalletProvider(pickedId)).hasError) {
+        // Cascades through restore, wallet, model and address.
+        ref.invalidate(bitcoinConfigForWalletProvider(pickedId));
+      }
+    }
+  }
+
+  /// The bar's Try again: what failed is asked for again, and the bar is
+  /// busy until it answers.
+  void _retryLoad() {
+    _dropFailedAddress();
+    if (ref.read(setupLnAddressProvider).hasError) {
+      ref.invalidate(setupLnAddressProvider);
+    }
+  }
 
   /// Prime the cache to accept the next poll value (bypassing the
   /// Fire-and-forget Safe deploy when the user opens the USDC
@@ -645,32 +692,50 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
   Widget _buildStepperBody(BuildContext context, AppColorsExtension c) {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 20.w),
-      child: Column(
-        children: [
-          // A single receive surface for the account shown in the header.
-          // No title over it: the sheet already says "receive", and the
-          // header row (close + "Receive into") is the top, so the code
-          // gets the room.
-          Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(top: 12.h),
-              child: _sharePage(c),
-            ),
-          ),
-          // Share step owns its own primary actions (Generate
-          // invoice / Update QR / Share / verify-on-device), and
-          // Step 0 auto-advances on tile tap, so the shared CTA
-          // never surfaces. Kept here for shape-parity with the
-          // Send stepper in case future steps need a Continue.
-          SharedStepCta(
-            step: _step,
-            colors: c,
-            visibleSteps: const <int>{},
-            enabled: false,
-            onContinue: () {},
-          ),
-        ],
-      ),
+      // A single receive surface for the account shown in the header, and
+      // under it the bar. No title over it: the sheet already says
+      // "receive", and the header row (close + "Receive into") is the top,
+      // so the code gets the room.
+      child: _sharePage(c),
+    );
+  }
+
+  /// The bar, in every state of the sheet (see the file header); its scope
+  /// is also the room that keeps the page clear of it. [payload] is what the
+  /// code on the plate encodes; [failed], the address could not be fetched;
+  /// [nothingToShare], none is coming.
+  Widget _buildAction({
+    required String? payload,
+    required bool failed,
+    required bool nothingToShare,
+  }) {
+    final l10n = context.l10n;
+    if (payload != null) {
+      return UsdFlowAction(
+        label: l10n.share,
+        source: 'receive',
+        onPressed: () => unawaited(_sharePayload(payload)),
+      );
+    }
+    if (nothingToShare) {
+      return UsdFlowAction(
+        label: l10n.done,
+        source: 'receive',
+        onPressed: _closeAndReset,
+      );
+    }
+    if (failed) {
+      return UsdFlowAction(
+        label: l10n.tryAgain,
+        source: 'receive',
+        onPressed: _retryLoad,
+      );
+    }
+    return UsdFlowAction(
+      label: l10n.share,
+      source: 'receive',
+      onPressed: null,
+      loading: true,
     );
   }
 
@@ -729,10 +794,10 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
     final displayOnChainAddress =
         _includeAmountInOnChain ? _onChainWithAmount : baseOnChainAddress;
 
-    // `qrPayload` is the exact string the QR encodes. The Share and
-    // Copy pills under the address act on this same payload, so what
-    // the user sends is what a scanner would read. While it is null the
-    // plate shows `qrPlaceholder` (an error) or the shimmer.
+    // `qrPayload` is the exact string the QR encodes. The bar's Share acts
+    // on this same payload, so what the user sends is what a scanner would
+    // read. While it is null the plate shows `qrPlaceholder` (an error) or
+    // the shimmer, and the bar says which ([_buildAction]).
     String? qrPayload;
     Widget? qrPlaceholder;
 
@@ -768,7 +833,8 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
       if (safe != null && safe.isNotEmpty) qrPayload = safe;
     } else if (_expandedFallback == _FallbackAddress.lightning) {
       final lnResult = setupLnAddressAsync.valueOrNull;
-      if (setupLnAddressAsync.hasError) {
+      // Asked again from the bar, it shimmers until it answers.
+      if (setupLnAddressAsync.hasError && !setupLnAddressAsync.isLoading) {
         qrPlaceholder = _buildErrorDisplay(context.l10n.failedToGetAddress);
       } else if (lnResult != null) {
         if (lnResult.lnurl != null) {
@@ -799,10 +865,25 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
     // error yields exactly that: empty. So the screen fell through to the
     // shimmer and sat there for good, which is what "it never loads" was.
     // The Lightning branch already handled its own error; this does the
-    // same for the on-chain one, whichever branch asked for it.
+    // same for the on-chain one, whichever branch asked for it. A Spark
+    // wallet's failure arrives as an empty address, not as an error
+    // (walletAddressProvider). While it is asked again it shimmers.
+    // No address is coming and asking again would not bring one: a signer
+    // has none, a tracked wallet none stored, and there may be no wallet.
+    final bool addressSettled =
+        onChainAddressAsync != null && !onChainAddressAsync.isLoading;
+    final bool addressEmpty = addressSettled &&
+        !onChainAddressAsync.hasError &&
+        baseOnChainAddress.isEmpty;
+    final bool noAddressKept =
+        activeWallet == null || activeWallet.isSigner || isExternalAddress;
+    final bool addressFailed = addressSettled &&
+        (onChainAddressAsync.hasError || (addressEmpty && !noAddressKept));
+    final bool nothingToShare = _selectedPool != _ReceivePool.usdc &&
+        (activeWallet == null || (addressEmpty && noAddressKept));
     if (qrPayload == null &&
         qrPlaceholder == null &&
-        onChainAddressAsync?.hasError == true) {
+        (addressFailed || nothingToShare)) {
       qrPlaceholder = _buildErrorDisplay(context.l10n.failedToGetAddress);
     }
 
@@ -849,7 +930,7 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
         !isUsdcFallback &&
         _selectedPool != _ReceivePool.usdc;
 
-    return SingleChildScrollView(
+    final Widget page = SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -999,16 +1080,13 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
                   ],
                 ],
 
-                // 2a. Share. It lives right under the address (which
-                // copies on tap) and hands out the exact payload the QR
-                // encodes (unified BIP21, invoice, address or swap
-                // deposit address), with request amount as a quiet
-                // text action under it. Hidden while the plate shimmers
-                // or shows an error: nothing verified to share yet.
-                if (qrPayload != null) ...[
-                  SizedBox(height: ReceiveGaps.addressToActions),
-                  _buildActionPills(
-                      payload: qrPayload, showRequestAmount: showRequestAmount),
+                // 2a. Request amount, a quiet text action right under the
+                // address (which copies on tap). Share is the bar. Hidden
+                // while the plate shimmers or shows an error: no code to
+                // ask an amount on yet.
+                if (qrPayload != null && showRequestAmount) ...[
+                  SizedBox(height: 4.h),
+                  _buildRequestAmount(),
                 ],
 
                 // Advanced expander (Bitcoin address, QR format,
@@ -1137,17 +1215,27 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
             ),
           ),
 
-          // Bottom breathing room so the last More Way row clears
-          // the iOS home indicator. The page's outer SafeArea
-          // explicitly turns off the bottom inset to avoid a "fake
-          // bar" under the indicator, which left the final row
-          // (typically "Show Lightning address") tucked behind the
-          // indicator on most phones. Reserving the inset PLUS a
-          // 16.h baseline inside the scroll content keeps every
-          // option fully visible after a scroll.
-          SizedBox(height: 16.h + MediaQuery.of(context).padding.bottom),
+          // Breathing room over the bar's own room under the page.
+          SizedBox(height: ReceiveGaps.tail),
         ],
       ),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(top: 12.h),
+            child: page,
+          ),
+        ),
+        _buildAction(
+          payload: qrPayload,
+          failed: qrPlaceholder != null,
+          nothingToShare: nothingToShare,
+        ),
+      ],
     );
   }
 
@@ -1160,48 +1248,31 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
     return 'bitcoin:$bitcoinAddress';
   }
 
-  /// Share under the address (copy lives on the address line), acting
-  /// on [payload], the exact string the QR encodes. With
-  /// [showRequestAmount] a quiet text action under it opens the
-  /// amount sheet; once a request is live it shows the requested amount
-  /// and a tap clears it.
-  Widget _buildActionPills({
-    required String payload,
-    required bool showRequestAmount,
-  }) {
+  /// The quiet text action under the address: opens the amount sheet; once
+  /// a request is live it shows the requested amount and a tap clears it.
+  Widget _buildRequestAmount() {
     final requested = _requestedSats;
     final btcFormat = ref.watch(settingsProvider.select((s) => s.btcFormat));
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        ReceiveActionPills(
-          onShare: () => _sharePayload(payload),
-        ),
-        if (showRequestAmount) ...[
-          SizedBox(height: 4.h),
-          requested == null
-              ? AppTextButton(
-                  key: const ValueKey('receive-request-amount'),
-                  onPressed: _isInvoiceLoading ? null : _requestAmount,
-                  text: context.l10n.receiveRequestAmount,
-                  icon: Icons.add_rounded,
-                )
-              : AppTextButton(
-                  key: const ValueKey('receive-request-amount'),
-                  onPressed: () {
-                    HapticFeedback.lightImpact();
-                    setState(_clearAmountRequest);
-                  },
-                  text: '₿${requested.toFormattedString(btcFormat)}',
-                  icon: Icons.close_rounded,
-                ),
-        ],
-      ],
-    );
+    return requested == null
+        ? AppTextButton(
+            key: const ValueKey('receive-request-amount'),
+            onPressed: _isInvoiceLoading ? null : _requestAmount,
+            text: context.l10n.receiveRequestAmount,
+            icon: Icons.add_rounded,
+          )
+        : AppTextButton(
+            key: const ValueKey('receive-request-amount'),
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              setState(_clearAmountRequest);
+            },
+            text: '₿${requested.toFormattedString(btcFormat)}',
+            icon: Icons.close_rounded,
+          );
   }
 
-  /// Hands the QR payload to the OS share sheet. Text only: every
-  /// wallet and messenger can take the string, and the payload is what
+  /// The bar's Share: hands the QR payload to the OS share sheet. Text
+  /// only: every wallet and messenger can take the string, and the payload is what
   /// a scanner of the QR would read. No address or invoice contents
   /// reach analytics, only the payload kind.
   Future<void> _sharePayload(String payload) async {
