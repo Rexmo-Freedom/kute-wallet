@@ -20,6 +20,7 @@ import 'package:kute/providers/hyperliquid_trading_provider.dart';
 import 'package:kute/providers/open_pnl_history_provider.dart';
 import 'package:kute/screens/hyperliquid/components/hl_position_detail_sheet.dart';
 import 'package:kute/providers/hyperliquid_sats_pnl_provider.dart';
+import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/portfolio_performance_provider.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart'
@@ -250,6 +251,11 @@ List<HlFill> _tradingFills() {
 }
 
 /// The Investing account as the venue reports it, every read.
+class _NoPredictions extends PolymarketTradingNotifier {
+  @override
+  Future<PolymarketTradingState> build() async => PolymarketTradingState();
+}
+
 class _Account extends HlAccountNotifier {
   _Account(this.snapshot);
   final HlAccountSnapshot snapshot;
@@ -358,6 +364,8 @@ Future<void> _pump(WidgetTester tester,
             .overrideWith((_) async => _tradingHistory()),
         hyperliquidUserFillsProvider.overrideWith((_) async => _tradingFills()),
         hyperliquidActivityFillsProvider.overrideWithValue(_tradingFills()),
+        // Where a closed row goes reads the resolved positions.
+        polymarketTradingProvider.overrideWith(_NoPredictions.new),
         hyperliquidAccountProvider
             .overrideWith(() => _Account(flat ? _flat() : _positions())),
         displayAccount ??

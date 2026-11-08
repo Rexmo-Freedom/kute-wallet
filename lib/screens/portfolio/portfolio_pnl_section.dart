@@ -36,7 +36,11 @@
 //      Investing positions closed, reduced or sold (each order's fills
 //      added: what closing realised, less the fees in dollars). The first
 //      [kPortfolioClosedShown], then "See all N" for the rest (up to
-//      [kPortfolioClosedMost]). Nothing closed in the range: no list.
+//      [kPortfolioClosedMost]), unfolding in place. Nothing closed in the
+//      range: no list. A row tapped opens its receipt, the sheet the
+//      Activity rows open, with the row's figure as its result; a row with
+//      no receipt the market's page; one with neither does not press
+//      (portfolio_closed_receipt.dart says which is which).
 //
 // The "All time" cards (realised, unrealised, win rate) and the venue
 // squares with their sparklines and "▲ Past month" tags are gone: every
@@ -46,7 +50,9 @@
 // went. Analytics: a row picked or put back sends
 // `portfolio_statistics_venue_toggled` {venue: all | hyperliquid |
 // polymarket} (portfolioPickPnlVenue); the sort sends nothing, as the
-// ranges do.
+// ranges do; a closed row tapped sends `portfolio_closed_position_tapped`
+// {venue: hyperliquid | polymarket, source: section | see_all (the list
+// unfolded)}.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
@@ -55,14 +61,23 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/helpers/hyperliquid_activity.dart'
     show HlFillKind, hlFillEffect;
+import 'package:kute/helpers/prediction_results.dart' show predictionResults;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart' show HlFill;
+import 'package:kute/models/polymarket_model.dart'
+    show ClosedPosition, Position;
 import 'package:kute/models/open_pnl_history.dart' show hlFillIsSpot;
 import 'package:kute/models/balance_history.dart' show BalanceRange;
 import 'package:kute/providers/hyperliquid_sats_pnl_provider.dart'
     show hyperliquidActivityFillsProvider;
+import 'package:kute/providers/polymarket_trading_provider.dart'
+    show polymarketTradingProvider;
 import 'package:kute/providers/portfolio_performance_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/providers/transactions_provider.dart'
+    show walletTransactionCacheProvider;
+import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
+    show pickSpendingWallet;
 import 'package:kute/screens/portfolio/components/balances_overview.dart'
     show
         BalancesFoldRow,
@@ -83,6 +98,9 @@ import 'package:kute/screens/portfolio/components/position_rows.dart'
         portfolioRowTitleStyle;
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
     show InvestmentsProduct;
+import 'package:kute/screens/portfolio/poly_position_events.dart'
+    show polyPositionEventProvider;
+import 'package:kute/screens/portfolio/portfolio_closed_receipt.dart';
 import 'package:kute/screens/portfolio/portfolio_empty_state.dart'
     show kPortfolioSectionEmptyTop;
 import 'package:kute/screens/portfolio/portfolio_filters.dart';
@@ -92,6 +110,7 @@ import 'package:kute/screens/shared/kute_pill_tabs.dart'
     show KutePill, KutePillSize;
 import 'package:kute/screens/shared/venue_deposit_button.dart'
     show venueMarkAsset;
+import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
 /// How many closed positions show before "See all".
@@ -405,6 +424,7 @@ class PortfolioClosedEntry {
     required this.resultUsd,
     this.prediction,
     this.fill,
+    this.fills = const [],
     this.long,
   });
 
@@ -418,6 +438,9 @@ class PortfolioClosedEntry {
 
   /// The order's last fill.
   final HlFill? fill;
+
+  /// The order's closing fills, every one the result adds.
+  final List<HlFill> fills;
 
   /// The side it closed; null for a holding sold.
   final bool? long;
@@ -453,7 +476,8 @@ final portfolioClosedPositionsProvider =
   }
   if (venues.trading) {
     final fills = ref.watch(hyperliquidActivityFillsProvider);
-    final orders = <String, ({HlFill last, double result, bool? long})>{};
+    final orders = <String,
+        ({HlFill last, double result, bool? long, List<HlFill> fills})>{};
     for (final f in fills) {
       if (!(f.sz > 0)) continue;
       final e = hlFillEffect(f);
@@ -484,6 +508,7 @@ final portfolioClosedPositionsProvider =
         last: before == null || f.time > before.last.time ? f : before.last,
         result: (before?.result ?? 0) + result,
         long: before?.long ?? (hlFillIsSpot(f) ? null : long),
+        fills: [...?before?.fills, f],
       );
     }
     for (final MapEntry(key: key, value: o) in orders.entries) {
@@ -493,12 +518,52 @@ final portfolioClosedPositionsProvider =
         at: DateTime.fromMillisecondsSinceEpoch(o.last.time),
         resultUsd: o.result,
         fill: o.last,
+        fills: o.fills,
         long: o.long,
       ));
     }
   }
   out.sort((a, b) => b.at.compareTo(a.at));
   return List.unmodifiable(out);
+});
+
+/// Where each closed position goes when tapped, by its id; a row with none
+/// is not in the map (see portfolio_closed_receipt.dart). Follows the
+/// spending account's venue records and its resolved positions.
+final portfolioClosedDestinationsProvider =
+    Provider.autoDispose<Map<String, PortfolioClosedDestination>>((ref) {
+  final entries = ref.watch(portfolioClosedPositionsProvider);
+  final out = <String, PortfolioClosedDestination>{};
+  if (entries.any((e) => e.prediction != null)) {
+    final walletId =
+        ref.watch(settingsProvider.select((s) => pickSpendingWallet(s)?.id));
+    final history = ref.watch(walletTransactionCacheProvider.select((cache) =>
+            walletId == null ? null : cache[walletId]?.polymarketTransactions)) ??
+        const [];
+    final held = ref.watch(polymarketTradingProvider.select((a) => (
+          open: a.valueOrNull?.openPositions ?? const <Position>[],
+          closed: a.valueOrNull?.closedPositions ?? const <ClosedPosition>[],
+          clearing: a.valueOrNull?.clearingConditionIds ?? const <String>{},
+        )));
+    final results = predictionResults(
+      open: held.open,
+      closed: held.closed,
+      history: [for (final t in history) t.activity],
+      clearing: held.clearing,
+    );
+    for (final e in entries) {
+      final record = e.prediction;
+      if (record == null) continue;
+      final to = resolveClosedPrediction(record,
+          resultUsd: e.resultUsd, history: history, results: results);
+      if (to != null) out[e.id] = to;
+    }
+  }
+  for (final e in entries) {
+    if (e.fills.isEmpty) continue;
+    out[e.id] = PortfolioClosedFillReceipt(foldClosedFills(e.fills));
+  }
+  return out;
 });
 
 /// How the closed positions are listed.
@@ -531,6 +596,7 @@ class _ClosedPositionsState extends ConsumerState<_ClosedPositions> {
     final l10n = context.l10n;
     final since = widget.since;
     final venue = widget.venue;
+    final destinations = ref.watch(portfolioClosedDestinationsProvider);
     final all = [
       for (final e in ref.watch(portfolioClosedPositionsProvider))
         if ((venue == null || e.venue == venue) &&
@@ -589,19 +655,65 @@ class _ClosedPositionsState extends ConsumerState<_ClosedPositions> {
             afterHairline: true,
             rows: [
               for (final e in shown)
-                PortfolioClosedRow(
+                _ClosedListRow(
                   key: ValueKey('portfolio-closed-${e.id}'),
-                  at: e.at,
-                  resultUsd: e.resultUsd,
-                  prediction: e.prediction,
-                  fill: e.fill,
-                  long: e.long,
+                  entry: e,
+                  destination: destinations[e.id],
+                  source: _open ? 'see_all' : 'section',
                 ),
             ],
             after: fold,
           ),
         ],
       ),
+    );
+  }
+}
+
+/// One closed position on the list, tapped: its [destination] (see
+/// portfolio_closed_receipt.dart). The market's page waits for its event;
+/// no [destination], or an event not known: the row does not press.
+class _ClosedListRow extends ConsumerWidget {
+  const _ClosedListRow({
+    super.key,
+    required this.entry,
+    required this.destination,
+    required this.source,
+  });
+
+  final PortfolioClosedEntry entry;
+  final PortfolioClosedDestination? destination;
+  final String source;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final to = destination;
+    final ready = switch (to) {
+      null => false,
+      PortfolioClosedMarketPage(:final eventSlug) =>
+        ref.watch(polyPositionEventProvider(eventSlug)) != null,
+      _ => true,
+    };
+    return PortfolioClosedRow(
+      at: entry.at,
+      resultUsd: entry.resultUsd,
+      prediction: entry.prediction,
+      fill: entry.fill,
+      long: entry.long,
+      onTap: !ready
+          ? null
+          : () {
+              HapticFeedback.selectionClick();
+              TrackingService.track('portfolio_closed_position_tapped',
+                  params: {
+                    'venue': entry.venue == PortfolioPerformanceVenue.trading
+                        ? 'hyperliquid'
+                        : 'polymarket',
+                    'source': source,
+                  });
+              openPortfolioClosedDestination(context, ref, to!,
+                  resultUsd: entry.resultUsd);
+            },
     );
   }
 }

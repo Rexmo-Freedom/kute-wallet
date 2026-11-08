@@ -4654,8 +4654,12 @@ List<PolymarketTransaction> predictionResultTransactions(
   ];
 }
 
+/// [resultUsd] is the whole position's result, on a receipt opened from
+/// the Portfolio's closed positions: the figure under the amount is that
+/// row's, not this one record's.
 Widget _buildPolymarketItem(
-    PolymarketTransaction tx, BuildContext context, WidgetRef ref) {
+    PolymarketTransaction tx, BuildContext context, WidgetRef ref,
+    {double? resultUsd}) {
   final activity = tx.activity;
   final type = tx.activityType;
   final result = tx.result;
@@ -4674,7 +4678,7 @@ Widget _buildPolymarketItem(
   final figures = predictionRowFigures(
       activity, result != null ? const <Activity>[] : _polymarketHistory(ref),
       flow: copy.flow, result: result);
-  final pnl = figures.pnl;
+  final pnl = resultUsd == null ? figures.pnl : _resultUnder(figures, resultUsd);
   final secondary = pnl == null
       ? ''
       : pnl >= 0
@@ -4724,6 +4728,18 @@ Widget _buildPolymarketItem(
   );
 }
 
+/// The figure under a closed position's receipt amount: its result, unless
+/// that is under a cent, or a loss whose amount already says it.
+double? _resultUnder(
+    ({double amount, ActivityFlow flow, double? pnl, bool settled}) figures,
+    double resultUsd) {
+  if (resultUsd.abs() < 0.005) return null;
+  final saysIt = figures.settled &&
+      figures.flow == ActivityFlow.moneyOut &&
+      (figures.amount * 100).round() == (-resultUsd * 100).round();
+  return saysIt ? null : resultUsd;
+}
+
 /// The amount colour of a Predictions row: a settled result is coloured
 /// (won green, lost red); everything else is the primary text colour
 /// (null).
@@ -4743,8 +4759,17 @@ Color? predictionResultColor(
 Widget predictionActivityIcon(String? iconUrl) => _PolymarketTxIcon(
     isSend: false, type: ActivityType.trade, iconUrl: iconUrl);
 
+/// The receipt of a venue record for a position on the Portfolio's closed
+/// list (portfolio_closed_receipt.dart): the same sheet, its result the
+/// row's [resultUsd] (the venue's figure for the whole position).
+void showClosedPredictionReceipt(
+        BuildContext context, WidgetRef ref, PolymarketTransaction tx,
+        {required double resultUsd}) =>
+    _showPolymarketTxDetails(context, ref, tx, resultUsd: resultUsd);
+
 void _showPolymarketTxDetails(
-    BuildContext context, WidgetRef ref, PolymarketTransaction tx) {
+    BuildContext context, WidgetRef ref, PolymarketTransaction tx,
+    {double? resultUsd}) {
   TrackingService.transactionDetailViewed('polymarket');
   final activity = tx.activity;
   final type = tx.activityType;
@@ -4780,14 +4805,15 @@ void _showPolymarketTxDetails(
   }
   // The Result tile: a sale's realised profit or loss (the venue's figure
   // first), a payout's against what the market cost.
-  final double? resultPnl = isSell
-      ? realizedPnl
-      : isRedeem
-          ? predictionRowFigures(activity, _polymarketHistory(ref),
-                  flow: predictionRowCopy(context.l10n, activity, time: '')
-                      .flow)
-              .pnl
-          : null;
+  final double? resultPnl = resultUsd ??
+      (isSell
+          ? realizedPnl
+          : isRedeem
+              ? predictionRowFigures(activity, _polymarketHistory(ref),
+                      flow: predictionRowCopy(context.l10n, activity, time: '')
+                          .flow)
+                  .pnl
+              : null);
 
 
 
@@ -4808,7 +4834,8 @@ void _showPolymarketTxDetails(
             children: [
               Consumer(
                 builder: (context, ref, _) => TransactionDetailHeader(
-                  row: _buildPolymarketItem(tx, context, ref),
+                  row: _buildPolymarketItem(tx, context, ref,
+                      resultUsd: resultUsd),
                   date: dateStr,
                 ),
               ),
@@ -5044,8 +5071,13 @@ ReceiptFact _vsBitcoinFact(BuildContext context, double percent,
 /// wallet claims it automatically); the market opens once its event is
 /// known. [ledgerWalletId] is set on a Ledger account's row: its market
 /// opens for that wallet, and its claim stays on the position.
+///
+/// [resultUsd] is the whole position's result, on a sheet opened from the
+/// Portfolio's closed positions (portfolio_closed_receipt.dart): shares sold
+/// before the resolution are in it and not in this result, and then the
+/// tile of what the shares held cost, which no longer adds up to it, goes.
 void showPredictionResultDetails(BuildContext context, PredictionResult result,
-    {String? ledgerWalletId}) {
+    {String? ledgerWalletId, double? resultUsd}) {
   TrackingService.transactionDetailViewed('polymarket_result');
   final tx = PolymarketTransaction.result(result);
   final activity = result.activity;
@@ -5062,7 +5094,9 @@ void showPredictionResultDetails(BuildContext context, PredictionResult result,
             final l = context.l10n;
             String money(double usd, {String prefix = ''}) =>
                 '$prefix${formatDollars(usd)}';
-            final pnl = result.pnlUsd;
+            final pnl = resultUsd ?? result.pnlUsd;
+            final addsUp =
+                (pnl * 100).round() == (result.pnlUsd * 100).round();
             final event =
                 slug.isEmpty ? null : ref.watch(polyPositionEventProvider(slug));
             final image = activityCrestIcon(ref, activity);
@@ -5116,7 +5150,8 @@ void showPredictionResultDetails(BuildContext context, PredictionResult result,
                 // quiet line under the amount says when the market
                 // resolved.
                 TransactionDetailHeader(
-                  row: _buildPolymarketItem(tx, context, ref),
+                  row: _buildPolymarketItem(tx, context, ref,
+                      resultUsd: resultUsd),
                   date:
                       '${l.resolved} · ${activitySheetDate(context, tx.timestamp)}',
                 ),
@@ -5124,8 +5159,9 @@ void showPredictionResultDetails(BuildContext context, PredictionResult result,
                   ReceiptFact(
                       label: l.betShares,
                       value: activity.size.toStringAsFixed(2)),
-                  ReceiptFact(
-                      label: l.betReceiptCost, value: money(result.stakeUsd)),
+                  if (addsUp)
+                    ReceiptFact(
+                        label: l.betReceiptCost, value: money(result.stakeUsd)),
                   ReceiptFact(label: l.payout, value: money(result.payoutUsd)),
                   ReceiptFact(
                     label: l.portfolioStatRealized,
