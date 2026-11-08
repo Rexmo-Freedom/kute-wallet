@@ -1,11 +1,14 @@
 // lib/services/hive_boot.dart
 //
 // The Hive boxes the app reads at boot, opened in one parallel batch,
-// then the stored analytics opt-out applied. Called from
-// `_initHive` in lib/main.dart once Hive itself is initialised; the test
-// in test/services/hive_boot_test.dart runs exactly this path.
+// then the stored analytics opt-out applied. The settings box's open is
+// also where a new install gets its currency, because only before that
+// open can it be told from an existing one (device_currency.dart). Called
+// from `_initHive` in lib/main.dart once Hive itself is initialised; the
+// test in test/services/hive_boot_test.dart runs exactly this path.
 
 import 'package:hive_ce/hive.dart';
+import 'package:kute/services/device_currency.dart';
 import 'package:kute/services/share_links_store.dart';
 import 'package:kute/services/runtime_policy_snapshot_store.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -15,8 +18,10 @@ import 'package:kute/services/venue_total_cache_service.dart';
 /// Opens every startup box and applies the stored analytics opt-out.
 /// Requires `Hive.init` (and the adapters) to have run already. Never
 /// throws: a corrupt cache-tier box is wiped and reopened, and a failed
-/// settings open falls through.
-Future<void> openStartupHiveBoxes() async {
+/// settings open falls through. [region] is the device's region, for a new
+/// install's currency.
+Future<void> openStartupHiveBoxes(
+    {Future<String?> Function() region = deviceRegion}) async {
   // All box opens run in PARALLEL — they're independent file opens with
   // no data dependencies, and sequential awaits put ~20 × ~40ms of I/O
   // on the cold-start critical path (measured as one of the top splash
@@ -101,13 +106,21 @@ Future<void> openStartupHiveBoxes() async {
     // boxes but would silently wipe the WALLET LIST here. A failed open
     // just falls through; initialSettingsProvider retries it and owns
     // the error surface exactly as before.
-    Hive.openBox('settings').then((_) {}, onError: (_) {}),
+    _openSettingsBox(region).then((_) {}, onError: (_) {}),
   ]);
   // The analytics opt-out lives in the settings box, so apply it the
   // moment the box is open and before anything can fire an event: `track`
   // checks the mute flag at call time. Synchronous; the SDK opt-out it may
   // trigger is fire-and-forget.
   TrackingService.applyStoredOptOut();
+}
+
+/// Opens the settings box, and on a new install writes its currency.
+Future<void> _openSettingsBox(Future<String?> Function() region) async {
+  final isNewInstall = await isFirstSettingsOpen();
+  final box = await Hive.openBox('settings');
+  await seedCurrencyOnNewInstall(box,
+      isNewInstall: isNewInstall, region: region);
 }
 
 Future<void> _openHiveBoxSafe<T>(String name) async {

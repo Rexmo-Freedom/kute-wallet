@@ -5441,10 +5441,12 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   }
 
   /// Fiat unit the swap icon flips to from a Bitcoin unit: the one the
-  /// user last typed in, else the settings currency when the unit
-  /// sheet offers it, else USD.
-  String _fiatFlipUnit() =>
-      sendFiatFlipUnit(lastFiat: _lastFiatUnit, settingsCurrency: currency);
+  /// user last typed in, else the settings currency, else USD while that
+  /// currency's rate has not arrived ([sendFiatFlipUnit]).
+  String _fiatFlipUnit() => sendFiatFlipUnit(
+      lastFiat: _lastFiatUnit,
+      settingsCurrency: currency,
+      hasRate: ref.read(currencyProvider).hasRate);
 
   /// Flip the Amount entry unit between Bitcoin (sats / BTC per the
   /// display setting) and fiat, keeping the typed amount. The amount

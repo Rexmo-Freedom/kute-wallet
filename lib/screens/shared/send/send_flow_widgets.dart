@@ -385,9 +385,27 @@ class SendAmountUnitPill extends StatelessWidget {
 /// The longest run of digits the Bitcoin figure takes (≈100 BTC in sats).
 const int kSendAtmMaxDigits = 10;
 
-/// The fiat units a send's figure can be typed in beside sats and BTC
-/// (the ones the Receive unit sheet offers).
-const Set<String> kSendFiatUnits = {'USD', 'EUR', 'GBP', 'BRL', 'CHF'};
+/// The fiat units a send's figure can be shown and typed in beside sats
+/// and BTC: every currency the Settings list offers (the same twelve as
+/// `AppCurrencies.supportedFiats`, whose rates the app fetches and which
+/// parse at two decimals; a test holds the three lists together). What
+/// keeps a figure honest is [sendFiatFlipUnit]: a unit with no rate yet is
+/// never offered, because `CurrencyState.convert` reads a missing rate as
+/// one to one with the dollar.
+const Set<String> kSendFiatUnits = {
+  'USD',
+  'EUR',
+  'GBP',
+  'CHF',
+  'BRL',
+  'SEK',
+  'NOK',
+  'DKK',
+  'PLN',
+  'CZK',
+  'HUF',
+  'RON',
+};
 
 /// Whether [unit] is a Bitcoin unit ('Sats' or 'BTC') rather than a fiat.
 bool sendIsBitcoinUnit(String unit) => unit == 'Sats' || unit == 'BTC';
@@ -405,6 +423,18 @@ String sendCurrencyPrefix(String code) {
       return 'R\$';
     case 'CHF':
       return 'Fr';
+    case 'SEK':
+    case 'NOK':
+    case 'DKK':
+      return 'kr';
+    case 'PLN':
+      return 'zł';
+    case 'CZK':
+      return 'Kč';
+    case 'HUF':
+      return 'Ft';
+    case 'RON':
+      return 'lei';
     case 'BTC':
       return '₿';
     case 'Sats':
@@ -414,13 +444,21 @@ String sendCurrencyPrefix(String code) {
   }
 }
 
-/// The fiat unit the conversion line (⇅) flips a Bitcoin figure to: the
-/// one last typed in ([lastFiat]), else [settingsCurrency] when it is one
-/// of [kSendFiatUnits], else USD.
-String sendFiatFlipUnit({String? lastFiat, required String settingsCurrency}) {
-  if (lastFiat != null && kSendFiatUnits.contains(lastFiat)) return lastFiat;
+/// The fiat unit the conversion line (⇅) shows and flips a Bitcoin figure
+/// to: the one last typed in ([lastFiat]), else [settingsCurrency], when
+/// that unit is one of [kSendFiatUnits] and [hasRate] says its rate has
+/// arrived; else USD. Without a rate "100 kr" would be read as $100, so
+/// the line and the keypad stay in dollars, which are always known, until
+/// it has.
+String sendFiatFlipUnit({
+  String? lastFiat,
+  required String settingsCurrency,
+  required bool Function(String code) hasRate,
+}) {
+  bool usable(String code) => kSendFiatUnits.contains(code) && hasRate(code);
+  if (lastFiat != null && usable(lastFiat)) return lastFiat;
   final code = settingsCurrency.toUpperCase();
-  return kSendFiatUnits.contains(code) ? code : 'USD';
+  return usable(code) ? code : 'USD';
 }
 
 /// The keypad's raw text as the Bitcoin figure's digits: digits only, no
