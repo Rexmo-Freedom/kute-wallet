@@ -10,8 +10,10 @@
 //
 //   * the title "Send", as the Bitcoin Send's (founder, 7 November 2026:
 //     "these receive and send from dollars seem too small and strange";
-//     both Receives say "Receive"), and the same search field, "Name,
-//     phone or any crypto address", Paste and Scan inside;
+//     both Receives say "Receive"), in the first steps' header, big on the
+//     left with the compact X at the top right (receive_surface.dart,
+//     SheetTitleHeader; "it is strange the size"), and the same search
+//     field, "Name, phone or any crypto address", Paste and Scan inside;
 //   * no "Another crypto" card under it (founder, 7 November 2026:
 //     "another crypto should be implied not a button, we don't need it,
 //     it should just auto recognise"): the placeholder says it takes any
@@ -40,8 +42,8 @@
 //     from the search in send mode.
 //
 // No chips any more (founder, 7 November 2026: one verb per intent): no
-// "To your Bitcoin" (the Bitcoin Receive's "From your Dollars" fills it),
-// no "Crypto address", no "Prediction or investment".
+// "To your Bitcoin" (the Dollars home's Move money is that door), no
+// "Crypto address", no "Prediction or investment".
 //
 // The bar is the step's Continue, as on the Bitcoin Send: off, it says
 // what to do ("Add who to send to", "Pick a network", "Check the
@@ -72,7 +74,6 @@ import 'package:kute/screens/share/send_pick_market_sheet.dart'
 import 'package:kute/screens/share/send_to_anyone_sheet.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/coin_asset_grid.dart';
-import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/money_movement_sheet.dart'
     show MoneyMovementAccount, showOwnMoneyMove;
@@ -191,8 +192,7 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
   /// "Move to your Bitcoin" / "Move to your Dollars" (the search's escape
   /// hatch): Move money straight on the amount into that account, pinned
   /// (showOwnMoneyMove). Dollars to Bitcoin spends all the dollar money
-  /// (Dollars, then venue cash) as the Bitcoin Receive's "From your
-  /// Dollars" does.
+  /// (Dollars, then venue cash).
   void _openOwnMove(SendOwnAccount into) {
     HapticFeedback.selectionClick();
     unawaited(showOwnMoneyMove(context,
@@ -407,20 +407,20 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
     );
     return KuteBarContextScope(
       barContext: bar,
-      child: ReceiveSheetFrame(
-        leading:
-            KuteCloseButton(onPressed: () => Navigator.of(context).maybePop()),
+      child: ReceiveSheetFrame.titled(
         // "Send", as the Bitcoin Send says it (and both Receives say
-        // "Receive"): the money it leaves from is named on What and Review.
-        title: SendStepTitle(l10n.send),
-        semanticTitle: l10n.send,
+        // "Receive"), in the first steps' header: the money it leaves from
+        // is named on What and Review.
+        heading: l10n.send,
+        onClose: () => Navigator.of(context).maybePop(),
         // ONE scroll: the field and its results, then the Contacts as
         // slivers (sticky letter headers), the bar's clearance at the end.
         child: CustomScrollView(
           key: const ValueKey('usd-withdraw-scroll'),
           slivers: [
             SliverPadding(
-              padding: EdgeInsets.fromLTRB(20.w, 18.h, 20.w, 0),
+              padding:
+                  EdgeInsets.fromLTRB(20.w, sheetStepContentTop, 20.w, 0),
               sliver: SliverToBoxAdapter(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,

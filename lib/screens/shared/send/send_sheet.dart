@@ -369,8 +369,12 @@ class _SendSheetFrameState extends State<_SendSheetFrame>
               },
               child: Column(
                 children: [
+                  // The handle where every sheet draws it, 12 under the
+                  // top edge (AppBottomSheetHeader), so a first step's
+                  // title header lines up with the other sheets'
+                  // (receive_surface.dart, SheetTitleHeader).
                   Padding(
-                    padding: EdgeInsets.only(top: 10.h, bottom: 2.h),
+                    padding: EdgeInsets.only(top: 12.h),
                     child: AppDecorations.dragHandle(context),
                   ),
                   Expanded(

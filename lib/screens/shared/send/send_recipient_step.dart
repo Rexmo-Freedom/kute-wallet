@@ -29,7 +29,7 @@
 // ONE VERB PER INTENT (founder, 7 November 2026, the approved Send): Send
 // is money leaving for someone else, so there are no "More ways to send"
 // chips any more: no "To your Dollars" / "To your Bitcoin" (moving between
-// your own accounts is the Receive of the account to fill), no "Crypto
+// your own accounts is the Dollars home's Move money), no "Crypto
 // address" (the field takes it, its placeholder says so) and no
 // "Prediction or investment" (a gift is a What: send_what_step.dart).
 // Typed, an own account's name ("dollars", "my bitcoin") still finds the

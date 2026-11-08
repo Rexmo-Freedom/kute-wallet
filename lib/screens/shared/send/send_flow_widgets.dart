@@ -45,10 +45,17 @@ class SendStepperFrame extends StatefulWidget {
     required this.cta,
     this.onPageChanged,
     this.bleedPages = const {},
+    this.header,
   });
 
   /// The step progress bar (or an empty box for a one-step flow).
   final Widget progress;
+
+  /// The sheet's header over the pages, at the sheet's full width (the
+  /// Bitcoin Send's: receive_surface.dart, SheetTitleHeader), in place of
+  /// an app bar: the pages start right under it, and it stays as tall on
+  /// every step, so nothing under it moves as the steps slide.
+  final Widget? header;
   final PageController controller;
   final List<Widget> pages;
 
@@ -153,41 +160,48 @@ class _SendStepperFrameState extends State<SendStepperFrame> {
             : Platform.isAndroid
                 ? 28.h + MediaQuery.of(context).padding.bottom
                 : 44.h;
+    final header = widget.header;
+    final body = Padding(
+      // 20.w horizontal padding so the Continue CTA sits inside
+      // the standard screen gutter instead of stretching nearly
+      // edge-to-edge. Under a header the pages start right under it.
+      padding: EdgeInsets.fromLTRB(
+          20.w, header == null ? 12.h : 0, 20.w, bottomPad + viewInsets),
+      child: Column(
+        children: [
+          if (header == null) ...[
+            widget.progress,
+            SizedBox(height: 12.h),
+          ],
+          Expanded(
+            child: PageView(
+              controller: widget.controller,
+              // Steps advance only via the Continue/Next buttons.
+              // Swiping must NOT skip a step — it would bypass the
+              // per-step validation and completion tracking.
+              physics: const NeverScrollableScrollPhysics(),
+              onPageChanged: widget.onPageChanged,
+              children: widget.pages,
+            ),
+          ),
+          // A bleed page reserves nothing: the Continue (the bar's
+          // scope) stays mounted, at no height. One widget type in
+          // both states, so the bar's scope is never remounted.
+          Align(
+            alignment: Alignment.bottomCenter,
+            heightFactor: _bleeding ? 0 : 1,
+            child: widget.cta,
+          ),
+        ],
+      ),
+    );
     return Container(
       decoration: AppDecorations.screenGradient(context),
       child: SafeArea(
         bottom: false,
-        child: Padding(
-          // 20.w horizontal padding so the Continue CTA sits inside
-          // the standard screen gutter instead of stretching nearly
-          // edge-to-edge.
-          padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, bottomPad + viewInsets),
-          child: Column(
-            children: [
-              widget.progress,
-              SizedBox(height: 12.h),
-              Expanded(
-                child: PageView(
-                  controller: widget.controller,
-                  // Steps advance only via the Continue/Next buttons.
-                  // Swiping must NOT skip a step — it would bypass the
-                  // per-step validation and completion tracking.
-                  physics: const NeverScrollableScrollPhysics(),
-                  onPageChanged: widget.onPageChanged,
-                  children: widget.pages,
-                ),
-              ),
-              // A bleed page reserves nothing: the Continue (the bar's
-              // scope) stays mounted, at no height. One widget type in
-              // both states, so the bar's scope is never remounted.
-              Align(
-                alignment: Alignment.bottomCenter,
-                heightFactor: _bleeding ? 0 : 1,
-                child: widget.cta,
-              ),
-            ],
-          ),
-        ),
+        child: header == null
+            ? body
+            : Column(children: [header, Expanded(child: body)]),
       ),
     );
   }

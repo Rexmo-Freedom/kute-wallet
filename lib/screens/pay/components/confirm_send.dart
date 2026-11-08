@@ -96,6 +96,8 @@ import 'package:kute/screens/shared/btc_amount_text.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/shared/powered_by_badge.dart';
+import 'package:kute/screens/shared/receive_surface.dart'
+    show SheetTitleHeader;
 import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart';
 import 'package:kute/screens/shared/send/send_contacts_list.dart';
@@ -5137,55 +5139,17 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
       },
       child: KeyboardDismissOnTap(
         child: Scaffold(
-          extendBodyBehindAppBar: true,
           backgroundColor: c.background,
           resizeToAvoidBottomInset: false,
-          appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            // Material-3's tonal AppBar adds a faint surface
-            // tint band when scrolled — explicit transparent
-            // here kills the white sliver shown above the
-            // progress bar at the top of the screen.
-            surfaceTintColor: Colors.transparent,
-            shadowColor: Colors.transparent,
-            scrolledUnderElevation: 0,
-            centerTitle: true,
-            // "Send", centred (founder, 31 October 2026: the recipient-first
-            // step). The source is named on Review.
-            title: SendStepTitle(context.l10n.send),
-            // First tap on a sub-step rewinds the stepper one
-            // page (and unlocks future steps so the user can
-            // re-edit). Only when we're already on step 0
-            // does X actually close the screen — keeps the
-            // gesture cheap to undo a mis-click without
-            // losing the whole address/amount they typed.
-            // The circled close on the first page, the circled back
-            // after it (kute_back_button.dart).
-            leadingWidth: 64.w,
-            leading: Padding(
-              padding: EdgeInsets.only(left: 16.w),
-              child: Center(
-                child: onFirstPage
-                    ? KuteCloseButton(
-                        onPressed: () {
-                          if (!isProcessing) _onLeadingTap();
-                        },
-                      )
-                    : KuteCircleBackButton(
-                        onPressed: () {
-                          if (!isProcessing) _onLeadingTap();
-                        },
-                      ),
-              ),
-            ),
-          ),
+          // No app bar: the header is the stepper's own
+          // ([_sendHeader]), the same height on every step.
           body: _buildStepperBody(
             context: context,
             c: c,
             btcSats: btcSats,
             btcFormat: btcFormat,
             currentInputCurrency: currentInputCurrency,
+            header: _sendHeader(onFirstPage: onFirstPage),
           ),
           bottomNavigationBar: null,
         ),
@@ -5200,14 +5164,46 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   // `_buildStepperBody` wires them into the four-step progressive
   // disclosure flow:  Pay with  →  Amount  →  Send to  →  Review.
 
+  /// The send sheet's header (receive_surface.dart, SheetTitleHeader).
+  /// The Who step is the sheet's first step, so it wears the first steps'
+  /// header (founder, 7 November 2026, of the old big X over a small
+  /// centred "Send": "it is strange the size"): "Send" big on the left,
+  /// the compact X at the top right closing the send. The steps after it
+  /// keep their own header in the same room: the circled back on the left
+  /// (the circled close where that step opened the send: a preset address
+  /// answered the Who step) and "Send" centred. First tap on a sub-step
+  /// rewinds the stepper one page; only on the first page does it close.
+  Widget _sendHeader({required bool onFirstPage}) {
+    void lead() {
+      if (!isProcessing) _onLeadingTap();
+    }
+
+    final l10n = context.l10n;
+    if (_step == _kSendToPage) {
+      return SheetTitleHeader(
+          title: l10n.send, onClose: lead, handleAbove: true);
+    }
+    return SheetTitleHeader.inner(
+      title: l10n.send,
+      handleAbove: true,
+      leading: onFirstPage
+          ? KuteCloseButton(onPressed: lead)
+          : KuteCircleBackButton(onPressed: lead),
+      // The source is named on Review.
+      innerTitle: SendStepTitle(l10n.send),
+    );
+  }
+
   Widget _buildStepperBody({
     required BuildContext context,
     required AppColorsExtension c,
     required int btcSats,
     required String btcFormat,
     required String currentInputCurrency,
+    Widget? header,
   }) {
     return SendStepperFrame(
+      header: header,
       // No step bar (founder, 31 October 2026): the title says where the
       // person is, and each step is one screen.
       progress: const SizedBox.shrink(),

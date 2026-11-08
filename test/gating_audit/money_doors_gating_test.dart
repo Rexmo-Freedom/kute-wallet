@@ -4,21 +4,19 @@
 // switch off, coming soon). Blocks live only in the backend policy
 // (founder decision, 27 October 2026); nothing here is decided by the app.
 //
-//   * Dollars Receive ("Receive or swap"): "From your Bitcoin" is a swap
-//     (Bitcoin into Dollars): the card stays and the Move sheet it opens
-//     says why (money_movement_sheet_test.dart, the fw36 group).
-//     "Dollars" on top (the dollar coins) and "Another crypto" (the
-//     others) are cross-chain receives: a REGION block keeps them (the
-//     coin's tap names the regions, coin_asset_picker_policy_test.dart);
-//     any other refusal of the swap master or of `crypto.deposit` takes
-//     them away, with the sheet's unavailable line.
-//   * Bitcoin Receive or swap: "From your Dollars" is an exit (Dollars
-//     into Bitcoin) and "Bitcoin" is plain bitcoin: both always there.
-//     Its figure is all the dollar money that can move to Bitcoin (fw46):
-//     the venues' cash stays in under a swap country block (their
-//     withdraws are exits too) and goes only for a venue whose own
-//     withdraw a platform rule or a switch withholds. "From another
-//     asset" follows the cross-chain rule above.
+//   * Neither Receive has an own-money door any more (founder, 7 November
+//     2026: "On bitcoin receive we get rid of from your dollars. On
+//     dollars receive we get rid of from your bitcoin."): moving between
+//     your own accounts is the Dollars home's Move money, and the Sends'
+//     own-account moves below.
+//   * Dollars Receive: "Dollars" on top (the dollar coins) and "Another
+//     crypto" (the others) are cross-chain receives: a REGION block keeps
+//     them (the coin's tap names the regions,
+//     coin_asset_picker_policy_test.dart); any other refusal of the swap
+//     master or of `crypto.deposit` takes them away, with the sheet's
+//     unavailable line.
+//   * Bitcoin Receive: "Bitcoin" is plain bitcoin, always there; "Another
+//     crypto" follows the cross-chain rule above.
 //   * The Sends have no chips any more (fw50, founder 7 November 2026: one
 //     verb per intent) and no "Another crypto" card (founder, 7 November
 //     2026: "another crypto should be implied not a button"): the field
@@ -90,12 +88,6 @@ import 'package:kute/screens/usd/usd_receive_screen.dart'
 import 'package:kute/screens/usd/usd_withdraw_screen.dart';
 import 'package:kute/services/api/share_links_api.dart';
 import 'package:kute/services/contacts/send_contacts_service.dart';
-import 'package:kute/services/one_balance/investments_spendable.dart'
-    show venueCashLastReadProvider;
-import 'package:kute/services/one_balance/one_balance_state.dart'
-    show OneBalanceVenue;
-import 'package:kute/services/one_balance/venue_cash_source.dart'
-    show kVenuePullEta;
 import 'package:kute/services/orchestra/receive_minimums.dart';
 import 'package:kute/services/orchestra/reusable_deposit_address.dart'
     show standingDestinationsProvider;
@@ -297,7 +289,7 @@ Future<void> _unmount(WidgetTester tester) async {
   await tester.pump(const Duration(seconds: 1));
 }
 
-// The doors, by key.
+// The doors, by key (the two own-money ones only to say they are gone).
 const _usdDollars = kUsdReceiveDollarsKey;
 const _usdFromBitcoin = ValueKey('usd-receive-from-bitcoin');
 const _usdFromAnother = ValueKey('usd-receive-from-another');
@@ -372,156 +364,93 @@ void main() {
 
   group('Dollars Receive or swap', () {
     testWidgets(
-        'nothing withheld: Dollars on top (the dollar coins), From your '
-        'Bitcoin and Another crypto', (tester) async {
+        'nothing withheld: Dollars on top (the dollar coins) and Another '
+        'crypto; no From your Bitcoin', (tester) async {
       await install(tester, null);
       await _pumpSheet(tester, showUsdReceiveSheet);
       expect(find.byKey(_usdDollars), findsOneWidget);
-      expect(find.byKey(_usdFromBitcoin), findsOneWidget);
       expect(find.byKey(_usdFromAnother), findsOneWidget);
+      expect(find.byKey(_usdFromBitcoin), findsNothing);
       await _unmount(tester);
     });
 
     testWidgets(
-        'swap country block (cascade to crypto deposits): every card stays; '
-        'From your Bitcoin opens the Move sheet, which says why',
-        (tester) async {
+        'swap country block (cascade to crypto deposits): every card stays, '
+        'the coins\' taps say why', (tester) async {
       await install(tester, MarketDenial.swapCountryBlock);
-      final moves = recordMoves();
       await _pumpSheet(tester, showUsdReceiveSheet);
       expect(find.byKey(_usdDollars), findsOneWidget,
           reason: 'a region block hides nothing; the coin tap says why');
-      expect(find.byKey(_usdFromBitcoin), findsOneWidget);
       expect(find.byKey(_usdFromAnother), findsOneWidget,
           reason: 'a region block hides nothing; the coin tap says why');
       expect(find.text(_l10n.usdReceiveCoinsUnavailable), findsNothing);
-      await tester.tap(find.byKey(_usdFromBitcoin));
-      await tester.pump();
-      // A swap: Bitcoin into Dollars, pinned; the sheet refuses it with
-      // the named regions and Check connection.
-      expectPinned(moves, bitcoinToDollars);
+      expect(find.byKey(_usdFromBitcoin), findsNothing);
       await _unmount(tester);
     });
 
     for (final how in _nonRegion) {
       testWidgets(
           '${how.label} on the swap master: Dollars and Another crypto go, '
-          'with the unavailable line; From your Bitcoin stays',
+          'with the unavailable line, never a silent empty sheet',
           (tester) async {
         await install(tester, how, targets: {kSwapMaster});
         await _pumpSheet(tester, showUsdReceiveSheet);
         expect(find.byKey(_usdDollars), findsNothing);
         expect(find.byKey(_usdFromAnother), findsNothing);
         expect(find.text(_l10n.usdReceiveCoinsUnavailable), findsOneWidget);
-        expect(find.byKey(_usdFromBitcoin), findsOneWidget);
+        expect(find.byKey(_usdFromBitcoin), findsNothing);
         await _unmount(tester);
       });
     }
 
     testWidgets(
         'crypto.deposit off (receives from another network only): Dollars '
-        'and Another crypto go; From your Bitcoin stays',
-        (tester) async {
+        'and Another crypto go, with the unavailable line', (tester) async {
       await install(tester, MarketDenial.masterOff,
           targets: {'crypto.deposit'});
       await _pumpSheet(tester, showUsdReceiveSheet);
       expect(find.byKey(_usdDollars), findsNothing);
       expect(find.byKey(_usdFromAnother), findsNothing);
-      expect(find.byKey(_usdFromBitcoin), findsOneWidget);
+      expect(find.text(_l10n.usdReceiveCoinsUnavailable), findsOneWidget);
       await _unmount(tester);
     });
   });
 
   group('Bitcoin Receive or swap', () {
     testWidgets(
-        'swap country block: From your Dollars (an exit), From another '
-        'asset (kept by a region block) and Bitcoin; From your Dollars '
-        'opens the Move sheet, Dollars to Bitcoin', (tester) async {
+        'swap country block: Bitcoin on top (plain bitcoin, never gated) and '
+        'Another crypto under it (kept by a region block); no From your '
+        'Dollars', (tester) async {
       await install(tester, MarketDenial.swapCountryBlock);
-      final moves = recordMoves();
       await _pumpSheet(tester, showBitcoinReceiveSheet);
       final grid = tester.widget<KuteActionCardGrid>(
           find.byKey(const ValueKey('bitcoin-receive-options')));
-      // Bitcoin leads (plain bitcoin, never gated), the two doors under it.
       expect(grid.lead?.key, _btcBitcoin);
-      expect(grid.cards.map((c) => c.key), [_btcFromDollars, _btcFromAnother]);
-      await tester.tap(find.byKey(_btcFromDollars));
-      await tester.pump();
-      // An exit: Dollars into Bitcoin, pinned; the sheet moves it.
-      expectPinned(moves, dollarsToBitcoin);
+      expect(grid.cards.map((c) => c.key), [_btcFromAnother]);
+      expect(find.byKey(_btcFromDollars), findsNothing);
       await _unmount(tester);
     });
 
     for (final how in _nonRegion) {
       testWidgets(
-          '${how.label} on the swap master: From another asset goes; From '
-          'your Dollars and Bitcoin stay', (tester) async {
+          '${how.label} on the swap master: Another crypto goes; Bitcoin '
+          'stays, alone', (tester) async {
         await install(tester, how, targets: {kSwapMaster});
         await _pumpSheet(tester, showBitcoinReceiveSheet);
         expect(find.byKey(_btcFromAnother), findsNothing);
-        expect(find.byKey(_btcFromDollars), findsOneWidget);
         expect(find.byKey(_btcBitcoin), findsOneWidget);
-        await _unmount(tester);
-      });
-    }
-
-    // $4.75 of Dollars, $20 on Predictions and $40 on Investing, as the
-    // engine last read them.
-    final venueCash = venueCashLastReadProvider.overrideWith((_) => (
-          walletId: 'spending',
-          candidates: [
-            (
-              venue: OneBalanceVenue.predictions,
-              availableUsd: 20.0,
-              eta: kVenuePullEta[OneBalanceVenue.predictions]!,
-              minimumUsd: 1.0,
-            ),
-            (
-              venue: OneBalanceVenue.investing,
-              availableUsd: 40.0,
-              eta: kVenuePullEta[OneBalanceVenue.investing]!,
-              minimumUsd: 5.0,
-            ),
-          ],
-        ));
-    String? fromDollarsLine(WidgetTester tester) =>
-        tester.widget<KuteActionCard>(find.byKey(_btcFromDollars)).subtitle;
-
-    testWidgets(
-        'swap country block: From your Dollars still counts both venues\' '
-        'cash (their withdraws are exits, as Dollars into Bitcoin is)',
-        (tester) async {
-      await install(tester, MarketDenial.swapCountryBlock);
-      await _pumpSheet(tester, showBitcoinReceiveSheet, extra: [venueCash]);
-      // 4.75 + 20 x 0.98 + (40 x 0.98 - 0.30).
-      expect(fromDollarsLine(tester), _l10n.hlYieldAvailableLine(r'$63.25'));
-      await _unmount(tester);
-    });
-
-    for (final how in _nonRegion) {
-      testWidgets(
-          '${how.label} on hyperliquid.withdraw: Investing\'s cash leaves '
-          'the From your Dollars figure; the card stays and opens the move',
-          (tester) async {
-        await install(tester, how, targets: {'hyperliquid.withdraw'});
-        final moves = recordMoves();
-        await _pumpSheet(tester, showBitcoinReceiveSheet, extra: [venueCash]);
-        expect(fromDollarsLine(tester), _l10n.hlYieldAvailableLine(r'$24.35'));
-        await tester.tap(find.byKey(_btcFromDollars));
-        await tester.pump();
-        expectPinned(moves, dollarsToBitcoin);
+        expect(find.byKey(_btcFromDollars), findsNothing);
         await _unmount(tester);
       });
     }
 
     testWidgets(
-        'crypto.deposit coming soon: From another asset goes; plain '
-        'bitcoin and the Dollars exit stay', (tester) async {
+        'crypto.deposit coming soon: Another crypto goes; plain bitcoin '
+        'stays', (tester) async {
       await install(tester, MarketDenial.comingSoon,
           targets: {'crypto.deposit'});
       await _pumpSheet(tester, showBitcoinReceiveSheet);
       expect(find.byKey(_btcFromAnother), findsNothing);
-      expect(find.byKey(_btcFromDollars), findsOneWidget);
       expect(find.byKey(_btcBitcoin), findsOneWidget);
       await _unmount(tester);
     });
