@@ -21,6 +21,8 @@
 // balance: the screens resolve their own payloads and pass finished
 // strings and callbacks in.
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -28,8 +30,13 @@ import 'package:shimmer/shimmer.dart';
 
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart'
-    show AppBottomSheetContainer;
+    show
+        AppBottomSheetCloseButton,
+        AppBottomSheetContainer,
+        AppBottomSheetHeader;
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_back_button.dart'
+    show kKuteNavHitSize, kuteNavTitleLift;
 import 'package:kute/theme/app_theme.dart';
 
 /// How tall the receive sheet stands, as a share of the screen.
@@ -54,18 +61,40 @@ const double kReceiveSheetMaxHeight = 0.9;
 class ReceiveSheetFrame extends StatelessWidget {
   const ReceiveSheetFrame({
     super.key,
-    required this.leading,
+    required Widget this.leading,
     this.title,
     this.semanticTitle,
     this.fitContent = false,
     required this.child,
-  });
+  })  : heading = null,
+        onClose = null;
 
-  final Widget leading;
+  /// A sheet's FIRST step (the Bitcoin and Dollars Receives, the Dollars
+  /// Send's Who step): the [SheetTitleHeader], [heading] big on the left
+  /// and the compact close X at the top right ([onClose]), in place of the
+  /// row with the X on the left. Its [child] starts [sheetStepContentTop]
+  /// under it.
+  const ReceiveSheetFrame.titled({
+    super.key,
+    required String this.heading,
+    required VoidCallback this.onClose,
+    this.fitContent = false,
+    required this.child,
+  })  : leading = null,
+        title = null,
+        semanticTitle = null;
+
+  final Widget? leading;
   final Widget? title;
 
   /// What a screen reader calls the sheet when [title] is null.
   final String? semanticTitle;
+
+  /// The first step's big title ([ReceiveSheetFrame.titled]).
+  final String? heading;
+
+  /// The first step's close ([ReceiveSheetFrame.titled]).
+  final VoidCallback? onClose;
 
   /// As tall as the content rather than the full receive height.
   final bool fitContent;
@@ -84,8 +113,11 @@ class ReceiveSheetFrame extends StatelessWidget {
         mainAxisSize: fitContent ? MainAxisSize.min : MainAxisSize.max,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          ReceiveSheetHeader(
-              leading: leading, title: title, semanticTitle: semanticTitle),
+          if (heading != null)
+            SheetTitleHeader(title: heading!, onClose: onClose!)
+          else
+            ReceiveSheetHeader(
+                leading: leading!, title: title, semanticTitle: semanticTitle),
           if (fitContent) Flexible(child: child) else Expanded(child: child),
         ],
       ),
@@ -141,6 +173,130 @@ class ReceiveSheetHeader extends StatelessWidget {
                           )
                         : SizedBox(height: 44.w),
               ),
+              SizedBox(width: 44.w),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// The diameter of the first steps' compact close X ([SheetTitleHeader]),
+/// in design units: smaller than the canonical 40 circle, as an iOS sheet's
+/// close is, its touch target still 44.
+const double kSheetTitleCloseSize = 32;
+
+/// Where a first step's content starts under its [SheetTitleHeader]: the
+/// send steps' own start under their header (SendStepPage,
+/// send_flow_widgets.dart: 4 and its one-pixel heading line), so the Bitcoin
+/// Send, whose Who step is a page of its stepper, and the sheets whose first
+/// step is the whole sheet start their content at the same height.
+double get sheetStepContentTop => 4.h + 1;
+
+/// THE FIRST STEP'S HEADER (founder, 7 November 2026, twice, of the Send
+/// and Receive sheets' headers, a big round X on the left over a small
+/// centred "Send": "here the send buttons and such as i said it is strange
+/// the size"). The first step of both Sends (the Who step) and of both
+/// Receives wears the What sheet's own heading (AppBottomSheetHeader,
+/// send_what_step.dart): the drag handle, the title big on the left (28,
+/// w800), and the close X at its top right, iOS-sheet style: the app's
+/// round X ([AppBottomSheetCloseButton]) at the compact
+/// [kSheetTitleCloseSize], its circle's right edge on the content's right
+/// edge, centred on the title's first line; then the content,
+/// [sheetStepContentTop] under it. [handleAbove]: the sheet's frame drew
+/// the handle (the send sheet, send_sheet.dart), in the same place.
+///
+/// [SheetTitleHeader.inner] is an inner step of the same sheet (the
+/// Bitcoin Send's Amount and Review): the inner steps' own header, [leading]
+/// (the back chevron, or the X where that step opened the send) at the
+/// left and [innerTitle] centred, laid on the line the big title sits on,
+/// in a header exactly as tall, so nothing under it moves between steps.
+class SheetTitleHeader extends StatelessWidget {
+  const SheetTitleHeader({
+    super.key,
+    required this.title,
+    required VoidCallback this.onClose,
+    this.handleAbove = false,
+  })  : leading = null,
+        innerTitle = null;
+
+  const SheetTitleHeader.inner({
+    super.key,
+    required this.title,
+    required Widget this.leading,
+    required Widget this.innerTitle,
+    this.handleAbove = false,
+  }) : onClose = null;
+
+  /// The first step's title; on an inner step, what sizes the header.
+  final String title;
+  final VoidCallback? onClose;
+  final bool handleAbove;
+  final Widget? leading;
+  final Widget? innerTitle;
+
+  /// The key of the compact close X.
+  static const Key closeKey = ValueKey('sheet-title-close');
+
+  /// How far the close's box sits under where the heading puts it: the
+  /// heading centres a 44 point target on the title's first line, and the
+  /// box is 44 design units, smaller on a narrow phone; half the difference
+  /// centres it exactly.
+  static double _boxDrop() => (kKuteNavHitSize - kKuteNavHitSize.w) / 2;
+
+  Widget _heading(BuildContext context, {required bool inner}) {
+    // The X's 44 box is wider than its circle: shifted by the difference so
+    // the circle's right edge meets the content's right edge, and centred
+    // on the title's first line.
+    final inset = (kKuteNavHitSize - kSheetTitleCloseSize).w / 2;
+    return AppBottomSheetHeader(
+      title: title,
+      showDragHandle: !handleAbove,
+      handleAbove: handleAbove,
+      titleIsHeader: !inner,
+      trailing: Transform.translate(
+        offset: Offset(inset, _boxDrop()),
+        child: AppBottomSheetCloseButton(
+          key: inner ? null : closeKey,
+          size: kSheetTitleCloseSize,
+          onPressed: onClose ?? () {},
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final lead = leading;
+    if (lead == null) return _heading(context, inner: false);
+    // The row AppBottomSheetHeader lays its close in: the handle's room
+    // (when it draws one), then its title's top less the lift that centres
+    // a 44 target on the title's first line, centred as the close is.
+    final top = 20.h;
+    final lift = math.min(top, kuteNavTitleLift(context, 28.sp, height: 1.05));
+    final handle = handleAbove ? 0.0 : 12.h + 4.h;
+    return Stack(
+      children: [
+        // The first step's header, unseen: the room this one takes.
+        ExcludeSemantics(
+          child: Visibility(
+            visible: false,
+            maintainSize: true,
+            maintainAnimation: true,
+            maintainState: true,
+            child: _heading(context, inner: true),
+          ),
+        ),
+        Positioned(
+          left: 12.w,
+          right: 12.w,
+          top: handle + top - lift + _boxDrop(),
+          height: kKuteNavHitSize.w,
+          child: Row(
+            children: [
+              SizedBox(width: 44.w, child: Center(child: lead)),
+              Expanded(child: Center(child: innerTitle)),
               SizedBox(width: 44.w),
             ],
           ),

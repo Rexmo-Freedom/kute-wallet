@@ -427,10 +427,9 @@ final venueCashClosedProvider =
 /// from the same last known values as [investmentsSpendableProvider],
 /// less the venues whose withdraw is closed ([venueCashClosedProvider]).
 /// The one figure every Dollars → Bitcoin surface shows and sizes by: the
-/// Bitcoin Receive's "From your Dollars" card, and the Move money sheet
-/// both own-account doors open (that card and the Dollars Send's "To your
-/// Bitcoin"), its From row, Max and over-balance check. Synchronous, never
-/// loading.
+/// Move money sheet the own-account doors open (the Dollars Send's "Move
+/// to your Bitcoin"), its From row, Max and over-balance check.
+/// Synchronous, never loading.
 final dollarsToBitcoinSpendableProvider =
     Provider.autoDispose<InvestmentsSpendable>((ref) {
   final dollars = ref.watch(usdBalanceProvider);

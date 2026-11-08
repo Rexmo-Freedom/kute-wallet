@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_back_button.dart'
-    show KuteCloseButton, kuteNavTitleLift;
+    show KuteCloseButton, kKuteNavButtonSize, kuteNavTitleLift;
 import 'package:kute/screens/shared/kute_motion.dart' show KutePressable;
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/theme/kute_motion.dart';
@@ -319,6 +319,16 @@ class AppBottomSheetHeader extends StatelessWidget {
   /// starts right under it.
   final bool showDragHandle;
 
+  /// With [showDragHandle] false: the sheet drew the very handle this
+  /// heading draws, 12 under its top edge (the send sheet's frame,
+  /// send_sheet.dart), so the heading keeps the place it has under its
+  /// own handle rather than starting right under it.
+  final bool handleAbove;
+
+  /// The title is read out as a header (a sheet's first step, whose title
+  /// names the sheet: receive_surface.dart, SheetTitleHeader).
+  final bool titleIsHeader;
+
   const AppBottomSheetHeader({
     super.key,
     required this.title,
@@ -329,12 +339,14 @@ class AppBottomSheetHeader extends StatelessWidget {
     this.trailing,
     this.compact = false,
     this.showDragHandle = true,
+    this.handleAbove = false,
+    this.titleIsHeader = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final top = !showDragHandle ? 4.h : (compact ? 12.h : 20.h);
+    final top = !showDragHandle && !handleAbove ? 4.h : (compact ? 12.h : 20.h);
     // The close in the trailing slot sits centred on the title's first
     // line, not on the top of the title: the row starts higher by the
     // difference and the title keeps its place.
@@ -370,14 +382,18 @@ class AppBottomSheetHeader extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          color: c.textPrimary,
-                          fontSize: compact ? 22.sp : 28.sp,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.6,
-                          height: 1.05,
+                      Semantics(
+                        container: titleIsHeader,
+                        header: titleIsHeader ? true : null,
+                        child: Text(
+                          title,
+                          style: TextStyle(
+                            color: c.textPrimary,
+                            fontSize: compact ? 22.sp : 28.sp,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.6,
+                            height: 1.05,
+                          ),
                         ),
                       ),
                       if (subtitle != null) ...[
@@ -412,15 +428,19 @@ class AppBottomSheetHeader extends StatelessWidget {
 /// The close X in a sheet header's trailing slot: the app's one
 /// [KuteCloseButton] (kute_back_button.dart), in the same top-right slot,
 /// with the selection click every close shares. [onPressed] defaults to
-/// popping the sheet.
+/// popping the sheet; [size] is the circle's, the canonical one unless a
+/// header asks for the compact X (receive_surface.dart, SheetTitleHeader).
 class AppBottomSheetCloseButton extends StatelessWidget {
   final VoidCallback? onPressed;
-  const AppBottomSheetCloseButton({super.key, this.onPressed});
+  final double size;
+  const AppBottomSheetCloseButton(
+      {super.key, this.onPressed, this.size = kKuteNavButtonSize});
 
   @override
   Widget build(BuildContext context) {
     return KuteCloseButton(
       onPressed: onPressed ?? () => Navigator.of(context).pop(),
+      size: size,
     );
   }
 }

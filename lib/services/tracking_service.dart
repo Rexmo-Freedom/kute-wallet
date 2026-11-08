@@ -2759,15 +2759,11 @@ class TrackingService {
   /// the Send screen — captures the entry intent (and abandonment before
   /// a network is picked), which `swap_asset_selected` only sees LATER
   /// once a network resolves. [assetCode] is a categorical label
-  /// ('usdc' | 'usdt' | 'other'); [flow] is 'send'; [source] says which
-  /// way in when it is not the network question ('crypto_hint': the
-  /// "Another crypto" card under the empty Send field, the line it
-  /// replaced kept the name). No amount.
-  static void sendAssetShortcutTapped(String assetCode, {String? source}) {
+  /// ('usdc' | 'usdt' | 'other'); [flow] is 'send'. No amount.
+  static void sendAssetShortcutTapped(String assetCode) {
     track('send_asset_shortcut_tapped', params: {
       'asset_code': assetCode,
       'flow': 'send',
-      if (source != null) 'source': source,
     });
   }
 
