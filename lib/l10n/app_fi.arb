@@ -3929,6 +3929,8 @@
   "chartGroupTrend": "Trendi",
   "chartGroupMomentum": "Momentum",
   "chartGroupVolatility": "Volatiliteetti",
+  "chartGroupDisplay": "Näkymä",
+  "chartLogScaleNote": "Yhtä suuret prosenttiliikkeet näyttävät samalta",
   "chartIndSmaNote": "Pitkän aikavälin trendi, kääntyy hitaasti",
   "chartIndStNote": "Seuraava stop, joka kääntyy trendin mukana",
   "chartIndSrsiNote": "Nopeat yliostetun ja ylimyydyn heilahdukset",

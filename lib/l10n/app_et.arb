@@ -3929,6 +3929,8 @@
   "chartGroupTrend": "Trend",
   "chartGroupMomentum": "Moment",
   "chartGroupVolatility": "Volatiilsus",
+  "chartGroupDisplay": "Vaade",
+  "chartLogScaleNote": "Võrdsed protsendimuutused näevad võrdsed välja",
   "chartIndSmaNote": "Pikaajaline trend, pöördub aeglaselt",
   "chartIndStNote": "Liikuv stopp, mis pöördub koos trendiga",
   "chartIndSrsiNote": "Kiired üleostetuse ja ülemüüdud kõikumised",

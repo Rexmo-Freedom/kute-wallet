@@ -1345,7 +1345,8 @@ class HlCandlestickChart extends StatefulWidget {
   /// (ChartPreferences.params).
   final Map<String, List<num>> indicatorParams;
 
-  /// Advanced: the axes' corner shows a "Log" switch that calls this.
+  /// Advanced: the axes' corner shows a "Log" switch that calls this
+  /// (the Chart sheet's Log scale card sets the same saved setting).
   final ValueChanged<bool>? onLogScaleChanged;
 
   /// Log price axis: y maps ln(price) instead of price. Flows through
@@ -4832,10 +4833,13 @@ class _HlCandlePainter extends CustomPainter {
     if (overlays.isNotEmpty && morphSeries == null) {
       canvas.save();
       canvas.clipRect(Rect.fromLTWH(0, 0, w, priceH));
+      // On a log axis a value at or under zero (the lower band of a wild
+      // market) has no place: the line gaps there instead of diving.
+      double indY(double v) => logMap && v <= 0 ? double.nan : toY(v);
       final b = band;
-      if (b != null) kutePaintIndicatorBandFill(canvas, b, slot, toY);
+      if (b != null) kutePaintIndicatorBandFill(canvas, b, slot, indY);
       for (final o in overlays) {
-        kutePaintIndicatorLine(canvas, o, slot, toY);
+        kutePaintIndicatorLine(canvas, o, slot, indY);
       }
       canvas.restore();
     }

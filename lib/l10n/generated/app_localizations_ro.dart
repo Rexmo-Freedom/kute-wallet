@@ -13997,6 +13997,12 @@ class AppLocalizationsRo extends AppLocalizations {
   String get chartGroupVolatility => 'Volatilitate';
 
   @override
+  String get chartGroupDisplay => 'Afișare';
+
+  @override
+  String get chartLogScaleNote => 'Mișcările procentuale egale arată la fel';
+
+  @override
   String get chartIndSmaNote => 'Tendință pe termen lung, se întoarce încet';
 
   @override

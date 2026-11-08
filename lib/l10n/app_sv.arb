@@ -3929,6 +3929,8 @@
   "chartGroupTrend": "Trend",
   "chartGroupMomentum": "Momentum",
   "chartGroupVolatility": "Volatilitet",
+  "chartGroupDisplay": "Visning",
+  "chartLogScaleNote": "Lika stora procentrörelser ser lika ut",
   "chartIndSmaNote": "Långsiktig trend som vänder långsamt",
   "chartIndStNote": "En släpande stopp som vänder med trenden",
   "chartIndSrsiNote": "Snabba svängningar mellan överköpt och översålt",

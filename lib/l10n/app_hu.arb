@@ -3929,6 +3929,8 @@
   "chartGroupTrend": "Trend",
   "chartGroupMomentum": "Momentum",
   "chartGroupVolatility": "Volatilitás",
+  "chartGroupDisplay": "Megjelenítés",
+  "chartLogScaleNote": "Az azonos százalékos mozgás egyformának látszik",
   "chartIndSmaNote": "Hosszú távú trend, lassan fordul",
   "chartIndStNote": "Követő stop, amely a trenddel fordul",
   "chartIndSrsiNote": "Gyors túlvett és túladott kilengések",

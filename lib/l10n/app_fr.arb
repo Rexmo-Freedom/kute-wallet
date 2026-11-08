@@ -3929,6 +3929,8 @@
   "chartGroupTrend": "Tendance",
   "chartGroupMomentum": "Momentum",
   "chartGroupVolatility": "Volatilité",
+  "chartGroupDisplay": "Affichage",
+  "chartLogScaleNote": "Mêmes variations en %, même hauteur",
   "chartIndSmaNote": "Tendance longue, qui se retourne lentement",
   "chartIndStNote": "Un stop suiveur qui bascule avec la tendance",
   "chartIndSrsiNote": "Allers-retours rapides entre surachat et survente",

@@ -13979,6 +13979,13 @@ class AppLocalizationsNl extends AppLocalizations {
   String get chartGroupVolatility => 'Volatiliteit';
 
   @override
+  String get chartGroupDisplay => 'Weergave';
+
+  @override
+  String get chartLogScaleNote =>
+      'Gelijke procentuele bewegingen lijken gelijk';
+
+  @override
   String get chartIndSmaNote => 'Langetermijntrend die langzaam draait';
 
   @override

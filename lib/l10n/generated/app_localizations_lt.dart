@@ -13993,6 +13993,13 @@ class AppLocalizationsLt extends AppLocalizations {
   String get chartGroupVolatility => 'Kintamumas';
 
   @override
+  String get chartGroupDisplay => 'Rodymas';
+
+  @override
+  String get chartLogScaleNote =>
+      'Vienodi procentiniai pokyčiai atrodo vienodai';
+
+  @override
   String get chartIndSmaNote => 'Ilgalaikė tendencija, lėtai apsigręžia';
 
   @override

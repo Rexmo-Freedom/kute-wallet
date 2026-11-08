@@ -13958,6 +13958,13 @@ class AppLocalizationsFi extends AppLocalizations {
   String get chartGroupVolatility => 'Volatiliteetti';
 
   @override
+  String get chartGroupDisplay => 'Näkymä';
+
+  @override
+  String get chartLogScaleNote =>
+      'Yhtä suuret prosenttiliikkeet näyttävät samalta';
+
+  @override
   String get chartIndSmaNote => 'Pitkän aikavälin trendi, kääntyy hitaasti';
 
   @override

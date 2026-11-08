@@ -13962,6 +13962,13 @@ class AppLocalizationsHu extends AppLocalizations {
   String get chartGroupVolatility => 'Volatilitás';
 
   @override
+  String get chartGroupDisplay => 'Megjelenítés';
+
+  @override
+  String get chartLogScaleNote =>
+      'Az azonos százalékos mozgás egyformának látszik';
+
+  @override
   String get chartIndSmaNote => 'Hosszú távú trend, lassan fordul';
 
   @override

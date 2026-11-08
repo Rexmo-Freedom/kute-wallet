@@ -3929,6 +3929,8 @@
   "chartGroupTrend": "Trend",
   "chartGroupMomentum": "Momentum",
   "chartGroupVolatility": "Volatiliteit",
+  "chartGroupDisplay": "Weergave",
+  "chartLogScaleNote": "Gelijke procentuele bewegingen lijken gelijk",
   "chartIndSmaNote": "Langetermijntrend die langzaam draait",
   "chartIndStNote": "Een meebewegende stop die met de trend omslaat",
   "chartIndSrsiNote": "Snelle uitslagen tussen overgekocht en oververkocht",

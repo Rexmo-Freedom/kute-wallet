@@ -13926,6 +13926,12 @@ class AppLocalizationsCs extends AppLocalizations {
   String get chartGroupVolatility => 'Volatilita';
 
   @override
+  String get chartGroupDisplay => 'Zobrazení';
+
+  @override
+  String get chartLogScaleNote => 'Stejné procentní pohyby vypadají stejně';
+
+  @override
   String get chartIndSmaNote => 'Dlouhodobý trend, otáčí se pomalu';
 
   @override

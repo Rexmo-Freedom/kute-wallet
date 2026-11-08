@@ -3929,6 +3929,8 @@
   "chartGroupTrend": "Trend",
   "chartGroupMomentum": "Momentum",
   "chartGroupVolatility": "Zmienność",
+  "chartGroupDisplay": "Widok",
+  "chartLogScaleNote": "Równe ruchy procentowe wyglądają tak samo",
   "chartIndSmaNote": "Trend długoterminowy, wolno się odwraca",
   "chartIndStNote": "Kroczący stop, który odwraca się z trendem",
   "chartIndSrsiNote": "Szybkie wahania wykupienia i wyprzedania",

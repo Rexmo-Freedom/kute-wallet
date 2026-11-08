@@ -13987,6 +13987,12 @@ class AppLocalizationsPt extends AppLocalizations {
   String get chartGroupVolatility => 'Volatilidade';
 
   @override
+  String get chartGroupDisplay => 'Exibição';
+
+  @override
+  String get chartLogScaleNote => 'Movimentos iguais em % parecem iguais';
+
+  @override
   String get chartIndSmaNote => 'Tendência de longo prazo, vira devagar';
 
   @override

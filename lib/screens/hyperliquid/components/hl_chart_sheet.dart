@@ -9,6 +9,10 @@
 //   * CHART TYPE: Line, Candles, Area, Heikin Ashi as big square cards, a
 //     tiny chart of the market's last bars drawn in each. A pick applies
 //     at once and the sheet stays up.
+//   * DISPLAY: the on/off settings as the same square cards, each with a
+//     tiny chart of what it does: Log scale, per market, saved with the
+//     market's other chart settings. On (the CTA-coloured outline) the
+//     price plot maps ln(price); panes stay linear.
 //   * TREND · MOMENTUM · VOLATILITY · VOLUME: the curated indicators
 //     (hl_chart_indicator_catalog.dart) as the same square cards, two to a
 //     row: a mini chart of what it draws on this market (in its colours
@@ -18,7 +22,7 @@
 //     [showHlIndicatorSettings]. Four fit on the price and two
 //     below it: one more turns the oldest of that kind off, with a toast.
 //   * Reset (pinned at the foot) puts back what a fresh install shows:
-//     Line, Volume alone, every setting at its default.
+//     Line, Volume alone, a linear axis, every setting at its default.
 //
 // A picker: the floating Sal bar hides while it is up.
 
@@ -242,10 +246,23 @@ class _HlChartSheetState extends ConsumerState<HlChartSheet> {
     );
   }
 
+  void _setLogScale(bool on) {
+    HapticFeedback.selectionClick();
+    _prefs.setLogScale(on);
+    VenueAnalytics.settingChanged(
+      'chart_log_scale_toggled',
+      setting: 'log_scale',
+      value: on,
+      scope: widget.marketKey,
+      extra: _assetParams,
+    );
+  }
+
   void _reset() {
     HapticFeedback.selectionClick();
     _pickStyle(HlChartStyle.fromName(kHlDefaultChartStyle));
     final prefs = ref.read(hlChartPreferencesProvider(widget.marketKey));
+    if (prefs.logScale) _setLogScale(false);
     for (final key in {...prefs.indicators, ...kHlDefaultIndicators}) {
       final on = kHlDefaultIndicators.contains(key);
       if (prefs.indicators.contains(key) == on) continue;
@@ -281,7 +298,8 @@ class _HlChartSheetState extends ConsumerState<HlChartSheet> {
     final isDefault = style == HlChartStyle.fromName(kHlDefaultChartStyle) &&
         on.length == kHlDefaultIndicators.length &&
         on.containsAll(kHlDefaultIndicators) &&
-        prefs.params.isEmpty;
+        prefs.params.isEmpty &&
+        !prefs.logScale;
     final previews = _previewsFor(prefs.params);
 
     Widget pairs(List<Widget> cards) => Column(
@@ -318,6 +336,25 @@ class _HlChartSheetState extends ConsumerState<HlChartSheet> {
             candles: widget.candles,
             onTap: () => _pickStyle(s),
           ),
+      ]),
+      const SizedBox(height: 20),
+      _SectionLabel(l10n.chartGroupDisplay,
+          key: const ValueKey('hl-chart-group-display')),
+      pairs([
+        _ToggleCard(
+          cardKey: const ValueKey('hl-chart-log-card'),
+          on: prefs.logScale,
+          painter: HlLogPreviewPainter(
+            tape: previews.tape,
+            on: prefs.logScale,
+            muted: c.textTertiary,
+            up: AppColors.marketUp,
+            down: AppColors.marketDown,
+          ),
+          name: l10n.chartLogScale,
+          note: l10n.chartLogScaleNote,
+          onTap: () => _setLogScale(!prefs.logScale),
+        ),
       ]),
       for (final group in HlIndGroup.values) ...[
         const SizedBox(height: 20),
@@ -738,11 +775,68 @@ class _IndicatorCard extends StatelessWidget {
     final c = context.colors;
     final l10n = context.l10n;
     final tunable = on && spec.params.isNotEmpty;
+    return _ToggleCard(
+      cardKey: ValueKey('hl-chart-indicator-${spec.key}'),
+      on: on,
+      painter: HlIndicatorPreviewPainter(
+        keyName: spec.key,
+        series: previews.series(spec.key),
+        tape: previews.tape,
+        profile: previews.profile,
+        on: on,
+        muted: c.textTertiary,
+        up: AppColors.marketUp,
+        down: AppColors.marketDown,
+      ),
+      trailing: tunable
+          ? _TuneButton(
+              key: ValueKey('hl-chart-indicator-settings-${spec.key}'),
+              onTap: onSettings,
+            )
+          : null,
+      name: hlIndicatorName(l10n, spec.key),
+      defaults:
+          spec.params.isEmpty ? null : params.map(hlParamText).join(' '),
+      note: _note(l10n, spec.key),
+      onTap: onTap,
+    );
+  }
+}
+
+/// A square card that switches something on or off: its mini chart (and,
+/// on an indicator that is on, its settings button), its name with its
+/// settings in small grey, and one line on what it shows.
+class _ToggleCard extends StatelessWidget {
+  const _ToggleCard({
+    required this.cardKey,
+    required this.on,
+    required this.painter,
+    required this.name,
+    required this.note,
+    required this.onTap,
+    this.defaults,
+    this.trailing,
+  });
+
+  final Key cardKey;
+  final bool on;
+  final CustomPainter painter;
+  final String name;
+  final String? defaults;
+  final String note;
+  final VoidCallback onTap;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final trailing = this.trailing;
+    final defaults = this.defaults;
     return Semantics(
       button: true,
       toggled: on,
       child: GestureDetector(
-        key: ValueKey('hl-chart-indicator-${spec.key}'),
+        key: cardKey,
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
         child: HlSquareBox(
@@ -756,26 +850,10 @@ class _IndicatorCard extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Expanded(
-                      child: CustomPaint(
-                        painter: HlIndicatorPreviewPainter(
-                          keyName: spec.key,
-                          series: previews.series(spec.key),
-                          tape: previews.tape,
-                          profile: previews.profile,
-                          on: on,
-                          muted: c.textTertiary,
-                          up: AppColors.marketUp,
-                          down: AppColors.marketDown,
-                        ),
-                      ),
-                    ),
-                    if (tunable) ...[
+                    Expanded(child: CustomPaint(painter: painter)),
+                    if (trailing != null) ...[
                       const SizedBox(width: 6),
-                      _TuneButton(
-                        key: ValueKey('hl-chart-indicator-settings-${spec.key}'),
-                        onTap: onSettings,
-                      ),
+                      trailing,
                     ],
                   ],
                 ),
@@ -783,10 +861,10 @@ class _IndicatorCard extends StatelessWidget {
               const SizedBox(height: 9),
               Text.rich(
                 TextSpan(children: [
-                  TextSpan(text: hlIndicatorName(l10n, spec.key)),
-                  if (spec.params.isNotEmpty)
+                  TextSpan(text: name),
+                  if (defaults != null)
                     TextSpan(
-                      text: '  ${params.map(hlParamText).join(' ')}',
+                      text: '  $defaults',
                       style: TextStyle(
                         color: c.textTertiary,
                         fontWeight: FontWeight.w500,
@@ -806,7 +884,7 @@ class _IndicatorCard extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                _note(l10n, spec.key),
+                note,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -1062,6 +1140,75 @@ class HlIndicatorPreviewPainter extends CustomPainter {
       !identical(old.series, series) ||
       !identical(old.tape, tape) ||
       !identical(old.profile, profile) ||
+      old.on != on ||
+      old.muted != muted ||
+      old.up != up ||
+      old.down != down;
+}
+
+/// The Log scale card's mini chart: the market's closes on a log axis
+/// over guide lines bunching toward the top, as a log axis' round prices
+/// do; in its colours while [on], grey while off.
+class HlLogPreviewPainter extends CustomPainter {
+  HlLogPreviewPainter({
+    required this.tape,
+    required this.on,
+    required this.muted,
+    required this.up,
+    required this.down,
+  });
+
+  final List<HyperliquidCandle> tape;
+  final bool on;
+  final Color muted, up, down;
+
+  /// Where the guides sit, as shares of the height from the top.
+  static const List<double> _guides = [0.04, 0.16, 0.36, 0.68];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.width <= 0 || size.height <= 0) return;
+    final guide = Paint()
+      ..color = muted.withValues(alpha: on ? 0.45 : 0.3)
+      ..strokeWidth = 0.6;
+    for (final share in _guides) {
+      final y = size.height * share;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), guide);
+    }
+    final logs = [
+      for (final k in tape)
+        if (k.close > 0) math.log(k.close),
+    ];
+    if (logs.length < 2) return;
+    var lo = logs.first, hi = logs.first;
+    for (final v in logs) {
+      lo = math.min(lo, v);
+      hi = math.max(hi, v);
+    }
+    if (hi <= lo) hi = lo + 1;
+    final path = Path();
+    for (var i = 0; i < logs.length; i++) {
+      final x = (i + 0.5) * size.width / logs.length;
+      final y = 2 + (size.height - 4) * (1 - (logs[i] - lo) / (hi - lo));
+      i == 0 ? path.moveTo(x, y) : path.lineTo(x, y);
+    }
+    final rising = logs.last >= logs.first;
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = on
+            ? (rising ? up : down)
+            : muted.withValues(alpha: 0.7)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant HlLogPreviewPainter old) =>
+      !identical(old.tape, tape) ||
       old.on != on ||
       old.muted != muted ||
       old.up != up ||

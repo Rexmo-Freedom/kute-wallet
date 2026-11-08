@@ -3929,6 +3929,8 @@
   "chartGroupTrend": "Τάση",
   "chartGroupMomentum": "Ορμή",
   "chartGroupVolatility": "Μεταβλητότητα",
+  "chartGroupDisplay": "Προβολή",
+  "chartLogScaleNote": "Ίσες ποσοστιαίες κινήσεις φαίνονται ίσες",
   "chartIndSmaNote": "Μακροπρόθεσμη τάση που αλλάζει αργά",
   "chartIndStNote": "Κινητό stop που αλλάζει πλευρά με την τάση",
   "chartIndSrsiNote": "Γρήγορες εναλλαγές υπεραγορασμένου και υπερπουλημένου",

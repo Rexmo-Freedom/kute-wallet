@@ -13979,6 +13979,12 @@ class AppLocalizationsPl extends AppLocalizations {
   String get chartGroupVolatility => 'Zmienność';
 
   @override
+  String get chartGroupDisplay => 'Widok';
+
+  @override
+  String get chartLogScaleNote => 'Równe ruchy procentowe wyglądają tak samo';
+
+  @override
   String get chartIndSmaNote => 'Trend długoterminowy, wolno się odwraca';
 
   @override

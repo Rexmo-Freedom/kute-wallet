@@ -14024,6 +14024,12 @@ class AppLocalizationsEl extends AppLocalizations {
   String get chartGroupVolatility => 'Μεταβλητότητα';
 
   @override
+  String get chartGroupDisplay => 'Προβολή';
+
+  @override
+  String get chartLogScaleNote => 'Ίσες ποσοστιαίες κινήσεις φαίνονται ίσες';
+
+  @override
   String get chartIndSmaNote => 'Μακροπρόθεσμη τάση που αλλάζει αργά';
 
   @override

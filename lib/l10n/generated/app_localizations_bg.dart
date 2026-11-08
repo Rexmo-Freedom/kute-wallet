@@ -13947,6 +13947,12 @@ class AppLocalizationsBg extends AppLocalizations {
   String get chartGroupVolatility => 'Волатилност';
 
   @override
+  String get chartGroupDisplay => 'Изглед';
+
+  @override
+  String get chartLogScaleNote => 'Равните процентни движения изглеждат равни';
+
+  @override
   String get chartIndSmaNote => 'Дългосрочен тренд, който се обръща бавно';
 
   @override

@@ -3929,6 +3929,8 @@
   "chartGroupTrend": "Trend",
   "chartGroupMomentum": "Momentum",
   "chartGroupVolatility": "Volatilità",
+  "chartGroupDisplay": "Visualizzazione",
+  "chartLogScaleNote": "Stesse variazioni in %, stessa altezza",
   "chartIndSmaNote": "Trend di lungo, cambia lentamente",
   "chartIndStNote": "Uno stop mobile che si gira con il trend",
   "chartIndSrsiNote": "Oscillazioni rapide tra ipercomprato e ipervenduto",

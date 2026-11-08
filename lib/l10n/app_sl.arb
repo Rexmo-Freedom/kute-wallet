@@ -3929,6 +3929,8 @@
   "chartGroupTrend": "Trend",
   "chartGroupMomentum": "Zagon",
   "chartGroupVolatility": "Volatilnost",
+  "chartGroupDisplay": "Prikaz",
+  "chartLogScaleNote": "Enaki odstotni premiki so videti enaki",
   "chartIndSmaNote": "Dolgoročni trend, ki se počasi obrne",
   "chartIndStNote": "Drseči stop, ki se obrne s trendom",
   "chartIndSrsiNote": "Hitra nihanja med prekupljenostjo in preprodanostjo",

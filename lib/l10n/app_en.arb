@@ -11905,6 +11905,14 @@
   "@chartGroupVolatility": {
     "description": "Chart sheet: section label above the volatility indicators (Bollinger bands, ATR)."
   },
+  "chartGroupDisplay": "Display",
+  "@chartGroupDisplay": {
+    "description": "Chart sheet: the section heading over the on/off display settings (log scale, your trades on the chart)."
+  },
+  "chartLogScaleNote": "Equal percent moves look equal",
+  "@chartLogScaleNote": {
+    "description": "Chart sheet: one plain line under Log scale. On a log price axis equal percentage moves take the same height."
+  },
   "chartIndSmaNote": "Long-term trend, slow to turn",
   "@chartIndSmaNote": {
     "description": "One-line explanation of the SMA indicator (the 50 and 200 simple moving averages by default)."

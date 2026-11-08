@@ -3929,6 +3929,8 @@
   "chartGroupTrend": "Tendencija",
   "chartGroupMomentum": "Momentumas",
   "chartGroupVolatility": "Kintamumas",
+  "chartGroupDisplay": "Rodymas",
+  "chartLogScaleNote": "Vienodi procentiniai pokyčiai atrodo vienodai",
   "chartIndSmaNote": "Ilgalaikė tendencija, lėtai apsigręžia",
   "chartIndStNote": "Slenkantis stop, apsigręžiantis su tendencija",
   "chartIndSrsiNote": "Greiti perpirkimo ir perpardavimo svyravimai",

@@ -3929,6 +3929,8 @@
   "chartGroupTrend": "Tendence",
   "chartGroupMomentum": "Momentums",
   "chartGroupVolatility": "Svārstīgums",
+  "chartGroupDisplay": "Skats",
+  "chartLogScaleNote": "Vienādas procentuālās izmaiņas izskatās vienādas",
   "chartIndSmaNote": "Ilgtermiņa tendence, lēni mainās",
   "chartIndStNote": "Slīdošs stops, kas mainās līdz ar tendenci",
   "chartIndSrsiNote": "Ātras pārpirktības un pārpārdotības svārstības",

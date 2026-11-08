@@ -23434,6 +23434,18 @@ abstract class AppLocalizations {
   /// **'Volatility'**
   String get chartGroupVolatility;
 
+  /// Chart sheet: the section heading over the on/off display settings (log scale, your trades on the chart).
+  ///
+  /// In en, this message translates to:
+  /// **'Display'**
+  String get chartGroupDisplay;
+
+  /// Chart sheet: one plain line under Log scale. On a log price axis equal percentage moves take the same height.
+  ///
+  /// In en, this message translates to:
+  /// **'Equal percent moves look equal'**
+  String get chartLogScaleNote;
+
   /// One-line explanation of the SMA indicator (the 50 and 200 simple moving averages by default).
   ///
   /// In en, this message translates to:

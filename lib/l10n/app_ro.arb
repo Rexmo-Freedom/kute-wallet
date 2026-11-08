@@ -3929,6 +3929,8 @@
   "chartGroupTrend": "Tendință",
   "chartGroupMomentum": "Impuls",
   "chartGroupVolatility": "Volatilitate",
+  "chartGroupDisplay": "Afișare",
+  "chartLogScaleNote": "Mișcările procentuale egale arată la fel",
   "chartIndSmaNote": "Tendință pe termen lung, se întoarce încet",
   "chartIndStNote": "Un stop mobil care se întoarce odată cu tendința",
   "chartIndSrsiNote": "Oscilații rapide de supracumpărare și supravânzare",

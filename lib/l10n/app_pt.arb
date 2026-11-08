@@ -4195,6 +4195,8 @@
   "chartGroupTrend": "Tendência",
   "chartGroupMomentum": "Momento",
   "chartGroupVolatility": "Volatilidade",
+  "chartGroupDisplay": "Exibição",
+  "chartLogScaleNote": "Movimentos iguais em % parecem iguais",
   "chartIndSmaNote": "Tendência de longo prazo, vira devagar",
   "chartIndStNote": "Um stop móvel que vira com a tendência",
   "chartIndSrsiNote": "Oscilações rápidas de sobrecompra e sobrevenda",

@@ -3929,6 +3929,8 @@
   "chartGroupTrend": "Trend",
   "chartGroupMomentum": "Momentum",
   "chartGroupVolatility": "Volatilita",
+  "chartGroupDisplay": "Zobrazenie",
+  "chartLogScaleNote": "Rovnaké percentuálne pohyby vyzerajú rovnako",
   "chartIndSmaNote": "Dlhodobý trend, pomaly sa otáča",
   "chartIndStNote": "Posuvný stop, ktorý sa otočí s trendom",
   "chartIndSrsiNote": "Rýchle výkyvy prekúpenosti a prepredanosti",

@@ -13921,6 +13921,13 @@ class AppLocalizationsEt extends AppLocalizations {
   String get chartGroupVolatility => 'Volatiilsus';
 
   @override
+  String get chartGroupDisplay => 'Vaade';
+
+  @override
+  String get chartLogScaleNote =>
+      'Võrdsed protsendimuutused näevad võrdsed välja';
+
+  @override
   String get chartIndSmaNote => 'Pikaajaline trend, pöördub aeglaselt';
 
   @override

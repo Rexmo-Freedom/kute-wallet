@@ -13488,6 +13488,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get chartGroupVolatility => 'ボラティリティ';
 
   @override
+  String get chartGroupDisplay => '表示';
+
+  @override
+  String get chartLogScaleNote => '同じ変動率が同じ高さに見える';
+
+  @override
   String get chartIndSmaNote => '長期トレンド、転換が遅い';
 
   @override

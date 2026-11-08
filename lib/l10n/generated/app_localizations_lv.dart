@@ -13902,6 +13902,13 @@ class AppLocalizationsLv extends AppLocalizations {
   String get chartGroupVolatility => 'Svārstīgums';
 
   @override
+  String get chartGroupDisplay => 'Skats';
+
+  @override
+  String get chartLogScaleNote =>
+      'Vienādas procentuālās izmaiņas izskatās vienādas';
+
+  @override
   String get chartIndSmaNote => 'Ilgtermiņa tendence, lēni mainās';
 
   @override

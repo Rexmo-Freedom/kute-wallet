@@ -13951,6 +13951,13 @@ class AppLocalizationsSk extends AppLocalizations {
   String get chartGroupVolatility => 'Volatilita';
 
   @override
+  String get chartGroupDisplay => 'Zobrazenie';
+
+  @override
+  String get chartLogScaleNote =>
+      'Rovnaké percentuálne pohyby vyzerajú rovnako';
+
+  @override
   String get chartIndSmaNote => 'Dlhodobý trend, pomaly sa otáča';
 
   @override

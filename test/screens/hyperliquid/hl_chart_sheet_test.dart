@@ -413,6 +413,42 @@ void main() {
           isTrue);
     });
 
+    testWidgets(
+        'the Log scale square switches this market\'s axis alone, and Reset '
+        'puts it back', (tester) async {
+      await pumpHlEditSheet(tester);
+      await tester.tap(find.byKey(const ValueKey('hl-chart-sheet-button')));
+      await _settle(tester);
+      final card = find.byKey(const ValueKey('hl-chart-log-card'));
+      await tester.ensureVisible(card);
+      await _settle(tester);
+      expect(
+          find.descendant(of: card, matching: find.text('Log scale')),
+          findsOneWidget);
+      await tester.tap(card);
+      await _settle(tester);
+      expect(_prefs(tester).logScale, isTrue);
+      expect(
+          tester
+              .widget<Semantics>(find
+                  .ancestor(of: card, matching: find.byType(Semantics))
+                  .first)
+              .properties
+              .toggled,
+          isTrue);
+      expect(
+          hlEditContainer(tester)
+              .read(hlChartPreferencesProvider('hl:perp::ETH'))
+              .logScale,
+          isFalse);
+      expect(_prefs(tester).toJson()['log'], true);
+
+      await tester.tap(find.byKey(const ValueKey('hl-chart-sheet-reset')));
+      await _settle(tester);
+      expect(_prefs(tester).logScale, isFalse);
+      expect(_prefs(tester).toJson().containsKey('log'), isFalse);
+    });
+
     testWidgets('volume profile draws on the price and names its POC',
         (tester) async {
       await pumpHlEditSheet(tester);
