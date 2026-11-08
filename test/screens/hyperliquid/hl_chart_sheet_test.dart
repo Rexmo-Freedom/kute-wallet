@@ -12,6 +12,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/chart_drawings_provider.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_indicator_catalog.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_intervals.dart';
@@ -78,18 +79,20 @@ void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
 
   group('chart types', () {
-    test('Line, Candles, Area and Heikin Ashi; a removed one opens as its '
-        'closest', () {
+    test('Line, Candles, Area, Heikin Ashi, Hollow and Baseline; bars opens '
+        'as candles', () {
       expect(HlChartStyle.picker, [
         HlChartStyle.line,
         HlChartStyle.candles,
         HlChartStyle.area,
         HlChartStyle.heikinAshi,
+        HlChartStyle.hollow,
+        HlChartStyle.baseline,
       ]);
-      expect(HlChartStyle.fromName('hollow'), HlChartStyle.candles);
+      expect(HlChartStyle.fromName('hollow'), HlChartStyle.hollow);
       expect(HlChartStyle.fromName('bars'), HlChartStyle.candles);
       expect(HlChartStyle.fromName('heikinAshi'), HlChartStyle.heikinAshi);
-      expect(HlChartStyle.fromName('baseline'), HlChartStyle.area);
+      expect(HlChartStyle.fromName('baseline'), HlChartStyle.baseline);
       expect(HlChartStyle.fromName(null), HlChartStyle.area);
       for (final s in HlChartStyle.values) {
         expect(HlChartStyle.picker, contains(s.offered));
@@ -200,12 +203,19 @@ void main() {
       await tester.ensureVisible(find.byKey(const ValueKey('hl-chart-group-type')));
       await tester.pump();
       expect(find.text('Chart type'), findsOneWidget);
-      for (final s in ['line', 'candles', 'area', 'heikinAshi']) {
+      for (final s in [
+        'line',
+        'candles',
+        'area',
+        'heikinAshi',
+        'hollow',
+        'baseline',
+      ]) {
         expect(_card(s), findsOneWidget);
       }
-      for (final s in ['hollow', 'bars', 'baseline']) {
-        expect(_card(s), findsNothing);
-      }
+      expect(_card('bars'), findsNothing);
+      expect(find.text('Hollow candles'), findsOneWidget);
+      expect(find.text('Baseline'), findsOneWidget);
       // Two to a row, square-ish and big.
       final line = tester.getRect(_card('line'));
       final candles = tester.getRect(_card('candles'));
@@ -239,6 +249,48 @@ void main() {
       expect(_picked(tester, 'heikinAshi'), isTrue);
       expect(_picked(tester, 'line'), isFalse);
       expect(find.byKey(_sheet), findsOneWidget);
+    });
+
+    testWidgets('Hollow candles and Baseline apply and stay saved, by name',
+        (tester) async {
+      await pumpHlEditSheet(tester);
+      await _openSheet(tester);
+      await _tapCard(tester, _card('hollow'));
+      expect(_style(tester), 'hollow');
+      expect(_picked(tester, 'hollow'), isTrue);
+      expect(
+          tester.widget<HlCandlestickChart>(find.byType(HlCandlestickChart))
+              .style,
+          HlChartStyle.hollow);
+      await _tapCard(tester, _card('baseline'));
+      expect(_style(tester), 'baseline');
+      final chart =
+          tester.widget<HlCandlestickChart>(find.byType(HlCandlestickChart));
+      expect(chart.style, HlChartStyle.baseline);
+      // No position: the level is the first bar on screen.
+      expect(chart.baselinePrice, isNull);
+    });
+
+    testWidgets('Baseline sits on the open position\'s entry', (tester) async {
+      await pumpHlEditSheet(tester, positions: [
+        HlPerpPosition(
+          coin: 'BTC',
+          szi: 0.5,
+          entryPx: 64000,
+          positionValue: 33000,
+          unrealizedPnl: 1000,
+          returnOnEquity: 0.03,
+          liquidationPx: null,
+          marginUsed: 3300,
+          leverageType: 'cross',
+          leverageValue: 10,
+          maxLeverage: 40,
+        ),
+      ]);
+      expect(
+          tester.widget<HlCandlestickChart>(find.byType(HlCandlestickChart))
+              .baselinePrice,
+          64000);
     });
 
     testWidgets(

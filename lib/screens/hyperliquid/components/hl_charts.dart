@@ -1216,15 +1216,22 @@ enum HlChartStyle {
   bool get isLine => this == line || this == area || this == baseline;
 
   /// The styles the Chart sheet offers (founder, 1 November 2026: "we
-  /// have too many chart styles"): Line, Candles and Area, and Heikin
-  /// Ashi for the Advanced chart's traders (4 November 2026), a 2 × 2 of
-  /// cards. The others still paint, for a caller that asks for them by
-  /// value, but no saved layout opens on one.
-  static const List<HlChartStyle> picker = [line, candles, area, heikinAshi];
+  /// have too many chart styles"): Line, Candles and Area, Heikin Ashi for
+  /// the Advanced chart's traders (4 November 2026), and Hollow candles
+  /// and Baseline (8 November 2026), a 2 × 3 of cards. Bars still paint,
+  /// for a caller that asks for it by value, but no saved layout opens on
+  /// it.
+  static const List<HlChartStyle> picker = [
+    line,
+    candles,
+    area,
+    heikinAshi,
+    hollow,
+    baseline,
+  ];
 
   /// Area is the default everywhere a style is missing or unknown. A
-  /// style the sheet no longer offers opens as its closest one: hollow
-  /// candles and bars as candles, baseline as area.
+  /// style the sheet does not offer (bars) opens as its closest one.
   static HlChartStyle fromName(String? name) {
     for (final v in values) {
       if (v.name == name) return v.offered;
@@ -1234,8 +1241,7 @@ enum HlChartStyle {
 
   /// This style, or the closest of [picker].
   HlChartStyle get offered => switch (this) {
-        hollow || bars => candles,
-        baseline => area,
+        bars => candles,
         _ => this,
       };
 }
@@ -1358,6 +1364,11 @@ class HlCandlestickChart extends StatefulWidget {
   /// line-family [style] also renders as a line.
   final HlChartStyle style;
 
+  /// Baseline style's level: the open position's entry when there is one.
+  /// Null: the first bar on screen's close, so the fill reads as the move
+  /// across the view (and follows a pan).
+  final double? baselinePrice;
+
   /// The user's own position and working orders on this market, drawn as
   /// tagged horizontal price lines (entry, liquidation, limits, TP/SL).
   /// Always rendered; editable lines can be dragged to a new price.
@@ -1431,6 +1442,7 @@ class HlCandlestickChart extends StatefulWidget {
     this.signals = ChartSignals.none,
     this.onSignalTapped,
     this.style = HlChartStyle.area,
+    this.baselinePrice,
     this.onMoreHistoryWanted,
     this.fillHeight = false,
     this.onAutoScaleChanged,
@@ -3308,6 +3320,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                     band: _visBand,
                                     logScale: widget.logScale,
                                     style: widget.style,
+                                    baselinePrice: widget.baselinePrice,
                                     domain: domain,
                                     tagGutter: gutter,
                                   ),
@@ -4487,6 +4500,9 @@ class _HlCandlePainter extends CustomPainter {
   /// Bar/line variant to paint.
   final HlChartStyle style;
 
+  /// Baseline style's level (null: the first bar's close).
+  final double? baselinePrice;
+
   /// The shown (autoscaled or manual) price domain.
   final HlPriceDomain? domain;
 
@@ -4522,6 +4538,7 @@ class _HlCandlePainter extends CustomPainter {
     this.band,
     this.logScale = false,
     this.style = HlChartStyle.area,
+    this.baselinePrice,
     this.domain,
     this.tagGutter = 0,
     this.captions = const [],
@@ -4711,10 +4728,17 @@ class _HlCandlePainter extends CustomPainter {
       }
       final path = kuteMonotonePath(pts);
 
-      if (style == HlChartStyle.baseline) {
-        // Two-tone fill either side of the window's first close: above
-        // it in the up colour, below it in the down colour.
-        final baseY = toY(candles.first.close).clamp(0.0, priceH);
+      final isBaseline = style == HlChartStyle.baseline;
+      final level = baselinePrice;
+      final baseValue = level != null && level > 0
+          ? level
+          : candles.first.close;
+      final rawBaseY = toY(baseValue);
+      final baseY = rawBaseY.clamp(0.0, priceH);
+      if (isBaseline) {
+        // Two-tone fill either side of the level: above it in the up
+        // colour, below it in the down colour. The line takes the same
+        // two colours, its end dot the side it ends on.
         final fill = Path.from(path)
           ..lineTo(pts.last.dx, baseY)
           ..lineTo(pts.first.dx, baseY)
@@ -4722,18 +4746,23 @@ class _HlCandlePainter extends CustomPainter {
         canvas.save();
         canvas.clipRect(Rect.fromLTWH(0, 0, w, baseY));
         canvas.drawPath(fill, Paint()..color = upColor.withValues(alpha: 0.16));
+        canvas.drawPath(path, kuteStrokePaint(upColor));
         canvas.restore();
         canvas.save();
         canvas.clipRect(Rect.fromLTWH(0, baseY, w, priceH - baseY));
         canvas.drawPath(
             fill, Paint()..color = downColor.withValues(alpha: 0.16));
+        canvas.drawPath(path, kuteStrokePaint(downColor));
         canvas.restore();
-        canvas.drawLine(
-            Offset(0, baseY),
-            Offset(w, baseY),
-            Paint()
-              ..color = gridColor
-              ..strokeWidth = 1);
+        // The level's own hairline, only while it is on the scale.
+        if (rawBaseY >= 0 && rawBaseY <= priceH) {
+          canvas.drawLine(
+              Offset(0, baseY),
+              Offset(w, baseY),
+              Paint()
+                ..color = gridColor
+                ..strokeWidth = 1);
+        }
       } else if (style != HlChartStyle.line) {
         // Subtle gradient fill under the line (shared spec, shader
         // cached), dropped to the price-area floor.
@@ -4744,10 +4773,15 @@ class _HlCandlePainter extends CustomPainter {
         canvas.drawPath(
             fill, Paint()..shader = kuteFillShader(w, priceH, lineCol));
       }
-      canvas.drawPath(path, kuteStrokePaint(lineCol));
+      if (!isBaseline) canvas.drawPath(path, kuteStrokePaint(lineCol));
 
       // Endpoint dot (the live pulse rides its own decor layer).
-      kuteDrawEndpointDot(canvas, pts.last, lineCol,
+      kuteDrawEndpointDot(
+          canvas,
+          pts.last,
+          isBaseline
+              ? (candles.last.close >= baseValue ? upColor : downColor)
+              : lineCol,
           isDark: labelBg == Colors.black);
     } else {
       // ── Candlestick bodies + wicks ─────────────────────────────────
@@ -4769,15 +4803,19 @@ class _HlCandlePainter extends CustomPainter {
       final stem = Paint()
         ..strokeWidth = 1.0
         ..strokeCap = StrokeCap.round;
-      final hollowUp = Paint()
-        ..color = upColor
+      final hollowBody = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.0;
 
       for (var j = 0; j < bars.length; j++) {
         final k = bars[j];
         final cx = barX(j);
-        final up = k.close >= k.open;
+        final rising = k.close >= k.open;
+        // TradingView's Hollow candles: the colour says the close against
+        // the previous close, the fill says close against open (hollow
+        // when it closed above its open).
+        final hollow = style == HlChartStyle.hollow;
+        final up = hollow && j > 0 ? k.close >= bars[j - 1].close : rising;
         final col = up ? upColor : downColor;
 
         final openY = toY(k.open);
@@ -4795,12 +4833,16 @@ class _HlCandlePainter extends CustomPainter {
           continue;
         }
 
-        // Wick (high → low).
-        canvas.drawLine(
-          Offset(cx, toY(k.high)),
-          Offset(cx, toY(k.low)),
-          wickPaint..color = up ? wickUp : wickDown,
-        );
+        // Wick (high → low); a hollow body stays empty, so its wick stops
+        // at the body's edges.
+        wickPaint.color = up ? wickUp : wickDown;
+        if (hollow && rising) {
+          canvas.drawLine(Offset(cx, toY(k.high)), Offset(cx, closeY), wickPaint);
+          canvas.drawLine(Offset(cx, openY), Offset(cx, toY(k.low)), wickPaint);
+        } else {
+          canvas.drawLine(
+              Offset(cx, toY(k.high)), Offset(cx, toY(k.low)), wickPaint);
+        }
 
         // Body (open → close). Floor to 2px so single-trade zero-range
         // buckets (common on thin HIP-3 markets) read as candles, not
@@ -4812,9 +4854,8 @@ class _HlCandlePainter extends CustomPainter {
           Rect.fromLTWH(cx - bodyW / 2, top, bodyW, bodyH),
           const Radius.circular(1.0),
         );
-        if (style == HlChartStyle.hollow && up) {
-          // Hollow: an up candle is an outline, a down candle stays filled.
-          canvas.drawRRect(rrect, hollowUp);
+        if (hollow && rising) {
+          canvas.drawRRect(rrect, hollowBody..color = col);
         } else {
           canvas.drawRRect(rrect, up ? bodyUp : bodyDown);
         }
@@ -4935,8 +4976,12 @@ class _HlCandlePainter extends CustomPainter {
     final lastK = candles.last;
     // Colour by the last candle's direction for candles, the overall line
     // direction (first→last) when rendering as a line.
+    final level = baselinePrice;
     final lastUp = renderAsLine
-        ? candles.last.close >= candles.first.close
+        ? candles.last.close >=
+            (style == HlChartStyle.baseline && level != null && level > 0
+                ? level
+                : candles.first.close)
         : lastK.close >= lastK.open;
     final lineColor = lastUp ? upColor : downColor;
     final lyValue = morphSeries != null && morphSeries!.isNotEmpty
@@ -4993,6 +5038,7 @@ class _HlCandlePainter extends CustomPainter {
       !_sameFills(old.fills, fills) ||
       old.entryPx != entryPx ||
       old.style != style ||
+      old.baselinePrice != baselinePrice ||
       old.entryIsLong != entryIsLong ||
       old.leadingClose != leadingClose ||
       !_sameMorph(old.morphSeries, morphSeries) ||

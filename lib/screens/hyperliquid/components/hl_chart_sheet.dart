@@ -6,9 +6,9 @@
 // "the chart type and the indicators can be in only one button, exactly
 // like we do on the main chart"; "picker should be with big squares").
 //
-//   * CHART TYPE: Line, Candles, Area, Heikin Ashi as big square cards, a
-//     tiny chart of the market's last bars drawn in each. A pick applies
-//     at once and the sheet stays up.
+//   * CHART TYPE: Line, Candles, Area, Heikin Ashi, Hollow candles and
+//     Baseline as big square cards, a tiny chart of the market's last bars
+//     drawn in each. A pick applies at once and the sheet stays up.
 //   * DISPLAY: the on/off settings as the same square cards, each with a
 //     tiny chart of what it does: Log scale, per market, saved with the
 //     market's other chart settings. On (the CTA-coloured outline) the
@@ -62,6 +62,8 @@ IconData hlChartStyleIcon(HlChartStyle style) => switch (style) {
       HlChartStyle.line => Icons.show_chart_rounded,
       HlChartStyle.area => Icons.area_chart_rounded,
       HlChartStyle.heikinAshi => Icons.candlestick_chart_outlined,
+      HlChartStyle.hollow => Icons.candlestick_chart_outlined,
+      HlChartStyle.baseline => Icons.ssid_chart_rounded,
       _ => Icons.candlestick_chart_rounded,
     };
 
@@ -161,6 +163,8 @@ String _styleName(AppLocalizations l10n, HlChartStyle style) => switch (style) {
       HlChartStyle.line => l10n.chartStyleLine,
       HlChartStyle.area => l10n.chartStyleArea,
       HlChartStyle.heikinAshi => l10n.chartStyleHeikinAshi,
+      HlChartStyle.hollow => l10n.chartStyleHollow,
+      HlChartStyle.baseline => l10n.chartStyleBaseline,
       _ => l10n.chartStyleCandles,
     };
 
@@ -600,8 +604,10 @@ class HlStyleThumbPainter extends CustomPainter {
         style == HlChartStyle.heikinAshi ? hlHeikinAshi(valid) : valid;
     final real = bars.length >= 2;
     final closes = real ? [for (final k in bars) k.close] : _placeholder;
-    final candleLike =
-        style == HlChartStyle.candles || style == HlChartStyle.heikinAshi;
+    final hollow = style == HlChartStyle.hollow;
+    final candleLike = style == HlChartStyle.candles ||
+        style == HlChartStyle.heikinAshi ||
+        hollow;
     var lo = double.infinity, hi = double.negativeInfinity;
     if (candleLike && real) {
       for (final k in bars) {
@@ -628,15 +634,32 @@ class HlStyleThumbPainter extends CustomPainter {
         final cl = real ? bars[i].close : closes[i];
         final h = real ? bars[i].high : math.max(o, cl) + 0.3;
         final l = real ? bars[i].low : math.min(o, cl) - 0.3;
-        final barColor = real ? (cl >= o ? up : down) : muted;
+        // Hollow candles: the colour says the close against the previous
+        // close, the outline a close above the open (as the chart draws).
+        final risingBar =
+            hollow && real && i > 0 ? cl >= bars[i - 1].close : cl >= o;
+        final barColor = real ? (risingBar ? up : down) : muted;
         final x = (i + 0.5) * slot;
-        final paint = Paint()..color = barColor;
-        canvas.drawLine(
-            Offset(x, y(h)), Offset(x, y(l)), paint..strokeWidth = 0.8);
+        final paint = Paint()
+          ..color = barColor
+          ..strokeWidth = 0.8;
         final top = y(math.max(o, cl));
         final bottom = math.max(top + 1, y(math.min(o, cl)));
-        canvas.drawRect(
-            Rect.fromLTRB(x - body / 2, top, x + body / 2, bottom), paint);
+        final rect = Rect.fromLTRB(x - body / 2, top, x + body / 2, bottom);
+        if (hollow && cl >= o) {
+          // The wick stops at the body; the inside stays empty.
+          canvas.drawLine(Offset(x, y(h)), Offset(x, top), paint);
+          canvas.drawLine(Offset(x, bottom), Offset(x, y(l)), paint);
+          canvas.drawRect(
+              rect.deflate(0.3),
+              Paint()
+                ..color = barColor
+                ..style = PaintingStyle.stroke
+                ..strokeWidth = 0.7);
+        } else {
+          canvas.drawLine(Offset(x, y(h)), Offset(x, y(l)), paint);
+          canvas.drawRect(rect, paint);
+        }
       }
       return;
     }
@@ -644,6 +667,7 @@ class HlStyleThumbPainter extends CustomPainter {
     final n = closes.length;
     final dx = size.width / (n - 1);
     final path = Path()..moveTo(0, y(closes.first));
+    final isBaseline = style == HlChartStyle.baseline;
     for (var i = 1; i < n; i++) {
       // A light smoothing, as the chart's monotone line reads.
       final px = (i - 1) * dx, x = i * dx;
@@ -668,15 +692,41 @@ class HlStyleThumbPainter extends CustomPainter {
           ).createShader(Offset.zero & size),
       );
     }
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color = color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round,
-    );
+    final stroke = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    if (isBaseline) {
+      // Two tones either side of the first close, its hairline between.
+      final baseY = y(closes.first);
+      final fill = Path.from(path)
+        ..lineTo(size.width, baseY)
+        ..lineTo(0, baseY)
+        ..close();
+      final above = real ? up : muted;
+      final below = real ? down : muted;
+      canvas.save();
+      canvas.clipRect(Rect.fromLTWH(0, 0, size.width, baseY));
+      canvas.drawPath(fill, Paint()..color = above.withValues(alpha: 0.18));
+      canvas.drawPath(path, stroke..color = above);
+      canvas.restore();
+      canvas.save();
+      canvas.clipRect(
+          Rect.fromLTWH(0, baseY, size.width, size.height - baseY));
+      canvas.drawPath(fill, Paint()..color = below.withValues(alpha: 0.18));
+      canvas.drawPath(path, stroke..color = below);
+      canvas.restore();
+      canvas.drawLine(
+          Offset(0, baseY),
+          Offset(size.width, baseY),
+          Paint()
+            ..color = muted.withValues(alpha: 0.5)
+            ..strokeWidth = 0.6);
+      return;
+    }
+    canvas.drawPath(path, stroke);
   }
 
   @override

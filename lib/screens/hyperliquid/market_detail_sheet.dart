@@ -1023,11 +1023,7 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
       HlChartStyle.fromName(ref.read(hlChartLayoutProvider).style);
 
   /// The chart button's glyph for [style] (one of HlChartStyle.picker).
-  IconData _styleIcon(HlChartStyle style) => switch (style) {
-        HlChartStyle.line => Icons.show_chart_rounded,
-        HlChartStyle.area => Icons.area_chart_rounded,
-        _ => Icons.candlestick_chart_rounded,
-      };
+  IconData _styleIcon(HlChartStyle style) => hlChartStyleIcon(style);
 
   /// The Chart sheet (hl_chart_sheet.dart): the chart types and the
   /// indicators, behind the chart's one button (the market chart's and
@@ -2704,6 +2700,9 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
             showVolume: indicators.contains('vol') && !positionView,
             renderAsLine: false,
             style: style,
+            // Baseline: the open position's entry; with none, the first
+            // bar on screen.
+            baselinePrice: myPosition?.entryPx,
             onMoreHistoryWanted: () => unawaited(_loadMoreHistory()),
             onAutoScaleChanged: (auto) => VenueAnalytics.settingChanged(
               'chart_autoscale_toggled',
