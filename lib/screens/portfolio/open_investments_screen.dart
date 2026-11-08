@@ -387,8 +387,9 @@ List<Widget> portfolioPositionsSlivers(
 /// once its "See all" opens it, founder 28 October 2026); under Investing
 /// the perps and spot holdings largest first. Each with the venue's P&L
 /// beside its value and shimmer rows while it is still read with nothing
-/// listed. The rows, taps and sheets are the Positions list's own; the
-/// card shows the first three (components/balances_overview.dart).
+/// listed. The rows, taps and sheets are the Positions list's own, drawn
+/// in whichever shape their caller asks (components/balances_overview.dart:
+/// the Portfolio screen's squares, or the first three in a card).
 Map<BalancesCategory, BalancesVenueList> portfolioVenueLists(
     BuildContext context, WidgetRef ref, PortfolioVenues venues) {
   List<Widget> ranked(List<(double, Widget)> cards) {

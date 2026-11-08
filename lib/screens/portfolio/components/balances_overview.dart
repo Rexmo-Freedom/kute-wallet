@@ -61,18 +61,20 @@
 // sections name and colour the venues the same way.
 //
 // THE PORTFOLIO SCREEN'S POSITIONS ([BalancesOverview.sharesHeader] with
-// [BalancesOverview.venuesOnly]; the redesign of 7 November 2026): every
-// open position, by value, under a plain heading per venue ("Investing",
-// then "Predictions", 13 sp, textSecondary), each venue ONE soft card of
-// rows in the home Activity list's style (PortfolioCardList,
-// position_rows.dart, PortfolioRowLayout.position: the logo, the name and
-// its side chip, the value with the P&L since it was opened under it,
-// "+$1.20 (+8.0%)"); every open row listed, a settled prediction waiting
-// to be claimed behind the card's "See all", 8 under its title, 24
-// between groups, a venue with nothing open left out; nothing open
-// anywhere: the sections' one empty state (PortfolioSectionEmpty,
-// portfolio_empty_state.dart: the hero Sal at 160, "No open positions"
-// and the tagline) with Browse Investing under it.
+// [BalancesOverview.venuesOnly]; the redesign of 7 November 2026, its rows
+// squares since the 8th): every open position, by value, under a plain
+// heading per venue ("Investing", then "Predictions", 13 sp,
+// textSecondary), each venue's as the Dollars Activity tab's squares two
+// by two, an odd last one the full-width compact card
+// (PortfolioPositionSquares.holdings, position_rows.dart: the logo, the
+// P&L in money over its %, the name, the side first on the line under it,
+// the value); every open position shown, a settled prediction waiting to
+// be claimed behind "See all", on a soft card of its own under the squares
+// (BalancesFoldRow.flush), 8 under its title, 24 between groups, a venue
+// with nothing open left out; still read with nothing listed: the squares'
+// skeleton; nothing open anywhere: the sections' one empty state
+// (PortfolioSectionEmpty, portfolio_empty_state.dart: the hero Sal at 160,
+// "No open positions" and the tagline) with Browse Investing under it.
 //
 // Nothing shifts under a live price: every figure is tabular, no
 // AnimatedSize wraps a live value.
@@ -90,12 +92,13 @@ import 'package:kute/screens/shared/charts/kute_donut_chart.dart';
 import 'package:kute/screens/portfolio/components/position_rows.dart'
     show
         PortfolioCardList,
+        PortfolioPositionSquares,
         PortfolioRowInset,
-        PortfolioRowLayout,
-        PortfolioRowLayoutScope,
+        PortfolioSquaresSkeleton,
         kPortfolioCardInset,
         kPortfolioRowGap,
-        kPortfolioRowImage;
+        kPortfolioRowImage,
+        kPortfolioSquareGap;
 import 'package:kute/screens/shared/market_groups.dart' show marketGroupDivider;
 import 'package:kute/screens/shared/kute_motion.dart'
     show RollingFigure, kuteReduceMotion;
@@ -440,6 +443,7 @@ class _BalancesOverviewState extends State<BalancesOverview> {
       key: ValueKey('portfolio-balance-${category.name}-see-all'),
       open: open,
       count: list.count,
+      flush: widget.sharesHeader,
       onTap: () {
         setState(
             () => open ? _expanded.remove(category) : _expanded.add(category));
@@ -560,6 +564,8 @@ class _BalancesOverviewState extends State<BalancesOverview> {
 
     Widget sharesVenue(BalancesCategory category, BalancesEntry e) {
       final list = listed(category);
+      final shown = _shownRows(category, list);
+      final fold = _foldRow(category, list);
       return Column(
         key: ValueKey('portfolio-balance-venue-${category.name}'),
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -569,18 +575,24 @@ class _BalancesOverviewState extends State<BalancesOverview> {
             key: ValueKey('portfolio-balance-category-${category.name}'),
             title: label(category),
           ),
-          // ONE soft card under the heading, of the Positions rows (the
-          // name and its side chip, the value over the P&L since it was
-          // opened).
+          // The positions as the Activity tab's squares under the heading,
+          // "See all" on its own soft card under them.
           Padding(
             key: ValueKey('portfolio-balance-${category.name}-positions'),
             padding: EdgeInsets.only(top: kBalancesTitleGap.h),
-            child: PortfolioRowLayoutScope(
-              layout: PortfolioRowLayout.position,
-              child: _VenueCard(
-                  rows: _shownRows(category, list),
-                  loading: list.loading,
-                  fold: _foldRow(category, list)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (shown.isNotEmpty)
+                  PortfolioPositionSquares(rows: shown, holdings: true)
+                else if (list.loading)
+                  const PortfolioSquaresSkeleton(),
+                if (fold != null) ...[
+                  if (shown.isNotEmpty) SizedBox(height: kPortfolioSquareGap.w),
+                  _VenueCard(rows: const [], loading: false, fold: fold),
+                ],
+              ],
             ),
           ),
         ],
@@ -699,8 +711,9 @@ class _BalancesOverviewState extends State<BalancesOverview> {
           Padding(
             key: const ValueKey('portfolio-balance-venues-loading'),
             padding: EdgeInsets.only(top: 14.h),
-            child: const _VenueCard(
-                rows: [], loading: true, skeletonRows: 3),
+            child: widget.sharesHeader
+                ? const PortfolioSquaresSkeleton()
+                : const _VenueCard(rows: [], loading: true, skeletonRows: 3),
           )
         // Nothing open anywhere: Sal's empty state, not two empty venue
         // rows (founder, 27 October 2026). The Portfolio screen asks only
@@ -812,14 +825,17 @@ class _VenueCard extends StatelessWidget {
 /// "See all  N ›" at the foot of a venue's card ("Show less" once
 /// opened): the outcome lists' quiet fold row (market_detail_sheet.dart,
 /// "Show N more"), its text where the rows' titles start, the count in the
-/// venue header's quieter tone.
+/// venue header's quieter tone. [flush]: on a card with no rows above it
+/// (under the Portfolio screen's squares), its text at the card's inset.
 class BalancesFoldRow extends StatelessWidget {
   const BalancesFoldRow(
       {super.key,
       required this.open,
       required this.count,
-      required this.onTap});
+      required this.onTap,
+      this.flush = false});
 
+  final bool flush;
   final bool open;
   final int count;
   final VoidCallback onTap;
@@ -849,7 +865,7 @@ class BalancesFoldRow extends StatelessWidget {
         child: Padding(
           padding: EdgeInsetsDirectional.only(
               start: PortfolioRowInset.of(context) +
-                  (kPortfolioRowImage + kPortfolioRowGap).w,
+                  (flush ? 0 : (kPortfolioRowImage + kPortfolioRowGap).w),
               top: 12.h,
               bottom: 12.h),
           child: Row(

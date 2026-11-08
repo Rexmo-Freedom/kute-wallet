@@ -24,7 +24,7 @@
 //     6 November 2026), as on the Portfolio. Each square IS the position's
 //     own row (portfolioVenueLists), so a tap opens the position exactly
 //     as the Portfolio's row does. Still reading with nothing listed: the
-//     squares' skeletons. Nothing open: the app's empty state, Sal over
+//     squares' skeletons (PortfolioSquaresSkeleton). Nothing open: the app's empty state, Sal over
 //     "No open positions";
 //   * OPEN P&L under the squares ([DollarsPnlStrip]; founder, 6 November
 //     2026: the card is the open positions' P&L): what the positions open
@@ -81,7 +81,7 @@ import 'package:kute/screens/portfolio/components/balances_overview.dart'
 import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart'
     show pnlResultColor;
 import 'package:kute/screens/portfolio/components/position_rows.dart'
-    show PortfolioPositionSquares, portfolioSquareHeight;
+    show PortfolioPositionSquares, PortfolioSquaresSkeleton;
 import 'package:kute/screens/portfolio/investments_portfolio.dart'
     show PortfolioSection;
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
@@ -176,7 +176,8 @@ class DollarsActivityTab extends ConsumerWidget {
       positions = PortfolioPositionSquares(
           key: const ValueKey('dollars-activity-squares'), rows: squares);
     } else if (loading) {
-      positions = const _SquaresSkeleton(key: ValueKey('dollars-activity-loading'));
+      positions = const PortfolioSquaresSkeleton(
+          key: ValueKey('dollars-activity-loading'));
     } else {
       positions = Padding(
         key: const ValueKey('dollars-activity-empty'),
@@ -270,28 +271,6 @@ class _Heading extends StatelessWidget {
           ),
         ),
       );
-}
-
-/// Two squares' shimmer while the venues are first read with nothing
-/// listed: the squares' own size, so nothing moves when they land.
-class _SquaresSkeleton extends StatelessWidget {
-  const _SquaresSkeleton({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final height = portfolioSquareHeight(context);
-    Widget square() => KuteSkeleton(
-          child: SkeletonBar(double.infinity, height,
-              radius: PremiumGroupContainer.radius),
-        );
-    return Row(
-      children: [
-        Expanded(child: square()),
-        SizedBox(width: 10.w),
-        Expanded(child: square()),
-      ],
-    );
-  }
 }
 
 /// The OPEN P&L under the squares (see the file header; founder, 6

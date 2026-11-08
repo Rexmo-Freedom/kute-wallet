@@ -448,9 +448,15 @@ class _HomeActivityHeading extends StatelessWidget {
 /// [children] two to a row, 10 apart each way, each half the width less
 /// the gap (the home's "Latest" squares).
 class ActivitySquareGrid extends StatelessWidget {
-  const ActivitySquareGrid({super.key, required this.children});
+  const ActivitySquareGrid(
+      {super.key, required this.children, this.equalHeights = false});
 
   final List<Widget> children;
+
+  /// The squares of a row stretched to the tallest of it, for squares as
+  /// tall as what they hold (the Portfolio screen's Positions,
+  /// PortfolioPositionSquares.holdings). False: squares of a fixed height.
+  final bool equalHeights;
 
   @override
   Widget build(BuildContext context) {
@@ -462,8 +468,10 @@ class ActivitySquareGrid extends StatelessWidget {
         children: [
           for (var i = 0; i < children.length; i += 2) ...[
             if (i > 0) SizedBox(height: gap),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            _tall(Row(
+              crossAxisAlignment: equalHeights
+                  ? CrossAxisAlignment.stretch
+                  : CrossAxisAlignment.start,
               children: [
                 SizedBox(width: side, child: children[i]),
                 if (i + 1 < children.length) ...[
@@ -471,12 +479,14 @@ class ActivitySquareGrid extends StatelessWidget {
                   SizedBox(width: side, child: children[i + 1]),
                 ],
               ],
-            ),
+            )),
           ],
         ],
       );
     });
   }
+
+  Widget _tall(Widget row) => equalHeights ? IntrinsicHeight(child: row) : row;
 }
 
 /// Every entry of [scope], newest first, as slivers for the Activity

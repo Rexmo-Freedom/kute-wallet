@@ -141,8 +141,12 @@ final _nvdaMarket = HlMarket(
     isHip3: true);
 
 Future<void> _pump(WidgetTester tester, Widget row,
-    {double width = 390, double textScale = 1, String currency = 'USD'}) async {
-  tester.view.physicalSize = Size(width, 400);
+    {double width = 390,
+    double textScale = 1,
+    String currency = 'USD',
+    int balancePrivacy = 0,
+    double height = 400}) async {
+  tester.view.physicalSize = Size(width, height);
   tester.view.devicePixelRatio = 1;
   tester.platformDispatcher.textScaleFactorTestValue = textScale;
   addTearDown(tester.view.resetPhysicalSize);
@@ -167,7 +171,8 @@ Future<void> _pump(WidgetTester tester, Widget row,
           biometricsEnabled: false,
           bitcoinElectrumNode: '',
           nodeType: '',
-          reviewDone: true))),
+          reviewDone: true,
+          balancePrivacy: balancePrivacy))),
     ],
     child: ScreenUtilInit(
       designSize: const Size(430, 932),
@@ -698,6 +703,190 @@ void main() {
       expect(bar.bottom, lessThanOrEqualTo(tester.getRect(rows.first).bottom));
     });
   }
+
+  group('the Portfolio screen\'s Positions as squares (8 November 2026)', () {
+    test(
+        'the line under a square\'s name leads with the side, then the state, '
+        'the event last, so a narrow square never loses what is held', () {
+      const held = (
+        title: 'Sunderland AFC',
+        context: 'Sunderland AFC vs. Chelsea FC',
+        titleIsSide: false
+      );
+      expect(polyPositionSquareLine(held, 'Yes'),
+          'Yes · Sunderland AFC vs. Chelsea FC');
+      expect(polyPositionSquareLine(held, 'Yes', status: 'Settled'),
+          'Yes · Settled · Sunderland AFC vs. Chelsea FC');
+      // The title says the side: no side again.
+      expect(
+          polyPositionSquareLine(
+              (title: 'Verstappen', context: 'F1', titleIsSide: true),
+              'Verstappen',
+              status: 'Settled'),
+          'Settled · F1');
+      // The event no more than the title: left out.
+      expect(
+          polyPositionSquareLine(
+              (title: 'Bitcoin', context: 'bitcoin', titleIsSide: false),
+              'Down'),
+          'Down');
+      // Nothing else to say: the side, never an empty line.
+      expect(
+          polyPositionSquareLine(
+              (title: 'Verstappen', context: '', titleIsSide: true),
+              'Verstappen'),
+          'Verstappen');
+    });
+
+    Widget row(String title, String line) => PortfolioPositionRow(
+          key: ValueKey(title),
+          leading: const SizedBox(),
+          title: title,
+          subtitle: 'Event only',
+          squareLine: line,
+          hiddenSquareLine: 'Side only',
+          value: r'$12.34',
+          pnl: const (text: '+5.4%', tone: PortfolioPnlTone.up),
+          pnlAmount: r'$0.61',
+          onTap: () {},
+        );
+
+    const long = 'Will the Federal Reserve cut interest rates by more than '
+        'fifty basis points at the December 2026 meeting';
+
+    for (final scale in [1.0, 1.5]) {
+      testWidgets(
+          'at ${(scale * 100).round()} % text: a long name is never cut, its '
+          'square grows, its neighbour with it, and nothing overflows',
+          (tester) async {
+        await _pump(
+            tester,
+            width: 375,
+            height: 900,
+            textScale: scale,
+            PortfolioPositionSquares(
+                holdings: true, rows: [row(long, 'Yes · Event'), row('B', 'No')]));
+        expect(tester.takeException(), isNull);
+        final title = tester.widget<Text>(
+            find.byKey(const ValueKey('portfolio-row-title')).first);
+        expect(title.data, long);
+        expect(title.maxLines, isNull);
+        expect(title.overflow, isNull);
+        final squares = find.byKey(const ValueKey('portfolio-square'));
+        final left = tester.getRect(squares.at(0));
+        final right = tester.getRect(squares.at(1));
+        expect(left.height, right.height);
+        expect(
+            left.height,
+            greaterThan(portfolioSquareHeight(
+                tester.element(find.byKey(ValueKey(long))))));
+      });
+    }
+
+    testWidgets(
+        'one line each: exactly the Activity tab\'s square, at the same '
+        'height', (tester) async {
+      await _pump(
+          tester,
+          width: 375,
+          PortfolioPositionSquares(rows: [row('A', 'Yes'), row('B', 'No')]));
+      final activity = tester.getRect(
+          find.byKey(const ValueKey('portfolio-square')).first);
+      await _pump(
+          tester,
+          width: 375,
+          PortfolioPositionSquares(
+              holdings: true, rows: [row('A', 'Yes'), row('B', 'No')]));
+      final portfolio = tester.getRect(
+          find.byKey(const ValueKey('portfolio-square')).first);
+      expect(portfolio.size.width, activity.size.width);
+      expect(portfolio.size.height,
+          moreOrLessEquals(activity.size.height, epsilon: 2.5));
+    });
+
+    testWidgets(
+        'the Activity tab\'s squares keep their subtitle, one line and the '
+        'one height, and read no setting', (tester) async {
+      await _pump(tester, PortfolioPositionSquares(rows: [row(long, 'Yes'), row('B', 'No')]));
+      final title = tester.widget<Text>(
+          find.byKey(const ValueKey('portfolio-row-title')).first);
+      expect(title.maxLines, 1);
+      expect(
+          tester
+              .widget<Text>(
+                  find.byKey(const ValueKey('portfolio-row-subtitle')).first)
+              .data,
+          'Event only');
+    });
+
+    testWidgets(
+        'an odd count: the squares two by two, the last the full-width '
+        'compact card, its long name whole', (tester) async {
+      await _pump(
+          tester,
+          width: 375,
+          height: 900,
+          PortfolioPositionSquares(holdings: true, rows: [
+            row('A', 'Yes'),
+            row('B', 'No'),
+            row(long, 'Yes · Event'),
+          ]));
+      expect(tester.takeException(), isNull);
+      expect(find.byKey(const ValueKey('portfolio-square')), findsNWidgets(2));
+      final wide = find.byKey(const ValueKey('portfolio-wide'));
+      expect(wide, findsOneWidget);
+      final title = tester.widget<Text>(find.descendant(
+          of: wide, matching: find.byKey(const ValueKey('portfolio-row-title'))));
+      expect(title.maxLines, isNull);
+      expect(title.data, long);
+    });
+
+    for (final (name, rows) in [
+      ('a square', 2),
+      ('the wide card', 1),
+    ]) {
+      testWidgets(
+          '$name with balances hidden: the value and the P&L masked with no '
+          'colour, the line without a sum or a size, the tap still open',
+          (tester) async {
+        var tapped = 0;
+        Widget hidden(String title) => PortfolioPositionRow(
+              key: ValueKey(title),
+              leading: const SizedBox(),
+              title: title,
+              subtitle: 'Long · 0.5 BTC',
+              hiddenSquareLine: 'Long',
+              value: r'$12.34',
+              pnl: const (text: '−5.4%', tone: PortfolioPnlTone.down),
+              pnlAmount: r'$0.61',
+              onTap: () => tapped++,
+            );
+        await _pump(
+            tester,
+            width: 375,
+            balancePrivacy: 1,
+            PortfolioPositionSquares(holdings: true, rows: [
+              for (var i = 0; i < rows; i++) hidden('P$i'),
+            ]));
+        expect(tester.takeException(), isNull);
+        expect(find.textContaining('12.34'), findsNothing);
+        expect(find.textContaining('0.5 BTC'), findsNothing);
+        expect(find.text('Long'), findsNWidgets(rows));
+        final value =
+            tester.widget<RollingFigure>(find.byKey(const ValueKey('portfolio-row-value')).first);
+        final usd =
+            tester.widget<RollingFigure>(find.byKey(const ValueKey('portfolio-row-pnl-usd')).first);
+        final percent =
+            tester.widget<RollingFigure>(find.byKey(const ValueKey('portfolio-row-pnl')).first);
+        expect(value.text, '••••••');
+        expect(usd.text, '••••••');
+        expect(percent.text, '••%');
+        expect(percent.style.color, AppColorsExtension.light().textSecondary);
+        await tester.tap(find.text('P0'));
+        expect(tapped, 1);
+      });
+    }
+  });
 
   testWidgets('a tap opens what the card opened, with the same event',
       (tester) async {

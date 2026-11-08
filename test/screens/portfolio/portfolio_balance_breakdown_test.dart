@@ -53,8 +53,6 @@ import 'package:kute/screens/portfolio/portfolio_balance_breakdown.dart';
 import 'package:kute/screens/shared/charts/kute_donut_chart.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
-import 'package:kute/screens/hyperliquid/components/hl_format.dart'
-    show HlMetaChip;
 import 'package:kute/screens/shared/kute_pill_tabs.dart'
     show KutePill, KutePillSize;
 import 'package:kute/screens/shared/rubber_band_progress.dart';
@@ -1635,10 +1633,10 @@ void main() {
     for (final scale in [1.0, 1.3]) {
       testWidgets(
           'the Portfolio screen at 375 pt and ${(scale * 100).round()} % '
-          'text: each venue ONE soft card under its plain heading (the home '
-          'Activity list\'s), its rows the Positions rows (the name with its '
-          'side chip, the value over "+\$1.20 (+8.0%)", the hairline between '
-          'them, no chance bar), every figure whole inside the card',
+          'text: each venue the Activity tab\'s squares under its plain '
+          'heading, on the app\'s one soft card (a lone position the wide '
+          'card), the side on the line under the name, every figure whole '
+          'inside its card',
           (tester) async {
         final c = await _pump(tester,
             home: sharesBreakdown,
@@ -1700,87 +1698,84 @@ void main() {
         expect(tester.takeException(), isNull, reason: 'no overflow');
 
         final inset = 16 * 375 / 430;
-        for (final (venue, title, rows) in [
-          ('investing', 'Investing', 1),
-          ('predictions', 'Predictions', 2),
+        final pad = 14 * 375 / 430;
+        for (final (venue, title, shape, rows) in [
+          ('investing', 'Investing', 'portfolio-wide', 1),
+          ('predictions', 'Predictions', 'portfolio-square', 2),
         ]) {
           final group =
               find.byKey(ValueKey('portfolio-balance-$venue-positions'));
-          final card =
-              find.descendant(of: group, matching: find.byType(PortfolioCardList));
-          // ONE soft card: the Activity day card's own decoration.
-          expect(card, findsOneWidget, reason: venue);
-          final box = tester.widget<DecoratedBox>(find
-              .descendant(of: card, matching: find.byType(DecoratedBox))
-              .first);
-          final deco = box.decoration as BoxDecoration;
-          expect(deco.borderRadius, BorderRadius.circular(20 * 375 / 430));
-          expect(deco.boxShadow, isNotEmpty);
-          expect(deco.color, AppColorsExtension.light().surface);
-          final cardRect = tester.getRect(card);
-          expect(cardRect.left, moreOrLessEquals(inset, epsilon: 0.5));
-          expect(cardRect.right, moreOrLessEquals(375 - inset, epsilon: 0.5));
-          // Its title above it: 13 sp, textSecondary, 8 over the card.
+          final cards = find.descendant(
+              of: group, matching: find.byKey(ValueKey(shape)));
+          expect(cards, findsNWidgets(rows), reason: venue);
+          expect(find.descendant(of: group, matching: find.byType(HlListRow)),
+              findsNothing);
+          expect(
+              find.descendant(
+                  of: group, matching: find.byType(PortfolioCardList)),
+              findsNothing,
+              reason: 'no card around the squares');
+          final groupRect = tester.getRect(group);
+          expect(groupRect.left, moreOrLessEquals(inset, epsilon: 0.5));
+          expect(groupRect.right, moreOrLessEquals(375 - inset, epsilon: 0.5));
+          // Its title above it: 13 sp, textSecondary, 8 over the squares.
           final titleText = tester.widget<Text>(find.text(title));
           expect(titleText.style!.fontSize, closeTo(13 * 375 / 430, 0.01));
           expect(titleText.style!.color,
               AppColorsExtension.light().textSecondary);
-          expect(cardRect.top - tester.getRect(find.text(title)).bottom,
+          expect(
+              tester.getRect(cards.first).top -
+                  tester.getRect(find.text(title)).bottom,
               closeTo(8 * 1000 / 932, 0.5));
-          // The Positions rows: the card's hairline between them.
-          expect(find.descendant(of: card, matching: find.byType(Divider)),
-              findsNWidgets(rows - 1));
-          final rowFinder = find.descendant(
-              of: card, matching: find.byType(PortfolioPositionRow));
-          expect(rowFinder, findsNWidgets(rows));
-          expect(find.descendant(of: card, matching: find.byType(HlListRow)),
-              findsNothing);
           for (var i = 0; i < rows; i++) {
-            final row = rowFinder.at(i);
-            Rect inRow(String key) => tester.getRect(find
-                .descendant(of: row, matching: find.byKey(ValueKey(key)))
+            final card = cards.at(i);
+            // The app's one soft card.
+            final deco = tester.widget<Container>(card).decoration
+                as BoxDecoration;
+            expect(deco.borderRadius, BorderRadius.circular(20 * 375 / 430));
+            expect(deco.boxShadow, isNotEmpty);
+            expect(deco.color, AppColorsExtension.light().surface);
+            final cardRect = tester.getRect(card);
+            Rect inCard(String key) => tester.getRect(find
+                .descendant(of: card, matching: find.byKey(ValueKey(key)))
                 .first);
-            final value = inRow('portfolio-row-value');
-            final pnl = inRow('portfolio-row-pnl');
-            final title = inRow('portfolio-row-title');
-            // Whole, inside the card's 16 inset, right-aligned.
-            for (final figure in [value, pnl]) {
-              expect(figure.right,
-                  lessThanOrEqualTo(cardRect.right - inset + 0.5),
-                  reason: '$venue row $i figure past the card\'s inset');
-              expect(figure.left, greaterThan(title.left));
+            // Whole, inside the card's 14 inset.
+            for (final key in [
+              'portfolio-row-value',
+              'portfolio-row-pnl',
+              'portfolio-row-pnl-usd',
+              'portfolio-row-title',
+              'portfolio-row-subtitle',
+            ]) {
+              final r = inCard(key);
+              expect(r.right, lessThanOrEqualTo(cardRect.right - pad + 0.5),
+                  reason: '$venue card $i $key past the inset');
+              expect(r.bottom, lessThanOrEqualTo(cardRect.bottom - pad + 0.5),
+                  reason: '$venue card $i $key under the inset');
             }
-            expect(value.right,
-                moreOrLessEquals(cardRect.right - inset, epsilon: 0.5));
-            expect(pnl.right,
-                moreOrLessEquals(cardRect.right - inset, epsilon: 0.5));
-            // The title ends before the figures start.
-            expect(title.right, lessThanOrEqualTo(value.left));
           }
         }
-        // No size, no chance bar, no dot, no leverage: the position screen
-        // has them.
+        // The squares of a row equally tall.
+        final squares = find.byKey(const ValueKey('portfolio-square'));
+        expect(tester.getRect(squares.at(0)).height,
+            moreOrLessEquals(tester.getRect(squares.at(1)).height, epsilon: 0.5));
+        // No chance bar, no dot, no leverage: the position screen has them.
         for (final key in [
           'portfolio-row-chance',
           'portfolio-row-dot',
         ]) {
           expect(find.byKey(ValueKey(key)), findsNothing, reason: key);
         }
-        expect(find.textContaining('0.1 BTC'), findsNothing);
         expect(find.textContaining('1x'), findsNothing);
-        // The side is the chip after the name: Long, No, Yes.
-        final chips = [
-          for (final w in tester.widgetList<HlMetaChip>(find.descendant(
-              of: find.byType(PortfolioCardList),
-              matching: find.byType(HlMetaChip))))
-            w.text
+        // The side first on the line under the name: Long, No, Yes.
+        final lines = [
+          for (final w in tester.widgetList<Text>(
+              find.byKey(const ValueKey('portfolio-row-subtitle'))))
+            w.data!
         ];
-        expect(chips, containsAll(['Long', 'No', 'Yes']));
-        // The P&L since it was opened: "+$0.40 (+0.0%)" style, signed.
-        for (final t in tester.widgetList<RollingFigure>(
-            find.byKey(const ValueKey('portfolio-row-pnl')))) {
-          expect(t.text, matches(RegExp(r'^[+−]?\$[\d,.]+ \([+−]?[\d.]+%\)$')));
-        }
+        expect(lines.first, startsWith('Long'));
+        expect(lines.where((l) => l.startsWith('No')), hasLength(1));
+        expect(lines.where((l) => l.startsWith('Yes')), hasLength(1));
         expect(tester.takeException(), isNull);
       });
     }

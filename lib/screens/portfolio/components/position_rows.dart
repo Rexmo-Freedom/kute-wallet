@@ -42,22 +42,29 @@
 // (the Activity rows' rule), and scales down past that: never cut at the
 // card's edge, at 375 pt and at large text alike.
 //
-// THE PORTFOLIO SCREEN'S POSITIONS (the redesign of 7 November 2026,
-// [PortfolioRowLayout.position]): the same row widgets as one plain row
-// each under their venue's heading: the picture, the name with the side
-// held as a small neutral chip after it ("Long", "Short", "Yes", "No";
-// HlMetaChip), a quiet note under it only where there is one (the event,
-// a state), and at the end the value over the P&L since it was opened,
-// "+$1.20 (+8.0%)" in its colour ([portfolioSignedPnl]); no size, no
-// leverage, no mark price, no return on equity (the position screen has
-// the entry, the size, what was put in and the liquidation, or what a
-// prediction pays if it wins). The same figures as every other shape and
-// as the brag card (hlLivePnl on the margin, the shares at the live
-// price). The P&L tab's closed positions are drawn the same
-// ([PortfolioClosedRow]). The biggest positions as SQUARES
-// ([PortfolioRowLayout.square], [PortfolioPositionSquares]) and the
-// Investing list's own row ([PortfolioRowLayout.market]) are the Dollars
-// Activity tab's and the Investing list's.
+// THE PORTFOLIO SCREEN'S POSITIONS (founder, 8 November 2026, of the rows
+// in the Positions pill: "shouldnt these be also squarish like we show
+// when we have investments"): the same row widgets as the Dollars Activity
+// tab's SQUARES ([PortfolioPositionSquares], [PortfolioRowLayout.square]),
+// two by two under their venue's heading, an odd last one the full-width
+// compact card ([PortfolioRowLayout.wide], the no-orphan rule). The same
+// figures as every other shape and as the brag card (hlLivePnl on the
+// margin, the shares at the live price). Asked with
+// [PortfolioPositionSquares.holdings], they read what they hold whatever
+// its length, where the Activity tab's keep to their one line each:
+//   * the line under the name starts with the side, then the state, and
+//     the event last ([PortfolioPositionRow.squareLine],
+//     [polyPositionSquareLine]: "Yes · Settled · Brazil Presidential
+//     Election"), so wrapping or not the side is never what goes;
+//   * the name and that line wrap to the lines they need and the squares
+//     of a row grow together (kute_action_cards.dart: "never cut");
+//   * with balances hidden the value and the P&L are masked ("••••••",
+//     "••%", no colour) and the line says nothing of the money or the size
+//     ([PortfolioPositionRow.hiddenSquareLine]).
+// The rows drawn the older way: the Investing list's own row
+// ([PortfolioRowLayout.market]), and the P&L tab's closed positions
+// ([PortfolioClosedRow], [PortfolioRowLayout.position]: the name with its
+// side chip, HlMetaChip, the day under it, the result at the end).
 // Every row is its own widget watching only what it needs, so a price
 // tick repaints one row. Taps open the same screens the cards opened,
 // with the same `open_investments_position_tapped` event.
@@ -110,6 +117,8 @@ import 'package:kute/screens/shared/all_activity.dart'
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/screens/shared/kute_motion.dart'
     show KutePressable, RollingFigure;
+import 'package:kute/screens/shared/kute_skeleton.dart'
+    show KuteSkeleton, SkeletonBar;
 import 'package:kute/screens/shared/market_groups.dart' show marketGroupDivider;
 import 'package:kute/screens/shared/transactions_builder.dart'
     show kActivitySquareHeight;
@@ -293,9 +302,23 @@ enum PortfolioRowLayout { list, market, square, wide, position }
 /// [PortfolioRowLayout.list].
 class PortfolioRowLayoutScope extends InheritedWidget {
   const PortfolioRowLayoutScope(
-      {super.key, required this.layout, required super.child});
+      {super.key,
+      required this.layout,
+      this.holdings = false,
+      required super.child});
 
   final PortfolioRowLayout layout;
+
+  /// The squares of the Portfolio screen's Positions
+  /// ([PortfolioPositionSquares.holdings]).
+  final bool holdings;
+
+  /// Whether the rows under it are the Portfolio screen's holdings.
+  static bool holdingsOf(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<PortfolioRowLayoutScope>()
+          ?.holdings ??
+      false;
 
   static PortfolioRowLayout of(BuildContext context) =>
       context
@@ -304,7 +327,8 @@ class PortfolioRowLayoutScope extends InheritedWidget {
       PortfolioRowLayout.list;
 
   @override
-  bool updateShouldNotify(PortfolioRowLayoutScope old) => old.layout != layout;
+  bool updateShouldNotify(PortfolioRowLayoutScope old) =>
+      old.layout != layout || old.holdings != holdings;
 }
 
 /// How many of [positions] open positions the Portfolio screen draws as
@@ -336,13 +360,19 @@ const double kPortfolioSquareGap = 10;
 /// one alone included, as one full-width compact card under them
 /// ([PortfolioRowLayout.wide]: the logo, the name over the side held, the
 /// value, the P&L in money over its %), never a lone half square. The
-/// Dollars Activity tab's squares (up to four) and the Portfolio's
-/// (portfolioSquareCount: whole rows of two, the rest as rows) both draw
-/// through it.
+/// Dollars Activity tab's squares (up to four) and the Portfolio screen's
+/// Positions (every position of a venue, [holdings]) both draw through it.
 class PortfolioPositionSquares extends StatelessWidget {
-  const PortfolioPositionSquares({super.key, required this.rows});
+  const PortfolioPositionSquares(
+      {super.key, required this.rows, this.holdings = false});
 
   final List<Widget> rows;
+
+  /// The Portfolio screen's Positions (see the file header): the side
+  /// first, nothing cut, a row of squares as tall as its tallest, the
+  /// figures masked with balances hidden. False: the Activity tab's, one
+  /// line each at the one height.
+  final bool holdings;
 
   @override
   Widget build(BuildContext context) {
@@ -354,15 +384,40 @@ class PortfolioPositionSquares extends StatelessWidget {
         if (paired > 0)
           PortfolioRowLayoutScope(
             layout: PortfolioRowLayout.square,
-            child: ActivitySquareGrid(children: rows.sublist(0, paired)),
+            holdings: holdings,
+            child: ActivitySquareGrid(
+                equalHeights: holdings, children: rows.sublist(0, paired)),
           ),
         if (rows.length.isOdd) ...[
           if (paired > 0) SizedBox(height: kPortfolioSquareGap.w),
           PortfolioRowLayoutScope(
             layout: PortfolioRowLayout.wide,
+            holdings: holdings,
             child: rows.last,
           ),
         ],
+      ],
+    );
+  }
+}
+
+/// Two squares' shimmer while a venue is first read with nothing listed:
+/// the squares' own size, so nothing moves when they land.
+class PortfolioSquaresSkeleton extends StatelessWidget {
+  const PortfolioSquaresSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final height = portfolioSquareHeight(context);
+    Widget square() => KuteSkeleton(
+          child: SkeletonBar(double.infinity, height,
+              radius: PremiumGroupContainer.radius),
+        );
+    return Row(
+      children: [
+        Expanded(child: square()),
+        SizedBox(width: kPortfolioSquareGap.w),
+        Expanded(child: square()),
       ],
     );
   }
@@ -659,6 +714,26 @@ String polyPositionRowLine(PolyRowNames names, String side, {String? status}) {
   return parts.isEmpty ? (status ?? side) : parts.join(' · ');
 }
 
+/// The line under a Predictions square's name on the Portfolio screen's
+/// Positions ([PortfolioPositionRow.squareLine]): what is held first, so
+/// it is the last thing a narrow square could lose: the side (none where
+/// the title already is it, [polyPositionRowChip]), the [status] where
+/// there is one, then the event where it is not the title ("Yes ·
+/// Sunderland AFC vs. Chelsea FC", "No · Settled"). Pure for the tests.
+String polyPositionSquareLine(PolyRowNames names, String side,
+    {String? status}) {
+  final ctx = names.context.isNotEmpty &&
+          names.context.toLowerCase() != names.title.toLowerCase()
+      ? names.context
+      : '';
+  final parts = [
+    if (polyPositionRowChip(names, side) case final chip?) chip,
+    if (status != null) status,
+    if (ctx.isNotEmpty) ctx,
+  ];
+  return parts.isEmpty ? side.trim() : parts.join(' · ');
+}
+
 /// The quiet note under a Predictions row's name on the Portfolio
 /// screen's Positions ([PortfolioRowLayout.position], whose side chip
 /// says the side): the event where it is not the title, then the
@@ -935,7 +1010,18 @@ class PortfolioPositionRow extends StatelessWidget {
     this.chip,
     this.note,
     this.valueColor,
+    this.squareLine,
+    this.hiddenSquareLine,
   });
+
+  /// The line under the name on the Portfolio screen's Positions
+  /// ([PortfolioPositionSquares.holdings]), where [subtitle] would lose
+  /// the side; null: [subtitle].
+  final String? squareLine;
+
+  /// That line with balances hidden, where it holds a size or a sum; null:
+  /// the same line.
+  final String? hiddenSquareLine;
 
   /// The value's colour on the Positions layout (a closed position's
   /// result in its colour); null: the text colour.
@@ -973,6 +1059,52 @@ class PortfolioPositionRow extends StatelessWidget {
   final String? detail;
   final VoidCallback? onTap;
 
+  /// This row as a square or the full-width card on the Portfolio screen's
+  /// Positions (see the file header): whole, and masked with balances
+  /// hidden. The one place these shapes read the setting, so the rows
+  /// elsewhere go on needing no provider above them.
+  Widget _holding({required bool square}) => Consumer(
+        builder: (context, ref, _) {
+          final visible =
+              ref.watch(settingsProvider.select((s) => s.balanceVisible));
+          final under = pnl;
+          final PortfolioCornerPnl? change = under == null
+              ? null
+              : visible
+                  ? portfolioCornerPnl(context, under, amount: pnlAmount)
+                  : (
+                      amount: pnlAmount == null ? null : _kHiddenFigure,
+                      percent: '••%',
+                      color: context.colors.textSecondary,
+                    );
+          final line = visible
+              ? squareLine ?? subtitle
+              : hiddenSquareLine ?? squareLine ?? subtitle;
+          final shown = visible ? value : _kHiddenFigure;
+          return square
+              ? _PositionSquare(
+                  leading: leading,
+                  name: title,
+                  subtitle: line,
+                  value: shown,
+                  change: change,
+                  detail: detail,
+                  onTap: onTap,
+                  whole: true,
+                )
+              : _PositionWide(
+                  leading: leading,
+                  name: title,
+                  subtitle: line,
+                  value: shown,
+                  change: change,
+                  detail: detail,
+                  onTap: onTap,
+                  whole: true,
+                );
+        },
+      );
+
   @override
   Widget build(BuildContext context) {
     final secondary = portfolioRowSubStyle(context);
@@ -997,6 +1129,12 @@ class PortfolioPositionRow extends StatelessWidget {
               change != null ? 'portfolio-row-pnl' : 'portfolio-row-detail'),
           onTap: onTap,
         );
+      case PortfolioRowLayout.square
+          when PortfolioRowLayoutScope.holdingsOf(context):
+        return _holding(square: true);
+      case PortfolioRowLayout.wide
+          when PortfolioRowLayoutScope.holdingsOf(context):
+        return _holding(square: false);
       case PortfolioRowLayout.square:
         // The line under the name says the side held: the title alone.
         return _PositionSquare(
@@ -1132,6 +1270,9 @@ class PortfolioPositionRow extends StatelessWidget {
     );
   }
 }
+
+/// What balances hidden write in place of a sum.
+const String _kHiddenFigure = '••••••';
 
 /// "+$1.20 (+8.0%)": a P&L as the Positions rows write it, the money
 /// signed and its percent after it; "$0.00 (0.0%)" when flat. [amount] is
@@ -1296,7 +1437,9 @@ Widget _figureFit(Widget figure) => FittedBox(
 /// logo ([kPortfolioSquareIcon]) top-left, the P&L ([change]: in money
 /// over its %, or the quiet [detail]) top-right, then the name and the
 /// line under it quiet over the value at 22 sp. The whole square taps through to the position
-/// on the press spring.
+/// on the press spring. [whole] (the Portfolio screen's Positions): the
+/// name and the line wrap to the lines they need, the square at least that
+/// tall and as tall as its row gives it (ActivitySquareGrid.equalHeights).
 class _PositionSquare extends StatelessWidget {
   const _PositionSquare({
     required this.leading,
@@ -1306,7 +1449,10 @@ class _PositionSquare extends StatelessWidget {
     required this.change,
     required this.detail,
     required this.onTap,
+    this.whole = false,
   });
+
+  final bool whole;
 
   final Widget leading;
   final String name;
@@ -1342,7 +1488,10 @@ class _PositionSquare extends StatelessWidget {
       enabled: onTap != null,
       child: Container(
         key: const ValueKey('portfolio-square'),
-        height: portfolioSquareHeight(context),
+        height: whole ? null : portfolioSquareHeight(context),
+        constraints: whole
+            ? BoxConstraints(minHeight: portfolioSquareHeight(context))
+            : null,
         decoration: decoration,
         child: Material(
           color: Colors.transparent,
@@ -1407,16 +1556,17 @@ class _PositionSquare extends StatelessWidget {
                     ],
                   ),
                   const Spacer(),
+                  if (whole) SizedBox(height: 10.w),
                   Text(name,
                       key: const ValueKey('portfolio-row-title'),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      maxLines: whole ? null : 1,
+                      overflow: whole ? null : TextOverflow.ellipsis,
                       style: quiet),
                   SizedBox(height: 2.h),
                   Text(subtitle,
                       key: const ValueKey('portfolio-row-subtitle'),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      maxLines: whole ? null : 1,
+                      overflow: whole ? null : TextOverflow.ellipsis,
                       style: quiet.copyWith(
                           color: c.textTertiary,
                           fontSize: 12.sp,
@@ -1457,6 +1607,8 @@ class _PositionSquare extends StatelessWidget {
 /// P&L as the square's corner writes it (the money over its %, or the
 /// quiet [detail]) in its colour. Its own content's height, never taller
 /// than it needs; the whole card taps through on the press spring.
+/// [whole] (the Portfolio screen's Positions): the name and the line wrap
+/// to the lines they need.
 class _PositionWide extends StatelessWidget {
   const _PositionWide({
     required this.leading,
@@ -1466,7 +1618,10 @@ class _PositionWide extends StatelessWidget {
     required this.change,
     required this.detail,
     required this.onTap,
+    this.whole = false,
   });
+
+  final bool whole;
 
   final Widget leading;
   final String name;
@@ -1521,14 +1676,14 @@ class _PositionWide extends StatelessWidget {
                         children: [
                           Text(name,
                               key: const ValueKey('portfolio-row-title'),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                              maxLines: whole ? null : 1,
+                              overflow: whole ? null : TextOverflow.ellipsis,
                               style: portfolioRowTitleStyle(context)),
                           SizedBox(height: 2.h),
                           Text(subtitle,
                               key: const ValueKey('portfolio-row-subtitle'),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                              maxLines: whole ? null : 1,
+                              overflow: whole ? null : TextOverflow.ellipsis,
                               style: portfolioRowSubStyle(context)),
                         ],
                       ),
@@ -1738,6 +1893,7 @@ class PolyPositionRow extends ConsumerWidget {
             question: event == null ? p.marketQuestion : null,
             date: _rowDate(context)),
         subtitle: polyPositionRowLine(names, p.outcome, status: status),
+        squareLine: polyPositionSquareLine(names, p.outcome, status: status),
         chip: polyPositionRowChip(names, p.outcome),
         note: polyPositionRowNote(names, status: status),
         value: money(value),
@@ -1782,18 +1938,23 @@ class ComboPositionRow extends StatelessWidget {
           ? l10n.comboLegLost
           : settled != null
               ? l10n.activitySettled
-              : '${l10n.comboStake} ${formatHlUsd(p.stakeUsd)}',
+              : '${l10n.comboStake} ${formatDollars(p.stakeUsd)}',
+      hiddenSquareLine: lost
+          ? l10n.comboLegLost
+          : settled != null
+              ? l10n.activitySettled
+              : '${l10n.comboStake} $_kHiddenFigure',
       note: lost
           ? l10n.comboLegLost
           : settled != null
               ? l10n.activitySettled
-              : '${l10n.comboStake} ${formatHlUsd(p.stakeUsd)}',
-      value: formatHlUsd(value),
+              : '${l10n.comboStake} ${formatDollars(p.stakeUsd)}',
+      value: formatDollars(value),
       pnl: lost || settled != null
           ? portfolioPnlPill(pnl,
               percent: p.stakeUsd > 0 ? pnl / p.stakeUsd * 100 : null)
           : null,
-      pnlAmount: formatHlUsd(pnl.abs()),
+      pnlAmount: formatDollars(pnl.abs()),
       detail: l10n.comboEstimatedValue,
       onTap: () {
         HapticFeedback.selectionClick();
@@ -1829,6 +1990,7 @@ class PlacingBetRow extends ConsumerWidget {
       listName: polyPositionListName(names, p.outcomeName,
           question: p.marketQuestion, date: _rowDate(context)),
       subtitle: polyPositionRowLine(names, p.outcomeName, status: step),
+      squareLine: polyPositionSquareLine(names, p.outcomeName, status: step),
       chip: polyPositionRowChip(names, p.outcomeName),
       note: polyPositionRowNote(names, status: step),
       value: formatDollars(p.amount),
@@ -1888,8 +2050,8 @@ class HlPositionRow extends ConsumerWidget {
           coin,
       subtitle: '${p.isLong ? l10n.longLabel : l10n.shortLabel} · '
           '${formatHlSize(p.szi.abs())} ${_ticker(coin)}',
-      // Positions: the side alone; the size and the entry are on the
-      // position screen.
+      // Balances hidden: the side alone, no size.
+      hiddenSquareLine: p.isLong ? l10n.longLabel : l10n.shortLabel,
       chip: p.isLong ? l10n.longLabel : l10n.shortLabel,
       value: money(hlCloseValue(p, liveMid: mid)),
       pnl: portfolioPnlPill(pnl, percent: roe * 100),
@@ -1934,6 +2096,7 @@ class HlSpotRow extends ConsumerWidget {
           hlFriendlyName(balance.coin) ?? market?.unitAssetName ?? balance.coin,
       subtitle:
           '${formatHlSize(balance.total)} ${balance.coin} · ${l10n.investingSpot}',
+      hiddenSquareLine: l10n.investingSpot,
       value: value == null ? '—' : money(value),
       pnl: pnl == null
           ? null

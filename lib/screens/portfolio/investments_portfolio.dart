@@ -18,9 +18,10 @@
 //     session, Positions first and the default):
 //       - POSITIONS (the `balances` section, its key kept for links): the
 //         open positions by value under plain "Investing" and
-//         "Predictions" headings, each row its value with the P&L since it
-//         was opened under it (PortfolioBalanceBreakdown.venuesOnly,
-//         components/balances_overview.dart); nothing open: "No open
+//         "Predictions" headings, as the Dollars Activity tab's squares
+//         two by two (PortfolioBalanceBreakdown.venuesOnly,
+//         components/balances_overview.dart,
+//         PortfolioPositionSquares.holdings); nothing open: "No open
 //         positions" with Browse Investing;
 //       - P&L (the `charts` section): "You're up $7.55" over the hero's
 //         range, the two rows that add up to it (from closed positions, on

@@ -931,8 +931,9 @@ void main() {
 
   testWidgets(
       'Positions: the open positions under plain "Investing" and '
-      '"Predictions" headings, biggest first, each row the name with its '
-      'side chip over nothing else, its value over "+\$X (+Y%)"; no squares',
+      '"Predictions" headings, biggest first, as the Activity tab\'s squares '
+      '(an odd last one the wide card): the P&L in money over its %, the '
+      'side first on the line under the name',
       (tester) async {
     await _mount(tester,
         state: _bothAtWork,
@@ -943,8 +944,6 @@ void main() {
           ..._predictionsHistory(),
           ..._sized({'a': 2, 'b': 8, 'c': 4}),
         ]);
-    expect(
-        find.byKey(const ValueKey('portfolio-balance-squares')), findsNothing);
     expect(find.text('Investing'), findsOneWidget);
     expect(find.text('Predictions'), findsOneWidget);
     expect(find.textContaining('Investing ·'), findsNothing);
@@ -968,9 +967,26 @@ void main() {
       r'$2.40',
       r'$1.20'
     ]);
-    // The P&L since each was opened, signed, its percent after it.
+    // The squares two by two, the odd third the wide card; one lone
+    // Investing position the wide card too. Never a lone half square.
     expect(
-        _rolling(tester, rows.at(0), 'portfolio-row-pnl'), r'+$0.80 (+20.0%)');
+        find.descendant(
+            of: predictions,
+            matching: find.byKey(const ValueKey('portfolio-square'))),
+        findsNWidgets(2));
+    expect(
+        find.descendant(
+            of: predictions,
+            matching: find.byKey(const ValueKey('portfolio-wide'))),
+        findsOneWidget);
+    expect(
+        find.descendant(
+            of: investing,
+            matching: find.byKey(const ValueKey('portfolio-wide'))),
+        findsOneWidget);
+    // The P&L since each was opened: the money over its percent.
+    expect(_rolling(tester, rows.at(0), 'portfolio-row-pnl-usd'), r'▲ $0.80');
+    expect(_rolling(tester, rows.at(0), 'portfolio-row-pnl'), '20.0%');
     expect(
         tester
             .widget<RollingFigure>(find.descendant(
@@ -979,21 +995,17 @@ void main() {
             .style
             .color,
         AppColors.marketUp);
-    // The side as a chip after the name: No on b, Long on BTC.
-    expect(
-        tester
-            .widget<HlMetaChip>(find.descendant(
-                of: rows.at(0), matching: find.byType(HlMetaChip)))
-            .text,
-        'No');
-    expect(
-        tester
-            .widget<HlMetaChip>(find.descendant(
-                of: investing, matching: find.byType(HlMetaChip)))
-            .text,
-        'Long');
-    // No size, no leverage, no mark price, no chance bar on a row.
-    expect(find.textContaining('0.1 BTC'), findsNothing);
+    // The side first on the line under the name: No on b, Long on BTC
+    // (with its size, as on the Activity tab's squares).
+    String line(Finder of) => tester
+        .widget<Text>(find.descendant(
+            of: of,
+            matching: find.byKey(const ValueKey('portfolio-row-subtitle'))))
+        .data!;
+    expect(line(rows.at(0)), startsWith('No'));
+    expect(line(investing), 'Long · 0.1 BTC');
+    expect(find.byType(HlMetaChip), findsNothing);
+    // No leverage, no mark price, no chance bar on a square.
     expect(find.byKey(const ValueKey('portfolio-row-chance')), findsNothing);
     expect(find.textContaining('ROE'), findsNothing);
     await _unmount(tester);
@@ -1126,8 +1138,10 @@ void main() {
       final bar = size.height - kuteBarScrollClearance * size.height / 932;
       expect(tester.getRect(last).bottom, lessThanOrEqualTo(bar + 0.5),
           reason: 'the last row under the bar');
-      // The cards' 16 inset.
-      final inset = 16 * size.width / 430;
+      // The cards' 16 inset; the squares' own 14.
+      final inset = (section == PortfolioSection.balances ? 14 : 16) *
+          size.width /
+          430;
       final right = tester.getRect(card).right - inset + 0.5;
       final texts = find.descendant(of: card, matching: find.byType(Text));
       expect(texts, findsWidgets);
@@ -1162,7 +1176,7 @@ void main() {
         }
       }
 
-      void cardsInGutters(List<Finder> cards) {
+      void cardsInGutters(List<Finder> cards, {double? pad}) {
         for (final card in cards) {
           final r = tester.getRect(card);
           expect(r.left, moreOrLessEquals(gutter, epsilon: 0.5));
@@ -1171,7 +1185,7 @@ void main() {
               .descendant(of: card, matching: find.byType(Text))
               .evaluate()) {
             expect(tester.getRect(find.byWidget(e.widget)).right,
-                lessThanOrEqualTo(r.right - gutter + 0.5),
+                lessThanOrEqualTo(r.right - (pad ?? gutter) + 0.5),
                 reason: (e.widget as Text).data);
           }
         }
@@ -1183,12 +1197,10 @@ void main() {
         'portfolio-hero-line',
         'portfolio-hero-chart',
       ]);
+      // The squares stand on the gutters, their text inside their own 14.
       cardsInGutters([
-        find.descendant(
-            of: find.byKey(
-                const ValueKey('portfolio-balance-predictions-positions')),
-            matching: find.byType(PortfolioCardList)),
-      ]);
+        find.byKey(const ValueKey('portfolio-balance-predictions-positions')),
+      ], pad: 14 * width / 430);
       await _pick(tester, PortfolioSection.charts);
       await _settle(tester);
       expect(tester.takeException(), isNull);
