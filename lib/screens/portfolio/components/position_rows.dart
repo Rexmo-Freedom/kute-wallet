@@ -61,9 +61,17 @@
 //     Election"), so wrapping or not the side is never what goes;
 //   * the name and that line wrap to the lines they need and the squares
 //     of a row grow together (kute_action_cards.dart: "never cut");
+//   * an open prediction shows the Predictions list row's chance bar
+//     ([PortfolioChanceBar], founder 8 November 2026) under that line, above
+//     the value on a square, under the name on the full-width card, where
+//     there is a real chance and an entry price and nothing in place of the
+//     side ([PortfolioPositionRow.holdingChance]): none settled, selling,
+//     awaiting its result or on its way, none on a combo or on Investing.
+//     It follows the row's own live price;
 //   * with balances hidden the value and the P&L are masked ("••••••",
 //     "••%", no colour) and the line says nothing of the money or the size
-//     ([PortfolioPositionRow.hiddenSquareLine]).
+//     ([PortfolioPositionRow.hiddenSquareLine]); the bar stays, the market's
+//     own chance, without its entry tick, which would give the masked % away.
 // The rows drawn the older way: the Investing list's own row
 // ([PortfolioRowLayout.market]), and the P&L tab's closed positions
 // ([PortfolioClosedRow], [PortfolioRowLayout.position]: the name with its
@@ -310,9 +318,16 @@ class PortfolioRowLayoutScope extends InheritedWidget {
       {super.key,
       required this.layout,
       this.holdings = false,
+      this.squareInnerWidth,
       required super.child});
 
   final PortfolioRowLayout layout;
+
+  /// The room inside a square, its padding off: what its chance bar runs
+  /// across. Handed down because a holdings square sits in an
+  /// IntrinsicHeight (ActivitySquareGrid.equalHeights), where it cannot ask
+  /// with a LayoutBuilder. Null: no square under it knows.
+  final double? squareInnerWidth;
 
   /// The squares of the Portfolio screen's Positions
   /// ([PortfolioPositionSquares.holdings]).
@@ -325,6 +340,11 @@ class PortfolioRowLayoutScope extends InheritedWidget {
           ?.holdings ??
       false;
 
+  /// [squareInnerWidth] of the scope above.
+  static double? squareInnerWidthOf(BuildContext context) => context
+      .dependOnInheritedWidgetOfExactType<PortfolioRowLayoutScope>()
+      ?.squareInnerWidth;
+
   static PortfolioRowLayout of(BuildContext context) =>
       context
           .dependOnInheritedWidgetOfExactType<PortfolioRowLayoutScope>()
@@ -333,7 +353,9 @@ class PortfolioRowLayoutScope extends InheritedWidget {
 
   @override
   bool updateShouldNotify(PortfolioRowLayoutScope old) =>
-      old.layout != layout || old.holdings != holdings;
+      old.layout != layout ||
+      old.holdings != holdings ||
+      old.squareInnerWidth != squareInnerWidth;
 }
 
 /// How many of [positions] open positions the Portfolio screen draws as
@@ -387,11 +409,16 @@ class PortfolioPositionSquares extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (paired > 0)
-          PortfolioRowLayoutScope(
-            layout: PortfolioRowLayout.square,
-            holdings: holdings,
-            child: ActivitySquareGrid(
-                equalHeights: holdings, children: rows.sublist(0, paired)),
+          LayoutBuilder(
+            builder: (context, box) => PortfolioRowLayoutScope(
+              layout: PortfolioRowLayout.square,
+              holdings: holdings,
+              // ActivitySquareGrid's half, its padding off.
+              squareInnerWidth: (box.maxWidth - kPortfolioSquareGap.w) / 2 -
+                  _kSquarePad.w * 2,
+              child: ActivitySquareGrid(
+                  equalHeights: holdings, children: rows.sublist(0, paired)),
+            ),
           ),
         if (rows.length.isOdd) ...[
           if (paired > 0) SizedBox(height: kPortfolioSquareGap.w),
@@ -1014,6 +1041,7 @@ class PortfolioPositionRow extends StatelessWidget {
     required this.value,
     this.chance,
     this.entry,
+    this.holdingChance,
     this.pnl,
     this.pnlAmount,
     this.detail,
@@ -1062,6 +1090,12 @@ class PortfolioPositionRow extends StatelessWidget {
   /// The price the held side was bought at (0 to 1): a tick on the chance
   /// bar.
   final double? entry;
+
+  /// The chance bar on the Portfolio screen's Positions
+  /// ([PortfolioPositionSquares.holdings]), which is stricter than the
+  /// list row's [chance]: null while anything stands in place of the side.
+  /// Null: no bar there.
+  final double? holdingChance;
   final ({String text, PortfolioPnlTone tone})? pnl;
 
   /// [pnl] in money, unsigned ("$0.61"): written before its % in every
@@ -1093,6 +1127,15 @@ class PortfolioPositionRow extends StatelessWidget {
               ? squareLine ?? subtitle
               : hiddenSquareLine ?? squareLine ?? subtitle;
           final shown = visible ? value : _kHiddenFigure;
+          final held = holdingChance;
+          // The market's own chance, shown hidden too; the entry tick against
+          // it would give the masked % away.
+          Widget bar(double width) => PortfolioChanceBar(
+              key: const ValueKey('portfolio-row-chance'),
+              chance: held!,
+              entry: visible ? entry : null,
+              width: width);
+          final inner = PortfolioRowLayoutScope.squareInnerWidthOf(context);
           return square
               ? _PositionSquare(
                   leading: leading,
@@ -1103,6 +1146,7 @@ class PortfolioPositionRow extends StatelessWidget {
                   detail: detail,
                   onTap: onTap,
                   whole: true,
+                  bar: held == null || inner == null ? null : bar(inner),
                 )
               : _PositionWide(
                   leading: leading,
@@ -1113,6 +1157,7 @@ class PortfolioPositionRow extends StatelessWidget {
                   detail: detail,
                   onTap: onTap,
                   whole: true,
+                  bar: held == null ? null : bar,
                 );
         },
       );
@@ -1451,7 +1496,8 @@ Widget _figureFit(Widget figure) => FittedBox(
 /// line under it quiet over the value at 22 sp. The whole square taps through to the position
 /// on the press spring. [whole] (the Portfolio screen's Positions): the
 /// name and the line wrap to the lines they need, the square at least that
-/// tall and as tall as its row gives it (ActivitySquareGrid.equalHeights).
+/// tall and as tall as its row gives it (ActivitySquareGrid.equalHeights),
+/// and [bar], the chance bar, between the line and the value.
 class _PositionSquare extends StatelessWidget {
   const _PositionSquare({
     required this.leading,
@@ -1462,9 +1508,11 @@ class _PositionSquare extends StatelessWidget {
     required this.detail,
     required this.onTap,
     this.whole = false,
+    this.bar,
   });
 
   final bool whole;
+  final Widget? bar;
 
   final Widget leading;
   final String name;
@@ -1479,6 +1527,7 @@ class _PositionSquare extends StatelessWidget {
     final c = context.colors;
     final decoration = PremiumGroupContainer.decorationOf(context);
     final radius = decoration.borderRadius as BorderRadius?;
+    final bar = this.bar;
     final quiet = TextStyle(
       color: c.textSecondary,
       fontSize: 13.sp,
@@ -1583,6 +1632,7 @@ class _PositionSquare extends StatelessWidget {
                           color: c.textTertiary,
                           fontSize: 12.sp,
                           height: 1.3)),
+                  if (bar != null) ...[SizedBox(height: 7.h), bar],
                   SizedBox(height: 4.h),
                   // A value too wide for the square shrinks rather than
                   // overflow it.
@@ -1620,7 +1670,8 @@ class _PositionSquare extends StatelessWidget {
 /// quiet [detail]) in its colour. Its own content's height, never taller
 /// than it needs; the whole card taps through on the press spring.
 /// [whole] (the Portfolio screen's Positions): the name and the line wrap
-/// to the lines they need.
+/// to the lines they need, and [bar] draws the chance bar under them, as
+/// long as the Predictions list row's.
 class _PositionWide extends StatelessWidget {
   const _PositionWide({
     required this.leading,
@@ -1631,9 +1682,11 @@ class _PositionWide extends StatelessWidget {
     required this.detail,
     required this.onTap,
     this.whole = false,
+    this.bar,
   });
 
   final bool whole;
+  final Widget Function(double width)? bar;
 
   final Widget leading;
   final String name;
@@ -1648,6 +1701,7 @@ class _PositionWide extends StatelessWidget {
     final c = context.colors;
     final decoration = PremiumGroupContainer.decorationOf(context);
     final radius = decoration.borderRadius as BorderRadius?;
+    final bar = this.bar;
     final change = this.change;
     final corner = change?.percent ?? detail;
     final amount = change?.amount;
@@ -1697,6 +1751,23 @@ class _PositionWide extends StatelessWidget {
                               maxLines: whole ? null : 1,
                               overflow: whole ? null : TextOverflow.ellipsis,
                               style: portfolioRowSubStyle(context)),
+                          if (bar != null) ...[
+                            SizedBox(height: 7.h),
+                            LayoutBuilder(
+                              builder: (context, column) {
+                                // The list row's length: 80% of the text
+                                // column a typical value leaves.
+                                final width = 0.8 *
+                                    (box.maxWidth -
+                                            kPortfolioSquareIcon.w -
+                                            kPortfolioRowGap.w -
+                                            12.w -
+                                            kPortfolioRowValueRoom.w)
+                                        .clamp(0.0, double.infinity);
+                                return bar(width.clamp(0.0, column.maxWidth));
+                              },
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -1913,6 +1984,9 @@ class PolyPositionRow extends ConsumerWidget {
         value: money(value),
         chance: p.isResolved ? null : price,
         entry: p.isResolved ? null : p.avgPrice,
+        holdingChance: status == null && price > 0 && p.avgPrice > 0
+            ? price
+            : null,
         pnl: portfolioPnlPill(pnl, percent: pnlPercent),
         pnlAmount: money(pnl.abs()),
         onTap: () {

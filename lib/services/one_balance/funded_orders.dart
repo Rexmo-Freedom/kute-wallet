@@ -105,7 +105,10 @@ class FundedOrderLabel {
 
   /// The market's name cut to [max] characters for one line.
   static String shortName(String name, {int max = 32}) {
-    final t = name.trim().replaceAll(RegExp(r'\s+'), ' ');
+    // Word joiners (round_window_label.dart) are invisible: not characters
+    // to count on a line that does not wrap.
+    final t =
+        name.replaceAll('\u2060', '').trim().replaceAll(RegExp(r'\s+'), ' ');
     if (t.length <= max) return t;
     return '${t.substring(0, max - 1).trimRight()}…';
   }

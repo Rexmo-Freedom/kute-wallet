@@ -1005,8 +1005,18 @@ void main() {
     expect(line(rows.at(0)), startsWith('No'));
     expect(line(investing), 'Long · 0.1 BTC');
     expect(find.byType(HlMetaChip), findsNothing);
-    // No leverage, no mark price, no chance bar on a square.
-    expect(find.byKey(const ValueKey('portfolio-row-chance')), findsNothing);
+    // No leverage, no mark price; the chance bar on the open predictions
+    // only, never on Investing.
+    expect(
+        find.descendant(
+            of: predictions,
+            matching: find.byKey(const ValueKey('portfolio-row-chance'))),
+        findsNWidgets(3));
+    expect(
+        find.descendant(
+            of: investing,
+            matching: find.byKey(const ValueKey('portfolio-row-chance'))),
+        findsNothing);
     expect(find.textContaining('ROE'), findsNothing);
     await _unmount(tester);
   });

@@ -3,11 +3,13 @@
 // never on an old or invented price (crypto_next_round.dart). The window's
 // name and the `window` analytics values are read off the slug.
 
+import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/screens/polymarket/components/round_window_label.dart';
+import 'package:kute/services/one_balance/funded_orders.dart';
 import 'package:kute/services/polymarket/crypto_next_round.dart';
 import 'package:kute/services/polymarket/crypto_round.dart';
 import 'package:kute/services/polymarket_clob_websocket.dart';
@@ -259,17 +261,57 @@ void main() {
 
     test('English: the clock without AM or PM, in the phone\'s zone', () {
       expect(polyRoundWindowName(l10nForLanguage('en'), slug),
-          'BTC up or down · ${h12(local)}–${h12(end)}');
+          'BTC up or down · ${h12(local)}\u2060–\u2060${h12(end)}');
     });
 
     test('the phone\'s 24-hour setting wins', () {
       expect(polyRoundWindowName(l10nForLanguage('en'), slug, use24h: true),
-          'BTC up or down · ${h24(local)}–${h24(end)}');
+          'BTC up or down · ${h24(local)}\u2060–\u2060${h24(end)}');
     });
 
     test('a 24-hour language reads 24 hours, in its own words', () {
       expect(polyRoundWindowName(l10nForLanguage('de'), slug),
-          'BTC hoch oder runter · ${h24(local)}–${h24(end)}');
+          'BTC hoch oder runter · ${h24(local)}\u2060–\u2060${h24(end)}');
+    });
+
+    test('the range never breaks: a line holds it whole, in every language',
+        () {
+      for (final code in languageNativeNames.keys) {
+        final l10n = l10nForLanguage(code);
+        for (final use24h in [false, true]) {
+          final name = polyRoundWindowName(l10n, slug, use24h: use24h)!;
+          final from = name.indexOf(RegExp(r'\d'), name.indexOf(' · '));
+          final range = name.substring(from);
+          expect(range, contains('\u2060–\u2060'), reason: code);
+          // Nothing in a clock to break at either: never a plain space
+          // (Bulgarian's "12:00 ч." holds with a no-break one), no AM or PM.
+          expect(range, isNot(contains(' ')), reason: code);
+          expect(range, isNot(contains(RegExp('[AP]M'))), reason: code);
+          const style = TextStyle(fontSize: 10);
+          TextPainter lay(String text, double width) => TextPainter(
+              text: TextSpan(text: text, style: style),
+              textDirection: TextDirection.ltr)
+            ..layout(maxWidth: width);
+          final whole = lay(range, double.infinity).width.ceilToDouble() + 1;
+          final full = lay(name, double.infinity).width.ceilToDouble();
+          // Every width that can hold the range: the line break, if any,
+          // comes before the range and never inside it.
+          for (var w = whole; w <= full; w += 3) {
+            final painter = lay(name, w);
+            final line = painter.getLineBoundary(TextPosition(offset: from));
+            expect(line.end, greaterThanOrEqualTo(name.length),
+                reason: '$code at $w: "$name"');
+            painter.dispose();
+          }
+        }
+      }
+    });
+
+    test('the joiners are not counted on a funded order\'s one line', () {
+      final name = polyRoundWindowName(l10nForLanguage('it'), slug)!;
+      final short = FundedOrderLabel.shortName(name);
+      expect(short, isNot(contains('\u2060')));
+      expect(short, name.replaceAll('\u2060', ''));
     });
 
     test('every language has the two strings, placeholders kept', () {

@@ -1759,13 +1759,21 @@ void main() {
         final squares = find.byKey(const ValueKey('portfolio-square'));
         expect(tester.getRect(squares.at(0)).height,
             moreOrLessEquals(tester.getRect(squares.at(1)).height, epsilon: 0.5));
-        // No chance bar, no dot, no leverage: the position screen has them.
-        for (final key in [
-          'portfolio-row-chance',
-          'portfolio-row-dot',
-        ]) {
-          expect(find.byKey(ValueKey(key)), findsNothing, reason: key);
-        }
+        // The chance bar on each open prediction, never on Investing; no
+        // dot, no leverage: the position screen has them.
+        expect(
+            find.descendant(
+                of: find.byKey(
+                    const ValueKey('portfolio-balance-predictions-positions')),
+                matching: find.byKey(const ValueKey('portfolio-row-chance'))),
+            findsNWidgets(2));
+        expect(
+            find.descendant(
+                of: find.byKey(
+                    const ValueKey('portfolio-balance-investing-positions')),
+                matching: find.byKey(const ValueKey('portfolio-row-chance'))),
+            findsNothing);
+        expect(find.byKey(const ValueKey('portfolio-row-dot')), findsNothing);
         expect(find.textContaining('1x'), findsNothing);
         // The side first on the line under the name: Long, No, Yes.
         final lines = [

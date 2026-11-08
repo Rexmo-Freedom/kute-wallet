@@ -4,7 +4,10 @@
 // title, a bet on its way, a combo at its estimate, a settled prediction
 // and a settled combo behind "See all", balances hidden, the skeleton of a
 // first load, nothing open at one venue, light and dark, at 320 and 375, in
-// English and in German. Writes PNGs, the page tall enough to hold it all.
+// English and in German; open predictions with their chance bar (founder, 8
+// November 2026) on the squares and on the lone full-width card, the window's
+// name holding its time range on one line. Writes PNGs, the page tall enough
+// to hold it all.
 //
 // Not part of the normal suite; it only runs when asked:
 //
@@ -222,6 +225,15 @@ final _open = [
       now: 0.31),
 ];
 
+/// The window of the founder's screenshot, far enough ahead to be open.
+final String _windowSlug =
+    'btc-updown-5m-${DateTime(2030, 1, 7, 16, 40).millisecondsSinceEpoch ~/ 1000}';
+
+/// The founder's lone card: "BTC up or down · 16:40–16:45", Down.
+PolymarketPosition _window({double now = 0.26}) => _poly(
+    'win', 'Bitcoin Up or Down', 'Down',
+    size: 12, avg: 0.21, now: now, slug: _windowSlug);
+
 final PolymarketEvent _sunderland = PolymarketEvent(
   id: 'sun-che',
   slug: 'sun-che',
@@ -300,6 +312,7 @@ List<Override> _held({
       polymarketClaimablePositionsProvider.overrideWith((_) => _settled),
       livePriceProvider.overrideWith(_Prices.new),
       polyPositionEventProvider('sun-che').overrideWith((_) => _sunderland),
+      polyPositionEventProvider(_windowSlug).overrideWith((_) => null),
     ];
 
 Future<void> _shoot(
@@ -312,6 +325,7 @@ Future<void> _shoot(
   bool hidden = false,
   bool expand = false,
   double textScale = 1,
+  bool use24h = false,
   double pageHeight = 1500,
   List<Override>? held,
   OneBalanceState state = _state,
@@ -350,7 +364,9 @@ Future<void> _shoot(
         supportedLocales: AppLocalizations.supportedLocales,
         builder: (context, child) => MediaQuery(
             data: MediaQuery.of(context)
-                .copyWith(textScaler: TextScaler.linear(textScale)),
+                .copyWith(
+                    textScaler: TextScaler.linear(textScale),
+                    alwaysUse24HourFormat: use24h),
             child: child!),
         home: RepaintBoundary(
           key: _key,
@@ -495,6 +511,62 @@ void main() {
           predictionsKnown: true,
         ));
   });
+
+  // The chance bar: the lone full-width card, two squares with the window's
+  // name and a long title, each with a settled one behind "See all".
+  for (final (width, phone) in [(375.0, 812.0), (320.0, 693.0)]) {
+    final w = width.round();
+    for (final dark in [false, true]) {
+      final mode = dark ? 'dark' : 'light';
+      testWidgets('chance bar $w $mode', (tester) async {
+        List<Override> only(List<PolymarketPosition> open) => [
+              ..._held(perps: const [], placing: false, combos: false),
+              polymarketActivePositionsProvider.overrideWith((_) => open),
+            ];
+        const state = OneBalanceState(
+          investedUsd: 50,
+          investedByVenue: {OneBalanceVenue.predictions: 50},
+          investingKnown: true,
+          predictionsKnown: true,
+        );
+        await _shoot(tester, 'bar_lone_${w}_$mode',
+            width: width,
+            phoneHeight: phone,
+            dark: dark,
+            state: state,
+            held: only([_window()]));
+        // The screenshot's own "16:40–16:45", its widest clock.
+        await _shoot(tester, 'bar_lone_24h_${w}_$mode',
+            width: width,
+            phoneHeight: phone,
+            dark: dark,
+            use24h: true,
+            state: state,
+            held: only([_window()]));
+        await _shoot(tester, 'bar_squares_${w}_$mode',
+            width: width,
+            phoneHeight: phone,
+            dark: dark,
+            state: state,
+            expand: true,
+            held: only([_window(), _open[2], _open[3]]));
+        await _shoot(tester, 'bar_squares_24h_${w}_$mode',
+            width: width,
+            phoneHeight: phone,
+            dark: dark,
+            use24h: true,
+            state: state,
+            held: only([_window(), _open[2]]));
+        await _shoot(tester, 'bar_hidden_${w}_$mode',
+            width: width,
+            phoneHeight: phone,
+            dark: dark,
+            hidden: true,
+            state: state,
+            held: only([_window(), _open[3], _open[0]]));
+      });
+    }
+  }
 
   testWidgets('first load', (tester) async {
     await _shoot(tester, 'first_load_375_light',
