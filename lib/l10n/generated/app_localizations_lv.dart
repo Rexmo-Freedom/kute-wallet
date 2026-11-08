@@ -6017,7 +6017,7 @@ class AppLocalizationsLv extends AppLocalizations {
   String get portfolioPerformanceUnavailable => 'Rezultāti nav pieejami';
 
   @override
-  String get portfolioStatRealized => 'Realizētā peļņa / zaudējumi';
+  String get portfolioStatRealized => 'Realizētā peļņa';
 
   @override
   String get portfolioStatAmountPredicted => 'Prognožu summa';
@@ -7944,7 +7944,7 @@ class AppLocalizationsLv extends AppLocalizations {
   String get tnNetProfit => 'Neto peļņa';
 
   @override
-  String get tnTradingPnl => 'Darījumu P&L';
+  String get tnTradingPnl => 'Darījumu peļņa';
 
   @override
   String get tnAllTradingFees => 'Visas darījumu maksas';
@@ -7960,7 +7960,7 @@ class AppLocalizationsLv extends AppLocalizations {
       'Atvēršanu, daļējas slēgšanas un galīgo slēgšanu';
 
   @override
-  String get tnClosedPnlExchange => 'Slēgtais P&L (birža)';
+  String get tnClosedPnlExchange => 'Slēgtā peļņa (birža)';
 
   @override
   String get tnFillFee => 'Izpildes maksa';
@@ -10649,10 +10649,10 @@ class AppLocalizationsLv extends AppLocalizations {
   String get bragPortfolioBarLabel => 'Kopīgo portfeli';
 
   @override
-  String get bragPnlBarLabel => 'Kopīgo P&L';
+  String get bragPnlBarLabel => 'Kopīgo peļņu';
 
   @override
-  String get bragMyPnl => 'Mans P&L';
+  String get bragMyPnl => 'Mana peļņa';
 
   @override
   String bragShareText(String title, String link) {
@@ -10785,7 +10785,7 @@ class AppLocalizationsLv extends AppLocalizations {
   String get portfolioStatAtStake => 'Ieguldītā summa';
 
   @override
-  String get portfolioProfitLoss => 'Peļņa un zaudējumi';
+  String get portfolioProfitLoss => 'Peļņa';
 
   @override
   String slipCtaAddTo(String side, String amount) {
@@ -11048,7 +11048,7 @@ class AppLocalizationsLv extends AppLocalizations {
       'Iegūstiet adresi, uz kuru sūtīt dolārus';
 
   @override
-  String get portfolioStatOpenPnl => 'Atvērtā peļņa / zaudējumi';
+  String get portfolioStatOpenPnl => 'Atvērtā peļņa';
 
   @override
   String stepUpReasonBetReady(String amount) {
@@ -11385,7 +11385,7 @@ class AppLocalizationsLv extends AppLocalizations {
       'Lai to pārvietotu, sazinies ar atbalstu.';
 
   @override
-  String get portfolioSectionPnlCharts => 'P&L';
+  String get portfolioSectionPnlCharts => 'Peļņa';
 
   @override
   String get portfolioSectionBalances => 'Pozīcijas';
@@ -11474,7 +11474,7 @@ class AppLocalizationsLv extends AppLocalizations {
   String get chartNoChange => 'Bez izmaiņām';
 
   @override
-  String get pnlChartNoHistory => 'Tavs P&L parādīsies pēc pirmās pozīcijas.';
+  String get pnlChartNoHistory => 'Tava peļņa parādīsies pēc pirmās pozīcijas.';
 
   @override
   String get balanceChartNoHistory =>
@@ -11482,7 +11482,7 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get pnlChartEmpty =>
-      'Kad tirgosieties vai prognozēsiet, šeit redzēsiet savu peļņu un zaudējumus';
+      'Kad tirgosieties vai prognozēsiet, šeit redzēsiet savu peļņu';
 
   @override
   String portfolioPositionsCount(int count) {
@@ -11711,7 +11711,7 @@ class AppLocalizationsLv extends AppLocalizations {
       'Bitcoin un dolāri kopā. Sal izliekas, ka tas nav nekas.';
 
   @override
-  String get pnlNoHistoryTitle => 'Vēl nav P&L';
+  String get pnlNoHistoryTitle => 'Vēl nav peļņas';
 
   @override
   String get pnlByVenue => 'By venue';

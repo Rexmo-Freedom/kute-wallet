@@ -6050,7 +6050,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get portfolioPerformanceUnavailable => 'A teljesítmény nem érhető el';
 
   @override
-  String get portfolioStatRealized => 'Realizált nyereség / veszteség';
+  String get portfolioStatRealized => 'Realizált nyereség';
 
   @override
   String get portfolioStatAmountPredicted => 'Előrejelzések összege';
@@ -7990,7 +7990,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get tnNetProfit => 'Nettó nyereség';
 
   @override
-  String get tnTradingPnl => 'Ügyleti eredmény';
+  String get tnTradingPnl => 'Ügyleti nyereség';
 
   @override
   String get tnAllTradingFees => 'Összes ügyleti díj';
@@ -8005,7 +8005,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get tnIncludesAllCloses => 'Nyitás, részleges zárások és végső zárás';
 
   @override
-  String get tnClosedPnlExchange => 'Lezárt eredmény (tőzsde)';
+  String get tnClosedPnlExchange => 'Lezárt nyereség (tőzsde)';
 
   @override
   String get tnFillFee => 'Teljesülési díj';
@@ -10702,10 +10702,10 @@ class AppLocalizationsHu extends AppLocalizations {
   String get bragPortfolioBarLabel => 'Oszd meg a portfóliód';
 
   @override
-  String get bragPnlBarLabel => 'Oszd meg a P&L-ed';
+  String get bragPnlBarLabel => 'Oszd meg a nyereséged';
 
   @override
-  String get bragMyPnl => 'Az én P&L-em';
+  String get bragMyPnl => 'Az én nyereségem';
 
   @override
   String bragShareText(String title, String link) {
@@ -10838,7 +10838,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get portfolioStatAtStake => 'Lekötött összeg';
 
   @override
-  String get portfolioProfitLoss => 'Nyereség és veszteség';
+  String get portfolioProfitLoss => 'Nyereség';
 
   @override
   String slipCtaAddTo(String side, String amount) {
@@ -11101,7 +11101,7 @@ class AppLocalizationsHu extends AppLocalizations {
       'Kérj egy címet, ahová dollárt küldhetsz';
 
   @override
-  String get portfolioStatOpenPnl => 'Nyitott nyereség / veszteség';
+  String get portfolioStatOpenPnl => 'Nyitott nyereség';
 
   @override
   String stepUpReasonBetReady(String amount) {
@@ -11438,7 +11438,7 @@ class AppLocalizationsHu extends AppLocalizations {
       'Az áthelyezéséhez fordulj az ügyfélszolgálathoz.';
 
   @override
-  String get portfolioSectionPnlCharts => 'P&L';
+  String get portfolioSectionPnlCharts => 'Nyereség';
 
   @override
   String get portfolioSectionBalances => 'Pozíciók';
@@ -11529,7 +11529,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get pnlChartNoHistory =>
-      'Az eredményed az első pozíciód után jelenik meg.';
+      'A nyereséged az első pozíciód után jelenik meg.';
 
   @override
   String get balanceChartNoHistory =>
@@ -11537,7 +11537,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get pnlChartEmpty =>
-      'A nyereséged és veszteséged itt jelenik meg, amint befektetsz vagy előrejelzést adsz';
+      'A nyereséged itt jelenik meg, amint befektetsz vagy előrejelzést adsz';
 
   @override
   String portfolioPositionsCount(int count) {
@@ -11766,7 +11766,7 @@ class AppLocalizationsHu extends AppLocalizations {
       'Bitcoin és dollár együtt. Sal úgy tesz, mintha semmi sem történt volna.';
 
   @override
-  String get pnlNoHistoryTitle => 'Még nincs eredmény';
+  String get pnlNoHistoryTitle => 'Még nincs nyereség';
 
   @override
   String get pnlByVenue => 'By venue';

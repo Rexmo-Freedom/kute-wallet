@@ -284,14 +284,14 @@ final List<_Case> _cases = [
   const _Case(
       'P&L up',
       BragPnl(
-          title: 'My P&L',
+          title: 'My profits',
           link: 'https://x.test',
           range: BalanceRange.month,
           allTime: BragResult(usd: 128.4, text: r'+$128.40'))),
   const _Case(
       'P&L down',
       BragPnl(
-          title: 'My P&L',
+          title: 'My profits',
           link: 'https://x.test',
           range: BalanceRange.week,
           allTime: BragResult(usd: -41.2, text: '−\$41.20'))),

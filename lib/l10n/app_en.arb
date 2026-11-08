@@ -3300,7 +3300,7 @@
   "@portfolioPerformanceUnavailable": {
     "description": "Earn and portfolio presentation copy."
   },
-  "portfolioStatRealized": "Realized P&L",
+  "portfolioStatRealized": "Realized profits",
   "@portfolioStatRealized": {
     "description": "Predictions statistics tile: realized profit or loss over the selected range (sold, claimed or resolved predictions)."
   },
@@ -4616,12 +4616,12 @@
   "tnResult": "Result",
   "tnCheckClaimStatus": "Open Positions to check claim status",
   "tnNetProfit": "Net profit",
-  "tnTradingPnl": "Trading P&L",
+  "tnTradingPnl": "Trading profits",
   "tnAllTradingFees": "All trading fees",
   "tnFunding": "Funding received / paid",
   "tnIncludes": "Includes",
   "tnIncludesAllCloses": "Opening, partial closes and final close",
-  "tnClosedPnlExchange": "Closed P&L (exchange)",
+  "tnClosedPnlExchange": "Closed profits (exchange)",
   "tnFillFee": "Fill fee",
   "tnFilledSize": "Filled size",
   "tnFillPrice": "Fill price",
@@ -7049,13 +7049,13 @@
   "@bragPortfolioBarLabel": {
     "description": "Portfolio screen, Portfolio section: the floating bar as its primary button, opening the portfolio share card preview."
   },
-  "bragPnlBarLabel": "Share P&L",
+  "bragPnlBarLabel": "Share profits",
   "@bragPnlBarLabel": {
-    "description": "Portfolio screen, P&L Charts section: the floating bar as its primary button, and the title of the sheet it opens: the P&L share card for the range picked on the chart. P&L is profit and loss."
+    "description": "Portfolio screen, Profits section: the floating bar as its primary button, and the title of the sheet it opens: the profits share card for the range picked on the chart. The plain everyday word for profits, never an abbreviation like P&L; a loss shows as a negative figure."
   },
-  "bragMyPnl": "My P&L",
+  "bragMyPnl": "My profits",
   "@bragMyPnl": {
-    "description": "P&L share card: its small caps title (drawn uppercase, then the range, e.g. 'MY P&L · 1M'), and the title in the share text. P&L is profit and loss."
+    "description": "Profits share card: its small caps title (drawn uppercase, then the range, e.g. 'MY PROFITS · 1M'), and the title in the share text. The plain everyday word for profits, never an abbreviation like P&L."
   },
   "bragShareText": "{title} on Kute {link}",
   "@bragShareText": {
@@ -7226,7 +7226,7 @@
   "@portfolioStatAtStake": {
     "description": "Statistics tab, Active pill: tile label. Predictions: what the open positions cost. Investing: the margin the open positions use."
   },
-  "portfolioProfitLoss": "Profit and loss",
+  "portfolioProfitLoss": "Profits",
   "@portfolioProfitLoss": {
     "description": "Statistics tab: caption over the P&L chart's headline figure (the account's profit and loss, realised plus open)."
   },
@@ -7574,7 +7574,7 @@
     }
   },
   "depositFromAnotherWalletSubtitle": "Get an address to send dollars to",
-  "portfolioStatOpenPnl": "Open P&L",
+  "portfolioStatOpenPnl": "Open profits",
   "@portfolioStatOpenPnl": {
     "description": "Statistics tile on Active: the profit or loss of the positions still open (Predictions at live prices, Investing perps unrealised)."
   },
@@ -8221,9 +8221,9 @@
   "@cctpRefundContactSupport": {
     "description": "Second caption under cctpRefundReturnedTo, for a wallet whose EVM key uses the legacy format (other wallets do not reproduce it from the phrase): Support helps move the refunded USDC."
   },
-  "portfolioSectionPnlCharts": "P&L",
+  "portfolioSectionPnlCharts": "Profits",
   "@portfolioSectionPnlCharts": {
-    "description": "Portfolio screen: the middle pill of the Positions | P&L | Activity switch, for each venue's profit and loss, the all-time stats and the resting orders (the chart is the screen's hero). Was \"P&L Charts\" until the overhaul of 4 November 2026."
+    "description": "Portfolio screen: the middle pill of the Positions | Profits | Activity switch (one short everyday word, never an abbreviation like P&L), for each venue's profit and loss, the all-time stats and the resting orders (the chart is the screen's hero). Was \"P&L Charts\" until the overhaul of 4 November 2026."
   },
   "portfolioSectionBalances": "Positions",
   "@portfolioSectionBalances": {
@@ -8370,7 +8370,7 @@
   "@chartNoChange": {
     "description": "Trend charts: the change line when the value is the same at both ends of the period, e.g. 'No change · Past month'."
   },
-  "pnlChartNoHistory": "Your P&L shows up after your first position.",
+  "pnlChartNoHistory": "Your profits show up after your first position.",
   "@pnlChartNoHistory": {
     "description": "Portfolio P&L chart: the one quiet caption under the headline when there is no P&L history yet; no chart is drawn."
   },
@@ -8378,7 +8378,7 @@
   "@balanceChartNoHistory": {
     "description": "Bitcoin and Dollars balance charts: the one quiet caption under the headline when the account has no history yet; no chart is drawn."
   },
-  "pnlChartEmpty": "Your profit and loss shows here once you trade or predict",
+  "pnlChartEmpty": "Your profits show here once you trade or predict",
   "@pnlChartEmpty": {
     "description": "Quiet one-line message centred on the Portfolio profit and loss chart (P&L charts) when the P&L is zero across the whole selected range, e.g. before the first trade or prediction."
   },
@@ -8710,7 +8710,7 @@
   "@balanceMilestonePassedLine": {
     "description": "The deadpan line under balanceMilestonePassed: the total counts Bitcoin and Dollars, and Sal (the dog mascot) plays it cool. One short line."
   },
-  "pnlNoHistoryTitle": "No P&L yet",
+  "pnlNoHistoryTitle": "No profits yet",
   "@pnlNoHistoryTitle": {
     "description": "Portfolio P&L Charts, empty: the title over Sal."
   },

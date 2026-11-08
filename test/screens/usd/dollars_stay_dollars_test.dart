@@ -150,7 +150,7 @@ void main() {
 
   testWidgets(
       'the founder\'s screenshot, the Dollars Overview: the position squares '
-      'and the Open P&L read the real dollars', (tester) async {
+      'and the Open profits read the real dollars', (tester) async {
     final now = DateTime.now();
     await pumpInvestments(tester,
         size: const Size(390, 1400),

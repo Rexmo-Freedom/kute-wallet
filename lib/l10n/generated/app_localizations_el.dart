@@ -6085,7 +6085,7 @@ class AppLocalizationsEl extends AppLocalizations {
   String get portfolioPerformanceUnavailable => 'Η απόδοση δεν είναι διαθέσιμη';
 
   @override
-  String get portfolioStatRealized => 'Πραγματοποιημένο κέρδος / ζημιά';
+  String get portfolioStatRealized => 'Πραγματοποιημένα κέρδη';
 
   @override
   String get portfolioStatAmountPredicted => 'Ποσό σε προβλέψεις';
@@ -8032,7 +8032,7 @@ class AppLocalizationsEl extends AppLocalizations {
   String get tnNetProfit => 'Καθαρό κέρδος';
 
   @override
-  String get tnTradingPnl => 'Κέρδος/ζημιά συναλλαγών';
+  String get tnTradingPnl => 'Κέρδη συναλλαγών';
 
   @override
   String get tnAllTradingFees => 'Όλες οι χρεώσεις συναλλαγών';
@@ -8048,7 +8048,7 @@ class AppLocalizationsEl extends AppLocalizations {
       'Άνοιγμα, μερικά κλεισίματα και τελικό κλείσιμο';
 
   @override
-  String get tnClosedPnlExchange => 'Κέρδος/ζημιά κλεισίματος (ανταλλακτήριο)';
+  String get tnClosedPnlExchange => 'Κέρδη κλεισίματος (ανταλλακτήριο)';
 
   @override
   String get tnFillFee => 'Χρέωση εκτέλεσης';
@@ -10752,10 +10752,10 @@ class AppLocalizationsEl extends AppLocalizations {
   String get bragPortfolioBarLabel => 'Κοινοποίησε το χαρτοφυλάκιο';
 
   @override
-  String get bragPnlBarLabel => 'Κοινοποίησε το P&L';
+  String get bragPnlBarLabel => 'Κοινοποίησε τα κέρδη';
 
   @override
-  String get bragMyPnl => 'Το P&L μου';
+  String get bragMyPnl => 'Τα κέρδη μου';
 
   @override
   String bragShareText(String title, String link) {
@@ -10888,7 +10888,7 @@ class AppLocalizationsEl extends AppLocalizations {
   String get portfolioStatAtStake => 'Δεσμευμένο ποσό';
 
   @override
-  String get portfolioProfitLoss => 'Κέρδη και ζημίες';
+  String get portfolioProfitLoss => 'Κέρδη';
 
   @override
   String slipCtaAddTo(String side, String amount) {
@@ -11151,7 +11151,7 @@ class AppLocalizationsEl extends AppLocalizations {
       'Λάβετε μια διεύθυνση για να στείλετε δολάρια';
 
   @override
-  String get portfolioStatOpenPnl => 'Ανοιχτό κέρδος / ζημιά';
+  String get portfolioStatOpenPnl => 'Ανοιχτά κέρδη';
 
   @override
   String stepUpReasonBetReady(String amount) {
@@ -11489,7 +11489,7 @@ class AppLocalizationsEl extends AppLocalizations {
       'Για να τα μετακινήσεις, επικοινώνησε με την υποστήριξη.';
 
   @override
-  String get portfolioSectionPnlCharts => 'P&L';
+  String get portfolioSectionPnlCharts => 'Κέρδη';
 
   @override
   String get portfolioSectionBalances => 'Θέσεις';
@@ -11580,7 +11580,7 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get pnlChartNoHistory =>
-      'Το κέρδος / η ζημιά σου εμφανίζεται μετά την πρώτη σου θέση.';
+      'Τα κέρδη σου εμφανίζονται μετά την πρώτη σου θέση.';
 
   @override
   String get balanceChartNoHistory =>
@@ -11588,7 +11588,7 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get pnlChartEmpty =>
-      'Τα κέρδη και οι ζημίες σας θα εμφανίζονται εδώ μόλις κάνετε συναλλαγές ή προβλέψεις';
+      'Τα κέρδη σας θα εμφανίζονται εδώ μόλις κάνετε συναλλαγές ή προβλέψεις';
 
   @override
   String portfolioPositionsCount(int count) {
@@ -11818,7 +11818,7 @@ class AppLocalizationsEl extends AppLocalizations {
       'Bitcoin και δολάρια μαζί. Ο Sal κάνει πως δεν είναι τίποτα.';
 
   @override
-  String get pnlNoHistoryTitle => 'Δεν υπάρχει ακόμα κέρδος / ζημιά';
+  String get pnlNoHistoryTitle => 'Δεν υπάρχουν ακόμα κέρδη';
 
   @override
   String get pnlByVenue => 'By venue';

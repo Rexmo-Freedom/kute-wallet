@@ -6019,7 +6019,7 @@ class AppLocalizationsEt extends AppLocalizations {
   String get portfolioPerformanceUnavailable => 'Tulemused pole saadaval';
 
   @override
-  String get portfolioStatRealized => 'Realiseeritud kasum / kahjum';
+  String get portfolioStatRealized => 'Realiseeritud kasum';
 
   @override
   String get portfolioStatAmountPredicted => 'Summa ennustustes';
@@ -7951,7 +7951,7 @@ class AppLocalizationsEt extends AppLocalizations {
   String get tnNetProfit => 'Netokasum';
 
   @override
-  String get tnTradingPnl => 'Tehingute kasum/kahjum';
+  String get tnTradingPnl => 'Tehingute kasum';
 
   @override
   String get tnAllTradingFees => 'Kõik tehingutasud';
@@ -7967,7 +7967,7 @@ class AppLocalizationsEt extends AppLocalizations {
       'Avamine, osalised sulgemised ja lõplik sulgemine';
 
   @override
-  String get tnClosedPnlExchange => 'Suletud kasum/kahjum (platvorm)';
+  String get tnClosedPnlExchange => 'Suletud kasum (platvorm)';
 
   @override
   String get tnFillFee => 'Täitmise tasu';
@@ -10664,10 +10664,10 @@ class AppLocalizationsEt extends AppLocalizations {
   String get bragPortfolioBarLabel => 'Jaga portfelli';
 
   @override
-  String get bragPnlBarLabel => 'Jaga P&L-i';
+  String get bragPnlBarLabel => 'Jaga kasumit';
 
   @override
-  String get bragMyPnl => 'Minu P&L';
+  String get bragMyPnl => 'Minu kasum';
 
   @override
   String bragShareText(String title, String link) {
@@ -10799,7 +10799,7 @@ class AppLocalizationsEt extends AppLocalizations {
   String get portfolioStatAtStake => 'Panustatud summa';
 
   @override
-  String get portfolioProfitLoss => 'Kasum ja kahjum';
+  String get portfolioProfitLoss => 'Kasum';
 
   @override
   String slipCtaAddTo(String side, String amount) {
@@ -11062,7 +11062,7 @@ class AppLocalizationsEt extends AppLocalizations {
       'Saa aadress, kuhu dollareid saata';
 
   @override
-  String get portfolioStatOpenPnl => 'Avatud kasum / kahjum';
+  String get portfolioStatOpenPnl => 'Avatud kasum';
 
   @override
   String stepUpReasonBetReady(String amount) {
@@ -11399,7 +11399,7 @@ class AppLocalizationsEt extends AppLocalizations {
       'Selle liigutamiseks võta ühendust toega.';
 
   @override
-  String get portfolioSectionPnlCharts => 'P&L';
+  String get portfolioSectionPnlCharts => 'Kasum';
 
   @override
   String get portfolioSectionBalances => 'Positsioonid';
@@ -11489,15 +11489,14 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get pnlChartNoHistory =>
-      'Sinu kasum/kahjum ilmub pärast esimest positsiooni.';
+      'Sinu kasum ilmub pärast esimest positsiooni.';
 
   @override
   String get balanceChartNoHistory =>
       'Sinu saldo ajalugu algab esimesest tehingust.';
 
   @override
-  String get pnlChartEmpty =>
-      'Kui kaupled või ennustad, näed siin oma kasumit ja kahjumit';
+  String get pnlChartEmpty => 'Kui kaupled või ennustad, näed siin oma kasumit';
 
   @override
   String portfolioPositionsCount(int count) {
@@ -11726,7 +11725,7 @@ class AppLocalizationsEt extends AppLocalizations {
       'Bitcoin ja dollarid kokku. Sal teeb näo, nagu poleks midagi.';
 
   @override
-  String get pnlNoHistoryTitle => 'Kasumit/kahjumit veel pole';
+  String get pnlNoHistoryTitle => 'Kasumit veel pole';
 
   @override
   String get pnlByVenue => 'By venue';

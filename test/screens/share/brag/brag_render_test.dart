@@ -92,7 +92,7 @@ void main() {
     }
     // The P&L card (pnl_share_card.dart): the frame's pieces too.
     BragPnl pnl({double usd = 128.4, String text = r'+$128.40'}) => BragPnl(
-          title: 'My P&L',
+          title: 'My profits',
           link: 'https://backend.kutewallet.com/m/investing',
           referralCode: kBragTestCode,
           range: BalanceRange.month,

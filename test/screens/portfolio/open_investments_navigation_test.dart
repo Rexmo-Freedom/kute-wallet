@@ -657,7 +657,7 @@ void main() {
       expect(find.byType(KuteTrendChart), findsOneWidget);
       expect(find.byType(KuteChartRangeRow), findsOneWidget);
       expect(find.byKey(const ValueKey('statistics-historic')), findsNothing);
-      expect(find.text('Profit and loss'), findsOneWidget);
+      expect(find.text('Profits'), findsOneWidget);
       String headline() => tester
           .widget<RollingNumberText>(
               find.byKey(const ValueKey('statistics-pnl-headline')))

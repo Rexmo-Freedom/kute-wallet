@@ -6035,7 +6035,7 @@ class AppLocalizationsFi extends AppLocalizations {
   String get portfolioPerformanceUnavailable => 'Tuotto ei saatavilla';
 
   @override
-  String get portfolioStatRealized => 'Toteutunut voitto / tappio';
+  String get portfolioStatRealized => 'Toteutuneet voitot';
 
   @override
   String get portfolioStatAmountPredicted => 'Summa ennusteissa';
@@ -7971,7 +7971,7 @@ class AppLocalizationsFi extends AppLocalizations {
   String get tnNetProfit => 'Nettovoitto';
 
   @override
-  String get tnTradingPnl => 'Positioiden V/T';
+  String get tnTradingPnl => 'Positioiden voitot';
 
   @override
   String get tnAllTradingFees => 'Kaikki toimeksiantomaksut';
@@ -7987,7 +7987,7 @@ class AppLocalizationsFi extends AppLocalizations {
       'Avaus, osittaiset sulkemiset ja lopullinen sulkeminen';
 
   @override
-  String get tnClosedPnlExchange => 'Suljettu V/T (markkinapaikka)';
+  String get tnClosedPnlExchange => 'Suljetut voitot (markkinapaikka)';
 
   @override
   String get tnFillFee => 'Toteutusmaksu';
@@ -10688,10 +10688,10 @@ class AppLocalizationsFi extends AppLocalizations {
   String get bragPortfolioBarLabel => 'Jaa salkku';
 
   @override
-  String get bragPnlBarLabel => 'Jaa P&L';
+  String get bragPnlBarLabel => 'Jaa voitot';
 
   @override
-  String get bragMyPnl => 'Oma P&L';
+  String get bragMyPnl => 'Omat voitot';
 
   @override
   String bragShareText(String title, String link) {
@@ -10824,7 +10824,7 @@ class AppLocalizationsFi extends AppLocalizations {
   String get portfolioStatAtStake => 'Panoksena oleva summa';
 
   @override
-  String get portfolioProfitLoss => 'Voitto ja tappio';
+  String get portfolioProfitLoss => 'Voitot';
 
   @override
   String slipCtaAddTo(String side, String amount) {
@@ -11087,7 +11087,7 @@ class AppLocalizationsFi extends AppLocalizations {
       'Hae osoite, johon lähettää dollareita';
 
   @override
-  String get portfolioStatOpenPnl => 'Avoin voitto / tappio';
+  String get portfolioStatOpenPnl => 'Avoimet voitot';
 
   @override
   String stepUpReasonBetReady(String amount) {
@@ -11424,7 +11424,7 @@ class AppLocalizationsFi extends AppLocalizations {
       'Siirtääksesi sen ota yhteyttä tukeen.';
 
   @override
-  String get portfolioSectionPnlCharts => 'P&L';
+  String get portfolioSectionPnlCharts => 'Voitot';
 
   @override
   String get portfolioSectionBalances => 'Positiot';
@@ -11516,7 +11516,7 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get pnlChartNoHistory =>
-      'Voittosi / tappiosi näkyy ensimmäisen position jälkeen.';
+      'Voittosi näkyvät ensimmäisen position jälkeen.';
 
   @override
   String get balanceChartNoHistory =>
@@ -11524,7 +11524,7 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get pnlChartEmpty =>
-      'Voittosi ja tappiosi näkyvät tässä, kun käyt kauppaa tai ennustat';
+      'Voittosi näkyvät tässä, kun käyt kauppaa tai ennustat';
 
   @override
   String portfolioPositionsCount(int count) {
@@ -11753,7 +11753,7 @@ class AppLocalizationsFi extends AppLocalizations {
       'Bitcoin ja dollarit yhteensä. Sal esittää, ettei tämä ole mitään.';
 
   @override
-  String get pnlNoHistoryTitle => 'Ei vielä voittoa / tappiota';
+  String get pnlNoHistoryTitle => 'Ei vielä voittoja';
 
   @override
   String get pnlByVenue => 'By venue';

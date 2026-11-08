@@ -10579,7 +10579,7 @@ abstract class AppLocalizations {
   /// Predictions statistics tile: realized profit or loss over the selected range (sold, claimed or resolved predictions).
   ///
   /// In en, this message translates to:
-  /// **'Realized P&L'**
+  /// **'Realized profits'**
   String get portfolioStatRealized;
 
   /// Predictions statistics tile: total amount put on the predictions made in the selected range.
@@ -13785,7 +13785,7 @@ abstract class AppLocalizations {
   /// No description provided for @tnTradingPnl.
   ///
   /// In en, this message translates to:
-  /// **'Trading P&L'**
+  /// **'Trading profits'**
   String get tnTradingPnl;
 
   /// No description provided for @tnAllTradingFees.
@@ -13815,7 +13815,7 @@ abstract class AppLocalizations {
   /// No description provided for @tnClosedPnlExchange.
   ///
   /// In en, this message translates to:
-  /// **'Closed P&L (exchange)'**
+  /// **'Closed profits (exchange)'**
   String get tnClosedPnlExchange;
 
   /// No description provided for @tnFillFee.
@@ -18263,16 +18263,16 @@ abstract class AppLocalizations {
   /// **'Share portfolio'**
   String get bragPortfolioBarLabel;
 
-  /// Portfolio screen, P&L Charts section: the floating bar as its primary button, and the title of the sheet it opens: the P&L share card for the range picked on the chart. P&L is profit and loss.
+  /// Portfolio screen, Profits section: the floating bar as its primary button, and the title of the sheet it opens: the profits share card for the range picked on the chart. The plain everyday word for profits, never an abbreviation like P&L; a loss shows as a negative figure.
   ///
   /// In en, this message translates to:
-  /// **'Share P&L'**
+  /// **'Share profits'**
   String get bragPnlBarLabel;
 
-  /// P&L share card: its small caps title (drawn uppercase, then the range, e.g. 'MY P&L · 1M'), and the title in the share text. P&L is profit and loss.
+  /// Profits share card: its small caps title (drawn uppercase, then the range, e.g. 'MY PROFITS · 1M'), and the title in the share text. The plain everyday word for profits, never an abbreviation like P&L.
   ///
   /// In en, this message translates to:
-  /// **'My P&L'**
+  /// **'My profits'**
   String get bragMyPnl;
 
   /// The text shared with the brag card image. {title} is the market or 'My portfolio', {link} the link with the referral code.
@@ -18512,7 +18512,7 @@ abstract class AppLocalizations {
   /// Statistics tab: caption over the P&L chart's headline figure (the account's profit and loss, realised plus open).
   ///
   /// In en, this message translates to:
-  /// **'Profit and loss'**
+  /// **'Profits'**
   String get portfolioProfitLoss;
 
   /// The Investing order button when the person already holds a perp position on this side: the order adds to it. {side} is 'long' or 'short' (select), {amount} is formatted money.
@@ -18736,7 +18736,7 @@ abstract class AppLocalizations {
   /// Statistics tile on Active: the profit or loss of the positions still open (Predictions at live prices, Investing perps unrealised).
   ///
   /// In en, this message translates to:
-  /// **'Open P&L'**
+  /// **'Open profits'**
   String get portfolioStatOpenPnl;
 
   /// Step-up prompt reason when a fast prediction (a 5- or 15-minute round or a game in play) is got ready before Confirm: the one approval moves the money into Predictions now and also approves the bet itself.
@@ -19185,10 +19185,10 @@ abstract class AppLocalizations {
   /// **'To move it, contact Support.'**
   String get cctpRefundContactSupport;
 
-  /// Portfolio screen: the middle pill of the Positions | P&L | Activity switch, for each venue's profit and loss, the all-time stats and the resting orders (the chart is the screen's hero). Was "P&L Charts" until the overhaul of 4 November 2026.
+  /// Portfolio screen: the middle pill of the Positions | Profits | Activity switch (one short everyday word, never an abbreviation like P&L), for each venue's profit and loss, the all-time stats and the resting orders (the chart is the screen's hero). Was "P&L Charts" until the overhaul of 4 November 2026.
   ///
   /// In en, this message translates to:
-  /// **'P&L'**
+  /// **'Profits'**
   String get portfolioSectionPnlCharts;
 
   /// Portfolio screen: the first pill (and the screen's default) of the Positions | P&L | Activity switch, for the open positions (the biggest as squares, the rest under their venue). Was "Portfolio" until the screen's overhaul of 4 November 2026; the key keeps its old name.
@@ -19326,7 +19326,7 @@ abstract class AppLocalizations {
   /// Portfolio P&L chart: the one quiet caption under the headline when there is no P&L history yet; no chart is drawn.
   ///
   /// In en, this message translates to:
-  /// **'Your P&L shows up after your first position.'**
+  /// **'Your profits show up after your first position.'**
   String get pnlChartNoHistory;
 
   /// Bitcoin and Dollars balance charts: the one quiet caption under the headline when the account has no history yet; no chart is drawn.
@@ -19338,7 +19338,7 @@ abstract class AppLocalizations {
   /// Quiet one-line message centred on the Portfolio profit and loss chart (P&L charts) when the P&L is zero across the whole selected range, e.g. before the first trade or prediction.
   ///
   /// In en, this message translates to:
-  /// **'Your profit and loss shows here once you trade or predict'**
+  /// **'Your profits show here once you trade or predict'**
   String get pnlChartEmpty;
 
   /// Investments, Portfolio: small secondary line, how many open positions there are (Investing positions and predictions together): above the Positions list.
@@ -19710,7 +19710,7 @@ abstract class AppLocalizations {
   /// Portfolio P&L Charts, empty: the title over Sal.
   ///
   /// In en, this message translates to:
-  /// **'No P&L yet'**
+  /// **'No profits yet'**
   String get pnlNoHistoryTitle;
 
   /// Portfolio P&L Charts: the small title over the per-venue P&L rows.

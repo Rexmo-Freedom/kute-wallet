@@ -6068,7 +6068,7 @@ class AppLocalizationsRo extends AppLocalizations {
   String get portfolioPerformanceUnavailable => 'Performanță indisponibilă';
 
   @override
-  String get portfolioStatRealized => 'Profit / pierdere realizat';
+  String get portfolioStatRealized => 'Profituri realizate';
 
   @override
   String get portfolioStatAmountPredicted => 'Suma predicțiilor';
@@ -8013,7 +8013,7 @@ class AppLocalizationsRo extends AppLocalizations {
   String get tnNetProfit => 'Profit net';
 
   @override
-  String get tnTradingPnl => 'P&L tranzacționare';
+  String get tnTradingPnl => 'Profituri din tranzacționare';
 
   @override
   String get tnAllTradingFees => 'Toate comisioanele de tranzacționare';
@@ -8029,7 +8029,7 @@ class AppLocalizationsRo extends AppLocalizations {
       'Deschiderea, închiderile parțiale și închiderea finală';
 
   @override
-  String get tnClosedPnlExchange => 'P&L închis (platformă)';
+  String get tnClosedPnlExchange => 'Profituri închise (platformă)';
 
   @override
   String get tnFillFee => 'Comision execuție';
@@ -10734,10 +10734,10 @@ class AppLocalizationsRo extends AppLocalizations {
   String get bragPortfolioBarLabel => 'Distribuie portofoliul';
 
   @override
-  String get bragPnlBarLabel => 'Distribuie P&L-ul';
+  String get bragPnlBarLabel => 'Distribuie profiturile';
 
   @override
-  String get bragMyPnl => 'P&L-ul meu';
+  String get bragMyPnl => 'Profiturile mele';
 
   @override
   String bragShareText(String title, String link) {
@@ -10870,7 +10870,7 @@ class AppLocalizationsRo extends AppLocalizations {
   String get portfolioStatAtStake => 'Sumă în joc';
 
   @override
-  String get portfolioProfitLoss => 'Profit și pierdere';
+  String get portfolioProfitLoss => 'Profituri';
 
   @override
   String slipCtaAddTo(String side, String amount) {
@@ -11133,7 +11133,7 @@ class AppLocalizationsRo extends AppLocalizations {
       'Obține o adresă la care să trimiți dolari';
 
   @override
-  String get portfolioStatOpenPnl => 'Profit / pierdere deschis';
+  String get portfolioStatOpenPnl => 'Profituri deschise';
 
   @override
   String stepUpReasonBetReady(String amount) {
@@ -11469,7 +11469,7 @@ class AppLocalizationsRo extends AppLocalizations {
   String get cctpRefundContactSupport => 'Ca să îi muți, contactează suportul.';
 
   @override
-  String get portfolioSectionPnlCharts => 'P&L';
+  String get portfolioSectionPnlCharts => 'Profituri';
 
   @override
   String get portfolioSectionBalances => 'Poziții';
@@ -11559,7 +11559,8 @@ class AppLocalizationsRo extends AppLocalizations {
   String get chartNoChange => 'Nicio schimbare';
 
   @override
-  String get pnlChartNoHistory => 'P&L-ul tău apare după prima ta poziție.';
+  String get pnlChartNoHistory =>
+      'Profiturile tale apar după prima ta poziție.';
 
   @override
   String get balanceChartNoHistory =>
@@ -11567,7 +11568,7 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get pnlChartEmpty =>
-      'Profitul și pierderea ta vor apărea aici după ce tranzacționezi sau faci predicții';
+      'Profiturile tale vor apărea aici după ce tranzacționezi sau faci predicții';
 
   @override
   String portfolioPositionsCount(int count) {
@@ -11798,7 +11799,7 @@ class AppLocalizationsRo extends AppLocalizations {
       'Bitcoin și dolari împreună. Sal se preface că nu e mare lucru.';
 
   @override
-  String get pnlNoHistoryTitle => 'Încă nu ai P&L';
+  String get pnlNoHistoryTitle => 'Încă nu ai profituri';
 
   @override
   String get pnlByVenue => 'By venue';

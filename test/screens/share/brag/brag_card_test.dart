@@ -882,7 +882,7 @@ void main() {
         }
         for (final usd in const [128.4, -41.2]) {
           final pnl = BragPnl(
-            title: 'My P&L',
+            title: 'My profits',
             link: 'https://x.test',
             referralCode: kBragTestCode,
             range: BalanceRange.month,

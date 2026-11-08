@@ -181,7 +181,7 @@ void main() {
     expect(_valueOf(tester, 'Shares'), '6.30');
     expect(_valueOf(tester, 'Cost'), '\$3.21');
     expect(_valueOf(tester, 'Payout'), '\$0.00');
-    expect(_valueOf(tester, 'Realized P&L'), '−\$3.21');
+    expect(_valueOf(tester, 'Realized profits'), '−\$3.21');
     expect(_inSheet(find.textContaining('Resolved · ')), findsOneWidget);
     // No transaction: no explorer link, no hash, no claim.
     expect(find.text('View on the blockchain'), findsNothing);
@@ -203,7 +203,7 @@ void main() {
     expect(_valueOf(tester, 'Shares'), '5.00');
     expect(_valueOf(tester, 'Cost'), '\$3.00');
     expect(_valueOf(tester, 'Payout'), '\$5.00');
-    expect(_valueOf(tester, 'Realized P&L'), '+\$2.00');
+    expect(_valueOf(tester, 'Realized profits'), '+\$2.00');
     // Neither the Activity row under the sheet nor the sheet says Claim.
     expect(find.textContaining('Claim'), findsNothing);
     expect(find.textContaining('Ready to claim'), findsNothing);

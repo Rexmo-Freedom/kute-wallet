@@ -5813,7 +5813,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get portfolioPerformanceUnavailable => 'パフォーマンスを取得できません';
 
   @override
-  String get portfolioStatRealized => '実現損益';
+  String get portfolioStatRealized => '実現益';
 
   @override
   String get portfolioStatAmountPredicted => '予測に使った金額';
@@ -7632,7 +7632,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tnNetProfit => '純利益';
 
   @override
-  String get tnTradingPnl => '売買損益';
+  String get tnTradingPnl => '売買益';
 
   @override
   String get tnAllTradingFees => 'すべての取引手数料';
@@ -7647,7 +7647,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tnIncludesAllCloses => '新規建て、一部決済、最終決済';
 
   @override
-  String get tnClosedPnlExchange => '決済損益（取引所）';
+  String get tnClosedPnlExchange => '決済益（取引所）';
 
   @override
   String get tnFillFee => '約定手数料';
@@ -10271,10 +10271,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get bragPortfolioBarLabel => 'ポートフォリオをシェア';
 
   @override
-  String get bragPnlBarLabel => '損益をシェア';
+  String get bragPnlBarLabel => '利益をシェア';
 
   @override
-  String get bragMyPnl => '私の損益';
+  String get bragMyPnl => '私の利益';
 
   @override
   String bragShareText(String title, String link) {
@@ -10403,7 +10403,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get portfolioStatAtStake => '投入額';
 
   @override
-  String get portfolioProfitLoss => '損益';
+  String get portfolioProfitLoss => '利益';
 
   @override
   String slipCtaAddTo(String side, String amount) {
@@ -10661,7 +10661,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get depositFromAnotherWalletSubtitle => 'ドルを送るアドレスを取得';
 
   @override
-  String get portfolioStatOpenPnl => '含み損益';
+  String get portfolioStatOpenPnl => '含み益';
 
   @override
   String stepUpReasonBetReady(String amount) {
@@ -10995,7 +10995,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get cctpRefundContactSupport => '移動するには、サポートにお問い合わせください。';
 
   @override
-  String get portfolioSectionPnlCharts => '損益';
+  String get portfolioSectionPnlCharts => '利益';
 
   @override
   String get portfolioSectionBalances => 'ポジション';
@@ -11082,13 +11082,13 @@ class AppLocalizationsJa extends AppLocalizations {
   String get chartNoChange => '変動なし';
 
   @override
-  String get pnlChartNoHistory => '損益は最初のポジション後に表示されます。';
+  String get pnlChartNoHistory => '利益は最初のポジション後に表示されます。';
 
   @override
   String get balanceChartNoHistory => '残高履歴は最初の取引から始まります。';
 
   @override
-  String get pnlChartEmpty => '取引や予測をすると、損益がここに表示されます';
+  String get pnlChartEmpty => '取引や予測をすると、利益がここに表示されます';
 
   @override
   String portfolioPositionsCount(int count) {
@@ -11316,7 +11316,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get balanceMilestonePassedLine => 'ビットコインとドルの合計。Salは平静を装っています。';
 
   @override
-  String get pnlNoHistoryTitle => '損益はまだありません';
+  String get pnlNoHistoryTitle => '利益はまだありません';
 
   @override
   String get pnlByVenue => 'By venue';

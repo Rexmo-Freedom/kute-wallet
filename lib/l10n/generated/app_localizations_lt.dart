@@ -6066,7 +6066,7 @@ class AppLocalizationsLt extends AppLocalizations {
   String get portfolioPerformanceUnavailable => 'Rezultatai negalimi';
 
   @override
-  String get portfolioStatRealized => 'Realizuotas pelnas / nuostolis';
+  String get portfolioStatRealized => 'Realizuotas pelnas';
 
   @override
   String get portfolioStatAmountPredicted => 'Prognozių suma';
@@ -8007,7 +8007,7 @@ class AppLocalizationsLt extends AppLocalizations {
   String get tnNetProfit => 'Grynasis pelnas';
 
   @override
-  String get tnTradingPnl => 'Sandorių P&L';
+  String get tnTradingPnl => 'Sandorių pelnas';
 
   @override
   String get tnAllTradingFees => 'Visi sandorių mokesčiai';
@@ -8023,7 +8023,7 @@ class AppLocalizationsLt extends AppLocalizations {
       'Atidarymą, dalinius uždarymus ir galutinį uždarymą';
 
   @override
-  String get tnClosedPnlExchange => 'Uždarytas P&L (birža)';
+  String get tnClosedPnlExchange => 'Uždarytas pelnas (birža)';
 
   @override
   String get tnFillFee => 'Įvykdymo mokestis';
@@ -10729,10 +10729,10 @@ class AppLocalizationsLt extends AppLocalizations {
   String get bragPortfolioBarLabel => 'Bendrinti portfelį';
 
   @override
-  String get bragPnlBarLabel => 'Bendrinti P&L';
+  String get bragPnlBarLabel => 'Bendrinti pelną';
 
   @override
-  String get bragMyPnl => 'Mano P&L';
+  String get bragMyPnl => 'Mano pelnas';
 
   @override
   String bragShareText(String title, String link) {
@@ -10865,7 +10865,7 @@ class AppLocalizationsLt extends AppLocalizations {
   String get portfolioStatAtStake => 'Statoma suma';
 
   @override
-  String get portfolioProfitLoss => 'Pelnas ir nuostoliai';
+  String get portfolioProfitLoss => 'Pelnas';
 
   @override
   String slipCtaAddTo(String side, String amount) {
@@ -11128,7 +11128,7 @@ class AppLocalizationsLt extends AppLocalizations {
       'Gaukite adresą, kuriuo siųsti dolerius';
 
   @override
-  String get portfolioStatOpenPnl => 'Atviras pelnas / nuostolis';
+  String get portfolioStatOpenPnl => 'Atviras pelnas';
 
   @override
   String stepUpReasonBetReady(String amount) {
@@ -11465,7 +11465,7 @@ class AppLocalizationsLt extends AppLocalizations {
       'Norėdami juos perkelti, susisiekite su pagalba.';
 
   @override
-  String get portfolioSectionPnlCharts => 'P&L';
+  String get portfolioSectionPnlCharts => 'Pelnas';
 
   @override
   String get portfolioSectionBalances => 'Pozicijos';
@@ -11555,7 +11555,7 @@ class AppLocalizationsLt extends AppLocalizations {
   String get chartNoChange => 'Be pokyčio';
 
   @override
-  String get pnlChartNoHistory => 'Jūsų P&L atsiras po pirmosios pozicijos.';
+  String get pnlChartNoHistory => 'Jūsų pelnas atsiras po pirmosios pozicijos.';
 
   @override
   String get balanceChartNoHistory =>
@@ -11563,7 +11563,7 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get pnlChartEmpty =>
-      'Kai prekiausite ar prognozuosite, čia matysite savo pelną ir nuostolius';
+      'Kai prekiausite ar prognozuosite, čia matysite savo pelną';
 
   @override
   String portfolioPositionsCount(int count) {
@@ -11796,7 +11796,7 @@ class AppLocalizationsLt extends AppLocalizations {
       'Bitcoin ir doleriai kartu. Sal apsimeta, kad nieko tokio.';
 
   @override
-  String get pnlNoHistoryTitle => 'P&L dar nėra';
+  String get pnlNoHistoryTitle => 'Pelno dar nėra';
 
   @override
   String get pnlByVenue => 'By venue';
