@@ -54,10 +54,10 @@
 // screen. Behind another pill or tab the card does no work of its own (see
 // HlMarketMapCard).
 //
-// NOTHING OPEN: the tab shows nothing under the pills (founder, 8 November
-// 2026: of the map alone on an empty tab, "maybe we cut it from overview if
-// nothing open, then we show nothing there"). No map, no empty state. The
-// map hides with the policy too (`hyperliquid.browse`), leaving what is held.
+// NOTHING OPEN: no map (founder, 8 November 2026: the map alone on an empty
+// tab felt like slop) and the app's empty state, Sal over "No open positions"
+// ("when nothing on overview show Sal"). The map hides with the policy too
+// (`hyperliquid.browse`), leaving what is held.
 //
 // ONE EDGE FOR EVERY BLOCK (founder, 5 November 2026: "different size
 // here"): the squares, the P&L card and the map all stand on the page's 16
@@ -111,6 +111,7 @@ import 'package:kute/screens/portfolio/open_investments_screen.dart'
     show portfolioOpenPnl, portfolioOpenRanked, portfolioVenueLists;
 import 'package:kute/screens/portfolio/portfolio_filters.dart'
     show portfolioVenuesProvider;
+import 'package:kute/screens/shared/no_activity_state.dart';
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/screens/shared/charts/kute_chart_format.dart'
     show kuteChangeSign;
@@ -196,11 +197,28 @@ class DollarsActivityTab extends ConsumerWidget {
           ),
         ),
         // Outside the gutters: the group card brings its own 16 margin.
-        // Nothing open: no map, nothing (see the file header).
+        // Nothing open: Sal, no map (see the file header).
         if (held)
           SliverToBoxAdapter(
             // The P&L card's 12 under what is held.
             child: _OverviewMarketMap(margin: EdgeInsets.only(top: 12.h)),
+          )
+        else
+          SliverToBoxAdapter(
+            child: Padding(
+              key: const ValueKey('dollars-activity-empty'),
+              padding: EdgeInsets.only(top: 8.h, bottom: 4.h),
+              child: NoActivityState(
+                padding: EdgeInsets.symmetric(horizontal: 24.w),
+                title: l10n.portfolioNoOpenPositions,
+                cycles: 3,
+                salSize: 140,
+                titleSize: 22,
+                titleWeight: FontWeight.w600,
+                subtitleSize: 15,
+                subtitleColor: context.colors.textSecondary,
+              ),
+            ),
           ),
         // The last block clear of the dock and the bar over it.
         SliverToBoxAdapter(

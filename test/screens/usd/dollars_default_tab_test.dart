@@ -8,7 +8,7 @@
 //     own; a pick still switches in; a link naming a pill keeps it
 //     (`?tab=predictions`), `?tab=activity` and `?tab=overview` name Overview;
 //   * on Overview: the open positions, the open P&L, then the map, at the
-//     cards' width; with nothing open the tab shows nothing under the pills; the map's
+//     cards' width; with nothing open Sal over "No open positions", no map; the map's
 //     skeleton in its place; a tile, scrolled to, opens its market, the
 //     page clearing the bar; no category picked on Investing touches it;
 //   * Investing is its plain list: no map, on any category;
@@ -349,26 +349,27 @@ void main() {
     });
 
     testWidgets(
-        'nothing open: nothing under the pills, no map, no heading, no empty '
-        'state', (tester) async {
+        'nothing open: Sal over "No open positions", no map, no heading',
+        (tester) async {
       await _pump(tester);
       expect(_map, findsNothing);
       expect(_mapBones, findsNothing);
       expect(_squares, findsNothing);
       expect(_pnl, findsNothing);
-      expect(find.text('No open positions'), findsNothing);
+      expect(_empty, findsOneWidget);
+      expect(find.text('No open positions'), findsOneWidget);
       expect(find.byKey(const ValueKey('dollars-activity-positions-heading')),
           findsNothing);
       expect(tester.takeException(), isNull);
       await unmountInvestments(tester);
     });
 
-    testWidgets('Investing\'s browsing withheld, nothing open: nothing',
+    testWidgets('Investing\'s browsing withheld, nothing open: Sal too',
         (tester) async {
       await _pump(tester, browseInvesting: false);
       expect(_map, findsNothing);
       expect(_mapBones, findsNothing);
-      expect(find.text('No open positions'), findsNothing);
+      expect(_empty, findsOneWidget);
       expect(tester.takeException(), isNull);
       await unmountInvestments(tester);
     });
