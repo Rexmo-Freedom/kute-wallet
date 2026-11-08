@@ -28,8 +28,19 @@
 // to anyone's "Who is it for?" with the pick, the contact picked on Send
 // prefilled. A link created closes the slip, the pages and this sheet,
 // and the future resolves to true: the Send screen closes as a send that
-// went out. The What step hides its gift option when neither venue is
-// open (sendPickOffered).
+// went out.
+//
+// THE WHAT STEP'S GIFT IS ALWAYS THERE, ITS TAP SAYS WHY (founder, 8
+// November 2026, over the lone Bitcoin card: "we need to have it as an
+// option always"). It reads no holdings and no balance: only the policy,
+// live, the region rule of the coin pickers (founder decision, 27 October
+// 2026; coin_asset_grid.dart): neither venue open for a region
+// ([sendPickRegionBlock]) or no policy read yet keeps the card, and its tap
+// asks again and then shows the shared Unavailable sheet, "Check connection"
+// going on into the search when it finds a venue open
+// ([sendGiftStoppedByPolicy]). Only a refusal that is no region's on both
+// venues (a switch off, a platform or version rule, coming soon) takes the
+// card away ([sendGiftShown]).
 //
 // `send_pick_market_opened {source: send}` once per open,
 // `send_pick_market_picked {venue, searched}` per market opened.
@@ -39,8 +50,12 @@ import 'package:flutter/widgets.dart';
 import 'package:kute/screens/search/unified_search_screen.dart'
     show showKuteSearch;
 import 'package:kute/screens/share/send_pick_session.dart';
+import 'package:kute/screens/shared/capability_unavailable_sheet.dart'
+    show showCapabilityDecisionSheet;
+import 'package:kute/services/orchestra/orchestra_capability_requirements.dart'
+    show CapabilityRegionBlock;
 import 'package:kute/services/runtime_capabilities_service.dart'
-    show RuntimeCapabilitiesService;
+    show RuntimeCapabilitiesService, confirmCapability;
 import 'package:kute/services/tracking_service.dart';
 
 /// Whether a prediction or an investment can be composed to send here:
@@ -49,6 +64,65 @@ bool sendPickOffered(RuntimeCapabilitiesService policy) {
   final venues = sendPickVenues(policy);
   return venues.predictions || venues.investing;
 }
+
+/// The gates of each venue a pick can be sent from ([sendPickVenues]).
+const _kSendPickVenueGates = [
+  ['polymarket.browse', 'polymarket.trade'],
+  ['hyperliquid.browse', 'hyperliquid.trade'],
+];
+
+/// What stands in front of the gift while it cannot be composed and a
+/// region or a policy not read yet is why (see the file header): the first
+/// refusal, of a venue with no other kind of refusal. Null while a venue is
+/// open, and while a refusal of another kind shuts both venues.
+CapabilityRegionBlock? sendPickRegionBlock(RuntimeCapabilitiesService policy) {
+  if (sendPickOffered(policy)) return null;
+  for (final gates in _kSendPickVenueGates) {
+    CapabilityRegionBlock? first;
+    var kept = true;
+    for (final id in gates) {
+      final decision = policy.decision(id);
+      if (decision.allowed && !decision.comingSoon) continue;
+      if (decision.comingSoon ||
+          !(decision.regionRestricted ||
+              decision.reason == 'policy_unavailable')) {
+        kept = false;
+        break;
+      }
+      first ??= (capability: id, decision: decision);
+    }
+    if (kept && first != null) return first;
+  }
+  return null;
+}
+
+/// Whether the What step shows the gift (see the file header).
+bool sendGiftShown(RuntimeCapabilitiesService policy) =>
+    sendPickOffered(policy) || sendPickRegionBlock(policy) != null;
+
+/// The tap on the What step's gift: true when the policy stands in front of
+/// it, so the caller must not open the search. As a coin's tap
+/// (coinPickStoppedByRegion, coin_asset_grid.dart): the refusal is asked
+/// again first (a stale answer never shuts it), then the shared Unavailable
+/// sheet says why; a "Check connection" that finds a venue open answers
+/// false and the gift goes on.
+Future<bool> sendGiftStoppedByPolicy(
+    BuildContext context, RuntimeCapabilitiesService policy) async {
+  final first = sendPickRegionBlock(policy);
+  if (first == null) return !sendPickOffered(policy);
+  await confirmCapability(policy, first.capability);
+  if (!context.mounted) return true;
+  if (sendPickOffered(policy)) return false;
+  final standing = sendPickRegionBlock(policy);
+  // Withheld meanwhile: the card leaves with the policy's change.
+  if (standing == null) return true;
+  final open = await showCapabilityDecisionSheet(context, standing.decision,
+      capability: standing.capability, surface: kSendWhatGiftSurface);
+  return !open || !sendPickOffered(policy);
+}
+
+/// The Unavailable sheet's `surface` when the What step's gift is refused.
+const String kSendWhatGiftSurface = 'send_what_gift';
 
 /// Opens the search sheet in send mode over the send (see the file
 /// header). [senderLabel] and [recipientPhone] are the contact picked

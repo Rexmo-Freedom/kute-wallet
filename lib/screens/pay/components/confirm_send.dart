@@ -108,11 +108,9 @@ import 'package:kute/services/contacts/send_contacts_service.dart'
     show SendContact, sendContactsProvider;
 import 'package:kute/screens/share/send_to_anyone_sheet.dart';
 import 'package:kute/screens/share/send_pick_market_sheet.dart'
-    show sendPickOffered, showSendPickMarketSheet;
+    show showSendPickMarketSheet;
 import 'package:kute/screens/shared/money_movement_sheet.dart'
     show MoneyMovementAccount, showOwnMoneyMove;
-import 'package:kute/services/runtime_capabilities_service.dart'
-    show runtimeCapabilitiesProvider;
 import 'package:kute/screens/shared/stepper/stepper_widgets.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/transaction_modal.dart';
@@ -744,9 +742,7 @@ class _DestAsset {
 class _DestNetwork {
   final String network;
   final String name;
-  final String addressHint;
-  _DestNetwork(
-      {required this.network, required this.name, required this.addressHint});
+  _DestNetwork({required this.network, required this.name});
 }
 
 /// One send-direction destination option: an (asset, chain) pair
@@ -2283,10 +2279,6 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
               _selectedDestNetwork = _DestNetwork(
                 network: row.chain,
                 name: row.chainDisplayName,
-                addressHint: isDollars
-                    ? context.l10n.sendDollarAccountAddressHint
-                    : context.l10n.sendAssetOnNetworkAddressHint(
-                        row.displaySymbol, row.chainDisplayName),
               );
               _swapQuote = null;
             });
@@ -7594,7 +7586,6 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
       contact: contact,
       phone: phone,
       home: SendFrom.bitcoin,
-      giftOffered: sendPickOffered(ref.read(runtimeCapabilitiesProvider)),
       openLink: (kind) => showSendToAnyoneSheet(
         context,
         kind: kind,
@@ -7785,8 +7776,9 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
         (sourceWallet.isHardware || sourceWallet.isWatchOnly);
     final String hintText;
     if (_selectedDestAsset != null && _selectedDestNetwork != null) {
-      hintText = context.l10n.sendAssetOnNetworkAddressHint(
-          _selectedDestAsset!.code, _selectedDestNetwork!.name);
+      // The coin is chosen, its row under the field says which: just
+      // "Address", as on the Dollars Send's address step.
+      hintText = context.l10n.address;
     } else if (isExternalSigner) {
       hintText = context.l10n.sendPasteBitcoinAddress;
     } else {

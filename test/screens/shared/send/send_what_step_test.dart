@@ -4,8 +4,16 @@
 // whatever the language; "A prediction or investment" and its line wrap to
 // the lines they need, never cut and never a word broken across lines; the
 // gift wears Sal in the money mark's box, as big as the mark, no box of
-// his own. With no gift, the money card stands alone, full width and
-// compact. Inter, the app's font, so the measures are a phone's.
+// his own. Inter, the app's font, so the measures are a phone's.
+//
+// Then THE GIFT IS ALWAYS THERE (founder, 8 November 2026: "we need to have
+// it as an option always"), on both Sends: with nothing held and no venue
+// cash the gift shows and its tap opens the search; only the policy stands
+// in its way. A region block (or no policy read yet) keeps the card and its
+// tap says why, asking again first; a refusal of another kind on both
+// venues leaves the money card alone, full width and compact.
+
+import 'dart:collection' show SetBase;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderParagraph;
@@ -13,17 +21,34 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/models/affiliate_model.dart' show AffiliateService;
+import 'package:kute/models/balance_model.dart' show WalletBalance;
+import 'package:kute/models/share_link_model.dart' show ShareLinkKind;
+import 'package:kute/providers/balance_provider.dart'
+    show WalletBalanceCacheNotifier, walletBalanceCacheProvider;
 import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceProvider, usdBalanceUnknownProvider;
 import 'package:flutter_svg/flutter_svg.dart' show SvgPicture;
+import 'package:kute/screens/shared/capability_unavailable_sheet.dart'
+    show CapabilityUnavailableSheet;
 import 'package:kute/screens/shared/kute_action_cards.dart'
     show KuteActionCardIcon;
 import 'package:kute/screens/shared/sal_sprite.dart' show SalSpriteCache;
 import 'package:kute/screens/shared/send/send_recipient_step.dart'
     show SendSalShareGlyph;
 import 'package:kute/screens/shared/send/send_what_step.dart';
+import 'package:kute/services/investment_provider_availability.dart'
+    show InvestmentProviderAvailability;
+import 'package:kute/services/region_freshness.dart' show RegionFreshness;
+import 'package:kute/services/runtime_capabilities_service.dart';
+import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
+
+import '../../../helpers/kute_bar_test_support.dart';
+import '../../../helpers/runtime_policy_fixture.dart';
 
 Future<void> _fonts() async {
   final inter = FontLoader('Inter')
@@ -34,7 +59,7 @@ Future<void> _fonts() async {
 }
 
 Future<void> _pump(WidgetTester tester,
-    {required Locale locale, bool gift = true, bool dark = false}) async {
+    {required Locale locale, bool dark = false}) async {
   tester.view.physicalSize = const Size(375, 812);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -58,7 +83,6 @@ Future<void> _pump(WidgetTester tester,
             child: SendWhatSheet(
               name: 'Anna Haro',
               from: SendFrom.dollars,
-              giftOffered: gift,
             ),
           ),
         ),
@@ -67,6 +91,123 @@ Future<void> _pump(WidgetTester tester,
   ));
   await tester.pump();
 }
+
+/// Nothing in the spending wallet.
+class _NoBalances extends WalletBalanceCacheNotifier {
+  _NoBalances() {
+    state = {
+      'spending': WalletBalance(onChainBtcBalance: 0, sparkBitcoinbalance: 0),
+    };
+  }
+}
+
+/// What one person picked on a Send did.
+class _Flow {
+  int gifts = 0;
+  final links = <ShareLinkKind>[];
+}
+
+/// A Send over an empty account: nothing in Dollars or Bitcoin, no venue
+/// cash and no position (the What step reads none of them for the gift);
+/// a tap on `open` picks a person, as both Sends do ([sendToPerson]).
+Future<_Flow> _pumpPerson(WidgetTester tester, SendFrom home) async {
+  tester.view.physicalSize = const Size(375, 812);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+  final flow = _Flow();
+  await tester.pumpWidget(ProviderScope(
+    overrides: [
+      usdBalanceProvider.overrideWithValue(0),
+      usdBalanceUnknownProvider.overrideWithValue(false),
+      walletBalanceCacheProvider.overrideWith((_) => _NoBalances()),
+    ],
+    child: ScreenUtilInit(
+      designSize: const Size(430, 932),
+      builder: (_, __) => MaterialApp(
+        builder: withKuteShellBar,
+        theme: buildLightTheme(),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => Center(
+              child: TextButton(
+                onPressed: () => sendToPerson(
+                  context,
+                  phone: '+351 999 888 777',
+                  home: home,
+                  openLink: (kind) async {
+                    flow.links.add(kind);
+                    return false;
+                  },
+                  openGift: () async {
+                    flow.gifts++;
+                    return false;
+                  },
+                  payDirect: (_) {},
+                ),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  ));
+  await tester.pump();
+  await tester.tap(find.text('open'));
+  await tester.pumpAndSettle();
+  expect(find.byType(SendWhatSheet), findsOneWidget);
+  return flow;
+}
+
+Future<void> _policy(
+  WidgetTester tester, {
+  Set<String> Function()? blocked,
+  Map<String, String> reasons = const {},
+  Map<String, Map<String, Object?>> decorations = const {},
+}) async {
+  final closed = blocked ?? () => const <String>{};
+  // The fixture reads its blocked set at each fetch.
+  final policy = runtimePolicyFixture(
+      blocked: _LiveSet(closed),
+      reasons: reasons,
+      decorations: decorations,
+      also: const {'polymarket.browse', 'hyperliquid.browse'});
+  RuntimeCapabilitiesService.debugInstance = policy;
+  await tester.runAsync(policy.refresh);
+}
+
+/// A set read afresh each time it is asked.
+class _LiveSet extends SetBase<String> {
+  _LiveSet(this.read);
+  final Set<String> Function() read;
+  @override
+  bool add(String value) => throw UnsupportedError('read only');
+  @override
+  bool contains(Object? element) => read().contains(element);
+  @override
+  Iterator<String> get iterator => read().iterator;
+  @override
+  int get length => read().length;
+  @override
+  String? lookup(Object? element) => read().lookup(element);
+  @override
+  bool remove(Object? value) => throw UnsupportedError('read only');
+  @override
+  Set<String> toSet() => read().toSet();
+}
+
+const _regions = {'label': 'the European Union, the UK and Switzerland'};
+const _trading = {'polymarket.trade', 'hyperliquid.trade'};
+const _regionReasons = {
+  'polymarket.trade': 'country_blocked',
+  'hyperliquid.trade': 'country_blocked',
+};
+const _regionNames = {
+  'polymarket.trade': {'regions': _regions},
+  'hyperliquid.trade': {'regions': _regions},
+};
 
 /// Every word of every paragraph under [card] sits whole on its line, and
 /// no paragraph is cut; the number of lines the title takes.
@@ -111,8 +252,16 @@ void main() {
     await _fonts();
   });
 
-  setUp(() => SalSpriteCache.debugSetManifest(null));
-  tearDown(SalSpriteCache.debugReset);
+  setUp(() {
+    SalSpriteCache.debugSetManifest(null);
+    AffiliateService.debugSessionToken = 'test-session';
+  });
+  tearDown(() {
+    SalSpriteCache.debugReset();
+    RuntimeCapabilitiesService.debugInstance = null;
+    AffiliateService.debugSessionToken = null;
+    TrackingService.debugTrackObserver = null;
+  });
 
   testWidgets(
       'every language at 375 pt: two equal squares side by side, nothing '
@@ -156,17 +305,193 @@ void main() {
     print('What gift title lines at 375 pt: $lines');
   });
 
-  testWidgets(
-      'no gift offered: the money card alone, the grid\'s lone card, full '
-      'width and compact with its chevron', (tester) async {
-    await _pump(tester, locale: const Locale('en'), gift: false);
-    final money = find.byKey(kSendWhatMoneyKey);
-    expect(find.byKey(kSendWhatGiftKey), findsNothing);
-    expect(tester.getSize(money).width,
-        tester.getSize(find.byKey(const ValueKey('send-what-cards'))).width);
-    expect(
-        find.descendant(
-            of: money, matching: find.byIcon(Icons.chevron_right_rounded)),
-        findsOneWidget);
-  });
+  for (final home in SendFrom.values) {
+    group('the ${home.name} Send', () {
+      testWidgets(
+          'nothing held and no venue cash: two squares; the gift goes on to '
+          'the search, send_what_picked counted once with no person in it',
+          (tester) async {
+        await _policy(tester);
+        final events = <(String, Map<String, Object>?)>[];
+        TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+        final flow = await _pumpPerson(tester, home);
+        final money = find.byKey(kSendWhatMoneyKey);
+        final gift = find.byKey(kSendWhatGiftKey);
+        expect(tester.getSize(money), tester.getSize(gift));
+        await tester.tap(gift);
+        await tester.pumpAndSettle();
+        expect(flow.gifts, 1);
+        expect(find.byType(SendWhatSheet), findsNothing);
+        final picked = events.where((e) => e.$1 == 'send_what_picked').toList();
+        expect(picked, hasLength(1));
+        expect(picked.single.$2, {'what': 'gift', 'home': home.name});
+        RuntimeCapabilitiesService.debugInstance?.dispose();
+      });
+
+      testWidgets(
+          'neither venue open for a region: the card stays and its tap says '
+          'why, the named regions and Check connection, opening nothing and '
+          'counting no answer; the What step is still under it',
+          (tester) async {
+        await _policy(tester,
+            blocked: () => _trading,
+            reasons: _regionReasons,
+            decorations: _regionNames);
+        final events = <String>[];
+        TrackingService.debugTrackObserver = (e, _) => events.add(e);
+        final flow = await _pumpPerson(tester, home);
+        await tester.tap(find.byKey(kSendWhatGiftKey));
+        await tester.pumpAndSettle();
+        expect(find.byType(CapabilityUnavailableSheet), findsOneWidget);
+        expect(
+            find.text(
+                'Not available in the European Union, the UK and Switzerland'),
+            findsOneWidget);
+        expect(kuteBarPrimaryWithText('Check connection'), findsOneWidget);
+        expect(flow.gifts, 0);
+        expect(events, isNot(contains('send_what_picked')));
+        expect(find.byType(SendWhatSheet), findsOneWidget);
+        await tester.tapAt(const Offset(20, 20));
+        await tester.pumpAndSettle();
+        expect(find.byType(CapabilityUnavailableSheet), findsNothing);
+        expect(find.byType(SendWhatSheet), findsOneWidget);
+        expect(find.byKey(kSendWhatGiftKey), findsOneWidget);
+        RuntimeCapabilitiesService.debugInstance?.dispose();
+      });
+
+      testWidgets(
+          'a stale region refusal never stops it: the tap asks again, and a '
+          'venue open now goes straight on', (tester) async {
+        var closed = _trading;
+        await _policy(tester,
+            blocked: () => closed,
+            reasons: _regionReasons,
+            decorations: _regionNames);
+        final flow = await _pumpPerson(tester, home);
+        closed = const {};
+        await tester.runAsync(() async {
+          await tester.tap(find.byKey(kSendWhatGiftKey));
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+        });
+        await tester.pumpAndSettle();
+        expect(find.byType(CapabilityUnavailableSheet), findsNothing);
+        expect(flow.gifts, 1);
+        RuntimeCapabilitiesService.debugInstance?.dispose();
+      });
+
+      testWidgets(
+          'Check connection finding a venue open goes on into the search',
+          (tester) async {
+        final venues = InvestmentProviderAvailability(
+          client: MockClient((request) async => request.url.host ==
+                  'api.hyperliquid.xyz'
+              ? http.Response(
+                  '{"acceptedTerms":true,"userAllowed":true,"restrictions":"n"}',
+                  200)
+              : http.Response('{"blocked":false}', 200)),
+          report: ({
+            required String venue,
+            required String trigger,
+            required bool changed,
+            required String result,
+          }) {},
+        );
+        RegionFreshness.debugVenues = venues;
+        addTearDown(() {
+          RegionFreshness.debugVenues = null;
+          venues.dispose();
+        });
+        var closed = _trading;
+        await _policy(tester,
+            blocked: () => closed,
+            reasons: _regionReasons,
+            decorations: _regionNames);
+        final flow = await _pumpPerson(tester, home);
+        await tester.tap(find.byKey(kSendWhatGiftKey));
+        await tester.pumpAndSettle();
+        expect(find.byType(CapabilityUnavailableSheet), findsOneWidget);
+        expect(flow.gifts, 0);
+        // The VPN changed.
+        closed = const {};
+        await tester.tap(kuteBarPrimaryWithText('Check connection'));
+        for (var i = 0; i < 20; i++) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        expect(find.byType(CapabilityUnavailableSheet), findsNothing);
+        expect(find.byType(SendWhatSheet), findsNothing);
+        expect(flow.gifts, 1);
+        RuntimeCapabilitiesService.debugInstance?.dispose();
+      });
+
+      testWidgets(
+          'no policy read yet is no refusal: the card shows, its tap says so',
+          (tester) async {
+        final policy = RuntimeCapabilitiesService.forTesting(
+          client: MockClient((_) async => http.Response('', 503)),
+          baseUrl: () => 'https://policy.test',
+          sessionToken: () => AffiliateService.sessionToken,
+          appVersion: () async => '2.2.0',
+        );
+        RuntimeCapabilitiesService.debugInstance = policy;
+        final flow = await _pumpPerson(tester, home);
+        await tester.tap(find.byKey(kSendWhatGiftKey));
+        await tester.pumpAndSettle();
+        expect(find.byType(CapabilityUnavailableSheet), findsOneWidget);
+        expect(flow.gifts, 0);
+        RuntimeCapabilitiesService.debugInstance?.dispose();
+      });
+
+      testWidgets(
+          'one venue open is enough, the other refused for a region: the '
+          'gift goes on', (tester) async {
+        await _policy(tester,
+            blocked: () => const {'polymarket.trade'},
+            reasons: _regionReasons,
+            decorations: _regionNames);
+        final flow = await _pumpPerson(tester, home);
+        await tester.tap(find.byKey(kSendWhatGiftKey));
+        await tester.pumpAndSettle();
+        expect(find.byType(CapabilityUnavailableSheet), findsNothing);
+        expect(flow.gifts, 1);
+        RuntimeCapabilitiesService.debugInstance?.dispose();
+      });
+
+      testWidgets(
+          'the switch off on both venues: the money card alone, the grid\'s '
+          'lone card, full width and compact with its chevron',
+          (tester) async {
+        await _policy(tester, blocked: () => _trading);
+        await _pumpPerson(tester, home);
+        final money = find.byKey(kSendWhatMoneyKey);
+        expect(find.byKey(kSendWhatGiftKey), findsNothing);
+        expect(tester.getSize(money).width,
+            tester.getSize(find.byKey(const ValueKey('send-what-cards'))).width);
+        expect(
+            find.descendant(
+                of: money, matching: find.byIcon(Icons.chevron_right_rounded)),
+            findsOneWidget);
+        RuntimeCapabilitiesService.debugInstance?.dispose();
+      });
+
+      testWidgets(
+          'the switch off on one venue, the other refused for a region: the '
+          'card stays and its tap names that region', (tester) async {
+        await _policy(tester,
+            blocked: () => _trading,
+            reasons: const {'hyperliquid.trade': 'country_blocked'},
+            decorations: const {
+              'hyperliquid.trade': {'regions': _regions},
+            });
+        final flow = await _pumpPerson(tester, home);
+        await tester.tap(find.byKey(kSendWhatGiftKey));
+        await tester.pumpAndSettle();
+        expect(
+            find.text(
+                'Not available in the European Union, the UK and Switzerland'),
+            findsOneWidget);
+        expect(flow.gifts, 0);
+        RuntimeCapabilitiesService.debugInstance?.dispose();
+      });
+    });
+  }
 }

@@ -3360,11 +3360,6 @@ class AppLocalizationsRo extends AppLocalizations {
       'Această cerere de plată acceptă doar Lightning. Treci la un portofel compatibil Lightning ca să plătești.';
 
   @override
-  String sendAssetOnNetworkAddressHint(String asset, String network) {
-    return 'Adresă $asset pe $network';
-  }
-
-  @override
   String get sendPasteBitcoinAddress => 'Lipește adresa Bitcoin';
 
   @override
@@ -6782,9 +6777,6 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
-
-  @override
-  String get sendDollarAccountAddressHint => 'Adresa contului în dolari';
 
   @override
   String hwSignKeepDeviceNearby(String device) {
@@ -12170,9 +12162,6 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get sendWhatGift => 'O predicție sau o investiție';
-
-  @override
-  String get usdSendRecipientSearchHint => 'Nume, adresă sau ENS';
 
   @override
   String get sendDollarsTitle => 'Trimite dolari';

@@ -3374,11 +3374,6 @@ class AppLocalizationsEl extends AppLocalizations {
       'Αυτό το αίτημα πληρωμής υποστηρίζει μόνο Lightning. Άλλαξε σε πορτοφόλι με Lightning για να πληρώσεις.';
 
   @override
-  String sendAssetOnNetworkAddressHint(String asset, String network) {
-    return 'Διεύθυνση $asset στο $network';
-  }
-
-  @override
   String get sendPasteBitcoinAddress => 'Επικόλληση διεύθυνσης Bitcoin';
 
   @override
@@ -6799,9 +6794,6 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
-
-  @override
-  String get sendDollarAccountAddressHint => 'Διεύθυνση λογαριασμού δολαρίων';
 
   @override
   String hwSignKeepDeviceNearby(String device) {
@@ -12188,9 +12180,6 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get sendWhatGift => 'Μια πρόβλεψη ή επένδυση';
-
-  @override
-  String get usdSendRecipientSearchHint => 'Όνομα, διεύθυνση ή ENS';
 
   @override
   String get sendDollarsTitle => 'Αποστολή δολαρίων';

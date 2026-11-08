@@ -3351,11 +3351,6 @@ class AppLocalizationsPl extends AppLocalizations {
       'To żądanie płatności obsługuje tylko Lightning. Przełącz na portfel z obsługą Lightning, aby zapłacić.';
 
   @override
-  String sendAssetOnNetworkAddressHint(String asset, String network) {
-    return 'Adres $asset w sieci $network';
-  }
-
-  @override
   String get sendPasteBitcoinAddress => 'Wklej adres Bitcoin';
 
   @override
@@ -6770,9 +6765,6 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
-
-  @override
-  String get sendDollarAccountAddressHint => 'Adres konta w dolarach';
 
   @override
   String hwSignKeepDeviceNearby(String device) {
@@ -12153,9 +12145,6 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get sendWhatGift => 'Prognoza lub inwestycja';
-
-  @override
-  String get usdSendRecipientSearchHint => 'Imię, adres lub ENS';
 
   @override
   String get sendDollarsTitle => 'Wyślij dolary';

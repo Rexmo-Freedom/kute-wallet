@@ -3352,11 +3352,6 @@ class AppLocalizationsBg extends AppLocalizations {
       'Тази заявка за плащане поддържа само Lightning. Превключи към портфейл с Lightning, за да платиш.';
 
   @override
-  String sendAssetOnNetworkAddressHint(String asset, String network) {
-    return 'Адрес за $asset в $network';
-  }
-
-  @override
   String get sendPasteBitcoinAddress => 'Постави Bitcoin адрес';
 
   @override
@@ -6755,9 +6750,6 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
-
-  @override
-  String get sendDollarAccountAddressHint => 'Адрес на акаунта в долари';
 
   @override
   String hwSignKeepDeviceNearby(String device) {
@@ -12128,9 +12120,6 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get sendWhatGift => 'Прогноза или инвестиция';
-
-  @override
-  String get usdSendRecipientSearchHint => 'Име, адрес или ENS';
 
   @override
   String get sendDollarsTitle => 'Изпрати долари';

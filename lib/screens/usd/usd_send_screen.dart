@@ -1174,7 +1174,9 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
           SizedBox(height: 14.h),
           SendRecipientSearchField(
             controller: _address,
-            hintText: l10n.usdSendRecipientSearchHint,
+            // The coin is chosen: this field only takes its address
+            // (founder, 8 November 2026: "here is just Address also").
+            hintText: l10n.address,
             onPaste: _paste,
             onScan: _scan,
             onChanged: _onAddressTyped,

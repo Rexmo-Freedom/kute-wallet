@@ -6039,12 +6039,6 @@ abstract class AppLocalizations {
   /// **'This payment request only supports Lightning. Switch to a Lightning-capable wallet to pay.'**
   String get sendPaymentRequestOnlySupportsLightning;
 
-  /// No description provided for @sendAssetOnNetworkAddressHint.
-  ///
-  /// In en, this message translates to:
-  /// **'{asset} on {network} address'**
-  String sendAssetOnNetworkAddressHint(String asset, String network);
-
   /// No description provided for @sendPasteBitcoinAddress.
   ///
   /// In en, this message translates to:
@@ -11781,12 +11775,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Pay with your Dollars balance'**
   String get moveSourceDollarsSubtitle;
-
-  /// Placeholder for the recipient field when the send destination is a dollar balance.
-  ///
-  /// In en, this message translates to:
-  /// **'Dollar account address'**
-  String get sendDollarAccountAddressHint;
 
   /// Body line while the signing screen is connecting to a Bluetooth signing device.
   ///
@@ -20292,12 +20280,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'A prediction or investment'**
   String get sendWhatGift;
-
-  /// No description provided for @usdSendRecipientSearchHint.
-  ///
-  /// In en, this message translates to:
-  /// **'Name, address or ENS'**
-  String get usdSendRecipientSearchHint;
 
   /// No description provided for @sendDollarsTitle.
   ///

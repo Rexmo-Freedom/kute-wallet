@@ -1811,17 +1811,6 @@
   },
   "sendRoutingFee": "Routing fee",
   "sendPaymentRequestOnlySupportsLightning": "This payment request only supports Lightning. Switch to a Lightning-capable wallet to pay.",
-  "sendAssetOnNetworkAddressHint": "{asset} on {network} address",
-  "@sendAssetOnNetworkAddressHint": {
-    "placeholders": {
-      "asset": {
-        "type": "String"
-      },
-      "network": {
-        "type": "String"
-      }
-    }
-  },
   "sendPasteBitcoinAddress": "Paste Bitcoin address",
   "sendPasteAddressOrLightning": "Paste address or @lightning",
   "sendWalletCantSignLightningOtherNetwork": "This wallet sends on-chain Bitcoin. Switch to your spending wallet to pay Lightning.",
@@ -3754,10 +3743,6 @@
   "moveSourceDollarsSubtitle": "Pay with your Dollars balance",
   "@moveSourceDollarsSubtitle": {
     "description": "Second line on the Investments row in the move sheet source picker, where the dollar balance funds a venue deposit or a bitcoin buy."
-  },
-  "sendDollarAccountAddressHint": "Dollar account address",
-  "@sendDollarAccountAddressHint": {
-    "description": "Placeholder for the recipient field when the send destination is a dollar balance."
   },
   "hwSignKeepDeviceNearby": "Keep {device} nearby and unlocked.",
   "@hwSignKeepDeviceNearby": {
@@ -9219,7 +9204,6 @@
   "@sendWhatGift": {
     "description": "Send's What step: the option to send a prediction or an investment as a gift link they claim with Kute."
   },
-  "usdSendRecipientSearchHint": "Name, address or ENS",
   "sendDollarsTitle": "Send dollars",
   "sendCoinTitle": "Send {coin}",
   "@sendCoinTitle": {

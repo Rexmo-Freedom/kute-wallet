@@ -3343,11 +3343,6 @@ class AppLocalizationsDa extends AppLocalizations {
       'Denne betalingsanmodning understøtter kun Lightning. Skift til en tegnebog, der kan bruge Lightning, for at betale.';
 
   @override
-  String sendAssetOnNetworkAddressHint(String asset, String network) {
-    return '$asset-adresse på $network';
-  }
-
-  @override
   String get sendPasteBitcoinAddress => 'Indsæt Bitcoin-adresse';
 
   @override
@@ -6749,9 +6744,6 @@ class AppLocalizationsDa extends AppLocalizations {
 
   @override
   String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
-
-  @override
-  String get sendDollarAccountAddressHint => 'Adresse til dollarkonto';
 
   @override
   String hwSignKeepDeviceNearby(String device) {
@@ -12105,9 +12097,6 @@ class AppLocalizationsDa extends AppLocalizations {
 
   @override
   String get sendWhatGift => 'En forudsigelse eller investering';
-
-  @override
-  String get usdSendRecipientSearchHint => 'Navn, adresse eller ENS';
 
   @override
   String get sendDollarsTitle => 'Send dollar';

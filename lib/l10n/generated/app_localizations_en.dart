@@ -3333,11 +3333,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'This payment request only supports Lightning. Switch to a Lightning-capable wallet to pay.';
 
   @override
-  String sendAssetOnNetworkAddressHint(String asset, String network) {
-    return '$asset on $network address';
-  }
-
-  @override
   String get sendPasteBitcoinAddress => 'Paste Bitcoin address';
 
   @override
@@ -6723,9 +6718,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get moveSourceDollarsSubtitle => 'Pay with your Dollars balance';
-
-  @override
-  String get sendDollarAccountAddressHint => 'Dollar account address';
 
   @override
   String hwSignKeepDeviceNearby(String device) {
@@ -12063,9 +12055,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get sendWhatGift => 'A prediction or investment';
-
-  @override
-  String get usdSendRecipientSearchHint => 'Name, address or ENS';
 
   @override
   String get sendDollarsTitle => 'Send dollars';

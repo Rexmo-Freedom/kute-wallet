@@ -3348,11 +3348,6 @@ class AppLocalizationsHu extends AppLocalizations {
       'Ez a fizetési kérelem csak Lightninggal fizethető. Válts Lightningot támogató tárcára a fizetéshez.';
 
   @override
-  String sendAssetOnNetworkAddressHint(String asset, String network) {
-    return '$asset cím ($network)';
-  }
-
-  @override
   String get sendPasteBitcoinAddress => 'Bitcoin-cím beillesztése';
 
   @override
@@ -6761,9 +6756,6 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
-
-  @override
-  String get sendDollarAccountAddressHint => 'Dollár fiók címe';
 
   @override
   String hwSignKeepDeviceNearby(String device) {
@@ -12136,9 +12128,6 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get sendWhatGift => 'Előrejelzés vagy befektetés';
-
-  @override
-  String get usdSendRecipientSearchHint => 'Név, cím vagy ENS';
 
   @override
   String get sendDollarsTitle => 'Dollár küldése';
