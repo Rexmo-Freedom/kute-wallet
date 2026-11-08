@@ -64,7 +64,8 @@
 // The rows drawn the older way: the Investing list's own row
 // ([PortfolioRowLayout.market]), and the P&L tab's closed positions
 // ([PortfolioClosedRow], [PortfolioRowLayout.position]: the name with its
-// side chip, HlMetaChip, the day under it, the result at the end).
+// side chip, HlMetaChip, the day under it, the result at the end; a tap
+// opens its receipt, portfolio_closed_receipt.dart).
 // Every row is its own widget watching only what it needs, so a price
 // tick repaints one row. Taps open the same screens the cards opened,
 // with the same `open_investments_position_tapped` event.
@@ -2122,6 +2123,8 @@ class HlSpotRow extends ConsumerWidget {
 /// picture, the name and its side chip, the day it closed under it, and
 /// its result ([resultUsd], what closing it realised net of the fees in
 /// dollars) signed in its colour at the end. Masked with balances hidden.
+/// [onTap] opens its receipt (portfolio_closed_receipt.dart), pressing as
+/// the Positions squares do; null: nowhere to go, and no press state.
 class PortfolioClosedRow extends ConsumerWidget {
   const PortfolioClosedRow({
     super.key,
@@ -2130,6 +2133,7 @@ class PortfolioClosedRow extends ConsumerWidget {
     this.prediction,
     this.fill,
     this.long,
+    this.onTap,
   }) : assert((prediction == null) != (fill == null));
 
   final DateTime at;
@@ -2137,6 +2141,7 @@ class PortfolioClosedRow extends ConsumerWidget {
   final PredictionRecord? prediction;
   final HlFill? fill;
   final bool? long;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -2194,16 +2199,20 @@ class PortfolioClosedRow extends ConsumerWidget {
         null => null,
       };
     }
-    return PortfolioRowLayoutScope(
-      layout: PortfolioRowLayout.position,
-      child: PortfolioPositionRow(
-        leading: leading,
-        title: title,
-        subtitle: day,
-        chip: chip,
-        note: day,
-        value: value,
-        valueColor: color,
+    return KutePressable(
+      enabled: onTap != null,
+      child: PortfolioRowLayoutScope(
+        layout: PortfolioRowLayout.position,
+        child: PortfolioPositionRow(
+          leading: leading,
+          title: title,
+          subtitle: day,
+          chip: chip,
+          note: day,
+          value: value,
+          valueColor: color,
+          onTap: onTap,
+        ),
       ),
     );
   }

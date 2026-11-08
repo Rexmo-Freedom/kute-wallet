@@ -103,16 +103,35 @@ class HyperliquidFillActivityRow extends ConsumerWidget {
       );
 }
 
+/// The receipt of an order on the Portfolio's closed positions
+/// (portfolio_closed_receipt.dart): the Activity row's sheet for [fill] (the
+/// order's closing fills added), with the row's [resultUsd], what closing
+/// realised less the fees in dollars, as its figure and its card's.
+void showClosedFillReceipt(BuildContext context, HlFill fill,
+        {required double resultUsd}) =>
+    showAppBottomSheet(
+        context: context,
+        builder: (_) => _FillDetails(
+            fill: fill,
+            compareWithSpendingWallet: true,
+            resultUsd: resultUsd));
+
 /// The activity row of [fill]. Its detail sheet opens with the same row.
+/// [resultUsd]: the figure under the amount in place of the fill's realised
+/// P&L ([showClosedFillReceipt]).
 Widget _fillRow(BuildContext context, WidgetRef ref, HlFill fill,
-    {VoidCallback? onTap}) {
+    {VoidCallback? onTap, double? resultUsd}) {
   final market = ref.watch(hyperliquidAccountMarketProvider(fill.coin));
   final coin = market?.coin ?? fill.coin;
   final symbol = hlBaseCoin(coin);
   final friendly = hlFriendlyName(symbol) ?? hlFriendlyName(coin);
   final time =
       DateFormat('HH:mm').format(DateTime.fromMillisecondsSinceEpoch(fill.time));
-  final pnl = fill.closedPnl;
+  final pnl = resultUsd == null
+      ? fill.closedPnl
+      : resultUsd.abs() < 0.005
+          ? 0.0
+          : resultUsd;
   return buildWalletActivityRow(
     // Round like every other row tile, the letter fallback included.
     leading: ClipOval(
@@ -138,9 +157,12 @@ Widget _fillRow(BuildContext context, WidgetRef ref, HlFill fill,
 
 class _FillDetails extends ConsumerWidget {
   const _FillDetails(
-      {required this.fill, required this.compareWithSpendingWallet});
+      {required this.fill,
+      required this.compareWithSpendingWallet,
+      this.resultUsd});
   final bool compareWithSpendingWallet;
   final HlFill fill;
+  final double? resultUsd;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final market = ref.watch(hyperliquidAccountMarketProvider(fill.coin));
@@ -158,7 +180,7 @@ class _FillDetails extends ConsumerWidget {
               // The realised P&L is the figure under the header's amount;
               // the date the quiet line under it.
               TransactionDetailHeader(
-                row: _fillRow(context, ref, fill),
+                row: _fillRow(context, ref, fill, resultUsd: resultUsd),
                 date: activitySheetDate(
                     context, DateTime.fromMillisecondsSinceEpoch(fill.time)),
               ),
@@ -217,10 +239,11 @@ class _FillDetails extends ConsumerWidget {
                   label: context.l10n.salViewMarket,
                   onPrimary: () => HlMarketDetailSheet.show(context,
                       market: market, source: 'activity'),
-                  share: hlFillReceiptShare(fill, market),
+                  share: hlFillReceiptShare(fill, market, pnlUsd: resultUsd),
                 )
               else
-                ReceiptBarAction.none(share: hlFillReceiptShare(fill, market)),
+                ReceiptBarAction.none(
+                    share: hlFillReceiptShare(fill, market, pnlUsd: resultUsd)),
             ]),
           )),
     );
@@ -230,8 +253,10 @@ class _FillDetails extends ConsumerWidget {
 /// What an Investing fill's receipt shares (receipt_share.dart): a
 /// position opened ("OPENED POSITION · LONG", the entry price, the size)
 /// or a token bought; a position closed, reduced, reversed or liquidated
-/// (what closing realised, the exit price) or a token sold.
-ReceiptShare hlFillReceiptShare(HlFill fill, HlMarket? market) {
+/// (what closing realised, the exit price; [pnlUsd] when the receipt says
+/// other than the fill's own, [showClosedFillReceipt]) or a token sold.
+ReceiptShare hlFillReceiptShare(HlFill fill, HlMarket? market,
+    {double? pnlUsd}) {
   final coin = market?.coin ?? fill.coin;
   final symbol = hlBaseCoin(coin);
   final spot = fill.coin.startsWith('@') || fill.coin.contains('/');
@@ -266,7 +291,7 @@ ReceiptShare hlFillReceiptShare(HlFill fill, HlMarket? market) {
     price: formatHlPrice(fill.px, decimalCap: market?.pxDecimalCap),
     size: '${formatHlSize(fill.sz)} $symbol',
     usd: fill.px * fill.sz,
-    pnlUsd: opened ? null : fill.closedPnl,
+    pnlUsd: opened ? null : pnlUsd ?? fill.closedPnl,
   );
 }
 
