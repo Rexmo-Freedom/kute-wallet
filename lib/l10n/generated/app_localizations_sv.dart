@@ -13933,6 +13933,12 @@ class AppLocalizationsSv extends AppLocalizations {
   String get chartLogScaleNote => 'Samma % rörelse, samma höjd';
 
   @override
+  String get chartYourTrades => 'Dina affärer';
+
+  @override
+  String get chartYourTradesNote => 'Dina köp och sälj här';
+
+  @override
   String get chartIndSmaNote => 'Långsiktig trend som vänder långsamt';
 
   @override

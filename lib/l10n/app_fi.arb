@@ -3931,6 +3931,8 @@
   "chartGroupVolatility": "Volatiliteetti",
   "chartGroupDisplay": "Näkymä",
   "chartLogScaleNote": "Sama % liike, sama korkeus",
+  "chartYourTrades": "Kauppasi",
+  "chartYourTradesNote": "Ostosi ja myyntisi täällä",
   "chartIndSmaNote": "Pitkän aikavälin trendi, kääntyy hitaasti",
   "chartIndStNote": "Seuraava stop, joka kääntyy trendin mukana",
   "chartIndSrsiNote": "Nopeat yliostetun ja ylimyydyn heilahdukset",

@@ -13964,6 +13964,12 @@ class AppLocalizationsFi extends AppLocalizations {
   String get chartLogScaleNote => 'Sama % liike, sama korkeus';
 
   @override
+  String get chartYourTrades => 'Kauppasi';
+
+  @override
+  String get chartYourTradesNote => 'Ostosi ja myyntisi täällä';
+
+  @override
   String get chartIndSmaNote => 'Pitkän aikavälin trendi, kääntyy hitaasti';
 
   @override

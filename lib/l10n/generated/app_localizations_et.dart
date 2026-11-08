@@ -13927,6 +13927,12 @@ class AppLocalizationsEt extends AppLocalizations {
   String get chartLogScaleNote => 'Sama % muutus, sama kõrgus';
 
   @override
+  String get chartYourTrades => 'Sinu tehingud';
+
+  @override
+  String get chartYourTradesNote => 'Sinu ostud ja müügid siin';
+
+  @override
   String get chartIndSmaNote => 'Pikaajaline trend, pöördub aeglaselt';
 
   @override

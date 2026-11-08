@@ -13938,6 +13938,12 @@ class AppLocalizationsDa extends AppLocalizations {
   String get chartLogScaleNote => 'Samme % bevægelse, samme højde';
 
   @override
+  String get chartYourTrades => 'Dine handler';
+
+  @override
+  String get chartYourTradesNote => 'Dine køb og salg på dette marked';
+
+  @override
   String get chartIndSmaNote => 'Langsigtet trend, vender langsomt';
 
   @override

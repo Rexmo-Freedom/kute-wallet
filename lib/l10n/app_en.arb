@@ -11913,6 +11913,14 @@
   "@chartLogScaleNote": {
     "description": "Chart sheet: one plain line under Log scale. On a log price axis equal percentage moves take the same height."
   },
+  "chartYourTrades": "Your trades",
+  "@chartYourTrades": {
+    "description": "Chart sheet: the on/off square that shows the person's own buys and sells on the chart."
+  },
+  "chartYourTradesNote": "Your buys and sells on this market",
+  "@chartYourTradesNote": {
+    "description": "Chart sheet: one plain line under Your trades. Markers at each of the person's fills on this market, closed positions included."
+  },
   "chartIndSmaNote": "Long-term trend, slow to turn",
   "@chartIndSmaNote": {
     "description": "One-line explanation of the SMA indicator (the 50 and 200 simple moving averages by default)."

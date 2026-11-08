@@ -3931,6 +3931,8 @@
   "chartGroupVolatility": "Volatilnost",
   "chartGroupDisplay": "Prikaz",
   "chartLogScaleNote": "Enak % premik, enaka višina",
+  "chartYourTrades": "Tvoji posli",
+  "chartYourTradesNote": "Tvoji nakupi in prodaje tukaj",
   "chartIndSmaNote": "Dolgoročni trend, ki se počasi obrne",
   "chartIndStNote": "Drseči stop, ki se obrne s trendom",
   "chartIndSrsiNote": "Hitra nihanja med prekupljenostjo in preprodanostjo",

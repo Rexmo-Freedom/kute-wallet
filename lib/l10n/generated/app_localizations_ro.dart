@@ -14003,6 +14003,12 @@ class AppLocalizationsRo extends AppLocalizations {
   String get chartLogScaleNote => 'Același % mișcare, aceeași înălțime';
 
   @override
+  String get chartYourTrades => 'Tranzacțiile tale';
+
+  @override
+  String get chartYourTradesNote => 'Cumpărările și vânzările tale aici';
+
+  @override
   String get chartIndSmaNote => 'Tendință pe termen lung, se întoarce încet';
 
   @override

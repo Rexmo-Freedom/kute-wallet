@@ -13908,6 +13908,12 @@ class AppLocalizationsLv extends AppLocalizations {
   String get chartLogScaleNote => 'Vienāds % kāpums, vienāds augstums';
 
   @override
+  String get chartYourTrades => 'Tavi darījumi';
+
+  @override
+  String get chartYourTradesNote => 'Tavi pirkumi un pārdošanas šeit';
+
+  @override
   String get chartIndSmaNote => 'Ilgtermiņa tendence, lēni mainās';
 
   @override

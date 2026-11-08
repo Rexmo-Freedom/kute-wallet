@@ -23446,6 +23446,18 @@ abstract class AppLocalizations {
   /// **'Equal percent moves look equal'**
   String get chartLogScaleNote;
 
+  /// Chart sheet: the on/off square that shows the person's own buys and sells on the chart.
+  ///
+  /// In en, this message translates to:
+  /// **'Your trades'**
+  String get chartYourTrades;
+
+  /// Chart sheet: one plain line under Your trades. Markers at each of the person's fills on this market, closed positions included.
+  ///
+  /// In en, this message translates to:
+  /// **'Your buys and sells on this market'**
+  String get chartYourTradesNote;
+
   /// One-line explanation of the SMA indicator (the 50 and 200 simple moving averages by default).
   ///
   /// In en, this message translates to:

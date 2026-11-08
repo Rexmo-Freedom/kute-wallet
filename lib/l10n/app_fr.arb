@@ -3931,6 +3931,8 @@
   "chartGroupVolatility": "Volatilité",
   "chartGroupDisplay": "Affichage",
   "chartLogScaleNote": "Même variation en %, même hauteur",
+  "chartYourTrades": "Vos transactions",
+  "chartYourTradesNote": "Vos achats et ventes sur ce marché",
   "chartIndSmaNote": "Tendance longue, qui se retourne lentement",
   "chartIndStNote": "Un stop suiveur qui bascule avec la tendance",
   "chartIndSrsiNote": "Allers-retours rapides entre surachat et survente",

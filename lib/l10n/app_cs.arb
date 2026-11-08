@@ -3931,6 +3931,8 @@
   "chartGroupVolatility": "Volatilita",
   "chartGroupDisplay": "Zobrazení",
   "chartLogScaleNote": "Stejné % pohyby, stejná výška",
+  "chartYourTrades": "Tvoje obchody",
+  "chartYourTradesNote": "Tvoje nákupy a prodeje na tomto trhu",
   "chartIndSmaNote": "Dlouhodobý trend, otáčí se pomalu",
   "chartIndStNote": "Posuvný stop, který se otočí s trendem",
   "chartIndSrsiNote": "Rychlé výkyvy překoupenosti a přeprodanosti",

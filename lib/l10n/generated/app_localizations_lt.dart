@@ -13999,6 +13999,12 @@ class AppLocalizationsLt extends AppLocalizations {
   String get chartLogScaleNote => 'Tas pats % pokytis, tas pats aukštis';
 
   @override
+  String get chartYourTrades => 'Tavo sandoriai';
+
+  @override
+  String get chartYourTradesNote => 'Tavo pirkimai ir pardavimai čia';
+
+  @override
   String get chartIndSmaNote => 'Ilgalaikė tendencija, lėtai apsigręžia';
 
   @override

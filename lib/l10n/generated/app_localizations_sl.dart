@@ -13983,6 +13983,12 @@ class AppLocalizationsSl extends AppLocalizations {
   String get chartLogScaleNote => 'Enak % premik, enaka višina';
 
   @override
+  String get chartYourTrades => 'Tvoji posli';
+
+  @override
+  String get chartYourTradesNote => 'Tvoji nakupi in prodaje tukaj';
+
+  @override
   String get chartIndSmaNote => 'Dolgoročni trend, ki se počasi obrne';
 
   @override

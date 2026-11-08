@@ -137,6 +137,7 @@ void main() {
           'hl-chart-indicator-pp',
           'hl-chart-indicator-adx',
           'hl-chart-log-card',
+          'hl-chart-your-trades-card',
         ]) {
           for (final p in tester.renderObjectList<RenderParagraph>(
               find.descendant(
@@ -147,7 +148,7 @@ void main() {
                 reason: '$key: "${p.text.toPlainText()}" does not fit');
           }
         }
-        expect(checked, 8);
+        expect(checked, 10);
       });
     }
   });
@@ -202,7 +203,8 @@ void main() {
         HlIndGroup.volatility: ['BB 20 2', 'ATR 14'],
         HlIndGroup.volume: ['Vol', 'OBV', 'VP 24'],
       });
-      expect(ChartPreferencesNotifier.shownIndicators, kHlIndicatorKeys);
+      expect(ChartPreferencesNotifier.shownIndicators,
+          {...kHlIndicatorKeys, kHlLayerMyTradesOff});
       expect(kHlDefaultIndicators, {'vol'});
     });
 
@@ -603,6 +605,53 @@ void main() {
       await _settle(tester);
       expect(_prefs(tester).logScale, isFalse);
       expect(_prefs(tester).toJson().containsKey('log'), isFalse);
+    });
+
+    testWidgets(
+        'Your trades is on by default, per market, with its own markers; off '
+        'hands the chart none, and Reset puts it back', (tester) async {
+      final fill = HlFill(
+        coin: 'BTC',
+        px: 64000,
+        sz: 1,
+        side: 'B',
+        time: hlEditCandles()[100].openTime.millisecondsSinceEpoch + 1000,
+        closedPnl: 0,
+        fee: 0,
+        feeToken: 'USDC',
+        oid: 1,
+        hash: 'a',
+        dir: 'Open Long',
+        cloid: null,
+        tradeId: 'a',
+      );
+      HlCandlestickChart chart() =>
+          tester.widget<HlCandlestickChart>(find.byType(HlCandlestickChart));
+      await pumpHlEditSheet(tester, fills: [fill]);
+      expect(chart().fills, [fill]);
+
+      await tester.tap(find.byKey(const ValueKey('hl-chart-sheet-button')));
+      await _settle(tester);
+      final card = find.byKey(const ValueKey('hl-chart-your-trades-card'));
+      await tester.ensureVisible(card);
+      await _settle(tester);
+      expect(find.descendant(of: card, matching: find.text('Your trades')),
+          findsOneWidget);
+      await tester.tap(card);
+      await _settle(tester);
+      expect(chart().fills, isEmpty);
+      expect(_on(tester), contains(kHlLayerMyTradesOff));
+      // Not an indicator: never in the frame, never counted in the limits.
+      expect(hlIndSpec(kHlLayerMyTradesOff), isNull);
+      expect(
+          hlEditContainer(tester)
+              .read(hlChartPreferencesProvider('hl:perp::ETH'))
+              .indicators,
+          isNot(contains(kHlLayerMyTradesOff)));
+      await tester.tap(find.byKey(const ValueKey('hl-chart-sheet-reset')));
+      await _settle(tester);
+      expect(chart().fills, [fill]);
+      expect(_on(tester), {'vol'});
     });
 
     testWidgets(

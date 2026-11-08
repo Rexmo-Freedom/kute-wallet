@@ -3931,6 +3931,8 @@
   "chartGroupVolatility": "Volatilität",
   "chartGroupDisplay": "Anzeige",
   "chartLogScaleNote": "Gleiche %-Bewegung, gleiche Höhe",
+  "chartYourTrades": "Deine Trades",
+  "chartYourTradesNote": "Deine Käufe und Verkäufe hier",
   "chartIndSmaNote": "Langfristiger Trend, dreht langsam",
   "chartIndStNote": "Ein Trailing-Stop, der mit dem Trend dreht",
   "chartIndSrsiNote": "Schnelle Wechsel zwischen überkauft und überverkauft",

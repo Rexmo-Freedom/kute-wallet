@@ -3931,6 +3931,8 @@
   "chartGroupVolatility": "Volatilidad",
   "chartGroupDisplay": "Visualización",
   "chartLogScaleNote": "Mismo % de cambio, misma altura",
+  "chartYourTrades": "Tus operaciones",
+  "chartYourTradesNote": "Tus compras y ventas en este mercado",
   "chartIndSmaNote": "Tendencia a largo plazo, gira despacio",
   "chartIndStNote": "Un stop dinámico que gira con la tendencia",
   "chartIndSrsiNote": "Vaivenes rápidos de sobrecompra y sobreventa",

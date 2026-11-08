@@ -3931,6 +3931,8 @@
   "chartGroupVolatility": "Volatilitet",
   "chartGroupDisplay": "Visning",
   "chartLogScaleNote": "Samme % bevægelse, samme højde",
+  "chartYourTrades": "Dine handler",
+  "chartYourTradesNote": "Dine køb og salg på dette marked",
   "chartIndSmaNote": "Langsigtet trend, vender langsomt",
   "chartIndStNote": "Et trailing stop, der vender med trenden",
   "chartIndSrsiNote": "Hurtige udsving mellem overkøbt og oversolgt",

@@ -3931,6 +3931,8 @@
   "chartGroupVolatility": "Zmienność",
   "chartGroupDisplay": "Widok",
   "chartLogScaleNote": "Ten sam % ruch, ta sama wysokość",
+  "chartYourTrades": "Twoje transakcje",
+  "chartYourTradesNote": "Twoje kupna i sprzedaże tutaj",
   "chartIndSmaNote": "Trend długoterminowy, wolno się odwraca",
   "chartIndStNote": "Kroczący stop, który odwraca się z trendem",
   "chartIndSrsiNote": "Szybkie wahania wykupienia i wyprzedania",

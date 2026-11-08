@@ -3931,6 +3931,8 @@
   "chartGroupVolatility": "Volatiilsus",
   "chartGroupDisplay": "Vaade",
   "chartLogScaleNote": "Sama % muutus, sama kõrgus",
+  "chartYourTrades": "Sinu tehingud",
+  "chartYourTradesNote": "Sinu ostud ja müügid siin",
   "chartIndSmaNote": "Pikaajaline trend, pöördub aeglaselt",
   "chartIndStNote": "Liikuv stopp, mis pöördub koos trendiga",
   "chartIndSrsiNote": "Kiired üleostetuse ja ülemüüdud kõikumised",

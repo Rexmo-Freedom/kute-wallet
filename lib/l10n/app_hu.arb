@@ -3931,6 +3931,8 @@
   "chartGroupVolatility": "Volatilitás",
   "chartGroupDisplay": "Megjelenítés",
   "chartLogScaleNote": "Azonos % mozgás, azonos magasság",
+  "chartYourTrades": "Az ügyleteid",
+  "chartYourTradesNote": "A vételeid és eladásaid itt",
   "chartIndSmaNote": "Hosszú távú trend, lassan fordul",
   "chartIndStNote": "Követő stop, amely a trenddel fordul",
   "chartIndSrsiNote": "Gyors túlvett és túladott kilengések",

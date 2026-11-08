@@ -14040,6 +14040,12 @@ class AppLocalizationsFr extends AppLocalizations {
   String get chartLogScaleNote => 'Même variation en %, même hauteur';
 
   @override
+  String get chartYourTrades => 'Vos transactions';
+
+  @override
+  String get chartYourTradesNote => 'Vos achats et ventes sur ce marché';
+
+  @override
   String get chartIndSmaNote => 'Tendance longue, qui se retourne lentement';
 
   @override

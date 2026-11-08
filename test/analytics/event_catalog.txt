@@ -120,6 +120,7 @@ chart_note_saved
 chart_timeframe_changed
 chart_trade_marker_opened
 chart_type_changed
+chart_your_trades_toggled
 coin_details_opened
 coin_label_saved
 coin_map_cell_opened

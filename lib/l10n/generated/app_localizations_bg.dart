@@ -13953,6 +13953,12 @@ class AppLocalizationsBg extends AppLocalizations {
   String get chartLogScaleNote => 'Еднакъв % ход, еднаква височина';
 
   @override
+  String get chartYourTrades => 'Твоите сделки';
+
+  @override
+  String get chartYourTradesNote => 'Твоите покупки и продажби тук';
+
+  @override
   String get chartIndSmaNote => 'Дългосрочен тренд, който се обръща бавно';
 
   @override

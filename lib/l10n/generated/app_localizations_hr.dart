@@ -13968,6 +13968,12 @@ class AppLocalizationsHr extends AppLocalizations {
   String get chartLogScaleNote => 'Isti % pomak, ista visina';
 
   @override
+  String get chartYourTrades => 'Tvoje transakcije';
+
+  @override
+  String get chartYourTradesNote => 'Tvoje kupnje i prodaje ovdje';
+
+  @override
   String get chartIndSmaNote => 'Dugoročni trend koji se sporo okreće';
 
   @override

@@ -601,4 +601,95 @@ void main() {
     expect(_tooltip(tester)?.entries.single.title, 'Closed long 0.25 BTC');
     await _settle(tester);
   });
+
+  group('across intervals', () {
+    // One hour's tape, as 1m and 5m and 1h bars.
+    List<HyperliquidCandle> bars(int minutes) => [
+          for (var i = 0; i < 60 ~/ minutes * 3; i++)
+            HyperliquidCandle(
+              openTime: DateTime.fromMillisecondsSinceEpoch(
+                  _t0 + i * minutes * _minute),
+              closeTime: DateTime.fromMillisecondsSinceEpoch(
+                  _t0 + (i + 1) * minutes * _minute),
+              open: 100,
+              high: 110,
+              low: 90,
+              close: 105,
+              volume: 10,
+            ),
+        ];
+    // Three buys and a sell inside minutes 12 to 14.
+    final burst = [
+      _fill(id: 'a', bar: 12, px: 100, sz: 1, buy: true, dir: 'Open Long'),
+      _fill(id: 'b', bar: 13, px: 101, sz: 1, buy: true, dir: 'Open Long'),
+      _fill(id: 'c', bar: 14, px: 102, sz: 1, buy: true, dir: 'Open Long'),
+      _fill(id: 'd', bar: 14, px: 103, sz: 1, buy: false, dir: 'Close Long'),
+    ];
+    List<HlFillMarker> at(int minutes) => hlResolveFillMarkers(
+          candles: bars(minutes),
+          fills: burst,
+          size: const Size(300, 200),
+          renderAsLine: false,
+          showVolume: false,
+        );
+
+    test('in one bar of 1h the buys merge into one marker with their count',
+        () {
+      final m = at(60);
+      expect(m, hasLength(4));
+      expect(m.map((e) => e.barIndex).toSet(), {0});
+      final buys = m.where((e) => e.fill.isBuy);
+      expect(buys.map((e) => e.count).toSet(), {3});
+      expect(buys.where((e) => e.lead), hasLength(1));
+      // The sell keeps its own marker, on its own side of the plot.
+      final sell = m.singleWhere((e) => !e.fill.isBuy);
+      expect(sell.count, 1);
+      expect(sell.lead, isTrue);
+      expect(sell.center, isNot(buys.first.center));
+    });
+
+    test('on 5m bars they land on the right bar, at their own price', () {
+      final m = at(5);
+      expect(m.map((e) => e.barIndex).toSet(), {2});
+      final dots = {for (final e in m) e.fill.tradeId: e.dot.dy};
+      expect(dots['a']!, greaterThan(dots['c']!));
+    });
+
+    test('on 1m bars each fill has its own bar', () {
+      final m = at(1);
+      expect(m.map((e) => e.barIndex).toList(), [12, 13, 14, 14]);
+    });
+
+    test('a closed position\'s fills count too, and before the tape they '
+        'draw nothing', () {
+      final old = [
+        _fill(id: 'x', bar: -500, px: 100, sz: 1, buy: true),
+        _fill(id: 'y', bar: 5, px: 100, sz: 1, buy: false, dir: 'Close Long'),
+      ];
+      final m = hlResolveFillMarkers(
+        candles: bars(1),
+        fills: old,
+        size: const Size(300, 200),
+        renderAsLine: true,
+        showVolume: false,
+      );
+      expect(m.map((e) => e.fill.tradeId), ['y']);
+    });
+  });
+
+  group('side colours', () {
+    const up = Color(0xFF00AA00), down = Color(0xFFAA0000);
+
+    test('a buy is the up colour and a sell the down colour, closing or not',
+        () {
+      Color tone(bool buy, String dir, {double? before}) => hlFillMarkerTone(
+          _fill(id: 'z', bar: 1, px: 100, sz: 1, buy: buy, dir: dir),
+          up: up,
+          down: down);
+      expect(tone(true, 'Open Long'), up);
+      expect(tone(false, 'Open Short'), down);
+      expect(tone(false, 'Close Long'), down);
+      expect(tone(true, 'Close Short'), up);
+    });
+  });
 }

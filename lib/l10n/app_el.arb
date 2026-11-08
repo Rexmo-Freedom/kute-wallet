@@ -3931,6 +3931,8 @@
   "chartGroupVolatility": "Μεταβλητότητα",
   "chartGroupDisplay": "Προβολή",
   "chartLogScaleNote": "Ίση % κίνηση, ίδιο ύψος",
+  "chartYourTrades": "Οι συναλλαγές σου",
+  "chartYourTradesNote": "Οι αγορές και πωλήσεις σου εδώ",
   "chartIndSmaNote": "Μακροπρόθεσμη τάση που αλλάζει αργά",
   "chartIndStNote": "Κινητό stop που αλλάζει πλευρά με την τάση",
   "chartIndSrsiNote": "Γρήγορες εναλλαγές υπεραγορασμένου και υπερπουλημένου",

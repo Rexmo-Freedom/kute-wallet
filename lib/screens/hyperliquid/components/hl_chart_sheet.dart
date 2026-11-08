@@ -10,9 +10,11 @@
 //     Baseline as big square cards, a tiny chart of the market's last bars
 //     drawn in each. A pick applies at once and the sheet stays up.
 //   * DISPLAY: the on/off settings as the same square cards, each with a
-//     tiny chart of what it does: Log scale, per market, saved with the
-//     market's other chart settings. On (the CTA-coloured outline) the
-//     price plot maps ln(price); panes stay linear.
+//     tiny chart of what it does, per market, saved with the market's
+//     other chart settings. Log scale: on (the CTA-coloured outline) the
+//     price plot maps ln(price); panes stay linear. Your trades (on by
+//     default, and only where the chart shows the person's own activity):
+//     a marker at each of their fills, closed positions included.
 //   * TREND · MOMENTUM · VOLATILITY · VOLUME: the curated indicators
 //     (hl_chart_indicator_catalog.dart) as the same square cards, two to a
 //     row: a mini chart of what it draws on this market (in its colours
@@ -118,6 +120,7 @@ Future<void> showHlChartSheet(
   required HlMarket market,
   required String marketKey,
   required List<HyperliquidCandle> candles,
+  bool showYourTrades = true,
 }) {
   HapticFeedback.selectionClick();
   return showAppBottomSheet<void>(
@@ -126,6 +129,7 @@ Future<void> showHlChartSheet(
       market: market,
       marketKey: marketKey,
       candles: candles,
+      showYourTrades: showYourTrades,
     ),
   );
 }
@@ -179,11 +183,16 @@ class HlChartSheet extends ConsumerStatefulWidget {
     required this.market,
     required this.marketKey,
     required this.candles,
+    this.showYourTrades = true,
   });
 
   final HlMarket market;
   final String marketKey;
   final List<HyperliquidCandle> candles;
+
+  /// Offer the Your trades square (false where the chart shows none of the
+  /// person's own activity).
+  final bool showYourTrades;
 
   @override
   ConsumerState<HlChartSheet> createState() => _HlChartSheetState();
@@ -267,12 +276,32 @@ class _HlChartSheetState extends ConsumerState<HlChartSheet> {
     );
   }
 
+  void _setYourTrades(bool on) {
+    HapticFeedback.selectionClick();
+    final current =
+        ref.read(hlChartPreferencesProvider(widget.marketKey)).indicators;
+    _prefs.setIndicators(on
+        ? current.where((k) => k != kHlLayerMyTradesOff)
+        : {...current, kHlLayerMyTradesOff});
+    _trackYourTrades(on);
+  }
+
+  void _trackYourTrades(bool on) => VenueAnalytics.settingChanged(
+        'chart_your_trades_toggled',
+        setting: 'your_trades',
+        value: on,
+        scope: widget.marketKey,
+        extra: _assetParams,
+      );
+
   void _reset() {
     HapticFeedback.selectionClick();
     _pickStyle(HlChartStyle.fromName(kHlDefaultChartStyle));
     final prefs = ref.read(hlChartPreferencesProvider(widget.marketKey));
     if (prefs.logScale) _setLogScale(false);
+    if (prefs.indicators.contains(kHlLayerMyTradesOff)) _trackYourTrades(true);
     for (final key in {...prefs.indicators, ...kHlDefaultIndicators}) {
+      if (hlIndSpec(key) == null) continue;
       final on = kHlDefaultIndicators.contains(key);
       if (prefs.indicators.contains(key) == on) continue;
       TrackingService.track('indicator_toggled', params: {
@@ -304,6 +333,7 @@ class _HlChartSheetState extends ConsumerState<HlChartSheet> {
     final style = HlChartStyle.fromName(ref.watch(hlChartLayoutProvider).style);
     final prefs = ref.watch(hlChartPreferencesProvider(widget.marketKey));
     final on = prefs.indicators;
+    final yourTrades = !on.contains(kHlLayerMyTradesOff);
     final isDefault = style == HlChartStyle.fromName(kHlDefaultChartStyle) &&
         on.length == kHlDefaultIndicators.length &&
         on.containsAll(kHlDefaultIndicators) &&
@@ -364,6 +394,21 @@ class _HlChartSheetState extends ConsumerState<HlChartSheet> {
           note: l10n.chartLogScaleNote,
           onTap: () => _setLogScale(!prefs.logScale),
         ),
+        if (widget.showYourTrades)
+          _ToggleCard(
+            cardKey: const ValueKey('hl-chart-your-trades-card'),
+            on: yourTrades,
+            painter: HlYourTradesPreviewPainter(
+              tape: previews.tape,
+              on: yourTrades,
+              muted: c.textTertiary,
+              up: AppColors.marketUp,
+              down: AppColors.marketDown,
+            ),
+            name: l10n.chartYourTrades,
+            note: l10n.chartYourTradesNote,
+            onTap: () => _setYourTrades(!yourTrades),
+          ),
       ]),
       for (final group in HlIndGroup.values) ...[
         const SizedBox(height: 20),
@@ -1195,7 +1240,13 @@ class HlIndicatorPreviewPainter extends CustomPainter {
   }
 
   static void _line(Canvas canvas, List<double> values, double Function(int) x,
-      double Function(double) y, Color color, double width) {
+          double Function(double) y, Color color, double width) =>
+      paintLine(canvas, values, x, y, color, width);
+
+  /// One line over the bars; a missing value gaps it.
+  static void paintLine(Canvas canvas, List<double> values,
+      double Function(int) x, double Function(double) y, Color color,
+      double width) {
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
@@ -1293,6 +1344,70 @@ class HlLogPreviewPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant HlLogPreviewPainter old) =>
+      !identical(old.tape, tape) ||
+      old.on != on ||
+      old.muted != muted ||
+      old.up != up ||
+      old.down != down;
+}
+
+/// The Your trades card's mini chart: the market's closes, faint, with a
+/// buy marker at the low and a sell marker at the high in their side
+/// colours while [on], grey while off.
+class HlYourTradesPreviewPainter extends CustomPainter {
+  HlYourTradesPreviewPainter({
+    required this.tape,
+    required this.on,
+    required this.muted,
+    required this.up,
+    required this.down,
+  });
+
+  final List<HyperliquidCandle> tape;
+  final bool on;
+  final Color muted, up, down;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.width <= 0 || size.height <= 0 || tape.length < 2) return;
+    final closes = [for (final k in tape) k.close];
+    var lo = 0, hi = 0;
+    for (var i = 1; i < closes.length; i++) {
+      if (closes[i] < closes[lo]) lo = i;
+      if (closes[i] > closes[hi]) hi = i;
+    }
+    final span = closes[hi] - closes[lo];
+    final slot = size.width / closes.length;
+    const r = 5.0;
+    double x(int i) => (i + 0.5) * slot;
+    double y(double v) =>
+        r +
+        (size.height - 2 * r) *
+            (1 - (span > 0 ? (v - closes[lo]) / span : 0.5));
+    HlIndicatorPreviewPainter.paintLine(canvas, closes, x, y,
+        muted.withValues(alpha: on ? 0.55 : 0.4), 1.1);
+    void marker(int i, bool buy) {
+      final c = Offset(x(i).clamp(r, size.width - r).toDouble(), y(closes[i]));
+      canvas.drawCircle(
+          c, r, Paint()..color = on ? (buy ? up : down) : muted.withValues(alpha: 0.7));
+      const hw = 2.6, hh = 2.2;
+      final d = buy ? 1.0 : -1.0;
+      canvas.drawPath(
+        Path()
+          ..moveTo(c.dx, c.dy - hh * d)
+          ..lineTo(c.dx + hw, c.dy + hh * d)
+          ..lineTo(c.dx - hw, c.dy + hh * d)
+          ..close(),
+        Paint()..color = const Color(0xFFFFFFFF),
+      );
+    }
+
+    marker(lo, true);
+    marker(hi, false);
+  }
+
+  @override
+  bool shouldRepaint(covariant HlYourTradesPreviewPainter old) =>
       !identical(old.tape, tape) ||
       old.on != on ||
       old.muted != muted ||

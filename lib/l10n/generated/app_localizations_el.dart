@@ -14030,6 +14030,12 @@ class AppLocalizationsEl extends AppLocalizations {
   String get chartLogScaleNote => 'Ίση % κίνηση, ίδιο ύψος';
 
   @override
+  String get chartYourTrades => 'Οι συναλλαγές σου';
+
+  @override
+  String get chartYourTradesNote => 'Οι αγορές και πωλήσεις σου εδώ';
+
+  @override
   String get chartIndSmaNote => 'Μακροπρόθεσμη τάση που αλλάζει αργά';
 
   @override

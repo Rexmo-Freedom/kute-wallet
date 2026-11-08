@@ -13932,6 +13932,12 @@ class AppLocalizationsCs extends AppLocalizations {
   String get chartLogScaleNote => 'Stejné % pohyby, stejná výška';
 
   @override
+  String get chartYourTrades => 'Tvoje obchody';
+
+  @override
+  String get chartYourTradesNote => 'Tvoje nákupy a prodeje na tomto trhu';
+
+  @override
   String get chartIndSmaNote => 'Dlouhodobý trend, otáčí se pomalu';
 
   @override

@@ -1034,6 +1034,7 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
       market: widget.market,
       marketKey: _marketKey,
       candles: _shownCandles ?? const <HyperliquidCandle>[],
+      showYourTrades: widget.showOwnActivity,
     ));
   }
 
@@ -2736,7 +2737,11 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
             dailyCandles: _daily,
             logScale: preferences.logScale,
             onLogScaleChanged: _drawingMode ? _setLogScale : null,
-            fills: myFills,
+            // The Your trades layer: on until the sheet's square turns it
+            // off on this market.
+            fills: indicators.contains(kHlLayerMyTradesOff)
+                ? const <HlFill>[]
+                : myFills,
             // The entry rides the trade lines now (with the
             // liquidation and every working order); the painter's own
             // entry line stays off so the two never overlap.

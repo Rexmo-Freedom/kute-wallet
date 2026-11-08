@@ -13985,6 +13985,12 @@ class AppLocalizationsNl extends AppLocalizations {
   String get chartLogScaleNote => 'Gelijke % beweging, gelijke hoogte';
 
   @override
+  String get chartYourTrades => 'Jouw trades';
+
+  @override
+  String get chartYourTradesNote => 'Jouw aankopen en verkopen hier';
+
+  @override
   String get chartIndSmaNote => 'Langetermijntrend die langzaam draait';
 
   @override

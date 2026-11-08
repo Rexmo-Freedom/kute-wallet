@@ -13968,6 +13968,12 @@ class AppLocalizationsHu extends AppLocalizations {
   String get chartLogScaleNote => 'Azonos % mozgás, azonos magasság';
 
   @override
+  String get chartYourTrades => 'Az ügyleteid';
+
+  @override
+  String get chartYourTradesNote => 'A vételeid és eladásaid itt';
+
+  @override
   String get chartIndSmaNote => 'Hosszú távú trend, lassan fordul';
 
   @override

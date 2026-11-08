@@ -614,12 +614,25 @@ Color hlFillGlyphColor(Color fill, Color background) =>
           : background;
     });
 
+/// A fill marker's colour: its side's (a buy the up colour, a sell the
+/// down colour), closing fills too; a liquidation is always the down
+/// colour.
+Color hlFillMarkerTone(HlFill f, {required Color up, required Color down}) {
+  final kind = hlFillEffect(f).kind;
+  if (kind == HlFillKind.liquidated) return down;
+  if (kind == HlFillKind.closed || kind == HlFillKind.reduced) {
+    return f.isBuy ? up : down;
+  }
+  return hlFillTone(f, up: up, down: down, neutral: down);
+}
+
 /// Paints the user's fill markers: a short stem from each badge to its
 /// fill's price, a small dot at every fill's exact price, then the badges
 /// on top, all over one shared background-coloured halo. A badge is a disc
-/// in the position's colour with ▲ (went long) or ▼ (went short) inside,
-/// or a check in [neutral] for a fill that closed or reduced (a short
-/// that buys back is closing, and a ▲ would read as the opposite), ringed
+/// in the fill's side colour ([hlFillMarkerTone]) with ▲ (went long) or ▼
+/// (went short) inside, or a check for a fill that closed or reduced (a
+/// short that buys back is closing, and a ▲ would read as the opposite),
+/// ringed
 /// in [halo] (the chart background) so it lifts off the line or the
 /// candles; several fills on one badge make it a pill that also writes
 /// the count. The count comes from the painter's TextPainter cache, so
@@ -630,11 +643,9 @@ void hlPaintFillMarkers(
   required Color up,
   required Color down,
   required Color halo,
-  Color? neutral,
 }) {
   if (markers.isEmpty) return;
-  Color tone(HlFill f) =>
-      hlFillTone(f, up: up, down: down, neutral: neutral ?? down);
+  Color tone(HlFill f) => hlFillMarkerTone(f, up: up, down: down);
   bool closing(HlFill f) {
     final k = hlFillEffect(f).kind;
     return k == HlFillKind.closed || k == HlFillKind.reduced;
@@ -1270,8 +1281,10 @@ class HlCandlestickChart extends StatefulWidget {
   final bool renderAsLine;
 
   /// The user's OWN fills for this market, drawn as buy/sell markers on the
-  /// price at their fill time+price so a trader sees where they got in/out.
-  /// Empty → no markers.
+  /// price at their fill time+price so a trader sees where they got in/out:
+  /// the fills history the Activity reads (hyperliquidActivityFillsProvider,
+  /// closed positions included), not a read of its own. Empty → no markers
+  /// (the host hands none while the Your trades layer is off).
   final List<HlFill> fills;
 
   /// The user's OPEN position's average entry price on this market — drawn
@@ -5004,7 +5017,7 @@ class _HlCandlePainter extends CustomPainter {
         domain: domain,
       );
       hlPaintFillMarkers(canvas, markers,
-          up: upColor, down: downColor, halo: labelBg, neutral: labelFg);
+          up: upColor, down: downColor, halo: labelBg);
     }
 
     // ── The clean view's captions (laid out above) ───────────────────

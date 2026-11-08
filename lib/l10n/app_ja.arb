@@ -3931,6 +3931,8 @@
   "chartGroupVolatility": "ボラティリティ",
   "chartGroupDisplay": "表示",
   "chartLogScaleNote": "同じ変動率が同じ高さに",
+  "chartYourTrades": "あなたの取引",
+  "chartYourTradesNote": "この市場での売買",
   "chartIndSmaNote": "長期トレンド、転換が遅い",
   "chartIndStNote": "トレンドと共に反転するトレーリングストップ",
   "chartIndSrsiNote": "買われ過ぎ・売られ過ぎの素早い振れ",

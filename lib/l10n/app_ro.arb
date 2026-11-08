@@ -3931,6 +3931,8 @@
   "chartGroupVolatility": "Volatilitate",
   "chartGroupDisplay": "Afișare",
   "chartLogScaleNote": "Același % mișcare, aceeași înălțime",
+  "chartYourTrades": "Tranzacțiile tale",
+  "chartYourTradesNote": "Cumpărările și vânzările tale aici",
   "chartIndSmaNote": "Tendință pe termen lung, se întoarce încet",
   "chartIndStNote": "Un stop mobil care se întoarce odată cu tendința",
   "chartIndSrsiNote": "Oscilații rapide de supracumpărare și supravânzare",

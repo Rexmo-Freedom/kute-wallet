@@ -3931,6 +3931,8 @@
   "chartGroupVolatility": "Volatiliteit",
   "chartGroupDisplay": "Weergave",
   "chartLogScaleNote": "Gelijke % beweging, gelijke hoogte",
+  "chartYourTrades": "Jouw trades",
+  "chartYourTradesNote": "Jouw aankopen en verkopen hier",
   "chartIndSmaNote": "Langetermijntrend die langzaam draait",
   "chartIndStNote": "Een meebewegende stop die met de trend omslaat",
   "chartIndSrsiNote": "Snelle uitslagen tussen overgekocht en oververkocht",
