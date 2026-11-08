@@ -14088,7 +14088,15 @@ class AppLocalizationsEt extends AppLocalizations {
   String get sendPickChipFriend => 'Saadad sõbrale';
 
   @override
-  String get sendPickSearchHint => 'Otsi turgu, mida saata';
+  String get sendPickSearchHint => 'Otsi ennustusi ja investeeringuid';
+
+  @override
+  String get sendPickSheetTitle => 'Vali kingitus';
+
+  @override
+  String sendPickSheetTitleNamed(String name) {
+    return 'Vali kingitus saajale $name';
+  }
 
   @override
   String sendPickChipForNamed(String name) {

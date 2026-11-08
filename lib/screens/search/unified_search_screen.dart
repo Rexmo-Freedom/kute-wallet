@@ -32,11 +32,16 @@
 //     Sal's sad face over one line.
 //   * SEND MODE (founder, 7 November 2026: the send-a-pick sheet "should
 //     be basically the same" as this one; [showKuteSearch] with a
-//     [SendPickSession], send_pick_market_sheet.dart): Send's "Send a
-//     prediction or investment" opens THIS sheet with one small chip at
-//     the top ("For Ana", "Sending to a friend") in place of a title,
-//     the composer with Sal reading "Search a market to send", no Connect
-//     your own AI card, the same Recent, Moving now (no "See all": it
+//     [SendPickSession], send_pick_market_sheet.dart): Send's "A
+//     prediction or investment" opens THIS sheet under the first steps'
+//     own heading (founder, 8 November 2026, on the small "For Anna" chip
+//     that was here: "should be more clear and better"; SheetTitleHeader,
+//     as on Send and Receive, the title big on the left and the compact X
+//     at the top right): "Pick a gift for Anna", "Pick a gift" with no
+//     contact ([sendPickSheetTitle]), the body on that heading's edge (20,
+//     not the plain sheet's 16). Then the composer with Sal reading
+//     "Search predictions and investments", no Connect your own AI card,
+//     the same Recent, Moving now (no "See all": it
 //     would leave the send) and Trending predictions, and the same
 //     results, markets only (Predictions and Investing, no
 //     Transactions). A venue where this person cannot place a prediction
@@ -115,7 +120,7 @@ import 'package:kute/screens/ledger/ledger_account_body.dart'
 import 'package:kute/screens/polymarket/market_detail_sheet.dart';
 import 'package:kute/screens/shared/animations/bouncy_touch.dart';
 import 'package:kute/screens/shared/kute_back_button.dart'
-    show KuteCloseButton, kKuteNavButtonSize;
+    show KuteCloseButton;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart'
     show KuteSkeleton, SkeletonBar, SkeletonCircle, SkeletonRowList;
@@ -135,6 +140,8 @@ import 'package:kute/providers/polymarket_live_prices_provider.dart'
     show livePriceProvider;
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/shared/open_once.dart';
+import 'package:kute/screens/shared/receive_surface.dart'
+    show SheetTitleHeader;
 import 'package:kute/screens/shared/transactions_builder.dart'
     show buildUnifiedTransactionItem, openTransactionDetails;
 import 'package:kute/services/tracking_service.dart';
@@ -1125,6 +1132,12 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
       );
     }
 
+    void close() {
+      // Named on search_closed; the pop is the button's own.
+      _searchStats?.closeMethod = 'close_button';
+      Navigator.of(context).pop();
+    }
+
     return scoped(AppBottomSheetContainer(
       maxHeight: kSearchSheetFraction,
       followKeyboard: true,
@@ -1134,6 +1147,13 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
             AppBottomSheetHeader(
               title: context.l10n.salChatWith,
               trailing: const AppBottomSheetCloseButton(),
+            )
+          else if (send != null)
+            // Send mode's heading says what this sheet is for, and for
+            // whom (send_pick_session.dart): the first steps' own header.
+            SheetTitleHeader(
+              title: sendPickSheetTitle(context.l10n, send),
+              onClose: close,
             )
           else
             // The drag handle with the shared close X at the row's end
@@ -1149,33 +1169,26 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
                     top: 12.h,
                     child: AppDecorations.dragHandle(context),
                   ),
-                  // Send mode's one chip in place of a title: who the
-                  // pick is for (send_pick_session.dart).
-                  if (send != null)
-                    Positioned(
-                      left: KuteSearchComposer.gutter(context),
-                      right: 64.w,
-                      top: 6.h,
-                      // Centred on the close X beside it.
-                      height: kKuteNavButtonSize,
-                      child: Align(
-                        alignment: AlignmentDirectional.centerStart,
-                        child: SendPickChip(session: send),
-                      ),
-                    ),
                   Positioned(
                     right: 16.w,
                     top: 6.h,
-                    child: KuteCloseButton(onPressed: () {
-                      // Named on search_closed; the pop is the button's own.
-                      _searchStats?.closeMethod = 'close_button';
-                      Navigator.of(context).pop();
-                    }),
+                    child: KuteCloseButton(onPressed: close),
                   ),
                 ],
               ),
             ),
-          Expanded(child: entrance(Column(children: children))),
+          Expanded(
+            child: entrance(send == null
+                ? Column(children: children)
+                // The heading's edge (20, the first steps' content edge):
+                // the title, the line, the rows and the X on one line.
+                : Padding(
+                    padding: EdgeInsets.symmetric(
+                        horizontal:
+                            20.w - KuteSearchComposer.gutter(context)),
+                    child: Column(children: children),
+                  )),
+          ),
         ],
       ),
     ));

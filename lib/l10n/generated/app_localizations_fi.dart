@@ -14125,7 +14125,15 @@ class AppLocalizationsFi extends AppLocalizations {
   String get sendPickChipFriend => 'Lähetetään ystävälle';
 
   @override
-  String get sendPickSearchHint => 'Hae lähetettävä markkina';
+  String get sendPickSearchHint => 'Hae ennusteita ja sijoituksia';
+
+  @override
+  String get sendPickSheetTitle => 'Valitse lahja';
+
+  @override
+  String sendPickSheetTitleNamed(String name) {
+    return 'Valitse lahja saajalle $name';
+  }
 
   @override
   String sendPickChipForNamed(String name) {

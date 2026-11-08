@@ -1,9 +1,10 @@
 // Send a prediction or an investment from Send (send_pick_market_sheet.dart;
 // founder, 7 November 2026: "this is still not the search one just adapted
 // to sending, should be basically the same"). It IS the search sheet
-// (unified_search_screen.dart) in send mode: one small chip at the top in
-// place of a title ("For Maria", "Sending to a friend"), the composer with
-// Sal reading "Search a market to send", no Connect your own AI card, the
+// (unified_search_screen.dart) in send mode: the first steps' heading
+// ("Pick a gift for Maria", "Pick a gift"; founder, 8 November 2026), the
+// composer with Sal reading "Search predictions and investments", no
+// Connect your own AI card, the
 // same Moving now grid and Trending predictions with their gauges, the
 // same results (markets only, never Transactions). A market tapped opens
 // ITS PAGE in send mode (its slip's primary sends the pick; slip_share
@@ -30,6 +31,8 @@ import 'package:kute/screens/search/unified_search_screen.dart';
 import 'package:kute/screens/share/send_pick_market_sheet.dart';
 import 'package:kute/screens/share/send_pick_session.dart';
 import 'package:kute/screens/shared/open_once.dart';
+import 'package:kute/screens/shared/receive_surface.dart'
+    show SheetTitleHeader;
 import 'package:kute/services/advisor/advisor_input_guard.dart';
 import 'package:kute/services/hyperliquid/hl_sparkline_cache.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -210,16 +213,24 @@ void main() {
   }
 
   testWidgets(
-      'the search sheet in send mode: the chip for a title, the composer '
+      'the search sheet in send mode: the first steps heading, the composer '
       'with Sal, no Connect your own AI; Moving now and Trending predictions '
       'while nothing is typed; typing runs the same searches, markets only',
       (tester) async {
     await open(tester);
     expect(env.paramsOf('send_pick_market_opened').single,
         containsPair('source', 'send'));
-    // No title, no subtitle: one chip.
-    expect(find.byKey(const ValueKey('send-pick-chip')), findsOneWidget);
-    expect(find.text(_l10n.sendPickChipFriend), findsOneWidget);
+    // The first steps' heading says what it is, once: no chip, no subtitle.
+    expect(find.widgetWithText(SheetTitleHeader, _l10n.sendPickSheetTitle),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('send-pick-chip')), findsNothing);
+    expect(find.text(_l10n.sendPickChipFriend), findsNothing);
+    // The title and the search line share one left edge.
+    expect(
+        tester.getTopLeft(find.byType(KuteSearchComposer)).dx,
+        moreOrLessEquals(
+            tester.getTopLeft(find.text(_l10n.sendPickSheetTitle)).dx,
+            epsilon: 0.5));
     expect(find.text(_l10n.sendPickMarket), findsNothing);
     expect(find.text(_l10n.sendPickMarketHow), findsNothing);
     // The search sheet's own composer, Sal in it, the hint adapted.
@@ -253,10 +264,12 @@ void main() {
 
   testWidgets(
       'a prediction found by search opens its page in send mode, where the '
-      'side is picked (nothing chosen here); the chip names the contact',
+      'side is picked (nothing chosen here); the heading names the contact',
       (tester) async {
     await open(tester, senderLabel: 'Maria');
-    expect(find.text('For Maria'), findsOneWidget);
+    expect(find.widgetWithText(SheetTitleHeader, 'Pick a gift for Maria'),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('send-pick-chip')), findsNothing);
     await search(tester, 'lula');
     await tester.tap(find.text('Will Lula win the 2026 election?'));
     await settle(tester);
@@ -270,6 +283,16 @@ void main() {
       expect(values, isNot(contains('912')));
       expect(values, isNot(contains('Maria')));
     }
+  });
+
+  testWidgets('the heading\'s X closes the sheet, as a send not made',
+      (tester) async {
+    bool? result;
+    await open(tester, senderLabel: 'Maria', onResult: (r) => result = r);
+    await tester.tap(find.byKey(SheetTitleHeader.closeKey));
+    await settle(tester);
+    expect(find.byType(UnifiedSearchSurface), findsNothing);
+    expect(result, isFalse);
   });
 
   testWidgets('an investment from Moving now opens its own page',

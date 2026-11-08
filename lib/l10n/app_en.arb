@@ -12155,15 +12155,29 @@
   },
   "sendPickChipFriend": "Sending to a friend",
   "@sendPickChipFriend": {
-    "description": "The small chip at the top of the send-mode search sheet, market page and slip when no contact was picked yet: the pick goes to a friend."
+    "description": "The small chip at the top of a market page and slip in send mode when no contact was picked yet: the pick goes to a friend."
   },
-  "sendPickSearchHint": "Search a market to send",
+  "sendPickSearchHint": "Search predictions and investments",
   "@sendPickSearchHint": {
-    "description": "The search line's hint on the search sheet in send mode (Send's 'Send a prediction or investment')."
+    "description": "The search line's hint on the search sheet in send mode (Send's 'A prediction or investment'), under the sheet's title 'Pick a gift for Ana'."
+  },
+  "sendPickSheetTitle": "Pick a gift",
+  "@sendPickSheetTitle": {
+    "description": "The big title of the search sheet in send mode when no contact was picked: the sender is choosing a prediction or an investment to send someone as a gift. Friendly and plain; never a word for betting or gambling."
+  },
+  "sendPickSheetTitleNamed": "Pick a gift for {name}",
+  "@sendPickSheetTitleNamed": {
+    "description": "The big title of the search sheet in send mode once Send picked a contact: the sender is choosing a prediction or an investment to send {name} as a gift ('Pick a gift for Ana'). Friendly and plain; never a word for betting or gambling. Keep {name} uninflected (use '... recipient: {name}' where the language would inflect it).",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Ana"
+      }
+    }
   },
   "sendPickChipForNamed": "For {name}",
   "@sendPickChipForNamed": {
-    "description": "The send-mode chip at the top of the search sheet, market page and slip once Send picked a contact: who the sender is buying the pick for, seen by the SENDER ('For Ana'). Not the card's 'Ana, for you'. Keep {name} uninflected (use 'Recipient: {name}' where the language would inflect it).",
+    "description": "The send-mode chip at the top of a market page and slip once Send picked a contact: who the sender is buying the pick for, seen by the SENDER ('For Ana'). Not the card's 'Ana, for you'. Keep {name} uninflected (use 'Recipient: {name}' where the language would inflect it).",
     "placeholders": {
       "name": {
         "type": "String"

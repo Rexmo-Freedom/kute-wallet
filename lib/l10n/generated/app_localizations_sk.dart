@@ -14117,7 +14117,15 @@ class AppLocalizationsSk extends AppLocalizations {
   String get sendPickChipFriend => 'Posielaš kamarátovi';
 
   @override
-  String get sendPickSearchHint => 'Hľadaj trh na poslanie';
+  String get sendPickSearchHint => 'Hľadať predpovede a investície';
+
+  @override
+  String get sendPickSheetTitle => 'Vyber darček';
+
+  @override
+  String sendPickSheetTitleNamed(String name) {
+    return 'Vyber darček pre príjemcu: $name';
+  }
 
   @override
   String sendPickChipForNamed(String name) {
