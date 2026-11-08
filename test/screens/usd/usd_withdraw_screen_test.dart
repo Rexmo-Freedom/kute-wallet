@@ -359,7 +359,7 @@ void main() {
   for (final dark in [false, true]) {
     testWidgets(
         'the Who step: "Send", the search field saying it takes any '
-        'crypto address, then the Contacts right under it: no Another '
+        'crypto address, the Scan QR Code row, then the Contacts: no Another '
         'crypto card, no chips, no Send to anyone '
         '(${dark ? 'dark' : 'light'})', (tester) async {
       await _pump(tester, spendingSats: 100000, dark: dark);
@@ -385,8 +385,8 @@ void main() {
       expect(find.byKey(const ValueKey('send-to-friend-row')), findsNothing);
 
       // No card under the field (founder: "another crypto should be
-      // implied not a button"): the logos of what it takes, the Contacts
-      // right under them.
+      // implied not a button"): the logos of what it takes, the Scan QR
+      // Code row, the Contacts right under it.
       _expectNoAnotherCrypto();
       final coins = find.byKey(const ValueKey('send-accepted-coins'));
       expect(coins, findsOneWidget);
@@ -403,10 +403,20 @@ void main() {
       expect(find.byType(KuteActionCard), findsNothing);
       expect(find.text(_l10n.usdSendDestinationsUnavailable), findsNothing);
       double top(Finder f) => tester.getTopLeft(f).dy;
-      expect(
-          top(find.text(_l10n.sendAllContacts)) -
-              tester.getBottomLeft(find.byKey(_field)).dy,
+      final scan = find.byKey(const ValueKey('send-field-scan'));
+      expect(scan, findsOneWidget);
+      expect(find.text(_l10n.scanQrCode), findsOneWidget);
+      expect(top(scan), greaterThan(tester.getBottomLeft(coins).dy));
+      expect(top(find.text(_l10n.sendAllContacts)) - tester.getBottomLeft(scan).dy,
           inInclusiveRange(0, 76));
+      // Typing hides it with the logos; the field's clear brings it back.
+      await tester.enterText(find.byType(TextField).first, 'mar');
+      await _settle(tester);
+      expect(scan, findsNothing);
+      expect(coins, findsNothing);
+      await tester.tap(find.byKey(const ValueKey('send-field-clear')));
+      await _settle(tester);
+      expect(scan, findsOneWidget);
 
       // The bar: the step's Continue, as on the Bitcoin Send's Who step,
       // off and saying what to do.

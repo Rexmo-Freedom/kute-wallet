@@ -20,7 +20,7 @@
 //
 // THE SENDS' RECIPIENT FIELD IS THIS LINE TOO (founder, 8 November 2026: "the
 // search bar should be like the ai search bar"; send_recipient_step.dart,
-// SendRecipientSearchField): [trailing] holds Paste, Scan and the clear in the
+// SendRecipientSearchField): [trailing] holds Paste and the clear in the
 // arrow's place, and [recipientEntry] takes an address, never prose: Done on
 // the keyboard, nothing that rewrites what is typed or pasted, two lines for a
 // long address.
