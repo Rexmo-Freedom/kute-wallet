@@ -3293,12 +3293,6 @@ class AppLocalizationsBg extends AppLocalizations {
       'Подпиши транзакцията на устройството си.';
 
   @override
-  String sendAmountUnitAvailableWithFiat(
-      String amount, String unit, String fiat) {
-    return '$amount $unit налични · $fiat';
-  }
-
-  @override
   String get sendCalculatingEllipsis => 'Изчисляване…';
 
   @override
@@ -6057,7 +6051,7 @@ class AppLocalizationsBg extends AppLocalizations {
   String get portfolioPerformanceUnavailable => 'Представянето не е достъпно';
 
   @override
-  String get portfolioStatRealized => 'Реализирана печалба / загуба';
+  String get portfolioStatRealized => 'Реализирани печалби';
 
   @override
   String get portfolioStatAmountPredicted => 'Сума в прогнози';
@@ -7996,7 +7990,7 @@ class AppLocalizationsBg extends AppLocalizations {
   String get tnNetProfit => 'Нетна печалба';
 
   @override
-  String get tnTradingPnl => 'Резултат от търговията';
+  String get tnTradingPnl => 'Печалби от търговията';
 
   @override
   String get tnAllTradingFees => 'Всички такси за търговия';
@@ -8012,7 +8006,7 @@ class AppLocalizationsBg extends AppLocalizations {
       'Отваряне, частични затваряния и окончателно затваряне';
 
   @override
-  String get tnClosedPnlExchange => 'Затворен резултат (платформа)';
+  String get tnClosedPnlExchange => 'Затворени печалби (платформа)';
 
   @override
   String get tnFillFee => 'Такса за изпълнение';
@@ -10708,10 +10702,10 @@ class AppLocalizationsBg extends AppLocalizations {
   String get bragPortfolioBarLabel => 'Сподели портфолиото';
 
   @override
-  String get bragPnlBarLabel => 'Сподели P&L';
+  String get bragPnlBarLabel => 'Сподели печалбите';
 
   @override
-  String get bragMyPnl => 'Моят P&L';
+  String get bragMyPnl => 'Моите печалби';
 
   @override
   String bragShareText(String title, String link) {
@@ -10844,7 +10838,7 @@ class AppLocalizationsBg extends AppLocalizations {
   String get portfolioStatAtStake => 'Заложена сума';
 
   @override
-  String get portfolioProfitLoss => 'Печалба и загуба';
+  String get portfolioProfitLoss => 'Печалби';
 
   @override
   String slipCtaAddTo(String side, String amount) {
@@ -11107,7 +11101,7 @@ class AppLocalizationsBg extends AppLocalizations {
       'Вземете адрес, на който да изпратите долари';
 
   @override
-  String get portfolioStatOpenPnl => 'Отворена печалба / загуба';
+  String get portfolioStatOpenPnl => 'Отворени печалби';
 
   @override
   String stepUpReasonBetReady(String amount) {
@@ -11444,7 +11438,7 @@ class AppLocalizationsBg extends AppLocalizations {
       'За да го преместиш, свържи се с поддръжката.';
 
   @override
-  String get portfolioSectionPnlCharts => 'P&L';
+  String get portfolioSectionPnlCharts => 'Печалби';
 
   @override
   String get portfolioSectionBalances => 'Позиции';
@@ -11534,7 +11528,7 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get pnlChartNoHistory =>
-      'Печалбата / загубата ти се показва след първата ти позиция.';
+      'Печалбите ти се показват след първата ти позиция.';
 
   @override
   String get balanceChartNoHistory =>
@@ -11542,7 +11536,7 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get pnlChartEmpty =>
-      'Печалбата и загубата ви ще се показват тук, щом търгувате или прогнозирате';
+      'Печалбите ви ще се показват тук, щом търгувате или прогнозирате';
 
   @override
   String portfolioPositionsCount(int count) {
@@ -11771,7 +11765,7 @@ class AppLocalizationsBg extends AppLocalizations {
       'Биткойн и долари заедно. Сал се прави, че не е нищо.';
 
   @override
-  String get pnlNoHistoryTitle => 'Още няма печалба / загуба';
+  String get pnlNoHistoryTitle => 'Още няма печалби';
 
   @override
   String get pnlByVenue => 'By venue';
@@ -12373,6 +12367,59 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get chartToolHorizontalLine => 'Хоризонтална линия';
+
+  @override
+  String get chartToolPriceLine => 'Ценова линия';
+
+  @override
+  String get chartPriceLines => 'Ценови линии';
+
+  @override
+  String get chartPriceLineNew => 'Нова линия';
+
+  @override
+  String get chartPriceLineNewNote => 'Проверява се само докато Kute е отворен';
+
+  @override
+  String get chartPriceLineAbove => 'Над цената';
+
+  @override
+  String get chartPriceLineBelow => 'Под цената';
+
+  @override
+  String chartPriceLineReachedOn(String when) {
+    return 'Достигната $when';
+  }
+
+  @override
+  String chartPriceLineReachedToast(String coin, String price) {
+    return '$coin достигна $price';
+  }
+
+  @override
+  String chartPriceLineLimit(int count) {
+    return 'Имате $count ценови линии. Премахнете една, за да добавите друга.';
+  }
+
+  @override
+  String get chartPriceLineAtPrice =>
+      'Това е текущата цена. Изберете ниво над или под нея.';
+
+  @override
+  String get chartPriceLineTooFar =>
+      'Това е твърде далеч от цената. Изберете по-близко ниво.';
+
+  @override
+  String get chartPriceLineRemoveTitle =>
+      'Да се премахне ли тази ценова линия?';
+
+  @override
+  String chartPriceLineRemoveBody(String coin, String price) {
+    return '$coin при $price';
+  }
+
+  @override
+  String get chartPriceLineRemoveCta => 'Премахване';
 
   @override
   String get chartMoreTools => 'Още';
@@ -14268,4 +14315,35 @@ class AppLocalizationsBg extends AppLocalizations {
   @override
   String get shareEdgeInviteDog =>
       'Отстъпката е истинска. Кучето е невъзмутимо.';
+
+  @override
+  String get balanceGoalShareMyLevel => 'Сподели нивото ми';
+
+  @override
+  String get goalCardCaps => 'Моето ниво';
+
+  @override
+  String get shareEdgeGoalNotFlex => 'Не се хваля. Просто ниво.';
+
+  @override
+  String get shareEdgeGoalUnimpressed => 'Сал провери. Пак не е впечатлен.';
+
+  @override
+  String get shareEdgeGoalNoRush => 'Ниво по ниво. Без бързане.';
+
+  @override
+  String get shareEdgeGoalNobodyAsked => 'Никой не пита. Споделям все пак.';
+
+  @override
+  String get shareEdgeGoalSaysNothing =>
+      'Сал казва, че е нищо. Често го казва.';
+
+  @override
+  String get shareEdgeGoalOnPurpose => 'Бавно изкачване. Нарочно.';
+
+  @override
+  String get shareEdgeGoalNoTrophy => 'Без трофей. Само куче и ниво.';
+
+  @override
+  String get shareEdgeGoalYourTurn => 'Твой ред е. Сал ще чака.';
 }

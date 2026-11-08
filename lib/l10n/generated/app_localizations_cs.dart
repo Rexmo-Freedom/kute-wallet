@@ -3281,12 +3281,6 @@ class AppLocalizationsCs extends AppLocalizations {
       'Podepiš transakci na svém zařízení.';
 
   @override
-  String sendAmountUnitAvailableWithFiat(
-      String amount, String unit, String fiat) {
-    return 'K dispozici $amount $unit · $fiat';
-  }
-
-  @override
   String get sendCalculatingEllipsis => 'Počítá se…';
 
   @override
@@ -6043,7 +6037,7 @@ class AppLocalizationsCs extends AppLocalizations {
   String get portfolioPerformanceUnavailable => 'Výkonnost nedostupná';
 
   @override
-  String get portfolioStatRealized => 'Realizovaný zisk / ztráta';
+  String get portfolioStatRealized => 'Realizované zisky';
 
   @override
   String get portfolioStatAmountPredicted => 'Částka v predikcích';
@@ -7979,7 +7973,7 @@ class AppLocalizationsCs extends AppLocalizations {
   String get tnNetProfit => 'Čistý zisk';
 
   @override
-  String get tnTradingPnl => 'Obchodní zisk a ztráta';
+  String get tnTradingPnl => 'Obchodní zisky';
 
   @override
   String get tnAllTradingFees => 'Všechny obchodní poplatky';
@@ -7995,7 +7989,7 @@ class AppLocalizationsCs extends AppLocalizations {
       'Otevření, částečná uzavření a konečné uzavření';
 
   @override
-  String get tnClosedPnlExchange => 'Uzavřený zisk a ztráta (burza)';
+  String get tnClosedPnlExchange => 'Uzavřené zisky (burza)';
 
   @override
   String get tnFillFee => 'Poplatek za vyplnění';
@@ -10683,10 +10677,10 @@ class AppLocalizationsCs extends AppLocalizations {
   String get bragPortfolioBarLabel => 'Sdílej portfolio';
 
   @override
-  String get bragPnlBarLabel => 'Sdílej P&L';
+  String get bragPnlBarLabel => 'Sdílej zisky';
 
   @override
-  String get bragMyPnl => 'Můj P&L';
+  String get bragMyPnl => 'Moje zisky';
 
   @override
   String bragShareText(String title, String link) {
@@ -10819,7 +10813,7 @@ class AppLocalizationsCs extends AppLocalizations {
   String get portfolioStatAtStake => 'Vložená částka';
 
   @override
-  String get portfolioProfitLoss => 'Zisk a ztráta';
+  String get portfolioProfitLoss => 'Zisky';
 
   @override
   String slipCtaAddTo(String side, String amount) {
@@ -11085,7 +11079,7 @@ class AppLocalizationsCs extends AppLocalizations {
       'Získejte adresu, na kterou pošlete dolary';
 
   @override
-  String get portfolioStatOpenPnl => 'Otevřený zisk / ztráta';
+  String get portfolioStatOpenPnl => 'Otevřené zisky';
 
   @override
   String stepUpReasonBetReady(String amount) {
@@ -11422,7 +11416,7 @@ class AppLocalizationsCs extends AppLocalizations {
       'Chceš-li je přesunout, kontaktuj podporu.';
 
   @override
-  String get portfolioSectionPnlCharts => 'P&L';
+  String get portfolioSectionPnlCharts => 'Zisky';
 
   @override
   String get portfolioSectionBalances => 'Pozice';
@@ -11511,8 +11505,7 @@ class AppLocalizationsCs extends AppLocalizations {
   String get chartNoChange => 'Beze změny';
 
   @override
-  String get pnlChartNoHistory =>
-      'Tvůj zisk a ztráta se zobrazí po první pozici.';
+  String get pnlChartNoHistory => 'Tvoje zisky se zobrazí po první pozici.';
 
   @override
   String get balanceChartNoHistory =>
@@ -11520,7 +11513,7 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get pnlChartEmpty =>
-      'Až začnete obchodovat nebo predikovat, uvidíte zde svůj zisk a ztrátu';
+      'Až začnete obchodovat nebo predikovat, uvidíte zde své zisky';
 
   @override
   String portfolioPositionsCount(int count) {
@@ -11752,7 +11745,7 @@ class AppLocalizationsCs extends AppLocalizations {
       'Bitcoin a dolary dohromady. Sal dělá, že o nic nejde.';
 
   @override
-  String get pnlNoHistoryTitle => 'Zatím žádný zisk a ztráta';
+  String get pnlNoHistoryTitle => 'Zatím žádné zisky';
 
   @override
   String get pnlByVenue => 'By venue';
@@ -12356,6 +12349,58 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get chartToolHorizontalLine => 'Vodorovná čára';
+
+  @override
+  String get chartToolPriceLine => 'Cenová linie';
+
+  @override
+  String get chartPriceLines => 'Cenové linie';
+
+  @override
+  String get chartPriceLineNew => 'Nová linie';
+
+  @override
+  String get chartPriceLineNewNote => 'Kontroluje se jen při otevřeném Kute';
+
+  @override
+  String get chartPriceLineAbove => 'Nad cenou';
+
+  @override
+  String get chartPriceLineBelow => 'Pod cenou';
+
+  @override
+  String chartPriceLineReachedOn(String when) {
+    return 'Dosaženo $when';
+  }
+
+  @override
+  String chartPriceLineReachedToast(String coin, String price) {
+    return '$coin dosáhl $price';
+  }
+
+  @override
+  String chartPriceLineLimit(int count) {
+    return 'Máte $count cenových linií. Odeberte jednu a přidejte další.';
+  }
+
+  @override
+  String get chartPriceLineAtPrice =>
+      'To je aktuální cena. Vyberte úroveň nad ní nebo pod ní.';
+
+  @override
+  String get chartPriceLineTooFar =>
+      'To je od ceny příliš daleko. Vyberte bližší úroveň.';
+
+  @override
+  String get chartPriceLineRemoveTitle => 'Odebrat tuto cenovou linii?';
+
+  @override
+  String chartPriceLineRemoveBody(String coin, String price) {
+    return '$coin na $price';
+  }
+
+  @override
+  String get chartPriceLineRemoveCta => 'Odebrat';
 
   @override
   String get chartMoreTools => 'Další';
@@ -14244,4 +14289,35 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get shareEdgeInviteDog => 'Sleva je skutečná. Psa to nechává klidným.';
+
+  @override
+  String get balanceGoalShareMyLevel => 'Sdílet moji úroveň';
+
+  @override
+  String get goalCardCaps => 'Moje úroveň';
+
+  @override
+  String get shareEdgeGoalNotFlex => 'Žádné chlubení. Jen úroveň.';
+
+  @override
+  String get shareEdgeGoalUnimpressed => 'Sal to prověřil. Pořád bez dojmu.';
+
+  @override
+  String get shareEdgeGoalNoRush => 'Úroveň po úrovni. Žádný spěch.';
+
+  @override
+  String get shareEdgeGoalNobodyAsked => 'Nikdo se neptal. Sdílím stejně.';
+
+  @override
+  String get shareEdgeGoalSaysNothing =>
+      'Sal říká, že to nic není. Říká to často.';
+
+  @override
+  String get shareEdgeGoalOnPurpose => 'Pomalý výstup. Schválně.';
+
+  @override
+  String get shareEdgeGoalNoTrophy => 'Žádná trofej. Jen pes a úroveň.';
+
+  @override
+  String get shareEdgeGoalYourTurn => 'Jsi na řadě. Sal počká.';
 }

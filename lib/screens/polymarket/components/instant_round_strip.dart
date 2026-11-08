@@ -1,11 +1,13 @@
 // lib/screens/polymarket/components/instant_round_strip.dart
 //
-// The window strip on the Instant screen's card (instant_strip.dart for the
+// The window strip on the Instant card (instant_strip.dart for the
 // rules): the last rounds of the asset as the card's result dots
 // ([PastRoundDots]), then the round in play, the next and the one after as
 // the app's compact pills ([KutePill]): "Now · 1:49", "Next · 7:20",
 // "7:25". The picked one wears the pill's selected chrome; a round without
-// real prices reads "7:25 · No prices yet", dimmed, and takes no tap. A
+// real prices reads "7:25 · No prices yet", dimmed, and takes no tap; the
+// round in play without Gamma's event reads its start the same way ("7:20
+// · No prices yet"), never "Now · 0:00:00". A
 // round the person holds a side of carries a small dot at its top right.
 // Nothing here is a button that buys: the one pair of Up and Down pills
 // sits under the strip, on the card (founder, 8 November 2026: "the 5
@@ -42,8 +44,9 @@ class InstantRoundStrip extends StatelessWidget {
   /// The start (UTC seconds) of the round the buttons bet on.
   final int selectedStart;
 
-  /// The round in play's time left, as the card's countdown writes it.
-  final String countdown;
+  /// The round in play's time left, as the card's countdown writes it;
+  /// null while it is not known (no event).
+  final String? countdown;
 
   /// A tap on a round that can be picked.
   final void Function(PolyStripRound round) onPick;
@@ -68,7 +71,8 @@ class InstantRoundStrip extends StatelessWidget {
     ];
     Widget pill(PolyStripRound r) {
       final label = switch (r.slot) {
-        PolyRoundSlot.live => l10n.predictRoundNow(countdown),
+        PolyRoundSlot.live when countdown != null =>
+          l10n.predictRoundNow(countdown!),
         PolyRoundSlot.next => l10n.predictNextWindow(clock(r.startTime)),
         _ => clock(r.startTime),
       };

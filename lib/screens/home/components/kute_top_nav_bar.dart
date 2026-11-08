@@ -1,9 +1,12 @@
 // lib/screens/home/components/kute_top_nav_bar.dart
 //
-// Integrated top navigation bar: the account / Dollars / Investing /
-// Predictions tab chips on the left, filling most of the row, with ONE
-// button on the RIGHT that opens the Financial hub: the wallet list, switch
-// wallet and Add wallet, Notifications in its header and a Settings row.
+// Integrated top navigation bar: the Bitcoin | Dollars switch
+// ([HomeTabSwitch], founder 8 November 2026) centred on the screen, so it
+// lines up with the balance below, an empty slot on the left balancing the
+// ONE round button on the RIGHT that opens the Financial hub: the wallet
+// list, switch wallet and Add wallet, Notifications in its header and a
+// Settings row. For any other wallet the slot is not there and its tab chips
+// ([ServiceTabStrip]) fill the row up to the button.
 // Its glyph is a rounded "+" with a small gear badge at its lower right
 // (owner decision October 2026: one glyph for "add" and "settings", the two
 // jobs behind it; it is the only door to the hub on the shell, and a pushed
@@ -22,11 +25,15 @@ import 'dart:math' as math;
 
 import 'package:kute/l10n/l10n.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/providers/nav_bar_visibility_provider.dart';
+import 'package:kute/providers/shell_wallet_provider.dart';
 import 'package:kute/screens/home/components/action_pill.dart';
+import 'package:kute/screens/home/components/home_tab_switch.dart'
+    show homeTabSwitchTrackHeight;
+import 'package:kute/screens/shared/kute_back_button.dart'
+    show KuteCircleButton, kKuteNavButtonSize, kKuteNavHitSize;
 import 'package:kute/screens/shared/wallet_money_actions.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -39,10 +46,15 @@ class KuteTopNavBar extends ConsumerWidget {
   /// only ever fires for a tab change.
   final void Function(ActiveNavTab)? onSelectTab;
 
+  /// The shell's continuous page position, for the Bitcoin | Dollars
+  /// switch's thumb; null with no pager.
+  final Animation<double>? pagePosition;
+
   const KuteTopNavBar({
     super.key,
     required this.activeTab,
     this.onSelectTab,
+    this.pagePosition,
   });
 
   @override
@@ -54,30 +66,46 @@ class KuteTopNavBar extends ConsumerWidget {
     // instantly for users who opt out of non-essential animation.
     final reduceMotion = MediaQuery.of(context).disableAnimations;
 
+    final centred = shellStripIsSwitch(
+        ref.watch(shellWalletProvider), ref.watch(shellVenueOwnerProvider));
+    // The hub button's slot, and on the left its empty twin: a whole 44 pt
+    // on a narrow phone, where the circle scales down inside it. The bar's
+    // inset puts the circle's own edge on the page's 16 margin.
+    final slot = math.max(kKuteNavHitSize, kKuteNavHitSize.w);
+    final edge = 16.w - (slot - kKuteNavButtonSize.w) / 2;
+    // The switch's 44 pt targets reach above its track on a narrow phone
+    // rather than pushing the track down towards the page.
+    final top = centred
+        ? math.max(0.0, 6.h - (slot - homeTabSwitchTrackHeight()) / 2)
+        : 6.h;
+
     final bar = SafeArea(
       bottom: false,
       child: Padding(
-        padding: EdgeInsets.fromLTRB(12.w, 6.h, 12.w, 6.h),
-        // No enclosing band: the tab strip floats (it owns a bounded width
-        // via Expanded so it can never grow under / collide with the hub
-        // button), only the active tab carries a pill, and the hub button
-        // is its own standalone chip on the right. The strip SPREADS its
-        // tabs to fill the full available width (see FloatingActionPill).
+        padding: EdgeInsets.fromLTRB(centred ? edge : 12.w, top, edge, 6.h),
+        // No enclosing band: the switch and the hub button float. The
+        // strip's region is bounded by Expanded, so it can never grow under
+        // or collide with the button.
         child: Row(
           children: [
-            // Bounded region — the strip fills the space left after the
-            // fixed hub button and gap, spreading its tabs evenly across it.
+            if (centred) SizedBox(width: slot),
             Expanded(
-              child: FloatingActionPill(
-                activeTab: activeTab,
-                onSelectTab: onSelectTab,
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: centred ? 8.w : 0),
+                child: FloatingActionPill(
+                  activeTab: activeTab,
+                  onSelectTab: onSelectTab,
+                  pagePosition: pagePosition,
+                ),
               ),
             ),
-            // Balanced breathing room between the strip and the button.
-            SizedBox(width: 12.w),
+            if (!centred) SizedBox(width: 12.w),
             // The ONE trailing button: the +-and-gear into the Financial
             // hub.
-            _FinancialHubButton(activeTab: activeTab),
+            SizedBox(
+              width: slot,
+              child: Center(child: _FinancialHubButton(activeTab: activeTab)),
+            ),
           ],
         ),
       ),
@@ -95,8 +123,9 @@ class KuteTopNavBar extends ConsumerWidget {
 }
 
 /// The Financial hub door: the "+"-with-a-gear glyph ([HubPlusGearGlyph])
-/// in the standalone chip the Settings gear wore (44pt chrome, right of the
-/// tab strip). It opens the hub sheet: wallets and Add wallet, with
+/// in the app's round header button ([KuteCircleButton], the family of the
+/// back and close circles: soft fill, no border, its press and its selection
+/// click), right of the tab strip. It opens the hub sheet: wallets and Add wallet, with
 /// Settings and Notifications side by side in its header. The
 /// `wallet_actions_opened` source names the tab it was opened on:
 /// home_plus | usd_plus | trading_plus | predictions_plus | bank_plus.
@@ -121,52 +150,20 @@ class _FinancialHubButtonState extends State<_FinancialHubButton> {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
-    final isLight = Theme.of(context).brightness == Brightness.light;
-    return Semantics(
-      button: true,
-      label: context.l10n.financialHubAndSettings,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTapDown: (_) => _pressed.ping(),
-        onTap: () {
-          HapticFeedback.selectionClick();
-          showWalletMoneyActions(context, source: switch (widget.activeTab) {
-            ActiveNavTab.home => 'home_plus',
-            ActiveNavTab.usd => 'usd_plus',
-            ActiveNavTab.trading => 'trading_plus',
-            ActiveNavTab.predictions => 'predictions_plus',
-            ActiveNavTab.bank => 'bank_plus',
-          });
-        },
-        // The same neutral square chip the dock's button and the header
-        // shortcuts wear: rounded square, the light-mode white fill with
-        // its soft lift, a hairline rather than a full-weight rim.
-        child: Container(
-          width: 46.w,
-          height: 46.w,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: isLight ? Colors.white : c.surface,
-            borderRadius: AppRadius.buttonBorder,
-            border: Border.all(
-              color: isLight ? c.border : c.borderSubtle,
-              width: isLight ? 1.0 : 0.5,
-            ),
-            boxShadow: isLight
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.04),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
-                : null,
-          ),
-          child: HubPlusGearGlyph(
-              color: c.textPrimary, size: 24.sp, pressed: _pressed),
-        ),
-      ),
+    return KuteCircleButton(
+      semanticsLabel: context.l10n.financialHubAndSettings,
+      onPressDown: _pressed.ping,
+      onPressed: () {
+        showWalletMoneyActions(context, source: switch (widget.activeTab) {
+          ActiveNavTab.home => 'home_plus',
+          ActiveNavTab.usd => 'usd_plus',
+          ActiveNavTab.trading => 'trading_plus',
+          ActiveNavTab.predictions => 'predictions_plus',
+          ActiveNavTab.bank => 'bank_plus',
+        });
+      },
+      child: HubPlusGearGlyph(
+          color: context.colors.textPrimary, size: 24.sp, pressed: _pressed),
     );
   }
 }

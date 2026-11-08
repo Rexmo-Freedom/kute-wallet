@@ -42,6 +42,12 @@
 //     (challengeEdges); Sal's side-eye ("and?").
 //   * RECEIPT (a transaction's own card, founder, 5 November 2026; its
 //     colour by kind): receipt_card.dart.
+//   * GOAL (a level on the Bitcoin home's Goals, goal_share.dart; founder,
+//     8 November 2026: "we should be able to share the goals"): "MY LEVEL",
+//     "Level 3" huge, the level's name under it, Sal as that level's own
+//     still standing on the rule, a deadpan line, the footer. On the app's
+//     ink, as the invite. NO MONEY: no balance, no threshold, no percent, no
+//     currency.
 //   * INVESTMENT (navy, a market shared): THE ACTUAL STOCK: its real logo
 //     (HlCoinIcon, 36), name and ticker, the price huge, "+3.4% today" in
 //     the change's colour, the last 30 days' closes as the line filling
@@ -91,6 +97,9 @@ ShareCardPalette shareCardPalette(ShareCardData data) => switch (data) {
       final ReceiptCardData d => receiptCardPalette(d),
       // The app's ink, Sal's orange popping on it, the figure in orange.
       InviteCardData() => ShareCardPalette.bitcoinClaim,
+      // The invite's ink: the level's Sal, orange, pops on it, where on
+      // bitcoin orange he and his gold melt into the ground.
+      GoalCardData() => ShareCardPalette.bitcoinClaim,
     };
 
 /// A stock up this much today (a fraction) gets Sal's big win.
@@ -121,6 +130,8 @@ ShareCardPose shareCardPose(ShareCardData data) => switch (data) {
       final ReceiptCardData d => receiptCardPose(d),
       // An invite is a gift: the coin on her head.
       InviteCardData() => ShareCardPose.claim,
+      // Never drawn: the card hands the frame its level's still.
+      GoalCardData() => ShareCardPose.flat,
     };
 
 class ShareCard extends StatelessWidget {
@@ -167,6 +178,20 @@ class ShareCard extends StatelessWidget {
           code: code,
           mark: mark,
           pose: pose,
+        );
+      case final GoalCardData d:
+        return ShareCardFrame(
+          key: key,
+          palette: p,
+          caps: caps,
+          number: l10n.balanceGoalLevel(d.level),
+          numberBase: kShareCardMoneyHeroMax,
+          plain: d.name,
+          plainStrong: true,
+          line: line,
+          code: code,
+          mark: mark,
+          still: d.still,
         );
       case final MoneyCardData d:
         final sub = d.amountSub;

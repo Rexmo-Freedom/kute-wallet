@@ -3277,12 +3277,6 @@ class AppLocalizationsEt extends AppLocalizations {
       'Allkirjasta tehing oma seadmes.';
 
   @override
-  String sendAmountUnitAvailableWithFiat(
-      String amount, String unit, String fiat) {
-    return '$amount $unit saadaval · $fiat';
-  }
-
-  @override
   String get sendCalculatingEllipsis => 'Arvutamine…';
 
   @override
@@ -6031,7 +6025,7 @@ class AppLocalizationsEt extends AppLocalizations {
   String get portfolioPerformanceUnavailable => 'Tulemused pole saadaval';
 
   @override
-  String get portfolioStatRealized => 'Realiseeritud kasum / kahjum';
+  String get portfolioStatRealized => 'Realiseeritud kasum';
 
   @override
   String get portfolioStatAmountPredicted => 'Summa ennustustes';
@@ -7963,7 +7957,7 @@ class AppLocalizationsEt extends AppLocalizations {
   String get tnNetProfit => 'Netokasum';
 
   @override
-  String get tnTradingPnl => 'Tehingute kasum/kahjum';
+  String get tnTradingPnl => 'Tehingute kasum';
 
   @override
   String get tnAllTradingFees => 'Kõik tehingutasud';
@@ -7979,7 +7973,7 @@ class AppLocalizationsEt extends AppLocalizations {
       'Avamine, osalised sulgemised ja lõplik sulgemine';
 
   @override
-  String get tnClosedPnlExchange => 'Suletud kasum/kahjum (platvorm)';
+  String get tnClosedPnlExchange => 'Suletud kasum (platvorm)';
 
   @override
   String get tnFillFee => 'Täitmise tasu';
@@ -10676,10 +10670,10 @@ class AppLocalizationsEt extends AppLocalizations {
   String get bragPortfolioBarLabel => 'Jaga portfelli';
 
   @override
-  String get bragPnlBarLabel => 'Jaga P&L-i';
+  String get bragPnlBarLabel => 'Jaga kasumit';
 
   @override
-  String get bragMyPnl => 'Minu P&L';
+  String get bragMyPnl => 'Minu kasum';
 
   @override
   String bragShareText(String title, String link) {
@@ -10811,7 +10805,7 @@ class AppLocalizationsEt extends AppLocalizations {
   String get portfolioStatAtStake => 'Panustatud summa';
 
   @override
-  String get portfolioProfitLoss => 'Kasum ja kahjum';
+  String get portfolioProfitLoss => 'Kasum';
 
   @override
   String slipCtaAddTo(String side, String amount) {
@@ -11074,7 +11068,7 @@ class AppLocalizationsEt extends AppLocalizations {
       'Saa aadress, kuhu dollareid saata';
 
   @override
-  String get portfolioStatOpenPnl => 'Avatud kasum / kahjum';
+  String get portfolioStatOpenPnl => 'Avatud kasum';
 
   @override
   String stepUpReasonBetReady(String amount) {
@@ -11411,7 +11405,7 @@ class AppLocalizationsEt extends AppLocalizations {
       'Selle liigutamiseks võta ühendust toega.';
 
   @override
-  String get portfolioSectionPnlCharts => 'P&L';
+  String get portfolioSectionPnlCharts => 'Kasum';
 
   @override
   String get portfolioSectionBalances => 'Positsioonid';
@@ -11501,15 +11495,14 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get pnlChartNoHistory =>
-      'Sinu kasum/kahjum ilmub pärast esimest positsiooni.';
+      'Sinu kasum ilmub pärast esimest positsiooni.';
 
   @override
   String get balanceChartNoHistory =>
       'Sinu saldo ajalugu algab esimesest tehingust.';
 
   @override
-  String get pnlChartEmpty =>
-      'Kui kaupled või ennustad, näed siin oma kasumit ja kahjumit';
+  String get pnlChartEmpty => 'Kui kaupled või ennustad, näed siin oma kasumit';
 
   @override
   String portfolioPositionsCount(int count) {
@@ -11738,7 +11731,7 @@ class AppLocalizationsEt extends AppLocalizations {
       'Bitcoin ja dollarid kokku. Sal teeb näo, nagu poleks midagi.';
 
   @override
-  String get pnlNoHistoryTitle => 'Kasumit/kahjumit veel pole';
+  String get pnlNoHistoryTitle => 'Kasumit veel pole';
 
   @override
   String get pnlByVenue => 'By venue';
@@ -12341,6 +12334,59 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get chartToolHorizontalLine => 'Horisontaalne joon';
+
+  @override
+  String get chartToolPriceLine => 'Hinnajoon';
+
+  @override
+  String get chartPriceLines => 'Hinnajooned';
+
+  @override
+  String get chartPriceLineNew => 'Uus joon';
+
+  @override
+  String get chartPriceLineNewNote =>
+      'Kontrollitakse ainult siis, kui Kute on avatud';
+
+  @override
+  String get chartPriceLineAbove => 'Hinnast kõrgemal';
+
+  @override
+  String get chartPriceLineBelow => 'Hinnast madalamal';
+
+  @override
+  String chartPriceLineReachedOn(String when) {
+    return 'Saavutatud $when';
+  }
+
+  @override
+  String chartPriceLineReachedToast(String coin, String price) {
+    return '$coin jõudis hinnani $price';
+  }
+
+  @override
+  String chartPriceLineLimit(int count) {
+    return 'Sul on $count hinnajoont. Eemalda üks, et lisada uus.';
+  }
+
+  @override
+  String get chartPriceLineAtPrice =>
+      'See on praegune hind. Vali tase sellest kõrgemal või madalamal.';
+
+  @override
+  String get chartPriceLineTooFar =>
+      'See on hinnast liiga kaugel. Vali lähem tase.';
+
+  @override
+  String get chartPriceLineRemoveTitle => 'Kas eemaldada see hinnajoon?';
+
+  @override
+  String chartPriceLineRemoveBody(String coin, String price) {
+    return '$coin hinnal $price';
+  }
+
+  @override
+  String get chartPriceLineRemoveCta => 'Eemalda';
 
   @override
   String get chartMoreTools => 'Veel';
@@ -14237,4 +14283,36 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get shareEdgeInviteDog => 'Soodustus on päris. Koer ei tee väljagi.';
+
+  @override
+  String get balanceGoalShareMyLevel => 'Jaga minu taset';
+
+  @override
+  String get goalCardCaps => 'Minu tase';
+
+  @override
+  String get shareEdgeGoalNotFlex => 'Mitte kiitlemine. Lihtsalt tase.';
+
+  @override
+  String get shareEdgeGoalUnimpressed =>
+      'Sal vaatas üle. Ikka pole muljet avaldanud.';
+
+  @override
+  String get shareEdgeGoalNoRush => 'Üks tase korraga. Pole kiiret.';
+
+  @override
+  String get shareEdgeGoalNobodyAsked => 'Keegi ei küsinud. Jagan ikkagi.';
+
+  @override
+  String get shareEdgeGoalSaysNothing =>
+      'Sal ütleb, et see pole midagi. Ütleb seda tihti.';
+
+  @override
+  String get shareEdgeGoalOnPurpose => 'Aeglane tõus. Meelega.';
+
+  @override
+  String get shareEdgeGoalNoTrophy => 'Karikat pole. Ainult koer ja tase.';
+
+  @override
+  String get shareEdgeGoalYourTurn => 'Sinu kord. Sal ootab.';
 }

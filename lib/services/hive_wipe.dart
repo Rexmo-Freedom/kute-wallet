@@ -77,6 +77,7 @@ const List<String> hiveBoxesWipedOnWipe = [
   'hl_chart_preferences',
   'hl_chart_candle_interval',
   'hl_chart_drawings',
+  'hl_price_lines',
   'trade_results_v1',
   'orchestraRoutesCatalog',
   'hyperliquid_watchlist',

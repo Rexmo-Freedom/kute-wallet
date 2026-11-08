@@ -3194,12 +3194,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get sendSignTheTransactionOnYourDevice => 'デバイスでトランザクションに署名してください。';
 
   @override
-  String sendAmountUnitAvailableWithFiat(
-      String amount, String unit, String fiat) {
-    return '$amount $unit 利用可能 · $fiat';
-  }
-
-  @override
   String get sendCalculatingEllipsis => '計算中…';
 
   @override
@@ -5825,7 +5819,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get portfolioPerformanceUnavailable => 'パフォーマンスを取得できません';
 
   @override
-  String get portfolioStatRealized => '実現損益';
+  String get portfolioStatRealized => '実現益';
 
   @override
   String get portfolioStatAmountPredicted => '予測に使った金額';
@@ -7644,7 +7638,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tnNetProfit => '純利益';
 
   @override
-  String get tnTradingPnl => '売買損益';
+  String get tnTradingPnl => '売買益';
 
   @override
   String get tnAllTradingFees => 'すべての取引手数料';
@@ -7659,7 +7653,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tnIncludesAllCloses => '新規建て、一部決済、最終決済';
 
   @override
-  String get tnClosedPnlExchange => '決済損益（取引所）';
+  String get tnClosedPnlExchange => '決済益（取引所）';
 
   @override
   String get tnFillFee => '約定手数料';
@@ -10283,10 +10277,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get bragPortfolioBarLabel => 'ポートフォリオをシェア';
 
   @override
-  String get bragPnlBarLabel => '損益をシェア';
+  String get bragPnlBarLabel => '利益をシェア';
 
   @override
-  String get bragMyPnl => '私の損益';
+  String get bragMyPnl => '私の利益';
 
   @override
   String bragShareText(String title, String link) {
@@ -10415,7 +10409,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get portfolioStatAtStake => '投入額';
 
   @override
-  String get portfolioProfitLoss => '損益';
+  String get portfolioProfitLoss => '利益';
 
   @override
   String slipCtaAddTo(String side, String amount) {
@@ -10673,7 +10667,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get depositFromAnotherWalletSubtitle => 'ドルを送るアドレスを取得';
 
   @override
-  String get portfolioStatOpenPnl => '含み損益';
+  String get portfolioStatOpenPnl => '含み益';
 
   @override
   String stepUpReasonBetReady(String amount) {
@@ -11007,7 +11001,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get cctpRefundContactSupport => '移動するには、サポートにお問い合わせください。';
 
   @override
-  String get portfolioSectionPnlCharts => '損益';
+  String get portfolioSectionPnlCharts => '利益';
 
   @override
   String get portfolioSectionBalances => 'ポジション';
@@ -11094,13 +11088,13 @@ class AppLocalizationsJa extends AppLocalizations {
   String get chartNoChange => '変動なし';
 
   @override
-  String get pnlChartNoHistory => '損益は最初のポジション後に表示されます。';
+  String get pnlChartNoHistory => '利益は最初のポジション後に表示されます。';
 
   @override
   String get balanceChartNoHistory => '残高履歴は最初の取引から始まります。';
 
   @override
-  String get pnlChartEmpty => '取引や予測をすると、損益がここに表示されます';
+  String get pnlChartEmpty => '取引や予測をすると、利益がここに表示されます';
 
   @override
   String portfolioPositionsCount(int count) {
@@ -11328,7 +11322,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get balanceMilestonePassedLine => 'ビットコインとドルの合計。Salは平静を装っています。';
 
   @override
-  String get pnlNoHistoryTitle => '損益はまだありません';
+  String get pnlNoHistoryTitle => '利益はまだありません';
 
   @override
   String get pnlByVenue => 'By venue';
@@ -11923,6 +11917,56 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get chartToolHorizontalLine => '水平線';
+
+  @override
+  String get chartToolPriceLine => '価格ライン';
+
+  @override
+  String get chartPriceLines => '価格ライン';
+
+  @override
+  String get chartPriceLineNew => '新しいライン';
+
+  @override
+  String get chartPriceLineNewNote => 'Kuteを開いている間のみ確認します';
+
+  @override
+  String get chartPriceLineAbove => '現在の価格より上';
+
+  @override
+  String get chartPriceLineBelow => '現在の価格より下';
+
+  @override
+  String chartPriceLineReachedOn(String when) {
+    return '$whenに到達';
+  }
+
+  @override
+  String chartPriceLineReachedToast(String coin, String price) {
+    return '$coinが$priceに到達しました';
+  }
+
+  @override
+  String chartPriceLineLimit(int count) {
+    return '価格ラインは$count本あります。追加するには1本削除してください。';
+  }
+
+  @override
+  String get chartPriceLineAtPrice => 'それは現在の価格です。上または下の水準を選んでください。';
+
+  @override
+  String get chartPriceLineTooFar => '価格から離れすぎています。もっと近い水準を選んでください。';
+
+  @override
+  String get chartPriceLineRemoveTitle => 'この価格ラインを削除しますか？';
+
+  @override
+  String chartPriceLineRemoveBody(String coin, String price) {
+    return '$coin（$price）';
+  }
+
+  @override
+  String get chartPriceLineRemoveCta => '削除';
 
   @override
   String get chartMoreTools => 'その他';
@@ -13801,4 +13845,34 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get shareEdgeInviteDog => '割引は本物。犬は動じない。';
+
+  @override
+  String get balanceGoalShareMyLevel => 'レベルをシェア';
+
+  @override
+  String get goalCardCaps => 'マイレベル';
+
+  @override
+  String get shareEdgeGoalNotFlex => '自慢じゃない。ただのレベル。';
+
+  @override
+  String get shareEdgeGoalUnimpressed => 'Salが確認。まだ感心してない。';
+
+  @override
+  String get shareEdgeGoalNoRush => '一歩ずつ。急がない。';
+
+  @override
+  String get shareEdgeGoalNobodyAsked => '誰も聞いてない。でもシェアする。';
+
+  @override
+  String get shareEdgeGoalSaysNothing => 'Salは「大したことない」と言う。いつも言う。';
+
+  @override
+  String get shareEdgeGoalOnPurpose => 'ゆっくり登る。わざと。';
+
+  @override
+  String get shareEdgeGoalNoTrophy => 'トロフィーなし。犬とレベルだけ。';
+
+  @override
+  String get shareEdgeGoalYourTurn => '次は君の番。Salは待ってる。';
 }

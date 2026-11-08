@@ -61,7 +61,7 @@ void main() {
       ),
     );
     expect(_pillLabels(tester), [
-      'Trending', 'Breaking', 'New', 'Live', 'Politics', 'Sports',
+      'Trending', 'Instant', 'Breaking', 'New', 'Live', 'Politics', 'Sports',
       'Crypto', 'Esports', 'Finance', 'Geopolitics', 'Tech', 'Culture', 'Economy',
       'Weather', 'Mentions', 'Elections', 'More ›', //
     ]);

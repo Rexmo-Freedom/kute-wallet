@@ -31,6 +31,9 @@
 
 import 'package:flutter/foundation.dart' show immutable;
 
+import 'package:kute/services/one_balance/money_steps.dart'
+    show MoneyStepGraph, MoneyStepStatus;
+
 /// Which balance the link is paid from. The wire value is `name`.
 enum ShareLinkKind {
   bitcoin('BTC'),
@@ -252,11 +255,17 @@ class PendingShareLink {
     this.paidReported = false,
     this.recipientPhone,
     this.challenge = false,
+    this.funding,
   });
 
   final String id;
   final ShareLinkKind kind;
   final int amountMinor;
+
+  /// What the sender's "Send now" moved into Dollars to pay this link
+  /// (services/one_balance/gift_funding.dart): the same row as [paymentId],
+  /// so a restart knows a leg already went and never sends it again.
+  final GiftFundingRecord? funding;
 
   /// A challenge (see the file header): [url] carries the flag already.
   final bool challenge;
@@ -297,6 +306,7 @@ class PendingShareLink {
     ShareLinkStatus? status,
     String? paymentId,
     bool? paidReported,
+    GiftFundingRecord? funding,
   }) =>
       PendingShareLink(
         id: id,
@@ -314,6 +324,7 @@ class PendingShareLink {
         paidReported: paidReported ?? this.paidReported,
         recipientPhone: recipientPhone,
         challenge: challenge,
+        funding: funding ?? this.funding,
       );
 
   PendingShareLink withStatus(ShareLinkStatus next) => copyWith(status: next);
@@ -335,6 +346,7 @@ class PendingShareLink {
         if (paidReported) 'paidReported': true,
         if (recipientPhone != null) 'recipientPhone': recipientPhone,
         if (challenge) 'challenge': true,
+        if (funding != null) 'funding': funding!.toJson(),
       };
 
   static PendingShareLink? fromJson(Object? json) {
@@ -363,9 +375,89 @@ class PendingShareLink {
       paidReported: json['paidReported'] == true,
       recipientPhone: _string(json['recipientPhone']),
       challenge: json['challenge'] == true,
+      funding: GiftFundingRecord.fromJson(json['funding']),
     );
   }
 }
+
+/// The money "Send now" moved into Dollars for one link
+/// (services/one_balance/gift_funding.dart), kept on the link's own row so
+/// the payment id and the funding share one idempotent record. Local only:
+/// never tracked, never logged.
+@immutable
+class GiftFundingRecord {
+  const GiftFundingRecord({
+    required this.steps,
+    required this.startedAt,
+    this.landsUsd = const {},
+    this.moveId,
+    this.reason,
+  });
+
+  /// Every leg and the send itself (the leg's `ref`, its quote then order
+  /// id, is what a restart follows).
+  final MoneyStepGraph steps;
+
+  /// What each leg lands in Dollars, by step id.
+  final Map<String, double> landsUsd;
+
+  /// The venue legs' move (`MultiSourceMove`), for its Activity row.
+  final String? moveId;
+
+  /// Why the last attempt stopped (a fixed code, never shown).
+  final String? reason;
+  final DateTime startedAt;
+
+  /// Whether a leg of this record is, or may still be, on its way.
+  bool get onItsWay => steps.legs.any((s) =>
+      s.id != kGiftFundingSendId && s.status == MoneyStepStatus.running);
+
+  GiftFundingRecord copyWith({
+    MoneyStepGraph? steps,
+    Map<String, double>? landsUsd,
+    String? moveId,
+    String? reason,
+    bool clearReason = false,
+  }) =>
+      GiftFundingRecord(
+        steps: steps ?? this.steps,
+        startedAt: startedAt,
+        landsUsd: landsUsd ?? this.landsUsd,
+        moveId: moveId ?? this.moveId,
+        reason: clearReason ? null : reason ?? this.reason,
+      );
+
+  Map<String, Object?> toJson() => {
+        'steps': steps.toJson(),
+        'startedAt': startedAt.millisecondsSinceEpoch,
+        if (landsUsd.isNotEmpty) 'landsUsd': landsUsd,
+        if (moveId != null) 'moveId': moveId,
+        if (reason != null) 'reason': reason,
+      };
+
+  static GiftFundingRecord? fromJson(Object? raw) {
+    if (raw is! Map) return null;
+    final at = raw['startedAt'];
+    if (at is! int) return null;
+    final lands = raw['landsUsd'];
+    return GiftFundingRecord(
+      steps: MoneyStepGraph.fromJson(raw['steps']),
+      startedAt: DateTime.fromMillisecondsSinceEpoch(at),
+      landsUsd: {
+        if (lands is Map)
+          for (final e in lands.entries)
+            if (e.key is String && e.value is num)
+              e.key as String: (e.value as num).toDouble(),
+      },
+      moveId: _string(raw['moveId']),
+      reason: _string(raw['reason']),
+    );
+  }
+}
+
+/// The send's own step in a [GiftFundingRecord]'s graph
+/// (`MoveSteps.sendId`).
+const String kGiftFundingSendId = 'send';
 
 /// The dollar token's base units for a cents amount (six decimals on
 /// Spark, two in the minor unit). Payment time only.

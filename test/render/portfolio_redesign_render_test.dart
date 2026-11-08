@@ -419,10 +419,14 @@ void main() {
       for (final dark in const [false, true]) (c, dark, 'en', 390.0),
     // The long locales at 375 pt: every line on one line.
     for (final lang in const ['de', 'fi', 'hu']) (_Case.gain, false, lang, 375.0),
+    // And at the narrowest phone: the pills and the bar still whole.
+    for (final lang in const ['de', 'fi', 'hu']) (_Case.gain, false, lang, 320.0),
   ]) {
     {
       final theme = dark ? 'dark' : 'light';
-      final tag = lang == 'en' ? theme : '${theme}_$lang';
+      final tag = lang == 'en'
+          ? theme
+          : '${theme}_$lang${width == 375 ? '' : '_${width.toInt()}'}';
       testWidgets('${c.name}, $tag: positions, P&L and activity',
           (tester) async {
         Directory(_dir!).createSync(recursive: true);

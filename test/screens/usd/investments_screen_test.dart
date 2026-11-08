@@ -1433,7 +1433,7 @@ void main() {
       l10n.activity,
     ]);
     expect(tester.widgetList<KutePill>(_sectionPills).map((p) => p.label),
-        ['Positions', 'P&L', 'Activity']);
+        ['Positions', 'Profits', 'Activity']);
     // Positions first and the default (founder, 6 November 2026).
     expect(tester.widgetList<KutePill>(_sectionPills).map((p) => p.selected),
         [true, false, false]);

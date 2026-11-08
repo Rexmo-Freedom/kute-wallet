@@ -327,7 +327,7 @@ void main() {
 
   testWidgets(
       'the bar says "Share portfolio" on Positions and Activity and "Share '
-      'P&L" on P&L, the words morphing on the switch, the same button',
+      'profits" on Profits, the words morphing on the switch, the same button',
       (tester) async {
     await _mount(tester, extra: _history());
     expect(kuteBarPrimaryWithText('Share portfolio'), findsOneWidget);
@@ -340,11 +340,11 @@ void main() {
     // Mid-morph: the old words on their way out, the new ones rising, in
     // the bar's one morph (KuteMorphLabel), on the same button.
     expect(find.byType(KuteMorphLabel), findsWidgets);
-    expect(kuteBarPrimaryWithText('Share P&L'), findsOneWidget);
+    expect(kuteBarPrimaryWithText('Share profits'), findsOneWidget);
     expect(kuteBarPrimaryWithText('Share portfolio'), findsOneWidget);
     expect(tester.state(find.byType(KuteBarPrimaryButton)), same(button));
     await _settle(tester);
-    expect(kuteBarPrimaryWithText('Share P&L'), findsOneWidget);
+    expect(kuteBarPrimaryWithText('Share profits'), findsOneWidget);
     expect(kuteBarPrimaryWithText('Share portfolio'), findsNothing);
 
     await _pick(tester, PortfolioSection.balances);
@@ -353,7 +353,7 @@ void main() {
     await _pick(tester, PortfolioSection.activity);
     await _settle(tester);
     expect(kuteBarPrimaryWithText('Share portfolio'), findsOneWidget);
-    expect(kuteBarPrimaryWithText('Share P&L'), findsNothing);
+    expect(kuteBarPrimaryWithText('Share profits'), findsNothing);
     await _unmount(tester);
   });
 
@@ -366,12 +366,12 @@ void main() {
       await _settle(tester);
       expect(kuteBarPrimary, findsNothing, reason: '$s');
     }
-    expect(find.text('Share P&L'), findsNothing);
+    expect(find.text('Share profits'), findsNothing);
     await _unmount(tester);
   });
 
   testWidgets(
-      '"Share P&L" opens the P&L card for the range picked on the hero '
+      '"Share profits" opens the P&L card for the range picked on the hero '
       '(3M): the hero\'s P&L, the range, its line; Share sends card pnl and '
       'the range', (tester) async {
     BragPreviewSheet.debugLineSeed = 0;
@@ -403,12 +403,12 @@ void main() {
         headline.replaceAll(RegExp(r'[^\d.,]'), ''));
     Finder onCard(Finder f) =>
         find.descendant(of: find.byType(PnlShareCard), matching: f);
-    expect(onCard(find.text('MY P&L · 3M')), findsOneWidget);
+    expect(onCard(find.text('MY PROFITS · 3M')), findsOneWidget);
     expect(onCard(find.text('Past 3 months')), findsOneWidget);
     expect(find.byKey(const ValueKey('pnl-card-chart')), findsOneWidget);
     expect(card.data.series, isNotNull);
     // The sheet's title and its own Share.
-    expect(find.text('Share P&L'), findsWidgets);
+    expect(find.text('Share profits'), findsWidgets);
     expect(kuteBarPrimaryWithText('Share'), findsOneWidget);
 
     await tester.runAsync(() async {
@@ -418,7 +418,7 @@ void main() {
       }
     });
     await _settle(tester);
-    expect(sent.single, startsWith('My P&L on Kute '));
+    expect(sent.single, startsWith('My profits on Kute '));
     expect(events.where((e) => e.$1 == 'brag_shared').map((e) => e.$2), [
       {'kind': 'portfolio', 'card': 'pnl', 'range': '3M'}
     ]);
@@ -426,7 +426,7 @@ void main() {
   });
 
   testWidgets(
-      'a "By product" row picked: "Share P&L" opens that venue\'s card, its P&L '
+      'a "By product" row picked: "Share profits" opens that venue\'s card, its P&L '
       'the hero\'s; P&L left and opened again, both venues\' card',
       (tester) async {
     await _mount(tester, extra: _historyBooked());

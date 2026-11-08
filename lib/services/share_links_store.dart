@@ -97,6 +97,51 @@ abstract final class ShareLinksStore {
     put(row.withStatus(status));
   }
 
+  /// The payment id for [claim], written the moment it is known: the one
+  /// record that says this link is paid, whatever fails next. Answers
+  /// whether this call is the one that recorded it (a second call with the
+  /// same id, from the sheet after the funding runner, changes nothing).
+  static bool recordPaid(ClaimedShareLink claim, String paymentId) {
+    final local = byId(claim.id);
+    if (local?.paymentId == paymentId) return false;
+    put((local ??
+            PendingShareLink(
+              id: claim.id,
+              kind: claim.kind,
+              amountMinor: claim.amountMinor,
+              marketSlug: claim.marketSlug,
+              url: '',
+              createdAt: DateTime.now(),
+              status: ShareLinkStatus.paid,
+            ))
+        .copyWith(status: ShareLinkStatus.paid, paymentId: paymentId));
+    return true;
+  }
+
+  /// [record] as [claim]'s funding, its row created if this device has
+  /// none yet (a link made on another one).
+  static void setFunding(ClaimedShareLink claim, GiftFundingRecord record) =>
+      put((byId(claim.id) ??
+              PendingShareLink(
+                id: claim.id,
+                kind: claim.kind,
+                amountMinor: claim.amountMinor,
+                marketSlug: claim.marketSlug,
+                url: '',
+                createdAt: DateTime.now(),
+                status: ShareLinkStatus.claimed,
+              ))
+          .copyWith(funding: record));
+
+  /// Changes link [id]'s funding record, if it has one.
+  static void updateFunding(
+      String id, GiftFundingRecord Function(GiftFundingRecord) change) {
+    final row = byId(id);
+    final funding = row?.funding;
+    if (row == null || funding == null) return;
+    put(row.copyWith(funding: change(funding)));
+  }
+
   static void remove(String id) {
     final box = _backing();
     if (box == null) return;

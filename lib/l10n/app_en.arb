@@ -1740,20 +1740,6 @@
   "sendConfirmTheDetails": "Confirm the details.",
   "sendSign": "Sign",
   "sendSignTheTransactionOnYourDevice": "Sign the transaction on your device.",
-  "sendAmountUnitAvailableWithFiat": "{amount} {unit} available · {fiat}",
-  "@sendAmountUnitAvailableWithFiat": {
-    "placeholders": {
-      "amount": {
-        "type": "String"
-      },
-      "unit": {
-        "type": "String"
-      },
-      "fiat": {
-        "type": "String"
-      }
-    }
-  },
   "sendCalculatingEllipsis": "Calculating…",
   "sendLiveQuoteProvider": "Live quote · {provider}",
   "@sendLiveQuoteProvider": {
@@ -3316,7 +3302,7 @@
   "@portfolioPerformanceUnavailable": {
     "description": "Earn and portfolio presentation copy."
   },
-  "portfolioStatRealized": "Realized P&L",
+  "portfolioStatRealized": "Realized profits",
   "@portfolioStatRealized": {
     "description": "Predictions statistics tile: realized profit or loss over the selected range (sold, claimed or resolved predictions)."
   },
@@ -4632,12 +4618,12 @@
   "tnResult": "Result",
   "tnCheckClaimStatus": "Open Positions to check claim status",
   "tnNetProfit": "Net profit",
-  "tnTradingPnl": "Trading P&L",
+  "tnTradingPnl": "Trading profits",
   "tnAllTradingFees": "All trading fees",
   "tnFunding": "Funding received / paid",
   "tnIncludes": "Includes",
   "tnIncludesAllCloses": "Opening, partial closes and final close",
-  "tnClosedPnlExchange": "Closed P&L (exchange)",
+  "tnClosedPnlExchange": "Closed profits (exchange)",
   "tnFillFee": "Fill fee",
   "tnFilledSize": "Filled size",
   "tnFillPrice": "Fill price",
@@ -6059,7 +6045,7 @@
   },
   "predictionsInstant": "Instant",
   "@predictionsInstant": {
-    "description": "Predictions › Instant: the crypto rounds (BTC up or down every 5 minutes and so on) on their own screen. The screen's title, and the name on the half-width card of the Predictions sheet and the Sal grid's tile: one short word or two."
+    "description": "Predictions › Instant: the crypto rounds (BTC up or down every 5 minutes and so on), a Predictions category on the Dollars home. The category's name as the pill reads it ('Predictions · Instant') and on the half-width card of the Predictions sheet and the Sal grid's tile: one short word or two."
   },
   "categoryInstantLengths": "5 min · 15 min · 1 hour · 4 hours",
   "@categoryInstantLengths": {
@@ -6080,7 +6066,7 @@
   },
   "predictUpOrDownLength": "{asset} up or down · {length}",
   "@predictUpOrDownLength": {
-    "description": "Title of the Instant screen's live round card, e.g. 'BTC up or down · 15m'. asset is a ticker, length the round length written short (5m, 15m, 1h, 4h).",
+    "description": "Title of the Instant card (Predictions › Instant on the Dollars home), e.g. 'BTC up or down · 15m'. asset is a ticker, length the round length written short (5m, 15m, 1h, 4h).",
     "placeholders": {
       "asset": {
         "type": "String"
@@ -7065,13 +7051,13 @@
   "@bragPortfolioBarLabel": {
     "description": "Portfolio screen, Portfolio section: the floating bar as its primary button, opening the portfolio share card preview."
   },
-  "bragPnlBarLabel": "Share P&L",
+  "bragPnlBarLabel": "Share profits",
   "@bragPnlBarLabel": {
-    "description": "Portfolio screen, P&L Charts section: the floating bar as its primary button, and the title of the sheet it opens: the P&L share card for the range picked on the chart. P&L is profit and loss."
+    "description": "Portfolio screen, Profits section: the floating bar as its primary button, and the title of the sheet it opens: the profits share card for the range picked on the chart. The plain everyday word for profits, never an abbreviation like P&L; a loss shows as a negative figure."
   },
-  "bragMyPnl": "My P&L",
+  "bragMyPnl": "My profits",
   "@bragMyPnl": {
-    "description": "P&L share card: its small caps title (drawn uppercase, then the range, e.g. 'MY P&L · 1M'), and the title in the share text. P&L is profit and loss."
+    "description": "Profits share card: its small caps title (drawn uppercase, then the range, e.g. 'MY PROFITS · 1M'), and the title in the share text. The plain everyday word for profits, never an abbreviation like P&L."
   },
   "bragShareText": "{title} on Kute {link}",
   "@bragShareText": {
@@ -7242,7 +7228,7 @@
   "@portfolioStatAtStake": {
     "description": "Statistics tab, Active pill: tile label. Predictions: what the open positions cost. Investing: the margin the open positions use."
   },
-  "portfolioProfitLoss": "Profit and loss",
+  "portfolioProfitLoss": "Profits",
   "@portfolioProfitLoss": {
     "description": "Statistics tab: caption over the P&L chart's headline figure (the account's profit and loss, realised plus open)."
   },
@@ -7590,7 +7576,7 @@
     }
   },
   "depositFromAnotherWalletSubtitle": "Get an address to send dollars to",
-  "portfolioStatOpenPnl": "Open P&L",
+  "portfolioStatOpenPnl": "Open profits",
   "@portfolioStatOpenPnl": {
     "description": "Statistics tile on Active: the profit or loss of the positions still open (Predictions at live prices, Investing perps unrealised)."
   },
@@ -8237,9 +8223,9 @@
   "@cctpRefundContactSupport": {
     "description": "Second caption under cctpRefundReturnedTo, for a wallet whose EVM key uses the legacy format (other wallets do not reproduce it from the phrase): Support helps move the refunded USDC."
   },
-  "portfolioSectionPnlCharts": "P&L",
+  "portfolioSectionPnlCharts": "Profits",
   "@portfolioSectionPnlCharts": {
-    "description": "Portfolio screen: the middle pill of the Positions | P&L | Activity switch, for each venue's profit and loss, the all-time stats and the resting orders (the chart is the screen's hero). Was \"P&L Charts\" until the overhaul of 4 November 2026."
+    "description": "Portfolio screen: the middle pill of the Positions | Profits | Activity switch (one short everyday word, never an abbreviation like P&L), for each venue's profit and loss, the all-time stats and the resting orders (the chart is the screen's hero). Was \"P&L Charts\" until the overhaul of 4 November 2026."
   },
   "portfolioSectionBalances": "Positions",
   "@portfolioSectionBalances": {
@@ -8386,7 +8372,7 @@
   "@chartNoChange": {
     "description": "Trend charts: the change line when the value is the same at both ends of the period, e.g. 'No change · Past month'."
   },
-  "pnlChartNoHistory": "Your P&L shows up after your first position.",
+  "pnlChartNoHistory": "Your profits show up after your first position.",
   "@pnlChartNoHistory": {
     "description": "Portfolio P&L chart: the one quiet caption under the headline when there is no P&L history yet; no chart is drawn."
   },
@@ -8394,7 +8380,7 @@
   "@balanceChartNoHistory": {
     "description": "Bitcoin and Dollars balance charts: the one quiet caption under the headline when the account has no history yet; no chart is drawn."
   },
-  "pnlChartEmpty": "Your profit and loss shows here once you trade or predict",
+  "pnlChartEmpty": "Your profits show here once you trade or predict",
   "@pnlChartEmpty": {
     "description": "Quiet one-line message centred on the Portfolio profit and loss chart (P&L charts) when the P&L is zero across the whole selected range, e.g. before the first trade or prediction."
   },
@@ -8726,7 +8712,7 @@
   "@balanceMilestonePassedLine": {
     "description": "The deadpan line under balanceMilestonePassed: the total counts Bitcoin and Dollars, and Sal (the dog mascot) plays it cool. One short line."
   },
-  "pnlNoHistoryTitle": "No P&L yet",
+  "pnlNoHistoryTitle": "No profits yet",
   "@pnlNoHistoryTitle": {
     "description": "Portfolio P&L Charts, empty: the title over Sal."
   },
@@ -9488,6 +9474,88 @@
   },
   "chartToolCursor": "Cursor",
   "chartToolHorizontalLine": "Horizontal line",
+  "chartToolPriceLine": "Price line",
+  "@chartToolPriceLine": {
+    "description": "Rail tool on the Advanced chart: a level the app marks when the price reaches it while the app is open. Not a notification."
+  },
+  "chartPriceLines": "Price lines",
+  "@chartPriceLines": {
+    "description": "Chart sheet section title."
+  },
+  "chartPriceLineNew": "New line",
+  "@chartPriceLineNew": {
+    "description": "Chart sheet card that sets a new price line."
+  },
+  "chartPriceLineNewNote": "Checked only while Kute is open",
+  "@chartPriceLineNewNote": {
+    "description": "Note on that card. Must never suggest anything happens while the app is closed."
+  },
+  "chartPriceLineAbove": "Above the price",
+  "@chartPriceLineAbove": {
+    "description": "A waiting price line that sits above the market price."
+  },
+  "chartPriceLineBelow": "Below the price",
+  "@chartPriceLineBelow": {
+    "description": "A waiting price line that sits below the market price."
+  },
+  "chartPriceLineReachedOn": "Reached {when}",
+  "@chartPriceLineReachedOn": {
+    "description": "A price line the price got to, with the date and time.",
+    "placeholders": {
+      "when": {
+        "type": "String"
+      }
+    }
+  },
+  "chartPriceLineReachedToast": "{coin} reached {price}",
+  "@chartPriceLineReachedToast": {
+    "description": "In-app toast when a price line is reached.",
+    "placeholders": {
+      "coin": {
+        "type": "String"
+      },
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "chartPriceLineLimit": "You have {count} price lines. Remove one to add another.",
+  "@chartPriceLineLimit": {
+    "description": "Toast at the limit of price lines.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chartPriceLineAtPrice": "That is the price now. Pick a level above or below it.",
+  "@chartPriceLineAtPrice": {
+    "description": "Toast: the level picked is the market price."
+  },
+  "chartPriceLineTooFar": "That is too far from the price. Pick a closer level.",
+  "@chartPriceLineTooFar": {
+    "description": "Toast: the level picked is too far from the market price."
+  },
+  "chartPriceLineRemoveTitle": "Remove this price line?",
+  "@chartPriceLineRemoveTitle": {
+    "description": "Title of the sheet confirming removal of a price line."
+  },
+  "chartPriceLineRemoveBody": "{coin} at {price}",
+  "@chartPriceLineRemoveBody": {
+    "description": "Subtitle of that sheet: the market and the level.",
+    "placeholders": {
+      "coin": {
+        "type": "String"
+      },
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "chartPriceLineRemoveCta": "Remove",
+  "@chartPriceLineRemoveCta": {
+    "description": "Button that removes the price line."
+  },
   "chartMoreTools": "More",
   "chartColor": "Color",
   "chartBlueColor": "Blue",
@@ -12389,5 +12457,45 @@
   "shareEdgeInviteDog": "The discount is real. The dog is unbothered.",
   "@shareEdgeInviteDog": {
     "description": "Invite share card: one short deadpan line on the card, PG, never a promise of profit."
+  },
+  "balanceGoalShareMyLevel": "Share my level",
+  "@balanceGoalShareMyLevel": {
+    "description": "The Sal bar on the Bitcoin home's Goals tab and on the Levels sheet: opens the share card of the person's level."
+  },
+  "goalCardCaps": "My level",
+  "@goalCardCaps": {
+    "description": "Level share card: the small caps line at the top."
+  },
+  "shareEdgeGoalNotFlex": "Not a flex. Just a level.",
+  "@shareEdgeGoalNotFlex": {
+    "description": "Level share card: one short deadpan line on the card, PG, never a promise of profit, never a figure."
+  },
+  "shareEdgeGoalUnimpressed": "Sal checked. Still unimpressed.",
+  "@shareEdgeGoalUnimpressed": {
+    "description": "Level share card: one short deadpan line on the card, PG, never a promise of profit, never a figure."
+  },
+  "shareEdgeGoalNoRush": "One level at a time. No rush.",
+  "@shareEdgeGoalNoRush": {
+    "description": "Level share card: one short deadpan line on the card, PG, never a promise of profit, never a figure."
+  },
+  "shareEdgeGoalNobodyAsked": "Nobody asked. Sharing anyway.",
+  "@shareEdgeGoalNobodyAsked": {
+    "description": "Level share card: one short deadpan line on the card, PG, never a promise of profit, never a figure."
+  },
+  "shareEdgeGoalSaysNothing": "Sal says it's nothing. Sal says that a lot.",
+  "@shareEdgeGoalSaysNothing": {
+    "description": "Level share card: one short deadpan line on the card, PG, never a promise of profit, never a figure."
+  },
+  "shareEdgeGoalOnPurpose": "Slow climb. On purpose.",
+  "@shareEdgeGoalOnPurpose": {
+    "description": "Level share card: one short deadpan line on the card, PG, never a promise of profit, never a figure."
+  },
+  "shareEdgeGoalNoTrophy": "No trophy. Just a dog and a level.",
+  "@shareEdgeGoalNoTrophy": {
+    "description": "Level share card: one short deadpan line on the card, PG, never a promise of profit, never a figure."
+  },
+  "shareEdgeGoalYourTurn": "Your turn. Sal will wait.",
+  "@shareEdgeGoalYourTurn": {
+    "description": "Level share card: one short deadpan line on the card, PG, never a promise of profit, never a figure."
   }
 }

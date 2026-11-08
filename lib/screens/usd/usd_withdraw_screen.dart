@@ -218,14 +218,14 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
       context,
       contact: contact,
       phone: phone,
-      home: SendFrom.dollars,
-      openLink: (kind) {
+      openLink: () {
         final open = UsdWithdrawScreen.debugLinkOpener;
         return open != null
-            ? open(context, kind: kind, contact: contact, phone: phone)
+            ? open(context,
+                kind: ShareLinkKind.dollars, contact: contact, phone: phone)
             : showSendToAnyoneSheet(
                 context,
-                kind: kind,
+                kind: ShareLinkKind.dollars,
                 senderLabel: label,
                 recipientPhone: number,
                 entrySource: kUsdWithdrawContactSource,
@@ -240,7 +240,6 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
                 senderLabel: label,
                 recipientPhone: number);
       },
-      payDirect: _openBitcoinSend,
     );
     if (created && mounted) _closeSelf();
   }

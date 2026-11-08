@@ -83,7 +83,7 @@ void main() {
     for (final browse in [false, true]) {
       testWidgets(
           '$name, browsing ${browse ? 'open' : 'withheld'}: the open '
-          'positions, the Open P&L and the bar stay', (tester) async {
+          'positions, the Open profits and the bar stay', (tester) async {
         final policy = (await tester.runAsync(() => installMarketGatingPolicy(
             how,
             targets: targets,

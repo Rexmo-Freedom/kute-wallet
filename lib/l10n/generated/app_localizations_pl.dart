@@ -3292,12 +3292,6 @@ class AppLocalizationsPl extends AppLocalizations {
       'Podpisz transakcję na urządzeniu.';
 
   @override
-  String sendAmountUnitAvailableWithFiat(
-      String amount, String unit, String fiat) {
-    return 'Dostępne: $amount $unit · $fiat';
-  }
-
-  @override
   String get sendCalculatingEllipsis => 'Obliczanie…';
 
   @override
@@ -6065,7 +6059,7 @@ class AppLocalizationsPl extends AppLocalizations {
   String get portfolioPerformanceUnavailable => 'Wyniki niedostępne';
 
   @override
-  String get portfolioStatRealized => 'Zrealizowany zysk / strata';
+  String get portfolioStatRealized => 'Zrealizowane zyski';
 
   @override
   String get portfolioStatAmountPredicted => 'Kwota prognoz';
@@ -8011,7 +8005,7 @@ class AppLocalizationsPl extends AppLocalizations {
   String get tnNetProfit => 'Zysk netto';
 
   @override
-  String get tnTradingPnl => 'Wynik z transakcji';
+  String get tnTradingPnl => 'Zyski z transakcji';
 
   @override
   String get tnAllTradingFees => 'Wszystkie opłaty transakcyjne';
@@ -8027,7 +8021,7 @@ class AppLocalizationsPl extends AppLocalizations {
       'Otwarcie, częściowe zamknięcia i końcowe zamknięcie';
 
   @override
-  String get tnClosedPnlExchange => 'Zamknięty wynik (giełda)';
+  String get tnClosedPnlExchange => 'Zamknięte zyski (giełda)';
 
   @override
   String get tnFillFee => 'Opłata za realizację';
@@ -10729,10 +10723,10 @@ class AppLocalizationsPl extends AppLocalizations {
   String get bragPortfolioBarLabel => 'Udostępnij portfolio';
 
   @override
-  String get bragPnlBarLabel => 'Udostępnij P&L';
+  String get bragPnlBarLabel => 'Udostępnij zyski';
 
   @override
-  String get bragMyPnl => 'Mój P&L';
+  String get bragMyPnl => 'Moje zyski';
 
   @override
   String bragShareText(String title, String link) {
@@ -10864,7 +10858,7 @@ class AppLocalizationsPl extends AppLocalizations {
   String get portfolioStatAtStake => 'Zaangażowana kwota';
 
   @override
-  String get portfolioProfitLoss => 'Zysk i strata';
+  String get portfolioProfitLoss => 'Zyski';
 
   @override
   String slipCtaAddTo(String side, String amount) {
@@ -11127,7 +11121,7 @@ class AppLocalizationsPl extends AppLocalizations {
       'Uzyskaj adres, na który wyślesz dolary';
 
   @override
-  String get portfolioStatOpenPnl => 'Otwarty zysk / strata';
+  String get portfolioStatOpenPnl => 'Otwarte zyski';
 
   @override
   String stepUpReasonBetReady(String amount) {
@@ -11464,7 +11458,7 @@ class AppLocalizationsPl extends AppLocalizations {
       'Aby je przenieść, skontaktuj się z pomocą.';
 
   @override
-  String get portfolioSectionPnlCharts => 'P&L';
+  String get portfolioSectionPnlCharts => 'Zyski';
 
   @override
   String get portfolioSectionBalances => 'Pozycje';
@@ -11553,7 +11547,8 @@ class AppLocalizationsPl extends AppLocalizations {
   String get chartNoChange => 'Bez zmian';
 
   @override
-  String get pnlChartNoHistory => 'Twój wynik pojawi się po pierwszej pozycji.';
+  String get pnlChartNoHistory =>
+      'Twoje zyski pojawią się po pierwszej pozycji.';
 
   @override
   String get balanceChartNoHistory =>
@@ -11561,7 +11556,7 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get pnlChartEmpty =>
-      'Gdy zaczniesz handlować lub przewidywać, tu zobaczysz swój zysk i stratę';
+      'Gdy zaczniesz handlować lub przewidywać, tu zobaczysz swoje zyski';
 
   @override
   String portfolioPositionsCount(int count) {
@@ -11794,7 +11789,7 @@ class AppLocalizationsPl extends AppLocalizations {
       'Bitcoin i dolary razem. Sal udaje, że to nic takiego.';
 
   @override
-  String get pnlNoHistoryTitle => 'Brak wyniku';
+  String get pnlNoHistoryTitle => 'Brak zysków';
 
   @override
   String get pnlByVenue => 'By venue';
@@ -12398,6 +12393,58 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get chartToolHorizontalLine => 'Linia pozioma';
+
+  @override
+  String get chartToolPriceLine => 'Linia ceny';
+
+  @override
+  String get chartPriceLines => 'Linie ceny';
+
+  @override
+  String get chartPriceLineNew => 'Nowa linia';
+
+  @override
+  String get chartPriceLineNewNote => 'Sprawdzana tylko przy otwartym Kute';
+
+  @override
+  String get chartPriceLineAbove => 'Powyżej ceny';
+
+  @override
+  String get chartPriceLineBelow => 'Poniżej ceny';
+
+  @override
+  String chartPriceLineReachedOn(String when) {
+    return 'Osiągnięto $when';
+  }
+
+  @override
+  String chartPriceLineReachedToast(String coin, String price) {
+    return '$coin osiągnął $price';
+  }
+
+  @override
+  String chartPriceLineLimit(int count) {
+    return 'Masz $count linii ceny. Usuń jedną, aby dodać kolejną.';
+  }
+
+  @override
+  String get chartPriceLineAtPrice =>
+      'To obecna cena. Wybierz poziom powyżej lub poniżej niej.';
+
+  @override
+  String get chartPriceLineTooFar =>
+      'To za daleko od ceny. Wybierz bliższy poziom.';
+
+  @override
+  String get chartPriceLineRemoveTitle => 'Usunąć tę linię ceny?';
+
+  @override
+  String chartPriceLineRemoveBody(String coin, String price) {
+    return '$coin przy $price';
+  }
+
+  @override
+  String get chartPriceLineRemoveCta => 'Usuń';
 
   @override
   String get chartMoreTools => 'Więcej';
@@ -14294,4 +14341,35 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get shareEdgeInviteDog => 'Zniżka jest prawdziwa. Psa to nie rusza.';
+
+  @override
+  String get balanceGoalShareMyLevel => 'Udostępnij mój poziom';
+
+  @override
+  String get goalCardCaps => 'Mój poziom';
+
+  @override
+  String get shareEdgeGoalNotFlex => 'Bez przechwałek. Po prostu poziom.';
+
+  @override
+  String get shareEdgeGoalUnimpressed => 'Sal sprawdził. Nadal bez wrażenia.';
+
+  @override
+  String get shareEdgeGoalNoRush => 'Poziom po poziomie. Bez pośpiechu.';
+
+  @override
+  String get shareEdgeGoalNobodyAsked => 'Nikt nie pytał. Udostępniam mimo to.';
+
+  @override
+  String get shareEdgeGoalSaysNothing =>
+      'Sal mówi, że to nic. Często tak mówi.';
+
+  @override
+  String get shareEdgeGoalOnPurpose => 'Powolna wspinaczka. Celowo.';
+
+  @override
+  String get shareEdgeGoalNoTrophy => 'Bez trofeum. Tylko pies i poziom.';
+
+  @override
+  String get shareEdgeGoalYourTurn => 'Twoja kolej. Sal poczeka.';
 }

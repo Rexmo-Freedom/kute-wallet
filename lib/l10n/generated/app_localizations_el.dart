@@ -3315,12 +3315,6 @@ class AppLocalizationsEl extends AppLocalizations {
       'Υπόγραψε τη συναλλαγή στη συσκευή σου.';
 
   @override
-  String sendAmountUnitAvailableWithFiat(
-      String amount, String unit, String fiat) {
-    return '$amount $unit διαθέσιμα · $fiat';
-  }
-
-  @override
   String get sendCalculatingEllipsis => 'Υπολογισμός…';
 
   @override
@@ -6097,7 +6091,7 @@ class AppLocalizationsEl extends AppLocalizations {
   String get portfolioPerformanceUnavailable => 'Η απόδοση δεν είναι διαθέσιμη';
 
   @override
-  String get portfolioStatRealized => 'Πραγματοποιημένο κέρδος / ζημιά';
+  String get portfolioStatRealized => 'Πραγματοποιημένα κέρδη';
 
   @override
   String get portfolioStatAmountPredicted => 'Ποσό σε προβλέψεις';
@@ -8044,7 +8038,7 @@ class AppLocalizationsEl extends AppLocalizations {
   String get tnNetProfit => 'Καθαρό κέρδος';
 
   @override
-  String get tnTradingPnl => 'Κέρδος/ζημιά συναλλαγών';
+  String get tnTradingPnl => 'Κέρδη συναλλαγών';
 
   @override
   String get tnAllTradingFees => 'Όλες οι χρεώσεις συναλλαγών';
@@ -8060,7 +8054,7 @@ class AppLocalizationsEl extends AppLocalizations {
       'Άνοιγμα, μερικά κλεισίματα και τελικό κλείσιμο';
 
   @override
-  String get tnClosedPnlExchange => 'Κέρδος/ζημιά κλεισίματος (ανταλλακτήριο)';
+  String get tnClosedPnlExchange => 'Κέρδη κλεισίματος (ανταλλακτήριο)';
 
   @override
   String get tnFillFee => 'Χρέωση εκτέλεσης';
@@ -10764,10 +10758,10 @@ class AppLocalizationsEl extends AppLocalizations {
   String get bragPortfolioBarLabel => 'Κοινοποίησε το χαρτοφυλάκιο';
 
   @override
-  String get bragPnlBarLabel => 'Κοινοποίησε το P&L';
+  String get bragPnlBarLabel => 'Κοινοποίησε τα κέρδη';
 
   @override
-  String get bragMyPnl => 'Το P&L μου';
+  String get bragMyPnl => 'Τα κέρδη μου';
 
   @override
   String bragShareText(String title, String link) {
@@ -10900,7 +10894,7 @@ class AppLocalizationsEl extends AppLocalizations {
   String get portfolioStatAtStake => 'Δεσμευμένο ποσό';
 
   @override
-  String get portfolioProfitLoss => 'Κέρδη και ζημίες';
+  String get portfolioProfitLoss => 'Κέρδη';
 
   @override
   String slipCtaAddTo(String side, String amount) {
@@ -11163,7 +11157,7 @@ class AppLocalizationsEl extends AppLocalizations {
       'Λάβετε μια διεύθυνση για να στείλετε δολάρια';
 
   @override
-  String get portfolioStatOpenPnl => 'Ανοιχτό κέρδος / ζημιά';
+  String get portfolioStatOpenPnl => 'Ανοιχτά κέρδη';
 
   @override
   String stepUpReasonBetReady(String amount) {
@@ -11501,7 +11495,7 @@ class AppLocalizationsEl extends AppLocalizations {
       'Για να τα μετακινήσεις, επικοινώνησε με την υποστήριξη.';
 
   @override
-  String get portfolioSectionPnlCharts => 'P&L';
+  String get portfolioSectionPnlCharts => 'Κέρδη';
 
   @override
   String get portfolioSectionBalances => 'Θέσεις';
@@ -11592,7 +11586,7 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get pnlChartNoHistory =>
-      'Το κέρδος / η ζημιά σου εμφανίζεται μετά την πρώτη σου θέση.';
+      'Τα κέρδη σου εμφανίζονται μετά την πρώτη σου θέση.';
 
   @override
   String get balanceChartNoHistory =>
@@ -11600,7 +11594,7 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get pnlChartEmpty =>
-      'Τα κέρδη και οι ζημίες σας θα εμφανίζονται εδώ μόλις κάνετε συναλλαγές ή προβλέψεις';
+      'Τα κέρδη σας θα εμφανίζονται εδώ μόλις κάνετε συναλλαγές ή προβλέψεις';
 
   @override
   String portfolioPositionsCount(int count) {
@@ -11830,7 +11824,7 @@ class AppLocalizationsEl extends AppLocalizations {
       'Bitcoin και δολάρια μαζί. Ο Sal κάνει πως δεν είναι τίποτα.';
 
   @override
-  String get pnlNoHistoryTitle => 'Δεν υπάρχει ακόμα κέρδος / ζημιά';
+  String get pnlNoHistoryTitle => 'Δεν υπάρχουν ακόμα κέρδη';
 
   @override
   String get pnlByVenue => 'By venue';
@@ -12436,6 +12430,59 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get chartToolHorizontalLine => 'Οριζόντια γραμμή';
+
+  @override
+  String get chartToolPriceLine => 'Γραμμή τιμής';
+
+  @override
+  String get chartPriceLines => 'Γραμμές τιμής';
+
+  @override
+  String get chartPriceLineNew => 'Νέα γραμμή';
+
+  @override
+  String get chartPriceLineNewNote =>
+      'Ελέγχεται μόνο όσο το Kute είναι ανοιχτό';
+
+  @override
+  String get chartPriceLineAbove => 'Πάνω από την τιμή';
+
+  @override
+  String get chartPriceLineBelow => 'Κάτω από την τιμή';
+
+  @override
+  String chartPriceLineReachedOn(String when) {
+    return 'Επιτεύχθηκε $when';
+  }
+
+  @override
+  String chartPriceLineReachedToast(String coin, String price) {
+    return 'Το $coin έφτασε τα $price';
+  }
+
+  @override
+  String chartPriceLineLimit(int count) {
+    return 'Έχετε $count γραμμές τιμής. Αφαιρέστε μία για να προσθέσετε άλλη.';
+  }
+
+  @override
+  String get chartPriceLineAtPrice =>
+      'Αυτή είναι η τρέχουσα τιμή. Επιλέξτε επίπεδο πάνω ή κάτω από αυτήν.';
+
+  @override
+  String get chartPriceLineTooFar =>
+      'Είναι πολύ μακριά από την τιμή. Επιλέξτε πιο κοντινό επίπεδο.';
+
+  @override
+  String get chartPriceLineRemoveTitle => 'Αφαίρεση αυτής της γραμμής τιμής;';
+
+  @override
+  String chartPriceLineRemoveBody(String coin, String price) {
+    return '$coin στα $price';
+  }
+
+  @override
+  String get chartPriceLineRemoveCta => 'Αφαίρεση';
 
   @override
   String get chartMoreTools => 'Περισσότερα';
@@ -14345,4 +14392,38 @@ class AppLocalizationsEl extends AppLocalizations {
   @override
   String get shareEdgeInviteDog =>
       'Η έκπτωση είναι αληθινή. Ο σκύλος παραμένει ατάραχος.';
+
+  @override
+  String get balanceGoalShareMyLevel => 'Κοινοποίηση του επιπέδου μου';
+
+  @override
+  String get goalCardCaps => 'Το επίπεδό μου';
+
+  @override
+  String get shareEdgeGoalNotFlex => 'Δεν το παινεύομαι. Απλώς ένα επίπεδο.';
+
+  @override
+  String get shareEdgeGoalUnimpressed =>
+      'Ο Sal έλεγξε. Πάλι δεν εντυπωσιάστηκε.';
+
+  @override
+  String get shareEdgeGoalNoRush => 'Ένα επίπεδο τη φορά. Χωρίς βιασύνη.';
+
+  @override
+  String get shareEdgeGoalNobodyAsked =>
+      'Κανείς δεν ρώτησε. Το μοιράζομαι πάντως.';
+
+  @override
+  String get shareEdgeGoalSaysNothing =>
+      'Ο Sal λέει πως δεν είναι τίποτα. Το λέει συχνά.';
+
+  @override
+  String get shareEdgeGoalOnPurpose => 'Αργή ανάβαση. Επίτηδες.';
+
+  @override
+  String get shareEdgeGoalNoTrophy =>
+      'Κανένα τρόπαιο. Μόνο ένας σκύλος κι ένα επίπεδο.';
+
+  @override
+  String get shareEdgeGoalYourTurn => 'Σειρά σου. Ο Sal θα περιμένει.';
 }

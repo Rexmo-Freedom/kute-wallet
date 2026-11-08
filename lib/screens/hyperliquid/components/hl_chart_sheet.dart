@@ -23,6 +23,8 @@
 //     use); on, a card with settings shows a tune button that opens
 //     [showHlIndicatorSettings]. Four fit on the price and two
 //     below it: one more turns the oldest of that kind off, with a toast.
+//   * PRICE LINES: this market's lines as the same cards, and one to set a
+//     new one (hl_price_line_cards.dart). Not part of Reset.
 //   * Reset (pinned at the foot) puts back what a fresh install shows:
 //     Line, Volume alone, a linear axis, every setting at its default.
 //
@@ -40,6 +42,7 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart' show HlMarket;
 import 'package:kute/models/hyperliquid_model.dart';
 import 'package:kute/providers/chart_drawings_provider.dart';
+import 'package:kute/providers/hl_price_lines_provider.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_advanced_layers.dart'
     show hlPaintIchimokuCloud;
 import 'package:kute/screens/hyperliquid/components/hl_chart_indicator_catalog.dart';
@@ -47,6 +50,7 @@ import 'package:kute/screens/hyperliquid/components/hl_chart_indicator_frame.dar
 import 'package:kute/screens/hyperliquid/components/hl_chart_indicator_series.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_intervals.dart';
 import 'package:kute/screens/hyperliquid/components/hl_charts.dart';
+import 'package:kute/screens/hyperliquid/components/hl_price_line_cards.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_action_cards.dart'
     show KuteActionCard;
@@ -121,6 +125,7 @@ Future<void> showHlChartSheet(
   required String marketKey,
   required List<HyperliquidCandle> candles,
   bool showYourTrades = true,
+  VoidCallback? onAddPriceLine,
 }) {
   HapticFeedback.selectionClick();
   return showAppBottomSheet<void>(
@@ -130,6 +135,7 @@ Future<void> showHlChartSheet(
       marketKey: marketKey,
       candles: candles,
       showYourTrades: showYourTrades,
+      onAddPriceLine: onAddPriceLine,
     ),
   );
 }
@@ -184,6 +190,7 @@ class HlChartSheet extends ConsumerStatefulWidget {
     required this.marketKey,
     required this.candles,
     this.showYourTrades = true,
+    this.onAddPriceLine,
   });
 
   final HlMarket market;
@@ -193,6 +200,9 @@ class HlChartSheet extends ConsumerStatefulWidget {
   /// Offer the Your trades square (false where the chart shows none of the
   /// person's own activity).
   final bool showYourTrades;
+  /// Sets a new price line; called with the sheet already closed. Null
+  /// leaves that card out.
+  final VoidCallback? onAddPriceLine;
 
   @override
   ConsumerState<HlChartSheet> createState() => _HlChartSheetState();
@@ -340,6 +350,9 @@ class _HlChartSheetState extends ConsumerState<HlChartSheet> {
         prefs.params.isEmpty &&
         !prefs.logScale;
     final previews = _previewsFor(prefs.params);
+    final priceLines =
+        ref.watch(hlPriceLinesForMarketProvider(widget.marketKey));
+    final onAddPriceLine = widget.onAddPriceLine;
 
     Widget pairs(List<Widget> cards) => Column(
           mainAxisSize: MainAxisSize.min,
@@ -410,6 +423,24 @@ class _HlChartSheetState extends ConsumerState<HlChartSheet> {
             onTap: () => _setYourTrades(!yourTrades),
           ),
       ]),
+      if (onAddPriceLine != null || priceLines.isNotEmpty) ...[
+        const SizedBox(height: 20),
+        _SectionLabel(l10n.chartPriceLines,
+            key: const ValueKey('hl-chart-group-price-lines')),
+        pairs([
+          if (onAddPriceLine != null)
+            HlPriceLineNewCard(onTap: () {
+              Navigator.of(context).pop();
+              onAddPriceLine();
+            }),
+          for (final line in priceLines)
+            HlPriceLineCard(
+              line: line,
+              decimalCap: widget.market.pxDecimalCap,
+              onRemove: () => hlRemovePriceLine(ref, line, via: 'list'),
+            ),
+        ]),
+      ],
       for (final group in HlIndGroup.values) ...[
         const SizedBox(height: 20),
         _SectionLabel(_groupName(l10n, group),

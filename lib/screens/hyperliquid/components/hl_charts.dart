@@ -67,10 +67,12 @@ import 'package:kute/screens/hyperliquid/components/hl_chart_indicator_catalog.d
 import 'package:kute/screens/hyperliquid/components/hl_chart_indicator_frame.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_indicator_series.dart';
 import 'package:kute/models/chart_drawing.dart';
+import 'package:kute/models/hl_price_line.dart';
 import 'package:kute/models/hyperliquid_market.dart' show HlFill, HlMarket;
 import 'package:kute/models/hyperliquid_model.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_opening.dart';
 import 'package:kute/screens/hyperliquid/components/hl_drawing_tools.dart';
+import 'package:kute/screens/hyperliquid/components/hl_price_lines_chart.dart';
 import 'package:kute/screens/hyperliquid/components/hl_format.dart';
 import 'package:kute/screens/polymarket/components/poly_chart_tags.dart'
     show kPolyTagLead, kPolyTagMaxGutterShare;
@@ -1341,6 +1343,11 @@ class HlCandlestickChart extends StatefulWidget {
   /// rectangles) — always rendered (view-only outside drawing mode).
   final List<ChartDrawing> drawings;
 
+  /// The person's price lines on this market, dashed with a bell, painted
+  /// with the drawings (hl_price_lines_chart.dart). A tap hands one over.
+  final List<HlPriceLine> priceLines;
+  final ValueChanged<HlPriceLine>? onPriceLineTapped;
+
   /// Advanced drawing mode: pan/scrub is suspended and pans/taps place,
   /// select or edit drawings instead. The host owns the toolbar + state.
   final bool drawingMode;
@@ -1471,6 +1478,8 @@ class HlCandlestickChart extends StatefulWidget {
     this.morphKey,
     this.marketKey,
     this.drawings = const [],
+    this.priceLines = const [],
+    this.onPriceLineTapped,
     this.drawingMode = false,
     this.armedTool,
     this.armedColorValue,
@@ -2369,6 +2378,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     // One of the user's own fill markers: open its tooltip (or close the
     // open one when the tap lands on empty plot).
     if (_onFillMarkerTap(d.localPosition, size)) return;
+    if (_onPriceLineTap(d.localPosition, size)) return;
     // A drawing tapped outside drawing mode: hand its id to the host,
     // which opens Advanced with it selected, so editing a shape never
     // starts with hunting for the mode toggle.
@@ -2547,6 +2557,37 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     return null;
   }
 
+  /// A tap on a price line: hands it to the host. True when one was hit.
+  bool _onPriceLineTap(Offset pos, Size size) {
+    final onTap = widget.onPriceLineTapped;
+    if (widget.priceLines.isEmpty || onTap == null) return false;
+    final geom = _drawingGeometry(size);
+    if (geom == null || pos.dy > geom.priceH) return false;
+    final line = hlPriceLineAt(widget.priceLines, geom, pos);
+    if (line == null) return false;
+    HapticFeedback.selectionClick();
+    onTap(line);
+    return true;
+  }
+
+  /// The drawings and the price lines, as the drawings' painters take them,
+  /// the same list while nothing changed (they repaint on identity).
+  Object? _paintedKey;
+  List<ChartDrawing> _painted = const [];
+  List<ChartDrawing> _paintedDrawings(Color reached) {
+    final own = _effectiveDrawings();
+    if (widget.priceLines.isEmpty) return own;
+    final key = (own, widget.priceLines, reached);
+    if (key != _paintedKey) {
+      _paintedKey = key;
+      _painted = [
+        ...own,
+        ...hlPriceLineDrawings(widget.priceLines, reached: reached),
+      ];
+    }
+    return _painted;
+  }
+
   /// The drawings actually painted: mid-handle-drag, the edited copy
   /// replaces the original so the drag tracks the finger live.
   List<ChartDrawing> _effectiveDrawings() {
@@ -2663,6 +2704,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     // Select mode: a fill marker under the finger opens its tooltip
     // instead of (de)selecting drawings.
     if (_onFillMarkerTap(pos, size)) return;
+    if (_onPriceLineTap(pos, size)) return;
     final hit = kuteHitTestDrawings(widget.drawings, geom, pos);
     if (hit != widget.selectedDrawingId) {
       if (hit != null) HapticFeedback.selectionClick();
@@ -3493,6 +3535,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                             // Mounted only when there is something to show, so
                             // the common no-drawings case adds zero layers.
                             if (widget.drawings.isNotEmpty ||
+                                widget.priceLines.isNotEmpty ||
                                 _draft != null ||
                                 _pendingDraft != null ||
                                 _edited != null)
@@ -3505,7 +3548,8 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                   child: RepaintBoundary(
                                     child: CustomPaint(
                                       painter: KuteChartDrawingsPainter(
-                                        drawings: _effectiveDrawings(),
+                                        drawings:
+                                            _paintedDrawings(c.textTertiary),
                                         draft: _draft ?? _pendingDraft,
                                         selectedId: widget.drawingMode
                                             ? widget.selectedDrawingId
@@ -3541,13 +3585,16 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                             // ── The horizontal drawings' prices, in the tag
                             // column, in the live price's pill.
                             if (gutter > 0 &&
-                                widget.drawings.any(kuteDrawingHasPriceTag))
+                                (widget.priceLines.isNotEmpty ||
+                                    widget.drawings
+                                        .any(kuteDrawingHasPriceTag)))
                               Positioned.fill(
                                 child: IgnorePointer(
                                   child: RepaintBoundary(
                                     child: CustomPaint(
                                       painter: KuteDrawingPriceTagsPainter(
-                                        drawings: _effectiveDrawings(),
+                                        drawings:
+                                            _paintedDrawings(c.textTertiary),
                                         tagColumn: gutter,
                                         tagLead: kPolyTagLead,
                                         neutralColor: c.textSecondary,
@@ -3573,6 +3620,41 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                           leadingClose,
                                           morphSeries != null,
                                           _asLine,
+                                          widget.showVolume,
+                                          widget.logScale,
+                                          domain,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            // ── The price lines' bells, at the lines' left ends.
+                            if (widget.priceLines.isNotEmpty)
+                              Positioned(
+                                left: 0,
+                                top: 0,
+                                bottom: 0,
+                                width: plotW,
+                                child: IgnorePointer(
+                                  child: RepaintBoundary(
+                                    child: CustomPaint(
+                                      painter: HlPriceLineBellsPainter(
+                                        lines: widget.priceLines,
+                                        color: c.textSecondary,
+                                        reachedColor: c.textTertiary,
+                                        halo: c.background,
+                                        resolveGeometry: (size) =>
+                                            _drawingGeometry(
+                                          size,
+                                          leadingClose: leadingClose,
+                                          morphSeries: morphSeries,
+                                        ),
+                                        repaintKey: (
+                                          candles.length,
+                                          last,
+                                          leadingClose,
+                                          morphSeries != null,
                                           widget.showVolume,
                                           widget.logScale,
                                           domain,

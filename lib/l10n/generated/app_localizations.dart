@@ -5954,13 +5954,6 @@ abstract class AppLocalizations {
   /// **'Sign the transaction on your device.'**
   String get sendSignTheTransactionOnYourDevice;
 
-  /// No description provided for @sendAmountUnitAvailableWithFiat.
-  ///
-  /// In en, this message translates to:
-  /// **'{amount} {unit} available · {fiat}'**
-  String sendAmountUnitAvailableWithFiat(
-      String amount, String unit, String fiat);
-
   /// No description provided for @sendCalculatingEllipsis.
   ///
   /// In en, this message translates to:
@@ -10603,7 +10596,7 @@ abstract class AppLocalizations {
   /// Predictions statistics tile: realized profit or loss over the selected range (sold, claimed or resolved predictions).
   ///
   /// In en, this message translates to:
-  /// **'Realized P&L'**
+  /// **'Realized profits'**
   String get portfolioStatRealized;
 
   /// Predictions statistics tile: total amount put on the predictions made in the selected range.
@@ -13809,7 +13802,7 @@ abstract class AppLocalizations {
   /// No description provided for @tnTradingPnl.
   ///
   /// In en, this message translates to:
-  /// **'Trading P&L'**
+  /// **'Trading profits'**
   String get tnTradingPnl;
 
   /// No description provided for @tnAllTradingFees.
@@ -13839,7 +13832,7 @@ abstract class AppLocalizations {
   /// No description provided for @tnClosedPnlExchange.
   ///
   /// In en, this message translates to:
-  /// **'Closed P&L (exchange)'**
+  /// **'Closed profits (exchange)'**
   String get tnClosedPnlExchange;
 
   /// No description provided for @tnFillFee.
@@ -16619,7 +16612,7 @@ abstract class AppLocalizations {
   /// **'Converted from your dollars'**
   String get usdSendConvertedFromDollars;
 
-  /// Predictions › Instant: the crypto rounds (BTC up or down every 5 minutes and so on) on their own screen. The screen's title, and the name on the half-width card of the Predictions sheet and the Sal grid's tile: one short word or two.
+  /// Predictions › Instant: the crypto rounds (BTC up or down every 5 minutes and so on), a Predictions category on the Dollars home. The category's name as the pill reads it ('Predictions · Instant') and on the half-width card of the Predictions sheet and the Sal grid's tile: one short word or two.
   ///
   /// In en, this message translates to:
   /// **'Instant'**
@@ -16643,7 +16636,7 @@ abstract class AppLocalizations {
   /// **'No prices yet'**
   String get predictRoundNoPricesYet;
 
-  /// Title of the Instant screen's live round card, e.g. 'BTC up or down · 15m'. asset is a ticker, length the round length written short (5m, 15m, 1h, 4h).
+  /// Title of the Instant card (Predictions › Instant on the Dollars home), e.g. 'BTC up or down · 15m'. asset is a ticker, length the round length written short (5m, 15m, 1h, 4h).
   ///
   /// In en, this message translates to:
   /// **'{asset} up or down · {length}'**
@@ -18287,16 +18280,16 @@ abstract class AppLocalizations {
   /// **'Share portfolio'**
   String get bragPortfolioBarLabel;
 
-  /// Portfolio screen, P&L Charts section: the floating bar as its primary button, and the title of the sheet it opens: the P&L share card for the range picked on the chart. P&L is profit and loss.
+  /// Portfolio screen, Profits section: the floating bar as its primary button, and the title of the sheet it opens: the profits share card for the range picked on the chart. The plain everyday word for profits, never an abbreviation like P&L; a loss shows as a negative figure.
   ///
   /// In en, this message translates to:
-  /// **'Share P&L'**
+  /// **'Share profits'**
   String get bragPnlBarLabel;
 
-  /// P&L share card: its small caps title (drawn uppercase, then the range, e.g. 'MY P&L · 1M'), and the title in the share text. P&L is profit and loss.
+  /// Profits share card: its small caps title (drawn uppercase, then the range, e.g. 'MY PROFITS · 1M'), and the title in the share text. The plain everyday word for profits, never an abbreviation like P&L.
   ///
   /// In en, this message translates to:
-  /// **'My P&L'**
+  /// **'My profits'**
   String get bragMyPnl;
 
   /// The text shared with the brag card image. {title} is the market or 'My portfolio', {link} the link with the referral code.
@@ -18536,7 +18529,7 @@ abstract class AppLocalizations {
   /// Statistics tab: caption over the P&L chart's headline figure (the account's profit and loss, realised plus open).
   ///
   /// In en, this message translates to:
-  /// **'Profit and loss'**
+  /// **'Profits'**
   String get portfolioProfitLoss;
 
   /// The Investing order button when the person already holds a perp position on this side: the order adds to it. {side} is 'long' or 'short' (select), {amount} is formatted money.
@@ -18760,7 +18753,7 @@ abstract class AppLocalizations {
   /// Statistics tile on Active: the profit or loss of the positions still open (Predictions at live prices, Investing perps unrealised).
   ///
   /// In en, this message translates to:
-  /// **'Open P&L'**
+  /// **'Open profits'**
   String get portfolioStatOpenPnl;
 
   /// Step-up prompt reason when a fast prediction (a 5- or 15-minute round or a game in play) is got ready before Confirm: the one approval moves the money into Predictions now and also approves the bet itself.
@@ -19209,10 +19202,10 @@ abstract class AppLocalizations {
   /// **'To move it, contact Support.'**
   String get cctpRefundContactSupport;
 
-  /// Portfolio screen: the middle pill of the Positions | P&L | Activity switch, for each venue's profit and loss, the all-time stats and the resting orders (the chart is the screen's hero). Was "P&L Charts" until the overhaul of 4 November 2026.
+  /// Portfolio screen: the middle pill of the Positions | Profits | Activity switch (one short everyday word, never an abbreviation like P&L), for each venue's profit and loss, the all-time stats and the resting orders (the chart is the screen's hero). Was "P&L Charts" until the overhaul of 4 November 2026.
   ///
   /// In en, this message translates to:
-  /// **'P&L'**
+  /// **'Profits'**
   String get portfolioSectionPnlCharts;
 
   /// Portfolio screen: the first pill (and the screen's default) of the Positions | P&L | Activity switch, for the open positions (the biggest as squares, the rest under their venue). Was "Portfolio" until the screen's overhaul of 4 November 2026; the key keeps its old name.
@@ -19350,7 +19343,7 @@ abstract class AppLocalizations {
   /// Portfolio P&L chart: the one quiet caption under the headline when there is no P&L history yet; no chart is drawn.
   ///
   /// In en, this message translates to:
-  /// **'Your P&L shows up after your first position.'**
+  /// **'Your profits show up after your first position.'**
   String get pnlChartNoHistory;
 
   /// Bitcoin and Dollars balance charts: the one quiet caption under the headline when the account has no history yet; no chart is drawn.
@@ -19362,7 +19355,7 @@ abstract class AppLocalizations {
   /// Quiet one-line message centred on the Portfolio profit and loss chart (P&L charts) when the P&L is zero across the whole selected range, e.g. before the first trade or prediction.
   ///
   /// In en, this message translates to:
-  /// **'Your profit and loss shows here once you trade or predict'**
+  /// **'Your profits show here once you trade or predict'**
   String get pnlChartEmpty;
 
   /// Investments, Portfolio: small secondary line, how many open positions there are (Investing positions and predictions together): above the Positions list.
@@ -19734,7 +19727,7 @@ abstract class AppLocalizations {
   /// Portfolio P&L Charts, empty: the title over Sal.
   ///
   /// In en, this message translates to:
-  /// **'No P&L yet'**
+  /// **'No profits yet'**
   String get pnlNoHistoryTitle;
 
   /// Portfolio P&L Charts: the small title over the per-venue P&L rows.
@@ -20736,6 +20729,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Horizontal line'**
   String get chartToolHorizontalLine;
+
+  /// Rail tool on the Advanced chart: a level the app marks when the price reaches it while the app is open. Not a notification.
+  ///
+  /// In en, this message translates to:
+  /// **'Price line'**
+  String get chartToolPriceLine;
+
+  /// Chart sheet section title.
+  ///
+  /// In en, this message translates to:
+  /// **'Price lines'**
+  String get chartPriceLines;
+
+  /// Chart sheet card that sets a new price line.
+  ///
+  /// In en, this message translates to:
+  /// **'New line'**
+  String get chartPriceLineNew;
+
+  /// Note on that card. Must never suggest anything happens while the app is closed.
+  ///
+  /// In en, this message translates to:
+  /// **'Checked only while Kute is open'**
+  String get chartPriceLineNewNote;
+
+  /// A waiting price line that sits above the market price.
+  ///
+  /// In en, this message translates to:
+  /// **'Above the price'**
+  String get chartPriceLineAbove;
+
+  /// A waiting price line that sits below the market price.
+  ///
+  /// In en, this message translates to:
+  /// **'Below the price'**
+  String get chartPriceLineBelow;
+
+  /// A price line the price got to, with the date and time.
+  ///
+  /// In en, this message translates to:
+  /// **'Reached {when}'**
+  String chartPriceLineReachedOn(String when);
+
+  /// In-app toast when a price line is reached.
+  ///
+  /// In en, this message translates to:
+  /// **'{coin} reached {price}'**
+  String chartPriceLineReachedToast(String coin, String price);
+
+  /// Toast at the limit of price lines.
+  ///
+  /// In en, this message translates to:
+  /// **'You have {count} price lines. Remove one to add another.'**
+  String chartPriceLineLimit(int count);
+
+  /// Toast: the level picked is the market price.
+  ///
+  /// In en, this message translates to:
+  /// **'That is the price now. Pick a level above or below it.'**
+  String get chartPriceLineAtPrice;
+
+  /// Toast: the level picked is too far from the market price.
+  ///
+  /// In en, this message translates to:
+  /// **'That is too far from the price. Pick a closer level.'**
+  String get chartPriceLineTooFar;
+
+  /// Title of the sheet confirming removal of a price line.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove this price line?'**
+  String get chartPriceLineRemoveTitle;
+
+  /// Subtitle of that sheet: the market and the level.
+  ///
+  /// In en, this message translates to:
+  /// **'{coin} at {price}'**
+  String chartPriceLineRemoveBody(String coin, String price);
+
+  /// Button that removes the price line.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get chartPriceLineRemoveCta;
 
   /// No description provided for @chartMoreTools.
   ///
@@ -23979,6 +24056,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The discount is real. The dog is unbothered.'**
   String get shareEdgeInviteDog;
+
+  /// The Sal bar on the Bitcoin home's Goals tab and on the Levels sheet: opens the share card of the person's level.
+  ///
+  /// In en, this message translates to:
+  /// **'Share my level'**
+  String get balanceGoalShareMyLevel;
+
+  /// Level share card: the small caps line at the top.
+  ///
+  /// In en, this message translates to:
+  /// **'My level'**
+  String get goalCardCaps;
+
+  /// Level share card: one short deadpan line on the card, PG, never a promise of profit, never a figure.
+  ///
+  /// In en, this message translates to:
+  /// **'Not a flex. Just a level.'**
+  String get shareEdgeGoalNotFlex;
+
+  /// Level share card: one short deadpan line on the card, PG, never a promise of profit, never a figure.
+  ///
+  /// In en, this message translates to:
+  /// **'Sal checked. Still unimpressed.'**
+  String get shareEdgeGoalUnimpressed;
+
+  /// Level share card: one short deadpan line on the card, PG, never a promise of profit, never a figure.
+  ///
+  /// In en, this message translates to:
+  /// **'One level at a time. No rush.'**
+  String get shareEdgeGoalNoRush;
+
+  /// Level share card: one short deadpan line on the card, PG, never a promise of profit, never a figure.
+  ///
+  /// In en, this message translates to:
+  /// **'Nobody asked. Sharing anyway.'**
+  String get shareEdgeGoalNobodyAsked;
+
+  /// Level share card: one short deadpan line on the card, PG, never a promise of profit, never a figure.
+  ///
+  /// In en, this message translates to:
+  /// **'Sal says it\'s nothing. Sal says that a lot.'**
+  String get shareEdgeGoalSaysNothing;
+
+  /// Level share card: one short deadpan line on the card, PG, never a promise of profit, never a figure.
+  ///
+  /// In en, this message translates to:
+  /// **'Slow climb. On purpose.'**
+  String get shareEdgeGoalOnPurpose;
+
+  /// Level share card: one short deadpan line on the card, PG, never a promise of profit, never a figure.
+  ///
+  /// In en, this message translates to:
+  /// **'No trophy. Just a dog and a level.'**
+  String get shareEdgeGoalNoTrophy;
+
+  /// Level share card: one short deadpan line on the card, PG, never a promise of profit, never a figure.
+  ///
+  /// In en, this message translates to:
+  /// **'Your turn. Sal will wait.'**
+  String get shareEdgeGoalYourTurn;
 }
 
 class _AppLocalizationsDelegate

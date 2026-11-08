@@ -104,16 +104,23 @@ String receiptShareText(AppLocalizations l10n, ReceiptCardData d) {
   if (link != null && title.isNotEmpty) {
     return l10n.bragShareText(title, shareLinkWithReferral(link, code: code));
   }
-  if (code.isEmpty) return '';
+  return appInviteShareText(l10n, code);
+}
+
+/// The app's invite with the sharer's [code]: "I'm using Kute. Join with
+/// my link", nothing without a code. Never an amount.
+String appInviteShareText(AppLocalizations l10n, String? code) {
+  final c = code?.trim() ?? '';
+  if (c.isEmpty) return '';
   String? invite;
   try {
-    invite = AppsFlyerService.shareLink(code);
+    invite = AppsFlyerService.shareLink(c);
   } catch (_) {
     // The link template is not loaded (a test, an early start): the code.
   }
   return invite != null
       ? l10n.walletsShareTextWithLinkNoDiscount(invite)
-      : l10n.walletsShareTextWithCodeNoDiscount(code);
+      : l10n.walletsShareTextWithCodeNoDiscount(c);
 }
 
 /// The sharer's own referral code for the footer; null without one.

@@ -111,6 +111,8 @@ import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
 import 'package:kute/services/api/orchestra_api.dart' show OrchestraService;
 import 'package:kute/services/background_sync_service.dart'
     show BackgroundSyncService;
+import 'package:kute/services/funding/owned_address_resolver.dart'
+    show ProviderReader;
 import 'package:kute/services/funding/settlement_runner.dart'
     show SettlementFundingUnknown, SettlementStepUpHook, SettlementStopped;
 import 'package:kute/services/one_balance/bitcoin_to_dollars_leg.dart';
@@ -286,46 +288,12 @@ class BitcoinLegEnv {
         required BitcoinLegPlan plan,
         required SettlementStepUpHook stepUp,
         required void Function() onSending,
-      }) async {
-        final sent = await BitcoinToDollarsLeg.send(
-          ref.read,
-          appRead: ref.read,
-          sparkAddress: sparkAddress,
-          approxUsd: plan.targetUsd,
-          usdPerBtc: plan.usdPerBtc,
-          stepUp: stepUp,
-          requestQuote: (key) async {
-            final (_, fetched) = await BitcoinToDollarsLeg.quoteForTarget(
-              ref.read,
-              sats: plan.sats,
-              targetUsd: plan.targetUsd,
-              maxSats: plan.maxSats,
+      }) =>
+          sendBitcoinLegToDollars(ref.read,
               sparkAddress: sparkAddress,
-              idempotencyKey: key,
-              requireFullTarget: true,
-            );
-            // A gross-up can hit the approval's sats cap, or the second
-            // quote can move again. Never pay a quote whose output cannot
-            // fund the already-approved onward move.
-            final out = orchestraAmountToDouble(
-                fetched.quote.quote.estimatedOut, kOrchestraUsdAssetCode,
-                chain: kOrchestraUsdChain);
-            if (!out.isFinite || out + 1e-6 < plan.targetUsd) {
-              throw const RouteUnavailable('bitcoin_target_short');
-            }
-            return fetched;
-          },
-          onSending: onSending,
-        );
-        return BitcoinLegTicket(
-          quoteId: sent.quoteId,
-          orderId: sent.orderId,
-          registration: sent.registration,
-          sats: sent.sats,
-          estimatedOutUsd: sent.estimatedOutUsd,
-          minOutUsd: sent.minOutUsd,
-        );
-      },
+              plan: plan,
+              stepUp: stepUp,
+              onSending: onSending),
       watcher: ({required DateTime since}) => DollarsLandingWatcher(
         statusOf: orchestraLegStatus,
         dollarsNow: dollarsNow,
@@ -408,6 +376,60 @@ class BitcoinLegEnv {
       legEnded: (into) => announceLegEnded(ref.read, into),
     );
   }
+}
+
+/// The Bitcoin → Dollars leg for [plan], on a quote that must land its full
+/// target ([BitcoinToDollarsLeg.send]). [flow] names the quote's caller,
+/// [purpose] tags its `convert_success` where a parent flow counts it.
+Future<BitcoinLegTicket> sendBitcoinLegToDollars(
+  ProviderReader read, {
+  required String sparkAddress,
+  required BitcoinLegPlan plan,
+  required SettlementStepUpHook stepUp,
+  required void Function() onSending,
+  String flow = 'order_funding_bitcoin',
+  String? purpose,
+}) async {
+  final sent = await BitcoinToDollarsLeg.send(
+    read,
+    appRead: read,
+    sparkAddress: sparkAddress,
+    approxUsd: plan.targetUsd,
+    usdPerBtc: plan.usdPerBtc,
+    stepUp: stepUp,
+    purpose: purpose,
+    requestQuote: (key) async {
+      final (_, fetched) = await BitcoinToDollarsLeg.quoteForTarget(
+        read,
+        sats: plan.sats,
+        targetUsd: plan.targetUsd,
+        maxSats: plan.maxSats,
+        sparkAddress: sparkAddress,
+        idempotencyKey: key,
+        requireFullTarget: true,
+        flow: flow,
+      );
+      // A gross-up can hit the approval's sats cap, or the second
+      // quote can move again. Never pay a quote whose output cannot
+      // fund the already-approved onward move.
+      final out = orchestraAmountToDouble(
+          fetched.quote.quote.estimatedOut, kOrchestraUsdAssetCode,
+          chain: kOrchestraUsdChain);
+      if (!out.isFinite || out + 1e-6 < plan.targetUsd) {
+        throw const RouteUnavailable('bitcoin_target_short');
+      }
+      return fetched;
+    },
+    onSending: onSending,
+  );
+  return BitcoinLegTicket(
+    quoteId: sent.quoteId,
+    orderId: sent.orderId,
+    registration: sent.registration,
+    sats: sent.sats,
+    estimatedOutUsd: sent.estimatedOutUsd,
+    minOutUsd: sent.minOutUsd,
+  );
 }
 
 /// A leg's Orchestra status just said it ended (the order runner polls it

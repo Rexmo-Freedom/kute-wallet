@@ -293,83 +293,99 @@ HlPerpPosition _perp(String coin, double szi, double entry, double pnl) =>
 }
 
 void main() {
-  testWidgets('the share bars and the P&L card, light', (tester) async {
-    Directory(_dir!).createSync(recursive: true);
-    await _assets(tester);
-    addTearDown(() => SalSpriteCache.debugSetManifest(null));
-    addTearDown(ShareCardSal.debugReset);
-    BragPreviewSheet.debugLineSeed = 1;
-    addTearDown(() => BragPreviewSheet.debugLineSeed = null);
-    tester.view.devicePixelRatio = 3;
-    tester.view.physicalSize = const Size(390, 960) * 3;
-    addTearDown(tester.view.reset);
-    final screen = GlobalKey();
-    final base = buildLightTheme();
-    await tester.pumpWidget(ProviderScope(
-      overrides: [
-        ...portfolioOverrides(trading: _btcHeld),
-        hyperliquidLiveMidProvider('BTC').overrideWith((_) => null),
-        hyperliquidAccountMarketProvider('BTC').overrideWith((_) => null),
-        hyperliquidPerpMarketsProvider.overrideWith((_) async => <HlMarket>[]),
-        hyperliquidSpotMarketsProvider.overrideWith((_) async => <HlMarket>[]),
-        settingsProvider.overrideWith((_) => SettingsModel(Settings(
-            currency: 'USD',
-            language: 'en',
-            btcFormat: 'sats',
-            backup: false,
-            biometricsEnabled: false,
-            bitcoinElectrumNode: '',
-            nodeType: '',
-            reviewDone: true))),
-        oneBalanceProvider.overrideWith((ref) => _bothAtWork),
-        usdBalanceUnknownProvider.overrideWithValue(false),
-        venueSweeperProvider.overrideWith(_Sweeper.new),
-        hyperliquidActivityFillsProvider.overrideWithValue(const []),
-        portfolioSectionProvider.overrideWith((_) => PortfolioSection.balances),
-        ..._history(),
-      ],
-      child: RepaintBoundary(
-        key: screen,
-        child: ScreenUtilInit(
-          designSize: const Size(430, 932),
-          builder: (_, __) => MaterialApp(
-            debugShowCheckedModeBanner: false,
-            theme: base.copyWith(
-                textTheme: base.textTheme.apply(fontFamily: 'Inter')),
-            builder: withKuteShellBar,
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            home: const PortfolioScreen(),
+  // English at 390; the long languages at the narrowest phone too.
+  for (final (lang, width) in const [
+    ('en', 390.0),
+    ('de', 320.0),
+    ('fi', 320.0),
+    ('hu', 320.0),
+  ]) {
+    final tag = lang == 'en' ? '' : '_${lang}_${width.toInt()}';
+    testWidgets('the share bars and the P&L card, light, $lang at $width',
+        (tester) async {
+      final words = lookupAppLocalizations(Locale(lang));
+      Directory(_dir!).createSync(recursive: true);
+      await _assets(tester);
+      addTearDown(() => SalSpriteCache.debugSetManifest(null));
+      addTearDown(ShareCardSal.debugReset);
+      BragPreviewSheet.debugLineSeed = 1;
+      addTearDown(() => BragPreviewSheet.debugLineSeed = null);
+      tester.view.devicePixelRatio = 3;
+      tester.view.physicalSize = Size(width, 960) * 3;
+      addTearDown(tester.view.reset);
+      final screen = GlobalKey();
+      final base = buildLightTheme();
+      await tester.pumpWidget(ProviderScope(
+        overrides: [
+          ...portfolioOverrides(trading: _btcHeld),
+          hyperliquidLiveMidProvider('BTC').overrideWith((_) => null),
+          hyperliquidAccountMarketProvider('BTC').overrideWith((_) => null),
+          hyperliquidPerpMarketsProvider
+              .overrideWith((_) async => <HlMarket>[]),
+          hyperliquidSpotMarketsProvider
+              .overrideWith((_) async => <HlMarket>[]),
+          settingsProvider.overrideWith((_) => SettingsModel(Settings(
+              currency: 'USD',
+              language: lang,
+              btcFormat: 'sats',
+              backup: false,
+              biometricsEnabled: false,
+              bitcoinElectrumNode: '',
+              nodeType: '',
+              reviewDone: true))),
+          oneBalanceProvider.overrideWith((ref) => _bothAtWork),
+          usdBalanceUnknownProvider.overrideWithValue(false),
+          venueSweeperProvider.overrideWith(_Sweeper.new),
+          hyperliquidActivityFillsProvider.overrideWithValue(const []),
+          portfolioSectionProvider
+              .overrideWith((_) => PortfolioSection.balances),
+          ..._history(),
+        ],
+        child: RepaintBoundary(
+          key: screen,
+          child: ScreenUtilInit(
+            designSize: const Size(430, 932),
+            builder: (_, __) => MaterialApp(
+              debugShowCheckedModeBanner: false,
+              locale: Locale(lang),
+              theme: base.copyWith(
+                  textTheme: base.textTheme.apply(fontFamily: 'Inter')),
+              builder: withKuteShellBar,
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              home: const PortfolioScreen(),
+            ),
           ),
         ),
-      ),
-    ));
-    await _frames(tester);
-    expect(kuteBarPrimaryWithText('Share portfolio'), findsOneWidget);
-    await _write(tester, find.byKey(screen), 'portfolio_section');
+      ));
+      await _frames(tester);
+      expect(
+          kuteBarPrimaryWithText(words.bragPortfolioBarLabel), findsOneWidget);
+      await _write(tester, find.byKey(screen), 'portfolio_section$tag');
 
-    await tester
-        .tap(find.byKey(const ValueKey('portfolio-section-pill-charts')));
-    await _frames(tester);
-    expect(kuteBarPrimaryWithText('Share P&L'), findsOneWidget);
-    await _write(tester, find.byKey(screen), 'pnl_section');
+      await tester
+          .tap(find.byKey(const ValueKey('portfolio-section-pill-charts')));
+      await _frames(tester);
+      expect(kuteBarPrimaryWithText(words.bragPnlBarLabel), findsOneWidget);
+      await _write(tester, find.byKey(screen), 'pnl_section$tag');
 
-    await tester.tap(kuteBarPrimary);
-    await _frames(tester);
-    await _write(tester, find.byKey(screen), 'pnl_share_sheet');
-    await _write(
-        tester,
-        find
-            .descendant(
-                of: find.byKey(const ValueKey('brag-preview-card')),
-                matching: find.byType(RepaintBoundary))
-            .first,
-        'pnl_share_card',
-        pixelRatio: kBragCardPixelRatio);
+      await tester.tap(kuteBarPrimary);
+      await _frames(tester);
+      await _write(tester, find.byKey(screen), 'pnl_share_sheet$tag');
+      await _write(
+          tester,
+          find
+              .descendant(
+                  of: find.byKey(const ValueKey('brag-preview-card')),
+                  matching: find.byType(RepaintBoundary))
+              .first,
+          'pnl_share_card$tag',
+          pixelRatio: kBragCardPixelRatio);
 
-    await tester.pumpWidget(const SizedBox());
-    await tester.pump(const Duration(seconds: 1));
-  }, skip: _dir == null);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 1));
+    }, skip: _dir == null);
+  }
 
   for (final lang in const ['en', 'de']) {
     for (final n in const [0, 2, 5]) {

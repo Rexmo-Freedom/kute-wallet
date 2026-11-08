@@ -5,7 +5,7 @@
 // should it be to send to someone"; then "just get rid of the button to
 // share the actual prediction on the buy, just keep it on the send"). A
 // prediction or an investment is sent ONLY from Send: a person picked on
-// either Send, then the What step's "A prediction or investment"
+// the Dollars Send, then the What step's "A prediction or investment"
 // (send_what_step.dart), opens the search sheet in send mode
 // (send_pick_market_sheet.dart, unified_search_screen.dart), a result
 // opens its market page in send mode, and that page's slip runs in send

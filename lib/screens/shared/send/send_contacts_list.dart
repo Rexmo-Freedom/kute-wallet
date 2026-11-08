@@ -43,11 +43,12 @@
 // A tap hands the entry to the flow ([SendContactsSection.onPerson]): a
 // recent (an address) is paid directly, on to the amount; a person (a
 // phone contact, a typed number no contact has: "Send a link to +351…",
-// [onPhoneLink]) asks What first (send_what_step.dart: Money from Bitcoin
-// or Dollars, or a prediction or investment as a gift), and a person not
-// on Kute gets it as a claim link (Send to anyone with the first name and
-// the number kept in the local row). What is typed in the field filters
-// the list by name, number or address.
+// [onPhoneLink]) is sent bitcoin straight on from the Bitcoin Send, and asked
+// What first on the Dollars Send (send_what_step.dart: Dollars, or a
+// prediction or investment as a gift); a person not on Kute gets it as a
+// claim link (Send to anyone with the first name and the number kept in the
+// local row). What is typed in the field filters the list by name, number or
+// address.
 //
 // THE FIELD KEEPS EVERYTHING IT DOES (founder): this list is added UNDER
 // it and never stands in for address entry.

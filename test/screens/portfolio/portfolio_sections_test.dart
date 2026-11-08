@@ -428,7 +428,7 @@ void main() {
     final titles = {
       PortfolioSection.activity: 'No activity yet',
       PortfolioSection.balances: 'No open positions',
-      PortfolioSection.charts: 'No P&L yet',
+      PortfolioSection.charts: 'No profits yet',
     };
     final sal = <PortfolioSection, Rect>{};
     final title = <PortfolioSection, Rect>{};
@@ -505,7 +505,7 @@ void main() {
     ];
     for (final (pill, label) in [
       (pills[0], 'Positions'),
-      (pills[1], 'P&L'),
+      (pills[1], 'Profits'),
       (pills[2], 'Activity'),
     ]) {
       expect(find.descendant(of: pill, matching: find.text(label)),

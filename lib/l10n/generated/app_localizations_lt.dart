@@ -3291,12 +3291,6 @@ class AppLocalizationsLt extends AppLocalizations {
       'Pasirašykite operaciją savo įrenginyje.';
 
   @override
-  String sendAmountUnitAvailableWithFiat(
-      String amount, String unit, String fiat) {
-    return 'Prieinama $amount $unit · $fiat';
-  }
-
-  @override
   String get sendCalculatingEllipsis => 'Skaičiuojama…';
 
   @override
@@ -6078,7 +6072,7 @@ class AppLocalizationsLt extends AppLocalizations {
   String get portfolioPerformanceUnavailable => 'Rezultatai negalimi';
 
   @override
-  String get portfolioStatRealized => 'Realizuotas pelnas / nuostolis';
+  String get portfolioStatRealized => 'Realizuotas pelnas';
 
   @override
   String get portfolioStatAmountPredicted => 'Prognozių suma';
@@ -8019,7 +8013,7 @@ class AppLocalizationsLt extends AppLocalizations {
   String get tnNetProfit => 'Grynasis pelnas';
 
   @override
-  String get tnTradingPnl => 'Sandorių P&L';
+  String get tnTradingPnl => 'Sandorių pelnas';
 
   @override
   String get tnAllTradingFees => 'Visi sandorių mokesčiai';
@@ -8035,7 +8029,7 @@ class AppLocalizationsLt extends AppLocalizations {
       'Atidarymą, dalinius uždarymus ir galutinį uždarymą';
 
   @override
-  String get tnClosedPnlExchange => 'Uždarytas P&L (birža)';
+  String get tnClosedPnlExchange => 'Uždarytas pelnas (birža)';
 
   @override
   String get tnFillFee => 'Įvykdymo mokestis';
@@ -10741,10 +10735,10 @@ class AppLocalizationsLt extends AppLocalizations {
   String get bragPortfolioBarLabel => 'Bendrinti portfelį';
 
   @override
-  String get bragPnlBarLabel => 'Bendrinti P&L';
+  String get bragPnlBarLabel => 'Bendrinti pelną';
 
   @override
-  String get bragMyPnl => 'Mano P&L';
+  String get bragMyPnl => 'Mano pelnas';
 
   @override
   String bragShareText(String title, String link) {
@@ -10877,7 +10871,7 @@ class AppLocalizationsLt extends AppLocalizations {
   String get portfolioStatAtStake => 'Statoma suma';
 
   @override
-  String get portfolioProfitLoss => 'Pelnas ir nuostoliai';
+  String get portfolioProfitLoss => 'Pelnas';
 
   @override
   String slipCtaAddTo(String side, String amount) {
@@ -11140,7 +11134,7 @@ class AppLocalizationsLt extends AppLocalizations {
       'Gaukite adresą, kuriuo siųsti dolerius';
 
   @override
-  String get portfolioStatOpenPnl => 'Atviras pelnas / nuostolis';
+  String get portfolioStatOpenPnl => 'Atviras pelnas';
 
   @override
   String stepUpReasonBetReady(String amount) {
@@ -11477,7 +11471,7 @@ class AppLocalizationsLt extends AppLocalizations {
       'Norėdami juos perkelti, susisiekite su pagalba.';
 
   @override
-  String get portfolioSectionPnlCharts => 'P&L';
+  String get portfolioSectionPnlCharts => 'Pelnas';
 
   @override
   String get portfolioSectionBalances => 'Pozicijos';
@@ -11567,7 +11561,7 @@ class AppLocalizationsLt extends AppLocalizations {
   String get chartNoChange => 'Be pokyčio';
 
   @override
-  String get pnlChartNoHistory => 'Jūsų P&L atsiras po pirmosios pozicijos.';
+  String get pnlChartNoHistory => 'Jūsų pelnas atsiras po pirmosios pozicijos.';
 
   @override
   String get balanceChartNoHistory =>
@@ -11575,7 +11569,7 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get pnlChartEmpty =>
-      'Kai prekiausite ar prognozuosite, čia matysite savo pelną ir nuostolius';
+      'Kai prekiausite ar prognozuosite, čia matysite savo pelną';
 
   @override
   String portfolioPositionsCount(int count) {
@@ -11808,7 +11802,7 @@ class AppLocalizationsLt extends AppLocalizations {
       'Bitcoin ir doleriai kartu. Sal apsimeta, kad nieko tokio.';
 
   @override
-  String get pnlNoHistoryTitle => 'P&L dar nėra';
+  String get pnlNoHistoryTitle => 'Pelno dar nėra';
 
   @override
   String get pnlByVenue => 'By venue';
@@ -12413,6 +12407,58 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get chartToolHorizontalLine => 'Horizontali linija';
+
+  @override
+  String get chartToolPriceLine => 'Kainos linija';
+
+  @override
+  String get chartPriceLines => 'Kainos linijos';
+
+  @override
+  String get chartPriceLineNew => 'Nauja linija';
+
+  @override
+  String get chartPriceLineNewNote => 'Tikrinama tik kai Kute atidaryta';
+
+  @override
+  String get chartPriceLineAbove => 'Virš kainos';
+
+  @override
+  String get chartPriceLineBelow => 'Žemiau kainos';
+
+  @override
+  String chartPriceLineReachedOn(String when) {
+    return 'Pasiekta $when';
+  }
+
+  @override
+  String chartPriceLineReachedToast(String coin, String price) {
+    return '$coin pasiekė $price';
+  }
+
+  @override
+  String chartPriceLineLimit(int count) {
+    return 'Turite $count kainos linijų. Pašalinkite vieną, kad pridėtumėte kitą.';
+  }
+
+  @override
+  String get chartPriceLineAtPrice =>
+      'Tai dabartinė kaina. Pasirinkite lygį virš jos arba žemiau.';
+
+  @override
+  String get chartPriceLineTooFar =>
+      'Tai per toli nuo kainos. Pasirinkite artimesnį lygį.';
+
+  @override
+  String get chartPriceLineRemoveTitle => 'Pašalinti šią kainos liniją?';
+
+  @override
+  String chartPriceLineRemoveBody(String coin, String price) {
+    return '$coin ties $price';
+  }
+
+  @override
+  String get chartPriceLineRemoveCta => 'Pašalinti';
 
   @override
   String get chartMoreTools => 'Daugiau';
@@ -14308,4 +14354,35 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get shareEdgeInviteDog => 'Nuolaida tikra. Šuo abejingas.';
+
+  @override
+  String get balanceGoalShareMyLevel => 'Dalintis mano lygiu';
+
+  @override
+  String get goalCardCaps => 'Mano lygis';
+
+  @override
+  String get shareEdgeGoalNotFlex => 'Ne pasigyrimas. Tik lygis.';
+
+  @override
+  String get shareEdgeGoalUnimpressed => 'Sal patikrino. Vis dar nesužavėtas.';
+
+  @override
+  String get shareEdgeGoalNoRush => 'Po vieną lygį. Be skubos.';
+
+  @override
+  String get shareEdgeGoalNobodyAsked => 'Niekas neklausė. Vis tiek dalinuosi.';
+
+  @override
+  String get shareEdgeGoalSaysNothing =>
+      'Sal sako, kad tai niekis. Sako tai dažnai.';
+
+  @override
+  String get shareEdgeGoalOnPurpose => 'Lėtas kilimas. Tyčia.';
+
+  @override
+  String get shareEdgeGoalNoTrophy => 'Jokios taurės. Tik šuo ir lygis.';
+
+  @override
+  String get shareEdgeGoalYourTurn => 'Tavo eilė. Sal palauks.';
 }

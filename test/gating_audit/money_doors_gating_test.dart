@@ -40,7 +40,8 @@
 //     sheet says why; a typed 0x address asks its network, its "Where
 //     to?" sheet listing the coins under a region block and saying why
 //     under any other swap refusal (no Bitcoin Network row: plain bitcoin
-//     is the send's own default); the gift as on Dollars. Plain bitcoin is
+//     is the send's own default); no What and no gift, so a person goes
+//     straight on to the bitcoin link under every refusal. Plain bitcoin is
 //     always open: the field takes an address whatever the policy says.
 
 import 'dart:async';
@@ -93,6 +94,9 @@ import 'package:kute/screens/shared/sal_sprite.dart' show SalSpriteCache;
 import 'package:kute/screens/shared/send/send_recipient_step.dart'
     show AnotherCryptoMarks;
 import 'package:kute/screens/shared/send/send_sheet.dart';
+import 'package:kute/models/share_link_model.dart' show ShareLinkKind;
+import 'package:kute/screens/share/send_to_anyone_sheet.dart'
+    show SendToAnyoneSheet;
 import 'package:kute/screens/shared/send/send_what_step.dart'
     show kSendWhatGiftKey, kSendWhatMoneyKey;
 import 'package:kute/screens/usd/usd_receive_screen.dart'
@@ -543,8 +547,30 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
   }
 
-  /// Whether the What step shows the gift: a typed number is a person,
-  /// asked What (Money is always there).
+  /// On the Bitcoin Send a typed number is a person, straight on to the
+  /// bitcoin link: no What and no gift, whatever the policy says.
+  Future<void> personGoesStraightOn(WidgetTester tester) async {
+    await typeIn(tester, '+351 999 888 777');
+    final row =
+        find.byKey(const ValueKey('send-phone-link-row'), skipOffstage: false);
+    await tester.ensureVisible(row);
+    await tester.pump();
+    await tester.tap(row);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byKey(kSendWhatMoneyKey), findsNothing);
+    expect(find.byKey(kSendWhatGiftKey), findsNothing);
+    expect(find.byType(CapabilityUnavailableSheet), findsNothing);
+    final link = find.byType(SendToAnyoneSheet);
+    expect(tester.widget<SendToAnyoneSheet>(link).kind, ShareLinkKind.bitcoin);
+    Navigator.of(tester.element(link)).pop();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await typeIn(tester, '');
+  }
+
+  /// Whether the Dollars Send's What step shows the gift: a typed number is
+  /// a person, asked What (Dollars is always there).
   Future<bool> giftOffered(WidgetTester tester) async {
     await typeIn(tester, '+351 999 888 777');
     final row =
@@ -682,13 +708,13 @@ void main() {
     testWidgets(
         'swap country block: no card; Move to your Dollars stays; a typed 0x '
         'address asks its network and Done lists the coins (a region block '
-        'hides nothing), with no Bitcoin Network row; the gift stays',
+        'hides nothing), with no Bitcoin Network row; a person goes straight on',
         (tester) async {
       await install(tester, MarketDenial.swapCountryBlock);
       final moves = recordMoves();
       await _pumpBitcoinSend(tester);
       expectNoCryptoCard();
-      expect(await giftOffered(tester), isTrue);
+      await personGoesStraightOn(tester);
       await typeIn(tester, 'dollars');
       await tester.tap(find.byKey(_moveToDollars));
       await tester.pumpAndSettle();
@@ -708,12 +734,13 @@ void main() {
     for (final how in _nonRegion) {
       testWidgets(
           '${how.label} on the swap master: no card, Move to your Dollars '
-          'and the gift stay; plain bitcoin is untouched', (tester) async {
+          'stays and a person goes straight on; plain bitcoin is untouched',
+          (tester) async {
         await install(tester, how, targets: {kSwapMaster});
         await _pumpBitcoinSend(tester);
         expectNoCryptoCard();
         expect(find.text(_l10n.sendWhereTo), findsNothing);
-        expect(await giftOffered(tester), isTrue);
+        await personGoesStraightOn(tester);
         await typeIn(tester, 'dollars');
         expect(find.byKey(_moveToDollars), findsOneWidget);
         // Plain bitcoin is untouched: the field still takes an address.
@@ -757,18 +784,35 @@ void main() {
 
     testWidgets(
         'crypto.deposit off never touches a send: a typed 0x address lists '
-        'its coins, the move and the gift stay on the Bitcoin Send',
+        'its coins, the move stays and a person goes straight on',
         (tester) async {
       await install(tester, MarketDenial.masterOff,
           targets: {'crypto.deposit'});
       await _pumpBitcoinSend(tester);
       expectNoCryptoCard();
-      expect(await giftOffered(tester), isTrue);
+      await personGoesStraightOn(tester);
       await typeIn(tester, 'dollars');
       expect(find.byKey(_moveToDollars), findsOneWidget);
       await submitEvm(tester);
       await tester.pumpAndSettle();
       expect(find.byType(CoinAssetTile), findsWidgets);
     });
+
+    // The venues' gates reach no one here: the gift is the Dollars Send's
+    // (its doors above hold them).
+    for (final how in MarketDenial.values) {
+      for (final (gate, targets) in const [
+        ('trading', {'polymarket.trade', 'hyperliquid.trade'}),
+        ('browse', {'polymarket.browse', 'hyperliquid.browse'}),
+      ]) {
+        testWidgets(
+            '${how.label} on both venues\' $gate: a person goes straight on',
+            (tester) async {
+          await install(tester, how, targets: targets);
+          await _pumpBitcoinSend(tester);
+          await personGoesStraightOn(tester);
+        });
+      }
+    }
   });
 }

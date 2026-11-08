@@ -3291,12 +3291,6 @@ class AppLocalizationsHr extends AppLocalizations {
       'Potpiši transakciju na uređaju.';
 
   @override
-  String sendAmountUnitAvailableWithFiat(
-      String amount, String unit, String fiat) {
-    return 'Dostupno $amount $unit · $fiat';
-  }
-
-  @override
   String get sendCalculatingEllipsis => 'Izračun…';
 
   @override
@@ -6061,7 +6055,7 @@ class AppLocalizationsHr extends AppLocalizations {
   String get portfolioPerformanceUnavailable => 'Uspješnost nije dostupna';
 
   @override
-  String get portfolioStatRealized => 'Ostvarena dobit / gubitak';
+  String get portfolioStatRealized => 'Ostvarena dobit';
 
   @override
   String get portfolioStatAmountPredicted => 'Iznos u predviđanjima';
@@ -8000,7 +7994,7 @@ class AppLocalizationsHr extends AppLocalizations {
   String get tnNetProfit => 'Neto dobit';
 
   @override
-  String get tnTradingPnl => 'Dobit/gubitak transakcija';
+  String get tnTradingPnl => 'Dobit od transakcija';
 
   @override
   String get tnAllTradingFees => 'Sve naknade transakcija';
@@ -8016,7 +8010,7 @@ class AppLocalizationsHr extends AppLocalizations {
       'Otvaranje, djelomična zatvaranja i konačno zatvaranje';
 
   @override
-  String get tnClosedPnlExchange => 'Zatvorena dobit/gubitak (burza)';
+  String get tnClosedPnlExchange => 'Zatvorena dobit (burza)';
 
   @override
   String get tnFillFee => 'Naknada izvršenja';
@@ -10711,10 +10705,10 @@ class AppLocalizationsHr extends AppLocalizations {
   String get bragPortfolioBarLabel => 'Podijeli portfelj';
 
   @override
-  String get bragPnlBarLabel => 'Podijeli P&L';
+  String get bragPnlBarLabel => 'Podijeli dobit';
 
   @override
-  String get bragMyPnl => 'Moj P&L';
+  String get bragMyPnl => 'Moja dobit';
 
   @override
   String bragShareText(String title, String link) {
@@ -10847,7 +10841,7 @@ class AppLocalizationsHr extends AppLocalizations {
   String get portfolioStatAtStake => 'Uloženi iznos';
 
   @override
-  String get portfolioProfitLoss => 'Dobit i gubitak';
+  String get portfolioProfitLoss => 'Dobit';
 
   @override
   String slipCtaAddTo(String side, String amount) {
@@ -11110,7 +11104,7 @@ class AppLocalizationsHr extends AppLocalizations {
       'Dobijte adresu na koju šaljete dolare';
 
   @override
-  String get portfolioStatOpenPnl => 'Otvorena dobit / gubitak';
+  String get portfolioStatOpenPnl => 'Otvorena dobit';
 
   @override
   String stepUpReasonBetReady(String amount) {
@@ -11447,7 +11441,7 @@ class AppLocalizationsHr extends AppLocalizations {
   String get cctpRefundContactSupport => 'Da ga premjestiš, javi se podršci.';
 
   @override
-  String get portfolioSectionPnlCharts => 'P&L';
+  String get portfolioSectionPnlCharts => 'Dobit';
 
   @override
   String get portfolioSectionBalances => 'Pozicije';
@@ -11541,7 +11535,7 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get pnlChartNoHistory =>
-      'Tvoja dobit/gubitak prikazuje se nakon prve pozicije.';
+      'Tvoja dobit prikazuje se nakon prve pozicije.';
 
   @override
   String get balanceChartNoHistory =>
@@ -11549,7 +11543,7 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get pnlChartEmpty =>
-      'Vaš dobit i gubitak prikazat će se ovdje kad počnete trgovati ili predviđati';
+      'Vaša dobit prikazat će se ovdje kad počnete trgovati ili predviđati';
 
   @override
   String portfolioPositionsCount(int count) {
@@ -11780,7 +11774,7 @@ class AppLocalizationsHr extends AppLocalizations {
       'Bitcoin i dolari zajedno. Sal se pravi da nije ništa.';
 
   @override
-  String get pnlNoHistoryTitle => 'Još nema dobiti/gubitka';
+  String get pnlNoHistoryTitle => 'Još nema dobiti';
 
   @override
   String get pnlByVenue => 'By venue';
@@ -12385,6 +12379,58 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get chartToolHorizontalLine => 'Vodoravna linija';
+
+  @override
+  String get chartToolPriceLine => 'Linija cijene';
+
+  @override
+  String get chartPriceLines => 'Linije cijene';
+
+  @override
+  String get chartPriceLineNew => 'Nova linija';
+
+  @override
+  String get chartPriceLineNewNote => 'Provjerava se samo dok je Kute otvoren';
+
+  @override
+  String get chartPriceLineAbove => 'Iznad cijene';
+
+  @override
+  String get chartPriceLineBelow => 'Ispod cijene';
+
+  @override
+  String chartPriceLineReachedOn(String when) {
+    return 'Dosegnuto $when';
+  }
+
+  @override
+  String chartPriceLineReachedToast(String coin, String price) {
+    return '$coin je dosegnuo $price';
+  }
+
+  @override
+  String chartPriceLineLimit(int count) {
+    return 'Imate $count linija cijene. Uklonite jednu da biste dodali drugu.';
+  }
+
+  @override
+  String get chartPriceLineAtPrice =>
+      'To je trenutna cijena. Odaberite razinu iznad ili ispod nje.';
+
+  @override
+  String get chartPriceLineTooFar =>
+      'To je predaleko od cijene. Odaberite bližu razinu.';
+
+  @override
+  String get chartPriceLineRemoveTitle => 'Ukloniti ovu liniju cijene?';
+
+  @override
+  String chartPriceLineRemoveBody(String coin, String price) {
+    return '$coin na $price';
+  }
+
+  @override
+  String get chartPriceLineRemoveCta => 'Ukloni';
 
   @override
   String get chartMoreTools => 'Više';
@@ -14276,4 +14322,36 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get shareEdgeInviteDog => 'Popust je stvaran. Pas je nezainteresiran.';
+
+  @override
+  String get balanceGoalShareMyLevel => 'Podijeli moju razinu';
+
+  @override
+  String get goalCardCaps => 'Moja razina';
+
+  @override
+  String get shareEdgeGoalNotFlex => 'Nije hvalisanje. Samo razina.';
+
+  @override
+  String get shareEdgeGoalUnimpressed =>
+      'Sal je provjerio. I dalje nije impresioniran.';
+
+  @override
+  String get shareEdgeGoalNoRush => 'Razinu po razinu. Bez žurbe.';
+
+  @override
+  String get shareEdgeGoalNobodyAsked => 'Nitko nije pitao. Dijelim svejedno.';
+
+  @override
+  String get shareEdgeGoalSaysNothing =>
+      'Sal kaže da to nije ništa. Često to kaže.';
+
+  @override
+  String get shareEdgeGoalOnPurpose => 'Spor uspon. Namjerno.';
+
+  @override
+  String get shareEdgeGoalNoTrophy => 'Nema trofeja. Samo pas i razina.';
+
+  @override
+  String get shareEdgeGoalYourTurn => 'Ti si na redu. Sal će čekati.';
 }

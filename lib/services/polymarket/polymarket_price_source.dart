@@ -63,7 +63,7 @@ class PmReferencePriceFrame {
 /// [backfill] (a read of the past, oldest first) that are older than its
 /// first point in front of it, so a chart draws a round from its start
 /// while the live feed is never overwritten. [at] reads a point's time.
-/// Pure; the Instant screen's longer rounds use it (polymarket_provider.dart).
+/// Pure; the Instant card's longer rounds use it (polymarket_provider.dart).
 List<T> cryptoSeriesWithBackfill<T>(List<T> backfill, List<T> series,
     {required DateTime Function(T point) at}) {
   if (backfill.isEmpty) return series;

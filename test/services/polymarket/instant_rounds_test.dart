@@ -79,11 +79,4 @@ void main() {
     expect(polyInstantAssetOf(rows.last), isNull);
     expect(polyInstantAssetOf(rows[3]), 'BTC');
   });
-
-  test('the route key names the screen, nothing else', () {
-    expect(polyIsInstantRouteKey('predictions/instant'), isTrue);
-    expect(polyIsInstantRouteKey('/predictions/instant/'), isTrue);
-    expect(polyIsInstantRouteKey('predictions/crypto/5m'), isFalse);
-    expect(polyIsInstantRouteKey('instant'), isFalse);
-  });
 }

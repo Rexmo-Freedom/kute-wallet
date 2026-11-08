@@ -16,6 +16,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:kute/screens/shared/amount_keypad_panel.dart'
+    show AmountMaxChip;
+import 'package:kute/services/one_balance/gift_funding.dart'
+    show giftSpendableProvider;
 import 'package:kute/models/currency_conversions.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/settings_model.dart';
@@ -126,7 +130,8 @@ const _market = HlMarket(
 );
 
 Future<void> _pumpSlip(WidgetTester tester, Future<HlAccountSnapshot> account,
-    _Policy policy, {double? initialUsd, SendPickSession? sendPick}) async {
+    _Policy policy,
+    {double? initialUsd, SendPickSession? sendPick, double? giftReach}) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -154,6 +159,8 @@ Future<void> _pumpSlip(WidgetTester tester, Future<HlAccountSnapshot> account,
       currencyProvider.overrideWith((_) => _Currency()),
       runtimeCapabilitiesProvider.overrideWithValue(policy),
       usdBalanceProvider.overrideWith((_) => 0),
+      if (giftReach != null)
+        giftSpendableProvider.overrideWith((_) => giftReach),
     ],
     // The bar over the slip is the slip's button (shell_bar_harness.dart).
     child: shellBarApp(
@@ -294,6 +301,27 @@ void main() {
 
     SendPickSession session() =>
         SendPickSession(entrySource: 'dollar_send', recipientName: 'Ana');
+
+    testWidgets(
+        'over what the person can reach: refused like an order, no link; Max '
+        'and Available are the reach', (tester) async {
+      policy.blocked = false;
+      await _pumpSlip(tester, Future.value(_snapshot(500)), policy,
+          initialUsd: 25, sendPick: session(), giftReach: 12.5);
+      expect(barPrimaryEnabled(tester), isFalse);
+      expect(find.textContaining('Lower the amount'), findsWidgets);
+      expect(find.textContaining(r'$12.50'), findsWidgets);
+      expect(sends, isEmpty);
+      await tester.tap(find.byType(AmountMaxChip));
+      await _frames(tester, 2);
+      expect(barPrimaryEnabled(tester), isTrue);
+      await tapBarPrimary(tester, settle: false);
+      await _frames(tester, 2);
+      final (route, pick) = sends.single;
+      expect(route, SlipSendRoute.pick);
+      expect(pick.amountUsd, 12.5);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
 
     testWidgets(
         'the primary is the send: it sends THIS investment, Long and the '

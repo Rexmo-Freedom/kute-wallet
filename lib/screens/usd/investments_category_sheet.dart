@@ -76,11 +76,14 @@
 // Instant wears the first coins and the lengths it runs, "5 min · 15 min ·
 // 1 hour · 4 hours", one line that shrinks to fit ([_InstantLengths]; the
 // founder, later that day, of the coin names and the clock: "no need for
-// this subtitles, just the 5 min and such"). Instant is NOT a category of
-// the list: the tap closes the sheet and pushes its own full screen
-// (instant_screen.dart), the pill on the Dollars home stays whatever it was,
-// so the ring never goes to Instant. The Sal grid's Instant tile does the
-// same.
+// this subtitles, just the 5 min and such"). Instant IS a category of the
+// list ([PolyPill.instant]): the tap picks it as any topic's does, the pill
+// on the Dollars home reads "Predictions · Instant" and the page shows the
+// coin and length filter with one live round card (instant_pill_page.dart;
+// founder, later that day: "I don't want Instant to take me to another
+// screen. It should all be on the Dollars home under Predictions"). Nothing
+// is pushed. The Sal grid's Instant tile does the same; both fire
+// `predictions_instant_opened` with where the pick was made.
 //
 // NAMES NEVER TRUNCATE (founder, 31 October 2026): a wide or grid tile
 // whose name does not fit on one line sets it on two and drops its stat
@@ -181,7 +184,6 @@ import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 import 'package:kute/screens/polymarket/components/crypto_asset_logo.dart';
 import 'package:kute/screens/polymarket/components/poly_browse_bar.dart'
     show polyPillLabel, polySubLabel, polySubsFor;
-import 'package:kute/screens/polymarket/instant_screen.dart';
 import 'package:kute/screens/polymarket/components/poly_category_icons.dart'
     show polyCategoryTint;
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
@@ -427,6 +429,7 @@ Color _hlTint(AppColorsExtension c, HlBrowseTab t) => switch (t) {
 Color _polyTint(AppColorsExtension c, PolyPill p) => switch (p) {
       PolyPill.watchlist => c.chartCategorical[2],
       PolyPill.trending => c.chartCategorical[0],
+      PolyPill.instant => _kBitcoinOrange,
       PolyPill.breaking => c.chartCategorical[3],
       PolyPill.newest => c.chartCategorical[4],
       PolyPill.live => c.chartCategorical[2],
@@ -453,9 +456,9 @@ String _polyIconAsset(PolyPill p) => 'lib/assets/polymarket_tags/${p.key}.svg';
 /// (lib/assets/polymarket_tags/README.md).
 const String kInstantIconAsset = 'lib/assets/polymarket_tags/instant.svg';
 
-/// The Instant card's key among the tiles' (group, sub) pairs: no group of
-/// the list, a screen of its own.
-const (String, String) _kInstantKey = ('instant', 'instant');
+/// The Instant card's key among the tiles' (group, sub) pairs: the pill
+/// at its one list, as any category's.
+const (PolyPill, String) _kInstantKey = (PolyPill.instant, 'all');
 
 IconData _portfolioIcon(PortfolioSection s) => switch (s) {
       PortfolioSection.activity => Icons.receipt_long_rounded,
@@ -677,25 +680,22 @@ class _InvestmentsCategorySheetState
     switch ((group, sub)) {
       case (final HlBrowseTab t, final HlBrowseSub s):
         _pickHl(t, s, hold: false);
+      case (PolyPill.instant, _):
+        _pickInstant(hold: false, source: 'sal');
       case (final PolyPill p, final String s):
         _pickPoly(p, PolySub(s), hold: false);
       case (final PortfolioSection s, _):
         _pickPortfolio(s, hold: false);
-      case _kInstantKey:
-        _pickInstant(hold: false, source: 'sal');
     }
   }
 
-  /// The Instant card (see the file header): the sheet closes as on any
-  /// pick, then the Instant screen is pushed over the app; the list's
-  /// selection is left alone.
-  void _pickInstant({bool hold = true, String source = 'sheet'}) {
-    final navigator = Navigator.of(context, rootNavigator: true);
-    _pick(_kInstantKey, hold: hold, (_) {
-      if (!navigator.mounted) return;
-      unawaited(PolyInstantScreen.push(navigator, source: source));
-    });
-  }
+  /// The Instant card (see the file header): picked as any category is,
+  /// plus `predictions_instant_opened` with [source] (`sheet`, or `sal` for
+  /// the Sal grid's tile) once the pick is written; nothing when Instant is
+  /// the page already.
+  void _pickInstant({bool hold = true, String source = 'sheet'}) =>
+      _pickPoly(PolyPill.instant, const PolySub('all'),
+          hold: hold, opened: source);
 
   void _open(Object group) {
     HapticFeedback.selectionClick();
@@ -1001,7 +1001,9 @@ class _InvestmentsCategorySheetState
 
   // ── Predictions ──────────────────────────────────────────────────────
 
-  void _pickPoly(PolyPill p, PolySub s, {bool hold = true}) =>
+  /// [opened] is Instant's source for `predictions_instant_opened`, fired
+  /// with the pick ([_pickInstant]).
+  void _pickPoly(PolyPill p, PolySub s, {bool hold = true, String? opened}) =>
       _pick((p, s.key), hold: hold, (c) {
         final current = c.read(polyBrowseSelectionProvider);
         if (p == current.pill && s.key == current.subOf(p)) return;
@@ -1009,6 +1011,10 @@ class _InvestmentsCategorySheetState
           'section': p.key,
           if (s.key != p.defaultSub) 'subcategory': s.route,
         });
+        if (opened != null) {
+          TrackingService.track('predictions_instant_opened',
+              params: {'source': opened});
+        }
         c.read(polyBrowseSelectionProvider.notifier).state =
             current.copyWith(pill: p).copyWith(sub: s.key);
       });
@@ -1052,7 +1058,7 @@ class _InvestmentsCategorySheetState
           picked: _picked(p, p.defaultSub, sel.pill == p),
           onTap: () => _pickPoly(p, PolySub(p.defaultSub)),
         );
-    // Instant, the other: its own screen, never the list's pick.
+    // Instant, the other: a category of the list with its own page.
     final instant = _Tile.square(
       key: const ValueKey('category-tile-instant'),
       tint: _kBitcoinOrange,
@@ -1060,7 +1066,8 @@ class _InvestmentsCategorySheetState
       stat: const _InstantLengths(),
       logos: _instantLogos(),
       asset: kInstantIconAsset,
-      picked: _picked(_kInstantKey.$1, _kInstantKey.$2, false),
+      picked: _picked(
+          _kInstantKey.$1, _kInstantKey.$2, sel.pill == PolyPill.instant),
       onTap: _pickInstant,
     );
 
@@ -1098,7 +1105,10 @@ class _InvestmentsCategorySheetState
       _rise(3, _label(context, l10n.categoryGroupTopics)),
       _grid(first: 4, [
         for (final p in pills)
-          if (p != PolyPill.trending && p != PolyPill.watchlist) tile(p),
+          if (p != PolyPill.trending &&
+              p != PolyPill.instant &&
+              p != PolyPill.watchlist)
+            tile(p),
       ]),
     ];
   }
@@ -1265,9 +1275,8 @@ class _SalCategoryGridState extends ConsumerState<_SalCategoryGrid>
   }
 
   /// The sheet's own Predictions cards: Trending and the Watchlist with
-  /// their stacks, Instant with its coins right after Trending (its own
-  /// screen, see the file header), every topic its glyph, each with its
-  /// numbers.
+  /// their stacks, Instant with its coins right after Trending (see the
+  /// file header), every topic its glyph, each with its numbers.
   List<_Tile> _predictions(AppLocalizations l10n, AppColorsExtension c) {
     final sel = polyShownSelection(ref);
     final policy = ref.watch(runtimeCapabilitiesProvider);
@@ -1279,12 +1288,14 @@ class _SalCategoryGridState extends ConsumerState<_SalCategoryGrid>
       tint: _kBitcoinOrange,
       name: l10n.predictionsInstant,
       stat: const _InstantLengths(),
-      picked: _picked(_kInstantKey.$1, _kInstantKey.$2, false),
+      picked: _picked(
+          _kInstantKey.$1, _kInstantKey.$2, sel.pill == PolyPill.instant),
       onTap: () => _tap(_kInstantKey.$1, _kInstantKey.$2),
     );
     return [
       for (final p in PolyPill.values)
-        if (polyPillOffered(p, policy) &&
+        if (p != PolyPill.instant &&
+            polyPillOffered(p, policy) &&
             (p != PolyPill.watchlist || watchlist.isNotEmpty)) ...[
           _Tile(
             key: ValueKey('sal-category-tile-${p.key}'),
