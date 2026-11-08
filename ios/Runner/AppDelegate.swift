@@ -67,6 +67,13 @@ import flutter_local_notifications
     if let registrar = registry.registrar(forPlugin: "NetworkPathPlugin") {
       NetworkPathPlugin.register(with: registrar)
     }
+
+    // The device's region (`kute/device_region`,
+    // `lib/services/device_currency.dart`): the currency a new install
+    // starts on.
+    if let registrar = registry.registrar(forPlugin: "DeviceRegionPlugin") {
+      DeviceRegionPlugin.register(with: registrar)
+    }
   }
 
   // THIS IS THE CRUCIAL FUNCTION FOR BACKGROUND NOTIFICATIONS

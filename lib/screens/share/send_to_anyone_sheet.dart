@@ -87,6 +87,7 @@ import 'package:kute/providers/currency_conversions_provider.dart'
     show
         conversionProvider,
         conversionToFiatProvider,
+        currencyProvider,
         inputToSatsProvider,
         satsToTargetCurrencyProvider;
 import 'package:kute/providers/settings_provider.dart';
@@ -355,7 +356,8 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet>
       if (wasBitcoin) {
         _unit = sendFiatFlipUnit(
             lastFiat: _lastFiat,
-            settingsCurrency: ref.read(settingsProvider).currency);
+            settingsCurrency: ref.read(settingsProvider).currency,
+            hasRate: ref.read(currencyProvider).hasRate);
       } else {
         _lastFiat = _unit;
         _unit = bitcoinEntryUnit(ref.read(settingsProvider).btcFormat);
@@ -576,7 +578,9 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet>
         final String secondary;
         if (_bitcoinUnit) {
           final fiat = sendFiatFlipUnit(
-              lastFiat: _lastFiat, settingsCurrency: settings.currency);
+              lastFiat: _lastFiat,
+              settingsCurrency: settings.currency,
+              hasRate: ref.watch(currencyProvider).hasRate);
           secondary = '${sendCurrencyPrefix(fiat)}'
               '${ref.watch(satsToTargetCurrencyProvider((sats: amountMinor, currency: fiat)))}';
         } else {

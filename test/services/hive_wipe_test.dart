@@ -79,19 +79,24 @@ void main() {
     await AuthModel().deleteAuthentication();
 
     for (final name in hiveBoxesWipedOnWipe) {
+      if (name == 'settings') continue;
       expect(await holdsData(name), isFalse, reason: name);
     }
+    // Reopened as a new install: only the currency one starts on, from the
+    // device's region, which says nothing about what was wiped.
+    expect(Hive.box<dynamic>('settings').keys, ['currency']);
     for (final name in hiveBoxesKeptOnWipe) {
       expect(Hive.box<dynamic>(name).get('k'), 'kept-$name', reason: name);
     }
     expect(keychain.keys(), isEmpty);
   });
 
-  test('a wipe with no boxes on disk is fine, and settings reopens empty',
-      () async {
+  test(
+      'a wipe with no boxes on disk is fine, and settings reopens as a new '
+      'install: nothing but the currency a new install starts on', () async {
     await wipeHiveBoxes();
     final settings = await Hive.openBox('settings');
-    expect(settings.isEmpty, isTrue);
+    expect(settings.keys, ['currency']);
   });
 
   test('the orphaned refund-reports box is deleted at start and on wipe',
