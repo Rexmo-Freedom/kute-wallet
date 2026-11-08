@@ -2,13 +2,15 @@
 // 7 November 2026: "only in Send should it be to send to someone"). Its
 // primary is the send ([slipSendCta]): "Send $5 · Yes", "Send $25 · Long
 // Bitcoin"; disabled with the step to take while the amount or the side
-// cannot be sent; "Send the market" where the venue is closed to this
-// person. What a tap does with what the slip hands it ([sendFromSlip]):
+// cannot be sent; refused here, disabled and no link ever, the slip saying
+// why (founder, 8 November 2026: "only on the last screen, the bet slip,
+// show this error"); "Send the market" only where nothing but the card can
+// go (a spot sale). What a tap does with what the slip hands it
+// ([sendFromSlip]):
 // THIS pick and amount straight into Send to anyone's last step (the
 // gift card as the hero, "Send prediction"), the contact picked on Send
-// as the name; the venue closed, the market's card only ("he cannot also
-// send the actual prediction, just the card"); a link created closes the
-// whole send ([SendPickSession.finish]). The slips' own wiring is in
+// as the name; a spot sale, the market's card only; a link created closes
+// the whole send ([SendPickSession.finish]). The slips' own wiring is in
 // bet_slip_check_connection_test.dart and
 // order_slip_check_connection_test.dart.
 
@@ -34,6 +36,7 @@ SlipSharePick _pick({
   String? sideLabel,
   double amountUsd = 5,
   bool blocked = false,
+  bool cardOnly = false,
 }) =>
     SlipSharePick(
       investing: investing,
@@ -47,6 +50,7 @@ SlipSharePick _pick({
       minUsd: 1,
       minLabel: r'$1.00',
       blocked: blocked,
+      cardOnly: cardOnly,
       marketChance: investing ? null : 62,
       price: investing ? r'$60,000' : null,
     );
@@ -97,13 +101,26 @@ void main() {
       expect(no.disabledLabel, 'Only Yes on Jon Ossoff can be sent');
     });
 
-    test('the venue closed to this person: "Send the market"', () {
-      final market = slipSendCta(_en, _pick(blocked: true));
+    test('refused here: disabled, the send\'s own words, whatever else holds',
+        () {
+      for (final refused in [
+        _pick(blocked: true, sideLabel: 'Yes'),
+        _pick(investing: true, blocked: true),
+        _pick(investing: true, blocked: true, cardOnly: true),
+        _pick(blocked: true, amountUsd: 0),
+      ]) {
+        final cta = slipSendCta(_en, refused);
+        expect(cta.enabled, isFalse);
+        expect(cta.route, SlipSendRoute.refused);
+        expect(cta.label, isNot('Send the market'));
+      }
+    });
+
+    test('a spot sale, nothing but the card to send: "Send the market"', () {
+      final market = slipSendCta(_en, _pick(investing: true, cardOnly: true));
       expect(market.label, 'Send the market');
       expect(market.enabled, isTrue);
       expect(market.route, SlipSendRoute.market);
-      expect(slipSendCta(_en, _pick(investing: true, blocked: true)).route,
-          SlipSendRoute.market);
     });
   });
 
@@ -207,11 +224,41 @@ void main() {
     expect(kuteBarPrimaryWithText('Send investment'), findsOneWidget);
   });
 
+  for (final (name, refused) in [
+    ('a prediction', _pick(blocked: true)),
+    ('an investment', _pick(investing: true, blocked: true)),
+    ('a spot sale', _pick(investing: true, blocked: true, cardOnly: true)),
+  ]) {
+    testWidgets('$name refused here: no sheet opens, no link is created',
+        (tester) async {
+      await tapSend(tester, refused);
+      expect(routes, [SlipSendRoute.refused]);
+      expect(find.byType(SendToAnyoneSheet), findsNothing);
+      expect(find.byType(ShareMarketSheet), findsNothing);
+      expect(env.fake.calls, isEmpty);
+    });
+  }
+
   testWidgets(
-      'the venue closed to this person: the market send sheet, its card '
+      'no slug to name, not refused: the market send sheet, its card '
       'only; no pick, no money, nothing that says a prediction is attached',
       (tester) async {
-    await tapSend(tester, _pick(blocked: true));
+    await tapSend(
+        tester,
+        SlipSharePick(
+          investing: false,
+          slug: '',
+          marketLinkSlug: 'will-it-rain',
+          title: 'Will it rain?',
+          outcome: 'Yes',
+          side: 'buy',
+          sideLabel: 'Yes',
+          amountUsd: 5,
+          minUsd: 1,
+          minLabel: r'$1.00',
+          blocked: false,
+          marketChance: 62,
+        ));
     expect(routes, [SlipSendRoute.market]);
     expect(find.byType(SendToAnyoneSheet), findsNothing);
     expect(find.byType(ShareMarketSheet), findsOneWidget);
@@ -223,9 +270,9 @@ void main() {
     expect(env.fake.calls, isEmpty);
   });
 
-  testWidgets('Investing closed: the market send sheet with the stock',
+  testWidgets('a spot sale: the market send sheet with the stock',
       (tester) async {
-    await tapSend(tester, _pick(investing: true, blocked: true));
+    await tapSend(tester, _pick(investing: true, cardOnly: true));
     expect(routes, [SlipSendRoute.market]);
     expect(find.byType(ShareMarketSheet), findsOneWidget);
     expect(find.byKey(const ValueKey('share-card-investment_market')),

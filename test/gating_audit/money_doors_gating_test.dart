@@ -31,9 +31,11 @@
 //     region block (the coins kept, a coin's tap names the regions), and
 //     under any other swap refusal says why under the field, the
 //     unavailable line under the empty field; the What step's gift ("A
-//     prediction or investment") stays under a region block with neither
-//     venue open (the swap cascade shuts both; its tap says why, send_what_
-//     step_test.dart), and goes only when another refusal shuts both.
+//     prediction or investment") stays and opens the search under any trade
+//     refusal (the market's slip says why; the swap cascade leaves browse
+//     open), goes only when a non-region refusal shuts both venues' browse,
+//     and a region shutting both keeps it, its tap saying why
+//     (send_what_step_test.dart).
 //   * Bitcoin Send: "Move to your Dollars" (a swap) always drawn, the Move
 //     sheet says why; a typed 0x address asks its network, its "Where
 //     to?" sheet listing the coins under a region block and saying why
@@ -581,8 +583,8 @@ void main() {
         'swap country block: no card; a typed 0x address asks its network '
         'and Done opens the coin sheet with the coins kept (a region block '
         'hides nothing); Move to your Bitcoin stays and opens the Move '
-        'sheet; the gift stays (the cascade shuts both venues, and a region '
-        'block hides nothing), its tap saying why', (tester) async {
+        'sheet; the gift stays (the cascade leaves browse open: the market\'s '
+        'slip says why)', (tester) async {
       await install(tester, MarketDenial.swapCountryBlock);
       final moves = recordMoves();
       await _pumpSheet(tester, showUsdWithdrawSheet);
@@ -641,23 +643,35 @@ void main() {
     });
 
     for (final how in MarketDenial.values) {
-      final region = how == MarketDenial.swapCountryBlock;
-      testWidgets(
-          '${how.label} on both venues\' trading: '
-          '${region ? 'the gift stays' : 'no gift'}', (tester) async {
+      testWidgets('${how.label} on both venues\' trading: the gift stays',
+          (tester) async {
         await install(tester, how,
             targets: {'polymarket.trade', 'hyperliquid.trade'});
         await _pumpSheet(tester, showUsdWithdrawSheet);
-        expect(await giftOffered(tester), region);
+        expect(await giftOffered(tester), isTrue);
         await typeIn(tester, 'bitcoin');
         expect(find.byKey(_moveToBitcoin), findsOneWidget);
         await _unmount(tester);
       });
     }
 
-    testWidgets('one venue open is enough for the gift', (tester) async {
+    for (final how in _nonRegion) {
+      testWidgets('${how.label} on both venues\' browse: no gift, nothing to '
+          'list', (tester) async {
+        await install(tester, how,
+            targets: {'polymarket.browse', 'hyperliquid.browse'});
+        await _pumpSheet(tester, showUsdWithdrawSheet);
+        expect(await giftOffered(tester), isFalse);
+        await typeIn(tester, 'bitcoin');
+        expect(find.byKey(_moveToBitcoin), findsOneWidget);
+        await _unmount(tester);
+      });
+    }
+
+    testWidgets('one venue\'s browse open is enough for the gift',
+        (tester) async {
       await install(tester, MarketDenial.masterOff,
-          targets: {'hyperliquid.trade'});
+          targets: {'hyperliquid.browse'});
       await _pumpSheet(tester, showUsdWithdrawSheet);
       expect(await giftOffered(tester), isTrue);
       await _unmount(tester);
@@ -668,8 +682,8 @@ void main() {
     testWidgets(
         'swap country block: no card; Move to your Dollars stays; a typed 0x '
         'address asks its network and Done lists the coins (a region block '
-        'hides nothing), with no Bitcoin Network row; the gift stays, its '
-        'tap saying why', (tester) async {
+        'hides nothing), with no Bitcoin Network row; the gift stays',
+        (tester) async {
       await install(tester, MarketDenial.swapCountryBlock);
       final moves = recordMoves();
       await _pumpBitcoinSend(tester);

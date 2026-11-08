@@ -56,6 +56,10 @@ import 'package:kute/services/one_balance/route_minimums.dart'
 import 'package:kute/services/one_balance/venue_cash_source.dart';
 import 'package:kute/services/one_balance/venue_funder.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
+import 'package:kute/screens/search/unified_search_screen.dart'
+    show UnifiedSearchSurface;
+import 'package:kute/screens/shared/capability_unavailable_sheet.dart'
+    show CapabilityUnavailableSheet;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -413,7 +417,7 @@ void main() {
     // pumpAndSettle; the glyphs fall back to their icons.
     SalSpriteCache.debugSetManifest(null);
     AffiliateService.debugSessionToken = 'test-session';
-    // The venues open: the prediction card's slip can send
+    // The venues' browse open: the prediction card opens the gift search
     // (send_pick_market_sheet.dart, sendPickOffered).
     final policy = runtimePolicyFixture(
         also: const {'polymarket.browse', 'hyperliquid.browse'});
@@ -475,16 +479,58 @@ void main() {
   });
 
   testWidgets(
-      'the coin step with Predictions and Investing closed to this person: '
+      'the coin step with both venues\' trade refused: the prediction row '
+      'stays, the market\'s slip says why', (tester) async {
+    final refused = runtimePolicyFixture(
+        blocked: const {'polymarket.trade', 'hyperliquid.trade'},
+        reasons: const {
+          'polymarket.trade': 'country_blocked',
+          'hyperliquid.trade': 'country_blocked',
+        },
+        also: const {'polymarket.browse', 'hyperliquid.browse'});
+    RuntimeCapabilitiesService.debugInstance = refused;
+    await tester.runAsync(refused.refresh);
+    await _pump(tester);
+    expect(find.byKey(const ValueKey('send-pick-market-row')), findsOneWidget);
+    expect(find.byKey(const ValueKey('send-to-friend-row')), findsOneWidget);
+  });
+
+  testWidgets(
+      'the coin step with both venues\' browse switched off: nothing to list, '
       'no prediction row; Send dollars to a friend stays', (tester) async {
     final closed = runtimePolicyFixture(
-        blocked: const {'polymarket.trade', 'hyperliquid.trade'},
+        blocked: const {'polymarket.browse', 'hyperliquid.browse'},
         also: const {'polymarket.browse', 'hyperliquid.browse'});
     RuntimeCapabilitiesService.debugInstance = closed;
     await tester.runAsync(closed.refresh);
     await _pump(tester);
     expect(find.byKey(const ValueKey('send-pick-market-row')), findsNothing);
     expect(find.byKey(const ValueKey('send-to-friend-row')), findsOneWidget);
+  });
+
+  testWidgets(
+      'the coin step with both venues\' browse shut for a region: the row '
+      'stays, its tap says why and opens no search', (tester) async {
+    final closed = runtimePolicyFixture(
+        blocked: const {'polymarket.browse', 'hyperliquid.browse'},
+        reasons: const {
+          'polymarket.browse': 'country_blocked',
+          'hyperliquid.browse': 'country_blocked',
+        },
+        also: const {'polymarket.browse', 'hyperliquid.browse'});
+    RuntimeCapabilitiesService.debugInstance = closed;
+    await tester.runAsync(closed.refresh);
+    // A phone's height: the Unavailable sheet over the coin step.
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await _pump(tester);
+    await tester.tap(find.byKey(const ValueKey('send-pick-market-row')));
+    await tester.pumpAndSettle();
+    expect(find.byType(CapabilityUnavailableSheet), findsOneWidget);
+    expect(find.byType(UnifiedSearchSurface), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+    closed.dispose();
   });
 
   testWidgets(

@@ -23,13 +23,19 @@
 //     at least $1 to send", a side no link can carry (No on one candidate:
 //     a link names an outcome of the event, and the Claim screen opens the
 //     slip on its Yes) "Only Yes on {candidate} can be sent".
-//   * THE VENUE CLOSED TO THIS PERSON (the slip's own open gate: the
-//     region refusal and "Check connection", or any other policy refusal;
-//     founder, 5 November 2026: "when the user is blocked on Polymarket he
-//     cannot also send the actual prediction, just the card"): "Send the
-//     market", the market send sheet (share_market_sheet.dart), the
-//     market's card and its link only, no money and no pick. Same on
-//     Investing (and a spot sale, no investment to send).
+//   * THE SLIP IS THE GATE (founder, 8 November 2026: "only on the last
+//     screen, the bet slip, show this error"; replaces "Send the market"
+//     on a refusal): the slip's own open gate refusing this market is
+//     [SlipSharePick.blocked], route [SlipSendRoute.refused]. The slip wears
+//     its usual reason, its one button "Check connection" on a region
+//     refusal (the send again once that finds it open), the send disabled
+//     on any other. No sheet opens and no link is ever created for it; each
+//     slip also asks its gate again at the tap, since the answer at open
+//     lands behind the first frame.
+//   * NO INVESTMENT OR NO PICK TO NAME (a spot sale, [SlipSharePick.
+//     cardOnly], or a market with no slug): "Send the market", the market
+//     send sheet (share_market_sheet.dart), the market's card and its link
+//     only, no money and no pick.
 
 import 'package:flutter/widgets.dart';
 
@@ -51,7 +57,7 @@ import 'package:kute/screens/shared/message_display.dart'
     show showMessageSnackBarInfo;
 
 /// Where a slip's send went (the test seam's record).
-enum SlipSendRoute { pick, market, enterAmount, minimum, yesOnly }
+enum SlipSendRoute { pick, market, refused, enterAmount, minimum, yesOnly }
 
 /// What a slip in send mode sends, read at the tap.
 @immutable
@@ -67,6 +73,7 @@ class SlipSharePick {
     required this.minUsd,
     required this.minLabel,
     required this.blocked,
+    this.cardOnly = false,
     this.outcomeIndex,
     this.marketLinkSlug,
     this.marketChance,
@@ -112,10 +119,14 @@ class SlipSharePick {
   final double minUsd;
   final String minLabel;
 
-  /// The slip's open gate refuses this person (see the file header).
+  /// The slip's open gate refuses this market here: nothing is sent (see
+  /// the file header).
   final bool blocked;
 
-  /// The market card's figures, for the blocked path: the Yes side's
+  /// Nothing but the market's card can be sent: a spot sale.
+  final bool cardOnly;
+
+  /// The market card's figures, for the card's path: the Yes side's
   /// chance (0–100) of a prediction market, an Investing price.
   final double? marketChance;
   final String? price;
@@ -147,7 +158,8 @@ abstract final class SlipShare {
 /// Where a send with [pick] goes (see the file header).
 SlipSendRoute slipSendRoute(SlipSharePick pick) {
   final slug = pick.slug?.trim() ?? '';
-  if (pick.blocked || slug.isEmpty) return SlipSendRoute.market;
+  if (pick.blocked) return SlipSendRoute.refused;
+  if (pick.cardOnly || slug.isEmpty) return SlipSendRoute.market;
   final amount = pick.amountUsd;
   if (!amount.isFinite || amount <= 0) return SlipSendRoute.enterAmount;
   if (amount + 1e-9 < pick.minUsd) return SlipSendRoute.minimum;
@@ -166,8 +178,9 @@ typedef SlipSendCta = ({
 });
 
 /// The primary of a slip in send mode for [pick]: "Send $50 · Short AMD",
-/// "Send $10 · Yes"; "Send the market" where the venue is closed to this
-/// person; disabled with the step to take otherwise.
+/// "Send $10 · Yes"; "Send the market" where only the card can go; disabled
+/// on a refusal (the slip's reason above it) and with the step to take
+/// otherwise.
 SlipSendCta slipSendCta(AppLocalizations l10n, SlipSharePick pick) {
   final route = slipSendRoute(pick);
   final side = pick.investing
@@ -187,6 +200,12 @@ SlipSendCta slipSendCta(AppLocalizations l10n, SlipSharePick pick) {
     SlipSendRoute.pick => (
         label: send,
         enabled: true,
+        disabledLabel: null,
+        route: route,
+      ),
+    SlipSendRoute.refused => (
+        label: send,
+        enabled: false,
         disabledLabel: null,
         route: route,
       ),
@@ -223,6 +242,9 @@ Future<void> sendFromSlip(BuildContext context, SlipSharePick pick,
   SlipShare.debugRoute?.call(route, pick);
   final slug = pick.slug?.trim() ?? '';
   switch (route) {
+    case SlipSendRoute.refused:
+      // Never a link for a refused market: the slip already says why.
+      return;
     case SlipSendRoute.market:
       // The market's card only: no money, no pick (a market the link
       // cannot name goes the same way).

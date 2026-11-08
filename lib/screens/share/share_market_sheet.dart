@@ -18,9 +18,8 @@
 // THE MARKET ONLY (founder, 5 November 2026: "the other shares are just
 // sharing the market, no picker"). A market page's round Sal button and
 // Sal pill open this sheet at once (kute_share_actions.dart), and so does
-// a slip in send mode where the venue is closed to this person
-// (slip_share.dart: "when the user is blocked on Polymarket he cannot
-// also send the actual prediction, just the card"). The sheet never
+// a slip in send mode with nothing but the card to send (a spot sale,
+// slip_share.dart; never a market its gate refuses). The sheet never
 // carries a pick or money: a prediction is sent only from Send.
 //
 // ONE MARKET OF AN EVENT (founder, 7 November 2026: "sharing here should

@@ -309,9 +309,20 @@ void main() {
   });
 
   testWidgets(
-      'a venue closed to this person is left out: Predictions blocked, '
-      'Investing only', (tester) async {
+      'a refused trade lists on: Predictions refused, both venues listed; '
+      'the market\'s slip says why', (tester) async {
     await tester.runAsync(() => policy(blocked: {'polymarket.trade'}));
+    expect(sendPickOffered(RuntimeCapabilitiesService.instance), isTrue);
+    await open(tester);
+    expect(find.text(_l10n.searchHomeTrendingPredictions), findsOneWidget);
+    expect(find.byType(SearchPredictionRow), findsWidgets);
+    expect(find.byType(SearchMoverGrid), findsOneWidget);
+  });
+
+  testWidgets(
+      'a venue whose browse is closed is left out, as the plain search leaves '
+      'it: Predictions shut, Investing only', (tester) async {
+    await tester.runAsync(() => policy(blocked: {'polymarket.browse'}));
     expect(sendPickOffered(RuntimeCapabilitiesService.instance), isTrue);
     await open(tester);
     expect(find.text(_l10n.searchHomeTrendingPredictions), findsNothing);
@@ -330,10 +341,13 @@ void main() {
     expect(result, isFalse);
   });
 
-  test('both venues closed: nothing to send a prediction on', () async {
-    await policy(blocked: {'polymarket.trade', 'hyperliquid.trade'});
+  test('both venues\' browse closed: nothing to list; trade never counts',
+      () async {
+    await policy(blocked: {'polymarket.browse', 'hyperliquid.browse'});
     expect(sendPickOffered(RuntimeCapabilitiesService.instance), isFalse);
-    await policy(blocked: {'hyperliquid.trade'});
+    await policy(blocked: {'hyperliquid.browse'});
+    expect(sendPickOffered(RuntimeCapabilitiesService.instance), isTrue);
+    await policy(blocked: {'polymarket.trade', 'hyperliquid.trade'});
     expect(sendPickOffered(RuntimeCapabilitiesService.instance), isTrue);
   });
 }

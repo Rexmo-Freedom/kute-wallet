@@ -17,8 +17,10 @@
 //     browse gates' intended job;
 //   * the trade row's doors always open the slip, whose own gate explains
 //     and re-checks at confirm (slip_entry_gating_test.dart);
-//   * a share never carries money except Send to anyone, and a venue
-//     closed to this person is never offered there to compose a pick.
+//   * a share never carries money except Send to anyone; the gift lists
+//     any venue whose browse is open, and a refused trade stops it only on
+//     the market's slip (founder, 8 November 2026: "only on the last
+//     screen, the bet slip, show this error").
 
 import 'dart:io';
 
@@ -148,6 +150,9 @@ final _sendPickFeeds = <Override>[
 /// positions on both venues.
 const _trading = {'hyperliquid.trade', 'polymarket.trade'};
 
+/// What the gift search lists by.
+const _browse = {'hyperliquid.browse', 'polymarket.browse'};
+
 void main() {
   tearDown(uninstallMarketGatingPolicy);
 
@@ -247,31 +252,52 @@ void main() {
 
   group('Send a prediction or investment (send_pick_market_sheet.dart)', () {
     for (final how in MarketDenial.values) {
-      test('${how.label} on both venues: nothing to compose a pick on',
-          () async {
+      test(
+          '${how.label} on both venues\' trading: the gift shows and opens, '
+          'nothing stops it before the slip', () async {
         final policy = await installMarketGatingPolicy(how, targets: _trading);
-        expect(sendPickOffered(policy), isFalse);
+        expect(sendPickOffered(policy), isTrue);
+        expect(sendGiftShown(policy), isTrue);
+        expect(sendGiftBrowseBlock(policy), isNull);
+        final venues = sendPickVenues(policy);
+        expect(venues.predictions, isTrue);
+        expect(venues.investing, isTrue);
       });
       if (how == MarketDenial.swapCountryBlock) continue;
-      test('${how.label} on Predictions only: Investing is still offered',
+      test('${how.label} on both venues\' browse: nothing to list, no gift',
           () async {
-        final policy =
-            await installMarketGatingPolicy(how, targets: {'polymarket.trade'});
+        final policy = await installMarketGatingPolicy(how, targets: _browse);
+        expect(sendPickOffered(policy), isFalse);
+        expect(sendGiftShown(policy), isFalse);
+        expect(sendGiftBrowseBlock(policy), isNull);
+      });
+      test('${how.label} on Predictions\' browse only: Investing is listed',
+          () async {
+        final policy = await installMarketGatingPolicy(how,
+            targets: {'polymarket.browse'});
         expect(sendPickOffered(policy), isTrue);
+        final venues = sendPickVenues(policy);
+        expect(venues.predictions, isFalse);
+        expect(venues.investing, isTrue);
       });
     }
 
-    for (final how in MarketDenial.values) {
-      final region = how == MarketDenial.swapCountryBlock;
-      test(
-          '${how.label} on both venues: the What step\'s gift '
-          '${region ? 'stays, a tap saying why' : 'is gone'}', () async {
-        final policy = await installMarketGatingPolicy(how, targets: _trading);
-        expect(sendGiftShown(policy), region);
-        expect(sendPickRegionBlock(policy)?.capability,
-            region ? 'polymarket.trade' : null);
+    test(
+        'both venues\' browse refused for a region: the gift stays, the '
+        'browse refusal standing in front of it', () async {
+      const region = {
+        'allowed': false,
+        'reason': 'country_blocked',
+        'regions': kGatingRegions,
+      };
+      final policy = await installMarketGatingPolicy(null, overrides: {
+        'polymarket.browse': region,
+        'hyperliquid.browse': region,
       });
-    }
+      expect(sendPickOffered(policy), isFalse);
+      expect(sendGiftShown(policy), isTrue);
+      expect(sendGiftBrowseBlock(policy)?.capability, 'polymarket.browse');
+    });
 
     test('Predictions fail open on an unknown location: the pick is offered',
         () async {
@@ -319,8 +345,9 @@ void main() {
       }
 
       testWidgets(
-          'a backend that cascades the swap block to Investing only: the '
-          'Investing rows go, Predictions stay', (tester) async {
+          'a backend that cascades the swap block to Investing only: both '
+          'are listed, the slip of an Investing market says why',
+          (tester) async {
         await tester.runAsync(() => installMarketGatingPolicy(null, overrides: {
               'hyperliquid.trade': {
                 'allowed': false,
@@ -331,14 +358,23 @@ void main() {
             }));
         await open(tester);
         expect(find.byType(SearchPredictionRow), findsOneWidget);
-        expect(find.byType(SearchMoverGrid), findsNothing);
+        expect(find.byType(SearchMoverGrid), findsOneWidget);
       });
 
-      testWidgets('coming soon on Predictions: only Investing is listed',
+      testWidgets('the swap country block: both venues are listed',
+          (tester) async {
+        await tester.runAsync(
+            () => installMarketGatingPolicy(MarketDenial.swapCountryBlock));
+        await open(tester);
+        expect(find.byType(SearchPredictionRow), findsOneWidget);
+        expect(find.byType(SearchMoverGrid), findsOneWidget);
+      });
+
+      testWidgets('coming soon on Predictions\' browse: only Investing is listed',
           (tester) async {
         await tester.runAsync(() => installMarketGatingPolicy(
             MarketDenial.comingSoon,
-            targets: {'polymarket.trade'}));
+            targets: {'polymarket.browse'}));
         await open(tester);
         expect(find.byType(SearchPredictionRow), findsNothing);
         expect(find.byType(SearchMoverGrid), findsOneWidget);

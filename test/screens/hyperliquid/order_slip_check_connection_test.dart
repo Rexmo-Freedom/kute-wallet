@@ -8,7 +8,10 @@
 // on the send"). In SEND MODE (opened from Send; slip_share.dart,
 // send_pick_session.dart) the ticket's one primary is the send: "Send $25
 // · Long Bitcoin" sends THIS investment (Long, the amount), never an
-// order; refused here, "Send the market", the market's card only.
+// order. THE SLIP IS THE GATE (founder, 8 November 2026): refused for a
+// region, the ticket's own reason and "Check connection", the send again
+// once that finds it open; refused otherwise, the reason over the send
+// disabled; never a link for a refused market.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -35,6 +38,7 @@ import 'package:kute/services/investment_provider_availability.dart';
 import 'package:kute/services/kute_haptics.dart';
 import 'package:kute/services/region_freshness.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
+import 'package:kute/services/tracking_service.dart';
 import 'package:money2/money2.dart';
 
 import '../../helpers/fake_swap_orders.dart';
@@ -62,11 +66,11 @@ class _Currency extends StateNotifier<CurrencyState>
 /// denial for new positions while [blocked].
 class _Policy extends Fake implements RuntimeCapabilitiesService {
   bool blocked = true;
-  static const _region =
-      CapabilityDecision(allowed: false, reason: 'country_blocked');
+  CapabilityDecision refusal =
+      const CapabilityDecision(allowed: false, reason: 'country_blocked');
   @override
   CapabilityDecision decision(String id) => blocked && id == 'hyperliquid.trade'
-      ? _region
+      ? refusal
       : const CapabilityDecision(allowed: true);
   @override
   bool allows(String id) => decision(id).allowed;
@@ -326,15 +330,79 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     });
 
-    testWidgets('refused here: "Send the market", the market\'s card only',
-        (tester) async {
+    testWidgets(
+        'refused for a region: the ticket\'s own reason and "Check '
+        'connection", no send and no link; the refusal reports the gift\'s '
+        'surface', (tester) async {
+      final events = <(String, Map<String, Object?>?)>[];
+      TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+      addTearDown(() => TrackingService.debugTrackObserver = null);
       await _pumpSlip(tester, Future.value(_snapshot(500)), policy,
           initialUsd: 25, sendPick: session());
-      expect(barPrimaryLabel(tester), 'Send the market');
+      expect(find.widgetWithText(CapabilityBlockNote, _regionSentence),
+          findsOneWidget);
+      expect(barPrimaryLabel(tester), 'Check connection');
+      expect(barPrimaryEnabled(tester), isTrue);
+      expect(events.map((e) => e.$1), contains('hyperliquid_geoblocked_shown'));
+      expect(
+          events.firstWhere((e) => e.$1 == 'capability_region_blocked').$2,
+          containsPair('surface', kSendModeSlipSource));
+      // Still refused: the refusal stays.
+      await tapCheck(tester);
+      expect(barPrimaryLabel(tester), 'Check connection');
+      expect(barPrimaryBusy(tester), isFalse);
+      expect(find.widgetWithText(CapabilityBlockNote, _regionSentence),
+          findsOneWidget);
+      expect(haptics.where((c) => c.method == 'softTap'), hasLength(1));
+      expect(sends, isEmpty);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    testWidgets(
+        'Check connection finding it open: the refusal lifts and the send '
+        'goes on', (tester) async {
+      await _pumpSlip(tester, Future.value(_snapshot(500)), policy,
+          initialUsd: 25, sendPick: session());
+      policy.blocked = false;
+      await tapCheck(tester);
+      expect(find.byType(CapabilityBlockNote), findsNothing);
+      expect(barPrimaryLabel(tester), r'Send $25 · Long Bitcoin');
+      expect(barPrimaryEnabled(tester), isTrue);
       await tapBarPrimary(tester, settle: false);
       await _frames(tester, 2);
-      expect(sends.single.$1, SlipSendRoute.market);
-      expect(sends.single.$2.investing, isTrue);
+      expect(sends.single.$1, SlipSendRoute.pick);
+      expect(sends.single.$2.blocked, isFalse);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    testWidgets(
+        'a refusal that is no region\'s: the reason over the send disabled, '
+        'no Check connection, a tap sends nothing', (tester) async {
+      policy.refusal =
+          const CapabilityDecision(allowed: false, reason: 'disabled');
+      await _pumpSlip(tester, Future.value(_snapshot(500)), policy,
+          initialUsd: 25, sendPick: session());
+      expect(find.byType(CapabilityBlockNote), findsOneWidget);
+      expect(barPrimaryLabel(tester), r'Send $25 · Long Bitcoin');
+      expect(barPrimaryEnabled(tester), isFalse);
+      await tester.tap(findBarPrimary(), warnIfMissed: false);
+      await _frames(tester, 2);
+      expect(sends, isEmpty);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    testWidgets(
+        'refused only by the time of the tap: asked again, it stops there '
+        'and says why; no link', (tester) async {
+      policy.blocked = false;
+      await _pumpSlip(tester, Future.value(_snapshot(500)), policy,
+          initialUsd: 25, sendPick: session());
+      expect(barPrimaryLabel(tester), r'Send $25 · Long Bitcoin');
+      policy.blocked = true;
+      await tapBarPrimary(tester, settle: false);
+      await _frames(tester);
+      expect(sends, isEmpty);
+      expect(barPrimaryLabel(tester), 'Check connection');
       await tester.pumpWidget(const SizedBox.shrink());
     });
   });
