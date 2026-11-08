@@ -61,8 +61,8 @@ void main() {
       ),
     );
     expect(_pillLabels(tester), [
-      'Trending', 'Breaking', 'New', 'Live', 'Politics', 'Sports', 'Crypto',
-      'Esports', 'Finance', 'Geopolitics', 'Tech', 'Culture', 'Economy',
+      'Trending', 'Instant', 'Breaking', 'New', 'Live', 'Politics', 'Sports',
+      'Crypto', 'Esports', 'Finance', 'Geopolitics', 'Tech', 'Culture', 'Economy',
       'Weather', 'Mentions', 'Elections', 'More ›', //
     ]);
     // No icons and no images on category pills.

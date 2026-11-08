@@ -9736,6 +9736,9 @@ class AppLocalizationsSl extends AppLocalizations {
   String get usdSendConvertedFromDollars => 'Pretvorjeno iz vaših dolarjev';
 
   @override
+  String get polyPillInstant => 'Takojšnje';
+
+  @override
   String get polyPillTrending => 'Priljubljeno';
 
   @override
@@ -11607,6 +11610,16 @@ class AppLocalizationsSl extends AppLocalizations {
       one: '$count trg',
     );
     return '$_temp0';
+  }
+
+  @override
+  String categoryInstantAssets(String first, String second) {
+    return '$first, $second in druge';
+  }
+
+  @override
+  String categoryInstantNext(String time) {
+    return 'Naslednji krog čez $time';
   }
 
   @override

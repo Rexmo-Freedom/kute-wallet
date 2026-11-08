@@ -177,6 +177,8 @@ void main() {
     expect(offered.length, greaterThan(6));
     for (final p in offered.take(4)) {
       expect(_salTile(p.key), findsOneWidget, reason: p.key);
+      // Instant wears its coins, bundled, never a glyph.
+      if (p == PolyPill.instant) continue;
       expect(
           find.descendant(
               of: _salTile(p.key),

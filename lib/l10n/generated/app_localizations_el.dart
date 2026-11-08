@@ -9771,6 +9771,9 @@ class AppLocalizationsEl extends AppLocalizations {
   String get usdSendConvertedFromDollars => 'Μετατροπή από τα δολάριά σου';
 
   @override
+  String get polyPillInstant => 'Άμεσες';
+
+  @override
   String get polyPillTrending => 'Τάσεις';
 
   @override
@@ -11642,6 +11645,16 @@ class AppLocalizationsEl extends AppLocalizations {
       one: '1 αγορά',
     );
     return '$_temp0';
+  }
+
+  @override
+  String categoryInstantAssets(String first, String second) {
+    return '$first, $second και άλλα';
+  }
+
+  @override
+  String categoryInstantNext(String time) {
+    return 'Επόμενος γύρος σε $time';
   }
 
   @override

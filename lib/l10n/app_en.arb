@@ -6068,6 +6068,10 @@
   "@usdSendConvertedFromDollars": {
     "description": "Send dollars, destination row subtitle when the recipient gets another coin."
   },
+  "polyPillInstant": "Instant",
+  "@polyPillInstant": {
+    "description": "Predictions category: the crypto rounds (BTC up or down every 5 minutes and so on), one live card per asset. One short word or two: it sits on a half-width card."
+  },
   "polyPillTrending": "Trending",
   "polyPillBreaking": "Breaking",
   "polyPillNew": "New",
@@ -8445,6 +8449,21 @@
       "count": {
         "type": "int"
       }
+    }
+  },
+  "categoryInstantAssets": "{first}, {second} and more",
+  "@categoryInstantAssets": {
+    "description": "Category sheet, the Instant card's line: which coins it has (tickers).",
+    "placeholders": {
+      "first": {"type": "String"},
+      "second": {"type": "String"}
+    }
+  },
+  "categoryInstantNext": "Next round in {time}",
+  "@categoryInstantNext": {
+    "description": "Category sheet, the Instant card's second line: how long until the next five-minute round starts, a clock such as 2:13.",
+    "placeholders": {
+      "time": {"type": "String"}
     }
   },
   "categoryStatMostActive": "Most active",

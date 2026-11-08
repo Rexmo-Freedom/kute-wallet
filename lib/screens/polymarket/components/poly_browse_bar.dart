@@ -30,6 +30,7 @@ import 'package:kute/theme/app_theme.dart';
 String polyPillLabel(AppLocalizations l10n, PolyPill pill) => switch (pill) {
       PolyPill.watchlist => '★ ${l10n.polyPillWatchlist}',
       PolyPill.trending => l10n.polyPillTrending,
+      PolyPill.instant => l10n.polyPillInstant,
       PolyPill.breaking => l10n.polyPillBreaking,
       PolyPill.newest => l10n.polyPillNew,
       PolyPill.live => l10n.polyPillLive,
@@ -468,6 +469,7 @@ List<PolySub> polySubsFor(WidgetRef ref, PolyPill pill) {
       ];
     case PolyPill.watchlist:
     case PolyPill.trending:
+    case PolyPill.instant:
     case PolyPill.newest:
     case PolyPill.live:
     case PolyPill.mentions:

@@ -25,6 +25,7 @@ void main() {
       expect([for (final p in PolyPill.values) p.key], [
         'watchlist',
         'trending',
+        'instant',
         'breaking',
         'new',
         'live',
@@ -319,6 +320,8 @@ void main() {
           'live');
       expect(polyBrowseSelectionFromRouteKey('predictions/tech/science')!.sub,
           'route:science');
+      expect(polyBrowseSelectionFromRouteKey('predictions/instant')!.pill,
+          PolyPill.instant);
       final old = polyBrowseSelectionFromRouteKey('predictions/world')!;
       expect(old.pill, PolyPill.geopolitics);
     });

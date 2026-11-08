@@ -9756,6 +9756,9 @@ class AppLocalizationsRo extends AppLocalizations {
   String get usdSendConvertedFromDollars => 'Convertit din dolarii tăi';
 
   @override
+  String get polyPillInstant => 'Instant';
+
+  @override
   String get polyPillTrending => 'În tendințe';
 
   @override
@@ -11623,6 +11626,16 @@ class AppLocalizationsRo extends AppLocalizations {
       one: '1 piață',
     );
     return '$_temp0';
+  }
+
+  @override
+  String categoryInstantAssets(String first, String second) {
+    return '$first, $second și altele';
+  }
+
+  @override
+  String categoryInstantNext(String time) {
+    return 'Runda următoare în $time';
   }
 
   @override

@@ -9723,6 +9723,9 @@ class AppLocalizationsHr extends AppLocalizations {
   String get usdSendConvertedFromDollars => 'Pretvoreno iz tvojih dolara';
 
   @override
+  String get polyPillInstant => 'Trenutačne';
+
+  @override
   String get polyPillTrending => 'U trendu';
 
   @override
@@ -11593,6 +11596,16 @@ class AppLocalizationsHr extends AppLocalizations {
       one: '$count tržište',
     );
     return '$_temp0';
+  }
+
+  @override
+  String categoryInstantAssets(String first, String second) {
+    return '$first, $second i ostale';
+  }
+
+  @override
+  String categoryInstantNext(String time) {
+    return 'Sljedeći krug za $time';
   }
 
   @override

@@ -9696,6 +9696,9 @@ class AppLocalizationsCs extends AppLocalizations {
   String get usdSendConvertedFromDollars => 'Převedeno z tvých dolarů';
 
   @override
+  String get polyPillInstant => 'Okamžité';
+
+  @override
   String get polyPillTrending => 'Trendy';
 
   @override
@@ -11565,6 +11568,16 @@ class AppLocalizationsCs extends AppLocalizations {
       one: '1 trh',
     );
     return '$_temp0';
+  }
+
+  @override
+  String categoryInstantAssets(String first, String second) {
+    return '$first, $second a další';
+  }
+
+  @override
+  String categoryInstantNext(String time) {
+    return 'Další kolo za $time';
   }
 
   @override

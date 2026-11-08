@@ -3109,10 +3109,8 @@ class PolymarketModel {
   Future<Btc5MinEvent?> getCryptoUpdown5MinEvent(
     String asset, {
     /// When non-null, fetches the specific window whose start epoch
-    /// (seconds, aligned to [minutes]) is `targetWindowEpoch`. Used by
-    /// the Instant tab's window-picker so users can pre-stage a bet on
-    /// an upcoming round (#163). When null, falls back to the
-    /// current/previous window.
+    /// (seconds, aligned to [minutes]) is `targetWindowEpoch`. When null,
+    /// falls back to the current/previous window.
     int? targetWindowEpoch,
     int minutes = 5,
   }) async {

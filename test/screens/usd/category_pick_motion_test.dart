@@ -585,7 +585,7 @@ void main() {
     await _openSheet(tester, InvestmentsTab.predictions,
         overrides: _predictionsOverrides(), browse: true);
 
-    // Trending, the wide row: three images stacked, "Most active · $X vol
+    // Trending, beside Instant: three images stacked, "Most active · $X vol
     // today", never the bare dot.
     final trending = _tile(PolyPill.trending.key);
     expect(tester.getSize(trending).height, greaterThanOrEqualTo(64));
@@ -655,12 +655,14 @@ void main() {
     final keys = [
       for (final p in PolyPill.values)
         if (p != PolyPill.trending &&
+            p != PolyPill.instant &&
             p != PolyPill.watchlist &&
             _tile(p.key).evaluate().isNotEmpty)
           p.key,
     ];
     expect(keys.length, greaterThan(6));
-    final width = tester.getSize(trending).width;
+    // Trending is one of the two square cards on top, half the width.
+    final width = tester.getSize(trending).width * 2 + 8;
     for (final (i, key) in keys.indexed) {
       final rect = tester.getRect(find
           .descendant(of: _tile(key), matching: find.byType(AnimatedContainer)));

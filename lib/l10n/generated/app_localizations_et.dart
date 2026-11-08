@@ -9688,6 +9688,9 @@ class AppLocalizationsEt extends AppLocalizations {
   String get usdSendConvertedFromDollars => 'Konverteeritud sinu dollaritest';
 
   @override
+  String get polyPillInstant => 'Kiired';
+
+  @override
   String get polyPillTrending => 'Populaarne';
 
   @override
@@ -11551,6 +11554,16 @@ class AppLocalizationsEt extends AppLocalizations {
       one: '1 turg',
     );
     return '$_temp0';
+  }
+
+  @override
+  String categoryInstantAssets(String first, String second) {
+    return '$first, $second ja teised';
+  }
+
+  @override
+  String categoryInstantNext(String time) {
+    return 'Järgmine voor $time pärast';
   }
 
   @override

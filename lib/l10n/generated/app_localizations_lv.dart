@@ -9673,6 +9673,9 @@ class AppLocalizationsLv extends AppLocalizations {
   String get usdSendConvertedFromDollars => 'Konvertēts no taviem dolāriem';
 
   @override
+  String get polyPillInstant => 'Tūlītējās';
+
+  @override
   String get polyPillTrending => 'Populāri';
 
   @override
@@ -11536,6 +11539,16 @@ class AppLocalizationsLv extends AppLocalizations {
       one: '$count tirgus',
     );
     return '$_temp0';
+  }
+
+  @override
+  String categoryInstantAssets(String first, String second) {
+    return '$first, $second un citas';
+  }
+
+  @override
+  String categoryInstantNext(String time) {
+    return 'Nākamā kārta pēc $time';
   }
 
   @override

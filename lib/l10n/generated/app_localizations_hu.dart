@@ -9725,6 +9725,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get usdSendConvertedFromDollars => 'A dollárjaidból átváltva';
 
   @override
+  String get polyPillInstant => 'Azonnali';
+
+  @override
   String get polyPillTrending => 'Felkapott';
 
   @override
@@ -11591,6 +11594,16 @@ class AppLocalizationsHu extends AppLocalizations {
       one: '1 piac',
     );
     return '$_temp0';
+  }
+
+  @override
+  String categoryInstantAssets(String first, String second) {
+    return '$first, $second és mások';
+  }
+
+  @override
+  String categoryInstantNext(String time) {
+    return 'Következő kör: $time';
   }
 
   @override
