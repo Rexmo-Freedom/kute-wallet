@@ -12,12 +12,16 @@
 //     "these receive and send from dollars seem too small and strange";
 //     both Receives say "Receive"), in the first steps' header, big on the
 //     left with the compact X at the top right (receive_surface.dart,
-//     SheetTitleHeader; "it is strange the size"), and the same search
-//     field, "Name, phone or any crypto address", Paste and Scan inside;
+//     SheetTitleHeader; "it is strange the size"), and the same field,
+//     the AI search bar's line, "Name, phone or any crypto address", Paste
+//     and Scan at its right;
 //   * no "Another crypto" card under it (founder, 7 November 2026:
 //     "another crypto should be implied not a button, we don't need it,
 //     it should just auto recognise"): the placeholder says it takes any
-//     crypto address. With no coin offered under the policy, the
+//     crypto address and the logos under the empty field show which
+//     (SendAcceptedCoins): Bitcoin and Lightning, which the Bitcoin Send
+//     pays when one is typed here, then the coins dollars really reach
+//     under the policy. With no coin offered under the policy, the
 //     unavailable line under the empty field says why;
 //   * THE INPUT DECIDES THE RAIL, however it arrives: an address the
 //     dollar send takes on one network resolves as the recipient card (the
@@ -433,6 +437,17 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
                       onPaste: () => unawaited(_paste()),
                       onScan: () => unawaited(_scan()),
                     ),
+                    // What the empty field takes: bitcoin's rails (handed
+                    // to the Bitcoin Send), then the coins dollars reach.
+                    if (text.isEmpty)
+                      SendAcceptedCoins(
+                        otherLegAsset: kOrchestraUsdAssetCode,
+                        rows: (catalog, _) => [
+                          for (final d
+                              in usdSendOfferedDestinations(catalog).offered)
+                            usdSendDestinationOption(d)
+                        ],
+                      ),
                     if (auto != null) ...[
                       // One recipient card, the person never listed again.
                       SizedBox(height: 20.h),

@@ -385,8 +385,20 @@ void main() {
       expect(find.byKey(const ValueKey('send-to-friend-row')), findsNothing);
 
       // No card under the field (founder: "another crypto should be
-      // implied not a button"): the Contacts follow right under it.
+      // implied not a button"): the logos of what it takes, the Contacts
+      // right under them.
       _expectNoAnotherCrypto();
+      final coins = find.byKey(const ValueKey('send-accepted-coins'));
+      expect(coins, findsOneWidget);
+      expect(
+          find.descendant(
+              of: coins, matching: find.byKey(const ValueKey('send-accepted-coin-BTC'))),
+          findsOneWidget);
+      expect(
+          find.descendant(
+              of: coins,
+              matching: find.byKey(const ValueKey('send-accepted-coin-Lightning'))),
+          findsOneWidget);
       expect(find.byType(KuteActionCardGrid), findsNothing);
       expect(find.byType(KuteActionCard), findsNothing);
       expect(find.text(_l10n.usdSendDestinationsUnavailable), findsNothing);
@@ -394,7 +406,7 @@ void main() {
       expect(
           top(find.text(_l10n.sendAllContacts)) -
               tester.getBottomLeft(find.byKey(_field)).dy,
-          inInclusiveRange(0, 48));
+          inInclusiveRange(0, 76));
 
       // The bar: the step's Continue, as on the Bitcoin Send's Who step,
       // off and saying what to do.

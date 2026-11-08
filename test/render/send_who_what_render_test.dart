@@ -12,8 +12,12 @@
 // "Receive" big on the left, the compact X at the top right), and the
 // drag handle, the title, the X and the first content line up to the
 // point on all four. Light and dark, on a 375 pt phone, Sal's sheets
-// loaded. Every frame lays out without an overflow; the PNGs are written
-// only when asked:
+// loaded. Then THE FIELD (founder, 8 November 2026: "make it clear with the
+// icons ... the search bar should be like the ai search bar", "same thing in
+// dollars"): both Sends at 320 and 375 pt wide, in a long language, with the
+// swap open and with it region-blocked, the coins under the empty field only
+// what is really open. Every frame lays out without an overflow; the PNGs are
+// written only when asked:
 //
 //   SEND_WHO_RENDER=<dir> flutter test test/render/send_who_what_render_test.dart
 
@@ -44,6 +48,7 @@ import 'package:kute/providers/accounts_provider.dart'
     show selectedAccountProvider, swapOffersEnabledProvider;
 import 'package:kute/providers/breez_config_provider.dart'
     show breezSDKProvider;
+import 'package:kute/providers/asset_icon_provider.dart' show AssetIcon;
 import 'package:kute/providers/balance_provider.dart'
     show WalletBalanceCacheNotifier, walletBalanceCacheProvider;
 import 'package:kute/providers/orchestra_supported_routes_provider.dart';
@@ -184,8 +189,16 @@ Future<void> _sal(WidgetTester tester) => tester.runAsync(() async {
           .loadString('$kSalSpriteDir/manifest.json')) as Map<String, dynamic>);
       for (final density in [2, 3]) {
         await SalSpriteCache.clip('share', density);
+        await SalSpriteCache.clip('search', density);
       }
     });
+
+/// The shell bar, with the logos decoded for a 3x phone as the shot is:
+/// the view stays at 1x (the geometry the tests read).
+Widget _atPhoneDensity(BuildContext context, Widget? child) => MediaQuery(
+      data: MediaQuery.of(context).copyWith(devicePixelRatio: 3),
+      child: withKuteShellBar(context, child),
+    );
 
 Future<void> _settle(WidgetTester tester) async {
   for (var i = 0; i < 8; i++) {
@@ -198,6 +211,13 @@ Future<void> _capture(WidgetTester tester, String name) async {
   expect(error, isNull, reason: '$name overflowed: $error');
   final dir = _dir;
   if (dir == null) return;
+  // The bundled logos decoded for real before the shot: a frame in a test
+  // never waits for them.
+  for (final e in find.byType(Image).evaluate().toList()) {
+    await tester.runAsync(
+        () => precacheImage((e.widget as Image).image, e));
+  }
+  await tester.pump();
   // The cards' soft shadows drawn as on a phone for the shot (a test
   // draws them unblurred), then flat again.
   debugDisableShadows = false;
@@ -247,15 +267,21 @@ void main() {
   });
 
   Future<void> pumpSend(WidgetTester tester,
-      {required bool dark, Locale? locale}) async {
+      {required bool dark,
+      Locale? locale,
+      Size size = const Size(375, 812),
+      Set<String> blocked = const {},
+      Map<String, String> reasons = const {}}) async {
     await tester.runAsync(loadShareCardFonts);
     await _sal(tester);
     AffiliateService.debugSessionToken = 'test-session';
     final policy = runtimePolicyFixture(
+        blocked: blocked,
+        reasons: reasons,
         also: const {'polymarket.browse', 'hyperliquid.browse'});
     RuntimeCapabilitiesService.debugInstance = policy;
     await tester.runAsync(policy.refresh);
-    tester.view.physicalSize = const Size(375, 812);
+    tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     tester.platformDispatcher.accessibilityFeaturesTestValue =
@@ -301,7 +327,7 @@ void main() {
       child: ScreenUtilInit(
         designSize: const Size(430, 932),
         builder: (_, __) => MaterialApp.router(
-          builder: withKuteShellBar,
+          builder: _atPhoneDensity,
           routerConfig: router,
           locale: locale,
           theme: base.copyWith(
@@ -317,15 +343,21 @@ void main() {
   }
 
   Future<void> pumpDollars(WidgetTester tester,
-      {required bool dark, Locale? locale}) async {
+      {required bool dark,
+      Locale? locale,
+      Size size = const Size(375, 812),
+      Set<String> blocked = const {},
+      Map<String, String> reasons = const {}}) async {
     await tester.runAsync(loadShareCardFonts);
     await _sal(tester);
     AffiliateService.debugSessionToken = 'test-session';
     final policy = runtimePolicyFixture(
+        blocked: blocked,
+        reasons: reasons,
         also: const {'polymarket.browse', 'hyperliquid.browse'});
     RuntimeCapabilitiesService.debugInstance = policy;
     await tester.runAsync(policy.refresh);
-    tester.view.physicalSize = const Size(375, 812);
+    tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     tester.platformDispatcher.accessibilityFeaturesTestValue =
@@ -347,7 +379,7 @@ void main() {
       child: ScreenUtilInit(
         designSize: const Size(430, 932),
         builder: (_, __) => MaterialApp(
-          builder: withKuteShellBar,
+          builder: _atPhoneDensity,
           locale: locale,
           theme: base.copyWith(
               textTheme: base.textTheme.apply(fontFamily: 'Inter')),
@@ -463,8 +495,84 @@ void main() {
     };
   }
 
+  /// The logos shown under the field, left to right, as `AssetIcon` codes.
+  List<String> coinsShown(WidgetTester tester) => [
+        for (final e in find
+            .descendant(
+                of: find.byKey(const ValueKey('send-accepted-coins')),
+                matching: find.byType(AssetIcon))
+            .evaluate())
+          (e.widget as AssetIcon).assetCode
+      ];
+
   for (final dark in [false, true]) {
     final theme = dark ? 'dark' : 'light';
+
+    // Plain 320 is the narrow phone at a normal height (the text at its
+    // widest for the width); 568 tall is the shortest there is.
+    for (final (width, height) in [(320.0, 693.0), (320.0, 568.0), (375.0, 812.0)]) {
+      final at = '${width.toInt()}x${height.toInt()}';
+      final size = Size(width, height);
+      const blocked = {'orchestra.swap'};
+      const reasons = {'orchestra.swap': 'country_blocked'};
+
+      testWidgets('render: field-bitcoin-$at-open-$theme', (tester) async {
+        await pumpSend(tester, dark: dark, size: size);
+        expect(coinsShown(tester).take(6),
+            ['BTC', 'Lightning', 'USDC', 'ETH', 'USDT', 'SOL']);
+        expect(find.byKey(const ValueKey('send-accepted-coins-more')),
+            findsOneWidget);
+        await _capture(tester, 'field-bitcoin-$at-open-$theme');
+      });
+
+      testWidgets('render: field-bitcoin-$at-blocked-$theme', (tester) async {
+        await pumpSend(tester,
+            dark: dark, size: size, blocked: blocked, reasons: reasons);
+        expect(coinsShown(tester), ['BTC', 'Lightning']);
+        await _capture(tester, 'field-bitcoin-$at-blocked-$theme');
+      });
+
+      testWidgets('render: field-dollars-$at-open-$theme', (tester) async {
+        await pumpDollars(tester, dark: dark, size: size);
+        expect(coinsShown(tester).take(6),
+            ['BTC', 'Lightning', 'USDC', 'ETH', 'USDT', 'SOL']);
+        await _capture(tester, 'field-dollars-$at-open-$theme');
+      });
+
+      testWidgets('render: field-dollars-$at-blocked-$theme', (tester) async {
+        await pumpDollars(tester,
+            dark: dark, size: size, blocked: blocked, reasons: reasons);
+        expect(coinsShown(tester), ['BTC', 'Lightning']);
+        await _capture(tester, 'field-dollars-$at-blocked-$theme');
+      });
+    }
+
+    for (final language in ['sl', 'de', 'ja']) {
+      testWidgets('render: field-long-$language-$theme', (tester) async {
+        await pumpSend(tester,
+            dark: dark, locale: Locale(language), size: const Size(320, 693));
+        await _capture(tester, 'field-long-$language-bitcoin-$theme');
+        await tester.pumpWidget(const SizedBox());
+        await _settle(tester);
+        await pumpDollars(tester,
+            dark: dark, locale: Locale(language), size: const Size(320, 693));
+        await _capture(tester, 'field-long-$language-dollars-$theme');
+      });
+    }
+
+    testWidgets('render: field-typed-$theme', (tester) async {
+      await pumpSend(tester, dark: dark, size: const Size(320, 693));
+      await tester.enterText(find.byType(TextField).first,
+          'lnbc1500n0qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4qw508d6qejxtdg4y');
+      await _settle(tester);
+      expect(find.byKey(const ValueKey('send-accepted-coins')), findsNothing);
+      await _capture(tester, 'field-typed-long-$theme');
+      await tester.enterText(find.byType(TextField).first, 'mar');
+      await _settle(tester);
+      expect(find.byKey(const ValueKey('send-accepted-coins')), findsNothing);
+      expect(find.byKey(const ValueKey('send-field-clear')), findsOneWidget);
+      await _capture(tester, 'field-typed-name-$theme');
+    });
 
     testWidgets(
         'the first steps\' header lines up on all four sheets ($theme): the '

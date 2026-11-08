@@ -337,13 +337,17 @@ String? coinNetworkRowNote(
 /// (founder decision, 27 October 2026): its tap says why instead
 /// ([coinPickStoppedByRegion]). What
 /// [CoinAssetPickerSheet] offers, and what a step that shows the grid
-/// itself offers, so the two can never be a different set.
+/// itself offers, so the two can never be a different set. With
+/// [keepRegionBlocked] false a region-blocked network goes too: what is
+/// really open, for a surface with no tap to say why (the Send field's
+/// coin marks).
 ({List<CoinAssetGroup> groups, String? hiddenReason})
     coinGroupsOfferedUnderPolicy(
   List<CoinAssetGroup> groups, {
   String otherLegAsset = 'BTC',
   bool depositAddress = false,
   String? reusableLegAsset,
+  bool keepRegionBlocked = true,
 }) {
   final policy = RuntimeCapabilitiesService.instance;
   final offered = <CoinAssetGroup>[];
@@ -352,7 +356,8 @@ String? coinNetworkRowNote(
     final result = orchestraOptionsOfferedUnderPolicy(group.options, policy,
         otherLegAsset: otherLegAsset,
         depositAddress: depositAddress,
-        reusableLegAsset: reusableLegAsset);
+        reusableLegAsset: reusableLegAsset,
+        keepRegionBlocked: keepRegionBlocked);
     reason ??= result.hiddenReason;
     if (result.offered.isEmpty) continue;
     offered.add(result.offered.length == group.options.length
