@@ -234,6 +234,24 @@ Future<InvestmentsTab> _pumpDollars(
       .read(investmentsTabProvider);
 }
 
+/// A position open: the map is on Overview only then (nothing open: Sal).
+Override _holdingOne() =>
+    hyperliquidTradingProvider.overrideWith(() => PortfolioTestTrading(
+        HyperliquidTradingState(isInitialized: true, positions: [
+          HlPerpPosition(
+              coin: 'BTC',
+              szi: 1,
+              entryPx: 100,
+              positionValue: 200,
+              unrealizedPnl: 3,
+              returnOnEquity: 0.03,
+              liquidationPx: null,
+              marginUsed: 100,
+              leverageType: 'cross',
+              leverageValue: 2,
+              maxLeverage: 40),
+        ])));
+
 final _map = find.byKey(const ValueKey('hl-market-map'), skipOffstage: false);
 final _mapBones =
     find.byKey(const ValueKey('hl-market-map-loading'), skipOffstage: false);
@@ -323,7 +341,9 @@ void main() {
         'Investing holds the squares and the list, no map', (tester) async {
       final policy = auditPolicy();
       expect(await policy.refresh(), isTrue);
-      expect(await _pumpDollars(tester, policy), InvestmentsTab.activity);
+      expect(
+          await _pumpDollars(tester, policy, overrides: [_holdingOne()]),
+          InvestmentsTab.activity);
       expect(_map, findsOneWidget);
       expect(
           find.descendant(
@@ -382,7 +402,7 @@ void main() {
           'map with no stock-linked tile', (tester) async {
         final policy = auditDenying(const ['hyperliquid.stocks'], denial);
         expect(await policy.refresh(), isTrue);
-        expect(await _pumpDollars(tester, policy), InvestmentsTab.activity);
+        expect(await _pumpDollars(tester, policy, overrides: [_holdingOne()]), InvestmentsTab.activity);
         expect(_map, findsOneWidget);
         final painter = tester
             .widgetList<CustomPaint>(
