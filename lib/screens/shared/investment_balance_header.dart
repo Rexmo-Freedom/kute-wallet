@@ -7,8 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
-import 'package:kute/providers/currency_conversions_provider.dart'
-    show selectedCurrencyProviderFromUSD;
 import 'package:kute/providers/investment_balances_provider.dart';
 import 'package:kute/providers/one_balance_provider.dart';
 import 'package:kute/providers/pending_pool_deposits_provider.dart';
@@ -86,7 +84,9 @@ class InvestmentDiscoveryNotice extends ConsumerWidget {
 ///     every venue, the portfolio glyph (an arrow with a pie badge, built
 ///     like the hub's + gear) right after it
 ///     ([PortfolioArrowGlyph]); under it "Invested $X · Available $Y"
-///     ([OneBalanceSplitLine]; founder, 4 November 2026), the two adding
+///     ([OneBalanceSplitLine]; founder, 4 November 2026), all in dollars
+///     whatever the Settings currency (founder, 8 November 2026: "dollars
+///     balance do not convert to currency"), the two adding
 ///     up to the total ([oneBalanceSplit]; Invested: positions, reserved
 ///     order cash and pending fills; Available: the rest, Dollars and the
 ///     venues' cash). While anything is on a rail the in-flight lines
@@ -290,9 +290,9 @@ class InvestmentBalanceHeader extends ConsumerWidget {
 
   /// The hero's "Invested · Available" under its total, as printed: the
   /// split of the total the hero prints ([oneBalanceSplit]: they add up to
-  /// it, less the money the in-flight lines name, to the cent in the
-  /// currency on screen), from the same snapshot as the figure (a saved
-  /// one, dimmed, while a venue is still on its way).
+  /// it, less the money the in-flight lines name, to the cent), from the
+  /// same snapshot as the figure (a saved one, dimmed, while a venue is
+  /// still on its way). In dollars, whatever the Settings currency.
   static ({double investedUsd, double availableUsd, bool stale})
       oneBalanceSplitFigures(WidgetRef ref) {
     final display = _oneBalanceDisplay(ref);
@@ -300,7 +300,6 @@ class InvestmentBalanceHeader extends ConsumerWidget {
       totalUsd: display.total,
       investedUsd: display.invested,
       onLinesUsd: ref.watch(oneBalanceProvider).onLinesUsd,
-      rate: _displayRate(ref),
     );
     return (
       investedUsd: split.investedUsd,
@@ -309,22 +308,12 @@ class InvestmentBalanceHeader extends ConsumerWidget {
     );
   }
 
-  /// US dollars to the currency on screen (1 for USD, and while no rate is
-  /// known: the formatter then prints dollars too).
-  static double _displayRate(WidgetRef ref) {
-    final currency = ref.watch(settingsProvider.select((s) => s.currency));
-    if (currency == 'USD') return 1;
-    final rate =
-        ref.watch(selectedCurrencyProviderFromUSD(currency)).toDouble();
-    return rate.isFinite && rate > 0 ? rate : 1;
-  }
-
   /// The hero's displayed total, also used by the collapsed Investments bar.
   static ({String text, bool stale}) oneBalanceFigure(WidgetRef ref) {
     final display = _oneBalanceDisplay(ref);
     final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
     return (
-      text: visible ? formatPolyFiatForced(ref, display.total) : '••••••',
+      text: visible ? formatDollarsBalance(display.total) : '••••••',
       stale: display.stale,
     );
   }
@@ -360,7 +349,7 @@ class _OneBalanceHeroState extends ConsumerState<_OneBalanceHero> {
     final state = ref.watch(oneBalanceProvider);
     final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
     String amount(double value) =>
-        visible ? formatPolyFiatForced(ref, value) : '••••••';
+        visible ? formatDollarsBalance(value) : '••••••';
     final lines = InvestmentBalanceHeader.inFlightLines(context, state, amount);
     final split = InvestmentBalanceHeader.oneBalanceSplitFigures(ref);
     final figure = InvestmentBalanceHeader.oneBalanceFigure(ref);

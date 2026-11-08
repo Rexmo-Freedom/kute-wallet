@@ -1,5 +1,7 @@
 // Investment amounts always follow the selected fiat currency. Bitcoin
 // comparisons are performance metrics, never an alternative balance mode.
+// The Dollars balance itself is the exception: it IS dollars, so it never
+// converts ([formatDollarsBalance]; founder, 8 November 2026).
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:kute/providers/currency_conversions_provider.dart';
@@ -26,6 +28,11 @@ String formatPolyAmount(WidgetRef ref, double usdAmount,
 String formatPolyFiatForced(WidgetRef ref, double usdAmount,
         {int decimalDigits = 2}) =>
     formatPolyAmount(ref, usdAmount, decimalDigits: decimalDigits);
+
+/// The Dollars balance as dollars, whatever the Settings currency.
+String formatDollarsBalance(double usdAmount, {int decimalDigits = 2}) =>
+    NumberFormat.simpleCurrency(name: 'USD', decimalDigits: decimalDigits)
+        .format(usdAmount);
 
 String polyDisplayLabel(WidgetRef ref) =>
     NumberFormat.simpleCurrency(name: ref.read(settingsProvider).currency)

@@ -9,6 +9,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/settings_model.dart';
+import 'package:kute/providers/currency_conversions_provider.dart'
+    show selectedCurrencyProviderFromUSD;
+import 'package:money2/money2.dart';
 import 'package:kute/providers/investment_balances_provider.dart';
 import 'package:kute/providers/one_balance_provider.dart';
 import 'package:kute/providers/pending_pool_deposits_provider.dart';
@@ -54,6 +57,7 @@ Future<void> _pump(WidgetTester tester, Widget child,
     Locale? locale,
     List<WalletConfig> wallets = const [],
     int balancePrivacy = 0,
+    String currency = 'USD',
     bool settle = true}) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
@@ -62,7 +66,7 @@ Future<void> _pump(WidgetTester tester, Widget child,
   await tester.pumpWidget(ProviderScope(
       overrides: [
         settingsProvider.overrideWith((_) => SettingsModel(Settings(
-              currency: 'USD',
+              currency: currency,
               language: 'en',
               btcFormat: 'sats',
               backup: false,
@@ -264,6 +268,24 @@ void main() {
             overrides: [oneBalanceProvider.overrideWithValue(state)]);
 
     final chevron = find.byKey(const ValueKey('investments-balance-chevron'));
+
+    testWidgets('the balance stays in dollars with euros in Settings',
+        (tester) async {
+      await _pump(
+          tester,
+          const InvestmentBalanceHeader(
+              product: InvestmentsProduct.trading, oneBalance: true),
+          currency: 'EUR',
+          overrides: [
+            oneBalanceProvider.overrideWithValue(known),
+            selectedCurrencyProviderFromUSD('EUR').overrideWith((_) =>
+                Money.fromIntWithCurrency(92, Currencies().find('EUR')!)),
+          ]);
+      expect(header(tester).amountText, r'$100.00');
+      expect(_split(tester), (r'$57.50', r'$42.50'));
+      expect(find.textContaining('€'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
 
     testWidgets(
         'no title: the total with "Invested · Available" under it, no '
