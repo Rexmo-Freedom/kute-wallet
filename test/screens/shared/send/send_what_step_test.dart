@@ -8,10 +8,14 @@
 //
 // Then THE GIFT IS ALWAYS THERE (founder, 8 November 2026: "we need to have
 // it as an option always"), on both Sends: with nothing held and no venue
-// cash the gift shows and its tap opens the search; only the policy stands
-// in its way. A region block (or no policy read yet) keeps the card and its
-// tap says why, asking again first; a refusal of another kind on both
-// venues leaves the money card alone, full width and compact.
+// cash the gift shows and its tap opens the search. A refused trade never
+// stops it here (founder, 8 November 2026: "only on the last screen, the bet
+// slip, show this error, not in this part"); the slips' refusal is in
+// bet_slip_check_connection_test.dart and order_slip_check_connection_test
+// .dart. Only nothing to list stands in its way: both venues' browse shut
+// for a region (or no policy read yet) keeps the card and its tap says why,
+// asking again first; a refusal of another kind on both leaves the money
+// card alone, full width and compact.
 
 import 'dart:collection' show SetBase;
 
@@ -200,13 +204,18 @@ class _LiveSet extends SetBase<String> {
 
 const _regions = {'label': 'the European Union, the UK and Switzerland'};
 const _trading = {'polymarket.trade', 'hyperliquid.trade'};
+const _browse = {'polymarket.browse', 'hyperliquid.browse'};
 const _regionReasons = {
   'polymarket.trade': 'country_blocked',
   'hyperliquid.trade': 'country_blocked',
+  'polymarket.browse': 'country_blocked',
+  'hyperliquid.browse': 'country_blocked',
 };
 const _regionNames = {
   'polymarket.trade': {'regions': _regions},
   'hyperliquid.trade': {'regions': _regions},
+  'polymarket.browse': {'regions': _regions},
+  'hyperliquid.browse': {'regions': _regions},
 };
 
 /// Every word of every paragraph under [card] sits whole on its line, and
@@ -329,12 +338,36 @@ void main() {
       });
 
       testWidgets(
-          'neither venue open for a region: the card stays and its tap says '
+          'both venues\' trade refused, for a region or by a switch: no '
+          'Unavailable sheet, the tap counts its answer and opens the search',
+          (tester) async {
+        for (final reasons in [_regionReasons, const <String, String>{}]) {
+          await _policy(tester,
+              blocked: () => _trading,
+              reasons: reasons,
+              decorations: _regionNames);
+          final picked = <Map<String, Object?>?>[];
+          TrackingService.debugTrackObserver = (e, p) {
+            if (e == 'send_what_picked') picked.add(p);
+          };
+          final flow = await _pumpPerson(tester, home);
+          await tester.tap(find.byKey(kSendWhatGiftKey));
+          await tester.pumpAndSettle();
+          expect(find.byType(CapabilityUnavailableSheet), findsNothing);
+          expect(find.byType(SendWhatSheet), findsNothing);
+          expect(flow.gifts, 1);
+          expect(picked.single, {'what': 'gift', 'home': home.name});
+          RuntimeCapabilitiesService.debugInstance?.dispose();
+        }
+      });
+
+      testWidgets(
+          'neither venue\'s browse open for a region: the card stays and its tap says '
           'why, the named regions and Check connection, opening nothing and '
           'counting no answer; the What step is still under it',
           (tester) async {
         await _policy(tester,
-            blocked: () => _trading,
+            blocked: () => _browse,
             reasons: _regionReasons,
             decorations: _regionNames);
         final events = <String>[];
@@ -362,7 +395,7 @@ void main() {
       testWidgets(
           'a stale region refusal never stops it: the tap asks again, and a '
           'venue open now goes straight on', (tester) async {
-        var closed = _trading;
+        var closed = _browse;
         await _policy(tester,
             blocked: () => closed,
             reasons: _regionReasons,
@@ -401,7 +434,7 @@ void main() {
           RegionFreshness.debugVenues = null;
           venues.dispose();
         });
-        var closed = _trading;
+        var closed = _browse;
         await _policy(tester,
             blocked: () => closed,
             reasons: _regionReasons,
@@ -424,7 +457,8 @@ void main() {
       });
 
       testWidgets(
-          'no policy read yet is no refusal: the card shows, its tap says so',
+          'no policy read yet: browse fails open, as the plain search reads '
+          'it, so the gift opens the search (the slip asks its own gate)',
           (tester) async {
         final policy = RuntimeCapabilitiesService.forTesting(
           client: MockClient((_) async => http.Response('', 503)),
@@ -436,16 +470,16 @@ void main() {
         final flow = await _pumpPerson(tester, home);
         await tester.tap(find.byKey(kSendWhatGiftKey));
         await tester.pumpAndSettle();
-        expect(find.byType(CapabilityUnavailableSheet), findsOneWidget);
-        expect(flow.gifts, 0);
+        expect(find.byType(CapabilityUnavailableSheet), findsNothing);
+        expect(flow.gifts, 1);
         RuntimeCapabilitiesService.debugInstance?.dispose();
       });
 
       testWidgets(
-          'one venue open is enough, the other refused for a region: the '
+          'one venue\'s browse open is enough, the other refused for a region: the '
           'gift goes on', (tester) async {
         await _policy(tester,
-            blocked: () => const {'polymarket.trade'},
+            blocked: () => const {'polymarket.browse'},
             reasons: _regionReasons,
             decorations: _regionNames);
         final flow = await _pumpPerson(tester, home);
@@ -460,7 +494,7 @@ void main() {
           'the switch off on both venues: the money card alone, the grid\'s '
           'lone card, full width and compact with its chevron',
           (tester) async {
-        await _policy(tester, blocked: () => _trading);
+        await _policy(tester, blocked: () => _browse);
         await _pumpPerson(tester, home);
         final money = find.byKey(kSendWhatMoneyKey);
         expect(find.byKey(kSendWhatGiftKey), findsNothing);
@@ -477,10 +511,10 @@ void main() {
           'the switch off on one venue, the other refused for a region: the '
           'card stays and its tap names that region', (tester) async {
         await _policy(tester,
-            blocked: () => _trading,
-            reasons: const {'hyperliquid.trade': 'country_blocked'},
+            blocked: () => _browse,
+            reasons: const {'hyperliquid.browse': 'country_blocked'},
             decorations: const {
-              'hyperliquid.trade': {'regions': _regions},
+              'hyperliquid.browse': {'regions': _regions},
             });
         final flow = await _pumpPerson(tester, home);
         await tester.tap(find.byKey(kSendWhatGiftKey));

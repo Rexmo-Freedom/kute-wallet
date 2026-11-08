@@ -44,9 +44,8 @@
 //     the same Recent, Moving now (no "See all": it
 //     would leave the send) and Trending predictions, and the same
 //     results, markets only (Predictions and Investing, no
-//     Transactions). A venue where this person cannot place a prediction
-//     or an investment is left out (`polymarket.trade`,
-//     `hyperliquid.trade`): its slip could only send the market's card.
+//     Transactions), of the venues whose browse is open (sendPickVenues):
+//     a refused trade is told on the market's slip, never here.
 //     Typing searches and the send arrow searches (Sal answers nothing
 //     here). A result opens its market page IN SEND MODE, whose slip's
 //     primary sends the pick (screens/share/slip_share.dart);
@@ -1825,8 +1824,8 @@ class _SearchHome extends ConsumerWidget {
   final SearchCategory category;
 
   /// Send mode's venues (see the file header): no Connect your own AI
-  /// card, no "See all" out of the send, and only the venues a pick can
-  /// be sent from; null: the ordinary home.
+  /// card, no "See all" out of the send, and only the venues whose browse
+  /// is open; null: the ordinary home.
   final ({bool predictions, bool investing})? sendVenues;
 
   /// A recent query tapped: back into the field, searched again.

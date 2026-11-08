@@ -767,6 +767,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// "Check connection" is asking the venues and the policy again.
   bool _checkingConnection = false;
 
+  /// A send's tap is asking the open gate again ([_sendTapped]).
+  bool _sendAsking = false;
+
   /// From a Deposit door tap until the Move sheet opens (or the tap ends
   /// without one): the top-up is being worked out, and the door says so.
   /// The form is already frozen by [_buyInFlight] for the same span, so
@@ -1193,7 +1196,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       TrackingService.polymarketGeoblockedShown();
       if (denial != null) {
         TrackingService.capabilityRegionBlocked(denial.capability,
-            blockedBy: denial.decision.blockedBy, surface: 'bet_slip');
+            blockedBy: denial.decision.blockedBy,
+            surface: widget.sendPick != null ? kSendModeSlipSource : 'bet_slip');
       }
     }
     _stopped(regionBlocked ? 'geoblocked' : reason);
@@ -5595,10 +5599,35 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     );
   }
 
+  /// A tap on the send: the open gate's checks are asked again first, its
+  /// answer at open landing behind the first frame, and a refused market
+  /// creates no link (screens/share/slip_share.dart). Only a refusal runs
+  /// the gate itself, to show it; an answer that allows leaves the slip as
+  /// it is.
+  Future<void> _sendTapped(SendPickSession session) async {
+    if (_sendAsking) return;
+    setState(() => _sendAsking = true);
+    var refused = false;
+    try {
+      await RuntimeCapabilitiesService.instance
+          .ensureAllAllowed(_betCapabilities());
+    } on ProviderAvailabilityException {
+      refused = true;
+    } on CapabilityUnavailableException {
+      refused = true;
+    }
+    if (refused && mounted) await _resolveCapabilityGate();
+    if (!mounted) return;
+    setState(() => _sendAsking = false);
+    if (_capabilityBlockMessage != null) return;
+    await sendFromSlip(context, _slipSharePick(), session: session);
+  }
+
   /// SEND MODE's one primary (screens/share/slip_share.dart): "Send $10 ·
-  /// Yes", disabled with the step to take, "Send the market" where the
-  /// venue is closed to this person. Never an order: nothing here places,
-  /// funds or deposits.
+  /// Yes", disabled with the step to take, or under the gate's reason where
+  /// this market is refused for any reason but a region (a region's is
+  /// "Check connection", [_buildPrimaryAction]). Never an order: nothing
+  /// here places, funds or deposits.
   Widget _buildSendAction(Color selectedColor, SendPickSession session) {
     final pick = _slipSharePick();
     final cta = slipSendCta(context.l10n, pick);
@@ -5607,10 +5636,11 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       color: selectedColor,
       // Dark on the white button, never the side colour (founder).
       neutral: true,
-      isBusy: false,
-      enabled: cta.enabled,
-      onTap: () => unawaited(
-          sendFromSlip(context, _slipSharePick(), session: session)),
+      isBusy: _sendAsking,
+      busyLabel: cta.label,
+      band: false,
+      enabled: cta.enabled && !_sendAsking,
+      onTap: () => unawaited(_sendTapped(session)),
       label: cta.label,
       disabledLabel: cta.disabledLabel,
     );
@@ -6059,9 +6089,6 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       required bool failed,
       required String busyLabel,
       bool stepsUnder = false}) {
-    // Send mode: the send is the one primary (never an order).
-    final send = widget.sendPick;
-    if (send != null) return _buildSendAction(selectedColor, send);
     // Taken once, by this build: the minimum the under-the-floor button
     // wrote is placed only by the bet button below, never later.
     final placeFilledMinimum = _placeMinimumOnBuild;
@@ -6080,6 +6107,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         label: context.l10n.checkConnection,
       );
     }
+    // Send mode: the send is the one primary (never an order).
+    final send = widget.sendPick;
+    if (send != null) return _buildSendAction(selectedColor, send);
     if (_isLedger) return _buildLedgerPrimaryAction(c, selectedColor);
     // A bet whose money is being moved: one busy button while its steps
     // run ([_fundingJourney]), the try again once they stopped.

@@ -604,16 +604,16 @@ void main() {
           tester.getSize(find.byKey(kSendWhatMoneyKey)));
     }
 
-    const closed = {'polymarket.trade', 'hyperliquid.trade'};
+    const closed = {'polymarket.browse', 'hyperliquid.browse'};
     const closedWhy = {
-      'polymarket.trade': 'country_blocked',
-      'hyperliquid.trade': 'country_blocked',
+      'polymarket.browse': 'country_blocked',
+      'hyperliquid.browse': 'country_blocked',
     };
     const closedRegions = {
-      'polymarket.trade': {
+      'polymarket.browse': {
         'regions': {'label': 'the places Polymarket restricts'}
       },
-      'hyperliquid.trade': {
+      'hyperliquid.browse': {
         'regions': {'label': 'the places Hyperliquid restricts'}
       },
     };

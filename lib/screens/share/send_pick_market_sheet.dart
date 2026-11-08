@@ -15,9 +15,8 @@
 // Recent, Moving now and Trending predictions with their gauges, the same
 // results; only the heading says what it is for and for whom ("Pick a
 // gift for Ana", "Pick a gift"), the Connect your own AI card stays out,
-// and the results are markets only. A venue where this person cannot place a
-// prediction (an investment) is left out (sendPickVenues): its slip could
-// only send the market's card.
+// and the results are markets only, of any venue whose browse is open
+// (sendPickVenues), as the plain search lists them.
 //
 // A TAP OPENS THE MARKET IN SEND MODE, AND ITS SLIP SENDS (founder, 7
 // November 2026: the slips have no share button any more, "only in Send
@@ -30,17 +29,23 @@
 // and the future resolves to true: the Send screen closes as a send that
 // went out.
 //
-// THE WHAT STEP'S GIFT IS ALWAYS THERE, ITS TAP SAYS WHY (founder, 8
-// November 2026, over the lone Bitcoin card: "we need to have it as an
-// option always"). It reads no holdings and no balance: only the policy,
-// live, the region rule of the coin pickers (founder decision, 27 October
-// 2026; coin_asset_grid.dart): neither venue open for a region
-// ([sendPickRegionBlock]) or no policy read yet keeps the card, and its tap
-// asks again and then shows the shared Unavailable sheet, "Check connection"
-// going on into the search when it finds a venue open
-// ([sendGiftStoppedByPolicy]). Only a refusal that is no region's on both
-// venues (a switch off, a platform or version rule, coming soon) takes the
-// card away ([sendGiftShown]).
+// THE SLIP IS THE GATE, NOT THIS STEP (founder, 8 November 2026, over the
+// Unavailable sheet on the What step's gift: "only on the last screen, the
+// bet slip, show this error, not in this part, because someone can send
+// investment"). A person may be refused on one venue, or one market, and
+// not on another, so a refused trade never stops the gift here: the card
+// shows and its tap opens the search whenever a venue's browse is open
+// ([sendPickOffered]), and the slip of a refused market says why, with its
+// own "Check connection", and sends nothing (slip_share.dart).
+//
+// ONLY NOTHING TO LIST STOPS IT. Neither venue's browse open: for a region,
+// or no policy read yet, the card stays and its tap asks again, then shows
+// the shared Unavailable sheet, "Check connection" going on into the search
+// when it finds a browse open ([sendGiftStoppedByBrowse]); a refusal of
+// another kind on both (a switch off, a platform or version rule, coming
+// soon) takes the card away ([sendGiftShown]). It reads no holdings and no
+// balance: only the policy, live. The Dollars coin step's row follows the
+// same rule (usd_send_screen.dart).
 //
 // `send_pick_market_opened {source: send}` once per open,
 // `send_pick_market_picked {venue, searched}` per market opened.
@@ -58,71 +63,54 @@ import 'package:kute/services/runtime_capabilities_service.dart'
     show RuntimeCapabilitiesService, confirmCapability;
 import 'package:kute/services/tracking_service.dart';
 
-/// Whether a prediction or an investment can be composed to send here:
-/// either venue offered and open to this person (see the file header).
+/// Whether the gift search has anything to list: either venue's browse
+/// open (see the file header). A refused trade does not change this.
 bool sendPickOffered(RuntimeCapabilitiesService policy) {
   final venues = sendPickVenues(policy);
   return venues.predictions || venues.investing;
 }
 
-/// The gates of each venue a pick can be sent from ([sendPickVenues]).
-const _kSendPickVenueGates = [
-  ['polymarket.browse', 'polymarket.trade'],
-  ['hyperliquid.browse', 'hyperliquid.trade'],
-];
-
-/// What stands in front of the gift while it cannot be composed and a
-/// region or a policy not read yet is why (see the file header): the first
-/// refusal, of a venue with no other kind of refusal. Null while a venue is
-/// open, and while a refusal of another kind shuts both venues.
-CapabilityRegionBlock? sendPickRegionBlock(RuntimeCapabilitiesService policy) {
+/// What stands in front of the gift when nothing can be listed and a region
+/// or a policy not read yet is why (see the file header): the first such
+/// browse refusal. Null while a browse is open, and while refusals of
+/// another kind shut both.
+CapabilityRegionBlock? sendGiftBrowseBlock(RuntimeCapabilitiesService policy) {
   if (sendPickOffered(policy)) return null;
-  for (final gates in _kSendPickVenueGates) {
-    CapabilityRegionBlock? first;
-    var kept = true;
-    for (final id in gates) {
-      final decision = policy.decision(id);
-      if (decision.allowed && !decision.comingSoon) continue;
-      if (decision.comingSoon ||
-          !(decision.regionRestricted ||
-              decision.reason == 'policy_unavailable')) {
-        kept = false;
-        break;
-      }
-      first ??= (capability: id, decision: decision);
+  for (final id in const ['polymarket.browse', 'hyperliquid.browse']) {
+    final decision = policy.decision(id);
+    if (decision.allowed || decision.comingSoon) continue;
+    if (decision.regionRestricted || decision.reason == 'policy_unavailable') {
+      return (capability: id, decision: decision);
     }
-    if (kept && first != null) return first;
   }
   return null;
 }
 
-/// Whether the What step shows the gift (see the file header).
+/// Whether the What step shows the gift, and the coin step its row (see the
+/// file header).
 bool sendGiftShown(RuntimeCapabilitiesService policy) =>
-    sendPickOffered(policy) || sendPickRegionBlock(policy) != null;
+    sendPickOffered(policy) || sendGiftBrowseBlock(policy) != null;
 
-/// The tap on the What step's gift: true when the policy stands in front of
-/// it, so the caller must not open the search. As a coin's tap
-/// (coinPickStoppedByRegion, coin_asset_grid.dart): the refusal is asked
-/// again first (a stale answer never shuts it), then the shared Unavailable
-/// sheet says why; a "Check connection" that finds a venue open answers
-/// false and the gift goes on.
-Future<bool> sendGiftStoppedByPolicy(
+/// The tap on the gift: true when nothing can be listed, so the caller must
+/// not open the search. False at once with a browse open, whatever the
+/// trade gates say. With none open the refusal is asked again first (a
+/// stale answer never shuts it), then the shared Unavailable sheet says why;
+/// a "Check connection" that finds a browse open answers false and the gift
+/// goes on.
+Future<bool> sendGiftStoppedByBrowse(
     BuildContext context, RuntimeCapabilitiesService policy) async {
-  final first = sendPickRegionBlock(policy);
+  final first = sendGiftBrowseBlock(policy);
   if (first == null) return !sendPickOffered(policy);
   await confirmCapability(policy, first.capability);
   if (!context.mounted) return true;
   if (sendPickOffered(policy)) return false;
-  final standing = sendPickRegionBlock(policy);
+  final standing = sendGiftBrowseBlock(policy);
   // Withheld meanwhile: the card leaves with the policy's change.
   if (standing == null) return true;
   final open = await showCapabilityDecisionSheet(context, standing.decision,
-      capability: standing.capability, surface: kSendWhatGiftSurface);
+      capability: standing.capability, surface: 'send_what_gift');
   return !open || !sendPickOffered(policy);
 }
-
-/// The Unavailable sheet's `surface` when the What step's gift is refused.
-const String kSendWhatGiftSurface = 'send_what_gift';
 
 /// Opens the search sheet in send mode over the send (see the file
 /// header). [senderLabel] and [recipientPhone] are the contact picked

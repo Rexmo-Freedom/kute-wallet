@@ -43,13 +43,16 @@
 // alone: "why, when no prediction is open, only showing the bitcoin to
 // send? ... we need to have it as an option always"). It never reads
 // positions, a venue's cash or any balance: the link moves nothing when it
-// is created (models/share_link_model.dart). Only the backend's policy
-// decides, read live while the sheet is up (send_pick_market_sheet.dart):
-// a venue open opens the search; neither open for a region (or no policy
-// read yet) keeps the card, as it looks, and its tap asks again, then says
-// why on the shared Unavailable sheet with "Check connection", the sheet
-// staying under it; only a refusal of another kind on both venues (a switch
-// off, a platform or version rule, coming soon) takes the card away.
+// is created (models/share_link_model.dart). A refused trade never stops it
+// here (founder, 8 November 2026: "only on the last screen, the bet slip,
+// show this error, not in this part"): the market's slip says why and sends
+// nothing (slip_share.dart). Only the backend's policy decides, read live
+// while the sheet is up (send_pick_market_sheet.dart): a venue's browse open
+// opens the search; neither open for a region (or no policy read yet) keeps
+// the card, as it looks, and its tap asks again, then says why on the shared
+// Unavailable sheet with "Check connection", the sheet staying under it;
+// only a browse refusal of another kind on both venues (a switch off, a
+// platform or version rule, coming soon) takes the card away.
 //
 // SAL IS THE GIFT (founder, 7 November 2026, of its grey-boxed gift glyph:
 // "a prediction or investment should be like the icon much better, maybe
@@ -107,7 +110,7 @@ import 'package:kute/providers/usd_account_provider.dart'
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/screens/share/send_pick_market_sheet.dart'
-    show sendGiftShown, sendGiftStoppedByPolicy;
+    show sendGiftShown, sendGiftStoppedByBrowse;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
@@ -247,7 +250,7 @@ class SendWhatSheet extends ConsumerWidget {
     // Live: the policy, never what is held (see the file header).
     final policy = ref.watch(runtimeCapabilitiesProvider);
     Future<void> pickGift() async {
-      if (await sendGiftStoppedByPolicy(context, policy)) return;
+      if (await sendGiftStoppedByBrowse(context, policy)) return;
       if (context.mounted) pick(SendWhatKind.gift);
     }
 

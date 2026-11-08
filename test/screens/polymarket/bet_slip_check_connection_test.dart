@@ -9,9 +9,11 @@
 // the send"). In SEND MODE (opened from Send; slip_share.dart,
 // send_pick_session.dart) the slip's one primary is the send: "Send $10 ·
 // Yes" sends THIS prediction (the side and the amount typed), never an
-// order; nothing typed, it is disabled and says what to do; refused here,
-// "Send the market", the market's card only ("when the user is blocked on
-// Polymarket he cannot also send the actual prediction, just the card").
+// order; nothing typed, it is disabled and says what to do. THE SLIP IS THE
+// GATE (founder, 8 November 2026: "only on the last screen, the bet slip,
+// show this error"): refused for a region, the slip's own reason and "Check
+// connection", the send again once that finds it open; refused otherwise,
+// the reason over the send disabled; never a link for a refused market.
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -46,6 +48,7 @@ import 'package:kute/services/polymarket/polymarket_fee_terms.dart';
 import 'package:kute/services/region_freshness.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/runtime_policy_snapshot_store.dart';
+import 'package:kute/services/tracking_service.dart';
 import 'package:money2/money2.dart';
 
 import '../../helpers/fake_swap_orders.dart';
@@ -87,6 +90,7 @@ const _regionSentence =
 
 void main() {
   late bool blocked;
+  late String refusal;
   late List<String> triggers;
   late List<ContinuousHapticsCall> haptics;
   late RuntimeCapabilitiesService policy;
@@ -97,6 +101,7 @@ void main() {
     PredictionsVenueFunder.debugRouteShare = (_) async => 0;
     AffiliateService.debugSessionToken = 'test-session';
     blocked = true;
+    refusal = 'country_blocked';
     triggers = [];
     haptics = ContinuousHaptics.debugLog = [];
     KuteHaptics.debugReset();
@@ -124,7 +129,7 @@ void main() {
                 ])
                   id: {'allowed': true},
                 'polymarket.trade': blocked
-                    ? {'allowed': false, 'reason': 'country_blocked'}
+                    ? {'allowed': false, 'reason': refusal}
                     : {'allowed': true},
               },
             }),
@@ -372,17 +377,85 @@ void main() {
     });
 
     testWidgets(
-        'refused here: "Send the market", the market\'s card only, no money '
-        'and no pick', (tester) async {
+        'refused for a region: the slip\'s own reason and "Check connection", '
+        'no send and no link; the refusal reports the gift\'s surface',
+        (tester) async {
+      final events = <(String, Map<String, Object?>?)>[];
+      TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+      addTearDown(() => TrackingService.debugTrackObserver = null);
       expect(await policy.refresh(), isTrue);
       await pumpSlip(tester, sendPick: session());
-      expect(barPrimaryLabel(tester), 'Send the market');
+      expect(find.widgetWithText(CapabilityBlockNote, _regionSentence),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('bet-slip-check-connection')),
+          findsOneWidget);
+      expect(barPrimaryLabel(tester), 'Check connection');
+      expect(barPrimaryEnabled(tester), isTrue);
+      expect(find.byKey(const ValueKey('bet-slip-send')), findsNothing);
       expect(share, findsNothing);
+      expect(events.map((e) => e.$1), contains('polymarket_geoblocked_shown'));
+      expect(
+          events.firstWhere((e) => e.$1 == 'capability_region_blocked').$2,
+          containsPair('surface', kSendModeSlipSource));
+      // Still refused: the refusal stays.
+      await tapCheck(tester);
+      expect(barPrimaryLabel(tester), 'Check connection');
+      expect(find.widgetWithText(CapabilityBlockNote, _regionSentence),
+          findsOneWidget);
+      expect(haptics.where((c) => c.method == 'softTap'), hasLength(1));
+      expect(sends, isEmpty);
+      await release(tester);
+    });
+
+    testWidgets(
+        'Check connection finding it open: the refusal lifts and the send '
+        'goes on', (tester) async {
+      expect(await policy.refresh(), isTrue);
+      await pumpSlip(tester, sendPick: session());
+      blocked = false;
+      await tapCheck(tester);
+      expect(find.byType(CapabilityBlockNote), findsNothing);
+      expect(barPrimaryLabel(tester), r'Send $10 · Yes');
+      expect(barPrimaryEnabled(tester), isTrue);
       await tapBarPrimary(tester, settle: false);
       await frames(tester, 2);
       final (route, pick) = sends.single;
-      expect(route, SlipSendRoute.market);
-      expect(pick.blocked, isTrue);
+      expect(route, SlipSendRoute.pick);
+      expect(pick.blocked, isFalse);
+      await release(tester);
+    });
+
+    testWidgets(
+        'a refusal that is no region\'s: the reason over the send disabled, '
+        'no Check connection, a tap sends nothing', (tester) async {
+      refusal = 'disabled';
+      expect(await policy.refresh(), isTrue);
+      await pumpSlip(tester, sendPick: session());
+      expect(find.byType(CapabilityBlockNote), findsOneWidget);
+      expect(find.byKey(const ValueKey('bet-slip-check-connection')),
+          findsNothing);
+      expect(barPrimaryLabel(tester), r'Send $10 · Yes');
+      expect(barPrimaryEnabled(tester), isFalse);
+      await tester.tap(findBarPrimary(), warnIfMissed: false);
+      await frames(tester, 2);
+      expect(sends, isEmpty);
+      await release(tester);
+    });
+
+    testWidgets(
+        'refused only by the time of the tap: asked again, it stops there '
+        'and says why; no link', (tester) async {
+      blocked = false;
+      expect(await policy.refresh(), isTrue);
+      await pumpSlip(tester, sendPick: session());
+      expect(barPrimaryLabel(tester), r'Send $10 · Yes');
+      blocked = true;
+      await tapBarPrimary(tester, settle: false);
+      await frames(tester);
+      expect(sends, isEmpty);
+      expect(barPrimaryLabel(tester), 'Check connection');
+      expect(find.widgetWithText(CapabilityBlockNote, _regionSentence),
+          findsOneWidget);
       await release(tester);
     });
   });

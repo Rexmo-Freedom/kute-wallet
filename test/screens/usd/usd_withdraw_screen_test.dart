@@ -302,7 +302,7 @@ void main() {
 
   setUp(() async {
     GoogleFonts.config.allowRuntimeFetching = false;
-    // The venues open: the What step's gift can be sent
+    // The venues' browse open: the What step's gift opens the search
     // (send_pick_market_sheet.dart, sendPickOffered).
     final policy = runtimePolicyFixture(
         also: const {'polymarket.browse', 'hyperliquid.browse'});
@@ -615,10 +615,10 @@ void main() {
   });
 
   testWidgets(
-      'Predictions and Investing closed to this person: the What step has '
+      'both venues\' browse switched off, nothing to list: the What step has '
       'no gift', (tester) async {
     final closed = runtimePolicyFixture(
-        blocked: const {'polymarket.trade', 'hyperliquid.trade'},
+        blocked: const {'polymarket.browse', 'hyperliquid.browse'},
         also: const {'polymarket.browse', 'hyperliquid.browse'});
     RuntimeCapabilitiesService.debugInstance = closed;
     await tester.runAsync(closed.refresh);

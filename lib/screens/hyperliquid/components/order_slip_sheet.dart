@@ -737,6 +737,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   /// "Check connection" is asking the venues and the policy again.
   bool _checkingConnection = false;
 
+  /// A send's tap is asking the open gate again ([_sendTapped]).
+  bool _sendAsking = false;
+
   /// The order on the ticket only reduces or closes, so it answers to
   /// `hyperliquid.close` and never to the open gate (the same split
   /// `_confirmInner` makes).
@@ -782,7 +785,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       TrackingService.hyperliquidGeoblockedShown();
       if (denial != null) {
         TrackingService.capabilityRegionBlocked(denial.capability,
-            blockedBy: denial.decision.blockedBy, surface: 'order_slip');
+            blockedBy: denial.decision.blockedBy,
+            surface:
+                widget.sendPick != null ? kSendModeSlipSource : 'order_slip');
       }
     }
     _updateDraft(() {
@@ -939,7 +944,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       amountUsd: _marginUsd,
       minUsd: minUsd,
       minLabel: formatHlUsd(minUsd),
-      blocked: blocked || selling,
+      blocked: blocked,
+      cardOnly: selling,
       price: mid > 0
           ? formatHlPrice(mid, decimalCap: market.pxDecimalCap)
           : null,
@@ -950,21 +956,51 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     );
   }
 
+  /// A tap on the send: the open gate is asked again first, its answer at
+  /// open landing behind the first frame, and a refused market creates no
+  /// link (screens/share/slip_share.dart).
+  Future<void> _sendTapped(SendPickSession session,
+      {required double minUsd}) async {
+    if (_sendAsking) return;
+    setState(() => _sendAsking = true);
+    await _resolveOpenGate();
+    if (!mounted) return;
+    setState(() => _sendAsking = false);
+    if (_openGateMessage != null) return;
+    await sendFromSlip(
+        context, _slipSharePick(minUsd: minUsd, blocked: false),
+        session: session);
+  }
+
   /// SEND MODE's one primary (screens/share/slip_share.dart): "Send $50 ·
-  /// Short AMD", disabled with the step to take, "Send the market" where
-  /// the venue is closed to this person. Never an order.
+  /// Short AMD", disabled with the step to take, or under the gate's reason
+  /// where this market is refused. A region's refusal is the ticket's own
+  /// "Check connection", the send again once that finds it open. Never an
+  /// order.
   KuteBarContext _sendBarContext(SendPickSession session,
-      {required double minUsd, required bool blocked}) {
-    final cta = slipSendCta(
-        context.l10n, _slipSharePick(minUsd: minUsd, blocked: blocked));
+      {required double minUsd}) {
+    if (_openGateMessage != null && _openGateRegion) {
+      return KuteBarContext.primary(
+        label: context.l10n.checkConnection,
+        onPrimary: _checkingConnection ? null : _checkConnection,
+        enabled: !_checkingConnection,
+        busy: _checkingConnection,
+        busyLabel: context.l10n.checkConnection,
+        category: SearchCategory.perpetuals,
+        source: 'order_slip',
+        // Never waits on input.
+        disabledLabel: null,
+      );
+    }
+    final cta = slipSendCta(context.l10n,
+        _slipSharePick(minUsd: minUsd, blocked: _openGateMessage != null));
     return KuteBarContext.primary(
       label: cta.label,
-      onPrimary: cta.enabled
-          ? () => unawaited(sendFromSlip(
-              context, _slipSharePick(minUsd: minUsd, blocked: blocked),
-              session: session))
+      onPrimary: cta.enabled && !_sendAsking
+          ? () => unawaited(_sendTapped(session, minUsd: minUsd))
           : null,
       enabled: cta.enabled,
+      busy: _sendAsking,
       category: SearchCategory.perpetuals,
       source: 'order_slip',
       disabledLabel: cta.disabledLabel,
@@ -4648,8 +4684,12 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         ? ref.watch(runtimeCapabilitiesProvider).blockReason('trading.advanced')
         : null;
     // A new position the policy (or the venue) refuses here: the confirm
-    // stays on screen, disabled, with the reason above it. Exits never.
-    final openBlock = _isExitOrder || exitPlan ? null : _openGateMessage;
+    // stays on screen, disabled, with the reason above it. Exits never,
+    // but a slip in send mode places nothing: its refusal stands whatever
+    // the ticket shows.
+    final openBlock = (_isExitOrder || exitPlan) && widget.sendPick == null
+        ? null
+        : _openGateMessage;
     // The venue may refuse growing a position on a market at its
     // open-interest cap: say so before the order, not after.
     final oiCapped = !isSpot &&
@@ -5347,9 +5387,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                 child: KuteBarContextScope(
                   barContext: widget.sendPick != null
                       ? _sendBarContext(widget.sendPick!,
-                          minUsd: minAmountUsd,
-                          blocked: _openGateMessage != null ||
-                              ledgerRegionBlocked)
+                          minUsd: minAmountUsd)
                       : KuteBarContext.primary(
                     label: funded != null &&
                         funded.failed &&

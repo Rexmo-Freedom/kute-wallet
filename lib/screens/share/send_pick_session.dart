@@ -72,16 +72,16 @@ const String kSendModeSlipSource = 'send_mode_slip';
 /// in send mode (analytics, as `search` is for the plain sheet).
 const String kSendPickMarketSource = 'send_pick';
 
-/// The venues a pick can be sent from: offered in this region AND open to
-/// this person for a prediction (an investment). A slip on any other
-/// could only send the market's card, so send mode leaves it out.
+/// The venues the gift search lists: those whose BROWSE is open, the same
+/// answer the plain search reads in that policy state. A refused trade
+/// never takes a venue off this list (founder, 8 November 2026: "only on
+/// the last screen, the bet slip, show this error"): the market's slip
+/// says so and stops the send (slip_share.dart).
 ({bool predictions, bool investing}) sendPickVenues(
         RuntimeCapabilitiesService policy) =>
     (
-      predictions: policy.allows('polymarket.browse') &&
-          policy.allows('polymarket.trade'),
-      investing: policy.allows('hyperliquid.browse') &&
-          policy.allows('hyperliquid.trade'),
+      predictions: policy.allows('polymarket.browse'),
+      investing: policy.allows('hyperliquid.browse'),
     );
 
 /// One send of a prediction or an investment (see the file header).

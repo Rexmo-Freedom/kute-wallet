@@ -672,12 +672,12 @@ void main() {
   });
 
   testWidgets(
-      'Predictions and Investing closed to this person: the What step has '
-      'no gift, Money only, the grid\'s lone card: full width, compact, '
-      'its chevron', (tester) async {
+      'both venues\' browse switched off: the What step has no gift, Money '
+      'only, the grid\'s lone card: full width, compact, its chevron',
+      (tester) async {
     _gateway.permission = SendContactsPermission.granted;
     await policy(tester,
-        blocked: const {'polymarket.trade', 'hyperliquid.trade'});
+        blocked: const {'polymarket.browse', 'hyperliquid.browse'});
     await _pump(tester);
     await tapPerson(tester, 'c2');
     final money = find.byKey(kSendWhatMoneyKey);

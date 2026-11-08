@@ -1218,10 +1218,12 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
   /// usd_withdraw_screen.dart): a prediction or investment on a link (the
   /// market search, send_pick_market_sheet.dart) and "Send dollars to a
   /// friend" (the contacts picker, "Someone else" at its top, then
-  /// send_to_anyone_sheet.dart). The prediction row is there only where a
-  /// slip can send one (sendPickOffered).
+  /// send_to_anyone_sheet.dart). The prediction row follows the What step's
+  /// rule (send_pick_market_sheet.dart): there and opening the search with a
+  /// venue's browse open, a refused trade told on the market's slip alone.
   Widget _sendToCard(AppColorsExtension c) {
     final l10n = context.l10n;
+    final policy = ref.watch(runtimeCapabilitiesProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1229,16 +1231,21 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
         SendToListCard(
           colors: c,
           rows: [
-            // Only where a slip can send it (sendPickOffered).
-            if (sendPickOffered(ref.watch(runtimeCapabilitiesProvider)))
+            if (sendGiftShown(policy))
               SendPickMarketRow(
-              onTap: () => unawaited(_afterLink(showSendPickMarketSheet(
-                context,
-                entrySource: 'dollar_send',
-                senderLabel: _pickedContact?.firstName,
-                recipientPhone: _pickedContact?.phone,
-              ))),
-            ),
+                onTap: () async {
+                  if (await sendGiftStoppedByBrowse(context, policy) ||
+                      !mounted) {
+                    return;
+                  }
+                  unawaited(_afterLink(showSendPickMarketSheet(
+                    context,
+                    entrySource: 'dollar_send',
+                    senderLabel: _pickedContact?.firstName,
+                    recipientPhone: _pickedContact?.phone,
+                  )));
+                },
+              ),
             SendToFriendRow(
               title: context.l10n.sendDollarsToAFriend,
               onPick: _pickContact,
