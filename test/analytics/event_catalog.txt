@@ -308,8 +308,6 @@ lnurl_withdraw_success
 lock_overlay_shown
 lock_overlay_unlocked
 mnemonic_generated
-move_account_picked
-move_account_picker_opened
 move_amount_percent_tapped
 move_completed
 move_deposit_more_tapped

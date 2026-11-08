@@ -35,7 +35,7 @@
 //     scan goes straight on; typed, it shows as you type and the
 //     keyboard's Done goes on as a paste does;
 //   * an own account's name typed ("bitcoin", "my dollars") offers "Move
-//     to your Bitcoin" / "Move to your Dollars", Swap straight on the
+//     to your Bitcoin" / "Move to your Dollars", Move money straight on the
 //     amount (showOwnMoneyMove): the escape hatch, never a chip;
 //   * "Frequent" (the recent dollar recipients, paid directly: the send
 //     opens on that coin and address, on its amount) and All contacts A-Z
@@ -46,7 +46,7 @@
 //     from the search in send mode.
 //
 // No chips any more (founder, 7 November 2026: one verb per intent): no
-// "To your Bitcoin" (the Dollars home's Swap is that door), no
+// "To your Bitcoin" (the Dollars home's Move money is that door), no
 // "Crypto address", no "Prediction or investment".
 //
 // The bar is the step's Continue, as on the Bitcoin Send: off, it says
@@ -194,7 +194,7 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
   }
 
   /// "Move to your Bitcoin" / "Move to your Dollars" (the search's escape
-  /// hatch): Swap straight on the amount into that account
+  /// hatch): Move money straight on the amount into that account, pinned
   /// (showOwnMoneyMove). Dollars to Bitcoin spends all the dollar money
   /// (Dollars, then venue cash).
   void _openOwnMove(SendOwnAccount into) {

@@ -501,7 +501,7 @@ void main() {
     expect(moves.single.route,
         const MoneyMovementRoute(
             MoneyMovementAccount.dollars, MoneyMovementAccount.bitcoin));
-    expect(moves.single.swap, isTrue);
+    expect(moves.single.pinned, isTrue);
     expect(moves.single.entrySource, kUsdWithdrawSearchSource);
     expect(TrackingService.takeEntrySource('move'), kUsdWithdrawSearchSource);
     expect(find.byType(UsdWithdrawScreen), findsOneWidget);

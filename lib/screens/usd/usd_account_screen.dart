@@ -1229,12 +1229,12 @@ class UsdAccountActionBar extends ConsumerWidget {
   /// The row's Swap (founder, 7 November 2026: "ideally is to have a move
   /// button, i am sorry but we need it. Only on dollars"; named "Swap",
   /// the crypto wallets' word, the same day): the Swap sheet, the two-way
-  /// move between the person's own accounts (showOwnMoneyMove), opened on
-  /// Bitcoin → Dollars as the Dollars Receive's "From your Bitcoin" opens
-  /// it, since the person is on Dollars; its swap circle turns it the other
-  /// way, and its squares choose Predictions and Investing too. What may
-  /// move is the backend policy's alone: the sheet says why where it
-  /// refuses a direction. The tap counts as `quick_action_tapped` `swap`, the sheet
+  /// move between the person's own Bitcoin and Dollars
+  /// (showOwnMoneyMove), opened on Bitcoin → Dollars as the Dollars
+  /// Receive's "From your Bitcoin" opens it, since the person is on
+  /// Dollars; its swap circle turns it the other way. What may move is
+  /// the backend policy's alone: the sheet says why where it refuses a
+  /// direction. The tap counts as `quick_action_tapped` `swap`, the sheet
   /// opens under [kUsdHomeSwapSource]. Only here: the Bitcoin home has no
   /// Swap.
   static void swap(BuildContext context) => unawaited(showOwnMoneyMove(

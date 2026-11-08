@@ -7705,7 +7705,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
 
   /// "Move to your Dollars" / "Move to your Bitcoin", the search's escape
   /// hatch (send_recipient_step.dart, SendMoveToOwnRows): Move money
-  /// straight on the amount into that account (Swap, showOwnMoneyMove),
+  /// straight on the amount into that account, pinned (showOwnMoneyMove),
   /// over this send. Bitcoin to Dollars is a swap: the Move sheet says why
   /// where the policy refuses it; Dollars to Bitcoin is always open.
   void _openOwnMove(SendOwnAccount into) {

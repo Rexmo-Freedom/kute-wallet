@@ -90,25 +90,6 @@ class MoneyMovementRoute {
       ? this
       : MoneyMovementRoute(from, destinationsFrom(from).first);
 
-  /// What picking [account] on one end ([source]: From, else To) makes this
-  /// route, or null when that end cannot hold it, so a picker does not list
-  /// it. Never the same account twice: the account already on the other end
-  /// swaps the two. A source with no door to the destination takes its
-  /// first offered destination along (out of Predictions, Bitcoin); a
-  /// destination the source has no door to is not offered, on either
-  /// reading of the tap.
-  MoneyMovementRoute? afterPicking(MoneyMovementAccount account,
-      {required bool source}) {
-    if (account == (source ? from : to)) return this;
-    final picked = account == (source ? to : from)
-        ? reversed
-        : source
-            ? MoneyMovementRoute(account, to)
-            : MoneyMovementRoute(from, account);
-    if (picked.isOffered) return picked;
-    return source ? picked.offeredOrNearest : null;
-  }
-
   @override
   bool operator ==(Object other) =>
       other is MoneyMovementRoute && other.from == from && other.to == to;
