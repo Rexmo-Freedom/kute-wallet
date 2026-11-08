@@ -31,6 +31,7 @@ import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
 import 'top_switch_harness.dart';
+import 'package:kute/screens/shared/open_once.dart';
 
 final _thumb = find.byKey(const ValueKey('home-tab-switch-thumb'));
 final _switch = find.byType(HomeTabSwitch);
