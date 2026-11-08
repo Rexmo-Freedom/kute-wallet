@@ -35,7 +35,8 @@
 //     (built elsewhere): every Investing fill, every prediction placed,
 //     sold, won or lost, and every move into or out of Investing or
 //     Predictions from anywhere, each funding chain folded into the action
-//     it paid for ([isInvestmentsActivity], activity_curation.dart).
+//     it paid for, and dollars arriving from or leaving for outside the
+//     wallet ([isInvestmentsActivity], activity_curation.dart).
 //   * [ActivityScope.all]: everything (the Activity screen opened from a
 //     money move, which may be any of them).
 //
@@ -59,6 +60,8 @@ import 'package:kute/helpers/swap_activity.dart'
     show SwapActivityKind, swapActivityFor;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/swap_order_model.dart' show SwapOrder;
+import 'package:kute/services/orchestra_routes.dart'
+    show isOrchestraUsdLikeCoin;
 import 'package:kute/screens/shared/activity_curation.dart';
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -135,8 +138,9 @@ enum ActivityScope {
   /// ([isBitcoinActivity]): the Bitcoin home's Activity and its See all.
   bitcoin,
 
-  /// The venues' fills, bets and results, and money moving into or out of
-  /// Investing or Predictions ([isInvestmentsActivity]).
+  /// The venues' fills, bets and results, money moving into or out of
+  /// Investing or Predictions, and dollars arriving from or leaving for
+  /// outside the wallet ([isInvestmentsActivity]).
   investments,
 }
 
@@ -173,8 +177,12 @@ bool isBitcoinActivity(
 /// prediction placed, sold, won or lost (and the venue's own deposit and
 /// withdrawal records), USDC arriving in Predictions, a conversion into or
 /// out of Investing or Predictions whatever paid for it (a Cash App
-/// purchase into a venue included), or a move that took money from or to
-/// a venue.
+/// purchase into a venue included), a move that took money from or to a
+/// venue, or dollars arriving from or leaving for outside the wallet
+/// (founder, 8 November 2026: a stablecoin deposit must show here): a
+/// receive into Dollars, a send paid from Dollars, a plain dollar transfer.
+/// A transfer that is a conversion's leg never gets here: it folds into its
+/// conversion's row first (assembleActivityRows).
 bool isInvestmentsActivity(
   AllActivityEntry e, {
   SwapActivityKind Function(SwapOrder order) classify = swapActivityFor,
@@ -182,10 +190,14 @@ bool isInvestmentsActivity(
   if (e.fill != null) return true;
   final tx = e.tx;
   return switch (tx) {
-    PolymarketTransaction() || PolymarketUsdcReceive() => true,
+    PolymarketTransaction() ||
+    PolymarketUsdcReceive() ||
+    UsdbTokenTransaction() =>
+      true,
     SwapOrderTransaction() => tx.details.isCashAppPurchase
         ? cashAppDestination(tx.details)?.isVenue ?? false
-        : _isVenueKind(classify(tx.details)),
+        : _isVenueKind(classify(tx.details)) ||
+            _isOutsideDollars(tx.details, classify(tx.details)),
     MultiSourceMoveTransaction() => tx.move.okLegs.isNotEmpty ||
         tx.move.destination == VenueCashDestination.investing ||
         tx.move.destination == VenueCashDestination.predictions,
@@ -195,6 +207,16 @@ bool isInvestmentsActivity(
 
 bool _isVenueKind(SwapActivityKind kind) =>
     kind.isPredictions || kind.isInvesting;
+
+/// A conversion that brings dollars in from outside the wallet, or pays
+/// someone outside from Dollars. Crypto received into Bitcoin stays on the
+/// Bitcoin activity.
+bool _isOutsideDollars(SwapOrder order, SwapActivityKind kind) =>
+    switch (kind) {
+      SwapActivityKind.receive => isOrchestraUsdLikeCoin(order.coinTo),
+      SwapActivityKind.send => isOrchestraUsdLikeCoin(order.coinFrom),
+      _ => false,
+    };
 
 /// [entries] in [scope], the order kept.
 List<AllActivityEntry> activityInScope(

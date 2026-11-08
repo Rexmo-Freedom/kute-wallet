@@ -251,7 +251,11 @@ class MoneyJourneyPlan {
     // approves, Investing credits.
     MoneyPlace? readinessPlace;
     for (final s in graph.steps) {
-      if (s.kind == MoneyStepKind.credit) {
+      if (s.kind == MoneyStepKind.gather) {
+        // Waiting for the legs names no venue: a send's legs gather at
+        // Dollars, and Predictions is a source there, never the end.
+        continue;
+      } else if (s.kind == MoneyStepKind.credit) {
         readinessPlace ??= MoneyPlace.investing;
       } else if (s.kind.readiness) {
         readinessPlace ??= MoneyPlace.predictions;

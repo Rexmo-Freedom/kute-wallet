@@ -512,19 +512,46 @@ void main() {
           ]);
     });
 
-    test('Investments: the fills, the bets and every venue move', () {
+    test(
+        'Investments: the fills, the bets, every venue move and dollars from '
+        'or to outside', () {
       expect(
           _ids(activityInScope(everything, ActivityScope.investments,
               classify: _classify)),
           [
+            'usd_in',
             'btc_to_pm',
             'pm_home',
             'btc_to_hl',
             'to_hl',
             'usd_to_pm',
+            'dollar_send',
             'bet',
             'fill:1'
           ]);
+    });
+
+    test('a stablecoin received into Dollars is listed, into Bitcoin is not',
+        () {
+      AllActivityEntry received(String id, String coinTo, String networkTo) =>
+          tx(SwapOrderTransaction(
+              id: id,
+              timestamp: _t0,
+              isConfirmed: true,
+              details: _swap(id,
+                      coinFrom: 'USDC',
+                      networkFrom: 'SOLANA',
+                      coinTo: coinTo,
+                      networkTo: networkTo,
+                      at: _t0)
+                  .details
+                  .copyWith(activityDirection: 'receive')));
+      expect(
+          _ids(activityInScope([
+            received('to_dollars', kOrchestraUsdAssetCode, 'SPARK'),
+            received('to_bitcoin', 'BTC', 'SPARK'),
+          ], ActivityScope.investments)),
+          ['to_dollars']);
     });
 
     test('all: everything', () {

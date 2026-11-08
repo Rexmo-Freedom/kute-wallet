@@ -1747,6 +1747,24 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
             ),
           ),
         ),
+        // Venue cash coming home for the send: its steps, each leg on its
+        // own line, then the send. They grow in, never popping in. Above the
+        // action, whose footnote keeps the room clear of the floating bar.
+        StepsReveal(
+          child: _stepsMoveId != null && _processing && _error == null
+              ? Consumer(builder: (context, ref, _) {
+                  final move = ref
+                      .watch(multiSourceMovesProvider)
+                      .where((m) => m.id == _stepsMoveId)
+                      .firstOrNull;
+                  return move == null
+                      ? const SizedBox.shrink()
+                      // The send's own failure tap is the stop's
+                      // ([_sendFailedFeedback]).
+                      : MoveStepsSection(move: move, failureHaptic: false);
+                })
+              : null,
+        ),
         SizedBox(height: 16.h),
         // The bitcoin send's rubber band, on the same block: it eases up
         // while venue cash comes home and the quote is made, holds through
@@ -1774,23 +1792,6 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
                     ? l10n.sendWaitForFee
                     : l10n.sendFundsLeaveYourWalletImmediately),
           ),
-        ),
-        // Venue cash coming home for the send: its steps, each leg on its
-        // own line, then the send. They grow in, never popping in.
-        StepsReveal(
-          child: _stepsMoveId != null && _processing && _error == null
-              ? Consumer(builder: (context, ref, _) {
-                  final move = ref
-                      .watch(multiSourceMovesProvider)
-                      .where((m) => m.id == _stepsMoveId)
-                      .firstOrNull;
-                  return move == null
-                      ? const SizedBox.shrink()
-                      // The send's own failure tap is the stop's
-                      // ([_sendFailedFeedback]).
-                      : MoveStepsSection(move: move, failureHaptic: false);
-                })
-              : null,
         ),
       ],
     );

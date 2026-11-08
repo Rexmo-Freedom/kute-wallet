@@ -20,7 +20,12 @@ import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/screens/shared/money_steps_view.dart';
 import 'package:kute/services/one_balance/bitcoin_funded_order.dart'
     show fundedOrderGraph;
+import 'package:kute/screens/shared/money_journey_plan.dart';
 import 'package:kute/services/one_balance/money_steps.dart';
+import 'package:kute/services/one_balance/move_steps.dart';
+import 'package:kute/services/one_balance/venue_cash_source.dart';
+import 'package:kute/services/one_balance/venue_funder.dart'
+    show VenueCashDestination;
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -304,6 +309,94 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 3));
   });
+
+  group('a send from two venues', () {
+    MoneyStepGraph send() => MoveSteps.planned(
+          destination: VenueCashDestination.dollars,
+          forAction: VenueCashFor.send,
+          legs: const [
+            (venue: OneBalanceVenue.investing, usd: 6.52, direct: false),
+            (venue: OneBalanceVenue.predictions, usd: 3.00, direct: false),
+          ],
+          onwardUsd: 16.35,
+          totalUsd: 16.35,
+          at: DateTime.utc(2026, 11, 8),
+        );
+
+    test('both venues go into Dollars, then out to the recipient', () {
+      final plan = MoneyJourneyPlan.of(_lines(send()), graph: send());
+      JourneyStation of(String id) =>
+          plan.stations.firstWhere((s) => s.id == id);
+      expect(plan.stations.map((s) => s.id).toSet(),
+          {'investing', 'predictions', 'dollars', 'outside'});
+      expect(plan.columns, 3);
+      expect(of('investing').column, 0);
+      expect(of('predictions').column, 0);
+      expect(of('dollars').column, 1);
+      expect(of('outside').column, 2);
+      expect(plan.stations[plan.destination!].id, 'outside');
+      expect(plan.roads.map((r) => (plan.stations[r.from].id, plan.stations[r.to].id)),
+          containsAll([
+            ('investing', 'dollars'),
+            ('predictions', 'dollars'),
+            ('dollars', 'outside'),
+          ]));
+    });
+
+    testWidgets('no two stations or labels overlap', (tester) async {
+      tester.view.physicalSize = const Size(390 * 3, 844 * 3);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(_app(send()));
+      await tester.pump(const Duration(milliseconds: 600));
+      final labels = [
+        for (final id in const ['investing', 'predictions', 'dollars', 'outside'])
+          tester.getRect(find.byKey(ValueKey('money-steps-station-amount-$id'))),
+      ];
+      for (var i = 0; i < labels.length; i++) {
+        for (var j = i + 1; j < labels.length; j++) {
+          expect(labels[i].overlaps(labels[j]), isFalse, reason: '$i and $j');
+        }
+      }
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 3));
+    });
+  });
+
+  // The send's frame for a look by eye (written only when asked:
+  // JOURNEY_SEND_FRAME=<file.png>).
+  final sendFrame = Platform.environment['JOURNEY_SEND_FRAME'];
+  testWidgets('the send\'s frame', skip: sendFrame == null, (tester) async {
+    tester.view.physicalSize = const Size(390 * 3, 400 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    final key = GlobalKey();
+    await tester.pumpWidget(_app(
+        MoveSteps.planned(
+          destination: VenueCashDestination.dollars,
+          forAction: VenueCashFor.send,
+          legs: const [
+            (venue: OneBalanceVenue.investing, usd: 6.52, direct: false),
+            (venue: OneBalanceVenue.predictions, usd: 3.00, direct: false),
+          ],
+          onwardUsd: 16.35,
+          totalUsd: 16.35,
+          at: DateTime.utc(2026, 11, 8),
+        ),
+        theme: buildDarkTheme(),
+        boundary: key));
+    await tester.pump(const Duration(milliseconds: 1500));
+    await tester.runAsync(() async {
+      final boundary =
+          key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+      final image = await boundary.toImage(pixelRatio: 2);
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      File(sendFrame!).writeAsBytesSync(bytes!.buffer.asUint8List());
+    });
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 3));
+  }, timeout: const Timeout(Duration(seconds: 60)));
 
   // Frames for a look by eye, 390 wide (written only when asked:
   // JOURNEY_FRAMES=<dir>).

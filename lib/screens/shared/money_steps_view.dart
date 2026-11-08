@@ -787,13 +787,20 @@ class _Geometry {
       if (plan.roads.any((road) => road.to == i)) continue;
       ys[i] = look.rowY + (st.row + (rowsAll - st.rows) / 2) * vstep;
     }
-    // Stations on the way, left to right: the row of the leg into them.
+    // Stations on the way, left to right: the row of the leg into them; two
+    // or more legs merging there (a send's legs at Dollars): the centre
+    // line, so the one line on from them runs straight.
     final order = [for (var i = 0; i < n; i++) i]..sort((a, b) =>
         plan.stations[a].column.compareTo(plan.stations[b].column));
     for (final i in order) {
       if (ys[i] != null) continue;
-      final feed = plan.roads.where((road) => road.to == i).firstOrNull;
-      final y = feed == null ? null : ys[feed.from];
+      final feeds = plan.roads.where((road) => road.to == i);
+      final feed = feeds.firstOrNull;
+      final y = feeds.length > 1
+          ? mid
+          : feed == null
+              ? null
+              : ys[feed.from];
       final st = plan.stations[i];
       ys[i] = y ?? look.rowY + (st.row + (rowsAll - st.rows) / 2) * vstep;
     }
