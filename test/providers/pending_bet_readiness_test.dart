@@ -197,13 +197,15 @@ Settings _settings() => Settings(
 PendingBetIntent _queued(
         {DateTime? endAt,
         String? slug,
+        String? roundWindow,
+        String question = 'Bitcoin Up or Down - October 13, 2:00PM-2:05PM ET',
         Map<String, Object?>? btcLeg,
         Map<String, Object?>? directLegs}) =>
     PendingBetIntent(
       tokenId: _token,
       amount: 10,
       slippagePct: 5,
-      marketQuestion: 'Bitcoin Up or Down - October 13, 2:00PM-2:05PM ET',
+      marketQuestion: question,
       outcomeName: 'Up',
       expectedPrice: 0.5,
       status: PendingBetStatus.awaitingBalance,
@@ -216,6 +218,7 @@ PendingBetIntent _queued(
       btcLeg: btcLeg,
       directLegs: directLegs,
       eventSlug: slug,
+      roundWindow: roundWindow,
     );
 
 void main() {
@@ -345,6 +348,7 @@ void main() {
       Map<String, Object?>? btcLeg,
       Map<String, Object?>? directLegs,
       String? slug,
+      String? roundWindow,
       String Function()? ask}) async {
     final askNow = ask ?? () => '0.48';
     final trading = _Trading([...refusals])
@@ -383,7 +387,11 @@ void main() {
     });
 
     final intent = _queued(
-        endAt: endAt, slug: slug, btcLeg: btcLeg, directLegs: directLegs);
+        endAt: endAt,
+        slug: slug,
+        roundWindow: roundWindow,
+        btcLeg: btcLeg,
+        directLegs: directLegs);
     final review = PmGrants.betReview(
       walletId: 'spending',
       tokenId: _token,
@@ -407,6 +415,18 @@ void main() {
     c.read(pendingPolymarketBetProvider.notifier).setIntent(intent);
     return (c: c, trading: trading, atPlacing: atPlacing);
   }
+
+  /// [start] for a bet the slip opened on the next window.
+  Future<
+      ({
+        ProviderContainer c,
+        _Trading trading,
+        List<PredictionsReadiness?> atPlacing
+      })> start_(DateTime windowStart,
+          {required String slug,
+          String Function()? ask,
+          required DateTime endAt}) =>
+      start(slug: slug, ask: ask, endAt: endAt, roundWindow: 'next');
 
   Future<void> settle(ProviderContainer c) async {
     for (var i = 0; i < 300; i++) {
@@ -1106,6 +1126,89 @@ void main() {
   // sends again were spent within seconds because the readiness read
   // looked ready at once. The waits below take well past those five
   // sends' worth of time; the fix waits them out, spaced, bounded by time.
+  group('a bet for the next window whose money lands late (founder, 8 '
+      'November 2026)', () {
+    // The card's buttons roll to the next window partway through this one,
+    // so a funded bet can land before that window starts or after. The
+    // existing rules apply unchanged: on the tokens it was approved for,
+    // from a fresh book, under the approved worst price, or not at all.
+    String nextSlug(DateTime start) =>
+        'btc-updown-5m-${start.millisecondsSinceEpoch ~/ 1000}';
+    Map<String, Object> failedEvent() =>
+        events.where((e) => e.$1 == 'polymarket_bet_failed').single.$2!;
+
+    test('landed before it starts: placed on its own tokens under the '
+        'approval, reported as the next window', () async {
+      final start = DateTime.now().add(const Duration(minutes: 2));
+      final r = await start_(
+          start, slug: nextSlug(start), ask: () => '0.48',
+          endAt: start.add(const Duration(minutes: 5)));
+      r.trading.land(10.6);
+      await settle(r.c);
+      expect(r.trading.orders, hasLength(1));
+      expect(r.trading.orders.single, lessThanOrEqualTo(0.55 + 1e-9));
+      expect(r.c.read(pendingPolymarketBetProvider)!.failureCode, isNull);
+    });
+
+    test('landed after it started, the price inside the approval: placed '
+        'as any open round', () async {
+      final start = DateTime.now().subtract(const Duration(seconds: 40));
+      final r = await start_(
+          start, slug: nextSlug(start), ask: () => '0.50',
+          endAt: start.add(const Duration(minutes: 5)));
+      r.trading.land(10.6);
+      await settle(r.c);
+      expect(r.trading.orders, hasLength(1));
+      expect(r.c.read(pendingPolymarketBetProvider)!.failureCode, isNull);
+    });
+
+    test('landed after it started, the price moved past the approval: '
+        'nothing placed, the price now said, the retry asks again', () async {
+      final start = DateTime.now().subtract(const Duration(seconds: 40));
+      final r = await start_(
+          start, slug: nextSlug(start), ask: () => '0.81',
+          endAt: start.add(const Duration(minutes: 5)));
+      r.trading.land(10.6);
+      await settle(r.c);
+      expect(r.trading.orders, isEmpty, reason: 'never at a price not seen');
+      final pending = r.c.read(pendingPolymarketBetProvider)!;
+      expect(pending.failureCode, 'round_price_moved');
+      expect(pending.errorMessage,
+          'Price changed to 81% while your money was moving.');
+      expect(betSlipStopAction(l10nForLanguage('en'), pending),
+          (label: 'Retry at 81%', nextRound: false));
+      final failed = failedEvent();
+      expect(failed['window'], 'next',
+          reason: 'still the window the slip opened on');
+      expect(failed['seconds_to_window_end'], isA<int>());
+      expect(failed['seconds_to_window_end'] as int, inInclusiveRange(200, 260));
+    });
+
+    test('landed after that window ended: nothing placed, the money in '
+        'Predictions, Retry on the round in play', () async {
+      final start = DateTime.now().subtract(const Duration(minutes: 6));
+      final r = await start_(
+          start, slug: nextSlug(start),
+          endAt: start.add(const Duration(minutes: 5)));
+      r.trading.land(10.6);
+      await settle(r.c);
+      expect(r.trading.orders, isEmpty);
+      final pending = r.c.read(pendingPolymarketBetProvider)!;
+      expect(pending.failureCode, 'round_ended');
+      expect(betSlipStopAction(l10nForLanguage('en'), pending),
+          (label: 'Retry', nextRound: true));
+      expect(failedEvent()['window'], 'next');
+    });
+
+    test('a round is known by its slug, whatever the question reads', () {
+      final ended = _queued(
+          endAt: DateTime.now().subtract(const Duration(seconds: 1)),
+          slug: 'btc-updown-5m-1791152100',
+          question: 'BTC hoch oder runter · 7:20–7:25');
+      expect(autofireRoundClosed(ended), isTrue);
+    });
+  });
+
   group('confirming late, after the money landed', () {
     test(
         'the spend approval mined late: waited out under the same approval, '

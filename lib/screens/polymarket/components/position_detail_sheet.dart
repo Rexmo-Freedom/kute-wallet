@@ -11,6 +11,7 @@ import 'package:kute/screens/share/brag/position_share_card.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/fitted_title.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show KuteStillWhenCovered;
+import 'package:kute/screens/polymarket/components/round_window_label.dart';
 import 'package:kute/screens/polymarket/components/live_token_scope.dart';
 import 'package:kute/screens/polymarket/components/market_chart.dart'
     show formatPolyBoughtCents;
@@ -622,7 +623,8 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                     Expanded(
                       // The whole title: smaller rather than cut.
                       child: FittedTitle(
-                        pos.marketQuestion,
+                        polyShownQuestion(
+                            context, pos.marketQuestion, pos.eventSlug),
                         key: const ValueKey('poly-position-title'),
                         style: TextStyle(
                           color: c.textPrimary,

@@ -94,3 +94,24 @@ bool polyIsCryptoUpDown5m(String? slug) {
   if (slug == null || slug.isEmpty) return false;
   return polyCryptoRoundOf(slug)?.window == const Duration(minutes: 5);
 }
+
+/// The `window` value on the slip and order events: `next` for a 5-minute
+/// window still to start at [at], `current` for one in play; null for
+/// anything else.
+String? polyRoundWindowParam(String? slug, DateTime at) {
+  if (!polyIsCryptoUpDown5m(slug)) return null;
+  return polyCryptoRoundOf(slug!)!.start.isAfter(at) ? 'next' : 'current';
+}
+
+/// `window` ([window], else read off [slug] at [at]) and the exact
+/// `seconds_to_window_end` for a 5-minute window; empty for anything else.
+Map<String, Object> polyRoundWindowParams(String? slug,
+    {String? window, required DateTime at}) {
+  if (!polyIsCryptoUpDown5m(slug)) return const {};
+  final shown = window ?? polyRoundWindowParam(slug, at)!;
+  return {
+    'window': shown,
+    'seconds_to_window_end':
+        polyCryptoRoundOf(slug!)!.end.difference(at).inSeconds,
+  };
+}

@@ -238,6 +238,63 @@ void main() {
     expect(betSlipEndsOnConfirmation(isLimit: true), isFalse);
   });
 
+  group('the receipt names the window', () {
+    Future<NavigatorState> pump(WidgetTester tester) async {
+      KuteConfirmation.debugFeedbackOverride = () async {};
+      final rootKey = GlobalKey<NavigatorState>();
+      await tester.pumpWidget(ProviderScope(child: ScreenUtilInit(
+        designSize: const Size(430, 932),
+        builder: (_, __) => MaterialApp(
+          navigatorKey: rootKey,
+          theme: buildLightTheme(),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          builder: withKuteShellBar,
+          home: const Scaffold(body: Text('home')),
+        ),
+      )));
+      await tester.pumpAndSettle();
+      return rootKey.currentState!;
+    }
+
+    const question = 'Bitcoin Up or Down - November 8, 7:20AM-7:25AM ET';
+
+    testWidgets('a 5-minute round: its window in the phone\'s time zone',
+        (tester) async {
+      final nav = await pump(tester);
+      showBetSlipPlacedConfirmation(
+        navigator: nav,
+        marketQuestion: question,
+        marketSlug: 'btc-updown-5m-1794139200',
+        outcome: 'Up',
+        total: 10,
+        price: 0.5,
+        filledShares: 20,
+        filledCost: 10,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Prediction placed'), findsOneWidget);
+      expect(
+          find.textContaining(RegExp(r'^BTC up or down · \d{1,2}:\d\d–\d{1,2}:\d\d$')),
+          findsOneWidget);
+      expect(find.text(question), findsNothing);
+    });
+
+    testWidgets('anything else: the market\'s own question', (tester) async {
+      final nav = await pump(tester);
+      showBetSlipPlacedConfirmation(
+        navigator: nav,
+        marketQuestion: 'Will it rain?',
+        marketSlug: 'will-it-rain',
+        outcome: 'Yes',
+        total: 10,
+        price: 0.5,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Will it rain?'), findsOneWidget);
+    });
+  });
+
   test('the receipt fee: the venue curve at the fill plus the funding legs',
       () {
     const terms = PolymarketFeeTerms(

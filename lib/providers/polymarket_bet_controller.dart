@@ -1483,6 +1483,7 @@ class PolymarketBetController {
       _placingTile = ref.read(placingPolymarketBetProvider.notifier).markPlacing(
             tokenId: intent.tokenId,
             marketQuestion: intent.marketQuestion,
+            eventSlug: intent.eventSlug,
             marketImage: intent.marketImage,
             outcomeName: intent.outcomeName,
             amount: intent.amount,
@@ -1528,6 +1529,7 @@ class PolymarketBetController {
             return tiles.markPlacing(
               tokenId: intent.tokenId,
               marketQuestion: intent.marketQuestion,
+              eventSlug: intent.eventSlug,
               marketImage: intent.marketImage,
               outcomeName: intent.outcomeName,
               amount: cost0,

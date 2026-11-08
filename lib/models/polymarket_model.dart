@@ -3071,12 +3071,16 @@ class PolymarketModel {
     final meta = raw['eventMetadata'];
     final ptb = meta is Map ? meta['priceToBeat'] : null;
     final priceToBeat = ptb is num ? ptb.toDouble() : double.tryParse('$ptb');
+    final markets = raw['markets'];
+    final market =
+        markets is List && markets.isNotEmpty ? markets.first : null;
     return Btc5MinEvent.fromEvent(
       Event.fromJson(PolyMarketProtocol.eventWithTradingIds(raw)),
       priceToBeat:
           priceToBeat != null && priceToBeat.isFinite && priceToBeat > 0
               ? priceToBeat
               : null,
+      acceptingOrders: market is Map ? market['acceptingOrders'] != false : true,
     );
   }
 
@@ -3394,6 +3398,10 @@ class Btc5MinEvent {
   /// the window, when Gamma already carries it.
   final double? priceToBeat;
 
+  /// Gamma's `acceptingOrders` of the window's market: false only when
+  /// Gamma says it takes no orders.
+  final bool acceptingOrders;
+
   const Btc5MinEvent({
     required this.slug,
     required this.title,
@@ -3409,6 +3417,7 @@ class Btc5MinEvent {
     this.active = true,
     this.closed = false,
     this.priceToBeat,
+    this.acceptingOrders = true,
   });
 
   static DateTime? _parseWindowStart(String? slug) {
@@ -3419,7 +3428,8 @@ class Btc5MinEvent {
     return DateTime.fromMillisecondsSinceEpoch(ts * 1000, isUtc: true);
   }
 
-  factory Btc5MinEvent.fromEvent(Event event, {double? priceToBeat}) {
+  factory Btc5MinEvent.fromEvent(Event event,
+      {double? priceToBeat, bool acceptingOrders = true}) {
     final markets = event.markets ?? [];
     final market = markets.isNotEmpty ? markets.first : null;
 
@@ -3450,6 +3460,7 @@ class Btc5MinEvent {
       active: event.active,
       closed: event.closed,
       priceToBeat: priceToBeat,
+      acceptingOrders: acceptingOrders,
     );
   }
 

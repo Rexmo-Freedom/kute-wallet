@@ -41,6 +41,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:kute/screens/polymarket/components/round_window_label.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart'
     show HlDexNames, HlMarket, HlMarketKind;
@@ -618,7 +619,7 @@ class SearchPositionRow extends StatelessWidget {
         : (pnl > 0 ? AppColors.marketUp : AppColors.marketDown);
     return SearchListRow(
       leading: searchEventLogo(context, p.marketImage),
-      title: p.marketQuestion,
+      title: polyShownQuestion(context, p.marketQuestion, p.eventSlug),
       subtitle: l10n.searchYourPosition(p.outcome),
       trailing: Column(
         mainAxisSize: MainAxisSize.min,

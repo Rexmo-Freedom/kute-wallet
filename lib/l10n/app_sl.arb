@@ -3530,6 +3530,8 @@
   "categoryFilterPrompt": "Filter",
   "activityPaidFrom": "Paid from {source}",
   "activityPaidFromBoth": "Paid from {first} and {second}",
+  "predictNextWindow": "Naslednji · {time}",
+  "predictRoundWindow": "{asset} gor ali dol · {start}–{end}",
   "predictUpOrDownCompact": "{asset} up or down · {minutes}m",
   "sendFrequent": "Frequent",
   "sendAllContacts": "All contacts",

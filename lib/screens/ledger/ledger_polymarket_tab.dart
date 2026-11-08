@@ -13,6 +13,7 @@
 // Public discovery stays visible independently of account reads. Activity
 // lives in Portfolio; its shared rows below use this Ledger's records only.
 
+import 'package:kute/screens/polymarket/components/round_window_label.dart';
 import 'package:kute/screens/polymarket/components/market_card.dart'
     show polyCardGroups, polyCardOpenSlip, polyGroupRowDivider, polyGroupRowIndent;
 import 'package:kute/screens/polymarket/components/position_card.dart';
@@ -474,7 +475,8 @@ class LedgerPmPositionRow extends ConsumerWidget {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 16.w),
       child: PolyPositionCard(
-        question: position.title,
+        question: polyShownQuestion(
+            context, position.title, position.eventSlug),
         imageUrl: position.icon,
         outcome: position.outcome,
         shares: position.size,

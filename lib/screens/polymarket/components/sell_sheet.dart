@@ -31,6 +31,7 @@ import 'package:kute/screens/shared/polymarket_fee_summary.dart';
 
 import 'dart:async';
 
+import 'package:kute/screens/polymarket/components/round_window_label.dart';
 import 'package:kute/screens/polymarket/components/slip_chrome.dart';
 import 'package:kute/services/polymarket/polymarket_fee_terms.dart'
     show polymarketFeeTermsProvider;
@@ -1768,7 +1769,8 @@ class _SellSheetState extends ConsumerState<SellSheet> {
                   // The buy slip's own header: the market's artwork, the
                   // title (two lines at most) and the round close X.
                   PolySlipHeader(
-                    marketQuestion: pos.marketQuestion,
+                    marketQuestion: polyShownQuestion(
+                        context, pos.marketQuestion, pos.eventSlug),
                     marketImage: pos.marketImage,
                     maxLines: 2,
                   ),
@@ -2371,7 +2373,9 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         SizedBox(height: 12.h),
-                        Text(pos.marketQuestion,
+                        Text(
+                            polyShownQuestion(
+                                context, pos.marketQuestion, pos.eventSlug),
                             style: TextStyle(
                                 fontSize: 20.sp,
                                 fontWeight: FontWeight.w700,

@@ -12,6 +12,9 @@
 //     Predictions market's image (the held team's crest when the event
 //     names one) clipped round, an Investing market's coin logo through
 //     [HlCoinIcon] (HIP-3 tickers such as xyz:NVDA included);
+//   * a 5-minute crypto window's title is its own name ("BTC up or down ·
+//     7:20–7:25", round_window_label.dart), which window it is being the
+//     point: the card's buttons roll to the next one partway through;
 //   * the title, short by construction ([polyPositionRowNames]): the held
 //     outcome's own name in a many-outcome event ("Lula da Silva", "Harry
 //     Kane"), a named side ("Verstappen"), the event's title when short,
@@ -99,6 +102,7 @@ import 'package:kute/screens/hyperliquid/components/hl_market_card.dart'
     show HlListRow;
 import 'package:kute/screens/hyperliquid/components/hl_position_detail_sheet.dart';
 import 'package:kute/screens/hyperliquid/market_detail_sheet.dart';
+import 'package:kute/screens/polymarket/components/round_window_label.dart';
 import 'package:kute/screens/polymarket/components/combo_detail_sheet.dart';
 import 'package:kute/screens/polymarket/components/game_time.dart'
     show polyMinuteTickProvider;
@@ -631,7 +635,10 @@ String _questionRest(
 
 /// A Predictions row's title and context (see the file header), from the
 /// market's [question], the [side] held and its [event] when loaded.
-/// [date] writes an ISO date found in a title. Pure for the tests.
+/// [date] writes an ISO date found in a title. [windowName] is a 5-minute
+/// window's own name ("BTC up or down · 7:20–7:25",
+/// [polyRoundWindowNameOf]): it is the title, or a row would read "Bitcoin
+/// Up or Down" for every window. Pure for the tests.
 PolyRowNames polyPositionRowNames({
   required String question,
   required String side,
@@ -639,7 +646,11 @@ PolyRowNames polyPositionRowNames({
   String? tokenId,
   PolymarketEvent? event,
   String Function(DateTime)? date,
+  String? windowName,
 }) {
+  if (windowName != null) {
+    return (title: windowName, context: '', titleIsSide: false);
+  }
   final held = side.trim();
   // The event's name, its blank ("by...?") taken out.
   final eventName = event == null
@@ -1792,6 +1803,7 @@ String polyPositionRowTitle(
       tokenId: p.tokenId,
       event: event,
       date: _rowDate(context),
+      windowName: polyRoundWindowNameOf(context, p.eventSlug),
     ).title;
 
 /// One held Polymarket position. Its value and its chance bar follow the
@@ -1868,6 +1880,7 @@ class PolyPositionRow extends ConsumerWidget {
       tokenId: p.tokenId,
       event: event,
       date: _rowDate(context),
+      windowName: polyRoundWindowNameOf(context, slug),
     );
 
     // Crest first: a sports market carries the league's generic ball as
@@ -1983,7 +1996,8 @@ class PlacingBetRow extends ConsumerWidget {
     final names = polyPositionRowNames(
         question: p.marketQuestion,
         side: p.outcomeName,
-        date: _rowDate(context));
+        date: _rowDate(context),
+        windowName: polyRoundWindowNameOf(context, p.eventSlug));
     return PortfolioPositionRow(
       leading: _polyImage(p.marketQuestion, p.marketImage),
       title: names.title,
