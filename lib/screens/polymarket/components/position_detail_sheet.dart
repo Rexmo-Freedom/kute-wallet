@@ -1,5 +1,9 @@
 import 'dart:async';
 
+import 'package:kute/services/runtime_capabilities_service.dart'
+    show runtimeCapabilitiesProvider;
+import 'package:kute/screens/shared/capability_unavailable_sheet.dart'
+    show showCapabilityDecisionSheet;
 import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
 import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/screens/shared/kute_share_actions.dart';
@@ -322,10 +326,24 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
         : charted;
   }
 
+  /// A limit sell the policy withholds says so here and goes no further
+  /// (founder, 8 November 2026: "just show unavailable, don't open the
+  /// sheet"): only the Unavailable sheet, over this page. A market sell
+  /// answers to `polymarket.close` and stays open from the bar.
+  bool _limitSellBlocked() {
+    final decision =
+        ref.read(runtimeCapabilitiesProvider).decision('trading.advanced');
+    if (decision.allowed) return false;
+    unawaited(showCapabilityDecisionSheet(context, decision,
+        capability: 'trading.advanced', surface: 'position_limit_sell'));
+    return true;
+  }
+
   /// "Set a sell at 72%": the limit sell of "Protect it", started at the
   /// explored chance.
   void _sellAtWhatIf(PolymarketPosition pos, double at) {
     _sellAtTimer?.cancel();
+    if (_limitSellBlocked()) return;
     _logWhatIf(sellTapped: true);
     context.pop();
     SellSheet.show(context,
@@ -897,6 +915,7 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                                       'wallet_kind': 'hot',
                                       'target': 'limit_sell',
                                     });
+                                if (_limitSellBlocked()) return;
                                 context.pop();
                                 SellSheet.show(context,
                                     position: pos,

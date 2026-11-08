@@ -25,6 +25,11 @@ import 'package:kute/providers/polymarket_sats_pnl_provider.dart'
 import 'package:kute/providers/polymarket_sports_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/screens/polymarket/components/position_detail_sheet.dart';
+import 'package:kute/models/affiliate_model.dart';
+import 'package:kute/screens/shared/capability_unavailable_sheet.dart'
+    show CapabilityUnavailableSheet;
+import 'package:kute/services/runtime_capabilities_service.dart';
+import '../../helpers/runtime_policy_fixture.dart';
 import 'package:kute/screens/polymarket/components/position_journey.dart';
 import 'package:kute/screens/polymarket/components/position_speedometer.dart';
 import 'package:kute/screens/polymarket/components/sell_sheet.dart';
@@ -191,6 +196,14 @@ Finder _rolling(String text) => find.byWidgetPredicate(
       return hub + Offset(r * math.cos(a), r * math.sin(a));
     },
   );
+}
+
+Future<void> _advancedPolicy({Set<String> blocked = const {}}) async {
+  AffiliateService.debugSessionToken = 'test-session';
+  final policy =
+      runtimePolicyFixture(also: const {'trading.advanced'}, blocked: blocked);
+  RuntimeCapabilitiesService.debugInstance = policy;
+  await policy.refresh();
 }
 
 void main() {
@@ -589,6 +602,7 @@ void main() {
 
   testWidgets('"Set a sell at 85%" opens the limit sell at 85¢ and logs the '
       'what-if with the sell tapped', (tester) async {
+    await tester.runAsync(() => _advancedPolicy());
     tester.view.physicalSize = const Size(390, 1200);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -645,6 +659,61 @@ void main() {
     expect(whatIf.single.$2!['sell_tapped'], true);
     expect(polyWhatIfSellPrice(1.0), 0.99);
     expect(polyWhatIfSellPrice(0.0), 0.01);
+  });
+
+  testWidgets('"Set a sell at 85%" with limit orders withheld: just Unavailable, no '
+      'sell sheet', (tester) async {
+    await tester.runAsync(() => _advancedPolicy(blocked: {'trading.advanced'}));
+    tester.view.physicalSize = const Size(390, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final router = GoRouter(routes: [
+      GoRoute(
+        path: '/',
+        builder: (context, _) => Scaffold(
+          body: Center(
+            child: TextButton(
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const PositionDetailSheet(position: _no))),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ),
+    ]);
+    addTearDown(router.dispose);
+    await tester.pumpWidget(ProviderScope(
+      overrides: _overrides(),
+      child: ScreenUtilInit(
+        designSize: const Size(430, 932),
+        builder: (_, __) => MaterialApp.router(
+          routerConfig: router,
+          theme: ThemeData(extensions: [AppColorsExtension.light()]),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+        ),
+      ),
+    ));
+    await tester.tap(find.text('open'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    final d = _dial(tester);
+    final g = await tester.startGesture(d.hub + const Offset(0, -10));
+    await tester.pump();
+    for (final f in [0.7, 0.8, 0.85]) {
+      await g.moveTo(d.at(f));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await g.up();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('Set a sell at 85%'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    // Only the Unavailable sheet: the sell sheet never opens.
+    expect(find.byType(SellSheet), findsNothing);
+    expect(find.byType(CapabilityUnavailableSheet), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('under the tiles: no chart (founder, 1 November 2026) and no '
