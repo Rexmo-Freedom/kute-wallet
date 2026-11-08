@@ -344,13 +344,12 @@ void main() {
           ]));
       expect(barPrimaryLabel(tester), r'Deposit incoming · $25.00');
       expect(barPrimaryEnabled(tester), isFalse);
+      // The bar says it; no line and no spinner on the sheet, under the bar.
       expect(
           find.text(
               'Your money is on its way. This button unlocks when it lands.'),
-          findsOneWidget);
-      // The small working sign beside that line.
-      expect(find.byKey(const ValueKey('slip-deposit-incoming-working')),
-          findsOneWidget);
+          findsNothing);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
       expect(find.text('Add more'), findsNothing);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());

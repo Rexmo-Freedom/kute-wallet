@@ -5293,6 +5293,25 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           _orderBand(
             funded: funded,
             child: Column(mainAxisSize: MainAxisSize.min, children: [
+          // Above the bar's room, never under the floating bar (founder,
+          // 8 November 2026: it clipped): on the Advanced page the steps
+          // grow in here; the plain ticket shows them at the top, where its
+          // figures were. Add more shows when the money on its way falls
+          // short.
+          StepsReveal(
+            child: advanced && fundedJourney != null
+                ? fundedJourney
+                : incoming
+                    ? SlipIncomingDepositNote(
+                        onAddMore: funding.state ==
+                                    SlipFundingState.incomingShort &&
+                                depositBlock == null
+                            ? () => _addMoreDeposit(
+                                hlShortfall, funding!.incomingUsd)
+                            : null,
+                      )
+                    : null,
+          ),
           ArrivalSwitcher(
             state: primaryKind,
             alignment: Alignment.bottomCenter,
@@ -5372,22 +5391,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                 ),
               ),
             ),
-          ),
-          // On the Advanced page the steps grow in under the button; the
-          // plain ticket shows them at the top, where its figures were.
-          StepsReveal(
-            child: advanced && fundedJourney != null
-                ? fundedJourney
-                : incoming
-                    ? SlipIncomingDepositNote(
-                        onAddMore: funding.state ==
-                                    SlipFundingState.incomingShort &&
-                                depositBlock == null
-                            ? () => _addMoreDeposit(
-                                hlShortfall, funding!.incomingUsd)
-                            : null,
-                      )
-                    : null,
           ),
             ]),
           ),

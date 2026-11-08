@@ -55,7 +55,6 @@ import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceProvider;
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
-import 'package:kute/screens/shared/kute_motion.dart' show kuteReduceMotion;
 import 'package:kute/screens/shared/money_steps_view.dart'
     show MoneyStepLine, MoneyStepsKeys, MoneyStepsView, moneyStepLines;
 import 'package:kute/screens/home/components/deposit_sheet.dart'
@@ -671,8 +670,9 @@ mixin SlipIncomingDeposit<T extends ConsumerStatefulWidget>
   }
 }
 
-/// The small lines under a "Deposit incoming" button: what is happening,
-/// and "Add more" when the deposit on its way falls short.
+/// "Add more" when the deposit on its way falls short. Nothing else: the
+/// bar says what is happening (founder, 8 November 2026: "it should just
+/// have the adding part").
 class SlipIncomingDepositNote extends StatelessWidget {
   const SlipIncomingDepositNote({super.key, this.onAddMore});
 
@@ -680,58 +680,24 @@ class SlipIncomingDepositNote extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final addMore = onAddMore;
+    if (addMore == null) return const SizedBox.shrink();
     final c = context.colors;
     return Padding(
       padding: EdgeInsets.only(top: 8.h),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // A small working sign so the wait reads as something
-              // happening; a still dot under Reduce Motion.
-              Padding(
-                padding: EdgeInsets.only(right: 8.w),
-                child: SizedBox.square(
-                  key: const ValueKey('slip-deposit-incoming-working'),
-                  dimension: 12.r,
-                  child: kuteReduceMotion(context)
-                      ? DecoratedBox(
-                          decoration: BoxDecoration(
-                              color: c.textSecondary, shape: BoxShape.circle))
-                      : CircularProgressIndicator(
-                          strokeWidth: 1.6,
-                          color: c.textSecondary,
-                        ),
-                ),
-              ),
-              Flexible(
-                child: Text(
-                  context.l10n.slipDepositIncomingNote,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                      color: c.textSecondary, fontSize: 13.sp, height: 1.35),
-                ),
-              ),
-            ],
-          ),
-          if (onAddMore != null)
-            TextButton(
-              key: const ValueKey('slip-deposit-add-more'),
-              onPressed: onAddMore,
-              style: TextButton.styleFrom(
-                foregroundColor: c.textPrimary,
-                minimumSize: Size(0, 36.h),
-                padding: EdgeInsets.symmetric(horizontal: 12.w),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: Text(
-                context.l10n.slipDepositAddMore,
-                style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w700),
-              ),
-            ),
-        ],
+      child: TextButton(
+        key: const ValueKey('slip-deposit-add-more'),
+        onPressed: addMore,
+        style: TextButton.styleFrom(
+          foregroundColor: c.textPrimary,
+          minimumSize: Size(0, 36.h),
+          padding: EdgeInsets.symmetric(horizontal: 12.w),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        child: Text(
+          context.l10n.slipDepositAddMore,
+          style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w700),
+        ),
       ),
     );
   }

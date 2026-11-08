@@ -385,7 +385,7 @@ void main() {
       expect(
           find.text(
               'Your money is on its way. This button unlocks when it lands.'),
-          findsOneWidget);
+          findsNothing);
       expect(find.text('Add more'), findsNothing);
       expect(tester.takeException(), isNull);
       await _release(tester, policy);
