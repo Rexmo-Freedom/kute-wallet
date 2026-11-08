@@ -534,8 +534,14 @@ void main() {
 
       testWidgets('render: field-dollars-$at-open-$theme', (tester) async {
         await pumpDollars(tester, dark: dark, size: size);
-        expect(coinsShown(tester).take(6),
-            ['BTC', 'Lightning', 'USDC', 'ETH', 'USDT', 'SOL']);
+        // The networks, then bitcoin's own rails.
+        expect(
+            find.descendant(
+                of: find.byKey(const ValueKey('send-accepted-coins')),
+                matching: find.byKey(
+                    const ValueKey('send-accepted-chain-ethereum'))),
+            findsOneWidget);
+        expect(coinsShown(tester), ['BTC', 'Lightning']);
         await _capture(tester, 'field-dollars-$at-open-$theme');
       });
 
@@ -635,13 +641,17 @@ void main() {
             reason: '${entry.key}: content top');
         expect(c.left, moreOrLessEquals(r.left, epsilon: 0.5),
             reason: '${entry.key}: content left');
-        expect(c.right, moreOrLessEquals(r.right, epsilon: 0.5),
-            reason: '${entry.key}: content right');
+        // A Receive's first content is the first of its two cards, half the
+        // width; a Send's is the whole field.
+        if (!entry.key.endsWith('receive')) {
+          expect(c.right, moreOrLessEquals(r.right, epsilon: 0.5),
+              reason: '${entry.key}: content right');
+        }
         // The X: its circle's right edge on the content's, centred on the
         // title's line, smaller than the 40 circle.
         final x = entry.value['close']!;
         final t = entry.value['title']!;
-        expect(x.right, moreOrLessEquals(c.right, epsilon: 0.5),
+        expect(x.right, moreOrLessEquals(r.right, epsilon: 0.5),
             reason: '${entry.key}: X right edge');
         expect(x.center.dy, moreOrLessEquals(t.center.dy, epsilon: 1.5),
             reason: '${entry.key}: X on the title line');

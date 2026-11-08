@@ -19,9 +19,9 @@
 //     "another crypto should be implied not a button, we don't need it,
 //     it should just auto recognise"): the placeholder says it takes any
 //     crypto address and the logos under the empty field show which
-//     (SendAcceptedCoins): Bitcoin and Lightning, which the Bitcoin Send
-//     pays when one is typed here, then the coins dollars really reach
-//     under the policy. With no coin offered under the policy, the
+//     (SendAcceptedCoins): the networks dollars really reach under the
+//     policy, then Bitcoin and Lightning, which the Bitcoin Send pays when
+//     one is typed here. With no coin offered under the policy, the
 //     unavailable line under the empty field says why;
 //   * THE INPUT DECIDES THE RAIL, however it arrives: an address the
 //     dollar send takes on one network resolves as the recipient card (the
@@ -437,10 +437,12 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
                       onPaste: () => unawaited(_paste()),
                       onScan: () => unawaited(_scan()),
                     ),
-                    // What the empty field takes: bitcoin's rails (handed
-                    // to the Bitcoin Send), then the coins dollars reach.
+                    // What the empty field takes: the networks dollars
+                    // reach, then bitcoin's rails (handed to the Bitcoin
+                    // Send).
                     if (text.isEmpty)
                       SendAcceptedCoins(
+                        chains: true,
                         otherLegAsset: kOrchestraUsdAssetCode,
                         rows: (catalog, _) => [
                           for (final d

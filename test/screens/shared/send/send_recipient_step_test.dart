@@ -143,6 +143,43 @@ void main() {
             (e.widget as AssetIcon).assetCode
         ];
 
+    testWidgets('the Dollars Send shows the networks, then Bitcoin and '
+        'Lightning; blocked, just those two', (tester) async {
+      await tester.runAsync(_policy);
+      expect(
+          [
+            for (final o in sendAcceptedChains(_rows(), otherLegAsset: 'USD'))
+              o.chain
+          ],
+          ['ethereum', 'base', 'solana', 'tron', 'bsc', 'zcash']);
+      await tester.pumpWidget(_host(SendAcceptedCoins(
+          chains: true,
+          otherLegAsset: 'USD',
+          rows: (OrchestraRoutesCatalog _, __) => _rows())));
+      await tester.pump();
+      expect(find.byKey(const ValueKey('send-accepted-chain-ethereum')),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('send-accepted-chain-spark')),
+          findsNothing);
+      expect(find.byKey(const ValueKey('send-accepted-chain-bitcoin')),
+          findsNothing);
+      expect(shown(tester), ['BTC', 'Lightning']);
+
+      await tester.runAsync(() => _policy(
+          blocked: {'orchestra.swap'},
+          reasons: {'orchestra.swap': 'country_blocked'}));
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpWidget(_host(SendAcceptedCoins(
+          chains: true,
+          otherLegAsset: 'USD',
+          rows: (OrchestraRoutesCatalog _, __) => _rows())));
+      await tester.pump();
+      expect(find.byKey(const ValueKey('send-accepted-chain-ethereum')),
+          findsNothing);
+      expect(shown(tester), ['BTC', 'Lightning']);
+      await tester.runAsync(_policy);
+    });
+
     testWidgets('Bitcoin and Lightning first, then the coins; blocked, just '
         'those two', (tester) async {
       await tester.runAsync(_policy);

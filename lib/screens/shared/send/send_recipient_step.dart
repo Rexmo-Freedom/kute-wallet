@@ -68,6 +68,8 @@ import 'package:kute/providers/swap_orders_provider.dart' show kTopCoins;
 import 'package:kute/screens/search/components/search_composer.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_action_cards.dart';
+import 'package:kute/screens/shared/asset_network_picker.dart'
+    show ChainAvatarIcon, networkLocalAsset;
 import 'package:kute/screens/shared/coin_asset_grid.dart'
     show CoinAssetGroup, coinGroupsOfferedUnderPolicy, groupCoinsByAsset;
 import 'package:kute/screens/shared/sal_sprite.dart';
@@ -281,19 +283,67 @@ List<CoinAssetGroup> sendAcceptedCoinGroups(
   return [for (final r in ranked) coins[r.at]];
 }
 
+/// The networks a Dollars send shows first, best known first (founder,
+/// 8 November 2026: the Dollars Send's logos are the chains).
+const List<String> kSendAcceptedChainsFirst = [
+  'ethereum',
+  'base',
+  'arbitrum',
+  'polygon',
+  'solana',
+  'tron',
+];
+
+/// The networks of [rows] that are really open, one option each, the best
+/// known first: [kSendAcceptedChainsFirst], those the app ships a logo for,
+/// then the list's own order. Never bitcoin's own rails, which
+/// [SendAcceptedCoins] draws by itself, nor the dollar account's chain.
+List<OrchestraReceiveOption> sendAcceptedChains(
+  List<OrchestraReceiveOption> rows, {
+  required String otherLegAsset,
+}) {
+  final byChain = <String, OrchestraReceiveOption>{};
+  for (final g in sendAcceptedCoinGroups(rows, otherLegAsset: otherLegAsset)) {
+    for (final o in g.options) {
+      final chain = o.chain.toLowerCase();
+      if (const {'bitcoin', 'lightning', 'spark'}.contains(chain)) continue;
+      byChain.putIfAbsent(chain, () => o);
+    }
+  }
+  int rank(String chain) {
+    final named = kSendAcceptedChainsFirst.indexOf(chain);
+    if (named >= 0) return named;
+    return kSendAcceptedChainsFirst.length +
+        (networkLocalAsset(chain) != null ? 0 : 1);
+  }
+
+  final chains = byChain.keys.toList();
+  final ranked = [
+    for (var i = 0; i < chains.length; i++) (rank: rank(chains[i]), at: i)
+  ]..sort((a, b) =>
+      a.rank != b.rank ? a.rank.compareTo(b.rank) : a.at.compareTo(b.at));
+  return [for (final r in ranked) byChain[chains[r.at]]!];
+}
+
 /// What the empty field takes, as one quiet row of whole logos (see the
 /// file header): Bitcoin, Lightning where this send pays it ([lightning]),
 /// then the coins [rows] gives that are really open
-/// ([sendAcceptedCoinGroups]), "+N" for the ones past [maxMarks]. It
-/// follows the live catalogue and the policy by itself. No card, no words,
-/// no tap.
+/// ([sendAcceptedCoinGroups]), "+N" for the ones past [maxMarks]. With
+/// [chains] (the Dollars Send) the row is the networks the dollars reach
+/// instead ([sendAcceptedChains]), then Bitcoin and Lightning, which stay
+/// on the line whatever the count. It follows the live catalogue and the
+/// policy by itself. No card, no words, no tap.
 class SendAcceptedCoins extends ConsumerWidget {
   const SendAcceptedCoins({
     super.key,
     required this.rows,
     required this.otherLegAsset,
     this.lightning = true,
+    this.chains = false,
   });
+
+  /// The networks instead of the coins (the Dollars Send).
+  final bool chains;
 
   /// This send's destinations in [catalog].
   final List<OrchestraReceiveOption> Function(
@@ -314,15 +364,48 @@ class SendAcceptedCoins extends ConsumerWidget {
     final c = context.colors;
     final catalog = ref.watch(orchestraSupportedRoutesProvider);
     ref.watch(runtimeCapabilitiesProvider);
-    final coins =
-        sendAcceptedCoinGroups(rows(catalog, l10n), otherLegAsset: otherLegAsset);
-    final all = <({String code, String name})>[
-      (code: 'BTC', name: l10n.bitcoin),
-      if (lightning) (code: 'Lightning', name: l10n.sendRailLightning),
-      for (final g in coins) (code: g.assetCode, name: g.displaySymbol),
+    Widget coinMark(String code) => AssetIcon(
+        key: ValueKey('send-accepted-coin-$code'),
+        assetCode: code,
+        size: mark.sp);
+    final own = <({String name, Widget logo})>[
+      (name: l10n.bitcoin, logo: coinMark('BTC')),
+      if (lightning) (name: l10n.sendRailLightning, logo: coinMark('Lightning')),
     ];
-    final shown = all.take(maxMarks).toList();
-    final rest = all.length - shown.length;
+    final List<({String name, Widget logo})> shown;
+    final int rest;
+    if (chains) {
+      final networks = sendAcceptedChains(rows(catalog, l10n),
+          otherLegAsset: otherLegAsset);
+      final room = maxMarks - own.length;
+      shown = [
+        for (final o in networks.take(room))
+          (
+            name: o.chainDisplayName,
+            logo: ClipOval(
+              key: ValueKey('send-accepted-chain-${o.chain.toLowerCase()}'),
+              child: ChainAvatarIcon(
+                chainId: o.chain,
+                label: o.chainDisplayName,
+                iconUrl: o.chainIconUrl ?? orchestraChainIconUrl(o.chain),
+                size: mark,
+              ),
+            ),
+          ),
+        ...own,
+      ];
+      rest = networks.length > room ? networks.length - room : 0;
+    } else {
+      final coins = sendAcceptedCoinGroups(rows(catalog, l10n),
+          otherLegAsset: otherLegAsset);
+      final all = [
+        ...own,
+        for (final g in coins)
+          (name: g.displaySymbol, logo: coinMark(g.assetCode)),
+      ];
+      shown = all.take(maxMarks).toList();
+      rest = all.length - shown.length;
+    }
     final more = l10n.receiveAlsoAcceptsMore(rest);
     return Semantics(
       label: [for (final m in shown) m.name, if (rest > 0) more].join(', '),
@@ -333,10 +416,7 @@ class SendAcceptedCoins extends ConsumerWidget {
           child: Row(
             children: [
               for (final m in shown) ...[
-                AssetIcon(
-                    key: ValueKey('send-accepted-coin-${m.code}'),
-                    assetCode: m.code,
-                    size: mark.sp),
+                m.logo,
                 SizedBox(width: gap.sp),
               ],
               if (rest > 0)
