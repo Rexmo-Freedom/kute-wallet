@@ -12540,6 +12540,16 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
+  String predictNextWindow(String time) {
+    return 'Seuraava · $time';
+  }
+
+  @override
+  String predictRoundWindow(String asset, String start, String end) {
+    return '$asset ylös vai alas · $start–$end';
+  }
+
+  @override
   String predictUpOrDownCompact(String asset, int minutes) {
     return '$asset up or down · ${minutes}m';
   }

@@ -6,6 +6,7 @@
 // the shared `KuteConfirmation`.
 
 import 'package:flutter/material.dart';
+import 'package:kute/screens/polymarket/components/round_window_label.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart' show PolymarketPosition;
 import 'package:kute/screens/polymarket/components/position_detail_sheet.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart'
@@ -21,6 +22,7 @@ import 'package:kute/screens/shared/kute_success_overlay.dart';
 void pushBetPlacedOverlay({
   required NavigatorState navigator,
   required String marketQuestion,
+  String? marketSlug,
   String? marketImage,
   required String outcome,
   required double shares,
@@ -36,6 +38,7 @@ void pushBetPlacedOverlay({
     navigator: navigator,
     overlay: BetPlacedOverlay(
       marketQuestion: marketQuestion,
+      marketSlug: marketSlug,
       marketImage: marketImage,
       outcome: outcome,
       shares: shares,
@@ -52,6 +55,10 @@ void pushBetPlacedOverlay({
 
 class BetPlacedOverlay extends StatelessWidget {
   final String marketQuestion;
+
+  /// The event's slug: a 5-minute window's receipt names the window
+  /// ("BTC up or down · 7:20–7:25"), [marketQuestion] everything else.
+  final String? marketSlug;
   final String? marketImage;
   final String outcome;
   final double shares;
@@ -77,6 +84,7 @@ class BetPlacedOverlay extends StatelessWidget {
   const BetPlacedOverlay({
     super.key,
     required this.marketQuestion,
+    this.marketSlug,
     this.marketImage,
     required this.outcome,
     required this.shares,
@@ -98,7 +106,7 @@ class BetPlacedOverlay extends StatelessWidget {
       message: l10n.betPredictionPlaced,
       amount: approx +
           (outcome.isEmpty ? cost : l10n.betAmountOnSide(cost, outcome)),
-      contextLine: marketQuestion,
+      contextLine: polyShownQuestion(context, marketQuestion, marketSlug),
       rows: {
         l10n.betShares: '$approx${shares.toStringAsFixed(2)}',
         l10n.betReceiptPayout:

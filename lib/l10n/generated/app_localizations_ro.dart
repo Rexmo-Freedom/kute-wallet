@@ -12587,6 +12587,16 @@ class AppLocalizationsRo extends AppLocalizations {
   }
 
   @override
+  String predictNextWindow(String time) {
+    return 'Următoarea · $time';
+  }
+
+  @override
+  String predictRoundWindow(String asset, String start, String end) {
+    return '$asset Sus sau Jos · $start–$end';
+  }
+
+  @override
   String predictUpOrDownCompact(String asset, int minutes) {
     return '$asset up or down · ${minutes}m';
   }

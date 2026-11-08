@@ -29,6 +29,13 @@
 // and a bet queued more than 30 minutes ago never fires. The journey's
 // `order_funding_*` outcome is reported from here.
 //
+// The next window (founder, 8 November 2026): a 5-minute card's buttons
+// roll to the next window partway through this one, so a bet queued for it
+// can land before that window starts or after. Neither changes anything
+// here: it stays on the tokens it was approved for, a fresh book under the
+// approved worst price places it, a price past that stops it with the
+// price now, and a window that has ended stops it as any round that ended.
+//
 // Landed is not usable (founder, 15 October 2026: "$3.68 on Yes" funded
 // from Dollars failed with "This action did not complete"): the deposit
 // arrives as USDC.e, which the order book does not count, and once
@@ -83,7 +90,7 @@ import 'package:kute/services/one_balance/money_steps.dart';
 import 'package:kute/screens/polymarket/components/price_format.dart'
     show formatPolyChance;
 import 'package:kute/services/polymarket/crypto_round.dart'
-    show kCryptoUpDown5mKind, polyIsCryptoUpDown5m;
+    show kCryptoUpDown5mKind, polyIsCryptoUpDown5m, polyRoundWindowParams;
 import 'package:kute/services/polymarket/fresh_fill.dart';
 import 'package:kute/services/polymarket/hot_order_guard.dart';
 import 'package:kute/services/polymarket/market_buy_quote.dart'
@@ -242,7 +249,10 @@ bool autofireRoundClosed(PendingBetIntent intent, {DateTime? now}) {
   final at = now ?? DateTime.now();
   if (at.isBefore(end)) return false;
   return isPolymarketFastRound(
-      question: intent.marketQuestion, endAt: end, now: at);
+      slug: intent.eventSlug,
+      question: intent.marketQuestion,
+      endAt: end,
+      now: at);
 }
 
 /// The autofire grant slot for the one pending Polymarket bet (D-10). The
@@ -999,6 +1009,8 @@ class PendingBetAutoFire {
         if (intent.isLimit) 'limit_price': intent.limitPrice,
         if (!intent.isLimit)
           'slippage_bps': VenueAnalytics.bps(intent.slippagePct),
+        ...polyRoundWindowParams(intent.eventSlug,
+            window: intent.roundWindow, at: DateTime.now()),
       };
 
   /// [intent]'s round closed before its money arrived (or before it could
@@ -1331,6 +1343,7 @@ class PendingBetAutoFire {
     final placementId = placingNotifier.markPlacing(
       tokenId: intent.tokenId,
       marketQuestion: intent.marketQuestion,
+      eventSlug: intent.eventSlug,
       marketImage: intent.marketImage,
       outcomeName: intent.outcomeName,
       amount: intent.amount,

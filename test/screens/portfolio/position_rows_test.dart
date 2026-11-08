@@ -320,6 +320,19 @@ void main() {
       expect(polyPositionRowLine(updown, 'Up'), 'Up');
     });
 
+    test('a 5-minute window is titled by its own name, event or none', () {
+      const name = 'BTC up or down · 7:20–7:25';
+      final held = polyPositionRowNames(
+          question: 'Bitcoin Up or Down - November 8, 7:20AM-7:25AM ET',
+          side: 'Up',
+          windowName: name);
+      expect(held.title, name);
+      expect(held.context, isEmpty);
+      expect(polyPositionRowChip(held, 'Up'), 'Up');
+      expect(polyPositionRowLine(held, 'Up'), 'Up');
+      expect(polyPositionListName(held, 'Up'), '$name · Up');
+    });
+
     test(
         'a binary market: the event\'s short title, else the question '
         'shortened; before its event loads, the candidate it names', () {

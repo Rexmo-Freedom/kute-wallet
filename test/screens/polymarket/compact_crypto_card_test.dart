@@ -11,6 +11,8 @@
 // (the side then its chance, no arrow) and, in light mode, the same quiet
 // glow. A tap opens the slip on that side. The market page keeps the full
 // card.
+// Partway through a window the buttons roll to the next one:
+// crypto_next_round_card_test.dart.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

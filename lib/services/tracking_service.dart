@@ -15,6 +15,8 @@ import 'package:kute/services/appsflyer_service.dart';
 import 'package:kute/services/once_flags_service.dart';
 import 'package:kute/services/advisor/sal_chip_templates.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
+import 'package:kute/services/polymarket/crypto_round.dart'
+    show polyRoundWindowParams;
 import 'package:kute/services/venue_analytics.dart';
 import 'package:kute/services/secure_storage.dart';
 import 'package:local_auth/local_auth.dart'
@@ -2839,6 +2841,18 @@ class TrackingService {
     });
   }
 
+  /// On an order's outcome event for a 5-minute window: which window the
+  /// slip opened on (`window`, as staged at submit; `current` or `next`)
+  /// and the exact `seconds_to_window_end` now.
+  static Map<String, Object> _roundWindowParams(
+      String marketId, String? marketSlug) {
+    final slug = VenueAnalytics.pmEventParams([marketId, marketSlug],
+        eventSlug: marketSlug, title: false)['event_slug'] as String?;
+    return polyRoundWindowParams(slug,
+        window: VenueAnalytics.staged('pm', marketId)['window'] as String?,
+        at: DateTime.now());
+  }
+
   static void polymarketBetPlaced({
     required String marketId,
     required String outcome,
@@ -2905,6 +2919,7 @@ class TrackingService {
     markMoneyAction('bet', venue: 'polymarket');
     track('polymarket_bet_placed', params: {
       ...VenueAnalytics.staged('pm', marketId),
+      ..._roundWindowParams(marketId, marketSlug),
       ...VenueAnalytics.pmKindParams([marketId, marketSlug],
           fallbackCategory: category),
       // The parent event (event_id, event_slug), the key the funnel
@@ -2982,6 +2997,7 @@ class TrackingService {
         flow: 'polymarket_bet', stage: orderType);
     track('polymarket_bet_failed', params: {
       ...VenueAnalytics.staged('pm', marketId),
+      ..._roundWindowParams(marketId, marketSlug),
       ...VenueAnalytics.pmKindParams([marketId, marketSlug]),
       ...?extra,
       if (entrySource != null) 'entry_source': entrySource,

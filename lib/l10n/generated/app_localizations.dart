@@ -21037,6 +21037,18 @@ abstract class AppLocalizations {
   /// **'Paid from {first} and {second}'**
   String activityPaidFromBoth(String first, String second);
 
+  /// Near the Up and Down buttons of a live 5-minute crypto card once they bet on the next window, e.g. 'Next · 7:20'. time is the next window's start, in the person's locale and time zone.
+  ///
+  /// In en, this message translates to:
+  /// **'Next · {time}'**
+  String predictNextWindow(String time);
+
+  /// The name of one 5-minute crypto window on the slip, the receipt and the position, e.g. 'BTC up or down · 7:20–7:25'. asset is a ticker; start and end are clock times in the person's locale and time zone.
+  ///
+  /// In en, this message translates to:
+  /// **'{asset} up or down · {start}–{end}'**
+  String predictRoundWindow(String asset, String start, String end);
+
   /// Title of the compact live crypto round card on the Predictions list, e.g. 'BTC up or down · 5m'. asset is a ticker, minutes the round length.
   ///
   /// In en, this message translates to:

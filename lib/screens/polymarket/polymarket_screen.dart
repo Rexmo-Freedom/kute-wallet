@@ -26,6 +26,9 @@ import 'package:kute/providers/polymarket_watchlist_provider.dart';
 import 'package:kute/screens/polymarket/components/live_token_scope.dart';
 import 'package:kute/screens/polymarket/components/crypto_odds_scope.dart';
 import 'package:kute/providers/crypto_live_odds_provider.dart';
+import 'package:kute/providers/crypto_next_round_provider.dart';
+import 'package:kute/screens/polymarket/components/round_window_label.dart';
+import 'package:kute/services/polymarket/crypto_next_round.dart';
 import 'package:kute/screens/polymarket/components/market_card.dart';
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/screens/shared/market_groups.dart';
@@ -1290,7 +1293,9 @@ class CryptoPredictBanner extends ConsumerWidget {
   /// countdown pill), one price row (live price, its move against the
   /// target, the target), a 40 px sparkline with the dashed target line,
   /// and the Up / Down pills with their odds ([_CompactCryptoCard]). The
-  /// market page keeps the full card.
+  /// market page keeps the full card. Both roll their buttons to the next
+  /// window partway through this one, this window staying on show
+  /// (crypto_next_round.dart): "Next · 7:20" over the buttons.
   final bool compact;
 
   const CryptoPredictBanner({
@@ -1424,6 +1429,45 @@ class CryptoPredictBanner extends ConsumerWidget {
     final livePctUp = liveUpPriceRaw ?? (upPctPolled / 100.0);
     final livePctUpClamped = livePctUp.clamp(0.0, 1.0);
 
+    // Where the buttons bet: partway through a 5-minute window they roll
+    // to the next one by themselves, once it has real prices, while the
+    // chart, target and countdown keep playing this one
+    // (crypto_next_round.dart). The tap below bets the window this very
+    // build painted.
+    final now = ref.read(cryptoOddsClockProvider)();
+    final showing = predictState?.event;
+    final round = targetWindowEpoch != null || showing == null
+        ? null
+        : polyCryptoRoundOf(showing.slug);
+    final nextEvent = polyNextRoundWanted(round, now)
+        ? ref
+            .watch(cryptoNextRoundProvider((
+              asset: round!.asset,
+              minutes: 5,
+              start: round.end.millisecondsSinceEpoch ~/ 1000,
+            )))
+            .valueOrNull
+        : null;
+    final nextUpToken = nextEvent?.upTokenId;
+    final nextDownToken = nextEvent?.downTokenId;
+    // A new chance of the next window repaints; the books are read here.
+    ref.watch(cryptoLiveOddsProvider.select(
+        (s) => nextUpToken == null ? null : s[nextUpToken]?.up));
+    final books = ref.read(cryptoOddsBooksProvider);
+    final rolled = polyNextRoundButtons(
+      round: round,
+      next: nextEvent,
+      upBook: nextUpToken == null ? null : books.snapshot(nextUpToken),
+      downBook: nextDownToken == null ? null : books.snapshot(nextDownToken),
+      now: now,
+    );
+    final double buttonsUpFrac = rolled?.up ?? livePctUpClamped;
+    final String? nextLabel = rolled == null
+        ? null
+        : context.l10n.predictNextWindow(polyRoundClock(rolled.start,
+            locale: context.l10n.localeName,
+            use24h: MediaQuery.maybeAlwaysUse24HourFormatOf(context) ?? false));
+
     // Round window text — "May 21, 10:10-10:15AM ET" style. Falls back to
     // a generic "Live round" when the event isn't loaded yet.
     final event = predictState?.event;
@@ -1492,39 +1536,63 @@ class CryptoPredictBanner extends ConsumerWidget {
     // slip MUST receive it or a BTC→USDC swap could be offered on a
     // market that resolves before the swap lands. Fall back to the
     // slug-derived window start + 5 min when Gamma omitted endDate.
-    final DateTime? marketEndAt = event?.endDate ??
-        event?.windowStartTime?.add(Duration(minutes: minutes));
-
-    // One slip door for both layouts.
+    //
+    // One slip door for both layouts, on the window the buttons showed
+    // when they were painted: the slip stays on it whatever the card does
+    // while it is open. A rolled window's odds are the live ones on the
+    // button, never Gamma's.
     void openSide(String side) {
-      final outcomes = _eventOutcomes(event);
+      final target = rolled?.event ?? event;
+      final outcomes = rolled == null
+          ? _eventOutcomes(event)
+          : [
+              PolymarketOutcome(
+                  name: 'Up',
+                  price: rolled.up,
+                  tokenId: target?.upTokenId,
+                  conditionId: target?.conditionId),
+              PolymarketOutcome(
+                  name: 'Down',
+                  price: 1 - rolled.up,
+                  tokenId: target?.downTokenId,
+                  conditionId: target?.conditionId),
+            ];
       final idx = outcomes.indexWhere((o) => o.name.toLowerCase() == side);
       BetSlipSheet.show(context,
-          marketQuestion: event?.title ??
+          marketQuestion: target?.title ??
               context.l10n.predictUpOrDown(config.asset, minutes),
-          marketSlug: event?.slug,
-          marketImage: event?.image,
+          marketSlug: target?.slug,
+          marketImage: target?.image,
           outcomes: outcomes,
           initialOutcomeIndex: idx >= 0 ? idx : 0,
           // Required for the 5-minute USDC-only funding gate
           // (isShortMarket): without it the slip offers a BTC swap
           // that can't land before the window resolves.
-          marketEndAt: marketEndAt,
+          marketEndAt: target?.endDate ??
+              target?.windowStartTime?.add(Duration(minutes: minutes)),
           marketCategory: 'crypto',
           onDeposit: onDeposit,
           ledgerWalletId: ledgerWalletId,
           source: 'crypto_banner');
     }
 
+    // Both windows' tokens stay on the feed while the buttons may show
+    // either; the second scope reads the next window's chance.
+    final liveTokens = [
+      if (upTokenId != null && upTokenId.isNotEmpty) upTokenId,
+      if (downTokenId != null && downTokenId.isNotEmpty) downTokenId,
+      if (nextUpToken != null && nextUpToken.isNotEmpty) nextUpToken,
+      if (nextDownToken != null && nextDownToken.isNotEmpty) nextDownToken,
+    ];
+
     if (compact) {
       return _CryptoCardOnScreen(
           child: LiveTokenScope(
-        tokens: [
-          if (upTokenId != null && upTokenId.isNotEmpty) upTokenId,
-          if (downTokenId != null && downTokenId.isNotEmpty) downTokenId,
-        ],
+        tokens: liveTokens,
         child: CryptoOddsScope(
           token: upTokenId,
+          child: CryptoOddsScope(
+          token: nextUpToken,
           child: _CompactCryptoCard(
             config: config,
             title: context.l10n
@@ -1542,10 +1610,12 @@ class CryptoPredictBanner extends ConsumerWidget {
             history: predictState?.priceHistory,
             priceToBeat: priceToBeat,
             roundStart: event?.windowStartTime,
-            upFrac: livePctUpClamped,
+            upFrac: buttonsUpFrac,
+            nextLabel: nextLabel,
             onUp: () => openSide('up'),
             onDown: () => openSide('down'),
           ),
+        ),
         ),
       ));
     }
@@ -1555,12 +1625,11 @@ class CryptoPredictBanner extends ConsumerWidget {
     // Predictions tab.
     return _CryptoCardOnScreen(
         child: LiveTokenScope(
-      tokens: [
-        if (upTokenId != null && upTokenId.isNotEmpty) upTokenId,
-        if (downTokenId != null && downTokenId.isNotEmpty) downTokenId,
-      ],
+      tokens: liveTokens,
       child: CryptoOddsScope(
       token: upTokenId,
+      child: CryptoOddsScope(
+      token: nextUpToken,
       child: Container(
         padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 14.h),
         decoration: BoxDecoration(
@@ -1790,13 +1859,19 @@ class CryptoPredictBanner extends ConsumerWidget {
               SizedBox(height: 10.h),
             ],
 
+            // Once the buttons have rolled: which window they bet.
+            if (nextLabel != null) ...[
+              _CryptoNextWindowLine(label: nextLabel),
+              SizedBox(height: 8.h),
+            ],
+
             // De-emphasized probability split below the chart. The Up /
             // Down CTAs now carry the live odds as their labels, so the
             // bar here is just a 3px supporting strip — no number
-            // labels (those moved onto the buttons).
+            // labels (those moved onto the buttons). It reads as the
+            // buttons do: the next window's split once they have rolled.
             TweenAnimationBuilder<double>(
-              tween:
-                  Tween<double>(begin: livePctUpClamped, end: livePctUpClamped),
+              tween: Tween<double>(begin: buttonsUpFrac, end: buttonsUpFrac),
               duration: const Duration(milliseconds: 250),
               curve: Curves.easeOut,
               builder: (context, animatedUpFrac, _) {
@@ -1823,67 +1898,34 @@ class CryptoPredictBanner extends ConsumerWidget {
             Row(
               children: [
                 Expanded(
-                  child: MarketPairButton(
-                    label: context.l10n.upLabel,
-                    value: formatPolyChancePair(livePctUpClamped).first,
-                    icon: Icons.arrow_upward_rounded,
-                    iconDisc: true,
-                    glow: true,
-                    color: AppColors.marketUp,
-                    // MarketPairButton fires its own haptic.
-                    onTap: () {
-                      final outcomes = _eventOutcomes(event);
-                      final upIdx = outcomes
-                          .indexWhere((o) => o.name.toLowerCase() == 'up');
-                      BetSlipSheet.show(context,
-                          marketQuestion:
-                              event?.title ??
-                                  context.l10n.predictUpOrDown(config.asset, minutes),
-                          marketSlug: event?.slug,
-                          marketImage: event?.image,
-                          outcomes: outcomes,
-                          initialOutcomeIndex: upIdx >= 0 ? upIdx : 0,
-                          // Required for the 5-minute USDC-only funding
-                          // gate (isShortMarket) — without it the slip
-                          // happily offers a BTC swap that can't land
-                          // before the window resolves.
-                          marketEndAt: marketEndAt,
-                          marketCategory: 'crypto',
-                          onDeposit: onDeposit,
-                          ledgerWalletId: ledgerWalletId,
-                          source: 'crypto_banner');
-                    },
+                  child: Semantics(
+                    label: nextLabel,
+                    child: MarketPairButton(
+                      label: context.l10n.upLabel,
+                      value: formatPolyChancePair(buttonsUpFrac).first,
+                      icon: Icons.arrow_upward_rounded,
+                      iconDisc: true,
+                      glow: true,
+                      color: AppColors.marketUp,
+                      // MarketPairButton fires its own haptic.
+                      onTap: () => openSide('up'),
+                    ),
                   ),
                 ),
                 SizedBox(width: 12.w),
                 Expanded(
-                  child: MarketPairButton(
-                    label: context.l10n.downLabel,
-                    value: formatPolyChancePair(livePctUpClamped).second,
-                    icon: Icons.arrow_downward_rounded,
-                    iconDisc: true,
-                    glow: true,
-                    color: AppColors.marketDown,
-                    // MarketPairButton fires its own haptic.
-                    onTap: () {
-                      final outcomes = _eventOutcomes(event);
-                      final downIdx = outcomes
-                          .indexWhere((o) => o.name.toLowerCase() == 'down');
-                      BetSlipSheet.show(context,
-                          marketQuestion:
-                              event?.title ??
-                                  context.l10n.predictUpOrDown(config.asset, minutes),
-                          marketSlug: event?.slug,
-                          marketImage: event?.image,
-                          outcomes: outcomes,
-                          initialOutcomeIndex: downIdx >= 0 ? downIdx : 0,
-                          // See the Up button — 5-minute USDC-only gate.
-                          marketEndAt: marketEndAt,
-                          marketCategory: 'crypto',
-                          onDeposit: onDeposit,
-                          ledgerWalletId: ledgerWalletId,
-                          source: 'crypto_banner');
-                    },
+                  child: Semantics(
+                    label: nextLabel,
+                    child: MarketPairButton(
+                      label: context.l10n.downLabel,
+                      value: formatPolyChancePair(buttonsUpFrac).second,
+                      icon: Icons.arrow_downward_rounded,
+                      iconDisc: true,
+                      glow: true,
+                      color: AppColors.marketDown,
+                      // MarketPairButton fires its own haptic.
+                      onTap: () => openSide('down'),
+                    ),
                   ),
                 ),
               ],
@@ -1891,8 +1933,34 @@ class CryptoPredictBanner extends ConsumerWidget {
           ],
         ),
       ),
-    )));
+    ))));
   }
+}
+
+/// "Next · 7:20" over the buttons of a card that have rolled to the next
+/// window: one line in the card's own target style, nothing around it.
+class _CryptoNextWindowLine extends StatelessWidget {
+  const _CryptoNextWindowLine({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Center(
+        key: const ValueKey('crypto-round-next'),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            label,
+            maxLines: 1,
+            style: TextStyle(
+              color: context.colors.textPrimary,
+              fontSize: 13.sp,
+              fontWeight: FontWeight.w600,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ),
+      );
 }
 
 /// The compact crypto round card ([CryptoPredictBanner.compact]): about
@@ -1914,6 +1982,7 @@ class _CompactCryptoCard extends StatelessWidget {
     required this.priceToBeat,
     required this.roundStart,
     required this.upFrac,
+    this.nextLabel,
     required this.onUp,
     required this.onDown,
   });
@@ -1931,12 +2000,21 @@ class _CompactCryptoCard extends StatelessWidget {
   final double? priceToBeat;
   final DateTime? roundStart;
   final double upFrac;
+
+  /// "Next · 7:20" once the buttons have rolled to the next window
+  /// (crypto_next_round.dart); null while they bet on this one.
+  final String? nextLabel;
   final VoidCallback onUp;
   final VoidCallback onDown;
 
   /// The sparkline's plot height; the chart's own bottom margin (18 px,
   /// time labels off) is clipped away beneath it.
   static const double _sparkHeight = 54;
+
+  /// The "Next · 7:20" line's height. It takes its room from the sparkline,
+  /// so the buttons rolling never changes the card's height (the list
+  /// under it would jump twice a window).
+  static const double _nextLine = 16;
 
   /// The header's logo.
   static const double _logo = 32;
@@ -1980,6 +2058,11 @@ class _CompactCryptoCard extends StatelessWidget {
           );
     final pair = formatPolyChancePair(upFrac);
     final seeded = (history?.length ?? 0) >= 2;
+    final rolled = nextLabel != null;
+    // 10 over the buttons either way; rolled, 6 and the line and 6.
+    final sparkHeight = rolled
+        ? _sparkHeight + 10.h - 12.h - _nextLine
+        : _sparkHeight;
     final priceStyle = TextStyle(
       color: c.textPrimary,
       fontSize: 24.sp,
@@ -2126,17 +2209,17 @@ class _CompactCryptoCard extends StatelessWidget {
           // The sparkline with the dashed target line, no in-chart
           // "Target" badge: the target is printed just above.
           SizedBox(
-            height: _sparkHeight,
+            height: sparkHeight,
             child: !seeded
-                ? const SkeletonLineChart(
-                    height: _sparkHeight, padding: EdgeInsets.zero)
+                ? SkeletonLineChart(
+                    height: sparkHeight, padding: EdgeInsets.zero)
                 : ClipRect(
                     child: OverflowBox(
                       alignment: Alignment.topCenter,
                       minHeight: 0,
-                      maxHeight: _sparkHeight + 18,
+                      maxHeight: sparkHeight + 18,
                       child: BtcPredictChart(
-                        height: _sparkHeight + 18,
+                        height: sparkHeight + 18,
                         externalHistory: history,
                         externalPriceToBeat: priceToBeat,
                         roundStart: roundStart,
@@ -2147,7 +2230,14 @@ class _CompactCryptoCard extends StatelessWidget {
                     ),
                   ),
           ),
-          SizedBox(height: 10.h),
+          if (rolled) ...[
+            SizedBox(height: 6.h),
+            SizedBox(
+                height: _nextLine,
+                child: _CryptoNextWindowLine(label: nextLabel!)),
+            SizedBox(height: 6.h),
+          ] else
+            SizedBox(height: 10.h),
           // Up and Down with their odds, one row of two pills.
           Row(
             children: [
@@ -2156,6 +2246,7 @@ class _CompactCryptoCard extends StatelessWidget {
                   key: const ValueKey('crypto-round-up'),
                   label: context.l10n.upLabel,
                   odds: pair.first,
+                  window: nextLabel,
                   up: true,
                   onTap: onUp,
                 ),
@@ -2166,6 +2257,7 @@ class _CompactCryptoCard extends StatelessWidget {
                   key: const ValueKey('crypto-round-down'),
                   label: context.l10n.downLabel,
                   odds: pair.second,
+                  window: nextLabel,
                   up: false,
                   onTap: onDown,
                 ),
@@ -2190,12 +2282,16 @@ class _CompactSidePill extends StatelessWidget {
     super.key,
     required this.label,
     required this.odds,
+    this.window,
     required this.up,
     required this.onTap,
   });
 
   final String label;
   final String odds;
+
+  /// "Next · 7:20" when the pill bets on the next window: read out with it.
+  final String? window;
   final bool up;
   final VoidCallback onTap;
 
@@ -2216,7 +2312,7 @@ class _CompactSidePill extends StatelessWidget {
     );
     return Semantics(
       button: true,
-      label: '$label $odds',
+      label: window == null ? '$label $odds' : '$window, $label $odds',
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () {

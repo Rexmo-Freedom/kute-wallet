@@ -101,6 +101,11 @@ class PendingBetIntent {
   /// Tells a 5-minute crypto round (`polyIsCryptoUpDown5m`) apart.
   final String? eventSlug;
 
+  /// Which 5-minute window the slip opened on, `current` or `next`
+  /// (`polyRoundWindowParam`), for the order's events however long its
+  /// funding takes. Null for any other market.
+  final String? roundWindow;
+
   /// Why a failed bet stopped, as a fixed code (price_moved,
   /// market_closed, funds_timeout, book_unavailable, insufficient_usdc,
   /// approval_expired, ...), for the slip's steps to say what happened
@@ -216,6 +221,7 @@ class PendingBetIntent {
     this.retryMaxPrice,
     this.movedToPrice,
     this.eventSlug,
+    this.roundWindow,
     this.failureCode,
     this.isLimit = false,
     this.limitPrice = 0.0,
@@ -304,6 +310,7 @@ class PendingBetIntent {
       retryMaxPrice: retryMaxPrice,
       movedToPrice: movedToPrice,
       eventSlug: eventSlug,
+      roundWindow: roundWindow,
       failureCode: failureCode,
       isLimit: isLimit,
       limitPrice: limitPrice,
@@ -448,6 +455,7 @@ class PendingPolymarketBetNotifier extends Notifier<PendingBetIntent?> {
       status: current.status,
       errorMessage: current.errorMessage,
       eventSlug: current.eventSlug,
+      roundWindow: current.roundWindow,
       failureCode: current.failureCode,
       isLimit: current.isLimit,
       limitPrice: current.limitPrice,

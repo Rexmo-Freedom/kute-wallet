@@ -1,6 +1,7 @@
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
 import 'package:kute/theme/kute_motion.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
+import 'package:kute/screens/polymarket/components/round_window_label.dart';
 import 'package:kute/screens/polymarket/components/polymarket_error_copy.dart';
 import 'package:kute/screens/shared/bitcoin_wallet_actions.dart';
 import 'package:kute/providers/unified_search_provider.dart'
@@ -698,7 +699,7 @@ class _ClaimablePositionRowState extends ConsumerState<_ClaimablePositionRow> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  pos.marketQuestion,
+                  polyShownQuestion(context, pos.marketQuestion, pos.eventSlug),
                   style: TextStyle(
                     color: c.textPrimary,
                     fontSize: 15.sp,

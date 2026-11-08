@@ -393,6 +393,35 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets('a 5-minute window: titled by its own name, whichever window '
+        'the card shows', (tester) async {
+      await _pump(
+        tester,
+        const PositionDetailSheet(
+            position: PolymarketPosition(
+          marketId: 'm',
+          marketQuestion: 'Bitcoin Up or Down - November 8, 7:00AM-7:05AM ET',
+          outcome: 'Up',
+          size: 20,
+          avgPrice: 0.5,
+          currentPrice: 0.5,
+          pnl: 0,
+          pnlPercent: 0,
+          isResolved: false,
+          eventSlug: 'btc-updown-5m-1794139200',
+        )),
+        overrides: overrides(null),
+      );
+      expect(
+          find.descendant(
+              of: find.byKey(const ValueKey('poly-position-title')),
+              matching: find.textContaining(
+                  RegExp(r'^BTC up or down · \d{1,2}:\d\d–\d{1,2}:\d\d$'))),
+          findsOneWidget);
+      expect(find.textContaining('7:00AM-7:05AM ET'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('at 375 wide with text x1.3 the rows fit', (tester) async {
       await _pump(
         tester,

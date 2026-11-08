@@ -53,7 +53,12 @@ import 'package:kute/screens/home/home_feature_carousel.dart'
     show checkPolymarketGeoblock;
 import 'package:kute/screens/polymarket/components/price_format.dart';
 import 'package:kute/services/polymarket/crypto_round.dart'
-    show kCryptoUpDown5mKind, polyIsCryptoUpDown5m;
+    show
+        kCryptoUpDown5mKind,
+        polyIsCryptoUpDown5m,
+        polyRoundWindowParam,
+        polyRoundWindowParams;
+import 'package:kute/screens/polymarket/components/round_window_label.dart';
 import 'package:kute/services/polymarket/current_round.dart';
 import 'package:kute/services/polymarket/live_game/game_sides.dart'
     show gameIsDrawName;
@@ -251,6 +256,9 @@ class _BetSlipDraft extends ChangeNotifier {
   /// applies (polymarketDefaultSlippagePct: wider on a short crypto round).
   double? slippageChoice;
   bool orderPlaced = false;
+
+  /// `current` or `next` for a 5-minute window ([polyRoundWindowParam]).
+  String? roundWindow;
   bool amountEnteredTracked = false;
   bool ledgerBusy = false;
   bool ledgerPending = false;
@@ -473,6 +481,11 @@ class BetSlipSheet extends ConsumerStatefulWidget {
   /// an order is placed — see [popAllSheetsDownToBetSlipHost].
   static const routeName = 'polymarket-bet-slip';
 
+  /// The clock the slip's door reads a window by (has it ended, is it still
+  /// to start). Tests move it by hand.
+  @visibleForTesting
+  static DateTime Function() debugClock = DateTime.now;
+
   static Future<void> show(
     BuildContext context, {
     required String marketQuestion,
@@ -512,7 +525,8 @@ class BetSlipSheet extends ConsumerStatefulWidget {
         event: event,
         slug: marketSlug,
         question: marketQuestion,
-        endAt: marketEndAt)) {
+        endAt: marketEndAt,
+        now: debugClock())) {
       showMessageSnackBar(
           context: context,
           message: context.l10n.builderMarketGone,
@@ -577,6 +591,9 @@ class BetSlipSheet extends ConsumerStatefulWidget {
         'funding_source': 'venue_balance',
         'prefilled_amount': initialAmountUsd != null && initialAmountUsd > 0,
         'outcome_count': outcomes.length,
+        // Which 5-minute window the tap bet on: the card's buttons roll to
+        // the next one partway through a window.
+        ...polyRoundWindowParams(marketSlug, at: debugClock()),
       },
     );
     // NOTHING is awaited before the sheet is shown. The regional gate
@@ -949,6 +966,35 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       _selectedIndex >= 0 &&
       _selectedIndex < widget.outcomes.length &&
       widget.outcomes[_selectedIndex].hasYesNo;
+
+  /// What this slip names its market by: a 5-minute window's own name
+  /// ("BTC up or down · 7:20–7:25"), so a bet on the next window is never
+  /// read as one on the window the card shows. The slip's market itself
+  /// never changes under it.
+  String get _shownQuestion =>
+      _shownFor(widget.marketQuestion, widget.marketSlug);
+
+  /// The same for an order's own [question] and [slug], without a context:
+  /// the receipt comes after awaits, and the funded label runs on.
+  String _shownFor(String question, String? slug) =>
+      polyRoundWindowName(_windowL10n, slug, use24h: _window24h) ?? question;
+  late AppLocalizations _windowL10n;
+  bool _window24h = false;
+
+  /// Which window this slip opened on (`current` or `next`), for its
+  /// events: read once when it opens, its Advanced page reading the same,
+  /// so a slip on the next window stays a bet placed for it after that
+  /// window has started.
+  String? get _roundWindow => _draft.roundWindow;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _windowL10n = context.l10n;
+    _window24h = MediaQuery.maybeAlwaysUse24HourFormatOf(context) ?? false;
+    _draft.roundWindow ??=
+        polyRoundWindowParam(widget.marketSlug, BetSlipSheet.debugClock());
+  }
 
   @override
   void initState() {
@@ -1641,6 +1687,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     final hasOutcome =
         _selectedIndex >= 0 && _selectedIndex < widget.outcomes.length;
     return {
+      ...polyRoundWindowParams(widget.marketSlug,
+          window: _roundWindow, at: BetSlipSheet.debugClock()),
       'venue': 'polymarket',
       'entry_source': widget.source,
       'wallet_kind': _isLedger ? 'ledger' : 'hot',
@@ -1720,6 +1768,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           'funding_fee_estimated_usd',
           'funding_legs',
           'funding_sources',
+          'window',
         ])
           if (inputs[k] != null) k: inputs[k]!,
       });
@@ -2023,7 +2072,6 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         _isCandidatePicker && _buyNo ? selected.noTokenId : selected.tokenId;
     final conditionId = selected.conditionId;
     final amount = _amount;
-    final marketQuestion = widget.marketQuestion;
     final marketEndAt = widget.marketEndAt;
     if (!amount.isFinite || amount < _effectiveMinBetUsd) return;
     if (tokenId == null ||
@@ -2087,7 +2135,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         reviewedPrice: reviewedPrice,
         isLimit: isLimit,
         slippagePct: slippage,
-        marketQuestion: marketQuestion,
+        // The summary the Ledger confirms names the window.
+        marketQuestion: _shownQuestion,
         outcomeLabel: outcomeLabel,
         marketEndAt: marketEndAt,
         onPriceMoved: (retry) => _draft.ledgerRetryPrice = retry,
@@ -2116,6 +2165,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
             'market_question': widget.marketQuestion,
             'market_slug': widget.marketSlug,
             'entry_source': widget.source,
+            if (_roundWindow case final window?) 'window': window,
           });
         case LedgerPmBetOutcome.cancelled:
           _stopped('signing_declined');
@@ -2223,7 +2273,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       marketOutcome: outcome,
       marketSlug: bet['market_slug'] as String?,
       logAffiliateEvent: false,
-      extra: const {'confirmed_via': 'status_check'},
+      extra: {
+        'confirmed_via': 'status_check',
+        if (bet['window'] case final String window) 'window': window,
+      },
     );
   }
 
@@ -2510,6 +2563,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       marketEndAt: widget.marketEndAt,
       marketCategory: widget.marketCategory,
       eventSlug: widget.marketSlug,
+      roundWindow: _roundWindow,
       isLimit: _isLimitMode,
       limitPrice: _isLimitMode ? _limitPrice.clamp(0.01, 0.99).toDouble() : 0.0,
       negRisk: widget.negRisk,
@@ -3939,7 +3993,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
             venue: OneBalanceVenue.predictions,
             orderUsd: pending.amount,
             side: outcomeLabel,
-            market: FundedOrderLabel.shortName(widget.marketQuestion),
+            market: FundedOrderLabel.shortName(_shownQuestion),
             marketKey: pending.tokenId,
           ),
           fundUsd: plan.fundUsd,
@@ -4154,7 +4208,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         venue: OneBalanceVenue.predictions,
         orderUsd: pending.amount,
         side: side,
-        market: FundedOrderLabel.shortName(widget.marketQuestion),
+        market: FundedOrderLabel.shortName(_shownQuestion),
         marketKey: pending.tokenId,
       );
 
@@ -4626,6 +4680,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
               showBetSlipPlacedConfirmation(
                 navigator: nav,
                 marketQuestion: intent?.marketQuestion ?? widget.marketQuestion,
+                marketSlug: intent?.eventSlug ?? widget.marketSlug,
                 marketImage: intent?.marketImage,
                 outcome: intent?.outcomeName ?? '',
                 total: intent?.amount ?? _amount,
@@ -4670,6 +4725,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                 showBetSlipPlacedConfirmation(
                   navigator: nav,
                   marketQuestion: limitIntent!.marketQuestion,
+                  marketSlug: limitIntent.eventSlug,
                   marketImage: limitIntent.marketImage,
                   outcome: limitIntent.outcomeName,
                   total: limitIntent.amount,
@@ -4702,7 +4758,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                       ? null
                       : l10n.betAmountOnSide(
                           costLabel, limitIntent.outcomeName),
-                  contextLine: limitIntent.marketQuestion,
+                  contextLine: _shownFor(
+                      limitIntent.marketQuestion, limitIntent.eventSlug),
                   rows: {l10n.betShares: limitBought.toStringAsFixed(2)},
                   // How much bought, and that the rest waits at the
                   // person's price.
@@ -4755,7 +4812,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                 amount: restingIntent.outcomeName.isEmpty
                     ? cost
                     : l10n.betAmountOnSide(cost, restingIntent.outcomeName),
-                contextLine: restingIntent.marketQuestion,
+                contextLine: _shownFor(
+                    restingIntent.marketQuestion, restingIntent.eventSlug),
                 rows: {
                   l10n.betLimitPrice: formatPolyCents(price),
                   if (shares > 0) l10n.betShares: shares.toStringAsFixed(2),
@@ -5203,7 +5261,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   SizedBox(height: 12.h),
-                  Text(polySlipTitle(widget.marketQuestion),
+                  Text(polySlipTitle(_shownQuestion),
                       style: TextStyle(
                           fontSize: 20.sp,
                           fontWeight: FontWeight.w700,
@@ -6651,7 +6709,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     // Sal here: the slip is the moment of decision.
     final send = widget.sendPick;
     return PolySlipHeader(
-      marketQuestion: widget.marketQuestion,
+      marketQuestion: _shownQuestion,
       marketImage: widget.marketImage,
       // Send mode says it at the top (send_pick_session.dart).
       chip: send == null ? null : SendPickChip(session: send),
@@ -7363,6 +7421,7 @@ bool betSlipEndsOnConfirmation({required bool isLimit}) => !isLimit;
 void showBetSlipPlacedConfirmation({
   required NavigatorState navigator,
   required String marketQuestion,
+  String? marketSlug,
   String? marketImage,
   required String outcome,
   required double total,
@@ -7386,6 +7445,7 @@ void showBetSlipPlacedConfirmation({
   pushBetPlacedOverlay(
     navigator: navigator,
     marketQuestion: marketQuestion,
+    marketSlug: marketSlug,
     marketImage: marketImage,
     outcome: outcome,
     shares: filledShares ?? shares,

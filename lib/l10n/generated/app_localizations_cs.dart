@@ -12527,6 +12527,16 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
+  String predictNextWindow(String time) {
+    return 'Další · $time';
+  }
+
+  @override
+  String predictRoundWindow(String asset, String start, String end) {
+    return '$asset nahoru, nebo dolů · $start–$end';
+  }
+
+  @override
   String predictUpOrDownCompact(String asset, int minutes) {
     return '$asset up or down · ${minutes}m';
   }

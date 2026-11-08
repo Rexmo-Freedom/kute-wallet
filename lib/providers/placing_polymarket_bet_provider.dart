@@ -38,6 +38,9 @@ class PlacingBet {
   final String placementId;
   final String tokenId;
   final String marketQuestion;
+
+  /// The event's slug, when known: a 5-minute window's tile names it.
+  final String? eventSlug;
   final String? marketImage;
   final String outcomeName;
   final double amount;
@@ -68,6 +71,7 @@ class PlacingBet {
     required this.placementId,
     required this.tokenId,
     required this.marketQuestion,
+    this.eventSlug,
     this.marketImage,
     required this.outcomeName,
     required this.amount,
@@ -93,6 +97,7 @@ class PlacingBet {
         placementId: placementId,
         tokenId: tokenId,
         marketQuestion: marketQuestion,
+        eventSlug: eventSlug,
         marketImage: marketImage,
         outcomeName: outcomeName,
         amount: amount,
@@ -187,6 +192,7 @@ class PlacingPolymarketBetNotifier extends Notifier<List<PlacingBet>> {
   String markPlacing({
     required String tokenId,
     required String marketQuestion,
+    String? eventSlug,
     String? marketImage,
     required String outcomeName,
     required double amount,
@@ -210,6 +216,7 @@ class PlacingPolymarketBetNotifier extends Notifier<List<PlacingBet>> {
       placementId: id,
       tokenId: tokenId,
       marketQuestion: marketQuestion,
+      eventSlug: eventSlug,
       marketImage: marketImage,
       outcomeName: outcomeName,
       amount: amount,

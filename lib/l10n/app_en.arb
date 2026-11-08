@@ -9703,6 +9703,30 @@
       }
     }
   },
+  "predictNextWindow": "Next · {time}",
+  "@predictNextWindow": {
+    "description": "Near the Up and Down buttons of a live 5-minute crypto card once they bet on the next window, e.g. 'Next · 7:20'. time is the next window's start, in the person's locale and time zone.",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "predictRoundWindow": "{asset} up or down · {start}–{end}",
+  "@predictRoundWindow": {
+    "description": "The name of one 5-minute crypto window on the slip, the receipt and the position, e.g. 'BTC up or down · 7:20–7:25'. asset is a ticker; start and end are clock times in the person's locale and time zone.",
+    "placeholders": {
+      "asset": {
+        "type": "String"
+      },
+      "start": {
+        "type": "String"
+      },
+      "end": {
+        "type": "String"
+      }
+    }
+  },
   "predictUpOrDownCompact": "{asset} up or down · {minutes}m",
   "@predictUpOrDownCompact": {
     "description": "Title of the compact live crypto round card on the Predictions list, e.g. 'BTC up or down · 5m'. asset is a ticker, minutes the round length.",
