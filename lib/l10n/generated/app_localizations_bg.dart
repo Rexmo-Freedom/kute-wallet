@@ -3293,12 +3293,6 @@ class AppLocalizationsBg extends AppLocalizations {
       'Подпиши транзакцията на устройството си.';
 
   @override
-  String sendAmountUnitAvailableWithFiat(
-      String amount, String unit, String fiat) {
-    return '$amount $unit налични · $fiat';
-  }
-
-  @override
   String get sendCalculatingEllipsis => 'Изчисляване…';
 
   @override

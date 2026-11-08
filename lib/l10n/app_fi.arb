@@ -976,7 +976,6 @@
   "sendConfirmTheDetails": "Vahvista tiedot.",
   "sendSign": "Allekirjoita",
   "sendSignTheTransactionOnYourDevice": "Allekirjoita tapahtuma laitteellasi.",
-  "sendAmountUnitAvailableWithFiat": "{amount} {unit} käytettävissä · {fiat}",
   "sendCalculatingEllipsis": "Lasketaan…",
   "sendLiveQuoteProvider": "Reaaliaikainen hinta · {provider}",
   "sendLiveQuoteProviderWithFee": "Reaaliaikainen hinta · {provider} · maksu {fee}",

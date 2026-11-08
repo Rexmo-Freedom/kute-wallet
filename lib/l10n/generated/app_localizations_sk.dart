@@ -3286,12 +3286,6 @@ class AppLocalizationsSk extends AppLocalizations {
       'Podpíš transakciu na zariadení.';
 
   @override
-  String sendAmountUnitAvailableWithFiat(
-      String amount, String unit, String fiat) {
-    return 'Dostupné: $amount $unit · $fiat';
-  }
-
-  @override
   String get sendCalculatingEllipsis => 'Počíta sa…';
 
   @override

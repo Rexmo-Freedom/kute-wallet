@@ -39,7 +39,8 @@
 // chips any more: no "To your Dollars" / "To your Bitcoin" (moving between
 // your own accounts is the Dollars home's Move money), no "Crypto
 // address" (the field takes it, its placeholder says so) and no
-// "Prediction or investment" (a gift is a What: send_what_step.dart).
+// "Prediction or investment" (a gift is the Dollars Send's What:
+// send_what_step.dart).
 // Typed, an own account's name ("dollars", "my bitcoin") still finds the
 // move ([SendMoveToOwnRows]): the escape hatch, never a door of its own.
 //

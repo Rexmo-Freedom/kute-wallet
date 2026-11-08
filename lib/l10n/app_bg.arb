@@ -976,7 +976,6 @@
   "sendConfirmTheDetails": "Потвърди детайлите.",
   "sendSign": "Подпиши",
   "sendSignTheTransactionOnYourDevice": "Подпиши транзакцията на устройството си.",
-  "sendAmountUnitAvailableWithFiat": "{amount} {unit} налични · {fiat}",
   "sendCalculatingEllipsis": "Изчисляване…",
   "sendLiveQuoteProvider": "Текуща оферта · {provider}",
   "sendLiveQuoteProviderWithFee": "Текуща оферта · {provider} · такса {fee}",

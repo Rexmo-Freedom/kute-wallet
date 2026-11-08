@@ -976,7 +976,6 @@
   "sendConfirmTheDetails": "Bekräfta uppgifterna.",
   "sendSign": "Signera",
   "sendSignTheTransactionOnYourDevice": "Signera transaktionen på din enhet.",
-  "sendAmountUnitAvailableWithFiat": "{amount} {unit} tillgängligt · {fiat}",
   "sendCalculatingEllipsis": "Beräknar…",
   "sendLiveQuoteProvider": "Aktuell offert · {provider}",
   "sendLiveQuoteProviderWithFee": "Aktuell offert · {provider} · {fee} avgift",

@@ -3291,12 +3291,6 @@ class AppLocalizationsLt extends AppLocalizations {
       'Pasirašykite operaciją savo įrenginyje.';
 
   @override
-  String sendAmountUnitAvailableWithFiat(
-      String amount, String unit, String fiat) {
-    return 'Prieinama $amount $unit · $fiat';
-  }
-
-  @override
   String get sendCalculatingEllipsis => 'Skaičiuojama…';
 
   @override

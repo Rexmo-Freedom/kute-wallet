@@ -976,7 +976,6 @@
   "sendConfirmTheDetails": "Επιβεβαίωσε τα στοιχεία.",
   "sendSign": "Υπογραφή",
   "sendSignTheTransactionOnYourDevice": "Υπόγραψε τη συναλλαγή στη συσκευή σου.",
-  "sendAmountUnitAvailableWithFiat": "{amount} {unit} διαθέσιμα · {fiat}",
   "sendCalculatingEllipsis": "Υπολογισμός…",
   "sendLiveQuoteProvider": "Τρέχουσα τιμή · {provider}",
   "sendLiveQuoteProviderWithFee": "Τρέχουσα τιμή · {provider} · χρέωση {fee}",

@@ -1080,7 +1080,6 @@
   "sendConfirmTheDetails": "Confirme os detalhes.",
   "sendSign": "Assinar",
   "sendSignTheTransactionOnYourDevice": "Assine a transação no seu dispositivo.",
-  "sendAmountUnitAvailableWithFiat": "{amount} {unit} disponíveis · {fiat}",
   "sendCalculatingEllipsis": "A calcular…",
   "sendLiveQuoteProvider": "Cotação em tempo real · {provider}",
   "sendLiveQuoteProviderWithFee": "Cotação em tempo real · {provider} · taxa de {fee}",

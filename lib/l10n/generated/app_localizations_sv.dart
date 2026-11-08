@@ -3281,12 +3281,6 @@ class AppLocalizationsSv extends AppLocalizations {
       'Signera transaktionen på din enhet.';
 
   @override
-  String sendAmountUnitAvailableWithFiat(
-      String amount, String unit, String fiat) {
-    return '$amount $unit tillgängligt · $fiat';
-  }
-
-  @override
   String get sendCalculatingEllipsis => 'Beräknar…';
 
   @override

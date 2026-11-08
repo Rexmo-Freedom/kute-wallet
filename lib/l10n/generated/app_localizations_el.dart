@@ -3315,12 +3315,6 @@ class AppLocalizationsEl extends AppLocalizations {
       'Υπόγραψε τη συναλλαγή στη συσκευή σου.';
 
   @override
-  String sendAmountUnitAvailableWithFiat(
-      String amount, String unit, String fiat) {
-    return '$amount $unit διαθέσιμα · $fiat';
-  }
-
-  @override
   String get sendCalculatingEllipsis => 'Υπολογισμός…';
 
   @override

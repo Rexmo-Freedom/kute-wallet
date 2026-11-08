@@ -976,7 +976,6 @@
   "sendConfirmTheDetails": "Bevestig de gegevens.",
   "sendSign": "Ondertekenen",
   "sendSignTheTransactionOnYourDevice": "Onderteken de transactie op je apparaat.",
-  "sendAmountUnitAvailableWithFiat": "{amount} {unit} beschikbaar · {fiat}",
   "sendCalculatingEllipsis": "Berekenen…",
   "sendLiveQuoteProvider": "Live offerte · {provider}",
   "sendLiveQuoteProviderWithFee": "Live offerte · {provider} · {fee} kosten",

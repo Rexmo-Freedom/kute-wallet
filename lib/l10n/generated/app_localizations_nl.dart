@@ -3296,12 +3296,6 @@ class AppLocalizationsNl extends AppLocalizations {
       'Onderteken de transactie op je apparaat.';
 
   @override
-  String sendAmountUnitAvailableWithFiat(
-      String amount, String unit, String fiat) {
-    return '$amount $unit beschikbaar · $fiat';
-  }
-
-  @override
   String get sendCalculatingEllipsis => 'Berekenen…';
 
   @override

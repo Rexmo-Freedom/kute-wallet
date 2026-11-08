@@ -5954,13 +5954,6 @@ abstract class AppLocalizations {
   /// **'Sign the transaction on your device.'**
   String get sendSignTheTransactionOnYourDevice;
 
-  /// No description provided for @sendAmountUnitAvailableWithFiat.
-  ///
-  /// In en, this message translates to:
-  /// **'{amount} {unit} available · {fiat}'**
-  String sendAmountUnitAvailableWithFiat(
-      String amount, String unit, String fiat);
-
   /// No description provided for @sendCalculatingEllipsis.
   ///
   /// In en, this message translates to:

@@ -3291,12 +3291,6 @@ class AppLocalizationsSl extends AppLocalizations {
       'Transakcijo podpišite na napravi.';
 
   @override
-  String sendAmountUnitAvailableWithFiat(
-      String amount, String unit, String fiat) {
-    return 'Na voljo $amount $unit · $fiat';
-  }
-
-  @override
   String get sendCalculatingEllipsis => 'Izračunavanje …';
 
   @override

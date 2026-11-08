@@ -3194,12 +3194,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get sendSignTheTransactionOnYourDevice => 'デバイスでトランザクションに署名してください。';
 
   @override
-  String sendAmountUnitAvailableWithFiat(
-      String amount, String unit, String fiat) {
-    return '$amount $unit 利用可能 · $fiat';
-  }
-
-  @override
   String get sendCalculatingEllipsis => '計算中…';
 
   @override

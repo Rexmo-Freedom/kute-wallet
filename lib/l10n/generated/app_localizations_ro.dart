@@ -3301,12 +3301,6 @@ class AppLocalizationsRo extends AppLocalizations {
       'Semnează tranzacția pe dispozitiv.';
 
   @override
-  String sendAmountUnitAvailableWithFiat(
-      String amount, String unit, String fiat) {
-    return '$amount $unit disponibil · $fiat';
-  }
-
-  @override
   String get sendCalculatingEllipsis => 'Se calculează…';
 
   @override

@@ -976,7 +976,6 @@
   "sendConfirmTheDetails": "Patvirtinkite informaciją.",
   "sendSign": "Pasirašyti",
   "sendSignTheTransactionOnYourDevice": "Pasirašykite operaciją savo įrenginyje.",
-  "sendAmountUnitAvailableWithFiat": "Prieinama {amount} {unit} · {fiat}",
   "sendCalculatingEllipsis": "Skaičiuojama…",
   "sendLiveQuoteProvider": "Dabartinė kaina · {provider}",
   "sendLiveQuoteProviderWithFee": "Dabartinė kaina · {provider} · mokestis {fee}",

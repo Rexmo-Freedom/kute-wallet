@@ -976,7 +976,6 @@
   "sendConfirmTheDetails": "Erősítsd meg az adatokat.",
   "sendSign": "Aláírás",
   "sendSignTheTransactionOnYourDevice": "Írd alá a tranzakciót az eszközödön.",
-  "sendAmountUnitAvailableWithFiat": "{amount} {unit} elérhető · {fiat}",
   "sendCalculatingEllipsis": "Számítás…",
   "sendLiveQuoteProvider": "Élő ajánlat · {provider}",
   "sendLiveQuoteProviderWithFee": "Élő ajánlat · {provider} · {fee} díj",

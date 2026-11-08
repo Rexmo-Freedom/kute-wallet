@@ -976,7 +976,6 @@
   "sendConfirmTheDetails": "Kinnita andmed.",
   "sendSign": "Allkirjasta",
   "sendSignTheTransactionOnYourDevice": "Allkirjasta tehing oma seadmes.",
-  "sendAmountUnitAvailableWithFiat": "{amount} {unit} saadaval · {fiat}",
   "sendCalculatingEllipsis": "Arvutamine…",
   "sendLiveQuoteProvider": "Reaalajas pakkumine · {provider}",
   "sendLiveQuoteProviderWithFee": "Reaalajas pakkumine · {provider} · tasu {fee}",

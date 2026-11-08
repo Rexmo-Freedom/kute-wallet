@@ -976,7 +976,6 @@
   "sendConfirmTheDetails": "Bestätige die Details.",
   "sendSign": "Signieren",
   "sendSignTheTransactionOnYourDevice": "Signiere die Transaktion auf deinem Gerät.",
-  "sendAmountUnitAvailableWithFiat": "{amount} {unit} verfügbar · {fiat}",
   "sendCalculatingEllipsis": "Wird berechnet…",
   "sendLiveQuoteProvider": "Live-Kurs · {provider}",
   "sendLiveQuoteProviderWithFee": "Live-Kurs · {provider} · {fee} Gebühr",
