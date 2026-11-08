@@ -8286,20 +8286,11 @@ class AppLocalizationsRo extends AppLocalizations {
   String get moveAddFunds => 'Adaugă fonduri';
 
   @override
-  String get movePickPayOrDollars =>
-      'Alege cum vrei să plătești sau folosește soldul în dolari.';
-
-  @override
   String get moveHintAWallet => 'un portofel';
 
   @override
   String moveHintTwo(String first, String second) {
     return '$first sau $second';
-  }
-
-  @override
-  String moveHintMany(String list, String last) {
-    return '$list sau $last';
   }
 
   @override

@@ -8243,20 +8243,11 @@ class AppLocalizationsDa extends AppLocalizations {
   String get moveAddFunds => 'Tilføj midler';
 
   @override
-  String get movePickPayOrDollars =>
-      'Vælg, hvordan du vil betale, eller brug din dollarsaldo.';
-
-  @override
   String get moveHintAWallet => 'en tegnebog';
 
   @override
   String moveHintTwo(String first, String second) {
     return '$first eller $second';
-  }
-
-  @override
-  String moveHintMany(String list, String last) {
-    return '$list eller $last';
   }
 
   @override

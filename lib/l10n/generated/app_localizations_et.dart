@@ -8222,20 +8222,11 @@ class AppLocalizationsEt extends AppLocalizations {
   String get moveAddFunds => 'Lisa raha';
 
   @override
-  String get movePickPayOrDollars =>
-      'Vali, kuidas soovid maksta, või kasuta oma dollarisaldot.';
-
-  @override
   String get moveHintAWallet => 'rahakott';
 
   @override
   String moveHintTwo(String first, String second) {
     return '$first või $second';
-  }
-
-  @override
-  String moveHintMany(String list, String last) {
-    return '$list või $last';
   }
 
   @override

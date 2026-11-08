@@ -8236,20 +8236,11 @@ class AppLocalizationsSv extends AppLocalizations {
   String get moveAddFunds => 'Sätt in pengar';
 
   @override
-  String get movePickPayOrDollars =>
-      'Välj hur du vill betala, eller använd ditt dollarsaldo.';
-
-  @override
   String get moveHintAWallet => 'en plånbok';
 
   @override
   String moveHintTwo(String first, String second) {
     return '$first eller $second';
-  }
-
-  @override
-  String moveHintMany(String list, String last) {
-    return '$list eller $last';
   }
 
   @override

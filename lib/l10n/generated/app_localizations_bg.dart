@@ -8258,20 +8258,11 @@ class AppLocalizationsBg extends AppLocalizations {
   String get moveAddFunds => 'Добави средства';
 
   @override
-  String get movePickPayOrDollars =>
-      'Избери как искаш да платиш или използвай баланса си в долари.';
-
-  @override
   String get moveHintAWallet => 'портфейл';
 
   @override
   String moveHintTwo(String first, String second) {
     return '$first или $second';
-  }
-
-  @override
-  String moveHintMany(String list, String last) {
-    return '$list или $last';
   }
 
   @override

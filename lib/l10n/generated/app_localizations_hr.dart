@@ -8260,20 +8260,11 @@ class AppLocalizationsHr extends AppLocalizations {
   String get moveAddFunds => 'Dodaj sredstva';
 
   @override
-  String get movePickPayOrDollars =>
-      'Odaberi način plaćanja ili koristi saldo u dolarima.';
-
-  @override
   String get moveHintAWallet => 'novčanik';
 
   @override
   String moveHintTwo(String first, String second) {
     return '$first ili $second';
-  }
-
-  @override
-  String moveHintMany(String list, String last) {
-    return '$list ili $last';
   }
 
   @override

@@ -8248,20 +8248,11 @@ class AppLocalizationsSk extends AppLocalizations {
   String get moveAddFunds => 'Pridať prostriedky';
 
   @override
-  String get movePickPayOrDollars =>
-      'Vyber, ako chceš zaplatiť, alebo použi dolárový zostatok.';
-
-  @override
   String get moveHintAWallet => 'peňaženku';
 
   @override
   String moveHintTwo(String first, String second) {
     return '$first alebo $second';
-  }
-
-  @override
-  String moveHintMany(String list, String last) {
-    return '$list alebo $last';
   }
 
   @override

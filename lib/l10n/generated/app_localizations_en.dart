@@ -8206,20 +8206,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get moveAddFunds => 'Add funds';
 
   @override
-  String get movePickPayOrDollars =>
-      'Pick how you want to pay, or use your dollar balance.';
-
-  @override
   String get moveHintAWallet => 'a wallet';
 
   @override
   String moveHintTwo(String first, String second) {
     return '$first or $second';
-  }
-
-  @override
-  String moveHintMany(String list, String last) {
-    return '$list, or $last';
   }
 
   @override

@@ -8283,20 +8283,11 @@ class AppLocalizationsEs extends AppLocalizations {
   String get moveAddFunds => 'Añadir fondos';
 
   @override
-  String get movePickPayOrDollars =>
-      'Elige cómo quieres pagar o usa tu saldo en dólares.';
-
-  @override
   String get moveHintAWallet => 'una cartera';
 
   @override
   String moveHintTwo(String first, String second) {
     return '$first o $second';
-  }
-
-  @override
-  String moveHintMany(String list, String last) {
-    return '$list o $last';
   }
 
   @override

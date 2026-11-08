@@ -14244,12 +14244,6 @@ abstract class AppLocalizations {
   /// **'Add funds'**
   String get moveAddFunds;
 
-  /// No description provided for @movePickPayOrDollars.
-  ///
-  /// In en, this message translates to:
-  /// **'Pick how you want to pay, or use your dollar balance.'**
-  String get movePickPayOrDollars;
-
   /// No description provided for @moveHintAWallet.
   ///
   /// In en, this message translates to:
@@ -14261,12 +14255,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{first} or {second}'**
   String moveHintTwo(String first, String second);
-
-  /// No description provided for @moveHintMany.
-  ///
-  /// In en, this message translates to:
-  /// **'{list}, or {last}'**
-  String moveHintMany(String list, String last);
 
   /// No description provided for @moveHintFrom.
   ///

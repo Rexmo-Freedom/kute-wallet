@@ -4770,7 +4770,6 @@
   "moveShownBeforeSigning": "Shown before signing",
   "movePurchaseFee": "Purchase fee",
   "moveAddFunds": "Add funds",
-  "movePickPayOrDollars": "Pick how you want to pay, or use your dollar balance.",
   "moveHintAWallet": "a wallet",
   "moveHintTwo": "{first} or {second}",
   "@moveHintTwo": {
@@ -4779,17 +4778,6 @@
         "type": "String"
       },
       "second": {
-        "type": "String"
-      }
-    }
-  },
-  "moveHintMany": "{list}, or {last}",
-  "@moveHintMany": {
-    "placeholders": {
-      "list": {
-        "type": "String"
-      },
-      "last": {
         "type": "String"
       }
     }

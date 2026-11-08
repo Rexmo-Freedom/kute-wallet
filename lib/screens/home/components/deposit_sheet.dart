@@ -19,8 +19,8 @@ import 'package:kute/screens/shared/orchestra_fee_summary.dart';
 // big typed number driven by a custom keypad, $10 / $25 / $50 / Max
 // chips, and the CTA. Every door opens it locked to one venue or rail
 // ([MoveLockedSide]): Add to Predictions / Investing, the two withdrawals,
-// the Dollar deposit, Buy bitcoin (Cash App, the bank rail, the dollar
-// balance), the Ledger venue flows and the slip top-ups. It never moves
+// the Dollar deposit, Buy bitcoin (Cash App, the bank rail while it is
+// offered), the Ledger venue flows and the slip top-ups. It never moves
 // bitcoin between the spending account and a savings wallet. What a
 // dispatch sends is derived from the typed amount on every read (dollars,
 // or sats at the sheet's price), capped to the source's balance at that
@@ -420,8 +420,9 @@ enum MoveOpeningRail { none, bank, cashApp, natural }
 /// (founder decision, October 2026). A Cash App door opens on Cash App
 /// while it is offered; otherwise on the bank when the door seeded it and
 /// the policy offers it; otherwise on the door's natural non-fiat source:
-/// Buy bitcoin on the dollar balance, the venue buys on spending bitcoin,
-/// and the dollars door simply stays on its Bitcoin source.
+/// the venue buys on spending bitcoin, and the dollars door simply stays
+/// on its Bitcoin source. Buy bitcoin has none and closes on "Buy
+/// unavailable" ([_noNaturalSource]).
 @visibleForTesting
 MoveOpeningRail moveOpeningRail({
   required bool seededRail,
@@ -583,7 +584,7 @@ class DepositSheet extends ConsumerStatefulWidget {
   /// [movementRoute] fixed: no account pickers (showMoneyMovementSheet's
   /// `pinned`). Bitcoin and Dollars still swap (the Swap screen). Pinned
   /// Dollars → Bitcoin spends all the dollar money, Dollars first and
-  /// then the venue cash, as the Investments' Buy bitcoin.
+  /// then the venue cash.
   final bool movementPinned;
   final String? fiatDepositWalletId;
   final String? venueWalletId;
@@ -1218,8 +1219,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   bool _fromHyperliquid = false;
 
   /// Dollars as the SOURCE — the spending account's own dollar balance
-  /// paying a venue deposit. Only the two venue-deposit doors offer it
-  /// (see [_dollarsSourceAllowed]); every other source pick clears it,
+  /// paying Swap, Move money or a venue deposit (see
+  /// [_dollarsSourceAllowed]); every other source pick clears it,
   /// so a stale flag can never send dollars down a bitcoin path.
   ///
   /// It rides with `_fromBtc == false`, which the rest of the sheet reads
@@ -1228,30 +1229,21 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// balance", so every branch that assumed so now tests this flag too.
   bool _sourceUsd = false;
 
-  /// The doors where the dollar balance may pay: the two venue deposits
-  /// and the buy-bitcoin door. In every one of them the money leaves as
-  /// the dollar token and Orchestra converts it on the way in, the same
-  /// shape as the bitcoin leg beside it.
+  /// The doors where the dollar balance may pay: Swap and Move money and
+  /// the two venue deposits. In every one of them the money leaves as the
+  /// dollar token and Orchestra converts it on the way in, the same shape
+  /// as the bitcoin leg beside it.
   ///
-  /// [MoveLockedSide.depositFromFiat] is the "Buy bitcoin" door. Dollars
-  /// there buy spending bitcoin on a real catalogue route (the dollar
-  /// token and bitcoin are both Spark-native), so the purchase settles
-  /// instantly instead of waiting on a fiat rail.
+  /// Never "Buy bitcoin" ([MoveLockedSide.depositFromFiat]; founder,
+  /// 8 November 2026: "only the Cash App, as it is the only fiat onramp"):
+  /// buying is paying from outside, and Dollars to Bitcoin is Swap.
   ///
-  /// Read live off `_lockedSide`, which the swap button mutates: flipping
-  /// the buy door into its sell twin ([MoveLockedSide.withdrawToFiat])
-  /// drops this, and with it `_dollarsAreSource`.
-  /// The buy door credits a NAMED wallet when it is opened from a cold
-  /// account, and the dollar balance is the spending account's money.
-  /// Paying for a hardware wallet's bitcoin out of it crosses two
-  /// accounts in one tap, so a purchase into cold storage offers the
-  /// payment rails only: Cash App and the bank (owner decision).
+  /// Read live off `_lockedSide`, which the swap button mutates.
   bool get _dollarsSourceAllowed =>
       !_isLedgerMove &&
-      (_isMoneyMovement || _lockedSide == MoveLockedSide.depositToHyperliquid ||
-          _lockedSide == MoveLockedSide.depositToPredictions ||
-          (_lockedSide == MoveLockedSide.depositFromFiat &&
-              widget.fiatDepositWalletId == null));
+      (_isMoneyMovement ||
+          _lockedSide == MoveLockedSide.depositToHyperliquid ||
+          _lockedSide == MoveLockedSide.depositToPredictions);
 
   /// THE ONE TEST every dollar-source branch uses. [_sourceUsd] is the
   /// user's pick; this is the pick AND the absence of every other source,
@@ -1273,11 +1265,11 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
 
   /// Dollars buying spending bitcoin also reach venue cash: Dollars
   /// first, the rest pulled home from Predictions and Investing before
-  /// the purchase (lib/services/one_balance/venue_cash_source.dart). In
-  /// Move money only on [_ownDollarsToBitcoin], the own-account doors'
-  /// pinned move; a route picked in the pickers spends its one account.
+  /// the purchase (lib/services/one_balance/venue_cash_source.dart). Only
+  /// on [_ownDollarsToBitcoin], the own-account doors' pinned move; a
+  /// route picked in Move money's pickers spends its one account.
   bool get _dollarsReachVenueCash =>
-      (!_isMoneyMovement || _ownDollarsToBitcoin) &&
+      _ownDollarsToBitcoin &&
       _dollarsAreSource &&
       !_destPredictions &&
       !_destHyperliquid &&
@@ -1292,11 +1284,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// not just the Dollars balance, it is the same behaviour we had before
   /// on Investments buy Bitcoin"): Move money pinned Dollars → Bitcoin
   /// (showOwnMoneyMove) has no account to pick, so "your Dollars" is all
-  /// the person's dollar money. Its figure, Max and funding are the
-  /// Investments' Buy bitcoin's: Dollars first, then the venue cash, one
-  /// approval, the same steps and the same move row. The Portfolio's Move
-  /// money, unpinned, lists each account on its own and spends only the
-  /// one picked.
+  /// the person's dollar money. Its figure, Max and funding: Dollars
+  /// first, then the venue cash, one approval, the same steps and the same
+  /// move row. The Portfolio's Move money, unpinned, lists each account on
+  /// its own and spends only the one picked.
   bool get _ownDollarsToBitcoin =>
       _isMoneyMovement &&
       widget.movementPinned &&
@@ -1484,18 +1475,11 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
 
   /// Money between the person's own Bitcoin and Dollars, never a buy
   /// (founder, 7 November 2026: "Buy should only be for fiat"): the
-  /// Dollars door paid from bitcoin, or Buy bitcoin paid from the dollar
-  /// balance. Like Move money itself it reads "Move money" over a "Move
-  /// $50" button; Buy is only for money from outside (Cash App, the
-  /// bank).
+  /// Dollars door paid from bitcoin. Like Move money itself it reads
+  /// "Move money" over a "Move $50" button; Buy is only for money from
+  /// outside (Cash App, the bank).
   bool get _ownMoneyMove =>
-      !_isFiatMode &&
-      !_isLedgerMove &&
-      ((_buyingDollars && _fromBtc) ||
-          (_dollarsAreSource &&
-              !_destPredictions &&
-              !_destHyperliquid &&
-              !_destUsd));
+      !_isFiatMode && !_isLedgerMove && _buyingDollars && _fromBtc;
 
   /// The sheet title, named after the live direction + surface rather
   /// than a flat "Exchange" (user decision): a selected venue or the
@@ -2073,8 +2057,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         // fallback while that is connecting, so it always has a number.
         final balance = ref.read(usdSdkBalanceProvider);
         if (balance.hasValue) return null;
-        // Buying bitcoin from Investments shows the last known balance at
-        // once (the settled ledger stands in) and follows the SDK when it
+        // Swap's Dollars → Bitcoin shows the last known balance at once
+        // (the settled ledger stands in) and follows the SDK when it
         // answers: no loading text.
         if (_dollarsReachVenueCash && !balance.hasError) return null;
         return balance.hasError ? 'Balance unavailable' : 'Updating balance';
@@ -2472,10 +2456,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
 
   /// The door's own non-fiat source, for a door whose payment rail the
   /// policy does not offer (see [moveOpeningRail]). Never a hidden rail:
-  /// Buy bitcoin pays from the dollar balance; the venue buys become the
-  /// venue deposit from spending bitcoin; the dollars door and the venue
-  /// deposits take spending bitcoin. Sets fields only: initState needs no
-  /// setState, and the live path wraps it in one. A door with no such
+  /// the venue buys become the venue deposit from spending bitcoin; the
+  /// dollars door and the venue deposits take spending bitcoin. Sets
+  /// fields only: initState needs no setState, and the live path wraps it
+  /// in one. A door with no such
   /// source ([_noNaturalSource]) never comes here: it closes instead.
   void _openOnNaturalSource() {
     _sourceFiat = false;
@@ -2493,22 +2477,18 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       case MoveLockedSide.buyToHyperliquid:
         _lockedSide = MoveLockedSide.depositToHyperliquid;
         _fromBtc = true;
-      case MoveLockedSide.depositFromFiat:
-        _sourceUsd = true;
-        _fromBtc = false;
       default:
         _fromBtc = true;
     }
   }
 
   /// A buy door with nothing to fall back on once its payment rails are
-  /// gone: a Ledger venue buy (its rails are its only sources) and a
-  /// purchase into a savings wallet (dollars never pay into one, and the
-  /// sheet never turns a purchase into a move from the spending account).
+  /// gone: a Ledger venue buy (its rails are its only sources) and Buy
+  /// bitcoin (buying is paying from outside: the sheet never turns a
+  /// purchase into a move of the person's own money, which is Swap).
   bool get _noNaturalSource =>
       widget.venueWalletId != null ||
-      (_lockedSide == MoveLockedSide.depositFromFiat &&
-          !_dollarsSourceAllowed);
+      _lockedSide == MoveLockedSide.depositFromFiat;
 
   /// Receive picked on the Investments deposit's From picker: the
   /// Dollars receive screen (its own route, `receiveDollars`) in this
@@ -2643,28 +2623,12 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       _destWalletId = null;
     } else if (_lockedSide == MoveLockedSide.depositFromFiat) {
       // Buy bitcoin: From is a payment method (Cash App, the bank rail
-      // while it is offered, or the dollar balance); To is the spending
-      // account, or the savings wallet the door was opened for
+      // while it is offered), never the person's own money (Dollars →
+      // Bitcoin is Swap); To is the spending account, or the savings
+      // wallet the door was opened for
       // ([DepositSheet.fiatDepositWalletId]). Bank transfers stay inert —
       // the CTA never enables while the bank rail is selected.
-      //
-      // DOLLARS LEAD ON THE SPENDING ACCOUNT (owner decision). Money
-      // already in the dollar balance buys bitcoin on a real catalogue
-      // route and settles at once, where a payment rail has to bring
-      // outside money in first. So the door opens on dollars whenever
-      // there are dollars to spend, and falls back to the rails when
-      // there are none, which is the only case where offering them
-      // first is the honest answer. Every rail stays one tap away. An
-      // explicit Cash App request (Activity's "Create new purchase")
-      // repeats a Cash App purchase, so it opens on Cash App instead.
-      // Investments' venue cash the engine can reach counts: the
-      // purchase pays from Dollars first and brings the rest in.
-      final dollarsLead = !widget.cashAppSource &&
-          widget.fiatDepositWalletId == null &&
-          (ref.read(usdBalanceProvider) > 0 ||
-              ref.read(dollarsToBitcoinSpendableProvider).totalUsd > 0);
-      _sourceUsd = dollarsLead;
-      _sourceFiat = !dollarsLead;
+      _sourceFiat = true;
       _sourceWalletId = null;
       _fromBtc = false;
       _destAsset = 'btc';
@@ -2738,9 +2702,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       if (!_noNaturalSource) {
         _openOnNaturalSource();
       } else if (widget.venueWalletId == null) {
-        // A purchase into a savings wallet with no rail on offer: the
-        // door closes on the "Buy unavailable" sheet rather than turn
-        // into a move from the spending account.
+        // Buy bitcoin with no rail on offer: the door closes on the "Buy
+        // unavailable" sheet rather than turn into a move of the person's
+        // own money.
         _closeRaillessBuy();
       }
     }
@@ -4693,7 +4657,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     return null;
   }
 
-  /// The rest of a Buy bitcoin whose sheet closed on submit ([run]: its
+  /// The rest of a Swap whose sheet closed on submit ([run]: its
   /// legs, already recorded on the move's Activity row), with no sheet to
   /// report to: exactly what the sheet did when it was closed under a
   /// move. A remainder under the purchase minimum stays in Dollars; what
@@ -4926,12 +4890,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
 
   Future<void> _dispatchUsdToBtc(double usd) async {
     if (_processing) return;
-    // A Buy bitcoin's earlier multi-source purchase is never what Move
-    // money retries, unless this is the own-account doors' move, which
-    // pays the same way.
-    final parallel = _isMoneyMovement && !_dollarsReachVenueCash
-        ? null
-        : _parallelPurchase;
+    // An earlier multi-source purchase is never what Move money retries,
+    // unless this is the own-account doors' move, which pays that way.
+    final parallel = _dollarsReachVenueCash ? _parallelPurchase : null;
     if (parallel != null) {
       await _retryParallelPurchase(parallel);
       return;
@@ -4942,8 +4903,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     final pullsVenueCash = usd > _availableUsd + 0.005;
     // A manual move spends exactly its chosen account, never another
     // venue when Dollars dropped between rendering and confirmation. The
-    // own-account doors' move spends all the dollar money, as Buy bitcoin.
-    if (_isMoneyMovement && pullsVenueCash && !_dollarsReachVenueCash) {
+    // own-account doors' move spends all the dollar money.
+    if (pullsVenueCash && !_dollarsReachVenueCash) {
       setState(() => _error = context.l10n.insufficientBalance);
       _moveFailedFeedback();
       return;
@@ -5091,10 +5052,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           toNetwork: 'spark',
           venue: 'wallet',
         );
-        _trackMoveFailed(e);
-      } else if (_isMoneyMovement) {
-        _trackMoveFailed(e);
       }
+      _trackMoveFailed(e);
       if (_stoppedByApproval(e, SensitiveAction.moveTransfer) || !mounted) {
         return;
       }
@@ -7416,10 +7375,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       if (usd < _kMinUsdc) return;
       if (_destPredictions) return _dispatchUsdToPredictions(usd);
       if (_destHyperliquid) return _dispatchUsdToHyperliquid(usd);
-      // Dollars → spending bitcoin, the buy-bitcoin door paid from a
-      // balance instead of a card. Guarded on the destination being
-      // NOTHING else first: a dollars-to-dollars leg is not a purchase,
-      // and a fiat destination is the inert coming-soon screen.
+      // Dollars → spending bitcoin: Swap and Move money. Guarded on the
+      // destination being NOTHING else first: a dollars-to-dollars leg is
+      // not a purchase, and a fiat destination is the inert coming-soon
+      // screen.
       if (!_destUsd && !_destFiat && _destAsset == 'btc') {
         return _dispatchUsdToBtc(usd);
       }
@@ -7672,8 +7631,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         String dollars(double usd) =>
             '\$${((usd * 100).floor() / 100).toStringAsFixed(2)}';
         if (!_fromBtc) {
-          // Buying bitcoin from Investments: the Max, what the purchase
-          // can actually spend (held while a purchase spends it).
+          // Swap's Dollars → Bitcoin: the Max, what the purchase can
+          // actually spend (held while a purchase spends it).
           availableValue = dollars(_availableUsdc);
         } else {
           final sats = _isLedgerMove ? _maxConvertibleSats : _availableSats;
@@ -7769,7 +7728,6 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       usdDest: _destUsd,
       hyperliquidSource: _fromHyperliquid,
       dollarsSource: _dollarsAreSource,
-      dollarsSourceAvailable: _dollarsSourceAllowed,
       fiatSource: _sourceFiat,
       cashAppSource: _sourceCashApp,
       lockedSide: _lockedSide,
@@ -7963,30 +7921,6 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           // ignore: discarded_futures
           _resolveColdDestAddress();
         }
-      },
-      onPickDollarsSource: () {
-        if (!_dollarsSourceAllowed) return;
-        HapticFeedback.selectionClick();
-        TrackingService.track('move_source_dollars_selected', params: {
-          'locked_side': _lockedSide.name,
-        });
-        setState(() {
-          // A dollar source rides with `_fromBtc == false` so the amount
-          // is read as USD, and clears every other source outright:
-          // `_dollarsAreSource` demands all of this, so a half-set state
-          // simply turns the door off rather than paying from the wrong
-          // pool.
-          _sourceUsd = true;
-          _fromBtc = false;
-          _fromHyperliquid = false;
-          _sourceFiat = false;
-          _sourceCashApp = false;
-          _sourceWalletId = null;
-          _destWalletId = null;
-          _destAsset = 'btc';
-          _error = null;
-          _resetTypedAmount();
-        });
       },
       onPickWithdrawDestination: ({required bool dollars}) {
         // Only the two cash-outs draw this row, and only they may set the
@@ -8670,9 +8604,6 @@ class _DirectionToggle extends ConsumerWidget {
   /// this first.
   final bool dollarsSource;
 
-  /// Whether the Dollars tile is on offer in the From picker at all.
-  /// True only on the two venue-deposit doors.
-  final bool dollarsSourceAvailable;
 
   /// The bank rail is the source. The From chip renders the
   /// bank-transfer glyph + 'Bank account'. The rail is inert (coming
@@ -8694,11 +8625,6 @@ class _DirectionToggle extends ConsumerWidget {
   /// Cash App picked as the buy source — the parent switches the sheet
   /// in place (USD, live onramp). Source side only, so no side flag.
   final VoidCallback onPickCashApp;
-
-  /// The dollar balance picked as the source of a venue deposit. Source
-  /// side only: dollars are a destination through their own door, never
-  /// through this picker's To side.
-  final VoidCallback onPickDollarsSource;
 
   /// What a venue cash-out delivers, picked on the To row of the two
   /// withdrawal doors: the spending account's dollars when `dollars` is
@@ -8726,14 +8652,12 @@ class _DirectionToggle extends ConsumerWidget {
     required this.usdDest,
     required this.hyperliquidSource,
     required this.dollarsSource,
-    required this.dollarsSourceAvailable,
     required this.fiatSource,
     required this.cashAppSource,
     required this.lockedSide,
     required this.onSwap,
     required this.onPickSpendingBitcoin,
     required this.onPickCashApp,
-    required this.onPickDollarsSource,
     required this.onPickWithdrawDestination,
     this.onPickReceive,
   });
@@ -8770,26 +8694,13 @@ class _DirectionToggle extends ConsumerWidget {
       lockedSide == MoveLockedSide.buyToPredictions ||
       lockedSide == MoveLockedSide.buyToHyperliquid;
 
-  /// Whether the dollar balance's own rows wear the USDB coin
-  /// ([kUsdMarkAsset]) in place of the Investments arrow: on the
-  /// buy-bitcoin door (Dollars → Bitcoin), where the balance is the
-  /// money paying, the way the Investments deposit door wears it. The
-  /// withdraw and send rows elsewhere keep the arrow.
-  bool get _dollarsWearCoin => lockedSide == MoveLockedSide.depositFromFiat;
-
   /// The From picker, the only side picker left: every door pins its
-  /// destination. It opens on the venue deposits, the Dollar deposit and
-  /// the buy doors (the withdrawals pin their source, a Ledger move has
-  /// its own source sheet).
+  /// destination. It opens on the venue deposits and the Dollar deposit
+  /// (the withdrawals pin their source, a buy door has one way to pay, a
+  /// Ledger move has its own source sheet).
   void _openSourcePicker(BuildContext context) {
     if (interactionDisabled || ledgerContext) return;
     HapticFeedback.selectionClick();
-    // Locked fiat BUY doors (Buy bitcoin / buy-to-pool): the From side
-    // is a PAYMENT METHOD choice only — Bank account or Cash App —
-    // never a wallet or a surface.
-    final paymentMethodsOnly = lockedSide == MoveLockedSide.depositFromFiat ||
-        lockedSide == MoveLockedSide.buyToPredictions ||
-        lockedSide == MoveLockedSide.buyToHyperliquid;
     // Cash App is the one live fiat rail, listed only while the policy
     // offers it: a withheld onramp is not shown at all (founder decision,
     // October 2026, replacing September's disabled tile). One answer
@@ -8801,34 +8712,10 @@ class _DirectionToggle extends ConsumerWidget {
     // Hint under the picker title, naming only what this picker really
     // offers.
     String pickerHint(bool cashAppListed) {
-      if (paymentMethodsOnly) {
-        // No rail on offer: the dollar balance is all this picker lists,
-        // so the hint names it rather than promising ways to pay.
-        if (!cashAppListed) {
-          return dollarsSourceAvailable
-              ? context.l10n.moveHintFrom(context.l10n.assetDollars)
-              : context.l10n.depositPickHowYouWantToPay;
-        }
-        // The dollar balance rides in this picker too, so the hint names
-        // it rather than promising payment methods and then showing a
-        // balance.
-        return dollarsSourceAvailable
-            ? context.l10n.movePickPayOrDollars
-            : context.l10n.depositPickHowYouWantToPay;
-      }
-      final options = <String>[
-        context.l10n.moveHintAWallet,
-        if (dollarsSourceAvailable) context.l10n.assetDollars,
-        if (cashAppListed) 'Cash App',
-      ];
-      final list = options.length == 1
-          ? options.first
-          : options.length == 2
-              ? context.l10n.moveHintTwo(options.first, options.last)
-              : context.l10n.moveHintMany(
-                  options.sublist(0, options.length - 1).join(', '),
-                  options.last);
-      return context.l10n.moveHintFrom(list);
+      final wallet = context.l10n.moveHintAWallet;
+      return context.l10n.moveHintFrom(cashAppListed
+          ? context.l10n.moveHintTwo(wallet, 'Cash App')
+          : wallet);
     }
 
     // The Investments deposit reads as what it is, adding money to
@@ -8860,16 +8747,15 @@ class _DirectionToggle extends ConsumerWidget {
         // Spending bitcoin: the venue deposits and the Dollar deposit.
         // Their other side is a venue or the dollars, never spending
         // bitcoin itself, so the row is never "in use".
-        if (!paymentMethodsOnly)
-          MovePickerRow(
-            asset: 'lib/assets/bitcoin-icon.svg',
-            title: 'Bitcoin',
-            subtitle: spendingSubtitle,
-            onTap: () {
-              Navigator.of(sheetCtx).pop();
-              onPickSpendingBitcoin();
-            },
-          ),
+        MovePickerRow(
+          asset: 'lib/assets/bitcoin-icon.svg',
+          title: 'Bitcoin',
+          subtitle: spendingSubtitle,
+          onTap: () {
+            Navigator.of(sheetCtx).pop();
+            onPickSpendingBitcoin();
+          },
+        ),
         // Another crypto (from a wallet or an exchange: the Receive
         // sheets' card for the same door, founder 7 November 2026), under
         // the bitcoin, on the Investments deposit door only: the Dollars
@@ -8887,37 +8773,6 @@ class _DirectionToggle extends ConsumerWidget {
               onPickReceive!();
             },
           ),
-        // Dollars as a SOURCE. Offered on the two venue-deposit doors
-        // and the buy-bitcoin door: the money leaves as the dollar token
-        // and Orchestra converts it into what the door is buying, the
-        // same leg the Bitcoin tile above rides.
-        //
-        // It survives `paymentMethodsOnly`, and it is the one row that
-        // does. That mode exists to keep wallets and pools out of a BUY,
-        // where the question is how you pay; a dollar balance is an
-        // answer to that question, and it is the only instant one while
-        // the bank rail is dark. `dollarsSourceAvailable` still decides
-        // which doors see it, so the buy-to-pool doors (which are the
-        // same mode) keep the payment rails only.
-        if (dollarsSourceAvailable)
-          MovePickerRow(
-            // Paying for bitcoin out of the Investments balance (the buy
-            // door), the row wears the USDB coin: the money is the coin
-            // itself. Everywhere else the dollar balance as a source or
-            // destination row wears the Investments arrow (the Home
-            // deposit button's icon).
-            asset: _dollarsWearCoin ? kUsdMarkAsset : null,
-            icon: _dollarsWearCoin ? null : kInvestmentsIcon,
-            title: context.l10n.assetDollars,
-            subtitle: context.l10n.moveSourceDollarsSubtitle,
-            // Already the chosen source: SELECTED, not dead.
-            disabled: dollarsSource,
-            disabledLabel: context.l10n.moveSelectedBadge,
-            onTap: () {
-              Navigator.of(sheetCtx).pop();
-              onPickDollarsSource();
-            },
-          ),
         // The bank row is not drawn. It was a permanently disabled
         // "Coming soon" entry, which is a row that takes up space in a
         // picker and answers no to every tap. Restoring it is a row
@@ -8933,14 +8788,9 @@ class _DirectionToggle extends ConsumerWidget {
             title: 'Cash App',
             subtitle: (predictionsDest || hyperliquidDest)
                 ? context.l10n.deposit
-                : usdDest
-                    ? context.l10n.dollarDeposit
-                    : context.l10n.moveBuyBitcoin,
-            // The method already in use is SELECTED, not
-            // disabled. On the buy flow it is usually the
-            // only live rail, and marking it "IN USE" left a
-            // chooser where every row was dead and nothing
-            // explained why.
+                : context.l10n.dollarDeposit,
+            // The method already in use is SELECTED, not disabled: marking
+            // it "IN USE" read as a dead row with nothing to explain why.
             disabled: cashAppSource,
             disabledLabel: context.l10n.moveSelectedBadge,
             onTap: () {
@@ -9095,21 +8945,16 @@ class _DirectionToggle extends ConsumerWidget {
                   ? 'lib/assets/cashapp-logo.svg'
                   : fiatSource
                       ? 'lib/assets/bank-transfer-logo.svg'
-                      : dollarsSource && _dollarsWearCoin
-                          ? kUsdMarkAsset
-                          : sourceIsHyperliquid
-                              ? 'lib/assets/hyperliquid-logo.svg'
-                              : sourceIsUsdc
-                                  ? 'lib/assets/polymarket-logo.svg'
-                                  : (sourceBrandAsset ??
-                                      'lib/assets/bitcoin-icon.svg'),
+                      : sourceIsHyperliquid
+                          ? 'lib/assets/hyperliquid-logo.svg'
+                          : sourceIsUsdc
+                              ? 'lib/assets/polymarket-logo.svg'
+                              : (sourceBrandAsset ??
+                                  'lib/assets/bitcoin-icon.svg'),
               assetTint: sourceBrandAsset != null ? sourceBrandColor : null,
               // The dollar balance as a source wears the Investments
-              // arrow (`asset` is ignored while `iconData` is set),
-              // except on the buy-bitcoin door, where it wears the USDB
-              // coin above ([_dollarsWearCoin]).
-              iconData:
-                  dollarsSource && !_dollarsWearCoin ? kInvestmentsIcon : null,
+              // arrow (`asset` is ignored while `iconData` is set).
+              iconData: dollarsSource ? kInvestmentsIcon : null,
               // Bank on the FROM side is money coming in, so the second
               // line names the action ('Deposit') rather than repeating
               // the rail ('Bank transfer'), which said nothing the title
@@ -9145,7 +8990,13 @@ class _DirectionToggle extends ConsumerWidget {
                       : (lockedSide == MoveLockedSide.withdrawFromPredictions ||
                               lockedSide ==
                                   MoveLockedSide.withdrawFromHyperliquid ||
-                              lockedSide == MoveLockedSide.withdrawToFiat)
+                              lockedSide == MoveLockedSide.withdrawToFiat ||
+                              // A buy door has one way to pay today, Cash
+                              // App: nothing to choose, no picker. A second
+                              // live rail brings this back.
+                              lockedSide == MoveLockedSide.depositFromFiat ||
+                              lockedSide == MoveLockedSide.buyToPredictions ||
+                              lockedSide == MoveLockedSide.buyToHyperliquid)
                           ? null
                           : () => _openSourcePicker(context),
             ),

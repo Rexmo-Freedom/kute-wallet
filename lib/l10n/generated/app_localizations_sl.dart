@@ -8266,20 +8266,11 @@ class AppLocalizationsSl extends AppLocalizations {
   String get moveAddFunds => 'Dodaj sredstva';
 
   @override
-  String get movePickPayOrDollars =>
-      'Izberite, kako želite plačati, ali uporabite dolarsko stanje.';
-
-  @override
   String get moveHintAWallet => 'denarnica';
 
   @override
   String moveHintTwo(String first, String second) {
     return '$first ali $second';
-  }
-
-  @override
-  String moveHintMany(String list, String last) {
-    return '$list ali $last';
   }
 
   @override

@@ -8242,20 +8242,11 @@ class AppLocalizationsFi extends AppLocalizations {
   String get moveAddFunds => 'Lisää varoja';
 
   @override
-  String get movePickPayOrDollars =>
-      'Valitse, miten haluat maksaa, tai käytä dollarisaldoasi.';
-
-  @override
   String get moveHintAWallet => 'lompakko';
 
   @override
   String moveHintTwo(String first, String second) {
     return '$first tai $second';
-  }
-
-  @override
-  String moveHintMany(String list, String last) {
-    return '$list tai $last';
   }
 
   @override

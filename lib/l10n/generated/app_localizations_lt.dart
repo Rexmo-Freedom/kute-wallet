@@ -8280,20 +8280,11 @@ class AppLocalizationsLt extends AppLocalizations {
   String get moveAddFunds => 'Papildyti lėšų';
 
   @override
-  String get movePickPayOrDollars =>
-      'Pasirinkite, kaip norite mokėti, arba naudokite dolerių likutį.';
-
-  @override
   String get moveHintAWallet => 'piniginę';
 
   @override
   String moveHintTwo(String first, String second) {
     return '$first arba $second';
-  }
-
-  @override
-  String moveHintMany(String list, String last) {
-    return '$list arba $last';
   }
 
   @override
