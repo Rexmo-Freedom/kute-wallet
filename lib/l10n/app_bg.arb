@@ -4003,5 +4003,15 @@
   "shareEdgeInviteChainLetter": "Не е верижно писмо. Малко по-добро е.",
   "shareEdgeInviteCut": "Аз получавам дял. Ти получаваш отстъпка. Всички са добре.",
   "shareEdgeInviteFees": "По-ниски такси. Същият брой мнения.",
-  "shareEdgeInviteDog": "Отстъпката е истинска. Кучето е невъзмутимо."
+  "shareEdgeInviteDog": "Отстъпката е истинска. Кучето е невъзмутимо.",
+  "balanceGoalShareMyLevel": "Сподели нивото ми",
+  "goalCardCaps": "Моето ниво",
+  "shareEdgeGoalNotFlex": "Не се хваля. Просто ниво.",
+  "shareEdgeGoalUnimpressed": "Сал провери. Пак не е впечатлен.",
+  "shareEdgeGoalNoRush": "Ниво по ниво. Без бързане.",
+  "shareEdgeGoalNobodyAsked": "Никой не пита. Споделям все пак.",
+  "shareEdgeGoalSaysNothing": "Сал казва, че е нищо. Често го казва.",
+  "shareEdgeGoalOnPurpose": "Бавно изкачване. Нарочно.",
+  "shareEdgeGoalNoTrophy": "Без трофей. Само куче и ниво.",
+  "shareEdgeGoalYourTurn": "Твой ред е. Сал ще чака."
 }

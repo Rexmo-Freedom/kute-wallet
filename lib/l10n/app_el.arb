@@ -4003,5 +4003,15 @@
   "shareEdgeInviteChainLetter": "Δεν είναι αλυσιδωτό μήνυμα. Λίγο καλύτερο.",
   "shareEdgeInviteCut": "Εγώ παίρνω ένα μερίδιο. Εσύ έκπτωση. Όλοι καλά.",
   "shareEdgeInviteFees": "Χαμηλότερες χρεώσεις. Ίδιος αριθμός απόψεων.",
-  "shareEdgeInviteDog": "Η έκπτωση είναι αληθινή. Ο σκύλος παραμένει ατάραχος."
+  "shareEdgeInviteDog": "Η έκπτωση είναι αληθινή. Ο σκύλος παραμένει ατάραχος.",
+  "balanceGoalShareMyLevel": "Κοινοποίηση του επιπέδου μου",
+  "goalCardCaps": "Το επίπεδό μου",
+  "shareEdgeGoalNotFlex": "Δεν το παινεύομαι. Απλώς ένα επίπεδο.",
+  "shareEdgeGoalUnimpressed": "Ο Sal έλεγξε. Πάλι δεν εντυπωσιάστηκε.",
+  "shareEdgeGoalNoRush": "Ένα επίπεδο τη φορά. Χωρίς βιασύνη.",
+  "shareEdgeGoalNobodyAsked": "Κανείς δεν ρώτησε. Το μοιράζομαι πάντως.",
+  "shareEdgeGoalSaysNothing": "Ο Sal λέει πως δεν είναι τίποτα. Το λέει συχνά.",
+  "shareEdgeGoalOnPurpose": "Αργή ανάβαση. Επίτηδες.",
+  "shareEdgeGoalNoTrophy": "Κανένα τρόπαιο. Μόνο ένας σκύλος κι ένα επίπεδο.",
+  "shareEdgeGoalYourTurn": "Σειρά σου. Ο Sal θα περιμένει."
 }

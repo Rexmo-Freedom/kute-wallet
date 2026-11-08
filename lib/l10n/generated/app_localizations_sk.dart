@@ -14220,4 +14220,35 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String get shareEdgeInviteDog => 'Zľava je skutočná. Psa to nechá chladným.';
+
+  @override
+  String get balanceGoalShareMyLevel => 'Zdieľať moju úroveň';
+
+  @override
+  String get goalCardCaps => 'Moja úroveň';
+
+  @override
+  String get shareEdgeGoalNotFlex => 'Žiadne chválenie. Len úroveň.';
+
+  @override
+  String get shareEdgeGoalUnimpressed => 'Sal to preveril. Stále bez dojmu.';
+
+  @override
+  String get shareEdgeGoalNoRush => 'Úroveň po úrovni. Žiadny zhon.';
+
+  @override
+  String get shareEdgeGoalNobodyAsked => 'Nikto sa nepýtal. Zdieľam aj tak.';
+
+  @override
+  String get shareEdgeGoalSaysNothing =>
+      'Sal hovorí, že to nič nie je. Hovorí to často.';
+
+  @override
+  String get shareEdgeGoalOnPurpose => 'Pomalý výstup. Naschvál.';
+
+  @override
+  String get shareEdgeGoalNoTrophy => 'Žiadna trofej. Len pes a úroveň.';
+
+  @override
+  String get shareEdgeGoalYourTurn => 'Si na rade. Sal počká.';
 }

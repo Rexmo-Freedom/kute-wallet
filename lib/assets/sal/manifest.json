@@ -2224,5 +2224,221 @@
       }
     },
     "group": "goal"
+  },
+  "level_card_1": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "3x": {
+        "file": "level_card_1@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "level_card"
+  },
+  "level_card_2": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "3x": {
+        "file": "level_card_2@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "level_card"
+  },
+  "level_card_3": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "3x": {
+        "file": "level_card_3@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "level_card"
+  },
+  "level_card_4": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "3x": {
+        "file": "level_card_4@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "level_card"
+  },
+  "level_card_5": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "3x": {
+        "file": "level_card_5@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "level_card"
+  },
+  "level_card_6": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "3x": {
+        "file": "level_card_6@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "level_card"
+  },
+  "level_card_7": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "3x": {
+        "file": "level_card_7@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "level_card"
+  },
+  "level_card_8": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "3x": {
+        "file": "level_card_8@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "level_card"
+  },
+  "level_card_9": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "3x": {
+        "file": "level_card_9@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "level_card"
+  },
+  "level_card_10": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "3x": {
+        "file": "level_card_10@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "level_card"
+  },
+  "level_card_11": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "3x": {
+        "file": "level_card_11@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "level_card"
+  },
+  "level_card_12": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "3x": {
+        "file": "level_card_12@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "level_card"
   }
 }

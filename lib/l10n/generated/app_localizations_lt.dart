@@ -14260,4 +14260,35 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get shareEdgeInviteDog => 'Nuolaida tikra. Šuo abejingas.';
+
+  @override
+  String get balanceGoalShareMyLevel => 'Dalintis mano lygiu';
+
+  @override
+  String get goalCardCaps => 'Mano lygis';
+
+  @override
+  String get shareEdgeGoalNotFlex => 'Ne pasigyrimas. Tik lygis.';
+
+  @override
+  String get shareEdgeGoalUnimpressed => 'Sal patikrino. Vis dar nesužavėtas.';
+
+  @override
+  String get shareEdgeGoalNoRush => 'Po vieną lygį. Be skubos.';
+
+  @override
+  String get shareEdgeGoalNobodyAsked => 'Niekas neklausė. Vis tiek dalinuosi.';
+
+  @override
+  String get shareEdgeGoalSaysNothing =>
+      'Sal sako, kad tai niekis. Sako tai dažnai.';
+
+  @override
+  String get shareEdgeGoalOnPurpose => 'Lėtas kilimas. Tyčia.';
+
+  @override
+  String get shareEdgeGoalNoTrophy => 'Jokios taurės. Tik šuo ir lygis.';
+
+  @override
+  String get shareEdgeGoalYourTurn => 'Tavo eilė. Sal palauks.';
 }

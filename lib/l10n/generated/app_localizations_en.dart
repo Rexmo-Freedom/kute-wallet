@@ -14159,4 +14159,35 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get shareEdgeInviteDog =>
       'The discount is real. The dog is unbothered.';
+
+  @override
+  String get balanceGoalShareMyLevel => 'Share my level';
+
+  @override
+  String get goalCardCaps => 'My level';
+
+  @override
+  String get shareEdgeGoalNotFlex => 'Not a flex. Just a level.';
+
+  @override
+  String get shareEdgeGoalUnimpressed => 'Sal checked. Still unimpressed.';
+
+  @override
+  String get shareEdgeGoalNoRush => 'One level at a time. No rush.';
+
+  @override
+  String get shareEdgeGoalNobodyAsked => 'Nobody asked. Sharing anyway.';
+
+  @override
+  String get shareEdgeGoalSaysNothing =>
+      'Sal says it\'s nothing. Sal says that a lot.';
+
+  @override
+  String get shareEdgeGoalOnPurpose => 'Slow climb. On purpose.';
+
+  @override
+  String get shareEdgeGoalNoTrophy => 'No trophy. Just a dog and a level.';
+
+  @override
+  String get shareEdgeGoalYourTurn => 'Your turn. Sal will wait.';
 }

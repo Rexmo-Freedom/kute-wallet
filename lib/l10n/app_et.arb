@@ -4003,5 +4003,15 @@
   "shareEdgeInviteChainLetter": "See pole ahelkiri. Natuke parem.",
   "shareEdgeInviteCut": "Mina saan osa. Sina soodustuse. Kõik on rahul.",
   "shareEdgeInviteFees": "Madalamad tasud. Sama palju arvamusi.",
-  "shareEdgeInviteDog": "Soodustus on päris. Koer ei tee väljagi."
+  "shareEdgeInviteDog": "Soodustus on päris. Koer ei tee väljagi.",
+  "balanceGoalShareMyLevel": "Jaga minu taset",
+  "goalCardCaps": "Minu tase",
+  "shareEdgeGoalNotFlex": "Mitte kiitlemine. Lihtsalt tase.",
+  "shareEdgeGoalUnimpressed": "Sal vaatas üle. Ikka pole muljet avaldanud.",
+  "shareEdgeGoalNoRush": "Üks tase korraga. Pole kiiret.",
+  "shareEdgeGoalNobodyAsked": "Keegi ei küsinud. Jagan ikkagi.",
+  "shareEdgeGoalSaysNothing": "Sal ütleb, et see pole midagi. Ütleb seda tihti.",
+  "shareEdgeGoalOnPurpose": "Aeglane tõus. Meelega.",
+  "shareEdgeGoalNoTrophy": "Karikat pole. Ainult koer ja tase.",
+  "shareEdgeGoalYourTurn": "Sinu kord. Sal ootab."
 }

@@ -4003,5 +4003,15 @@
   "shareEdgeInviteChainLetter": "Ni verižno pismo. Malo boljše.",
   "shareEdgeInviteCut": "Jaz dobim delež. Ti popust. Vsi smo v redu.",
   "shareEdgeInviteFees": "Nižje provizije. Enako mnenj.",
-  "shareEdgeInviteDog": "Popust je resničen. Pes je nepretresen."
+  "shareEdgeInviteDog": "Popust je resničen. Pes je nepretresen.",
+  "balanceGoalShareMyLevel": "Deli mojo raven",
+  "goalCardCaps": "Moja raven",
+  "shareEdgeGoalNotFlex": "Ni hvalisanje. Samo raven.",
+  "shareEdgeGoalUnimpressed": "Sal je preveril. Še vedno ni navdušen.",
+  "shareEdgeGoalNoRush": "Raven za ravnjo. Brez naglice.",
+  "shareEdgeGoalNobodyAsked": "Nihče ni vprašal. Vseeno delim.",
+  "shareEdgeGoalSaysNothing": "Sal pravi, da to ni nič. To pogosto pravi.",
+  "shareEdgeGoalOnPurpose": "Počasen vzpon. Namenoma.",
+  "shareEdgeGoalNoTrophy": "Brez pokala. Le pes in raven.",
+  "shareEdgeGoalYourTurn": "Tvoja poteza. Sal bo počakal."
 }

@@ -34,7 +34,8 @@
 //   * THE LADDER SHEET (founder, 8 November 2026): the Level square taps
 //     through to a sheet listing all twelve levels ([BalanceLadderSheet]),
 //     in the Referral program's language (affiliate_screen.dart: its rows
-//     on the one soft card, the app's sheet header, Done as the bar): one
+//     on the one soft card, the app's sheet header, "Share my level" as the
+//     bar, Done with balances hidden, its X either way): one
 //     row per level, Sal's still, the level's name, "Level 3 · From $250"
 //     (the first "Under $100"); the levels passed carry a quiet check, the
 //     current one is written in full with its progress ("50% to $500")
@@ -72,6 +73,18 @@
 //     round tenth of the goal, never more than the bitcoin is worth).
 //     Elsewhere it is a plain goal, not tappable. No card under the
 //     squares; it names no venue and never says the money grows;
+//   * SHARE MY LEVEL (founder, 8 November 2026: "just change Sal on this
+//     tab to share my level"): while the Goals pill is on screen the Sal bar
+//     IS "Share my level" (KuteBarContext.primary, its long press still
+//     opens the search and Sal), opening the level's card
+//     (share/goal_share.dart: the level and its name, Sal's still, no money
+//     at all). The scope lives in [BalanceGoals], so the Activity pill, the
+//     Dollars tab (its tickers are off) and any page over the tab read their
+//     own bar. No level to share (nothing ever held, not ready, not the
+//     spending wallet) or balances hidden: the default bar. The Levels sheet
+//     has the same bar in place of Done, one way to share per screen; so
+//     does a rung passed, the bar reading the same for its 6 s (the card
+//     has no room for a button of its own, and needs none);
 //   * A RUNG PASSED: once, after the figure has held for 1.5 s, one card
 //     takes the squares' place at their height (nothing moves): Sal
 //     cheering (`body_cheer`, once) beside "You passed $250" large and
@@ -99,7 +112,9 @@
 // currency} on the Next goal's move (milestone: the goal, display
 // currency; amount: the dollars filled in); `balance_goals_ladder_opened`
 // {level} when the Level square opens the ladder sheet (the level number
-// alone). Exact values; nothing else.
+// alone); `balance_goal_card_shared` {level, result, source} once a level's
+// card went to the OS share sheet (goal_share.dart). Exact values; nothing
+// else.
 
 import 'package:kute/services/orchestra/orchestra_capability_requirements.dart'
     show orchestraCapabilityRequirements;
@@ -118,6 +133,7 @@ import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/providers/one_balance_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/viewed_wallet_provider.dart';
+import 'package:kute/screens/share/goal_share.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_action_cards.dart'
     show KuteActionCard, kKuteActionCardPadding;
@@ -276,6 +292,26 @@ String balanceLevelName(AppLocalizations l10n, int index) => switch (index) {
 String balanceLevelClip(int nameIndex) =>
     'level_${nameIndex.clamp(0, kBalanceLevelNames - 1) + 1}';
 
+/// The level's Sal at the share card's size (`level_card_1` ..
+/// `level_card_12`, 384 px, from the same renders as [balanceLevelClip], whose
+/// 192 px cell was soft blown up to the card's 1080 px image).
+String balanceLevelCardClip(int nameIndex) =>
+    'level_card_${nameIndex.clamp(0, kBalanceLevelNames - 1) + 1}';
+
+/// Opens the card of the level [progress] stands on (share/goal_share.dart).
+Future<void> shareBalanceLevel(
+  BuildContext context,
+  BalanceMilestoneProgress progress, {
+  required String source,
+}) =>
+    openGoalCardShare(
+      context,
+      level: progress.level,
+      name: balanceLevelName(context.l10n, progress.nameIndex),
+      still: balanceLevelCardClip(progress.nameIndex),
+      source: source,
+    );
+
 /// The Next goal square's Sal: squinting up at a flag.
 const String kBalanceGoalNextClip = 'goal_next';
 
@@ -429,6 +465,9 @@ class _BalanceGoalsState extends ConsumerState<BalanceGoals> {
     final input = ref.watch(balanceGoalInputProvider);
     KuteTrendGoal? goal;
     Widget? goals;
+    // The bar's "Share my level": null while there is no level to share or
+    // it is hidden (see the file header).
+    VoidCallback? shareLevel;
     if (input != null && input.ready && widget.hasHistory) {
       final l10n = context.l10n;
       final visible =
@@ -440,6 +479,12 @@ class _BalanceGoalsState extends ConsumerState<BalanceGoals> {
       if (visible) _consider(ladder, progress.reached);
 
       final celebrating = _celebrating;
+      if (visible) {
+        shareLevel = () => shareBalanceLevel(context, progress,
+            source: celebrating != null
+                ? kGoalShareCelebration
+                : kGoalShareTab);
+      }
       final goalSats = _goalLine(input, progress);
       if (celebrating == null && goalSats != null) {
         goal = KuteTrendGoal(
@@ -480,10 +525,22 @@ class _BalanceGoalsState extends ConsumerState<BalanceGoals> {
     }
     // One shape whatever is ready, so the card is never remounted (a
     // scrub, the range's morph) when the goals arrive under it.
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [widget.card(goal), if (goals != null) goals],
+    return KuteBarContextScope(
+      // Held only while this tab is on screen (the shell parks the other
+      // tab's branch with its tickers off), as the Dollars home's.
+      active: shareLevel != null && TickerMode.valuesOf(context).enabled,
+      barContext: KuteBarContext.primary(
+        label: context.l10n.balanceGoalShareMyLevel,
+        onPrimary: shareLevel,
+        // Never off: it is the default bar when there is nothing to share.
+        disabledLabel: null,
+        source: 'balance_goals_tab',
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [widget.card(goal), if (goals != null) goals],
+      ),
     );
   }
 }
@@ -836,8 +893,10 @@ void showBalanceLadderSheet(
 /// level's name, and "Level 3 · From $250" under it ("Under $100" for the
 /// first). The levels passed carry a quiet check; the current one is
 /// written in full with its progress ("50% to $500") and the settings
-/// lists' filled disc; the ones ahead are quiet. Done is the bar. With
-/// balances hidden every level is named and none is marked.
+/// lists' filled disc; the ones ahead are quiet. The bar is "Share my
+/// level" (share/goal_share.dart), the header's X closing the sheet. With
+/// balances hidden every level is named and none is marked, and the bar is
+/// Done: the level is hidden, so nothing is shared.
 class BalanceLadderSheet extends StatelessWidget {
   const BalanceLadderSheet({
     super.key,
@@ -885,7 +944,11 @@ class BalanceLadderSheet extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         for (var i = 0; i < kBalanceLevelNames; i++) ...[
-                          if (i > 0) SizedBox(height: 14.h),
+                          // Tight enough that on a common phone the last
+                          // row rests above the bar, before any scroll (it
+                          // sat under it at 14, founder, 8 November 2026);
+                          // on a smaller one it scrolls clear.
+                          if (i > 0) SizedBox(height: 10.h),
                           _LadderRow(
                             index: i,
                             // Level 1 is under the first rung; level i + 1
@@ -913,14 +976,25 @@ class BalanceLadderSheet extends StatelessWidget {
                       ],
                     ),
                   ),
-                  // THE BAR IS THE BUTTON (kute_bar_context.dart): Done.
+                  // THE BAR IS THE BUTTON (kute_bar_context.dart): Share my
+                  // level, Done with the level hidden. The last row scrolls
+                  // clear of it (the room is the end of the scroll).
                   KuteBarContextScope(
-                    barContext: KuteBarContext.primary(
-                      label: l10n.done,
-                      onPrimary: () => Navigator.of(context).pop(),
-                      disabledLabel: null,
-                      source: 'balance_goals_ladder',
-                    ),
+                    barContext: visible
+                        ? KuteBarContext.primary(
+                            label: l10n.balanceGoalShareMyLevel,
+                            onPrimary: () => shareBalanceLevel(
+                                context, progress,
+                                source: kGoalShareLadder),
+                            disabledLabel: null,
+                            source: 'balance_goals_ladder',
+                          )
+                        : KuteBarContext.primary(
+                            label: l10n.done,
+                            onPrimary: () => Navigator.of(context).pop(),
+                            disabledLabel: null,
+                            source: 'balance_goals_ladder',
+                          ),
                     child: SizedBox(height: kuteBarScrollClearance.h),
                   ),
                 ],

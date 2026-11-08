@@ -32,7 +32,10 @@
 //     less room), filling the room under the number that was a dead gap.
 //     He casts a soft shadow of his own silhouette
 //     ([ShareCardPalette.salShadow]), so he never melts into the bitcoin
-//     orange, his own colour (it replaced a deeper-orange disc).
+//     orange, his own colour (it replaced a deeper-orange disc). A card
+//     about something with a Sal of its own (the Goals' levels) hands the
+//     frame that still by name instead ([ShareCardFrame.still],
+//     [ShareCardSal.loadStill]): same place, same shadow.
 //   * READABLE IN A SHARED IMAGE: the secondary ink is per ground
 //     ([ShareCardPalette.mutedAlpha]: 4.5:1 where the ground allows it;
 //     white tops out at 3.1:1 on the dollars green and 4.2:1 on the loss
@@ -372,6 +375,7 @@ abstract final class ShareCardSal {
   static const String clip = 'share';
   static SalClip? _face;
   static final Map<ShareCardPose, SalClip> _poses = {};
+  static final Map<String, SalClip> _stills = {};
   static Future<SalClip?>? _loading;
 
   /// The decoded face, or null until [load] has finished.
@@ -379,6 +383,25 @@ abstract final class ShareCardSal {
 
   /// The decoded still of [pose], or null until [load] has finished.
   static SalClip? pose(ShareCardPose pose) => _poses[pose];
+
+  /// The decoded named still ([loadStill]), or null until it has finished.
+  static SalClip? still(String clip) => _stills[clip];
+
+  /// Decodes one still by its clip's name, at @3x (once: a card that draws
+  /// a Sal of its own, read synchronously after, as the poses are). Only
+  /// the one a card asks for: nothing else pays for them. False when it
+  /// cannot be read.
+  static Future<bool> loadStill(String clip) async {
+    if (_stills.containsKey(clip)) return true;
+    try {
+      final c = await SalSpriteCache.clip(clip, 3);
+      if (c == null) return false;
+      _stills[clip] = c;
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
 
   /// Decodes the face and the poses (once); the face, or null when it
   /// cannot be read (a pose that cannot be read is left out).
@@ -408,6 +431,7 @@ abstract final class ShareCardSal {
   static void debugReset() {
     _face = null;
     _poses.clear();
+    _stills.clear();
     _loading = null;
   }
 }
@@ -533,6 +557,7 @@ class ShareCardFrame extends StatelessWidget {
     this.code,
     this.mark,
     this.pose,
+    this.still,
     this.numberBesideSal = false,
     this.position,
     this.capsLines = 1,
@@ -621,6 +646,11 @@ class ShareCardFrame extends StatelessWidget {
   /// so the layout never moves.
   final ShareCardPose? pose;
 
+  /// Sal's still by its clip's name where a [pose] would stand
+  /// ([ShareCardSal.loadStill]: a level's own Sal on the Goals card), with
+  /// his shadow and his place kept while it decodes; null: [pose].
+  final String? still;
+
   /// The keys' prefix: `{prefix}-bg`, `{prefix}-caps`, `{prefix}-hero`,
   /// `{prefix}-number`, `{prefix}-fact`, `{prefix}-graphic`,
   /// `{prefix}-plain`, `{prefix}-edge`, `{prefix}-quiet`,
@@ -632,12 +662,12 @@ class ShareCardFrame extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final p = palette;
-    final sal = pose;
+    final hasSal = pose != null || still != null;
     // Sal stands on the bottom band's rule at the right when nothing fills
     // the middle (a money card, a card without a chart); over a chart, the
     // rows or the speedometer he stays at the top right.
-    final salOnFloor = sal != null && !graphicFills && graphic == null;
-    final salTop = sal != null && !salOnFloor;
+    final salOnFloor = hasSal && !graphicFills && graphic == null;
+    final salTop = hasSal && !salOnFloor;
     final salSize = salTop
         ? shareCardSalTopSize(identity?.name,
             direction: Directionality.of(context))
@@ -868,7 +898,11 @@ class ShareCardFrame extends StatelessWidget {
                       height: salSize,
                       child: ShareCardSalStill(
                           key: ValueKey('$keyPrefix-sal'),
-                          pose: sal,
+                          pose: pose,
+                          clip: still,
+                          // A level's prop may run off its cell (the
+                          // tower): it goes behind the rule, no cut under.
+                          clipBottom: still != null ? kShareCardSalFeet : 0,
                           shadow: p.salShadow),
                     ),
                 ],
@@ -917,7 +951,7 @@ class ShareCardFrame extends StatelessWidget {
             palette: p,
             code: code,
             mark: mark,
-            showMark: sal == null,
+            showMark: !hasSal,
             keyPrefix: keyPrefix),
       ],
     );
@@ -975,7 +1009,8 @@ class ShareCardFrame extends StatelessWidget {
                           height: salSize,
                           child: ShareCardSalStill(
                               key: ValueKey('$keyPrefix-sal'),
-                              pose: sal,
+                              pose: pose,
+                              clip: still,
                               shadow: p.salShadow),
                         ),
                     ],
@@ -1156,12 +1191,20 @@ class ShareCardBalancedText extends StatelessWidget {
       });
 }
 
-/// Sal's still ([ShareCardSal.pose]) filling its box; nothing while it
-/// decodes.
+/// Sal's still ([ShareCardSal.still] for [clip], else [ShareCardSal.pose])
+/// filling its box; nothing while it decodes.
 class ShareCardSalStill extends StatelessWidget {
-  const ShareCardSalStill({super.key, required this.pose, this.shadow});
+  const ShareCardSalStill(
+      {super.key, this.pose, this.clip, this.shadow, this.clipBottom = 0})
+      : assert(pose != null || clip != null);
 
-  final ShareCardPose pose;
+  final ShareCardPose? pose;
+
+  /// A still by its clip's name; wins over [pose].
+  final String? clip;
+
+  /// Nothing drawn in this much of the box's foot, his shadow included.
+  final double clipBottom;
 
   /// The soft shadow behind his silhouette ([ShareCardPalette.salShadow]);
   /// null: none.
@@ -1169,10 +1212,16 @@ class ShareCardSalStill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final still = ShareCardSal.pose(pose);
+    final named = clip;
+    final standing = pose;
+    final still = named != null
+        ? ShareCardSal.still(named)
+        : standing != null
+            ? ShareCardSal.pose(standing)
+            : null;
     if (still == null) return const SizedBox.expand();
     return CustomPaint(
-        size: Size.infinite, painter: _StillPainter(still, shadow));
+        size: Size.infinite, painter: _StillPainter(still, shadow, clipBottom));
   }
 }
 
@@ -1181,14 +1230,20 @@ const double kShareCardSalShadowBlur = 0.035;
 const double kShareCardSalShadowDrop = 0.03;
 
 class _StillPainter extends CustomPainter {
-  _StillPainter(this.still, this.shadow);
+  _StillPainter(this.still, this.shadow, [this.clipBottom = 0]);
 
   final SalClip still;
   final Color? shadow;
+  final double clipBottom;
 
   @override
   void paint(Canvas canvas, Size size) {
     final dst = Offset.zero & size;
+    if (clipBottom > 0) {
+      // Only the foot: the shadow's blur still spreads past the other sides.
+      canvas.clipRect(Rect.fromLTRB(-size.width, -size.height, size.width * 2,
+          size.height - clipBottom));
+    }
     final s = shadow;
     if (s != null && s.a > 0) {
       // His own silhouette in the shadow's colour, blurred and dropped a
@@ -1209,7 +1264,9 @@ class _StillPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_StillPainter old) =>
-      !identical(old.still, still) || old.shadow != shadow;
+      !identical(old.still, still) ||
+      old.shadow != shadow ||
+      old.clipBottom != clipBottom;
 }
 
 /// A card's title as it is set: its [size], the [head] set beside Sal

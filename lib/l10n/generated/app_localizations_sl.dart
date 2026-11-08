@@ -14247,4 +14247,36 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get shareEdgeInviteDog => 'Popust je resničen. Pes je nepretresen.';
+
+  @override
+  String get balanceGoalShareMyLevel => 'Deli mojo raven';
+
+  @override
+  String get goalCardCaps => 'Moja raven';
+
+  @override
+  String get shareEdgeGoalNotFlex => 'Ni hvalisanje. Samo raven.';
+
+  @override
+  String get shareEdgeGoalUnimpressed =>
+      'Sal je preveril. Še vedno ni navdušen.';
+
+  @override
+  String get shareEdgeGoalNoRush => 'Raven za ravnjo. Brez naglice.';
+
+  @override
+  String get shareEdgeGoalNobodyAsked => 'Nihče ni vprašal. Vseeno delim.';
+
+  @override
+  String get shareEdgeGoalSaysNothing =>
+      'Sal pravi, da to ni nič. To pogosto pravi.';
+
+  @override
+  String get shareEdgeGoalOnPurpose => 'Počasen vzpon. Namenoma.';
+
+  @override
+  String get shareEdgeGoalNoTrophy => 'Brez pokala. Le pes in raven.';
+
+  @override
+  String get shareEdgeGoalYourTurn => 'Tvoja poteza. Sal bo počakal.';
 }

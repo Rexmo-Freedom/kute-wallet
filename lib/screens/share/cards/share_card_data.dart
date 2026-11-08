@@ -20,6 +20,8 @@
 //     without (sharing the market).
 //   * [InviteCardData]: the Referral program's invite: the discount and
 //     the sharer's code.
+//   * [GoalCardData]: the Bitcoin home's level (goal_share.dart): the level
+//     and its name, Sal's still for it, and no money at all.
 //   * [ReceiptCardData]: a transaction's receipt (founder, 5 November
 //     2026): what was sent, received, moved or bought, a prediction
 //     placed, sold or lost, an Investing trade opened or closed
@@ -53,6 +55,33 @@ sealed class ShareCardData {
 
   /// The analytics `kind` and the PNG's name.
   String get kind;
+}
+
+/// The level on the Bitcoin home's Goals (founder, 8 November 2026: "we
+/// should be able to share the goals"; goal_share.dart): what a level is
+/// called and Sal's own still for it. NO MONEY, and nothing to work it out
+/// from beyond the level itself: no balance, threshold, goal, percent or
+/// currency, so the fields are only these. A share image shows a level, not
+/// what someone holds.
+class GoalCardData extends ShareCardData {
+  const GoalCardData({
+    required this.level,
+    required this.name,
+    required this.still,
+    super.referralCode,
+  });
+
+  /// The level's number (past the twelfth name it keeps counting).
+  final int level;
+
+  /// The level's name, in the app's language ("Stacker").
+  final String name;
+
+  /// Sal's still for the level ([ShareCardFrame.still]).
+  final String still;
+
+  @override
+  String get kind => 'goal';
 }
 
 /// A link sending money with no pick.

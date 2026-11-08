@@ -23883,6 +23883,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The discount is real. The dog is unbothered.'**
   String get shareEdgeInviteDog;
+
+  /// The Sal bar on the Bitcoin home's Goals tab and on the Levels sheet: opens the share card of the person's level.
+  ///
+  /// In en, this message translates to:
+  /// **'Share my level'**
+  String get balanceGoalShareMyLevel;
+
+  /// Level share card: the small caps line at the top.
+  ///
+  /// In en, this message translates to:
+  /// **'My level'**
+  String get goalCardCaps;
+
+  /// Level share card: one short deadpan line on the card, PG, never a promise of profit, never a figure.
+  ///
+  /// In en, this message translates to:
+  /// **'Not a flex. Just a level.'**
+  String get shareEdgeGoalNotFlex;
+
+  /// Level share card: one short deadpan line on the card, PG, never a promise of profit, never a figure.
+  ///
+  /// In en, this message translates to:
+  /// **'Sal checked. Still unimpressed.'**
+  String get shareEdgeGoalUnimpressed;
+
+  /// Level share card: one short deadpan line on the card, PG, never a promise of profit, never a figure.
+  ///
+  /// In en, this message translates to:
+  /// **'One level at a time. No rush.'**
+  String get shareEdgeGoalNoRush;
+
+  /// Level share card: one short deadpan line on the card, PG, never a promise of profit, never a figure.
+  ///
+  /// In en, this message translates to:
+  /// **'Nobody asked. Sharing anyway.'**
+  String get shareEdgeGoalNobodyAsked;
+
+  /// Level share card: one short deadpan line on the card, PG, never a promise of profit, never a figure.
+  ///
+  /// In en, this message translates to:
+  /// **'Sal says it\'s nothing. Sal says that a lot.'**
+  String get shareEdgeGoalSaysNothing;
+
+  /// Level share card: one short deadpan line on the card, PG, never a promise of profit, never a figure.
+  ///
+  /// In en, this message translates to:
+  /// **'Slow climb. On purpose.'**
+  String get shareEdgeGoalOnPurpose;
+
+  /// Level share card: one short deadpan line on the card, PG, never a promise of profit, never a figure.
+  ///
+  /// In en, this message translates to:
+  /// **'No trophy. Just a dog and a level.'**
+  String get shareEdgeGoalNoTrophy;
+
+  /// Level share card: one short deadpan line on the card, PG, never a promise of profit, never a figure.
+  ///
+  /// In en, this message translates to:
+  /// **'Your turn. Sal will wait.'**
+  String get shareEdgeGoalYourTurn;
 }
 
 class _AppLocalizationsDelegate

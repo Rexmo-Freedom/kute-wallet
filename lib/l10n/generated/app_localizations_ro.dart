@@ -14270,4 +14270,37 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get shareEdgeInviteDog => 'Reducerea e reală. Câinele e impasibil.';
+
+  @override
+  String get balanceGoalShareMyLevel => 'Distribuie nivelul meu';
+
+  @override
+  String get goalCardCaps => 'Nivelul meu';
+
+  @override
+  String get shareEdgeGoalNotFlex => 'Nu mă laud. E doar un nivel.';
+
+  @override
+  String get shareEdgeGoalUnimpressed =>
+      'Sal a verificat. Tot nu e impresionat.';
+
+  @override
+  String get shareEdgeGoalNoRush => 'Câte un nivel. Fără grabă.';
+
+  @override
+  String get shareEdgeGoalNobodyAsked =>
+      'N-a întrebat nimeni. Distribui oricum.';
+
+  @override
+  String get shareEdgeGoalSaysNothing =>
+      'Sal zice că nu e nimic. Zice asta des.';
+
+  @override
+  String get shareEdgeGoalOnPurpose => 'Urcare lentă. Intenționat.';
+
+  @override
+  String get shareEdgeGoalNoTrophy => 'Fără trofeu. Doar un câine și un nivel.';
+
+  @override
+  String get shareEdgeGoalYourTurn => 'E rândul tău. Sal așteaptă.';
 }

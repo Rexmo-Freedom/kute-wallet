@@ -14249,4 +14249,38 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String get shareEdgeInviteDog =>
       'De korting is echt. De hond blijft onverstoorbaar.';
+
+  @override
+  String get balanceGoalShareMyLevel => 'Deel mijn level';
+
+  @override
+  String get goalCardCaps => 'Mijn level';
+
+  @override
+  String get shareEdgeGoalNotFlex => 'Geen opschepperij. Gewoon een level.';
+
+  @override
+  String get shareEdgeGoalUnimpressed =>
+      'Sal heeft gekeken. Nog steeds niet onder de indruk.';
+
+  @override
+  String get shareEdgeGoalNoRush => 'Eén level tegelijk. Geen haast.';
+
+  @override
+  String get shareEdgeGoalNobodyAsked =>
+      'Niemand vroeg erom. Ik deel het toch.';
+
+  @override
+  String get shareEdgeGoalSaysNothing =>
+      'Sal zegt dat het niks is. Dat zegt Sal vaak.';
+
+  @override
+  String get shareEdgeGoalOnPurpose => 'Langzame klim. Expres.';
+
+  @override
+  String get shareEdgeGoalNoTrophy =>
+      'Geen trofee. Alleen een hond en een level.';
+
+  @override
+  String get shareEdgeGoalYourTurn => 'Jouw beurt. Sal wacht wel.';
 }

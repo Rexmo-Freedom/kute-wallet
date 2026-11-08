@@ -14232,4 +14232,37 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get shareEdgeInviteDog =>
       'A kedvezmény valódi. A kutya rezzenéstelen.';
+
+  @override
+  String get balanceGoalShareMyLevel => 'A szintem megosztása';
+
+  @override
+  String get goalCardCaps => 'A szintem';
+
+  @override
+  String get shareEdgeGoalNotFlex => 'Nem hencegés. Csak egy szint.';
+
+  @override
+  String get shareEdgeGoalUnimpressed =>
+      'Sal megnézte. Továbbra sem hatódott meg.';
+
+  @override
+  String get shareEdgeGoalNoRush => 'Szintről szintre. Semmi sietség.';
+
+  @override
+  String get shareEdgeGoalNobodyAsked => 'Senki nem kérdezte. Mégis megosztom.';
+
+  @override
+  String get shareEdgeGoalSaysNothing =>
+      'Sal szerint ez semmiség. Ezt gyakran mondja.';
+
+  @override
+  String get shareEdgeGoalOnPurpose => 'Lassú emelkedés. Szándékosan.';
+
+  @override
+  String get shareEdgeGoalNoTrophy =>
+      'Nincs trófea. Csak egy kutya és egy szint.';
+
+  @override
+  String get shareEdgeGoalYourTurn => 'Te jössz. Sal megvár.';
 }

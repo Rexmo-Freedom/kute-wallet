@@ -4003,5 +4003,15 @@
   "shareEdgeInviteChainLetter": "Tā nav ķēdes vēstule. Mazliet labāk.",
   "shareEdgeInviteCut": "Es saņemu daļu. Tu atlaidi. Visiem labi.",
   "shareEdgeInviteFees": "Zemākas maksas. Tikpat viedokļu.",
-  "shareEdgeInviteDog": "Atlaide ir īsta. Sunim vienalga."
+  "shareEdgeInviteDog": "Atlaide ir īsta. Sunim vienalga.",
+  "balanceGoalShareMyLevel": "Kopīgot manu līmeni",
+  "goalCardCaps": "Mans līmenis",
+  "shareEdgeGoalNotFlex": "Nav lielīšanās. Tikai līmenis.",
+  "shareEdgeGoalUnimpressed": "Sal pārbaudīja. Joprojām bez iespaida.",
+  "shareEdgeGoalNoRush": "Pa vienam līmenim. Bez steigas.",
+  "shareEdgeGoalNobodyAsked": "Neviens neprasīja. Tāpat kopīgoju.",
+  "shareEdgeGoalSaysNothing": "Sal saka, ka tas ir nieks. Saka to bieži.",
+  "shareEdgeGoalOnPurpose": "Lēns kāpums. Ar nodomu.",
+  "shareEdgeGoalNoTrophy": "Nav trofejas. Tikai suns un līmenis.",
+  "shareEdgeGoalYourTurn": "Tava kārta. Sal pagaidīs."
 }

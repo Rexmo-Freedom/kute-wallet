@@ -14196,4 +14196,36 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get shareEdgeInviteDog => 'Rabatten är äkta. Hunden är oberörd.';
+
+  @override
+  String get balanceGoalShareMyLevel => 'Dela min nivå';
+
+  @override
+  String get goalCardCaps => 'Min nivå';
+
+  @override
+  String get shareEdgeGoalNotFlex => 'Inget skryt. Bara en nivå.';
+
+  @override
+  String get shareEdgeGoalUnimpressed =>
+      'Sal har kollat. Fortfarande inte imponerad.';
+
+  @override
+  String get shareEdgeGoalNoRush => 'En nivå i taget. Ingen brådska.';
+
+  @override
+  String get shareEdgeGoalNobodyAsked => 'Ingen frågade. Delar ändå.';
+
+  @override
+  String get shareEdgeGoalSaysNothing =>
+      'Sal säger att det är ingenting. Det säger Sal ofta.';
+
+  @override
+  String get shareEdgeGoalOnPurpose => 'Långsam klättring. Med flit.';
+
+  @override
+  String get shareEdgeGoalNoTrophy => 'Ingen pokal. Bara en hund och en nivå.';
+
+  @override
+  String get shareEdgeGoalYourTurn => 'Din tur. Sal väntar.';
 }

@@ -1,7 +1,8 @@
 // The share cards as images, for a look by eye, at 1080 × 1350 with Sal's
 // real stills: bitcoin and dollars sends, a prediction
 // pick, a prediction market, a stock pick (Tesla), a stock market (Nasdaq
-// 100), oil, German and Japanese, and the claim heroes; then the phone screens
+// 100), oil, German and Japanese, and the claim heroes; a level's card
+// (levels 1, 3, 8, 12, German, Hungarian, Japanese); then the phone screens
 // that show them: Send to anyone's "Who is it for?" step with the live
 // card, and the Claim screen. Every frame lays out without an overflow;
 // the PNGs are written only when asked:
@@ -32,6 +33,8 @@ import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/models/share_link_model.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart'
     show polymarketEventDetailsProvider, polymarketMarketHistoryProvider;
+import 'package:kute/screens/analytics/components/balance_goals.dart'
+    show balanceLevelCardClip, balanceLevelName;
 import 'package:kute/screens/share/cards/share_card_data.dart';
 import 'package:kute/screens/share/cards/share_card_frame.dart';
 import 'package:kute/screens/share/cards/share_card_sources.dart';
@@ -364,6 +367,61 @@ void main() {
     // The logo fetches' timeouts, run out.
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 30));
+  });
+
+  // A level's card (goal_share.dart): the level's own Sal, no money.
+  testWidgets('goal cards render to PNG', (tester) async {
+    await tester.runAsync(loadShareCardFonts);
+    ShareCardSal.debugReset();
+    addTearDown(ShareCardSal.debugReset);
+    await tester.runAsync(loadShareCardSal);
+    tester.view.physicalSize = const Size(1080, 1350);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final frames = <String, (int, Locale, int)>{
+      'goal_level_1': (1, const Locale('en'), 0),
+      'goal_level_3': (3, const Locale('en'), 1),
+      'goal_level_8': (8, const Locale('en'), 2),
+      'goal_level_12': (12, const Locale('en'), 4),
+      'goal_de_level_8': (8, const Locale('de'), 4),
+      'goal_hu_level_3': (3, const Locale('hu'), 4),
+      'goal_ja_level_12': (12, const Locale('ja'), 4),
+    };
+    for (final MapEntry(key: name, value: f) in frames.entries) {
+      final l10n = lookupAppLocalizations(f.$2);
+      final card = GoalCardData(
+        level: f.$1,
+        name: balanceLevelName(l10n, f.$1 - 1),
+        still: balanceLevelCardClip(f.$1 - 1),
+        referralCode: kShareTestCode,
+      );
+      await tester.runAsync(() => ShareCardSal.loadStill(card.still));
+      expect(ShareCardSal.still(card.still), isNotNull, reason: card.still);
+      final key = GlobalKey();
+      await tester.pumpWidget(ScreenUtilInit(
+        designSize: const Size(430, 932),
+        builder: (_, __) => MaterialApp(
+          debugShowCheckedModeBanner: false,
+          locale: f.$2,
+          theme: ThemeData(
+              fontFamily: 'Inter', extensions: [AppColorsExtension.light()]),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Align(
+            alignment: Alignment.topLeft,
+            child: RepaintBoundary(
+                key: key, child: ShareCard(data: card, lineSeed: f.$3)),
+          ),
+        ),
+      ));
+      await tester.pump();
+      final error = tester.takeException();
+      expect(error, isNull, reason: '$name overflowed: $error');
+      if (dir == null) continue;
+      await writePng(tester,
+          key.currentContext!.findRenderObject()! as RenderRepaintBoundary, name);
+    }
   });
 
   group('screens', () {

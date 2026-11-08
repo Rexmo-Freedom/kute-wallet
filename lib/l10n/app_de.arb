@@ -4003,5 +4003,15 @@
   "shareEdgeInviteChainLetter": "Kein Kettenbrief. Etwas besser.",
   "shareEdgeInviteCut": "Ich kriege einen Anteil. Du Rabatt. Alle sind zufrieden.",
   "shareEdgeInviteFees": "Niedrigere Gebühren. Gleich viele Meinungen.",
-  "shareEdgeInviteDog": "Der Rabatt ist echt. Der Hund bleibt ungerührt."
+  "shareEdgeInviteDog": "Der Rabatt ist echt. Der Hund bleibt ungerührt.",
+  "balanceGoalShareMyLevel": "Mein Level teilen",
+  "goalCardCaps": "Mein Level",
+  "shareEdgeGoalNotFlex": "Kein Angeben. Nur ein Level.",
+  "shareEdgeGoalUnimpressed": "Sal hat's geprüft. Weiter unbeeindruckt.",
+  "shareEdgeGoalNoRush": "Ein Level nach dem anderen. Keine Eile.",
+  "shareEdgeGoalNobodyAsked": "Keiner hat gefragt. Ich teile trotzdem.",
+  "shareEdgeGoalSaysNothing": "Sal sagt, das ist nichts. Sagt Sal oft.",
+  "shareEdgeGoalOnPurpose": "Langsamer Aufstieg. Mit Absicht.",
+  "shareEdgeGoalNoTrophy": "Kein Pokal. Nur ein Hund und ein Level.",
+  "shareEdgeGoalYourTurn": "Du bist dran. Sal wartet."
 }

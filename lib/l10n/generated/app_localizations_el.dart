@@ -14297,4 +14297,38 @@ class AppLocalizationsEl extends AppLocalizations {
   @override
   String get shareEdgeInviteDog =>
       'Η έκπτωση είναι αληθινή. Ο σκύλος παραμένει ατάραχος.';
+
+  @override
+  String get balanceGoalShareMyLevel => 'Κοινοποίηση του επιπέδου μου';
+
+  @override
+  String get goalCardCaps => 'Το επίπεδό μου';
+
+  @override
+  String get shareEdgeGoalNotFlex => 'Δεν το παινεύομαι. Απλώς ένα επίπεδο.';
+
+  @override
+  String get shareEdgeGoalUnimpressed =>
+      'Ο Sal έλεγξε. Πάλι δεν εντυπωσιάστηκε.';
+
+  @override
+  String get shareEdgeGoalNoRush => 'Ένα επίπεδο τη φορά. Χωρίς βιασύνη.';
+
+  @override
+  String get shareEdgeGoalNobodyAsked =>
+      'Κανείς δεν ρώτησε. Το μοιράζομαι πάντως.';
+
+  @override
+  String get shareEdgeGoalSaysNothing =>
+      'Ο Sal λέει πως δεν είναι τίποτα. Το λέει συχνά.';
+
+  @override
+  String get shareEdgeGoalOnPurpose => 'Αργή ανάβαση. Επίτηδες.';
+
+  @override
+  String get shareEdgeGoalNoTrophy =>
+      'Κανένα τρόπαιο. Μόνο ένας σκύλος κι ένα επίπεδο.';
+
+  @override
+  String get shareEdgeGoalYourTurn => 'Σειρά σου. Ο Sal θα περιμένει.';
 }

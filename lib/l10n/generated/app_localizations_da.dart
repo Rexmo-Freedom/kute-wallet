@@ -14202,4 +14202,36 @@ class AppLocalizationsDa extends AppLocalizations {
 
   @override
   String get shareEdgeInviteDog => 'Rabatten er ægte. Hunden er upåvirket.';
+
+  @override
+  String get balanceGoalShareMyLevel => 'Del mit niveau';
+
+  @override
+  String get goalCardCaps => 'Mit niveau';
+
+  @override
+  String get shareEdgeGoalNotFlex => 'Ikke for at prale. Bare et niveau.';
+
+  @override
+  String get shareEdgeGoalUnimpressed =>
+      'Sal har tjekket. Stadig ikke imponeret.';
+
+  @override
+  String get shareEdgeGoalNoRush => 'Ét niveau ad gangen. Ingen hast.';
+
+  @override
+  String get shareEdgeGoalNobodyAsked => 'Ingen spurgte. Jeg deler alligevel.';
+
+  @override
+  String get shareEdgeGoalSaysNothing =>
+      'Sal siger, det ingenting er. Det siger Sal tit.';
+
+  @override
+  String get shareEdgeGoalOnPurpose => 'Langsom stigning. Med vilje.';
+
+  @override
+  String get shareEdgeGoalNoTrophy => 'Intet trofæ. Bare en hund og et niveau.';
+
+  @override
+  String get shareEdgeGoalYourTurn => 'Din tur. Sal venter.';
 }
