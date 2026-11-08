@@ -3,6 +3,8 @@ import 'package:kute/screens/shared/app_bottom_sheet.dart'
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_back_button.dart'
     show KuteCloseButton;
+import 'package:kute/screens/shared/receive_surface.dart'
+    show SheetTitleHeader;
 import 'package:kute/screens/shared/send/send_recipient_step.dart'
     show SendStepTitle;
 import 'package:kute/screens/shared/kute_action_cards.dart';
@@ -8009,8 +8011,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     // MOVE MONEY AND SWAP IN THE SEND AMOUNT STEP'S RHYTHM (founder, 7
     // November 2026, on the screen as it was: the hero "left-aligned and
     // oddly placed with lots of empty space", the chips wider than the
-    // keypad, a header unlike Send's). The header is the Send steps' own
-    // (an app bar: the circled X at the left, the title centred); under it
+    // keypad, a header unlike Send's). The header is the Bitcoin Send
+    // Amount step's own (the circled X at the left, the title centred on
+    // the line of the first step's big title); under it
     // the hero, centred, then the From and To squares, then the chips (as
     // wide as the keypad's keys), the keypad and the bar. Every other door
     // of this sheet keeps its own header and layout.
@@ -8277,26 +8280,26 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     return Scaffold(
       key: movement ? const ValueKey('money-movement-sheet') : null,
       backgroundColor: c.background,
-      appBar: movement
-          ? AppBar(
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              surfaceTintColor: Colors.transparent,
-              shadowColor: Colors.transparent,
-              scrolledUnderElevation: 0,
-              automaticallyImplyLeading: false,
-              centerTitle: true,
-              title: SendStepTitle(_sheetTitle),
-              leadingWidth: 64.w,
-              leading: Padding(
-                padding: EdgeInsets.only(left: 16.w),
-                child: const Center(child: KuteCloseButton()),
-              ),
-            )
-          : null,
       body: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(20.w, 8.h, 20.w, 8.h),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Move money wears the Bitcoin Send's Amount step header
+            // (receive_surface.dart, SheetTitleHeader.inner): at the
+            // screen's full width, the circled X on the left and the title
+            // centred on the line the first step's big title sits on, the
+            // content right under it in the 20 gutter. This screen is a
+            // route, not a sheet, so no handle is drawn over it.
+            if (movement)
+              SheetTitleHeader.inner(
+                title: _sheetTitle,
+                handleAbove: true,
+                leading: const KuteCloseButton(),
+                innerTitle: SendStepTitle(_sheetTitle),
+              ),
+            Expanded(
+              child: Padding(
+          padding: EdgeInsets.fromLTRB(20.w, movement ? 0 : 8.h, 20.w, 8.h),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -8542,6 +8545,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
               SizedBox(height: 4.h),
             ],
           ),
+        ),
+            ),
+          ],
         ),
       ),
     );

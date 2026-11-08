@@ -53,7 +53,7 @@ bool _pinBitcoinWallet(
 ///
 /// The spending wallet's Receive opens the Receive sheet (founder, 6 and
 /// 7 November 2026; bitcoin_receive_options.dart): Bitcoin, the QR, on
-/// top, then From your Dollars and Another crypto. A
+/// top, then Another crypto. A
 /// watch-only or hardware wallet has no Dollars and nothing to receive
 /// another coin into, so its Receive opens the QR itself. Every Receive
 /// wears the plain receive arrow, moving as the hub's "+" does

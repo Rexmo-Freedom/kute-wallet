@@ -7,7 +7,8 @@
 // one list once there is. The recipient card: who a resolved destination
 // is (a contact first, then a recent, else the shortened address), and
 // the list never repeating them ("Other contacts"). The Review's From and
-// To (SendReviewRoute): two squares, the same face as the card, the
+// To (SendReviewRoute): two squares, the same face as the card, an @
+// address's name whole over "@domain" (sendAtAddressParts), any other
 // address on one line in its middle form, the rail only when given, a tap
 // on To showing the whole address with Copy.
 
@@ -470,6 +471,46 @@ void main() {
       expect(m?.address, 'alice@getalby.com');
       expect(sendRecipientName(m, 'alice@getalby.com'), 'alice');
     });
+    test('an @ address splits into its name and its domain; nothing else '
+        'does', () {
+      expect(sendAtAddressParts('jay2290@paykute.com'),
+          (name: 'jay2290', domain: 'paykute.com'));
+      expect(sendAtAddressParts(' lightning:Jay2290@PayKute.com '),
+          (name: 'Jay2290', domain: 'paykute.com'));
+      expect(sendAtAddressParts('pipinho@walletofsatoshi.com'),
+          (name: 'pipinho', domain: 'walletofsatoshi.com'));
+      for (final other in [
+        'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq',
+        'spark1pgss9qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq',
+        '0x742d35cc6634c0532925a3b844bc454e4438f44e',
+        'lnurl1dp68gurn8ghj7ctsdyh85etzv4jx2efwd9hj7',
+        'lnbc1pvjluezsp5zyg3zyg3zyg3',
+        'jay@localhost',
+        '@paykute.com',
+        '',
+      ]) {
+        expect(sendAtAddressParts(other), isNull, reason: other);
+      }
+    });
+    test('the saved name: a contact\'s own, never a label that is only the '
+        'handle or the address', () {
+      final contact = sendMatchingPerson('joana@paykute.com',
+          recents: _recents(), contacts: [_kuteContact]);
+      expect(sendSavedName(contact, 'joana@paykute.com', handle: 'joana'),
+          'Joana Kute');
+      final recent = sendMatchingPerson('alice@getalby.com',
+          recents: _recents(), contacts: fakeContacts());
+      expect(sendSavedName(recent, 'alice@getalby.com', handle: 'alice'),
+          isNull);
+      expect(sendSavedName(null, 'x@y.io', handle: 'x'), isNull);
+      expect(
+          sendSavedName(
+              SendPerson.recent(
+                  address: 'x@y.io', name: 'x@y.io', secondary: 'x@y.io'),
+              'x@y.io',
+              handle: 'x'),
+          isNull);
+    });
     test('nobody known: the shortened address', () {
       const addr = 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq';
       final m = sendMatchingPerson(addr,
@@ -687,8 +728,9 @@ void main() {
 
     testWidgets(
         'From and To are two squares side by side, equally tall, no '
-        'chevrons: the label over the main line, the address on ONE line in '
-        'its middle form, the rail under it', (tester) async {
+        'chevrons: the label over the main line; an @ address reads its '
+        'name WHOLE over "@domain", never cut, no "Lightning"',
+        (tester) async {
       await pump(tester, ln, toLine: 'Lightning');
       final a = tester.getRect(find.byKey(from));
       final b = tester.getRect(find.byKey(to));
@@ -700,16 +742,16 @@ void main() {
       expect(inCard(from, find.text('Available · 361,694 sats')),
           findsOneWidget);
       expect(inCard(to, find.text('To')), findsOneWidget);
-      expect(inCard(to, find.text('Lightning')), findsOneWidget);
-      final shown = shownAddress(tester);
-      expect(shown, contains('…'));
-      expect(shown.startsWith('pipinho'), isTrue);
-      expect(shown.endsWith('.com'), isTrue);
-      final line = tester.getRect(find.descendant(
-          of: find.byKey(const ValueKey('send-review-to-address')),
-          matching: find.byType(Text)));
-      expect(line.height,
-          lessThan(1.5 * tester.getRect(find.text('Bitcoin')).height));
+      expect(inCard(to, find.text('pipinho')), findsOneWidget);
+      expect(inCard(to, find.text('@walletofsatoshi.com')), findsOneWidget);
+      expect(inCard(to, find.text('Lightning')), findsNothing);
+      expect(find.byKey(const ValueKey('send-review-to-address')),
+          findsNothing);
+      expect(inCard(to, find.textContaining('…')), findsNothing);
+      expect(tester.widget<Text>(find.text('pipinho')).overflow, isNull);
+      // The whole address is what is read out.
+      expect(tester.getSemantics(find.byKey(to)),
+          isSemantics(label: 'To, $ln', isButton: true));
       // A Lightning address nobody known has: the rail's mark, the ⚡.
       expect(inCard(to, find.byIcon(Icons.alternate_email_rounded)),
           findsOneWidget);
@@ -725,19 +767,68 @@ void main() {
         'says nothing)', (tester) async {
       await pump(tester, btc);
       expect(inCard(to, find.text('To')), findsOneWidget);
+      // Not an @ address: still ONE line in its middle form.
+      expect(shownAddress(tester), contains('…'));
       expect(shownAddress(tester).startsWith('bc1q'), isTrue);
       expect(shownAddress(tester).endsWith('mdq'), isTrue);
+      final line = tester.getRect(find.descendant(
+          of: find.byKey(const ValueKey('send-review-to-address')),
+          matching: find.byType(Text)));
+      expect(line.height,
+          lessThan(1.5 * tester.getRect(find.text('Bitcoin')).height));
       expect(inCard(to, find.byType(Text)), findsNWidgets(2),
           reason: 'the label and the address, nothing under them');
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('a contact\'s address wears the contact\'s face and badge',
-        (tester) async {
+    testWidgets(
+        'a saved contact\'s address wears the contact\'s face and badge, '
+        'its name over "@paykute.com"', (tester) async {
       await pump(tester, 'joana@paykute.com', toLine: 'Lightning');
       expect(inCard(to, find.text('JK')), findsOneWidget);
       expect(inCard(to, find.byKey(const ValueKey('send-badge-kute'))),
           findsOneWidget);
+      expect(inCard(to, find.text('Joana Kute')), findsOneWidget);
+      expect(inCard(to, find.text('@paykute.com')), findsOneWidget);
+      expect(inCard(to, find.text('joana')), findsNothing);
+      expect(inCard(to, find.text('Lightning')), findsNothing);
+      expect(tester.getSemantics(find.byKey(to)),
+          isSemantics(label: 'To, Joana Kute, joana@paykute.com'));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'a Kute address nobody saved: the name before the @ whole, '
+        '"@paykute.com" under it, the Kute badge; a tap still shows the '
+        'whole address with Copy', (tester) async {
+      const kute = 'jay2290@paykute.com';
+      await pump(tester, kute, toLine: 'Lightning');
+      expect(inCard(to, find.text('jay2290')), findsOneWidget);
+      expect(inCard(to, find.text('@paykute.com')), findsOneWidget);
+      expect(inCard(to, find.byKey(const ValueKey('send-badge-kute'))),
+          findsOneWidget);
+      await tester.tap(find.byKey(to));
+      await tester.pumpAndSettle();
+      expect(
+          find.descendant(
+              of: find.byKey(const ValueKey('send-review-full-address')),
+              matching: find.text(kute)),
+          findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'a name too long for a square at 320 pt: the pair goes full width '
+        'and the name still reads whole', (tester) async {
+      const long = 'satoshinakamotothegreatest@getalby.com';
+      await pump(tester, long, toLine: 'Lightning', width: 320);
+      expect(inCard(to, find.text('satoshinakamotothegreatest')),
+          findsOneWidget);
+      expect(inCard(to, find.text('@getalby.com')), findsOneWidget);
+      // Two full-width cards, one over the other.
+      expect(tester.getRect(find.byKey(to)).top,
+          greaterThan(tester.getRect(find.byKey(from)).bottom));
+      expect(inCard(to, find.textContaining('…')), findsNothing);
       expect(tester.takeException(), isNull);
     });
 
@@ -791,7 +882,8 @@ void main() {
       testWidgets(
           '${dark ? 'dark' : 'light'}, 320 pt at 1.3x: nothing cut or '
           'overflowing; the pair stays squares or goes full width, never '
-          'a chevron on From', (tester) async {
+          'a chevron on From; the @ address whole, a bitcoin address in its '
+          'middle form', (tester) async {
         await pump(tester, ln,
             toLine: 'Lightning', dark: dark, width: 320, textScale: 1.3);
         final title = tester.widget<Text>(find.text('Bitcoin'));
@@ -799,6 +891,12 @@ void main() {
         expect(title.overflow, isNull);
         expect(inCard(from, find.byIcon(Icons.chevron_right_rounded)),
             findsNothing);
+        expect(inCard(to, find.text('pipinho')), findsOneWidget);
+        expect(inCard(to, find.text('@walletofsatoshi.com')), findsOneWidget);
+        expect(inCard(to, find.textContaining('…')), findsNothing);
+        expect(tester.takeException(), isNull);
+
+        await pump(tester, btc, dark: dark, width: 320, textScale: 1.3);
         expect(shownAddress(tester), contains('…'));
         expect(tester.takeException(), isNull);
       });

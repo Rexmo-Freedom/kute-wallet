@@ -8,7 +8,12 @@
 //   * "onchain": to a bitcoin address, no line (the default network), the
 //     To square tapped: the whole address with its Copy under the pair;
 //   * "crosschain": to a 0x address, "USDC on Base" under it;
-//   * "dollars": the Dollars Send, the coin chip under the hero, no line.
+//   * "dollars": the Dollars Send, the coin chip under the hero, no line;
+//   * "at kute", "at long", "at contact" (founder, 7 November 2026: "try
+//     not to trim when its a @ address, or just have the name before the
+//     @"): a Kute address (jay2290@paykute.com), a long domain
+//     (pipinho@walletofsatoshi.com) and a saved contact's Kute address
+//     (Joana Kute), each at 320, 375 and 430 pt, at 1x and 1.3x text.
 //
 // The page is laid out as the Review step lays it out (the stepper's 20
 // gutter, the hero, the squares, the fee card, the footnote); shadows are
@@ -43,6 +48,14 @@ import 'package:kute/services/orchestra_usd_send_routes.dart'
 import 'package:kute/theme/app_theme.dart';
 
 import '../mocks/fake_send_contacts_gateway.dart';
+
+/// The saved contact the "at contact" review pays.
+const _joana = SendContact(
+    id: 'k1',
+    displayName: 'Joana Kute',
+    firstName: 'Joana',
+    phone: '+351 914 444 444',
+    lightningAddress: 'joana@paykute.com');
 
 final _dir = Platform.environment['SEND_REVIEW_RENDER'];
 
@@ -175,8 +188,8 @@ class _ReviewState extends State<_Review> {
 
 Widget _app(bool dark, Widget review) => ProviderScope(
       overrides: [
-        sendContactsGatewayProvider
-            .overrideWithValue(FakeSendContactsGateway()),
+        sendContactsGatewayProvider.overrideWithValue(FakeSendContactsGateway(
+            permission: SendContactsPermission.granted, contacts: [_joana])),
       ],
       child: ScreenUtilInit(
         designSize: const Size(430, 932),
@@ -200,8 +213,69 @@ Widget _sal(bool dark) => SvgPicture.asset(
 Widget _glyph(IconData icon, Color color) =>
     Icon(icon, color: color, size: (40 * 24 / 44).sp);
 
+/// A Lightning address's Review, as the Bitcoin Send draws it.
+Widget _atReview(bool dark, String address) => _Review(
+      hero: '5 sats',
+      fees: const [
+        ('Routing fee', '0 sats'),
+        ('Estimated time', 'Instant'),
+        ('Total', r'5 sats · $0.00'),
+      ],
+      route: (expanded, toggle) => SendReviewRoute(
+        fromVisual: _sal(dark),
+        fromTitle: 'Bitcoin',
+        fromLine: 'Available · 361,694 sats',
+        toVisual: SendRecipientAvatar(
+          address: address,
+          railMark:
+              _glyph(Icons.alternate_email_rounded, const Color(0xFFB388FF)),
+          recents: const [],
+          size: kKuteActionCardVisualSize,
+        ),
+        address: address,
+        toLine: 'Lightning',
+        expanded: expanded,
+        onToggle: toggle,
+      ),
+    );
+
 void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
+
+  final atCases = <String, String>{
+    'kute': 'jay2290@paykute.com',
+    'long': 'pipinho@walletofsatoshi.com',
+    'contact': 'joana@paykute.com',
+  };
+  for (final MapEntry(key: name, value: address) in atCases.entries) {
+    for (final width in const [320.0, 375.0, 430.0]) {
+      for (final scale in const [1.0, 1.3]) {
+        for (final dark in [false, true]) {
+          final mode = dark ? 'dark' : 'light';
+          final tag = '${width.round()}_${scale == 1.0 ? 'x1' : 'x13'}_$mode';
+          testWidgets('render: at $name $tag', skip: _dir == null,
+              (tester) async {
+            await _fonts(tester);
+            tester.view.physicalSize = Size(width, width == 430 ? 932 : 760);
+            tester.view.devicePixelRatio = 1;
+            addTearDown(tester.view.reset);
+            tester.platformDispatcher.textScaleFactorTestValue = scale;
+            addTearDown(
+                tester.platformDispatcher.clearTextScaleFactorTestValue);
+            await tester.pumpWidget(_app(dark, _atReview(dark, address)));
+            final container = ProviderScope.containerOf(
+                tester.element(find.byType(SendReviewRoute)));
+            await container.read(sendContactsProvider.notifier).refresh();
+            await tester.pump(const Duration(milliseconds: 200));
+            expect(find.byKey(const ValueKey('send-review-route')),
+                findsOneWidget);
+            await _shoot(tester, 'send_review_at_${name}_$tag');
+            expect(tester.takeException(), isNull);
+          });
+        }
+      }
+    }
+  }
 
   final cases = <String, Widget Function(bool dark)>{
     'lightning': (dark) => _Review(

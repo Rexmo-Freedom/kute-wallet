@@ -55,13 +55,13 @@
 // says Dollars, USD or $.
 
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 
 import 'package:kute/models/advisor_context.dart';
@@ -81,7 +81,7 @@ import 'package:kute/models/settlement_operation.dart'
     show SettlementAccountKind, SettlementFlow;
 import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/providers/asset_icon_provider.dart'
-    show AssetIcon, kInvestmentsIcon, kUsdMarkAsset;
+    show AssetIcon, kInvestmentsIcon;
 import 'package:kute/providers/breez_config_provider.dart'
     show breezSDKProvider;
 import 'package:kute/providers/orchestra_supported_routes_provider.dart';
@@ -95,7 +95,7 @@ import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/screens/shared/kute_motion.dart' show StepsReveal;
 import 'package:kute/screens/shared/amount_keypad_panel.dart'
-    show AmountKeypad, AmountPercentChips;
+    show AmountKeypad;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/asset_network_picker.dart';
 import 'package:kute/screens/shared/coin_asset_grid.dart';
@@ -987,83 +987,44 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // ── Hero ── the one big number with its unit pill and the
-        // available balance, scrolling so the pinned keypad always fits.
+        // ── Hero ── one figure, centred in the room over the keypad
+        // (send_flow_widgets.dart, "CALM, ONE FIGURE"), its $ naming the
+        // unit, and its one line: the coin the recipient gets, changeable
+        // from here (as under the Review's figure). Scrolls so the pinned
+        // keypad always fits.
         Expanded(
-          child: SingleChildScrollView(
-            padding: EdgeInsets.only(top: 4.h, bottom: 8.h),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // What the recipient gets, changeable from here.
-                if (_destination != null) ...[
-                  _destinationChip(_destination!),
-                  SizedBox(height: 14.h),
-                ],
-                Row(
-                  children: [
-                    Expanded(
-                      child: AnimatedBuilder(
-                        animation: _amountPulse,
-                        builder: (context, child) {
-                          final t = _amountPulse.value;
-                          final scale =
-                              0.94 + Curves.easeOutBack.transform(t) * 0.06;
-                          return Transform.scale(scale: scale, child: child);
-                        },
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: SendTypedAmountHero(
-                            prefix: '\$',
-                            typed: _typed,
-                            overBalance: overBalance,
-                          ),
-                        ),
-                      ),
+          child: LayoutBuilder(
+            builder: (context, constraints) => SingleChildScrollView(
+              padding: EdgeInsets.only(top: 4.h, bottom: 8.h),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                    minHeight: math.max(0.0, constraints.maxHeight - 12.h)),
+                child: Center(
+                  child: SendAmountHeroStack(
+                    pulse: _amountPulse,
+                    figure: SendTypedAmountHero(
+                      prefix: '\$',
+                      typed: _typed,
+                      overBalance: overBalance,
                     ),
-                    SizedBox(width: 10.w),
-                    // Dollars only: the pill names the unit and has
-                    // nothing to switch to.
-                    SendAmountUnitPill(
-                      code: 'USD',
-                      icon: SvgPicture.asset(kUsdMarkAsset,
-                          width: 20.sp, height: 20.sp),
-                    ),
-                  ],
-                ),
-                if (overBalance || _amountBelowMinimum) ...[
-                  SizedBox(height: 8.h),
-                  Text(
-                    overBalance
+                    below: _destination == null
+                        ? null
+                        : _destinationChip(_destination!),
+                    warning: overBalance
                         ? context.l10n.sendMoreThanAvailable
-                        : _minimumText,
-                    style: TextStyle(
-                      color: AppColors.marketDown,
-                      fontSize: 14.sp,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: -0.1,
-                    ),
-                  ),
-                ],
-                SizedBox(height: 10.h),
-                Text(
-                  context.l10n.hlYieldAvailableLine(
-                      '\$${available.toStringAsFixed(2)}'),
-                  style: TextStyle(
-                    color: c.textTertiary,
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: -0.1,
-                    fontFeatures: const [FontFeature.tabularFigures()],
+                        : _amountBelowMinimum
+                            ? _minimumText
+                            : null,
                   ),
                 ),
-              ],
+              ),
             ),
           ),
         ),
-        // ── Bottom, pinned: percent chips + keypad ──
-        AmountPercentChips(
+        // ── Bottom, pinned: the balance, percent chips + keypad ──
+        SendAmountBalanceRow(
+          available: context.l10n
+              .hlYieldAvailableLine('\$${available.toStringAsFixed(2)}'),
           enabled: !_processing,
           onPercent: _onPercent,
         ),

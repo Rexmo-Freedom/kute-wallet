@@ -198,13 +198,15 @@ Future<ProviderContainer> _pump(WidgetTester tester, Widget home,
     {required double width,
     required bool dark,
     double scale = 1,
+    double? height,
     Locale? locale}) async {
   await tester.runAsync(loadShareCardFonts);
   AffiliateService.debugSessionToken = 'test-session';
   final policy = runtimePolicyFixture();
   RuntimeCapabilitiesService.debugInstance = policy;
   await tester.runAsync(policy.refresh);
-  tester.view.physicalSize = Size(width, width >= 430 ? 932 : 812);
+  tester.view.physicalSize =
+      Size(width, height ?? (width >= 430 ? 932 : 812));
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   tester.platformDispatcher.textScaleFactorTestValue = scale;
@@ -328,6 +330,32 @@ void main() {
     RuntimeCapabilitiesService.debugInstance = null;
     AffiliateService.debugSessionToken = null;
   });
+
+  // A short phone too (375 × 667): the screen scrolls rather than cut.
+  for (final dark in [false, true]) {
+    for (final from in [
+      MoneyMovementAccount.bitcoin,
+      MoneyMovementAccount.dollars,
+    ]) {
+      final name = 'swap_${from.name}_to_'
+          '${from == MoneyMovementAccount.bitcoin ? 'dollars' : 'bitcoin'}'
+          '_375x667_${dark ? 'dark' : 'light'}';
+      testWidgets(name, (tester) async {
+        final c = await _pump(tester, const Scaffold(body: SizedBox()),
+            width: 375, height: 667, dark: dark);
+        unawaited(showOwnMoneyMove(_nav.currentContext!,
+            from: from, entrySource: 'usd_home_swap'));
+        await _frames(tester, 16);
+        for (final key in ['2', '5']) {
+          await tester.tap(find.text(key).last);
+          await tester.pump();
+        }
+        await _frames(tester, 12);
+        await _capture(tester, name);
+        await _close(tester, c);
+      });
+    }
+  }
 
   for (final width in [320.0, 375.0, 430.0]) {
     for (final dark in [false, true]) {

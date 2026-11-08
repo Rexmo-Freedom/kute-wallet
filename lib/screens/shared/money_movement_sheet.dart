@@ -88,12 +88,12 @@ Future<void> showMoneyMovementSheet(
 /// 7 November 2026: "that swap screen should be the only one shown when
 /// it's not a buy"; and "hide the swap": it reads as moving your own
 /// money, so it keeps the Move money title and names both ends by their
-/// accounts). Every own-account door ("From your Dollars" and "From your
-/// Bitcoin" on Receive, "To your Dollars" and "To your Bitcoin" on Send,
-/// the Goals nudge, the Dollars home's Swap) opens Move money straight on
-/// the amount, pinned [from] the one account to the other: no picker
-/// sheet in between and no account to choose. Buys (Purchase, Buy
-/// dollars) never come here.
+/// accounts). Every own-account door ("Move to your Dollars" and "Move to
+/// your Bitcoin" on the Sends' search, the Goals nudge, the Dollars home's
+/// Swap; the Receives' own doors are gone, founder, 7 November 2026)
+/// opens Move money straight on the amount, pinned [from] the one account
+/// to the other: no picker sheet in between and no account to choose.
+/// Buys (Purchase, Buy dollars) never come here.
 ///
 /// SWAP (founder, 7 November 2026: "ideally is to have a move button ...
 /// Only on dollars"; "Move money or swap money whatever is more common in
@@ -109,9 +109,8 @@ Future<void> showMoneyMovementSheet(
 /// balances, not just the Dollars balance"): Dollars first, then the
 /// Predictions and Investing cash in reach, exactly as the Investments'
 /// Buy bitcoin did (`dollarsToBitcoinSpendableProvider` for the figure and
-/// Max, the venue-cash purchase for the funding). Both Dollars → Bitcoin
-/// doors ("From your Dollars", "To your Bitcoin") come through here, so
-/// they cannot differ.
+/// Max, the venue-cash purchase for the funding). Every Dollars → Bitcoin
+/// door comes through here, so none can differ.
 Future<void> showOwnMoneyMove(
   BuildContext context, {
   required MoneyMovementAccount from,

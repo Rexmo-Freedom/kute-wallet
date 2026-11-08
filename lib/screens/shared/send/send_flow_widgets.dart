@@ -21,12 +21,11 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import 'package:kute/helpers/formatters/currency_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart'
-    show groupTypedAmount;
+    show AmountPercentChips, groupTypedAmount;
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/message_display.dart';
@@ -45,10 +44,17 @@ class SendStepperFrame extends StatefulWidget {
     required this.cta,
     this.onPageChanged,
     this.bleedPages = const {},
+    this.header,
   });
 
   /// The step progress bar (or an empty box for a one-step flow).
   final Widget progress;
+
+  /// The sheet's header over the pages, at the sheet's full width (the
+  /// Bitcoin Send's: receive_surface.dart, SheetTitleHeader), in place of
+  /// an app bar: the pages start right under it, and it stays as tall on
+  /// every step, so nothing under it moves as the steps slide.
+  final Widget? header;
   final PageController controller;
   final List<Widget> pages;
 
@@ -153,41 +159,48 @@ class _SendStepperFrameState extends State<SendStepperFrame> {
             : Platform.isAndroid
                 ? 28.h + MediaQuery.of(context).padding.bottom
                 : 44.h;
+    final header = widget.header;
+    final body = Padding(
+      // 20.w horizontal padding so the Continue CTA sits inside
+      // the standard screen gutter instead of stretching nearly
+      // edge-to-edge. Under a header the pages start right under it.
+      padding: EdgeInsets.fromLTRB(
+          20.w, header == null ? 12.h : 0, 20.w, bottomPad + viewInsets),
+      child: Column(
+        children: [
+          if (header == null) ...[
+            widget.progress,
+            SizedBox(height: 12.h),
+          ],
+          Expanded(
+            child: PageView(
+              controller: widget.controller,
+              // Steps advance only via the Continue/Next buttons.
+              // Swiping must NOT skip a step — it would bypass the
+              // per-step validation and completion tracking.
+              physics: const NeverScrollableScrollPhysics(),
+              onPageChanged: widget.onPageChanged,
+              children: widget.pages,
+            ),
+          ),
+          // A bleed page reserves nothing: the Continue (the bar's
+          // scope) stays mounted, at no height. One widget type in
+          // both states, so the bar's scope is never remounted.
+          Align(
+            alignment: Alignment.bottomCenter,
+            heightFactor: _bleeding ? 0 : 1,
+            child: widget.cta,
+          ),
+        ],
+      ),
+    );
     return Container(
       decoration: AppDecorations.screenGradient(context),
       child: SafeArea(
         bottom: false,
-        child: Padding(
-          // 20.w horizontal padding so the Continue CTA sits inside
-          // the standard screen gutter instead of stretching nearly
-          // edge-to-edge.
-          padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, bottomPad + viewInsets),
-          child: Column(
-            children: [
-              widget.progress,
-              SizedBox(height: 12.h),
-              Expanded(
-                child: PageView(
-                  controller: widget.controller,
-                  // Steps advance only via the Continue/Next buttons.
-                  // Swiping must NOT skip a step — it would bypass the
-                  // per-step validation and completion tracking.
-                  physics: const NeverScrollableScrollPhysics(),
-                  onPageChanged: widget.onPageChanged,
-                  children: widget.pages,
-                ),
-              ),
-              // A bleed page reserves nothing: the Continue (the bar's
-              // scope) stays mounted, at no height. One widget type in
-              // both states, so the bar's scope is never remounted.
-              Align(
-                alignment: Alignment.bottomCenter,
-                heightFactor: _bleeding ? 0 : 1,
-                child: widget.cta,
-              ),
-            ],
-          ),
-        ),
+        child: header == null
+            ? body
+            : Column(children: [header, Expanded(child: body)]),
       ),
     );
   }
@@ -285,8 +298,10 @@ class SendTypedAmountHero extends StatelessWidget {
   }
 }
 
-/// The unit pill beside the amount hero. With [onTap] it is the control
-/// that changes the unit; without one it only names it.
+/// A pill on a send's figure: the Dollars Send's coin on its network
+/// (under the amount and on Review), the control that changes what the
+/// recipient gets. With [onTap] it is that control; without one it only
+/// names it.
 class SendAmountUnitPill extends StatelessWidget {
   final String code;
   final Widget icon;
@@ -339,20 +354,39 @@ class SendAmountUnitPill extends StatelessWidget {
   }
 }
 
-// ─── The bitcoin amount step's pieces ─────────────────────────────────
+// ─── The amount steps' pieces ─────────────────────────────────────────
 //
-// Lifted out of the Bitcoin Send's amount step (confirm_send.dart) so a
-// screen that asks for a bitcoin amount the same way ("Send to anyone",
-// share/send_to_anyone_sheet.dart; founder, 6 November 2026: "this one
-// must have the sats and such, like here") draws it identically: the big
-// figure in the chosen unit (₿ sats, ₿ BTC or a fiat), the other unit's
-// figure with the ⇅ swap under it, the "328,686 sats available · $248.82"
-// line and the unit pill ([SendAmountUnitPill] with [sendCurrencyIcon]).
+// Lifted out of the Bitcoin Send's amount step (confirm_send.dart) so
+// every screen that asks for a send amount draws it identically: the
+// Bitcoin Send, the Dollars Send (usd/usd_send_screen.dart) and "Send to
+// anyone" (share/send_to_anyone_sheet.dart; founder, 6 November 2026:
+// "this one must have the sats and such, like here").
+//
+// CALM, ONE FIGURE (founder, 7 November 2026, the Send to anyone and
+// Bitcoin Send amount steps: "they seem soo dense, to many numbers and
+// such, please improve"). From the top ([SendAmountHeroStack]):
+//
+//   * the one big figure, CENTRED like the Review's hero, in the entry
+//     unit (₿ sats, ₿ BTC or a fiat; [SendBitcoinAmountHero],
+//     [SendTypedAmountHero]);
+//   * at most ONE line under it: the other unit's figure, which is itself
+//     the button that flips the unit (a small ⇅ after it; quieter while
+//     the amount is 0; [SendAmountConversionLine]), or, on the Dollars
+//     Send, the coin the recipient gets;
+//   * the reason the amount is refused, in red, only while it is;
+//
+// and, over the 25% · 50% · 100% row it is the base of
+// ([SendAmountBalanceRow]), the balance as ONE number in the figure's
+// unit: "361,694 sats available" or "$274.13 available", never both.
+//
+// No unit pill: the step flips between the Bitcoin unit and the money
+// only (⇅); sats or BTC, and the money, are chosen in Settings.
 
 /// The longest run of digits the Bitcoin figure takes (≈100 BTC in sats).
 const int kSendAtmMaxDigits = 10;
 
-/// The fiat units the unit sheet offers beside sats and BTC.
+/// The fiat units a send's figure can be typed in beside sats and BTC
+/// (the ones the Receive unit sheet offers).
 const Set<String> kSendFiatUnits = {'USD', 'EUR', 'GBP', 'BRL', 'CHF'};
 
 /// Whether [unit] is a Bitcoin unit ('Sats' or 'BTC') rather than a fiat.
@@ -380,45 +414,9 @@ String sendCurrencyPrefix(String code) {
   }
 }
 
-/// The unit's mark in the unit pill and the unit sheet: the bitcoin or
-/// the sats icon, a fiat's flag.
-Widget sendCurrencyIcon(String code, {required double size}) {
-  switch (code) {
-    case 'BTC':
-      return ClipRRect(
-          borderRadius: BorderRadius.circular(size * 0.3),
-          child: SvgPicture.asset('lib/assets/bitcoin-icon.svg',
-              width: size, height: size));
-    case 'Sats':
-      return ClipRRect(
-          borderRadius: BorderRadius.circular(size * 0.3),
-          child: SvgPicture.asset('lib/assets/sats-icon.svg',
-              width: size, height: size));
-    default:
-      return Text(_sendCurrencyFlag(code), style: TextStyle(fontSize: size));
-  }
-}
-
-String _sendCurrencyFlag(String code) {
-  switch (code) {
-    case 'USD':
-      return '🇺🇸';
-    case 'EUR':
-      return '🇪🇺';
-    case 'GBP':
-      return '🇬🇧';
-    case 'BRL':
-      return '🇧🇷';
-    case 'CHF':
-      return '🇨🇭';
-    default:
-      return '';
-  }
-}
-
-/// The fiat unit the ⇅ swap flips a Bitcoin figure to: the one last typed
-/// in ([lastFiat]), else [settingsCurrency] when the unit sheet offers it,
-/// else USD.
+/// The fiat unit the conversion line (⇅) flips a Bitcoin figure to: the
+/// one last typed in ([lastFiat]), else [settingsCurrency] when it is one
+/// of [kSendFiatUnits], else USD.
 String sendFiatFlipUnit({String? lastFiat, required String settingsCurrency}) {
   if (lastFiat != null && kSendFiatUnits.contains(lastFiat)) return lastFiat;
   final code = settingsCurrency.toUpperCase();
@@ -534,59 +532,166 @@ class SendBitcoinAmountHero extends StatelessWidget {
   }
 }
 
-/// "$105.40" under a Bitcoin figure, "₿45,120" under a fiat one, and the
-/// ⇅ swap that flips the entry unit ([onSwap]). No approximation mark: it
-/// reads as a second price tag, not a hedge.
+/// "$105.40" under a Bitcoin figure, "₿45,120" under a fiat one: the
+/// line is itself the button that flips the entry unit ([onSwap]), with a
+/// small ⇅ after the figure to say so. Quieter while the amount is 0
+/// ([zero]): "$0.00" says nothing yet. No approximation mark: it reads as
+/// a second price tag, not a hedge.
 class SendAmountConversionLine extends StatelessWidget {
   const SendAmountConversionLine({
     super.key,
     required this.secondary,
     required this.onSwap,
+    this.zero = false,
   });
 
   final String secondary;
   final VoidCallback onSwap;
 
+  /// Nothing typed yet: the line steps back to the tertiary ink.
+  final bool zero;
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    return Row(
-      key: const ValueKey('send-amount-conversion'),
-      mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          secondary,
-          style: TextStyle(
-            color: c.textSecondary,
-            fontSize: 17.sp,
-            fontWeight: FontWeight.w700,
-            letterSpacing: -0.2,
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
-        ),
-        SizedBox(width: 4.w),
-        Material(
-          color: Colors.transparent,
-          shape: const CircleBorder(),
-          child: InkWell(
-            key: const ValueKey('send-amount-swap'),
-            customBorder: const CircleBorder(),
-            onTap: onSwap,
-            child: Padding(
-              padding: EdgeInsets.all(6.w),
-              child: Icon(Icons.swap_vert_rounded,
-                  size: 20.sp, color: c.textSecondary),
+    final ink = zero ? c.textTertiary : c.textSecondary;
+    return Semantics(
+      button: true,
+      label: secondary,
+      excludeSemantics: true,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(10.r),
+        child: InkWell(
+          key: const ValueKey('send-amount-swap'),
+          borderRadius: BorderRadius.circular(10.r),
+          onTap: onSwap,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
+            child: Row(
+              key: const ValueKey('send-amount-conversion'),
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(
+                    secondary,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: ink,
+                      fontSize: 17.sp,
+                      fontWeight: zero ? FontWeight.w600 : FontWeight.w700,
+                      letterSpacing: -0.2,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ),
+                SizedBox(width: 4.w),
+                Icon(Icons.swap_vert_rounded,
+                    size: 16.sp, color: c.textTertiary),
+              ],
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// The top of an amount step (see the section header): [figure] (the
+/// [SendBitcoinAmountHero] or [SendTypedAmountHero]) centred and scaled
+/// down to the width when it is long, with the keypad's "digit lands"
+/// bounce from [pulse]; [below] under it (the conversion line, or the
+/// Dollars Send's coin); [warning] in red under that, only while the
+/// amount is refused.
+class SendAmountHeroStack extends StatelessWidget {
+  const SendAmountHeroStack({
+    super.key,
+    required this.figure,
+    this.pulse,
+    this.below,
+    this.warning,
+  });
+
+  final Widget figure;
+  final Animation<double>? pulse;
+  final Widget? below;
+  final String? warning;
+
+  @override
+  Widget build(BuildContext context) {
+    final fitted = FittedBox(
+      // Auto-shrinks a long figure (ten digits of sats on a small phone);
+      // the default is the 56sp hero.
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.center,
+      child: figure,
+    );
+    final bounce = pulse;
+    final warn = warning;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        if (bounce == null)
+          fitted
+        else
+          AnimatedBuilder(
+            animation: bounce,
+            // A quick scale-up and ease back: from 0.94 to 1.0 with an
+            // easeOutBack overshoot, a soft "digit lands" pop.
+            builder: (context, child) => Transform.scale(
+              scale: 0.94 + Curves.easeOutBack.transform(bounce.value) * 0.06,
+              child: child,
+            ),
+            child: fitted,
+          ),
+        if (below != null) ...[
+          SizedBox(height: 8.h),
+          below!,
+        ],
+        if (warn != null && warn.isNotEmpty) ...[
+          SizedBox(height: 6.h),
+          SendAmountWarningLine(warn),
+        ],
       ],
     );
   }
 }
 
-/// The balance the amount is judged against, under the figure ("328,686
-/// sats available · $248.82", "$12.00 available").
+/// The 25% · 50% · 100% row with the balance it takes a share of over it,
+/// as one number in the figure's unit ([available]: "361,694 sats
+/// available", "$274.13 available"). The balance sits here rather than
+/// under the figure: it is the base of these chips, it keeps the figure
+/// alone with its one line, and it stays on screen before anything is
+/// typed, so the limit is known before it is hit.
+class SendAmountBalanceRow extends StatelessWidget {
+  const SendAmountBalanceRow({
+    super.key,
+    required this.available,
+    required this.onPercent,
+    this.enabled = true,
+  });
+
+  final String available;
+  final void Function(double ratio) onPercent;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SendAmountAvailableLine(available),
+          SizedBox(height: 8.h),
+          AmountPercentChips(enabled: enabled, onPercent: onPercent),
+        ],
+      );
+}
+
+/// The balance the amount is judged against, one number in the figure's
+/// unit ("361,694 sats available", "$12.00 available"), centred over the
+/// percent row ([SendAmountBalanceRow]).
 class SendAmountAvailableLine extends StatelessWidget {
   const SendAmountAvailableLine(this.text, {super.key});
 
@@ -596,6 +701,7 @@ class SendAmountAvailableLine extends StatelessWidget {
   Widget build(BuildContext context) => Text(
         text,
         key: const ValueKey('send-amount-available'),
+        textAlign: TextAlign.center,
         style: TextStyle(
           color: context.colors.textTertiary,
           fontSize: 14.sp,
@@ -606,8 +712,8 @@ class SendAmountAvailableLine extends StatelessWidget {
       );
 }
 
-/// What is wrong with the amount, in red, under the figure ("That is more
-/// than you have available.").
+/// What is wrong with the amount, in red, centred under the figure ("That
+/// is more than you have available.", a route's minimum).
 class SendAmountWarningLine extends StatelessWidget {
   const SendAmountWarningLine(this.text, {super.key});
 
@@ -617,6 +723,7 @@ class SendAmountWarningLine extends StatelessWidget {
   Widget build(BuildContext context) => Text(
         text,
         key: const ValueKey('send-amount-warning'),
+        textAlign: TextAlign.center,
         style: TextStyle(
           color: AppColors.marketDown,
           fontSize: 14.sp,

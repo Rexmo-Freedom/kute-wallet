@@ -65,10 +65,10 @@ import 'package:kute/services/hyperliquid/hypercore_activation_fee.dart'
 import 'package:kute/services/one_balance/bitcoin_to_dollars_leg.dart'
     show BitcoinLegSent;
 import 'package:kute/services/one_balance/dollars_to_bitcoin_minimum.dart';
-import 'package:kute/screens/receive/bitcoin_receive_options.dart'
-    show kBitcoinReceiveDollarsSource;
 import 'package:kute/screens/shared/kute_back_button.dart'
     show KuteCircleButton;
+import 'package:kute/screens/shared/send/send_recipient_step.dart'
+    show SendStepTitle;
 import 'package:kute/screens/usd/usd_account_screen.dart'
     show kUsdHomeSwapSource;
 import 'package:kute/screens/usd/usd_withdraw_screen.dart'
@@ -625,6 +625,11 @@ Future<void> _type(WidgetTester tester, String amount) async {
   await _frames(tester, 4);
 }
 
+/// The sheet's title as drawn: the Send Amount step's header
+/// (SheetTitleHeader.inner) also lays out the first step's big title,
+/// unseen, for its height.
+Finder _title(String text) => find.widgetWithText(SendStepTitle, text);
+
 Finder get _cta => kuteBarPrimary;
 KuteBarPrimaryProbe _button(WidgetTester tester) =>
     kuteBarPrimaryProbe(tester);
@@ -714,7 +719,7 @@ void main() {
 
     await _type(tester, '5');
     // The Portfolio's Move money keeps its title and its verb.
-    expect(find.text('Move money'), findsOneWidget);
+    expect(_title('Move money'), findsOneWidget);
     expect(_button(tester).text, startsWith('Move \$'));
     expect(_railCalls, 0);
     expect(_approvals.intents, isEmpty);
@@ -731,7 +736,7 @@ void main() {
     expect(find.text('Investments'), findsNothing);
     expect(find.text('Bitcoin'), findsOneWidget);
     // Swap (founder, 7 November 2026): the title, and the bar's verb.
-    expect(find.text('Swap'), findsOneWidget);
+    expect(_title('Swap'), findsOneWidget);
     expect(find.text('Move money'), findsNothing);
     expect(find.textContaining('Buy'), findsNothing);
     expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsNothing);
@@ -752,7 +757,7 @@ void main() {
       'asked for filled in once the price is up', (tester) async {
     final c = await _open(tester, const MoneyMovementRoute(_b, _d),
         pinned: true, initialTargetUsd: 5);
-    expect(find.text('Swap'), findsOneWidget);
+    expect(_title('Swap'), findsOneWidget);
     expect(find.byKey(const ValueKey('money-movement-swap')), findsOneWidget);
     expect(_button(tester).text, r'Swap $5');
     await _close(tester, c);
@@ -1519,16 +1524,16 @@ void main() {
     });
   });
 
-  // Gating audit (fw36, v2.2): the Send chips and Receive cards that open
-  // this sheet pinned, read against a real backend policy. "To Dollars"
-  // (Bitcoin Send) and "From your Bitcoin" (Dollars Receive) are a swap:
-  // a swap block stops them, a region block naming its regions over the
-  // one VPN sentence. "To your Bitcoin" (Dollars Send) and "From your
-  // Dollars" (Bitcoin Receive or swap) are an exit: a COUNTRY block on
-  // the swap master never stops them (the backend exempts the route from
-  // country rules); the master off, a platform rule or coming soon still
-  // does, exactly as the backend's operation guard refuses it then.
-  group('Send chips and Receive cards under a backend block (fw36)', () {
+  // Gating audit (fw36, v2.2): the Sends' own-account moves that open this
+  // sheet pinned, read against a real backend policy (the Receives' "From
+  // your Bitcoin" and "From your Dollars" are gone: founder, 7 November
+  // 2026). "Move to your Dollars" (Bitcoin Send) is a swap: a swap block
+  // stops it, a region block naming its regions over the one VPN
+  // sentence. "Move to your Bitcoin" (Dollars Send) is an exit: a COUNTRY
+  // block on the swap master never stops it (the backend exempts the route
+  // from country rules); the master off, a platform rule or coming soon
+  // still does, exactly as the backend's operation guard refuses it then.
+  group('The Sends\' own-account moves under a backend block (fw36)', () {
     late InvestmentProviderAvailability venues;
 
     setUp(() {
@@ -1565,9 +1570,9 @@ void main() {
         find.byKey(const ValueKey('money-movement-restricted'));
 
     testWidgets(
-        'swap country block: To Dollars / From your Bitcoin (Bitcoin → '
-        'Dollars) names the regions over the VPN sentence, Check '
-        'connection, nothing sent', (tester) async {
+        'swap country block: Move to your Dollars (Bitcoin → Dollars) names '
+        'the regions over the VPN sentence, Check connection, nothing sent',
+        (tester) async {
       await install(tester, MarketDenial.swapCountryBlock);
       final c =
           await _open(tester, const MoneyMovementRoute(_b, _d), pinned: true);
@@ -1586,8 +1591,8 @@ void main() {
     });
 
     testWidgets(
-        'swap country block: To your Bitcoin / From your Dollars (Dollars → '
-        'Bitcoin) is an exit and moves', (tester) async {
+        'swap country block: Move to your Bitcoin (Dollars → Bitcoin) is an '
+        'exit and moves', (tester) async {
       await install(tester, MarketDenial.swapCountryBlock);
       final c =
           await _open(tester, const MoneyMovementRoute(_d, _b), pinned: true);
@@ -1690,16 +1695,17 @@ void main() {
   //
   // Founder, 7 November 2026: "from your Dollars should and must be all
   // the available balances, not just the Dollars balance, it is the same
-  // behaviour we had before on Investments buy Bitcoin". Both Dollars →
-  // Bitcoin doors (the Bitcoin Receive's "From your Dollars", the Dollars
-  // Send's "To your Bitcoin") open this one pinned move by the same call
-  // (showOwnMoneyMove): its From row and Max are Dollars plus the venue
-  // cash in reach, and it pays Dollars first, then the venues, under one
-  // approval, as the Investments' Buy bitcoin did. The Portfolio's
-  // unpinned Move money still spends only the account picked.
+  // behaviour we had before on Investments buy Bitcoin". The Dollars →
+  // Bitcoin door (the Dollars Send's "Move to your Bitcoin"; the Bitcoin
+  // Receive's "From your Dollars" is gone, founder, 7 November 2026)
+  // opens this pinned move (showOwnMoneyMove): its From row and Max are
+  // Dollars plus the venue cash in reach, and it pays Dollars first, then
+  // the venues, under one approval, as the Investments' Buy bitcoin did.
+  // The Portfolio's unpinned Move money still spends only the account
+  // picked.
   group(
-      'From your Dollars and To your Bitcoin spend all the dollar money, '
-      "as the Investments' Buy bitcoin (fw46)", () {
+      'Move to your Bitcoin spends all the dollar money, as the '
+      "Investments' Buy bitcoin (fw46)", () {
     late _VenueCash predictions;
     late _VenueCash investing;
     late List<double> initialBuys;
@@ -1761,8 +1767,9 @@ void main() {
       await _close(tester, c);
     }
 
+    // The Dollars Send's "Move to your Bitcoin" (the Bitcoin Receive's
+    // "From your Dollars" door is gone: founder, 7 November 2026).
     for (final (door, source) in [
-      ('From your Dollars', kBitcoinReceiveDollarsSource),
       ('Move to your Bitcoin', kUsdWithdrawSearchSource),
     ]) {
       testWidgets(
@@ -1773,7 +1780,7 @@ void main() {
         final c = await _open(tester, const MoneyMovementRoute(_d, _b),
             overrides: venues(p: 60), ownMoveEntrySource: source);
         expect(_last('move_sheet_opened')['entry_source'], source);
-        expect(find.text('Swap'), findsOneWidget);
+        expect(_title('Swap'), findsOneWidget);
         // $10 of Dollars and $60 of Predictions cash: 10 + 60 x 0.98, the
         // figure the engine's plan covers, the card's figure too.
         final reach = investmentsSpendable(
@@ -1801,7 +1808,7 @@ void main() {
       _dollars = 10;
       final c = await _open(tester, const MoneyMovementRoute(_d, _b),
           overrides: venues(p: 15, i: 40),
-          ownMoveEntrySource: kBitcoinReceiveDollarsSource);
+          ownMoveEntrySource: kUsdWithdrawSearchSource);
       await _type(tester, '40');
       expect(find.text('Insufficient balance'), findsNothing);
       expect(_button(tester).text, r'Swap $40');
@@ -1879,7 +1886,7 @@ void main() {
       _dollars = 10;
       final c = await _open(tester, const MoneyMovementRoute(_d, _b),
           overrides: venues(p: 60),
-          ownMoveEntrySource: kBitcoinReceiveDollarsSource);
+          ownMoveEntrySource: kUsdWithdrawSearchSource);
       await _type(tester, '5');
       await _confirm(tester);
       expect(predictions.pulls, isEmpty);
@@ -1901,7 +1908,7 @@ void main() {
       expect(find.textContaining(r'$68.80'), findsNothing);
       // Bitcoin and Dollars here too, yet still Move money: its title and
       // its verb (the Swap screen is the own-account doors').
-      expect(find.text('Move money'), findsOneWidget);
+      expect(_title('Move money'), findsOneWidget);
       await _type(tester, '5');
       expect(_button(tester).text, r'Move $5');
       await tester.tap(find.byIcon(Icons.backspace_rounded));
@@ -1926,7 +1933,7 @@ void main() {
           overrides: venues(p: 60),
           ownMoveEntrySource: kUsdHomeSwapSource);
       expect(_last('move_sheet_opened')['entry_source'], kUsdHomeSwapSource);
-      expect(find.text('Swap'), findsOneWidget);
+      expect(_title('Swap'), findsOneWidget);
       final from = find.byKey(const ValueKey('money-movement-from'));
       final to = find.byKey(const ValueKey('money-movement-to'));
       final swap = find.byKey(const ValueKey('money-movement-swap'));

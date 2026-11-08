@@ -7,18 +7,20 @@
 //
 //   1. Amount: THE SEND AMOUNT STEP'S OWN PIECES (founder, 6 November
 //      2026: "this one must have the sats and such, like here";
-//      send_flow_widgets.dart). Bitcoin opens in the Bitcoin unit from
-//      Settings, as the Bitcoin Send does: the big figure in the chosen
-//      unit (₿ sats, ₿ BTC or a fiat; SendBitcoinAmountHero,
-//      SendTypedAmountHero), the other unit's figure with the ⇅ swap
-//      under it, "328,686 sats available · $248.82" (the spending
-//      wallet's bitcoin, which pays the link), the unit pill "[sats] Sats
-//      ⌄" opening the Send's unit sheet, and 25% · 50% · 100% over the
-//      app keypad (AmountKeypad). Dollars keep the dollar unit only (the
-//      pill names it), "$12.00 available" (the Dollars balance) and the
-//      same percent row. An amount over the balance turns red, says so
-//      and keeps Continue off, as the Send does; a balance not known yet
-//      is never judged.
+//      send_flow_widgets.dart), CALM (founder, 7 November 2026: "they
+//      seem soo dense, to many numbers"). Bitcoin opens in the Bitcoin
+//      unit from Settings, as the Bitcoin Send does: the one big figure,
+//      centred, in the entry unit (₿ sats, ₿ BTC or the money;
+//      SendBitcoinAmountHero, SendTypedAmountHero), the other unit's
+//      figure under it as the one line, which flips the unit when tapped
+//      (⇅), and, over 25% · 50% · 100% and the app keypad (AmountKeypad),
+//      the spending wallet's bitcoin (which pays the link) as one number
+//      in the figure's unit: "328,686 sats available" or "$328.69
+//      available". No unit pill: sats or BTC, and the money, come from
+//      Settings. Dollars keep the dollar figure alone, "$12.00 available"
+//      (the Dollars balance) and the same percent row. An amount over the
+//      balance turns red, says so and keeps Continue off, as the Send
+//      does; a balance not known yet is never judged.
 //   2. Who is it for? One text field, the first name, optional, under THE
 //      SHARE CARD live at about 60% (founder, 1 November 2026: "the card
 //      makes it feel like a gift"; cards/share_cards.dart): "{Name}, I
@@ -73,13 +75,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/affiliate_model.dart' show AffiliateService;
 import 'package:kute/models/share_link_model.dart';
-import 'package:kute/providers/asset_icon_provider.dart'
-    show kUsdMarkAsset;
 import 'package:kute/helpers/formatters/currency_formatter.dart';
 import 'package:kute/providers/address_receive_provider.dart'
     show bitcoinEntryUnit;
@@ -106,25 +104,21 @@ import 'package:kute/screens/share/share_challenge.dart';
 import 'package:kute/screens/share/share_link_copy.dart';
 import 'package:kute/screens/share/share_link_resend.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart'
-    show AmountKeypad, AmountPercentChips, canonicalDecimalText;
-import 'package:kute/screens/shared/amount_unit_picker.dart'
-    show showAmountUnitPicker;
+    show AmountKeypad, canonicalDecimalText;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/app_text_field.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show
-        SendAmountAvailableLine,
+        SendAmountBalanceRow,
         SendAmountConversionLine,
-        SendAmountUnitPill,
-        SendAmountWarningLine,
+        SendAmountHeroStack,
         SendBitcoinAmountHero,
         SendToListCard,
         SendTypedAmountHero,
         sendAtmDigits,
         sendAtmDigitsOf,
-        sendCurrencyIcon,
         sendCurrencyPrefix,
         sendFiatFlipUnit,
         sendIsBitcoinUnit;
@@ -350,8 +344,9 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet>
     }
   }
 
-  /// The ⇅ swap: Bitcoin to the fiat last typed in (else Settings'), fiat
-  /// back to the Bitcoin unit from Settings, the amount kept.
+  /// The conversion line's flip (⇅): Bitcoin to the fiat last typed in
+  /// (else Settings'), fiat back to the Bitcoin unit from Settings, the
+  /// amount kept.
   void _flipUnit() {
     final sats = _amountMinor();
     final wasBitcoin = _bitcoinUnit;
@@ -367,25 +362,6 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet>
       }
       _setAmountMinor(sats);
     });
-  }
-
-  /// The Send's unit sheet; a new unit starts the entry over, as on the
-  /// Send.
-  void _pickUnit() {
-    showAmountUnitPicker(
-      context,
-      selected: _unit,
-      iconBuilder: (code, size) => sendCurrencyIcon(code, size: size),
-      onSelected: (code) {
-        if (!mounted) return;
-        setState(() {
-          _unit = code;
-          if (!sendIsBitcoinUnit(code)) _lastFiat = code;
-          _typed = '';
-          _digits = '';
-        });
-      },
-    );
   }
 
   /// 25% / 50% / 100% of what pays the link (100% is all of it).
@@ -580,18 +556,12 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet>
     final settings = ref.watch(settingsProvider);
     final btcFormat = settings.btcFormat;
     final Widget hero;
-    final Widget pill;
-    String? secondary;
+    Widget? conversion;
     final String available;
     if (_dollars) {
+      // Dollars only: the figure alone, its $ names the unit.
       hero = SendTypedAmountHero(
           prefix: '\$', typed: _typed, overBalance: overBalance);
-      // Dollars only: the pill names the unit and has nothing to switch
-      // to (the dollar send's own pill).
-      pill = SendAmountUnitPill(
-        code: 'USD',
-        icon: SvgPicture.asset(kUsdMarkAsset, width: 20.sp, height: 20.sp),
-      );
       available = l10n.hlYieldAvailableLine(
           '\$${(pool / 100).toStringAsFixed(2)}');
     } else {
@@ -602,13 +572,8 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet>
               prefix: sendCurrencyPrefix(_unit),
               typed: _typed,
               overBalance: overBalance);
-      pill = SendAmountUnitPill(
-        key: const ValueKey('share-amount-unit'),
-        code: _unit,
-        icon: sendCurrencyIcon(_unit, size: 20.sp),
-        onTap: _pickUnit,
-      );
       try {
+        final String secondary;
         if (_bitcoinUnit) {
           final fiat = sendFiatFlipUnit(
               lastFiat: _lastFiat, settingsCurrency: settings.currency);
@@ -617,65 +582,37 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet>
         } else {
           secondary = '₿${amountMinor.toFormattedString(btcFormat)}';
         }
+        conversion = SendAmountConversionLine(
+            secondary: secondary, zero: amountMinor <= 0, onSwap: _flipUnit);
       } catch (_) {
-        secondary = null;
+        conversion = null;
       }
-      String poolFiat;
-      try {
-        poolFiat = ref.watch(conversionToFiatProvider(pool));
-      } catch (_) {
-        poolFiat = '';
+      // The spending wallet's bitcoin as one number, in the figure's unit.
+      String poolText = '${pool.toFormattedString(btcFormat)} $btcFormat';
+      if (!_bitcoinUnit) {
+        try {
+          poolText = '${sendCurrencyPrefix(_unit)}'
+              '${ref.watch(satsToTargetCurrencyProvider((sats: pool, currency: _unit)))}';
+        } catch (_) {}
       }
-      available = l10n.sendAmountUnitAvailableWithFiat(
-          pool.toFormattedString(btcFormat), btcFormat, poolFiat);
+      available = l10n.hlYieldAvailableLine(poolText);
     }
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SizedBox(height: 6.h),
-        // The Send amount step's hero: the figure with its unit pill, the
-        // other unit with the ⇅ swap, the balance (send_flow_widgets.dart).
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: AnimatedBuilder(
-                    animation: _amountPulse,
-                    builder: (context, child) => Transform.scale(
-                      scale: 0.94 +
-                          Curves.easeOutBack.transform(_amountPulse.value) *
-                              0.06,
-                      child: child,
-                    ),
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: hero,
-                    ),
-                  ),
-                ),
-                SizedBox(width: 10.w),
-                pill,
-              ],
-            ),
-            if (secondary != null) ...[
-              SizedBox(height: 10.h),
-              SendAmountConversionLine(
-                  secondary: secondary, onSwap: _flipUnit),
-            ],
-            if (overBalance) ...[
-              SizedBox(height: 8.h),
-              SendAmountWarningLine(l10n.sendMoreThanAvailable),
-            ],
-            SizedBox(height: 10.h),
-            SendAmountAvailableLine(available),
-          ],
+        SizedBox(height: 8.h),
+        // The Send amount step's top: the figure, centred, and its one
+        // line, the other unit, which flips it (send_flow_widgets.dart).
+        SendAmountHeroStack(
+          figure: hero,
+          pulse: _amountPulse,
+          below: conversion,
+          warning: overBalance ? l10n.sendMoreThanAvailable : null,
         ),
-        SizedBox(height: 16.h),
-        AmountPercentChips(onPercent: _onPercent),
+        SizedBox(height: 18.h),
+        // The balance, one number, over the chips that take a share of it.
+        SendAmountBalanceRow(available: available, onPercent: _onPercent),
         SizedBox(height: 12.h),
         MediaQuery.withClampedTextScaling(
           maxScaleFactor: 1.3,

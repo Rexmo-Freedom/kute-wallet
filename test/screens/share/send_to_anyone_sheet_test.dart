@@ -4,10 +4,12 @@
 // local pending row and the events. Plus the market share sheet's referral link.
 //
 // THE AMOUNT STEP IS THE SEND'S (founder, 6 November 2026: "this one must
-// have the sats and such, like here"): a bitcoin link opens in sats with
-// the Send amount step's own pieces (the ₿ figure, the other unit with the
-// ⇅ swap, "N sats available · $X", the unit pill and its sheet, 25% · 50%
-// · 100%); a dollar link keeps dollars only, "$X available".
+// have the sats and such, like here"), CALM (founder, 7 November 2026:
+// "they seem soo dense, to many numbers"): a bitcoin link opens in sats
+// with the Send amount step's own pieces (the ₿ figure centred, the other
+// unit under it as the one line that flips the unit, "N sats available"
+// as one number over 25% · 50% · 100%, no unit pill); a dollar link keeps
+// the dollar figure alone and "$X available".
 // The sheet's Continue / Create link / Done is the floating Sal bar
 // (kute_bar_test_support.dart).
 
@@ -32,6 +34,8 @@ import 'package:kute/screens/shared/send/send_flow_widgets.dart'
         SendAmountUnitPill,
         SendBitcoinAmountHero,
         SendTypedAmountHero;
+import 'package:kute/screens/shared/amount_unit_picker.dart'
+    show kAmountUnitCodes;
 import 'package:kute/providers/polymarket_browse_provider.dart'
     show polymarketEventDetailsProvider;
 import 'package:kute/screens/share/cards/share_card_preview.dart';
@@ -505,28 +509,41 @@ void main() {
   });
 
   testWidgets(
-      'a bitcoin link\'s amount step is the Send amount step: sats by '
-      'default (the sats pill that opens the unit sheet), the ₿ figure, the '
-      'dollars under it with the ⇅ swap, "328,686 sats available · '
-      '\$328.69", 25% · 50% · 100%; the sats typed are the link\'s',
-      (tester) async {
+      'a bitcoin link\'s amount step is the Send amount step, calm: the ₿ '
+      'figure in sats, centred; ONE line under it, the dollars, which flips '
+      'the unit; no unit pill; "328,686 sats available" as one number over '
+      '25% · 50% · 100%; the sats typed are the link\'s', (tester) async {
     await pumpShareWidget(
         tester, env, const SendToAnyoneSheet(kind: ShareLinkKind.bitcoin),
         overrides: _bitcoinWallet());
     expect(tester.takeException(), isNull);
     // The Send's pieces, in sats.
     expect(find.byType(SendBitcoinAmountHero), findsOneWidget);
-    final pill = tester.widget<SendAmountUnitPill>(
-        find.byKey(const ValueKey('share-amount-unit')));
-    expect(pill.code, 'Sats');
-    expect(pill.onTap, isNotNull);
+    // No unit pill: sats or BTC and the money come from Settings.
+    expect(find.byType(SendAmountUnitPill), findsNothing);
+    expect(find.byIcon(Icons.expand_more_rounded), findsNothing);
+    // The figure and its line are centred on the sheet.
+    final sheet = tester.getRect(find.byType(SendToAnyoneSheet));
+    final figure = tester.getRect(find.byType(SendBitcoinAmountHero));
+    expect(figure.center.dx, moreOrLessEquals(sheet.center.dx, epsilon: 1));
+    final line = tester.getRect(find.byType(SendAmountConversionLine));
+    expect(line.center.dx, moreOrLessEquals(sheet.center.dx, epsilon: 1));
+    // The balance: one number, in the figure's unit, over the chips.
+    expect(find.text('328,686 sats available'), findsOneWidget);
+    expect(find.textContaining('\$328.69'), findsNothing);
     expect(
-        find.descendant(
-            of: find.byKey(const ValueKey('share-amount-unit')),
-            matching: find.byIcon(Icons.expand_more_rounded)),
-        findsOneWidget);
-    expect(find.text('328,686 sats available · \$328.69'), findsOneWidget);
-    expect(find.byType(SendAmountConversionLine), findsOneWidget);
+        tester
+            .getRect(find.byKey(const ValueKey('send-amount-available')))
+            .bottom,
+        lessThan(tester.getRect(find.text('25%')).top));
+    // At 0 the line is "$0.00", quieter.
+    expect(find.text('\$0.00'), findsOneWidget);
+    expect(
+        tester
+            .widget<SendAmountConversionLine>(
+                find.byType(SendAmountConversionLine))
+            .zero,
+        isTrue);
     expect(find.byIcon(Icons.swap_vert_rounded), findsOneWidget);
     for (final p in ['25%', '50%', '100%']) {
       expect(find.text(p), findsOneWidget);
@@ -534,16 +551,23 @@ void main() {
     // The old dollar-typed figure with a "₿ USD" chip is gone.
     expect(find.byType(SendTypedAmountHero), findsNothing);
 
-    // 5,000 sats typed: the figure, and $5.00 under it.
+    // 5,000 sats typed: the figure, and $5.00 under it, no longer quiet.
     await _keys(tester, '5000');
     expect(
         tester.widget<SendBitcoinAmountHero>(
             find.byType(SendBitcoinAmountHero)).digits,
         '5000');
     expect(find.text('\$5.00'), findsOneWidget);
+    expect(
+        tester
+            .widget<SendAmountConversionLine>(
+                find.byType(SendAmountConversionLine))
+            .zero,
+        isFalse);
 
-    // ⇅: the same amount in dollars, the sats under it; and back.
-    await tester.tap(find.byKey(const ValueKey('send-amount-swap')));
+    // The line itself (its figure, not only the ⇅) flips: the same amount
+    // in dollars, the sats under it, the balance in dollars; and back.
+    await tester.tap(find.text('\$5.00'));
     await settle(tester);
     expect(find.byType(SendBitcoinAmountHero), findsNothing);
     expect(
@@ -551,8 +575,11 @@ void main() {
             .typed,
         '5.00');
     expect(find.text('₿5,000'), findsOneWidget);
+    expect(find.text('\$328.69 available'), findsOneWidget);
+    expect(find.textContaining('sats available'), findsNothing);
     await tester.tap(find.byKey(const ValueKey('send-amount-swap')));
     await settle(tester);
+    expect(find.text('328,686 sats available'), findsOneWidget);
     expect(
         tester.widget<SendBitcoinAmountHero>(
             find.byType(SendBitcoinAmountHero)).digits,
@@ -598,22 +625,21 @@ void main() {
   });
 
   testWidgets(
-      'the unit pill opens the Send\'s unit sheet; a dollar figure typed '
+      'no unit sheet: the line flips to dollars; a dollar figure typed '
       'there goes on the link as its sats', (tester) async {
     await pumpShareWidget(
         tester, env, const SendToAnyoneSheet(kind: ShareLinkKind.bitcoin),
         overrides: _bitcoinWallet());
-    await tester.tap(find.byKey(const ValueKey('share-amount-unit')));
+    await tester.tap(find.byType(SendAmountConversionLine));
     await settle(tester);
-    expect(find.text('USD'), findsWidgets);
-    await tester.tap(find.text('USD').last);
-    await settle(tester);
+    // The unit sheet never opened.
+    for (final code in kAmountUnitCodes) {
+      expect(find.text(code), findsNothing);
+    }
     expect(
-        tester
-            .widget<SendAmountUnitPill>(
-                find.byKey(const ValueKey('share-amount-unit')))
-            .code,
-        'USD');
+        tester.widget<SendTypedAmountHero>(find.byType(SendTypedAmountHero))
+            .prefix,
+        '\$');
     await _keys(tester, '12');
     expect(find.text('₿12,000'), findsOneWidget);
     await tester.tap(kuteBarPrimaryWithText('Continue'));
@@ -625,16 +651,14 @@ void main() {
   });
 
   testWidgets(
-      'a dollar link keeps dollars only: the USD pill names the unit (no '
-      'sheet), "\$40.00 available", no ⇅; 100% is the balance and over it '
-      'is red with Continue off', (tester) async {
+      'a dollar link keeps dollars only: the figure alone (no pill, no ⇅), '
+      '"\$40.00 available"; 100% is the balance and over it is red with '
+      'Continue off', (tester) async {
     await pumpShareWidget(
         tester, env, const SendToAnyoneSheet(kind: ShareLinkKind.dollars),
         dollars: 40);
-    final pill = tester.widget<SendAmountUnitPill>(
-        find.byType(SendAmountUnitPill));
-    expect(pill.code, 'USD');
-    expect(pill.onTap, isNull);
+    expect(find.byType(SendAmountUnitPill), findsNothing);
+    expect(find.byIcon(Icons.swap_vert_rounded), findsNothing);
     expect(find.text('\$40.00 available'), findsOneWidget);
     expect(find.byType(SendAmountConversionLine), findsNothing);
     expect(find.byType(SendBitcoinAmountHero), findsNothing);
