@@ -26,8 +26,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/providers/nav_bar_visibility_provider.dart';
 import 'package:kute/screens/home/components/home_tab_switch.dart';
 import 'package:kute/screens/home/components/kute_top_nav_bar.dart';
-import 'package:kute/screens/shared/kute_back_button.dart';
-import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/shared/service_tab_strip.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -203,8 +201,9 @@ void main() {
       expect(tester.takeException(), isNull);
       final track = tester.getRect(_track);
       expect(track.center.dx, moreOrLessEquals(size.width / 2, epsilon: 0.01));
-      final button = tester.getRect(find.byType(KuteCircleButton));
-      // Clear of the round button, and as clear of the left edge, the
+      final button = tester
+          .getRect(find.byKey(const ValueKey('financial-hub-square')));
+      // Clear of the button, and as clear of the left edge, the
       // button's whole slot and more.
       expect(track.right, lessThan(button.left));
       expect(button.right, lessThanOrEqualTo(size.width));
@@ -274,9 +273,13 @@ void main() {
 
     expect(find.byType(HubPlusGearGlyph), findsOneWidget);
     expect(find.bySemanticsLabel('Financial hub and settings'), findsOneWidget);
-    // The app's round header button: no square chip left around it.
-    expect(tester.getSize(find.byType(KuteCircleButton)).width,
-        moreOrLessEquals(kKuteNavHitSize.w));
+    // The neutral square chip, not a circle.
+    final square = tester.widget<Container>(
+        find.byKey(const ValueKey('financial-hub-square')));
+    expect((square.decoration! as BoxDecoration).borderRadius,
+        AppRadius.buttonBorder);
+    expect(tester.getSize(find.byKey(const ValueKey('financial-hub-square'))).width,
+        moreOrLessEquals(46.w));
 
     // A press plays the glyph's quick swap as the finger lands.
     final glyph = find.descendant(
@@ -310,12 +313,12 @@ void main() {
             e.$1 == 'wallet_actions_opened' && e.$2!['source'] == 'usd_plus')));
   });
 
-  testWidgets('on a narrow phone the circle scales, its target stays 44',
+  testWidgets('on a narrow phone the square scales, its target stays 44',
       (tester) async {
     await pumpTopSwitchShell(tester, size: const Size(320, 568));
     await _settle(tester);
     final centre = tester.getCenter(find.byType(HubPlusGearGlyph));
-    // Just past the drawn circle (about 30 here), inside the 44 pt target.
+    // Just past the drawn square (about 34 here), inside the 44 pt target.
     await tester.tapAt(centre + const Offset(-21, 0));
     await _settle(tester);
     expect(find.text('Financial hub'), findsOneWidget);

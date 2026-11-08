@@ -3,7 +3,7 @@
 // Integrated top navigation bar: the Bitcoin | Dollars switch
 // ([HomeTabSwitch], founder 8 November 2026) centred on the screen, so it
 // lines up with the balance below, an empty slot on the left balancing the
-// ONE round button on the RIGHT that opens the Financial hub: the wallet
+// ONE square button on the RIGHT that opens the Financial hub: the wallet
 // list, switch wallet and Add wallet, Notifications in its header and a
 // Settings row. For any other wallet the slot is not there and its tab chips
 // ([ServiceTabStrip]) fill the row up to the button.
@@ -25,6 +25,7 @@ import 'dart:math' as math;
 
 import 'package:kute/l10n/l10n.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/providers/nav_bar_visibility_provider.dart';
@@ -32,10 +33,12 @@ import 'package:kute/providers/shell_wallet_provider.dart';
 import 'package:kute/screens/home/components/action_pill.dart';
 import 'package:kute/screens/home/components/home_tab_switch.dart'
     show homeTabSwitchTrackHeight;
-import 'package:kute/screens/shared/kute_back_button.dart'
-    show KuteCircleButton, kKuteNavButtonSize, kKuteNavHitSize;
+import 'package:kute/screens/shared/kute_back_button.dart' show kKuteNavHitSize;
 import 'package:kute/screens/shared/wallet_money_actions.dart';
 import 'package:kute/theme/app_theme.dart';
+
+/// The hub button's square, in design units (pre-`.w`).
+const double _kHubButtonSize = 46;
 
 class KuteTopNavBar extends ConsumerWidget {
   final ActiveNavTab activeTab;
@@ -68,11 +71,10 @@ class KuteTopNavBar extends ConsumerWidget {
 
     final centred = shellStripIsSwitch(
         ref.watch(shellWalletProvider), ref.watch(shellVenueOwnerProvider));
-    // The hub button's slot, and on the left its empty twin: a whole 44 pt
-    // on a narrow phone, where the circle scales down inside it. The bar's
-    // inset puts the circle's own edge on the page's 16 margin.
-    final slot = math.max(kKuteNavHitSize, kKuteNavHitSize.w);
-    final edge = 16.w - (slot - kKuteNavButtonSize.w) / 2;
+    // The hub button's slot, and on the left its empty twin. The bar's inset
+    // puts the square's own edge on the page's 16 margin.
+    final slot = math.max(kKuteNavHitSize, _kHubButtonSize.w);
+    final edge = 16.w - (slot - _kHubButtonSize.w) / 2;
     // The switch's 44 pt targets reach above its track on a narrow phone
     // rather than pushing the track down towards the page.
     final top = centred
@@ -114,8 +116,7 @@ class KuteTopNavBar extends ConsumerWidget {
     // Slide up off the top edge when hidden (content scrolls underneath).
     return AnimatedSlide(
       offset: hidden ? const Offset(0, -1) : Offset.zero,
-      duration:
-          reduceMotion ? Duration.zero : kNavBarSlideDuration,
+      duration: reduceMotion ? Duration.zero : kNavBarSlideDuration,
       curve: Curves.easeOut,
       child: IgnorePointer(ignoring: hidden, child: bar),
     );
@@ -123,9 +124,8 @@ class KuteTopNavBar extends ConsumerWidget {
 }
 
 /// The Financial hub door: the "+"-with-a-gear glyph ([HubPlusGearGlyph])
-/// in the app's round header button ([KuteCircleButton], the family of the
-/// back and close circles: soft fill, no border, its press and its selection
-/// click), right of the tab strip. It opens the hub sheet: wallets and Add wallet, with
+/// in the neutral square chip (founder, 8 November 2026: "should be square
+/// like it was before"), right of the tab strip. It opens the hub sheet: wallets and Add wallet, with
 /// Settings and Notifications side by side in its header. The
 /// `wallet_actions_opened` source names the tab it was opened on:
 /// home_plus | usd_plus | trading_plus | predictions_plus | bank_plus.
@@ -150,20 +150,61 @@ class _FinancialHubButtonState extends State<_FinancialHubButton> {
 
   @override
   Widget build(BuildContext context) {
-    return KuteCircleButton(
-      semanticsLabel: context.l10n.financialHubAndSettings,
-      onPressDown: _pressed.ping,
-      onPressed: () {
-        showWalletMoneyActions(context, source: switch (widget.activeTab) {
-          ActiveNavTab.home => 'home_plus',
-          ActiveNavTab.usd => 'usd_plus',
-          ActiveNavTab.trading => 'trading_plus',
-          ActiveNavTab.predictions => 'predictions_plus',
-          ActiveNavTab.bank => 'bank_plus',
-        });
-      },
-      child: HubPlusGearGlyph(
-          color: context.colors.textPrimary, size: 24.sp, pressed: _pressed),
+    final c = context.colors;
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    return Semantics(
+      button: true,
+      label: context.l10n.financialHubAndSettings,
+      child: GestureDetector(
+        key: const ValueKey('financial-hub-button'),
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => _pressed.ping(),
+        onTap: () {
+          HapticFeedback.selectionClick();
+          showWalletMoneyActions(context,
+              source: switch (widget.activeTab) {
+                ActiveNavTab.home => 'home_plus',
+                ActiveNavTab.usd => 'usd_plus',
+                ActiveNavTab.trading => 'trading_plus',
+                ActiveNavTab.predictions => 'predictions_plus',
+                ActiveNavTab.bank => 'bank_plus',
+              });
+        },
+        // The same neutral square chip the dock's button and the header
+        // shortcuts wear: rounded square, the light-mode white fill with
+        // its soft lift, a hairline rather than a full-weight rim.
+        // The target stays 44 pt on a narrow phone, where the square scales.
+        child: SizedBox.square(
+          dimension: math.max(kKuteNavHitSize, _kHubButtonSize.w),
+          child: Center(
+            child: Container(
+              key: const ValueKey('financial-hub-square'),
+              width: _kHubButtonSize.w,
+              height: _kHubButtonSize.w,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: isLight ? Colors.white : c.surface,
+                borderRadius: AppRadius.buttonBorder,
+                border: Border.all(
+                  color: isLight ? c.border : c.borderSubtle,
+                  width: isLight ? 1.0 : 0.5,
+                ),
+                boxShadow: isLight
+                    ? [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.04),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
+                        ),
+                      ]
+                    : null,
+              ),
+              child: HubPlusGearGlyph(
+                  color: c.textPrimary, size: 24.sp, pressed: _pressed),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -373,8 +414,8 @@ class _HubPlusGearGlyphState extends State<HubPlusGearGlyph>
           }
           return CustomPaint(
             size: size,
-            painter: _HubPlusGearPainter(widget.color, dpr,
-                swap: swap, turn: turn),
+            painter:
+                _HubPlusGearPainter(widget.color, dpr, swap: swap, turn: turn),
           );
         },
       ),
@@ -468,11 +509,9 @@ class _HubPlusGearPainter extends CustomPainter {
 
     // The plus: a whole number of device pixels wide, centred so both
     // strokes' edges land on pixel boundaries, at every frame.
-    final w =
-        math.max(1, (lerp(_stroke, _strokeSmall) * k).round()).toDouble();
-    double onGrid(double v) => w % 2 == 0
-        ? v.roundToDouble()
-        : (v - 0.5).roundToDouble() + 0.5;
+    final w = math.max(1, (lerp(_stroke, _strokeSmall) * k).round()).toDouble();
+    double onGrid(double v) =>
+        w % 2 == 0 ? v.roundToDouble() : (v - 0.5).roundToDouble() + 0.5;
     final at = lerp(_plus, _plusSmall) * k;
     final pc = Offset(onGrid(at), onGrid(at));
     final arm = (lerp(_arm, _armSmall) * k).roundToDouble();

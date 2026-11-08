@@ -228,7 +228,6 @@ class _KuteNavChassis extends StatefulWidget {
     required this.size,
     this.glyphColor,
     this.onPressed,
-    this.onPressDown,
     this.enabled = true,
     this.fill,
     this.borderColor,
@@ -245,9 +244,6 @@ class _KuteNavChassis extends StatefulWidget {
   /// The circle's diameter (the pill's height) in design units.
   final double size;
   final Color? glyphColor;
-
-  /// Called as a finger lands, before the tap.
-  final VoidCallback? onPressDown;
   final VoidCallback? onPressed;
   final bool enabled;
 
@@ -342,7 +338,6 @@ class _KuteNavChassisState extends State<_KuteNavChassis> {
           onTapDown: live
               ? (_) {
                   _set(true);
-                  widget.onPressDown?.call();
                 }
               : null,
           onTapUp: live ? (_) => _set(false) : null,
@@ -371,10 +366,6 @@ class KuteCircleButton extends StatelessWidget {
   final String semanticsLabel;
   final VoidCallback onPressed;
 
-  /// Called as a finger lands, before the tap (the hub's glyph plays its
-  /// press on it).
-  final VoidCallback? onPressDown;
-
   /// Circle diameter in logical px (pre-`.w`); the canonical
   /// [kKuteNavButtonSize].
   final double size;
@@ -395,7 +386,6 @@ class KuteCircleButton extends StatelessWidget {
     required this.child,
     required this.semanticsLabel,
     required this.onPressed,
-    this.onPressDown,
     this.size = kKuteNavButtonSize,
     this.fill,
     this.borderColor,
@@ -408,7 +398,6 @@ class KuteCircleButton extends StatelessWidget {
       size: size,
       semanticsLabel: semanticsLabel,
       onPressed: onPressed,
-      onPressDown: onPressDown,
       enabled: enabled,
       fill: fill,
       borderColor: borderColor,
