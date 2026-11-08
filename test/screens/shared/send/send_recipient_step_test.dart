@@ -22,8 +22,6 @@ import 'package:kute/providers/asset_icon_provider.dart' show AssetIcon;
 import 'package:kute/screens/search/components/search_composer.dart';
 import 'package:kute/screens/shared/coin_asset_grid.dart';
 import 'package:kute/screens/shared/sal_sprite.dart';
-import 'package:kute/screens/shared/send/send_flow_widgets.dart'
-    show SendToListCard, SendToListRow;
 import 'package:kute/screens/shared/send/send_recipient_step.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -256,6 +254,7 @@ void main() {
           hintText: 'Name, phone or any crypto address',
           onChanged: (v) => setState(() => calls.add('changed:$v')),
           onPaste: () => calls.add('paste'),
+          onScan: () => calls.add('scan'),
           onSubmitted: (v) => calls.add('done:$v'),
         ),
       )));
@@ -293,13 +292,12 @@ void main() {
       expect(f.keyboardType, TextInputType.text);
     });
 
-    testWidgets('Paste while empty, the clear once filled; no Scan in the '
-        'field; Done hands the text on', (tester) async {
+    testWidgets('Paste and Scan while empty, the clear once filled; Done '
+        'hands the text on', (tester) async {
       await pump(tester);
       await tester.tap(find.byKey(const ValueKey('send-field-paste')));
-      expect(calls, ['paste']);
-      expect(find.byKey(const ValueKey('send-field-scan')), findsNothing);
-      expect(find.byIcon(Icons.qr_code_scanner_rounded), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('send-field-scan')));
+      expect(calls, ['paste', 'scan']);
       expect(find.byKey(const ValueKey('send-field-clear')), findsNothing);
       // Neither took the focus.
       expect(tester.widget<TextField>(find.byType(TextField)).focusNode!.hasFocus,
@@ -340,23 +338,6 @@ void main() {
       await tester.tap(find.byType(SalSprite));
       await tester.pump();
       expect(field(tester).focusNode!.hasFocus, isTrue);
-    });
-  });
-
-  group('the Scan QR Code row', () {
-    testWidgets('says what it does, in the contacts\' card, and scans',
-        (tester) async {
-      var scans = 0;
-      await tester.pumpWidget(_host(SendScanQrRow(onScan: () => scans++)));
-      await tester.pump();
-      final row = find.byKey(const ValueKey('send-field-scan'));
-      expect(tester.widget(row), isA<SendToListRow>());
-      expect(find.ancestor(of: row, matching: find.byType(SendToListCard)),
-          findsOneWidget);
-      expect(find.text('Scan QR Code'), findsOneWidget);
-      expect(find.byIcon(Icons.qr_code_scanner_rounded), findsOneWidget);
-      await tester.tap(row);
-      expect(scans, 1);
     });
   });
 

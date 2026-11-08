@@ -290,7 +290,6 @@ Finder _step(String title) => find.byWidgetPredicate((w) =>
 
 Finder get _grid => find.byKey(const ValueKey('usd-send-coin-grid'));
 Finder get _chip => find.byKey(const ValueKey('usd-send-coin-chip'));
-Finder get _scanRow => find.byKey(const ValueKey('send-field-scan'));
 
 String _chipLabel(WidgetTester tester) =>
     tester.widget<SendAmountUnitPill>(_chip).code;
@@ -463,7 +462,7 @@ void main() {
         findsOneWidget);
     expect(find.byType(TextField), findsNothing);
     expect(find.byTooltip(_l10n.paste), findsNothing);
-    expect(_scanRow, findsNothing);
+    expect(find.byTooltip(_l10n.scan), findsNothing);
     // Nothing is picked for the person, and the clipboard waits.
     expect(_chip, findsNothing);
     expect(find.text(_l10n.sendClipboardAddressFound), findsNothing);
@@ -509,16 +508,15 @@ void main() {
   });
 
   testWidgets(
-      'the address step is addresses only: the chip, the field with Paste, '
-      'the Scan QR Code row while it is empty, none of the friend, prediction '
-      'or contact rows',
+      'the address step is addresses only: the chip, the field and Paste '
+      'and Scan, none of the friend, prediction or contact rows',
       (tester) async {
     await _pump(tester);
     await _pickCoin(tester, 'arbitrum', 'USDC');
     expect(_chip, findsOneWidget);
     expect(find.byType(TextField), findsOneWidget);
     expect(find.byTooltip(_l10n.paste), findsOneWidget);
-    expect(_scanRow, findsOneWidget);
+    expect(find.byTooltip(_l10n.scan), findsOneWidget);
     expect(find.byKey(const ValueKey('send-to-friend-row')), findsNothing);
     expect(find.byKey(const ValueKey('send-pick-market-row')), findsNothing);
     expect(find.byKey(const ValueKey('send-to-anyone-row')), findsNothing);
@@ -530,11 +528,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('send-contact-matches')), findsNothing);
     expect(find.byKey(const ValueKey('send-to-friend-row')), findsNothing);
-    // Typing hides the row; the field's clear brings it back.
-    expect(_scanRow, findsNothing);
-    await tester.tap(find.byKey(const ValueKey('send-field-clear')));
-    await tester.pumpAndSettle();
-    expect(_scanRow, findsOneWidget);
   });
 
   testWidgets(
@@ -553,7 +546,7 @@ void main() {
     expect(_chipLabel(tester), label('arbitrum', 'USDC'));
     expect(find.byType(TextField), findsOneWidget);
     expect(find.byTooltip(_l10n.paste), findsOneWidget);
-    expect(_scanRow, findsOneWidget);
+    expect(find.byTooltip(_l10n.scan), findsOneWidget);
     expect(events.where((e) => e.$1 == 'usd_send_coin_selected').single.$2,
         {'asset': 'USDC', 'network': 'arbitrum', 'preselected': false});
     expect(_continueEnabled(tester), isFalse);
@@ -1119,7 +1112,7 @@ void main() {
     await tester.pumpAndSettle();
     await _pickCoin(tester, 'tron', 'USDT');
 
-    await tester.tap(_scanRow);
+    await tester.tap(find.byTooltip(_l10n.scan));
     await tester.pumpAndSettle();
     expect(find.byType(ScannerSheet), findsOneWidget);
     expect(ModalRoute.of(tester.element(find.byType(ScannerSheet))),

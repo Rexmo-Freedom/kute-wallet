@@ -95,9 +95,7 @@ import '../../mocks/fake_share_links_api.dart';
 
 final _l10n = AppLocalizationsEn();
 
-Finder get _scanRow => find.byKey(const ValueKey('send-field-scan'));
-
-Settings _settings({bool cold = false}) => Settings(
+Settings _settings() => Settings(
       currency: 'USD',
       language: 'en',
       btcFormat: 'sats',
@@ -106,18 +104,8 @@ Settings _settings({bool cold = false}) => Settings(
       bitcoinElectrumNode: '',
       nodeType: 'Blockstream',
       reviewDone: true,
-      activeWalletId: cold ? 'cold' : 'spending',
-      wallets: [
-        if (cold)
-          WalletConfig(
-              id: 'cold',
-              name: 'Cold',
-              isWatchOnly: true,
-              sparkEnabled: false,
-              walletType: 'bitcoin')
-        else
-          WalletConfig(id: 'spending', name: 'Spending'),
-      ],
+      activeWalletId: 'spending',
+      wallets: [WalletConfig(id: 'spending', name: 'Spending')],
     );
 
 late FakeSendContactsGateway _gateway;
@@ -211,7 +199,6 @@ Future<void> _pump(WidgetTester tester,
     bool wide = false,
     bool recents = false,
     int? spendingSats,
-    bool cold = false,
     Locale? locale,
     Size size = const Size(375, 812)}) async {
   tester.view.physicalSize = size * 3;
@@ -242,7 +229,7 @@ Future<void> _pump(WidgetTester tester,
   addTearDown(router.dispose);
   await tester.pumpWidget(ProviderScope(
     overrides: [
-      settingsProvider.overrideWith((_) => SettingsModel(_settings(cold: cold))),
+      settingsProvider.overrideWith((_) => SettingsModel(_settings())),
       sendContactsGatewayProvider.overrideWithValue(_gateway),
       shareLinksApiProvider.overrideWithValue(_api),
       if (recents) sparkContactsProvider.overrideWith(_Paid.new),
@@ -407,7 +394,7 @@ void main() {
 
   testWidgets(
       'the step: "Send", the search field saying it takes any crypto '
-      'address, Paste, the Scan QR Code row, the Contacts with "See your contacts" '
+      'address, Paste and Scan, the Contacts with "See your contacts" '
       'first; no chips and no "Send to a friend" row', (tester) async {
     await _pump(tester);
     expect(find.text(_l10n.send), findsOneWidget);
@@ -417,17 +404,8 @@ void main() {
     expect(find.text(_l10n.sendRecipientSearchHint), findsOneWidget);
     expect(_l10n.sendRecipientSearchHint, 'Name, phone or any crypto address');
     expect(find.byKey(const ValueKey('send-field-paste')), findsOneWidget);
-    expect(_scanRow, findsOneWidget);
-    expect(_text(_l10n.scanQrCode), findsOneWidget);
+    expect(find.byKey(const ValueKey('send-field-scan')), findsOneWidget);
     expect(find.byKey(const ValueKey('send-accepted-coins')), findsOneWidget);
-    // Right under the logos, above the people.
-    expect(
-        tester.getTopLeft(_scanRow).dy,
-        greaterThan(tester
-            .getBottomLeft(find.byKey(const ValueKey('send-accepted-coins')))
-            .dy));
-    expect(tester.getBottomLeft(_scanRow).dy,
-        lessThan(tester.getTopLeft(_text(_l10n.sendAllContacts)).dy));
     expect(_text(_l10n.sendAllContacts), findsOneWidget);
     expect(find.byKey(ask), findsOneWidget);
     expect(_text(_l10n.sendContactsSeeYours), findsOneWidget);
@@ -463,35 +441,8 @@ void main() {
   });
 
   testWidgets(
-      'typing hides the Scan QR Code row with the logos, the results stay '
-      'high; the field\'s clear brings it back', (tester) async {
-    await _pump(tester);
-    expect(_scanRow, findsOneWidget);
-    await tester.enterText(find.byType(TextField).first, 'mar');
-    await tester.pumpAndSettle();
-    expect(_scanRow, findsNothing);
-    expect(find.byKey(const ValueKey('send-accepted-coins')), findsNothing);
-    await tester.tap(find.byKey(const ValueKey('send-field-clear')));
-    await tester.pumpAndSettle();
-    expect(_scanRow, findsOneWidget);
-    expect(find.byKey(const ValueKey('send-accepted-coins')), findsOneWidget);
-  });
-
-  testWidgets(
-      'a cold wallet\'s Send scans too: the row is there, no contacts under '
-      'it', (tester) async {
-    await _pump(tester, cold: true);
-    expect(_scanRow, findsOneWidget);
-    expect(_text(_l10n.sendAllContacts), findsNothing);
-    expect(tester.takeException(), isNull);
-    // The cold source's first wallet scan leaves a timeout running.
-    await tester.pumpWidget(const SizedBox());
-    await tester.pump(const Duration(minutes: 2));
-  });
-
-  testWidgets(
-      'people first: the contacts right under the field, search < Scan QR '
-      'Code < Frequent < All contacts; typing hides Frequent', (tester) async {
+      'people first: the contacts right under the field, search < Frequent '
+      '< All contacts; typing hides Frequent', (tester) async {
     await policy(tester);
     await _pump(tester, catalog: true, recents: true);
     const frequent = ValueKey('send-frequent-section');
@@ -500,8 +451,8 @@ void main() {
         findsOneWidget);
     double top(Finder f) => tester.getTopLeft(f).dy;
     double bottom(Finder f) => tester.getBottomLeft(f).dy;
-    // Frequent follows the scan row with only the section's own gap.
-    expect(top(find.byKey(frequent)) - bottom(_scanRow),
+    // Frequent follows the field with only the section's own gap.
+    expect(top(find.byKey(frequent)) - bottom(find.byKey(_field)),
         inInclusiveRange(0, 40));
     expect(bottom(find.byKey(frequent)), lessThan(top(find.byKey(ask))));
     // Once only: the Contacts below never repeat it.

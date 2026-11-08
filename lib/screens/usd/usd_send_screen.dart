@@ -1111,8 +1111,7 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
 
   /// Send to: the coin grid until a coin is picked (with the link rows
   /// under it, [_coinStep]), then the picked coin as a chip over the
-  /// recipient field with its Paste, the Scan QR Code row while it is empty
-  /// (SendScanQrRow), and the recents for that coin.
+  /// recipient field, its Paste and Scan, and the recents for that coin.
   /// ADDRESSES ONLY from here (founder, 31 October 2026): a coin on a
   /// network is a destination a friend's link does not have, so neither
   /// the friend row, the prediction row nor the contacts appear on this
@@ -1177,9 +1176,9 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
             controller: _address,
             hintText: l10n.usdSendRecipientSearchHint,
             onPaste: _paste,
+            onScan: _scan,
             onChanged: _onAddressTyped,
           ),
-          if (addr.isEmpty) SendScanQrRow(onScan: _scan),
           if (error != null) ...[
             SizedBox(height: 10.h),
             SendInlineError(message: error),

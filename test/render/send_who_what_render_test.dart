@@ -16,11 +16,8 @@
 // icons ... the search bar should be like the ai search bar", "same thing in
 // dollars"): both Sends at 320 and 375 pt wide, in a long language, with the
 // swap open and with it region-blocked, the coins under the empty field only
-// what is really open. And THE SCANNER (founder, 8 November 2026: "make in send
-// more clear the qr code scanner"): the Scan QR Code row under the logos on
-// both Sends, with Frequent and the contacts still on screen below it at
-// 320x568, gone while typing, and on a cold wallet's Send. Every frame lays
-// out without an overflow; the PNGs are written only when asked:
+// what is really open. Every frame lays out without an overflow; the PNGs are
+// written only when asked:
 //
 //   SEND_WHO_RENDER=<dir> flutter test test/render/send_who_what_render_test.dart
 
@@ -173,7 +170,7 @@ class _Paid extends SparkContactsNotifier {
       ];
 }
 
-Settings _settings({bool cold = false}) => Settings(
+Settings _settings() => Settings(
       currency: 'USD',
       language: 'en',
       btcFormat: 'sats',
@@ -182,18 +179,8 @@ Settings _settings({bool cold = false}) => Settings(
       bitcoinElectrumNode: '',
       nodeType: 'Blockstream',
       reviewDone: true,
-      activeWalletId: cold ? 'cold' : 'spending',
-      wallets: [
-        if (cold)
-          WalletConfig(
-              id: 'cold',
-              name: 'Cold',
-              isWatchOnly: true,
-              sparkEnabled: false,
-              walletType: 'bitcoin')
-        else
-          WalletConfig(id: 'spending', name: 'Spending'),
-      ],
+      activeWalletId: 'spending',
+      wallets: [WalletConfig(id: 'spending', name: 'Spending')],
     );
 
 /// Sal's sheets, read for real: the What step's gift wears his face.
@@ -281,7 +268,6 @@ void main() {
 
   Future<void> pumpSend(WidgetTester tester,
       {required bool dark,
-      bool cold = false,
       Locale? locale,
       Size size = const Size(375, 812),
       Set<String> blocked = const {},
@@ -327,8 +313,7 @@ void main() {
     final base = dark ? buildDarkTheme() : buildLightTheme();
     await tester.pumpWidget(ProviderScope(
       overrides: [
-        settingsProvider
-            .overrideWith((_) => SettingsModel(_settings(cold: cold))),
+        settingsProvider.overrideWith((_) => SettingsModel(_settings())),
         sendContactsGatewayProvider.overrideWithValue(FakeSendContactsGateway(
             permission: SendContactsPermission.granted,
             contacts: fakeContacts())),
@@ -510,23 +495,6 @@ void main() {
     };
   }
 
-  /// The Scan QR Code row is on screen, and Frequent and the contacts still
-  /// show below it, however short the phone.
-  void expectScanThenPeople(WidgetTester tester) {
-    final row = find.byKey(const ValueKey('send-field-scan'));
-    expect(row, findsOneWidget);
-    final screen = tester.view.physicalSize.height;
-    final rowBottom = tester.getRect(row).bottom;
-    // Frequent where there are recents, else the contacts' header.
-    final frequent = find.byKey(const ValueKey('send-frequent-section'));
-    final people = tester.getRect(frequent.evaluate().isNotEmpty
-        ? frequent
-        : find.text(tester.element(row).l10n.sendAllContacts));
-    expect(people.top, greaterThanOrEqualTo(rowBottom));
-    expect(people.bottom, lessThan(screen),
-        reason: 'people on screen under the row');
-  }
-
   /// The logos shown under the field, left to right, as `AssetIcon` codes.
   List<String> coinsShown(WidgetTester tester) => [
         for (final e in find
@@ -554,7 +522,6 @@ void main() {
             ['BTC', 'Lightning', 'USDC', 'ETH', 'USDT', 'SOL']);
         expect(find.byKey(const ValueKey('send-accepted-coins-more')),
             findsOneWidget);
-        expectScanThenPeople(tester);
         await _capture(tester, 'field-bitcoin-$at-open-$theme');
       });
 
@@ -575,7 +542,6 @@ void main() {
                     const ValueKey('send-accepted-chain-ethereum'))),
             findsOneWidget);
         expect(coinsShown(tester), ['BTC', 'Lightning']);
-        expectScanThenPeople(tester);
         await _capture(tester, 'field-dollars-$at-open-$theme');
       });
 
@@ -611,17 +577,7 @@ void main() {
       await _settle(tester);
       expect(find.byKey(const ValueKey('send-accepted-coins')), findsNothing);
       expect(find.byKey(const ValueKey('send-field-clear')), findsOneWidget);
-      expect(find.byKey(const ValueKey('send-field-scan')), findsNothing);
       await _capture(tester, 'field-typed-name-$theme');
-    });
-
-    testWidgets('render: field-cold-$theme', (tester) async {
-      await pumpSend(tester, dark: dark, cold: true, size: const Size(320, 568));
-      expect(find.byKey(const ValueKey('send-field-scan')), findsOneWidget);
-      await _capture(tester, 'field-cold-320x568-$theme');
-      // The cold source's first wallet scan leaves a timeout running.
-      await tester.pumpWidget(const SizedBox());
-      await tester.pump(const Duration(minutes: 2));
     });
 
     testWidgets(

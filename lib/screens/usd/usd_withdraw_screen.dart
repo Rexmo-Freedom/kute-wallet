@@ -14,8 +14,7 @@
 //     left with the compact X at the top right (receive_surface.dart,
 //     SheetTitleHeader; "it is strange the size"), and the same field,
 //     the AI search bar's line, "Name, phone or any crypto address", Paste
-//     at its right, and the Scan QR Code row under the logos while it is
-//     empty (send_recipient_step.dart, SendScanQrRow);
+//     and Scan at its right;
 //   * no "Another crypto" card under it (founder, 7 November 2026:
 //     "another crypto should be implied not a button, we don't need it,
 //     it should just auto recognise"): the placeholder says it takes any
@@ -436,6 +435,7 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
                       onChanged: (_) => setState(() {}),
                       onSubmitted: _goOn,
                       onPaste: () => unawaited(_paste()),
+                      onScan: () => unawaited(_scan()),
                     ),
                     // What the empty field takes: the networks dollars
                     // reach, then bitcoin's rails (handed to the Bitcoin
@@ -450,9 +450,6 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
                             usdSendDestinationOption(d)
                         ],
                       ),
-                    // The one place this Send scans from; typing hides it.
-                    if (text.isEmpty)
-                      SendScanQrRow(onScan: () => unawaited(_scan())),
                     if (auto != null) ...[
                       // One recipient card, the person never listed again.
                       SizedBox(height: 20.h),

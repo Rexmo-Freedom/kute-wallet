@@ -7491,7 +7491,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     }
   }
 
-  /// The Scan QR Code row under the field: the scanner sheet over the send
+  /// Inline Scan on the recipient field: the scanner sheet over the send
   /// sheet, in recipient mode, so it hands the payload back here instead
   /// of pushing a fresh confirm_send. Closing it leaves Send as it was.
   Future<void> _scanAddress() async {
@@ -7758,8 +7758,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   /// The Who step (send_recipient_step.dart): the search field (Lightning
   /// addresses of any domain, LNURL, invoices, bitcoin and Spark
   /// addresses, any crypto address the "Where to?" sheet lists, a name, a
-  /// number; Paste, and the Scan QR Code row under it while it is empty,
-  /// SendScanQrRow), the destination it holds resolved as one
+  /// number; Paste and Scan), the destination it holds resolved as one
   /// card FIRST (or the network question, as it is typed), the own-account
   /// moves the text names, then the people: Frequent (the recents as
   /// circles) and All contacts A–Z filtered by the text
@@ -7866,6 +7865,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
             controller: addressController,
             hintText: hintText,
             onPaste: _pasteAddressFromClipboard,
+            onScan: _scanAddress,
             onSubmitted: (_) => _submitTypedRecipient(),
             onChanged: (val) {
               // A pasted `bitcoin:bc1…?amount=…` URI must be reduced to
@@ -7908,9 +7908,6 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
                       .toList()
                   : const [],
             ),
-          // The one place Send scans from, cold wallets too (a QR address
-          // is how most reach them); typing hides it, the results stay high.
-          if (addr.isEmpty) SendScanQrRow(onScan: _scanAddress),
           // One recipient card (founder: "more fintech"), the person
           // never listed again below.
           if (resolved) ...[
