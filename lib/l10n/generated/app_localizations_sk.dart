@@ -6823,7 +6823,11 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String get receiveOneOffLateDepositRepriced =>
-      'Vklad, ktorý príde neskôr, môže dostať inú cenu.';
+      'Oneskorené vklady môžu dostať inú cenu.';
+
+  @override
+  String get quotedReceiveWrongCoinWarning =>
+      'Nesprávna minca alebo sieť? Peniaze sa môžu stratiť.';
 
   @override
   String get receiveOneOffNewAddress => 'Získať novú adresu';

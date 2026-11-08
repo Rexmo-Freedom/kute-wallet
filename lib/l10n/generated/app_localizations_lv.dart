@@ -6802,7 +6802,11 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get receiveOneOffLateDepositRepriced =>
-      'Vēlāk saņemts depozīts var saņemt citu cenu.';
+      'Novēloti depozīti var saņemt citu cenu.';
+
+  @override
+  String get quotedReceiveWrongCoinWarning =>
+      'Nepareiza monēta vai tīkls? Nauda var tikt zaudēta.';
 
   @override
   String get receiveOneOffNewAddress => 'Iegūt jaunu adresi';

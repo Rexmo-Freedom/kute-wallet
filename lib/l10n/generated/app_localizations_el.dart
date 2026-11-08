@@ -6873,7 +6873,11 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get receiveOneOffLateDepositRepriced =>
-      'Μια κατάθεση που φτάνει αργότερα μπορεί να πάρει διαφορετική τιμή.';
+      'Οι καθυστερημένες καταθέσεις μπορεί να πάρουν άλλη τιμή.';
+
+  @override
+  String get quotedReceiveWrongCoinWarning =>
+      'Λάθος νόμισμα ή δίκτυο; Τα χρήματά σου μπορεί να χαθούν.';
 
   @override
   String get receiveOneOffNewAddress => 'Νέα διεύθυνση';

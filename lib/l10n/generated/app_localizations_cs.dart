@@ -6816,7 +6816,11 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get receiveOneOffLateDepositRepriced =>
-      'Vklad, který dorazí později, může dostat jinou cenu.';
+      'Opožděné vklady mohou dostat jinou cenu.';
+
+  @override
+  String get quotedReceiveWrongCoinWarning =>
+      'Špatná mince nebo síť? Peníze se můžou ztratit.';
 
   @override
   String get receiveOneOffNewAddress => 'Získat novou adresu';

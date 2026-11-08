@@ -6842,7 +6842,11 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get receiveOneOffLateDepositRepriced =>
-      'Een storting die later binnenkomt, kan een andere prijs krijgen.';
+      'Late stortingen kunnen een andere prijs krijgen.';
+
+  @override
+  String get quotedReceiveWrongCoinWarning =>
+      'Verkeerde munt of netwerk? Je geld kan verloren gaan.';
 
   @override
   String get receiveOneOffNewAddress => 'Nieuw adres aanvragen';

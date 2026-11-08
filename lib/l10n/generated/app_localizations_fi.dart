@@ -6818,7 +6818,11 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get receiveOneOffLateDepositRepriced =>
-      'Myöhemmin saapuva talletus voi saada eri hinnan.';
+      'Myöhäiset talletukset voivat saada eri hinnan.';
+
+  @override
+  String get quotedReceiveWrongCoinWarning =>
+      'Väärä kolikko tai verkko? Rahasi voivat kadota.';
 
   @override
   String get receiveOneOffNewAddress => 'Hae uusi osoite';

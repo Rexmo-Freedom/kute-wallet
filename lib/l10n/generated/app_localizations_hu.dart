@@ -6835,7 +6835,11 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get receiveOneOffLateDepositRepriced =>
-      'A később érkező befizetés más árat kaphat.';
+      'A késve érkező befizetés más árat kaphat.';
+
+  @override
+  String get quotedReceiveWrongCoinWarning =>
+      'Rossz érme vagy hálózat? A pénzed elveszhet.';
 
   @override
   String get receiveOneOffNewAddress => 'Új cím kérése';

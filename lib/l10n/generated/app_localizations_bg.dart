@@ -6829,7 +6829,11 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get receiveOneOffLateDepositRepriced =>
-      'Депозит, пристигнал след това, може да получи различна цена.';
+      'Закъснелите депозити може да получат друга цена.';
+
+  @override
+  String get quotedReceiveWrongCoinWarning =>
+      'Грешна монета или мрежа? Парите ти може да се загубят.';
 
   @override
   String get receiveOneOffNewAddress => 'Вземи нов адрес';

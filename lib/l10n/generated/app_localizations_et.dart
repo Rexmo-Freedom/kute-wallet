@@ -6800,7 +6800,11 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get receiveOneOffLateDepositRepriced =>
-      'Hiljem saabuv sissemakse võib saada teise hinna.';
+      'Hilinenud sissemaksed võivad saada teise hinna.';
+
+  @override
+  String get quotedReceiveWrongCoinWarning =>
+      'Vale münt või võrk? Su raha võib kaduma minna.';
 
   @override
   String get receiveOneOffNewAddress => 'Hangi uus aadress';

@@ -11899,8 +11899,14 @@ abstract class AppLocalizations {
   /// No description provided for @receiveOneOffLateDepositRepriced.
   ///
   /// In en, this message translates to:
-  /// **'A deposit that lands after this may get a different price.'**
+  /// **'Late deposits may get a different price.'**
   String get receiveOneOffLateDepositRepriced;
+
+  /// The safety line on the one-time receive address sheet, under the squares that name the coin and the network to send. Sending anything else to this address can lose the money.
+  ///
+  /// In en, this message translates to:
+  /// **'Wrong coin or network? Your money may be lost.'**
+  String get quotedReceiveWrongCoinWarning;
 
   /// No description provided for @receiveOneOffNewAddress.
   ///

@@ -212,6 +212,10 @@ abstract final class OneTimeReceive {
           SwapOrder row, DateTime expiresAt, PendingReceiveQuoteScope scope)?
       debugRecord;
 
+  /// Test seam: takes the place of the deposit poller, and is handed what
+  /// the poller would report to. Read by the receive screen.
+  static void Function(void Function(SwapOrder order) onProgress)? debugWatch;
+
   static int destinationDecimals(String destinationAsset) =>
       destinationAsset.trim().toUpperCase() == 'BTC' ? 8 : 6;
 

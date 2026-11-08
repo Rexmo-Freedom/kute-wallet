@@ -19,6 +19,7 @@ import 'dart:async';
 
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show MethodCall, MethodChannel;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -51,6 +52,8 @@ import 'package:kute/screens/scanner/scanner_sheet.dart' show ScannerSheet;
 import 'package:kute/screens/shared/amount_keypad_panel.dart'
     show AmountKeypad, BigAmountDisplay;
 import 'package:kute/screens/shared/custom_button.dart' show AppTextButton;
+import 'package:kute/screens/shared/kute_action_cards.dart'
+    show KuteActionCard;
 import 'package:kute/screens/shared/receive_surface.dart';
 import 'package:kute/screens/shared/kute_back_button.dart'
     show KuteCloseButton, KuteNavGlyph, KuteNavGlyphPainter;
@@ -469,55 +472,67 @@ void main() {
     expect(row.refundAddress, _refund);
     expect(isOneTimeReceiveQuoteRow(row), isTrue);
 
-    // The address sheet: the code, the expiry, the network warning and
-    // the amount in the plate.
+    // The address sheet: the code, the quiet status and countdown, the
+    // address, the two squares and the one loud line. No Share in the page:
+    // the bar is it.
     expect(find.byType(QuotedReceiveSheet), findsOneWidget);
     expect(
         find.byWidgetPredicate(
             (w) => w is ReceiveAddressLine && w.address == _deposit),
         findsOneWidget);
-    // No exact-amount caption: the amount is in the plate ("You send").
+    expect(find.byType(ReceiveActionPills), findsNothing);
+    expect(kuteBarPrimaryWithText(_l10n.share), findsOneWidget);
+    // No exact-amount caption: the amount is on its square ("You send").
     expect(find.byKey(const ValueKey('onetime-receive-exact-amount')),
         findsNothing);
+    final youSend = find.byKey(const ValueKey('onetime-receive-you-send'));
+    final network = find.byKey(const ValueKey('onetime-receive-network'));
+    final sendCard = tester.widget<KuteActionCard>(youSend);
+    expect(sendCard.label, _l10n.youSend);
+    expect(sendCard.title, '25 USDT');
+    final networkCard = tester.widget<KuteActionCard>(network);
+    expect(networkCard.label, _l10n.network);
+    expect(networkCard.title, 'ethereum');
     expect(find.text('25 USDT'), findsOneWidget);
     // No stepper page title: the sheet header carries the title.
     expect(find.text(_l10n.usdReceiveShareStep), findsNothing);
-    expect(find.textContaining('Expires in'), findsOneWidget);
     // The Kute fee is charged but never shown under a receive address.
     expect(find.text(_l10n.feeUiKuteFee), findsNothing);
-    // What arrives is not shown. The countdown and the late-deposit line
-    // are plain captions right under the QR, the countdown first and
-    // emphasised; the network warning is a plain caption under the
-    // address, where the Bitcoin receive puts its own; no boxed note.
-    expect(find.text(_l10n.receiveOneOffLateDepositRepriced), findsOneWidget);
+    // What arrives is not shown. The status and the countdown are one quiet
+    // line under the code, what a late deposit means another; the safety
+    // line is the one that reads louder, under the squares; no boxed note.
     expect(
         find.text(_l10n.quotedReceiveExpectedOutput('\$24.80')), findsNothing);
     final expiry = find.byKey(const ValueKey('onetime-receive-expiry'));
     final late = find.byKey(const ValueKey('onetime-receive-late-deposit'));
     final warning =
         find.byKey(const ValueKey('onetime-receive-network-warning'));
-    expect(tester.widget<ReceiveCaption>(expiry).emphasised, isTrue);
+    final expiryLine = tester.widget<ReceiveCaption>(expiry);
+    expect(expiryLine.emphasised, isFalse);
+    expect(expiryLine.text, startsWith('${_l10n.waitingForDeposit} · Expires in '));
     expect(tester.widget<ReceiveCaption>(late).text,
         _l10n.receiveOneOffLateDepositRepriced);
-    expect(tester.widget<ReceiveCaption>(warning).emphasised, isFalse);
+    expect(tester.widget<ReceiveCaption>(warning).emphasised, isTrue);
     expect(tester.widget<ReceiveCaption>(warning).text,
-        startsWith('Send only USDT on '));
+        _l10n.quotedReceiveWrongCoinWarning);
     final qr = tester.getRect(find.byType(ReceiveQrPlate));
     expect(tester.getTopLeft(expiry).dy, greaterThan(qr.bottom));
     expect(
         tester.getTopLeft(late).dy, greaterThan(tester.getTopLeft(expiry).dy));
     expect(tester.getTopLeft(late).dy,
         lessThan(tester.getTopLeft(addressLineOf(_deposit)).dy));
-    expect(tester.getTopLeft(warning).dy,
+    expect(tester.getTopLeft(youSend).dy,
         greaterThan(tester.getBottomLeft(addressLineOf(_deposit)).dy));
     expect(tester.getTopLeft(warning).dy,
-        lessThan(tester.getTopLeft(find.byType(ReceiveActionPills)).dy));
+        greaterThanOrEqualTo(tester.getBottomLeft(youSend).dy));
     expect(find.byType(UsdFlowNote), findsNothing);
     expect(find.byType(StepperProgress), findsNothing);
     expect(find.text('0.50%'), findsNothing);
     // Where a failed deposit goes, shortened.
-    expect(find.text(_l10n.quotedReceiveReturnsTo), findsOneWidget);
-    expect(find.text(sendShortAddress(_refund)), findsOneWidget);
+    expect(
+        find.text('${_l10n.quotedReceiveReturnsTo} '
+            '${sendShortAddress(_refund)}'),
+        findsOneWidget);
 
     final generated =
         events.where((e) => e.$1 == 'receive_address_generated').single.$2!;
@@ -546,6 +561,52 @@ void main() {
     expect(standingCalls, isEmpty);
     await _unmount(tester);
   });
+
+  for (final (bitcoin, amount, event, props) in [
+    (
+      false,
+      '25',
+      'usd_receive_address_shared',
+      {'chain': 'ethereum', 'address_kind': 'onetime'}
+    ),
+    (
+      true,
+      '50000',
+      'receive_qr_shared',
+      {
+        'method': 'share',
+        'invoice_type': 'quoted_deposit_address',
+        'network': 'ethereum'
+      }
+    ),
+  ]) {
+    testWidgets(
+        'Share is the bar (${bitcoin ? 'Bitcoin' : 'Dollars'}): it hands the '
+        'address to the share sheet and tracks what the button tracked',
+        (tester) async {
+      final shared = <MethodCall>[];
+      const channel = MethodChannel('dev.fluttercommunity.plus/share');
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        shared.add(call);
+        return 'dev.fluttercommunity.plus/share/success';
+      });
+      addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+      await _pump(tester, bitcoin: bitcoin);
+      await _requestUsdt(tester, amount);
+      await _createWithRefund(tester, _refund);
+      await _barFollows(tester);
+
+      await tester.tap(kuteBarPrimaryWithText(_l10n.share));
+      await _settle(tester);
+
+      final tracked = events.where((e) => e.$1 == event).single.$2!;
+      expect(tracked, props);
+      expect(shared.single.arguments['text'], _deposit);
+      await _unmount(tester);
+    });
+  }
 
   testWidgets(
       'Bitcoin other coins: the amount in the receive unit, a one-time quote '

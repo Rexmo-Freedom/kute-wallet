@@ -6834,7 +6834,11 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get receiveOneOffLateDepositRepriced =>
-      'Uplata koja stigne kasnije može dobiti drugu cijenu.';
+      'Zakašnjele uplate mogu dobiti drugu cijenu.';
+
+  @override
+  String get quotedReceiveWrongCoinWarning =>
+      'Pogrešna kovanica ili mreža? Novac se može izgubiti.';
 
   @override
   String get receiveOneOffNewAddress => 'Nova adresa';
