@@ -14124,4 +14124,47 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get sendPickBarBuyingForFriend => 'Du köper den till en vän';
+
+  @override
+  String get inviteCardCaps => 'Du är inbjuden';
+
+  @override
+  String inviteCardDiscount(String discount) {
+    return '$discount rabatt';
+  }
+
+  @override
+  String get inviteCardFees => 'på Kutes avgifter';
+
+  @override
+  String get inviteCardJoin => 'Häng med på Kute';
+
+  @override
+  String get inviteCardUseCode => 'Använd min kod när du går med';
+
+  @override
+  String get shareEdgeInviteWelcome => 'Jag tog dig hit. Varsågod.';
+
+  @override
+  String get shareEdgeInviteGroupChat => 'Din gruppchatt behövde det här.';
+
+  @override
+  String get shareEdgeInviteSurprised =>
+      'Du har blivit rekommenderad. Spela förvånad.';
+
+  @override
+  String get shareEdgeInviteTwice => 'Tvinga mig inte att fråga två gånger.';
+
+  @override
+  String get shareEdgeInviteChainLetter => 'Inget kedjebrev. Lite bättre.';
+
+  @override
+  String get shareEdgeInviteCut =>
+      'Jag får en del. Du får rabatt. Alla är nöjda.';
+
+  @override
+  String get shareEdgeInviteFees => 'Lägre avgifter. Lika många åsikter.';
+
+  @override
+  String get shareEdgeInviteDog => 'Rabatten är äkta. Hunden är oberörd.';
 }

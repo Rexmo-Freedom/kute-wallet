@@ -3983,5 +3983,18 @@
   "sendPickTradeSide": "{side} küldése",
   "sendPickBarPickOutcome": "Válassz kimenetelt",
   "sendPickBarBuyingFor": "Te veszed meg, {name} kapja",
-  "sendPickBarBuyingForFriend": "Egy barátodnak veszed"
+  "sendPickBarBuyingForFriend": "Egy barátodnak veszed",
+  "inviteCardCaps": "Meghívást kaptál",
+  "inviteCardDiscount": "{discount} kedvezmény",
+  "inviteCardFees": "a Kute díjaiból",
+  "inviteCardJoin": "Csatlakozz hozzám a Kute-on",
+  "inviteCardUseCode": "Regisztrációnál használd a kódomat",
+  "shareEdgeInviteWelcome": "Idehoztalak. Szívesen.",
+  "shareEdgeInviteGroupChat": "A csoportos csevegésednek ez kellett.",
+  "shareEdgeInviteSurprised": "Ajánlottak. Tégy úgy, mintha meglepődnél.",
+  "shareEdgeInviteTwice": "Ne kelljen kétszer kérnem.",
+  "shareEdgeInviteChainLetter": "Nem lánclevél. Kicsit jobb annál.",
+  "shareEdgeInviteCut": "Én részesedést kapok. Te kedvezményt. Mindenki jól jár.",
+  "shareEdgeInviteFees": "Alacsonyabb díjak. Ugyanannyi vélemény.",
+  "shareEdgeInviteDog": "A kedvezmény valódi. A kutya rezzenéstelen."
 }

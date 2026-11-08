@@ -55,6 +55,9 @@
 //     promise of a win.
 //   * A RECEIPT'S CARD (ReceiptCardData): its own caps line and edgy
 //     lines, receipt_card.dart; no headline.
+//   * AN INVITE'S CARD (InviteCardData): "You're invited", its own lines
+//     ([_inviteEdges]), no headline: the message is the invite with the
+//     link.
 //   * THE FIGURES: prices, percents and amounts in the locale's own number
 //     format ("41 %", "242,10 $" in German).
 
@@ -258,7 +261,23 @@ List<String> shareCardEdges(AppLocalizations l10n, ShareCardData data) =>
       final PredictionCardData d => _marketEdges(l10n, d),
       final InvestmentCardData d => _investmentEdges(l10n, d),
       final ReceiptCardData d => receiptCardEdges(l10n, d),
+      final InviteCardData d => _inviteEdges(l10n, d),
     };
+
+/// An invite's lines; those about the discount only where the card has
+/// one.
+List<String> _inviteEdges(AppLocalizations l10n, InviteCardData d) => [
+      l10n.shareEdgeInviteWelcome,
+      l10n.shareEdgeInviteGroupChat,
+      l10n.shareEdgeInviteSurprised,
+      l10n.shareEdgeInviteTwice,
+      l10n.shareEdgeInviteChainLetter,
+      if (d.discount != null) ...[
+        l10n.shareEdgeInviteCut,
+        l10n.shareEdgeInviteFees,
+        l10n.shareEdgeInviteDog,
+      ],
+    ];
 
 /// A send's lines: the money lines, then bitcoin's or dollars' own; the
 /// card's amount where a line names it.
@@ -597,13 +616,14 @@ String shareCardEdge(AppLocalizations l10n, ShareCardData data, int seed) {
 /// The caps line at the top of [data]'s card (see the file header).
 String shareCardTopLine(AppLocalizations l10n, ShareCardData data) {
   if (data is ReceiptCardData) return receiptCardTopLine(l10n, data);
+  if (data is InviteCardData) return l10n.inviteCardCaps;
   final n = data.recipient?.trim() ?? '';
   final recipient = data.audience == ShareCardAudience.recipient;
   final bool pick = switch (data) {
     MoneyCardData() => true,
     PredictionCardData(:final picked) => picked,
     InvestmentCardData(:final picked) => picked,
-    ReceiptCardData() => true,
+    ReceiptCardData() || InviteCardData() => true,
   };
   if (!pick) {
     return data is InvestmentCardData ? l10n.trading : l10n.predictions;
@@ -699,7 +719,7 @@ ShareCardPosition? shareCardPosition(
 ShareCardHeadlineText? shareCardHeadline(
         AppLocalizations l10n, ShareCardData data) =>
     switch (data) {
-      MoneyCardData() || ReceiptCardData() => null,
+      MoneyCardData() || ReceiptCardData() || InviteCardData() => null,
       final PredictionCardData d => predictionHeadline(l10n, d),
       final InvestmentCardData d => investmentHeadline(l10n, d),
     };

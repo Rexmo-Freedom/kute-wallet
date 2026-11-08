@@ -14147,4 +14147,48 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String get sendPickBarBuyingForFriend => 'Kupuješ to pre kamaráta';
+
+  @override
+  String get inviteCardCaps => 'Máš pozvánku';
+
+  @override
+  String inviteCardDiscount(String discount) {
+    return 'Zľava $discount';
+  }
+
+  @override
+  String get inviteCardFees => 'na poplatky Kute';
+
+  @override
+  String get inviteCardJoin => 'Pridaj sa ku mne na Kute';
+
+  @override
+  String get inviteCardUseCode => 'Pri registrácii použi môj kód';
+
+  @override
+  String get shareEdgeInviteWelcome => 'Priviedol som ťa sem. Niet za čo.';
+
+  @override
+  String get shareEdgeInviteGroupChat => 'Tvoj skupinový chat toto potreboval.';
+
+  @override
+  String get shareEdgeInviteSurprised =>
+      'Dostal si odporúčanie. Tvár sa prekvapene.';
+
+  @override
+  String get shareEdgeInviteTwice => 'Nenúť ma pýtať sa dvakrát.';
+
+  @override
+  String get shareEdgeInviteChainLetter =>
+      'Nie je to reťazový e-mail. Je to o niečo lepšie.';
+
+  @override
+  String get shareEdgeInviteCut =>
+      'Ja dostanem podiel. Ty zľavu. Všetci sú v pohode.';
+
+  @override
+  String get shareEdgeInviteFees => 'Nižšie poplatky. Rovnako názorov.';
+
+  @override
+  String get shareEdgeInviteDog => 'Zľava je skutočná. Psa to nechá chladným.';
 }

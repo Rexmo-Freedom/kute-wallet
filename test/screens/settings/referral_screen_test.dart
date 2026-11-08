@@ -21,6 +21,11 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/affiliate_model.dart';
+import 'package:kute/l10n/generated/app_localizations.dart';
+import 'package:kute/screens/share/cards/share_card_copy.dart'
+    show shareCardEdges;
+import 'package:kute/screens/share/cards/share_card_data.dart'
+    show InviteCardData;
 import 'package:kute/screens/settings/affiliate_screen.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -371,21 +376,37 @@ void main() {
       await away(tester);
     });
 
-    testWidgets('Share invite shares the invite text with the link',
+    testWidgets('Share invite opens the invite card with Sal; its Share is the bar',
         (tester) async {
       await pump(tester, me: _me());
       kuteBarPrimaryContext(tester).onPrimary!();
-      await tester.pump();
-      await tester.pump();
-      expect(shared, hasLength(1));
-      final text = shared.single.arguments.toString();
-      expect(text, contains(_link));
-      expect(text, contains('20% off Kute fees'));
+      await frames(tester, 6);
+      expect(find.byKey(const ValueKey('share-card-invite')), findsOneWidget);
+      // Still the card, never the OS sheet straight away.
+      expect(shared, isEmpty);
+      expect(find.text('20% off'), findsOneWidget);
+      expect(find.text('Kute fees'), findsOneWidget);
+      expect(find.text('EKVGUY'), findsWidgets);
       expect(events.firstWhere((e) => e.$1 == 'affiliate_share_opened').$2,
-          {'method': 'sheet', 'trigger': 'bar'});
-      expect(events.firstWhere((e) => e.$1 == 'affiliate_code_shared').$2,
-          {'method': 'sheet', 'result': 'unavailable', 'surface': 'earn'});
+          {'method': 'card', 'trigger': 'bar'});
+      expect(kuteBarPrimaryContext(tester).label, 'Share');
+      expect(tester.takeException(), isNull);
       await away(tester);
+    });
+
+    test('the invite card has no line promising a profit or saying "bet"', () {
+      // The card's words, in every locale's English source.
+      final en = lookupAppLocalizations(const Locale('en'));
+      final lines = shareCardEdges(
+          en, const InviteCardData(discount: '20%', referralCode: 'EKVGUY'));
+      expect(lines, hasLength(8));
+      for (final line in lines) {
+        expect(line, isNot(matches(RegExp(r'\b(bet|profit)\b', caseSensitive: false))));
+      }
+      // Without a discount no line talks about one.
+      final plain = shareCardEdges(en, const InviteCardData());
+      expect(plain, hasLength(5));
+      expect(plain.join().toLowerCase(), isNot(contains('discount')));
     });
 
     testWidgets('the QR square opens the QR in a sheet; its Share is the bar',

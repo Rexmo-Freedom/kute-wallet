@@ -3983,5 +3983,18 @@
   "sendPickTradeSide": "Sūtīt {side}",
   "sendPickBarPickOutcome": "Izvēlies iznākumu",
   "sendPickBarBuyingFor": "Tu pērc, saņem {name}",
-  "sendPickBarBuyingForFriend": "Tu pērc draugam"
+  "sendPickBarBuyingForFriend": "Tu pērc draugam",
+  "inviteCardCaps": "Tu esi uzaicināts",
+  "inviteCardDiscount": "{discount} atlaide",
+  "inviteCardFees": "Kute maksām",
+  "inviteCardJoin": "Pievienojies man Kute",
+  "inviteCardUseCode": "Pievienojoties izmanto manu kodu",
+  "shareEdgeInviteWelcome": "Es tevi šeit atvedu. Nav par ko.",
+  "shareEdgeInviteGroupChat": "Tavai grupas sarunai to vajadzēja.",
+  "shareEdgeInviteSurprised": "Tevi ieteica. Izliecies pārsteigts.",
+  "shareEdgeInviteTwice": "Neliec man jautāt divreiz.",
+  "shareEdgeInviteChainLetter": "Tā nav ķēdes vēstule. Mazliet labāk.",
+  "shareEdgeInviteCut": "Es saņemu daļu. Tu atlaidi. Visiem labi.",
+  "shareEdgeInviteFees": "Zemākas maksas. Tikpat viedokļu.",
+  "shareEdgeInviteDog": "Atlaide ir īsta. Sunim vienalga."
 }

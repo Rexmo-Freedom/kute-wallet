@@ -14158,4 +14158,49 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get sendPickBarBuyingForFriend => 'Egy barátodnak veszed';
+
+  @override
+  String get inviteCardCaps => 'Meghívást kaptál';
+
+  @override
+  String inviteCardDiscount(String discount) {
+    return '$discount kedvezmény';
+  }
+
+  @override
+  String get inviteCardFees => 'a Kute díjaiból';
+
+  @override
+  String get inviteCardJoin => 'Csatlakozz hozzám a Kute-on';
+
+  @override
+  String get inviteCardUseCode => 'Regisztrációnál használd a kódomat';
+
+  @override
+  String get shareEdgeInviteWelcome => 'Idehoztalak. Szívesen.';
+
+  @override
+  String get shareEdgeInviteGroupChat =>
+      'A csoportos csevegésednek ez kellett.';
+
+  @override
+  String get shareEdgeInviteSurprised =>
+      'Ajánlottak. Tégy úgy, mintha meglepődnél.';
+
+  @override
+  String get shareEdgeInviteTwice => 'Ne kelljen kétszer kérnem.';
+
+  @override
+  String get shareEdgeInviteChainLetter => 'Nem lánclevél. Kicsit jobb annál.';
+
+  @override
+  String get shareEdgeInviteCut =>
+      'Én részesedést kapok. Te kedvezményt. Mindenki jól jár.';
+
+  @override
+  String get shareEdgeInviteFees => 'Alacsonyabb díjak. Ugyanannyi vélemény.';
+
+  @override
+  String get shareEdgeInviteDog =>
+      'A kedvezmény valódi. A kutya rezzenéstelen.';
 }

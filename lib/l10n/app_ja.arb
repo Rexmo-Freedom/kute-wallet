@@ -3983,5 +3983,18 @@
   "sendPickTradeSide": "{side}を送る",
   "sendPickBarPickOutcome": "結果を選んでください",
   "sendPickBarBuyingFor": "{name}さんのために購入します",
-  "sendPickBarBuyingForFriend": "友だちのために購入します"
+  "sendPickBarBuyingForFriend": "友だちのために購入します",
+  "inviteCardCaps": "招待が届きました",
+  "inviteCardDiscount": "{discount}オフ",
+  "inviteCardFees": "Kuteの手数料",
+  "inviteCardJoin": "Kuteで一緒に",
+  "inviteCardUseCode": "登録時に私のコードを使ってね",
+  "shareEdgeInviteWelcome": "連れてきてあげた。どういたしまして。",
+  "shareEdgeInviteGroupChat": "グループチャットに必要だったやつ。",
+  "shareEdgeInviteSurprised": "紹介されました。驚いたふりをどうぞ。",
+  "shareEdgeInviteTwice": "二度も言わせないで。",
+  "shareEdgeInviteChainLetter": "チェーンメールじゃない。もう少しまし。",
+  "shareEdgeInviteCut": "私には分け前、君には割引。みんな平和。",
+  "shareEdgeInviteFees": "手数料は低く。意見の数はそのまま。",
+  "shareEdgeInviteDog": "割引は本物。犬は動じない。"
 }

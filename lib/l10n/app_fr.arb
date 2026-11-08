@@ -3983,5 +3983,18 @@
   "sendPickTradeSide": "Envoyer {side}",
   "sendPickBarPickOutcome": "Choisissez une issue",
   "sendPickBarBuyingFor": "Vous l'achetez pour {name}",
-  "sendPickBarBuyingForFriend": "Vous l'achetez pour un ami"
+  "sendPickBarBuyingForFriend": "Vous l'achetez pour un ami",
+  "inviteCardCaps": "Tu es invité",
+  "inviteCardDiscount": "{discount} de réduction",
+  "inviteCardFees": "sur les frais Kute",
+  "inviteCardJoin": "Rejoins-moi sur Kute",
+  "inviteCardUseCode": "Utilise mon code en t'inscrivant",
+  "shareEdgeInviteWelcome": "Je t'ai amené ici. De rien.",
+  "shareEdgeInviteGroupChat": "Ton groupe de discussion en avait besoin.",
+  "shareEdgeInviteSurprised": "On t'a recommandé. Fais semblant d'être surpris.",
+  "shareEdgeInviteTwice": "Ne m'oblige pas à demander deux fois.",
+  "shareEdgeInviteChainLetter": "Pas une chaîne. Un peu mieux.",
+  "shareEdgeInviteCut": "J'ai une part. Toi une réduction. Tout le monde va bien.",
+  "shareEdgeInviteFees": "Moins de frais. Autant d'avis.",
+  "shareEdgeInviteDog": "La réduction est réelle. Le chien reste de marbre."
 }

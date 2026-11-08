@@ -3983,5 +3983,18 @@
   "sendPickTradeSide": "Skicka {side}",
   "sendPickBarPickOutcome": "Välj ett utfall",
   "sendPickBarBuyingFor": "Du köper den till {name}",
-  "sendPickBarBuyingForFriend": "Du köper den till en vän"
+  "sendPickBarBuyingForFriend": "Du köper den till en vän",
+  "inviteCardCaps": "Du är inbjuden",
+  "inviteCardDiscount": "{discount} rabatt",
+  "inviteCardFees": "på Kutes avgifter",
+  "inviteCardJoin": "Häng med på Kute",
+  "inviteCardUseCode": "Använd min kod när du går med",
+  "shareEdgeInviteWelcome": "Jag tog dig hit. Varsågod.",
+  "shareEdgeInviteGroupChat": "Din gruppchatt behövde det här.",
+  "shareEdgeInviteSurprised": "Du har blivit rekommenderad. Spela förvånad.",
+  "shareEdgeInviteTwice": "Tvinga mig inte att fråga två gånger.",
+  "shareEdgeInviteChainLetter": "Inget kedjebrev. Lite bättre.",
+  "shareEdgeInviteCut": "Jag får en del. Du får rabatt. Alla är nöjda.",
+  "shareEdgeInviteFees": "Lägre avgifter. Lika många åsikter.",
+  "shareEdgeInviteDog": "Rabatten är äkta. Hunden är oberörd."
 }

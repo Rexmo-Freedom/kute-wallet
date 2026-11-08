@@ -243,6 +243,11 @@ void main() {
     }
 
     final frames = <String, (ShareCardData, Locale)>{
+      '0_invite': (fakeInviteCard(), const Locale('en')),
+      '0_invite_plain': (fakeInviteCard(discount: null), const Locale('en')),
+      'de_invite': (fakeInviteCard(), const Locale('de')),
+      'hu_invite': (fakeInviteCard(), const Locale('hu')),
+      'ja_invite': (fakeInviteCard(), const Locale('ja')),
       '1_send_bitcoin': (fakeBitcoinCard(), const Locale('en')),
       '1_send_dollars': (fakeDollarsCard(), const Locale('en')),
       '2_send_prediction': (pickCard, const Locale('en')),

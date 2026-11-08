@@ -89,6 +89,8 @@ ShareCardPalette shareCardPalette(ShareCardData data) => switch (data) {
       PredictionCardData() => ShareCardPalette.prediction,
       InvestmentCardData() => ShareCardPalette.investment,
       final ReceiptCardData d => receiptCardPalette(d),
+      // The app's ink, Sal's orange popping on it, the figure in orange.
+      InviteCardData() => ShareCardPalette.bitcoinClaim,
     };
 
 /// A stock up this much today (a fraction) gets Sal's big win.
@@ -117,6 +119,8 @@ ShareCardPose shareCardPose(ShareCardData data) => switch (data) {
           _ => ShareCardPose.flat,
         },
       final ReceiptCardData d => receiptCardPose(d),
+      // An invite is a gift: the coin on her head.
+      InviteCardData() => ShareCardPose.claim,
     };
 
 class ShareCard extends StatelessWidget {
@@ -147,6 +151,23 @@ class ShareCard extends StatelessWidget {
       // A transaction's receipt (receipt_card.dart).
       case final ReceiptCardData d:
         return ReceiptShareCard(data: d, caps: caps, line: line, mark: mark);
+      case final InviteCardData d:
+        final discount = d.discount;
+        return ShareCardFrame(
+          key: key,
+          palette: p,
+          caps: caps,
+          number: discount == null ? null : l10n.inviteCardDiscount(discount),
+          numberBase: kShareCardMoneyHeroMax,
+          fact: discount == null ? null : l10n.inviteCardFees,
+          plain: discount == null ? l10n.inviteCardJoin : null,
+          plainStrong: discount == null,
+          line: line,
+          quiet: l10n.inviteCardUseCode,
+          code: code,
+          mark: mark,
+          pose: pose,
+        );
       case final MoneyCardData d:
         final sub = d.amountSub;
         final bitcoin = d.bitcoin;

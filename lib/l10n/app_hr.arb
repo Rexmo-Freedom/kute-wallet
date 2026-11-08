@@ -3983,5 +3983,18 @@
   "sendPickTradeSide": "Pošalji {side}",
   "sendPickBarPickOutcome": "Odaberi ishod",
   "sendPickBarBuyingFor": "Kupuješ ti, a dobiva {name}",
-  "sendPickBarBuyingForFriend": "Kupuješ za prijatelja"
+  "sendPickBarBuyingForFriend": "Kupuješ za prijatelja",
+  "inviteCardCaps": "Pozvan si",
+  "inviteCardDiscount": "{discount} popusta",
+  "inviteCardFees": "na Kute naknade",
+  "inviteCardJoin": "Pridruži mi se na Kuteu",
+  "inviteCardUseCode": "Pri prijavi upotrijebi moj kod",
+  "shareEdgeInviteWelcome": "Doveo sam te ovamo. Nema na čemu.",
+  "shareEdgeInviteGroupChat": "Tvom grupnom chatu ovo je trebalo.",
+  "shareEdgeInviteSurprised": "Preporučen si. Glumi iznenađenje.",
+  "shareEdgeInviteTwice": "Nemoj me tjerati da pitam dvaput.",
+  "shareEdgeInviteChainLetter": "Nije lančano pismo. Malo je bolje.",
+  "shareEdgeInviteCut": "Ja dobivam udio. Ti popust. Svi su dobro.",
+  "shareEdgeInviteFees": "Niže naknade. Jednako mišljenja.",
+  "shareEdgeInviteDog": "Popust je stvaran. Pas je nezainteresiran."
 }

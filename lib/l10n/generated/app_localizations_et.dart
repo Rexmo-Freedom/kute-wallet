@@ -14118,4 +14118,46 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get sendPickBarBuyingForFriend => 'Ostad selle sõbrale';
+
+  @override
+  String get inviteCardCaps => 'Oled kutsutud';
+
+  @override
+  String inviteCardDiscount(String discount) {
+    return '$discount soodustust';
+  }
+
+  @override
+  String get inviteCardFees => 'Kute tasudelt';
+
+  @override
+  String get inviteCardJoin => 'Tule minuga Kute\'i';
+
+  @override
+  String get inviteCardUseCode => 'Kasuta liitumisel minu koodi';
+
+  @override
+  String get shareEdgeInviteWelcome => 'Tõin su siia. Pole tänu väärt.';
+
+  @override
+  String get shareEdgeInviteGroupChat => 'Sinu grupivestlus vajas seda.';
+
+  @override
+  String get shareEdgeInviteSurprised => 'Sind soovitati. Tee üllatunud nägu.';
+
+  @override
+  String get shareEdgeInviteTwice => 'Ära pane mind kaks korda küsima.';
+
+  @override
+  String get shareEdgeInviteChainLetter => 'See pole ahelkiri. Natuke parem.';
+
+  @override
+  String get shareEdgeInviteCut =>
+      'Mina saan osa. Sina soodustuse. Kõik on rahul.';
+
+  @override
+  String get shareEdgeInviteFees => 'Madalamad tasud. Sama palju arvamusi.';
+
+  @override
+  String get shareEdgeInviteDog => 'Soodustus on päris. Koer ei tee väljagi.';
 }

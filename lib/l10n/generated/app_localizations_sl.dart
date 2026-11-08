@@ -14174,4 +14174,48 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get sendPickBarBuyingForFriend => 'Kupujete za prijatelja';
+
+  @override
+  String get inviteCardCaps => 'Povabljen si';
+
+  @override
+  String inviteCardDiscount(String discount) {
+    return '$discount popusta';
+  }
+
+  @override
+  String get inviteCardFees => 'pri Kute provizijah';
+
+  @override
+  String get inviteCardJoin => 'Pridruži se mi na Kuteju';
+
+  @override
+  String get inviteCardUseCode => 'Pri prijavi uporabi mojo kodo';
+
+  @override
+  String get shareEdgeInviteWelcome => 'Pripeljal sem te sem. Ni za kaj.';
+
+  @override
+  String get shareEdgeInviteGroupChat =>
+      'Tvoj skupinski klepet je to potreboval.';
+
+  @override
+  String get shareEdgeInviteSurprised =>
+      'Priporočili so te. Pretvarjaj se, da si presenečen.';
+
+  @override
+  String get shareEdgeInviteTwice => 'Ne sili me, da vprašam dvakrat.';
+
+  @override
+  String get shareEdgeInviteChainLetter => 'Ni verižno pismo. Malo boljše.';
+
+  @override
+  String get shareEdgeInviteCut =>
+      'Jaz dobim delež. Ti popust. Vsi smo v redu.';
+
+  @override
+  String get shareEdgeInviteFees => 'Nižje provizije. Enako mnenj.';
+
+  @override
+  String get shareEdgeInviteDog => 'Popust je resničen. Pes je nepretresen.';
 }

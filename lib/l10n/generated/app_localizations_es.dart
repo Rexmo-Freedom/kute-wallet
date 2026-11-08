@@ -14205,4 +14205,49 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get sendPickBarBuyingForFriend => 'Lo compras para un amigo';
+
+  @override
+  String get inviteCardCaps => 'Estás invitado';
+
+  @override
+  String inviteCardDiscount(String discount) {
+    return '$discount de descuento';
+  }
+
+  @override
+  String get inviteCardFees => 'en las comisiones de Kute';
+
+  @override
+  String get inviteCardJoin => 'Únete a mí en Kute';
+
+  @override
+  String get inviteCardUseCode => 'Usa mi código al registrarte';
+
+  @override
+  String get shareEdgeInviteWelcome => 'Te traje aquí. De nada.';
+
+  @override
+  String get shareEdgeInviteGroupChat => 'Tu chat de grupo necesitaba esto.';
+
+  @override
+  String get shareEdgeInviteSurprised =>
+      'Te han recomendado. Hazte el sorprendido.';
+
+  @override
+  String get shareEdgeInviteTwice => 'No me hagas pedirlo dos veces.';
+
+  @override
+  String get shareEdgeInviteChainLetter =>
+      'No es una cadena. Es un poco mejor.';
+
+  @override
+  String get shareEdgeInviteCut =>
+      'Yo me llevo una parte. Tú, un descuento. Todos contentos.';
+
+  @override
+  String get shareEdgeInviteFees => 'Menos comisiones. Las mismas opiniones.';
+
+  @override
+  String get shareEdgeInviteDog =>
+      'El descuento es real. Al perro le da igual.';
 }

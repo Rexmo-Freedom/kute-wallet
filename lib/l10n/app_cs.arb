@@ -3983,5 +3983,18 @@
   "sendPickTradeSide": "Poslat {side}",
   "sendPickBarPickOutcome": "Vyber výsledek",
   "sendPickBarBuyingFor": "Koupíš to a dostane to {name}",
-  "sendPickBarBuyingForFriend": "Kupuješ to pro kamaráda"
+  "sendPickBarBuyingForFriend": "Kupuješ to pro kamaráda",
+  "inviteCardCaps": "Máš pozvánku",
+  "inviteCardDiscount": "Sleva {discount}",
+  "inviteCardFees": "na poplatky Kute",
+  "inviteCardJoin": "Přidej se ke mně na Kute",
+  "inviteCardUseCode": "Při registraci použij můj kód",
+  "shareEdgeInviteWelcome": "Přivedl jsem tě sem. Není zač.",
+  "shareEdgeInviteGroupChat": "Tvůj skupinový chat tohle potřeboval.",
+  "shareEdgeInviteSurprised": "Dostal jsi doporučení. Tvař se překvapeně.",
+  "shareEdgeInviteTwice": "Nenuť mě ptát se dvakrát.",
+  "shareEdgeInviteChainLetter": "Není to řetězový e-mail. Je to o něco lepší.",
+  "shareEdgeInviteCut": "Já dostanu podíl. Ty slevu. Všichni jsou v pohodě.",
+  "shareEdgeInviteFees": "Nižší poplatky. Stejně názorů.",
+  "shareEdgeInviteDog": "Sleva je skutečná. Psa to nechává klidným."
 }

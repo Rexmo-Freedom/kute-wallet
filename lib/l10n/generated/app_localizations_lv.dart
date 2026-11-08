@@ -14099,4 +14099,46 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get sendPickBarBuyingForFriend => 'Tu pērc draugam';
+
+  @override
+  String get inviteCardCaps => 'Tu esi uzaicināts';
+
+  @override
+  String inviteCardDiscount(String discount) {
+    return '$discount atlaide';
+  }
+
+  @override
+  String get inviteCardFees => 'Kute maksām';
+
+  @override
+  String get inviteCardJoin => 'Pievienojies man Kute';
+
+  @override
+  String get inviteCardUseCode => 'Pievienojoties izmanto manu kodu';
+
+  @override
+  String get shareEdgeInviteWelcome => 'Es tevi šeit atvedu. Nav par ko.';
+
+  @override
+  String get shareEdgeInviteGroupChat => 'Tavai grupas sarunai to vajadzēja.';
+
+  @override
+  String get shareEdgeInviteSurprised => 'Tevi ieteica. Izliecies pārsteigts.';
+
+  @override
+  String get shareEdgeInviteTwice => 'Neliec man jautāt divreiz.';
+
+  @override
+  String get shareEdgeInviteChainLetter =>
+      'Tā nav ķēdes vēstule. Mazliet labāk.';
+
+  @override
+  String get shareEdgeInviteCut => 'Es saņemu daļu. Tu atlaidi. Visiem labi.';
+
+  @override
+  String get shareEdgeInviteFees => 'Zemākas maksas. Tikpat viedokļu.';
+
+  @override
+  String get shareEdgeInviteDog => 'Atlaide ir īsta. Sunim vienalga.';
 }

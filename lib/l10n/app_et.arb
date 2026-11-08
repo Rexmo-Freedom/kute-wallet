@@ -3983,5 +3983,18 @@
   "sendPickTradeSide": "Saada {side}",
   "sendPickBarPickOutcome": "Vali tulemus",
   "sendPickBarBuyingFor": "Ostad selle, {name} saab selle",
-  "sendPickBarBuyingForFriend": "Ostad selle sõbrale"
+  "sendPickBarBuyingForFriend": "Ostad selle sõbrale",
+  "inviteCardCaps": "Oled kutsutud",
+  "inviteCardDiscount": "{discount} soodustust",
+  "inviteCardFees": "Kute tasudelt",
+  "inviteCardJoin": "Tule minuga Kute'i",
+  "inviteCardUseCode": "Kasuta liitumisel minu koodi",
+  "shareEdgeInviteWelcome": "Tõin su siia. Pole tänu väärt.",
+  "shareEdgeInviteGroupChat": "Sinu grupivestlus vajas seda.",
+  "shareEdgeInviteSurprised": "Sind soovitati. Tee üllatunud nägu.",
+  "shareEdgeInviteTwice": "Ära pane mind kaks korda küsima.",
+  "shareEdgeInviteChainLetter": "See pole ahelkiri. Natuke parem.",
+  "shareEdgeInviteCut": "Mina saan osa. Sina soodustuse. Kõik on rahul.",
+  "shareEdgeInviteFees": "Madalamad tasud. Sama palju arvamusi.",
+  "shareEdgeInviteDog": "Soodustus on päris. Koer ei tee väljagi."
 }

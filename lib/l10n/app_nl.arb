@@ -3983,5 +3983,18 @@
   "sendPickTradeSide": "{side} sturen",
   "sendPickBarPickOutcome": "Kies een uitkomst",
   "sendPickBarBuyingFor": "Je koopt het voor {name}",
-  "sendPickBarBuyingForFriend": "Je koopt het voor een vriend"
+  "sendPickBarBuyingForFriend": "Je koopt het voor een vriend",
+  "inviteCardCaps": "Je bent uitgenodigd",
+  "inviteCardDiscount": "{discount} korting",
+  "inviteCardFees": "op Kute-kosten",
+  "inviteCardJoin": "Doe mee op Kute",
+  "inviteCardUseCode": "Gebruik mijn code als je je aanmeldt",
+  "shareEdgeInviteWelcome": "Ik heb je hierheen gebracht. Graag gedaan.",
+  "shareEdgeInviteGroupChat": "Je groepschat had dit nodig.",
+  "shareEdgeInviteSurprised": "Je bent aanbevolen. Doe verbaasd.",
+  "shareEdgeInviteTwice": "Laat me het niet twee keer vragen.",
+  "shareEdgeInviteChainLetter": "Geen kettingbrief. Iets beter.",
+  "shareEdgeInviteCut": "Ik krijg een deel. Jij korting. Iedereen tevreden.",
+  "shareEdgeInviteFees": "Lagere kosten. Evenveel meningen.",
+  "shareEdgeInviteDog": "De korting is echt. De hond blijft onverstoorbaar."
 }

@@ -18,6 +18,8 @@
 //   * [InvestmentCardData]: an Investing market (a stock, an index, a
 //     commodity, a coin), with the side and amount sent on a link or
 //     without (sharing the market).
+//   * [InviteCardData]: the Referral program's invite: the discount and
+//     the sharer's code.
 //   * [ReceiptCardData]: a transaction's receipt (founder, 5 November
 //     2026): what was sent, received, moved or bought, a prediction
 //     placed, sold or lost, an Investing trade opened or closed
@@ -76,6 +78,20 @@ class MoneyCardData extends ShareCardData {
 
   @override
   String get kind => bitcoin ? 'send_bitcoin' : 'send_dollars';
+}
+
+/// The invite to Kute (founder, 8 November 2026: "share invite should have
+/// a Sal on the share, like a card"): the discount a friend gets, over the
+/// sharer's code in the footer. Never the sharer's rate or earnings.
+class InviteCardData extends ShareCardData {
+  const InviteCardData({this.discount, super.referralCode});
+
+  /// What a friend gets off Kute fees ("20%"), from the backend's rules;
+  /// null: the card invites without a figure.
+  final String? discount;
+
+  @override
+  String get kind => 'invite';
 }
 
 /// One point of a market's line: its time (ms since the epoch) and the
