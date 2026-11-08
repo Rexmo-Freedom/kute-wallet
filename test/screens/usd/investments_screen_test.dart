@@ -458,8 +458,9 @@ void main() {
 
   testWidgets(
       'no venue Deposit or Withdraw anywhere; the actions are one row '
-      'under the hero, Buy dollars · Receive · Send, the dock is search '
-      'alone, and Receive opens the Dollars receive screen', (tester) async {
+      'under the hero, Buy dollars · Swap · Receive · Send, the dock is '
+      'search alone, and Receive opens the Dollars receive screen',
+      (tester) async {
     final events = recordEvents();
     var receiveOpened = 0;
     UsdAccountActionBar.debugReceiveOpener = (_) => receiveOpened++;
@@ -480,23 +481,25 @@ void main() {
     expect(find.byType(AppButton, skipOffstage: false), findsNothing);
     expect(find.text(l10n.dollarDeposit, skipOffstage: false), findsNothing);
 
-    // The action row under the hero: Buy dollars, Receive and Send, three
-    // equal squared buttons (founder, 4 November 2026: the Portfolio is no
-    // longer needed on the top buttons, the Activity pill's bar opens it),
-    // each once on the page; then the pills. The action keys stay
-    // `receive` and `send` so the events read as before.
+    // The action row under the hero: Buy dollars, Swap, Receive and Send,
+    // four equal squared buttons in the Bitcoin row's columns (founder, 4
+    // November 2026: the Portfolio is no longer needed on the top buttons,
+    // the Activity pill's bar opens it; 7 November 2026: Swap), each once
+    // on the page; then the pills. The action keys stay `receive` and
+    // `send` so the events read as before.
     final row = find.byType(UsdAccountActionRow);
     expect(row, findsOneWidget);
     expect(tester.getTopLeft(row).dy,
         greaterThan(tester.getBottomLeft(find.byType(PoolBalanceHeader)).dy - 1));
     final actions = UsdAccountActionBar.moneyActions(tester.element(row));
-    // Buy dollars leads the row, then Receive and Send.
+    // Buy dollars leads the row, then Swap, Receive and Send.
     expect(actions.map((a) => a.label),
-        [l10n.buyDollarsAction, l10n.receive, l10n.send]);
+        [l10n.buyDollarsAction, l10n.swap, l10n.receive, l10n.send]);
     expect(actions.map((a) => a.trackingId),
-        ['buy_dollars', 'receive', 'send']);
+        ['buy_dollars', 'swap', 'receive', 'send']);
     expect(actions.map((a) => a.icon), [
       Icons.attach_money_rounded,
+      Icons.swap_horiz_rounded,
       Icons.south_west_rounded,
       Icons.north_east_rounded
     ]);
@@ -504,13 +507,14 @@ void main() {
     expect(find.text(l10n.send), findsOneWidget);
     expect(find.text(l10n.walletPortfolioAction), findsNothing);
     expect(find.text(l10n.buyDollarsAction), findsOneWidget);
-    // Three squares, balanced: equal thirds of the row, the squares
+    expect(find.text(l10n.swap), findsOneWidget);
+    // Four squares, balanced: equal quarters of the row, the squares
     // centred in them.
     final squares = find.descendant(
         of: row, matching: find.byType(Expanded));
-    expect(squares, findsNWidgets(3));
+    expect(squares, findsNWidgets(4));
     final widths = [
-      for (var i = 0; i < 3; i++) tester.getSize(squares.at(i)).width
+      for (var i = 0; i < 4; i++) tester.getSize(squares.at(i)).width
     ];
     expect(widths.toSet(), hasLength(1));
     expect(tester.getTopLeft(find.byType(KutePillTabs).first).dy,

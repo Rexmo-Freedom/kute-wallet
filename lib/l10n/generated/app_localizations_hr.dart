@@ -72,7 +72,7 @@ class AppLocalizationsHr extends AppLocalizations {
   String get comingSoon => 'Uskoro';
 
   @override
-  String get swap => 'Zamjena';
+  String get swap => 'Zamijeni';
 
   @override
   String get receive => 'Primi';

@@ -266,7 +266,7 @@ abstract class AppLocalizations {
   /// **'Coming Soon'**
   String get comingSoon;
 
-  /// No description provided for @swap.
+  /// The Dollars home's action button and the title of the two-way sheet that moves the person's own money between Bitcoin and Dollars (reversible with its swap circle). Founder, 7 November 2026: "Move money or swap money whatever is more common in crypto lingo. or just 'swap'". Keep the crypto wallets' own word for Swap in each language, short enough for the action-button label; do not revert to Move money.
   ///
   /// In en, this message translates to:
   /// **'Swap'**

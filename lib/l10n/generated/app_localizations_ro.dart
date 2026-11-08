@@ -72,7 +72,7 @@ class AppLocalizationsRo extends AppLocalizations {
   String get comingSoon => 'În curând';
 
   @override
-  String get swap => 'Schimb';
+  String get swap => 'Schimbă';
 
   @override
   String get receive => 'Primește';

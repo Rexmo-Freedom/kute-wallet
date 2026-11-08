@@ -72,7 +72,7 @@ class AppLocalizationsLt extends AppLocalizations {
   String get comingSoon => 'Netrukus';
 
   @override
-  String get swap => 'Keitimas';
+  String get swap => 'Keisti';
 
   @override
   String get receive => 'Gauti';

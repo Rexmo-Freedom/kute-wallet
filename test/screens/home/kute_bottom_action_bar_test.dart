@@ -33,6 +33,12 @@ import 'package:kute/screens/shared/bitcoin_wallet_actions.dart'
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart'
     show CapabilityUnavailableSheet;
 import 'package:kute/screens/shared/kute_dog_scenes.dart';
+import 'package:kute/screens/shared/money_movement_sheet.dart'
+    show
+        MoneyMovementAccount,
+        MoneyMovementRequest,
+        MoneyMovementRoute,
+        debugMoneyMovementSheetOpener;
 import 'package:kute/screens/shared/investment_action_bar.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart';
@@ -328,7 +334,7 @@ void main() {
 
   testWidgets(
       'the Investments money verbs are one compact row, Buy dollars, '
-      'Receive and Send, and the dock is search alone; Receive '
+      'Swap, Receive and Send, and the dock is search alone; Receive '
       'opens the Dollars receive screen, Buy dollars its own opener',
       (tester) async {
     final events = <(String, Map<String, Object>?)>[];
@@ -356,24 +362,27 @@ void main() {
     expect(find.byKey(const ValueKey('dock-search-pill')), findsNothing);
     expect(find.byKey(const ValueKey('dock-bar-room')), findsOneWidget);
     expect(find.byType(KuteDogMagnifier), findsNothing);
-    // The row: Buy dollars first, then Receive and Send with the Bitcoin
-    // dock's arrows and action keys (founder, 2 November 2026: "Send and
-    // Receive, not Add and Send"; "Buy dollars" in place of Manage with
-    // AI; 4 November 2026: the Portfolio is no longer a top button, the
-    // Activity pill's bar opens it).
+    // The row: Buy dollars first, then Swap, then Receive and Send with
+    // the Bitcoin dock's arrows and action keys (founder, 2 November 2026:
+    // "Send and Receive, not Add and Send"; "Buy dollars" in place of
+    // Manage with AI; 4 November 2026: the Portfolio is no longer a top
+    // button, the Activity pill's bar opens it; 7 November 2026: Swap, in
+    // the Bitcoin row's Scan column).
     final actions = UsdAccountActionBar.moneyActions(
         tester.element(find.byType(UsdAccountActionRow)));
-    expect(actions.map((a) => a.label), ['Buy dollars', 'Receive', 'Send']);
+    expect(actions.map((a) => a.label),
+        ['Buy dollars', 'Swap', 'Receive', 'Send']);
     expect(actions.map((a) => a.trackingId),
-        ['buy_dollars', 'receive', 'send']);
+        ['buy_dollars', 'swap', 'receive', 'send']);
     expect(actions.map((a) => a.icon), [
       Icons.attach_money_rounded,
+      Icons.swap_horiz_rounded,
       Icons.south_west_rounded,
       Icons.north_east_rounded
     ]);
     // Buy dollars first and solid (founder, 2 November 2026), the rest
     // outlined.
-    expect(actions.map((a) => a.solid), [true, false, false]);
+    expect(actions.map((a) => a.solid), [true, false, false, false]);
     expect(find.text('Portfolio'), findsNothing);
     expect(actions.map((a) => a.onTap), everyElement(isNotNull));
     expect(find.text('Receive'), findsOneWidget);
@@ -425,6 +434,33 @@ void main() {
     expect(events.where((e) => e.$1 == 'quick_action_tapped').single.$2,
         {'action': 'buy_dollars', 'source': 'usd'});
     expect(TrackingService.takeEntrySource('move'), 'unknown');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'Swap (founder, 7 November 2026: "a move button ... Only on dollars"): '
+      'the Swap sheet on Bitcoin → Dollars, pinned to the two accounts, '
+      'under its own entry source', (tester) async {
+    final events = <(String, Map<String, Object>?)>[];
+    TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+    addTearDown(() => TrackingService.debugTrackObserver = null);
+    final opened = <MoneyMovementRequest>[];
+    debugMoneyMovementSheetOpener = (_, request) => opened.add(request);
+    addTearDown(() => debugMoneyMovementSheetOpener = null);
+    await _pump(tester, const UsdAccountActionRow());
+    await tester.tap(find.text('Swap'));
+    await tester.pump();
+    final request = opened.single;
+    expect(request.route,
+        const MoneyMovementRoute(MoneyMovementAccount.bitcoin,
+            MoneyMovementAccount.dollars));
+    expect(request.pinned, isTrue);
+    expect(request.entrySource, kUsdHomeSwapSource);
+    expect(request.entrySource, 'usd_home_swap');
+    expect(request.initialTargetUsd, isNull);
+    expect(events.where((e) => e.$1 == 'quick_action_tapped').single.$2,
+        {'action': 'swap', 'source': 'usd'});
+    expect(TrackingService.takeEntrySource('move'), 'usd_home_swap');
     expect(tester.takeException(), isNull);
   });
 

@@ -72,7 +72,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get comingSoon => '近日公開';
 
   @override
-  String get swap => '交換';
+  String get swap => 'スワップ';
 
   @override
   String get receive => '受け取る';

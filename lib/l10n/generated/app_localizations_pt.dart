@@ -72,7 +72,7 @@ class AppLocalizationsPt extends AppLocalizations {
   String get comingSoon => 'Brevemente';
 
   @override
-  String get swap => 'Conversão';
+  String get swap => 'Trocar';
 
   @override
   String get receive => 'Receber';

@@ -101,7 +101,8 @@
 // On Activity the bar IS "See full portfolio and activity"
 // ([KuteBarContext.primary]), which pushes the Portfolio screen and sends
 // the `quick_action_tapped` `portfolio` the row's Portfolio button sent;
-// the row under the balance is Buy dollars · Receive · Send. The hero's
+// the row under the balance is Buy dollars · Swap · Receive · Send (Swap
+// since 7 November 2026, UsdAccountActionBar.swap). The hero's
 // line under the total is "Invested $X · Available $Y", the two adding up
 // to it (investment_balance_header.dart, oneBalanceSplit). A
 // `?tab=activity` link opens this pill.
@@ -186,6 +187,8 @@ import 'package:kute/screens/usd/investments_category_sheet.dart'
         showInvestmentsCategorySheet;
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart'
     show showCapabilityUnavailableSheet;
+import 'package:kute/screens/shared/money_movement_sheet.dart'
+    show MoneyMovementAccount, showOwnMoneyMove;
 import 'package:kute/screens/shared/receive_arrow_glyph.dart'
     show receiveArrowGlyph;
 import 'package:kute/screens/usd/usd_withdraw_screen.dart'
@@ -200,6 +203,10 @@ const String kUsdSurfaceSource = 'usd';
 
 /// The dock's Receive as the Dollars receive flow's `entry_source`.
 const String kUsdDockSource = 'usd_dock';
+
+/// The action row's Swap as the Swap sheet's `entry_source`
+/// (`move_sheet_opened`).
+const String kUsdHomeSwapSource = 'usd_home_swap';
 
 /// The compact pinned bar's height, in design units: the small total line
 /// over the compact pills ([KutePillSize.compact], 32 high), with the
@@ -883,11 +890,12 @@ class _InvestmentsHeaderDelegate extends SliverPersistentHeaderDelegate {
                         ),
                       ),
                       // ONE compact row under the balance: Buy dollars ·
-                      // Receive · Send, three equal buttons, as the
-                      // Bitcoin tab's row (the Portfolio is the Activity
-                      // pill's bar since 4 November 2026).
+                      // Swap · Receive · Send, four equal buttons in the
+                      // Bitcoin tab's row's own inset (16), so the squares
+                      // stand where the Bitcoin home's stand (the Portfolio
+                      // is the Activity pill's bar since 4 November 2026).
                       Padding(
-                        padding: EdgeInsets.fromLTRB(32.w, 8.h, 32.w, 0),
+                        padding: EdgeInsets.fromLTRB(16, 8.h, 16, 0),
                         child: const UsdAccountActionRow(),
                       ),
                       // ONE strip, exactly the home strip (founder, 31
@@ -1218,6 +1226,22 @@ class UsdAccountActionBar extends ConsumerWidget {
     showUsdWithdrawSheet(context);
   }
 
+  /// The row's Swap (founder, 7 November 2026: "ideally is to have a move
+  /// button, i am sorry but we need it. Only on dollars"; named "Swap",
+  /// the crypto wallets' word, the same day): the Swap sheet, the two-way
+  /// move between the person's own Bitcoin and Dollars
+  /// (showOwnMoneyMove), opened on Bitcoin → Dollars as the Dollars
+  /// Receive's "From your Bitcoin" opens it, since the person is on
+  /// Dollars; its swap circle turns it the other way. What may move is
+  /// the backend policy's alone: the sheet says why where it refuses a
+  /// direction. The tap counts as `quick_action_tapped` `swap`, the sheet
+  /// opens under [kUsdHomeSwapSource]. Only here: the Bitcoin home has no
+  /// Swap.
+  static void swap(BuildContext context) => unawaited(showOwnMoneyMove(
+      context,
+      from: MoneyMovementAccount.bitcoin,
+      entrySource: kUsdHomeSwapSource));
+
   /// What the square searches for [tab]: a venue's own markets, results
   /// first and under the venue's own source, or, from Positions, everything
   /// (All: Predictions, Investing, then Transactions) under the Investments
@@ -1305,15 +1329,19 @@ class UsdAccountActionBar extends ConsumerWidget {
   }
 
   /// The action row under the balance ([UsdAccountActionRow]): Buy
-  /// dollars · Receive · Send (founder, 2 November 2026: "Buy dollars" in
-  /// place of Manage with AI, "Send and Receive, not Add and Send"; 4
-  /// November 2026: Portfolio is no longer needed on the top buttons, the
-  /// Activity pill's bar opens it). Buy dollars sends `buy_dollars` and,
-  /// until there is a real buy, opens the Unavailable sheet ([buyDollars]).
-  /// Receive and Send keep the keys `receive` and `send`, so the events
-  /// read as before: Receive is money into Dollars (from Bitcoin or
-  /// another wallet), Send is Dollars out, to Bitcoin or sent on as a coin
-  /// to another wallet.
+  /// dollars · Swap · Receive · Send (founder, 2 November 2026: "Buy
+  /// dollars" in place of Manage with AI, "Send and Receive, not Add and
+  /// Send"; 4 November 2026: Portfolio is no longer needed on the top
+  /// buttons, the Activity pill's bar opens it; 7 November 2026: Swap,
+  /// [swap]). Four squares in the Bitcoin home's columns (Purchase · Scan
+  /// · Receive · Send): the solid buy first, the surface's own verb second
+  /// (Scan there, Swap here), Receive and Send last, so switching
+  /// Bitcoin | Dollars moves no button but the second. Buy dollars sends
+  /// `buy_dollars` and, until there is a real buy, opens the Unavailable
+  /// sheet ([buyDollars]). Swap sends `swap`. Receive and Send keep the
+  /// keys `receive` and `send`, so the events read as before: Receive is
+  /// money into Dollars (from Bitcoin or another wallet), Send is Dollars
+  /// out, to Bitcoin or sent on as a coin to another wallet.
   static List<KuteDockAction> moneyActions(BuildContext context) => [
         // First, the solid square (founder, 2 November 2026: Buy dollars
         // black).
@@ -1323,6 +1351,13 @@ class UsdAccountActionBar extends ConsumerWidget {
           trackingId: 'buy_dollars',
           solid: true,
           onTap: () => buyDollars(context),
+        ),
+        // The two-way arrows the app's swap controls wear.
+        KuteDockAction(
+          icon: Icons.swap_horiz_rounded,
+          label: context.l10n.swap,
+          trackingId: 'swap',
+          onTap: () => swap(context),
         ),
         // The plain receive arrow, moving as the hub's "+" does (founder,
         // 7 November 2026; receive_arrow_glyph.dart).
@@ -1355,8 +1390,8 @@ class UsdAccountActionBar extends ConsumerWidget {
       );
 }
 
-/// The Dollars compact row under the balance: Buy dollars · Receive ·
-/// Send, the Bitcoin tab's squared buttons, each once.
+/// The Dollars compact row under the balance: Buy dollars · Swap ·
+/// Receive · Send, the Bitcoin tab's squared buttons, each once.
 class UsdAccountActionRow extends StatelessWidget {
   const UsdAccountActionRow({super.key});
 

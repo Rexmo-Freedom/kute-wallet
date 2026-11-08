@@ -72,7 +72,7 @@ class AppLocalizationsCs extends AppLocalizations {
   String get comingSoon => 'Již brzy';
 
   @override
-  String get swap => 'Směna';
+  String get swap => 'Směnit';
 
   @override
   String get receive => 'Přijmout';

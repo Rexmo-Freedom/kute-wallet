@@ -72,7 +72,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get comingSoon => 'Demnächst';
 
   @override
-  String get swap => 'Swap';
+  String get swap => 'Tauschen';
 
   @override
   String get receive => 'Empfangen';

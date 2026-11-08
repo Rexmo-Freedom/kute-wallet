@@ -72,7 +72,7 @@ class AppLocalizationsSk extends AppLocalizations {
   String get comingSoon => 'Už čoskoro';
 
   @override
-  String get swap => 'Výmena';
+  String get swap => 'Vymeniť';
 
   @override
   String get receive => 'Prijať';
