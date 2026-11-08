@@ -127,6 +127,11 @@ abstract final class VenueCashFor {
   static const String predictions = 'predictions';
   static const String investing = 'investing';
   static const String withdraw = 'withdraw';
+
+  /// Home to Dollars for a claimed gift's "Send now" (gift_funding.dart).
+  /// Not [send]: the payment to the friend is its own row, so this move
+  /// reads as what it is, money coming home to Dollars.
+  static const String shareLink = 'share_link';
 }
 
 /// The `purpose` every pull is recorded with by the venue rails (their

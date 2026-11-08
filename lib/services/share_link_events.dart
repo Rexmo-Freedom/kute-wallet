@@ -8,6 +8,8 @@
 // address or invoice, a payment id or the recipient's name.
 
 import 'package:kute/models/share_link_model.dart';
+import 'package:kute/services/one_balance/funding_fees.dart'
+    show OrderFundingFees, fundingFeeAnalytics;
 import 'package:kute/services/tracking_service.dart';
 
 abstract final class ShareLinkEvents {
@@ -60,9 +62,18 @@ abstract final class ShareLinkEvents {
         params: _money(kind, amountMinor));
   }
 
-  /// The sender's wallet paid a claimed link.
-  static void paid(ShareLinkKind kind, int amountMinor) {
-    TrackingService.track('share_link_paid', params: _money(kind, amountMinor));
+  /// The sender's wallet paid a claimed link. [funded]: legs brought money
+  /// into Dollars for it, [fees] their estimated fees and sources where this
+  /// attempt sent them ([fundingFeeAnalytics]). The money outcome of the
+  /// legs themselves is their own, tagged `conversion_leg`.
+  static void paid(ShareLinkKind kind, int amountMinor,
+      {bool funded = false, OrderFundingFees? fees}) {
+    TrackingService.track('share_link_paid', params: {
+      ..._money(kind, amountMinor),
+      if (kind == ShareLinkKind.dollars) 'amount_usd': amountMinor / 100,
+      'funded': funded,
+      ...fundingFeeAnalytics(fees),
+    });
   }
 
   static void cancelled(ShareLinkKind kind) {

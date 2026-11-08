@@ -134,6 +134,8 @@ import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
 import 'package:kute/services/one_balance/bitcoin_funded_order.dart';
 import 'package:kute/services/one_balance/investments_spendable.dart'
     show investmentsSpendableExcludingProvider, venueCashRefreshProvider;
+import 'package:kute/services/one_balance/gift_funding.dart'
+    show giftSpendableProvider;
 import 'package:kute/services/one_balance/bitcoin_to_dollars_leg.dart'
     show BitcoinLegPlan, BitcoinLegRules;
 import 'package:kute/services/one_balance/funded_orders.dart';
@@ -5016,6 +5018,18 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                           ref.watch(spendingBitcoinLandingUsdProvider))));
     }
 
+    // Send mode: an amount is judged against what the person can really
+    // reach for a gift, whose destination is Dollars
+    // (one_balance/gift_funding.dart): this line, Max below, and the send's
+    // refusal.
+    final giftReach =
+        widget.sendPick != null ? ref.watch(giftSpendableProvider) : null;
+    if (giftReach != null) {
+      ref.watch(venueCashRefreshProvider);
+      available =
+          context.l10n.betSlipAvailableAmount(formatDollars(giftReach));
+    }
+
     // A market bet Confirm will fund is placed, once the money lands, at
     // the funded rule's price (at least 10% of room under 25¢): the price
     // its one approval covers. The chip under the amount says that price
@@ -5110,6 +5124,13 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           maxIsFunded = true;
         }
       }
+    }
+
+    if (widget.sendPick != null) {
+      // Nothing is placed here: Max is the gift's reach, not a stake fitted
+      // to this venue's cash and its fees. Null: not known yet.
+      maxStake = giftReach;
+      maxIsFunded = true;
     }
 
     final ledgerStatus = _isLedger
@@ -5599,6 +5620,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       blocked: _capabilityBlockMessage != null,
       marketChance: yesChance,
       imageUrl: widget.marketImage,
+      reachUsd: ref.read(giftSpendableProvider),
     );
   }
 
@@ -6484,6 +6506,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// ([estimateOrderFundingFees]), never the Dollars route's share on the
   /// whole move.
   ({double? usd, List<MoneyFeeLeg> legs})? _moveFee(double? cash) {
+    // Send mode moves nothing here: "Send now" names its own fee.
+    if (widget.sendPick != null) return null;
     if (_isLedger || cash == null || _amount <= 0) return null;
     final terms = ref
             .watch(polymarketFeeTermsProvider(_selectedTokenId ?? ''))

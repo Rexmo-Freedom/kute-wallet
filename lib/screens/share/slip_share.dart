@@ -23,6 +23,14 @@
 //     at least $1 to send", a side no link can carry (No on one candidate:
 //     a link names an outcome of the event, and the Claim screen opens the
 //     slip on its Yes) "Only Yes on {candidate} can be sent".
+//   * THE AMOUNT IS JUDGED AS AN ORDER'S IS (founder, 8 November 2026: "just
+//     literally do like normal fills"): the slip's Available, Max and this
+//     refusal read [giftSpendableProvider] (one_balance/gift_funding.dart),
+//     Dollars plus what Bitcoin lands plus the venue cash net of its moves.
+//     More than that is disabled, "Lower the amount" ([SlipSendRoute.
+//     overReach]), and no link is made. A balance not known yet is never
+//     judged. Nothing moves at this step: "Send now" funds it once the
+//     friend claims.
 //   * THE SLIP IS THE GATE (founder, 8 November 2026: "only on the last
 //     screen, the bet slip, show this error"; replaces "Send the market"
 //     on a refusal): the slip's own open gate refusing this market is
@@ -57,7 +65,15 @@ import 'package:kute/screens/shared/message_display.dart'
     show showMessageSnackBarInfo;
 
 /// Where a slip's send went (the test seam's record).
-enum SlipSendRoute { pick, market, refused, enterAmount, minimum, yesOnly }
+enum SlipSendRoute {
+  pick,
+  market,
+  refused,
+  enterAmount,
+  minimum,
+  yesOnly,
+  overReach,
+}
 
 /// What a slip in send mode sends, read at the tap.
 @immutable
@@ -84,6 +100,7 @@ class SlipSharePick {
     this.coinCategory,
     this.coinIconUrl,
     this.entrySource = kSendModeSlipSource,
+    this.reachUsd,
   });
 
   /// An Investing order slip's pick; else a prediction's.
@@ -141,6 +158,10 @@ class SlipSharePick {
   /// Send to anyone's entry source (analytics).
   final String entrySource;
 
+  /// The most this person can send ([giftSpendableProvider]). Null while
+  /// not known: never judged.
+  final double? reachUsd;
+
   /// The amount in cents, as the link carries it.
   int get amountMinor => (amountUsd * 100).round();
 }
@@ -164,6 +185,8 @@ SlipSendRoute slipSendRoute(SlipSharePick pick) {
   if (!amount.isFinite || amount <= 0) return SlipSendRoute.enterAmount;
   if (amount + 1e-9 < pick.minUsd) return SlipSendRoute.minimum;
   if ((pick.outcome?.trim() ?? '').isEmpty) return SlipSendRoute.yesOnly;
+  final reach = pick.reachUsd;
+  if (reach != null && amount > reach + 1e-9) return SlipSendRoute.overReach;
   return SlipSendRoute.pick;
 }
 
@@ -227,6 +250,12 @@ SlipSendCta slipSendCta(AppLocalizations l10n, SlipSharePick pick) {
         disabledLabel: l10n.slipSendYesOnly(pick.sideLabel),
         route: route,
       ),
+    SlipSendRoute.overReach => (
+        label: send,
+        enabled: false,
+        disabledLabel: l10n.barNeedLowerAmount,
+        route: route,
+      ),
   };
 }
 
@@ -278,6 +307,11 @@ Future<void> sendFromSlip(BuildContext context, SlipSharePick pick,
     case SlipSendRoute.yesOnly:
       showMessageSnackBarInfo(
           context: context, message: l10n.slipShareYesOnly(pick.sideLabel));
+      return;
+    case SlipSendRoute.overReach:
+      // Never a link for more than the person can reach.
+      showMessageSnackBarInfo(
+          context: context, message: l10n.sendMoreThanAvailable);
       return;
     case SlipSendRoute.pick:
       break;

@@ -1353,10 +1353,13 @@ abstract final class BitcoinLegGrants {
   /// The leg's route, as `RouteKey.label` spells it.
   static const String route = 'spark_btc>spark_usdb';
 
-  /// The approvals a Bitcoin leg may run under.
+  /// The approvals a Bitcoin leg may run under: an order's, and a claimed
+  /// gift's send (services/one_balance/gift_funding.dart), whose one
+  /// approval binds the payment and this leg the same way.
   static const Set<SensitiveAction> actions = {
     SensitiveAction.hlOrder,
     SensitiveAction.pmBet,
+    SensitiveAction.send,
   };
 
   static final Expando<bool> _taken = Expando<bool>('btcLegTaken');
