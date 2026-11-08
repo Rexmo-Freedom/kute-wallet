@@ -7,6 +7,9 @@ import 'package:kute/screens/share/cards/share_card_data.dart';
 
 const String kShareTestCode = 'JOAO42';
 
+InviteCardData fakeInviteCard({String? discount = '20%'}) =>
+    InviteCardData(discount: discount, referralCode: 'EKVGUY');
+
 MoneyCardData fakeBitcoinCard({String? name = 'Daniel'}) => MoneyCardData(
       bitcoin: true,
       amount: '₿12,000',
@@ -346,6 +349,8 @@ InvestmentCardData fakeOilMarket() => const InvestmentCardData(
 extension ShareCardRecipientCopy on ShareCardData {
   /// The same card as the recipient's claim hero.
   ShareCardData asRecipient() => switch (this) {
+        // The invite has no recipient's version.
+        final InviteCardData d => d,
         final MoneyCardData d => MoneyCardData(
             bitcoin: d.bitcoin,
             amount: d.amount,

@@ -5154,7 +5154,7 @@ class TrackingService {
   // ─── Affiliate / Earn (extra) ────────────────────────────────────
   static void affiliateCodeShared({String? method, String? result, String? surface}) =>
       track('affiliate_code_shared', params: {
-        if (method != null) 'method': method, // sheet | image
+        if (method != null) 'method': method, // card | sheet | image
         if (result != null) 'result': result, // success | dismissed | unavailable
         if (surface != null) 'surface': surface,
       });

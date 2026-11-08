@@ -3981,5 +3981,18 @@
   "sendPickTradeSide": "Siųsti {side}",
   "sendPickBarPickOutcome": "Pasirinkite baigtį",
   "sendPickBarBuyingFor": "Perkate jūs, gauna {name}",
-  "sendPickBarBuyingForFriend": "Perkate draugui"
+  "sendPickBarBuyingForFriend": "Perkate draugui",
+  "inviteCardCaps": "Esi pakviestas",
+  "inviteCardDiscount": "{discount} nuolaida",
+  "inviteCardFees": "Kute mokesčiams",
+  "inviteCardJoin": "Prisijunk prie manęs Kute",
+  "inviteCardUseCode": "Registruodamasis naudok mano kodą",
+  "shareEdgeInviteWelcome": "Atvedžiau tave čia. Nėra už ką.",
+  "shareEdgeInviteGroupChat": "Tavo grupės pokalbiui to reikėjo.",
+  "shareEdgeInviteSurprised": "Tave rekomendavo. Apsimesk nustebęs.",
+  "shareEdgeInviteTwice": "Neversk manęs klausti dukart.",
+  "shareEdgeInviteChainLetter": "Ne grandininis laiškas. Šiek tiek geriau.",
+  "shareEdgeInviteCut": "Aš gaunu dalį. Tu nuolaidą. Visiems gerai.",
+  "shareEdgeInviteFees": "Mažesni mokesčiai. Tiek pat nuomonių.",
+  "shareEdgeInviteDog": "Nuolaida tikra. Šuo abejingas."
 }

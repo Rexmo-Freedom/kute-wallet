@@ -3981,5 +3981,18 @@
   "sendPickTradeSide": "Изпрати {side}",
   "sendPickBarPickOutcome": "Избери изход",
   "sendPickBarBuyingFor": "Купуваш го за {name}",
-  "sendPickBarBuyingForFriend": "Купуваш го за приятел"
+  "sendPickBarBuyingForFriend": "Купуваш го за приятел",
+  "inviteCardCaps": "Поканен си",
+  "inviteCardDiscount": "{discount} отстъпка",
+  "inviteCardFees": "от таксите на Kute",
+  "inviteCardJoin": "Ела при мен в Kute",
+  "inviteCardUseCode": "Използвай кода ми при регистрация",
+  "shareEdgeInviteWelcome": "Доведох те тук. Няма защо.",
+  "shareEdgeInviteGroupChat": "Груповият ти чат имаше нужда от това.",
+  "shareEdgeInviteSurprised": "Препоръчан си. Престори се на изненадан.",
+  "shareEdgeInviteTwice": "Не ме карай да питам два пъти.",
+  "shareEdgeInviteChainLetter": "Не е верижно писмо. Малко по-добро е.",
+  "shareEdgeInviteCut": "Аз получавам дял. Ти получаваш отстъпка. Всички са добре.",
+  "shareEdgeInviteFees": "По-ниски такси. Същият брой мнения.",
+  "shareEdgeInviteDog": "Отстъпката е истинска. Кучето е невъзмутимо."
 }

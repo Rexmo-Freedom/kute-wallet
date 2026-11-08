@@ -28,8 +28,10 @@
 //     own "Share" in the bar sending the QR as an image). No QR on the
 //     page: almost nobody scans a referral QR in person;
 //   * SHARE INVITE IS THE BAR (kute_bar_context.dart, the primary): the
-//     invite text with the link (or the code) through the share sheet.
-//     The Sal sheet stays a long press away;
+//     invite card with Sal (InviteCardData: what a friend gets, the code
+//     in its footer) in the share cards' preview sheet, whose Share sends
+//     the image with the invite text and the link (or the code). The Sal
+//     sheet stays a long press away;
 //   * THE PROGRESS CARD, the lead under the code: "Friends joined" large
 //     and "Your rate" large beside it, then the next step in words
 //     ("Invite 38 more friends to earn 20%", or "You're on the top rate"
@@ -70,14 +72,17 @@
 // Analytics (names unchanged; never the code, the link or an id):
 // `affiliate_earn_viewed` {state}, `affiliate_dashboard_loaded`,
 // `affiliate_share_link_generated` {link_type}, `affiliate_share_opened`
-// {method, trigger: bar (Share invite) | code_card (the QR square, method
-// qr) | qr (the QR tapped in its sheet) | qr_sheet (the sheet's Share)},
-// `affiliate_code_shared` {method: sheet | image, result, surface: earn},
+// {method: card | qr | image, trigger: bar (Share invite) | code_card (the
+// QR square, method qr) | qr (the QR tapped in its sheet) | qr_sheet (the
+// sheet's Share)},
+// `affiliate_code_shared` {method: card | sheet | image, result, surface:
+// earn},
 // `affiliate_code_copied` {surface: earn, source: code_card |
 // copy_button}, `affiliate_earn_retry_tapped` / `_result`,
 // `affiliate_history_window_changed`, `affiliate_referees_viewed`, the
 // late-entry events and `pull_to_refresh_executed` {screen: affiliate}.
 
+import 'dart:async' show unawaited;
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -97,6 +102,10 @@ import 'package:kute/providers/breez_config_provider.dart';
 import 'package:kute/providers/breez_provider.dart';
 import 'package:kute/screens/analytics/components/balance_goals.dart'
     show BalanceGoalBar, BalanceGoalSalMotion;
+import 'package:kute/screens/share/cards/share_card_data.dart'
+    show InviteCardData;
+import 'package:kute/screens/share/cards/share_card_preview.dart'
+    show showShareCardPreviewSheet;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/charts/kute_line_chart.dart';
 import 'package:kute/screens/shared/custom_button.dart';
@@ -504,7 +513,7 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
       _Phase.dashboard when participationAllowed && _code.isNotEmpty =>
         KuteBarContext.primary(
           label: l10n.referralShareInvite,
-          onPrimary: () => _openShare(method: 'sheet', trigger: 'bar'),
+          onPrimary: _openInviteCard,
           // Never off: with a code there is always something to share.
           disabledLabel: null,
           source: 'affiliate',
@@ -834,10 +843,29 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
         : (Offset.zero & const Size(1, 1));
   }
 
-  /// The invite as text through the share sheet: the link, or the code
-  /// where no link resolves. [method] is the share the user chose:
-  /// 'sheet', or 'image' when the QR image share fell back to text.
-  Future<void> _openShare({String method = 'sheet', String? trigger}) async {
+  /// Share invite: the invite card in the share cards' preview sheet, its
+  /// Share sending the image with the invite text.
+  void _openInviteCard() {
+    if (_link == null && _code.isEmpty) return;
+    _trackShareOpened('card', 'bar');
+    final l10n = context.l10n;
+    final card = InviteCardData(discount: _discount, referralCode: _code);
+    unawaited(showShareCardPreviewSheet(
+      context,
+      title: l10n.shareCardReadyTitle,
+      shareLabel: l10n.share,
+      routeName: 'invite_card_preview',
+      source: 'invite_card',
+      build: (_) => card,
+      text: (_) => _shareText(_link),
+      onShared: (result) => TrackingService.affiliateCodeShared(
+          method: 'card', result: result, surface: 'earn'),
+    ));
+  }
+
+  /// The invite as text through the share sheet, where the QR image share
+  /// fell back: the link, or the code where no link resolves.
+  Future<void> _openShare({required String method, String? trigger}) async {
     final link = _link;
     if (link == null && _code.isEmpty) return;
     _trackShareOpened(method, trigger);

@@ -14077,4 +14077,49 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get sendPickBarBuyingForFriend => 'You\'re buying it for your friend';
+
+  @override
+  String get inviteCardCaps => 'You\'re invited';
+
+  @override
+  String inviteCardDiscount(String discount) {
+    return '$discount off';
+  }
+
+  @override
+  String get inviteCardFees => 'Kute fees';
+
+  @override
+  String get inviteCardJoin => 'Join me on Kute';
+
+  @override
+  String get inviteCardUseCode => 'Use my code when you join';
+
+  @override
+  String get shareEdgeInviteWelcome => 'I brought you here. You\'re welcome.';
+
+  @override
+  String get shareEdgeInviteGroupChat => 'Your group chat needed this.';
+
+  @override
+  String get shareEdgeInviteSurprised =>
+      'You\'ve been referred. Act surprised.';
+
+  @override
+  String get shareEdgeInviteTwice => 'Don\'t make me ask twice.';
+
+  @override
+  String get shareEdgeInviteChainLetter =>
+      'Not a chain letter. Slightly better.';
+
+  @override
+  String get shareEdgeInviteCut =>
+      'I get a cut. You get a discount. Everyone\'s fine.';
+
+  @override
+  String get shareEdgeInviteFees => 'Lower fees. Same number of opinions.';
+
+  @override
+  String get shareEdgeInviteDog =>
+      'The discount is real. The dog is unbothered.';
 }

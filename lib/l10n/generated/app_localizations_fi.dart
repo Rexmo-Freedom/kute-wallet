@@ -14147,4 +14147,48 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get sendPickBarBuyingForFriend => 'Ostat sen ystävälle';
+
+  @override
+  String get inviteCardCaps => 'Sinut on kutsuttu';
+
+  @override
+  String inviteCardDiscount(String discount) {
+    return '$discount alennus';
+  }
+
+  @override
+  String get inviteCardFees => 'Kuten maksuista';
+
+  @override
+  String get inviteCardJoin => 'Liity kanssani Kuteen';
+
+  @override
+  String get inviteCardUseCode => 'Käytä koodiani liittyessäsi';
+
+  @override
+  String get shareEdgeInviteWelcome => 'Toin sinut tänne. Ole hyvä.';
+
+  @override
+  String get shareEdgeInviteGroupChat => 'Ryhmächattisi tarvitsi tätä.';
+
+  @override
+  String get shareEdgeInviteSurprised =>
+      'Sinua on suositeltu. Esitä yllättynyttä.';
+
+  @override
+  String get shareEdgeInviteTwice => 'Älä pakota kysymään kahdesti.';
+
+  @override
+  String get shareEdgeInviteChainLetter => 'Ei ketjukirje. Vähän parempi.';
+
+  @override
+  String get shareEdgeInviteCut =>
+      'Minä saan osuuden. Sinä alennuksen. Kaikilla on hyvin.';
+
+  @override
+  String get shareEdgeInviteFees =>
+      'Pienemmät maksut. Yhtä monta mielipidettä.';
+
+  @override
+  String get shareEdgeInviteDog => 'Alennus on aito. Koira on välinpitämätön.';
 }

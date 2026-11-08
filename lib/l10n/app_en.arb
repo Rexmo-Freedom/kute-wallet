@@ -12195,5 +12195,62 @@
   "sendPickBarBuyingForFriend": "You're buying it for your friend",
   "@sendPickBarBuyingForFriend": {
     "description": "The floating bar's second line on an event page in send mode, under 'Pick an outcome', when no contact was picked yet: the sender is buying this prediction for a friend."
+  },
+  "inviteCardCaps": "You're invited",
+  "@inviteCardCaps": {
+    "description": "Invite share card: the small caps line at the top."
+  },
+  "inviteCardDiscount": "{discount} off",
+  "@inviteCardDiscount": {
+    "description": "Invite share card: the big figure, what a friend gets off (discount is e.g. 20%). Short: it's the hero number.",
+    "placeholders": {
+      "discount": {
+        "type": "String"
+      }
+    }
+  },
+  "inviteCardFees": "Kute fees",
+  "@inviteCardFees": {
+    "description": "Invite share card: the line under the big figure, saying the discount is on Kute fees."
+  },
+  "inviteCardJoin": "Join me on Kute",
+  "@inviteCardJoin": {
+    "description": "Invite share card without a discount: the line in place of the figure."
+  },
+  "inviteCardUseCode": "Use my code when you join",
+  "@inviteCardUseCode": {
+    "description": "Invite share card: the quiet line over the footer, where the sharer's code is shown."
+  },
+  "shareEdgeInviteWelcome": "I brought you here. You're welcome.",
+  "@shareEdgeInviteWelcome": {
+    "description": "Invite share card: one short deadpan line on the card, PG, never a promise of profit."
+  },
+  "shareEdgeInviteGroupChat": "Your group chat needed this.",
+  "@shareEdgeInviteGroupChat": {
+    "description": "Invite share card: one short deadpan line on the card, PG, never a promise of profit."
+  },
+  "shareEdgeInviteSurprised": "You've been referred. Act surprised.",
+  "@shareEdgeInviteSurprised": {
+    "description": "Invite share card: one short deadpan line on the card, PG, never a promise of profit."
+  },
+  "shareEdgeInviteTwice": "Don't make me ask twice.",
+  "@shareEdgeInviteTwice": {
+    "description": "Invite share card: one short deadpan line on the card, PG, never a promise of profit."
+  },
+  "shareEdgeInviteChainLetter": "Not a chain letter. Slightly better.",
+  "@shareEdgeInviteChainLetter": {
+    "description": "Invite share card: one short deadpan line on the card, PG, never a promise of profit."
+  },
+  "shareEdgeInviteCut": "I get a cut. You get a discount. Everyone's fine.",
+  "@shareEdgeInviteCut": {
+    "description": "Invite share card: one short deadpan line on the card, PG, never a promise of profit."
+  },
+  "shareEdgeInviteFees": "Lower fees. Same number of opinions.",
+  "@shareEdgeInviteFees": {
+    "description": "Invite share card: one short deadpan line on the card, PG, never a promise of profit."
+  },
+  "shareEdgeInviteDog": "The discount is real. The dog is unbothered.",
+  "@shareEdgeInviteDog": {
+    "description": "Invite share card: one short deadpan line on the card, PG, never a promise of profit."
   }
 }

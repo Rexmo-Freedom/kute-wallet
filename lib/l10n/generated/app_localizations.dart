@@ -23751,6 +23751,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'You\'re buying it for your friend'**
   String get sendPickBarBuyingForFriend;
+
+  /// Invite share card: the small caps line at the top.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re invited'**
+  String get inviteCardCaps;
+
+  /// Invite share card: the big figure, what a friend gets off (discount is e.g. 20%). Short: it's the hero number.
+  ///
+  /// In en, this message translates to:
+  /// **'{discount} off'**
+  String inviteCardDiscount(String discount);
+
+  /// Invite share card: the line under the big figure, saying the discount is on Kute fees.
+  ///
+  /// In en, this message translates to:
+  /// **'Kute fees'**
+  String get inviteCardFees;
+
+  /// Invite share card without a discount: the line in place of the figure.
+  ///
+  /// In en, this message translates to:
+  /// **'Join me on Kute'**
+  String get inviteCardJoin;
+
+  /// Invite share card: the quiet line over the footer, where the sharer's code is shown.
+  ///
+  /// In en, this message translates to:
+  /// **'Use my code when you join'**
+  String get inviteCardUseCode;
+
+  /// Invite share card: one short deadpan line on the card, PG, never a promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'I brought you here. You\'re welcome.'**
+  String get shareEdgeInviteWelcome;
+
+  /// Invite share card: one short deadpan line on the card, PG, never a promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'Your group chat needed this.'**
+  String get shareEdgeInviteGroupChat;
+
+  /// Invite share card: one short deadpan line on the card, PG, never a promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'ve been referred. Act surprised.'**
+  String get shareEdgeInviteSurprised;
+
+  /// Invite share card: one short deadpan line on the card, PG, never a promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'Don\'t make me ask twice.'**
+  String get shareEdgeInviteTwice;
+
+  /// Invite share card: one short deadpan line on the card, PG, never a promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'Not a chain letter. Slightly better.'**
+  String get shareEdgeInviteChainLetter;
+
+  /// Invite share card: one short deadpan line on the card, PG, never a promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'I get a cut. You get a discount. Everyone\'s fine.'**
+  String get shareEdgeInviteCut;
+
+  /// Invite share card: one short deadpan line on the card, PG, never a promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'Lower fees. Same number of opinions.'**
+  String get shareEdgeInviteFees;
+
+  /// Invite share card: one short deadpan line on the card, PG, never a promise of profit.
+  ///
+  /// In en, this message translates to:
+  /// **'The discount is real. The dog is unbothered.'**
+  String get shareEdgeInviteDog;
 }
 
 class _AppLocalizationsDelegate

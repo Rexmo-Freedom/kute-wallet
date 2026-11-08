@@ -680,6 +680,7 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet>
         return l10n.sendPickGets(who, amount, d.title, side);
       case MoneyCardData():
       case ReceiptCardData():
+      case InviteCardData():
         return null;
     }
   }

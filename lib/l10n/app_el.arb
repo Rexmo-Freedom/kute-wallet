@@ -3981,5 +3981,18 @@
   "sendPickTradeSide": "Αποστολή {side}",
   "sendPickBarPickOutcome": "Διάλεξε ένα αποτέλεσμα",
   "sendPickBarBuyingFor": "Το αγοράζεις για: {name}",
-  "sendPickBarBuyingForFriend": "Το αγοράζεις για έναν φίλο"
+  "sendPickBarBuyingForFriend": "Το αγοράζεις για έναν φίλο",
+  "inviteCardCaps": "Έχεις πρόσκληση",
+  "inviteCardDiscount": "{discount} έκπτωση",
+  "inviteCardFees": "στις χρεώσεις της Kute",
+  "inviteCardJoin": "Έλα μαζί μου στο Kute",
+  "inviteCardUseCode": "Χρησιμοποίησε τον κωδικό μου στην εγγραφή",
+  "shareEdgeInviteWelcome": "Σε έφερα εδώ. Παρακαλώ.",
+  "shareEdgeInviteGroupChat": "Το group chat σου το χρειαζόταν αυτό.",
+  "shareEdgeInviteSurprised": "Σε σύστησαν. Κάνε τον έκπληκτο.",
+  "shareEdgeInviteTwice": "Μη με βάλεις να ρωτήσω δύο φορές.",
+  "shareEdgeInviteChainLetter": "Δεν είναι αλυσιδωτό μήνυμα. Λίγο καλύτερο.",
+  "shareEdgeInviteCut": "Εγώ παίρνω ένα μερίδιο. Εσύ έκπτωση. Όλοι καλά.",
+  "shareEdgeInviteFees": "Χαμηλότερες χρεώσεις. Ίδιος αριθμός απόψεων.",
+  "shareEdgeInviteDog": "Η έκπτωση είναι αληθινή. Ο σκύλος παραμένει ατάραχος."
 }

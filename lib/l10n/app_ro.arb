@@ -3981,5 +3981,18 @@
   "sendPickTradeSide": "Trimite {side}",
   "sendPickBarPickOutcome": "Alege un rezultat",
   "sendPickBarBuyingFor": "Îl cumperi pentru {name}",
-  "sendPickBarBuyingForFriend": "Îl cumperi pentru un prieten"
+  "sendPickBarBuyingForFriend": "Îl cumperi pentru un prieten",
+  "inviteCardCaps": "Ești invitat",
+  "inviteCardDiscount": "{discount} reducere",
+  "inviteCardFees": "la comisioanele Kute",
+  "inviteCardJoin": "Vino cu mine pe Kute",
+  "inviteCardUseCode": "Folosește codul meu la înscriere",
+  "shareEdgeInviteWelcome": "Te-am adus aici. Cu plăcere.",
+  "shareEdgeInviteGroupChat": "Grupul tău de chat avea nevoie de asta.",
+  "shareEdgeInviteSurprised": "Ai fost recomandat. Prefă-te surprins.",
+  "shareEdgeInviteTwice": "Nu mă pune să întreb de două ori.",
+  "shareEdgeInviteChainLetter": "Nu e un lanț. E puțin mai bine.",
+  "shareEdgeInviteCut": "Eu primesc o parte. Tu o reducere. Toată lumea e bine.",
+  "shareEdgeInviteFees": "Comisioane mai mici. Același număr de păreri.",
+  "shareEdgeInviteDog": "Reducerea e reală. Câinele e impasibil."
 }

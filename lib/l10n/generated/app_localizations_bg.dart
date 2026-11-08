@@ -14137,4 +14137,50 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get sendPickBarBuyingForFriend => 'Купуваш го за приятел';
+
+  @override
+  String get inviteCardCaps => 'Поканен си';
+
+  @override
+  String inviteCardDiscount(String discount) {
+    return '$discount отстъпка';
+  }
+
+  @override
+  String get inviteCardFees => 'от таксите на Kute';
+
+  @override
+  String get inviteCardJoin => 'Ела при мен в Kute';
+
+  @override
+  String get inviteCardUseCode => 'Използвай кода ми при регистрация';
+
+  @override
+  String get shareEdgeInviteWelcome => 'Доведох те тук. Няма защо.';
+
+  @override
+  String get shareEdgeInviteGroupChat =>
+      'Груповият ти чат имаше нужда от това.';
+
+  @override
+  String get shareEdgeInviteSurprised =>
+      'Препоръчан си. Престори се на изненадан.';
+
+  @override
+  String get shareEdgeInviteTwice => 'Не ме карай да питам два пъти.';
+
+  @override
+  String get shareEdgeInviteChainLetter =>
+      'Не е верижно писмо. Малко по-добро е.';
+
+  @override
+  String get shareEdgeInviteCut =>
+      'Аз получавам дял. Ти получаваш отстъпка. Всички са добре.';
+
+  @override
+  String get shareEdgeInviteFees => 'По-ниски такси. Същият брой мнения.';
+
+  @override
+  String get shareEdgeInviteDog =>
+      'Отстъпката е истинска. Кучето е невъзмутимо.';
 }

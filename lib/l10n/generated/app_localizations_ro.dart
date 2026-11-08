@@ -14188,4 +14188,49 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get sendPickBarBuyingForFriend => 'Îl cumperi pentru un prieten';
+
+  @override
+  String get inviteCardCaps => 'Ești invitat';
+
+  @override
+  String inviteCardDiscount(String discount) {
+    return '$discount reducere';
+  }
+
+  @override
+  String get inviteCardFees => 'la comisioanele Kute';
+
+  @override
+  String get inviteCardJoin => 'Vino cu mine pe Kute';
+
+  @override
+  String get inviteCardUseCode => 'Folosește codul meu la înscriere';
+
+  @override
+  String get shareEdgeInviteWelcome => 'Te-am adus aici. Cu plăcere.';
+
+  @override
+  String get shareEdgeInviteGroupChat =>
+      'Grupul tău de chat avea nevoie de asta.';
+
+  @override
+  String get shareEdgeInviteSurprised =>
+      'Ai fost recomandat. Prefă-te surprins.';
+
+  @override
+  String get shareEdgeInviteTwice => 'Nu mă pune să întreb de două ori.';
+
+  @override
+  String get shareEdgeInviteChainLetter => 'Nu e un lanț. E puțin mai bine.';
+
+  @override
+  String get shareEdgeInviteCut =>
+      'Eu primesc o parte. Tu o reducere. Toată lumea e bine.';
+
+  @override
+  String get shareEdgeInviteFees =>
+      'Comisioane mai mici. Același număr de păreri.';
+
+  @override
+  String get shareEdgeInviteDog => 'Reducerea e reală. Câinele e impasibil.';
 }

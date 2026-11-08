@@ -3981,5 +3981,18 @@
   "sendPickTradeSide": "Lähetä {side}",
   "sendPickBarPickOutcome": "Valitse lopputulos",
   "sendPickBarBuyingFor": "Ostat sen, ja {name} saa sen",
-  "sendPickBarBuyingForFriend": "Ostat sen ystävälle"
+  "sendPickBarBuyingForFriend": "Ostat sen ystävälle",
+  "inviteCardCaps": "Sinut on kutsuttu",
+  "inviteCardDiscount": "{discount} alennus",
+  "inviteCardFees": "Kuten maksuista",
+  "inviteCardJoin": "Liity kanssani Kuteen",
+  "inviteCardUseCode": "Käytä koodiani liittyessäsi",
+  "shareEdgeInviteWelcome": "Toin sinut tänne. Ole hyvä.",
+  "shareEdgeInviteGroupChat": "Ryhmächattisi tarvitsi tätä.",
+  "shareEdgeInviteSurprised": "Sinua on suositeltu. Esitä yllättynyttä.",
+  "shareEdgeInviteTwice": "Älä pakota kysymään kahdesti.",
+  "shareEdgeInviteChainLetter": "Ei ketjukirje. Vähän parempi.",
+  "shareEdgeInviteCut": "Minä saan osuuden. Sinä alennuksen. Kaikilla on hyvin.",
+  "shareEdgeInviteFees": "Pienemmät maksut. Yhtä monta mielipidettä.",
+  "shareEdgeInviteDog": "Alennus on aito. Koira on välinpitämätön."
 }

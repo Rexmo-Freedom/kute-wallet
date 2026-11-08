@@ -4247,5 +4247,18 @@
   "sendPickTradeSide": "Enviar {side}",
   "sendPickBarPickOutcome": "Escolha um resultado",
   "sendPickBarBuyingFor": "Estás a comprar para {name}",
-  "sendPickBarBuyingForFriend": "Estás a comprar para um amigo"
+  "sendPickBarBuyingForFriend": "Estás a comprar para um amigo",
+  "inviteCardCaps": "Foste convidado",
+  "inviteCardDiscount": "{discount} de desconto",
+  "inviteCardFees": "nas taxas da Kute",
+  "inviteCardJoin": "Junta-te a mim na Kute",
+  "inviteCardUseCode": "Usa o meu código ao registares-te",
+  "shareEdgeInviteWelcome": "Trouxe-te até aqui. De nada.",
+  "shareEdgeInviteGroupChat": "O teu chat de grupo precisava disto.",
+  "shareEdgeInviteSurprised": "Foste recomendado. Finge surpresa.",
+  "shareEdgeInviteTwice": "Não me faças pedir duas vezes.",
+  "shareEdgeInviteChainLetter": "Não é uma corrente. É um pouco melhor.",
+  "shareEdgeInviteCut": "Eu fico com uma parte. Tu com um desconto. Todos bem.",
+  "shareEdgeInviteFees": "Taxas mais baixas. O mesmo número de opiniões.",
+  "shareEdgeInviteDog": "O desconto é real. O cão continua impassível."
 }
