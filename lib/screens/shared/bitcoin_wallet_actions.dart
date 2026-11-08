@@ -201,8 +201,10 @@ KuteDockAction bitcoinSwapDockAction(
     trackingId: 'swap',
     onTap: () {
       if (!_pinBitcoinWallet(context, ref, wallet)) return;
+      // Starts by bringing Dollars here (founder, 8 November 2026: "swap
+      // here should default dollars to bitcoin"); its circle reverses it.
       unawaited(showOwnMoneyMove(context,
-          from: MoneyMovementAccount.bitcoin,
+          from: MoneyMovementAccount.dollars,
           entrySource: kBitcoinHomeSwapSource));
     },
   );

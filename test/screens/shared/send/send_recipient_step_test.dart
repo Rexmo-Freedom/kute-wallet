@@ -143,6 +143,34 @@ void main() {
             (e.widget as AssetIcon).assetCode
         ];
 
+    testWidgets('the line opens the list; nothing to choose, no tap and no '
+        'chevron', (tester) async {
+      await tester.runAsync(_policy);
+      var taps = 0;
+      Widget row() => _host(SendAcceptedCoins(
+          otherLegAsset: 'BTC',
+          onTap: () => taps++,
+          rows: (OrchestraRoutesCatalog _, __) => _rows()));
+      await tester.pumpWidget(row());
+      await tester.pump();
+      expect(find.byKey(const ValueKey('send-accepted-coins-chevron')),
+          findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('send-accepted-coins')));
+      expect(taps, 1);
+
+      await tester.runAsync(() => _policy(
+          blocked: {'orchestra.swap'},
+          reasons: {'orchestra.swap': 'country_blocked'}));
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpWidget(row());
+      await tester.pump();
+      expect(find.byKey(const ValueKey('send-accepted-coins-chevron')),
+          findsNothing);
+      await tester.tap(find.byKey(const ValueKey('send-accepted-coins')));
+      expect(taps, 1);
+      await tester.runAsync(_policy);
+    });
+
     testWidgets('the Dollars Send shows the networks, then Bitcoin and '
         'Lightning; blocked, just those two', (tester) async {
       await tester.runAsync(_policy);

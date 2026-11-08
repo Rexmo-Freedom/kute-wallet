@@ -117,8 +117,8 @@ class SendStepTitle extends StatelessWidget {
 
 /// The recipient field: the AI search bar's own line ([KuteSearchComposer]),
 /// Sal with the magnifier at the left and the hairline under it, with two
-/// 32 px buttons at the right (Paste and Scan while empty, a clear once
-/// there is text). A tap anywhere on the line focuses it.
+/// 36 px buttons at the right (Paste, then Scan in the solid fill, while
+/// empty; a clear once there is text). A tap anywhere on the line focuses it.
 class SendRecipientSearchField extends StatefulWidget {
   const SendRecipientSearchField({
     super.key,
@@ -190,6 +190,10 @@ class _SendRecipientSearchFieldState extends State<SendRecipientSearchField> {
                       key: const ValueKey('send-field-scan'),
                       icon: Icons.qr_code_scanner_rounded,
                       tooltip: context.l10n.scan,
+                      // The clear one of the two (founder, 8 November
+                      // 2026: scan next to the paste, "but more clear"):
+                      // Scan left the Bitcoin home, this is its door.
+                      solid: true,
                       onTap: widget.onScan,
                     ),
                   ],
@@ -209,18 +213,21 @@ class _SendRecipientSearchFieldState extends State<SendRecipientSearchField> {
   }
 }
 
-/// A 32 px icon button at the right of the search field.
+/// A 36 px icon button at the right of the search field; [solid] wears the
+/// app's solid fill (the homes' solid square), the rest the soft one.
 class SendSearchFieldButton extends StatelessWidget {
   const SendSearchFieldButton({
     super.key,
     required this.icon,
     required this.tooltip,
     required this.onTap,
+    this.solid = false,
   });
 
   final IconData icon;
   final String tooltip;
   final VoidCallback onTap;
+  final bool solid;
 
   @override
   Widget build(BuildContext context) {
@@ -228,7 +235,7 @@ class SendSearchFieldButton extends StatelessWidget {
     return Tooltip(
       message: tooltip,
       child: Material(
-        color: c.surfaceLight,
+        color: solid ? c.textPrimary : c.surfaceLight,
         shape: const CircleBorder(),
         child: InkWell(
           customBorder: const CircleBorder(),
@@ -237,9 +244,10 @@ class SendSearchFieldButton extends StatelessWidget {
             onTap();
           },
           child: SizedBox(
-            width: 32.sp,
-            height: 32.sp,
-            child: Icon(icon, color: c.textPrimary, size: 17.sp),
+            width: 36.sp,
+            height: 36.sp,
+            child: Icon(icon,
+                color: solid ? c.background : c.textPrimary, size: 19.sp),
           ),
         ),
       ),
@@ -332,7 +340,8 @@ List<OrchestraReceiveOption> sendAcceptedChains(
 /// [chains] (the Dollars Send) the row is the networks the dollars reach
 /// instead ([sendAcceptedChains]), then Bitcoin and Lightning, which stay
 /// on the line whatever the count. It follows the live catalogue and the
-/// policy by itself. No card, no words, no tap.
+/// policy by itself. No card and no words; with [onTap] the whole line, a
+/// chevron at its end, opens the list.
 class SendAcceptedCoins extends ConsumerWidget {
   const SendAcceptedCoins({
     super.key,
@@ -340,7 +349,13 @@ class SendAcceptedCoins extends ConsumerWidget {
     required this.otherLegAsset,
     this.lightning = true,
     this.chains = false,
+    this.onTap,
   });
+
+  /// Opens the list of what this send takes, for a person who wants to
+  /// choose the coin first (founder, 8 November 2026). Ignored, with no
+  /// chevron, when nothing past bitcoin's own rails is open.
+  final VoidCallback? onTap;
 
   /// The networks instead of the coins (the Dollars Send).
   final bool chains;
@@ -374,9 +389,11 @@ class SendAcceptedCoins extends ConsumerWidget {
     ];
     final List<({String name, Widget logo})> shown;
     final int rest;
+    final bool hasChoices;
     if (chains) {
       final networks = sendAcceptedChains(rows(catalog, l10n),
           otherLegAsset: otherLegAsset);
+      hasChoices = networks.isNotEmpty;
       final room = maxMarks - own.length;
       shown = [
         for (final o in networks.take(room))
@@ -398,6 +415,7 @@ class SendAcceptedCoins extends ConsumerWidget {
     } else {
       final coins = sendAcceptedCoinGroups(rows(catalog, l10n),
           otherLegAsset: otherLegAsset);
+      hasChoices = coins.isNotEmpty;
       final all = [
         ...own,
         for (final g in coins)
@@ -407,32 +425,52 @@ class SendAcceptedCoins extends ConsumerWidget {
       rest = all.length - shown.length;
     }
     final more = l10n.receiveAlsoAcceptsMore(rest);
+    final tap = hasChoices ? onTap : null;
+    final line = Padding(
+      key: const ValueKey('send-accepted-coins'),
+      padding: EdgeInsets.only(top: 12.h),
+      child: Row(
+        children: [
+          for (final m in shown) ...[
+            m.logo,
+            SizedBox(width: gap.sp),
+          ],
+          if (rest > 0)
+            Text(
+              more,
+              key: const ValueKey('send-accepted-coins-more'),
+              style: TextStyle(
+                color: c.textTertiary,
+                fontSize: 13.sp,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.1,
+              ),
+            ),
+          if (tap != null)
+            Icon(
+              Icons.chevron_right_rounded,
+              key: const ValueKey('send-accepted-coins-chevron'),
+              color: c.textTertiary,
+              size: 18.sp,
+            ),
+        ],
+      ),
+    );
     return Semantics(
+      button: tap != null,
       label: [for (final m in shown) m.name, if (rest > 0) more].join(', '),
+      onTap: tap,
       child: ExcludeSemantics(
-        child: Padding(
-          key: const ValueKey('send-accepted-coins'),
-          padding: EdgeInsets.only(top: 12.h),
-          child: Row(
-            children: [
-              for (final m in shown) ...[
-                m.logo,
-                SizedBox(width: gap.sp),
-              ],
-              if (rest > 0)
-                Text(
-                  more,
-                  key: const ValueKey('send-accepted-coins-more'),
-                  style: TextStyle(
-                    color: c.textTertiary,
-                    fontSize: 13.sp,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: -0.1,
-                  ),
-                ),
-            ],
-          ),
-        ),
+        child: tap == null
+            ? line
+            : GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  tap();
+                },
+                child: line,
+              ),
       ),
     );
   }

@@ -4410,9 +4410,12 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
             ? _movementName(MoneyMovementAccount.bitcoin)
             : settings.activeWallet?.name ?? l10n.spending,
         toWalletName: l10n.assetDollars,
-        note: settled.registered
-            ? l10n.moveConversionOngoing
-            : l10n.settlementRegistering,
+        // Swap says it's done and no more (founder, 8 November 2026).
+        note: swapped
+            ? null
+            : settled.registered
+                ? l10n.moveConversionOngoing
+                : l10n.settlementRegistering,
         swapped: swapped,
       );
     } catch (e) {
@@ -4814,7 +4817,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       toWalletName: swapped
           ? _movementName(MoneyMovementAccount.bitcoin)
           : settings.activeWallet?.name ?? l10n.spending,
-      note: l10n.moveConversionOngoing,
+      note: swapped ? null : l10n.moveConversionOngoing,
       swapped: swapped,
     );
   }
@@ -5057,9 +5060,11 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         toWalletName: swapped
             ? _movementName(MoneyMovementAccount.bitcoin)
             : settings.activeWallet?.name ?? l10n.spending,
-        note: sent.registered
-            ? l10n.moveConversionOngoing
-            : l10n.settlementRegistering,
+        note: swapped
+            ? null
+            : sent.registered
+                ? l10n.moveConversionOngoing
+                : l10n.settlementRegistering,
         swapped: swapped,
       );
     } catch (e) {

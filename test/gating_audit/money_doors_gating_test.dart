@@ -479,7 +479,7 @@ void main() {
         }
         await tester.tap(find.text(_l10n.swap));
         await tester.pump();
-        expectPinned(moves, bitcoinToDollars);
+        expectPinned(moves, dollarsToBitcoin);
         expect(moves.single.entrySource, kBitcoinHomeSwapSource);
         expect(find.byType(CapabilityUnavailableSheet), findsNothing);
 

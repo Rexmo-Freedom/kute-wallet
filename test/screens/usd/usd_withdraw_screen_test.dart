@@ -665,6 +665,16 @@ void main() {
     await _unmount(tester);
   });
 
+  testWidgets('the logos open the coin list, to choose the coin first',
+      (tester) async {
+    await _pump(tester);
+    await tester.tap(find.byKey(const ValueKey('send-accepted-coins')));
+    await _settle(tester);
+    expect(find.byType(CoinAssetPickerSheet), findsOneWidget);
+    Navigator.of(tester.element(find.byType(CoinAssetPickerSheet))).pop();
+    await _settle(tester);
+  });
+
   testWidgets(
       'typed, the keyboard\'s Done goes on as a paste does: an address one '
       'network takes opens the send on its amount, a 0x address asks its '

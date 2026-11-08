@@ -444,6 +444,10 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
                       SendAcceptedCoins(
                         chains: true,
                         otherLegAsset: kOrchestraUsdAssetCode,
+                        onTap: () => _openCoinPicker(
+                            only: usdSendOfferedDestinations(
+                                    ref.read(orchestraSupportedRoutesProvider))
+                                .offered),
                         rows: (catalog, _) => [
                           for (final d
                               in usdSendOfferedDestinations(catalog).offered)

@@ -7902,6 +7902,12 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
             SendAcceptedCoins(
               lightning: hot,
               otherLegAsset: 'BTC',
+              onTap: hot
+                  ? () {
+                      TrackingService.sendAssetShortcutTapped('other');
+                      _showDestinationPicker(context);
+                    }
+                  : null,
               rows: (catalog, l10n) => hot
                   ? _sendDestOptions(catalog, l10n)
                       .map(_sendDestPickerRow)

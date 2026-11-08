@@ -396,7 +396,6 @@ void main() {
           amount: r'$4.99',
           fromWalletName: name,
           toWalletName: to,
-          note: l10n.settlementRegistering,
           swapped: true,
         );
         await _frames(tester, 24);
@@ -515,7 +514,7 @@ void main() {
     });
   }
 
-  // And its Swap, tapped for real: the Swap screen, on Bitcoin → Dollars.
+  // And its Swap, tapped for real: the Swap screen, on Dollars → Bitcoin.
   for (final dark in [false, true]) {
     final name = 'bitcoin_home_swap_opened_375_${dark ? 'dark' : 'light'}';
     testWidgets(name, (tester) async {
@@ -539,12 +538,12 @@ void main() {
       expect(
           find.descendant(
               of: find.byKey(const ValueKey('money-movement-from')),
-              matching: find.text('Bitcoin')),
+              matching: find.text('Dollars')),
           findsOneWidget);
       expect(
           find.descendant(
               of: find.byKey(const ValueKey('money-movement-to')),
-              matching: find.text('Dollars')),
+              matching: find.text('Bitcoin')),
           findsOneWidget);
       await _capture(tester, name);
       await _close(tester, c);

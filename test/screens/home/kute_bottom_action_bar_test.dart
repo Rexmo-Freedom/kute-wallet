@@ -517,7 +517,7 @@ void main() {
       expect(
           request.route,
           const MoneyMovementRoute(
-              MoneyMovementAccount.bitcoin, MoneyMovementAccount.dollars));
+              MoneyMovementAccount.dollars, MoneyMovementAccount.bitcoin));
       expect(request.pinned, isTrue);
       expect(request.entrySource, kBitcoinHomeSwapSource);
       expect(request.entrySource, 'bitcoin_home_swap');
