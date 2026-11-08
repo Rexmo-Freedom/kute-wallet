@@ -16,8 +16,13 @@
 // icons ... the search bar should be like the ai search bar", "same thing in
 // dollars"): both Sends at 320 and 375 pt wide, in a long language, with the
 // swap open and with it region-blocked, the coins under the empty field only
-// what is really open. Every frame lays out without an overflow; the PNGs are
-// written only when asked:
+// what is really open. Then THE GIFT IS ALWAYS THERE (founder, 8 November
+// 2026: "we need to have it as an option always"): both Sends' What step with
+// nothing held and no venue cash at 320 and 375 pt, the same under a region
+// block with its tap's sheet; and THE ADDRESS STEP ("here is just Address
+// also"): the Dollars Send's with the coin chosen, and the Bitcoin Send's
+// with a coin chosen and the field cleared. Every frame lays out without an
+// overflow; the PNGs are written only when asked:
 //
 //   SEND_WHO_RENDER=<dir> flutter test test/render/send_who_what_render_test.dart
 
@@ -65,8 +70,16 @@ import 'package:kute/screens/shared/receive_surface.dart'
 import 'package:kute/screens/shared/sal_sprite.dart'
     show SalSpriteCache, kSalSpriteDir;
 import 'package:kute/screens/shared/send/send_sheet.dart';
+import 'package:kute/screens/shared/coin_asset_grid.dart' show CoinAssetTile;
+import 'package:kute/screens/shared/send/send_recipient_step.dart'
+    show SendRecipientSearchField;
 import 'package:kute/screens/shared/send/send_what_step.dart'
-    show SendWhatSheet;
+    show SendWhatSheet, kSendWhatGiftKey, kSendWhatMoneyKey;
+import 'package:kute/providers/spark_address_provider.dart'
+    show sparkSelfAddressProvider;
+import 'package:kute/screens/usd/usd_send_screen.dart' show UsdSendScreen;
+import 'package:kute/services/orchestra_usd_send_routes.dart'
+    show UsdSendDestination, usdSendDestinations;
 import 'package:kute/screens/usd/usd_withdraw_screen.dart'
     show showUsdWithdrawSheet;
 import 'package:kute/services/api/share_links_api.dart';
@@ -146,6 +159,16 @@ class _Balances extends WalletBalanceCacheNotifier {
     state = {
       'spending':
           WalletBalance(onChainBtcBalance: 0, sparkBitcoinbalance: 328686),
+    };
+  }
+}
+
+/// Nothing in the spending wallet (no position and no venue cash either:
+/// no provider here reads one).
+class _NoBalances extends WalletBalanceCacheNotifier {
+  _NoBalances() {
+    state = {
+      'spending': WalletBalance(onChainBtcBalance: 0, sparkBitcoinbalance: 0),
     };
   }
 }
@@ -271,13 +294,16 @@ void main() {
       Locale? locale,
       Size size = const Size(375, 812),
       Set<String> blocked = const {},
-      Map<String, String> reasons = const {}}) async {
+      Map<String, String> reasons = const {},
+      Map<String, Map<String, Object?>> decorations = const {},
+      bool nothingHeld = false}) async {
     await tester.runAsync(loadShareCardFonts);
     await _sal(tester);
     AffiliateService.debugSessionToken = 'test-session';
     final policy = runtimePolicyFixture(
         blocked: blocked,
         reasons: reasons,
+        decorations: decorations,
         also: const {'polymarket.browse', 'hyperliquid.browse'});
     RuntimeCapabilitiesService.debugInstance = policy;
     await tester.runAsync(policy.refresh);
@@ -319,7 +345,8 @@ void main() {
             contacts: fakeContacts())),
         shareLinksApiProvider.overrideWithValue(FakeShareLinksApi()),
         sparkContactsProvider.overrideWith(_Paid.new),
-        walletBalanceCacheProvider.overrideWith((_) => _Balances()),
+        walletBalanceCacheProvider.overrideWith(
+            (_) => nothingHeld ? _NoBalances() : _Balances()),
         orchestraSupportedRoutesProvider
             .overrideWith((_) => _Routes(_catalog())),
         orchestraRoutesReadyProvider.overrideWith((_) async {}),
@@ -347,13 +374,17 @@ void main() {
       Locale? locale,
       Size size = const Size(375, 812),
       Set<String> blocked = const {},
-      Map<String, String> reasons = const {}}) async {
+      Map<String, String> reasons = const {},
+      Map<String, Map<String, Object?>> decorations = const {},
+      bool nothingHeld = false,
+      UsdSendDestination? addressStep}) async {
     await tester.runAsync(loadShareCardFonts);
     await _sal(tester);
     AffiliateService.debugSessionToken = 'test-session';
     final policy = runtimePolicyFixture(
         blocked: blocked,
         reasons: reasons,
+        decorations: decorations,
         also: const {'polymarket.browse', 'hyperliquid.browse'});
     RuntimeCapabilitiesService.debugInstance = policy;
     await tester.runAsync(policy.refresh);
@@ -370,11 +401,12 @@ void main() {
         sendContactsGatewayProvider.overrideWithValue(FakeSendContactsGateway(
             permission: SendContactsPermission.granted,
             contacts: fakeContacts())),
-        usdBalanceProvider.overrideWithValue(12.34),
+        usdBalanceProvider.overrideWithValue(nothingHeld ? 0 : 12.34),
         usdBalanceUnknownProvider.overrideWithValue(false),
         orchestraSupportedRoutesProvider
             .overrideWith((_) => _Routes(_catalog())),
         orchestraRoutesReadyProvider.overrideWith((_) async {}),
+        sparkSelfAddressProvider.overrideWith((_) async => 'sp1test'),
       ],
       child: ScreenUtilInit(
         designSize: const Size(430, 932),
@@ -389,7 +421,11 @@ void main() {
             body: Builder(
               builder: (context) => Center(
                 child: TextButton(
-                  onPressed: () => showUsdWithdrawSheet(context),
+                  onPressed: () => addressStep == null
+                      ? showUsdWithdrawSheet(context)
+                      : showSendSheet<void>(context,
+                          builder: (_) =>
+                              UsdSendScreen(initialDestination: addressStep)),
                   child: const Text('open'),
                 ),
               ),
@@ -550,6 +586,115 @@ void main() {
             dark: dark, size: size, blocked: blocked, reasons: reasons);
         expect(coinsShown(tester), ['BTC', 'Lightning']);
         await _capture(tester, 'field-dollars-$at-blocked-$theme');
+      });
+    }
+
+    // THE GIFT IS ALWAYS THERE (see the file header): nothing held, no venue
+    // cash, both Sends, two squares.
+    Future<void> toWhat(WidgetTester tester) async {
+      final person = find.byKey(const ValueKey('send-person-contact:c2'),
+          skipOffstage: false);
+      await tester.ensureVisible(person);
+      await _settle(tester);
+      await tester.tap(person);
+      await _settle(tester);
+      expect(find.byType(SendWhatSheet), findsOneWidget);
+      expect(find.byKey(kSendWhatGiftKey), findsOneWidget);
+      expect(tester.getSize(find.byKey(kSendWhatGiftKey)),
+          tester.getSize(find.byKey(kSendWhatMoneyKey)));
+    }
+
+    const closed = {'polymarket.trade', 'hyperliquid.trade'};
+    const closedWhy = {
+      'polymarket.trade': 'country_blocked',
+      'hyperliquid.trade': 'country_blocked',
+    };
+    const closedRegions = {
+      'polymarket.trade': {
+        'regions': {'label': 'the places Polymarket restricts'}
+      },
+      'hyperliquid.trade': {
+        'regions': {'label': 'the places Hyperliquid restricts'}
+      },
+    };
+
+    for (final (width, height) in [(320.0, 693.0), (375.0, 812.0)]) {
+      final at = width.toInt();
+      final size = Size(width, height);
+
+      testWidgets('render: what-nothing-bitcoin-$at-$theme', (tester) async {
+        await pumpSend(tester, dark: dark, size: size, nothingHeld: true);
+        await toWhat(tester);
+        await _capture(tester, 'what-nothing-bitcoin-$at-$theme');
+      });
+
+      testWidgets('render: what-nothing-dollars-$at-$theme', (tester) async {
+        await pumpDollars(tester, dark: dark, size: size, nothingHeld: true);
+        await toWhat(tester);
+        await _capture(tester, 'what-nothing-dollars-$at-$theme');
+      });
+
+      testWidgets('render: what-region-bitcoin-$at-$theme', (tester) async {
+        await pumpSend(tester,
+            dark: dark,
+            size: size,
+            nothingHeld: true,
+            blocked: closed,
+            reasons: closedWhy,
+            decorations: closedRegions);
+        await toWhat(tester);
+        await _capture(tester, 'what-region-bitcoin-$at-$theme');
+        await tester.runAsync(() async {
+          await tester.tap(find.byKey(kSendWhatGiftKey));
+          await Future<void>.delayed(const Duration(milliseconds: 100));
+        });
+        await _settle(tester);
+        expect(find.text('Not available in the places Polymarket restricts'),
+            findsOneWidget);
+        await _capture(tester, 'what-region-bitcoin-tapped-$at-$theme');
+      });
+
+      testWidgets('render: what-region-dollars-$at-$theme', (tester) async {
+        await pumpDollars(tester,
+            dark: dark,
+            size: size,
+            nothingHeld: true,
+            blocked: closed,
+            reasons: closedWhy,
+            decorations: closedRegions);
+        await toWhat(tester);
+        await _capture(tester, 'what-region-dollars-$at-$theme');
+      });
+
+      // THE ADDRESS STEP (see the file header).
+      testWidgets('render: address-dollars-$at-$theme', (tester) async {
+        final solana = usdSendDestinations(_catalog())
+            .firstWhere((d) => d.chain == 'solana' && d.assetCode == 'USDC');
+        await pumpDollars(tester, dark: dark, size: size, addressStep: solana);
+        expect(find.text('Address'), findsOneWidget);
+        expect(find.text('Name, address or ENS'), findsNothing);
+        await _capture(tester, 'address-dollars-$at-$theme');
+      });
+
+      testWidgets('render: address-bitcoin-$at-$theme', (tester) async {
+        await pumpSend(tester, dark: dark, size: size);
+        await tester.enterText(find.byType(TextField).first,
+            '0x742d35cc6634c0532925a3b844bc454e4438f44e');
+        await _settle(tester);
+        await tester.testTextInput.receiveAction(TextInputAction.done);
+        await _settle(tester);
+        await tester.tap(find.widgetWithText(CoinAssetTile, 'USDC').first);
+        await _settle(tester);
+        await tester.tap(find.text('base').first);
+        await _settle(tester);
+        final field = find.byType(SendRecipientSearchField);
+        expect(tester.widget<SendRecipientSearchField>(field).hintText,
+            'Address');
+        await _capture(tester, 'address-bitcoin-typed-$at-$theme');
+        // The field cleared, the coin kept: the hint on show.
+        await tester.tap(find.byKey(const ValueKey('send-field-clear')));
+        await _settle(tester);
+        await _capture(tester, 'address-bitcoin-cleared-$at-$theme');
       });
     }
 

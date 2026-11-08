@@ -3350,11 +3350,6 @@ class AppLocalizationsLt extends AppLocalizations {
       'Šis mokėjimo prašymas palaiko tik Lightning. Kad sumokėtumėte, perjunkite į piniginę, palaikančią Lightning.';
 
   @override
-  String sendAssetOnNetworkAddressHint(String asset, String network) {
-    return '$asset adresas $network tinkle';
-  }
-
-  @override
   String get sendPasteBitcoinAddress => 'Įklijuokite Bitcoin adresą';
 
   @override
@@ -6781,9 +6776,6 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
-
-  @override
-  String get sendDollarAccountAddressHint => 'Dolerių paskyros adresas';
 
   @override
   String hwSignKeepDeviceNearby(String device) {
@@ -12176,9 +12168,6 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get sendWhatGift => 'Prognozė ar investicija';
-
-  @override
-  String get usdSendRecipientSearchHint => 'Vardas, adresas arba ENS';
 
   @override
   String get sendDollarsTitle => 'Siųsti dolerius';

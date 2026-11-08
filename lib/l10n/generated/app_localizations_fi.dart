@@ -3340,11 +3340,6 @@ class AppLocalizationsFi extends AppLocalizations {
       'Tämä maksupyyntö tukee vain Lightningia. Vaihda Lightningia tukevaan lompakkoon maksaaksesi.';
 
   @override
-  String sendAssetOnNetworkAddressHint(String asset, String network) {
-    return '$asset-osoite verkossa $network';
-  }
-
-  @override
   String get sendPasteBitcoinAddress => 'Liitä Bitcoin-osoite';
 
   @override
@@ -6744,9 +6739,6 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
-
-  @override
-  String get sendDollarAccountAddressHint => 'Dollaritilin osoite';
 
   @override
   String hwSignKeepDeviceNearby(String device) {
@@ -12131,9 +12123,6 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get sendWhatGift => 'Ennuste tai sijoitus';
-
-  @override
-  String get usdSendRecipientSearchHint => 'Nimi, osoite tai ENS';
 
   @override
   String get sendDollarsTitle => 'Lähetä dollareita';

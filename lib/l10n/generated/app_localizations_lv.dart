@@ -3332,11 +3332,6 @@ class AppLocalizationsLv extends AppLocalizations {
       'Šis maksājuma pieprasījums atbalsta tikai Lightning. Lai samaksātu, pārslēdzies uz maciņu ar Lightning.';
 
   @override
-  String sendAssetOnNetworkAddressHint(String asset, String network) {
-    return '$asset adrese tīklā $network';
-  }
-
-  @override
   String get sendPasteBitcoinAddress => 'Ielīmē Bitcoin adresi';
 
   @override
@@ -6728,9 +6723,6 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
-
-  @override
-  String get sendDollarAccountAddressHint => 'Dolāru konta adrese';
 
   @override
   String hwSignKeepDeviceNearby(String device) {
@@ -12086,9 +12078,6 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get sendWhatGift => 'Prognoze vai investīcija';
-
-  @override
-  String get usdSendRecipientSearchHint => 'Vārds, adrese vai ENS';
 
   @override
   String get sendDollarsTitle => 'Sūtīt dolārus';

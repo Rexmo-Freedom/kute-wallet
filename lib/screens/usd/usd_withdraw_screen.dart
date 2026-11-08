@@ -74,7 +74,7 @@ import 'package:kute/screens/scanner/scanner_sheet.dart' show showScannerSheet;
 import 'package:kute/services/runtime_capabilities_service.dart'
     show runtimeCapabilitiesProvider;
 import 'package:kute/screens/share/send_pick_market_sheet.dart'
-    show sendPickOffered, showSendPickMarketSheet;
+    show showSendPickMarketSheet;
 import 'package:kute/screens/share/send_to_anyone_sheet.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/coin_asset_grid.dart';
@@ -219,7 +219,6 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
       contact: contact,
       phone: phone,
       home: SendFrom.dollars,
-      giftOffered: sendPickOffered(ref.read(runtimeCapabilitiesProvider)),
       openLink: (kind) {
         final open = UsdWithdrawScreen.debugLinkOpener;
         return open != null

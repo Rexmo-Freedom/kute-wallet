@@ -3252,11 +3252,6 @@ class AppLocalizationsJa extends AppLocalizations {
       'この支払いリクエストはLightningのみに対応しています。支払うにはLightning対応のウォレットに切り替えてください。';
 
   @override
-  String sendAssetOnNetworkAddressHint(String asset, String network) {
-    return '$network上の$assetアドレス';
-  }
-
-  @override
   String get sendPasteBitcoinAddress => 'ビットコインアドレスを貼り付け';
 
   @override
@@ -6490,9 +6485,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
-
-  @override
-  String get sendDollarAccountAddressHint => 'ドルアカウントのアドレス';
 
   @override
   String hwSignKeepDeviceNearby(String device) {
@@ -11687,9 +11679,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get sendWhatGift => '予測または投資';
-
-  @override
-  String get usdSendRecipientSearchHint => '名前、アドレス、ENS';
 
   @override
   String get sendDollarsTitle => 'ドルを送金';

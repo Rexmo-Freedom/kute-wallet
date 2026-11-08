@@ -36,7 +36,7 @@ import 'package:kute/screens/shared/coin_asset_grid.dart'
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show SendAmountUnitPill, SendTypedAmountHero;
 import 'package:kute/screens/shared/send/send_recipient_step.dart'
-    show SendSalShareGlyph;
+    show SendRecipientSearchField, SendSalShareGlyph;
 import 'package:kute/screens/shared/sal_sprite.dart' show SalSpriteCache;
 import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart'
@@ -515,6 +515,14 @@ void main() {
     await _pickCoin(tester, 'arbitrum', 'USDC');
     expect(_chip, findsOneWidget);
     expect(find.byType(TextField), findsOneWidget);
+    // The coin chosen, the field asks for just that (founder, 8 November
+    // 2026: "here is just Address also").
+    expect(
+        tester
+            .widget<SendRecipientSearchField>(
+                find.byType(SendRecipientSearchField))
+            .hintText,
+        'Address');
     expect(find.byTooltip(_l10n.paste), findsOneWidget);
     expect(find.byTooltip(_l10n.scan), findsOneWidget);
     expect(find.byKey(const ValueKey('send-to-friend-row')), findsNothing);

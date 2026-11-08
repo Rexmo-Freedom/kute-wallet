@@ -3339,11 +3339,6 @@ class AppLocalizationsCs extends AppLocalizations {
       'Tato žádost o platbu podporuje jen Lightning. Pro zaplacení přepni na peněženku s Lightning.';
 
   @override
-  String sendAssetOnNetworkAddressHint(String asset, String network) {
-    return 'Adresa $asset v síti $network';
-  }
-
-  @override
   String get sendPasteBitcoinAddress => 'Vlož Bitcoin adresu';
 
   @override
@@ -6743,9 +6738,6 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
-
-  @override
-  String get sendDollarAccountAddressHint => 'Adresa dolarového účtu';
 
   @override
   String hwSignKeepDeviceNearby(String device) {
@@ -12119,9 +12111,6 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get sendWhatGift => 'Predikce nebo investice';
-
-  @override
-  String get usdSendRecipientSearchHint => 'Jméno, adresa nebo ENS';
 
   @override
   String get sendDollarsTitle => 'Poslat dolary';

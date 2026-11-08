@@ -64,7 +64,7 @@ import 'package:kute/screens/shared/money_movement_sheet.dart'
         MoneyMovementRoute,
         debugMoneyMovementSheetOpener;
 import 'package:kute/screens/shared/send/send_recipient_step.dart'
-    show AnotherCryptoMarks, SendSalShareGlyph;
+    show AnotherCryptoMarks, SendRecipientSearchField, SendSalShareGlyph;
 import 'package:kute/screens/shared/send/send_what_step.dart'
     show
         SendWhatSal,
@@ -814,6 +814,14 @@ void main() {
     expect(find.byKey(const ValueKey('send-recipient-card')), findsOneWidget);
     expect(_text(_l10n.sendAssetOnNetwork('USDC', 'base')), findsOneWidget);
     expect(kuteBarPrimaryEnabled(tester), isTrue);
+    // The coin chosen, the field's hint is just "Address", as on the Dollars
+    // Send's address step.
+    expect(
+        tester
+            .widget<SendRecipientSearchField>(
+                find.byType(SendRecipientSearchField))
+            .hintText,
+        'Address');
     _expectNoAnotherCrypto();
     expect(tester.takeException(), isNull);
   });

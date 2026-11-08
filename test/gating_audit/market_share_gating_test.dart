@@ -261,6 +261,18 @@ void main() {
       });
     }
 
+    for (final how in MarketDenial.values) {
+      final region = how == MarketDenial.swapCountryBlock;
+      test(
+          '${how.label} on both venues: the What step\'s gift '
+          '${region ? 'stays, a tap saying why' : 'is gone'}', () async {
+        final policy = await installMarketGatingPolicy(how, targets: _trading);
+        expect(sendGiftShown(policy), region);
+        expect(sendPickRegionBlock(policy)?.capability,
+            region ? 'polymarket.trade' : null);
+      });
+    }
+
     test('Predictions fail open on an unknown location: the pick is offered',
         () async {
       final policy = await installMarketGatingPolicy(null, overrides: {

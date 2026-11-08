@@ -3349,11 +3349,6 @@ class AppLocalizationsSl extends AppLocalizations {
       'Ta zahteva za plačilo podpira samo Lightning. Za plačilo preklopite na denarnico, ki podpira Lightning.';
 
   @override
-  String sendAssetOnNetworkAddressHint(String asset, String network) {
-    return 'Naslov $asset v omrežju $network';
-  }
-
-  @override
   String get sendPasteBitcoinAddress => 'Prilepite Bitcoin naslov';
 
   @override
@@ -6764,9 +6759,6 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
-
-  @override
-  String get sendDollarAccountAddressHint => 'Naslov dolarskega računa';
 
   @override
   String hwSignKeepDeviceNearby(String device) {
@@ -12163,9 +12155,6 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get sendWhatGift => 'Napoved ali naložba';
-
-  @override
-  String get usdSendRecipientSearchHint => 'Ime, naslov ali ENS';
 
   @override
   String get sendDollarsTitle => 'Pošlji dolarje';

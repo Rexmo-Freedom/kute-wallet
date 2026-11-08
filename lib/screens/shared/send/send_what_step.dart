@@ -15,9 +15,9 @@
 //   Send to Maria
 //   What are you sending?
 //   [₿                ] [Sal              ]   the money, of the Send it
-//   [Bitcoin          ] [A prediction or  ]   was opened on; the gift
-//   [328,686 sats     ] [investment       ]   only where a slip can send
-//   [available · $248 ] [They claim it... ]   one (sendPickOffered)
+//   [Bitcoin          ] [A prediction or  ]   was opened on; the gift,
+//   [328,686 sats     ] [investment       ]   whatever is held (see THE
+//   [available · $248 ] [They claim it... ]   GIFT IS ALWAYS THERE)
 //   ( Sal  Back )                             the floating bar
 //
 // THE SEND ALREADY SAYS WHOSE MONEY (founder, 7 November 2026, over the
@@ -37,7 +37,19 @@
 // investment" wraps to the lines it needs at half a phone's width and the
 // money card grows with it (the grid's square rules,
 // kute_action_cards.dart). The money card alone, full width and compact,
-// where no gift can be offered (the grid's lone card).
+// only where the policy withholds the gift (the grid's lone card).
+//
+// THE GIFT IS ALWAYS THERE (founder, 8 November 2026, over the Bitcoin card
+// alone: "why, when no prediction is open, only showing the bitcoin to
+// send? ... we need to have it as an option always"). It never reads
+// positions, a venue's cash or any balance: the link moves nothing when it
+// is created (models/share_link_model.dart). Only the backend's policy
+// decides, read live while the sheet is up (send_pick_market_sheet.dart):
+// a venue open opens the search; neither open for a region (or no policy
+// read yet) keeps the card, as it looks, and its tap asks again, then says
+// why on the shared Unavailable sheet with "Check connection", the sheet
+// staying under it; only a refusal of another kind on both venues (a switch
+// off, a platform or version rule, coming soon) takes the card away.
 //
 // SAL IS THE GIFT (founder, 7 November 2026, of its grey-boxed gift glyph:
 // "a prediction or investment should be like the icon much better, maybe
@@ -94,6 +106,8 @@ import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceProvider, usdBalanceUnknownProvider;
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
+import 'package:kute/screens/share/send_pick_market_sheet.dart'
+    show sendGiftShown, sendGiftStoppedByPolicy;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
@@ -101,6 +115,8 @@ import 'package:kute/screens/shared/send/send_recipient_step.dart'
     show SendSalShareGlyph;
 import 'package:kute/services/contacts/send_contacts_service.dart'
     show SendContact;
+import 'package:kute/services/runtime_capabilities_service.dart'
+    show runtimeCapabilitiesProvider;
 import 'package:kute/services/tracking_service.dart';
 
 /// The account money leaves from.
@@ -122,22 +138,17 @@ const ValueKey<String> kSendWhatMoneyKey = ValueKey('send-what-money');
 const ValueKey<String> kSendWhatGiftKey = ValueKey('send-what-gift');
 
 /// Asks What for [name] (see the file header): the money of [from] (the
-/// Send it was opened on), or a prediction or investment where
-/// [giftOffered]. Null when the sheet is closed.
+/// Send it was opened on), or a prediction or investment. Null when the
+/// sheet is closed.
 Future<SendWhat?> showSendWhatSheet(
   BuildContext context, {
   required String name,
   required SendFrom from,
-  required bool giftOffered,
 }) =>
     showAppBottomSheet<SendWhat>(
       context: context,
       routeSettings: const RouteSettings(name: kSendWhatRouteName),
-      builder: (_) => SendWhatSheet(
-        name: name,
-        from: from,
-        giftOffered: giftOffered,
-      ),
+      builder: (_) => SendWhatSheet(name: name, from: from),
     );
 
 /// The size Sal's face is drawn at on the gift card: his face's own cell
@@ -218,14 +229,12 @@ class SendWhatSheet extends ConsumerWidget {
     super.key,
     required this.name,
     required this.from,
-    required this.giftOffered,
   });
 
   final String name;
 
   /// The account the money leaves from: the Send's own.
   final SendFrom from;
-  final bool giftOffered;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -235,6 +244,13 @@ class SendWhatSheet extends ConsumerWidget {
     final mark = kKuteActionCardVisualSize.sp;
     void pick(SendWhatKind what) =>
         Navigator.of(context).pop<SendWhat>((what: what, from: from));
+    // Live: the policy, never what is held (see the file header).
+    final policy = ref.watch(runtimeCapabilitiesProvider);
+    Future<void> pickGift() async {
+      if (await sendGiftStoppedByPolicy(context, policy)) return;
+      if (context.mounted) pick(SendWhatKind.gift);
+    }
+
     return AppBottomSheetContainer(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -249,8 +265,8 @@ class SendWhatSheet extends ConsumerWidget {
             child: KuteActionCardGrid(
               key: const ValueKey('send-what-cards'),
               // Two squares, the gift's title on two lines where it needs
-              // them; the money card alone where no gift is offered (see
-              // the file header).
+              // them; the money card alone only where the policy withholds
+              // the gift (see the file header).
               cards: [
                 KuteActionCard(
                   key: kSendWhatMoneyKey,
@@ -264,7 +280,7 @@ class SendWhatSheet extends ConsumerWidget {
                       : watchSendWhatDollarsAvailable(ref, l10n),
                   onTap: () => pick(SendWhatKind.money),
                 ),
-                if (giftOffered)
+                if (sendGiftShown(policy))
                   KuteActionCard(
                     key: kSendWhatGiftKey,
                     // Sal's share face, as big as the money's mark, no
@@ -272,7 +288,7 @@ class SendWhatSheet extends ConsumerWidget {
                     visual: const SendWhatSal(),
                     title: l10n.sendWhatGift,
                     subtitle: l10n.sendToAFriendSub,
-                    onTap: () => pick(SendWhatKind.gift),
+                    onTap: pickGift,
                   ),
               ],
             ),
@@ -310,7 +326,6 @@ Future<bool> sendToPerson(
   SendContact? contact,
   String? phone,
   required SendFrom home,
-  required bool giftOffered,
   required Future<bool?> Function(ShareLinkKind kind) openLink,
   required Future<bool?> Function() openGift,
   required void Function(String address) payDirect,
@@ -318,8 +333,7 @@ Future<bool> sendToPerson(
   final name = contact?.displayName.trim().isNotEmpty == true
       ? contact!.displayName
       : (phone ?? contact?.phone ?? '');
-  final what = await showSendWhatSheet(context,
-      name: name, from: home, giftOffered: giftOffered);
+  final what = await showSendWhatSheet(context, name: name, from: home);
   if (what == null || !context.mounted) return false;
   TrackingService.track('send_what_picked', params: {
     'what': what.what.name,

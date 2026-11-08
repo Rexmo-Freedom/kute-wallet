@@ -3335,11 +3335,6 @@ class AppLocalizationsEt extends AppLocalizations {
       'See maksetaotlus toetab ainult Lightningit. Maksmiseks lülitu Lightningit toetavale rahakotile.';
 
   @override
-  String sendAssetOnNetworkAddressHint(String asset, String network) {
-    return '$asset aadress võrgus $network';
-  }
-
-  @override
   String get sendPasteBitcoinAddress => 'Kleebi Bitcoini aadress';
 
   @override
@@ -6726,9 +6721,6 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
-
-  @override
-  String get sendDollarAccountAddressHint => 'Dollarikonto aadress';
 
   @override
   String hwSignKeepDeviceNearby(String device) {
@@ -12104,9 +12096,6 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get sendWhatGift => 'Ennustus või investeering';
-
-  @override
-  String get usdSendRecipientSearchHint => 'Nimi, aadress või ENS';
 
   @override
   String get sendDollarsTitle => 'Saada dollareid';
