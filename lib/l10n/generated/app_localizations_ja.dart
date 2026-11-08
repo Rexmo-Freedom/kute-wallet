@@ -9319,6 +9319,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get usdSendConvertedFromDollars => 'ドルから変換';
 
   @override
+  String get polyPillInstant => 'インスタント';
+
+  @override
   String get polyPillTrending => 'トレンド';
 
   @override
@@ -11141,6 +11144,16 @@ class AppLocalizationsJa extends AppLocalizations {
       one: '1件のマーケット',
     );
     return '$_temp0';
+  }
+
+  @override
+  String categoryInstantAssets(String first, String second) {
+    return '$first、$second など';
+  }
+
+  @override
+  String categoryInstantNext(String time) {
+    return '次のラウンドまで $time';
   }
 
   @override

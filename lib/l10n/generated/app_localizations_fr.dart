@@ -9774,6 +9774,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get usdSendConvertedFromDollars => 'Converti depuis vos dollars';
 
   @override
+  String get polyPillInstant => 'Instantanées';
+
+  @override
   String get polyPillTrending => 'Tendances';
 
   @override
@@ -11646,6 +11649,16 @@ class AppLocalizationsFr extends AppLocalizations {
       one: '$count marché',
     );
     return '$_temp0';
+  }
+
+  @override
+  String categoryInstantAssets(String first, String second) {
+    return '$first, $second et plus';
+  }
+
+  @override
+  String categoryInstantNext(String time) {
+    return 'Prochain tour dans $time';
   }
 
   @override

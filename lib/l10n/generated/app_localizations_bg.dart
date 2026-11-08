@@ -9720,6 +9720,9 @@ class AppLocalizationsBg extends AppLocalizations {
   String get usdSendConvertedFromDollars => 'Конвертирано от доларите ти';
 
   @override
+  String get polyPillInstant => 'Моментални';
+
+  @override
   String get polyPillTrending => 'Популярни';
 
   @override
@@ -11584,6 +11587,16 @@ class AppLocalizationsBg extends AppLocalizations {
       one: '1 пазар',
     );
     return '$_temp0';
+  }
+
+  @override
+  String categoryInstantAssets(String first, String second) {
+    return '$first, $second и още';
+  }
+
+  @override
+  String categoryInstantNext(String time) {
+    return 'Следващ кръг след $time';
   }
 
   @override

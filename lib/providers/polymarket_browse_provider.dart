@@ -216,12 +216,11 @@ final polymarketEventsProvider = FutureProvider.autoDispose
     // their own bespoke sorts (handled above).
     events.sort((a, b) => _hotnessScore(b).compareTo(_hotnessScore(a)));
   }
-  // Hide 5-minute crypto Up/Down markets from every browse list — the
-  // Instant tab that surfaced them as a dedicated banner stack has
-  // been removed, and the bare event-list rendering of them was
-  // visually noisy (one row per 5-min window per asset, refreshing
-  // constantly). Slug pattern matches `btc-updown-5m-…`,
-  // `eth-updown-5m-…`, etc.
+  // Hide 5-minute crypto Up/Down markets from every browse list: as bare
+  // list rows they were visually noisy (one row per 5-min window per
+  // asset, refreshing constantly). Their home is Predictions › Instant,
+  // one live card per asset ([PolyPill.instant]). Slug pattern matches
+  // `btc-updown-5m-…`, `eth-updown-5m-…`, etc.
   events = events
       .where((e) => !RegExp(r'-updown-5m-').hasMatch(e.slug.toLowerCase()))
       .toList();
@@ -1374,6 +1373,11 @@ const String _kGamesTagId = '100639';
 enum PolyPill {
   watchlist,
   trending,
+
+  /// The crypto rounds, one live card per asset (polymarket_screen.dart,
+  /// instant_rounds.dart). Reads no list of its own: its rows are Crypto's
+  /// window lists and the live round cards.
+  instant,
   breaking,
   newest,
   live,
@@ -1396,6 +1400,7 @@ extension PolyPillX on PolyPill {
   String get key => switch (this) {
         PolyPill.watchlist => 'watchlist',
         PolyPill.trending => 'trending',
+        PolyPill.instant => 'instant',
         PolyPill.breaking => 'breaking',
         PolyPill.newest => 'new',
         PolyPill.live => 'live',
@@ -1939,6 +1944,8 @@ _FeedSpec _specFor(PolyFeedQuery q) {
       return const _FeedSpec(_FeedKind.watchlist);
     case PolyPill.trending:
       return _FeedSpec(_FeedKind.keyset, sources: [_FeedSource(base)]);
+    case PolyPill.instant:
+      return const _FeedSpec(_FeedKind.none);
     case PolyPill.newest:
       return _FeedSpec(_FeedKind.keyset, sources: [
         _FeedSource(base, {'exclude_tag_id': _kNewExcludedTagIds}),

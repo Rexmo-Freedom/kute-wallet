@@ -16619,6 +16619,12 @@ abstract class AppLocalizations {
   /// **'Converted from your dollars'**
   String get usdSendConvertedFromDollars;
 
+  /// Predictions category: the crypto rounds (BTC up or down every 5 minutes and so on), one live card per asset. One short word or two: it sits on a half-width card.
+  ///
+  /// In en, this message translates to:
+  /// **'Instant'**
+  String get polyPillInstant;
+
   /// No description provided for @polyPillTrending.
   ///
   /// In en, this message translates to:
@@ -19406,6 +19412,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count, plural, =1{1 market} other{{count} markets}}'**
   String categoryStatMarkets(int count);
+
+  /// Category sheet, the Instant card's line: which coins it has (tickers).
+  ///
+  /// In en, this message translates to:
+  /// **'{first}, {second} and more'**
+  String categoryInstantAssets(String first, String second);
+
+  /// Category sheet, the Instant card's second line: how long until the next five-minute round starts, a clock such as 2:13.
+  ///
+  /// In en, this message translates to:
+  /// **'Next round in {time}'**
+  String categoryInstantNext(String time);
 
   /// Category sheet, the Trending tile's second line lead: 'Most active · ▲ 1.8% today'.
   ///

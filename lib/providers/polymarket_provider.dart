@@ -75,6 +75,10 @@ class CryptoAssetConfig {
   /// asset's color (not always BTC orange).
   final Color brandColor;
 
+  /// The logo as polymarket.com serves it, for an asset the app bundles no
+  /// logo of ([logoPath] empty).
+  final String? logoUrl;
+
   const CryptoAssetConfig({
     required this.asset,
     required this.priceSymbol,
@@ -82,6 +86,7 @@ class CryptoAssetConfig {
     required this.logoPath,
     required this.brandColor,
     this.isSvg = true,
+    this.logoUrl,
   });
 }
 
@@ -114,6 +119,38 @@ const kCryptoPredictAssets = [
     displayName: 'XRP',
     logoPath: 'lib/assets/xrp-xrp-logo.svg',
     brandColor: Color(0xFF25A768),
+  ),
+];
+
+/// Every asset with a live round card: the ones the Crypto cards and the
+/// market sheet draw, then the others Polymarket runs five-minute rounds
+/// for, which only Predictions › Instant shows. Checked against Gamma and
+/// the Chainlink TWAP on 8 November 2026 (read-only): all seven have a
+/// `<asset>-updown-5m-<epoch>` window on every five minutes and resolve on
+/// `<asset>-usd-twap-60s-streams`.
+const kCryptoRoundAssets = [
+  ...kCryptoPredictAssets,
+  CryptoAssetConfig(
+    asset: 'DOGE',
+    priceSymbol: 'DOGE',
+    displayName: 'Dogecoin',
+    logoPath: '',
+    logoUrl: 'https://polymarket.com/images/logos/doge.png',
+    brandColor: Color(0xFFC2A633),
+  ),
+  CryptoAssetConfig(
+    asset: 'BNB',
+    priceSymbol: 'BNB',
+    displayName: 'BNB',
+    logoPath: 'lib/assets/bnb.svg',
+    brandColor: Color(0xFFF3BA2F),
+  ),
+  CryptoAssetConfig(
+    asset: 'HYPE',
+    priceSymbol: 'HYPE',
+    displayName: 'Hyperliquid',
+    logoPath: 'lib/assets/hyperliquid-logo.svg',
+    brandColor: Color(0xFF0E2422),
   ),
 ];
 
@@ -179,9 +216,8 @@ class CryptoPredictState {
 }
 
 /// Maps the asset symbol to a CoinGecko coin id for the
-/// last-resort fallback. Only the four assets we currently surface on
-/// the 5-min Up/Down card are listed; unknown symbols return null
-/// (the fallback simply no-ops in that case).
+/// last-resort fallback. The assets of [kCryptoRoundAssets] are listed;
+/// unknown symbols return null (the fallback simply no-ops in that case).
 String? _coingeckoIdForAsset(String asset) {
   switch (asset.toUpperCase()) {
     case 'BTC':
@@ -192,6 +228,12 @@ String? _coingeckoIdForAsset(String asset) {
       return 'solana';
     case 'XRP':
       return 'ripple';
+    case 'DOGE':
+      return 'dogecoin';
+    case 'BNB':
+      return 'binancecoin';
+    case 'HYPE':
+      return 'hyperliquid';
     default:
       return null;
   }
@@ -306,7 +348,7 @@ final pmReferenceTransportProvider =
 /// TWAP (Gamma `resolutionSource` …/btc-usd-twap-60s-streams), and
 /// polymarket.com's event page plots exactly that series and shows its
 /// last point as the current price. This layer reads the same series
-/// for every asset in [kCryptoPredictAssets] over ONE PolyBolt socket,
+/// for every asset in [kCryptoRoundAssets] over ONE PolyBolt socket,
 /// channel `price.crypto.twap` (window 60). A subscribe answers with
 /// the last two minutes, which seeds the charts, then one point per
 /// symbol per second.
@@ -402,7 +444,7 @@ class CryptoReferencePricesNotifier
         connectedAt: DateTime.now(), awaitingCredentials: false);
     if (emit) state = _last;
     final symbolByAsset = <String, String>{
-      for (final cfg in kCryptoPredictAssets)
+      for (final cfg in kCryptoRoundAssets)
         cfg.asset: polyBoltSymbolForAsset(cfg.priceSymbol),
     };
     // The TWAP channel, not the spot one: spot is not the series the
@@ -868,7 +910,7 @@ class CryptoPredictNotifier
 
   @override
   CryptoAssetConfig get _config =>
-      kCryptoPredictAssets.firstWhere((c) => c.asset == arg,
+      kCryptoRoundAssets.firstWhere((c) => c.asset == arg,
           orElse: () => CryptoAssetConfig(
                 asset: arg,
                 priceSymbol: arg,
@@ -963,10 +1005,8 @@ final cryptoPredictProvider = AutoDisposeAsyncNotifierProvider.family<
 /// rolling window (same behavior as [cryptoPredictProvider]).
 typedef CryptoPredictWindowKey = ({String asset, int? epochSeconds});
 
-/// #163 — Window-scoped variant of [CryptoPredictNotifier]. The Instant
-/// tab's pill strip lets the user pre-stage a bet on a *specific*
-/// upcoming 5-minute window; this notifier loads exactly that window
-/// instead of the current rolling slug. The live price is the same
+/// #163 — Window-scoped variant of [CryptoPredictNotifier]: loads one
+/// *specific* 5-minute window instead of the current rolling slug. The live price is the same
 /// shared Chainlink feed (the spot price is window-agnostic); an
 /// upcoming window has no price to beat until it opens.
 class CryptoPredictAtWindowNotifier extends AutoDisposeFamilyAsyncNotifier<
@@ -983,7 +1023,7 @@ class CryptoPredictAtWindowNotifier extends AutoDisposeFamilyAsyncNotifier<
 
   @override
   CryptoAssetConfig get _config =>
-      kCryptoPredictAssets.firstWhere((c) => c.asset == arg.asset,
+      kCryptoRoundAssets.firstWhere((c) => c.asset == arg.asset,
           orElse: () => CryptoAssetConfig(
                 asset: arg.asset,
                 priceSymbol: arg.asset,

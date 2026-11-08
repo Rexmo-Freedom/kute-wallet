@@ -9754,6 +9754,9 @@ class AppLocalizationsLt extends AppLocalizations {
   String get usdSendConvertedFromDollars => 'Konvertuota iš jūsų dolerių';
 
   @override
+  String get polyPillInstant => 'Greitosios';
+
+  @override
   String get polyPillTrending => 'Populiaru';
 
   @override
@@ -11620,6 +11623,16 @@ class AppLocalizationsLt extends AppLocalizations {
       one: '$count rinka',
     );
     return '$_temp0';
+  }
+
+  @override
+  String categoryInstantAssets(String first, String second) {
+    return '$first, $second ir kitos';
+  }
+
+  @override
+  String categoryInstantNext(String time) {
+    return 'Kitas raundas po $time';
   }
 
   @override

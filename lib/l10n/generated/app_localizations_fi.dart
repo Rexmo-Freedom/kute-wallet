@@ -9707,6 +9707,9 @@ class AppLocalizationsFi extends AppLocalizations {
   String get usdSendConvertedFromDollars => 'Muunnettu dollareistasi';
 
   @override
+  String get polyPillInstant => 'Pikaiset';
+
+  @override
   String get polyPillTrending => 'Suosittu';
 
   @override
@@ -11578,6 +11581,16 @@ class AppLocalizationsFi extends AppLocalizations {
       one: '1 markkina',
     );
     return '$_temp0';
+  }
+
+  @override
+  String categoryInstantAssets(String first, String second) {
+    return '$first, $second ja muita';
+  }
+
+  @override
+  String categoryInstantNext(String time) {
+    return 'Seuraava kierros: $time';
   }
 
   @override

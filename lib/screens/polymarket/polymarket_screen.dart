@@ -27,7 +27,15 @@ import 'package:kute/screens/polymarket/components/live_token_scope.dart';
 import 'package:kute/screens/polymarket/components/crypto_odds_scope.dart';
 import 'package:kute/providers/crypto_live_odds_provider.dart';
 import 'package:kute/providers/crypto_next_round_provider.dart';
+import 'package:kute/screens/polymarket/components/crypto_asset_logo.dart';
+import 'package:kute/screens/polymarket/components/instant_filter.dart';
 import 'package:kute/screens/polymarket/components/round_window_label.dart';
+import 'package:kute/providers/placing_polymarket_bet_provider.dart'
+    show placingPolymarketBetProvider;
+import 'package:kute/providers/polymarket_instant_provider.dart';
+import 'package:kute/screens/portfolio/components/position_rows.dart'
+    show PlacingBetRow, PolyPositionRow, PortfolioCardList;
+import 'package:kute/services/polymarket/instant_rounds.dart';
 import 'package:kute/services/polymarket/crypto_next_round.dart';
 import 'package:kute/screens/polymarket/components/market_card.dart';
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
@@ -54,6 +62,7 @@ import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart';
 import 'package:kute/screens/home/components/btc_predict_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -133,16 +142,24 @@ class PolymarketScreen extends ConsumerStatefulWidget {
     final canBrowse =
         ref.read(runtimeCapabilitiesProvider).allows('polymarket.browse');
     final fiveMinOnly = pill == PolyPill.crypto && selection.sub == '5m';
+    // Instant shows Crypto's window list (its chips too), or the live
+    // cards at five minutes.
+    final instant = pill == PolyPill.instant;
+    final length = ref.read(polyInstantChoiceProvider).length;
     // The list on screen and its chips; the other lists keep what they
     // hold. The 5-min hero/grid refresh themselves on a 10s cadence and
     // roll every 5 minutes, so they're deliberately left out.
     polyRefreshBrowse(
-      query: !canBrowse || fiveMinOnly
+      query: !canBrowse ||
+              fiveMinOnly ||
+              (instant && length == kPolyInstantCardLength)
           ? null
           : pill == PolyPill.live
               ? const PolyFeedQuery(pill: PolyPill.live)
-              : selection.query,
-      pill: pill,
+              : instant
+                  ? PolyFeedQuery(pill: PolyPill.crypto, sub: length)
+                  : selection.query,
+      pill: instant ? PolyPill.crypto : pill,
       invalidate: ref.invalidate,
     );
   }
@@ -301,9 +318,6 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
       // callback (fast navigation in/out of Predictions). Touching `ref`
       // after disposal throws `_assertNotDisposed`, so bail early.
       if (!mounted) return;
-      // The 5-min BTC hero is the screen's above-the-fold anchor —
-      // one event per screen mount, no market data attached.
-      TrackingService.track('predict_hero_viewed');
       // Warm the builder code now so a slow connection has already
       // answered by the time the person places an order.
       unawaited(PolymarketBackendService.prefetchBuilderCode());
@@ -379,6 +393,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
 
   @override
   void dispose() {
+    _instantRollTimer?.cancel();
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     // Close the live-price WebSocket when leaving Predictions. The notifier
@@ -535,13 +550,37 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     final drilled = _drilledInto == pill && subs.length > 1;
     // Live always reads the one list of games in play; a league pill
     // narrows it on screen.
+    final instant = pill == PolyPill.instant;
+    // Instant's filter. A remembered length the venue no longer runs reads
+    // five minutes; the choice itself stays for when it is back.
+    final instantChoice = instant
+        ? ref.watch(polyInstantChoiceProvider)
+        : kPolyInstantDefault;
+    final instantLengths = instant
+        ? polyInstantLengthsOffered(
+            polySubsFor(ref, PolyPill.crypto).map((s) => s.key))
+        : const <String>[];
+    final instantLength = instantLengths.contains(instantChoice.length)
+        ? instantChoice.length
+        : kPolyInstantCardLength;
+    final instantCards = instant && instantLength == kPolyInstantCardLength;
     final query = pill == PolyPill.live
         ? const PolyFeedQuery(pill: PolyPill.live)
-        : selection.query;
+        : instant
+            ? PolyFeedQuery(pill: PolyPill.crypto, sub: instantLength)
+            : selection.query;
     final fiveMinOnly = pill == PolyPill.crypto && selection.sub == '5m';
-    final showHeroSection = pill == PolyPill.trending || fiveMinOnly;
+    final showHeroSection = fiveMinOnly;
     final showHeroPinned =
         pill == PolyPill.crypto && selection.sub == 'all';
+    // Where the round card is the point of the page; once per mount, no
+    // market data attached.
+    if (canBrowse &&
+        !_heroViewed &&
+        (showHeroSection || showHeroPinned || instantCards)) {
+      _heroViewed = true;
+      Future.microtask(() => TrackingService.track('predict_hero_viewed'));
+    }
     final isLiveList = pill == PolyPill.live ||
         (pill == PolyPill.sports && selection.sub == 'live');
 
@@ -551,13 +590,16 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     // other category is listed in full.
     final curated =
         pill == PolyPill.trending && selection.sub == pill.defaultSub;
-    final feed = canBrowse && !fiveMinOnly
+    final feed = canBrowse && !fiveMinOnly && !instantCards
         ? ref.watch(polyBrowseFeedProvider(query))
         : const PolyFeedState(done: true);
-    _feedQuery = canBrowse && !fiveMinOnly && !curated ? query : null;
+    // Instant shows the first page's round of each asset and reads on from
+    // no scroll.
+    _feedQuery = canBrowse && !fiveMinOnly && !curated && !instant ? query : null;
     // Once the list on screen lands, the lists next to it are read too
-    // (one at a time), so opening one of them paints at once.
-    if (canBrowse && !fiveMinOnly) {
+    // (one at a time), so opening one of them paints at once. Not Instant:
+    // nothing next to it is a likely tap, and it is costly enough.
+    if (canBrowse && !fiveMinOnly && !instant) {
       ref.listen<PolyFeedState>(polyBrowseFeedProvider(query), (prev, next) {
         if (prev == null || !prev.loading || next.loading || next.failed) {
           return;
@@ -608,8 +650,20 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     // first, the page's own indicator refreshes it, and its list runs
     // under the host's dock.
     final embedded = widget.embedded;
+    // Instant at a length with a list: the round in play of each asset.
+    final instantRows = instant && !instantCards
+        ? polyInstantRows(feed.events,
+            chosen: instantChoice.asset, now: DateTime.now())
+        : const <PolymarketEvent>[];
+    _armInstantRoll(instant && !instantCards && canBrowse ? query : null,
+        polyInstantNextEnd(instantRows));
     final list = CustomScrollView(
                   controller: embedded ? null : _scrollController,
+                  // A live card costs a read every 10 s and a seat on the
+                  // sockets: under Instant only the cards on screen are
+                  // built, none prepared ahead of the scroll.
+                  scrollCacheExtent:
+                      instantCards ? const ScrollCacheExtent.pixels(0) : null,
                   physics: const AlwaysScrollableScrollPhysics(
                       parent: BouncingScrollPhysics()),
                   slivers: [
@@ -677,12 +731,56 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
                         selection: (pill, selection.sub),
                         slivers: [
                           // ── The BTC Up-or-Down hero card, under its window
-                          // chips and no title (founder, October 2026). On
-                          // the home and under Crypto › 5 Min;
-                          // the other assets' card shows only under Crypto
-                          // (user decision: not on the main screen).
-                          if (showHeroSection)
-                            ..._fiveMinuteSlivers(otherAssets: fiveMinOnly),
+                          // chips and no title (founder, October 2026).
+                          // Under Crypto › 5 Min, with the other assets'
+                          // card. Never on Trending any more (founder, 8
+                          // November 2026): Instant is its home.
+                          if (showHeroSection) ..._fiveMinuteSlivers(),
+
+                          if (instant) ...[
+                            SliverToBoxAdapter(
+                              child: PolyInstantFilter(
+                                // What the venue runs at this length, once
+                                // its rows are in; the person's pick stays
+                                // on the row whatever they say.
+                                assets: polyInstantAssetOrder(
+                                    instantRows.isEmpty
+                                        ? kCryptoRoundAssets.map((c) => c.asset)
+                                        : [
+                                            instantChoice.asset,
+                                            for (final e in instantRows)
+                                              polyInstantAssetOf(e)!,
+                                          ],
+                                    ''),
+                                lengths: instantLengths,
+                                asset: instantChoice.asset,
+                                length: instantLength,
+                              ),
+                            ),
+                            const _InstantOwnRounds(),
+                            // A pick on the filter switches the cards as a
+                            // chip does, the filter itself staying put.
+                            SliverSelectionFade(
+                              selection: instantChoice,
+                              slivers: [
+                                if (instantCards)
+                                  _instantCards(polyInstantAssetOrder(
+                                      kCryptoRoundAssets.map((c) => c.asset),
+                                      instantChoice.asset))
+                                else
+                                  ..._feedSlivers(
+                                    PolyFeedState(
+                                      events: instantRows,
+                                      loading: feed.loading,
+                                      done: true,
+                                    ),
+                                    query: query,
+                                    isLiveList: false,
+                                    source: 'instant',
+                                  ),
+                              ],
+                            ),
+                          ],
 
                           // No heading over the list: the selected pill
                           // (or subcategory) already names it (October
@@ -691,7 +789,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
                           // The hero alone pinned first under Crypto › All.
                           if (showHeroPinned) _heroSliver(),
 
-                          if (!fiveMinOnly)
+                          if (!fiveMinOnly && !instant)
                             ..._feedSlivers(
                               feed,
                               query: query,
@@ -805,37 +903,100 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     );
   }
 
-  /// The window chips and the BTC Up or Down hero (live chart, strike line, countdown, live odds); with
-  /// [otherAssets] (Crypto › 5 Min) the other assets in one card under it.
-  List<Widget> _fiveMinuteSlivers({required bool otherAssets}) => [
-        // No title over the card (founder, October 2026). The 5m / 15m
-        // window chips only on Crypto › 5 Min, never on Trending
-        // (founder, 27 October 2026).
-        if (otherAssets)
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 8.h),
-              child: const Align(
-                alignment: Alignment.centerRight,
-                child: _CryptoWindowChips(),
-              ),
-            ),
-          )
-        else
-          SliverToBoxAdapter(child: SizedBox(height: 8.h)),
-        _heroSliver(),
-        if (otherAssets)
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16.w),
-              child: _MoreCryptoMarketsCard(
-                onDeposit: () {
-                  _openPredictionsDeposit(context, ref);
-                },
-              ),
+  /// The window chips and the BTC Up or Down hero (live chart, strike line, countdown, live odds),
+  /// the other assets in one card under it (Crypto › 5 Min).
+  List<Widget> _fiveMinuteSlivers() => [
+        // No title over the card (founder, October 2026).
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 8.h),
+            child: const Align(
+              alignment: Alignment.centerRight,
+              child: _CryptoWindowChips(),
             ),
           ),
+        ),
+        _heroSliver(),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.w),
+            child: _MoreCryptoMarketsCard(
+              onDeposit: () {
+                _openPredictionsDeposit(context, ref);
+              },
+            ),
+          ),
+        ),
       ];
+
+  /// Instant's five minutes: the round card of each asset in [assets], the
+  /// compact card the hero is, its next-window roll included
+  /// (crypto_next_round.dart). Built as they scroll in and gone as they
+  /// scroll out, and with each its reads, its timers and its seat on the
+  /// sockets (the list's cache extent; [_InstantCardGate] for a page that
+  /// is hidden): nothing runs for a card off screen. Instant is the Predictions
+  /// pill's page, not a route (polymarket_browse_provider.dart's
+  /// [PolyPill.instant]), so the picked card, the pill's words and the
+  /// bar follow it as any category.
+  Widget _instantCards(List<String> assets) => SliverList(
+        delegate: SliverChildBuilderDelegate(
+          (context, i) {
+            final config =
+                kCryptoRoundAssets.firstWhere((c) => c.asset == assets[i]);
+            return Padding(
+              key: ValueKey('instant-card-${config.asset}'),
+              padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 12.h),
+              child: _InstantCardGate(
+                child: RepaintBoundary(
+                  child: CryptoPredictBanner(
+                    config: config,
+                    showLiveIndicator: true,
+                    compact: true,
+                    slipSource: 'instant',
+                    onDeposit: () {
+                      _openPredictionsDeposit(context, ref);
+                    },
+                  ),
+                ),
+              ),
+            );
+          },
+          childCount: assets.length,
+          findChildIndexCallback: (key) {
+            final i = assets.indexWhere(
+                (a) => key == ValueKey('instant-card-$a'));
+            return i < 0 ? null : i;
+          },
+          addAutomaticKeepAlives: false,
+        ),
+      );
+
+  /// The feed the shown 15 Min, 1 Hour or 4 Hours rounds came from, and
+  /// when the first of them ends: then it is read once more, for the next
+  /// round of each asset. One read a round, none at five minutes.
+  Timer? _instantRollTimer;
+  PolyFeedQuery? _instantRollQuery;
+  DateTime? _instantRollAt;
+
+  /// Once-per-mount flag of `predict_hero_viewed`.
+  bool _heroViewed = false;
+
+  void _armInstantRoll(PolyFeedQuery? query, DateTime? at) {
+    if (query == _instantRollQuery && at == _instantRollAt) return;
+    _instantRollQuery = query;
+    _instantRollAt = at;
+    _instantRollTimer?.cancel();
+    _instantRollTimer = null;
+    if (query == null || at == null) return;
+    final wait = at.difference(DateTime.now()) + const Duration(seconds: 1);
+    _instantRollTimer = Timer(wait.isNegative ? Duration.zero : wait, () {
+      if (!mounted) return;
+      // Forgotten, so the same end asks again if the read has no new round.
+      _instantRollAt = null;
+      polyRefreshBrowse(
+          query: query, pill: PolyPill.instant, invalidate: ref.invalidate);
+    });
+  }
 
   Widget _heroSliver() => SliverToBoxAdapter(
         child: Padding(
@@ -862,6 +1023,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     required bool isLiveList,
     String? liveLeague,
     bool curated = false,
+    String source = 'feed_card',
   }) {
     if (feed.events.isEmpty) {
       if (feed.loading) {
@@ -928,12 +1090,15 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
           SliverToBoxAdapter(child: SizedBox(height: 8.h)),
         ],
         SliverToBoxAdapter(child: SizedBox(height: 8.h)),
-        ..._groupedSlivers(listed, (market) => (
-              isSportsCategory: market.category == 'sports',
-              siblings: market.gameId != null
-                  ? (siblings[market.gameId!] ?? const <PolymarketEvent>[])
-                  : const <PolymarketEvent>[],
-            )),
+        ..._groupedSlivers(
+            listed,
+            (market) => (
+                  isSportsCategory: market.category == 'sports',
+                  siblings: market.gameId != null
+                      ? (siblings[market.gameId!] ?? const <PolymarketEvent>[])
+                      : const <PolymarketEvent>[],
+                ),
+            source: source),
         SliverToBoxAdapter(child: SizedBox(height: 8.h)),
       ];
     }
@@ -1030,8 +1195,9 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     List<PolymarketEvent> events,
     ({bool isSportsCategory, List<PolymarketEvent> siblings}) Function(
             PolymarketEvent market)
-        rowOf,
-  ) =>
+        rowOf, {
+    String source = 'feed_card',
+  }) =>
       marketGroupSlivers<PolymarketEvent>(
         context,
         items: events,
@@ -1045,6 +1211,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
             isSportsCategory: row.isSportsCategory,
             matchSiblings: row.siblings,
             inGroup: inGroup,
+            source: source,
           );
         },
       );
@@ -1083,11 +1250,15 @@ class _PolyFeedCard extends ConsumerWidget {
   /// A row of a grouped list card ([MarketCard.inGroup]).
   final bool inGroup;
 
+  /// Where the market page and the slip say they were opened from.
+  final String source;
+
   const _PolyFeedCard({
     required this.market,
     required this.isSportsCategory,
     this.matchSiblings = const <PolymarketEvent>[],
     this.inGroup = false,
+    this.source = 'feed_card',
   });
 
   @override
@@ -1202,7 +1373,7 @@ class _PolyFeedCard extends ConsumerWidget {
               onDeposit: () async {
                 if (context.mounted) _openPredictionsDeposit(context, ref);
               },
-              source: 'feed_card',
+              source: source,
             );
           },
           // A Yes / No pill opens the slip straight on that side, the
@@ -1214,7 +1385,7 @@ class _PolyFeedCard extends ConsumerWidget {
             onDeposit: () async {
               if (context.mounted) _openPredictionsDeposit(context, ref);
             },
-            source: 'feed_card',
+            source: source,
           ),
         ),
       ),
@@ -1222,11 +1393,83 @@ class _PolyFeedCard extends ConsumerWidget {
   }
 }
 
-/// Live 5-min Up/Down crypto market banner. Mounted as the Predictions
-/// screen's HERO card (BTC config: live Binance-fed chart, strike line,
+/// Live 5-min Up/Down crypto market banner. Mounted as Predictions ›
+/// Instant's cards, one per asset, and Crypto's HERO card (BTC config: live Binance-fed chart, strike line,
 /// countdown, live CLOB odds on the Up/Down buttons) and reused by
 /// `FiveMinMarketDetailSheet` to surface the same widget in detail-sheet
 /// form when a 5-min market is opened from the grid.
+/// A round card of Instant, only while its page can be seen. A hidden
+/// Investments pill or shell branch stays mounted with its tickers off, and
+/// [CryptoPredictBanner]'s reads would run on behind it. Hidden, the card
+/// goes (and with it its provider and timers) and a box of its height holds
+/// the list's scroll position.
+class _InstantCardGate extends StatefulWidget {
+  const _InstantCardGate({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_InstantCardGate> createState() => _InstantCardGateState();
+}
+
+class _InstantCardGateState extends State<_InstantCardGate> {
+  double? _height;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!TickerMode.valuesOf(context).enabled) {
+      return SizedBox(height: _height);
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _height = context.size?.height;
+    });
+    return widget.child;
+  }
+}
+
+/// The person's own rounds on top of Instant, whatever the filter says:
+/// bets on their way, then the rounds held, on the Portfolio's card and
+/// rows (position_rows.dart). Its own widget so a position tick rebuilds
+/// this and not the list. Nothing at all with no round held.
+class _InstantOwnRounds extends ConsumerWidget {
+  const _InstantOwnRounds();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    bool isRound(String? slug) =>
+        slug != null && polyCryptoRoundOf(slug) != null;
+    final placing = [
+      for (final b in ref.watch(placingPolymarketBetProvider))
+        if (isRound(b.eventSlug)) b,
+    ];
+    final held = [
+      for (final p in ref.watch(polymarketActivePositionsProvider))
+        if (p.eventSlug != null &&
+            polyCryptoRoundOf(p.eventSlug!,
+                    endDate: DateTime.tryParse(p.endDateStr ?? '')) !=
+                null)
+          p,
+    ];
+    if (placing.isEmpty && held.isEmpty) {
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
+    return SliverToBoxAdapter(
+      key: const ValueKey('instant-own-rounds'),
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 12.h),
+        child: PortfolioCardList(
+          rows: [
+            for (final b in placing)
+              PlacingBetRow(key: ValueKey('placing-${b.placementId}'), bet: b),
+            for (final p in held)
+              PolyPositionRow(key: ValueKey('poly-${p.tokenId}'), position: p),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// Registers its subtree in [cryptoCardsOnScreenProvider] while
 /// tickers are enabled there. A hidden shell branch turns tickers off
 /// (`Offstage` + `TickerMode`), so a banner counts only while it can be
@@ -1242,9 +1485,16 @@ class _CryptoCardOnScreen extends ConsumerStatefulWidget {
 }
 
 class _CryptoCardOnScreenState extends ConsumerState<_CryptoCardOnScreen> {
-  late final StateController<int> _cards =
-      ref.read(cryptoCardsOnScreenProvider.notifier);
+  // Read at once: a lazy list can build and drop a card within one frame
+  // (a fling past it), before the microtask below first runs.
+  late final StateController<int> _cards;
   bool _counted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _cards = ref.read(cryptoCardsOnScreenProvider.notifier);
+  }
 
   void _count(bool on) {
     if (on == _counted) return;
@@ -1298,6 +1548,10 @@ class CryptoPredictBanner extends ConsumerWidget {
   /// (crypto_next_round.dart): "Next · 7:20" over the buttons.
   final bool compact;
 
+  /// Where the slip says it was opened from (`polymarket_bet_slip_opened`'s
+  /// `source`, `polymarket_bet_placed`'s `entry_source`).
+  final String slipSource;
+
   const CryptoPredictBanner({
     super.key,
     required this.config,
@@ -1306,6 +1560,7 @@ class CryptoPredictBanner extends ConsumerWidget {
     this.targetWindowEpoch,
     this.showLiveIndicator = false,
     this.compact = false,
+    this.slipSource = 'crypto_banner',
   });
 
   List<PolymarketOutcome> _eventOutcomes(Btc5MinEvent? event) {
@@ -1573,7 +1828,7 @@ class CryptoPredictBanner extends ConsumerWidget {
           marketCategory: 'crypto',
           onDeposit: onDeposit,
           ledgerWalletId: ledgerWalletId,
-          source: 'crypto_banner');
+          source: slipSource);
     }
 
     // Both windows' tokens stay on the feed while the buttons may show
@@ -2043,19 +2298,7 @@ class _CompactCryptoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final logo = config.isSvg
-        ? SvgPicture.asset(config.logoPath,
-            width: _logo.sp, height: _logo.sp, fit: BoxFit.contain)
-        : Container(
-            width: _logo.sp,
-            height: _logo.sp,
-            decoration: BoxDecoration(
-              color: config.brandColor,
-              borderRadius: BorderRadius.circular(8.r),
-            ),
-            alignment: Alignment.center,
-            child: Image.asset(config.logoPath, width: 22.sp, height: 22.sp),
-          );
+    final logo = CryptoAssetLogo(config: config, size: _logo.sp);
     final pair = formatPolyChancePair(upFrac);
     final seeded = (history?.length ?? 0) >= 2;
     final rolled = nextLabel != null;

@@ -9701,6 +9701,9 @@ class AppLocalizationsDa extends AppLocalizations {
   String get usdSendConvertedFromDollars => 'Omregnet fra dine dollar';
 
   @override
+  String get polyPillInstant => 'Lynhurtige';
+
+  @override
   String get polyPillTrending => 'Populært';
 
   @override
@@ -11563,6 +11566,16 @@ class AppLocalizationsDa extends AppLocalizations {
       one: '1 marked',
     );
     return '$_temp0';
+  }
+
+  @override
+  String categoryInstantAssets(String first, String second) {
+    return '$first, $second og flere';
+  }
+
+  @override
+  String categoryInstantNext(String time) {
+    return 'Næste runde om $time';
   }
 
   @override
