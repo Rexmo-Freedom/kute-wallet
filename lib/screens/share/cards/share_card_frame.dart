@@ -1356,6 +1356,7 @@ class ShareCardIdentity extends StatelessWidget {
     required this.logo,
     required this.name,
     this.meta,
+    this.side,
     this.keyPrefix = 'share-card',
   });
 
@@ -1363,6 +1364,11 @@ class ShareCardIdentity extends StatelessWidget {
   final Widget logo;
   final String name;
   final String? meta;
+
+  /// The side held ("Yes", "Long", "Gen.G") as a solid pill under the name,
+  /// before [meta] (founder, 8 November 2026: "yes should be more clear"):
+  /// what the person picked is half of what the card says.
+  final String? side;
   final String keyPrefix;
 
   /// The logo's side and the gap after it.
@@ -1372,6 +1378,7 @@ class ShareCardIdentity extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final m = meta?.trim() ?? '';
+    final picked = side?.trim() ?? '';
     final float = ShareCardTitleFloat.of(context);
     return LayoutBuilder(builder: (context, box) {
       final wide = box.maxWidth - logoSide - logoGap;
@@ -1429,18 +1436,50 @@ class ShareCardIdentity extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 title,
-                if (m.isNotEmpty) ...[
-                  const SizedBox(height: 1),
+                if (picked.isNotEmpty || m.isNotEmpty) ...[
+                  SizedBox(height: picked.isNotEmpty ? 5 : 1),
                   SizedBox(
                     width: metaBeside ? narrow : wide,
-                    child: Text(
-                      m,
-                      key: ValueKey('$keyPrefix-meta'),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: shareCardText(14, FontWeight.w500, palette.muted,
-                          height: 1.25),
-                    ),
+                    child: Row(children: [
+                      if (picked.isNotEmpty)
+                        // A long outcome keeps room for the date beside it.
+                        ConstrainedBox(
+                          constraints: BoxConstraints(
+                              maxWidth: (metaBeside ? narrow : wide) *
+                                  (m.isEmpty ? 1 : 0.55)),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 9, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: palette.ink,
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              picked,
+                              key: ValueKey('$keyPrefix-held'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: shareCardText(
+                                  14, FontWeight.w700, palette.background,
+                                  height: 1.25),
+                            ),
+                          ),
+                        ),
+                      if (picked.isNotEmpty && m.isNotEmpty)
+                        const SizedBox(width: 8),
+                      if (m.isNotEmpty)
+                        Expanded(
+                          child: Text(
+                            m,
+                            key: ValueKey('$keyPrefix-meta'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: shareCardText(
+                                14, FontWeight.w500, palette.muted,
+                                height: 1.25),
+                          ),
+                        ),
+                    ]),
                   ),
                 ],
               ],

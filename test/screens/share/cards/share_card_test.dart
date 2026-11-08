@@ -1191,6 +1191,7 @@ void main() {
           'share-card-title-head',
           'share-card-title-tail',
           'share-card-meta',
+          'share-card-held',
           'share-card-number',
           'share-card-fact',
           'share-card-position',

@@ -295,7 +295,6 @@ class BragCard extends StatelessWidget {
         final at = d.resolvedAt;
         // The side that won and the day it resolved, either when unknown.
         final meta = [
-          if (d.side.trim().isNotEmpty) shareCardOutcome(l10n, d.side),
           if (at != null) bragWonDate(l10n, at),
         ].join(' · ');
         return ShareCardFrame(
@@ -314,6 +313,7 @@ class BragCard extends StatelessWidget {
               imageUrl: d.imageUrl,
             ),
             name: d.title,
+            side: d.side.trim().isEmpty ? null : shareCardOutcome(l10n, d.side),
             meta: meta.isEmpty ? null : meta,
           ),
           // Resolved: the needle at the end, the dot where it was bought.
@@ -368,7 +368,7 @@ class BragCard extends StatelessWidget {
               imageUrl: d.imageUrl,
             ),
             name: d.title,
-            meta: d.side,
+            side: d.side,
           ),
           number: chance == null ? r.text : null,
           fact: chance == null ? fact : null,

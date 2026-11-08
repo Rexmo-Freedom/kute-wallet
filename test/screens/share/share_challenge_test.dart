@@ -375,6 +375,7 @@ void main() {
         'brag-card-plain',
         'brag-card-fact',
         'brag-card-meta',
+        'brag-card-held',
       ];
       for (final locale in AppLocalizations.supportedLocales) {
         for (var seed = 0; seed < 4; seed++) {

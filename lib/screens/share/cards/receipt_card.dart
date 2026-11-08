@@ -442,7 +442,8 @@ class ReceiptShareCard extends StatelessWidget {
         : null;
     final title = d.title?.trim() ?? '';
 
-    ShareCardIdentity? identity({bool investing = false, String? meta}) =>
+    ShareCardIdentity? identity(
+            {bool investing = false, String? meta, String? held}) =>
         title.isEmpty
             ? null
             : ShareCardIdentity(
@@ -461,6 +462,7 @@ class ReceiptShareCard extends StatelessWidget {
                 ),
                 name: title,
                 meta: meta,
+                side: held,
               );
 
     switch (d.type) {
@@ -530,7 +532,7 @@ class ReceiptShareCard extends StatelessWidget {
           key: key,
           palette: p,
           caps: caps,
-          identity: identity(meta: side),
+          identity: identity(held: side),
           number: result ?? money ?? '—',
           numberMax: kShareCardHeroMax,
           fact: d.type == ReceiptCardKind.cashedOut &&

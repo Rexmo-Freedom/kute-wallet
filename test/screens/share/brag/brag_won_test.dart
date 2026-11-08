@@ -231,7 +231,8 @@ void main() {
           tester, env, Center(child: BragCard(data: fakeBragWin())));
       expect(tester.takeException(), isNull);
       expect(textAt(tester, 'brag-card-caps').data, 'CALLED IT');
-      expect(textAt(tester, 'brag-card-meta').data, 'Yes · Nov 3, 2026');
+      expect(textAt(tester, 'brag-card-held').data, 'Yes');
+      expect(textAt(tester, 'brag-card-meta').data, 'Nov 3, 2026');
       expect(textAt(tester, 'brag-card-number').data, r'+$17.70');
       expect(textAt(tester, 'brag-card-fact').data, 'Won from 41¢ · +143.9%');
       expect(textAt(tester, 'brag-card-fact').style!.color,
@@ -290,7 +291,7 @@ void main() {
       );
       await pumpShareWidget(tester, env, Center(child: BragCard(data: data)));
       expect(tester.takeException(), isNull);
-      expect(textAt(tester, 'brag-card-meta').data, 'Gen.G');
+      expect(textAt(tester, 'brag-card-held').data, 'Gen.G');
       expect(textAt(tester, 'brag-card-fact').data, '+7.5%');
       expect(bragPose(data), ShareCardPose.win);
     });

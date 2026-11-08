@@ -388,7 +388,7 @@ void main() {
           .decoration as BoxDecoration;
       expect(bg.color, ShareCardPalette.win.background);
       expect(find.text('LoL Worlds 2026: Gen.G vs T1'), findsOneWidget);
-      expect(textAt(tester, 'brag-card-meta').data, 'Gen.G');
+      expect(textAt(tester, 'brag-card-held').data, 'Gen.G');
       expect(find.byKey(const ValueKey('brag-card-logo')), findsOneWidget);
       expect(
           find.byKey(const ValueKey('brag-card-speedometer')), findsOneWidget);
@@ -822,7 +822,7 @@ void main() {
           expect(p.didExceedMaxLines, isFalse, reason: title);
         }
         expect(parts.map((p) => p.text.toPlainText()).join(' '), title);
-        expect(textAt(tester, 'brag-card-meta').data, 'Gen.G');
+        expect(textAt(tester, 'brag-card-held').data, 'Gen.G');
       }
     });
 
