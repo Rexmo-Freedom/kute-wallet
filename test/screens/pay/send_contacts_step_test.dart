@@ -1113,20 +1113,24 @@ void main() {
   // REVIEW IN SQUARES (founder, 7 November 2026: "make this more with the
   // square cards we have now"): From and To side by side, the To square
   // wearing the Who step's face and the rail only where it is not the
-  // default ("Bitcoin Network" under a bitcoin address said nothing).
-  for (final (what, text, line, badge) in [
+  // default ("Bitcoin Network" under a bitcoin address said nothing). An @
+  // address is never cut (founder, 7 November 2026: "try not to trim when
+  // its a @ address"): the saved contact's name whole over "@domain", no
+  // "Lightning".
+  for (final (what, text, title, line, badge) in [
     (
       'a Kute contact\'s Lightning address',
       'joana@paykute.com',
-      'Lightning',
+      'Joana Kute',
+      '@paykute.com',
       'send-badge-kute'
     ),
-    ('a bitcoin address', _btc, null, null),
+    ('a bitcoin address', _btc, null, null, null),
   ]) {
     testWidgets(
-        'Review to $what: From and To are two squares, the address in its '
-        'middle form, ${line ?? 'no line'} under it, no chevrons',
-        (tester) async {
+        'Review to $what: From and To are two squares, '
+        '${title ?? 'the address in its middle form'}, '
+        '${line ?? 'no line'} under it, no chevrons', (tester) async {
       _gateway
         ..permission = SendContactsPermission.granted
         ..contacts = [
@@ -1168,13 +1172,21 @@ void main() {
               find.textContaining(_l10n.sendAvailableBalanceSubtitle(''))),
           findsOneWidget);
       expect(inside(to, find.text(_l10n.to)), findsOneWidget);
-      final shown = tester
-          .widget<Text>(inside(
-              find.byKey(const ValueKey('send-review-to-address')),
-              find.byType(Text)))
-          .data!;
-      expect(shown.startsWith(text.substring(0, 4)), isTrue);
-      expect(shown.endsWith(text.substring(text.length - 3)), isTrue);
+      if (title != null) {
+        // The name whole, never the address cut in its middle.
+        expect(inside(to, find.text(title)), findsOneWidget);
+        expect(find.byKey(const ValueKey('send-review-to-address')),
+            findsNothing);
+        expect(inside(to, find.text(_l10n.sendRailLightning)), findsNothing);
+      } else {
+        final shown = tester
+            .widget<Text>(inside(
+                find.byKey(const ValueKey('send-review-to-address')),
+                find.byType(Text)))
+            .data!;
+        expect(shown.startsWith(text.substring(0, 4)), isTrue);
+        expect(shown.endsWith(text.substring(text.length - 3)), isTrue);
+      }
       expect(inside(to, find.text(_l10n.bitcoinNetwork)), findsNothing);
       if (line != null) {
         expect(inside(to, find.text(line)), findsOneWidget);

@@ -6008,6 +6008,9 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
         : null;
     final sourceIcon = visual?.svgAsset ?? 'lib/assets/bitcoin-icon.svg';
     final detected = _detectAddressType(addr);
+    // Who the address belongs to, for the To square's face and, for an @
+    // address, the name it is saved under.
+    final recentPeople = _recentPeople(_recentRecipients());
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -6103,11 +6106,12 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
             address: addr,
             railMark:
                 _recipientRailMark(detected, avatar: kKuteActionCardVisualSize),
-            recents: _recentPeople(_recentRecipients()),
+            recents: recentPeople,
             size: kKuteActionCardVisualSize,
           ),
           address: addr,
           toLine: _reviewRailLine(detected),
+          recents: recentPeople,
           expanded: _reviewToExpanded,
           onToggle: () =>
               setState(() => _reviewToExpanded = !_reviewToExpanded),

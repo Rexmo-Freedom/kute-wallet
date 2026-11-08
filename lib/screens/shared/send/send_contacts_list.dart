@@ -69,6 +69,10 @@
 // two squares ([SendReviewRoute]), the To square wearing this card's
 // avatar ([SendRecipientAvatar]) over the address in its middle-ellipsis
 // form, and the rail or network under it only where it says something.
+// An @ address is never cut (founder, 7 November 2026: "try not to trim
+// when its a @ address, or just have the name before the @"): the name
+// before the @ (or the saved contact's name) whole, "@domain" under it
+// ([sendAtAddressParts]).
 //
 // Until the contacts are granted, "All contacts" holds the ask row (and,
 // while typing, the matching recents). Everything is local: numbers never
@@ -1129,6 +1133,38 @@ class SendRecipientAvatar extends ConsumerWidget {
   }
 }
 
+/// [address] as a name and a domain when it is a user@domain address (a
+/// Lightning address: "jay2290@paykute.com" is ("jay2290", "paykute.com")),
+/// a `lightning:` scheme dropped and the domain lower-cased; null for
+/// anything else (bitcoin and Spark addresses, invoices, LNURL, 0x…).
+({String name, String domain})? sendAtAddressParts(String address) {
+  var a = address.trim();
+  if (a.toLowerCase().startsWith('lightning:')) {
+    a = a.substring('lightning:'.length);
+  }
+  final m = RegExp(r'^([^@\s]+)@([a-z0-9\-]+(?:\.[a-z0-9\-]+)+)$',
+          caseSensitive: false)
+      .firstMatch(a);
+  if (m == null) return null;
+  return (name: m.group(1)!, domain: m.group(2)!.toLowerCase());
+}
+
+/// The name a person known by [address] is saved under ([match]: a phone
+/// contact's own name, a recent's label), or null when they have none of
+/// their own: no match, or a label that is only the address, its short
+/// form or the [handle] before its @.
+String? sendSavedName(SendPerson? match, String address, {String? handle}) {
+  final name = match?.name.trim() ?? '';
+  if (name.isEmpty) return null;
+  final n = name.toLowerCase();
+  if (n == sendAddressKey(address) ||
+      n == sendShortAddress(address.trim()).toLowerCase() ||
+      (handle != null && n == handle.toLowerCase())) {
+    return null;
+  }
+  return name;
+}
+
 /// THE REVIEW'S FROM AND TO (founder, 7 November 2026, the Bitcoin Send's
 /// Review: "make this more with the square cards we have now"), one
 /// layout for the Bitcoin Send and the Dollars Send: two squares side by
@@ -1146,12 +1182,27 @@ class SendRecipientAvatar extends ConsumerWidget {
 ///     Bitcoin network is the default there (founder, 7 November 2026, the
 ///     "Where to?" row: "it is literally the default on sending bitcoin").
 ///
+/// AN @ ADDRESS IS NEVER CUT (founder, 7 November 2026: "try not to trim
+/// when its a @ address, or just have the name before the @"). For
+/// user@domain ([sendAtAddressParts]) the To square reads:
+///
+///   * the main line: the name the person is saved under in the phone's
+///     contacts (or a recent's own label; [sendSavedName], from [recents]
+///     and the granted contacts), else the name before the @, "jay2290",
+///     whole: a title the square cannot hold on one line moves the pair to
+///     two full-width cards (the grid's one-line titles), where it reads
+///     whole and wraps if it must; never an ellipsis;
+///   * the line under it: "@domain", Kute's own too ("@paykute.com"; the
+///     avatar's Kute badge already says Kute, the domain says exactly where
+///     it goes, as for any other domain), in place of [toLine]: an @
+///     address is always Lightning, so the domain says more.
+///
 /// The squares never show a chevron and never stand on two different
 /// title heights (the grid's one-line titles: a pair that cannot read on
 /// one line each becomes two full-width cards). From only states. A tap on
 /// To ([onToggle]) shows or hides the whole address with its Copy under
 /// the pair ([SendReviewFullAddress]); with no address it only states.
-class SendReviewRoute extends StatelessWidget {
+class SendReviewRoute extends ConsumerWidget {
   const SendReviewRoute({
     super.key,
     required this.fromVisual,
@@ -1160,6 +1211,7 @@ class SendReviewRoute extends StatelessWidget {
     required this.toVisual,
     required this.address,
     this.toLine,
+    this.recents = const [],
     this.expanded = false,
     this.onToggle,
     this.onCopied,
@@ -1175,8 +1227,13 @@ class SendReviewRoute extends StatelessWidget {
   final String address;
 
   /// The To square's line: the rail or the network, only where it tells
-  /// the person something; null draws none.
+  /// the person something; null draws none. An @ address draws its domain
+  /// instead.
   final String? toLine;
+
+  /// The flow's recent recipients, for the name an @ address is saved
+  /// under (with the granted contacts).
+  final List<SendPerson> recents;
 
   /// The whole address is showing under the squares.
   final bool expanded;
@@ -1186,10 +1243,19 @@ class SendReviewRoute extends StatelessWidget {
   final VoidCallback? onCopied;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final addr = address.trim();
     final toggle = onToggle;
+    final at = sendAtAddressParts(addr);
+    String? atName;
+    if (at != null) {
+      final state = ref.watch(sendContactsProvider);
+      final contacts = state.granted ? state.contacts : const <SendContact>[];
+      final match =
+          sendMatchingPerson(addr, recents: recents, contacts: contacts);
+      atName = sendSavedName(match, addr, handle: at.name);
+    }
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1205,12 +1271,19 @@ class SendReviewRoute extends StatelessWidget {
               title: fromTitle,
               subtitle: fromLine,
             ),
+            // An @ address: the name whole over "@domain" (see above), the
+            // whole address still read out; anything else keeps its
+            // middle-ellipsis line.
             KuteActionCard.fact(
               key: const ValueKey('send-review-to'),
               visual: toVisual,
               label: l10n.to,
-              title: addr.isEmpty ? '…' : addr,
-              oneLineTitle: addr.isEmpty
+              title: at != null
+                  ? atName ?? at.name
+                  : addr.isEmpty
+                      ? '…'
+                      : addr,
+              oneLineTitle: addr.isEmpty || at != null
                   ? null
                   : (style) => SendMiddleEllipsisText(
                         addr,
@@ -1218,7 +1291,14 @@ class SendReviewRoute extends StatelessWidget {
                         style: style,
                         maxLines: 1,
                       ),
-              subtitle: toLine == null || toLine!.isEmpty ? null : toLine,
+              subtitle: at != null
+                  ? '@${at.domain}'
+                  : toLine == null || toLine!.isEmpty
+                      ? null
+                      : toLine,
+              semanticsLabel: at == null
+                  ? null
+                  : [l10n.to, if (atName != null) atName, addr].join(', '),
               onTap: addr.isEmpty || toggle == null
                   ? null
                   : () {
