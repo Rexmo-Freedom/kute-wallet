@@ -42,6 +42,21 @@
 // over a market) gets the default bar at the bottom rather than the
 // page's context lifted over a row that is now covered.
 //
+// A TAB UNDER THE ROOT NAVIGATOR IS COVERED TOO (founder, 8 November 2026:
+// "swapped should say ok, not with the search sal"). A route only knows it
+// is current in its OWN navigator, so a tab's page reads as current with
+// the root navigator's sheets and pages over the whole shell. The Dollars
+// home holds its context only while its tickers run (usd_account_screen
+// .dart): Swap, opaque, parks the tab and the context goes; Swap popped in
+// the same tick its result sheet is pushed, the tab wakes and pushes its
+// context AFTER the sheet's, on top of it, so the bar read "Search
+// investments or Manage with AI" (or the Activity pill's "See full
+// portfolio and activity") over the sheet, with its Done gone. So "current"
+// means on top across navigators ([KuteBarRouteObserver.onTop]), for where
+// a context lands on the stack and for whether the bar honours it: under a
+// root sheet that has none of its own, the bar reads the default, as over
+// any page.
+//
 // THE SEARCH SHEET ONLY HOLDS THE BAR WHILE IT IS ON TOP (founder, 6
 // November 2026: "Predictions on search have no buy button on the bet
 // slip, and Hyperliquid the same"). A result opens its market page OVER
@@ -480,9 +495,10 @@ class KuteBarContext {
   /// (kute_share_actions.dart).
   bool get market => clip == 'share';
 
-  /// Whether the bar should read this context now: its route is current,
-  /// or it has none.
-  bool get current => route == null || route!.isCurrent;
+  /// Whether the bar should read this context now: its route is on top
+  /// ([KuteBarRouteObserver.onTop], a tab's under a root sheet is not), or
+  /// it has none.
+  bool get current => route == null || KuteBarRouteObserver.onTop(route!);
 
   /// This context bound to [route] (see [KuteBarContextScope]).
   KuteBarContext boundTo(Route<dynamic>? route) => isTrade
@@ -549,10 +565,11 @@ class KuteBarContextStack extends Notifier<List<KuteBarContext>> {
 
   /// Puts [ctx] on the stack IN ROUTE ORDER, not simply on top: beside
   /// the contexts its own route already holds, and under every context of
-  /// a route that is current (or of none) when its route is not. A scope
+  /// a route that is on top (or of none) when its route is not. A scope
   /// that remounts under a covering page (a slip's, as the band under it
   /// changed shape) must never land its context over the page on top:
-  /// the bar read the slip's button on the slip's Advanced page.
+  /// the bar read the slip's button on the slip's Advanced page. Nor may
+  /// a tab waking under a root sheet (see the file header).
   void push(KuteBarContext ctx) {
     final list = [...state];
     final route = ctx.route;
@@ -560,9 +577,9 @@ class KuteBarContextStack extends Notifier<List<KuteBarContext>> {
     final mate = route == null ? -1 : list.lastIndexWhere((c) => c.route == route);
     if (mate >= 0) {
       at = mate + 1;
-    } else if (route != null && !route.isCurrent) {
-      final above =
-          list.indexWhere((c) => c.route == null || c.route!.isCurrent);
+    } else if (route != null && !KuteBarRouteObserver.onTop(route)) {
+      final above = list.indexWhere(
+          (c) => c.route == null || KuteBarRouteObserver.onTop(c.route!));
       if (above >= 0) at = above;
     }
     list.insert(at, ctx);
@@ -814,6 +831,29 @@ class KuteBarRouteObserver extends NavigatorObserver {
     final navigator = route.navigator;
     return _over
         .any((r) => r != route && r.navigator == navigator && r.isCurrent);
+  }
+
+  /// Whether [route] is on top across navigators: current in its own, and
+  /// no page or sheet the bar shows over ([counts]) is current in a
+  /// navigator its own is nested in. [Route.isCurrent] stops at the route's
+  /// navigator, so a tab's page reads as current with the root navigator's
+  /// sheets over the whole shell (see the file header). A navigator beside
+  /// it (a parked tab's, with its own pages) says nothing about it. With
+  /// no observer registered this is [Route.isCurrent].
+  static bool onTop(Route<dynamic> route) {
+    if (!route.isCurrent) return false;
+    final own = route.navigator;
+    if (own == null) return false;
+    if (!_over.any((r) => r.navigator != own && r.isCurrent)) return true;
+    var outer = own.context.findAncestorStateOfType<NavigatorState>();
+    while (outer != null) {
+      final navigator = outer;
+      if (_over.any((r) => r.navigator == navigator && r.isCurrent)) {
+        return false;
+      }
+      outer = navigator.context.findAncestorStateOfType<NavigatorState>();
+    }
+    return true;
   }
 
   static void _add(Route<dynamic> route) {
