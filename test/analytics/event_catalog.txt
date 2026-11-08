@@ -324,7 +324,6 @@ move_quote_result
 move_quote_retry_tapped
 move_sheet_abandoned
 move_sheet_opened
-move_source_dollars_selected
 move_step
 move_submitted
 move_withdraw_destination_selected

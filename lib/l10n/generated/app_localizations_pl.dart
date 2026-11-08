@@ -8272,20 +8272,11 @@ class AppLocalizationsPl extends AppLocalizations {
   String get moveAddFunds => 'Dodaj środki';
 
   @override
-  String get movePickPayOrDollars =>
-      'Wybierz sposób płatności lub użyj salda w dolarach.';
-
-  @override
   String get moveHintAWallet => 'portfel';
 
   @override
   String moveHintTwo(String first, String second) {
     return '$first lub $second';
-  }
-
-  @override
-  String moveHintMany(String list, String last) {
-    return '$list lub $last';
   }
 
   @override

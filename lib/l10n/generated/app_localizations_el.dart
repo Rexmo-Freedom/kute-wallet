@@ -8306,20 +8306,11 @@ class AppLocalizationsEl extends AppLocalizations {
   String get moveAddFunds => 'Προσθήκη κεφαλαίων';
 
   @override
-  String get movePickPayOrDollars =>
-      'Διάλεξε πώς θέλεις να πληρώσεις ή χρησιμοποίησε το υπόλοιπο δολαρίων σου.';
-
-  @override
   String get moveHintAWallet => 'ένα πορτοφόλι';
 
   @override
   String moveHintTwo(String first, String second) {
     return '$first ή $second';
-  }
-
-  @override
-  String moveHintMany(String list, String last) {
-    return '$list ή $last';
   }
 
   @override

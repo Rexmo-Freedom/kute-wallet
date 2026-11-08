@@ -7,6 +7,8 @@
 // the swap circle on their shared edge, the hero centred, the chips as
 // wide as the keypad; and both homes' action rows with their Swap, the
 // Bitcoin home's also on a cold wallet, which keeps Scan.
+// And Buy bitcoin beside it, which is not Swap: From reads Cash App with no
+// chevron and no Dollars, though Dollars and venue cash are on hand.
 // Light and dark, at 320, 375 and 430 pt, at the default text size and a
 // large one. And the result sheet Swap closes into, from over the Dollars
 // home holding its own bar context (founder, 8 November 2026: "swapped
@@ -50,6 +52,8 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/spark_address_provider.dart';
 import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceProvider, usdSdkBalanceProvider;
+import 'package:kute/screens/home/components/deposit_sheet.dart'
+    show MoveLockedSide, showDepositSheet;
 import 'package:kute/screens/home/components/move_sent_overlay.dart';
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart'
     show KuteCompactActions;
@@ -405,6 +409,21 @@ void main() {
         await _close(tester, c);
       });
     }
+  }
+
+  for (final dark in [false, true]) {
+    final name = 'buy_bitcoin_cash_app_375_${dark ? 'dark' : 'light'}';
+    testWidgets(name, (tester) async {
+      final c = await _pump(tester, const Scaffold(body: SizedBox()),
+          width: 375, dark: dark);
+      showDepositSheet(_nav.currentContext!,
+          lockedSide: MoveLockedSide.depositFromFiat, cashAppSource: true);
+      await _frames(tester, 16);
+      expect(find.text('Cash App'), findsOneWidget);
+      expect(find.text('Dollars'), findsNothing);
+      await _capture(tester, name);
+      await _close(tester, c);
+    });
   }
 
   // A short phone too (375 × 667): the screen scrolls rather than cut.

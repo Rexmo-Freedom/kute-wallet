@@ -8261,20 +8261,11 @@ class AppLocalizationsHu extends AppLocalizations {
   String get moveAddFunds => 'Pénz feltöltése';
 
   @override
-  String get movePickPayOrDollars =>
-      'Válaszd ki, hogyan fizetsz, vagy használd a dollár egyenlegedet.';
-
-  @override
   String get moveHintAWallet => 'egy tárca';
 
   @override
   String moveHintTwo(String first, String second) {
     return '$first vagy $second';
-  }
-
-  @override
-  String moveHintMany(String list, String last) {
-    return '$list vagy $last';
   }
 
   @override

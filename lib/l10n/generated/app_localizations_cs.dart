@@ -8237,20 +8237,11 @@ class AppLocalizationsCs extends AppLocalizations {
   String get moveAddFunds => 'Přidat prostředky';
 
   @override
-  String get movePickPayOrDollars =>
-      'Vyber, jak chceš platit, nebo použij dolarový zůstatek.';
-
-  @override
   String get moveHintAWallet => 'peněženku';
 
   @override
   String moveHintTwo(String first, String second) {
     return '$first nebo $second';
-  }
-
-  @override
-  String moveHintMany(String list, String last) {
-    return '$list nebo $last';
   }
 
   @override

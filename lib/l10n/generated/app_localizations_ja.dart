@@ -7890,19 +7890,11 @@ class AppLocalizationsJa extends AppLocalizations {
   String get moveAddFunds => '資金を追加';
 
   @override
-  String get movePickPayOrDollars => '支払い方法を選択するか、ドル残高を使用してください。';
-
-  @override
   String get moveHintAWallet => 'ウォレット';
 
   @override
   String moveHintTwo(String first, String second) {
     return '$firstまたは$second';
-  }
-
-  @override
-  String moveHintMany(String list, String last) {
-    return '$list、または$last';
   }
 
   @override

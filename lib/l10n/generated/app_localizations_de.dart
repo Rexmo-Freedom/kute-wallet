@@ -8308,20 +8308,11 @@ class AppLocalizationsDe extends AppLocalizations {
   String get moveAddFunds => 'Guthaben hinzufügen';
 
   @override
-  String get movePickPayOrDollars =>
-      'Wähle, wie du bezahlen möchtest, oder nutze dein Dollar-Guthaben.';
-
-  @override
   String get moveHintAWallet => 'ein Wallet';
 
   @override
   String moveHintTwo(String first, String second) {
     return '$first oder $second';
-  }
-
-  @override
-  String moveHintMany(String list, String last) {
-    return '$list oder $last';
   }
 
   @override

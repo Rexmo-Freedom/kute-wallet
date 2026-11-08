@@ -8270,20 +8270,11 @@ class AppLocalizationsNl extends AppLocalizations {
   String get moveAddFunds => 'Geld toevoegen';
 
   @override
-  String get movePickPayOrDollars =>
-      'Kies hoe je wilt betalen, of gebruik je dollarsaldo.';
-
-  @override
   String get moveHintAWallet => 'een wallet';
 
   @override
   String moveHintTwo(String first, String second) {
     return '$first of $second';
-  }
-
-  @override
-  String moveHintMany(String list, String last) {
-    return '$list of $last';
   }
 
   @override

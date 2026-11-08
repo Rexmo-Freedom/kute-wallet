@@ -8213,20 +8213,11 @@ class AppLocalizationsLv extends AppLocalizations {
   String get moveAddFunds => 'Pievienot līdzekļus';
 
   @override
-  String get movePickPayOrDollars =>
-      'Izvēlies, kā vēlies maksāt, vai izmanto savu dolāru atlikumu.';
-
-  @override
   String get moveHintAWallet => 'maciņu';
 
   @override
   String moveHintTwo(String first, String second) {
     return '$first vai $second';
-  }
-
-  @override
-  String moveHintMany(String list, String last) {
-    return '$list vai $last';
   }
 
   @override
