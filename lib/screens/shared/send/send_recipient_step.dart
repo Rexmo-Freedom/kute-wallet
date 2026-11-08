@@ -4,9 +4,17 @@
 // "looked very 2019 fintech"). Both sends, bitcoin (confirm_send.dart)
 // and dollars (usd/usd_withdraw_screen.dart), open on the same Who step:
 //
-//   * a search-style field at the top ("Name, phone or any crypto
-//     address"), a magnifier at its left and Paste and Scan inside at its
-//     right ([SendRecipientSearchField]);
+//   * the field at the top is THE AI SEARCH BAR (founder, 8 November 2026:
+//     "the search bar should be like the ai search bar"; search_composer.
+//     dart): Sal with the magnifier, the plain text ("Name, phone or any
+//     crypto address") and the hairline, Paste and Scan at its right
+//     ([SendRecipientSearchField]);
+//   * THE COINS IT TAKES, right under the empty field ("make it clear with
+//     the icons ... so that users know they can input something that is
+//     not bitcoin"): one quiet row of whole logos, Bitcoin, Lightning, then
+//     the coins this send can really reach under the policy, "+N" for the
+//     rest; gone once the person types ([SendAcceptedCoins]). Not tappable:
+//     it says what the field takes;
 //   * ANOTHER CRYPTO IS IMPLIED, NOT A BUTTON (founder, 7 November 2026:
 //     "another crypto should be implied not a button, we don't need it, it
 //     should just auto recognise"): no card under the field, the
@@ -52,15 +60,21 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/models/orchestra_routes_model.dart';
 import 'package:kute/providers/asset_icon_provider.dart'
     show AssetIcon, kBitcoinMarkAsset, kUsdMarkAsset;
+import 'package:kute/providers/orchestra_supported_routes_provider.dart';
+import 'package:kute/providers/swap_orders_provider.dart' show kTopCoins;
+import 'package:kute/screens/search/components/search_composer.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/shared/coin_asset_grid.dart'
-    show CoinAssetGroup;
+    show CoinAssetGroup, coinGroupsOfferedUnderPolicy, groupCoinsByAsset;
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart';
 import 'package:kute/services/contacts/send_contacts_service.dart';
+import 'package:kute/services/runtime_capabilities_service.dart'
+    show runtimeCapabilitiesProvider;
 import 'package:kute/services/security/address_guard.dart'
     show orchestraAddressFamily;
 import 'package:kute/services/tracking_service.dart';
@@ -99,10 +113,11 @@ class SendStepTitle extends StatelessWidget {
       );
 }
 
-/// The recipient field as a search field: a magnifier at the left, the
-/// text, and two 32 px buttons inside at the right (Paste and Scan while
-/// empty, a clear once there is text).
-class SendRecipientSearchField extends StatelessWidget {
+/// The recipient field: the AI search bar's own line ([KuteSearchComposer]),
+/// Sal with the magnifier at the left and the hairline under it, with two
+/// 32 px buttons at the right (Paste and Scan while empty, a clear once
+/// there is text). A tap anywhere on the line focuses it.
+class SendRecipientSearchField extends StatefulWidget {
   const SendRecipientSearchField({
     super.key,
     required this.controller,
@@ -126,104 +141,73 @@ class SendRecipientSearchField extends StatelessWidget {
   final bool autofocus;
 
   @override
+  State<SendRecipientSearchField> createState() =>
+      _SendRecipientSearchFieldState();
+}
+
+class _SendRecipientSearchFieldState extends State<SendRecipientSearchField> {
+  final FocusNode _focus = FocusNode();
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final c = context.colors;
-    final empty = controller.text.isEmpty;
+    final empty = widget.controller.text.isEmpty;
     final reduceMotion = MediaQuery.of(context).disableAnimations;
-    return Container(
+    return KuteSearchComposer(
       key: const ValueKey('send-recipient-search'),
-      constraints: BoxConstraints(minHeight: 52.h),
-      padding: EdgeInsets.fromLTRB(14.w, 2.h, 8.w, 2.h),
-      decoration: BoxDecoration(
-        color: c.surfaceLight,
-        borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(color: c.borderSubtle, width: 0.5),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.search_rounded, color: c.textSecondary, size: 22.sp),
-          SizedBox(width: 10.w),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              autofocus: autofocus,
-              style: TextStyle(
-                color: c.textPrimary,
-                fontSize: 16.sp,
-                fontWeight: FontWeight.w600,
-                letterSpacing: -0.2,
-              ),
-              cursorColor: c.accent,
-              cursorWidth: 2.0,
-              maxLines: 2,
-              minLines: 1,
-              // An address, a name or an invoice, never prose: nothing
-              // that rewrites what is typed or pasted.
-              keyboardType: TextInputType.text,
-              textInputAction: TextInputAction.done,
-              autocorrect: false,
-              enableSuggestions: false,
-              textCapitalization: TextCapitalization.none,
-              smartDashesType: SmartDashesType.disabled,
-              smartQuotesType: SmartQuotesType.disabled,
-              scrollPadding: EdgeInsets.only(bottom: 120.h),
-              onChanged: onChanged,
-              onSubmitted: onSubmitted,
-              decoration: InputDecoration(
-                hintText: hintText,
-                hintMaxLines: 1,
-                hintStyle: TextStyle(
-                  color: c.textSecondary,
-                  fontSize: 15.sp,
-                  fontWeight: FontWeight.w500,
+      controller: widget.controller,
+      focusNode: _focus,
+      autofocus: widget.autofocus,
+      recipientEntry: true,
+      hint: widget.hintText,
+      onChanged: widget.onChanged,
+      onSubmit: () => widget.onSubmitted?.call(widget.controller.text),
+      trailing: Padding(
+        padding: EdgeInsets.only(left: 8.w),
+        child: AnimatedSwitcher(
+          duration:
+              reduceMotion ? Duration.zero : const Duration(milliseconds: 180),
+          child: empty
+              ? Row(
+                  key: const ValueKey('send-field-empty'),
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SendSearchFieldButton(
+                      key: const ValueKey('send-field-paste'),
+                      icon: Icons.content_paste_rounded,
+                      tooltip: context.l10n.paste,
+                      onTap: widget.onPaste,
+                    ),
+                    SizedBox(width: 4.w),
+                    SendSearchFieldButton(
+                      key: const ValueKey('send-field-scan'),
+                      icon: Icons.qr_code_scanner_rounded,
+                      tooltip: context.l10n.scan,
+                      onTap: widget.onScan,
+                    ),
+                  ],
+                )
+              : SendSearchFieldButton(
+                  key: const ValueKey('send-field-clear'),
+                  icon: Icons.cancel_rounded,
+                  tooltip: context.l10n.close,
+                  onTap: () {
+                    widget.controller.clear();
+                    widget.onChanged('');
+                  },
                 ),
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(vertical: 12.h),
-                isDense: true,
-              ),
-            ),
-          ),
-          SizedBox(width: 4.w),
-          AnimatedSwitcher(
-            duration:
-                reduceMotion ? Duration.zero : const Duration(milliseconds: 180),
-            child: empty
-                ? Row(
-                    key: const ValueKey('send-field-empty'),
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SendSearchFieldButton(
-                        key: const ValueKey('send-field-paste'),
-                        icon: Icons.content_paste_rounded,
-                        tooltip: context.l10n.paste,
-                        onTap: onPaste,
-                      ),
-                      SizedBox(width: 4.w),
-                      SendSearchFieldButton(
-                        key: const ValueKey('send-field-scan'),
-                        icon: Icons.qr_code_scanner_rounded,
-                        tooltip: context.l10n.scan,
-                        onTap: onScan,
-                      ),
-                    ],
-                  )
-                : SendSearchFieldButton(
-                    key: const ValueKey('send-field-clear'),
-                    icon: Icons.cancel_rounded,
-                    tooltip: context.l10n.close,
-                    onTap: () {
-                      controller.clear();
-                      onChanged('');
-                    },
-                  ),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
-/// A 32 px icon button inside the search field.
+/// A 32 px icon button at the right of the search field.
 class SendSearchFieldButton extends StatelessWidget {
   const SendSearchFieldButton({
     super.key,
@@ -242,7 +226,7 @@ class SendSearchFieldButton extends StatelessWidget {
     return Tooltip(
       message: tooltip,
       child: Material(
-        color: c.surface,
+        color: c.surfaceLight,
         shape: const CircleBorder(),
         child: InkWell(
           customBorder: const CircleBorder(),
@@ -254,6 +238,119 @@ class SendSearchFieldButton extends StatelessWidget {
             width: 32.sp,
             height: 32.sp,
             child: Icon(icon, color: c.textPrimary, size: 17.sp),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The coins [SendAcceptedCoins] shows after Bitcoin and Lightning: of
+/// [rows] (one send's destinations), those the policy really leaves open
+/// (a region-blocked network is not, a picker's tap says why but this row
+/// has no tap), the best known first: [kAnotherCryptoNamedFirst], the
+/// coins the app ships a mark for, then the list's own order. Never
+/// bitcoin (first by itself) nor the person's own dollars.
+List<CoinAssetGroup> sendAcceptedCoinGroups(
+  List<OrchestraReceiveOption> rows, {
+  required String otherLegAsset,
+}) {
+  final open = coinGroupsOfferedUnderPolicy(
+    groupCoinsByAsset(rows),
+    otherLegAsset: otherLegAsset,
+    keepRegionBlocked: false,
+  ).groups;
+  final coins = [
+    for (final g in open)
+      if (!const {'BTC', 'USD', 'USDB'}.contains(g.key.toUpperCase())) g
+  ];
+  final shipped = [for (final t in kTopCoins) t.code.toUpperCase()];
+  int rank(CoinAssetGroup g) {
+    final key = g.key.toUpperCase();
+    final named = kAnotherCryptoNamedFirst.indexOf(key);
+    if (named >= 0) return named;
+    final top = shipped.indexOf(key);
+    return kAnotherCryptoNamedFirst.length +
+        (top >= 0 ? top : shipped.length);
+  }
+
+  final ranked = [
+    for (var i = 0; i < coins.length; i++) (rank: rank(coins[i]), at: i)
+  ]..sort((a, b) =>
+      a.rank != b.rank ? a.rank.compareTo(b.rank) : a.at.compareTo(b.at));
+  return [for (final r in ranked) coins[r.at]];
+}
+
+/// What the empty field takes, as one quiet row of whole logos (see the
+/// file header): Bitcoin, Lightning where this send pays it ([lightning]),
+/// then the coins [rows] gives that are really open
+/// ([sendAcceptedCoinGroups]), "+N" for the ones past [maxMarks]. It
+/// follows the live catalogue and the policy by itself. No card, no words,
+/// no tap.
+class SendAcceptedCoins extends ConsumerWidget {
+  const SendAcceptedCoins({
+    super.key,
+    required this.rows,
+    required this.otherLegAsset,
+    this.lightning = true,
+  });
+
+  /// This send's destinations in [catalog].
+  final List<OrchestraReceiveOption> Function(
+      OrchestraRoutesCatalog catalog, AppLocalizations l10n) rows;
+
+  /// The money's own leg, for the policy: bitcoin or the dollar balance.
+  final String otherLegAsset;
+  final bool lightning;
+
+  /// One line at any width (both sizes scale with the screen).
+  static const int maxMarks = 8;
+  static const double mark = 22;
+  static const double gap = 6;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final c = context.colors;
+    final catalog = ref.watch(orchestraSupportedRoutesProvider);
+    ref.watch(runtimeCapabilitiesProvider);
+    final coins =
+        sendAcceptedCoinGroups(rows(catalog, l10n), otherLegAsset: otherLegAsset);
+    final all = <({String code, String name})>[
+      (code: 'BTC', name: l10n.bitcoin),
+      if (lightning) (code: 'Lightning', name: l10n.sendRailLightning),
+      for (final g in coins) (code: g.assetCode, name: g.displaySymbol),
+    ];
+    final shown = all.take(maxMarks).toList();
+    final rest = all.length - shown.length;
+    final more = l10n.receiveAlsoAcceptsMore(rest);
+    return Semantics(
+      label: [for (final m in shown) m.name, if (rest > 0) more].join(', '),
+      child: ExcludeSemantics(
+        child: Padding(
+          key: const ValueKey('send-accepted-coins'),
+          padding: EdgeInsets.only(top: 12.h),
+          child: Row(
+            children: [
+              for (final m in shown) ...[
+                AssetIcon(
+                    key: ValueKey('send-accepted-coin-${m.code}'),
+                    assetCode: m.code,
+                    size: mark.sp),
+                SizedBox(width: gap.sp),
+              ],
+              if (rest > 0)
+                Text(
+                  more,
+                  key: const ValueKey('send-accepted-coins-more'),
+                  style: TextStyle(
+                    color: c.textTertiary,
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.1,
+                  ),
+                ),
+            ],
           ),
         ),
       ),

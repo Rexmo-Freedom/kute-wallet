@@ -7,8 +7,9 @@
 //     address": Lightning addresses of any domain, invoices, bitcoin and
 //     crypto addresses, Paste and Scan) and recognises it as it is typed;
 //     no "Another crypto" card under it (founder, 7 November 2026:
-//     "another crypto should be implied not a button"): the contacts
-//     follow right under the field;
+//     "another crypto should be implied not a button"): the logos of what
+//     it takes while it is empty (founder, 8 November 2026), then the
+//     contacts;
 //   * NO CHIPS: no "To your Dollars", no "Crypto address", no "Prediction
 //     or investment". Typed, an own account's name finds the move ("Move to
 //     your Dollars");
@@ -404,6 +405,7 @@ void main() {
     expect(_l10n.sendRecipientSearchHint, 'Name, phone or any crypto address');
     expect(find.byKey(const ValueKey('send-field-paste')), findsOneWidget);
     expect(find.byKey(const ValueKey('send-field-scan')), findsOneWidget);
+    expect(find.byKey(const ValueKey('send-accepted-coins')), findsOneWidget);
     expect(_text(_l10n.sendAllContacts), findsOneWidget);
     expect(find.byKey(ask), findsOneWidget);
     expect(_text(_l10n.sendContactsSeeYours), findsOneWidget);

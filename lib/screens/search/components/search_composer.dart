@@ -18,6 +18,13 @@
 // travels, so the two read as one object. With Sal off (the AI kill switch) it
 // is a plain search field with a clear ✕.
 //
+// THE SENDS' RECIPIENT FIELD IS THIS LINE TOO (founder, 8 November 2026: "the
+// search bar should be like the ai search bar"; send_recipient_step.dart,
+// SendRecipientSearchField): [trailing] holds Paste, Scan and the clear in the
+// arrow's place, and [recipientEntry] takes an address, never prose: Done on
+// the keyboard, nothing that rewrites what is typed or pasted, two lines for a
+// long address.
+//
 // [KuteSearchComposer.decoration] and the sizes here are what the morph
 // draws its end state with; change them in one place.
 
@@ -42,6 +49,9 @@ class KuteSearchComposer extends StatelessWidget {
     this.hint,
     this.sendLabel,
     this.scope,
+    this.trailing,
+    this.recipientEntry = false,
+    this.autofocus = false,
   });
 
   final TextEditingController controller;
@@ -57,6 +67,14 @@ class KuteSearchComposer extends StatelessWidget {
 
   /// The scope chip at the right of the line ("All ⌄"), only with a query.
   final Widget? scope;
+
+  /// In the send arrow's place at the right of the line, when given.
+  final Widget? trailing;
+
+  /// The line takes a recipient (a name, an address, an invoice), never
+  /// prose; see the file header.
+  final bool recipientEntry;
+  final bool autofocus;
 
   /// The line's height (the hairline included).
   static const double height = 56;
@@ -169,11 +187,26 @@ class KuteSearchComposer extends StatelessWidget {
               builder: (context, constraints) => TextField(
                 controller: controller,
                 focusNode: focusNode,
+                autofocus: autofocus,
                 onChanged: onChanged,
                 onSubmitted: (_) => onSubmit(),
-                textInputAction:
-                    aiEnabled ? TextInputAction.send : TextInputAction.search,
+                textInputAction: recipientEntry
+                    ? TextInputAction.done
+                    : aiEnabled
+                        ? TextInputAction.send
+                        : TextInputAction.search,
                 autocorrect: false,
+                keyboardType: TextInputType.text,
+                enableSuggestions: !recipientEntry,
+                smartDashesType:
+                    recipientEntry ? SmartDashesType.disabled : null,
+                smartQuotesType:
+                    recipientEntry ? SmartQuotesType.disabled : null,
+                maxLines: recipientEntry ? 2 : 1,
+                minLines: 1,
+                scrollPadding: recipientEntry
+                    ? EdgeInsets.only(bottom: 120.h)
+                    : const EdgeInsets.all(20),
                 textAlignVertical: TextAlignVertical.center,
                 style: textStyle(context),
                 cursorColor: c.accent,
@@ -196,11 +229,12 @@ class KuteSearchComposer extends StatelessWidget {
           ],
           // Only the button follows the text: typing never rebuilds the
           // sheet around the composer.
-          ValueListenableBuilder<TextEditingValue>(
-            valueListenable: controller,
-            builder: (context, value, _) =>
-                _trailing(context, value.text.trim().isNotEmpty),
-          ),
+          trailing ??
+              ValueListenableBuilder<TextEditingValue>(
+                valueListenable: controller,
+                builder: (context, value, _) =>
+                    _trailing(context, value.text.trim().isNotEmpty),
+              ),
         ],
       ),
     );

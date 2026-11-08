@@ -7764,7 +7764,8 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   /// circles) and All contacts A–Z filtered by the text
   /// (send_contacts_list.dart). No chips (founder, 7 November 2026: one
   /// verb per intent) and no Another crypto card ("another crypto should
-  /// be implied not a button"): the field recognises the address.
+  /// be implied not a button"): the field recognises the address, and the
+  /// coins' logos under it say so while it is empty (SendAcceptedCoins).
   Widget _sendToPage(AppColorsExtension c) {
     final addr = addressController.text;
     // Hardware/watch-only wallets accept on-chain Bitcoin addresses.
@@ -7894,6 +7895,19 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
               setState(() {});
             },
           ),
+          // What the empty field takes, the coins this send really reaches
+          // (send_recipient_step.dart). A cold source pays plain bitcoin
+          // only; a coin chosen has said what it takes.
+          if (addr.isEmpty && !coinChosen)
+            SendAcceptedCoins(
+              lightning: hot,
+              otherLegAsset: 'BTC',
+              rows: (catalog, l10n) => hot
+                  ? _sendDestOptions(catalog, l10n)
+                      .map(_sendDestPickerRow)
+                      .toList()
+                  : const [],
+            ),
           // One recipient card (founder: "more fintech"), the person
           // never listed again below.
           if (resolved) ...[
