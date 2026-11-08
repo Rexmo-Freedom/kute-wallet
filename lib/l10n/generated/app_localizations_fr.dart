@@ -6038,10 +6038,22 @@ class AppLocalizationsFr extends AppLocalizations {
   String get chartIntervalFiveMinutesHint => 'Les variations du jour';
 
   @override
+  String get chartIntervalFifteenMinutes => '15 minutes';
+
+  @override
+  String get chartIntervalFifteenMinutesHint => 'La dernière journée';
+
+  @override
   String get chartIntervalHour => '1 heure';
 
   @override
   String get chartIntervalHourHint => 'Les derniers jours';
+
+  @override
+  String get chartIntervalFourHours => '4 heures';
+
+  @override
+  String get chartIntervalFourHoursHint => 'Les dernières semaines';
 
   @override
   String get chartIntervalDay => '1 jour';
@@ -14068,6 +14080,18 @@ class AppLocalizationsFr extends AppLocalizations {
   String get chartGroupVolatility => 'Volatilité';
 
   @override
+  String get chartGroupDisplay => 'Affichage';
+
+  @override
+  String get chartLogScaleNote => 'Même variation en %, même hauteur';
+
+  @override
+  String get chartYourTrades => 'Vos transactions';
+
+  @override
+  String get chartYourTradesNote => 'Vos achats et ventes sur ce marché';
+
+  @override
   String get chartIndSmaNote => 'Tendance longue, qui se retourne lentement';
 
   @override
@@ -14079,6 +14103,15 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get chartIndAtrNote => 'L’amplitude habituelle d’une période';
+
+  @override
+  String get chartIndIchimokuNote => 'Tendance et niveaux dans un nuage';
+
+  @override
+  String get chartIndPivotNote => 'Les niveaux du jour, d’après la veille';
+
+  @override
+  String get chartIndAdxNote => 'La force de la tendance';
 
   @override
   String get chartIndObvNote => 'Si le volume soutient le mouvement';
@@ -14128,6 +14161,21 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Lignes';
+
+  @override
+  String get chartParamSmoothing => 'Lissage';
+
+  @override
+  String get chartParamConversion => 'Ligne de conversion';
+
+  @override
+  String get chartParamBase => 'Ligne de base';
+
+  @override
+  String get chartParamSpanB => 'Span B';
+
+  @override
+  String get chartParamDisplacement => 'Décalage';
 
   @override
   String get polyPeriodMatch => 'Match';

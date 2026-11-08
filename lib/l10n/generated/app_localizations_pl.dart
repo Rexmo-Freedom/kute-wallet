@@ -6010,10 +6010,22 @@ class AppLocalizationsPl extends AppLocalizations {
   String get chartIntervalFiveMinutesHint => 'Dzisiejsze wahania';
 
   @override
+  String get chartIntervalFifteenMinutes => '15 minut';
+
+  @override
+  String get chartIntervalFifteenMinutesHint => 'Ostatni dzień';
+
+  @override
   String get chartIntervalHour => '1 godzina';
 
   @override
   String get chartIntervalHourHint => 'Ostatnie kilka dni';
+
+  @override
+  String get chartIntervalFourHours => '4 godziny';
+
+  @override
+  String get chartIntervalFourHoursHint => 'Ostatnie tygodnie';
 
   @override
   String get chartIntervalDay => '1 dzień';
@@ -14014,6 +14026,18 @@ class AppLocalizationsPl extends AppLocalizations {
   String get chartGroupVolatility => 'Zmienność';
 
   @override
+  String get chartGroupDisplay => 'Widok';
+
+  @override
+  String get chartLogScaleNote => 'Ten sam % ruch, ta sama wysokość';
+
+  @override
+  String get chartYourTrades => 'Twoje transakcje';
+
+  @override
+  String get chartYourTradesNote => 'Twoje kupna i sprzedaże tutaj';
+
+  @override
   String get chartIndSmaNote => 'Trend długoterminowy, wolno się odwraca';
 
   @override
@@ -14024,6 +14048,15 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get chartIndAtrNote => 'Jak daleko zwykle porusza się jeden okres';
+
+  @override
+  String get chartIndIchimokuNote => 'Trend i poziomy w jednej chmurze';
+
+  @override
+  String get chartIndPivotNote => 'Dzisiejsze poziomy z wczorajszego zakresu';
+
+  @override
+  String get chartIndAdxNote => 'Jak silny jest trend';
 
   @override
   String get chartIndObvNote => 'Czy wolumen wspiera ruch';
@@ -14073,6 +14106,21 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Wiersze';
+
+  @override
+  String get chartParamSmoothing => 'Wygładzanie';
+
+  @override
+  String get chartParamConversion => 'Linia konwersji';
+
+  @override
+  String get chartParamBase => 'Linia bazowa';
+
+  @override
+  String get chartParamSpanB => 'Span B';
+
+  @override
+  String get chartParamDisplacement => 'Przesunięcie';
 
   @override
   String get polyPeriodMatch => 'Mecz';

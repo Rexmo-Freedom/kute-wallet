@@ -6042,10 +6042,22 @@ class AppLocalizationsEl extends AppLocalizations {
   String get chartIntervalFiveMinutesHint => 'Οι κινήσεις της ημέρας';
 
   @override
+  String get chartIntervalFifteenMinutes => '15 λεπτά';
+
+  @override
+  String get chartIntervalFifteenMinutesHint => 'Η τελευταία μέρα';
+
+  @override
   String get chartIntervalHour => '1 ώρα';
 
   @override
   String get chartIntervalHourHint => 'Οι τελευταίες μέρες';
+
+  @override
+  String get chartIntervalFourHours => '4 ώρες';
+
+  @override
+  String get chartIntervalFourHoursHint => 'Οι τελευταίες εβδομάδες';
 
   @override
   String get chartIntervalDay => '1 ημέρα';
@@ -14059,6 +14071,18 @@ class AppLocalizationsEl extends AppLocalizations {
   String get chartGroupVolatility => 'Μεταβλητότητα';
 
   @override
+  String get chartGroupDisplay => 'Προβολή';
+
+  @override
+  String get chartLogScaleNote => 'Ίση % κίνηση, ίδιο ύψος';
+
+  @override
+  String get chartYourTrades => 'Οι συναλλαγές σου';
+
+  @override
+  String get chartYourTradesNote => 'Οι αγορές και πωλήσεις σου εδώ';
+
+  @override
   String get chartIndSmaNote => 'Μακροπρόθεσμη τάση που αλλάζει αργά';
 
   @override
@@ -14070,6 +14094,15 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get chartIndAtrNote => 'Πόσο κινείται συνήθως μια περίοδος';
+
+  @override
+  String get chartIndIchimokuNote => 'Τάση και επίπεδα σε ένα σύννεφο';
+
+  @override
+  String get chartIndPivotNote => 'Τα σημερινά επίπεδα από το χθεσινό εύρος';
+
+  @override
+  String get chartIndAdxNote => 'Πόσο ισχυρή είναι η τάση';
 
   @override
   String get chartIndObvNote => 'Αν ο όγκος στηρίζει την κίνηση';
@@ -14119,6 +14152,21 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Γραμμές';
+
+  @override
+  String get chartParamSmoothing => 'Εξομάλυνση';
+
+  @override
+  String get chartParamConversion => 'Γραμμή μετατροπής';
+
+  @override
+  String get chartParamBase => 'Γραμμή βάσης';
+
+  @override
+  String get chartParamSpanB => 'Εύρος B';
+
+  @override
+  String get chartParamDisplacement => 'Μετατόπιση';
 
   @override
   String get polyPeriodMatch => 'Αγώνας';

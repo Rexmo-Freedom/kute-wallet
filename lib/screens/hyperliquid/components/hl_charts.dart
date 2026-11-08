@@ -272,6 +272,39 @@ double _hlPriceAreaHeight(double height, bool showVolume) => showVolume
   return (priceH: priceH, loP: fitted.minY, rangeP: rangeP, log: useLog);
 }
 
+/// The least share of the fitted scale the bars keep when the indicators
+/// on the price widen it: a far-off line (a pivot two days of range away
+/// on a 1m chart) leaves the view before it squashes the candles.
+const double kHlFitBarsMinShare = 0.25;
+
+/// The autoscale's fit of bars spanning [lo]..[hi] with the indicators on
+/// the price spanning [indLo]..[indHi], all in axis space (price, or
+/// ln(price) on a log axis): as TradingView's auto scale, the scale takes
+/// everything drawn on the price in, so a band is never cut flat at the
+/// plot's edge. The widening stops where the bars would keep less than
+/// [kHlFitBarsMinShare] of the scale, shared between the two sides as they
+/// asked for it.
+({double lo, double hi}) hlFitWithIndicators(
+  double lo,
+  double hi,
+  double? indLo,
+  double? indHi,
+) {
+  if (indLo == null || indHi == null) return (lo: lo, hi: hi);
+  var below = math.max(0.0, lo - indLo);
+  var above = math.max(0.0, indHi - hi);
+  final span = hi - lo;
+  if (span > 0) {
+    final room = span * (1 / kHlFitBarsMinShare - 1);
+    final wanted = below + above;
+    if (wanted > room) {
+      below *= room / wanted;
+      above *= room / wanted;
+    }
+  }
+  return (lo: lo - below, hi: hi + above);
+}
+
 /// Price → domain-space value for the shared geometry: identity on a
 /// linear axis, ln() on a log axis.
 double _hlMapPrice(double v, bool log) => log ? kuteLogPrice(v) : v;
@@ -616,12 +649,25 @@ Color hlFillGlyphColor(Color fill, Color background) =>
           : background;
     });
 
+/// A fill marker's colour: its side's (a buy the up colour, a sell the
+/// down colour), closing fills too; a liquidation is always the down
+/// colour.
+Color hlFillMarkerTone(HlFill f, {required Color up, required Color down}) {
+  final kind = hlFillEffect(f).kind;
+  if (kind == HlFillKind.liquidated) return down;
+  if (kind == HlFillKind.closed || kind == HlFillKind.reduced) {
+    return f.isBuy ? up : down;
+  }
+  return hlFillTone(f, up: up, down: down, neutral: down);
+}
+
 /// Paints the user's fill markers: a short stem from each badge to its
 /// fill's price, a small dot at every fill's exact price, then the badges
 /// on top, all over one shared background-coloured halo. A badge is a disc
-/// in the position's colour with ▲ (went long) or ▼ (went short) inside,
-/// or a check in [neutral] for a fill that closed or reduced (a short
-/// that buys back is closing, and a ▲ would read as the opposite), ringed
+/// in the fill's side colour ([hlFillMarkerTone]) with ▲ (went long) or ▼
+/// (went short) inside, or a check for a fill that closed or reduced (a
+/// short that buys back is closing, and a ▲ would read as the opposite),
+/// ringed
 /// in [halo] (the chart background) so it lifts off the line or the
 /// candles; several fills on one badge make it a pill that also writes
 /// the count. The count comes from the painter's TextPainter cache, so
@@ -632,11 +678,9 @@ void hlPaintFillMarkers(
   required Color up,
   required Color down,
   required Color halo,
-  Color? neutral,
 }) {
   if (markers.isEmpty) return;
-  Color tone(HlFill f) =>
-      hlFillTone(f, up: up, down: down, neutral: neutral ?? down);
+  Color tone(HlFill f) => hlFillMarkerTone(f, up: up, down: down);
   bool closing(HlFill f) {
     final k = hlFillEffect(f).kind;
     return k == HlFillKind.closed || k == HlFillKind.reduced;
@@ -1218,15 +1262,22 @@ enum HlChartStyle {
   bool get isLine => this == line || this == area || this == baseline;
 
   /// The styles the Chart sheet offers (founder, 1 November 2026: "we
-  /// have too many chart styles"): Line, Candles and Area, and Heikin
-  /// Ashi for the Advanced chart's traders (4 November 2026), a 2 × 2 of
-  /// cards. The others still paint, for a caller that asks for them by
-  /// value, but no saved layout opens on one.
-  static const List<HlChartStyle> picker = [line, candles, area, heikinAshi];
+  /// have too many chart styles"): Line, Candles and Area, Heikin Ashi for
+  /// the Advanced chart's traders (4 November 2026), and Hollow candles
+  /// and Baseline (8 November 2026), a 2 × 3 of cards. Bars still paint,
+  /// for a caller that asks for it by value, but no saved layout opens on
+  /// it.
+  static const List<HlChartStyle> picker = [
+    line,
+    candles,
+    area,
+    heikinAshi,
+    hollow,
+    baseline,
+  ];
 
   /// Area is the default everywhere a style is missing or unknown. A
-  /// style the sheet no longer offers opens as its closest one: hollow
-  /// candles and bars as candles, baseline as area.
+  /// style the sheet does not offer (bars) opens as its closest one.
   static HlChartStyle fromName(String? name) {
     for (final v in values) {
       if (v.name == name) return v.offered;
@@ -1236,8 +1287,7 @@ enum HlChartStyle {
 
   /// This style, or the closest of [picker].
   HlChartStyle get offered => switch (this) {
-        hollow || bars => candles,
-        baseline => area,
+        bars => candles,
         _ => this,
       };
 }
@@ -1266,8 +1316,10 @@ class HlCandlestickChart extends StatefulWidget {
   final bool renderAsLine;
 
   /// The user's OWN fills for this market, drawn as buy/sell markers on the
-  /// price at their fill time+price so a trader sees where they got in/out.
-  /// Empty → no markers.
+  /// price at their fill time+price so a trader sees where they got in/out:
+  /// the fills history the Activity reads (hyperliquidActivityFillsProvider,
+  /// closed positions included), not a read of its own. Empty → no markers
+  /// (the host hands none while the Your trades layer is off).
   final List<HlFill> fills;
 
   /// The user's OPEN position's average entry price on this market — drawn
@@ -1352,7 +1404,12 @@ class HlCandlestickChart extends StatefulWidget {
   /// (ChartPreferences.params).
   final Map<String, List<num>> indicatorParams;
 
-  /// Advanced: the axes' corner shows a "Log" switch that calls this.
+  /// Real daily candles, in the chart's units, ascending: what Pivots read
+  /// their levels from. Stable identity between real changes.
+  final List<HyperliquidCandle> dailyCandles;
+
+  /// Advanced: the axes' corner shows a "Log" switch that calls this
+  /// (the Chart sheet's Log scale card sets the same saved setting).
   final ValueChanged<bool>? onLogScaleChanged;
 
   /// Log price axis: y maps ln(price) instead of price. Flows through
@@ -1363,6 +1420,11 @@ class HlCandlestickChart extends StatefulWidget {
   /// Drawing style. [renderAsLine] is honoured for older callers; a
   /// line-family [style] also renders as a line.
   final HlChartStyle style;
+
+  /// Baseline style's level: the open position's entry when there is one.
+  /// Null: the first bar on screen's close, so the fill reads as the move
+  /// across the view (and follows a pan).
+  final double? baselinePrice;
 
   /// The user's own position and working orders on this market, drawn as
   /// tagged horizontal price lines (entry, liquidation, limits, TP/SL).
@@ -1431,6 +1493,7 @@ class HlCandlestickChart extends StatefulWidget {
     this.onPlacementPendingChanged,
     this.indicators = const {},
     this.indicatorParams = const {},
+    this.dailyCandles = const [],
     this.onLogScaleChanged,
     this.logScale = false,
     this.tradeLines = const [],
@@ -1439,6 +1502,7 @@ class HlCandlestickChart extends StatefulWidget {
     this.signals = ChartSignals.none,
     this.onSignalTapped,
     this.style = HlChartStyle.area,
+    this.baselinePrice,
     this.onMoreHistoryWanted,
     this.fillHeight = false,
     this.onAutoScaleChanged,
@@ -1759,7 +1823,9 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
 
   /// Where the price scale should sit for [visible] (the bars on screen):
   /// a frozen gesture's domain, the manual one, or the autoscale fit of
-  /// the visible series. Price lines never take part in the fit.
+  /// the visible series and the indicators on the price
+  /// ([hlFitWithIndicators]). Only the scale's range moves: the plot keeps
+  /// its size. Price lines never take part in the fit.
   HlPriceDomain _scaleTarget(List<HyperliquidCandle> visible) {
     final frozen = _frozenDomain;
     if (frozen != null) return frozen;
@@ -1793,10 +1859,18 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
       hi = math.max(hi, entry);
     }
     final useLog = widget.logScale && lo > 0;
+    final indHi = _visIndHi;
+    final indLo = useLog ? _visIndLoPositive : _visIndLo;
     if (useLog) {
       lo = kuteLogPrice(lo);
       hi = kuteLogPrice(hi);
     }
+    final fitted = hlFitWithIndicators(
+      lo,
+      hi,
+      indLo == null ? null : (useLog ? kuteLogPrice(indLo) : indLo),
+      indHi == null ? null : (useLog ? kuteLogPrice(indHi) : indHi),
+    );
     final fit = _scaleTracker.fit(
       (
         visible.first.openTime.millisecondsSinceEpoch,
@@ -1805,9 +1879,11 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
         useLog,
         widget.style == HlChartStyle.heikinAshi,
         entry,
+        // Switching one on or off refits at once, loose or tight.
+        _visIndTitles,
       ),
-      lo,
-      hi,
+      fitted.lo,
+      fitted.hi,
     );
     return (lo: fit.minY, hi: fit.maxY, log: useLog);
   }
@@ -2080,6 +2156,12 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
   Object? _sliceKey;
   List<KuteIndicatorOverlay> _visOverlays = const [];
   KuteIndicatorBand? _visBand;
+  HlIndCloud? _visCloud;
+
+  /// What the indicators on the price span in the window, for the fit.
+  double? _visIndLo, _visIndLoPositive, _visIndHi;
+  String _visIndTitles = '';
+  List<HlIndLevelLabel> _visLevelLabels = const [];
   HlVolumeProfile? _visProfile;
 
   /// Older bars asked for so the indicators are warm at the first bar on
@@ -2977,7 +3059,12 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
   /// (Re)build the series for the active indicators over [candles] (the
   /// full tape). A no-op unless the tape, the set or the settings changed.
   void _syncFullIndicators(List<HyperliquidCandle> candles) {
-    final key = (candles, widget.indicators, widget.indicatorParams);
+    final key = (
+      candles,
+      widget.indicators,
+      widget.indicatorParams,
+      widget.dailyCandles,
+    );
     if (key == _indKey) return;
     _indKey = key;
     _indFull = widget.indicators.isEmpty
@@ -2988,6 +3075,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
             widget.indicatorParams,
             up: AppColors.marketUp,
             down: AppColors.marketDown,
+            daily: widget.dailyCandles,
           );
     _indStamp++;
   }
@@ -3003,6 +3091,13 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     _indVis = _indFull.slice(start, end);
     _visOverlays = _indVis.overlays(kHlIndicatorStroke);
     _visBand = _indVis.band;
+    _visCloud = _indVis.cloud;
+    _visLevelLabels = _indVis.levelLabels;
+    final extent = _indVis.priceExtent;
+    _visIndLo = extent.lo;
+    _visIndLoPositive = extent.loPositive;
+    _visIndHi = extent.hi;
+    _visIndTitles = [for (final p in _indVis.price) p.title].join('|');
     if (rows == null) {
       _visProfile = null;
     } else {
@@ -3347,8 +3442,11 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                     morphSeries: morphSeries,
                                     overlays: _visOverlays,
                                     band: _visBand,
+                                    cloud: _visCloud,
+                                    levelLabels: _visLevelLabels,
                                     logScale: widget.logScale,
                                     style: widget.style,
+                                    baselinePrice: widget.baselinePrice,
                                     domain: domain,
                                     tagGutter: gutter,
                                   ),
@@ -4561,12 +4659,19 @@ class _HlCandlePainter extends CustomPainter {
   final List<KuteIndicatorOverlay> overlays;
   final KuteIndicatorBand? band;
 
+  /// Ichimoku's cloud, under the lines, and Pivots' names, over them.
+  final HlIndCloud? cloud;
+  final List<HlIndLevelLabel> levelLabels;
+
   /// Log price axis (ln-mapped y). Flows into the shared geometry so
   /// every painted element stays in register.
   final bool logScale;
 
   /// Bar/line variant to paint.
   final HlChartStyle style;
+
+  /// Baseline style's level (null: the first bar's close).
+  final double? baselinePrice;
 
   /// The shown (autoscaled or manual) price domain.
   final HlPriceDomain? domain;
@@ -4601,8 +4706,11 @@ class _HlCandlePainter extends CustomPainter {
     this.morphSeries,
     this.overlays = const [],
     this.band,
+    this.cloud,
+    this.levelLabels = const [],
     this.logScale = false,
     this.style = HlChartStyle.area,
+    this.baselinePrice,
     this.domain,
     this.tagGutter = 0,
     this.captions = const [],
@@ -4792,10 +4900,17 @@ class _HlCandlePainter extends CustomPainter {
       }
       final path = kuteMonotonePath(pts);
 
-      if (style == HlChartStyle.baseline) {
-        // Two-tone fill either side of the window's first close: above
-        // it in the up colour, below it in the down colour.
-        final baseY = toY(candles.first.close).clamp(0.0, priceH);
+      final isBaseline = style == HlChartStyle.baseline;
+      final level = baselinePrice;
+      final baseValue = level != null && level > 0
+          ? level
+          : candles.first.close;
+      final rawBaseY = toY(baseValue);
+      final baseY = rawBaseY.clamp(0.0, priceH);
+      if (isBaseline) {
+        // Two-tone fill either side of the level: above it in the up
+        // colour, below it in the down colour. The line takes the same
+        // two colours, its end dot the side it ends on.
         final fill = Path.from(path)
           ..lineTo(pts.last.dx, baseY)
           ..lineTo(pts.first.dx, baseY)
@@ -4803,18 +4918,23 @@ class _HlCandlePainter extends CustomPainter {
         canvas.save();
         canvas.clipRect(Rect.fromLTWH(0, 0, w, baseY));
         canvas.drawPath(fill, Paint()..color = upColor.withValues(alpha: 0.16));
+        canvas.drawPath(path, kuteStrokePaint(upColor));
         canvas.restore();
         canvas.save();
         canvas.clipRect(Rect.fromLTWH(0, baseY, w, priceH - baseY));
         canvas.drawPath(
             fill, Paint()..color = downColor.withValues(alpha: 0.16));
+        canvas.drawPath(path, kuteStrokePaint(downColor));
         canvas.restore();
-        canvas.drawLine(
-            Offset(0, baseY),
-            Offset(w, baseY),
-            Paint()
-              ..color = gridColor
-              ..strokeWidth = 1);
+        // The level's own hairline, only while it is on the scale.
+        if (rawBaseY >= 0 && rawBaseY <= priceH) {
+          canvas.drawLine(
+              Offset(0, baseY),
+              Offset(w, baseY),
+              Paint()
+                ..color = gridColor
+                ..strokeWidth = 1);
+        }
       } else if (style != HlChartStyle.line) {
         // Subtle gradient fill under the line (shared spec, shader
         // cached), dropped to the price-area floor.
@@ -4825,10 +4945,15 @@ class _HlCandlePainter extends CustomPainter {
         canvas.drawPath(
             fill, Paint()..shader = kuteFillShader(w, priceH, lineCol));
       }
-      canvas.drawPath(path, kuteStrokePaint(lineCol));
+      if (!isBaseline) canvas.drawPath(path, kuteStrokePaint(lineCol));
 
       // Endpoint dot (the live pulse rides its own decor layer).
-      kuteDrawEndpointDot(canvas, pts.last, lineCol,
+      kuteDrawEndpointDot(
+          canvas,
+          pts.last,
+          isBaseline
+              ? (candles.last.close >= baseValue ? upColor : downColor)
+              : lineCol,
           isDark: labelBg == Colors.black);
     } else {
       // ── Candlestick bodies + wicks ─────────────────────────────────
@@ -4850,15 +4975,19 @@ class _HlCandlePainter extends CustomPainter {
       final stem = Paint()
         ..strokeWidth = 1.0
         ..strokeCap = StrokeCap.round;
-      final hollowUp = Paint()
-        ..color = upColor
+      final hollowBody = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.0;
 
       for (var j = 0; j < bars.length; j++) {
         final k = bars[j];
         final cx = barX(j);
-        final up = k.close >= k.open;
+        final rising = k.close >= k.open;
+        // TradingView's Hollow candles: the colour says the close against
+        // the previous close, the fill says close against open (hollow
+        // when it closed above its open).
+        final hollow = style == HlChartStyle.hollow;
+        final up = hollow && j > 0 ? k.close >= bars[j - 1].close : rising;
         final col = up ? upColor : downColor;
 
         final openY = toY(k.open);
@@ -4876,12 +5005,16 @@ class _HlCandlePainter extends CustomPainter {
           continue;
         }
 
-        // Wick (high → low).
-        canvas.drawLine(
-          Offset(cx, toY(k.high)),
-          Offset(cx, toY(k.low)),
-          wickPaint..color = up ? wickUp : wickDown,
-        );
+        // Wick (high → low); a hollow body stays empty, so its wick stops
+        // at the body's edges.
+        wickPaint.color = up ? wickUp : wickDown;
+        if (hollow && rising) {
+          canvas.drawLine(Offset(cx, toY(k.high)), Offset(cx, closeY), wickPaint);
+          canvas.drawLine(Offset(cx, openY), Offset(cx, toY(k.low)), wickPaint);
+        } else {
+          canvas.drawLine(
+              Offset(cx, toY(k.high)), Offset(cx, toY(k.low)), wickPaint);
+        }
 
         // Body (open → close). Floor to 2px so single-trade zero-range
         // buckets (common on thin HIP-3 markets) read as candles, not
@@ -4893,9 +5026,8 @@ class _HlCandlePainter extends CustomPainter {
           Rect.fromLTWH(cx - bodyW / 2, top, bodyW, bodyH),
           const Radius.circular(1.0),
         );
-        if (style == HlChartStyle.hollow && up) {
-          // Hollow: an up candle is an outline, a down candle stays filled.
-          canvas.drawRRect(rrect, hollowUp);
+        if (hollow && rising) {
+          canvas.drawRRect(rrect, hollowBody..color = col);
         } else {
           canvas.drawRRect(rrect, up ? bodyUp : bodyDown);
         }
@@ -4911,13 +5043,42 @@ class _HlCandlePainter extends CustomPainter {
     // envelope can exceed the candle domain). Skipped mid-morph — the
     // morph line's x space is resampled, so bucket-aligned overlays
     // would drift for its ~280ms.
-    if (overlays.isNotEmpty && morphSeries == null) {
+    if ((overlays.isNotEmpty || cloud != null) && morphSeries == null) {
       canvas.save();
       canvas.clipRect(Rect.fromLTWH(0, 0, w, priceH));
+      // On a log axis a value at or under zero (the lower band of a wild
+      // market) has no place: the line gaps there instead of diving.
+      double indY(double v) => logMap && v <= 0 ? double.nan : toY(v);
       final b = band;
-      if (b != null) kutePaintIndicatorBandFill(canvas, b, slot, toY);
+      if (b != null) kutePaintIndicatorBandFill(canvas, b, slot, indY);
+      final ichimoku = cloud;
+      if (ichimoku != null) hlPaintIchimokuCloud(canvas, ichimoku, slot, indY);
       for (final o in overlays) {
-        kutePaintIndicatorLine(canvas, o, slot, toY);
+        kutePaintIndicatorLine(canvas, o, slot, indY);
+      }
+      // Levels' names, small and quiet, where each newest stretch starts,
+      // over its line on a soft halo (as TradingView writes them); one that
+      // would sit on another gives way.
+      final placed = <double>[];
+      final labelHalo = Paint()..color = labelBg.withValues(alpha: 0.65);
+      for (final l in levelLabels) {
+        if (l.value <= 0 && logMap) continue;
+        final ly = toY(l.value);
+        if (ly < 0 || ly > priceH) continue;
+        final tp = _cachedTp(l.label, l.color, 9.5.sp, FontWeight.w600);
+        final top = ly - tp.height;
+        if (top < 0) continue;
+        if (placed.any((p) => (p - top).abs() < tp.height)) continue;
+        placed.add(top);
+        final left = math.min(
+            math.max(1.0, (l.start + 0.5) * slot), w - tp.width - 3);
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+              Rect.fromLTWH(left - 1, top, tp.width + 2, tp.height),
+              const Radius.circular(2)),
+          labelHalo,
+        );
+        tp.paint(canvas, Offset(left, top));
       }
       canvas.restore();
     }
@@ -4992,7 +5153,7 @@ class _HlCandlePainter extends CustomPainter {
         domain: domain,
       );
       hlPaintFillMarkers(canvas, markers,
-          up: upColor, down: downColor, halo: labelBg, neutral: labelFg);
+          up: upColor, down: downColor, halo: labelBg);
     }
 
     // ── The clean view's captions (laid out above) ───────────────────
@@ -5013,8 +5174,12 @@ class _HlCandlePainter extends CustomPainter {
     final lastK = candles.last;
     // Colour by the last candle's direction for candles, the overall line
     // direction (first→last) when rendering as a line.
+    final level = baselinePrice;
     final lastUp = renderAsLine
-        ? candles.last.close >= candles.first.close
+        ? candles.last.close >=
+            (style == HlChartStyle.baseline && level != null && level > 0
+                ? level
+                : candles.first.close)
         : lastK.close >= lastK.open;
     final lineColor = lastUp ? upColor : downColor;
     final lyValue = morphSeries != null && morphSeries!.isNotEmpty
@@ -5071,6 +5236,7 @@ class _HlCandlePainter extends CustomPainter {
       !_sameFills(old.fills, fills) ||
       old.entryPx != entryPx ||
       old.style != style ||
+      old.baselinePrice != baselinePrice ||
       old.entryIsLong != entryIsLong ||
       old.leadingClose != leadingClose ||
       !_sameMorph(old.morphSeries, morphSeries) ||
@@ -5083,6 +5249,8 @@ class _HlCandlePainter extends CustomPainter {
       old.renderAsLine != renderAsLine ||
       !identical(old.overlays, overlays) ||
       !identical(old.band, band) ||
+      !identical(old.cloud, cloud) ||
+      !identical(old.levelLabels, levelLabels) ||
       old.logScale != logScale ||
       old.domain != domain ||
       old.tagGutter != tagGutter ||

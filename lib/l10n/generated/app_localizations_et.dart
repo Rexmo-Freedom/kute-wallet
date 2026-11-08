@@ -5976,10 +5976,22 @@ class AppLocalizationsEt extends AppLocalizations {
   String get chartIntervalFiveMinutesHint => 'Tänased kõikumised';
 
   @override
+  String get chartIntervalFifteenMinutes => '15 minutit';
+
+  @override
+  String get chartIntervalFifteenMinutesHint => 'Viimane päev';
+
+  @override
   String get chartIntervalHour => '1 tund';
 
   @override
   String get chartIntervalHourHint => 'Viimased päevad';
+
+  @override
+  String get chartIntervalFourHours => '4 tundi';
+
+  @override
+  String get chartIntervalFourHoursHint => 'Viimased nädalad';
 
   @override
   String get chartIntervalDay => '1 päev';
@@ -13955,6 +13967,18 @@ class AppLocalizationsEt extends AppLocalizations {
   String get chartGroupVolatility => 'Volatiilsus';
 
   @override
+  String get chartGroupDisplay => 'Vaade';
+
+  @override
+  String get chartLogScaleNote => 'Sama % muutus, sama kõrgus';
+
+  @override
+  String get chartYourTrades => 'Sinu tehingud';
+
+  @override
+  String get chartYourTradesNote => 'Sinu ostud ja müügid siin';
+
+  @override
   String get chartIndSmaNote => 'Pikaajaline trend, pöördub aeglaselt';
 
   @override
@@ -13965,6 +13989,15 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get chartIndAtrNote => 'Kui palju üks periood tavaliselt liigub';
+
+  @override
+  String get chartIndIchimokuNote => 'Trend ja tasemed ühes pilves';
+
+  @override
+  String get chartIndPivotNote => 'Tänased tasemed eilse põhjal';
+
+  @override
+  String get chartIndAdxNote => 'Kui tugev on trend';
 
   @override
   String get chartIndObvNote => 'Kas maht toetab liikumist';
@@ -14014,6 +14047,21 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Read';
+
+  @override
+  String get chartParamSmoothing => 'Silumine';
+
+  @override
+  String get chartParamConversion => 'Konversioonijoon';
+
+  @override
+  String get chartParamBase => 'Baasjoon';
+
+  @override
+  String get chartParamSpanB => 'Span B';
+
+  @override
+  String get chartParamDisplacement => 'Nihe';
 
   @override
   String get polyPeriodMatch => 'Kohtumine';

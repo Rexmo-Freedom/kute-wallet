@@ -5992,10 +5992,22 @@ class AppLocalizationsFi extends AppLocalizations {
   String get chartIntervalFiveMinutesHint => 'Päivän heilahtelut';
 
   @override
+  String get chartIntervalFifteenMinutes => '15 minuuttia';
+
+  @override
+  String get chartIntervalFifteenMinutesHint => 'Viime päivä';
+
+  @override
   String get chartIntervalHour => '1 tunti';
 
   @override
   String get chartIntervalHourHint => 'Viime päivät';
+
+  @override
+  String get chartIntervalFourHours => '4 tuntia';
+
+  @override
+  String get chartIntervalFourHoursHint => 'Viime viikot';
 
   @override
   String get chartIntervalDay => '1 päivä';
@@ -13992,6 +14004,18 @@ class AppLocalizationsFi extends AppLocalizations {
   String get chartGroupVolatility => 'Volatiliteetti';
 
   @override
+  String get chartGroupDisplay => 'Näkymä';
+
+  @override
+  String get chartLogScaleNote => 'Sama % liike, sama korkeus';
+
+  @override
+  String get chartYourTrades => 'Kauppasi';
+
+  @override
+  String get chartYourTradesNote => 'Ostosi ja myyntisi täällä';
+
+  @override
   String get chartIndSmaNote => 'Pitkän aikavälin trendi, kääntyy hitaasti';
 
   @override
@@ -14002,6 +14026,15 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get chartIndAtrNote => 'Kuinka paljon yksi jakso yleensä liikkuu';
+
+  @override
+  String get chartIndIchimokuNote => 'Trendi ja tasot yhdessä pilvessä';
+
+  @override
+  String get chartIndPivotNote => 'Tämän päivän tasot eilisestä';
+
+  @override
+  String get chartIndAdxNote => 'Kuinka vahva trendi on';
 
   @override
   String get chartIndObvNote => 'Tukeeko volyymi liikettä';
@@ -14051,6 +14084,21 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Rivit';
+
+  @override
+  String get chartParamSmoothing => 'Tasoitus';
+
+  @override
+  String get chartParamConversion => 'Muuntoviiva';
+
+  @override
+  String get chartParamBase => 'Perusviiva';
+
+  @override
+  String get chartParamSpanB => 'Span B';
+
+  @override
+  String get chartParamDisplacement => 'Siirtymä';
 
   @override
   String get polyPeriodMatch => 'Ottelu';

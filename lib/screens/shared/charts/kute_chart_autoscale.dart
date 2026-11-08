@@ -6,9 +6,11 @@
 //   * the price scale fits the high/low of the bars that are ON SCREEN,
 //     never the whole loaded tape, with a fixed share of the price area
 //     kept empty above and below ([kuteAutoScaleMargin], ~10%);
-//   * only the SERIES drives the fit. Price lines (entry, liquidation,
-//     TP/SL, working orders) and drawings never widen it, so a far-away
-//     liquidation line cannot squash the candles;
+//   * only the SERIES drives the fit, with what the host draws on the same
+//     scale from it (the Hyperliquid chart's indicators on the price, see
+//     hlFitWithIndicators). Price lines (entry, liquidation, TP/SL, working
+//     orders) and drawings never widen it, so a far-away liquidation line
+//     cannot squash the candles;
 //   * live ticks inside an unchanged window only refit when price walks
 //     out of the current range ([KuteAutoScaleTracker]), so the axis does
 //     not jitter on every trade;

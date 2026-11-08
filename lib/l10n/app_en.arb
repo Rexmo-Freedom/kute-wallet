@@ -3253,6 +3253,14 @@
   "@chartIntervalFiveMinutesHint": {
     "description": "Advanced chart Interval sheet: what the 5m interval is good for (one short line, its chart opens on the last ~8 hours)."
   },
+  "chartIntervalFifteenMinutes": "15 minutes",
+  "@chartIntervalFifteenMinutes": {
+    "description": "Advanced chart Interval sheet: what one bar of the 15m interval spans (under the big \"15m\")."
+  },
+  "chartIntervalFifteenMinutesHint": "The last day",
+  "@chartIntervalFifteenMinutesHint": {
+    "description": "Advanced chart Interval sheet: what the 15m interval is good for (one short line, its chart opens on the last ~25 hours)."
+  },
   "chartIntervalHour": "1 hour",
   "@chartIntervalHour": {
     "description": "Advanced chart Interval sheet: what one bar of the 1h interval spans (under the big \"1h\")."
@@ -3260,6 +3268,14 @@
   "chartIntervalHourHint": "The last few days",
   "@chartIntervalHourHint": {
     "description": "Advanced chart Interval sheet: what the 1h interval is good for (one short line, its chart opens on the last ~4 days)."
+  },
+  "chartIntervalFourHours": "4 hours",
+  "@chartIntervalFourHours": {
+    "description": "Advanced chart Interval sheet: what one bar of the 4h interval spans (under the big \"4h\")."
+  },
+  "chartIntervalFourHoursHint": "The last few weeks",
+  "@chartIntervalFourHoursHint": {
+    "description": "Advanced chart Interval sheet: what the 4h interval is good for (one short line, its chart opens on the last ~2 weeks)."
   },
   "chartIntervalDay": "1 day",
   "@chartIntervalDay": {
@@ -11957,6 +11973,22 @@
   "@chartGroupVolatility": {
     "description": "Chart sheet: section label above the volatility indicators (Bollinger bands, ATR)."
   },
+  "chartGroupDisplay": "Display",
+  "@chartGroupDisplay": {
+    "description": "Chart sheet: the section heading over the on/off display settings (log scale, your trades on the chart)."
+  },
+  "chartLogScaleNote": "Equal percent moves look equal",
+  "@chartLogScaleNote": {
+    "description": "Chart sheet: one plain line under Log scale. On a log price axis equal percentage moves take the same height."
+  },
+  "chartYourTrades": "Your trades",
+  "@chartYourTrades": {
+    "description": "Chart sheet: the on/off square that shows the person's own buys and sells on the chart."
+  },
+  "chartYourTradesNote": "Your buys and sells on this market",
+  "@chartYourTradesNote": {
+    "description": "Chart sheet: one plain line under Your trades. Markers at each of the person's fills on this market, closed positions included."
+  },
   "chartIndSmaNote": "Long-term trend, slow to turn",
   "@chartIndSmaNote": {
     "description": "One-line explanation of the SMA indicator (the 50 and 200 simple moving averages by default)."
@@ -11972,6 +12004,18 @@
   "chartIndAtrNote": "How far a bar usually moves",
   "@chartIndAtrNote": {
     "description": "One-line explanation of the ATR (average true range) indicator."
+  },
+  "chartIndIchimokuNote": "Trend and key levels in one cloud",
+  "@chartIndIchimokuNote": {
+    "description": "Chart sheet: one plain line under Ichimoku (trend lines and a cloud of support and resistance levels)."
+  },
+  "chartIndPivotNote": "Today's levels, from yesterday's range",
+  "@chartIndPivotNote": {
+    "description": "Chart sheet: one plain line under Pivots (daily pivot points from the previous UTC day's high, low and close)."
+  },
+  "chartIndAdxNote": "How strong the trend is",
+  "@chartIndAdxNote": {
+    "description": "Chart sheet: one plain line under ADX (how strong the trend is, whichever way it runs; +DI and -DI show which side leads)."
   },
   "chartIndObvNote": "Whether volume is backing the move",
   "@chartIndObvNote": {
@@ -12042,6 +12086,26 @@
   "chartParamRows": "Rows",
   "@chartParamRows": {
     "description": "Indicator settings: the name of one setting (a stepper row)."
+  },
+  "chartParamSmoothing": "Smoothing",
+  "@chartParamSmoothing": {
+    "description": "Indicator settings: ADX's smoothing length."
+  },
+  "chartParamConversion": "Conversion line",
+  "@chartParamConversion": {
+    "description": "Indicator settings: Ichimoku's conversion line length (Tenkan)."
+  },
+  "chartParamBase": "Base line",
+  "@chartParamBase": {
+    "description": "Indicator settings: Ichimoku's base line length (Kijun)."
+  },
+  "chartParamSpanB": "Span B",
+  "@chartParamSpanB": {
+    "description": "Indicator settings: Ichimoku's leading span B length (Senkou B)."
+  },
+  "chartParamDisplacement": "Displacement",
+  "@chartParamDisplacement": {
+    "description": "Indicator settings: Ichimoku's displacement, how many bars the cloud is drawn ahead and the lagging line behind."
   },
   "polyPeriodMatch": "Match",
   "@polyPeriodMatch": {

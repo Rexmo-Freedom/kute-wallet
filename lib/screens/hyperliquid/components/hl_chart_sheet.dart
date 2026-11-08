@@ -6,9 +6,15 @@
 // "the chart type and the indicators can be in only one button, exactly
 // like we do on the main chart"; "picker should be with big squares").
 //
-//   * CHART TYPE: Line, Candles, Area, Heikin Ashi as big square cards, a
-//     tiny chart of the market's last bars drawn in each. A pick applies
-//     at once and the sheet stays up.
+//   * CHART TYPE: Line, Candles, Area, Heikin Ashi, Hollow candles and
+//     Baseline as big square cards, a tiny chart of the market's last bars
+//     drawn in each. A pick applies at once and the sheet stays up.
+//   * DISPLAY: the on/off settings as the same square cards, each with a
+//     tiny chart of what it does, per market, saved with the market's
+//     other chart settings. Log scale: on (the CTA-coloured outline) the
+//     price plot maps ln(price); panes stay linear. Your trades (on by
+//     default, and only where the chart shows the person's own activity):
+//     a marker at each of their fills, closed positions included.
 //   * TREND · MOMENTUM · VOLATILITY · VOLUME: the curated indicators
 //     (hl_chart_indicator_catalog.dart) as the same square cards, two to a
 //     row: a mini chart of what it draws on this market (in its colours
@@ -20,7 +26,7 @@
 //   * PRICE LINES: this market's lines as the same cards, and one to set a
 //     new one (hl_price_line_cards.dart). Not part of Reset.
 //   * Reset (pinned at the foot) puts back what a fresh install shows:
-//     Line, Volume alone, every setting at its default.
+//     Line, Volume alone, a linear axis, every setting at its default.
 //
 // A picker: the floating Sal bar hides while it is up.
 
@@ -37,6 +43,8 @@ import 'package:kute/models/hyperliquid_market.dart' show HlMarket;
 import 'package:kute/models/hyperliquid_model.dart';
 import 'package:kute/providers/chart_drawings_provider.dart';
 import 'package:kute/providers/hl_price_lines_provider.dart';
+import 'package:kute/screens/hyperliquid/components/hl_chart_advanced_layers.dart'
+    show hlPaintIchimokuCloud;
 import 'package:kute/screens/hyperliquid/components/hl_chart_indicator_catalog.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_indicator_frame.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_indicator_series.dart';
@@ -62,6 +70,8 @@ IconData hlChartStyleIcon(HlChartStyle style) => switch (style) {
       HlChartStyle.line => Icons.show_chart_rounded,
       HlChartStyle.area => Icons.area_chart_rounded,
       HlChartStyle.heikinAshi => Icons.candlestick_chart_outlined,
+      HlChartStyle.hollow => Icons.candlestick_chart_outlined,
+      HlChartStyle.baseline => Icons.ssid_chart_rounded,
       _ => Icons.candlestick_chart_rounded,
     };
 
@@ -114,6 +124,7 @@ Future<void> showHlChartSheet(
   required HlMarket market,
   required String marketKey,
   required List<HyperliquidCandle> candles,
+  bool showYourTrades = true,
   VoidCallback? onAddPriceLine,
 }) {
   HapticFeedback.selectionClick();
@@ -123,6 +134,7 @@ Future<void> showHlChartSheet(
       market: market,
       marketKey: marketKey,
       candles: candles,
+      showYourTrades: showYourTrades,
       onAddPriceLine: onAddPriceLine,
     ),
   );
@@ -146,6 +158,9 @@ String _note(AppLocalizations l10n, String key) => switch (key) {
       'srsi' => l10n.chartIndSrsiNote,
       'bb' => l10n.chartIndBbNote,
       'atr' => l10n.chartIndAtrNote,
+      'ichi' => l10n.chartIndIchimokuNote,
+      'pp' => l10n.chartIndPivotNote,
+      'adx' => l10n.chartIndAdxNote,
       'vol' => l10n.chartIndVolumeNote,
       'obv' => l10n.chartIndObvNote,
       'vp' => l10n.chartIndVpNote,
@@ -163,6 +178,8 @@ String _styleName(AppLocalizations l10n, HlChartStyle style) => switch (style) {
       HlChartStyle.line => l10n.chartStyleLine,
       HlChartStyle.area => l10n.chartStyleArea,
       HlChartStyle.heikinAshi => l10n.chartStyleHeikinAshi,
+      HlChartStyle.hollow => l10n.chartStyleHollow,
+      HlChartStyle.baseline => l10n.chartStyleBaseline,
       _ => l10n.chartStyleCandles,
     };
 
@@ -172,6 +189,7 @@ class HlChartSheet extends ConsumerStatefulWidget {
     required this.market,
     required this.marketKey,
     required this.candles,
+    this.showYourTrades = true,
     this.onAddPriceLine,
   });
 
@@ -179,6 +197,9 @@ class HlChartSheet extends ConsumerStatefulWidget {
   final String marketKey;
   final List<HyperliquidCandle> candles;
 
+  /// Offer the Your trades square (false where the chart shows none of the
+  /// person's own activity).
+  final bool showYourTrades;
   /// Sets a new price line; called with the sheet already closed. Null
   /// leaves that card out.
   final VoidCallback? onAddPriceLine;
@@ -253,11 +274,44 @@ class _HlChartSheetState extends ConsumerState<HlChartSheet> {
     );
   }
 
+  void _setLogScale(bool on) {
+    HapticFeedback.selectionClick();
+    _prefs.setLogScale(on);
+    VenueAnalytics.settingChanged(
+      'chart_log_scale_toggled',
+      setting: 'log_scale',
+      value: on,
+      scope: widget.marketKey,
+      extra: _assetParams,
+    );
+  }
+
+  void _setYourTrades(bool on) {
+    HapticFeedback.selectionClick();
+    final current =
+        ref.read(hlChartPreferencesProvider(widget.marketKey)).indicators;
+    _prefs.setIndicators(on
+        ? current.where((k) => k != kHlLayerMyTradesOff)
+        : {...current, kHlLayerMyTradesOff});
+    _trackYourTrades(on);
+  }
+
+  void _trackYourTrades(bool on) => VenueAnalytics.settingChanged(
+        'chart_your_trades_toggled',
+        setting: 'your_trades',
+        value: on,
+        scope: widget.marketKey,
+        extra: _assetParams,
+      );
+
   void _reset() {
     HapticFeedback.selectionClick();
     _pickStyle(HlChartStyle.fromName(kHlDefaultChartStyle));
     final prefs = ref.read(hlChartPreferencesProvider(widget.marketKey));
+    if (prefs.logScale) _setLogScale(false);
+    if (prefs.indicators.contains(kHlLayerMyTradesOff)) _trackYourTrades(true);
     for (final key in {...prefs.indicators, ...kHlDefaultIndicators}) {
+      if (hlIndSpec(key) == null) continue;
       final on = kHlDefaultIndicators.contains(key);
       if (prefs.indicators.contains(key) == on) continue;
       TrackingService.track('indicator_toggled', params: {
@@ -289,10 +343,12 @@ class _HlChartSheetState extends ConsumerState<HlChartSheet> {
     final style = HlChartStyle.fromName(ref.watch(hlChartLayoutProvider).style);
     final prefs = ref.watch(hlChartPreferencesProvider(widget.marketKey));
     final on = prefs.indicators;
+    final yourTrades = !on.contains(kHlLayerMyTradesOff);
     final isDefault = style == HlChartStyle.fromName(kHlDefaultChartStyle) &&
         on.length == kHlDefaultIndicators.length &&
         on.containsAll(kHlDefaultIndicators) &&
-        prefs.params.isEmpty;
+        prefs.params.isEmpty &&
+        !prefs.logScale;
     final previews = _previewsFor(prefs.params);
     final priceLines =
         ref.watch(hlPriceLinesForMarketProvider(widget.marketKey));
@@ -331,6 +387,40 @@ class _HlChartSheetState extends ConsumerState<HlChartSheet> {
             picked: s == style,
             candles: widget.candles,
             onTap: () => _pickStyle(s),
+          ),
+      ]),
+      const SizedBox(height: 20),
+      _SectionLabel(l10n.chartGroupDisplay,
+          key: const ValueKey('hl-chart-group-display')),
+      pairs([
+        _ToggleCard(
+          cardKey: const ValueKey('hl-chart-log-card'),
+          on: prefs.logScale,
+          painter: HlLogPreviewPainter(
+            tape: previews.tape,
+            on: prefs.logScale,
+            muted: c.textTertiary,
+            up: AppColors.marketUp,
+            down: AppColors.marketDown,
+          ),
+          name: l10n.chartLogScale,
+          note: l10n.chartLogScaleNote,
+          onTap: () => _setLogScale(!prefs.logScale),
+        ),
+        if (widget.showYourTrades)
+          _ToggleCard(
+            cardKey: const ValueKey('hl-chart-your-trades-card'),
+            on: yourTrades,
+            painter: HlYourTradesPreviewPainter(
+              tape: previews.tape,
+              on: yourTrades,
+              muted: c.textTertiary,
+              up: AppColors.marketUp,
+              down: AppColors.marketDown,
+            ),
+            name: l10n.chartYourTrades,
+            note: l10n.chartYourTradesNote,
+            onTap: () => _setYourTrades(!yourTrades),
           ),
       ]),
       if (onAddPriceLine != null || priceLines.isNotEmpty) ...[
@@ -595,8 +685,10 @@ class HlStyleThumbPainter extends CustomPainter {
         style == HlChartStyle.heikinAshi ? hlHeikinAshi(valid) : valid;
     final real = bars.length >= 2;
     final closes = real ? [for (final k in bars) k.close] : _placeholder;
-    final candleLike =
-        style == HlChartStyle.candles || style == HlChartStyle.heikinAshi;
+    final hollow = style == HlChartStyle.hollow;
+    final candleLike = style == HlChartStyle.candles ||
+        style == HlChartStyle.heikinAshi ||
+        hollow;
     var lo = double.infinity, hi = double.negativeInfinity;
     if (candleLike && real) {
       for (final k in bars) {
@@ -623,15 +715,32 @@ class HlStyleThumbPainter extends CustomPainter {
         final cl = real ? bars[i].close : closes[i];
         final h = real ? bars[i].high : math.max(o, cl) + 0.3;
         final l = real ? bars[i].low : math.min(o, cl) - 0.3;
-        final barColor = real ? (cl >= o ? up : down) : muted;
+        // Hollow candles: the colour says the close against the previous
+        // close, the outline a close above the open (as the chart draws).
+        final risingBar =
+            hollow && real && i > 0 ? cl >= bars[i - 1].close : cl >= o;
+        final barColor = real ? (risingBar ? up : down) : muted;
         final x = (i + 0.5) * slot;
-        final paint = Paint()..color = barColor;
-        canvas.drawLine(
-            Offset(x, y(h)), Offset(x, y(l)), paint..strokeWidth = 0.8);
+        final paint = Paint()
+          ..color = barColor
+          ..strokeWidth = 0.8;
         final top = y(math.max(o, cl));
         final bottom = math.max(top + 1, y(math.min(o, cl)));
-        canvas.drawRect(
-            Rect.fromLTRB(x - body / 2, top, x + body / 2, bottom), paint);
+        final rect = Rect.fromLTRB(x - body / 2, top, x + body / 2, bottom);
+        if (hollow && cl >= o) {
+          // The wick stops at the body; the inside stays empty.
+          canvas.drawLine(Offset(x, y(h)), Offset(x, top), paint);
+          canvas.drawLine(Offset(x, bottom), Offset(x, y(l)), paint);
+          canvas.drawRect(
+              rect.deflate(0.3),
+              Paint()
+                ..color = barColor
+                ..style = PaintingStyle.stroke
+                ..strokeWidth = 0.7);
+        } else {
+          canvas.drawLine(Offset(x, y(h)), Offset(x, y(l)), paint);
+          canvas.drawRect(rect, paint);
+        }
       }
       return;
     }
@@ -639,6 +748,7 @@ class HlStyleThumbPainter extends CustomPainter {
     final n = closes.length;
     final dx = size.width / (n - 1);
     final path = Path()..moveTo(0, y(closes.first));
+    final isBaseline = style == HlChartStyle.baseline;
     for (var i = 1; i < n; i++) {
       // A light smoothing, as the chart's monotone line reads.
       final px = (i - 1) * dx, x = i * dx;
@@ -663,15 +773,41 @@ class HlStyleThumbPainter extends CustomPainter {
           ).createShader(Offset.zero & size),
       );
     }
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color = color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round,
-    );
+    final stroke = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    if (isBaseline) {
+      // Two tones either side of the first close, its hairline between.
+      final baseY = y(closes.first);
+      final fill = Path.from(path)
+        ..lineTo(size.width, baseY)
+        ..lineTo(0, baseY)
+        ..close();
+      final above = real ? up : muted;
+      final below = real ? down : muted;
+      canvas.save();
+      canvas.clipRect(Rect.fromLTWH(0, 0, size.width, baseY));
+      canvas.drawPath(fill, Paint()..color = above.withValues(alpha: 0.18));
+      canvas.drawPath(path, stroke..color = above);
+      canvas.restore();
+      canvas.save();
+      canvas.clipRect(
+          Rect.fromLTWH(0, baseY, size.width, size.height - baseY));
+      canvas.drawPath(fill, Paint()..color = below.withValues(alpha: 0.18));
+      canvas.drawPath(path, stroke..color = below);
+      canvas.restore();
+      canvas.drawLine(
+          Offset(0, baseY),
+          Offset(size.width, baseY),
+          Paint()
+            ..color = muted.withValues(alpha: 0.5)
+            ..strokeWidth = 0.6);
+      return;
+    }
+    canvas.drawPath(path, stroke);
   }
 
   @override
@@ -712,6 +848,9 @@ class _HlPreviews {
           params,
           up: AppColors.marketUp,
           down: AppColors.marketDown,
+          // A preview's levels: the tape's own days (the chart reads real
+          // daily candles).
+          daily: hlDailyFromBars(source),
         )
         .slice(start, n);
     final tape = source.sublist(start);
@@ -770,11 +909,68 @@ class _IndicatorCard extends StatelessWidget {
     final c = context.colors;
     final l10n = context.l10n;
     final tunable = on && spec.params.isNotEmpty;
+    return _ToggleCard(
+      cardKey: ValueKey('hl-chart-indicator-${spec.key}'),
+      on: on,
+      painter: HlIndicatorPreviewPainter(
+        keyName: spec.key,
+        series: previews.series(spec.key),
+        tape: previews.tape,
+        profile: previews.profile,
+        on: on,
+        muted: c.textTertiary,
+        up: AppColors.marketUp,
+        down: AppColors.marketDown,
+      ),
+      trailing: tunable
+          ? _TuneButton(
+              key: ValueKey('hl-chart-indicator-settings-${spec.key}'),
+              onTap: onSettings,
+            )
+          : null,
+      name: hlIndicatorName(l10n, spec.key),
+      defaults:
+          spec.params.isEmpty ? null : params.map(hlParamText).join(' '),
+      note: _note(l10n, spec.key),
+      onTap: onTap,
+    );
+  }
+}
+
+/// A square card that switches something on or off: its mini chart (and,
+/// on an indicator that is on, its settings button), its name with its
+/// settings in small grey, and one line on what it shows.
+class _ToggleCard extends StatelessWidget {
+  const _ToggleCard({
+    required this.cardKey,
+    required this.on,
+    required this.painter,
+    required this.name,
+    required this.note,
+    required this.onTap,
+    this.defaults,
+    this.trailing,
+  });
+
+  final Key cardKey;
+  final bool on;
+  final CustomPainter painter;
+  final String name;
+  final String? defaults;
+  final String note;
+  final VoidCallback onTap;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final trailing = this.trailing;
+    final defaults = this.defaults;
     return Semantics(
       button: true,
       toggled: on,
       child: GestureDetector(
-        key: ValueKey('hl-chart-indicator-${spec.key}'),
+        key: cardKey,
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
         child: HlSquareBox(
@@ -788,26 +984,10 @@ class _IndicatorCard extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Expanded(
-                      child: CustomPaint(
-                        painter: HlIndicatorPreviewPainter(
-                          keyName: spec.key,
-                          series: previews.series(spec.key),
-                          tape: previews.tape,
-                          profile: previews.profile,
-                          on: on,
-                          muted: c.textTertiary,
-                          up: AppColors.marketUp,
-                          down: AppColors.marketDown,
-                        ),
-                      ),
-                    ),
-                    if (tunable) ...[
+                    Expanded(child: CustomPaint(painter: painter)),
+                    if (trailing != null) ...[
                       const SizedBox(width: 6),
-                      _TuneButton(
-                        key: ValueKey('hl-chart-indicator-settings-${spec.key}'),
-                        onTap: onSettings,
-                      ),
+                      trailing,
                     ],
                   ],
                 ),
@@ -815,10 +995,10 @@ class _IndicatorCard extends StatelessWidget {
               const SizedBox(height: 9),
               Text.rich(
                 TextSpan(children: [
-                  TextSpan(text: hlIndicatorName(l10n, spec.key)),
-                  if (spec.params.isNotEmpty)
+                  TextSpan(text: name),
+                  if (defaults != null)
                     TextSpan(
-                      text: '  ${params.map(hlParamText).join(' ')}',
+                      text: '  $defaults',
                       style: TextStyle(
                         color: c.textTertiary,
                         fontWeight: FontWeight.w500,
@@ -838,7 +1018,7 @@ class _IndicatorCard extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                _note(l10n, spec.key),
+                note,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -1006,7 +1186,13 @@ class HlIndicatorPreviewPainter extends CustomPainter {
       lo = math.min(lo, v);
       hi = math.max(hi, v);
     }
-    for (final l in s?.lines ?? const <HlIndLine>[]) {
+    final lines = keyName == 'pp'
+        ? [
+            for (final l in s?.lines ?? const <HlIndLine>[])
+              HlIndLine(_newestStretch(l.values), l.color),
+          ]
+        : s?.lines ?? const <HlIndLine>[];
+    for (final l in lines) {
       for (final v in l.values) {
         if (!v.isFinite) continue;
         lo = math.min(lo, v);
@@ -1036,6 +1222,11 @@ class HlIndicatorPreviewPainter extends CustomPainter {
             path, Paint()..color = _tone(band.color).withValues(alpha: 0.12));
       }
     }
+    final cloud = s?.cloud;
+    if (cloud != null) {
+      hlPaintIchimokuCloud(canvas, cloud, slot, y,
+          alpha: 0.22, tint: on ? null : muted);
+    }
     final p = profile;
     if (keyName == 'vp' && p != null) {
       final maxRow = p.maxRow;
@@ -1058,13 +1249,35 @@ class HlIndicatorPreviewPainter extends CustomPainter {
       }
     }
     _line(canvas, closes, x, y, muted.withValues(alpha: on ? 0.55 : 0.4), 1.1);
-    for (final l in s?.lines ?? const <HlIndLine>[]) {
+    for (final l in lines) {
       _line(canvas, l.values, x, y, _tone(l.color), 1.5);
     }
   }
 
+  /// Pivots' card draws one day's levels: their newest stretch.
+  static List<double> _newestStretch(List<double> values) {
+    var end = values.length - 1;
+    while (end >= 0 && !values[end].isFinite) {
+      end--;
+    }
+    var start = end;
+    while (start > 0 && values[start - 1].isFinite) {
+      start--;
+    }
+    return [
+      for (var i = 0; i < values.length; i++)
+        i >= start && i <= end ? values[i] : double.nan,
+    ];
+  }
+
   static void _line(Canvas canvas, List<double> values, double Function(int) x,
-      double Function(double) y, Color color, double width) {
+          double Function(double) y, Color color, double width) =>
+      paintLine(canvas, values, x, y, color, width);
+
+  /// One line over the bars; a missing value gaps it.
+  static void paintLine(Canvas canvas, List<double> values,
+      double Function(int) x, double Function(double) y, Color color,
+      double width) {
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
@@ -1100,6 +1313,139 @@ class HlIndicatorPreviewPainter extends CustomPainter {
       old.down != down;
 }
 
+/// The Log scale card's mini chart: the market's closes on a log axis
+/// over guide lines bunching toward the top, as a log axis' round prices
+/// do; in its colours while [on], grey while off.
+class HlLogPreviewPainter extends CustomPainter {
+  HlLogPreviewPainter({
+    required this.tape,
+    required this.on,
+    required this.muted,
+    required this.up,
+    required this.down,
+  });
+
+  final List<HyperliquidCandle> tape;
+  final bool on;
+  final Color muted, up, down;
+
+  /// Where the guides sit, as shares of the height from the top.
+  static const List<double> _guides = [0.04, 0.16, 0.36, 0.68];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.width <= 0 || size.height <= 0) return;
+    final guide = Paint()
+      ..color = muted.withValues(alpha: on ? 0.45 : 0.3)
+      ..strokeWidth = 0.6;
+    for (final share in _guides) {
+      final y = size.height * share;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), guide);
+    }
+    final logs = [
+      for (final k in tape)
+        if (k.close > 0) math.log(k.close),
+    ];
+    if (logs.length < 2) return;
+    var lo = logs.first, hi = logs.first;
+    for (final v in logs) {
+      lo = math.min(lo, v);
+      hi = math.max(hi, v);
+    }
+    if (hi <= lo) hi = lo + 1;
+    final path = Path();
+    for (var i = 0; i < logs.length; i++) {
+      final x = (i + 0.5) * size.width / logs.length;
+      final y = 2 + (size.height - 4) * (1 - (logs[i] - lo) / (hi - lo));
+      i == 0 ? path.moveTo(x, y) : path.lineTo(x, y);
+    }
+    final rising = logs.last >= logs.first;
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = on
+            ? (rising ? up : down)
+            : muted.withValues(alpha: 0.7)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant HlLogPreviewPainter old) =>
+      !identical(old.tape, tape) ||
+      old.on != on ||
+      old.muted != muted ||
+      old.up != up ||
+      old.down != down;
+}
+
+/// The Your trades card's mini chart: the market's closes, faint, with a
+/// buy marker at the low and a sell marker at the high in their side
+/// colours while [on], grey while off.
+class HlYourTradesPreviewPainter extends CustomPainter {
+  HlYourTradesPreviewPainter({
+    required this.tape,
+    required this.on,
+    required this.muted,
+    required this.up,
+    required this.down,
+  });
+
+  final List<HyperliquidCandle> tape;
+  final bool on;
+  final Color muted, up, down;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.width <= 0 || size.height <= 0 || tape.length < 2) return;
+    final closes = [for (final k in tape) k.close];
+    var lo = 0, hi = 0;
+    for (var i = 1; i < closes.length; i++) {
+      if (closes[i] < closes[lo]) lo = i;
+      if (closes[i] > closes[hi]) hi = i;
+    }
+    final span = closes[hi] - closes[lo];
+    final slot = size.width / closes.length;
+    const r = 5.0;
+    double x(int i) => (i + 0.5) * slot;
+    double y(double v) =>
+        r +
+        (size.height - 2 * r) *
+            (1 - (span > 0 ? (v - closes[lo]) / span : 0.5));
+    HlIndicatorPreviewPainter.paintLine(canvas, closes, x, y,
+        muted.withValues(alpha: on ? 0.55 : 0.4), 1.1);
+    void marker(int i, bool buy) {
+      final c = Offset(x(i).clamp(r, size.width - r).toDouble(), y(closes[i]));
+      canvas.drawCircle(
+          c, r, Paint()..color = on ? (buy ? up : down) : muted.withValues(alpha: 0.7));
+      const hw = 2.6, hh = 2.2;
+      final d = buy ? 1.0 : -1.0;
+      canvas.drawPath(
+        Path()
+          ..moveTo(c.dx, c.dy - hh * d)
+          ..lineTo(c.dx + hw, c.dy + hh * d)
+          ..lineTo(c.dx - hw, c.dy + hh * d)
+          ..close(),
+        Paint()..color = const Color(0xFFFFFFFF),
+      );
+    }
+
+    marker(lo, true);
+    marker(hi, false);
+  }
+
+  @override
+  bool shouldRepaint(covariant HlYourTradesPreviewPainter old) =>
+      !identical(old.tape, tape) ||
+      old.on != on ||
+      old.muted != muted ||
+      old.up != up ||
+      old.down != down;
+}
+
 // ─────────────────────────── settings ───────────────────────────
 
 String _paramLabel(AppLocalizations l10n, String id) => switch (id) {
@@ -1113,6 +1459,11 @@ String _paramLabel(AppLocalizations l10n, String id) => switch (id) {
       'smoothK' => l10n.chartParamSmoothK,
       'smoothD' => l10n.chartParamSmoothD,
       'rows' => l10n.chartParamRows,
+      'smoothing' => l10n.chartParamSmoothing,
+      'conversion' => l10n.chartParamConversion,
+      'base' => l10n.chartParamBase,
+      'spanB' => l10n.chartParamSpanB,
+      'displacement' => l10n.chartParamDisplacement,
       _ => id,
     };
 

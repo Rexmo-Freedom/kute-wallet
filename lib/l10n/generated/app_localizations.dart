@@ -10497,6 +10497,18 @@ abstract class AppLocalizations {
   /// **'Today\'s swings'**
   String get chartIntervalFiveMinutesHint;
 
+  /// Advanced chart Interval sheet: what one bar of the 15m interval spans (under the big "15m").
+  ///
+  /// In en, this message translates to:
+  /// **'15 minutes'**
+  String get chartIntervalFifteenMinutes;
+
+  /// Advanced chart Interval sheet: what the 15m interval is good for (one short line, its chart opens on the last ~25 hours).
+  ///
+  /// In en, this message translates to:
+  /// **'The last day'**
+  String get chartIntervalFifteenMinutesHint;
+
   /// Advanced chart Interval sheet: what one bar of the 1h interval spans (under the big "1h").
   ///
   /// In en, this message translates to:
@@ -10508,6 +10520,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The last few days'**
   String get chartIntervalHourHint;
+
+  /// Advanced chart Interval sheet: what one bar of the 4h interval spans (under the big "4h").
+  ///
+  /// In en, this message translates to:
+  /// **'4 hours'**
+  String get chartIntervalFourHours;
+
+  /// Advanced chart Interval sheet: what the 4h interval is good for (one short line, its chart opens on the last ~2 weeks).
+  ///
+  /// In en, this message translates to:
+  /// **'The last few weeks'**
+  String get chartIntervalFourHoursHint;
 
   /// Advanced chart Interval sheet: what one bar of the 1D interval spans (under the big "1D").
   ///
@@ -23487,6 +23511,30 @@ abstract class AppLocalizations {
   /// **'Volatility'**
   String get chartGroupVolatility;
 
+  /// Chart sheet: the section heading over the on/off display settings (log scale, your trades on the chart).
+  ///
+  /// In en, this message translates to:
+  /// **'Display'**
+  String get chartGroupDisplay;
+
+  /// Chart sheet: one plain line under Log scale. On a log price axis equal percentage moves take the same height.
+  ///
+  /// In en, this message translates to:
+  /// **'Equal percent moves look equal'**
+  String get chartLogScaleNote;
+
+  /// Chart sheet: the on/off square that shows the person's own buys and sells on the chart.
+  ///
+  /// In en, this message translates to:
+  /// **'Your trades'**
+  String get chartYourTrades;
+
+  /// Chart sheet: one plain line under Your trades. Markers at each of the person's fills on this market, closed positions included.
+  ///
+  /// In en, this message translates to:
+  /// **'Your buys and sells on this market'**
+  String get chartYourTradesNote;
+
   /// One-line explanation of the SMA indicator (the 50 and 200 simple moving averages by default).
   ///
   /// In en, this message translates to:
@@ -23510,6 +23558,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'How far a bar usually moves'**
   String get chartIndAtrNote;
+
+  /// Chart sheet: one plain line under Ichimoku (trend lines and a cloud of support and resistance levels).
+  ///
+  /// In en, this message translates to:
+  /// **'Trend and key levels in one cloud'**
+  String get chartIndIchimokuNote;
+
+  /// Chart sheet: one plain line under Pivots (daily pivot points from the previous UTC day's high, low and close).
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s levels, from yesterday\'s range'**
+  String get chartIndPivotNote;
+
+  /// Chart sheet: one plain line under ADX (how strong the trend is, whichever way it runs; +DI and -DI show which side leads).
+  ///
+  /// In en, this message translates to:
+  /// **'How strong the trend is'**
+  String get chartIndAdxNote;
 
   /// One-line explanation of the OBV (on-balance volume) indicator.
   ///
@@ -23600,6 +23666,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Rows'**
   String get chartParamRows;
+
+  /// Indicator settings: ADX's smoothing length.
+  ///
+  /// In en, this message translates to:
+  /// **'Smoothing'**
+  String get chartParamSmoothing;
+
+  /// Indicator settings: Ichimoku's conversion line length (Tenkan).
+  ///
+  /// In en, this message translates to:
+  /// **'Conversion line'**
+  String get chartParamConversion;
+
+  /// Indicator settings: Ichimoku's base line length (Kijun).
+  ///
+  /// In en, this message translates to:
+  /// **'Base line'**
+  String get chartParamBase;
+
+  /// Indicator settings: Ichimoku's leading span B length (Senkou B).
+  ///
+  /// In en, this message translates to:
+  /// **'Span B'**
+  String get chartParamSpanB;
+
+  /// Indicator settings: Ichimoku's displacement, how many bars the cloud is drawn ahead and the lagging line behind.
+  ///
+  /// In en, this message translates to:
+  /// **'Displacement'**
+  String get chartParamDisplacement;
 
   /// A game's More markets: the period chip for the markets about the whole match (esports series, tennis, football).
   ///

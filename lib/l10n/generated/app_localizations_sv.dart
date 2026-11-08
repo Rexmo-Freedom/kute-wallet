@@ -5989,10 +5989,22 @@ class AppLocalizationsSv extends AppLocalizations {
   String get chartIntervalFiveMinutesHint => 'Dagens svängningar';
 
   @override
+  String get chartIntervalFifteenMinutes => '15 minuter';
+
+  @override
+  String get chartIntervalFifteenMinutesHint => 'Det senaste dygnet';
+
+  @override
   String get chartIntervalHour => '1 timme';
 
   @override
   String get chartIntervalHourHint => 'De senaste dagarna';
+
+  @override
+  String get chartIntervalFourHours => '4 timmar';
+
+  @override
+  String get chartIntervalFourHoursHint => 'De senaste veckorna';
 
   @override
   String get chartIntervalDay => '1 dag';
@@ -13961,6 +13973,18 @@ class AppLocalizationsSv extends AppLocalizations {
   String get chartGroupVolatility => 'Volatilitet';
 
   @override
+  String get chartGroupDisplay => 'Visning';
+
+  @override
+  String get chartLogScaleNote => 'Samma % rörelse, samma höjd';
+
+  @override
+  String get chartYourTrades => 'Dina affärer';
+
+  @override
+  String get chartYourTradesNote => 'Dina köp och sälj här';
+
+  @override
   String get chartIndSmaNote => 'Långsiktig trend som vänder långsamt';
 
   @override
@@ -13972,6 +13996,15 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get chartIndAtrNote => 'Hur långt en period brukar röra sig';
+
+  @override
+  String get chartIndIchimokuNote => 'Trend och nivåer i ett moln';
+
+  @override
+  String get chartIndPivotNote => 'Dagens nivåer utifrån gårdagen';
+
+  @override
+  String get chartIndAdxNote => 'Hur stark trenden är';
 
   @override
   String get chartIndObvNote => 'Om volymen stöder rörelsen';
@@ -14021,6 +14054,21 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Rader';
+
+  @override
+  String get chartParamSmoothing => 'Utjämning';
+
+  @override
+  String get chartParamConversion => 'Konverteringslinje';
+
+  @override
+  String get chartParamBase => 'Baslinje';
+
+  @override
+  String get chartParamSpanB => 'Span B';
+
+  @override
+  String get chartParamDisplacement => 'Förskjutning';
 
   @override
   String get polyPeriodMatch => 'Match';

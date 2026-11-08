@@ -1025,11 +1025,7 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
       HlChartStyle.fromName(ref.read(hlChartLayoutProvider).style);
 
   /// The chart button's glyph for [style] (one of HlChartStyle.picker).
-  IconData _styleIcon(HlChartStyle style) => switch (style) {
-        HlChartStyle.line => Icons.show_chart_rounded,
-        HlChartStyle.area => Icons.area_chart_rounded,
-        _ => Icons.candlestick_chart_rounded,
-      };
+  IconData _styleIcon(HlChartStyle style) => hlChartStyleIcon(style);
 
   /// The Chart sheet (hl_chart_sheet.dart): the chart types and the
   /// indicators, behind the chart's one button (the market chart's and
@@ -1040,6 +1036,7 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
       market: widget.market,
       marketKey: _marketKey,
       candles: _shownCandles ?? const <HyperliquidCandle>[],
+      showYourTrades: widget.showOwnActivity,
       onAddPriceLine: _startPriceLine,
     ));
   }
@@ -1223,6 +1220,11 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
   /// defeat its cheap shouldRepaint.
   List<HlFill>? _fillsForMarket;
   List<HlFill>? _fillsSource;
+
+  /// The daily candles Pivots read, in display units, kept per read so a
+  /// live tick does not recompute the levels.
+  List<HyperliquidCandle>? _dailySource;
+  List<HyperliquidCandle> _daily = const [];
 
   /// Memoized trade lines (position + working orders), keyed on the
   /// source list identities so a live tick does not hand the painter a
@@ -2647,6 +2649,18 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
       hlChartDrawingsProvider(hlChartDrawingMarketKey(widget.market)),
     );
     final indicators = preferences.indicators;
+    // Pivots' real daily candles: read only while Pivots are on.
+    final dailySource = indicators.contains('pp')
+        ? ref
+            .watch(hyperliquidDailyCandlesProvider(widget.market.wireCoin))
+            .valueOrNull
+        : null;
+    if (!identical(dailySource, _dailySource)) {
+      _dailySource = dailySource;
+      _daily = dailySource == null
+          ? const []
+          : rescaleCandlesToDisplay(dailySource, displayPx);
+    }
     var selectedId = _selectedDrawingId;
     if (selectedId != null && !drawings.any((d) => d.id == selectedId)) {
       selectedId = null;
@@ -2666,7 +2680,7 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     final pillRow =
         Row(
           children: [
-            // The five intervals share the width (the home strip's range
+            // The seven intervals share the width (the home strip's range
             // row, KuteChartRangeRow), so every pill is whole beside the
             // chart-type button pinned on the right.
             Expanded(
@@ -2747,6 +2761,9 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
             showVolume: indicators.contains('vol') && !positionView,
             renderAsLine: false,
             style: style,
+            // Baseline: the open position's entry; with none, the first
+            // bar on screen.
+            baselinePrice: myPosition?.entryPx,
             onMoreHistoryWanted: () => unawaited(_loadMoreHistory()),
             onAutoScaleChanged: (auto) => VenueAnalytics.settingChanged(
               'chart_autoscale_toggled',
@@ -2760,9 +2777,14 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
             ),
             indicators: indicators,
             indicatorParams: preferences.params,
+            dailyCandles: _daily,
             logScale: preferences.logScale,
             onLogScaleChanged: _drawingMode ? _setLogScale : null,
-            fills: myFills,
+            // The Your trades layer: on until the sheet's square turns it
+            // off on this market.
+            fills: indicators.contains(kHlLayerMyTradesOff)
+                ? const <HlFill>[]
+                : myFills,
             // The entry rides the trade lines now (with the
             // liquidation and every working order); the painter's own
             // entry line stays off so the two never overlap.

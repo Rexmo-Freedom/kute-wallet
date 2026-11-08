@@ -6023,10 +6023,22 @@ class AppLocalizationsLt extends AppLocalizations {
   String get chartIntervalFiveMinutesHint => 'Šiandienos svyravimai';
 
   @override
+  String get chartIntervalFifteenMinutes => '15 minučių';
+
+  @override
+  String get chartIntervalFifteenMinutesHint => 'Paskutinė diena';
+
+  @override
   String get chartIntervalHour => '1 valanda';
 
   @override
   String get chartIntervalHourHint => 'Pastarosios kelios dienos';
+
+  @override
+  String get chartIntervalFourHours => '4 valandos';
+
+  @override
+  String get chartIntervalFourHoursHint => 'Pastarosios savaitės';
 
   @override
   String get chartIntervalDay => '1 diena';
@@ -14027,6 +14039,18 @@ class AppLocalizationsLt extends AppLocalizations {
   String get chartGroupVolatility => 'Kintamumas';
 
   @override
+  String get chartGroupDisplay => 'Rodymas';
+
+  @override
+  String get chartLogScaleNote => 'Tas pats % pokytis, tas pats aukštis';
+
+  @override
+  String get chartYourTrades => 'Tavo sandoriai';
+
+  @override
+  String get chartYourTradesNote => 'Tavo pirkimai ir pardavimai čia';
+
+  @override
   String get chartIndSmaNote => 'Ilgalaikė tendencija, lėtai apsigręžia';
 
   @override
@@ -14037,6 +14061,15 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get chartIndAtrNote => 'Kiek paprastai pajuda vienas laikotarpis';
+
+  @override
+  String get chartIndIchimokuNote => 'Tendencija ir lygiai viename debesyje';
+
+  @override
+  String get chartIndPivotNote => 'Šiandienos lygiai pagal vakar';
+
+  @override
+  String get chartIndAdxNote => 'Kokia stipri tendencija';
 
   @override
   String get chartIndObvNote => 'Ar apimtis palaiko judėjimą';
@@ -14086,6 +14119,21 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Eilutės';
+
+  @override
+  String get chartParamSmoothing => 'Glodinimas';
+
+  @override
+  String get chartParamConversion => 'Konversijos linija';
+
+  @override
+  String get chartParamBase => 'Bazinė linija';
+
+  @override
+  String get chartParamSpanB => 'Span B';
+
+  @override
+  String get chartParamDisplacement => 'Poslinkis';
 
   @override
   String get polyPeriodMatch => 'Rungtynės';

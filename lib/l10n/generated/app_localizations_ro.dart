@@ -6025,10 +6025,22 @@ class AppLocalizationsRo extends AppLocalizations {
   String get chartIntervalFiveMinutesHint => 'Fluctuațiile de azi';
 
   @override
+  String get chartIntervalFifteenMinutes => '15 minute';
+
+  @override
+  String get chartIntervalFifteenMinutesHint => 'Ultima zi';
+
+  @override
   String get chartIntervalHour => '1 oră';
 
   @override
   String get chartIntervalHourHint => 'Ultimele zile';
+
+  @override
+  String get chartIntervalFourHours => '4 ore';
+
+  @override
+  String get chartIntervalFourHoursHint => 'Ultimele săptămâni';
 
   @override
   String get chartIntervalDay => '1 zi';
@@ -14033,6 +14045,18 @@ class AppLocalizationsRo extends AppLocalizations {
   String get chartGroupVolatility => 'Volatilitate';
 
   @override
+  String get chartGroupDisplay => 'Afișare';
+
+  @override
+  String get chartLogScaleNote => 'Același % mișcare, aceeași înălțime';
+
+  @override
+  String get chartYourTrades => 'Tranzacțiile tale';
+
+  @override
+  String get chartYourTradesNote => 'Cumpărările și vânzările tale aici';
+
+  @override
   String get chartIndSmaNote => 'Tendință pe termen lung, se întoarce încet';
 
   @override
@@ -14045,6 +14069,15 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get chartIndAtrNote => 'Cât se mișcă de obicei o perioadă';
+
+  @override
+  String get chartIndIchimokuNote => 'Trend și niveluri într-un nor';
+
+  @override
+  String get chartIndPivotNote => 'Nivelurile de azi, din intervalul de ieri';
+
+  @override
+  String get chartIndAdxNote => 'Cât de puternic e trendul';
 
   @override
   String get chartIndObvNote => 'Dacă volumul susține mișcarea';
@@ -14095,6 +14128,21 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Rânduri';
+
+  @override
+  String get chartParamSmoothing => 'Netezire';
+
+  @override
+  String get chartParamConversion => 'Linia de conversie';
+
+  @override
+  String get chartParamBase => 'Linia de bază';
+
+  @override
+  String get chartParamSpanB => 'Span B';
+
+  @override
+  String get chartParamDisplacement => 'Deplasare';
 
   @override
   String get polyPeriodMatch => 'Meci';

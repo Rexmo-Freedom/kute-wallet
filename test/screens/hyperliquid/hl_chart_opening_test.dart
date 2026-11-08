@@ -78,8 +78,9 @@ void main() {
       expect(hlCoarserOpeningInterval('1d'), isNull);
       expect(hlCoarserOpeningInterval('1w'), isNull);
       // Retired intervals are not on it.
-      expect(hlCoarserOpeningInterval('15m'), isNull);
-      expect(hlCoarserOpeningInterval('4h'), isNull);
+      // The two off the ladder join it at the next rung up.
+      expect(hlCoarserOpeningInterval('15m'), '1h');
+      expect(hlCoarserOpeningInterval('4h'), '1d');
     });
 
     test('every rung is an interval the picker shows', () {

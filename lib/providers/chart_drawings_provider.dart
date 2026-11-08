@@ -229,11 +229,13 @@ class ChartPreferences {
       };
 }
 
-/// The Hyperliquid chart's market-signal layers. They are toggled in the
-/// same list as the indicators and stored beside them, per market. All
-/// are OFF until switched on, except the buy/sell pressure strip, which
-/// is on until [kHlLayerPressureOff] is stored.
+/// The Hyperliquid chart's layers. They are toggled in the same list as
+/// the indicators and stored beside them, per market. All are OFF until
+/// switched on, except the buy/sell pressure strip and the person's own
+/// trades, each on until its off key ([kHlLayerPressureOff],
+/// [kHlLayerMyTradesOff]) is stored.
 const String kHlLayerPressureOff = 'nopressure';
+const String kHlLayerMyTradesOff = 'nomytrades';
 const String kHlLayerBigTrades = 'bigtrades';
 const String kHlLayerFunding = 'fundflip';
 const String kHlLayerOi = 'oisignal';
@@ -249,6 +251,7 @@ class ChartPreferencesNotifier
   static final supportedIndicators = {
     ...kHlIndicatorKeys,
     kHlLayerPressureOff,
+    kHlLayerMyTradesOff,
     kHlLayerBigTrades,
     kHlLayerFunding,
     kHlLayerOi,
@@ -256,8 +259,12 @@ class ChartPreferencesNotifier
     kHlLayerMacro,
   };
 
-  /// What a stored record may switch on: the catalog alone.
-  static Set<String> get shownIndicators => kHlIndicatorKeys;
+  /// What a stored record may switch on: the catalog, and the layer the
+  /// Chart sheet offers.
+  static final Set<String> shownIndicators = {
+    ...kHlIndicatorKeys,
+    kHlLayerMyTradesOff,
+  };
 
   bool _disposed = false;
   late Future<void> _loaded;

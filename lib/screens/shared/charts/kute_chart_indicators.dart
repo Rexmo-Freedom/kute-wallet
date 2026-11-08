@@ -288,6 +288,12 @@ void kutePaintIndicatorLine(
     }
     final x = (i + 0.5) * slot;
     final y = toY(v);
+    // A value the axis has no place for (a log axis under zero) gaps too.
+    if (!y.isFinite) {
+      if (path != null) canvas.drawPath(path, paint);
+      path = null;
+      continue;
+    }
     if (path == null) {
       path = Path()..moveTo(x, y);
     } else {
@@ -324,16 +330,18 @@ void kutePaintIndicatorBandFill(
   for (var i = 0; i < n; i++) {
     final u = band.upper[i];
     final l = band.lower[i];
-    if (!u.isFinite || !l.isFinite) {
+    final yu = u.isFinite ? toY(u) : double.nan;
+    final yl = l.isFinite ? toY(l) : double.nan;
+    if (!yu.isFinite || !yl.isFinite) {
       closeRun(i);
       continue;
     }
     final x = (i + 0.5) * slot;
     if (path == null) {
       runStart = i;
-      path = Path()..moveTo(x, toY(u));
+      path = Path()..moveTo(x, yu);
     } else {
-      path!.lineTo(x, toY(u));
+      path!.lineTo(x, yu);
     }
   }
   closeRun(n);

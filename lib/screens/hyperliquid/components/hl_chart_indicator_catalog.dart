@@ -2,12 +2,13 @@
 //
 // The Hyperliquid chart's curated indicators (founder, 4 November 2026:
 // "advanced charts is not overall just adding lots of features"): the
-// dozen a perp trader actually reaches for on TradingView, Hyperliquid
+// fifteen a perp trader actually reaches for on TradingView, Hyperliquid
 // or Binance, each with TradingView's default settings, grouped as the
 // Chart sheet shows them:
 //
 //   Trend       EMA 9/21 · SMA 50/200 · VWAP (anchored) · Supertrend 10/3
-//   Momentum    RSI 14 · MACD 12/26/9 · Stoch RSI 14/14/3/3
+//               · Ichimoku 9/26/52/26 · Pivots (standard, daily)
+//   Momentum    RSI 14 · MACD 12/26/9 · Stoch RSI 14/14/3/3 · ADX 14/14
 //   Volatility  Bollinger bands 20/2 · ATR 14
 //   Volume      Volume · OBV · Volume profile (visible range, 24 rows)
 //
@@ -48,7 +49,8 @@ class HlIndParam {
 
   /// What it is (the settings sheet names it): 'length', 'fast', 'slow',
   /// 'signal', 'multiplier', 'rsiLength', 'stochLength', 'smoothK',
-  /// 'smoothD', 'rows'.
+  /// 'smoothD', 'rows', 'smoothing', 'conversion', 'base', 'spanB',
+  /// 'displacement'.
   final String id;
   final num defaultValue;
   final num min, max, step;
@@ -139,6 +141,30 @@ const List<HlIndSpec> kHlIndicatorCatalog = [
       HlIndParam('multiplier', 3.0, 0.5, 10.0, step: 0.5),
     ],
   ),
+  // Its five lines: conversion, base, span A, span B and lagging; the
+  // cloud between the spans is the market's up and down colours, softly.
+  HlIndSpec(
+    key: 'ichi',
+    group: HlIndGroup.trend,
+    place: HlIndPlace.price,
+    short: 'Ichimoku',
+    colors: [kHlIndBlue, kHlIndOrange, kHlIndTeal, kHlIndPink, kHlIndSlate],
+    params: [
+      HlIndParam('conversion', 9, 1, 100),
+      HlIndParam('base', 26, 1, 200),
+      HlIndParam('spanB', 52, 1, 400),
+      HlIndParam('displacement', 26, 1, 100),
+    ],
+  ),
+  // Levels with the day's trend: in Trend, not a group of their own (one
+  // card alone under a heading), and read from the real daily candles.
+  HlIndSpec(
+    key: 'pp',
+    group: HlIndGroup.trend,
+    place: HlIndPlace.price,
+    short: 'Pivots',
+    colors: [kHlIndAmber, kHlIndSlate],
+  ),
   // ── Momentum ──
   HlIndSpec(
     key: 'rsi',
@@ -171,6 +197,17 @@ const List<HlIndSpec> kHlIndicatorCatalog = [
       HlIndParam('stochLength', 14, 2, 100),
       HlIndParam('smoothK', 3, 1, 20),
       HlIndParam('smoothD', 3, 1, 20),
+    ],
+  ),
+  HlIndSpec(
+    key: 'adx',
+    group: HlIndGroup.momentum,
+    place: HlIndPlace.pane,
+    short: 'ADX',
+    colors: [kHlIndPurple, kHlIndBlue, kHlIndOrange],
+    params: [
+      HlIndParam('length', 14, 2, 100),
+      HlIndParam('smoothing', 14, 1, 100),
     ],
   ),
   // ── Volatility ──
@@ -306,6 +343,8 @@ int hlIndWarmup(String key, List<num> p) {
     'srsi' => 3 * at(0) + at(1) + at(2) + at(3),
     'bb' => at(0),
     'atr' => 3 * at(0),
+    'ichi' => at(2) + at(3),
+    'adx' => 3 * at(0) + 3 * at(1),
     _ => 0,
   };
 }

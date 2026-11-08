@@ -14,6 +14,17 @@
 //     high − low), Supertrend (ta.supertrend on hl2).
 //   * OBV (ta.obv), anchored VWAP (ta.vwap on hlc3, restarting each UTC
 //     day / week / month), the visible range's volume profile.
+//   * Ichimoku as TradingView's built-in: conversion and base lines (the
+//     Donchian midline over 9 and 26), the leading spans drawn 25 bars
+//     ahead and the lagging line 25 behind (displacement − 1, its offsets).
+//     The chart's x axis has no bars past the newest (a bar's x is its
+//     index in the window), so the cloud is NOT projected past it: it is
+//     cut at the last bar rather than misplaced. The lagging line ends
+//     displacement − 1 bars before the last bar, as there.
+//   * ADX with +DI and −DI as TradingView's Directional Movement Index.
+//   * Pivot points, standard ("Traditional" in TradingView's Pivot Points
+//     Standard), daily: the previous UTC day's high, low and close from
+//     real daily candles, each day's levels drawn across that day's bars.
 //   * Heikin Ashi bars.
 //
 // Every series is ALIGNED to the candles: index i is the value at bar i,
@@ -481,6 +492,266 @@ HlVolumeProfile? hlVolumeProfile(
     vaLow: a,
     vaHigh: b,
   );
+}
+
+/// The midline of the highest high and the lowest low over [period] bars,
+/// as TradingView's Ichimoku `donchian(len)`. One pass (two monotonic
+/// queues), missing through the first [period] − 1 bars.
+List<double> hlDonchianMid(List<HyperliquidCandle> candles, int period) {
+  if (period < 1) throw ArgumentError.value(period, 'period');
+  final n = candles.length;
+  final out = List<double>.filled(n, double.nan);
+  final highs = List<int>.filled(n, 0);
+  final lows = List<int>.filled(n, 0);
+  var hHead = 0, hTail = 0, lHead = 0, lTail = 0;
+  for (var i = 0; i < n; i++) {
+    final k = candles[i];
+    while (hTail > hHead && candles[highs[hTail - 1]].high <= k.high) {
+      hTail--;
+    }
+    highs[hTail++] = i;
+    while (lTail > lHead && candles[lows[lTail - 1]].low >= k.low) {
+      lTail--;
+    }
+    lows[lTail++] = i;
+    if (highs[hHead] <= i - period) hHead++;
+    if (lows[lHead] <= i - period) lHead++;
+    if (i >= period - 1) {
+      out[i] = (candles[highs[hHead]].high + candles[lows[lHead]].low) / 2;
+    }
+  }
+  return out;
+}
+
+/// Ichimoku as TradingView's built-in, every series as it is DRAWN at each
+/// bar: [spanA] and [spanB] are the values computed displacement − 1 bars
+/// earlier (missing through their warm-up), [lagging] the close
+/// displacement − 1 bars later (missing over the newest of them).
+({
+  List<double> conversion,
+  List<double> base,
+  List<double> spanA,
+  List<double> spanB,
+  List<double> lagging,
+}) hlIchimoku(
+  List<HyperliquidCandle> candles, {
+  int conversion = 9,
+  int base = 26,
+  int spanB = 52,
+  int displacement = 26,
+}) {
+  final n = candles.length;
+  final conv = hlDonchianMid(candles, conversion);
+  final bas = hlDonchianMid(candles, base);
+  final lead2 = hlDonchianMid(candles, spanB);
+  final shift = displacement - 1;
+  final a = List<double>.filled(n, double.nan);
+  final b = List<double>.filled(n, double.nan);
+  final lag = List<double>.filled(n, double.nan);
+  for (var i = 0; i < n; i++) {
+    final j = i - shift;
+    if (j >= 0) {
+      a[i] = (conv[j] + bas[j]) / 2;
+      b[i] = lead2[j];
+    }
+    if (i + shift < n) lag[i] = candles[i + shift].close;
+  }
+  return (conversion: conv, base: bas, spanA: a, spanB: b, lagging: lag);
+}
+
+/// ADX with its directional lines as TradingView's Directional Movement
+/// Index: +DM and −DM (the bigger of the high's rise and the low's fall,
+/// the other 0) over the true range ([ta.tr], missing on the first bar),
+/// each with Wilder's RMA over [length] and the ratio ×100 held across a
+/// bar with no range (fixnan); ADX is the RMA over [smoothing] of
+/// |+DI − −DI| / (+DI + −DI) ×100. +DI and −DI start at bar [length], ADX
+/// at bar [length] + [smoothing] − 1.
+({List<double> adx, List<double> plusDi, List<double> minusDi}) hlAdx(
+  List<HyperliquidCandle> candles, {
+  int length = 14,
+  int smoothing = 14,
+}) {
+  final n = candles.length;
+  final tr = List<double>.filled(n, double.nan);
+  final plusDm = List<double>.filled(n, double.nan);
+  final minusDm = List<double>.filled(n, double.nan);
+  for (var i = 1; i < n; i++) {
+    final k = candles[i], prev = candles[i - 1];
+    final up = k.high - prev.high;
+    final down = prev.low - k.low;
+    plusDm[i] = up > down && up > 0 ? up : 0.0;
+    minusDm[i] = down > up && down > 0 ? down : 0.0;
+    tr[i] = math.max(k.high - k.low,
+        math.max((k.high - prev.close).abs(), (k.low - prev.close).abs()));
+  }
+  final atr = hlRma(tr, length);
+  final plusRma = hlRma(plusDm, length);
+  final minusRma = hlRma(minusDm, length);
+  final plus = List<double>.filled(n, double.nan);
+  final minus = List<double>.filled(n, double.nan);
+  final dx = List<double>.filled(n, double.nan);
+  var lastPlus = double.nan, lastMinus = double.nan;
+  for (var i = 0; i < n; i++) {
+    final a = atr[i];
+    if (!a.isFinite) continue;
+    if (a > 0) {
+      lastPlus = 100 * plusRma[i] / a;
+      lastMinus = 100 * minusRma[i] / a;
+    }
+    plus[i] = lastPlus;
+    minus[i] = lastMinus;
+    if (!lastPlus.isFinite || !lastMinus.isFinite) continue;
+    final sum = lastPlus + lastMinus;
+    dx[i] = (lastPlus - lastMinus).abs() / (sum == 0 ? 1 : sum);
+  }
+  final adx = hlRma(dx, smoothing);
+  return (
+    adx: [for (final v in adx) v * 100],
+    plusDi: plus,
+    minusDi: minus,
+  );
+}
+
+/// One day's standard pivot points.
+class HlPivotLevels {
+  const HlPivotLevels({
+    required this.p,
+    required this.r1,
+    required this.r2,
+    required this.r3,
+    required this.s1,
+    required this.s2,
+    required this.s3,
+  });
+
+  final double p, r1, r2, r3, s1, s2, s3;
+
+  /// From the day before's [high], [low] and [close], as TradingView's
+  /// Pivot Points Standard, type Traditional.
+  factory HlPivotLevels.of(double high, double low, double close) {
+    final p = (high + low + close) / 3;
+    return HlPivotLevels(
+      p: p,
+      r1: p * 2 - low,
+      s1: p * 2 - high,
+      r2: p + (high - low),
+      s2: p - (high - low),
+      r3: p * 2 + (high - 2 * low),
+      s3: p * 2 - (2 * high - low),
+    );
+  }
+}
+
+/// Bars of a longer interval show this many bars of the newest day's
+/// levels: a day there is a bar or less, with no span of its own to draw.
+const int kHlPivotLongBarSpan = 10;
+
+int _utcDay(DateTime t) =>
+    t.toUtc().millisecondsSinceEpoch ~/ Duration.millisecondsPerDay;
+
+/// The standard pivots to draw on [bars], from real [daily] candles (both
+/// ascending): at each bar, its UTC day's levels, from the last daily
+/// candle before that day. The bars of a day draw one flat stretch, the
+/// first bar of the next left empty so the stretches never join. Bars of
+/// a day or longer have no day of their own: the newest day's levels over
+/// the newest [kHlPivotLongBarSpan] bars. Missing where no earlier daily
+/// candle is known.
+({
+  List<double> p,
+  List<double> r1,
+  List<double> r2,
+  List<double> r3,
+  List<double> s1,
+  List<double> s2,
+  List<double> s3,
+}) hlDailyPivots(
+  List<HyperliquidCandle> bars,
+  List<HyperliquidCandle> daily,
+) {
+  final n = bars.length;
+  List<double> empty() => List<double>.filled(n, double.nan);
+  final p = empty(), r1 = empty(), r2 = empty(), r3 = empty();
+  final s1 = empty(), s2 = empty(), s3 = empty();
+  void put(int i, HlPivotLevels l) {
+    p[i] = l.p;
+    r1[i] = l.r1;
+    r2[i] = l.r2;
+    r3[i] = l.r3;
+    s1[i] = l.s1;
+    s2[i] = l.s2;
+    s3[i] = l.s3;
+  }
+
+  HlPivotLevels of(HyperliquidCandle k) =>
+      HlPivotLevels.of(k.high, k.low, k.close);
+
+  if (n > 0 && daily.isNotEmpty) {
+    if (hlBarMs(bars) >= Duration.millisecondsPerDay) {
+      // The newest day either tape knows; the daily candle before it.
+      final newest = daily.last.openTime.isBefore(bars.last.closeTime)
+          ? _utcDay(daily.last.openTime)
+          : _utcDay(bars.last.closeTime);
+      var prev = daily.length - 1;
+      while (prev >= 0 && _utcDay(daily[prev].openTime) >= newest) {
+        prev--;
+      }
+      if (prev >= 0) {
+        final levels = of(daily[prev]);
+        final from = math.max(0, n - kHlPivotLongBarSpan);
+        for (var i = from; i < n; i++) {
+          put(i, levels);
+        }
+      }
+    } else {
+      // Both ascending: one walk along the daily candles.
+      var next = 0; // the first daily candle not before the bar's day
+      int? day;
+      HlPivotLevels? levels;
+      for (var i = 0; i < n; i++) {
+        final d = _utcDay(bars[i].openTime);
+        final first = d != day;
+        if (first) {
+          day = d;
+          while (next < daily.length &&
+              _utcDay(daily[next].openTime) < d) {
+            next++;
+          }
+          levels = next > 0 ? of(daily[next - 1]) : null;
+        }
+        // The first bar of a day after another one stays empty.
+        if (first && i > 0) continue;
+        final l = levels;
+        if (l != null) put(i, l);
+      }
+    }
+  }
+  return (p: p, r1: r1, r2: r2, r3: r3, s1: s1, s2: s2, s3: s3);
+}
+
+/// [bars] merged into one bar per UTC day: what the Chart sheet's Pivots
+/// card previews from (the chart itself reads real daily candles).
+List<HyperliquidCandle> hlDailyFromBars(List<HyperliquidCandle> bars) {
+  final out = <HyperliquidCandle>[];
+  int? day;
+  for (final k in bars) {
+    final d = _utcDay(k.openTime);
+    if (d == day) {
+      final last = out.last;
+      out[out.length - 1] = HyperliquidCandle(
+        openTime: last.openTime,
+        closeTime: k.closeTime,
+        open: last.open,
+        high: math.max(last.high, k.high),
+        low: math.min(last.low, k.low),
+        close: k.close,
+        volume: last.volume + k.volume,
+      );
+    } else {
+      day = d;
+      out.add(k);
+    }
+  }
+  return out;
 }
 
 /// Heikin Ashi bars derived from real candles: each bar's close is the

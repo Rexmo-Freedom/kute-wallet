@@ -205,8 +205,11 @@ void main() {
       await _settle(tester);
       expect(_saved(tester), hasLength(2));
 
-      await tester
-          .tap(find.byKey(ValueKey('hl-chart-price-line-remove-${first.id}')));
+      final remove =
+          find.byKey(ValueKey('hl-chart-price-line-remove-${first.id}'));
+      await tester.ensureVisible(remove);
+      await _settle(tester);
+      await tester.tap(remove);
       await _settle(tester);
       expect(_saved(tester).map((l) => l.id), isNot(contains(first.id)));
       expect(find.byType(HlPriceLineCard), findsOneWidget);
@@ -218,7 +221,10 @@ void main() {
       _seed(tester, 65000);
       await _settle(tester);
       await openSheet(tester);
-      await tester.tap(find.byKey(const ValueKey('hl-chart-price-line-new')));
+      final add = find.byKey(const ValueKey('hl-chart-price-line-new'));
+      await tester.ensureVisible(add);
+      await _settle(tester);
+      await tester.tap(add);
       await _settle(tester);
       expect(find.byKey(const ValueKey('hl-chart-sheet')), findsNothing);
       await tester.tapAt(_screenAt(tester, 64500));

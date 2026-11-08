@@ -6007,10 +6007,22 @@ class AppLocalizationsSl extends AppLocalizations {
   String get chartIntervalFiveMinutesHint => 'Današnja nihanja';
 
   @override
+  String get chartIntervalFifteenMinutes => '15 minut';
+
+  @override
+  String get chartIntervalFifteenMinutesHint => 'Zadnji dan';
+
+  @override
   String get chartIntervalHour => '1 ura';
 
   @override
   String get chartIntervalHourHint => 'Zadnjih nekaj dni';
+
+  @override
+  String get chartIntervalFourHours => '4 ure';
+
+  @override
+  String get chartIntervalFourHoursHint => 'Zadnji tedni';
 
   @override
   String get chartIntervalDay => '1 dan';
@@ -14010,6 +14022,18 @@ class AppLocalizationsSl extends AppLocalizations {
   String get chartGroupVolatility => 'Volatilnost';
 
   @override
+  String get chartGroupDisplay => 'Prikaz';
+
+  @override
+  String get chartLogScaleNote => 'Enak % premik, enaka višina';
+
+  @override
+  String get chartYourTrades => 'Tvoji posli';
+
+  @override
+  String get chartYourTradesNote => 'Tvoji nakupi in prodaje tukaj';
+
+  @override
   String get chartIndSmaNote => 'Dolgoročni trend, ki se počasi obrne';
 
   @override
@@ -14021,6 +14045,15 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get chartIndAtrNote => 'Koliko se eno obdobje običajno premakne';
+
+  @override
+  String get chartIndIchimokuNote => 'Trend in ravni v enem oblaku';
+
+  @override
+  String get chartIndPivotNote => 'Današnje ravni iz včerajšnjega razpona';
+
+  @override
+  String get chartIndAdxNote => 'Kako močan je trend';
 
   @override
   String get chartIndObvNote => 'Ali obseg podpira gibanje';
@@ -14070,6 +14103,21 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Vrstice';
+
+  @override
+  String get chartParamSmoothing => 'Glajenje';
+
+  @override
+  String get chartParamConversion => 'Konverzijska črta';
+
+  @override
+  String get chartParamBase => 'Osnovna črta';
+
+  @override
+  String get chartParamSpanB => 'Razpon B';
+
+  @override
+  String get chartParamDisplacement => 'Zamik';
 
   @override
   String get polyPeriodMatch => 'Tekma';
