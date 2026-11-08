@@ -1,8 +1,9 @@
-// The Instant screen's one card (instant_round_card.dart) on a fake clock,
+// The Instant page's one card (instant_round_card.dart) on a fake clock,
 // fake Gamma reads and fake books: the strip of rounds, which round the one
 // pair of buttons bets on (the roll by default, a tap until the round
 // starts or ends), a round without prices, the slip on the picked round,
-// the held marker, and the longer lengths' chart window.
+// the held marker, the longer lengths' chart window, and the card without
+// Gamma's event (no countdown, no odds, nothing to open).
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -75,6 +76,20 @@ class InstantRoundState extends CryptoRoundNotifier {
         polyRoundStartAt(world.now, minutes) * 1000,
         isUtc: true);
     final span = minutes * 60;
+    // Gamma lists no round for the slug (or has not answered): the state
+    // the notifier holds before its first read lands.
+    if (world.eventless) {
+      return CryptoPredictState(
+        asset: arg.asset,
+        secondsRemaining: span,
+        priceHistory: [
+          for (var t = -60; t <= world.now.difference(start).inSeconds; t += 4)
+            BtcPriceSnapshot(
+                timestamp: start.add(Duration(seconds: t)),
+                price: 75987 + (t % 7) * 6.0 - 12 - t / 20),
+        ],
+      );
+    }
     return CryptoPredictState(
       asset: arg.asset,
       currentPrice: 75965,
@@ -157,6 +172,9 @@ class _Currency extends StateNotifier<CurrencyState>
 class CardWorld {
   DateTime now = roundStart.add(const Duration(minutes: 1));
 
+  /// Gamma has no event for the round in play.
+  bool eventless = false;
+
   /// Gamma's rounds ahead by start (UTC seconds).
   final Map<int, Btc5MinEvent> listed = {};
   final Set<CryptoRoundKey> built = {};
@@ -193,9 +211,10 @@ class CardWorld {
     install();
   }
 
-  /// The next round listed and quoted 50/51.
-  void listNext({int minutes = 5}) {
-    final start = roundStart.add(Duration(minutes: minutes));
+  /// The next round listed and quoted 50/51, after [live] (the round in
+  /// play's start, [roundStart] by default).
+  void listNext({int minutes = 5, DateTime? live}) {
+    final start = (live ?? roundStart).add(Duration(minutes: minutes));
     listed[epoch(start)] = roundEvent(start, 'next', minutes: minutes, up: 0.5);
     seedBook('next-up', 0.50, 0.51);
     seedBook('next-down', 0.49, 0.50);
@@ -548,22 +567,26 @@ void main() {
   for (final (length, minutes) in [('15m', 15), ('1h', 60), ('4h', 240)]) {
     testWidgets('$length: the whole round on the chart, the strip in its own steps',
         (tester) async {
-      world.now = roundStart.add(const Duration(minutes: 7));
+      // The four-hour rounds run on the New York clock (crypto_round.dart):
+      // on 8 November (EST) the one before noon UTC is 4 AM–8 AM ET,
+      // 09:00Z–13:00Z, never 12:00Z–16:00Z.
+      final start = minutes == 240 ? DateTime.utc(2026, 11, 8, 9) : roundStart;
+      world.now = start.add(const Duration(minutes: 7));
       world.install();
-      world.listNext(minutes: minutes);
+      world.listNext(minutes: minutes, live: start);
       await pumpCard(tester, length: length);
       expect(find.text('BTC up or down · $length'), findsOneWidget);
       final chart = tester.widget<BtcPredictChart>(find.byType(BtcPredictChart));
       expect(chart.maxWindow, Duration(minutes: minutes + 1),
           reason: 'the round from its start, not a sliding minute');
-      expect(chart.roundStart, roundStart);
+      expect(chart.roundStart, start);
       expect(chart.externalHistory!.first.timestamp,
-          roundStart.subtract(const Duration(minutes: 1)),
+          start.subtract(const Duration(minutes: 1)),
           reason: 'the backfill reaches before the open');
-      final next = roundStart.add(Duration(minutes: minutes));
+      final next = start.add(Duration(minutes: minutes));
       expect(find.text('Next · ${clockOf(next)}', findRichText: true),
           findsOneWidget);
-      expect(pillSelected(tester, epoch(roundStart)), isTrue,
+      expect(pillSelected(tester, epoch(start)), isTrue,
           reason: 'no roll at this length');
       await tester.tap(find.byKey(InstantRoundStrip.pillKey(epoch(next))));
       await settle(tester);
@@ -578,6 +601,58 @@ void main() {
     await pumpCard(tester);
     final chart = tester.widget<BtcPredictChart>(find.byType(BtcPredictChart));
     expect(chart.maxWindow, kBtcPredictChartWindow);
+    await tearCardDown(tester);
+  });
+
+  testWidgets(
+      'without Gamma\'s event: no countdown, no odds, the round in play '
+      'unpickable, the buttons open nothing', (tester) async {
+    // The four-hour card on 8 November 2026 at 17:23Z, as the founder saw
+    // it: the app named the 16:00Z round, which Gamma never listed under
+    // standard time, and the card read "0:00:00" and "Up 50% / Down 50%".
+    world.now = DateTime.utc(2026, 11, 8, 17, 23);
+    world.eventless = true;
+    world.install();
+    await pumpCard(tester, length: '4h');
+    expect(find.text('BTC up or down · 4h'), findsOneWidget);
+    expect(find.byKey(const ValueKey('crypto-round-up')), findsOneWidget);
+    expect(find.byKey(const ValueKey('crypto-round-down')), findsOneWidget);
+    // The countdown pill: a skeleton bar, no figures.
+    expect(find.byKey(const ValueKey('crypto-round-countdown-skeleton')),
+        findsOneWidget);
+    expect(find.textContaining('0:00:00', findRichText: true), findsNothing);
+    expect(find.textContaining('Now ·', findRichText: true), findsNothing);
+    // The buttons: "Up" and "Down" alone, never 50%.
+    expect(find.textContaining('50%', findRichText: true), findsNothing);
+    expect(find.textContaining('%', findRichText: true), findsNothing);
+    // The strip's round in play says it has no prices and takes no tap.
+    final live = epoch(DateTime.utc(2026, 11, 8, 17));
+    final pill = find.byKey(InstantRoundStrip.pillKey(live));
+    expect(tester.widget<KutePill>(pill).detail, 'No prices yet');
+    expect(tester.widget<KutePill>(pill).label, clockOf(DateTime.utc(2026, 11, 8, 17)));
+    // The buttons open no slip.
+    await tester.tap(find.byKey(_upPill));
+    await settle(tester);
+    expect(find.byType(BetSlipSheet), findsNothing);
+    expect(picks(), isEmpty);
+    await tearCardDown(tester);
+  });
+
+  testWidgets(
+      'only the round that ended (Gamma\'s answer until the next is listed): '
+      'no event either, never its 100% and its zero', (tester) async {
+    world.quoteCurrent();
+    await pumpCard(tester);
+    expect(find.text('Now · 04:00', findRichText: true), findsOneWidget);
+    // Past the round's end, the notifier still holding its event.
+    await moveTo(tester, world, roundStart.add(const Duration(minutes: 5, seconds: 3)));
+    expect(find.byKey(const ValueKey('crypto-round-countdown-skeleton')),
+        findsOneWidget);
+    expect(find.textContaining('00:00', findRichText: true), findsNothing);
+    expect(find.textContaining('%', findRichText: true), findsNothing);
+    await tester.tap(find.byKey(_upPill));
+    await settle(tester);
+    expect(find.byType(BetSlipSheet), findsNothing);
     await tearCardDown(tester);
   });
 }

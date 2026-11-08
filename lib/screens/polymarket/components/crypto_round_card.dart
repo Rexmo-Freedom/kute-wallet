@@ -2,7 +2,7 @@
 //
 // The compact live crypto round card and its parts, shared by the
 // Predictions list's card ([CryptoPredictBanner.compact],
-// polymarket_screen.dart) and the Instant screen's one card
+// polymarket_screen.dart) and the Instant page's one card
 // (instant_round_card.dart): the card itself ([CompactCryptoCard]: logo,
 // title, the past rounds as dots, the countdown pill; the live price, its
 // move and the target; the sparkline against the dashed target; the one
@@ -159,7 +159,11 @@ class CompactCryptoCard extends StatelessWidget {
 
   final CryptoAssetConfig config;
   final String title;
-  final String countdown;
+
+  /// The time left as the card writes it; null when it is not known (the
+  /// Instant card without Gamma's event): the countdown pill then shows a
+  /// skeleton bar, never "0:00:00".
+  final String? countdown;
   final List<CryptoWindowResult> pastResults;
   final bool loading;
   final String priceText;
@@ -169,7 +173,11 @@ class CompactCryptoCard extends StatelessWidget {
   final List<BtcPriceSnapshot>? history;
   final double? priceToBeat;
   final DateTime? roundStart;
-  final double upFrac;
+
+  /// Up's chance on the buttons; null when there are no odds to show (the
+  /// Instant card with no round to bet on): the pills then read "Up" and
+  /// "Down" alone, never 50% and 50%.
+  final double? upFrac;
 
   /// "Next · 7:20" once the buttons have rolled to the next window
   /// (crypto_next_round.dart); null while they bet on this one. On the
@@ -179,7 +187,7 @@ class CompactCryptoCard extends StatelessWidget {
   final VoidCallback onUp;
   final VoidCallback onDown;
 
-  /// The Instant screen's window strip (instant_round_strip.dart), laid
+  /// The Instant card's window strip (instant_round_strip.dart), laid
   /// between the sparkline and the buttons; null on the list's card.
   final Widget? strip;
 
@@ -226,7 +234,9 @@ class CompactCryptoCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.colors;
     final logo = CryptoAssetLogo(config: config, size: _logo.sp);
-    final pair = formatPolyChancePair(upFrac);
+    // No odds (the Instant card with no round to bet on): "Up" and "Down"
+    // alone, never 50% and 50%.
+    final pair = upFrac == null ? null : formatPolyChancePair(upFrac!);
     final seeded = (history?.length ?? 0) >= 2;
     final rolled = nextLabel != null;
     // 10 over the buttons either way; rolled, 6 and the line and 6.
@@ -303,15 +313,23 @@ class CompactCryptoCard extends StatelessWidget {
                       ),
                     ),
                     SizedBox(width: 5.w),
-                    Text(
-                      countdown,
-                      style: TextStyle(
-                        color: c.textPrimary,
-                        fontSize: 12.sp,
-                        fontWeight: FontWeight.w600,
-                        fontFeatures: const [FontFeature.tabularFigures()],
+                    // The time left, or a skeleton bar while it is not
+                    // known (no event): never a made-up "0:00:00".
+                    if (countdown case final countdown?)
+                      Text(
+                        countdown,
+                        style: TextStyle(
+                          color: c.textPrimary,
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w600,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      )
+                    else
+                      KuteSkeleton(
+                        key: const ValueKey('crypto-round-countdown-skeleton'),
+                        child: SkeletonBar(34.w, 12.sp, radius: 4.r),
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -401,7 +419,7 @@ class CompactCryptoCard extends StatelessWidget {
                     ),
                   ),
           ),
-          // The Instant screen's strip of rounds, 10 under the plot.
+          // The Instant card's strip of rounds, 10 under the plot.
           if (strip != null) ...[
             SizedBox(height: 10.h),
             strip!,
@@ -421,7 +439,7 @@ class CompactCryptoCard extends StatelessWidget {
                 child: CompactSidePill(
                   key: const ValueKey('crypto-round-up'),
                   label: context.l10n.upLabel,
-                  odds: pair.first,
+                  odds: pair?.first ?? '',
                   window: nextLabel,
                   up: true,
                   onTap: onUp,
@@ -432,7 +450,7 @@ class CompactCryptoCard extends StatelessWidget {
                 child: CompactSidePill(
                   key: const ValueKey('crypto-round-down'),
                   label: context.l10n.downLabel,
-                  odds: pair.second,
+                  odds: pair?.second ?? '',
                   window: nextLabel,
                   up: false,
                   onTap: onDown,
@@ -488,7 +506,7 @@ class CompactSidePill extends StatelessWidget {
     );
     return Semantics(
       button: true,
-      label: window == null ? '$label $odds' : '$window, $label $odds',
+      label: '${window == null ? '' : '$window, '}$label $odds'.trim(),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () {
@@ -508,8 +526,10 @@ class CompactSidePill extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(label, style: style),
-                SizedBox(width: 6.w),
-                RollingNumberText(text: odds, style: style),
+                if (odds.isNotEmpty) ...[
+                  SizedBox(width: 6.w),
+                  RollingNumberText(text: odds, style: style),
+                ],
               ],
             ),
           ),

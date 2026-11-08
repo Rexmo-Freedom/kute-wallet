@@ -49,7 +49,7 @@ class BtcPredictChart extends ConsumerStatefulWidget {
   /// The most of the series on screen, back from the latest tick: a
   /// sliding minute for the five-minute cards ([kBtcPredictChartWindow],
   /// see [_ChartGeometry]); a 15-minute, hourly or 4-hour round on the
-  /// Instant screen passes its own length, so the whole round is drawn
+  /// Instant card passes its own length, so the whole round is drawn
   /// from [roundStart].
   final Duration maxWindow;
 

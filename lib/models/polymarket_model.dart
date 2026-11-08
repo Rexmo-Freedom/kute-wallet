@@ -8,7 +8,7 @@ import 'package:kute/services/polymarket/market_display_title.dart';
 import 'package:kute/services/polymarket/search_aliases.dart';
 import 'package:kute/services/polymarket/shown_price.dart';
 import 'package:kute/services/polymarket/crypto_round.dart'
-    show polyCryptoRoundOf, polyCryptoRoundSlug;
+    show polyCryptoRoundOf, polyCryptoRoundSlug, polyRoundStartAt;
 import 'package:kute/services/polymarket/polymarket_price_source.dart'
     show CryptoPriceFeed, kCryptoTwapLookbackSeconds;
 // lib/models/polymarket_model.dart
@@ -3038,12 +3038,14 @@ class PolymarketModel {
   static const kCryptoWindowCandidates = [5];
 
   /// Slug of the Up-or-Down market for [asset] in the [minutes]-long
-  /// window that contains now, or [windowsBack] windows earlier.
+  /// window that contains now, or [windowsBack] windows earlier. The
+  /// windows run on the New York clock ([polyRoundStartAt]: the four-hour
+  /// ones start at 05:00Z, 09:00Z … under standard time, not at the UTC
+  /// multiples of four hours).
   static String cryptoWindowSlug(String asset, int minutes,
       {int windowsBack = 0}) {
-    final span = minutes * 60;
-    final epoch = DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000;
-    final windowStart = ((epoch ~/ span) - windowsBack) * span;
+    final windowStart =
+        polyRoundStartAt(DateTime.now(), minutes) - windowsBack * minutes * 60;
     return polyCryptoRoundSlug(asset, minutes, windowStart);
   }
 

@@ -101,14 +101,18 @@ void main() {
           'bitcoin-up-or-down-november-8-2026-1pm-et');
     });
 
-    test('rounds start on every multiple of their length', () {
+    test('rounds start on every multiple of their length on New York\'s clock',
+        () {
+      // 8 November 2026 is standard time: 12:07Z is 7:07 AM EST, and the
+      // four-hour rounds run 4 AM–8 AM ET, 09:00Z–13:00Z (crypto_round.dart
+      // and crypto_round_test.dart for the slugs Gamma listed).
       final at = DateTime.utc(2026, 11, 8, 12, 7, 30);
       expect(polyRoundStartAt(at, 5), _epoch(DateTime.utc(2026, 11, 8, 12, 5)));
       expect(polyRoundStartAt(at, 15), _epoch(DateTime.utc(2026, 11, 8, 12)));
       expect(polyRoundStartAt(at, 60), _epoch(DateTime.utc(2026, 11, 8, 12)));
-      expect(polyRoundStartAt(at, 240), _epoch(DateTime.utc(2026, 11, 8, 12)));
+      expect(polyRoundStartAt(at, 240), _epoch(DateTime.utc(2026, 11, 8, 9)));
       expect(polyRoundStartAt(DateTime.utc(2026, 11, 8, 15, 59), 240),
-          _epoch(DateTime.utc(2026, 11, 8, 12)));
+          _epoch(DateTime.utc(2026, 11, 8, 13)));
     });
   });
 
@@ -143,6 +147,7 @@ void main() {
         minutes: 5,
         now: now ?? _live.add(const Duration(minutes: 1)),
         past: past,
+        live: _window(liveStart, 'cur'),
         ahead: ahead ?? {next: _window(next, 'next'), later: null},
         books: _books.snapshot,
         heldSlugs: held,
@@ -271,22 +276,49 @@ void main() {
       expect(polyInstantWhich(rounds[6]), 'later');
     });
 
-    test('the strip at other lengths is the same arithmetic', () {
+    test('the strip at other lengths is the same arithmetic, on New York\'s clock',
+        () {
+      // 18:30Z on 8 November is 1:30 PM EST: the 12 PM–4 PM ET round
+      // (`eth-updown-4h-1794157200`, 17:00Z, listed by Gamma), then 4 PM
+      // (21:00Z) and 8 PM (01:00Z the next day).
+      final live = _epoch(DateTime.utc(2026, 11, 8, 17));
       final rounds = polyInstantStrip(
         asset: 'ETH',
         minutes: 240,
         now: DateTime.utc(2026, 11, 8, 18, 30),
         past: const [],
+        live: _window(live, 'cur', minutes: 240),
         ahead: const {},
         books: (_) => null,
       );
       expect(rounds.map((r) => r.start), [
-        _epoch(DateTime.utc(2026, 11, 8, 16)),
-        _epoch(DateTime.utc(2026, 11, 8, 20)),
-        _epoch(DateTime.utc(2026, 11, 9, 0)),
+        live,
+        _epoch(DateTime.utc(2026, 11, 8, 21)),
+        _epoch(DateTime.utc(2026, 11, 9, 1)),
       ]);
       expect(rounds.first.selectable, isTrue);
       expect(rounds[1].selectable, isFalse);
+    });
+
+    test('the round in play without Gamma\'s event cannot be picked', () {
+      final rounds = polyInstantStrip(
+        asset: 'BTC',
+        minutes: 240,
+        now: DateTime.utc(2026, 11, 8, 18, 30),
+        past: const [],
+        live: null,
+        ahead: const {},
+        books: (_) => null,
+      );
+      final live = rounds.firstWhere((r) => r.slot == PolyRoundSlot.live);
+      expect(live.selectable, isFalse, reason: 'no event, no prices, no bet');
+      expect(live.event, isNull);
+      // Nothing to pick: the buttons stay on the round in play, and the
+      // card gives them nothing to open.
+      expect(
+          polyInstantSelectedStart(
+              rounds: rounds, now: DateTime.utc(2026, 11, 8, 18, 30)),
+          live.start);
     });
   });
 

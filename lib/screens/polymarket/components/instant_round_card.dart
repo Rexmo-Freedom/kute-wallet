@@ -1,8 +1,9 @@
 // lib/screens/polymarket/components/instant_round_card.dart
 //
-// THE ONE CARD of the Instant screen (instant_screen.dart): the round in
-// play of one asset at one length, live, with the strip of rounds around
-// it and the one pair of Up and Down buttons on the screen. The compact
+// THE ONE CARD of Predictions › Instant (the pill page on the Dollars
+// home, instant_pill_page.dart): the round in play of one asset at one
+// length, live, with the strip of rounds around it and the one pair of Up
+// and Down buttons on the whole page. The compact
 // round card ([CompactCryptoCard], crypto_round_card.dart) draws it:
 // logo, "BTC up or down · 5m", the past rounds as dots, the countdown; the
 // live price with its move and the target; the live chart against the
@@ -19,6 +20,14 @@
 // while that pick stands. When that is not the round on show, a line over
 // the buttons names it ("BTC up or down · 7:20–7:25"), the same name the
 // slip, the receipt and the position carry.
+//
+// WITHOUT GAMMA'S EVENT (the read on its way, Gamma listing no round for
+// the slug, as happened for every four-hour round under standard time until
+// 8 November 2026, crypto_round.dart, or only the round that just ended, an
+// event with nothing left to bet on) the card says so and nothing else: the price and target skeletons, the countdown pill a skeleton bar
+// (never "0:00:00"), the strip's round in play "No prices yet" and
+// unpickable, the buttons "Up" and "Down" with no odds (never 50% / 50%)
+// and opening nothing.
 //
 // WHAT IS READ. One round notifier (a Gamma read every 10 s and a seat on
 // the price feed), Gamma's read of the two rounds ahead
@@ -110,8 +119,14 @@ class InstantRoundCard extends ConsumerWidget {
     if (predictAsync.hasError && !predictAsync.hasValue) {
       return const SizedBox.shrink();
     }
-    final event = predictState?.event;
     final now = ref.read(cryptoOddsClockProvider)();
+    // A round that has ended is no event to show: its time left is zero and
+    // its odds its result (Gamma answers with the last round until the next
+    // one is listed).
+    final event = switch (predictState?.event) {
+      final e? when e.endDate?.isAfter(now) ?? false => e,
+      _ => null,
+    };
     final use24h = MediaQuery.maybeAlwaysUse24HourFormatOf(context) ?? false;
     String clock(DateTime t) =>
         polyRoundClock(t, locale: l10n.localeName, use24h: use24h);
@@ -176,6 +191,7 @@ class InstantRoundCard extends ConsumerWidget {
       minutes: minutes,
       now: now,
       past: past,
+      live: event,
       ahead: ahead,
       books: books.snapshot,
       heldSlugs: held,
@@ -192,13 +208,16 @@ class InstantRoundCard extends ConsumerWidget {
     final onShow = selected.slot == PolyRoundSlot.live;
     final target = onShow ? event : selected.event;
     final selectedUpToken = target?.upTokenId;
-    final double buttonsUp;
-    if (onShow) {
+    // Null without a round to bet on: no odds on the buttons.
+    final double? buttonsUp;
+    if (target == null) {
+      buttonsUp = null;
+    } else if (onShow) {
       buttonsUp = livePctUp;
     } else {
       final up = cryptoShownUp(
           selectedUpToken == null ? null : books.snapshot(selectedUpToken));
-      buttonsUp = cryptoOddsSane(up) ? up! : 0.5;
+      buttonsUp = cryptoOddsSane(up) ? up : null;
     }
     // Which round the buttons bet on, when it is not the one on show.
     final String? line = onShow
@@ -211,11 +230,13 @@ class InstantRoundCard extends ConsumerWidget {
     final diff = currentPrice != null && priceToBeat != null
         ? currentPrice - priceToBeat
         : null;
-    final countdown = _countdown(
-        predictState?.secondsRemaining ?? minutes * 60, minutes);
+    // The time left only once Gamma's event gives it.
+    final countdown = event == null
+        ? null
+        : _countdown(predictState!.secondsRemaining, minutes);
 
     void openSide(String side) {
-      if (target == null) return;
+      if (target == null || buttonsUp == null) return;
       final outcomes = onShow
           ? [
               PolymarketOutcome(

@@ -1,11 +1,13 @@
 // Predictions › Instant (founder, 8 November 2026) on the real Investments
 // page, offline: Trending and Instant side by side on the sheet, the
-// Instant card's line, the tap that pushes the Instant screen (the pill on
-// the Dollars home untouched), the filter and its memory, one card with one
-// pair of buttons, the coins per length, own rounds, the cost (one round
-// live, all gone with the screen), the gate. The helpers at the top are
-// also the render harness's (test/audit/instant_render_test.dart); the
-// card's own rules are test/screens/polymarket/instant_round_card_test.dart.
+// Instant card's line, the tap that picks the Instant pill page on the
+// Dollars home (nothing pushed; "Predictions · Instant" on the pill), the
+// filter and its memory, one card with one pair of buttons, the coins per
+// length, own rounds, the cost (one round live; all gone behind another
+// category, behind another Dollars pill and behind another tab), the gate.
+// The helpers at the top are also the render harness's
+// (test/audit/instant_render_test.dart); the card's own rules are
+// test/screens/polymarket/instant_round_card_test.dart.
 
 import 'dart:io';
 
@@ -23,7 +25,7 @@ import 'package:kute/providers/polymarket_instant_provider.dart';
 import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/providers/polymarket_provider.dart';
 import 'package:kute/providers/polymarket_sports_provider.dart';
-import 'package:kute/screens/polymarket/instant_screen.dart';
+import 'package:kute/screens/polymarket/components/instant_pill_page.dart';
 import 'package:kute/screens/polymarket/polymarket_screen.dart';
 import 'package:kute/screens/portfolio/components/position_rows.dart'
     show PolyPositionRow;
@@ -31,6 +33,7 @@ import 'package:kute/screens/portfolio/poly_position_events.dart'
     show polyPositionEventProvider;
 import 'package:kute/screens/shared/investment_balance_header.dart'
     show InvestmentDiscoveryNotice;
+import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart';
 import 'package:kute/services/polymarket/crypto_live_odds.dart';
@@ -41,7 +44,7 @@ import 'package:kute/services/tracking_service.dart';
 
 import '../usd/investments_harness.dart';
 
-/// What the screen has asked for, for the cost tests, and what the world
+/// What the page has asked for, for the cost tests, and what the world
 /// holds.
 class InstantWorld {
   /// The clock the card reads.
@@ -81,6 +84,13 @@ class InstantWorld {
     PolySub('daily', count: 12),
   ];
   PolyInstantChoice choice = kPolyInstantDefault;
+
+  /// Gamma has no event for the round in play (or only the one that ended).
+  bool eventless = false;
+
+  /// Whether the Dollars home can be seen: the shell's other tabs hide it
+  /// with its tickers off ([_pumpPage] wraps the page in it).
+  final ValueNotifier<bool> shown = ValueNotifier(true);
 
   int liveStart(int minutes) => polyRoundStartAt(now, minutes);
 }
@@ -133,8 +143,10 @@ class InstantRound extends CryptoRoundNotifier {
       asset: arg.asset,
       currentPrice: base * 1.0009,
       priceToBeat: base,
-      secondsRemaining: arg.minutes * 60 - elapsed,
-      event: roundEvent(arg.asset, arg.minutes, startS, tokens: arg.asset),
+      secondsRemaining: world.eventless ? 0 : arg.minutes * 60 - elapsed,
+      event: world.eventless
+          ? null
+          : roundEvent(arg.asset, arg.minutes, startS, tokens: arg.asset),
       priceHistory: [
         for (var t = -60; t <= elapsed; t += step)
           BtcPriceSnapshot(
@@ -225,7 +237,7 @@ class _Sports extends SportsLiveNotifier {
 
 /// The Instant card offline, on [world]: its round, the rounds ahead, the
 /// results, the odds and the market socket. Other harnesses add these to
-/// their own overrides when a test reaches the Instant screen.
+/// their own overrides when a test reaches the Instant page.
 List<Override> instantCardOverrides(InstantWorld world) => [
       cryptoRoundProvider.overrideWith(() => InstantRound(world)),
       cryptoRecentResultsProvider
@@ -237,7 +249,7 @@ List<Override> instantCardOverrides(InstantWorld world) => [
       livePriceProvider.overrideWith(() => InstantPrices(world)),
     ];
 
-/// The Predictions page and the Instant screen offline, on [world].
+/// The Predictions page and the Instant page offline, on [world].
 List<Override> instantOverrides(InstantWorld world,
         {PolyBrowseSelection? selection}) =>
     [
@@ -272,6 +284,7 @@ List<PolymarketEvent> feedRounds(List<String> assets, int minutes,
       'doge': 'Dogecoin',
       'bnb': 'BNB',
       'hype': 'HYPE',
+      'zec': 'Zcash',
     }[asset]!;
     return PolymarketEvent(
       id: '$asset-$at',
@@ -330,23 +343,38 @@ PolymarketPosition heldRound({DateTime? now}) {
   );
 }
 
+/// The Dollars home under the shell's Material, as on a phone, with its
+/// tickers following [InstantWorld.shown] as the shell's hidden tabs do
+/// (`Offstage` + `TickerMode`).
 Future<void> _pumpPage(WidgetTester tester, InstantWorld world,
     {Size size = const Size(390, 844),
     bool browse = true,
     PolyBrowseSelection selection = const PolyBrowseSelection(),
     bool dark = false,
-    Locale? locale,
-    Widget? child}) async {
+    Locale? locale}) async {
   await pumpInvestments(tester,
       size: size,
       dark: dark,
       locale: locale,
       browsePredictions: browse,
       browseInvesting: browse,
-      // Under the shell's Material, as on a phone.
-      child: child ?? const Scaffold(body: UsdAccountScreen()),
+      child: ValueListenableBuilder<bool>(
+        valueListenable: world.shown,
+        builder: (_, shown, child) =>
+            TickerMode(enabled: shown, child: child!),
+        child: const Scaffold(body: UsdAccountScreen()),
+      ),
       overrides: instantOverrides(world, selection: selection));
 }
+
+Future<void> _settle(WidgetTester tester, [int frames = 6]) async {
+  for (var i = 0; i < frames; i++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+}
+
+AppLocalizations _l10n(WidgetTester tester) =>
+    AppLocalizations.of(tester.element(find.byType(KutePillTabs).first));
 
 /// The Investments page on Predictions, its sheet open.
 Future<void> pumpPredictionsSheet(WidgetTester tester, InstantWorld world,
@@ -361,18 +389,15 @@ Future<void> pumpPredictionsSheet(WidgetTester tester, InstantWorld world,
       selection: selection,
       dark: dark,
       locale: locale);
-  final l10n = AppLocalizations.of(
-      tester.element(find.byType(KutePillTabs).first));
+  final l10n = _l10n(tester);
   // The pill once (Predictions), then again: its categories.
   for (var i = 0; i < 2; i++) {
     await tapAndPump(tester, investmentsPill(l10n.predictions));
-    for (var j = 0; j < 6; j++) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
+    await _settle(tester);
   }
 }
 
-/// The Instant screen, pushed from the sheet's card as the person does it.
+/// The Instant page, picked from the sheet's card as the person does it.
 Future<void> pumpInstant(WidgetTester tester, InstantWorld world,
     {Size size = const Size(390, 844),
     bool dark = false,
@@ -380,14 +405,13 @@ Future<void> pumpInstant(WidgetTester tester, InstantWorld world,
   await pumpPredictionsSheet(tester, world,
       size: size, dark: dark, locale: locale);
   await tester.tap(find.byKey(instantTile));
-  for (var i = 0; i < 14; i++) {
-    await tester.pump(const Duration(milliseconds: 100));
-  }
-  expect(find.byType(PolyInstantScreen), findsOneWidget);
+  await _settle(tester, 14);
+  expect(find.byType(PolyInstantPage), findsOneWidget);
 }
 
-/// The Instant screen alone (a deep link), browsing allowed or not.
-Future<void> pumpInstantScreen(WidgetTester tester, InstantWorld world,
+/// The Dollars home opened on Predictions › Instant (the remembered pick),
+/// browsing allowed or not.
+Future<void> pumpInstantPage(WidgetTester tester, InstantWorld world,
     {Size size = const Size(390, 844),
     bool browse = true,
     bool dark = false,
@@ -397,10 +421,9 @@ Future<void> pumpInstantScreen(WidgetTester tester, InstantWorld world,
       browse: browse,
       dark: dark,
       locale: locale,
-      child: const PolyInstantScreen(source: 'deep_link'));
-  for (var i = 0; i < 6; i++) {
-    await tester.pump(const Duration(milliseconds: 100));
-  }
+      selection: const PolyBrowseSelection(pill: PolyPill.instant));
+  await tapAndPump(tester, investmentsPill(_l10n(tester).predictions));
+  await _settle(tester);
 }
 
 Finder tile(PolyPill p) => find.byKey(ValueKey('category-tile-${p.key}'));
@@ -421,7 +444,8 @@ void main() {
       final trending = tile(PolyPill.trending);
       final instant = find.byKey(instantTile);
       expect(trending, findsOneWidget);
-      expect(instant, findsOneWidget);
+      expect(instant, findsOneWidget,
+          reason: 'one of the two cards, never a topic tile too');
       final a = tester.getRect(trending);
       final b = tester.getRect(instant);
       expect(a.top, b.top);
@@ -442,32 +466,42 @@ void main() {
     });
 
     testWidgets(
-        'a tap on Instant closes the sheet and pushes its screen; '
-        'the pill on the Dollars home stays', (tester) async {
+        'a tap on Instant closes the sheet and picks the pill page; nothing '
+        'is pushed; the Dollars pill reads Predictions · Instant',
+        (tester) async {
       await pumpPredictionsSheet(tester, InstantWorld());
       final container = ProviderScope.containerOf(
           tester.element(find.byType(UsdAccountScreen)));
+      final l10n = _l10n(tester);
       await tester.tap(find.byKey(instantTile));
-      for (var i = 0; i < 14; i++) {
-        await tester.pump(const Duration(milliseconds: 100));
-      }
+      await _settle(tester, 14);
       expect(find.byKey(instantTile), findsNothing, reason: 'the sheet closed');
-      expect(find.byType(PolyInstantScreen), findsOneWidget);
-      final l10n = AppLocalizations.of(
-          tester.element(find.byType(PolyInstantScreen)));
-      expect(find.text(l10n.predictionsInstant), findsOneWidget,
-          reason: 'the header');
+      expect(find.byType(PolyInstantPage), findsOneWidget);
+      expect(find.byType(UsdAccountScreen), findsOneWidget,
+          reason: 'still the Dollars home');
+      expect(find.byType(KuteBackButton), findsNothing,
+          reason: 'no screen pushed');
+      expect(
+          Navigator.of(tester.element(find.byType(UsdAccountScreen)),
+                  rootNavigator: true)
+              .canPop(),
+          isFalse);
       expect(container.read(polyBrowseSelectionProvider).pill,
-          PolyPill.trending,
-          reason: 'the list is left as it was');
+          PolyPill.instant);
+      // Its item says so; whether a phone's row holds it is the fit test's
+      // (investments_pill_fit_test.dart) and the renders', the test font
+      // being far wider than Inter.
+      final item = tester
+          .widget<KutePillTabs>(find.byType(KutePillTabs).first)
+          .items
+          .firstWhere((i) => i.label == l10n.predictions);
+      expect(item.detail, l10n.predictionsInstant,
+          reason: 'drawn after the name as "Predictions · Instant"');
+      expect(events.where((e) => e.$1 == 'category_pill_tapped').single.$2,
+          {'section': 'instant'});
       expect(
           events.where((e) => e.$1 == 'predictions_instant_opened').single.$2,
           {'source': 'sheet'});
-      expect(
-          events.any((e) =>
-              e.$1 == 'category_pill_tapped' && e.$2?['section'] == 'instant'),
-          isFalse,
-          reason: 'not a category');
       await unmountInvestments(tester);
     });
   });
@@ -475,19 +509,16 @@ void main() {
   testWidgets('the 5-minute card has left Trending', (tester) async {
     final world = InstantWorld();
     await _pumpPage(tester, world);
-    final l10n = AppLocalizations.of(
-        tester.element(find.byType(KutePillTabs).first));
+    final l10n = _l10n(tester);
     await tapAndPump(tester, investmentsPill(l10n.predictions));
-    for (var i = 0; i < 6; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
+    await _settle(tester);
     expect(find.byType(CryptoPredictBanner), findsNothing);
     expect(world.builtRounds, isEmpty, reason: 'no round read for Trending');
     expect(events.any((e) => e.$1 == 'predict_hero_viewed'), isFalse);
     await unmountInvestments(tester);
   });
 
-  group('the screen', () {
+  group('the page', () {
     testWidgets(
         'one card, one pair of buttons; Bitcoin five minutes first; '
         'a pick switches the card', (tester) async {
@@ -495,7 +526,7 @@ void main() {
       await pumpInstant(tester, world);
       expect(instantCard('BTC'), findsOneWidget);
       expect(find.byKey(const ValueKey('crypto-round-up')), findsOneWidget,
-          reason: 'one Up on the whole screen');
+          reason: 'one Up on the whole page');
       expect(find.byKey(const ValueKey('crypto-round-down')), findsOneWidget);
       expect(
           find.byKey(const ValueKey('instant-round-strip')), findsOneWidget);
@@ -506,9 +537,7 @@ void main() {
       }
       await tapAndPump(
           tester, find.byKey(const ValueKey('instant-asset-SOL')));
-      for (var i = 0; i < 6; i++) {
-        await tester.pump(const Duration(milliseconds: 100));
-      }
+      await _settle(tester);
       expect(instantCard('SOL'), findsOneWidget);
       expect(instantCard('BTC'), findsNothing);
       expect(find.byKey(const ValueKey('crypto-round-up')), findsOneWidget);
@@ -530,9 +559,7 @@ void main() {
       await pumpInstant(tester, world);
       await tapAndPump(
           tester, find.byKey(const ValueKey('instant-length-15m')));
-      for (var i = 0; i < 6; i++) {
-        await tester.pump(const Duration(milliseconds: 100));
-      }
+      await _settle(tester);
       expect(instantCard('BTC', '15m'), findsOneWidget);
       expect(instantCard('BTC'), findsNothing);
       expect(find.text('BTC up or down · 15m'), findsOneWidget);
@@ -544,6 +571,34 @@ void main() {
       // The coins the venue runs at this length.
       expect(find.byKey(const ValueKey('instant-asset-XRP')), findsOneWidget);
       expect(find.byKey(const ValueKey('instant-asset-HYPE')), findsNothing);
+      await unmountInvestments(tester);
+    });
+
+    testWidgets('a coin the app has no card for gets no chip', (tester) async {
+      final world = InstantWorld()
+        ..choice = const PolyInstantChoice(asset: 'BTC', length: '15m')
+        ..feeds = {
+          const PolyFeedQuery(pill: PolyPill.crypto, sub: '15m'):
+              feedRounds(['btc', 'zec', 'eth'], 15),
+        };
+      await pumpInstant(tester, world);
+      expect(find.byKey(const ValueKey('instant-asset-ETH')), findsOneWidget);
+      expect(find.byKey(const ValueKey('instant-asset-ZEC')), findsNothing);
+      await unmountInvestments(tester);
+    });
+
+    testWidgets('no event on the page: no 0:00:00, no 50%, one pair of buttons',
+        (tester) async {
+      final world = InstantWorld()
+        ..eventless = true
+        ..choice = const PolyInstantChoice(asset: 'BTC', length: '4h');
+      await pumpInstant(tester, world);
+      expect(instantCard('BTC', '4h'), findsOneWidget);
+      expect(find.textContaining('0:00:00', findRichText: true), findsNothing);
+      expect(find.textContaining('50%', findRichText: true), findsNothing);
+      expect(find.byKey(const ValueKey('crypto-round-countdown-skeleton')),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('crypto-round-up')), findsOneWidget);
       await unmountInvestments(tester);
     });
 
@@ -572,6 +627,28 @@ void main() {
       await pumpInstant(tester, world);
       expect(instantCard('ETH'), findsOneWidget);
       expect(find.byKey(const ValueKey('instant-length-1h')), findsNothing);
+      await unmountInvestments(tester);
+    });
+
+    testWidgets('the four-hour card names the New York clock\'s round',
+        (tester) async {
+      final world = InstantWorld()
+        ..choice = const PolyInstantChoice(asset: 'BTC', length: '4h');
+      await pumpInstant(tester, world);
+      expect(instantCard('BTC', '4h'), findsOneWidget);
+      final container = ProviderScope.containerOf(
+          tester.element(find.byType(UsdAccountScreen)));
+      final slug = container
+          .read(cryptoRoundProvider((asset: 'BTC', minutes: 240)))
+          .requireValue
+          .event!
+          .slug;
+      // Four hours on the New York clock: 05, 09, 13, 17, 21, 01 UTC under
+      // standard time (the rounds Gamma lists), never the UTC multiples.
+      final start = polyCryptoRoundOf(slug)!.start;
+      final et = start.add(Duration(hours: polyEasternOffsetHours(start)));
+      expect(et.hour % 4, 0, reason: slug);
+      expect(et.minute, 0);
       await unmountInvestments(tester);
     });
   });
@@ -623,20 +700,19 @@ void main() {
 
   group('the cost', () {
     testWidgets(
-        'one round live for the card; leaving the screen stops it all',
+        'one round live for the card; another category stops it all',
         (tester) async {
       final world = InstantWorld();
       await pumpInstant(tester, world);
       expect(world.liveRounds, {(asset: 'BTC', minutes: 5)});
       expect(world.socketTokens.keys.toSet(), {'BTC-up', 'BTC-down'},
           reason: 'the round on show; nothing ahead is listed');
-      Navigator.of(tester.element(find.byType(PolyInstantScreen)),
-              rootNavigator: true)
-          .pop();
-      for (var i = 0; i < 12; i++) {
-        await tester.pump(const Duration(milliseconds: 100));
-      }
-      expect(find.byType(PolyInstantScreen), findsNothing);
+      final container = ProviderScope.containerOf(
+          tester.element(find.byType(PolymarketScreen)));
+      container.read(polyBrowseSelectionProvider.notifier).state =
+          const PolyBrowseSelection();
+      await _settle(tester, 12);
+      expect(find.byType(PolyInstantPage), findsNothing);
       expect(world.liveRounds, isEmpty,
           reason: 'the read and its timers stop');
       expect(world.socketTokens, isEmpty,
@@ -653,6 +729,47 @@ void main() {
       expect(world.socketTokens.keys.toSet(),
           {'BTC-up', 'BTC-down', 'next-up', 'next-down'});
       expect(world.liveRounds.length, 1);
+      await unmountInvestments(tester);
+    });
+
+    testWidgets(
+        'behind another Dollars pill the card goes and its reads stop; '
+        'back, it returns', (tester) async {
+      final world = InstantWorld();
+      await pumpInstant(tester, world);
+      expect(world.liveRounds, {(asset: 'BTC', minutes: 5)});
+      final l10n = _l10n(tester);
+      await tapAndPump(tester, investmentsPill(l10n.trading));
+      await _settle(tester, 8);
+      expect(world.liveRounds, isEmpty, reason: 'no read behind the pill');
+      expect(world.socketTokens, isEmpty, reason: 'no seat on the socket');
+      expect(find.byKey(const ValueKey('instant-card-BTC-5m'),
+              skipOffstage: false),
+          findsNothing);
+      expect(
+          find.byKey(const ValueKey('instant-card-hidden'), skipOffstage: false),
+          findsOneWidget,
+          reason: 'a box holds the card\'s place');
+      await tapAndPump(tester, investmentsPill(l10n.predictions));
+      await _settle(tester, 8);
+      expect(world.liveRounds, {(asset: 'BTC', minutes: 5)});
+      expect(world.socketTokens.keys.toSet(), {'BTC-up', 'BTC-down'});
+      await unmountInvestments(tester);
+    });
+
+    testWidgets(
+        'behind another tab of the shell the same: nothing runs hidden',
+        (tester) async {
+      final world = InstantWorld();
+      await pumpInstant(tester, world);
+      expect(world.liveRounds, {(asset: 'BTC', minutes: 5)});
+      world.shown.value = false;
+      await _settle(tester, 8);
+      expect(world.liveRounds, isEmpty);
+      expect(world.socketTokens, isEmpty);
+      world.shown.value = true;
+      await _settle(tester, 8);
+      expect(world.liveRounds, {(asset: 'BTC', minutes: 5)});
       await unmountInvestments(tester);
     });
   });
@@ -700,13 +817,15 @@ void main() {
   group('the gate', () {
     testWidgets('browsing withheld: the notice, nothing read', (tester) async {
       final world = InstantWorld()..positions = [heldRound()];
-      await pumpInstantScreen(tester, world, browse: false);
-      expect(find.byType(InvestmentDiscoveryNotice), findsOneWidget);
+      await pumpInstantPage(tester, world, browse: false);
+      expect(find.byType(InvestmentDiscoveryNotice), findsWidgets);
+      expect(find.byType(PolyInstantPage), findsNothing);
       expect(find.byKey(const ValueKey('instant-filter-assets')), findsNothing);
       expect(find.byKey(const ValueKey('crypto-round-up')), findsNothing);
       expect(find.byType(PolyPositionRow), findsNothing);
       expect(world.builtRounds, isEmpty);
-      expect(world.socketTokens, isEmpty);
+      // The Portfolio's own subscription for the holding stays, as anywhere.
+      expect(world.socketTokens.keys.where((t) => t != 'held-up'), isEmpty);
       await unmountInvestments(tester);
     });
 
