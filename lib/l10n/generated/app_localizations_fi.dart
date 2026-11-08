@@ -1754,12 +1754,7 @@ class AppLocalizationsFi extends AppLocalizations {
   String get referrerFriendInvitedYou => 'Ystävä kutsui sinut';
 
   @override
-  String accountYouEarnRate(String rate) {
-    return 'Ansaitset $rate %';
-  }
-
-  @override
-  String accountInviteMoreForRate(int count, int rate) {
+  String accountInviteMoreForRate(int count, String rate) {
     return 'Kutsu $count ystävää lisää ansaitaksesi $rate %';
   }
 
@@ -2667,9 +2662,6 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
-  String get accountUsersWithYourCode => 'Koodiasi käyttäneet';
-
-  @override
   String get accountPendingPayout => 'Odottava maksu';
 
   @override
@@ -2687,16 +2679,6 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
-  String accountRuleEarnings(String rate) {
-    return 'Ansaitset $rate ystäviesi tuottamista maksuista.';
-  }
-
-  @override
-  String accountRuleEarningsLadder(String rate, String ladder) {
-    return 'Ansaitset $rate ystäviesi tuottamista maksuista, $ladder.';
-  }
-
-  @override
   String accountRuleEarningsStep(String rate, int count) {
     return '$rate, kun ystäviä on $count';
   }
@@ -2704,6 +2686,54 @@ class AppLocalizationsFi extends AppLocalizations {
   @override
   String accountRuleFriendDiscount(String discount) {
     return 'Ystäväsi saavat $discount alennusta Kuten maksuista, kun he ovat kanssasi.';
+  }
+
+  @override
+  String referralHeroTitle(String rate) {
+    return 'Ansaitse $rate ystäviesi maksuista';
+  }
+
+  @override
+  String referralHeroLine(String discount) {
+    return 'He saavat $discount alennusta Kuten maksuista';
+  }
+
+  @override
+  String get referralShareInvite => 'Jaa kutsu';
+
+  @override
+  String get referralFriendsJoined => 'Liittyneet ystävät';
+
+  @override
+  String get referralYourRate => 'Osuutesi';
+
+  @override
+  String get referralTopRate => 'Sinulla on korkein osuus';
+
+  @override
+  String referralTierFriends(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count ystävää',
+      one: '1 ystävä',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get referralStepShare => 'Jaa linkkisi';
+
+  @override
+  String get referralStepShareLine =>
+      'Lähetä linkkisi tai koodisi ystävillesi.';
+
+  @override
+  String get referralStepJoin => 'He liittyvät ja käyvät kauppaa';
+
+  @override
+  String referralStepEarn(String rate) {
+    return 'Ansaitset $rate heidän maksuistaan';
   }
 
   @override

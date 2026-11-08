@@ -1764,12 +1764,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get referrerFriendInvitedYou => 'Un ami vous a invité';
 
   @override
-  String accountYouEarnRate(String rate) {
-    return 'Vous gagnez $rate %';
-  }
-
-  @override
-  String accountInviteMoreForRate(int count, int rate) {
+  String accountInviteMoreForRate(int count, String rate) {
     return 'Invitez $count amis de plus pour gagner $rate %';
   }
 
@@ -2692,9 +2687,6 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
-  String get accountUsersWithYourCode => 'Utilisateurs avec votre code';
-
-  @override
   String get accountPendingPayout => 'Paiement en attente';
 
   @override
@@ -2712,16 +2704,6 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
-  String accountRuleEarnings(String rate) {
-    return 'Vous gagnez $rate des frais générés par vos amis.';
-  }
-
-  @override
-  String accountRuleEarningsLadder(String rate, String ladder) {
-    return 'Vous gagnez $rate des frais générés par vos amis, $ladder.';
-  }
-
-  @override
   String accountRuleEarningsStep(String rate, int count) {
     return '$rate à partir de $count amis';
   }
@@ -2729,6 +2711,54 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String accountRuleFriendDiscount(String discount) {
     return 'Vos amis ont $discount de réduction sur les frais Kute tant qu\'ils sont avec vous.';
+  }
+
+  @override
+  String referralHeroTitle(String rate) {
+    return 'Gagnez $rate des frais de vos amis';
+  }
+
+  @override
+  String referralHeroLine(String discount) {
+    return 'Ils ont $discount de réduction sur les frais Kute';
+  }
+
+  @override
+  String get referralShareInvite => 'Partager l\'invitation';
+
+  @override
+  String get referralFriendsJoined => 'Amis inscrits';
+
+  @override
+  String get referralYourRate => 'Votre taux';
+
+  @override
+  String get referralTopRate => 'Vous êtes au taux maximum';
+
+  @override
+  String referralTierFriends(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count amis',
+      one: '1 ami',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get referralStepShare => 'Partagez votre lien';
+
+  @override
+  String get referralStepShareLine =>
+      'Envoyez votre lien ou votre code à vos amis.';
+
+  @override
+  String get referralStepJoin => 'Ils s\'inscrivent et échangent';
+
+  @override
+  String referralStepEarn(String rate) {
+    return 'Vous gagnez $rate de leurs frais';
   }
 
   @override

@@ -1750,12 +1750,7 @@ class AppLocalizationsEt extends AppLocalizations {
   String get referrerFriendInvitedYou => 'Sõber kutsus sind';
 
   @override
-  String accountYouEarnRate(String rate) {
-    return 'Sa teenid $rate%';
-  }
-
-  @override
-  String accountInviteMoreForRate(int count, int rate) {
+  String accountInviteMoreForRate(int count, String rate) {
     return 'Kutsu veel $count sõpra, et teenida $rate%';
   }
 
@@ -2665,9 +2660,6 @@ class AppLocalizationsEt extends AppLocalizations {
   }
 
   @override
-  String get accountUsersWithYourCode => 'Sinu koodiga kasutajad';
-
-  @override
   String get accountPendingPayout => 'Ootel väljamakse';
 
   @override
@@ -2685,16 +2677,6 @@ class AppLocalizationsEt extends AppLocalizations {
   }
 
   @override
-  String accountRuleEarnings(String rate) {
-    return 'Sa teenid $rate tasudest, mida sinu sõbrad tekitavad.';
-  }
-
-  @override
-  String accountRuleEarningsLadder(String rate, String ladder) {
-    return 'Sa teenid $rate tasudest, mida sinu sõbrad tekitavad, $ladder.';
-  }
-
-  @override
   String accountRuleEarningsStep(String rate, int count) {
     return '$rate alates $count sõbrast';
   }
@@ -2702,6 +2684,53 @@ class AppLocalizationsEt extends AppLocalizations {
   @override
   String accountRuleFriendDiscount(String discount) {
     return 'Sõbrad saavad Kute tasudelt $discount soodustust, kuni nad on sinuga.';
+  }
+
+  @override
+  String referralHeroTitle(String rate) {
+    return 'Teeni $rate oma sõprade tasudest';
+  }
+
+  @override
+  String referralHeroLine(String discount) {
+    return 'Nemad saavad Kute tasudelt $discount soodustust';
+  }
+
+  @override
+  String get referralShareInvite => 'Jaga kutset';
+
+  @override
+  String get referralFriendsJoined => 'Liitunud sõbrad';
+
+  @override
+  String get referralYourRate => 'Sinu määr';
+
+  @override
+  String get referralTopRate => 'Sul on kõrgeim määr';
+
+  @override
+  String referralTierFriends(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count sõpra',
+      one: '1 sõber',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get referralStepShare => 'Jaga oma linki';
+
+  @override
+  String get referralStepShareLine => 'Saada oma link või kood sõpradele.';
+
+  @override
+  String get referralStepJoin => 'Nad liituvad ja kauplevad';
+
+  @override
+  String referralStepEarn(String rate) {
+    return 'Teenid $rate nende tasudest';
   }
 
   @override

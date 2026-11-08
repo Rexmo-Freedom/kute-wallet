@@ -1767,12 +1767,7 @@ class AppLocalizationsEl extends AppLocalizations {
   String get referrerFriendInvitedYou => 'Σε προσκάλεσε ένας φίλος';
 
   @override
-  String accountYouEarnRate(String rate) {
-    return 'Κερδίζεις $rate%';
-  }
-
-  @override
-  String accountInviteMoreForRate(int count, int rate) {
+  String accountInviteMoreForRate(int count, String rate) {
     return 'Προσκάλεσε $count ακόμα φίλους για να κερδίζεις $rate%';
   }
 
@@ -2698,9 +2693,6 @@ class AppLocalizationsEl extends AppLocalizations {
   }
 
   @override
-  String get accountUsersWithYourCode => 'Χρήστες με τον κωδικό σου';
-
-  @override
   String get accountPendingPayout => 'Πληρωμή σε εκκρεμότητα';
 
   @override
@@ -2718,16 +2710,6 @@ class AppLocalizationsEl extends AppLocalizations {
   }
 
   @override
-  String accountRuleEarnings(String rate) {
-    return 'Κερδίζεις $rate από τις χρεώσεις που δημιουργούν οι φίλοι σου.';
-  }
-
-  @override
-  String accountRuleEarningsLadder(String rate, String ladder) {
-    return 'Κερδίζεις $rate από τις χρεώσεις που δημιουργούν οι φίλοι σου, $ladder.';
-  }
-
-  @override
   String accountRuleEarningsStep(String rate, int count) {
     return '$rate με $count φίλους';
   }
@@ -2735,6 +2717,54 @@ class AppLocalizationsEl extends AppLocalizations {
   @override
   String accountRuleFriendDiscount(String discount) {
     return 'Οι φίλοι σου παίρνουν έκπτωση $discount στις χρεώσεις του Kute όσο είναι μαζί σου.';
+  }
+
+  @override
+  String referralHeroTitle(String rate) {
+    return 'Κέρδισε $rate από τις χρεώσεις των φίλων σου';
+  }
+
+  @override
+  String referralHeroLine(String discount) {
+    return 'Εκείνοι παίρνουν έκπτωση $discount στις χρεώσεις του Kute';
+  }
+
+  @override
+  String get referralShareInvite => 'Κοινοποίηση πρόσκλησης';
+
+  @override
+  String get referralFriendsJoined => 'Φίλοι που μπήκαν';
+
+  @override
+  String get referralYourRate => 'Το ποσοστό σου';
+
+  @override
+  String get referralTopRate => 'Έχεις το ανώτατο ποσοστό';
+
+  @override
+  String referralTierFriends(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count φίλοι',
+      one: '1 φίλος',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get referralStepShare => 'Μοιράσου τον σύνδεσμό σου';
+
+  @override
+  String get referralStepShareLine =>
+      'Στείλε τον σύνδεσμο ή τον κωδικό σου σε φίλους.';
+
+  @override
+  String get referralStepJoin => 'Εγγράφονται και κάνουν συναλλαγές';
+
+  @override
+  String referralStepEarn(String rate) {
+    return 'Κερδίζεις $rate από τις χρεώσεις τους';
   }
 
   @override

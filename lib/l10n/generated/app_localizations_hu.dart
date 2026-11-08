@@ -1755,12 +1755,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get referrerFriendInvitedYou => 'Egy barátod meghívott';
 
   @override
-  String accountYouEarnRate(String rate) {
-    return '$rate% jár neked';
-  }
-
-  @override
-  String accountInviteMoreForRate(int count, int rate) {
+  String accountInviteMoreForRate(int count, String rate) {
     return 'Hívj meg még $count barátot, hogy $rate% járjon neked';
   }
 
@@ -2677,9 +2672,6 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
-  String get accountUsersWithYourCode => 'A kódodat használók';
-
-  @override
   String get accountPendingPayout => 'Függő kifizetés';
 
   @override
@@ -2697,16 +2689,6 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
-  String accountRuleEarnings(String rate) {
-    return 'A barátaid által generált díjak $rate része jár neked.';
-  }
-
-  @override
-  String accountRuleEarningsLadder(String rate, String ladder) {
-    return 'A barátaid által generált díjak $rate része jár neked, $ladder.';
-  }
-
-  @override
   String accountRuleEarningsStep(String rate, int count) {
     return '$rate $count barát esetén';
   }
@@ -2714,6 +2696,54 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String accountRuleFriendDiscount(String discount) {
     return 'A barátaid $discount kedvezményt kapnak a Kute díjaiból, amíg veled vannak.';
+  }
+
+  @override
+  String referralHeroTitle(String rate) {
+    return 'A barátaid díjainak $rate-a a tiéd';
+  }
+
+  @override
+  String referralHeroLine(String discount) {
+    return 'Ők $discount kedvezményt kapnak a Kute díjaiból';
+  }
+
+  @override
+  String get referralShareInvite => 'Meghívó megosztása';
+
+  @override
+  String get referralFriendsJoined => 'Csatlakozott barátok';
+
+  @override
+  String get referralYourRate => 'A jutalékod';
+
+  @override
+  String get referralTopRate => 'Elérted a legmagasabb jutalékot';
+
+  @override
+  String referralTierFriends(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count barát',
+      one: '1 barát',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get referralStepShare => 'Oszd meg a linkedet';
+
+  @override
+  String get referralStepShareLine =>
+      'Küldd el a linkedet vagy a kódodat a barátaidnak.';
+
+  @override
+  String get referralStepJoin => 'Csatlakoznak és kereskednek';
+
+  @override
+  String referralStepEarn(String rate) {
+    return 'Díjaik $rate-a a tiéd';
   }
 
   @override

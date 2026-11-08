@@ -1758,12 +1758,7 @@ class AppLocalizationsLt extends AppLocalizations {
   String get referrerFriendInvitedYou => 'Jus pakvietė draugas';
 
   @override
-  String accountYouEarnRate(String rate) {
-    return 'Uždirbate $rate%';
-  }
-
-  @override
-  String accountInviteMoreForRate(int count, int rate) {
+  String accountInviteMoreForRate(int count, String rate) {
     return 'Pakvieskite daugiau draugų ($count) ir uždirbkite $rate%';
   }
 
@@ -2674,9 +2669,6 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
-  String get accountUsersWithYourCode => 'Naudotojai su jūsų kodu';
-
-  @override
   String get accountPendingPayout => 'Laukiama išmoka';
 
   @override
@@ -2694,16 +2686,6 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
-  String accountRuleEarnings(String rate) {
-    return 'Uždirbate $rate jūsų draugų sugeneruotų mokesčių.';
-  }
-
-  @override
-  String accountRuleEarningsLadder(String rate, String ladder) {
-    return 'Uždirbate $rate jūsų draugų sugeneruotų mokesčių, $ladder.';
-  }
-
-  @override
   String accountRuleEarningsStep(String rate, int count) {
     return '$rate, kai draugų: $count';
   }
@@ -2711,6 +2693,56 @@ class AppLocalizationsLt extends AppLocalizations {
   @override
   String accountRuleFriendDiscount(String discount) {
     return 'Kol draugai yra su jumis, jie gauna $discount nuolaidą Kute mokesčiams.';
+  }
+
+  @override
+  String referralHeroTitle(String rate) {
+    return 'Uždirbkite $rate draugų mokesčių';
+  }
+
+  @override
+  String referralHeroLine(String discount) {
+    return 'Jie gauna $discount nuolaidą Kute mokesčiams';
+  }
+
+  @override
+  String get referralShareInvite => 'Bendrinti kvietimą';
+
+  @override
+  String get referralFriendsJoined => 'Prisijungę draugai';
+
+  @override
+  String get referralYourRate => 'Jūsų tarifas';
+
+  @override
+  String get referralTopRate => 'Jūsų tarifas didžiausias';
+
+  @override
+  String referralTierFriends(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count draugų',
+      many: '$count draugo',
+      few: '$count draugai',
+      one: '$count draugas',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get referralStepShare => 'Bendrinkite savo nuorodą';
+
+  @override
+  String get referralStepShareLine =>
+      'Nusiųskite draugams savo nuorodą ar kodą.';
+
+  @override
+  String get referralStepJoin => 'Jie prisijungia ir prekiauja';
+
+  @override
+  String referralStepEarn(String rate) {
+    return 'Uždirbate $rate jų mokesčių';
   }
 
   @override

@@ -1746,12 +1746,7 @@ class AppLocalizationsLv extends AppLocalizations {
   String get referrerFriendInvitedYou => 'Tevi uzaicināja draugs';
 
   @override
-  String accountYouEarnRate(String rate) {
-    return 'Tu nopelni $rate%';
-  }
-
-  @override
-  String accountInviteMoreForRate(int count, int rate) {
+  String accountInviteMoreForRate(int count, String rate) {
     return 'Uzaicini vēl $count draugu(s), lai nopelnītu $rate%';
   }
 
@@ -2661,9 +2656,6 @@ class AppLocalizationsLv extends AppLocalizations {
   }
 
   @override
-  String get accountUsersWithYourCode => 'Lietotāji ar tavu kodu';
-
-  @override
   String get accountPendingPayout => 'Gaidāmā izmaksa';
 
   @override
@@ -2681,16 +2673,6 @@ class AppLocalizationsLv extends AppLocalizations {
   }
 
   @override
-  String accountRuleEarnings(String rate) {
-    return 'Tu nopelni $rate no maksām, ko rada tavi draugi.';
-  }
-
-  @override
-  String accountRuleEarningsLadder(String rate, String ladder) {
-    return 'Tu nopelni $rate no maksām, ko rada tavi draugi, $ladder.';
-  }
-
-  @override
   String accountRuleEarningsStep(String rate, int count) {
     return '$rate, ja ir $count draugi';
   }
@@ -2698,6 +2680,53 @@ class AppLocalizationsLv extends AppLocalizations {
   @override
   String accountRuleFriendDiscount(String discount) {
     return 'Draugi saņem $discount atlaidi Kute maksām, kamēr viņi ir ar tevi.';
+  }
+
+  @override
+  String referralHeroTitle(String rate) {
+    return 'Nopelni $rate no draugu maksām';
+  }
+
+  @override
+  String referralHeroLine(String discount) {
+    return 'Viņi saņem $discount atlaidi Kute maksām';
+  }
+
+  @override
+  String get referralShareInvite => 'Kopīgot ielūgumu';
+
+  @override
+  String get referralFriendsJoined => 'Pievienojušies draugi';
+
+  @override
+  String get referralYourRate => 'Tava likme';
+
+  @override
+  String get referralTopRate => 'Tev ir augstākā likme';
+
+  @override
+  String referralTierFriends(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count draugi',
+      one: '1 draugs',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get referralStepShare => 'Kopīgo savu saiti';
+
+  @override
+  String get referralStepShareLine => 'Nosūti draugiem savu saiti vai kodu.';
+
+  @override
+  String get referralStepJoin => 'Viņi pievienojas un tirgojas';
+
+  @override
+  String referralStepEarn(String rate) {
+    return 'Tu nopelni $rate no viņu maksām';
   }
 
   @override

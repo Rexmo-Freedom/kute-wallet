@@ -1750,12 +1750,7 @@ class AppLocalizationsCs extends AppLocalizations {
   String get referrerFriendInvitedYou => 'Pozval tě kamarád';
 
   @override
-  String accountYouEarnRate(String rate) {
-    return 'Získáváš $rate %';
-  }
-
-  @override
-  String accountInviteMoreForRate(int count, int rate) {
+  String accountInviteMoreForRate(int count, String rate) {
     return 'Pozvi ještě $count přátel a získávej $rate %';
   }
 
@@ -2668,9 +2663,6 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
-  String get accountUsersWithYourCode => 'Uživatelé s tvým kódem';
-
-  @override
   String get accountPendingPayout => 'Čekající výplata';
 
   @override
@@ -2688,16 +2680,6 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
-  String accountRuleEarnings(String rate) {
-    return 'Získáváš $rate z poplatků, které vygenerují tvoji přátelé.';
-  }
-
-  @override
-  String accountRuleEarningsLadder(String rate, String ladder) {
-    return 'Získáváš $rate z poplatků, které vygenerují tvoji přátelé, $ladder.';
-  }
-
-  @override
   String accountRuleEarningsStep(String rate, int count) {
     return '$rate při $count přátelích';
   }
@@ -2705,6 +2687,54 @@ class AppLocalizationsCs extends AppLocalizations {
   @override
   String accountRuleFriendDiscount(String discount) {
     return 'Přátelé mají slevu $discount na poplatky Kute, dokud jsou s tebou.';
+  }
+
+  @override
+  String referralHeroTitle(String rate) {
+    return 'Získej $rate z poplatků svých přátel';
+  }
+
+  @override
+  String referralHeroLine(String discount) {
+    return 'Oni mají slevu $discount na poplatky Kute';
+  }
+
+  @override
+  String get referralShareInvite => 'Sdílet pozvánku';
+
+  @override
+  String get referralFriendsJoined => 'Připojení přátelé';
+
+  @override
+  String get referralYourRate => 'Tvoje sazba';
+
+  @override
+  String get referralTopRate => 'Máš nejvyšší sazbu';
+
+  @override
+  String referralTierFriends(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count přátel',
+      few: '$count přátelé',
+      one: '1 přítel',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get referralStepShare => 'Sdílej svůj odkaz';
+
+  @override
+  String get referralStepShareLine => 'Pošli přátelům svůj odkaz nebo kód.';
+
+  @override
+  String get referralStepJoin => 'Připojí se a obchodují';
+
+  @override
+  String referralStepEarn(String rate) {
+    return 'Získáváš $rate z jejich poplatků';
   }
 
   @override
