@@ -976,7 +976,6 @@
   "sendConfirmTheDetails": "詳細を確認してください。",
   "sendSign": "署名",
   "sendSignTheTransactionOnYourDevice": "デバイスでトランザクションに署名してください。",
-  "sendAmountUnitAvailableWithFiat": "{amount} {unit} 利用可能 · {fiat}",
   "sendCalculatingEllipsis": "計算中…",
   "sendLiveQuoteProvider": "リアルタイム見積もり · {provider}",
   "sendLiveQuoteProviderWithFee": "リアルタイム見積もり · {provider} · 手数料 {fee}",

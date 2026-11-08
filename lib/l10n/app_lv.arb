@@ -976,7 +976,6 @@
   "sendConfirmTheDetails": "Apstiprini detaļas.",
   "sendSign": "Parakstīt",
   "sendSignTheTransactionOnYourDevice": "Paraksti darījumu savā ierīcē.",
-  "sendAmountUnitAvailableWithFiat": "Pieejams {amount} {unit} · {fiat}",
   "sendCalculatingEllipsis": "Aprēķina…",
   "sendLiveQuoteProvider": "Aktuālā cena · {provider}",
   "sendLiveQuoteProviderWithFee": "Aktuālā cena · {provider} · maksa {fee}",

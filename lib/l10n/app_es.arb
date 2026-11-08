@@ -976,7 +976,6 @@
   "sendConfirmTheDetails": "Confirma los datos.",
   "sendSign": "Firmar",
   "sendSignTheTransactionOnYourDevice": "Firma la transacción en tu dispositivo.",
-  "sendAmountUnitAvailableWithFiat": "{amount} {unit} disponibles · {fiat}",
   "sendCalculatingEllipsis": "Calculando…",
   "sendLiveQuoteProvider": "Cotización en vivo · {provider}",
   "sendLiveQuoteProviderWithFee": "Cotización en vivo · {provider} · comisión de {fee}",

@@ -976,7 +976,6 @@
   "sendConfirmTheDetails": "Potrdite podrobnosti.",
   "sendSign": "Podpiši",
   "sendSignTheTransactionOnYourDevice": "Transakcijo podpišite na napravi.",
-  "sendAmountUnitAvailableWithFiat": "Na voljo {amount} {unit} · {fiat}",
   "sendCalculatingEllipsis": "Izračunavanje …",
   "sendLiveQuoteProvider": "Trenutna ponudba · {provider}",
   "sendLiveQuoteProviderWithFee": "Trenutna ponudba · {provider} · provizija {fee}",

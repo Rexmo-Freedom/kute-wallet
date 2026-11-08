@@ -976,7 +976,6 @@
   "sendConfirmTheDetails": "Potvrď údaje.",
   "sendSign": "Podpísať",
   "sendSignTheTransactionOnYourDevice": "Podpíš transakciu na zariadení.",
-  "sendAmountUnitAvailableWithFiat": "Dostupné: {amount} {unit} · {fiat}",
   "sendCalculatingEllipsis": "Počíta sa…",
   "sendLiveQuoteProvider": "Aktuálna cena · {provider}",
   "sendLiveQuoteProviderWithFee": "Aktuálna cena · {provider} · poplatok {fee}",

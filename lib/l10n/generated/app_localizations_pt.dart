@@ -3301,12 +3301,6 @@ class AppLocalizationsPt extends AppLocalizations {
       'Assine a transação no seu dispositivo.';
 
   @override
-  String sendAmountUnitAvailableWithFiat(
-      String amount, String unit, String fiat) {
-    return '$amount $unit disponíveis · $fiat';
-  }
-
-  @override
   String get sendCalculatingEllipsis => 'A calcular…';
 
   @override

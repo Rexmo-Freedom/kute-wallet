@@ -2,9 +2,10 @@
 //
 // SEND A PREDICTION OR AN INVESTMENT FROM SEND (founder, 31 October 2026:
 // people must be able to send a pick from the Send screen, not only from
-// a market page). Both Sends' What step opens it: a person picked, then
-// "A prediction or investment" (send_what_step.dart; founder, 7 November
-// 2026: a gift is a What, never a chip).
+// a market page). The Dollars Send's What step opens it: a person picked,
+// then "A prediction or investment" (send_what_step.dart; founder, 7 November
+// 2026: a gift is a What, never a chip; 8 November 2026: the Bitcoin Send just
+// sends bitcoin).
 //
 // IT IS THE SEARCH SHEET, IN SEND MODE (founder, 7 November 2026: "too
 // much text here, and this is still not the search one just adapted to

@@ -591,6 +591,50 @@ void main() {
   });
 
   testWidgets(
+      'What\'s bar is Back: it closes the sheet with no answer, the Who step '
+      'under it as it was, its bar its own again', (tester) async {
+    _gateway.permission = SendContactsPermission.granted;
+    await _pump(tester);
+    await tester.tap(find.byKey(const ValueKey('send-person-contact:c2')));
+    await tester.pumpAndSettle();
+    expect(find.byType(SendWhatSheet), findsOneWidget);
+    expect(kuteBarPrimaryContext(tester).primaryLabel, _l10n.back);
+    kuteBarPrimaryContext(tester).onPrimary!();
+    await tester.pumpAndSettle();
+    expect(find.byType(SendWhatSheet), findsNothing);
+    expect(find.byType(UsdWithdrawScreen), findsOneWidget);
+    expect(kuteBarPrimaryContext(tester).primaryLabel, isNot(_l10n.back));
+    expect(paramsOf('send_what_picked'), isEmpty);
+    expect(linksOpened, isEmpty);
+    expect(picksOpened, isEmpty);
+    await _unmount(tester);
+  });
+
+  testWidgets(
+      'What\'s gift: closed with no link the Send stays; a link created closes '
+      'it', (tester) async {
+    _gateway.permission = SendContactsPermission.granted;
+    await _pump(tester);
+    final maria = find.byKey(const ValueKey('send-person-contact:c2'));
+    await tester.tap(maria);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(kSendWhatGiftKey));
+    await tester.pumpAndSettle();
+    expect(picksOpened, [('Maria', '+351 912 345 678')]);
+    expect(paramsOf('send_what_picked').single,
+        {'what': 'gift', 'home': 'dollars'});
+    expect(find.byType(UsdWithdrawScreen), findsOneWidget);
+    linkResult = true;
+    await tester.tap(maria);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(kSendWhatGiftKey));
+    await tester.pumpAndSettle();
+    expect(picksOpened, hasLength(2));
+    expect(find.byType(UsdWithdrawScreen), findsNothing);
+    await _unmount(tester);
+  });
+
+  testWidgets(
       'a Kute contact: Dollars is a dollar link (a Kute address takes no '
       'dollars), never the Bitcoin Send on their address', (tester) async {
     _gateway

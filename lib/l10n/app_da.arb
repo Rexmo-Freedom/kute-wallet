@@ -976,7 +976,6 @@
   "sendConfirmTheDetails": "Bekræft oplysningerne.",
   "sendSign": "Signer",
   "sendSignTheTransactionOnYourDevice": "Signer transaktionen på din enhed.",
-  "sendAmountUnitAvailableWithFiat": "{amount} {unit} tilgængelig · {fiat}",
   "sendCalculatingEllipsis": "Beregner…",
   "sendLiveQuoteProvider": "Aktuel pris · {provider}",
   "sendLiveQuoteProviderWithFee": "Aktuel pris · {provider} · {fee} gebyr",

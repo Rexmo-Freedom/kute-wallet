@@ -3277,12 +3277,6 @@ class AppLocalizationsEt extends AppLocalizations {
       'Allkirjasta tehing oma seadmes.';
 
   @override
-  String sendAmountUnitAvailableWithFiat(
-      String amount, String unit, String fiat) {
-    return '$amount $unit saadaval · $fiat';
-  }
-
-  @override
   String get sendCalculatingEllipsis => 'Arvutamine…';
 
   @override

@@ -3274,12 +3274,6 @@ class AppLocalizationsLv extends AppLocalizations {
       'Paraksti darījumu savā ierīcē.';
 
   @override
-  String sendAmountUnitAvailableWithFiat(
-      String amount, String unit, String fiat) {
-    return 'Pieejams $amount $unit · $fiat';
-  }
-
-  @override
   String get sendCalculatingEllipsis => 'Aprēķina…';
 
   @override

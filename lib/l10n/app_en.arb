@@ -1740,20 +1740,6 @@
   "sendConfirmTheDetails": "Confirm the details.",
   "sendSign": "Sign",
   "sendSignTheTransactionOnYourDevice": "Sign the transaction on your device.",
-  "sendAmountUnitAvailableWithFiat": "{amount} {unit} available · {fiat}",
-  "@sendAmountUnitAvailableWithFiat": {
-    "placeholders": {
-      "amount": {
-        "type": "String"
-      },
-      "unit": {
-        "type": "String"
-      },
-      "fiat": {
-        "type": "String"
-      }
-    }
-  },
   "sendCalculatingEllipsis": "Calculating…",
   "sendLiveQuoteProvider": "Live quote · {provider}",
   "@sendLiveQuoteProvider": {

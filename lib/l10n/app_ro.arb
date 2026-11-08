@@ -976,7 +976,6 @@
   "sendConfirmTheDetails": "Confirmă detaliile.",
   "sendSign": "Semnează",
   "sendSignTheTransactionOnYourDevice": "Semnează tranzacția pe dispozitiv.",
-  "sendAmountUnitAvailableWithFiat": "{amount} {unit} disponibil · {fiat}",
   "sendCalculatingEllipsis": "Se calculează…",
   "sendLiveQuoteProvider": "Ofertă live · {provider}",
   "sendLiveQuoteProviderWithFee": "Ofertă live · {provider} · comision {fee}",

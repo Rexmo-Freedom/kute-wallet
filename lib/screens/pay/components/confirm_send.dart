@@ -15,6 +15,7 @@ import 'package:kute/services/bitcoin/fee_draft_while_syncing.dart';
 import 'package:kute/helpers/common_operation_methods.dart'
     show stripBitcoinAddress;
 import 'package:kute/models/settings_model.dart';
+import 'package:kute/models/share_link_model.dart' show ShareLinkKind;
 import 'package:kute/models/transactions_model.dart'
     show SparkTransaction;
 import 'package:kute/providers/transactions_provider.dart';
@@ -103,12 +104,9 @@ import 'package:kute/screens/shared/send/send_flow_widgets.dart';
 import 'package:kute/screens/shared/send/send_contacts_list.dart';
 import 'package:kute/screens/shared/send/send_recipient_step.dart';
 import 'package:kute/screens/shared/send/send_sheet.dart';
-import 'package:kute/screens/shared/send/send_what_step.dart';
 import 'package:kute/services/contacts/send_contacts_service.dart'
     show SendContact, sendContactsProvider;
 import 'package:kute/screens/share/send_to_anyone_sheet.dart';
-import 'package:kute/screens/share/send_pick_market_sheet.dart'
-    show showSendPickMarketSheet;
 import 'package:kute/screens/shared/money_movement_sheet.dart'
     show MoneyMovementAccount, showOwnMoneyMove;
 import 'package:kute/screens/shared/stepper/stepper_widgets.dart';
@@ -1145,19 +1143,8 @@ Future<bool> showConfirmationModal(
 /// an own account ("Move to your Dollars", send_recipient_step.dart).
 const String kBitcoinSendSearchSource = 'bitcoin_send_search';
 
-/// The market search's `entrySource` when the Bitcoin Send's What step
-/// sends a prediction or investment (send_what_step.dart).
-const String kBitcoinSendPickSource = 'bitcoin_send_sheet';
-
 class ConfirmSend extends ConsumerStatefulWidget {
   const ConfirmSend({super.key});
-
-  /// Test seam: what the What step's "A prediction or investment" opens,
-  /// with the person picked. Null opens the market search in send mode;
-  /// the answer is whether a link was created.
-  @visibleForTesting
-  static Future<bool?> Function(BuildContext context,
-      {String? senderLabel, String? recipientPhone})? debugPickOpener;
 
   @override
   _ConfirmSendState createState() => _ConfirmSendState();
@@ -7558,8 +7545,8 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   }
 
   /// A Contacts entry tapped: a recent (an address) is paid directly,
-  /// filled and on to the amount; a phone contact is a person, asked What
-  /// first ([_sendToPerson]).
+  /// filled and on to the amount; a phone contact is a person, sent bitcoin
+  /// ([_sendToPerson]).
   void _onPerson(SendPerson person) {
     final contact = person.contact;
     if (contact != null) {
@@ -7572,41 +7559,27 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   }
 
   /// A person (a phone contact, or a typed number no contact has: "Send a
-  /// link to +351…"), asked What (send_what_step.dart: this Send's
-  /// Bitcoin, or a gift): Bitcoin to someone on Kute is paid at their Kute
-  /// address, here; to anyone else it is the claim link in bitcoin; a
-  /// prediction or investment opens the search in send mode with them. A
+  /// link to +351…") is sent bitcoin, straight on (founder, 8 November 2026:
+  /// "just assume that it is bitcoin, so this picker is not necessary"; the
+  /// Dollars Send asks What, send_what_step.dart): someone on Kute is paid at
+  /// their Kute address, here; anyone else by the claim link in bitcoin. A
   /// link created closes the send: the money is on the link now.
   Future<void> _sendToPerson({SendContact? contact, String? phone}) async {
     trackSendRecipientPicked(contact != null ? 'contact' : 'phone');
-    final label = contact?.firstName;
-    final number = contact?.phone ?? phone;
-    final created = await sendToPerson(
+    final kute = contact?.lightningAddress?.trim() ?? '';
+    if (kute.isNotEmpty) {
+      _commitPastedAddress(kute, method: 'contacts');
+      return;
+    }
+    final created = await showSendToAnyoneSheet(
       context,
-      contact: contact,
-      phone: phone,
-      home: SendFrom.bitcoin,
-      openLink: (kind) => showSendToAnyoneSheet(
-        context,
-        kind: kind,
-        senderLabel: label,
-        recipientPhone: number,
-        entrySource:
-            contact != null ? 'bitcoin_send_contact' : 'bitcoin_send_phone',
-      ),
-      openGift: () {
-        final open = ConfirmSend.debugPickOpener;
-        return open != null
-            ? open(context, senderLabel: label, recipientPhone: number)
-            : showSendPickMarketSheet(context,
-                entrySource: kBitcoinSendPickSource,
-                senderLabel: label,
-                recipientPhone: number);
-      },
-      payDirect: (address) =>
-          _commitPastedAddress(address, method: 'contacts'),
+      kind: ShareLinkKind.bitcoin,
+      senderLabel: contact?.firstName,
+      recipientPhone: contact?.phone ?? phone,
+      entrySource:
+          contact != null ? 'bitcoin_send_contact' : 'bitcoin_send_phone',
     );
-    if (created && mounted) _closeAndReset();
+    if (created == true && mounted) _closeAndReset();
   }
 
   /// The cross-chain working states of the Send to step, under the field
@@ -7983,8 +7956,8 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
               onPerson: _onPerson,
             ),
           // No chips and no "Send to anyone" card (founder, 5 and 7
-          // November 2026): a contact or a typed number is a person, asked
-          // What (send_what_step.dart).
+          // November 2026): a contact or a typed number is a person, sent
+          // bitcoin straight on ([_sendToPerson]).
         ],
           ),
         ),

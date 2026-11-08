@@ -3285,12 +3285,6 @@ class AppLocalizationsDa extends AppLocalizations {
       'Signer transaktionen på din enhed.';
 
   @override
-  String sendAmountUnitAvailableWithFiat(
-      String amount, String unit, String fiat) {
-    return '$amount $unit tilgængelig · $fiat';
-  }
-
-  @override
   String get sendCalculatingEllipsis => 'Beregner…';
 
   @override

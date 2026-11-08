@@ -3291,12 +3291,6 @@ class AppLocalizationsHr extends AppLocalizations {
       'Potpiši transakciju na uređaju.';
 
   @override
-  String sendAmountUnitAvailableWithFiat(
-      String amount, String unit, String fiat) {
-    return 'Dostupno $amount $unit · $fiat';
-  }
-
-  @override
   String get sendCalculatingEllipsis => 'Izračun…';
 
   @override

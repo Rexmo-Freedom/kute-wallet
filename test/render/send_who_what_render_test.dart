@@ -3,10 +3,10 @@
 // also"; then "another crypto should be implied not a button"): the Who
 // step empty, the contacts right under the field; the Who step with a 0x
 // address typed (the network question under the field) and after one is
-// pasted, the network asked in the "Where to?" sheet filtered to it; the What step over a contact (Bitcoin and the
-// gift as two squares, the gift wearing Sal, the bar its Back); and the
-// Dollars Send's Who step and What step (Dollars and the gift), also in
-// German, Finnish, Hungarian and Portuguese. Then THE FIRST STEPS' HEADER
+// pasted, the network asked in the "Where to?" sheet filtered to it; and the
+// Dollars Send's Who step and What step (Dollars and the gift as two squares,
+// the gift wearing Sal, the bar its Back), also in German, Finnish, Hungarian
+// and Portuguese. Then THE FIRST STEPS' HEADER
 // (founder, 7 November 2026: "it is strange the size"): the Bitcoin Send,
 // the Dollars Send and both Receives open on the same header ("Send" or
 // "Receive" big on the left, the compact X at the top right), and the
@@ -17,10 +17,12 @@
 // dollars"): both Sends at 320 and 375 pt wide, in a long language, with the
 // swap open and with it region-blocked, the coins under the empty field only
 // what is really open. Then THE GIFT IS ALWAYS THERE (founder, 8 November
-// 2026: "we need to have it as an option always"): both Sends' What step with
-// nothing held and no venue cash at 320 and 375 pt, the same under a region
-// block with its tap's sheet; and THE ADDRESS STEP ("here is just Address
-// also"): the Dollars Send's with the coin chosen, and the Bitcoin Send's
+// 2026: "we need to have it as an option always"): the Dollars Send's What
+// step with nothing held and no venue cash at 320 and 375 pt, the same under a
+// region block with its tap's sheet; the Bitcoin Send with the same two: a
+// person goes straight on to the bitcoin link, no What (founder, 8 November
+// 2026: "this picker is not necessary"); and THE ADDRESS STEP ("here is just
+// Address also"): the Dollars Send's with the coin chosen, and the Bitcoin Send's
 // with a coin chosen and the field cleared. Every frame lays out without an
 // overflow; the PNGs are written only when asked:
 //
@@ -73,6 +75,9 @@ import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/screens/shared/coin_asset_grid.dart' show CoinAssetTile;
 import 'package:kute/screens/shared/send/send_recipient_step.dart'
     show SendRecipientSearchField;
+import 'package:kute/models/share_link_model.dart' show ShareLinkKind;
+import 'package:kute/screens/share/send_to_anyone_sheet.dart'
+    show SendToAnyoneSheet;
 import 'package:kute/screens/shared/send/send_what_step.dart'
     show SendWhatSheet, kSendWhatGiftKey, kSendWhatMoneyKey;
 import 'package:kute/providers/spark_address_provider.dart'
@@ -153,7 +158,7 @@ OrchestraRoutesCatalog _catalog() => OrchestraRoutesCatalog.fromJson(
       fetchedAt: DateTime(2026, 11, 7),
     );
 
-/// The spending wallet's bitcoin, for the What step's Bitcoin card.
+/// The spending wallet's bitcoin.
 class _Balances extends WalletBalanceCacheNotifier {
   _Balances() {
     state = {
@@ -590,18 +595,33 @@ void main() {
     }
 
     // THE GIFT IS ALWAYS THERE (see the file header): nothing held, no venue
-    // cash, both Sends, two squares.
-    Future<void> toWhat(WidgetTester tester) async {
+    // cash, the Dollars Send, two squares; the Bitcoin Send goes straight on.
+    Future<void> tapMaria(WidgetTester tester) async {
       final person = find.byKey(const ValueKey('send-person-contact:c2'),
           skipOffstage: false);
       await tester.ensureVisible(person);
       await _settle(tester);
       await tester.tap(person);
       await _settle(tester);
+    }
+
+    Future<void> toWhat(WidgetTester tester) async {
+      await tapMaria(tester);
       expect(find.byType(SendWhatSheet), findsOneWidget);
       expect(find.byKey(kSendWhatGiftKey), findsOneWidget);
       expect(tester.getSize(find.byKey(kSendWhatGiftKey)),
           tester.getSize(find.byKey(kSendWhatMoneyKey)));
+    }
+
+    Future<void> toBitcoinLink(WidgetTester tester) async {
+      await tapMaria(tester);
+      expect(find.byType(SendWhatSheet), findsNothing);
+      expect(find.byKey(kSendWhatGiftKey), findsNothing);
+      expect(
+          tester
+              .widget<SendToAnyoneSheet>(find.byType(SendToAnyoneSheet))
+              .kind,
+          ShareLinkKind.bitcoin);
     }
 
     const closed = {'polymarket.browse', 'hyperliquid.browse'};
@@ -622,10 +642,10 @@ void main() {
       final at = width.toInt();
       final size = Size(width, height);
 
-      testWidgets('render: what-nothing-bitcoin-$at-$theme', (tester) async {
+      testWidgets('render: person-nothing-bitcoin-$at-$theme', (tester) async {
         await pumpSend(tester, dark: dark, size: size, nothingHeld: true);
-        await toWhat(tester);
-        await _capture(tester, 'what-nothing-bitcoin-$at-$theme');
+        await toBitcoinLink(tester);
+        await _capture(tester, 'person-nothing-bitcoin-$at-$theme');
       });
 
       testWidgets('render: what-nothing-dollars-$at-$theme', (tester) async {
@@ -634,7 +654,7 @@ void main() {
         await _capture(tester, 'what-nothing-dollars-$at-$theme');
       });
 
-      testWidgets('render: what-region-bitcoin-$at-$theme', (tester) async {
+      testWidgets('render: person-region-bitcoin-$at-$theme', (tester) async {
         await pumpSend(tester,
             dark: dark,
             size: size,
@@ -642,16 +662,8 @@ void main() {
             blocked: closed,
             reasons: closedWhy,
             decorations: closedRegions);
-        await toWhat(tester);
-        await _capture(tester, 'what-region-bitcoin-$at-$theme');
-        await tester.runAsync(() async {
-          await tester.tap(find.byKey(kSendWhatGiftKey));
-          await Future<void>.delayed(const Duration(milliseconds: 100));
-        });
-        await _settle(tester);
-        expect(find.text('Not available in the places Polymarket restricts'),
-            findsOneWidget);
-        await _capture(tester, 'what-region-bitcoin-tapped-$at-$theme');
+        await toBitcoinLink(tester);
+        await _capture(tester, 'person-region-bitcoin-$at-$theme');
       });
 
       testWidgets('render: what-region-dollars-$at-$theme', (tester) async {
@@ -664,6 +676,14 @@ void main() {
             decorations: closedRegions);
         await toWhat(tester);
         await _capture(tester, 'what-region-dollars-$at-$theme');
+        await tester.runAsync(() async {
+          await tester.tap(find.byKey(kSendWhatGiftKey));
+          await Future<void>.delayed(const Duration(milliseconds: 100));
+        });
+        await _settle(tester);
+        expect(find.text('Not available in the places Polymarket restricts'),
+            findsOneWidget);
+        await _capture(tester, 'what-region-dollars-tapped-$at-$theme');
       });
 
       // THE ADDRESS STEP (see the file header).
@@ -906,18 +926,6 @@ void main() {
       expect(tester.getRect(header).bottom - tester.getRect(sheet).top,
           moreOrLessEquals(field - (4 * 812 / 932 + 1), epsilon: 0.5));
       await _capture(tester, 'send-amount-header-$theme');
-    });
-
-    testWidgets('render: send-what-$theme', (tester) async {
-      await pumpSend(tester, dark: dark);
-      final maria =
-          find.byKey(const ValueKey('send-person-contact:c2'), skipOffstage: false);
-      await tester.ensureVisible(maria);
-      await _settle(tester);
-      await tester.tap(maria);
-      await _settle(tester);
-      expect(find.byType(SendWhatSheet), findsOneWidget);
-      await _capture(tester, 'send-what-$theme');
     });
   }
 }

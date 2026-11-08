@@ -3290,12 +3290,6 @@ class AppLocalizationsHu extends AppLocalizations {
       'Írd alá a tranzakciót az eszközödön.';
 
   @override
-  String sendAmountUnitAvailableWithFiat(
-      String amount, String unit, String fiat) {
-    return '$amount $unit elérhető · $fiat';
-  }
-
-  @override
   String get sendCalculatingEllipsis => 'Számítás…';
 
   @override
