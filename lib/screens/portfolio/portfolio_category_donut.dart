@@ -509,7 +509,7 @@ class _PortfolioCategoryCardState extends ConsumerState<PortfolioCategoryCard> {
     final colors = chartSliceColors(c, slices);
     Color colorOf(CategorySlice s) => colors[s.key] ?? c.chartOther;
     String label(CategorySlice s) => _labelOf(l10n, s.key);
-    String money(double v) => visible ? formatPolyAmount(ref, v) : '••••••';
+    String money(double v) => visible ? formatDollars(v) : '••••••';
     String share(CategorySlice s) => !visible
         ? '••%'
         : s.percent == 0

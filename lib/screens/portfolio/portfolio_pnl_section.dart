@@ -165,7 +165,7 @@ class PortfolioPnlBreakdown extends ConsumerWidget {
   }
 }
 
-/// A P&L as the tab writes it: signed money in the currency on screen;
+/// A P&L as the tab writes it: signed dollars;
 /// dots with balances hidden.
 String _signed(WidgetRef ref, double usd, {required bool visible}) {
   if (!visible) return '••••••';
@@ -175,7 +175,7 @@ String _signed(WidgetRef ref, double usd, {required bool visible}) {
       : v < 0
           ? '−'
           : '';
-  return '$sign${formatPolyAmount(ref, v.abs())}';
+  return '$sign${formatDollars(v.abs())}';
 }
 
 /// [usd]'s colour: green up, red down, the text colour flat or hidden.
@@ -200,7 +200,7 @@ class _PnlHeadline extends ConsumerWidget {
     final ready = period.ready;
     final change = ready ? period.change : 0.0;
     final flat = change.abs() < kBalancesCentUsd;
-    final money = formatPolyAmount(ref, change.abs());
+    final money = formatDollars(change.abs());
     final text = !ready
         ? '—'
         : !visible

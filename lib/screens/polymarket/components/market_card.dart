@@ -329,11 +329,11 @@ class MarketCard extends ConsumerWidget {
 
   String _formatVolume(WidgetRef ref, double v) {
     if (v >= 1000000) {
-      return '${formatPolyAmount(ref, v / 1000000, decimalDigits: 1)}M';
+      return '${formatDollars(v / 1000000, decimalDigits: 1)}M';
     } else if (v >= 1000) {
-      return '${formatPolyAmount(ref, v / 1000, decimalDigits: 1)}K';
+      return '${formatDollars(v / 1000, decimalDigits: 1)}K';
     }
-    return formatPolyAmount(ref, v, decimalDigits: 0);
+    return formatDollars(v, decimalDigits: 0);
   }
 
   String _formatEndDate(DateTime date, {bool year = true}) {

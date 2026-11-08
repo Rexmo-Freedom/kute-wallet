@@ -9,13 +9,18 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:money2/money2.dart';
 import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/models/currency_conversions.dart';
+import 'package:kute/models/settings_model.dart';
+import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/polymarket_cost_basis_provider.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/screens/polymarket/components/sell_sheet.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart';
+import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
+import '../../helpers/euro_settings.dart';
+import '../../helpers/runtime_policy_fixture.dart';
 import '../../helpers/shell_bar_harness.dart';
 
 class _FakeTrading extends PolymarketTradingNotifier {
@@ -61,7 +66,8 @@ PolymarketPosition _position({double size = 18.6}) => PolymarketPosition(
       tokenId: 'yes',
     );
 
-Future<void> _pump(WidgetTester tester, PolymarketPosition position) async {
+Future<void> _pump(WidgetTester tester, PolymarketPosition position,
+    {String? currency}) async {
   tester.view.physicalSize = const Size(430, 932) * 3;
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.reset);
@@ -72,6 +78,18 @@ Future<void> _pump(WidgetTester tester, PolymarketPosition position) async {
       polymarketTradingProvider.overrideWith(_FakeTrading.new),
       polymarketCostBasisProvider.overrideWith((ref) => _NoCostBasis()),
       currencyProvider.overrideWith((_) => _Currency()),
+      if (currency != null) ...[
+        euroRateOverride(),
+        settingsProvider.overrideWith((_) => SettingsModel(Settings(
+            currency: currency,
+            language: 'en',
+            btcFormat: 'sats',
+            backup: false,
+            biometricsEnabled: false,
+            bitcoinElectrumNode: '',
+            nodeType: '',
+            reviewDone: true))),
+      ],
     ],
     child: shellBarApp(
       theme: ThemeData(
@@ -128,6 +146,47 @@ void main() {
     expect(_typed(tester), '2.79');
     expect(tester.takeException(), isNull);
     await _close(tester);
+  });
+
+  testWidgets(
+      'euros in Settings: Max and a typed amount are dollars, the shares '
+      'offered are the dollars over the price, no rate', (tester) async {
+    final policy = runtimePolicyFixture();
+    RuntimeCapabilitiesService.debugInstance = policy;
+    addTearDown(() => RuntimeCapabilitiesService.debugInstance = null);
+    expect(await policy.refresh(), isTrue);
+    await _pump(tester, _position(), currency: 'EUR');
+    final hero = find.byType(BigAmountDisplay);
+    expect(tester.widget<BigAmountDisplay>(hero).prefix, r'$');
+    await tester.tap(find.bySemanticsLabel('Use maximum'));
+    await tester.pump();
+    // 18.6 shares at 15c, as with dollars in Settings.
+    expect(_typed(tester), '2.79');
+    await pumpBar(tester);
+    expect(barPrimaryLabel(tester), 'Sell · \$2.79');
+
+    final pad = find.byType(AmountKeypad);
+    final backspace = find.descendant(
+        of: pad, matching: find.byIcon(Icons.backspace_rounded));
+    for (var i = 0; i < 4; i++) {
+      await tester.tap(backspace);
+      await tester.pump();
+    }
+    await tester.tap(find.descendant(of: pad, matching: find.text('2')));
+    await tester.pump();
+    expect(_typed(tester), '2');
+    await pumpBar(tester);
+    expect(barPrimaryLabel(tester), 'Sell · \$2.00');
+    expect(find.textContaining('€'), findsNothing);
+    // The order's size, on Advanced: $2 at 15c is 13.33 shares (2 / 0.92
+    // would be 14.49).
+    await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('13.33 shares'), findsOneWidget);
+    expect(find.textContaining('€'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await _close(tester);
+    policy.dispose();
   });
 
   testWidgets('nothing to sell, no Max', (tester) async {

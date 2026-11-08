@@ -16,6 +16,8 @@ import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
+import '../../helpers/euro_settings.dart';
+
 /// The P&L chart leading the Portfolio ("P&L charts") on the modern line
 /// chart: the range row 16 px under the plot (1M to start, remembered for
 /// the session), the closing P&L per bucket ending on the P&L now as one
@@ -132,8 +134,8 @@ void main() {
   });
 
   group('on screen', () {
-    Settings settings({int privacy = 0}) => Settings(
-        currency: 'USD',
+    Settings settings({int privacy = 0, String currency = 'USD'}) => Settings(
+        currency: currency,
         language: 'en',
         btcFormat: 'sats',
         backup: false,
@@ -172,6 +174,7 @@ void main() {
         String? eventVenue,
         double textScale = 1,
         Size size = const Size(390, 844),
+        String currency = 'USD',
         ProviderContainer? container}) async {
       tester.view.physicalSize = size;
       tester.view.devicePixelRatio = 1;
@@ -181,8 +184,9 @@ void main() {
       await tester.pumpWidget(container != null
           ? UncontrolledProviderScope(container: container, child: child)
           : ProviderScope(overrides: [
-              settingsProvider.overrideWith(
-                  (_) => SettingsModel(settings(privacy: privacy))),
+              if (currency == 'EUR') euroRateOverride(),
+              settingsProvider.overrideWith((_) =>
+                  SettingsModel(settings(privacy: privacy, currency: currency))),
             ], child: child));
       // Past the draw-in.
       await tester.pump(const Duration(milliseconds: 700));
@@ -227,6 +231,15 @@ void main() {
       await tester.pump(const Duration(milliseconds: 150));
       return touch;
     }
+
+    testWidgets('euros in Settings: the P&L reads the same dollars, no euro',
+        (tester) async {
+      await pump(tester, upMonth(), currency: 'EUR');
+      expect(headline(tester), '+\$12.40');
+      expect(chart(tester).values, monthValues(upMonth()));
+      expectNoEuroOnScreen(tester);
+      await settle(tester);
+    });
 
     testWidgets(
         'the range row: 1W to ALL 16 px under the plot, 1M to start, a '

@@ -36,11 +36,9 @@ import 'package:kute/screens/shared/kute_motion.dart';
 // and margin mode + leverage are applied inside those methods (isCross +
 // _ensureLeverage) so the write is atomic with the order.
 //
-// Denomination: the user's money (margin input companion, notional preview
-// and CTA amount) honours the app's Assets/Predictions denomination via
-// formatPolyAmount — a sats/BTC (or non-USD fiat) companion line,
-// mirroring the bet slip. Entry stays in USD; the asset PRICE (limit /
-// trigger / mid) always stays in USD — it's the market price, not the stake.
+// Denomination: this slip is Dollars money, so the entry, the notional preview
+// and the CTA amount are all dollars, whatever the Settings currency
+// (formatDollars), and so is the asset PRICE (limit / trigger / mid).
 //
 // Risk UX carried over: spread ≥1% warning banner, ≥3% extra confirm; a mid
 // that hasn't ticked for >10 s disables confirm ("refreshing price…"); the
@@ -4244,7 +4242,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     if (_completed || !mounted) return;
     _completed = true;
     _fillSub?.cancel();
-    final amount = formatPolyAmount(ref, _marginUsd);
+    final amount = formatDollars(_marginUsd);
     final nav = Navigator.of(context, rootNavigator: true);
     // The rebuild flips the band to its success snap; the sheet closes
     // once the snap has been seen (RubberBand.settle returns at once under
@@ -4358,8 +4356,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     // Validation copy: white on the tinted fill (red on red is unreadable).
     final errorColor = tinted ? c.error : redColor;
     final mid = _referenceMid(ref);
-    // Amount companions follow live denomination changes on either surface.
-    ref.watch(settingsProvider);
 
     // Balances. A Ledger ticket reads the wallet-scoped account and never
     // the hot providers; everything downstream is the same ticket.
@@ -6256,8 +6252,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       return BigAmountDisplay(
         prefix: r'$',
         amountText: _amountController.text,
-        conversionLabel:
-            _marginUsd > 0 ? _denomLine(_denomEquivalent(_marginUsd)) : null,
         // At the right of the minimum's row.
         trailingCaption: compactAvailLabel,
         minimumOnOwnLine: true,
@@ -6289,7 +6283,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     }
     // Advanced: the same field treatment as every other number on that
     // page, so one pinned keypad serves all of them.
-    final denom = _marginUsd > 0 ? _denomEquivalent(_marginUsd) : null;
     return _numField(
       c,
       _NumField.size,
@@ -6303,46 +6296,14 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           availLabel,
           style: TextStyle(fontSize: 14.sp, color: c.textSecondary),
         ),
-        // Denominated companion — the entered stake in the user's
-        // chosen unit (sats/BTC or non-USD fiat). USD stays the entry
-        // unit; this mirrors the bet slip's secondary line.
-        if (denom != null)
-          Padding(
-            padding: EdgeInsets.only(top: 8.h, left: 2.w),
-            child: Text(
-              denom,
-              style: TextStyle(
-                fontSize: 13.sp,
-                fontWeight: FontWeight.w600,
-                color: c.textTertiary,
-              ),
-            ),
-          ),
       ],
     );
   }
-
-  /// '…' wrapper for the denominated companion, or null when the display
-  /// unit is plain USD (nothing to echo).
-  String? _denomLine(String? denom) => denom;
 
   String _amountLabel() {
     if (isSpot) return _strings.amount;
     if (_isScale || _isTwap) return _strings.slipTotalMargin;
     return _strings.amount;
-  }
-
-  /// The user's money rendered in their chosen Assets/Predictions
-  /// denomination (sats/BTC in Bitcoin mode, or a non-USD fiat), or null
-  /// when the display unit is plain USD (so we don't echo `$10 $10`).
-  /// USD stays the entry/primary unit everywhere — this only feeds the
-  /// secondary companion lines that mirror the bet slip.
-  String? _denomEquivalent(double usd) {
-    final settings = ref.watch(settingsProvider);
-    if (true && settings.currency == 'USD') {
-      return null;
-    }
-    return formatPolyAmount(ref, usd);
   }
 
   /// Long or Short in one row, mirroring the prediction slip's Yes/No.
@@ -6867,12 +6828,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       rows.add(_previewRow(c, label, value, sub: sub));
     }
 
-    // Notional in USD, with the denominated equivalent (sats/BTC or
-    // non-USD fiat) as a companion so the exposure reads in the user's unit.
-    if (!isSpot) {
-      final denomN = _denomEquivalent(notional);
-      add(_strings.slipNotional, formatHlUsd(notional), sub: denomN);
-    }
+    if (!isSpot) add(_strings.slipNotional, formatHlUsd(notional));
     add(_strings.ledgerSummarySize, '${formatHlSize(size)} ${market.coin}');
 
     // Price context per order type.
@@ -7015,7 +6971,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   /// the plain order label (no position, or nothing typed yet).
   String? _positionCtaLabel(HlPositionPlan plan, {double? amountUsd}) {
     if (plan.position == null) return null;
-    final amount = formatPolyAmount(ref, amountUsd ?? _marginUsd);
+    final amount = formatDollars(amountUsd ?? _marginUsd);
     final l = _strings;
     switch (plan.effect) {
       case HlPositionEffect.open:
@@ -7065,9 +7021,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           : _ctaLabel(empty: true);
 
   String _ctaLabel({double? amountUsd, bool empty = false}) {
-    // Stake in the user's chosen denomination (sats/BTC or fiat) — the asset
-    // PRICE stays USD, but the CTA is the user's money.
-    final amount = formatPolyAmount(ref, amountUsd ?? _marginUsd);
+    // The stake, in dollars like the asset PRICE.
+    final amount = formatDollars(amountUsd ?? _marginUsd);
     final side = _sideWord();
     final l = _strings;
     // The button is the deed, short (founder): "Short $12.00", "Buy

@@ -127,15 +127,15 @@ String _formatPctShort(double price) => formatPolyChance(price);
 
 String _formatVolume(WidgetRef ref, double value) {
   if (value >= 1e9) {
-    return '${formatPolyAmount(ref, value / 1e9, decimalDigits: 1)}B';
+    return '${formatDollars(value / 1e9, decimalDigits: 1)}B';
   }
   if (value >= 1e6) {
-    return '${formatPolyAmount(ref, value / 1e6, decimalDigits: 1)}M';
+    return '${formatDollars(value / 1e6, decimalDigits: 1)}M';
   }
   if (value >= 1e3) {
-    return '${formatPolyAmount(ref, value / 1e3, decimalDigits: 1)}K';
+    return '${formatDollars(value / 1e3, decimalDigits: 1)}K';
   }
-  return formatPolyAmount(ref, value, decimalDigits: 0);
+  return formatDollars(value, decimalDigits: 0);
 }
 
 String _formatEndsIn(BuildContext context, DateTime? end) {

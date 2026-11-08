@@ -1,5 +1,9 @@
 // lib/screens/portfolio/components/portfolio_pnl_chart.dart
 //
+// Dollars money: every figure here reads in dollars, whatever the Settings
+// currency; only Bitcoin's conversion follows Settings
+// (polymarket_amount_formatter.dart).
+//
 // The profit and loss section of P&L Charts: on the spending account one
 // chart for Investing and Predictions together (their series added,
 // [PortfolioPerformance.combine]) or one venue's when its row is picked
@@ -313,7 +317,7 @@ class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
     final range = ref.watch(pnlChartRangeProvider);
     final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
     String money(double value) =>
-        !visible ? '••••••' : formatPolyAmount(ref, value.abs());
+        !visible ? '••••••' : formatDollars(value.abs());
     String signed(double value) =>
         !visible ? '••••••' : '${kuteChangeSign(value)}${money(value)}';
 
@@ -580,7 +584,7 @@ List<PnlStat> pnlStats(
   final l10n = context.l10n;
   final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
   String signed(double v) => visible
-      ? '${kuteChangeSign(v)}${formatPolyAmount(ref, v.abs())}'
+      ? '${kuteChangeSign(v)}${formatDollars(v.abs())}'
       : '••••••';
   Color colorOf(double v) => visible ? pnlResultColor(c, v) : c.textPrimary;
   return [
@@ -718,7 +722,7 @@ class PnlVenueRow extends ConsumerWidget {
     final pnl = pnlUsd;
     final quietText = quiet;
     String money(double v) =>
-        visible ? formatPolyAmount(ref, v.abs()) : '••••••';
+        visible ? formatDollars(v.abs()) : '••••••';
 
     Widget? end;
     if (quietText == null && periodFigure) {

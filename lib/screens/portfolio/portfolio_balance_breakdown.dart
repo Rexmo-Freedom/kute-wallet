@@ -552,7 +552,7 @@ class _PortfolioBalanceBreakdownState
           }))
         : 0.0;
     String amount(double usd) =>
-        visible ? formatPolyFiatForced(ref, usd) : '••••••';
+        visible ? formatDollars(usd) : '••••••';
     final now = DateTime.now();
 
     final dollars = balance.dollarsUsd;

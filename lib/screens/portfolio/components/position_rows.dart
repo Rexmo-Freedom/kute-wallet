@@ -1,5 +1,9 @@
 // lib/screens/portfolio/components/position_rows.dart
 //
+// Dollars money: every figure here reads in dollars, whatever the Settings
+// currency; only Bitcoin's conversion follows Settings
+// (polymarket_amount_formatter.dart).
+//
 // The Portfolio's open positions as plain list rows (founder request,
 // October 2026: "those cards are not fintech like"; layout "option B"),
 // the way a brokerage app lists holdings, with no card, border or fill:
@@ -1722,7 +1726,7 @@ class PolyPositionRow extends ConsumerWidget {
         PolymarketEvent.logoForText(teams, p.marketQuestion) ??
         p.marketImage;
 
-    String money(double usd) => formatPolyAmount(ref, usd);
+    String money(double usd) => formatDollars(usd);
     return LiveTokenScope(
       tokens: [if (!p.isResolved && p.tokenId != null) p.tokenId!],
       keepAlive: true,
@@ -1827,7 +1831,7 @@ class PlacingBetRow extends ConsumerWidget {
       subtitle: polyPositionRowLine(names, p.outcomeName, status: step),
       chip: polyPositionRowChip(names, p.outcomeName),
       note: polyPositionRowNote(names, status: step),
-      value: formatPolyAmount(ref, p.amount),
+      value: formatDollars(p.amount),
     );
   }
 }
@@ -1871,7 +1875,7 @@ class HlPositionRow extends ConsumerWidget {
     final roe = margin > 0 ? pnl / margin : p.returnOnEquity;
     final descriptor = ref.watch(hyperliquidAccountMarketProvider(p.coin));
     final coin = descriptor?.coin ?? p.coin;
-    String money(double usd) => formatPolyAmount(ref, usd);
+    String money(double usd) => formatDollars(usd);
     return PortfolioPositionRow(
       leading: _hlImage(
           coin: coin,
@@ -1919,7 +1923,7 @@ class HlSpotRow extends ConsumerWidget {
         : null;
     final cost = balance.costBasis;
     final pnl = cost != null && value != null ? value - cost : null;
-    String money(double usd) => formatPolyAmount(ref, usd);
+    String money(double usd) => formatDollars(usd);
     return PortfolioPositionRow(
       leading: _hlImage(
           coin: balance.coin,
@@ -1980,7 +1984,7 @@ class PortfolioClosedRow extends ConsumerWidget {
     final value = !visible
         ? '••••••'
         : '${usd > 0 ? '+' : usd < 0 ? '−' : ''}'
-            '${formatPolyAmount(ref, usd.abs())}';
+            '${formatDollars(usd.abs())}';
     final color = !visible || usd == 0
         ? c.textPrimary
         : usd > 0

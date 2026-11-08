@@ -53,7 +53,6 @@ import 'package:kute/helpers/venue_intents.dart';
 import 'package:kute/l10n/l10n.dart';
 
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
-import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/providers/polymarket_cost_basis_provider.dart';
@@ -72,7 +71,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/services/polymarket_optimistic_activity_service.dart';
 import 'package:kute/services/venue_analytics.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -155,13 +153,10 @@ class SellSheet extends ConsumerStatefulWidget {
 }
 
 class _SellSheetState extends ConsumerState<SellSheet> {
-  // Unit-aware amount controller. Mirrors the bet slip's
-  // `_amountController` model: the user types in either their fiat
-  // (USD/EUR/GBP/…) or BTC (sats/BTC per `btcFormat`), we translate
-  // back to USDC via the live BTC rate and divide by `currentPrice`
-  // to derive how many shares to offer to the CLOB. `_sharesToSell`
-  // is the canonical sell quantity used downstream — only its
-  // *source* changes with the toggle.
+  // Amount controller. Mirrors the bet slip's `_amountController` model:
+  // the user types dollars, whatever the Settings currency, and we divide
+  // by `currentPrice` to derive how many shares to offer to the CLOB.
+  // `_sharesToSell` is the canonical sell quantity used downstream.
   late final TextEditingController _amountController;
   double _sharesToSell = 0;
   // Tracks the typed USDC value (proceeds the user wants from the
@@ -394,25 +389,6 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     }
   }
 
-  /// USDC → user's local fiat (USD identity, EUR/GBP/BRL/… via the
-  /// CoinGecko FX rate). Used to seed / re-render the input controller
-  /// in fiat mode and to back out the user's typed fiat → USDC.
-  double _usdcToFiat(double usdc) {
-    final settings = ref.read(settingsProvider);
-    if (settings.currency == 'USD') return usdc;
-    final rate =
-        ref.read(selectedCurrencyProviderFromUSD(settings.currency)).toDouble();
-    return rate > 0 ? usdc * rate : usdc;
-  }
-
-  double _fiatToUsdc(double fiat) {
-    final settings = ref.read(settingsProvider);
-    if (settings.currency == 'USD') return fiat;
-    final rate =
-        ref.read(selectedCurrencyProviderFromUSD(settings.currency)).toDouble();
-    return rate > 0 ? fiat / rate : fiat;
-  }
-
   /// Recompute `_sharesToSell` from the current `_amountUsdc` and
   /// the live `currentPrice`. Clamped to the position's share count
   /// so the user can't oversell.
@@ -429,9 +405,8 @@ class _SellSheetState extends ConsumerState<SellSheet> {
   }
 
   void _onAmountChanged() {
-    // Fiat tab — typed value is in user's local fiat.
-    final parsed = double.tryParse(_amountController.text) ?? 0.0;
-    final usdc = _fiatToUsdc(parsed);
+    // The typed value is dollars, whatever the Settings currency.
+    final usdc = double.tryParse(_amountController.text) ?? 0.0;
     _amountMethod = 'keypad';
     setState(() {
       // A new figure is a new attempt, so the last failure stops
@@ -1533,7 +1508,6 @@ class _SellSheetState extends ConsumerState<SellSheet> {
             limitPrice: _limitPrice,
             slippagePct: _slippagePct,
             amountText: _amountController.text,
-            fiatToUsdc: _fiatToUsdc,
             marketDefaultSlippagePct: _marketDefaultSlippage,
           ),
         ),
@@ -1683,10 +1657,10 @@ class _SellSheetState extends ConsumerState<SellSheet> {
           // this step, so the OS keyboard never opens over the ticket; the
           // pinned keypad below the form is the way in.
           BigAmountDisplay(
-            prefix: polyDisplayLabel(ref),
+            prefix: r'$',
             amountText: _amountController.text,
             availableLabel:
-                '${context.l10n.betCurrentValue} ${formatPolyAmount(ref, currentValue)}'
+                '${context.l10n.betCurrentValue} ${formatDollars(currentValue)}'
                 ' · ${context.l10n.betPercentChance(formatPolyChanceFigure(currentPrice))}',
             availableExceeded: _amountUsdc > currentValue,
             // One small Max chip beside the figure, as on the buy slips:
@@ -1729,15 +1703,15 @@ class _SellSheetState extends ConsumerState<SellSheet> {
               key: const ValueKey('poly-sell-proceeds'),
               label: context.l10n.youReceive,
               value: _sharesToSell > 0
-                  ? formatPolyAmount(ref, fee == null ? gross : proceeds)
-                  : slipZeroFigure(formatPolyAmount(ref, 0)),
+                  ? formatDollars(fee == null ? gross : proceeds)
+                  : slipZeroFigure(formatDollars(0)),
             ),
             right: SlipFigure(
               key: const ValueKey('poly-sell-pnl'),
               label: context.l10n.portfolioProfitLoss,
               value: pnl.abs() < 0.005
-                  ? slipZeroFigure(formatPolyAmount(ref, 0))
-                  : '${pnl < 0 ? '-' : '+'}${formatPolyAmount(ref, pnl.abs())}',
+                  ? slipZeroFigure(formatDollars(0))
+                  : '${pnl < 0 ? '-' : '+'}${formatDollars(pnl.abs())}',
               valueColor: pnlColor,
             ),
           ),
@@ -1874,7 +1848,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
                                       '${(_limitPrice * 100).toStringAsFixed(1)}¢')
                                   : context.l10n.betPlaceLimit)
                               : (canSell
-                                  ? '${context.l10n.sell} · ${formatPolyAmount(ref, _amountUsdc)}'
+                                  ? '${context.l10n.sell} · ${formatDollars(_amountUsdc)}'
                                   : context.l10n.sell),
                       disabledLabel: canSell ? null : context.l10n.barNeedAmount,
                     ),
@@ -1905,12 +1879,11 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     final usdc = shares * currentPrice;
     final String seed;
     {
-      final fiat = _usdcToFiat(usdc);
-      seed = fiat <= 0
+      seed = usdc <= 0
           ? ''
-          : (fiat == fiat.roundToDouble()
-              ? fiat.toStringAsFixed(0)
-              : fiat.toStringAsFixed(2));
+          : (usdc == usdc.roundToDouble()
+              ? usdc.toStringAsFixed(0)
+              : usdc.toStringAsFixed(2));
     }
     _amountController.text = seed;
     _amountController.selection = TextSelection.fromPosition(
@@ -2027,7 +2000,6 @@ class _SellAdvancedScreen extends ConsumerStatefulWidget {
     required this.limitPrice,
     required this.slippagePct,
     required this.amountText,
-    required this.fiatToUsdc,
     this.marketDefaultSlippagePct = kPolymarketDefaultSlippagePct,
   });
 
@@ -2041,12 +2013,8 @@ class _SellAdvancedScreen extends ConsumerStatefulWidget {
   /// Advanced choice.
   final double marketDefaultSlippagePct;
 
-  /// The figure as the sheet's keypad left it, in the user's currency.
+  /// The figure as the sheet's keypad left it, in dollars.
   final String amountText;
-
-  /// The sheet's own conversion, so the page reads the same rate rather
-  /// than growing a second copy of it.
-  final double Function(double) fiatToUsdc;
 
   static const slippageOptions = [1.0, 2.0, 5.0, 10.0];
 
@@ -2081,10 +2049,9 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
 
   void _onAmountChanged() => setState(() {});
 
-  /// The typed figure in USDC. The page types in the user's currency and
-  /// the order is sized in USDC, exactly as the sheet does.
-  double get _amountUsdc =>
-      widget.fiatToUsdc(double.tryParse(_amountController.text) ?? 0.0);
+  /// The typed figure: dollars, the unit the order is sized in, exactly as
+  /// the sheet reads it.
+  double get _amountUsdc => double.tryParse(_amountController.text) ?? 0.0;
 
   double get _positionValue => pos.size * widget.currentPrice;
 
@@ -2174,7 +2141,7 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              formatPolyAmount(ref, _positionValue),
+              formatDollars(_positionValue),
               style: TextStyle(
                 fontSize: 18.sp,
                 fontWeight: FontWeight.w700,
@@ -2185,7 +2152,7 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
             ),
             SizedBox(height: 3.h),
             Text(
-              '${livePnl >= 0 ? '+' : '-'}${formatPolyAmount(ref, livePnl.abs())}',
+              '${livePnl >= 0 ? '+' : '-'}${formatDollars(livePnl.abs())}',
               style: TextStyle(
                 color: livePnl >= 0 ? c.success : c.error,
                 fontSize: 13.sp,
@@ -2377,7 +2344,7 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
     final l10n = context.l10n;
     final orderPrice = _isLimitMode ? _limitPrice : widget.currentPrice;
     final sellingAll = _sharesToSell >= pos.size - 0.000001;
-    final amountStr = formatPolyAmount(ref, _amountUsdc);
+    final amountStr = formatDollars(_amountUsdc);
 
     return PopScope(
       // The page always answers with its edited values, including on a
@@ -2418,7 +2385,7 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
                         PolySlipSection(
                           title: l10n.amount,
                           trailing: Text(
-                            '${l10n.available} ${formatPolyAmount(ref, _positionValue)}',
+                            '${l10n.available} ${formatDollars(_positionValue)}',
                             textAlign: TextAlign.end,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -2428,7 +2395,7 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
                           children: [
                             PolySlipAmountField(
                               controller: _amountController,
-                              prefix: polyDisplayLabel(ref),
+                              prefix: r'$',
                               inputFormatters: const [
                                 DecimalInputFormatter(fractionDigits: 2)
                               ],
@@ -2483,7 +2450,7 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
                             SizedBox(height: 12.h),
                             PolySlipDetailRow(
                                 label: l10n.betPricePerShare,
-                                value: formatPolyAmount(ref, orderPrice)),
+                                value: formatDollars(orderPrice)),
                             if (_isLimitMode) ...[
                               SizedBox(height: 12.h),
                               PolySlipDetailRow(
@@ -2500,9 +2467,7 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
                                           .watch(
                                               polymarketFeeTermsProvider(token))
                                           .whenOrNull(
-                                              data: (fees) => formatPolyAmount(
-                                                  ref,
-                                                  fees.sellProceeds(
+                                              data: (fees) => formatDollars(fees.sellProceeds(
                                                       _sharesToSell,
                                                       orderPrice))) ??
                                       '—',

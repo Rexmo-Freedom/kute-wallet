@@ -304,7 +304,7 @@ class LedgerHlOrderRow extends ConsumerWidget {
         name: hlFriendlyName(coin) ?? market?.unitAssetName ?? coin,
         // Dollars first; the coin size waits on the cancel review's
         // Advanced rows.
-        caption: '$coin · ${order.isTrailingStop ? l10n.ledgerTrailingStopSubtitle(side, '${_trimNumber(order.sz)} $coin') : l10n.ledgerOrderSummary(side, formatPolyAmount(ref, order.sz * order.limitPx), formatHlPrice(order.limitPx, decimalCap: market?.pxDecimalCap))}',
+        caption: '$coin · ${order.isTrailingStop ? l10n.ledgerTrailingStopSubtitle(side, '${_trimNumber(order.sz)} $coin') : l10n.ledgerOrderSummary(side, formatDollars(order.sz * order.limitPx), formatHlPrice(order.limitPx, decimalCap: market?.pxDecimalCap))}',
         action: onCancel == null
             ? null
             : AppButton(

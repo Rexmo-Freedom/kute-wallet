@@ -47,10 +47,8 @@ import 'package:kute/screens/share/slip_share.dart';
 
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/helpers/formatters/polymarket_side_labels.dart';
-import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/providers/pending_polymarket_bet_provider.dart';
 import 'package:kute/providers/polymarket_bet_controller.dart';
-import 'package:intl/intl.dart' show NumberFormat;
 import 'package:kute/screens/home/home_feature_carousel.dart'
     show checkPolymarketGeoblock;
 import 'package:kute/screens/polymarket/components/price_format.dart';
@@ -964,7 +962,6 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       final carried =
           widget.initialAmountUsd != null && widget.initialAmountUsd! > 0;
       final amount = carried ? widget.initialAmountUsd! : 0.0;
-      final display = _usdcToFiat(amount);
       _draft = _BetSlipDraft(
         selectedIndex:
             widget.initialOutcomeIndex.clamp(0, widget.outcomes.length - 1),
@@ -972,9 +969,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         amount: amount,
         amountText: !carried
             ? ''
-            : display == display.roundToDouble()
-                ? display.toStringAsFixed(0)
-                : display.toStringAsFixed(2),
+            : amount == amount.roundToDouble()
+                ? amount.toStringAsFixed(0)
+                : amount.toStringAsFixed(2),
       )..amountMethod = carried ? 'prefill' : 'none';
       _amountController.addListener(_onAmountChanged);
     }
@@ -1575,12 +1572,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   }
 
   void _onAmountChanged() {
-    // Fiat entry → the typed value is in the user's local fiat
-    // (USD/EUR/GBP/…). Translate to USDC via the local helper which
-    // computes FX from `settings.currency` directly, ignoring
-    // `btcFormat`.
-    final parsed = double.tryParse(_amountController.text) ?? 0.0;
-    final usdc = _fiatToUsdc(parsed);
+    // The typed value is dollars, whatever the Settings currency: 10 is
+    // $10 of USDC, and that is the stake the order is built from.
+    final usdc = double.tryParse(_amountController.text) ?? 0.0;
     if (!_fillingAmount) {
       _draft.amountMethod = 'keypad';
       _spendAllBudgetUsd = null;
@@ -1779,50 +1773,6 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       }
     }
     return out;
-  }
-
-  /// Always renders a USD amount in the user's chosen `settings.currency`,
-  /// even when btcFormat is sats. Used for the sats-mode payout companion
-  /// line where the primary already shows sats and the secondary must be
-  /// the fiat equivalent (never another sats echo).
-  String _fiatCompanion(double usdAmount) {
-    final settings = ref.read(settingsProvider);
-    final currency = settings.currency;
-    if (currency == 'USD') {
-      return NumberFormat.simpleCurrency(name: 'USD', decimalDigits: 2)
-          .format(usdAmount);
-    }
-    final rate = ref.read(selectedCurrencyProviderFromUSD(currency)).toDouble();
-    if (rate <= 0) {
-      return NumberFormat.simpleCurrency(name: 'USD', decimalDigits: 2)
-          .format(usdAmount);
-    }
-    return NumberFormat.simpleCurrency(name: currency, decimalDigits: 2)
-        .format(usdAmount * rate);
-  }
-
-  /// USDC → user's local fiat. Always returns a value in the user's
-  /// `settings.currency` regardless of `btcFormat`. We can NOT use
-  /// `polyInputFromUsd` here because that helper routes by btcFormat
-  /// and would return sats when btcFormat=sats — wrong for every
-  /// fiat-mode callsite inside the bet slip (input seed, chip add,
-  /// toggle restore, `_onAmountChanged` parse-back).
-  double _usdcToFiat(double usdc) {
-    final settings = ref.read(settingsProvider);
-    if (settings.currency == 'USD') return usdc;
-    final rate =
-        ref.read(selectedCurrencyProviderFromUSD(settings.currency)).toDouble();
-    return rate > 0 ? usdc * rate : usdc;
-  }
-
-  /// Reverse of [_usdcToFiat]. Used when reading the controller text
-  /// (typed in fiat) and converting back to internal USDC.
-  double _fiatToUsdc(double fiat) {
-    final settings = ref.read(settingsProvider);
-    if (settings.currency == 'USD') return fiat;
-    final rate =
-        ref.read(selectedCurrencyProviderFromUSD(settings.currency)).toDouble();
-    return rate > 0 ? fiat / rate : fiat;
   }
 
   /// Switch between USDC and BTC entry. Carries the current `_amount` across
@@ -2441,7 +2391,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
             _tradeBlock == null,
         onTap: _fillMinimum,
         label: context.l10n
-            .amountMinimumInline(_fiatCompanion(_effectiveMinBetUsd)),
+            .amountMinimumInline(formatDollars(_effectiveMinBetUsd)),
       );
     }
     // Nothing typed yet: the button is the bet at the market's minimum,
@@ -2948,9 +2898,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     // A Max stake was re-fitted to the executable book; show the stake
     // that is about to be approved and placed.
     if (pending.spendAllBudgetUsd != null && pending.amount != _amount) {
-      final display = _usdcToFiat(pending.amount);
       _fillingAmount = true;
-      _amountController.text = display.toStringAsFixed(2);
+      _amountController.text = pending.amount.toStringAsFixed(2);
       _fillingAmount = false;
       _updateState(() => _amount = pending!.amount);
     }
@@ -4169,10 +4118,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   List<String> _fundingSteps(FundedOrderRecord record) => [
         if (record.fromBitcoin)
           context.l10n
-              .slipStepAddingToInvestments(_fiatCompanion(record.addUsd)),
+              .slipStepAddingToInvestments(formatDollars(record.addUsd)),
         context.l10n.slipStepPreparingPrediction,
         context.l10n.slipStepPlacingBet(
-            _fiatCompanion(record.label.orderUsd), record.label.side),
+            formatDollars(record.label.orderUsd), record.label.side),
       ];
 
   /// The funded bet for the market on this slip (this slip's, or one
@@ -4952,10 +4901,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       // used to put a whole sentence about connecting the device here,
       // which made the slip read as a different screen.
       available = buyingPower.hasError || spendable == null
-          ? '${context.l10n.available} ${_fiatCompanion(0)}'
+          ? '${context.l10n.available} ${formatDollars(0)}'
           : buyingPower.isLoading
               ? context.l10n.loadingAccount
-              : '${context.l10n.available} ${_fiatCompanion(spendable)}';
+              : '${context.l10n.available} ${formatDollars(spendable)}';
     } else {
       final trading = ref.watch(polymarketTradingProvider);
       final orders = ref.watch(polymarketOpenOrdersProvider);
@@ -4992,7 +4941,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           ? context.l10n.feeUiBalanceUnavailable
           : spendable == null
               ? context.l10n.betSlipBalanceUpdating
-              : context.l10n.betSlipAvailableAmount(_fiatCompanion(
+              : context.l10n.betSlipAvailableAmount(formatDollars(
                   slipAvailableUsd(
                       venueUsd: spendable,
                       otherSpendableUsd: otherSpendable,
@@ -5155,7 +5104,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       );
       final minBetWarning = _amount > 0 && _amount < _effectiveMinBetUsd
           ? Text(
-              context.l10n.betMinimumBetIs(_fiatCompanion(_effectiveMinBetUsd)),
+              context.l10n.betMinimumBetIs(formatDollars(_effectiveMinBetUsd)),
               style: TextStyle(fontSize: 14.sp, color: tc.textSecondary),
             )
           : null;
@@ -5175,7 +5124,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
               key: const ValueKey('bet-slip-funded-stop'),
               title: context.l10n.betCouldNotPlacePrediction,
               message:
-                  fundedStopLine(context.l10n, stoppedRecord, _fiatCompanion),
+                  fundedStopLine(context.l10n, stoppedRecord, formatDollars),
             )
           : placementFailed && !fundedStop
               ? PolySlipNotice(
@@ -5273,7 +5222,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                     children: [
                       PolySlipAmountField(
                         controller: _amountController,
-                        prefix: polyDisplayLabel(ref),
+                        prefix: r'$',
                         readOnly: _draft.ledgerBusy || _draft.ledgerPending,
                         inputFormatters: const [
                           DecimalInputFormatter(fractionDigits: 2)
@@ -5348,10 +5297,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                         ? SlipOrderFigure(
                             record: journey.record,
                             orderUsd: _amount,
-                            money: _fiatCompanion,
+                            money: formatDollars,
                             orderLine: context.l10n.betSlipPaysIfYouWin(
                                 _sideDisplayName(selected),
-                                _fiatCompanion(payout)),
+                                formatDollars(payout)),
                           )
                         : _buildAmountHero(
                             available,
@@ -5581,7 +5530,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       sideLabel: sideLabel,
       amountUsd: _emptyStake ? 0 : _amount,
       minUsd: _effectiveMinBetUsd,
-      minLabel: _fiatCompanion(_effectiveMinBetUsd),
+      minLabel: formatDollars(_effectiveMinBetUsd),
       blocked: _capabilityBlockMessage != null,
       marketChance: yesChance,
       imageUrl: widget.marketImage,
@@ -5626,16 +5575,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       bool advancedModified = false,
       bool belowMinimum = false,
       String? note}) {
-    final currency = ref.watch(settingsProvider.select((s) => s.currency));
-    // The figure is typed in the user's own currency while the order is
-    // sized in USDC, so a non-USD user gets the dollar equivalent.
-    final conversion = currency == 'USD' || _amount <= 0
-        ? null
-        : '≈ ${NumberFormat.simpleCurrency(name: 'USD', decimalDigits: 2).format(_amount)}';
     return BigAmountDisplay(
-      prefix: polyDisplayLabel(ref),
+      prefix: r'$',
       amountText: _amountController.text,
-      conversionLabel: conversion,
       // The whole wallet's balance at the right of the minimum's row.
       trailingCaption: available,
       minimumOnOwnLine: true,
@@ -5643,7 +5585,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       // comes back, red, while the stake is under it.
       minimumLabel: _emptyStake || belowMinimum
           ? context.l10n
-              .amountMinimumInline(_fiatCompanion(_effectiveMinBetUsd))
+              .amountMinimumInline(formatDollars(_effectiveMinBetUsd))
           : null,
       minimumIsError: belowMinimum,
       noteLabel: note,
@@ -5756,11 +5698,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// the event but leaves the haptic to the placement that follows.
   void _writeFilledAmount(double target, String method,
       {bool fromChip = true, bool haptic = true}) {
-    final display = _usdcToFiat(target);
     _fillingAmount = true;
-    _amountController.text = display == display.roundToDouble()
-        ? display.toStringAsFixed(0)
-        : display.toStringAsFixed(2);
+    _amountController.text = target == target.roundToDouble()
+        ? target.toStringAsFixed(0)
+        : target.toStringAsFixed(2);
     _fillingAmount = false;
     _draft.amountMethod = method;
     _updateState(() => _amount = target);
@@ -5783,7 +5724,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     return SlipFigure(
       key: const ValueKey('bet-slip-payout-tile'),
       label: context.l10n.betReceiptPayout,
-      value: typed ? _fiatCompanion(payout) : slipZeroFigure(_fiatCompanion(0)),
+      value: typed ? formatDollars(payout) : slipZeroFigure(formatDollars(0)),
     );
   }
 
@@ -5807,7 +5748,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       {Color? accentText}) {
     return PolySlipFigureRow(
       label: context.l10n.betReceiptPayout,
-      value: _fiatCompanion(payout),
+      value: formatDollars(payout),
       valueColor: accentText ?? _kPolyGreen,
     );
   }
@@ -5981,7 +5922,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           label: _isLimitMode
               ? context.l10n.betPricePerShare
               : context.l10n.ledgerBetWorstPrice,
-          value: _fiatCompanion(orderPrice)),
+          value: formatDollars(orderPrice)),
       if (_isLimitMode) ...[
         SizedBox(height: 12.h),
         PolySlipDetailRow(
@@ -6018,13 +5959,13 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           slow: progress.record.slow,
           failed: progress.failed,
           graph: progress.record.steps,
-          money: _fiatCompanion,
+          money: formatDollars,
           from: progress.record.fromBitcoin
               ? MoneyPlace.bitcoin
               : MoneyPlace.dollars,
           to: MoneyPlace.predictions,
           note: progress.failed
-              ? fundedStopLine(context.l10n, progress.record, _fiatCompanion)
+              ? fundedStopLine(context.l10n, progress.record, formatDollars)
               : null,
         ),
         record: progress.record,
@@ -6038,7 +5979,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           steps: [
             context.l10n.slipStepPreparingPrediction,
             context.l10n
-                .slipStepPlacingBet(_fiatCompanion(_amount), _outcomeSide),
+                .slipStepPlacingBet(formatDollars(_amount), _outcomeSide),
           ],
           active: 0,
           to: MoneyPlace.predictions,
@@ -6271,7 +6212,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
               enabled: false,
               onTap: () {},
               label: context.l10n
-                  .slipDepositIncoming(_fiatCompanion(funding.incomingUsd)),
+                  .slipDepositIncoming(formatDollars(funding.incomingUsd)),
             ),
             SlipIncomingDepositNote(
               onAddMore: funding.state == SlipFundingState.incomingShort &&
@@ -6370,7 +6311,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
             _tradeBlock == null,
         onTap: _fillMinimum,
         label: context.l10n
-            .amountMinimumInline(_fiatCompanion(_effectiveMinBetUsd)),
+            .amountMinimumInline(formatDollars(_effectiveMinBetUsd)),
       );
     }
     // Nothing typed yet: the button is the bet at the market's minimum,
@@ -6412,11 +6353,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   String _betCtaLabel(PolymarketOutcome selected, double amountUsd,
       {bool empty = false}) {
     if (empty) return context.l10n.betPlaceOnSide(_sideDisplayName(selected));
-    // When the input is in sats (BTC tab) show sats.
-    // Otherwise route through the localized fiat helper
-    // so a UK user sees `Predict YES · £8.05` instead
-    // of `$10.00`.
-    final amountStr = _fiatCompanion(amountUsd);
+    final amountStr = formatDollars(amountUsd);
     // Limit orders read as "Place limit · 39¢ · $X" so the
     // CTA is unmistakably a resting order, not a market buy.
     if (_isLimitMode) {
@@ -6505,14 +6442,14 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         label: context.l10n.predictions,
         value: spendable == null
             ? context.l10n.ledgerBalanceUnavailable
-            : _fiatCompanion(spendable.toDouble() / 1e6),
+            : formatDollars(spendable.toDouble() / 1e6),
       );
     }
     final usdc = ref.watch(polymarketTradingProvider
         .select((s) => s.valueOrNull?.usdcBalance ?? 0));
     return PolySlipDetailRow(
         label: context.l10n.betSlipFromPredictions,
-        value: _fiatCompanion(usdc));
+        value: formatDollars(usdc));
   }
 
   // ── Placement progress ─────────────────────────────────────────────────

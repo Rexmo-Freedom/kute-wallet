@@ -255,7 +255,7 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
     final roe = margin > 0 ? pnl / margin : pos.returnOnEquity;
     final positive = pnl >= 0;
     final accent = positive ? greenColor : redColor;
-    final pnlText = '${positive ? '+' : '−'}${formatPolyAmount(ref, pnl.abs())}';
+    final pnlText = '${positive ? '+' : '−'}${formatDollars(pnl.abs())}';
     // What the position is worth now: the margin plus the live profit or
     // loss, what closing gives back (the hero figure).
     final worth = hlCloseValue(pos, liveMid: liveMid);
@@ -436,7 +436,7 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                                 // The hero figure.
                                 key: const ValueKey('hl-position-price'),
                                 price: worth,
-                                text: formatPolyAmount(ref, worth),
+                                text: formatDollars(worth),
                                 style: TextStyle(
                                   color: c.textPrimary,
                                   fontSize: 38.sp,
@@ -581,7 +581,7 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                                   // Liquidation tile's sub-line style, so both
                                   // tiles keep one height.
                                   label: context.l10n.hlPositionYouPutIn,
-                                  value: Text(formatPolyAmount(ref, margin),
+                                  value: Text(formatDollars(margin),
                                       maxLines: 1,
                                       style: positionTileValueStyle(c)),
                                   caption: Text(
@@ -772,7 +772,7 @@ class _HlPositionDetailsSheet extends ConsumerWidget {
                     // size: what the leverage controls, not the user's
                     // money (the line under the rows says so).
                     PositionRow(l10n.chartPositionSize,
-                        '${formatPolyAmount(ref, markPx * pos.szi.abs())} · ${formatHlSize(pos.szi.abs())} ${market?.coin ?? pos.coin}'),
+                        '${formatDollars(markPx * pos.szi.abs())} · ${formatHlSize(pos.szi.abs())} ${market?.coin ?? pos.coin}'),
                     // "Entry" for both sides: a short's entry is not
                     // something it "sold", and a long's close is a sale.
                     PositionRow(l10n.hlChartEntry,
@@ -788,7 +788,7 @@ class _HlPositionDetailsSheet extends ConsumerWidget {
                         pos.fundingSinceOpen! >= 0
                             ? l10n.investingFundingPaid
                             : l10n.investingFundingReceived,
-                        formatPolyAmount(ref, pos.fundingSinceOpen!.abs()),
+                        formatDollars(pos.fundingSinceOpen!.abs()),
                       ),
                   ]),
                   // What the screen's two figures are, in one quiet line:

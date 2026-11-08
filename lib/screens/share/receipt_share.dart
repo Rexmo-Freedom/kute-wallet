@@ -20,7 +20,7 @@
 // THE BUILDERS ([moneyReceiptShare], [predictionReceiptShare],
 // [tradeReceiptShare]) take the receipt's own figures (sats, dollars, the
 // market's title and picture) and format them as the brag cards do: money
-// in the person's currency (bragMoney), bitcoin as the app writes it
+// in dollars (bragMoney), bitcoin as the app writes it
 // (conversionProvider), its value only once the price is known. Never an
 // address, a transaction id or an order id.
 //
@@ -139,8 +139,7 @@ String? receiptReferralCode() {
 
 /// A money receipt's card (sent, received, on its way, moved, bought,
 /// sold): [amount] as the receipt wrote it (a bank order's own currency),
-/// else [usd] in the person's currency when the receipt counts in
-/// dollars, else [sats]' value; [sats] as the bitcoin under it. [asset]
+/// else [usd] in dollars when the receipt counts in them, else [sats]' value; [sats] as the bitcoin under it. [asset]
 /// is the card's colour (where the money went, on a move); [from] and
 /// [to] a move's accounts, [what] what was bought or sold.
 ReceiptShare moneyReceiptShare({
@@ -157,7 +156,7 @@ ReceiptShare moneyReceiptShare({
       final b = sats == null ? null : _bitcoin(watch, sats);
       final money = amount ??
           (usd != null && usd.isFinite && usd > 0
-              ? bragMoney(watch, usd)
+              ? bragMoney(usd)
               : b?.fiat);
       return ReceiptCardData(
         type: type,
@@ -188,7 +187,7 @@ ReceiptShare predictionReceiptShare({
 }) =>
     ReceiptShare((watch) {
       final money =
-          usd != null && usd.isFinite && usd > 0 ? bragMoney(watch, usd) : null;
+          usd != null && usd.isFinite && usd > 0 ? bragMoney(usd) : null;
       final double? pnl = switch (type) {
         ReceiptCardKind.lost => usd == null ? null : -usd,
         ReceiptCardKind.paidOut => usd,
@@ -198,7 +197,7 @@ ReceiptShare predictionReceiptShare({
           ? null
           : type == ReceiptCardKind.cashedOut && pnl.abs() < kBragCentUsd
               ? null
-              : bragSignedMoney(watch, pnl);
+              : bragSignedMoney(pnl);
       final slug = eventSlug?.trim() ?? '';
       final image = imageUrl?.trim() ?? '';
       return ReceiptCardData(
@@ -243,9 +242,9 @@ ReceiptShare tradeReceiptShare({
         type: type,
         asset: ReceiptCardAsset.investing,
         amount: usd != null && usd.isFinite && usd > 0
-            ? bragMoney(watch, usd)
+            ? bragMoney(usd)
             : null,
-        result: pnl == null ? null : bragSignedMoney(watch, pnl),
+        result: pnl == null ? null : bragSignedMoney(pnl),
         pnl: pnl,
         title: title,
         ticker: ticker,
