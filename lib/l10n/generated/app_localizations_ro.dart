@@ -6856,7 +6856,11 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get receiveOneOffLateDepositRepriced =>
-      'Un depozit care ajunge ulterior poate primi alt preț.';
+      'Depozitele întârziate pot primi alt preț.';
+
+  @override
+  String get quotedReceiveWrongCoinWarning =>
+      'Monedă sau rețea greșită? Banii se pot pierde.';
 
   @override
   String get receiveOneOffNewAddress => 'Obține o adresă nouă';

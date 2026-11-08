@@ -6838,7 +6838,11 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get receiveOneOffLateDepositRepriced =>
-      'Polog, ki prispe pozneje, lahko dobi drugačno ceno.';
+      'Zapozneli pologi lahko dobijo drugačno ceno.';
+
+  @override
+  String get quotedReceiveWrongCoinWarning =>
+      'Napačen kovanec ali omrežje? Denar se lahko izgubi.';
 
   @override
   String get receiveOneOffNewAddress => 'Pridobi nov naslov';

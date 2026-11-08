@@ -6558,7 +6558,10 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get receiveOneOffLateDepositRepriced => 'これ以降に届いた入金は、価格が変わる場合があります。';
+  String get receiveOneOffLateDepositRepriced => '遅れて届いた入金は、価格が変わる場合があります。';
+
+  @override
+  String get quotedReceiveWrongCoinWarning => 'コインやネットワークを間違えると、資金を失う場合があります。';
 
   @override
   String get receiveOneOffNewAddress => '新しいアドレスを取得';

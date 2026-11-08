@@ -6813,7 +6813,11 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get receiveOneOffLateDepositRepriced =>
-      'En insättning som kommer fram senare kan få ett annat pris.';
+      'Sena insättningar kan få ett annat pris.';
+
+  @override
+  String get quotedReceiveWrongCoinWarning =>
+      'Fel mynt eller nätverk? Dina pengar kan gå förlorade.';
 
   @override
   String get receiveOneOffNewAddress => 'Hämta en ny adress';

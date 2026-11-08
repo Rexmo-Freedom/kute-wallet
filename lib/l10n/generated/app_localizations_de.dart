@@ -6869,7 +6869,11 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get receiveOneOffLateDepositRepriced =>
-      'Eine später eintreffende Einzahlung kann einen anderen Preis erhalten.';
+      'Späte Einzahlungen können einen anderen Preis erhalten.';
+
+  @override
+  String get quotedReceiveWrongCoinWarning =>
+      'Falscher Coin oder falsches Netzwerk? Dein Geld kann verloren gehen.';
 
   @override
   String get receiveOneOffNewAddress => 'Neue Adresse erzeugen';

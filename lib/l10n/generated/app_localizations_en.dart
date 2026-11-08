@@ -6796,7 +6796,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get receiveOneOffLateDepositRepriced =>
-      'A deposit that lands after this may get a different price.';
+      'Late deposits may get a different price.';
+
+  @override
+  String get quotedReceiveWrongCoinWarning =>
+      'Wrong coin or network? Your money may be lost.';
 
   @override
   String get receiveOneOffNewAddress => 'Get a new address';

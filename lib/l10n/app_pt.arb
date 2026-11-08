@@ -2195,7 +2195,8 @@
   "usdSendFailed": "Não foi possível enviar. Os seus dólares não saíram.",
   "receiveOneOffTag": "um pagamento",
   "receiveOneOffExpiresIn": "Expira em {time}",
-  "receiveOneOffLateDepositRepriced": "Um depósito que chegue depois pode ter um preço diferente.",
+  "receiveOneOffLateDepositRepriced": "Depósitos atrasados podem ter um preço diferente.",
+  "quotedReceiveWrongCoinWarning": "Moeda ou rede errada? Você pode perder seu dinheiro.",
   "@receiveOneOffExpiresIn": {
     "placeholders": {
       "time": {

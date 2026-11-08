@@ -6854,7 +6854,11 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get receiveOneOffLateDepositRepriced =>
-      'Vėliau gautas įnašas gali gauti kitą kainą.';
+      'Vėluojantys įnašai gali gauti kitą kainą.';
+
+  @override
+  String get quotedReceiveWrongCoinWarning =>
+      'Neteisinga moneta ar tinklas? Pinigai gali būti prarasti.';
 
   @override
   String get receiveOneOffNewAddress => 'Gauti naują adresą';

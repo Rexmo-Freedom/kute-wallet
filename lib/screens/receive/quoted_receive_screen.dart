@@ -4,16 +4,46 @@
 // ([requestOneTimeReceiveAmount]: dollars for the Dollars receive, sats or
 // fiat for Bitcoin, with the route's minimum on the sheet's minimum line),
 // then the optional return address (onetime_refund_step.dart), and this
-// sheet quotes it and shows the one-time deposit address: the code, the
-// expiry countdown, the network it must come from, and the amount to
-// send in the plate under it. Each step is a bottom sheet over the coin
-// sheet, opened as the one before it closes, so closing any of them comes
-// back to the coin sheet as it was. The quote is kept as a pending quote
-// (watched after this sheet closes) and becomes an Activity row only once
-// a deposit to it is detected. This sheet never signs, submits or pays
-// anything.
+// sheet quotes it and shows the one-time deposit address. Each step is a
+// bottom sheet over the coin sheet, opened as the one before it closes, so
+// closing any of them comes back to the coin sheet as it was. The quote is
+// kept as a pending quote (watched after this sheet closes) and becomes an
+// Activity row only once a deposit to it is detected. This sheet never
+// signs, submits or pays anything. The Bitcoin and the Dollars receive
+// share it.
+//
+// LESS TEXT, THE CARDS, AND SHARE IS THE BAR (founder, 8 November 2026:
+// "the text is too dense, use the cards, and the share button should be
+// the sal on the bottom"). Top to bottom while the address can be paid:
+//   * the code, on a plate that gives up what the page needs, down to
+//     [kReceiveQrMinSide], so all of this stands above the bar on a
+//     375 x 812 phone; a smaller phone or a longer language scrolls;
+//   * one quiet line with the status and the countdown ("Waiting for
+//     deposit · Expires in 1:37"), one with what a late deposit means;
+//   * the address and its copy square;
+//   * two squares ([KuteActionCard.fact]): You send, with the coin's logo,
+//     and Network, with the network's. They say which coin and network;
+//   * the one louder line, what the squares mean to the money ("Wrong coin
+//     or network? Your money may be lost."), and, when one was given, where
+//     a failed deposit returns to.
+//
+// THE BAR IS NEVER THE DEFAULT SEARCH HERE ([_buildAction]):
+//   * no sheet to show (another wallet, a coin not offered): Done;
+//   * the address being set up: Share, busy;
+//   * it could not be set up: Try again;
+//   * the address can be paid: Share;
+//   * it ran out, or its deposit reached an end (completed, refunded,
+//     expired): Get a new address;
+//   * its deposit is on its way (processing) or needs attention, or the
+//     quote has left "wait" with time still on the clock: Done.
+// Past paying there is no code: the state's own line, loud, over the two
+// squares, which still say what was asked for. Neither a minimum (asked
+// and held on the amount sheet) nor a fee is said here: a fee is charged,
+// never shown under a receive address. This sheet is always a one-time
+// address; a standing one is usd_receive_screen.dart's.
 
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart';
 import 'package:flutter/material.dart';
@@ -33,6 +63,7 @@ import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/providers/orchestra_supported_routes_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/spark_address_provider.dart';
+import 'package:kute/providers/asset_icon_provider.dart' show AssetIcon;
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/screens/receive/components/request_amount_sheet.dart';
@@ -40,6 +71,9 @@ import 'package:kute/screens/receive/onetime_refund_step.dart';
 import 'package:kute/screens/receive/orchestra_deposit_poller.dart';
 import 'package:kute/screens/shared/account_switcher_pill.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
+import 'package:kute/screens/shared/asset_network_picker.dart'
+    show ChainAvatarIcon;
+import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/shared/qr_code.dart';
@@ -47,7 +81,7 @@ import 'package:kute/screens/shared/receive_surface.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show sendShortAddress;
 import 'package:kute/screens/usd/flow/usd_flow_widgets.dart'
-    show UsdFlowAction, UsdReviewLine, UsdReviewPlate, usdFormatCountdown;
+    show UsdFlowAction, usdFormatCountdown;
 import 'package:kute/services/orchestra/onetime_receive.dart';
 import 'package:kute/services/orchestra/orchestra_capability_requirements.dart'
     show orchestraOptionCapabilities, ensureOneTimeDestinationAllowed;
@@ -293,6 +327,12 @@ class _QuotedReceiveSheetState extends ConsumerState<QuotedReceiveSheet> {
   SwapOrder? _display;
   bool _terminalTracked = false;
 
+  /// What stands under the code, and how tall it was last laid out: the
+  /// plate takes what the page has left after it ([_qrSide]). Until it is
+  /// known, about what it takes in English.
+  final _underQrKey = GlobalKey();
+  double? _underQrHeight;
+
   bool get _dollars => widget.destinationAsset == kOrchestraUsdAssetCode;
 
   String get _destinationLabel =>
@@ -461,7 +501,6 @@ class _QuotedReceiveSheetState extends ConsumerState<QuotedReceiveSheet> {
       _paymentExpired = true;
     }
     final blocked = !_supported || !_sameWallet;
-    final action = blocked ? null : _buildAction();
     // The receive sheet's frame, as the Bitcoin receive and the reusable
     // address wear it: the close X, the balance the money lands in. No
     // step bar and no page title.
@@ -479,7 +518,7 @@ class _QuotedReceiveSheetState extends ConsumerState<QuotedReceiveSheet> {
         ),
         semanticTitle: _dollars ? l10n.usdReceiveTitle : l10n.receiveBitcoin,
         child: Padding(
-          padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 0),
+          padding: EdgeInsets.fromLTRB(20.w, 8.h, 20.w, 0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -501,10 +540,7 @@ class _QuotedReceiveSheetState extends ConsumerState<QuotedReceiveSheet> {
                         ? _buildPending()
                         : _buildAddress(),
               ),
-              if (action != null) ...[
-                SizedBox(height: 12.h),
-                action,
-              ],
+              _buildAction(blocked),
             ],
           ),
         ),
@@ -512,12 +548,26 @@ class _QuotedReceiveSheetState extends ConsumerState<QuotedReceiveSheet> {
     );
   }
 
-  Widget? _buildAction() {
+  /// The bar, in every state of the sheet (see the file header); its scope
+  /// is also the room that keeps the page clear of it.
+  Widget _buildAction(bool blocked) {
     final l10n = context.l10n;
-    if (_verified == null && _error != null && !_busy) {
+    if (blocked) {
+      return UsdFlowAction(label: l10n.done, onPressed: _close);
+    }
+    if (_verified == null) {
+      if (_error != null && !_busy) {
+        return UsdFlowAction(
+          label: l10n.tryAgain,
+          onPressed: () => unawaited(_createQuote()),
+        );
+      }
+      return UsdFlowAction(label: l10n.share, onPressed: null, loading: true);
+    }
+    if (_canPay) {
       return UsdFlowAction(
-        label: l10n.tryAgain,
-        onPressed: () => unawaited(_createQuote()),
+        label: l10n.share,
+        onPressed: () => unawaited(_shareAddress()),
       );
     }
     if (_canRequestNewQuote) {
@@ -526,7 +576,29 @@ class _QuotedReceiveSheetState extends ConsumerState<QuotedReceiveSheet> {
         onPressed: () => unawaited(_startNewQuote()),
       );
     }
-    return null;
+    return UsdFlowAction(label: l10n.done, onPressed: _close);
+  }
+
+  /// The plate's side on a page [viewport] tall: what is left after what
+  /// stands under it, at most the receive's usual side and at least
+  /// [kReceiveQrMinSide]; under that the page scrolls.
+  double _qrSide(double viewport) {
+    final full = receiveQrSide(context);
+    final under =
+        _underQrHeight ?? (widget.refundAddress == null ? 287 : 309).h;
+    return (viewport - under).clamp(math.min(kReceiveQrMinSide, full), full);
+  }
+
+  /// Reads how tall what stands under the code came out, after this frame.
+  /// It does not depend on the plate, so this settles at once; it moves
+  /// again only with the text (a longer return line, a larger text size).
+  void _measureUnderQr() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final height = _underQrKey.currentContext?.size?.height;
+      if (!mounted || height == null) return;
+      if ((height - (_underQrHeight ?? 0)).abs() < 0.5) return;
+      setState(() => _underQrHeight = height);
+    });
   }
 
   /// The finished page's own shape while the quote is asked, with the
@@ -534,21 +606,25 @@ class _QuotedReceiveSheetState extends ConsumerState<QuotedReceiveSheet> {
   Widget _buildPending() {
     final l10n = context.l10n;
     final error = _error;
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (error != null && !_busy)
-            Padding(
-              padding: EdgeInsets.only(top: 12.h),
-              child: ReceiveCaption(text: error),
-            )
-          else ...[
-            const ReceiveQrPlate(child: ReceiveQrShimmer()),
+    if (error != null && !_busy) {
+      return SingleChildScrollView(
+        child: Padding(
+          padding: EdgeInsets.only(top: 12.h),
+          child: ReceiveCaption(text: error),
+        ),
+      );
+    }
+    return LayoutBuilder(
+      builder: (context, box) => SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ReceiveQrPlate(
+                side: _qrSide(box.maxHeight), child: const ReceiveQrShimmer()),
             SizedBox(height: ReceiveGaps.qrToCaption),
             ReceiveCaption(text: l10n.usdReceiveCreating),
           ],
-        ],
+        ),
       ),
     );
   }
@@ -557,77 +633,115 @@ class _QuotedReceiveSheetState extends ConsumerState<QuotedReceiveSheet> {
       '${decimalAmount(_verified!.amountIn, widget.option.decimals)} '
       '${widget.option.displaySymbol}';
 
+  /// What to send, in two squares (see the file header).
+  Widget _buildFacts() {
+    final l10n = context.l10n;
+    final option = widget.option;
+    return KuteActionCardGrid(cards: [
+      KuteActionCard.fact(
+        key: const ValueKey('onetime-receive-you-send'),
+        visual: AssetIcon(
+            assetCode: option.assetCode, size: kKuteActionCardVisualSize.sp),
+        label: l10n.youSend,
+        title: _sourceAmount,
+      ),
+      KuteActionCard.fact(
+        key: const ValueKey('onetime-receive-network'),
+        visual: ChainAvatarIcon(
+          chainId: option.chain,
+          label: option.chainDisplayName,
+          iconUrl: option.chainIconUrl,
+          size: kKuteActionCardVisualSize,
+        ),
+        label: l10n.network,
+        title: option.chainDisplayName,
+      ),
+    ]);
+  }
+
+  /// Where a failed deposit goes, when the person gave a return address,
+  /// [gap] under what stands above it.
+  List<Widget> _buildReturnsTo(double gap) {
+    final refund = widget.refundAddress;
+    if (refund == null) return const [];
+    return [
+      SizedBox(height: gap),
+      ReceiveCaption(
+        key: const ValueKey('onetime-receive-returns-to'),
+        text: '${context.l10n.quotedReceiveReturnsTo} '
+            '${sendShortAddress(refund)}',
+      ),
+    ];
+  }
+
   Widget _buildAddress() {
     final l10n = context.l10n;
     final display = _display!;
     final verified = _verified!;
-    final payable = _canPay;
-    final arrived = display.id != verified.quoteId;
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (payable) ...[
-            ReceiveQrPlate(child: buildQrCode(display.depositAddress, context)),
-            // Captions right under the code: the countdown first (the one
-            // thing that runs out), then what a late deposit means. The
-            // amount is in the plate below ("You send").
-            SizedBox(height: ReceiveGaps.qrToCaption),
-            ReceiveCaption(
-              key: const ValueKey('onetime-receive-expiry'),
-              text: l10n.receiveOneOffExpiresIn(usdFormatCountdown(_remaining)),
-              emphasised: true,
-            ),
-            SizedBox(height: 4.h),
-            ReceiveCaption(
-              key: const ValueKey('onetime-receive-late-deposit'),
-              text: l10n.receiveOneOffLateDepositRepriced,
-            ),
-            SizedBox(height: ReceiveGaps.qrToAddress),
-            ReceiveAddressLine(
-              address: display.depositAddress,
-              onCopy: () => unawaited(_copyAddress()),
-            ),
-            // The network warning under the address, where the Bitcoin
-            // receive puts its own caption: only this coin, only this
-            // network.
-            SizedBox(height: 8.h),
-            ReceiveCaption(
-              key: const ValueKey('onetime-receive-network-warning'),
-              text: l10n.usdReceiveShareSubtitle(
-                  widget.option.displaySymbol, widget.option.chainDisplayName),
-            ),
-            SizedBox(height: ReceiveGaps.addressToActions),
-          ] else ...[
+    if (!_canPay) {
+      final arrived = display.id != verified.quoteId;
+      return SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
             ReceiveCaption(
               key: const ValueKey('onetime-receive-state'),
               text: arrived
                   ? _statusLabel(display.status)
                   : l10n.quotedReceiveExpired,
-            ),
-            SizedBox(height: ReceiveGaps.addressToActions),
-          ],
-          ReceiveActionPills(
-            onShare: payable ? () => unawaited(_shareAddress()) : null,
-          ),
-          SizedBox(height: ReceiveGaps.block),
-          UsdReviewPlate(children: [
-            UsdReviewLine(
-              label: l10n.youSend,
-              value: _sourceAmount,
               emphasised: true,
             ),
-            UsdReviewLine(
-                label: l10n.network, value: widget.option.chainDisplayName),
-            if (widget.refundAddress case final refund?)
-              UsdReviewLine(
-                  label: l10n.quotedReceiveReturnsTo,
-                  value: sendShortAddress(refund)),
-            UsdReviewLine(
-                label: l10n.status, value: _statusLabel(display.status)),
-          ]),
-          SizedBox(height: ReceiveGaps.tail),
-        ],
+            SizedBox(height: ReceiveGaps.block),
+            _buildFacts(),
+            ..._buildReturnsTo(ReceiveGaps.block),
+          ],
+        ),
+      );
+    }
+    _measureUnderQr();
+    return LayoutBuilder(
+      builder: (context, box) => SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ReceiveQrPlate(
+              side: _qrSide(box.maxHeight),
+              child: buildQrCode(display.depositAddress, context),
+            ),
+            Column(
+              key: _underQrKey,
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(height: ReceiveGaps.qrToCaption),
+                ReceiveCaption(
+                  key: const ValueKey('onetime-receive-expiry'),
+                  text: '${_statusLabel(display.status)} · '
+                      '${l10n.receiveOneOffExpiresIn(usdFormatCountdown(_remaining))}',
+                ),
+                ReceiveCaption(
+                  key: const ValueKey('onetime-receive-late-deposit'),
+                  text: l10n.receiveOneOffLateDepositRepriced,
+                ),
+                SizedBox(height: ReceiveGaps.addressToActions),
+                ReceiveAddressLine(
+                  address: display.depositAddress,
+                  onCopy: () => unawaited(_copyAddress()),
+                ),
+                SizedBox(height: ReceiveGaps.block),
+                _buildFacts(),
+                SizedBox(height: ReceiveGaps.block),
+                ReceiveCaption(
+                  key: const ValueKey('onetime-receive-network-warning'),
+                  text: l10n.quotedReceiveWrongCoinWarning,
+                  emphasised: true,
+                ),
+                ..._buildReturnsTo(4.h),
+                SizedBox(height: 8.h),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -797,16 +911,23 @@ class _QuotedReceiveSheetState extends ConsumerState<QuotedReceiveSheet> {
           'kute_fee_bps': verified.quote.appFeeBps!,
       });
       _step('deposit_address_shown');
-      _poller.start(
-        row,
-        stillWanted: () => _current(generation),
-        onProgress: (order) {
-          if (_current(generation)) {
-            setState(() => _display = order);
-            _trackTerminal(order);
-          }
-        },
-      );
+      void onProgress(SwapOrder order) {
+        if (_current(generation)) {
+          setState(() => _display = order);
+          _trackTerminal(order);
+        }
+      }
+
+      final watch = OneTimeReceive.debugWatch;
+      if (watch != null) {
+        watch(onProgress);
+      } else {
+        _poller.start(
+          row,
+          stillWanted: () => _current(generation),
+          onProgress: onProgress,
+        );
+      }
       _ticker?.cancel();
       _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
         if (!_current(generation)) {

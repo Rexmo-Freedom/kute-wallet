@@ -17,6 +17,11 @@
 // copied across two files, because a shared number is the only thing
 // that keeps two screens from drifting apart again.
 //
+// The one-time receive of another coin (`screens/receive/
+// quoted_receive_screen.dart`) wears the plate and the address line too,
+// but its Share is the bar and it fits its plate to the room left
+// ([ReceiveQrPlate.side]).
+//
 // Presentation only. Nothing here knows about a rail, a provider or a
 // balance: the screens resolve their own payloads and pass finished
 // strings and callbacks in.
@@ -334,19 +339,26 @@ abstract final class ReceiveGaps {
 double receiveQrSide(BuildContext context) =>
     (MediaQuery.sizeOf(context).width * 0.87).clamp(260.0, 380.0);
 
-/// The white plate the QR sits on. A square [receiveQrSide] wide,
-/// generous radius, and a small inner padding so the code dominates the
-/// frame instead of floating in a bed of whitespace (the code keeps its
-/// own quiet zone inside it). White is not a themed colour here on
-/// purpose: a QR needs the contrast in both themes.
-class ReceiveQrPlate extends StatelessWidget {
-  const ReceiveQrPlate({super.key, required this.child});
+/// The least a plate fitted to its page shrinks to ([ReceiveQrPlate.side]).
+/// An address's code is about 33 modules a side, so even here each module
+/// is about 4 points across, well inside what a phone camera reads.
+const double kReceiveQrMinSide = 176;
 
+/// The white plate the QR sits on. A square [receiveQrSide] wide (or
+/// [side], for a page that fits it to the room left), generous radius, and
+/// a small inner padding so the code dominates the frame instead of
+/// floating in a bed of whitespace (the code keeps its own quiet zone
+/// inside it). White is not a themed colour here on purpose: a QR needs
+/// the contrast in both themes.
+class ReceiveQrPlate extends StatelessWidget {
+  const ReceiveQrPlate({super.key, this.side, required this.child});
+
+  final double? side;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    final side = receiveQrSide(context);
+    final side = this.side ?? receiveQrSide(context);
     return Center(
       child: Container(
         width: side,
