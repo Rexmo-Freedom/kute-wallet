@@ -20,9 +20,11 @@ import 'package:kute/models/polymarket_model.dart'
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
+import 'package:kute/providers/placing_polymarket_bet_provider.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart'
     show PolymarketPosition;
 import 'package:kute/providers/polymarket_live_prices_provider.dart';
+import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 import 'package:kute/screens/hyperliquid/components/hl_position_detail_sheet.dart';
@@ -33,11 +35,18 @@ import 'package:kute/screens/portfolio/poly_position_events.dart'
     show polyPositionEventProvider;
 import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
 import 'package:kute/screens/shared/rolling_number_text.dart';
+import 'package:kute/services/polymarket/combos/combo_models.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
 import '../../helpers/euro_settings.dart';
 import '../../helpers/portfolio_overrides.dart';
+
+class _Selling extends PolymarketTradingNotifier {
+  @override
+  Future<PolymarketTradingState> build() async =>
+      const PolymarketTradingState(pendingSaleTokens: {'kane-yes'});
+}
 
 class _Prices extends LivePriceNotifier {
   @override
@@ -145,7 +154,8 @@ Future<void> _pump(WidgetTester tester, Widget row,
     double textScale = 1,
     String currency = 'USD',
     int balancePrivacy = 0,
-    double height = 400}) async {
+    double height = 400,
+    List<Override> overrides = const []}) async {
   tester.view.physicalSize = Size(width, height);
   tester.view.devicePixelRatio = 1;
   tester.platformDispatcher.textScaleFactorTestValue = textScale;
@@ -173,6 +183,7 @@ Future<void> _pump(WidgetTester tester, Widget row,
           nodeType: '',
           reviewDone: true,
           balancePrivacy: balancePrivacy))),
+      ...overrides,
     ],
     child: ScreenUtilInit(
       designSize: const Size(430, 932),
@@ -930,5 +941,232 @@ void main() {
     // The position sheet opened; drain it and its timers.
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(minutes: 2));
+  });
+
+  group('the chance bar on the Portfolio\'s Positions', () {
+    const bar = ValueKey('portfolio-row-chance');
+    const tick = ValueKey('portfolio-row-entry-tick');
+
+    Future<void> held(WidgetTester tester, List<Widget> rows,
+            {int balancePrivacy = 0,
+            List<Override> overrides = const [],
+            bool holdings = true}) =>
+        _pump(
+            tester,
+            PortfolioPositionSquares(rows: rows, holdings: holdings),
+            balancePrivacy: balancePrivacy,
+            overrides: overrides,
+            height: 800);
+
+    PolymarketPosition open(String token, {double avg = 0.72}) =>
+        PolymarketPosition(
+            marketId: token,
+            marketQuestion: 'Will $token happen?',
+            outcome: 'Yes',
+            size: 5,
+            avgPrice: avg,
+            currentPrice: 0.5,
+            pnl: 0,
+            pnlPercent: 0,
+            isResolved: false,
+            tokenId: token);
+
+    testWidgets('squares: under the line, above the value, across the square, '
+        'the row equally tall', (tester) async {
+      await held(tester, [
+        PolyPositionRow(position: open('a')),
+        // A long name makes this one the tall one.
+        PolyPositionRow(
+            position: PolymarketPosition(
+                marketId: 'b',
+                marketQuestion: 'Will the Federal Reserve cut interest rates '
+                    'by more than fifty basis points at the December 2026 '
+                    'meeting of its committee?',
+                outcome: 'Yes',
+                size: 5,
+                avgPrice: 0.2,
+                currentPrice: 0.3,
+                pnl: 0,
+                pnlPercent: 0,
+                isResolved: false,
+                tokenId: 'b')),
+      ]);
+      expect(tester.takeException(), isNull);
+      final squares = find.byKey(const ValueKey('portfolio-square'));
+      expect(squares, findsNWidgets(2));
+      expect(find.byKey(bar), findsNWidgets(2));
+      expect(find.byKey(tick), findsNWidgets(2));
+      expect(tester.getSize(squares.at(0)).height,
+          moreOrLessEquals(tester.getSize(squares.at(1)).height, epsilon: 0.5));
+      for (var i = 0; i < 2; i++) {
+        Rect inside(ValueKey<String> key) => tester.getRect(find
+            .descendant(of: squares.at(i), matching: find.byKey(key))
+            .first);
+        final at = inside(bar);
+        expect(at.top,
+            greaterThanOrEqualTo(inside(const ValueKey('portfolio-row-subtitle')).bottom));
+        expect(at.bottom,
+            lessThanOrEqualTo(inside(const ValueKey('portfolio-row-value')).top));
+        // From the padding to the padding.
+        final card = tester.getRect(squares.at(i));
+        expect(at.left - card.left, moreOrLessEquals(card.right - at.right,
+            epsilon: 0.5));
+        expect(at.left, moreOrLessEquals(inside(const ValueKey('portfolio-row-title')).left,
+            epsilon: 0.5));
+      }
+    });
+
+    testWidgets('the lone full-width card: under the line, the list row\'s bar',
+        (tester) async {
+      await held(tester, [const PolyPositionRow(position: _kane)]);
+      expect(tester.takeException(), isNull);
+      expect(find.byKey(const ValueKey('portfolio-wide')), findsOneWidget);
+      final widget = tester.widget<PortfolioChanceBar>(find.byKey(bar));
+      expect(widget.chance, _kane.currentPrice);
+      expect(widget.entry, _kane.avgPrice);
+      expect(tester.getRect(find.byKey(bar)).top,
+          greaterThanOrEqualTo(tester
+              .getRect(find.byKey(const ValueKey('portfolio-row-subtitle')))
+              .bottom));
+    });
+
+    testWidgets('it follows the position\'s live price', (tester) async {
+      _livePrices =
+          const LivePriceState(live: true, prices: {'kane-yes': 0.81});
+      await held(tester, [const PolyPositionRow(position: _kane)]);
+      expect(tester.widget<PortfolioChanceBar>(find.byKey(bar)).chance, 0.81);
+    });
+
+    testWidgets('balances hidden: the market\'s chance stays, the entry tick '
+        'that would give the masked % away goes', (tester) async {
+      await held(tester, [const PolyPositionRow(position: _kane)],
+          balancePrivacy: 1);
+      expect(find.byKey(bar), findsOneWidget);
+      expect(find.byKey(tick), findsNothing);
+      expect(tester.widget<PortfolioChanceBar>(find.byKey(bar)).entry, isNull);
+    });
+
+    testWidgets('none settled', (tester) async {
+      await held(tester, [
+        const PolyPositionRow(
+            position: PolymarketPosition(
+                marketId: 'won',
+                marketQuestion: 'Won?',
+                outcome: 'Yes',
+                size: 5,
+                avgPrice: 0.5,
+                currentPrice: 1,
+                pnl: 0,
+                pnlPercent: 0,
+                isResolved: true,
+                won: true,
+                tokenId: 'won')),
+      ]);
+      expect(find.byKey(bar), findsNothing);
+    });
+
+    testWidgets('none selling', (tester) async {
+      await held(tester, [const PolyPositionRow(position: _kane)],
+          overrides: [polymarketTradingProvider.overrideWith(_Selling.new)]);
+      await tester.pump();
+      expect(find.textContaining('Selling'), findsOneWidget);
+      expect(find.byKey(bar), findsNothing);
+    });
+
+    testWidgets('none once its window is over, waiting for the result',
+        (tester) async {
+      final ended =
+          DateTime.now().subtract(const Duration(hours: 1)).toUtc();
+      final slug =
+          'btc-updown-5m-${ended.millisecondsSinceEpoch ~/ 1000 ~/ 300 * 300}';
+      await held(tester, [
+        PolyPositionRow(
+            position: PolymarketPosition(
+                marketId: '',
+                marketQuestion: 'Bitcoin Up or Down',
+                outcome: 'Up',
+                size: 5,
+                avgPrice: 0.5,
+                currentPrice: 0.6,
+                pnl: 0,
+                pnlPercent: 0,
+                isResolved: false,
+                tokenId: 'w',
+                eventSlug: slug,
+                endDateStr: ended.toIso8601String())),
+      ], overrides: [
+        polyPositionEventProvider(slug).overrideWith((_) => null)
+      ]);
+      expect(find.byKey(bar), findsNothing);
+    });
+
+    testWidgets('none with no entry price or no chance known', (tester) async {
+      await held(tester, [
+        PolyPositionRow(position: open('free', avg: 0)),
+        const PolyPositionRow(
+            position: PolymarketPosition(
+                marketId: 'unknown',
+                marketQuestion: 'Unknown?',
+                outcome: 'Yes',
+                size: 5,
+                avgPrice: 0.5,
+                currentPrice: 0,
+                pnl: 0,
+                pnlPercent: 0,
+                isResolved: false,
+                tokenId: 'unknown')),
+      ]);
+      expect(find.byKey(bar), findsNothing);
+    });
+
+    testWidgets('none on a bet on its way, a combo or Investing',
+        (tester) async {
+      await held(tester, [
+        PlacingBetRow(
+            bet: PlacingBet(
+                placementId: 'p',
+                tokenId: 't',
+                marketQuestion: 'Will it rain?',
+                outcomeName: 'Yes',
+                amount: 5,
+                shares: 10,
+                avgPrice: 0.5,
+                status: PlacingBetStatus.placing,
+                startedAt: DateTime(2026, 11, 8))),
+        const ComboPositionRow(
+            position: ComboPosition(
+                conditionId: 'c',
+                positionId: 'c',
+                outcomeIndex: 0,
+                shares: 40,
+                entryAvgPrice: 0.25,
+                stakeUsd: 10,
+                entryFeesUsd: 0,
+                realizedPayoutUsd: 0,
+                status: 'OPEN',
+                redeemable: false,
+                legsTotal: 0,
+                legsResolved: 0,
+                legsPending: 0,
+                legs: [])),
+        const HlPositionRow(position: _btc),
+      ]);
+      expect(tester.takeException(), isNull);
+      expect(find.byKey(bar), findsNothing);
+    });
+
+    testWidgets('the Overview tab\'s squares keep their height: no bar',
+        (tester) async {
+      await held(
+          tester,
+          [
+            PolyPositionRow(position: open('a')),
+            PolyPositionRow(position: open('b')),
+            PolyPositionRow(position: open('c')),
+          ],
+          holdings: false);
+      expect(tester.takeException(), isNull);
+      expect(find.byKey(bar), findsNothing);
+    });
   });
 }

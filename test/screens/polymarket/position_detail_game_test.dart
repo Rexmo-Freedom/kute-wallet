@@ -416,7 +416,8 @@ void main() {
           find.descendant(
               of: find.byKey(const ValueKey('poly-position-title')),
               matching: find.textContaining(
-                  RegExp(r'^BTC up or down · \d{1,2}:\d\d–\d{1,2}:\d\d$'))),
+                  RegExp(r'^BTC up or down · '
+                      r'\d{1,2}:\d\d⁠–⁠\d{1,2}:\d\d$'))),
           findsOneWidget);
       expect(find.textContaining('7:00AM-7:05AM ET'), findsNothing);
       expect(tester.takeException(), isNull);

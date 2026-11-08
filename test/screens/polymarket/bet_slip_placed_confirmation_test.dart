@@ -275,7 +275,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Prediction placed'), findsOneWidget);
       expect(
-          find.textContaining(RegExp(r'^BTC up or down · \d{1,2}:\d\d–\d{1,2}:\d\d$')),
+          find.textContaining(RegExp(
+              r'^BTC up or down · \d{1,2}:\d\d⁠–⁠\d{1,2}:\d\d$')),
           findsOneWidget);
       expect(find.text(question), findsNothing);
     });

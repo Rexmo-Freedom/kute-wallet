@@ -230,7 +230,8 @@ const _compact = ValueKey('crypto-round-compact');
 /// The clock labels the test runner's zone gives this window.
 String nextClock() => polyRoundClock(nextStart, locale: 'en');
 String windowName(DateTime start) =>
-    'BTC up or down · ${polyRoundClock(start, locale: 'en')}–'
+    'BTC up or down · ${polyRoundClock(start, locale: 'en')}'
+    '$kPolyRoundRangeJoin–$kPolyRoundRangeJoin'
     '${polyRoundClock(start.add(const Duration(minutes: 5)), locale: 'en')}';
 
 Future<void> settle(WidgetTester tester) async {

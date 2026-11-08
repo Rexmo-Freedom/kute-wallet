@@ -7,7 +7,10 @@
 // (crypto_next_round.dart). Gamma's own title ("Bitcoin Up or Down -
 // November 8, 8:35AM-8:40AM ET") stays the market's question everywhere
 // the logic and the analytics read it; a row cuts it to "Bitcoin Up or
-// Down", which names no window at all.
+// Down", which names no window at all. The range never breaks across two
+// lines: word joiners hold its en dash to both clocks, in every language,
+// and a clock's own space (Bulgarian's "12:00 ч.") does not break, so a long
+// name wraps before the range as a whole.
 
 import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';
@@ -27,6 +30,10 @@ String polyRoundClock(DateTime at,
   return isTwelve ? DateFormat('h:mm', locale).format(local) : hm.format(local);
 }
 
+/// Holds the clocks to the en dash between them. Invisible, and no line
+/// breaks at it.
+const String kPolyRoundRangeJoin = '\u2060';
+
 /// The name of the 5-minute window with this [slug]; null for anything
 /// else.
 String? polyRoundWindowName(AppLocalizations l10n, String? slug,
@@ -34,9 +41,12 @@ String? polyRoundWindowName(AppLocalizations l10n, String? slug,
   if (!polyIsCryptoUpDown5m(slug)) return null;
   final round = polyCryptoRoundOf(slug!)!;
   String clock(DateTime t) =>
-      polyRoundClock(t, locale: l10n.localeName, use24h: use24h);
+      polyRoundClock(t, locale: l10n.localeName, use24h: use24h)
+          .replaceAll(' ', '\u00A0');
   return l10n.predictRoundWindow(
-      round.asset.toUpperCase(), clock(round.start), clock(round.end));
+      round.asset.toUpperCase(),
+      '${clock(round.start)}$kPolyRoundRangeJoin',
+      '$kPolyRoundRangeJoin${clock(round.end)}');
 }
 
 /// [polyRoundWindowName] with this screen's language and clock.
