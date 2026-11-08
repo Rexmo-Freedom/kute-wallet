@@ -6,6 +6,7 @@ import 'package:kute/screens/pay/components/bitcoin_coin_selection_sheet.dart';
 import 'package:kute/screens/shared/money_fee_summary.dart';
 import 'dart:async';
 import 'dart:io' show HandshakeException, SocketException;
+import 'dart:math' as math;
 import 'package:http/http.dart' show ClientException;
 import 'package:intl/intl.dart';
 import 'package:kute/services/bitcoin/bitcoin_fee_estimate_service.dart'
@@ -84,7 +85,6 @@ import 'package:kute/providers/accounts_provider.dart';
 import 'package:kute/services/swap/swap_models.dart';
 import 'package:kute/screens/pay/components/bitcoin_advanced_settings_sheet.dart';
 import 'package:kute/screens/pay/components/watch_only_screen.dart';
-import 'package:kute/screens/shared/amount_unit_picker.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/coin_asset_grid.dart';
 import 'package:kute/providers/asset_icon_provider.dart'
@@ -116,7 +116,7 @@ import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/transaction_modal.dart';
 import 'package:kute/screens/shared/wallet_icon.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart'
-    show AmountKeypad, AmountPercentChips, canonicalDecimalText;
+    show AmountKeypad, canonicalDecimalText;
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart' hide PaymentType;
@@ -1363,10 +1363,9 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   /// directly on Review.
   bool _skipAmountStep = false;
 
-  /// Fiat unit the user last typed in on the Amount step. The swap
-  /// icon under the hero flips Bitcoin <-> this unit, so a user who
-  /// picked EUR in the unit sheet comes back to EUR, not the settings
-  /// currency.
+  /// Fiat unit the user last typed in on the Amount step. The
+  /// conversion line under the hero flips Bitcoin <-> this unit (else
+  /// the settings currency; [sendFiatFlipUnit]).
   String? _lastFiatUnit;
 
   /// Address the fixed-amount Bolt11 fast path last auto-advanced to
@@ -1978,9 +1977,6 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   }
 
   String _getCurrencyPrefix(String code) => sendCurrencyPrefix(code);
-
-  Widget _currencyIcon(String code, {double? size}) =>
-      sendCurrencyIcon(code, size: size ?? 24.sp);
 
   /// Resolve the wallet captured at entry, independently of the active
   /// spending account. A removed explicit source never falls back here.
@@ -3655,31 +3651,6 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   /// controller so the orchestrator can drive step states + lifecycle
   /// after the user confirms. Caller awaits `controller.awaitConfirmation()`
   /// to know whether to proceed.
-
-  /// The shared Send / Receive unit sheet; picking a unit restarts the
-  /// entry so the digits never belong to the old unit's decimals.
-  void _showCurrencyPicker(BuildContext context, WidgetRef ref) {
-    showAmountUnitPicker(
-      context,
-      selected: ref.read(inputCurrencyProvider),
-      iconBuilder: (code, size) => _currencyIcon(code, size: size),
-      onSelected: (code) {
-        ref.read(inputCurrencyProvider.notifier).state = code;
-        if (code != 'Sats' && code != 'BTC') {
-          _lastFiatUnit = code;
-        }
-        if (isInvoice) {
-          updateControllerText(ref.read(sendTxProvider).amount);
-        } else {
-          controller.text = "";
-          // Also reset the ATM accumulator so the Bitcoin hero starts
-          // from an empty entry when the user switches units mid-flow.
-          _syncAtmDigitsFromSats(0);
-          ref.read(sendTxProvider.notifier).updateAmountFromInput('0', 'sats');
-        }
-      },
-    );
-  }
 
   /// Spendable balance (in sats) for the wallet the user is sending
   /// FROM, regardless of which wallet is currently active globally.
@@ -5507,9 +5478,10 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     setState(() {});
   }
 
-  /// "$105.40" under a Bitcoin amount, "₿45,120" under a fiat one, plus
-  /// the swap icon that calls [_flipAmountUnit]. The value carries no
-  /// approximation mark: it reads as a second price tag, not a hedge.
+  /// "$105.40" under a Bitcoin amount, "₿45,120" under a fiat one: the
+  /// line is the button that calls [_flipAmountUnit], quieter at 0. The
+  /// value carries no approximation mark: it reads as a second price
+  /// tag, not a hedge.
   Widget _amountConversionLine(
       AppColorsExtension c, String unit, String btcFormat, int amountSats) {
     final isBtcUnit = unit == 'Sats' || unit == 'BTC';
@@ -5524,8 +5496,23 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     }
     return SendAmountConversionLine(
       secondary: secondary,
+      zero: amountSats <= 0,
       onSwap: () => _flipAmountUnit(unit),
     );
+  }
+
+  /// The pool the amount is judged against, as ONE number in the hero's
+  /// unit: "361,694 sats available" while typing in a Bitcoin unit,
+  /// "$274.13 available" while typing in the money.
+  String _amountAvailableLabel(String unit, String btcFormat, int poolSats) {
+    final l10n = context.l10n;
+    if (unit == 'Sats' || unit == 'BTC') {
+      return l10n.hlYieldAvailableLine(
+          '${poolSats.toFormattedString(btcFormat)} $btcFormat');
+    }
+    final fiat = ref.watch(
+        satsToTargetCurrencyProvider((sats: poolSats, currency: unit)));
+    return l10n.hlYieldAvailableLine('${_getCurrencyPrefix(unit)}$fiat');
   }
 
   Widget _amountBody(AppColorsExtension c, String currentInputCurrency,
@@ -5538,7 +5525,6 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     // wallet's BDK balance whenever the user opened Send from a
     // hardware detail screen (active wallet stays pinned to
     // spending), so the "X sats available" line was wrong.
-    final selectedPoolFiat = ref.watch(conversionToFiatProvider(btcSats));
     final amountSats = ref.watch(sendTxProvider).amount;
     // Over-balance is judged here, at typing time, so the user is not
     // sent two steps on to fail in a Review fee row.
@@ -5551,85 +5537,52 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // ── Hero ───────────────────────────────────
-        // The one big number with its unit pill, the live
-        // equivalent in the other unit (and the swap icon that flips
-        // the entry unit) and the available balance. Scrolls so the
+        // One figure, centred in the room over the keypad, with one line
+        // under it: the other unit's figure, which flips the entry unit
+        // (send_flow_widgets.dart, "CALM, ONE FIGURE"). No unit pill:
+        // sats or BTC, and the money, come from Settings. Scrolls so the
         // pinned keypad below always fits, even at 320 wide with the
         // largest text sizes.
         Expanded(
-          child: SingleChildScrollView(
-            padding: EdgeInsets.only(top: 4.h, bottom: 8.h),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: AnimatedBuilder(
-                        // Pulse driven by the state-owned `_amountPulse`
-                        // controller; the child is built once per frame
-                        // and reused across the animation.
-                        animation: _amountPulse,
-                        builder: (context, child) {
-                          final t = _amountPulse.value;
-                          // Quick scale-up + ease back: starts at 0.94,
-                          // lands at 1.0 with easeOutBack overshoot.
-                          // Reads as a soft "digit lands" pop.
-                          final scale =
-                              0.94 + Curves.easeOutBack.transform(t) * 0.06;
-                          return Transform.scale(scale: scale, child: child);
-                        },
-                        child: FittedBox(
-                          // Auto-shrinks long inputs (a ten-digit sat
-                          // amount on a small phone) without manual
-                          // size juggling; the default is the 56sp hero.
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: isBtcUnit
-                              ? _buildAtmAmountInput(c, currentInputCurrency,
-                                  overBalance: overBalance)
-                              : _fiatAmountHero(c, currentInputCurrency,
-                                  overBalance: overBalance),
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: 10.w),
-                    _AmountUnitPill(
-                      code: currentInputCurrency,
-                      icon: _currencyIcon(currentInputCurrency, size: 20.sp),
-                      onTap: () => _showCurrencyPicker(context, ref),
-                    ),
-                  ],
+          child: LayoutBuilder(
+            builder: (context, constraints) => SingleChildScrollView(
+              padding: EdgeInsets.only(top: 4.h, bottom: 8.h),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                    minHeight: math.max(0.0, constraints.maxHeight - 12.h)),
+                child: Center(
+                  child: SendAmountHeroStack(
+                    // Pulse driven by the state-owned `_amountPulse`
+                    // controller.
+                    pulse: _amountPulse,
+                    figure: isBtcUnit
+                        ? _buildAtmAmountInput(c, currentInputCurrency,
+                            overBalance: overBalance)
+                        : _fiatAmountHero(c, currentInputCurrency,
+                            overBalance: overBalance),
+                    below: _hasSource
+                        ? _amountConversionLine(
+                            c, currentInputCurrency, btcFormat, amountSats)
+                        : null,
+                    warning: overBalance
+                        ? context.l10n.sendMoreThanAvailable
+                        : null,
+                  ),
                 ),
-                // Live equivalent of the typed amount in the other unit,
-                // with the swap icon that flips the entry unit in place
-                // (the amount stays, only the unit changes).
-                if (_hasSource) ...[
-                  SizedBox(height: 10.h),
-                  _amountConversionLine(
-                      c, currentInputCurrency, btcFormat, amountSats),
-                ],
-                if (overBalance) ...[
-                  SizedBox(height: 8.h),
-                  SendAmountWarningLine(context.l10n.sendMoreThanAvailable),
-                ],
-                SizedBox(height: 10.h),
-                SendAmountAvailableLine(
-                  context.l10n.sendAmountUnitAvailableWithFiat(
-                      btcSats.toFormattedString(btcFormat),
-                      btcFormat,
-                      selectedPoolFiat),
-                ),
-              ],
+              ),
             ),
           ),
         ),
-        // ── Bottom, pinned: percent chips + keypad ─────────────
-        // Percent-of-balance chips (Move sheet language): 25/50 set a
-        // bounded amount through the normal write path; 100% routes
-        // through the existing MAX logic so drain semantics, the LNURL
-        // clamp and the cold-wallet branch stay intact.
-        AmountPercentChips(
+        // ── Bottom, pinned: the balance, percent chips + keypad ────────
+        // The balance as one number in the hero's unit, over the chips
+        // that take a share of it. Percent-of-balance chips (Move sheet
+        // language): 25/50 set a bounded amount through the normal write
+        // path; 100% routes through the existing MAX logic so drain
+        // semantics, the LNURL clamp and the cold-wallet branch stay
+        // intact.
+        SendAmountBalanceRow(
+          available: _amountAvailableLabel(
+              currentInputCurrency, btcFormat, btcSats),
           enabled: !isInvoice && !isCalculatingMax,
           onPercent: (r) {
             if (isInvoice) return;
@@ -9938,6 +9891,3 @@ class _SendFailureDetailsState extends State<_SendFailureDetails> {
     );
   }
 }
-
-/// The unit pill beside the amount hero, shared with the dollar send.
-typedef _AmountUnitPill = SendAmountUnitPill;

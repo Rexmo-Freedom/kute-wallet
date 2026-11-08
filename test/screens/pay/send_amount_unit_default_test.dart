@@ -3,6 +3,11 @@
 // never dollars, whatever the display currency, the unit last picked on
 // Receive, or the unit a previous send was flipped to. Fiat stays one
 // flip away within the flow; the next send opens in Bitcoin again.
+//
+// The step is calm (founder, 7 November 2026: "they seem soo dense, to
+// many numbers"): one figure, centred, no unit pill; the line under it is
+// the other unit and flips the entry unit when tapped; the balance is one
+// number in the figure's unit over the percent row.
 
 import 'dart:io';
 
@@ -21,6 +26,11 @@ import 'package:kute/providers/address_receive_provider.dart';
 import 'package:kute/providers/send_tx_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/pay/components/confirm_send.dart';
+import 'package:kute/screens/shared/send/send_flow_widgets.dart'
+    show
+        SendAmountConversionLine,
+        SendAmountUnitPill,
+        SendBitcoinAmountHero;
 import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -226,6 +236,50 @@ void main() {
           expect(container.read(inputCurrencyProvider), unit);
         });
       }
+
+      testWidgets(
+          'calm: the figure centred, no unit pill, the line under it flips '
+          'the unit, the balance one number in the figure\'s unit',
+          (tester) async {
+        final (container, router) = await _pump(tester, btcFormat: format);
+        await _open(tester, container, router, _onChain);
+        expect(_step(_l10n.amount), findsOneWidget);
+        // No unit pill and no unit sheet: Settings holds sats or BTC.
+        expect(find.byType(SendAmountUnitPill), findsNothing);
+        expect(find.byIcon(Icons.expand_more_rounded), findsNothing);
+        final screen = tester.getRect(find.byType(ConfirmSend));
+        expect(tester.getRect(find.byType(SendBitcoinAmountHero)).center.dx,
+            moreOrLessEquals(screen.center.dx, epsilon: 1));
+        // One number: the balance in the Bitcoin unit, no money after it.
+        String available() => tester
+            .widget<Text>(find.byKey(const ValueKey('send-amount-available')))
+            .data!;
+        expect(available(), endsWith(' ${format == 'BTC' ? 'BTC' : 'sats'} '
+            'available'));
+        expect(available(), isNot(contains('·')));
+        // Nothing typed: the line is the quiet one.
+        expect(
+            tester
+                .widget<SendAmountConversionLine>(
+                    find.byType(SendAmountConversionLine))
+                .zero,
+            isTrue);
+
+        // The line itself (its figure) flips; the balance follows.
+        final line = tester
+            .widget<SendAmountConversionLine>(
+                find.byType(SendAmountConversionLine))
+            .secondary;
+        await tester.tap(find.text(line));
+        await _frames(tester);
+        expect(container.read(inputCurrencyProvider), 'USD');
+        expect(available(), startsWith('\$'));
+        expect(available(), isNot(contains('sats')));
+        await tester.tap(find.byType(SendAmountConversionLine));
+        await _frames(tester);
+        expect(container.read(inputCurrencyProvider), unit);
+        expect(tester.takeException(), isNull);
+      });
 
       testWidgets('flipping to dollars lasts for this send only',
           (tester) async {

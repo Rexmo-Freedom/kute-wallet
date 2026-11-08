@@ -34,7 +34,7 @@ import 'package:kute/screens/scanner/scanner_sheet.dart' show ScannerSheet;
 import 'package:kute/screens/shared/coin_asset_grid.dart'
     show CoinAssetPickerSheet;
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
-    show SendAmountUnitPill;
+    show SendAmountUnitPill, SendTypedAmountHero;
 import 'package:kute/screens/shared/send/send_recipient_step.dart'
     show SendSalShareGlyph;
 import 'package:kute/screens/shared/sal_sprite.dart' show SalSpriteCache;
@@ -563,11 +563,23 @@ void main() {
     expect(_step(_l10n.amount), findsOneWidget);
     expect(find.text(_l10n.amount), findsNothing);
     expect(_chipLabel(tester), label('arbitrum', 'USDC'));
+    // Calm (founder, 7 November 2026: "to many numbers"): the figure
+    // alone, centred, its $ naming the unit (no USD pill beside it), and
+    // its one line under it, the coin; the balance over the chips.
     expect(
         tester
             .widgetList<SendAmountUnitPill>(find.byType(SendAmountUnitPill))
             .map((p) => p.code),
-        contains('USD'));
+        isNot(contains('USD')));
+    final figure = tester.getRect(find.byType(SendTypedAmountHero));
+    expect(tester.getRect(_chip).top, greaterThan(figure.bottom));
+    expect(tester.getRect(_chip).center.dx,
+        moreOrLessEquals(figure.center.dx, epsilon: 1));
+    expect(
+        tester
+            .getRect(find.byKey(const ValueKey('send-amount-available')))
+            .bottom,
+        lessThan(tester.getRect(find.text('100%')).top));
     expect(find.text('100%'), findsOneWidget);
     expect(_continueEnabled(tester), isFalse);
 
