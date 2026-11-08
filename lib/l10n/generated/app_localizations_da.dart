@@ -13935,7 +13935,7 @@ class AppLocalizationsDa extends AppLocalizations {
   String get chartGroupDisplay => 'Visning';
 
   @override
-  String get chartLogScaleNote => 'Lige store procentbevægelser ser ens ud';
+  String get chartLogScaleNote => 'Samme % bevægelse, samme højde';
 
   @override
   String get chartIndSmaNote => 'Langsigtet trend, vender langsomt';
@@ -13948,6 +13948,15 @@ class AppLocalizationsDa extends AppLocalizations {
 
   @override
   String get chartIndAtrNote => 'Hvor langt en periode typisk bevæger sig';
+
+  @override
+  String get chartIndIchimokuNote => 'Trend og niveauer i én sky';
+
+  @override
+  String get chartIndPivotNote => 'Dagens niveauer ud fra i går';
+
+  @override
+  String get chartIndAdxNote => 'Hvor stærk trenden er';
 
   @override
   String get chartIndObvNote => 'Om volumen understøtter bevægelsen';
@@ -13997,6 +14006,21 @@ class AppLocalizationsDa extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Rækker';
+
+  @override
+  String get chartParamSmoothing => 'Udjævning';
+
+  @override
+  String get chartParamConversion => 'Konverteringslinje';
+
+  @override
+  String get chartParamBase => 'Basislinje';
+
+  @override
+  String get chartParamSpanB => 'Spænd B';
+
+  @override
+  String get chartParamDisplacement => 'Forskydning';
 
   @override
   String get polyPeriodMatch => 'Kamp';

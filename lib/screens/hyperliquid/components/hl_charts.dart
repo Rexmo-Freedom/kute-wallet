@@ -1351,6 +1351,10 @@ class HlCandlestickChart extends StatefulWidget {
   /// (ChartPreferences.params).
   final Map<String, List<num>> indicatorParams;
 
+  /// Real daily candles, in the chart's units, ascending: what Pivots read
+  /// their levels from. Stable identity between real changes.
+  final List<HyperliquidCandle> dailyCandles;
+
   /// Advanced: the axes' corner shows a "Log" switch that calls this
   /// (the Chart sheet's Log scale card sets the same saved setting).
   final ValueChanged<bool>? onLogScaleChanged;
@@ -1434,6 +1438,7 @@ class HlCandlestickChart extends StatefulWidget {
     this.onPlacementPendingChanged,
     this.indicators = const {},
     this.indicatorParams = const {},
+    this.dailyCandles = const [],
     this.onLogScaleChanged,
     this.logScale = false,
     this.tradeLines = const [],
@@ -2084,6 +2089,8 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
   Object? _sliceKey;
   List<KuteIndicatorOverlay> _visOverlays = const [];
   KuteIndicatorBand? _visBand;
+  HlIndCloud? _visCloud;
+  List<HlIndLevelLabel> _visLevelLabels = const [];
   HlVolumeProfile? _visProfile;
 
   /// Older bars asked for so the indicators are warm at the first bar on
@@ -2948,7 +2955,12 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
   /// (Re)build the series for the active indicators over [candles] (the
   /// full tape). A no-op unless the tape, the set or the settings changed.
   void _syncFullIndicators(List<HyperliquidCandle> candles) {
-    final key = (candles, widget.indicators, widget.indicatorParams);
+    final key = (
+      candles,
+      widget.indicators,
+      widget.indicatorParams,
+      widget.dailyCandles,
+    );
     if (key == _indKey) return;
     _indKey = key;
     _indFull = widget.indicators.isEmpty
@@ -2959,6 +2971,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
             widget.indicatorParams,
             up: AppColors.marketUp,
             down: AppColors.marketDown,
+            daily: widget.dailyCandles,
           );
     _indStamp++;
   }
@@ -2974,6 +2987,8 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     _indVis = _indFull.slice(start, end);
     _visOverlays = _indVis.overlays(kHlIndicatorStroke);
     _visBand = _indVis.band;
+    _visCloud = _indVis.cloud;
+    _visLevelLabels = _indVis.levelLabels;
     if (rows == null) {
       _visProfile = null;
     } else {
@@ -3318,6 +3333,8 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                     morphSeries: morphSeries,
                                     overlays: _visOverlays,
                                     band: _visBand,
+                                    cloud: _visCloud,
+                                    levelLabels: _visLevelLabels,
                                     logScale: widget.logScale,
                                     style: widget.style,
                                     baselinePrice: widget.baselinePrice,
@@ -4493,6 +4510,10 @@ class _HlCandlePainter extends CustomPainter {
   final List<KuteIndicatorOverlay> overlays;
   final KuteIndicatorBand? band;
 
+  /// Ichimoku's cloud, under the lines, and Pivots' names, over them.
+  final HlIndCloud? cloud;
+  final List<HlIndLevelLabel> levelLabels;
+
   /// Log price axis (ln-mapped y). Flows into the shared geometry so
   /// every painted element stays in register.
   final bool logScale;
@@ -4536,6 +4557,8 @@ class _HlCandlePainter extends CustomPainter {
     this.morphSeries,
     this.overlays = const [],
     this.band,
+    this.cloud,
+    this.levelLabels = const [],
     this.logScale = false,
     this.style = HlChartStyle.area,
     this.baselinePrice,
@@ -4871,7 +4894,7 @@ class _HlCandlePainter extends CustomPainter {
     // envelope can exceed the candle domain). Skipped mid-morph — the
     // morph line's x space is resampled, so bucket-aligned overlays
     // would drift for its ~280ms.
-    if (overlays.isNotEmpty && morphSeries == null) {
+    if ((overlays.isNotEmpty || cloud != null) && morphSeries == null) {
       canvas.save();
       canvas.clipRect(Rect.fromLTWH(0, 0, w, priceH));
       // On a log axis a value at or under zero (the lower band of a wild
@@ -4879,8 +4902,34 @@ class _HlCandlePainter extends CustomPainter {
       double indY(double v) => logMap && v <= 0 ? double.nan : toY(v);
       final b = band;
       if (b != null) kutePaintIndicatorBandFill(canvas, b, slot, indY);
+      final ichimoku = cloud;
+      if (ichimoku != null) hlPaintIchimokuCloud(canvas, ichimoku, slot, indY);
       for (final o in overlays) {
         kutePaintIndicatorLine(canvas, o, slot, indY);
+      }
+      // Levels' names, small and quiet, where each newest stretch starts,
+      // over its line on a soft halo (as TradingView writes them); one that
+      // would sit on another gives way.
+      final placed = <double>[];
+      final labelHalo = Paint()..color = labelBg.withValues(alpha: 0.65);
+      for (final l in levelLabels) {
+        if (l.value <= 0 && logMap) continue;
+        final ly = toY(l.value);
+        if (ly < 0 || ly > priceH) continue;
+        final tp = _cachedTp(l.label, l.color, 9.5.sp, FontWeight.w600);
+        final top = ly - tp.height;
+        if (top < 0) continue;
+        if (placed.any((p) => (p - top).abs() < tp.height)) continue;
+        placed.add(top);
+        final left = math.min(
+            math.max(1.0, (l.start + 0.5) * slot), w - tp.width - 3);
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+              Rect.fromLTWH(left - 1, top, tp.width + 2, tp.height),
+              const Radius.circular(2)),
+          labelHalo,
+        );
+        tp.paint(canvas, Offset(left, top));
       }
       canvas.restore();
     }
@@ -5051,6 +5100,8 @@ class _HlCandlePainter extends CustomPainter {
       old.renderAsLine != renderAsLine ||
       !identical(old.overlays, overlays) ||
       !identical(old.band, band) ||
+      !identical(old.cloud, cloud) ||
+      !identical(old.levelLabels, levelLabels) ||
       old.logScale != logScale ||
       old.domain != domain ||
       old.tagGutter != tagGutter ||

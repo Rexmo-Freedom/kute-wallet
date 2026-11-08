@@ -13961,8 +13961,7 @@ class AppLocalizationsFi extends AppLocalizations {
   String get chartGroupDisplay => 'Näkymä';
 
   @override
-  String get chartLogScaleNote =>
-      'Yhtä suuret prosenttiliikkeet näyttävät samalta';
+  String get chartLogScaleNote => 'Sama % liike, sama korkeus';
 
   @override
   String get chartIndSmaNote => 'Pitkän aikavälin trendi, kääntyy hitaasti';
@@ -13975,6 +13974,15 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get chartIndAtrNote => 'Kuinka paljon yksi jakso yleensä liikkuu';
+
+  @override
+  String get chartIndIchimokuNote => 'Trendi ja tasot yhdessä pilvessä';
+
+  @override
+  String get chartIndPivotNote => 'Tämän päivän tasot eilisestä';
+
+  @override
+  String get chartIndAdxNote => 'Kuinka vahva trendi on';
 
   @override
   String get chartIndObvNote => 'Tukeeko volyymi liikettä';
@@ -14024,6 +14032,21 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Rivit';
+
+  @override
+  String get chartParamSmoothing => 'Tasoitus';
+
+  @override
+  String get chartParamConversion => 'Muuntoviiva';
+
+  @override
+  String get chartParamBase => 'Perusviiva';
+
+  @override
+  String get chartParamSpanB => 'Span B';
+
+  @override
+  String get chartParamDisplacement => 'Siirtymä';
 
   @override
   String get polyPeriodMatch => 'Ottelu';

@@ -7,7 +7,9 @@
 // else; a live tick (a new tape) recomputes the few that are on, each in
 // one pass over the tape. Series are computed over the WHOLE loaded tape
 // (a panned view never restarts their warm-up at its left edge) and then
-// sliced to the bars on screen ([HlIndicatorFrame.slice]).
+// sliced to the bars on screen ([HlIndicatorFrame.slice]). Ichimoku's
+// cloud and Pivots' labels are the two things beyond plain lines and the
+// one band; the price painter draws them under and over the lines.
 
 import 'package:flutter/painting.dart' show Color;
 
@@ -19,10 +21,35 @@ import 'package:kute/screens/shared/charts/kute_chart_indicators.dart'
 
 /// One line an indicator draws, aligned to the bars (nan = no value).
 class HlIndLine {
-  const HlIndLine(this.values, this.color);
+  const HlIndLine(this.values, this.color, {this.label});
   final List<double> values;
   final Color color;
+
+  /// A level's quiet name, written where its newest stretch starts ("R1").
+  final String? label;
 }
+
+/// Ichimoku's cloud: the fill between its two spans, [up] where span A
+/// leads and [down] where span B does. Aligned to the bars.
+class HlIndCloud {
+  const HlIndCloud({
+    required this.spanA,
+    required this.spanB,
+    required this.up,
+    required this.down,
+  });
+  final List<double> spanA, spanB;
+  final Color up, down;
+}
+
+/// A level's name to write on the plot, at [value], where its newest
+/// stretch on screen starts (bar [start]).
+typedef HlIndLevelLabel = ({
+  String label,
+  double value,
+  int start,
+  Color color,
+});
 
 /// One indicator, computed: its lines (and band, histogram, guide levels
 /// and fixed range where it has them) and its title ("RSI 14").
@@ -35,6 +62,8 @@ class HlIndSeries {
     this.histogram,
     this.levels = const [],
     this.range,
+    this.cloud,
+    this.legendLines,
   });
 
   final String key;
@@ -44,6 +73,14 @@ class HlIndSeries {
   final List<double>? histogram;
   final List<double> levels;
   final (double, double)? range;
+
+  /// Ichimoku's fill between its spans.
+  final HlIndCloud? cloud;
+
+  /// How many of [lines] the legend writes values for (null: all), so its
+  /// one row stays whole: Pivots write P alone (the rest are labelled on
+  /// the plot), Ichimoku its conversion and base lines.
+  final int? legendLines;
 
   /// The bars [start, end) of every series.
   HlIndSeries slice(int start, int end) {
@@ -58,7 +95,10 @@ class HlIndSeries {
     return HlIndSeries(
       key: key,
       title: title,
-      lines: [for (final l in lines) HlIndLine(cut(l.values), l.color)],
+      lines: [
+        for (final l in lines)
+          HlIndLine(cut(l.values), l.color, label: l.label),
+      ],
       band: b == null
           ? null
           : KuteIndicatorBand(
@@ -66,6 +106,15 @@ class HlIndSeries {
       histogram: h == null ? null : cut(h),
       levels: levels,
       range: range,
+      cloud: cloud == null
+          ? null
+          : HlIndCloud(
+              spanA: cut(cloud!.spanA),
+              spanB: cut(cloud!.spanB),
+              up: cloud!.up,
+              down: cloud!.down,
+            ),
+      legendLines: legendLines,
     );
   }
 
@@ -84,7 +133,8 @@ class HlIndSeries {
       }
     }
     final out = <(double, Color)>[];
-    for (final l in lines) {
+    final shown = legendLines == null ? lines : lines.take(legendLines!);
+    for (final l in shown) {
       final v = _at(l.values, at);
       if (v != null) out.add((v, l.color));
     }
@@ -146,6 +196,38 @@ class HlIndicatorFrame {
     return null;
   }
 
+  /// The one cloud (Ichimoku's), if on.
+  HlIndCloud? get cloud {
+    for (final s in price) {
+      if (s.cloud != null) return s.cloud;
+    }
+    return null;
+  }
+
+  /// The levels to name on the plot: each labelled line at the newest
+  /// stretch it draws on screen.
+  List<HlIndLevelLabel> get levelLabels {
+    final out = <HlIndLevelLabel>[];
+    for (final s in price) {
+      for (final l in s.lines) {
+        final name = l.label;
+        if (name == null) continue;
+        final v = l.values;
+        var end = v.length - 1;
+        while (end >= 0 && !v[end].isFinite) {
+          end--;
+        }
+        if (end < 0) continue;
+        var start = end;
+        while (start > 0 && v[start - 1].isFinite) {
+          start--;
+        }
+        out.add((label: name, value: v[end], start: start, color: l.color));
+      }
+    }
+    return out;
+  }
+
   HlIndicatorFrame slice(int start, int end) => HlIndicatorFrame(
         price: [for (final s in price) s.slice(start, end)],
         panes: [for (final s in panes) s.slice(start, end)],
@@ -161,13 +243,16 @@ class HlIndicatorComputer {
   final Map<String, HlIndSeries> _memo = {};
 
   /// The series for [keys] (in order) over [candles] with [params] (the
-  /// stored settings, [hlIndParams]). [up] / [down] colour Supertrend.
+  /// stored settings, [hlIndParams]). [up] / [down] colour Supertrend and
+  /// Ichimoku's cloud. [daily] are the real daily candles Pivots read
+  /// (none yet: no levels).
   HlIndicatorFrame compute(
     List<HyperliquidCandle> candles,
     Iterable<String> keys,
     Map<String, List<num>> params, {
     required Color up,
     required Color down,
+    List<HyperliquidCandle> daily = const [],
   }) {
     if (!identical(candles, _tape)) {
       _tape = candles;
@@ -189,10 +274,11 @@ class HlIndicatorComputer {
         continue;
       }
       if (candles.isEmpty) continue;
-      final memoKey = '$key|${p.join(',')}|${up.toARGB32()}|${down.toARGB32()}';
+      final memoKey = '$key|${p.join(',')}|${up.toARGB32()}|${down.toARGB32()}'
+          '${key == 'pp' ? '|${identityHashCode(daily)}' : ''}';
       used.add(memoKey);
-      final s =
-          _memo.putIfAbsent(memoKey, () => _build(spec, p, candles, up, down));
+      final s = _memo.putIfAbsent(
+          memoKey, () => _build(spec, p, candles, up, down, daily));
       (spec.place == HlIndPlace.pane ? panes : price).add(s);
     }
     _memo.removeWhere((k, _) => !used.contains(k));
@@ -210,6 +296,7 @@ class HlIndicatorComputer {
     List<HyperliquidCandle> candles,
     Color up,
     Color down,
+    List<HyperliquidCandle> daily,
   ) {
     final title = hlIndTitle(spec.key, p);
     int i(int at) => p[at].round();
@@ -240,6 +327,52 @@ class HlIndicatorComputer {
           HlIndLine(ups, up),
           HlIndLine(downs, down),
         ]);
+      case 'ichi':
+        final ic = hlIchimoku(candles,
+            conversion: i(0), base: i(1), spanB: i(2), displacement: i(3));
+        return HlIndSeries(
+          key: spec.key,
+          title: title,
+          lines: [
+            HlIndLine(ic.conversion, spec.colors[0]),
+            HlIndLine(ic.base, spec.colors[1]),
+            HlIndLine(ic.spanA, up.withValues(alpha: 0.75)),
+            HlIndLine(ic.spanB, down.withValues(alpha: 0.75)),
+            HlIndLine(ic.lagging, spec.colors[4]),
+          ],
+          cloud: HlIndCloud(
+              spanA: ic.spanA, spanB: ic.spanB, up: up, down: down),
+          legendLines: 2,
+        );
+      case 'pp':
+        final d = hlDailyPivots(candles, daily);
+        final pivot = spec.colors[0];
+        final quiet = spec.colors[1].withValues(alpha: 0.75);
+        return HlIndSeries(
+          key: spec.key,
+          title: title,
+          lines: [
+            HlIndLine(d.p, pivot, label: 'P'),
+            HlIndLine(d.r1, quiet, label: 'R1'),
+            HlIndLine(d.r2, quiet, label: 'R2'),
+            HlIndLine(d.r3, quiet, label: 'R3'),
+            HlIndLine(d.s1, quiet, label: 'S1'),
+            HlIndLine(d.s2, quiet, label: 'S2'),
+            HlIndLine(d.s3, quiet, label: 'S3'),
+          ],
+          legendLines: 1,
+        );
+      case 'adx':
+        final a = hlAdx(candles, length: i(0), smoothing: i(1));
+        return HlIndSeries(
+          key: spec.key,
+          title: title,
+          lines: [
+            HlIndLine(a.adx, spec.colors[0]),
+            HlIndLine(a.plusDi, spec.colors[1]),
+            HlIndLine(a.minusDi, spec.colors[2]),
+          ],
+        );
       case 'bb':
         final b = hlBollinger(candles, period: i(0), mult: p[1].toDouble());
         final c = spec.colors[0];

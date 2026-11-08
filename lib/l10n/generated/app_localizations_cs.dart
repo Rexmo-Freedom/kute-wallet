@@ -13929,7 +13929,7 @@ class AppLocalizationsCs extends AppLocalizations {
   String get chartGroupDisplay => 'Zobrazení';
 
   @override
-  String get chartLogScaleNote => 'Stejné procentní pohyby vypadají stejně';
+  String get chartLogScaleNote => 'Stejné % pohyby, stejná výška';
 
   @override
   String get chartIndSmaNote => 'Dlouhodobý trend, otáčí se pomalu';
@@ -13942,6 +13942,15 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get chartIndAtrNote => 'Jak daleko se jedno období obvykle pohne';
+
+  @override
+  String get chartIndIchimokuNote => 'Trend a úrovně v jednom oblaku';
+
+  @override
+  String get chartIndPivotNote => 'Dnešní úrovně ze včerejšího rozpětí';
+
+  @override
+  String get chartIndAdxNote => 'Jak silný je trend';
 
   @override
   String get chartIndObvNote => 'Zda pohyb podporuje objem';
@@ -13991,6 +14000,21 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Řádky';
+
+  @override
+  String get chartParamSmoothing => 'Vyhlazení';
+
+  @override
+  String get chartParamConversion => 'Konverzní linie';
+
+  @override
+  String get chartParamBase => 'Základní linie';
+
+  @override
+  String get chartParamSpanB => 'Rozpětí B';
+
+  @override
+  String get chartParamDisplacement => 'Posun';
 
   @override
   String get polyPeriodMatch => 'Zápas';

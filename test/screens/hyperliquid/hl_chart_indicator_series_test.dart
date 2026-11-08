@@ -2,12 +2,18 @@
 // own RSI worked example (the StockCharts table), small hand-worked
 // series, and an 80-bar tape whose values come from a separate
 // implementation of TradingView's Pine reference (ta.sma, ta.ema, ta.rma,
-// ta.stdev, ta.rsi, ta.macd, Stoch RSI, ta.atr, ta.supertrend, ta.obv).
+// ta.stdev, ta.rsi, ta.macd, Stoch RSI, ta.atr, ta.supertrend, ta.obv, and
+// TradingView's built-in Ichimoku Cloud and Directional Movement Index
+// scripts). Ichimoku, ADX and the pivots are also pinned by hand-worked
+// small series, the arithmetic written beside them.
 
 import 'dart:math' as math;
+import 'dart:ui' show Color;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/models/hyperliquid_model.dart';
+import 'package:kute/screens/hyperliquid/components/hl_chart_indicator_catalog.dart';
+import 'package:kute/screens/hyperliquid/components/hl_chart_indicator_frame.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_indicator_series.dart';
 
 HyperliquidCandle _bar(int i, double o, double h, double l, double c,
@@ -302,6 +308,345 @@ void main() {
     test('no volume, no profile', () {
       expect(hlVolumeProfile([_bar(0, 1, 2, 0, 1, 0)]), isNull);
       expect(hlVolumeProfile(const []), isNull);
+    });
+  });
+
+  group('Ichimoku', () {
+    // A climbing tape: close 100 + i, high close + 1, low close − 1. Over a
+    // window ending at i the highest high is 101 + i and the lowest low
+    // 99 + i − (len − 1), so each midline is a plain line in i:
+    //   conversion (9)  = 96 + i
+    //   base (26)       = 87.5 + i
+    //   span A, drawn 25 ahead = ((96 + j) + (87.5 + j)) / 2, j = i − 25
+    //                   = 66.75 + i
+    //   span B (52), drawn 25 ahead = 74.5 + j = 49.5 + i
+    //   lagging, drawn 25 behind = 100 + (i + 25) = 125 + i
+    final climb = [
+      for (var i = 0; i < 100; i++)
+        _bar(i, 100.0 + i, 101.0 + i, 99.0 + i, 100.0 + i, 10),
+    ];
+    final ic = hlIchimoku(climb);
+
+    test('9, 26, 52, 26 on a climbing tape, by hand', () {
+      expect(ic.conversion[7].isNaN, isTrue);
+      expect(ic.conversion[8], moreOrLessEquals(104));
+      expect(ic.conversion[60], moreOrLessEquals(156));
+      expect(ic.base[24].isNaN, isTrue);
+      expect(ic.base[25], moreOrLessEquals(112.5));
+      expect(ic.base[99], moreOrLessEquals(186.5));
+      // Span A's first value is computed at bar 25, drawn at bar 50.
+      expect(ic.spanA[49].isNaN, isTrue);
+      expect(ic.spanA[50], moreOrLessEquals(116.75));
+      expect(ic.spanA[99], moreOrLessEquals(165.75));
+      // Span B's first is computed at bar 51, drawn at bar 76.
+      expect(ic.spanB[75].isNaN, isTrue);
+      expect(ic.spanB[76], moreOrLessEquals(125.5));
+      expect(ic.spanB[99], moreOrLessEquals(148.5));
+      expect(ic.lagging[0], moreOrLessEquals(125));
+      expect(ic.lagging[74], moreOrLessEquals(199));
+      expect(ic.lagging[75].isNaN, isTrue);
+    });
+
+    test('the cloud is cut at the last bar: as long as the tape, never past',
+        () {
+      expect(ic.spanA, hasLength(climb.length));
+      expect(ic.spanB, hasLength(climb.length));
+      expect(ic.spanA.last.isFinite, isTrue);
+    });
+
+    test('2, 3, 4, 2 on eight bars, by hand', () {
+      final bars = [
+        _bar(0, 10, 11, 9, 10, 1),
+        _bar(1, 10, 12, 10, 11, 1),
+        _bar(2, 11, 13, 10, 12, 1),
+        _bar(3, 12, 12, 9, 10, 1),
+        _bar(4, 10, 11, 8, 9, 1),
+        _bar(5, 9, 10, 8, 10, 1),
+        _bar(6, 10, 12, 9, 11, 1),
+        _bar(7, 11, 14, 11, 13, 1),
+      ];
+      final s =
+          hlIchimoku(bars, conversion: 2, base: 3, spanB: 4, displacement: 2);
+      void same(List<double> got, List<double?> want) {
+        for (var i = 0; i < want.length; i++) {
+          final w = want[i];
+          if (w == null) {
+            expect(got[i].isNaN, isTrue, reason: 'bar $i');
+          } else {
+            expect(got[i], moreOrLessEquals(w), reason: 'bar $i');
+          }
+        }
+      }
+
+      // Bar 2: conversion (13 + 10) / 2, base (13 + 9) / 2; drawn at bar 3,
+      // span A is their average, 11.25.
+      same(s.conversion, [null, 10.5, 11.5, 11, 10, 9.5, 10, 11.5]);
+      same(s.base, [null, null, 11, 11, 10.5, 10, 10, 11]);
+      same(s.spanA, [null, null, null, 11.25, 11, 10.25, 9.75, 10]);
+      same(s.spanB, [null, null, null, null, 11, 10.5, 10.5, 10]);
+      same(s.lagging, [11, 12, 10, 9, 10, 11, 13, null]);
+    });
+
+    test('9, 26, 52, 26 on the tape', () {
+      final s = hlIchimoku(tape);
+      _expectAt(s.conversion, [
+        106.295739, 96.780810, 102.886181, 112.608352, 113.697833, //
+        106.956005, 108.249648, 117.561608, 119.314386,
+      ]);
+      _expectAt(s.base, [
+        null, 104.200145, 103.986947, 105.507355, 106.897756, //
+        110.588139, 110.417048, 111.764833, 113.268691,
+      ]);
+      _expectAt(s.spanA, [
+        null, null, null, null, null, //
+        101.519634, 105.991249, 111.151909, 108.652199,
+      ]);
+      _expectAt(s.spanB, [
+        null, null, null, null, null, null, null, null, 106.897756,
+      ]);
+      _expectAt(s.lagging, [
+        116.845032, 103.300006, 100.657296, 119.780666, 123.880999, //
+        null, null, null, null,
+      ]);
+    });
+  });
+
+  group('ADX', () {
+    // Lengths 3 and 2 on eight bars, by hand. Bars 1 to 3:
+    //   TR  2, 3, 3         +DM 1, 1, 0        −DM 0, 0, 1
+    // The first RMAs, at bar 3: TR 8/3, +DM 2/3, −DM 1/3, so +DI 25, −DI
+    // 12.5 and DX 12.5 / 37.5 = 1/3. Bar 4 has TR 3, +DM 0, −DM 1:
+    //   TR (3 + 2 × 8/3) / 3 = 25/9, +DM 4/9, −DM 5/9
+    // so +DI 16, −DI 20, DX 4 / 36 = 1/9, and the first ADX at bar 4 is
+    // (1/3 + 1/9) / 2 = 2/9 = 22.22. The rest from the separate
+    // implementation of TradingView's script.
+    final bars = [
+      _bar(0, 10, 11, 9, 10, 1),
+      _bar(1, 10, 12, 10, 11, 1),
+      _bar(2, 11, 13, 10, 12, 1),
+      _bar(3, 12, 12, 9, 10, 1),
+      _bar(4, 10, 11, 8, 9, 1),
+      _bar(5, 9, 10, 8, 10, 1),
+      _bar(6, 10, 12, 9, 11, 1),
+      _bar(7, 11, 14, 11, 13, 1),
+    ];
+
+    test('3, 2 on eight bars, by hand', () {
+      final s = hlAdx(bars, length: 3, smoothing: 2);
+      expect(s.plusDi[2].isNaN, isTrue);
+      expect(s.plusDi[3], moreOrLessEquals(25));
+      expect(s.minusDi[3], moreOrLessEquals(12.5));
+      expect(s.plusDi[4], moreOrLessEquals(16));
+      expect(s.minusDi[4], moreOrLessEquals(20));
+      expect(s.adx[3].isNaN, isTrue);
+      expect(s.adx[4], moreOrLessEquals(200 / 9));
+      expect(s.adx[5], closeTo(16.666667, 1e-5));
+      expect(s.adx[6], closeTo(36.111111, 1e-5));
+      expect(s.adx[7], closeTo(56.359649, 1e-5));
+      expect(s.plusDi[7], closeTo(44.608567, 1e-5));
+      expect(s.minusDi[7], closeTo(5.908419, 1e-5));
+    });
+
+    test('a straight climb is all +DI, ADX 100', () {
+      // TR 2 and +DM 1 on every bar: +DI 50, −DI 0, DX 1.
+      final climb = [
+        for (var i = 0; i < 40; i++)
+          _bar(i, 100.0 + i, 101.0 + i, 99.0 + i, 100.0 + i, 1),
+      ];
+      final s = hlAdx(climb);
+      expect(s.plusDi[13].isNaN, isTrue);
+      expect(s.plusDi[14], moreOrLessEquals(50));
+      expect(s.minusDi[14], moreOrLessEquals(0));
+      expect(s.adx[26].isNaN, isTrue);
+      expect(s.adx[27], moreOrLessEquals(100));
+    });
+
+    test('a bar with no range holds the DIs (fixnan), no division by zero',
+        () {
+      final flat = [for (var i = 0; i < 40; i++) _bar(i, 5, 5, 5, 5, 1)];
+      final s = hlAdx(flat);
+      for (final v in [...s.adx, ...s.plusDi, ...s.minusDi]) {
+        expect(v.isInfinite, isFalse);
+      }
+    });
+
+    test('14, 14 on the tape', () {
+      final s = hlAdx(tape);
+      _expectAt(s.adx, [
+        null, null, 22.595840, 35.086988, 35.036755, //
+        28.597597, 26.972067, 37.273278, 36.563688,
+      ]);
+      _expectAt(s.plusDi, [
+        20.385144, 14.693857, 38.514805, 38.032393, 23.594199, //
+        17.394778, 36.899329, 37.318693, 22.756357,
+      ]);
+      _expectAt(s.minusDi, [
+        26.640611, 29.723427, 14.267142, 9.490090, 28.957455, //
+        27.689345, 16.005433, 10.781973, 29.125687,
+      ]);
+    });
+  });
+
+  group('pivot points', () {
+    test('standard, from high 110, low 90, close 105, by hand', () {
+      // P = (110 + 90 + 105) / 3 = 305 / 3
+      //   R1 = 2P − L        S1 = 2P − H
+      //   R2 = P + (H − L)   S2 = P − (H − L)
+      //   R3 = 2P + H − 2L   S3 = 2P − (2H − L)
+      // TradingView's Pivot Points Standard, type Traditional.
+      final l = HlPivotLevels.of(110, 90, 105);
+      expect(l.p, moreOrLessEquals(101.666667, epsilon: 1e-5));
+      expect(l.r1, moreOrLessEquals(113.333333, epsilon: 1e-5));
+      expect(l.s1, moreOrLessEquals(93.333333, epsilon: 1e-5));
+      expect(l.r2, moreOrLessEquals(121.666667, epsilon: 1e-5));
+      expect(l.s2, moreOrLessEquals(81.666667, epsilon: 1e-5));
+      expect(l.r3, moreOrLessEquals(133.333333, epsilon: 1e-5));
+      expect(l.s3, moreOrLessEquals(73.333333, epsilon: 1e-5));
+      // The textbook's other way to write R3 and S3.
+      expect(l.r3, moreOrLessEquals(110 + 2 * (l.p - 90)));
+      expect(l.s3, moreOrLessEquals(90 - 2 * (110 - l.p)));
+    });
+
+    final dayOne = DateTime.utc(2026, 10, 1);
+    HyperliquidCandle day(int d, double h, double l, double c) => _bar(
+        d, c, h, l, c, 1,
+        step: const Duration(days: 1), start: dayOne);
+
+    test('each UTC day draws the day before\'s levels, flat, not joined', () {
+      final hourly = [
+        for (var i = 0; i < 48; i++)
+          _bar(i, 100, 101, 99, 100, 1, start: DateTime.utc(2026, 10, 2)),
+      ];
+      final d = hlDailyPivots(hourly, [
+        day(0, 110, 90, 105),
+        day(1, 120, 100, 110),
+        day(2, 130, 110, 120),
+      ]);
+      // 2 October: from 1 October's bar, day 0. 3 October: from day 1.
+      expect(d.p[0], moreOrLessEquals(305 / 3));
+      expect(d.p[23], moreOrLessEquals(305 / 3));
+      expect(d.p[24].isNaN, isTrue, reason: 'the days never join');
+      expect(d.p[25], moreOrLessEquals(110));
+      expect(d.r1[47], moreOrLessEquals(2 * 110 - 100));
+    });
+
+    test('a day with no daily candle yet has no levels', () {
+      final hourly = [
+        for (var i = 0; i < 4; i++)
+          _bar(i, 100, 101, 99, 100, 1, start: dayOne),
+      ];
+      final d = hlDailyPivots(hourly, [day(0, 110, 90, 105)]);
+      expect(d.p.where((v) => v.isFinite), isEmpty);
+      expect(hlDailyPivots(hourly, const []).p.where((v) => v.isFinite),
+          isEmpty);
+    });
+
+    test('a thin market: the last daily candle before the day', () {
+      final hourly = [
+        _bar(0, 100, 101, 99, 100, 1, start: DateTime.utc(2026, 10, 5)),
+        _bar(1, 100, 101, 99, 100, 1, start: DateTime.utc(2026, 10, 5)),
+      ];
+      final d = hlDailyPivots(hourly, [day(0, 110, 90, 105), day(1, 120, 100, 110)]);
+      expect(d.p[1], moreOrLessEquals(110));
+    });
+
+    test('daily and weekly bars: the newest day\'s levels on the newest bars',
+        () {
+      final daily = [
+        for (var i = 0; i < 30; i++) day(i, 110.0 + i, 90.0 + i, 100.0 + i),
+      ];
+      final d = hlDailyPivots(daily, daily);
+      final at = daily.length - 2; // the candle before today's
+      final want =
+          HlPivotLevels.of(daily[at].high, daily[at].low, daily[at].close);
+      expect(d.p.where((v) => v.isFinite), hasLength(kHlPivotLongBarSpan));
+      expect(d.p.last, moreOrLessEquals(want.p));
+      expect(d.r3.last, moreOrLessEquals(want.r3));
+      expect(d.p[daily.length - kHlPivotLongBarSpan - 1].isNaN, isTrue);
+      expect(d.p[daily.length - kHlPivotLongBarSpan].isFinite, isTrue);
+
+      final weekly = [
+        // The last one still open past the newest daily candle.
+        for (var i = 0; i < 5; i++)
+          _bar(i, 100, 110, 90, 100, 1,
+              step: const Duration(days: 7), start: dayOne),
+      ];
+      final w = hlDailyPivots(weekly, daily);
+      expect(w.p.last, moreOrLessEquals(want.p));
+      expect(w.p.where((v) => v.isFinite), hasLength(5));
+    });
+
+    test('a preview\'s days come from the tape\'s own bars', () {
+      final hourly = [
+        for (var i = 0; i < 30; i++)
+          _bar(i, 100, 100.0 + i, 90.0 - i, 95.0 + i, 2),
+      ];
+      final days = hlDailyFromBars(hourly);
+      expect(days, hasLength(2));
+      expect(days.first.high, 123);
+      expect(days.first.low, 67);
+      expect(days.first.close, 118);
+      expect(days.first.volume, 48);
+    });
+  });
+
+  group('the computed frame', () {
+    const up = Color(0xFF00AA00), down = Color(0xFFAA0000);
+    final computer = HlIndicatorComputer();
+
+    test('Ichimoku carries its cloud through a slice, Pivots their names', () {
+      final daily = hlDailyFromBars(tape);
+      final frame = computer
+          .compute(tape, ['ichi', 'pp', 'adx'], const {},
+              up: up, down: down, daily: daily)
+          .slice(60, 80);
+      final ichi = frame.price.first;
+      expect(ichi.title, 'Ichimoku 9 26 52 26');
+      expect(ichi.lines, hasLength(5));
+      expect(frame.cloud, isNotNull);
+      expect(frame.cloud!.spanA, hasLength(20));
+      expect(frame.cloud!.spanA.first, moreOrLessEquals(hlIchimoku(tape).spanA[60]));
+      expect(frame.levelLabels.map((l) => l.label),
+          ['P', 'R1', 'R2', 'R3', 'S1', 'S2', 'S3']);
+      expect(frame.price.last.valuesAt(null), hasLength(1));
+      expect(frame.panes.single.title, 'ADX 14 14');
+      expect(frame.panes.single.lines, hasLength(3));
+    });
+
+    test('new daily candles recompute Pivots alone', () {
+      final c = HlIndicatorComputer();
+      final daily = hlDailyFromBars(tape);
+      final a = c.compute(tape, ['ichi', 'pp'], const {},
+          up: up, down: down, daily: daily);
+      final b = c.compute(tape, ['ichi', 'pp'], const {},
+          up: up, down: down, daily: [...daily]);
+      expect(identical(a.price.first, b.price.first), isTrue);
+      expect(identical(a.price.last, b.price.last), isFalse);
+    });
+
+    test('a 1W tape with all fifteen on computes in one tick\'s time', () {
+      // 500 weekly bars, as a year-long pan could hold: the whole catalog
+      // at once, more than the limits ever allow.
+      final weekly = [
+        for (var i = 0; i < 500; i++)
+          _bar(
+              i,
+              1000 + 200 * math.sin(i / 11),
+              1040 + 200 * math.sin(i / 11),
+              960 + 200 * math.sin(i / 11),
+              1000 + 200 * math.sin((i + 1) / 11),
+              100,
+              step: const Duration(days: 7)),
+      ];
+      final sw = Stopwatch()..start();
+      final frame = HlIndicatorComputer().compute(
+          weekly, kHlIndicatorCatalog.map((s) => s.key), const {},
+          up: up, down: down, daily: hlDailyFromBars(weekly));
+      sw.stop();
+      expect(frame.price, isNotEmpty);
+      // A debug-mode test VM; the point is the order of magnitude.
+      expect(sw.elapsedMilliseconds, lessThan(100),
+          reason: 'took ${sw.elapsedMilliseconds} ms');
     });
   });
 

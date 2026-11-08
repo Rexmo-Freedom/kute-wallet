@@ -23470,6 +23470,24 @@ abstract class AppLocalizations {
   /// **'How far a bar usually moves'**
   String get chartIndAtrNote;
 
+  /// Chart sheet: one plain line under Ichimoku (trend lines and a cloud of support and resistance levels).
+  ///
+  /// In en, this message translates to:
+  /// **'Trend and key levels in one cloud'**
+  String get chartIndIchimokuNote;
+
+  /// Chart sheet: one plain line under Pivots (daily pivot points from the previous UTC day's high, low and close).
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s levels, from yesterday\'s range'**
+  String get chartIndPivotNote;
+
+  /// Chart sheet: one plain line under ADX (how strong the trend is, whichever way it runs; +DI and -DI show which side leads).
+  ///
+  /// In en, this message translates to:
+  /// **'How strong the trend is'**
+  String get chartIndAdxNote;
+
   /// One-line explanation of the OBV (on-balance volume) indicator.
   ///
   /// In en, this message translates to:
@@ -23559,6 +23577,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Rows'**
   String get chartParamRows;
+
+  /// Indicator settings: ADX's smoothing length.
+  ///
+  /// In en, this message translates to:
+  /// **'Smoothing'**
+  String get chartParamSmoothing;
+
+  /// Indicator settings: Ichimoku's conversion line length (Tenkan).
+  ///
+  /// In en, this message translates to:
+  /// **'Conversion line'**
+  String get chartParamConversion;
+
+  /// Indicator settings: Ichimoku's base line length (Kijun).
+  ///
+  /// In en, this message translates to:
+  /// **'Base line'**
+  String get chartParamBase;
+
+  /// Indicator settings: Ichimoku's leading span B length (Senkou B).
+  ///
+  /// In en, this message translates to:
+  /// **'Span B'**
+  String get chartParamSpanB;
+
+  /// Indicator settings: Ichimoku's displacement, how many bars the cloud is drawn ahead and the lagging line behind.
+  ///
+  /// In en, this message translates to:
+  /// **'Displacement'**
+  String get chartParamDisplacement;
 
   /// A game's More markets: the period chip for the markets about the whole match (esports series, tennis, football).
   ///

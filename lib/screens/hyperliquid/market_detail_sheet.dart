@@ -1205,6 +1205,11 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
   List<HlFill>? _fillsForMarket;
   List<HlFill>? _fillsSource;
 
+  /// The daily candles Pivots read, in display units, kept per read so a
+  /// live tick does not recompute the levels.
+  List<HyperliquidCandle>? _dailySource;
+  List<HyperliquidCandle> _daily = const [];
+
   /// Memoized trade lines (position + working orders), keyed on the
   /// source list identities so a live tick does not hand the painter a
   /// fresh list and defeat its repaint check.
@@ -2600,6 +2605,18 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
       hlChartDrawingsProvider(hlChartDrawingMarketKey(widget.market)),
     );
     final indicators = preferences.indicators;
+    // Pivots' real daily candles: read only while Pivots are on.
+    final dailySource = indicators.contains('pp')
+        ? ref
+            .watch(hyperliquidDailyCandlesProvider(widget.market.wireCoin))
+            .valueOrNull
+        : null;
+    if (!identical(dailySource, _dailySource)) {
+      _dailySource = dailySource;
+      _daily = dailySource == null
+          ? const []
+          : rescaleCandlesToDisplay(dailySource, displayPx);
+    }
     var selectedId = _selectedDrawingId;
     if (selectedId != null && !drawings.any((d) => d.id == selectedId)) {
       selectedId = null;
@@ -2716,6 +2733,7 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
             ),
             indicators: indicators,
             indicatorParams: preferences.params,
+            dailyCandles: _daily,
             logScale: preferences.logScale,
             onLogScaleChanged: _drawingMode ? _setLogScale : null,
             fills: myFills,

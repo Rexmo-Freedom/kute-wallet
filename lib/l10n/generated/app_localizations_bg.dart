@@ -13950,7 +13950,7 @@ class AppLocalizationsBg extends AppLocalizations {
   String get chartGroupDisplay => 'Изглед';
 
   @override
-  String get chartLogScaleNote => 'Равните процентни движения изглеждат равни';
+  String get chartLogScaleNote => 'Еднакъв % ход, еднаква височина';
 
   @override
   String get chartIndSmaNote => 'Дългосрочен тренд, който се обръща бавно';
@@ -13964,6 +13964,15 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get chartIndAtrNote => 'Колко обикновено се движи един период';
+
+  @override
+  String get chartIndIchimokuNote => 'Тренд и нива в един облак';
+
+  @override
+  String get chartIndPivotNote => 'Днешните нива от вчерашния диапазон';
+
+  @override
+  String get chartIndAdxNote => 'Колко силен е трендът';
 
   @override
   String get chartIndObvNote => 'Дали обемът подкрепя движението';
@@ -14013,6 +14022,21 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Редове';
+
+  @override
+  String get chartParamSmoothing => 'Изглаждане';
+
+  @override
+  String get chartParamConversion => 'Линия на конверсия';
+
+  @override
+  String get chartParamBase => 'Базова линия';
+
+  @override
+  String get chartParamSpanB => 'Обхват B';
+
+  @override
+  String get chartParamDisplacement => 'Изместване';
 
   @override
   String get polyPeriodMatch => 'Мач';

@@ -13924,8 +13924,7 @@ class AppLocalizationsEt extends AppLocalizations {
   String get chartGroupDisplay => 'Vaade';
 
   @override
-  String get chartLogScaleNote =>
-      'Võrdsed protsendimuutused näevad võrdsed välja';
+  String get chartLogScaleNote => 'Sama % muutus, sama kõrgus';
 
   @override
   String get chartIndSmaNote => 'Pikaajaline trend, pöördub aeglaselt';
@@ -13938,6 +13937,15 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get chartIndAtrNote => 'Kui palju üks periood tavaliselt liigub';
+
+  @override
+  String get chartIndIchimokuNote => 'Trend ja tasemed ühes pilves';
+
+  @override
+  String get chartIndPivotNote => 'Tänased tasemed eilse põhjal';
+
+  @override
+  String get chartIndAdxNote => 'Kui tugev on trend';
 
   @override
   String get chartIndObvNote => 'Kas maht toetab liikumist';
@@ -13987,6 +13995,21 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Read';
+
+  @override
+  String get chartParamSmoothing => 'Silumine';
+
+  @override
+  String get chartParamConversion => 'Konversioonijoon';
+
+  @override
+  String get chartParamBase => 'Baasjoon';
+
+  @override
+  String get chartParamSpanB => 'Span B';
+
+  @override
+  String get chartParamDisplacement => 'Nihe';
 
   @override
   String get polyPeriodMatch => 'Kohtumine';

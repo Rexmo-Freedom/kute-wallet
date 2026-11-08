@@ -14027,7 +14027,7 @@ class AppLocalizationsEl extends AppLocalizations {
   String get chartGroupDisplay => 'Προβολή';
 
   @override
-  String get chartLogScaleNote => 'Ίσες ποσοστιαίες κινήσεις φαίνονται ίσες';
+  String get chartLogScaleNote => 'Ίση % κίνηση, ίδιο ύψος';
 
   @override
   String get chartIndSmaNote => 'Μακροπρόθεσμη τάση που αλλάζει αργά';
@@ -14041,6 +14041,15 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get chartIndAtrNote => 'Πόσο κινείται συνήθως μια περίοδος';
+
+  @override
+  String get chartIndIchimokuNote => 'Τάση και επίπεδα σε ένα σύννεφο';
+
+  @override
+  String get chartIndPivotNote => 'Τα σημερινά επίπεδα από το χθεσινό εύρος';
+
+  @override
+  String get chartIndAdxNote => 'Πόσο ισχυρή είναι η τάση';
 
   @override
   String get chartIndObvNote => 'Αν ο όγκος στηρίζει την κίνηση';
@@ -14090,6 +14099,21 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Γραμμές';
+
+  @override
+  String get chartParamSmoothing => 'Εξομάλυνση';
+
+  @override
+  String get chartParamConversion => 'Γραμμή μετατροπής';
+
+  @override
+  String get chartParamBase => 'Γραμμή βάσης';
+
+  @override
+  String get chartParamSpanB => 'Εύρος B';
+
+  @override
+  String get chartParamDisplacement => 'Μετατόπιση';
 
   @override
   String get polyPeriodMatch => 'Αγώνας';

@@ -13965,7 +13965,7 @@ class AppLocalizationsHr extends AppLocalizations {
   String get chartGroupDisplay => 'Prikaz';
 
   @override
-  String get chartLogScaleNote => 'Jednaki postotni pomaci izgledaju jednako';
+  String get chartLogScaleNote => 'Isti % pomak, ista visina';
 
   @override
   String get chartIndSmaNote => 'Dugoročni trend koji se sporo okreće';
@@ -13978,6 +13978,15 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get chartIndAtrNote => 'Koliko se jedno razdoblje obično pomakne';
+
+  @override
+  String get chartIndIchimokuNote => 'Trend i razine u jednom oblaku';
+
+  @override
+  String get chartIndPivotNote => 'Današnje razine iz jučerašnjeg raspona';
+
+  @override
+  String get chartIndAdxNote => 'Koliko je trend snažan';
 
   @override
   String get chartIndObvNote => 'Podržava li volumen kretanje';
@@ -14027,6 +14036,21 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Redovi';
+
+  @override
+  String get chartParamSmoothing => 'Zaglađivanje';
+
+  @override
+  String get chartParamConversion => 'Linija konverzije';
+
+  @override
+  String get chartParamBase => 'Bazna linija';
+
+  @override
+  String get chartParamSpanB => 'Raspon B';
+
+  @override
+  String get chartParamDisplacement => 'Pomak';
 
   @override
   String get polyPeriodMatch => 'Utakmica';

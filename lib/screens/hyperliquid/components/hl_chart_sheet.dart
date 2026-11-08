@@ -38,6 +38,8 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart' show HlMarket;
 import 'package:kute/models/hyperliquid_model.dart';
 import 'package:kute/providers/chart_drawings_provider.dart';
+import 'package:kute/screens/hyperliquid/components/hl_chart_advanced_layers.dart'
+    show hlPaintIchimokuCloud;
 import 'package:kute/screens/hyperliquid/components/hl_chart_indicator_catalog.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_indicator_frame.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_indicator_series.dart';
@@ -146,6 +148,9 @@ String _note(AppLocalizations l10n, String key) => switch (key) {
       'srsi' => l10n.chartIndSrsiNote,
       'bb' => l10n.chartIndBbNote,
       'atr' => l10n.chartIndAtrNote,
+      'ichi' => l10n.chartIndIchimokuNote,
+      'pp' => l10n.chartIndPivotNote,
+      'adx' => l10n.chartIndAdxNote,
       'vol' => l10n.chartIndVolumeNote,
       'obv' => l10n.chartIndObvNote,
       'vp' => l10n.chartIndVpNote,
@@ -767,6 +772,9 @@ class _HlPreviews {
           params,
           up: AppColors.marketUp,
           down: AppColors.marketDown,
+          // A preview's levels: the tape's own days (the chart reads real
+          // daily candles).
+          daily: hlDailyFromBars(source),
         )
         .slice(start, n);
     final tape = source.sublist(start);
@@ -1102,7 +1110,13 @@ class HlIndicatorPreviewPainter extends CustomPainter {
       lo = math.min(lo, v);
       hi = math.max(hi, v);
     }
-    for (final l in s?.lines ?? const <HlIndLine>[]) {
+    final lines = keyName == 'pp'
+        ? [
+            for (final l in s?.lines ?? const <HlIndLine>[])
+              HlIndLine(_newestStretch(l.values), l.color),
+          ]
+        : s?.lines ?? const <HlIndLine>[];
+    for (final l in lines) {
       for (final v in l.values) {
         if (!v.isFinite) continue;
         lo = math.min(lo, v);
@@ -1132,6 +1146,11 @@ class HlIndicatorPreviewPainter extends CustomPainter {
             path, Paint()..color = _tone(band.color).withValues(alpha: 0.12));
       }
     }
+    final cloud = s?.cloud;
+    if (cloud != null) {
+      hlPaintIchimokuCloud(canvas, cloud, slot, y,
+          alpha: 0.22, tint: on ? null : muted);
+    }
     final p = profile;
     if (keyName == 'vp' && p != null) {
       final maxRow = p.maxRow;
@@ -1154,9 +1173,25 @@ class HlIndicatorPreviewPainter extends CustomPainter {
       }
     }
     _line(canvas, closes, x, y, muted.withValues(alpha: on ? 0.55 : 0.4), 1.1);
-    for (final l in s?.lines ?? const <HlIndLine>[]) {
+    for (final l in lines) {
       _line(canvas, l.values, x, y, _tone(l.color), 1.5);
     }
+  }
+
+  /// Pivots' card draws one day's levels: their newest stretch.
+  static List<double> _newestStretch(List<double> values) {
+    var end = values.length - 1;
+    while (end >= 0 && !values[end].isFinite) {
+      end--;
+    }
+    var start = end;
+    while (start > 0 && values[start - 1].isFinite) {
+      start--;
+    }
+    return [
+      for (var i = 0; i < values.length; i++)
+        i >= start && i <= end ? values[i] : double.nan,
+    ];
   }
 
   static void _line(Canvas canvas, List<double> values, double Function(int) x,
@@ -1278,6 +1313,11 @@ String _paramLabel(AppLocalizations l10n, String id) => switch (id) {
       'smoothK' => l10n.chartParamSmoothK,
       'smoothD' => l10n.chartParamSmoothD,
       'rows' => l10n.chartParamRows,
+      'smoothing' => l10n.chartParamSmoothing,
+      'conversion' => l10n.chartParamConversion,
+      'base' => l10n.chartParamBase,
+      'spanB' => l10n.chartParamSpanB,
+      'displacement' => l10n.chartParamDisplacement,
       _ => id,
     };
 

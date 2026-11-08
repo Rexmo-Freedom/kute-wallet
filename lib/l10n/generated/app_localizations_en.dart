@@ -13907,6 +13907,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chartIndAtrNote => 'How far a bar usually moves';
 
   @override
+  String get chartIndIchimokuNote => 'Trend and key levels in one cloud';
+
+  @override
+  String get chartIndPivotNote => 'Today\'s levels, from yesterday\'s range';
+
+  @override
+  String get chartIndAdxNote => 'How strong the trend is';
+
+  @override
   String get chartIndObvNote => 'Whether volume is backing the move';
 
   @override
@@ -13954,6 +13963,21 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Rows';
+
+  @override
+  String get chartParamSmoothing => 'Smoothing';
+
+  @override
+  String get chartParamConversion => 'Conversion line';
+
+  @override
+  String get chartParamBase => 'Base line';
+
+  @override
+  String get chartParamSpanB => 'Span B';
+
+  @override
+  String get chartParamDisplacement => 'Displacement';
 
   @override
   String get polyPeriodMatch => 'Match';

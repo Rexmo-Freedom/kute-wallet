@@ -13996,8 +13996,7 @@ class AppLocalizationsLt extends AppLocalizations {
   String get chartGroupDisplay => 'Rodymas';
 
   @override
-  String get chartLogScaleNote =>
-      'Vienodi procentiniai pokyčiai atrodo vienodai';
+  String get chartLogScaleNote => 'Tas pats % pokytis, tas pats aukštis';
 
   @override
   String get chartIndSmaNote => 'Ilgalaikė tendencija, lėtai apsigręžia';
@@ -14010,6 +14009,15 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get chartIndAtrNote => 'Kiek paprastai pajuda vienas laikotarpis';
+
+  @override
+  String get chartIndIchimokuNote => 'Tendencija ir lygiai viename debesyje';
+
+  @override
+  String get chartIndPivotNote => 'Šiandienos lygiai pagal vakar';
+
+  @override
+  String get chartIndAdxNote => 'Kokia stipri tendencija';
 
   @override
   String get chartIndObvNote => 'Ar apimtis palaiko judėjimą';
@@ -14059,6 +14067,21 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Eilutės';
+
+  @override
+  String get chartParamSmoothing => 'Glodinimas';
+
+  @override
+  String get chartParamConversion => 'Konversijos linija';
+
+  @override
+  String get chartParamBase => 'Bazinė linija';
+
+  @override
+  String get chartParamSpanB => 'Span B';
+
+  @override
+  String get chartParamDisplacement => 'Poslinkis';
 
   @override
   String get polyPeriodMatch => 'Rungtynės';

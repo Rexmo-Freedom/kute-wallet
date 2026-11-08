@@ -14037,7 +14037,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get chartGroupDisplay => 'Affichage';
 
   @override
-  String get chartLogScaleNote => 'Mêmes variations en %, même hauteur';
+  String get chartLogScaleNote => 'Même variation en %, même hauteur';
 
   @override
   String get chartIndSmaNote => 'Tendance longue, qui se retourne lentement';
@@ -14051,6 +14051,15 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get chartIndAtrNote => 'L’amplitude habituelle d’une période';
+
+  @override
+  String get chartIndIchimokuNote => 'Tendance et niveaux dans un nuage';
+
+  @override
+  String get chartIndPivotNote => 'Les niveaux du jour, d’après la veille';
+
+  @override
+  String get chartIndAdxNote => 'La force de la tendance';
 
   @override
   String get chartIndObvNote => 'Si le volume soutient le mouvement';
@@ -14100,6 +14109,21 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Lignes';
+
+  @override
+  String get chartParamSmoothing => 'Lissage';
+
+  @override
+  String get chartParamConversion => 'Ligne de conversion';
+
+  @override
+  String get chartParamBase => 'Ligne de base';
+
+  @override
+  String get chartParamSpanB => 'Span B';
+
+  @override
+  String get chartParamDisplacement => 'Décalage';
 
   @override
   String get polyPeriodMatch => 'Match';

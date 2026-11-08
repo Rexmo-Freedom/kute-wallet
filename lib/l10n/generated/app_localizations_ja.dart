@@ -13491,7 +13491,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get chartGroupDisplay => '表示';
 
   @override
-  String get chartLogScaleNote => '同じ変動率が同じ高さに見える';
+  String get chartLogScaleNote => '同じ変動率が同じ高さに';
 
   @override
   String get chartIndSmaNote => '長期トレンド、転換が遅い';
@@ -13504,6 +13504,15 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get chartIndAtrNote => '1本あたりの平均的な値幅';
+
+  @override
+  String get chartIndIchimokuNote => 'トレンドと水準を1つの雲で';
+
+  @override
+  String get chartIndPivotNote => '前日の値幅から出す今日の水準';
+
+  @override
+  String get chartIndAdxNote => 'トレンドの強さ';
 
   @override
   String get chartIndObvNote => '出来高が値動きを裏付けているか';
@@ -13553,6 +13562,21 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get chartParamRows => '行数';
+
+  @override
+  String get chartParamSmoothing => '平滑化';
+
+  @override
+  String get chartParamConversion => '転換線';
+
+  @override
+  String get chartParamBase => '基準線';
+
+  @override
+  String get chartParamSpanB => '先行スパンB';
+
+  @override
+  String get chartParamDisplacement => '遅行本数';
 
   @override
   String get polyPeriodMatch => '試合全体';

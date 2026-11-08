@@ -13905,8 +13905,7 @@ class AppLocalizationsLv extends AppLocalizations {
   String get chartGroupDisplay => 'Skats';
 
   @override
-  String get chartLogScaleNote =>
-      'Vienādas procentuālās izmaiņas izskatās vienādas';
+  String get chartLogScaleNote => 'Vienāds % kāpums, vienāds augstums';
 
   @override
   String get chartIndSmaNote => 'Ilgtermiņa tendence, lēni mainās';
@@ -13920,6 +13919,15 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get chartIndAtrNote => 'Cik parasti pārvietojas viens periods';
+
+  @override
+  String get chartIndIchimokuNote => 'Tendence un līmeņi vienā mākonī';
+
+  @override
+  String get chartIndPivotNote => 'Šodienas līmeņi no vakardienas';
+
+  @override
+  String get chartIndAdxNote => 'Cik spēcīga ir tendence';
 
   @override
   String get chartIndObvNote => 'Vai apjoms atbalsta kustību';
@@ -13969,6 +13977,21 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Rindas';
+
+  @override
+  String get chartParamSmoothing => 'Izlīdzināšana';
+
+  @override
+  String get chartParamConversion => 'Konversijas līnija';
+
+  @override
+  String get chartParamBase => 'Bāzes līnija';
+
+  @override
+  String get chartParamSpanB => 'Span B';
+
+  @override
+  String get chartParamDisplacement => 'Nobīde';
 
   @override
   String get polyPeriodMatch => 'Mačs';

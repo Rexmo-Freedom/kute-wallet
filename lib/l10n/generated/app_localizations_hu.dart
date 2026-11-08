@@ -13965,8 +13965,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get chartGroupDisplay => 'Megjelenítés';
 
   @override
-  String get chartLogScaleNote =>
-      'Az azonos százalékos mozgás egyformának látszik';
+  String get chartLogScaleNote => 'Azonos % mozgás, azonos magasság';
 
   @override
   String get chartIndSmaNote => 'Hosszú távú trend, lassan fordul';
@@ -13979,6 +13978,15 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get chartIndAtrNote => 'Mekkorát mozdul általában egy periódus';
+
+  @override
+  String get chartIndIchimokuNote => 'Trend és szintek egy felhőben';
+
+  @override
+  String get chartIndPivotNote => 'A mai szintek a tegnapi sávból';
+
+  @override
+  String get chartIndAdxNote => 'Milyen erős a trend';
 
   @override
   String get chartIndObvNote => 'Alátámasztja-e a forgalom a mozgást';
@@ -14028,6 +14036,21 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Sorok';
+
+  @override
+  String get chartParamSmoothing => 'Simítás';
+
+  @override
+  String get chartParamConversion => 'Konverziós vonal';
+
+  @override
+  String get chartParamBase => 'Alapvonal';
+
+  @override
+  String get chartParamSpanB => 'Span B';
+
+  @override
+  String get chartParamDisplacement => 'Eltolás';
 
   @override
   String get polyPeriodMatch => 'Mérkőzés';

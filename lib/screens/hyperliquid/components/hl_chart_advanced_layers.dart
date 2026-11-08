@@ -11,6 +11,7 @@
 //     market's colours, the value area stronger, the point of control a
 //     line across the plot.
 //   * [HlLogScaleToggle]: the axis corner's "Log" switch.
+//   * [hlPaintIchimokuCloud]: Ichimoku's two-coloured soft fill.
 
 import 'dart:math' as math;
 
@@ -156,6 +157,74 @@ class HlChartLegend extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Soft fill of Ichimoku's cloud, in each side's colour.
+const double kHlCloudFillAlpha = 0.14;
+
+/// Paints [cloud] over bars [slot] wide: the fill between its spans in the
+/// up colour where span A leads and the down colour where span B does,
+/// the two meeting where the spans cross. [toY] may answer a non-finite y
+/// for a value the axis has no place for, which gaps it.
+void hlPaintIchimokuCloud(
+  Canvas canvas,
+  HlIndCloud cloud,
+  double slot,
+  double Function(double v) toY, {
+  double alpha = kHlCloudFillAlpha,
+  Color? tint,
+}) {
+  final a = cloud.spanA, b = cloud.spanB;
+  final n = math.min(a.length, b.length);
+  final top = <Offset>[];
+  final bottom = <Offset>[];
+  bool? above;
+  void flush() {
+    if (top.length >= 2) {
+      final path = Path()..moveTo(top.first.dx, top.first.dy);
+      for (final p in top.skip(1)) {
+        path.lineTo(p.dx, p.dy);
+      }
+      for (final p in bottom.reversed) {
+        path.lineTo(p.dx, p.dy);
+      }
+      path.close();
+      final color = tint ?? (above == true ? cloud.up : cloud.down);
+      canvas.drawPath(path, Paint()..color = color.withValues(alpha: alpha));
+    }
+    top.clear();
+    bottom.clear();
+  }
+
+  for (var i = 0; i < n; i++) {
+    final va = a[i], vb = b[i];
+    final ya = va.isFinite ? toY(va) : double.nan;
+    final yb = vb.isFinite ? toY(vb) : double.nan;
+    if (!ya.isFinite || !yb.isFinite) {
+      flush();
+      above = null;
+      continue;
+    }
+    final now = va >= vb;
+    final x = (i + 0.5) * slot;
+    if (above != null && now != above && top.isNotEmpty) {
+      // The spans crossed since the last bar: both fills meet there.
+      final d0 = top.last.dy - bottom.last.dy;
+      final d1 = ya - yb;
+      final t = d0 == d1 ? 0.0 : d0 / (d0 - d1);
+      final cross = Offset(top.last.dx + t * slot,
+          top.last.dy + t * (ya - top.last.dy));
+      top.add(cross);
+      bottom.add(cross);
+      flush();
+      top.add(cross);
+      bottom.add(cross);
+    }
+    above = now;
+    top.add(Offset(x, ya));
+    bottom.add(Offset(x, yb));
+  }
+  flush();
 }
 
 /// The point of control's colour.

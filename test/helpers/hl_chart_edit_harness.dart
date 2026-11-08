@@ -109,6 +109,8 @@ Future<void> pumpHlEditSheet(
   // The account's own: a position and its fills on the market.
   List<HlPerpPosition> positions = const [],
   List<HlFill> fills = const [],
+  // The market's daily candles (Pivots read them only while they are on).
+  List<HyperliquidCandle> daily = const [],
   // The page opened from Send in send mode (send_pick_session.dart).
   SendPickSession? sendPick,
 }) async {
@@ -131,6 +133,7 @@ Future<void> pumpHlEditSheet(
       hyperliquidTradingProvider.overrideWith(_Trading.new),
       hyperliquidLiveCandlesProvider.overrideWith(
           (ref, key) => Stream.value(HlLiveCandlesState(candles: tape))),
+      hyperliquidDailyCandlesProvider.overrideWith((ref, wire) async => daily),
       hyperliquidTradeFlowProvider.overrideWith(
           (ref, coin) => Stream.value(const HlTradeFlowState())),
       aiEnabledProvider.overrideWith((ref) async => false),

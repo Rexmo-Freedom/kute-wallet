@@ -11929,6 +11929,18 @@
   "@chartIndAtrNote": {
     "description": "One-line explanation of the ATR (average true range) indicator."
   },
+  "chartIndIchimokuNote": "Trend and key levels in one cloud",
+  "@chartIndIchimokuNote": {
+    "description": "Chart sheet: one plain line under Ichimoku (trend lines and a cloud of support and resistance levels)."
+  },
+  "chartIndPivotNote": "Today's levels, from yesterday's range",
+  "@chartIndPivotNote": {
+    "description": "Chart sheet: one plain line under Pivots (daily pivot points from the previous UTC day's high, low and close)."
+  },
+  "chartIndAdxNote": "How strong the trend is",
+  "@chartIndAdxNote": {
+    "description": "Chart sheet: one plain line under ADX (how strong the trend is, whichever way it runs; +DI and -DI show which side leads)."
+  },
   "chartIndObvNote": "Whether volume is backing the move",
   "@chartIndObvNote": {
     "description": "One-line explanation of the OBV (on-balance volume) indicator."
@@ -11998,6 +12010,26 @@
   "chartParamRows": "Rows",
   "@chartParamRows": {
     "description": "Indicator settings: the name of one setting (a stepper row)."
+  },
+  "chartParamSmoothing": "Smoothing",
+  "@chartParamSmoothing": {
+    "description": "Indicator settings: ADX's smoothing length."
+  },
+  "chartParamConversion": "Conversion line",
+  "@chartParamConversion": {
+    "description": "Indicator settings: Ichimoku's conversion line length (Tenkan)."
+  },
+  "chartParamBase": "Base line",
+  "@chartParamBase": {
+    "description": "Indicator settings: Ichimoku's base line length (Kijun)."
+  },
+  "chartParamSpanB": "Span B",
+  "@chartParamSpanB": {
+    "description": "Indicator settings: Ichimoku's leading span B length (Senkou B)."
+  },
+  "chartParamDisplacement": "Displacement",
+  "@chartParamDisplacement": {
+    "description": "Indicator settings: Ichimoku's displacement, how many bars the cloud is drawn ahead and the lagging line behind."
   },
   "polyPeriodMatch": "Match",
   "@polyPeriodMatch": {

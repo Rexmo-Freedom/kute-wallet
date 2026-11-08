@@ -9,15 +9,25 @@
 // O H L C legend with the price indicators' values, labelled panes, the
 // crosshair's axis pills and a Log switch in the axes' corner.
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/models/hyperliquid_market.dart';
+import 'package:kute/models/hyperliquid_model.dart';
 import 'package:kute/providers/chart_drawings_provider.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_indicator_catalog.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_intervals.dart';
+import 'package:kute/screens/hyperliquid/components/hl_chart_sheet.dart';
 import 'package:kute/screens/hyperliquid/components/hl_charts.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/theme/app_theme.dart';
 
 import '../../helpers/hl_chart_edit_harness.dart';
 
@@ -78,6 +88,70 @@ void _seed(WidgetTester tester, List<String> keys) {
 void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
 
+  group('every language', () {
+    setUpAll(() async {
+      for (final family in [GoogleFonts.inter().fontFamily!, 'Inter']) {
+        final inter = FontLoader(family);
+        for (final f in ['Regular', 'Medium', 'SemiBold', 'Bold']) {
+          final file = File('lib/assets/fonts/Inter-$f.ttf');
+          if (file.existsSync()) {
+            inter.addFont(rootBundle.load('lib/assets/fonts/Inter-$f.ttf'));
+          }
+        }
+        await inter.load();
+      }
+    });
+
+    for (final locale in AppLocalizations.supportedLocales) {
+      testWidgets(
+          '${locale.languageCode}: the new squares\' lines fit their card at '
+          '375', (tester) async {
+        tester.view.devicePixelRatio = 3;
+        tester.view.physicalSize = const Size(375, 812) * 3;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(ProviderScope(
+          child: ScreenUtilInit(
+            designSize: const Size(430, 932),
+            builder: (_, __) => MaterialApp(
+              locale: locale,
+              theme: buildLightTheme(),
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              home: Scaffold(
+                body: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: HlChartSheet(
+                    market: hlEditBtc,
+                    marketKey: hlEditBtcKey,
+                    candles: hlEditCandles(),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ));
+        await tester.pump();
+        var checked = 0;
+        for (final key in const [
+          'hl-chart-indicator-ichi',
+          'hl-chart-indicator-pp',
+          'hl-chart-indicator-adx',
+          'hl-chart-log-card',
+        ]) {
+          for (final p in tester.renderObjectList<RenderParagraph>(
+              find.descendant(
+                  of: find.byKey(ValueKey(key)),
+                  matching: find.byType(RichText)))) {
+            checked++;
+            expect(p.didExceedMaxLines, isFalse,
+                reason: '$key: "${p.text.toPlainText()}" does not fit');
+          }
+        }
+        expect(checked, 8);
+      });
+    }
+  });
+
   group('chart types', () {
     test('Line, Candles, Area, Heikin Ashi, Hollow and Baseline; bars opens '
         'as candles', () {
@@ -101,7 +175,8 @@ void main() {
   });
 
   group('the curated indicators', () {
-    test('a dozen, grouped, with TradingView\'s defaults', () {
+    test('fifteen, grouped, with TradingView\'s defaults', () {
+      expect(kHlIndicatorCatalog, hasLength(15));
       final byGroup = {
         for (final g in HlIndGroup.values)
           g: [
@@ -110,8 +185,20 @@ void main() {
           ],
       };
       expect(byGroup, {
-        HlIndGroup.trend: ['EMA 9 21', 'SMA 50 200', 'VWAP', 'Supertrend 10 3'],
-        HlIndGroup.momentum: ['RSI 14', 'MACD 12 26 9', 'Stoch RSI 14 14 3 3'],
+        HlIndGroup.trend: [
+          'EMA 9 21',
+          'SMA 50 200',
+          'VWAP',
+          'Supertrend 10 3',
+          'Ichimoku 9 26 52 26',
+          'Pivots',
+        ],
+        HlIndGroup.momentum: [
+          'RSI 14',
+          'MACD 12 26 9',
+          'Stoch RSI 14 14 3 3',
+          'ADX 14 14',
+        ],
         HlIndGroup.volatility: ['BB 20 2', 'ATR 14'],
         HlIndGroup.volume: ['Vol', 'OBV', 'VP 24'],
       });
@@ -145,6 +232,23 @@ void main() {
       final r = hlToggleIndicator(next, 'vp');
       expect(r.replaced, 'ema');
       expect(r.next, ['vol', 'ma', 'vwap', 'bb', 'vp']);
+    });
+
+    test('the new ones keep the limits: Ichimoku and Pivots on the price, ADX '
+        'below it', () {
+      expect(hlIndSpec('ichi')!.place, HlIndPlace.price);
+      expect(hlIndSpec('pp')!.place, HlIndPlace.price);
+      expect(hlIndSpec('adx')!.place, HlIndPlace.pane);
+      expect(kHlMaxPriceIndicators, 4);
+      expect(kHlMaxPanes, 2);
+      var on = <String>['vol', 'ema', 'bb', 'st', 'ichi'];
+      final fifth = hlToggleIndicator(on, 'pp');
+      expect(fifth.replaced, 'ema');
+      expect(fifth.next, ['vol', 'bb', 'st', 'ichi', 'pp']);
+      on = ['vol', 'rsi', 'macd'];
+      final third = hlToggleIndicator(on, 'adx');
+      expect(third.replaced, 'rsi');
+      expect(third.next, ['vol', 'macd', 'adx']);
     });
 
     test('settings are clamped to their range and grid', () {
@@ -499,6 +603,35 @@ void main() {
       await _settle(tester);
       expect(_prefs(tester).logScale, isFalse);
       expect(_prefs(tester).toJson().containsKey('log'), isFalse);
+    });
+
+    testWidgets(
+        'Pivots read real daily candles: P in the legend, and nothing until '
+        'they have arrived', (tester) async {
+      final start = hlEditCandles().first.openTime;
+      await pumpHlEditSheet(tester, daily: [
+        for (var d = -2; d < 8; d++)
+          HyperliquidCandle(
+            openTime: start.add(Duration(days: d)),
+            closeTime: start.add(Duration(days: d + 1)),
+            open: 64000,
+            high: 65000,
+            low: 63000,
+            close: 64500,
+            volume: 100,
+          ),
+      ]);
+      _seed(tester, ['vol', 'pp']);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      await enterHlEdit(tester);
+      final row = find.byKey(const ValueKey('hl-chart-legend-pp'));
+      expect(row, findsOneWidget);
+      // (65000 + 63000 + 64500) / 3, and only P is written.
+      final text = tester.widget<Text>(row).textSpan!.toPlainText();
+      expect(text, contains('Pivots'));
+      expect(text, contains('64,167'));
+      expect(text.split(RegExp(r'\s\s+')), hasLength(2));
     });
 
     testWidgets('volume profile draws on the price and names its POC',

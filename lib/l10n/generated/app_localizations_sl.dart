@@ -13980,7 +13980,7 @@ class AppLocalizationsSl extends AppLocalizations {
   String get chartGroupDisplay => 'Prikaz';
 
   @override
-  String get chartLogScaleNote => 'Enaki odstotni premiki so videti enaki';
+  String get chartLogScaleNote => 'Enak % premik, enaka višina';
 
   @override
   String get chartIndSmaNote => 'Dolgoročni trend, ki se počasi obrne';
@@ -13994,6 +13994,15 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get chartIndAtrNote => 'Koliko se eno obdobje običajno premakne';
+
+  @override
+  String get chartIndIchimokuNote => 'Trend in ravni v enem oblaku';
+
+  @override
+  String get chartIndPivotNote => 'Današnje ravni iz včerajšnjega razpona';
+
+  @override
+  String get chartIndAdxNote => 'Kako močan je trend';
 
   @override
   String get chartIndObvNote => 'Ali obseg podpira gibanje';
@@ -14043,6 +14052,21 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get chartParamRows => 'Vrstice';
+
+  @override
+  String get chartParamSmoothing => 'Glajenje';
+
+  @override
+  String get chartParamConversion => 'Konverzijska črta';
+
+  @override
+  String get chartParamBase => 'Osnovna črta';
+
+  @override
+  String get chartParamSpanB => 'Razpon B';
+
+  @override
+  String get chartParamDisplacement => 'Zamik';
 
   @override
   String get polyPeriodMatch => 'Tekma';
