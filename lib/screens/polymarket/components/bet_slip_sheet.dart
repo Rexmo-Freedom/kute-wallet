@@ -1301,7 +1301,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       // Confirm's, which takes them in the founder's order
       // ([decideOrderSources]), never got ready ahead.
       dollarsUsd: _dollarsUsd(),
-      allowed: !_isLedger &&
+      // A send composes a link: nothing is placed here, so no money moves
+      // ahead of it.
+      allowed: widget.sendPick == null &&
+          !_isLedger &&
           token != null &&
           token.isNotEmpty &&
           trading.hasValue &&
