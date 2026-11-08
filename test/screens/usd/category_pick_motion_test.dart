@@ -660,7 +660,6 @@ void main() {
     final keys = [
       for (final p in PolyPill.values)
         if (p != PolyPill.trending &&
-            p != PolyPill.instant &&
             p != PolyPill.watchlist &&
             _tile(p.key).evaluate().isNotEmpty)
           p.key,

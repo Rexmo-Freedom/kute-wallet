@@ -9684,7 +9684,23 @@ class AppLocalizationsDa extends AppLocalizations {
   String get usdSendConvertedFromDollars => 'Omregnet fra dine dollar';
 
   @override
-  String get polyPillInstant => 'Lynhurtige';
+  String get predictionsInstant => 'Lynhurtige';
+
+  @override
+  String get categoryInstantLengths => '5 min · 15 min · 1 time · 4 timer';
+
+  @override
+  String predictRoundNow(String time) {
+    return 'Nu · $time';
+  }
+
+  @override
+  String get predictRoundNoPricesYet => 'Ingen priser endnu';
+
+  @override
+  String predictUpOrDownLength(String asset, String length) {
+    return '$asset op eller ned · $length';
+  }
 
   @override
   String get polyPillTrending => 'Populært';
@@ -11549,16 +11565,6 @@ class AppLocalizationsDa extends AppLocalizations {
       one: '1 marked',
     );
     return '$_temp0';
-  }
-
-  @override
-  String categoryInstantAssets(String first, String second) {
-    return '$first, $second og flere';
-  }
-
-  @override
-  String categoryInstantNext(String time) {
-    return 'Næste runde om $time';
   }
 
   @override

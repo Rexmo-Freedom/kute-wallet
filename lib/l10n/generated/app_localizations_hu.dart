@@ -9708,7 +9708,23 @@ class AppLocalizationsHu extends AppLocalizations {
   String get usdSendConvertedFromDollars => 'A dollárjaidból átváltva';
 
   @override
-  String get polyPillInstant => 'Azonnali';
+  String get predictionsInstant => 'Azonnali';
+
+  @override
+  String get categoryInstantLengths => '5 perc · 15 perc · 1 óra · 4 óra';
+
+  @override
+  String predictRoundNow(String time) {
+    return 'Most · $time';
+  }
+
+  @override
+  String get predictRoundNoPricesYet => 'Még nincs ár';
+
+  @override
+  String predictUpOrDownLength(String asset, String length) {
+    return '$asset fel vagy le · $length';
+  }
 
   @override
   String get polyPillTrending => 'Felkapott';
@@ -11577,16 +11593,6 @@ class AppLocalizationsHu extends AppLocalizations {
       one: '1 piac',
     );
     return '$_temp0';
-  }
-
-  @override
-  String categoryInstantAssets(String first, String second) {
-    return '$first, $second és mások';
-  }
-
-  @override
-  String categoryInstantNext(String time) {
-    return 'Következő kör: $time';
   }
 
   @override

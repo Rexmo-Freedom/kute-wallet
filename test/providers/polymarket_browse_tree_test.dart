@@ -4,6 +4,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart';
+import 'package:kute/services/polymarket/instant_rounds.dart'
+    show polyIsInstantRouteKey;
 import 'package:kute/services/runtime_capabilities_service.dart';
 
 import '../helpers/runtime_policy_fixture.dart';
@@ -25,7 +27,6 @@ void main() {
       expect([for (final p in PolyPill.values) p.key], [
         'watchlist',
         'trending',
-        'instant',
         'breaking',
         'new',
         'live',
@@ -320,8 +321,11 @@ void main() {
           'live');
       expect(polyBrowseSelectionFromRouteKey('predictions/tech/science')!.sub,
           'route:science');
-      expect(polyBrowseSelectionFromRouteKey('predictions/instant')!.pill,
-          PolyPill.instant);
+      // Instant is a screen of its own, not a category of the list.
+      expect(polyBrowseSelectionFromRouteKey('predictions/instant'), isNull);
+      expect(polyIsInstantRouteKey('predictions/instant'), isTrue);
+      expect(polyIsInstantRouteKey('/predictions/instant/'), isTrue);
+      expect(polyIsInstantRouteKey('predictions/crypto'), isFalse);
       final old = polyBrowseSelectionFromRouteKey('predictions/world')!;
       expect(old.pill, PolyPill.geopolitics);
     });

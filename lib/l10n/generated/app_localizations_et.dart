@@ -9671,7 +9671,23 @@ class AppLocalizationsEt extends AppLocalizations {
   String get usdSendConvertedFromDollars => 'Konverteeritud sinu dollaritest';
 
   @override
-  String get polyPillInstant => 'Kiired';
+  String get predictionsInstant => 'Kiired';
+
+  @override
+  String get categoryInstantLengths => '5 min · 15 min · 1 tund · 4 tundi';
+
+  @override
+  String predictRoundNow(String time) {
+    return 'Praegu · $time';
+  }
+
+  @override
+  String get predictRoundNoPricesYet => 'Hindu veel pole';
+
+  @override
+  String predictUpOrDownLength(String asset, String length) {
+    return '$asset üles või alla · $length';
+  }
 
   @override
   String get polyPillTrending => 'Populaarne';
@@ -11537,16 +11553,6 @@ class AppLocalizationsEt extends AppLocalizations {
       one: '1 turg',
     );
     return '$_temp0';
-  }
-
-  @override
-  String categoryInstantAssets(String first, String second) {
-    return '$first, $second ja teised';
-  }
-
-  @override
-  String categoryInstantNext(String time) {
-    return 'Järgmine voor $time pärast';
   }
 
   @override

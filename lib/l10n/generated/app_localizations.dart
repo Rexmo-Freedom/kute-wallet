@@ -16595,11 +16595,35 @@ abstract class AppLocalizations {
   /// **'Converted from your dollars'**
   String get usdSendConvertedFromDollars;
 
-  /// Predictions category: the crypto rounds (BTC up or down every 5 minutes and so on), one live card per asset. One short word or two: it sits on a half-width card.
+  /// Predictions › Instant: the crypto rounds (BTC up or down every 5 minutes and so on) on their own screen. The screen's title, and the name on the half-width card of the Predictions sheet and the Sal grid's tile: one short word or two.
   ///
   /// In en, this message translates to:
   /// **'Instant'**
-  String get polyPillInstant;
+  String get predictionsInstant;
+
+  /// Predictions sheet, the Instant card's one line under its name: the round lengths it runs, separated by middle dots. Shrinks to fit a half-width card at 320 px; keep it short.
+  ///
+  /// In en, this message translates to:
+  /// **'5 min · 15 min · 1 hour · 4 hours'**
+  String get categoryInstantLengths;
+
+  /// On the Instant card's strip of rounds, the round in play with its time left, e.g. 'Now · 1:49'.
+  ///
+  /// In en, this message translates to:
+  /// **'Now · {time}'**
+  String predictRoundNow(String time);
+
+  /// On the Instant card's strip of rounds, after a round ahead that cannot be picked yet because Polymarket shows no real prices for it, e.g. '7:25 · No prices yet'. Short.
+  ///
+  /// In en, this message translates to:
+  /// **'No prices yet'**
+  String get predictRoundNoPricesYet;
+
+  /// Title of the Instant screen's live round card, e.g. 'BTC up or down · 15m'. asset is a ticker, length the round length written short (5m, 15m, 1h, 4h).
+  ///
+  /// In en, this message translates to:
+  /// **'{asset} up or down · {length}'**
+  String predictUpOrDownLength(String asset, String length);
 
   /// No description provided for @polyPillTrending.
   ///
@@ -19388,18 +19412,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count, plural, =1{1 market} other{{count} markets}}'**
   String categoryStatMarkets(int count);
-
-  /// Category sheet, the Instant card's line: which coins it has (tickers).
-  ///
-  /// In en, this message translates to:
-  /// **'{first}, {second} and more'**
-  String categoryInstantAssets(String first, String second);
-
-  /// Category sheet, the Instant card's second line: how long until the next five-minute round starts, a clock such as 2:13.
-  ///
-  /// In en, this message translates to:
-  /// **'Next round in {time}'**
-  String categoryInstantNext(String time);
 
   /// Category sheet, the Trending tile's second line lead: 'Most active · ▲ 1.8% today'.
   ///

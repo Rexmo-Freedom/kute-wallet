@@ -1,7 +1,8 @@
 // lib/screens/polymarket/components/crypto_asset_logo.dart
 //
 // A round's coin, at any size: the round card's header, the Instant
-// filter's chips and the Instant card on the category sheet. The bundled
+// screen's filter chips and the Instant card on the category sheet and the
+// Sal grid. The bundled
 // logo, on the asset's brand colour when it is a raster; polymarket.com's
 // own for a coin the app bundles none of.
 

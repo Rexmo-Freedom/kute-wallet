@@ -9656,7 +9656,23 @@ class AppLocalizationsLv extends AppLocalizations {
   String get usdSendConvertedFromDollars => 'Konvertēts no taviem dolāriem';
 
   @override
-  String get polyPillInstant => 'Tūlītējās';
+  String get predictionsInstant => 'Tūlītējās';
+
+  @override
+  String get categoryInstantLengths => '5 min · 15 min · 1 stunda · 4 stundas';
+
+  @override
+  String predictRoundNow(String time) {
+    return 'Tagad · $time';
+  }
+
+  @override
+  String get predictRoundNoPricesYet => 'Cenu vēl nav';
+
+  @override
+  String predictUpOrDownLength(String asset, String length) {
+    return '$asset augšup vai lejup · $length';
+  }
 
   @override
   String get polyPillTrending => 'Populāri';
@@ -11522,16 +11538,6 @@ class AppLocalizationsLv extends AppLocalizations {
       one: '$count tirgus',
     );
     return '$_temp0';
-  }
-
-  @override
-  String categoryInstantAssets(String first, String second) {
-    return '$first, $second un citas';
-  }
-
-  @override
-  String categoryInstantNext(String time) {
-    return 'Nākamā kārta pēc $time';
   }
 
   @override

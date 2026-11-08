@@ -27,15 +27,8 @@ import 'package:kute/screens/polymarket/components/live_token_scope.dart';
 import 'package:kute/screens/polymarket/components/crypto_odds_scope.dart';
 import 'package:kute/providers/crypto_live_odds_provider.dart';
 import 'package:kute/providers/crypto_next_round_provider.dart';
-import 'package:kute/screens/polymarket/components/crypto_asset_logo.dart';
-import 'package:kute/screens/polymarket/components/instant_filter.dart';
+import 'package:kute/screens/polymarket/components/crypto_round_card.dart';
 import 'package:kute/screens/polymarket/components/round_window_label.dart';
-import 'package:kute/providers/placing_polymarket_bet_provider.dart'
-    show placingPolymarketBetProvider;
-import 'package:kute/providers/polymarket_instant_provider.dart';
-import 'package:kute/screens/portfolio/components/position_rows.dart'
-    show PlacingBetRow, PolyPositionRow, PortfolioCardList;
-import 'package:kute/services/polymarket/instant_rounds.dart';
 import 'package:kute/services/polymarket/crypto_next_round.dart';
 import 'package:kute/screens/polymarket/components/market_card.dart';
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
@@ -62,7 +55,6 @@ import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart';
 import 'package:kute/screens/home/components/btc_predict_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -84,7 +76,8 @@ import 'package:kute/providers/pending_polymarket_bet_provider.dart';
 /// A refusal is asked again before it is shown ([confirmCapability]). A
 /// region refusal's "Check connection" that finds the door open goes on
 /// into the deposit.
-Future<void> _openPredictionsDeposit(BuildContext context, WidgetRef ref) async {
+Future<void> openPredictionsDeposit(
+    BuildContext context, WidgetRef ref) async {
   final decision = await confirmCapability(
       ref.read(runtimeCapabilitiesProvider), 'polymarket.deposit');
   if (!context.mounted) return;
@@ -142,24 +135,16 @@ class PolymarketScreen extends ConsumerStatefulWidget {
     final canBrowse =
         ref.read(runtimeCapabilitiesProvider).allows('polymarket.browse');
     final fiveMinOnly = pill == PolyPill.crypto && selection.sub == '5m';
-    // Instant shows Crypto's window list (its chips too), or the live
-    // cards at five minutes.
-    final instant = pill == PolyPill.instant;
-    final length = ref.read(polyInstantChoiceProvider).length;
     // The list on screen and its chips; the other lists keep what they
     // hold. The 5-min hero/grid refresh themselves on a 10s cadence and
     // roll every 5 minutes, so they're deliberately left out.
     polyRefreshBrowse(
-      query: !canBrowse ||
-              fiveMinOnly ||
-              (instant && length == kPolyInstantCardLength)
+      query: !canBrowse || fiveMinOnly
           ? null
           : pill == PolyPill.live
               ? const PolyFeedQuery(pill: PolyPill.live)
-              : instant
-                  ? PolyFeedQuery(pill: PolyPill.crypto, sub: length)
-                  : selection.query,
-      pill: instant ? PolyPill.crypto : pill,
+              : selection.query,
+      pill: pill,
       invalidate: ref.invalidate,
     );
   }
@@ -336,7 +321,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
         Future.delayed(const Duration(milliseconds: 500), () {
           if (!mounted) return;
           if (widget.autoShowDeposit) {
-            _openPredictionsDeposit(context, ref);
+            openPredictionsDeposit(context, ref);
           } else {
             _showWithdrawSheet(context, ref);
           }
@@ -393,7 +378,6 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
 
   @override
   void dispose() {
-    _instantRollTimer?.cancel();
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     // Close the live-price WebSocket when leaving Predictions. The notifier
@@ -550,34 +534,17 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     final drilled = _drilledInto == pill && subs.length > 1;
     // Live always reads the one list of games in play; a league pill
     // narrows it on screen.
-    final instant = pill == PolyPill.instant;
-    // Instant's filter. A remembered length the venue no longer runs reads
-    // five minutes; the choice itself stays for when it is back.
-    final instantChoice = instant
-        ? ref.watch(polyInstantChoiceProvider)
-        : kPolyInstantDefault;
-    final instantLengths = instant
-        ? polyInstantLengthsOffered(
-            polySubsFor(ref, PolyPill.crypto).map((s) => s.key))
-        : const <String>[];
-    final instantLength = instantLengths.contains(instantChoice.length)
-        ? instantChoice.length
-        : kPolyInstantCardLength;
-    final instantCards = instant && instantLength == kPolyInstantCardLength;
     final query = pill == PolyPill.live
         ? const PolyFeedQuery(pill: PolyPill.live)
-        : instant
-            ? PolyFeedQuery(pill: PolyPill.crypto, sub: instantLength)
-            : selection.query;
+        : selection.query;
     final fiveMinOnly = pill == PolyPill.crypto && selection.sub == '5m';
     final showHeroSection = fiveMinOnly;
     final showHeroPinned =
         pill == PolyPill.crypto && selection.sub == 'all';
     // Where the round card is the point of the page; once per mount, no
-    // market data attached.
-    if (canBrowse &&
-        !_heroViewed &&
-        (showHeroSection || showHeroPinned || instantCards)) {
+    // market data attached. (Predictions › Instant is its own screen,
+    // instant_screen.dart, with its own event.)
+    if (canBrowse && !_heroViewed && (showHeroSection || showHeroPinned)) {
       _heroViewed = true;
       Future.microtask(() => TrackingService.track('predict_hero_viewed'));
     }
@@ -590,16 +557,13 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     // other category is listed in full.
     final curated =
         pill == PolyPill.trending && selection.sub == pill.defaultSub;
-    final feed = canBrowse && !fiveMinOnly && !instantCards
+    final feed = canBrowse && !fiveMinOnly
         ? ref.watch(polyBrowseFeedProvider(query))
         : const PolyFeedState(done: true);
-    // Instant shows the first page's round of each asset and reads on from
-    // no scroll.
-    _feedQuery = canBrowse && !fiveMinOnly && !curated && !instant ? query : null;
+    _feedQuery = canBrowse && !fiveMinOnly && !curated ? query : null;
     // Once the list on screen lands, the lists next to it are read too
-    // (one at a time), so opening one of them paints at once. Not Instant:
-    // nothing next to it is a likely tap, and it is costly enough.
-    if (canBrowse && !fiveMinOnly && !instant) {
+    // (one at a time), so opening one of them paints at once.
+    if (canBrowse && !fiveMinOnly) {
       ref.listen<PolyFeedState>(polyBrowseFeedProvider(query), (prev, next) {
         if (prev == null || !prev.loading || next.loading || next.failed) {
           return;
@@ -650,20 +614,8 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     // first, the page's own indicator refreshes it, and its list runs
     // under the host's dock.
     final embedded = widget.embedded;
-    // Instant at a length with a list: the round in play of each asset.
-    final instantRows = instant && !instantCards
-        ? polyInstantRows(feed.events,
-            chosen: instantChoice.asset, now: DateTime.now())
-        : const <PolymarketEvent>[];
-    _armInstantRoll(instant && !instantCards && canBrowse ? query : null,
-        polyInstantNextEnd(instantRows));
     final list = CustomScrollView(
                   controller: embedded ? null : _scrollController,
-                  // A live card costs a read every 10 s and a seat on the
-                  // sockets: under Instant only the cards on screen are
-                  // built, none prepared ahead of the scroll.
-                  scrollCacheExtent:
-                      instantCards ? const ScrollCacheExtent.pixels(0) : null,
                   physics: const AlwaysScrollableScrollPhysics(
                       parent: BouncingScrollPhysics()),
                   slivers: [
@@ -737,51 +689,6 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
                           // November 2026): Instant is its home.
                           if (showHeroSection) ..._fiveMinuteSlivers(),
 
-                          if (instant) ...[
-                            SliverToBoxAdapter(
-                              child: PolyInstantFilter(
-                                // What the venue runs at this length, once
-                                // its rows are in; the person's pick stays
-                                // on the row whatever they say.
-                                assets: polyInstantAssetOrder(
-                                    instantRows.isEmpty
-                                        ? kCryptoRoundAssets.map((c) => c.asset)
-                                        : [
-                                            instantChoice.asset,
-                                            for (final e in instantRows)
-                                              polyInstantAssetOf(e)!,
-                                          ],
-                                    ''),
-                                lengths: instantLengths,
-                                asset: instantChoice.asset,
-                                length: instantLength,
-                              ),
-                            ),
-                            const _InstantOwnRounds(),
-                            // A pick on the filter switches the cards as a
-                            // chip does, the filter itself staying put.
-                            SliverSelectionFade(
-                              selection: instantChoice,
-                              slivers: [
-                                if (instantCards)
-                                  _instantCards(polyInstantAssetOrder(
-                                      kCryptoRoundAssets.map((c) => c.asset),
-                                      instantChoice.asset))
-                                else
-                                  ..._feedSlivers(
-                                    PolyFeedState(
-                                      events: instantRows,
-                                      loading: feed.loading,
-                                      done: true,
-                                    ),
-                                    query: query,
-                                    isLiveList: false,
-                                    source: 'instant',
-                                  ),
-                              ],
-                            ),
-                          ],
-
                           // No heading over the list: the selected pill
                           // (or subcategory) already names it (October
                           // 2026).
@@ -789,7 +696,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
                           // The hero alone pinned first under Crypto › All.
                           if (showHeroPinned) _heroSliver(),
 
-                          if (!fiveMinOnly && !instant)
+                          if (!fiveMinOnly)
                             ..._feedSlivers(
                               feed,
                               query: query,
@@ -922,81 +829,15 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
             padding: EdgeInsets.symmetric(horizontal: 16.w),
             child: _MoreCryptoMarketsCard(
               onDeposit: () {
-                _openPredictionsDeposit(context, ref);
+                openPredictionsDeposit(context, ref);
               },
             ),
           ),
         ),
       ];
 
-  /// Instant's five minutes: the round card of each asset in [assets], the
-  /// compact card the hero is, its next-window roll included
-  /// (crypto_next_round.dart). Built as they scroll in and gone as they
-  /// scroll out, and with each its reads, its timers and its seat on the
-  /// sockets (the list's cache extent; [_InstantCardGate] for a page that
-  /// is hidden): nothing runs for a card off screen. Instant is the Predictions
-  /// pill's page, not a route (polymarket_browse_provider.dart's
-  /// [PolyPill.instant]), so the picked card, the pill's words and the
-  /// bar follow it as any category.
-  Widget _instantCards(List<String> assets) => SliverList(
-        delegate: SliverChildBuilderDelegate(
-          (context, i) {
-            final config =
-                kCryptoRoundAssets.firstWhere((c) => c.asset == assets[i]);
-            return Padding(
-              key: ValueKey('instant-card-${config.asset}'),
-              padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 12.h),
-              child: _InstantCardGate(
-                child: RepaintBoundary(
-                  child: CryptoPredictBanner(
-                    config: config,
-                    showLiveIndicator: true,
-                    compact: true,
-                    slipSource: 'instant',
-                    onDeposit: () {
-                      _openPredictionsDeposit(context, ref);
-                    },
-                  ),
-                ),
-              ),
-            );
-          },
-          childCount: assets.length,
-          findChildIndexCallback: (key) {
-            final i = assets.indexWhere(
-                (a) => key == ValueKey('instant-card-$a'));
-            return i < 0 ? null : i;
-          },
-          addAutomaticKeepAlives: false,
-        ),
-      );
-
-  /// The feed the shown 15 Min, 1 Hour or 4 Hours rounds came from, and
-  /// when the first of them ends: then it is read once more, for the next
-  /// round of each asset. One read a round, none at five minutes.
-  Timer? _instantRollTimer;
-  PolyFeedQuery? _instantRollQuery;
-  DateTime? _instantRollAt;
-
   /// Once-per-mount flag of `predict_hero_viewed`.
   bool _heroViewed = false;
-
-  void _armInstantRoll(PolyFeedQuery? query, DateTime? at) {
-    if (query == _instantRollQuery && at == _instantRollAt) return;
-    _instantRollQuery = query;
-    _instantRollAt = at;
-    _instantRollTimer?.cancel();
-    _instantRollTimer = null;
-    if (query == null || at == null) return;
-    final wait = at.difference(DateTime.now()) + const Duration(seconds: 1);
-    _instantRollTimer = Timer(wait.isNegative ? Duration.zero : wait, () {
-      if (!mounted) return;
-      // Forgotten, so the same end asks again if the read has no new round.
-      _instantRollAt = null;
-      polyRefreshBrowse(
-          query: query, pill: PolyPill.instant, invalidate: ref.invalidate);
-    });
-  }
 
   Widget _heroSliver() => SliverToBoxAdapter(
         child: Padding(
@@ -1007,7 +848,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
               showLiveIndicator: true,
               compact: true,
               onDeposit: () {
-                _openPredictionsDeposit(context, ref);
+                openPredictionsDeposit(context, ref);
               },
             ),
           ),
@@ -1131,7 +972,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
             context,
             event: market,
             onDeposit: () async {
-              if (context.mounted) _openPredictionsDeposit(context, ref);
+              if (context.mounted) openPredictionsDeposit(context, ref);
             },
             source: 'top_markets',
           );
@@ -1371,7 +1212,7 @@ class _PolyFeedCard extends ConsumerWidget {
               context,
               event: market,
               onDeposit: () async {
-                if (context.mounted) _openPredictionsDeposit(context, ref);
+                if (context.mounted) openPredictionsDeposit(context, ref);
               },
               source: source,
             );
@@ -1383,7 +1224,7 @@ class _PolyFeedCard extends ConsumerWidget {
             event: market,
             side: side,
             onDeposit: () async {
-              if (context.mounted) _openPredictionsDeposit(context, ref);
+              if (context.mounted) openPredictionsDeposit(context, ref);
             },
             source: source,
           ),
@@ -1393,134 +1234,12 @@ class _PolyFeedCard extends ConsumerWidget {
   }
 }
 
-/// Live 5-min Up/Down crypto market banner. Mounted as Predictions ›
-/// Instant's cards, one per asset, and Crypto's HERO card (BTC config: live Binance-fed chart, strike line,
-/// countdown, live CLOB odds on the Up/Down buttons) and reused by
-/// `FiveMinMarketDetailSheet` to surface the same widget in detail-sheet
-/// form when a 5-min market is opened from the grid.
-/// A round card of Instant, only while its page can be seen. A hidden
-/// Investments pill or shell branch stays mounted with its tickers off, and
-/// [CryptoPredictBanner]'s reads would run on behind it. Hidden, the card
-/// goes (and with it its provider and timers) and a box of its height holds
-/// the list's scroll position.
-class _InstantCardGate extends StatefulWidget {
-  const _InstantCardGate({required this.child});
-
-  final Widget child;
-
-  @override
-  State<_InstantCardGate> createState() => _InstantCardGateState();
-}
-
-class _InstantCardGateState extends State<_InstantCardGate> {
-  double? _height;
-
-  @override
-  Widget build(BuildContext context) {
-    if (!TickerMode.valuesOf(context).enabled) {
-      return SizedBox(height: _height);
-    }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _height = context.size?.height;
-    });
-    return widget.child;
-  }
-}
-
-/// The person's own rounds on top of Instant, whatever the filter says:
-/// bets on their way, then the rounds held, on the Portfolio's card and
-/// rows (position_rows.dart). Its own widget so a position tick rebuilds
-/// this and not the list. Nothing at all with no round held.
-class _InstantOwnRounds extends ConsumerWidget {
-  const _InstantOwnRounds();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    bool isRound(String? slug) =>
-        slug != null && polyCryptoRoundOf(slug) != null;
-    final placing = [
-      for (final b in ref.watch(placingPolymarketBetProvider))
-        if (isRound(b.eventSlug)) b,
-    ];
-    final held = [
-      for (final p in ref.watch(polymarketActivePositionsProvider))
-        if (p.eventSlug != null &&
-            polyCryptoRoundOf(p.eventSlug!,
-                    endDate: DateTime.tryParse(p.endDateStr ?? '')) !=
-                null)
-          p,
-    ];
-    if (placing.isEmpty && held.isEmpty) {
-      return const SliverToBoxAdapter(child: SizedBox.shrink());
-    }
-    return SliverToBoxAdapter(
-      key: const ValueKey('instant-own-rounds'),
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 12.h),
-        child: PortfolioCardList(
-          rows: [
-            for (final b in placing)
-              PlacingBetRow(key: ValueKey('placing-${b.placementId}'), bet: b),
-            for (final p in held)
-              PolyPositionRow(key: ValueKey('poly-${p.tokenId}'), position: p),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Registers its subtree in [cryptoCardsOnScreenProvider] while
-/// tickers are enabled there. A hidden shell branch turns tickers off
-/// (`Offstage` + `TickerMode`), so a banner counts only while it can be
-/// seen; the count is changed after the frame, never during build.
-class _CryptoCardOnScreen extends ConsumerStatefulWidget {
-  const _CryptoCardOnScreen({required this.child});
-
-  final Widget child;
-
-  @override
-  ConsumerState<_CryptoCardOnScreen> createState() =>
-      _CryptoCardOnScreenState();
-}
-
-class _CryptoCardOnScreenState extends ConsumerState<_CryptoCardOnScreen> {
-  // Read at once: a lazy list can build and drop a card within one frame
-  // (a fling past it), before the microtask below first runs.
-  late final StateController<int> _cards;
-  bool _counted = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _cards = ref.read(cryptoCardsOnScreenProvider.notifier);
-  }
-
-  void _count(bool on) {
-    if (on == _counted) return;
-    _counted = on;
-    // The whole scope may be gone by then (the app torn down).
-    Future.microtask(() {
-      if (_cards.mounted) _cards.state += on ? 1 : -1;
-    });
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _count(TickerMode.valuesOf(context).enabled);
-  }
-
-  @override
-  void dispose() {
-    _count(false);
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => widget.child;
-}
-
+/// Live 5-min Up/Down crypto market banner. Mounted as Crypto's HERO card
+/// (BTC config: live Binance-fed chart, strike line, countdown, live CLOB
+/// odds on the Up/Down buttons) and reused by `FiveMinMarketDetailSheet` to
+/// surface the same widget in detail-sheet form when a 5-min market is
+/// opened from the grid. Predictions › Instant has its own card
+/// (components/instant_round_card.dart).
 class CryptoPredictBanner extends ConsumerWidget {
   final CryptoAssetConfig config;
   final VoidCallback? onDeposit;
@@ -1542,7 +1261,7 @@ class CryptoPredictBanner extends ConsumerWidget {
   /// and actions in one header row (logo, title, past rounds as dots, the
   /// countdown pill), one price row (live price, its move against the
   /// target, the target), a 40 px sparkline with the dashed target line,
-  /// and the Up / Down pills with their odds ([_CompactCryptoCard]). The
+  /// and the Up / Down pills with their odds ([CompactCryptoCard]). The
   /// market page keeps the full card. Both roll their buttons to the next
   /// window partway through this one, this window staying on show
   /// (crypto_next_round.dart): "Next · 7:20" over the buttons.
@@ -1584,25 +1303,9 @@ class CryptoPredictBanner extends ConsumerWidget {
     ];
   }
 
-  /// A price difference in dollars: cents above $1 (polymarket.com prints
-  /// "$309.98"), four decimals below.
-  static String _formatDiff(double diff) {
-    if (diff >= 1) {
-      return '\$${NumberFormat('#,##0.00', 'en_US').format(diff)}';
-    }
-    return '\$${diff.toStringAsFixed(4)}';
-  }
+  static String _formatDiff(double diff) => formatCryptoRoundDiff(diff);
 
-  String _formatPrice(double? price) {
-    if (price == null) return '—';
-    if (price >= 1000) {
-      return '\$${NumberFormat('#,##0', 'en_US').format(price.round())}';
-    } else if (price >= 1) {
-      return '\$${NumberFormat('#,##0.00', 'en_US').format(price)}';
-    } else {
-      return '\$${price.toStringAsFixed(4)}';
-    }
-  }
+  String _formatPrice(double? price) => formatCryptoRoundPrice(price);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1841,14 +1544,14 @@ class CryptoPredictBanner extends ConsumerWidget {
     ];
 
     if (compact) {
-      return _CryptoCardOnScreen(
+      return CryptoCardOnScreen(
           child: LiveTokenScope(
         tokens: liveTokens,
         child: CryptoOddsScope(
           token: upTokenId,
           child: CryptoOddsScope(
           token: nextUpToken,
-          child: _CompactCryptoCard(
+          child: CompactCryptoCard(
             config: config,
             title: context.l10n
                 .predictUpOrDownCompact(config.asset, minutes),
@@ -1878,7 +1581,7 @@ class CryptoPredictBanner extends ConsumerWidget {
     // Counts this banner as on screen while its tickers run, so the
     // shared Chainlink feed also streams when it is shown outside the
     // Predictions tab.
-    return _CryptoCardOnScreen(
+    return CryptoCardOnScreen(
         child: LiveTokenScope(
       tokens: liveTokens,
       child: CryptoOddsScope(
@@ -2116,7 +1819,7 @@ class CryptoPredictBanner extends ConsumerWidget {
 
             // Once the buttons have rolled: which window they bet.
             if (nextLabel != null) ...[
-              _CryptoNextWindowLine(label: nextLabel),
+              CryptoNextWindowLine(label: nextLabel),
               SizedBox(height: 8.h),
             ],
 
@@ -2189,441 +1892,6 @@ class CryptoPredictBanner extends ConsumerWidget {
         ),
       ),
     ))));
-  }
-}
-
-/// "Next · 7:20" over the buttons of a card that have rolled to the next
-/// window: one line in the card's own target style, nothing around it.
-class _CryptoNextWindowLine extends StatelessWidget {
-  const _CryptoNextWindowLine({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) => Center(
-        key: const ValueKey('crypto-round-next'),
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            label,
-            maxLines: 1,
-            style: TextStyle(
-              color: context.colors.textPrimary,
-              fontSize: 13.sp,
-              fontWeight: FontWeight.w600,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-          ),
-        ),
-      );
-}
-
-/// The compact crypto round card ([CryptoPredictBanner.compact]): about
-/// 200 px for the same data and actions as the full card, the live
-/// sparkline against the target included, and Up / Down as solid buttons
-/// in the market page's Yes / No colours (founder, 2 November 2026).
-class _CompactCryptoCard extends StatelessWidget {
-  const _CompactCryptoCard({
-    required this.config,
-    required this.title,
-    required this.countdown,
-    required this.pastResults,
-    required this.loading,
-    required this.priceText,
-    required this.diffText,
-    required this.diffUp,
-    required this.targetText,
-    required this.history,
-    required this.priceToBeat,
-    required this.roundStart,
-    required this.upFrac,
-    this.nextLabel,
-    required this.onUp,
-    required this.onDown,
-  });
-
-  final CryptoAssetConfig config;
-  final String title;
-  final String countdown;
-  final List<CryptoWindowResult> pastResults;
-  final bool loading;
-  final String priceText;
-  final String? diffText;
-  final bool diffUp;
-  final String targetText;
-  final List<BtcPriceSnapshot>? history;
-  final double? priceToBeat;
-  final DateTime? roundStart;
-  final double upFrac;
-
-  /// "Next · 7:20" once the buttons have rolled to the next window
-  /// (crypto_next_round.dart); null while they bet on this one.
-  final String? nextLabel;
-  final VoidCallback onUp;
-  final VoidCallback onDown;
-
-  /// The sparkline's plot height; the chart's own bottom margin (18 px,
-  /// time labels off) is clipped away beneath it.
-  static const double _sparkHeight = 54;
-
-  /// The "Next · 7:20" line's height. It takes its room from the sparkline,
-  /// so the buttons rolling never changes the card's height (the list
-  /// under it would jump twice a window).
-  static const double _nextLine = 16;
-
-  /// The header's logo.
-  static const double _logo = 32;
-
-  /// The Up / Down pills' height.
-  static const double pillHeight = 44;
-
-  /// The price row's height: the live price as [RollingNumberText] draws
-  /// it (every digit a cell of the font's full ascent and descent, its
-  /// line height ignored), measured in the face and at the text size it
-  /// paints in, so the figures fill the line exactly and are never scaled
-  /// to fit it.
-  static double _priceLine(BuildContext context, TextStyle style) =>
-      (TextPainter(
-        text: TextSpan(
-            text: '0', style: DefaultTextStyle.of(context).style.merge(style)),
-        textDirection: Directionality.of(context),
-        textScaler: MediaQuery.textScalerOf(context),
-        textHeightBehavior: const TextHeightBehavior(
-          applyHeightToFirstAscent: false,
-          applyHeightToLastDescent: false,
-        ),
-      )..layout())
-          .height;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    final logo = CryptoAssetLogo(config: config, size: _logo.sp);
-    final pair = formatPolyChancePair(upFrac);
-    final seeded = (history?.length ?? 0) >= 2;
-    final rolled = nextLabel != null;
-    // 10 over the buttons either way; rolled, 6 and the line and 6.
-    final sparkHeight = rolled
-        ? _sparkHeight + 10.h - 12.h - _nextLine
-        : _sparkHeight;
-    final priceStyle = TextStyle(
-      color: c.textPrimary,
-      fontSize: 24.sp,
-      fontWeight: FontWeight.w700,
-      letterSpacing: -0.7,
-      height: 1.0,
-      fontFeatures: const [FontFeature.tabularFigures()],
-    );
-    return Container(
-      key: const ValueKey('crypto-round-compact'),
-      padding: EdgeInsets.fromLTRB(14.w, 12.h, 14.w, 12.h),
-      decoration: BoxDecoration(
-        color: c.surface,
-        borderRadius: BorderRadius.circular(18.r),
-        border: Border.all(color: c.borderSubtle, width: 0.5),
-        boxShadow: context.isDark
-            ? null
-            : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 16,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Logo, title, past rounds as dots, the countdown pill.
-          Row(
-            children: [
-              SizedBox(width: _logo.sp, height: _logo.sp, child: logo),
-              SizedBox(width: 10.w),
-              Expanded(
-                child: Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: c.textPrimary,
-                    fontSize: 15.sp,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.2,
-                  ),
-                ),
-              ),
-              if (pastResults.isNotEmpty) ...[
-                _PastRoundDots(results: pastResults),
-                SizedBox(width: 8.w),
-              ],
-              Container(
-                key: const ValueKey('crypto-round-countdown'),
-                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
-                decoration: BoxDecoration(
-                  color: c.surfaceLight,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 6.w,
-                      height: 6.w,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFFF4444),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    SizedBox(width: 5.w),
-                    Text(
-                      countdown,
-                      style: TextStyle(
-                        color: c.textPrimary,
-                        fontSize: 12.sp,
-                        fontWeight: FontWeight.w600,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 10.h),
-          // The live price, its move against the target, the target.
-          // One fixed line, skeleton or figures: a price scaled down to
-          // fit beside a wider move, or the skeleton giving way to the
-          // digits, never changes the card's height (the list under it
-          // would move with every tick).
-          SizedBox(
-            height: _priceLine(context, priceStyle),
-            child: loading
-                ? KuteSkeleton(
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: SkeletonBar(150.w, 24.h, radius: 6.r),
-                    ),
-                  )
-                : Row(
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic,
-                    children: [
-                      Flexible(
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: RollingNumberText(
-                              text: priceText, style: priceStyle),
-                        ),
-                      ),
-                      if (diffText != null) ...[
-                        SizedBox(width: 6.w),
-                        Text(
-                          diffText!,
-                          maxLines: 1,
-                          style: TextStyle(
-                            color: diffUp
-                                ? AppColors.marketUp
-                                : AppColors.marketDown,
-                            fontSize: 13.sp,
-                            fontWeight: FontWeight.w700,
-                            fontFeatures: const [FontFeature.tabularFigures()],
-                          ),
-                        ),
-                      ],
-                      SizedBox(width: 8.w),
-                      const Spacer(),
-                      Text(
-                        targetText,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: c.textSecondary,
-                          fontSize: 13.sp,
-                          fontWeight: FontWeight.w600,
-                          fontFeatures: const [FontFeature.tabularFigures()],
-                        ),
-                      ),
-                    ],
-                  ),
-          ),
-          SizedBox(height: 8.h),
-          // The sparkline with the dashed target line, no in-chart
-          // "Target" badge: the target is printed just above.
-          SizedBox(
-            height: sparkHeight,
-            child: !seeded
-                ? SkeletonLineChart(
-                    height: sparkHeight, padding: EdgeInsets.zero)
-                : ClipRect(
-                    child: OverflowBox(
-                      alignment: Alignment.topCenter,
-                      minHeight: 0,
-                      maxHeight: sparkHeight + 18,
-                      child: BtcPredictChart(
-                        height: sparkHeight + 18,
-                        externalHistory: history,
-                        externalPriceToBeat: priceToBeat,
-                        roundStart: roundStart,
-                        showLiveIndicator: false,
-                        showHeader: false,
-                        showTargetBadge: false,
-                      ),
-                    ),
-                  ),
-          ),
-          if (rolled) ...[
-            SizedBox(height: 6.h),
-            SizedBox(
-                height: _nextLine,
-                child: _CryptoNextWindowLine(label: nextLabel!)),
-            SizedBox(height: 6.h),
-          ] else
-            SizedBox(height: 10.h),
-          // Up and Down with their odds, one row of two pills.
-          Row(
-            children: [
-              Expanded(
-                child: _CompactSidePill(
-                  key: const ValueKey('crypto-round-up'),
-                  label: context.l10n.upLabel,
-                  odds: pair.first,
-                  window: nextLabel,
-                  up: true,
-                  onTap: onUp,
-                ),
-              ),
-              SizedBox(width: 8.w),
-              Expanded(
-                child: _CompactSidePill(
-                  key: const ValueKey('crypto-round-down'),
-                  label: context.l10n.downLabel,
-                  odds: pair.second,
-                  window: nextLabel,
-                  up: false,
-                  onTap: onDown,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// One side of the compact card: a 44 px button
-/// ([_CompactCryptoCard.pillHeight]) with squared 14 px corners
-/// ([radius]), the side then its chance on one line, in the market page's
-/// solid Yes / No fill: the market colour with its faint top highlight,
-/// the label in the colour that reads on it (white) and, in light mode,
-/// the same quiet glow ([marketPairDecoration]; founder, 2 November 2026:
-/// "put them back at the darker colours").
-class _CompactSidePill extends StatelessWidget {
-  const _CompactSidePill({
-    super.key,
-    required this.label,
-    required this.odds,
-    this.window,
-    required this.up,
-    required this.onTap,
-  });
-
-  final String label;
-  final String odds;
-
-  /// "Next · 7:20" when the pill bets on the next window: read out with it.
-  final String? window;
-  final bool up;
-  final VoidCallback onTap;
-
-  /// The corner radius: a rounded rectangle, the market page's outcome
-  /// tiles' squared shape, not a full pill (founder, 2 November 2026:
-  /// "the more squared ones").
-  static const double radius = 14;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = up ? AppColors.marketUp : AppColors.marketDown;
-    final style = TextStyle(
-      color: contrastingOnColor(color),
-      fontSize: 15.sp,
-      fontWeight: FontWeight.w700,
-      letterSpacing: -0.1,
-      fontFeatures: const [FontFeature.tabularFigures()],
-    );
-    return Semantics(
-      button: true,
-      label: window == null ? '$label $odds' : '$window, $label $odds',
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () {
-          HapticFeedback.lightImpact();
-          onTap();
-        },
-        child: Container(
-          height: _CompactCryptoCard.pillHeight,
-          decoration: marketPairDecoration(color,
-              borderRadius: BorderRadius.circular(radius.r),
-              glow: !context.isDark),
-          alignment: Alignment.center,
-          padding: EdgeInsets.symmetric(horizontal: 10.w),
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(label, style: style),
-                SizedBox(width: 6.w),
-                RollingNumberText(text: odds, style: style),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// The last few windows as tiny dots, oldest first: up and down in the
-/// market colours, a hairline ring while one is still settling.
-class _PastRoundDots extends StatelessWidget {
-  const _PastRoundDots({required this.results});
-
-  final List<CryptoWindowResult> results;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    final size = 7.sp;
-    return Semantics(
-      label: context.l10n.predictPastRounds,
-      child: Row(
-        key: const ValueKey('crypto-round-past-dots'),
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (var i = 0; i < results.length; i++) ...[
-            if (i > 0) SizedBox(width: 3.w),
-            Container(
-              width: size,
-              height: size,
-              decoration: BoxDecoration(
-                color: results[i].up == null
-                    ? null
-                    : results[i].up!
-                        ? AppColors.marketUp
-                        : AppColors.marketDown,
-                shape: BoxShape.circle,
-                border: results[i].up == null
-                    ? Border.all(color: c.borderSubtle, width: 1)
-                    : null,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
   }
 }
 

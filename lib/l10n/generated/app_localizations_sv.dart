@@ -9678,7 +9678,23 @@ class AppLocalizationsSv extends AppLocalizations {
   String get usdSendConvertedFromDollars => 'Växlat från dina dollar';
 
   @override
-  String get polyPillInstant => 'Direkt';
+  String get predictionsInstant => 'Direkt';
+
+  @override
+  String get categoryInstantLengths => '5 min · 15 min · 1 timme · 4 timmar';
+
+  @override
+  String predictRoundNow(String time) {
+    return 'Nu · $time';
+  }
+
+  @override
+  String get predictRoundNoPricesYet => 'Inga priser än';
+
+  @override
+  String predictUpOrDownLength(String asset, String length) {
+    return '$asset upp eller ner · $length';
+  }
 
   @override
   String get polyPillTrending => 'Trendar';
@@ -11547,16 +11563,6 @@ class AppLocalizationsSv extends AppLocalizations {
       one: '1 marknad',
     );
     return '$_temp0';
-  }
-
-  @override
-  String categoryInstantAssets(String first, String second) {
-    return '$first, $second och fler';
-  }
-
-  @override
-  String categoryInstantNext(String time) {
-    return 'Nästa omgång om $time';
   }
 
   @override

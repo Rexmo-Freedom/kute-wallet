@@ -9719,7 +9719,23 @@ class AppLocalizationsSl extends AppLocalizations {
   String get usdSendConvertedFromDollars => 'Pretvorjeno iz vaših dolarjev';
 
   @override
-  String get polyPillInstant => 'Takojšnje';
+  String get predictionsInstant => 'Takojšnje';
+
+  @override
+  String get categoryInstantLengths => '5 min · 15 min · 1 ura · 4 ure';
+
+  @override
+  String predictRoundNow(String time) {
+    return 'Zdaj · $time';
+  }
+
+  @override
+  String get predictRoundNoPricesYet => 'Še ni cen';
+
+  @override
+  String predictUpOrDownLength(String asset, String length) {
+    return '$asset gor ali dol · $length';
+  }
 
   @override
   String get polyPillTrending => 'Priljubljeno';
@@ -11593,16 +11609,6 @@ class AppLocalizationsSl extends AppLocalizations {
       one: '$count trg',
     );
     return '$_temp0';
-  }
-
-  @override
-  String categoryInstantAssets(String first, String second) {
-    return '$first, $second in druge';
-  }
-
-  @override
-  String categoryInstantNext(String time) {
-    return 'Naslednji krog čez $time';
   }
 
   @override
