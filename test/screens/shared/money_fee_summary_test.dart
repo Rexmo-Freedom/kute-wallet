@@ -27,11 +27,13 @@ class _CurrencyNotifier extends StateNotifier<CurrencyState>
 }
 
 Widget _host(Widget child,
-        {double textScale = 1, List<Override> overrides = const []}) =>
+        {double textScale = 1,
+        List<Override> overrides = const [],
+        String currency = 'USD'}) =>
     ProviderScope(
       overrides: [
         settingsProvider.overrideWith((ref) => SettingsModel(Settings(
-              currency: 'USD',
+              currency: currency,
               language: 'en',
               btcFormat: 'sats',
               backup: false,
@@ -202,6 +204,31 @@ void main() {
         bitcoinFirst: false,
         fiatPerUsd: 0.8);
     expect(value.primary, NumberFormat.simpleCurrency(name: 'EUR').format(1));
+  });
+
+  testWidgets(
+      'euros in Settings: a fee in dollars reads dollars, only a fee in sats '
+      '(Bitcoin\'s own) follows Settings', (tester) async {
+    await tester.pumpWidget(_host(
+        const Column(children: [
+          MoneyFeeSummary(label: 'Dollars fee', usd: 1.25, bitcoinFirst: false),
+          MoneyFeeSummary(label: 'Bitcoin fee', sats: 2000, bitcoinFirst: false),
+        ]),
+        currency: 'EUR',
+        overrides: [
+          currencyProvider.overrideWith((ref) => _CurrencyNotifier(
+              {
+            'BTC': Fixed.parse('0.00001', decimalDigits: 8),
+            'EUR': Fixed.parse('0.92'),
+          })),
+        ]));
+    await tester.pump();
+    expect(find.text(r'$1.25'), findsOneWidget);
+    expect(
+        find.descendant(
+            of: find.widgetWithText(Row, 'Bitcoin fee'),
+            matching: find.textContaining('€')),
+        findsOneWidget);
   });
 
   testWidgets(

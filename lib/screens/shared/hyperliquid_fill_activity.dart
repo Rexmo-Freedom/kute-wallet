@@ -125,12 +125,12 @@ Widget _fillRow(BuildContext context, WidgetRef ref, HlFill fill,
     ),
     title: activityRowTitle(hlFillRowTitle(fill, symbol, context.l10n)),
     subtitle: friendly == null ? time : '$friendly · $time',
-    amount: formatPolyAmount(ref, fill.px * fill.sz),
+    amount: formatDollars(fill.px * fill.sz),
     flow: hlFillFlow(fill),
     // The one figure under the amount: what closing realised, coloured.
     secondaryAmount: pnl == 0
         ? ''
-        : '${pnl > 0 ? '+' : '−'}${formatPolyAmount(ref, pnl.abs())}',
+        : '${pnl > 0 ? '+' : '−'}${formatDollars(pnl.abs())}',
     secondaryColor: pnl > 0 ? AppColors.marketUp : AppColors.marketDown,
     onTap: onTap,
   );
@@ -179,7 +179,7 @@ class _FillDetails extends ConsumerWidget {
                       ? context.l10n.feeUiFeeRebate
                       : context.l10n.feeUiPaidFee,
                   value: fill.feeToken == 'USDC'
-                      ? formatPolyAmount(ref, fill.fee.abs())
+                      ? formatDollars(fill.fee.abs())
                       : '${fill.fee} ${fill.feeToken}',
                   sub: context.l10n.feeUiIncludesAnyKuteBuilderFee,
                 ),

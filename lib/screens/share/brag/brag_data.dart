@@ -58,7 +58,6 @@
 import 'dart:math' as math;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
 import 'package:kute/models/affiliate_model.dart' show AffiliateService;
 import 'package:kute/models/balance_history.dart' show BalanceRange;
@@ -67,8 +66,8 @@ import 'package:kute/models/hyperliquid_market.dart'
 import 'package:kute/models/polymarket_model.dart'
     show PolymarketEvent, PolymarketTeam;
 import 'package:kute/models/portfolio_performance.dart';
-import 'package:kute/providers/currency_conversions_provider.dart'
-    show selectedCurrencyProviderFromUSD;
+import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart'
+    show formatDollars;
 import 'package:kute/providers/hyperliquid_account_provider.dart'
     show hyperliquidPerpPositionsProvider;
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart'
@@ -85,7 +84,6 @@ import 'package:kute/providers/polymarket_live_prices_provider.dart'
     show livePriceProvider;
 import 'package:kute/providers/portfolio_performance_provider.dart'
     show portfolioPerformanceDisplayProvider;
-import 'package:kute/providers/settings_provider.dart' show settingsProvider;
 import 'package:kute/screens/hyperliquid/components/hl_format.dart'
     show formatHlPrice, hlFriendlyName;
 import 'package:kute/screens/hyperliquid/components/hl_isolated_margin.dart'
@@ -176,7 +174,7 @@ BragTone bragTone(double usd, {double? percent}) {
 }
 
 /// A signed result: [usd] (exact, for the colour and the order) and its
-/// text in the person's currency ("+$36.90"), and the percent on what was
+/// text in dollars ("+$36.90"), and the percent on what was
 /// put in when there is a cost base.
 class BragResult {
   const BragResult({required this.usd, required this.text, this.percent});
@@ -275,7 +273,7 @@ class BragWin extends BragData {
   /// the cost.
   final BragResult result;
 
-  /// What it cost and what it paid out, in the person's currency.
+  /// What it cost and what it paid out, in dollars.
   final String paidText;
   final String payoutText;
 
@@ -449,23 +447,14 @@ class BragPnl extends BragPortfolio {
   bool get hasSomething => allTime != null && (allTime!.up || allTime!.down);
 }
 
-/// [usd] in the person's currency, as the Predictions amounts read it
-/// (polymarket_amount_formatter.dart), through [watch].
-String bragMoney(BragWatch watch, double usd, {int digits = 2}) {
-  final currency = watch(settingsProvider).currency;
-  double rate = 1;
-  if (currency != 'USD') {
-    rate = watch(selectedCurrencyProviderFromUSD(currency)).toDouble();
-  }
-  final valid = rate.isFinite && rate > 0;
-  return NumberFormat.simpleCurrency(
-          name: valid ? currency : 'USD', decimalDigits: digits)
-      .format(usd * (valid ? rate : 1));
-}
+/// [usd] in dollars, as the Predictions amounts read it
+/// (polymarket_amount_formatter.dart).
+String bragMoney(double usd, {int digits = 2}) =>
+    formatDollars(usd, decimalDigits: digits);
 
 /// "+$36.90", "−$12.00", "$0.00".
-String bragSignedMoney(BragWatch watch, double usd) {
-  final abs = bragMoney(watch, usd.abs());
+String bragSignedMoney(double usd) {
+  final abs = bragMoney(usd.abs());
   if (usd >= kBragCentUsd) return '+$abs';
   if (usd <= -kBragCentUsd) return '−$abs';
   return abs;
@@ -481,7 +470,7 @@ String bragPercent(double pct) {
 BragResult bragResult(BragWatch watch, double usd, {double? percent}) =>
     BragResult(
         usd: usd,
-        text: bragSignedMoney(watch, usd),
+        text: bragSignedMoney(usd),
         percent: percent != null && percent.isFinite ? percent : null);
 
 // ─── Positions ───────────────────────────────────────────────────────
@@ -615,8 +604,8 @@ BragWin? bragWonPrediction(
     referralCode: _referralCode(),
     side: side.trim(),
     result: bragResult(watch, profit, percent: profit / costUsd * 100),
-    paidText: bragMoney(watch, costUsd),
-    payoutText: bragMoney(watch, payoutUsd),
+    paidText: bragMoney(costUsd),
+    payoutText: bragMoney(payoutUsd),
     entryValue: entry,
     // The position page's own "since 41¢", apart from the percent.
     entryText: entry != null ? formatPolyBoughtCents(entry) : null,

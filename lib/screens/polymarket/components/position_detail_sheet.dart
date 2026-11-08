@@ -426,7 +426,7 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
     final pnlPositive = pnl >= 0;
     final pnlColor = pnlPositive ? _kPolyGreen : _kPolyRed;
     final pnlText =
-        '${pnlPositive ? '+' : '-'}${formatPolyAmount(ref, pnl.abs())}'
+        '${pnlPositive ? '+' : '-'}${formatDollars(pnl.abs())}'
         ' · ${pnlPercent >= 0 ? '+' : ''}${pnlPercent.toStringAsFixed(1)}%';
     // Settled: whether the held side won (the bar's own reading).
     final won = pos.won ?? currentPrice >= 0.5;
@@ -437,7 +437,7 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
         won: pos.won,
         costUsd: costBasis,
         payoutUsd: pos.size);
-    final investedText = formatPolyAmount(ref, costBasis);
+    final investedText = formatDollars(costBasis);
 
     final eventDetails = pos.eventSlug != null && pos.eventSlug!.isNotEmpty
         ? ref.watch(polymarketEventDetailsProvider(pos.eventSlug!))
@@ -747,8 +747,7 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                                                 return PolyPositionResultLine(
                                                   pnl: change,
                                                   pnlPercent: percent,
-                                                  amountText: formatPolyAmount(
-                                                      ref, change.abs()),
+                                                  amountText: formatDollars(change.abs()),
                                                   boughtText: bought == null
                                                       ? null
                                                       : formatPolyBoughtCents(
@@ -921,11 +920,10 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                                 : pos.isResolved
                                     ? context.l10n.betCurrentValue
                                     : context.l10n.polyPosWorthNow,
-                            // `formatPolyAmount` honors the Predictions
-                            // denomination setting. Rolling digits, so the
-                            // value visibly ticks with the live price.
+                            // In dollars. Rolling digits, so the value
+                            // visibly ticks with the live price.
                             value: RollingNumberText(
-                              text: formatPolyAmount(ref, currentValue),
+                              text: formatDollars(currentValue),
                               style: positionTileValueStyle(c),
                             ),
                             caption: RollingNumberText(
@@ -949,7 +947,7 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                                 key: const ValueKey('poly-position-worth-then'),
                                 label: context.l10n.polyPosWorthThen,
                                 value: RollingNumberText(
-                                  text: formatPolyAmount(ref, then),
+                                  text: formatDollars(then),
                                   style: positionTileValueStyle(c),
                                   duration: const Duration(milliseconds: 120),
                                 ),
@@ -965,7 +963,7 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                                       SizedBox(width: 4.w),
                                     ],
                                     Text(
-                                      formatPolyAmount(ref, change.abs()),
+                                      formatDollars(change.abs()),
                                       key: const ValueKey(
                                           'poly-position-worth-then-change'),
                                       maxLines: 1,
@@ -989,7 +987,7 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                               value: Text(
                                 pos.isResolved && !won
                                     ? context.l10n.betNoPayout
-                                    : formatPolyAmount(ref, pos.size),
+                                    : formatDollars(pos.size),
                                 maxLines: 1,
                                 style: positionTileValueStyle(c),
                               ),

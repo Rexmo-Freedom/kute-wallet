@@ -42,24 +42,27 @@ String fundingLegFeeLabel(AppLocalizations l10n, FundingLegSource source) =>
       FundingLegSource.predictions => l10n.slipMoveFromPredictions,
     };
 
-/// Display-only money conversion. Never supplies amounts to a signer.
+/// Display-only money conversion. Never supplies amounts to a signer. A fee
+/// known in dollars is Dollars money and reads in dollars; only a fee known
+/// in sats is Bitcoin's, whose conversion follows the Settings currency.
 ({String primary, String? secondary}) feeAmountText(WidgetRef ref,
     {double? usd, double? sats, bool? bitcoinFirst}) {
   final settings = ref.watch(settingsProvider);
   final rates = ref.watch(currencyProvider).rates;
-  final hasFiatRate = (double.tryParse('${rates[settings.currency]}') ?? 0) > 0;
+  final currency = usd != null ? 'USD' : settings.currency;
+  final hasFiatRate = (double.tryParse('${rates[currency]}') ?? 0) > 0;
   return formatFeeAmount(
     usd: usd,
     sats: sats,
-    currency: settings.currency,
+    currency: currency,
     btcFormat: settings.btcFormat,
     bitcoinFirst: bitcoinFirst ?? settings.mainDenomination == 'bitcoin',
     usdPerBtc: feeUsdPerBtc(ref),
-    fiatPerUsd: settings.currency == 'USD'
+    fiatPerUsd: currency == 'USD'
         ? 1
         : hasFiatRate
             ? ref
-                .watch(selectedCurrencyProviderFromUSD(settings.currency))
+                .watch(selectedCurrencyProviderFromUSD(currency))
                 .toDouble()
             : null,
   );
@@ -384,15 +387,14 @@ class _MoneyFeeSummaryState extends ConsumerState<MoneyFeeSummary> {
     );
   }
 
-  /// No fee yet, in the unit the fee would be shown in: "$0", "₿0".
-  /// Needs no rate, only the person's currency.
+  /// No fee yet, in the unit the fee would be shown in: "$0", "₿0". The
+  /// figure form stands on the Dollars slips only, so it is dollars.
   String _zeroFee() {
     final settings = ref.watch(settingsProvider);
     final bitcoin =
         widget.bitcoinFirst ?? settings.mainDenomination == 'bitcoin';
     if (bitcoin) return '₿0';
-    return slipZeroFigure(
-        NumberFormat.simpleCurrency(name: settings.currency).format(0));
+    return slipZeroFigure(NumberFormat.simpleCurrency(name: 'USD').format(0));
   }
 
   /// One line of the breakdown sheet: the label on the left, the amount

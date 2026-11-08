@@ -133,7 +133,7 @@ class InvestmentBalanceHeader extends ConsumerWidget {
         ? '••••••'
         : value == null
             ? '—'
-            : formatPolyAmount(ref, value);
+            : formatDollars(value);
     final pending = ref.watch(predictions
         ? pendingPredictionsDepositUsdProvider
         : pendingTradingDepositUsdProvider);
@@ -208,12 +208,12 @@ class InvestmentBalanceHeader extends ConsumerWidget {
               investedText: '',
               pendingText: pending > 0
                   ? visible
-                      ? formatPolyFiatForced(ref, pending)
+                      ? formatDollars(pending)
                       : '••••••'
                   : null,
               leavingText: leaving > 0
                   ? visible
-                      ? formatPolyFiatForced(ref, leaving)
+                      ? formatDollars(leaving)
                       : '••••••'
                   : null,
             )
@@ -313,7 +313,7 @@ class InvestmentBalanceHeader extends ConsumerWidget {
     final display = _oneBalanceDisplay(ref);
     final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
     return (
-      text: visible ? formatDollarsBalance(display.total) : '••••••',
+      text: visible ? formatDollars(display.total) : '••••••',
       stale: display.stale,
     );
   }
@@ -349,7 +349,7 @@ class _OneBalanceHeroState extends ConsumerState<_OneBalanceHero> {
     final state = ref.watch(oneBalanceProvider);
     final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
     String amount(double value) =>
-        visible ? formatDollarsBalance(value) : '••••••';
+        visible ? formatDollars(value) : '••••••';
     final lines = InvestmentBalanceHeader.inFlightLines(context, state, amount);
     final split = InvestmentBalanceHeader.oneBalanceSplitFigures(ref);
     final figure = InvestmentBalanceHeader.oneBalanceFigure(ref);

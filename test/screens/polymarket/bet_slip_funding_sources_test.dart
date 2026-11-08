@@ -12,6 +12,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/intl.dart' show NumberFormat;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/auth_grant_registry.dart';
@@ -30,6 +31,7 @@ import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/providers/polymarket_open_orders_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/screens/shared/amount_keypad_panel.dart';
 import 'package:kute/providers/spark_address_provider.dart';
 import 'package:kute/providers/swap_orders_provider.dart';
 import 'package:kute/providers/usd_account_provider.dart'
@@ -57,6 +59,7 @@ import 'package:money2/money2.dart';
 import '../../helpers/fake_swap_orders.dart';
 import '../../helpers/runtime_policy_fixture.dart';
 import '../../helpers/money_steps_finders.dart';
+import '../../helpers/euro_settings.dart';
 import '../../helpers/shell_bar_harness.dart';
 
 const _ownSpark =
@@ -83,7 +86,12 @@ class _Trading extends PolymarketTradingNotifier {
 
 class _Currency extends StateNotifier<CurrencyState>
     implements CurrencyNotifier {
-  _Currency() : super(CurrencyState({'USD': Fixed.fromInt(60000)}));
+  _Currency()
+      : super(CurrencyState({
+          'USD': Fixed.fromInt(60000),
+          // $1 is €0.92: a stray conversion shows in the figures.
+          'EUR': Fixed.parse('0.92'),
+        }));
   @override
   Future<void> updateRates() async {}
 }
@@ -255,7 +263,9 @@ late _Funder _funder;
 late _Investing _investing;
 
 Future<void> _pumpSlip(WidgetTester tester,
-    {String? slug, double? initialAmountUsd = 10}) async {
+    {String? slug,
+    double? initialAmountUsd = 10,
+    String currency = 'USD'}) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -264,7 +274,7 @@ Future<void> _pumpSlip(WidgetTester tester,
   await tester.pumpWidget(ProviderScope(
     overrides: [
       settingsProvider.overrideWith((ref) => SettingsModel(Settings(
-            currency: 'USD',
+            currency: currency,
             language: 'en',
             btcFormat: 'sats',
             backup: false,
@@ -530,6 +540,85 @@ void main() {
         FundedOrderStage.done);
     expect(approvals, hasLength(1));
     await release(tester);
+  });
+
+  // Euros in Settings change nothing on the money path (founder, 8 November
+  // 2026): the field, the fee, the minimum, the button and the order are
+  // all dollars, and what is typed is what reaches the venue.
+  group('euros in Settings', () {
+    Future<void> type(WidgetTester tester, String amount) async {
+      final pad = find.byType(AmountKeypad);
+      for (final key in amount.split('')) {
+        await tester.tap(find.descendant(of: pad, matching: find.text(key)));
+        await tester.pump();
+      }
+      await _frames(tester, 3);
+    }
+
+    BigAmountDisplay hero(WidgetTester tester) =>
+        tester.widget<BigAmountDisplay>(find.byType(BigAmountDisplay));
+
+    testWidgets(
+        'typing 9: the field, the button and the order are exactly \$9',
+        (tester) async {
+      debugFreshSpendingBitcoin = () async => (sats: 0, usdPerBtc: 60000.0);
+      expect(await policy.refresh(), isTrue);
+      await _pumpSlip(tester, initialAmountUsd: null, currency: 'EUR');
+      // The rate is live, and far from 1: nothing below is a coincidence.
+      expect(
+          _container(tester)
+              .read(selectedCurrencyProviderFromUSD('EUR'))
+              .toDouble(),
+          0.92);
+      // The minimum in dollars, before anything is typed.
+      expect(hero(tester).prefix, r'$');
+      expect(hero(tester).minimumLabel, contains(r'$1.00'));
+      expectNoEuroOnScreen(tester);
+
+      await type(tester, '9');
+      expect(hero(tester).prefix, r'$');
+      expect(hero(tester).amountText, '9');
+      expect(hero(tester).conversionLabel, isNull);
+      expect(_cta(tester).label, contains(r'$9.00'));
+      expect(hero(tester).trailingCaption, contains(r'$'));
+      expectNoEuroOnScreen(tester);
+
+      await _tapCta(tester);
+      await _frames(tester, 10);
+      expect(approvals, hasLength(1));
+      // What goes to the venue: exactly the 9 typed, not 9 / 0.92.
+      final pending = _container(tester).read(pendingPolymarketBetProvider)!;
+      expect(pending.amount, 9.0);
+      expect(find.text(r'Placing $9.00 on Yes'), findsOneWidget);
+      expectNoEuroOnScreen(tester);
+      await placeAndFinish(tester);
+      await release(tester);
+    });
+
+    testWidgets('a carried amount opens as itself, not converted',
+        (tester) async {
+      await _pumpSlip(tester, initialAmountUsd: 10, currency: 'EUR');
+      expect(hero(tester).amountText, '10');
+      expect(_cta(tester).label, contains(r'$10.00'));
+      expectNoEuroOnScreen(tester);
+      await release(tester);
+    });
+
+    testWidgets('Max fills the dollars it says, the field and the stake',
+        (tester) async {
+      debugFreshSpendingBitcoin = () async => (sats: 0, usdPerBtc: 60000.0);
+      expect(await policy.refresh(), isTrue);
+      await _pumpSlip(tester, initialAmountUsd: null, currency: 'EUR');
+      await tester.tap(find.bySemanticsLabel('Use maximum'));
+      await _frames(tester, 3);
+      final typed = double.parse(hero(tester).amountText);
+      expect(typed, greaterThan(0));
+      // No rate between the figure typed and the button's stake.
+      final money = NumberFormat.simpleCurrency(name: 'USD').format(typed);
+      expect(barPrimaryLabel(tester), contains(money));
+      expectNoEuroOnScreen(tester);
+      await release(tester);
+    });
   });
 
   // The button that names the market's minimum (nothing typed, or a stake

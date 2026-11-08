@@ -55,7 +55,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:kute/models/onchain_types.dart';
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart'
-    show formatPolyAmount;
+    show formatDollars;
 import 'package:kute/helpers/common_operation_methods.dart';
 import 'package:kute/helpers/extension.dart';
 import 'package:kute/helpers/kute_dog_asset.dart';
@@ -2148,12 +2148,11 @@ Future<void> openTransactionDetails(
 /// + fiat sub on the right).
 Widget _buildPolymarketUsdcReceiveItem(
     PolymarketUsdcReceive tx, BuildContext context, WidgetRef ref) {
-  // USDC is USD-pegged — render through `formatPolyAmount` so the
-  // row honors the global Predictions denomination setting (sats/BTC
-  // in bitcoin mode, user's fiat in fiat mode). Asset identity stays
-  // on the leading USDC icon; the row never spells "USDC" out loud.
+  // Dollars money reads in dollars, whatever the Settings currency. Asset
+  // identity stays on the leading USDC icon; the row never spells "USDC"
+  // out loud.
   // The sender address lives in the sheet's Nerd data, not on the row.
-  final fiatStr = formatPolyAmount(ref, tx.amount.toDouble());
+  final fiatStr = formatDollars(tx.amount.toDouble());
   return _TransactionRow(
     onTap: () => _showPolymarketUsdcReceiveDetails(context, ref, tx),
     leading: _AssetTxIcon(assetCode: 'USDC', isSend: false),
@@ -2168,10 +2167,9 @@ Widget _buildPolymarketUsdcReceiveItem(
 void _showPolymarketUsdcReceiveDetails(
     BuildContext context, WidgetRef ref, PolymarketUsdcReceive tx) {
   TrackingService.transactionDetailViewed('polymarket_usdc_receive');
-  // Sheet headline follows the global Predictions denomination
-  // setting — sats/BTC in bitcoin mode, user's fiat in fiat mode.
-  // Asset identity stays on the leading USDC icon.
-  final fiatStr = formatPolyAmount(ref, tx.amount.toDouble());
+  // Sheet headline in dollars. Asset identity stays on the leading USDC
+  // icon.
+  final fiatStr = formatDollars(tx.amount.toDouble());
   final dateStr = activitySheetDate(context, tx.timestamp);
   final hash = tx.id.split(':').first;
   showAppBottomSheet(
@@ -2255,9 +2253,8 @@ void _showNativeUsdcSendDetails(
     BuildContext context, WidgetRef ref, SwapOrderTransaction tx) {
   TrackingService.transactionDetailViewed('native_usdc_send');
   final details = tx.details;
-  // Sheet headline follows the global Predictions denomination
-  // setting — sats/BTC in bitcoin mode, user's fiat in fiat mode.
-  // Asset identity stays on the leading USDC icon.
+  // Sheet headline in dollars. Asset identity stays on the leading USDC
+  // icon.
   final dateStr = activitySheetDate(context, tx.timestamp);
   showAppBottomSheet(
     context: context,
@@ -3218,11 +3215,8 @@ Widget _buildNativeUsdcSendRow(
   // Match the Spark / on-chain row layout: directional icon, "Sent"
   // title (no asset chip — identity is in the icon), "via Polygon ·
   // HH:mm" subtitle, no leading sign on the amount (the directional
-  // icon already conveys direction). Amount renders via
-  // `formatPolyAmount` so it follows the global Predictions
-  // denomination setting (sats/BTC in bitcoin mode, user's fiat in
-  // fiat mode).
-  final fiatStr = formatPolyAmount(ref, amount);
+  // icon already conveys direction). The amount is dollars.
+  final fiatStr = formatDollars(amount);
   Widget iconWidget = _AssetTxIcon(assetCode: 'USDC', isSend: true);
   if (isPending) {
     iconWidget = _PendingIconWrapper(child: iconWidget);
@@ -3409,13 +3403,8 @@ Widget _buildSwapOrderItem(
     }
   }
 
-  // Every USD-pegged leg of a swap renders via `formatPolyAmount`,
-  // so Polymarket deposits + withdrawals follow the global
-  // Predictions denomination setting (sats/BTC in bitcoin mode,
-  // user's fiat in fiat mode). Other swap legs also
-  // route through this helper — the rule reads consistently because
-  // every USDC-flavoured leg is USD-pegged regardless of route.
-  String fmtFiatStable(double usd) => formatPolyAmount(ref, usd);
+  // Every USD-pegged leg of a swap reads in dollars, regardless of route.
+  String fmtFiatStable(double usd) => formatDollars(usd);
 
   String formatSwapAmount(String rawAmount, String coin) {
     final isOrch = details.isOrchestra;
@@ -3647,17 +3636,10 @@ class _SwapOrderDetailSheetState extends ConsumerState<_SwapOrderDetailSheet> {
         // purchase of dollars reads "$50.00", never eight decimals of
         // token.
         upperCoin == kOrchestraUsdAssetCode) {
-      // USD-pegged legs render in the user's fiat. The literal coin
-      // code never reaches the user — asset identity is in the swap
-      // icon at the top of the sheet.
-      final parsed = double.tryParse(rawAmount) ?? 0;
-      final fiatCcy = ref.read(settingsProvider.select((s) => s.currency));
-      final fiatPerUsd =
-          ref.read(selectedCurrencyProviderFromUSD(fiatCcy)).toDouble();
-      return NumberFormat.simpleCurrency(
-        name: fiatCcy,
-        decimalDigits: 2,
-      ).format(parsed * fiatPerUsd);
+      // USD-pegged legs read in dollars. The literal coin code never
+      // reaches the user — asset identity is in the swap icon at the top
+      // of the sheet.
+      return formatDollars(double.tryParse(rawAmount) ?? 0);
     }
     return '$rawAmount $coin';
   }
@@ -4680,10 +4662,10 @@ Widget _buildPolymarketItem(
   final type = tx.activityType;
   final result = tx.result;
 
-  // Polymarket rows are intrinsically dollar-priced: the amount follows
-  // the person's fiat, never the BTC formatter, and no "USDC" word
-  // appears (the crest or the venue mark says where it happened).
-  String fmtFiat(double usd) => formatPolyAmount(ref, usd);
+  // Polymarket rows are dollars, never converted and never through the BTC
+  // formatter, and no "USDC" word appears (the crest or the venue mark
+  // says where it happened).
+  String fmtFiat(double usd) => formatDollars(usd);
   final copy = predictionRowCopy(context.l10n, activity,
       time: DateFormat('HH:mm').format(tx.timestamp));
 
@@ -4768,15 +4750,9 @@ void _showPolymarketTxDetails(
   TrackingService.transactionDetailViewed('polymarket');
   final activity = tx.activity;
   final type = tx.activityType;
-  // Honor the user's currency setting so the detail sheet shows
-  // amounts in the same fiat as the rest of the app (€, £, BRL…)
-  // instead of always USD. USDC is USD-pegged → multiply by the
-  // user-currency-per-USD rate before formatting.
-  // Honor the GLOBAL Settings → Predictions denomination setting via
-  // `formatPolyAmount` — Polymarket transaction-detail sheet flips
-  // sats/BTC ↔ fiat with the rest of the Predictions surfaces.
+  // Dollars money, in dollars: USDC is USD-pegged and no rate applies.
   String fmtFiat(double usd, {String prefix = ''}) =>
-      '$prefix${formatPolyAmount(ref, usd)}';
+      '$prefix${formatDollars(usd)}';
   final usdcStr = fmtFiat(tx.usdcAmount);
   final dateStr = activitySheetDate(context, tx.timestamp);
   final isSell =
@@ -5107,7 +5083,7 @@ void showPredictionResultDetails(BuildContext context, PredictionResult result,
           child: Consumer(builder: (context, ref, _) {
             final l = context.l10n;
             String money(double usd, {String prefix = ''}) =>
-                '$prefix${formatPolyAmount(ref, usd)}';
+                '$prefix${formatDollars(usd)}';
             final pnl = result.pnlUsd;
             final event =
                 slug.isEmpty ? null : ref.watch(polyPositionEventProvider(slug));
@@ -6829,7 +6805,7 @@ Widget _buildMultiSourceMoveItem(
       status: _RowStatus(
           text: l10n.activityNeedsAttention, color: AppColors.marketDown),
       flow: ActivityFlow.neutral,
-      amount: formatPolyAmount(ref, move.totalUsd),
+      amount: formatDollars(move.totalUsd),
       fiatAmount: '',
     );
   }
@@ -6845,7 +6821,7 @@ Widget _buildMultiSourceMoveItem(
     final partly = tx.partlyDone;
     return _buildSwapOrderItem(standard, context, ref,
         onTap: open,
-        amount: noBitcoinYet ? formatPolyAmount(ref, move.spentUsd) : null,
+        amount: noBitcoinYet ? formatDollars(move.spentUsd) : null,
         fiatAmount: noBitcoinYet ? '' : null,
         statusOverride: partly ? _multiSourceMoveStatus(context, tx) : null,
         whereOverride:
@@ -6872,7 +6848,7 @@ Widget _buildMultiSourceMoveItem(
         tx.timestamp),
     status: _multiSourceMoveStatus(context, tx),
     flow: sent ? ActivityFlow.moneyOut : ActivityFlow.neutral,
-    amount: formatPolyAmount(ref, move.totalUsd),
+    amount: formatDollars(move.totalUsd),
     fiatAmount: multiSourceMoveProgress(l10n, move) ?? '',
   );
 }
@@ -7172,7 +7148,7 @@ class _MultiSourceMoveDetailSheetState
     String btc(double v) =>
         ref.watch(conversionProvider((v * 100000000).round()));
     String both(double usd, double coins) => [
-          if (usd >= 0.01) formatPolyAmount(ref, usd),
+          if (usd >= 0.01) formatDollars(usd),
           if (coins > 0) btc(coins),
         ].join(' + ');
 
@@ -7213,11 +7189,11 @@ class _MultiSourceMoveDetailSheetState
                   if (totals.feesUsd >= 0.01)
                     ReceiptFact(
                         label: l10n.fees,
-                        value: formatPolyAmount(ref, totals.feesUsd)),
+                        value: formatDollars(totals.feesUsd)),
                   if (totals.showSent && totals.sentUsd >= 0.01)
                     ReceiptFact(
                         label: l10n.sent,
-                        value: formatPolyAmount(ref, totals.sentUsd)),
+                        value: formatDollars(totals.sentUsd)),
                 ],
               ]),
               // The move's steps, one compact line each (each leg, its own
@@ -7386,7 +7362,7 @@ String _legCoinAmount(WidgetRef ref, SwapOrder d, String raw, String coin) {
   return coin.toUpperCase() == 'BTC'
       ? ref.watch(conversionProvider((v * 100000000).round()))
       : _isDollarCoin(coin)
-          ? formatPolyAmount(ref, v)
+          ? formatDollars(v)
           : '$v ${_assetDisplayName(coin)}';
 }
 
@@ -7420,7 +7396,7 @@ class _MultiSourceLegNerd extends ConsumerWidget {
     final landed = d.isComplete && !OwnSparkArrivals.awaitingCredit(d.id);
     final sent = sentUsd ?? value(d.depositAmount, d.coinFrom);
     final sentText = sentUsd != null
-        ? formatPolyAmount(ref, sentUsd!)
+        ? formatDollars(sentUsd!)
         : sent > 0
             ? _legCoinAmount(ref, d, d.depositAmount, d.coinFrom)
             : null;
@@ -7430,7 +7406,7 @@ class _MultiSourceLegNerd extends ConsumerWidget {
       final paid = sentUsd ?? (_isDollarCoin(d.coinFrom) ? sent : null);
       if (paid != null) {
         final fee = ((paid - got) * 100).round() / 100;
-        if (fee >= 0.01) feeText = formatPolyAmount(ref, fee);
+        if (fee >= 0.01) feeText = formatDollars(fee);
       }
     }
     return Column(

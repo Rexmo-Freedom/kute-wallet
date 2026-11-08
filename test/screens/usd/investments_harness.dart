@@ -183,6 +183,9 @@ Future<RecordingRewardsApi> pumpInvestments(
   /// A policy of the test's own (a backend fixture) in place of
   /// [InvestmentsTestPolicy]; [earn] and the browse flags are then unused.
   RuntimeCapabilitiesService? policy,
+
+  /// The Settings currency.
+  String currency = 'USD',
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -190,7 +193,7 @@ Future<RecordingRewardsApi> pumpInvestments(
   addTearDown(tester.view.resetDevicePixelRatio);
   final api = RecordingRewardsApi(estimatedSatsToday: estimatedSatsToday);
   final settings = Settings(
-    currency: 'USD',
+    currency: currency,
     language: 'en',
     btcFormat: 'sats',
     backup: false,

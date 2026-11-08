@@ -36,6 +36,7 @@ import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
+import '../../helpers/euro_settings.dart';
 import '../../helpers/portfolio_overrides.dart';
 
 class _Prices extends LivePriceNotifier {
@@ -140,7 +141,7 @@ final _nvdaMarket = HlMarket(
     isHip3: true);
 
 Future<void> _pump(WidgetTester tester, Widget row,
-    {double width = 390, double textScale = 1}) async {
+    {double width = 390, double textScale = 1, String currency = 'USD'}) async {
   tester.view.physicalSize = Size(width, 400);
   tester.view.devicePixelRatio = 1;
   tester.platformDispatcher.textScaleFactorTestValue = textScale;
@@ -157,8 +158,9 @@ Future<void> _pump(WidgetTester tester, Widget row,
       hyperliquidLiveMidProvider('xyz:NVDA').overrideWith((_) => null),
       hyperliquidPerpMarketsProvider.overrideWith((_) async => [_nvdaMarket]),
       hyperliquidSpotMarketsProvider.overrideWith((_) async => <HlMarket>[]),
+      if (currency == 'EUR') euroRateOverride(),
       settingsProvider.overrideWith((_) => SettingsModel(Settings(
-          currency: 'USD',
+          currency: currency,
           language: 'en',
           btcFormat: 'sats',
           backup: false,
@@ -586,6 +588,18 @@ void main() {
           matching: find.byType(RollingNumberText)));
       expect(change.text, r'▲ $0.40 · 3.7%');
       expect(change.style.color, AppColors.marketUp);
+    });
+
+    testWidgets('euros in Settings: the same dollars, the same percent',
+        (tester) async {
+      await _pump(tester,
+          scoped(PortfolioRowLayout.market, const HlPositionRow(position: _btc)),
+          currency: 'EUR');
+      final change = tester.widget<RollingNumberText>(find.descendant(
+          of: find.byKey(const ValueKey('portfolio-row-pnl')),
+          matching: find.byType(RollingNumberText)));
+      expect(change.text, r'▲ $0.40 · 3.7%');
+      expectNoEuroOnScreen(tester);
     });
   });
 

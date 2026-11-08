@@ -1,5 +1,9 @@
 // lib/screens/portfolio/components/portfolio_pnl_period.dart
 //
+// Dollars money: every figure here reads in dollars, whatever the Settings
+// currency; only Bitcoin's conversion follows Settings
+// (polymarket_amount_formatter.dart).
+//
 // THE PORTFOLIO SCREEN'S ONE PERIOD FIGURE (founder, 7 November 2026,
 // the redesign after the Robinhood / Public / Webull / Polymarket / Kalshi
 // review: "yes build this"). What the account made or lost over the range
@@ -42,7 +46,7 @@
 // the change: what closing, selling and redeeming made, less what those
 // positions already stood at when the range began, with what the venues
 // count that no position carries (funding, fees booked apart). The two
-// are rounded in the currency on screen so the rows add up to the
+// are rounded in the dollars on screen so the rows add up to the
 // headline to the cent. Fees and funding are not a row of their own: the
 // engine carries the fills' fees inside each position's realised P&L and
 // funding only inside the venue's own figure, never apart.
@@ -55,13 +59,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/models/balance_history.dart';
 import 'package:kute/models/open_pnl_history.dart'
     show openPnlRangeShown, openPnlValueAt;
-import 'package:kute/providers/currency_conversions_provider.dart'
-    show selectedCurrencyProviderFromUSD;
 import 'package:kute/providers/open_pnl_history_provider.dart';
 import 'package:kute/providers/polymarket_live_prices_provider.dart'
     show livePriceProvider;
 import 'package:kute/providers/portfolio_performance_provider.dart';
-import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart'
     show pnlChartRangeProvider, pnlRangeChange, pnlShownRangeProvider;
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
@@ -260,7 +261,7 @@ double? portfolioPnlPercent(double change, double? valueNowUsd) {
 }
 
 /// The P&L tab's headline and its two rows (see the file header), in US
-/// dollars that write in the currency on screen to the cent: [headline]
+/// dollars to the cent: [headline]
 /// is [PortfolioPnlPeriod.change] rounded so, [open] what the positions
 /// open now made over the range, [closed] the rest; [closed] + [open] is
 /// [headline] as written.
@@ -295,18 +296,12 @@ PortfolioPnlSplit? portfolioPnlSplit(WidgetRef ref, PortfolioPnlPeriod period) {
         openPnlValueAt([for (final l in legs) if (mine(l.key)) l], start);
   }
   final open = (openNow?.usd ?? 0) - openStart;
-  // Rounded in the currency on screen, so the rows add up as written.
-  final currency = ref.watch(settingsProvider.select((s) => s.currency));
-  var rate = 1.0;
-  if (currency != 'USD') {
-    final r = ref.watch(selectedCurrencyProviderFromUSD(currency)).toDouble();
-    if (r.isFinite && r > 0) rate = r;
-  }
-  int cents(double usd) => usd.isFinite ? (usd * rate * 100).round() : 0;
+  // Rounded in the dollars on screen, so the rows add up as written.
+  int cents(double usd) => usd.isFinite ? (usd * 100).round() : 0;
   final headline = cents(period.change);
   final openCents = cents(open);
   final closedCents = headline - openCents;
-  double back(int c) => c / 100 / rate;
+  double back(int c) => c / 100;
   return (
     headline: back(headline),
     closed: back(closedCents),

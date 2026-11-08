@@ -1,5 +1,9 @@
 // lib/screens/usd/components/dollars_activity_tab.dart
 //
+// Dollars money: every figure here reads in dollars, whatever the Settings
+// currency; only Bitcoin's conversion follows Settings
+// (polymarket_amount_formatter.dart).
+//
 // THE DOLLARS ACTIVITY TAB (founder, 4 November 2026: "On Dollars, like we
 // do on the Bitcoin screen, have the first tab be the Activity screen. It
 // must have all the open bets and such … It must have the P&L below the 4
@@ -326,7 +330,7 @@ class DollarsPnlStrip extends ConsumerWidget {
     final color = !visible ? c.textPrimary : pnlResultColor(c, usd);
     final figure = !visible
         ? '••••••'
-        : '${kuteChangeSign(usd)}${formatPolyAmount(ref, usd.abs())}';
+        : '${kuteChangeSign(usd)}${formatDollars(usd.abs())}';
 
     // The open P&L engine's line on its range, its last point the open
     // P&L of what it charts.

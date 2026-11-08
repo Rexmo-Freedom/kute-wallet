@@ -308,7 +308,7 @@ class _LedgerSpotRow extends ConsumerWidget {
         trailing: PortfolioCardValue(
           value: value == null || !value.isFinite
               ? '—'
-              : formatPolyAmount(ref, value),
+              : formatDollars(value),
         ),
         footer: [
           context.l10n

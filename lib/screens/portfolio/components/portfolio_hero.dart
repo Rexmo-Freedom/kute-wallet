@@ -1,5 +1,9 @@
 // lib/screens/portfolio/components/portfolio_hero.dart
 //
+// Dollars money: every figure here reads in dollars, whatever the Settings
+// currency; only Bitcoin's conversion follows Settings
+// (polymarket_amount_formatter.dart).
+//
 // THE PORTFOLIO SCREEN'S HERO, one instance over every section (the
 // redesign of 7 November 2026 after the Robinhood / Public / Webull /
 // Polymarket / Kalshi review; founder: "yes build this"), left-aligned in
@@ -9,7 +13,7 @@
 //     place: what the open positions are worth now plus Available, the
 //     Dollars header's own split (InvestmentBalanceHeader
 //     .oneBalanceSplitFigures: the same snapshot, the same display cache,
-//     to the cent in the currency on screen; never the money its in-flight
+//     to the cent in dollars; never the money its in-flight
 //     lines name); the last figure known, dimmed and sweeping
 //     ([StaleShimmer]), while a venue is read (again), a dash before
 //     anything was ever read; dots with balances hidden. No caption: the
@@ -281,7 +285,7 @@ class _HeroFigure extends ConsumerWidget {
     final text = usd == null
         ? '—'
         : visible
-            ? formatPolyFiatForced(ref, usd)
+            ? formatDollars(usd)
             : '••••••';
     final figure = Semantics(
       container: true,
@@ -367,7 +371,7 @@ class _HeroLine extends ConsumerWidget {
         usd == null
             ? '—'
             : visible
-                ? formatPolyFiatForced(ref, usd)
+                ? formatDollars(usd)
                 : '••••••',
         stale: usd != null && stale,
         usd: usd);
@@ -516,7 +520,7 @@ class _PortfolioHeroChartState extends ConsumerState<PortfolioHeroChart> {
           : kuteChartDayTime(t, locale);
     }
 
-    String money(double v) => formatPolyAmount(ref, v.abs());
+    String money(double v) => formatDollars(v.abs());
     final quiet = _quiet(context);
     // The account's base for the percent: the total now (none with a
     // venue picked, see the file header).

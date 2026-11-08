@@ -668,7 +668,7 @@ class _PredictionsPnl extends ConsumerWidget {
     return BalancesPnlText(
         usd: pnl.usd,
         costUsd: pnl.costUsd,
-        money: (v) => formatPolyAmount(ref, v));
+        money: (v) => formatDollars(v));
   }
 }
 
@@ -689,7 +689,7 @@ class _InvestingPnl extends ConsumerWidget {
     return BalancesPnlText(
         usd: pnl.usd,
         costUsd: pnl.costUsd,
-        money: (v) => formatPolyAmount(ref, v));
+        money: (v) => formatDollars(v));
   }
 }
 
@@ -845,8 +845,8 @@ class HlPortfolioPositionCard extends ConsumerWidget {
       caption:
           '${p.isLong ? l10n.longLabel : l10n.shortLabel} ${p.leverageValue}x',
       trailing: PortfolioCardValue(
-        value: formatPolyAmount(ref, hlCloseValue(p, liveMid: mid)),
-        pnl: PortfolioCardValue.pnlText(formatPolyAmount(ref, pnl.abs()), pnl,
+        value: formatDollars(hlCloseValue(p, liveMid: mid)),
+        pnl: PortfolioCardValue.pnlText(formatDollars(pnl.abs()), pnl,
             percent: roe * 100),
         up: pnl >= 0,
       ),

@@ -104,7 +104,7 @@ Future<bool> claimPolymarketPosition(
         message: e is PolymarketNothingToClaimException
             ? context.l10n.betClaimNothingHeld
             : context.l10n
-                .betClaimResultRecording(formatPolyAmount(ref, pos.size)),
+                .betClaimResultRecording(formatDollars(pos.size)),
         error: false,
         info: true,
       );
@@ -180,7 +180,7 @@ class _PolyClaimButtonState extends ConsumerState<PolyClaimButton> {
     final l10n = context.l10n;
     final text = widget.label ??
         (won
-            ? l10n.betClaimAmount(formatPolyAmount(ref, pos.size))
+            ? l10n.betClaimAmount(formatDollars(pos.size))
             : l10n.betClearPosition);
     if (widget.compact) {
       return AppButton(
@@ -256,7 +256,7 @@ class _PolyClaimBarActionState extends ConsumerState<PolyClaimBarAction> {
     return KuteBarContextScope(
       barContext: KuteBarContext.primary(
         label: won
-            ? l10n.betClaimAmount(formatPolyAmount(ref, pos.size))
+            ? l10n.betClaimAmount(formatDollars(pos.size))
             : l10n.betClearPosition,
         onPrimary: _claim,
         busy: _claiming || _polyClearing(ref, pos),

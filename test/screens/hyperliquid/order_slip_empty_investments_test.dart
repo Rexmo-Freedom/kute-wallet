@@ -31,6 +31,7 @@ import 'package:kute/providers/usd_account_provider.dart';
 import 'package:kute/screens/home/components/deposit_sheet.dart'
     show DepositSheet;
 import 'package:kute/screens/hyperliquid/components/order_slip_sheet.dart';
+import 'package:kute/screens/shared/amount_keypad_panel.dart';
 import 'package:kute/screens/shared/slip_shortfall.dart';
 import 'package:kute/services/funding/settlement_runner.dart'
     show SettlementStepUpHook;
@@ -71,7 +72,12 @@ class _LivePrices extends HlLivePricesNotifier {
 
 class _Currency extends StateNotifier<CurrencyState>
     implements CurrencyNotifier {
-  _Currency() : super(CurrencyState({'USD': Fixed.fromInt(1)}));
+  _Currency()
+      : super(CurrencyState({
+          'USD': Fixed.fromInt(1),
+          // $1 is €0.92: a stray conversion shows in the figures.
+          'EUR': Fixed.parse('0.92'),
+        }));
   @override
   Future<void> updateRates() async {}
 }
@@ -234,7 +240,7 @@ late _Env _env;
 late _Funder _funder;
 
 Future<void> _pumpSlip(WidgetTester tester, FakeHyperliquidMoveRail rail,
-    {bool knownEmpty = false}) async {
+    {bool knownEmpty = false, String currency = 'USD'}) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -244,7 +250,7 @@ Future<void> _pumpSlip(WidgetTester tester, FakeHyperliquidMoveRail rail,
     overrides: [
       slipKnownEmptySourcesProvider.overrideWith((_) => () async => knownEmpty),
       settingsProvider.overrideWith((_) => SettingsModel(Settings(
-            currency: 'USD',
+            currency: currency,
             language: 'en',
             btcFormat: 'sats',
             backup: false,
@@ -364,6 +370,45 @@ void main() {
     // Past the autofire grant's own 30-minute life.
     await tester.pump(const Duration(minutes: 31));
   }
+
+  // Euros in Settings change nothing on the money path (founder, 8 November
+  // 2026): what is typed is what the order carries, in dollars.
+  testWidgets(
+      'euros in Settings: typing 20 is a \$20 order, on screen, in the one '
+      'approval and in the order the venue call is made from', (tester) async {
+    await _pumpSlip(tester, rail, currency: 'EUR');
+    // The rate is live, and far from 1: nothing below is a coincidence.
+    expect(
+        _container(tester)
+            .read(selectedCurrencyProviderFromUSD('EUR'))
+            .toDouble(),
+        0.92);
+    final pad = find.byType(AmountKeypad);
+    for (final key in ['2', '0']) {
+      await tester.tap(find.descendant(of: pad, matching: find.text(key)));
+      await tester.pump();
+    }
+    await _frames(tester, 3);
+    final hero = tester.widget<BigAmountDisplay>(find.byType(BigAmountDisplay));
+    expect(hero.prefix, r'$');
+    expect(hero.amountText, '20');
+    expect(hero.conversionLabel, isNull);
+    expect(barPrimaryLabel(tester), contains(r'$20.00'));
+    expect(find.textContaining('€'), findsNothing);
+
+    await tapBarPrimary(tester, settle: false);
+    await _frames(tester, 20);
+
+    expect(approvals, hasLength(1));
+    // 20 USD in the intent's 6 decimals, never 20 / 0.92.
+    expect(approvals.single.amountMax, IntentUnits.usd(20));
+    expect(approvals.single.limits[VenueLimit.sizeUnit], 'usd');
+    final pending = _container(tester).read(pendingHyperliquidOrderProvider)!;
+    expect(pending.marginUsd, 20.0);
+    expect(find.textContaining('€'), findsNothing);
+    AuthGrantRegistry.instance.cancelAutofire(kPendingHlOrderAutofireId);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   testWidgets(
       'nothing typed, \$0 in Investments, enough bitcoin: "Add" funds the '

@@ -370,14 +370,14 @@ class LedgerPmActivityRow extends ConsumerWidget {
       subtitle: copy.subtitle,
       status: claimable ? l10n.claim : null,
       statusColor: claimable ? AppColors.marketUp : null,
-      amount: formatPolyAmount(ref, figures.amount),
+      amount: formatDollars(figures.amount),
       flow: figures.flow,
       amountColor: predictionResultColor(figures),
       secondaryAmount: pnl == null
           ? ''
           : pnl >= 0
-              ? l10n.activityAmountProfit(formatPolyAmount(ref, pnl.abs()))
-              : l10n.activityAmountLoss(formatPolyAmount(ref, pnl.abs())),
+              ? l10n.activityAmountProfit(formatDollars(pnl.abs()))
+              : l10n.activityAmountLoss(formatDollars(pnl.abs())),
       secondaryColor: pnl == null
           ? null
           : pnl >= 0

@@ -488,7 +488,7 @@ class _Figures {
 
   static const _mask = '••••••';
 
-  String money(double v) => visible ? formatPolyAmount(ref, v) : _mask;
+  String money(double v) => visible ? formatDollars(v) : _mask;
 
   /// "+$3.80" / "−$5.00", the percent after it when given.
   String signed(double v, {double? percent}) {
@@ -501,7 +501,7 @@ class _Figures {
     final pct = percent == null || !percent.isFinite
         ? ''
         : ' ($sign${percent.abs().toStringAsFixed(1)}%)';
-    return '$sign${formatPolyAmount(ref, v.abs())}$pct';
+    return '$sign${formatDollars(v.abs())}$pct';
   }
 
   Color pnl(double v) => !visible || v == 0

@@ -68,9 +68,15 @@ import 'package:kute/services/http/shared_http_client.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/theme/app_theme.dart';
 
+import '../helpers/euro_settings.dart';
 import '../helpers/portfolio_overrides.dart';
 
 const _out = String.fromEnvironment('PORTFOLIO_REDESIGN_OUT');
+
+/// The Settings currency: dollars money reads in dollars whatever this is
+/// (--dart-define=PORTFOLIO_REDESIGN_CURRENCY=EUR).
+const _currency =
+    String.fromEnvironment('PORTFOLIO_REDESIGN_CURRENCY', defaultValue: 'USD');
 const _images = String.fromEnvironment('PORTFOLIO_REDESIGN_IMAGES');
 const _key = ValueKey('shot');
 const _dpr = 3.0;
@@ -375,8 +381,9 @@ Future<ui.Image> _shoot(WidgetTester tester, bool dark,
   await tester.pumpWidget(ProviderScope(
     overrides: [
       ...portfolioOverrides(),
+      if (_currency == 'EUR') euroRateOverride(),
       settingsProvider.overrideWith((_) => SettingsModel(Settings(
-          currency: 'USD',
+          currency: _currency,
           language: 'en',
           btcFormat: 'sats',
           backup: false,

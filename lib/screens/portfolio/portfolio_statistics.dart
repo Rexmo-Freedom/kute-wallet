@@ -983,7 +983,7 @@ List<(String, String, Color)> _tilesOf(BuildContext context, WidgetRef ref,
       ? '••••••'
       : figures.amount == null
           ? '—'
-          : formatPolyAmount(ref, figures.amount!);
+          : formatDollars(figures.amount!);
   final count = figures.count == null
       ? '—'
       : NumberFormat.decimalPattern().format(figures.count);
@@ -1033,7 +1033,7 @@ String _quietText(AppLocalizations l10n, PortfolioPerformanceVenue? venue,
   if (value == null) return (label, '—', c.textPrimary);
   return (
     label,
-    '${kuteChangeSign(value)}${formatPolyAmount(ref, value.abs())}',
+    '${kuteChangeSign(value)}${formatDollars(value.abs())}',
     value > 0
         ? AppColors.marketUp
         : value < 0
