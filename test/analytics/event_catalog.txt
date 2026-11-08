@@ -509,6 +509,8 @@ predictions_instant_opened
 predictions_instant_round_picked
 predictions_position_detail_viewed
 predictions_region_checked
+price_alert_created
+price_alert_deleted
 pull_to_refresh_executed
 purchase_row_reattributed
 push_notification_opened

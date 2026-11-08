@@ -20713,6 +20713,90 @@ abstract class AppLocalizations {
   /// **'Horizontal line'**
   String get chartToolHorizontalLine;
 
+  /// Rail tool on the Advanced chart: a level the app marks when the price reaches it while the app is open. Not a notification.
+  ///
+  /// In en, this message translates to:
+  /// **'Price line'**
+  String get chartToolPriceLine;
+
+  /// Chart sheet section title.
+  ///
+  /// In en, this message translates to:
+  /// **'Price lines'**
+  String get chartPriceLines;
+
+  /// Chart sheet card that sets a new price line.
+  ///
+  /// In en, this message translates to:
+  /// **'New line'**
+  String get chartPriceLineNew;
+
+  /// Note on that card. Must never suggest anything happens while the app is closed.
+  ///
+  /// In en, this message translates to:
+  /// **'Checked only while Kute is open'**
+  String get chartPriceLineNewNote;
+
+  /// A waiting price line that sits above the market price.
+  ///
+  /// In en, this message translates to:
+  /// **'Above the price'**
+  String get chartPriceLineAbove;
+
+  /// A waiting price line that sits below the market price.
+  ///
+  /// In en, this message translates to:
+  /// **'Below the price'**
+  String get chartPriceLineBelow;
+
+  /// A price line the price got to, with the date and time.
+  ///
+  /// In en, this message translates to:
+  /// **'Reached {when}'**
+  String chartPriceLineReachedOn(String when);
+
+  /// In-app toast when a price line is reached.
+  ///
+  /// In en, this message translates to:
+  /// **'{coin} reached {price}'**
+  String chartPriceLineReachedToast(String coin, String price);
+
+  /// Toast at the limit of price lines.
+  ///
+  /// In en, this message translates to:
+  /// **'You have {count} price lines. Remove one to add another.'**
+  String chartPriceLineLimit(int count);
+
+  /// Toast: the level picked is the market price.
+  ///
+  /// In en, this message translates to:
+  /// **'That is the price now. Pick a level above or below it.'**
+  String get chartPriceLineAtPrice;
+
+  /// Toast: the level picked is too far from the market price.
+  ///
+  /// In en, this message translates to:
+  /// **'That is too far from the price. Pick a closer level.'**
+  String get chartPriceLineTooFar;
+
+  /// Title of the sheet confirming removal of a price line.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove this price line?'**
+  String get chartPriceLineRemoveTitle;
+
+  /// Subtitle of that sheet: the market and the level.
+  ///
+  /// In en, this message translates to:
+  /// **'{coin} at {price}'**
+  String chartPriceLineRemoveBody(String coin, String price);
+
+  /// Button that removes the price line.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get chartPriceLineRemoveCta;
+
   /// No description provided for @chartMoreTools.
   ///
   /// In en, this message translates to:

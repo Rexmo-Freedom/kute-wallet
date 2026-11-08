@@ -12382,6 +12382,58 @@ class AppLocalizationsNl extends AppLocalizations {
   String get chartToolHorizontalLine => 'Horizontale lijn';
 
   @override
+  String get chartToolPriceLine => 'Prijslijn';
+
+  @override
+  String get chartPriceLines => 'Prijslijnen';
+
+  @override
+  String get chartPriceLineNew => 'Nieuwe lijn';
+
+  @override
+  String get chartPriceLineNewNote => 'Alleen gecontroleerd als Kute open is';
+
+  @override
+  String get chartPriceLineAbove => 'Boven de prijs';
+
+  @override
+  String get chartPriceLineBelow => 'Onder de prijs';
+
+  @override
+  String chartPriceLineReachedOn(String when) {
+    return 'Bereikt op $when';
+  }
+
+  @override
+  String chartPriceLineReachedToast(String coin, String price) {
+    return '$coin heeft $price bereikt';
+  }
+
+  @override
+  String chartPriceLineLimit(int count) {
+    return 'Je hebt $count prijslijnen. Verwijder er een om een andere toe te voegen.';
+  }
+
+  @override
+  String get chartPriceLineAtPrice =>
+      'Dat is de huidige prijs. Kies een niveau erboven of eronder.';
+
+  @override
+  String get chartPriceLineTooFar =>
+      'Dat is te ver van de prijs. Kies een dichterbij gelegen niveau.';
+
+  @override
+  String get chartPriceLineRemoveTitle => 'Deze prijslijn verwijderen?';
+
+  @override
+  String chartPriceLineRemoveBody(String coin, String price) {
+    return '$coin op $price';
+  }
+
+  @override
+  String get chartPriceLineRemoveCta => 'Verwijderen';
+
+  @override
   String get chartMoreTools => 'Meer';
 
   @override

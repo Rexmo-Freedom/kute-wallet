@@ -12340,6 +12340,58 @@ class AppLocalizationsSv extends AppLocalizations {
   String get chartToolHorizontalLine => 'Horisontell linje';
 
   @override
+  String get chartToolPriceLine => 'Prislinje';
+
+  @override
+  String get chartPriceLines => 'Prislinjer';
+
+  @override
+  String get chartPriceLineNew => 'Ny linje';
+
+  @override
+  String get chartPriceLineNewNote => 'Kontrolleras bara när Kute är öppet';
+
+  @override
+  String get chartPriceLineAbove => 'Över priset';
+
+  @override
+  String get chartPriceLineBelow => 'Under priset';
+
+  @override
+  String chartPriceLineReachedOn(String when) {
+    return 'Nådd $when';
+  }
+
+  @override
+  String chartPriceLineReachedToast(String coin, String price) {
+    return '$coin nådde $price';
+  }
+
+  @override
+  String chartPriceLineLimit(int count) {
+    return 'Du har $count prislinjer. Ta bort en för att lägga till en ny.';
+  }
+
+  @override
+  String get chartPriceLineAtPrice =>
+      'Det är priset nu. Välj en nivå över eller under det.';
+
+  @override
+  String get chartPriceLineTooFar =>
+      'Det är för långt från priset. Välj en närmare nivå.';
+
+  @override
+  String get chartPriceLineRemoveTitle => 'Ta bort den här prislinjen?';
+
+  @override
+  String chartPriceLineRemoveBody(String coin, String price) {
+    return '$coin vid $price';
+  }
+
+  @override
+  String get chartPriceLineRemoveCta => 'Ta bort';
+
+  @override
   String get chartMoreTools => 'Mer';
 
   @override

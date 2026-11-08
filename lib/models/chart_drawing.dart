@@ -59,6 +59,11 @@ enum ChartDrawingTool {
 
   /// Two anchors; a box measuring both price and time.
   dateAndPriceRange,
+
+  /// One anchor; a price line (models/hl_price_line.dart). Only what the
+  /// rail places and the chart paints: a line is stored with the price
+  /// lines, never among the saved drawings.
+  priceLine,
 }
 
 /// How many anchors a tool needs to be valid.
@@ -68,6 +73,7 @@ int chartDrawingPointCount(ChartDrawingTool tool) {
     case ChartDrawingTool.text:
     case ChartDrawingTool.horizontalRay:
     case ChartDrawingTool.verticalLine:
+    case ChartDrawingTool.priceLine:
       return 1;
     case ChartDrawingTool.parallelChannel:
     case ChartDrawingTool.longPosition:

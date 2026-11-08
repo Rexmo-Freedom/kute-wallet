@@ -12359,6 +12359,58 @@ class AppLocalizationsFi extends AppLocalizations {
   String get chartToolHorizontalLine => 'Vaakaviiva';
 
   @override
+  String get chartToolPriceLine => 'Hintaviiva';
+
+  @override
+  String get chartPriceLines => 'Hintaviivat';
+
+  @override
+  String get chartPriceLineNew => 'Uusi viiva';
+
+  @override
+  String get chartPriceLineNewNote => 'Tarkistetaan vain, kun Kute on auki';
+
+  @override
+  String get chartPriceLineAbove => 'Hinnan yläpuolella';
+
+  @override
+  String get chartPriceLineBelow => 'Hinnan alapuolella';
+
+  @override
+  String chartPriceLineReachedOn(String when) {
+    return 'Saavutettu $when';
+  }
+
+  @override
+  String chartPriceLineReachedToast(String coin, String price) {
+    return '$coin saavutti hinnan $price';
+  }
+
+  @override
+  String chartPriceLineLimit(int count) {
+    return 'Sinulla on $count hintaviivaa. Poista yksi, jotta voit lisätä uuden.';
+  }
+
+  @override
+  String get chartPriceLineAtPrice =>
+      'Se on nykyinen hinta. Valitse taso sen ylä- tai alapuolelta.';
+
+  @override
+  String get chartPriceLineTooFar =>
+      'Se on liian kaukana hinnasta. Valitse lähempi taso.';
+
+  @override
+  String get chartPriceLineRemoveTitle => 'Poistetaanko tämä hintaviiva?';
+
+  @override
+  String chartPriceLineRemoveBody(String coin, String price) {
+    return '$coin hintaan $price';
+  }
+
+  @override
+  String get chartPriceLineRemoveCta => 'Poista';
+
+  @override
   String get chartMoreTools => 'Lisää';
 
   @override

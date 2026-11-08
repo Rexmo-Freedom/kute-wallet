@@ -12430,6 +12430,58 @@ class AppLocalizationsDe extends AppLocalizations {
   String get chartToolHorizontalLine => 'Horizontale Linie';
 
   @override
+  String get chartToolPriceLine => 'Preislinie';
+
+  @override
+  String get chartPriceLines => 'Preislinien';
+
+  @override
+  String get chartPriceLineNew => 'Neue Linie';
+
+  @override
+  String get chartPriceLineNewNote => 'Nur geprüft, solange Kute offen ist';
+
+  @override
+  String get chartPriceLineAbove => 'Über dem Preis';
+
+  @override
+  String get chartPriceLineBelow => 'Unter dem Preis';
+
+  @override
+  String chartPriceLineReachedOn(String when) {
+    return 'Erreicht am $when';
+  }
+
+  @override
+  String chartPriceLineReachedToast(String coin, String price) {
+    return '$coin hat $price erreicht';
+  }
+
+  @override
+  String chartPriceLineLimit(int count) {
+    return 'Du hast $count Preislinien. Entferne eine, um eine neue hinzuzufügen.';
+  }
+
+  @override
+  String get chartPriceLineAtPrice =>
+      'Das ist der aktuelle Preis. Wähle ein Niveau darüber oder darunter.';
+
+  @override
+  String get chartPriceLineTooFar =>
+      'Das ist zu weit vom Preis entfernt. Wähle ein näheres Niveau.';
+
+  @override
+  String get chartPriceLineRemoveTitle => 'Diese Preislinie entfernen?';
+
+  @override
+  String chartPriceLineRemoveBody(String coin, String price) {
+    return '$coin bei $price';
+  }
+
+  @override
+  String get chartPriceLineRemoveCta => 'Entfernen';
+
+  @override
   String get chartMoreTools => 'Mehr';
 
   @override

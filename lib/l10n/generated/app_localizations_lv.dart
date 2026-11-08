@@ -12312,6 +12312,58 @@ class AppLocalizationsLv extends AppLocalizations {
   String get chartToolHorizontalLine => 'Horizontāla līnija';
 
   @override
+  String get chartToolPriceLine => 'Cenas līnija';
+
+  @override
+  String get chartPriceLines => 'Cenas līnijas';
+
+  @override
+  String get chartPriceLineNew => 'Jauna līnija';
+
+  @override
+  String get chartPriceLineNewNote => 'Pārbauda tikai, kamēr Kute ir atvērta';
+
+  @override
+  String get chartPriceLineAbove => 'Virs cenas';
+
+  @override
+  String get chartPriceLineBelow => 'Zem cenas';
+
+  @override
+  String chartPriceLineReachedOn(String when) {
+    return 'Sasniegta $when';
+  }
+
+  @override
+  String chartPriceLineReachedToast(String coin, String price) {
+    return '$coin sasniedza $price';
+  }
+
+  @override
+  String chartPriceLineLimit(int count) {
+    return 'Jums ir $count cenas līnijas. Noņemiet vienu, lai pievienotu citu.';
+  }
+
+  @override
+  String get chartPriceLineAtPrice =>
+      'Tā ir pašreizējā cena. Izvēlieties līmeni virs vai zem tās.';
+
+  @override
+  String get chartPriceLineTooFar =>
+      'Tas ir pārāk tālu no cenas. Izvēlieties tuvāku līmeni.';
+
+  @override
+  String get chartPriceLineRemoveTitle => 'Vai noņemt šo cenas līniju?';
+
+  @override
+  String chartPriceLineRemoveBody(String coin, String price) {
+    return '$coin pie $price';
+  }
+
+  @override
+  String get chartPriceLineRemoveCta => 'Noņemt';
+
+  @override
   String get chartMoreTools => 'Vairāk';
 
   @override

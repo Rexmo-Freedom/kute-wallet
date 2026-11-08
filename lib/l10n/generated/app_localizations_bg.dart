@@ -12363,6 +12363,59 @@ class AppLocalizationsBg extends AppLocalizations {
   String get chartToolHorizontalLine => 'Хоризонтална линия';
 
   @override
+  String get chartToolPriceLine => 'Ценова линия';
+
+  @override
+  String get chartPriceLines => 'Ценови линии';
+
+  @override
+  String get chartPriceLineNew => 'Нова линия';
+
+  @override
+  String get chartPriceLineNewNote => 'Проверява се само докато Kute е отворен';
+
+  @override
+  String get chartPriceLineAbove => 'Над цената';
+
+  @override
+  String get chartPriceLineBelow => 'Под цената';
+
+  @override
+  String chartPriceLineReachedOn(String when) {
+    return 'Достигната $when';
+  }
+
+  @override
+  String chartPriceLineReachedToast(String coin, String price) {
+    return '$coin достигна $price';
+  }
+
+  @override
+  String chartPriceLineLimit(int count) {
+    return 'Имате $count ценови линии. Премахнете една, за да добавите друга.';
+  }
+
+  @override
+  String get chartPriceLineAtPrice =>
+      'Това е текущата цена. Изберете ниво над или под нея.';
+
+  @override
+  String get chartPriceLineTooFar =>
+      'Това е твърде далеч от цената. Изберете по-близко ниво.';
+
+  @override
+  String get chartPriceLineRemoveTitle =>
+      'Да се премахне ли тази ценова линия?';
+
+  @override
+  String chartPriceLineRemoveBody(String coin, String price) {
+    return '$coin при $price';
+  }
+
+  @override
+  String get chartPriceLineRemoveCta => 'Премахване';
+
+  @override
   String get chartMoreTools => 'Още';
 
   @override

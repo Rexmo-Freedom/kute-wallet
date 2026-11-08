@@ -12389,6 +12389,58 @@ class AppLocalizationsSl extends AppLocalizations {
   String get chartToolHorizontalLine => 'Vodoravna črta';
 
   @override
+  String get chartToolPriceLine => 'Cenovna črta';
+
+  @override
+  String get chartPriceLines => 'Cenovne črte';
+
+  @override
+  String get chartPriceLineNew => 'Nova črta';
+
+  @override
+  String get chartPriceLineNewNote => 'Preverja se samo, ko je Kute odprt';
+
+  @override
+  String get chartPriceLineAbove => 'Nad ceno';
+
+  @override
+  String get chartPriceLineBelow => 'Pod ceno';
+
+  @override
+  String chartPriceLineReachedOn(String when) {
+    return 'Doseženo $when';
+  }
+
+  @override
+  String chartPriceLineReachedToast(String coin, String price) {
+    return '$coin je dosegel $price';
+  }
+
+  @override
+  String chartPriceLineLimit(int count) {
+    return 'Imate $count cenovnih črt. Odstranite eno, da dodate drugo.';
+  }
+
+  @override
+  String get chartPriceLineAtPrice =>
+      'To je trenutna cena. Izberite raven nad njo ali pod njo.';
+
+  @override
+  String get chartPriceLineTooFar =>
+      'To je predaleč od cene. Izberite bližjo raven.';
+
+  @override
+  String get chartPriceLineRemoveTitle => 'Odstranim to cenovno črto?';
+
+  @override
+  String chartPriceLineRemoveBody(String coin, String price) {
+    return '$coin pri $price';
+  }
+
+  @override
+  String get chartPriceLineRemoveCta => 'Odstrani';
+
+  @override
   String get chartMoreTools => 'Več';
 
   @override
