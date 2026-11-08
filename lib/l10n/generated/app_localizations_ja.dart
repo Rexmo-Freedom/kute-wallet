@@ -11907,6 +11907,56 @@ class AppLocalizationsJa extends AppLocalizations {
   String get chartToolHorizontalLine => '水平線';
 
   @override
+  String get chartToolPriceLine => '価格ライン';
+
+  @override
+  String get chartPriceLines => '価格ライン';
+
+  @override
+  String get chartPriceLineNew => '新しいライン';
+
+  @override
+  String get chartPriceLineNewNote => 'Kuteを開いている間のみ確認します';
+
+  @override
+  String get chartPriceLineAbove => '現在の価格より上';
+
+  @override
+  String get chartPriceLineBelow => '現在の価格より下';
+
+  @override
+  String chartPriceLineReachedOn(String when) {
+    return '$whenに到達';
+  }
+
+  @override
+  String chartPriceLineReachedToast(String coin, String price) {
+    return '$coinが$priceに到達しました';
+  }
+
+  @override
+  String chartPriceLineLimit(int count) {
+    return '価格ラインは$count本あります。追加するには1本削除してください。';
+  }
+
+  @override
+  String get chartPriceLineAtPrice => 'それは現在の価格です。上または下の水準を選んでください。';
+
+  @override
+  String get chartPriceLineTooFar => '価格から離れすぎています。もっと近い水準を選んでください。';
+
+  @override
+  String get chartPriceLineRemoveTitle => 'この価格ラインを削除しますか？';
+
+  @override
+  String chartPriceLineRemoveBody(String coin, String price) {
+    return '$coin（$price）';
+  }
+
+  @override
+  String get chartPriceLineRemoveCta => '削除';
+
+  @override
   String get chartMoreTools => 'その他';
 
   @override

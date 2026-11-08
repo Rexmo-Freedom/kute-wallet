@@ -12354,6 +12354,58 @@ class AppLocalizationsSk extends AppLocalizations {
   String get chartToolHorizontalLine => 'Vodorovná čiara';
 
   @override
+  String get chartToolPriceLine => 'Cenová línia';
+
+  @override
+  String get chartPriceLines => 'Cenové línie';
+
+  @override
+  String get chartPriceLineNew => 'Nová línia';
+
+  @override
+  String get chartPriceLineNewNote => 'Kontroluje sa len pri otvorenom Kute';
+
+  @override
+  String get chartPriceLineAbove => 'Nad cenou';
+
+  @override
+  String get chartPriceLineBelow => 'Pod cenou';
+
+  @override
+  String chartPriceLineReachedOn(String when) {
+    return 'Dosiahnuté $when';
+  }
+
+  @override
+  String chartPriceLineReachedToast(String coin, String price) {
+    return '$coin dosiahol $price';
+  }
+
+  @override
+  String chartPriceLineLimit(int count) {
+    return 'Máte $count cenových línií. Odstráňte jednu a pridajte ďalšiu.';
+  }
+
+  @override
+  String get chartPriceLineAtPrice =>
+      'To je aktuálna cena. Vyberte úroveň nad ňou alebo pod ňou.';
+
+  @override
+  String get chartPriceLineTooFar =>
+      'To je od ceny príliš ďaleko. Vyberte bližšiu úroveň.';
+
+  @override
+  String get chartPriceLineRemoveTitle => 'Odstrániť túto cenovú líniu?';
+
+  @override
+  String chartPriceLineRemoveBody(String coin, String price) {
+    return '$coin na $price';
+  }
+
+  @override
+  String get chartPriceLineRemoveCta => 'Odstrániť';
+
+  @override
   String get chartMoreTools => 'Viac';
 
   @override

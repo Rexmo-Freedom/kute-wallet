@@ -270,6 +270,7 @@ bool kuteDrawingHit(
 }) {
   switch (drawing.tool) {
     case ChartDrawingTool.level:
+    case ChartDrawingTool.priceLine:
       final y = geom.yForPrice(drawing.points.first.price);
       return (pos.dy - y).abs() <= tolerance;
     case ChartDrawingTool.trendline:
@@ -395,7 +396,8 @@ Rect kuteDrawingBounds(ChartDrawing drawing, KuteDrawingGeometry geom) {
 /// the price lines (a horizontal line, a horizontal ray).
 bool kuteDrawingHasPriceTag(ChartDrawing drawing) =>
     drawing.tool == ChartDrawingTool.level ||
-    drawing.tool == ChartDrawingTool.horizontalRay;
+    drawing.tool == ChartDrawingTool.horizontalRay ||
+    drawing.tool == ChartDrawingTool.priceLine;
 
 /// The price tags of the horizontal drawings, in the chart's tag column:
 /// the same small, fully rounded filled pill as the latest price's, in
@@ -621,7 +623,7 @@ class KuteChartDrawingsPainter extends CustomPainter {
   }) {
     if (!d.isValid) return;
     final color = _colorOf(d);
-    final dash = d.dashed;
+    final dash = d.dashed || d.tool == ChartDrawingTool.priceLine;
     // A placement whose second point is not down yet: just its anchor.
     if (isDraft &&
         d.points.every((p) =>
@@ -640,6 +642,7 @@ class KuteChartDrawingsPainter extends CustomPainter {
 
     switch (d.tool) {
       case ChartDrawingTool.level:
+      case ChartDrawingTool.priceLine:
         final y = geom.yForPrice(d.points.first.price);
         _line(canvas, Offset(0, y), Offset(geom.width, y), stroke, dash);
         break;

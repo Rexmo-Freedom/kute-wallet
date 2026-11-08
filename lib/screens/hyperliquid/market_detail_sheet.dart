@@ -77,6 +77,7 @@ import 'package:kute/models/chart_drawing.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/hyperliquid_model.dart';
 import 'package:kute/providers/chart_drawings_provider.dart';
+import 'package:kute/providers/hl_price_lines_provider.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart';
 import 'package:kute/providers/hyperliquid_candles_provider.dart';
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
@@ -89,6 +90,7 @@ import 'package:kute/screens/home/components/action_pill.dart'
 import 'package:kute/screens/hyperliquid/components/hl_position_detail_sheet.dart';
 import 'package:kute/screens/hyperliquid/components/hl_charts.dart';
 import 'package:kute/screens/hyperliquid/components/hl_drawing_tools.dart';
+import 'package:kute/screens/hyperliquid/components/hl_price_line_cards.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_history.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_intervals.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_interval_sheet.dart';
@@ -1038,7 +1040,20 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
       market: widget.market,
       marketKey: _marketKey,
       candles: _shownCandles ?? const <HyperliquidCandle>[],
+      onAddPriceLine: _startPriceLine,
     ));
+  }
+
+  /// The Chart sheet's new price line: the Advanced chart, the tool in hand.
+  void _startPriceLine() {
+    if (!mounted) return;
+    if (!_drawingMode) _toggleDrawingMode(source: 'price_line');
+    setState(() {
+      _armedTool = ChartDrawingTool.priceLine;
+      _toolSticky = false;
+      _placementPending = false;
+      _selectedDrawingId = null;
+    });
   }
 
   /// The Advanced axes' corner "Log" switch.
@@ -1642,7 +1657,30 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     );
   }
 
+  /// The rail's price line placed: stored with the price lines, not among
+  /// the drawings. The tool stays in hand after a refusal, for another try.
+  void _onPriceLinePlaced(ChartDrawing drawing) {
+    final placed = hlPlacePriceLine(
+      context,
+      ref,
+      market: widget.market,
+      marketKey: _marketKey,
+      level: drawing.points.first.price,
+      reference: ref.read(hyperliquidLivePricesProvider).mid(widget.market.coin) ??
+          _shownCandles?.lastOrNull?.close,
+    );
+    if (!placed || (_toolSticky && _armedTool == drawing.tool)) return;
+    setState(() {
+      _armedTool = null;
+      _toolSticky = false;
+    });
+  }
+
   void _onDrawingPlaced(ChartDrawing drawing, {String? via}) {
+    if (drawing.tool == ChartDrawingTool.priceLine) {
+      _onPriceLinePlaced(drawing);
+      return;
+    }
     final before = ref
         .read(hlChartDrawingsProvider(hlChartDrawingMarketKey(widget.market)))
         .length;
@@ -1758,6 +1796,11 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
           ChartDrawingTool.level,
           HlRailGlyph.level,
           context.l10n.chartToolHorizontalLine,
+        ),
+        (
+          ChartDrawingTool.priceLine,
+          HlRailGlyph.priceLine,
+          context.l10n.chartToolPriceLine,
         ),
         (
           ChartDrawingTool.rect,
@@ -2741,6 +2784,10 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
             // bars.
             morphKey: 'interval:${candleIv.interval}',
             drawings: drawings,
+            priceLines: ref.watch(hlPriceLinesForMarketProvider(_marketKey)),
+            onPriceLineTapped: (line) => unawaited(hlConfirmRemovePriceLine(
+                context, ref, line,
+                decimalCap: widget.market.pxDecimalCap)),
             drawingMode: _drawingMode,
             armedTool: _armedTool,
             armedColorValue: _armedColorValue,

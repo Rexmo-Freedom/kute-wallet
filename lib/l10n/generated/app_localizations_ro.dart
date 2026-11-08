@@ -12400,6 +12400,59 @@ class AppLocalizationsRo extends AppLocalizations {
   String get chartToolHorizontalLine => 'Linie orizontală';
 
   @override
+  String get chartToolPriceLine => 'Linie de preț';
+
+  @override
+  String get chartPriceLines => 'Linii de preț';
+
+  @override
+  String get chartPriceLineNew => 'Linie nouă';
+
+  @override
+  String get chartPriceLineNewNote =>
+      'Verificată doar cât timp Kute e deschisă';
+
+  @override
+  String get chartPriceLineAbove => 'Peste preț';
+
+  @override
+  String get chartPriceLineBelow => 'Sub preț';
+
+  @override
+  String chartPriceLineReachedOn(String when) {
+    return 'Atinsă pe $when';
+  }
+
+  @override
+  String chartPriceLineReachedToast(String coin, String price) {
+    return '$coin a atins $price';
+  }
+
+  @override
+  String chartPriceLineLimit(int count) {
+    return 'Ai $count linii de preț. Elimină una pentru a adăuga alta.';
+  }
+
+  @override
+  String get chartPriceLineAtPrice =>
+      'Acesta este prețul actual. Alege un nivel deasupra sau dedesubt.';
+
+  @override
+  String get chartPriceLineTooFar =>
+      'Este prea departe de preț. Alege un nivel mai apropiat.';
+
+  @override
+  String get chartPriceLineRemoveTitle => 'Elimini această linie de preț?';
+
+  @override
+  String chartPriceLineRemoveBody(String coin, String price) {
+    return '$coin la $price';
+  }
+
+  @override
+  String get chartPriceLineRemoveCta => 'Elimină';
+
+  @override
   String get chartMoreTools => 'Mai mult';
 
   @override

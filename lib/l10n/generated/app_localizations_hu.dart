@@ -12367,6 +12367,59 @@ class AppLocalizationsHu extends AppLocalizations {
   String get chartToolHorizontalLine => 'Vízszintes vonal';
 
   @override
+  String get chartToolPriceLine => 'Árvonal';
+
+  @override
+  String get chartPriceLines => 'Árvonalak';
+
+  @override
+  String get chartPriceLineNew => 'Új vonal';
+
+  @override
+  String get chartPriceLineNewNote =>
+      'Csak akkor ellenőrizzük, ha a Kute nyitva van';
+
+  @override
+  String get chartPriceLineAbove => 'Az ár felett';
+
+  @override
+  String get chartPriceLineBelow => 'Az ár alatt';
+
+  @override
+  String chartPriceLineReachedOn(String when) {
+    return 'Elérve: $when';
+  }
+
+  @override
+  String chartPriceLineReachedToast(String coin, String price) {
+    return '$coin elérte ezt az árat: $price';
+  }
+
+  @override
+  String chartPriceLineLimit(int count) {
+    return '$count árvonalad van. Távolíts el egyet, hogy újat adhass hozzá.';
+  }
+
+  @override
+  String get chartPriceLineAtPrice =>
+      'Ez a jelenlegi ár. Válassz fölötte vagy alatta lévő szintet.';
+
+  @override
+  String get chartPriceLineTooFar =>
+      'Ez túl messze van az ártól. Válassz közelebbi szintet.';
+
+  @override
+  String get chartPriceLineRemoveTitle => 'Eltávolítod ezt az árvonalat?';
+
+  @override
+  String chartPriceLineRemoveBody(String coin, String price) {
+    return '$coin: $price';
+  }
+
+  @override
+  String get chartPriceLineRemoveCta => 'Eltávolítás';
+
+  @override
   String get chartMoreTools => 'Továbbiak';
 
   @override

@@ -12324,6 +12324,59 @@ class AppLocalizationsEt extends AppLocalizations {
   String get chartToolHorizontalLine => 'Horisontaalne joon';
 
   @override
+  String get chartToolPriceLine => 'Hinnajoon';
+
+  @override
+  String get chartPriceLines => 'Hinnajooned';
+
+  @override
+  String get chartPriceLineNew => 'Uus joon';
+
+  @override
+  String get chartPriceLineNewNote =>
+      'Kontrollitakse ainult siis, kui Kute on avatud';
+
+  @override
+  String get chartPriceLineAbove => 'Hinnast kõrgemal';
+
+  @override
+  String get chartPriceLineBelow => 'Hinnast madalamal';
+
+  @override
+  String chartPriceLineReachedOn(String when) {
+    return 'Saavutatud $when';
+  }
+
+  @override
+  String chartPriceLineReachedToast(String coin, String price) {
+    return '$coin jõudis hinnani $price';
+  }
+
+  @override
+  String chartPriceLineLimit(int count) {
+    return 'Sul on $count hinnajoont. Eemalda üks, et lisada uus.';
+  }
+
+  @override
+  String get chartPriceLineAtPrice =>
+      'See on praegune hind. Vali tase sellest kõrgemal või madalamal.';
+
+  @override
+  String get chartPriceLineTooFar =>
+      'See on hinnast liiga kaugel. Vali lähem tase.';
+
+  @override
+  String get chartPriceLineRemoveTitle => 'Kas eemaldada see hinnajoon?';
+
+  @override
+  String chartPriceLineRemoveBody(String coin, String price) {
+    return '$coin hinnal $price';
+  }
+
+  @override
+  String get chartPriceLineRemoveCta => 'Eemalda';
+
+  @override
   String get chartMoreTools => 'Veel';
 
   @override

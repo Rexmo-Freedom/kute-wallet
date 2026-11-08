@@ -12420,6 +12420,59 @@ class AppLocalizationsEl extends AppLocalizations {
   String get chartToolHorizontalLine => 'Οριζόντια γραμμή';
 
   @override
+  String get chartToolPriceLine => 'Γραμμή τιμής';
+
+  @override
+  String get chartPriceLines => 'Γραμμές τιμής';
+
+  @override
+  String get chartPriceLineNew => 'Νέα γραμμή';
+
+  @override
+  String get chartPriceLineNewNote =>
+      'Ελέγχεται μόνο όσο το Kute είναι ανοιχτό';
+
+  @override
+  String get chartPriceLineAbove => 'Πάνω από την τιμή';
+
+  @override
+  String get chartPriceLineBelow => 'Κάτω από την τιμή';
+
+  @override
+  String chartPriceLineReachedOn(String when) {
+    return 'Επιτεύχθηκε $when';
+  }
+
+  @override
+  String chartPriceLineReachedToast(String coin, String price) {
+    return 'Το $coin έφτασε τα $price';
+  }
+
+  @override
+  String chartPriceLineLimit(int count) {
+    return 'Έχετε $count γραμμές τιμής. Αφαιρέστε μία για να προσθέσετε άλλη.';
+  }
+
+  @override
+  String get chartPriceLineAtPrice =>
+      'Αυτή είναι η τρέχουσα τιμή. Επιλέξτε επίπεδο πάνω ή κάτω από αυτήν.';
+
+  @override
+  String get chartPriceLineTooFar =>
+      'Είναι πολύ μακριά από την τιμή. Επιλέξτε πιο κοντινό επίπεδο.';
+
+  @override
+  String get chartPriceLineRemoveTitle => 'Αφαίρεση αυτής της γραμμής τιμής;';
+
+  @override
+  String chartPriceLineRemoveBody(String coin, String price) {
+    return '$coin στα $price';
+  }
+
+  @override
+  String get chartPriceLineRemoveCta => 'Αφαίρεση';
+
+  @override
   String get chartMoreTools => 'Περισσότερα';
 
   @override

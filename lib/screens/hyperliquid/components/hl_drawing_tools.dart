@@ -42,11 +42,60 @@ BoxDecoration hlSelectedPillDecoration(BuildContext context,
 
 // ───────────────────────────── glyphs ─────────────────────────────
 
+/// A price line's mark, [size] across at [center], in the glyphs' thin-line
+/// language: a bell, or a check once [reached]. Drawn rather than an icon so
+/// it matches them on the chart, the rail and the Chart sheet alike.
+void hlPaintPriceLineMark(
+  Canvas canvas,
+  Offset center,
+  double size, {
+  required Color color,
+  required bool reached,
+}) {
+  final stroke = Paint()
+    ..color = color
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.4
+    ..strokeCap = StrokeCap.round
+    ..strokeJoin = StrokeJoin.round;
+  Offset at(double x, double y) =>
+      Offset(center.dx + x * size, center.dy + y * size);
+  if (reached) {
+    canvas.drawPath(
+        Path()
+          ..moveTo(at(-0.3, 0.02).dx, at(-0.3, 0.02).dy)
+          ..lineTo(at(-0.08, 0.26).dx, at(-0.08, 0.26).dy)
+          ..lineTo(at(0.32, -0.24).dx, at(0.32, -0.24).dy),
+        stroke);
+    return;
+  }
+  Path curve(Path p, double a, double b, double c, double d, double e, double f) {
+    final p1 = at(a, b), p2 = at(c, d), p3 = at(e, f);
+    return p..cubicTo(p1.dx, p1.dy, p2.dx, p2.dy, p3.dx, p3.dy);
+  }
+
+  final start = at(-0.38, 0.2);
+  final bell = Path()..moveTo(start.dx, start.dy);
+  curve(bell, -0.28, 0.1, -0.28, 0.0, -0.28, -0.1);
+  curve(bell, -0.28, -0.3, -0.16, -0.4, 0, -0.4);
+  curve(bell, 0.16, -0.4, 0.28, -0.3, 0.28, -0.1);
+  curve(bell, 0.28, 0.0, 0.28, 0.1, 0.38, 0.2);
+  bell.close();
+  canvas.drawPath(bell, stroke);
+  final a = at(-0.1, 0.33), b = at(0, 0.42), c = at(0.1, 0.33);
+  canvas.drawPath(
+      Path()
+        ..moveTo(a.dx, a.dy)
+        ..quadraticBezierTo(b.dx, b.dy, c.dx, c.dy),
+      stroke);
+}
+
 /// What a rail glyph pictures. [cursor] is the select/edit crosshair.
 enum HlRailGlyph {
   cursor,
   trendline,
   level,
+  priceLine,
   rect,
   fibonacci,
   measure,
@@ -65,6 +114,8 @@ HlRailGlyph hlGlyphForTool(ChartDrawingTool? tool) {
     case ChartDrawingTool.level:
     case ChartDrawingTool.horizontalRay:
       return HlRailGlyph.level;
+    case ChartDrawingTool.priceLine:
+      return HlRailGlyph.priceLine;
     case ChartDrawingTool.rect:
     case ChartDrawingTool.parallelChannel:
       return HlRailGlyph.rect;
@@ -135,6 +186,12 @@ class _GlyphPainter extends CustomPainter {
         canvas.drawLine(const Offset(2.5, 10), const Offset(7.4, 10), line);
         canvas.drawLine(const Offset(12.6, 10), const Offset(17.5, 10), line);
         canvas.drawCircle(const Offset(10, 10), 2.4, line);
+      case HlRailGlyph.priceLine:
+        hlPaintPriceLineMark(canvas, const Offset(10, 7.5), 12,
+            color: color, reached: false);
+        for (final x in const [2.5, 8.0, 13.5]) {
+          canvas.drawLine(Offset(x, 16), Offset(x + 3.5, 16), line);
+        }
       case HlRailGlyph.rect:
         canvas.drawRRect(
             RRect.fromRectAndRadius(

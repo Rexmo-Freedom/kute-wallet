@@ -23,6 +23,7 @@ import 'package:kute/services/runtime_capabilities_service.dart';
 
 import 'package:kute/theme/kute_motion.dart';
 import 'package:flutter/material.dart';
+import 'package:kute/screens/hyperliquid/components/hl_price_lines_host.dart';
 import 'package:kute/screens/hyperliquid/components/hl_trade_alerts_host.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart'
     show kuteShellMounted;
@@ -620,6 +621,8 @@ class _AppShellState extends ConsumerState<AppShell>
           // Hyperliquid trade alerts (fills, TP/SL, liquidation risk,
           // venue cancels) as in-app banners on every tab. Paints nothing.
           const HlTradeAlertsHost(child: SizedBox.shrink()),
+          // A price line reached: the quiet snack bar, on every tab.
+          const HlPriceLinesHost(),
           // The four branch navigators, swipeable and ALL MOUNTED (no
           // lazy viewport, no keep-alive parking — see the _page doc).
           // Far pages sit Offstage with tickers muted; a drag reveals

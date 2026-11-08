@@ -9458,6 +9458,88 @@
   },
   "chartToolCursor": "Cursor",
   "chartToolHorizontalLine": "Horizontal line",
+  "chartToolPriceLine": "Price line",
+  "@chartToolPriceLine": {
+    "description": "Rail tool on the Advanced chart: a level the app marks when the price reaches it while the app is open. Not a notification."
+  },
+  "chartPriceLines": "Price lines",
+  "@chartPriceLines": {
+    "description": "Chart sheet section title."
+  },
+  "chartPriceLineNew": "New line",
+  "@chartPriceLineNew": {
+    "description": "Chart sheet card that sets a new price line."
+  },
+  "chartPriceLineNewNote": "Checked only while Kute is open",
+  "@chartPriceLineNewNote": {
+    "description": "Note on that card. Must never suggest anything happens while the app is closed."
+  },
+  "chartPriceLineAbove": "Above the price",
+  "@chartPriceLineAbove": {
+    "description": "A waiting price line that sits above the market price."
+  },
+  "chartPriceLineBelow": "Below the price",
+  "@chartPriceLineBelow": {
+    "description": "A waiting price line that sits below the market price."
+  },
+  "chartPriceLineReachedOn": "Reached {when}",
+  "@chartPriceLineReachedOn": {
+    "description": "A price line the price got to, with the date and time.",
+    "placeholders": {
+      "when": {
+        "type": "String"
+      }
+    }
+  },
+  "chartPriceLineReachedToast": "{coin} reached {price}",
+  "@chartPriceLineReachedToast": {
+    "description": "In-app toast when a price line is reached.",
+    "placeholders": {
+      "coin": {
+        "type": "String"
+      },
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "chartPriceLineLimit": "You have {count} price lines. Remove one to add another.",
+  "@chartPriceLineLimit": {
+    "description": "Toast at the limit of price lines.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chartPriceLineAtPrice": "That is the price now. Pick a level above or below it.",
+  "@chartPriceLineAtPrice": {
+    "description": "Toast: the level picked is the market price."
+  },
+  "chartPriceLineTooFar": "That is too far from the price. Pick a closer level.",
+  "@chartPriceLineTooFar": {
+    "description": "Toast: the level picked is too far from the market price."
+  },
+  "chartPriceLineRemoveTitle": "Remove this price line?",
+  "@chartPriceLineRemoveTitle": {
+    "description": "Title of the sheet confirming removal of a price line."
+  },
+  "chartPriceLineRemoveBody": "{coin} at {price}",
+  "@chartPriceLineRemoveBody": {
+    "description": "Subtitle of that sheet: the market and the level.",
+    "placeholders": {
+      "coin": {
+        "type": "String"
+      },
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "chartPriceLineRemoveCta": "Remove",
+  "@chartPriceLineRemoveCta": {
+    "description": "Button that removes the price line."
+  },
   "chartMoreTools": "More",
   "chartColor": "Color",
   "chartBlueColor": "Blue",

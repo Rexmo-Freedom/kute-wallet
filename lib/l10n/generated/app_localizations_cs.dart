@@ -12339,6 +12339,58 @@ class AppLocalizationsCs extends AppLocalizations {
   String get chartToolHorizontalLine => 'Vodorovná čára';
 
   @override
+  String get chartToolPriceLine => 'Cenová linie';
+
+  @override
+  String get chartPriceLines => 'Cenové linie';
+
+  @override
+  String get chartPriceLineNew => 'Nová linie';
+
+  @override
+  String get chartPriceLineNewNote => 'Kontroluje se jen při otevřeném Kute';
+
+  @override
+  String get chartPriceLineAbove => 'Nad cenou';
+
+  @override
+  String get chartPriceLineBelow => 'Pod cenou';
+
+  @override
+  String chartPriceLineReachedOn(String when) {
+    return 'Dosaženo $when';
+  }
+
+  @override
+  String chartPriceLineReachedToast(String coin, String price) {
+    return '$coin dosáhl $price';
+  }
+
+  @override
+  String chartPriceLineLimit(int count) {
+    return 'Máte $count cenových linií. Odeberte jednu a přidejte další.';
+  }
+
+  @override
+  String get chartPriceLineAtPrice =>
+      'To je aktuální cena. Vyberte úroveň nad ní nebo pod ní.';
+
+  @override
+  String get chartPriceLineTooFar =>
+      'To je od ceny příliš daleko. Vyberte bližší úroveň.';
+
+  @override
+  String get chartPriceLineRemoveTitle => 'Odebrat tuto cenovou linii?';
+
+  @override
+  String chartPriceLineRemoveBody(String coin, String price) {
+    return '$coin na $price';
+  }
+
+  @override
+  String get chartPriceLineRemoveCta => 'Odebrat';
+
+  @override
   String get chartMoreTools => 'Další';
 
   @override

@@ -12397,6 +12397,58 @@ class AppLocalizationsLt extends AppLocalizations {
   String get chartToolHorizontalLine => 'Horizontali linija';
 
   @override
+  String get chartToolPriceLine => 'Kainos linija';
+
+  @override
+  String get chartPriceLines => 'Kainos linijos';
+
+  @override
+  String get chartPriceLineNew => 'Nauja linija';
+
+  @override
+  String get chartPriceLineNewNote => 'Tikrinama tik kai Kute atidaryta';
+
+  @override
+  String get chartPriceLineAbove => 'Virš kainos';
+
+  @override
+  String get chartPriceLineBelow => 'Žemiau kainos';
+
+  @override
+  String chartPriceLineReachedOn(String when) {
+    return 'Pasiekta $when';
+  }
+
+  @override
+  String chartPriceLineReachedToast(String coin, String price) {
+    return '$coin pasiekė $price';
+  }
+
+  @override
+  String chartPriceLineLimit(int count) {
+    return 'Turite $count kainos linijų. Pašalinkite vieną, kad pridėtumėte kitą.';
+  }
+
+  @override
+  String get chartPriceLineAtPrice =>
+      'Tai dabartinė kaina. Pasirinkite lygį virš jos arba žemiau.';
+
+  @override
+  String get chartPriceLineTooFar =>
+      'Tai per toli nuo kainos. Pasirinkite artimesnį lygį.';
+
+  @override
+  String get chartPriceLineRemoveTitle => 'Pašalinti šią kainos liniją?';
+
+  @override
+  String chartPriceLineRemoveBody(String coin, String price) {
+    return '$coin ties $price';
+  }
+
+  @override
+  String get chartPriceLineRemoveCta => 'Pašalinti';
+
+  @override
   String get chartMoreTools => 'Daugiau';
 
   @override
