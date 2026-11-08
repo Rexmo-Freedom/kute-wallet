@@ -1012,11 +1012,11 @@ final cryptoPredictProvider = AutoDisposeAsyncNotifierProvider.family<
 );
 
 /// One asset at one round length (minutes: 5, 15, 60 or 240), the Instant
-/// screen's card ([cryptoRoundProvider]).
+/// card ([cryptoRoundProvider]).
 typedef CryptoRoundKey = ({String asset, int minutes});
 
 /// The live round of one asset at one length, for Predictions › Instant
-/// (instant_screen.dart): [CryptoPredictNotifier] with the length in its
+/// (instant_round_card.dart): [CryptoPredictNotifier] with the length in its
 /// key instead of the Crypto chips' shared choice, so a 15-minute, hourly
 /// or 4-hour card reads its own series (`btc-updown-15m-…`, the hourly
 /// `bitcoin-up-or-down-…-1pm-et`, `btc-updown-4h-…`, crypto_round.dart).
@@ -1092,8 +1092,22 @@ class CryptoRoundNotifier extends AutoDisposeFamilyAsyncNotifier<
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       final prev = state.asData?.value;
       if (prev == null) return;
-      final remaining = prev.event?.secondsRemaining ?? 0;
-      if (remaining <= 0) _refreshMarket(_config);
+      // No event (Gamma lists no round for the slug, or the read is on its
+      // way): the time left is not known, so it is not written to zero, and
+      // the 10-second market timer alone asks Gamma again, never this tick
+      // (8 November 2026: a four-hour card without an event read "0:00:00"
+      // and asked for its missing slug every second).
+      final event = prev.event;
+      if (event == null) return _syncPriceFeed();
+      final remaining = event.secondsRemaining;
+      // The round just ended: ask at once for the next, for ten seconds;
+      // after that (the venue lists nothing, as on the night the clocks
+      // change) the market timer alone.
+      final end = event.endDate;
+      if (remaining <= 0 &&
+          (end == null || DateTime.now().difference(end).inSeconds <= 10)) {
+        _refreshMarket(_config);
+      }
       state = AsyncData(prev.copyWith(secondsRemaining: remaining));
       _syncPriceFeed();
     });

@@ -1,24 +1,28 @@
 // lib/services/polymarket/instant_strip.dart
 //
-// The window strip of the Instant screen's card (founder, 8 November 2026:
-// "can't we select a 'next one' directly? instead of voting on the current
-// one?"): the last few rounds of the asset as result dots, the round in
-// play ("Now · 1:49"), the next ("Next · 7:20") and one after, and WHICH
-// of them the one pair of Up and Down buttons bets on. Pure: the card
-// passes the clock, Gamma's reads and the books in.
+// The window strip of the Instant card (Predictions › Instant on the
+// Dollars home; founder, 8 November 2026: "can't we select a 'next one'
+// directly? instead of voting on the current one?"): the last few rounds
+// of the asset as result dots, the round in play ("Now · 1:49"), the next
+// ("Next · 7:20") and one after, and WHICH of them the one pair of Up and
+// Down buttons bets on. Pure: the card passes the clock, Gamma's reads and
+// the books in.
 //
 // Rules:
-//   * Rounds start on every multiple of their length on the clock
+//   * Rounds start on every multiple of their length on the New York clock
 //     ([polyRoundStartAt]); the strip is arithmetic, no list read.
 //   * The buttons follow the roll by default (crypto_next_round.dart: this
 //     round while early, the next once it has real prices and this one is
 //     two minutes old; five-minute rounds only). A tap on a round overrides
 //     that until the round starts (a later one) or ends (the one in play).
 //   * Only a round with REAL live prices can be picked: the one in play
-//     (its card is live), or a round ahead that Gamma lists as taking
-//     orders with a two-sided book no wider than 10¢ on both tokens
-//     ([polyNextRoundOpen], [polyRoundBookIsReal]). The others show "No
-//     prices yet" and take no tap. Past rounds are results, not choices.
+//     once Gamma has answered with its event (its card is live), or a
+//     round ahead that Gamma lists as taking orders with a two-sided book
+//     no wider than 10¢ on both tokens ([polyNextRoundOpen],
+//     [polyRoundBookIsReal]). The others show "No prices yet" and take no
+//     tap: a round in play that Gamma does not list (the read still on its
+//     way, or no such round that hour) is one of them, never a 50/50 bet.
+//     Past rounds are results, not choices.
 
 import 'package:kute/models/polymarket_model.dart' show Btc5MinEvent;
 import 'package:kute/services/polymarket/crypto_next_round.dart';
@@ -89,15 +93,18 @@ List<int> polyStripAheadStarts(int liveStart, int minutes,
 
 /// The strip for the [minutes]-long rounds of one asset at [now]: [past]
 /// results (oldest first, as the results strip reads them), the round in
-/// play, then [kPolyStripAhead] ahead. [ahead] are Gamma's reads of those
-/// rounds by start (null where nothing answered yet) and [books] the feed's
-/// current books by token. [heldSlugs] are the slugs of the rounds the
-/// person holds or is buying.
+/// play, then [kPolyStripAhead] ahead. [live] is Gamma's event of the round
+/// in play (null while nothing answered, or when Gamma lists none: then it
+/// cannot be picked), [ahead] Gamma's reads of the rounds ahead by start
+/// (null where nothing answered yet) and [books] the feed's current books
+/// by token. [heldSlugs] are the slugs of the rounds the person holds or
+/// is buying.
 List<PolyStripRound> polyInstantStrip({
   required String asset,
   required int minutes,
   required DateTime now,
   required List<CryptoWindowResult> past,
+  required Btc5MinEvent? live,
   required Map<int, Btc5MinEvent?> ahead,
   required PolymarketLiveBook? Function(String token) books,
   Set<String> heldSlugs = const {},
@@ -118,8 +125,9 @@ List<PolyStripRound> polyInstantStrip({
       start: liveStart,
       minutes: minutes,
       slot: PolyRoundSlot.live,
-      selectable: true,
+      selectable: live != null,
       held: held(liveStart),
+      event: live,
     ),
   ];
   var k = 0;

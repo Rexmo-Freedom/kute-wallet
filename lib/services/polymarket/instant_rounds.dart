@@ -1,11 +1,12 @@
 // lib/services/polymarket/instant_rounds.dart
 //
 // Predictions › Instant (founder, 8 November 2026): the crypto Up-or-Down
-// rounds on their own full screen (instant_screen.dart), ONE asset and ONE
-// length at a time: what the filter offers, how the coins are ordered, and
-// what the person last picked. The rounds themselves, and which one the
-// buttons bet on, are instant_strip.dart. Pure: the screen and the tests
-// pass the clock and the rows in.
+// rounds as a Predictions category on the Dollars home ([PolyPill.instant],
+// instant_pill_page.dart), ONE asset and ONE length at a time: what the
+// filter offers, how the coins are ordered, and what the person last
+// picked. The rounds themselves, and which one the buttons bet on, are
+// instant_strip.dart. Pure: the page and the tests pass the clock and the
+// rows in.
 //
 // WHY ONE CARD. An earlier Instant tab was removed on 24 May 2026 (private
 // archive 2f5175c9c, whose message gives no reason). Before that it had been
@@ -17,7 +18,11 @@
 // page (8 November 2026, the same day) stacked a card per asset, and the
 // founder found "many buttons up and down, does not look good". So: one
 // asset's card, one live chart, one pair of buttons, and the other rounds
-// of that asset as a strip of small markers on the card.
+// of that asset as a strip of small markers on the card. Later that day it
+// was a pushed screen for a few hours; the founder: "I don't want Instant
+// to take me to another screen. It should all be on the Dollars home under
+// Predictions." So it is a pill page, "Predictions · Instant", like any
+// other topic, its card gated off while the page cannot be seen.
 
 import 'package:kute/models/polymarket_model.dart' show PolymarketEvent;
 import 'package:kute/services/polymarket/crypto_round.dart';
@@ -81,16 +86,6 @@ List<String> polyInstantLengthsOffered(Iterable<String> subKeys) {
       if (l == '5m' || keys.contains(l)) l,
   ];
 }
-
-/// The deep-link key of the Instant screen (`predictions/instant`). It is
-/// a screen of its own, not a Predictions category, so the browse
-/// selection's parser does not know it.
-const String kPolyInstantRouteKey = 'predictions/instant';
-
-/// Whether [key] names the Instant screen.
-bool polyIsInstantRouteKey(String key) =>
-    key.split('/').where((p) => p.isNotEmpty).join('/') ==
-    kPolyInstantRouteKey;
 
 /// How polymarket.com orders the coins, for a stable filter.
 const List<String> _kOrder = [

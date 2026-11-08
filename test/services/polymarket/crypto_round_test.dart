@@ -238,4 +238,109 @@ void main() {
     expect(polyIsCryptoUpDown5m(null), isFalse);
     expect(kCryptoUpDown5mKind, 'crypto_updown_5m');
   });
+
+  group('the clock the rounds run on (Gamma, read 8 November 2026)', () {
+    int epoch(DateTime t) => t.millisecondsSinceEpoch ~/ 1000;
+
+    test('four hours: 12 AM, 4 AM, 8 AM, 12 PM, 4 PM, 8 PM New York time',
+        () {
+      // Standard time. Listed by Gamma at 17:28Z on 8 November 2026:
+      // `btc-updown-4h-1794157200` (17:00Z, "12:00PM-4:00PM ET", live, Up
+      // 47¢), `eth-updown-4h-1794157200`; `btc-updown-4h-1794153600`
+      // (16:00Z, the UTC multiple) does not exist, nor 12:00Z, 14:00Z or
+      // 15:00Z. The day's others: 1794099600 (01:00Z), 1794114000 (05:00Z),
+      // 1794128400 (09:00Z), 1794142800 (13:00Z), 1794171600 (21:00Z).
+      final at = DateTime.utc(2026, 11, 8, 17, 23);
+      expect(polyRoundStartAt(at, 240), 1794157200);
+      expect(polyCryptoRoundSlug('BTC', 240, polyRoundStartAt(at, 240)),
+          'btc-updown-4h-1794157200');
+      expect(polyCryptoRoundSlug('ETH', 240, polyRoundStartAt(at, 240)),
+          'eth-updown-4h-1794157200');
+      expect(polyRoundStartAt(DateTime.utc(2026, 11, 8, 20, 59), 240),
+          1794157200);
+      expect(polyRoundStartAt(DateTime.utc(2026, 11, 8, 21), 240), 1794171600);
+      expect(polyRoundStartAt(DateTime.utc(2026, 11, 8, 1, 30), 240),
+          1794099600);
+      expect(polyRoundStartAt(DateTime.utc(2026, 11, 8, 0, 30), 240),
+          epoch(DateTime.utc(2026, 11, 7, 21)));
+      // Daylight time. Listed by Gamma for 25 October 2026:
+      // `btc-updown-4h-1792929600` (12:00Z, "8:00AM-12:00PM ET") and
+      // `btc-updown-4h-1792944000` (16:00Z, "12:00PM-4:00PM ET"); nothing
+      // at 13:00Z or 17:00Z.
+      expect(polyRoundStartAt(DateTime.utc(2026, 10, 25, 13, 10), 240),
+          1792929600);
+      expect(polyRoundStartAt(DateTime.utc(2026, 10, 25, 17, 23), 240),
+          1792944000);
+      expect(
+          polyCryptoRoundSlug(
+              'btc', 240, polyRoundStartAt(DateTime.utc(2026, 10, 25, 17), 240)),
+          'btc-updown-4h-1792944000');
+    });
+
+    test('five and fifteen minutes divide the hour: UTC multiples', () {
+      // Listed by Gamma at 17:29Z on 8 November 2026:
+      // `btc-updown-15m-1794158100` (17:15Z, live, Up 78.5¢) and
+      // `btc-updown-5m-1794158700` (17:25Z, live), ETH, SOL and XRP alike.
+      final at = DateTime.utc(2026, 11, 8, 17, 29, 39);
+      expect(polyCryptoRoundSlug('BTC', 15, polyRoundStartAt(at, 15)),
+          'btc-updown-15m-1794158100');
+      expect(polyCryptoRoundSlug('sol', 15, polyRoundStartAt(at, 15)),
+          'sol-updown-15m-1794158100');
+      expect(polyCryptoRoundSlug('BTC', 5, polyRoundStartAt(at, 5)),
+          'btc-updown-5m-1794158700');
+      expect(polyCryptoRoundSlug('ETH', 5, polyRoundStartAt(at, 5)),
+          'eth-updown-5m-1794158700');
+      // The next ones, as the strip names them.
+      expect(polyCryptoRoundSlug('BTC', 15, polyRoundStartAt(at, 15) + 900),
+          'btc-updown-15m-1794159000');
+    });
+
+    test('the hour: the New York clock in the slug, standard time now', () {
+      // Listed by Gamma at 17:29Z on 8 November 2026:
+      // `bitcoin-up-or-down-november-8-2026-12pm-et` (endDate 18:00Z, live,
+      // Up 24.5¢) and `…-1pm-et` (endDate 19:00Z); `ethereum-`, `solana-`
+      // and `xrp-up-or-down-…` the same. `btc-updown-1h-1794157200` does
+      // not exist.
+      final at = DateTime.utc(2026, 11, 8, 17, 29);
+      expect(polyRoundStartAt(at, 60), 1794157200);
+      expect(polyCryptoRoundSlug('BTC', 60, 1794157200),
+          'bitcoin-up-or-down-november-8-2026-12pm-et');
+      expect(polyCryptoRoundSlug('ETH', 60, 1794157200),
+          'ethereum-up-or-down-november-8-2026-12pm-et');
+      expect(polyCryptoRoundSlug('XRP', 60, 1794157200 + 3600),
+          'xrp-up-or-down-november-8-2026-1pm-et');
+      // Daylight time: 25 October 2026, `bitcoin-up-or-down-october-25-
+      // 2026-1pm-et` ended 18:00Z, so 17:00Z was 1 PM EDT.
+      expect(polyCryptoRoundSlug('BTC', 60, epoch(DateTime.utc(2026, 10, 25, 17))),
+          'bitcoin-up-or-down-october-25-2026-1pm-et');
+      // The night the clocks went back (1 November 2026, 2 AM EDT = 06:00Z):
+      // the app writes the hour as the clock then read it; Gamma listed no
+      // `…-november-1-2026-12am-et` or `-1am-et` at all, `-2am-et` (ending
+      // 08:00Z) and `-3am-et` on, and no four-hour round between 00:00Z
+      // (`…-4h-1793491200`, "October 31, 8:00PM-12:00AM ET") and 09:00Z
+      // (`…-4h-1793523600`, "November 1, 4:00AM-8:00AM ET"). A card then
+      // has no event and says so.
+      expect(polyCryptoRoundSlug('BTC', 60, epoch(DateTime.utc(2026, 11, 1, 7))),
+          'bitcoin-up-or-down-november-1-2026-2am-et');
+      expect(polyCryptoRoundSlug('BTC', 60, epoch(DateTime.utc(2026, 11, 1, 3))),
+          'bitcoin-up-or-down-october-31-2026-11pm-et');
+      expect(polyRoundStartAt(DateTime.utc(2026, 11, 1, 9, 30), 240),
+          1793523600);
+      expect(polyRoundStartAt(DateTime.utc(2026, 11, 1, 2, 30), 240),
+          1793491200);
+    });
+
+    test('the model writes the same windows, back by whole windows', () {
+      final now = DateTime.now();
+      for (final minutes in [5, 15, 60, 240]) {
+        final start = polyRoundStartAt(now, minutes);
+        expect(PolymarketModel.cryptoWindowSlug('btc', minutes),
+            polyCryptoRoundSlug('btc', minutes, start),
+            reason: '$minutes');
+        expect(PolymarketModel.cryptoWindowSlug('btc', minutes, windowsBack: 1),
+            polyCryptoRoundSlug('btc', minutes, start - minutes * 60),
+            reason: '$minutes back one');
+      }
+    });
+  });
 }

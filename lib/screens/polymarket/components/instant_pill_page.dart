@@ -1,12 +1,16 @@
-// lib/screens/polymarket/instant_screen.dart
+// lib/screens/polymarket/components/instant_pill_page.dart
 //
-// PREDICTIONS › INSTANT, A SCREEN OF ITS OWN (founder, 8 November 2026:
-// "when clicking instant we should be able to choose on the instant new
-// screen here, not in the here"; "think about this screen and improve it
-// massively"; "check how Polymarket does this and make it good for
-// mobile"). Pushed from the Predictions sheet's Instant card and the Sal
-// grid's Instant tile (investments_category_sheet.dart); the pill on the
-// Dollars home stays whatever it was.
+// PREDICTIONS › INSTANT, A PILL PAGE ON THE DOLLARS HOME (founder, 8
+// November 2026: "I don't want Instant to take me to another screen. It
+// should all be on the Dollars home under Predictions. We select Instant,
+// and then we select there the coin and all that."). The page of
+// [PolyPill.instant] (polymarket_browse_provider.dart), drawn by the
+// Predictions browser (polymarket_screen.dart) under its pills in place of
+// a list, as any category's page is; the Dollars pill reads "Predictions ·
+// Instant". Picked from the Predictions sheet's Instant card and the Sal
+// grid's Instant tile (investments_category_sheet.dart); nothing is pushed.
+// For a few hours that day it was a screen of its own (instant_screen.dart,
+// gone): the content is that screen's, the frame is the page's.
 //
 // What polymarket.com does (read 8 November 2026): one tab per length (5
 // Min, 15 Min, 1 Hour, 4 Hours, Daily …), a row of coin filters under it,
@@ -17,21 +21,28 @@
 // its live chart, and the next windows as a strip ON the card; left out: a
 // page per window and the feed of cards.
 //
-// The screen:
-//   * the app's full-screen header (AppBar with [KuteBackButton], the title
-//     centred: open_investments_screen.dart), title "Instant";
+// The page, as slivers under the browser's pills:
 //   * the filter: the coins on offer at the picked length and the lengths
 //     the venue runs (instant_filter.dart), remembered on this device
 //     (polymarket_instant_provider.dart);
 //   * ONE card, the picked coin's round in play at the picked length
 //     (instant_round_card.dart), with the strip of rounds and the one pair
-//     of Up and Down buttons on the screen;
+//     of Up and Down buttons on the whole page;
 //   * the person's own rounds under it, on the Portfolio's rows.
 // A pick on the filter switches the card as a chip switch does; nothing
-// else on the screen moves. Gating: `polymarket.browse` as the Predictions
-// lists (the discovery notice, nothing read). One asset on screen is one
-// live card: one round notifier, one set of sockets, all gone when the
-// screen is popped.
+// else on the page moves. Gating: the browser shows this page only under
+// `polymarket.browse`, as the Predictions lists (the discovery notice
+// otherwise, nothing read).
+//
+// THE COST. One asset on the page is one live card: one round notifier,
+// one set of sockets. The Dollars home keeps its pill pages mounted behind
+// one another (Investing · Predictions · Portfolio) with their tickers off,
+// and the shell keeps the Dollars home mounted behind the other tabs the
+// same way (`Offstage` + `TickerMode`), so the card is built only while its
+// page can be seen ([_InstantCardGate]): hidden, the card goes (and with it
+// its provider, its timers and its seat on the sockets) and a box of its
+// height holds the list's scroll position; shown again, it comes back and
+// reads afresh. Another Predictions pill unmounts the page outright.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -48,123 +59,57 @@ import 'package:kute/screens/polymarket/components/instant_filter.dart';
 import 'package:kute/screens/polymarket/components/instant_round_card.dart';
 import 'package:kute/screens/polymarket/components/poly_browse_bar.dart'
     show polySubsFor;
-import 'package:kute/screens/polymarket/polymarket_screen.dart'
-    show openPredictionsDeposit;
 import 'package:kute/screens/portfolio/components/position_rows.dart'
     show PlacingBetRow, PolyPositionRow, PortfolioCardList;
-import 'package:kute/screens/shared/investment_balance_header.dart'
-    show InvestmentDiscoveryNotice;
-import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_motion.dart'
     show SliverSelectionFade;
 import 'package:kute/services/polymarket/crypto_round.dart';
 import 'package:kute/services/polymarket/instant_rounds.dart';
-import 'package:kute/services/runtime_capabilities_service.dart';
-import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
-class PolyInstantScreen extends ConsumerStatefulWidget {
-  const PolyInstantScreen({super.key, required this.source});
+/// The filter, the one card and the person's own rounds, as one sliver
+/// group for the browser's scroll view.
+class PolyInstantPage extends ConsumerWidget {
+  const PolyInstantPage({super.key, this.onDeposit});
 
-  /// Where it was opened from, for `predictions_instant_opened`: `sheet`
-  /// (the Predictions sheet's card), `sal` (the Sal grid's tile),
-  /// `deep_link`.
-  final String source;
+  /// The slip's deposit path (the browser's own).
+  final VoidCallback? onDeposit;
 
-  static const routeName = 'polymarket-instant';
+  /// The Crypto list the filter reads for the coins on offer at [length]:
+  /// none at five minutes (every known coin runs), else that length's
+  /// window list. The browser refreshes it with the page.
+  static PolyFeedQuery? feedFor(String length) => length == '5m'
+      ? null
+      : PolyFeedQuery(pill: PolyPill.crypto, sub: length);
 
-  /// Opens the screen over everything, on the root navigator.
-  static Future<void> show(BuildContext context, {required String source}) =>
-      push(Navigator.of(context, rootNavigator: true), source: source);
-
-  /// [show] with the navigator in hand (a sheet that has closed).
-  static Future<void> push(NavigatorState navigator,
-          {required String source}) =>
-      navigator.push(MaterialPageRoute<void>(
-        settings: const RouteSettings(name: routeName),
-        builder: (_) => PolyInstantScreen(source: source),
-      ));
-
-  @override
-  ConsumerState<PolyInstantScreen> createState() => _PolyInstantScreenState();
-}
-
-class _PolyInstantScreenState extends ConsumerState<PolyInstantScreen> {
-  @override
-  void initState() {
-    super.initState();
-    // Once per mount, no market data attached.
-    TrackingService.track('predictions_instant_opened',
-        params: {'source': widget.source});
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    final l10n = context.l10n;
-    final canBrowse =
-        ref.watch(runtimeCapabilitiesProvider).allows('polymarket.browse');
-    return Scaffold(
-      backgroundColor: c.background,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        centerTitle: true,
-        leading: const KuteBackButton(),
-        title: Text(
-          l10n.predictionsInstant,
-          style: TextStyle(
-            color: c.textPrimary,
-            fontSize: 20.sp,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.3,
-          ),
-        ),
-      ),
-      body: Container(
-        decoration: AppDecorations.screenGradient(context),
-        child: SafeArea(
-          top: false,
-          child: Material(
-            color: Colors.transparent,
-            child: canBrowse
-                ? const _InstantBody()
-                : const SingleChildScrollView(
-                    child: InvestmentDiscoveryNotice(
-                        capability: 'polymarket.browse'),
-                  ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// The filter, the one card and the person's own rounds.
-class _InstantBody extends ConsumerWidget {
-  const _InstantBody();
+  /// The length the page shows for [choice] given the lengths the venue
+  /// runs: a remembered length the venue no longer runs reads five minutes;
+  /// the choice itself stays for when it is back.
+  static String shownLength(PolyInstantChoice choice, List<String> lengths) =>
+      lengths.contains(choice.length) ? choice.length : '5m';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final choice = ref.watch(polyInstantChoiceProvider);
-    // A remembered length the venue no longer runs reads five minutes; the
-    // choice itself stays for when it is back.
     final lengths = polyInstantLengthsOffered(
         polySubsFor(ref, PolyPill.crypto).map((s) => s.key));
-    final length = lengths.contains(choice.length) ? choice.length : '5m';
+    final length = shownLength(choice, lengths);
     // The coins the venue runs at this length, from its own list of that
     // length's rounds (Crypto › 15 Min and so on); every known coin at five
     // minutes and until the list is in.
-    final feed = length == '5m'
-        ? null
-        : ref.watch(polyBrowseFeedProvider(
-            PolyFeedQuery(pill: PolyPill.crypto, sub: length)));
-    final assets = polyInstantAssetsOffered(feed?.events ?? const [],
-        chosen: choice.asset,
-        fallback: kCryptoRoundAssets.map((c) => c.asset));
+    final feedQuery = feedFor(length);
+    final feed =
+        feedQuery == null ? null : ref.watch(polyBrowseFeedProvider(feedQuery));
+    // The coins the app has a card for: the venue also lists others (ZEC at
+    // 15 minutes and 4 hours, 8 November 2026), which get no chip.
+    bool known(String asset) => kCryptoRoundAssets.any((c) => c.asset == asset);
+    final assets = polyInstantAssetsOffered(
+            feed?.events ?? const [],
+            chosen: choice.asset,
+            fallback: kCryptoRoundAssets.map((c) => c.asset))
+        .where(known)
+        .toList();
     final shown = PolyInstantChoice(asset: choice.asset, length: length);
     final config = kCryptoRoundAssets.firstWhere(
         (c) => c.asset == choice.asset,
@@ -174,9 +119,7 @@ class _InstantBody extends ConsumerWidget {
         !feed.loading &&
         feed.events.isNotEmpty &&
         !feed.events.any((e) => polyInstantAssetOf(e) == choice.asset);
-    return CustomScrollView(
-      physics: const AlwaysScrollableScrollPhysics(
-          parent: BouncingScrollPhysics()),
+    return SliverMainAxisGroup(
       slivers: [
         SliverToBoxAdapter(
           child: PolyInstantFilter(
@@ -206,11 +149,12 @@ class _InstantBody extends ConsumerWidget {
                           ),
                         ),
                       )
-                    : InstantRoundCard(
-                        config: config,
-                        length: length,
-                        onDeposit: () =>
-                            openPredictionsDeposit(context, ref),
+                    : _InstantCardGate(
+                        child: InstantRoundCard(
+                          config: config,
+                          length: length,
+                          onDeposit: onDeposit,
+                        ),
                       ),
               ),
             ),
@@ -220,6 +164,36 @@ class _InstantBody extends ConsumerWidget {
         SliverToBoxAdapter(child: SizedBox(height: 24.h)),
       ],
     );
+  }
+}
+
+/// The card only while its page can be seen (see the file header). A
+/// hidden Dollars pill or shell branch stays mounted with its tickers off,
+/// and the card's reads would run on behind it. Hidden, the card goes (and
+/// with it its provider and timers) and a box of its height holds the
+/// list's scroll position.
+class _InstantCardGate extends StatefulWidget {
+  const _InstantCardGate({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_InstantCardGate> createState() => _InstantCardGateState();
+}
+
+class _InstantCardGateState extends State<_InstantCardGate> {
+  double? _height;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!TickerMode.valuesOf(context).enabled) {
+      return SizedBox(
+          key: const ValueKey('instant-card-hidden'), height: _height);
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _height = context.size?.height;
+    });
+    return widget.child;
   }
 }
 

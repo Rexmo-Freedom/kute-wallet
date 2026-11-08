@@ -16595,7 +16595,7 @@ abstract class AppLocalizations {
   /// **'Converted from your dollars'**
   String get usdSendConvertedFromDollars;
 
-  /// Predictions › Instant: the crypto rounds (BTC up or down every 5 minutes and so on) on their own screen. The screen's title, and the name on the half-width card of the Predictions sheet and the Sal grid's tile: one short word or two.
+  /// Predictions › Instant: the crypto rounds (BTC up or down every 5 minutes and so on), a Predictions category on the Dollars home. The category's name as the pill reads it ('Predictions · Instant') and on the half-width card of the Predictions sheet and the Sal grid's tile: one short word or two.
   ///
   /// In en, this message translates to:
   /// **'Instant'**
@@ -16619,7 +16619,7 @@ abstract class AppLocalizations {
   /// **'No prices yet'**
   String get predictRoundNoPricesYet;
 
-  /// Title of the Instant screen's live round card, e.g. 'BTC up or down · 15m'. asset is a ticker, length the round length written short (5m, 15m, 1h, 4h).
+  /// Title of the Instant card (Predictions › Instant on the Dollars home), e.g. 'BTC up or down · 15m'. asset is a ticker, length the round length written short (5m, 15m, 1h, 4h).
   ///
   /// In en, this message translates to:
   /// **'{asset} up or down · {length}'**

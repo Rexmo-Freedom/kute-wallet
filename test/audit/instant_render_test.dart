@@ -1,8 +1,8 @@
 // Render harness for Predictions › Instant (founder, 8 November 2026): the
-// sheet with its Instant card, the Instant screen at each length, the strip
-// with Now and with Next picked, a round without prices, a held round's
-// marker and row, the blocked screen; light and dark, 320 and 375 wide, a
-// long locale. Writes PNGs.
+// sheet with its Instant card, the Instant pill page on the Dollars home at
+// each length, the strip with Now and with Next picked, a round without
+// prices, a held round's marker and row, the blocked page; light and dark,
+// 320 and 375 wide, a long locale. Writes PNGs.
 //
 // Not part of the normal suite; it only runs when asked:
 //
@@ -231,30 +231,30 @@ void main() {
         size: size, dark: dark, locale: locale);
   });
 
-  Future<void> Function(WidgetTester, Size, bool, Locale?) screen(
+  Future<void> Function(WidgetTester, Size, bool, Locale?) page(
           InstantWorld Function() world) =>
       (t, size, dark, locale) =>
           pumpInstant(t, world(), size: size, dark: dark, locale: locale);
 
-  shots('instant_btc_5m', german: true, run: screen(_world));
+  shots('instant_btc_5m', german: true, run: page(_world));
   shots('instant_sol_5m',
       allSizes: false,
-      run: screen(() => _world(
+      run: page(() => _world(
           choice: const PolyInstantChoice(asset: 'SOL', length: '5m'))));
   shots('instant_btc_15m',
       german: true,
-      run: screen(() => _world(
+      run: page(() => _world(
           choice: const PolyInstantChoice(asset: 'BTC', length: '15m'))));
   shots('instant_eth_1h',
-      run: screen(() => _world(
+      run: page(() => _world(
           choice: const PolyInstantChoice(asset: 'ETH', length: '1h'))));
   shots('instant_bnb_4h',
-      run: screen(() => _world(
+      run: page(() => _world(
           choice: const PolyInstantChoice(asset: 'BNB', length: '4h'))));
   // Past the roll's moment with the next round priced: Next picked by the
   // roll, the line over the buttons names it.
   shots('instant_next_selected', german: true,
-      run: screen(() => _world(late: true)));
+      run: page(() => _world(late: true)));
   // The person taps Next early: picked by hand.
   shots('instant_next_tapped', allSizes: false,
       run: (t, size, dark, locale) async {
@@ -264,11 +264,19 @@ void main() {
     await t.pump(const Duration(milliseconds: 300));
   });
   // Nothing ahead has prices: "No prices yet" on both.
-  shots('instant_no_prices', run: screen(() => _world(priced: false)));
+  shots('instant_no_prices', run: page(() => _world(priced: false)));
   shots('instant_own_round',
       german: true,
-      run: screen(() => _world()..positions = [heldRound(now: _clock())]));
-  shots('instant_blocked', allSizes: false,
-      run: (t, size, dark, locale) => pumpInstantScreen(t, _world(),
+      run: page(() => _world()..positions = [heldRound(now: _clock())]));
+  // Gamma has no event: the 4-hour card as it reads then, honest.
+  shots('instant_no_event',
+      run: page(() => _world(
+          choice: const PolyInstantChoice(asset: 'BTC', length: '4h'))
+        ..eventless = true));
+  shots('instant_btc_4h',
+      run: page(() => _world(
+          choice: const PolyInstantChoice(asset: 'BTC', length: '4h'))));
+  shots('instant_blocked',
+      run: (t, size, dark, locale) => pumpInstantPage(t, _world(),
           size: size, dark: dark, locale: locale, browse: false));
 }
