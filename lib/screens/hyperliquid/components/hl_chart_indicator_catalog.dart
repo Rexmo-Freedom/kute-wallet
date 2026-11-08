@@ -205,7 +205,10 @@ const List<HlIndSpec> kHlIndicatorCatalog = [
     place: HlIndPlace.pane,
     short: 'ADX',
     colors: [kHlIndPurple, kHlIndBlue, kHlIndOrange],
-    params: [HlIndParam('length', 14, 2, 100), HlIndParam('smoothing', 14, 1, 100)],
+    params: [
+      HlIndParam('length', 14, 2, 100),
+      HlIndParam('smoothing', 14, 1, 100),
+    ],
   ),
   // ── Volatility ──
   HlIndSpec(

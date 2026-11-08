@@ -284,6 +284,34 @@ void main() {
         await _png(tester, 'trades_line_$tag');
       });
 
+      testWidgets('1W with everything the limits allow, $tag', (tester) async {
+        final start = DateTime.utc(2021, 1, 4);
+        final hourly = _tape(count: 300);
+        final weekly = [
+          for (var i = 0; i < hourly.length; i++)
+            HyperliquidCandle(
+              openTime: start.add(Duration(days: 7 * i)),
+              closeTime: start.add(Duration(days: 7 * (i + 1))),
+              open: hourly[i].open,
+              high: hourly[i].high,
+              low: hourly[i].low,
+              close: hourly[i].close,
+              volume: hourly[i].volume,
+            ),
+        ];
+        await _mount(tester, dark: dark, width: width, candles: weekly);
+        _seed(tester,
+            keys: ['vol', 'ichi', 'pp', 'bb', 'st', 'adx', 'rsi'],
+            style: 'candles');
+        hlEditContainer(tester).read(hlChartLayoutProvider.notifier)
+            .setInterval('1w');
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+        await enterHlEdit(tester);
+        await _settle(tester);
+        await _png(tester, 'week_all_on_$tag');
+      });
+
       testWidgets('big move with bands, $tag', (tester) async {
         final t = _tape(bigMove: true);
         await _mount(tester, dark: dark, width: width, candles: t);

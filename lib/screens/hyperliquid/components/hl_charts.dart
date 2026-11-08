@@ -270,6 +270,39 @@ double _hlPriceAreaHeight(double height, bool showVolume) => showVolume
   return (priceH: priceH, loP: fitted.minY, rangeP: rangeP, log: useLog);
 }
 
+/// The least share of the fitted scale the bars keep when the indicators
+/// on the price widen it: a far-off line (a pivot two days of range away
+/// on a 1m chart) leaves the view before it squashes the candles.
+const double kHlFitBarsMinShare = 0.25;
+
+/// The autoscale's fit of bars spanning [lo]..[hi] with the indicators on
+/// the price spanning [indLo]..[indHi], all in axis space (price, or
+/// ln(price) on a log axis): as TradingView's auto scale, the scale takes
+/// everything drawn on the price in, so a band is never cut flat at the
+/// plot's edge. The widening stops where the bars would keep less than
+/// [kHlFitBarsMinShare] of the scale, shared between the two sides as they
+/// asked for it.
+({double lo, double hi}) hlFitWithIndicators(
+  double lo,
+  double hi,
+  double? indLo,
+  double? indHi,
+) {
+  if (indLo == null || indHi == null) return (lo: lo, hi: hi);
+  var below = math.max(0.0, lo - indLo);
+  var above = math.max(0.0, indHi - hi);
+  final span = hi - lo;
+  if (span > 0) {
+    final room = span * (1 / kHlFitBarsMinShare - 1);
+    final wanted = below + above;
+    if (wanted > room) {
+      below *= room / wanted;
+      above *= room / wanted;
+    }
+  }
+  return (lo: lo - below, hi: hi + above);
+}
+
 /// Price → domain-space value for the shared geometry: identity on a
 /// linear axis, ln() on a log axis.
 double _hlMapPrice(double v, bool log) => log ? kuteLogPrice(v) : v;
@@ -1781,7 +1814,9 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
 
   /// Where the price scale should sit for [visible] (the bars on screen):
   /// a frozen gesture's domain, the manual one, or the autoscale fit of
-  /// the visible series. Price lines never take part in the fit.
+  /// the visible series and the indicators on the price
+  /// ([hlFitWithIndicators]). Only the scale's range moves: the plot keeps
+  /// its size. Price lines never take part in the fit.
   HlPriceDomain _scaleTarget(List<HyperliquidCandle> visible) {
     final frozen = _frozenDomain;
     if (frozen != null) return frozen;
@@ -1815,10 +1850,18 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
       hi = math.max(hi, entry);
     }
     final useLog = widget.logScale && lo > 0;
+    final indHi = _visIndHi;
+    final indLo = useLog ? _visIndLoPositive : _visIndLo;
     if (useLog) {
       lo = kuteLogPrice(lo);
       hi = kuteLogPrice(hi);
     }
+    final fitted = hlFitWithIndicators(
+      lo,
+      hi,
+      indLo == null ? null : (useLog ? kuteLogPrice(indLo) : indLo),
+      indHi == null ? null : (useLog ? kuteLogPrice(indHi) : indHi),
+    );
     final fit = _scaleTracker.fit(
       (
         visible.first.openTime.millisecondsSinceEpoch,
@@ -1827,9 +1870,11 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
         useLog,
         widget.style == HlChartStyle.heikinAshi,
         entry,
+        // Switching one on or off refits at once, loose or tight.
+        _visIndTitles,
       ),
-      lo,
-      hi,
+      fitted.lo,
+      fitted.hi,
     );
     return (lo: fit.minY, hi: fit.maxY, log: useLog);
   }
@@ -2103,6 +2148,10 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
   List<KuteIndicatorOverlay> _visOverlays = const [];
   KuteIndicatorBand? _visBand;
   HlIndCloud? _visCloud;
+
+  /// What the indicators on the price span in the window, for the fit.
+  double? _visIndLo, _visIndLoPositive, _visIndHi;
+  String _visIndTitles = '';
   List<HlIndLevelLabel> _visLevelLabels = const [];
   HlVolumeProfile? _visProfile;
 
@@ -3002,6 +3051,11 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     _visBand = _indVis.band;
     _visCloud = _indVis.cloud;
     _visLevelLabels = _indVis.levelLabels;
+    final extent = _indVis.priceExtent;
+    _visIndLo = extent.lo;
+    _visIndLoPositive = extent.loPositive;
+    _visIndHi = extent.hi;
+    _visIndTitles = [for (final p in _indVis.price) p.title].join('|');
     if (rows == null) {
       _visProfile = null;
     } else {

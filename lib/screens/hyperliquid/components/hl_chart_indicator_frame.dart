@@ -196,6 +196,28 @@ class HlIndicatorFrame {
     return null;
   }
 
+  /// What everything drawn on the price spans: the autoscale takes it in
+  /// (a cloud's edges are its span lines). Named levels count their newest
+  /// stretch on screen, today's pivots, not every older day's far-off ones
+  /// (a flat line leaving the plot looks like nothing being cut).
+  /// [loPositive] is the low of the values above zero, all a log axis can
+  /// place. Nulls with none.
+  ({double? lo, double? loPositive, double? hi}) get priceExtent {
+    double? lo, loPositive, hi;
+    for (final s in price) {
+      for (final l in s.lines) {
+        final values = l.label == null ? l.values : _newestStretch(l.values);
+        for (final v in values) {
+          if (!v.isFinite) continue;
+          if (lo == null || v < lo) lo = v;
+          if (hi == null || v > hi) hi = v;
+          if (v > 0 && (loPositive == null || v < loPositive)) loPositive = v;
+        }
+      }
+    }
+    return (lo: lo, loPositive: loPositive, hi: hi);
+  }
+
   /// The one cloud (Ichimoku's), if on.
   HlIndCloud? get cloud {
     for (final s in price) {
@@ -213,19 +235,30 @@ class HlIndicatorFrame {
         final name = l.label;
         if (name == null) continue;
         final v = l.values;
-        var end = v.length - 1;
-        while (end >= 0 && !v[end].isFinite) {
-          end--;
-        }
+        final (:start, :end) = _stretch(v);
         if (end < 0) continue;
-        var start = end;
-        while (start > 0 && v[start - 1].isFinite) {
-          start--;
-        }
         out.add((label: name, value: v[end], start: start, color: l.color));
       }
     }
     return out;
+  }
+
+  /// Where [values]' newest run of values starts and ends; end −1 if none.
+  static ({int start, int end}) _stretch(List<double> values) {
+    var end = values.length - 1;
+    while (end >= 0 && !values[end].isFinite) {
+      end--;
+    }
+    var start = end;
+    while (start > 0 && values[start - 1].isFinite) {
+      start--;
+    }
+    return (start: start, end: end);
+  }
+
+  static List<double> _newestStretch(List<double> values) {
+    final (:start, :end) = _stretch(values);
+    return end < 0 ? const [] : values.sublist(start, end + 1);
   }
 
   HlIndicatorFrame slice(int start, int end) => HlIndicatorFrame(

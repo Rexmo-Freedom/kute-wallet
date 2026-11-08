@@ -1,8 +1,8 @@
 // The Hyperliquid chart's one picker sheet (hl_chart_sheet.dart), opened
 // by the chart's one button on the market chart and in the Advanced top
 // bar alike: chart types and the curated indicators as big square cards,
-// two to a row, grouped (Chart type · Trend · Momentum · Volatility ·
-// Volume); four indicators fit on the price and two below it (one more
+// two to a row, grouped (Chart type · Display · Trend · Momentum ·
+// Volatility · Volume); four indicators fit on the price and two below it (one more
 // turns the oldest of its kind off, with a toast); an indicator that is
 // on has a tune button to its settings; Reset puts back Line, Volume
 // and every default. The Advanced chart reads TradingView style: an
