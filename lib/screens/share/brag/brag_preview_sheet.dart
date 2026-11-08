@@ -24,8 +24,9 @@
 //
 // A won prediction's card (brag_data.dart: bragWonPosition,
 // bragWonPrediction) opens through [showBragPreviewSheet] as well, from
-// the resolved position page and a won payout's receipt (BragWinEntry,
-// brag_win_entry.dart); its sheet reads "Show off this win".
+// the resolved position page and the round Sal button of a won payout's
+// receipt (receipt_share.dart: ReceiptShare.won); its sheet reads "Show
+// off this win".
 //
 // Analytics: `brag_shared {kind: position | portfolio, card: position |
 // won | portfolio | pnl, range, holdings_count}` once the OS share sheet

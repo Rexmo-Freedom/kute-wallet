@@ -92,12 +92,10 @@ import 'package:kute/providers/polymarket_browse_provider.dart'
 import 'package:kute/helpers/prediction_results.dart'
     show PredictionResult, predictionResults;
 import 'package:kute/screens/share/brag/brag_data.dart'
-    show bragWonPrediction;
+    show BragWatch, BragWin, bragWonPrediction;
 import 'package:kute/screens/share/cards/share_card_data.dart'
     show ReceiptCardAsset, ReceiptCardKind;
 import 'package:kute/screens/share/receipt_share.dart';
-import 'package:kute/screens/share/brag/brag_win_entry.dart'
-    show BragWinEntry;
 import 'package:kute/screens/polymarket/market_detail_sheet.dart'
     show MarketDetailSheet;
 import 'package:kute/screens/portfolio/poly_position_events.dart'
@@ -4870,29 +4868,6 @@ void _showPolymarketTxDetails(
                     _vsBitcoinFact(context, comparison, open: open),
                 ]);
               }),
-              // A won payout brags (founder, 4 November 2026): its won
-              // card, from the payout and the stake the tiles read
-              // (brag_win_entry.dart); nothing on a loss.
-              if (isRedeem && tx.usdcAmount > 0.001)
-                Consumer(
-                  builder: (context, ref, _) => BragWinEntry.maybe(
-                    bragWonPrediction(
-                      ref.watch,
-                      title: activity.title ?? '',
-                      side: activity.outcome ?? '',
-                      resolved: true,
-                      won: true,
-                      costUsd: predictionStakeOnMarket(
-                          _polymarketHistory(ref), activity),
-                      payoutUsd: tx.usdcAmount,
-                      shares: activity.size,
-                      eventSlug: activity.eventSlug,
-                      imageUrl: activityCrestIcon(ref, activity),
-                      resolvedAt: tx.timestamp,
-                    ),
-                    padding: EdgeInsets.only(top: 12.h),
-                  ),
-                ),
               // The market question on its own row, wrapping.
               if (activity.title != null && activity.title!.isNotEmpty)
                 ReceiptLongRow(
@@ -4931,7 +4906,8 @@ void _showPolymarketTxDetails(
               // (owner decision); the explorer, the bar's primary button,
               // still opens it. A just-placed row keyed by its CLOB trade
               // id has no chain hash yet: Done is its primary. The round
-              // Sal button beside either shares the receipt's card.
+              // Sal button beside either shares the receipt's card, a won
+              // payout's being its brag card.
               SizedBox(height: 8.h),
               Consumer(builder: (context, ref, _) {
                 final share =
@@ -4960,7 +4936,8 @@ void _showPolymarketTxDetails(
 /// paid), sold (its result, [salePnl], as the Result tile reads it), a
 /// payout (the won card when its cost is known, else "PAID OUT"), a lost
 /// prediction's redeem, money moved in or out of Predictions. A merge or
-/// a split shares nothing.
+/// a split shares nothing. A record with no market name shares only a won
+/// card: the other cards are titled by the market.
 ReceiptShare? _polymarketShare(BuildContext context, WidgetRef ref,
     PolymarketTransaction tx, {double? salePnl}) {
   final l10n = context.l10n;
@@ -4983,11 +4960,24 @@ ReceiptShare? _polymarketShare(BuildContext context, WidgetRef ref,
         pnlUsd: sell ? salePnl : null,
       );
     case ActivityType.redeem:
-      if (title.isEmpty) return null;
       final image = activityCrestIcon(ref, activity);
       final stake = predictionStakeOnMarket(_polymarketHistory(ref), activity);
       if (tx.usdcAmount > 0.001) {
         final payout = tx.usdcAmount;
+        BragWin? wonCard(BragWatch watch) => bragWonPrediction(
+              watch,
+              title: title,
+              side: side ?? '',
+              resolved: true,
+              won: true,
+              costUsd: stake,
+              payoutUsd: payout,
+              shares: activity.size,
+              eventSlug: slug,
+              imageUrl: image,
+              resolvedAt: tx.timestamp,
+            );
+        if (title.isEmpty && wonCard(ref.read) == null) return null;
         return predictionReceiptShare(
           type: ReceiptCardKind.paidOut,
           title: title,
@@ -4995,23 +4985,11 @@ ReceiptShare? _polymarketShare(BuildContext context, WidgetRef ref,
           imageUrl: image,
           eventSlug: slug,
           usd: payout,
-          won: (watch) => bragWonPrediction(
-            watch,
-            title: title,
-            side: side ?? '',
-            resolved: true,
-            won: true,
-            costUsd: stake,
-            payoutUsd: payout,
-            shares: activity.size,
-            eventSlug: slug,
-            imageUrl: image,
-            resolvedAt: tx.timestamp,
-          ),
+          won: wonCard,
         );
       }
       // A losing side redeemed for nothing: the stake it cost, when known.
-      if (stake <= 0) return null;
+      if (title.isEmpty || stake <= 0) return null;
       return predictionReceiptShare(
         type: ReceiptCardKind.lost,
         title: title,
@@ -5088,8 +5066,29 @@ void showPredictionResultDetails(BuildContext context, PredictionResult result,
             final event =
                 slug.isEmpty ? null : ref.watch(polyPositionEventProvider(slug));
             final image = activityCrestIcon(ref, activity);
+            BragWin? wonCard(BragWatch watch) => bragWonPrediction(
+                  watch,
+                  title: title,
+                  side: activity.outcome ?? '',
+                  resolved: true,
+                  won: result.won,
+                  costUsd: result.stakeUsd,
+                  payoutUsd: result.payoutUsd,
+                  shares: activity.size,
+                  eventSlug: slug,
+                  imageUrl: image,
+                  resolvedAt: tx.timestamp,
+                );
+            // A record with no market name shares only a won card: the
+            // other cards are titled by the market.
             final share = title.isEmpty
-                ? null
+                ? (wonCard(ref.read) == null
+                    ? null
+                    : predictionReceiptShare(
+                        type: ReceiptCardKind.paidOut,
+                        title: title,
+                        won: wonCard,
+                      ))
                 : result.won
                     ? predictionReceiptShare(
                         type: ReceiptCardKind.paidOut,
@@ -5098,19 +5097,7 @@ void showPredictionResultDetails(BuildContext context, PredictionResult result,
                         imageUrl: image,
                         eventSlug: slug,
                         usd: result.payoutUsd,
-                        won: (watch) => bragWonPrediction(
-                          watch,
-                          title: title,
-                          side: activity.outcome ?? '',
-                          resolved: true,
-                          won: true,
-                          costUsd: result.stakeUsd,
-                          payoutUsd: result.payoutUsd,
-                          shares: activity.size,
-                          eventSlug: slug,
-                          imageUrl: image,
-                          resolvedAt: tx.timestamp,
-                        ),
+                        won: wonCard,
                       )
                     : result.stakeUsd <= 0
                         ? null
@@ -5147,24 +5134,6 @@ void showPredictionResultDetails(BuildContext context, PredictionResult result,
                         pnl >= 0 ? AppColors.marketUp : AppColors.marketDown,
                   ),
                 ]),
-                // A won result brags (founder, 4 November 2026): its won
-                // card from the figures above; nothing on a loss.
-                BragWinEntry.maybe(
-                  bragWonPrediction(
-                    ref.watch,
-                    title: title,
-                    side: activity.outcome ?? '',
-                    resolved: true,
-                    won: result.won,
-                    costUsd: result.stakeUsd,
-                    payoutUsd: result.payoutUsd,
-                    shares: activity.size,
-                    eventSlug: slug,
-                    imageUrl: activityCrestIcon(ref, activity),
-                    resolvedAt: tx.timestamp,
-                  ),
-                  padding: EdgeInsets.only(top: 12.h),
-                ),
                 if (title.isNotEmpty)
                   ReceiptLongRow(label: l.betMarketCategory, value: title),
                 SizedBox(height: 8.h),

@@ -10,8 +10,9 @@
 // own) opens [openReceiptShare]:
 //
 //   * a won prediction with its cost known ([ReceiptShare.won]): the won
-//     brag card ("CALLED IT", brag_card.dart), as the receipt's "Brag
-//     about it" card does;
+//     brag card ("CALLED IT", brag_card.dart). This button is the receipt's
+//     only door to it (founder, 8 November 2026: the "Brag about it" row
+//     under the tiles was a duplicate, and went);
 //   * anything else: the card preview (share_card_preview.dart) with the
 //     receipt's own card ([ReceiptCardData], cards/receipt_card.dart),
 //     built live from the providers while the preview is up, the bar

@@ -6,8 +6,8 @@
 // from 41¢ · +143.9%", "Paid · Paid out", the won pool's line, green and
 // Sal's win pose; the preview sheet reads "Show off this win" and
 // brag_shared says card: won; the resolved position page's bar is "Brag
-// about it" on a win and never on a loss; a receipt's entry draws
-// nothing without a win.
+// about it" on a win and never on a loss. A receipt opens the same card
+// from its round Sal button (receipt_share_test.dart).
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -30,7 +30,6 @@ import 'package:kute/screens/share/brag/brag_card.dart';
 import 'package:kute/screens/share/brag/brag_data.dart';
 import 'package:kute/screens/share/brag/brag_lines.dart';
 import 'package:kute/screens/share/brag/brag_preview_sheet.dart';
-import 'package:kute/screens/share/brag/brag_win_entry.dart';
 import 'package:kute/screens/share/cards/share_card_frame.dart';
 
 import '../../../helpers/kute_bar_test_support.dart';
@@ -317,23 +316,6 @@ void main() {
       await settle(tester);
       expect(env.paramsOf('brag_shared').single,
           {'kind': 'position', 'card': 'won'});
-    });
-
-    testWidgets('the receipt entry: nothing without a win, else the button '
-        'that opens the won card', (tester) async {
-      await pumpShareWidget(
-          tester,
-          env,
-          Column(children: [
-            BragWinEntry.maybe(null),
-            BragWinEntry.maybe(fakeBragWin()),
-          ]));
-      expect(find.byType(BragWinEntry), findsOneWidget);
-      expect(find.text('Brag about it'), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('brag-win-entry')));
-      await settle(tester);
-      expect(find.text('Show off this win'), findsOneWidget);
-      expect(find.byKey(const ValueKey('brag-preview-card')), findsOneWidget);
     });
 
     Future<void> pumpPosition(
