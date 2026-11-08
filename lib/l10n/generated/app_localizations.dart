@@ -19641,6 +19641,30 @@ abstract class AppLocalizations {
   /// **'Goals'**
   String get balanceGoalsHeading;
 
+  /// Bitcoin home, the pill strip over the chart: the tab with the balance chart and its goals (the hero above already shows the balance). One word, the same as balanceGoalsHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Goals'**
+  String get balanceGoalsTab;
+
+  /// Bitcoin home, Goals tab: the title of the sheet opened by the Level square, listing all twelve levels of the milestone ladder with Sal's still, the level's name and the round figure it starts at. One word.
+  ///
+  /// In en, this message translates to:
+  /// **'Levels'**
+  String get balanceLadderTitle;
+
+  /// Levels sheet: the round figure a level starts at ('From $250'). amount is a formatted amount. Very short.
+  ///
+  /// In en, this message translates to:
+  /// **'From {amount}'**
+  String balanceLadderFrom(String amount);
+
+  /// Levels sheet: the first level, below the first round figure ('Under $100'). amount is a formatted amount. Very short.
+  ///
+  /// In en, this message translates to:
+  /// **'Under {amount}'**
+  String balanceLadderUnder(String amount);
+
   /// Bitcoin home, Balance tab, the Next goal square: its label, over the goal written large ('$500'). The goal is the next round figure for the person's Bitcoin + Dollars total. Short.
   ///
   /// In en, this message translates to:

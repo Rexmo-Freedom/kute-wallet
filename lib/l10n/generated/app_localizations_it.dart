@@ -11740,6 +11740,22 @@ class AppLocalizationsIt extends AppLocalizations {
   String get balanceGoalsHeading => 'Obiettivi';
 
   @override
+  String get balanceGoalsTab => 'Obiettivi';
+
+  @override
+  String get balanceLadderTitle => 'Livelli';
+
+  @override
+  String balanceLadderFrom(String amount) {
+    return 'Da $amount';
+  }
+
+  @override
+  String balanceLadderUnder(String amount) {
+    return 'Meno di $amount';
+  }
+
+  @override
   String get balanceGoalNext => 'Prossimo obiettivo';
 
   @override

@@ -11680,6 +11680,22 @@ class AppLocalizationsEt extends AppLocalizations {
   String get balanceGoalsHeading => 'Eesmärgid';
 
   @override
+  String get balanceGoalsTab => 'Eesmärgid';
+
+  @override
+  String get balanceLadderTitle => 'Tasemed';
+
+  @override
+  String balanceLadderFrom(String amount) {
+    return 'Alates $amount';
+  }
+
+  @override
+  String balanceLadderUnder(String amount) {
+    return 'Alla $amount';
+  }
+
+  @override
   String get balanceGoalNext => 'Järgmine eesmärk';
 
   @override

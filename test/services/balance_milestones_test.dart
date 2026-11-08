@@ -18,7 +18,7 @@ class MapFlags implements BalanceMilestoneFlags {
 
 /// The Bitcoin home's milestones: the ladder of round goals for the
 /// person's Bitcoin + Dollars total, the progress to the next one, the
-/// nudge's amount, the goal line's reach, and the once-only record
+/// nudge's amount, and the once-only record
 /// (founder, 6 November 2026: "gamify the graph ... to reach certain
 /// thresholds").
 void main() {
@@ -138,26 +138,6 @@ void main() {
       expect(
           balanceGoalSuggestedUsd(goal: 1000, usdToDisplay: 0, bitcoinUsd: 60),
           isNull);
-    });
-  });
-
-  group('the goal line in reach', () {
-    test('a flat line: within a quarter of its height', () {
-      expect(balanceGoalInReach([355000, 355000], 357143), isTrue);
-      expect(balanceGoalInReach([150000, 150000], 357143), isFalse);
-    });
-
-    test('a moving line: within the span it covers', () {
-      expect(balanceGoalInReach([100, 300], 480), isTrue);
-      expect(balanceGoalInReach([100, 300], 520), isFalse);
-      // Touched on screen already (the balance fell back): drawn.
-      expect(balanceGoalInReach([400, 300], 380), isTrue);
-    });
-
-    test('nothing on screen, or a goal that is not a number: none', () {
-      expect(balanceGoalInReach(const [], 10), isFalse);
-      expect(balanceGoalInReach([0, 0], 10), isFalse);
-      expect(balanceGoalInReach([5, 5], double.nan), isFalse);
     });
   });
 

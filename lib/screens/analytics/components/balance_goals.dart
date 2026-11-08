@@ -2,13 +2,17 @@
 //
 // THE BITCOIN HOME'S MILESTONES (founder, 6 November 2026: "Gamify the
 // graph for the Bitcoin balance ... to reach certain thresholds"). The
-// Balance tab of the spending wallet, on the Bitcoin home only, carries a
-// ladder of round goals for the person's money (balance_milestones.dart
-// has the arithmetic and the once-only record):
+// GOALS tab of the spending wallet (the pill read "Balance" until 8
+// November 2026: the hero above already shows the balance; the tab's key,
+// its analytics value and its links are unchanged), on the Bitcoin home
+// only, carries a ladder of round goals for the person's money
+// (balance_milestones.dart has the arithmetic and the once-only record):
 //
-//   * ON THE CHART: the next goal as the plot's dashed goal line, "Next
-//     $500", while it is in reach of the line on screen (the line keeps at
-//     least half the plot; balanceGoalInReach). The chart is in sats, so
+//   * ON THE CHART, ALWAYS (founder, 8 November 2026: "the chart is the
+//     goal's chart"): the next goal as the plot's dashed goal line, "Next
+//     $500", whatever the distance; the chart's own scale keeps the line
+//     at least half the plot and tints the gap up to the goal
+//     (kute_trend_chart.dart, KuteTrendScale). The chart is in sats, so
 //     the line sits at the bitcoin it would take with the Dollars as they
 //     are: the bitcoin now plus the gap at today's price. A rate refresh
 //     that moves it under 2% leaves it where it is (no jitter on ticks);
@@ -19,13 +23,23 @@
 //     in the Bitcoin home Activity's language (its "Latest" heading and
 //     two-by-two squares, its "Earlier" soft card):
 //   * "GOALS", then two squares side by side, drawn as the Dollars
-//     Activity's position squares: the LEVEL (Sal's still for the level;
-//     a slim bar under him filling towards the goal, the chance gauge's
-//     track and fill; the level's name; "50% to $500"; "Level 3" large)
-//     and the NEXT GOAL (Sal squinting up at a flag; "Next goal"; "$250 to
-//     go"; "$500" large). The bar fills from empty when first drawn and
+//     Activity's position squares: the NEXT GOAL first (Sal squinting up
+//     at a flag; "Next goal"; "$250 to go"; "$500" large; it carries the
+//     move, so it leads: founder, 8 November 2026) and the LEVEL (Sal's
+//     still for the level; a slim bar under him filling towards the goal,
+//     the chance gauge's track and fill; the level's name; "50% to $500";
+//     "Level 3" large). The bar fills from empty when first drawn and
 //     eases to each new value on the settle curve. The total is never
 //     written: with no Dollars it would repeat the headline's worth;
+//   * THE LADDER SHEET (founder, 8 November 2026): the Level square taps
+//     through to a sheet listing all twelve levels ([BalanceLadderSheet]),
+//     in the Referral program's language (affiliate_screen.dart: its rows
+//     on the one soft card, the app's sheet header, Done as the bar): one
+//     row per level, Sal's still, the level's name, "Level 3 · From $250"
+//     (the first "Under $100"); the levels passed carry a quiet check, the
+//     current one is written in full with its progress ("50% to $500")
+//     and the settings lists' filled disc. With balances hidden the sheet
+//     opens and names every level, but marks none;
 //   * SAL PER LEVEL (founder, 7 November 2026: "use Sal for the next goal
 //     and naming the levels, and use Sal Blender"): one 3D still per level
 //     name, his attitude and props growing with it, always deadpan
@@ -70,7 +84,8 @@
 //   * BALANCES HIDDEN: the squares' figures and the level's name are dots,
 //     the bar is its track alone, the Level's Sal is a still that names no
 //     level (the share cards' flat side-eye), the goal line is not drawn,
-//     the Next goal's move drops its amount;
+//     the Next goal's move drops its amount, the ladder sheet marks no
+//     level;
 //   * NOTHING EVER HELD (the card's empty state): no goals, nothing
 //     recorded or celebrated.
 //
@@ -81,8 +96,10 @@
 //
 // Analytics: `balance_milestone_reached` {milestone, currency} when a
 // rung is celebrated; `balance_goal_cta_tapped` {milestone, amount,
-// currency} on the Next goal's move (milestone: the goal, display currency; amount:
-// the dollars filled in). Exact values; nothing else.
+// currency} on the Next goal's move (milestone: the goal, display
+// currency; amount: the dollars filled in); `balance_goals_ladder_opened`
+// {level} when the Level square opens the ladder sheet (the level number
+// alone). Exact values; nothing else.
 
 import 'package:kute/services/orchestra/orchestra_capability_requirements.dart'
     show orchestraCapabilityRequirements;
@@ -101,6 +118,10 @@ import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/providers/one_balance_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/viewed_wallet_provider.dart';
+import 'package:kute/screens/shared/app_bottom_sheet.dart';
+import 'package:kute/screens/shared/kute_action_cards.dart'
+    show KuteActionCard, kKuteActionCardPadding;
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/money_movement_sheet.dart'
     show MoneyMovementAccount, showOwnMoneyMove;
 import 'package:kute/screens/portfolio/components/position_rows.dart'
@@ -453,6 +474,8 @@ class _BalanceGoalsState extends ConsumerState<BalanceGoals> {
         celebrating: celebrating,
         confettiCue: _confettiCue,
         nudge: nudge,
+        onLevelTap: () => showBalanceLadderSheet(context,
+            progress: progress, currency: input.currency, visible: visible),
       );
     }
     // One shape whatever is ready, so the card is never remounted (a
@@ -477,11 +500,12 @@ class BalanceGoalNudge {
 
 /// The goals under the Balance card, in the Bitcoin home Activity's
 /// language (its "Latest" heading and squares, its "Earlier" soft card):
-/// "Goals", then two squares side by side, the Level (the level's Sal over
-/// the progress bar, the level's name, "50% to $500", "Level 3" large) and
-/// the Next goal (Sal and the flag, "Next goal", "$250 to go", "$500"
-/// large; where the move is allowed, "Move $25 to Dollars" with a chevron
-/// in place of the gap, and the square taps through), or for a moment the
+/// "Goals", then two squares side by side, the Next goal first (Sal and
+/// the flag, "Next goal", "$250 to go", "$500" large; where the move is
+/// allowed, "Move $25 to Dollars" with a chevron in place of the gap, and
+/// the square taps through) and the Level (the level's Sal over the
+/// progress bar, the level's name, "50% to $500", "Level 3" large; it taps
+/// through to the ladder sheet, [onLevelTap]), or for a moment the
 /// celebration in their place at their height.
 class BalanceGoalsSection extends StatelessWidget {
   const BalanceGoalsSection({
@@ -492,6 +516,7 @@ class BalanceGoalsSection extends StatelessWidget {
     this.celebrating,
     this.confettiCue = 0,
     this.nudge,
+    this.onLevelTap,
   });
 
   final BalanceMilestoneProgress progress;
@@ -504,6 +529,9 @@ class BalanceGoalsSection extends StatelessWidget {
   /// Bumped to throw the confetti ([KuteConfettiBurst.cue]).
   final int confettiCue;
   final BalanceGoalNudge? nudge;
+
+  /// The Level square's tap (the ladder sheet); null leaves it plain.
+  final VoidCallback? onLevelTap;
 
   /// Sal's square in the celebration, design units.
   static const double salSize = 96;
@@ -541,16 +569,18 @@ class BalanceGoalsSection extends StatelessWidget {
                     )
                   : ActivitySquareGrid(
                       key: const ValueKey('balance-goal-squares'),
+                      // The Next goal leads: it carries the move.
                       children: [
-                        _LevelSquare(
-                            progress: progress,
-                            currency: currency,
-                            visible: visible),
                         _NextGoalSquare(
                             progress: progress,
                             currency: currency,
                             visible: visible,
                             nudge: nudge),
+                        _LevelSquare(
+                            progress: progress,
+                            currency: currency,
+                            visible: visible,
+                            onTap: onLevelTap),
                       ],
                     ),
             ),
@@ -705,24 +735,28 @@ class _GoalSquare extends StatelessWidget {
 }
 
 /// The Level square: the level's Sal over the bar filling towards the
-/// goal, the level's name, "50% to $500", and "Level 3" large. Hidden:
-/// dots, a Sal that names no level, and the bar's track alone.
+/// goal, the level's name, "50% to $500", and "Level 3" large; the whole
+/// square taps through to the ladder sheet ([onTap], on the press spring,
+/// as the position squares open their detail). Hidden: dots, a Sal that
+/// names no level, and the bar's track alone.
 class _LevelSquare extends StatelessWidget {
   const _LevelSquare({
     required this.progress,
     required this.currency,
     required this.visible,
+    this.onTap,
   });
 
   final BalanceMilestoneProgress progress;
   final String currency;
   final bool visible;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final reduce = KuteMotion.reduce(context);
-    return _GoalSquare(
+    final square = _GoalSquare(
       leading: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -761,6 +795,253 @@ class _LevelSquare extends StatelessWidget {
       labelKey: const ValueKey('balance-goal-level-name'),
       lineKey: const ValueKey('balance-goal-progress'),
       figureKey: const ValueKey('balance-goal-level'),
+    );
+    final tap = onTap;
+    if (tap == null) return square;
+    return Semantics(
+      button: true,
+      child: KutePressable(
+        child: GestureDetector(
+          key: const ValueKey('balance-goal-ladder'),
+          behavior: HitTestBehavior.opaque,
+          onTap: tap,
+          child: square,
+        ),
+      ),
+    );
+  }
+}
+
+/// Opens the ladder sheet ([BalanceLadderSheet]) over the Level square's
+/// tap and records `balance_goals_ladder_opened` {level}.
+void showBalanceLadderSheet(
+  BuildContext context, {
+  required BalanceMilestoneProgress progress,
+  required String currency,
+  required bool visible,
+}) {
+  HapticFeedback.selectionClick();
+  TrackingService.track('balance_goals_ladder_opened',
+      params: {'level': progress.level});
+  showAppBottomSheet(
+    context: context,
+    builder: (_) => BalanceLadderSheet(
+        progress: progress, currency: currency, visible: visible),
+  );
+}
+
+/// The ladder sheet (see the file header): "Levels", then every level as
+/// a row on the one soft card, in the Referral program's rows' language
+/// (affiliate_screen.dart, How it works): Sal's still for the level, the
+/// level's name, and "Level 3 · From $250" under it ("Under $100" for the
+/// first). The levels passed carry a quiet check; the current one is
+/// written in full with its progress ("50% to $500") and the settings
+/// lists' filled disc; the ones ahead are quiet. Done is the bar. With
+/// balances hidden every level is named and none is marked.
+class BalanceLadderSheet extends StatelessWidget {
+  const BalanceLadderSheet({
+    super.key,
+    required this.progress,
+    required this.currency,
+    required this.visible,
+  });
+
+  final BalanceMilestoneProgress progress;
+  final String currency;
+  final bool visible;
+
+  /// Sal's still in a row, design units.
+  static const double salSize = 44;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final ladder = BalanceMilestoneLadder.forCurrency(currency);
+    final surface = KuteActionCard.surfaceOf(context);
+    return AppBottomSheetContainer(
+      child: Column(
+        key: const ValueKey('balance-ladder-sheet'),
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AppBottomSheetHeader(
+            title: l10n.balanceLadderTitle,
+            trailing: const AppBottomSheetCloseButton(),
+            titleIsHeader: true,
+          ),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.symmetric(horizontal: 20.w),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    key: const ValueKey('balance-ladder'),
+                    padding:
+                        KuteActionCard.paddingIn(surface, kKuteActionCardPadding),
+                    decoration: surface,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (var i = 0; i < kBalanceLevelNames; i++) ...[
+                          if (i > 0) SizedBox(height: 14.h),
+                          _LadderRow(
+                            index: i,
+                            // Level 1 is under the first rung; level i + 1
+                            // starts at rung i - 1.
+                            threshold: i == 0
+                                ? l10n.balanceLadderUnder(
+                                    formatBalanceGoal(ladder.rung(0), currency))
+                                : l10n.balanceLadderFrom(formatBalanceGoal(
+                                    ladder.rung(i - 1), currency)),
+                            // Marks only over shown figures. Every level
+                            // past the last name wears it: the last row is
+                            // current for all of them.
+                            state: !visible
+                                ? _LadderState.unmarked
+                                : i < progress.nameIndex
+                                    ? _LadderState.passed
+                                    : i == progress.nameIndex
+                                        ? _LadderState.current
+                                        : _LadderState.ahead,
+                            progressLine: l10n.balanceGoalProgress(
+                                progress.percent,
+                                formatBalanceGoal(progress.next, currency)),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  // THE BAR IS THE BUTTON (kute_bar_context.dart): Done.
+                  KuteBarContextScope(
+                    barContext: KuteBarContext.primary(
+                      label: l10n.done,
+                      onPrimary: () => Navigator.of(context).pop(),
+                      disabledLabel: null,
+                      source: 'balance_goals_ladder',
+                    ),
+                    child: SizedBox(height: kuteBarScrollClearance.h),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+enum _LadderState { passed, current, ahead, unmarked }
+
+/// One level of the ladder sheet (see [BalanceLadderSheet]).
+class _LadderRow extends StatelessWidget {
+  const _LadderRow({
+    required this.index,
+    required this.threshold,
+    required this.state,
+    required this.progressLine,
+  });
+
+  /// The level name's index (0 to [kBalanceLevelNames] - 1).
+  final int index;
+  final String threshold;
+  final _LadderState state;
+
+  /// The current level's line ("50% to $500").
+  final String progressLine;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final l10n = context.l10n;
+    final current = state == _LadderState.current;
+    final ahead = state == _LadderState.ahead;
+    final sal = BalanceLadderSheet.salSize.w;
+    final line = current
+        ? progressLine
+        : '${l10n.balanceGoalLevel(index + 1)} · $threshold';
+    return MergeSemantics(
+      key: ValueKey('balance-ladder-level-${index + 1}'),
+      child: Semantics(
+        selected: current ? true : null,
+        checked: state == _LadderState.passed ? true : null,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Sal's still for the level, held (it names the level; the
+            // loops are the squares').
+            ExcludeSemantics(
+              child: BalanceGoalSalMotion(
+                hold: true,
+                child: SizedBox.square(
+                  dimension: sal,
+                  child: SalSprite(
+                    clip: balanceLevelClip(index),
+                    size: sal,
+                    fallback: Center(
+                      child: Icon(Icons.star_rounded,
+                          size: 20.w, color: c.textPrimary),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    balanceLevelName(l10n, index),
+                    key: ValueKey('balance-ladder-name-${index + 1}'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: KuteActionCard.optionTitleStyle(c).copyWith(
+                      color: ahead ? c.textTertiary : c.textPrimary,
+                      fontWeight: current ? FontWeight.w700 : null,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    line,
+                    key: ValueKey('balance-ladder-line-${index + 1}'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: KuteActionCard.subtitleStyle(c).copyWith(
+                      color: current ? c.textSecondary : c.textTertiary,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (state == _LadderState.passed) ...[
+              SizedBox(width: 12.w),
+              // A rung passed: the quiet check.
+              Icon(Icons.check_rounded,
+                  key: ValueKey('balance-ladder-passed-${index + 1}'),
+                  size: 18.sp,
+                  color: c.textTertiary),
+            ],
+            if (current) ...[
+              SizedBox(width: 12.w),
+              // The current level: the settings lists' selection mark, the
+              // filled disc with the check on it.
+              Container(
+                key: ValueKey('balance-ladder-current-${index + 1}'),
+                width: 22.sp,
+                height: 22.sp,
+                decoration: BoxDecoration(
+                    color: context.ctaFill, shape: BoxShape.circle),
+                child: Icon(Icons.check_rounded,
+                    color: context.ctaOnColor, size: 15.sp),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

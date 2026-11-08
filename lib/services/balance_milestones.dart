@@ -199,23 +199,6 @@ double? balanceGoalSuggestedUsd({
   return suggestion >= 1 ? suggestion : null;
 }
 
-/// Whether a goal line at [goal] is close enough above the line on screen
-/// ([values], in the chart's own unit) to be drawn on the line's scale:
-/// within the span the line already covers (a flat line: a quarter of its
-/// height), so the line keeps at least half the plot. A goal the line has
-/// already touched on screen is always in reach.
-bool balanceGoalInReach(List<double> values, double goal) {
-  if (values.isEmpty || !goal.isFinite) return false;
-  var lo = values.first, hi = values.first;
-  for (final v in values) {
-    if (v < lo) lo = v;
-    if (v > hi) hi = v;
-  }
-  if (goal <= hi) return true;
-  final room = math.max(hi - lo, hi.abs() * 0.25);
-  return room > 0 && goal - hi <= room;
-}
-
 /// The once-only flags the record keeps (OnceFlagsService in the app, a
 /// map in tests).
 abstract class BalanceMilestoneFlags {

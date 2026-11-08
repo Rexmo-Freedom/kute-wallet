@@ -311,6 +311,72 @@ void main() {
     await settle(tester);
   });
 
+  group('the scale with a goal (KuteTrendScale)', () {
+    test('no goal, or a goal the line has touched: the band alone, linear',
+        () {
+      final s = KuteTrendScale.fit([100.0, 300.0, 200.0]);
+      expect(s.gap, 0);
+      expect(s.compressed, isFalse);
+      expect(s.unit(100), 0);
+      expect(s.unit(300), 1);
+      expect(s.unit(200), closeTo(0.5, 1e-9));
+      final touched = KuteTrendScale.fit([400.0, 300.0], goal: 380);
+      expect(touched.gap, 0);
+      expect(touched.unit(380), closeTo(0.8, 1e-9));
+    });
+
+    test('a goal within the band\'s height above it: to scale, linear over '
+        'band and gap', () {
+      final s = KuteTrendScale.fit([100.0, 300.0], goal: 450);
+      expect(s.gap, 150);
+      expect(s.compressed, isFalse);
+      expect(s.gapShare, closeTo(150 / 350, 1e-9));
+      expect(s.unit(100), 0);
+      expect(s.unit(300), closeTo(200 / 350, 1e-9));
+      expect(s.unit(450), closeTo(1, 1e-9));
+      // Exactly linear: the midpoint of the gap is the midpoint in units.
+      expect(s.unit(375), closeTo(275 / 350, 1e-9));
+    });
+
+    test('a far goal: the gap squeezed to half, the band keeps the other '
+        'half; a flat band is padded a tenth each way first', () {
+      final s = KuteTrendScale.fit([100.0, 300.0], goal: 2000);
+      expect(s.compressed, isTrue);
+      expect(s.gapShare, 0.5);
+      expect(s.unit(300), closeTo(0.5, 1e-9));
+      expect(s.unit(2000), closeTo(1, 1e-9));
+      expect(s.unit(1150), closeTo(0.75, 1e-9));
+      // A tiny flat balance under a far goal still reads: centred in its
+      // half.
+      final flat = KuteTrendScale.fit([5.0, 5.0], goal: 100);
+      expect(flat.lo, closeTo(4.5, 1e-9));
+      expect(flat.hi, closeTo(5.5, 1e-9));
+      expect(flat.compressed, isTrue);
+      expect(flat.unit(5), closeTo(0.25, 1e-9));
+      expect(flat.unit(100), closeTo(1, 1e-9));
+    });
+
+    test('the squeeze starts exactly where the true share would pass half:'
+        ' no jump', () {
+      // Band 200 tall, gap 200: the true share is half; one more and it is
+      // capped at half, the same picture.
+      final at = KuteTrendScale.fit([100.0, 300.0], goal: 500);
+      final past = KuteTrendScale.fit([100.0, 300.0], goal: 501);
+      expect(at.gapShare, closeTo(0.5, 1e-9));
+      expect(at.compressed, isFalse);
+      expect(past.gapShare, 0.5);
+      expect(past.compressed, isTrue);
+      expect(past.unit(300), closeTo(at.unit(300), 1e-9));
+    });
+
+    test('nothing finite: a unit band around zero', () {
+      final s = KuteTrendScale.fit([double.nan], goal: double.infinity);
+      expect(s.lo, -1);
+      expect(s.hi, 1);
+      expect(s.gap, 0);
+    });
+  });
+
   test('the split gradient: up at 8% down to zero, down at 8% from it, a '
       'hard stop', () {
     final g = kuteZeroSplitGradient(

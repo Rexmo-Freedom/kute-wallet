@@ -11722,6 +11722,22 @@ class AppLocalizationsHr extends AppLocalizations {
   String get balanceGoalsHeading => 'Ciljevi';
 
   @override
+  String get balanceGoalsTab => 'Ciljevi';
+
+  @override
+  String get balanceLadderTitle => 'Razine';
+
+  @override
+  String balanceLadderFrom(String amount) {
+    return 'Od $amount';
+  }
+
+  @override
+  String balanceLadderUnder(String amount) {
+    return 'Ispod $amount';
+  }
+
+  @override
   String get balanceGoalNext => 'Sljedeći cilj';
 
   @override

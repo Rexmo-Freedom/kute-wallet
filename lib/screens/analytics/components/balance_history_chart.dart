@@ -30,11 +30,12 @@
 //     range row;
 //   * with balances hidden the figures are dots, as on the home header;
 //   * a GOAL ([BalanceHistoryChart.goal], the Bitcoin home's next
-//     milestone, balance_goals.dart): drawn as the plot's dashed goal line
-//     only while it is in reach of the line on screen
-//     ([balanceGoalInReach]: the line keeps at least half the plot) and
-//     the figures are shown. Nothing else of the milestones is drawn
-//     here: they stand under the card.
+//     milestone, balance_goals.dart): always drawn as the plot's dashed
+//     goal line while the figures are shown (founder, 8 November 2026: the
+//     chart is the goal's chart); the chart's own scale keeps the line at
+//     least half the plot and tints the gap up to the goal
+//     (kute_trend_chart.dart, KuteTrendScale). Nothing else of the
+//     milestones is drawn here: they stand under the card.
 //
 // Analytics: `analytics_chart_scrubbed` {chart, view: line}, once per
 // scrub gesture. Ranges send nothing.
@@ -51,7 +52,6 @@ import 'package:kute/screens/shared/charts/kute_chart_format.dart';
 import 'package:kute/screens/shared/charts/kute_trend_chart.dart';
 import 'package:kute/screens/shared/charts/kute_trend_window.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
-import 'package:kute/services/balance_milestones.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -83,7 +83,7 @@ class BalanceHistoryChart extends ConsumerStatefulWidget {
   final DateTime? now;
 
   /// A goal in the chart's own unit, drawn as the dashed goal line while
-  /// it is in reach of the line on screen; null draws none.
+  /// the figures are shown; null draws none.
   final KuteTrendGoal? goal;
 
   const BalanceHistoryChart({
@@ -250,14 +250,11 @@ class _BalanceHistoryChartState extends ConsumerState<BalanceHistoryChart> {
       ],
     );
 
-    // The goal line only while it is close enough to keep the line's
-    // shape, and never over hidden figures.
+    // The goal line always, but never over hidden figures; the chart's
+    // scale keeps the line readable under a far goal. Kept while a finger
+    // scrubs: the scale never moves under it.
     final goal = widget.goal;
-    // Kept while a finger scrubs: the scale never moves under it.
-    final shownGoal =
-        goal != null && visible && balanceGoalInReach(values, goal.value)
-            ? goal
-            : null;
+    final shownGoal = goal != null && visible ? goal : null;
 
     final chart = KuteTrendChart(
       key: const ValueKey('balance-chart'),

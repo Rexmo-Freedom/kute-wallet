@@ -1,12 +1,18 @@
 // A look by eye at the Bitcoin home's milestones (balance_goals.dart),
 // written only when asked: FW27_GOALS_RENDER=<dir> flutter test
 // test/render/balance_goals_render_test.dart. The real Inter face and the
-// real Sal sheets, 390 wide at 3x, light and dark: the Balance card near a
-// goal (the goal line drawn) with the Goals squares and the nudge under
-// it, far from one (no line), a rung just passed (Sal and the line in the
-// squares' place, the confetti mid-burst), the same under Reduce Motion,
-// with balances hidden, and in German (the longest words); and the whole
-// ladder, the Goals squares at every level with Sal's still for each.
+// real Sal sheets, at 3x, light and dark, 375 wide (and 320, the narrowest
+// phone, where the squares and the sheet are tightest): the Goals tab
+// (the pill "Goals") with the card near a goal (the goal line just over
+// the line, the gap a sliver) and the Next goal and Level squares with the
+// nudge under it, far from one (the goal line always drawn, the gap
+// squeezed to half the plot and tinted), a tiny balance under a far goal
+// (the line still reads, centred in its half), a rung just passed (Sal and
+// the line in the squares' place, the confetti mid-burst), the same under
+// Reduce Motion, with balances hidden (no goal line), in German (the
+// longest words); the whole ladder, the Goals squares at every level with
+// Sal's still for each; and the ladder sheet at levels 1, 5 and 12 (the
+// passed levels checked, the current one marked, Done as the bar).
 
 import 'dart:convert';
 import 'dart:io';
@@ -115,6 +121,18 @@ ThemeData _theme(bool dark) {
   return base.copyWith(textTheme: base.textTheme.apply(fontFamily: 'Inter'));
 }
 
+Widget _app(bool dark, Widget home, {Locale? locale}) => ScreenUtilInit(
+      designSize: const Size(430, 932),
+      builder: (_, __) => MaterialApp(
+        debugShowCheckedModeBanner: false,
+        locale: locale,
+        theme: _theme(dark),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: home,
+      ),
+    );
+
 Future<ProviderContainer> _show(
   WidgetTester tester,
   GlobalKey key, {
@@ -125,8 +143,10 @@ Future<ProviderContainer> _show(
   bool reduceMotion = false,
   _MapFlags? flags,
   Locale? locale,
+  double width = 375,
+  double height = 900,
 }) async {
-  tester.view.physicalSize = const Size(390 * 3, 900 * 3);
+  tester.view.physicalSize = Size(width * 3, height * 3);
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.reset);
   final prices = [
@@ -167,28 +187,22 @@ Future<ProviderContainer> _show(
   container.read(_input.notifier).state = _goal(sats, cash: cash);
   await tester.pumpWidget(UncontrolledProviderScope(
     container: container,
-    child: ScreenUtilInit(
-      designSize: const Size(430, 932),
-      builder: (_, __) => MaterialApp(
-        debugShowCheckedModeBanner: false,
-        locale: locale,
-        theme: _theme(dark),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: Builder(
-          builder: (context) => MediaQuery(
-            data: MediaQuery.of(context)
-                .copyWith(disableAnimations: reduceMotion),
-            child: Scaffold(
-              body: RepaintBoundary(
-                key: key,
-                child: Builder(
-                  builder: (context) => ColoredBox(
-                    color: context.colors.background,
-                    child: const SingleChildScrollView(
-                      child: HomeAnalyticsWidget(
-                          surface: 'home', balanceGoals: true),
-                    ),
+    child: _app(
+      dark,
+      locale: locale,
+      Builder(
+        builder: (context) => MediaQuery(
+          data:
+              MediaQuery.of(context).copyWith(disableAnimations: reduceMotion),
+          child: Scaffold(
+            body: RepaintBoundary(
+              key: key,
+              child: Builder(
+                builder: (context) => ColoredBox(
+                  color: context.colors.background,
+                  child: const SingleChildScrollView(
+                    child:
+                        HomeAnalyticsWidget(surface: 'home', balanceGoals: true),
                   ),
                 ),
               ),
@@ -204,6 +218,49 @@ Future<ProviderContainer> _show(
   return container;
 }
 
+/// The ladder sheet as it opens over the Goals tab, at [width] wide.
+Future<void> _showSheet(
+  WidgetTester tester,
+  GlobalKey key, {
+  required bool dark,
+  required double total,
+  bool visible = true,
+  double width = 375,
+  Locale? locale,
+}) async {
+  tester.view.physicalSize = Size(width * 3, 860 * 3);
+  tester.view.devicePixelRatio = 3;
+  addTearDown(tester.view.reset);
+  final ladder = BalanceMilestoneLadder.forCurrency('USD');
+  await tester.pumpWidget(ProviderScope(
+    child: _app(
+      dark,
+      locale: locale,
+      Scaffold(
+        body: RepaintBoundary(
+          key: key,
+          child: Builder(
+            builder: (context) => ColoredBox(
+              color: context.colors.background,
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: BalanceLadderSheet(
+                  progress: ladder.progress(total),
+                  currency: 'USD',
+                  visible: visible,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  ));
+  for (var i = 0; i < 10; i++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+}
+
 Future<void> _save(WidgetTester tester, GlobalKey key, String name) async {
   Directory(_dir!).createSync(recursive: true);
   await tester.runAsync(() async {
@@ -213,6 +270,11 @@ Future<void> _save(WidgetTester tester, GlobalKey key, String name) async {
     final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
     File('$_dir/$name.png').writeAsBytesSync(bytes!.buffer.asUint8List());
   });
+}
+
+Future<void> _away(WidgetTester tester) async {
+  await tester.pumpWidget(const SizedBox());
+  await tester.pump(const Duration(seconds: 3));
 }
 
 void main() {
@@ -226,23 +288,35 @@ void main() {
   for (final dark in [false, true]) {
     final mode = dark ? 'dark' : 'light';
 
-    testWidgets('near the goal $mode', (tester) async {
-      await _assets(tester);
-      final key = GlobalKey();
-      // ₿328,686 at $75,700 is $248.82 (the founder's screenshot).
-      await _show(tester, key, dark: dark, sats: 328686);
-      await _save(tester, key, 'goals_near_$mode');
-      await tester.pumpWidget(const SizedBox());
-      await tester.pump(const Duration(seconds: 3));
-    });
+    for (final width in [375.0, 320.0]) {
+      final w = width.round();
+      testWidgets('near the goal $mode $w', (tester) async {
+        await _assets(tester);
+        final key = GlobalKey();
+        // ₿328,686 at $75,700 is $248.82 (the founder's screenshot).
+        await _show(tester, key, dark: dark, sats: 328686, width: width);
+        await _save(tester, key, 'goals_near_${mode}_$w');
+        await _away(tester);
+      });
 
-    testWidgets('far from the goal, with Dollars $mode', (tester) async {
+      testWidgets('far from the goal, with Dollars $mode $w', (tester) async {
+        await _assets(tester);
+        final key = GlobalKey();
+        // $181.68 of bitcoin and $120: $301.68, the goal $500.
+        await _show(tester, key,
+            dark: dark, sats: 240000, cash: 120, width: width);
+        await _save(tester, key, 'goals_far_${mode}_$w');
+        await _away(tester);
+      });
+    }
+
+    testWidgets('a tiny balance under a far goal $mode', (tester) async {
       await _assets(tester);
       final key = GlobalKey();
-      await _show(tester, key, dark: dark, sats: 240000, cash: 120);
-      await _save(tester, key, 'goals_far_$mode');
-      await tester.pumpWidget(const SizedBox());
-      await tester.pump(const Duration(seconds: 3));
+      // ₿7,000 is $5.30; the goal $100.
+      await _show(tester, key, dark: dark, sats: 7000);
+      await _save(tester, key, 'goals_tiny_$mode');
+      await _away(tester);
     });
 
     for (final reduce in [false, true]) {
@@ -266,8 +340,7 @@ void main() {
         await tester.pump(kBalanceMilestoneCelebration);
         await tester.pump(const Duration(milliseconds: 500));
         await _save(tester, key, 'goals_after_$mode$tag');
-        await tester.pumpWidget(const SizedBox());
-        await tester.pump(const Duration(seconds: 3));
+        await _away(tester);
       });
     }
 
@@ -277,49 +350,42 @@ void main() {
       await _show(tester, key,
           dark: dark, sats: 240000, cash: 120, locale: const Locale('de'));
       await _save(tester, key, 'goals_de_$mode');
-      await tester.pumpWidget(const SizedBox());
-      await tester.pump(const Duration(seconds: 3));
+      await _away(tester);
     });
 
     testWidgets('the ladder $mode', (tester) async {
       await _assets(tester);
-      tester.view.physicalSize = const Size(390 * 3, 3300 * 3);
+      tester.view.physicalSize = const Size(375 * 3, 3300 * 3);
       tester.view.devicePixelRatio = 3;
       addTearDown(tester.view.reset);
       final key = GlobalKey();
       final ladder = BalanceMilestoneLadder.forCurrency('USD');
-      await tester.pumpWidget(ScreenUtilInit(
-        designSize: const Size(430, 932),
-        builder: (_, __) => MaterialApp(
-          debugShowCheckedModeBanner: false,
-          theme: _theme(dark),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: Scaffold(
-            body: RepaintBoundary(
-              key: key,
-              child: Builder(
-                builder: (context) => ColoredBox(
-                  color: context.colors.background,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        for (var i = 0; i < 12; i++)
-                          BalanceGoalsSection(
-                            // Two thirds of the way from one rung to the
-                            // next: level i + 1.
-                            progress: ladder.progress(i == 0
-                                ? 60
-                                : ladder.rung(i - 1) +
-                                    (ladder.rung(i) - ladder.rung(i - 1)) *
-                                        0.66),
-                            currency: 'USD',
-                            visible: true,
-                          ),
-                      ],
-                    ),
+      await tester.pumpWidget(_app(
+        dark,
+        Scaffold(
+          body: RepaintBoundary(
+            key: key,
+            child: Builder(
+              builder: (context) => ColoredBox(
+                color: context.colors.background,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (var i = 0; i < 12; i++)
+                        BalanceGoalsSection(
+                          // Two thirds of the way from one rung to the
+                          // next: level i + 1.
+                          progress: ladder.progress(i == 0
+                              ? 60
+                              : ladder.rung(i - 1) +
+                                  (ladder.rung(i) - ladder.rung(i - 1)) *
+                                      0.66),
+                          currency: 'USD',
+                          visible: true,
+                        ),
+                    ],
                   ),
                 ),
               ),
@@ -331,8 +397,7 @@ void main() {
         await tester.pump(const Duration(milliseconds: 100));
       }
       await _save(tester, key, 'goals_ladder_$mode');
-      await tester.pumpWidget(const SizedBox());
-      await tester.pump(const Duration(seconds: 3));
+      await _away(tester);
     });
 
     testWidgets('balances hidden $mode', (tester) async {
@@ -340,8 +405,38 @@ void main() {
       final key = GlobalKey();
       await _show(tester, key, dark: dark, sats: 328686, privacy: 1);
       await _save(tester, key, 'goals_hidden_$mode');
-      await tester.pumpWidget(const SizedBox());
-      await tester.pump(const Duration(seconds: 3));
+      await _away(tester);
+    });
+
+    // The ladder sheet at levels 1, 5 and 12, at both widths.
+    for (final (level, total) in [(1, 60.0), (5, 1660.0), (12, 250000.0)]) {
+      for (final width in [375.0, 320.0]) {
+        final w = width.round();
+        testWidgets('the ladder sheet at level $level $mode $w',
+            (tester) async {
+          await _assets(tester);
+          final key = GlobalKey();
+          await _showSheet(tester, key,
+              dark: dark, total: total, width: width);
+          await _save(tester, key, 'ladder_sheet_l${level}_${mode}_$w');
+          await _away(tester);
+        });
+      }
+    }
+
+    testWidgets('the ladder sheet in German, and hidden $mode',
+        (tester) async {
+      await _assets(tester);
+      final key = GlobalKey();
+      await _showSheet(tester, key,
+          dark: dark, total: 1660, locale: const Locale('de'));
+      await _save(tester, key, 'ladder_sheet_de_$mode');
+      await _away(tester);
+      await _assets(tester);
+      final hidden = GlobalKey();
+      await _showSheet(tester, hidden, dark: dark, total: 1660, visible: false);
+      await _save(tester, hidden, 'ladder_sheet_hidden_$mode');
+      await _away(tester);
     });
   }
 }

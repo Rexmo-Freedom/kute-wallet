@@ -11713,6 +11713,22 @@ class AppLocalizationsBg extends AppLocalizations {
   String get balanceGoalsHeading => 'Цели';
 
   @override
+  String get balanceGoalsTab => 'Цели';
+
+  @override
+  String get balanceLadderTitle => 'Нива';
+
+  @override
+  String balanceLadderFrom(String amount) {
+    return 'От $amount';
+  }
+
+  @override
+  String balanceLadderUnder(String amount) {
+    return 'Под $amount';
+  }
+
+  @override
   String get balanceGoalNext => 'Следваща цел';
 
   @override

@@ -48,8 +48,18 @@
 //     textTertiary, its label ("Next $500") a quiet 10 sp tag over the
 //     line's right end on a surface-coloured backing (founder, 7 November
 //     2026: over the left end it read as one more row of a header "too
-//     dense still"), the goal counted in the scale.
-//     The host decides when a goal is close enough to draw.
+//     dense still"). THE CHART IS THE GOAL'S CHART (founder, 8 November
+//     2026): the goal is always in the frame. The scale ([KuteTrendScale])
+//     holds the line's own band and the gap up to the goal: to scale while
+//     the gap is no taller than the band, and when the goal is farther the
+//     gap is squeezed to HALF the plot ([kKuteTrendGoalGapShare]), so the
+//     line never shrinks under half the plot and a tiny balance with a far
+//     goal still reads (a linear scale would have flattened it onto the
+//     floor, where a flat balance reads as a crash). The gap between the
+//     line and the goal is tinted in the goal's colour, a quiet fade down
+//     from the goal line (the gap being closed); a goal the line has
+//     already touched tints only where the line is still under it. The
+//     host hides the goal over hidden figures.
 //
 // Painters here never read Theme — the widget resolves colours once per
 // build and hands them down.
@@ -131,6 +141,74 @@ class KuteTrendGoal {
   int get hashCode => Object.hash(value, label);
 }
 
+/// The most of the plot the gap up to a far goal may take (see the file
+/// header): the line keeps at least the rest.
+const double kKuteTrendGoalGapShare = 0.5;
+
+/// The tint of the gap between the line and its goal, at the goal line.
+const double kKuteTrendGoalGapAlpha = 0.10;
+
+/// The plot's vertical scale: the BAND of everything drawn but the goal
+/// (the values, the start, the extra lines; a flat band padded a tenth
+/// each way so the line sits centred), and over it the GAP up to a goal
+/// above the band. [unit] maps a value to 0 (the band's floor) .. 1 (the
+/// band's top, or the goal): linear over the band, and over the gap
+/// linear too, the gap taking [gapShare] of the whole: its true share
+/// while that is at most [maxGapShare], else exactly [maxGapShare] (the
+/// goal pulled in, the line kept readable). A goal at or under the band's
+/// top adds nothing. The plot then leaves a tenth of the band-and-gap free
+/// above and below (as it always did).
+@immutable
+class KuteTrendScale {
+  const KuteTrendScale._(this.lo, this.hi, this.gap, this.gapShare);
+
+  factory KuteTrendScale.fit(
+    Iterable<double> band, {
+    double? goal,
+    double maxGapShare = kKuteTrendGoalGapShare,
+  }) {
+    double? lo, hi;
+    for (final v in band) {
+      if (!v.isFinite) continue;
+      lo = lo == null ? v : math.min(lo, v);
+      hi = hi == null ? v : math.max(hi, v);
+    }
+    lo ??= 0;
+    hi ??= 0;
+    if (hi - lo < 1e-9) {
+      final pad = hi.abs() > 1e-9 ? hi.abs() * 0.1 : 1.0;
+      lo -= pad;
+      hi += pad;
+    }
+    var gap = 0.0, share = 0.0;
+    if (goal != null && goal.isFinite && goal > hi) {
+      gap = goal - hi;
+      share = math.min(gap / (gap + (hi - lo)), maxGapShare.clamp(0.0, 1.0));
+    }
+    return KuteTrendScale._(lo, hi, gap, share);
+  }
+
+  /// The band's floor and top.
+  final double lo, hi;
+
+  /// How far the goal stands over the band; 0 without one.
+  final double gap;
+
+  /// The gap's share of the whole; 0 without a gap.
+  final double gapShare;
+
+  /// The gap is drawn squeezed (see the file header).
+  bool get compressed => gap > 0 && gapShare < gap / (gap + (hi - lo)) - 1e-9;
+
+  /// 0 at the band's floor, 1 at the top of the band-and-gap.
+  double unit(double v) {
+    final span = hi - lo;
+    if (gap <= 0) return (v - lo) / span;
+    if (v <= hi) return (v - lo) / span * (1 - gapShare);
+    return (1 - gapShare) + (v - hi) / gap * gapShare;
+  }
+}
+
 /// The tint on each side of zero under a [KuteTrendChart.zeroSplit] line.
 const double kKuteZeroSplitAlpha = 0.08;
 
@@ -180,8 +258,9 @@ class KuteTrendChart extends StatefulWidget {
   /// Extra lines on the same scale ([KuteTrendLine]).
   final List<KuteTrendLine> lines;
 
-  /// A dashed goal line on the same scale ([KuteTrendGoal]); null draws
-  /// none.
+  /// A dashed goal line, always in the frame ([KuteTrendGoal],
+  /// [KuteTrendScale]: the gap to it squeezed to half the plot when it is
+  /// far), the gap under it tinted; null draws none.
   final KuteTrendGoal? goal;
 
   /// The line's colour; null takes the period's result
@@ -551,35 +630,18 @@ class _KuteTrendPainter extends CustomPainter {
     final n = values.length;
     if (n == 0 || size.width <= 0 || size.height <= 0) return;
     final plotW = size.width - _kRightInset;
-    // The scale: every value on screen and the start, a tenth free above
-    // and below, a flat line centred.
-    var lo = startValue, hi = startValue;
-    for (final v in values) {
-      if (v < lo) lo = v;
-      if (v > hi) hi = v;
-    }
-    for (final l in lines) {
-      for (final v in l.values) {
-        if (v < lo) lo = v;
-        if (v > hi) hi = v;
-      }
-    }
+    // The scale ([KuteTrendScale]): the band of every value on screen, the
+    // start and the extra lines, a flat band centred, and the gap up to a
+    // goal over it, to scale or squeezed to half; a tenth free above and
+    // below.
     final g = goal;
-    if (g != null && g.value.isFinite) {
-      if (g.value < lo) lo = g.value;
-      if (g.value > hi) hi = g.value;
-    }
-    if (hi - lo < 1e-9) {
-      final pad = hi.abs() > 1e-9 ? hi.abs() * 0.1 : 1.0;
-      lo -= pad;
-      hi += pad;
-    }
-    final span = hi - lo;
-    final pad = span * 0.1;
-    lo -= pad;
-    hi += pad;
+    final scale = KuteTrendScale.fit(
+      [startValue, ...values, for (final l in lines) ...l.values],
+      goal: g?.value,
+    );
     final top = 6.0, bottom = size.height - 6.0;
-    double yOf(double v) => bottom - (v - lo) / (hi - lo) * (bottom - top);
+    double yOf(double v) =>
+        bottom - (scale.unit(v) + 0.1) / 1.2 * (bottom - top);
     double xOf(int i, int count) =>
         count <= 1 ? plotW : i / (count - 1) * plotW;
 
@@ -665,6 +727,35 @@ class _KuteTrendPainter extends CustomPainter {
 
     final pts = [for (var i = 0; i < n; i++) Offset(xOf(i, n), yOf(values[i]))];
     final path = kuteMonotonePath(pts);
+
+    // The gap to the goal: the area between the line and the goal line,
+    // only where the line is still under it, tinted in the goal's colour
+    // fading down from the goal (the gap being closed), in with the draw.
+    if (g != null && g.value.isFinite && n >= 2) {
+      final yGoal = yOf(g.value);
+      var lowest = yGoal;
+      for (final p in pts) {
+        if (p.dy > lowest) lowest = p.dy;
+      }
+      if (lowest - yGoal > 1) {
+        final gapFill = Path.from(path)
+          ..lineTo(pts.last.dx, yGoal)
+          ..lineTo(pts.first.dx, yGoal)
+          ..close();
+        final shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            goalColor.withValues(alpha: kKuteTrendGoalGapAlpha * drawIn),
+            goalColor.withValues(alpha: 0.2 * kKuteTrendGoalGapAlpha * drawIn),
+          ],
+        ).createShader(Rect.fromLTWH(0, yGoal, size.width, lowest - yGoal));
+        canvas.save();
+        canvas.clipRect(Rect.fromLTWH(0, yGoal, size.width, size.height));
+        canvas.drawPath(gapFill, Paint()..shader = shader);
+        canvas.restore();
+      }
+    }
 
     // The split fill: between the line and zero, up above and down
     // below (zero off the plot: its edge), fading in with the draw.

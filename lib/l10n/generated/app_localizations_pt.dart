@@ -11734,6 +11734,22 @@ class AppLocalizationsPt extends AppLocalizations {
   String get balanceGoalsHeading => 'Metas';
 
   @override
+  String get balanceGoalsTab => 'Metas';
+
+  @override
+  String get balanceLadderTitle => 'Níveis';
+
+  @override
+  String balanceLadderFrom(String amount) {
+    return 'A partir de $amount';
+  }
+
+  @override
+  String balanceLadderUnder(String amount) {
+    return 'Abaixo de $amount';
+  }
+
+  @override
   String get balanceGoalNext => 'Próxima meta';
 
   @override

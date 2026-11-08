@@ -11772,6 +11772,22 @@ class AppLocalizationsEl extends AppLocalizations {
   String get balanceGoalsHeading => 'Στόχοι';
 
   @override
+  String get balanceGoalsTab => 'Στόχοι';
+
+  @override
+  String get balanceLadderTitle => 'Επίπεδα';
+
+  @override
+  String balanceLadderFrom(String amount) {
+    return 'Από $amount';
+  }
+
+  @override
+  String balanceLadderUnder(String amount) {
+    return 'Κάτω από $amount';
+  }
+
+  @override
   String get balanceGoalNext => 'Επόμενος στόχος';
 
   @override
