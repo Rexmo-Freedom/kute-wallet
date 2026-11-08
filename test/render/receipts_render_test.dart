@@ -1,7 +1,7 @@
 // A look by eye at the redesigned receipts, written only when asked:
 // R4_RECEIPTS_RENDER=<dir> flutter test test/render/receipts_render_test.dart
-// Six receipts (Lightning send, prediction sell, Investing reduce,
-// Dollars deposit done and pending, on-chain receive) and one activity
+// Seven receipts (Lightning send, prediction sell, won prediction, Investing
+// reduce, Dollars deposit done and pending, on-chain receive) and one activity
 // list (done, pending, in and out rows), light and dark, 390 x 844 at
 // 3x, with the real Inter face and the shell bar over the sheet.
 
@@ -120,6 +120,12 @@ void main() {
       await _assets(tester);
       await _shot(tester, 'receipt-prediction-sell-$mode',
           dark: dark, tx: receiptPredictionSell());
+    });
+    testWidgets('render: won prediction, $mode', skip: _dir == null,
+        (tester) async {
+      await _assets(tester);
+      await _shot(tester, 'receipt-prediction-won-$mode',
+          dark: dark, tx: receiptPredictionWon());
     });
     testWidgets('render: Investing reduce, $mode', skip: _dir == null,
         (tester) async {

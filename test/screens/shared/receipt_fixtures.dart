@@ -111,6 +111,54 @@ PolymarketTransaction receiptPredictionSell() => PolymarketTransaction(
       activity: _trade('SELL', usdc: 4.37, price: 0.35, at: _seconds),
     );
 
+const _wonCondition = '0xwon';
+
+/// 5 Down shares bought for $3.88, on a market of their own.
+PolymarketTransaction receiptPredictionWonBuy() => PolymarketTransaction(
+      id: 'pm-won-buy',
+      timestamp: receiptAt.subtract(const Duration(days: 1)),
+      activity: Activity(
+        proxyWallet: '0xme',
+        timestamp: _seconds - 86400,
+        conditionId: _wonCondition,
+        type: 'TRADE',
+        size: 5,
+        usdcSize: 3.88,
+        price: 0.776,
+        transactionHash: '0xwonbuy',
+        side: 'BUY',
+        asset: 'down-token',
+        outcomeIndex: 1,
+        title: receiptMarket,
+        outcome: 'Down',
+        eventSlug: '',
+      ),
+    );
+
+/// Those 5 Down shares paid out $5.00: won, $1.12 in profit. [title]: the
+/// market's name on the record.
+PolymarketTransaction receiptPredictionWon({String? title = receiptMarket}) =>
+    PolymarketTransaction(
+      id: 'pm-won',
+      timestamp: receiptAt,
+      activity: Activity(
+        proxyWallet: '0xme',
+        timestamp: _seconds,
+        conditionId: _wonCondition,
+        type: 'REDEEM',
+        size: 5,
+        usdcSize: 5,
+        price: null,
+        transactionHash: receiptPolygonHash,
+        side: null,
+        asset: 'down-token',
+        outcomeIndex: 1,
+        title: title,
+        outcome: 'Down',
+        eventSlug: '',
+      ),
+    );
+
 /// 0.5 OAI sold out of a 2 OAI long: Reduced OAI, a $0.03 loss.
 const receiptInvestingReduce = HlFill(
   coin: 'xyz:OAI',
@@ -220,7 +268,8 @@ List<Override> receiptOverrides() => [
               sparkUnclaimedDeposits: const [],
               polymarketTransactions: [
                 receiptPredictionBuy(),
-                receiptPredictionSell()
+                receiptPredictionSell(),
+                receiptPredictionWonBuy(),
               ],
             ),
           })),

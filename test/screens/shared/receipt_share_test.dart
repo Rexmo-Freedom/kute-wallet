@@ -6,7 +6,9 @@
 // preview with that receipt's own card: SENT / RECEIVED / ON ITS WAY for
 // bitcoin and dollars, MOVED, BOUGHT, I'M ON YES, CASHED OUT, NOT THIS
 // TIME, the won brag card, an Investing trade. A failed transaction shares
-// nothing. The card never carries a transaction id or an address.
+// nothing. The card never carries a transaction id or an address. A won
+// receipt has no "Brag about it" row (founder, 8 November 2026: a
+// duplicate of the share): the round button is its way to the brag card.
 
 import 'dart:io';
 
@@ -227,6 +229,12 @@ void main() {
     await settle(tester);
   }
 
+  /// The row a won receipt wore under its tiles until 8 November 2026.
+  void expectNoBragRow() {
+    expect(find.text('Brag about it'), findsNothing);
+    expect(find.text('A card with your result'), findsNothing);
+  }
+
   /// The receipt's primary and its round share button.
   KuteBarShare shareOf(WidgetTester tester, {String? primary}) {
     final ctx = kuteBarPrimaryContext(tester);
@@ -351,10 +359,55 @@ void main() {
             stakeUsd: 8,
             payoutUsd: 20));
     await settle(tester);
+    expectNoBragRow();
     shareOf(tester, primary: 'Done').open!();
     await settle(tester);
     expect(find.byKey(const ValueKey('brag-preview-card')), findsOneWidget);
     expect(find.text('CALLED IT'), findsOneWidget);
+  });
+
+  testWidgets(
+      'a won payout has no Brag about it row: the round button on the bar '
+      'opens the won brag card', (tester) async {
+    await open(tester, receiptPredictionWon(), bar: true);
+    expectNoBragRow();
+    expect(find.text('Won · Down'), findsOneWidget);
+    final pill = find.byKey(const ValueKey('kute-bar-primary'));
+    expect(
+        find.descendant(
+            of: pill, matching: find.text('View on the blockchain')),
+        findsOneWidget);
+    await tester.tap(find.descendant(
+        of: pill, matching: find.byKey(const ValueKey('kute-bar-share'))));
+    await settle(tester);
+    expect(find.byKey(const ValueKey('brag-preview-card')), findsOneWidget);
+    expect(find.text('Show off this win'), findsOneWidget);
+    expect(find.text('CALLED IT'), findsOneWidget);
+    expect(find.byKey(const ValueKey('share-card-preview')), findsNothing);
+  });
+
+  testWidgets(
+      'a win on a record with no market name still opens the won brag card, '
+      'from both receipts', (tester) async {
+    await open(tester, receiptPredictionWon(title: null));
+    expectNoBragRow();
+    shareOf(tester, primary: 'View on the blockchain').open!();
+    await settle(tester);
+    expect(find.byKey(const ValueKey('brag-preview-card')), findsOneWidget);
+
+    await pump(tester);
+    showPredictionResultDetails(
+        opener,
+        PredictionResult(
+            activity: receiptPredictionWon(title: null).activity,
+            won: true,
+            stakeUsd: 3.88,
+            payoutUsd: 5));
+    await settle(tester);
+    expectNoBragRow();
+    shareOf(tester).open!();
+    await settle(tester);
+    expect(find.byKey(const ValueKey('brag-preview-card')), findsOneWidget);
   });
 
   testWidgets('Investing fill: Done on a Ledger account\'s, the trade card',
