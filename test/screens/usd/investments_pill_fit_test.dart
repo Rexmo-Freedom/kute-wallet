@@ -32,6 +32,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart';
+import 'package:kute/screens/home/components/kute_shell_bar.dart'
+    show KuteBarPrimaryButton;
 import 'package:kute/screens/hyperliquid/components/hl_browse_labels.dart';
 import 'package:kute/screens/polymarket/components/poly_browse_bar.dart'
     show polyPillLabel;
@@ -297,6 +299,59 @@ void main() {
       'en: Finance · Prediction Markets',
       'en compact: Finance · Prediction Markets',
     });
+  });
+
+  testWidgets(
+      'the Portfolio\'s Positions | Profits | Activity at 320 pt in every '
+      'language, each pill picked: no pill cut, none shrunk past the least '
+      'scale, and the "Share profits" bar whole (founder, 8 November 2026)',
+      (tester) async {
+    await tester.runAsync(_loadInter);
+    tester.view.physicalSize = const Size(320, 700) * 3;
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    for (final locale in AppLocalizations.supportedLocales) {
+      final l10n = l10nForLanguage(locale.languageCode);
+      for (var selected = 0; selected < 3; selected++) {
+        // Activity picked reads See all with its arrow, as _SectionPills.
+        final items = [
+          KutePillItem(label: l10n.portfolioSectionBalances),
+          KutePillItem(label: l10n.portfolioSectionPnlCharts),
+          selected == 2
+              ? KutePillItem(
+                  label: l10n.seeAll, icon: Icons.arrow_forward_rounded)
+              : KutePillItem(label: l10n.activity),
+        ];
+        late BuildContext context;
+        await tester.pumpWidget(_app(
+            locale,
+            Center(
+              child: Builder(builder: (c) {
+                context = c;
+                return Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16.w),
+                  child: KutePillTabs(
+                    horizontalPadding: 0,
+                    items: items,
+                    selectedIndex: selected,
+                    onTap: (_) {},
+                  ),
+                );
+              }),
+            )));
+        await tester.pump(const Duration(seconds: 1));
+        for (final item in items) {
+          final why = '${locale.languageCode}, pill $selected';
+          expect(_checkWhole(tester, item.label, why),
+              greaterThanOrEqualTo(kutePillMinTextScale - 0.01),
+              reason: '$why: "${item.label}" shrank');
+        }
+        expect(
+            KuteBarPrimaryButton.widthFor(context, l10n.bragPnlBarLabel),
+            lessThanOrEqualTo(320 - 2 * 16.w),
+            reason: '${locale.languageCode}: "${l10n.bragPnlBarLabel}" is cut');
+      }
+    }
   });
 
   testWidgets('every switch row stands at one size on the same gutters',

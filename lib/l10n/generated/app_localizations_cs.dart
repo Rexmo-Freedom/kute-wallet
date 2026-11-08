@@ -6031,7 +6031,7 @@ class AppLocalizationsCs extends AppLocalizations {
   String get portfolioPerformanceUnavailable => 'Výkonnost nedostupná';
 
   @override
-  String get portfolioStatRealized => 'Realizovaný zisk / ztráta';
+  String get portfolioStatRealized => 'Realizované zisky';
 
   @override
   String get portfolioStatAmountPredicted => 'Částka v predikcích';
@@ -7967,7 +7967,7 @@ class AppLocalizationsCs extends AppLocalizations {
   String get tnNetProfit => 'Čistý zisk';
 
   @override
-  String get tnTradingPnl => 'Obchodní zisk a ztráta';
+  String get tnTradingPnl => 'Obchodní zisky';
 
   @override
   String get tnAllTradingFees => 'Všechny obchodní poplatky';
@@ -7983,7 +7983,7 @@ class AppLocalizationsCs extends AppLocalizations {
       'Otevření, částečná uzavření a konečné uzavření';
 
   @override
-  String get tnClosedPnlExchange => 'Uzavřený zisk a ztráta (burza)';
+  String get tnClosedPnlExchange => 'Uzavřené zisky (burza)';
 
   @override
   String get tnFillFee => 'Poplatek za vyplnění';
@@ -10671,10 +10671,10 @@ class AppLocalizationsCs extends AppLocalizations {
   String get bragPortfolioBarLabel => 'Sdílej portfolio';
 
   @override
-  String get bragPnlBarLabel => 'Sdílej P&L';
+  String get bragPnlBarLabel => 'Sdílej zisky';
 
   @override
-  String get bragMyPnl => 'Můj P&L';
+  String get bragMyPnl => 'Moje zisky';
 
   @override
   String bragShareText(String title, String link) {
@@ -10807,7 +10807,7 @@ class AppLocalizationsCs extends AppLocalizations {
   String get portfolioStatAtStake => 'Vložená částka';
 
   @override
-  String get portfolioProfitLoss => 'Zisk a ztráta';
+  String get portfolioProfitLoss => 'Zisky';
 
   @override
   String slipCtaAddTo(String side, String amount) {
@@ -11073,7 +11073,7 @@ class AppLocalizationsCs extends AppLocalizations {
       'Získejte adresu, na kterou pošlete dolary';
 
   @override
-  String get portfolioStatOpenPnl => 'Otevřený zisk / ztráta';
+  String get portfolioStatOpenPnl => 'Otevřené zisky';
 
   @override
   String stepUpReasonBetReady(String amount) {
@@ -11410,7 +11410,7 @@ class AppLocalizationsCs extends AppLocalizations {
       'Chceš-li je přesunout, kontaktuj podporu.';
 
   @override
-  String get portfolioSectionPnlCharts => 'P&L';
+  String get portfolioSectionPnlCharts => 'Zisky';
 
   @override
   String get portfolioSectionBalances => 'Pozice';
@@ -11499,8 +11499,7 @@ class AppLocalizationsCs extends AppLocalizations {
   String get chartNoChange => 'Beze změny';
 
   @override
-  String get pnlChartNoHistory =>
-      'Tvůj zisk a ztráta se zobrazí po první pozici.';
+  String get pnlChartNoHistory => 'Tvoje zisky se zobrazí po první pozici.';
 
   @override
   String get balanceChartNoHistory =>
@@ -11508,7 +11507,7 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get pnlChartEmpty =>
-      'Až začnete obchodovat nebo predikovat, uvidíte zde svůj zisk a ztrátu';
+      'Až začnete obchodovat nebo predikovat, uvidíte zde své zisky';
 
   @override
   String portfolioPositionsCount(int count) {
@@ -11740,7 +11739,7 @@ class AppLocalizationsCs extends AppLocalizations {
       'Bitcoin a dolary dohromady. Sal dělá, že o nic nejde.';
 
   @override
-  String get pnlNoHistoryTitle => 'Zatím žádný zisk a ztráta';
+  String get pnlNoHistoryTitle => 'Zatím žádné zisky';
 
   @override
   String get pnlByVenue => 'By venue';

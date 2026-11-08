@@ -6045,7 +6045,7 @@ class AppLocalizationsBg extends AppLocalizations {
   String get portfolioPerformanceUnavailable => 'Представянето не е достъпно';
 
   @override
-  String get portfolioStatRealized => 'Реализирана печалба / загуба';
+  String get portfolioStatRealized => 'Реализирани печалби';
 
   @override
   String get portfolioStatAmountPredicted => 'Сума в прогнози';
@@ -7984,7 +7984,7 @@ class AppLocalizationsBg extends AppLocalizations {
   String get tnNetProfit => 'Нетна печалба';
 
   @override
-  String get tnTradingPnl => 'Резултат от търговията';
+  String get tnTradingPnl => 'Печалби от търговията';
 
   @override
   String get tnAllTradingFees => 'Всички такси за търговия';
@@ -8000,7 +8000,7 @@ class AppLocalizationsBg extends AppLocalizations {
       'Отваряне, частични затваряния и окончателно затваряне';
 
   @override
-  String get tnClosedPnlExchange => 'Затворен резултат (платформа)';
+  String get tnClosedPnlExchange => 'Затворени печалби (платформа)';
 
   @override
   String get tnFillFee => 'Такса за изпълнение';
@@ -10696,10 +10696,10 @@ class AppLocalizationsBg extends AppLocalizations {
   String get bragPortfolioBarLabel => 'Сподели портфолиото';
 
   @override
-  String get bragPnlBarLabel => 'Сподели P&L';
+  String get bragPnlBarLabel => 'Сподели печалбите';
 
   @override
-  String get bragMyPnl => 'Моят P&L';
+  String get bragMyPnl => 'Моите печалби';
 
   @override
   String bragShareText(String title, String link) {
@@ -10832,7 +10832,7 @@ class AppLocalizationsBg extends AppLocalizations {
   String get portfolioStatAtStake => 'Заложена сума';
 
   @override
-  String get portfolioProfitLoss => 'Печалба и загуба';
+  String get portfolioProfitLoss => 'Печалби';
 
   @override
   String slipCtaAddTo(String side, String amount) {
@@ -11095,7 +11095,7 @@ class AppLocalizationsBg extends AppLocalizations {
       'Вземете адрес, на който да изпратите долари';
 
   @override
-  String get portfolioStatOpenPnl => 'Отворена печалба / загуба';
+  String get portfolioStatOpenPnl => 'Отворени печалби';
 
   @override
   String stepUpReasonBetReady(String amount) {
@@ -11432,7 +11432,7 @@ class AppLocalizationsBg extends AppLocalizations {
       'За да го преместиш, свържи се с поддръжката.';
 
   @override
-  String get portfolioSectionPnlCharts => 'P&L';
+  String get portfolioSectionPnlCharts => 'Печалби';
 
   @override
   String get portfolioSectionBalances => 'Позиции';
@@ -11522,7 +11522,7 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get pnlChartNoHistory =>
-      'Печалбата / загубата ти се показва след първата ти позиция.';
+      'Печалбите ти се показват след първата ти позиция.';
 
   @override
   String get balanceChartNoHistory =>
@@ -11530,7 +11530,7 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get pnlChartEmpty =>
-      'Печалбата и загубата ви ще се показват тук, щом търгувате или прогнозирате';
+      'Печалбите ви ще се показват тук, щом търгувате или прогнозирате';
 
   @override
   String portfolioPositionsCount(int count) {
@@ -11759,7 +11759,7 @@ class AppLocalizationsBg extends AppLocalizations {
       'Биткойн и долари заедно. Сал се прави, че не е нищо.';
 
   @override
-  String get pnlNoHistoryTitle => 'Още няма печалба / загуба';
+  String get pnlNoHistoryTitle => 'Още няма печалби';
 
   @override
   String get pnlByVenue => 'By venue';

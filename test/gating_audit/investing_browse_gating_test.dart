@@ -404,7 +404,7 @@ void main() {
 
       testWidgets(
           'hyperliquid.browse ${denial.name}, a position held: its square and '
-          'Open P&L stay, no empty state and no map', (tester) async {
+          'Open profits stay, no empty state and no map', (tester) async {
         final policy = auditDenying(const ['hyperliquid.browse'], denial);
         expect(await policy.refresh(), isTrue);
         await _pumpDollars(tester, policy, overrides: [

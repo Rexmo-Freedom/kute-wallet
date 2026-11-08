@@ -6032,7 +6032,7 @@ class AppLocalizationsSv extends AppLocalizations {
   String get portfolioPerformanceUnavailable => 'Utveckling saknas';
 
   @override
-  String get portfolioStatRealized => 'Realiserad vinst/förlust';
+  String get portfolioStatRealized => 'Realiserade vinster';
 
   @override
   String get portfolioStatAmountPredicted => 'Belopp i prognoser';
@@ -7965,7 +7965,7 @@ class AppLocalizationsSv extends AppLocalizations {
   String get tnNetProfit => 'Nettovinst';
 
   @override
-  String get tnTradingPnl => 'Resultat från affärer';
+  String get tnTradingPnl => 'Vinster från affärer';
 
   @override
   String get tnAllTradingFees => 'Allt courtage';
@@ -7981,7 +7981,7 @@ class AppLocalizationsSv extends AppLocalizations {
       'Öppning, delstängningar och slutlig stängning';
 
   @override
-  String get tnClosedPnlExchange => 'Stängt resultat (börs)';
+  String get tnClosedPnlExchange => 'Stängda vinster (börs)';
 
   @override
   String get tnFillFee => 'Fyllningsavgift';
@@ -10672,10 +10672,10 @@ class AppLocalizationsSv extends AppLocalizations {
   String get bragPortfolioBarLabel => 'Dela portföljen';
 
   @override
-  String get bragPnlBarLabel => 'Dela P&L';
+  String get bragPnlBarLabel => 'Dela vinster';
 
   @override
-  String get bragMyPnl => 'Mitt P&L';
+  String get bragMyPnl => 'Mina vinster';
 
   @override
   String bragShareText(String title, String link) {
@@ -10808,7 +10808,7 @@ class AppLocalizationsSv extends AppLocalizations {
   String get portfolioStatAtStake => 'Insatt belopp';
 
   @override
-  String get portfolioProfitLoss => 'Vinst och förlust';
+  String get portfolioProfitLoss => 'Vinster';
 
   @override
   String slipCtaAddTo(String side, String amount) {
@@ -11071,7 +11071,7 @@ class AppLocalizationsSv extends AppLocalizations {
       'Få en adress att skicka dollar till';
 
   @override
-  String get portfolioStatOpenPnl => 'Öppen vinst/förlust';
+  String get portfolioStatOpenPnl => 'Öppna vinster';
 
   @override
   String stepUpReasonBetReady(String amount) {
@@ -11408,7 +11408,7 @@ class AppLocalizationsSv extends AppLocalizations {
       'Kontakta supporten för att flytta dem.';
 
   @override
-  String get portfolioSectionPnlCharts => 'P&L';
+  String get portfolioSectionPnlCharts => 'Vinster';
 
   @override
   String get portfolioSectionBalances => 'Positioner';
@@ -11499,7 +11499,7 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get pnlChartNoHistory =>
-      'Ditt resultat visas efter din första position.';
+      'Dina vinster visas efter din första position.';
 
   @override
   String get balanceChartNoHistory =>
@@ -11507,7 +11507,7 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get pnlChartEmpty =>
-      'Din vinst och förlust visas här när du handlar eller förutsäger';
+      'Dina vinster visas här när du handlar eller förutsäger';
 
   @override
   String portfolioPositionsCount(int count) {
@@ -11736,7 +11736,7 @@ class AppLocalizationsSv extends AppLocalizations {
       'Bitcoin och dollar tillsammans. Sal låtsas att det inte är något.';
 
   @override
-  String get pnlNoHistoryTitle => 'Inget resultat än';
+  String get pnlNoHistoryTitle => 'Inga vinster än';
 
   @override
   String get pnlByVenue => 'By venue';

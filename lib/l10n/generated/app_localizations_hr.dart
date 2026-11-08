@@ -6049,7 +6049,7 @@ class AppLocalizationsHr extends AppLocalizations {
   String get portfolioPerformanceUnavailable => 'Uspješnost nije dostupna';
 
   @override
-  String get portfolioStatRealized => 'Ostvarena dobit / gubitak';
+  String get portfolioStatRealized => 'Ostvarena dobit';
 
   @override
   String get portfolioStatAmountPredicted => 'Iznos u predviđanjima';
@@ -7988,7 +7988,7 @@ class AppLocalizationsHr extends AppLocalizations {
   String get tnNetProfit => 'Neto dobit';
 
   @override
-  String get tnTradingPnl => 'Dobit/gubitak transakcija';
+  String get tnTradingPnl => 'Dobit od transakcija';
 
   @override
   String get tnAllTradingFees => 'Sve naknade transakcija';
@@ -8004,7 +8004,7 @@ class AppLocalizationsHr extends AppLocalizations {
       'Otvaranje, djelomična zatvaranja i konačno zatvaranje';
 
   @override
-  String get tnClosedPnlExchange => 'Zatvorena dobit/gubitak (burza)';
+  String get tnClosedPnlExchange => 'Zatvorena dobit (burza)';
 
   @override
   String get tnFillFee => 'Naknada izvršenja';
@@ -10699,10 +10699,10 @@ class AppLocalizationsHr extends AppLocalizations {
   String get bragPortfolioBarLabel => 'Podijeli portfelj';
 
   @override
-  String get bragPnlBarLabel => 'Podijeli P&L';
+  String get bragPnlBarLabel => 'Podijeli dobit';
 
   @override
-  String get bragMyPnl => 'Moj P&L';
+  String get bragMyPnl => 'Moja dobit';
 
   @override
   String bragShareText(String title, String link) {
@@ -10835,7 +10835,7 @@ class AppLocalizationsHr extends AppLocalizations {
   String get portfolioStatAtStake => 'Uloženi iznos';
 
   @override
-  String get portfolioProfitLoss => 'Dobit i gubitak';
+  String get portfolioProfitLoss => 'Dobit';
 
   @override
   String slipCtaAddTo(String side, String amount) {
@@ -11098,7 +11098,7 @@ class AppLocalizationsHr extends AppLocalizations {
       'Dobijte adresu na koju šaljete dolare';
 
   @override
-  String get portfolioStatOpenPnl => 'Otvorena dobit / gubitak';
+  String get portfolioStatOpenPnl => 'Otvorena dobit';
 
   @override
   String stepUpReasonBetReady(String amount) {
@@ -11435,7 +11435,7 @@ class AppLocalizationsHr extends AppLocalizations {
   String get cctpRefundContactSupport => 'Da ga premjestiš, javi se podršci.';
 
   @override
-  String get portfolioSectionPnlCharts => 'P&L';
+  String get portfolioSectionPnlCharts => 'Dobit';
 
   @override
   String get portfolioSectionBalances => 'Pozicije';
@@ -11529,7 +11529,7 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get pnlChartNoHistory =>
-      'Tvoja dobit/gubitak prikazuje se nakon prve pozicije.';
+      'Tvoja dobit prikazuje se nakon prve pozicije.';
 
   @override
   String get balanceChartNoHistory =>
@@ -11537,7 +11537,7 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get pnlChartEmpty =>
-      'Vaš dobit i gubitak prikazat će se ovdje kad počnete trgovati ili predviđati';
+      'Vaša dobit prikazat će se ovdje kad počnete trgovati ili predviđati';
 
   @override
   String portfolioPositionsCount(int count) {
@@ -11768,7 +11768,7 @@ class AppLocalizationsHr extends AppLocalizations {
       'Bitcoin i dolari zajedno. Sal se pravi da nije ništa.';
 
   @override
-  String get pnlNoHistoryTitle => 'Još nema dobiti/gubitka';
+  String get pnlNoHistoryTitle => 'Još nema dobiti';
 
   @override
   String get pnlByVenue => 'By venue';

@@ -383,7 +383,7 @@ void main() {
       final stats = at('statistics-pnl-stats');
       final byVenue = at('statistics-pnl-by-venue');
       final lines = at('lines');
-      expect(find.text('Profit and loss'), findsOneWidget);
+      expect(find.text('Profits'), findsOneWidget);
       expect(find.text('By venue'), findsOneWidget);
       final captionStyle = tester
           .widget<Text>(find.byKey(const ValueKey('statistics-pnl-caption')))
@@ -426,7 +426,7 @@ void main() {
       final touch = await scrub(tester, plotRect.centerRight.translate(-8, 0));
       expect(headline(tester), '−\$36.38');
       expect(header(tester), contains('Oct 25'));
-      expect(find.text('Profit and loss'), findsOneWidget);
+      expect(find.text('Profits'), findsOneWidget);
       await touch.moveTo(plotRect.centerLeft.translate(2, 0));
       await tester.pump(const Duration(milliseconds: 150));
       // The range's start: nothing made or lost since.
@@ -586,7 +586,7 @@ void main() {
     });
 
     testWidgets(
-        'nothing traded: Sal with "No P&L yet" and the caption, no chart, '
+        'nothing traded: Sal with "No profits yet" and the caption, no chart, '
         'no range row, no headline', (tester) async {
       // Founder, 31 October 2026: no history shows Sal, the same empty
       // state as Activity, instead of a headline over an empty plot.
@@ -597,19 +597,19 @@ void main() {
         await pump(tester, data);
         final sal = find.byKey(const ValueKey('statistics-pnl-no-history'));
         expect(sal, findsOneWidget);
-        expect(find.descendant(of: sal, matching: find.text('No P&L yet')),
+        expect(find.descendant(of: sal, matching: find.text('No profits yet')),
             findsOneWidget);
         expect(
             find.descendant(
                 of: sal,
                 matching: find
-                    .text('Your P&L shows up after your first position.')),
+                    .text('Your profits show up after your first position.')),
             findsOneWidget);
         expect(find.byKey(const ValueKey('statistics-pnl-empty')),
             findsNothing);
         expect(find.byKey(const ValueKey('statistics-pnl-headline')),
             findsNothing);
-        expect(find.text('Profit and loss'), findsNothing);
+        expect(find.text('Profits'), findsNothing);
         expect(plot(), findsNothing);
         expect(find.byType(KuteChartRangeRow), findsNothing);
         expect(find.byKey(const ValueKey('statistics-pnl-header')),

@@ -139,13 +139,13 @@ void main() {
         tester,
         const KuteTrendChart(
           values: [],
-          emptyCaption: 'Your P&L shows up after your first position.',
+          emptyCaption: 'Your profits show up after your first position.',
           rangeLabels: ['1W', '1M'],
           onScrub: null,
         ));
     final caption =
         tester.widget<Text>(find.byKey(const ValueKey('trend-chart-empty')));
-    expect(caption.data, 'Your P&L shows up after your first position.');
+    expect(caption.data, 'Your profits show up after your first position.');
     expect(caption.style!.fontSize, closeTo(12 * 400 / 430, 0.1));
     expect(caption.style!.color, AppColorsExtension.light().textSecondary);
     expect(plot(), findsNothing);

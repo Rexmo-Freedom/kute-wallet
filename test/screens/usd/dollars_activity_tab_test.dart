@@ -216,8 +216,8 @@ void main() {
     expect(tester.getTopLeft(pnl).dy, greaterThan(tester.getBottomLeft(squares).dy));
     expect(
         tester.widget<Text>(find.byKey(const ValueKey('dollars-pnl-label'))).data,
-        'Open P&L');
-    expect(find.text('Profit and loss'), findsNothing);
+        'Open profits');
+    expect(find.text('Profits'), findsNothing);
     expect(find.byKey(const ValueKey('dollars-pnl-chart')), findsNothing);
     expect(find.byKey(const ValueKey('dollars-activity-empty')), findsNothing);
 
@@ -335,7 +335,7 @@ void main() {
   });
 
   testWidgets(
-      'Open P&L under the squares (founder, 6 November 2026): what the '
+      'Open profits under the squares (founder, 6 November 2026): what the '
       'positions open now are winning, over the Positions chart\'s own line '
       'since each was opened, its last point that figure, the dashed line '
       'at zero; a tap opens the Portfolio on Positions', (tester) async {
@@ -402,7 +402,7 @@ void main() {
     expect(strip, findsOneWidget);
     expect(
         tester.widget<Text>(find.byKey(const ValueKey('dollars-pnl-label'))).data,
-        'Open P&L');
+        'Open profits');
     expect(
         tester
             .widget<RollingNumberText>(

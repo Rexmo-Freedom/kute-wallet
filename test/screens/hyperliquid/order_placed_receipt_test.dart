@@ -107,7 +107,7 @@ void main() {
       // Done closes; View positions is the one quiet button.
       expect(find.text('Done'), findsOneWidget);
       expect(find.text('View positions'), findsOneWidget);
-      expect(find.text('Realized P&L'), findsNothing);
+      expect(find.text('Realized profits'), findsNothing);
     });
 
     testWidgets('a reduce says what is left of the long and what it realised',
@@ -121,7 +121,7 @@ void main() {
       // An exit is valued as the total it closed, as the hero.
       expect(find.text(r'$3,000.00'), findsOneWidget);
       expect(find.text('Position size'), findsNothing);
-      expect(find.text('Realized P&L'), findsOneWidget);
+      expect(find.text('Realized profits'), findsOneWidget);
       expect(find.text(r'+$12.50'), findsOneWidget);
     });
 
@@ -131,7 +131,7 @@ void main() {
       expect(plan!.effect, HlPositionEffect.close);
       await pumpReceipt(tester, sizeFilled: 0.1, plan: plan, realizedPnl: -3.2);
       expect(find.text('Closed long'), findsOneWidget);
-      expect(find.text('Realized P&L'), findsOneWidget);
+      expect(find.text('Realized profits'), findsOneWidget);
       expect(find.text(r'−$3.20'), findsOneWidget);
     });
 
@@ -142,7 +142,7 @@ void main() {
       expect(find.text('Closed short'), findsOneWidget);
       expect(find.text(r'Long $6,000.00'), findsNothing);
       // No fills in hand: no realised line rather than a guess.
-      expect(find.text('Realized P&L'), findsNothing);
+      expect(find.text('Realized profits'), findsNothing);
     });
 
     testWidgets('a flip names the new side and its size', (tester) async {
@@ -161,7 +161,7 @@ void main() {
       await pumpReceipt(tester, isLong: true, plan: plan, realizedPnl: 1);
       expect(find.text('Added to long'), findsOneWidget);
       expect(find.text('Position size'), findsOneWidget);
-      expect(find.text('Realized P&L'), findsNothing);
+      expect(find.text('Realized profits'), findsNothing);
     });
 
     testWidgets('spot keeps Bought / Sold', (tester) async {

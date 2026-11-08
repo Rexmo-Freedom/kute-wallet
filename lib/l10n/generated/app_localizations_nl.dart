@@ -6057,7 +6057,7 @@ class AppLocalizationsNl extends AppLocalizations {
   String get portfolioPerformanceUnavailable => 'Rendement niet beschikbaar';
 
   @override
-  String get portfolioStatRealized => 'Gerealiseerde winst / verlies';
+  String get portfolioStatRealized => 'Gerealiseerde winst';
 
   @override
   String get portfolioStatAmountPredicted => 'Bedrag in voorspellingen';
@@ -7998,7 +7998,7 @@ class AppLocalizationsNl extends AppLocalizations {
   String get tnNetProfit => 'Nettowinst';
 
   @override
-  String get tnTradingPnl => 'Winst/verlies orders';
+  String get tnTradingPnl => 'Winst uit orders';
 
   @override
   String get tnAllTradingFees => 'Alle orderkosten';
@@ -8014,7 +8014,7 @@ class AppLocalizationsNl extends AppLocalizations {
       'Openen, gedeeltelijke sluitingen en eindsluiting';
 
   @override
-  String get tnClosedPnlExchange => 'Gesloten winst/verlies (platform)';
+  String get tnClosedPnlExchange => 'Gesloten winst (platform)';
 
   @override
   String get tnFillFee => 'Uitvoeringskosten';
@@ -10714,10 +10714,10 @@ class AppLocalizationsNl extends AppLocalizations {
   String get bragPortfolioBarLabel => 'Portfolio delen';
 
   @override
-  String get bragPnlBarLabel => 'W&V delen';
+  String get bragPnlBarLabel => 'Winst delen';
 
   @override
-  String get bragMyPnl => 'Mijn W&V';
+  String get bragMyPnl => 'Mijn winst';
 
   @override
   String bragShareText(String title, String link) {
@@ -10849,7 +10849,7 @@ class AppLocalizationsNl extends AppLocalizations {
   String get portfolioStatAtStake => 'Ingezet bedrag';
 
   @override
-  String get portfolioProfitLoss => 'Winst en verlies';
+  String get portfolioProfitLoss => 'Winst';
 
   @override
   String slipCtaAddTo(String side, String amount) {
@@ -11112,7 +11112,7 @@ class AppLocalizationsNl extends AppLocalizations {
       'Krijg een adres om dollars naartoe te sturen';
 
   @override
-  String get portfolioStatOpenPnl => 'Open winst / verlies';
+  String get portfolioStatOpenPnl => 'Open winst';
 
   @override
   String stepUpReasonBetReady(String amount) {
@@ -11450,7 +11450,7 @@ class AppLocalizationsNl extends AppLocalizations {
       'Neem contact op met support om het te verplaatsen.';
 
   @override
-  String get portfolioSectionPnlCharts => 'W&V';
+  String get portfolioSectionPnlCharts => 'Winst';
 
   @override
   String get portfolioSectionBalances => 'Posities';
@@ -11540,8 +11540,7 @@ class AppLocalizationsNl extends AppLocalizations {
   String get chartNoChange => 'Geen verandering';
 
   @override
-  String get pnlChartNoHistory =>
-      'Je winst/verlies verschijnt na je eerste positie.';
+  String get pnlChartNoHistory => 'Je winst verschijnt na je eerste positie.';
 
   @override
   String get balanceChartNoHistory =>
@@ -11549,7 +11548,7 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get pnlChartEmpty =>
-      'Je winst en verlies verschijnt hier zodra je handelt of voorspelt';
+      'Je winst verschijnt hier zodra je handelt of voorspelt';
 
   @override
   String portfolioPositionsCount(int count) {
@@ -11778,7 +11777,7 @@ class AppLocalizationsNl extends AppLocalizations {
       'Bitcoin en dollars samen. Sal doet alsof het niks is.';
 
   @override
-  String get pnlNoHistoryTitle => 'Nog geen winst/verlies';
+  String get pnlNoHistoryTitle => 'Nog geen winst';
 
   @override
   String get pnlByVenue => 'By venue';

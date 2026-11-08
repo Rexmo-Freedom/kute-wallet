@@ -328,7 +328,7 @@ Future<void> _expectEveryReceipt(WidgetTester tester) async {
   expect(_sheet(find.text(r'−$4.00')), findsWidgets);
   expect(_tile(tester, 'Cost'), r'$4.00');
   expect(_tile(tester, 'Payout'), r'$0.00');
-  expect(_tile(tester, 'Realized P&L'), r'−$4.00');
+  expect(_tile(tester, 'Realized profits'), r'−$4.00');
   await _close(tester);
 
   // Sold: the sale's receipt.
@@ -609,7 +609,7 @@ void main() {
     expect(_sheet(find.text('Lost · Down')), findsOneWidget);
     expect(_sheet(find.text(r'−$2.00')), findsWidgets, reason: 'the stake lost');
     expect(_sheet(find.text(r'$1.50 loss')), findsOneWidget);
-    expect(_tile(tester, 'Realized P&L'), r'−$1.50');
+    expect(_tile(tester, 'Realized profits'), r'−$1.50');
     expect(_sheet(find.byKey(const ValueKey('receipt-tile-Cost'))), findsNothing);
   });
 }

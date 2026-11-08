@@ -660,7 +660,7 @@ void main() {
       // No day cards and no Today tiles on the home.
       expect(find.byType(ActivityDaySection), findsNothing);
       expect(find.byKey(const ValueKey('activity-today-in')), findsNothing);
-      expect(find.text('P&L'), findsNothing);
+      expect(find.text('Profits'), findsNothing);
       expect(tester.takeException(), isNull);
     });
 

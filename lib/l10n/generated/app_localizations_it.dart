@@ -6053,7 +6053,7 @@ class AppLocalizationsIt extends AppLocalizations {
   String get portfolioPerformanceUnavailable => 'Rendimento non disponibile';
 
   @override
-  String get portfolioStatRealized => 'Profitto / perdita realizzato';
+  String get portfolioStatRealized => 'Profitti realizzati';
 
   @override
   String get portfolioStatAmountPredicted => 'Importo delle previsioni';
@@ -8003,7 +8003,7 @@ class AppLocalizationsIt extends AppLocalizations {
   String get tnNetProfit => 'Profitto netto';
 
   @override
-  String get tnTradingPnl => 'P&L delle operazioni';
+  String get tnTradingPnl => 'Profitti delle operazioni';
 
   @override
   String get tnAllTradingFees => 'Tutte le commissioni di negoziazione';
@@ -8019,7 +8019,7 @@ class AppLocalizationsIt extends AppLocalizations {
       'Apertura, chiusure parziali e chiusura finale';
 
   @override
-  String get tnClosedPnlExchange => 'P&L chiuso (piattaforma)';
+  String get tnClosedPnlExchange => 'Profitti chiusi (piattaforma)';
 
   @override
   String get tnFillFee => 'Commissione di esecuzione';
@@ -10722,10 +10722,10 @@ class AppLocalizationsIt extends AppLocalizations {
   String get bragPortfolioBarLabel => 'Condividi il portafoglio';
 
   @override
-  String get bragPnlBarLabel => 'Condividi il P&L';
+  String get bragPnlBarLabel => 'Condividi i profitti';
 
   @override
-  String get bragMyPnl => 'Il mio P&L';
+  String get bragMyPnl => 'I miei profitti';
 
   @override
   String bragShareText(String title, String link) {
@@ -10858,7 +10858,7 @@ class AppLocalizationsIt extends AppLocalizations {
   String get portfolioStatAtStake => 'Importo in gioco';
 
   @override
-  String get portfolioProfitLoss => 'Profitti e perdite';
+  String get portfolioProfitLoss => 'Profitti';
 
   @override
   String slipCtaAddTo(String side, String amount) {
@@ -11121,7 +11121,7 @@ class AppLocalizationsIt extends AppLocalizations {
       'Ottieni un indirizzo a cui inviare dollari';
 
   @override
-  String get portfolioStatOpenPnl => 'Profitto / perdita aperto';
+  String get portfolioStatOpenPnl => 'Profitti aperti';
 
   @override
   String stepUpReasonBetReady(String amount) {
@@ -11457,7 +11457,7 @@ class AppLocalizationsIt extends AppLocalizations {
   String get cctpRefundContactSupport => 'Per spostarlo, contatta il supporto.';
 
   @override
-  String get portfolioSectionPnlCharts => 'P&L';
+  String get portfolioSectionPnlCharts => 'Profitti';
 
   @override
   String get portfolioSectionBalances => 'Posizioni';
@@ -11549,7 +11549,7 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get pnlChartNoHistory =>
-      'Il tuo P&L compare dopo la tua prima posizione.';
+      'I tuoi profitti compaiono dopo la tua prima posizione.';
 
   @override
   String get balanceChartNoHistory =>
@@ -11557,7 +11557,7 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get pnlChartEmpty =>
-      'I tuoi profitti e perdite appariranno qui quando farai trading o previsioni';
+      'I tuoi profitti appariranno qui quando farai trading o previsioni';
 
   @override
   String portfolioPositionsCount(int count) {
@@ -11786,7 +11786,7 @@ class AppLocalizationsIt extends AppLocalizations {
       'Bitcoin e dollari insieme. Sal fa finta di niente.';
 
   @override
-  String get pnlNoHistoryTitle => 'Ancora nessun P&L';
+  String get pnlNoHistoryTitle => 'Ancora nessun profitto';
 
   @override
   String get pnlByVenue => 'By venue';

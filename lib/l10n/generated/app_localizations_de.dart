@@ -6083,7 +6083,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get portfolioPerformanceUnavailable => 'Performance nicht verfügbar';
 
   @override
-  String get portfolioStatRealized => 'Realisierter Gewinn / Verlust';
+  String get portfolioStatRealized => 'Realisierte Gewinne';
 
   @override
   String get portfolioStatAmountPredicted => 'Betrag in Prognosen';
@@ -8032,7 +8032,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get tnNetProfit => 'Nettogewinn';
 
   @override
-  String get tnTradingPnl => 'Handels-G&V';
+  String get tnTradingPnl => 'Handelsgewinne';
 
   @override
   String get tnAllTradingFees => 'Alle Handelsgebühren';
@@ -8048,7 +8048,7 @@ class AppLocalizationsDe extends AppLocalizations {
       'Eröffnung, Teilschließungen und Schlussschließung';
 
   @override
-  String get tnClosedPnlExchange => 'Realisierte G&V (Börse)';
+  String get tnClosedPnlExchange => 'Realisierte Gewinne (Börse)';
 
   @override
   String get tnFillFee => 'Ausführungsgebühr';
@@ -10756,10 +10756,10 @@ class AppLocalizationsDe extends AppLocalizations {
   String get bragPortfolioBarLabel => 'Portfolio teilen';
 
   @override
-  String get bragPnlBarLabel => 'GuV teilen';
+  String get bragPnlBarLabel => 'Gewinne teilen';
 
   @override
-  String get bragMyPnl => 'Meine GuV';
+  String get bragMyPnl => 'Meine Gewinne';
 
   @override
   String bragShareText(String title, String link) {
@@ -10892,7 +10892,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get portfolioStatAtStake => 'Eingesetzter Betrag';
 
   @override
-  String get portfolioProfitLoss => 'Gewinn und Verlust';
+  String get portfolioProfitLoss => 'Gewinne';
 
   @override
   String slipCtaAddTo(String side, String amount) {
@@ -11155,7 +11155,7 @@ class AppLocalizationsDe extends AppLocalizations {
       'Erhalte eine Adresse, an die du Dollar sendest';
 
   @override
-  String get portfolioStatOpenPnl => 'Offener Gewinn / Verlust';
+  String get portfolioStatOpenPnl => 'Offene Gewinne';
 
   @override
   String stepUpReasonBetReady(String amount) {
@@ -11494,7 +11494,7 @@ class AppLocalizationsDe extends AppLocalizations {
       'Um es zu bewegen, kontaktiere den Support.';
 
   @override
-  String get portfolioSectionPnlCharts => 'GuV';
+  String get portfolioSectionPnlCharts => 'Gewinne';
 
   @override
   String get portfolioSectionBalances => 'Positionen';
@@ -11586,7 +11586,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get pnlChartNoHistory =>
-      'Dein Gewinn / Verlust erscheint nach deiner ersten Position.';
+      'Deine Gewinne erscheinen nach deiner ersten Position.';
 
   @override
   String get balanceChartNoHistory =>
@@ -11594,7 +11594,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get pnlChartEmpty =>
-      'Sobald du investierst oder eine Prognose abgibst, siehst du hier deinen Gewinn und Verlust';
+      'Sobald du investierst oder eine Prognose abgibst, siehst du hier deine Gewinne';
 
   @override
   String portfolioPositionsCount(int count) {
@@ -11823,7 +11823,7 @@ class AppLocalizationsDe extends AppLocalizations {
       'Bitcoin und Dollar zusammen. Sal tut so, als wäre nichts.';
 
   @override
-  String get pnlNoHistoryTitle => 'Noch kein Gewinn / Verlust';
+  String get pnlNoHistoryTitle => 'Noch keine Gewinne';
 
   @override
   String get pnlByVenue => 'By venue';

@@ -6016,7 +6016,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get portfolioPerformanceUnavailable => 'Performance unavailable';
 
   @override
-  String get portfolioStatRealized => 'Realized P&L';
+  String get portfolioStatRealized => 'Realized profits';
 
   @override
   String get portfolioStatAmountPredicted => 'Amount predicted';
@@ -7936,7 +7936,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tnNetProfit => 'Net profit';
 
   @override
-  String get tnTradingPnl => 'Trading P&L';
+  String get tnTradingPnl => 'Trading profits';
 
   @override
   String get tnAllTradingFees => 'All trading fees';
@@ -7951,7 +7951,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tnIncludesAllCloses => 'Opening, partial closes and final close';
 
   @override
-  String get tnClosedPnlExchange => 'Closed P&L (exchange)';
+  String get tnClosedPnlExchange => 'Closed profits (exchange)';
 
   @override
   String get tnFillFee => 'Fill fee';
@@ -10635,10 +10635,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get bragPortfolioBarLabel => 'Share portfolio';
 
   @override
-  String get bragPnlBarLabel => 'Share P&L';
+  String get bragPnlBarLabel => 'Share profits';
 
   @override
-  String get bragMyPnl => 'My P&L';
+  String get bragMyPnl => 'My profits';
 
   @override
   String bragShareText(String title, String link) {
@@ -10771,7 +10771,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get portfolioStatAtStake => 'Amount at stake';
 
   @override
-  String get portfolioProfitLoss => 'Profit and loss';
+  String get portfolioProfitLoss => 'Profits';
 
   @override
   String slipCtaAddTo(String side, String amount) {
@@ -11034,7 +11034,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Get an address to send dollars to';
 
   @override
-  String get portfolioStatOpenPnl => 'Open P&L';
+  String get portfolioStatOpenPnl => 'Open profits';
 
   @override
   String stepUpReasonBetReady(String amount) {
@@ -11370,7 +11370,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cctpRefundContactSupport => 'To move it, contact Support.';
 
   @override
-  String get portfolioSectionPnlCharts => 'P&L';
+  String get portfolioSectionPnlCharts => 'Profits';
 
   @override
   String get portfolioSectionBalances => 'Positions';
@@ -11460,7 +11460,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get pnlChartNoHistory =>
-      'Your P&L shows up after your first position.';
+      'Your profits show up after your first position.';
 
   @override
   String get balanceChartNoHistory =>
@@ -11468,7 +11468,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get pnlChartEmpty =>
-      'Your profit and loss shows here once you trade or predict';
+      'Your profits show here once you trade or predict';
 
   @override
   String portfolioPositionsCount(int count) {
@@ -11697,7 +11697,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Bitcoin and Dollars together. Sal is acting like it\'s nothing.';
 
   @override
-  String get pnlNoHistoryTitle => 'No P&L yet';
+  String get pnlNoHistoryTitle => 'No profits yet';
 
   @override
   String get pnlByVenue => 'By venue';
