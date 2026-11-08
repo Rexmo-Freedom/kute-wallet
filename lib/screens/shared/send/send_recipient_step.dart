@@ -7,7 +7,7 @@
 //   * the field at the top is THE AI SEARCH BAR (founder, 8 November 2026:
 //     "the search bar should be like the ai search bar"; search_composer.
 //     dart): Sal with the magnifier, the plain text ("Name, phone or any
-//     crypto address") and the hairline, Paste and Scan at its right
+//     crypto address") and the hairline, Paste at its right
 //     ([SendRecipientSearchField]);
 //   * THE COINS IT TAKES, right under the empty field ("make it clear with
 //     the icons ... so that users know they can input something that is
@@ -15,6 +15,12 @@
 //     the coins this send can really reach under the policy, "+N" for the
 //     rest; gone once the person types ([SendAcceptedCoins]). Not tappable:
 //     it says what the field takes;
+//   * SCAN QR CODE, right under them (founder, 8 November 2026, with Scan
+//     leaving the Bitcoin home: "make in send more clear the qr code
+//     scanner"): one labelled row in the contacts' soft card, the QR glyph
+//     as its mark, and the one place Send scans from ([SendScanQrRow]). It
+//     hides with the logos once the person types, so the results stay high:
+//     to scan after typing, the field's clear brings it back;
 //   * ANOTHER CRYPTO IS IMPLIED, NOT A BUTTON (founder, 7 November 2026:
 //     "another crypto should be implied not a button, we don't need it, it
 //     should just auto recognise"): no card under the field, the
@@ -116,9 +122,10 @@ class SendStepTitle extends StatelessWidget {
 }
 
 /// The recipient field: the AI search bar's own line ([KuteSearchComposer]),
-/// Sal with the magnifier at the left and the hairline under it, with two
-/// 32 px buttons at the right (Paste and Scan while empty, a clear once
-/// there is text). A tap anywhere on the line focuses it.
+/// Sal with the magnifier at the left and the hairline under it, with one
+/// 32 px button at the right (Paste while empty, a clear once there is
+/// text). A tap anywhere on the line focuses it. Scan is its own row under
+/// the field ([SendScanQrRow]).
 class SendRecipientSearchField extends StatefulWidget {
   const SendRecipientSearchField({
     super.key,
@@ -126,7 +133,6 @@ class SendRecipientSearchField extends StatefulWidget {
     required this.hintText,
     required this.onChanged,
     required this.onPaste,
-    required this.onScan,
     this.onSubmitted,
     this.autofocus = false,
   });
@@ -135,7 +141,6 @@ class SendRecipientSearchField extends StatefulWidget {
   final String hintText;
   final ValueChanged<String> onChanged;
   final VoidCallback onPaste;
-  final VoidCallback onScan;
 
   /// The keyboard's Done on what was typed: the send goes on as after a
   /// paste (see the file header).
@@ -175,24 +180,11 @@ class _SendRecipientSearchFieldState extends State<SendRecipientSearchField> {
           duration:
               reduceMotion ? Duration.zero : const Duration(milliseconds: 180),
           child: empty
-              ? Row(
-                  key: const ValueKey('send-field-empty'),
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SendSearchFieldButton(
-                      key: const ValueKey('send-field-paste'),
-                      icon: Icons.content_paste_rounded,
-                      tooltip: context.l10n.paste,
-                      onTap: widget.onPaste,
-                    ),
-                    SizedBox(width: 4.w),
-                    SendSearchFieldButton(
-                      key: const ValueKey('send-field-scan'),
-                      icon: Icons.qr_code_scanner_rounded,
-                      tooltip: context.l10n.scan,
-                      onTap: widget.onScan,
-                    ),
-                  ],
+              ? SendSearchFieldButton(
+                  key: const ValueKey('send-field-paste'),
+                  icon: Icons.content_paste_rounded,
+                  tooltip: context.l10n.paste,
+                  onTap: widget.onPaste,
                 )
               : SendSearchFieldButton(
                   key: const ValueKey('send-field-clear'),
@@ -433,6 +425,36 @@ class SendAcceptedCoins extends ConsumerWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// "Scan QR Code" under the empty field (see the file header): one tall row
+/// in the contacts' soft card, the QR glyph as its mark. [onScan] is the
+/// send's own scan: the scanner sheet, its result on the field.
+class SendScanQrRow extends StatelessWidget {
+  const SendScanQrRow({super.key, required this.onScan});
+
+  final VoidCallback onScan;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Padding(
+      padding: EdgeInsets.only(top: 12.h),
+      child: SendToListCard(
+        colors: c,
+        rows: [
+          SendToListRow(
+            key: const ValueKey('send-field-scan'),
+            colors: c,
+            leading: Icon(Icons.qr_code_scanner_rounded,
+                color: c.textPrimary, size: 26.sp),
+            title: context.l10n.scanQrCode,
+            onTap: onScan,
+          ),
+        ],
       ),
     );
   }

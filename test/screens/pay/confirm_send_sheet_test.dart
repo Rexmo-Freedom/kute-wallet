@@ -133,6 +133,7 @@ Future<(ProviderContainer, GoRouter)> _pump(WidgetTester tester) async {
 }
 
 Finder get _sheet => find.byKey(const ValueKey('send-sheet'));
+Finder get _scanRow => find.byKey(const ValueKey('send-field-scan'));
 
 /// The step on screen, by the header its page announces (the steps have
 /// no visible heading).
@@ -233,7 +234,7 @@ void main() {
     final location =
         router.routerDelegate.currentConfiguration.last.matchedLocation;
 
-    await tester.tap(find.byTooltip(_l10n.scan));
+    await tester.tap(_scanRow);
     await tester.pumpAndSettle();
     expect(find.byType(ScannerSheet), findsOneWidget);
     expect(ModalRoute.of(tester.element(find.byType(ScannerSheet))),
@@ -265,7 +266,7 @@ void main() {
     await tester.tap(find.text('Open send'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip(_l10n.scan));
+    await tester.tap(_scanRow);
     await tester.pumpAndSettle();
     expect(find.byType(ScannerSheet), findsOneWidget);
     _cameras.last.scan('bitcoin:$_btc?amount=0.001');
