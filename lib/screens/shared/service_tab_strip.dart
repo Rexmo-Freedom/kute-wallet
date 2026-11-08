@@ -6,8 +6,9 @@
 // a labelled pill and the neighbours reflow. Reduced motion snaps to the
 // final layout with no slide.
 //
-// Home behaviour and labels are unchanged: `FloatingActionPill` builds
-// its tabs and hands them to this strip.
+// `FloatingActionPill` builds a wallet's or a Ledger's tabs and hands them to
+// this strip; the spending account's Bitcoin | Dollars is its own switch
+// (home/components/home_tab_switch.dart).
 
 import 'package:kute/theme/kute_motion.dart';
 import 'package:flutter/material.dart';
@@ -67,8 +68,9 @@ class ServiceTabStrip extends StatefulWidget {
   final double? height;
 
   /// Every tab keeps its label and its share of the width; the active one
-  /// wears the fill. No slide and no reflow (user decision 2026-10-12 for
-  /// the two-tab spending strip: "just make them normal, no animation").
+  /// wears the fill. No slide and no reflow (user decision 2026-10-12:
+  /// "just make them normal, no animation"), for a wallet of one or two
+  /// tabs.
   final bool plain;
 
   const ServiceTabStrip(

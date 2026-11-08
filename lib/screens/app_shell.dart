@@ -12,7 +12,9 @@ import 'package:kute/services/runtime_capabilities_service.dart';
 //
 //   * ONE persistent [KuteTopNavBar] is mounted across all tabs — the
 //     slide->expand indicator pill in action_pill.dart morphs for real when
-//     the active index changes, because the bar is never remounted.
+//     the active index changes, because the bar is never remounted, and the
+//     spending account's Bitcoin | Dollars switch reads the page position
+//     itself ([_page]), so its thumb follows a swipe under the finger.
 //   * the tab pages SWIPE horizontally.
 //
 // Every non-tab route (/settings, /affiliate, the confirm-send sub-routes,
@@ -657,6 +659,7 @@ class _AppShellState extends ConsumerState<AppShell>
             child: KuteTopNavBar(
               activeTab: _kShellTabs[currentIndex],
               onSelectTab: _selectTab,
+              pagePosition: _page,
             ),
           ),
         ],

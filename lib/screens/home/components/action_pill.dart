@@ -2,6 +2,7 @@ import 'package:kute/providers/active_shell_tab_provider.dart'
     show ActiveNavTab;
 import 'package:kute/models/settings_model.dart' show WalletConfig;
 import 'package:kute/providers/shell_wallet_provider.dart';
+import 'package:kute/screens/home/components/home_tab_switch.dart';
 import 'package:kute/screens/home/shell_venue_tabs.dart'
     show
         shellDrawsPredictionsTab,
@@ -42,6 +43,12 @@ const Color redColor = AppColors.marketDown;
 
 final selectedNetworkTypeProvider = StateProvider<String>((ref) => "Bitcoin Network");
 
+/// Whether the strip is the spending account's Bitcoin | Dollars switch
+/// ([HomeTabSwitch]), which the bar centres on the screen, rather than a
+/// wallet's or a Ledger's tabs ([ServiceTabStrip]).
+bool shellStripIsSwitch(WalletConfig? shellWallet, WalletConfig? owner) =>
+    !showBankTab && shellWallet == null && shellShowsUsdTab(owner);
+
 /// Navigation-only pill. Holds the destination tabs that drive repeated
 /// product exposure (every session, every screen a user returns from):
 /// Bitcoin | Investments for the spending account, the wallet | Investing
@@ -57,10 +64,15 @@ class FloatingActionPill extends ConsumerStatefulWidget {
   /// `context.go('/…')`. Tapping the ACTIVE tab is never routed through here
   /// — the active-tab affordances (deposit menus) run inline below.
   final void Function(ActiveNavTab)? onSelectTab;
+
+  /// The shell's continuous page position, which places the Bitcoin |
+  /// Dollars switch's thumb ([HomeTabSwitch.position]); null with no pager.
+  final Animation<double>? pagePosition;
   const FloatingActionPill({
     super.key,
     this.activeTab = ActiveNavTab.home,
     this.onSelectTab,
+    this.pagePosition,
   });
 
   @override
@@ -276,10 +288,14 @@ class _FloatingActionPillState extends ConsumerState<FloatingActionPill> {
         ),
     ];
 
-    // Shared strip (lib/screens/shared/service_tab_strip.dart). The
-    // spending account's two tabs, Bitcoin and Investments, are drawn
-    // plain: both labelled, equal width, no slide (user decision
-    // 2026-10-12). A Ledger's three keep the sliding pill.
+    // The spending account's two tabs, Bitcoin and Dollars, are the
+    // segmented switch, its thumb on the pager (founder, 8 November 2026).
+    if (shellStripIsSwitch(shellWallet, owner)) {
+      return HomeTabSwitch(tabs: tabs, position: widget.pagePosition);
+    }
+    // Shared strip (lib/screens/shared/service_tab_strip.dart) for any
+    // other wallet: one or two tabs drawn plain, both labelled, equal
+    // width, no slide; a Ledger's three keep the sliding pill.
     return ServiceTabStrip(tabs: tabs, plain: tabs.length <= 2);
   }
 }
