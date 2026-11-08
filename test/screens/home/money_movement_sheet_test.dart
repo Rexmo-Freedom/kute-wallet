@@ -67,6 +67,10 @@ import 'package:kute/services/one_balance/bitcoin_to_dollars_leg.dart'
 import 'package:kute/services/one_balance/dollars_to_bitcoin_minimum.dart';
 import 'package:kute/screens/receive/bitcoin_receive_options.dart'
     show kBitcoinReceiveDollarsSource;
+import 'package:kute/screens/shared/kute_back_button.dart'
+    show KuteCircleButton;
+import 'package:kute/screens/usd/usd_account_screen.dart'
+    show kUsdHomeSwapSource;
 import 'package:kute/screens/usd/usd_withdraw_screen.dart'
     show kUsdWithdrawSearchSource;
 import 'package:kute/services/one_balance/buy_bitcoin_fanout.dart'
@@ -701,8 +705,8 @@ void main() {
     expect(_last('move_direction_changed')['to'], 'bitcoin');
     expect(_last('move_direction_changed')['reversed'], false);
 
-    // The flip.
-    await tester.tap(find.byIcon(Icons.swap_vert_rounded));
+    // The flip: the swap circle on the squares' shared edge.
+    await tester.tap(find.byKey(const ValueKey('money-movement-swap')));
     await _frames(tester);
     expect(_last('move_direction_changed')['from'], 'bitcoin');
     expect(_last('move_direction_changed')['to'], 'predictions');
@@ -716,18 +720,20 @@ void main() {
 
   testWidgets(
       'an own-account door pins the route: Dollars to Bitcoin, each end by '
-      'its account\'s name, "Move money" over "Move \$5", no pickers, no '
-      'flip, and the move still runs', (tester) async {
+      'its account\'s name, "Swap" over "Move \$5", no pickers, the swap '
+      'circle, and the move still runs', (tester) async {
     final c = await _open(tester, const MoneyMovementRoute(_d, _b),
         pinned: true);
     expect(find.text('Dollars'), findsOneWidget);
     expect(find.text('Investments'), findsNothing);
     expect(find.text('Bitcoin'), findsOneWidget);
-    expect(find.text('Move money'), findsOneWidget);
-    expect(find.textContaining('Swap'), findsNothing);
+    // Swap (founder, 7 November 2026), the title alone; its verb is
+    // still the person's own money moving.
+    expect(find.text('Swap'), findsOneWidget);
+    expect(find.text('Move money'), findsNothing);
     expect(find.textContaining('Buy'), findsNothing);
     expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsNothing);
-    expect(find.byIcon(Icons.swap_vert_rounded), findsNothing);
+    expect(find.byKey(const ValueKey('money-movement-swap')), findsOneWidget);
     // Tapping an end picks nothing.
     await tester.tap(find.text('Dollars').first);
     await _frames(tester);
@@ -744,8 +750,8 @@ void main() {
       'asked for filled in once the price is up', (tester) async {
     final c = await _open(tester, const MoneyMovementRoute(_b, _d),
         pinned: true, initialTargetUsd: 5);
-    expect(find.text('Move money'), findsOneWidget);
-    expect(find.byIcon(Icons.swap_vert_rounded), findsNothing);
+    expect(find.text('Swap'), findsOneWidget);
+    expect(find.byKey(const ValueKey('money-movement-swap')), findsOneWidget);
     expect(_button(tester).text, r'Move $5');
     await _close(tester, c);
   });
@@ -896,7 +902,8 @@ void main() {
     await tester.pump();
     expect(_button(tester).isLoading, isTrue);
     await tester.tap(_cta, warnIfMissed: false);
-    await tester.tap(find.byIcon(Icons.swap_vert_rounded), warnIfMissed: false);
+    await tester.tap(find.byKey(const ValueKey('money-movement-swap')),
+        warnIfMissed: false);
     await tester.tap(find.text('9').last, warnIfMissed: false);
     await _frames(tester);
     expect(
@@ -1049,7 +1056,8 @@ void main() {
     expect(failed['surface'], 'money_movement');
     // No edits.
     await tester.tap(find.text('9').last, warnIfMissed: false);
-    await tester.tap(find.byIcon(Icons.swap_vert_rounded), warnIfMissed: false);
+    await tester.tap(find.byKey(const ValueKey('money-movement-swap')),
+        warnIfMissed: false);
     await _frames(tester);
     expect(
         tester
@@ -1604,6 +1612,50 @@ void main() {
       await _close(tester, c);
     });
 
+    testWidgets(
+        'Swap under a swap country block: the circle still turns Dollars → '
+        'Bitcoin (open) into Bitcoin → Dollars, which says why and offers '
+        'Check connection; turned back, it moves again. Never silently '
+        'disabled', (tester) async {
+      await install(tester, MarketDenial.swapCountryBlock);
+      final c = await _open(tester, const MoneyMovementRoute(_d, _b),
+          ownMoveEntrySource: kUsdHomeSwapSource);
+      final swap = find.byKey(const ValueKey('money-movement-swap'));
+      await _type(tester, '5');
+      await _frames(tester, 12);
+      expect(restricted(), findsNothing);
+      expect(_button(tester).text, r'Move $5');
+      expect(tester.widget<KuteCircleButton>(swap).enabled, isTrue);
+
+      // Into the blocked direction: the swap goes through, the screen says
+      // why in place of the fee, and the bar is its own state.
+      await tester.tap(swap);
+      await _frames(tester, 12);
+      expect(_last('move_direction_changed')['from'], 'bitcoin');
+      expect(_last('move_direction_changed')['to'], 'dollars');
+      expect(restricted(), findsOneWidget);
+      expect(
+          find.text('$kGatingNamedTitle\n$kGatingVpnSentence'), findsOneWidget);
+      await _type(tester, '5');
+      await _frames(tester, 12);
+      expect(_button(tester).text, 'Check connection');
+      expect(tester.widget<KuteCircleButton>(swap).enabled, isTrue);
+      await tester.tap(_cta);
+      await _frames(tester, 12);
+      expect(_railCalls, 0);
+      expect(_btcToDollars, isEmpty);
+
+      // And back: the exit is open again.
+      await tester.tap(swap);
+      await _frames(tester, 12);
+      expect(restricted(), findsNothing);
+      await _type(tester, '5');
+      await _frames(tester, 12);
+      expect(_button(tester).text, r'Move $5');
+      expect(_button(tester).onPressed, isNotNull);
+      await _close(tester, c);
+    });
+
     for (final how in [
       MarketDenial.masterOff,
       MarketDenial.platform,
@@ -1719,15 +1771,15 @@ void main() {
         final c = await _open(tester, const MoneyMovementRoute(_d, _b),
             overrides: venues(p: 60), ownMoveEntrySource: source);
         expect(_last('move_sheet_opened')['entry_source'], source);
-        expect(find.text('Move money'), findsOneWidget);
+        expect(find.text('Swap'), findsOneWidget);
         // $10 of Dollars and $60 of Predictions cash: 10 + 60 x 0.98, the
         // figure the engine's plan covers, the card's figure too.
         final reach = investmentsSpendable(
                 dollarsUsd: 10, sources: _venueCash(p: 60))
             .maxUsd;
         expect(reach, closeTo(68.80, 1e-9));
-        expect(find.text(r'$68.80'), findsOneWidget);
-        expect(find.text(r'$10.00'), findsNothing);
+        expect(find.text(r'$68.80 available'), findsOneWidget);
+        expect(find.textContaining(r'$10.00'), findsNothing);
 
         await tester.tap(find.text('Max').last);
         await _frames(tester);
@@ -1804,7 +1856,7 @@ void main() {
           overrides: venues(p: 60, i: 40),
           ownMoveEntrySource: kUsdWithdrawSearchSource);
       // 10 + 40 x 0.98 - 0.30: Investing only.
-      expect(find.text(r'$48.90'), findsOneWidget);
+      expect(find.text(r'$48.90 available'), findsOneWidget);
       await _type(tester, '30');
       await _confirm(tester);
       await _frames(tester, 8);
@@ -1843,13 +1895,99 @@ void main() {
       _dollars = 10;
       final c = await _open(tester, const MoneyMovementRoute(_d, _b),
           overrides: venues(p: 60));
-      expect(find.text(r'$10.00'), findsOneWidget);
-      expect(find.text(r'$68.80'), findsNothing);
+      expect(find.text(r'$10.00 available'), findsOneWidget);
+      expect(find.textContaining(r'$68.80'), findsNothing);
       await _type(tester, '30');
       expect(find.text('Insufficient balance'), findsOneWidget);
       expect(_button(tester).onPressed, isNull);
       expect(predictions.pulls, isEmpty);
       expect(_approvals.intents, isEmpty);
+      await done(tester, c);
+    });
+
+    // Swap (founder, 7 November 2026: "a button in a reversible way"):
+    // the Dollars home's Swap opens Bitcoin → Dollars; the circle turns it
+    // into Dollars → Bitcoin and back, and the available figure, Max and
+    // the checks follow the direction on screen.
+    testWidgets(
+        "Swap: the circle reverses the move; From, its figure, Max and the "
+        'over-balance check follow; nothing is sent', (tester) async {
+      _dollars = 10;
+      final c = await _open(tester, const MoneyMovementRoute(_b, _d),
+          overrides: venues(p: 60),
+          ownMoveEntrySource: kUsdHomeSwapSource);
+      expect(_last('move_sheet_opened')['entry_source'], kUsdHomeSwapSource);
+      expect(find.text('Swap'), findsOneWidget);
+      final from = find.byKey(const ValueKey('money-movement-from'));
+      final to = find.byKey(const ValueKey('money-movement-to'));
+      final swap = find.byKey(const ValueKey('money-movement-swap'));
+      Finder inFrom(String text) =>
+          find.descendant(of: from, matching: find.text(text));
+      Finder inTo(String text) =>
+          find.descendant(of: to, matching: find.text(text));
+      // The Bitcoin figure: 20,000 sats at the sheet's price, rounded
+      // down to the cent ($19.99 or $20.00 as the price is read).
+      bool bitcoinLine() => find
+          .descendant(of: from, matching: find.byType(Text))
+          .evaluate()
+          .map((e) => (e.widget as Text).data)
+          .any((t) => t == r'$19.99 available' || t == r'$20.00 available');
+      bool bitcoinMax() =>
+          {r'Move $19.99', r'Move $20'}.contains(_button(tester).text);
+      String typed() => tester
+          .widget<BigAmountDisplay>(find.byType(BigAmountDisplay))
+          .amountText;
+
+      // Bitcoin → Dollars: 20,000 sats, $20 at the sample price (the
+      // figure rounds down, never promising a cent). To says no figure.
+      expect(inFrom('Bitcoin'), findsOneWidget);
+      expect(bitcoinLine(), isTrue);
+      expect(inTo('Dollars'), findsOneWidget);
+      expect(find.descendant(of: to, matching: find.textContaining(r'$')),
+          findsNothing);
+      await tester.tap(find.text('Max').last);
+      await _frames(tester);
+      expect(bitcoinMax(), isTrue);
+
+      // Swapped: Dollars → Bitcoin, all the dollar money (10 + 60 x 0.98).
+      await tester.tap(swap);
+      await _frames(tester);
+      final changed = _last('move_direction_changed');
+      expect(changed['from'], 'dollars');
+      expect(changed['to'], 'bitcoin');
+      expect(changed['reversed'], true);
+      expect(inFrom('Dollars'), findsOneWidget);
+      expect(inFrom(r'$68.80 available'), findsOneWidget);
+      expect(inTo('Bitcoin'), findsOneWidget);
+      // The amount clears, as any change of route does.
+      expect(typed(), '');
+      await tester.tap(find.text('Max').last);
+      await _frames(tester);
+      expect(_button(tester).text, r'Move $68.80');
+      // $50 is past Dollars ($10) but within reach: not insufficient.
+      await tester.tap(find.text(r'$50').last);
+      await _frames(tester);
+      expect(find.text('Insufficient balance'), findsNothing);
+
+      // And back: Bitcoin's own figure and Max again; $50 is past it.
+      await tester.tap(swap);
+      await _frames(tester);
+      expect(_last('move_direction_changed')['from'], 'bitcoin');
+      expect(inFrom('Bitcoin'), findsOneWidget);
+      expect(bitcoinLine(), isTrue);
+      expect(inFrom(r'$68.80 available'), findsNothing);
+      expect(typed(), '');
+      await tester.tap(find.text(r'$50').last);
+      await _frames(tester);
+      expect(find.text('Insufficient balance'), findsOneWidget);
+      expect(_button(tester).onPressed, isNull);
+      await tester.tap(find.text('Max').last);
+      await _frames(tester);
+      expect(bitcoinMax(), isTrue);
+
+      expect(_railCalls, 0);
+      expect(_approvals.intents, isEmpty);
+      expect(predictions.pulls, isEmpty);
       await done(tester, c);
     });
   });

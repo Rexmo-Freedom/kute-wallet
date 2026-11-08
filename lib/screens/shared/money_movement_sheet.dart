@@ -36,9 +36,11 @@ void Function(BuildContext context, MoneyMovementRequest request)?
 /// editable. Opening it, or changing its accounts, never submits a move.
 /// [entrySource] is the categorical surface it was opened from
 /// (`move_sheet_opened`'s `entry_source`).
-/// [pinned]: the route is fixed, so the sheet offers no account pickers
-/// and no flip, as the Purchase Bitcoin sheet pins its ends (founder, 1
-/// November 2026: "the withdrawal doesn't give the option to choose").
+/// [pinned]: the ends are fixed, so the sheet offers no account pickers,
+/// as the Purchase Bitcoin sheet pins its ends (founder, 1 November 2026:
+/// "the withdrawal doesn't give the option to choose"). Bitcoin and
+/// Dollars still swap: the screen is "Swap", and its circle reverses the
+/// two (founder, 7 November 2026: "a button in a reversible way").
 /// [initialTargetUsd] prefills the typed dollars once the price is up
 /// (the Goals nudge's "Move $50 to Dollars"), as every door's prefill.
 Future<void> showMoneyMovementSheet(
@@ -88,10 +90,19 @@ Future<void> showMoneyMovementSheet(
 /// money, so it keeps the Move money title and names both ends by their
 /// accounts). Every own-account door ("From your Dollars" and "From your
 /// Bitcoin" on Receive, "To your Dollars" and "To your Bitcoin" on Send,
-/// the Goals nudge) opens Move money straight on the amount, pinned
-/// [from] the one account to the other: no picker sheet in between, no
-/// account to choose, no flip. Buys (Purchase, Buy dollars) never come
-/// here.
+/// the Goals nudge, the Dollars home's Swap) opens Move money straight on
+/// the amount, pinned [from] the one account to the other: no picker
+/// sheet in between and no account to choose. Buys (Purchase, Buy
+/// dollars) never come here.
+///
+/// SWAP (founder, 7 November 2026: "ideally is to have a move button ...
+/// Only on dollars"; "Move money or swap money whatever is more common in
+/// crypto lingo. or just 'swap'"): the screen is titled Swap and is
+/// reversible. The swap circle between its From and To squares turns
+/// Bitcoin → Dollars into Dollars → Bitcoin and back; the amount, Max,
+/// the chips, the fee and the checks follow the direction on screen, and
+/// a direction the policy withholds says so once it is on screen. Each
+/// door still opens on its own direction.
 ///
 /// From Dollars it spends ALL the person's dollar money (founder, 7
 /// November 2026: "From your Dollars should and must be all the available

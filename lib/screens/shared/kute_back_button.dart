@@ -366,11 +366,16 @@ class KuteCircleButton extends StatelessWidget {
   /// [kKuteNavButtonSize].
   final double size;
 
-  /// Overrides the tint and adds a hairline. Only the scanner's controls
-  /// set them: they sit over live video, so they wear a translucent dark
-  /// fill that reads in light and dark mode alike.
+  /// Overrides the tint and adds a hairline. The scanner's controls set
+  /// them: they sit over live video, so they wear a translucent dark fill
+  /// that reads in light and dark mode alike. Swap's circle sets them too:
+  /// it rides the edge two cards share, so it wears the page's own ground
+  /// with a hairline and no card edge shows through it.
   final Color? fill;
   final Color? borderColor;
+
+  /// False: faded, no press, no tap (a busy sheet's swap circle).
+  final bool enabled;
 
   const KuteCircleButton({
     super.key,
@@ -380,6 +385,7 @@ class KuteCircleButton extends StatelessWidget {
     this.size = kKuteNavButtonSize,
     this.fill,
     this.borderColor,
+    this.enabled = true,
   });
 
   @override
@@ -388,6 +394,7 @@ class KuteCircleButton extends StatelessWidget {
       size: size,
       semanticsLabel: semanticsLabel,
       onPressed: onPressed,
+      enabled: enabled,
       fill: fill,
       borderColor: borderColor,
       child: Center(child: child),

@@ -1,6 +1,10 @@
 import 'package:kute/screens/shared/app_bottom_sheet.dart'
     show KuteSheetBarFit, showKuteModalSheet;
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_back_button.dart'
+    show KuteCloseButton;
+import 'package:kute/screens/shared/send/send_recipient_step.dart'
+    show SendStepTitle;
 import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/side_tint_palette.dart';
@@ -27,7 +31,12 @@ import 'package:kute/screens/shared/orchestra_fee_summary.dart';
 // Move money (the Portfolio's button, [DepositSheet.movementRoute]) is
 // this sheet with both ends editable: Bitcoin, Dollars, Investing and
 // Predictions, any one to any other (lib/services/one_balance/
-// money_movement_route.dart).
+// money_movement_route.dart). Pinned to the person's own Bitcoin and
+// Dollars (showOwnMoneyMove: the Dollars home's Swap, the own-account
+// doors) it is Swap: the same screen, its ends fixed, reversed by the
+// swap circle between its From and To squares. Both lay out as Send's
+// amount step: Send's header, the hero centred, the squares, the chips
+// over the keypad's keys.
 //
 // The Dollar deposit door (the Investments dock's Deposit) is also the
 // home of Receive: its From picker leads with a Receive row that closes
@@ -232,6 +241,11 @@ const Color _kCashAppGreen = Color(0xFF00D632);
 // stay authoritative). Kute's fees always come from the backend quote.
 const int _kMinSats = 1000; // Orchestra minimum for BTC→USD leg
 const double _kMinUsdc = 1.0; // Minimum USD for USD→BTC leg
+
+/// Where the amount keypad's keys start inside its box, in design units:
+/// the pad's own 12 and a digit key's 6 (custom_keypad.dart). Move money's
+/// chips are inset by it, so they stand exactly over the keys.
+const double _kKeypadKeyInset = 18;
 
 /// Fiat currencies the BANK rail offers. EUR only for now: the bank
 /// onramp is Europe-only (user decision, September 2026). USD and CHF
@@ -568,8 +582,8 @@ class DepositSheet extends ConsumerStatefulWidget {
   /// Explicit movement of one selected cash balance, with both ends editable.
   final MoneyMovementRoute? movementRoute;
 
-  /// [movementRoute] fixed: no account pickers, no flip; the source reads
-  /// as the Investments balance (showMoneyMovementSheet's `pinned`). Pinned
+  /// [movementRoute] fixed: no account pickers (showMoneyMovementSheet's
+  /// `pinned`). Bitcoin and Dollars still swap (the Swap screen). Pinned
   /// Dollars → Bitcoin spends all the dollar money, Dollars first and
   /// then the venue cash, as the Investments' Buy bitcoin.
   final bool movementPinned;
@@ -957,33 +971,58 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         .offeredOrNearest);
   }
 
-  Widget _movementRouteCard({required String? available, String? detail}) {
+  /// The two-way screen between the person's own Bitcoin and Dollars
+  /// (showOwnMoneyMove; founder, 7 November 2026: "a button in a
+  /// reversible way"): its ends are those two accounts, never picked, and
+  /// the swap circle reverses them. Titled "Swap".
+  bool get _ownMoneySwap {
+    final route = _movementRoute;
+    return _isMoneyMovement &&
+        widget.movementPinned &&
+        route != null &&
+        {route.from, route.to}.containsAll(const {
+          MoneyMovementAccount.bitcoin,
+          MoneyMovementAccount.dollars,
+        });
+  }
+
+  /// From and To as two squares, the swap circle on their shared edge
+  /// (deposit_route_card.dart, MoveRouteSquares). [available] is what the
+  /// source has to move, in dollars; a balance still loading, or one that
+  /// cannot be read, says so in its place.
+  Widget _movementRouteCard({required String? available}) {
     final route = _movementRoute!;
     final editable = !_processing && !_movementSendLocked;
     // A pinned route (the own-account doors: showOwnMoneyMove) picks
-    // nothing: the ends show no chevron and there is no flip, as on the
-    // Purchase Bitcoin sheet. Each end keeps its account's own name
-    // ("From Dollars", "To Bitcoin"), the words of the door that opened it
-    // ("From your Dollars", "To your Bitcoin").
+    // nothing: the ends show no chevron, as on the Purchase Bitcoin sheet.
+    // Each end keeps its account's own name ("From Dollars", "To
+    // Bitcoin"), the words of the door that opened it ("From your
+    // Dollars", "To your Bitcoin"). The Portfolio's Move money picks
+    // either end.
     final pickable = editable && !widget.movementPinned;
-    MoveRouteEndpoint endpoint(MoneyMovementAccount account, bool source) =>
-        MoveRouteEndpoint(
+    // Bitcoin and Dollars swap from every door; another pinned pair has no
+    // way back on this screen.
+    final showSwap = !widget.movementPinned || _ownMoneySwap;
+    final state = _sourceBalanceState;
+    final line = state ??
+        (available == null ? null : context.l10n.hlYieldAvailableLine(available));
+    MoveRouteSquareEnd end(MoneyMovementAccount account, bool source) =>
+        MoveRouteSquareEnd(
           name: _movementName(account),
           asset: _movementAsset(account),
-          available: source ? available : null,
-          detail: source ? detail : null,
-          detailIsError: source && _typedExceedsAvailable,
-          onAvailableTap: source && editable && _sourceBalanceState == null
-              ? () => _applyAmountPercent(1)
-              : null,
+          line: source ? line : null,
           onTap: pickable ? () => _pickMovementAccount(source: source) : null,
         );
-    return MoveRouteCard(
+    // The swap is never held back by the policy: a direction the policy
+    // withholds says so once it is on screen (the restriction note and
+    // the bar's own state), as when a door opens on it.
+    return MoveRouteSquares(
       key: const ValueKey('money-movement-route'),
-      from: endpoint(route.from, true),
-      to: endpoint(route.to, false),
-      hideSwap: widget.movementPinned,
-      onSwap: pickable &&
+      from: end(route.from, true),
+      to: end(route.to, false),
+      showSwap: showSwap,
+      onSwap: editable &&
+              showSwap &&
               route.reversed.isOffered &&
               !kMoneyMovementDisabledRoutes.containsKey(route.reversed)
           ? () => _changeMovementRoute(route.reversed, reversed: true)
@@ -1463,8 +1502,14 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// The sheet title, named after the live direction + surface rather
   /// than a flat "Exchange" (user decision): a selected venue or the
   /// dollar balance first, otherwise the lock's own name. A move of the
-  /// person's own money is "Move money" whichever door opened it.
+  /// person's own money is "Move money" whichever door opened it, except
+  /// the two-way Bitcoin ↔ Dollars screen, which is "Swap".
   String get _sheetTitle {
+    // Swap (founder, 7 November 2026: "Move money or swap money whatever
+    // is more common in crypto lingo. or just 'swap'"): the two-way screen
+    // between Bitcoin and Dollars. The Portfolio's Move money, any
+    // account to any other, keeps its name.
+    if (_ownMoneySwap) return context.l10n.swap;
     if (_isMoneyMovement || _ownMoneyMove) return context.l10n.moveTransfer;
     if (_destPredictions) return context.l10n.moveAddPredictions;
     if (_destHyperliquid) return context.l10n.moveAddInvesting;
@@ -7935,9 +7980,35 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       },
     );
 
+    // MOVE MONEY AND SWAP IN THE SEND AMOUNT STEP'S RHYTHM (founder, 7
+    // November 2026, on the screen as it was: the hero "left-aligned and
+    // oddly placed with lots of empty space", the chips wider than the
+    // keypad, a header unlike Send's). The header is the Send steps' own
+    // (an app bar: the circled X at the left, the title centred); under it
+    // the hero, centred, then the From and To squares, then the chips (as
+    // wide as the keypad's keys), the keypad and the bar. Every other door
+    // of this sheet keeps its own header and layout.
+    final movement = _isMoneyMovement;
     return Scaffold(
-      key: _isMoneyMovement ? const ValueKey('money-movement-sheet') : null,
+      key: movement ? const ValueKey('money-movement-sheet') : null,
       backgroundColor: c.background,
+      appBar: movement
+          ? AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              surfaceTintColor: Colors.transparent,
+              shadowColor: Colors.transparent,
+              scrolledUnderElevation: 0,
+              automaticallyImplyLeading: false,
+              centerTitle: true,
+              title: SendStepTitle(_sheetTitle),
+              leadingWidth: 64.w,
+              leading: Padding(
+                padding: EdgeInsets.only(left: 16.w),
+                child: const Center(child: KuteCloseButton()),
+              ),
+            )
+          : null,
       body: SafeArea(
         child: Padding(
           padding: EdgeInsets.fromLTRB(20.w, 8.h, 20.w, 8.h),
@@ -7950,12 +8021,19 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
               // the lock AND the unlocked From/To flags so a swap into a
               // Predictions withdraw reads "Withdraw from Polymarket",
               // fiat reads "Buy/Sell bitcoin", etc.
-              AmountScreenHeader(title: _sheetTitle),
-              SizedBox(height: 16.h),
+              if (!movement) ...[
+                AmountScreenHeader(title: _sheetTitle),
+                SizedBox(height: 16.h),
+              ],
               // ── Middle: the one big typed number ─────────────────────
               Expanded(
                 child: Align(
-                  alignment: Alignment.centerLeft,
+                  // Move money's hero and squares sit high, as Send's
+                  // hero does: a quarter of the room left over goes above
+                  // them, the rest under the squares, over the chips.
+                  alignment: movement
+                      ? const Alignment(0, -0.5)
+                      : Alignment.centerLeft,
                   child: SingleChildScrollView(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -8004,8 +8082,31 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                             amountText: _typedAmount,
                             loading: _loadingRate,
                             conversionLabel: conversionLabel,
+                            centered: movement,
                             // The available balance reads on the From
                             // row of the route card, not twice.
+                          ),
+                        // More than the source has: said under the figure
+                        // in the error ink, as the Send amount step says
+                        // it; the From square keeps its figure.
+                        if (movement &&
+                            _sourceBalanceState == null &&
+                            _typedExceedsAvailable &&
+                            sourceState != null)
+                          Padding(
+                            padding: EdgeInsets.only(top: 8.h),
+                            child: Text(
+                              sourceState,
+                              key: const ValueKey(
+                                  'money-movement-insufficient'),
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: AppColors.marketDown,
+                                fontSize: 14.sp,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: -0.1,
+                              ),
+                            ),
                           ),
                         // One quiet caption line under the big number,
                         // only when there is something to act on: the
@@ -8066,6 +8167,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                             padding: EdgeInsets.only(top: 10.h),
                             child: Text(
                               _error!,
+                              textAlign:
+                                  movement ? TextAlign.center : null,
                               style: TextStyle(
                                 color: AppColors.marketDown,
                                 fontSize: 12.sp,
@@ -8082,6 +8185,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                         // estimate of one to state.
                         if (restriction == null)
                         MoneyFeeCaption(
+                            centered: movement,
                             child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 mainAxisSize: MainAxisSize.min,
@@ -8185,13 +8289,14 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                                 label: 'Purchase fee',
                                 state: 'Shown in Cash App'),
                         ])),
-                        SizedBox(height: 18.h),
+                        SizedBox(height: movement ? 20.h : 18.h),
                         // No percent row and no To row (user decision):
                         // the destination is the sheet's own subject, so
                         // only the source needs picking. That leaves the
                         // amount and one From row, and a lot of space.
-                        if (_isMoneyMovement)
-                          _movementRouteCard(available: availableValue, detail: sourceState)
+                        // Move money shows both ends, as two squares.
+                        if (movement)
+                          _movementRouteCard(available: availableValue)
                         else
                           legacyRouteCard,
                       ],
@@ -8206,7 +8311,13 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  AmountQuickChips(
+                  // Move money's chips stand exactly over the keypad's
+                  // keys (founder, 7 November 2026: they ran wider than
+                  // the keypad under them).
+                  Padding(
+                    padding: EdgeInsets.symmetric(
+                        horizontal: movement ? _kKeypadKeyInset.w : 0),
+                    child: AmountQuickChips(
                     // Same gate as the available-balance tap: a share of
                     // a balance that is still loading, or only a cached
                     // fallback, is not a figure to send. Outside money
@@ -8227,6 +8338,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                           : _applyAmountDollars,
                       onPercent: _applyAmountPercent,
                     ),
+                  ),
                   ),
                   SizedBox(height: 12.h),
                   AmountKeypad(

@@ -122,17 +122,32 @@ double _pow10(int decimals) {
 /// sets it under its big amount; the breakdown opens on a tap, in its
 /// own bottom sheet.
 class MoneyFeeCaption extends InheritedWidget {
-  const MoneyFeeCaption({super.key, this.enabled = true, required super.child});
+  const MoneyFeeCaption(
+      {super.key,
+      this.enabled = true,
+      this.centered = false,
+      required super.child});
 
   final bool enabled;
+
+  /// The line centred under a centred figure (Swap's hero) rather than
+  /// at the start.
+  final bool centered;
 
   static bool of(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<MoneyFeeCaption>()?.enabled ??
       false;
 
+  /// Whether the caption above asks for the centred line.
+  static bool centeredOf(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<MoneyFeeCaption>()
+          ?.centered ??
+      false;
+
   @override
   bool updateShouldNotify(MoneyFeeCaption oldWidget) =>
-      enabled != oldWidget.enabled;
+      enabled != oldWidget.enabled || centered != oldWidget.centered;
 }
 
 /// Turns every [MoneyFeeSummary] below it into one of a slip's figures
@@ -457,8 +472,11 @@ class _MoneyFeeSummaryState extends ConsumerState<MoneyFeeSummary> {
       fontWeight: FontWeight.w500,
       height: 1.35,
     );
+    final centered = MoneyFeeCaption.centeredOf(context);
     final line = Row(mainAxisSize: MainAxisSize.min, children: [
-      Flexible(child: Text(text, style: style)),
+      Flexible(
+          child: Text(text,
+              textAlign: centered ? TextAlign.center : null, style: style)),
       if (canExpand) ...[
         SizedBox(width: 2.w),
         Icon(Icons.chevron_right_rounded, size: 16.sp, color: c.textSecondary),
@@ -466,7 +484,10 @@ class _MoneyFeeSummaryState extends ConsumerState<MoneyFeeSummary> {
     ]);
     return Padding(
       padding: EdgeInsets.only(top: 10.h),
-      child: Row(children: [
+      child: Row(
+          mainAxisAlignment:
+              centered ? MainAxisAlignment.center : MainAxisAlignment.start,
+          children: [
         Flexible(
           child: canExpand
               ? Semantics(
