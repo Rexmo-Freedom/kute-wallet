@@ -47,6 +47,7 @@ import 'package:kute/providers/spark_address_provider.dart';
 import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceProvider, usdSdkBalanceProvider;
 import 'package:kute/screens/home/components/deposit_sheet.dart';
+import 'package:kute/screens/shared/receive_surface.dart' show SheetTitleHeader;
 import 'package:kute/screens/shared/amount_keypad_panel.dart'
     show BigAmountDisplay;
 import 'package:kute/screens/shared/money_movement_sheet.dart';
@@ -67,8 +68,6 @@ import 'package:kute/services/one_balance/bitcoin_to_dollars_leg.dart'
 import 'package:kute/services/one_balance/dollars_to_bitcoin_minimum.dart';
 import 'package:kute/screens/shared/kute_back_button.dart'
     show KuteCircleButton;
-import 'package:kute/screens/shared/send/send_recipient_step.dart'
-    show SendStepTitle;
 import 'package:kute/screens/usd/usd_account_screen.dart'
     show kUsdHomeSwapSource;
 import 'package:kute/screens/usd/usd_withdraw_screen.dart'
@@ -625,10 +624,10 @@ Future<void> _type(WidgetTester tester, String amount) async {
   await _frames(tester, 4);
 }
 
-/// The sheet's title as drawn: the Send Amount step's header
-/// (SheetTitleHeader.inner) also lays out the first step's big title,
-/// unseen, for its height.
-Finder _title(String text) => find.widgetWithText(SendStepTitle, text);
+/// The sheet's title as drawn: the first step's big title
+/// (SheetTitleHeader).
+Finder _title(String text) =>
+    find.descendant(of: find.byType(SheetTitleHeader), matching: find.text(text));
 
 Finder get _cta => kuteBarPrimary;
 KuteBarPrimaryProbe _button(WidgetTester tester) =>

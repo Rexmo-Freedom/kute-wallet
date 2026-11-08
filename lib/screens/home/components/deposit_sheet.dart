@@ -1,12 +1,8 @@
 import 'package:kute/screens/shared/app_bottom_sheet.dart'
     show KuteSheetBarFit, showKuteModalSheet;
 import 'package:kute/screens/shared/custom_button.dart';
-import 'package:kute/screens/shared/kute_back_button.dart'
-    show KuteCloseButton;
 import 'package:kute/screens/shared/receive_surface.dart'
     show SheetTitleHeader;
-import 'package:kute/screens/shared/send/send_recipient_step.dart'
-    show SendStepTitle;
 import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/side_tint_palette.dart';
@@ -8284,18 +8280,17 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Move money wears the Bitcoin Send's Amount step header
-            // (receive_surface.dart, SheetTitleHeader.inner): at the
-            // screen's full width, the circled X on the left and the title
-            // centred on the line the first step's big title sits on, the
-            // content right under it in the 20 gutter. This screen is a
-            // route, not a sheet, so no handle is drawn over it.
+            // Swap and Move money open on the first step's header (founder,
+            // 8 November 2026, of the small centred title: "title is too
+            // small"; receive_surface.dart, SheetTitleHeader): the title
+            // big on the left and the compact X at its top right, as Send
+            // and Receive open. This screen is a route, not a sheet, so no
+            // handle is drawn over it.
             if (movement)
-              SheetTitleHeader.inner(
+              SheetTitleHeader(
                 title: _sheetTitle,
                 handleAbove: true,
-                leading: const KuteCloseButton(),
-                innerTitle: SendStepTitle(_sheetTitle),
+                onClose: () => Navigator.of(context).maybePop(),
               ),
             Expanded(
               child: Padding(
