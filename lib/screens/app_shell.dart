@@ -142,8 +142,8 @@ List<ActiveNavTab> _visibleTabsFor(WalletConfig? wallet) => [
 /// surface and the Predictions pill the Predictions surface, so the same
 /// sockets follow the pill there (re-applied on every pill change by the
 /// shell). The Overview pill ([InvestmentsTab.activity]) shows the open
-/// positions of both venues at their live prices and the market map at
-/// Investing's: both sockets stay on under it.
+/// positions of both venues at their live prices: both sockets stay on under
+/// it.
 ///
 /// The `ref.exists` guards keep this from instantiating autoDispose
 /// providers nothing is watching yet (a cold read of the trading provider

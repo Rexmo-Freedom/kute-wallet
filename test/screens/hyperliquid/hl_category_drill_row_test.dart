@@ -205,8 +205,7 @@ void main() {
       // On Trending the strip comes straight under the pills and the list
       // straight under the strip (no title between them). A picked category
       // has no strip: the list comes straight under the pills. Never a
-      // market map: it lives on the Dollars Overview (founder, 8 November
-      // 2026).
+      // market map.
       final pills = _inBrowser(find.byType(PolyDrillRow));
       final strip = _inBrowser(find.byType(HlMovingNowStrip));
       final map = _inBrowser(find.byKey(const ValueKey('hl-market-map')));

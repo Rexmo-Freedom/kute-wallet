@@ -160,6 +160,12 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/providers/hyperliquid_markets_provider.dart'
+    show HlBrowseSelection, hlBrowseSelectionProvider;
+import 'package:kute/providers/polymarket_browse_provider.dart'
+    show PolyBrowseSelection, polyBrowseSelectionProvider;
+import 'package:kute/providers/polymarket_instant_provider.dart'
+    show polyInstantChoiceProvider;
 import 'package:kute/providers/refresh_everything_provider.dart';
 import 'package:kute/providers/nav_bar_visibility_provider.dart';
 import 'package:kute/providers/unified_search_provider.dart'
@@ -317,6 +323,28 @@ void openInvestmentsOnDefaultTab(WidgetRef ref) {
   ref.read(_investmentsQuietPillProvider.notifier).state =
       kInvestmentsDefaultTab;
   ref.read(investmentsTabProvider.notifier).state = kInvestmentsDefaultTab;
+}
+
+/// The category picked on [left] goes back to its first one, Trending
+/// (founder, 8 November 2026: "do not remember the last one we picked, also
+/// open on the trending or on the equivalent in investing"). Called when the
+/// page leaves that pill, by a pick or by coming back to Dollars
+/// ([openInvestmentsOnDefaultTab]). A pill left is hidden at once, so nothing
+/// moves on screen, and opening a market from a list changes no pill, so the
+/// way back still lands on the same list.
+void resetInvestmentsPicks(WidgetRef ref, InvestmentsTab left) {
+  switch (left) {
+    case InvestmentsTab.investing:
+      ref.read(hlBrowseSelectionProvider.notifier).state =
+          const HlBrowseSelection();
+    case InvestmentsTab.predictions:
+      ref.read(polyBrowseSelectionProvider.notifier).state =
+          const PolyBrowseSelection();
+      ref.read(polyInstantChoiceProvider.notifier).reset();
+    case InvestmentsTab.activity:
+    case InvestmentsTab.positions:
+      break;
+  }
 }
 
 /// The pill [openInvestmentsOnDefaultTab] last put on the page, until a
@@ -658,6 +686,9 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
     // session's) shows Overview.
     var selected = ref.watch(investmentsTabProvider);
     if (!tabs.contains(selected)) selected = InvestmentsTab.activity;
+    ref.listen<InvestmentsTab>(investmentsTabProvider, (prev, next) {
+      if (prev != null && prev != next) resetInvestmentsPicks(ref, prev);
+    });
 
     // The picked pill always carries its context ("Investing · Trending",
     // the category in the quieter weight) and the chevron in its circle;

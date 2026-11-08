@@ -27,7 +27,7 @@
 //     own row (portfolioVenueLists), so a tap opens the position exactly
 //     as the Portfolio's row does. Still reading with nothing listed: the
 //     squares' skeletons (PortfolioSquaresSkeleton). Nothing open: nothing
-//     here, the map leads the tab;
+//     here;
 //   * OPEN P&L under the squares ([DollarsPnlStrip]; founder, 6 November
 //     2026: the card is the open positions' P&L): what the positions open
 //     now made or lost so far (the Portfolio's Positions rows' P&L added,
@@ -35,35 +35,23 @@
 //     in one soft card, compact, over the open positions' P&L since each
 //     was opened (the open P&L engine's series, its last point that
 //     figure; the split fill, the dashed line at zero, no scrub, no range
-//     row). A tap opens the Portfolio on Positions. Nothing open: no card;
-//   * THE MARKET MAP ([HlMarketMapCard], hl_market_map.dart; moved here from
-//     Investing, founder, 8 November 2026): the treemap of the browse
-//     universe, a tile opening its market. Always the whole map: Investing's
-//     picked category has no say here. Its skeleton until the builder-dex
-//     markets are in.
+//     row). A tap opens the Portfolio on Positions. Nothing open: no card.
+//
+// Nothing else (founder, 8 November 2026: "on the overview we just show the
+// open positions and the P&L graph, up to 4 open positions"). The market map
+// that stood under them for a day is off the app (hl_market_map.dart is
+// still there, unplaced).
 //
 // The newest actions no longer list here (the "Latest" card, gone 8
 // November 2026): the full activity is the Portfolio's, which the bar opens.
 //
-// THE MAP'S DATA ([_OverviewMarketMap]): this tab watches the browse universe
-// itself, so the map loads and refreshes with Investing unbuilt. The universe
-// and its lists are the one shared set of providers Investing reads (30 s
-// timers, one read whoever listens), so a second listener makes no second
-// read. Its prices are the one allMids socket: the shell keeps it on under
-// this pill (applyShellTabLivePolicy) and off wherever nothing it feeds is on
-// screen. Behind another pill or tab the card does no work of its own (see
-// HlMarketMapCard).
-//
-// NOTHING OPEN: no map (founder, 8 November 2026: the map alone on an empty
-// tab felt like slop) and the app's empty state, Sal over "No open positions"
-// ("when nothing on overview show Sal"). The map hides with the policy too
-// (`hyperliquid.browse`), leaving what is held.
+// NOTHING OPEN: the app's empty state, Sal over "No open positions" (founder,
+// 8 November 2026: "when nothing on overview show Sal").
 //
 // ONE EDGE FOR EVERY BLOCK (founder, 5 November 2026: "different size
-// here"): the squares, the P&L card and the map all stand on the page's 16
-// gutters, the map's group card bringing its own 16 margin, so it sits
-// outside the padding the other two share; the heading sits 12 inside that
-// edge, as the Bitcoin home's "Latest" and "Earlier" do.
+// here"): the squares and the P&L card stand on the page's 16 gutters; the
+// heading sits 12 inside that edge, as the Bitcoin home's "Latest" and
+// "Earlier" do.
 //
 // The bar on this tab is "See full portfolio and activity", which pushes
 // the Portfolio screen (usd_account_screen.dart), so there is no See all
@@ -71,8 +59,7 @@
 // 2026: "it's on the bottom button").
 //
 // Analytics: nothing new. A square's tap sends the Portfolio row's own
-// `open_investments_position_tapped`; a tile's tap opens the market's sheet,
-// whose `hyperliquid_market_viewed` says `market_map` as its entry source.
+// `open_investments_position_tapped`.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -81,12 +68,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
-import 'package:kute/models/hyperliquid_market.dart';
-import 'package:kute/providers/hyperliquid_markets_provider.dart'
-    show
-        hyperliquidBrowseUniverseProvider,
-        hyperliquidBuilderMarketsMissingProvider,
-        hyperliquidPerpMarketsProvider;
 import 'package:kute/providers/open_pnl_history_provider.dart'
     show
         OpenPnlChartStatus,
@@ -97,8 +78,6 @@ import 'package:kute/providers/open_pnl_history_provider.dart'
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/home/components/kute_dock_host.dart'
     show kuteDockScrollClearance;
-import 'package:kute/screens/hyperliquid/components/hl_market_map.dart'
-    show HlMarketMapCard;
 import 'package:kute/screens/portfolio/components/balances_overview.dart'
     show BalancesCategory, BalancesVenueList, kBalancesCentUsd;
 import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart'
@@ -121,7 +100,6 @@ import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart'
     show openInvestmentsPortfolio;
-import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
 /// The open positions drawn as squares, at most.
@@ -196,14 +174,8 @@ class DollarsActivityTab extends ConsumerWidget {
             ]),
           ),
         ),
-        // Outside the gutters: the group card brings its own 16 margin.
-        // Nothing open: Sal, no map (see the file header).
-        if (held)
-          SliverToBoxAdapter(
-            // The P&L card's 12 under what is held.
-            child: _OverviewMarketMap(margin: EdgeInsets.only(top: 12.h)),
-          )
-        else
+        // Nothing open: Sal (see the file header).
+        if (!held)
           SliverToBoxAdapter(
             child: Padding(
               key: const ValueKey('dollars-activity-empty'),
@@ -225,39 +197,6 @@ class DollarsActivityTab extends ConsumerWidget {
           child: SizedBox(height: 24.h + kuteDockScrollClearance(context)),
         ),
       ],
-    );
-  }
-}
-
-/// The market map on this tab (see the file header), hidden when the policy
-/// withholds Investing's browsing, as Investing's own list is. Its own widget
-/// so the universe's 30 s refresh rebuilds the map alone.
-class _OverviewMarketMap extends ConsumerWidget {
-  const _OverviewMarketMap({required this.margin});
-
-  final EdgeInsetsGeometry margin;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final canBrowse =
-        ref.watch(runtimeCapabilitiesProvider).allows('hyperliquid.browse');
-    if (!canBrowse) return const SizedBox.shrink();
-    final universe = ref.watch(hyperliquidBrowseUniverseProvider).valueOrNull ??
-        const <HlMarket>[];
-    final buildersMissing = ref.watch(hyperliquidBuilderMarketsMissingProvider);
-    final perps = ref.watch(hyperliquidPerpMarketsProvider.select((read) =>
-        (landed: read.valueOrNull != null, failed: read.hasError)));
-    // The skeleton until the builder-dex markets (the stocks, indices and
-    // commodities) are in. A perp list that could not be read is no wait:
-    // this tab has nothing else to fall back on, so what was read is drawn
-    // until the next 30 s read lands.
-    final waiting = !perps.landed &&
-        !perps.failed &&
-        !universe.any((m) => m.isHip3);
-    return HlMarketMapCard(
-      universe: universe,
-      margin: margin,
-      loading: buildersMissing || waiting,
     );
   }
 }

@@ -2,10 +2,10 @@
 // we do on the Bitcoin screen, have the first tab be the Activity screen …
 // It must have the P&L below the 4 squares with the highest predictions and
 // Hyperliquid bets."; renamed Overview on 8 November 2026): the biggest open
-// positions as squares, biggest first, four at most; the P&L under them; the
-// market map under that (dollars_default_tab_test.dart drives it); no list of
-// actions; the empty state with nothing open and no map; and the bar, "See
-// full portfolio and activity", pushing the Portfolio screen.
+// positions as squares, biggest first, four at most; the P&L under them;
+// nothing else: no list of actions and no market map (8 November 2026); the
+// empty state with nothing open; and the bar, "See full portfolio and
+// activity", pushing the Portfolio screen.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -244,14 +244,13 @@ void main() {
 
 
   testWidgets(
-      'one edge for every block: the squares, the P&L card and the map '
-      'share the page\'s gutters, the heading 12 inside', (tester) async {
+      'one edge for every block: the squares and the P&L card share the '
+      'page\'s gutters, the heading 12 inside', (tester) async {
     // Founder, 5 November 2026 ("different size here"): a group card stood
     // 16 inside the squares and the P&L card. Dark, as the screenshot.
     final now = DateTime.now();
     await pumpInvestments(tester,
         dark: true,
-        // Tall enough that the map is laid out.
         size: const Size(390, 2000),
         browseInvesting: true,
         overrides: [
@@ -288,31 +287,18 @@ void main() {
         of: find.byKey(const ValueKey('dollars-activity-squares')),
         matching: find.byType(ActivitySquareGrid)));
     final pnl = tester.getRect(find.byKey(const ValueKey('dollars-pnl-strip')));
-    // The card's face (its clip and the 1 px border around it), never a
-    // margin around it: a Container's rect counts its margin.
-    final map = tester
-        .getRect(find
-            .descendant(
-                of: find.byKey(const ValueKey('hl-market-map')),
-                matching: find.byType(ClipRRect))
-            .first)
-        .inflate(1);
     // The page's 16 gutters, one each side, for every block.
     final gutter = 16.w;
     for (final (name, r) in [
       ('squares', squares),
       ('P&L card', pnl),
-      ('map', map),
     ]) {
       expect(r.left - list.left, moreOrLessEquals(gutter, epsilon: 0.5),
           reason: '$name left');
       expect(list.right - r.right, moreOrLessEquals(gutter, epsilon: 0.5),
           reason: '$name right');
     }
-    expect(map.left, moreOrLessEquals(squares.left, epsilon: 0.5));
-    expect(map.right, moreOrLessEquals(squares.right, epsilon: 0.5));
-    // 12 under the P&L card, as the P&L card is under the squares.
-    expect(map.top - pnl.bottom, moreOrLessEquals(12.h, epsilon: 1));
+    expect(find.byKey(const ValueKey('hl-market-map')), findsNothing);
     expect(pnl.left, moreOrLessEquals(squares.left, epsilon: 0.5));
     expect(pnl.right, moreOrLessEquals(squares.right, epsilon: 0.5));
     // The squares' own cells reach the grid's edges.

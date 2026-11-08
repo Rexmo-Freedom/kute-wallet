@@ -17,12 +17,10 @@
 //     named-region copy carrying only the VPN sentence. A pick the policy
 //     no longer offers reads as Trending on the page's pill.
 //   * The Dollars page opens on Overview whatever the policy withholds
-//     (founder, 8 November 2026), the market map on it, under what is held
-//     and the first thing with nothing held. With `hyperliquid.browse`
-//     withheld there is no map, no skeleton: nothing held reads Sal over "No
-//     open positions" (Overview's own, true either way), and the Investing
-//     tab has no squares, only its notice. With `hyperliquid.stocks` denied
-//     the map stays, with no stock-linked tile.
+//     (founder, 8 November 2026), which holds what is open and the P&L, no
+//     market map. With `hyperliquid.browse` withheld, nothing held reads Sal
+//     over "No open positions" (Overview's own, true either way), and the
+//     Investing tab has no squares, only its notice.
 //   * Special US election events (the maps) and game markets reach the
 //     market page only through the feeds the category gates filter, and
 //     a bet on any of their lines still asks the category gate.
@@ -44,12 +42,8 @@ import 'package:kute/providers/polymarket_sports_provider.dart';
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 import 'package:kute/screens/hyperliquid/components/hl_market_map.dart';
 import 'package:kute/screens/hyperliquid/components/hl_moving_now_strip.dart';
-import 'package:kute/screens/hyperliquid/hyperliquid_screen.dart'
-    show HyperliquidScreen;
 import 'package:kute/screens/shared/investment_balance_header.dart'
     show InvestmentDiscoveryNotice;
-import 'package:kute/screens/usd/components/dollars_activity_tab.dart'
-    show DollarsActivityTab;
 import 'package:kute/screens/usd/investments_category_sheet.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart'
     show InvestmentsBody, InvestmentsTab, investmentsTabProvider;
@@ -335,26 +329,16 @@ void main() {
     });
   });
 
-  group('the Dollars page and its market map', () {
+  group('the Dollars page', () {
     testWidgets(
-        'everything allowed: the page opens on Overview, the map on it; '
-        'Investing holds the squares and the list, no map', (tester) async {
+        'everything allowed: the page opens on Overview; no map anywhere',
+        (tester) async {
       final policy = auditPolicy();
       expect(await policy.refresh(), isTrue);
       expect(
           await _pumpDollars(tester, policy, overrides: [_holdingOne()]),
           InvestmentsTab.activity);
-      expect(_map, findsOneWidget);
-      expect(
-          find.descendant(
-              of: find.byType(HyperliquidScreen, skipOffstage: false),
-              matching: _map),
-          findsNothing);
-      expect(
-          find.descendant(
-              of: find.byType(DollarsActivityTab, skipOffstage: false),
-              matching: _map),
-          findsOneWidget);
+      expect(_map, findsNothing);
       expect(find.byKey(const ValueKey('dollars-activity-empty')), findsNothing);
       await unmountInvestments(tester);
       policy.dispose();
@@ -393,31 +377,6 @@ void main() {
         expect(_map, findsNothing);
         expect(_mapBones, findsNothing);
         expect(find.text('No open positions'), findsOneWidget);
-        await unmountInvestments(tester);
-        policy.dispose();
-      });
-
-      testWidgets(
-          'hyperliquid.stocks ${denial.name}: the page opens on Overview, the '
-          'map with no stock-linked tile', (tester) async {
-        final policy = auditDenying(const ['hyperliquid.stocks'], denial);
-        expect(await policy.refresh(), isTrue);
-        expect(await _pumpDollars(tester, policy, overrides: [_holdingOne()]), InvestmentsTab.activity);
-        expect(_map, findsOneWidget);
-        final painter = tester
-            .widgetList<CustomPaint>(
-                find.descendant(of: _map, matching: find.byType(CustomPaint)))
-            .map((p) => p.painter)
-            .whereType<HlMarketMapPainter>()
-            .single;
-        final stocks = {
-          for (final m in _universe)
-            if (isHlStockPerp(m)) hlMarketMapId(m)
-        };
-        expect(stocks, isNotEmpty);
-        final tiles = {for (final t in painter.layout.tiles) t.id};
-        expect(tiles.intersection(stocks), isEmpty);
-        expect(painter.layout.tiles, isNotEmpty);
         await unmountInvestments(tester);
         policy.dispose();
       });

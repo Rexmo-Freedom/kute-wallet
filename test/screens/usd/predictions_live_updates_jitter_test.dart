@@ -327,12 +327,6 @@ Map<String, double> _layout(WidgetTester tester) {
     out['squares top'] = tester.getTopLeft(strip).dy;
     out['squares height'] = tester.getSize(strip).height;
   }
-  // The market map, on the Overview pill (founder, 8 November 2026).
-  final map = find.byKey(const ValueKey('hl-market-map'));
-  if (map.evaluate().isNotEmpty) {
-    out['map top'] = tester.getTopLeft(map).dy;
-    out['map height'] = tester.getSize(map).height;
-  }
   // Investing's rows by slot, not by market: the 30 s re-read may
   // re-rank them (the list is by volume), which swaps what a slot shows
   // but must never move the slots.

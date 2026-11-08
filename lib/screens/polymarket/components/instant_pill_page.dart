@@ -23,12 +23,15 @@
 //
 // The page, as slivers under the browser's pills:
 //   * the filter: the coins on offer at the picked length and the lengths
-//     the venue runs (instant_filter.dart), remembered on this device
+//     the venue runs (instant_filter.dart), not remembered: Bitcoin's five
+//     minutes each time Predictions is opened anew
 //     (polymarket_instant_provider.dart);
 //   * ONE card, the picked coin's round in play at the picked length
 //     (instant_round_card.dart), with the strip of rounds and the one pair
-//     of Up and Down buttons on the whole page;
-//   * the person's own rounds under it, on the Portfolio's rows.
+//     of Up and Down buttons on the whole page.
+// The person's own open bets are not listed here (founder, 8 November 2026:
+// "do not show the current bet there"); they live on Overview and the
+// Portfolio. The strip still marks a round they hold.
 // A pick on the filter switches the card as a chip switch does; nothing
 // else on the page moves. Gating: the browser shows this page only under
 // `polymarket.browse`, as the Predictions lists (the discovery notice
@@ -49,8 +52,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/l10n/l10n.dart';
-import 'package:kute/providers/placing_polymarket_bet_provider.dart'
-    show placingPolymarketBetProvider;
 import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/providers/polymarket_instant_provider.dart';
 import 'package:kute/providers/polymarket_provider.dart'
@@ -59,11 +60,8 @@ import 'package:kute/screens/polymarket/components/instant_filter.dart';
 import 'package:kute/screens/polymarket/components/instant_round_card.dart';
 import 'package:kute/screens/polymarket/components/poly_browse_bar.dart'
     show polySubsFor;
-import 'package:kute/screens/portfolio/components/position_rows.dart'
-    show PlacingBetRow, PolyPositionRow, PortfolioCardList;
 import 'package:kute/screens/shared/kute_motion.dart'
     show SliverSelectionFade;
-import 'package:kute/services/polymarket/crypto_round.dart';
 import 'package:kute/services/polymarket/instant_rounds.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -160,7 +158,6 @@ class PolyInstantPage extends ConsumerWidget {
             ),
           ],
         ),
-        const _InstantOwnRounds(),
         SliverToBoxAdapter(child: SizedBox(height: 24.h)),
       ],
     );
@@ -194,49 +191,5 @@ class _InstantCardGateState extends State<_InstantCardGate> {
       if (mounted) _height = context.size?.height;
     });
     return widget.child;
-  }
-}
-
-/// The person's own rounds, under the card, whatever the filter says:
-/// bets on their way, then the rounds held, on the Portfolio's card and
-/// rows (position_rows.dart); rows, never buttons. Its own widget so a
-/// position tick rebuilds this and not the card. Nothing at all with no
-/// round held.
-class _InstantOwnRounds extends ConsumerWidget {
-  const _InstantOwnRounds();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    bool isRound(String? slug) =>
-        slug != null && polyCryptoRoundOf(slug) != null;
-    final placing = [
-      for (final b in ref.watch(placingPolymarketBetProvider))
-        if (isRound(b.eventSlug)) b,
-    ];
-    final held = [
-      for (final p in ref.watch(polymarketActivePositionsProvider))
-        if (p.eventSlug != null &&
-            polyCryptoRoundOf(p.eventSlug!,
-                    endDate: DateTime.tryParse(p.endDateStr ?? '')) !=
-                null)
-          p,
-    ];
-    if (placing.isEmpty && held.isEmpty) {
-      return const SliverToBoxAdapter(child: SizedBox.shrink());
-    }
-    return SliverToBoxAdapter(
-      key: const ValueKey('instant-own-rounds'),
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 12.h),
-        child: PortfolioCardList(
-          rows: [
-            for (final b in placing)
-              PlacingBetRow(key: ValueKey('placing-${b.placementId}'), bet: b),
-            for (final p in held)
-              PolyPositionRow(key: ValueKey('poly-${p.tokenId}'), position: p),
-          ],
-        ),
-      ),
-    );
   }
 }

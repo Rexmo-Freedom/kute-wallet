@@ -496,7 +496,9 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
     var selection = ref.watch(hlBrowseSelectionProvider);
     ref.listen<HlBrowseSelection>(hlBrowseSelectionProvider, (prev, next) {
       final drill = _drillFor(next);
-      if (drill != null && drill != _drilledInto) {
+      // A pick drills in; the reset when the pill is left drills out.
+      final reset = next.tab == HlBrowseTab.trending && next.subs.isEmpty;
+      if (drill != _drilledInto && (drill != null || reset)) {
         setState(() => _drilledInto = drill);
       }
     });

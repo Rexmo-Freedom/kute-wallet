@@ -9,12 +9,10 @@
 // (test/audit/instant_render_test.dart); the card's own rules are
 // test/screens/polymarket/instant_round_card_test.dart.
 
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hive_ce/hive.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/providers/crypto_live_odds_provider.dart';
@@ -654,34 +652,17 @@ void main() {
   });
 
   group('the memory', () {
-    late Directory dir;
-    setUp(() async {
-      dir = await Directory.systemTemp.createTemp('instant_choice');
-      Hive.init(dir.path);
-    });
-    tearDown(() async {
-      await Hive.deleteBoxFromDisk(PolyInstantChoiceNotifier.boxName);
-      await Hive.close();
-      await dir.delete(recursive: true);
-    });
-
-    test('the last pick comes back, a broken one reads the default', () async {
+    test('the last pick does not come back', () {
       var c = ProviderContainer();
-      addTearDown(() => c.dispose());
-      expect(c.read(polyInstantChoiceProvider), kPolyInstantDefault);
-      await Hive.openBox<String>(PolyInstantChoiceNotifier.boxName);
       const pick = PolyInstantChoice(asset: 'SOL', length: '15m');
       c.read(polyInstantChoiceProvider.notifier).pick(pick);
-      await Future<void>.delayed(const Duration(milliseconds: 20));
-      c.dispose();
-
-      c = ProviderContainer();
       expect(c.read(polyInstantChoiceProvider), pick);
+      c.read(polyInstantChoiceProvider.notifier).reset();
+      expect(c.read(polyInstantChoiceProvider), kPolyInstantDefault);
+      c.read(polyInstantChoiceProvider.notifier).pick(pick);
       c.dispose();
-
-      await Hive.box<String>(PolyInstantChoiceNotifier.boxName)
-          .put('choice', '{"asset":"SOL","length":"3d"}');
       c = ProviderContainer();
+      addTearDown(c.dispose);
       expect(c.read(polyInstantChoiceProvider), kPolyInstantDefault);
     });
 
@@ -733,8 +714,8 @@ void main() {
     });
 
     testWidgets(
-        'behind another Dollars pill the card goes and its reads stop; '
-        'back, it returns', (tester) async {
+        'on another Dollars pill the card goes and its reads stop; back, '
+        'Predictions opens on Trending, not Instant', (tester) async {
       final world = InstantWorld();
       await pumpInstant(tester, world);
       expect(world.liveRounds, {(asset: 'BTC', minutes: 5)});
@@ -746,14 +727,10 @@ void main() {
       expect(find.byKey(const ValueKey('instant-card-BTC-5m'),
               skipOffstage: false),
           findsNothing);
-      expect(
-          find.byKey(const ValueKey('instant-card-hidden'), skipOffstage: false),
-          findsOneWidget,
-          reason: 'a box holds the card\'s place');
       await tapAndPump(tester, investmentsPill(l10n.predictions));
       await _settle(tester, 8);
-      expect(world.liveRounds, {(asset: 'BTC', minutes: 5)});
-      expect(world.socketTokens.keys.toSet(), {'BTC-up', 'BTC-down'});
+      expect(find.byType(PolyInstantPage), findsNothing);
+      expect(world.liveRounds, isEmpty);
       await unmountInvestments(tester);
     });
 
@@ -775,41 +752,15 @@ void main() {
   });
 
   group('own rounds', () {
-    testWidgets('on the position rows, under the card', (tester) async {
+    testWidgets('a held round is not listed; the strip marks it',
+        (tester) async {
       final world = InstantWorld()..positions = [heldRound()];
       await pumpInstant(tester, world);
-      final own = find.byType(PolyPositionRow);
-      expect(own, findsOneWidget);
-      expect(tester.getTopLeft(own).dy,
-          greaterThan(tester.getBottomLeft(instantCard('BTC')).dy));
-      // And the marker on the strip's round in play.
+      expect(find.byType(PolyPositionRow), findsNothing);
       expect(
           find.byKey(ValueKey('instant-round-held-${world.liveStart(5)}')),
           findsOneWidget);
-      // No second pair of buttons anywhere.
       expect(find.byKey(const ValueKey('crypto-round-up')), findsOneWidget);
-      await unmountInvestments(tester);
-    });
-
-    testWidgets('a held market that is no round stays off', (tester) async {
-      final world = InstantWorld()
-        ..positions = [
-          const PolymarketPosition(
-            marketId: 'fed',
-            marketQuestion: 'Fed cuts?',
-            outcome: 'Yes',
-            size: 3,
-            avgPrice: 0.4,
-            currentPrice: 0.5,
-            pnl: 0.3,
-            pnlPercent: 25,
-            isResolved: false,
-            tokenId: 'fed-yes',
-            eventSlug: 'fed-decision-in-december',
-          ),
-        ];
-      await pumpInstant(tester, world);
-      expect(find.byType(PolyPositionRow), findsNothing);
       await unmountInvestments(tester);
     });
   });

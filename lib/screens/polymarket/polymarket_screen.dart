@@ -500,7 +500,9 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     ref.listen<PolyBrowseSelection>(polyBrowseSelectionProvider,
         (prev, next) {
       final drill = _drillFor(next);
-      if (drill != null && drill != _drilledInto) {
+      // A pick drills in; the reset when the pill is left drills out.
+      final reset = next.pill == PolyPill.trending && next.subs.isEmpty;
+      if (drill != _drilledInto && (drill != null || reset)) {
         setState(() => _drilledInto = drill);
       }
     });
