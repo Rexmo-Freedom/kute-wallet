@@ -11233,40 +11233,40 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get balanceLevelName0 => 'ウォーミングアップ';
+  String get balanceLevelName0 => 'Kute お昼寝';
 
   @override
-  String get balanceLevelName1 => 'おこづかい';
+  String get balanceLevelName1 => 'Kute コイン';
 
   @override
-  String get balanceLevelName2 => 'スタッカー';
+  String get balanceLevelName2 => 'Kute スタック';
 
   @override
-  String get balanceLevelName3 => '常連';
+  String get balanceLevelName3 => 'Kute 表彰台';
 
   @override
-  String get balanceLevelName4 => '大人';
+  String get balanceLevelName4 => 'Kute ブリーフケース';
 
   @override
-  String get balanceLevelName5 => '本気';
+  String get balanceLevelName5 => 'Kute 金庫';
 
   @override
-  String get balanceLevelName6 => '安定した手';
+  String get balanceLevelName6 => 'Kute タワー';
 
   @override
-  String get balanceLevelName7 => 'ヘビー級';
+  String get balanceLevelName7 => 'Kute 金塊';
 
   @override
-  String get balanceLevelName8 => '大物';
+  String get balanceLevelName8 => 'Kute 山盛り';
 
   @override
-  String get balanceLevelName9 => '群れのリーダー';
+  String get balanceLevelName9 => 'Kute 王冠';
 
   @override
-  String get balanceLevelName10 => '伝説';
+  String get balanceLevelName10 => 'Kute レジェンド';
 
   @override
-  String get balanceLevelName11 => '規格外';
+  String get balanceLevelName11 => 'Kute のチャート超え';
 
   @override
   String balanceGoalProgress(int percent, String goal) {

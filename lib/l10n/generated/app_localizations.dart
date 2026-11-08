@@ -19577,73 +19577,73 @@ abstract class AppLocalizations {
   /// Level name (level 1, below the first milestone, about $100). Deadpan, playful, never about returns. Short.
   ///
   /// In en, this message translates to:
-  /// **'Warming up'**
+  /// **'Kute Nap'**
   String get balanceLevelName0;
 
   /// Level name (level 2, past ~$100). Deadpan, short.
   ///
   /// In en, this message translates to:
-  /// **'Pocket money'**
+  /// **'Kute Coin'**
   String get balanceLevelName1;
 
   /// Level name (level 3, past ~$250). 'Stacker' as in someone who stacks sats. Short.
   ///
   /// In en, this message translates to:
-  /// **'Stacker'**
+  /// **'Kute Stack'**
   String get balanceLevelName2;
 
   /// Level name (level 4, past ~$500). Short.
   ///
   /// In en, this message translates to:
-  /// **'Regular'**
+  /// **'Kute Podium'**
   String get balanceLevelName3;
 
   /// Level name (level 5, past ~$1,000). Short.
   ///
   /// In en, this message translates to:
-  /// **'Grown-up'**
+  /// **'Kute Briefcase'**
   String get balanceLevelName4;
 
   /// Level name (level 6, past ~$2,500). Short.
   ///
   /// In en, this message translates to:
-  /// **'Serious'**
+  /// **'Kute Vault'**
   String get balanceLevelName5;
 
   /// Level name (level 7, past ~$5,000). Short.
   ///
   /// In en, this message translates to:
-  /// **'Steady hand'**
+  /// **'Kute Tower'**
   String get balanceLevelName6;
 
   /// Level name (level 8, past ~$10,000). Short.
   ///
   /// In en, this message translates to:
-  /// **'Heavyweight'**
+  /// **'Kute Bars'**
   String get balanceLevelName7;
 
   /// Level name (level 9, past ~$25,000). Dog pun (Sal is a dog), means a big shot. Short.
   ///
   /// In en, this message translates to:
-  /// **'Big dog'**
+  /// **'Kute Heap'**
   String get balanceLevelName8;
 
   /// Level name (level 10, past ~$50,000). Dog pun, the one at the top. Short.
   ///
   /// In en, this message translates to:
-  /// **'Top dog'**
+  /// **'Kute Crown'**
   String get balanceLevelName9;
 
   /// Level name (level 11, past ~$100,000). Short.
   ///
   /// In en, this message translates to:
-  /// **'Legend'**
+  /// **'Kute Legend'**
   String get balanceLevelName10;
 
   /// Level name (level 12 and every level above). Short.
   ///
   /// In en, this message translates to:
-  /// **'Off the charts'**
+  /// **'Off the Kute charts'**
   String get balanceLevelName11;
 
   /// Bitcoin home, Balance tab, the Level square: the small line over 'Level 3', how far the Bitcoin + Dollars total is towards the next round goal ('62% to $500'). percent is a whole number; goal is a formatted amount. Short: it shares half the screen's width.

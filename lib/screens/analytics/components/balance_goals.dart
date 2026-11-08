@@ -45,19 +45,20 @@
 //     and naming the levels, and use Sal Blender"): one 3D still per level
 //     name, his attitude and props growing with it, always deadpan
 //     (level_1 .. level_12 in lib/assets/sal, render_level_stills.py in
-//     Kute Assets): Warming up, lying, lids nearly shut; Pocket money, one
-//     coin, looked down at; Stacker, a paw on a short stack; Regular, on a
-//     low podium of coins; Grown-up, reading glasses and the briefcase;
-//     Serious, lying on a vault, paws crossed; Steady hand, chin up on a
-//     tall stack; Heavyweight, on gold bars; Big dog, lying on a heap of
-//     them; Top dog, a small crown on a gold plinth; Legend, the crown,
-//     eyes shut on a wide stack; Off the charts, the crown on a tower that
+//     Kute Assets): Kute Nap, lying, lids nearly shut; Kute Coin, one
+//     coin, looked down at; Kute Stack, a paw on a short stack; Kute
+//     Podium, on a low podium of coins; Kute Briefcase, reading glasses and
+//     the briefcase; Kute Vault, lying on a vault, paws crossed; Kute Tower,
+//     chin up on a tall stack; Kute Bars, on gold bars; Kute Heap, lying on
+//     a heap of them; Kute Crown, a small crown on a gold plinth; Kute
+//     Legend, the crown, eyes shut on a wide stack; Off the Kute charts, the
+//     crown on a tower that
 //     leaves the frame. The squares are taller than the position squares
 //     by Sal's room over their 40 logo;
 //   * THE LOOPS (founder, 7 November 2026, of the squares: "animate
 //     this"): each level's Sal is a calm 4 s idle loop from its still (a
 //     breath, a dry blink, an ear or tail flick, a side-eye; the crown
-//     catching the light; Warming up dozing), and the Next goal's flag
+//     catching the light; Kute Nap dozing), and the Next goal's flag
 //     waves while Sal looks from it to the viewer and back. They play only
 //     while the square is on screen ([BalanceGoalSalMotion]); under Reduce
 //     Motion, and in the Next goal square while balances are hidden, the

@@ -11734,40 +11734,40 @@ class AppLocalizationsEl extends AppLocalizations {
   }
 
   @override
-  String get balanceLevelName0 => 'Ζέσταμα';
+  String get balanceLevelName0 => 'Kute Υπνάκος';
 
   @override
-  String get balanceLevelName1 => 'Χαρτζιλίκι';
+  String get balanceLevelName1 => 'Kute Νόμισμα';
 
   @override
-  String get balanceLevelName2 => 'Συλλέκτης';
+  String get balanceLevelName2 => 'Kute Στοίβα';
 
   @override
-  String get balanceLevelName3 => 'Θαμώνας';
+  String get balanceLevelName3 => 'Kute Βάθρο';
 
   @override
-  String get balanceLevelName4 => 'Ενήλικας';
+  String get balanceLevelName4 => 'Kute Χαρτοφύλακας';
 
   @override
-  String get balanceLevelName5 => 'Σοβαρά';
+  String get balanceLevelName5 => 'Kute Θησαυροφυλάκιο';
 
   @override
-  String get balanceLevelName6 => 'Σταθερό χέρι';
+  String get balanceLevelName6 => 'Kute Πύργος';
 
   @override
-  String get balanceLevelName7 => 'Βαρέων βαρών';
+  String get balanceLevelName7 => 'Kute Ράβδοι';
 
   @override
-  String get balanceLevelName8 => 'Μεγάλος σκύλος';
+  String get balanceLevelName8 => 'Kute Σωρός';
 
   @override
-  String get balanceLevelName9 => 'Αρχηγός της αγέλης';
+  String get balanceLevelName9 => 'Kute Στέμμα';
 
   @override
-  String get balanceLevelName10 => 'Θρύλος';
+  String get balanceLevelName10 => 'Kute Θρύλος';
 
   @override
-  String get balanceLevelName11 => 'Εκτός κλίμακας';
+  String get balanceLevelName11 => 'Εκτός γραφημάτων Kute';
 
   @override
   String balanceGoalProgress(int percent, String goal) {

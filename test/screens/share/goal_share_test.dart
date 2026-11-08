@@ -76,7 +76,7 @@ void main() {
       final d = fakeGoalCard();
       expect(d.kind, 'goal');
       expect(d.level, 3);
-      expect(d.name, 'Stacker');
+      expect(d.name, 'Kute Stack');
       expect(d.still, 'level_card_3');
       expect(d.referralCode, kShareTestCode);
       expect(shareCardPalette(d), ShareCardPalette.bitcoinClaim);
@@ -98,7 +98,7 @@ void main() {
       final texts = _texts(tester);
       expect(texts, contains('MY LEVEL'));
       expect(texts, contains('Level 3'));
-      expect(texts, contains('Stacker'));
+      expect(texts, contains('Kute Stack'));
       expect(texts, contains(shareCardEdge(en, fakeGoalCard(), 0)));
       expect(texts.join(' '), contains(kShareTestCode));
     });

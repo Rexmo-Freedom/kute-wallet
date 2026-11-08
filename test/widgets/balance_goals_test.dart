@@ -276,7 +276,7 @@ void main() {
     expect(find.byIcon(Icons.flag_rounded), findsOneWidget);
     expect(text(tester, 'balance-goals-heading'), 'Goals');
     expect(text(tester, 'balance-goal-level'), 'Level 2');
-    expect(text(tester, 'balance-goal-level-name'), 'Pocket money');
+    expect(text(tester, 'balance-goal-level-name'), 'Kute Coin');
     expect(text(tester, 'balance-goal-progress'), r'99% to $250');
     expect(barFill(tester), closeTo(0.994, 0.01));
     expect(text(tester, 'balance-goal-next-label'), 'Next goal');
@@ -289,7 +289,7 @@ void main() {
     expect(find.byKey(const ValueKey('balance-goal-to-go')), findsNothing);
     expect(
         find.text('Your money, more places to go in Dollars.'), findsNothing);
-    // Sal in both: the level's still (Pocket money: one coin) over the
+    // Sal in both: the level's still (Kute Coin: one coin) over the
     // bar, and the next goal's, squinting up at a flag.
     expect(sal(tester, 'balance-goal-level-sal'), 'level_2');
     expect(sal(tester, 'balance-goal-next-sal'), 'goal_next');
@@ -380,11 +380,11 @@ void main() {
           matching: find.byType(SalSprite)));
       expect(sprite.clip, 'level_$i');
     }
-    expect(text(tester, 'balance-ladder-name-1'), 'Warming up');
+    expect(text(tester, 'balance-ladder-name-1'), 'Kute Nap');
     expect(text(tester, 'balance-ladder-line-1'), r'Level 1 · Under $100');
-    expect(text(tester, 'balance-ladder-name-3'), 'Stacker');
+    expect(text(tester, 'balance-ladder-name-3'), 'Kute Stack');
     expect(text(tester, 'balance-ladder-line-3'), r'Level 3 · From $250');
-    expect(text(tester, 'balance-ladder-name-12'), 'Off the charts');
+    expect(text(tester, 'balance-ladder-name-12'), 'Off the Kute charts');
     expect(text(tester, 'balance-ladder-line-12'), r'Level 12 · From $250,000');
     // Level 2 ($248.50): level 1 passed, level 2 current with its progress.
     expect(
@@ -523,7 +523,7 @@ void main() {
     expect(find.byKey(const ValueKey('balance-goal-celebration-title')),
         findsNothing);
     expect(text(tester, 'balance-goal-level'), 'Level 3');
-    expect(text(tester, 'balance-goal-level-name'), 'Stacker');
+    expect(text(tester, 'balance-goal-level-name'), 'Kute Stack');
     // Sal moved up with the level, in place.
     expect(sal(tester, 'balance-goal-level-sal'), 'level_3');
     expect(text(tester, 'balance-goal-progress'), r'50% to $500');
@@ -657,7 +657,7 @@ void main() {
       expect(
           find.descendant(
               of: find.byKey(const ValueKey('share-card-preview')),
-              matching: find.text('Pocket money')),
+              matching: find.text('Kute Coin')),
           findsOneWidget);
       expect(
           find.descendant(
@@ -897,7 +897,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     }
     expect(find.byKey(const ValueKey('balance-ladder-sheet')), findsOneWidget);
-    expect(text(tester, 'balance-ladder-name-2'), 'Pocket money');
+    expect(text(tester, 'balance-ladder-name-2'), 'Kute Coin');
     expect(text(tester, 'balance-ladder-line-2'), r'Level 2 · From $100');
     expect(find.byKey(const ValueKey('balance-ladder-passed-1')), findsNothing);
     expect(find.byKey(const ValueKey('balance-ladder-current-2')), findsNothing);

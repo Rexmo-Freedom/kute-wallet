@@ -11652,40 +11652,40 @@ class AppLocalizationsSv extends AppLocalizations {
   }
 
   @override
-  String get balanceLevelName0 => 'Uppvärmning';
+  String get balanceLevelName0 => 'Kute Tupplur';
 
   @override
-  String get balanceLevelName1 => 'Fickpengar';
+  String get balanceLevelName1 => 'Kute Mynt';
 
   @override
-  String get balanceLevelName2 => 'Samlare';
+  String get balanceLevelName2 => 'Kute Stapel';
 
   @override
-  String get balanceLevelName3 => 'Stamgäst';
+  String get balanceLevelName3 => 'Kute Prispall';
 
   @override
-  String get balanceLevelName4 => 'Vuxen';
+  String get balanceLevelName4 => 'Kute Portfölj';
 
   @override
-  String get balanceLevelName5 => 'Seriös';
+  String get balanceLevelName5 => 'Kute Valv';
 
   @override
-  String get balanceLevelName6 => 'Stadig hand';
+  String get balanceLevelName6 => 'Kute Torn';
 
   @override
-  String get balanceLevelName7 => 'Tungviktare';
+  String get balanceLevelName7 => 'Kute Tackor';
 
   @override
-  String get balanceLevelName8 => 'Stor hund';
+  String get balanceLevelName8 => 'Kute Hög';
 
   @override
-  String get balanceLevelName9 => 'Flockledare';
+  String get balanceLevelName9 => 'Kute Krona';
 
   @override
-  String get balanceLevelName10 => 'Legend';
+  String get balanceLevelName10 => 'Kute Legend';
 
   @override
-  String get balanceLevelName11 => 'Utanför skalan';
+  String get balanceLevelName11 => 'Utanför Kute-graferna';
 
   @override
   String balanceGoalProgress(int percent, String goal) {

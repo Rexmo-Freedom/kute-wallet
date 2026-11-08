@@ -11702,40 +11702,40 @@ class AppLocalizationsIt extends AppLocalizations {
   }
 
   @override
-  String get balanceLevelName0 => 'Riscaldamento';
+  String get balanceLevelName0 => 'Pisolino Kute';
 
   @override
-  String get balanceLevelName1 => 'Paghetta';
+  String get balanceLevelName1 => 'Moneta Kute';
 
   @override
-  String get balanceLevelName2 => 'Accumulatore';
+  String get balanceLevelName2 => 'Pila Kute';
 
   @override
-  String get balanceLevelName3 => 'Abituale';
+  String get balanceLevelName3 => 'Podio Kute';
 
   @override
-  String get balanceLevelName4 => 'Adulto';
+  String get balanceLevelName4 => 'Valigetta Kute';
 
   @override
-  String get balanceLevelName5 => 'Sul serio';
+  String get balanceLevelName5 => 'Caveau Kute';
 
   @override
-  String get balanceLevelName6 => 'Mano ferma';
+  String get balanceLevelName6 => 'Torre Kute';
 
   @override
-  String get balanceLevelName7 => 'Peso massimo';
+  String get balanceLevelName7 => 'Lingotti Kute';
 
   @override
-  String get balanceLevelName8 => 'Pezzo grosso';
+  String get balanceLevelName8 => 'Mucchio Kute';
 
   @override
-  String get balanceLevelName9 => 'Capobranco';
+  String get balanceLevelName9 => 'Corona Kute';
 
   @override
-  String get balanceLevelName10 => 'Leggenda';
+  String get balanceLevelName10 => 'Leggenda Kute';
 
   @override
-  String get balanceLevelName11 => 'Fuori scala';
+  String get balanceLevelName11 => 'Fuori dai grafici Kute';
 
   @override
   String balanceGoalProgress(int percent, String goal) {

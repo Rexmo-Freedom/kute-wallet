@@ -11682,40 +11682,40 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
-  String get balanceLevelName0 => 'Bemelegítés';
+  String get balanceLevelName0 => 'Kute Szundi';
 
   @override
-  String get balanceLevelName1 => 'Zsebpénz';
+  String get balanceLevelName1 => 'Kute Érme';
 
   @override
-  String get balanceLevelName2 => 'Gyűjtögető';
+  String get balanceLevelName2 => 'Kute Oszlop';
 
   @override
-  String get balanceLevelName3 => 'Törzsvendég';
+  String get balanceLevelName3 => 'Kute Dobogó';
 
   @override
-  String get balanceLevelName4 => 'Felnőtt';
+  String get balanceLevelName4 => 'Kute Aktatáska';
 
   @override
-  String get balanceLevelName5 => 'Komoly';
+  String get balanceLevelName5 => 'Kute Széf';
 
   @override
-  String get balanceLevelName6 => 'Biztos kéz';
+  String get balanceLevelName6 => 'Kute Torony';
 
   @override
-  String get balanceLevelName7 => 'Nehézsúlyú';
+  String get balanceLevelName7 => 'Kute Rudak';
 
   @override
-  String get balanceLevelName8 => 'Nagykutya';
+  String get balanceLevelName8 => 'Kute Halom';
 
   @override
-  String get balanceLevelName9 => 'Falkavezér';
+  String get balanceLevelName9 => 'Kute Korona';
 
   @override
-  String get balanceLevelName10 => 'Legenda';
+  String get balanceLevelName10 => 'Kute Legenda';
 
   @override
-  String get balanceLevelName11 => 'Skálán kívül';
+  String get balanceLevelName11 => 'A Kute grafikonjain túl';
 
   @override
   String balanceGoalProgress(int percent, String goal) {

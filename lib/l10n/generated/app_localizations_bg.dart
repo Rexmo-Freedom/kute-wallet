@@ -11675,40 +11675,40 @@ class AppLocalizationsBg extends AppLocalizations {
   }
 
   @override
-  String get balanceLevelName0 => 'Загрявка';
+  String get balanceLevelName0 => 'Kute Дрямка';
 
   @override
-  String get balanceLevelName1 => 'Джобни';
+  String get balanceLevelName1 => 'Kute Монета';
 
   @override
-  String get balanceLevelName2 => 'Трупач';
+  String get balanceLevelName2 => 'Kute Купчинка';
 
   @override
-  String get balanceLevelName3 => 'Редовен';
+  String get balanceLevelName3 => 'Kute Подиум';
 
   @override
-  String get balanceLevelName4 => 'Пораснал';
+  String get balanceLevelName4 => 'Kute Куфарче';
 
   @override
-  String get balanceLevelName5 => 'Сериозно';
+  String get balanceLevelName5 => 'Kute Трезор';
 
   @override
-  String get balanceLevelName6 => 'Твърда ръка';
+  String get balanceLevelName6 => 'Kute Кула';
 
   @override
-  String get balanceLevelName7 => 'Тежка категория';
+  String get balanceLevelName7 => 'Kute Кюлчета';
 
   @override
-  String get balanceLevelName8 => 'Голямо куче';
+  String get balanceLevelName8 => 'Kute Купчина';
 
   @override
-  String get balanceLevelName9 => 'Водач на глутницата';
+  String get balanceLevelName9 => 'Kute Корона';
 
   @override
-  String get balanceLevelName10 => 'Легенда';
+  String get balanceLevelName10 => 'Kute Легенда';
 
   @override
-  String get balanceLevelName11 => 'Извън скалата';
+  String get balanceLevelName11 => 'Извън графиките на Kute';
 
   @override
   String balanceGoalProgress(int percent, String goal) {

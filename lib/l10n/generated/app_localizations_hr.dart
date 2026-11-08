@@ -11684,40 +11684,40 @@ class AppLocalizationsHr extends AppLocalizations {
   }
 
   @override
-  String get balanceLevelName0 => 'Zagrijavanje';
+  String get balanceLevelName0 => 'Kute Drijemež';
 
   @override
-  String get balanceLevelName1 => 'Džeparac';
+  String get balanceLevelName1 => 'Kute Kovanica';
 
   @override
-  String get balanceLevelName2 => 'Skupljač';
+  String get balanceLevelName2 => 'Kute Hrpica';
 
   @override
-  String get balanceLevelName3 => 'Stalni gost';
+  String get balanceLevelName3 => 'Kute Podij';
 
   @override
-  String get balanceLevelName4 => 'Odrastao';
+  String get balanceLevelName4 => 'Kute Aktovka';
 
   @override
-  String get balanceLevelName5 => 'Ozbiljno';
+  String get balanceLevelName5 => 'Kute Trezor';
 
   @override
-  String get balanceLevelName6 => 'Mirna ruka';
+  String get balanceLevelName6 => 'Kute Toranj';
 
   @override
-  String get balanceLevelName7 => 'Teška kategorija';
+  String get balanceLevelName7 => 'Kute Poluge';
 
   @override
-  String get balanceLevelName8 => 'Veliki pas';
+  String get balanceLevelName8 => 'Kute Hrpa';
 
   @override
-  String get balanceLevelName9 => 'Vođa čopora';
+  String get balanceLevelName9 => 'Kute Kruna';
 
   @override
-  String get balanceLevelName10 => 'Legenda';
+  String get balanceLevelName10 => 'Kute Legenda';
 
   @override
-  String get balanceLevelName11 => 'Izvan ljestvice';
+  String get balanceLevelName11 => 'Izvan Kute grafikona';
 
   @override
   String balanceGoalProgress(int percent, String goal) {

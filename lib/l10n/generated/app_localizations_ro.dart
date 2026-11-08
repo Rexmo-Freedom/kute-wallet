@@ -11715,40 +11715,40 @@ class AppLocalizationsRo extends AppLocalizations {
   }
 
   @override
-  String get balanceLevelName0 => 'Încălzire';
+  String get balanceLevelName0 => 'Kute Pui de somn';
 
   @override
-  String get balanceLevelName1 => 'Bani de buzunar';
+  String get balanceLevelName1 => 'Kute Monedă';
 
   @override
-  String get balanceLevelName2 => 'Strângător';
+  String get balanceLevelName2 => 'Kute Teanc';
 
   @override
-  String get balanceLevelName3 => 'Obișnuit';
+  String get balanceLevelName3 => 'Kute Podium';
 
   @override
-  String get balanceLevelName4 => 'Matur';
+  String get balanceLevelName4 => 'Kute Servietă';
 
   @override
-  String get balanceLevelName5 => 'Serios';
+  String get balanceLevelName5 => 'Kute Seif';
 
   @override
-  String get balanceLevelName6 => 'Mână sigură';
+  String get balanceLevelName6 => 'Kute Turn';
 
   @override
-  String get balanceLevelName7 => 'Categoria grea';
+  String get balanceLevelName7 => 'Kute Lingouri';
 
   @override
-  String get balanceLevelName8 => 'Câine mare';
+  String get balanceLevelName8 => 'Kute Morman';
 
   @override
-  String get balanceLevelName9 => 'Liderul haitei';
+  String get balanceLevelName9 => 'Kute Coroană';
 
   @override
-  String get balanceLevelName10 => 'Legendă';
+  String get balanceLevelName10 => 'Kute Legendă';
 
   @override
-  String get balanceLevelName11 => 'În afara scalei';
+  String get balanceLevelName11 => 'Dincolo de graficele Kute';
 
   @override
   String balanceGoalProgress(int percent, String goal) {

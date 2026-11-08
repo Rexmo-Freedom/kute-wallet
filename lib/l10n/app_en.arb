@@ -8574,51 +8574,51 @@
       }
     }
   },
-  "balanceLevelName0": "Warming up",
+  "balanceLevelName0": "Kute Nap",
   "@balanceLevelName0": {
     "description": "Level name (level 1, below the first milestone, about $100). Deadpan, playful, never about returns. Short."
   },
-  "balanceLevelName1": "Pocket money",
+  "balanceLevelName1": "Kute Coin",
   "@balanceLevelName1": {
     "description": "Level name (level 2, past ~$100). Deadpan, short."
   },
-  "balanceLevelName2": "Stacker",
+  "balanceLevelName2": "Kute Stack",
   "@balanceLevelName2": {
     "description": "Level name (level 3, past ~$250). 'Stacker' as in someone who stacks sats. Short."
   },
-  "balanceLevelName3": "Regular",
+  "balanceLevelName3": "Kute Podium",
   "@balanceLevelName3": {
     "description": "Level name (level 4, past ~$500). Short."
   },
-  "balanceLevelName4": "Grown-up",
+  "balanceLevelName4": "Kute Briefcase",
   "@balanceLevelName4": {
     "description": "Level name (level 5, past ~$1,000). Short."
   },
-  "balanceLevelName5": "Serious",
+  "balanceLevelName5": "Kute Vault",
   "@balanceLevelName5": {
     "description": "Level name (level 6, past ~$2,500). Short."
   },
-  "balanceLevelName6": "Steady hand",
+  "balanceLevelName6": "Kute Tower",
   "@balanceLevelName6": {
     "description": "Level name (level 7, past ~$5,000). Short."
   },
-  "balanceLevelName7": "Heavyweight",
+  "balanceLevelName7": "Kute Bars",
   "@balanceLevelName7": {
     "description": "Level name (level 8, past ~$10,000). Short."
   },
-  "balanceLevelName8": "Big dog",
+  "balanceLevelName8": "Kute Heap",
   "@balanceLevelName8": {
     "description": "Level name (level 9, past ~$25,000). Dog pun (Sal is a dog), means a big shot. Short."
   },
-  "balanceLevelName9": "Top dog",
+  "balanceLevelName9": "Kute Crown",
   "@balanceLevelName9": {
     "description": "Level name (level 10, past ~$50,000). Dog pun, the one at the top. Short."
   },
-  "balanceLevelName10": "Legend",
+  "balanceLevelName10": "Kute Legend",
   "@balanceLevelName10": {
     "description": "Level name (level 11, past ~$100,000). Short."
   },
-  "balanceLevelName11": "Off the charts",
+  "balanceLevelName11": "Off the Kute charts",
   "@balanceLevelName11": {
     "description": "Level name (level 12 and every level above). Short."
   },

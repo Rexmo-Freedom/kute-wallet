@@ -11712,40 +11712,40 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
-  String get balanceLevelName0 => 'Įšylama';
+  String get balanceLevelName0 => 'Kute Snaudulys';
 
   @override
-  String get balanceLevelName1 => 'Kišenpinigiai';
+  String get balanceLevelName1 => 'Kute Moneta';
 
   @override
-  String get balanceLevelName2 => 'Kaupėjas';
+  String get balanceLevelName2 => 'Kute Krūvelė';
 
   @override
-  String get balanceLevelName3 => 'Nuolatinis';
+  String get balanceLevelName3 => 'Kute Pakyla';
 
   @override
-  String get balanceLevelName4 => 'Suaugęs';
+  String get balanceLevelName4 => 'Kute Portfelis';
 
   @override
-  String get balanceLevelName5 => 'Rimtai';
+  String get balanceLevelName5 => 'Kute Seifas';
 
   @override
-  String get balanceLevelName6 => 'Tvirta ranka';
+  String get balanceLevelName6 => 'Kute Bokštas';
 
   @override
-  String get balanceLevelName7 => 'Sunkiasvoris';
+  String get balanceLevelName7 => 'Kute Luitai';
 
   @override
-  String get balanceLevelName8 => 'Didelis šuo';
+  String get balanceLevelName8 => 'Kute Krūva';
 
   @override
-  String get balanceLevelName9 => 'Gaujos vadas';
+  String get balanceLevelName9 => 'Kute Karūna';
 
   @override
-  String get balanceLevelName10 => 'Legenda';
+  String get balanceLevelName10 => 'Kute Legenda';
 
   @override
-  String get balanceLevelName11 => 'Už skalės ribų';
+  String get balanceLevelName11 => 'Už Kute grafikų ribų';
 
   @override
   String balanceGoalProgress(int percent, String goal) {

@@ -7,10 +7,10 @@ import 'package:kute/screens/share/cards/share_card_data.dart';
 
 const String kShareTestCode = 'JOAO42';
 
-/// A level's card: Stacker unless told otherwise.
+/// A level's card: Kute Stack unless told otherwise.
 GoalCardData fakeGoalCard(
         {int level = 3,
-        String name = 'Stacker',
+        String name = 'Kute Stack',
         String? still,
         String? code = kShareTestCode}) =>
     GoalCardData(

@@ -74,7 +74,7 @@ class GoalCardData extends ShareCardData {
   /// The level's number (past the twelfth name it keeps counting).
   final int level;
 
-  /// The level's name, in the app's language ("Stacker").
+  /// The level's name, in the app's language ("Kute Stack").
   final String name;
 
   /// Sal's still for the level ([ShareCardFrame.still]).

@@ -11655,40 +11655,40 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
-  String get balanceLevelName0 => 'Zahřívání';
+  String get balanceLevelName0 => 'Kute Šlofík';
 
   @override
-  String get balanceLevelName1 => 'Kapesné';
+  String get balanceLevelName1 => 'Kute Mince';
 
   @override
-  String get balanceLevelName2 => 'Střádal';
+  String get balanceLevelName2 => 'Kute Hromádka';
 
   @override
-  String get balanceLevelName3 => 'Štamgast';
+  String get balanceLevelName3 => 'Kute Pódium';
 
   @override
-  String get balanceLevelName4 => 'Dospělý';
+  String get balanceLevelName4 => 'Kute Kufřík';
 
   @override
-  String get balanceLevelName5 => 'Vážně';
+  String get balanceLevelName5 => 'Kute Trezor';
 
   @override
-  String get balanceLevelName6 => 'Pevná ruka';
+  String get balanceLevelName6 => 'Kute Věž';
 
   @override
-  String get balanceLevelName7 => 'Těžká váha';
+  String get balanceLevelName7 => 'Kute Slitky';
 
   @override
-  String get balanceLevelName8 => 'Velký pes';
+  String get balanceLevelName8 => 'Kute Hromada';
 
   @override
-  String get balanceLevelName9 => 'Vůdce smečky';
+  String get balanceLevelName9 => 'Kute Koruna';
 
   @override
-  String get balanceLevelName10 => 'Legenda';
+  String get balanceLevelName10 => 'Kute Legenda';
 
   @override
-  String get balanceLevelName11 => 'Mimo stupnici';
+  String get balanceLevelName11 => 'Mimo grafy Kute';
 
   @override
   String balanceGoalProgress(int percent, String goal) {
