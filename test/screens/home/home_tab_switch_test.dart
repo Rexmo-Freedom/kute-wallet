@@ -44,7 +44,7 @@ final _dollars = find.text('Dollars');
 double _place(WidgetTester tester) {
   final thumb = tester.getRect(_thumb);
   final track = tester.getRect(_track);
-  final inset = 3.w;
+  const inset = 0.0;
   final travel = track.width - 2 * inset - thumb.width;
   return (thumb.left - track.left - inset) / travel;
 }
@@ -87,7 +87,7 @@ void main() {
     expect(_place(tester), moreOrLessEquals(0));
     final c = tester.element(_switch).colors;
     expect(_colorOf(tester, _bitcoin), c.textPrimary);
-    expect(_colorOf(tester, _dollars), c.textSecondary);
+    expect(_colorOf(tester, _dollars), c.textTertiary);
 
     await tester.tap(_dollars);
     // Mid-way: it travels, it does not jump.
@@ -98,7 +98,7 @@ void main() {
     expect(_place(tester), moreOrLessEquals(1));
     expect(_location(tester), '/usd');
     expect(_colorOf(tester, _dollars), c.textPrimary);
-    expect(_colorOf(tester, _bitcoin), c.textSecondary);
+    expect(_colorOf(tester, _bitcoin), c.textTertiary);
     expect(events, contains(predicate<(String, Map<String, Object>?)>((e) =>
         e.$1 == 'shell_tab_changed' &&
         e.$2!['method'] == 'tap' &&
@@ -146,7 +146,7 @@ void main() {
     expect(_place(tester), moreOrLessEquals(held));
     // The colours ride it; the selection is still the tab the shell is on.
     final c = tester.element(_switch).colors;
-    expect(_colorOf(tester, _dollars), isNot(c.textSecondary));
+    expect(_colorOf(tester, _dollars), isNot(c.textTertiary));
     expect(_colorOf(tester, _dollars), isNot(c.textPrimary));
     expect(_location(tester), '/home');
 

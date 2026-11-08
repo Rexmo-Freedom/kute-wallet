@@ -1,12 +1,11 @@
 // lib/screens/home/components/home_tab_switch.dart
 //
 // The Bitcoin | Dollars switch at the top of the spending account's homes
-// (founder, 8 November 2026, option A): one soft track, full pill radius,
-// with one raised thumb (the selected pill's chrome, [KutePill.chrome])
-// behind the selected item: white on the soft fill in light; in dark the two
-// fills swap, so the thumb is still the lighter, raised one. Both items are
-// the same width; each keeps its glyph and label, the selected one in the
-// primary text colour, the other secondary.
+// (founder, 8 November 2026: "look more like these, to have uniform design",
+// of the Overview · Investing · Predictions pills). No track: the selected
+// item wears the pills' own chrome ([KutePill.chrome]) as a thumb that slides
+// between the two, and the other item is plain tertiary words, at the pills'
+// large height. Both items are the same width; each keeps its glyph and label.
 //
 // THE THUMB MOVES AS THE PILLS DO (founder, 8 November 2026: "the same
 // elastic"). Under the finger it follows the shell's page position
@@ -42,13 +41,13 @@ import 'package:kute/theme/app_theme.dart';
 import 'package:kute/theme/kute_motion.dart';
 
 /// The track's height in design units (pre-`.w`).
-const double _kTrackHeight = 44;
+const double _kTrackHeight = 40;
 
 /// The least the track shrinks to on a narrow phone, in logical px.
 const double _kTrackMinHeight = 34;
 
 /// The gap between the track's edge and the thumb, in design units.
-const double _kThumbInset = 3;
+const double _kThumbInset = 0;
 
 /// An item's padding either side of its words, in design units.
 const double _kItemPadding = 10;
@@ -249,8 +248,6 @@ class _SwitchBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
-    final dark = context.isDark;
     final inset = _kThumbInset.w;
     final span = tabs.length - 1;
     final resting = place.clamp(0.0, span.toDouble());
@@ -264,12 +261,6 @@ class _SwitchBody extends StatelessWidget {
           key: const ValueKey('home-tab-switch-track'),
           height: trackHeight,
           padding: EdgeInsets.all(inset),
-          // The thumb's shadow stays inside the track.
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: dark ? c.surface : c.surfaceLight,
-            borderRadius: BorderRadius.circular(AppRadius.pill),
-          ),
           child: Align(
             alignment: AlignmentDirectional(
                 span == 0 ? 0 : -1 + 2 * resting / span, 0),
@@ -279,10 +270,7 @@ class _SwitchBody extends StatelessWidget {
               heightFactor: 1,
               child: DecoratedBox(
                 key: const ValueKey('home-tab-switch-thumb'),
-                decoration: KutePill.chrome(context, selected: true).copyWith(
-                  color: dark ? c.surfaceLight : null,
-                  borderRadius: BorderRadius.circular(AppRadius.pill),
-                ),
+                decoration: KutePill.chrome(context, selected: true),
               ),
             ),
           ),
@@ -329,7 +317,7 @@ class _SwitchItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final foreground = Color.lerp(c.textPrimary, c.textSecondary, away)!;
+    final foreground = Color.lerp(c.textPrimary, c.textTertiary, away)!;
     return Semantics(
       role: SemanticsRole.tab,
       container: true,
