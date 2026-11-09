@@ -38,6 +38,8 @@ import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show SendAmountUnitPill, SendTypedAmountHero;
 import 'package:kute/screens/shared/send/send_recipient_step.dart'
     show SendRecipientSearchField, SendSalShareGlyph;
+import 'package:kute/screens/shared/money_steps_view.dart'
+    show debugResetSalJourneyWarm, kSalJourneyFirstClip;
 import 'package:kute/screens/shared/sal_sprite.dart'
     show SalSprite, SalSpriteCache;
 import 'package:kute/screens/shared/send/send_sheet.dart';
@@ -478,6 +480,29 @@ void main() {
     // A link needs no coin: the Send to card sits under the grid.
     expect(find.byKey(const ValueKey('send-pick-market-row')), findsOneWidget);
     expect(find.byKey(const ValueKey('send-to-friend-row')), findsOneWidget);
+  });
+
+  testWidgets(
+      'opening the send decodes the 3D Sal of the result sheet and the first '
+      'clip of the steps under Review, before anyone taps Send', (tester) async {
+    // Founder, 9 November 2026: the last send screen shows the 3D Sal,
+    // never the pixel one; the journey after Send and the result sheet
+    // read their clips here, on open (send_flow_widgets.dart, warmSendSal).
+    // Staged in the test body (the test's own zone), so the warm-up's
+    // awaits run on the test's pumps.
+    SalSpriteCache.debugSetManifest(null);
+    SalSpriteCache.debugRequestLog = [];
+    addTearDown(() => SalSpriteCache.debugRequestLog = null);
+    debugResetSalJourneyWarm();
+    await _pump(tester);
+    final asked = SalSpriteCache.debugRequestLog!;
+    expect(asked, containsAll(['happy', 'sad', 'blink']),
+        reason: 'the result sheet\'s clips');
+    // Of the journey, only the clip it opens on: the rest are read one
+    // ahead of when he needs them (24 body sheets are 648 MiB at @3x).
+    expect(asked.where((c) => c.startsWith('body_')).toSet(),
+        {kSalJourneyFirstClip},
+        reason: 'the journey\'s first clip only');
   });
 
   testWidgets(

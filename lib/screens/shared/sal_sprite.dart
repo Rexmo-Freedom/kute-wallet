@@ -53,7 +53,11 @@
 // wore before (kute_dog_rig.dart / kute_dog_scenes.dart stay in place for
 // that), so the app runs either way. A clip that is in the manifest but
 // cannot be read says so once through [onUnavailable], so a director can
-// drop it from its pool and move on; the clip on screen stays.
+// drop it from its pool and move on; the clip on screen stays. A read
+// still out is never a failure: the widget draws nothing until it lands,
+// and a painter of its own ([SalSpriteCache.peek]) asks
+// [SalSpriteCache.failed] before it reaches for its last resort (founder,
+// 9 November 2026: never the pixel Sal for a wait on a read).
 //
 // A LOOP THAT REPEATS ITSELF (the balance goals' level loops, 7 November
 // 2026) may store each distinct cell once: its entry then carries
@@ -75,7 +79,16 @@
 //
 // A director pre-decodes its whole group once on mount
 // ([SalSpriteCache.warm] / [SalSpriteCache.warmGroup]); the cache keeps
-// the images for the app's life, so a switch never waits on a read.
+// the images, so a switch never waits on a read, up to a cap.
+//
+// THE CAP (9 November 2026). A body sheet decodes to 27 MiB at @3x
+// (2304 x 3072 RGBA; body_hero 42 MiB), and the money journey alone wore
+// 24 of them (648 MiB): far past what iOS lets an app keep on an older
+// iPhone. The cache holds at most [SalSpriteCache.maxBytes] (120 MiB) of
+// decoded sheets, least recently used given up first ([peek] and
+// [SalSpriteCache.ready] count as a use); a clip given up is read again
+// when it is next asked for. Giving one up only drops the cache's hold:
+// a sprite still showing it keeps its own, and nothing is disposed.
 //
 // [SalIdleDirector] is the hero loop with a life: `body_hero`, and every
 // 6–12 s one `hero` one-shot (never the same twice in a row), then the
@@ -99,6 +112,10 @@ import 'package:flutter/widgets.dart';
 
 /// Where the sheets and the manifest live.
 const String kSalSpriteDir = 'lib/assets/sal';
+
+/// The most decoded bytes [SalSpriteCache] holds: four @3x body sheets
+/// and the result sheet's faces (see the file header).
+const int kSalSpriteCacheMaxBytes = 120 * 1024 * 1024;
 
 /// The cross-dissolve between two clips (see the file header).
 const Duration kSalCrossfade = Duration(milliseconds: 120);
@@ -186,28 +203,53 @@ abstract final class SalSpriteCache {
     _manifest = Future<Map<String, dynamic>?>.value(manifest);
     _clips.clear();
     _ready.clear();
+    _failed.clear();
+    _debugStaged.clear();
+    _bytes = 0;
     SalCoinAnchors.debugSet(null);
   }
 
   /// Tests: [clip] stands as decoded under [name] at [density] (a
-  /// synthetic image; no sheet read).
+  /// synthetic image; no sheet read), and as its sheet in the bundle: a
+  /// read after the cache gave it up gets it back.
   @visibleForTesting
   static void debugPutClip(String name, int density, SalClip clip) {
+    _debugStaged['$name@$density'] = clip;
     _clips['$name@$density'] = Future<SalClip?>.value(clip);
-    _ready['$name@$density'] = clip;
+    _admit('$name@$density', clip);
+    _failed.remove('$name@$density');
   }
 
   /// Tests: [name] at [density] is still decoding until [loading]
-  /// completes (a slow read, stood in for).
+  /// completes (a slow read, stood in for); null from it is a read that
+  /// came back empty ([failed]).
   @visibleForTesting
   static void debugPutLoading(
       String name, int density, Future<SalClip?> loading) {
     final key = '$name@$density';
     _clips[key] = loading.then((c) {
-      if (c != null) _ready[key] = c;
+      if (c != null) {
+        _admit(key, c);
+      } else {
+        _failed.add(key);
+      }
       return c;
     });
   }
+
+  /// Tests: every clip asked for through [clip] (and so [peek], [warm])
+  /// is appended here while it is set, by name: whether a flow warms
+  /// its clips on open.
+  @visibleForTesting
+  static List<String>? debugRequestLog;
+
+  /// Tests: reads a clip in place of the bundle while it is set (a
+  /// synthetic sheet, timed as the test likes); null from it is a read
+  /// that came back empty. The manifest still has to name the clip.
+  @visibleForTesting
+  static Future<SalClip?> Function(String name, int density)? debugLoader;
+
+  static final Map<String, SalClip> _debugStaged = {};
 
   /// Tests: back to the bundle's manifest, nothing decoded.
   @visibleForTesting
@@ -215,6 +257,11 @@ abstract final class SalSpriteCache {
     _manifest = null;
     _clips.clear();
     _ready.clear();
+    _failed.clear();
+    _debugStaged.clear();
+    _bytes = 0;
+    maxBytes = kSalSpriteCacheMaxBytes;
+    debugLoader = null;
     SalCoinAnchors.debugReset();
   }
 
@@ -250,8 +297,18 @@ abstract final class SalSpriteCache {
       (await SalSpriteCache.manifest())?.containsKey(clip) ?? false;
 
   /// [density] is 2 or 3: which sheet to read.
-  static Future<SalClip?> clip(String name, int density) =>
-      _clips['$name@$density'] ??= _loadClip(name, density);
+  static Future<SalClip?> clip(String name, int density) {
+    debugRequestLog?.add(name);
+    final key = '$name@$density';
+    // A test's staged sheet is the bundle's, decoded at once when it is
+    // read again after the cache gave it up.
+    final staged = _debugStaged[key];
+    if (staged != null && !_clips.containsKey(key)) {
+      _admit(key, staged);
+      return _clips[key] = Future<SalClip?>.value(staged);
+    }
+    return _clips[key] ??= _loadClip(name, density);
+  }
 
   /// Decodes [names] at [density] once, ahead of their use (a director's
   /// group on mount), and keeps them for the app's life. Resolves to the
@@ -270,7 +327,77 @@ abstract final class SalSpriteCache {
     return warm(names, density);
   }
 
-  static final Map<String, SalClip> _ready = {};
+  /// The decoded clips the cache holds, least recently used first.
+  static final Map<String, SalClip> _ready = <String, SalClip>{};
+
+  /// What [_ready] holds, in decoded bytes.
+  static int _bytes = 0;
+
+  /// The most decoded bytes the cache holds (see the file header).
+  static int maxBytes = kSalSpriteCacheMaxBytes;
+
+  /// What the cache holds now, in decoded bytes.
+  static int get residentBytes => _bytes;
+
+  /// The names it holds now at [density] (tests, and the journey's own
+  /// bookkeeping).
+  static Iterable<String> residentAt(int density) => [
+        for (final k in _ready.keys)
+          if (k.endsWith('@$density')) k.substring(0, k.lastIndexOf('@'))
+      ];
+
+  /// A clip's decoded size: four bytes a pixel.
+  static int bytesOf(SalClip clip) => clip.image.width * clip.image.height * 4;
+
+  /// [clip] is held under [key], the most recently used; the least
+  /// recently used go until the cache is within [maxBytes] (never the
+  /// one just admitted).
+  static void _admit(String key, SalClip clip) {
+    final old = _ready.remove(key);
+    if (old != null) _bytes -= bytesOf(old);
+    _ready[key] = clip;
+    _bytes += bytesOf(clip);
+    while (_bytes > maxBytes && _ready.length > 1) {
+      final victim = _ready.keys.first;
+      if (victim == key) break;
+      _drop(victim);
+    }
+  }
+
+  static void _drop(String key) {
+    final c = _ready.remove(key);
+    if (c != null) _bytes -= bytesOf(c);
+    _clips.remove(key);
+  }
+
+  /// A use of [key]: the most recently used now.
+  static SalClip? _touch(String key) {
+    final c = _ready.remove(key);
+    if (c != null) _ready[key] = c;
+    return c;
+  }
+
+  /// Gives up [name] at [density] (a clip its user has passed); read
+  /// again when it is next asked for.
+  static void evict(String name, int density) => _drop('$name@$density');
+
+  /// A clip already decoded, without starting a read when it is not: for
+  /// a painter that asks after clips it will not draw now (what it could
+  /// switch to), so asking does not decode them all at once.
+  static SalClip? ready(String name, int density) =>
+      _touch('$name@$density');
+
+  /// The clips whose last read came back empty: no manifest, not in it,
+  /// or a sheet that did not decode.
+  static final Set<String> _failed = {};
+
+  /// Whether the last read of [name] at [density] came back empty (see
+  /// [_failed]). A painter that cannot await ([peek]) draws its last
+  /// resort, the rig, only then; while a read is still out it draws
+  /// nothing, or a still, and never the rig for a wait. Cleared by a read
+  /// that lands.
+  static bool failed(String name, int density) =>
+      _failed.contains('$name@$density');
 
   /// The density for a device pixel ratio: @3x from 2.5 up.
   static int densityFor(double dpr) => dpr >= 2.5 ? 3 : 2;
@@ -281,17 +408,34 @@ abstract final class SalSpriteCache {
   /// painter keeps drawing what it has.
   static SalClip? peek(String name, int density) {
     final key = '$name@$density';
-    final ready = _ready[key];
+    final ready = _touch(key);
     if (ready != null) return ready;
     unawaited(clip(name, density));
-    return null;
+    return _ready[key];
   }
 
   static Future<SalClip?> _loadClip(String name, int density) async {
+    final key = '$name@$density';
     try {
       final manifest = await SalSpriteCache.manifest();
       final entry = manifest?[name];
-      if (entry is! Map) return null;
+      if (entry is! Map) {
+        _failed.add(key);
+        return null;
+      }
+      final loader = debugLoader;
+      if (loader != null) {
+        final c = await loader(name, density);
+        if (c == null) {
+          _failed.add(key);
+          _clips.remove(key);
+          return null;
+        }
+        if (_clips[key] == null) return c;
+        _admit(key, c);
+        _failed.remove(key);
+        return c;
+      }
       final files = entry['files'];
       final file = files is Map && files['${density}x'] is Map
           ? (files['${density}x'] as Map)['file'] as String?
@@ -333,7 +477,11 @@ abstract final class SalSpriteCache {
         body: entry['framing'] == 'body' || name.startsWith('body_'),
         sequence: sequence,
       );
-      _ready['$name@$density'] = clip;
+      // Given up while it was read (evicted, or the cache reset): it is
+      // not held; the caller still gets it.
+      if (_clips[key] == null) return clip;
+      _admit(key, clip);
+      _failed.remove(key);
       return clip;
     } catch (e, st) {
       // Never fatal (the site's fallback draws him), but never silent: a
@@ -342,7 +490,8 @@ abstract final class SalSpriteCache {
       if (kDebugMode) {
         debugPrint('SalSpriteCache: $name@${density}x not decoded ($e)\n$st');
       }
-      _clips.remove('$name@$density');
+      _failed.add(key);
+      _clips.remove(key);
       return null;
     }
   }
@@ -1103,7 +1252,7 @@ class _SalIdleDirectorState extends State<SalIdleDirector> {
         : _pool;
     final decoded = [
       for (final c in choices)
-        if (SalSpriteCache.peek(c, _density) != null) c
+        if (SalSpriteCache.ready(c, _density) != null) c
     ];
     final from = decoded.isNotEmpty ? decoded : choices;
     final pick = from[_random.nextInt(from.length)];

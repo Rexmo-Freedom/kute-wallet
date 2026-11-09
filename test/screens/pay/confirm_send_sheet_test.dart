@@ -22,6 +22,9 @@ import 'package:kute/screens/pay/components/confirm_send.dart';
 import 'package:kute/screens/scanner/scanner_sheet.dart';
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
+import 'package:kute/screens/shared/money_steps_view.dart'
+    show debugResetSalJourneyWarm;
+import 'package:kute/screens/shared/sal_sprite.dart' show SalSpriteCache;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -168,6 +171,34 @@ void main() {
     expect(_step(_l10n.sendTo), findsOneWidget);
     expect(tester.getSize(_sheet).height,
         moreOrLessEquals(812 * kSendSheetMediumFraction));
+  });
+
+  testWidgets(
+      'opening the send decodes the 3D Sal of the result sheet, before '
+      'anyone taps Send; no journey follows this send, so none of its clips',
+      (tester) async {
+    // Founder, 9 November 2026: the last send screen shows the 3D Sal,
+    // never the pixel one; the result sheet after Send reads its clips
+    // here, on open (send_flow_widgets.dart, warmSendSal).
+    _clipboard(tester, null);
+    // Staged in the test body (the test's own zone), so the warm-up's
+    // awaits run on the test's pumps.
+    SalSpriteCache.debugSetManifest(null);
+    // Back to the config's (no sheets), never the bundle's: a real
+    // looping sheet would keep later pumpAndSettles from settling.
+    addTearDown(() => SalSpriteCache.debugSetManifest(null));
+    await _pump(tester);
+    SalSpriteCache.debugRequestLog = [];
+    addTearDown(() => SalSpriteCache.debugRequestLog = null);
+    debugResetSalJourneyWarm();
+    await tester.tap(find.text('Open send'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ConfirmSend), findsOneWidget);
+    final asked = SalSpriteCache.debugRequestLog!;
+    expect(asked, containsAll(['happy', 'sad', 'blink']),
+        reason: 'the result sheet\'s clips');
+    expect(asked.where((c) => c.startsWith('body_')), isEmpty,
+        reason: 'no journey on the Bitcoin send');
   });
 
   testWidgets('a payment link with its recipient opens it full, on Amount',

@@ -26,6 +26,7 @@ import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -206,6 +207,36 @@ class KuteConfirmation extends StatefulWidget {
           : success
               ? KuteConfirmationTone.success
               : KuteConfirmationTone.failure);
+
+  /// The 3D Sal's clips the sheet can show, by tone ([_salClipFor]).
+  static const List<String> salClips = ['happy', 'sad', 'blink'];
+
+  /// Decodes [salClips] at the device's density, once for the app's life:
+  /// a send flow calls it as it opens, so the result sheet after Send
+  /// shows the 3D Sal from its first frame rather than an empty place
+  /// while his sheet is read (founder, 9 November 2026).
+  static Future<void> warmSal() => SalSpriteCache.warm(
+      salClips,
+      SalSpriteCache.densityFor(WidgetsBinding
+              .instance.platformDispatcher.implicitView?.devicePixelRatio ??
+          2.0));
+
+  static String _salClipFor(KuteConfirmationTone tone) => switch (tone) {
+        KuteConfirmationTone.success ||
+        KuteConfirmationTone.celebrate =>
+          'happy',
+        KuteConfirmationTone.failure => 'sad',
+        KuteConfirmationTone.pending || KuteConfirmationTone.neutral => 'blink',
+      };
+
+  /// A clip whose sheet cannot be read, said once: the rig draws him
+  /// there ([SalSprite.fallback]), never silently.
+  static final Set<String> _salSaid = {};
+  static void _salUnavailable(String clip) {
+    if (!_salSaid.add(clip) || !kDebugMode) return;
+    debugPrint('KuteConfirmation: Sal\'s $clip sheet not read; '
+        'the rig draws him on the result sheet');
+  }
 
   @override
   State<KuteConfirmation> createState() => _KuteConfirmationState();
@@ -528,18 +559,14 @@ class _KuteConfirmationState extends State<KuteConfirmation>
             SizedBox(width: 12.w),
             ExcludeSemantics(
               // The 3D Sal (founder, 31 October 2026): happy, sad or the
-              // calm blink by tone; the rig until the sheets exist.
+              // calm blink by tone. Nothing in his place while the sheet
+              // is read (a flow warms it on open, [warmSal]); the rig
+              // only where it cannot be read, said once in the logs.
               child: SalSprite(
-                clip: switch (tone) {
-                  KuteConfirmationTone.success ||
-                  KuteConfirmationTone.celebrate =>
-                    'happy',
-                  KuteConfirmationTone.failure => 'sad',
-                  KuteConfirmationTone.pending ||
-                  KuteConfirmationTone.neutral =>
-                    'blink',
-                },
+                clip: KuteConfirmation._salClipFor(tone),
                 size: 42.sp,
+                onUnavailable: () => KuteConfirmation._salUnavailable(
+                    KuteConfirmation._salClipFor(tone)),
                 fallback: KuteDogConfirmation(
                   key: const ValueKey('kute-confirmation-sal'),
                   size: 42.sp,

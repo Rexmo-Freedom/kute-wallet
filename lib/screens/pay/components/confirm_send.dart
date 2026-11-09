@@ -1420,6 +1420,10 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
       vsync: this,
       duration: const Duration(milliseconds: 220),
     );
+    // The 3D Sal of the result sheet after Send, decoded from here so he
+    // is there on its first frame (send_flow_widgets.dart). This send
+    // shows no money journey, so its clips are not read.
+    warmSendSal();
     final settings = ref.read(settingsProvider);
     btcFormat = settings.btcFormat;
     currency = settings.currency;

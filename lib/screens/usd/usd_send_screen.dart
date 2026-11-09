@@ -457,6 +457,10 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
       vsync: this,
       duration: const Duration(milliseconds: 220),
     );
+    // The 3D Sal of the steps under Review and of the result sheet after
+    // Send, decoded from here so he is there on their first frame
+    // (send_flow_widgets.dart).
+    warmSendSal(journey: true);
     TrackingService.screenView('usd_send');
     // The contacts permission as it stands (never a prompt here).
     WidgetsBinding.instance.addPostFrameCallback((_) {

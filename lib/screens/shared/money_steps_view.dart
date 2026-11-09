@@ -41,8 +41,9 @@
 // destination; the coin ([coinR] 9) rides clear of the line. The row
 // has room above the line for him (`rowY` 52); the status line under
 // the row and the sub-step dots under the destination are as they
-// were, in the same neutral inks. The pixel-rig fallback (before the
-// sheets decode) keeps a smaller box (`rigSize`).
+// were, in the same neutral inks. The pixel-rig fallback (only where a
+// sheet cannot be read; a read still out leaves his box empty) keeps a
+// smaller box (`rigSize`).
 // One source: one straight horizontal track from its station to the
 // next. Legs from
 // several balances run at once (founder, 25 October 2026): their
@@ -159,6 +160,7 @@ import 'package:kute/screens/shared/sal_sprite.dart';
 import 'dart:async' show Timer, unawaited;
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
@@ -370,6 +372,13 @@ class MoneyStepsView extends StatefulWidget {
   final bool failureHaptic;
   final MoneyStepsKeys keys;
 
+  /// Decodes the clip the journey's Sal opens on ([kSalJourneyFirstClip]):
+  /// a send flow calls it as it opens, so the journey that comes after
+  /// Send draws the 3D Sal from its first frame rather than waiting on
+  /// the read (founder, 9 November 2026). A view that mounts first warms
+  /// it itself; the rest are read one ahead of their use ([_salAhead]).
+  static Future<void> warmSal() => _warmSalClips();
+
   @override
   State<MoneyStepsView> createState() => _MoneyStepsViewState();
 }
@@ -513,8 +522,8 @@ class _Look {
   /// the cell's 16 units), for where he stops short of things.
   double get salHalf => salSize * 0.3;
 
-  /// The pixel rig's box, while the sheets decode: smaller, so its 16
-  /// units stay chunky rather than crude.
+  /// The pixel rig's box, where a sheet cannot be read: smaller, so its
+  /// 16 units stay chunky rather than crude.
   final double rigSize;
 
   /// The stations' centre line, from the map's top (room above it for the
@@ -1007,9 +1016,19 @@ class _Scene {
   /// His body's offset at the last paint (px, down), for the coin he
   /// carries; and the lines' words and states, for news while he waits.
   double salBob = 0;
-  // Whether the 3D clip drew him at the last paint (else the rig did):
-  // the coin he holds sits where that body's mouth and paws are.
-  bool salSprite = false;
+  // What drew him at the last paint ([_paintSalSprite]): the coin he
+  // holds sits where the 3D body's mouth and paws are unless the rig did.
+  SalJourneyDraw salDraw = SalJourneyDraw.none;
+
+  /// Whether a decoded clip drew him at the last paint (its frame, or
+  /// its first frame as a still).
+  bool get salSprite =>
+      salDraw == SalJourneyDraw.clip || salDraw == SalJourneyDraw.still;
+
+  /// Whether his box is the 3D clip's: anything but the rig (while a
+  /// read is out and nothing is drawn, the coin keeps the 3D geometry,
+  /// so it does not jump when the clip lands).
+  bool get salBox => salDraw != SalJourneyDraw.rig;
   String linesSig = '';
 
   // The 3D clip he wears ([_paintSalSprite]): what he is doing (the
@@ -1020,6 +1039,11 @@ class _Scene {
   double salClipAt = 0;
   String? salClipPrev;
   final math.Random salRandom = math.Random();
+
+  // The clip that drew him last (held still while the next is read), and
+  // the clip the journey last gave up clips for ([_salReadAhead]).
+  String? salDrawn;
+  String? salKept;
 
   // The dissolve on a clip switch (sal_sprite.dart's 120 ms): the clip
   // before, the frame it froze on, and when the switch landed.
@@ -1092,10 +1116,11 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
         if (mounted) setState(() {});
       }));
     }
-    // The sheets decode after the first paint: once they are in, one
+    // The sheets decode after the first paint (unless the flow warmed
+    // them on open, [MoneyStepsView.warmSal]): once they are in, one
     // more frame puts the render on, even where the clock is not
-    // running (a finished record, Reduce Motion), else the rig would
-    // stay until something else repainted.
+    // running (a finished record, Reduce Motion), else his box would
+    // stay empty until something else repainted.
     unawaited(_warmSalClips().then((_) {
       if (mounted) setState(() {});
     }));
@@ -2743,9 +2768,22 @@ const Set<String> _kSalCoinClips = {_kSalPickup, _kSalCarry, _kSalDrop};
 /// How fast he walks with the coin (px a ms, for a 64 px Sal).
 const double _kSalCarrySpeed = 0.12;
 
-/// Every clip the journey's Sal can wear ([_paintSalSprite]): decoded
-/// once when a view mounts ([_warmSalClips]), so no switch waits on a
-/// read.
+/// What drew the journey's Sal on a paint ([_paintSalSprite]): the 3D
+/// [clip] at its frame; a [still], the first frame of a clip that is
+/// decoded while the one he should wear is not yet; [none], nothing,
+/// while his sheets are still being read; the pixel [rig], the last
+/// resort, only once a read came back empty ([SalSpriteCache.failed]).
+/// A wait on a read never shows the rig (founder, 9 November 2026: "the
+/// last send screen should have our Sal 3D one, not the SVG Sal").
+enum SalJourneyDraw { clip, still, none, rig }
+
+/// Every clip the journey's Sal can wear ([_paintSalSprite]): the first
+/// decoded when a view mounts ([_warmSalClips]) or a send flow opens
+/// ([MoneyStepsView.warmSal]), the rest one ahead of their use
+/// ([_salAhead]) and given up once passed ([_salReadAhead]).
+/// Every clip the journey can hold, the ones it gives up once passed.
+final Set<String> _kSalJourneyAll = _kSalJourneyClips.toSet();
+
 const List<String> _kSalJourneyClips = [
   _kSalPickup,
   _kSalCarry,
@@ -2796,32 +2834,115 @@ const Set<String> _kSalSoftScenes = {'fetch', 'sniff', 'settle', 'idle'};
 
 Future<void>? _salWarming;
 
-/// Pre-decodes the `waiting` group and the first-batch clips he wears, at
-/// the device's density, and reads the coin clips' anchors, once for the
-/// app's life.
+/// The clip the journey opens on: he stands by while the coin sets out
+/// (and it is his still pose under Reduce Motion).
+const String kSalJourneyFirstClip = 'body_idle';
+
+/// Decodes the clip the journey opens on, at the device's density, and
+/// reads the coin clips' anchors, once for the app's life. Every other
+/// clip is read one ahead of when he needs it ([_salAhead]), never all at
+/// once (24 body sheets are 648 MiB at @3x; [SalSpriteCache.maxBytes]).
+/// A sheet that cannot be read is said once, here (the rig draws him in
+/// its place, [SalJourneyDraw.rig]).
 Future<void> _warmSalClips() => _salWarming ??= () async {
       final density = _salDensity();
-      await SalSpriteCache.warmGroup('waiting',
-          defaults: _kSalJourneyClips, density: density);
-      await SalSpriteCache.warm(_kSalJourneyClips, density);
+      final missing =
+          await SalSpriteCache.warm(const [kSalJourneyFirstClip], density);
       await SalCoinAnchors.load();
+      if (missing.isNotEmpty && kDebugMode) {
+        debugPrint('MoneyStepsView: Sal\'s sheet not read at ${density}x, '
+            'the rig draws him there: ${missing.join(', ')}');
+      }
     }();
+
+/// Tests: the next view warms the clip again (the decode runs once for
+/// the process otherwise).
+@visibleForTesting
+void debugResetSalJourneyWarm() => _salWarming = null;
+
+/// The clips he may want next, after [current], in the order they are
+/// read: the coin clip that comes next first (the pick-up before he takes
+/// the coin, the drop while he holds it: a one-shot only
+/// plays when it is decoded as its moment comes), then one other of the
+/// scene's pool (the next in pool order, so a pool rotates through all of
+/// its clips) and the clip the next scene opens on. At most two, so with
+/// the clip on screen and the one dissolving away four sheets are held
+/// (108 MiB at @3x).
+List<String> _salAhead(
+    _Scene s, String scene, String current, List<String> pool) {
+  String? poolNext() {
+    if (pool.length < 2) return null;
+    final i = pool.indexOf(current);
+    return pool[(i + 1) % pool.length];
+  }
+
+  final other = poolNext();
+  final next = switch (scene) {
+    'idle' => ['body_walk', _kSalCarry],
+    'walk' => [_kSalCarry, _kSalPickup],
+    'pickup' => [_kSalCarry, _kSalDrop],
+    'carry' => [_kSalDrop, 'body_jump'],
+    'drop' => ['body_jump', 'body_wag'],
+    'fetch' => [if (other != null) other, _kSniffClips.last],
+    'sniff' => [if (other != null) other, 'body_sit_down'],
+    'settle' => [
+        if (other != null) other,
+        if (current == 'body_sit_down') _kSettleClips.first,
+      ],
+    'success' => ['body_wag'],
+    'failure' => ['body_sad'],
+    _ => const <String>[],
+  };
+  // The coin in the render needs the coin clips' anchors.
+  final coin = !s.still && SalCoinAnchors.peek(_kSalCarry, 0) != null;
+  final coinNext = !coin || scene == 'drop'
+      ? const <String>[]
+      : s.carry
+          // The drop is next while he holds the coin.
+          ? const [_kSalDrop]
+          : s.live && s.outcome == _Outcome.none
+              ? const [_kSalPickup]
+              : const <String>[];
+  return {
+    for (final n in [...coinNext, ...next])
+      if (n != current) n
+  }.take(2).toList();
+}
+
+/// A clip that is decoded, for the moments the clip he should wear is
+/// not yet: the clip drawn last, else [standIn], `body_idle`, or any of
+/// the journey's the cache holds; null while none is. Asking starts no
+/// read ([SalSpriteCache.ready]).
+SalClip? _salStill(String? last, String standIn, int density) {
+  SalClip? have(String n) => SalSpriteCache.ready(n, density);
+  final own = (last == null ? null : have(last)) ??
+      have(standIn) ??
+      have('body_idle');
+  if (own != null) return own;
+  for (final name in _kSalJourneyClips) {
+    final c = have(name);
+    if (c != null) return c;
+  }
+  return null;
+}
 
 /// The sheets' density on this device.
 int _salDensity() => SalSpriteCache.densityFor(
     WidgetsBinding.instance.platformDispatcher.implicitView?.devicePixelRatio ??
         2.0);
 
-/// Whether the render carries the coin: the carry clip decoded and its
-/// anchors read. Until then (or without them) the coin is painted and
-/// glides on its own, Sal fetching it.
+/// Whether the render carries the coin: the coin clips' anchors read and
+/// the carry's sheet not known to be unreadable (it is read when he
+/// wears it, one ahead, [_salAhead]; a held frame stands in meanwhile).
+/// Without them the coin is painted and glides on its own, Sal fetching
+/// it.
 bool _salCarries() =>
-    SalSpriteCache.peek(_kSalCarry, _salDensity()) != null &&
+    !SalSpriteCache.failed(_kSalCarry, _salDensity()) &&
     SalCoinAnchors.peek(_kSalCarry, 0) != null;
 
 /// One one-shot's length in ms; 0 while it is not decoded (skipped).
 double _salOneShot(String name) {
-  final c = SalSpriteCache.peek(name, _salDensity());
+  final c = SalSpriteCache.ready(name, _salDensity());
   return c == null ? 0 : _salClipLength(c);
 }
 
@@ -2958,13 +3079,18 @@ void _salSwitch(_Scene s, String to, double at,
   s.salClipAt = at;
 }
 
-/// Draws the 3D Sal for the journey (see the call site); false when the
-/// clip is not decoded yet, so the rig draws him instead.
-bool _paintSalSprite(Canvas canvas, _Scene s, Offset origin, double u,
-    double now,
+/// Draws the 3D Sal for the journey (see the call site) and says what it
+/// drew ([SalJourneyDraw]): the rig is asked for only when the clip's
+/// read came back empty; a clip still being read leaves his box empty,
+/// or with a decoded clip's first frame, and never the rig.
+SalJourneyDraw _paintSalSprite(Canvas canvas, _Scene s, Offset origin,
+    double u, double now,
     {required bool still, required bool walking, required SalMood mood}) {
   final density = _salDensity();
-  SalClip? peek(String name) => SalSpriteCache.peek(name, density);
+  // What is decoded, asked without starting a read: the clips he could
+  // switch to. Only the clip he wears now and the one ahead of it are
+  // read ([_salAhead]), so the sheets come in one at a time.
+  SalClip? peek(String name) => SalSpriteCache.ready(name, density);
   final carries = s.salCarries;
 
   // The coin in the render: set down where he stops with it (body_drop),
@@ -3046,13 +3172,34 @@ bool _paintSalSprite(Canvas canvas, _Scene s, Offset origin, double u,
 
   final name = _salClipRun(s, now,
       scene: scene, pool: pool, opener: opener, standIn: standIn, peek: peek);
-  final clip = peek(name);
-  if (clip == null) return false;
+  // The clip he wears is read now; the one ahead of it next.
+  final clip = SalSpriteCache.peek(name, density);
+  _salReadAhead(s, scene, name, pool, density);
+  final dst = Rect.fromLTWH(origin.dx, origin.dy, 16 * u, 16 * u);
+  if (clip == null) {
+    // Not decoded. The rig only once its read came back empty (no
+    // manifest, no sheet, a decode that failed); while the read is out,
+    // the frame of a decoded clip held still in his box (the one he wore
+    // last first), or nothing at all.
+    if (SalSpriteCache.failed(name, density)) return SalJourneyDraw.rig;
+    s.salCoinAt = null;
+    s.salCoinMarkR = null;
+    s.salCoinFade = 0;
+    s.salFadeFrom = null;
+    final stillClip = _salStill(s.salDrawn, standIn, density);
+    if (stillClip == null) return SalJourneyDraw.none;
+    canvas.drawImageRect(
+      stillClip.image,
+      stillClip.cell(0),
+      dst,
+      Paint()..filterQuality = FilterQuality.medium,
+    );
+    return SalJourneyDraw.still;
+  }
   final t = frameTime ?? (now - s.salClipAt);
   final frame = frameTime == null
       ? _salFrameAt(clip, t)
       : (t / 1000 * clip.fps).floor().clamp(0, clip.frames - 1);
-  final dst = Rect.fromLTWH(origin.dx, origin.dy, 16 * u, 16 * u);
   // The coin a coin clip renders: the balance's mark on it at the
   // frame's anchor, and how much of the coin is the render's.
   final held = s.carry
@@ -3090,7 +3237,8 @@ bool _paintSalSprite(Canvas canvas, _Scene s, Offset origin, double u,
       Paint()..filterQuality = FilterQuality.medium,
     );
     coinOn(name, frame, 1);
-    return true;
+    s.salDrawn = name;
+    return SalJourneyDraw.clip;
   }
   canvas.saveLayer(dst, Paint());
   canvas.drawImageRect(
@@ -3113,7 +3261,38 @@ bool _paintSalSprite(Canvas canvas, _Scene s, Offset origin, double u,
   canvas.restore();
   coinOn(name, frame, fade);
   coinOn(fading!, s.salFadeFrame, 1 - fade);
-  return true;
+  s.salDrawn = name;
+  return SalJourneyDraw.clip;
+}
+
+/// Reads the first clip ahead of [name] in [scene] that is not decoded
+/// ([_salAhead]; one read at a time), and when the clip he wears changes,
+/// gives up the journey's clips he has passed: anything but the clip on
+/// screen, the one dissolving away and the ones ahead.
+void _salReadAhead(
+    _Scene s, String scene, String name, List<String> pool, int density) {
+  final ahead = _salAhead(s, scene, name, pool);
+  for (final n in ahead) {
+    if (SalSpriteCache.ready(n, density) != null) continue;
+    if (SalSpriteCache.failed(n, density)) continue;
+    SalSpriteCache.peek(n, density);
+    break;
+  }
+  // Nothing to give up before he has worn a clip (the one warmed on open
+  // is the frame held while the first is read).
+  if (s.salKept == name || s.salDrawn == null) return;
+  s.salKept = name;
+  final keep = {
+    name,
+    if (s.salFadeFrom != null) s.salFadeFrom!,
+    if (s.salDrawn != null) s.salDrawn!,
+    ...ahead,
+  };
+  for (final held in SalSpriteCache.residentAt(density).toList()) {
+    if (!keep.contains(held) && _kSalJourneyAll.contains(held)) {
+      SalSpriteCache.evict(held, density);
+    }
+  }
 }
 
 /// The clip Sal wears at [now] in [scene]: a new scene starts with its
@@ -3320,17 +3499,17 @@ _SalFrame _salFrameOf(_Scene s, SalMood mood, double now) {
   final look = s.look;
   // His feet stand on the track's top edge; the anchors scale with the
   // box that drew him (the 3D clip's, or the smaller rig's).
-  final u = (s.salSprite ? look.salSize : look.rigSize) / 16;
+  final u = (s.salBox ? look.salSize : look.rigSize) / 16;
   final feet = y - look.trackH / 2;
   final r = look.coinR * _kHeldScale;
   // At the 3D body's muzzle and paws when a clip drew him (the body
   // faces the viewer, so the coin sits on him, not beside him), else at
   // the rig's (the rig faces right: the coin in front of its nose).
-  final muzzle = s.salSprite ? _salMuzzleOf(s.salClip) : null;
-  final ground = s.salSprite
+  final muzzle = s.salBox ? _salMuzzleOf(s.salClip) : null;
+  final ground = s.salBox
       ? Offset(x + (_kSalPawsX - 8) * u, feet - r)
       : Offset(x + 8 * u + 1 + r, feet - r);
-  final mouth = !s.salSprite
+  final mouth = !s.salBox
       ? Offset(x, feet - 4.5 * u + s.salBob)
       : muzzle == null
           ? ground
@@ -3672,8 +3851,13 @@ class MoneyJourneyPainter extends CustomPainter {
   /// for the clip director's tests.
   String? get salClip => _scene.salClip;
 
-  /// Whether a 3D clip drew him at the last paint (else the rig did).
+  /// Whether a 3D clip drew him at the last paint (its frame, or its
+  /// first as a still); see [salDraw] for which.
   bool get salSprite => _scene.salSprite;
+
+  /// What drew him at the last paint: a clip, a still, nothing while his
+  /// sheets are read, or the rig once a read came back empty.
+  SalJourneyDraw get salDraw => _scene.salDraw;
 
   /// Whether the clip drew the coin at the last paint (the render carries
   /// it; the painted coin gave way).
@@ -3879,31 +4063,33 @@ class MoneyJourneyPainter extends CustomPainter {
     // rest idles. Frame 0 under Reduce Motion. The journey around him
     // (the coin he carries first of all) is painted as ever; only the
     // dog is the render: the clip moves him about his spot and bobs him
-    // itself, so the rig's pacing and bob are not added. Until a sheet
-    // is decoded (or without one) the rig below draws him, in its own
-    // smaller box. Either way his feet (15 of the box's 16 units down)
-    // stand on the track's top edge (founder, 1 November 2026).
+    // itself, so the rig's pacing and bob are not added. While a sheet
+    // is still being read nothing (or a decoded clip's first frame)
+    // stands in his box; only a sheet that cannot be read at all puts
+    // the rig below in his place, in its own smaller box
+    // ([SalJourneyDraw]). Either way his feet (15 of the box's 16 units
+    // down) stand on the track's top edge (founder, 1 November 2026).
     final feet = y - look.trackH / 2;
     final su = look.salSize / 16;
     final spriteOrigin = Offset(x - 8 * su, feet - 15 * su);
-    s.salSprite = _paintSalSprite(canvas, s, spriteOrigin, su, now,
+    s.salDraw = _paintSalSprite(canvas, s, spriteOrigin, su, now,
         still: still, walking: walking, mood: mood);
-    if (s.salSprite) {
-      s.salBob = 0;
-    } else {
+    if (s.salDraw == SalJourneyDraw.rig) {
       s.salCoinAt = null;
       s.salCoinMarkR = null;
       s.salCoinFade = 0;
       _paintSalRig(canvas, s, frame, pose, u,
           origin: Offset(x - 8 * u + (frame?.dx ?? 0), feet - 15 * u));
+    } else {
+      s.salBob = 0;
     }
 
     // ── The coin ──
     _paintCoin(canvas, s, now);
   }
 
-  /// The pixel rig's Sal (until the sheets are decoded, or without
-  /// them), the sniff puffs and the "!" his ears put up with him.
+  /// The pixel rig's Sal (the last resort, where his sheet cannot be
+  /// read), the sniff puffs and the "!" his ears put up with him.
   void _paintSalRig(Canvas canvas, _Scene s, _SalFrame? frame,
       KuteDogPose pose, double u,
       {required Offset origin}) {

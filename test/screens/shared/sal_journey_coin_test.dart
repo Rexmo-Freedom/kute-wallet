@@ -175,7 +175,9 @@ void main() {
     await tester.pumpWidget(_app(_order(
         bitcoin: _done, convert: _done, credit: _done, place: _done)));
     await tester.pump(const Duration(seconds: 4));
-    expect(_motion(tester).salSprite, isFalse, reason: 'the rig, decoding');
+    expect(_motion(tester).salSprite, isFalse, reason: 'nothing, decoding');
+    // A read still out is never the rig (founder, 9 November 2026).
+    expect(_motion(tester).salDraw, SalJourneyDraw.none);
     loading.complete(_sheet());
     // The decode lands and asks for a frame; the next one draws it.
     await tester.pump();

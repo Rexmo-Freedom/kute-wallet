@@ -15,6 +15,7 @@
 //
 // Presentation only: no provider, no route table and no money call.
 
+import 'dart:async' show unawaited;
 import 'dart:io' show Platform;
 import 'dart:math' as math;
 
@@ -28,9 +29,28 @@ import 'package:kute/screens/shared/amount_keypad_panel.dart'
     show AmountPercentChips, groupTypedAmount;
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/screens/shared/kute_success_overlay.dart'
+    show KuteConfirmation;
 import 'package:kute/screens/shared/message_display.dart';
+import 'package:kute/screens/shared/money_steps_view.dart' show MoneyStepsView;
 import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/theme/app_theme.dart';
+
+/// Decodes the 3D Sal a send flow shows after Send, as the flow opens
+/// (founder, 9 November 2026: "the last send screen should have our Sal
+/// 3D one, not the SVG Sal"): the result sheet's clips (happy, sad and
+/// blink, 9.5 MiB at @3x), then, with [journey], the clip the money
+/// journey opens on (the Dollars send's steps under Review; the Bitcoin
+/// send has none), 27 MiB. The journey reads its other clips one ahead of
+/// when he needs them, never all at once (SalSpriteCache.maxBytes). Never
+/// awaited: a sheet that cannot be read is said once in the logs by the
+/// surface that misses it.
+Future<void> warmSendSal({bool journey = false}) {
+  final done = KuteConfirmation.warmSal()
+      .then((_) => journey ? MoneyStepsView.warmSal() : null);
+  unawaited(done);
+  return done;
+}
 
 /// The send stepper's body under the app bar: the screen gradient, the
 /// step progress, the steps as pages the flow advances itself, and the
