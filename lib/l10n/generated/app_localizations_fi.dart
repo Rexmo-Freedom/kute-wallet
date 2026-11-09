@@ -9921,12 +9921,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get polySportChess => 'Shakki';
 
   @override
-  String get polySportsGames => 'Pelit';
-
-  @override
-  String get polySportsProps => 'Erikoisvedot';
-
-  @override
   String get polyDayTomorrow => 'Huomenna';
 
   @override

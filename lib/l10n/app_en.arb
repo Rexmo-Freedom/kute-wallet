@@ -6137,14 +6137,6 @@
   "polySportMotorsports": "Motorsports",
   "polySportCycling": "Cycling",
   "polySportChess": "Chess",
-  "polySportsGames": "Games",
-  "@polySportsGames": {
-    "description": "Predictions, a sport or league: the first half of the Games | Props switch, the matches with a kickoff."
-  },
-  "polySportsProps": "Props",
-  "@polySportsProps": {
-    "description": "Predictions, a sport or league: the second half of the Games | Props switch, the markets that are not a match (season awards, player totals)."
-  },
   "polyDayTomorrow": "Tomorrow",
   "@polyDayTomorrow": {
     "description": "Predictions, a sport's games: the heading over tomorrow's matches (Today and the weekday headings are beside it)."

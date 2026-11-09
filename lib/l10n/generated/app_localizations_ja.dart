@@ -9533,12 +9533,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get polySportChess => 'チェス';
 
   @override
-  String get polySportsGames => '試合';
-
-  @override
-  String get polySportsProps => 'プロップ';
-
-  @override
   String get polyDayTomorrow => '明日';
 
   @override

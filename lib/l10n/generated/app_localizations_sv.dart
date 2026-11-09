@@ -9909,12 +9909,6 @@ class AppLocalizationsSv extends AppLocalizations {
   String get polySportChess => 'Schack';
 
   @override
-  String get polySportsGames => 'Matcher';
-
-  @override
-  String get polySportsProps => 'Specialer';
-
-  @override
   String get polyDayTomorrow => 'Imorgon';
 
   @override

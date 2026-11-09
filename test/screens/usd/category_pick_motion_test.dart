@@ -648,8 +648,11 @@ void main() {
       'markets\' images stacked and its numbers, every topic a compact card '
       'with its glyph, numbers where a count is at hand, no orphan',
       (tester) async {
+    // Tall enough for the themes, now under every topic, to be laid out.
     await _openSheet(tester, InvestmentsTab.predictions,
-        overrides: _predictionsOverrides(), browse: true);
+        overrides: _predictionsOverrides(),
+        browse: true,
+        size: const Size(390, 1800));
 
     // Trending, the lone card of its row: full width, three images stacked,
     // "Most active · $X vol today", never the bare dot, the one-card
@@ -664,14 +667,24 @@ void main() {
     expect(find.byKey(const ValueKey('category-tile-chevron')), findsOneWidget,
         reason: 'no chevron on any other card');
     expect(find.byKey(const ValueKey('category-tile-instant')), findsNothing);
-    // The site's themes under their label, Trending's rows, before the
-    // topics: Midterms with its count, in the site's order.
+    // The topics under Trending, then the site's themes under their label,
+    // Trending's rows, after every topic (founder, 9 November 2026: "the
+    // trending now should be under topics"): Midterms with its count, in
+    // the site's order.
+    final topicsLabel = find.text(_l10n.categoryGroupTopics);
     final themesLabel = find.text(_l10n.categoryGroupTrendingNow);
     expect(themesLabel, findsOneWidget);
-    expect(tester.getRect(themesLabel).top,
+    expect(tester.getRect(topicsLabel).top,
         greaterThan(tester.getRect(trending).bottom));
-    expect(tester.getRect(find.text(_l10n.categoryGroupTopics)).top,
-        greaterThan(tester.getRect(_tile('tag:102289')).bottom));
+    for (final p in PolyPill.values) {
+      final topic = _tile(p.key);
+      if (p == PolyPill.trending || topic.evaluate().isEmpty) continue;
+      expect(tester.getRect(themesLabel).top,
+          greaterThan(tester.getRect(topic).bottom),
+          reason: '${p.key} sits above "Trending now"');
+    }
+    expect(tester.getRect(_tile('tag:102289')).top,
+        greaterThan(tester.getRect(themesLabel).bottom));
     expect(tester.getRect(_tile('tag:106552')).left,
         lessThan(tester.getRect(_tile('tag:102289')).left),
         reason: '2028 Election before Midterms, as the site has them');

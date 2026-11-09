@@ -2,18 +2,20 @@
 // in play first, then each day's games in kickoff order under the day's
 // heading ("Today", "Tomorrow", then the weekday and date, "Sat, Nov 15",
 // in the app's locale), games with no kickoff at the end. The split that
-// decides what a game is (a match with teams or a game id; everything else
-// is a Props market) lives here too, so the screen and the tests share it.
+// decides what a game is (a match with teams or a game id; everything else,
+// listed after the games, is not) lives here too, so the screen and the
+// tests share it.
 
 import 'package:intl/intl.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/polymarket_model.dart';
 
 /// Whether [e] is a game (a match with teams or a Gamma game id) rather
-/// than a Props market (a season award, a player total, an outright).
+/// than another market of the sport (a season award, a player total, an
+/// outright), which the list shows after the games.
 bool polyIsGame(PolymarketEvent e) => e.teams.isNotEmpty || e.gameId != null;
 
-/// [events] split into the games and the Props markets, each in the
+/// [events] split into the games and the other markets, each in the
 /// list's own order.
 ({List<PolymarketEvent> games, List<PolymarketEvent> props}) polySplitGamesProps(
     List<PolymarketEvent> events) {

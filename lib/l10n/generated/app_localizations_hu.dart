@@ -9939,12 +9939,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get polySportChess => 'Sakk';
 
   @override
-  String get polySportsGames => 'Mérkőzések';
-
-  @override
-  String get polySportsProps => 'Speciális';
-
-  @override
   String get polyDayTomorrow => 'Holnap';
 
   @override

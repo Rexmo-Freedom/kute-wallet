@@ -9924,12 +9924,6 @@ class AppLocalizationsSk extends AppLocalizations {
   String get polySportChess => 'Šach';
 
   @override
-  String get polySportsGames => 'Zápasy';
-
-  @override
-  String get polySportsProps => 'Špeciály';
-
-  @override
   String get polyDayTomorrow => 'Zajtra';
 
   @override

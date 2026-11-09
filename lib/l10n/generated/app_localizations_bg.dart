@@ -9934,12 +9934,6 @@ class AppLocalizationsBg extends AppLocalizations {
   String get polySportChess => 'Шах';
 
   @override
-  String get polySportsGames => 'Мачове';
-
-  @override
-  String get polySportsProps => 'Специални';
-
-  @override
   String get polyDayTomorrow => 'Утре';
 
   @override

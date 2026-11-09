@@ -9964,12 +9964,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get polySportChess => 'Ajedrez';
 
   @override
-  String get polySportsGames => 'Partidos';
-
-  @override
-  String get polySportsProps => 'Especiales';
-
-  @override
   String get polyDayTomorrow => 'Mañana';
 
   @override

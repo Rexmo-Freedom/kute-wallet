@@ -9902,12 +9902,6 @@ class AppLocalizationsEt extends AppLocalizations {
   String get polySportChess => 'Male';
 
   @override
-  String get polySportsGames => 'Mängud';
-
-  @override
-  String get polySportsProps => 'Eripanused';
-
-  @override
   String get polyDayTomorrow => 'Homme';
 
   @override

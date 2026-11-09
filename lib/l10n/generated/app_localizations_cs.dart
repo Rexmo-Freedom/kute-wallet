@@ -9910,12 +9910,6 @@ class AppLocalizationsCs extends AppLocalizations {
   String get polySportChess => 'Šachy';
 
   @override
-  String get polySportsGames => 'Zápasy';
-
-  @override
-  String get polySportsProps => 'Speciály';
-
-  @override
   String get polyDayTomorrow => 'Zítra';
 
   @override

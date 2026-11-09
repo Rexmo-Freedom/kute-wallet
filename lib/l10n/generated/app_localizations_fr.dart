@@ -9988,12 +9988,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get polySportChess => 'Échecs';
 
   @override
-  String get polySportsGames => 'Matchs';
-
-  @override
-  String get polySportsProps => 'Spéciaux';
-
-  @override
   String get polyDayTomorrow => 'Demain';
 
   @override

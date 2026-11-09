@@ -1,8 +1,10 @@
 // Sports as polymarket.com/sports reads: Soccer drills one level further
 // into its leagues ("‹ Soccer", All, LaLiga …), a sport or a league shows
-// Games | Props, Games by day under Live, Today, Tomorrow and the date,
-// Props the markets that are not a match; the league row's back pill
-// brings the sports back with Soccer still on screen.
+// all of its markets in one list (founder, 9 November 2026: "Why are we
+// separating games and props? Get rid of this props thing"): its games by
+// day under Live, Today, Tomorrow and the date, then the markets that are
+// not a match under "Futures"; no Games | Props switch. The league row's
+// back pill brings the sports back with Soccer still on screen.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -167,8 +169,9 @@ void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
 
   testWidgets(
-      'Soccer drills into its leagues; Games by day under their headings, '
-      'Props apart; a league narrows; back brings the sports', (tester) async {
+      'Soccer drills into its leagues; games by day under their headings, '
+      'the other markets after them in the same list; a league narrows; '
+      'back brings the sports', (tester) async {
     final events = <(String, Map<String, Object>?)>[];
     TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
     addTearDown(() => TrackingService.debugTrackObserver = null);
@@ -199,8 +202,6 @@ void main() {
     expect(_selected(tester, 'Live'), isTrue);
     expect(_pill('NFL'), findsOneWidget);
     expect(_pill('Soccer'), findsOneWidget);
-    // No Games | Props on Live.
-    expect(find.byKey(const ValueKey('poly-games-props')), findsNothing);
 
     // Soccer: the row drills into its leagues, Soccer's own list on screen.
     await _tap(tester, _pill('Soccer'));
@@ -214,36 +215,31 @@ void main() {
     final laliga = tester.getTopLeft(_pill('LaLiga'));
     expect(laliga.dx, greaterThan(tester.getTopLeft(_pill('Premier League')).dx));
 
-    // Games | Props, Games on: the matches by day, the prop left out.
-    final toggle = find.byKey(const ValueKey('poly-games-props'));
-    expect(toggle, findsOneWidget);
-    expect(tester.widget<KutePillTabs>(toggle).selectedIndex, 0);
+    // One list, no Games | Props switch: the matches by day, then the
+    // markets that are not a match under the Sports row's "Futures".
+    expect(find.byType(KutePillTabs), findsNothing);
+    expect(find.text('Props'), findsNothing);
     final far = _today.add(const Duration(days: 5));
-    expect(_headings(tester),
-        ['Live', 'Today', 'Tomorrow', DateFormat.MMMEd('en').format(far)]);
+    expect(_headings(tester), [
+      'Live',
+      'Today',
+      'Tomorrow',
+      DateFormat.MMMEd('en').format(far),
+      'Futures',
+    ]);
     expect(_cards(tester), [
       'EPL2 Home vs. epl2 Away',
       'LAL1 Home vs. lal1 Away',
       'EPL1 Home vs. epl1 Away',
       'LAL2 Home vs. lal2 Away',
+      'Who wins the Golden Boot?',
     ]);
-    expect(find.text('Who wins the Golden Boot?'), findsNothing);
 
-    // Props: the markets that are not a match, no day headings.
-    await _tap(tester, find.byKey(const ValueKey('poly-props-tab')));
-    expect(tester.widget<KutePillTabs>(toggle).selectedIndex, 1);
-    expect(_headings(tester), isEmpty);
-    expect(_cards(tester), ['Who wins the Golden Boot?']);
-    expect(
-        events.where((e) => e.$1 == 'category_pill_tapped').last.$2,
-        {'section': 'sports', 'view': 'props'});
-
-    // A league: its own list, Games again (another list opens on Games).
+    // A league: its own list.
     await _tap(tester, _pill('LaLiga'));
     expect(container.read(polyBrowseSelectionProvider).sub, 'series:10193');
     expect(_selected(tester, 'LaLiga'), isTrue);
     expect(tester.widget<KutePill>(_back).label, 'Soccer');
-    expect(tester.widget<KutePillTabs>(toggle).selectedIndex, 0);
     expect(_cards(tester),
         ['LAL1 Home vs. lal1 Away', 'LAL2 Home vs. lal2 Away']);
     expect(_headings(tester),

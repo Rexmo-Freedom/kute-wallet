@@ -69,6 +69,13 @@ exists only where it differs.
 | ufc.svg | polymarket.com/images/sports/leagues/ufc.svg, as served | its own fills |
 | ucl.svg | polymarket.com/images/sports/leagues/ucl.svg, as served | its own fills |
 
+A coloured mark is never recoloured. The few that melt into one theme's
+surface sit on the other theme's logo plate there (`kPolyLightPlateOnDark`,
+`kPolyDarkPlateOnLight` in `poly_sport_icon.dart`): in dark mode on the
+light plate `ucl.svg` (navy), `cricket.dark.svg` (#bf0000), `darts.dark.svg`
+(#62646a) and `esports/overwatch.svg` (its #4a4c4e ring); in light mode on
+the dark plate `darts.svg` (#bfc3ca).
+
 The side list's pinned leagues are PNGs from Gamma `/sports`, not SVGs. NFL,
 UFC and the Champions League have a vector that draws the same mark, above.
 NBA, MLB, College Football and the Nations League do not (the logoman, the

@@ -14,14 +14,15 @@
 //
 //   * two WIDE tiles, Trending and Watchlist (Predictions: Trending as the
 //     lone compact full-width card with its chevron, see below, the
-//     Watchlist's wide tile under it, then the "Trending now" label and
-//     the site's themes as grid cards), then a small "Markets"
+//     Watchlist's wide tile under it), then a small "Markets"
 //     (Investing) or "Topics" (Predictions) label and a real two-column
 //     grid (every card the same compact 60 px, 8 px apart; an odd last
 //     card full width as the wide row, never a card alone in half the
 //     width: the app's no-orphan rule, kute_action_cards.dart;
-//     [_tileGrid]). COMPACT (founder, 7 November 2026, the Predictions
-//     topics at 96 px, mostly empty: "cards here ae too big now i thnk"):
+//     [_tileGrid]; Predictions then the "Trending now" label and the
+//     site's themes in the same grid). COMPACT (founder, 7 November
+//     2026, the Predictions topics at 96 px, mostly empty: "cards here ae
+//     too big now i thnk"):
 //     a grid card is the wide row at half the width, its art at the left
 //     and its name (and numbers) beside it, a little shorter than the
 //     Trending row. A tile
@@ -76,8 +77,10 @@
 // the one-card shape of kute_action_cards.dart: full width and compact,
 // its stack at the left, its name and numbers beside it, a chevron at its
 // right ([_Tile.wide] with [_Tile.chevron]). Under it (and the Watchlist's
-// row) the site's SECOND KIND OF CATEGORY (founder, same day: "there are 2
-// categories on Polymarket, find a way to integrate both"): polymarket
+// row) the "Topics" label and the topics, and under the topics (founder, 9
+// November 2026: "the trending now should be under topics") the site's
+// SECOND KIND OF CATEGORY (founder, same day: "there are 2 categories on
+// Polymarket, find a way to integrate both"): polymarket
 // .com's home page has, beside its topic nav, an "All markets" chip row of
 // current themes (2028 Election, Midterms, Anthropic IPO, Iran …; read
 // live, polyTrendingThemesProvider). They are Trending's own rows: the
@@ -87,8 +90,8 @@
 // markets' images once its list is loaded, and its count. A tap picks
 // Trending at that theme, exactly as a topic's row is picked
 // (`category_pill_tapped`, section `trending`, the theme's slug); the pill
-// reads "Predictions · Trending · Midterms". Then the "Topics" label and
-// the topics. Both kinds on one sheet, nothing new drawn for it.
+// reads "Predictions · Trending · Midterms". Both kinds on one sheet,
+// nothing new drawn for it.
 //
 // GROUPS, AS THE SITE CUTS THEM (founder, 9 November 2026: "have some
 // sort of separation in the categories exactly like Polymarket does,
@@ -1119,6 +1122,10 @@ class _InvestmentsCategorySheetState
               : () => _open(p),
         );
 
+    final topics = [
+      for (final p in pills)
+        if (p != PolyPill.trending && p != PolyPill.watchlist) tile(p),
+    ];
     return [
       _rise(
           0,
@@ -1126,16 +1133,16 @@ class _InvestmentsCategorySheetState
               lead: l10n.categoryStatMostActive, chevron: true)),
       if (pills.contains(PolyPill.watchlist))
         _rise(1, wide(PolyPill.watchlist)),
-      // The site's themes, Trending's rows, under their own label.
+      // The topics first, then the site's themes, Trending's rows, under
+      // their own label (founder, 9 November 2026: "the trending now
+      // should be under topics").
+      _rise(2, _label(context, l10n.categoryGroupTopics)),
+      _grid(first: 3, topics),
       if (themes.isNotEmpty) ...[
-        _rise(2, _label(context, l10n.categoryGroupTrendingNow)),
-        _grid(first: 3, themes),
+        _rise(3 + topics.length,
+            _label(context, l10n.categoryGroupTrendingNow)),
+        _grid(first: 4 + topics.length, themes),
       ],
-      _rise(3 + themes.length, _label(context, l10n.categoryGroupTopics)),
-      _grid(first: 4 + themes.length, [
-        for (final p in pills)
-          if (p != PolyPill.trending && p != PolyPill.watchlist) tile(p),
-      ]),
     ];
   }
 
@@ -1459,11 +1466,33 @@ class _SheetHeader extends StatelessWidget {
   final String? back;
   final VoidCallback onBack;
 
+  /// How wide the back link is: its chevron and its words.
+  static double _backWidth(
+      BuildContext context, String? label, TextStyle style) {
+    if (label == null) return 0;
+    final painter = TextPainter(
+      text: TextSpan(
+          text: label, style: DefaultTextStyle.of(context).style.merge(style)),
+      maxLines: 1,
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout();
+    final width = painter.width;
+    painter.dispose();
+    return 22.sp + width;
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final reduce = kuteReduceMotion(context);
     final backLabel = back;
+    final backStyle = TextStyle(
+      color: c.textSecondary,
+      fontSize: 15.sp,
+      fontWeight: FontWeight.w600,
+      letterSpacing: -0.2,
+    );
     final duration = reduce ? Duration.zero : KuteMotion.sheetInDuration;
     Widget fade(Widget child) => AnimatedSwitcher(
           duration: duration,
@@ -1492,19 +1521,27 @@ class _SheetHeader extends StatelessWidget {
               children: [
                 Positioned.fill(
                   child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 48.w),
+                    // Clear of the back link and the close on both sides,
+                    // so it stays centred; a title still too long for the
+                    // room left shrinks to it, whole, never cut (founder,
+                    // 9 November 2026: "no cut text").
+                    padding: EdgeInsets.symmetric(
+                        horizontal: math.max(48.w,
+                            _backWidth(context, backLabel, backStyle) + 8)),
                     child: Center(
-                      child: fade(Text(
-                        title,
+                      child: fade(FittedBox(
                         key: ValueKey(title),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: c.textPrimary,
-                          fontSize: 22.sp,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.4,
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          title,
+                          maxLines: 1,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: c.textPrimary,
+                            fontSize: 22.sp,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.4,
+                          ),
                         ),
                       )),
                     ),
@@ -1530,15 +1567,7 @@ class _SheetHeader extends StatelessWidget {
                                 children: [
                                   Icon(Icons.chevron_left_rounded,
                                       size: 22.sp, color: c.textSecondary),
-                                  Text(
-                                    backLabel,
-                                    style: TextStyle(
-                                      color: c.textSecondary,
-                                      fontSize: 15.sp,
-                                      fontWeight: FontWeight.w600,
-                                      letterSpacing: -0.2,
-                                    ),
-                                  ),
+                                  Text(backLabel, style: backStyle),
                                 ],
                               ),
                             ),
@@ -1566,9 +1595,13 @@ const double _kPlateIcon = 20;
 
 /// A tile's second line: "[lead ·] N markets · ▲ 1.8% [· $12M vol today]
 /// [today]". The move's arrow and colour follow its sign; 0.0% is quiet
-/// with no arrow; a null [move] is left out. On a compact card too narrow
-/// for the whole line the count goes first and the move stays ("▲ 1.8%"),
-/// never the move cut to an ellipsis.
+/// with no arrow; a null [move] is left out. NEVER CUT (founder, 9
+/// November 2026, of "20 markets · $801K vol…": "on the predictions
+/// filter, no cut text"): on a card too narrow for the whole line the
+/// line gets shorter, never an ellipsis: the volume goes first ("20
+/// markets"), then the count (the move stays, "▲ 1.8%"), then "today",
+/// then the lead. Should even the shortest not fit, it wraps and the card
+/// grows (its pair with it, [_TilePair]).
 class _StatLine extends StatelessWidget {
   const _StatLine(
       {this.lead,
@@ -1599,13 +1632,19 @@ class _StatLine extends StatelessWidget {
       height: 1.2,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
-    List<InlineSpan> spans({required bool withCount}) {
+    List<InlineSpan> spans(
+        {required bool withCount,
+        required bool withVolume,
+        required bool withTail,
+        required bool withLead}) {
       final parts = <InlineSpan>[];
       void sep() {
         if (parts.isNotEmpty) parts.add(TextSpan(text: ' · ', style: quiet));
       }
 
-      if (lead != null) parts.add(TextSpan(text: lead, style: quiet));
+      if (lead != null && withLead) {
+        parts.add(TextSpan(text: lead, style: quiet));
+      }
       if (count != null && withCount) {
         sep();
         parts.add(
@@ -1626,34 +1665,53 @@ class _StatLine extends StatelessWidget {
           ),
         ));
       }
-      if (volume != null) {
+      if (volume != null && withVolume) {
         sep();
         parts.add(TextSpan(
             text: l10n.categoryStatVolToday(_compactUsd(volume!)),
             style: quiet));
       }
-      if (tail != null) parts.add(TextSpan(text: ' $tail', style: quiet));
+      if (tail != null && withTail && parts.isNotEmpty) {
+        parts.add(TextSpan(text: ' $tail', style: quiet));
+      }
       return parts;
     }
 
-    final whole = spans(withCount: true);
-    if (whole.isEmpty) return const SizedBox.shrink();
-    Widget line(List<InlineSpan> parts) => Text.rich(
-        TextSpan(children: parts),
-        maxLines: lines,
-        overflow: TextOverflow.ellipsis);
-    if (count == null || move == null) return line(whole);
+    // The line's forms, longest first, each one part shorter.
+    final forms = <List<InlineSpan>>[];
+    for (final f in const [
+      (count: true, volume: true, tail: true, lead: true),
+      (count: true, volume: false, tail: true, lead: true),
+      (count: false, volume: false, tail: true, lead: true),
+      (count: false, volume: false, tail: false, lead: true),
+      (count: false, volume: false, tail: false, lead: false),
+    ]) {
+      final parts = spans(
+          withCount: f.count,
+          withVolume: f.volume,
+          withTail: f.tail,
+          withLead: f.lead);
+      if (parts.isNotEmpty) forms.add(parts);
+    }
+    if (forms.isEmpty) return const SizedBox.shrink();
     return LayoutBuilder(builder: (context, box) {
-      final painter = TextPainter(
-        text: TextSpan(
-            style: DefaultTextStyle.of(context).style, children: whole),
-        maxLines: 1,
-        textDirection: Directionality.of(context),
-        textScaler: MediaQuery.textScalerOf(context),
-      )..layout(maxWidth: box.maxWidth);
-      final fits = !painter.didExceedMaxLines;
-      painter.dispose();
-      return line(fits ? whole : spans(withCount: false));
+      for (final parts in forms) {
+        final painter = TextPainter(
+          text: TextSpan(
+              style: DefaultTextStyle.of(context).style, children: parts),
+          maxLines: lines,
+          textDirection: Directionality.of(context),
+          textScaler: MediaQuery.textScalerOf(context),
+        )..layout(maxWidth: box.maxWidth);
+        final fits = !painter.didExceedMaxLines;
+        painter.dispose();
+        if (fits) {
+          return Text.rich(TextSpan(children: parts), maxLines: lines);
+        }
+      }
+      // Nothing fits on its lines: the shortest, whole, on as many as it
+      // needs.
+      return Text.rich(TextSpan(children: forms.last));
     });
   }
 }
@@ -1663,9 +1721,9 @@ class _StatLine extends StatelessWidget {
 /// name and numbers beside it (the row is also a grid's odd last card).
 /// Both are AT LEAST their height, never fixed (founder, 7 November
 /// 2026: "Stocks and shares", "Mobile Legends: Bang Bang" overflowed the
-/// fixed card by 2 px): a name that wraps to its second line, at any text
-/// size, makes the card taller, never cut short or overflowing; past two
-/// lines it ends in an ellipsis.
+/// fixed card by 2 px): a name that wraps, at any text size and on as
+/// many lines as it takes, makes the card taller, never cut short or
+/// overflowing.
 enum _TileShape { grid, wide }
 
 /// The sheets' grid (see the file header): two columns of compact cards,
@@ -1998,9 +2056,12 @@ class _Tile extends StatelessWidget {
 }
 
 /// A tile's name with its stat line under it, the name never cut
-/// (founder, 31 October 2026): the name on one line and the stat under
-/// it while the name fits the width; a name that needs more runs onto a
-/// second line and the stat is dropped, not the name.
+/// (founder, 31 October 2026, and 9 November 2026: "no cut text"): the
+/// name on one line and the stat under it while the name fits the width;
+/// a name that needs more runs onto as many lines as it takes and the stat
+/// is dropped, not the name. The card grows with it, its pair too
+/// ([_TilePair]; kute_action_cards.dart: titles are never cut, the cards
+/// of a row grow together).
 class _NameAndStat extends StatelessWidget {
   const _NameAndStat({required this.name, required this.style, this.stat});
 
@@ -2011,8 +2072,12 @@ class _NameAndStat extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
         builder: (context, constraints) {
+          // Measured in the style the name is drawn in: the inherited
+          // one (the theme's Inter) under the name's own.
           final painter = TextPainter(
-            text: TextSpan(text: name, style: style),
+            text: TextSpan(
+                text: name,
+                style: DefaultTextStyle.of(context).style.merge(style)),
             maxLines: 1,
             textDirection: Directionality.of(context),
             textScaler: MediaQuery.textScalerOf(context),
@@ -2023,10 +2088,7 @@ class _NameAndStat extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(name,
-                  maxLines: fits ? 1 : 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: style),
+              Text(name, style: style),
               if (fits && stat != null) ...[SizedBox(height: 2.h), stat!],
             ],
           );

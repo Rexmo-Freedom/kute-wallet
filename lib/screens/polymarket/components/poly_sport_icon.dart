@@ -56,6 +56,39 @@ const Set<String> _kDarkVariants = {
   'chess',
 };
 
+/// THE MARKS THAT VANISH ON ONE THEME (founder, 9 November 2026: "some
+/// icons don't look good on dark mode and some don't look good on white
+/// mode"; every icon of the sheet and the drill rows rendered in both
+/// themes and looked at). A coloured mark is never recoloured; one that
+/// melts into a theme's surface sits on the other theme's logo plate
+/// instead (the coin logos' plate, [HlCoinIcon]: the theme's surfaceLight),
+/// a rounded square the size of the icon with the mark inside it:
+///
+///   * in dark mode, on the light plate: the Champions League's navy
+///     starball (#123C74), Cricket's dark red (#bf0000), Darts' dark grey
+///     (#62646a) and Overwatch's grey ring (#4a4c4e);
+///   * in light mode, on the dark plate: Darts' light grey (#bfc3ca).
+const Set<String> kPolyLightPlateOnDark = {
+  '$_kSportsDir/ucl.svg',
+  '$_kSportsDir/cricket.dark.svg',
+  '$_kSportsDir/darts.dark.svg',
+  '$_kEsportsDir/overwatch.svg',
+};
+const Set<String> kPolyDarkPlateOnLight = {
+  '$_kSportsDir/darts.svg',
+};
+
+/// The plate bundled glyph [asset] sits on in the [dark] theme, or null
+/// for one that reads on the theme's own surface (see
+/// [kPolyLightPlateOnDark]).
+Color? polyIconPlate(String asset, {required bool dark}) => dark
+    ? (kPolyLightPlateOnDark.contains(asset)
+        ? AppColorsExtension.light().surfaceLight
+        : null)
+    : (kPolyDarkPlateOnLight.contains(asset)
+        ? AppColorsExtension.dark().surfaceLight
+        : null);
+
 /// The bundled glyph of [sub], by its key (a sport, Live, Futures) or its
 /// route (a league's Gamma code; its key is `series:<id>`). Null when none
 /// is bundled.
@@ -328,17 +361,30 @@ class PolySubIcon extends StatelessWidget {
     final glyph = pill == PolyPill.sports
         ? PolySportTrophy(size: size)
         : PolyPillGlyph(pill: pill, size: size);
-    final asset = polySubIconAsset(pill, sub, dark: context.isDark);
+    final dark = context.isDark;
+    final asset = polySubIconAsset(pill, sub, dark: dark);
     if (asset != null) {
+      // A mark that vanishes on this theme sits on the other theme's plate
+      // (see [kPolyLightPlateOnDark]), a little inside it.
+      final plate = polyIconPlate(asset, dark: dark);
+      final inset = plate == null ? 0.0 : size * 0.14;
       // By width alone inside the square: a wide mark (the UFC's wordmark)
       // would otherwise take its height and run out of the plate.
-      return SizedBox.square(
+      return Container(
         key: ValueKey('poly-sub-icon-$asset'),
-        dimension: size,
+        width: size,
+        height: size,
+        padding: EdgeInsets.all(inset),
+        decoration: plate == null
+            ? null
+            : BoxDecoration(
+                color: plate,
+                borderRadius: BorderRadius.circular(size * 0.25),
+              ),
         child: Center(
           child: SvgPicture.asset(
             asset,
-            width: size,
+            width: size - 2 * inset,
             // The site's monochrome glyphs (`currentColor`, and Futures) in
             // the text's colour; a Breaking row's topic glyph (black fills)
             // painted in it, as the topic's own card draws it.
@@ -346,7 +392,8 @@ class PolySubIcon extends StatelessWidget {
             colorFilter: pill == PolyPill.breaking
                 ? ColorFilter.mode(context.colors.textPrimary, BlendMode.srcIn)
                 : null,
-            placeholderBuilder: (_) => SizedBox.square(dimension: size),
+            placeholderBuilder: (_) =>
+                SizedBox.square(dimension: size - 2 * inset),
             errorBuilder: (_, __, ___) => glyph,
           ),
         ),

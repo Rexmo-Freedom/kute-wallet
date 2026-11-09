@@ -302,6 +302,57 @@ void main() {
   });
 
   testWidgets(
+      'Predictions picked at a theme, a league or a game (founder, 9 '
+      'November 2026: "on the predictions filter, no cut text"): the pill '
+      'reads "Predictions · …" whole at 375 and 430 pt in every language, '
+      'or its name alone', (tester) async {
+    await tester.runAsync(_loadInter);
+    // Proper names the venue gives, the longest the Predictions sheet
+    // offers a pick at (Trending's themes, Sports' leagues, Esports'
+    // games, a topic's rows).
+    const live = [
+      (PolyPill.trending, 'South Africa Municipal Elections'),
+      (PolyPill.trending, 'Anthropic IPO'),
+      (PolyPill.sports, 'UEFA Champions League'),
+      (PolyPill.sports, 'Dhaka Premier Division Cricket League'),
+      (PolyPill.esports, 'Mobile Legends: Bang Bang'),
+      (PolyPill.politics, 'Competitive Races'),
+    ];
+    for (final width in [375.0, 430.0]) {
+      tester.view.physicalSize = Size(width, 812) * 3;
+      tester.view.devicePixelRatio = 3;
+      for (final locale in AppLocalizations.supportedLocales) {
+        final l10n = l10nForLanguage(locale.languageCode);
+        for (final (pill, name) in live) {
+          final c = (detail: '${polyPillLabel(l10n, pill)} · $name', short: name);
+          for (final compact in [false, true]) {
+            await tester.pumpWidget(_app(
+                locale,
+                Center(
+                    child: _strip(_items3(l10n, 2, c), 2, compact: compact))));
+            await tester.pump(const Duration(seconds: 1));
+            final why = '${locale.languageCode} ${width.round()}'
+                '${compact ? ' compact' : ''}: ${c.detail}';
+            final picked =
+                tester.widgetList<KutePill>(find.byType(KutePill)).elementAt(2);
+            final shown = picked.detail;
+            final scale = _checkWhole(
+                tester,
+                shown == null
+                    ? l10n.predictions
+                    : '${l10n.predictions} · $shown',
+                why);
+            expect(scale, greaterThanOrEqualTo(kutePillMinTextScale - 0.01),
+                reason: '$why shrank to $scale');
+            expect(find.textContaining('…'), findsNothing, reason: why);
+          }
+        }
+      }
+    }
+    tester.view.reset();
+  });
+
+  testWidgets(
       'the Portfolio\'s Positions | Profits | Activity at 320 pt in every '
       'language, each pill picked: no pill cut, none shrunk past the least '
       'scale, and the "Share profits" bar whole (founder, 8 November 2026)',

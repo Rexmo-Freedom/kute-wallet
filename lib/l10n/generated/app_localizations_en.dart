@@ -9875,12 +9875,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get polySportChess => 'Chess';
 
   @override
-  String get polySportsGames => 'Games';
-
-  @override
-  String get polySportsProps => 'Props';
-
-  @override
   String get polyDayTomorrow => 'Tomorrow';
 
   @override

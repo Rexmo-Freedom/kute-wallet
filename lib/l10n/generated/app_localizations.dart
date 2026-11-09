@@ -17056,18 +17056,6 @@ abstract class AppLocalizations {
   /// **'Chess'**
   String get polySportChess;
 
-  /// Predictions, a sport or league: the first half of the Games | Props switch, the matches with a kickoff.
-  ///
-  /// In en, this message translates to:
-  /// **'Games'**
-  String get polySportsGames;
-
-  /// Predictions, a sport or league: the second half of the Games | Props switch, the markets that are not a match (season awards, player totals).
-  ///
-  /// In en, this message translates to:
-  /// **'Props'**
-  String get polySportsProps;
-
   /// Predictions, a sport's games: the heading over tomorrow's matches (Today and the weekday headings are beside it).
   ///
   /// In en, this message translates to:

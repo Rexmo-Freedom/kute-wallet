@@ -9970,12 +9970,6 @@ class AppLocalizationsRo extends AppLocalizations {
   String get polySportChess => 'Șah';
 
   @override
-  String get polySportsGames => 'Meciuri';
-
-  @override
-  String get polySportsProps => 'Speciale';
-
-  @override
   String get polyDayTomorrow => 'Mâine';
 
   @override

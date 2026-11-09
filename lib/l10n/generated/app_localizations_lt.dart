@@ -9968,12 +9968,6 @@ class AppLocalizationsLt extends AppLocalizations {
   String get polySportChess => 'Šachmatai';
 
   @override
-  String get polySportsGames => 'Rungtynės';
-
-  @override
-  String get polySportsProps => 'Specialūs';
-
-  @override
   String get polyDayTomorrow => 'Rytoj';
 
   @override

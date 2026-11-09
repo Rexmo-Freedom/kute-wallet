@@ -9948,12 +9948,6 @@ class AppLocalizationsNl extends AppLocalizations {
   String get polySportChess => 'Schaken';
 
   @override
-  String get polySportsGames => 'Wedstrijden';
-
-  @override
-  String get polySportsProps => 'Specials';
-
-  @override
   String get polyDayTomorrow => 'Morgen';
 
   @override
