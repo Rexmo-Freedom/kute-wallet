@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_ce/hive.dart';
@@ -37,7 +38,8 @@ import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show SendAmountUnitPill, SendTypedAmountHero;
 import 'package:kute/screens/shared/send/send_recipient_step.dart'
     show SendRecipientSearchField, SendSalShareGlyph;
-import 'package:kute/screens/shared/sal_sprite.dart' show SalSpriteCache;
+import 'package:kute/screens/shared/sal_sprite.dart'
+    show SalSprite, SalSpriteCache;
 import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart'
     show UsdAccountActionRow;
@@ -1546,5 +1548,37 @@ void main() {
     expect(find.textContaining(_l10n.trading), findsWidgets);
     expect(find.text(_l10n.retry), findsOneWidget);
   });
+
+  testWidgets(
+      'no flat Sal on Send to, Amount or Review: Sal is only ever the 3D '
+      'sprite (founder, 9 November 2026)', (tester) async {
+    await withClipboard(tester);
+    await _pump(tester);
+    expect(_flatSal, findsNothing, reason: 'Send to');
+    await _toAmount(tester);
+    expect(_flatSal, findsNothing, reason: 'Amount');
+    await tester.tap(find.text('100%'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(_l10n.continueLabel));
+    await tester.pumpAndSettle();
+    expect(_step(_l10n.sendReview), findsOneWidget);
+    expect(_flatSal, findsNothing, reason: 'Review');
+  });
 }
 
+/// Sal's flat SVG drawn anywhere but as a SalSprite's fallback (the 3D
+/// Sal's own stand-in until his sheet is read).
+final _flatSal = find.byElementPredicate((e) {
+  final w = e.widget;
+  if (w is! SvgPicture) return false;
+  final loader = w.bytesLoader;
+  if (loader is! SvgAssetLoader || !loader.assetName.contains('kute_dog')) {
+    return false;
+  }
+  var inSprite = false;
+  e.visitAncestorElements((a) {
+    inSprite = a.widget is SalSprite;
+    return !inSprite;
+  });
+  return !inSprite;
+});

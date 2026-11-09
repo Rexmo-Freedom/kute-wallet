@@ -123,7 +123,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -665,6 +664,12 @@ class _SlideToConfirmState extends State<_SlideToConfirm>
 /// pencil. Animated transitions between the three states so the badge
 /// morphs smoothly when a step lands.
 
+/// The Review's From mark for the wallet logo [asset]: the 3D Sal for the
+/// spending wallet (BrandMark: the flat SVG only until his sheet is read),
+/// the wallet's own logo for any other, at the squares' visual size.
+Widget sendReviewFromMark(String asset) =>
+    BrandMark(asset: asset, size: SendReviewRoute.visualSize);
+
 class _DestAsset {
   final String code;
   final String name;
@@ -701,7 +706,7 @@ class _DestAsset {
     if (svgAsset != null) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(size * 0.3),
-        child: SvgPicture.asset(svgAsset!, width: size, height: size),
+        child: BrandMark(asset: svgAsset!, size: size),
       );
     }
     if (iconUrl != null) {
@@ -6074,9 +6079,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
         // ellipsis form alone gives a hardware user nothing to compare
         // against the device screen.
         SendReviewRoute(
-          fromVisual: SvgPicture.asset(sourceIcon,
-              width: SendReviewRoute.visualSize,
-              height: SendReviewRoute.visualSize),
+          fromVisual: sendReviewFromMark(sourceIcon),
           fromTitle: sourceLabel,
           fromLine: context.l10n.sendAvailableBalanceSubtitle(sourceBalance),
           toVisual: SendRecipientAvatar(

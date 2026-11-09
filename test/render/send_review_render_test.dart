@@ -30,10 +30,12 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart' show FontLoader, rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:kute/helpers/kute_dog_asset.dart' show kuteDogLightAsset;
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/screens/pay/components/confirm_send.dart'
+    show sendReviewFromMark;
 import 'package:kute/providers/asset_icon_provider.dart' show kInvestmentsIcon;
 import 'package:kute/screens/shared/asset_network_picker.dart'
     show ChainAvatarIcon;
@@ -203,10 +205,9 @@ Widget _app(bool dark, Widget review) => ProviderScope(
       ),
     );
 
-Widget _sal(bool dark) => SvgPicture.asset(
-    dark ? 'lib/assets/kute_dog_dark.svg' : 'lib/assets/kute_dog.svg',
-    width: SendReviewRoute.visualSize,
-    height: SendReviewRoute.visualSize);
+/// The spending wallet's From mark, as confirm_send.dart draws it: the 3D
+/// Sal (the theme picks his fallback's colours).
+Widget _sal(bool dark) => sendReviewFromMark(kuteDogLightAsset);
 
 /// The Bitcoin Send's rail mark in a 40 avatar, as confirm_send.dart
 /// draws it.
