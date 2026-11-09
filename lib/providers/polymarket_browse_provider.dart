@@ -17,7 +17,9 @@ import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/polymarket_watchlist_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:polybrainz_polymarket/polybrainz_polymarket.dart'
-    hide PolymarketConstants;
+    // Its TimeoutException would shadow dart:async's, and the wait below
+    // would never catch the timeout it sets.
+    hide PolymarketConstants, TimeoutException;
 
 export 'package:polybrainz_polymarket/polybrainz_polymarket.dart'
     show Comment, Tag;
