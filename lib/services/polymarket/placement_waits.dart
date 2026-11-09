@@ -30,11 +30,14 @@ class PolymarketSetupIncomplete implements Exception {
 ///
 /// Every order first re-verifies the deposit wallet on chain: that it has
 /// code and that its exchange approvals are set. The reads run on public
-/// Polygon RPCs and fail closed when none answers, and on 2026-11-08 that
-/// is what ended a person's sells: the whole evening every RPC read on
-/// their phone timed out, and each sell died in the re-check without a
-/// single request reaching the order book (the setup failure and the sell
-/// failure were recorded in the same millisecond). A position the account
+/// Polygon RPCs and fail closed when none answers. On 2026-11-08 a person's
+/// second sell ended there, with no order posted (the setup failure and the
+/// sell failure were recorded in the same millisecond), on a mobile
+/// connection where 85% of requests to every host timed out, our backend
+/// and the order book included; their first sell had reached the POST and
+/// failed on the network after 18.7 s. This removes the chain read as a
+/// reason to refuse; it cannot make a sale work on a connection that does
+/// not reach the order book. A position the account
 /// holds was bought through that wallet, so the wallet exists and its
 /// approvals were set when it was created; the re-check adds nothing a
 /// sell needs. The order book is the arbiter: a refusal that names a
