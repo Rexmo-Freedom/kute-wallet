@@ -3407,9 +3407,9 @@ class PolymarketTradingNotifier
     // A SELL does not wait on it: the position it sells was bought through
     // this deposit wallet, so the wallet and its approvals exist, and the
     // re-check is chain reads that fail closed when no Polygon RPC answers
-    // (which is what ended a person's sells on 2026-11-08, before a single
-    // request reached the order book). The order goes to the venue; a
-    // refusal that names an approval still runs the setup repair below.
+    // (which ended a person's second sell on 2026-11-08 with no order
+    // posted). The order goes to the venue; a refusal that names an
+    // approval still runs the setup repair below.
     try {
       await enableTrading();
       PolymarketPlacementTimeline.trace('account_ready');
