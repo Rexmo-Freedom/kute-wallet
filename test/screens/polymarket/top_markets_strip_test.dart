@@ -1,5 +1,5 @@
 // The Top markets strip over the Predictions feed: which markets it
-// features (the open Yes/No markets with the most volume in the day),
+// features (the list's first open Yes/No markets, in its own order),
 // what a card shows (the Investing card's treatment since the declutter:
 // image, question, who leads large; no pills, no closing date), and where
 // a tap goes.
@@ -90,8 +90,8 @@ Finder _rolled(String text) => find.byWidgetPredicate(
 
 void main() {
   group('polyTopMarkets', () {
-    test('the open Yes/No markets by their day\'s volume, the lifetime '
-        'volume when the feed has none, five at most', () {
+    test('the first open Yes/No markets in the feed\'s own order, never by '
+        'volume, five at most', () {
       final events = [
         _event('a', 'A', volume: 100, volume24hr: 5),
         _event('b', 'B', volume: 1, volume24hr: 50),
@@ -102,9 +102,8 @@ void main() {
         _event('f', 'F', volume: 1, volume24hr: 2),
         _event('g', 'G', volume: 1, volume24hr: 3),
       ];
-      // Equal day volumes keep the feed's order (b before d).
-      expect(polyTopMarkets(events).map((e) => e.id), ['b', 'd', 'c', 'a', 'g']);
-      expect(polyTopMarkets(events, max: 2).map((e) => e.id), ['b', 'd']);
+      expect(polyTopMarkets(events).map((e) => e.id), ['a', 'b', 'c', 'd', 'e']);
+      expect(polyTopMarkets(events, max: 2).map((e) => e.id), ['a', 'b']);
     });
 
     test('only plain Yes/No markets still open; fewer than two is no strip',

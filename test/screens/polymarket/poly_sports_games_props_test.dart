@@ -92,7 +92,8 @@ const _directory = <Map<String, dynamic>>[
 ];
 
 final _soccer = [
-  // LaLiga is the most traded league: first among the leagues.
+  // LaLiga is the most traded league here: the site's order still has the
+  // Premier League first.
   _game('lal1', '10193', DateTime(_today.year, _today.month, _today.day, 23, 59),
       volume: 900),
   _game('epl1', '10188', _today.add(const Duration(days: 1, hours: 12)),
@@ -206,12 +207,12 @@ void main() {
     expect(tester.widget<KutePill>(_back).label, 'Soccer');
     expect(_selected(tester, 'All'), isTrue);
     expect(container.read(polyBrowseSelectionProvider).sub, 'soccer');
-    // The leagues with trade in the list, most traded first.
+    // The leagues in the site's order, whatever trades most in the list.
     expect(_pill('LaLiga'), findsOneWidget);
     expect(_pill('Premier League'), findsOneWidget);
     expect(_pill('Tennis'), findsNothing);
     final laliga = tester.getTopLeft(_pill('LaLiga'));
-    expect(laliga.dx, lessThan(tester.getTopLeft(_pill('Premier League')).dx));
+    expect(laliga.dx, greaterThan(tester.getTopLeft(_pill('Premier League')).dx));
 
     // Games | Props, Games on: the matches by day, the prop left out.
     final toggle = find.byKey(const ValueKey('poly-games-props'));

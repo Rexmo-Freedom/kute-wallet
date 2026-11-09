@@ -138,6 +138,7 @@ import 'package:kute/screens/polymarket/components/poly_browse_bar.dart'
 import 'package:kute/screens/shared/kute_pill_tabs.dart'
     show KutePill, kutePillRowHeight;
 import 'package:kute/screens/polymarket/components/live_token_scope.dart';
+import 'package:kute/screens/polymarket/components/poly_sport_icon.dart';
 import 'package:kute/models/hyperliquid_market.dart'
     show HlMarket, kHlLowLiquidityDayVolumeUsd;
 import 'package:kute/providers/polymarket_live_prices_provider.dart'
@@ -1646,12 +1647,14 @@ class _CategoryHitRow extends ConsumerWidget {
           borderRadius: BorderRadius.circular(kSearchRowLogo / 4),
           border: Border.all(color: c.borderSubtle, width: 0.5),
         ),
-        child: SvgPicture.asset(
-          'lib/assets/polymarket_tags/${pill.key}.svg',
-          width: 20,
-          height: 20,
-          colorFilter: ColorFilter.mode(c.textPrimary, BlendMode.srcIn),
-        ),
+        child: hit.chip != null
+            ? PolySportIcon(sub: hit.chip!, size: 20)
+            : SvgPicture.asset(
+                'lib/assets/polymarket_tags/${pill.key}.svg',
+                width: 20,
+                height: 20,
+                colorFilter: ColorFilter.mode(c.textPrimary, BlendMode.srcIn),
+              ),
       ),
       title: hit.label,
       subtitle: where,

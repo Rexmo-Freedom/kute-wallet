@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart';
+import 'package:kute/providers/polymarket_site_order.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 
 import '../helpers/runtime_policy_fixture.dart';
@@ -214,20 +215,20 @@ void main() {
         () {
       final subs = polySportsSubsFromLeagues(directory);
       final keys = [for (final s in subs) s.key];
-      // The six the site pins, in its order, by their `/sports` codes.
+      // The site's pins, in its order, by their `/sports` codes; MLB is out
+      // of season, so the site's side list has none of it.
       expect(keys.take(8), [
         'live', 'futures', 'series:12185', 'series:10345', 'series:12756',
         'series:38', 'series:10204', 'series:11446', //
       ]);
-      expect(kPolySportsPinnedLeagues, ['nfl', 'nba', 'cfb', 'ufc', 'ucl', 'unl']);
-      // Then the site's sports in its order, then the extras Gamma lists.
-      expect(keys.skip(8), kPolySportGroups);
-      expect(kPolySiteSports, [
+      expect(kPolySportsPinnedLeagues,
+          ['nfl', 'nba', 'mlb', 'cfb', 'ufc', 'ucl', 'unl']);
+      // Then the sports with markets in the site's order, then the rest.
+      expect(keys.skip(8), [
         'soccer', 'tennis', 'cricket', 'basketball', 'football', 'hockey',
-        'rugby', 'table-tennis', 'darts', 'volleyball', 'golf', 'mma', //
+        'rugby', 'table-tennis', 'darts', 'volleyball', 'golf', 'mma',
+        'motorsports', 'chess', 'baseball', 'handball', 'cycling', //
       ]);
-      expect(kPolySportExtras,
-          ['baseball', 'handball', 'motorsports', 'cycling', 'chess']);
       expect(keys, isNot(contains('all')));
       // A pinned league is not repeated among the sports; an unpinned
       // league (LaLiga) is not on this row: it is under Soccer.
@@ -252,14 +253,15 @@ void main() {
       // Without the directory the row is still whole: the sports alone.
       expect(
           [for (final s in polySportsSubsFromLeagues(const [])) s.key],
-          ['live', 'futures', ...kPolySportGroups]);
+          ['live', 'futures', ...keys.skip(8)]);
       // A directory with only some pinned leagues pins those.
       final some = polySportsSubsFromLeagues([directory[4], directory[0]]);
       expect([for (final s in some) s.key].take(3),
           ['live', 'futures', 'series:12185']);
     });
 
-    test('Sports: the extra sports go by the volume of their leagues', () {
+    test('Sports: the sports the site does not list go by the volume of '
+        'their leagues', () {
       // Handball's league is the most traded: Handball before Baseball.
       final ranked = [
         league('hbbundesliga', 'Handball Bundesliga', '12557',
@@ -270,16 +272,14 @@ void main() {
         for (final s in polySportsSubsFromLeagues(directory, ranked: ranked))
           s.key
       ];
-      expect(keys.skip(8 + kPolySiteSports.length),
-          ['handball', 'baseball', 'motorsports', 'cycling', 'chess']);
+      expect(keys.skip(8 + 14), ['handball', 'baseball', 'cycling']);
       // Only baseball ranked: it leads the extras; the rest keep their order.
       final baseball = [
         for (final s in polySportsSubsFromLeagues(directory,
             ranked: [ranked[1]]))
           s.key
       ];
-      expect(baseball.skip(8 + kPolySiteSports.length),
-          ['baseball', 'handball', 'motorsports', 'cycling', 'chess']);
+      expect(baseball.skip(8 + 14), ['baseball', 'handball', 'cycling']);
     });
 
     PolymarketEvent game(String id, String series, double volume24hr) =>
@@ -296,7 +296,8 @@ void main() {
           seriesId: series,
         );
 
-    test('a sport with leagues drills into them: All, then by 24 h volume',
+    test('a sport with leagues drills into them: All, the site\'s order, '
+        'then the leagues it does not list by 24 h volume',
         () {
       expect(polySportHasLeagues('soccer'), isTrue);
       expect(polySportHasLeagues('football'), isTrue);
@@ -321,7 +322,7 @@ void main() {
       expect(polySportLeagues('rugby', directory), isEmpty);
 
       // The league row: the sport first (its chip reads All), then the
-      // leagues with trade in the sport's own list, most traded first.
+      // leagues as the site's side list has them, whatever they trade.
       final subs = polySportLeagueSubs('soccer', directory, [
         game('a', '10188', 100),
         game('b', '10193', 300),
@@ -330,23 +331,46 @@ void main() {
         game('e', '12185', 900), // NFL: not a soccer league
         game('f', '10345', 900), // NBA: not a soccer league
       ]);
-      expect([for (final s in subs) s.key],
-          ['soccer', 'series:10193', 'series:10204', 'series:10188']);
-      expect(subs[1].label, 'LaLiga');
-      expect(subs[1].imageUrl, 'https://example.com/lal.png');
-      expect(subs[1].route, 'lal');
-      // The list not landed: the sport alone, the row still drills.
+      expect([for (final s in subs) s.key], [
+        'soccer', 'series:10188', 'series:10193', 'series:11446',
+        'series:10204', //
+      ]);
+      expect(subs[2].label, 'LaLiga');
+      expect(subs[2].imageUrl, 'https://example.com/lal.png');
+      expect(subs[2].route, 'lal');
+      // The list not landed: the site's order is already there.
       expect([for (final s in polySportLeagueSubs('soccer', directory, [])) s.key],
-          ['soccer']);
+          [for (final s in subs) s.key]);
+      // A league the site does not list goes after, by 24 h volume.
+      const none = PolySiteSports(leagues: {'soccer': ['epl']}, flat: [], counts: {});
+      expect(
+          [
+            for (final s in polySportLeagueSubs(
+                'soccer',
+                directory,
+                [
+                  game('a', '10188', 900),
+                  game('b', '10193', 100),
+                  game('c', '10204', 300),
+                ],
+                site: none))
+              s.key
+          ],
+          ['soccer', 'series:10188', 'series:10204', 'series:10193']);
       // A sport with no league level: itself alone.
       expect(polySportLeagueSubs('rugby', directory, [game('a', '1', 1)]),
           hasLength(1));
-      // Only the first thirty rows rank, so a page landing later never
+      // Only the first thirty rows rank them, so a page landing later never
       // reorders the chips.
-      final late = polySportLeagueSubs('soccer', directory, [
-        for (var i = 0; i < 30; i++) game('a$i', '10188', 1),
-        game('z', '10193', 5000),
-      ]);
+      const empty = PolySiteSports(leagues: {}, flat: [], counts: {});
+      final late = polySportLeagueSubs(
+          'soccer',
+          directory,
+          [
+            for (var i = 0; i < 30; i++) game('a$i', '10188', 1),
+            game('z', '10193', 5000),
+          ],
+          site: empty);
       expect([for (final s in late) s.key], ['soccer', 'series:10188']);
     });
 
@@ -367,19 +391,20 @@ void main() {
     test('Esports: All, then the games, the ones in play first', () {
       final idle = polyEsportsSubsFrom();
       expect([for (final s in idle) s.label ?? s.key].take(5),
-          ['all', 'LoL', 'CS2', 'Rainbow Six Siege', 'Dota 2']);
+          ['all', 'CS2', 'Dota 2', 'LoL', 'Call of Duty']);
+      // In play, the most matches first, as polymarket.com/esports reads.
       final live = polyEsportsSubsFrom(
         logos: const {'val': 'https://example.com/val.png'},
-        live: const {'valorant', 'dota-2'},
+        live: const {'valorant': 2, 'dota-2': 5},
       );
       expect([for (final s in live) s.key].take(4),
-          ['all', 'dota-2', 'valorant', 'league-of-legends']);
+          ['all', 'dota-2', 'valorant', 'cs2']);
       expect(live.firstWhere((s) => s.key == 'valorant').imageUrl,
           'https://example.com/val.png');
       expect(live.length, kPolyEsportsGames.length + 1);
     });
 
-    test('related tags keep Gamma order and labels, science included',
+    test('a topic\'s rows keep the site\'s order and labels, science included',
         () async {
       final subs = polyTopicSubsFromRows(const [
         {'id': 439, 'slug': 'ai', 'label': 'AI', 'activeEventsCount': 290},

@@ -128,6 +128,121 @@ void main() {
   Future<void> firstRead(ProviderContainer c, PolyFeedQuery q) =>
       c.read(polyBrowseFeedProvider(q).notifier).firstRead;
 
+  group('Trending is polymarket.com\'s', () {
+    const trending = PolyFeedQuery(pill: PolyPill.trending);
+
+    String home(List<String> slugs, {String? cursor}) => jsonEncode({
+          'sections': [
+            {'type': 'categories', 'items': const []},
+            {
+              'type': 'feed',
+              'events': [
+                for (final s in slugs) {'slug': s}
+              ],
+              'nextCursor': cursor,
+            },
+          ],
+        });
+
+    test('the site\'s view gives the query and the order; the slugs are read '
+        'for the cards; the 5-minute rounds stay out', () async {
+      final slugReads = <List<String>>[];
+      final siteReads = <Uri>[];
+      await http.runWithClient(() async {
+        final c = container();
+        final feed = c.listen(polyBrowseFeedProvider(trending), (_, __) {});
+        await firstRead(c, trending);
+        expect([for (final e in feed.read().events) e.slug],
+            ['c', 'a', 'd', 'b']);
+        expect(feed.read().done, isTrue);
+        // What the next launch paints first.
+        expect(
+            [
+              for (final e in PolymarketFeedCache.instance
+                  .readEvents(trending.cacheKey)!)
+                e.slug
+            ],
+            ['c', 'a', 'd', 'b']);
+      }, () => MockClient((request) async {
+            final url = request.url;
+            if (url.host == 'api.defi.polymarket.com') {
+              siteReads.add(url);
+              return http.Response(
+                  url.path == '/internal/view/home'
+                      ? home(['c', 'btc-updown-5m-1794234900', 'a'],
+                          cursor: 'next')
+                      : jsonEncode({
+                          'items': [
+                            {'slug': 'd'},
+                            {'slug': 'b'},
+                          ],
+                          'nextCursor': null,
+                        }),
+                  200);
+            }
+            slugReads.add(url.queryParametersAll['slug'] ?? const []);
+            // Gamma's own order: the site's must win.
+            return _page([for (final s in ['a', 'b', 'c', 'd']) _event(s)]);
+          }));
+      expect(siteReads.map((u) => u.path),
+          ['/internal/view/home', '/internal/view/feed']);
+      expect(siteReads.last.queryParameters, {'cursor': 'next'});
+      expect(slugReads, [
+        ['c', 'a', 'd', 'b']
+      ]);
+    });
+
+    test('later pages keep reading the site\'s order', () async {
+      final slugs = [for (var i = 0; i < 25; i++) 'e$i'];
+      await http.runWithClient(() async {
+        final c = container();
+        final feed = c.listen(polyBrowseFeedProvider(trending), (_, __) {});
+        await firstRead(c, trending);
+        expect(feed.read().events, hasLength(20));
+        expect(feed.read().done, isFalse);
+        await c.read(polyBrowseFeedProvider(trending).notifier).loadMore();
+        expect([for (final e in feed.read().events) e.slug], slugs);
+        expect(feed.read().done, isTrue);
+      }, () => MockClient((request) async {
+            final url = request.url;
+            if (url.host == 'api.defi.polymarket.com') {
+              return http.Response(home(slugs), 200);
+            }
+            return _page([
+              for (final s in url.queryParametersAll['slug'] ?? const <String>[])
+                _event(s)
+            ]);
+          }));
+    });
+
+    test('with the site silent, the most traded fill the list', () async {
+      final reads = <Uri>[];
+      await http.runWithClient(() async {
+        final c = container();
+        final feed = c.listen(polyBrowseFeedProvider(trending), (_, __) {});
+        await firstRead(c, trending);
+        expect([for (final e in feed.read().events) e.slug], ['a']);
+      }, () => MockClient((request) async {
+            if (request.url.host == 'api.defi.polymarket.com') {
+              return http.Response('', 503);
+            }
+            reads.add(request.url);
+            return _page([_event('a')]);
+          }));
+      expect(reads.first.queryParameters['order'], 'volume24hr');
+    });
+
+    test('its first page is still read ahead like any list', () {
+      expect(
+          PolyFeedPrefetch.queriesAround(
+            selection: const PolyBrowseSelection(pill: PolyPill.breaking),
+            pills: const [PolyPill.trending, PolyPill.breaking],
+            subs: const [],
+          ),
+          contains(trending));
+    });
+  });
+
   group('live lists', () {
     test('one live read gives every game in play, esports included', () async {
       final seen = <Uri>[];
@@ -146,7 +261,8 @@ void main() {
         final chips = await c.read(polyEsportsSubsProvider.future);
         expect(chips, isNotEmpty);
       }, () => MockClient((request) async {
-            if (request.url.path == '/sports') {
+            if (request.url.path == '/sports' ||
+                request.url.host == 'api.defi.polymarket.com') {
               return http.Response('[]', 200);
             }
             seen.add(request.url);

@@ -21,6 +21,7 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/trade_notifications_provider.dart';
 import 'package:kute/providers/unified_search_provider.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
+import 'package:kute/screens/polymarket/components/poly_sport_icon.dart';
 import 'package:kute/screens/search/components/search_rows.dart';
 import 'package:kute/screens/search/unified_search_screen.dart';
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
@@ -280,6 +281,15 @@ void main() {
     expect(row.subtitle, 'Predictions · Sports');
     expect(find.byKey(const ValueKey('poly-category-sports/soccer')),
         findsOneWidget);
+    // The sport's own icon, not the Sports topic's trophy.
+    expect(
+        tester
+            .widget<PolySportIcon>(find.descendant(
+                of: find.byKey(const ValueKey('poly-category-sports/soccer')),
+                matching: find.byType(PolySportIcon)))
+            .sub
+            .key,
+        'soccer');
 
     await tester.enterText(find.byType(TextField), 'art');
     await tester.pump(const Duration(milliseconds: 200));
@@ -296,6 +306,15 @@ void main() {
     expect(_rowTitles(tester).first, 'LaLiga');
     expect(find.byKey(const ValueKey('poly-category-sports/series:10193')),
         findsOneWidget);
+    expect(
+        tester
+            .widget<PolySportIcon>(find.descendant(
+                of: find.byKey(
+                    const ValueKey('poly-category-sports/series:10193')),
+                matching: find.byType(PolySportIcon)))
+            .sub
+            .key,
+        'series:10193');
 
     // A query that names no category: the markets alone.
     await tester.enterText(find.byType(TextField), 'madrid');

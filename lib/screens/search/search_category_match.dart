@@ -26,7 +26,10 @@ class PolyCategoryHit {
   final String? sub;
   final String label;
 
-  const PolyCategoryHit(this.pill, {this.sub, required this.label});
+  /// A sport's or a league's chip, for the row's icon.
+  final PolySub? chip;
+
+  const PolyCategoryHit(this.pill, {this.sub, required this.label, this.chip});
 
   PolyBrowseSelection get selection {
     final s = PolyBrowseSelection(pill: pill);
@@ -67,7 +70,8 @@ PolyCategoryHit? polySearchCategoryHit(
       final sub = PolySub(sport);
       final name = polySubLabel(l10n, sub);
       if (hit([name, sport])) {
-        return PolyCategoryHit(PolyPill.sports, sub: sport, label: name);
+        return PolyCategoryHit(PolyPill.sports,
+            sub: sport, label: name, chip: sub);
       }
     }
   }
@@ -83,7 +87,9 @@ PolyCategoryHit? polySearchCategoryHit(
       final name = league.label ?? '';
       if (hit([name, league.route])) {
         return PolyCategoryHit(PolyPill.sports,
-            sub: league.key, label: name.isEmpty ? league.route : name);
+            sub: league.key,
+            label: name.isEmpty ? league.route : name,
+            chip: league);
       }
     }
   }

@@ -10,6 +10,7 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/screens/polymarket/components/poly_browse_bar.dart';
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
+import 'package:kute/screens/polymarket/components/poly_sport_icon.dart';
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -128,7 +129,7 @@ void main() {
     }
   });
 
-  testWidgets('a league chip leads with its logo; a sport is text',
+  testWidgets('a Sports chip leads with its icon, the same size on each',
       (tester) async {
     await _pump(
       tester,
@@ -153,11 +154,12 @@ void main() {
       for (final p in tester.widgetList<KutePill>(find.byType(KutePill)))
         p.label: p
     };
-    expect(byLabel['NFL']!.leading, isA<PolyCrestImage>());
-    expect(byLabel['Soccer']!.leading, isNull);
-    expect(byLabel['Live']!.leading, isNull);
-    // Every logo is the same size, the text's height.
-    expect((byLabel['NFL']!.leading! as PolyCrestImage).size, 14.sp);
+    for (final label in const ['NFL', 'Soccer', 'Live', 'Futures']) {
+      final icon = byLabel[label]!.leading;
+      expect(icon, isA<PolySportIcon>(), reason: label);
+      // Every logo is the same size, the text's height.
+      expect((icon! as PolySportIcon).size, 14.sp, reason: label);
+    }
   });
 
   testWidgets(
@@ -195,8 +197,8 @@ void main() {
     };
     expect(byLabel['All']!.selected, isTrue);
     expect(byLabel['All']!.leading, isNull);
-    expect(byLabel['LaLiga']!.leading, isA<PolyCrestImage>());
-    expect(byLabel['Premier League']!.leading, isNull);
+    expect(byLabel['LaLiga']!.leading, isA<PolySportIcon>());
+    expect(byLabel['Premier League']!.leading, isA<PolySportIcon>());
     await tester.tap(find.text('LaLiga'));
     expect(picked?.key, 'series:10193');
     await tester.tap(find.byKey(const ValueKey('kute-back-pill')));
@@ -217,7 +219,8 @@ void main() {
     expect(polySubLogo(PolyPill.esports, league), isNotNull);
     expect(polySubLogo(PolyPill.live, league), isNull);
     expect(polySubLogo(PolyPill.politics, league), isNull);
-    expect(polySubLogo(PolyPill.sports, const PolySub('soccer')), isNull);
+    expect(polySubLogo(PolyPill.sports, const PolySub('soccer')), isNotNull);
+    expect(polySubLogo(PolyPill.esports, const PolySub('soccer')), isNull);
     // Crypto: the coins carry the site's logos, the other chips none.
     final crypto = {
       for (final s in polyCryptoSubsFromCounts(null))

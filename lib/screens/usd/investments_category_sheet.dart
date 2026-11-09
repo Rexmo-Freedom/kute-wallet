@@ -187,6 +187,7 @@ import 'package:kute/screens/polymarket/components/poly_browse_bar.dart'
 import 'package:kute/screens/polymarket/components/poly_category_icons.dart'
     show polyCategoryTint;
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
+import 'package:kute/screens/polymarket/components/poly_sport_icon.dart';
 import 'package:kute/screens/portfolio/investments_portfolio.dart'
     show PortfolioSection, portfolioSectionProvider;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
@@ -1161,7 +1162,10 @@ class _InvestmentsCategorySheetState
           if (s.key != p.defaultSub)
             _Tile(
               key: ValueKey('category-tile-${s.key}'),
-              asset: _polyIconAsset(p),
+              asset: p == PolyPill.sports ? null : _polyIconAsset(p),
+              plateIcon: p == PolyPill.sports
+                  ? PolySportIcon(sub: s, size: _kPlateIcon)
+                  : null,
               tint: tint,
               name: polySubLabel(l10n, s),
               stat: _polyStat(p, sub: s.key),
@@ -1198,7 +1202,7 @@ class _InvestmentsCategorySheetState
         name: l10n.categoryAllOf(polySubLabel(l10n, all)),
         stat: _polyStat(p, sub: sport),
         logos: _polyLogos(_polyLoaded(p, sport)),
-        asset: _polyIconAsset(p),
+        plateIcon: PolySportIcon(sub: all, size: _kPlateIcon),
         picked: _picked(p, sport, sel.pill == p && sel.subOf(p) == sport),
         onTap: () => _pickPoly(p, all),
       )),
@@ -1206,7 +1210,7 @@ class _InvestmentsCategorySheetState
         for (final s in leagues)
           _Tile(
             key: ValueKey('category-tile-${s.key}'),
-            asset: _polyIconAsset(p),
+            plateIcon: PolySportIcon(sub: s, size: _kPlateIcon),
             tint: tint,
             name: polySubLabel(l10n, s),
             stat: _polyStat(p, sub: s.key),
@@ -1546,6 +1550,9 @@ const double _kLogo = 22;
 const int _kLogos = 3;
 const double _kGlyphArt = 28;
 
+/// The glyph on that square.
+const double _kPlateIcon = 20;
+
 /// A tile's second line: "[lead ·] N markets · ▲ 1.8% [· $12M vol today]
 /// [today]". The move's arrow and colour follow its sign; 0.0% is quiet
 /// with no arrow; a null [move] is left out. On a compact card too narrow
@@ -1805,6 +1812,7 @@ class _Tile extends StatelessWidget {
     this.logos = const [],
     this.glyph,
     this.asset,
+    this.plateIcon,
     this.stat,
     this.picked = false,
   })  : shape = _TileShape.grid,
@@ -1817,6 +1825,7 @@ class _Tile extends StatelessWidget {
     required this.onTap,
     this.logos = const [],
     this.asset,
+    this.plateIcon,
     this.stat,
     this.picked = false,
   })  : shape = _TileShape.wide,
@@ -1833,6 +1842,7 @@ class _Tile extends StatelessWidget {
     this.stat,
     this.picked = false,
   })  : shape = _TileShape.square,
+        plateIcon = null,
         glyph = null,
         lone = false;
 
@@ -1844,6 +1854,7 @@ class _Tile extends StatelessWidget {
     required this.logos,
     required this.glyph,
     required this.asset,
+    required this.plateIcon,
     required this.stat,
     required this.picked,
   })  : shape = _TileShape.wide,
@@ -1859,6 +1870,7 @@ class _Tile extends StatelessWidget {
         logos: logos,
         glyph: glyph,
         asset: asset,
+        plateIcon: plateIcon,
         stat: stat,
         picked: picked,
       );
@@ -1873,6 +1885,10 @@ class _Tile extends StatelessWidget {
   /// Polymarket glyph, drawn while there are no [logos] (a topic's card
   /// always; Trending's row until its images land).
   final String? asset;
+
+  /// Coloured art on the same square, in [asset]'s place: a Sports row's
+  /// own icon ([PolySportIcon]).
+  final Widget? plateIcon;
   final bool picked;
   final _TileShape shape;
 
@@ -1904,10 +1920,11 @@ class _Tile extends StatelessWidget {
     final Widget art;
     if (logos.isNotEmpty) {
       art = _LogoStack(logos: logos);
-    } else if (asset case final svg?) {
+    } else if (plateIcon != null || asset != null) {
       // The topic's own glyph, monochrome, on the app's surface-1 square
-      // (KuteListRow's icon tile, a size down): no tint, no circle.
-      final slug = svg.split('/').last.replaceAll('.svg', '');
+      // (KuteListRow's icon tile, a size down): no tint, no circle. A Sports
+      // row's coloured icon sits on the same square.
+      final svg = asset;
       art = Container(
         width: _kGlyphArt,
         height: _kGlyphArt,
@@ -1917,13 +1934,15 @@ class _Tile extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: c.borderSubtle, width: 0.5),
         ),
-        child: SvgPicture.asset(
-          svg,
-          key: ValueKey('category-tile-icon-$slug'),
-          width: 20,
-          height: 20,
-          colorFilter: ColorFilter.mode(c.textPrimary, BlendMode.srcIn),
-        ),
+        child: plateIcon ??
+            SvgPicture.asset(
+              svg!,
+              key: ValueKey(
+                  'category-tile-icon-${svg.split('/').last.replaceAll('.svg', '')}'),
+              width: _kPlateIcon,
+              height: _kPlateIcon,
+              colorFilter: ColorFilter.mode(c.textPrimary, BlendMode.srcIn),
+            ),
       );
     } else {
       art = Container(

@@ -690,16 +690,15 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     final isLiveList = pill == PolyPill.live ||
         (pill == PolyPill.sports && selection.sub == 'live');
 
-    // The default view (Trending at its default list) is a curated slice:
-    // the strip and [kPolyTrendingListRows] markets, nothing after them
-    // and no further pages (the floating bar searches everything). Any
-    // other category is listed in full.
-    final curated =
+    // The default view (Trending at its default list) opens on the strip;
+    // its list is polymarket.com's own, whole, page after page, as any
+    // other category's.
+    final defaultView =
         pill == PolyPill.trending && selection.sub == pill.defaultSub;
     final feed = canBrowse && !fiveMinOnly && !instant
         ? ref.watch(polyBrowseFeedProvider(query))
         : const PolyFeedState(done: true);
-    _feedQuery = canBrowse && !fiveMinOnly && !curated && !instant ? query : null;
+    _feedQuery = canBrowse && !fiveMinOnly && !instant ? query : null;
     // Once the list on screen lands, the lists next to it are read too
     // (one at a time), so opening one of them paints at once. Not Instant:
     // it has no list, and its card is costly enough.
@@ -888,7 +887,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
                               query: query,
                               isLiveList: isLiveList,
                               liveLeague: liveLeague,
-                              curated: curated,
+                              defaultView: defaultView,
                               sportView: !sportList
                                   ? null
                                   : props
@@ -1054,7 +1053,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     required PolyFeedQuery query,
     required bool isLiveList,
     String? liveLeague,
-    bool curated = false,
+    bool defaultView = false,
     String source = 'feed_card',
     _SportView? sportView,
   }) {
@@ -1096,23 +1095,13 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
       final open = feed.events.where((e) => !e.ended).toList(growable: false);
       final events = collapseByGameId(open);
       final siblings = siblingsByGameId(open);
-      // The markets with the most volume in the day as big cards in a
-      // side-scrolling strip, first in the feed, on the default view only
-      // (founder, 1 November 2026): a category or subcategory the person
-      // picks is the full plain list, nothing excluded from it.
-      var top = curated ? polyTopMarkets(open) : const <PolymarketEvent>[];
-      // A market on the strip is not repeated in the list under it
-      // (founder, 1 November 2026); and the strip never empties the
-      // list: with fewer than [kPolyTopMarketsListKeeps] left, no strip.
-      final topIds = {for (final e in top) e.id};
-      var listed = topIds.isEmpty
-          ? events
-          : events.where((e) => !topIds.contains(e.id)).toList(growable: false);
-      if (top.isNotEmpty && listed.length < kPolyTopMarketsListKeeps) {
-        top = const <PolymarketEvent>[];
-        listed = events;
-      }
-      listed = polyBrowseRowsShown(curated, listed);
+      // The list's first Yes/No markets as big cards in a side-scrolling
+      // strip, on the default view only (founder, 1 November 2026). The list
+      // under it is polymarket.com's Trending exactly, the strip's markets
+      // in their places too (founder, 9 November 2026), as the site's own
+      // carousel repeats its list.
+      final top = defaultView ? polyTopMarkets(open) : const <PolymarketEvent>[];
+      final listed = events;
       // Plain Yes/No markets share one grouped card like Home's
       // Activity; an event with many outcomes or a game keeps its own
       // card and breaks the group (founder, October 2026).
@@ -1139,7 +1128,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     }
     return [
       ...body,
-      if (feed.loadingMore && !curated)
+      if (feed.loadingMore)
         SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.symmetric(vertical: 16.h),

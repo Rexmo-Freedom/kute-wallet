@@ -19,6 +19,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
+import 'package:kute/screens/polymarket/components/poly_sport_icon.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/shared/kute_motion.dart';
@@ -135,21 +136,22 @@ String polyRoundWindowLabel(AppLocalizations l10n, Duration window) =>
       final m => '${m}m',
     };
 
-/// The logo a chip shows before its name, at the text's height: a
-/// league's, a sport's or a game's own (Gamma `/sports`) on Sports and
-/// Esports, a coin's on Crypto. Null for every other chip (and for a chip
-/// of those rows with no logo), which stays text only. PolyCrestImage
-/// draws rasters and SVGs alike; a logo that fails to load leaves the
-/// chip as text.
+/// The logo a chip shows before its name, at the text's height: on Sports
+/// the row's own icon ([PolySportIcon]), a game's own (Gamma `/sports`) on
+/// Esports, a coin's on Crypto. Null for every other chip (and for an
+/// Esports or Crypto chip with no logo), which stays text only.
+/// PolyCrestImage draws rasters and SVGs alike; on Esports and Crypto a logo
+/// that fails to load leaves the chip as text.
 Widget? polySubLogo(PolyPill pill, PolySub sub) {
   if (pill != PolyPill.sports &&
       pill != PolyPill.esports &&
       pill != PolyPill.crypto) {
     return null;
   }
+  final size = 14.sp;
+  if (pill == PolyPill.sports) return PolySportIcon(sub: sub, size: size);
   final url = sub.imageUrl;
   if (url == null || url.isEmpty) return null;
-  final size = 14.sp;
   return PolyCrestImage(
     url: url,
     size: size,

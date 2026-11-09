@@ -8,8 +8,8 @@
 // treatment (hl_moving_now_strip.dart; founder, 1 November 2026: bigger
 // and calmer): two to a screen with the third peeking, about 150 tall, 10
 // apart, 16 in from the edges, the list card's ground with the larger
-// radius, for the plain Yes/No markets of the list with the most volume
-// in the last 24 hours ([polyTopMarkets]). A card is the market's image
+// radius, for the list's first plain Yes/No markets, in its own order
+// ([polyTopMarkets]). A card is the market's image
 // (36, rounded 10; the category glyph when it has none) at the top-left,
 // the question under it (two lines, semibold), and at the bottom who
 // leads at what chance, large ("Yes · 62%", [polyRowLeader]). No pills,
@@ -50,28 +50,11 @@ const double kPolyTopMarketCardImage = 36;
 double polyTopMarketCardWidth() =>
     (1.sw - 32.w - kPolyTopMarketCardGap.w) / 2 - kPolyTopMarketCardPeek.w;
 
-/// The markets the strip features, most traded first: the plain Yes/No
-/// markets of [events] (the list's own test, [polyCardIsYesNo]) that are
-/// still open, by their last 24 hours' volume (`volume24hr`; the
-/// lifetime volume when the feed has none), up to [max]. Equal volumes
-/// keep the feed's order. Empty when fewer than [min] qualify.
-/// The rows the feed under the strip keeps at least; with fewer, the
-/// strip is not shown and every market is a row.
-const int kPolyTopMarketsListKeeps = 3;
-
-/// Markets the default view (Trending at its default list) lists under
-/// its strip (founder, 1 November 2026: a curated slice; the floating bar
-/// searches everything). Any other category the person picks is listed
-/// in full, page after page.
-const int kPolyTrendingListRows = 6;
-
-/// The markets listed under the strip: the first [kPolyTrendingListRows]
-/// of [listed] on the default view, all of them on any other.
-List<T> polyBrowseRowsShown<T>(bool defaultView, List<T> listed) =>
-    defaultView && listed.length > kPolyTrendingListRows
-        ? listed.sublist(0, kPolyTrendingListRows)
-        : listed;
-
+/// The markets the strip features, in the feed's own order (Trending's is
+/// polymarket.com's; founder, 9 November 2026: "the trending must be what we
+/// have on polymarket exactly"): the first plain Yes/No markets of [events]
+/// (the list's own test, [polyCardIsYesNo]) that are still open, up to
+/// [max]. Empty when fewer than [min] qualify.
 List<PolymarketEvent> polyTopMarkets(
   Iterable<PolymarketEvent> events, {
   int max = kPolyTopMarketsMax,
@@ -82,14 +65,7 @@ List<PolymarketEvent> polyTopMarkets(
       if (!e.ended && !e.closed && polyCardIsYesNo(e.outcomes)) e,
   ];
   if (open.length < min) return const [];
-  double volumeOf(PolymarketEvent e) =>
-      e.volume24hr > 0 ? e.volume24hr : e.volume;
-  final indexed = [for (var i = 0; i < open.length; i++) i];
-  indexed.sort((x, y) {
-    final byVolume = volumeOf(open[y]).compareTo(volumeOf(open[x]));
-    return byVolume != 0 ? byVolume : x.compareTo(y);
-  });
-  return [for (final i in indexed.take(max)) open[i]];
+  return open.take(max).toList(growable: false);
 }
 
 /// The strip: [markets] as [PolyTopMarketCard]s in one side-scrolling

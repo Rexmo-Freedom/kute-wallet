@@ -20,6 +20,9 @@
 // The sheets and a pick's frames are written as PNGs when asked:
 //
 //   CATEGORY_SHEET_FRAMES=<dir> flutter test test/screens/usd/category_pick_motion_test.dart
+//
+// CATEGORY_SHEET_LEAGUE_ICONS=<dir> draws the Sports screen's Gamma league
+// icons from files of those names.
 
 import 'dart:io';
 import 'dart:math' as math;
@@ -48,6 +51,7 @@ import 'package:kute/screens/hyperliquid/hyperliquid_screen.dart';
 import 'package:kute/screens/polymarket/components/poly_browse_bar.dart'
     show polyPillLabel;
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
+import 'package:kute/screens/polymarket/components/poly_sport_icon.dart';
 import 'package:kute/screens/portfolio/investments_portfolio.dart'
     show PortfolioSection;
 import 'package:kute/screens/shared/kute_motion.dart';
@@ -112,6 +116,12 @@ class _LocalArtwork implements BaseCacheManager {
       {String key = '', Map<String, String> headers = const {}}) async {
     for (final e in _byWord.entries) {
       if (url.contains(e.key)) return const LocalFileSystem().file(e.value);
+    }
+    final leagueIcon =
+        '${Platform.environment['CATEGORY_SHEET_LEAGUE_ICONS'] ?? ''}/'
+        '${Uri.parse(url).pathSegments.last}';
+    if (await const LocalFileSystem().file(leagueIcon).exists()) {
+      return const LocalFileSystem().file(leagueIcon);
     }
     throw const HttpException('no local artwork');
   }
@@ -215,6 +225,50 @@ Future<void> _openSheet(WidgetTester tester, InvestmentsTab tab,
 }
 
 Finder _tile(String key) => find.byKey(ValueKey('category-tile-$key'));
+
+const _kIcons = 'https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons';
+
+/// The pinned leagues as Gamma `/sports` lists them (9 November 2026).
+const List<Map<String, dynamic>> _kSportsDirectory = [
+  {'sport': 'nfl', 'name': 'NFL', 'series': '12185', 'image': '$_kIcons/nfl-helmet-blue-a1188621.png'},
+  {'sport': 'nba', 'name': 'NBA', 'series': '10345', 'image': '$_kIcons/nba-7a8bf611.png'},
+  {'sport': 'cfb', 'name': 'College Football', 'series': '12756', 'image': '$_kIcons/cfb-3ddd4bb7.png'},
+  {'sport': 'ufc', 'name': 'UFC', 'series': '38', 'image': '$_kIcons/ufc-40ea1d2a.png'},
+  {'sport': 'ucl', 'name': 'UEFA Champions League', 'series': '10204', 'image': '$_kIcons/ucl-a369c3d8.png'},
+  {'sport': 'unl', 'name': 'UEFA Nations League', 'series': '11446', 'image': '$_kIcons/unl.png'},
+];
+
+/// The sheet on its Sports screen, tall enough for every row.
+Future<void> _openSports(WidgetTester tester, {bool dark = false}) async {
+  await _openSheet(tester, InvestmentsTab.predictions,
+      overrides: [
+        ..._predictionsOverrides(),
+        polySportsSubsProvider.overrideWith(
+            (ref) => polySportsSubsFromLeagues(_kSportsDirectory)),
+        polySportLeagueSubsProvider.overrideWith((ref, sport) => [
+              PolySub(sport),
+              const PolySub('series:10193',
+                  route: 'lal',
+                  label: 'LaLiga',
+                  imageUrl: 'https://polymarket-upload.example/lal.png'),
+            ]),
+      ],
+      browse: true,
+      dark: dark,
+      size: const Size(402, 1100));
+  await tester.ensureVisible(_tile(PolyPill.sports.key));
+  await tester.pump();
+  await tester.tap(_tile(PolyPill.sports.key));
+  await _frames8(tester);
+  // The Gamma icons' file reads and decodes run on real time.
+  if (_frames.isNotEmpty) {
+    for (var i = 0; i < 10; i++) {
+      await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 150)));
+      await tester.pump();
+    }
+  }
+}
 
 /// The words box of the Dollars switch's picked pill, by what they say.
 Finder _words(String text) => find.descendant(
@@ -860,6 +914,41 @@ void main() {
     await unmountInvestments(tester);
   });
 
+  testWidgets(
+      'Sports: every row wears its own icon on the topics\' plate, and a '
+      'sport\'s league level too', (tester) async {
+    await _openSports(tester);
+    final subs = polySportsSubsFromLeagues(_kSportsDirectory);
+    for (final s in subs) {
+      if (s.key == PolyPill.sports.defaultSub) continue;
+      final icon = find.descendant(
+          of: _tile(s.key), matching: find.byType(PolySportIcon));
+      expect(icon, findsOneWidget, reason: s.key);
+      expect(tester.getSize(icon), const Size.square(20), reason: s.key);
+      // On the same 28 pt square as a topic's glyph.
+      final plate = find.ancestor(of: icon, matching: find.byType(Container));
+      expect(tester.getSize(plate.first), const Size.square(28), reason: s.key);
+    }
+    // A league with a Gamma image and no glyph, offline here: the trophy.
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+
+    await tester.ensureVisible(_tile('soccer'));
+    await tester.pump();
+    await tester.tap(_tile('soccer'));
+    await _frames8(tester);
+    expect(
+        find.descendant(
+            of: _tile('soccer'), matching: find.byType(PolySportIcon)),
+        findsOneWidget);
+    expect(
+        find.descendant(
+            of: _tile('series:10193'), matching: find.byType(PolyCrestImage)),
+        findsOneWidget);
+    await unmountInvestments(tester);
+  });
+
   testWidgets('renders: both sheets, light and dark, and a pick\'s frames',
       (tester) async {
     if (_frames.isEmpty) return;
@@ -905,6 +994,9 @@ void main() {
       await tester.tap(_tile(PolyPill.esports.key));
       await _frames8(tester);
       await _shot(tester, 'esports_sheet_402_$suffix');
+      await unmountInvestments(tester);
+      await _openSports(tester, dark: dark);
+      await _shot(tester, 'sports_sheet_$suffix');
       await unmountInvestments(tester);
     }
     // A pick on the Dollars page, frame by frame.

@@ -1,4 +1,5 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:kute/providers/polymarket_site_order.dart';
 import 'package:kute/services/polymarket/live_game/feed_score_order.dart';
 import 'package:kute/services/polymarket/livestream_source.dart';
 import 'package:kute/services/polymarket/market_buy_quote.dart';
@@ -23,7 +24,7 @@ import 'dart:isolate';
 import 'package:kute/helpers/polymarket_artwork.dart';
 import 'package:kute/helpers/prediction_results.dart'
     show closedPredictionWon, predictionClosedBySale, predictionPriceSettled;
-import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:flutter/foundation.dart' show compute, visibleForTesting;
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:polybrainz_polymarket/polybrainz_polymarket.dart'
@@ -2654,29 +2655,27 @@ class PolymarketModel {
     };
   }
 
-  /// The tags Polymarket relates to [tagId] that have open events
-  /// (`/tags/{id}/related-tags/tags?status=active&omit_empty=true`), each
-  /// with its `activeEventsCount`. Throws when Gamma does not answer.
-  Future<List<Map<String, dynamic>>> fetchRelatedTags(int tagId) async {
-    if (_disposed) return const [];
-    final uri = Uri.parse('$_gammaBase/tags/$tagId/related-tags/tags')
-        .replace(queryParameters: {'status': 'active', 'omit_empty': 'true'});
+  /// One of the views polymarket.com's own pages read
+  /// (polymarket_site_order.dart), decoded off the UI isolate. Throws when
+  /// the site does not answer.
+  static Future<Map<String, dynamic>> readSiteView(String path,
+      {Map<String, String>? query}) async {
+    final uri = Uri.parse('$kPolySiteGateway$path')
+        .replace(queryParameters: query);
     final resp = await http.get(uri).timeout(const Duration(seconds: 10));
     if (resp.statusCode != 200) {
-      throw http.ClientException('related tags failed (${resp.statusCode})');
+      throw http.ClientException('site view failed (${resp.statusCode})');
     }
-    final decoded = jsonDecode(resp.body);
-    if (decoded is! List) return const [];
-    return [
-      for (final t in decoded.whereType<Map<String, dynamic>>())
-        if (t['id'] != null)
-          {
-            'id': t['id'],
-            'slug': t['slug'],
-            'label': t['label'],
-            'activeEventsCount': t['activeEventsCount'],
-          }
-    ];
+    final decoded = await compute(_decodeSiteView, resp.bodyBytes);
+    return decoded;
+  }
+
+  static Map<String, dynamic> _decodeSiteView(Uint8List bytes) {
+    final decoded = jsonDecode(utf8.decode(bytes));
+    if (decoded is! Map<String, dynamic>) {
+      throw const FormatException('site view is not an object');
+    }
+    return decoded;
   }
 
   /// Open-market counts per crypto subcategory, as polymarket.com's crypto
