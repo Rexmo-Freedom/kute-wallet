@@ -12,6 +12,7 @@ import 'package:kute/services/polymarket/polymarket_category_gate.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/support_service.dart';
 import 'package:kute/services/tracking_service.dart';
+import 'package:kute/screens/shared/message_display.dart';
 
 /// Sal can navigate to a verified public market. It cannot create order intents,
 /// choose outcomes, read account state, prefill amounts or move money.
@@ -130,8 +131,7 @@ class AdvisorActionDispatcher {
 
   static void _toast(BuildContext context, String message) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(message)));
+      showMessageSnackBarInfo(context: context, message: message);
     }
   }
 }

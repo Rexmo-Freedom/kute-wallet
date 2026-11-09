@@ -85,6 +85,7 @@ import 'package:kute/services/polymarket/market_card_shape.dart'
     show polyCardChance;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/screens/shared/message_display.dart';
 
 /// Polymarket green — the same tone the bet slip / deleted bucket CTA used.
 const Color _kPolyGreen = Color(0xFF1FA663);
@@ -1167,7 +1168,7 @@ class _PortfolioBuilderScreenState
 
   void _toast(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showMessageSnackBarInfo(context: context, message: msg);
   }
 
   // ── Shell ───────────────────────────────────────────────────────────

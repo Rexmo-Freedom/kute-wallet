@@ -104,7 +104,6 @@ dependencies:
 
   # UI & UX Components
   flutter_screenutil: ^5.9.3
-  overlay_support: ^2.1.0
   # Liquid Glass for floating chrome (nav band, bottom search/FAB). Real
   # GPU refraction on Impeller (iOS Metal / Android Vulkan) with a
   # lightweight Skia/Web fallback. Consumed ONLY through KuteGlass so the

@@ -45,6 +45,7 @@ import 'package:kute/services/polymarket/combos/combo_models.dart';
 import 'package:kute/services/polymarket/combos/combo_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/screens/shared/sal_notices.dart';
 
 /// ESTIMATED combo value over the last week: shares × the product of the
 /// legs' outcome price histories. Empty when a leg's history is missing.
@@ -563,7 +564,6 @@ class _CloseComboSheetState extends ConsumerState<_CloseComboSheet> {
             grant: grant,
           );
       if (!mounted) return;
-      final messenger = ScaffoldMessenger.of(context);
       final text = switch (r.state) {
         ComboFillState.filled =>
           context.l10n.comboClosed(formatHlUsd(r.quote.proceedsUsd)),
@@ -578,8 +578,13 @@ class _CloseComboSheetState extends ConsumerState<_CloseComboSheet> {
         });
         return;
       }
+      final toastContext = Navigator.of(context, rootNavigator: true).context;
       Navigator.of(context).pop();
-      messenger.showSnackBar(SnackBar(content: Text(text)));
+      if (r.state == ComboFillState.filled) {
+        SalNotices.placed(toastContext, message: text);
+      } else {
+        SalNotices.pending(toastContext, message: text);
+      }
     } catch (e) {
       if (!mounted) return;
       if (await handleGrantFailure(context, e,
