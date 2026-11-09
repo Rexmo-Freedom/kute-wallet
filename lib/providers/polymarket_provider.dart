@@ -1012,12 +1012,13 @@ final cryptoPredictProvider = AutoDisposeAsyncNotifierProvider.family<
   () => CryptoPredictNotifier(),
 );
 
-/// One asset at one round length (minutes: 5, 15, 60 or 240), the Instant
-/// card ([cryptoRoundProvider]).
+/// One asset at one round length (minutes: 5, 15, 60 or 240), a per-length
+/// round feed ([cryptoRoundProvider]).
 typedef CryptoRoundKey = ({String asset, int minutes});
 
-/// The live round of one asset at one length, for Predictions › Instant
-/// (instant_round_card.dart): [CryptoPredictNotifier] with the length in its
+/// The live round of one asset at one length (the per-length feed; the
+/// Instant card that read it went on 9 November 2026, the Crypto rows
+/// stay): [CryptoPredictNotifier] with the length in its
 /// key instead of the Crypto chips' shared choice, so a 15-minute, hourly
 /// or 4-hour card reads its own series (`btc-updown-15m-…`, the hourly
 /// `bitcoin-up-or-down-…-1pm-et`, `btc-updown-4h-…`, crypto_round.dart).

@@ -30,7 +30,6 @@ import 'package:kute/theme/app_theme.dart';
 String polyPillLabel(AppLocalizations l10n, PolyPill pill) => switch (pill) {
       PolyPill.watchlist => '★ ${l10n.polyPillWatchlist}',
       PolyPill.trending => l10n.polyPillTrending,
-      PolyPill.instant => l10n.predictionsInstant,
       PolyPill.breaking => l10n.polyPillBreaking,
       PolyPill.newest => l10n.polyPillNew,
       PolyPill.live => l10n.polyPillLive,
@@ -375,10 +374,17 @@ class PolyPillRow extends StatelessWidget {
 /// names the category ([kuteBackPill]): the drilled-in row of
 /// [PolyDrillRow]. A sport's league row (Sports › Soccer) is the same row
 /// one level down: its back pill names the sport ([backLabel]) and the
-/// sport's own chip, first, reads All ([allKey]).
+/// sport's own chip, first, reads All ([allKey]). Given [groups] (the row
+/// cut as the site's side list is, [polySubGroups]), a thin divider stands
+/// between two groups ([PolySubGroupDivider]: Crypto's time filters and
+/// sections | its assets); the search topic row and a one-group row stay
+/// flat.
 class PolySubRow extends StatelessWidget {
   final PolyPill pill;
   final List<PolySub> subs;
+
+  /// The row's groups, when it has more than one; null draws [subs] whole.
+  final List<PolySubGroup>? groups;
   final String selectedKey;
   final ValueChanged<PolySub> onSelect;
 
@@ -401,6 +407,7 @@ class PolySubRow extends StatelessWidget {
     required this.subs,
     required this.selectedKey,
     required this.onSelect,
+    this.groups,
     this.onBack,
     this.backLabel,
     this.allKey,
@@ -411,18 +418,28 @@ class PolySubRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final lead = onBack == null ? 0 : 1;
-    final index = subs.indexWhere((s) => s.key == selectedKey);
+    // The row's items: every chip, and before each group after the first
+    // its divider (null).
+    final groups = this.groups;
+    final items = <PolySub?>[
+      if (groups == null || groups.length < 2)
+        ...subs
+      else
+        for (final (i, g) in groups.indexed) ...[if (i > 0) null, ...g.subs],
+    ];
+    final index = items.indexWhere((s) => s?.key == selectedKey);
     return PolyAutoScrollRow(
       height: kutePillRowHeight(),
       revealOnMount: revealOnMount,
-      itemCount: subs.length + lead,
+      itemCount: items.length + lead,
       selectedIndex: index < 0 ? null : index + lead,
       itemBuilder: (context, i) {
         if (i < lead) {
           return kuteBackPill(context,
               label: backLabel ?? polyPillLabel(l10n, pill), onTap: onBack!);
         }
-        final sub = subs[i - lead];
+        final sub = items[i - lead];
+        if (sub == null) return const PolySubGroupDivider();
         final all = allKey != null && sub.key == allKey;
         return KutePill(
           label: all ? l10n.polySubAll : polySubLabel(l10n, sub),
@@ -438,10 +455,17 @@ class PolySubRow extends StatelessWidget {
 /// The subcategories under [pill], from the first frame (each source
 /// draws its last copy from disk and then the live one), in
 /// polymarket.com's order. A list of one or none means the pill has no
-/// row of them.
+/// row of them. Trending's row is the site's themes (the home page's chip
+/// row, [polyTrendingThemesProvider]) after All.
 List<PolySub> polySubsFor(WidgetRef ref, PolyPill pill) {
   final policy = ref.watch(runtimeCapabilitiesProvider);
   switch (pill) {
+    case PolyPill.trending:
+      return [
+        const PolySub('all'),
+        ...ref.watch(polyTrendingThemesProvider).valueOrNull ??
+            const <PolySub>[],
+      ];
     case PolyPill.crypto:
       return ref.watch(polyCryptoSubsProvider).valueOrNull ??
           polyCryptoSubsFromCounts(null);
@@ -470,8 +494,6 @@ List<PolySub> polySubsFor(WidgetRef ref, PolyPill pill) {
             const <PolySub>[],
       ];
     case PolyPill.watchlist:
-    case PolyPill.trending:
-    case PolyPill.instant:
     case PolyPill.newest:
     case PolyPill.live:
     case PolyPill.mentions:
@@ -479,6 +501,28 @@ List<PolySub> polySubsFor(WidgetRef ref, PolyPill pill) {
     case PolyPill.art:
       return const [];
   }
+}
+
+/// [polySubsFor] cut into the site's groups ([polySubGroups]).
+List<PolySubGroup> polySubGroupsFor(WidgetRef ref, PolyPill pill) =>
+    polySubGroups(pill, polySubsFor(ref, pill));
+
+/// The divider between two groups of a drilled-in row: a hairline the
+/// height of the pill's text, in the border colour, with air on both sides
+/// (the row's own spacing stands either side of it).
+class PolySubGroupDivider extends StatelessWidget {
+  const PolySubGroupDivider({super.key});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: EdgeInsets.symmetric(horizontal: 4.w),
+        child: Container(
+          key: const ValueKey('poly-sub-group-divider'),
+          width: 1,
+          height: 16.h,
+          color: context.colors.border,
+        ),
+      );
 }
 
 /// "More ›": the categories with their subcategories in one list, on the

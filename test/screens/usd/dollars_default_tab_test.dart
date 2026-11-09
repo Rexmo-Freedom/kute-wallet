@@ -34,10 +34,8 @@ import 'package:kute/screens/shared/kute_motion.dart' show SelectionFade;
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/usd/components/dollars_activity_tab.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart';
-import 'package:kute/providers/polymarket_instant_provider.dart';
 import 'package:kute/screens/portfolio/components/position_rows.dart'
     show HlPositionRow;
-import 'package:kute/services/polymarket/instant_rounds.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart';
 import 'package:kute/services/hyperliquid/hl_sparkline_cache.dart';
 
@@ -344,21 +342,22 @@ void main() {
   });
 
   group('the last category is not remembered', () {
-    testWidgets('leaving Predictions: Trending, Bitcoin five minutes',
+    testWidgets('leaving Predictions: Trending at All, a theme forgotten',
         (tester) async {
       final container = await _pumpHeld(tester);
       await tapPill(tester, 'Predictions');
+      // Trending at one of the site's themes (Midterms), then Crypto.
       container.read(polyBrowseSelectionProvider.notifier).state =
-          const PolyBrowseSelection(pill: PolyPill.instant);
-      container
-          .read(polyInstantChoiceProvider.notifier)
-          .pick(const PolyInstantChoice(asset: 'SOL', length: '15m'));
+          const PolyBrowseSelection(
+              pill: PolyPill.crypto,
+              subs: {PolyPill.trending: 'tag:102289', PolyPill.crypto: '15m'});
       await _frames(tester);
 
       await tapPill(tester, 'Investing');
-      expect(container.read(polyBrowseSelectionProvider).pill,
-          PolyPill.trending);
-      expect(container.read(polyInstantChoiceProvider), kPolyInstantDefault);
+      final selection = container.read(polyBrowseSelectionProvider);
+      expect(selection.pill, PolyPill.trending);
+      expect(selection.sub, 'all', reason: 'the theme is reset with the rest');
+      expect(selection.subs, isEmpty);
       expect(tester.takeException(), isNull);
       await unmountInvestments(tester);
     });
@@ -381,7 +380,7 @@ void main() {
       final container = await _pumpHeld(tester);
       await tapPill(tester, 'Predictions');
       container.read(polyBrowseSelectionProvider.notifier).state =
-          const PolyBrowseSelection(pill: PolyPill.instant);
+          const PolyBrowseSelection(pill: PolyPill.crypto);
       await _frames(tester);
 
       openInvestmentsOnDefaultTab(_ref(tester));
@@ -396,10 +395,10 @@ void main() {
       final container = await _pumpHeld(tester);
       await tapPill(tester, 'Predictions');
       container.read(polyBrowseSelectionProvider.notifier).state =
-          const PolyBrowseSelection(pill: PolyPill.instant);
+          const PolyBrowseSelection(pill: PolyPill.crypto);
       await _frames(tester);
       expect(
-          container.read(polyBrowseSelectionProvider).pill, PolyPill.instant);
+          container.read(polyBrowseSelectionProvider).pill, PolyPill.crypto);
       expect(tester.takeException(), isNull);
       await unmountInvestments(tester);
     });

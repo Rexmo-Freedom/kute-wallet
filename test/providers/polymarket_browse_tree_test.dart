@@ -27,7 +27,6 @@ void main() {
       expect([for (final p in PolyPill.values) p.key], [
         'watchlist',
         'trending',
-        'instant',
         'breaking',
         'new',
         'live',
@@ -428,6 +427,178 @@ void main() {
     });
   });
 
+  group('groups, as the site cuts its side lists', () {
+    List<List<String>> keysOf(List<PolySubGroup> groups) =>
+        [for (final g in groups) [for (final s in g.subs) s.key]];
+
+    test('Crypto: the time filters first, with the sections; then the coins',
+        () {
+      final groups = polySubGroups(
+          PolyPill.crypto, polyCryptoSubsFromCounts(null));
+      expect(groups, hasLength(2));
+      expect(keysOf(groups), [
+        [
+          'all', '5m', '15m', '1h', '4h', 'daily', 'weekly', 'monthly',
+          'yearly', 'targets', 'pre-market', 'institutions', 'industry',
+          'protocol-metrics', //
+        ],
+        [
+          'bitcoin', 'ethereum', 'solana', 'xrp', 'dogecoin', 'bnb',
+          'microstrategy', //
+        ],
+      ]);
+      // The time group leads: the rounds are Crypto's first rows.
+      expect(keysOf(groups).first.skip(1).take(4), ['5m', '15m', '1h', '4h']);
+      expect(groups.every((g) => g.label == null), isTrue);
+      // The site's counts dropping a coin cuts nothing else.
+      final noBitcoin = polySubGroups(
+          PolyPill.crypto,
+          polyCryptoSubsFromCounts(const {'bitcoin': '0', 'ethereum': '4'}));
+      expect(keysOf(noBitcoin).last.first, 'ethereum');
+      expect(noBitcoin, hasLength(2));
+    });
+
+    test('Finance: the time filters, then the sectors', () {
+      final groups = polySubGroups(
+          PolyPill.finance, [for (final k in kPolyFinanceSubs) PolySub(k)]);
+      expect(keysOf(groups), [
+        ['all', 'daily', 'weekly', 'monthly'],
+        [
+          'stocks', 'earnings', 'indicies', 'commodities', 'forex',
+          'privates', 'acquisitions', 'ipo', 'fed-rates',
+          'prediction-markets', 'treasuries', 'kpis', //
+        ],
+      ]);
+    });
+
+    test('every other row is one group, as on the site', () async {
+      expect(kPolySubGroupTails.keys, [PolyPill.crypto, PolyPill.finance]);
+      final policy = await (() async {
+        final s = runtimePolicyFixture(blocked: {});
+        addTearDown(s.dispose);
+        await s.refresh();
+        return s;
+      })();
+      final one = {
+        PolyPill.weather: [for (final k in kPolyWeatherSubs) PolySub(k)],
+        PolyPill.breaking: [for (final k in kPolyBreakingTopics) PolySub(k)],
+        PolyPill.esports: polyEsportsSubsFrom(),
+        PolyPill.sports: polySportsSubsFromLeagues(const []),
+        for (final p in const [
+          PolyPill.politics,
+          PolyPill.geopolitics,
+          PolyPill.tech,
+          PolyPill.culture,
+          PolyPill.economy,
+        ])
+          p: polyTopicSubsFromRows(kPolySiteTopicRowsSnapshot[p.key]!, policy),
+        PolyPill.trending:
+            polyTopicSubsFromRows(kPolySiteTrendingThemesSnapshot, policy),
+      };
+      for (final e in one.entries) {
+        final groups = polySubGroups(e.key, e.value);
+        expect(groups, hasLength(1), reason: e.key.key);
+        expect(groups.single.subs, e.value, reason: e.key.key);
+      }
+      // A sport's league row too.
+      expect(
+          polySubGroups(PolyPill.sports, const [
+            PolySub('soccer'),
+            PolySub('series:10188', route: 'epl', label: 'Premier League'),
+          ]),
+          hasLength(1));
+      expect(polySubGroups(PolyPill.crypto, const []), isEmpty);
+      expect(polySubsOfGroups(polySubGroups(PolyPill.finance,
+              [for (final k in kPolyFinanceSubs) PolySub(k)])).length,
+          kPolyFinanceSubs.length);
+    });
+  });
+
+  group('Trending\'s themes, the site\'s second kind of category', () {
+    test('read out of the home view\'s categories section, in its order',
+        () {
+      final rows = polySiteTrendingThemes({
+        'sections': [
+          {'type': 'carousel', 'priority': 1, 'items': []},
+          {
+            'type': 'categories',
+            'priority': 0,
+            'items': [
+              {
+                'id': '106552',
+                'slug': '2028-election',
+                'label': '2028 Election',
+                'activeEventsCount': 70
+              },
+              {
+                'id': '102289',
+                'slug': 'midterms',
+                'label': 'Midterms',
+                'activeEventsCount': 630
+              },
+              {'id': '78', 'slug': 'iran'},
+              {'slug': 'no-id'},
+            ],
+          },
+          {'type': 'feed', 'priority': 3, 'events': []},
+        ],
+        'meta': {'composedAt': '2026-11-09T16:31:08Z', 'maxAgeSeconds': 30},
+      });
+      expect([for (final r in rows) r['slug']],
+          ['2028-election', 'midterms', 'iran']);
+      expect(rows[1]['id'], '102289');
+      expect(rows[1]['activeEventsCount'], 630);
+      expect(rows[2]['label'], 'iran');
+      expect(polySiteTrendingThemes({'sections': []}), isEmpty);
+      expect(polySiteTrendingThemes(const {}), isEmpty);
+    });
+
+    test('the dated fallback is the row of 9 November 2026, as chips',
+        () async {
+      expect([for (final r in kPolySiteTrendingThemesSnapshot) r['slug']], [
+        '2028-election', 'midterms', 'anthropic-ipo', 'cabinet-shakeup',
+        'iran', 'ai-bubble', 'post-election', 'competitive-races', 'fed',
+        'trump', 'new-zealand-election', 'south-africa-municipal-elections',
+        'spain-elections', 'astra', 'israel-election', 'ai',
+        'lol-worlds-2026', 'derivatives', //
+      ]);
+      final policy = await (() async {
+        final s = runtimePolicyFixture(blocked: {});
+        addTearDown(s.dispose);
+        await s.refresh();
+        return s;
+      })();
+      final subs = polyTopicSubsFromRows(kPolySiteTrendingThemesSnapshot, policy);
+      expect(subs, hasLength(kPolySiteTrendingThemesSnapshot.length));
+      expect(subs[1].key, 'tag:102289');
+      expect(subs[1].route, 'midterms');
+      expect(subs[1].label, 'Midterms');
+      expect(subs[1].count, isNull, reason: 'the dated row has no counts');
+      expect(kPolyTrendingThemesCacheKey, 'trending_themes');
+    });
+
+    test('a theme filters Trending with its tag\'s list, the most traded '
+        'first; All stays the site\'s own Trending', () {
+      const midterms = PolyFeedQuery(pill: PolyPill.trending, sub: 'tag:102289');
+      final params = polyFeedSourceParams(midterms);
+      expect(params, hasLength(1));
+      expect(params.single['tag_id'], '102289');
+      expect(params.single['order'], 'volume24hr');
+      expect(params.single['active'], 'true');
+      expect(midterms.cacheKey, 'browse_trending_tag-102289_all_volume');
+      // Trending at All reads the site's own list (no tag).
+      final all = polyFeedSourceParams(const PolyFeedQuery(pill: PolyPill.trending));
+      expect(all.single.containsKey('tag_id'), isFalse);
+      // The theme is a chip of Trending's row: a neighbour to prefetch.
+      final around = PolyFeedPrefetch.queriesAround(
+        selection: const PolyBrowseSelection(pill: PolyPill.trending),
+        pills: const [PolyPill.trending],
+        subs: const [PolySub('all'), PolySub('tag:102289', route: 'midterms')],
+      );
+      expect(around, [midterms]);
+    });
+  });
+
   group('where a chip reads from', () {
     test('every fixed Finance, Weather, Sports and Esports chip is a tag list',
         () {
@@ -500,26 +671,16 @@ void main() {
           'live');
       expect(polyBrowseSelectionFromRouteKey('predictions/tech/science')!.sub,
           'route:science');
-      // Instant is a category of the list, with its own page and no
-      // subcategories.
-      expect(polyBrowseSelectionFromRouteKey('predictions/instant')!.pill,
-          PolyPill.instant);
-      expect(PolyPillX.fromKey('instant'), PolyPill.instant);
+      // A Trending theme by its slug, matched against the row on screen.
+      final theme =
+          polyBrowseSelectionFromRouteKey('predictions/trending/midterms')!;
+      expect(theme.pill, PolyPill.trending);
+      expect(theme.sub, 'route:midterms');
+      // Instant went on 9 November 2026: no pill, no route.
+      expect(PolyPillX.fromKey('instant'), isNull);
+      expect(polyBrowseSelectionFromRouteKey('predictions/instant'), isNull);
       final old = polyBrowseSelectionFromRouteKey('predictions/world')!;
       expect(old.pill, PolyPill.geopolitics);
-    });
-
-    test('Instant reads no list of its own and is no neighbour to prefetch',
-        () {
-      expect(
-          polyFeedSourceParams(const PolyFeedQuery(pill: PolyPill.instant)),
-          isEmpty);
-      final around = PolyFeedPrefetch.queriesAround(
-        selection: const PolyBrowseSelection(pill: PolyPill.trending),
-        pills: const [PolyPill.trending, PolyPill.instant],
-        subs: const [],
-      );
-      expect(around, isEmpty);
     });
 
     test('each list has its own disk cache key', () {

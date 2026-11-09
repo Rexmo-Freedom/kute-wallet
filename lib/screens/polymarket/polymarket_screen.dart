@@ -28,9 +28,6 @@ import 'package:kute/screens/polymarket/components/crypto_odds_scope.dart';
 import 'package:kute/providers/crypto_live_odds_provider.dart';
 import 'package:kute/providers/crypto_next_round_provider.dart';
 import 'package:kute/screens/polymarket/components/crypto_round_card.dart';
-import 'package:kute/screens/polymarket/components/instant_pill_page.dart';
-import 'package:kute/providers/polymarket_instant_provider.dart'
-    show polyInstantChoiceProvider;
 import 'package:kute/screens/polymarket/components/round_window_label.dart';
 import 'package:kute/services/polymarket/crypto_next_round.dart';
 import 'package:kute/screens/polymarket/components/market_card.dart';
@@ -144,19 +141,6 @@ class PolymarketScreen extends ConsumerStatefulWidget {
     final canBrowse =
         ref.read(runtimeCapabilitiesProvider).allows('polymarket.browse');
     final fiveMinOnly = pill == PolyPill.crypto && selection.sub == '5m';
-    // Instant's card refreshes itself (a Gamma read every 10 s); the pull
-    // reads the Crypto list its filter draws the coins from, and Crypto's
-    // chips (the lengths on offer).
-    if (pill == PolyPill.instant) {
-      polyRefreshBrowse(
-        query: canBrowse
-            ? PolyInstantPage.feedFor(ref.read(polyInstantChoiceProvider).length)
-            : null,
-        pill: PolyPill.crypto,
-        invalidate: ref.invalidate,
-      );
-      return;
-    }
     // The list on screen and its chips; the other lists keep what they
     // hold. The 5-min hero/grid refresh themselves on a 10s cadence and
     // roll every 5 minutes, so they're deliberately left out.
@@ -673,16 +657,11 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
         ? const PolyFeedQuery(pill: PolyPill.live)
         : selection.query;
     final fiveMinOnly = pill == PolyPill.crypto && selection.sub == '5m';
-    // Predictions › Instant: the filter, one live round card and the
-    // person's own rounds in place of a list (instant_pill_page.dart). It
-    // reads no list of its own; the card reads its round.
-    final instant = pill == PolyPill.instant;
     final showHeroSection = fiveMinOnly;
     final showHeroPinned =
         pill == PolyPill.crypto && selection.sub == 'all';
     // Where the round card is the point of the page; once per mount, no
-    // market data attached. (Predictions › Instant has its own event,
-    // `predictions_instant_opened`, fired by the pick.)
+    // market data attached.
     if (canBrowse && !_heroViewed && (showHeroSection || showHeroPinned)) {
       _heroViewed = true;
       Future.microtask(() => TrackingService.track('predict_hero_viewed'));
@@ -695,14 +674,13 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     // other category's.
     final defaultView =
         pill == PolyPill.trending && selection.sub == pill.defaultSub;
-    final feed = canBrowse && !fiveMinOnly && !instant
+    final feed = canBrowse && !fiveMinOnly
         ? ref.watch(polyBrowseFeedProvider(query))
         : const PolyFeedState(done: true);
-    _feedQuery = canBrowse && !fiveMinOnly && !instant ? query : null;
+    _feedQuery = canBrowse && !fiveMinOnly ? query : null;
     // Once the list on screen lands, the lists next to it are read too
-    // (one at a time), so opening one of them paints at once. Not Instant:
-    // it has no list, and its card is costly enough.
-    if (canBrowse && !fiveMinOnly && !instant) {
+    // (one at a time), so opening one of them paints at once.
+    if (canBrowse && !fiveMinOnly) {
       ref.listen<PolyFeedState>(polyBrowseFeedProvider(query), (prev, next) {
         if (prev == null || !prev.loading || next.loading || next.failed) {
           return;
@@ -811,6 +789,12 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
                                 ? PolySubRow(
                                     pill: pill,
                                     subs: subs,
+                                    // The site's groups, a divider between
+                                    // them (Crypto, Finance); Live's row
+                                    // is read off its list and stays flat.
+                                    groups: pill == PolyPill.live
+                                        ? null
+                                        : polySubGroups(pill, subs),
                                     selectedKey: selection.sub,
                                     onSelect: _onSub,
                                     onBack: () => _onBack(pill),
@@ -838,7 +822,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
                           // chips and no title (founder, October 2026).
                           // Under Crypto › 5 Min, with the other assets'
                           // card. Never on Trending any more (founder, 8
-                          // November 2026): Instant is its home.
+                          // November 2026): Crypto › 5 Min is its home.
                           if (showHeroSection) ..._fiveMinuteSlivers(),
 
                           // No heading over the list: the selected pill
@@ -847,14 +831,6 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
 
                           // The hero alone pinned first under Crypto › All.
                           if (showHeroPinned) _heroSliver(),
-
-                          // Predictions › Instant: its filter, its one card
-                          // and the person's rounds, no list.
-                          if (instant)
-                            PolyInstantPage(
-                              onDeposit: () =>
-                                  openPredictionsDeposit(context, ref),
-                            ),
 
                           // Sports › a sport or a league: Games | Props,
                           // the site's own switch, in the app's switch row.
@@ -881,7 +857,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
                               ),
                             ),
 
-                          if (!fiveMinOnly && !instant)
+                          if (!fiveMinOnly)
                             ..._feedSlivers(
                               feed,
                               query: query,
@@ -1480,8 +1456,7 @@ class _PolyFeedCard extends ConsumerWidget {
 /// (BTC config: live Binance-fed chart, strike line, countdown, live CLOB
 /// odds on the Up/Down buttons) and reused by `FiveMinMarketDetailSheet` to
 /// surface the same widget in detail-sheet form when a 5-min market is
-/// opened from the grid. Predictions › Instant has its own card
-/// (components/instant_round_card.dart).
+/// opened from the grid.
 class CryptoPredictBanner extends ConsumerWidget {
   final CryptoAssetConfig config;
   final VoidCallback? onDeposit;

@@ -21,17 +21,13 @@ import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/providers/polymarket_sports_provider.dart';
 import 'package:kute/providers/unified_search_provider.dart';
 import 'package:kute/screens/search/unified_search_screen.dart';
-import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/usd/investments_category_sheet.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart' show InvestmentsTab;
 import 'package:kute/services/runtime_capabilities_service.dart';
-import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
-import '../polymarket/instant_predictions_test.dart'
-    show InstantWorld, instantCardOverrides;
 import 'investments_harness.dart';
 
 class _Sports extends SportsLiveNotifier {
@@ -95,6 +91,9 @@ Future<void> _pump(WidgetTester tester, InvestmentsTab tab,
       ...extra,
       advisorSessionProvider.overrideWith(_Advisor.new),
       sportsLiveProvider.overrideWith(_Sports.new),
+      // No themes: the Sal grid shows the categories alone.
+      polyTrendingThemesProvider
+          .overrideWith((_) => Stream.value(const <PolySub>[])),
       unifiedSearchResultsProvider
           .overrideWith((_) async => UnifiedSearchResults.empty),
       globalMarketResultsProvider
@@ -178,20 +177,11 @@ void main() {
     final policy = _container(tester).read(runtimeCapabilitiesProvider);
     final offered = [
       for (final p in PolyPill.values)
-        if (p != PolyPill.watchlist &&
-            p != PolyPill.instant &&
-            polyPillOffered(p, policy))
-          p,
+        if (p != PolyPill.watchlist && polyPillOffered(p, policy)) p,
     ];
     expect(offered.length, greaterThan(6));
-    // Instant, right after Trending, wears its coins, bundled, never a
-    // glyph; a category with its own page (instant_pill_page.dart).
-    expect(_salTile('instant'), findsOneWidget);
-    expect(
-        find.descendant(
-            of: _salTile('instant'),
-            matching: find.byKey(const ValueKey('category-tile-icon-instant'))),
-        findsNothing);
+    // No Instant tile any more (9 November 2026): the rounds are Crypto's.
+    expect(_salTile('instant'), findsNothing);
     for (final p in offered.take(4)) {
       expect(_salTile(p.key), findsOneWidget, reason: p.key);
       expect(
@@ -202,11 +192,11 @@ void main() {
           reason: '${p.key} glyph');
     }
     final first = tester.getRect(_salTile(offered[0].key));
-    final second = tester.getRect(_salTile('instant'));
+    final second = tester.getRect(_salTile(offered[1].key));
     expect(second.top, first.top, reason: 'two columns');
     expect(second.left, greaterThan(first.right));
     expect(first.height, 60);
-    expect(tester.getRect(_salTile(offered[1].key)).left, first.left);
+    expect(tester.getRect(_salTile(offered[2].key)).left, first.left);
 
     // Every tile on the soft card; the picked one with the CTA ring, the
     // others without.
@@ -240,43 +230,6 @@ void main() {
         {'section': PolyPill.politics.key});
     expect(tester.takeException(), isNull);
     await unmountInvestments(tester);
-  });
-
-  testWidgets(
-      'the Instant tile closes both sheets and picks Predictions › Instant; '
-      'nothing is pushed', (tester) async {
-    final events = <(String, Map<String, Object>?)>[];
-    TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
-    addTearDown(() => TrackingService.debugTrackObserver = null);
-    // The Instant screen's card offline, so nothing is read when it opens.
-    final world = InstantWorld();
-    await _pump(tester, InvestmentsTab.predictions,
-        extra: instantCardOverrides(world));
-    await _tapBar(tester);
-    expect(_salTile('instant'), findsOneWidget);
-    await tester.ensureVisible(_salTile('instant'));
-    await tester.tap(_salTile('instant'));
-    for (var i = 0; i < 14; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
-    expect(_grid, findsNothing, reason: 'the Sal sheet closed');
-    expect(find.byKey(const ValueKey('category-tile-trending')), findsNothing,
-        reason: 'the category sheet closed');
-    expect(find.byType(KuteBackButton), findsNothing, reason: 'no route pushed');
-    expect(
-        Navigator.of(tester.element(find.byType(Scaffold).first),
-                rootNavigator: true)
-            .canPop(),
-        isFalse);
-    expect(_container(tester).read(polyBrowseSelectionProvider).pill,
-        PolyPill.instant);
-    expect(events.where((e) => e.$1 == 'category_pill_tapped').single.$2,
-        {'section': 'instant'});
-    expect(
-        events.where((e) => e.$1 == 'predictions_instant_opened').single.$2,
-        {'source': 'sal'});
-    await tester.pumpWidget(const SizedBox());
-    await tester.pump(const Duration(seconds: 7));
   });
 
   testWidgets(

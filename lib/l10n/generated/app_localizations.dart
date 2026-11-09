@@ -16624,36 +16624,6 @@ abstract class AppLocalizations {
   /// **'Converted from your dollars'**
   String get usdSendConvertedFromDollars;
 
-  /// Predictions › Instant: the crypto rounds (BTC up or down every 5 minutes and so on), a Predictions category on the Dollars home. The category's name as the pill reads it ('Predictions · Instant') and on the half-width card of the Predictions sheet and the Sal grid's tile: one short word or two.
-  ///
-  /// In en, this message translates to:
-  /// **'Instant'**
-  String get predictionsInstant;
-
-  /// Predictions sheet, the Instant card's one line under its name: the round lengths it runs, separated by middle dots. Shrinks to fit a half-width card at 320 px; keep it short.
-  ///
-  /// In en, this message translates to:
-  /// **'5 min · 15 min · 1 hour · 4 hours'**
-  String get categoryInstantLengths;
-
-  /// On the Instant card's strip of rounds, the round in play with its time left, e.g. 'Now · 1:49'.
-  ///
-  /// In en, this message translates to:
-  /// **'Now · {time}'**
-  String predictRoundNow(String time);
-
-  /// On the Instant card's strip of rounds, after a round ahead that cannot be picked yet because Polymarket shows no real prices for it, e.g. '7:25 · No prices yet'. Short.
-  ///
-  /// In en, this message translates to:
-  /// **'No prices yet'**
-  String get predictRoundNoPricesYet;
-
-  /// Title of the Instant card (Predictions › Instant on the Dollars home), e.g. 'BTC up or down · 15m'. asset is a ticker, length the round length written short (5m, 15m, 1h, 4h).
-  ///
-  /// In en, this message translates to:
-  /// **'{asset} up or down · {length}'**
-  String predictUpOrDownLength(String asset, String length);
-
   /// No description provided for @polyPillTrending.
   ///
   /// In en, this message translates to:
@@ -19465,6 +19435,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Topics'**
   String get categoryGroupTopics;
+
+  /// Investments category sheet, Predictions: the label over the cards of polymarket.com's current themes (2028 Election, Midterms, Iran…), the home page's own chip row; it sits between the Trending card and the 'Topics' label. Two or three short words.
+  ///
+  /// In en, this message translates to:
+  /// **'Trending now'**
+  String get categoryGroupTrendingNow;
 
   /// Category sheet tile, second line: how many markets the category holds. {count} is the number.
   ///

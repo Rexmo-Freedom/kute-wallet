@@ -9686,25 +9686,6 @@ class AppLocalizationsEt extends AppLocalizations {
   String get usdSendConvertedFromDollars => 'Konverteeritud sinu dollaritest';
 
   @override
-  String get predictionsInstant => 'Kiired';
-
-  @override
-  String get categoryInstantLengths => '5 min · 15 min · 1 tund · 4 tundi';
-
-  @override
-  String predictRoundNow(String time) {
-    return 'Praegu · $time';
-  }
-
-  @override
-  String get predictRoundNoPricesYet => 'Hindu veel pole';
-
-  @override
-  String predictUpOrDownLength(String asset, String length) {
-    return '$asset üles või alla · $length';
-  }
-
-  @override
   String get polyPillTrending => 'Populaarne';
 
   @override
@@ -11572,6 +11553,9 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get categoryGroupTopics => 'Teemad';
+
+  @override
+  String get categoryGroupTrendingNow => 'Praegu populaarne';
 
   @override
   String categoryStatMarkets(int count) {

@@ -166,7 +166,7 @@ void main() {
         ['all', 'daily', 'weekly', 'monthly', 'stocks']);
     // The top row: Trending, Breaking, New, Live, then the site's topics.
     expect(
-        [for (final p in PolyPill.values) p.key].skip(3), [
+        [for (final p in PolyPill.values) p.key].skip(2), [
       'breaking', 'new', 'live', 'politics', 'sports', 'crypto', 'esports',
       'finance', 'geopolitics', 'tech', 'elections', 'culture', 'economy',
       'weather', 'mentions', 'art', //
@@ -214,7 +214,8 @@ void main() {
       expect(next.cursor, isNull);
     });
 
-    test('the 5-minute rounds stay with Instant; nothing else leaves', () {
+    test('the 5-minute rounds stay with Crypto › 5 Min; nothing else leaves',
+        () {
       expect(
           polyDropFiveMinute(const [
             'a',

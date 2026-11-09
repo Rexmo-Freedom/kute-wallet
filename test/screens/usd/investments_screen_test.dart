@@ -51,7 +51,9 @@ import 'package:kute/providers/polymarket_browse_provider.dart'
         PolyFeedState,
         PolyPill,
         PolyPillX,
-        polyBrowseFeedProvider;
+        PolySub,
+        polyBrowseFeedProvider,
+        polyTrendingThemesProvider;
 import 'package:kute/providers/polymarket_open_orders_provider.dart';
 import 'package:kute/providers/polymarket_order_metadata_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
@@ -617,6 +619,9 @@ void main() {
     await pumpRouted(tester, browsePredictions: true, overrides: [
       ...offlineVenueOverrides,
       polyBrowseFeedProvider.overrideWith(_EmptyFeed.new),
+      // No Trending themes: the topics sit in view under the Trending row.
+      polyTrendingThemesProvider
+          .overrideWith((_) => Stream.value(const <PolySub>[])),
     ]);
     final l10n = _l10n(tester);
 

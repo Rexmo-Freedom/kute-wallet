@@ -221,8 +221,8 @@ final polymarketEventsProvider = FutureProvider.autoDispose
   }
   // Hide 5-minute crypto Up/Down markets from every browse list: as bare
   // list rows they were visually noisy (one row per 5-min window per
-  // asset, refreshing constantly). Their home is Predictions › Instant,
-  // one live card at a time ([PolyPill.instant], instant_pill_page.dart).
+  // asset, refreshing constantly). Their home is Predictions › Crypto ›
+  // 5 Min, one live card per asset (polymarket_screen.dart).
   // Slug pattern matches `btc-updown-5m-…`, `eth-updown-5m-…`, etc.
   events = events
       .where((e) => !RegExp(r'-updown-5m-').hasMatch(e.slug.toLowerCase()))
@@ -1483,6 +1483,18 @@ bool _isPivotCandidate(String? slug) {
 //     /breaking page draws, with its topic filter.
 //   * New: `order=startDate` without the tags polymarket.com/new leaves out
 //     (hide-from-new, recurring, games).
+//   * Trending's themes: the home page's "All markets" chip row (the
+//     `categories` section of `/internal/view/home`), each a Gamma tag
+//     ([polyTrendingThemesProvider]); a theme's list is that tag's, the most
+//     traded first, as any topic row's.
+//
+// GROUPS (founder, 9 November 2026: "have some sort of separation in the
+// categories exactly like Polymarket does"): a topic's side list on the
+// site is cut by dividers into groups; Crypto's time filters and sections,
+// then its assets; Finance's time filters, then its sectors. Every other
+// row is one group. [polySubGroups] cuts a row where the site does
+// ([kPolySubGroupTails]); the row stays one flat list for the feeds, the
+// deep links and the selection.
 
 /// Gamma tag ids the New list leaves out, as polymarket.com/new does:
 /// `hide-from-new`, `recurring` and `games`.
@@ -1493,16 +1505,13 @@ const String _kGamesTagId = '100639';
 
 /// The category pills, in the order the row shows them: polymarket.com's
 /// own nav (Trending, Breaking, New, then its topics Politics … Art, in
-/// the site's order of 9 November 2026), one pill each, plus Instant and
-/// Live. Watchlist shows only while something is starred.
+/// the site's order of 9 November 2026), one pill each, plus Live.
+/// Watchlist shows only while something is starred. The crypto rounds live
+/// under Crypto (its 5 Min, 15 Min, 1 Hour and 4 Hours rows; founder, 9
+/// November 2026: "those are within crypto, just make it clear").
 enum PolyPill {
   watchlist,
   trending,
-
-  /// The crypto rounds, one live card for the picked coin and length
-  /// (instant_pill_page.dart, instant_rounds.dart). Reads no list of its
-  /// own: the filter reads Crypto's window lists for the coins on offer.
-  instant,
   breaking,
   newest,
   live,
@@ -1526,7 +1535,6 @@ extension PolyPillX on PolyPill {
   String get key => switch (this) {
         PolyPill.watchlist => 'watchlist',
         PolyPill.trending => 'trending',
-        PolyPill.instant => 'instant',
         PolyPill.breaking => 'breaking',
         PolyPill.newest => 'new',
         PolyPill.live => 'live',
@@ -1641,6 +1649,84 @@ class PolySub {
   PolySub withCount(int? n) =>
       PolySub(key, route: route, label: label, count: n, imageUrl: imageUrl);
 }
+
+/// One group of a topic's row, as polymarket.com's side list cuts it: the
+/// chips between two of its dividers, in the site's order, with the
+/// heading the site gives the group when it gives one (none today: its
+/// groups are plain dividers, and a one-group row's heading is the topic's
+/// own name).
+class PolySubGroup {
+  final String? label;
+  final List<PolySub> subs;
+
+  const PolySubGroup(this.subs, {this.label});
+}
+
+/// Where the site's side list draws its dividers: the chips of every group
+/// after the first, by pill (read 9 November 2026 from the views the pages
+/// read, `/internal/view/category/<slug>`, and the pages' own markup); a
+/// chip named in none of them is of the first group. Crypto: the time
+/// filters (5 Min … Yearly) and its sections (Targets, Pre-Market,
+/// Institutions, Industry, Protocol Metrics), then the assets (Bitcoin …).
+/// Finance: the time filters, then the sectors (Stocks …). Politics,
+/// Geopolitics, Tech, Culture, Economy, Weather, Esports, Breaking and a
+/// sport's league row are one group each on the site.
+const Map<PolyPill, List<Set<String>>> kPolySubGroupTails = {
+  PolyPill.crypto: [
+    {'bitcoin', 'ethereum', 'solana', 'xrp', 'dogecoin', 'bnb', 'microstrategy'},
+  ],
+  PolyPill.finance: [
+    {
+      'stocks',
+      'earnings',
+      'indicies',
+      'commodities',
+      'forex',
+      'privates',
+      'acquisitions',
+      'ipo',
+      'fed-rates',
+      'prediction-markets',
+      'treasuries',
+      'kpis',
+    },
+  ],
+};
+
+/// [subs], the row of [pill], cut into the site's groups
+/// ([kPolySubGroupTails]): a new group opens where a chip's group differs
+/// from the one before it, in the row's order, so a chip the site drops
+/// for now (a coin it counts at zero) takes nothing else with it. A row
+/// with no divider is one group; an empty row, none.
+List<PolySubGroup> polySubGroups(PolyPill pill, List<PolySub> subs) {
+  if (subs.isEmpty) return const [];
+  final tails = kPolySubGroupTails[pill] ?? const [];
+  int groupOf(PolySub s) {
+    for (final (i, keys) in tails.indexed) {
+      if (keys.contains(s.key)) return i + 1;
+    }
+    return 0;
+  }
+
+  final groups = <PolySubGroup>[];
+  var current = <PolySub>[];
+  int? at;
+  for (final s in subs) {
+    final g = groupOf(s);
+    if (at != null && g != at && current.isNotEmpty) {
+      groups.add(PolySubGroup(current));
+      current = [];
+    }
+    at = g;
+    current.add(s);
+  }
+  if (current.isNotEmpty) groups.add(PolySubGroup(current));
+  return groups;
+}
+
+/// Every chip of [groups], in order.
+List<PolySub> polySubsOfGroups(List<PolySubGroup> groups) =>
+    [for (final g in groups) ...g.subs];
 
 /// Where polymarket.com keeps the coin logos its Crypto row shows.
 const String _kSiteLogos = 'https://polymarket.com/images/logos';
@@ -2123,8 +2209,6 @@ _FeedSpec _specFor(PolyFeedQuery q) {
       // ([PolyFeedNotifier._readSiteTrending]); the most traded only while
       // the site does not answer.
       return _FeedSpec(_FeedKind.siteTrending, sources: [_FeedSource(base)]);
-    case PolyPill.instant:
-      return const _FeedSpec(_FeedKind.none);
     case PolyPill.newest:
       return _FeedSpec(_FeedKind.keyset, sources: [
         _FeedSource(base, {'exclude_tag_id': _kNewExcludedTagIds}),
@@ -2207,8 +2291,8 @@ const int _kFeedMaxAutoPages = 4;
 
 final RegExp _kFiveMinuteSlug = RegExp(r'-updown-5m-');
 
-/// [slugs] without the 5-minute up/down rounds: Instant is their home
-/// (founder decision), Trending never lists them.
+/// [slugs] without the 5-minute up/down rounds: Crypto › 5 Min is their
+/// home (founder decision), Trending never lists them.
 List<String> polyDropFiveMinute(Iterable<String> slugs) => [
       for (final s in slugs)
         if (!_kFiveMinuteSlug.hasMatch(s.toLowerCase())) s,
@@ -2592,15 +2676,22 @@ class PolyFeedNotifier
   /// gives the order, read directly since the Kute feed proxies Gamma only,
   /// and one read of those slugs gives the cards what every list's card has
   /// (through the Kute feed, as the Watchlist's). Only the 5-minute rounds
-  /// (Instant is their home, [polyDropFiveMinute]) and what the policy denies
-  /// ([_keep]) leave the site's list.
+  /// (Crypto › 5 Min is their home, [polyDropFiveMinute]) and what the
+  /// policy denies ([_keep]) leave the site's list. The home view also
+  /// carries Trending's themes; they go to disk here so the theme row
+  /// ([polyTrendingThemesProvider]) needs no read of its own.
   Future<({List<PolymarketEvent> rows, bool done})> _readSiteTrending(
       int size) async {
     if (_siteUnreachable) return _readPages(size);
     if (!_siteOpened) {
       try {
-        final page = polySiteTrendingPage(
-            await PolymarketModel.readSiteView('/internal/view/home'));
+        final home = await PolymarketModel.readSiteView('/internal/view/home');
+        final themes = polySiteTrendingThemes(home);
+        if (themes.isNotEmpty) {
+          unawaited(PolymarketFeedCache.instance
+              .writeTagRows(kPolyTrendingThemesCacheKey, themes));
+        }
+        final page = polySiteTrendingPage(home);
         if (page.slugs.isEmpty) throw const FormatException('no feed');
         _siteQueue.addAll(polyDropFiveMinute(page.slugs));
         _siteCursor = page.cursor;
@@ -2789,6 +2880,51 @@ List<PolySub> polyTopicSubsFromRows(
             count: (r['activeEventsCount'] as num?)?.toInt()),
   ];
 }
+
+/// Where the disk cache keeps Trending's themes (the home view's
+/// `categories` rows; written by the Trending list's own read of the view
+/// and by [polyTrendingThemesProvider]).
+const String kPolyTrendingThemesCacheKey = 'trending_themes';
+
+/// Trending's themes as chips: the home page's "All markets" row
+/// (`/internal/view/home`, its `categories` section: 2028 Election,
+/// Midterms, Iran …), in the site's order and with its labels, each a Gamma
+/// tag with its open-event count. The last copy from disk first, else the
+/// row of 9 November 2026 ([kPolySiteTrendingThemesSnapshot]); read again
+/// once the copy is [_kSubsCacheWindow] old, after the lists on screen
+/// have landed (the Trending list's own read of the view usually refreshes
+/// the copy first, so this read seldom runs).
+final polyTrendingThemesProvider =
+    StreamProvider.autoDispose<List<PolySub>>((ref) async* {
+  _cacheFor(ref, _kSubsCacheWindow);
+  ref.watch(runtimeCapabilitiesProvider.select(polymarketCategoryGates));
+  final policy = ref.read(runtimeCapabilitiesProvider);
+  final cache = PolymarketFeedCache.instance;
+  var cached = cache.readTagRows(kPolyTrendingThemesCacheKey);
+  yield polyTopicSubsFromRows(
+      cached ?? kPolySiteTrendingThemesSnapshot, policy);
+  bool fresh() {
+    final savedAt = cache.tagRowsSavedAt(kPolyTrendingThemesCacheKey);
+    return cached != null &&
+        savedAt != null &&
+        DateTime.now().difference(savedAt) < _kSubsCacheWindow;
+  }
+  if (fresh()) return;
+  await _afterListsLand();
+  // The Trending list may have written the row meanwhile.
+  cached = cache.readTagRows(kPolyTrendingThemesCacheKey);
+  if (fresh()) {
+    yield polyTopicSubsFromRows(cached!, policy);
+    return;
+  }
+  try {
+    final rows = polySiteTrendingThemes(
+        await PolymarketModel.readSiteView('/internal/view/home'));
+    if (rows.isEmpty) return;
+    unawaited(cache.writeTagRows(kPolyTrendingThemesCacheKey, rows));
+    yield polyTopicSubsFromRows(rows, policy);
+  } catch (_) {}
+});
 
 /// Crypto's chips in the site's order with [counts] (the site's
 /// `/api/crypto/counts`). With counts, a chip the site counts at zero

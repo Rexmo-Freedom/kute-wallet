@@ -9317,25 +9317,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get usdSendConvertedFromDollars => 'ドルから変換';
 
   @override
-  String get predictionsInstant => 'インスタント';
-
-  @override
-  String get categoryInstantLengths => '5分 · 15分 · 1時間 · 4時間';
-
-  @override
-  String predictRoundNow(String time) {
-    return '今 · $time';
-  }
-
-  @override
-  String get predictRoundNoPricesYet => 'まだ価格なし';
-
-  @override
-  String predictUpOrDownLength(String asset, String length) {
-    return '$asset 上昇か下落か · $length';
-  }
-
-  @override
   String get polyPillTrending => 'トレンド';
 
   @override
@@ -11163,6 +11144,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get categoryGroupTopics => 'トピック';
+
+  @override
+  String get categoryGroupTrendingNow => '今のトレンド';
 
   @override
   String categoryStatMarkets(int count) {

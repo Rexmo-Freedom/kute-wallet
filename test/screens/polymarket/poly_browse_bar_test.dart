@@ -61,7 +61,7 @@ void main() {
       ),
     );
     expect(_pillLabels(tester), [
-      'Trending', 'Instant', 'Breaking', 'New', 'Live', 'Politics', 'Sports',
+      'Trending', 'Breaking', 'New', 'Live', 'Politics', 'Sports',
       'Crypto', 'Esports', 'Finance', 'Geopolitics', 'Tech', 'Elections',
       'Culture', 'Economy', 'Weather', 'Mentions', 'Art', 'More ›', //
     ]);
@@ -122,6 +122,95 @@ void main() {
     }
     await tester.tap(find.text('Weekly'));
     expect(picked?.key, 'weekly');
+  });
+
+  testWidgets(
+      'a row cut as the site\'s side list is: a thin divider between its '
+      'groups, Crypto\'s time filters and sections | its coins', (tester) async {
+    final subs = polyCryptoSubsFromCounts(null);
+    PolySub? picked;
+    await _pump(
+      tester,
+      PolySubRow(
+        pill: PolyPill.crypto,
+        subs: subs,
+        groups: polySubGroups(PolyPill.crypto, subs),
+        selectedKey: 'bitcoin',
+        onSelect: (s) => picked = s,
+      ),
+    );
+    final divider = find.byKey(const ValueKey('poly-sub-group-divider'));
+    expect(divider, findsOneWidget);
+    // The time filters lead; the divider stands after the last section
+    // and before the first coin, with the row's spacing either side.
+    expect(_pillLabels(tester).take(5),
+        ['All', '5 Min', '15 Min', '1 Hour', '4 Hours']);
+    final metrics = tester.getRect(find.text('Protocol Metrics'));
+    final bitcoin = tester.getRect(find.text('Bitcoin'));
+    final line = tester.getRect(divider);
+    expect(line.left, greaterThan(metrics.right));
+    expect(line.right, lessThan(bitcoin.left));
+    expect(line.width, 1);
+    // The selected chip is still found past the divider.
+    final byLabel = {
+      for (final p in tester.widgetList<KutePill>(find.byType(KutePill)))
+        p.label: p
+    };
+    expect(byLabel['Bitcoin']!.selected, isTrue);
+    await tester.tap(find.text('Ethereum'));
+    expect(picked?.key, 'ethereum');
+
+    // A one-group row (Weather) draws no divider, groups or not.
+    final weather = [for (final key in kPolyWeatherSubs) PolySub(key)];
+    await _pump(
+      tester,
+      PolySubRow(
+        pill: PolyPill.weather,
+        subs: weather,
+        groups: polySubGroups(PolyPill.weather, weather),
+        selectedKey: 'all',
+        onSelect: (_) {},
+      ),
+    );
+    expect(find.byKey(const ValueKey('poly-sub-group-divider')), findsNothing);
+    expect(_pillLabels(tester).length, weather.length);
+  });
+
+  testWidgets(
+      'Trending\'s row is All then the site\'s themes, each with the '
+      'resolver\'s icon; "‹ Trending" leads it drilled in', (tester) async {
+    const themes = [
+      PolySub('all'),
+      PolySub('tag:102289', route: 'midterms', label: 'Midterms', count: 630),
+      PolySub('tag:105183', route: 'anthropic-ipo', label: 'Anthropic IPO'),
+      PolySub('tag:1', route: 'brand-new-theme', label: 'Brand New'),
+    ];
+    PolySub? picked;
+    await _pump(
+      tester,
+      PolySubRow(
+        pill: PolyPill.trending,
+        subs: themes,
+        groups: polySubGroups(PolyPill.trending, themes),
+        selectedKey: 'all',
+        onSelect: (s) => picked = s,
+        onBack: () {},
+      ),
+    );
+    expect(_pillLabels(tester),
+        ['Trending', 'All', 'Midterms', 'Anthropic IPO', 'Brand New']);
+    expect(find.byKey(const ValueKey('poly-sub-group-divider')), findsNothing);
+    final byLabel = {
+      for (final p in tester.widgetList<KutePill>(find.byType(KutePill)))
+        p.label: p
+    };
+    expect(byLabel['All']!.leading, isNull);
+    expect(byLabel['Midterms']!.leading, isA<PolySubIcon>());
+    expect(byLabel['Anthropic IPO']!.leading, isA<PolySubIcon>());
+    // A theme the resolver does not know yet stays text in the row.
+    expect(byLabel['Brand New']!.leading, isNull);
+    await tester.tap(find.text('Midterms'));
+    expect(picked?.route, 'midterms');
   });
 
   testWidgets('every fixed chip has a name in English and Portuguese',

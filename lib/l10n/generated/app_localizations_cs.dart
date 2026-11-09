@@ -9694,25 +9694,6 @@ class AppLocalizationsCs extends AppLocalizations {
   String get usdSendConvertedFromDollars => 'Převedeno z tvých dolarů';
 
   @override
-  String get predictionsInstant => 'Okamžité';
-
-  @override
-  String get categoryInstantLengths => '5 min · 15 min · 1 hodina · 4 hodiny';
-
-  @override
-  String predictRoundNow(String time) {
-    return 'Teď · $time';
-  }
-
-  @override
-  String get predictRoundNoPricesYet => 'Zatím bez cen';
-
-  @override
-  String predictUpOrDownLength(String asset, String length) {
-    return '$asset nahoru, nebo dolů · $length';
-  }
-
-  @override
   String get polyPillTrending => 'Trendy';
 
   @override
@@ -11584,6 +11565,9 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get categoryGroupTopics => 'Témata';
+
+  @override
+  String get categoryGroupTrendingNow => 'Právě v trendu';
 
   @override
   String categoryStatMarkets(int count) {

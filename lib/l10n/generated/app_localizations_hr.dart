@@ -9721,25 +9721,6 @@ class AppLocalizationsHr extends AppLocalizations {
   String get usdSendConvertedFromDollars => 'Pretvoreno iz tvojih dolara';
 
   @override
-  String get predictionsInstant => 'Trenutačne';
-
-  @override
-  String get categoryInstantLengths => '5 min · 15 min · 1 sat · 4 sata';
-
-  @override
-  String predictRoundNow(String time) {
-    return 'Sada · $time';
-  }
-
-  @override
-  String get predictRoundNoPricesYet => 'Još nema cijena';
-
-  @override
-  String predictUpOrDownLength(String asset, String length) {
-    return '$asset gore ili dolje · $length';
-  }
-
-  @override
   String get polyPillTrending => 'U trendu';
 
   @override
@@ -11614,6 +11595,9 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get categoryGroupTopics => 'Teme';
+
+  @override
+  String get categoryGroupTrendingNow => 'Trenutno popularno';
 
   @override
   String categoryStatMarkets(int count) {

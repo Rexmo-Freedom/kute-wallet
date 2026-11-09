@@ -9718,25 +9718,6 @@ class AppLocalizationsBg extends AppLocalizations {
   String get usdSendConvertedFromDollars => 'Конвертирано от доларите ти';
 
   @override
-  String get predictionsInstant => 'Моментални';
-
-  @override
-  String get categoryInstantLengths => '5 мин · 15 мин · 1 час · 4 часа';
-
-  @override
-  String predictRoundNow(String time) {
-    return 'Сега · $time';
-  }
-
-  @override
-  String get predictRoundNoPricesYet => 'Още няма цени';
-
-  @override
-  String predictUpOrDownLength(String asset, String length) {
-    return '$asset нагоре или надолу · $length';
-  }
-
-  @override
   String get polyPillTrending => 'Популярни';
 
   @override
@@ -11606,6 +11587,9 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get categoryGroupTopics => 'Теми';
+
+  @override
+  String get categoryGroupTrendingNow => 'Актуално сега';
 
   @override
   String categoryStatMarkets(int count) {

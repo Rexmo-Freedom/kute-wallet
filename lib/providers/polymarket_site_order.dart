@@ -9,6 +9,18 @@
 //     of `{kPolySiteGateway}/internal/view/sports/<any league>`.
 //   * Politics, Geopolitics, Tech, Culture and Economy's rows: the `sidebar`
 //     of `{kPolySiteGateway}/internal/view/category/<slug>`.
+//   * Trending's themes (the "All markets" chip row of the home page: 2028
+//     Election, Midterms, Anthropic IPO, Iran …, the site's second kind of
+//     category beside its topic nav; founder, 9 November 2026: "there are 2
+//     categories on Polymarket, find a way to integrate both"): the
+//     `categories` section of `{kPolySiteGateway}/internal/view/home`, the
+//     view Trending's list already reads. The site composes it every 30 s
+//     (`meta.maxAgeSeconds`); the set is editorial (a tag added or dropped
+//     every few days) and its order moves within the day.
+//
+// Within a topic's side list the site draws dividers between groups of
+// rows; where they fall is mirrored beside the lists
+// (polymarket_browse_provider.dart, [kPolySubGroupTails]).
 //
 // Fixed in the site's own code, mirrored as constants beside the lists they
 // order (polymarket_browse_provider.dart; read 9 November 2026): the top
@@ -479,6 +491,62 @@ const Map<String, List<Map<String, String>>> kPolySiteTopicRowsSnapshot = {
     {'id': '105109', 'slug': 'labor', 'label': 'Labor'},
   ],
 };
+
+/// Trending's themes on 9 November 2026 (the home page's chip row, in its
+/// order), as `{id, slug, label}` rows (polyTopicSubsFromRows); the row's
+/// All is the chip's own. The fallback before the first read.
+const List<Map<String, String>> kPolySiteTrendingThemesSnapshot = [
+  {'id': '106552', 'slug': '2028-election', 'label': '2028 Election'},
+  {'id': '102289', 'slug': 'midterms', 'label': 'Midterms'},
+  {'id': '105183', 'slug': 'anthropic-ipo', 'label': 'Anthropic IPO'},
+  {'id': '106558', 'slug': 'cabinet-shakeup', 'label': 'Cabinet Shakeup'},
+  {'id': '78', 'slug': 'iran', 'label': 'Iran'},
+  {'id': '106557', 'slug': 'ai-bubble', 'label': 'AI Bubble'},
+  {'id': '101175', 'slug': 'post-election', 'label': 'Post Election'},
+  {'id': '106553', 'slug': 'competitive-races', 'label': 'Competitive Races'},
+  {'id': '159', 'slug': 'fed', 'label': 'Fed'},
+  {'id': '126', 'slug': 'trump', 'label': 'Trump'},
+  {
+    'id': '104799',
+    'slug': 'new-zealand-election',
+    'label': 'New Zealand Election'
+  },
+  {
+    'id': '105302',
+    'slug': 'south-africa-municipal-elections',
+    'label': 'South Africa Municipal Elections'
+  },
+  {'id': '106304', 'slug': 'spain-elections', 'label': 'Spain Elections'},
+  {'id': '106092', 'slug': 'astra', 'label': 'Astra'},
+  {'id': '104793', 'slug': 'israel-election', 'label': 'Israel Election'},
+  {'id': '439', 'slug': 'ai', 'label': 'AI'},
+  {'id': '106330', 'slug': 'lol-worlds-2026', 'label': 'LoL Worlds 2026'},
+  {'id': '100418', 'slug': 'derivatives', 'label': 'Derivatives'},
+];
+
+/// Trending's themes out of the home view (`/internal/view/home`): the rows
+/// of its `categories` section, as `{id, slug, label, activeEventsCount}`,
+/// in the site's order. Empty when the view has no such section.
+List<Map<String, dynamic>> polySiteTrendingThemes(Map<String, dynamic> json) {
+  final sections = json['sections'];
+  if (sections is! List) return const [];
+  for (final section in sections.whereType<Map>()) {
+    if (section['type'] != 'categories') continue;
+    final items = section['items'];
+    if (items is! List) continue;
+    return [
+      for (final item in items.whereType<Map>())
+        if (item['id'] != null && item['slug'] is String)
+          {
+            'id': item['id'],
+            'slug': item['slug'],
+            'label': item['label'] ?? item['slug'],
+            'activeEventsCount': item['activeEventsCount'],
+          },
+    ];
+  }
+  return const [];
+}
 
 /// The event slugs of a Trending page in the site's order, and the cursor of
 /// the next: the `feed` section of `/internal/view/home`, or a page of

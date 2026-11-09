@@ -1,17 +1,19 @@
 // lib/screens/polymarket/components/crypto_round_card.dart
 //
-// The compact live crypto round card and its parts, shared by the
-// Predictions list's card ([CryptoPredictBanner.compact],
-// polymarket_screen.dart) and the Instant page's one card
-// (instant_round_card.dart): the card itself ([CompactCryptoCard]: logo,
-// title, the past rounds as dots, the countdown pill; the live price, its
-// move and the target; the sparkline against the dashed target; the one
-// pair of Up and Down pills with their odds), the pills
-// ([CompactSidePill]), the dots ([PastRoundDots]), the "Next · 7:20" line
-// ([CryptoNextWindowLine]) and the on-screen counter the shared Chainlink
-// feed streams for ([CryptoCardOnScreen]). Moved here from
-// polymarket_screen.dart on 8 November 2026 unchanged, plus the Instant
-// card's strip slot and plot height.
+// The compact live crypto round card and its parts, the Predictions
+// list's card ([CryptoPredictBanner.compact], polymarket_screen.dart,
+// under Crypto › 5 Min and pinned under Crypto › All): the card itself
+// ([CompactCryptoCard]: logo, title, the past rounds as dots, the
+// countdown pill; the live price, its move and the target; the sparkline
+// against the dashed target; the one pair of Up and Down pills with their
+// odds), the pills ([CompactSidePill]), the dots ([PastRoundDots]), the
+// "Next · 7:20" line ([CryptoNextWindowLine]) and the on-screen counter
+// the shared Chainlink feed streams for ([CryptoCardOnScreen]). Moved here
+// from polymarket_screen.dart on 8 November 2026 unchanged. The slots a
+// taller card once used (a strip under the plot, its own plot height,
+// a card with no round or no odds) stay for the next card that needs
+// them; the Instant page that used them went on 9 November 2026 (the
+// rounds are Crypto's rows).
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -160,8 +162,8 @@ class CompactCryptoCard extends StatelessWidget {
   final CryptoAssetConfig config;
   final String title;
 
-  /// The time left as the card writes it; null when it is not known (the
-  /// Instant card without Gamma's event): the countdown pill then shows a
+  /// The time left as the card writes it; null when it is not known (a
+  /// card without Gamma's event): the countdown pill then shows a
   /// skeleton bar, never "0:00:00".
   final String? countdown;
   final List<CryptoWindowResult> pastResults;
@@ -174,24 +176,24 @@ class CompactCryptoCard extends StatelessWidget {
   final double? priceToBeat;
   final DateTime? roundStart;
 
-  /// Up's chance on the buttons; null when there are no odds to show (the
-  /// Instant card with no round to bet on): the pills then read "Up" and
-  /// "Down" alone, never 50% and 50%.
+  /// Up's chance on the buttons; null when there are no odds to show (a
+  /// card with no round to bet on): the pills then read "Up" and "Down"
+  /// alone, never 50% and 50%.
   final double? upFrac;
 
   /// "Next · 7:20" once the buttons have rolled to the next window
-  /// (crypto_next_round.dart); null while they bet on this one. On the
-  /// Instant card: the name of the round the buttons bet on when it is not
-  /// the one on show.
+  /// (crypto_next_round.dart); null while they bet on this one. On a card
+  /// of one length: the name of the round the buttons bet on when it is
+  /// not the one on show.
   final String? nextLabel;
   final VoidCallback onUp;
   final VoidCallback onDown;
 
-  /// The Instant card's window strip (instant_round_strip.dart), laid
-  /// between the sparkline and the buttons; null on the list's card.
+  /// A strip laid between the sparkline and the buttons (a taller card's
+  /// window strip); null on the list's card.
   final Widget? strip;
 
-  /// The plot's height; the compact card's 54, the Instant card taller.
+  /// The plot's height; the compact card's 54, a taller card more.
   final double sparkHeight;
 
   /// The most of the series the plot shows ([BtcPredictChart.maxWindow]).
@@ -419,7 +421,7 @@ class CompactCryptoCard extends StatelessWidget {
                     ),
                   ),
           ),
-          // The Instant card's strip of rounds, 10 under the plot.
+          // A taller card's strip of rounds, 10 under the plot.
           if (strip != null) ...[
             SizedBox(height: 10.h),
             strip!,

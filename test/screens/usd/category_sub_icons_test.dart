@@ -200,6 +200,8 @@ List<Override> _predictionsOverrides() => [
       sportsLiveProvider.overrideWith(_Sports.new),
       polyTopicSubsProvider
           .overrideWith((ref, pill) => Stream.value(_topicRows(pill))),
+      polyTrendingThemesProvider
+          .overrideWith((ref) => Stream.value(const <PolySub>[])),
       polyCryptoSubsProvider
           .overrideWith((ref) => Stream.value(polyCryptoSubsFromCounts(null))),
       polyEsportsSubsProvider

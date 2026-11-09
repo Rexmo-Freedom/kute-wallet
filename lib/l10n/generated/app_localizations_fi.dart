@@ -9705,25 +9705,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get usdSendConvertedFromDollars => 'Muunnettu dollareistasi';
 
   @override
-  String get predictionsInstant => 'Pikaiset';
-
-  @override
-  String get categoryInstantLengths => '5 min · 15 min · 1 tunti · 4 tuntia';
-
-  @override
-  String predictRoundNow(String time) {
-    return 'Nyt · $time';
-  }
-
-  @override
-  String get predictRoundNoPricesYet => 'Ei vielä hintoja';
-
-  @override
-  String predictUpOrDownLength(String asset, String length) {
-    return '$asset ylös vai alas · $length';
-  }
-
-  @override
   String get polyPillTrending => 'Suosittu';
 
   @override
@@ -11600,6 +11581,9 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get categoryGroupTopics => 'Aiheet';
+
+  @override
+  String get categoryGroupTrendingNow => 'Nyt pinnalla';
 
   @override
   String categoryStatMarkets(int count) {

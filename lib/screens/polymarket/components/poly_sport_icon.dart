@@ -166,7 +166,19 @@ const Map<String, String> kPolyFinanceRowImages = {
 /// The topic rows' images, by tag slug: one of the row's top markets'
 /// (`/internal/view/category/<slug>`, 9 November 2026), the one that shows
 /// the row's subject. A row the site adds later draws its topic's glyph.
+/// Trending's themes that are no topic row (Anthropic IPO, Cabinet Shakeup
+/// …) have theirs here too, from the same views on the same day; a theme
+/// the site adds later draws Trending's glyph until its own list is loaded.
 const Map<String, String> kPolyTopicRowImages = {
+  'anthropic-ipo': '$_kS3/anthropic-ipo-closing-market-cap-jdfele1g0krx.png',
+  'cabinet-shakeup': '$_kS3/pete-hegseth-out-as-secretary-of-defense-by-friday-RWimpJbOlkbf.jpg',
+  'ai-bubble': '$_kS3/ai-industry-downturn-by-fFNK9rGi-70Y.jpg',
+  'fed': '$_kS3/will-the-fed-raise-interest-rates-in-2025-PQTEYZMvmAGr.jpg',
+  'new-zealand-election': '$_kS3/which-parties-will-be-part-of-the-next-government-of-new-zealand-JkhMvb-9VUVd.jpg',
+  'south-africa-municipal-elections': '$_kS3/event-update-PBVHgDf-24YI.jpg',
+  'spain-elections': '$_kS3/spainflagcrestcentre-241f86d478.jpg',
+  'astra': '$_kS3/when-will-gpt-5-be-released-vIPhU76RogZc.jpg',
+  'lol-worlds-2026': '$_kS3/event-art/esports/lol/worlds-2026-winner.png',
   'trump': '$_kS3/trump-out-as-president-by-march-31-c3SENQhH7Ao1.jpg',
   'midterms': '$_kS3/will-senate-pass-funding-bill-by-7NO2CCO7a2Mk.png',
   'competitive-races': '$_kS3/az-01-house-election-winner-f7Ie3Y-kl-3T.png',
@@ -233,7 +245,10 @@ const Map<String, String> kPolyTopicRowImages = {
 };
 
 /// The pills whose rows have icons of their own (the others have no rows).
+/// Trending's row is the site's themes, each a tag of a topic row
+/// (Midterms, Iran, AI …), so it resolves as a topic row does.
 const Set<PolyPill> _kPillsWithRows = {
+  PolyPill.trending,
   PolyPill.sports,
   PolyPill.esports,
   PolyPill.crypto,
@@ -248,6 +263,7 @@ const Set<PolyPill> _kPillsWithRows = {
 };
 
 const Set<PolyPill> _kTopicPills = {
+  PolyPill.trending,
   PolyPill.politics,
   PolyPill.geopolitics,
   PolyPill.tech,

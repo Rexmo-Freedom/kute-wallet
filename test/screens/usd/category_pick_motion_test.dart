@@ -171,6 +171,13 @@ List<Override> _predictionsOverrides() => [
       sportsLiveProvider.overrideWith(_Sports.new),
       polyTopicSubsProvider
           .overrideWith((ref, pill) => Stream.value(const <PolySub>[])),
+      // Two of the site's themes, in its order (the live row has 18).
+      polyTrendingThemesProvider.overrideWith((ref) => Stream.value(const [
+            PolySub('tag:106552',
+                route: '2028-election', label: '2028 Election', count: 70),
+            PolySub('tag:102289',
+                route: 'midterms', label: 'Midterms', count: 630),
+          ])),
       polyCryptoSubsProvider.overrideWith((ref) => Stream.value(const [
             PolySub('all', count: 48),
             PolySub('5m', count: 6),
@@ -644,10 +651,39 @@ void main() {
     await _openSheet(tester, InvestmentsTab.predictions,
         overrides: _predictionsOverrides(), browse: true);
 
-    // Trending, beside Instant: three images stacked, "Most active · $X vol
-    // today", never the bare dot.
+    // Trending, the lone card of its row: full width, three images stacked,
+    // "Most active · $X vol today", never the bare dot, the one-card
+    // chevron at its right (kute_action_cards.dart).
     final trending = _tile(PolyPill.trending.key);
     expect(tester.getSize(trending).height, greaterThanOrEqualTo(64));
+    expect(
+        find.descendant(
+            of: trending,
+            matching: find.byKey(const ValueKey('category-tile-chevron'))),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('category-tile-chevron')), findsOneWidget,
+        reason: 'no chevron on any other card');
+    expect(find.byKey(const ValueKey('category-tile-instant')), findsNothing);
+    // The site's themes under their label, Trending's rows, before the
+    // topics: Midterms with its count, in the site's order.
+    final themesLabel = find.text(_l10n.categoryGroupTrendingNow);
+    expect(themesLabel, findsOneWidget);
+    expect(tester.getRect(themesLabel).top,
+        greaterThan(tester.getRect(trending).bottom));
+    expect(tester.getRect(find.text(_l10n.categoryGroupTopics)).top,
+        greaterThan(tester.getRect(_tile('tag:102289')).bottom));
+    expect(tester.getRect(_tile('tag:106552')).left,
+        lessThan(tester.getRect(_tile('tag:102289')).left),
+        reason: '2028 Election before Midterms, as the site has them');
+    expect(
+        find.descendant(
+            of: _tile('tag:102289'),
+            matching: find.textContaining(_l10n.categoryStatMarkets(630),
+                findRichText: true)),
+        findsOneWidget);
+    expect(tester.getSize(find.descendant(
+            of: _tile('tag:102289'), matching: find.byType(AnimatedContainer)))
+        .height, 60);
     expect(find.descendant(of: trending, matching: find.byType(PolyCrestImage)),
         findsNWidgets(3));
     // Each on a soft tinted disc while it loads (Investing's letter discs),
@@ -714,14 +750,13 @@ void main() {
     final keys = [
       for (final p in PolyPill.values)
         if (p != PolyPill.trending &&
-            p != PolyPill.instant &&
             p != PolyPill.watchlist &&
             _tile(p.key).evaluate().isNotEmpty)
           p.key,
     ];
     expect(keys.length, greaterThan(6));
-    // Trending is one of the two square cards on top, half the width.
-    final width = tester.getSize(trending).width * 2 + 8;
+    // Trending is the full-width row on top.
+    final width = tester.getSize(trending).width;
     for (final (i, key) in keys.indexed) {
       final rect = tester.getRect(find
           .descendant(of: _tile(key), matching: find.byType(AnimatedContainer)));
@@ -947,6 +982,70 @@ void main() {
             of: _tile('series:10193'), matching: find.byType(PolyCrestImage)),
         findsOneWidget);
     await unmountInvestments(tester);
+  });
+
+  testWidgets(
+      'Crypto and Finance grids are cut as the site\'s side lists are: one '
+      'grid per group, a hairline between, the time filters first', (tester) async {
+    for (final dark in [false, true]) {
+      await _openSheet(tester, InvestmentsTab.predictions,
+          overrides: [
+            ..._predictionsOverrides(),
+            // Every Crypto chip, as without the site's counts.
+            polyCryptoSubsProvider.overrideWith(
+                (ref) => Stream.value(polyCryptoSubsFromCounts(null))),
+          ],
+          browse: true,
+          dark: dark,
+          size: const Size(402, 1400));
+      final divider = find.byKey(const ValueKey('category-group-divider'));
+      expect(divider, findsNothing, reason: 'the topics are one grid');
+
+      // Crypto: All, then 5 Min … Protocol Metrics, the hairline, the coins.
+      await tester.ensureVisible(_tile(PolyPill.crypto.key));
+      await tester.pump();
+      await tester.tap(_tile(PolyPill.crypto.key));
+      await _frames8(tester);
+      expect(divider, findsOneWidget);
+      // The wide All row keeps its 12 px under it inside its own box.
+      expect(tester.getRect(_tile('5m')).top,
+          greaterThanOrEqualTo(tester.getRect(_tile(PolyPill.crypto.key)).bottom));
+      expect(tester.getRect(_tile('15m')).top, tester.getRect(_tile('5m')).top,
+          reason: '5 Min and 15 Min side by side, the time group first');
+      final hairline = find.descendant(of: divider, matching: find.byType(Divider));
+      final line = tester.getRect(hairline);
+      expect(line.top, greaterThan(tester.getRect(_tile('protocol-metrics')).bottom));
+      expect(line.bottom, lessThan(tester.getRect(_tile('bitcoin')).top));
+      expect(line.width, tester.getSize(_tile(PolyPill.crypto.key)).width,
+          reason: 'the hairline spans the gutter to gutter');
+      // Each group keeps the no-orphan rule on its own: seven coins, the
+      // last one full width.
+      expect(tester.getSize(_tile('microstrategy')).width,
+          closeTo(tester.getSize(_tile(PolyPill.crypto.key)).width, 0.5));
+      expect(tester.getSize(_tile('bitcoin')).width,
+          lessThan(tester.getSize(_tile('microstrategy')).width / 2));
+      await _shot(tester, 'predictions_crypto_groups_${dark ? 'dark' : 'light'}');
+
+      // Back, then Finance: Daily, Weekly, Monthly, the hairline, Stocks ….
+      await tester.tap(find.byKey(const ValueKey('back')));
+      await _frames8(tester);
+      await tester.ensureVisible(_tile(PolyPill.finance.key));
+      await tester.pump();
+      await tester.tap(_tile(PolyPill.finance.key));
+      await _frames8(tester);
+      expect(divider, findsOneWidget);
+      final finance = tester.getRect(hairline);
+      expect(finance.top, greaterThan(tester.getRect(_tile('monthly')).bottom));
+      expect(finance.bottom, lessThan(tester.getRect(_tile('stocks')).top));
+      expect(tester.getRect(_tile('weekly')).top,
+          tester.getRect(_tile('daily')).top);
+      // Three time filters: Monthly alone is full width in its own group.
+      expect(tester.getSize(_tile('monthly')).width,
+          closeTo(tester.getSize(_tile(PolyPill.finance.key)).width, 0.5));
+      await _shot(tester, 'predictions_finance_groups_${dark ? 'dark' : 'light'}');
+      expect(tester.takeException(), isNull);
+      await unmountInvestments(tester);
+    }
   });
 
   testWidgets('renders: both sheets, light and dark, and a pick\'s frames',

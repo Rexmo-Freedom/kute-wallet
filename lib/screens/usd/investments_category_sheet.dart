@@ -12,9 +12,10 @@
 // settings-list draft: "not fintech"). Under the sheet's handle, title
 // and circled close:
 //
-//   * two WIDE tiles, Trending and Watchlist (Predictions: Trending and
-//     Instant as two equal square cards side by side, see below, and the
-//     Watchlist's wide tile under them), then a small "Markets"
+//   * two WIDE tiles, Trending and Watchlist (Predictions: Trending as the
+//     lone compact full-width card with its chevron, see below, the
+//     Watchlist's wide tile under it, then the "Trending now" label and
+//     the site's themes as grid cards), then a small "Markets"
 //     (Investing) or "Topics" (Predictions) label and a real two-column
 //     grid (every card the same compact 60 px, 8 px apart; an odd last
 //     card full width as the wide row, never a card alone in half the
@@ -40,8 +41,9 @@
 // step bolder (w600); no accent fill, no check, no tint (founder, 31
 // October 2026: choice "A" in the app's own style). The ring moves on
 // the chip spring; at once under Reduce Motion. The group's tint shows
-// only on the placeholder. No chevrons anywhere. Every tile has the app's
-// press spring (KutePressable).
+// only on the placeholder. No chevrons on the grid cards; the lone
+// Trending row wears one (the one-card rule, kute_action_cards.dart).
+// Every tile has the app's press spring (KutePressable).
 //
 // THE STACKS DIFFER (founder, 31 October 2026): Crypto, Perps and Spot
 // would all show BTC, HYPE and ETH. Trending keeps its top three by
@@ -67,23 +69,37 @@
 // (no more bare tinted dot: a wide tile wears its glyph until its images
 // land).
 //
-// TRENDING AND INSTANT, SIDE BY SIDE (founder, 8 November 2026: "the
-// instant predictions should be next to trending separated on top"). Two
-// equal cards in the app's square shape (kute_action_cards.dart: the visual
-// on top, the name and its lines under it, the row as tall as the taller
-// card, [_TileShape.square]) on the topics' 8 px gap, so they line up with
-// the grid under the label. Trending keeps its stack and its numbers;
-// Instant wears the first coins and the lengths it runs, "5 min · 15 min ·
-// 1 hour · 4 hours", one line that shrinks to fit ([_InstantLengths]; the
-// founder, later that day, of the coin names and the clock: "no need for
-// this subtitles, just the 5 min and such"). Instant IS a category of the
-// list ([PolyPill.instant]): the tap picks it as any topic's does, the pill
-// on the Dollars home reads "Predictions · Instant" and the page shows the
-// coin and length filter with one live round card (instant_pill_page.dart;
-// founder, later that day: "I don't want Instant to take me to another
-// screen. It should all be on the Dollars home under Predictions"). Nothing
-// is pushed. The Sal grid's Instant tile does the same; both fire
-// `predictions_instant_opened` with where the pick was made.
+// TRENDING ALONE ON TOP, THE THEMES UNDER IT (founder, 9 November 2026:
+// "get rid of the instant, those are within crypto"; the Instant card and
+// its page went that day, the crypto rounds are Crypto's 5 Min, 15 Min, 1
+// Hour and 4 Hours rows). Trending is the lone card of its row, so it is
+// the one-card shape of kute_action_cards.dart: full width and compact,
+// its stack at the left, its name and numbers beside it, a chevron at its
+// right ([_Tile.wide] with [_Tile.chevron]). Under it (and the Watchlist's
+// row) the site's SECOND KIND OF CATEGORY (founder, same day: "there are 2
+// categories on Polymarket, find a way to integrate both"): polymarket
+// .com's home page has, beside its topic nav, an "All markets" chip row of
+// current themes (2028 Election, Midterms, Anthropic IPO, Iran …; read
+// live, polyTrendingThemesProvider). They are Trending's own rows: the
+// "Trending now" label, then each theme as the compact grid card with the
+// row's icon from the resolver (poly_sport_icon.dart: the theme's market
+// image; Trending's glyph for one the resolver does not know) or its
+// markets' images once its list is loaded, and its count. A tap picks
+// Trending at that theme, exactly as a topic's row is picked
+// (`category_pill_tapped`, section `trending`, the theme's slug); the pill
+// reads "Predictions · Trending · Midterms". Then the "Topics" label and
+// the topics. Both kinds on one sheet, nothing new drawn for it.
+//
+// GROUPS, AS THE SITE CUTS THEM (founder, 9 November 2026: "have some
+// sort of separation in the categories exactly like Polymarket does,
+// please, do not just throw them like this"). A topic's grid
+// ([_predictionsSubs]) is one grid per group of the site's side list
+// (polySubGroups: Crypto's time filters and sections, a divider, its
+// assets; Finance's time filters, a divider, its sectors; every other
+// topic one group), a hairline between two groups ([_groupDivider], the
+// Predictions rows' own divider) or the group's label in the small label
+// style where the site gives one. Each group's grid keeps the no-orphan
+// rule on its own.
 //
 // NAMES NEVER TRUNCATE (founder, 31 October 2026): a wide or grid tile
 // whose name does not fit on one line sets it on two and drops its stat
@@ -176,12 +192,11 @@ import 'package:kute/models/polymarket_model.dart' show PolymarketEvent;
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/hyperliquid_watchlist_provider.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart';
-import 'package:kute/providers/polymarket_provider.dart'
-    show kCryptoRoundAssets;
 import 'package:kute/providers/polymarket_watchlist_provider.dart';
 import 'package:kute/screens/hyperliquid/components/hl_browse_labels.dart';
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
-import 'package:kute/screens/polymarket/components/crypto_asset_logo.dart';
+import 'package:kute/screens/polymarket/components/market_card.dart'
+    show polyGroupRowDivider;
 import 'package:kute/screens/polymarket/components/poly_browse_bar.dart'
     show polyPillLabel, polySubLabel, polySubsFor;
 import 'package:kute/screens/polymarket/components/poly_category_icons.dart'
@@ -461,7 +476,6 @@ Color _hlTint(AppColorsExtension c, HlBrowseTab t) => switch (t) {
 Color _polyTint(AppColorsExtension c, PolyPill p) => switch (p) {
       PolyPill.watchlist => c.chartCategorical[2],
       PolyPill.trending => c.chartCategorical[0],
-      PolyPill.instant => _kBitcoinOrange,
       PolyPill.breaking => c.chartCategorical[3],
       PolyPill.newest => c.chartCategorical[4],
       PolyPill.live => c.chartCategorical[2],
@@ -484,14 +498,6 @@ Color _polyTint(AppColorsExtension c, PolyPill p) => switch (p) {
 /// one SVG per pill key; see the folder's README for where each comes
 /// from), for its card (and for Trending's row until its images land).
 String _polyIconAsset(PolyPill p) => 'lib/assets/polymarket_tags/${p.key}.svg';
-
-/// The Instant card's glyph: the set's stopwatch
-/// (lib/assets/polymarket_tags/README.md).
-const String kInstantIconAsset = 'lib/assets/polymarket_tags/instant.svg';
-
-/// The Instant card's key among the tiles' (group, sub) pairs: the pill
-/// at its one list, as any category's.
-const (PolyPill, String) _kInstantKey = (PolyPill.instant, 'all');
 
 IconData _portfolioIcon(PortfolioSection s) => switch (s) {
       PortfolioSection.activity => Icons.receipt_long_rounded,
@@ -614,12 +620,6 @@ mixin _CategoryData<T extends ConsumerStatefulWidget> on ConsumerState<T> {
     ].take(_kLogos).toList();
   }
 
-  /// Instant's tile: the first coins, bundled, no read.
-  List<Widget> _instantLogos() => [
-        for (final c in kCryptoRoundAssets.take(_kLogos))
-          CryptoAssetLogo(config: c, size: _kLogo),
-      ];
-
   List<PolySub> _polySubs(PolyPill p) {
     var subs = polySubsFor(ref, p);
     if (subs.isNotEmpty && !subs.any((s) => s.key == p.defaultSub)) {
@@ -713,22 +713,12 @@ class _InvestmentsCategorySheetState
     switch ((group, sub)) {
       case (final HlBrowseTab t, final HlBrowseSub s):
         _pickHl(t, s, hold: false);
-      case (PolyPill.instant, _):
-        _pickInstant(hold: false, source: 'sal');
       case (final PolyPill p, final String s):
         _pickPoly(p, PolySub(s), hold: false);
       case (final PortfolioSection s, _):
         _pickPortfolio(s, hold: false);
     }
   }
-
-  /// The Instant card (see the file header): picked as any category is,
-  /// plus `predictions_instant_opened` with [source] (`sheet`, or `sal` for
-  /// the Sal grid's tile) once the pick is written; nothing when Instant is
-  /// the page already.
-  void _pickInstant({bool hold = true, String source = 'sheet'}) =>
-      _pickPoly(PolyPill.instant, const PolySub('all'),
-          hold: hold, opened: source);
 
   void _open(Object group) {
     HapticFeedback.selectionClick();
@@ -1048,9 +1038,9 @@ class _InvestmentsCategorySheetState
 
   // ── Predictions ──────────────────────────────────────────────────────
 
-  /// [opened] is Instant's source for `predictions_instant_opened`, fired
-  /// with the pick ([_pickInstant]).
-  void _pickPoly(PolyPill p, PolySub s, {bool hold = true, String? opened}) =>
+  /// A Predictions pick: the category at [s] (a topic's row, or one of
+  /// Trending's themes), `category_pill_tapped` with the row's slug.
+  void _pickPoly(PolyPill p, PolySub s, {bool hold = true}) =>
       _pick((p, s.key), hold: hold, (c) {
         final current = c.read(polyBrowseSelectionProvider);
         if (p == current.pill && s.key == current.subOf(p)) return;
@@ -1058,10 +1048,6 @@ class _InvestmentsCategorySheetState
           'section': p.key,
           if (s.key != p.defaultSub) 'subcategory': s.route,
         });
-        if (opened != null) {
-          TrackingService.track('predictions_instant_opened',
-              params: {'source': opened});
-        }
         c.read(polyBrowseSelectionProvider.notifier).state =
             current.copyWith(pill: p).copyWith(sub: s.key);
       });
@@ -1081,7 +1067,11 @@ class _InvestmentsCategorySheetState
 
     // Trending and the Watchlist as Investing's: the stack of their top
     // markets' images and the numbers; the glyph until the images land.
-    Widget wide(PolyPill p, {String? lead}) => _Tile.wide(
+    // Trending, the lone card of its row, wears the one-card chevron (see
+    // the file header); it reads picked at its own list, All, not at a
+    // theme (whose card is ringed then).
+    Widget wide(PolyPill p, {String? lead, bool chevron = false}) =>
+        _Tile.wide(
           key: ValueKey('category-tile-${p.key}'),
           tint: _polyTint(c, p),
           name: p == PolyPill.watchlist
@@ -1090,33 +1080,30 @@ class _InvestmentsCategorySheetState
           stat: _polyStat(p, lead: lead),
           logos: _polyLogos(_polyLoaded(p)),
           asset: _polyIconAsset(p),
-          picked: _picked(p, p.defaultSub, sel.pill == p),
+          chevron: chevron,
+          picked: _picked(p, p.defaultSub,
+              sel.pill == p && sel.subOf(p) == p.defaultSub),
           onTap: () => _pickPoly(p, PolySub(p.defaultSub)),
         );
 
-    // Trending, one of the two square cards on top (see the file header).
-    _Tile square(PolyPill p, {required Widget? stat}) => _Tile.square(
-          key: ValueKey('category-tile-${p.key}'),
-          tint: _polyTint(c, p),
-          name: polyPillLabel(l10n, p),
-          stat: stat,
-          logos: _polyLogos(_polyLoaded(p)),
-          asset: _polyIconAsset(p),
-          picked: _picked(p, p.defaultSub, sel.pill == p),
-          onTap: () => _pickPoly(p, PolySub(p.defaultSub)),
+    // One of Trending's themes (see the file header): the compact card
+    // with the row's icon from the resolver, or its markets' images once
+    // its list is loaded, and the site's count for it.
+    _Tile theme(PolySub s) => _Tile(
+          key: ValueKey('category-tile-${s.key}'),
+          logos: _polyLogos(_polyLoaded(PolyPill.trending, s.key)),
+          plateIcon: polySubIcon(PolyPill.trending, s, _kPlateIcon),
+          tint: _polyTint(c, PolyPill.trending),
+          name: polySubLabel(l10n, s),
+          stat: _polyStat(PolyPill.trending, sub: s.key),
+          picked: _picked(PolyPill.trending, s.key,
+              sel.pill == PolyPill.trending && sel.sub == s.key),
+          onTap: () => _pickPoly(PolyPill.trending, s),
         );
-    // Instant, the other: a category of the list with its own page.
-    final instant = _Tile.square(
-      key: const ValueKey('category-tile-instant'),
-      tint: _kBitcoinOrange,
-      name: l10n.predictionsInstant,
-      stat: const _InstantLengths(),
-      logos: _instantLogos(),
-      asset: kInstantIconAsset,
-      picked: _picked(
-          _kInstantKey.$1, _kInstantKey.$2, sel.pill == PolyPill.instant),
-      onTap: _pickInstant,
-    );
+    final themes = [
+      for (final s in _polySubs(PolyPill.trending))
+        if (s.key != PolyPill.trending.defaultSub) theme(s),
+    ];
 
     // A topic: Investing's card, Polymarket's glyph for the topic, its
     // name and the numbers at hand (see the file header).
@@ -1133,32 +1120,32 @@ class _InvestmentsCategorySheetState
         );
 
     return [
-      _TilePair(
-        key: const ValueKey('category-top-pair'),
-        gap: 8,
-        children: [
-          _rise(
-              0,
-              square(PolyPill.trending,
-                  stat: _polyStat(PolyPill.trending,
-                      lead: l10n.categoryStatMostActive, wrap: true))),
-          _rise(1, instant),
-        ],
-      ),
-      if (pills.contains(PolyPill.watchlist)) ...[
-        const SizedBox(height: 8),
-        _rise(2, wide(PolyPill.watchlist)),
+      _rise(
+          0,
+          wide(PolyPill.trending,
+              lead: l10n.categoryStatMostActive, chevron: true)),
+      if (pills.contains(PolyPill.watchlist))
+        _rise(1, wide(PolyPill.watchlist)),
+      // The site's themes, Trending's rows, under their own label.
+      if (themes.isNotEmpty) ...[
+        _rise(2, _label(context, l10n.categoryGroupTrendingNow)),
+        _grid(first: 3, themes),
       ],
-      _rise(3, _label(context, l10n.categoryGroupTopics)),
-      _grid(first: 4, [
+      _rise(3 + themes.length, _label(context, l10n.categoryGroupTopics)),
+      _grid(first: 4 + themes.length, [
         for (final p in pills)
-          if (p != PolyPill.trending &&
-              p != PolyPill.instant &&
-              p != PolyPill.watchlist)
-            tile(p),
+          if (p != PolyPill.trending && p != PolyPill.watchlist) tile(p),
       ]),
     ];
   }
+
+  /// Between two groups of a topic's grid (see the file header): the
+  /// Predictions rows' hairline, 12 above and below.
+  Widget _groupDivider(BuildContext context) => Padding(
+        key: const ValueKey('category-group-divider'),
+        padding: EdgeInsets.symmetric(vertical: 12.h),
+        child: polyGroupRowDivider(context, 0),
+      );
 
   List<Widget> _predictionsSubs(BuildContext context, PolyPill p) {
     final l10n = context.l10n;
@@ -1168,6 +1155,31 @@ class _InvestmentsCategorySheetState
     final subs = _polySubs(p);
     final all = subs.firstWhere((s) => s.key == p.defaultSub,
         orElse: () => PolySub(p.defaultSub));
+
+    _Tile tile(PolySub s) => _Tile(
+          key: ValueKey('category-tile-${s.key}'),
+          // The row's own icon (poly_sport_icon.dart), every topic.
+          plateIcon: polySubIcon(p, s, _kPlateIcon),
+          tint: tint,
+          name: polySubLabel(l10n, s),
+          stat: _polyStat(p, sub: s.key),
+          picked: _picked(p, s.key, sel.pill == p && sel.subOf(p) == s.key),
+          // A sport with leagues (Soccer, Tennis …) opens them, as the
+          // site's "Soccer ▾" does; its All is the first tile there.
+          onTap: p == PolyPill.sports && polySportHasLeagues(s.key)
+              ? () => _open((p, s.key))
+              : () => _pickPoly(p, s),
+        );
+
+    // The site's groups, one grid each (see the file header), a hairline
+    // or the group's label between two; the tiles rise in reading order
+    // across the groups.
+    var next = 1;
+    Widget gridOf(List<_Tile> tiles) {
+      final grid = _grid(first: next, tiles);
+      next += tiles.length;
+      return grid;
+    }
 
     return [
       _rise(0, _Tile.wide(
@@ -1180,25 +1192,18 @@ class _InvestmentsCategorySheetState
         picked: _picked(p, all.key, sel.pill == p && sel.subOf(p) == all.key),
         onTap: () => _pickPoly(p, all),
       )),
-      _grid(first: 1, [
-        for (final s in subs)
-          if (s.key != p.defaultSub)
-            _Tile(
-              key: ValueKey('category-tile-${s.key}'),
-              // The row's own icon (poly_sport_icon.dart), every topic.
-              plateIcon: polySubIcon(p, s, _kPlateIcon),
-              tint: tint,
-              name: polySubLabel(l10n, s),
-              stat: _polyStat(p, sub: s.key),
-              picked:
-                  _picked(p, s.key, sel.pill == p && sel.subOf(p) == s.key),
-              // A sport with leagues (Soccer, Tennis …) opens them, as the
-              // site's "Soccer ▾" does; its All is the first tile there.
-              onTap: p == PolyPill.sports && polySportHasLeagues(s.key)
-                  ? () => _open((p, s.key))
-                  : () => _pickPoly(p, s),
-            ),
-      ]),
+      for (final (i, g) in polySubGroups(p, subs).indexed) ...[
+        if (i > 0)
+          _rise(
+              next++,
+              g.label == null
+                  ? _groupDivider(context)
+                  : _label(context, g.label!)),
+        gridOf([
+          for (final s in g.subs)
+            if (s.key != p.defaultSub) tile(s),
+        ]),
+      ],
     ];
   }
 
@@ -1367,28 +1372,15 @@ class _SalCategoryGridState extends ConsumerState<_SalCategoryGrid>
   }
 
   /// The sheet's own Predictions cards: Trending and the Watchlist with
-  /// their stacks, Instant with its coins right after Trending (see the
-  /// file header), every topic its glyph, each with its numbers.
+  /// their stacks, every topic its glyph, each with its numbers.
   List<_Tile> _predictions(AppLocalizations l10n, AppColorsExtension c) {
     final sel = polyShownSelection(ref);
     final policy = ref.watch(runtimeCapabilitiesProvider);
     final watchlist = ref.watch(polyWatchlistProvider);
-    final instant = _Tile(
-      key: const ValueKey('sal-category-tile-instant'),
-      logos: _instantLogos(),
-      asset: kInstantIconAsset,
-      tint: _kBitcoinOrange,
-      name: l10n.predictionsInstant,
-      stat: const _InstantLengths(),
-      picked: _picked(
-          _kInstantKey.$1, _kInstantKey.$2, sel.pill == PolyPill.instant),
-      onTap: () => _tap(_kInstantKey.$1, _kInstantKey.$2),
-    );
     return [
       for (final p in PolyPill.values)
-        if (p != PolyPill.instant &&
-            polyPillOffered(p, policy) &&
-            (p != PolyPill.watchlist || watchlist.isNotEmpty)) ...[
+        if (polyPillOffered(p, policy) &&
+            (p != PolyPill.watchlist || watchlist.isNotEmpty))
           _Tile(
             key: ValueKey('sal-category-tile-${p.key}'),
             logos: p == PolyPill.trending || p == PolyPill.watchlist
@@ -1406,8 +1398,6 @@ class _SalCategoryGridState extends ConsumerState<_SalCategoryGrid>
             picked: _picked(p, p.defaultSub, sel.pill == p),
             onTap: () => _tap(p, p.defaultSub),
           ),
-          if (p == PolyPill.trending) instant,
-        ],
     ];
   }
 
@@ -1668,44 +1658,15 @@ class _StatLine extends StatelessWidget {
   }
 }
 
-/// Instant's line: the lengths it runs, "5 min · 15 min · 1 hour · 4
-/// hours", one line on a half-width card, shrunk to fit on a narrow phone
-/// rather than cut. No coin names, no clock, no read (see the file header).
-class _InstantLengths extends StatelessWidget {
-  const _InstantLengths();
-
-  @override
-  Widget build(BuildContext context) => Align(
-        alignment: Alignment.centerLeft,
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.centerLeft,
-          child: Text(
-            context.l10n.categoryInstantLengths,
-            key: const ValueKey('category-instant-lengths'),
-            maxLines: 1,
-            style: TextStyle(
-              color: context.colors.textSecondary,
-              fontSize: 12.5.sp,
-              fontWeight: FontWeight.w500,
-              letterSpacing: -0.1,
-              height: 1.2,
-            ),
-          ),
-        ),
-      );
-}
-
 /// The shapes a tile takes: the compact grid card (at least 60 px) and the
 /// full-width row (at least 64 px), both with the art at the left and the
-/// name and numbers beside it (the row is also a grid's odd last card),
-/// and the square card, half the width with the art on top
-/// ([_Tile.square], Predictions' Trending and Instant). Both are AT LEAST their height, never fixed (founder, 7 November
+/// name and numbers beside it (the row is also a grid's odd last card).
+/// Both are AT LEAST their height, never fixed (founder, 7 November
 /// 2026: "Stocks and shares", "Mobile Legends: Bang Bang" overflowed the
 /// fixed card by 2 px): a name that wraps to its second line, at any text
 /// size, makes the card taller, never cut short or overflowing; past two
 /// lines it ends in an ellipsis.
-enum _TileShape { grid, wide, square }
+enum _TileShape { grid, wide }
 
 /// The sheets' grid (see the file header): two columns of compact cards,
 /// 8 apart, and an odd last card full width as the wide row, never a card
@@ -1746,7 +1707,7 @@ Widget _tileGrid(List<_Tile> tiles,
 /// then at the pair's: nothing is measured by hand, so no text size or
 /// name can make a card overflow.
 class _TilePair extends MultiChildRenderObjectWidget {
-  const _TilePair({super.key, required this.gap, required super.children});
+  const _TilePair({required this.gap, required super.children});
 
   final double gap;
 
@@ -1837,6 +1798,7 @@ class _Tile extends StatelessWidget {
     this.stat,
     this.picked = false,
   })  : shape = _TileShape.grid,
+        chevron = false,
         lone = false;
 
   const _Tile.wide({
@@ -1849,21 +1811,8 @@ class _Tile extends StatelessWidget {
     this.plateIcon,
     this.stat,
     this.picked = false,
+    this.chevron = false,
   })  : shape = _TileShape.wide,
-        glyph = null,
-        lone = false;
-
-  const _Tile.square({
-    super.key,
-    required this.tint,
-    required this.name,
-    required this.onTap,
-    this.logos = const [],
-    this.asset,
-    this.stat,
-    this.picked = false,
-  })  : shape = _TileShape.square,
-        plateIcon = null,
         glyph = null,
         lone = false;
 
@@ -1879,6 +1828,7 @@ class _Tile extends StatelessWidget {
     required this.stat,
     required this.picked,
   })  : shape = _TileShape.wide,
+        chevron = false,
         lone = true;
 
   /// This card as a grid's odd last one: full width, laid out as the wide
@@ -1911,6 +1861,10 @@ class _Tile extends StatelessWidget {
   /// ([PolySubIcon]).
   final Widget? plateIcon;
   final bool picked;
+
+  /// A chevron at the row's right: the lone card of a row (the one-card
+  /// rule, kute_action_cards.dart), Predictions' Trending.
+  final bool chevron;
   final _TileShape shape;
 
   /// A grid's odd last card ([asLone]): the wide row without the gap the
@@ -1931,7 +1885,7 @@ class _Tile extends StatelessWidget {
 
   double get _height => switch (shape) {
         _TileShape.grid => gridHeight,
-        _TileShape.wide || _TileShape.square => wideHeight,
+        _TileShape.wide => wideHeight,
       };
 
   @override
@@ -1985,22 +1939,20 @@ class _Tile extends StatelessWidget {
     // Both shapes: the art at the left, the name and numbers beside it
     // (the grid card is the wide row at half the width; see the file
     // header).
-    final Widget body = shape == _TileShape.square
-        ? Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              art,
-              SizedBox(height: 8.h),
-              _NameAndStat(name: name, style: nameStyle, stat: stat),
-            ],
-          )
-        : Row(
+    final Widget body = Row(
             children: [
               art,
               SizedBox(width: 10.w),
               Expanded(
                   child: _NameAndStat(name: name, style: nameStyle, stat: stat)),
+              // The lone card's chevron (kute_action_cards.dart).
+              if (chevron) ...[
+                SizedBox(width: 6.w),
+                Icon(Icons.chevron_right_rounded,
+                    key: const ValueKey('category-tile-chevron'),
+                    size: 20,
+                    color: c.textTertiary),
+              ],
             ],
           );
     // The app's one soft card, a smaller radius; picked, the CTA ring on

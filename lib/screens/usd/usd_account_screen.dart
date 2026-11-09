@@ -164,8 +164,6 @@ import 'package:kute/providers/hyperliquid_markets_provider.dart'
     show HlBrowseSelection, hlBrowseSelectionProvider;
 import 'package:kute/providers/polymarket_browse_provider.dart'
     show PolyBrowseSelection, polyBrowseSelectionProvider;
-import 'package:kute/providers/polymarket_instant_provider.dart'
-    show polyInstantChoiceProvider;
 import 'package:kute/providers/refresh_everything_provider.dart';
 import 'package:kute/providers/nav_bar_visibility_provider.dart';
 import 'package:kute/providers/unified_search_provider.dart'
@@ -340,7 +338,6 @@ void resetInvestmentsPicks(WidgetRef ref, InvestmentsTab left) {
     case InvestmentsTab.predictions:
       ref.read(polyBrowseSelectionProvider.notifier).state =
           const PolyBrowseSelection();
-      ref.read(polyInstantChoiceProvider.notifier).reset();
     case InvestmentsTab.activity:
     case InvestmentsTab.positions:
       break;
