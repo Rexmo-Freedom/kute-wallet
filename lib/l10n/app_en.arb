@@ -12540,5 +12540,73 @@
   },
   "receiveArrivesAsBitcoin": "Arrives as bitcoin",
   "sendEmailNoLightning": "Email, no Lightning address",
-  "barNeedLightningAddress": "No Lightning address"
+  "barNeedLightningAddress": "No Lightning address",
+  "orderNoticePlacingPrediction": "Placing your prediction",
+  "@orderNoticePlacingPrediction": {
+    "description": "Title of the Android progress notification while a Predictions order is being placed in the background (lib/services/platform/order_activity.dart). Never the amount, never an id."
+  },
+  "orderNoticePlacingOrder": "Placing your order",
+  "@orderNoticePlacingOrder": {
+    "description": "Title of the Android progress notification while an Investing order is being placed in the background. Never the amount, never an id."
+  },
+  "orderNoticeWaitingMoney": "Waiting for your money to arrive",
+  "@orderNoticeWaitingMoney": {
+    "description": "Progress notification line: the funding move has not landed at the venue yet."
+  },
+  "orderNoticeConverting": "Converting your dollars",
+  "@orderNoticeConverting": {
+    "description": "Progress notification line: dollars are being converted for the venue (USDC.e to pUSD, Bitcoin to Dollars)."
+  },
+  "orderNoticeSettingUp": "Setting up your account",
+  "@orderNoticeSettingUp": {
+    "description": "Progress notification line: a one-time venue account setup or an allowance is being set."
+  },
+  "orderNoticeSending": "Sending your order",
+  "@orderNoticeSending": {
+    "description": "Progress notification line: the order itself is being sent to the venue."
+  },
+  "orderNoticeConfirming": "Confirming with the venue",
+  "@orderNoticeConfirming": {
+    "description": "Progress notification line: the venue has the order and its answer is being confirmed."
+  },
+  "orderNoticePredictionPlaced": "Prediction placed",
+  "@orderNoticePredictionPlaced": {
+    "description": "Title of the result notification (Android and iOS) when a prediction placed while the app was in the background went through. The body is the market as shown on the slip."
+  },
+  "orderNoticeOrderPlaced": "Order placed",
+  "@orderNoticeOrderPlaced": {
+    "description": "Title of the result notification when an Investing order placed while the app was in the background went through. The body is the market label."
+  },
+  "orderNoticePredictionNotPlaced": "Prediction not placed",
+  "@orderNoticePredictionNotPlaced": {
+    "description": "Title of the result notification when a prediction placed in the background failed."
+  },
+  "orderNoticeOrderNotPlaced": "Order not placed",
+  "@orderNoticeOrderNotPlaced": {
+    "description": "Title of the result notification when an Investing order placed in the background failed."
+  },
+  "orderNoticeNotConfirmed": "Not confirmed yet",
+  "@orderNoticeNotConfirmed": {
+    "description": "Title of the result notification when the venue took an order but its answer never came; the app keeps checking and never says it failed."
+  },
+  "orderNoticeOpenToSee": "Open Kute to see what happened.",
+  "@orderNoticeOpenToSee": {
+    "description": "Body of a failed or unconfirmed result notification: the slip in the app has the detail."
+  },
+  "orderNoticeProgressChannel": "Orders being placed",
+  "@orderNoticeProgressChannel": {
+    "description": "Android notification channel name (Settings > Notifications) for the quiet progress notification of an order being placed."
+  },
+  "orderNoticeProgressChannelDescription": "The progress of a prediction or order while Kute is in the background.",
+  "@orderNoticeProgressChannelDescription": {
+    "description": "Android notification channel description for the progress notification."
+  },
+  "orderNoticeResultChannel": "Order results",
+  "@orderNoticeResultChannel": {
+    "description": "Android notification channel name for the result notification of an order placed in the background."
+  },
+  "orderNoticeResultChannelDescription": "Whether a prediction or order placed while Kute was in the background went through.",
+  "@orderNoticeResultChannelDescription": {
+    "description": "Android notification channel description for the result notification."
+  }
 }

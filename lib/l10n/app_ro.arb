@@ -4053,5 +4053,22 @@
   "shareEdgeGoalYourTurn": "E rândul tău. Sal așteaptă.",
   "receiveArrivesAsBitcoin": "Ajunge ca bitcoin",
   "sendEmailNoLightning": "E-mail, fără adresă Lightning",
-  "barNeedLightningAddress": "Fără adresă Lightning"
+  "barNeedLightningAddress": "Fără adresă Lightning",
+  "orderNoticePlacingPrediction": "Se plasează predicția ta",
+  "orderNoticePlacingOrder": "Se plasează ordinul tău",
+  "orderNoticeWaitingMoney": "Așteptăm să ajungă banii tăi",
+  "orderNoticeConverting": "Se convertesc dolarii tăi",
+  "orderNoticeSettingUp": "Se configurează contul tău",
+  "orderNoticeSending": "Se trimite ordinul tău",
+  "orderNoticeConfirming": "Se confirmă cu platforma",
+  "orderNoticePredictionPlaced": "Predicție plasată",
+  "orderNoticeOrderPlaced": "Ordin plasat",
+  "orderNoticePredictionNotPlaced": "Predicția nu a fost plasată",
+  "orderNoticeOrderNotPlaced": "Ordinul nu a fost plasat",
+  "orderNoticeNotConfirmed": "Încă neconfirmat",
+  "orderNoticeOpenToSee": "Deschide Kute pentru a vedea ce s-a întâmplat.",
+  "orderNoticeProgressChannel": "Ordine în curs",
+  "orderNoticeProgressChannelDescription": "Evoluția unei predicții sau a unui ordin cât timp Kute este în fundal.",
+  "orderNoticeResultChannel": "Rezultatele ordinelor",
+  "orderNoticeResultChannelDescription": "Dacă o predicție sau un ordin plasat cât timp Kute era în fundal a reușit."
 }

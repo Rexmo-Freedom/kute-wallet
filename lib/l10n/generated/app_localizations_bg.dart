@@ -14382,4 +14382,57 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get barNeedLightningAddress => 'Няма Lightning адрес';
+
+  @override
+  String get orderNoticePlacingPrediction => 'Прогнозата ти се прави';
+
+  @override
+  String get orderNoticePlacingOrder => 'Поръчката ти се пуска';
+
+  @override
+  String get orderNoticeWaitingMoney => 'Чакаме парите ти да пристигнат';
+
+  @override
+  String get orderNoticeConverting => 'Обменяме доларите ти';
+
+  @override
+  String get orderNoticeSettingUp => 'Настройваме акаунта ти';
+
+  @override
+  String get orderNoticeSending => 'Изпращаме поръчката ти';
+
+  @override
+  String get orderNoticeConfirming => 'Потвърждава се с платформата';
+
+  @override
+  String get orderNoticePredictionPlaced => 'Прогнозата е направена';
+
+  @override
+  String get orderNoticeOrderPlaced => 'Поръчката е пуснута';
+
+  @override
+  String get orderNoticePredictionNotPlaced => 'Прогнозата не е направена';
+
+  @override
+  String get orderNoticeOrderNotPlaced => 'Поръчката не е пуснута';
+
+  @override
+  String get orderNoticeNotConfirmed => 'Още не е потвърдено';
+
+  @override
+  String get orderNoticeOpenToSee => 'Отвори Kute, за да видиш какво се случи.';
+
+  @override
+  String get orderNoticeProgressChannel => 'Поръчки в процес';
+
+  @override
+  String get orderNoticeProgressChannelDescription =>
+      'Напредъкът на прогноза или поръчка, докато Kute е на заден план.';
+
+  @override
+  String get orderNoticeResultChannel => 'Резултати от поръчки';
+
+  @override
+  String get orderNoticeResultChannelDescription =>
+      'Дали прогноза или поръчка, пуснати, докато Kute беше на заден план, са минали.';
 }

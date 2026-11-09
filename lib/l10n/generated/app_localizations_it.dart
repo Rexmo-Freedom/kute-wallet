@@ -14429,4 +14429,57 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get barNeedLightningAddress => 'Nessun indirizzo Lightning';
+
+  @override
+  String get orderNoticePlacingPrediction => 'Invio della tua previsione';
+
+  @override
+  String get orderNoticePlacingOrder => 'Invio del tuo ordine';
+
+  @override
+  String get orderNoticeWaitingMoney => 'In attesa che arrivino i tuoi soldi';
+
+  @override
+  String get orderNoticeConverting => 'Conversione dei tuoi dollari';
+
+  @override
+  String get orderNoticeSettingUp => 'Configurazione del tuo account';
+
+  @override
+  String get orderNoticeSending => 'Invio dell\'ordine alla piattaforma';
+
+  @override
+  String get orderNoticeConfirming => 'Conferma con la piattaforma';
+
+  @override
+  String get orderNoticePredictionPlaced => 'Previsione inviata';
+
+  @override
+  String get orderNoticeOrderPlaced => 'Ordine inviato';
+
+  @override
+  String get orderNoticePredictionNotPlaced => 'Previsione non inviata';
+
+  @override
+  String get orderNoticeOrderNotPlaced => 'Ordine non inviato';
+
+  @override
+  String get orderNoticeNotConfirmed => 'Non ancora confermato';
+
+  @override
+  String get orderNoticeOpenToSee => 'Apri Kute per vedere cosa è successo.';
+
+  @override
+  String get orderNoticeProgressChannel => 'Ordini in corso';
+
+  @override
+  String get orderNoticeProgressChannelDescription =>
+      'L\'avanzamento di una previsione o di un ordine mentre Kute è in background.';
+
+  @override
+  String get orderNoticeResultChannel => 'Risultati degli ordini';
+
+  @override
+  String get orderNoticeResultChannelDescription =>
+      'Se una previsione o un ordine inviato mentre Kute era in background è andato a buon fine.';
 }

@@ -4053,5 +4053,22 @@
   "shareEdgeGoalYourTurn": "Te jössz. Sal megvár.",
   "receiveArrivesAsBitcoin": "Bitcoinként érkezik",
   "sendEmailNoLightning": "E-mail, nincs Lightning-cím",
-  "barNeedLightningAddress": "Nincs Lightning-cím"
+  "barNeedLightningAddress": "Nincs Lightning-cím",
+  "orderNoticePlacingPrediction": "Előrejelzésed leadása folyamatban",
+  "orderNoticePlacingOrder": "Megbízásod leadása folyamatban",
+  "orderNoticeWaitingMoney": "Várjuk, hogy megérkezzen a pénzed",
+  "orderNoticeConverting": "Dollárjaid átváltása",
+  "orderNoticeSettingUp": "Fiókod beállítása",
+  "orderNoticeSending": "Megbízásod küldése",
+  "orderNoticeConfirming": "Megerősítés a platformmal",
+  "orderNoticePredictionPlaced": "Előrejelzés leadva",
+  "orderNoticeOrderPlaced": "Megbízás leadva",
+  "orderNoticePredictionNotPlaced": "Az előrejelzés nem lett leadva",
+  "orderNoticeOrderNotPlaced": "A megbízás nem lett leadva",
+  "orderNoticeNotConfirmed": "Még nincs megerősítve",
+  "orderNoticeOpenToSee": "Nyisd meg a Kute-ot, hogy lásd, mi történt.",
+  "orderNoticeProgressChannel": "Folyamatban lévő megbízások",
+  "orderNoticeProgressChannelDescription": "Egy előrejelzés vagy megbízás állása, amíg a Kute a háttérben van.",
+  "orderNoticeResultChannel": "Megbízások eredménye",
+  "orderNoticeResultChannelDescription": "Hogy a Kute háttérben léte alatt leadott előrejelzés vagy megbízás sikerült-e."
 }

@@ -4053,5 +4053,22 @@
   "shareEdgeGoalYourTurn": "Din tur. Sal venter.",
   "receiveArrivesAsBitcoin": "Ankommer som bitcoin",
   "sendEmailNoLightning": "E-mail, ingen Lightning-adresse",
-  "barNeedLightningAddress": "Ingen Lightning-adresse"
+  "barNeedLightningAddress": "Ingen Lightning-adresse",
+  "orderNoticePlacingPrediction": "Din forudsigelse afgives",
+  "orderNoticePlacingOrder": "Din ordre afgives",
+  "orderNoticeWaitingMoney": "Venter på, at dine penge ankommer",
+  "orderNoticeConverting": "Veksler dine dollars",
+  "orderNoticeSettingUp": "Opsætter din konto",
+  "orderNoticeSending": "Sender din ordre",
+  "orderNoticeConfirming": "Bekræfter med platformen",
+  "orderNoticePredictionPlaced": "Forudsigelse afgivet",
+  "orderNoticeOrderPlaced": "Ordre afgivet",
+  "orderNoticePredictionNotPlaced": "Forudsigelse ikke afgivet",
+  "orderNoticeOrderNotPlaced": "Ordre ikke afgivet",
+  "orderNoticeNotConfirmed": "Ikke bekræftet endnu",
+  "orderNoticeOpenToSee": "Åbn Kute for at se, hvad der skete.",
+  "orderNoticeProgressChannel": "Ordrer, der afgives",
+  "orderNoticeProgressChannelDescription": "Fremgangen for en forudsigelse eller ordre, mens Kute er i baggrunden.",
+  "orderNoticeResultChannel": "Ordreresultater",
+  "orderNoticeResultChannelDescription": "Om en forudsigelse eller ordre afgivet, mens Kute var i baggrunden, gik igennem."
 }

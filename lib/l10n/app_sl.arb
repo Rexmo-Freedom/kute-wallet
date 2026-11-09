@@ -4053,5 +4053,22 @@
   "shareEdgeGoalYourTurn": "Tvoja poteza. Sal bo počakal.",
   "receiveArrivesAsBitcoin": "Prispe kot bitcoin",
   "sendEmailNoLightning": "E-pošta, brez naslova Lightning",
-  "barNeedLightningAddress": "Ni naslova Lightning"
+  "barNeedLightningAddress": "Ni naslova Lightning",
+  "orderNoticePlacingPrediction": "Vaša napoved se oddaja",
+  "orderNoticePlacingOrder": "Vaše naročilo se oddaja",
+  "orderNoticeWaitingMoney": "Čakamo, da prispe vaš denar",
+  "orderNoticeConverting": "Pretvarjamo vaše dolarje",
+  "orderNoticeSettingUp": "Nastavljamo vaš račun",
+  "orderNoticeSending": "Pošiljamo vaše naročilo",
+  "orderNoticeConfirming": "Potrjevanje pri platformi",
+  "orderNoticePredictionPlaced": "Napoved oddana",
+  "orderNoticeOrderPlaced": "Naročilo oddano",
+  "orderNoticePredictionNotPlaced": "Napoved ni bila oddana",
+  "orderNoticeOrderNotPlaced": "Naročilo ni bilo oddano",
+  "orderNoticeNotConfirmed": "Še ni potrjeno",
+  "orderNoticeOpenToSee": "Odprite Kute, da vidite, kaj se je zgodilo.",
+  "orderNoticeProgressChannel": "Naročila v teku",
+  "orderNoticeProgressChannelDescription": "Napredek napovedi ali naročila, medtem ko je Kute v ozadju.",
+  "orderNoticeResultChannel": "Rezultati naročil",
+  "orderNoticeResultChannelDescription": "Ali je napoved ali naročilo, oddano, medtem ko je bil Kute v ozadju, uspelo."
 }

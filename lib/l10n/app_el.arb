@@ -4053,5 +4053,22 @@
   "shareEdgeGoalYourTurn": "Σειρά σου. Ο Sal θα περιμένει.",
   "receiveArrivesAsBitcoin": "Φτάνει ως bitcoin",
   "sendEmailNoLightning": "Email, χωρίς διεύθυνση Lightning",
-  "barNeedLightningAddress": "Καμία διεύθυνση Lightning"
+  "barNeedLightningAddress": "Καμία διεύθυνση Lightning",
+  "orderNoticePlacingPrediction": "Η πρόβλεψή σου καταχωρίζεται",
+  "orderNoticePlacingOrder": "Η εντολή σου καταχωρίζεται",
+  "orderNoticeWaitingMoney": "Περιμένουμε να φτάσουν τα χρήματά σου",
+  "orderNoticeConverting": "Μετατρέπουμε τα δολάριά σου",
+  "orderNoticeSettingUp": "Ρυθμίζουμε τον λογαριασμό σου",
+  "orderNoticeSending": "Στέλνουμε την εντολή σου",
+  "orderNoticeConfirming": "Επιβεβαίωση με την πλατφόρμα",
+  "orderNoticePredictionPlaced": "Η πρόβλεψη καταχωρήθηκε",
+  "orderNoticeOrderPlaced": "Η εντολή καταχωρήθηκε",
+  "orderNoticePredictionNotPlaced": "Η πρόβλεψη δεν καταχωρήθηκε",
+  "orderNoticeOrderNotPlaced": "Η εντολή δεν καταχωρήθηκε",
+  "orderNoticeNotConfirmed": "Δεν επιβεβαιώθηκε ακόμη",
+  "orderNoticeOpenToSee": "Άνοιξε το Kute για να δεις τι συνέβη.",
+  "orderNoticeProgressChannel": "Εντολές σε εξέλιξη",
+  "orderNoticeProgressChannelDescription": "Η πρόοδος μιας πρόβλεψης ή εντολής όσο το Kute είναι στο παρασκήνιο.",
+  "orderNoticeResultChannel": "Αποτελέσματα εντολών",
+  "orderNoticeResultChannelDescription": "Αν μια πρόβλεψη ή εντολή που καταχωρίστηκε όσο το Kute ήταν στο παρασκήνιο πέρασε."
 }

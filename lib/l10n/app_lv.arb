@@ -4053,5 +4053,22 @@
   "shareEdgeGoalYourTurn": "Tava kārta. Sal pagaidīs.",
   "receiveArrivesAsBitcoin": "Pienāk kā bitcoin",
   "sendEmailNoLightning": "E-pasts, nav Lightning adreses",
-  "barNeedLightningAddress": "Nav Lightning adreses"
+  "barNeedLightningAddress": "Nav Lightning adreses",
+  "orderNoticePlacingPrediction": "Veic tavu prognozi",
+  "orderNoticePlacingOrder": "Veic tavu rīkojumu",
+  "orderNoticeWaitingMoney": "Gaidām, kad pienāks tava nauda",
+  "orderNoticeConverting": "Konvertējam tavus dolārus",
+  "orderNoticeSettingUp": "Iestatām tavu kontu",
+  "orderNoticeSending": "Sūtām tavu rīkojumu",
+  "orderNoticeConfirming": "Notiek apstiprināšana ar platformu",
+  "orderNoticePredictionPlaced": "Prognoze veikta",
+  "orderNoticeOrderPlaced": "Rīkojums veikts",
+  "orderNoticePredictionNotPlaced": "Prognoze nav veikta",
+  "orderNoticeOrderNotPlaced": "Rīkojums nav veikts",
+  "orderNoticeNotConfirmed": "Vēl nav apstiprināts",
+  "orderNoticeOpenToSee": "Atver Kute, lai redzētu, kas notika.",
+  "orderNoticeProgressChannel": "Izpildē esoši rīkojumi",
+  "orderNoticeProgressChannelDescription": "Prognozes vai rīkojuma gaita, kamēr Kute ir fonā.",
+  "orderNoticeResultChannel": "Rīkojumu rezultāti",
+  "orderNoticeResultChannelDescription": "Vai prognoze vai rīkojums, kas veikts, kamēr Kute bija fonā, izdevās."
 }

@@ -14408,4 +14408,58 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get barNeedLightningAddress => 'Ni naslova Lightning';
+
+  @override
+  String get orderNoticePlacingPrediction => 'Vaša napoved se oddaja';
+
+  @override
+  String get orderNoticePlacingOrder => 'Vaše naročilo se oddaja';
+
+  @override
+  String get orderNoticeWaitingMoney => 'Čakamo, da prispe vaš denar';
+
+  @override
+  String get orderNoticeConverting => 'Pretvarjamo vaše dolarje';
+
+  @override
+  String get orderNoticeSettingUp => 'Nastavljamo vaš račun';
+
+  @override
+  String get orderNoticeSending => 'Pošiljamo vaše naročilo';
+
+  @override
+  String get orderNoticeConfirming => 'Potrjevanje pri platformi';
+
+  @override
+  String get orderNoticePredictionPlaced => 'Napoved oddana';
+
+  @override
+  String get orderNoticeOrderPlaced => 'Naročilo oddano';
+
+  @override
+  String get orderNoticePredictionNotPlaced => 'Napoved ni bila oddana';
+
+  @override
+  String get orderNoticeOrderNotPlaced => 'Naročilo ni bilo oddano';
+
+  @override
+  String get orderNoticeNotConfirmed => 'Še ni potrjeno';
+
+  @override
+  String get orderNoticeOpenToSee =>
+      'Odprite Kute, da vidite, kaj se je zgodilo.';
+
+  @override
+  String get orderNoticeProgressChannel => 'Naročila v teku';
+
+  @override
+  String get orderNoticeProgressChannelDescription =>
+      'Napredek napovedi ali naročila, medtem ko je Kute v ozadju.';
+
+  @override
+  String get orderNoticeResultChannel => 'Rezultati naročil';
+
+  @override
+  String get orderNoticeResultChannelDescription =>
+      'Ali je napoved ali naročilo, oddano, medtem ko je bil Kute v ozadju, uspelo.';
 }

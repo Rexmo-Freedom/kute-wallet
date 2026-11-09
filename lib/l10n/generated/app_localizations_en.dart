@@ -14320,4 +14320,57 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get barNeedLightningAddress => 'No Lightning address';
+
+  @override
+  String get orderNoticePlacingPrediction => 'Placing your prediction';
+
+  @override
+  String get orderNoticePlacingOrder => 'Placing your order';
+
+  @override
+  String get orderNoticeWaitingMoney => 'Waiting for your money to arrive';
+
+  @override
+  String get orderNoticeConverting => 'Converting your dollars';
+
+  @override
+  String get orderNoticeSettingUp => 'Setting up your account';
+
+  @override
+  String get orderNoticeSending => 'Sending your order';
+
+  @override
+  String get orderNoticeConfirming => 'Confirming with the venue';
+
+  @override
+  String get orderNoticePredictionPlaced => 'Prediction placed';
+
+  @override
+  String get orderNoticeOrderPlaced => 'Order placed';
+
+  @override
+  String get orderNoticePredictionNotPlaced => 'Prediction not placed';
+
+  @override
+  String get orderNoticeOrderNotPlaced => 'Order not placed';
+
+  @override
+  String get orderNoticeNotConfirmed => 'Not confirmed yet';
+
+  @override
+  String get orderNoticeOpenToSee => 'Open Kute to see what happened.';
+
+  @override
+  String get orderNoticeProgressChannel => 'Orders being placed';
+
+  @override
+  String get orderNoticeProgressChannelDescription =>
+      'The progress of a prediction or order while Kute is in the background.';
+
+  @override
+  String get orderNoticeResultChannel => 'Order results';
+
+  @override
+  String get orderNoticeResultChannelDescription =>
+      'Whether a prediction or order placed while Kute was in the background went through.';
 }

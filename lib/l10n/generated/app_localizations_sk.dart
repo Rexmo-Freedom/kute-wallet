@@ -14380,4 +14380,57 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String get barNeedLightningAddress => 'Žiadna adresa Lightning';
+
+  @override
+  String get orderNoticePlacingPrediction => 'Zadáva sa tvoja predpoveď';
+
+  @override
+  String get orderNoticePlacingOrder => 'Zadáva sa tvoj príkaz';
+
+  @override
+  String get orderNoticeWaitingMoney => 'Čakáme, kým prídu tvoje peniaze';
+
+  @override
+  String get orderNoticeConverting => 'Meníme tvoje doláre';
+
+  @override
+  String get orderNoticeSettingUp => 'Nastavujeme tvoj účet';
+
+  @override
+  String get orderNoticeSending => 'Odosielame tvoj príkaz';
+
+  @override
+  String get orderNoticeConfirming => 'Overuje sa na platforme';
+
+  @override
+  String get orderNoticePredictionPlaced => 'Predpoveď zadaná';
+
+  @override
+  String get orderNoticeOrderPlaced => 'Príkaz zadaný';
+
+  @override
+  String get orderNoticePredictionNotPlaced => 'Predpoveď nebola zadaná';
+
+  @override
+  String get orderNoticeOrderNotPlaced => 'Príkaz nebol zadaný';
+
+  @override
+  String get orderNoticeNotConfirmed => 'Zatiaľ nepotvrdené';
+
+  @override
+  String get orderNoticeOpenToSee => 'Otvor Kute a pozri si, čo sa stalo.';
+
+  @override
+  String get orderNoticeProgressChannel => 'Zadávané príkazy';
+
+  @override
+  String get orderNoticeProgressChannelDescription =>
+      'Priebeh predpovede alebo príkazu, keď je Kute na pozadí.';
+
+  @override
+  String get orderNoticeResultChannel => 'Výsledky príkazov';
+
+  @override
+  String get orderNoticeResultChannelDescription =>
+      'Či predpoveď alebo príkaz zadané, keď bol Kute na pozadí, prešli.';
 }

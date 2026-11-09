@@ -14408,4 +14408,57 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get barNeedLightningAddress => 'Brak adresu Lightning';
+
+  @override
+  String get orderNoticePlacingPrediction => 'Składanie Twojej prognozy';
+
+  @override
+  String get orderNoticePlacingOrder => 'Składanie Twojego zlecenia';
+
+  @override
+  String get orderNoticeWaitingMoney => 'Czekamy, aż dotrą Twoje pieniądze';
+
+  @override
+  String get orderNoticeConverting => 'Wymiana Twoich dolarów';
+
+  @override
+  String get orderNoticeSettingUp => 'Konfigurowanie Twojego konta';
+
+  @override
+  String get orderNoticeSending => 'Wysyłanie Twojego zlecenia';
+
+  @override
+  String get orderNoticeConfirming => 'Potwierdzanie na platformie';
+
+  @override
+  String get orderNoticePredictionPlaced => 'Prognoza złożona';
+
+  @override
+  String get orderNoticeOrderPlaced => 'Zlecenie złożone';
+
+  @override
+  String get orderNoticePredictionNotPlaced => 'Prognoza nie została złożona';
+
+  @override
+  String get orderNoticeOrderNotPlaced => 'Zlecenie nie zostało złożone';
+
+  @override
+  String get orderNoticeNotConfirmed => 'Jeszcze niepotwierdzone';
+
+  @override
+  String get orderNoticeOpenToSee => 'Otwórz Kute, aby zobaczyć, co się stało.';
+
+  @override
+  String get orderNoticeProgressChannel => 'Zlecenia w toku';
+
+  @override
+  String get orderNoticeProgressChannelDescription =>
+      'Postęp prognozy lub zlecenia, gdy Kute działa w tle.';
+
+  @override
+  String get orderNoticeResultChannel => 'Wyniki zleceń';
+
+  @override
+  String get orderNoticeResultChannelDescription =>
+      'Czy prognoza lub zlecenie złożone, gdy Kute działało w tle, przeszły.';
 }

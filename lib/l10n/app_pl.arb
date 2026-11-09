@@ -4053,5 +4053,22 @@
   "shareEdgeGoalYourTurn": "Twoja kolej. Sal poczeka.",
   "receiveArrivesAsBitcoin": "Dociera jako bitcoin",
   "sendEmailNoLightning": "E-mail, brak adresu Lightning",
-  "barNeedLightningAddress": "Brak adresu Lightning"
+  "barNeedLightningAddress": "Brak adresu Lightning",
+  "orderNoticePlacingPrediction": "Składanie Twojej prognozy",
+  "orderNoticePlacingOrder": "Składanie Twojego zlecenia",
+  "orderNoticeWaitingMoney": "Czekamy, aż dotrą Twoje pieniądze",
+  "orderNoticeConverting": "Wymiana Twoich dolarów",
+  "orderNoticeSettingUp": "Konfigurowanie Twojego konta",
+  "orderNoticeSending": "Wysyłanie Twojego zlecenia",
+  "orderNoticeConfirming": "Potwierdzanie na platformie",
+  "orderNoticePredictionPlaced": "Prognoza złożona",
+  "orderNoticeOrderPlaced": "Zlecenie złożone",
+  "orderNoticePredictionNotPlaced": "Prognoza nie została złożona",
+  "orderNoticeOrderNotPlaced": "Zlecenie nie zostało złożone",
+  "orderNoticeNotConfirmed": "Jeszcze niepotwierdzone",
+  "orderNoticeOpenToSee": "Otwórz Kute, aby zobaczyć, co się stało.",
+  "orderNoticeProgressChannel": "Zlecenia w toku",
+  "orderNoticeProgressChannelDescription": "Postęp prognozy lub zlecenia, gdy Kute działa w tle.",
+  "orderNoticeResultChannel": "Wyniki zleceń",
+  "orderNoticeResultChannelDescription": "Czy prognoza lub zlecenie złożone, gdy Kute działało w tle, przeszły."
 }

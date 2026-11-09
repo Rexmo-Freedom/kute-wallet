@@ -14358,4 +14358,57 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get barNeedLightningAddress => 'Ingen Lightning-adress';
+
+  @override
+  String get orderNoticePlacingPrediction => 'Din prognos läggs';
+
+  @override
+  String get orderNoticePlacingOrder => 'Din order läggs';
+
+  @override
+  String get orderNoticeWaitingMoney => 'Väntar på att dina pengar ska komma';
+
+  @override
+  String get orderNoticeConverting => 'Växlar dina dollar';
+
+  @override
+  String get orderNoticeSettingUp => 'Ställer in ditt konto';
+
+  @override
+  String get orderNoticeSending => 'Skickar din order';
+
+  @override
+  String get orderNoticeConfirming => 'Bekräftar med plattformen';
+
+  @override
+  String get orderNoticePredictionPlaced => 'Prognos lagd';
+
+  @override
+  String get orderNoticeOrderPlaced => 'Order lagd';
+
+  @override
+  String get orderNoticePredictionNotPlaced => 'Prognosen lades inte';
+
+  @override
+  String get orderNoticeOrderNotPlaced => 'Ordern lades inte';
+
+  @override
+  String get orderNoticeNotConfirmed => 'Inte bekräftad ännu';
+
+  @override
+  String get orderNoticeOpenToSee => 'Öppna Kute för att se vad som hände.';
+
+  @override
+  String get orderNoticeProgressChannel => 'Ordrar som läggs';
+
+  @override
+  String get orderNoticeProgressChannelDescription =>
+      'Hur en prognos eller order går medan Kute är i bakgrunden.';
+
+  @override
+  String get orderNoticeResultChannel => 'Orderresultat';
+
+  @override
+  String get orderNoticeResultChannelDescription =>
+      'Om en prognos eller order som lades medan Kute var i bakgrunden gick igenom.';
 }

@@ -4053,5 +4053,22 @@
   "shareEdgeGoalYourTurn": "Tavo eilė. Sal palauks.",
   "receiveArrivesAsBitcoin": "Gaunama kaip bitcoin",
   "sendEmailNoLightning": "El. paštas, Lightning adreso nėra",
-  "barNeedLightningAddress": "Lightning adreso nėra"
+  "barNeedLightningAddress": "Lightning adreso nėra",
+  "orderNoticePlacingPrediction": "Pateikiama jūsų prognozė",
+  "orderNoticePlacingOrder": "Pateikiamas jūsų pavedimas",
+  "orderNoticeWaitingMoney": "Laukiame, kol atkeliaus jūsų pinigai",
+  "orderNoticeConverting": "Keičiame jūsų dolerius",
+  "orderNoticeSettingUp": "Nustatome jūsų paskyrą",
+  "orderNoticeSending": "Siunčiame jūsų pavedimą",
+  "orderNoticeConfirming": "Tikrinama su platforma",
+  "orderNoticePredictionPlaced": "Prognozė pateikta",
+  "orderNoticeOrderPlaced": "Pavedimas pateiktas",
+  "orderNoticePredictionNotPlaced": "Prognozė nepateikta",
+  "orderNoticeOrderNotPlaced": "Pavedimas nepateiktas",
+  "orderNoticeNotConfirmed": "Dar nepatvirtinta",
+  "orderNoticeOpenToSee": "Atidarykite Kute, kad pamatytumėte, kas nutiko.",
+  "orderNoticeProgressChannel": "Vykdomi pavedimai",
+  "orderNoticeProgressChannelDescription": "Prognozės ar pavedimo eiga, kol Kute veikia fone.",
+  "orderNoticeResultChannel": "Pavedimų rezultatai",
+  "orderNoticeResultChannelDescription": "Ar prognozė arba pavedimas, pateikti Kute veikiant fone, pavyko."
 }

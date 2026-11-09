@@ -42,6 +42,8 @@ import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/main.dart' show appColdStartStopwatch;
 import './app_router.dart';
 import 'package:kute/services/polymarket/order_poll_gate.dart';
+import 'package:kute/services/platform/order_activity.dart';
+import 'package:kute/services/platform/order_activity_binder.dart';
 
 /// NavigatorObserver that (1) feeds the crash breadcrumb ring buffer
 /// with screen NAMES only (no params — PII-free per the tracking rule)
@@ -105,6 +107,20 @@ class _AppWidgetState extends ConsumerState<AppWidget>
   @override
   void initState() {
     super.initState();
+    // An order still being placed when the person leaves
+    // (lib/services/platform/): the binder starts listening to today's
+    // pending bet and trade now, and a tap on one of its notifications
+    // opens the home's Activity list, including the tap that started
+    // this process.
+    ref.read(orderActivityBinderProvider);
+    OrderActivity.onOpenActivity = _openActivityFromNotice;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final local = OrderActivity.local;
+      if (local == null) return;
+      unawaited(local.launchedFromNotice().then((yes) {
+        if (yes) _openActivityFromNotice();
+      }));
+    });
     // Background sync (and any other route-aware service) needs to know
     // which screen the user is currently on. We feed the route name
     // through Riverpod via [currentRouteProvider], updated by an
@@ -376,7 +392,17 @@ class _AppWidgetState extends ConsumerState<AppWidget>
   ///     (the LockOverlay, drawn as the Welcome back screen). Cold start
   ///     still locks through splash → open_pin: the unlocked session is
   ///     memory-only.
+  /// A tap on an order notification (lib/services/platform/order_activity.dart):
+  /// the home's Activity list, under the lock overlay if the app is locked.
+  void _openActivityFromNotice() {
+    if (!mounted) return;
+    _router.go(kHomeActivityLocation);
+  }
+
   void _handleAppResume() {
+    // An order still in flight whose background grace expired while the
+    // app was away is held again, for the next trip out.
+    ref.read(orderActivityBinderProvider).onResumed();
     // NOTE: an earlier version short-circuited on a first-resume flag
     // and never evaluated the elapsed time on the first lifecycle
     // resume — that swallowed every relock decision after the first

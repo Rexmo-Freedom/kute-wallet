@@ -4053,5 +4053,22 @@
   "shareEdgeGoalYourTurn": "Sinu kord. Sal ootab.",
   "receiveArrivesAsBitcoin": "Saabub bitcoinina",
   "sendEmailNoLightning": "E-post, Lightning-aadressi pole",
-  "barNeedLightningAddress": "Lightning-aadressi pole"
+  "barNeedLightningAddress": "Lightning-aadressi pole",
+  "orderNoticePlacingPrediction": "Sinu ennustust tehakse",
+  "orderNoticePlacingOrder": "Sinu tellimust esitatakse",
+  "orderNoticeWaitingMoney": "Ootame su raha saabumist",
+  "orderNoticeConverting": "Vahetame su dollareid",
+  "orderNoticeSettingUp": "Seadistame su kontot",
+  "orderNoticeSending": "Saadame su tellimust",
+  "orderNoticeConfirming": "Kinnitatakse platvormiga",
+  "orderNoticePredictionPlaced": "Ennustus tehtud",
+  "orderNoticeOrderPlaced": "Tellimus esitatud",
+  "orderNoticePredictionNotPlaced": "Ennustust ei tehtud",
+  "orderNoticeOrderNotPlaced": "Tellimust ei esitatud",
+  "orderNoticeNotConfirmed": "Pole veel kinnitatud",
+  "orderNoticeOpenToSee": "Ava Kute, et näha, mis juhtus.",
+  "orderNoticeProgressChannel": "Esitatavad tellimused",
+  "orderNoticeProgressChannelDescription": "Ennustuse või tellimuse edenemine, kui Kute on taustal.",
+  "orderNoticeResultChannel": "Tellimuste tulemused",
+  "orderNoticeResultChannelDescription": "Kas ennustus või tellimus, mis esitati ajal, kui Kute oli taustal, läks läbi."
 }

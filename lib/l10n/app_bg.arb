@@ -4053,5 +4053,22 @@
   "shareEdgeGoalYourTurn": "Твой ред е. Сал ще чака.",
   "receiveArrivesAsBitcoin": "Пристига като биткойн",
   "sendEmailNoLightning": "Имейл, без Lightning адрес",
-  "barNeedLightningAddress": "Няма Lightning адрес"
+  "barNeedLightningAddress": "Няма Lightning адрес",
+  "orderNoticePlacingPrediction": "Прогнозата ти се прави",
+  "orderNoticePlacingOrder": "Поръчката ти се пуска",
+  "orderNoticeWaitingMoney": "Чакаме парите ти да пристигнат",
+  "orderNoticeConverting": "Обменяме доларите ти",
+  "orderNoticeSettingUp": "Настройваме акаунта ти",
+  "orderNoticeSending": "Изпращаме поръчката ти",
+  "orderNoticeConfirming": "Потвърждава се с платформата",
+  "orderNoticePredictionPlaced": "Прогнозата е направена",
+  "orderNoticeOrderPlaced": "Поръчката е пуснута",
+  "orderNoticePredictionNotPlaced": "Прогнозата не е направена",
+  "orderNoticeOrderNotPlaced": "Поръчката не е пуснута",
+  "orderNoticeNotConfirmed": "Още не е потвърдено",
+  "orderNoticeOpenToSee": "Отвори Kute, за да видиш какво се случи.",
+  "orderNoticeProgressChannel": "Поръчки в процес",
+  "orderNoticeProgressChannelDescription": "Напредъкът на прогноза или поръчка, докато Kute е на заден план.",
+  "orderNoticeResultChannel": "Резултати от поръчки",
+  "orderNoticeResultChannelDescription": "Дали прогноза или поръчка, пуснати, докато Kute беше на заден план, са минали."
 }

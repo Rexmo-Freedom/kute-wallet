@@ -14351,4 +14351,57 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get barNeedLightningAddress => 'Lightning-aadressi pole';
+
+  @override
+  String get orderNoticePlacingPrediction => 'Sinu ennustust tehakse';
+
+  @override
+  String get orderNoticePlacingOrder => 'Sinu tellimust esitatakse';
+
+  @override
+  String get orderNoticeWaitingMoney => 'Ootame su raha saabumist';
+
+  @override
+  String get orderNoticeConverting => 'Vahetame su dollareid';
+
+  @override
+  String get orderNoticeSettingUp => 'Seadistame su kontot';
+
+  @override
+  String get orderNoticeSending => 'Saadame su tellimust';
+
+  @override
+  String get orderNoticeConfirming => 'Kinnitatakse platvormiga';
+
+  @override
+  String get orderNoticePredictionPlaced => 'Ennustus tehtud';
+
+  @override
+  String get orderNoticeOrderPlaced => 'Tellimus esitatud';
+
+  @override
+  String get orderNoticePredictionNotPlaced => 'Ennustust ei tehtud';
+
+  @override
+  String get orderNoticeOrderNotPlaced => 'Tellimust ei esitatud';
+
+  @override
+  String get orderNoticeNotConfirmed => 'Pole veel kinnitatud';
+
+  @override
+  String get orderNoticeOpenToSee => 'Ava Kute, et näha, mis juhtus.';
+
+  @override
+  String get orderNoticeProgressChannel => 'Esitatavad tellimused';
+
+  @override
+  String get orderNoticeProgressChannelDescription =>
+      'Ennustuse või tellimuse edenemine, kui Kute on taustal.';
+
+  @override
+  String get orderNoticeResultChannel => 'Tellimuste tulemused';
+
+  @override
+  String get orderNoticeResultChannelDescription =>
+      'Kas ennustus või tellimus, mis esitati ajal, kui Kute oli taustal, läks läbi.';
 }

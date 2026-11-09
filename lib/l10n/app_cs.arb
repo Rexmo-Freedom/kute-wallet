@@ -4053,5 +4053,22 @@
   "shareEdgeGoalYourTurn": "Jsi na řadě. Sal počká.",
   "receiveArrivesAsBitcoin": "Dorazí jako bitcoin",
   "sendEmailNoLightning": "E-mail, bez adresy Lightning",
-  "barNeedLightningAddress": "Žádná adresa Lightning"
+  "barNeedLightningAddress": "Žádná adresa Lightning",
+  "orderNoticePlacingPrediction": "Zadává se tvá predikce",
+  "orderNoticePlacingOrder": "Zadává se tvůj pokyn",
+  "orderNoticeWaitingMoney": "Čekáme, až dorazí tvé peníze",
+  "orderNoticeConverting": "Převádíme tvé dolary",
+  "orderNoticeSettingUp": "Nastavujeme tvůj účet",
+  "orderNoticeSending": "Odesíláme tvůj pokyn",
+  "orderNoticeConfirming": "Ověřuje se u platformy",
+  "orderNoticePredictionPlaced": "Predikce zadána",
+  "orderNoticeOrderPlaced": "Pokyn zadán",
+  "orderNoticePredictionNotPlaced": "Predikce nebyla zadána",
+  "orderNoticeOrderNotPlaced": "Pokyn nebyl zadán",
+  "orderNoticeNotConfirmed": "Zatím nepotvrzeno",
+  "orderNoticeOpenToSee": "Otevři Kute a podívej se, co se stalo.",
+  "orderNoticeProgressChannel": "Zadávané pokyny",
+  "orderNoticeProgressChannelDescription": "Průběh predikce nebo pokynu, když je Kute na pozadí.",
+  "orderNoticeResultChannel": "Výsledky pokynů",
+  "orderNoticeResultChannelDescription": "Zda predikce nebo pokyn zadané, když byl Kute na pozadí, prošly."
 }

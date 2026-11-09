@@ -4053,5 +4053,22 @@
   "shareEdgeGoalYourTurn": "Jouw beurt. Sal wacht wel.",
   "receiveArrivesAsBitcoin": "Komt binnen als bitcoin",
   "sendEmailNoLightning": "E-mail, geen Lightning-adres",
-  "barNeedLightningAddress": "Geen Lightning-adres"
+  "barNeedLightningAddress": "Geen Lightning-adres",
+  "orderNoticePlacingPrediction": "Je voorspelling wordt geplaatst",
+  "orderNoticePlacingOrder": "Je order wordt geplaatst",
+  "orderNoticeWaitingMoney": "Wachten tot je geld binnen is",
+  "orderNoticeConverting": "Je dollars worden omgezet",
+  "orderNoticeSettingUp": "Je account wordt ingesteld",
+  "orderNoticeSending": "Je order wordt verzonden",
+  "orderNoticeConfirming": "Bevestigen bij het platform",
+  "orderNoticePredictionPlaced": "Voorspelling geplaatst",
+  "orderNoticeOrderPlaced": "Order geplaatst",
+  "orderNoticePredictionNotPlaced": "Voorspelling niet geplaatst",
+  "orderNoticeOrderNotPlaced": "Order niet geplaatst",
+  "orderNoticeNotConfirmed": "Nog niet bevestigd",
+  "orderNoticeOpenToSee": "Open Kute om te zien wat er is gebeurd.",
+  "orderNoticeProgressChannel": "Orders in behandeling",
+  "orderNoticeProgressChannelDescription": "De voortgang van een voorspelling of order terwijl Kute op de achtergrond is.",
+  "orderNoticeResultChannel": "Orderresultaten",
+  "orderNoticeResultChannelDescription": "Of een voorspelling of order die is geplaatst terwijl Kute op de achtergrond was, is gelukt."
 }

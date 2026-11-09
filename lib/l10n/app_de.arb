@@ -4053,5 +4053,22 @@
   "shareEdgeGoalYourTurn": "Du bist dran. Sal wartet.",
   "receiveArrivesAsBitcoin": "Kommt als Bitcoin an",
   "sendEmailNoLightning": "E-Mail, keine Lightning-Adresse",
-  "barNeedLightningAddress": "Keine Lightning-Adresse"
+  "barNeedLightningAddress": "Keine Lightning-Adresse",
+  "orderNoticePlacingPrediction": "Deine Prognose wird platziert",
+  "orderNoticePlacingOrder": "Dein Auftrag wird platziert",
+  "orderNoticeWaitingMoney": "Warten, bis dein Geld ankommt",
+  "orderNoticeConverting": "Deine Dollar werden umgetauscht",
+  "orderNoticeSettingUp": "Dein Konto wird eingerichtet",
+  "orderNoticeSending": "Dein Auftrag wird gesendet",
+  "orderNoticeConfirming": "Wird mit der Plattform bestätigt",
+  "orderNoticePredictionPlaced": "Prognose platziert",
+  "orderNoticeOrderPlaced": "Auftrag platziert",
+  "orderNoticePredictionNotPlaced": "Prognose nicht platziert",
+  "orderNoticeOrderNotPlaced": "Auftrag nicht platziert",
+  "orderNoticeNotConfirmed": "Noch nicht bestätigt",
+  "orderNoticeOpenToSee": "Öffne Kute, um zu sehen, was passiert ist.",
+  "orderNoticeProgressChannel": "Aufträge in Bearbeitung",
+  "orderNoticeProgressChannelDescription": "Der Fortschritt einer Prognose oder eines Auftrags, während Kute im Hintergrund ist.",
+  "orderNoticeResultChannel": "Auftragsergebnisse",
+  "orderNoticeResultChannelDescription": "Ob eine Prognose oder ein Auftrag, der platziert wurde, während Kute im Hintergrund war, durchgegangen ist."
 }

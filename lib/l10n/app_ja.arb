@@ -4053,5 +4053,22 @@
   "shareEdgeGoalYourTurn": "次は君の番。Salは待ってる。",
   "receiveArrivesAsBitcoin": "ビットコインで届きます",
   "sendEmailNoLightning": "メール（Lightningアドレスなし）",
-  "barNeedLightningAddress": "Lightningアドレスなし"
+  "barNeedLightningAddress": "Lightningアドレスなし",
+  "orderNoticePlacingPrediction": "予測を注文しています",
+  "orderNoticePlacingOrder": "注文を出しています",
+  "orderNoticeWaitingMoney": "お金の到着を待っています",
+  "orderNoticeConverting": "ドルを変換しています",
+  "orderNoticeSettingUp": "アカウントを設定しています",
+  "orderNoticeSending": "注文を送信しています",
+  "orderNoticeConfirming": "プラットフォームと確認しています",
+  "orderNoticePredictionPlaced": "予測を注文しました",
+  "orderNoticeOrderPlaced": "注文しました",
+  "orderNoticePredictionNotPlaced": "予測は注文されませんでした",
+  "orderNoticeOrderNotPlaced": "注文は出されませんでした",
+  "orderNoticeNotConfirmed": "まだ確認されていません",
+  "orderNoticeOpenToSee": "Kuteを開いて何が起きたか確認してください。",
+  "orderNoticeProgressChannel": "処理中の注文",
+  "orderNoticeProgressChannelDescription": "Kuteがバックグラウンドにある間の予測や注文の進行状況。",
+  "orderNoticeResultChannel": "注文の結果",
+  "orderNoticeResultChannelDescription": "Kuteがバックグラウンドにある間に出した予測や注文が通ったかどうか。"
 }

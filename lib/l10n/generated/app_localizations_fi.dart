@@ -14390,4 +14390,57 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get barNeedLightningAddress => 'Ei Lightning-osoitetta';
+
+  @override
+  String get orderNoticePlacingPrediction => 'Tehdään ennustettasi';
+
+  @override
+  String get orderNoticePlacingOrder => 'Tehdään toimeksiantoasi';
+
+  @override
+  String get orderNoticeWaitingMoney => 'Odotetaan rahojesi saapumista';
+
+  @override
+  String get orderNoticeConverting => 'Vaihdetaan dollareitasi';
+
+  @override
+  String get orderNoticeSettingUp => 'Määritetään tiliäsi';
+
+  @override
+  String get orderNoticeSending => 'Lähetetään toimeksiantoasi';
+
+  @override
+  String get orderNoticeConfirming => 'Vahvistetaan alustan kanssa';
+
+  @override
+  String get orderNoticePredictionPlaced => 'Ennuste tehty';
+
+  @override
+  String get orderNoticeOrderPlaced => 'Toimeksianto tehty';
+
+  @override
+  String get orderNoticePredictionNotPlaced => 'Ennustetta ei tehty';
+
+  @override
+  String get orderNoticeOrderNotPlaced => 'Toimeksiantoa ei tehty';
+
+  @override
+  String get orderNoticeNotConfirmed => 'Ei vielä vahvistettu';
+
+  @override
+  String get orderNoticeOpenToSee => 'Avaa Kute nähdäksesi, mitä tapahtui.';
+
+  @override
+  String get orderNoticeProgressChannel => 'Käsiteltävät toimeksiannot';
+
+  @override
+  String get orderNoticeProgressChannelDescription =>
+      'Ennusteen tai toimeksiannon eteneminen, kun Kute on taustalla.';
+
+  @override
+  String get orderNoticeResultChannel => 'Toimeksiantojen tulokset';
+
+  @override
+  String get orderNoticeResultChannelDescription =>
+      'Menikö Kuten ollessa taustalla tehty ennuste tai toimeksianto läpi.';
 }

@@ -4053,5 +4053,22 @@
   "shareEdgeGoalYourTurn": "Din tur. Sal väntar.",
   "receiveArrivesAsBitcoin": "Kommer som bitcoin",
   "sendEmailNoLightning": "E-post, ingen Lightning-adress",
-  "barNeedLightningAddress": "Ingen Lightning-adress"
+  "barNeedLightningAddress": "Ingen Lightning-adress",
+  "orderNoticePlacingPrediction": "Din prognos läggs",
+  "orderNoticePlacingOrder": "Din order läggs",
+  "orderNoticeWaitingMoney": "Väntar på att dina pengar ska komma",
+  "orderNoticeConverting": "Växlar dina dollar",
+  "orderNoticeSettingUp": "Ställer in ditt konto",
+  "orderNoticeSending": "Skickar din order",
+  "orderNoticeConfirming": "Bekräftar med plattformen",
+  "orderNoticePredictionPlaced": "Prognos lagd",
+  "orderNoticeOrderPlaced": "Order lagd",
+  "orderNoticePredictionNotPlaced": "Prognosen lades inte",
+  "orderNoticeOrderNotPlaced": "Ordern lades inte",
+  "orderNoticeNotConfirmed": "Inte bekräftad ännu",
+  "orderNoticeOpenToSee": "Öppna Kute för att se vad som hände.",
+  "orderNoticeProgressChannel": "Ordrar som läggs",
+  "orderNoticeProgressChannelDescription": "Hur en prognos eller order går medan Kute är i bakgrunden.",
+  "orderNoticeResultChannel": "Orderresultat",
+  "orderNoticeResultChannelDescription": "Om en prognos eller order som lades medan Kute var i bakgrunden gick igenom."
 }

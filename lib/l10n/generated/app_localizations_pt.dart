@@ -14421,4 +14421,57 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get barNeedLightningAddress => 'Sem endereço Lightning';
+
+  @override
+  String get orderNoticePlacingPrediction => 'A registar a sua previsão';
+
+  @override
+  String get orderNoticePlacingOrder => 'A colocar a sua ordem';
+
+  @override
+  String get orderNoticeWaitingMoney => 'À espera de que o seu dinheiro chegue';
+
+  @override
+  String get orderNoticeConverting => 'A converter os seus dólares';
+
+  @override
+  String get orderNoticeSettingUp => 'A configurar a sua conta';
+
+  @override
+  String get orderNoticeSending => 'A enviar a sua ordem';
+
+  @override
+  String get orderNoticeConfirming => 'A confirmar com a plataforma';
+
+  @override
+  String get orderNoticePredictionPlaced => 'Previsão registada';
+
+  @override
+  String get orderNoticeOrderPlaced => 'Ordem colocada';
+
+  @override
+  String get orderNoticePredictionNotPlaced => 'Previsão não registada';
+
+  @override
+  String get orderNoticeOrderNotPlaced => 'Ordem não colocada';
+
+  @override
+  String get orderNoticeNotConfirmed => 'Ainda não confirmado';
+
+  @override
+  String get orderNoticeOpenToSee => 'Abra o Kute para ver o que aconteceu.';
+
+  @override
+  String get orderNoticeProgressChannel => 'Ordens em curso';
+
+  @override
+  String get orderNoticeProgressChannelDescription =>
+      'O progresso de uma previsão ou ordem enquanto o Kute está em segundo plano.';
+
+  @override
+  String get orderNoticeResultChannel => 'Resultados das ordens';
+
+  @override
+  String get orderNoticeResultChannelDescription =>
+      'Se uma previsão ou ordem colocada enquanto o Kute estava em segundo plano foi concluída.';
 }

@@ -14356,4 +14356,57 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get barNeedLightningAddress => 'Žádná adresa Lightning';
+
+  @override
+  String get orderNoticePlacingPrediction => 'Zadává se tvá predikce';
+
+  @override
+  String get orderNoticePlacingOrder => 'Zadává se tvůj pokyn';
+
+  @override
+  String get orderNoticeWaitingMoney => 'Čekáme, až dorazí tvé peníze';
+
+  @override
+  String get orderNoticeConverting => 'Převádíme tvé dolary';
+
+  @override
+  String get orderNoticeSettingUp => 'Nastavujeme tvůj účet';
+
+  @override
+  String get orderNoticeSending => 'Odesíláme tvůj pokyn';
+
+  @override
+  String get orderNoticeConfirming => 'Ověřuje se u platformy';
+
+  @override
+  String get orderNoticePredictionPlaced => 'Predikce zadána';
+
+  @override
+  String get orderNoticeOrderPlaced => 'Pokyn zadán';
+
+  @override
+  String get orderNoticePredictionNotPlaced => 'Predikce nebyla zadána';
+
+  @override
+  String get orderNoticeOrderNotPlaced => 'Pokyn nebyl zadán';
+
+  @override
+  String get orderNoticeNotConfirmed => 'Zatím nepotvrzeno';
+
+  @override
+  String get orderNoticeOpenToSee => 'Otevři Kute a podívej se, co se stalo.';
+
+  @override
+  String get orderNoticeProgressChannel => 'Zadávané pokyny';
+
+  @override
+  String get orderNoticeProgressChannelDescription =>
+      'Průběh predikce nebo pokynu, když je Kute na pozadí.';
+
+  @override
+  String get orderNoticeResultChannel => 'Výsledky pokynů';
+
+  @override
+  String get orderNoticeResultChannelDescription =>
+      'Zda predikce nebo pokyn zadané, když byl Kute na pozadí, prošly.';
 }

@@ -4053,5 +4053,22 @@
   "shareEdgeGoalYourTurn": "Te toca. Sal espera.",
   "receiveArrivesAsBitcoin": "Llega como bitcoin",
   "sendEmailNoLightning": "Correo, sin dirección Lightning",
-  "barNeedLightningAddress": "Sin dirección Lightning"
+  "barNeedLightningAddress": "Sin dirección Lightning",
+  "orderNoticePlacingPrediction": "Realizando tu predicción",
+  "orderNoticePlacingOrder": "Procesando tu orden",
+  "orderNoticeWaitingMoney": "Esperando a que llegue tu dinero",
+  "orderNoticeConverting": "Convirtiendo tus dólares",
+  "orderNoticeSettingUp": "Configurando tu cuenta",
+  "orderNoticeSending": "Enviando tu orden",
+  "orderNoticeConfirming": "Confirmando con la plataforma",
+  "orderNoticePredictionPlaced": "Predicción realizada",
+  "orderNoticeOrderPlaced": "Orden enviada",
+  "orderNoticePredictionNotPlaced": "Predicción no realizada",
+  "orderNoticeOrderNotPlaced": "Orden no enviada",
+  "orderNoticeNotConfirmed": "Aún sin confirmar",
+  "orderNoticeOpenToSee": "Abre Kute para ver qué pasó.",
+  "orderNoticeProgressChannel": "Órdenes en curso",
+  "orderNoticeProgressChannelDescription": "El progreso de una predicción u orden mientras Kute está en segundo plano.",
+  "orderNoticeResultChannel": "Resultados de órdenes",
+  "orderNoticeResultChannelDescription": "Si una predicción u orden enviada mientras Kute estaba en segundo plano se completó."
 }

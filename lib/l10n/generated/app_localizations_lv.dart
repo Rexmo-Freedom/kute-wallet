@@ -14332,4 +14332,57 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get barNeedLightningAddress => 'Nav Lightning adreses';
+
+  @override
+  String get orderNoticePlacingPrediction => 'Veic tavu prognozi';
+
+  @override
+  String get orderNoticePlacingOrder => 'Veic tavu rīkojumu';
+
+  @override
+  String get orderNoticeWaitingMoney => 'Gaidām, kad pienāks tava nauda';
+
+  @override
+  String get orderNoticeConverting => 'Konvertējam tavus dolārus';
+
+  @override
+  String get orderNoticeSettingUp => 'Iestatām tavu kontu';
+
+  @override
+  String get orderNoticeSending => 'Sūtām tavu rīkojumu';
+
+  @override
+  String get orderNoticeConfirming => 'Notiek apstiprināšana ar platformu';
+
+  @override
+  String get orderNoticePredictionPlaced => 'Prognoze veikta';
+
+  @override
+  String get orderNoticeOrderPlaced => 'Rīkojums veikts';
+
+  @override
+  String get orderNoticePredictionNotPlaced => 'Prognoze nav veikta';
+
+  @override
+  String get orderNoticeOrderNotPlaced => 'Rīkojums nav veikts';
+
+  @override
+  String get orderNoticeNotConfirmed => 'Vēl nav apstiprināts';
+
+  @override
+  String get orderNoticeOpenToSee => 'Atver Kute, lai redzētu, kas notika.';
+
+  @override
+  String get orderNoticeProgressChannel => 'Izpildē esoši rīkojumi';
+
+  @override
+  String get orderNoticeProgressChannelDescription =>
+      'Prognozes vai rīkojuma gaita, kamēr Kute ir fonā.';
+
+  @override
+  String get orderNoticeResultChannel => 'Rīkojumu rezultāti';
+
+  @override
+  String get orderNoticeResultChannelDescription =>
+      'Vai prognoze vai rīkojums, kas veikts, kamēr Kute bija fonā, izdevās.';
 }

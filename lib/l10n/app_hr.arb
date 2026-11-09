@@ -4053,5 +4053,22 @@
   "shareEdgeGoalYourTurn": "Ti si na redu. Sal će čekati.",
   "receiveArrivesAsBitcoin": "Stiže kao bitcoin",
   "sendEmailNoLightning": "E-pošta, bez Lightning adrese",
-  "barNeedLightningAddress": "Nema Lightning adrese"
+  "barNeedLightningAddress": "Nema Lightning adrese",
+  "orderNoticePlacingPrediction": "Vaše predviđanje se postavlja",
+  "orderNoticePlacingOrder": "Vaš nalog se postavlja",
+  "orderNoticeWaitingMoney": "Čekamo da vaš novac stigne",
+  "orderNoticeConverting": "Mijenjamo vaše dolare",
+  "orderNoticeSettingUp": "Postavljamo vaš račun",
+  "orderNoticeSending": "Šaljemo vaš nalog",
+  "orderNoticeConfirming": "Potvrđuje se s platformom",
+  "orderNoticePredictionPlaced": "Predviđanje postavljeno",
+  "orderNoticeOrderPlaced": "Nalog postavljen",
+  "orderNoticePredictionNotPlaced": "Predviđanje nije postavljeno",
+  "orderNoticeOrderNotPlaced": "Nalog nije postavljen",
+  "orderNoticeNotConfirmed": "Još nije potvrđeno",
+  "orderNoticeOpenToSee": "Otvorite Kute da vidite što se dogodilo.",
+  "orderNoticeProgressChannel": "Nalozi u tijeku",
+  "orderNoticeProgressChannelDescription": "Napredak predviđanja ili naloga dok je Kute u pozadini.",
+  "orderNoticeResultChannel": "Rezultati naloga",
+  "orderNoticeResultChannelDescription": "Je li predviđanje ili nalog postavljen dok je Kute bio u pozadini prošao."
 }

@@ -14435,4 +14435,58 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get barNeedLightningAddress => 'Fără adresă Lightning';
+
+  @override
+  String get orderNoticePlacingPrediction => 'Se plasează predicția ta';
+
+  @override
+  String get orderNoticePlacingOrder => 'Se plasează ordinul tău';
+
+  @override
+  String get orderNoticeWaitingMoney => 'Așteptăm să ajungă banii tăi';
+
+  @override
+  String get orderNoticeConverting => 'Se convertesc dolarii tăi';
+
+  @override
+  String get orderNoticeSettingUp => 'Se configurează contul tău';
+
+  @override
+  String get orderNoticeSending => 'Se trimite ordinul tău';
+
+  @override
+  String get orderNoticeConfirming => 'Se confirmă cu platforma';
+
+  @override
+  String get orderNoticePredictionPlaced => 'Predicție plasată';
+
+  @override
+  String get orderNoticeOrderPlaced => 'Ordin plasat';
+
+  @override
+  String get orderNoticePredictionNotPlaced => 'Predicția nu a fost plasată';
+
+  @override
+  String get orderNoticeOrderNotPlaced => 'Ordinul nu a fost plasat';
+
+  @override
+  String get orderNoticeNotConfirmed => 'Încă neconfirmat';
+
+  @override
+  String get orderNoticeOpenToSee =>
+      'Deschide Kute pentru a vedea ce s-a întâmplat.';
+
+  @override
+  String get orderNoticeProgressChannel => 'Ordine în curs';
+
+  @override
+  String get orderNoticeProgressChannelDescription =>
+      'Evoluția unei predicții sau a unui ordin cât timp Kute este în fundal.';
+
+  @override
+  String get orderNoticeResultChannel => 'Rezultatele ordinelor';
+
+  @override
+  String get orderNoticeResultChannelDescription =>
+      'Dacă o predicție sau un ordin plasat cât timp Kute era în fundal a reușit.';
 }

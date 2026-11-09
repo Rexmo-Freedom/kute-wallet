@@ -14396,4 +14396,59 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get barNeedLightningAddress => 'Nincs Lightning-cím';
+
+  @override
+  String get orderNoticePlacingPrediction =>
+      'Előrejelzésed leadása folyamatban';
+
+  @override
+  String get orderNoticePlacingOrder => 'Megbízásod leadása folyamatban';
+
+  @override
+  String get orderNoticeWaitingMoney => 'Várjuk, hogy megérkezzen a pénzed';
+
+  @override
+  String get orderNoticeConverting => 'Dollárjaid átváltása';
+
+  @override
+  String get orderNoticeSettingUp => 'Fiókod beállítása';
+
+  @override
+  String get orderNoticeSending => 'Megbízásod küldése';
+
+  @override
+  String get orderNoticeConfirming => 'Megerősítés a platformmal';
+
+  @override
+  String get orderNoticePredictionPlaced => 'Előrejelzés leadva';
+
+  @override
+  String get orderNoticeOrderPlaced => 'Megbízás leadva';
+
+  @override
+  String get orderNoticePredictionNotPlaced => 'Az előrejelzés nem lett leadva';
+
+  @override
+  String get orderNoticeOrderNotPlaced => 'A megbízás nem lett leadva';
+
+  @override
+  String get orderNoticeNotConfirmed => 'Még nincs megerősítve';
+
+  @override
+  String get orderNoticeOpenToSee =>
+      'Nyisd meg a Kute-ot, hogy lásd, mi történt.';
+
+  @override
+  String get orderNoticeProgressChannel => 'Folyamatban lévő megbízások';
+
+  @override
+  String get orderNoticeProgressChannelDescription =>
+      'Egy előrejelzés vagy megbízás állása, amíg a Kute a háttérben van.';
+
+  @override
+  String get orderNoticeResultChannel => 'Megbízások eredménye';
+
+  @override
+  String get orderNoticeResultChannelDescription =>
+      'Hogy a Kute háttérben léte alatt leadott előrejelzés vagy megbízás sikerült-e.';
 }

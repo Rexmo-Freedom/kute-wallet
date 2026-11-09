@@ -14364,4 +14364,57 @@ class AppLocalizationsDa extends AppLocalizations {
 
   @override
   String get barNeedLightningAddress => 'Ingen Lightning-adresse';
+
+  @override
+  String get orderNoticePlacingPrediction => 'Din forudsigelse afgives';
+
+  @override
+  String get orderNoticePlacingOrder => 'Din ordre afgives';
+
+  @override
+  String get orderNoticeWaitingMoney => 'Venter på, at dine penge ankommer';
+
+  @override
+  String get orderNoticeConverting => 'Veksler dine dollars';
+
+  @override
+  String get orderNoticeSettingUp => 'Opsætter din konto';
+
+  @override
+  String get orderNoticeSending => 'Sender din ordre';
+
+  @override
+  String get orderNoticeConfirming => 'Bekræfter med platformen';
+
+  @override
+  String get orderNoticePredictionPlaced => 'Forudsigelse afgivet';
+
+  @override
+  String get orderNoticeOrderPlaced => 'Ordre afgivet';
+
+  @override
+  String get orderNoticePredictionNotPlaced => 'Forudsigelse ikke afgivet';
+
+  @override
+  String get orderNoticeOrderNotPlaced => 'Ordre ikke afgivet';
+
+  @override
+  String get orderNoticeNotConfirmed => 'Ikke bekræftet endnu';
+
+  @override
+  String get orderNoticeOpenToSee => 'Åbn Kute for at se, hvad der skete.';
+
+  @override
+  String get orderNoticeProgressChannel => 'Ordrer, der afgives';
+
+  @override
+  String get orderNoticeProgressChannelDescription =>
+      'Fremgangen for en forudsigelse eller ordre, mens Kute er i baggrunden.';
+
+  @override
+  String get orderNoticeResultChannel => 'Ordreresultater';
+
+  @override
+  String get orderNoticeResultChannelDescription =>
+      'Om en forudsigelse eller ordre afgivet, mens Kute var i baggrunden, gik igennem.';
 }

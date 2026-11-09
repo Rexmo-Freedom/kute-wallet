@@ -14464,4 +14464,58 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get barNeedLightningAddress => 'Keine Lightning-Adresse';
+
+  @override
+  String get orderNoticePlacingPrediction => 'Deine Prognose wird platziert';
+
+  @override
+  String get orderNoticePlacingOrder => 'Dein Auftrag wird platziert';
+
+  @override
+  String get orderNoticeWaitingMoney => 'Warten, bis dein Geld ankommt';
+
+  @override
+  String get orderNoticeConverting => 'Deine Dollar werden umgetauscht';
+
+  @override
+  String get orderNoticeSettingUp => 'Dein Konto wird eingerichtet';
+
+  @override
+  String get orderNoticeSending => 'Dein Auftrag wird gesendet';
+
+  @override
+  String get orderNoticeConfirming => 'Wird mit der Plattform bestätigt';
+
+  @override
+  String get orderNoticePredictionPlaced => 'Prognose platziert';
+
+  @override
+  String get orderNoticeOrderPlaced => 'Auftrag platziert';
+
+  @override
+  String get orderNoticePredictionNotPlaced => 'Prognose nicht platziert';
+
+  @override
+  String get orderNoticeOrderNotPlaced => 'Auftrag nicht platziert';
+
+  @override
+  String get orderNoticeNotConfirmed => 'Noch nicht bestätigt';
+
+  @override
+  String get orderNoticeOpenToSee =>
+      'Öffne Kute, um zu sehen, was passiert ist.';
+
+  @override
+  String get orderNoticeProgressChannel => 'Aufträge in Bearbeitung';
+
+  @override
+  String get orderNoticeProgressChannelDescription =>
+      'Der Fortschritt einer Prognose oder eines Auftrags, während Kute im Hintergrund ist.';
+
+  @override
+  String get orderNoticeResultChannel => 'Auftragsergebnisse';
+
+  @override
+  String get orderNoticeResultChannelDescription =>
+      'Ob eine Prognose oder ein Auftrag, der platziert wurde, während Kute im Hintergrund war, durchgegangen ist.';
 }

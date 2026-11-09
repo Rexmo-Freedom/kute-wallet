@@ -14462,4 +14462,57 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get barNeedLightningAddress => 'Καμία διεύθυνση Lightning';
+
+  @override
+  String get orderNoticePlacingPrediction => 'Η πρόβλεψή σου καταχωρίζεται';
+
+  @override
+  String get orderNoticePlacingOrder => 'Η εντολή σου καταχωρίζεται';
+
+  @override
+  String get orderNoticeWaitingMoney => 'Περιμένουμε να φτάσουν τα χρήματά σου';
+
+  @override
+  String get orderNoticeConverting => 'Μετατρέπουμε τα δολάριά σου';
+
+  @override
+  String get orderNoticeSettingUp => 'Ρυθμίζουμε τον λογαριασμό σου';
+
+  @override
+  String get orderNoticeSending => 'Στέλνουμε την εντολή σου';
+
+  @override
+  String get orderNoticeConfirming => 'Επιβεβαίωση με την πλατφόρμα';
+
+  @override
+  String get orderNoticePredictionPlaced => 'Η πρόβλεψη καταχωρήθηκε';
+
+  @override
+  String get orderNoticeOrderPlaced => 'Η εντολή καταχωρήθηκε';
+
+  @override
+  String get orderNoticePredictionNotPlaced => 'Η πρόβλεψη δεν καταχωρήθηκε';
+
+  @override
+  String get orderNoticeOrderNotPlaced => 'Η εντολή δεν καταχωρήθηκε';
+
+  @override
+  String get orderNoticeNotConfirmed => 'Δεν επιβεβαιώθηκε ακόμη';
+
+  @override
+  String get orderNoticeOpenToSee => 'Άνοιξε το Kute για να δεις τι συνέβη.';
+
+  @override
+  String get orderNoticeProgressChannel => 'Εντολές σε εξέλιξη';
+
+  @override
+  String get orderNoticeProgressChannelDescription =>
+      'Η πρόοδος μιας πρόβλεψης ή εντολής όσο το Kute είναι στο παρασκήνιο.';
+
+  @override
+  String get orderNoticeResultChannel => 'Αποτελέσματα εντολών';
+
+  @override
+  String get orderNoticeResultChannelDescription =>
+      'Αν μια πρόβλεψη ή εντολή που καταχωρίστηκε όσο το Kute ήταν στο παρασκήνιο πέρασε.';
 }

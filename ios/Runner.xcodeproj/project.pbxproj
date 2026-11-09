@@ -39,6 +39,7 @@
 		C0A7B1E52FD0000100A1B2C3 /* ContinuousHapticsPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A7B1E42FD0000100A1B2C3 /* ContinuousHapticsPlugin.swift */; };
 		D1E2F3A52FD0000100A1B2C3 /* NetworkPathPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E2F3A42FD0000100A1B2C3 /* NetworkPathPlugin.swift */; };
 		D1E2F3A72FD0000100A1B2C3 /* DeviceRegionPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E2F3A62FD0000100A1B2C3 /* DeviceRegionPlugin.swift */; };
+		B6A7C8DA2FD0000100A1B2C3 /* BackgroundGracePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6A7C8D92FD0000100A1B2C3 /* BackgroundGracePlugin.swift */; };
 		CE5FB5C9372455EEA5EF696C /* TaskProtocol.swift in Resources */ = {isa = PBXBuildFile; fileRef = FBF8D9F665EDD1183BDB2A48 /* TaskProtocol.swift */; settings = {ASSET_TAGS = (BreezSDKLiquid, ); }; };
 /* End PBXBuildFile section */
 
@@ -107,6 +108,7 @@
 		C0A7B1E42FD0000100A1B2C3 /* ContinuousHapticsPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ContinuousHapticsPlugin.swift; path = Runner/ContinuousHapticsPlugin.swift; sourceTree = "<group>"; };
 		D1E2F3A42FD0000100A1B2C3 /* NetworkPathPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NetworkPathPlugin.swift; path = Runner/NetworkPathPlugin.swift; sourceTree = "<group>"; };
 		D1E2F3A62FD0000100A1B2C3 /* DeviceRegionPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DeviceRegionPlugin.swift; path = Runner/DeviceRegionPlugin.swift; sourceTree = "<group>"; };
+		B6A7C8D92FD0000100A1B2C3 /* BackgroundGracePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BackgroundGracePlugin.swift; path = Runner/BackgroundGracePlugin.swift; sourceTree = "<group>"; };
 		CF68AAFB9D7935216A015BAD /* LnurlPayVerify.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LnurlPayVerify.swift; path = ../.symlinks/plugins/flutter_breez_liquid/ios/Sources/BreezSDKLiquid/Task/LnurlPayVerify.swift; sourceTree = "<group>"; };
 		EDE8FBDDC84587232CDA70B0 /* Pods-RunnerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release.xcconfig"; sourceTree = "<group>"; };
 		EEFDD1AF569379E4F1D83736 /* LnurlPayInvoice.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LnurlPayInvoice.swift; path = ../.symlinks/plugins/flutter_breez_liquid/ios/Sources/BreezSDKLiquid/Task/LnurlPayInvoice.swift; sourceTree = "<group>"; };
@@ -223,6 +225,7 @@
 				C0A7B1E42FD0000100A1B2C3 /* ContinuousHapticsPlugin.swift */,
 				D1E2F3A42FD0000100A1B2C3 /* NetworkPathPlugin.swift */,
 				D1E2F3A62FD0000100A1B2C3 /* DeviceRegionPlugin.swift */,
+				B6A7C8D92FD0000100A1B2C3 /* BackgroundGracePlugin.swift */,
 				9740EEB11CF90186004384FC /* Flutter */,
 				97C146F01CF9000F007C117D /* Runner */,
 				97C146EF1CF9000F007C117D /* Products */,
@@ -566,6 +569,7 @@
 				C0A7B1E52FD0000100A1B2C3 /* ContinuousHapticsPlugin.swift in Sources */,
 				D1E2F3A52FD0000100A1B2C3 /* NetworkPathPlugin.swift in Sources */,
 				D1E2F3A72FD0000100A1B2C3 /* DeviceRegionPlugin.swift in Sources */,
+				B6A7C8DA2FD0000100A1B2C3 /* BackgroundGracePlugin.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

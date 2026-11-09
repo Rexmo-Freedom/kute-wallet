@@ -13910,4 +13910,57 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get barNeedLightningAddress => 'Lightningアドレスなし';
+
+  @override
+  String get orderNoticePlacingPrediction => '予測を注文しています';
+
+  @override
+  String get orderNoticePlacingOrder => '注文を出しています';
+
+  @override
+  String get orderNoticeWaitingMoney => 'お金の到着を待っています';
+
+  @override
+  String get orderNoticeConverting => 'ドルを変換しています';
+
+  @override
+  String get orderNoticeSettingUp => 'アカウントを設定しています';
+
+  @override
+  String get orderNoticeSending => '注文を送信しています';
+
+  @override
+  String get orderNoticeConfirming => 'プラットフォームと確認しています';
+
+  @override
+  String get orderNoticePredictionPlaced => '予測を注文しました';
+
+  @override
+  String get orderNoticeOrderPlaced => '注文しました';
+
+  @override
+  String get orderNoticePredictionNotPlaced => '予測は注文されませんでした';
+
+  @override
+  String get orderNoticeOrderNotPlaced => '注文は出されませんでした';
+
+  @override
+  String get orderNoticeNotConfirmed => 'まだ確認されていません';
+
+  @override
+  String get orderNoticeOpenToSee => 'Kuteを開いて何が起きたか確認してください。';
+
+  @override
+  String get orderNoticeProgressChannel => '処理中の注文';
+
+  @override
+  String get orderNoticeProgressChannelDescription =>
+      'Kuteがバックグラウンドにある間の予測や注文の進行状況。';
+
+  @override
+  String get orderNoticeResultChannel => '注文の結果';
+
+  @override
+  String get orderNoticeResultChannelDescription =>
+      'Kuteがバックグラウンドにある間に出した予測や注文が通ったかどうか。';
 }

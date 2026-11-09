@@ -14412,4 +14412,57 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get barNeedLightningAddress => 'Geen Lightning-adres';
+
+  @override
+  String get orderNoticePlacingPrediction => 'Je voorspelling wordt geplaatst';
+
+  @override
+  String get orderNoticePlacingOrder => 'Je order wordt geplaatst';
+
+  @override
+  String get orderNoticeWaitingMoney => 'Wachten tot je geld binnen is';
+
+  @override
+  String get orderNoticeConverting => 'Je dollars worden omgezet';
+
+  @override
+  String get orderNoticeSettingUp => 'Je account wordt ingesteld';
+
+  @override
+  String get orderNoticeSending => 'Je order wordt verzonden';
+
+  @override
+  String get orderNoticeConfirming => 'Bevestigen bij het platform';
+
+  @override
+  String get orderNoticePredictionPlaced => 'Voorspelling geplaatst';
+
+  @override
+  String get orderNoticeOrderPlaced => 'Order geplaatst';
+
+  @override
+  String get orderNoticePredictionNotPlaced => 'Voorspelling niet geplaatst';
+
+  @override
+  String get orderNoticeOrderNotPlaced => 'Order niet geplaatst';
+
+  @override
+  String get orderNoticeNotConfirmed => 'Nog niet bevestigd';
+
+  @override
+  String get orderNoticeOpenToSee => 'Open Kute om te zien wat er is gebeurd.';
+
+  @override
+  String get orderNoticeProgressChannel => 'Orders in behandeling';
+
+  @override
+  String get orderNoticeProgressChannelDescription =>
+      'De voortgang van een voorspelling of order terwijl Kute op de achtergrond is.';
+
+  @override
+  String get orderNoticeResultChannel => 'Orderresultaten';
+
+  @override
+  String get orderNoticeResultChannelDescription =>
+      'Of een voorspelling of order die is geplaatst terwijl Kute op de achtergrond was, is gelukt.';
 }

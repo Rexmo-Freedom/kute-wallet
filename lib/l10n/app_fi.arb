@@ -4053,5 +4053,22 @@
   "shareEdgeGoalYourTurn": "Sinun vuorosi. Sal odottaa.",
   "receiveArrivesAsBitcoin": "Saapuu bitcoinina",
   "sendEmailNoLightning": "Sähköposti, ei Lightning-osoitetta",
-  "barNeedLightningAddress": "Ei Lightning-osoitetta"
+  "barNeedLightningAddress": "Ei Lightning-osoitetta",
+  "orderNoticePlacingPrediction": "Tehdään ennustettasi",
+  "orderNoticePlacingOrder": "Tehdään toimeksiantoasi",
+  "orderNoticeWaitingMoney": "Odotetaan rahojesi saapumista",
+  "orderNoticeConverting": "Vaihdetaan dollareitasi",
+  "orderNoticeSettingUp": "Määritetään tiliäsi",
+  "orderNoticeSending": "Lähetetään toimeksiantoasi",
+  "orderNoticeConfirming": "Vahvistetaan alustan kanssa",
+  "orderNoticePredictionPlaced": "Ennuste tehty",
+  "orderNoticeOrderPlaced": "Toimeksianto tehty",
+  "orderNoticePredictionNotPlaced": "Ennustetta ei tehty",
+  "orderNoticeOrderNotPlaced": "Toimeksiantoa ei tehty",
+  "orderNoticeNotConfirmed": "Ei vielä vahvistettu",
+  "orderNoticeOpenToSee": "Avaa Kute nähdäksesi, mitä tapahtui.",
+  "orderNoticeProgressChannel": "Käsiteltävät toimeksiannot",
+  "orderNoticeProgressChannelDescription": "Ennusteen tai toimeksiannon eteneminen, kun Kute on taustalla.",
+  "orderNoticeResultChannel": "Toimeksiantojen tulokset",
+  "orderNoticeResultChannelDescription": "Menikö Kuten ollessa taustalla tehty ennuste tai toimeksianto läpi."
 }

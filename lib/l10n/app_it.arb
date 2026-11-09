@@ -4053,5 +4053,22 @@
   "shareEdgeGoalYourTurn": "Tocca a te. Sal aspetta.",
   "receiveArrivesAsBitcoin": "Arriva come bitcoin",
   "sendEmailNoLightning": "Email, nessun indirizzo Lightning",
-  "barNeedLightningAddress": "Nessun indirizzo Lightning"
+  "barNeedLightningAddress": "Nessun indirizzo Lightning",
+  "orderNoticePlacingPrediction": "Invio della tua previsione",
+  "orderNoticePlacingOrder": "Invio del tuo ordine",
+  "orderNoticeWaitingMoney": "In attesa che arrivino i tuoi soldi",
+  "orderNoticeConverting": "Conversione dei tuoi dollari",
+  "orderNoticeSettingUp": "Configurazione del tuo account",
+  "orderNoticeSending": "Invio dell'ordine alla piattaforma",
+  "orderNoticeConfirming": "Conferma con la piattaforma",
+  "orderNoticePredictionPlaced": "Previsione inviata",
+  "orderNoticeOrderPlaced": "Ordine inviato",
+  "orderNoticePredictionNotPlaced": "Previsione non inviata",
+  "orderNoticeOrderNotPlaced": "Ordine non inviato",
+  "orderNoticeNotConfirmed": "Non ancora confermato",
+  "orderNoticeOpenToSee": "Apri Kute per vedere cosa è successo.",
+  "orderNoticeProgressChannel": "Ordini in corso",
+  "orderNoticeProgressChannelDescription": "L'avanzamento di una previsione o di un ordine mentre Kute è in background.",
+  "orderNoticeResultChannel": "Risultati degli ordini",
+  "orderNoticeResultChannelDescription": "Se una previsione o un ordine inviato mentre Kute era in background è andato a buon fine."
 }

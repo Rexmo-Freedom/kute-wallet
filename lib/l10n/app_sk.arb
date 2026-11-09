@@ -4053,5 +4053,22 @@
   "shareEdgeGoalYourTurn": "Si na rade. Sal počká.",
   "receiveArrivesAsBitcoin": "Príde ako bitcoin",
   "sendEmailNoLightning": "E-mail, bez adresy Lightning",
-  "barNeedLightningAddress": "Žiadna adresa Lightning"
+  "barNeedLightningAddress": "Žiadna adresa Lightning",
+  "orderNoticePlacingPrediction": "Zadáva sa tvoja predpoveď",
+  "orderNoticePlacingOrder": "Zadáva sa tvoj príkaz",
+  "orderNoticeWaitingMoney": "Čakáme, kým prídu tvoje peniaze",
+  "orderNoticeConverting": "Meníme tvoje doláre",
+  "orderNoticeSettingUp": "Nastavujeme tvoj účet",
+  "orderNoticeSending": "Odosielame tvoj príkaz",
+  "orderNoticeConfirming": "Overuje sa na platforme",
+  "orderNoticePredictionPlaced": "Predpoveď zadaná",
+  "orderNoticeOrderPlaced": "Príkaz zadaný",
+  "orderNoticePredictionNotPlaced": "Predpoveď nebola zadaná",
+  "orderNoticeOrderNotPlaced": "Príkaz nebol zadaný",
+  "orderNoticeNotConfirmed": "Zatiaľ nepotvrdené",
+  "orderNoticeOpenToSee": "Otvor Kute a pozri si, čo sa stalo.",
+  "orderNoticeProgressChannel": "Zadávané príkazy",
+  "orderNoticeProgressChannelDescription": "Priebeh predpovede alebo príkazu, keď je Kute na pozadí.",
+  "orderNoticeResultChannel": "Výsledky príkazov",
+  "orderNoticeResultChannelDescription": "Či predpoveď alebo príkaz zadané, keď bol Kute na pozadí, prešli."
 }

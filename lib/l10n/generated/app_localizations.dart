@@ -24182,6 +24182,108 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No Lightning address'**
   String get barNeedLightningAddress;
+
+  /// Title of the Android progress notification while a Predictions order is being placed in the background (lib/services/platform/order_activity.dart). Never the amount, never an id.
+  ///
+  /// In en, this message translates to:
+  /// **'Placing your prediction'**
+  String get orderNoticePlacingPrediction;
+
+  /// Title of the Android progress notification while an Investing order is being placed in the background. Never the amount, never an id.
+  ///
+  /// In en, this message translates to:
+  /// **'Placing your order'**
+  String get orderNoticePlacingOrder;
+
+  /// Progress notification line: the funding move has not landed at the venue yet.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for your money to arrive'**
+  String get orderNoticeWaitingMoney;
+
+  /// Progress notification line: dollars are being converted for the venue (USDC.e to pUSD, Bitcoin to Dollars).
+  ///
+  /// In en, this message translates to:
+  /// **'Converting your dollars'**
+  String get orderNoticeConverting;
+
+  /// Progress notification line: a one-time venue account setup or an allowance is being set.
+  ///
+  /// In en, this message translates to:
+  /// **'Setting up your account'**
+  String get orderNoticeSettingUp;
+
+  /// Progress notification line: the order itself is being sent to the venue.
+  ///
+  /// In en, this message translates to:
+  /// **'Sending your order'**
+  String get orderNoticeSending;
+
+  /// Progress notification line: the venue has the order and its answer is being confirmed.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirming with the venue'**
+  String get orderNoticeConfirming;
+
+  /// Title of the result notification (Android and iOS) when a prediction placed while the app was in the background went through. The body is the market as shown on the slip.
+  ///
+  /// In en, this message translates to:
+  /// **'Prediction placed'**
+  String get orderNoticePredictionPlaced;
+
+  /// Title of the result notification when an Investing order placed while the app was in the background went through. The body is the market label.
+  ///
+  /// In en, this message translates to:
+  /// **'Order placed'**
+  String get orderNoticeOrderPlaced;
+
+  /// Title of the result notification when a prediction placed in the background failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Prediction not placed'**
+  String get orderNoticePredictionNotPlaced;
+
+  /// Title of the result notification when an Investing order placed in the background failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Order not placed'**
+  String get orderNoticeOrderNotPlaced;
+
+  /// Title of the result notification when the venue took an order but its answer never came; the app keeps checking and never says it failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Not confirmed yet'**
+  String get orderNoticeNotConfirmed;
+
+  /// Body of a failed or unconfirmed result notification: the slip in the app has the detail.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Kute to see what happened.'**
+  String get orderNoticeOpenToSee;
+
+  /// Android notification channel name (Settings > Notifications) for the quiet progress notification of an order being placed.
+  ///
+  /// In en, this message translates to:
+  /// **'Orders being placed'**
+  String get orderNoticeProgressChannel;
+
+  /// Android notification channel description for the progress notification.
+  ///
+  /// In en, this message translates to:
+  /// **'The progress of a prediction or order while Kute is in the background.'**
+  String get orderNoticeProgressChannelDescription;
+
+  /// Android notification channel name for the result notification of an order placed in the background.
+  ///
+  /// In en, this message translates to:
+  /// **'Order results'**
+  String get orderNoticeResultChannel;
+
+  /// Android notification channel description for the result notification.
+  ///
+  /// In en, this message translates to:
+  /// **'Whether a prediction or order placed while Kute was in the background went through.'**
+  String get orderNoticeResultChannelDescription;
 }
 
 class _AppLocalizationsDelegate

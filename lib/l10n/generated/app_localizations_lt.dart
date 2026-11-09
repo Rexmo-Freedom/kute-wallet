@@ -14421,4 +14421,58 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get barNeedLightningAddress => 'Lightning adreso nėra';
+
+  @override
+  String get orderNoticePlacingPrediction => 'Pateikiama jūsų prognozė';
+
+  @override
+  String get orderNoticePlacingOrder => 'Pateikiamas jūsų pavedimas';
+
+  @override
+  String get orderNoticeWaitingMoney => 'Laukiame, kol atkeliaus jūsų pinigai';
+
+  @override
+  String get orderNoticeConverting => 'Keičiame jūsų dolerius';
+
+  @override
+  String get orderNoticeSettingUp => 'Nustatome jūsų paskyrą';
+
+  @override
+  String get orderNoticeSending => 'Siunčiame jūsų pavedimą';
+
+  @override
+  String get orderNoticeConfirming => 'Tikrinama su platforma';
+
+  @override
+  String get orderNoticePredictionPlaced => 'Prognozė pateikta';
+
+  @override
+  String get orderNoticeOrderPlaced => 'Pavedimas pateiktas';
+
+  @override
+  String get orderNoticePredictionNotPlaced => 'Prognozė nepateikta';
+
+  @override
+  String get orderNoticeOrderNotPlaced => 'Pavedimas nepateiktas';
+
+  @override
+  String get orderNoticeNotConfirmed => 'Dar nepatvirtinta';
+
+  @override
+  String get orderNoticeOpenToSee =>
+      'Atidarykite Kute, kad pamatytumėte, kas nutiko.';
+
+  @override
+  String get orderNoticeProgressChannel => 'Vykdomi pavedimai';
+
+  @override
+  String get orderNoticeProgressChannelDescription =>
+      'Prognozės ar pavedimo eiga, kol Kute veikia fone.';
+
+  @override
+  String get orderNoticeResultChannel => 'Pavedimų rezultatai';
+
+  @override
+  String get orderNoticeResultChannelDescription =>
+      'Ar prognozė arba pavedimas, pateikti Kute veikiant fone, pavyko.';
 }
