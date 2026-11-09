@@ -83,7 +83,7 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart'
     show OneBalanceVenue;
 import 'package:kute/services/one_balance/order_funding.dart'
-    show OrderFundingJourney, OrderFundingStage;
+    show OrderFundingJourney, OrderFundingLeg, OrderFundingStage;
 import 'package:kute/services/one_balance/prediction_funding_ledger.dart';
 import 'package:kute/services/one_balance/funded_orders.dart';
 import 'package:kute/services/one_balance/money_steps.dart';
@@ -787,14 +787,26 @@ class PendingBetAutoFire {
         current.fundedRunId == intent.fundedRunId;
   }
 
+  /// When the current placement handed its order to the trading notifier:
+  /// the `ready` step it reports back closes the `venue_count` leg (the
+  /// order's collateral check, until the book counts the money).
+  DateTime? _placeStartedAt;
+
   void _placementStep(PendingBetIntent intent, String step) {
     if (!_sameAttempt(intent)) return;
     if (step == 'ready') {
       _setReadiness(PredictionsReadiness.ready);
       final intent = ref.read(pendingPolymarketBetProvider);
       if (intent?.funded == true) {
-        OrderFundingJourney.instance.credited(OneBalanceVenue.predictions);
+        final journey = OrderFundingJourney.instance;
+        final from = _placeStartedAt;
+        if (from != null) {
+          journey.leg(OneBalanceVenue.predictions, OrderFundingLeg.venueCount,
+              OrderFundingJourney.clock().difference(from).inMilliseconds);
+        }
+        journey.credited(OneBalanceVenue.predictions);
       }
+      _placeStartedAt = null;
     } else if (step == 'approving') {
       _setReadiness(PredictionsReadiness.approving, approveSeen: true);
     }
@@ -1226,6 +1238,7 @@ class PendingBetAutoFire {
           }
           PredictionFundingLedger.instance.reserve(intent.fundQuoteRef);
           try {
+            _placeStartedAt = OrderFundingJourney.clock();
             await tradingNotifier.placeOrder(
               tokenId: intent.tokenId,
               side: OrderSide.buy,
@@ -1395,9 +1408,17 @@ class PendingBetAutoFire {
       final approvedMax = polymarketFundedWorstPrice(intent);
       // A deposit that landed as USDC.e is converted first, so the
       // conversion never sits between the book read and the signature.
-      await tradingNotifier
+      final wrapFrom = OrderFundingJourney.clock();
+      final converted = await tradingNotifier
           .readyCollateralForBuy(fees.allInCost(intent.amount, approvedMax));
       if (!_sameAttempt(intent)) return;
+      if (converted && funded) {
+        // The conversion's seconds, for the `legs` breakdown.
+        journey.leg(
+            OneBalanceVenue.predictions,
+            OrderFundingLeg.wrap,
+            OrderFundingJourney.clock().difference(wrapFrom).inMilliseconds);
+      }
 
       AuthGrant? approval;
       Map<String, dynamic>? response;
@@ -1526,6 +1547,7 @@ class PendingBetAutoFire {
                 .betPlacingOrder);
         ledger.reserve(fundingKey);
         try {
+          _placeStartedAt = OrderFundingJourney.clock();
           response = await tradingNotifier.placeOrder(
             tokenId: intent.tokenId,
             side: OrderSide.buy,

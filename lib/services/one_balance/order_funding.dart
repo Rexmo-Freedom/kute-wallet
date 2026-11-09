@@ -495,9 +495,12 @@ class OrderFundingController {
     }
 
     // Quote: the amount to move, from the venue's estimate unless the slip
-    // already had it approved.
+    // already had it approved. The rail's minimum is read beside the
+    // estimate, never after it: two independent answers, one wait.
     onStage?.call(OrderFundingStage.quote);
     journey.step(venue, OrderFundingStage.quote);
+    final quotedAt = OrderFundingJourney.clock();
+    final minimumRead = _minimum(funder);
     double fund;
     if (fundUsd != null && fundUsd.isFinite && fundUsd > 0) {
       fund = fundUsd;
@@ -514,8 +517,10 @@ class OrderFundingController {
         return OrderFundingRefused(reason, error: e);
       }
       journey.setFundUsd(venue, fund);
+      journey.leg(venue, OrderFundingLeg.estimate,
+          OrderFundingJourney.clock().difference(quotedAt).inMilliseconds);
     }
-    final minimum = await _minimum(funder);
+    final minimum = await minimumRead;
     if (fund < minimum) fund = minimum;
 
     // Dollars are checked again right here, the last read before any
@@ -740,6 +745,47 @@ class _FundingRun {
   /// Each leg's milliseconds from its start to its money landing, by
   /// source (`ms_leg_bitcoin`, `ms_leg_dollars`, ...).
   final Map<String, int> legMs = {};
+
+  /// Finer legs inside the stages ([OrderFundingLeg]), exact milliseconds
+  /// each, for the `legs` breakdown of `order_funding_completed`.
+  final Map<String, int> subLegs = {};
+}
+
+/// The closed vocabulary of the `legs` breakdown on
+/// `order_funding_completed`: where a funded order's seconds went, one
+/// exact millisecond figure per leg. The four stages are always there;
+/// the finer legs when that run had them.
+abstract final class OrderFundingLeg {
+  /// Sizing the move (the slip's estimate, or the controller's).
+  static const quote = 'quote';
+
+  /// Dollars leaving (the quote verified, the send made).
+  static const fund = 'fund';
+
+  /// The venue crediting the move.
+  static const credit = 'credit';
+
+  /// The order placed on the credit.
+  static const order = 'order';
+
+  /// Inside [quote]: the funder's estimate round trip(s).
+  static const estimate = 'estimate';
+
+  /// Inside [credit] (Predictions): the USDC.e → pUSD conversion.
+  static const wrap = 'wrap';
+
+  /// Inside [credit] (Predictions): the order's collateral check, from
+  /// the placement's start until the order book counts the money (its
+  /// re-reads of the wallet included).
+  static const venueCount = 'venue_count';
+
+  /// Inside [credit] (Investing): the builder-deployed perp dex crediting
+  /// its own collateral after the account's.
+  static const dexCredit = 'dex_credit';
+
+  /// Before [quote]: an order funded from the person's own bitcoin, its
+  /// sats leaving to its dollars landing.
+  static const bitcoin = 'bitcoin';
 }
 
 /// Follows one funded order per venue from the slip's tap to its one
@@ -865,6 +911,35 @@ class OrderFundingJourney {
     run.legMs['ms_leg_$source'] = ms;
   }
 
+  /// A finer leg of the run took [ms] ([name] from [OrderFundingLeg]), for
+  /// the `legs` breakdown. A leg recorded twice keeps its total.
+  void leg(OneBalanceVenue venue, String name, int ms) {
+    final run = _runs[venue];
+    if (run == null || ms < 0) return;
+    run.subLegs[name] = (run.subLegs[name] ?? 0) + ms;
+  }
+
+  /// The `legs` property of `order_funding_completed`: exact milliseconds
+  /// per leg, keyed by [OrderFundingLeg] names. The four stages always;
+  /// [extra] (finer legs) when known. Shared by both emitters (this
+  /// journey and the Investing autofire) so the breakdown reads the same.
+  static Map<String, int> legsBreakdown({
+    required int quoteMs,
+    required int fundMs,
+    int? creditMs,
+    int? orderMs,
+    Map<String, int> extra = const {},
+  }) {
+    int clamp(int ms) => ms.clamp(0, 1 << 31);
+    return {
+      OrderFundingLeg.quote: clamp(quoteMs),
+      OrderFundingLeg.fund: clamp(fundMs),
+      if (creditMs != null) OrderFundingLeg.credit: clamp(creditMs),
+      if (orderMs != null) OrderFundingLeg.order: clamp(orderMs),
+      for (final e in extra.entries) e.key: clamp(e.value),
+    };
+  }
+
   /// The route and per-leg timings for the funnel's end events.
   static Map<String, Object> _legParams(_FundingRun run) => {
         if (run.route != null) 'route': run.route!,
@@ -943,14 +1018,33 @@ class OrderFundingJourney {
     final quoted = run.quotedAt ?? quoteFrom;
     final funded = run.fundedAt ?? quoted;
     final credited = run.creditedAt ?? funded;
+    final quoteMs = quoted.difference(quoteFrom).inMilliseconds;
+    final fundMs = funded.difference(quoted).inMilliseconds;
+    final creditMs = credited.difference(funded).inMilliseconds;
+    final orderMs = now.difference(credited).inMilliseconds;
+    final bitcoinSent = run.bitcoinSentAt;
+    final bitcoinLanded = run.bitcoinLandedAt;
     TrackingService.track('order_funding_completed', params: {
       'venue': orderFundingVenueCode(venue),
       'fund_usd': run.fundUsd,
       'amount_usd': amountUsd ?? run.orderUsd,
-      'ms_quote': quoted.difference(quoteFrom).inMilliseconds,
-      'ms_fund': funded.difference(quoted).inMilliseconds,
-      'ms_credit': credited.difference(funded).inMilliseconds,
-      'ms_order': now.difference(credited).inMilliseconds,
+      'ms_quote': quoteMs,
+      'ms_fund': fundMs,
+      'ms_credit': creditMs,
+      'ms_order': orderMs,
+      // Where the seconds went, one exact figure per leg.
+      'legs': legsBreakdown(
+        quoteMs: quoteMs,
+        fundMs: fundMs,
+        creditMs: creditMs,
+        orderMs: orderMs,
+        extra: {
+          if (bitcoinSent != null && bitcoinLanded != null)
+            OrderFundingLeg.bitcoin:
+                bitcoinLanded.difference(bitcoinSent).inMilliseconds,
+          ...run.subLegs,
+        },
+      ),
       'duration_ms': now.difference(run.startedAt).inMilliseconds,
       'resized': resized,
       if (run.fundingSource != null) 'funding_source': run.fundingSource!,

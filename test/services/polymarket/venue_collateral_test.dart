@@ -6,6 +6,7 @@
 
 import 'dart:io';
 
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/constants/polymarket_constants.dart';
 import 'package:kute/services/polymarket/order_refusal.dart';
@@ -196,6 +197,54 @@ void main() {
     PolymarketPlacementWaits.venueCount = const Duration(seconds: 3);
     PolymarketPlacementWaits.venueCountPoll = const Duration(seconds: 1);
     PolymarketPlacementWaits.conversion = const Duration(seconds: 90);
+  });
+
+  group('the count poll cadence', () {
+    /// A book that counts the buy only after its [lag]th re-read, polled
+    /// with fake-clock sleeps: how long after the first ask it counted.
+    Duration untilCounted({required Duration poll, int lag = 2}) {
+      PolymarketPlacementWaits.venueCountPoll = poll;
+      PolymarketPlacementWaits.venueCount = const Duration(seconds: 10);
+      late Duration took;
+      fakeAsync((async) {
+        var refreshes = 0;
+        bool? counted;
+        Duration? countedAt;
+        polyAwaitVenueCount(
+          costMicros: _usd(3),
+          spenders: polyBuySpenders(_v1Token, negRisk: false),
+          ops: PolyVenueCollateralOps(
+            readVenue: () async => PolyVenueCount(
+                balance: refreshes > lag ? _usd(3) : BigInt.zero),
+            readSplit: ({required fresh}) async =>
+                (pusd: _usd(3), usdce: BigInt.zero),
+            wrap: () async => BigInt.zero,
+            refreshVenue: () async => refreshes++,
+            approveSpender: (_) async => false,
+            sleep: (d) => Future<void>.delayed(d),
+          ),
+        ).then((c) {
+          counted = c;
+          countedAt = async.elapsed;
+        });
+        async.elapse(const Duration(seconds: 10));
+        expect(counted, isTrue);
+        expect(refreshes, lag + 1);
+        took = countedAt!;
+      });
+      return took;
+    }
+
+    test('the book is asked twice a second: a count that catches up on its '
+        'third re-read is seen in 1 s, not 2 s', () {
+      // The setUp above pins the old cadence for the other tests; this is
+      // the default a fresh process starts with.
+      const defaultPoll = Duration(milliseconds: 500);
+      expect(untilCounted(poll: defaultPoll), const Duration(seconds: 1));
+      expect(untilCounted(poll: const Duration(seconds: 1)),
+          const Duration(seconds: 2),
+          reason: 'the old cadence took 2 s for the same book');
+    });
   });
 
   group('before the first order', () {

@@ -160,7 +160,7 @@ import 'package:kute/helpers/auth_grant_registry.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart'
     show OneBalanceVenue;
 import 'package:kute/services/one_balance/venue_funder.dart'
-    show RouteUnavailable, UserGrantAuthorization;
+    show RouteUnavailable, UserGrantAuthorization, VenueMoveQuote;
 import 'package:kute/services/one_balance/venue_cash_funded_order.dart'
     show VenueCashFundedRequest, venueCashFundedOrderRunnerProvider;
 import 'package:kute/providers/venue_sweeper_provider.dart'
@@ -272,6 +272,8 @@ class _FundPlan {
     required this.fundUsd,
     required this.arrivingUsd,
     this.bitcoinSpread,
+    this.quote,
+    this.quotedAt,
   });
 
   final double shortfallUsd;
@@ -281,6 +283,14 @@ class _FundPlan {
   /// The Bitcoin conversion's share Orchestra quoted with the plan (null:
   /// the fallback spread), for a Bitcoin leg's fee line.
   final double? bitcoinSpread;
+
+  /// The funder's estimate this plan was read from, priced for
+  /// [arrivingUsd] (the engine's target), and when: the accept sizes the
+  /// move on it while it is fresh ([HyperliquidVenueFunder.freshFirstQuote])
+  /// instead of asking Orchestra for the same figure again. Null for a
+  /// fallback plan.
+  final VenueMoveQuote? quote;
+  final DateTime? quotedAt;
 
   double get moveFeeUsd => math.max(0, fundUsd - arrivingUsd);
 }
@@ -2324,6 +2334,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
             .read(hyperliquidVenueFunderProvider)
             .estimate(target)
             .timeout(const Duration(seconds: 6));
+        final quotedAt = DateTime.now();
         final fund =
             HyperliquidVenueFunder.fundUsdFor(shortfallUsd: target, quote: quote);
         // Dollars short of the move: a Bitcoin leg may carry part of it,
@@ -2338,6 +2349,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           fundUsd: fund,
           arrivingUsd: target,
           bitcoinSpread: spread,
+          quote: quote,
+          quotedAt: quotedAt,
         );
       } catch (_) {
         plan = _fundPlanFor(shortfallUsd);
@@ -2440,10 +2453,22 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     final double fundUsd;
     final double arrivingUsd;
     final target = OrderFundingEngine.targetUsd(shortfallUsd: shortfallUsd);
+    // The estimate the ticket read for this very target while it was on
+    // screen sizes the move when it is fresh: the accept then waits on the
+    // one verifying estimate at the amount sent, not on two round trips.
+    final held = _fundPlan;
+    final first = HyperliquidVenueFunder.freshFirstQuote(
+      quote: held?.quote,
+      readAt: held?.quotedAt,
+      quotedForUsd: held?.arrivingUsd ?? 0,
+      neededUsd: target,
+      now: quoteStart,
+    );
     try {
       final size = await HyperliquidVenueFunder.sizeFunding(
               ref.read(hyperliquidVenueFunderProvider),
-              neededUsd: target)
+              neededUsd: target,
+              first: first)
           .timeout(const Duration(seconds: 12));
       if (!size.covers(shortfallUsd)) {
         // Even the most the rail sends would not land what the order

@@ -116,7 +116,7 @@ class _Trading extends PolymarketTradingNotifier {
   void nudgeConversion() => nudges++;
 
   @override
-  Future<void> readyCollateralForBuy(double costUsd) async {}
+  Future<bool> readyCollateralForBuy(double costUsd) async => false;
 
   @override
   Future<void> refresh() async {}

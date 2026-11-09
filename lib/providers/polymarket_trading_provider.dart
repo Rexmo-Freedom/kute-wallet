@@ -5480,6 +5480,12 @@ class PolymarketTradingNotifier
         privateKey: privateKey,
         walletAddress: wallet,
         ensureCurrent: ensureCurrent,
+        // The order book keeps its own count of the wallet's pUSD and only
+        // re-reads it on request. It is asked the moment the relayer
+        // reports the conversion mined, blocks before the confirmation
+        // the poll waits on for, so by then it counts the money; the
+        // order path keeps re-reading until it does (venue_collateral.dart).
+        onMined: _refreshVenueCount,
       );
       if (wrapped > BigInt.zero) {
         invalidateBalanceCache();
@@ -5489,23 +5495,29 @@ class PolymarketTradingNotifier
           VenueArrivals.predictionsArrived(ref.read(swapOrdersProvider),
               wallet: wallet, usd: wrapped.toDouble() / 1e6);
         } catch (_) {}
-        // The order book keeps its own count of the wallet's pUSD and only
-        // re-reads it on request. A deposit converted in the background
-        // was otherwise still counted as 0 by the venue, which refused the
-        // first prediction after it.
-        try {
-          await _backendService
-              ?.updateBalanceAllowance(
-                  assetType: 'COLLATERAL', signatureType: 3)
-              .timeout(const Duration(seconds: 8));
-        } catch (_) {
-          // The order path refreshes it again on a refusal.
-        }
+        // Asked once more on the confirmed block (a re-read made at the
+        // mined block can still see the one before it), without holding
+        // the caller: the order path re-reads the count itself before it
+        // signs, and the arrival path reads the chain, not the book.
+        _refreshVenueCount();
         TrackingService.polymarketDepositConverted(
             amountUsd: wrapped.toDouble() / 1e6, trigger: trigger);
       }
       return wrapped;
     });
+  }
+
+  /// Asks the order book to re-read the wallet's collateral
+  /// (`/balance-allowance/update`), without waiting on the answer. A
+  /// failed request is nothing: the order path asks again before every
+  /// read of the count, and again on a refusal.
+  void _refreshVenueCount() {
+    final backend = _backendService;
+    if (backend == null) return;
+    unawaited(backend
+        .updateBalanceAllowance(assetType: 'COLLATERAL', signatureType: 3)
+        .timeout(const Duration(seconds: 8))
+        .then((_) {}, onError: (Object _) {}));
   }
 
   /// A deposit that landed while the app was closed is still USDC.e. On
@@ -6156,11 +6168,11 @@ class PolymarketTradingNotifier
     if (_disposed || wallet == null || wallet.isEmpty || _privateKey == null) {
       return null;
     }
-    final split = await _readCollateralSplit(wallet);
-    if (split == null || _disposed) return null;
+    // The wallet (two chain reads) and the book (a re-read request, then
+    // its count) are independent: read together, one wait, not three.
     final backend = _backendService;
-    PolyVenueCount? venue;
-    if (backend != null) {
+    Future<PolyVenueCount?> venueRead() async {
+      if (backend == null) return null;
       if (refreshVenue) {
         try {
           await backend
@@ -6171,14 +6183,21 @@ class PolymarketTradingNotifier
         }
       }
       try {
-        venue =
-            await _readVenueCount(backend).timeout(const Duration(seconds: 5));
-      } catch (_) {}
+        return await _readVenueCount(backend)
+            .timeout(const Duration(seconds: 5));
+      } catch (_) {
+        return null;
+      }
     }
+
+    final reads = await Future.wait<Object?>(
+        [_readCollateralSplit(wallet), venueRead()]);
+    final split = reads[0] as ({BigInt pusd, BigInt usdce})?;
+    if (split == null || _disposed) return null;
     return (
       pusd: split.pusd,
       usdce: split.usdce,
-      venue: venue,
+      venue: reads[1] as PolyVenueCount?,
       setupDone: tradingReady,
     );
   }
@@ -6200,7 +6219,8 @@ class PolymarketTradingNotifier
   /// between that read and the signature. Never throws: anything left
   /// over is [placeOrder]'s own pre-sign check and refusal path. The
   /// account's reads for the order are prefetched again afterwards.
-  Future<void> readyCollateralForBuy(double costUsd) async {
+  /// True when it converted something (the caller's `wrap` leg).
+  Future<bool> readyCollateralForBuy(double costUsd) async {
     final current = state.valueOrNull;
     final eoa = current?.walletAddress;
     final wallet = current?.proxyWalletAddress;
@@ -6212,7 +6232,7 @@ class PolymarketTradingNotifier
         key == null ||
         !costUsd.isFinite ||
         costUsd <= 0) {
-      return;
+      return false;
     }
     void ensureCurrent() {
       if (_disposed ||
@@ -6230,7 +6250,7 @@ class PolymarketTradingNotifier
             usdce: split.usdce,
             costMicros: BigInt.from((costUsd * 1e6).ceil()),
           )) {
-        return;
+        return false;
       }
       final wrapped = await _wrapHeldUsdcE(
         eoa: eoa,
@@ -6244,12 +6264,14 @@ class PolymarketTradingNotifier
           assetType: 'COLLATERAL',
           signatureType: 3,
         );
+        return true;
       }
     } catch (e) {
       _devLog('[wrap] ready-for-buy conversion: $e');
     } finally {
       prefetchOrderReads();
     }
+    return false;
   }
 
   /// The pUSD / USDC.e split for a buy: the prefetched read for [wallet]

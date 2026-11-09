@@ -82,26 +82,39 @@ class HyperliquidVenueFunder implements VenueFunder {
   /// How many times [sizeFunding] re-prices its answer before it gives up.
   static const int _sizeRounds = 3;
 
+  /// How long an estimate the slip read while the ticket was on screen
+  /// still sizes the move at the accept ([freshFirstQuote]): the same
+  /// window the rail keeps a route's limits for.
+  static const Duration kFirstQuoteFreshFor = HyperCoreMoveRail.kLimitsFreshFor;
+
   /// The ONE sizing of an order's funding on what ARRIVES: what to send
   /// from Dollars so that at least [neededUsd] lands at the venue, read
   /// from the funder's live estimates (flat cost, proportional fee and
   /// the one-time activation of an account Hyperliquid has never seen,
-  /// all inside what the estimate says arrives). The first estimate is
-  /// priced for [neededUsd] itself; the answer is then priced again at
-  /// the amount it would send and topped up by any gap, up to
-  /// [_sizeRounds] times. [FundingSize.covers] is false when even that
-  /// does not land [neededUsd] (the rail's maximum, a quote that keeps
-  /// moving): the caller refuses before anything is approved.
+  /// all inside what the estimate says arrives).
+  ///
+  /// The gross-up is computed locally from ONE estimate priced for
+  /// [neededUsd] ([fundUsdFor]: the route's near-flat cost plus any
+  /// proportional share), then verified with ONE estimate at the exact
+  /// amount it would send, which is the amount approved and sent. The
+  /// sizing estimate is [first] when the slip read it moments ago for
+  /// this very [neededUsd] ([freshFirstQuote]); the accept then waits on
+  /// the single verifying round trip. Only when the verifying estimate
+  /// lands short (a quote that moved, the rail's maximum) is the amount
+  /// topped up by the gap and verified again, up to [_sizeRounds] times
+  /// in all. [FundingSize.covers] is false when even that does not land
+  /// [neededUsd]: the caller refuses before anything is approved.
   static Future<FundingSize> sizeFunding(
     VenueFunder funder, {
     required double neededUsd,
+    VenueMoveQuote? first,
   }) async {
     if (!neededUsd.isFinite || neededUsd <= 0) {
       return const FundingSize(fundUsd: 0, arrivingUsd: 0, minUsd: 0);
     }
-    final first = await funder.estimate(neededUsd);
-    var fund = fundUsdFor(shortfallUsd: neededUsd, quote: first);
-    var quote = first;
+    final sizing = first ?? await funder.estimate(neededUsd);
+    var fund = fundUsdFor(shortfallUsd: neededUsd, quote: sizing);
+    var quote = sizing;
     for (var round = 0; round < _sizeRounds; round++) {
       quote = await funder.estimate(fund);
       final arriving = quote.arrivingUsd.isFinite ? quote.arrivingUsd : 0.0;
@@ -121,6 +134,26 @@ class HyperliquidVenueFunder implements VenueFunder {
         fundUsd: fund,
         arrivingUsd: quote.arrivingUsd.isFinite ? quote.arrivingUsd : 0,
         minUsd: quote.minUsd);
+  }
+
+  /// The estimate a slip read while its ticket was on screen, when it may
+  /// size the move at the accept: priced for this very [neededUsd] (to the
+  /// cent) and read within [kFirstQuoteFreshFor] of [now]. Null otherwise,
+  /// and [sizeFunding] asks for its own. The verifying estimate at the
+  /// amount sent is always fresh; this only spares the sizing round trip.
+  static VenueMoveQuote? freshFirstQuote({
+    required VenueMoveQuote? quote,
+    required DateTime? readAt,
+    required double quotedForUsd,
+    required double neededUsd,
+    required DateTime now,
+  }) {
+    if (quote == null || readAt == null) return null;
+    if (!quotedForUsd.isFinite || !neededUsd.isFinite) return null;
+    if ((quotedForUsd - neededUsd).abs() > 0.005) return null;
+    final age = now.difference(readAt);
+    if (age.isNegative || age >= kFirstQuoteFreshFor) return null;
+    return quote;
   }
 
   @override

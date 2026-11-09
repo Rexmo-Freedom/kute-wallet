@@ -250,6 +250,16 @@ class PredictionsVenueFunder
       throw const RouteUnavailable('below the Predictions minimum');
     }
     final amountBaseUnits = BigInt.from((usd * 1e6).round());
+    final read = _read;
+    // Three independent answers the move needs before its quote (the own
+    // Predictions account, the own Spark refund address, the settlement
+    // runner) are asked together, not one after the other. Each is
+    // awaited below; the sink keeps a failure of one from going unheard
+    // while another is still being read.
+    final sparkRefundRead = read(sparkSelfAddressProvider.future);
+    unawaited(sparkRefundRead.then((_) {}, onError: (Object _) {}));
+    final runnerRead = HotSettlement.runner();
+    unawaited(runnerRead.then((_) {}, onError: (Object _) {}));
     final evm = await _ownPredictionsAccount();
     if (evm == null || evm.isEmpty) {
       throw const RouteUnavailable('Predictions account not ready');
@@ -265,10 +275,9 @@ class PredictionsVenueFunder
 
     var dollarsSent = false;
     String? pendingQuoteRowId;
-    final read = _read;
     try {
-      final sparkRefund = await read(sparkSelfAddressProvider.future);
-      final runner = await HotSettlement.runner();
+      final sparkRefund = await sparkRefundRead;
+      final runner = await runnerRead;
       final settled = await runner.run(HotSettlement.plan(
         read,
         flow: SettlementFlow.moveUsdToPredictions,

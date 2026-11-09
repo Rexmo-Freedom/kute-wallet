@@ -96,7 +96,10 @@ class _Trading extends PolymarketTradingNotifier {
   }
 
   @override
-  Future<void> readyCollateralForBuy(double costUsd) async => readies++;
+  Future<bool> readyCollateralForBuy(double costUsd) async {
+    readies++;
+    return false;
+  }
 
   /// Something of ours throws once the venue has taken an order: a
   /// stand-in for the receipt's bookkeeping, a read or a listener breaking

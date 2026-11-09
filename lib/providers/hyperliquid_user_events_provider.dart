@@ -187,7 +187,11 @@ class HlUserEventsNotifier extends AutoDisposeNotifier<HlUserEventsState> {
     }
     try {
       if (ref.exists(pendingHlOrderAutoFireProvider)) {
-        ref.read(pendingHlOrderAutoFireProvider).accountMoved();
+        // A credit is the queued order's money landing: the account is
+        // read now and again shortly after if that read lags the ledger.
+        ref
+            .read(pendingHlOrderAutoFireProvider)
+            .accountMoved(credited: credits.isNotEmpty);
       } else if (ref.exists(hyperliquidAccountProvider)) {
         ref.invalidate(hyperliquidAccountProvider);
       }

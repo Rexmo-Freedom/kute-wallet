@@ -507,6 +507,67 @@ void main() {
         expect(placement.placed, [20]);
       });
     });
+
+    test(
+        'a ledger CREDIT whose account read lags places within 1 s, not on '
+        'the 4 s tick', () {
+      fakeAsync((async) {
+        final controller = _Controller(() async => _funded);
+        final c = held(controller);
+        final placement = _Placement(resizable: true);
+        queue(c, controller, placement);
+        // Past the first 30 s the poll runs every 4 s: a credit the
+        // socket reports between ticks used to wait for the next one.
+        async.elapse(const Duration(seconds: 31));
+        expect(placement.placed, isEmpty);
+        final creditAt = async.elapsed;
+        // The venue's ledger credits the deposit; its account read shows
+        // the money 600 ms later.
+        c.read(pendingHlOrderAutoFireProvider).accountMoved(credited: true);
+        async.flushMicrotasks();
+        expect(placement.placed, isEmpty, reason: 'the first read lagged');
+        expect(c.read(pendingHyperliquidOrderProvider)!.readiness,
+            HlReadiness.crediting,
+            reason: 'a credit is a credit: the order is crediting, not '
+                'waiting for funds');
+        async.elapse(const Duration(milliseconds: 600));
+        withdrawable = 21;
+        async.elapse(const Duration(milliseconds: 400));
+        async.flushMicrotasks();
+        expect(placement.placed, [20]);
+        final placedAfter = async.elapsed - creditAt;
+        expect(placedAfter, const Duration(seconds: 1),
+            reason: 'the follow-up read 1 s after the credit placed it; '
+                'the next poll tick was 3 s further on');
+        expect(
+            placedAfter, lessThan(PendingHlOrderAutoFire.kAwaitSlowInterval));
+        expect(terminal().status, PendingHlOrderStatus.done);
+      });
+    });
+
+    test('a ledger update that credits nothing is one read, no follow-ups',
+        () {
+      fakeAsync((async) {
+        final controller = _Controller(() async => _funded);
+        final c = held(controller);
+        final placement = _Placement(resizable: true);
+        var built = 0;
+        c.listen(hyperliquidAccountProvider, (_, n) {
+          if (n.hasValue && !n.isLoading) built++;
+        });
+        queue(c, controller, placement);
+        async.elapse(const Duration(seconds: 31));
+        final before = built;
+        c.read(pendingHlOrderAutoFireProvider).accountMoved();
+        async.flushMicrotasks();
+        expect(built, before + 1);
+        expect(c.read(pendingHyperliquidOrderProvider)!.readiness,
+            HlReadiness.waitingFunds);
+        // Nothing before the next 4 s tick but that tick itself.
+        async.elapse(const Duration(milliseconds: 3500));
+        expect(built, before + 1);
+      });
+    });
   });
 
   test('a refused move clears the order and its grant; Dollars untouched',

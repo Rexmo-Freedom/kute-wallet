@@ -87,6 +87,9 @@ class PolymarketPlacementWaits {
   /// anyway. The book normally catches up within a block or two.
   static Duration venueCount = const Duration(seconds: 10);
 
-  /// How often the order book's count is read while waiting for it.
-  static Duration venueCountPoll = const Duration(seconds: 1);
+  /// How often the order book's count is read while waiting for it: twice
+  /// a second (a re-read request and a read each time), so the order goes
+  /// out within half a second of the book counting the money. The budget
+  /// ([venueCount]) is unchanged.
+  static Duration venueCountPoll = const Duration(milliseconds: 500);
 }

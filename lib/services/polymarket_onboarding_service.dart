@@ -1759,6 +1759,10 @@ class PolymarketOnboardingService {
     Future<void> Function(String relayerTxId)? onSubmitted,
     bool requireConfirmed = false,
     void Function()? ensureCurrent,
+    // Told once when the relayer reports the batch mined (in a block,
+    // not yet confirmed), while the poll goes on to the confirmation
+    // [requireConfirmed] waits for. See [_pollTransaction].
+    void Function()? onMined,
   }) async {
     final lockKey = walletAddress.toLowerCase();
     if (!_inFlightBatches.add(lockKey)) {
@@ -1775,6 +1779,7 @@ class PolymarketOnboardingService {
             onSubmitted: onSubmitted,
             requireConfirmed: requireConfirmed,
             ensureCurrent: ensureCurrent,
+            onMined: onMined,
           );
       // A hot batch the relayer refused only because it was still busy or
       // the nonce moved (nothing accepted) is signed again on a fresh
@@ -1808,6 +1813,7 @@ class PolymarketOnboardingService {
     Future<void> Function(String relayerTxId)? onSubmitted,
     bool requireConfirmed = false,
     void Function()? ensureCurrent,
+    void Function()? onMined,
   }) async {
     ensureCurrent?.call();
     final nonce = await _getDepositWalletNonce(eoaAddress);
@@ -1869,7 +1875,8 @@ class PolymarketOnboardingService {
     if (onSubmitted != null) await onSubmitted(txId);
     final String hash;
     try {
-      hash = await _pollTransaction(txId, requireConfirmed: requireConfirmed);
+      hash = await _pollTransaction(txId,
+          requireConfirmed: requireConfirmed, onMined: onMined);
     } catch (e) {
       if (kDebugMode) {
         // ignore: avoid_print
@@ -1991,6 +1998,10 @@ class PolymarketOnboardingService {
     required String privateKey,
     required String walletAddress,
     void Function()? ensureCurrent,
+    // Told once when the relayer reports the conversion mined, before it
+    // is confirmed: the order book can be asked to re-read the wallet
+    // then, while the poll waits on for the confirmation.
+    void Function()? onMined,
   }) async {
     // One conversion per delivered amount: in the wallet's queue, after
     // any action before it is confirmed, and never again for a read that
@@ -2021,6 +2032,7 @@ class PolymarketOnboardingService {
           data: _encodeWrap(_kUsdcEAddress, walletAddress, usdce),
           ensureCurrent: ensureCurrent,
           requireConfirmed: true,
+          onMined: onMined,
         );
       },
       log: kDebugMode
@@ -2044,6 +2056,7 @@ class PolymarketOnboardingService {
     required String data, // hex with or without 0x prefix
     void Function()? ensureCurrent,
     bool requireConfirmed = false,
+    void Function()? onMined,
   }) async {
     ensureCurrent?.call();
     final deadline = DateTime.now()
@@ -2064,6 +2077,7 @@ class PolymarketOnboardingService {
       deadline: deadline,
       ensureCurrent: ensureCurrent,
       requireConfirmed: requireConfirmed,
+      onMined: onMined,
     );
   }
 
@@ -3281,14 +3295,52 @@ class PolymarketOnboardingService {
     return txId.toString();
   }
 
-  /// How long a receipt poll waits before asking the relayer again: every
-  /// second for the first 20 s (a Polygon block is about 2 s, so a deposit's
-  /// conversion is seen within a second of landing), then every 2 s. Also
-  /// the cadence a deposit's own path re-reads the wallet at.
+  /// How long a deposit's own path waits before re-reading the wallet for
+  /// the delivered USDC.e: every second for the first 20 s (a Polygon block
+  /// is about 2 s, so a deposit's conversion is seen within a second of
+  /// landing), then every 2 s. Public Polygon RPC reads: not tightened.
   static Duration receiptPollInterval(Duration elapsed) =>
       elapsed < const Duration(seconds: 20)
           ? const Duration(seconds: 1)
           : const Duration(seconds: 2);
+
+  /// How long [_pollTransaction] waits before asking the relayer again
+  /// for a batch's receipt: twice a second for the first 15 s (a Polygon
+  /// block is about 2 s, the relayer's own GET is cheap, so a mined or
+  /// confirmed batch is seen within half a second), every second to 30 s,
+  /// then every 2 s. Was every second for 20 s, then every 2 s.
+  static Duration relayerReceiptPollInterval(Duration elapsed) {
+    if (elapsed < const Duration(seconds: 15)) {
+      return const Duration(milliseconds: 500);
+    }
+    if (elapsed < const Duration(seconds: 30)) return const Duration(seconds: 1);
+    return const Duration(seconds: 2);
+  }
+
+  /// Whether a relayer transaction [state] says the batch is in a block
+  /// (`STATE_MINED` in `@polymarket/builder-relayer-client`'s
+  /// `RelayerTransactionState`: NEW → EXECUTED → MINED → CONFIRMED, with
+  /// FAILED and INVALID terminal). Not yet [relayerStateConfirmed].
+  @visibleForTesting
+  static bool relayerStateMined(String state) =>
+      state.toUpperCase().contains('MINED');
+
+  /// Whether a relayer transaction [state] is the confirmation the docs
+  /// say to wait for before using new balances (`STATE_CONFIRMED`).
+  @visibleForTesting
+  static bool relayerStateConfirmed(String state) =>
+      const {'STATE_CONFIRMED', 'CONFIRMED', 'DONE'}
+          .contains(state.toUpperCase());
+
+  /// [_pollTransaction], for tests (with an injected HTTP client through
+  /// `http.runWithClient`).
+  @visibleForTesting
+  Future<String> pollTransactionForTest(String txId,
+          {Duration timeout = const Duration(seconds: 90),
+          bool requireConfirmed = false,
+          void Function()? onMined}) =>
+      _pollTransaction(txId,
+          timeout: timeout, requireConfirmed: requireConfirmed, onMined: onMined);
 
   /// Polls until the relayer transaction is confirmed. Returns the on-chain tx hash.
   ///
@@ -3297,11 +3349,19 @@ class PolymarketOnboardingService {
   /// the tx is still healthy. Terminal state failures (FAILED /
   /// SKIPPED) propagate immediately, so the timeout only kicks in
   /// when the relayer never reaches a definitive state.
+  ///
+  /// [onMined] is told once, the first time the relayer reports the
+  /// batch mined ([relayerStateMined]) while [requireConfirmed] keeps the
+  /// poll going to the confirmation: a conversion's caller asks the order
+  /// book to re-read the wallet then, blocks before the confirmation,
+  /// instead of after it. The answer is still the confirmed hash.
   Future<String> _pollTransaction(String txId,
       {Duration timeout = const Duration(seconds: 90),
-      bool requireConfirmed = false}) async {
+      bool requireConfirmed = false,
+      void Function()? onMined}) async {
     final startedAt = DateTime.now();
     final deadline = startedAt.add(timeout);
+    var minedTold = false;
 
     while (DateTime.now().isBefore(deadline)) {
       _PollTerminalException? terminal;
@@ -3320,8 +3380,8 @@ class PolymarketOnboardingService {
           final data = relayerTransactionForId(jsonDecode(response.body), txId);
           if (data == null) {
             // Malformed or unrelated history never resolves this operation.
-            await Future<void>.delayed(
-                receiptPollInterval(DateTime.now().difference(startedAt)));
+            await Future<void>.delayed(relayerReceiptPollInterval(
+                DateTime.now().difference(startedAt)));
             continue;
           }
 
@@ -3333,9 +3393,19 @@ class PolymarketOnboardingService {
                       ?.toString() ??
                   '';
 
-          final confirmed =
-              const {'STATE_CONFIRMED', 'CONFIRMED', 'DONE'}.contains(state);
-          if (confirmed || (!requireConfirmed && state.contains('MINED'))) {
+          final confirmed = relayerStateConfirmed(state);
+          if (requireConfirmed &&
+              !minedTold &&
+              onMined != null &&
+              (confirmed || relayerStateMined(state))) {
+            // In a block (or already confirmed on the first read): the
+            // caller may act on it now; the poll goes on to CONFIRMED.
+            minedTold = true;
+            try {
+              onMined();
+            } catch (_) {}
+          }
+          if (confirmed || (!requireConfirmed && relayerStateMined(state))) {
             if (!requireConfirmed ||
                 RegExp(r'^0x[0-9a-fA-F]{64}$').hasMatch(txHash)) {
               return txHash.isNotEmpty ? txHash : txId;
@@ -3394,7 +3464,7 @@ class PolymarketOnboardingService {
       }
 
       await Future.delayed(
-          receiptPollInterval(DateTime.now().difference(startedAt)));
+          relayerReceiptPollInterval(DateTime.now().difference(startedAt)));
     }
 
     throw Exception('The relayer has not confirmed this transaction yet. '

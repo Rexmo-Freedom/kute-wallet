@@ -799,9 +799,17 @@ class PendingHlOrderAutoFire {
   }
 
   /// The account's cash moved (a ledger update on the venue's socket):
-  /// read it again now and fire the queued order on it. Safe to call at
+  /// read it again now and fire the queued order on it. A [credited]
+  /// update is the queued order's money landing (`userNonFundingLedgerUpdates`
+  /// with a deposit or a transfer into the account): it is taken as the
+  /// credit itself ([creditLanded]), so an account read that lags the
+  /// ledger by a moment is read again 1, 2 and 4 s on instead of on the
+  /// next poll tick (up to 4 s on after the first 30 s). Safe to call at
   /// any time.
-  void accountMoved() => _readAgain();
+  void accountMoved({bool credited = false}) {
+    if (credited) return creditLanded();
+    _readAgain();
+  }
 
   /// One fresh account read now (when something holds the account, or an
   /// order waits on it), and the queued order checked against it.
@@ -1324,22 +1332,33 @@ class PendingHlOrderAutoFire {
     final fundedAt = intent.fundedAt;
     final readyAt = collateralReadyAt ??
         (intent.market?.dex.isNotEmpty == true ? null : placingAt);
+    final creditMs = fundedAt != null && readyAt != null
+        ? readyAt.difference(fundedAt).inMilliseconds.clamp(0, 1 << 31)
+        : null;
+    final orderMs = readyAt != null
+        ? now.difference(readyAt).inMilliseconds.clamp(0, 1 << 31)
+        : null;
+    final dexCreditMs = dexCreditStartedAt != null && readyAt != null
+        ? readyAt.difference(dexCreditStartedAt).inMilliseconds.clamp(0, 1 << 31)
+        : null;
     TrackingService.track('order_funding_completed', params: {
       'venue': 'hyperliquid',
       'fund_usd': intent.fundUsd > 0 ? intent.fundUsd : journeyFund!,
       'amount_usd': margin,
       'ms_quote': intent.quoteMs,
       'ms_fund': intent.fundMs,
-      if (fundedAt != null && readyAt != null)
-        'ms_credit':
-            readyAt.difference(fundedAt).inMilliseconds.clamp(0, 1 << 31),
-      if (readyAt != null)
-        'ms_order': now.difference(readyAt).inMilliseconds.clamp(0, 1 << 31),
-      if (dexCreditStartedAt != null && readyAt != null)
-        'ms_dex_credit': readyAt
-            .difference(dexCreditStartedAt)
-            .inMilliseconds
-            .clamp(0, 1 << 31),
+      if (creditMs != null) 'ms_credit': creditMs,
+      if (orderMs != null) 'ms_order': orderMs,
+      if (dexCreditMs != null) 'ms_dex_credit': dexCreditMs,
+      // Where the seconds went, one exact figure per leg
+      // ([OrderFundingJourney.legsBreakdown]).
+      'legs': OrderFundingJourney.legsBreakdown(
+        quoteMs: intent.quoteMs,
+        fundMs: intent.fundMs,
+        creditMs: creditMs,
+        orderMs: orderMs,
+        extra: {if (dexCreditMs != null) OrderFundingLeg.dexCredit: dexCreditMs},
+      ),
       'duration_ms': now.difference(intent.createdAt).inMilliseconds,
       'resized': resized,
       'order_kind': intent.orderKind,
