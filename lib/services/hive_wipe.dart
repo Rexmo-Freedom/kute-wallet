@@ -109,6 +109,9 @@ const List<String> hiveBoxesWipedOnWipe = [
   'pending_receive_quotes_v1',
   'onetime_refund_addresses_v1',
   'venue_analytics',
+  // A wiped wallet's standing orders can never be placed; their signed
+  // secrets live in secure storage, cleared with the wallet.
+  'standing_orders',
 ];
 
 /// Deletes every box in [hiveBoxesWipedOnWipe] from disk, best-effort:
