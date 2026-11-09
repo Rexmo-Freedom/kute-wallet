@@ -9835,6 +9835,9 @@ class AppLocalizationsPt extends AppLocalizations {
   String get polyPillElections => 'Eleições';
 
   @override
+  String get polyPillArt => 'Arte';
+
+  @override
   String get polySubTargets => 'Preços-alvo';
 
   @override
@@ -9940,6 +9943,9 @@ class AppLocalizationsPt extends AppLocalizations {
   String get polySportDarts => 'Dardos';
 
   @override
+  String get polySportVolleyball => 'Voleibol';
+
+  @override
   String get polySportHandball => 'Andebol';
 
   @override
@@ -9956,6 +9962,15 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get polySportChess => 'Xadrez';
+
+  @override
+  String get polySportsGames => 'Jogos';
+
+  @override
+  String get polySportsProps => 'Especiais';
+
+  @override
+  String get polyDayTomorrow => 'Amanhã';
 
   @override
   String get polyMoreTitle => 'Todas as categorias';
@@ -11930,6 +11945,9 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get searchScopeTitle => 'Pesquisar em';
+
+  @override
+  String get searchShowMore => 'Mostrar mais';
 
   @override
   String marketMetaLine(String volume, String date) {

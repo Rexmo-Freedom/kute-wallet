@@ -31,3 +31,4 @@ the topics the way polymarket.com does.
 | live.svg | IconRadioOutline18 | |
 | trending.svg | IconArrowTrendUpOutline18 | the nav's Trending glyph |
 | instant.svg | none | no Polymarket glyph for it: our stopwatch, in the set's 18 px outline style (breaking.svg already is the lightning) |
+| art.svg | — | drawn here (a palette); the site has no Art icon |

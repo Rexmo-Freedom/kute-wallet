@@ -62,8 +62,8 @@ void main() {
     );
     expect(_pillLabels(tester), [
       'Trending', 'Instant', 'Breaking', 'New', 'Live', 'Politics', 'Sports',
-      'Crypto', 'Esports', 'Finance', 'Geopolitics', 'Tech', 'Culture', 'Economy',
-      'Weather', 'Mentions', 'Elections', 'More ›', //
+      'Crypto', 'Esports', 'Finance', 'Geopolitics', 'Tech', 'Elections',
+      'Culture', 'Economy', 'Weather', 'Mentions', 'Art', 'More ›', //
     ]);
     // No icons and no images on category pills.
     for (final p in tester.widgetList<KutePill>(find.byType(KutePill))) {
@@ -88,8 +88,8 @@ void main() {
         _pillLabels(tester),
         containsAllInOrder([
           'Política', 'Desporto', 'Cripto', 'Esports', 'Finanças',
-          'Geopolítica', 'Tecnologia', 'Cultura', 'Economia', 'Meteorologia',
-          'Menções', 'Eleições', //
+          'Geopolítica', 'Tecnologia', 'Eleições', 'Cultura', 'Economia',
+          'Meteorologia', 'Menções', 'Arte', //
         ]));
   });
 
@@ -158,6 +158,49 @@ void main() {
     expect(byLabel['Live']!.leading, isNull);
     // Every logo is the same size, the text's height.
     expect((byLabel['NFL']!.leading! as PolyCrestImage).size, 14.sp);
+  });
+
+  testWidgets(
+      'a sport\'s league row: "‹ Soccer", All for the sport\'s own chip, '
+      'then the leagues with their logos', (tester) async {
+    PolySub? picked;
+    var back = 0;
+    await _pump(
+      tester,
+      PolySubRow(
+        pill: PolyPill.sports,
+        subs: const [
+          PolySub('soccer'),
+          PolySub('series:10193',
+              route: 'lal',
+              label: 'LaLiga',
+              imageUrl: 'https://example.com/lal.png'),
+          PolySub('series:10188', route: 'epl', label: 'Premier League'),
+        ],
+        selectedKey: 'soccer',
+        onSelect: (s) => picked = s,
+        onBack: () => back++,
+        backLabel: 'Soccer',
+        allKey: 'soccer',
+      ),
+    );
+    expect(_pillLabels(tester), ['Soccer', 'All', 'LaLiga', 'Premier League']);
+    final backPill =
+        tester.widget<KutePill>(find.byKey(const ValueKey('kute-back-pill')));
+    expect(backPill.label, 'Soccer');
+    expect(backPill.icon, Icons.chevron_left_rounded);
+    final byLabel = {
+      for (final p in tester.widgetList<KutePill>(find.byType(KutePill)))
+        p.label: p
+    };
+    expect(byLabel['All']!.selected, isTrue);
+    expect(byLabel['All']!.leading, isNull);
+    expect(byLabel['LaLiga']!.leading, isA<PolyCrestImage>());
+    expect(byLabel['Premier League']!.leading, isNull);
+    await tester.tap(find.text('LaLiga'));
+    expect(picked?.key, 'series:10193');
+    await tester.tap(find.byKey(const ValueKey('kute-back-pill')));
+    expect(back, 1);
   });
 
   testWidgets('a logo shows only on Sports, Esports and the Crypto coins',

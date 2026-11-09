@@ -16816,6 +16816,12 @@ abstract class AppLocalizations {
   /// **'Elections'**
   String get polyPillElections;
 
+  /// Predictions category pill and tile: polymarket.com's Art topic (auctions, museums, artists).
+  ///
+  /// In en, this message translates to:
+  /// **'Art'**
+  String get polyPillArt;
+
   /// No description provided for @polySubTargets.
   ///
   /// In en, this message translates to:
@@ -17026,6 +17032,12 @@ abstract class AppLocalizations {
   /// **'Darts'**
   String get polySportDarts;
 
+  /// Predictions, Sports row: the Volleyball sport chip (polymarket.com's side list).
+  ///
+  /// In en, this message translates to:
+  /// **'Volleyball'**
+  String get polySportVolleyball;
+
   /// No description provided for @polySportHandball.
   ///
   /// In en, this message translates to:
@@ -17061,6 +17073,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Chess'**
   String get polySportChess;
+
+  /// Predictions, a sport or league: the first half of the Games | Props switch, the matches with a kickoff.
+  ///
+  /// In en, this message translates to:
+  /// **'Games'**
+  String get polySportsGames;
+
+  /// Predictions, a sport or league: the second half of the Games | Props switch, the markets that are not a match (season awards, player totals).
+  ///
+  /// In en, this message translates to:
+  /// **'Props'**
+  String get polySportsProps;
+
+  /// Predictions, a sport's games: the heading over tomorrow's matches (Today and the weekday headings are beside it).
+  ///
+  /// In en, this message translates to:
+  /// **'Tomorrow'**
+  String get polyDayTomorrow;
 
   /// No description provided for @polyMoreTitle.
   ///
@@ -19963,6 +19993,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Search in'**
   String get searchScopeTitle;
+
+  /// Search sheet, Predictions scope: the row at the end of the results that reads the next page of matches.
+  ///
+  /// In en, this message translates to:
+  /// **'Show more'**
+  String get searchShowMore;
 
   /// Predictions list row, the one quiet line under the question: the month and year the market closes ('Jan 2027') first, then its volume, compact ('$27.8K'): 'Closes Jan 2027 · $27.8K'. Starts the line, so capitalised.
   ///

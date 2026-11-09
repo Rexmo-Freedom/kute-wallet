@@ -9851,6 +9851,9 @@ class AppLocalizationsRo extends AppLocalizations {
   String get polyPillElections => 'Alegeri';
 
   @override
+  String get polyPillArt => 'Artă';
+
+  @override
   String get polySubTargets => 'Ținte';
 
   @override
@@ -9956,6 +9959,9 @@ class AppLocalizationsRo extends AppLocalizations {
   String get polySportDarts => 'Darts';
 
   @override
+  String get polySportVolleyball => 'Volei';
+
+  @override
   String get polySportHandball => 'Handbal';
 
   @override
@@ -9972,6 +9978,15 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get polySportChess => 'Șah';
+
+  @override
+  String get polySportsGames => 'Meciuri';
+
+  @override
+  String get polySportsProps => 'Speciale';
+
+  @override
+  String get polyDayTomorrow => 'Mâine';
 
   @override
   String get polyMoreTitle => 'Toate categoriile';
@@ -11951,6 +11966,9 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get searchScopeTitle => 'Caută în';
+
+  @override
+  String get searchShowMore => 'Arată mai multe';
 
   @override
   String marketMetaLine(String volume, String date) {

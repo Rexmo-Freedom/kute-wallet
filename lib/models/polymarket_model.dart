@@ -75,6 +75,18 @@ export 'package:polybrainz_polymarket/polybrainz_polymarket.dart'
 /// spreads, totals, …), kept on its outcome so the game centre can lay out
 /// its main lines from the event the card already has, before (or
 /// without) reading the event again.
+/// One page of the venue search (`public-search`): its events, most
+/// traded first, and whether Gamma has a page after it.
+class PolySearchPage {
+  final List<PolymarketEvent> events;
+  final bool hasMore;
+
+  const PolySearchPage({required this.events, required this.hasMore});
+
+  /// No events and nothing after (a failed or empty read).
+  static const none = PolySearchPage(events: [], hasMore: false);
+}
+
 class PolymarketMarketLine {
   /// Gamma `sportsMarketType`.
   final String kind;
@@ -2577,20 +2589,31 @@ class PolymarketModel {
   /// Bounded public typeahead. Never download the entire event catalog for
   /// each query; Gamma already searches event titles and outcome names.
   /// [eventsTag] limits the results to events carrying that tag slug
-  /// (Gamma's `events_tag`), for a search scoped to one category.
+  /// (Gamma's `events_tag`), for a search scoped to one category. The
+  /// first page; [searchEventsPage] reads the ones after it.
   Future<List<PolymarketEvent>> searchEvents(String query,
-      {String? eventsTag}) async {
+          {String? eventsTag}) async =>
+      (await searchEventsPage(query, eventsTag: eventsTag)).events;
+
+  /// One page of the venue search ([page], from 1: Gamma's `page`, 50
+  /// events each), and whether a page follows it (Gamma's
+  /// `pagination.hasMore`). [eventsTag] scopes it to one tag slug.
+  Future<PolySearchPage> searchEventsPage(String query,
+      {String? eventsTag, int page = 1}) async {
     final q = query.trim();
-    if (_disposed || q.isEmpty || q.length > 4000) return [];
+    if (_disposed || q.isEmpty || q.length > 4000) return PolySearchPage.none;
     final alias = polySearchAlias(q);
-    if (alias == null) return _serverSearch(q, eventsTag: eventsTag);
+    if (alias == null) return _serverSearch(q, eventsTag: eventsTag, page: page);
     // A localized name ("brasil", "alemanha"): Gamma matches the English
     // title only, so the query as typed and its rewrite both run, merged.
     final both = await Future.wait([
-      _serverSearch(q, eventsTag: eventsTag),
-      _serverSearch(alias, eventsTag: eventsTag),
+      _serverSearch(q, eventsTag: eventsTag, page: page),
+      _serverSearch(alias, eventsTag: eventsTag, page: page),
     ]);
-    return _mergeSearchResults(both[0], both[1]);
+    return PolySearchPage(
+      events: _mergeSearchResults(both[0].events, both[1].events),
+      hasMore: both[0].hasMore || both[1].hasMore,
+    );
   }
 
   /// [primary] and [alias] as one list: each event once (by id, the
@@ -2705,8 +2728,8 @@ class PolymarketModel {
   /// request in flight stops with the model.
   final Set<http.Client> _searchesInFlight = {};
 
-  Future<List<PolymarketEvent>> _serverSearch(String query,
-      {String? eventsTag}) async {
+  Future<PolySearchPage> _serverSearch(String query,
+      {String? eventsTag, int page = 1}) async {
     // Two searches can run at once (a localized name and its rewrite), so
     // each owns its client; an injected one (tests) is shared and kept.
     final injected = _searchClient;
@@ -2720,27 +2743,31 @@ class PolymarketModel {
         'events_status': 'active',
         'keep_closed_markets': '0',
         'limit_per_type': '$kSearchPageSize',
+        // The first page is Gamma's default; only the pages after it say so.
+        if (page > 1) 'page': '$page',
         'search_tags': 'false',
         'search_profiles': 'false',
         'sort': 'relevance',
       });
       final response = await client.send(http.Request('GET', uri))
           .timeout(const Duration(seconds: 8));
-      if (_disposed || response.statusCode != 200) return [];
+      if (_disposed || response.statusCode != 200) return PolySearchPage.none;
       // Bound bytes before JSON decoding, even if a provider ignores its cap.
       const maxBytes = 4 * 1024 * 1024;
       final bytes = BytesBuilder(copy: false);
       await for (final chunk in response.stream
           .timeout(const Duration(seconds: 8))) {
-        if (_disposed || bytes.length + chunk.length > maxBytes) return [];
+        if (_disposed || bytes.length + chunk.length > maxBytes) {
+          return PolySearchPage.none;
+        }
         bytes.add(chunk);
       }
-      if (_disposed) return [];
+      if (_disposed) return PolySearchPage.none;
       final body = bytes.takeBytes();
       final result = await _parseSearchOffThread(body);
-      return _disposed ? [] : result;
+      return _disposed ? PolySearchPage.none : result;
     } catch (_) {
-      return [];
+      return PolySearchPage.none;
     } finally {
       _searchesInFlight.remove(client);
       if (injected == null) client.close();
@@ -2749,8 +2776,7 @@ class PolymarketModel {
 
   // Only the bounded PUBLIC response is copied to the worker. Parsing and
   // sorting never block keyboard/scroll frames on older devices.
-  static Future<List<PolymarketEvent>> _parseSearchOffThread(
-          Uint8List bytes) =>
+  static Future<PolySearchPage> _parseSearchOffThread(Uint8List bytes) =>
       Isolate.run(() => _parseSearchResponse(bytes));
 
   /// The events of one `public-search` page as the app lists them: most
@@ -2758,13 +2784,15 @@ class PolymarketModel {
   /// ties. No title re-ranking: Gamma already matched the title and the
   /// candidate names. Games in play go first further up, where the live
   /// feed is known (unified_search_provider.dart, search_result_order.dart).
+  /// With the page comes whether Gamma has another (`pagination.hasMore`;
+  /// no pagination block reads as the last page).
   ///
   /// Each event is read by the same parser as the category lists
   /// ([_eventFromRawJson]), so a search result is the card the Politics
   /// list shows: each candidate under its own name (`groupItemTitle`) with
   /// its portrait, the chance by Polymarket's display rule, only the
   /// markets an open event still trades and no placeholder seats.
-  static List<PolymarketEvent> _parseSearchResponse(Uint8List bytes) {
+  static PolySearchPage _parseSearchResponse(Uint8List bytes) {
     final data = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
     final rows = data['events'] as List? ?? [];
     final seen = <String>{};
@@ -2784,7 +2812,11 @@ class PolymarketModel {
         // A malformed event must not discard the other matching events.
       }
     }
-    return _mostTradedFirst(hits, (e) => e.volume);
+    final pagination = data['pagination'];
+    return PolySearchPage(
+      events: _mostTradedFirst(hits, (e) => e.volume),
+      hasMore: pagination is Map && pagination['hasMore'] == true,
+    );
   }
 
   Future<Map<String, dynamic>> getSportsMetadata() async {

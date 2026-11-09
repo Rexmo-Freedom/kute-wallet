@@ -9802,6 +9802,9 @@ class AppLocalizationsFi extends AppLocalizations {
   String get polyPillElections => 'Vaalit';
 
   @override
+  String get polyPillArt => 'Taide';
+
+  @override
   String get polySubTargets => 'Tavoitteet';
 
   @override
@@ -9907,6 +9910,9 @@ class AppLocalizationsFi extends AppLocalizations {
   String get polySportDarts => 'Tikanheitto';
 
   @override
+  String get polySportVolleyball => 'Lentopallo';
+
+  @override
   String get polySportHandball => 'Käsipallo';
 
   @override
@@ -9923,6 +9929,15 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get polySportChess => 'Shakki';
+
+  @override
+  String get polySportsGames => 'Pelit';
+
+  @override
+  String get polySportsProps => 'Erikoisvedot';
+
+  @override
+  String get polyDayTomorrow => 'Huomenna';
 
   @override
   String get polyMoreTitle => 'Kaikki kategoriat';
@@ -11904,6 +11919,9 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get searchScopeTitle => 'Hakukohde';
+
+  @override
+  String get searchShowMore => 'Näytä lisää';
 
   @override
   String marketMetaLine(String volume, String date) {

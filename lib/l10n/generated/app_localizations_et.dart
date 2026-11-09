@@ -9783,6 +9783,9 @@ class AppLocalizationsEt extends AppLocalizations {
   String get polyPillElections => 'Valimised';
 
   @override
+  String get polyPillArt => 'Kunst';
+
+  @override
   String get polySubTargets => 'Sihid';
 
   @override
@@ -9888,6 +9891,9 @@ class AppLocalizationsEt extends AppLocalizations {
   String get polySportDarts => 'Noolemäng';
 
   @override
+  String get polySportVolleyball => 'Võrkpall';
+
+  @override
   String get polySportHandball => 'Käsipall';
 
   @override
@@ -9904,6 +9910,15 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get polySportChess => 'Male';
+
+  @override
+  String get polySportsGames => 'Mängud';
+
+  @override
+  String get polySportsProps => 'Eripanused';
+
+  @override
+  String get polyDayTomorrow => 'Homme';
 
   @override
   String get polyMoreTitle => 'Kõik kategooriad';
@@ -11875,6 +11890,9 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get searchScopeTitle => 'Otsingu ulatus';
+
+  @override
+  String get searchShowMore => 'Näita rohkem';
 
   @override
   String marketMetaLine(String volume, String date) {

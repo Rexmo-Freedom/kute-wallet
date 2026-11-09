@@ -9829,6 +9829,9 @@ class AppLocalizationsNl extends AppLocalizations {
   String get polyPillElections => 'Verkiezingen';
 
   @override
+  String get polyPillArt => 'Kunst';
+
+  @override
   String get polySubTargets => 'Doelen';
 
   @override
@@ -9934,6 +9937,9 @@ class AppLocalizationsNl extends AppLocalizations {
   String get polySportDarts => 'Darts';
 
   @override
+  String get polySportVolleyball => 'Volleybal';
+
+  @override
   String get polySportHandball => 'Handbal';
 
   @override
@@ -9950,6 +9956,15 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get polySportChess => 'Schaken';
+
+  @override
+  String get polySportsGames => 'Wedstrijden';
+
+  @override
+  String get polySportsProps => 'Specials';
+
+  @override
+  String get polyDayTomorrow => 'Morgen';
 
   @override
   String get polyMoreTitle => 'Alle categorieën';
@@ -11927,6 +11942,9 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get searchScopeTitle => 'Zoeken in';
+
+  @override
+  String get searchShowMore => 'Meer tonen';
 
   @override
   String marketMetaLine(String volume, String date) {

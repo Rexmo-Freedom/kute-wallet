@@ -9768,6 +9768,9 @@ class AppLocalizationsLv extends AppLocalizations {
   String get polyPillElections => 'Vēlēšanas';
 
   @override
+  String get polyPillArt => 'Māksla';
+
+  @override
   String get polySubTargets => 'Mērķi';
 
   @override
@@ -9873,6 +9876,9 @@ class AppLocalizationsLv extends AppLocalizations {
   String get polySportDarts => 'Šautriņas';
 
   @override
+  String get polySportVolleyball => 'Volejbols';
+
+  @override
   String get polySportHandball => 'Handbols';
 
   @override
@@ -9889,6 +9895,15 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get polySportChess => 'Šahs';
+
+  @override
+  String get polySportsGames => 'Spēles';
+
+  @override
+  String get polySportsProps => 'Speciālie';
+
+  @override
+  String get polyDayTomorrow => 'Rīt';
 
   @override
   String get polyMoreTitle => 'Visas kategorijas';
@@ -11861,6 +11876,9 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get searchScopeTitle => 'Kur meklēt';
+
+  @override
+  String get searchShowMore => 'Rādīt vairāk';
 
   @override
   String marketMetaLine(String volume, String date) {

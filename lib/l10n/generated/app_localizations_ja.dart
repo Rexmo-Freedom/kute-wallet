@@ -9415,6 +9415,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get polyPillElections => '選挙';
 
   @override
+  String get polyPillArt => 'アート';
+
+  @override
   String get polySubTargets => '目標';
 
   @override
@@ -9520,6 +9523,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get polySportDarts => 'ダーツ';
 
   @override
+  String get polySportVolleyball => 'バレーボール';
+
+  @override
   String get polySportHandball => 'ハンドボール';
 
   @override
@@ -9536,6 +9542,15 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get polySportChess => 'チェス';
+
+  @override
+  String get polySportsGames => '試合';
+
+  @override
+  String get polySportsProps => 'プロップ';
+
+  @override
+  String get polyDayTomorrow => '明日';
 
   @override
   String get polyMoreTitle => 'すべてのカテゴリ';
@@ -11466,6 +11481,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get searchScopeTitle => '検索対象';
+
+  @override
+  String get searchShowMore => 'もっと見る';
 
   @override
   String marketMetaLine(String volume, String date) {

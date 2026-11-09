@@ -39,12 +39,15 @@ import 'package:kute/screens/shared/market_groups.dart';
 import 'package:kute/screens/polymarket/components/poly_category_icons.dart';
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/screens/polymarket/components/poly_feed_utils.dart';
+import 'package:kute/screens/polymarket/components/poly_game_days.dart';
 import 'package:kute/screens/polymarket/components/top_markets_strip.dart';
 import 'package:kute/screens/polymarket/group_landing_screen.dart';
 import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart';
 import 'package:kute/screens/polymarket/components/price_format.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/screens/polymarket/components/poly_browse_bar.dart';
+import 'package:kute/screens/shared/kute_pill_tabs.dart'
+    show KutePillItem, KutePillTabs;
 import 'package:kute/services/polymarket/crypto_round.dart';
 import 'package:kute/services/polymarket/crypto_window_results.dart';
 import 'package:kute/screens/polymarket/market_detail_sheet.dart';
@@ -108,6 +111,9 @@ const String _kLiveStreams = 'streams';
 
 /// The games in play of one league, and the pill that names it.
 typedef _LiveGroup = ({PolySub sub, List<PolymarketEvent> games});
+
+/// Which half of Games | Props a sport's list shows.
+enum _SportView { games, props }
 
 class PolymarketScreen extends ConsumerStatefulWidget {
   final bool autoShowDeposit;
@@ -299,6 +305,16 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
   /// of the categories ([PolyDrillRow]); null shows the categories.
   PolyPill? _drilledInto;
 
+  /// Sports one level further down: the sport whose leagues the row shows
+  /// ("‹ Soccer", All, the leagues; [polySportLeagueSubsProvider]); null
+  /// shows the sports.
+  String? _drilledSport;
+
+  /// Games | Props on a sport or a league: whether Props is on, and the
+  /// subcategory it was turned on for (another list opens on Games).
+  bool _sportsProps = false;
+  String? _sportsPropsSub;
+
   /// A selection that names a subcategory other than its category's
   /// default (a deep link, a pick on "More") shows that category's row,
   /// so the chip that is on screen can be seen.
@@ -310,7 +326,13 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
   @override
   void initState() {
     super.initState();
-    _drilledInto = _drillFor(ref.read(polyBrowseSelectionProvider));
+    final initial = ref.read(polyBrowseSelectionProvider);
+    _drilledInto = _drillFor(initial);
+    // A link to a sport with leagues (predictions/sports/soccer) opens on
+    // its league row, as the site's page does.
+    if (initial.pill == PolyPill.sports && polySportHasLeagues(initial.sub)) {
+      _drilledSport = initial.sub;
+    }
     // Embedded, the list scrolls inside the Investments page, which
     // drives the nav bar itself; paging reads the notifications instead.
     if (!widget.embedded) _scrollController.addListener(_onScroll);
@@ -427,7 +449,10 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
   /// categories when it has any (the row stays put when it has none).
   void _onPill(PolyPill pill) {
     HapticFeedback.selectionClick();
-    setState(() => _drilledInto = pill);
+    setState(() {
+      _drilledInto = pill;
+      _drilledSport = null;
+    });
     final current = ref.read(polyBrowseSelectionProvider);
     if (pill == current.pill) return;
     TrackingService.track('category_pill_tapped',
@@ -435,9 +460,15 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     _select(current.copyWith(pill: pill));
   }
 
+  /// A subcategory: its list. A sport with leagues (Soccer, Tennis …)
+  /// also drills the row one level further, into its leagues, the
+  /// sport's own list on screen meanwhile (as a category does).
   void _onSub(PolySub sub) {
     HapticFeedback.selectionClick();
     final current = ref.read(polyBrowseSelectionProvider);
+    if (current.pill == PolyPill.sports && polySportHasLeagues(sub.key)) {
+      setState(() => _drilledSport = sub.key);
+    }
     if (sub.key == current.sub) return;
     TrackingService.track('category_pill_tapped', params: {
       'section': current.pill.key,
@@ -454,11 +485,61 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
       'surface': 'predictions',
       'parent': parent.key,
     });
-    setState(() => _drilledInto = null);
+    setState(() {
+      _drilledInto = null;
+      _drilledSport = null;
+    });
     final current = ref.read(polyBrowseSelectionProvider);
     if (current.sub != parent.defaultSub) {
       _select(current.copyWith(sub: parent.defaultSub));
     }
+  }
+
+  /// The league row's back pill ("‹ Soccer"): the sports again, the sport
+  /// still on screen at its own list.
+  void _onSportBack(String sport) {
+    HapticFeedback.selectionClick();
+    TrackingService.track('category_row_back_tapped', params: {
+      'surface': 'predictions',
+      'parent': PolyPill.sports.key,
+      'subcategory': sport,
+    });
+    setState(() => _drilledSport = null);
+    final current = ref.read(polyBrowseSelectionProvider);
+    if (current.sub != sport) _select(current.copyWith(sub: sport));
+  }
+
+  /// Games | Props on a sport or a league (polymarket.com's own switch).
+  void _onGamesProps(bool props, String sub) {
+    if (props == _sportsProps && _sportsPropsSub == sub) return;
+    HapticFeedback.selectionClick();
+    TrackingService.track('category_pill_tapped', params: {
+      'section': PolyPill.sports.key,
+      'view': props ? 'props' : 'games',
+    });
+    setState(() {
+      _sportsProps = props;
+      _sportsPropsSub = sub;
+    });
+  }
+
+  /// The league row a selection made elsewhere (a deep link, the category
+  /// sheet, "More") belongs on: the sport of a league that is not pinned
+  /// on the Sports row itself; null for a chip of the Sports row.
+  String? _sportDrillFor(PolyBrowseSelection s) {
+    if (s.pill != PolyPill.sports) return null;
+    var sub = s.subs[PolyPill.sports] ?? '';
+    if (sub.startsWith('route:')) {
+      final route = sub.substring(6);
+      sub = ref
+              .read(polySportsLeaguesProvider)
+              .where((l) => l.route == route)
+              .firstOrNull
+              ?.key ??
+          sub;
+    }
+    return polySportOfLeague(
+        sub, ref.read(polySportsDirectoryProvider).valueOrNull ?? const []);
   }
 
   /// "More": every category with its subcategories; a row shows its list.
@@ -475,7 +556,15 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
           'section': pill.key,
           'subcategory': sub.route,
         });
-        if (mounted) setState(() => _drilledInto = pill);
+        if (mounted) {
+          setState(() {
+            _drilledInto = pill;
+            // A sport with leagues opens on its league row.
+            _drilledSport = pill == PolyPill.sports && polySportHasLeagues(sub.key)
+                ? sub.key
+                : null;
+          });
+        }
         _select(current.copyWith(pill: pill).copyWith(sub: sub.key));
       },
     );
@@ -504,6 +593,17 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
       final reset = next.pill == PolyPill.trending && next.subs.isEmpty;
       if (drill != _drilledInto && (drill != null || reset)) {
         setState(() => _drilledInto = drill);
+      }
+      // A league picked elsewhere opens its sport's row; another pill, or
+      // a chip of the Sports row itself, closes it.
+      final sport = _sportDrillFor(next);
+      if (sport != null && sport != _drilledSport) {
+        setState(() => _drilledSport = sport);
+      } else if (_drilledSport != null &&
+          (next.pill != PolyPill.sports ||
+              (PolySub(next.sub).seriesId == null &&
+                  next.sub != _drilledSport))) {
+        setState(() => _drilledSport = null);
       }
     });
     if (!pills.contains(selection.pill)) {
@@ -540,16 +640,33 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
         !subs.any((s) => s.key == selection.sub)) {
       selection = selection.copyWith(sub: 'all');
     }
-    // A deep link names a tag or league by its readable segment.
+    // A deep link names a tag or league by its readable segment (a
+    // league by its Gamma `/sports` code, whichever row it is on).
     if (selection.sub.startsWith('route:')) {
       final route = selection.sub.substring(6);
-      for (final s in subs) {
+      for (final s in [
+        ...subs,
+        if (pill == PolyPill.sports) ...ref.watch(polySportsLeaguesProvider),
+      ]) {
         if (s.route == route) selection = selection.copyWith(sub: s.key);
       }
     }
+    // Sports › a sport with leagues: the row one level further down, the
+    // sport's chip reading All before its leagues.
+    final sport = pill == PolyPill.sports ? _drilledSport : null;
+    final leagueSubs = sport == null
+        ? const <PolySub>[]
+        : ref.watch(polySportLeagueSubsProvider(sport));
     // The one browse row shows the subcategories of the category drilled
     // into, while it has a row of them.
     final drilled = _drilledInto == pill && subs.length > 1;
+    // Games | Props on a sport or a league (polymarket.com's own switch);
+    // Props stays on only for the list it was turned on for.
+    final sportList = pill == PolyPill.sports &&
+        (kPolySportGroups.contains(selection.sub) ||
+            PolySub(selection.sub).seriesId != null);
+    final props =
+        sportList && _sportsProps && _sportsPropsSub == selection.sub;
     // Live always reads the one list of games in play; a league pill
     // narrows it on screen.
     final query = pill == PolyPill.live
@@ -677,8 +794,21 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
                         child: Padding(
                           padding: EdgeInsets.only(top: 4.h),
                           child: PolyDrillRow(
-                            drilledInto: drilled ? pill : null,
-                            builder: (context, revealOnMount) => drilled
+                            drilledInto: drilled ? (sport ?? pill) : null,
+                            builder: (context, revealOnMount) => drilled &&
+                                    sport != null
+                                ? PolySubRow(
+                                    pill: pill,
+                                    subs: leagueSubs,
+                                    selectedKey: selection.sub,
+                                    onSelect: _onSub,
+                                    onBack: () => _onSportBack(sport),
+                                    backLabel:
+                                        polySubLabel(l10n, PolySub(sport)),
+                                    allKey: sport,
+                                    revealOnMount: revealOnMount,
+                                  )
+                                : drilled
                                 ? PolySubRow(
                                     pill: pill,
                                     subs: subs,
@@ -727,6 +857,31 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
                                   openPredictionsDeposit(context, ref),
                             ),
 
+                          // Sports › a sport or a league: Games | Props,
+                          // the site's own switch, in the app's switch row.
+                          if (sportList && canBrowse)
+                            SliverToBoxAdapter(
+                              child: Padding(
+                                padding:
+                                    EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 0),
+                                child: KutePillTabs(
+                                  key: const ValueKey('poly-games-props'),
+                                  horizontalPadding: 0,
+                                  items: [
+                                    KutePillItem(
+                                        label: l10n.polySportsGames,
+                                        key: const ValueKey('poly-games-tab')),
+                                    KutePillItem(
+                                        label: l10n.polySportsProps,
+                                        key: const ValueKey('poly-props-tab')),
+                                  ],
+                                  selectedIndex: props ? 1 : 0,
+                                  onTap: (i) =>
+                                      _onGamesProps(i == 1, selection.sub),
+                                ),
+                              ),
+                            ),
+
                           if (!fiveMinOnly && !instant)
                             ..._feedSlivers(
                               feed,
@@ -734,6 +889,11 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
                               isLiveList: isLiveList,
                               liveLeague: liveLeague,
                               curated: curated,
+                              sportView: !sportList
+                                  ? null
+                                  : props
+                                      ? _SportView.props
+                                      : _SportView.games,
                             ),
                         ],
                       ),
@@ -896,6 +1056,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     String? liveLeague,
     bool curated = false,
     String source = 'feed_card',
+    _SportView? sportView,
   }) {
     if (feed.events.isEmpty) {
       if (feed.loading) {
@@ -929,6 +1090,8 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     final List<Widget> body;
     if (isLiveList) {
       body = _liveSlivers(feed.events, only: liveLeague);
+    } else if (sportView != null) {
+      body = _sportSlivers(feed.events, sportView, source: source);
     } else {
       final open = feed.events.where((e) => !e.ended).toList(growable: false);
       final events = collapseByGameId(open);
@@ -1034,6 +1197,63 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
       return byCount != 0 ? byCount : index[a]!.compareTo(index[b]!);
     });
     return ordered;
+  }
+
+  /// A sport's or a league's list as polymarket.com/sports shows it:
+  /// Games are the matches, by day in kickoff order under the day's
+  /// heading (the games in play first, under Live; poly_game_days.dart),
+  /// each match one card with its other markets folded in; Props is
+  /// everything else (season awards, player totals), in the plain list.
+  /// A view with nothing in it reads as an empty category.
+  List<Widget> _sportSlivers(List<PolymarketEvent> events, _SportView view,
+      {String source = 'feed_card'}) {
+    final open = events.where((e) => !e.ended).toList(growable: false);
+    final split = polySplitGamesProps(open);
+    final rows = view == _SportView.games ? split.games : split.props;
+    if (rows.isEmpty) {
+      return [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.only(top: 40.h),
+            child: const _EmptyState(),
+          ),
+        ),
+      ];
+    }
+    if (view == _SportView.props) {
+      return [
+        SliverToBoxAdapter(child: SizedBox(height: 8.h)),
+        ..._groupedSlivers(
+            rows,
+            (_) =>
+                (isSportsCategory: true, siblings: const <PolymarketEvent>[]),
+            source: source),
+        SliverToBoxAdapter(child: SizedBox(height: 8.h)),
+      ];
+    }
+    final siblings = siblingsByGameId(rows);
+    final locale = Localizations.localeOf(context).toString();
+    final l10n = context.l10n;
+    final slivers = <Widget>[];
+    for (final day in polyGameDays(collapseByGameId(rows), now: DateTime.now())) {
+      final label = day.label(l10n, locale);
+      if (label != null) {
+        slivers.add(SliverToBoxAdapter(child: _SectionHeader(label: label)));
+      } else {
+        slivers.add(SliverToBoxAdapter(child: SizedBox(height: 8.h)));
+      }
+      slivers.addAll(_groupedSlivers(
+          day.games,
+          (market) => (
+                isSportsCategory: true,
+                siblings: market.gameId != null
+                    ? (siblings[market.gameId!] ?? const <PolymarketEvent>[])
+                    : const <PolymarketEvent>[],
+              ),
+          source: source));
+    }
+    slivers.add(SliverToBoxAdapter(child: SizedBox(height: 8.h)));
+    return slivers;
   }
 
   /// Games in play under their league headings; with [only] (a league's

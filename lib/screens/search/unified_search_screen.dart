@@ -132,6 +132,11 @@ import 'package:kute/screens/shared/kute_motion.dart'
         kuteReduceMotion;
 import 'package:kute/theme/kute_motion.dart';
 import 'package:kute/screens/search/search_result_order.dart';
+import 'package:kute/screens/search/search_category_match.dart';
+import 'package:kute/screens/polymarket/components/poly_browse_bar.dart'
+    show PolyAutoScrollRow, polyPillLabel;
+import 'package:kute/screens/shared/kute_pill_tabs.dart'
+    show KutePill, kutePillRowHeight;
 import 'package:kute/screens/polymarket/components/live_token_scope.dart';
 import 'package:kute/models/hyperliquid_market.dart'
     show HlMarket, kHlLowLiquidityDayVolumeUsd;
@@ -467,6 +472,7 @@ SearchCategory beginKuteSearchSession(
   container.read(searchMarketsOnlyProvider.notifier).state = marketsOnly;
   container.read(selectedSearchCategoryProvider.notifier).state =
       effectiveCategory;
+  container.read(searchPredictionsTopicProvider.notifier).state = null;
   container.read(advisorSessionProvider.notifier).clear();
   _searchStats = _SearchSessionStats();
   return effectiveCategory;
@@ -814,12 +820,32 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
     final showPerpetuals = (category == SearchCategory.all ||
             category == SearchCategory.perpetuals) &&
         (sendVenues?.investing ?? true);
+    // A query that names a category ("soccer", "nfl", "art") leads the
+    // Predictions group with that category, a row that opens the browse on
+    // it (search_category_match.dart). The leagues are known under the
+    // Predictions scope, where their list is read for the topic row.
+    final policy = ref.watch(runtimeCapabilitiesProvider);
+    final categoryHit = showPredictions && query.isNotEmpty
+        ? polySearchCategoryHit(
+            query,
+            context.l10n,
+            pills: [
+              for (final p in PolyPill.values)
+                if (polyPillOffered(p, policy)) p
+            ],
+            leagues: category == SearchCategory.predictions
+                ? ref.watch(polySportsLeaguesProvider)
+                : const [],
+          )
+        : null;
+    // "Show more" under the Predictions scope: the next venue page.
+    final paging = ref.watch(searchPredictionsPagingProvider);
     // The person's own positions are history and sit with Transactions;
     // Predictions and Investing list markets only.
     final txSection = showTx &&
         (local.transactions.isNotEmpty || local.ownedPositions.isNotEmpty);
-    final predictionSection =
-        showPredictions && (globalResults.isNotEmpty || globalLoading);
+    final predictionSection = showPredictions &&
+        (globalResults.isNotEmpty || globalLoading || categoryHit != null);
     final perpetualsSection =
         showPerpetuals && (hlResults.isNotEmpty || hlLoading);
 
@@ -865,12 +891,26 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
       filter: SearchCategory.predictions,
       loading: globalLoading,
       rows: [
+        if (categoryHit != null)
+          (int p) => _CategoryHitRow(
+              key: ValueKey('poly-category-${categoryHit.key}'),
+              hit: categoryHit,
+              position: p),
         for (final r in rankedGlobal)
           (int p) => _GlobalMarketRow(
               key: ValueKey('poly-${r.event.slug}-${r.event.id}'),
               result: r,
               position: p),
       ],
+      more: paging.hasMore && !paging.loadingMore
+          ? _SeeAllRow(
+              key: const ValueKey('search-show-more'),
+              label: context.l10n.searchShowMore,
+              onTap: () => ref
+                  .read(polySearchFeedProvider(ref.read(polySearchQueryProvider)).notifier)
+                  .loadMore(),
+            )
+          : null,
     );
     // The wallet tag only tells rows apart when they come from more than
     // one wallet; from one wallet it would repeat on every row.
@@ -930,7 +970,9 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
                           source: 'see_all');
                       ref.read(selectedSearchCategoryProvider.notifier).state =
                           g.filter;
-                    }),
+                    })
+                  else if (!labelGroups && g.more != null)
+                    g.more!,
                 ],
               ),
       ));
@@ -1028,6 +1070,12 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
     final Widget? scope = typing && scopes != null
         ? _ScopeChip(selected: category, scopes: scopes)
         : null;
+    // Under the Predictions scope the topics row (All, Politics, Sports …
+    // Art) narrows the venue search to one category, the same pills as
+    // the Predictions browse.
+    final topics = scope != null && category == SearchCategory.predictions
+        ? const _PredictionTopicsRow()
+        : null;
 
     return _buildSheet(
       context,
@@ -1070,6 +1118,7 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
             ),
           ),
         ),
+        if (topics != null) topics,
         Expanded(
           child: AnimatedSwitcher(
             duration: kuteMotion(context, const Duration(milliseconds: 150)),
@@ -1568,6 +1617,122 @@ class _GlobalMarketRow extends ConsumerWidget {
   }
 }
 
+/// The category a query names ("soccer", "nfl", "art"), first in the
+/// Predictions group: the topic's glyph (lib/assets/polymarket_tags, as
+/// the category sheet draws it), its name over where it lives
+/// ("Predictions", "Predictions · Sports") and a chevron. Tapping closes
+/// the sheet and opens the Predictions browse on it, exactly as a pick in
+/// the category sheet does; reported as a `category` result.
+class _CategoryHitRow extends ConsumerWidget {
+  final PolyCategoryHit hit;
+  final int? position;
+  const _CategoryHitRow({super.key, required this.hit, this.position});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    final l10n = context.l10n;
+    final pill = hit.pill;
+    final where = hit.sub == null
+        ? l10n.predictions
+        : '${l10n.predictions} · ${polyPillLabel(l10n, pill)}';
+    return SearchListRow(
+      leading: Container(
+        width: kSearchRowLogo,
+        height: kSearchRowLogo,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: c.surfaceLight,
+          borderRadius: BorderRadius.circular(kSearchRowLogo / 4),
+          border: Border.all(color: c.borderSubtle, width: 0.5),
+        ),
+        child: SvgPicture.asset(
+          'lib/assets/polymarket_tags/${pill.key}.svg',
+          width: 20,
+          height: 20,
+          colorFilter: ColorFilter.mode(c.textPrimary, BlendMode.srcIn),
+        ),
+      ),
+      title: hit.label,
+      subtitle: where,
+      titleLines: 1,
+      trailing:
+          Icon(Icons.chevron_right_rounded, color: c.textTertiary, size: 20.sp),
+      onTap: () {
+        _trackSearchResultTap(ref, 'category', position: position);
+        TrackingService.track('category_pill_tapped', params: {
+          'section': pill.key,
+          if (hit.sub != null) 'subcategory': hit.sub!,
+          'source': 'search',
+        });
+        ref.read(polyBrowseSelectionProvider.notifier).state = hit.selection;
+        final router = GoRouter.maybeOf(context);
+        Navigator.of(context).maybePop();
+        router?.go('/polymarket');
+      },
+    );
+  }
+}
+
+/// The Predictions topics under the composer while the Predictions scope
+/// is on: All, then the categories as the browse's own pills (Politics,
+/// Sports, Crypto … Art, the ones the policy offers), one row that scrolls
+/// sideways and keeps the picked one in view ([PolyAutoScrollRow]).
+/// Picking one scopes the venue search to that category
+/// ([searchPredictionsTopicProvider]) and says so to PostHog as the scope
+/// chip does, the category's slug and never the words typed.
+class _PredictionTopicsRow extends ConsumerWidget {
+  const _PredictionTopicsRow();
+
+  static const rowKey = ValueKey('search-prediction-topics');
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final policy = ref.watch(runtimeCapabilitiesProvider);
+    final picked = ref.watch(searchPredictionsTopicProvider);
+    final topics = [
+      for (final p in PolyPill.values)
+        if (p.isTopic && polyPillOffered(p, policy)) p,
+    ];
+    void pick(PolyPill? topic) {
+      if (topic == picked) return;
+      HapticFeedback.selectionClick();
+      TrackingService.searchCategoryChanged(
+          topic?.key ?? SearchCategory.predictions.name,
+          source: 'topic');
+      ref.read(searchPredictionsTopicProvider.notifier).state = topic;
+    }
+
+    final index = picked == null ? 0 : topics.indexOf(picked) + 1;
+    return Padding(
+      key: rowKey,
+      padding: EdgeInsets.only(top: 4.h),
+      child: PolyAutoScrollRow(
+        height: kutePillRowHeight(),
+        padding: kSearchSheetGutter,
+        itemCount: topics.length + 1,
+        selectedIndex: index,
+        itemBuilder: (context, i) {
+          if (i == 0) {
+            return KutePill(
+              label: l10n.polySubAll,
+              selected: picked == null,
+              onTap: () => pick(null),
+            );
+          }
+          final topic = topics[i - 1];
+          return KutePill(
+            label: polyPillLabel(l10n, topic),
+            selected: topic == picked,
+            onTap: () => pick(topic),
+          );
+        },
+      ),
+    );
+  }
+}
+
 /// An Investing market from [globalHyperliquidResultsProvider], in the
 /// sheet's row ([SearchInvestingRow]): the logo, the name over its ticker,
 /// the price over the day's change. Tapping re-resolves the full
@@ -1705,12 +1870,17 @@ class _ResultGroup {
   final List<Widget Function(int position)> rows;
   final bool loading;
 
+  /// A row after the group's rows when it is shown whole under its own
+  /// scope ("Show more"); null for none.
+  final Widget? more;
+
   const _ResultGroup({
     required this.key,
     required this.label,
     required this.rows,
     required this.filter,
     this.loading = false,
+    this.more,
   });
 }
 
@@ -1755,17 +1925,20 @@ class _GroupSkeleton extends StatelessWidget {
 }
 
 /// "See all" as a group's last row when it is capped at
-/// [kSearchSectionCap]: switches the scope to that group.
+/// [kSearchSectionCap]: switches the scope to that group. With a [label]
+/// the same row reads otherwise ("Show more": the next venue page).
 class _SeeAllRow extends StatelessWidget {
   final VoidCallback onTap;
-  const _SeeAllRow({required this.onTap});
+  final String? label;
+  const _SeeAllRow({super.key, required this.onTap, this.label});
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final text = label ?? context.l10n.seeAll;
     return Semantics(
       button: true,
-      label: context.l10n.seeAll,
+      label: text,
       child: KutePressable(
         child: InkWell(
           onTap: () {
@@ -1778,7 +1951,7 @@ class _SeeAllRow extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    context.l10n.seeAll,
+                    text,
                     style: SearchListRow.titleStyle(context),
                   ),
                 ),

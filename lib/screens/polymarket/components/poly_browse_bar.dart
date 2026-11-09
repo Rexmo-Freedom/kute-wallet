@@ -46,6 +46,7 @@ String polyPillLabel(AppLocalizations l10n, PolyPill pill) => switch (pill) {
       PolyPill.weather => l10n.polyPillWeather,
       PolyPill.mentions => l10n.polyPillMentions,
       PolyPill.elections => l10n.polyPillElections,
+      PolyPill.art => l10n.polyPillArt,
     };
 
 /// A subcategory chip's label: its own for a Gamma tag, a league, a game
@@ -111,6 +112,7 @@ String polySubLabel(AppLocalizations l10n, PolySub sub) {
     'rugby' => l10n.polySportRugby,
     'table-tennis' => l10n.polySportTableTennis,
     'darts' => l10n.polySportDarts,
+    'volleyball' => l10n.polySportVolleyball,
     'handball' => l10n.polySportHandball,
     'golf' => l10n.polySportGolf,
     'mma' => l10n.polySportCombat,
@@ -383,7 +385,9 @@ class PolyPillRow extends StatelessWidget {
 /// The subcategories of the category on screen, in the same pills as
 /// the categories. With [onBack] the row leads with the back pill that
 /// names the category ([kuteBackPill]): the drilled-in row of
-/// [PolyDrillRow].
+/// [PolyDrillRow]. A sport's league row (Sports › Soccer) is the same row
+/// one level down: its back pill names the sport ([backLabel]) and the
+/// sport's own chip, first, reads All ([allKey]).
 class PolySubRow extends StatelessWidget {
   final PolyPill pill;
   final List<PolySub> subs;
@@ -392,6 +396,13 @@ class PolySubRow extends StatelessWidget {
 
   /// The back pill's tap; null draws no back pill.
   final VoidCallback? onBack;
+
+  /// What the back pill names; null names the category.
+  final String? backLabel;
+
+  /// The chip that reads "All" whatever its key names (a sport's own chip
+  /// at the head of its league row); null reads every chip by its name.
+  final String? allKey;
 
   /// See [PolyAutoScrollRow.revealOnMount].
   final bool revealOnMount;
@@ -403,6 +414,8 @@ class PolySubRow extends StatelessWidget {
     required this.selectedKey,
     required this.onSelect,
     this.onBack,
+    this.backLabel,
+    this.allKey,
     this.revealOnMount = true,
   });
 
@@ -419,12 +432,13 @@ class PolySubRow extends StatelessWidget {
       itemBuilder: (context, i) {
         if (i < lead) {
           return kuteBackPill(context,
-              label: polyPillLabel(l10n, pill), onTap: onBack!);
+              label: backLabel ?? polyPillLabel(l10n, pill), onTap: onBack!);
         }
         final sub = subs[i - lead];
+        final all = allKey != null && sub.key == allKey;
         return KutePill(
-          label: polySubLabel(l10n, sub),
-          leading: polySubLogo(pill, sub),
+          label: all ? l10n.polySubAll : polySubLabel(l10n, sub),
+          leading: all ? null : polySubLogo(pill, sub),
           selected: sub.key == selectedKey,
           onTap: () => onSelect(sub),
         );
@@ -474,6 +488,7 @@ List<PolySub> polySubsFor(WidgetRef ref, PolyPill pill) {
     case PolyPill.live:
     case PolyPill.mentions:
     case PolyPill.elections:
+    case PolyPill.art:
       return const [];
   }
 }

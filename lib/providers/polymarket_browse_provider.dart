@@ -435,6 +435,127 @@ final polymarketSearchProvider = FutureProvider.autoDispose
           .toList());
 });
 
+/// The filter every venue search result passes: no 5-minute rounds, and
+/// no market whose trading is over (`public-search`'s `events_status`
+/// lets a settled market through for a while), then the policy's
+/// category gates.
+List<PolymarketEvent> _searchResultsOffered(
+        Ref ref, List<PolymarketEvent> events) =>
+    _offeredUnderPolicy(
+        ref,
+        events
+            .where(
+                (e) => !RegExp(r'-updown-5m-').hasMatch(e.slug.toLowerCase()))
+            .where((e) => !_isEventResolved(e))
+            .toList());
+
+/// One venue search as the search sheet runs it: the words, and the Gamma
+/// tag slug the results are scoped to (`events_tag`; null searches
+/// everything).
+typedef PolySearchQuery = ({String query, String? tag});
+
+/// What a paged venue search holds: the pages read so far as one list
+/// (each page most traded first, the earlier pages never moving), whether
+/// the first page is still being read, whether a later page is, and
+/// whether Gamma has another.
+class PolySearchState {
+  final List<PolymarketEvent> events;
+  final bool loading;
+  final bool loadingMore;
+  final bool hasMore;
+  final int pages;
+
+  const PolySearchState({
+    this.events = const [],
+    this.loading = false,
+    this.loadingMore = false,
+    this.hasMore = false,
+    this.pages = 0,
+  });
+
+  PolySearchState copyWith({
+    List<PolymarketEvent>? events,
+    bool? loading,
+    bool? loadingMore,
+    bool? hasMore,
+    int? pages,
+  }) =>
+      PolySearchState(
+        events: events ?? this.events,
+        loading: loading ?? this.loading,
+        loadingMore: loadingMore ?? this.loadingMore,
+        hasMore: hasMore ?? this.hasMore,
+        pages: pages ?? this.pages,
+      );
+}
+
+/// The venue search of the search sheet, paged: the first page after the
+/// same debounce as [polymarketSearchProvider], scoped to the query's tag
+/// (`events_tag=<slug>`, verified live against Gamma on 9 November 2026: a
+/// slug scopes, a numeric id matches nothing), and [PolySearchFeed.loadMore]
+/// for the pages after it ("Show more"; Gamma caps a page at 50 whatever
+/// `limit_per_type` asks). Every page passes [_searchResultsOffered].
+final polySearchFeedProvider = NotifierProvider.autoDispose
+    .family<PolySearchFeed, PolySearchState, PolySearchQuery>(
+        PolySearchFeed.new);
+
+class PolySearchFeed
+    extends AutoDisposeFamilyNotifier<PolySearchState, PolySearchQuery> {
+  PolymarketModel? _model;
+  int _generation = 0;
+
+  @override
+  PolySearchState build(PolySearchQuery arg) {
+    final gen = ++_generation;
+    ref.onDispose(() {
+      _generation++;
+      _model?.dispose();
+      _model = null;
+    });
+    if (arg.query.trim().isEmpty) return const PolySearchState();
+    unawaited(_readFirst(gen));
+    return const PolySearchState(loading: true);
+  }
+
+  Future<void> _readFirst(int gen) async {
+    final debounce = SearchDebounce(const Duration(milliseconds: 200));
+    ref.onDispose(debounce.cancel);
+    if (!await debounce.ready || gen != _generation) return;
+    final page = await _read(1);
+    if (gen != _generation) return;
+    state = PolySearchState(
+      events: _searchResultsOffered(ref, page.events),
+      hasMore: page.hasMore,
+      pages: 1,
+    );
+  }
+
+  Future<PolySearchPage> _read(int page) =>
+      (_model ??= PolymarketModel()).searchEventsPage(arg.query.trim(),
+          eventsTag: arg.tag, page: page);
+
+  /// Reads the next page onto the list; nothing while a read runs or when
+  /// Gamma has no more.
+  Future<void> loadMore() async {
+    final current = state;
+    if (current.loading || current.loadingMore || !current.hasMore) return;
+    final gen = _generation;
+    state = current.copyWith(loadingMore: true);
+    final page = await _read(current.pages + 1);
+    if (gen != _generation) return;
+    final seen = {for (final e in current.events) e.id};
+    state = PolySearchState(
+      events: [
+        ...current.events,
+        for (final e in _searchResultsOffered(ref, page.events))
+          if (seen.add(e.id)) e,
+      ],
+      hasMore: page.hasMore,
+      pages: current.pages + 1,
+    );
+  }
+}
+
 /// Events filtered by Gamma TAG ID — preferred over the slug-based
 /// `polymarketEventsProvider` whenever a tag id is available (i.e.
 /// the user tapped a dynamic Gamma pill). Slugs can be inconsistent
@@ -1368,8 +1489,9 @@ const List<String> _kNewExcludedTagIds = ['102169', '101757', '100639'];
 const String _kGamesTagId = '100639';
 
 /// The category pills, in the order the row shows them: polymarket.com's
-/// own categories, one pill each, plus Live. Watchlist shows only while
-/// something is starred.
+/// own nav (Trending, Breaking, New, then its topics Politics … Art, in
+/// the site's order of 9 November 2026), one pill each, plus Instant and
+/// Live. Watchlist shows only while something is starred.
 enum PolyPill {
   watchlist,
   trending,
@@ -1388,11 +1510,12 @@ enum PolyPill {
   finance,
   geopolitics,
   tech,
+  elections,
   culture,
   economy,
   weather,
   mentions,
-  elections,
+  art,
 }
 
 extension PolyPillX on PolyPill {
@@ -1416,10 +1539,12 @@ extension PolyPillX on PolyPill {
         PolyPill.weather => 'weather',
         PolyPill.mentions => 'mentions',
         PolyPill.elections => 'elections',
+        PolyPill.art => 'art',
       };
 
   /// The Gamma tag slug a topic pill lists (Culture is `pop-culture`,
-  /// Mentions `mention-markets`); empty for the others.
+  /// Mentions `mention-markets`, Art is Gamma tag 1422 `art`); empty for
+  /// the others.
   List<String> get tagSlugs => switch (this) {
         PolyPill.politics => const ['politics'],
         PolyPill.sports => const ['sports'],
@@ -1433,6 +1558,7 @@ extension PolyPillX on PolyPill {
         PolyPill.weather => const ['weather'],
         PolyPill.mentions => const ['mention-markets'],
         PolyPill.elections => const ['elections'],
+        PolyPill.art => const ['art'],
         _ => const [],
       };
 
@@ -1633,31 +1759,80 @@ const List<String> kPolyWeatherSubs = [
   'pandemics',
 ];
 
-/// The sports of polymarket.com's Sports row, after its leagues. The key
-/// is the site's path segment and the sport's Gamma tag ("Combat" is
-/// `mma`).
-const List<String> kPolySportGroups = [
+/// The leagues polymarket.com/sports pins at the head of its side list
+/// (9 November 2026: NFL, NBA, College Football, UFC, UEFA Champions
+/// League, UEFA Nations League), by their Gamma `/sports` code, in the
+/// site's order. Each is a chip of the Sports row when `/sports` lists it.
+const List<String> kPolySportsPinnedLeagues = [
+  'nfl',
+  'nba',
+  'cfb',
+  'ufc',
+  'ucl',
+  'unl',
+];
+
+/// The sports of polymarket.com's side list after its pinned leagues, in
+/// the site's order (9 November 2026). The key is the site's path segment
+/// and the sport's Gamma tag ("Combat" is `mma`: Gamma's `combat` tag
+/// lists nothing).
+const List<String> kPolySiteSports = [
   'soccer',
   'tennis',
   'cricket',
   'basketball',
-  'baseball',
   'football',
   'hockey',
   'rugby',
   'table-tennis',
   'darts',
-  'handball',
+  'volleyball',
   'golf',
   'mma',
+];
+
+/// Sports Gamma lists that the site's list leaves out, after it: by the
+/// 24 h volume of their leagues where the ranking knows them, else in
+/// this order.
+const List<String> kPolySportExtras = [
+  'baseball',
+  'handball',
   'motorsports',
   'cycling',
   'chess',
 ];
 
-/// How many leagues lead the Sports row before the sports (the site
-/// features six).
-const int _kSportsFeaturedLeagues = 6;
+/// Every sport chip of the Sports row: the site's, then the extras.
+const List<String> kPolySportGroups = [...kPolySiteSports, ...kPolySportExtras];
+
+/// The sports whose chip drills one level further, into their leagues
+/// (the site's "Soccer ▾"): a league of a sport is a Gamma `/sports` row
+/// that carries the sport's tag ([tagId]) or whose code is one of
+/// [codes] (American football and combat have no sport tag of their own
+/// on the rows). Rugby, Darts and Golf have no league level on the site.
+const Map<String, ({int? tagId, List<String> codes})> kPolySportLeagueSources =
+    {
+  'soccer': (tagId: 100350, codes: []),
+  'tennis': (tagId: 864, codes: []),
+  'cricket': (tagId: 517, codes: []),
+  'basketball': (tagId: 28, codes: ['nba', 'wnba', 'euroleague', 'nbasl']),
+  'football': (tagId: null, codes: ['nfl', 'cfb', 'ufl', 'cfl']),
+  'hockey': (tagId: 100088, codes: ['nhl']),
+  'table-tennis': (tagId: 103767, codes: []),
+  'volleyball': (tagId: 102883, codes: []),
+  'mma': (tagId: 281, codes: ['ufc', 'boxing', 'powerslap']),
+};
+
+/// The Gamma tag of each extra sport that has one on its `/sports` rows,
+/// for ranking the extras by their leagues' volume.
+const Map<String, int> _kSportExtraTagIds = {
+  'baseball': 678,
+  'handball': 102897,
+};
+
+/// Whether a sport's chip opens its leagues ([kPolySportLeagueSources]).
+bool polySportHasLeagues(String sport) =>
+    kPolySportLeagueSources.containsKey(sport);
 
 /// The games of polymarket.com's Esports row: the Gamma tag (also the
 /// site's path segment), the name the site shows, and the game's code in
@@ -2550,7 +2725,7 @@ final polyCryptoSubsProvider =
 
 /// Gamma `/sports` (every league: `{sport, name, image, series, tags}`),
 /// read once for the league chips, the sports' own logos and the games'.
-final _polySportsDirectoryProvider =
+final polySportsDirectoryProvider =
     FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
   _cacheFor(ref, _kSubsCacheWindow);
   final model = PolymarketModel();
@@ -2588,7 +2763,7 @@ final polyLeagueRowsProvider =
   await _afterListsLand();
   try {
     final results = await Future.wait([
-      ref.read(_polySportsDirectoryProvider.future),
+      ref.read(polySportsDirectoryProvider.future),
       PolymarketModel.readGammaKeysetPage(
         'events',
         const {
@@ -2656,7 +2831,7 @@ List<PolySub> polyLiveLeagueSubs(List<Map<String, dynamic>> ranked,
 final polySportsLeaguesProvider = Provider.autoDispose<List<PolySub>>((ref) =>
     polyLiveLeagueSubs(
       ref.watch(polyLeagueRowsProvider).valueOrNull ?? const [],
-      ref.watch(_polySportsDirectoryProvider).valueOrNull ?? const [],
+      ref.watch(polySportsDirectoryProvider).valueOrNull ?? const [],
     ));
 
 /// The logo of each sport of [kPolySportGroups] that Gamma `/sports`
@@ -2679,7 +2854,7 @@ final polySportGroupLogosProvider =
   if (cached != null) yield polySportGroupLogos(cached);
   try {
     final rows = [
-      for (final r in await ref.read(_polySportsDirectoryProvider.future))
+      for (final r in await ref.read(polySportsDirectoryProvider.future))
         if (kPolySportGroups.contains('${r['sport']}')) r
     ];
     unawaited(PolymarketFeedCache.instance.writeTagRows('sport_groups', rows));
@@ -2689,30 +2864,146 @@ final polySportGroupLogosProvider =
   }
 });
 
-/// Sports chips, as polymarket.com's row reads: Live, Futures, the most
-/// traded leagues (their logos from Gamma `/sports`; esports have a pill
-/// of their own), then the sports, with [groupLogos] where there is one.
+/// The tag ids a Gamma `/sports` row carries.
+Set<String> _leagueTagIds(Map<String, dynamic> r) =>
+    '${r['tags'] ?? ''}'.split(',').map((t) => t.trim()).toSet();
+
+/// The leagues of [sport] among [directory] (Gamma `/sports`): the rows
+/// that carry the sport's tag or one of its codes
+/// ([kPolySportLeagueSources]), one per series, in the directory's order.
+/// Empty for a sport with no league level.
+List<Map<String, dynamic>> polySportLeagues(
+    String sport, List<Map<String, dynamic>> directory) {
+  final source = kPolySportLeagueSources[sport];
+  if (source == null) return const [];
+  final tag = source.tagId == null ? null : '${source.tagId}';
+  final seen = <String>{};
+  return [
+    for (final r in directory)
+      if ((source.codes.contains('${r['sport']}') ||
+              (tag != null && _leagueTagIds(r).contains(tag))) &&
+          !_isEsportsLeague(r) &&
+          seen.add('${r['series']}'))
+        r,
+  ];
+}
+
+/// Sports chips, as polymarket.com's side list reads (9 November 2026):
+/// Live, Futures, the leagues the site pins ([kPolySportsPinnedLeagues],
+/// those [directory] lists, with their logos), the site's sports
+/// ([kPolySiteSports]), then the other sports Gamma lists
+/// ([kPolySportExtras]), the ones with a league among [ranked] (the most
+/// traded leagues) first in that order, with [groupLogos] where there is
+/// one. Without the directory the row is still whole: the sports alone.
 List<PolySub> polySportsSubsFromLeagues(
-  List<Map<String, dynamic>> leagues, {
+  List<Map<String, dynamic>> directory, {
+  List<Map<String, dynamic>> ranked = const [],
   Map<String, String> groupLogos = const {},
-}) =>
-    [
-      const PolySub('live'),
-      const PolySub('futures'),
-      for (final r in leagues
-          .where((r) => !_isEsportsLeague(r))
-          .take(_kSportsFeaturedLeagues))
-        _leagueSub(r),
-      for (final sport in kPolySportGroups)
-        PolySub(sport, imageUrl: groupLogos[sport]),
-    ];
+}) {
+  final byCode = <String, Map<String, dynamic>>{};
+  for (final r in directory) {
+    byCode.putIfAbsent('${r['sport']}', () => r);
+  }
+  int rankOf(String sport) {
+    final tag = _kSportExtraTagIds[sport];
+    if (tag == null) return 1 << 20;
+    final i = ranked.indexWhere((r) => _leagueTagIds(r).contains('$tag'));
+    return i < 0 ? 1 << 20 : i;
+  }
+  final extras = kPolySportExtras.indexed.toList()
+    ..sort((a, b) {
+      final byRank = rankOf(a.$2).compareTo(rankOf(b.$2));
+      return byRank != 0 ? byRank : a.$1.compareTo(b.$1);
+    });
+  return [
+    const PolySub('live'),
+    const PolySub('futures'),
+    for (final code in kPolySportsPinnedLeagues)
+      if (byCode[code] case final r?) _leagueSub(r),
+    for (final sport in kPolySiteSports)
+      PolySub(sport, imageUrl: groupLogos[sport]),
+    for (final (_, sport) in extras)
+      PolySub(sport, imageUrl: groupLogos[sport]),
+  ];
+}
 
 final polySportsSubsProvider = Provider.autoDispose<List<PolySub>>((ref) =>
     polySportsSubsFromLeagues(
-      ref.watch(polyLeagueRowsProvider).valueOrNull ?? const [],
+      ref.watch(polySportsDirectoryProvider).valueOrNull ?? const [],
+      ranked: ref.watch(polyLeagueRowsProvider).valueOrNull ?? const [],
       groupLogos:
           ref.watch(polySportGroupLogosProvider).valueOrNull ?? const {},
     ));
+
+/// How many of a sport's most traded rows rank its leagues: the first
+/// page and a half of its list, which is already in memory when the sport
+/// is on screen, so the league row costs no read of its own. Rows that
+/// land later never reorder the chips.
+const int _kSportLeagueRankRows = 30;
+
+/// A sport's league chips, as the site's "Soccer ▾" opens: the sport's
+/// own list first (its chip reads All on screen), then the leagues of
+/// [polySportLeagues] with trade among [events]'s first
+/// [_kSportLeagueRankRows] rows, most 24 h volume first, each with its
+/// logo. A sport with no league level, or one whose list has not landed,
+/// gives the sport alone.
+List<PolySub> polySportLeagueSubs(
+  String sport,
+  List<Map<String, dynamic>> directory,
+  List<PolymarketEvent> events,
+) {
+  final leagues = polySportLeagues(sport, directory);
+  if (leagues.isEmpty) return [PolySub(sport)];
+  final bySeries = {for (final l in leagues) '${l['series']}': l};
+  final volume = <String, double>{};
+  for (final e in events.take(_kSportLeagueRankRows)) {
+    final id = e.seriesId;
+    if (id == null || !bySeries.containsKey(id)) continue;
+    volume[id] = (volume[id] ?? 0) + e.volume24hr;
+  }
+  final ranked = volume.keys.toList()
+    ..sort((a, b) => volume[b]!.compareTo(volume[a]!));
+  return [
+    PolySub(sport),
+    for (final id in ranked) _leagueSub(bySeries[id]!),
+  ];
+}
+
+/// [polySportLeagueSubs] for [sport], off the directory and the sport's
+/// own list (read anyway when the sport is on screen).
+final polySportLeagueSubsProvider =
+    Provider.autoDispose.family<List<PolySub>, String>((ref, sport) =>
+        polySportLeagueSubs(
+          sport,
+          ref.watch(polySportsDirectoryProvider).valueOrNull ?? const [],
+          ref
+              .watch(polyBrowseFeedProvider(
+                  PolyFeedQuery(pill: PolyPill.sports, sub: sport)))
+              .events,
+        ));
+
+/// The sport whose league row holds the league chip [subKey]
+/// (`series:<id>`), for a deep link or a pick made elsewhere to open the
+/// row it is on; null for a chip of the Sports row itself (Live, Futures,
+/// a pinned league, a sport) and for a league of no sport with a league
+/// level.
+String? polySportOfLeague(String subKey, List<Map<String, dynamic>> directory) {
+  final series = PolySub(subKey).seriesId;
+  if (series == null) return null;
+  for (final r in directory) {
+    if ('${r['series']}' == series &&
+        kPolySportsPinnedLeagues.contains('${r['sport']}')) {
+      return null;
+    }
+  }
+  for (final sport in kPolySportLeagueSources.keys) {
+    if (polySportLeagues(sport, directory)
+        .any((r) => '${r['series']}' == series)) {
+      return sport;
+    }
+  }
+  return null;
+}
 
 /// Esports chips: All, then the games in the site's order, the games
 /// with a match in play first. [logos] is each game's logo by its
@@ -2748,7 +3039,7 @@ final polyEsportsSubsProvider =
   yield polyEsportsSubsFrom(logos: logos);
   try {
     final rows = [
-      for (final l in await ref.read(_polySportsDirectoryProvider.future))
+      for (final l in await ref.read(polySportsDirectoryProvider.future))
         if (codes.contains('${l['sport']}')) l
     ];
     if (rows.isNotEmpty) {

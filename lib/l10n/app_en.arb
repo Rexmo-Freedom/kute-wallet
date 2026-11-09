@@ -6105,6 +6105,10 @@
   "polyPillWeather": "Weather",
   "polyPillMentions": "Mentions",
   "polyPillElections": "Elections",
+  "polyPillArt": "Art",
+  "@polyPillArt": {
+    "description": "Predictions category pill and tile: polymarket.com's Art topic (auctions, museums, artists)."
+  },
   "polySubTargets": "Targets",
   "polySubInstitutions": "Institutions",
   "polySubIndustry": "Industry",
@@ -6140,12 +6144,28 @@
   "polySportRugby": "Rugby",
   "polySportTableTennis": "Table Tennis",
   "polySportDarts": "Darts",
+  "polySportVolleyball": "Volleyball",
+  "@polySportVolleyball": {
+    "description": "Predictions, Sports row: the Volleyball sport chip (polymarket.com's side list)."
+  },
   "polySportHandball": "Handball",
   "polySportGolf": "Golf",
   "polySportCombat": "Combat",
   "polySportMotorsports": "Motorsports",
   "polySportCycling": "Cycling",
   "polySportChess": "Chess",
+  "polySportsGames": "Games",
+  "@polySportsGames": {
+    "description": "Predictions, a sport or league: the first half of the Games | Props switch, the matches with a kickoff."
+  },
+  "polySportsProps": "Props",
+  "@polySportsProps": {
+    "description": "Predictions, a sport or league: the second half of the Games | Props switch, the markets that are not a match (season awards, player totals)."
+  },
+  "polyDayTomorrow": "Tomorrow",
+  "@polyDayTomorrow": {
+    "description": "Predictions, a sport's games: the heading over tomorrow's matches (Today and the weekday headings are beside it)."
+  },
   "polyMoreTitle": "All categories",
   "polyStatsTitle": "Stats",
   "polyStatEnds": "Ends",
@@ -8911,6 +8931,10 @@
   "searchScopeTitle": "Search in",
   "@searchScopeTitle": {
     "description": "Search sheet: the title of the short menu the scope chip (\"All\") opens while typing, listing All / Predictions / Investing / Transactions."
+  },
+  "searchShowMore": "Show more",
+  "@searchShowMore": {
+    "description": "Search sheet, Predictions scope: the row at the end of the results that reads the next page of matches."
   },
   "marketMetaLine": "Closes {date} · {volume}",
   "@marketMetaLine": {

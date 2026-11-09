@@ -3,6 +3,7 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/models/affiliate_model.dart';
+import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 
@@ -36,11 +37,21 @@ void main() {
         'finance',
         'geopolitics',
         'tech',
+        'elections',
         'culture',
         'economy',
         'weather',
         'mentions',
-        'elections',
+        'art',
+      ]);
+      // The topics alone, as polymarket.com's nav lists them.
+      expect([
+        for (final p in PolyPill.values)
+          if (p.isTopic) p.key
+      ], [
+        'politics', 'sports', 'crypto', 'esports', 'finance', 'geopolitics',
+        'tech', 'elections', 'culture', 'economy', 'weather', 'mentions',
+        'art', //
       ]);
     });
 
@@ -48,6 +59,11 @@ void main() {
       expect(PolyPill.culture.tagSlugs, ['pop-culture']);
       expect(PolyPill.mentions.tagSlugs, ['mention-markets']);
       expect(PolyPill.elections.tagSlugs, ['elections']);
+      // Art is Gamma tag 1422, slug `art` (no related tags: no row).
+      expect(PolyPill.art.tagSlugs, ['art']);
+      expect(PolyPill.art.relatedTagId, isNull);
+      expect(PolyPill.art.defaultSub, 'all');
+      expect(PolyPillX.fromKey('art'), PolyPill.art);
       expect(PolyPill.finance.tagSlugs, ['finance']);
       expect(PolyPill.economy.tagSlugs, ['economy']);
       expect(PolyPill.geopolitics.tagSlugs, ['geopolitics']);
@@ -165,32 +181,62 @@ void main() {
       ]);
     });
 
-    test('Sports: Live, Futures, six leagues, then the sports; no All', () {
-      Map<String, dynamic> league(int i, {bool esports = false}) => {
-            'sport': 'l$i',
-            'name': 'League $i',
-            'image': 'https://example.com/$i.png',
-            'series': '$i',
-            'tags': esports ? '1,64,100639' : '1,100639',
-          };
-      final subs = polySportsSubsFromLeagues([
-        league(1),
-        league(2, esports: true),
-        for (var i = 3; i <= 10; i++) league(i),
-      ]);
+    // A Gamma `/sports` directory like the live one of 9 November 2026:
+    // the six leagues the site pins, leagues of the sports with a league
+    // level (soccer by tag 100350, football and combat by code), an
+    // esports game, a baseball league.
+    Map<String, dynamic> league(String code, String name, String series,
+            String tags) =>
+        {
+          'sport': code,
+          'name': name,
+          'image': 'https://example.com/$code.png',
+          'series': series,
+          'tags': tags,
+        };
+    final directory = [
+      league('lal', 'LaLiga', '10193', '1,780,100639,100350'),
+      league('epl', 'Premier League', '10188', '1,82,306,100639,100350'),
+      league('unl', 'UEFA Nations League', '11446', '1,100639,100350,100816'),
+      league('ucl', 'UEFA Champions League', '10204', '1,100977,100639,1234,100350'),
+      league('nfl', 'NFL', '12185', '1,450,100639'),
+      league('nba', 'NBA', '10345', '1,745,100639'),
+      league('cfb', 'College Football', '12756', '1,100351,100639'),
+      league('ufc', 'UFC', '38', '1,100639,279'),
+      league('ufl', 'UFL', '12553', '1,100639,1186,105925'),
+      league('boxing', 'Boxing', '12578', '1,683'),
+      league('lol', 'LoL', '10311', '1,64,65,100639'),
+      league('kbo', 'KBO', '10370', '1,100639,678'),
+      league('atp', 'ATP Tour', '10365', '1,864,100639,101232'),
+    ];
+
+    test('Sports: Live, Futures, the pinned leagues, the site sports; no All',
+        () {
+      final subs = polySportsSubsFromLeagues(directory);
       final keys = [for (final s in subs) s.key];
+      // The six the site pins, in its order, by their `/sports` codes.
       expect(keys.take(8), [
-        'live', 'futures', 'series:1', 'series:3', 'series:4', 'series:5',
-        'series:6', 'series:7', //
+        'live', 'futures', 'series:12185', 'series:10345', 'series:12756',
+        'series:38', 'series:10204', 'series:11446', //
       ]);
+      expect(kPolySportsPinnedLeagues, ['nfl', 'nba', 'cfb', 'ufc', 'ucl', 'unl']);
+      // Then the site's sports in its order, then the extras Gamma lists.
       expect(keys.skip(8), kPolySportGroups);
-      expect(keys, isNot(contains('all')));
-      expect(kPolySportGroups.take(7), [
-        'soccer', 'tennis', 'cricket', 'basketball', 'baseball', 'football',
-        'hockey', //
+      expect(kPolySiteSports, [
+        'soccer', 'tennis', 'cricket', 'basketball', 'football', 'hockey',
+        'rugby', 'table-tennis', 'darts', 'volleyball', 'golf', 'mma', //
       ]);
-      // A league carries its logo; a sport only when Gamma lists one.
-      expect(subs[2].imageUrl, 'https://example.com/1.png');
+      expect(kPolySportExtras,
+          ['baseball', 'handball', 'motorsports', 'cycling', 'chess']);
+      expect(keys, isNot(contains('all')));
+      // A pinned league is not repeated among the sports; an unpinned
+      // league (LaLiga) is not on this row: it is under Soccer.
+      expect(keys, isNot(contains('series:10193')));
+      // A league carries its logo and name; a sport only when Gamma lists
+      // a logo.
+      expect(subs[2].label, 'NFL');
+      expect(subs[2].imageUrl, 'https://example.com/nfl.png');
+      expect(subs[2].route, 'nfl');
       expect(subs.last.imageUrl, isNull);
       final logos = polySportGroupLogos(const [
         {'sport': 'darts', 'image': 'https://example.com/darts.png'},
@@ -203,10 +249,119 @@ void main() {
       expect(withLogos.firstWhere((s) => s.key == 'darts').imageUrl,
           'https://example.com/darts.png');
       expect(withLogos.firstWhere((s) => s.key == 'soccer').imageUrl, isNull);
-      // Without the league list the row is still whole.
+      // Without the directory the row is still whole: the sports alone.
       expect(
           [for (final s in polySportsSubsFromLeagues(const [])) s.key],
           ['live', 'futures', ...kPolySportGroups]);
+      // A directory with only some pinned leagues pins those.
+      final some = polySportsSubsFromLeagues([directory[4], directory[0]]);
+      expect([for (final s in some) s.key].take(3),
+          ['live', 'futures', 'series:12185']);
+    });
+
+    test('Sports: the extra sports go by the volume of their leagues', () {
+      // Handball's league is the most traded: Handball before Baseball.
+      final ranked = [
+        league('hbbundesliga', 'Handball Bundesliga', '12557',
+            '1,100639,102897,105929'),
+        league('kbo', 'KBO', '10370', '1,100639,678'),
+      ];
+      final keys = [
+        for (final s in polySportsSubsFromLeagues(directory, ranked: ranked))
+          s.key
+      ];
+      expect(keys.skip(8 + kPolySiteSports.length),
+          ['handball', 'baseball', 'motorsports', 'cycling', 'chess']);
+      // Only baseball ranked: it leads the extras; the rest keep their order.
+      final baseball = [
+        for (final s in polySportsSubsFromLeagues(directory,
+            ranked: [ranked[1]]))
+          s.key
+      ];
+      expect(baseball.skip(8 + kPolySiteSports.length),
+          ['baseball', 'handball', 'motorsports', 'cycling', 'chess']);
+    });
+
+    PolymarketEvent game(String id, String series, double volume24hr) =>
+        PolymarketEvent(
+          id: id,
+          slug: id,
+          title: id,
+          volume: volume24hr,
+          volume24hr: volume24hr,
+          liquidity: 0,
+          category: 'sports',
+          conditionId: id,
+          outcomes: const [],
+          seriesId: series,
+        );
+
+    test('a sport with leagues drills into them: All, then by 24 h volume',
+        () {
+      expect(polySportHasLeagues('soccer'), isTrue);
+      expect(polySportHasLeagues('football'), isTrue);
+      expect(polySportHasLeagues('mma'), isTrue);
+      expect(polySportHasLeagues('rugby'), isFalse);
+      expect(polySportHasLeagues('darts'), isFalse);
+      expect(polySportHasLeagues('golf'), isFalse);
+      expect(kPolySportLeagueSources.keys, [
+        'soccer', 'tennis', 'cricket', 'basketball', 'football', 'hockey',
+        'table-tennis', 'volleyball', 'mma', //
+      ]);
+      // Soccer's leagues carry its tag; esports never count.
+      expect(
+          [for (final l in polySportLeagues('soccer', directory)) l['sport']],
+          ['lal', 'epl', 'unl', 'ucl']);
+      // American football and combat have no sport tag on the rows: by code.
+      expect(
+          [for (final l in polySportLeagues('football', directory)) l['sport']],
+          ['nfl', 'cfb', 'ufl']);
+      expect([for (final l in polySportLeagues('mma', directory)) l['sport']],
+          ['ufc', 'boxing']);
+      expect(polySportLeagues('rugby', directory), isEmpty);
+
+      // The league row: the sport first (its chip reads All), then the
+      // leagues with trade in the sport's own list, most traded first.
+      final subs = polySportLeagueSubs('soccer', directory, [
+        game('a', '10188', 100),
+        game('b', '10193', 300),
+        game('c', '10193', 50),
+        game('d', '10204', 200),
+        game('e', '12185', 900), // NFL: not a soccer league
+        game('f', '10345', 900), // NBA: not a soccer league
+      ]);
+      expect([for (final s in subs) s.key],
+          ['soccer', 'series:10193', 'series:10204', 'series:10188']);
+      expect(subs[1].label, 'LaLiga');
+      expect(subs[1].imageUrl, 'https://example.com/lal.png');
+      expect(subs[1].route, 'lal');
+      // The list not landed: the sport alone, the row still drills.
+      expect([for (final s in polySportLeagueSubs('soccer', directory, [])) s.key],
+          ['soccer']);
+      // A sport with no league level: itself alone.
+      expect(polySportLeagueSubs('rugby', directory, [game('a', '1', 1)]),
+          hasLength(1));
+      // Only the first thirty rows rank, so a page landing later never
+      // reorders the chips.
+      final late = polySportLeagueSubs('soccer', directory, [
+        for (var i = 0; i < 30; i++) game('a$i', '10188', 1),
+        game('z', '10193', 5000),
+      ]);
+      expect([for (final s in late) s.key], ['soccer', 'series:10188']);
+    });
+
+    test('a league picked elsewhere opens the row it is on', () {
+      // LaLiga is under Soccer; NFL is pinned on the Sports row itself
+      // (and also under Football), so the Sports row stays.
+      expect(polySportOfLeague('series:10193', directory), 'soccer');
+      expect(polySportOfLeague('series:12185', directory), isNull);
+      expect(polySportOfLeague('series:12553', directory), 'football');
+      expect(polySportOfLeague('series:12578', directory), 'mma');
+      // A baseball league: Baseball has no league level.
+      expect(polySportOfLeague('series:10370', directory), isNull);
+      expect(polySportOfLeague('soccer', directory), isNull);
+      expect(polySportOfLeague('live', directory), isNull);
+      expect(polySportOfLeague('series:10193', const []), isNull);
     });
 
     test('Esports: All, then the games, the ones in play first', () {

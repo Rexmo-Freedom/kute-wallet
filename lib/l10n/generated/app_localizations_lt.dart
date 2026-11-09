@@ -9849,6 +9849,9 @@ class AppLocalizationsLt extends AppLocalizations {
   String get polyPillElections => 'Rinkimai';
 
   @override
+  String get polyPillArt => 'Menas';
+
+  @override
   String get polySubTargets => 'Tikslai';
 
   @override
@@ -9954,6 +9957,9 @@ class AppLocalizationsLt extends AppLocalizations {
   String get polySportDarts => 'Smiginis';
 
   @override
+  String get polySportVolleyball => 'Tinklinis';
+
+  @override
   String get polySportHandball => 'Rankinis';
 
   @override
@@ -9970,6 +9976,15 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get polySportChess => 'Šachmatai';
+
+  @override
+  String get polySportsGames => 'Rungtynės';
+
+  @override
+  String get polySportsProps => 'Specialūs';
+
+  @override
+  String get polyDayTomorrow => 'Rytoj';
 
   @override
   String get polyMoreTitle => 'Visos kategorijos';
@@ -11948,6 +11963,9 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get searchScopeTitle => 'Kur ieškoti';
+
+  @override
+  String get searchShowMore => 'Rodyti daugiau';
 
   @override
   String marketMetaLine(String volume, String date) {

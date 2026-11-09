@@ -9820,6 +9820,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get polyPillElections => 'Választások';
 
   @override
+  String get polyPillArt => 'Művészet';
+
+  @override
   String get polySubTargets => 'Célok';
 
   @override
@@ -9925,6 +9928,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get polySportDarts => 'Darts';
 
   @override
+  String get polySportVolleyball => 'Röplabda';
+
+  @override
   String get polySportHandball => 'Kézilabda';
 
   @override
@@ -9941,6 +9947,15 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get polySportChess => 'Sakk';
+
+  @override
+  String get polySportsGames => 'Mérkőzések';
+
+  @override
+  String get polySportsProps => 'Speciális';
+
+  @override
+  String get polyDayTomorrow => 'Holnap';
 
   @override
   String get polyMoreTitle => 'Összes kategória';
@@ -11917,6 +11932,9 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get searchScopeTitle => 'Keresés itt';
+
+  @override
+  String get searchShowMore => 'Több megjelenítése';
 
   @override
   String marketMetaLine(String volume, String date) {

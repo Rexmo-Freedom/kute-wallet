@@ -244,10 +244,10 @@ String investmentsCategoryLabel(
         return l10n.categoryFilterPrompt;
       }
       if (subKey == pill.defaultSub) return polyPillLabel(l10n, pill);
-      final sub = polySubsFor(ref, pill).where((s) => s.key == subKey);
-      return sub.isEmpty
+      final sub = _polySubNamed(ref, pill, subKey);
+      return sub == null
           ? polyPillLabel(l10n, pill)
-          : '${polyPillLabel(l10n, pill)} · ${polySubLabel(l10n, sub.first)}';
+          : '${polyPillLabel(l10n, pill)} · ${polySubLabel(l10n, sub)}';
     case InvestmentsTab.activity:
     case InvestmentsTab.positions:
       return portfolioSectionLabel(l10n, ref.watch(portfolioSectionProvider));
@@ -268,12 +268,21 @@ String? investmentsCategoryShortLabel(
       final pill = sel.pill;
       final subKey = sel.subOf(pill);
       if (subKey == pill.defaultSub) return null;
-      final sub = polySubsFor(ref, pill).where((s) => s.key == subKey);
-      return sub.isEmpty ? null : polySubLabel(l10n, sub.first);
+      final sub = _polySubNamed(ref, pill, subKey);
+      return sub == null ? null : polySubLabel(l10n, sub);
     case InvestmentsTab.activity:
     case InvestmentsTab.positions:
       return null;
   }
+}
+
+/// The chip [key] names under [pill], for its label: one of the pill's
+/// row, or, under Sports, a league of a sport's league row (every league
+/// Gamma lists, [polySportsLeaguesProvider]); null for a key no chip has.
+PolySub? _polySubNamed(WidgetRef ref, PolyPill pill, String key) {
+  final own = polySubsFor(ref, pill).where((s) => s.key == key).firstOrNull;
+  if (own != null || pill != PolyPill.sports) return own;
+  return ref.watch(polySportsLeaguesProvider).where((s) => s.key == key).firstOrNull;
 }
 
 String portfolioSectionLabel(AppLocalizations l10n, PortfolioSection s) =>
@@ -445,6 +454,7 @@ Color _polyTint(AppColorsExtension c, PolyPill p) => switch (p) {
       PolyPill.weather => c.chartCategorical[0],
       PolyPill.mentions => c.chartCategorical[3],
       PolyPill.elections => c.chartCategorical[0],
+      PolyPill.art => c.chartCategorical[4],
     };
 
 /// A Predictions topic's glyph, Polymarket's own (lib/assets/polymarket_tags,
@@ -705,10 +715,12 @@ class _InvestmentsCategorySheetState
     });
   }
 
+  /// One level up: a sport's leagues back to Sports, a group back to the
+  /// section's own grid.
   void _back() {
     HapticFeedback.selectionClick();
     setState(() {
-      _group = null;
+      _group = _group is (PolyPill, String) ? PolyPill.sports : null;
       _forward = false;
     });
   }
@@ -724,7 +736,15 @@ class _InvestmentsCategorySheetState
   String _groupTitle(AppLocalizations l10n, Object group) => switch (group) {
         HlBrowseTab t => t.localizedLabel(l10n),
         PolyPill p => polyPillLabel(l10n, p),
+        (PolyPill _, final String sport) => polySubLabel(l10n, PolySub(sport)),
         _ => '',
+      };
+
+  /// What the header's back link names: the section for a group, the
+  /// group (Sports) for a sport's leagues.
+  String _backTitle(AppLocalizations l10n, Object group) => switch (group) {
+        (final PolyPill p, String _) => polyPillLabel(l10n, p),
+        _ => _sectionTitle(l10n),
       };
 
   @override
@@ -751,9 +771,12 @@ class _InvestmentsCategorySheetState
                 InvestmentsTab.investing => group == null
                     ? _investing(context)
                     : _investingSubs(context, group as HlBrowseTab),
-                InvestmentsTab.predictions => group == null
-                    ? _predictions(context)
-                    : _predictionsSubs(context, group as PolyPill),
+                InvestmentsTab.predictions => switch (group) {
+                    null => _predictions(context),
+                    (PolyPill _, final String sport) =>
+                      _predictionsLeagues(context, sport),
+                    _ => _predictionsSubs(context, group as PolyPill),
+                  },
                 InvestmentsTab.activity ||
                 InvestmentsTab.positions =>
                   _portfolio(context),
@@ -798,7 +821,7 @@ class _InvestmentsCategorySheetState
             title: group == null
                 ? _sectionTitle(l10n)
                 : _groupTitle(l10n, group),
-            back: group == null ? null : _sectionTitle(l10n),
+            back: group == null ? null : _backTitle(l10n, group),
             onBack: _back,
           ),
           Flexible(
@@ -1144,8 +1167,52 @@ class _InvestmentsCategorySheetState
               stat: _polyStat(p, sub: s.key),
               picked:
                   _picked(p, s.key, sel.pill == p && sel.subOf(p) == s.key),
-              onTap: () => _pickPoly(p, s),
+              // A sport with leagues (Soccer, Tennis …) opens them, as the
+              // site's "Soccer ▾" does; its All is the first tile there.
+              onTap: p == PolyPill.sports && polySportHasLeagues(s.key)
+                  ? () => _open((p, s.key))
+                  : () => _pickPoly(p, s),
             ),
+      ]),
+    ];
+  }
+
+  /// Sports › a sport's leagues (the site's "Soccer ▾"): all of the sport
+  /// as the wide tile, then its leagues, most traded first
+  /// ([polySportLeagueSubsProvider]; the sport's list is read for them).
+  List<Widget> _predictionsLeagues(BuildContext context, String sport) {
+    final l10n = context.l10n;
+    final c = context.colors;
+    const p = PolyPill.sports;
+    final sel = ref.watch(polyBrowseSelectionProvider);
+    final tint = _polyTint(c, p);
+    final all = PolySub(sport);
+    final leagues = [
+      for (final s in ref.watch(polySportLeagueSubsProvider(sport)))
+        if (s.key != sport) s,
+    ];
+    return [
+      _rise(0, _Tile.wide(
+        key: ValueKey('category-tile-$sport'),
+        tint: tint,
+        name: l10n.categoryAllOf(polySubLabel(l10n, all)),
+        stat: _polyStat(p, sub: sport),
+        logos: _polyLogos(_polyLoaded(p, sport)),
+        asset: _polyIconAsset(p),
+        picked: _picked(p, sport, sel.pill == p && sel.subOf(p) == sport),
+        onTap: () => _pickPoly(p, all),
+      )),
+      _grid(first: 1, [
+        for (final s in leagues)
+          _Tile(
+            key: ValueKey('category-tile-${s.key}'),
+            asset: _polyIconAsset(p),
+            tint: tint,
+            name: polySubLabel(l10n, s),
+            stat: _polyStat(p, sub: s.key),
+            picked: _picked(p, s.key, sel.pill == p && sel.subOf(p) == s.key),
+            onTap: () => _pickPoly(p, s),
+          ),
       ]),
     ];
   }

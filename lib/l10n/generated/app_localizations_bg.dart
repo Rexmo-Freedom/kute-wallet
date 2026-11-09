@@ -9815,6 +9815,9 @@ class AppLocalizationsBg extends AppLocalizations {
   String get polyPillElections => 'Избори';
 
   @override
+  String get polyPillArt => 'Изкуство';
+
+  @override
   String get polySubTargets => 'Цели';
 
   @override
@@ -9920,6 +9923,9 @@ class AppLocalizationsBg extends AppLocalizations {
   String get polySportDarts => 'Дартс';
 
   @override
+  String get polySportVolleyball => 'Волейбол';
+
+  @override
   String get polySportHandball => 'Хандбал';
 
   @override
@@ -9936,6 +9942,15 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get polySportChess => 'Шах';
+
+  @override
+  String get polySportsGames => 'Мачове';
+
+  @override
+  String get polySportsProps => 'Специални';
+
+  @override
+  String get polyDayTomorrow => 'Утре';
 
   @override
   String get polyMoreTitle => 'Всички категории';
@@ -11909,6 +11924,9 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get searchScopeTitle => 'Търси в';
+
+  @override
+  String get searchShowMore => 'Покажи още';
 
   @override
   String marketMetaLine(String volume, String date) {
