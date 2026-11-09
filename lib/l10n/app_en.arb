@@ -12537,5 +12537,8 @@
   "shareEdgeGoalYourTurn": "Your turn. Sal will wait.",
   "@shareEdgeGoalYourTurn": {
     "description": "Level share card: one short deadpan line on the card, PG, never a promise of profit, never a figure."
-  }
+  },
+  "receiveArrivesAsBitcoin": "Arrives as bitcoin",
+  "sendEmailNoLightning": "Email, no Lightning address",
+  "barNeedLightningAddress": "No Lightning address"
 }

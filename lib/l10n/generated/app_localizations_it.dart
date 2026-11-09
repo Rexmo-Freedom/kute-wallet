@@ -14420,4 +14420,13 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get shareEdgeGoalYourTurn => 'Tocca a te. Sal aspetta.';
+
+  @override
+  String get receiveArrivesAsBitcoin => 'Arriva come bitcoin';
+
+  @override
+  String get sendEmailNoLightning => 'Email, nessun indirizzo Lightning';
+
+  @override
+  String get barNeedLightningAddress => 'Nessun indirizzo Lightning';
 }

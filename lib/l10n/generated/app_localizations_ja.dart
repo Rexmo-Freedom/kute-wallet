@@ -13901,4 +13901,13 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get shareEdgeGoalYourTurn => '次は君の番。Salは待ってる。';
+
+  @override
+  String get receiveArrivesAsBitcoin => 'ビットコインで届きます';
+
+  @override
+  String get sendEmailNoLightning => 'メール（Lightningアドレスなし）';
+
+  @override
+  String get barNeedLightningAddress => 'Lightningアドレスなし';
 }

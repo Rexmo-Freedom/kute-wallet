@@ -14355,4 +14355,13 @@ class AppLocalizationsDa extends AppLocalizations {
 
   @override
   String get shareEdgeGoalYourTurn => 'Din tur. Sal venter.';
+
+  @override
+  String get receiveArrivesAsBitcoin => 'Ankommer som bitcoin';
+
+  @override
+  String get sendEmailNoLightning => 'E-mail, ingen Lightning-adresse';
+
+  @override
+  String get barNeedLightningAddress => 'Ingen Lightning-adresse';
 }

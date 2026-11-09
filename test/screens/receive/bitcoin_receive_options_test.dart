@@ -302,7 +302,7 @@ void main() {
     expect(_card(tester, _fromAnother).title, 'Another crypto');
     expect(_card(tester, _fromAnother).title, _l10n.receiveAnotherCrypto);
     expect(find.text('Another wallet'), findsNothing);
-    expect(_card(tester, _fromAnother).subtitle, 'USDC, ETH and more');
+    expect(_card(tester, _fromAnother).subtitle, 'USDC, ETH and more\nArrives as bitcoin');
     _expectCoinsWhole(tester, find.byKey(_fromAnother));
 
     // Two equal squares side by side, Bitcoin first; a square shows no

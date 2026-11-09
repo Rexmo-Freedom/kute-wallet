@@ -4050,5 +4050,8 @@
   "shareEdgeGoalSaysNothing": "Sal szerint ez semmiség. Ezt gyakran mondja.",
   "shareEdgeGoalOnPurpose": "Lassú emelkedés. Szándékosan.",
   "shareEdgeGoalNoTrophy": "Nincs trófea. Csak egy kutya és egy szint.",
-  "shareEdgeGoalYourTurn": "Te jössz. Sal megvár."
+  "shareEdgeGoalYourTurn": "Te jössz. Sal megvár.",
+  "receiveArrivesAsBitcoin": "Bitcoinként érkezik",
+  "sendEmailNoLightning": "E-mail, nincs Lightning-cím",
+  "barNeedLightningAddress": "Nincs Lightning-cím"
 }

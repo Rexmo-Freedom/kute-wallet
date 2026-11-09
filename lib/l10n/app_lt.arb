@@ -4050,5 +4050,8 @@
   "shareEdgeGoalSaysNothing": "Sal sako, kad tai niekis. Sako tai dažnai.",
   "shareEdgeGoalOnPurpose": "Lėtas kilimas. Tyčia.",
   "shareEdgeGoalNoTrophy": "Jokios taurės. Tik šuo ir lygis.",
-  "shareEdgeGoalYourTurn": "Tavo eilė. Sal palauks."
+  "shareEdgeGoalYourTurn": "Tavo eilė. Sal palauks.",
+  "receiveArrivesAsBitcoin": "Gaunama kaip bitcoin",
+  "sendEmailNoLightning": "El. paštas, Lightning adreso nėra",
+  "barNeedLightningAddress": "Lightning adreso nėra"
 }

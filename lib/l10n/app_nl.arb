@@ -4050,5 +4050,8 @@
   "shareEdgeGoalSaysNothing": "Sal zegt dat het niks is. Dat zegt Sal vaak.",
   "shareEdgeGoalOnPurpose": "Langzame klim. Expres.",
   "shareEdgeGoalNoTrophy": "Geen trofee. Alleen een hond en een level.",
-  "shareEdgeGoalYourTurn": "Jouw beurt. Sal wacht wel."
+  "shareEdgeGoalYourTurn": "Jouw beurt. Sal wacht wel.",
+  "receiveArrivesAsBitcoin": "Komt binnen als bitcoin",
+  "sendEmailNoLightning": "E-mail, geen Lightning-adres",
+  "barNeedLightningAddress": "Geen Lightning-adres"
 }

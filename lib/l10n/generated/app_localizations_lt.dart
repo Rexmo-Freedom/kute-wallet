@@ -14412,4 +14412,13 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get shareEdgeGoalYourTurn => 'Tavo eilė. Sal palauks.';
+
+  @override
+  String get receiveArrivesAsBitcoin => 'Gaunama kaip bitcoin';
+
+  @override
+  String get sendEmailNoLightning => 'El. paštas, Lightning adreso nėra';
+
+  @override
+  String get barNeedLightningAddress => 'Lightning adreso nėra';
 }

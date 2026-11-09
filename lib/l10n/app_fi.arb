@@ -4050,5 +4050,8 @@
   "shareEdgeGoalSaysNothing": "Sal sanoo, ettei tämä ole mitään. Sanoo niin usein.",
   "shareEdgeGoalOnPurpose": "Hidas nousu. Tahallaan.",
   "shareEdgeGoalNoTrophy": "Ei pokaalia. Vain koira ja taso.",
-  "shareEdgeGoalYourTurn": "Sinun vuorosi. Sal odottaa."
+  "shareEdgeGoalYourTurn": "Sinun vuorosi. Sal odottaa.",
+  "receiveArrivesAsBitcoin": "Saapuu bitcoinina",
+  "sendEmailNoLightning": "Sähköposti, ei Lightning-osoitetta",
+  "barNeedLightningAddress": "Ei Lightning-osoitetta"
 }

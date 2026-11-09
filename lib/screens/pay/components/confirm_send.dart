@@ -102,6 +102,7 @@ import 'package:kute/screens/shared/receive_surface.dart'
 import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart';
 import 'package:kute/screens/shared/send/send_contacts_list.dart';
+import 'package:kute/services/lightning_address_check.dart';
 import 'package:kute/screens/shared/send/send_recipient_step.dart';
 import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/services/contacts/send_contacts_service.dart'
@@ -301,7 +302,8 @@ _DetectedAddressInfo _detectAddressType(String raw) {
   if (RegExp(r'^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]+$').hasMatch(addr)) {
     return const _DetectedAddressInfo(
       label: 'Lightning address',
-      icon: Icons.alternate_email_rounded,
+      // The bolt, as an invoice and an LNURL wear: an @ reads as an email.
+      icon: Icons.bolt_rounded,
       color: Color(0xFFB388FF),
       valid: true,
     );
@@ -5287,6 +5289,13 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
               (_selectedDestAsset == null || _selectedDestNetwork == null)) {
             return l10n.barNeedNetwork;
           }
+          if (label == 'Lightning address') {
+            final status = watchLightningAddress(ref, addr);
+            if (status == LightningAddressStatus.checking) return l10n.checking;
+            if (status == LightningAddressStatus.missing) {
+              return l10n.barNeedLightningAddress;
+            }
+          }
           return l10n.barNeedValidAddress;
         }(),
         onContinue: () {
@@ -5311,6 +5320,22 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     final addr = addressController.text;
     if (addr.isEmpty) return false;
     final detected = _detectAddressType(addr);
+    // A user@domain that has no Lightning address is an email, and one still
+    // being asked about waits for the answer. No answer at all (offline)
+    // refuses nothing: the payment's own parse decides. A recent or a Kute
+    // contact the person tapped goes straight on, as it always did.
+    if (detected.label == 'Lightning address' &&
+        _addressEntryMethod != 'contacts') {
+      final key = LightningAddressCheck.keyOf(addr);
+      final status = key == null
+          ? null
+          : ref.read(lightningAddressStatusProvider(key)).valueOrNull ??
+              LightningAddressStatus.checking;
+      if (status == LightningAddressStatus.missing ||
+          status == LightningAddressStatus.checking) {
+        return false;
+      }
+    }
     // Non-native addresses (EVM / Solana / anything we
     // can't identify) MUST go through a destination
     // pick — the on-chain delivery rail can't be
@@ -7775,6 +7800,10 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     // A destination the flow can act on: recognised, and with its
     // network picked where the address alone does not say.
     final resolved = addr.isNotEmpty && detected.valid && !needsPick;
+    // Kept alive by this watch; _sendToStepReady reads the same answer.
+    final lightningStatus = detected.label == 'Lightning address'
+        ? watchLightningAddress(ref, addr)
+        : null;
     // Hardware / watch-only + Lightning address: explain the
     // spending-wallet requirement before they hit Review (Continue is
     // also disabled in this state so they can't advance silently).
@@ -7889,8 +7918,24 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
           if (resolved) ...[
             SizedBox(height: 20.h),
             SendRecipientCard(
-              railMark: _recipientRailMark(detected, avatar: 44),
+              railMark: lightningStatus == LightningAddressStatus.missing ||
+                      lightningStatus == LightningAddressStatus.checking
+                  ? Icon(Icons.alternate_email_rounded,
+                      color: c.textSecondary, size: 24.sp)
+                  : _recipientRailMark(detected, avatar: 44),
               address: addr,
+              kindLine: switch (lightningStatus) {
+                LightningAddressStatus.exists =>
+                  context.l10n.sendDetectedLightningAddress,
+                LightningAddressStatus.missing =>
+                  context.l10n.sendEmailNoLightning,
+                LightningAddressStatus.checking => context.l10n.checking,
+                _ => null,
+              },
+              badge: lightningStatus == LightningAddressStatus.missing ||
+                      lightningStatus == LightningAddressStatus.checking
+                  ? SendPersonBadge.none
+                  : null,
               // Progressive disclosure (founder, 7 November 2026):
               // Lightning or on-chain is said on Review; a coin the person
               // chose reads here.

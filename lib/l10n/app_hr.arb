@@ -4050,5 +4050,8 @@
   "shareEdgeGoalSaysNothing": "Sal kaže da to nije ništa. Često to kaže.",
   "shareEdgeGoalOnPurpose": "Spor uspon. Namjerno.",
   "shareEdgeGoalNoTrophy": "Nema trofeja. Samo pas i razina.",
-  "shareEdgeGoalYourTurn": "Ti si na redu. Sal će čekati."
+  "shareEdgeGoalYourTurn": "Ti si na redu. Sal će čekati.",
+  "receiveArrivesAsBitcoin": "Stiže kao bitcoin",
+  "sendEmailNoLightning": "E-pošta, bez Lightning adrese",
+  "barNeedLightningAddress": "Nema Lightning adrese"
 }

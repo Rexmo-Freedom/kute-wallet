@@ -24164,6 +24164,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Your turn. Sal will wait.'**
   String get shareEdgeGoalYourTurn;
+
+  /// No description provided for @receiveArrivesAsBitcoin.
+  ///
+  /// In en, this message translates to:
+  /// **'Arrives as bitcoin'**
+  String get receiveArrivesAsBitcoin;
+
+  /// No description provided for @sendEmailNoLightning.
+  ///
+  /// In en, this message translates to:
+  /// **'Email, no Lightning address'**
+  String get sendEmailNoLightning;
+
+  /// No description provided for @barNeedLightningAddress.
+  ///
+  /// In en, this message translates to:
+  /// **'No Lightning address'**
+  String get barNeedLightningAddress;
 }
 
 class _AppLocalizationsDelegate

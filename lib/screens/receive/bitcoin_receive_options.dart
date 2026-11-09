@@ -172,6 +172,7 @@ class _BitcoinReceiveOptionsState extends ConsumerState<BitcoinReceiveOptions> {
                 l10n,
                 key: const ValueKey('bitcoin-receive-from-another'),
                 groups: groups,
+                arrivesAs: l10n.receiveArrivesAsBitcoin,
                 onTap: () => _openOtherCoins(groups.length),
               ),
             ],

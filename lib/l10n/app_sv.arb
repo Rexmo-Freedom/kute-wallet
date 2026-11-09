@@ -4050,5 +4050,8 @@
   "shareEdgeGoalSaysNothing": "Sal säger att det är ingenting. Det säger Sal ofta.",
   "shareEdgeGoalOnPurpose": "Långsam klättring. Med flit.",
   "shareEdgeGoalNoTrophy": "Ingen pokal. Bara en hund och en nivå.",
-  "shareEdgeGoalYourTurn": "Din tur. Sal väntar."
+  "shareEdgeGoalYourTurn": "Din tur. Sal väntar.",
+  "receiveArrivesAsBitcoin": "Kommer som bitcoin",
+  "sendEmailNoLightning": "E-post, ingen Lightning-adress",
+  "barNeedLightningAddress": "Ingen Lightning-adress"
 }

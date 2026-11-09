@@ -92,6 +92,7 @@ import 'package:kute/services/contacts/send_contacts_service.dart'
     show SendContact, sendContactsProvider;
 import 'package:kute/services/orchestra_routes.dart'
     show kOrchestraUsdAssetCode;
+import 'package:kute/services/lightning_address_check.dart';
 import 'package:kute/services/orchestra_usd_send_routes.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -378,7 +379,12 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
         _who(text, offered, l10n, hiddenReason: offeredResult.hiddenReason);
     final auto = who.destination;
     // A recipient chosen: a dollar destination, or one only bitcoin pays.
-    final chosen = auto != null || who.bitcoinRail;
+    // A user@domain only bitcoin pays must really be a Lightning address.
+    final lightningStatus =
+        who.bitcoinRail ? watchLightningAddress(ref, text) : null;
+    final notPayable = lightningStatus == LightningAddressStatus.missing ||
+        lightningStatus == LightningAddressStatus.checking;
+    final chosen = auto != null || (who.bitcoinRail && !notPayable);
     final resolved = auto != null ? who.address : null;
     final recents = _recentPeople(offered);
     final background = context.isDark ? c.surface : Colors.white;
@@ -399,7 +405,11 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
       label: l10n.continueLabel,
       onPrimary: _continue,
       enabled: chosen,
-      disabledLabel: who.candidates.length > 1
+      disabledLabel: lightningStatus == LightningAddressStatus.checking
+          ? l10n.checking
+          : lightningStatus == LightningAddressStatus.missing
+              ? l10n.barNeedLightningAddress
+              : who.candidates.length > 1
           ? l10n.barNeedNetwork
           : who.error != null
               ? l10n.barNeedValidAddress
@@ -469,13 +479,25 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
                       // leaves from Bitcoin (the Bitcoin Send takes it).
                       SizedBox(height: 20.h),
                       SendRecipientCard(
-                        railMark: SvgPicture.asset(kBitcoinMarkAsset,
-                            width: 28.sp, height: 28.sp),
+                        railMark: notPayable
+                            ? Icon(Icons.alternate_email_rounded,
+                                color: c.textSecondary, size: 24.sp)
+                            : SvgPicture.asset(kBitcoinMarkAsset,
+                                width: 28.sp, height: 28.sp),
                         address: text,
-                        rail: l10n.usdReceiveFromYourBitcoin,
+                        rail: notPayable ? null : l10n.usdReceiveFromYourBitcoin,
                         recents: recents,
                         onChange: _clearRecipient,
-                        onTap: _continue,
+                        onTap: notPayable ? null : _continue,
+                        kindLine: switch (lightningStatus) {
+                          LightningAddressStatus.exists =>
+                            l10n.sendDetectedLightningAddress,
+                          LightningAddressStatus.missing =>
+                            l10n.sendEmailNoLightning,
+                          LightningAddressStatus.checking => l10n.checking,
+                          _ => null,
+                        },
+                        badge: notPayable ? SendPersonBadge.none : null,
                       ),
                     ] else if (who.candidates.length > 1) ...[
                       // An address several networks take: which one.

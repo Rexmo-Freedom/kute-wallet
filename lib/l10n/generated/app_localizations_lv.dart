@@ -14323,4 +14323,13 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get shareEdgeGoalYourTurn => 'Tava kārta. Sal pagaidīs.';
+
+  @override
+  String get receiveArrivesAsBitcoin => 'Pienāk kā bitcoin';
+
+  @override
+  String get sendEmailNoLightning => 'E-pasts, nav Lightning adreses';
+
+  @override
+  String get barNeedLightningAddress => 'Nav Lightning adreses';
 }

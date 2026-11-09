@@ -4050,5 +4050,8 @@
   "shareEdgeGoalSaysNothing": "Sal saka, ka tas ir nieks. Saka to bieži.",
   "shareEdgeGoalOnPurpose": "Lēns kāpums. Ar nodomu.",
   "shareEdgeGoalNoTrophy": "Nav trofejas. Tikai suns un līmenis.",
-  "shareEdgeGoalYourTurn": "Tava kārta. Sal pagaidīs."
+  "shareEdgeGoalYourTurn": "Tava kārta. Sal pagaidīs.",
+  "receiveArrivesAsBitcoin": "Pienāk kā bitcoin",
+  "sendEmailNoLightning": "E-pasts, nav Lightning adreses",
+  "barNeedLightningAddress": "Nav Lightning adreses"
 }

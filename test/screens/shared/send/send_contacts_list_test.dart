@@ -541,7 +541,9 @@ void main() {
     });
 
     Future<void> pumpCard(WidgetTester tester, String address,
-        {String? rail = 'Lightning'}) async {
+        {String? rail = 'Lightning',
+        String? kindLine,
+        SendPersonBadge? badge}) async {
       GoogleFonts.config.allowRuntimeFetching = false;
       tester.view.physicalSize = const Size(375, 900);
       tester.view.devicePixelRatio = 1;
@@ -569,6 +571,8 @@ void main() {
                   railMark: const Icon(Icons.bolt_rounded),
                   recents: _recents(),
                   onChange: () {},
+                  kindLine: kindLine,
+                  badge: badge,
                 ),
               ),
             ),
@@ -584,6 +588,37 @@ void main() {
     String name(WidgetTester tester) => tester
         .widget<Text>(find.byKey(const ValueKey('send-recipient-name')))
         .data!;
+
+    String secondLine(WidgetTester tester) => tester
+        .widget<SendMiddleEllipsisText>(
+            find.byKey(const ValueKey('send-recipient-address')))
+        .text;
+
+    testWidgets(
+        'an address with no saved name says what it is under it, not itself',
+        (tester) async {
+      await pumpCard(tester, 'new@getalby.com',
+          rail: null, kindLine: 'Lightning address');
+      expect(secondLine(tester), 'Lightning address');
+      expect(find.byKey(const ValueKey('send-badge-lightning')), findsOneWidget);
+    });
+
+    testWidgets('an email wears no Lightning badge', (tester) async {
+      await pumpCard(tester, 'anna@gmail.com',
+          rail: null,
+          kindLine: 'Email, no Lightning address',
+          badge: SendPersonBadge.none);
+      expect(secondLine(tester), 'Email, no Lightning address');
+      expect(find.byKey(const ValueKey('send-badge-lightning')), findsNothing);
+    });
+
+    testWidgets('a saved contact keeps its address under its name',
+        (tester) async {
+      await pumpCard(tester, 'joana@paykute.com',
+          rail: null, kindLine: 'Lightning address');
+      expect(name(tester), 'Joana Kute');
+      expect(secondLine(tester), 'joana@paykute.com');
+    });
 
     testWidgets('the card names a contact, wears its Kute badge and the rail',
         (tester) async {

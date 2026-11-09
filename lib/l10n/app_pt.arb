@@ -4316,5 +4316,8 @@
   "shareEdgeGoalSaysNothing": "O Sal diz que não é nada. Diz isso muitas vezes.",
   "shareEdgeGoalOnPurpose": "Subida lenta. De propósito.",
   "shareEdgeGoalNoTrophy": "Sem troféu. Só um cão e um nível.",
-  "shareEdgeGoalYourTurn": "É a tua vez. O Sal espera."
+  "shareEdgeGoalYourTurn": "É a tua vez. O Sal espera.",
+  "receiveArrivesAsBitcoin": "Chega em bitcoin",
+  "sendEmailNoLightning": "Email, sem endereço Lightning",
+  "barNeedLightningAddress": "Sem endereço Lightning"
 }

@@ -14387,4 +14387,13 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get shareEdgeGoalYourTurn => 'Te jössz. Sal megvár.';
+
+  @override
+  String get receiveArrivesAsBitcoin => 'Bitcoinként érkezik';
+
+  @override
+  String get sendEmailNoLightning => 'E-mail, nincs Lightning-cím';
+
+  @override
+  String get barNeedLightningAddress => 'Nincs Lightning-cím';
 }

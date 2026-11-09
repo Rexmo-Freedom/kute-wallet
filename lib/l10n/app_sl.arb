@@ -4050,5 +4050,8 @@
   "shareEdgeGoalSaysNothing": "Sal pravi, da to ni nič. To pogosto pravi.",
   "shareEdgeGoalOnPurpose": "Počasen vzpon. Namenoma.",
   "shareEdgeGoalNoTrophy": "Brez pokala. Le pes in raven.",
-  "shareEdgeGoalYourTurn": "Tvoja poteza. Sal bo počakal."
+  "shareEdgeGoalYourTurn": "Tvoja poteza. Sal bo počakal.",
+  "receiveArrivesAsBitcoin": "Prispe kot bitcoin",
+  "sendEmailNoLightning": "E-pošta, brez naslova Lightning",
+  "barNeedLightningAddress": "Ni naslova Lightning"
 }

@@ -14453,4 +14453,13 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get shareEdgeGoalYourTurn => 'Σειρά σου. Ο Sal θα περιμένει.';
+
+  @override
+  String get receiveArrivesAsBitcoin => 'Φτάνει ως bitcoin';
+
+  @override
+  String get sendEmailNoLightning => 'Email, χωρίς διεύθυνση Lightning';
+
+  @override
+  String get barNeedLightningAddress => 'Καμία διεύθυνση Lightning';
 }

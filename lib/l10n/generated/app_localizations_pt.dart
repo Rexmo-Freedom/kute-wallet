@@ -14412,4 +14412,13 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get shareEdgeGoalYourTurn => 'É a tua vez. O Sal espera.';
+
+  @override
+  String get receiveArrivesAsBitcoin => 'Chega em bitcoin';
+
+  @override
+  String get sendEmailNoLightning => 'Email, sem endereço Lightning';
+
+  @override
+  String get barNeedLightningAddress => 'Sem endereço Lightning';
 }

@@ -4050,5 +4050,8 @@
   "shareEdgeGoalSaysNothing": "Sal ütleb, et see pole midagi. Ütleb seda tihti.",
   "shareEdgeGoalOnPurpose": "Aeglane tõus. Meelega.",
   "shareEdgeGoalNoTrophy": "Karikat pole. Ainult koer ja tase.",
-  "shareEdgeGoalYourTurn": "Sinu kord. Sal ootab."
+  "shareEdgeGoalYourTurn": "Sinu kord. Sal ootab.",
+  "receiveArrivesAsBitcoin": "Saabub bitcoinina",
+  "sendEmailNoLightning": "E-post, Lightning-aadressi pole",
+  "barNeedLightningAddress": "Lightning-aadressi pole"
 }

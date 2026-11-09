@@ -4050,5 +4050,8 @@
   "shareEdgeGoalSaysNothing": "Ο Sal λέει πως δεν είναι τίποτα. Το λέει συχνά.",
   "shareEdgeGoalOnPurpose": "Αργή ανάβαση. Επίτηδες.",
   "shareEdgeGoalNoTrophy": "Κανένα τρόπαιο. Μόνο ένας σκύλος κι ένα επίπεδο.",
-  "shareEdgeGoalYourTurn": "Σειρά σου. Ο Sal θα περιμένει."
+  "shareEdgeGoalYourTurn": "Σειρά σου. Ο Sal θα περιμένει.",
+  "receiveArrivesAsBitcoin": "Φτάνει ως bitcoin",
+  "sendEmailNoLightning": "Email, χωρίς διεύθυνση Lightning",
+  "barNeedLightningAddress": "Καμία διεύθυνση Lightning"
 }

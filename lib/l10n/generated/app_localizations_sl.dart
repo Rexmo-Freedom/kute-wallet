@@ -14399,4 +14399,13 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get shareEdgeGoalYourTurn => 'Tvoja poteza. Sal bo počakal.';
+
+  @override
+  String get receiveArrivesAsBitcoin => 'Prispe kot bitcoin';
+
+  @override
+  String get sendEmailNoLightning => 'E-pošta, brez naslova Lightning';
+
+  @override
+  String get barNeedLightningAddress => 'Ni naslova Lightning';
 }

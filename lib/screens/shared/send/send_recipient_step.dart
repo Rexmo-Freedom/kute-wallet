@@ -1164,12 +1164,16 @@ KuteActionCard anotherCryptoCard(
   required List<CoinAssetGroup> groups,
   required VoidCallback onTap,
   required Key key,
+  String? arrivesAs,
 }) =>
     KuteActionCard(
       key: key,
       visual: AnotherCryptoMarks(coins: anotherCryptoNamedCoins(groups)),
       title: l10n.receiveAnotherCrypto,
-      subtitle: anotherCryptoLine(l10n, groups),
+      // [arrivesAs]: what the coin lands as, when it is not obvious.
+      subtitle: arrivesAs == null
+          ? anotherCryptoLine(l10n, groups)
+          : '${anotherCryptoLine(l10n, groups)}\n$arrivesAs',
       visualSlot: kKuteActionCardVisualSlot.sp,
       onTap: onTap,
     );

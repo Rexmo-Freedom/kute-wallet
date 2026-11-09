@@ -14426,4 +14426,13 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get shareEdgeGoalYourTurn => 'E rândul tău. Sal așteaptă.';
+
+  @override
+  String get receiveArrivesAsBitcoin => 'Ajunge ca bitcoin';
+
+  @override
+  String get sendEmailNoLightning => 'E-mail, fără adresă Lightning';
+
+  @override
+  String get barNeedLightningAddress => 'Fără adresă Lightning';
 }

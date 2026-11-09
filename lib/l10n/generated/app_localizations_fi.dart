@@ -14381,4 +14381,13 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get shareEdgeGoalYourTurn => 'Sinun vuorosi. Sal odottaa.';
+
+  @override
+  String get receiveArrivesAsBitcoin => 'Saapuu bitcoinina';
+
+  @override
+  String get sendEmailNoLightning => 'Sähköposti, ei Lightning-osoitetta';
+
+  @override
+  String get barNeedLightningAddress => 'Ei Lightning-osoitetta';
 }

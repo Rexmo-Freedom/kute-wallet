@@ -4050,5 +4050,8 @@
   "shareEdgeGoalSaysNothing": "Sal zice că nu e nimic. Zice asta des.",
   "shareEdgeGoalOnPurpose": "Urcare lentă. Intenționat.",
   "shareEdgeGoalNoTrophy": "Fără trofeu. Doar un câine și un nivel.",
-  "shareEdgeGoalYourTurn": "E rândul tău. Sal așteaptă."
+  "shareEdgeGoalYourTurn": "E rândul tău. Sal așteaptă.",
+  "receiveArrivesAsBitcoin": "Ajunge ca bitcoin",
+  "sendEmailNoLightning": "E-mail, fără adresă Lightning",
+  "barNeedLightningAddress": "Fără adresă Lightning"
 }

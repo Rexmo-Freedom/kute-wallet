@@ -4050,5 +4050,8 @@
   "shareEdgeGoalSaysNothing": "Сал казва, че е нищо. Често го казва.",
   "shareEdgeGoalOnPurpose": "Бавно изкачване. Нарочно.",
   "shareEdgeGoalNoTrophy": "Без трофей. Само куче и ниво.",
-  "shareEdgeGoalYourTurn": "Твой ред е. Сал ще чака."
+  "shareEdgeGoalYourTurn": "Твой ред е. Сал ще чака.",
+  "receiveArrivesAsBitcoin": "Пристига като биткойн",
+  "sendEmailNoLightning": "Имейл, без Lightning адрес",
+  "barNeedLightningAddress": "Няма Lightning адрес"
 }

@@ -4050,5 +4050,8 @@
   "shareEdgeGoalSaysNothing": "Sal hovorí, že to nič nie je. Hovorí to často.",
   "shareEdgeGoalOnPurpose": "Pomalý výstup. Naschvál.",
   "shareEdgeGoalNoTrophy": "Žiadna trofej. Len pes a úroveň.",
-  "shareEdgeGoalYourTurn": "Si na rade. Sal počká."
+  "shareEdgeGoalYourTurn": "Si na rade. Sal počká.",
+  "receiveArrivesAsBitcoin": "Príde ako bitcoin",
+  "sendEmailNoLightning": "E-mail, bez adresy Lightning",
+  "barNeedLightningAddress": "Žiadna adresa Lightning"
 }

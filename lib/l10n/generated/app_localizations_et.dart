@@ -14342,4 +14342,13 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get shareEdgeGoalYourTurn => 'Sinu kord. Sal ootab.';
+
+  @override
+  String get receiveArrivesAsBitcoin => 'Saabub bitcoinina';
+
+  @override
+  String get sendEmailNoLightning => 'E-post, Lightning-aadressi pole';
+
+  @override
+  String get barNeedLightningAddress => 'Lightning-aadressi pole';
 }

@@ -972,6 +972,8 @@ class SendRecipientCard extends ConsumerWidget {
     required this.onChange,
     this.rail,
     this.onTap,
+    this.kindLine,
+    this.badge,
   });
 
   final String address;
@@ -980,6 +982,14 @@ class SendRecipientCard extends ConsumerWidget {
   final List<SendPerson> recents;
   final VoidCallback onChange;
   final VoidCallback? onTap;
+
+  /// What the address is ("Lightning address", "Email, no Lightning
+  /// address"), said under it when it has no saved name of its own.
+  final String? kindLine;
+
+  /// The avatar's badge when the address itself decides it (no Lightning
+  /// badge on an email); null: by the address's shape.
+  final SendPersonBadge? badge;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -990,7 +1000,13 @@ class SendRecipientCard extends ConsumerWidget {
     final match =
         sendMatchingPerson(address, recents: recents, contacts: contacts);
     final name = sendRecipientName(match, address);
-    final avatar = sendRecipientAvatarPerson(match, address, railMark: railMark);
+    final avatar = sendRecipientAvatarPerson(match, address,
+        railMark: railMark, badge: badge);
+    // An address with no saved name already shows as the name: the line
+    // under it says what it is instead of repeating it.
+    final saved = sendSavedName(match, address,
+        handle: sendAtAddressParts(address)?.name);
+    final line = kindLine != null && saved == null ? kindLine! : address.trim();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1037,7 +1053,7 @@ class SendRecipientCard extends ConsumerWidget {
                         ),
                         SizedBox(height: 2.h),
                         SendMiddleEllipsisText(
-                          address.trim(),
+                          line,
                           key: const ValueKey('send-recipient-address'),
                           maxLines: 2,
                           style: TextStyle(
@@ -1091,7 +1107,7 @@ class SendRecipientCard extends ConsumerWidget {
 /// a coin mark), otherwise [railMark], with the Kute or ⚡ badge either
 /// way.
 SendPerson sendRecipientAvatarPerson(SendPerson? match, String address,
-    {required Widget railMark}) {
+    {required Widget railMark, SendPersonBadge? badge}) {
   if (match != null &&
       (match.photo != null || match.initials.isNotEmpty || match.mark != null)) {
     return match;
@@ -1100,7 +1116,7 @@ SendPerson sendRecipientAvatarPerson(SendPerson? match, String address,
     id: 'recipient',
     name: sendRecipientName(match, address),
     mark: railMark,
-    badge: match?.badge ?? sendBadgeFor(address),
+    badge: badge ?? match?.badge ?? sendBadgeFor(address),
   );
 }
 

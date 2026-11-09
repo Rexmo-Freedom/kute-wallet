@@ -14373,4 +14373,13 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get shareEdgeGoalYourTurn => 'Твой ред е. Сал ще чака.';
+
+  @override
+  String get receiveArrivesAsBitcoin => 'Пристига като биткойн';
+
+  @override
+  String get sendEmailNoLightning => 'Имейл, без Lightning адрес';
+
+  @override
+  String get barNeedLightningAddress => 'Няма Lightning адрес';
 }

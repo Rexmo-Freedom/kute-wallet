@@ -4050,5 +4050,8 @@
   "shareEdgeGoalSaysNothing": "Salは「大したことない」と言う。いつも言う。",
   "shareEdgeGoalOnPurpose": "ゆっくり登る。わざと。",
   "shareEdgeGoalNoTrophy": "トロフィーなし。犬とレベルだけ。",
-  "shareEdgeGoalYourTurn": "次は君の番。Salは待ってる。"
+  "shareEdgeGoalYourTurn": "次は君の番。Salは待ってる。",
+  "receiveArrivesAsBitcoin": "ビットコインで届きます",
+  "sendEmailNoLightning": "メール（Lightningアドレスなし）",
+  "barNeedLightningAddress": "Lightningアドレスなし"
 }
