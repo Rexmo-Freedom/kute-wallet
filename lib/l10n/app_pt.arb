@@ -2313,6 +2313,7 @@
   "betOrderAcceptedPendingFill": "Ordem aceite. Consulte as posições e ordens abertas para acompanhar a execução.",
   "betAccountUnavailable": "Não foi possível verificar a sua conta de Previsões. Atualize as Previsões e tente novamente.",
   "betConnectionUnavailable": "Não foi possível contactar a Polymarket. Verifique a ligação e tente novamente.",
+  "betConnectionSlowNotSent": "A sua ligação está lenta e esta ordem não foi enviada.",
   "betFeesUnavailable": "Não foi possível verificar as taxas. Atualize a estimativa e tente novamente.",
   "betMarketUnavailable": "Este mercado não está pronto para aceitar esta ordem. Atualize o mercado e tente novamente.",
   "betOrderFormatRejected": "A Polymarket rejeitou o formato da ordem. Não foi colocada nenhuma ordem.",

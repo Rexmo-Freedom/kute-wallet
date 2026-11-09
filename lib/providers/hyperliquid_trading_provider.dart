@@ -88,6 +88,7 @@ import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/venue_owner_link_service.dart';
 import 'package:polybrainz_polymarket/polybrainz_polymarket.dart'
     show EthPrivateKey;
+import 'package:kute/services/polymarket/order_poll_gate.dart';
 
 /// The selected cancel-all set could not be resolved completely; no request
 /// was sent and all local orders remain visible.
@@ -504,7 +505,9 @@ class HyperliquidTradingNotifier
     _ordersTimer?.cancel();
     _ordersTimer = Timer.periodic(
       const Duration(seconds: 30),
-      (_) => _silentOrdersRefresh(),
+      (_) {
+        if (!OrderPollGate.paused) _silentOrdersRefresh();
+      },
     );
 
     return HyperliquidTradingState(

@@ -7135,6 +7135,10 @@ class AppLocalizationsPl extends AppLocalizations {
       'Brak połączenia z Polymarket. Sprawdź połączenie i spróbuj ponownie.';
 
   @override
+  String get betConnectionSlowNotSent =>
+      'Twoje połączenie jest wolne i to zlecenie nie zostało złożone.';
+
+  @override
   String get betFeesUnavailable =>
       'Nie udało się zweryfikować opłat transakcyjnych. Odśwież szacunek i spróbuj ponownie.';
 

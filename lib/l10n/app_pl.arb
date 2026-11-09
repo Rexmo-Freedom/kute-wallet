@@ -2047,6 +2047,7 @@
   "betOrderAcceptedPendingFill": "Zlecenie przyjęte. Sprawdź realizację w pozycjach i otwartych zleceniach.",
   "betAccountUnavailable": "Nie udało się zweryfikować konta Prognoz. Odśwież Prognozy i spróbuj ponownie.",
   "betConnectionUnavailable": "Brak połączenia z Polymarket. Sprawdź połączenie i spróbuj ponownie.",
+  "betConnectionSlowNotSent": "Twoje połączenie jest wolne i to zlecenie nie zostało złożone.",
   "betFeesUnavailable": "Nie udało się zweryfikować opłat transakcyjnych. Odśwież szacunek i spróbuj ponownie.",
   "betMarketUnavailable": "Ten rynek nie jest gotowy na to zlecenie. Odśwież rynek i spróbuj ponownie.",
   "betOrderFormatRejected": "Polymarket odrzucił format zlecenia. Nie złożono zlecenia.",

@@ -2047,6 +2047,7 @@
   "betOrderAcceptedPendingFill": "注文が受け付けられました。約定状況はポジションと未約定注文で確認してください。",
   "betAccountUnavailable": "予測アカウントを確認できませんでした。予測を更新して、もう一度お試しください。",
   "betConnectionUnavailable": "Polymarketに接続できませんでした。接続を確認してもう一度お試しください。",
+  "betConnectionSlowNotSent": "接続が遅いため、この注文は完了しませんでした。",
   "betFeesUnavailable": "取引手数料を確認できませんでした。見積もりを更新して、もう一度お試しください。",
   "betMarketUnavailable": "このマーケットはこの注文を受け付ける準備ができていません。マーケットを更新して、もう一度お試しください。",
   "betOrderFormatRejected": "Polymarketが注文形式を拒否しました。注文は行われていません。",

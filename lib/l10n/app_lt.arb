@@ -2047,6 +2047,7 @@
   "betOrderAcceptedPendingFill": "Pavedimas priimtas. Įvykdymą patikrinkite pozicijose ir atviruose pavedimuose.",
   "betAccountUnavailable": "Nepavyko patikrinti jūsų Prognozių paskyros. Atnaujinkite Prognozes ir bandykite dar kartą.",
   "betConnectionUnavailable": "Nepavyko pasiekti Polymarket. Patikrinkite ryšį ir bandykite dar kartą.",
+  "betConnectionSlowNotSent": "Jūsų ryšys lėtas, todėl šis pavedimas nebuvo išsiųstas.",
   "betFeesUnavailable": "Nepavyko patikrinti sandorių mokesčių. Atnaujinkite įvertinimą ir bandykite dar kartą.",
   "betMarketUnavailable": "Ši rinka dar negali priimti šio pavedimo. Atnaujinkite rinką ir bandykite dar kartą.",
   "betOrderFormatRejected": "Polymarket atmetė pavedimo formatą. Pavedimas nepateiktas.",

@@ -2047,6 +2047,7 @@
   "betOrderAcceptedPendingFill": "Megbízás elfogadva. A teljesülést a pozícióid és a nyitott megbízásaid között ellenőrizheted.",
   "betAccountUnavailable": "Nem sikerült ellenőrizni az Előrejelzések fiókodat. Frissítsd az Előrejelzéseket, és próbáld újra.",
   "betConnectionUnavailable": "Nem érhető el a Polymarket. Ellenőrizd a kapcsolatot, és próbáld újra.",
+  "betConnectionSlowNotSent": "Lassú a kapcsolatod, és ez a megbízás nem ment át.",
   "betFeesUnavailable": "Nem sikerült ellenőrizni az ügyleti díjakat. Frissítsd a becslést, és próbáld újra.",
   "betMarketUnavailable": "Ez a piac még nem fogadhatja ezt a megbízást. Frissítsd a piacot, és próbáld újra.",
   "betOrderFormatRejected": "A Polymarket elutasította a megbízás formátumát. Nem lett megbízás leadva.",

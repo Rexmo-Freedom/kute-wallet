@@ -9,6 +9,7 @@ import 'package:kute/services/polymarket/fast_bet_window.dart';
 import 'package:kute/services/polymarket/sell_settlement.dart';
 import 'package:kute/services/polymarket/market_buy_quote.dart'
     show PolymarketSellPriceMoved, polymarketCentsLabel, polymarketEstimatedTick;
+import 'package:kute/services/polymarket/order_connection.dart';
 import 'package:kute/services/polymarket/sell_ladder.dart';
 import 'package:kute/services/polymarket/polymarket_slippage_defaults.dart';
 import 'package:kute/services/polymarket/send_time_read.dart';
@@ -602,7 +603,8 @@ class _SellSheetState extends ConsumerState<SellSheet> {
         }
       } catch (e) {
         if (e is PendingPolymarketOrder || e is ResolvedPolymarketOrder) {
-          await _resolveBlockedSale(resolved: e is ResolvedPolymarketOrder);
+          await _resolveBlockedSale(
+              resolved: e is ResolvedPolymarketOrder, probe: _mayProbe(e));
         } else if (e is AuthGrantException) {
           await _handleSellGrantFailure(e);
         } else {
@@ -610,8 +612,9 @@ class _SellSheetState extends ConsumerState<SellSheet> {
           if (mounted) {
             showMessageSnackBar(
               context: context,
-              message: polymarketErrorCopy(context, e,
-                  positionPrice: pos.currentPrice),
+              message: polymarketSlowConnectionLine(l10n, e) ??
+                  polymarketErrorCopy(context, e,
+                      positionPrice: pos.currentPrice),
               error: true,
             );
           }
@@ -693,6 +696,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     // to exactly that rung.
     final ladder = PmLadderGrant(approval);
     final walletId = notifier.signingWalletId ?? '';
+    var venueTook = false;
 
     // The progress stays on this ticket's CTA until the venue answers:
     // "Selling…", the live game's wait when the venue holds the order,
@@ -840,6 +844,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
       // Accepted. What became of it is read from the venue (the order,
       // then its trades on chain), and the Portfolio card says "Selling…"
       // until there is an answer.
+      venueTook = true;
       notifier.markPositionSelling(tokenId);
       _bandTo(0.7);
       final PmSellSettlement settlement;
@@ -860,7 +865,8 @@ class _SellSheetState extends ConsumerState<SellSheet> {
       }
     } catch (e) {
       if (e is PendingPolymarketOrder || e is ResolvedPolymarketOrder) {
-        await _resolveBlockedSale(resolved: e is ResolvedPolymarketOrder);
+        await _resolveBlockedSale(
+            resolved: e is ResolvedPolymarketOrder, probe: _mayProbe(e));
         return;
       }
       if (e is AuthGrantException) {
@@ -876,10 +882,14 @@ class _SellSheetState extends ConsumerState<SellSheet> {
       // adds the honest dust-sell special case (and reads the position
       // price itself) before falling back to the generic mapping.
       final moved = e is PolymarketSellPriceMoved ? e : null;
+      // Only before the venue took the order: after that "did not go through"
+      // would be false.
+      final slow =
+          venueTook ? null : polymarketSlowConnectionLine(l10n, e);
       final msg = moved != null
           ? l10n.betSellPriceMoved(polymarketCentsLabel(moved.price),
               polymarketCentsLabel(moved.limit))
-          : _sellFailureMessage(e);
+          : slow ?? _sellFailureMessage(e);
       // The ticket stays where it is and says what happened. The button
       // stops working and becomes the retry, and the figures are editable
       // again, so a sale that failed on the amount can be fixed in place.
@@ -1308,8 +1318,14 @@ class _SellSheetState extends ConsumerState<SellSheet> {
       'wallet_kind': 'hot',
       'amount_bucket': TrackingService.usdBucket(_amountUsdc),
       ..._settlementParams(s),
+      ...polymarketOrderConnectionParams(),
     });
   }
+
+  /// The placement already spent its retry window looking this order up:
+  /// asking again would only hold the person longer on the same dead link.
+  bool _mayProbe(Object e) =>
+      !(e is PolymarketOrderOutcomeUnknown && e.lookedUp);
 
   /// Fixed category only — the raw error can carry order details.
   void _trackSellFailed(Object e, String orderType, [StackTrace? st]) {
@@ -1326,6 +1342,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
       'order_type': orderType,
       'wallet_kind': 'hot',
       'amount_bucket': TrackingService.usdBucket(_amountUsdc),
+      ...polymarketOrderConnectionParams(),
     });
   }
 

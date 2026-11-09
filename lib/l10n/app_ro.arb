@@ -2047,6 +2047,7 @@
   "betOrderAcceptedPendingFill": "Ordin acceptat. Verifică pozițiile și ordinele deschise pentru execuție.",
   "betAccountUnavailable": "Contul de Predicții nu a putut fi verificat. Actualizează Predicții și încearcă din nou.",
   "betConnectionUnavailable": "Polymarket nu a putut fi accesat. Verifică conexiunea și încearcă din nou.",
+  "betConnectionSlowNotSent": "Conexiunea ta este lentă și acest ordin nu a fost trimis.",
   "betFeesUnavailable": "Comisioanele de tranzacționare nu au putut fi verificate. Actualizează estimarea și încearcă din nou.",
   "betMarketUnavailable": "Această piață nu poate accepta acum acest ordin. Actualizează piața și încearcă din nou.",
   "betOrderFormatRejected": "Polymarket a respins formatul ordinului. Nu s-a plasat niciun ordin.",

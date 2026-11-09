@@ -43,6 +43,7 @@ import 'package:kute/services/polymarket/fast_bet_window.dart';
 import 'package:kute/services/polymarket/bet_prefund.dart'
     show PolymarketMarketWindow;
 import 'package:kute/services/polymarket/hot_order_guard.dart';
+import 'package:kute/services/polymarket/order_connection.dart';
 import 'package:kute/services/polymarket/market_buy_quote.dart';
 import 'package:kute/services/polymarket/market_terms_store.dart';
 import 'package:kute/services/polymarket/order_refusal.dart';
@@ -1230,6 +1231,7 @@ class PolymarketBetController {
       // before. Never "failed" on an answer that proved nothing.
       if (e is PolymarketOrderOutcomeUnknown &&
           e.orderId != null &&
+          !e.lookedUp &&
           sentShares > 0 &&
           await _reconcileUnknown(intent, grant, e.orderId!,
               orderedShares: sentShares,
@@ -1718,6 +1720,7 @@ class PolymarketBetController {
           : 'venue_rejected';
     }
     if (error is PolymarketThinBook) return 'liquidity_unavailable';
+    if (error is PolymarketOrderNeverSent) return 'venue_unreachable';
     if (error is ResolvedPolymarketOrder) return 'previous_order_resolved';
     if (error is PolymarketOrderCheckUnavailable) return 'venue_unreachable';
     if (error is PendingPolymarketOrder) return 'previous_order_unconfirmed';
@@ -1766,6 +1769,8 @@ class PolymarketBetController {
   String _friendlyPlacementError(Object e) {
     final l10n = l10nForLanguage(ref.read(settingsProvider).language);
     if (e is PolymarketThinBook) return polymarketThinBookMessage(l10n, e);
+    final slow = polymarketSlowConnectionLine(l10n, e);
+    if (slow != null) return slow;
     return switch (_placementFailureCode(e)) {
       'setup_timeout' => l10n.betSetupSlow,
       'setup_failed' => l10n.betSetupFailed,

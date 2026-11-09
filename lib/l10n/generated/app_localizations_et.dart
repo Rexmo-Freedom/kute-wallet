@@ -7091,6 +7091,10 @@ class AppLocalizationsEt extends AppLocalizations {
       'Polymarketiga ei õnnestunud ühendust saada. Kontrolli ühendust ja proovi uuesti.';
 
   @override
+  String get betConnectionSlowNotSent =>
+      'Sinu ühendus on aeglane ja see tellimus ei läinud läbi.';
+
+  @override
   String get betFeesUnavailable =>
       'Tehingutasusid ei õnnestunud kontrollida. Värskenda hinnangut ja proovi uuesti.';
 

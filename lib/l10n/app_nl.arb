@@ -2047,6 +2047,7 @@
   "betOrderAcceptedPendingFill": "Order geaccepteerd. Controleer je posities en open orders op de uitvoering.",
   "betAccountUnavailable": "Kan je Voorspellingen-rekening niet verifiëren. Vernieuw Voorspellingen en probeer het opnieuw.",
   "betConnectionUnavailable": "Kan Polymarket niet bereiken. Controleer je verbinding en probeer het opnieuw.",
+  "betConnectionSlowNotSent": "Je verbinding is traag en deze order is niet doorgegaan.",
   "betFeesUnavailable": "Kan de handelskosten niet verifiëren. Vernieuw de schatting en probeer het opnieuw.",
   "betMarketUnavailable": "Deze markt kan deze order nog niet accepteren. Vernieuw de markt en probeer het opnieuw.",
   "betOrderFormatRejected": "Polymarket heeft het orderformaat afgewezen. Er is geen order geplaatst.",

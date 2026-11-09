@@ -2047,6 +2047,7 @@
   "betOrderAcceptedPendingFill": "Naročilo sprejeto. Izvršitev spremljajte v pozicijah in odprtih naročilih.",
   "betAccountUnavailable": "Vašega računa za Napovedi ni bilo mogoče preveriti. Osvežite Napovedi in poskusite znova.",
   "betConnectionUnavailable": "Polymarket ni dosegljiv. Preverite povezavo in poskusite znova.",
+  "betConnectionSlowNotSent": "Vaša povezava je počasna in to naročilo ni bilo oddano.",
   "betFeesUnavailable": "Provizij za trgovanje ni bilo mogoče preveriti. Osvežite oceno in poskusite znova.",
   "betMarketUnavailable": "Ta trg še ni pripravljen sprejeti tega naročila. Osvežite trg in poskusite znova.",
   "betOrderFormatRejected": "Polymarket je zavrnil obliko naročila. Nobeno naročilo ni bilo oddano.",

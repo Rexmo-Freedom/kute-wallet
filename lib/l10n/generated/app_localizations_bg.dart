@@ -7120,6 +7120,10 @@ class AppLocalizationsBg extends AppLocalizations {
       'Polymarket не е достъпен. Провери връзката си и опитай отново.';
 
   @override
+  String get betConnectionSlowNotSent =>
+      'Връзката ти е бавна и тази поръчка не беше изпратена.';
+
+  @override
   String get betFeesUnavailable =>
       'Таксите за търговия не можаха да се проверят. Опресни оценката и опитай отново.';
 

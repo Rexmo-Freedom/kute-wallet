@@ -6831,6 +6831,9 @@ class AppLocalizationsJa extends AppLocalizations {
       'Polymarketに接続できませんでした。接続を確認してもう一度お試しください。';
 
   @override
+  String get betConnectionSlowNotSent => '接続が遅いため、この注文は完了しませんでした。';
+
+  @override
   String get betFeesUnavailable => '取引手数料を確認できませんでした。見積もりを更新して、もう一度お試しください。';
 
   @override

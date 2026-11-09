@@ -7142,6 +7142,10 @@ class AppLocalizationsEs extends AppLocalizations {
       'No se ha podido contactar con Polymarket. Revisa tu conexión e inténtalo de nuevo.';
 
   @override
+  String get betConnectionSlowNotSent =>
+      'Tu conexión es lenta y esta orden no se ha enviado.';
+
+  @override
   String get betFeesUnavailable =>
       'No se han podido verificar las comisiones de operación. Actualiza la estimación e inténtalo de nuevo.';
 

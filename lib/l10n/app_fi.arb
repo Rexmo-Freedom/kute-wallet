@@ -2047,6 +2047,7 @@
   "betOrderAcceptedPendingFill": "Toimeksianto hyväksytty. Tarkista toteutuma positioistasi ja avoimista toimeksiannoista.",
   "betAccountUnavailable": "Ennusteet-tiliäsi ei voitu vahvistaa. Päivitä Ennusteet ja yritä uudelleen.",
   "betConnectionUnavailable": "Polymarketiin ei saatu yhteyttä. Tarkista yhteytesi ja yritä uudelleen.",
+  "betConnectionSlowNotSent": "Yhteytesi on hidas, eikä tämä toimeksianto mennyt läpi.",
   "betFeesUnavailable": "Kaupankäyntimaksuja ei voitu vahvistaa. Päivitä arvio ja yritä uudelleen.",
   "betMarketUnavailable": "Tämä markkina ei ole valmis vastaanottamaan tätä toimeksiantoa. Päivitä markkina ja yritä uudelleen.",
   "betOrderFormatRejected": "Polymarket hylkäsi toimeksiannon muodon. Toimeksiantoa ei tehty.",

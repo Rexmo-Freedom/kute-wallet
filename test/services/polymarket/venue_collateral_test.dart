@@ -423,7 +423,7 @@ void main() {
     final provider = File('lib/providers/polymarket_trading_provider.dart')
         .readAsStringSync();
     final start = provider.indexOf('Future<Map<String, dynamic>> placeOrder({');
-    final guard = provider.indexOf('HotPolymarketOrderGuard().run(', start);
+    final guard = provider.indexOf('HotPolymarketOrderGuard(resend:', start);
     final ready = provider.indexOf('polyReadyVenueCollateral(', start);
     expect(start, greaterThan(0));
     expect(ready, greaterThan(start));

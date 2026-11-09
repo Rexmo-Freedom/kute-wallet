@@ -11,17 +11,23 @@
 //    ended as a failed prediction although the shares were bought.
 
 
+import 'dart:async';
+
 import 'package:flutter/services.dart' show MethodChannel;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:kute/helpers/auth_grant.dart';
+import 'package:kute/helpers/venue_intents.dart' show PmGrants;
 import 'package:kute/l10n/l10n.dart' show l10nForLanguage;
 import 'package:kute/providers/pending_polymarket_bet_provider.dart';
 import 'package:kute/providers/polymarket_bet_controller.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
+import 'package:kute/services/http/connection_health.dart';
 import 'package:kute/services/polymarket/hot_order_guard.dart';
+import 'package:kute/services/polymarket/order_connection.dart';
+import 'package:kute/services/polymarket/order_poll_gate.dart';
 import 'package:kute/services/polymarket/market_buy_quote.dart';
 import 'package:kute/services/polymarket/market_terms_store.dart';
 import 'package:kute/services/polymarket/polymarket_fee_terms.dart';
@@ -135,6 +141,13 @@ class _Trading extends PolymarketTradingNotifier {
     void Function(String step)? onStep,
   }) async =>
       answer();
+}
+
+/// The real placeOrder, on an account with nothing connected.
+class _Unconnected extends PolymarketTradingNotifier {
+  @override
+  Future<PolymarketTradingState> build() async =>
+      const PolymarketTradingState();
 }
 
 PolymarketBookMessage _feedBook(String ask) => PolymarketBookMessage.fromJson({
@@ -255,6 +268,108 @@ void main() {
 
   Iterable<(String, Map<String, Object>?)> named(String event) =>
       events.where((e) => e.$1 == event);
+
+  test('placeOrder itself holds the poll gate and lets go when it throws',
+      () async {
+    final container = ProviderContainer(overrides: [
+      polymarketTradingProvider.overrideWith(_Unconnected.new),
+    ]);
+    addTearDown(container.dispose);
+    container.listen(polymarketTradingProvider, (_, __) {});
+    await container.read(polymarketTradingProvider.future);
+    final notifier = container.read(polymarketTradingProvider.notifier);
+    PolymarketOrderAttempts.last = 9;
+    final grant = AuthGrants.issue(
+        PmGrants.betReview(
+            walletId: 'spending',
+            tokenId: _token,
+            maxCostUsd: 5,
+            worstPrice: 0.5,
+            orderType: 'fak'),
+        method: AuthGrantMethod.biometric);
+    final placing = notifier.placeOrder(
+        tokenId: _token,
+        side: OrderSide.buy,
+        size: 1,
+        price: 0.5,
+        orderType: OrderType.fak,
+        grant: grant);
+    // Held from the first line, and the count of a new order starts at zero.
+    expect(OrderPollGate.paused, isTrue);
+    expect(PolymarketOrderAttempts.last, 0);
+    await expectLater(placing, throwsA(anything));
+    expect(OrderPollGate.paused, isFalse);
+  });
+
+  group('what the slip says on a bad connection', () {
+    test('a real timeout in the setup check is the transient kind', () {
+      expect(polySetupFailureIsTransient(TimeoutException('setup')), isTrue);
+    });
+
+    tearDown(() {
+      ConnectionHealth.instance.reset();
+      PolymarketOrderAttempts.last = 0;
+    });
+
+    test('slow and proven not sent: the new line, one failure event', () async {
+      ConnectionHealth.instance.debugMakeSlow();
+      PolymarketOrderAttempts.last = 3;
+      final r = await place(
+          _Trading(() => throw const PolymarketOrderNeverSent()));
+      expect(r.end?.status, PendingBetStatus.failed);
+      expect(r.end?.errorMessage, l10n.betConnectionSlowNotSent);
+      final failed = named('polymarket_bet_failed').single.$2!;
+      expect(failed['connection_slow'], isTrue);
+      expect(failed['attempts'], 3);
+    });
+
+    test('proven not sent on a healthy connection: the existing copy', () async {
+      final r = await place(
+          _Trading(() => throw const PolymarketOrderNeverSent()));
+      expect(r.end?.errorMessage, l10n.betConnectionUnavailable);
+      expect(named('polymarket_bet_failed').single.$2!['connection_slow'],
+          isFalse);
+    });
+
+    test('slow and unknown: pending, never failed, and no second wait',
+        () async {
+      ConnectionHealth.instance.debugMakeSlow();
+      final backend = _Backend([null]);
+      final r = await place(_Trading(
+          () => throw PolymarketOrderOutcomeUnknown(
+              orderId: _orderId, lookedUp: true),
+          backend: backend));
+      expect(r.end?.status, PendingBetStatus.awaitingConfirmation);
+      expect(r.statuses, isNot(contains(PendingBetStatus.failed)));
+      expect(named('polymarket_bet_failed'), isEmpty);
+      // The placement already spent its minute looking it up.
+      expect(backend.orderReads, 0);
+    });
+
+    test('a recovered answer ends on the venue\'s figures, one placed event',
+        () async {
+      final backend = _Backend([_matchedOrder()], trade: _minedTrade());
+      PolymarketOrderAttempts.last = 2;
+      final r = await place(_Trading(
+          () => {
+                'success': true,
+                'orderID': _orderId,
+                'status': 'matched',
+                'recovered': true,
+              },
+          backend: backend));
+      expect(r.end?.status, PendingBetStatus.done);
+      expect(r.end?.filledShares, 12.5);
+      expect(named('polymarket_bet_failed'), isEmpty);
+      // Reported once the settlement behind the receipt has the figures.
+      for (var i = 0; i < 100 && named('polymarket_bet_placed').isEmpty; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      }
+      final placed = named('polymarket_bet_placed').single.$2!;
+      expect(placed['attempts'], 2);
+      expect(placed['connection_slow'], isFalse);
+    });
+  });
 
   group('an order whose answer proved nothing is looked up first', () {
     test('matched at the venue: the receipt with the venue\'s figures',

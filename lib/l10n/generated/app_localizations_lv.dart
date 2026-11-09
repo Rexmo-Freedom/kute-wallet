@@ -7093,6 +7093,10 @@ class AppLocalizationsLv extends AppLocalizations {
       'Neizdevās sazināties ar Polymarket. Pārbaudi savienojumu un mēģini vēlreiz.';
 
   @override
+  String get betConnectionSlowNotSent =>
+      'Tavs savienojums ir lēns, un šis rīkojums netika izpildīts.';
+
+  @override
   String get betFeesUnavailable =>
       'Neizdevās pārbaudīt tirdzniecības maksas. Atsvaidzini aprēķinu un mēģini vēlreiz.';
 

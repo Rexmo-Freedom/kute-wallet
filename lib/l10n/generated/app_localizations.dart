@@ -12383,6 +12383,12 @@ abstract class AppLocalizations {
   /// **'Could not reach Polymarket. Check your connection and try again.'**
   String get betConnectionUnavailable;
 
+  /// No description provided for @betConnectionSlowNotSent.
+  ///
+  /// In en, this message translates to:
+  /// **'Your connection is slow and this order did not go through.'**
+  String get betConnectionSlowNotSent;
+
   /// No description provided for @betFeesUnavailable.
   ///
   /// In en, this message translates to:

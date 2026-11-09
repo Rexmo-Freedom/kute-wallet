@@ -15,6 +15,7 @@ import 'package:kute/services/appsflyer_service.dart';
 import 'package:kute/services/once_flags_service.dart';
 import 'package:kute/services/advisor/sal_chip_templates.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
+import 'package:kute/services/polymarket/order_connection.dart';
 import 'package:kute/services/polymarket/crypto_round.dart'
     show polyRoundWindowParams;
 import 'package:kute/services/venue_analytics.dart';
@@ -2927,6 +2928,7 @@ class TrackingService {
     _bumpAffiliateActivity(); // count toward affiliate activity (all tx types)
     markMoneyAction('bet', venue: 'polymarket');
     track('polymarket_bet_placed', params: {
+      ...polymarketOrderConnectionParams(),
       ...VenueAnalytics.staged('pm', marketId),
       ..._roundWindowParams(marketId, marketSlug),
       ...VenueAnalytics.pmKindParams([marketId, marketSlug],
@@ -3005,6 +3007,7 @@ class TrackingService {
     recordHandled(errorCategory(reason), reason, stackTrace,
         flow: 'polymarket_bet', stage: orderType);
     track('polymarket_bet_failed', params: {
+      ...polymarketOrderConnectionParams(),
       ...VenueAnalytics.staged('pm', marketId),
       ..._roundWindowParams(marketId, marketSlug),
       ...VenueAnalytics.pmKindParams([marketId, marketSlug]),
@@ -3044,6 +3047,7 @@ class TrackingService {
     final usdcOut = shares * price;
     _bumpAffiliateActivity(); // count toward affiliate activity (all tx types)
     track('polymarket_position_sold', params: {
+      ...polymarketOrderConnectionParams(),
       ...VenueAnalytics.staged('pm_sell', marketId),
       ...VenueAnalytics.pmKindParams([marketId, marketSlug],
           fallbackCategory: category),

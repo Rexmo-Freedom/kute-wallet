@@ -7126,6 +7126,10 @@ class AppLocalizationsHr extends AppLocalizations {
       'Polymarket nije dostupan. Provjeri vezu i pokušaj ponovno.';
 
   @override
+  String get betConnectionSlowNotSent =>
+      'Tvoja veza je spora i ovaj nalog nije prošao.';
+
+  @override
   String get betFeesUnavailable =>
       'Nije moguće provjeriti naknade. Osvježi procjenu i pokušaj ponovno.';
 

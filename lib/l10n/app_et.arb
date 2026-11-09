@@ -2047,6 +2047,7 @@
   "betOrderAcceptedPendingFill": "Tellimus vastu võetud. Täitmist vaata oma positsioonidest ja avatud tellimustest.",
   "betAccountUnavailable": "Sinu Ennustuste kontot ei õnnestunud kontrollida. Värskenda Ennustusi ja proovi uuesti.",
   "betConnectionUnavailable": "Polymarketiga ei õnnestunud ühendust saada. Kontrolli ühendust ja proovi uuesti.",
+  "betConnectionSlowNotSent": "Sinu ühendus on aeglane ja see tellimus ei läinud läbi.",
   "betFeesUnavailable": "Tehingutasusid ei õnnestunud kontrollida. Värskenda hinnangut ja proovi uuesti.",
   "betMarketUnavailable": "See turg pole valmis seda tellimust vastu võtma. Värskenda turgu ja proovi uuesti.",
   "betOrderFormatRejected": "Polymarket lükkas tellimuse vormingu tagasi. Tellimust ei esitatud.",

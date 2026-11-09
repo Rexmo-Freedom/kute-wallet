@@ -4115,6 +4115,7 @@
   "betOrderAcceptedPendingFill": "Order accepted. Check your positions and open orders for the fill.",
   "betAccountUnavailable": "Could not verify your Predictions account. Refresh Predictions and try again.",
   "betConnectionUnavailable": "Could not reach Polymarket. Check your connection and try again.",
+  "betConnectionSlowNotSent": "Your connection is slow and this order did not go through.",
   "betFeesUnavailable": "Could not verify the trading fees. Refresh the estimate and try again.",
   "betMarketUnavailable": "This market is not ready to accept this order. Refresh the market and try again.",
   "betOrderFormatRejected": "Polymarket rejected the order format. No order was placed.",

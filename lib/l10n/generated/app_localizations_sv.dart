@@ -7104,6 +7104,10 @@ class AppLocalizationsSv extends AppLocalizations {
       'Kunde inte nå Polymarket. Kontrollera din anslutning och försök igen.';
 
   @override
+  String get betConnectionSlowNotSent =>
+      'Din anslutning är långsam och den här ordern gick inte igenom.';
+
+  @override
   String get betFeesUnavailable =>
       'Kunde inte verifiera handelsavgifterna. Uppdatera uppskattningen och försök igen.';
 

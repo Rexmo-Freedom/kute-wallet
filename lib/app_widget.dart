@@ -41,6 +41,7 @@ import 'package:posthog_flutter/posthog_flutter.dart';
 import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/main.dart' show appColdStartStopwatch;
 import './app_router.dart';
+import 'package:kute/services/polymarket/order_poll_gate.dart';
 
 /// NavigatorObserver that (1) feeds the crash breadcrumb ring buffer
 /// with screen NAMES only (no params — PII-free per the tracking rule)
@@ -352,6 +353,7 @@ class _AppWidgetState extends ConsumerState<AppWidget>
         // paused → hidden double fire is harmless.
         if (state != AppLifecycleState.inactive) {
           pauseShellLiveSockets(ref);
+          OrderPollGate.appBackgrounded();
         }
         break;
       case AppLifecycleState.detached:

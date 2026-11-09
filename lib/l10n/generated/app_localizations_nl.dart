@@ -7133,6 +7133,10 @@ class AppLocalizationsNl extends AppLocalizations {
       'Kan Polymarket niet bereiken. Controleer je verbinding en probeer het opnieuw.';
 
   @override
+  String get betConnectionSlowNotSent =>
+      'Je verbinding is traag en deze order is niet doorgegaan.';
+
+  @override
   String get betFeesUnavailable =>
       'Kan de handelskosten niet verifiëren. Vernieuw de schatting en probeer het opnieuw.';
 

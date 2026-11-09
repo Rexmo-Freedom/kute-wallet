@@ -35,6 +35,7 @@ import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/hyperliquid_model.dart';
 import 'package:kute/screens/hyperliquid/components/hl_format.dart'
     show hlPrimaryListings;
+import 'package:kute/services/polymarket/order_poll_gate.dart';
 
 /// Shared thin HTTP client for the trading read paths. Stateless — one
 /// instance app-wide is fine (also imported by the account/orderbook/
@@ -603,7 +604,7 @@ final hyperliquidPerpMarketsProvider =
   final model = ref.watch(hyperliquidTradingModelProvider);
 
   final timer = Timer.periodic(const Duration(seconds: 30), (_) {
-    ref.invalidateSelf();
+    if (!OrderPollGate.paused) ref.invalidateSelf();
   });
   ref.onDispose(timer.cancel);
 
@@ -745,7 +746,7 @@ final hyperliquidSpotMarketsProvider =
   final model = ref.watch(hyperliquidTradingModelProvider);
 
   final timer = Timer.periodic(const Duration(seconds: 30), (_) {
-    ref.invalidateSelf();
+    if (!OrderPollGate.paused) ref.invalidateSelf();
   });
   ref.onDispose(timer.cancel);
 

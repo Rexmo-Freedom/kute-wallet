@@ -7126,6 +7126,10 @@ class AppLocalizationsHu extends AppLocalizations {
       'Nem érhető el a Polymarket. Ellenőrizd a kapcsolatot, és próbáld újra.';
 
   @override
+  String get betConnectionSlowNotSent =>
+      'Lassú a kapcsolatod, és ez a megbízás nem ment át.';
+
+  @override
   String get betFeesUnavailable =>
       'Nem sikerült ellenőrizni az ügyleti díjakat. Frissítsd a becslést, és próbáld újra.';
 

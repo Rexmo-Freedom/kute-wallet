@@ -7115,6 +7115,10 @@ class AppLocalizationsSk extends AppLocalizations {
       'Polymarket nie je dostupný. Skontroluj pripojenie a skús to znova.';
 
   @override
+  String get betConnectionSlowNotSent =>
+      'Tvoje pripojenie je pomalé a tento príkaz neprešiel.';
+
+  @override
   String get betFeesUnavailable =>
       'Obchodné poplatky sa nepodarilo overiť. Obnov odhad a skús to znova.';
 

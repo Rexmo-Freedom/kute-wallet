@@ -2047,6 +2047,7 @@
   "betOrderAcceptedPendingFill": "Ordre accepteret. Tjek dine positioner og åbne ordrer for udførelsen.",
   "betAccountUnavailable": "Kunne ikke bekræfte din Forudsigelser-konto. Opdater Forudsigelser, og prøv igen.",
   "betConnectionUnavailable": "Kunne ikke nå Polymarket. Tjek din forbindelse, og prøv igen.",
+  "betConnectionSlowNotSent": "Din forbindelse er langsom, og denne ordre gik ikke igennem.",
   "betFeesUnavailable": "Kunne ikke bekræfte handelsgebyrerne. Opdater estimatet, og prøv igen.",
   "betMarketUnavailable": "Dette marked er ikke klar til at modtage denne ordre. Opdater markedet, og prøv igen.",
   "betOrderFormatRejected": "Polymarket afviste ordreformatet. Ingen ordre blev afgivet.",

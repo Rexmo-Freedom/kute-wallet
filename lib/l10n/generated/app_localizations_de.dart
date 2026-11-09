@@ -7161,6 +7161,10 @@ class AppLocalizationsDe extends AppLocalizations {
       'Polymarket ist nicht erreichbar. Prüfe deine Verbindung und versuche es erneut.';
 
   @override
+  String get betConnectionSlowNotSent =>
+      'Deine Verbindung ist langsam und dieser Auftrag ist nicht durchgegangen.';
+
+  @override
   String get betFeesUnavailable =>
       'Die Handelsgebühren konnten nicht geprüft werden. Aktualisiere die Schätzung und versuche es erneut.';
 

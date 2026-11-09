@@ -48,6 +48,7 @@ import 'package:kute/services/one_balance/move_settled_refresh.dart';
 import 'package:kute/services/orchestra/venue_arrivals.dart';
 import 'package:kute/services/passkey_service.dart'
     show resolveBip39MnemonicFor;
+import 'package:kute/services/polymarket/order_poll_gate.dart';
 
 // ────────────────────── model value-equality helpers ──────────────────────
 // The hyperliquid_market.dart structs deliberately don't override == (they
@@ -297,7 +298,9 @@ class HlAccountNotifier extends AutoDisposeAsyncNotifier<HlAccountSnapshot> {
         ? null
         : Timer.periodic(
             Duration(seconds: _currentIntervalSecs),
-            (_) => _silentRefresh(),
+            (_) {
+              if (!OrderPollGate.paused) _silentRefresh();
+            },
           );
   }
 
@@ -471,7 +474,7 @@ class HlOpenPositionsCountNotifier extends Notifier<int> {
     });
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 60), (_) {
-      unawaited(_tick());
+      if (!OrderPollGate.paused) unawaited(_tick());
     });
     unawaited(_tick());
     return 0;

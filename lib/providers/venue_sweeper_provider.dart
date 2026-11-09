@@ -69,6 +69,7 @@ import 'package:kute/services/one_balance/venue_sweeper.dart';
 import 'package:kute/services/orchestra_routes.dart'
     show claimOrderTerminalAnalytics;
 import 'package:kute/services/tracking_service.dart';
+import 'package:kute/services/polymarket/order_poll_gate.dart';
 
 export 'package:kute/services/one_balance/venue_sweeper.dart'
     show
@@ -574,7 +575,7 @@ class VenueSweeperNotifier extends Notifier<VenueSweeperState> {
   void _startHeartbeat() {
     _heartbeat?.cancel();
     _heartbeat = Timer.periodic(kVenueSweepHeartbeat, (_) {
-      if (_visible) unawaited(trigger('timer'));
+      if (_visible && !OrderPollGate.paused) unawaited(trigger('timer'));
     });
   }
 
@@ -587,6 +588,10 @@ class VenueSweeperNotifier extends Notifier<VenueSweeperState> {
     final retry = _sweeper.nextDueIsRetry();
     _due = Timer(wait + const Duration(seconds: 1), () {
       _due = null;
+      if (OrderPollGate.paused) {
+        _armDueTimer();
+        return;
+      }
       if (_visible) unawaited(trigger(retry ? 'retry' : 'timer'));
     });
   }

@@ -2047,6 +2047,7 @@
   "betOrderAcceptedPendingFill": "Nalog prihvaćen. Izvršenje provjeri u pozicijama i otvorenim nalozima.",
   "betAccountUnavailable": "Nije moguće provjeriti tvoj račun za Predviđanja. Osvježi Predviđanja i pokušaj ponovno.",
   "betConnectionUnavailable": "Polymarket nije dostupan. Provjeri vezu i pokušaj ponovno.",
+  "betConnectionSlowNotSent": "Tvoja veza je spora i ovaj nalog nije prošao.",
   "betFeesUnavailable": "Nije moguće provjeriti naknade. Osvježi procjenu i pokušaj ponovno.",
   "betMarketUnavailable": "Ovo tržište nije spremno prihvatiti ovaj nalog. Osvježi tržište i pokušaj ponovno.",
   "betOrderFormatRejected": "Polymarket je odbio format naloga. Nalog nije postavljen.",

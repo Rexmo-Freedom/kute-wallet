@@ -2047,6 +2047,7 @@
   "betOrderAcceptedPendingFill": "Pokyn přijat. Vyplnění zkontroluj v pozicích a otevřených pokynech.",
   "betAccountUnavailable": "Tvůj účet Predikcí se nepodařilo ověřit. Obnov Predikce a zkus to znovu.",
   "betConnectionUnavailable": "Polymarket není dostupný. Zkontroluj připojení a zkus to znovu.",
+  "betConnectionSlowNotSent": "Tvoje připojení je pomalé a tento pokyn neprošel.",
   "betFeesUnavailable": "Poplatky se nepodařilo ověřit. Obnov odhad a zkus to znovu.",
   "betMarketUnavailable": "Tento trh zatím nemůže přijmout tento pokyn. Obnov trh a zkus to znovu.",
   "betOrderFormatRejected": "Polymarket odmítl formát pokynu. Žádný pokyn nebyl zadán.",

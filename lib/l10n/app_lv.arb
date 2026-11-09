@@ -2047,6 +2047,7 @@
   "betOrderAcceptedPendingFill": "Rīkojums pieņemts. Pārbaudi pozīcijas un atvērtos rīkojumus, lai redzētu izpildi.",
   "betAccountUnavailable": "Neizdevās pārbaudīt tavu Prognožu kontu. Atsvaidzini Prognozes un mēģini vēlreiz.",
   "betConnectionUnavailable": "Neizdevās sazināties ar Polymarket. Pārbaudi savienojumu un mēģini vēlreiz.",
+  "betConnectionSlowNotSent": "Tavs savienojums ir lēns, un šis rīkojums netika izpildīts.",
   "betFeesUnavailable": "Neizdevās pārbaudīt tirdzniecības maksas. Atsvaidzini aprēķinu un mēģini vēlreiz.",
   "betMarketUnavailable": "Šis tirgus nav gatavs pieņemt šo rīkojumu. Atsvaidzini tirgu un mēģini vēlreiz.",
   "betOrderFormatRejected": "Polymarket noraidīja rīkojuma formātu. Rīkojums netika veikts.",

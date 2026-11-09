@@ -7109,6 +7109,10 @@ class AppLocalizationsFi extends AppLocalizations {
       'Polymarketiin ei saatu yhteyttä. Tarkista yhteytesi ja yritä uudelleen.';
 
   @override
+  String get betConnectionSlowNotSent =>
+      'Yhteytesi on hidas, eikä tämä toimeksianto mennyt läpi.';
+
+  @override
   String get betFeesUnavailable =>
       'Kaupankäyntimaksuja ei voitu vahvistaa. Päivitä arvio ja yritä uudelleen.';
 

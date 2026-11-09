@@ -27,6 +27,7 @@ import 'package:kute/services/sync/push_pipeline.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kute/services/polymarket/order_poll_gate.dart';
 
 /// What one tick of the continuous sync loop runs.
 enum SyncTick {
@@ -779,6 +780,7 @@ class BackgroundSyncService {
     _stopExternalAddressSync();
 
     _fallbackPollTimer = Timer.periodic(const Duration(minutes: 5), (timer) async {
+      if (OrderPollGate.paused) return;
       await _runSync();
     });
 

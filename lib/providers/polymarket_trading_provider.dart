@@ -77,7 +77,10 @@ import 'package:kute/services/polymarket_backend_service.dart';
 import 'package:kute/services/polymarket_onboarding_service.dart';
 import 'package:kute/services/polymarket/deposit_wallet_batch_signer.dart';
 import 'package:kute/services/polymarket/hot_withdrawal_guard.dart';
+import 'package:kute/models/affiliate_model.dart' show AffiliateService;
 import 'package:kute/services/polymarket/hot_order_guard.dart';
+import 'package:kute/services/polymarket/order_connection.dart';
+import 'package:kute/services/polymarket/order_poll_gate.dart';
 import 'package:kute/services/polymarket/market_protocol.dart';
 import 'package:kute/services/polymarket/order_amounts.dart';
 import 'package:kute/services/polymarket/order_refusal.dart';
@@ -95,8 +98,13 @@ import 'package:kute/services/polymarket_suppression_service.dart';
 import 'package:kute/services/polymarket_usdc_cache_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/services/secure_storage.dart';
+// Its TimeoutException is not the one `Future.timeout` throws: with both in
+// scope the package's wins, and `on TimeoutException` here never matched a
+// real timeout. Hidden, and named where the package's own is meant.
 import 'package:polybrainz_polymarket/polybrainz_polymarket.dart'
-    hide PolymarketConstants, InsufficientFundsException;
+    hide PolymarketConstants, InsufficientFundsException, TimeoutException;
+import 'package:polybrainz_polymarket/polybrainz_polymarket.dart' as polybrainz
+    show TimeoutException;
 import 'package:kute/services/hardware/ledger/ledger_operation_scope.dart';
 
 /// debugPrint wrapper that no-ops in release/profile builds. Flutter's
@@ -603,7 +611,7 @@ class ResolvedPositionEvent {
 /// failure, stalled/timed-out request) rather than a real bug — used to keep
 /// offline conditions out of crash reporting.
 bool _isOfflineError(Object e) {
-  if (e is TimeoutException) return true;
+  if (e is TimeoutException || e is polybrainz.TimeoutException) return true;
   final s = e.toString().toLowerCase();
   // 'timeoutexception' string check catches timeouts wrapped/rethrown
   // inside another exception type (only the raw dart:async instance
@@ -2569,6 +2577,7 @@ class PolymarketTradingNotifier
     if (lifecycle != null && lifecycle != AppLifecycleState.resumed) {
       return;
     }
+    if (OrderPollGate.paused) return;
     // Overlap guard: `_fetchAllData` can outlive a 3s tick on slow
     // networks — without this, ticks stack and the fan-out multiplies.
     if (_refreshInFlight) return;
@@ -3279,6 +3288,8 @@ class PolymarketTradingNotifier
     }
   }
 
+  /// Places one order. While it is in flight the app's background polling
+  /// steps aside, however it ends (order_poll_gate.dart).
   Future<Map<String, dynamic>> placeOrder({
     required String tokenId,
     required OrderSide side,
@@ -3314,6 +3325,53 @@ class PolymarketTradingNotifier
     // 'setup' (the wallet's one-time setup) or 'approving' (allowances).
     // Progress only; it changes nothing about the order.
     void Function(String step)? onStep,
+  }) {
+    PolymarketOrderAttempts.last = 0;
+    return OrderPollGate.during(() => _placeOrder(
+          tokenId: tokenId,
+          side: side,
+          size: size,
+          price: price,
+          negRisk: negRisk,
+          marketQuote: marketQuote,
+          orderType: orderType,
+          spendUsd: spendUsd,
+          marketTitle: marketTitle,
+          marketImage: marketImage,
+          marketOutcome: marketOutcome,
+          conditionId: conditionId,
+          eventSlug: eventSlug,
+          endDate: endDate,
+          marketCategory: marketCategory,
+          source: source,
+          entrySource: entrySource,
+          analytics: analytics,
+          grant: grant,
+          onStep: onStep,
+        ));
+  }
+
+  Future<Map<String, dynamic>> _placeOrder({
+    required String tokenId,
+    required OrderSide side,
+    required double size,
+    required double price,
+    required bool negRisk,
+    required PolymarketMarketBuyQuote? marketQuote,
+    required OrderType orderType,
+    required double? spendUsd,
+    required String? marketTitle,
+    required String? marketImage,
+    required String? marketOutcome,
+    required String? conditionId,
+    required String? eventSlug,
+    required String? endDate,
+    required String? marketCategory,
+    required String? source,
+    required String? entrySource,
+    required Map<String, Object>? analytics,
+    required AuthGrant grant,
+    required void Function(String step)? onStep,
   }) async {
     // Any order attempt is Predictions activity: its cash stays there,
     // available, for the next day at least (VenueActivity).
@@ -3549,7 +3607,11 @@ class PolymarketTradingNotifier
       polyRequireConfirmedCollateral(readiness);
       onStep?.call('ready');
     }
-    return HotPolymarketOrderGuard().run(
+    // A POST that gets no answer is looked up and, only if the venue does not
+    // know it, sent again as the same signed order, for up to a minute. The
+    // grant is re-checked before every attempt (ensureCurrent), and the price
+    // cannot move: it is inside what was signed.
+    return HotPolymarketOrderGuard(resend: const HotOrderResendPolicy()).run(
       walletId: orderWalletId,
       depositWallet: orderAccount,
       tokenId: tokenId,
@@ -3896,6 +3958,15 @@ class PolymarketTradingNotifier
           final response = submitted;
           if (response == null) {
             throw Exception('Order placement failed. Please try again.');
+          }
+          // Found by a lookup, so the POST's receipt never ran. Accounting is
+          // owed one all the same.
+          final revenueIdentity = AffiliateService.revenueIdentity;
+          if (response['recovered'] == true && revenueIdentity != null) {
+            unawaited(orderBackend
+                .verifyAcceptedOrder('${response['orderID']}',
+                    accountingIdentity: revenueIdentity)
+                .catchError((_) {}));
           }
 
           // The venue took the order. Everything from here is bookkeeping
@@ -6882,4 +6953,5 @@ EthPrivateKey _hotPolymarketCredentials(String privateKey) {
 bool polySetupFailureIsTransient(Object e) =>
     isTransientRelayerRefusal(e) ||
     (e is LedgerFailure && e.code == LedgerFailureCode.busy) ||
-    e is TimeoutException;
+    e is TimeoutException ||
+    e is polybrainz.TimeoutException;

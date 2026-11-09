@@ -7145,6 +7145,10 @@ class AppLocalizationsLt extends AppLocalizations {
       'Nepavyko pasiekti Polymarket. Patikrinkite ryšį ir bandykite dar kartą.';
 
   @override
+  String get betConnectionSlowNotSent =>
+      'Jūsų ryšys lėtas, todėl šis pavedimas nebuvo išsiųstas.';
+
+  @override
   String get betFeesUnavailable =>
       'Nepavyko patikrinti sandorių mokesčių. Atnaujinkite įvertinimą ir bandykite dar kartą.';
 

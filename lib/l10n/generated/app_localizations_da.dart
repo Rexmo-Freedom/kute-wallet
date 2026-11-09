@@ -7112,6 +7112,10 @@ class AppLocalizationsDa extends AppLocalizations {
       'Kunne ikke nå Polymarket. Tjek din forbindelse, og prøv igen.';
 
   @override
+  String get betConnectionSlowNotSent =>
+      'Din forbindelse er langsom, og denne ordre gik ikke igennem.';
+
+  @override
   String get betFeesUnavailable =>
       'Kunne ikke bekræfte handelsgebyrerne. Opdater estimatet, og prøv igen.';
 

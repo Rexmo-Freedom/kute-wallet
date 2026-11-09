@@ -12,6 +12,7 @@ import 'package:kute/services/polymarket/crypto_window_results.dart';
 import 'package:kute/services/polymarket/polybolt_price_socket.dart';
 import 'package:kute/services/polymarket/polymarket_price_source.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kute/services/polymarket/order_poll_gate.dart';
 
 const _sentinel = Object();
 
@@ -955,7 +956,7 @@ class CryptoPredictNotifier
     _refreshMarket(config);
 
     _marketTimer = Timer.periodic(const Duration(seconds: 10), (_) {
-      _refreshMarket(config);
+      if (!OrderPollGate.paused) _refreshMarket(config);
     });
 
     return CryptoPredictState(
@@ -1075,7 +1076,7 @@ class CryptoRoundNotifier extends AutoDisposeFamilyAsyncNotifier<
       _readBackfill(config);
     }
     _marketTimer = Timer.periodic(const Duration(seconds: 10), (_) {
-      _refreshMarket(config);
+      if (!OrderPollGate.paused) _refreshMarket(config);
     });
     return CryptoPredictState(
       asset: config.asset,
@@ -1220,7 +1221,7 @@ class CryptoPredictAtWindowNotifier extends AutoDisposeFamilyAsyncNotifier<
     // them every 10s would just spam Gamma for no UI change.
     if (arg.epochSeconds == null || _isCurrentOrPastWindow(arg.epochSeconds!)) {
       _marketTimer = Timer.periodic(const Duration(seconds: 10), (_) {
-        _refreshMarket(config);
+        if (!OrderPollGate.paused) _refreshMarket(config);
       });
     }
 

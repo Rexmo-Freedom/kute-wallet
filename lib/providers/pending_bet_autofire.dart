@@ -93,6 +93,7 @@ import 'package:kute/services/polymarket/crypto_round.dart'
     show kCryptoUpDown5mKind, polyIsCryptoUpDown5m, polyRoundWindowParams;
 import 'package:kute/services/polymarket/fresh_fill.dart';
 import 'package:kute/services/polymarket/hot_order_guard.dart';
+import 'package:kute/services/polymarket/order_connection.dart';
 import 'package:kute/services/polymarket/market_buy_quote.dart'
     show PolymarketOrderPlan, PolymarketThinBook, PolymarketMarketBuyQuote;
 import 'package:kute/services/polymarket/order_refusal.dart'
@@ -1618,8 +1619,11 @@ class PendingBetAutoFire {
       // end here, so the slip shows the receipt once it matched and says
       // the price moved once it was killed, instead of ending on "check
       // your positions" while the order was still going through.
+      // Same for an order found by a lookup after a lost answer: the record
+      // has no fill amounts in it.
       if (!verifiedFill &&
-          placed['status']?.toString().toLowerCase() == 'delayed' &&
+          (placed['status']?.toString().toLowerCase() == 'delayed' ||
+              placed['recovered'] == true) &&
           await _followHeldOrder(intent, placed,
               orderedShares: orderedShares,
               placementId: placementId,
@@ -1679,6 +1683,7 @@ class PendingBetAutoFire {
       // nowhere, it waits for its confirmation as before.
       if (e is PolymarketOrderOutcomeUnknown &&
           e.orderId != null &&
+          !e.lookedUp &&
           sentShares > 0) {
         placingNotifier.markConfirming(placementId);
         pendingNotifier.setStage(PendingBetStage.reconciling);
@@ -2072,6 +2077,9 @@ class PendingBetAutoFire {
     // The price moved past what the approval covers (the slip's own copy:
     // where it went, or what fills now).
     if (e is PolymarketThinBook) return polymarketThinBookMessage(l10n, e);
+    final slow = polymarketSlowConnectionLine(l10n, e);
+    if (slow != null) return slow;
+    if (e is PolymarketOrderNeverSent) return l10n.betConnectionUnavailable;
     if (e is PolymarketOrderNotAcceptedException &&
         isPolymarketPriceRefusal(e.reason)) {
       return l10n.betBuyLiquidityUnavailable;

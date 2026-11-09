@@ -7147,6 +7147,10 @@ class AppLocalizationsRo extends AppLocalizations {
       'Polymarket nu a putut fi accesat. Verifică conexiunea și încearcă din nou.';
 
   @override
+  String get betConnectionSlowNotSent =>
+      'Conexiunea ta este lentă și acest ordin nu a fost trimis.';
+
+  @override
   String get betFeesUnavailable =>
       'Comisioanele de tranzacționare nu au putut fi verificate. Actualizează estimarea și încearcă din nou.';
 
