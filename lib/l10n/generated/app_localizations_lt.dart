@@ -14509,4 +14509,13 @@ class AppLocalizationsLt extends AppLocalizations {
   @override
   String get standingLeaveNote =>
       'Galite išeiti. Pavedimas tęsiasi ir matomas Veikloje.';
+
+  @override
+  String get standingStageMoving => 'Perkeliame pinigus';
+
+  @override
+  String get standingStagePlacing => 'Teikiame';
+
+  @override
+  String get standingStageApproval => 'Reikia tavo patvirtinimo';
 }

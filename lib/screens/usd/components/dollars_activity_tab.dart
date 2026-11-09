@@ -37,6 +37,21 @@
 //     figure; the split fill, the dashed line at zero, no scrub, no range
 //     row). A tap opens the Portfolio on Positions. Nothing open: no card.
 //
+// IN PROGRESS FIRST (founder, 9 November 2026: "On the Overview we must
+// show exactly there what bets or investments are in progress of being
+// implemented, as soon as they touch"): a standing order (a prediction or
+// an Investing order accepted, its money on its way) leads the squares
+// the moment it is accepted, as the venue's own placing row
+// (StandingOrderRow: the market, the side, the stake as the number, the
+// pending look of a bet on its way) with its stage in the compact words
+// (standingOrderStageLine: "Moving money", "Placing", "Needs your
+// approval"); a tap opens its money journey. It counts toward the four,
+// in-progress first, newest first ([dollarsStandingShown]). Filled, it
+// keeps its slot, saying placed, until the position lists, and the
+// position then takes that same slot for a while ([kDollarsFilledHold]),
+// so nothing jumps; failed or cancelled, it goes (Sal says so,
+// standing_order_toasts.dart).
+//
 // Nothing else (founder, 8 November 2026: "on the overview we just show the
 // open positions and the P&L graph, up to 4 open positions"). The market map
 // that stood under them for a day is off the app (hl_market_map.dart is
@@ -60,6 +75,8 @@
 //
 // Analytics: nothing new. A square's tap sends the Portfolio row's own
 // `open_investments_position_tapped`.
+
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -98,6 +115,11 @@ import 'package:kute/screens/shared/charts/kute_trend_chart.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show KutePressable;
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
+import 'package:kute/screens/shared/standing_order_toasts.dart'
+    show StandingOrderToasts;
+import 'package:kute/screens/shared/standing_orders_section.dart'
+    show StandingOrderRow, standingOrderStageLine;
+import 'package:kute/services/standing_orders/standing_orders_provider.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart'
     show openInvestmentsPortfolio;
 import 'package:kute/theme/app_theme.dart';
@@ -113,6 +135,59 @@ const double kDollarsPnlPlotHeight = 64;
 /// [kDollarsActivitySquares]. Pure for the tests.
 List<String> dollarsActivitySquareIds(List<String> ranked) =>
     ranked.take(kDollarsActivitySquares).toList(growable: false);
+
+/// How long a filled standing order holds its slot on the Overview: its
+/// card until the position lists, then the position in that slot.
+const Duration kDollarsFilledHold = Duration(minutes: 5);
+
+/// The ids a standing order's position lists under (open_investments_
+/// screen.dart's row keys): the prediction's token, the perp or the spot
+/// holding of the coin.
+List<String> dollarsStandingPositionIds(StandingOrder order) =>
+    order.venue == StandingOrderVenue.predictions
+        ? ['poly-${order.marketKey}']
+        : ['hl-${order.marketKey}', 'hl-spot-${order.marketKey}'];
+
+/// The Overview's standing orders (see the file header), newest first:
+/// every open one on a venue shown, and one filled within
+/// [kDollarsFilledHold] whose position is not [listed] yet. Pure for the
+/// tests.
+List<StandingOrder> dollarsStandingShown(
+  List<StandingOrder> all, {
+  required Set<String> listed,
+  required DateTime now,
+  bool predictions = true,
+  bool investing = true,
+}) =>
+    [
+      for (final o in all.reversed)
+        if ((o.venue == StandingOrderVenue.predictions
+                ? predictions
+                : investing) &&
+            (o.isOpen ||
+                (o.state == StandingOrderState.filled &&
+                    now.difference(o.updatedAt) < kDollarsFilledHold &&
+                    !dollarsStandingPositionIds(o).any(listed.contains))))
+          o,
+    ];
+
+/// The ranked ids with the positions of standing orders filled within
+/// [kDollarsFilledHold] first (newest first), in the slot their card had;
+/// the rest in [ranked]'s order. Pure for the tests.
+List<String> dollarsPinnedRanked(List<String> ranked, List<StandingOrder> all,
+    {required DateTime now}) {
+  final pinned = <String>[];
+  for (final o in all.reversed) {
+    if (o.state != StandingOrderState.filled ||
+        now.difference(o.updatedAt) >= kDollarsFilledHold) {
+      continue;
+    }
+    for (final id in dollarsStandingPositionIds(o)) {
+      if (ranked.contains(id) && !pinned.contains(id)) pinned.add(id);
+    }
+  }
+  return [...pinned, for (final id in ranked) if (!pinned.contains(id)) id];
+}
 
 /// The rows of [lists] whose keys are [ids], in [ids]' order; an id with
 /// no row (a read still catching up) is skipped, never a hole.
@@ -144,8 +219,34 @@ class DollarsActivityTab extends ConsumerWidget {
     final lists = venues.any
         ? portfolioVenueLists(context, ref, venues)
         : const <BalancesCategory, BalancesVenueList>{};
-    final squares = dollarsActivitySquareRows(
-        dollarsActivitySquareIds(ranked), lists.values);
+    // In progress first (see the file header).
+    final all = ref.watch(standingOrdersProvider);
+    final now = DateTime.now();
+    final standing = venues.any
+        ? dollarsStandingShown(all,
+            listed: {
+              for (final list in lists.values)
+                for (final row in list.rows)
+                  if (row.key case ValueKey<String>(:final value)) value,
+            },
+            now: now,
+            predictions: venues.predictions,
+            investing: venues.trading)
+        : const <StandingOrder>[];
+    final squares = [
+      for (final o in standing.take(kDollarsActivitySquares))
+        StandingOrderRow(
+          key: ValueKey('standing-${o.id}'),
+          order: o,
+          status: standingOrderStageLine(l10n, o),
+          onTap: () => StandingOrderToasts.openJourney(context, id: o.id),
+        ),
+      ...dollarsActivitySquareRows(
+          dollarsActivitySquareIds(dollarsPinnedRanked(ranked, all, now: now))
+              .take(math.max(0, kDollarsActivitySquares - standing.length))
+              .toList(),
+          lists.values),
+    ];
     final loading =
         squares.isEmpty && lists.values.any((list) => list.loading);
     final held = squares.isNotEmpty || loading;

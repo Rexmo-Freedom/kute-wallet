@@ -4079,5 +4079,8 @@
   "standingPredictionCancelled": "Abgebrochen. Das Geld bleibt in Prognosen, verfügbar.",
   "standingOrderCancelled": "Abgebrochen. Das Geld bleibt in Investieren, verfügbar.",
   "standingPriceMoved": "Der Preis ist auf {price} gegangen. Tippe, um zum neuen Preis zu platzieren.",
-  "standingLeaveNote": "Du kannst gehen. Die Order läuft weiter und erscheint in Aktivität."
+  "standingLeaveNote": "Du kannst gehen. Die Order läuft weiter und erscheint in Aktivität.",
+  "standingStageMoving": "Geld wird bewegt",
+  "standingStagePlacing": "Wird platziert",
+  "standingStageApproval": "Braucht deine Zustimmung"
 }

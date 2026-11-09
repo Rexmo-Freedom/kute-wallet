@@ -1,31 +1,41 @@
 // lib/screens/shared/standing_orders_shell.dart
 //
 // The standing orders' hooks into the app shell (mounted once, in the
-// app's Stack, drawing nothing):
+// app's Stack beside the navigator, drawing nothing):
 //
 //  * RESUME on start and on every unlock: the wallet's standing orders
 //    are loaded and carried on (standing_orders_provider.dart).
+//  * PLACING: while the order's placing toast is up (the slip put it there
+//    at the accept), it follows the order: "Cancel" goes once the order
+//    has left for the venue (standing_order_toasts.dart).
 //  * RESULT: an order filled plays the money-success haptic and Sal says
 //    "Prediction placed" / "Order placed"; one that failed plays the
-//    failure tap and Sal says where the money is (sal_notices.dart).
+//    failure tap and Sal says where the money is; one the person
+//    cancelled, Sal says so. In place of the placing toast when it is up.
 //  * PRICE MOVED past the approval: Sal says the new price with one tap
 //    that opens the slip at it (its own Face ID places it, from the money
-//    already on the venue), or the order is cancelled from its journey.
+//    already on the venue), or the order is cancelled from the toast or
+//    its journey.
+//
+// This widget's context sits beside the navigator, with no overlay and no
+// navigator above it: the toasts draw on the root overlay and the sheets
+// open from the root navigator (root_navigator.dart), never from here.
+// That context was the 2.2.0 (95) toasts' silence ("Sal toast did not
+// show").
 
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kute/helpers/root_navigator.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/polymarket_model.dart' show PolymarketOutcome;
 import 'package:kute/providers/auth_provider.dart' show sessionUnlockedProvider;
 import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart'
     show BetSlipSheet;
-import 'package:kute/screens/shared/sal_notices.dart';
-import 'package:kute/screens/shared/standing_order_journey.dart';
+import 'package:kute/screens/shared/sal_toast.dart';
+import 'package:kute/screens/shared/standing_order_toasts.dart';
 import 'package:kute/services/standing_orders/standing_orders_provider.dart';
-import 'package:kute/services/success_feedback.dart'
-    show moneyFailureFeedback, moneySuccessFeedback;
 
 class StandingOrdersShell extends ConsumerStatefulWidget {
   const StandingOrdersShell({super.key});
@@ -47,14 +57,7 @@ class _StandingOrdersShellState extends ConsumerState<StandingOrdersShell> {
     ref.listenManual<bool>(sessionUnlockedProvider, (prev, next) {
       if (next && prev != true) _resume();
     });
-    ref.listenManual<List<StandingOrder>>(standingOrdersProvider, (prev, next) {
-      for (final o in next) {
-        if (o.state == StandingOrderState.needsApproval &&
-            _askedApproval.add(o.id)) {
-          _askApproval(o);
-        }
-      }
-    });
+    ref.listenManual<List<StandingOrder>>(standingOrdersProvider, _onOrders);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (ref.read(sessionUnlockedProvider)) _resume();
@@ -71,27 +74,44 @@ class _StandingOrdersShellState extends ConsumerState<StandingOrdersShell> {
     super.dispose();
   }
 
+  void _onOrders(List<StandingOrder>? prev, List<StandingOrder> next) {
+    if (!mounted) return;
+    final before = {for (final o in prev ?? const <StandingOrder>[]) o.id: o};
+    final container = ProviderScope.containerOf(context, listen: false);
+    final l10n = context.l10n;
+    for (final o in next) {
+      final was = before[o.id];
+      if (o.state == StandingOrderState.needsApproval &&
+          _askedApproval.add(o.id)) {
+        _askApproval(o);
+        continue;
+      }
+      if (was == null || was.state == o.state) continue;
+      if (o.state == StandingOrderState.cancelled) {
+        StandingOrderToasts.cancelled(context, l10n, o);
+      } else if (o.isOpen &&
+          o.state != StandingOrderState.needsApproval &&
+          SalToast.isShowing(StandingOrderToasts.tagOf(o))) {
+        // The placing toast follows the order while it is up; closed, it
+        // stays closed.
+        StandingOrderToasts.placing(context, container, l10n,
+            venue: o.venue,
+            marketKey: o.marketKey,
+            marketTitle: o.marketTitle,
+            order: o);
+      }
+    }
+  }
+
   void _onOutcome(StandingOrder order) {
     if (!mounted) return;
     final l10n = context.l10n;
-    final predictions = order.venue == StandingOrderVenue.predictions;
+    // The toast plays the success beat or the failure tap as it lands.
     switch (order.state) {
       case StandingOrderState.filled:
-        unawaited(moneySuccessFeedback());
-        SalNotices.placed(context,
-            message: predictions
-                ? l10n.standingPredictionPlaced
-                : l10n.standingOrderPlaced,
-            detail: order.marketTitle);
+        StandingOrderToasts.placed(context, l10n, order);
       case StandingOrderState.failed:
-        unawaited(moneyFailureFeedback());
-        SalNotices.failed(context,
-            message: predictions
-                ? l10n.standingPredictionFailed
-                : l10n.standingOrderFailed,
-            detail: order.marketTitle,
-            onTap: () => StandingOrderJourneySheet.show(context,
-                standingOrderId: order.id));
+        StandingOrderToasts.failed(context, l10n, order);
       default:
         break;
     }
@@ -99,37 +119,49 @@ class _StandingOrdersShellState extends ConsumerState<StandingOrdersShell> {
 
   /// The price moved past what was approved: one tap opens the slip at
   /// the new price (the money is already on the venue; the slip's own
-  /// Face ID places it), the standing order itself ends there.
+  /// Face ID places it), the standing order itself ends there. Cancel in
+  /// the pill cancels it.
   void _askApproval(StandingOrder order) {
     if (!mounted) return;
     final l10n = context.l10n;
+    final container = ProviderScope.containerOf(context, listen: false);
     final price = order.movedToPrice ?? order.approvedPrice;
-    SalNotices.pending(context,
-        message: l10n.standingPriceMoved('${(price * 100).round()}%'),
-        detail: order.marketTitle, onTap: () {
-      if (!mounted) return;
-      unawaited(ref.read(standingOrdersProvider.notifier).advance(
-          order.id, StandingOrderState.failed,
-          failureCode: 'price_moved', quiet: true));
-      unawaited(BetSlipSheet.show(
-        context,
-        marketQuestion: order.marketTitle,
-        marketSlug: order.eventSlug,
-        marketImage: order.marketImage,
-        outcomes: [
-          PolymarketOutcome(
-            name: order.sideLabel,
-            price: price,
-            tokenId: order.marketKey,
-          ),
-        ],
-        marketEndAt: order.marketEndAt,
-        marketCategory: order.marketCategory,
-        negRisk: order.negRisk,
-        initialAmountUsd: order.amountUsd,
-        source: 'standing_order',
-      ));
-    });
+    SalToast.show(
+      context,
+      tag: StandingOrderToasts.tagOf(order),
+      message: l10n.standingPriceMoved('${(price * 100).round()}%'),
+      detail: order.marketTitle,
+      tone: SalToastTone.pending,
+      sticky: true,
+      actionLabel: l10n.cancel,
+      onAction: () => unawaited(
+          container.read(standingOrdersProvider.notifier).cancel(order.id)),
+      onTap: () {
+        unawaited(container.read(standingOrdersProvider.notifier).advance(
+            order.id, StandingOrderState.failed,
+            failureCode: 'price_moved', quiet: true));
+        final root = kuteRootContext();
+        if (root == null) return;
+        unawaited(BetSlipSheet.show(
+          root,
+          marketQuestion: order.marketTitle,
+          marketSlug: order.eventSlug,
+          marketImage: order.marketImage,
+          outcomes: [
+            PolymarketOutcome(
+              name: order.sideLabel,
+              price: price,
+              tokenId: order.marketKey,
+            ),
+          ],
+          marketEndAt: order.marketEndAt,
+          marketCategory: order.marketCategory,
+          negRisk: order.negRisk,
+          initialAmountUsd: order.amountUsd,
+          source: 'standing_order',
+        ));
+      },
+    );
   }
 
   @override

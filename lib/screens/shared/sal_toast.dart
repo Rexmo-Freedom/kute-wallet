@@ -33,6 +33,24 @@
 // Haptics, once per toast as it lands, through the money moments' own
 // (success_feedback.dart): the success beat for a success, the soft
 // failure tap for a failure, nothing for pending or information.
+//
+// WHERE IT DRAWS (founder, 9 November 2026, on 2.2.0 (95): "Sal toast did
+// not show"): always the app's ROOT overlay, reached through the root
+// navigator's key (root_navigator.dart), never through the caller's
+// context. The standing orders' shell sits beside the navigator in the
+// app's Stack, with no overlay above it, and a slip's context is gone by
+// the time its order fills: both found nothing and every order notice
+// was dropped. The caller's context is only a fallback where there is no
+// root key (a test's app).
+//
+// CLOSE AND ACT (founder, 9 November 2026: "Placing your prediction /
+// cancel should be Sal. Also give it an X to close it"): a pending toast
+// and one with an action carry an X at the trailing edge
+// (44 pt to hit, read "Close") that only sends the toast off; an action
+// ([SalToast.actionLabel], "Cancel") is a word in the pill before it. A
+// [SalToast.sticky] toast never goes by itself (a running order's), and a
+// toast shown with a [tag] already on screen changes in place rather
+// than arriving again (the placing toast turning into the placed one).
 
 import 'dart:async';
 import 'dart:math' as math;
@@ -40,6 +58,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import 'package:kute/helpers/root_navigator.dart';
+import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/screens/shared/kute_dog_scenes.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart'
     show KuteConfirmation, KuteConfirmationTone, KuteStatusMark;
@@ -83,6 +103,11 @@ class SalToast extends StatefulWidget {
     this.onTap,
     this.duration,
     this.haptic = true,
+    this.actionLabel,
+    this.onAction,
+    this.closable,
+    this.sticky = false,
+    this.onClose,
   });
 
   /// The one line: a short plain sentence ("Prediction placed").
@@ -104,6 +129,28 @@ class SalToast extends StatefulWidget {
   /// False: no haptic, whatever the tone (a surface that already played
   /// its own for the same moment).
   final bool haptic;
+
+  /// A word in the pill that does something without opening anything
+  /// ("Cancel"): [onAction] runs and the toast goes. Null: none.
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  /// Whether the X shows; null: the rule ([showsClose]), a pending toast
+  /// or one with an action.
+  final bool? closable;
+
+  /// True: it never goes by itself (a running order's, gone when the
+  /// order ends, when the person closes it or another toast arrives).
+  final bool sticky;
+
+  /// Runs when the person closes it with the X (only the toast goes).
+  final VoidCallback? onClose;
+
+  bool get hasAction => actionLabel != null && onAction != null;
+
+  /// Whether the X shows (see [closable]).
+  bool get showsClose =>
+      closable ?? (tone == SalToastTone.pending || hasAction);
 
   static const Duration successDuration = Duration(milliseconds: 2500);
   static const Duration infoDuration = Duration(seconds: 3);
@@ -140,17 +187,24 @@ class SalToast extends StatefulWidget {
 
   Duration get resolvedDuration => duration ?? durationFor(tone);
 
-  /// Shows a toast over everything, sending off the one on screen. A
-  /// context with nowhere to draw (a sheet already closed) shows nothing:
-  /// a toast is a courtesy.
+  /// Shows a toast over everything on the root overlay (see the file
+  /// header), sending off the one on screen; [context] is only the
+  /// fallback where the app has no root key, and may be gone. A toast
+  /// with a [tag] already on screen changes in place instead.
   static void show(
-    BuildContext context, {
+    BuildContext? context, {
     required String message,
     String? detail,
     SalToastTone tone = SalToastTone.info,
     VoidCallback? onTap,
     Duration? duration,
     bool haptic = true,
+    String? actionLabel,
+    VoidCallback? onAction,
+    bool? closable,
+    bool sticky = false,
+    VoidCallback? onClose,
+    String? tag,
   }) =>
       _SalToastStage.show(
         context,
@@ -161,19 +215,38 @@ class SalToast extends StatefulWidget {
           onTap: onTap,
           duration: duration,
           haptic: haptic,
+          actionLabel: actionLabel,
+          onAction: onAction,
+          closable: closable,
+          sticky: sticky,
+          onClose: onClose,
         ),
+        tag: tag,
       );
 
   /// Sends the toast on screen off (a screen leaving with its message).
   static void dismiss() => _SalToastStage.dismissAll();
 
-  /// The root overlay to draw on from [context], or null when there is
-  /// none: a context whose sheet has already closed, or the root
-  /// navigator's own context (its overlay is a descendant, which
-  /// `Overlay.of` does not find). `Overlay.of` threw on both, which was
-  /// a fatal after cancelling a Cash App purchase from Activity.
-  static OverlayState? overlayFor(BuildContext context) {
-    if (!context.mounted) return null;
+  /// Whether a toast shown with [tag] is on screen and not leaving.
+  static bool isShowing(String tag) => _SalToastStage.live(tag) != null;
+
+  /// Sends the toast shown with [tag] off, if it is on screen.
+  static void dismissTag(String tag) => _SalToastStage.live(tag)?.leave();
+
+  /// The root overlay to draw on: the root navigator's (the app's key,
+  /// root_navigator.dart), whatever [context] is; without the key (a
+  /// test's app), the one above [context], or null when there is none (a
+  /// context whose sheet has already closed, a layer beside the
+  /// navigator, the root navigator's own context, whose overlay is a
+  /// descendant `Overlay.of` does not find). `Overlay.of` threw on those,
+  /// which was a fatal after cancelling a Cash App purchase from Activity.
+  static OverlayState? overlayFor(BuildContext? context) {
+    final root = kuteRootNavigatorKey.currentState;
+    if (root != null && root.mounted) {
+      final overlay = root.overlay;
+      if (overlay != null && overlay.mounted) return overlay;
+    }
+    if (context == null || !context.mounted) return null;
     return Overlay.maybeOf(context, rootOverlay: true) ??
         Navigator.maybeOf(context, rootNavigator: true)?.overlay;
   }
@@ -214,6 +287,18 @@ class _SalToastState extends State<SalToast>
   }
 
   @override
+  void didUpdateWidget(SalToast old) {
+    super.didUpdateWidget(old);
+    // Changed in place to another result: its mark plays again.
+    if (old.tone == widget.tone) return;
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _mark.value = 1;
+    } else {
+      _mark.forward(from: 0);
+    }
+  }
+
+  @override
   void dispose() {
     _mark.dispose();
     super.dispose();
@@ -233,6 +318,9 @@ class _SalToastState extends State<SalToast>
     final tone = widget.tone;
     final mark = SalToast.markFor(tone);
     final detail = widget.detail;
+    final close = widget.showsClose;
+    final controls = close || widget.hasAction;
+    final scope = _SalToastControls.maybeOf(context);
     return Container(
       key: const ValueKey('sal-toast'),
       constraints: const BoxConstraints(minHeight: kSalToastHeight),
@@ -245,7 +333,8 @@ class _SalToastState extends State<SalToast>
         ),
         boxShadow: [KuteBarSurface.shadow(visible: isLight)],
       ),
-      padding: EdgeInsets.fromLTRB(8.w, 6.h, mark == null ? 18.w : 14.w, 6.h),
+      padding: EdgeInsets.fromLTRB(
+          8.w, 6.h, close ? 2.w : (mark == null ? 18.w : 14.w), 6.h),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -263,7 +352,11 @@ class _SalToastState extends State<SalToast>
           ),
           SizedBox(width: 6.w),
           Flexible(
-            child: Column(
+            // With buttons in the pill VoiceOver reads the words once, as
+            // the toast's label, and reaches the buttons on their own.
+            child: ExcludeSemantics(
+              excluding: controls,
+              child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -296,6 +389,7 @@ class _SalToastState extends State<SalToast>
                   ),
               ],
             ),
+            ),
           ),
           if (mark != null) ...[
             SizedBox(width: 10.w),
@@ -309,10 +403,97 @@ class _SalToastState extends State<SalToast>
               ),
             ),
           ],
+          if (widget.hasAction) ...[
+            SizedBox(width: 4.w),
+            Semantics(
+              button: true,
+              label: widget.actionLabel,
+              excludeSemantics: true,
+              child: GestureDetector(
+                key: const ValueKey('sal-toast-action'),
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  if (scope != null) {
+                    scope.act();
+                  } else {
+                    widget.onAction?.call();
+                  }
+                },
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                      minWidth: kSalToastHitSize, minHeight: kSalToastHitSize),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8.w),
+                    child: Center(
+                      widthFactor: 1,
+                      child: Text(
+                        widget.actionLabel!,
+                        maxLines: 1,
+                        style: TextStyle(
+                          color: ink,
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.2,
+                          decoration: TextDecoration.underline,
+                          decorationColor: quiet,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+          if (close)
+            Semantics(
+              button: true,
+              label: _closeLabel(context),
+              excludeSemantics: true,
+              child: GestureDetector(
+                key: const ValueKey('sal-toast-close'),
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  if (scope != null) {
+                    scope.close();
+                  } else {
+                    widget.onClose?.call();
+                  }
+                },
+                child: SizedBox.square(
+                  dimension: kSalToastHitSize,
+                  child: Icon(Icons.close_rounded, size: 18.sp, color: quiet),
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
+
+  /// "Close", the app's word; Material's where the app's strings are not
+  /// loaded (a render test).
+  static String _closeLabel(BuildContext context) =>
+      Localizations.of<AppLocalizations>(context, AppLocalizations)?.close ??
+      MaterialLocalizations.of(context).closeButtonLabel;
+}
+
+/// The X's and the action's hit area: 44 pt, the platform's minimum.
+const double kSalToastHitSize = 44;
+
+/// What the pill's X and action do on the overlay: the flight's own
+/// close and act, which also send the toast off.
+class _SalToastControls extends InheritedWidget {
+  const _SalToastControls(
+      {required this.close, required this.act, required super.child});
+
+  final VoidCallback close;
+  final VoidCallback act;
+
+  static _SalToastControls? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_SalToastControls>();
+
+  @override
+  bool updateShouldNotify(_SalToastControls old) => false;
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -320,8 +501,9 @@ class _SalToastState extends State<SalToast>
 // ─────────────────────────────────────────────────────────────────────
 
 class _Flight {
-  _Flight(this.key);
+  _Flight(this.key, this.tag);
   final GlobalKey<_SalToastFlightState> key;
+  final String? tag;
   late final OverlayEntry entry;
   bool gone = false;
 }
@@ -329,7 +511,25 @@ class _Flight {
 abstract final class _SalToastStage {
   static final List<_Flight> _flights = [];
 
-  static void show(BuildContext context, SalToast toast) {
+  /// The flight on screen shown with [tag], not leaving; null: none.
+  static _SalToastFlightState? live(String tag) {
+    for (final flight in _flights.reversed) {
+      if (flight.tag != tag || flight.gone) continue;
+      final state = flight.key.currentState;
+      if (state != null && !state.leaving) return state;
+    }
+    return null;
+  }
+
+  static void show(BuildContext? context, SalToast toast, {String? tag}) {
+    // The same toast on screen: changed in place, no second arrival.
+    if (tag != null) {
+      final same = live(tag);
+      if (same != null) {
+        same.replace(toast);
+        return;
+      }
+    }
     final overlay = SalToast.overlayFor(context);
     if (overlay == null) return;
     // The one on screen leaves as the new one arrives (the sheet's out
@@ -337,7 +537,7 @@ abstract final class _SalToastStage {
     for (final flight in List.of(_flights)) {
       flight.key.currentState?.leave();
     }
-    final flight = _Flight(GlobalKey<_SalToastFlightState>());
+    final flight = _Flight(GlobalKey<_SalToastFlightState>(), tag);
     flight.entry = OverlayEntry(
       builder: (_) => _SalToastFlight(
         key: flight.key,
@@ -417,9 +617,15 @@ class _SalToastFlightState extends State<_SalToastFlight>
   /// The swipe's offset in logical pixels, up negative.
   late final AnimationController _drag = AnimationController.unbounded(vsync: this);
 
+  /// The toast drawn now: the one shown, or the one it was changed into
+  /// in place ([replace]).
+  late SalToast _toast = widget.toast;
+
   Timer? _timer;
   bool _started = false;
   bool _leaving = false;
+
+  bool get leaving => _leaving;
   bool _dragging = false;
   bool _reduce = false;
 
@@ -431,7 +637,7 @@ class _SalToastFlightState extends State<_SalToastFlight>
   void initState() {
     super.initState();
     _flight.addStatusListener(_onFlight);
-    if (widget.toast.haptic) {
+    if (_toast.haptic) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _feedback();
       });
@@ -460,7 +666,7 @@ class _SalToastFlightState extends State<_SalToastFlight>
   /// The haptic is the moment, not the motion: it plays as the toast is
   /// first drawn, Reduce Motion or not.
   void _feedback() {
-    switch (widget.toast.tone) {
+    switch (_toast.tone) {
       case SalToastTone.success:
         unawaited((SalToast.debugSuccessFeedbackOverride ?? moneySuccessFeedback)());
       case SalToastTone.failure:
@@ -470,12 +676,26 @@ class _SalToastFlightState extends State<_SalToastFlight>
     }
   }
 
-  /// Starts (or restarts) the clock to go by itself.
+  /// Starts (or restarts) the clock to go by itself; a sticky toast has
+  /// none.
   void _arm() {
     _timer?.cancel();
-    _timer = Timer(widget.toast.resolvedDuration, () {
+    _timer = null;
+    if (_toast.sticky) return;
+    _timer = Timer(_toast.resolvedDuration, () {
       if (mounted && !_dragging) leave();
     });
+  }
+
+  /// The toast changes in place into [next] (the same tag shown again):
+  /// its words, tone and buttons, its haptic when the tone changed, its
+  /// clock from now.
+  void replace(SalToast next) {
+    if (!mounted || _leaving) return;
+    final toneChanged = next.tone != _toast.tone;
+    setState(() => _toast = next);
+    if (toneChanged && next.haptic) _feedback();
+    if (_flight.isCompleted) _arm();
   }
 
   /// Sends the toast off: the settle out, then the entry goes. Once.
@@ -494,8 +714,23 @@ class _SalToastFlightState extends State<_SalToastFlight>
   }
 
   void _tap() {
-    final action = widget.toast.onTap;
+    final action = _toast.onTap;
     leave();
+    action?.call();
+  }
+
+  /// The X: only the toast goes.
+  void _close() {
+    final closed = _toast.onClose;
+    leave();
+    closed?.call();
+  }
+
+  /// The action word: it runs and the toast goes; a sticky toast stays,
+  /// for what the action led to to change it in place (a cancelled order).
+  void _act() {
+    final action = _toast.onAction;
+    if (!_toast.sticky) leave();
     action?.call();
   }
 
@@ -537,7 +772,7 @@ class _SalToastFlightState extends State<_SalToastFlight>
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
-    final toast = widget.toast;
+    final toast = _toast;
     final detail = toast.detail;
     final label = detail == null || detail.isEmpty
         ? toast.message
@@ -568,13 +803,18 @@ class _SalToastFlightState extends State<_SalToastFlight>
                 button: toast.onTap != null,
                 onTap: _tap,
                 onDismiss: leave,
-                excludeSemantics: true,
+                // The pill's X and action stay reachable on their own.
+                excludeSemantics: !(toast.showsClose || toast.hasAction),
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: _tap,
                   onVerticalDragUpdate: _onDragUpdate,
                   onVerticalDragEnd: _onDragEnd,
-                  child: toast,
+                  child: _SalToastControls(
+                    close: _close,
+                    act: _act,
+                    child: toast,
+                  ),
                 ),
               ),
             ),

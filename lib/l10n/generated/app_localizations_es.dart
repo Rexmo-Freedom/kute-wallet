@@ -14528,4 +14528,13 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get standingLeaveNote =>
       'Puedes salir. La orden continúa y aparece en Actividad.';
+
+  @override
+  String get standingStageMoving => 'Moviendo el dinero';
+
+  @override
+  String get standingStagePlacing => 'Colocando';
+
+  @override
+  String get standingStageApproval => 'Necesita tu aprobación';
 }

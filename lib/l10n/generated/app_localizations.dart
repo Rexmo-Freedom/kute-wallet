@@ -24338,6 +24338,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'You can leave. The order continues and shows in Activity.'**
   String get standingLeaveNote;
+
+  /// Overview card line for a prediction or order whose money is still moving to the venue. Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Moving money'**
+  String get standingStageMoving;
+
+  /// Overview card line for a prediction or order being sent to the venue. Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Placing'**
+  String get standingStagePlacing;
+
+  /// Overview card line for a prediction or order stopped because the price moved past what was approved; it waits for the person. Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Needs your approval'**
+  String get standingStageApproval;
 }
 
 class _AppLocalizationsDelegate

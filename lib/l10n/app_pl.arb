@@ -4079,5 +4079,8 @@
   "standingPredictionCancelled": "Anulowano. Pieniądze zostają w Prognozach, dostępne.",
   "standingOrderCancelled": "Anulowano. Pieniądze zostają w Inwestowaniu, dostępne.",
   "standingPriceMoved": "Cena zmieniła się na {price}. Dotknij, aby złożyć po nowej cenie.",
-  "standingLeaveNote": "Możesz wyjść. Zlecenie trwa i widać je w Aktywności."
+  "standingLeaveNote": "Możesz wyjść. Zlecenie trwa i widać je w Aktywności.",
+  "standingStageMoving": "Przenosimy pieniądze",
+  "standingStagePlacing": "Składamy",
+  "standingStageApproval": "Wymaga Twojej zgody"
 }

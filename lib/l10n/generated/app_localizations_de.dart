@@ -14552,4 +14552,13 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get standingLeaveNote =>
       'Du kannst gehen. Die Order läuft weiter und erscheint in Aktivität.';
+
+  @override
+  String get standingStageMoving => 'Geld wird bewegt';
+
+  @override
+  String get standingStagePlacing => 'Wird platziert';
+
+  @override
+  String get standingStageApproval => 'Braucht deine Zustimmung';
 }

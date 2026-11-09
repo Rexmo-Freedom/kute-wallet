@@ -4079,5 +4079,8 @@
   "standingPredictionCancelled": "Atcelts. Nauda paliek Prognozēs, pieejama.",
   "standingOrderCancelled": "Atcelts. Nauda paliek Investēšanā, pieejama.",
   "standingPriceMoved": "Cena mainījās uz {price}. Pieskaries, lai iesniegtu par jauno cenu.",
-  "standingLeaveNote": "Vari iet. Rīkojums turpinās un redzams Aktivitātē."
+  "standingLeaveNote": "Vari iet. Rīkojums turpinās un redzams Aktivitātē.",
+  "standingStageMoving": "Pārvietojam naudu",
+  "standingStagePlacing": "Iesniedzam",
+  "standingStageApproval": "Vajag tavu apstiprinājumu"
 }

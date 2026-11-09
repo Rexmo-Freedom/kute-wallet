@@ -287,6 +287,17 @@ Future<void> _pumpSlip(WidgetTester tester,
 }
 
 /// The busy button animates for as long as it waits: pump, never settle.
+
+/// The slip closed at the accept: Sal's placing toast ("Placing your prediction", with
+/// Cancel and the X) stands in its place; its tap opens the money journey.
+Future<void> _journeyFromToast(WidgetTester tester) async {
+  expect(find.byKey(const ValueKey('sal-toast-close')), findsOneWidget);
+  expect(find.byKey(const ValueKey('sal-toast-action')), findsOneWidget);
+  await tester.tap(find.text('Placing your prediction'));
+  await _frames(tester, 10);
+  expect(find.byType(StandingOrderJourneySheet), findsOneWidget);
+}
+
 Future<void> _frames(WidgetTester tester, [int n = 10]) async {
   for (var i = 0; i < n; i++) {
     await tester.pump(const Duration(milliseconds: 100));
@@ -434,9 +445,9 @@ void main() {
     expect(pending.amount, greaterThan(0));
     expect(pending.status, PendingBetStatus.awaitingBalance);
 
-    // The slip closed at the accept (standing orders): the steps run on
-    // the money journey in its place.
-    expect(find.byType(StandingOrderJourneySheet), findsOneWidget);
+    // The slip closed at the accept (standing orders): Sal's placing
+    // toast stands in its place; its tap opens the money journey.
+    await _journeyFromToast(tester);
     final money = '\$${pending.amount.toStringAsFixed(2)}';
     expect(find.text('Placing $money on Yes'), findsOneWidget);
 

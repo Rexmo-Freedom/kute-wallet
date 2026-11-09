@@ -4079,5 +4079,8 @@
   "standingPredictionCancelled": "Otkazano. Novac ostaje u Prognozama, dostupan.",
   "standingOrderCancelled": "Otkazano. Novac ostaje u Ulaganju, dostupan.",
   "standingPriceMoved": "Cijena je prešla na {price}. Dodirni za postavljanje po novoj cijeni.",
-  "standingLeaveNote": "Možeš otići. Nalog se nastavlja i vidi se u Aktivnosti."
+  "standingLeaveNote": "Možeš otići. Nalog se nastavlja i vidi se u Aktivnosti.",
+  "standingStageMoving": "Premještamo novac",
+  "standingStagePlacing": "Postavljamo",
+  "standingStageApproval": "Treba tvoje odobrenje"
 }

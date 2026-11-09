@@ -37,6 +37,23 @@ String standingOrderRowStatus(AppLocalizations l10n, StandingOrder order) {
   };
 }
 
+/// What the Dollars Overview's card says of a standing order's stage, in
+/// the compact words (dollars_activity_tab.dart): the money moving, the
+/// order being placed, waiting for the person; placed once it filled
+/// (the card stays until the position lists).
+String standingOrderStageLine(AppLocalizations l10n, StandingOrder order) =>
+    switch (order.state) {
+      StandingOrderState.funding ||
+      StandingOrderState.funded =>
+        l10n.standingStageMoving,
+      StandingOrderState.needsApproval => l10n.standingStageApproval,
+      StandingOrderState.filled =>
+        order.venue == StandingOrderVenue.predictions
+            ? l10n.standingPredictionPlaced
+            : l10n.standingOrderPlaced,
+      _ => l10n.standingStagePlacing,
+    };
+
 /// The standing orders still in flight, newest first; nothing when there
 /// are none.
 class StandingOrdersSection extends ConsumerWidget {
@@ -67,12 +84,17 @@ class StandingOrdersSection extends ConsumerWidget {
   }
 }
 
-/// One standing order as the venue's own row.
+/// One standing order as the venue's own row (in whatever shape the
+/// layout above asks: Activity's line, the Overview's square or card).
 class StandingOrderRow extends StatelessWidget {
-  const StandingOrderRow({super.key, required this.order, required this.status});
+  const StandingOrderRow(
+      {super.key, required this.order, required this.status, this.onTap});
 
   final StandingOrder order;
   final String status;
+
+  /// Null: the row taps through nothing of its own (Activity wraps it).
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -95,6 +117,7 @@ class StandingOrderRow extends StatelessWidget {
             startedAt: order.createdAt,
             stepLabel: status,
           ),
+          onTap: onTap,
         );
       case StandingOrderVenue.investing:
         final l10n = context.l10n;
@@ -106,6 +129,7 @@ class StandingOrderRow extends StatelessWidget {
           subtitle:
               '${order.isBuy ? l10n.longLabel : l10n.shortLabel} · $status',
           value: formatDollars(order.amountUsd),
+          onTap: onTap,
         );
     }
   }

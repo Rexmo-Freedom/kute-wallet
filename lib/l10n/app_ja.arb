@@ -4079,5 +4079,8 @@
   "standingPredictionCancelled": "キャンセルしました。資金は予測に残り、利用できます。",
   "standingOrderCancelled": "キャンセルしました。資金は投資に残り、利用できます。",
   "standingPriceMoved": "価格が{price}に変わりました。タップすると新しい価格で発注します。",
-  "standingLeaveNote": "ここを離れても大丈夫です。注文は続き、アクティビティに表示されます。"
+  "standingLeaveNote": "ここを離れても大丈夫です。注文は続き、アクティビティに表示されます。",
+  "standingStageMoving": "資金を移動中",
+  "standingStagePlacing": "発注中",
+  "standingStageApproval": "承認が必要です"
 }

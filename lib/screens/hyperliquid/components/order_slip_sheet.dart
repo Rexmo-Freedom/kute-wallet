@@ -1,6 +1,6 @@
 import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
-import 'package:kute/screens/shared/standing_order_journey.dart'
-    show StandingOrderJourneySheet;
+import 'package:kute/screens/shared/standing_order_toasts.dart'
+    show StandingOrderToasts;
 import 'package:kute/services/standing_orders/standing_order.dart'
     show StandingOrderVenue;
 import 'package:kute/services/hyperliquid/hypercore_cash.dart'
@@ -2399,21 +2399,32 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   /// Investments". A credit timeout keeps the cash at the venue for the
   /// sweeper and says so with the existing copy.
   /// The accept is done and the order's money is on its way, headless (a
-  /// standing order, standing_orders/): the ticket closes at once and the
-  /// money's journey takes its place (the same steps, the walking Sal),
-  /// which the person may leave at any time while the order goes on
-  /// (founder, 9 November 2026). Deferred a frame, so the state set just
-  /// before it has rendered. Closes once.
+  /// standing order, standing_orders/): the ticket closes at once and
+  /// Sal's placing toast takes its place, with Cancel and an X (founder, 9
+  /// November 2026); its tap opens the money journey. Deferred a frame, so
+  /// the state set just before it has rendered. Closes once.
   void _closeForStandingOrder() {
     if (!mounted || _closedForStanding) return;
     _closedForStanding = true;
     final nav = Navigator.of(context, rootNavigator: true);
     final coin = market.coin;
+    // The order's own label (the standing order's title).
+    final label = isSpot
+        ? market.coin
+        : '${market.coin} · ${hlKindLabel(_strings, isSpot: false)}';
+    final container = ProviderScope.containerOf(context, listen: false);
+    final l10n = context.l10n;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       Navigator.of(context).pop();
-      unawaited(StandingOrderJourneySheet.show(nav.context,
-          venue: StandingOrderVenue.investing, marketKey: coin));
+      // Sal says it is being placed, with Cancel and the X; a tap on the
+      // toast opens the money journey (standing_order_toasts.dart).
+      StandingOrderToasts.placing(nav.context, container, l10n,
+          venue: StandingOrderVenue.investing,
+          marketKey: coin,
+          marketTitle: label,
+          order: StandingOrderToasts.openOn(
+              container, StandingOrderVenue.investing, coin));
     });
   }
 

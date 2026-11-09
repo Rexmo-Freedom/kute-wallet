@@ -1,7 +1,7 @@
 import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
 import 'package:kute/screens/shared/side_tint_palette.dart';
-import 'package:kute/screens/shared/standing_order_journey.dart'
-    show StandingOrderJourneySheet;
+import 'package:kute/screens/shared/standing_order_toasts.dart'
+    show StandingOrderToasts;
 import 'package:kute/services/standing_orders/standing_order.dart'
     show StandingOrderVenue;
 import 'package:kute/screens/polymarket/components/outcome_leading.dart'
@@ -1331,21 +1331,30 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   }
 
   /// The accept is done and the bet's money is on its way, headless (a
-  /// standing order, standing_orders/): the slip closes at once and the
-  /// money's journey takes its place (the same steps, the walking Sal),
-  /// which the person may leave at any time while the bet goes on
-  /// (founder, 9 November 2026). Deferred a frame, so the state set just
-  /// before it has rendered.
+  /// standing order, standing_orders/): the slip closes at once and Sal's
+  /// placing toast takes its place, with Cancel and an X (founder, 9
+  /// November 2026: "Placing your prediction / cancel should be Sal");
+  /// its tap opens the money journey. Deferred a frame, so the state set
+  /// just before it has rendered.
   void _closeForStandingOrder() {
     if (!mounted) return;
     final nav = Navigator.of(context, rootNavigator: true);
     final tokenId = _selectedTokenId;
+    final container = ProviderScope.containerOf(context, listen: false);
+    final l10n = context.l10n;
+    final title = widget.marketQuestion;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       Navigator.of(context).pop();
       if (tokenId == null) return;
-      unawaited(StandingOrderJourneySheet.show(nav.context,
-          venue: StandingOrderVenue.predictions, marketKey: tokenId));
+      // Sal says it is being placed, with Cancel and the X; a tap on the
+      // toast opens the money journey (standing_order_toasts.dart).
+      StandingOrderToasts.placing(nav.context, container, l10n,
+          venue: StandingOrderVenue.predictions,
+          marketKey: tokenId,
+          marketTitle: title,
+          order: StandingOrderToasts.openOn(
+              container, StandingOrderVenue.predictions, tokenId));
     });
   }
 

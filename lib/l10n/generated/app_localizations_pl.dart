@@ -14495,4 +14495,13 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get standingLeaveNote =>
       'Możesz wyjść. Zlecenie trwa i widać je w Aktywności.';
+
+  @override
+  String get standingStageMoving => 'Przenosimy pieniądze';
+
+  @override
+  String get standingStagePlacing => 'Składamy';
+
+  @override
+  String get standingStageApproval => 'Wymaga Twojej zgody';
 }

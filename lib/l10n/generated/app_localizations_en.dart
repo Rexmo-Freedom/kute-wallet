@@ -14407,4 +14407,13 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get standingLeaveNote =>
       'You can leave. The order continues and shows in Activity.';
+
+  @override
+  String get standingStageMoving => 'Moving money';
+
+  @override
+  String get standingStagePlacing => 'Placing';
+
+  @override
+  String get standingStageApproval => 'Needs your approval';
 }

@@ -4079,5 +4079,8 @@
   "standingPredictionCancelled": "Отменено. Парите остават в Прогнози, налични.",
   "standingOrderCancelled": "Отменено. Парите остават в Инвестиране, налични.",
   "standingPriceMoved": "Цената стана {price}. Докосни, за да поставиш на новата цена.",
-  "standingLeaveNote": "Можеш да излезеш. Поръчката продължава и се вижда в Активност."
+  "standingLeaveNote": "Можеш да излезеш. Поръчката продължава и се вижда в Активност.",
+  "standingStageMoving": "Местим парите",
+  "standingStagePlacing": "Поставяме",
+  "standingStageApproval": "Нужно е твоето одобрение"
 }

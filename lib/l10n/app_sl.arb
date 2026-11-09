@@ -4079,5 +4079,8 @@
   "standingPredictionCancelled": "Preklicano. Denar ostane v Napovedih, na voljo.",
   "standingOrderCancelled": "Preklicano. Denar ostane v Vlaganju, na voljo.",
   "standingPriceMoved": "Cena se je premaknila na {price}. Tapni za oddajo po novi ceni.",
-  "standingLeaveNote": "Lahko greš. Naročilo se nadaljuje in je vidno v Dejavnosti."
+  "standingLeaveNote": "Lahko greš. Naročilo se nadaljuje in je vidno v Dejavnosti.",
+  "standingStageMoving": "Premikamo denar",
+  "standingStagePlacing": "Oddajamo",
+  "standingStageApproval": "Potrebna je tvoja odobritev"
 }

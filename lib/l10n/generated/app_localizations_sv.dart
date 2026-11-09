@@ -14445,4 +14445,13 @@ class AppLocalizationsSv extends AppLocalizations {
   @override
   String get standingLeaveNote =>
       'Du kan lämna. Ordern fortsätter och visas i Aktivitet.';
+
+  @override
+  String get standingStageMoving => 'Flyttar pengar';
+
+  @override
+  String get standingStagePlacing => 'Lägger';
+
+  @override
+  String get standingStageApproval => 'Behöver ditt godkännande';
 }

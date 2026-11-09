@@ -297,6 +297,17 @@ Future<void> _pumpSlip(WidgetTester tester, FakeHyperliquidMoveRail rail,
   await _frames(tester);
 }
 
+
+/// The slip closed at the accept: Sal's placing toast ("Placing your order", with
+/// Cancel and the X) stands in its place; its tap opens the money journey.
+Future<void> _journeyFromToast(WidgetTester tester) async {
+  expect(find.byKey(const ValueKey('sal-toast-close')), findsOneWidget);
+  expect(find.byKey(const ValueKey('sal-toast-action')), findsOneWidget);
+  await tester.tap(find.text('Placing your order'));
+  await _frames(tester, 10);
+  expect(find.byType(StandingOrderJourneySheet), findsOneWidget);
+}
+
 Future<void> _frames(WidgetTester tester, [int n = 10]) async {
   for (var i = 0; i < n; i++) {
     await tester.pump(const Duration(milliseconds: 100));
@@ -448,9 +459,9 @@ void main() {
     expect(pending.marginUsd, greaterThan(0));
     expect(pending.fundingSource, 'bitcoin');
 
-    // The ticket closed at the accept (standing orders): the steps run on
-    // the money journey in its place.
-    expect(find.byType(StandingOrderJourneySheet), findsOneWidget);
+    // The ticket closed at the accept (standing orders): Sal's placing
+    // toast stands in its place; its tap opens the money journey.
+    await _journeyFromToast(tester);
 
     // The venue credits it and the autofire places it: never a second
     // prompt.

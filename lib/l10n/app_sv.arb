@@ -4079,5 +4079,8 @@
   "standingPredictionCancelled": "Avbrutet. Pengarna stannar i Förutsägelser, tillgängliga.",
   "standingOrderCancelled": "Avbrutet. Pengarna stannar i Investera, tillgängliga.",
   "standingPriceMoved": "Priset gick till {price}. Tryck för att lägga till det nya priset.",
-  "standingLeaveNote": "Du kan lämna. Ordern fortsätter och visas i Aktivitet."
+  "standingLeaveNote": "Du kan lämna. Ordern fortsätter och visas i Aktivitet.",
+  "standingStageMoving": "Flyttar pengar",
+  "standingStagePlacing": "Lägger",
+  "standingStageApproval": "Behöver ditt godkännande"
 }

@@ -14558,4 +14558,13 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get standingLeaveNote =>
       'Vous pouvez quitter. L\'ordre continue et apparaît dans Activité.';
+
+  @override
+  String get standingStageMoving => 'Transfert de l\'argent';
+
+  @override
+  String get standingStagePlacing => 'Placement';
+
+  @override
+  String get standingStageApproval => 'Votre accord est requis';
 }

@@ -4079,5 +4079,8 @@
   "standingPredictionCancelled": "Atšaukta. Pinigai lieka Prognozėse, prieinami.",
   "standingOrderCancelled": "Atšaukta. Pinigai lieka Investavime, prieinami.",
   "standingPriceMoved": "Kaina pasikeitė į {price}. Palieskite, kad pateiktumėte nauja kaina.",
-  "standingLeaveNote": "Galite išeiti. Pavedimas tęsiasi ir matomas Veikloje."
+  "standingLeaveNote": "Galite išeiti. Pavedimas tęsiasi ir matomas Veikloje.",
+  "standingStageMoving": "Perkeliame pinigus",
+  "standingStagePlacing": "Teikiame",
+  "standingStageApproval": "Reikia tavo patvirtinimo"
 }

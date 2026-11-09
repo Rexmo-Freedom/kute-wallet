@@ -2055,11 +2055,13 @@ class ComboPositionRow extends StatelessWidget {
 }
 
 /// A bet on its way to the book: its stake as the number, its step in
-/// place of the facts. No tap, as before.
+/// place of the facts. No tap, as before, unless [onTap] (a standing
+/// order's card on the Dollars Overview opens its money journey).
 class PlacingBetRow extends ConsumerWidget {
-  const PlacingBetRow({super.key, required this.bet});
+  const PlacingBetRow({super.key, required this.bet, this.onTap});
 
   final PlacingBet bet;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -2083,6 +2085,7 @@ class PlacingBetRow extends ConsumerWidget {
       chip: polyPositionRowChip(names, p.outcomeName),
       note: polyPositionRowNote(names, status: step),
       value: formatDollars(p.amount),
+      onTap: onTap,
     );
   }
 }

@@ -1,3 +1,4 @@
+import 'package:kute/helpers/root_navigator.dart';
 import 'package:kute/screens/bank/bank_screen.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart';
 import 'package:kute/screens/creation/add_wallet.dart';
@@ -67,8 +68,10 @@ class AppRouter {
   // navigator instead — full-screen, OVER the shell (nav bar hidden), exactly
   // as before the nav shell landed. Only the 4 tab roots (/home, /bank,
   // /hyperliquid, /polymarket) stay inside the shell.
+  // The one key, kept in root_navigator.dart so the Sal toast reaches the
+  // root overlay without importing the router.
   static final GlobalKey<NavigatorState> _rootNavigatorKey =
-      GlobalKey<NavigatorState>(debugLabel: 'root');
+      kuteRootNavigatorKey;
 
   /// The root navigator's key, for a layer drawn outside it (the shell bar)
   /// and for services that show a sheet with no widget of their own (the

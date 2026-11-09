@@ -14469,4 +14469,13 @@ class AppLocalizationsBg extends AppLocalizations {
   @override
   String get standingLeaveNote =>
       'Можеш да излезеш. Поръчката продължава и се вижда в Активност.';
+
+  @override
+  String get standingStageMoving => 'Местим парите';
+
+  @override
+  String get standingStagePlacing => 'Поставяме';
+
+  @override
+  String get standingStageApproval => 'Нужно е твоето одобрение';
 }

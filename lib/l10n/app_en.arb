@@ -12628,5 +12628,17 @@
       }
     }
   },
-  "standingLeaveNote": "You can leave. The order continues and shows in Activity."
+  "standingLeaveNote": "You can leave. The order continues and shows in Activity.",
+  "standingStageMoving": "Moving money",
+  "@standingStageMoving": {
+    "description": "Overview card line for a prediction or order whose money is still moving to the venue. Short."
+  },
+  "standingStagePlacing": "Placing",
+  "@standingStagePlacing": {
+    "description": "Overview card line for a prediction or order being sent to the venue. Short."
+  },
+  "standingStageApproval": "Needs your approval",
+  "@standingStageApproval": {
+    "description": "Overview card line for a prediction or order stopped because the price moved past what was approved; it waits for the person. Short."
+  }
 }

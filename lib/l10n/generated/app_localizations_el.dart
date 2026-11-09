@@ -14549,4 +14549,13 @@ class AppLocalizationsEl extends AppLocalizations {
   @override
   String get standingLeaveNote =>
       'Μπορείς να φύγεις. Η εντολή συνεχίζει και φαίνεται στη Δραστηριότητα.';
+
+  @override
+  String get standingStageMoving => 'Μεταφέρουμε τα χρήματα';
+
+  @override
+  String get standingStagePlacing => 'Τοποθετείται';
+
+  @override
+  String get standingStageApproval => 'Χρειάζεται την έγκρισή σου';
 }

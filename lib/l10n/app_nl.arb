@@ -4079,5 +4079,8 @@
   "standingPredictionCancelled": "Geannuleerd. Het geld blijft in Voorspellingen, beschikbaar.",
   "standingOrderCancelled": "Geannuleerd. Het geld blijft in Beleggen, beschikbaar.",
   "standingPriceMoved": "De prijs ging naar {price}. Tik om tegen de nieuwe prijs te plaatsen.",
-  "standingLeaveNote": "Je kunt weg. De order loopt door en staat in Activiteit."
+  "standingLeaveNote": "Je kunt weg. De order loopt door en staat in Activiteit.",
+  "standingStageMoving": "Geld wordt verplaatst",
+  "standingStagePlacing": "Wordt geplaatst",
+  "standingStageApproval": "Wacht op je goedkeuring"
 }

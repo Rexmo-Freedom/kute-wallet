@@ -14451,4 +14451,13 @@ class AppLocalizationsDa extends AppLocalizations {
   @override
   String get standingLeaveNote =>
       'Du kan gå. Ordren fortsætter og vises i Aktivitet.';
+
+  @override
+  String get standingStageMoving => 'Flytter penge';
+
+  @override
+  String get standingStagePlacing => 'Placerer';
+
+  @override
+  String get standingStageApproval => 'Kræver din godkendelse';
 }

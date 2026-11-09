@@ -4079,5 +4079,8 @@
   "standingPredictionCancelled": "Cancelado. El dinero se queda en Predicciones, disponible.",
   "standingOrderCancelled": "Cancelado. El dinero se queda en Inversión, disponible.",
   "standingPriceMoved": "El precio pasó a {price}. Toca para colocar al nuevo precio.",
-  "standingLeaveNote": "Puedes salir. La orden continúa y aparece en Actividad."
+  "standingLeaveNote": "Puedes salir. La orden continúa y aparece en Actividad.",
+  "standingStageMoving": "Moviendo el dinero",
+  "standingStagePlacing": "Colocando",
+  "standingStageApproval": "Necesita tu aprobación"
 }

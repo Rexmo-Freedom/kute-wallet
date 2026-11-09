@@ -14523,4 +14523,13 @@ class AppLocalizationsRo extends AppLocalizations {
   @override
   String get standingLeaveNote =>
       'Poți pleca. Ordinul continuă și apare în Activitate.';
+
+  @override
+  String get standingStageMoving => 'Mutăm banii';
+
+  @override
+  String get standingStagePlacing => 'Se plasează';
+
+  @override
+  String get standingStageApproval => 'Necesită aprobarea ta';
 }
