@@ -1,25 +1,39 @@
-import 'dart:async';
-import 'package:kute/screens/shared/sal_reactions.dart';
-import 'package:kute/theme/kute_motion.dart';
-import 'package:kute/theme/app_theme.dart';
+// lib/screens/shared/message_display.dart
+//
+// The app's messages from the top of the screen. Since 9 November 2026
+// (founder: "substitute the toolbar on top of an error or something with a
+// modern Sal one") every one of them is the Sal toast (sal_toast.dart):
+// the three helpers here keep their signatures, so their call sites did
+// not change, and draw it in the tone they stand for: an error is a
+// failure (Sal sad, the "!", the failure tap; the bar's Sal shakes his
+// head too), information is information (Sal's calm blink, no mark), and
+// a plain success is a success (Sal happy, the check, the success beat).
+//
+// [duration]: the old default (4 s) means the tone's own time
+// (SalToast.durationFor: 2.5 s for a success, 3 s for information, 6 s
+// for a failure); a caller that asks for a time of its own is honoured.
+
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:kute/theme/kute_overlay_surface.dart';
+import 'package:kute/screens/shared/sal_reactions.dart';
+import 'package:kute/screens/shared/sal_toast.dart';
+import 'package:kute/theme/app_theme.dart';
+
+/// The signature's default: the tone decides.
+const Duration _toneDecides = Duration(seconds: 4);
+
+Duration? _own(Duration duration) =>
+    duration == _toneDecides ? null : duration;
 
 void showMessageSnackBarInfo({
   required BuildContext context,
   required String message,
   Duration duration = const Duration(seconds: 4),
 }) {
-  ToastService.show(
+  SalToast.show(
     context,
-    ToastMessage(
-      message: message,
-      icon: Icons.info_rounded,
-      accentColor: AppColors.info,
-      neutral: true,
-      duration: duration,
-    ),
+    message: message,
+    tone: SalToastTone.info,
+    duration: _own(duration),
   );
 }
 
@@ -30,40 +44,29 @@ void showMessageSnackBar({
   bool info = false,
   Duration duration = const Duration(seconds: 4),
 }) {
-  IconData icon;
-  Color color;
-
+  final SalToastTone tone;
   if (error) {
-    icon = Icons.error_rounded;
-    color = AppColors.error;
+    tone = SalToastTone.failure;
     // Sal in the bar shakes his head with the toast (sal_reactions.dart).
     SalReactions.play(SalReaction.shakeNo);
   } else if (info) {
-    icon = Icons.info_rounded;
-    color = AppColors.info;
+    tone = SalToastTone.info;
   } else {
-    icon = Icons.check_circle_rounded;
-    color = AppColors.success;
+    tone = SalToastTone.success;
   }
-
-  ToastService.show(
+  SalToast.show(
     context,
-    ToastMessage(
-      message: message,
-      icon: icon,
-      accentColor: color,
-      // Info carries no status; render its icon chip neutral (error stays
-      // red, success stays green).
-      neutral: info,
-      duration: duration,
-    ),
+    message: message,
+    tone: tone,
+    duration: _own(duration),
   );
 }
 
-/// A banner in the same toast style with its own icon and accent, and an
-/// optional tap action (the banner closes on tap). Used for in-app
-/// alerts that point somewhere, such as a trade alert opening the
-/// position it is about.
+/// A toast with a tap action, for an in-app alert that points somewhere
+/// (a trade alert opening the position it is about). [accentColor] says
+/// what it is: the error red is a failure, the success green a success,
+/// anything else information; the alert's own haptic already played, so
+/// the toast plays none. [icon] is kept for the callers; Sal is the glyph.
 void showMessageBanner({
   required BuildContext context,
   required String message,
@@ -72,289 +75,16 @@ void showMessageBanner({
   VoidCallback? onTap,
   Duration duration = const Duration(seconds: 6),
 }) {
-  ToastService.show(
+  SalToast.show(
     context,
-    ToastMessage(
-      message: message,
-      icon: icon,
-      accentColor: accentColor,
-      duration: duration,
-      onTap: onTap,
-    ),
+    message: message,
+    tone: accentColor == AppColors.error
+        ? SalToastTone.failure
+        : accentColor == AppColors.success
+            ? SalToastTone.success
+            : SalToastTone.info,
+    onTap: onTap,
+    duration: duration,
+    haptic: false,
   );
-}
-
-class ToastService {
-  static OverlayEntry? _overlayEntry;
-  static Timer? _timer;
-  static bool _isVisible = false;
-
-  static void show(BuildContext context, ToastMessage toast) {
-    final overlay = overlayFor(context);
-    // A toast is a courtesy: with nowhere to draw it, nothing happens.
-    if (overlay == null) return;
-    if (_isVisible) {
-      _removeCurrentToast();
-    }
-
-    _overlayEntry = OverlayEntry(
-      builder: (context) => _AnimatedToastWidget(
-        message: toast,
-        onDismiss: _removeCurrentToast,
-      ),
-    );
-
-    overlay.insert(_overlayEntry!);
-    _isVisible = true;
-  }
-
-  /// The root overlay to draw on from [context], or null when there is
-  /// none: a context whose sheet has already closed, or the root
-  /// navigator's own context (its overlay is a descendant, which
-  /// `Overlay.of` does not find). `Overlay.of` threw on both, which was
-  /// a fatal after cancelling a Cash App purchase from Activity.
-  static OverlayState? overlayFor(BuildContext context) {
-    if (!context.mounted) return null;
-    return Overlay.maybeOf(context, rootOverlay: true) ??
-        Navigator.maybeOf(context, rootNavigator: true)?.overlay;
-  }
-
-  static void _removeCurrentToast() {
-    _timer?.cancel();
-    _timer = null;
-    _overlayEntry?.remove();
-    _overlayEntry = null;
-    _isVisible = false;
-  }
-}
-
-class ToastMessage {
-  final String message;
-  final IconData icon;
-  final Color accentColor;
-
-  /// True for info toasts: the icon chip renders as a neutral plate
-  /// (surface tint, monochrome icon) instead of a status tint.
-  final bool neutral;
-  final Duration duration;
-
-  /// Tapping the toast runs this and closes it. Null: not tappable.
-  final VoidCallback? onTap;
-
-  const ToastMessage({
-    required this.message,
-    required this.icon,
-    required this.accentColor,
-    this.neutral = false,
-    required this.duration,
-    this.onTap,
-  });
-}
-
-class _AnimatedToastWidget extends StatefulWidget {
-  final ToastMessage message;
-  final VoidCallback onDismiss;
-
-  const _AnimatedToastWidget({
-    required this.message,
-    required this.onDismiss,
-  });
-
-  @override
-  State<_AnimatedToastWidget> createState() => _AnimatedToastWidgetState();
-}
-
-class _AnimatedToastWidgetState extends State<_AnimatedToastWidget>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
-
-  double _dragOffset = 0.0;
-  bool _isDragging = false;
-  bool _reduceMotion = false;
-
-  @override
-  void initState() {
-    super.initState();
-    // The toast comes in on the sheet spring ([KuteMotion.sheetIn]) and
-    // leaves on the settle easing ([KuteMotion.sheetOut]), the one motion
-    // every sheet has (lib/theme/kute_motion.dart).
-    _controller = AnimationController(
-      vsync: this,
-      duration: KuteMotion.sheetInDuration,
-      reverseDuration: KuteMotion.sheetOutDuration,
-    );
-
-    // Calm, single-spring entrance — the old elasticOut + scale-back
-    // bounce read as jittery once the rest of the app settled on
-    // smoother motion. A short slide-down + fade is enough to draw the
-    // eye without the "boing".
-    final curvedAnimation = CurvedAnimation(
-      parent: _controller,
-      curve: KuteMotion.sheetIn,
-      reverseCurve: KuteMotion.sheetOut,
-    );
-
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, -0.6),
-      end: Offset.zero,
-    ).animate(curvedAnimation);
-
-    _scaleAnimation = Tween<double>(
-      begin: 0.96,
-      end: 1.0,
-    ).animate(curvedAnimation);
-
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
-  }
-
-  bool _entranceStarted = false;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // The slide/scale/fade entrance is decorative transition motion, so
-    // honour the OS "reduce motion" setting: snap the toast into place
-    // instead of animating it in.
-    _reduceMotion = MediaQuery.of(context).disableAnimations;
-
-    if (!_entranceStarted) {
-      _entranceStarted = true;
-      if (_reduceMotion) {
-        _controller.value = 1.0;
-      } else {
-        _controller.forward();
-      }
-
-      Future.delayed(widget.message.duration, () {
-        if (mounted && !_isDragging) {
-          _dismiss();
-        }
-      });
-    }
-  }
-
-  Future<void> _dismiss() async {
-    if (_reduceMotion) {
-      _controller.value = 0.0;
-    } else {
-      await _controller.reverse();
-    }
-    widget.onDismiss();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _onVerticalDragUpdate(DragUpdateDetails details) {
-    setState(() {
-      _isDragging = true;
-      _dragOffset += details.delta.dy;
-    });
-  }
-
-  void _onVerticalDragEnd(DragEndDetails details) {
-    if (_dragOffset < -20 || details.primaryVelocity! < -500) {
-      _dismiss();
-    } else {
-      setState(() {
-        _dragOffset = 0.0;
-        _isDragging = false;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Positioned(
-      top: MediaQuery.of(context).padding.top + 16.h,
-      left: 16.w,
-      right: 16.w,
-      // On the root overlay: the theme's text (kute_overlay_surface.dart).
-      child: KuteOverlaySurface(
-        child: SlideTransition(
-          position: _slideAnimation,
-          child: ScaleTransition(
-            scale: _scaleAnimation,
-            child: FadeTransition(
-              opacity: _fadeAnimation,
-              child: GestureDetector(
-                onTap: widget.message.onTap == null
-                    ? null
-                    : () {
-                        final tap = widget.message.onTap!;
-                        widget.onDismiss();
-                        tap();
-                      },
-                onVerticalDragUpdate: _onVerticalDragUpdate,
-                onVerticalDragEnd: _onVerticalDragEnd,
-                child: Transform.translate(
-                  offset: Offset(0, _dragOffset),
-                  child: _buildToastContent(),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildToastContent() {
-    final c = context.colors;
-    final accent = widget.message.accentColor;
-    // Match the app's standard floating card (AppDecorations.card):
-    // surface fill, layered soft shadows in light mode, hairline outline
-    // in dark. The status color lives only in the tinted icon chip —
-    // same pattern the rest of the app uses for accenting a row.
-    return Container(
-      decoration: AppDecorations.card(context),
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 13.h),
-        child: Row(
-          children: [
-            Container(
-              width: 34.sp,
-              height: 34.sp,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: widget.message.neutral
-                    ? c.surfaceLight
-                    : accent.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(AppRadius.sm),
-              ),
-              child: Icon(
-                widget.message.icon,
-                color: widget.message.neutral ? c.textSecondary : accent,
-                size: 18.sp,
-              ),
-            ),
-            SizedBox(width: 12.w),
-            Expanded(
-              child: Text(
-                widget.message.message,
-                style: TextStyle(
-                  color: c.textPrimary,
-                  fontSize: 14.sp,
-                  fontWeight: FontWeight.w600,
-                  height: 1.3,
-                  letterSpacing: -0.1,
-                  decoration: TextDecoration.none,
-                  fontFamily: 'Inter',
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

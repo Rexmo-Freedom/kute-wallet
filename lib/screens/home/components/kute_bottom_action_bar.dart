@@ -609,10 +609,12 @@ class KuteSalPill extends StatelessWidget {
     // a white pill blended into the white cards behind it. White in dark
     // mode (founder, 2 November 2026: on dark the white pill reads far
     // better than the surface grey), its ink dark there.
-    final fill = isLight ? KuteBarSurface.fill(context) : Colors.white;
-    final labelColor = isLight ? KuteBarSurface.ink : const Color(0xFF1D2024);
+    final fill =
+        isLight ? KuteBarSurface.fill(context) : KuteBarSurface.whiteFill;
+    final labelColor =
+        isLight ? KuteBarSurface.ink : KuteBarSurface.inkOnWhite;
     final sublabelColor =
-        isLight ? KuteBarSurface.quietInk : const Color(0xFF6B7280);
+        isLight ? KuteBarSurface.quietInk : KuteBarSurface.quietInkOnWhite;
     final glyphColor = isLight ? KuteBarSurface.ink : c.textPrimary;
     final reduce = kuteReduceMotion(context);
     final height = collapsed
@@ -777,8 +779,9 @@ class KuteSalPill extends StatelessWidget {
   }
 }
 
-/// Sal's side in the Sal pill and its collapsed circle.
-const double kSalPillGlyphSize = 38;
+/// Sal's side in the Sal pill and its collapsed circle (the toast's too:
+/// kute_bar_surface.dart).
+const double kSalPillGlyphSize = KuteBarSurface.salSize;
 
 /// How far a [KuteSalPill.badge] (26 across with its ring) stands past
 /// the collapsed circle's right and bottom edges: its centre sits on the

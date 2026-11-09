@@ -67,4 +67,18 @@ abstract final class KuteBarSurface {
         blurRadius: 12,
         offset: const Offset(0, 3),
       );
+
+  // ── Dark mode's own look ─────────────────────────────────────────────
+
+  /// The white pill of dark mode (the Sal pill, the Sal toast).
+  static const Color whiteFill = Color(0xFFFFFFFF);
+
+  /// Its words: the light theme's near-black ink.
+  static const Color inkOnWhite = Color(0xFF1D2024);
+
+  /// Its quieter second line.
+  static const Color quietInkOnWhite = Color(0xFF6B7280);
+
+  /// Sal's side in every Sal pill (the bar's, the toast's).
+  static const double salSize = 38;
 }
